@@ -29,6 +29,42 @@ Trois décisions qui vont avec :
 compilé** (`getNumInputs`), ce qui distingue un effet d'un instrument sans que personne ait à
 le déclarer nulle part.
 
+## Les voix : `control: true`, `group: false`
+
+Un programme sans entrée audio est un **instrument**, et il reçoit seize voix — `mydsp_poly`
+prend possession de l'instance qu'on lui donne et la clone une fois par voix. Les deux drapeaux
+de ce constructeur ne sont pas des détails, et chacun a coûté un symptôme.
+
+**`control: true` n'est pas optionnel**, et `false` est pourquoi l'instrument se taisait au bout de
+quelques secondes. La documentation de Faust : « whether voices will be dynamically allocated and
+controlled. If false ALL VOICES ARE ALWAYS RUNNING. » Avec `false`, `compute` prend une branche
+qui mélange les seize à chaque bloc et n'en rend jamais une au réservoir — donc seize voix FM
+calculées dès le premier échantillon que quelqu'un joue ou non, et chaque note après la seizième
+vole une voix qui n'a jamais été libérée. Avec `true`, seules les voix qui jouent sont calculées
+et une voix relâchée est libérée quand elle passe sous −90 dB (`VOICE_STOP_LEVEL`) — ce qui est
+aussi ce qui rend la chute audible au lieu de simplement permise.
+
+**`group: false`** est l'autre moitié, et c'est ce qui fait marcher les potards. Avec `true`,
+l'enveloppe construit UN contrôle partagé par nom et le distribue sur les voix — « assuming
+`GUI::updateAllGuis()` is called », que personne ici n'appelle et que personne ne devrait : c'est
+un statique global qui parcourt une `std::list`, et le fil audio n'y a rien à faire. Les potards
+étaient donc écrits dans une zone de groupe qui n'atteignait aucune voix, et bouger Tine ne
+faisait rien du tout.
+
+Avec `false`, chaque voix expose ses propres contrôles et la distribution est la nôtre : un
+paramètre par NOM, tenant la zone de chaque voix qui le déclare (`zones_`). Écrire seize flottants
+par potard et par bloc est tout le coût, et ce n'est rien.
+
+Les trois noms que le répartiteur de voix PILOTE — `freq`, `gain`, `gate`, plus `key` et `bend` —
+sont filtrés de la liste de paramètres sur un instrument. Ce sont de vrais contrôles de la source,
+et ils doivent l'être ; mais sur un instrument polyphonique ils appartiennent à la voix qui joue.
+Exposés en paramètres automatisables, ce serait un fader se battant avec le répartiteur pour la
+même zone, et le fader gagnerait entre deux notes.
+
+Seize, et fixe : une voix est une copie entière du programme, donc c'est le coût du module qu'on
+joue un accord ou pas. Ce n'est pas dans `module.yaml` parce qu'un fichier de module décrit ce
+qu'un module EST, et combien on a de doigts n'est pas ça.
+
 ## Les notes tombent sur LEUR échantillon
 
 `renderWithNotes` découpe le bloc à chaque message : appliquer ce qui est dû, calculer jusqu'au
@@ -75,26 +111,22 @@ copier, plutôt que de produire un paquet qui a l'air construit.
 - **`ws2_32` est obligatoire** sur Windows : libfaust embarque un récupérateur HTTP de sources,
   et sans Winsock le lien échoue sur huit symboles qui n'ont rien à voir avec ce qu'on appelle.
 
-## La couture INSTRUMENT, qui est un second manque
+## La couture INSTRUMENT, qui est posée
 
-Ce qui est posé est la couture d'un **effet** : audio en entrée, audio en sortie, et le
-greffon est inscrit au catalogue avec le rôle `audioEffect`. `packages/dsp/modules/instruments/synth/wurlitzer`
-est le premier module à demander autre chose, et il demande trois ajouts :
+Elle l'est, et par le programme lui-même plutôt que par une déclaration. `takesAudioInput` et
+`producesAudioWhenNoAudioInput` répondent d'après `getNumInputs()` du programme compilé, et
+`takesMidiInput()` répond « oui » exactement quand un `mydsp_poly` a été construit — c'est-à-dire
+quand le programme n'a pas d'entrée audio. Rien dans `module.yaml` ne dit lequel des deux c'est, et
+rien ne devrait : la source le dit déjà.
 
-- `takesMidiInput()` vrai, et la lecture du flux de notes dans `applyToBuffer` — le
-  `PluginRenderContext` de Tracktion porte déjà le tampon MIDI, qu'aucun de nos greffons
-  intégrés ne lit ;
-- `producesAudioWhenNoAudioInput()` vrai, sans quoi rien ne tourne sur une piste sans entrée ;
-- un **répartiteur de voix**, qui remplit les `freq`/`gain`/`gate` qu'un instrument Faust
-  déclare. Faust le fournit (`mydsp_poly`) et il arrive AVEC le compilateur : sans
-  compilateur il n'y a pas de voix à répartir.
+`packages/dsp/modules/instruments/synth/wurlitzer` est le premier module à l'emprunter. Ce qu'il a
+demandé — le répartiteur de voix qui remplit les `freq`/`gain`/`gate` — arrive AVEC le compilateur :
+sans compilateur il n'y a pas de voix à répartir, et c'est pourquoi cette couture ne pouvait pas se
+poser d'avance.
 
-Le troisième est pourquoi cette couture ne se pose pas d'avance : ça ne se teste pas. Du code MIDI
-écrit contre une classe qui ne compile rien aura l'air juste jusqu'au jour où on l'exercera,
-ce qui est la définition d'un piège. Le catalogue devra probablement porter **deux** entrées —
-un `Faust` effet et un `Faust Instrument` — puisque le rôle décide du dossier de type sous
-lequel un module est classé et de sa place dans une chaîne, et qu'une seule classe ne peut
-pas répondre les deux.
+Ce qui reste ouvert est le **catalogue** : le rôle décide du dossier de type sous lequel un module
+est classé et de sa place dans une chaîne, donc il portera probablement deux entrées, un `Faust`
+effet et un `Faust Instrument`, une seule classe ne pouvant répondre les deux.
 
 ## La route retenue : libfaust, backend INTERPRÉTEUR — mesurée, pas estimée
 
@@ -174,5 +206,8 @@ cmake --build build/windows-msvc --config RelWithDebInfo --target \
 ctest --test-dir build/windows-msvc -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 
-Le greffon apparaît dans `--dump-builtin-params` sous le nom `Faust`, sans paramètre — ce qui
-est l'observation exacte que ce moignon ne compile rien.
+Le greffon apparaît dans `--dump-builtin-params` sous le nom `Faust`, **sans paramètre**, et ce
+n'est pas un défaut : ce vidage instancie chaque intégré depuis un nom de type, donc l'état ne
+porte aucune propriété `faust`, il n'y a aucune source à compiler et donc aucun contrôle à
+déclarer. Les paramètres d'un module Faust sont ceux de SON programme, et ils n'existent que là
+où ce programme existe.

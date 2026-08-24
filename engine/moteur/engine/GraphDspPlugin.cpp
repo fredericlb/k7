@@ -8,11 +8,7 @@ namespace te = tracktion::engine;
 // Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
 const char* GraphDspPlugin::xmlTypeName = "studio_dspgraph";
 
-// The Auto Wah, as data — the fallback when a module names no `dsp:`.
-//
-// GENERATED: this is packages/dsp/graphs/autowah.json verbatim, emitted by @studio/dsp. It is pasted rather
-// than read because the engine parses no files, and autowah.test.ts compares the two so the copy cannot drift.
-// Do not hand-edit — change the JS and re-run its build.
+// GENERATED — packages/dsp/graphs/autowah.json verbatim, so change the JS, never this (docs/dspGraph.md).
 const char* GraphDspPlugin::defaultGraphJson()
 {
     return R"({
@@ -183,16 +179,14 @@ juce::ValueTree GraphDspPlugin::create()
 GraphDspPlugin::GraphDspPlugin(te::PluginCreationInfo info)
     : Plugin(std::move(info))
 {
-    // The description: the state's own `graph` property, or the built-in default. Parsed HERE because the
-    // parameters it declares have to exist before the constructor returns.
+    // The state's own `graph`, or the default — parsed HERE because the parameters it declares must exist now.
     const juce::String json = state.hasProperty("graph")
                                   ? state.getProperty("graph").toString()
                                   : juce::String(defaultGraphJson());
     juce::String error;
     graph_ = DspGraph::build(juce::JSON::parse(json), error);
     if (graph_ == nullptr) {
-        // A broken description leaves a plugin that passes audio through — and says why, on the channel that
-        // reaches the frontend, because otherwise it is a module that looks fine and does nothing.
+        // A broken description passes audio through, and SAYS why: otherwise it looks fine and does nothing.
         warn("dsp graph unusable: " + error.toStdString());
         return;
     }
@@ -238,10 +232,7 @@ void GraphDspPlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
         p->updateFromAttachedValue();
 }
 
-// The plugin's jacks. A graph reading only `ain` port 0 is the ordinary stereo effect every module was until
-// now; each port past the first adds a PAIR, so port n lands on channels 2n / 2n+1 and DspGraph can read it
-// with nothing but arithmetic. Tracktion's own sidechain routing (guessSidechainRouting) maps a source track's
-// two channels onto exactly those, which is why the pair — and not a single mono channel — is the right unit.
+// The plugin's jacks: a PAIR per port, at channels 2n / 2n+1, where Tracktion's own routing puts one (docs/sidechain.md).
 void GraphDspPlugin::getChannelNames(juce::StringArray* ins, juce::StringArray* outs)
 {
     te::Plugin::getChannelNames(ins, outs);   // left/right, the pair every plugin has
@@ -252,8 +243,7 @@ void GraphDspPlugin::getChannelNames(juce::StringArray* ins, juce::StringArray* 
     }
 }
 
-// The base class would already say yes from the channel count alone; stating it here is what makes the rule
-// legible — a module is sidechainable exactly when its graph declares a second input port.
+// Stated rather than left to the channel count: a module is sidechainable exactly when its graph has a port 1.
 bool GraphDspPlugin::canSidechain()
 {
     return !isInRack() && graph_ != nullptr && graph_->inputs() > 1;
@@ -273,12 +263,7 @@ void GraphDspPlugin::reset()
 
 void GraphDspPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
 {
-    // Flush denormals for this block. `grep ScopedNoDenormals` found none anywhere in this repo OR in
-    // Tracktion 3.2.0, and a decaying feedback delay — which `adelay` and `awires_` are — is the
-    // canonical way to generate them: once the tail falls below ~1e-38 every operation on it costs
-    // tens to hundreds of cycles instead of one, and the symptom is an engine that gets slower the
-    // longer it plays. juce::IIRFilter snaps its own state to zero, so the biquads were already safe;
-    // nothing else here was.
+    // Flush denormals: a decaying feedback delay is the canonical way to make an engine slow down (docs/dspGraph.md).
     const juce::ScopedNoDenormals noDenormals;
     if (ctx.destBuffer == nullptr || graph_ == nullptr) return;
     for (size_t i = 0; i < params_.size(); ++i)

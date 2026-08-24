@@ -75,8 +75,7 @@ void clamps_rather_than_drops_at_the_keyboard_ends() {
     if (!g) return;
     g->prepare(48000.0, 512);
 
-    // Dropping a note-on would strand its note-off and hang the voice for good, so both clamp instead — and
-    // land on the SAME number, which is what keeps them a pair.
+    // Both clamp, and land on the SAME number, which is what keeps a note-on and its note-off a pair.
     auto low = notePair(3);
     const float down = -24.0f;
     g->processMidi(low, &down, 1);
@@ -121,8 +120,7 @@ void velocity_scales_but_never_to_a_note_off() {
     g->processMidi(half, &p, 1);
     CHECK(std::abs(half[0].getFloatVelocity() - 0.4f) < 0.02f);
 
-    // Velocity 0 IS a note-off in MIDI: scaling a quiet note to nothing would silence the voice and strand its
-    // real note-off. The floor is one step above zero.
+    // Velocity 0 IS a note-off in MIDI, so the floor is one step above zero.
     auto quiet = notePair(60, 0.02f);
     const float zero = 0.0f;
     g->processMidi(quiet, &zero, 1);

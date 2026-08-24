@@ -1,11 +1,6 @@
 #pragma once
 
-// Pitch on the interface's raw inputs, for the I/O panel's tuner.
-//
-// The level meters read Tracktion's LevelMeasurer, which reports dB and nothing else — a tuner needs SAMPLES.
-// So this taps the device manager directly with its own audio callback, one ring buffer per watched channel,
-// and estimates a fundamental on demand. Independent of Tracktion's input routing on purpose: you tune a guitar
-// before there is a track to plug it into. Rationale: docs/inputTuner.md.
+// Pitch and level on the interface's RAW inputs, for the I/O panel: its own audio callback and one ring per watched channel, never Tracktion's routing — docs/inputTuner.md.
 
 #include "EngineTypes.h"
 
@@ -17,35 +12,19 @@
 
 namespace studio {
 
-// Frequency estimate for one channel. `hz` is 0 when nothing confident was found — silence, noise, or a sound
-// with no clear fundamental — which the UI shows as "no note" rather than as a wrong one.
+// Frequency estimate for one channel; `hz` is 0 when nothing confident was found, which the UI shows as "no note" rather than as a wrong one.
 struct PitchEstimate {
     float hz = 0.0f;
     float clarity = 0.0f;   // 0..1, how periodic the window was; the UI can fade an uncertain reading
 };
 
-/**
- * The fundamental of `samples`, or 0 when the window isn't convincingly periodic.
- *
- * Free function so the estimator is testable without an audio device — the part worth testing is the maths.
- * Uses the cumulative-mean-normalised difference (YIN) rather than plain autocorrelation: on a guitar, plain
- * autocorrelation reports the octave below often enough to be useless, because a string's first harmonic can
- * correlate as strongly as its fundamental.
- */
+// The fundamental of `samples`, or 0 when the window isn't convincingly periodic — a free function so the maths is testable without a device (docs/inputTuner.md).
 PitchEstimate detectPitch(const float* samples, int count, double sampleRate);
 
-/**
- * A tap on the open interface's inputs.
- *
- * Registered with juce::AudioDeviceManager as a SECOND callback. That has a trap worth naming: JUCE gives every
- * callback after the first an uninitialised temp buffer and ADDS it into the real output, so a callback that
- * ignores its output injects garbage into the mix. This one clears its output every block, which is correct
- * whichever position it ends up in.
- */
+// A tap on the open interface's inputs, registered as a SECOND juce::AudioDeviceManager callback — the trap that comes with that is in docs/inputTuner.md.
 class InputTuner : public juce::AudioIODeviceCallback {
 public:
-    // Start filling ring buffers for these 1-based interface channels; anything not listed is dropped. Called
-    // from the message thread when the panel asks, so the set is mutex-guarded against the audio thread.
+    // Start filling rings for these 1-based channels and drop the rest; called from the message thread, so the set is mutex-guarded against the audio one.
     void watch(const std::vector<int>& channels);
 
     // The current estimate for a 1-based channel — {} when it isn't watched, or has no confident pitch.
@@ -54,19 +33,10 @@ public:
     // Is anything being watched? The engine skips the whole path when not, so an unopened panel costs nothing.
     bool active() const { return watching_.load(std::memory_order_relaxed); }
 
-    /**
-     * Peak level on a 1-based interface channel since the last read, as a linear magnitude. Reading CLEARS it.
-     *
-     * Here rather than on Tracktion's LevelMeasurer for the same reason the pitch rings are: measuring an input
-     * must not require ROUTING it. Going through a WaveInputDevice means enabling it and giving it an instance on
-     * a playback context, and each of those rebuilds the whole wave-device list and reallocates every Edit's
-     * graph — which, asked for twenty inputs by a menu polling at 8 Hz, wedged the engine outright. This costs a
-     * max over the block and knows nothing about any Edit. See docs/inputTuner.md.
-     */
+    // Peak level on a 1-based channel since the last read, as a linear magnitude, and reading CLEARS it — here rather than on a LevelMeasurer per docs/inputTuner.md.
     float getAndClearPeak(int channel);
 
-    // How many input channels the open device actually delivers — what the audio callback last saw, so a channel
-    // beyond it reads as "not measured" rather than as silence. 0 before the first block.
+    // How many input channels the open device delivers, as the audio callback last saw it, so a channel beyond it reads as "not measured" rather than as silence.
     int inputChannels() const { return inputChannels_.load(std::memory_order_relaxed); }
 
     void audioDeviceIOCallbackWithContext(const float* const* input, int numInput,
@@ -84,23 +54,16 @@ private:
         std::vector<float> data = std::vector<float>(kWindow, 0.0f);
         int write = 0;
         int decimateCount = 0;   // phase of the decimator feeding it
-        // Samples written since this channel started being watched. Until the ring has been round once it still
-        // holds startup zeros, and the join between those zeros and the first real audio is a step the difference
-        // function reads as a period — measured: a confident 31.8 Hz on an input metering -100 dB.
+        // Samples written since this channel started being watched, gating the ring until it has been round once — the measured false note is in docs/inputTuner.md.
         int primed = 0;
-        // The previous estimate, reported or not. A reading is only believed once two polls in a row agree:
-        // noise that happens to look periodic never picks the SAME frequency twice, while a held string does.
+        // The previous estimate, reported or not: a reading is believed only once two polls in a row agree, which noise never manages.
         float lastRaw = 0.0f;
     };
 
-    // How close two consecutive estimates must be to count as agreeing — 3%, about half a semitone. Wide enough
-    // that bending or a peg turning still reads, narrow enough that two unrelated flukes never match.
+    // How close two consecutive estimates must be to agree: 3%, about half a semitone — wide enough for a turning peg, narrow enough that two flukes never match.
     static constexpr float kAgreeRatio = 0.03f;
 
-    // Peak per 0-based device channel since the reader last cleared it. Plain atomics and no mutex: the meters
-    // want one number per channel and no history, so unlike the pitch rings there is nothing to guard — and
-    // unlike them this runs whether or not anything is being WATCHED, since a meter is what you read to find
-    // out which input to watch. A fixed array so the audio thread never allocates.
+    // Peak per 0-based channel since the reader last cleared it: plain atomics in a fixed array, no history to guard and no allocation on the audio thread.
     static constexpr int kMaxChannels = 64;
     std::array<std::atomic<float>, kMaxChannels> peak_{};
     std::atomic<int> inputChannels_{0};

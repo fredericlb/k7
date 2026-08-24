@@ -27,11 +27,7 @@
 
 namespace studio {
 
-// The scan cache, parsed once and reused: makeExternalPlugin runs per plugin, and re-parsing the file each time
-// added up on projects with many. Invalidated after a rescan; only the two accessors cross TUs.
-//
-// Under a mutex, and handed out as a shared snapshot, because the invalidator runs on a DETACHED scan thread
-// while the reader is the message thread — see PluginScan.h for what that raced with.
+// The scan cache parsed once and reused, under a mutex and handed out as a shared snapshot — docs/plugins.md.
 namespace {
 std::mutex g_pluginInfoMx;
 std::shared_ptr<const std::vector<PluginInfo>> g_pluginInfoMemo;
@@ -145,16 +141,14 @@ std::vector<PluginInfo> scanOne(const juce::File& exe, juce::AudioPluginFormat& 
     const auto name = juce::File(identifier).getFileName();
 
     juce::ChildProcess child;
-    // start(StringArray) escapes args containing spaces on Windows, so a "C:\Program Files\…" path reaches the
-    // child's argv intact.
+    // start(StringArray) escapes args with spaces on Windows, so a "C:\Program Files\…" path reaches the child's argv intact.
     const juce::StringArray args{exe.getFullPathName(), "--scan-plugin", format.getName(), identifier};
     if (!child.start(args, juce::ChildProcess::wantStdOut)) {
         std::cerr << "[scanOne] start FAILED: " << name << "\n";
         return out;
     }
 
-    // Capture the child's full stdout on a helper thread — readAllProcessOutput() blocks until it exits — and bound
-    // the wait, so a hung plugin is killed and the reader unblocks.
+    // Capture stdout on a helper thread (readAllProcessOutput blocks until the child exits) and bound the wait, so a hung plugin is killed.
     juce::String output;
     std::thread reader([&child, &output] { output = child.readAllProcessOutput(); });
     if (!child.waitForProcessToFinish(20000)) {
@@ -182,15 +176,9 @@ std::vector<PluginInfo> scanOne(const juce::File& exe, juce::AudioPluginFormat& 
 
 }  // namespace
 
-// Tracktion's built-in plugins, always available without scanning. The id is each one's xmlTypeName, which
-// createNewPlugin accepts, so these round-trip straight to instantiation.
-//
-// The one thing in this file that is NOT file-local, because `--dump-builtin-params` has to instantiate every
-// entry to read its parameters out — and a second copy of the list is the exact drift the note below
-// `registerBuiltInPlugins` warns about. Declared in PluginScan.h.
+// Tracktion's built-in plugins plus ours, always available without scanning; the id is each one's xmlTypeName. See docs/plugins.md.
 std::vector<PluginInfo> builtInPlugins() {
-    // The category is assigned here rather than derived: a built-in declares none, and there are few enough to say
-    // what each one IS. Same vocabulary as the AirWindows enum, so a module lands in the same folder either way.
+    // The category is assigned rather than derived: a built-in declares none, and the vocabulary is the AirWindows enum's.
     const auto e = [](const char* nm, juce::String type, const char* role,
                       const char* category = "") {
         return PluginInfo{nm, "internal", "Tracktion", type.toStdString(), role[0] == 'i',
@@ -218,34 +206,24 @@ std::vector<PluginInfo> builtInPlugins() {
         e("Text", te::TextPlugin::xmlTypeName, "audioEffect", "utility"),
         e("Freeze Point", te::FreezePointPlugin::xmlTypeName, "audioEffect", "utility"),
         e("Insert", te::InsertPlugin::xmlTypeName, "audioEffect", "utility"),
-        // A convolver, so a cabinet or a room is an audio FILE the project owns and versions rather than a path inside
-        // some plugin's opaque state. Registered in EngineHost's constructor, Tracktion registering neither.
+        // A convolver, so a cabinet or a room is an audio FILE the project owns rather than a path inside some plugin's opaque state.
         e("Impulse Response", te::ImpulseResponsePlugin::xmlTypeName, "audioEffect", "reverb"),
-        // The amp itself rather than its cabinet: a .nam model's non-linear behaviour. Filed under distortion, which is
-        // what it does to the signal and where you would look for it.
+        // The amp itself rather than its cabinet: a .nam model's non-linear behaviour, filed under what it does to the signal.
         e("Neural Amp Modeler", studio::NamPlugin::xmlTypeName, "audioEffect", "distortion"),
-        // DSP described as DATA rather than compiled in — the experiment behind DspGraph.h. Its parameters
-        // come from the description, so two graphs are two different-looking plugins of the same type.
+        // DSP described as DATA rather than compiled in (DspGraph.h): its parameters come from the description, so two graphs look different.
         e("DSP Graph", studio::GraphDspPlugin::xmlTypeName, "audioEffect", "filter"),
-        // The same idea with the compiler on THIS side: the module carries Faust source and the engine builds it.
-        // Listed like any other built-in so a module can name it and the catalogue can offer it — what this
-        // build does with the source is FaustPlugin's business, and today it says so and passes through.
+        // The same idea with the compiler on THIS side: the module carries Faust source, and what this build does with it is docs/faust.md.
         e("Faust", studio::FaustPlugin::xmlTypeName, "audioEffect", "utility"),
-        // The same idea over the note stream. `midiEffect` is not cosmetic: it is what files the module under
-        // transformers/ rather than audio/, and what puts it BEFORE the instrument in a chain.
+        // The same idea over the note stream; `midiEffect` is what files the module under transformers/ and puts it BEFORE the instrument.
         e("MIDI Graph", studio::MidiGraphPlugin::xmlTypeName, "midiEffect", "utility"),
-        // The channel strip: level, pan and a three-knob tone stack. A track carries none of these itself, so
-        // this is where a mix is made — one instance per track, at the end of its chain.
+        // The channel strip: level, pan and a tone stack. A track carries none itself, so this is where a mix is made, one per track.
         e("Mixer", studio::MixerPlugin::xmlTypeName, "audioEffect", "utility"),
-        // A master bus in one module: three bands compressed, a spreader, a limiter. Filed under
-        // dynamics because that is what its knobs mostly do and where somebody would look for it.
+        // A master bus in one module: three bands compressed, a spreader, a limiter (docs/quickMaster.md).
         e("Quick Master", studio::QuickMasterPlugin::xmlTypeName, "audioEffect", "dynamics"),
     };
 }
 
-// The AirWindows effects, listed from the same X-macro that DECLARES them rather than retyped — 186 entries
-// would rot the first time Tracktion added one, and the macro is the only place class and display name are
-// already paired. Each registers its controls, so they arrive fully addressable with no native UI.
+// The AirWindows effects, listed from the same X-macro that DECLARES them rather than retyped — docs/airWindowsList.md.
 std::vector<PluginInfo> airWindowsPlugins() {
     std::vector<PluginInfo> out;
    #if TRACKTION_AIR_WINDOWS
@@ -256,9 +234,7 @@ std::vector<PluginInfo> airWindowsPlugins() {
     return out;
 }
 
-// The registrations that MUST match builtInPlugins() above: that list is what a project can name, this is what
-// can then be created. They are kept adjacent on purpose — the two drifting apart is a plugin the UI offers and
-// the engine refuses.
+// The registrations that MUST match builtInPlugins() above, and are kept adjacent for that reason — docs/plugins.md.
 void registerBuiltInPlugins(te::Engine& engine) {
     auto& pm = engine.getPluginManager();
     // Ours.
@@ -270,22 +246,15 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::MidiGraphPlugin>();
     pm.createBuiltInType<studio::MixerPlugin>();
     pm.createBuiltInType<studio::QuickMasterPlugin>();
-    // Registered so the plugin cache can create one, and deliberately ABSENT from the catalogue
-    // above: nobody places this in a chain. The engine puts exactly one on the master bus, which
-    // is the only place a gain with no fader curve belongs. See MasterGainPlugin.h.
+    // Registered so the plugin cache can create one, and deliberately ABSENT from the catalogue above — see MasterGainPlugin.h.
     pm.createBuiltInType<studio::MasterGainPlugin>();
-    // Tracktion SHIPS these but registers neither, so both were dead weight in the binary until now: the
-    // convolver — a cabinet or a space as an audio file the project OWNS — and the 186 AirWindows effects,
-    // whose initialiseAirWindows() is defined in PluginManager.cpp and called from nowhere in the module.
+    // Tracktion SHIPS the convolver and the 186 AirWindows effects but registers neither, so both were dead weight in the binary.
     pm.createBuiltInType<te::ImpulseResponsePlugin>();
     pm.initialiseAirWindows();
 }
 
 std::vector<PluginInfo> loadPluginCache() {
-    // The built-ins come from the CODE, not the cache: they have no file to scan, so a cached copy is only a
-    // snapshot of which ones this engine had when someone last rescanned. That went wrong the moment the engine
-    // gained some — a user had to rescan every VST3 on disk to see plugins that ship in the binary.
-    // Listed FIRST, so a stale `builtin:*` entry from an older scan loses to the live one.
+    // The built-ins come from the CODE and are listed FIRST, so a stale `builtin:*` entry from an older scan loses to the live one.
     std::vector<PluginInfo> out = builtInPlugins();
     for (auto& aw : airWindowsPlugins())
         out.push_back(std::move(aw));
@@ -327,8 +296,7 @@ std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan) {
             const std::string id = identifier.toStdString();
             const juce::int64 mtime = juce::File(identifier).getLastModificationTime().toMilliseconds();
 
-            // Reuse a cached entry only when the file is unchanged AND it already carries a full description — older caches
-            // don't — so a plain rescan upgrades pre-description entries without needing --force.
+            // Reuse a cached entry only when the file is unchanged AND it carries a full description, so a plain rescan upgrades older ones.
             const auto it = old.find(id);
             const bool cachedHasDesc =
                 it != old.end() && !it->second.plugins.empty() &&
@@ -349,8 +317,7 @@ std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan) {
         }
     }
 
-    // Built-in Tracktion plugins have no file to scan, so they are keyed "builtin:<type>" and persist in the cache
-    // alongside the scanned files, surviving incremental scans that only touch enumerated files.
+    // Built-ins have no file to scan, so they are keyed "builtin:<type>" and survive incremental scans that only touch enumerated files.
     auto builtins = builtInPlugins();
     // The AirWindows effects join them: also built-in and file-less, just from a generated list.
     for (auto& aw : airWindowsPlugins())

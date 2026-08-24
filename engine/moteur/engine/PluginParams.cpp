@@ -29,27 +29,13 @@ std::vector<std::pair<juce::String, te::AutomatableParameter*>> namedParams(te::
 
 namespace {
 
-// --- built-in controls that are NOT automatable parameters --------------------
-//
-// Several Tracktion built-ins keep controls as CachedValue members bound to ValueTree properties rather than
-// calling addParam(), and nothing enumerates those — so without this table the engine cannot report them. The
-// defaults come from each constructor and are exact; the RANGES are ours, read off how the value is consumed
-// and advisory only. See docs/builtinParams.md.
-//
-// It is a SUPPLEMENT, not a fallback. Chorus and Phaser register nothing at all, which is how it started; 4OSC
-// registers 68 and still keeps its wave shapes here, so a plugin with both kinds has to report both. Reporting
-// only the automatable half was a synth whose oscillators could be tuned and not chosen.
+// Built-in controls that are NOT automatable parameters — a SUPPLEMENT to the generic walk, never a fallback. See docs/builtinParams.md.
 struct StateParam {
-    // OWNED strings, not literals. 4OSC's are built per oscillator — "waveShape1".."waveShape4" — so they
-    // cannot be literals, and a `const char*` into a vector of std::string dangles the moment that vector
-    // grows past its reserve. It did: the four wave shapes silently vanished from the dump while the
-    // hand-written entries beside them survived, which is what a reallocation looks like from outside.
+    // OWNED strings, not literals: 4OSC's are built per oscillator, and a `const char*` into a growing vector dangles (docs/builtinParams.md).
     std::string property;  // the ValueTree property the CachedValue is bound to
     std::string name;      // display name, the key st0 addresses it by
     double min, max, def;
-    // A DISCRETE control's settings in order, empty for a continuous one. Only where the plugin's own header
-    // NAMES them: an int whose meanings are not written down anywhere gets a range and no labels, because a
-    // guessed label is worse than a number — it reads as knowledge.
+    // A DISCRETE control's settings in order, only where the plugin's own header NAMES them — a guessed label reads as knowledge.
     std::vector<std::pair<const char*, double>> states{};
 };
 
@@ -80,10 +66,7 @@ const std::vector<StateParamSet>& stateParamTable() {
               {"feedback", "Feedback", 0.0, 1.0, 0.7}}},
         };
 
-        // 4OSC. The names mirror its automatable ones — "Wave Shape 1" beside "Tune 1" — because they sit in one
-        // list on screen and a widget binds by name. The per-oscillator properties are `<id><n>`, which is what
-        // `oscID` builds; the defaults are each `referTo`'s, and oscillator ONE starts on a sine while the other
-        // three start at none, which is exactly what makes a fresh 4OSC a single sine.
+        // 4OSC. Names mirror its automatable ones so both sit in one list; properties are `<id><n>`, and the defaults are each `referTo`'s.
         std::vector<StateParam> four;
         for (int n = 1; n <= 4; ++n) {
             const auto s = std::to_string(n);
@@ -96,10 +79,7 @@ const std::vector<StateParamSet>& stateParamTable() {
             four.push_back({"lfoWaveShape" + s, "LFO Shape " + s, 0.0, 6.0,
                             n == 1 ? 1.0 : 0.0, waveShapes()});
         }
-        // These three have no ENUM, and are named all the same — which is why "is there an enum" was the
-        // wrong question to stop at. `isMono/isLegato/isPoly` are three predicates in the header, and the
-        // filter's types and slope are named by the calls they select in `updateFilter`. Read off the code
-        // that consumes the value, exactly as this table's ranges always have been.
+        // These three have no ENUM and are named all the same, read off the code that consumes them — docs/builtinParams.md.
         four.push_back({"filterType", "Filter Type", 0.0, 4.0, 0.0,
                         {{"Off", 0}, {"Low-pass", 1}, {"High-pass", 2},
                          {"Band-pass", 3}, {"Notch", 4}}});
@@ -108,12 +88,10 @@ const std::vector<StateParamSet>& stateParamTable() {
                         {{"12 dB/oct", 12}, {"24 dB/oct", 24}}});
         four.push_back({"voiceMode", "Voice Mode", 0.0, 2.0, 2.0,
                         {{"Mono", 0}, {"Legato", 1}, {"Poly", 2}}});
-        // How many notes at once, and it only means anything in Poly — the other two modes keep ONE voice
-        // whatever this says (`valueTreePropertyChanged` reduces the pool to 1). Voice stealing is on.
+        // How many notes at once, and only in Poly: the other two modes reduce the pool to 1 whatever this says.
         four.push_back({"voices", "Voices", 1.0, 32.0, 32.0});
         four.push_back({"ampAnalog", "Amp Analog", 0.0, 1.0, 1.0});
-        // The four built-in effects' ON switches. Their depth/mix knobs ARE automatable and already listed, and
-        // a knob that does nothing because the effect is off is the worst version of this list being incomplete.
+        // The four built-in effects' ON switches — their depth/mix knobs are automatable, and a dead knob is the worst version of a gap here.
         four.push_back({"distortionOn", "Distortion On", 0.0, 1.0, 0.0});
         four.push_back({"reverbOn", "Reverb On", 0.0, 1.0, 0.0});
         four.push_back({"delayOn", "Delay On", 0.0, 1.0, 0.0});
@@ -146,12 +124,7 @@ const std::vector<StateParam>* stateParamsFor(te::Plugin& plugin) {
 // A dropdown of hundreds of entries is a list, not a control, and some plugins report one step per program.
 constexpr int MAX_NAMED_STATES = 64;
 
-// The named settings of an EXTERNAL plugin's parameter, read from the JUCE parameter underneath rather than
-// from Tracktion's wrapper: Tracktion decides discreteness from VSTXML, a VST2-era sidecar no VST3 ships, so
-// isDiscrete() is false for every VST3 parameter. JUCE's wrapper does model it, so ask it directly.
-// Values are normalised, so state i sits at i/(steps-1). The parameters are keyed the way Tracktion keys its
-// own — paramID, falling back to position — because ExternalAutomatableParameter is private to the module and
-// can't be named here. Built ONCE per plugin: a linear search per parameter was 19k casts on a 138-param VST3.
+// An external plugin's parameters keyed as Tracktion keys its own, built ONCE — discreteness comes from JUCE, not Tracktion (docs/plugins.md).
 std::map<juce::String, juce::AudioProcessorParameter*> juceParamsById(te::Plugin& plugin) {
     std::map<juce::String, juce::AudioProcessorParameter*> out;
     auto* ext = dynamic_cast<te::ExternalPlugin*>(&plugin);
@@ -170,16 +143,14 @@ std::map<juce::String, juce::AudioProcessorParameter*> juceParamsById(te::Plugin
     return out;
 }
 
-// A JUCE parameter's named steps, or empty when it has none worth showing. Shared by the automatable path and
-// the non-automatable one, which ask the same question of the same kind of object.
+// A JUCE parameter's named steps, or empty when it has none worth showing — shared by the automatable and non-automatable paths.
 std::vector<std::pair<juce::String, double>> juceStates(juce::AudioProcessorParameter* jp) {
     if (jp == nullptr || !jp->isDiscrete())
         return {};
     const int steps = jp->getNumSteps();
     if (steps < 2 || steps > MAX_NAMED_STATES)
         return {};
-    // getAllValueStrings() is the plugin's own list where it has one; otherwise ask for each step's text. A
-    // parameter naming none of its steps has nothing to put in a dropdown, so it stays continuous.
+    // getAllValueStrings() where the plugin has one, else each step's text; a parameter naming none of its steps stays continuous.
     const auto all = jp->getAllValueStrings();
     std::vector<std::pair<juce::String, double>> out;
     for (int i = 0; i < steps; ++i) {
@@ -201,11 +172,7 @@ std::vector<std::pair<juce::String, double>> externalStates(
     return juceStates(it->second);
 }
 
-// The parameters an EXTERNAL plugin exposes that Tracktion never wrapped. buildParameterList() keeps only
-// automatable ones — most of a synth, but on an amp sim that drops exactly the controls picking the RIG: amp
-// model, cabinet, IR, mic and position. They are real VST3 parameters; the plugin just declines to mark them
-// automatable, usually because changing one reloads something. Named like their automatable siblings and
-// appended AFTER them, so every name already bound in a song keeps meaning what it always did.
+// The parameters an EXTERNAL plugin exposes that Tracktion never wrapped, appended AFTER the automatable ones — docs/plugins.md.
 std::vector<ParamRef> nonAutomatableParams(te::Plugin& plugin,
                                            std::map<juce::String, int>& seen,
                                            bool withStates) {
@@ -222,9 +189,7 @@ std::vector<ParamRef> nonAutomatableParams(te::Plugin& plugin,
         juce::String name = p->getName(1024);
         if (name.isEmpty())
             continue;  // nothing a module could bind to
-        // JUCE's VST3 host publishes the plugin's MIDI-mapping table as parameters — 16 channels × 130 controllers =
-        // 2080 of them. A routing table, not controls, and they buried the real ones: Genome reports 31 of its own and
-        // 2080 of these. Dropped by name, which is the only thing that distinguishes them.
+        // JUCE publishes the plugin's MIDI-mapping table as 2080 parameters, dropped by name — the only thing that distinguishes them.
         if (name.startsWith("MIDI CC "))
             continue;
         const int n = ++seen[name];
@@ -244,9 +209,7 @@ std::vector<ParamRef> nonAutomatableParams(te::Plugin& plugin,
     return out;
 }
 
-// name -> current value, but ONLY where it differs from the plugin's default (params with no known default
-// are kept — we can't tell): the minimal text "preset", since a fresh instance already sits at its defaults.
-// Compared in each parameter's own range with a small relative tolerance. File-local: only two callers need it.
+// name -> current value, ONLY where it differs from the default — the minimal text "preset", compared with a small relative tolerance.
 std::vector<std::pair<std::string, double>> changedParams(te::Plugin& plugin) {
     std::vector<std::pair<std::string, double>> out;
     for (const auto& p : pluginParams(plugin)) {
@@ -266,17 +229,12 @@ std::vector<std::pair<std::string, double>> changedParams(te::Plugin& plugin) {
 
 std::vector<ParamRef> pluginParams(te::Plugin& plugin, bool withStates) {
     std::vector<ParamRef> out;
-    // Empty unless states were asked for, so the hot path never touches the plugin's
-    // parameter list at all.
+    // Empty unless states were asked for, so the hot path never touches the plugin's parameter list at all.
     const auto byId = withStates ? juceParamsById(plugin)
                                  : std::map<juce::String, juce::AudioProcessorParameter*>{};
     for (auto& [key, param] : namedParams(plugin)) {
         const auto r = param->getValueRange();
-        // A parameter is discrete when it says so AND names its settings; one with states
-        // but no labels ("3 of 5") has nothing a dropdown could show, so it stays a
-        // continuous control. getAllLabels() and getNumberOfStates() can disagree on an
-        // external plugin whose VSTXML lists blank entries (removeEmptyStrings drops
-        // them), so pair them by the SHORTER of the two rather than trusting either.
+        // Discrete only when it says so AND names its settings; labels and state count can disagree, so pair them by the SHORTER.
         std::vector<std::pair<juce::String, double>> states;
         if (withStates) {
             if (param->isDiscrete() && param->hasLabels()) {
@@ -302,8 +260,7 @@ std::vector<ParamRef> pluginParams(te::Plugin& plugin, bool withStates) {
                        (double)r.getEnd(),
                        std::move(states)});
     }
-    // …then whatever Tracktion refused to wrap. Appended rather than interleaved so the
-    // names already bound in a project keep pointing at the same parameters.
+    // …then whatever Tracktion refused to wrap, appended rather than interleaved so bound names keep pointing at the same parameters.
     {
         std::map<juce::String, int> seen;
         for (const auto& p : out)
@@ -311,11 +268,7 @@ std::vector<ParamRef> pluginParams(te::Plugin& plugin, bool withStates) {
         for (auto& extra : nonAutomatableParams(plugin, seen, withStates))
             out.push_back(std::move(extra));
     }
-    // …then this plugin type's authored property set. APPENDED, not a fallback: 4OSC registers 68 automatable
-    // parameters and still keeps its wave shapes on the ValueTree, so a plugin with both kinds must report both.
-    // Guarded by name, so an entry that duplicates a registered one never shadows it. A read takes the authored
-    // default when the property is absent, exactly as the plugin's own CachedValue::referTo does, so an untouched
-    // plugin reports its real resting state rather than 0.
+    // …then this plugin type's authored property set, APPENDED and guarded by name rather than a fallback — docs/builtinParams.md.
     const auto* sps = stateParamsFor(plugin);
     if (sps == nullptr)
         return out;
@@ -328,21 +281,17 @@ std::vector<ParamRef> pluginParams(te::Plugin& plugin, bool withStates) {
             continue;
         const juce::Identifier id{juce::String(sp.property)};
         auto* state = &plugin.state;
-        // Written with no UndoManager on purpose: these arrive from a knob drag at interactive rates, and one undo step
-        // per frame would be useless and unbounded. The plugins re-read the value every block, so it takes effect.
+        // No UndoManager on purpose: these arrive from a knob drag at interactive rates, and the plugins re-read the value every block.
         out.push_back({name,
                        [state, id, def = sp.def] { return (double)state->getProperty(id, def); },
                        [state, id, lo = sp.min, hi = sp.max](double v) {
-                           // Clamped, unlike an AutomatableParameter write: this goes straight into a real-time buffer calculation (a
-                           // negative chorus depth inverts its sweep bounds) and the plugin does no checking of its own.
+                           // Clamped, unlike an AutomatableParameter write: this feeds a real-time buffer calculation and the plugin checks nothing.
                            state->setProperty(id, juce::jlimit(lo, hi, v), nullptr);
                        },
                        sp.def,
                        sp.min,
                        sp.max,
-                       // The settings, when the plugin's header names them — what makes a wave shape a
-                       // dropdown rather than a knob sweeping 0..6 through six things with no order.
-                       // Under `withStates` like every other source of them, so the 20 Hz path stays free.
+                       // The settings, when the plugin's header names them — under `withStates` like every other source, so the 20 Hz path stays free.
                        withStates ? states(sp) : std::vector<std::pair<juce::String, double>>{}});
     }
     return out;

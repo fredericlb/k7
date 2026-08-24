@@ -8,12 +8,7 @@
 #include <algorithm>
 #include <list>
 
-// Faust's `GUI` base declares two statics and defines them nowhere: every architecture file in
-// the distribution carries exactly these two lines, once per program. `poly-dsp.h` is what drags
-// GUI in here — the voice group is a GUI client — so this is our architecture file.
-//
-// Without them the whole engine links until the last step and dies on one unresolved symbol with
-// no obvious owner.
+// Faust defines these two statics in no library, so every architecture file carries them; this file is ours.
 std::list<GUI*> GUI::fGuiList;
 ztimedmap GUI::gTimedZoneMap;
 
@@ -21,20 +16,12 @@ namespace studio {
 
 namespace te = tracktion::engine;
 
-// Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in
-// EditBuilder.cpp.
+// Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
 const char* FaustPlugin::xmlTypeName = "studio_faust";
 
 namespace {
 
-/**
- * The controls a program declares, collected in the order Faust reports them.
- *
- * Groups are ignored on purpose. A Faust `hgroup`/`vgroup` nests a control's full path, which is
- * how its own UIs lay a panel out — but a module's face here is `ui.yaml`, drawn by hand against
- * PARAMETER NAMES. Folding the path in would make those names depend on how somebody grouped
- * the source, so the leaf label is the name and the grouping is the panel's business.
- */
+/** The controls a program declares, in the order Faust reports them; groups are IGNORED (docs/faust.md). */
 struct Controls : public UI {
     struct Entry {
         std::string label;
@@ -56,30 +43,16 @@ struct Controls : public UI {
                              FAUSTFLOAT) override { entries.push_back({l, z, i, a, b, false}); }
     void addNumEntry(const char* l, FAUSTFLOAT* z, FAUSTFLOAT i, FAUSTFLOAT a, FAUSTFLOAT b,
                      FAUSTFLOAT) override { entries.push_back({l, z, i, a, b, false}); }
-    // A bargraph is an OUTPUT — the program writes it for a meter to read. Not a parameter, and
-    // exposing one as an automatable control would let a fader write where only the DSP should.
+    // A bargraph is an OUTPUT: exposing one would let a fader write where only the DSP should.
     void addHorizontalBargraph(const char*, FAUSTFLOAT*, FAUSTFLOAT, FAUSTFLOAT) override {}
     void addVerticalBargraph(const char*, FAUSTFLOAT*, FAUSTFLOAT, FAUSTFLOAT) override {}
     void addSoundfile(const char*, const char*, Soundfile**) override {}
 };
 
-/**
- * How many notes an instrument can hold at once.
- *
- * Sixteen, and fixed: a voice is a whole copy of the program, so this is the cost of the module
- * whether or not anybody plays a chord. It is not in `module.yaml` because a module file
- * describes what a module IS, and how many fingers you have is not that.
- */
+/** How many notes an instrument holds at once — fixed, since a voice is a whole copy of the program. */
 constexpr int VOICES = 16;
 
-/**
- * The three names Faust's voice allocator DRIVES: pitch, velocity and the note itself.
- *
- * Filtered out of the parameter list on an instrument, and this is not cosmetic. They are real
- * controls in the source — `dsp.dsp` declares them, and it must — but on a polyphonic instrument
- * they belong to whichever voice is playing. Exposed as automatable parameters they would be a
- * fader fighting the voice allocator for the same zone, and the fader would win between notes.
- */
+/** The names the voice allocator DRIVES: exposed as parameters, a fader would fight it for the same zone. */
 bool isVoiceControl(const std::string& label)
 {
     return label == "freq" || label == "gain" || label == "gate" || label == "key"
@@ -92,16 +65,13 @@ juce::File FaustPlugin::faustLibrariesDir()
 {
     const auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
                          .getParentDirectory();
-    // The four layouts a packaged app may use, PROBED rather than assumed — the same list, in
-    // the same order and for the same reason, as hostcmd.rs's for the supervisor script: Tauri's
-    // exact resource layout differs per platform and has moved before.
+    // The four layouts a packaged app may use, PROBED rather than assumed, as hostcmd.rs does.
     for (const char* rel : {"faust-libs", "resources/faust-libs", "../Resources/faust-libs",
                             "../Resources/resources/faust-libs"}) {
         const auto candidate = dir.getChildFile(rel);
         if (candidate.isDirectory()) return candidate;
     }
-    // The DEV tier: the folder the engine's own CMake fetched. It is inside a build directory and
-    // does not travel, so reaching it in a shipped app would mean the staging above never ran.
+    // The DEV tier, inside a build directory: reaching it in a shipped app means the staging never ran.
     return juce::File{juce::String{STUDIO_FAUST_LIBS_DEV}};
 }
 
@@ -127,12 +97,10 @@ FaustPlugin::FaustPlugin(te::PluginCreationInfo info)
     const auto libsPath = libs.getFullPathName().toStdString();
     const char* argv[] = {"-I", libsPath.c_str()};
     std::string error;
-    // COMPILED HERE, in the constructor, because the parameters below are the program's and
-    // Tracktion creates AutomatableParameters nowhere else.
+    // COMPILED HERE: the parameters below are the program's, and Tracktion creates them nowhere else.
     factory_ = createInterpreterDSPFactoryFromString("studio", source_, 2, argv, error);
     if (factory_ == nullptr) {
-        // Faust's message names the line and the symbol; passing it through verbatim is the
-        // whole value — a paraphrase would send somebody to the wrong place in their file.
+        // Verbatim: Faust names the line and the symbol, and a paraphrase points at the wrong place.
         warn("faust: " + error);
         return;
     }
@@ -141,31 +109,9 @@ FaustPlugin::FaustPlugin(te::PluginCreationInfo info)
     numIn_ = dsp_->getNumInputs();
     numOut_ = dsp_->getNumOutputs();
 
-    // No audio input means an INSTRUMENT, so it gets voices. The wrapper takes ownership of the
-    // instance it is handed and clones it once per voice; `group: true` makes the program's own
-    // controls shared across them, which is what "one Tine knob for the whole keyboard" means.
+    // No audio input means an INSTRUMENT, so it gets voices; the wrapper takes ownership of the instance.
     if (numIn_ == 0) {
-        // `control: true` is NOT optional, and false is why the instrument fell silent after a
-        // few seconds. Faust's own doc: "whether voices will be dynamically allocated and
-        // controlled. If false ALL VOICES ARE ALWAYS RUNNING." With false, `compute` takes a
-        // branch that mixes all sixteen every block and never returns one to the free pool — so
-        // the cost is sixteen FM voices from the first sample whether or not anybody is playing,
-        // and every note after the sixteenth steals a voice that was never released.
-        //
-        // With true, only playing voices are computed and a released one is freed once it falls
-        // below -90 dB (VOICE_STOP_LEVEL) — which is also what makes the release audible instead
-        // of merely allowed.
-        //
-        // `group: FALSE`, and that is the other half of making the knobs work. With true, the
-        // wrapper builds ONE shared control per name and dispatches it onto the voices — "assuming
-        // GUI::updateAllGuis() is called", which nobody here does and nobody should: it is a
-        // global static walking a std::list, and the audio thread has no business in it. So the
-        // knobs were written into a group zone that never reached a voice, and moving Tine did
-        // nothing at all.
-        //
-        // With false, every voice exposes its own controls, and the dispatch is ours: one
-        // parameter per NAME, holding the zone of each voice that declares it (see `zones_`).
-        // Writing sixteen floats per parameter per block is the whole cost, and it is nothing.
+        // NEITHER flag is optional: false and true respectively are two silent instruments (docs/faust.md).
         poly_ = new mydsp_poly(dsp_, VOICES, /*control*/ true, /*group*/ false);
         run_ = poly_;
         numOut_ = poly_->getNumOutputs();
@@ -173,16 +119,13 @@ FaustPlugin::FaustPlugin(te::PluginCreationInfo info)
         run_ = dsp_;
     }
 
-    // Initialised at a placeholder rate so the control zones exist to be read; `initialise` does
-    // it again with the real one, which is what the program actually runs at.
+    // A placeholder rate, only so the control zones exist to be read; `initialise` does it again for real.
     run_->init(44100);
 
     Controls controls;
     run_->buildUserInterface(&controls);
 
-    // One parameter per NAME, holding every voice's zone for it. With one voice this is the
-    // identity; with sixteen it is the dispatch `group: true` promised and did not deliver.
-    // First-seen order, so the parameter list does not depend on a map's iteration.
+    // One parameter per NAME, in first-seen order, holding every voice's zone for it (docs/faust.md).
     std::vector<Controls::Entry> unique;
     std::vector<std::vector<float*>> zonesFor;
     for (const auto& c : controls.entries) {
@@ -224,8 +167,7 @@ FaustPlugin::~FaustPlugin()
 {
     notifyListenersOfDeletion();
     for (auto& p : params_) p->detachFromCurrentValue();
-    // ONE of the two, never both: the voice group deallocates the instance it was handed. Then
-    // the factory, which owns the code every voice runs.
+    // ONE of the two, never both: the voice group deallocates the instance it was handed.
     if (poly_ != nullptr)
         delete poly_;
     else
@@ -238,8 +180,7 @@ FaustPlugin::~FaustPlugin()
 
 bool FaustPlugin::takesAudioInput() { return numIn_ > 0; }
 
-// An instrument — `process` with no input — has to be run even on a track with nothing feeding
-// it, or it never produces its first sample.
+// An instrument must run even on a track with nothing feeding it, or it never makes its first sample.
 bool FaustPlugin::producesAudioWhenNoAudioInput() { return numIn_ == 0; }
 
 bool FaustPlugin::takesMidiInput() { return poly_ != nullptr; }
@@ -266,14 +207,11 @@ void FaustPlugin::initialise(const te::PluginInitialisationInfo& info)
     if (run_ == nullptr) return;
     run_->init(static_cast<int>(info.sampleRate));
 
-    // The scratch buffers, allocated once HERE and never in the callback. Faust is handed
-    // separate input and output pointers because a program may read an input after writing an
-    // output — in-place is not something a `.dsp` promises.
+    // The scratch buffers, allocated HERE and never in the callback; in-place is not something a `.dsp` promises.
     const auto n = static_cast<size_t>(juce::jmax(info.blockSizeSamples, 1));
     in_.assign(static_cast<size_t>(juce::jmax(numIn_, 1)), std::vector<float>(n, 0.0f));
     out_.assign(static_cast<size_t>(juce::jmax(numOut_, 1)), std::vector<float>(n, 0.0f));
-    // The per-SEGMENT pointer arrays, sized here so the note-accurate walk in renderWithNotes
-    // allocates nothing on the audio thread.
+    // The per-SEGMENT pointer arrays, sized here so renderWithNotes allocates nothing on the audio thread.
     segIn_.assign(in_.size(), nullptr);
     segOut_.assign(out_.size(), nullptr);
 }
@@ -285,19 +223,7 @@ void FaustPlugin::reset()
     if (run_ != nullptr) run_->instanceClear();
 }
 
-/**
- * Render one block, cutting it at every note so each one starts on ITS sample.
- *
- * The naive version applied every message at the block's start. At 5 ms that is inaudible on a
- * keyboard part and plainly wrong on a programmed roll: two hits 2 ms apart land together, and a
- * pattern quantised to 32nds at speed loses its swing to the block grid.
- *
- * So the block is walked in segments — apply what is due, compute up to the next event, repeat.
- * Faust's `compute` takes any length, so a segment is just a shorter call.
- *
- * NO ALLOCATION: the per-segment pointer arrays are sized in `initialise`, and the walk consumes
- * the message list in order rather than sorting a copy of it. Tracktion hands them in time order.
- */
+/** Render one block in SEGMENTS, so each note starts on its own sample and nothing allocates (docs/faust.md). */
 void FaustPlugin::renderWithNotes(const te::PluginRenderContext& ctx, int n)
 {
     auto segment = [&](int from, int len) {
@@ -313,9 +239,7 @@ void FaustPlugin::renderWithNotes(const te::PluginRenderContext& ctx, int n)
     }
 
     const double rate = sampleRate > 0.0 ? sampleRate : 48000.0;
-    // A message's timestamp is absolute; `midiBufferOffset` is where this block starts on that
-    // same clock. The inverse of what ExternalPlugin does on the way OUT — see its line that
-    // builds `midiBufferOffset + samplePosition / sampleRate`.
+    // A timestamp is absolute and `midiBufferOffset` is this block's start on the same clock.
     const auto offsetOf = [&](const juce::MidiMessage& m) {
         const double secs = m.getTimeStamp() - ctx.midiBufferOffset;
         return juce::jlimit(0, n, static_cast<int>(secs * rate));
@@ -348,8 +272,7 @@ void FaustPlugin::renderWithNotes(const te::PluginRenderContext& ctx, int n)
 
 void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
 {
-    // A resonant filter's tail is the canonical denormal generator, and the symptom is an engine
-    // that gets slower the longer it plays. Same reason GraphDspPlugin carries one.
+    // A resonant tail is the canonical denormal generator, and the symptom is an engine that slows down.
     const juce::ScopedNoDenormals noDenormals;
     if (ctx.destBuffer == nullptr || run_ == nullptr) return;
 
@@ -358,12 +281,10 @@ void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     const int start = ctx.bufferStartSample;
     if (n <= 0 || n > static_cast<int>(in_.empty() ? 0 : in_[0].size())) return;
 
-    // The parameters, read once per block — the audio path never touches Tracktion's parameter
-    // objects beyond this loop.
+    // The parameters, read once per block — past this loop the audio path touches no Tracktion object.
     for (size_t i = 0; i < zones_.size(); ++i) {
         const float v = params_[i]->getCurrentValue();
-        // Every voice that declares this control, not just one — see the `group: false` note in
-        // the constructor. Sixteen stores per knob per block, and no allocation.
+        // EVERY voice that declares this control, not just one — sixteen stores, and no allocation.
         for (float* zone : zones_[i]) *zone = v;
     }
 
@@ -379,9 +300,7 @@ void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     renderWithNotes(ctx, n);
 
     for (int c = 0; c < chans; ++c) {
-        // A mono program feeding a stereo buffer sends its one output to both sides; anything
-        // past what the program produces is left as it was rather than zeroed, which is what a
-        // plugin that does not touch a channel should do.
+        // A mono program feeds both sides; past what it produces a channel is LEFT as it was, not zeroed.
         const int from = numOut_ > 0 ? juce::jmin(c, numOut_ - 1) : -1;
         if (from < 0) break;
         std::copy_n(out_[static_cast<size_t>(from)].data(), n,

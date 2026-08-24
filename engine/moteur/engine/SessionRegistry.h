@@ -1,8 +1,6 @@
 #pragma once
 
-// The engine's sessions, by id, behind a lock that covers the MAP and never a session's contents.
-// JUCE-free on purpose: it holds no audio state, so tests/SessionRegistry_test.cpp builds it into the
-// fast binary. Who may create, who may only look, and why the lock is this narrow: docs/sessions.md.
+// The engine's sessions by id, behind a lock covering the MAP and never a session's contents, and JUCE-free so the fast test binary can build it — docs/sessions.md.
 
 #include <map>
 #include <memory>
@@ -22,8 +20,7 @@ public:
         auto& slot = map_[id];
         if (created) *created = !slot;
         if (!slot) slot = std::make_unique<T>();
-        // Safe past the lock: std::map never invalidates a reference to an existing element, and only
-        // the message thread erases — so nothing can free this while the message thread holds it.
+        // Safe past the lock: std::map never invalidates a reference to an existing element, and only the message thread erases.
         return *slot;
     }
 
@@ -34,13 +31,7 @@ public:
         return it == map_.end() ? nullptr : it->second.get();
     }
 
-    /**
-     * ANY THREAD. Runs `fn(T&)` under the lock, or nothing at all when there is no such session;
-     * returns whether it ran. The reference is handed out INSIDE the lock so a thread that is not the
-     * message thread cannot keep it afterwards — which is the whole reason this is not a find().
-     * Do not call back into the registry from `fn`, and keep it to the work the lock is meant to
-     * cover: nobody may hold this while an Edit is rebuilt.
-     */
+    /** ANY THREAD. Runs `fn(T&)` under the lock and says whether it ran — the reference never escapes, and `fn` must not re-enter or outlast the lock (docs/sessions.md). */
     template <typename F>
     bool withSession(const std::string& id, F&& fn) {
         std::lock_guard<std::mutex> lock(mx_);

@@ -7,9 +7,7 @@
 #pragma once
 
 #include "WaveformTap.h"
-// The module header, not a path into a build tree: the FetchContent checkout lives under build/<preset>/_deps,
-// so a relative path pins this file to whichever preset built first — it named macos-clang, so no Windows build
-// could compile it at all.
+// The module header, not a path into a build tree: FetchContent puts the checkout under build/<preset>/_deps, so a relative path pins the file to one preset.
 #include <tracktion_engine/tracktion_engine.h>
 
 namespace studio {
@@ -51,9 +49,7 @@ public:
 
     void initialise(const tracktion::engine::PluginInitialisationInfo&) override {}
     void deinitialise() override {}
-    // Only the writer's half. reset() is called from graph preparation and transport repositioning —
-    // i.e. beside the audio thread — and the ring's read cursor belongs to the message thread that
-    // drains it. See WaveformTap::reset(), and BroadcastTapPlugin, which has no reset() for this reason.
+    // Only the writer's half: reset() runs beside the audio thread, and the ring's read cursor belongs to the message thread that drains it.
     void reset() override { tap_.resetBucket(); }
 
     void applyToBuffer(const tracktion::engine::PluginRenderContext& ctx) override
@@ -71,8 +67,7 @@ public:
                 tap_.pushSample(data[i]);
         }
 
-        // For stereo, also push the right channel, interleaved into the same tap — the browser can show L/R as two
-        // st0 or as a mono sum.
+        // For stereo, push the right channel interleaved into the same tap, so a browser can draw L/R apart or summed.
         if (ctx.destBuffer->getNumChannels() > 1) {
             const float* data = ctx.destBuffer->getReadPointer(1, startSample);
             for (int i = 0; i < numSamples; ++i)

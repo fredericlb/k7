@@ -23,8 +23,7 @@ public:
     explicit WaveformTap(int bucketSize = 256)
         : bucketSize_(bucketSize > 0 ? bucketSize : 256) {}
 
-    // Called per-sample from the audio thread: computes min/max across the current bucket and flushes an envelope
-    // point when the bucket fills.
+    // Called per-sample from the audio thread: min/max across the current bucket, flushed as one envelope point when the bucket fills.
     void pushSample(float sample) {
         if (samplesInBucket_ == 0) {
             curMin_ = sample;
@@ -41,16 +40,13 @@ public:
         }
     }
 
-    // Drain every point accumulated since the last drain, from the message thread at the broadcast cadence.
-    // Returns them in chronological order and resets the read position.
+    // Drain every point accumulated since the last drain, from the message thread at the broadcast cadence, in chronological order.
     std::vector<WaveformEnvelope> drain() {
         const auto written = writeHead_.load(std::memory_order_acquire);
         const auto avail = written - lastRead_;
         if (avail == 0) return {};
 
-        // Cap at buffer size, so a writer that laps us can't be read as stale data. Parenthesised so windows.h's min()
-        // macro can't claim the call: main.cpp pulls winsock2 in through IXWebSocket, where `std::min(a, b)` expands as
-        // a two-argument macro.
+        // Capped at the buffer size so a writer that laps us is not read as stale, and parenthesised so windows.h's min() macro cannot claim the call.
         const auto count = (std::min)(avail, static_cast<size_t>(BUFFER_SIZE));
         const auto start = written - count;
         std::vector<WaveformEnvelope> out(count);
@@ -60,23 +56,14 @@ public:
         return out;
     }
 
-    /**
-     * Reset the whole ring — MESSAGE THREAD ONLY, and only while nothing is draining it.
-     *
-     * `lastRead_` is the reader's cursor, so this is not something the audio side may call — and the
-     * plugin's `reset()`, which runs on graph preparation and transport repositioning, is the audio
-     * side. Rewinding `writeHead_` under a nonzero `lastRead_` makes `written - lastRead_` underflow,
-     * capped at BUFFER_SIZE by drain(), so it reads back as a full ring of stale points, not a crash.
-     * `BroadcastTapPlugin` carries the same warning and answers it by having no reset() at all.
-     */
+    // Reset the whole ring — MESSAGE THREAD ONLY, never the plugin's reset(): rewinding under a nonzero `lastRead_` underflows and reads back as a full ring of stale points.
     void reset() {
         writeHead_.store(0, std::memory_order_release);
         lastRead_ = 0;
         samplesInBucket_ = 0;
     }
 
-    // The writer's own state, and nothing the reader owns — safe on the audio thread. A repositioned
-    // transport wants the half-filled bucket dropped, not the ring rewound.
+    // The writer's own state and nothing the reader owns, so it is safe on the audio thread: a repositioned transport drops the half-filled bucket, not the ring.
     void resetBucket() { samplesInBucket_ = 0; }
 
 private:

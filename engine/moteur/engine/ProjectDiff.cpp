@@ -21,39 +21,21 @@ std::string keyOf(const ClipDoc& c) {
 }
 
 std::string keyOf(const PluginDoc& p) {
-    // Identity includes type, name and preset, not just the id: a module keeps its stable id when its plugin
-    // definition changes, but a different type OR name — one VST3 swapped for another, both "vst3" — is a different
-    // plugin and must read as a replace, not "the same plugin whose params drifted".
+    // Type, name and preset, not just the id: one VST3 swapped for another must read as a replace (docs/projectDiff.md).
     const std::string base = p.id.empty() ? std::string{} : p.id + ":";
     std::string k = "plugin:" + base + p.type + ":" + p.name + ":" + p.path;
-    // The sidechain source belongs in the IDENTITY, not in a later comparison: it is wired when the plugin is
-    // inserted (EditBuilder sets the source id and its wires there and nowhere else), so re-aiming a second
-    // input has to read as a replace. Left out, moving the cable produced an empty diff — the surest kind of
-    // bug here, where the file says one thing and the engine goes on playing another with nothing to see.
+    // The sidechain source is IDENTITY: it is wired only at insert, so re-aiming the cable would be an empty diff.
     if (!p.sidechainFrom.empty()) k += "<-" + p.sidechainFrom;
-    // A Faust module's source belongs in the identity for the same reason: it is compiled in the plugin's
-    // CONSTRUCTOR, so an edited program can only take effect by re-creating the plugin. Left out, saving
-    // dsp.dsp would reach the engine and change nothing you could hear. The source, not a hash of it — the
-    // string is already in hand and a collision here would be silent in exactly the way this guards against.
+    // A Faust program is compiled in the plugin's CONSTRUCTOR, so its source too — verbatim, since a hash could collide.
     if (!p.faustDsp.empty()) k += "#" + p.faustDsp;
-    // A rack's sounds are built at insert time, not carried as params, so identity must fold them in — otherwise
-    // remapping a note or clip reads as "same plugin" and the sampler never rebuilds. Compiled order is stable.
+    // A rack's sounds are built at insert time, so remapping a note without this reads as "same plugin".
     for (const auto& e : p.rack)
         k += "|" + e.symbol + "=" + std::to_string(e.note) + "@" + e.clip
              + "[" + std::to_string(e.start) + "," + std::to_string(e.length) + "]";
     return k;
 }
 
-/**
- * Key a vector for diffing — and SAY SO when two entries answer to the same key.
- *
- * `emplace` keeps the first and drops the rest, so unannounced a duplicate id is invisible to every
- * later diff: `populateEdit` iterates the vector and builds it, but nothing can ever update or
- * remove it incrementally, and `trackById` routes its changes to the first match instead. Same shape
- * as the ring a lane requests twice building empty — a duplicate key taking a different, quiet path.
- * First-wins, because changing which one survives would change what plays; the warning is what keeps
- * it from being quiet.
- */
+// Key a vector for diffing — first-wins, and SAY SO when two entries answer to the same key (docs/projectDiff.md).
 template <typename T, typename KeyFn>
 std::map<std::string, const T*> index(const std::vector<T>& v, KeyFn key) {
     std::map<std::string, const T*> m;
@@ -67,31 +49,17 @@ std::map<std::string, const T*> index(const std::vector<T>& v, KeyFn key) {
 }
 
 bool clipMoved(const ClipDoc& a, const ClipDoc& b) {
-    // Any timing change re-inserts the clip, because EVERY one of these is applied at insert time and nowhere
-    // else (clipPositionFor, applyClipLoop, applyClipWarp). A field missing from this list is a field you can
-    // edit while the engine is up and hear nothing change: the edit reaches the doc, the doc reaches the
-    // engine, and the engine decides there is nothing to do.
+    // Every field here is applied at insert time and nowhere else, so one missing is one you can edit and not hear (docs/projectDiff.md).
     return a.start != b.start || a.length != b.length || a.source != b.source
         || a.offset != b.offset
         || a.sourceFrom != b.sourceFrom || a.sourceTo != b.sourceTo
         || a.loopStart != b.loopStart || a.loopEnd != b.loopEnd
         || a.warp.algorithm != b.warp.algorithm || a.warp.markers != b.warp.markers
-        // The NOTES, for exactly the reason above: a MIDI clip's are written into the edit when
-        // the clip is inserted and nowhere else. Missing here, the whole note vocabulary — add,
-        // remove, velocity, move — reaches the engine and changes nothing you can hear.
+        // The NOTES, for the same reason — without this the whole note vocabulary reached the engine and did nothing.
         || a.notes != b.notes;
 }
 
-/**
- * Is the master chain the same run, in the same order, set the same way?
- *
- * Order is part of it — unlike a track's plugin diff, which indexes by key — because the master
- * list IS a signal order: swapping the compressor and the EQ changes the sound while leaving both
- * keys present, and an unordered comparison would call that unchanged.
- *
- * `keyOf` carries type, name, preset and sidechain, so this adds only what identity leaves out:
- * the bypass and the parameter values.
- */
+// Is the master chain the same run, IN THE SAME ORDER, set the same way? (docs/projectDiff.md)
 bool sameMasterChain(const std::vector<PluginDoc>& a, const std::vector<PluginDoc>& b) {
     if (a.size() != b.size()) return false;
     for (size_t i = 0; i < a.size(); ++i)
@@ -133,9 +101,7 @@ void diffTrackContents(const TrackDoc& from, const TrackDoc& to, ProjectDiff& ou
             out.push_back({ChangeKind::PluginAdded, to.id, {}, {}, *p, {}, {}, 0, 0, 0, 0});
             continue;
         }
-        // Bypass, compared here rather than left to a rebuild: the plugin object is the same one, only its enabled flag
-        // moved, and re-instantiating the edit would cut every reverb tail and held note. Without this the diff was
-        // EMPTY for a bypass toggle, so nothing reached the engine at all.
+        // Bypass compared here rather than left to a rebuild, which would cut every reverb tail; without it the diff was EMPTY.
         if (p->enabled != it->second->enabled) {
             Change ch{ChangeKind::PluginEnabledChanged, to.id};
             ch.plugin = *p;
@@ -155,8 +121,7 @@ void diffTrackContents(const TrackDoc& from, const TrackDoc& to, ProjectDiff& ou
         }
     }
 
-    // --- automation (coarse: replace a lane whenever its points change) ---
-    // A finer breakpoint-level diff can replace this later.
+    // --- automation (coarse: replace a lane whenever its points change; a breakpoint-level diff can replace it) ---
     if (from.automation.size() != to.automation.size() ||
         !std::equal(from.automation.begin(), from.automation.end(), to.automation.begin(),
                     [](const AutomationDoc& a, const AutomationDoc& b) {
@@ -187,25 +152,13 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
         ch.doubleValue = to.tempo;
         out.push_back(std::move(ch));
     }
-    // A float compared for exact equality on purpose: this value is not computed here, it is
-    // carried verbatim from the document, so "unchanged" means the same number arrived twice.
+    // A float compared for exact equality on purpose: it is carried verbatim from the document, never computed here.
     if (from.masterVolume != to.masterVolume) {
         Change ch{ChangeKind::MasterVolumeChanged};
         ch.doubleValue = to.masterVolume;
         out.push_back(std::move(ch));
     }
-    /**
-     * The MASTER CHAIN, compared whole — any difference at all is one change and a full rebuild.
-     *
-     * Deliberately coarser than a track's plugin diff, which adds and removes in place to keep
-     * the transport alive. Two reasons it does not pay here: the master list is not addressed by
-     * the incremental path (which walks tracks), and editing the mix bus is a mixing decision
-     * taken between passes, not a knob turned while the song runs — where a track's plugin list
-     * is exactly the opposite.
-     *
-     * So a rebuild is the honest fallback the plugin cases already document, and the cost is that
-     * changing the master chain stops playback. See the brain's docs/masterChain.md.
-     */
+    // The MASTER CHAIN, compared whole — any difference is one change and a full rebuild, which stops playback (docs/projectDiff.md).
     if (!sameMasterChain(from.masterPlugins, to.masterPlugins))
         out.push_back(Change{ChangeKind::MasterChainChanged});
     if (from.timeSigNumerator != to.timeSigNumerator ||
@@ -267,19 +220,9 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
 }
 
 bool needsFullRebuild(const ProjectDiff& d) {
-    // Adding a plugin, removing one, swapping one (remove + add, removals first) and changing a param are all
-    // absent from this list, deliberately. A rebuild throws the Edit away and instantiates every plugin again —
-    // 4026 ms of a 4169 ms apply on a 32-plugin song — and it replaces the transport with the Edit, so it also
-    // stops whatever is rolling. What the incremental paths cannot place exactly, they hand back to a rebuild
-    // themselves; the list of those cases and the measurements are in docs/engineHost.md.
-    //
-    // Known gap: diff() walks the NEW params, so a DELETED one emits nothing and the live plugin keeps its
-    // value until the next full rebuild.
+    // Plugin add/remove/param are deliberately absent: a rebuild costs 4026 ms of a 4169 ms apply on a 32-plugin song (docs/projectDiff.md).
 
-    // A track added or removed in the SAME diff excludes the incremental ADD, and for a reason that is not about
-    // plugins at all: trackById maps a doc track to the engine track at the same INDEX, so while the loop is
-    // still adding tracks the two are briefly out of step, and the plugin would land on the wrong lane. The
-    // remove path does not care — it finds its plugin by id, never by track position.
+    // A track added or removed in the SAME diff excludes the incremental add: trackById maps by INDEX, so the lane would be wrong.
     bool tracksMoved = false;
     for (const auto& c : d)
         if (c.kind == ChangeKind::TrackAdded || c.kind == ChangeKind::TrackRemoved) tracksMoved = true;
@@ -288,8 +231,7 @@ bool needsFullRebuild(const ProjectDiff& d) {
         switch (c.kind) {
             case ChangeKind::SampleRateChanged:
                 return true;
-            // The master list is not on the incremental path — that one walks TRACKS — so the
-            // chain is rebuilt whole. See sameMasterChain for why that is the right trade here.
+            // The master list is not on the incremental path — that one walks TRACKS — so the chain is rebuilt whole.
             case ChangeKind::MasterChainChanged:
                 return true;
             case ChangeKind::PluginAdded:

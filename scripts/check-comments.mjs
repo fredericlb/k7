@@ -15,13 +15,16 @@ const RUNAWAY = 60;
 
 /** Lines that are a directive rather than prose, so length rules do not apply. */
 const DIRECTIVE =
-  /^\s*(\{\s*)?(\/\/|\/\*)\s*(biome-ignore|eslint|@ts-|prettier-ignore|<reference)/;
+  /^\s*(\{\s*)?(\/\/|\/\*)\s*(biome-ignore|eslint|@ts-|prettier-ignore|<reference|NOLINT|clang-format)/;
 
 /** Opens a block comment: `/*`, `/**`, or JSX's `{/*` — the last is why this is not a line match. */
 const OPENS = /^\s*(\{\s*)?\/\*/;
 const CLOSES = /\*\//;
 const LINE = /^\s*\/\//;
 const isBlank = (l) => /^\s*$/.test(l);
+
+/** Lines a file may open with before its header: a shebang, `#pragma once`, an `#ifndef` guard. */
+const PREAMBLE = /^(#!|\s*#\s*(pragma once|ifndef|define)\b)/;
 
 /** Quoted spans, dropped before a test that reads FUNCTION WORDS and not accents (../docs/lints.md). */
 const QUOTED = /«[^»]*»|"[^"]*"/g;
@@ -71,7 +74,8 @@ function runs(lines, from) {
 
 const files = execFileSync(
   "git",
-  ["ls-files", "*.ts", "*.tsx", "*.mjs", "*.mts"],
+  // C++ too: AGENTS.md says the three limits hold in every language here, and the engine is one.
+  ["ls-files", "*.ts", "*.tsx", "*.mjs", "*.mts", "*.cpp", "*.h", "*.hpp"],
   { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
 )
   .split("\n")
@@ -96,9 +100,8 @@ for (const file of files) {
 
   // The header is the comment run the file opens with, after any blank lines.
   let i = 0;
-  // A shebang comes BEFORE the header, and stopped the skip dead — ten scripts read as body blocks.
-  if (/^#!/.test(lines[0] ?? "")) i = 1;
-  while (i < lines.length && isBlank(lines[i])) i++;
+  // What may sit ABOVE the header: a shebang, or a C++ include guard (../docs/lints.md).
+  while (i < lines.length && (isBlank(lines[i]) || PREAMBLE.test(lines[i]))) i++;
   const headerStart = i;
   while (i < lines.length && /^\s*(\/\/|\/\*|\*)/.test(lines[i])) i++;
   const headerLen = i - headerStart;

@@ -19,6 +19,11 @@ mode prints the **non-default subset** — the "preset" of an instance somebody 
 freshly created plugin it prints `{}` whatever the plugin has, which is exactly the shape of an
 answer that looks like a confirmation.
 
+That split is why `PluginParams.h` declares two readers. `paramsJson` answers "what must be
+saved", and `allParams` answers "what is it holding right now" — which is what a UI must show,
+because a parameter sitting at its default still has a value like any other. Drawing such a
+control at its range minimum misreports it: **4OSC's filter opens at 69 of 0..135.**
+
 ## So the table is generated, from a real instance of every built-in
 
 ```
@@ -66,6 +71,14 @@ shadow a registered one. 4OSC's 20 state controls are in it:
 | `Amp Analog` | a bool |
 | `Distortion/Reverb/Delay/Chorus On` | the four built-in effects' switches — their depth and mix knobs ARE automatable, and a knob doing nothing because the effect is off is the worst version of an incomplete list |
 | `Delay` | the delay TIME, whose three companions are automatable and it is not |
+
+A `StateParam` holds **owned strings, not literals**, and that is a fix rather than a style. 4OSC's
+property names are built per oscillator — `waveShape1`..`waveShape4` — so they cannot be literals,
+and a `const char*` pointing into a `std::vector<std::string>` dangles the moment that vector grows
+past its reserve. It did: the four wave shapes silently vanished from the dump while the
+hand-written entries beside them survived, which is exactly what a reallocation looks like from
+outside. Their display names mirror the automatable ones (`Wave Shape 1` beside `Tune 1`) because
+the two kinds sit in one list on screen and a widget binds by name.
 
 **Named settings only where the plugin names them — and "is there an enum" is the wrong question
 to stop at.** `FourOscPlugin::WaveShape` *is* an enum (`none, sine, triangle, sawUp, sawDown,

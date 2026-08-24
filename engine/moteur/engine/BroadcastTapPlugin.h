@@ -42,11 +42,7 @@ public:
     bool takesAudioInput() override                        { return true; }
     bool producesAudioWhenNoAudioInput() override          { return false; }
 
-    // UNCHANGED, unlike WaveformTapPlugin's jmin(n, 2). That one sits mid-track where two
-    // channels is the whole signal; this one sits on the MASTER list, so clamping here
-    // would truncate a wider master's channels 3+ — enabling the broadcast would silently
-    // change what leaves the interface, and disabling it would put it back. A tap must be
-    // inaudible. te::LevelMeterPlugin, which it sits beside, reports the count unchanged too.
+    // UNCHANGED, unlike WaveformTapPlugin's jmin(n, 2): this one sits on the MASTER list, where clamping would make enabling the broadcast alter what leaves the interface.
     int getNumOutputChannelsGivenInputs(int numInputChannels) override
     {
         return numInputChannels;
@@ -54,16 +50,12 @@ public:
 
     void initialise(const tracktion::engine::PluginInitialisationInfo& info) override
     {
-        // The rate the samples are actually at. The frame header has to carry it, or the
-        // browser plays 44.1 kHz material into a 48 kHz context — a pitch shift, which is
-        // inaudible as a FAULT while being obvious as "the engine sounds wrong".
+        // The rate the samples are actually at: without it in the frame header a browser plays 44.1 kHz material into a 48 kHz context, which is a pitch shift.
         if (auto* t = tap_.load(std::memory_order_relaxed))
             t->setSampleRate(info.sampleRate);
     }
     void deinitialise() override {}
-    // NO reset() override. The ring's read cursor belongs to the sender thread, and reset()
-    // is called from graph preparation and transport repositioning — touching it here would
-    // race the drain and read back as a spurious multi-million-frame loss.
+    // NO reset() override: the ring's read cursor belongs to the sender thread, and touching it from graph preparation would read back as a spurious multi-million-frame loss.
 
     void applyToBuffer(const tracktion::engine::PluginRenderContext& ctx) override
     {
@@ -72,8 +64,7 @@ public:
         const int numChans = ctx.destBuffer->getNumChannels();
         if (numChans <= 0) return;
 
-        // Read pointers already offset, so the tap takes no start index and cannot be
-        // handed a block it reads from the wrong place.
+        // Read pointers already offset, so the tap takes no start index and cannot be handed a block it reads from the wrong place.
         const float* chans[BroadcastTap::CHANNELS] = {};
         for (int c = 0; c < BroadcastTap::CHANNELS; ++c)
             chans[c] = ctx.destBuffer->getReadPointer(c < numChans ? c : 0,
@@ -86,10 +77,7 @@ public:
 
     // --- Wiring -------------------------------------------------------------
 
-    // The ring lives in EngineHost, not here, so that a project apply — which destroys this
-    // plugin along with the whole edit — cannot pull the buffer out from under the sender
-    // thread. Set on the message thread before the plugin is inserted into any list, so no
-    // audio callback ever sees the null.
+    // The ring lives in EngineHost so a project apply cannot pull it out from under the sender, and is set before insertion so no audio callback sees the null.
     void setTap(BroadcastTap* tap) { tap_.store(tap, std::memory_order_relaxed); }
 
 private:

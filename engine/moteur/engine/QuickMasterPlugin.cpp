@@ -12,9 +12,7 @@ const char* QuickMasterPlugin::xmlTypeName = "studio_quickmaster";
 
 namespace {
 
-// The knobs' ranges, in the units a master bus is read in. Every one of them is a number somebody
-// says out loud — hertz, decibels, milliseconds, percent — because a mastering control that reads
-// 0..1 is one nobody can check against a meter. See docs/quickMaster.md.
+// The knobs' ranges, in units somebody says out loud: a mastering control reading 0..1 checks against no meter.
 constexpr float splitLowMinHz = 40.0f, splitLowMaxHz = 500.0f, splitLowDefHz = 180.0f;
 constexpr float splitHighMinHz = 800.0f, splitHighMaxHz = 8000.0f, splitHighDefHz = 3000.0f;
 constexpr float amountMin = 0.0f, amountMax = 100.0f;
@@ -24,12 +22,10 @@ constexpr float driveMaxDb = 12.0f;
 constexpr float ceilingMinDb = -12.0f;
 constexpr float releaseMinMs = 10.0f, releaseMaxMs = 500.0f, releaseDefMs = 120.0f;
 
-// Butterworth. Two of these cascaded is a Linkwitz-Riley corner, which is the only kind that sums
-// back to a flat magnitude — see docs/quickMaster.md.
+// Butterworth: two cascaded is a Linkwitz-Riley corner, the only kind that sums back to a flat magnitude.
 constexpr double butterworthQ = 0.7071;
 
-// A one-pole coefficient for a time constant in ms: the fraction of the gap left after one sample.
-// The same shape DspGraph's envelope follower uses, so the two read alike.
+// A one-pole coefficient for a time constant in ms — the same shape DspGraph's envelope follower uses.
 float coeffFor(float ms, double sampleRate) {
     const double t = juce::jmax(0.1, (double)ms) * 0.001;
     return (float)std::exp(-1.0 / (t * sampleRate));
@@ -40,9 +36,7 @@ float coeffFor(float ms, double sampleRate) {
 QuickMasterPlugin::QuickMasterPlugin(te::PluginCreationInfo info) : Plugin(std::move(info))
 {
     auto* um = getUndoManager();
-    // Each parameter is backed by a CachedValue on the state, which is what makes it survive a save
-    // and reload and what the doc's `params:` map writes into. Copied from MixerPlugin deliberately:
-    // a second spelling of this would be a second thing to get wrong.
+    // Backed by a CachedValue on the state, spelled exactly as MixerPlugin does it rather than a second way.
     const auto add = [&](const char* id, const char* name, float lo, float hi,
                          float def) -> te::AutomatableParameter::Ptr {
         auto value = std::make_unique<juce::CachedValue<float>>();
@@ -90,8 +84,7 @@ void QuickMasterPlugin::initialise(const te::PluginInitialisationInfo& info)
 {
     rate_ = info.sampleRate > 0.0 ? info.sampleRate : 44100.0;
     maxBlock_ = juce::jmax(1, info.blockSizeSamples);
-    // Allocated HERE and never in applyToBuffer: three band buffers and a delay line are the only
-    // things in this plugin big enough that growing them on the audio thread would be heard.
+    // Allocated HERE and never in applyToBuffer: growing a band buffer on the audio thread would be heard.
     for (auto& b : bands_) b.setSize(2, maxBlock_, false, true, false);
     const int n = juce::jmax(1, (int)std::lround(lookaheadMs * 0.001f * rate_));
     for (auto& d : delay_) d.assign((size_t)n + 1, 0.0f);
@@ -106,8 +99,7 @@ void QuickMasterPlugin::reset()
                     &highHp_[0], &highHp_[1], &lowAp_})
         s->reset();
     for (auto& f : sideHp_) f.reset();
-    // Forget the cached corners too: reset() follows initialise(), and initialise() may have moved
-    // the sample rate under coefficients that are only recomputed when a knob moves.
+    // Forget the cached corners too: initialise() may have moved the sample rate under them.
     lastLowHz_ = lastHighHz_ = lastBassMonoHz_ = -1.0f;
     env_.fill(0.0f);
     limGain_ = 1.0f;
@@ -118,8 +110,7 @@ void QuickMasterPlugin::reset()
 
 void QuickMasterPlugin::updateCoefficients(float lowHz, float highHz, float bassMonoHz)
 {
-    // The two corners cannot cross: a "low" band above the "high" one is a split with a hole in it
-    // and a band that is the inverse of what its knob says.
+    // The two corners cannot cross: a "low" band above the "high" one is a split with a hole in it.
     const float lo = juce::jlimit(splitLowMinHz, splitLowMaxHz, lowHz);
     const float hi = juce::jmax(lo * 2.0f, juce::jlimit(splitHighMinHz, splitHighMaxHz, highHz));
 
@@ -146,8 +137,7 @@ void QuickMasterPlugin::updateCoefficients(float lowHz, float highHz, float bass
 void QuickMasterPlugin::splitBands(const juce::AudioBuffer<float>& src, int start, int numChans,
                                    int n)
 {
-    // Low: two Butterworth sections (LR4), then the allpass that the upper split will impose on the
-    // other two — without it the sum notches by several dB around the lower corner.
+    // Low: LR4, then the allpass the upper split imposes on the other two — without it the sum NOTCHES.
     for (int ch = 0; ch < numChans; ++ch) {
         auto* d = bands_[0].getWritePointer(ch);
         juce::FloatVectorOperations::copy(d, src.getReadPointer(ch, start), n);
@@ -155,8 +145,7 @@ void QuickMasterPlugin::splitBands(const juce::AudioBuffer<float>& src, int star
         lowLp_[1].ch[ch].processSamples(d, n);
         lowAp_.ch[ch].processSamples(d, n);
     }
-    // Everything above the lower corner, then split again — which is why the mid is a band and not
-    // a band-pass: a band-pass of its own would not sum back with the other two.
+    // Everything above the lower corner, split again: a band-pass of its own would not sum back.
     for (int ch = 0; ch < numChans; ++ch) {
         auto* rest = bands_[1].getWritePointer(ch);
         juce::FloatVectorOperations::copy(rest, src.getReadPointer(ch, start), n);
@@ -178,17 +167,14 @@ void QuickMasterPlugin::compressBands(int numChans, int n)
                               highComp_->getCurrentValue()};
     for (int b = 0; b < 3; ++b) {
         if (amounts[b] <= 0.0f) {
-            // Off, and off means untouched — not "a ratio of 1 with a makeup". The detector goes
-            // back to silence so turning the knob up starts below the threshold and eases in,
-            // rather than jumping to whatever the level was when it was last on.
+            // Off means UNTOUCHED, detector and all, so turning the knob up eases in from below the threshold.
             env_[(size_t)b] = 0.0f;
             continue;
         }
         const float t = juce::jlimit(0.0f, 1.0f, amounts[b] * 0.01f);
         const float thrDb = compThresholdTopDb + t * (compThresholdDeepDb - compThresholdTopDb);
         const float ratio = 1.0f + t * (compRatioMax - 1.0f);
-        // gain = (threshold / level) ^ (1 - 1/ratio), which is the dB gain computer written
-        // multiplicatively so the per-sample path needs one pow instead of a log and an exp.
+        // gain = (threshold / level) ^ (1 - 1/ratio): the dB computer written multiplicatively, one pow.
         const float exponent = 1.0f - 1.0f / ratio;
         const float thrLin = juce::Decibels::decibelsToGain(thrDb);
         const float makeup =
@@ -199,8 +185,7 @@ void QuickMasterPlugin::compressBands(int numChans, int n)
         float env = env_[(size_t)b];
         float* d[2] = {bands_[b].getWritePointer(0), numChans > 1 ? bands_[b].getWritePointer(1) : nullptr};
         for (int i = 0; i < n; ++i) {
-            // STEREO-LINKED: one detector for the pair. Two would move the channels apart, which
-            // moves the image with them — the one thing a mastering compressor must not do.
+            // STEREO-LINKED: two detectors would move the channels, and so the image, apart.
             float peak = std::abs(d[0][i]);
             for (int ch = 1; ch < numChans; ++ch) peak = juce::jmax(peak, std::abs(d[ch][i]));
             env = peak + (peak > env ? atk : rel) * (env - peak);
@@ -223,8 +208,7 @@ void QuickMasterPlugin::spread(juce::AudioBuffer<float>& dst, int start, int num
     for (int i = 0; i < n; ++i) {
         const float mid = 0.5f * (l[i] + r[i]);
         float side = 0.5f * (l[i] - r[i]);
-        // The bass-mono corner runs on the SIDE only, so what it removes is the stereo content of
-        // the bottom end — the mid keeps every hertz it had.
+        // On the SIDE only: what goes is the bottom end's stereo content, and the mid keeps every hertz.
         if (bassMono) side = sideHp_[1].processSingleSampleRaw(sideHp_[0].processSingleSampleRaw(side));
         side *= w;
         l[i] = mid + side;
@@ -237,9 +221,7 @@ void QuickMasterPlugin::limit(juce::AudioBuffer<float>& dst, int start, int numC
 {
     const int len = (int)delay_[0].size();
     if (len < 2) return;
-    // The gain falls over the lookahead rather than instantly: a step in the gain is a click, and
-    // a quarter of the window as a time constant puts it within 2% of target by the time the peak
-    // it was computed from actually arrives.
+    // A quarter of the lookahead as a time constant: within 2% of target by the time the peak arrives.
     const float atkCoeff = coeffFor(lookaheadMs * 0.25f, rate_);
     // Taken once, as the split above already does: the compiler does not hoist these by itself.
     float* wr[2] = {dst.getWritePointer(0, start), numChans > 1 ? dst.getWritePointer(1, start) : nullptr};
@@ -257,9 +239,7 @@ void QuickMasterPlugin::limit(juce::AudioBuffer<float>& dst, int start, int numC
 
         const int read = (delayWrite_ + 1) % len;
         for (int ch = 0; ch < numChans; ++ch)
-            // …and the clip, which is what makes the ceiling a CEILING. The limiter above does the
-            // musical work and normally leaves nothing for this to do; what it catches is the
-            // fraction of a dB a one-pole attack cannot take off a transient in time.
+            // …and the clip, which is what makes the ceiling a CEILING (docs/quickMaster.md).
             wr[ch][i] = juce::jlimit(-ceilLin, ceilLin, delay_[(size_t)ch][(size_t)read] * limGain_);
         delayWrite_ = read;
     }
@@ -276,8 +256,7 @@ void QuickMasterPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     const float lowHz = lowFreq_->getCurrentValue();
     const float highHz = highFreq_->getCurrentValue();
     const float bassMonoHz = bassMono_->getCurrentValue();
-    // Recomputed only when a corner has actually moved: designing nine biquads is far from free,
-    // and a master bus's crossovers sit still for a whole session.
+    // Recomputed only when a corner moved: nine biquads is far from free, and these sit still all session.
     if (lowHz != lastLowHz_ || highHz != lastHighHz_ || bassMonoHz != lastBassMonoHz_)
         updateCoefficients(lowHz, highHz, bassMonoHz);
 
@@ -286,9 +265,7 @@ void QuickMasterPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     const float ceilLin = juce::Decibels::decibelsToGain(ceiling_->getCurrentValue());
     const float relCoeff = coeffFor(release_->getCurrentValue(), rate_);
 
-    // Never grow a buffer in here. A block bigger than initialise() was told about — an offline
-    // render, a device buffer that outran a re-initialise — is SPLIT rather than resized, which is
-    // finer-grained rather than wrong. Same answer DspGraph::process gives.
+    // A block bigger than initialise() was told about is SPLIT, never resized — same answer DspGraph gives.
     for (int done = 0; done < ctx.bufferNumSamples; done += maxBlock_) {
         const int n = juce::jmin(maxBlock_, ctx.bufferNumSamples - done);
         const int start = ctx.bufferStartSample + done;

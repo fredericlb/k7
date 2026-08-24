@@ -51,8 +51,8 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   DspGraph.{h,cpp}          the DSP graph model @studio/dsp emits
   GraphDspPlugin.{h,cpp}     that graph as an audio plugin
   MidiGraphPlugin.{h,cpp}    the MIDI-side counterpart
-  FaustPlugin.{h,cpp}       the same seam for a module written in Faust — A STUB: it receives the
-                            source and passes audio through (docs/faust.md)
+  FaustPlugin.{h,cpp}       the same seam for a module written in Faust: it COMPILES the source
+                            with the Faust interpreter and runs it (docs/faust.md)
   AirWindowsList.h          generated effect list (docs/airWindowsList.md)
 
   taps — pull state out of the running graph without owning it:
@@ -98,13 +98,18 @@ before touching the audio callback, `applyFull`, or the build flags),
 `builtinParams.md`, `namPlugin.md`,
 `quickMaster.md` (why that one is compiled rather than a `jsdsp` graph, the allpass the three-way
 split needs, and what its ceiling really guarantees),
-`faust.md` (what `FaustPlugin` does NOT do yet, and the
-three ways to fill it in — read it before assuming a Faust module makes a sound),
+`faust.md` (the interpreter factory, the polyphonic seam, and the one question left open),
+`dspGraph.md` (the graph model `@studio/dsp` emits, and the three places the audio thread is kept
+from allocating — read it before adding a node kind),
 `sidechain.md` (a module's second input),
 `warp.md` (a clip's stretch map: which half is auto-tempo and which is the warp map, and why loop
 points cannot carry the points in between — read it before touching `applyClipWarp`),
 `clipIdentity.md` (a clip is named by its PLACEMENT id, never its material — read it before
 inserting or removing a clip, since a fourth site that spells the rule again will get it wrong),
+`projectDiff.md` (what goes into a plugin's identity, what re-inserts a clip, and the two cases that
+force a full rebuild — every rule there exists because leaving it out produced an EMPTY diff),
+`meterClients.md` (level measurers and their clients: reading one CLEARS it, output meters die with
+the Edit and input ones do not, and why `inputClients` is keyed by device name),
 `audioDevice.md` (which interface is opened, who remembers the choice, and what an
 interface change does to the live inputs),
 `inputTuner.md`, `airWindowsList.md` and `airwindows-inventaire.md`.

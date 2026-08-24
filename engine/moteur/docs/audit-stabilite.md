@@ -8,6 +8,24 @@ callback, and the cost of loading a project.
 Findings are ordered by severity. Each is either an invariant this engine holds — written down so
 it is not broken again — or a numbered lot still open, and why.
 
+## A warning has to reach a HUMAN, not stderr
+
+An invariant rather than a lot, and it is here because a diagnostic nobody reads is the same
+failure as a diagnostic nobody writes.
+
+Stderr is invisible in the normal case: the tray **adopts** an engine it did not spawn, so nothing
+captures its output. That is how a Neural Amp Modeler silently refusing its model — *"unsupported
+version 0.7.0"*, the one line that explained why the plugin passed audio through untouched — cost
+an afternoon. The plugin was in the chain, the module looked healthy, and the only evidence was on
+a pipe nobody was holding.
+
+So `warn()` writes stderr **and** hands the warning to whatever sink is installed; the server
+installs one that broadcasts to every connected client. stderr comes first and unconditionally,
+because the sink can throw, be absent, or belong to a client that has gone away, and none of that
+may cost the log its line. `Warning::subject` is what the warning is ABOUT — usually a `PluginDoc`
+id, `"chain:module"` — so a surface can attach it to the thing on screen instead of dumping a
+string in a corner.
+
 ## One graph build per apply, and it happens inside `applyFull`
 
 `play` itself is cheap. `EngineHost::play` → `TransportControl::play` → `performPlay` →
@@ -47,7 +65,7 @@ of it happens after anyone has been told the project is ready.
 Two neighbours of the same stall:
 
 **Enable the input devices once, not once per track.** `WaveInputDevice::setEnabled` rebuilds the
-whole wave-device list and reallocates every Edit's graph — `InputTuner.h:60-64` records what that
+whole wave-device list and reallocates every Edit's graph — `docs/inputTuner.md` records what that
 costs, twenty inputs asked for by a menu polling at 8 Hz wedging the engine outright. Enabling per
 track makes a twenty-input song pay twenty list rebuilds and twenty graph reallocations on every
 full apply. `applyAllTrackInputs` enables the distinct channel sets once, then calls

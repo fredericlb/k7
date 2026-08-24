@@ -1,9 +1,9 @@
-#pragma once
-
 // EngineHost — owns the Tracktion Engine and projects a ProjectDoc onto a live Edit. The ONLY layer that
 // includes Tracktion/JUCE, and its interface keeps them out (forward decls only), so the WebSocket server
 // compiles without seeing JUCE. applyFull() builds from scratch; apply(target) diffs and mutates in place,
 // which stable ids are what make possible. See docs/engineHost.md.
+
+#pragma once
 
 #include <cstddef>
 #include <functional>
@@ -34,17 +34,11 @@ struct PluginInfo {
     std::string identifier;    // file path / unique id
     bool isInstrument = false;
     std::string role;          // "instrument", "audioEffect", or "midiEffect"
-    std::string descXml;       // full juce::PluginDescription as XML (empty in older caches), so the engine
-                               // can instantiate without re-introspecting the binary
-    // What KIND of effect this is, lower case, '' when unknown. Three sources in descending trustworthiness: an
-    // AirWindows plugin's closed enum, a built-in's hand-assigned kind, and an external's freely-written
-    // category ("Fx|Delay", but also "OnlyARA"). Good enough to file a module under; not a taxonomy.
-    std::string category;
+    std::string descXml;       // the full juce::PluginDescription as XML, so nothing re-introspects the binary (empty in older caches)
+    std::string category;      // what KIND of effect this is, lower case, '' when unknown — not a taxonomy; see docs/engineHost.md
 };
 
-// An available audio interface (a plain struct — no JUCE in this interface). One physical device is usually
-// offered by SEVERAL backends under the same name and they are NOT interchangeable, so a device is identified
-// by name + type. See docs/engineHost.md.
+// An available audio interface (a plain struct — no JUCE here), identified by name + type since several backends offer one device. See docs/engineHost.md.
 struct AudioDeviceInfo {
     std::string name;
     std::string type;  // the backend offering it: "ASIO", "Windows Audio", …
@@ -59,108 +53,65 @@ public:
     EngineHost();
     ~EngineHost();
 
-    // Open the default stereo output. Split out of the constructor so the server can bind its port FIRST and answer
-    // probes at once, paying the device-open cost — seconds on a Bluetooth interface — after. Playback is silent
-    // until it runs. Call once, on the message thread, before the first apply().
+    // Open the default stereo output; playback is silent until it runs. Call once, on the message thread, before the first apply(). See docs/engineHost.md.
     void openAudioDevice();
 
-    // Build a fresh Edit from the document and hand it to the engine, keeping a copy as the diff baseline.
-    // baseDir resolves clip/plugin paths (empty when they are already absolute).
+    // Build a fresh Edit from the document, kept as the diff baseline; baseDir resolves clip/plugin paths (empty when they are already absolute).
     void applyFull(const std::string& session, const ProjectDoc& doc, const std::string& baseDir);
 
-    // Move the engine to `target` by the smallest set of changes: diff, apply incrementally (falling back to a full
-    // rebuild when a change demands it), update the baseline, and return the changeset for logging.
+    // Move the engine to `target` by the smallest set of changes, falling back to a full rebuild when one demands it; returns the changeset for logging.
     ProjectDiff apply(const std::string& session, const ProjectDoc& target, const std::string& baseDir);
 
-    // Forget the project entirely — editors, plugins, preset state, the Edit and the diff baseline — leaving the
-    // engine idle but alive with its audio device and scan cache. The next apply therefore rebuilds fully, so
-    // nothing survives from the previous song. Message-thread only. See docs/engineHost.md.
+    // Forget the project entirely, leaving the engine alive with its audio device and scan cache, so the next apply rebuilds fully. Message-thread only.
     void reset(const std::string& session);
 
-    // The document currently realised in the engine (source for the next diff). The empty doc
-    // for a session nobody has sent one to — asking never creates it. Out of line because
-    // Session is private.
+    // The document realised in the engine (the next diff's source); the empty doc for a session nobody has sent one to — asking never creates it.
     const ProjectDoc& current(const std::string& session) const;
 
     // Transport controls (message-thread only).
     void play(const std::string& session);
     void stop(const std::string& session);
     void rewind(const std::string& session); // move the playhead back to the start (beat 0)
-    // Forget every session that holds nothing and has been quiet for `ttlMs`. Called by the state
-    // timer, not a timer of its own. Returns how many went. See docs/sessions.md for why this is a
-    // TTL on emptiness rather than a refcount of listeners.
+    // Forget every session holding nothing and quiet for `ttlMs`, returning how many went; called by the state timer. See docs/sessions.md.
     size_t reapEmptySessions(double ttlMs);
 
-    /**
-     * A socket driving this session arrived, or went. Message-thread only.
-     *
-     * "Driving" means a surface somebody is looking at, which declares itself on hello. The file
-     * service is not one — it keeps a socket per session for as long as the machine is up, so
-     * counting it would mean no project ever looks abandoned.
-     */
+    // A socket DRIVING this session arrived, or went — a surface somebody looks at, never the file service's. Message-thread only. See docs/engineHost.md.
     void addDriver(const std::string& session);
     void removeDriver(const std::string& session);
 
-    /**
-     * Let go of every project whose last driver left more than `graceMs` ago: stop the transport
-     * and free the Edit, its plugins and its meters. The SESSION stays, so a tab coming back
-     * re-sends its document into the same slot. Returns how many were freed.
-     *
-     * The grace is what makes this safe to do at all. A closing tab, a reload, a dropped
-     * connection and a laptop lid are the same event from here, and only one of them means "I am
-     * done" — so waiting is the only way to tell them apart. See docs/sessions.md.
-     */
+    // Free the Edit, plugins and meters of every project whose last driver left over `graceMs` ago; the SESSION stays. See docs/engineHost.md.
     size_t releaseAbandonedProjects(double graceMs);
 
     // This session's record enable: play() records its armed tracks only while this is on. Message-thread only.
     void setRecordEnabled(const std::string& session, bool on);
     bool recordEnabled(const std::string& session) const;
-    /**
-     * Whether anything is WATCHING this session — a waveform tap in the chain, or a plugin whose
-     * parameters a client asked to follow.
-     *
-     * Read by the state timer to decide whether a frame is worth sending at full rate: those two
-     * are the things that carry new numbers even when the transport is stopped and nothing sounds.
-     * See docs/protocol.md.
-     */
+    // Whether anything is WATCHING this session — a waveform tap or a followed plugin; the state timer's test for a full-rate frame. See docs/protocol.md.
     bool sessionWatched(const std::string& session) const;
     void seek(const std::string& session, double seconds); // move the playhead to an absolute position (clamped at 0)
-    // Set the transport loop [start, end) in seconds and turn looping on or off; playback wraps engine-side, and
-    // play() drops the playhead onto the start first. Message-thread only.
+    // Set the transport loop [start, end) in seconds and turn looping on or off; playback wraps engine-side, and play() starts from the top. Message-thread only.
     void setLoop(const std::string& session, double startSeconds, double endSeconds, bool enabled);
     bool isPlaying(const std::string& session) const;
     double playheadSeconds(const std::string& session) const;
 
-    // Audition `file` over [start, start+length) seconds through a hidden one-shot sampler voice — the same
-    // SamplerPlugin a rack uses, so it sounds as it would in the arrangement. length <= 0 plays the natural length.
-    // Independent of the transport, so it works while stopped. Message-thread only.
+    // Audition `file` from `startSeconds` through a hidden one-shot SamplerPlugin voice, transport-independent; length <= 0 plays it whole. Message-thread only.
     void previewSample(const std::string& session, const std::string& file, double startSeconds, double lengthSeconds);
 
     // Per-track output level in dB, for meters (-100 == silent).
     float trackLevelDb(const std::string& session, int trackIndex) const;
 
-    // Per-track live INPUT level in dB, one per track in doc order (-100 with no input): the peak since the last
-    // poll, the same signal an armed track would capture. Feeds the state frame's trackInputLevelsDb.
+    // Per-track live INPUT peak since the last poll, in doc order (-100 with no input) — what an armed track would capture. Feeds trackInputLevelsDb.
     std::vector<float> inputLevelsDb(const std::string& session) const;
 
-    // One metered channel set: its peak, and whether this rig HAS a device carrying those channels at all.
-    // `found` exists because without it the two failures are one number: a channel nothing is plugged into and a
-    // channel that does not exist both read -100, and the panel could only draw the same dead bar for each.
+    // One metered channel set: its peak, and whether this rig HAS a device carrying it — without `found`, "nothing plugged in" and "no such channel" are both -100.
     struct ChannelLevel {
         float db = -100.0f;
         bool found = false;
     };
 
-    // Peak dB for each channel set given, in order (-100 for one this rig has no device for). Unlike
-    // inputLevelsDb this asks about the INTERFACE, not the song: it needs no track, no arming and no edit, which is
-    // what lets the I/O panel meter an input nothing is recording yet. ENABLES each device it finds — a disabled
-    // one produces no signal to measure — so it is a poll with a side effect, and only worth making while a
-    // surface is actually looking. Message-thread only: it touches JUCE devices.
+    // Peak dB per channel set, in order — the INTERFACE, not the song. ENABLES each device it finds, so poll only while a surface looks. Message-thread only.
     std::vector<ChannelLevel> channelLevelsDb(const std::vector<std::vector<int>>& channelSets);
 
-    // How this rig actually groups its inputs: one entry per wave input device, with the 1-based interface
-    // channels it carries. An interface pairing its inputs into stereo devices is the normal case and it is
-    // invisible from everywhere else — which is precisely how a channel that "exists" can meter nothing.
+    // How this rig actually groups its inputs: one entry per wave input device with the 1-based channels it carries — stereo pairing is the normal case.
     struct InputDeviceInfo {
         std::string name;
         std::vector<int> channels;
@@ -168,39 +119,22 @@ public:
     };
     std::vector<InputDeviceInfo> inputDevices() const;
 
-    // Pair the interface input carrying `channel` (1-based) with its hardware partner, or split it back into two
-    // mono devices. False when there is no interface open to regroup.
-    //
-    // The partner is NOT a choice: Tracktion pairs even/odd hardware channels only, so 1 goes with 2, 3 with 4,
-    // and channel 2 can never be paired with channel 3 (describeStandardDevices walks the list two at a time).
-    // Passing either half of a pair names that pair. Tracktion persists the grouping itself, per audio device
-    // TYPE, and rebuilds the device list — so this is the whole of it, and `inputDevices` reads the result back.
-    //
-    // Pairing DESTROYS the two mono devices: their names merge, and a device is identified by its name. Anything
-    // still asking for one of those channels alone — a module with `channel: [2]` — then matches nothing and
-    // reads as silence, which is findWaveInput's own rule met from the other side.
-    // Message-thread only: it touches JUCE devices.
+    // Pair the input carrying `channel` (1-based) with its hardware partner, or split it back; false with no interface open. Message-thread only, docs/engineHost.md.
     bool setInputStereo(int channel, bool stereo);
 
-    // One channel set's pitch, for the I/O panel's tuner. `hz` is 0 when nothing convincing was heard, which is
-    // the honest answer for silence, for noise, and for a chord — the UI shows no note rather than a wrong one.
+    // One channel set's pitch, for the I/O panel's tuner; `hz` is 0 when nothing convincing was heard — the honest answer for silence, noise and a chord alike.
     struct ChannelPitch {
         float hz = 0.0f;
         float clarity = 0.0f;
     };
 
-    // Fundamental for each channel set given, in order — first channel of each set, since a stereo pair carries
-    // one instrument. Starts the input tap on first call and follows the sets asked for, so nothing is analysed
-    // while no surface is looking. Message-thread only, like the meters.
+    // Fundamental per channel set, from each set's first channel since a stereo pair carries one instrument; starts the input tap on first call. Message-thread only.
     std::vector<ChannelPitch> channelPitches(const std::vector<std::vector<int>>& channelSets);
 
-    // Peak dB leaving the master — what an io "out" module puts on the interface. The output DEVICE carries no
-    // measurer in Tracktion (only inputs do), so this reads a LevelMeterPlugin appended to the master plugin list
-    // by buildLevelMeters. -100 with no edit loaded.
+    // Peak dB leaving the master, read off the LevelMeterPlugin buildLevelMeters appends — an output DEVICE carries no measurer. -100 with no edit loaded.
     float masterLevelDb(const std::string& session) const;
 
-    /** The master output for the STATE FRAME: its peak since the last frame, and whether it
-     *  overloaded since the last frame. Its own reader — see EngineHostImpl's masterStateClient. */
+    /** The master output for the STATE FRAME: peak and overload since the last one, through its own reader (EngineHostImpl's masterStateClient). */
     struct MasterLevel {
         float dB = -100.0f;
         bool overload = false;
@@ -209,38 +143,21 @@ public:
 
     // --- Waveform taps (message-thread only; call via post()) ---------------
 
-    // Enable waveform tapping for a module: `id` is the PluginDoc id, `side` is input or output. Inserts a tap
-    // into the chain beside that plugin; a no-op when already enabled for this id and side. The TRACK is derived
-    // from the plugin, never passed in — the caller has no reliable track index to give (a chain can be a bus with
-    // no track), and one that guessed would put the tap on an unrelated lane.
+    // Enable a module's waveform tap — `id` the PluginDoc id, `side` input or output; a no-op when already on, and the TRACK comes from the plugin, never the caller.
     void enableWaveformTap(const std::string& session, const std::string& id, const std::string& side);
 
     // Disable waveform tapping for a module. Removes the tap plugin from the chain.
     void disableWaveformTap(const std::string& session, const std::string& id, const std::string& side);
 
-    // Drain every active tap, keyed "chain:module:side" — called by the state timer for each broadcast.
-    // Every tap at once, deliberately: there is no per-module drain, so no second reader can empty a tap
-    // the timer is about to read.
+    // Drain every active tap at once, keyed "chain:module:side" — no per-module drain exists, so nothing can empty one the state timer is about to read.
     std::map<std::string, std::vector<WaveformEnvelope>> drainAllWaveformTaps(const std::string& session);
 
-    // --- Audio broadcast (TWO threads — read each method's own note) ---------
-    //
-    // The mix leaving for the interface, copied out for the network. Nothing is tapped
-    // until somebody asks: the stream is ~3 Mbit/s uncompressed, so an engine nobody is
-    // listening to must not pay a copy per block. See docs/broadcast.md.
-    //
-    // Unlike every other section here, this one is NOT uniformly message-thread. The two
-    // setup calls are; the two ring calls belong to the sender thread and must never be
-    // wrapped in post(), which would put a second reader on a single-consumer ring.
+    // --- Audio broadcast: the mix copied out for the network only once somebody asks, and NOT uniformly message-thread — read each method. docs/broadcast.md.
 
-    // Put the tap on the master plugin list, or take it off. Idempotent. The tap survives
-    // a project apply the way the level meters do — reasserted by buildLevelMeters.
-    // Turning it ON creates the session (a client subscribing is a client driving); turning it
-    // OFF never does — see docs/sessions.md.
+    // Put the tap on the master plugin list or take it off; idempotent, reasserted by buildLevelMeters. ON creates the session, OFF never — docs/sessions.md.
     void enableBroadcast(const std::string& session, bool on);
 
-    // What a drain answered with. `lostFrames` is what the writer overwrote before the
-    // sender reached it — a real hole, which the sender reports as a sequence jump.
+    // What a drain answered with; `lostFrames` is what the writer overwrote before the sender reached it — a real hole, reported as a sequence jump.
     struct BroadcastChunk {
         std::vector<float> samples;   // interleaved, channels() per frame
         size_t frames = 0;
@@ -249,26 +166,16 @@ public:
     };
     static constexpr int broadcastChannels() { return 2; }
 
-    // Take up to `maxFrames` frames. Empty (frames == 0) whenever there is nothing yet,
-    // which is the ordinary case between audio callbacks.
-    //
-    // SENDER THREAD ONLY, and exactly one of them: the ring is single-producer/
-    // single-consumer, and a second caller would race the read cursor. It never post()s — that
-    // would put a second consumer on the ring — but it does take the session registry's lock
-    // for the length of a memcpy, because the map it finds the ring in is written elsewhere.
+    // Take up to `maxFrames`; empty between audio callbacks, the ordinary case. SENDER THREAD ONLY and exactly one — the ring is SPSC. See docs/engineHost.md.
     BroadcastChunk drainBroadcast(const std::string& session, size_t maxFrames);
 
-    // Drop whatever is buffered and resume from live. Same thread as drainBroadcast — the
-    // read cursor belongs to it. Called when a listener arrives, so it hears now rather
-    // than the third of a second that was already in the ring.
+    // Drop whatever is buffered and resume from live, on drainBroadcast's thread — an arriving listener hears now, not the ring's third of a second.
     void skipBroadcastToLive(const std::string& session);
 
-    // Open a plugin's native editor — the window the plugin itself draws, not the module's widget grid. `id` is the
-    // PluginDoc id, and only external plugins have one. Message-thread only.
+    // Open a plugin's OWN window rather than the module's widget grid; `id` is the PluginDoc id, and only external plugins have one. Message-thread only.
     void showNativePluginUI(const std::string& session, const std::string& id);
 
-    // One entry per plugin instance in the loaded edit: its PluginDoc id, display name, and whether
-    // showNativePluginUI would open a window (built-ins report false). Feeds the tray's submenu. Message-thread only.
+    // One entry per plugin instance in the loaded edit — id, display name, and whether it has a native window (built-ins false). Feeds the tray's submenu.
     struct PluginInstanceInfo {
         std::string id;
         std::string name;
@@ -276,8 +183,7 @@ public:
     };
     std::vector<PluginInstanceInfo> pluginInstanceInfos(const std::string& session) const;
 
-    // A selectable preset for an external plugin: an entry in its program list (pick by `index`) or a .vstpreset in
-    // the standard folders (pick by `path`). A plain struct — no JUCE in this interface.
+    // A selectable preset for an external plugin: a program list entry (by `index`) or a .vstpreset in the standard folders (by `path`). A plain struct — no JUCE.
     struct PresetInfo {
         std::string name;
         std::string source;   // "program" | "file"
@@ -285,43 +191,31 @@ public:
         std::string path;     // absolute .vstpreset path (source "file")
     };
 
-    // List the presets a MODULE's live external plugin offers — its program list plus the .vstpreset files for it.
-    // Empty when the module has no live external plugin. Message-thread only.
+    // The presets a MODULE's live external plugin offers — its program list plus the .vstpreset files for it; empty when there is none. Message-thread only.
     std::vector<PresetInfo> listPresets(const std::string& session, const std::string& module);
 
-    // Load a preset into EVERY live instance of `module` and persist it to the module's own .vstpreset, so the
-    // choice survives a reload. A non-empty `presetPath` picks a file, else `programIndex` picks a program.
+    // Load a preset into EVERY live instance of `module` and persist it to the module's own .vstpreset; a non-empty `presetPath` wins over `programIndex`.
     void setPreset(const std::string& session, const std::string& module, int programIndex,
                    const std::string& presetPath);
 
-    // Set one automatable parameter on a live plugin, in the parameter's native range. Applies to the LIVE plugin
-    // only — the caller owns persistence, so the value is lost on the next full rebuild unless it also lands in the
-    // project. The live-drag path: called at interactive rates, so it does not log. Message-thread only.
+    // Set one automatable parameter on the LIVE plugin only, in its native range — persistence is the caller's, and this drag path never logs. Message-thread only.
     void setPluginParam(const std::string& session, const std::string& id, const std::string& name, double value);
 
-    // Every automatable parameter of `id` with its CURRENT value, in parameter order; empty when there is no such
-    // plugin. This answers "what is it holding" — including defaults — unlike the broadcast and --dump-params,
-    // which carry only what must be SAVED. Also the only way to enumerate a loaded plugin's names.
+    // Every automatable parameter of `id` with its CURRENT value, defaults included — "what is it holding", not what must be SAVED; empty when no such plugin.
     std::vector<std::pair<std::string, double>> pluginParams(const std::string& session, const std::string& id) const;
 
-    // The same set plus the metadata a control needs: the declared range and the default where there is one.
-    // Ranges are in the parameter's OWN units, so a widget must take them as given rather than assume a convention.
-    // Reported alongside the values, so a caller wanting only "what is it holding" keeps using pluginParams().
+    // The same set plus what a control needs to draw itself: the range and the default, in the parameter's OWN units. See docs/engineHost.md.
     struct PluginParamInfo {
         std::string name;
         double value, min, max;
         bool hasDefault;
         double def;
-        // A discrete parameter's named settings and the value selecting each; empty when continuous. The value travels
-        // with the label rather than being derived from its index — see ParamRef::states.
+        // A discrete parameter's named settings, each with the value that selects it and never its index; empty when continuous — see ParamRef::states.
         std::vector<std::pair<std::string, double>> states;
     };
     std::vector<PluginParamInfo> pluginParamInfos(const std::string& session, const std::string& id) const;
 
-    // Start or stop watching a plugin's parameters: while watched, every change is pushed to onPluginParamsLive,
-    // which is how a knob turned in the plugin's OWN window reaches a remote UI — the one direction nothing else
-    // covers. Per-plugin and off by default (a watch costs a read per tick), and an id with no live plugin is
-    // accepted so the interest survives a rebuild. Message-thread only. See docs/engineHost.md.
+    // Start or stop watching a plugin's parameters, feeding onPluginParamsLive; off by default, and an unloaded id is accepted. Message-thread only, docs/engineHost.md.
     void watchPluginParams(const std::string& session, const std::string& id, bool on);
 
     // --- Record arming (message-thread only; call via post()) -------------
@@ -333,85 +227,55 @@ public:
         std::string error;       // why it was refused (when !ok) — shown to the user
     };
 
-    // Arm or disarm a track; an unset `armed` TOGGLES, resolved here against the flag rather than by the caller
-    // reading and inverting — which would race the 20/sec broadcast it read from. A track with no live input
-    // cannot be armed: it would record silence. The flag is session state Tracktion keeps on an Edit we never save.
+    // Arm or disarm a track; an unset `armed` TOGGLES, resolved here rather than by the caller, and a track with no live input is refused. See docs/engineHost.md.
     ArmResult setArmed(const std::string& session, const std::string& trackId, std::optional<bool> armed);
     // The currently armed track ids, in doc order. Read for the state broadcast.
     std::vector<std::string> armedTracks(const std::string& session) const;
 
-    // Audio-interface selection (message-thread only). The open output device's name, or "" — which means the
-    // engine can neither sound nor KEEP TIME: with no output there is no callback to advance the playhead, so the
-    // transport reports playing while nothing moves. Callers say so, because nothing else will.
+    // The open output device's name, or "" — which means the engine can neither sound nor KEEP TIME, the playhead needing that callback. Message-thread only.
     std::string outputDeviceName() const;
 
-    // What the OPEN device costs in time — the buffer it works in and the rate it runs at. A
-    // browser turns the pair into milliseconds (2 × buffer / rate: a block in, a block out)
-    // and adds its measured round trip, which is what decides an engine's quality band. Both
-    // zero when no device is open, meaning "not measured" and never "instant".
-    // Reads two atomics and nothing else, so it is safe from ANY thread — which is the point:
-    // `whoami` answers on the socket's own thread to keep the probe out of the message queue.
+    // What the OPEN device costs in time — buffer and rate, both zero when none is open, meaning "not measured". Two atomics, so ANY thread. docs/engineHost.md.
     struct AudioTiming {
         int bufferFrames = 0;
         double sampleRate = 0.0;
     };
     AudioTiming audioTiming() const;
 
-    // Re-read the open device and publish what it costs. MESSAGE THREAD ONLY — it dereferences the
-    // live device, which is exactly what audioTiming() must not do. Call it after anything that
-    // opens, closes or re-buffers one.
+    // Re-read the open device and publish what it costs, after anything that opens, closes or re-buffers one. MESSAGE THREAD ONLY: it dereferences the device.
     void publishAudioTiming();
 
-    // listAudioDevices() enumerates the interfaces, ASIO first; setAudioDevice() opens one for input and output,
-    // false when not found. An empty `type` means "any backend offering that name", which is arbitrary for a device
-    // exposed by several — the brain always passes it.
+    // Enumerate the interfaces (ASIO first) and open one for input and output, false when not found; an empty `type` is "any backend". See docs/engineHost.md.
     std::vector<AudioDeviceInfo> listAudioDevices();
     bool setAudioDevice(const std::string& name, const std::string& type = {});
 
-    // --- Server support (headless, WebSocket-driven) ----------------------
-    // These let a frontend live in another process or language: all JUCE threading stays behind this API, so the
-    // C++ WebSocket server never includes JUCE.
+    // --- Server support: a frontend in another process or language, with all JUCE threading behind this API ------
 
     // A snapshot the server pushes to clients.
     struct EngineState {
-        // WHICH session this frame describes. Empty is the default session — what a client
-        // that has not asked for one drives. Carried on every frame because with N sessions
-        // an unlabelled one is a frame nobody can route.
+        // WHICH session this frame describes; empty is the default one. On every frame, because with N sessions an unlabelled one is a frame nobody can route.
         std::string session;
         bool playing = false;
         double playheadSeconds = 0.0;
         std::vector<float> trackLevelsDb;   // one per track, -100 == silent
-        // Live INPUT level per track in dB, same index order as trackLevelsDb: the peak since the last poll, -100 with
-        // no live input. Only surfaced for armed tracks, but read for every one so it indexes like the output levels.
+        // Live INPUT peak per track, indexed like trackLevelsDb (-100 with none): read for every track so the two line up, surfaced only for armed ones.
         std::vector<float> trackInputLevelsDb;
-        // Ids of the record-armed tracks. Arming is SESSION state that lives here and nowhere else, dying with the
-        // process — and Tracktion already keeps the flag on an Edit we never save, so this reads that rather than
-        // holding a second copy. See docs/engineHost.md.
+        // Ids of the record-armed tracks — SESSION state, read off the Edit Tracktion never saves rather than held twice. See docs/engineHost.md.
         std::vector<std::string> armedTracks;
-        // This session's record enable. Arming says a track WOULD record; it records only while this is on and
-        // the transport rolls. Session state, like the armed set.
+        // This session's record enable: an armed track records only while this is on and the transport rolls. Session state, like the armed set.
         bool recordEnabled = false;
-        // The MASTER output — the mix as it leaves for the interface, in dB (-100 == silent), and
-        // whether it overloaded since the last frame. One number for the whole song, where
-        // trackLevelsDb is one per lane: a header meter asks a different question from a mixer.
+        // The MASTER output in dB (-100 == silent) — one number for the whole song, where trackLevelsDb is one per lane.
         float masterLevelDb = -100.0f;
-        // LATCHED by Tracktion between reads, which is the only honest way to report a clip on a
-        // 20 Hz frame — a clip is one sample, and a poll of a level would step over almost all of
-        // them. It says "it overloaded at some point since the last frame", not "it is over now".
+        // LATCHED by Tracktion between reads: "it overloaded since the last frame", not "it is over now" — a 20 Hz poll would step over almost every clip.
         bool masterOverload = false;
-        // Per-module waveform envelopes keyed "chain:module:side", each the points drained since the last poll;
-        // an empty map when no taps are active.
+        // Per-module waveform envelopes keyed "chain:module:side", each drained since the last poll; an empty map when no taps are active.
         std::map<std::string, std::vector<WaveformEnvelope>> waveformEnvelopes;
     };
 
     /** The sessions that exist, in id order. The state timer walks this. */
     std::vector<std::string> sessionIds() const;
 
-    /**
-     * What one session is holding — enough for a supervisor to LIST them without driving
-     * any. Deliberately a summary and not a `ProjectDoc`: the tray draws a menu line, and
-     * handing it the document would put a megabyte through the stdio pipe every poll.
-     */
+    /** What one session holds — a summary and not a `ProjectDoc`, since the tray draws a menu line and the document would be a megabyte per poll. */
     struct SessionInfo {
         std::string id;
         /** The loaded project's name; meaningless unless `loaded`, since a fresh doc says "untitled". */
@@ -434,30 +298,21 @@ public:
     // Invoke `cb` with a fresh snapshot every intervalMs, on the engine thread.
     void onState(std::function<void(const EngineState&)> cb, int intervalMs = 50);
 
-    // Sinks invoked (message thread) after a plugin's editor closes: onPresetSaved when its state went to the
-    // module's .vstpreset (id + path written), onPluginParams when text params fully capture it (id + a JSON
-    // object string). The server forwards both, and the brain persists them onto the module. Each leads with the
-    // session whose plugin it was: the frame is about one project, so it has to say which.
+    // Sinks invoked on the message thread once a plugin's editor closes — a .vstpreset path written, or text params as JSON; each leads with its session.
     void onPresetSaved(std::function<void(const std::string& session, const std::string& id,
                                           const std::string& path)> cb);
     void onPluginParams(std::function<void(const std::string& session, const std::string& id,
                                            const std::string& paramsJson)> cb);
 
-    // The sink for watchPluginParams: an id and its FULL parameter set whenever any value moved. Deliberately NOT
-    // onPluginParams, which means "this is the state to persist" — routing a mid-drag feed there would rewrite the
-    // project file tens of times a second. Values, not deltas: a partial update would need merge rules everywhere.
+    // watchPluginParams' sink: an id and its FULL parameter set whenever any value moved — deliberately NOT onPluginParams. See docs/engineHost.md.
     void onPluginParamsLive(
         std::function<void(const std::string& session, const std::string& id,
                            const std::vector<std::pair<std::string, double>>& params)> cb);
 
-    // Report any watched plugin whose parameters moved, called by the state timer — so a watch is bounded by the
-    // meters' cadence. Sampling rather than listening is what stops a fast drag flooding the socket; the cost is
-    // that a change reverted within a tick is never seen, which for a display is the right trade.
+    // Report any watched plugin whose parameters moved; called by the state timer, so a watch is SAMPLED at the meters' cadence. See docs/engineHost.md.
     void pumpPluginParamWatches(const std::string& session);
 
-    // The sink invoked once a take is finished, closed and renamed: track id, absolute .wav path, and position in
-    // SECONDS. The engine stops there — the brain turns that into a clip and a placement. Seconds, not beats,
-    // because the tempo map is the brain's to read.
+    // The sink invoked once a take is finished, closed and renamed: track id, absolute .wav path, and position in SECONDS. See docs/engineHost.md.
     void onRecorded(std::function<void(const std::string& session, const std::string& trackId,
                                        const std::string& file, double startSeconds,
                                        double lengthSeconds)> cb);
@@ -467,223 +322,108 @@ public:
     void quit();
 
 private:
-    // Drop everything derived from the current project — editors, plugin refs, preset state, meters — in the order
-    // that keeps editors from outliving their plugins. Shared by applyFull() and reset(); leaves the Edit alone.
+    // Drop everything derived from the current project — editors, plugin refs, preset state, meters — editors first, so none outlives its plugin.
     void teardownProjectState(const std::string& session);
 
     // Append a per-track LevelMeterPlugin + metering client after a rebuild, so trackLevelDb() has levels to report.
     void buildLevelMeters(const std::string& session);
 
-    // Project the doc's metronome flag onto the Edit's click track (enable + emphasise bars). Called by every apply
-    // path after the session's `current` is updated, so the click follows the doc; a no-op with no Edit.
+    // Project the doc's metronome flag onto the Edit's click track, on every apply path after the session's `current` is updated; a no-op with no Edit.
     void applyMetronome(const std::string& session);
 
-    // Point a track at its live input (or clear it) and set the monitor mode. Needs an allocated playback context —
-    // the input instances live on it — so it runs AFTER ensureContextAllocated(), never inside populateEdit().
+    // Point a track at its live input (or clear it) and set the monitor mode; runs AFTER ensureContextAllocated(), the input instances living on the context.
     void applyTrackInput(const std::string& session, const TrackDoc& t);
     // Re-apply every track's input, for the full-rebuild path where the whole playback context was just replaced.
     void applyAllTrackInputs(const std::string& session, const ProjectDoc& doc);
-    // The same after an INTERFACE change, plus putting back the arm flags the rebuild dropped — see
-    // docs/audioDevice.md. Takes the arm sets read before the switch, since after it there is nothing left to read.
+    // The same after an INTERFACE change, restoring the arm flags from the sets read BEFORE the switch — after it there is nothing left. See docs/audioDevice.md.
     void reconnectTrackInputs(const std::map<std::string, std::vector<std::string>>& armedBefore);
 
-    // Name each armed track's take and point the input devices at recordDir_, called from play() the moment before
-    // the transport rolls so the filename's timestamp is the take's start. False (and logged) with no recordDir.
+    // Name each armed track's take and point the input devices at recordDir_, from play() just before the roll; false (and logged) with no recordDir.
     bool prepareTakes(const std::string& session);
 
-    // Create once and attach the record listener to the current edit's transport. Defined in Recording.cpp, where
-    // RecordListener is complete; applyFull() calls it after building the edit.
+    // Create once and attach the record listener to the current edit's transport; defined in Recording.cpp, where RecordListener is complete.
     void attachRecordListener(const std::string& session);
 
-    // Catches the end of a take. It needs the pending take names, the current doc and the edit to turn "target X
-    // finished" into "track drums recorded this file", so it is a friend rather than carrying copies of all three.
+    // Catches the end of a take: a friend rather than a copy of the pending take names, the doc and the edit it needs to name what was recorded.
     friend struct RecordListener;
 
-    // Owns the plugin-editor windows and param/preset persistence. It operates on Impl only, but Impl is private,
-    // so it is a friend purely to name the type.
+    // Owns the plugin-editor windows and param/preset persistence; a friend purely to name Impl, which is private.
     friend class PluginEditorController;
 
     struct Impl;
     std::unique_ptr<Impl> impl_;
-    // `current_`, `baseDir_` and `recordEnabled_` moved INTO the session (EngineHostImpl.h):
-    // they describe a project, and there are N of those now. Nothing project-shaped is left here.
+    // Nothing project-shaped is left here: `current_`, `baseDir_` and `recordEnabled_` describe a project, and there are N of those, so they moved INTO the session.
 };
 
-// --- Plugin discovery (out-of-process, cached in ~/.studio/exts.json) -------
-//
-// loadPluginCache reads the cached list without scanning; scanInstalledPlugins loads only the new or changed
-// ones, each in a child process, and updates the cache; runPluginScanChild is that child, isolating one plugin
-// so a crashy one kills only itself; runPluginScanCli is the `scan` entry. See docs/engineHost.md.
+// --- Plugin discovery, out-of-process and cached in ~/.studio/exts.json; what each entry point does is in docs/engineHost.md ---
 std::vector<PluginInfo> loadPluginCache();
 std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan);
 int runPluginScanChild(const std::string& format, const std::string& identifier);
 int runPluginScanCli(bool forceRescan);
 
-// Entry for `--list-audio-devices`: enumerate the interfaces and print sentinel-fenced JSON, ASIO first.
-// Standalone — it builds only a JUCE device manager, opening no device and starting no engine, so
-// `st0 config interfaces` works with nothing running.
+// Entry for `--list-audio-devices`: the interfaces as sentinel-fenced JSON, ASIO first, from a bare device manager — no device opened, no engine started.
 int runAudioDevicesCli();
 
-// Enumerate a plugin's automatable parameters as sentinel-fenced JSON — st0's text alternative to an
-// opaque .vstpreset, where `complete` means the params fully reproduce the state. The translator calls these on
-// import. Wired from `--dump-params` and `--dump-params-ext`. See docs/engineHost.md.
+// A plugin's automatable parameters as sentinel-fenced JSON, st0's text alternative to an opaque .vstpreset; `--dump-params` / `-ext`. See docs/engineHost.md.
 int dumpPluginParams(const std::string& type);
 int dumpPluginParamsExternal(const std::string& format, const std::string& identifier,
                              const std::string& stateFile);
 
-// Every BUILT-IN's full parameter list — name, range and default, per plugin — as sentinel-fenced JSON.
-//
-// Not the same question as `--dump-params`, and that is why it is its own mode: that one emits the
-// NON-DEFAULT subset, the "preset" of an instance somebody configured, so on a freshly created plugin it
-// prints `{}` however many parameters the thing has. This one asks what a plugin type HAS, which is the
-// question the module builder needs answered before any instance exists. Wired from `--dump-builtin-params`;
-// `scripts/gen-builtin-params.mjs` turns its output into the table @studio/song ships.
+// Every BUILT-IN's full parameter list as sentinel-fenced JSON — what a plugin TYPE HAS, where `--dump-params` emits what one instance holds. docs/builtinParams.md.
 int dumpBuiltinParams();
 
-/**
- * One parameter of a plugin TYPE — what it is called, what it spans, and its named settings.
- *
- * A plain struct, like PluginInfo beside it and for the same reason: the server serialises this
- * and must not see JUCE. The same three facts `ParamRef` carries, minus the getters — nothing is
- * instantiated on the other side of this boundary, so there is nothing to get.
- */
+/** One parameter of a plugin TYPE — name, span, named settings. A plain struct like PluginInfo beside it: the server serialises this and must not see JUCE. */
 struct PluginParamInfo {
     std::string name;
     double min = 0.0, max = 1.0;
     bool hasDefault = false;
     double def = 0.0;
-    /** A discrete parameter's settings in order, each with the VALUE that selects it. Empty for
-     *  a continuous one; the mapping is not always index/(n-1), so it travels rather than being
-     *  recomputed. */
+    /** A discrete parameter's settings in order, each with the VALUE that selects it — the mapping is not always index/(n-1). Empty when continuous. */
     std::vector<std::pair<std::string, double>> states;
 };
 
-/**
- * Every parameter of the plugin `format`/`identifier` names — an EXTERNAL one, by instantiating
- * it and asking.
- *
- * The built-ins are answered from a table generated once (`--dump-builtin-params`, committed);
- * an installed plugin cannot be, because which ones exist is a fact about this machine. The scan
- * cache carries a plugin's name, format and category and no parameters, so this is the only way
- * to learn them — the plugin's constructor is where they are registered.
- *
- * Runs on an OFFLINE engine of its own — the live one holds the audio device and this must not
- * touch it — kept for the run and shared by every query. See the definition for why.
- *
- * `nullopt` and an EMPTY vector are different answers, and telling them apart is worth a whole
- * return type: `nullopt` is "this machine could not find, create OR LOAD the plugin", an empty
- * vector is "it loaded and genuinely publishes none".
- *
- * The third word in that list was missing for a while and it mattered. `createNewPlugin` returns a
- * Plugin whether or not an instance was made, so twenty-seven plugins that refuse to load on this
- * machine came back as an empty parameter list — and were reported as plugins that publish
- * nothing. They are not: it is a licence or an installation, and only `nullopt` sends anyone to
- * look at it.
- */
+// Every parameter of the EXTERNAL plugin named, by instantiating it offline; `nullopt` is "could not find, create OR LOAD it", empty is "it publishes none".
 std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& format,
                                                            const std::string& identifier);
 
-/**
- * …and the same plugin's OWN WINDOW, on an instance that belongs to no project.
- *
- * The pair exists because a module is authored against a plugin the open project need not load —
- * that is the hole `pluginParamsOf` was added to fill, and a list of parameter names is only half
- * of what somebody staring at an unfamiliar synth wants. This opens the thing the plugin draws.
- *
- * ORPHAN, and every consequence of that word is deliberate: the instance sits on the offline
- * engine's edit, on no track, wired to nothing, and NOTHING IT IS TOLD IS SAVED. Turning a knob in
- * that window changes this instance and no module, no project and no file. It is a place to look
- * at a plugin, not a place to set one — which is why it needs no session and cannot disturb what
- * is playing. External plugins only; a built-in wraps no AudioProcessor and draws no window.
- *
- * SPLIT IN TWO because the halves want different threads. `prepareNativePluginUI` loads the binary
- * and is SECONDS — call it off the message thread, exactly as the param query does. Only then call
- * `showNativePluginUIOf`, which is the JUCE part: message thread, and fast, because the instance is
- * already there. Doing both on the message thread would stall the transport of every session on
- * this engine for as long as the plugin takes to load.
- *
- * Both answer whether they worked, and the SECOND one's answer is the one a caller must relay.
- * `prepareNativePluginUI` is false when this machine cannot find, create or LOAD the plugin — the
- * same three the param query answers `nullopt` for. `showNativePluginUIOf` is false when there is
- * no loaded instance to draw, when the plugin has no editor, or when the editor would not build.
- * It never loads one itself: it runs on the message thread, and a plugin construction can hang —
- * borrowing that thread to wait would stall the transport of every session on the engine.
- */
+// …and the same plugin's OWN WINDOW, on an ORPHAN instance that saves NOTHING: prepare loads the binary (SECONDS, off the message thread), then show draws it.
 bool prepareNativePluginUI(const std::string& format, const std::string& identifier);
 bool showNativePluginUIOf(const std::string& format, const std::string& identifier);
 
-/**
- * Write what that orphan is CURRENTLY holding to a `.vstpreset`, and say whether it worked.
- *
- * The other end of the window above. That one is deliberately a place where nothing is saved; this
- * is the one act that takes something out of it — a sound dialled in by hand, captured under a name
- * — and it is a separate, explicit call for exactly that reason. Opening a plugin must stay free of
- * consequence; keeping what you found there must be something you asked for.
- *
- * ONLY an instance that is already loaded. No orphan means false, and never a freshly-created one:
- * a snapshot of a plugin nobody has opened is the factory default wearing the name of a sound
- * somebody thought they had made.
- *
- * `outFile` is ABSOLUTE and its parent is created. The caller is the file service, on this same
- * machine, which is the only side that knows where a module's folder is and the only side that can
- * be trusted to have checked the name — the engine writes where it is told, as it does for a
- * render or a freeze.
- *
- * A Steinberg container via `saveVstPreset`, which is what `loadVstPreset` reads back, so a base
- * written here is loadable by every path that already takes one. Message thread: the plugin may be
- * on screen with its editor open, and this reads its state.
- */
+// Write what that orphan is CURRENTLY holding to `outFile` (absolute, its parent created); false with no already-loaded instance, and never a fresh one.
 bool snapshotOrphanPluginTo(const std::string& format, const std::string& identifier,
                             const std::string& outFile);
 
-// Offline render (bounce) to wav with NO audio device, so MIDI and instrument tracks are rendered unlike an
-// ffmpeg mixdown: writes mix.wav plus, with `stems`, one wav per track, and prints a JSON manifest.
-// Wired from `--render <doc.json|-> --out <dir> [--stems]`.
-// A Tracktion engine for the OFFLINE tools — render, freeze, param dump. Headless: it opens no audio device,
-// which is what lets any of them run while the live engine holds one. See its definition for what that cost.
+// A Tracktion engine for the OFFLINE tools — render, freeze, param dump — headless, so it opens no device and runs beside the live engine holding one.
 std::unique_ptr<tracktion::engine::Engine> makeOfflineEngine();
 
+// Offline render (bounce) to wav with NO audio device, so MIDI and instrument tracks render: mix.wav, one per track with `stems`, and a JSON manifest.
 int renderOffline(const ProjectDoc& doc, const std::string& baseDir,
                   const std::string& outDir, bool stems);
 
-// Print a symbolised stack when the process is about to die of an access violation, then let it die.
-// There is no debugger on these machines, so a crash otherwise leaves only a fault offset in the
-// Windows event log. Same dbghelp walk as watchdogStack — see OfflineRender.cpp.
+// Print a symbolised stack when the process is about to die of an access violation, then let it die — there is no debugger here. Same dbghelp walk as watchdogStack.
 void installCrashHandler();
 
-// THROWAWAY PROBE — play several documents at once on ONE audio device and report whether
-// each one's master actually produced signal. It exists to answer whether N services can
-// share one low-latency device as N Edits rather than as N processes, which is the
-// difference between keeping ASIO and falling back to shared-mode WASAPI. Delete it once
-// the answer is written down; see docs/multiEdit.md. Wired from `--multi-edit-test`.
+// THROWAWAY PROBE, wired from `--multi-edit-test`: several documents at once on ONE audio device, reporting whether each master made signal. See docs/multiEdit.md.
 int runMultiEditTest(const std::vector<ProjectDoc>& docs,
                      const std::vector<std::string>& baseDirs, double seconds,
                      const std::string& deviceName = {},
                      const std::string& deviceType = {});
 
-// Bounce ONE track through its own plugins, no master — the render a FROZEN track plays in place of computing
-// itself. Prints the written path as a JSON string. Wired from `--freeze <doc.json|-> --track <id> --out <file>`.
+// Bounce ONE track through its own plugins, no master — the render a FROZEN track plays in place of computing itself; prints the written path as a JSON string.
 int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::string& trackId,
                 const std::string& outFile);
 
-// The transient detector's default threshold, in standard deviations above the mean jump. Mirrors
-// detectTransients' default in packages/commands/src/waveform.ts.
+// The transient detector's default threshold, in standard deviations above the mean jump; mirrors detectTransients' default in packages/audio-probe/src/waveform.ts.
 constexpr double kDefaultTransientSensitivity = 2.0;
 
-// Decode an audio file and write a placement-independent peak+RMS envelope, its detected transient onsets, and a
-// content fingerprint beside it as `{audioPath}.cache`. BOTH the fingerprint and the transient detector MUST match
-// waveformCache.ts / @studio/commands/waveform.ts on the Node side. See docs/cliModes.md.
+// Write a peak+RMS envelope, the transient onsets and a fingerprint beside the file as `{audioPath}.cache`; both MUST match waveformCache.ts and audio-probe. docs/cliModes.md.
 int writeWaveformCache(const std::string& audioPath,
                        double transientSensitivity = kDefaultTransientSensitivity);
 
-// `NormalizeItem` and `normalizeClips` were here, behind a `--normalize` CLI mode, and are gone with the
-// `track normalize` / `clip normalize` commands that were their only caller. Normalising is a treatment
-// now: a chain naming the médiathèque's `normalize` module, bounced through `--render` like any other.
+// `NormalizeItem`, `normalizeClips` and `--normalize` are gone: normalising is a treatment now, a chain naming the library's `normalize` module, bounced by `--render`.
 
-// The TRUE peak of one file — the loudest sample on ANY channel — printed as JSON on stdout. What a cold
-// module's measuring pass reads before a render (@studio/commands' peakPass.ts). Deliberately not taken
-// from the `{file}.cache` envelope: that one is a mono sum at four decimals, which is right for drawing a
-// waveform and up to 6 dB wrong for setting a gain. See docs/cliModes.md.
+// The TRUE peak of one file — the loudest sample on ANY channel — as JSON on stdout; never the `{file}.cache` mono sum, up to 6 dB wrong for a gain. docs/cliModes.md.
 int printFilePeak(const std::string& audioPath);
 
 }  // namespace studio

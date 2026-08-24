@@ -1,9 +1,6 @@
 #pragma once
 
-// The plugin-scan cache's in-process memo. INTERNAL header: the scan code and the public discovery CLIs live in
-// PluginScan.cpp, and those CLIs are declared in the JUCE-free EngineHost.h because the server calls them.
-// The only thing crossing TUs internally is this memo — the graph builder reads it per plugin, and applyFull
-// and scanInstalledPlugins invalidate it.
+// The plugin-scan cache's in-process memo — INTERNAL header; the scan and the discovery CLIs live in PluginScan.cpp. See docs/plugins.md.
 
 #include "EngineHost.h"   // PluginInfo
 #include "EngineTypes.h"  // te::Engine
@@ -13,50 +10,19 @@
 
 namespace studio {
 
-/**
- * The plugin scan cache parsed once and reused: makeExternalPlugin runs per plugin, and re-parsing
- * the file each time added up on projects with many.
- *
- * A SHARED SNAPSHOT, not a reference into a global. `scanInstalledPlugins` invalidates the memo
- * from a DETACHED thread while the message thread reads it, and makeExternalPlugin holds a raw
- * `const PluginInfo*` into the vector across a dozen lines — a background scan finishing mid-apply
- * therefore freed the buffer under it. Hold the returned pointer for as long as you hold anything
- * into what it points at, and a rescan lands on the next lookup instead of on this one.
- */
+/** The scan cache parsed once and reused, as a SHARED SNAPSHOT — hold it as long as anything into it, docs/plugins.md. */
 std::shared_ptr<const std::vector<PluginInfo>> cachedPluginInfos();
 
-/**
- * Tracktion's built-ins plus ours, always available without scanning. `id` is each one's xmlTypeName,
- * which `createNewPlugin` accepts, so these round-trip straight to instantiation.
- *
- * Exposed for `--dump-builtin-params`, which has to instantiate every one of them to read its parameters
- * out. A second copy of the list would be exactly the drift the note above `registerBuiltInPlugins`
- * already warns about — a plugin a project can name and nothing knows the parameters of.
- */
+/** Tracktion's built-ins plus ours, always available without scanning; `id` is each one's xmlTypeName. docs/plugins.md. */
 std::vector<PluginInfo> builtInPlugins();
 
-/**
- * …and the AirWindows set, 186 of them, from the same X-macro that declares them.
- *
- * A SECOND list rather than part of the one above because they are registered separately and
- * come from a third party's header — but everything that asks "what can this engine create
- * without scanning" wants both, which `cachedPluginInfos` already concatenates. Exposed for the
- * same reason: walking only the first leaves `@engine/chorus-ensemble` and 185 siblings with no
- * parameters and therefore no panel in `--dump-builtin-params`.
- */
+/** …and the AirWindows set, 186 of them, from the same X-macro that declares them — a SECOND list, docs/airWindowsList.md. */
 std::vector<PluginInfo> airWindowsPlugins();
 
-// Register the plugins st0 adds to Tracktion's own: our two (the waveform tap, the Neural Amp Modeler) and
-// the two Tracktion ships without registering (the convolver, the AirWindows set).
-//
-// ONE function, called by every path that builds an Engine — the live host, the offline renderer, the param dump.
-// A path that skips it — EngineHost's constructor alone, say — renders a mix with no amp modeller, no impulse
-// response and no tap in it: an export that does not sound like what you were listening to, and nothing says so
-// beyond one "could not create plugin" line on stderr.
+// Register the plugins st0 adds to Tracktion's own — ONE function, and every path that builds an Engine must call it (docs/plugins.md).
 void registerBuiltInPlugins(te::Engine& engine);
 
-// Drop the memo so the next read re-parses the cache. Called once per apply (picking up a rescan) and after a
-// scan rewrites the file.
+// Drop the memo so the next read re-parses the cache — called once per apply (picking up a rescan) and after a scan rewrites the file.
 void invalidatePluginInfoMemo();
 
 }  // namespace studio

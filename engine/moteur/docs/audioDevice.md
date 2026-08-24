@@ -97,7 +97,30 @@ and pretending otherwise is how you discover it at the end of a take.
 Relatedly, `applyTrackInput` ADDS the input instance when the playback context has none. A
 context only builds instances for devices that were enabled when it was built, so enabling
 a device afterwards is not enough — the same reason `channelLevelsDb` adds its own for
-metering.
+metering. Without it, wiring a track to an input the context predates leaves the track
+silent with only a log line to show for it.
+
+### Monitor mode and input gain belong to the DEVICE
+
+`applyTrackInput` sets both on the `WaveInputDevice`, not on the target, because Tracktion
+has one of each per input. Two tracks on one physical input therefore share the monitor mode
+and share the trim, and the last one applied wins. That is a real limit of this mapping
+rather than an oversight: per-track monitoring would need one device per track.
+
+### Enabling a device is expensive, so it is done once for the batch
+
+`setEnabled(true)` on a `WaveInputDevice` rebuilds the whole wave-device list and reallocates
+every Edit's graph — the same cost `docs/inputTuner.md` records for metering ("asked for
+twenty inputs by a menu polling at 8 Hz, wedged the engine outright"). That lesson reached
+metering before it reached routing, so a twenty-input song used to pay twenty list rebuilds
+and twenty graph reallocations on every full apply. `applyAllTrackInputs` hoists the enabling
+out: distinct CHANNEL SETS rather than distinct pointers, one `dispatchPendingUpdates()` for
+the batch, and then `applyTrackInput` finds every device already enabled and skips its own.
+
+The channel sets are re-resolved on each pass, and `applyTrackInput` re-resolves after it
+enables one, because enabling a device destroys the objects for the others — Tracktion's own
+comment inside `setEnabled` is *"this object is probably deleted.."*. Reading through the
+pointer you started with is a dangling read.
 
 ## Grouping the inputs: mono channels or stereo pairs
 
@@ -155,6 +178,61 @@ rebuilds the wave devices from scratch, so a pairing sent first would be thrown 
 
 That is not a second source of truth — it is the *only* one that can be read, and Tracktion's copy
 stays as inert as `Settings.xml`.
+
+## The buffer size the engine asks for
+
+`kPreferredBufferFrames` is **256**, asked of every device the engine opens, and it decides the
+engine's quality band — which decides what you can DO here. A browser reads `2 × buffer / rate` as
+the audio half of the link's latency (a block in, a block out) and adds its measured round trip;
+under 20 ms is playable, see `packages/web-protocol/docs/quality.md`. At 48 kHz, 256 frames is
+10.7 ms and leaves room for the network, while the 480 a Windows endpoint hands out by default is
+20 ms on its own and lands the machine in front of you in Q2.
+
+It is a PREFERENCE, not a promise. `applyPreferredBufferSize` takes the nearest size the device
+offers, ties going to the LARGER — too small drops out, and a dropout is a worse failure than a
+millisecond. It is silent when the device has no say (an empty list of sizes means the driver
+decides) and warning-free when it refuses: a device that keeps its own buffer is working correctly,
+and the badge simply shows what it costs. The engine reports what it really GOT — `whoami` reads
+the open device — so the number on screen is never this constant.
+
+Opening a new interface resets it, which is why `setAudioDevice` asks again after the switch:
+without that, changing interface silently moved the engine between quality bands.
+
+## `audioTiming` reads atomics, never the live device
+
+`whoami` answers on the asking socket's own thread, and `setAudioDevice` destroys and rebuilds the
+live `juce::AudioIODevice*`. Dereferencing one from `audioTiming` therefore races every device
+switch — and the browser's keepalive sends `whoami` every few seconds on every socket, so any
+switch overlapping one takes the process down. The buffer and rate are published into two atomics
+on every exit from `setAudioDevice`, success or refusal, since the rollback paths reopen a device
+too.
+
+Zeros mean nothing is open. That is not "instant": a client reads a zero as *not measured* and says
+so, rather than crediting an engine with a latency nobody proved.
+
+## Two smaller traps in opening one
+
+**An empty device name REMOVES that direction.** Most interfaces carry both, but a mic is
+input-only, and writing an empty name into `AudioDeviceSetup` is not "leave it alone". Clearing the
+input is survivable; clearing the OUTPUT is not — with nowhere to play there is no audio callback,
+so the transport reports playing while nothing moves and no error appears anywhere. Picking the
+built-in mic is exactly that case, and the setup is persisted, so a blanked output stays broken
+across restarts. `setAudioDevice` names only the directions the device actually has, and refuses
+outright when that would leave no output.
+
+**A device being OPEN is not the same as being able to play**, for the same reason: an input-only
+device opens happily with zero output channels. `outputDeviceName()` asks
+`getActiveOutputChannels()` rather than trusting the open handle.
+
+## One row per interface in the list
+
+Windows exposes the same endpoint under WASAPI shared, exclusive and low-latency AND DirectSound,
+which is three or four identical rows per device. `enumerateDevices` sorts by backend rank and
+keeps the first occurrence of each NAME. ASIO is not lost to that dedup: its driver names differ
+from the WASAPI endpoint names, so it stays its own row — which is the whole point, since it is
+the row a musician needs to pick. The running device's `current` flag is carried onto the kept row
+even when the engine is on a collapsed variant, so the picker still ticks the right interface.
+Channel counts are known only for the OPEN device; answering for the rest would mean opening them.
 
 ## What is still missing
 

@@ -12,8 +12,7 @@
 #include <optional>
 #include <string>
 
-// NAM_SAMPLE is `float` for us, so the model reads JUCE's buffers directly; the default double would cost a
-// convert out and back around every block.
+// NAM_SAMPLE is `float` for us, so the model reads JUCE's buffers with no convert out and back per block.
 #include <NAM/dsp.h>
 
 namespace studio {
@@ -35,8 +34,7 @@ public:
     juce::String getSelectableDescription() override { return "Neural Amp Modeler"; }
     bool takesAudioInput() override { return true; }
     bool producesAudioWhenNoAudioInput() override { return false; }
-    // An amp has a tail — the model is recurrent and keeps ringing after the input stops — and saying otherwise
-    // lets the renderer cut the note off at its last sample.
+    // An amp has a tail: the model is recurrent and rings on, so saying otherwise cuts the note at its last sample.
     bool noTail() override { return false; }
 
     int getNumOutputChannelsGivenInputs(int numInputChannels) override
@@ -51,64 +49,48 @@ public:
 
     void restorePluginStateFromValueTree(const juce::ValueTree&) override;
 
-    // --- level ---------------------------------------------------------------
-    //
-    // A model is trained at whatever level its author played at, and a .nam file DECLARES that level. Ours arrives
-    // 6.6 dB below what went in, which reads as "the amp does nothing" long before it reads as a gain staging
-    // problem. `Normalize` reads that declared loudness and puts every model at the same output level, so swapping
-    // amps stops being a volume change; `Input` and `Output` are the trims for after that — and `Input` is a real
-    // tone control, since how hard you hit a modelled amp is half of what it sounds like.
+    // --- level --- ours arrives 6.6 dB down, which reads as "the amp does nothing" (docs/namPlugin.md)
 
     tracktion::engine::AutomatableParameter::Ptr inputDb, outputDb, normalize;
     juce::CachedValue<float> inputDbValue, outputDbValue, normalizeValue;
 
-    // The loudness the model declares, in dB, or nothing when it declares none — older files and any model whose
-    // trainer skipped the measurement. Then `Normalize` has nothing to work from and does nothing, which is worth
-    // saying out loud; EditBuilder does the saying, since it is the one that knows which module this is.
+    // The loudness the model declares, or nothing — and then `Normalize` has nothing to work from (EditBuilder warns).
     std::optional<double> modelLoudness() const;
 
-    // What `Normalize` aims for, in dB. The figure the official NAM plugin uses: models are shared between the two
-    // and a profile that sat right there should sit right here.
+    // What `Normalize` aims for, in dB: the figure the official NAM plugin uses, since models are shared.
     static constexpr double targetLoudnessDb = -18.0;
 
     // --- model ---------------------------------------------------------------
 
-    // Load `file` and swap it in. MESSAGE thread only: parsing a model allocates and reads JSON off disk. Returns
-    // false and keeps any model already loaded when the file can't be read, with `error` saying why.
+    // Load `file` and swap it in — MESSAGE thread only, since parsing a model allocates and reads JSON off disk.
     bool loadModel(const juce::File& file, juce::String& error);
 
-    // The model's own sample rate, or 0 when none is loaded or declared. A model is trained at one rate and this
-    // plugin does NOT resample, so another rate sounds wrong in a way worth reporting.
+    // The model's own sample rate, or 0: it is trained at one rate and this plugin does NOT resample.
     double modelSampleRate() const { return modelRate_.load(std::memory_order_relaxed); }
 
     /** The model file currently loaded (empty when none). */
     juce::String modelPath() const;
 
 private:
-    // The loaded model, swapped under `lock_`. The audio thread only ever TRIES that lock: mid-swap it passes the
-    // block through clean rather than waiting, because blocking on a message-thread allocation is how you drop out.
+    // The loaded model, swapped under `lock_` — which the audio thread only ever TRIES, since blocking is a dropout.
     juce::SpinLock lock_;
     std::unique_ptr<nam::DSP> dsp_;
     juce::String path_;
     std::atomic<double> modelRate_{0.0};
 
-    // Read on the audio thread every block, written on the message thread by loadModel — hence atomics, and hence
-    // two of them rather than an optional.
+    // Read on the audio thread, written by loadModel — hence atomics, and two of them rather than an optional.
     std::atomic<double> loudnessDb_{0.0};
     std::atomic<bool> hasLoudness_{false};
 
-    // The gains the last block ENDED on. These are knobs (and Normalize is a 6 dB step), so every block ramps from
-    // where the last one left off rather than jumping and clicking.
+    // The gains the last block ENDED on, so every block ramps from there rather than jumping and clicking.
     float lastInGain_ = 1.0f;
     float lastOutGain_ = 1.0f;
 
-    // The rate and block size Tracktion last prepared us with, so a model loaded AFTER initialise() can be reset to
-    // the right shape — a model is loaded whenever the user picks one, rarely as the plugin is built.
+    // The rate and block size last prepared with, so a model loaded AFTER initialise() gets the right shape.
     double sampleRate_ = 44100.0;
     int blockSize_ = 512;
 
-    // The mono buffer the model reads and writes. Sized in initialise() and on every load, never in applyToBuffer:
-    // allocating on the audio thread is the other way to get a dropout.
+    // The mono buffer the model reads and writes, sized in initialise() and on load, NEVER in applyToBuffer.
     juce::AudioBuffer<float> mono_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NamPlugin)

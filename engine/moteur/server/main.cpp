@@ -36,64 +36,43 @@ using json = nlohmann::json;
 
 namespace {
 
-// --- The audio broadcast frame ------------------------------------------------
-//
-// The other half of packages/engine-protocol/stream.ts, and the two must agree byte for
-// byte: nothing checks that they do but a listener, and a disagreement plays as noise
-// rather than failing. Every constant below is named there too.
+// --- The audio broadcast frame: the other half of packages/engine-protocol/stream.ts, byte for byte — only a listener checks, and a disagreement plays as noise ---
 
 constexpr uint32_t kStreamMagic = 0x4c535452;   // "LSTR"
 constexpr uint8_t kStreamVersion = 1;
 constexpr size_t kStreamHeaderBytes = 32;
 constexpr uint8_t kStreamCodecPcmF32 = 0;
 
-// 480 frames = 10 ms at 48 kHz. Smaller frames would mean more syscalls for the same
-// audio; larger ones would put their own duration under the latency.
+// 480 frames = 10 ms at 48 kHz: smaller means more syscalls for the same audio, larger puts its own duration under the latency.
 constexpr size_t kBroadcastMaxFrames = 480;
 
-// The sender wakes this often and drains everything waiting. Shorter than the frame it
-// sends, so it stays ahead of production even when a wake-up runs late.
+// The sender wakes this often and drains everything waiting — shorter than the frame it sends, so it stays ahead of a late wake-up.
 constexpr int kBroadcastTickMs = 5;
 
-// How many frames one pass may send before yielding. 32 frames is ~320 ms of 48 kHz audio,
-// against the ~240 the engine produces in one 5 ms tick — ample headroom, and the bound is
-// only there to keep a pathological burst from spinning the loop.
+// How many frames one pass may send before yielding: 32 is ~320 ms of 48 kHz audio against the ~240 one 5 ms tick produces, a bound only against a pathological burst.
 constexpr int kBroadcastFramesPerPass = 32;
 
-// How much may sit unsent for one listener before frames are skipped rather than queued —
-// about a third of a second of stereo float32. A cheap guard, not the real protection; see
-// the sender thread for why.
+// How much may sit unsent for one listener before frames are skipped, about a third of a second of stereo float32 — a cheap guard, not the real protection (see the sender thread).
 constexpr size_t kBroadcastMaxQueuedBytes = 512 * 1024;
 
-// A ceiling on a session id, not a shape: naming a session is what creates it, so the only thing
-// worth refusing is one long enough to be an attack on the map. sessionFor() emits "<service>:<slug
-// of an email>", so real ids are tens of bytes.
+// A ceiling on a session id, not a shape: naming one creates it, so only a length that attacks the map is worth refusing — real ids are tens of bytes.
 constexpr size_t kMaxSessionIdBytes = 256;
 
 // Sender thread only, so no synchronisation: it is the one thing that reads or writes it.
-// Sites that belong to no message yet: startup, and the broadcast sender. Named rather
-// than "" so the places still to be addressed by a real session are greppable.
 
 uint32_t broadcastSeq = 0;
 
-// Set by a connection thread when the first listener arrives, cleared by the sender, which
-// is the only thread allowed to move the ring's read cursor. A flag rather than a direct
-// call for exactly that reason.
-// One sequence per session: two services' streams are two sequences, and sharing a
-// counter would have each read the other's frames as its own dropped ones.
+// One sequence per session: sharing a counter would have each service read the other's frames as its own dropped ones.
 uint32_t nextSeq(const std::string& s, uint32_t by) {
     static std::map<std::string, uint32_t> seq;
     return seq[s] += by;
 }
 
-// Sessions whose first listener just arrived, so the sender skips their ring to live. A set
-// rather than a flag: two services can gain their first listener in the same tick.
+// Sessions whose first listener just arrived, so the sender — the only thread that may move the ring's read cursor — skips to live; a set, since two can arrive in one tick.
 std::mutex arrivedMx;
 std::set<std::string> arrived;
 
-// Little-endian writes, explicitly, rather than memcpy of a struct: the wire order is part
-// of the contract, and every target being little-endian today is not a reason to bake the
-// host's order into it silently.
+// Little-endian writes explicitly, rather than memcpy of a struct: the wire order is part of the contract, and not the host's to bake in silently.
 void putU32(std::string& out, size_t at, uint32_t v) {
     out[at + 0] = static_cast<char>(v & 0xff);
     out[at + 1] = static_cast<char>((v >> 8) & 0xff);
@@ -123,12 +102,10 @@ std::string encodeStreamFrame(const studio::EngineHost::BroadcastChunk& chunk,
     return out;
 }
 
-// ONE track. Split out of docFromJson so the `tracks` delta reads a track exactly as a whole
-// document does — the two must not drift, and the delta is by construction a piece of a document.
+// ONE track, split out of docFromJson so the `tracks` delta reads a track exactly as a whole document does.
 studio::TrackDoc trackFromJson(const json& t);
 
-// One plugin off the wire. Shared by a TRACK's list and the MASTER chain's, so the two cannot
-// drift — a master plugin is an ordinary plugin that happens to sit on the mix.
+// One plugin off the wire, shared by a TRACK's list and the MASTER chain's so the two cannot drift.
 studio::PluginDoc pluginFromJson(const json& p) {
     studio::PluginDoc pl;
     pl.id = p.value("id", std::string{});
@@ -145,8 +122,7 @@ studio::PluginDoc pluginFromJson(const json& p) {
     if (p.contains("params"))
         for (const auto& [k, v] : p.at("params").items())
             pl.params[k] = v.get<double>();
-    // A rack instrument carries its sounds here: {symbol, note, clip} already resolved to absolute paths, turned
-    // into SamplerPlugin sounds in EditBuilder::addPlugin.
+    // A rack instrument's sounds: {symbol, note, clip} already absolute, turned into SamplerPlugin sounds in EditBuilder::addPlugin.
     if (p.contains("rack") && p.at("rack").is_array())
         for (const auto& e : p.at("rack")) {
             studio::RackEntry re;
@@ -169,19 +145,16 @@ studio::ProjectDoc docFromJson(const json& j) {
     doc.timeSigDenominator = j.value("timeSigDenominator", 4);
     // Unity for a doc that does not carry the field.
     doc.masterVolume = j.value("masterVolume", 0.0f);
-    // The master chain. Absent for a doc that does not carry the field, which means the mixer's sum
-    // reaches the interface unprocessed.
+    // The master chain; absent means the mixer's sum reaches the interface unprocessed.
     if (j.contains("masterPlugins") && j.at("masterPlugins").is_array())
         for (const auto& p : j.at("masterPlugins"))
             doc.masterPlugins.push_back(pluginFromJson(p));
     doc.recordDir = j.value("recordDir", std::string{});
-    // Project settings ride in a nested `settings` object; the engine reads only what it plays — the metronome flag
-    // and the count-in bars. Absent settings mean the defaults.
+    // Project settings ride in a nested `settings` object; the engine reads only what it plays, and absent means the defaults.
     if (j.contains("settings") && j.at("settings").is_object()) {
         const auto& s = j.at("settings");
         doc.metronome = s.value("metronome", false);
-        // 0.6 for a document that does not carry the field — Tracktion's own default, so a project
-        // that states no level clicks at that one.
+        // 0.6 for a document that does not carry the field — Tracktion's own default.
         doc.metronomeLevel = s.value("metronomeLevel", 0.6);
         doc.countIn = s.value("countIn", 0);
     }
@@ -244,8 +217,7 @@ studio::TrackDoc trackFromJson(const json& t) {
                     nd.vel = n.value("vel", 1.0);
                     nd.channel = n.value("channel", 0);
                     nd.rel = n.value("rel", 1.0);
-                    // A pad's effects; absent == none. Not clamped: everything downstream tests
-                    // for >= 2, so a nonsense value is already inert.
+                    // A pad's effects; absent == none, and not clamped since everything downstream tests for >= 2.
                     nd.repeat = n.value("repeat", 0);
                     nd.skip = n.value("skip", 0);
                     cl.notes.push_back(nd);
@@ -293,8 +265,7 @@ size_t countPlugins(const studio::ProjectDoc& d) {
     return n;
 }
 
-// The 'audio-devices' reply, ASIO first. Sent on request AND after a switch, so clients learn the new current
-// device the same way either time. Message-thread only — it enumerates JUCE devices.
+// The 'audio-devices' reply, ASIO first, sent on request AND after a switch so clients learn the same way; message-thread only.
 json audioDevicesMsg(studio::EngineHost& host) {
     json arr = json::array();
     for (const auto& d : host.listAudioDevices())
@@ -309,9 +280,7 @@ json audioDevicesMsg(studio::EngineHost& host) {
 
 studio::EngineHost* g_host = nullptr;   // for the signal handler
 
-// One serialized plugin scan for the whole process: the startup warm-scan and any on-demand list or rescan
-// route through here, so two child-process sweeps can't race the exts.json write. A warm cache short-circuits
-// unless `force`, and a caller arriving mid-scan blocks on the mutex and then finds the cache warm.
+// One serialized plugin scan for the whole process, so two child-process sweeps cannot race the exts.json write; a warm cache short-circuits unless `force`.
 std::vector<studio::PluginInfo> ensurePluginsScanned(bool force) {
     static std::mutex m;
     std::lock_guard<std::mutex> lock(m);
@@ -322,9 +291,7 @@ std::vector<studio::PluginInfo> ensurePluginsScanned(bool force) {
     return studio::scanInstalledPlugins(force);
 }
 
-// Read a ProjectDoc for one of the offline modes: from a file, or from stdin as "-". Accepts either the bare doc
-// or a { "doc": {...} } envelope, since both are things a caller already has to hand. Returns false having said
-// what was wrong on stderr — the caller only has to pick an exit code.
+// Read a ProjectDoc for an offline mode — a file or "-" for stdin, bare or in a { "doc": … } envelope; false means the reason is already on stderr.
 bool readDocArg(const std::string& input, studio::ProjectDoc& out) {
     std::stringstream ss;
     if (input == "-") {
@@ -358,8 +325,7 @@ bool readDocArg(const std::string& input, studio::ProjectDoc& out) {
 int main(int argc, char** argv) {
     studio::installCrashHandler();
 
-    // Child-process scan mode: the parent spawns us with `--scan-plugin <format> <id>` to load one plugin in
-    // isolation. Runs before any server or engine setup, and exits with no port bound.
+    // Child-process scan mode: `--scan-plugin <format> <id>` loads one plugin in isolation, before any engine setup and with no port bound.
     if (argc >= 4 && std::string(argv[1]) == "--scan-plugin")
         return studio::runPluginScanChild(argv[2], argv[3]);
 
@@ -369,8 +335,7 @@ int main(int argc, char** argv) {
         return studio::runPluginScanCli(force);
     }
 
-    // Param-dump modes for the translator, printing sentinel-fenced JSON then exiting: `--dump-params <type>` for a
-    // built-in, `--dump-params-ext <format> <id> <statefile>` for an external restored from its preset.
+    // Param-dump modes for the translator, printing sentinel-fenced JSON then exiting: `--dump-params <type>`, or `--dump-params-ext <format> <id> <statefile>` for an external restored from its preset.
     if (argc >= 5 && std::string(argv[1]) == "--dump-params-ext")
         return studio::dumpPluginParamsExternal(argv[2], argv[3], argv[4]);
     if (argc >= 3 && std::string(argv[1]) == "--dump-params")
@@ -383,12 +348,7 @@ int main(int argc, char** argv) {
     if (argc >= 2 && std::string(argv[1]) == "--list-audio-devices")
         return studio::runAudioDevicesCli();
 
-    // Offline render mode: read a ProjectDoc from a file or stdin, bounce it to wav, print a manifest, exit —
-    // no server, no port bound.
-    // THROWAWAY PROBE — `--multi-edit-test <doc1.json> <doc2.json> [--seconds N]`. Answers
-    // whether several documents can play at once on ONE device, which decides whether N
-    // services share a low-latency ASIO engine as N Edits or as N processes. Delete with
-    // MultiEditTest.cpp once the answer is written down.
+    // THROWAWAY PROBE `--multi-edit-test <doc1.json> <doc2.json> [--seconds N]`: can several documents play at once on ONE device? Delete with MultiEditTest.cpp once the answer is written down.
     if (argc >= 2 && std::string(argv[1]) == "--multi-edit-test") {
         std::vector<studio::ProjectDoc> docs;
         std::vector<std::string> baseDirs;
@@ -420,6 +380,7 @@ int main(int argc, char** argv) {
         }
         return studio::runMultiEditTest(docs, baseDirs, seconds, devName, devType);
     }
+    // Offline render mode: read a ProjectDoc from a file or stdin, bounce it to wav, print a manifest, exit — no server, no port bound.
     if (argc >= 2 && std::string(argv[1]) == "--render") {
         std::string input, outDir, baseDir;
         bool stems = false;
@@ -440,9 +401,7 @@ int main(int argc, char** argv) {
         return studio::renderOffline(doc, baseDir, outDir, stems);
     }
 
-    // Freeze mode: bounce ONE track through its own plugins to a wav, print the path, exit. The `track freeze`
-    // command runs this; the doc it hands over has already had that track's gain, pan and mute — and every solo in
-    // the song — neutralised, because all of those stay live on a frozen track.
+    // Freeze mode: bounce ONE track through its own plugins to a wav — `track freeze` hands over a doc with that track's gain, pan, mute and every solo already neutralised, since all of those stay live on a frozen track.
     if (argc >= 2 && std::string(argv[1]) == "--freeze") {
         std::string input, outFile, baseDir, trackId;
         for (int i = 2; i < argc; ++i) {
@@ -462,25 +421,19 @@ int main(int argc, char** argv) {
         return studio::freezeTrack(doc, baseDir, trackId, outFile);
     }
 
-    // Waveform-cache mode: decode the file, write its `{file}.cache` sidecar, exit. The file service invokes this
-    // to rebuild a missing or stale cache on demand.
-    // The optional third argument is the transient detector's sensitivity (stddevs above the mean jump); omitted,
-    // the built-in default applies. It is per SOURCE and lands in the sidecar, so a later read gets it back.
+    // Waveform-cache mode: decode the file, write its `{file}.cache` sidecar, exit — the file service invokes it to rebuild a missing or stale cache.
+
+    // The optional third argument is the transient detector's sensitivity (stddevs above the mean jump), per SOURCE and stored in the sidecar so a later read gets it back.
     if (argc >= 3 && std::string(argv[1]) == "--waveform")
         return studio::writeWaveformCache(
             argv[2], argc >= 4 ? std::atof(argv[3]) : studio::kDefaultTransientSensitivity);
 
-    // Peak mode: print one file's true peak and exit. The measuring half of a COLD module — the brain reads
-    // the number back and writes it into the module's `Peak` before rendering through it.
+    // Peak mode: one file's true peak, the measuring half of a COLD module — the brain writes the number back into the module's `Peak` before rendering through it.
     if (argc >= 3 && std::string(argv[1]) == "--peak") return studio::printFilePeak(argv[2]);
 
-    // No `--normalize` mode: normalising is a treatment, and a treatment is a chain the brain bounces
-    // material through with `--render` (packages/commands/docs/processChain.md). The médiathèque's
-    // `normalize` module is measured by `--peak` above and rendered like any other.
+    // No `--normalize` mode: normalising is a treatment, and a treatment is a chain the brain bounces material through with `--render` (packages/commands/docs/processChain.md).
 
-    // Batch waveform mode: read audio paths from stdin and write every `{file}.cache` in THIS process, so a song
-    // with many fresh clips pays JUCE startup once instead of per file. Prints a flushed "ok"/"err" line per file
-    // so the caller can stream a live count, and one bad file never aborts the batch.
+    // Batch waveform mode: paths from stdin, every `{file}.cache` written in THIS process so JUCE starts once — a flushed ok/err line per file, and one bad file never aborts the batch.
     if (argc >= 2 && std::string(argv[1]) == "--waveform-batch") {
         std::string line;
         bool first = true;
@@ -494,8 +447,7 @@ int main(int argc, char** argv) {
             first = false;
             if (!line.empty() && line.back() == '\r') line.pop_back();  // tolerate CRLF
             if (line.empty()) continue;
-            // `<path>` or `<path>\t<sensitivity>`. The caller sends the sensitivity a file's PREVIOUS sidecar
-            // carried, so rebuilding a stale envelope does not silently reset a threshold somebody tuned.
+            // `<path>` or `<path>\t<sensitivity>` — the caller resends what the PREVIOUS sidecar carried, so a rebuild never resets a tuned threshold.
             std::string path = line;
             double sensitivity = studio::kDefaultTransientSensitivity;
             if (const auto tab = line.find('\t'); tab != std::string::npos) {
@@ -510,17 +462,13 @@ int main(int argc, char** argv) {
 
     const int port = argc > 1 ? std::atoi(argv[1]) : 8765;
 
-    // Engine identity (Phase-1 local trust): the supervisor passes a stable id and secret token by env, which we
-    // echo on `whoami` — so a browser can confirm it reached THIS engine and a lookalike, not knowing the token,
-    // can't impersonate it. Empty without the supervisor, and an empty id matches no selection.
+    // Engine identity (Phase-1 local trust): a stable id and secret token by env, echoed on `whoami`, so a lookalike cannot impersonate this engine; empty without the supervisor, and an empty id matches no selection.
     const char* idEnv = std::getenv("STUDIO_ENGINE_ID");
     const char* tokEnv = std::getenv("STUDIO_ENGINE_TOKEN");
     const std::string engineId = idEnv ? idEnv : "";
     const std::string engineToken = tokEnv ? tokEnv : "";
 
-    // Time the startup phases: everything before the port opens is invisible to a client — it just sees a refused
-    // connection — so a slow start (Tracktion building its device list, an interface still waking) is otherwise
-    // undiagnosable. std::chrono, not juce::Time: this file keeps no JUCE includes.
+    // Time the startup phases: before the port opens a client sees only a refused connection, so a slow start is otherwise undiagnosable; std::chrono, since this file keeps no JUCE includes.
     const auto bootT = std::chrono::steady_clock::now();
     const auto sinceBoot = [&bootT] {
         return std::chrono::duration<double, std::milli>(
@@ -530,104 +478,60 @@ int main(int argc, char** argv) {
 
     ix::initNetSystem();
 
-    // Constructing the host builds the Tracktion engine and opens NO audio device — that is queued below, so the
-    // port can bind first. Opening one can take seconds, and a probing browser meanwhile sees a refused
-    // connection, indistinguishable from an absent engine.
+    // Constructing the host builds the Tracktion engine and opens NO audio device — that is queued below so the port binds first, since opening one takes seconds and a refused connection reads as an absent engine.
     studio::EngineHost host;
     g_host = &host;
     const double ctorMs = sinceBoot();
 
-    // Open the audio device as the FIRST message-thread action, enqueued before any client is accepted, so it runs
-    // ahead of any project apply. The port answers whoami and probes without waiting on it.
+    // Open the audio device as the FIRST message-thread action, enqueued before any client is accepted so it runs ahead of any project apply; the port answers probes without waiting on it.
     host.post([&host, &sinceBoot, ctorMs] {
         const double t0 = sinceBoot();
         host.openAudioDevice();
         const double t1 = sinceBoot();
         std::cerr << "[startup] tracktion=" << ctorMs << "ms audioDevice="
                   << (t1 - t0) << "ms (device ready at " << t1 << "ms)\n";
-        // The device setup is persisted, so a bad one survives restarts and poisons every project. With no output there
-        // is no audio callback: play "works", the playhead never leaves 0, and nothing sounds. Say it once.
+        // The device setup is persisted, so a bad one survives restarts: with no output there is no audio callback, play "works" and nothing sounds. Say it once.
         if (host.outputDeviceName().empty())
             std::cerr << "warning: no audio OUTPUT device is open — the transport will "
                          "run but the playhead won't advance and nothing will sound. "
                          "Pick an output with 'st0 config --set interface'.\n";
     });
 
-    // Loopback by default (only same-machine clients reach it); the supervisor sets STUDIO_ENGINE_HOST=0.0.0.0 so
-    // LAN browsers can too. Only the bind interface changes — there is still no auth beyond the whoami token echo.
+    // Loopback by default; the supervisor sets STUDIO_ENGINE_HOST=0.0.0.0 for LAN browsers — only the bind interface changes, and there is still no auth beyond the whoami token echo.
     const char* hostEnv = std::getenv("STUDIO_ENGINE_HOST");
     const std::string bindHost = (hostEnv && *hostEnv) ? hostEnv : "127.0.0.1";
     ix::WebSocketServer server(port, bindHost);
 
-    // Broadcast a JSON message to every connected client, on the engine thread where send() is safe.
-    // For replies that are the MACHINE's — the device list, the installed-plugin catalogue, the
-    // session list. Everything about one project goes through broadcastTo, and the one message
-    // that is neither — the 20 Hz state frame, which nobody asked for — is addressed per socket
-    // where it is emitted. See docs/protocol.md.
+    // Broadcast to every connected client, on the engine thread where send() is safe — for the MACHINE's replies only, a project's going through broadcastTo (docs/protocol.md).
     auto broadcast = [&server](const json& j) {
         const auto payload = j.dump();
         for (auto& client : server.getClients())
             client->send(payload);
     };
 
-    // The same, stamped with the project it is about, so a client sharing this port drops what is
-    // not its own (packages/engine-protocol/sessions.ts's forSession). Two verbs rather than a
-    // hand-written {"session", …} per reply: a new reply must CHOOSE one, and the choice is
-    // reviewable in a word — which is the only thing that stops the next one being forgotten.
+    // The same, stamped with the project it is about so a client sharing this port drops what is not its own — two verbs, so a new reply must CHOOSE one in a reviewable word.
     auto broadcastTo = [&broadcast](const std::string& sid, json j) {
         j["session"] = sid;
         broadcast(j);
     };
 
-    // Read-only queries that short-lived PROBE connections fire and drop: the picker's `whoami`, and the tray's
-    // device, plugin and edit-plugin polls. Each opens a socket, asks one, reads the reply and closes, so announcing
-    // them would bury the log in connect/disconnect pairs. A connection sending only these stays silent; the moment
-    // it sends anything else it is a real client and earns its line.
-    // "io-levels" is in here for the other reason: it is polled several times a second while the I/O panel is
-    // open, so announcing it would print a line per frame.
+    // Read-only queries a short-lived PROBE fires and drops, plus `io-levels`, polled several times a second: announcing them would bury the log, so a connection sending only these stays silent.
     static const std::unordered_set<std::string> probeQueries = {
         "whoami", "list-audio-devices", "list-plugins", "list-edit-plugins",
         "list-sessions", "io-levels"};
 
-    // Which connections have earned their deferred "[client] connected" line, so a disconnect is logged only when
-    // the connect was. Mutex-guarded: IXWebSocket runs each connection's callback on its own thread.
+    // Which connections earned their deferred "[client] connected" line, so a disconnect logs only when the connect did; mutex-guarded, since IXWebSocket runs each callback on its own thread.
     std::mutex loggedMx;
     std::unordered_set<std::string> loggedConns;
 
-    // Who asked for audio. By POINTER, matched against server.getClients(), because the
-    // stream is ~3 Mbit/s uncompressed and must never go to a connection that did not ask
-    // — the tray polls this port several times a second on sockets it drops immediately.
-    // Same mutex discipline as loggedConns: one callback thread per connection.
+    // Who asked for audio, by POINTER matched against server.getClients(): the stream is ~3 Mbit/s uncompressed and must never reach a connection that did not ask.
     std::mutex listenersMx;
     std::unordered_map<const ix::WebSocket*, std::string> listeners;
 
-    // Which sockets DRIVE a session — a surface somebody is looking at, as opposed to the file
-    // service, which holds one per session for as long as the machine is up. Declared on hello
-    // (`{"role":"driver"}`), so a client that says nothing is not one and nothing changes for it.
-    //
-    // Same map shape and the same mutex as `listeners` above, and for the same reason: IXWebSocket
-    // runs each connection's callback on its own thread. A socket may drive only one session —
-    // every surface opens one per session already (see file-service/engineLink.ts, "ONE SOCKET PER
-    // SESSION"), so this is the arrangement rather than a restriction.
+    // Which sockets DRIVE a session — a surface somebody is looking at, declared on hello with `{"role":"driver"}`, at most one session each (docs/sessions.md).
     std::unordered_map<const ix::WebSocket*, std::string> drivers;
 
-    // WHICH project each socket is about, so the 20 Hz state frame goes to the sockets that
-    // asked for that one instead of to every socket on the port. Same map shape and the same
-    // mutex as `listeners`, for the same reason.
-    //
-    // Learned from the first REAL message a connection sends — the very test that earns it a
-    // "[client] connected" line, because it answers the same question: is this a client, or a
-    // probe that will be gone in a millisecond. NOT from `role: "driver"`, which would leave the
-    // file service out: it declares nothing on purpose (see file-service/engineLink.ts) and its
-    // pattern clock runs off these frames.
-    //
-    // Registered ONCE per socket, like `drivers` — and here that is what keeps `drop-session`
-    // and `show-native-plugin-ui` from rebinding a socket, since both carry ANOTHER session's id
-    // as an override.
-    //
-    // Misrouting is not a correctness hazard, deliberately: every client still runs `forSession`
-    // (@studio/engine-protocol/sessions) over what arrives. This map decides what to SEND, never
-    // what is legal to read — so a socket that has not spoken yet costs a frame, never a wrong meter.
+    // WHICH project each socket is about, learned from its first REAL message and bound ONCE, so the 20 Hz state frame reaches only the sockets that asked (docs/protocol.md).
     std::unordered_map<const ix::WebSocket*, std::string> subscribers;
 
     server.setOnClientMessageCallback(
@@ -635,39 +539,21 @@ int main(int argc, char** argv) {
          &drivers, &subscribers, engineId, engineToken](
             std::shared_ptr<ix::ConnectionState> conn,
             ix::WebSocket& ws, const ix::WebSocketMessagePtr& msg) {
-            // Who is talking to us: the TUI, the web backend and the CLI all connect here, and an arrival or a drop explains
-            // most of what follows — a reconnect re-sends the whole project. Open is silent; the line is deferred to the
-            // first real message, so probes never print one.
+            // Who is talking to us — an arrival or a drop explains most of what follows, since a reconnect re-sends the whole project; the line is deferred to the first real message so probes never print one.
             if (msg->type == ix::WebSocketMessageType::Open)
                 return;
             if (msg->type == ix::WebSocketMessageType::Close) {
-                // Drop the listener FIRST: a socket that closed mid-stream must stop being
-                // sent to before anything else happens, and "the listener hung up" is the
-                // case this whole path most needs to survive.
-                //
-                // And take the tap off when that was the last one. A closed tab never sends
-                // {"broadcast": false}, so without this the engine would copy every block
-                // and encode a frame 200 times a second for nobody, for the rest of its
-                // life — with buildLevelMeters faithfully reasserting the tap on every apply.
+                // Drop the listener FIRST, and take the tap off when it was the last: a closed tab never sends {"broadcast": false}, so the engine would encode 200 frames a second for nobody forever.
                 {
-                    // The post happens UNDER the lock, so two connection threads cannot
-                    // compute their wishes in one order and queue them in the other — which
-                    // would let a departing listener's alse land after an arriving one's
-                    // 	rue and silence a listener that is still there.
+                    // The post happens UNDER the lock, so a departing listener's false cannot land after an arriving one's true and silence a listener that is still there.
                     std::lock_guard<std::mutex> lk(listenersMx);
                     if (auto gone = listeners.find(&ws); gone != listeners.end()) {
                         const std::string sid = gone->second;
                         listeners.erase(gone);
-                        // Said out loud: a listener leaving by closing its tab is the
-                        // ordinary way this ends, and without a line the tap coming off is
-                        // invisible — you cannot tell "stopped tapping" from "still copying
-                        // every block for nobody" from the outside.
+                        // Said out loud, because from outside you cannot tell "stopped tapping" from "still copying every block for nobody".
                         std::cerr << "[broadcast] listener gone from '" << sid << "' ("
                                   << listeners.size() << " listening)\n";
-                        // The last ear on THAT session, not on the engine. Counting them all
-                        // had a closing m9 tab take the tap off the DEFAULT session —
-                        // silencing a st0 listener still there, and leaving m9's own
-                        // tap copying every block for nobody.
+                        // The last ear on THAT session, not on the engine: counting them all had a closing m9 tab take the tap off the DEFAULT session, silencing an st0 listener still there.
                         const bool anyLeft =
                             std::any_of(listeners.begin(), listeners.end(),
                                         [&](const auto& e) { return e.second == sid; });
@@ -675,20 +561,14 @@ int main(int argc, char** argv) {
                             host.post([&host, sid] { host.enableBroadcast(sid, false); });
                     }
 
-                    // A DRIVER leaving is the other half, and the one that frees a project. Under
-                    // the same lock, for the same ordering reason: two threads that computed
-                    // "arrived" and "left" in one order and queued them in the other would leave
-                    // a live session counted as abandoned.
+                    // A DRIVER leaving is the other half, and the one that frees a project — under the same lock, or a live session could end up counted as abandoned.
                     if (auto d = drivers.find(&ws); d != drivers.end()) {
                         const std::string sid = d->second;
                         drivers.erase(d);
                         host.post([&host, sid] { host.removeDriver(sid); });
                     }
 
-                    // And stop addressing state frames to it. Keyed by raw pointer like the two
-                    // above, so an entry outliving its socket could be matched by a later one the
-                    // allocator put at the same address — costing that socket a frame its own
-                    // filter drops, never a wrong reading.
+                    // And stop addressing state frames to it; the raw-pointer key costs at most one dropped frame if reused (docs/protocol.md).
                     subscribers.erase(&ws);
                 }
                 bool announced;
@@ -717,12 +597,9 @@ int main(int argc, char** argv) {
 
             const std::string type = j.value("type", std::string{});
 
-            // WHICH project this message is about. Absent means the default session, so a
-            // client that has never heard of sessions keeps working exactly as before —
-            // which is what lets the engine grow this before the clients do.
+            // WHICH project this message is about; absent means the default session, so a client that never heard of sessions keeps working exactly as before.
             const std::string session = j.value("session", std::string{});
-            // Naming a session is what creates it, deliberately — so there is no allowlist here,
-            // only a ceiling, so a malformed client cannot grow the map without bound.
+            // Naming a session is what creates it, so there is no allowlist — only a ceiling, so a malformed client cannot grow the map without bound.
             if (session.size() > kMaxSessionIdBytes) {
                 ws.send(json{{"type", "error"}, {"message", "session id too long"}}.dump());
                 return;
@@ -737,9 +614,7 @@ int main(int argc, char** argv) {
                 }
                 if (firstReal)
                     std::cerr << "[client] connected (" << conn->getRemoteIp() << ")\n";
-                // …and says which project to send it state about. A probe never asks and never
-                // gets one: it opens, asks its one question and closes, so 20 frames a second
-                // aimed at it would be pure copy.
+                // …and says which project to send it state about; a probe never asks, so 20 frames a second aimed at it would be pure copy.
                 std::lock_guard<std::mutex> lk(listenersMx);
                 subscribers.emplace(&ws, session);
             }
@@ -754,21 +629,15 @@ int main(int argc, char** argv) {
                 }
                 // Apply on the engine thread; broadcast the resulting changeset.
                 host.post([session, &host, &broadcastTo, doc = std::move(doc)]() mutable {
-                    // What we were asked to play. Paired with the [applied] lines and [applyFull]'s timings, the log answers all
-                    // three of "what arrived", "what did the engine do", and "why did it take that long".
+                    // What we were asked to play: with the [applied] lines and [applyFull]'s timings, the log answers "what arrived", "what did the engine do" and "why so long".
                     std::cerr << "[project] '" << doc.name << "' " << doc.tempo << "bpm "
                               << doc.tracks.size() << " track(s) " << countClips(doc)
                               << " clip(s) " << countPlugins(doc) << " plugin(s)\n";
 
-                    // Say that the engine is about to go deaf: a first apply builds the edit and instantiates every plugin, seconds
-                    // long, on the thread that also reads the transport. Without this a client sees a live engine ignore Play and
-                    // then execute every queued click at once. Sent inside the posted lambda, so it marks when the work starts.
+                    // Say that the engine is about to go deaf — a first apply instantiates every plugin, seconds long, on the thread that reads the transport; sent inside the lambda so it marks when the work starts.
                     broadcastTo(session, json{{"type", "busy"}, {"busy", true}});
 
-                    // Timed whichever path it takes. `[applyFull]` prints its own phases, so a rebuild explains
-                    // itself; an INCREMENTAL apply has only this number, and it is the path most applies take.
-                    // Printed with the changes below.
-                    // std::chrono and not juce::Time: this file is the JUCE-free half (see EngineHost.h).
+                    // Timed whichever path it takes: `[applyFull]` prints its own phases, but an INCREMENTAL apply — the common one — has only this number (std::chrono, this being the JUCE-free half).
                     const auto applyT0 = std::chrono::steady_clock::now();
                     const auto changes = host.apply(session, doc, "");   // paths are absolute
                     const double applyMs =
@@ -784,9 +653,7 @@ int main(int argc, char** argv) {
                     }
                     broadcastTo(session, r);
 
-                    // The diff the engine ran — its actual decision, in the LOG and not only at whichever client happens to be
-                    // listening. A no-op re-send says so, so "nothing happened" is distinguishable from
-                    // "nothing arrived", and long changesets are capped so one apply can't bury the rest.
+                    // The diff the engine ran, in the LOG rather than only at whichever client is listening: a no-op re-send says so, and long changesets are capped so one apply cannot bury the rest.
                     if (described.empty()) {
                         std::cerr << "[applied] no changes (project already current)\n";
                     } else {
@@ -802,25 +669,7 @@ int main(int argc, char** argv) {
                     broadcastTo(session, json{{"type", "busy"}, {"busy", false}});
                 });
             } else if (type == "tracks") {
-                /**
-                 * REPLACE these tracks in the document this session already holds, and diff that.
-                 *
-                 * For the pattern clock, which rewrites a handful of lanes' clips six or seven
-                 * times a second while the rest of the song sits still. Sending the whole document
-                 * each time is 137 KB parsed and diffed to be told about eight notes, against
-                 * 3.7 KB here.
-                 *
-                 * The merge is what makes this cheap AND boring: the doc is completed here and
-                 * `apply` is the same apply, so the diff, the incremental paths and the rebuild
-                 * fallback are untouched — there is no second way for a project to reach the
-                 * engine, only a shorter way to say what moved.
-                 *
-                 * Replaces only. An id this session does not hold is a DISAGREEMENT — the brain
-                 * believing we have a project we do not, which is what a restart looks like — so
-                 * it is warned about and dropped rather than appended. The file service re-sends
-                 * the whole document on reconnect and on its reconcile; growing a track nobody
-                 * asked for would hide exactly the case those exist for.
-                 */
+                // REPLACE these tracks in the document this session already holds, then run the same apply — 3.7 KB against 137 KB, and an unknown id is a disagreement, not an append (docs/protocol.md).
                 std::vector<studio::TrackDoc> tracks;
                 try {
                     for (const auto& t : j.at("tracks"))
@@ -859,23 +708,18 @@ int main(int argc, char** argv) {
                                          "hold — the whole document has to be re-sent",
                                      "tracks");
                     }
-                    // No `busy` and no `applied`: this path is incremental by construction (only
-                    // clips moved), and announcing a rebuild six times a second would drown the
-                    // one that matters. A change that DOES force a rebuild still logs its own.
+                    // No `busy` and no `applied`: this path is incremental by construction, and announcing six times a second would drown the changeset that matters.
                     host.apply(session, doc, "");
                 });
             } else if (type == "broadcast") {
-                // Subscribe or unsubscribe THIS connection to the master audio stream. The
-                // tap is put on the master plugin list for the first listener and taken off
-                // when the last one goes, so an engine nobody is listening to copies nothing.
+                // Subscribe or unsubscribe THIS connection to the master audio stream; the tap goes on for the first listener and off after the last, so an unheard engine copies nothing.
                 const bool on = j.value("on", false);
                 size_t remaining = 0;
                 bool first = false;
                 {
                     // Same discipline as the Close handler: decide and queue under one lock.
                     std::lock_guard<std::mutex> lk(listenersMx);
-                    // FIRST for THIS session — another service already listening does not make this
-                    // one mid-stream. Counted rather than tested on emptiness.
+                    // FIRST for THIS session, counted rather than tested on emptiness: another service already listening does not make this one mid-stream.
                     first = on && std::none_of(listeners.begin(), listeners.end(),
                                                [&](const auto& kv) { return kv.second == session; });
                     if (on) listeners[&ws] = session;
@@ -887,9 +731,7 @@ int main(int argc, char** argv) {
                 std::cerr << "[broadcast] " << (on ? "listener added" : "listener removed")
                           << " (" << remaining << " listening)\n";
             } else if (type == "flush") {
-                // Forget the project (plugins, edit, diff baseline) so the next one is built from scratch. Sent when the client
-                // switches projects: diffing a new song against the old is meaningless, and the old plugins must not survive.
-                // The engine stays up with its audio device and scan cache.
+                // Forget the project — plugins, edit, diff baseline — when the client switches projects; the engine stays up with its audio device and scan cache.
                 host.post([session, &host, &broadcastTo]() {
                     host.reset(session);
                     broadcastTo(session, json{{"type", "flushed"}});
@@ -901,9 +743,7 @@ int main(int argc, char** argv) {
                 const double loopEnd = j.value("end", 0.0);          // seconds; "loop" only
                 const bool loopOn = j.value("enabled", false);       // "loop" only
                 host.post([session, &host, action, position, loopStart, loopEnd, loopOn] {
-                    // Every transport move is a deliberate user action, so one line each is signal — and it tells you whether a
-                    // silent playback problem is "the engine never got play" or "it played and you heard nothing". The 20/second
-                    // state broadcast stays out of the log, where it would drown everything else.
+                    // One line per transport move tells "the engine never got play" from "it played and you heard nothing"; the 20 Hz state frame stays out of the log.
                     std::cerr << "[transport] " << action;
                     if (action == "seek") std::cerr << " -> " << position << "s";
                     if (action == "loop")
@@ -922,8 +762,7 @@ int main(int argc, char** argv) {
                     else if (action == "loop") host.setLoop(session, loopStart, loopEnd, loopOn);
                 });
             } else if (type == "preview") {
-                // Audition one sample over [start, start+length) seconds; length <= 0 is the whole file. Independent of the
-                // transport, so it works while stopped, and the path was resolved by the file service.
+                // Audition one sample over [start, start+length) seconds, length <= 0 being the whole file — independent of the transport, so it works while stopped.
                 const std::string file = j.value("file", std::string{});
                 const double start = j.value("start", 0.0);
                 const double length = j.value("length", 0.0);
@@ -934,8 +773,7 @@ int main(int argc, char** argv) {
                         host.previewSample(session, file, start, length);
                     });
             } else if (type == "arm") {
-                // Arm or disarm a track; omitting "armed" toggles. Session state — see EngineHost::setArmed. The reply says
-                // which way it went, so the caller reports it without racing the state broadcast, and a refusal says why.
+                // Arm or disarm a track, omitting "armed" to toggle; the reply says which way it went, so the caller reports it without racing the state frame.
                 const std::string track = j.value("track", std::string{});
                 std::optional<bool> armed;
                 if (j.contains("armed") && j.at("armed").is_boolean())
@@ -950,8 +788,7 @@ int main(int argc, char** argv) {
                     broadcastTo(session, json{{"type", "armed"}, {"track", track}, {"armed", r.armed}});
                 });
             } else if (type == "record-enable") {
-                // This session's record enable: whether play() records its armed tracks. Omitting "enabled" toggles,
-                // and the value is echoed at once so the record button lights without racing the state frame.
+                // This session's record enable — whether play() records its armed tracks; omitting "enabled" toggles, and the value is echoed at once so the button lights.
                 const bool has = j.contains("enabled") && j.at("enabled").is_boolean();
                 const std::optional<bool> want =
                     has ? std::optional<bool>(j.at("enabled").get<bool>()) : std::nullopt;
@@ -961,9 +798,7 @@ int main(int argc, char** argv) {
                     broadcastTo(session, json{{"type", "record-enabled"}, {"enabled", on}});
                 });
             } else if (type == "list-plugins" || type == "rescan-plugins") {
-                // list-plugins returns the cached list, scanning once if it is cold so it just works the first time;
-                // rescan-plugins always refreshes. A scan spawns a child per plugin and blocks, so it runs detached.
-                // Optional "filter" narrows by format substring, "force" re-scans everything.
+                // list-plugins returns the cache, scanning once if cold; rescan-plugins always refreshes, detached because a scan spawns a child per plugin and blocks. "filter" narrows by format, "force" re-scans all.
                 const std::string filter = j.value("filter", std::string{});
                 const bool doScan = (type == "rescan-plugins");
                 const bool force = j.value("force", false);
@@ -991,19 +826,14 @@ int main(int argc, char** argv) {
                     broadcast(json{{"type", "plugins"}, {"plugins", arr}});
                 };
 
-                // Say when a scan starts and why: it spawns a child per plugin and is by far the slowest thing the engine does,
-                // so a cold cache turning a list into a minute of work otherwise looks like a hang.
+                // Say when a scan starts and why: it is by far the slowest thing the engine does, so a cold cache turning a list into a minute of work otherwise looks like a hang.
                 if (doScan) {
                     std::cerr << "[plugins] rescan requested" << (force ? " (force)" : "")
                               << " — scanning, this can take a while\n";
                     std::thread([reply, force] { reply(ensurePluginsScanned(force)); }).detach();
                 } else {
                     auto cached = studio::loadPluginCache();
-                    // Count the EXTERNALS, not the entries. The built-ins are synthesised in code and joined to
-                    // whatever the file held, so `cached` is never empty: a missing or truncated exts.json still
-                    // yields ~212 built-ins, sails past an emptiness check, and logs a reassuring "212 from cache"
-                    // while every VST in the project silently fails to build. That is exactly what happened here
-                    // — five instruments gone from an edit whose log said the cache was fine.
+                    // Count the EXTERNALS, not the entries: built-ins are synthesised in code, so a truncated exts.json still yields ~212 and logs a reassuring "212 from cache" while every VST silently fails.
                     const auto externals = std::count_if(
                         cached.begin(), cached.end(),
                         [](const studio::PluginInfo& p) { return p.format != "internal"; });
@@ -1021,16 +851,7 @@ int main(int argc, char** argv) {
                     }
                 }
             } else if (type == "list-plugin-params") {
-                // Every parameter of an installed plugin TYPE, by instantiating it and asking.
-                //
-                // The built-ins are answered from a table generated once and committed; an installed plugin cannot
-                // be, because which ones exist is a fact about THIS machine. The scan cache carries a plugin's name
-                // and format and no parameters, so nothing short of a live instance can list them.
-                //
-                // DETACHED, like a scan and for the same reason: loading a plugin binary is the slowest thing asked
-                // of this port, some of them take seconds, and holding the message thread would stall the transport
-                // of everything else running on this engine. The reply is broadcast, so a connection that closed
-                // meanwhile costs nothing.
+                // Every parameter of an installed plugin TYPE, by instantiating it and asking — nothing short of a live instance can list them, so it runs DETACHED like a scan and broadcasts its reply.
                 const std::string fmt = j.value("format", std::string{});
                 const std::string id = j.value("id", std::string{});
                 if (fmt.empty() || id.empty()) {
@@ -1056,17 +877,7 @@ int main(int argc, char** argv) {
                                   << (found ? std::to_string(arr.size()) + " parameters"
                                             : std::string{"could not be loaded"})
                                   << "\n";
-                        // `plugin-param-LIST`, because `plugin-params` is already the reply
-                        // carrying a loaded INSTANCE's current values. What a plugin TYPE has and
-                        // what one instance is set to are different questions, and one name for
-                        // both would feed a list into the client's live-value path.
-                        //
-                        // `found` carries the difference an empty array cannot: a plugin this
-                        // machine could not find, create or LOAD, versus one that loaded and
-                        // publishes nothing. Calling the first "no parameters" draws an empty
-                        // panel and blames the plugin — which is exactly what it did while every
-                        // external plugin was failing for one missing line (see describeExternal
-                        // in ParamDump.cpp): the flag was right and its explanation was not.
+                        // `plugin-param-LIST`, since `plugin-params` already carries a loaded INSTANCE's values, and `found` carries what an empty array cannot: could not load, versus loaded and publishes nothing.
                         broadcast(json{{"type", "plugin-param-list"},
                                        {"format", fmt},
                                        {"id", id},
@@ -1075,13 +886,7 @@ int main(int argc, char** argv) {
                     }).detach();
                 }
             } else if (type == "list-edit-plugins") {
-                // Snapshot the plugin instances in EVERY session for the tray's submenu, each row naming the
-                // session it is in. ENGINE-GLOBAL like list-sessions, and for the same reason: the asker is the
-                // supervisor, which drives no session, and with N of them there is no "the" loaded edit. Per
-                // session it would ask on the default one and get an empty list, since reading never creates one.
-                //
-                // Reads pluginsById, so it must run on the message thread, and the reply is broadcast like
-                // list-audio-devices — a connection may have closed between post and send.
+                // Every session's plugin instances for the tray's submenu, each row naming its session — ENGINE-GLOBAL, since the asker drives none (docs/sessions.md); message thread, and broadcast.
                 host.post([&host, &broadcast] {
                     json arr = json::array();
                     for (const auto& sid : host.sessionIds())
@@ -1093,14 +898,7 @@ int main(int argc, char** argv) {
                     broadcast(json{{"type", "edit-plugins"}, {"plugins", arr}});
                 });
             } else if (type == "list-sessions") {
-                // Every session this engine holds, for a supervisor that drives none of them.
-                // ENGINE-GLOBAL on purpose — it is the one question whose answer is about the
-                // other sessions, so it carries no `session` field and is not filtered.
-                //
-                // The listener counts come from THIS file rather than the host: who is
-                // subscribed to audio is a property of the sockets, which the engine layer
-                // has never seen. Snapshotted before the post so the lock is not held across
-                // one, matching the discipline the sender thread already follows.
+                // Every session this engine holds — ENGINE-GLOBAL, being the one question about the OTHER sessions; the listener counts come from this file, snapshotted before the post so no lock is held across it.
                 std::map<std::string, int> ears;
                 {
                     std::lock_guard<std::mutex> lk(listenersMx);
@@ -1123,12 +921,7 @@ int main(int argc, char** argv) {
                     broadcast(json{{"type", "sessions"}, {"sessions", arr}});
                 });
             } else if (type == "drop-session") {
-                // Forget a session outright — the tray's way of clearing one an app left
-                // behind. Documented since sessions landed and unwired until now, which is
-                // worse than absent: a reader would have believed it worked.
-                //
-                // `session` and not an `id` field, so it addresses a session exactly like
-                // every other message does.
+                // Forget a session outright — the tray's way of clearing one an app left behind, addressed by `session` like every other message rather than by an `id` field.
                 host.post([&host, session, &broadcast] {
                     std::cerr << "[session] dropped '" << session << "'\n";
                     host.dropSession(session);
@@ -1142,15 +935,7 @@ int main(int argc, char** argv) {
                     host.showNativePluginUI(session, id);
                 });
             } else if (type == "show-native-plugin-ui-of") {
-                // …and the same window for a plugin that is in NO project: `format` and `id` name an
-                // installed binary, exactly as `list-plugin-params` does, and the engine opens the
-                // plugin's own UI on an orphan instance. What that instance is told is not saved
-                // anywhere — see showNativePluginUIOf in EngineHost.h.
-                //
-                // Both threads, in order. Loading the binary is seconds, so it happens DETACHED like
-                // the param query beside it; holding the message thread that long stalls the
-                // transport of every session on this engine. Only the window needs the message
-                // thread, and by then the instance is already loaded, so that part is quick.
+                // …and the same window for a plugin in NO project, on an ORPHAN instance saved nowhere: the seconds-long load runs detached, and only the window itself needs the message thread.
                 const std::string fmt = j.value("format", std::string{});
                 const std::string id = j.value("id", std::string{});
                 if (fmt.empty() || id.empty()) {
@@ -1160,10 +945,7 @@ int main(int argc, char** argv) {
                 } else {
                     std::thread([&host, &broadcast, fmt, id] {
                         std::cerr << "[native-plugin-ui] loading '" << id << "'" << "\n";
-                        // ANSWERED either way, and that is not politeness. Loading a plugin binary
-                        // can take seconds and has been seen to hang outright; a caller told
-                        // nothing cannot tell a slow load from a dead one, so it reports a window
-                        // that never opened. The one honest signal is this message or its absence.
+                        // ANSWERED either way, not out of politeness: a load can hang outright, and a caller told nothing cannot tell a slow load from a dead one.
                         if (!studio::prepareNativePluginUI(fmt, id)) {
                             std::cerr << "[native-plugin-ui] '" << id << "' did not load" << "\n";
                             broadcast(json{{"type", "native-plugin-ui-opened"},
@@ -1184,18 +966,7 @@ int main(int argc, char** argv) {
                     }).detach();
                 }
             } else if (type == "snapshot-plugin-base") {
-                // Keep what the orphan window is holding: write its state to `path` as a
-                // .vstpreset. The one act that takes something OUT of a window whose whole
-                // premise is that nothing in it is saved — hence its own message rather than a
-                // flag on the open above.
-                //
-                // `path` is absolute and comes from the file service, on this machine: it is the
-                // side that knows where a module's folder is and the side that checked the name.
-                // The engine writes where it is told, as it does for a render or a freeze.
-                //
-                // MESSAGE THREAD, unlike the open beside it, and for the opposite reason: nothing
-                // is loaded here — the instance is already there — and its state must be read
-                // where its editor lives.
+                // Keep what the orphan window holds, as a .vstpreset at an absolute `path` the file service chose — MESSAGE THREAD, since the instance exists already and its state is read where its editor lives.
                 const std::string fmt = j.value("format", std::string{});
                 const std::string id = j.value("id", std::string{});
                 const std::string path = j.value("path", std::string{});
@@ -1208,10 +979,7 @@ int main(int argc, char** argv) {
                         const bool ok = studio::snapshotOrphanPluginTo(fmt, id, path);
                         std::cerr << "[plugin-base] " << (ok ? "wrote " : "could not write ")
                                   << path << "\n";
-                        // Answered rather than left to the caller to go and look: a file appearing
-                        // on disk is not proof the plugin had anything to put in it, and the two
-                        // failures worth telling apart — no instance open, and a plugin with no
-                        // state — both leave no file at all.
+                        // Answered rather than left for the caller to look: no instance open and a plugin with no state both leave no file at all.
                         broadcast(json{{"type", "plugin-base-saved"},
                                        {"format", fmt},
                                        {"id", id},
@@ -1220,20 +988,13 @@ int main(int argc, char** argv) {
                     });
                 }
             } else if (type == "set-plugin-param") {
-                // Set one plugin parameter on the LIVE edit, for a control being dragged: `name` is its display name, `value`
-                // in its native range. This does NOT persist — the client writes the value to the project on release — so an
-                // interrupted drag leaves the plugin on the last value sent and the project on the old one until the next apply
-                // reconciles them, which is the right trade for latency. Deliberately unlogged: it arrives at interactive rates.
+                // Set one plugin parameter on the LIVE edit for a control being dragged; it does NOT persist — the client writes on release — and it is unlogged, arriving at interactive rates.
                 const std::string id = j.value("id", std::string{});
                 const std::string name = j.value("name", std::string{});
                 const double value = j.value("value", 0.0);
                 host.post([session, &host, id, name, value] { host.setPluginParam(session, id, name, value); });
             } else if (type == "get-plugin-params") {
-                // Every automatable parameter of a live plugin with its CURRENT value, replied as the same `plugin-params`
-                // message the editor-close path broadcasts — a module's UI asks once per load. The two differ in what they
-                // carry: the broadcast is a minimal preset, while this reports EVERY parameter, since a control drawn at its
-                // minimum because "no value was saved" would simply be wrong. `meta` rides alongside with each range and
-                // default, kept a SEPARATE object so a client reading only values stays untouched.
+                // Every automatable parameter of a live plugin with its CURRENT value — EVERY one, unlike the editor-close broadcast's minimal preset, since a control drawn at its minimum for want of a saved value is simply wrong; `meta` rides alongside as a SEPARATE object.
                 const std::string id = j.value("id", std::string{});
                 host.post([session, &host, &broadcastTo, id] {
                     json params = json::object();
@@ -1257,8 +1018,7 @@ int main(int argc, char** argv) {
                                               {"meta", meta}});
                 });
             } else if (type == "list-presets") {
-                // The presets a MODULE's external plugin offers — program list plus the .vstpreset files — replied as `presets`
-                // for the module editor's dropdown. `module` is the name; the engine resolves it to a live instance.
+                // The presets a MODULE's external plugin offers — programs plus .vstpreset files — for the editor's dropdown; `module` is a name the engine resolves to a live instance.
                 const std::string module = j.value("module", std::string{});
                 host.post([session, &host, &broadcastTo, module] {
                     json arr = json::array();
@@ -1270,8 +1030,7 @@ int main(int argc, char** argv) {
                     broadcastTo(session, json{{"type", "presets"}, {"module", module}, {"presets", arr}});
                 });
             } else if (type == "set-preset") {
-                // Load a preset into every live instance of `module` and persist it to the module's .vstpreset (a `path` picks
-                // a file, else `index` a program). Persisting broadcasts preset-saved, which the brain follows.
+                // Load a preset into every live instance of `module` and persist it to the module's .vstpreset — `path` picks a file, else `index` a program — broadcasting preset-saved.
                 const std::string module = j.value("module", std::string{});
                 const int index = j.value("index", -1);
                 const std::string path = j.value("path", std::string{});
@@ -1282,23 +1041,13 @@ int main(int argc, char** argv) {
                     host.setPreset(session, module, index, path);
                 });
             } else if (type == "watch-plugin-params") {
-                // Subscribe or unsubscribe a plugin from the live parameter stream — how a knob turned in the plugin's own
-                // window reaches this client. Off by default and per-plugin, so a client asks only for what it shows.
-                // The watch set is the ENGINE's, not the connection's, so a second watcher is a no-op and the last unwatch stops
-                // it for everyone — the same shape as the state broadcast, and acceptable for the same reason.
+                // Subscribe a plugin to the live parameter stream — how a knob turned in its own window reaches this client; the watch set is the ENGINE's, so a second watcher is a no-op and the last unwatch stops it for everyone.
                 const std::string id = j.value("id", std::string{});
                 const bool on = j.value("on", true);
                 if (!id.empty())
                     host.post([session, &host, id, on] { host.watchPluginParams(session, id, on); });
             } else if (type == "subscribe-waveform" || type == "unsubscribe-waveform") {
-                // Subscribe or unsubscribe a module's waveform tap: `id` is the PluginDoc id and `side` is input or
-                // output. The tap is a transparent plugin capturing min/max envelopes at 20 Hz.
-                //
-                // There is deliberately no `trackIndex`. The graph has no track index — a chain can be a bus with
-                // no track at all — so a client naming one has nothing sensible to send, sends 0, and the tap
-                // meters the FIRST track of the song. The symptom, a waveform showing some unrelated track, reads
-                // as a bug in the display. The track is derived from the plugin instead (see enableWaveformTap),
-                // and a message with no id is rejected outright: no waveform beats a confidently wrong one.
+                // Subscribe a module's waveform tap by PluginDoc `id` and `side` — deliberately no `trackIndex`, since the graph has none and a client sending 0 would meter the FIRST track instead; no waveform beats a confidently wrong one.
                 const std::string wfId = j.value("id", std::string{});
                 const std::string side = j.value("side", std::string{"output"});
                 const bool subscribe = (type == "subscribe-waveform");
@@ -1313,10 +1062,7 @@ int main(int argc, char** argv) {
                 // Enumerate audio interfaces (message thread — touches JUCE devices).
                 host.post([session, &host, &broadcast] { broadcast(audioDevicesMsg(host)); });
             } else if (type == "io-levels") {
-                // Meter the interface itself: one peak per `channels` entry, plus the master output. Asked for
-                // rather than ridden on the state frame — the I/O panel is the only thing that wants it, and the
-                // pitch estimate below is real work per channel, so it must not cost every client 20 Hz of
-                // channels nobody is looking at. It ENABLES nothing: see channelLevelsDb.
+                // Meter the interface itself, one peak per `channels` entry plus the master — asked for rather than ridden on the state frame, since the pitch estimate is real work per channel; it ENABLES nothing (channelLevelsDb).
                 std::vector<std::vector<int>> sets;
                 for (const auto& s : j.value("channels", json::array())) {
                     std::vector<int> ch;
@@ -1330,23 +1076,20 @@ int main(int argc, char** argv) {
                         levels.push_back(l.db);
                         found.push_back(l.found);
                     }
-                    // The device layout rides along: how the interface GROUPS its inputs is the
-                    // one thing that explains a channel that exists and meters nothing.
+                    // The device layout rides along: how the interface GROUPS its inputs is what explains a channel that exists and meters nothing.
                     json devices = json::array();
                     for (const auto& d : host.inputDevices())
                         devices.push_back({{"name", d.name},
                                            {"channels", d.channels},
                                            {"enabled", d.enabled}});
-                    // …and the tuner's reading per input, on the same poll: it is the same panel asking about
-                    // the same channels, and a second command would have doubled the round trips for it.
+                    // …and the tuner's reading per input, on the same poll: same panel, same channels, and a second command would double the round trips.
                     json pitches = json::array();
                     json clarity = json::array();
                     for (const auto& p : host.channelPitches(sets)) {
                         pitches.push_back(p.hz);
                         clarity.push_back(p.clarity);
                     }
-                    // Stamped because "master" is this session's own output level: unstamped, two I/O
-                    // panels on one engine read each other's meter.
+                    // Stamped because "master" is this session's own output level: unstamped, two I/O panels on one engine read each other's meter.
                     broadcastTo(session, json{{"type", "io-levels"},
                                               {"inputs", levels},
                                               {"found", found},
@@ -1356,14 +1099,7 @@ int main(int argc, char** argv) {
                                               {"master", host.masterLevelDb(session)}});
                 });
             } else if (type == "set-input-stereo") {
-                // Group two interface inputs into one stereo device, or split them apart. `channel` is 1-based and
-                // names its PAIR — Tracktion pairs even/odd hardware channels and nothing else.
-                //
-                // Nothing is broadcast back. The device layout rides on `io-levels`, which is the only message
-                // carrying it and which every surface showing inputs already asks for — the I/O panel ten times a
-                // second, the module builder once on open. A second way to learn the same list would be a second
-                // thing to keep in step. setInputStereo forces the rebuild through before returning, so the next
-                // `io-levels` on this thread already reads the new grouping.
+                // Group two interface inputs into one stereo device or split them, `channel` being 1-based and naming its PAIR — nothing is broadcast back, since the layout rides on `io-levels`, which the rebuild is forced through before returning.
                 const int channel = j.value("channel", 0);
                 const bool stereo = j.value("stereo", false);
                 host.post([session, &host, &broadcastTo, channel, stereo] {
@@ -1372,33 +1108,22 @@ int main(int argc, char** argv) {
                                                   {"message", "no audio interface open to group inputs on"}});
                 });
             } else if (type == "set-audio-device") {
-                // Open a specific interface, replying with the new device list or an error. `deviceType` is the backend — NOT
-                // "type", which is the message kind.
+                // Open a specific interface, replying with the new device list or an error; `deviceType` is the backend — NOT "type", which is the message kind.
                 const std::string name = j.value("name", std::string{});
                 const std::string deviceType = j.value("deviceType", std::string{});
                 host.post([session, &host, &broadcast, &broadcastTo, name, deviceType] {
-                    // Switching the interface reopens the audio graph, which is worth a line: a device that opens slowly, or not at
-                    // all, shows up as silence rather than an error anywhere else. The failure path already warns.
+                    // Switching the interface reopens the audio graph, worth a line: a device that opens slowly or not at all shows up as silence rather than an error.
                     std::cerr << "[device] opening '" << name << "'"
                               << (deviceType.empty() ? std::string{} : " [" + deviceType + "]")
                               << "\n";
-                    // The new device list goes to EVERYONE — one interface per process, so every session
-                    // must learn a switch. The refusal goes only to whoever asked for it.
+                    // The new device list goes to EVERYONE, one interface per process meaning every session must learn a switch; the refusal goes only to whoever asked.
                     if (host.setAudioDevice(name, deviceType))
                         broadcast(audioDevicesMsg(host));
                     else
                         broadcastTo(session, json{{"type", "error"}, {"message", "audio device not available: " + name}});
                 });
             } else if (type == "whoami" || type == "hello") {
-                // Identity probe, replied to the ASKING socket only, so a browser measuring candidates doesn't spam every
-                // client. The token proves this is the real engine for this id; the registry verifies it server-side on select.
-                //
-                // It carries the audio timing too, because the browser is timing THIS round trip to get the network half
-                // and needs the interface half from the same breath — a second query would measure a second, warmer trip.
-                // Answered off the message thread deliberately: posting it would put the probe behind whatever the engine
-                // is doing, turning the ping into a measure of its queue. That is only SAFE because audioTiming() reads
-                // two atomics the message thread publishes: dereferencing the live device here would race a concurrent
-                // set-audio-device, which destroys it, and this keepalive fires every few seconds on every socket.
+                // Identity probe, replied to the ASKING socket alone and answered OFF the message thread, which is safe only because audioTiming() reads two atomics (docs/protocol.md).
                 const auto timing = host.audioTiming();
                 ws.send(json{{"type", "whoami"},
                              {"id", engineId},
@@ -1407,14 +1132,7 @@ int main(int argc, char** argv) {
                              {"sampleRate", timing.sampleRate}}
                             .dump());
 
-                // …and, if this socket says it DRIVES a session, start counting it. Declared here
-                // rather than in a verb of its own because every surface already sends a hello on
-                // every connection — including after a reconnect, which is exactly when the count
-                // has to be restored. Registered ONCE per socket: the browser's keepalive re-sends
-                // whoami every few seconds on a quiet link, and each of those must not be a driver.
-                //
-                // A client that says nothing is not a driver, which is what keeps the file service
-                // (and the tray, and every probe) out of the count. See docs/sessions.md.
+                // …and, if this socket says it DRIVES a session, start counting it — on hello, so a reconnect restores the count, and ONCE per socket, since the keepalive re-sends whoami (docs/sessions.md).
                 if (j.value("role", std::string{}) == "driver") {
                     bool isNew;
                     {
@@ -1424,18 +1142,13 @@ int main(int argc, char** argv) {
                     if (isNew) host.post([&host, session] { host.addDriver(session); });
                 }
             } else {
-                // A message we don't understand is version skew between brain and engine — log it here too, or the only trace
-                // is an error the client may well be ignoring.
+                // A message we don't understand is version skew between brain and engine — logged here too, or the only trace is an error the client may be ignoring.
                 std::cerr << "[client] unknown message type: '" << type << "'\n";
                 ws.send(json{{"type", "error"}, {"message", "unknown message type: " + type}}.dump());
             }
         });
 
-    // Push transport/meter state ~20x/second to the sockets that asked about THIS project — not
-    // to every socket on the port. One engine holds several sessions, so a broadcast had every
-    // tab decoding levels and waveform envelopes for songs it is not showing, only to have
-    // `forSession` drop them; and since the idle divider is per session, one session playing woke
-    // every other session's tabs 20 times a second. That filter stays: this decides what to send.
+    // Push transport/meter state ~20x/second to the sockets that asked about THIS project, not to every socket on the port (docs/protocol.md).
     host.onState([&server, &listenersMx, &subscribers](const studio::EngineHost::EngineState& s) {
         json wf = json::object();
         for (const auto& [key, envelopes] : s.waveformEnvelopes) {
@@ -1446,8 +1159,7 @@ int main(int argc, char** argv) {
         }
         const auto payload = json{
             {"type", "state"},
-            // WHICH project this frame describes. Empty is the default session — what a
-            // client that never asked for one drives.
+            // WHICH project this frame describes; empty is the default session, what a client that never asked for one drives.
             {"session", s.session},
             {"playing", s.playing},
             {"playhead", s.playheadSeconds},
@@ -1455,18 +1167,13 @@ int main(int argc, char** argv) {
             {"inputLevels", s.trackInputLevelsDb},
             {"armed", s.armedTracks},
             {"recordEnabled", s.recordEnabled},
-            // The master output, and whether it overloaded since the last frame. `master` here is
-            // the same number `io-levels` carries under that name, read through a second client so
-            // the two do not clear each other — see EngineHost::masterState.
+            // The master output and whether it overloaded since the last frame — the same number `io-levels` carries, read through a second client (docs/meterClients.md).
             {"master", s.masterLevelDb},
             {"masterClipped", s.masterOverload},
             {"waveform", std::move(wf)},
         }.dump();
 
-        // Chosen under the lock, sent outside it. A server-side IXWebSocket send blocks until the
-        // peer's window drains, with no bound, so holding the lock across one would park every
-        // connection thread reaching the Close handler — the rule the audio sender below states
-        // at length. The shared_ptrs keep the sockets alive across the sends.
+        // Chosen under the lock, sent outside it: a server-side send blocks until the peer's window drains, so holding the lock would park every connection thread; the shared_ptrs keep the sockets alive.
         std::vector<std::shared_ptr<ix::WebSocket>> targets;
         {
             const auto clients = server.getClients();
@@ -1491,8 +1198,7 @@ int main(int argc, char** argv) {
         });
     });
 
-    // When a plugin's editor closes the engine persists its state to the module — text params when they capture it,
-    // else the module's .vstpreset — and notifies clients, whose watcher reloads.
+    // When a plugin's editor closes the engine persists its state to the module — text params where they capture it, else a .vstpreset — and notifies clients, whose watcher reloads.
     host.onPresetSaved([&broadcastTo](const std::string& session, const std::string& id,
                                       const std::string& path) {
         broadcastTo(session, json{{"type", "preset-saved"}, {"id", id}, {"path", path}});
@@ -1506,20 +1212,16 @@ int main(int argc, char** argv) {
         }
         broadcastTo(session, json{{"type", "plugin-params"}, {"id", id}, {"params", params}});
     });
-    // Watched plugins, whenever a value moves. Its own message type rather than `plugin-params`, which means
-    // "persist this": a flag on one shared type would leave every consumer a forgotten check away from rewriting
-    // the project file at 20 Hz.
-    // Engine warnings reach the CLIENT, not just stderr. The tray adopts an engine it did
-    // not spawn, so its output goes nowhere a user can see — which is how a plugin that
-    // refused its model looked exactly like one that worked.
-    // Stamped when a WarningScope named a project (an apply, a preset load); unstamped otherwise —
-    // a device or startup warning belongs to no session, which is the case pass-on-absence covers.
+    // Engine warnings reach the CLIENT and not just stderr: the tray adopts an engine it did not spawn, so its output goes nowhere a user can see.
+
+    // Stamped when a WarningScope named a project, unstamped otherwise — a device or startup warning belongs to no session.
     studio::setWarningSink([&broadcast, &broadcastTo](const studio::Warning& w) {
         json msg{{"type", "engine-warning"}, {"subject", w.subject}, {"message", w.message}};
         if (w.session.empty()) broadcast(msg);
         else broadcastTo(w.session, msg);
     });
 
+    // Watched plugins, whenever a value moves — its own type rather than `plugin-params`, which means "persist this" and would have every consumer one forgotten check from rewriting the project at 20 Hz.
     host.onPluginParamsLive(
         [&broadcastTo](const std::string& session, const std::string& id,
                        const std::vector<std::pair<std::string, double>>& p) {
@@ -1536,46 +1238,22 @@ int main(int argc, char** argv) {
     }
     server.start();
 
-    // The audio broadcast: drain the master tap and push it to whoever asked, as BINARY on
-    // this same socket.
-    //
-    // ITS OWN THREAD, and that is not a preference. For a SERVER-side socket IXWebSocket
-    // sets _blockingSend, and WebSocketServer leaves its send timeout at -1: sendBinary
-    // does not return until the listener's TCP window drains, with no bound. On the message
-    // thread — where this started — one suspended laptop would park the whole engine: no
-    // meters, no transport, no applies, and it would read as a hang with no cause.
-    //
-    // What this does NOT fix, and is worth knowing before trusting it: the JSON broadcast()
-    // above still sends from the message thread, and IXWebSocket takes a per-socket write
-    // mutex for the whole of a send. So a listener wedged here still stalls the 20 Hz state
-    // frame behind that mutex. That hazard predates the audio stream — any client could
-    // always do it — but a 3 Mbit/s subscriber makes it likely rather than theoretical, and
-    // fixing it means giving the JSON path a bounded send too. Measure it (docs/broadcast.md)
-    // before deciding.
-    //
-    // The bufferedAmount() guard below is a cheap check, not the protection: after a
-    // blocking send returns the tx buffer is empty, so it reads ~0 nearly every time.
+    // The audio broadcast: drain the master tap and push it as BINARY to whoever asked, on ITS OWN THREAD because a server-side sendBinary blocks unboundedly (docs/broadcast.md).
     std::atomic<bool> senderRunning{true};
     std::thread senderThread([&host, &server, &listenersMx, &listeners, &sinceBoot,
                               &senderRunning] {
         bool warnedNoRate = false;
 
-        // Drain ONE session's ring and send it to ONE session's listeners. A lambda rather
-        // than inline, because the pass below loops over sessions and the per-session work
-        // is what has to stay readable.
+        // Drain ONE session's ring and send it to ONE session's listeners — a lambda, because the pass below loops over sessions.
         const auto pump =
             [&](const std::string& sid,
                 const std::vector<std::shared_ptr<ix::WebSocket>>& targets) {
-                // Drain everything waiting, not one frame per pass. A ceiling equal to the
-                // production rate has NO headroom: any late wake-up adds backlog no later
-                // pass can work off, so the ring fills within a second and stays full. The
-                // bound only stops a burst spinning the loop.
+                // Drain everything waiting, not one frame per pass: a ceiling equal to the production rate has NO headroom, so any late wake-up leaves a backlog that fills the ring within a second.
                 for (int guard = 0; guard < kBroadcastFramesPerPass; ++guard) {
                     auto chunk = host.drainBroadcast(sid, kBroadcastMaxFrames);
                     if (chunk.frames == 0) break;
 
-                    // A rate of 0 means this session's tap has never been through
-                    // initialise(). stream.ts rejects it, so it would vanish in silence.
+                    // A rate of 0 means this session's tap has never been through initialise(), and stream.ts rejects it, so it would vanish in silence.
                     if (chunk.sampleRate < 8000.0) {
                         if (!warnedNoRate) {
                             std::cerr << "[broadcast] a tap has no sample rate yet — frames "
@@ -1585,18 +1263,14 @@ int main(int argc, char** argv) {
                         break;
                     }
 
-                    // A hole the tap overwrote becomes a JUMP in the sequence number, so the
-                    // listener re-cushions instead of splicing unrelated samples. Rounded
-                    // UP: integer division would report a sub-frame hole as no hole at all.
+                    // A hole the tap overwrote becomes a JUMP in the sequence number, so the listener re-cushions; rounded UP, since integer division would report a sub-frame hole as none.
                     const uint32_t seq =
                         nextSeq(sid, 1 + static_cast<uint32_t>(
                                               (chunk.lostFrames + kBroadcastMaxFrames - 1) /
                                               kBroadcastMaxFrames));
                     const auto payload = encodeStreamFrame(chunk, seq, sinceBoot());
 
-                    // Sent OUTSIDE the listener lock — see the note above: this send blocks,
-                    // and holding the lock would stall every connection thread reaching the
-                    // Close handler. The shared_ptrs keep the sockets alive across it.
+                    // Sent OUTSIDE the listener lock, since this send blocks and holding the lock would stall every connection thread reaching the Close handler.
                     for (auto& client : targets) {
                         if (client->bufferedAmount() > kBroadcastMaxQueuedBytes) continue;
                         client->sendBinary(payload);
@@ -1606,8 +1280,7 @@ int main(int argc, char** argv) {
             };
 
         while (senderRunning.load(std::memory_order_relaxed)) {
-            // A session whose first listener just arrived starts from LIVE. Honoured here
-            // because moving a read cursor belongs to this thread alone.
+            // A session whose first listener just arrived starts from LIVE, honoured here because moving a read cursor belongs to this thread alone.
             {
                 std::set<std::string> justArrived;
                 {
@@ -1617,17 +1290,12 @@ int main(int argc, char** argv) {
                 for (const auto& sid : justArrived) host.skipBroadcastToLive(sid);
             }
 
-            // WHO IS LISTENING TO WHAT. The whole point of this pass: a session's audio goes
-            // only to the sockets driving that session. Before, every listener got the one
-            // global master — an pl8 module preview would have been mixed into a set.
+            // WHO IS LISTENING TO WHAT, the whole point of this pass: a session's audio goes only to the sockets driving that session, never the one global master.
             std::map<std::string, std::vector<std::shared_ptr<ix::WebSocket>>> bySession;
             {
                 const auto clients = server.getClients();
                 std::lock_guard<std::mutex> lk(listenersMx);
-                // Prune the departed FIRST. The map is keyed by raw pointer, so an entry
-                // left by a connection whose Close never arrived could be matched by a later
-                // socket the allocator put at the same address — handing a tray probe a
-                // 3 Mbit/s stream it never asked for.
+                // Prune the departed FIRST: keyed by raw pointer, an entry left by a Close that never arrived could match a later socket at the same address and hand a tray probe 3 Mbit/s.
                 for (auto it = listeners.begin(); it != listeners.end();) {
                     const bool live = std::any_of(
                         clients.begin(), clients.end(),
@@ -1654,9 +1322,7 @@ int main(int argc, char** argv) {
               << "ms (audio device opens on the message loop; its timing is logged "
                  "when it completes)\n";
 
-    // Warm the plugin cache in the background at startup, so the first list-plugins never waits on a cold scan —
-    // each plugin loads in a child process, and a cold sweep is the slowest thing the engine does. A no-op when
-    // warm, and serialized with the on-demand path so the two can't scan at once.
+    // Warm the plugin cache in the background at startup so the first list-plugins never waits on a cold sweep — a no-op when warm, and serialized with the on-demand path.
     std::thread([] {
         if (studio::loadPluginCache().empty()) {
             std::cerr << "[plugins] cache cold at startup — warming in the background, "
@@ -1671,10 +1337,7 @@ int main(int argc, char** argv) {
 
     host.run();          // blocks on the JUCE message loop until quit()
 
-    // server.stop() FIRST, then join. The sender can be parked in a send to a listener that
-    // stopped reading, and that send has no timeout — the only thing that unwedges it is
-    // the socket being closed, which is what stop() does. Joining first would hang the
-    // engine on Ctrl-C until the TCP stack gave up on its own.
+    // server.stop() FIRST, then join: the sender can be parked in a send with no timeout, and closing the socket is the only thing that unwedges it.
     senderRunning.store(false, std::memory_order_relaxed);
     server.stop();
     senderThread.join();

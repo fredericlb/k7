@@ -8,9 +8,7 @@ namespace te = tracktion::engine;
 // Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
 const char* MidiGraphPlugin::xmlTypeName = "studio_midigraph";
 
-// A transpose of zero: the plugin still declares its parameter, so a module that names no `jsdsp:` is a working
-// (if inert) transposer rather than an error. Deliberately hand-written and tiny, unlike GraphDspPlugin's
-// generated auto-wah — there is nothing here worth generating.
+// A transpose of zero, hand-written: a module naming no `jsdsp:` is an inert transposer rather than an error.
 const char* MidiGraphPlugin::defaultGraphJson()
 {
     return R"({
@@ -22,8 +20,7 @@ const char* MidiGraphPlugin::defaultGraphJson()
 MidiGraphPlugin::MidiGraphPlugin(te::PluginCreationInfo info)
     : Plugin(std::move(info))
 {
-    // Same contract as GraphDspPlugin: the description is read HERE because Tracktion plugins create their
-    // AutomatableParameters in the constructor and never after.
+    // Same contract as GraphDspPlugin: read HERE, because Tracktion creates AutomatableParameters nowhere else.
     const juce::String json = state.hasProperty("graph")
                                   ? state.getProperty("graph").toString()
                                   : juce::String(defaultGraphJson());
@@ -33,8 +30,7 @@ MidiGraphPlugin::MidiGraphPlugin(te::PluginCreationInfo info)
         warn("midi graph unusable: " + error.toStdString());
         return;
     }
-    // A graph with no MIDI node in a MIDI plugin is a module pointed at the wrong carrier — it would pass notes
-    // through in silence and look like a broken transposer. Say so; the notes still flow.
+    // A MIDI plugin whose graph has no MIDI node is pointed at the wrong carrier; say so, and let the notes flow.
     if (!graph_->hasMidi())
         warn("midi graph declares no MIDI node — this module transforms nothing");
 
@@ -96,8 +92,7 @@ void MidiGraphPlugin::applyToBuffer(const te::PluginRenderContext& fc)
 {
     if (graph_ == nullptr || fc.bufferForMidiMessages == nullptr) return;
 
-    // Parameter values are read once here, off the message thread's objects, and handed over as plain floats —
-    // the graph never touches Tracktion. Same rule as the audio plugin.
+    // Read once, handed over as plain floats: the graph never touches Tracktion. Same rule as the audio plugin.
     for (size_t i = 0; i < params_.size(); ++i)
         scratch_[i] = params_[i]->getCurrentValue();
 

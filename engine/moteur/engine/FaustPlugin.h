@@ -14,8 +14,7 @@
 #include <string>
 #include <vector>
 
-// Forward-declared so libfaust's headers stay out of everything that includes this one — the
-// same rule EngineHost.h keeps for JUCE. The bare names are Faust's own.
+// Forward-declared so libfaust's headers stay out of every includer — the bare names are Faust's own.
 class dsp;
 class interpreter_dsp;
 class interpreter_dsp_factory;
@@ -32,14 +31,7 @@ public:
     static const char* xmlTypeName;
     static juce::ValueTree create();
 
-    /**
-     * Where `import("stdfaust.lib")` is resolved from.
-     *
-     * Beside the executable first (`faust-libs/`, staged there by the tray's build), then the
-     * path this build was configured with. Two tiers for the reason `hostcmd.rs` has three: the
-     * dev path is inside `_deps/faust-src` and does not travel, and a shipped app that fell back
-     * to it would fail to compile EVERY module at runtime with nothing to point at.
-     */
+    /** Where `import("stdfaust.lib")` is resolved from: beside the executable first, the build's path last. */
     static juce::File faustLibrariesDir();
 
     juce::String getName() const override { return "Faust"; }
@@ -47,18 +39,10 @@ public:
     juce::String getShortName(int) override { return "Faust"; }
     juce::String getSelectableDescription() override { return "Faust"; }
 
-    // Answered from the compiled program rather than assumed: a Faust module may be an effect
-    // (`process = _ : …`) or an instrument (`process` with no input), and these two are what
-    // tell Tracktion which it is looking at.
+    // Answered from the COMPILED program: `process = _ : …` is an effect, `process` with no input an instrument.
     bool takesAudioInput() override;
     bool producesAudioWhenNoAudioInput() override;
-    /**
-     * A program with no audio input is an INSTRUMENT, and an instrument is played by notes.
-     *
-     * Answered from the compiled program rather than declared anywhere: `process = _ : …` takes
-     * audio and this is false, `process` with no input takes notes and it is true. Nothing in
-     * `module.yaml` says which, and nothing should — the source already does.
-     */
+    /** True for an instrument, i.e. a program with no audio input — nothing in `module.yaml` says which. */
     bool takesMidiInput() override;
     bool noTail() override { return false; }
 
@@ -77,33 +61,20 @@ private:
     std::string source_;
     interpreter_dsp_factory* factory_ = nullptr;
     interpreter_dsp* dsp_ = nullptr;
-    /**
-     * The polyphonic wrapper, for an instrument only — and it OWNS `dsp_` once it exists
-     * (`~dsp_poly` deallocates the instance it was handed), so the destructor must not free both.
-     */
+    /** The voice group, for an instrument only — and it OWNS `dsp_`, so the destructor frees one, never both. */
     mydsp_poly* poly_ = nullptr;
     /** Whichever of the two is actually run: the voice group if there is one, else the instance. */
     ::dsp* run_ = nullptr;
     int numIn_ = 0, numOut_ = 0;
 
-    /**
-     * One entry per PARAMETER, holding every voice's zone for it.
-     *
-     * A zone points into a dsp instance, and writing it is how a parameter reaches the program.
-     * There are as many as there are voices, because the voice group exposes each voice's
-     * controls separately — the alternative, one shared zone, only reaches the voices through
-     * `GUI::updateAllGuis()`, which the audio thread must not call. See the constructor.
-     */
+    /** One entry per PARAMETER, holding EVERY voice's zone for it — see the `group: false` note in the ctor. */
     std::vector<std::vector<float*>> zones_;
     std::vector<tracktion::engine::AutomatableParameter::Ptr> params_;
     std::vector<std::unique_ptr<juce::CachedValue<float>>> values_;
 
-    // Faust's compute() must not be handed the same pointers for input and output — a program is
-    // free to read an input after writing an output. So the block is rendered into these and
-    // copied back. Sized at prepare, never in the callback.
+    // Separate in and out, since a `.dsp` may read an input after writing an output; sized at prepare.
     std::vector<std::vector<float>> in_, out_;
-    // One pointer per channel INTO those, re-aimed per segment by renderWithNotes. Sized at
-    // prepare so cutting a block at its notes allocates nothing in the callback.
+    // One pointer per channel INTO those, re-aimed per segment by renderWithNotes — also sized at prepare.
     std::vector<float*> segIn_, segOut_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FaustPlugin)

@@ -1,14 +1,12 @@
 // MasterGainPlugin.h — the song's output level, as a plain gain on the master bus.
 //
 // It exists because Tracktion's own master fader cannot go past +6 dB: `decibelsToVolumeFaderPosition`
-// is `exp((dB - 6) / 20)` clamped to [0, 1], so +6 IS the top of that fader and every value above it
-// sets the same position — silently. MixerPlugin borrows the same curve and stops there too, on
-// purpose, because a strip should feel like the fader it replaces.
+// is `exp((dB - 6) / 20)` clamped to [0, 1], so every value above +6 sets the same position, silently.
+// MixerPlugin borrows that curve and stops there on purpose; a master trim is the one place the ceiling
+// is a limitation rather than a shape, since a mix built with headroom is asked for +12 routinely.
 //
-// A master trim is the one place that ceiling is a limitation rather than a shape: a mix built with
-// headroom sits far below full scale, and asking for +12 there is ordinary. So this one does not
-// borrow the curve at all — dB straight to a linear gain, no mapping and no clamp. See
-// packages/song/docs/masterVolume.md.
+// So this one does not borrow the curve at all — dB straight to a linear gain, no mapping and no clamp.
+// See packages/song/docs/masterVolume.md.
 
 #pragma once
 
@@ -47,8 +45,7 @@ public:
 private:
     tracktion::engine::AutomatableParameter::Ptr gain_;
     std::unique_ptr<juce::CachedValue<float>> gainValue_;
-    // Ramped across the block rather than applied flat: a master move while the song plays would
-    // otherwise step the whole mix between two buffers, which is a click on everything at once.
+    // Ramped across the block: stepping a master between two buffers is a click on everything at once.
     float applied_ = 1.0f;
 };
 

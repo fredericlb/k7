@@ -7,13 +7,7 @@ namespace te = tracktion::engine;
 const char* MasterGainPlugin::xmlTypeName = "studio_master_gain";
 
 namespace {
-// The range the PARAMETER accepts. It is wider than the fader any surface draws, and deliberately
-// so: this is the storage bound, and the brain's schema is what decides what a person may ask for
-// (MASTER_MIN_DB / MASTER_MAX_DB). A parameter that stopped where the UI does would turn a future
-// widening into an engine change as well.
-//
-// -100 dB is where the fader curve elsewhere reaches zero, so it is what the rest of the app calls
-// silence; +24 is well past anything a master trim is asked for and still finite.
+// The STORAGE bound, deliberately wider than any fader drawn, so widening the UI is not an engine change.
 constexpr float gainMinDb = -100.0f, gainMaxDb = 24.0f;
 }  // namespace
 
@@ -42,8 +36,7 @@ void MasterGainPlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
 
 void MasterGainPlugin::initialise(const te::PluginInitialisationInfo&)
 {
-    // Start ON the current value rather than at unity: initialise runs when playback starts, and
-    // ramping up to a set level from 1.0 would fade the song in every time you pressed play.
+    // Start ON the current value: ramping from unity would fade the song in every time you pressed play.
     applied_ = juce::Decibels::decibelsToGain(gain_->getCurrentValue());
 }
 
@@ -59,16 +52,13 @@ void MasterGainPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     const juce::ScopedNoDenormals noDenormals;  // see GraphDspPlugin::applyToBuffer
     if (ctx.destBuffer == nullptr) return;
 
-    // dB straight to a linear gain — no fader curve, and that is the reason this plugin exists.
-    // `decibelsToGain` treats anything at or below -100 dB as zero, which is what silence is here.
+    // dB straight to a linear gain, no fader curve — and at or below -100 dB that gain is zero, i.e. silence.
     const float target = juce::Decibels::decibelsToGain(gain_->getCurrentValue(), -100.0f);
     auto& buffer = *ctx.destBuffer;
     const int n = ctx.bufferNumSamples;
     if (n <= 0) return;
 
-    // A RAMP when the level moved, flat when it did not. A master trim is one number for the whole
-    // mix, so stepping it between two buffers would click on everything at once — the one artefact
-    // that cannot be mistaken for a track's own.
+    // A RAMP when the level moved, flat when it did not — a click here is on everything at once.
     if (juce::approximatelyEqual(target, applied_)) {
         if (!juce::approximatelyEqual(target, 1.0f))
             buffer.applyGain(ctx.bufferStartSample, n, target);

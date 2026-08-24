@@ -69,7 +69,7 @@ documented way to make a render task loop forever. With the proxy already refuse
 stays false and nothing is scheduled.
 
 A two-marker map still skips the whole path: it has no interior points, and an identity two-point
-map is skipped earlier for the `buildAutoTempo` reason spelled out in `applyClipWarp`.
+map is skipped earlier for the `buildAutoTempo` reason spelled out in [editBuilder.md](editBuilder.md).
 
 ## Verifying it
 

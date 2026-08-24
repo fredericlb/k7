@@ -1,8 +1,6 @@
 #pragma once
 
-// The shared Tracktion/JUCE include plus the namespace aliases every internal engine TU uses. INTERNAL header:
-// it pulls in Tracktion/JUCE, so server/main.cpp must never include it — the server compiles against the
-// JUCE-free EngineHost.h only. One home for the aliases, so they can't drift between the split TUs.
+// The shared Tracktion/JUCE include and the aliases every internal TU uses — INTERNAL, so server/main.cpp must never include it and stays JUCE-free.
 
 #include <tracktion_engine/tracktion_engine.h>
 

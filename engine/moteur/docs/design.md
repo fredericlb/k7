@@ -16,6 +16,14 @@ header.** Everything above it is plain data — diffable and unit-testable witho
 an audio device. The WebSocket server (`server/`) is likewise JUCE-free: it only
 uses `EngineHost`'s `post()`/`onState()`/`run()` API.
 
+### The Tracktion pin, and the two namespaces
+
+We are on **Tracktion Engine v3.2.0** (pinned in `CMakeLists.txt`). Model types are
+`tracktion::engine` (aliased `te`), but the core time types — `TimePosition`,
+`TimeDuration`, `TimeRange`, `BeatPosition` — are `tracktion` (aliased `tt`), **not**
+under `engine`. If a tag bump stops compiling, the calls in `EngineHost.cpp` are the
+ones to check: everything else in the project is engine-agnostic.
+
 ## Diff & apply
 
 ### Why not just rebuild the Edit on every save?
@@ -64,6 +72,15 @@ onState() timer snapshots              reads lock-free / atomic state only
 - The audio callback must never lock, allocate, or log.
 - `onState()` runs a message-thread `juce::Timer`; the server broadcasts its
   snapshots to WebSocket clients.
+
+### `run()` is `runDispatchLoopUntil`, never `runDispatchLoop`
+
+`EngineHost::run()` blocks the calling thread by looping on
+`runDispatchLoopUntil(100)`, which drives `CFRunLoopRunInMode` directly. Plain
+`runDispatchLoop()` would be wrong: on macOS that is `[NSApp run]`, and `NSApp` only
+exists when `JUCEApplicationBase::main()` created it. We have our own `main()` and only
+a `ScopedJuceInitialiser_GUI`, so `NSApp` is nil, `[nil run]` returns instantly, and the
+engine would exit about 0.3 s after binding its port.
 
 ## Meters (`trackLevelDb`)
 

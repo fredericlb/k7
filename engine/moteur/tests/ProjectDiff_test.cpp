@@ -94,8 +94,7 @@ void diff_samplerate_forces_rebuild() {
     CHECK(needsFullRebuild(d));
 }
 
-// Rename is "same id, new name", a cheap in-place TrackRenamed: a regression here would rebuild the track's
-// whole graph on every rename.
+// Rename is "same id, new name", a cheap in-place TrackRenamed: a regression here rebuilds the track's whole graph on every rename.
 void diff_track_rename_is_not_readd() {
     ProjectDoc a;
     a.tracks.push_back(mkTrack("t1", "Drums"));
@@ -109,12 +108,7 @@ void diff_track_rename_is_not_readd() {
     CHECK(!hasKind(d, ChangeKind::TrackRemoved));
 }
 
-// Mute/solo/input-gain are applied in place via TrackParamsChanged (no rebuild).
-//
-// Not `volume`: ProjectDoc.h says "No volume and no pan — a track's level and position are a
-// MIXER MODULE at the end of its chain", so there is no such field to drift. A test naming one
-// stops compiling and nobody notices, because the build presets pin `targets: ["studio-moteur"]`
-// and this target is never built by an ordinary `npm run build:win`. See the note in AGENTS.md.
+// Mute/solo/input-gain apply in place via TrackParamsChanged — never `volume`, which is a MIXER MODULE and no field here, so a test naming one stops compiling unseen (AGENTS.md).
 void diff_track_params_in_place() {
     ProjectDoc a;
     a.tracks.push_back(mkTrack("t1", "Drums"));
@@ -127,8 +121,7 @@ void diff_track_params_in_place() {
     CHECK(!needsFullRebuild(d));
 }
 
-// A param drifting on the SAME plugin is a live PluginParamChanged carrying name and value — and crucially must
-// NOT force a rebuild: this is the fader-drag path, and rebuilding on every tweak makes a control undraggable.
+// A param drifting on the SAME plugin is a live PluginParamChanged and must NOT rebuild: this is the fader-drag path, and rebuilding makes a control undraggable.
 void diff_plugin_param_drift_is_incremental() {
     ProjectDoc a;
     {
@@ -151,10 +144,7 @@ void diff_plugin_param_drift_is_incremental() {
     CHECK(!needsFullRebuild(d));
 }
 
-// Swapping the plugin (same module id, different name/type) is a REPLACE, not "same plugin whose params
-// drifted": it must come out as remove + add, so the old instance goes and a new one is built. It forces no
-// rebuild — both halves are incremental and removals are emitted before adds, so the pair does the job
-// in place: the old plugin leaves the chain and the new one is inserted after whatever still precedes it.
+// Swapping the plugin (same id, different name/type) is a REPLACE: remove + add, in that order, and no rebuild — the pair does the job in place.
 void diff_plugin_swap_is_replace_and_rebuild() {
     ProjectDoc a;
     {
@@ -173,10 +163,7 @@ void diff_plugin_swap_is_replace_and_rebuild() {
     CHECK(d.front().kind == ChangeKind::PluginRemoved);
 }
 
-// Adding a plugin is the one thing people do to a chain all day, and it must NOT rebuild: a full rebuild
-// re-instantiates every plugin in the song — measured at 4.4 s on a 32-plugin project against 6 ms for the
-// incremental insert. apply()'s PluginAdded case falls back to a rebuild when the live graph is not in the
-// shape it assumes, so this rule only has to be right about the DOCUMENT.
+// Adding a plugin must NOT rebuild: a full rebuild re-instantiates every plugin in the song, measured at 4.4 s on a 32-plugin project against 6 ms for the incremental insert.
 void diff_plugin_add_is_incremental() {
     ProjectDoc a;
     {
@@ -193,8 +180,7 @@ void diff_plugin_add_is_incremental() {
     CHECK(!needsFullRebuild(d));
 }
 
-// Removing one does not rebuild either, and that one is not about speed: a rebuild replaces the Edit, and the
-// transport with it, so taken that way unlinking a module stops the song.
+// Removing one does not rebuild either, and not for speed: a rebuild replaces the Edit and the transport with it, so unlinking a module would stop the song.
 void diff_plugin_remove_is_incremental() {
     ProjectDoc a;
     {
@@ -211,9 +197,7 @@ void diff_plugin_remove_is_incremental() {
     CHECK(!needsFullRebuild(d));
 }
 
-// …with two exceptions, both about what the incremental insert cannot place correctly. A SIDECHAINED plugin
-// is wired by a pass that runs once every track exists; and a track added in the same diff shifts the
-// index trackById resolves through, so the plugin would land on the wrong lane.
+// …with two exceptions the incremental insert cannot place: a SIDECHAINED plugin, wired once every track exists, and a track added in the same diff, which shifts trackById's index.
 void diff_plugin_add_rebuilds_when_it_must() {
     ProjectDoc base;
     {
@@ -254,18 +238,7 @@ void diff_clip_moved() {
     CHECK(hasKind(d, ChangeKind::ClipMoved));
 }
 
-/**
- * Two placements of ONE material must not share an engine clip name.
- *
- * The name is how a clip is found again: `removeClipFor` matches on it and stops at the first hit.
- * Spelled `name.empty() ? id : name` it never reaches the id, because `ClipDoc::name` is the
- * MATERIAL — the same string for every placement of a sample, and never empty.
- *
- * What that costs: a PASTE makes a second placement of one material by definition, so moving either
- * one removes the OTHER from the edit and leaves the moved clip behind. The lane then plays a clip
- * the document does not hold, under the one that just moved — one event doubled from a certain
- * point, and only until the next reload, since a rebuild puts back what the document says.
- */
+// Two placements of ONE material must not share an engine clip name, since that is how a clip is found again — docs/clipIdentity.md.
 void clip_name_is_the_placement_not_the_material() {
     ClipDoc a = mkClip("riff@0", 0.0);
     ClipDoc b = mkClip("riff@16", 16.0);
@@ -282,9 +255,7 @@ void clip_name_is_the_placement_not_the_material() {
     CHECK(clipNameFor(noId) == "riff");
 }
 
-// Everything clipPositionFor/applyClipLoop/applyClipWarp read at INSERT time has to make the clip move, or the
-// edit is silently dropped: the doc changes, the engine compares, sees nothing it tracks, and re-inserts
-// nothing. `from` on a clip read as doing nothing for exactly this reason, and `offset` had the same hole.
+// Everything read at INSERT time has to make the clip move, or the edit is silently dropped — `from` and `offset` both had that hole.
 void diff_clip_retimed_by_every_field() {
     ProjectDoc a;
     {
@@ -309,10 +280,7 @@ void diff_clip_retimed_by_every_field() {
     CHECK(moves([](ClipDoc& c) { c.warp.algorithm = "slice"; }));
     CHECK(moves([](ClipDoc& c) { c.warp.markers = {{0.0, 0.0}, {4.0, 2.0}}; }));
 
-    // The NOTES, every way one can change: a MIDI clip's are written into the edit when the clip
-    // is inserted and nowhere else, so a clip whose notes moved has to be re-inserted. Missing
-    // from the comparison, the whole note vocabulary — add, remove, velocity, MOVE — reached the
-    // engine and changed nothing anyone could hear.
+    // The NOTES, every way one can change: they are written into the edit at INSERT time and nowhere else, so a clip whose notes moved has to be re-inserted.
     const NoteDoc n1{0.0, 0.5, 36, 1.0, 0, 1.0};
     const NoteDoc n2{1.0, 0.5, 38, 0.8, 0, 1.0};
     ProjectDoc withNote = a;
@@ -338,8 +306,7 @@ void diff_clip_retimed_by_every_field() {
     CHECK(diff(a, same).empty());
 }
 
-// apply() references tracks by id, so a track it removes must be gone before one it adds — every removal must
-// be ordered before every add.
+// apply() references tracks by id, so every removal must be ordered before every add.
 void diff_removals_before_adds() {
     ProjectDoc a;
     a.tracks.push_back(mkTrack("t1", "Old"));
@@ -354,10 +321,7 @@ void diff_removals_before_adds() {
     CHECK(rem >= 0 && add >= 0 && rem < add);
 }
 
-// A duplicate id is DIFFED AS ONE and SAID SO. index() keeps the first — changing which one survives would
-// change what plays — and drops the rest, so without the warning a second track sharing an id is built by
-// populateEdit and then invisible to every later diff: editing it reaches the engine and changes nothing.
-// Same shape as the ring a lane requests twice building empty.
+// A duplicate id is DIFFED AS ONE and SAID SO: index() keeps the first and drops the rest, so without the warning the second track is built and then invisible to every later diff.
 void diff_duplicate_id_is_reported() {
     std::vector<Warning> seen;
     setWarningSink([&](const Warning& w) { seen.push_back(w); });
@@ -403,8 +367,7 @@ void diff_master_chain_added_rebuilds() {
     CHECK(needsFullRebuild(d));
 }
 
-// …and removing one, which is the case that must not be missed: a chain deleted from the song
-// has to come OFF the bus, and an empty list is what says so.
+// …and removing one, the case that must not be missed: a chain deleted from the song has to come OFF the bus, and an empty list is what says so.
 void diff_master_chain_removed_rebuilds() {
     ProjectDoc a;
     a.masterPlugins.push_back(mkPlugin("m1", "4osc", "Comp"));
@@ -441,8 +404,7 @@ void diff_master_chain_param_change_is_seen() {
     CHECK(hasKind(diff(a, b), ChangeKind::MasterChainChanged));
 }
 
-// ORDER is the sound. Both plugins are still there, so anything comparing by key alone would
-// call this unchanged — and an EQ before a compressor is not an EQ after one.
+// ORDER is the sound: both plugins are still there, so a comparison by key alone calls this unchanged — and an EQ before a compressor is not an EQ after one.
 void diff_master_chain_reorder_is_seen() {
     ProjectDoc a;
     a.masterPlugins.push_back(mkPlugin("m1", "4osc", "Comp"));

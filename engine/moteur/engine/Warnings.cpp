@@ -8,8 +8,7 @@ namespace studio {
 
 namespace {
 std::function<void(const Warning&)> g_sink;
-// thread_local, so the message thread's current session cannot be read by the audio or scan threads
-// — which have none, and whose warnings are genuinely nobody's project.
+// thread_local, so the audio and scan threads cannot read the message thread's session — their warnings are genuinely nobody's project.
 thread_local std::string g_session;
 }
 
@@ -25,8 +24,7 @@ WarningScope::WarningScope(std::string session) : previous_(g_session) {
 WarningScope::~WarningScope() { g_session = std::move(previous_); }
 
 void warn(std::string message, std::string subject) {
-    // stderr first, and unconditionally: the sink can throw, be absent, or belong to a
-    // client that has gone away, and none of that should cost the log its line.
+    // stderr first and unconditionally: the sink can throw, be absent or belong to a client that has gone, and none of that may cost the log its line.
     std::cerr << "warning: " << message;
     if (!subject.empty())
         std::cerr << " (for '" << subject << "')";

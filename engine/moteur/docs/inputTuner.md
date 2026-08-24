@@ -19,9 +19,31 @@ and `addWaveInputDeviceInstance` reallocates that context's graph. The I/O picke
 on the rig, so that route asks for it twenty times a second. Doing it once per device instead of once per poll
 is not enough either: one batch of twenty is already too much.
 
+Measured, when it still went that way: twenty inputs asked for by a menu polling at 8 Hz wedged the message
+thread within three seconds and it never came back — no transport, no meters, no reply to anything, and
+`whoami` still answering because that one is served off the socket's own thread rather than the message thread.
+
 Reading the tap costs a max over the block, touches no Edit, and measures every channel the interface delivers
 whether or not anything is routed to it — which is what the panel is FOR. You are looking for which input the
 guitar is on.
+
+### Two things gate a `WaveInputDevice`'s meter, not one
+
+Worth spelling out, because enabling the device looks like the whole story and is only half of it.
+`WaveInputDevice::consumeNextAudioBlock` feeds its `levelMeasurer` from inside its loop over INSTANCES, so a
+device with none never touches the measurer however enabled it is — and a playback context only creates
+instances for the devices that were already enabled when it was built. An input no track records is exactly
+that case, which is the whole point of the panel, so `channelLevelsDb` adds the instance itself. Once per
+device: `addWaveInputDeviceInstance` reallocates the graph, which is not something a 10 Hz poll may do.
+
+### `channelTap` is deliberately not `findWaveInput`
+
+`findWaveInput` matches a device only when its channel list is exactly the one asked for. That is the right
+rule for ROUTING a track — you take a device whole, mono or stereo — and the wrong one for measuring. An
+interface's inputs are usually paired into stereo devices, so asking for channel 2 alone matches nothing at all
+and reads as silence: a meter saying "nothing plugged in" because the rig pairs its inputs. `channelTap`
+instead answers where a 1-based channel actually LIVES — the device carrying it, and its index inside that
+device.
 
 ### A repeated channel must not build an empty ring
 

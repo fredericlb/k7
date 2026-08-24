@@ -1,41 +1,12 @@
-// DspGraph.h — a small DSP graph, described as data and run in C++.
+// DspGraph.h — a small DSP graph described as data and run in C++: the model @studio/dsp emits.
 //
-// The experiment behind it: can a module's DSP be a DESCRIPTION rather than a compiled plugin, so it can be
-// authored in JS (or YAML) the way a chain already is? JS itself must never touch the audio thread — throughput
-// is not the problem (a JS auto-wah measures 0.1% of a 5.3 ms block), a GC pause is — so the JS runs once, as a
-// build step, and emits this. Same shape as Strudel, one layer down: JS produces data, the engine plays it.
+// The order of `nodes` is LOAD-BEARING, not merely a schedule. A sample-phase node reading a wire written LATER
+// in the list gets the previous sample's value, and that is the unit delay every feedback topology is built on —
+// so reordering the list changes the sound.
 //
-// The model is three PHASES per block, which is what an envelope-driven effect actually is:
-//
-//   analysis  per sample over the input, writing scalars   (an envelope follower)
-//   control   once per block, scalar -> scalar             (arithmetic, mapping, smoothing)
-//   audio     per sample, transforming the buffer          (filters, gain, mix)
-//
-// …plus a fourth, SAMPLE phase for the graphs the three above cannot express: a delay whose output feeds back
-// into its own input, a comb, a flanger. Those nodes run inside one per-sample loop over the block, in declared
-// order, over their own register file of audio wires.
-//
-// Feedback falls out of that loop rather than needing machinery: a node reading a wire written LATER in the list
-// gets the previous sample's value, which is the unit delay every feedback topology is built on. It is the
-// standard reading of a signal-flow diagram, and it is why the order of `nodes` is load-bearing.
-//
-// Modulation is a sample-rate LFO writing an audio wire, not a control-rate one writing a scalar. A scalar can
-// only change once per block, and on a delay TIME that is a ~10 ms staircase — audible as a zipper on exactly
-// the effects modulation exists for. So `alfo` runs in the per-sample loop and `adelay` takes its time from a
-// wire when given one, which is what makes a flanger expressible at all.
-//
-// A graph pays for what it uses. With no sample-phase node the audio phase stays block-rate, where a biquad runs
-// through JUCE's vectorised processSamples and a gain through FloatVectorOperations; adding one moves that graph
-// to per-sample dispatch. The auto-wah therefore still renders bit-identically to the compiled plugin, which is
-// the regression this design is checked against.
-//
-// The primitives are deliberately SMALL. A `shape` or `geomap` node is one effect's own step wearing a generic
-// name, and that way lies one primitive per effect, which defeats the point. An auto-wah's sensitivity curve and
-// direction switch live in the description as arithmetic instead, which is where an effect's identity belongs.
-//
-// Every input is either a register name or a literal number; literals get their own preloaded register at build
-// time. Scalars live in a register file resolved to INDICES when the graph is built, so process() does no
-// lookups and no allocation. `sr` is predefined and holds the sample rate.
+// The four phases, why the primitives stay small, what a sample-phase node costs a graph, and the three places
+// the audio thread is kept from allocating: engine/moteur/docs/dspGraph.md. The emitting side, and the reasons
+// the builder refuses things, is packages/dsp/docs/builder.md.
 
 #pragma once
 
@@ -66,32 +37,18 @@ public:
     void prepare(double sampleRate, int maxBlockSize);
     void reset();
 
-    /**
-     * Run one block. `paramValues` is one value per declared parameter, in order — the plugin reads its
-     * AutomatableParameters once per block and hands them over, so the graph never touches Tracktion.
-     */
+    /** Run one block; `paramValues` is one per declared parameter, in order, so the graph never touches Tracktion. */
     void process(juce::AudioBuffer<float>& buffer, int startSample, int numSamples,
                  const float* paramValues, int numParams);
 
-    /**
-     * Run one block over MIDI instead of audio — the same graph machinery, none of the audio phases.
-     *
-     * A MIDI transformer is a different shape of problem from an audio one: there is no per-sample loop and no
-     * buffer, only a list of messages to rewrite once per block. So this runs the CONTROL phase (which is what
-     * turns parameters into the numbers a transform needs) and then the MIDI phase, and never touches a wire,
-     * a delay line or a filter. A graph with no MIDI node leaves the buffer alone.
-     */
+    /** Run one block over MIDI: the control phase then the MIDI phase, no wire, delay line or filter. */
     void processMidi(tracktion::engine::MidiMessageArray& midi,
                      const float* paramValues, int numParams);
 
     /** Whether the description declares any MIDI node — what decides if a module is a transformer at all. */
     bool hasMidi() const { return hasMidiPhase_; }
 
-    /**
-     * How many input PORTS the description reads — one past the highest `port` any `ain` names, and 1 for
-     * every graph written before ports existed. It is what tells the plugin how many channels to ask for
-     * (see GraphDspPlugin::getChannelNames) and hence whether the module can be sidechained at all.
-     */
+    /** How many input PORTS the description reads: one past the highest `port` an `ain` names (docs/sidechain.md). */
     int inputs() const { return numInputs_; }
 
 private:
@@ -105,14 +62,12 @@ private:
         biquad, gain, mix,
         // sample rate — these read and write AUDIO wires, not scalars
         ain, aout, adelay, amul, aadd, atanh, alfo,
-        // midi — block rate, rewriting the message list in place. Their inputs are SCALARS: a MIDI node has no
-        // wire to read, it acts on the buffer the plugin handed over.
+        // midi — block rate, rewriting the message list in place; their inputs are SCALARS, never wires
         transpose, velocity, mchannel,
     };
 
     static constexpr int MAX_IN = 4;
-    // The widest render buffer the sample phase indexes: a graph is stereo, so this is four input ports'
-    // worth of pairs. Anything past it reads as unfed rather than out of bounds.
+    // The widest buffer the sample phase indexes — four stereo ports; past it a port reads as unfed.
     static constexpr int MAX_CHANS = 8;
 
     struct Node {
@@ -123,15 +78,11 @@ private:
         int k[MAX_IN] = {-1, -1, -1, -1};   // sample-phase only: its SCALAR inputs (params, literals)
         int delayLine = -1;                 // adelay: index into delayLines_
         float maxMs = 0.0f;
-        int mode = 0;          // biquad: 0 band-pass, 1 low-pass, 2 high-pass, 3 notch
-                               // alfo:   0 sine, 1 triangle, 2 saw, 3 square
-                               // ain:    which input PORT — port n's stereo pair is channels 2n / 2n+1
+        int mode = 0;          // biquad's filter type, alfo's wave shape, or ain's input PORT — see build()
         float s0 = 0.0f;       // per-node state (envelope level, glide's last value)
         bool primed = false;
         juce::IIRFilter filters[2];
-        // biquad: what the coefficients were last computed FROM. Recomputing them every block cost a
-        // sin, a cos and a sqrt for a filter whose knob had not moved — and setCoefficients takes
-        // juce::IIRFilter's spin lock, twice per channel, which the audio thread should not do for nothing.
+        // biquad: what the coefficients were last computed FROM, so a still knob costs nothing (docs/dspGraph.md).
         float lastFreq_ = -1.0f;
         float lastQ_ = -1.0f;
     };
@@ -149,8 +100,7 @@ private:
     std::vector<int> delayWrite_;
     bool hasSamplePhase_ = false;
     bool hasMidiPhase_ = false;
-    // Whether any node is a `mix` — i.e. whether the dry snapshot has to be taken. Answered at build()
-    // because it cannot change afterwards, and process() was asking it per block with a std::any_of.
+    // Whether any node is a `mix`, i.e. whether the dry snapshot is needed — fixed at build(), not asked per block.
     bool hasMix_ = false;
     int numInputs_ = 1;
     int srReg_ = -1;

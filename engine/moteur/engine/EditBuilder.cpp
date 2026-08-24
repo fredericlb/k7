@@ -31,50 +31,36 @@ tt::TimePosition beatToTime(te::Edit& edit, double beats) {
 te::ClipPosition clipPositionFor(te::Edit& edit, const ClipDoc& c, double naturalLen) {
     const auto start = beatToTime(edit, c.start);
 
-    // The clip FILE's window into its source (seconds, see ClipDoc): `from` moves the in-point, `to` ends the
-    // material early.
+    // The clip FILE's window into its source, in seconds: `from` moves the in-point, `to` ends the material early.
     const double from = juce::jlimit(0.0, naturalLen, c.sourceFrom);
     const double to = c.sourceTo > 0.0 ? juce::jlimit(from, naturalLen, c.sourceTo) : naturalLen;
-    // The placement's own musical offset reads FURTHER into that window — the two stack, in-point first — so
-    // what is left to play is measured from where reading actually starts, not from `from`. Measuring it from
-    // `from` let an offset run off the end of the window and into the material the clip file excluded.
+    // The placement's own musical offset reads FURTHER into that window, the two stacking in-point first — docs/editBuilder.md.
     const double inPoint =
         juce::jlimit(from, to, from + beatToTime(edit, c.offset).inSeconds());
-    // What remains of the window is the clip's usable length — the natural length as far as everything below is
-    // concerned, which is what makes an untimed placement play exactly the window.
+    // What remains of the window is the clip's usable length, which is what makes an untimed placement play exactly the window.
     const double usable = juce::jmax(0.0, to - inPoint);
 
     auto end = c.length > 0.0 ? beatToTime(edit, c.start + c.length)
                               : start + tt::TimeDuration::fromSeconds(usable);
-    // A placement asking for MORE than the window would read straight past `to` into material the clip file
-    // excluded — so the window wins. Not applied to a looped clip: there the length says how many times the
-    // window repeats, which is a different question and a legitimately longer region.
+    // A placement asking for MORE than the window would read past `to`, so the window wins — except on a looped clip (docs/editBuilder.md).
     if (c.length > 0.0 && c.loopEnd <= c.loopStart) {
         const auto windowEnd = start + tt::TimeDuration::fromSeconds(usable);
         if (windowEnd < end)
             end = windowEnd;
     }
 
-    // The source in-point: read the wav from `inPoint` in, not from sample 0. Passing {} made every clip start
-    // at the file's beginning, so leading silence baked into an exported source played first — heard as a fixed
-    // per-clip latency. The doc offset is musical, converted on this edit's tempo map (edit time == source
-    // time); `from` is already seconds, and inPoint is the two of them, clamped to the window.
+    // The source in-point: read the wav from `inPoint` in, never from sample 0 — docs/editBuilder.md.
     return { tt::TimeRange(start, end), tt::TimeDuration::fromSeconds(inPoint) };
 }
 
-// Loop a clip-relative beat region if the placement set one; setLoopRangeBeats is virtual on te::Clip, and the
-// placed clip length decides how many times the region repeats.
+// Loop a clip-relative beat region if the placement set one; the placed clip length decides how many times it repeats.
 void applyClipLoop(te::Clip& clip, const ClipDoc& c) {
     if (c.loopEnd > c.loopStart)
         clip.setLoopRangeBeats({ tt::BeatPosition::fromBeats(c.loopStart),
                                  tt::BeatDuration::fromBeats(c.loopEnd - c.loopStart) });
 }
 
-// Apply an imported warp to a wave clip. DAWproject markers map a SOURCE second to a TIMELINE beat; Tracktion
-// realises the same with AUTO-TEMPO, treating the source as a loop of N beats stretched to the edit tempo — so
-// the source's own tempo is the whole story for the overall stretch, and a clip recorded at the project tempo
-// comes out unchanged. (WarpTimeManager clamps to the source length and can only re-time WITHIN it.)
-// Intermediate markers become LoopInfo beat points, so each segment stretches independently.
+// Apply an imported warp to a wave clip: auto-tempo for the overall ratio, a warp map for the interior — docs/warp.md.
 void applyClipWarp(te::AudioClipBase& clip, te::Edit& edit, const ClipDoc& c) {
     const auto& markers = c.warp.markers;
     if (markers.size() < 2)
@@ -84,37 +70,21 @@ void applyClipWarp(te::AudioClipBase& clip, te::Edit& edit, const ClipDoc& c) {
     if (srcSpanS <= 0.0 || beatSpan <= 0.0)
         return;
 
-    // A warp that stretches by 1.0 and pins nothing in between is not a warp: the source
-    // already runs at the project tempo, and every marker says so. Importers emit these
-    // for any clip that needed no correction (11 of 31 in LEMO - DANSE).
-    //
-    // Skipping them is not just an optimisation. Auto-tempo hands playback to
-    // AudioSegmentList::buildAutoTempo, whose NON-LOOPING branch emits a segment per sync
-    // point with no bound against the clip's length, and whose removeExtraSegments then
-    // "truncates" the straddling one with `seg.length = getEnd() - seg.start` — where
-    // getEnd() is the last REMAINING segment, i.e. that very segment, since the loop runs
-    // backwards and has already dropped the rest. The truncation is a no-op and the clip
-    // plays its whole source past its declared end. Not entering that path is the only
-    // part of this we can fix from outside Tracktion.
+    // A warp that stretches by 1.0 and pins nothing between its ends is not a warp, and entering that path breaks the clip — docs/editBuilder.md.
     const double tempo = edit.tempoSequence.getTempo(0)->getBpm();
     const double ratio = tempo > 0.0 ? (beatSpan * 60.0 / tempo) / srcSpanS : 1.0;
     if (markers.size() == 2 && std::abs(ratio - 1.0) < 1.0e-4)
         return;
 
-    // Pick a stretch algorithm ACTUALLY COMPILED into this build: setTimeStretchMode() runs the request through
-    // checkModeIsAvailable(), which silently returns `disabled` for an unlinked mode — and disabled means no
-    // stretching at all. Elastique is licensed and usually absent, so fall back to SoundTouch, which ships.
+    // Pick a stretch algorithm ACTUALLY COMPILED in: an unlinked mode silently becomes `disabled`, which is no stretching at all.
     clip.setTimeStretchMode(te::TimeStretcher::elastiquePro);
     if (clip.getTimeStretchMode() == te::TimeStretcher::disabled)
         clip.setTimeStretchMode(te::TimeStretcher::soundtouchBetter);
 
-    // Stretch INLINE in the playback graph rather than through a pre-rendered proxy: the proxy is a background
-    // render job the headless renderer never pumps, so a proxy makes the render task loop forever. Inline costs CPU
-    // per block but always completes, and keeps the live and offline paths identical.
+    // Stretch INLINE rather than through a proxy: a proxy is a background render job the headless renderer never pumps.
     clip.setUsesProxy(false);
 
-    // Declare the source's musical length and let auto-tempo stretch: that is the OVERALL ratio, first marker to
-    // last. The time signature only groups beats into bars, so a plain 4/4 is fine.
+    // Declare the source's musical length and let auto-tempo stretch — the OVERALL ratio, first marker to last.
     auto& li = clip.getLoopInfo();
     li.setNumerator(4);
     li.setDenominator(4);
@@ -122,18 +92,9 @@ void applyClipWarp(te::AudioClipBase& clip, te::Edit& edit, const ClipDoc& c) {
     li.clearLoopPoints();
     clip.setAutoTempo(true);
 
-    // The interior markers, as a WARP MAP. Auto-tempo cannot place them and loop points do not either: this used
-    // to pin each one as a LoopInfo beat point, believing segments would then stretch independently, and they
-    // never did — `AudioSegmentList::buildAutoTempo` advances its beat cursor by `segmentSeconds *
-    // LoopInfo::getBeatsPerSecond()`, ONE constant for the whole file, so sync points only decide where the audio
-    // is cut and every segment keeps the same rate. Every warp point between the ends was silently discarded.
-    // Full rationale, and why this composes rather than replaces: docs/warp.md.
+    // The interior markers, as a WARP MAP — auto-tempo cannot place them and loop points do not either; docs/warp.md.
     if (markers.size() > 2) {
-        // Both layers apply — `EditNodeBuilder` passes the warp map INTO the auto-tempo node — so the map carries
-        // only the DEVIATION from linear: each marker's source second moves to where its beat falls once the
-        // map's span is spread evenly across the file, and auto-tempo applies the overall ratio on top. The two
-        // endpoints come out identity, so the warped stream is still `srcSpanS` long and `setNumBeats` above
-        // stays exact.
+        // Both layers apply, so the map carries only the DEVIATION from linear and its endpoints come out identity (docs/warp.md).
         const double srcStart = markers.front().second;
         const double beatStart = markers.front().first;
         auto& wtm = clip.getWarpTimeManager();
@@ -144,23 +105,19 @@ void applyClipWarp(te::AudioClipBase& clip, te::Edit& edit, const ClipDoc& c) {
             wtm.insertMarker(te::WarpMarker(tt::TimePosition::fromSeconds(markers[i].second),
                                             tt::TimePosition::fromSeconds(linear)));
         }
-        // AFTER setUsesProxy(false) above, and that order is the whole safety of it: `WaveAudioClip::needsRender`
-        // is `warpTime && canUseProxy()`, so with the proxy already refused no WarpTimeRenderJob is created — and
-        // a render job here is the background task the headless renderer never pumps.
+        // AFTER setUsesProxy(false) above, and that order is the whole safety of it — docs/editBuilder.md.
         clip.setWarpTime(true);
     }
 }
 
-// ASCII case-insensitive equality: plugin names and formats round-trip through JSON and YAML, whose casing we
-// do not control ("vst3" vs "VST3").
+// ASCII case-insensitive equality: plugin names and formats round-trip through JSON and YAML, whose casing we do not control.
 bool iequals(const std::string& a, const std::string& b) {
     return a.size() == b.size() &&
            std::equal(a.begin(), a.end(), b.begin(),
                       [](char x, char y) { return std::tolower((unsigned char)x) == std::tolower((unsigned char)y); });
 }
 
-// A PluginDoc.type naming an external plugin FORMAT rather than a built-in's xmlTypeName: externals resolve
-// through the scan cache and load by description, built-ins are created straight from their type.
+// A PluginDoc.type naming an external plugin FORMAT rather than a built-in's xmlTypeName — the two resolve differently.
 bool isExternalFormat(const std::string& type) {
     static const std::set<std::string> formats{"vst3", "vst", "vst2", "au", "audiounit", "clap", "lv2", "ladspa", "aax"};
     std::string low = type;
@@ -168,12 +125,9 @@ bool isExternalFormat(const std::string& type) {
     return formats.count(low) != 0;
 }
 
-// Instantiate an external plugin. The module carries only its format and name, so we look the file up in the
-// scan cache, recover its full PluginDescription, and create an ExternalPlugin from it. Null (with a hint) when
-// it isn't cached — the user needs to run a scan. The cache is read once and memoised across an apply.
+// Instantiate an external plugin from the scan cache, which holds its full PluginDescription; null with a hint when it is not cached.
 te::Plugin::Ptr makeExternalPlugin(te::Edit& edit, const PluginDoc& p) {
-    // The snapshot is held for the whole function: `info` points INTO it, and a background rescan
-    // replaces the memo (PluginScan.h). Losing it here is a use-after-free, not a stale read.
+    // The snapshot is held for the whole function: `info` points INTO it, so losing it here is a use-after-free (docs/plugins.md).
     const auto infos = cachedPluginInfos();
     const PluginInfo* info = nullptr;
     for (const auto& i : *infos)
@@ -188,10 +142,7 @@ te::Plugin::Ptr makeExternalPlugin(te::Edit& edit, const PluginDoc& p) {
         return {};
     }
 
-    // Fast path: the cache holds the full PluginDescription as XML, so rebuild and instantiate directly — no
-    // findAllTypesForFile, which would reload the binary just to re-derive it. Seeding Tracktion's knownPluginList
-    // is what lets ExternalPlugin::findMatchingPlugin() resolve during initialiseFully(); without it the binary is
-    // never loaded, getWrappedAudioProcessor() returns null, and the UI refuses to open.
+    // Fast path: the cache holds the description as XML, and seeding knownPluginList is what makes the plugin LOAD — docs/plugins.md.
     if (!info->descXml.empty()) {
         juce::PluginDescription desc;
         if (auto xml = juce::parseXML(juce::String(info->descXml)); xml && desc.loadFromXml(*xml)) {
@@ -200,8 +151,7 @@ te::Plugin::Ptr makeExternalPlugin(te::Edit& edit, const PluginDoc& p) {
         }
     }
 
-    // Fallback for an older cache with no stored description: introspect the file, which is slower. A forced
-    // rescan populates the description and takes this path off the table.
+    // Fallback for an older cache with no stored description: introspect the file, which is slower; a forced rescan removes this path.
     std::cerr << "note: plugin '" << p.name << "' has no cached description — run 'st0 engine scan --force' to speed up loading\n";
     auto& formats = edit.engine.getPluginManager().pluginFormatManager;
     juce::OwnedArray<juce::PluginDescription> descs;
@@ -228,10 +178,7 @@ te::Plugin::Ptr makeExternalPlugin(te::Edit& edit, const PluginDoc& p) {
     return edit.getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, *chosen);
 }
 
-// --- aux sends ---------------------------------------------------------------
-// A send routes a copy of a source track's post-FX signal onto a shared bus; an AuxReturn on the destination
-// injects that bus back into its chain, so the return's own plugins process the summed sends before the master.
-// Source and return are linked by a bus number.
+// Auxiliary sends: a copy of a source track's post-FX signal onto a shared bus, injected back by an AuxReturn — docs/editBuilder.md.
 
 // Put the AuxReturn at the FRONT of the return track, so bus audio flows through that track's FX on the way out.
 void addAuxReturn(te::Edit& edit, te::AudioTrack& busTrack, int bus) {
@@ -254,9 +201,7 @@ void addAuxSend(te::Edit& edit, te::AudioTrack& track, int bus, double level) {
 
 }  // namespace
 
-// --- .vstpreset (Steinberg container) load ----------------------------------
-// External-plugin state lives in Steinberg .vstpreset files, which JUCE reads and writes natively. A no-op for
-// built-ins, which have no wrapped VST3. Exported for both the rack/preset load and the editor's select path.
+// Load a Steinberg .vstpreset container — a no-op for built-ins, and the ONE reader of that format (docs/plugins.md).
 bool loadVstPreset(te::Plugin& plugin, const juce::File& file) {
     auto* ext = dynamic_cast<te::ExternalPlugin*>(&plugin);
     if (ext == nullptr || !file.existsAsFile())
@@ -281,8 +226,7 @@ te::AudioTrack* trackById(te::Edit& edit, const std::string& id,
 
 void insertClip(te::Engine& engine, te::Edit& edit, te::AudioTrack& track,
                 const ClipDoc& c, const std::string& baseDir) {
-    // MIDI clips are carried in the model but not rendered on this path — playing them needs an instrument on the
-    // track — so skip the wave path rather than warn about their correctly-empty source.
+    // MIDI clips are carried in the model but not rendered here, so skip rather than warn about their correctly-empty source.
     if (c.type == ClipType::Midi)
         return;
 
@@ -293,8 +237,7 @@ void insertClip(te::Engine& engine, te::Edit& edit, te::AudioTrack& track,
         warn("clip source not found/invalid: " + path);
         return;
     }
-    // Named by its PLACEMENT id (clipNameFor) — which is what lets a live-streamed audio pattern prune played
-    // one-shots instead of piling them up, and what keeps two placements of one material apart.
+    // Named by its PLACEMENT id, never its material — docs/clipIdentity.md.
     auto clip = track.insertWaveClip(juce::String(clipNameFor(c)), file,
                                      clipPositionFor(edit, c, af.getLength()), false);
     if (clip != nullptr) {
@@ -303,17 +246,13 @@ void insertClip(te::Engine& engine, te::Edit& edit, te::AudioTrack& track,
     }
 }
 
-// The cheap per-track params Tracktion supports directly: doc volume is a linear gain and the fader takes dB;
-// doc pan is 0..1 and the plugin's is -1..1.
+// The cheap per-track params Tracktion supports directly — docs/editBuilder.md for why the fader is not one of them.
 void applyTrackParams(te::AudioTrack& track, const TrackDoc& t) {
-    // The track's own fader is left at unity: what a track sounds like is decided by the modules on it, and the
-    // last of those is its mixer strip. Driving this one as well would be a second gain stage nothing names.
+    // The track's own fader is left at unity: the modules decide, and driving this too would be a second gain stage nothing names.
     track.setMute(t.mute);
 }
 
-// Solo is a mixer-wide relationship — any soloed track silences every non-soloed one — so re-apply mute across
-// ALL tracks after a sync, since a per-track diff carries only the changed track. Tracks map to the edit's
-// audio tracks by index, as populateEdit assigns them.
+// Solo is a mixer-wide relationship, so re-apply mute across ALL tracks after a sync — a per-track diff carries only the changed one.
 void applySoloMute(te::Edit& edit, const ProjectDoc& doc) {
     bool anySolo = false;
     for (const auto& t : doc.tracks)
@@ -325,11 +264,7 @@ void applySoloMute(te::Edit& edit, const ProjectDoc& doc) {
     }
 }
 
-// Create a MIDI clip on the track from a ClipDoc's notes. NB: ClipTrack::insertMIDIClip takes a TimeRange, NOT
-// a ClipPosition, and MidiList::addNote takes (pitch, BeatPosition, BeatDuration, velocity, colour, undo).
-// One note into the sequence, retriggered `repeat` times inside its OWN duration — a pad's ratchet.
-// The duration is the whole of what a pad occupies (the sequencer writes a step's worth), so the
-// hits divide it rather than overrunning into the next step.
+// One note into the sequence, retriggered `repeat` times inside its OWN duration — a pad's ratchet, docs/editBuilder.md.
 static void addNoteWithRepeat(te::MidiList& seq, const NoteDoc& n, double atBeat) {
     const double dur = n.duration > 0.0 ? n.duration : 0.25;
     const int hits = n.repeat >= 2 ? n.repeat : 1;
@@ -342,23 +277,7 @@ static void addNoteWithRepeat(te::MidiList& seq, const NoteDoc& n, double atBeat
                     vel, 0, nullptr);
 }
 
-/**
- * A MIDI clip, with its pads' effects realised.
- *
- * `repeat` is local to a note and costs nothing. `skip` is not: it silences a pad on every Nth PASS
- * of the pattern, and a pass only exists because the clip carries a loop range that Tracktion
- * repeats. There is no per-repetition hook to hang it on, so the passes are UNROLLED here — the
- * notes are written out for each one, the skipped pads left out, and the loop range not applied.
- *
- * Unrolled only when some pad actually asks for it. Without that, every looping sequence would
- * stop being a loop and become its own expansion: more notes in the edit, and a diff that has to
- * re-insert all of them for a change to one pass. A pattern with no `skip` takes exactly the path
- * it always did.
- *
- * Why here and not in the compiler: the sequencer draws the same document the engine plays, and a
- * document holding four passes of a one-bar pattern is one the grid would draw four bars of. The
- * pattern as authored and the notes as played are different lists, and this is where they part.
- */
+/** A MIDI clip, with its pads' effects realised — `skip` UNROLLS the passes, and why is docs/editBuilder.md. */
 void insertMidiClip(te::Edit& edit, te::AudioTrack& track, const ClipDoc& c) {
     const auto len = c.length > 0.0 ? c.length : 4.0;
     const tt::TimeRange range{beatToTime(edit, c.start), beatToTime(edit, c.start + len)};
@@ -380,22 +299,17 @@ void insertMidiClip(te::Edit& edit, te::AudioTrack& track, const ClipDoc& c) {
         return;
     }
 
-    // How many times the window fits the clip — the passes a `skip` counts. Rounded rather than
-    // truncated: `length` is win × loops computed in floating point, so the last pass can land a
-    // few ulps short of a whole one and be dropped by a floor().
+    // How many times the window fits the clip. Rounded rather than truncated, so a last pass a few ulps short is not dropped.
     const int passes = std::max(1, (int)std::llround(len / win));
     for (int p = 0; p < passes; ++p)
         for (const auto& n : c.notes) {
-            // Every Nth pass is the one that falls silent, counting the first as pass 1: `skip: 2`
-            // plays one pass in two, `skip: 4` plays three in four.
+            // Every Nth pass falls silent, counting the first as pass 1: `skip: 2` plays one pass in two, `skip: 4` three in four.
             if (n.skip >= 2 && ((p + 1) % n.skip) == 0)
                 continue;
-            // Clip-relative, as the loop range would have made it: the window's start becomes the
-            // clip's start, and each pass follows the one before.
+            // Clip-relative, as the loop range would have made it: the window's start becomes the clip's start.
             addNoteWithRepeat(seq, n, (n.time - c.loopStart) + p * win);
         }
-    // Deliberately NO applyClipLoop: the repetition is now written out, and looping it again would
-    // play the whole expansion over.
+    // Deliberately NO applyClipLoop: the repetition is written out, and looping it again would play the whole expansion over.
 }
 
 bool saveVstPreset(te::Plugin& plugin, const juce::File& file) {
@@ -420,10 +334,7 @@ bool saveVstPreset(te::Plugin& plugin, const juce::File& file) {
     return file.replaceWithData(getter.preset.getData(), getter.preset.getSize());
 }
 
-// Normalize a built-in's type to the xmlTypeName createNewPlugin keys on: a project may use the human form
-// ("Chorus") rather than the internal id ("chorus"), and Tracktion's lookup is exact-case. Built-ins sit in the
-// scan cache as { format:"internal", name:<display>, identifier:<xmlTypeName> }, so match on either and hand
-// back the xmlTypeName; return p.type unchanged when nothing matches and leave the warning to the caller.
+// Normalize a built-in's type to the xmlTypeName createNewPlugin keys on, matching either spelling — docs/builtinParams.md.
 std::string resolveBuiltInType(const std::string& ptype) {
     const auto infos = cachedPluginInfos();   // a snapshot, for the same reason makeExternalPlugin holds one
     for (const auto& i : *infos)
@@ -433,19 +344,11 @@ std::string resolveBuiltInType(const std::string& ptype) {
     return ptype;
 }
 
-// Instantiate a plugin from a PluginDoc and insert it at `index` (0 == front, before the built-in volume/pan);
-// callers pass an increasing index so a chain keeps its order. A built-in comes from its xmlTypeName, an
-// external from the scan cache. A resolved .vstpreset loads first, then text params override it.
-// The whole of plugin creation, against whichever LIST it is going on: a track's, or the edit's
-// master list for the mix chain — nothing here needs the track itself. See addPlugin below.
+// The whole of plugin creation, onto whichever LIST it is going: a track's, or the edit's master list — docs/editBuilder.md.
 te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDoc& p, int index) {
     if (p.type.empty())
         return {};
-    // A built-in is created from a STATE tree rather than a type name whenever the module carries something the
-    // plugin must know before its constructor returns. Two things qualify, for one reason: a DSP graph and a
-    // Faust program each DECLARE the plugin's parameters, and Tracktion plugins create their
-    // AutomatableParameters in the constructor and never after — so it has to be on the tree already. See
-    // GraphDspPlugin and FaustPlugin.
+    // A built-in is created from a STATE tree when the module carries what the plugin must know before its constructor returns.
     const auto makeBuiltIn = [&]() -> te::Plugin::Ptr {
         const juce::String type{resolveBuiltInType(p.type)};
         // Never both: a module names one plugin, and that plugin reads one of these two properties.
@@ -466,17 +369,11 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
         return {};
     }
     list.insertPlugin(plugin, index, nullptr);
-    // Bypass. A step written `enabled: false` always reached the engine in the PluginDoc and was silently dropped
-    // here, so a bypassed module went on processing. Tracktion's `enabled` is exactly this: the plugin stays in the
-    // chain and passes its input through. Set BEFORE the preset and params, so flipping bypass off restores the
-    // module as configured rather than as created.
+    // Bypass: Tracktion's `enabled` keeps the plugin in the chain and passes its input through, and it is set BEFORE the preset and params.
     plugin->setEnabled(p.enabled);
     if (!p.path.empty())
         loadVstPreset(*plugin, juce::File(juce::String(p.path)));   // module's or its base's .vstpreset
-    // A neural amp modeller's .nam model, loaded from the FILE the project names rather than the plugin's stored
-    // blob: the song is the source of truth here as everywhere, so swapping an amp is picking a file. Loaded HERE,
-    // on the message thread while the Edit is built — never from the audio thread, which is why
-    // NamPlugin::loadModel says so in as many words.
+    // The .nam model, loaded from the FILE the project names rather than the plugin's stored blob — on the message thread, never the audio one.
     if (!p.namFile.empty())
         if (auto* nam = dynamic_cast<studio::NamPlugin*>(plugin.get())) {
             juce::String err;
@@ -485,8 +382,7 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
                 warn(err.toStdString(), p.id);
             else if (const double want = nam->modelSampleRate();
                      want > 0.0 && std::abs(want - edit.engine.getDeviceManager().getSampleRate()) > 1.0)
-                // A model is trained at one rate and this plugin does not resample, so the amp simply sounds like a different
-                // amp. Worth a line: nothing else in the signal path would tell you.
+                // The plugin does not resample, so a model trained at another rate simply sounds like a different amp.
                 warn("expects " + std::to_string(want) + " Hz but the engine runs at " +
                          std::to_string(edit.engine.getDeviceManager().getSampleRate()) +
                          " Hz - the model will not sound as trained",
@@ -494,9 +390,7 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
         }
     applyPluginParams(*plugin, p.params);                            // text params override the preset
 
-    // Checked AFTER the params, because it depends on one of them: a model that declares no loudness leaves
-    // Normalize with nothing to work from, and the resulting level is whatever the model happens to output.
-    // Silent otherwise — a module that turned Normalize off has already said it does not care.
+    // Checked AFTER the params, because it depends on one: Normalize with no declared loudness has nothing to level to.
     if (!p.namFile.empty())
         if (auto* nam = dynamic_cast<studio::NamPlugin*>(plugin.get()))
             if (nam->normalize->getCurrentValue() >= 0.5f && !nam->modelLoudness().has_value()
@@ -505,8 +399,7 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
                      "at whatever level it was trained at",
                      p.id);
 
-    // A rack instrument carries its sounds in p.rack: each is a window of an audio file — a whole clip for a
-    // "samples" rack, a slice of the shared source for a "slice" one — loaded pinned to its note.
+    // A rack instrument carries its sounds in p.rack: each is a window of an audio file, loaded pinned to its note.
     if (!p.rack.empty()) {
         if (auto* sampler = dynamic_cast<te::SamplerPlugin*>(plugin.get())) {
             for (const auto& e : p.rack)
@@ -522,34 +415,13 @@ te::Plugin::Ptr addPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc
     return addPluginTo(edit, track.pluginList, p, index);
 }
 
-/**
- * The MASTER CHAIN — the song's `MIX -> OUT` run — onto the edit's master plugin list.
- *
- * FIRST on that list, and everything the engine adds itself comes after, in the order the graph
- * reads: MasterGainPlugin — the OUT node's `Volume` — then the mix meter and the broadcast tap
- * (buildLevelMeters). So the two readers answer for the whole run, chain and output level alike,
- * which is what lets the Fix button write the output and see the clip light clear.
- *
- * The cost is stated rather than hidden: a limiter here is upstream of the meter, so the clip
- * light stops seeing the raw sum it was built to catch. See the brain's docs/masterChain.md.
- */
+/** The MASTER CHAIN — the song's `MIX -> OUT` run — FIRST on the edit's master plugin list; docs/editBuilder.md. */
 void populateMasterChain(te::Edit& edit, const ProjectDoc& doc) {
     int index = 0;
     for (const auto& p : doc.masterPlugins)
         if (addPluginTo(edit, edit.getMasterPluginList(), p, index) != nullptr) ++index;
 
-    /**
-     * …and the OUT node's `Volume` behind them — the last thing in the song.
-     *
-     * HERE rather than in EngineHost::buildLevelMeters, which runs only on the live path: an offline
-     * render calls populateEdit and nothing else, so a gain owned by the meter code leaves `--render`,
-     * a freeze and `clip process` all bouncing at unity however the song's output level reads. A
-     * bounce that comes back at a different level from playback is audible the moment you freeze a
-     * track, and `clip process` — which writes a render back onto the material — drifts a little
-     * further every pass.
-     *
-     * The live path takes hold of THIS one through `masterGainOf`. Two would multiply.
-     */
+    /** …and the OUT node's `Volume` behind them, made HERE so an offline render gets it too — docs/editBuilder.md. */
     if (auto gain = edit.getPluginCache().createNewPlugin(MasterGainPlugin::xmlTypeName, {})) {
         edit.getMasterPluginList().insertPlugin(gain, -1, nullptr);
         if (auto* mg = dynamic_cast<MasterGainPlugin*>(gain.get())) mg->setGainDb(doc.masterVolume);
@@ -562,8 +434,7 @@ te::Plugin::Ptr masterGainOf(te::Edit& edit) {
     return {};
 }
 
-// Load one rack sound: honour the requested window clamped to the file, falling back to the whole file when no
-// usable length was given. Pinned to exactly its note and open-ended, so a short note still plays the whole hit.
+// Load one rack sound: the requested window clamped to the file, pinned to its note and open-ended so a short note plays the whole hit.
 bool addRackSound(te::Edit& edit, te::SamplerPlugin& sampler, const std::string& file,
                   const std::string& name, int note, double start, double length) {
     const juce::File f{juce::String(file)};
@@ -592,8 +463,7 @@ bool addRackSound(te::Edit& edit, te::SamplerPlugin& sampler, const std::string&
 }
 
 void applyAutomationLane(te::Edit& edit, te::Plugin& plugin, const AutomationDoc& lane) {
-    // Resolve the target parameter by the same display name namedParams() uses, so a curve authored against
-    // "Filter Freq" finds the 4OSC's cutoff.
+    // Resolve the target by the same display name namedParams() uses, so a curve authored against "Filter Freq" finds 4OSC's cutoff.
     te::AutomatableParameter* param = nullptr;
     for (auto& [name, p] : namedParams(plugin))
         if (name.toStdString() == lane.param) { param = p; break; }
@@ -602,8 +472,7 @@ void applyAutomationLane(te::Edit& edit, te::Plugin& plugin, const AutomationDoc
         return;
     }
 
-    // Map the curve's output onto the param's range: unipolar (0..1) spans it fully, bipolar (-1..1) modulates
-    // ±half around the param's set value — so a wobble rides where the knob sits rather than sweeping the control.
+    // Map the curve onto the param's range: unipolar spans it fully, bipolar rides ±half around where the knob already sits.
     const auto range = param->getValueRange();
     const float lo = range.getStart();
     const float hi = range.getEnd();
@@ -620,34 +489,15 @@ void applyAutomationLane(te::Edit& edit, te::Plugin& plugin, const AutomationDoc
     }
 }
 
-// Build the Edit graph from a doc: tempo, tracks with their clips, plugins and aux sends. Shared by the live
-// server path and the offline renderer — both need exactly this graph, and only what follows differs.
+// Build the Edit graph from a doc, shared by the live server path and the offline renderer — docs/editBuilder.md.
 void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
                   const std::string& baseDir,
                   std::map<std::string, te::Plugin::Ptr>* pluginsOut,
                   std::map<std::string, std::string>* presetSaveOut) {
-    // Every media path in a doc is ABSOLUTE. Tracktion's SourceFileReference — which SamplerPlugin uses to open a
-    // rack sound — otherwise reads a source string as a ProjectItemID or a path relative to the nonexistent edit
-    // file, so the sound is silent. Point the resolver straight at the file; nothing else here goes through one.
+    // Every media path in a doc is ABSOLUTE, so the resolver points straight at the file — docs/editBuilder.md.
     edit.filePathResolver = [](const juce::String& s) { return juce::File(s); };
 
-    // Tracktion's master fader defaults to -3 dB, and nothing here ever moved it. Every mixdown this engine
-    // has written came out 3 dB below the material that made it, on a fader no surface draws and nobody set.
-    //
-    // Found by measuring, after two wrong guesses: a one-track doc with no plugins rendered 3 dB low WITH the
-    // master (`useMaster=true`) and exactly at unity without it, so a stem was always right and a mixdown
-    // always low. It is not a pan law — the plugin was asked, and answered `vol=-3, pan=0`. Track faders were
-    // never involved.
-    //
-    // Set here, so playback, `--render` and a freeze move together: a bounce that came back at one level and
-    // played at another would be audible the moment you froze a track. It matters most where a render is
-    // written BACK onto the material — `clip process` treated the same audio 3 dB quieter every pass.
-    // See packages/commands/docs/peakPass.md.
-    //
-    // It stays a hard 0. The song's own output level does NOT go here: this fader stops at +6 dB
-    // and a master trim is exactly where that ceiling bites, so `masterVolume` is applied by a
-    // gain the engine owns, on the master plugin list just after this chain (MasterGainPlugin.h).
-    // Pinning this one is what keeps the two from multiplying. See packages/song/docs/masterVolume.md.
+    // Tracktion's master fader defaults to -3 dB and is pinned to a hard 0 here; the song's own level is a gain beside it — docs/editBuilder.md.
     if (auto master = edit.getMasterVolumePlugin()) master->setVolumeDb(0.0f);
 
     // …and the song's own master chain onto that same bus, before anything the engine appends.
@@ -662,9 +512,7 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
     edit.ensureNumberOfAudioTracks(static_cast<int>(std::max<size_t>(1, doc.tracks.size())));
     auto audioTracks = te::getAudioTracks(edit);
 
-    // Plugins whose second input port is wired, resolved in a pass of their own below: the source is a TRACK,
-    // and a track has no EditItemID until it has been made — so a chain that sidechains from a lane later in
-    // the doc would find nothing at all if this were done inline.
+    // Plugins whose second input is wired, resolved in a pass of their own below: a track has no EditItemID until it has been made.
     std::vector<std::pair<te::Plugin::Ptr, std::string>> sidechains;
 
     for (size_t i = 0; i < doc.tracks.size(); ++i) {
@@ -673,8 +521,7 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
         track->setName(juce::String(tdoc.name));
         applyTrackParams(*track, tdoc);
         for (const auto& c : tdoc.clips) {
-            // A disabled event is placed but silent: it reaches us so the timeline can
-            // draw it, and is simply never built into the edit.
+            // A disabled event is placed but silent: it reaches us so the timeline can draw it, and is never built into the edit.
             if (c.disabled) continue;
             if (c.type == ClipType::Midi) insertMidiClip(edit, *track, c);
             else insertClip(engine, edit, *track, c, baseDir);
@@ -691,25 +538,20 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
                         (*presetSaveOut)[p.id] = p.presetSave;   // where a UI edit saves it
                 }
             }
-        // Automation: bake each lane onto its target plugin's parameter curve, once every plugin on this track exists.
-        // A lane targeting a plugin that failed to instantiate is skipped.
+        // Automation, once every plugin on this track exists; a lane targeting one that failed to instantiate is skipped.
         for (const auto& lane : tdoc.automation)
             if (auto it = pluginsOnTrack.find(lane.pluginId); it != pluginsOnTrack.end())
                 applyAutomationLane(edit, *it->second, lane);
     }
 
-    // Second inputs, now that every lane has an itemID. Tracktion carries one sidechain source per plugin and
-    // sums it into the render buffer past the stereo pair, which is where DspGraph's `ain` port 1 reads it
-    // (see docs/sidechain.md). The wires are what actually map channels, so a plugin with none gets the
-    // default routing — with our channel names that is source L/R onto channels 2/3.
+    // Second inputs, now that every lane has an itemID — one sidechain source per plugin, summed past the stereo pair (docs/sidechain.md).
     for (auto& [plugin, from] : sidechains) {
         auto* src = trackById(edit, from, doc);
         if (src == nullptr) {
             warn("second input source track not found: " + from);
             continue;
         }
-        // Its own lane is not a second signal, it is the one already flowing in — and Tracktion excludes the
-        // owner track from a sidechain source for exactly that reason. Say so rather than wire a loop.
+        // Its own lane is not a second signal but the one already flowing in, so say so rather than wire a loop.
         if (plugin->getOwnerTrack() == src) {
             warn("second input source '" + from + "' is this module's own track - that signal is already its first input");
             continue;
@@ -719,8 +561,7 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
             plugin->guessSidechainRouting();
     }
 
-    // Aux sends, a second pass once every track including the return buses exists: each destination gets a bus
-    // number and one AuxReturn, and every enabled send feeding it gets an AuxSend at its level.
+    // Auxiliary sends, a second pass once every track exists: one bus and one return per destination, one send per enabled feed.
     std::map<std::string, int> busForDest;   // dest track id -> bus number
     int nextBus = 1;
     for (size_t i = 0; i < doc.tracks.size(); ++i) {

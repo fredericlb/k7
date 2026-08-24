@@ -19,9 +19,7 @@ namespace {
 constexpr double kRate = 48000.0;
 constexpr int kBlock = 256;
 
-// The flanger's SHAPE — a sample-rate stage feeding `aout`, then a mix — with the delay and the feedback taken
-// out. Doubling is not a flanger, but it is what makes the wet signal a number you can write down: the point
-// under test is the phase ORDER, not the DSP.
+// The flanger's SHAPE with the delay taken out: doubling makes the wet signal a number you can write down.
 const char* kSampleGraph = R"({
   "params": [ { "name": "Mix", "min": 0, "max": 1, "default": 0.5 } ],
   "nodes": [
@@ -32,8 +30,7 @@ const char* kSampleGraph = R"({
   ]
 })";
 
-// The same, with `mix` declared FIRST. Its position in the list must not matter: it is a terminal operation,
-// not a step. The flanger writes it last, which is exactly the case that would hide an ordering assumption.
+// The same with `mix` declared FIRST: it is a terminal operation, not a step, so its position must not matter.
 const char* kMixFirstGraph = R"({
   "params": [ { "name": "Mix", "min": 0, "max": 1, "default": 0.5 } ],
   "nodes": [
@@ -54,8 +51,7 @@ const char* kAudioGraph = R"({
   ]
 })";
 
-// A two-input module — the crossfade of packages/song/docs/ports.md, reduced to a sum. `ain` port 1 reads the
-// SECOND pair of the render buffer, which is where Tracktion's sidechain routing puts the other track.
+// A two-input module reduced to a sum: `ain` port 1 reads the SECOND pair, where a sidechain source lands.
 const char* kTwoInputGraph = R"({
   "params": [],
   "nodes": [
@@ -128,15 +124,13 @@ void where_mix_sits_in_the_list_does_not_matter() {
 }
 
 void an_audio_only_graph_is_unchanged_by_the_move() {
-    // The shape that already worked has to keep working: deferring `mix` past a phase this graph doesn't have
-    // must be invisible to it.
+    // Deferring `mix` past a phase this graph does not have must be invisible to it.
     CHECK(std::abs(runOnce(kAudioGraph, 1.0f, 0.1f) - 0.2f) < 1.0e-6f);
     CHECK(std::abs(runOnce(kAudioGraph, 0.0f, 0.1f) - 0.1f) < 1.0e-6f);
 }
 
 void the_dry_snapshot_is_the_input_not_a_later_stage() {
-    // `mix` blends against what came IN, never against whatever the node before it produced. With gain=2 and
-    // mix=0.5 the answer is 0.5·(2x) + 0.5·x = 1.5x; blending against the gained signal would give 2x.
+    // Blending against what came IN gives 0.5·(2x) + 0.5·x = 1.5x; against the gained signal it would give 2x.
     CHECK(std::abs(runOnce(kAudioGraph, 0.5f, 0.2f) - 0.3f) < 1.0e-6f);
 }
 
@@ -153,8 +147,7 @@ void a_graph_with_no_mix_node_is_left_alone() {
     CHECK(std::abs(mean(buf) - 0.5f) < 1.0e-6f);
 }
 
-// A block of `chans` channels, each holding its own DC level — so which channel a node read is readable off
-// the answer rather than inferred.
+// A block whose channels hold different DC levels, so which one a node read is readable off the answer.
 juce::AudioBuffer<float> dcChannels(int chans, std::initializer_list<float> levels, int n = kBlock) {
     juce::AudioBuffer<float> b(chans, n);
     b.clear();
@@ -190,8 +183,7 @@ void an_unfed_second_port_is_silence_rather_than_a_read_past_the_end() {
     auto g = buildGraph(kTwoInputGraph);
     if (!g) return;
     g->prepare(kRate, kBlock);
-    // `mandatory: false` says wiring one side and leaving the other quiet is legitimate — and Tracktion hands
-    // a plugin with no sidechain source a two-channel buffer, so this is the shape that state arrives in.
+    // Tracktion hands a plugin with no sidechain source a two-channel buffer: that is the shape under test.
     auto buf = dcChannels(2, {0.25f, 0.25f});
     g->process(buf, 0, kBlock, nullptr, 0);
     CHECK(std::abs(mean(buf) - 0.25f) < 1.0e-6f);
@@ -201,10 +193,7 @@ void an_unfed_second_port_is_silence_rather_than_a_read_past_the_end() {
 
 // --- what the audit of 2026-08-08 fixed, pinned here so it cannot come back -----------------
 
-// linmap with an EMPTY range is 0, not NaN. `jlimit` does not filter NaN — both its comparisons are false, so
-// 0/0 came straight out — and a NaN reaching juce::IIRCoefficients::makeBandPass poisons that filter's state
-// permanently: the module goes silent and stays silent until the graph is rebuilt. The shipped auto-wah
-// computes its `lo` from a lerp, so an empty range was reachable and not hypothetical.
+// linmap with an EMPTY range is 0, not the NaN that poisons a biquad for good (docs/dspGraph.md).
 void linmap_with_an_empty_range_is_zero_not_nan() {
     // gain(linmap(x, lo, hi)) with lo == hi == 1: an honest 0 mutes the block; a NaN makes it non-finite.
     const char* json = R"({
@@ -223,8 +212,7 @@ void linmap_with_an_empty_range_is_zero_not_nan() {
     for (int i = 0; i < kBlock; ++i) CHECK(std::isfinite(buf.getReadPointer(0)[i]));
 }
 
-// A block LARGER than prepare() was told about is processed, not grown into: process() splits it rather than
-// setSize the dry snapshot on the audio thread, so the arithmetic must come out the same.
+// A block LARGER than prepare() was told about is split rather than grown, so the arithmetic must not move.
 void a_block_bigger_than_prepared_is_chunked_not_grown() {
     auto g = buildGraph(kSampleGraph);
     if (!g) return;
@@ -236,12 +224,7 @@ void a_block_bigger_than_prepared_is_chunked_not_grown() {
     for (int i = 0; i < big; ++i) CHECK(std::abs(buf.getReadPointer(0)[i] - 0.5f) < 1e-5f);
 }
 
-// The ANALYSIS phase — the one phase no graph in this file exercised, which is how a change to its
-// per-sample loop could land uncovered. An envelope follows the LOUDER channel: it takes the peak
-// across the pair per sample, so a loop that read channel 0 twice, or that lost the second read
-// while its pointers were hoisted, would follow the quiet side and be silently wrong on every
-// stereo source. Attack 0.1 ms at 48 kHz settles in ~5 samples, so after a block the envelope IS
-// the peak, and `gain` then multiplies the buffer by it — a number that can be written down.
+// The ANALYSIS phase: an envelope peaks ACROSS the pair, so reading channel 0 twice follows the quiet side.
 void an_envelope_follows_the_louder_channel() {
     auto g = buildGraph(R"({
       "params": [ { "name": "Attack", "min": 0.1, "max": 200, "default": 0.1 },
@@ -280,8 +263,7 @@ void an_envelope_follows_it_on_either_side() {
     }
 }
 
-// A MONO buffer through the same graph: the hoisted read pointers keep a null second entry, and
-// `numChans` is what must stop the loop reaching it. One channel, no crash, envelope on that one.
+// A MONO buffer: the hoisted read pointers keep a null second entry, and `numChans` must stop the loop there.
 void an_envelope_on_a_mono_buffer_reads_one_channel() {
     auto g = buildGraph(R"({
       "params": [ { "name": "Attack", "min": 0.1, "max": 200, "default": 0.1 },

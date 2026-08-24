@@ -1,5 +1,3 @@
-#pragma once
-
 // ProjectDiff — the difference between two ProjectDocs as an ordered list of Changes, and the beating heart of
 // the text-based model: diffing instead of rebuilding means no audio glitch, plugins keep their internal state
 // (a reverb tail, a held note), and a 200-track edit doesn't rebuild because one clip moved.
@@ -8,6 +6,8 @@
 // positional/heuristic key when a file omits one (see keyOf()) — so a rename is "same id, new name", not
 // remove+add. Ordering matters too: removals before adds, and tracks before their contents, so apply() never
 // references a track that doesn't exist yet.
+
+#pragma once
 
 #include <optional>
 #include <string>
@@ -47,8 +47,7 @@ struct Change {
     ChangeKind kind;
     std::string trackId;      // which track (empty for global changes)
 
-    // The relevant new-state snapshots; which fields are populated depends on `kind`, and apply() reads only what
-    // it needs. Copies keep apply() decoupled from the lifetime of the docs that produced the diff.
+    // New-state snapshots, populated per `kind`; they are copies so apply() outlives the docs that produced them.
     std::optional<TrackDoc> track;
     std::optional<ClipDoc> clip;
     std::optional<PluginDoc> plugin;

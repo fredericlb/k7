@@ -21,8 +21,7 @@ struct Payload {
     int sentinel = 0;
 };
 
-// Asking about a session must never conjure it — the invariant that stopped the supervisor's
-// plugin poll from creating a phantom "" session in the tray's Sessions menu.
+// Asking about a session must never conjure it — the invariant that stopped a plugin poll creating a phantom "" session in the tray's menu.
 void find_does_not_create() {
     SessionRegistry<Payload> reg;
     CHECK(reg.find("st0") == nullptr);
@@ -50,8 +49,7 @@ void emplace_creates_once() {
     CHECK(reg.find("st0") == &a);
 }
 
-// The unique_ptr promise: a reference handed out stays valid however much the map grows around
-// it. This is why a Session may hold a ring the audio thread writes into.
+// The unique_ptr promise: a reference stays valid however much the map grows, which is why a Session may hold a ring the audio thread writes into.
 void reference_survives_growth() {
     SessionRegistry<Payload> reg;
     Payload& first = reg.emplace("first");
@@ -85,8 +83,7 @@ void ids_are_sorted_and_copied() {
     CHECK((reg.ids() == std::vector<std::string>{"m9", "pl8", "st0"}));
 }
 
-// One writer growing the map while two readers work it, which is the shape of the real fault:
-// the sender thread drains a ring through withSession while the message thread emplaces.
+// One writer growing the map while two readers work it, the shape of the real fault: the sender drains a ring through withSession while the message thread emplaces.
 void concurrent_readers_never_tear() {
     SessionRegistry<Payload> reg;
     reg.emplace("live").sentinel = 99;

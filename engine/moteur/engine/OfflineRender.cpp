@@ -28,16 +28,14 @@ namespace studio {
 
 namespace {
 
-// Progress trace, off unless STUDIO_RENDER_TRACE is set. An offline bounce that stalls prints NOTHING otherwise
-// — no output at all is indistinguishable from slow, which is exactly the shape that cost a night here.
+// Progress trace, off unless STUDIO_RENDER_TRACE is set: a stalled bounce otherwise prints NOTHING, which is indistinguishable from slow.
 void trace(const char* what) {
     static const bool on = std::getenv("STUDIO_RENDER_TRACE") != nullptr;
     if (on) std::cerr << "[render:trace] " << what << std::endl;
 }
 
 #if JUCE_WINDOWS
-// Watchdog: print THIS thread's stack if it is still here in `seconds`. A render that stalls prints nothing and
-// burns no CPU, which is indistinguishable from slow — and there is no debugger on the build machines.
+// Watchdog: print THIS thread's symbolised stack if it is still here in `seconds`, gated on STUDIO_RENDER_TRACE — "Debugging a hang with no debugger" in AGENTS.md.
 void watchdogStack(int seconds) {
     if (std::getenv("STUDIO_RENDER_TRACE") == nullptr) return;
     HANDLE stuck = nullptr;
@@ -84,8 +82,7 @@ void watchdogStack(int) {}
 
 #if JUCE_WINDOWS
 namespace {
-// Walk and symbolise the faulting thread's stack, from inside the exception filter — the context
-// the OS hands us IS the faulting one, so there is no thread to suspend.
+// Walk and symbolise the faulting thread's stack from inside the exception filter: the context the OS hands us IS the faulting one, so there is no thread to suspend.
 LONG WINAPI crashFilter(EXCEPTION_POINTERS* info) {
     auto proc = GetCurrentProcess();
     SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
@@ -146,18 +143,7 @@ std::string jsonString(const std::string& s) {
     return juce::JSON::toString(juce::var(juce::String(s))).toStdString();
 }
 
-// The `tracksToDo` bitset for a set of tracks: bit i set for each track's index in getAllTracks(edit).
-//
-// NOT te::toBitSet(), which is broken upstream — it iterates the EDIT's tracks instead of the argument it is
-// given:
-//
-//     for (auto t : allTracks)
-//         if (int index = allTracks.indexOf (t); index >= 0)
-//             bitset.setBit (index);
-//
-// so it sets every bit whatever you pass in, and any render asking for a subset silently gets the whole mix:
-// two different frozen tracks coming out bit-identical, and a stem export writing one copy of the mixdown per
-// track.
+// The `tracksToDo` bitset for a set of tracks — NOT te::toBitSet(), which is broken upstream and sets every bit whatever you pass it (docs/cliModes.md).
 juce::BigInteger trackBits(te::Edit& edit, const juce::Array<te::Track*>& wanted) {
     juce::BigInteger bits;
     auto all = te::getAllTracks(edit);
@@ -167,8 +153,7 @@ juce::BigInteger trackBits(te::Edit& edit, const juce::Array<te::Track*>& wanted
     return bits;
 }
 
-// Bounce a set of the edit's tracks to `out`. The blocking renderToFile overloads route through
-// UIBehaviour::runTaskWithProgressBar, a no-op headless — so we build the render task and pump runJob() here.
+// Bounce a set of the edit's tracks to `out`, pumping runJob() by hand: the blocking renderToFile overloads route through UIBehaviour, a no-op headless.
 bool renderTracks(te::Edit& edit, const juce::File& out, const juce::BigInteger& bits, bool useMaster,
                   const tt::TimeRange& range, double sr) {
     if (bits.countNumberOfSetBits() == 0) return false;
@@ -192,8 +177,7 @@ bool renderTracks(te::Edit& edit, const juce::File& out, const juce::BigInteger&
     return out.existsAsFile() && out.getSize() > 0;
 }
 
-// The edit an offline bounce runs on: device-free, built-ins registered, populated from the doc. Shared by the
-// export and the freeze, which differ only in what they then render.
+// The edit an offline bounce runs on — device-free, built-ins registered, populated from the doc — shared by the export and the freeze.
 std::unique_ptr<te::Edit> buildRenderEdit(te::Engine& engine, const ProjectDoc& doc, const std::string& baseDir) {
     trace("registerBuiltInPlugins");
     registerBuiltInPlugins(engine);
@@ -202,26 +186,14 @@ std::unique_ptr<te::Edit> buildRenderEdit(te::Engine& engine, const ProjectDoc& 
     trace("populateEdit");
     populateEdit(engine, *edit, doc, baseDir);
     trace("populateEdit done");
-    // SamplerPlugin builds its playable sounds on an async message-thread callback triggered by populateEdit, and
-    // this headless render otherwise never pumps the loop — without one flush a rack track renders silent. The live
-    // engine already pumps its message thread and needs no equivalent.
-    //
-    // The watchdog guards THIS line specifically: pumping also runs Tracktion's timers, and one of them enumerates
-    // hardware MIDI, which can block forever on a wedged midisrv (see AGENTS.md). makeOfflineEngine turns that scan
-    // off; the watchdog is what names the next thing to hang here, instead of leaving a silent process.
+    // One pump, or SamplerPlugin never builds its sounds and a rack track renders silent — and the watchdog guards THIS line, since pumping runs the MIDI timer too (AGENTS.md).
     watchdogStack(20);
     juce::MessageManager::getInstance()->runDispatchLoopUntil(200);
     trace("pump done");
     return edit;
 }
 
-// Let the message thread finish what the render left queued before the Edit is destroyed.
-//
-// An offline bounce never pumps the loop (there is no app), so every asyncUpdate an external plugin posts while
-// it is torn down is still sitting there when the Edit goes. Roughly half of all freezes crash that way — after
-// the wav is fully written and the path printed, which is the worst shape a bug can have: a perfect file and a
-// non-zero exit at the caller. Pumping here gives those callbacks a thread to run on while their objects are
-// still alive.
+// Let the message thread finish what the render left queued before the Edit is destroyed — "A CLI must drain the message queue before it returns" in AGENTS.md.
 void drainMessageQueue(int ms = 200) {
     if (auto* mm = juce::MessageManager::getInstanceWithoutCreating())
         mm->runDispatchLoopUntil(ms);
@@ -239,15 +211,7 @@ double renderRate(const ProjectDoc& doc) {
 
 }  // namespace
 
-/**
- * A headless engine: everything Tracktion needs to BUILD and render an edit, and no audio device.
- *
- * `te::Engine`'s constructor opens the default device unless its EngineBehaviour says otherwise, and an offline
- * render has no use for one — it writes a file. Opening one is not merely wasteful: a device the LIVE engine
- * already holds cannot be opened twice, so a render (or a freeze) launched while the transport exists sits in
- * the constructor waiting, printing nothing, until something kills it. Measured on an EMPTY project, which is
- * what pins it here rather than anywhere in the rendering.
- */
+// A headless engine: everything Tracktion needs to BUILD and render an edit, and no audio device — "The audio device is opened ONCE, explicitly" in AGENTS.md.
 struct HeadlessBehaviour : te::EngineBehaviour {
     bool autoInitialiseDeviceManager() override { return false; }
 };
@@ -257,13 +221,7 @@ std::unique_ptr<te::Engine> makeOfflineEngine() {
     auto engine = std::make_unique<te::Engine>("Studio", nullptr,
                                                std::make_unique<HeadlessBehaviour>());
 
-    // Take the hosted-device route as well, for its ONE side effect: usesHardwareMidiDevices() turns false, so the
-    // DeviceManager's rescan timer stops enumerating the machine's MIDI ports. A render has no use for them, and
-    // the enumeration is not merely wasteful — juce::MidiInput::getAvailableDevices() is an RPC into midisrv.exe,
-    // and a wedged MIDI service blocks it FOREVER, in every process on the machine. That is not hypothetical: it
-    // is what stalled every render here for a night, from a Tracktion timer firing inside the sampler pump below.
-    // Measured stack: midiInGetNumDevs -> NtAlpcSendWaitReceivePort, zero CPU, no output.
-    // Do this before anything pumps the message loop, or the timer fires first and we are already waiting.
+    // The hosted-device route for ONE side effect — no MIDI rescan, whose RPC into midisrv.exe never returns when that service is wedged — and BEFORE anything pumps (AGENTS.md).
     te::HostedAudioDeviceInterface::Parameters p;
     p.useMidiDevices = false;
     engine->getDeviceManager().getHostedAudioDeviceInterface().initialise(p);
@@ -271,8 +229,7 @@ std::unique_ptr<te::Engine> makeOfflineEngine() {
 }
 
 
-// Render the doc to <outDir>/mix.wav and, with `stems`, one wav per track, printing a JSON manifest.
-// Returns 0 on success, non-zero when nothing was audible.
+// Render the doc to <outDir>/mix.wav and, with `stems`, one wav per track, printing a JSON manifest; non-zero when nothing was audible.
 int renderOffline(const ProjectDoc& doc, const std::string& baseDir,
                   const std::string& outDir, bool stems) {
     trace("juce init");
@@ -326,16 +283,7 @@ int renderOffline(const ProjectDoc& doc, const std::string& baseDir,
     return 0;
 }
 
-// Bounce ONE track to `outFile` — the render a frozen track then plays instead of computing itself.
-//
-// This is the export's stem path with a different destination, and deliberately so: a stem is already "this track
-// through its own plugins, with no master", which is exactly the freeze boundary. Nothing here has to work out
-// where the track's chain stops, because the compiler settled that long before the doc arrived — a bus's modules
-// are on the bus's own return track, never on this one's plugin list, so "up to OUT or up to a module fed by
-// several inputs" is simply what this track's plugins ARE.
-//
-// The caller neutralises the track's gain, pan, mute and every solo in the song before handing the doc over: those
-// stay live on a frozen track, and baking them in would apply each of them twice.
+// Bounce ONE track to `outFile` — the export's stem path with another destination, and what the caller must neutralise first: docs/cliModes.md.
 int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::string& trackId,
                 const std::string& outFile) {
     juce::ScopedJuceInitialiser_GUI juceInit;
@@ -343,8 +291,7 @@ int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::st
     auto& engine = *enginePtr;
     auto edit = buildRenderEdit(engine, doc, baseDir);
 
-    // Matched by NAME, which is what populateEdit gives the Tracktion track, and what the id resolves to for every
-    // track the compiler emits. Audio tracks only: a group has no material of its own to bake.
+    // Matched by NAME, which is what populateEdit gives the track, and audio tracks only — a group has no material of its own to bake.
     auto tracks = te::getAudioTracks(*edit);
     te::Track* found = nullptr;
     for (auto* t : tracks)
@@ -364,8 +311,7 @@ int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::st
     juce::Array<te::Track*> one;
     one.add(found);
     if (!renderTracks(*edit, out, trackBits(*edit, one), false, fullRange(*edit), renderRate(doc))) {
-        // A silent track is a real answer to "freeze this", but not one worth writing: the render would be a file
-        // of zeroes that then plays in place of a track the user can still fix.
+        // A silent track is a real answer to "freeze this" and not one worth writing: zeroes would then play in place of a track the user can still fix.
         std::cerr << "[freeze] track '" << trackId << "' produced no audio - nothing to freeze\n";
         return 1;
     }

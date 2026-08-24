@@ -29,12 +29,10 @@ public:
     juce::String getSelectableDescription() override { return "Quick Master"; }
     bool takesAudioInput() override { return true; }
     bool producesAudioWhenNoAudioInput() override { return false; }
-    // The limiter's delay line still holds audio after the input stops — a `noTail` of true would
-    // let the graph cut the block that is still coming out of it.
+    // The limiter's delay line still holds audio after the input stops, so the graph must not cut it.
     bool noTail() override { return false; }
     double getTailLength() const override { return lookaheadMs / 1000.0; }
-    /** Declared, so the graph delays everything else by as much: a master bus is where a
-     *  compensated latency stops being free — a parallel send would arrive early. */
+    /** DECLARED, not absorbed: on a master bus an uncompensated latency lands a parallel send early. */
     double getLatencySeconds() override { return lookaheadMs / 1000.0; }
 
     int getNumOutputChannelsGivenInputs(int n) override { return juce::jmin(n, 2); }
@@ -45,12 +43,10 @@ public:
     void applyToBuffer(const tracktion::engine::PluginRenderContext&) override;
     void restorePluginStateFromValueTree(const juce::ValueTree&) override;
 
-    /** How far ahead the limiter's detector sees, in ms. Named because the latency this plugin
-     *  reports IS this number, and a test asserts the two agree. */
+    /** How far ahead the limiter's detector sees, in ms — and the latency this plugin reports IS it. */
     static constexpr float lookaheadMs = 2.0f;
 
-    /** The three detectors' times, in ms — slow on the bass, quick on the air. Named here
-     *  because docs/quickMaster.md quotes them. */
+    /** The three detectors' times, in ms — slow on the bass, quick on the air (docs/quickMaster.md). */
     static constexpr std::array<float, 3> bandAttackMs{30.0f, 15.0f, 5.0f};
     static constexpr std::array<float, 3> bandReleaseMs{250.0f, 150.0f, 80.0f};
 
@@ -58,28 +54,23 @@ public:
     static constexpr float compThresholdTopDb = -8.0f;
     static constexpr float compThresholdDeepDb = -24.0f;
     static constexpr float compRatioMax = 4.0f;
-    /** How much of the level the threshold gave away is handed back. Half: a macro that
-     *  compensated in full would only ever get louder, and there would be no way to hear it work. */
+    /** HALF of what the threshold gave away is handed back: a macro compensating in full only gets louder. */
     static constexpr float compMakeupShare = 0.5f;
 
-    /** Below this the bass-mono corner is OFF rather than very low — a high-pass at 0 Hz has no
-     *  coefficients, and "off" is what the bottom of that knob means. */
+    /** Below this the bass-mono corner is OFF rather than very low — a high-pass at 0 Hz has no coefficients. */
     static constexpr float bassMonoOffHz = 20.0f;
 
 private:
-    // One biquad per channel. A stage rather than a filter, because every corner here is
-    // Linkwitz-Riley and therefore two of them.
+    // One biquad per channel — a stage, since every corner here is Linkwitz-Riley and therefore two of them.
     struct Stage {
         juce::IIRFilter ch[2];
         void reset() { for (auto& f : ch) f.reset(); }
         void set(const juce::IIRCoefficients& c) { for (auto& f : ch) f.setCoefficients(c); }
     };
 
-    // The split: two cascaded Butterworth sections a side (LR4), plus the allpass that keeps the
-    // low band in step with the pair above it. See docs/quickMaster.md.
+    // LR4 a side, plus the allpass that keeps the low band in step so the three sum FLAT (docs/quickMaster.md).
     Stage lowLp_[2], restHp_[2], midLp_[2], highHp_[2], lowAp_;
-    // The spreader's bass-mono corner, on the SIDE signal only — which is mono, so the LR4 pair is
-    // two filters rather than two stages.
+    // The bass-mono corner, on the SIDE only — which is mono, so the LR4 pair is filters, not stages.
     juce::IIRFilter sideHp_[2];
 
     double rate_ = 44100.0;
@@ -87,8 +78,7 @@ private:
     // What the coefficients were last computed from, so a knob that has not moved costs nothing.
     float lastLowHz_ = -1.0f, lastHighHz_ = -1.0f, lastBassMonoHz_ = -1.0f;
 
-    // Per-band detector state, and the limiter's gain. Stereo-linked: one number for the pair,
-    // because a compressor that moves the channels apart moves the image with them.
+    // Per-band detectors and the limiter's gain, STEREO-LINKED: moving the channels apart moves the image.
     std::array<float, 3> env_{0.0f, 0.0f, 0.0f};
     float limGain_ = 1.0f;
 

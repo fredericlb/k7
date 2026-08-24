@@ -8,9 +8,7 @@ namespace te = tracktion::engine;
 const char* MixerPlugin::xmlTypeName = "studio_mixer";
 
 namespace {
-// The strip's ranges, in the units a mixer is read in. Volume stops at +6 dB where Tracktion's fader does — a
-// taller range would store a bigger number and still play +6 — and its floor is the same -60 dB the UI treats
-// as silence. The tone knobs are ±18, generous for a strip and short of anything that would ring.
+// The strip's ranges. Volume stops at +6 dB where Tracktion's fader does, since a taller range still plays +6.
 constexpr float volMinDb = -60.0f, volMaxDb = 6.0f;
 constexpr float eqMinDb = -18.0f, eqMaxDb = 18.0f;
 constexpr float midQ = 0.9f;  // wide enough to be a tilt rather than a notch
@@ -19,8 +17,7 @@ constexpr float midQ = 0.9f;  // wide enough to be a tilt rather than a notch
 MixerPlugin::MixerPlugin(te::PluginCreationInfo info) : Plugin(std::move(info))
 {
     auto* um = getUndoManager();
-    // Each parameter is backed by a CachedValue on the state, which is what makes it survive a save and reload
-    // and what the doc's `params:` map writes into.
+    // Each parameter is backed by a CachedValue on the state, which is what the doc's `params:` map writes into.
     const auto add = [&](const char* id, const char* name, float lo, float hi,
                          float def) -> te::AutomatableParameter::Ptr {
         auto value = std::make_unique<juce::CachedValue<float>>();
@@ -99,13 +96,11 @@ void MixerPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     const float lowDb = lowGain_->getCurrentValue();
     const float midDb = midGain_->getCurrentValue();
     const float highDb = highGain_->getCurrentValue();
-    // Recomputed only when a knob has actually moved: designing three biquads is far from free, and a strip's
-    // tone knobs sit still for hours at a time.
+    // Recomputed only when a knob moved: designing three biquads is far from free, and these sit still for hours.
     if (!coeffsValid_ || lowDb != lastLowDb_ || midDb != lastMidDb_ || highDb != lastHighDb_)
         updateCoefficients(lowDb, midDb, highDb);
 
-    // Tone first, then level — a fader after the EQ is what a strip is, and it keeps the metering downstream
-    // reading what the track actually sends on.
+    // Tone first, then level: a fader after the EQ is what a strip is, and what downstream metering reads.
     for (int ch = 0; ch < numChans; ++ch) {
         auto* d = buffer.getWritePointer(ch, ctx.bufferStartSample);
         low_.ch[ch].processSamples(d, n);
@@ -113,16 +108,14 @@ void MixerPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
         high_.ch[ch].processSamples(d, n);
     }
 
-    // Tracktion's own fader maths, so this reproduces the track volume/pan it replaces rather than approximating
-    // it: the same fader curve, and the project's own pan law rather than one invented here.
+    // Tracktion's own fader maths, so the curve and the project's pan law are reproduced rather than invented.
     float leftGain = 1.0f, rightGain = 1.0f;
     te::getGainsFromVolumeFaderPositionAndPan(
         te::decibelsToVolumeFaderPosition(volume_->getCurrentValue()), pan_->getCurrentValue(),
         te::getDefaultPanLaw(), leftGain, rightGain);
 
     if (numChans == 1) {
-        // Mono in, mono out: there is no second channel to pan into, so the pan can only be a level change and
-        // applying half of one would just make the track quieter for no reason a fader shows.
+        // Mono in, mono out: with no second channel to pan into, half a pan is only an unexplained level drop.
         buffer.applyGain(0, ctx.bufferStartSample, n, (leftGain + rightGain) * 0.5f);
     } else {
         buffer.applyGain(0, ctx.bufferStartSample, n, leftGain);

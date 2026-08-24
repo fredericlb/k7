@@ -4,12 +4,9 @@
 // track's sound living outside its chain, so the graph cannot show where they apply and no module can be put
 // after them. Here they are a module like any other: placed, ordered, bypassed, automated.
 //
-// The EQ is three GAINS at fixed frequencies — a low shelf, a mid bell, a high shelf. Not an EQ to shape a sound
-// with; an EQ to sit a track in a mix, which is what a strip's tone stack has always been. Anything more belongs
-// to a real equaliser module further up the chain.
-//
-// Level and pan go through Tracktion's own getGainsFromVolumeFaderPositionAndPan, so this reproduces Tracktion's
-// fader exactly, pan law included, rather than approximating it with a law of its own.
+// The EQ is three GAINS at fixed frequencies, to SIT a track in a mix rather than to shape a sound; anything
+// more belongs to a real equaliser module. Level and pan go through Tracktion's own
+// getGainsFromVolumeFaderPositionAndPan, so the fader and the pan law are reproduced, never approximated.
 
 #pragma once
 
@@ -44,8 +41,7 @@ public:
     void applyToBuffer(const tracktion::engine::PluginRenderContext&) override;
     void restorePluginStateFromValueTree(const juce::ValueTree&) override;
 
-    // The tone stack's fixed frequencies, in Hz. Named here because the module's docs quote them and a test
-    // asserts the shelves actually move the bands they claim to.
+    // The tone stack's fixed frequencies, in Hz — named here because the docs quote them and a test asserts them.
     static constexpr float lowHz = 200.0f;
     static constexpr float midHz = 1000.0f;
     static constexpr float highHz = 4000.0f;

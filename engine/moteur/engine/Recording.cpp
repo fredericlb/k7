@@ -20,13 +20,9 @@
 
 namespace studio {
 
-// The end of a take: Tracktion has closed the file and made a clip, so we rename the file to what prepareTakes(session)
-// promised and hand the brain the track, path and position. Then we DROP Tracktion's clip — the brain owns what
-// is on a track and will declare this take and send the project back, so leaving it would double the take.
+// End of a take: rename the file to what prepareTakes promised, report it, and drop Tracktion's clip — the brain re-adds it and would otherwise double it.
 struct RecordListener : public te::TransportControl::Listener {
-    // Bound to ONE session — the one whose transport it was attached to. A take that
-    // finished belongs to the project that was recording it, and with N projects there is
-    // no "the" edit to look it up in.
+    // Bound to ONE session: with N projects there is no "the" edit a finished take could be looked up in.
     RecordListener(EngineHost& h, std::string s) : host(h), session(std::move(s)) {}
 
     void recordingFinished(te::InputDeviceInstance&, te::EditItemID targetID,
@@ -79,18 +75,13 @@ struct RecordListener : public te::TransportControl::Listener {
     std::string session;
 };
 
-// Re-attach the record listener to the current edit's transport — a fresh Edit brings a fresh one, taking the
-// previous listener list with it. A thin wrapper so applyFull(), where RecordListener is incomplete, can create
-// it here where the type is complete.
+// Re-attach the listener to the current edit's transport — a fresh Edit brings a fresh listener list — from where RecordListener is a complete type.
 void EngineHost::attachRecordListener(const std::string& session) {
     if (!impl_->session(session).recordListener) impl_->session(session).recordListener = std::make_unique<RecordListener>(*this, session);
     if (auto* tc = impl_->transport(session)) tc->addListener(impl_->session(session).recordListener.get());
 }
 
-// Wire one track to its declared input, replacing whatever it had; clearing first makes it idempotent.
-// NOTE: monitor mode is a property of the DEVICE, not the target — Tracktion has one mode per input, so two
-// tracks on one physical input share it and the last applied wins. A real limit of this mapping, not an
-// oversight: per-track monitoring would need one device per track.
+// Wire one track to its declared input, replacing whatever it had; monitor mode and trim belong to the DEVICE, see docs/audioDevice.md.
 void EngineHost::applyTrackInput(const std::string& session, const TrackDoc& t) {
     if (!impl_->session(session).edit) return;
     auto* track = trackById(*impl_->session(session).edit, t.id, impl_->session(session).current);
@@ -111,10 +102,7 @@ void EngineHost::applyTrackInput(const std::string& session, const TrackDoc& t) 
         return;
     }
     if (!dev->isEnabled()) {
-        // A disabled device yields no instance to target — but enabling one rebuilds the whole wave
-        // device list, and Tracktion's own comment inside setEnabled is "this object is probably
-        // deleted..". So let the rebuild land and resolve the channel set AGAIN, or every line below
-        // reads through a dangling pointer. Costly, which is why applyAllTrackInputs hoists it.
+        // Enabling rebuilds the whole wave-device list and deletes this object, so let it land and resolve the channel set AGAIN (docs/audioDevice.md).
         dev->setEnabled(true);
         impl_->engine.getDeviceManager().dispatchPendingUpdates();
         dev = findWaveInput(impl_->engine, t.inputChannels);
@@ -123,10 +111,7 @@ void EngineHost::applyTrackInput(const std::string& session, const TrackDoc& t) 
         if (ctx == nullptr) return;
     }
 
-    // A context only builds instances for the devices that were ALREADY enabled when it was
-    // built (EditPlaybackContext::createDeviceInstances), so enabling one now is not enough —
-    // add its instance, exactly as channelLevelsDb does for the meters. Without this, wiring a
-    // track to an input the context predates left the track silent with only a log line.
+    // A context only builds instances for the devices enabled when it was built, so one enabled later needs its instance added by hand.
     if (ctx->getInputFor(dev) == nullptr) ctx->addWaveInputDeviceInstance(*dev);
     auto* instance = ctx->getInputFor(dev);
     if (instance == nullptr) {
@@ -140,22 +125,11 @@ void EngineHost::applyTrackInput(const std::string& session, const TrackDoc& t) 
         std::cerr << "[input] track '" << t.id << "' <- '" << dev->getName()
                   << "' monitor=" << t.monitor << " gain=" << t.inputGain << "dB\n";
     dev->setMonitorMode(monitorModeOf(t.monitor));
-    // Trim, applied at the DEVICE like the monitor mode above — so the same caveat holds: two tracks sharing
-    // one physical input share its gain, and the last applied wins.
+    // Trim, at the DEVICE like the monitor mode above, so two tracks on one physical input share it.
     dev->setInputGainDb(static_cast<float>(t.inputGain));
 }
 
-/**
- * Wire every track to its input, enabling the DEVICES first and only once.
- *
- * Enabling a `WaveInputDevice` rebuilds the whole wave-device list and reallocates every Edit's
- * graph — the cost InputTuner.h already records ("asked for twenty inputs by a menu polling at
- * 8 Hz, wedged the engine outright"). That lesson was applied to metering and not here, so a
- * twenty-input song paid twenty list rebuilds and twenty graph reallocations on every full apply.
- *
- * Distinct CHANNEL SETS rather than distinct pointers, and re-resolved on each pass, because
- * enabling one device destroys the objects for the others.
- */
+// Wire every track to its input, enabling the DEVICES first and once per distinct channel set — docs/audioDevice.md.
 void EngineHost::applyAllTrackInputs(const std::string& session, const ProjectDoc& doc) {
     std::vector<std::vector<int>> toEnable;
     for (const auto& t : doc.tracks) {
@@ -173,18 +147,7 @@ void EngineHost::applyAllTrackInputs(const std::string& session, const ProjectDo
     for (const auto& t : doc.tracks) applyTrackInput(session, t);
 }
 
-/**
- * Put every session's live inputs back after the INTERFACE changed under them.
- *
- * A device switch destroys Tracktion's `WaveInputDevice` objects and builds new ones, so every
- * assignment made through them — which track an input feeds, and whether it is armed — refers to
- * something that no longer exists. Nothing else re-does it: `applyAllTrackInputs` otherwise runs
- * only from a full apply, so without this the first take after an interface change records silence
- * from a track that still LOOKS armed. Full account in docs/audioDevice.md.
- *
- * The rebuild is asynchronous — `rescanWaveDeviceList` only triggers it — hence the dispatch
- * first: re-wiring before it lands would wire to the devices about to be thrown away.
- */
+// Put every session's live inputs and arm flags back after the INTERFACE changed under them, dispatching the async rebuild first — docs/audioDevice.md.
 void EngineHost::reconnectTrackInputs(
     const std::map<std::string, std::vector<std::string>>& armedBefore) {
     impl_->engine.getDeviceManager().dispatchPendingUpdates();
@@ -194,8 +157,7 @@ void EngineHost::reconnectTrackInputs(
         if (s == nullptr || !s->edit) continue;
         applyAllTrackInputs(sid, s->current);
 
-        // Re-arm what was armed. A refusal is normal and already explains itself — the new
-        // interface may simply not carry the channels that track asks for.
+        // Re-arm what was armed; a refusal is normal when the new interface does not carry that track's channels.
         const auto it = armedBefore.find(sid);
         if (it == armedBefore.end()) continue;
         for (const auto& trackId : it->second)
@@ -209,8 +171,7 @@ void EngineHost::reconnectTrackInputs(
 
 EngineHost::ArmResult EngineHost::setArmed(const std::string& session, const std::string& trackId,
                                            std::optional<bool> armed) {
-    // Every refusal names what is actually wrong, because the ways this fails look identical from the UI: no such
-    // track, no input in the song, an input this rig doesn't have, or nothing loaded yet.
+    // Every refusal names what is wrong: from the UI, no such track / no input / a channel this rig lacks / nothing loaded all look identical.
     const auto refuse = [](std::string why) { return ArmResult{false, false, std::move(why)}; };
     // No such session takes the same branch as a session with no Edit: from the UI they are one fault.
     auto* s = impl_->find(session);
@@ -219,8 +180,7 @@ EngineHost::ArmResult EngineHost::setArmed(const std::string& session, const std
     const TrackDoc* td = nullptr;
     for (const auto& t : impl_->session(session).current.tracks)
         if (t.id == trackId) { td = &t; break; }
-    // Deliberately NOT the brain's wording: reaching here means the brain found the track and the engine's loaded
-    // song disagrees — a skew, not a typo — and the two are easier to tell apart if they don't say the same thing.
+    // Deliberately NOT the brain's wording: reaching here is a skew between the two songs, and different words tell the two faults apart.
     if (td == nullptr)
         return refuse("the engine's loaded song has no track \"" + trackId
                       + "\" — send the project first");
@@ -229,16 +189,14 @@ EngineHost::ArmResult EngineHost::setArmed(const std::string& session, const std
 
     auto ti = findTrackInput(impl_->session(session).edit.get(), impl_->engine, impl_->session(session).current, trackId);
     if (ti.instance == nullptr) {
-        // The song declares an input this interface doesn't offer; applyTrackInput already warned, so arming would
-        // capture nothing.
+        // The song declares an input this interface doesn't offer, so arming would capture nothing.
         std::string chans;
         for (int ch : td->inputChannels) chans += ' ' + std::to_string(ch);
         return refuse("track \"" + trackId + "\": no interface input on channel(s)" + chans);
     }
 
     const bool want = armed.value_or(!ti.instance->isRecordingEnabled(ti.track->itemID));
-    // Refuse here rather than at stop: a take that records fine and then has nowhere to go is worse than never
-    // arming. Disarming stays allowed — it can only make things safer.
+    // Refuse here rather than at stop: a take with nowhere to go is worse than never arming, and disarming stays allowed.
     if (want && impl_->session(session).current.recordDir.empty())
         return refuse("this song has no clips/ directory to record into");
 
@@ -259,20 +217,7 @@ std::vector<std::string> EngineHost::armedTracks(const std::string& session) con
     return out;
 }
 
-// Peak dB per channel set, asked of the INTERFACE rather than of the song — see the header.
-//
-// Two things have to be true before a device measures anything, and enabling it is only the first. The second is
-// that it has an INSTANCE on the playback context: WaveInputDevice::consumeNextAudioBlock feeds levelMeasurer
-// from inside its loop over instances, so a device with none never touches it however enabled it is — and the
-// context only creates instances for the devices that were already enabled when it was built. An input no track
-// records is exactly that case, which is the whole point of this panel, so we add the instance ourselves. Once
-// per device: addWaveInputDeviceInstance reallocates the graph, which is not something a 10 Hz poll may do.
-// Where one 1-based interface channel actually lives: the device carrying it, and its index INSIDE that device.
-//
-// Deliberately not findWaveInput, which matches a device only when its channel list is exactly the one asked for.
-// That is the right rule for ROUTING a track (you take a device whole, mono or stereo), and the wrong one here:
-// an interface's inputs are usually paired into stereo devices, so asking for channel 2 alone matches nothing at
-// all and reads as silence — a meter that says "nothing plugged in" because the rig pairs its inputs.
+// The device carrying one 1-based interface channel, and its index inside it — not findWaveInput, whose exact match reads a paired rig as silence (docs/inputTuner.md).
 static std::pair<te::WaveInputDevice*, int> channelTap(te::Engine& engine, int channel) {
     for (auto* dev : engine.getDeviceManager().getWaveInputDevices()) {
         if (dev == nullptr) continue;
@@ -285,15 +230,13 @@ static std::pair<te::WaveInputDevice*, int> channelTap(te::Engine& engine, int c
 
 std::vector<EngineHost::ChannelPitch>
 EngineHost::channelPitches(const std::vector<std::vector<int>>& channelSets) {
-    // The tap attaches on the first ask and stays: a second audio callback is cheap, and detaching it on every
-    // poll would restart the ring buffers and mean no reading ever settled.
+    // The tap attaches on the first ask and stays: detaching it per poll would restart the rings and no reading would settle.
     if (!impl_->tunerAttached) {
         impl_->engine.getDeviceManager().deviceManager.addAudioCallback(&impl_->tuner);
         impl_->tunerAttached = true;
     }
 
-    // Watch exactly what was asked for, so a closed panel stops costing anything on the audio thread. The FIRST
-    // channel of each set: a stereo pair carries one instrument, and tuning both halves would be the same note.
+    // Watch exactly what was asked for, and only the FIRST channel of each set — a stereo pair carries one instrument.
     std::vector<int> watch;
     for (const auto& set : channelSets)
         if (!set.empty()) watch.push_back(set.front());
@@ -314,19 +257,14 @@ bool EngineHost::setInputStereo(int channel, bool stereo) {
     // No interface open means no channels to group; the device list is rebuilt from the open device.
     if (dm.deviceManager.getCurrentAudioDevice() == nullptr) return false;
 
-    // Regrouping throws the wave-input devices away and builds new ones, which is the same event a device
-    // SWITCH is — so it needs the same repair, and for the reason set out in docs/audioDevice.md: every
-    // assignment made through the old devices, including a track's arm flag, refers to something gone.
-    // Read what was armed BEFORE, or there is nothing left to read.
+    // Regrouping destroys the wave-input devices exactly as a device switch does, so read what was armed BEFORE (docs/audioDevice.md).
     std::map<std::string, std::vector<std::string>> armedBefore;
     for (const auto& sid : impl_->ids())
         if (auto armed = armedTracks(sid); !armed.empty()) armedBefore[sid] = std::move(armed);
 
-    // 1-based on the wire, 0-based here — and setDeviceInChannelStereo rounds down to even itself, which is
-    // what makes either half of a pair name the same pair.
+    // 1-based on the wire, 0-based here, and setDeviceInChannelStereo rounds down to even — so either half names the same pair.
     dm.setDeviceInChannelStereo(channel - 1, stereo);
-    // Dispatches the async rebuild first, then re-wires: the next message on this thread — the client
-    // re-asking for io-levels — reads the NEW grouping, and a track that still fits keeps its input.
+    // Dispatches the async rebuild and then re-wires, so the next io-levels on this thread already reads the NEW grouping.
     reconnectTrackInputs(armedBefore);
     return true;
 }
@@ -344,35 +282,18 @@ std::vector<EngineHost::InputDeviceInfo> EngineHost::inputDevices() const {
     return out;
 }
 
-/**
- * Peak dB per channel set, read off the INTERFACE's raw inputs — the tuner's tap, not Tracktion's routing.
- *
- * It went through `WaveInputDevice` and its LevelMeasurer once, and that is the wrong side of the engine to ask.
- * A device only measures anything once it is ENABLED and has an INSTANCE on a playback context, and obtaining
- * either rebuilds the entire wave-device list — destroying every WaveInputDevice, reloading every context's
- * devices and restarting playback on every Edit — or reallocates that context's graph. Asked for twenty inputs
- * by a menu polling at 8 Hz, that wedged the message thread within three seconds and never came back: no
- * transport, no meters, no replies to anything, and `whoami` still answering because it is served off that
- * thread. Doing it once per device instead of once per poll was not enough; ONE batch of twenty already hangs.
- *
- * So this reads what the audio callback already sees. It costs a max over the block, it knows nothing about any
- * Edit, and it measures every channel the interface delivers whether or not a track is wired to it — which is
- * the whole point of the panel that asks: you are looking for which input the guitar is on. The tuner made this
- * argument first (docs/inputTuner.md) and this is the same tap, for the same reason.
- */
+// Peak dB per channel set, read off the INTERFACE's raw inputs through the tuner's tap rather than through Tracktion's routing — docs/inputTuner.md.
 std::vector<EngineHost::ChannelLevel>
 EngineHost::channelLevelsDb(const std::vector<std::vector<int>>& channelSets) {
     std::vector<ChannelLevel> out(channelSets.size());
-    // Attach on the first ask and stay, exactly as channelPitches does: a second audio callback is cheap, and
-    // detaching between polls would restart the accumulation so no reading ever settled.
+    // Attach on the first ask and stay, exactly as channelPitches does; detaching between polls would restart the accumulation.
     if (!impl_->tunerAttached) {
         impl_->engine.getDeviceManager().deviceManager.addAudioCallback(&impl_->tuner);
         impl_->tunerAttached = true;
     }
     const int have = impl_->tuner.inputChannels();
 
-    // Read+clear each channel at most once per call: the same channel is usually asked for twice — alone and as
-    // half of a stereo pair — and the second read of a cleared peak would report silence.
+    // Read+clear each channel at most once per call: a channel asked for twice would report silence on the second, cleared read.
     std::map<int, float> seen;
 
     for (size_t i = 0; i < channelSets.size(); ++i) {
@@ -394,10 +315,7 @@ EngineHost::channelLevelsDb(const std::vector<std::vector<int>>& channelSets) {
     return out;
 }
 
-// Live input level per track, in doc order: resolve each track's wave-input device and read the peak since the
-// last poll from its LevelMeasurer client — the same signal it would monitor. -100 with no input, or one this
-// rig lacks. Read for every track so it indexes like trackLevelsDb, even though only armed ones surface it.
-// Reading clears the accumulator, so a device shared by two tracks is polled ONCE and both get that value.
+// Live input level per track, in doc order and -100 where there is none: reading clears the accumulator, so a device two tracks share is polled ONCE.
 std::vector<float> EngineHost::inputLevelsDb(const std::string& session) const {
     auto* s = impl_->find(session);
     if (s == nullptr) return {};
@@ -428,10 +346,7 @@ void EngineHost::onRecorded(std::function<void(const std::string&, const std::st
     impl_->recordedCb = std::move(cb);
 }
 
-// Name each armed track's take and point its device at recordDir, from play(session), so the timestamp is the take's
-// start. Tracktion builds the path from the device's filename MASK and force-appends "_%take%" when the mask
-// omits it — so the mask alone cannot produce the name we want. We use it only to fix the DIRECTORY, so a long
-// take streams straight to its final disk, and rename within that directory when it finishes.
+// Name each armed track's take and aim its device at recordDir: the filename MASK force-appends "_%take%", so it only fixes the DIRECTORY and the rename comes at the end.
 bool EngineHost::prepareTakes(const std::string& session) {
     impl_->session(session).pendingTakes.clear();
     const auto armed = armedTracks(session);

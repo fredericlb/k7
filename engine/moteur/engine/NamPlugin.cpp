@@ -12,8 +12,7 @@ const char* NamPlugin::xmlTypeName = "studio_nam";
 
 namespace {
 
-// The trims' range. Wide enough to rescue a badly levelled model, narrow enough that the knob still has
-// resolution where you actually work — the same ±20 dB the official NAM plugin offers.
+// The trims' range: the same ±20 dB the official NAM plugin offers, so a badly levelled model is rescuable.
 constexpr float TRIM_DB = 20.0f;
 
 juce::String dbToText(float v) { return juce::String(v, 1) + " dB"; }
@@ -29,14 +28,12 @@ NamPlugin::NamPlugin(tracktion::engine::PluginCreationInfo info)
 
     inputDbValue.referTo(state, juce::Identifier("inputDb"), um, 0.0f);
     outputDbValue.referTo(state, juce::Identifier("outputDb"), um, 0.0f);
-    // ON by default: a model that plays back at its trained loudness is the useful default, and the alternative
-    // default — every profile arbitrarily quiet — is the bug this parameter exists to fix.
+    // ON by default: "every profile arbitrarily quiet, differently" is the bug this parameter exists to fix.
     normalizeValue.referTo(state, juce::Identifier("normalize"), um, 1.0f);
 
     inputDb = addParam("input", "Input", {-TRIM_DB, TRIM_DB}, dbToText, textToDb);
     outputDb = addParam("output", "Output", {-TRIM_DB, TRIM_DB}, dbToText, textToDb);
-    // Discrete and labelled, so it reaches the UI as the two-state control it is rather than as a knob you have
-    // to know sits at 0 or 1 — see pluginParams(), which turns exactly this into a dropdown.
+    // Discrete and labelled, so pluginParams() draws the two-state control it is rather than a 0-or-1 knob.
     normalize = new te::DiscreteLabelledParameter("normalize", "Normalize", *this, {0.0f, 1.0f}, 2,
                                                   {"off", "on"});
     addAutomatableParameter(normalize);
@@ -82,8 +79,7 @@ void NamPlugin::initialise(const tracktion::engine::PluginInitialisationInfo& in
     blockSize_ = info.blockSizeSamples;
     mono_.setSize(1, juce::jmax(1, blockSize_), false, true, false);
 
-    // A model may already be loaded: the Edit is rebuilt on every project change and EditBuilder loads the model
-    // right after construction, so this order is not fixed.
+    // A model may already be loaded: EditBuilder loads one right after construction, so this order is not fixed.
     const juce::SpinLock::ScopedLockType sl(lock_);
     if (dsp_ != nullptr)
         dsp_->Reset(sampleRate_, blockSize_);   // prewarms by default
@@ -111,8 +107,7 @@ bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
         return false;
     }
 
-    // Built OUTSIDE the lock — this reads a file, parses JSON and allocates the network — so the audio thread waits
-    // only for a pointer assignment, never for a model load.
+    // Built OUTSIDE the lock, so the audio thread waits for a pointer assignment and never for a model load.
     std::unique_ptr<nam::DSP> loaded;
     try {
         loaded = nam::get_dsp(std::filesystem::path(file.getFullPathName().toStdString()));
@@ -125,9 +120,7 @@ bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
         return false;
     }
 
-    // Prewarm HERE, not on the first block: a recurrent model starts cold and must run a while before it settles,
-    // which is far too much work to do inside applyToBuffer. Reset() prewarms by default — ResetAndPrewarm is
-    // deprecated upstream and goes away in NAM core v0.6.0.
+    // Prewarm HERE, never on the first block: a recurrent model settles slowly, and Reset() prewarms by default.
     loaded->Reset(sampleRate_, blockSize_);
 
     const double rate = loaded->GetExpectedSampleRate();
@@ -139,8 +132,7 @@ bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
         dsp_ = std::move(loaded);
         path_ = file.getFullPathName();
     }
-    // Published after the swap and in this order, so a block that sees the new model never normalizes it by the
-    // old one's loudness — worst case it runs one block un-normalized, which is a ramp, not a click.
+    // Published after the swap, in this order: a new model normalized by the OLD loudness is the failure to avoid.
     loudnessDb_.store(loudness, std::memory_order_relaxed);
     hasLoudness_.store(hasLoudness, std::memory_order_relaxed);
     // NAM_UNKNOWN_EXPECTED_SAMPLE_RATE (-1) means the model doesn't say — report 0 for "nothing to check".
@@ -150,8 +142,7 @@ bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
 
 void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
 {
-    // NAM's Eigen tensors are unprotected against denormals, and a model's tail is exactly where they
-    // appear — see GraphDspPlugin::applyToBuffer.
+    // NAM's Eigen tensors are unprotected against denormals, and a model's tail is where they appear.
     const juce::ScopedNoDenormals noDenormals;
     if (ctx.destBuffer == nullptr) return;
 
@@ -164,19 +155,14 @@ void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
     const juce::SpinLock::ScopedTryLockType sl(lock_);
     if (!sl.isLocked() || dsp_ == nullptr) return;
 
-    // Read once for the block. Normalization folds into the output trim rather than being a separate multiply:
-    // both are gains, and one ramp is cheaper and cannot drift out of step with the other.
+    // Read once per block, with normalization FOLDED into the output trim: two gains, one ramp, no drift.
     const float inGain = juce::Decibels::decibelsToGain(inputDb->getCurrentValue());
     float outDb = outputDb->getCurrentValue();
     if (normalize->getCurrentValue() >= 0.5f && hasLoudness_.load(std::memory_order_relaxed))
         outDb += (float)(targetLoudnessDb - loudnessDb_.load(std::memory_order_relaxed));
     const float outGain = juce::Decibels::decibelsToGain(outDb);
 
-    // A block bigger than we prepared for (a render can hand out a long one) is CHUNKED, never grown.
-    // Growing means `setSize` plus dsp_->Reset(), and Reset is not a pointer bump: it reallocates the
-    // whole network's Eigen matrices and prewarms it — thousands of samples of WaveNet/LSTM inference,
-    // on the audio thread, the first time the device buffer grows. The model is sample-by-sample
-    // stateful, so splitting a block changes nothing that comes out.
+    // A block bigger than we prepared for is CHUNKED, never grown: growing means a Reset, i.e. a prewarm here.
     const int chunk = mono_.getNumSamples();
     if (chunk <= 0) return;
 
@@ -184,8 +170,7 @@ void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
         const int n = juce::jmin(chunk, numSamples - done);
         const int at = start + done;
 
-        // Sum to mono, since the model is one-in/one-out — averaged rather than added, so a stereo source
-        // doesn't hit the amp 6 dB hotter; a model's input level is part of its sound.
+        // Summed to mono by AVERAGE, not addition, so a stereo source does not hit the amp 6 dB hotter.
         float* in = mono_.getWritePointer(0);
         const float* l = ctx.destBuffer->getReadPointer(0, at);
         if (numChans > 1) {
@@ -195,9 +180,7 @@ void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
             juce::FloatVectorOperations::copy(in, l, n);
         }
 
-        // Ramped from where the last block ended — a gain that steps between blocks clicks, and Normalize
-        // is a step of several dB the moment you toggle it. The ramp spans the WHOLE block and each chunk
-        // takes its slice of it, so chunking is inaudible rather than a stair per chunk.
+        // The ramp spans the WHOLE block and each chunk takes its slice, so chunking is not a stair.
         const auto slice = [&](float from, float to, int upTo) {
             return from + (to - from) * ((float)upTo / (float)numSamples);
         };

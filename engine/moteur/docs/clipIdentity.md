@@ -61,3 +61,6 @@ three call sites that cannot see each other, and putting it there is what lets
 
 **A fourth site that inserts or removes a clip must call it too.** Spelling the rule again is how
 the first three came to disagree.
+
+Its `id.empty()` fallback to the name is for a document carrying no id at all, which the compiler
+never emits.

@@ -68,6 +68,25 @@ are in `packages/engine-protocol/docs/sessions.md`.
 | `{ type: "snapshot-plugin-base", format, id, path }` | keep what that orphan is holding: its state written to `path` as a `.vstpreset`. Refuses when no window was opened — see `plugin-base-saved` |
 | `{ type: "broadcast", on: true }` | send me the master audio (this connection only) |
 
+### Two `ProjectDoc` fields that are not self-evident
+
+**`masterVolume`** is the song's output level in dB on the master fader; 0 is unity, and unity is what a
+doc that says nothing means. `EditBuilder` writes the value onto the fader on **every** build, because
+Tracktion's own default is −3 dB: left alone, every mixdown quietly loses 3 dB.
+
+The +6 ceiling is not a policy either. `decibelsToVolumeFaderPosition` is `exp((dB - 6) / 20)` clamped
+to 1, so anything above +6 sets the same fader position. The brain's schema refuses a higher value
+rather than letting it be clamped silently here.
+
+**`masterPlugins`** is the master chain: plugins over the summed mix, in order, before it leaves for the
+interface. The song's graph has two built-in outputs — MIX, where every lane's chain ends, and OUT, the
+device — and a chain wired between them arrives in this field. Empty is the ordinary case and means the
+two are one wire.
+
+They go on the master plugin list **before** the meter and the broadcast tap, and therefore before
+`MasterGainPlugin`: those process the mix, this one trims the delivery. The song side of it is
+`packages/song/docs/masterChain.md`.
+
 ### `tracks` — the delta, and what it deliberately cannot do
 
 The pattern clock rewrites a handful of lanes' clips six or seven times a second while the rest
@@ -111,6 +130,22 @@ announces its own. `engine/moteur/scripts/track-delta.ts` exercises the three an
 | `{ type: "busy", busy: true\|false }` | the message thread is (un)blocked by an apply |
 | `{ type: "error", message }` | |
 
+### `whoami` answers off the message thread
+
+The identity probe goes back to the **asking socket alone**, so a browser measuring candidate
+engines does not spam every client. The token proves this is the real engine for that id; the
+registry verifies it server-side on select.
+
+It carries the audio timing in the same reply because the browser is timing *this* round trip to
+get the network half and needs the interface half from the same breath — a second query would
+measure a second, warmer trip.
+
+And it is answered **without posting to the message thread**. Posting would put the probe behind
+whatever the engine is doing, turning the ping into a measure of its queue. That is only safe
+because `audioTiming()` reads two atomics the message thread publishes: dereferencing the live
+device here would race a concurrent `set-audio-device`, which destroys it — and this keepalive
+fires every few seconds on every socket.
+
 ### The state frame slows to 4 Hz when a session is idle
 
 `~20 Hz` is the rate while something is happening. `StateTimer` still ticks every 50 ms — the
@@ -151,6 +186,13 @@ another session's id as an override, and a socket that rebound on those would go
 
 A probe — the tray asking for devices and hanging up — names nothing and gets nothing, which is
 what it wants.
+
+Misrouting is deliberately not a correctness hazard: every client still runs `forSession`
+(`@studio/engine-protocol/sessions`) over what arrives. The `subscribers` map decides what to
+**send**, never what is legal to read — so a socket that has not spoken yet costs a frame, never a
+wrong meter. The same holds for its raw-pointer keys: an entry outliving its socket could be
+matched by a later one the allocator put at the same address, and the cost is one frame that
+socket's own filter drops.
 
 ## server -> client, BINARY
 

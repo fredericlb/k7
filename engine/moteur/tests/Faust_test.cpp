@@ -26,8 +26,7 @@
 #include <utility>
 #include <vector>
 
-// Faust's two GUI statics, defined once per program — the same pair FaustPlugin.cpp carries, and
-// for the same reason: `poly-dsp.h` drags GUI in.
+// Faust's two GUI statics, defined once per program — the same pair FaustPlugin.cpp carries.
 std::list<GUI*> GUI::fGuiList;
 ztimedmap GUI::gTimedZoneMap;
 
@@ -63,8 +62,7 @@ std::string readAll(const fs::path& p)
     return ss.str();
 }
 
-/** The modules written in this repo — `packages/dsp/modules/`, a place to copy FROM rather
- *  than a seed: nothing fills a library from it (packages/dsp/docs/catalogue.md). */
+/** The modules written in this repo: a place to copy FROM, not a seed (packages/dsp/docs/catalogue.md). */
 fs::path catalogueDir() { return fs::path{STUDIO_DSP_MODULES}; }
 
 /** Compile one file the way FaustPlugin does, and answer what happened. */
@@ -92,8 +90,7 @@ Result compileOne(const fs::path& file)
     r.outputs = dsp->getNumOutputs();
     r.controls = ui.controls;
 
-    // …and it RUNS. A program that compiles and then divides by zero on its first block is a
-    // module that loads and takes the engine down, which is worse than one that refuses.
+    // …and it RUNS: a module that loads and takes the engine down is worse than one that refuses.
     const int n = 512;
     std::vector<std::vector<float>> in(std::max(r.inputs, 1), std::vector<float>(n, 0.0f));
     std::vector<std::vector<float>> out(std::max(r.outputs, 1), std::vector<float>(n, 0.0f));
@@ -127,8 +124,7 @@ static void every_shipped_dsp_compiles()
         // A program with no outputs is not a module: whatever it is, nothing downstream can hear it.
         CHECK(r.outputs > 0);
     }
-    // The catalogue holding no `.dsp` at all would make every check above vacuous — the shape of
-    // green run that says nothing. There are two today.
+    // A catalogue holding no `.dsp` would make every check above vacuous; there are two today.
     CHECK(seen >= 2);
 }
 
@@ -143,9 +139,7 @@ static float peakOf(const std::vector<std::vector<float>>& out, int n)
 
 static void an_instrument_sounds_when_a_note_is_played()
 {
-    // The whole point of the polyphony seam, as one measurement: an instrument whose `gate` nothing
-    // opens is silent. This plays a note the way FaustPlugin does — through Faust's own voice
-    // allocator — and looks at what comes out.
+    // The polyphony seam as one measurement: an instrument whose `gate` nothing opens is silent.
     const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
     CHECK(fs::is_regular_file(file));
     if (!fs::is_regular_file(file)) return;
@@ -167,21 +161,18 @@ static void an_instrument_sounds_when_a_note_is_played()
     std::vector<float*> outp;
     for (auto& c : out) outp.push_back(c.data());
 
-    // Before any note: silence. If this failed, "it makes sound" below would prove nothing — the
-    // instrument would simply be droning.
+    // Before any note: silence — otherwise "it makes sound" below only proves the thing is droning.
     poly->compute(n, nullptr, outp.data());
     CHECK(peakOf(out, n) == 0.0f);
 
-    // Middle C, hard enough to hear. The attack is 1 ms, so one 512-frame block at 48 kHz is ten
-    // times longer than the envelope needs to open.
+    // Middle C: the attack is 1 ms, so one 512-frame block is ten times what the envelope needs.
     poly->keyOn(1, 60, 100);
     poly->compute(n, nullptr, outp.data());
     const float sounding = peakOf(out, n);
     std::printf("    wurlitzer: peak after note-on = %.4f\n", sounding);
     CHECK(sounding > 0.001f);
 
-    // …and it DECAYS. A note whose gate never closes is the other way to fail this test while
-    // technically making sound. STK's Wurley holds no sustain: a struck reed dies away.
+    // …and it DECAYS: a gate that never closes is the other way to make sound and still be wrong.
     poly->keyOff(1, 60, 0);
     float last = sounding;
     for (int block = 0; block < 200; ++block) {
@@ -197,13 +188,7 @@ static void an_instrument_sounds_when_a_note_is_played()
 
 static void it_still_sounds_after_more_notes_than_there_are_voices()
 {
-    // THE regression. Reported as "it only plays for a few seconds, then nothing", and the cause
-    // was `mydsp_poly`'s `control` flag: with false, Faust's own doc says all voices are always
-    // running — and the branch that runs then never returns a released voice to the free pool.
-    // Sixteen notes in, every further one stole a voice that had never been let go.
-    //
-    // So: play well past the voice count, releasing each note properly, and check the last one is
-    // as loud as the first. Playing SIXTEEN would have passed on the broken build.
+    // THE regression: playing sixteen notes passed on the broken build, so this plays well past that.
     const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
     if (!fs::is_regular_file(file)) { CHECK(false); return; }
 
@@ -252,11 +237,7 @@ static int crossingsOf(const std::vector<std::vector<float>>& out, int n)
 
 static void velocity_changes_the_timbre_and_not_only_the_level()
 {
-    // Reported as "the sound isn't great", and this is what reading the port against STK turned
-    // up: `noteOn` scales all FOUR operator gains by the velocity, and a MODULATOR's gain is its
-    // modulation index. Scaling it removes harmonics; scaling only the output does not. The first
-    // version put the velocity once, at the output — so every note had an identical timbre and
-    // merely a different level, which on an electric piano is the whole character missing.
+    // A MODULATOR's gain IS its modulation index, so velocity has to scale all four operators.
     const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
     if (!fs::is_regular_file(file)) { CHECK(false); return; }
 
@@ -287,8 +268,7 @@ static void velocity_changes_the_timbre_and_not_only_the_level()
     std::printf("    velocity 20:  peak %.4f, %d crossings\n", soft.first, soft.second);
     std::printf("    velocity 127: peak %.4f, %d crossings\n", hard.first, hard.second);
 
-    // Louder, obviously — and BRIGHTER, which is the half that was missing. Both directions
-    // asserted, because a change that only made it louder is exactly the bug being fixed.
+    // Louder AND brighter: asserting only the level is exactly the bug this is here to refuse.
     CHECK(hard.first > soft.first * 2.0f);
     CHECK(hard.second > soft.second);
 
@@ -317,13 +297,7 @@ struct ZonesByName : public UI {
 
 static void a_knob_reaches_every_voice()
 {
-    // Reported as "the knobs do nothing", and nothing here caught it because no test had ever
-    // TURNED one. `group: true` builds a single shared control and dispatches it onto the voices
-    // only when `GUI::updateAllGuis()` is called — which the audio thread must not do. So the
-    // knobs were written somewhere no voice read.
-    //
-    // `group: false` gives each voice its own zone and the dispatch becomes ours. This drives it
-    // the way the plugin does: collect the zones per NAME, write them all, listen for a change.
+    // Reported as "the knobs do nothing", uncaught because no test had ever TURNED one (docs/faust.md).
     const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
     if (!fs::is_regular_file(file)) { CHECK(false); return; }
 
@@ -341,12 +315,7 @@ static void a_knob_reaches_every_voice()
         poly->init(48000);
         ZonesByName ui;
         poly->buildUserInterface(&ui);
-        // Sixteen voices, so sixteen zones per name. If this is 1, `group` went back to true and
-        // the dispatch below is writing into something no voice reads.
-        // SEVENTEEN, measured: the sixteen voices plus one shared zone the wrapper builds
-        // anyway. Asserted as "at least one per voice" rather than pinned at 17 — the extra one
-        // is Faust's business and may change, but a collapse to a single zone is the bug this
-        // whole test exists for, and that is what `>= VOICES` refuses.
+        // Seventeen, measured: one per voice plus a shared one — a COLLAPSE to a single zone is the bug.
         std::printf("    zones for %s: %zu\n", knob, ui.zones[knob].size());
         CHECK(ui.zones[knob].size() >= VOICES);
         for (auto* z : ui.zones[knob]) *z = value;
@@ -362,16 +331,13 @@ static void a_knob_reaches_every_voice()
         return r;
     };
 
-    // `Index` IS the modulation index of the body pair: at 0 the carrier is an unmodulated sine,
-    // at 2 it is as rich as the model goes. Brightness is the thing it moves, so brightness is
-    // what this measures.
+    // `Index` IS the body pair's modulation index, so brightness is the thing it moves.
     const auto flat = strikeWith("Index", 0.0f);
     const auto rich = strikeWith("Index", 2.0f);
     std::printf("    Index 0: %d crossings, Index 2: %d crossings\n", flat.second, rich.second);
     CHECK(rich.second > flat.second);
 
-    // `Tine` crossfades body against the fixed-pitch attack pair — a different sound, not a
-    // louder one, so it is the peak-independent shape that has to move.
+    // `Tine` crossfades body against the attack pair: a different sound, not a louder one.
     const auto body = strikeWith("Tine", 0.0f);
     const auto bark = strikeWith("Tine", 2.0f);
     std::printf("    Tine 0: %d crossings, Tine 2: %d crossings\n", body.second, bark.second);
@@ -382,12 +348,7 @@ static void a_knob_reaches_every_voice()
 
 static void the_interpreter_is_fast_enough_to_put_in_series()
 {
-    // The number the route was chosen without: an INTERPRETER runs slower than machine code, and
-    // "slower" only means something against a block budget. So this measures what a strip really
-    // costs — several instances of the same effect in series, the way a chain stacks them.
-    //
-    // The budget is the engine's own: 256 frames at 48 kHz is 5,33 ms of wall clock to produce
-    // 5,33 ms of audio. Anything above 100% of that is an underrun.
+    // What a STRIP costs against the engine's budget: 256 frames at 48 kHz is 5.33 ms for 5.33 ms of audio.
     const auto file = catalogueDir() / "audio" / "filter" / "moogladder" / "dsp.dsp";
     CHECK(fs::is_regular_file(file));
     if (!fs::is_regular_file(file)) return;
@@ -435,10 +396,7 @@ static void the_interpreter_is_fast_enough_to_put_in_series()
                 STAGES, load, elapsed / BLOCKS * 1000.0, BLOCK);
     std::printf("    -> one instance costs about %.2f%%\n", load / STAGES);
 
-    // A generous ceiling, on purpose: this runs on whatever machine happens to build, beside a
-    // compiler and a dev server. It is here to catch an ORDER of magnitude — an interpreter that
-    // turned out to cost 30% per instance would make the route wrong, and that is the finding
-    // this guards. It is not a performance target.
+    // A generous ceiling on purpose: it catches an ORDER of magnitude, not a performance target.
     CHECK(load < 50.0);
 
     for (auto* d : chain) delete d;
@@ -447,8 +405,7 @@ static void the_interpreter_is_fast_enough_to_put_in_series()
 
 static void a_broken_program_is_refused_with_its_reason()
 {
-    // The other half: a failure has to come back with Faust's own message, because that message
-    // names the line and the symbol. FaustPlugin passes it through verbatim for that reason.
+    // A failure comes back with Faust's own message, which is what names the line and the symbol.
     Result r;
     const std::string libs = fs::path{STUDIO_FAUST_LIBS}.string();
     const char* argv[] = {"-I", libs.c_str()};
@@ -460,9 +417,7 @@ static void a_broken_program_is_refused_with_its_reason()
 
 static void the_faust_libraries_are_where_the_build_says()
 {
-    // The trap that fails at RUNTIME and not at build time: `libraries/` is a submodule, and a
-    // checkout that did not initialise it leaves an empty folder. Every module then fails to
-    // compile on a build that reported nothing.
+    // The trap that fails at RUNTIME: `libraries/` is a submodule, and an uninitialised one is empty.
     CHECK(fs::is_directory(fs::path{STUDIO_FAUST_LIBS}));
     CHECK(fs::is_regular_file(fs::path{STUDIO_FAUST_LIBS} / "stdfaust.lib"));
 }

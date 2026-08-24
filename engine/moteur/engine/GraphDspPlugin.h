@@ -37,8 +37,7 @@ public:
 
     int getNumOutputChannelsGivenInputs(int n) override { return juce::jmin(n, 2); }
 
-    // A module with more than one input port asks for a stereo pair per extra port, past the plugin's own
-    // left/right — which is how Tracktion hands a second signal to a plugin at all. See docs/sidechain.md.
+    // Each input port past the first adds a stereo PAIR, which is how Tracktion hands over a second signal.
     void getChannelNames(juce::StringArray* ins, juce::StringArray* outs) override;
     bool canSidechain() override;
 

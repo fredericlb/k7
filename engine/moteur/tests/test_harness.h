@@ -1,8 +1,6 @@
 #pragma once
 
-// A deliberately tiny test harness: no framework, no dependency, enough for the vital data-layer tests and
-// trivial to swap for Catch2 later. A test is a plain void() run via RUN(); CHECK() records a failure and keeps
-// going, so one bad assert doesn't hide the rest, and main() returns non-zero if anything failed.
+// A deliberately tiny harness, trivial to swap for Catch2 later: a test is a plain void() run via RUN(), and CHECK() records a failure and keeps going so one does not hide the rest.
 
 #include <cstdio>
 

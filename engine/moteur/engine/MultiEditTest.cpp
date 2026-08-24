@@ -17,21 +17,13 @@
 namespace studio {
 
 namespace {
-// The server's behaviour: do NOT let Tracktion reopen whatever device it last persisted.
-// Same reason as ServerBehaviour in EngineHostImpl.h — a remembered ASIO device reopened by
-// a second process is exactly the wedge this probe is about.
+// Do NOT let Tracktion reopen whatever device it last persisted: a remembered ASIO device reopened by a second process is exactly the wedge this probe is about.
 struct ProbeBehaviour : te::EngineBehaviour {
     bool autoInitialiseDeviceManager() override { return false; }
 };
 }  // namespace
 
-/**
- * Play every document at once on one device, and report what each one's master is doing.
- *
- * The measurement is per-edit MASTER LEVEL. A context that was accepted but never runs
- * reports silence, which is precisely the failure mode worth catching: "addContext did not
- * throw" and "the block is actually being filled" are different claims.
- */
+// Play every document at once on one device and report each one's MASTER LEVEL — a context accepted but never run reports silence, which is the failure worth catching.
 int runMultiEditTest(const std::vector<ProjectDoc>& docs,
                      const std::vector<std::string>& baseDirs, double seconds,
                      const std::string& deviceName, const std::string& deviceType) {
@@ -42,10 +34,7 @@ int runMultiEditTest(const std::vector<ProjectDoc>& docs,
     auto& dm = engine.getDeviceManager();
     dm.initialise(512, 2);
 
-    // Switching the BACKEND is the whole point of the flag: the first run of this probe
-    // measured Windows Audio, which proves nothing about the case we care about — one
-    // exclusive ASIO client hosting several Edits. Same two-step as AudioDevices.cpp: the
-    // type first, because setAudioDeviceSetup only sees devices of the current one.
+    // Switching the BACKEND is the point of the flag — Windows Audio proves nothing about one exclusive ASIO client hosting several Edits — and the type goes first.
     if (!deviceName.empty()) {
         auto& jdm = dm.deviceManager;
         const juce::String wanted(deviceName), wantedType(deviceType);
@@ -93,8 +82,7 @@ int runMultiEditTest(const std::vector<ProjectDoc>& docs,
         populateEdit(engine, *s->edit, docs[i],
                      i < baseDirs.size() ? baseDirs[i] : std::string{});
 
-        // A meter on the MASTER list, the one place an Edit's outgoing mix is readable —
-        // the same trick buildLevelMeters uses, and for the same reason.
+        // A meter on the MASTER list, the one place an Edit's outgoing mix is readable, exactly as buildLevelMeters does it.
         auto meter = s->edit->getPluginCache().createNewPlugin(
             te::LevelMeterPlugin::xmlTypeName, {});
         if (auto* lm = dynamic_cast<te::LevelMeterPlugin*>(meter.get())) {
@@ -107,15 +95,11 @@ int runMultiEditTest(const std::vector<ProjectDoc>& docs,
         sessions.push_back(std::move(s));
     }
 
-    // Pump BEFORE allocating contexts. populateEdit kicks off async message-thread work —
-    // 4OSC and SamplerPlugin build their voices there — and OfflineRender.cpp already
-    // records that without one flush a track renders silent. The first run of this probe
-    // reported playing=no on both sessions for exactly this reason.
+    // Pump BEFORE allocating contexts: populateEdit builds 4OSC and Sampler voices on async message-thread work, and without this the probe reported playing=no on both.
     for (int i = 0; i < 20; ++i)
         juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
 
-    // THIS is the call under test: each Edit registering its own playback context with the
-    // one shared DeviceManager.
+    // THIS is the call under test: each Edit registering its own playback context with the one shared DeviceManager.
     for (size_t i = 0; i < sessions.size(); ++i) {
         sessions[i]->edit->getTransport().ensureContextAllocated();
         std::cerr << "[probe] session " << i << " context allocated\n";
@@ -132,8 +116,7 @@ int runMultiEditTest(const std::vector<ProjectDoc>& docs,
         std::cerr << "[probe] session " << i << " transport playing="
                   << (sessions[i]->edit->getTransport().isPlaying() ? "yes" : "no") << "\n";
 
-    // Pump the message loop while sampling: Tracktion needs it, and the meters are read
-    // from here rather than from the audio thread.
+    // Pump the message loop while sampling: Tracktion needs it, and the meters are read from here rather than from the audio thread.
     const auto until = std::chrono::steady_clock::now() +
                        std::chrono::milliseconds((long long)(seconds * 1000));
     while (std::chrono::steady_clock::now() < until) {

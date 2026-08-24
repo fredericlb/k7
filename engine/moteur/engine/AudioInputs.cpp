@@ -27,8 +27,7 @@ te::InputDevice::MonitorMode monitorModeOf(const std::string& s) {
     return te::InputDevice::MonitorMode::automatic;
 }
 
-// Tracktion holds the arm flag on the input's Destination, so there is no `armed` set of our own to keep in
-// step: setArmed writes it there and armedTracks reads it back. Both need the same (track, instance) pair.
+// Tracktion holds the arm flag on the input's Destination, so there is no `armed` set of our own to keep in step — both sides need this same (track, instance) pair.
 TrackInput findTrackInput(te::Edit* edit, te::Engine& engine, const ProjectDoc& doc,
                           const std::string& trackId) {
     if (edit == nullptr) return {};

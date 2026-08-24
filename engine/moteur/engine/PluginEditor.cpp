@@ -2,10 +2,7 @@
 // collaborator in the split: PluginEditorController owns this and touches ONLY the plugin-related Impl fields,
 // never impl_->session(session).current/impl_->session(session).baseDir — so it needs just an Impl&, no friendship. EngineHost's methods here delegate to it.
 
-// The Win32 block must come FIRST, before any JUCE include: shellapi.h and the GDI icon APIs need <windows.h>,
-// which JUCE does not pull into this TU. NOMINMAX keeps std::min/max working; LEAN_AND_MEAN trims the macro
-// surface. Guarded by _WIN32, not JUCE_WINDOWS — no JUCE header has been included yet, so JUCE_WINDOWS is still
-// undefined and would silently skip the whole block. This is the only TU that needs Win32.
+// The Win32 block comes FIRST, before any JUCE include, and is guarded by _WIN32 — JUCE_WINDOWS is not defined yet and would skip it silently.
 #if defined(_WIN32)
  #ifndef NOMINMAX
   #define NOMINMAX
@@ -40,9 +37,7 @@ namespace studio {
 
 namespace {
 
-// Whether a plugin's text params fully reproduce its state, so it can be saved as text rather than an opaque
-// .vstpreset: a built-in's state IS its params, and an external's are complete iff a fresh instance carrying
-// only them round-trips to the same blob. That creates a second, throwaway instance in the LIVE edit.
+// Whether a plugin's text params fully reproduce its state — a round-trip through a second, throwaway instance in the LIVE edit.
 bool paramsCompleteForLive(te::Edit& edit, te::Plugin& plugin) {
     auto* ext = dynamic_cast<te::ExternalPlugin*>(&plugin);
     if (ext == nullptr)
@@ -66,8 +61,7 @@ bool paramsCompleteForLive(te::Edit& edit, te::Plugin& plugin) {
 }
 
 #if JUCE_WINDOWS
-// Extract the icon embedded in a plugin binary, best-effort. For a VST3 bundle the real module lives inside
-// Contents/x86_64-win/. Drawn onto a top-down 32-bit DIB, so the OS handles mask and alpha compositing.
+// Extract the icon embedded in a plugin binary, best-effort — where it looks, and why the DIB is top-down: docs/pluginEditors.md.
 juce::Image windowsFileIcon(const juce::File& pluginFile) {
     juce::File target = pluginFile;
     if (target.isDirectory()) {
@@ -125,14 +119,12 @@ juce::Image windowsFileIcon(const juce::File& pluginFile) {
 }
 #endif
 
-// st0's own icon, compiled in: the DEFAULT for a plugin editor window when the plugin brings none, without
-// which a plugin window shows the bare console-app icon. Cached, so repeated opens don't re-decode the PNG.
+// st0's own icon, compiled in: the DEFAULT when a plugin brings none, cached so repeated opens do not re-decode the PNG.
 juce::Image studioIcon() {
     return juce::ImageCache::getFromMemory(BinaryData::studio_icon_png, BinaryData::studio_icon_pngSize);
 }
 
-// A best-effort icon matching a plugin, for its title bar and taskbar thumbnail: its own VST3 "snapshot" first,
-// else the icon in its binary. An invalid Image means nothing was found and the caller uses studioIcon().
+// A best-effort icon matching a plugin: its VST3 "snapshot" first, else the icon in its binary; an invalid Image means nothing was found.
 juce::Image pluginIconFor(const juce::PluginDescription& desc) {
     const juce::File file(desc.fileOrIdentifier);
 
@@ -160,10 +152,7 @@ juce::Image pluginIconFor(const juce::PluginDescription& desc) {
     return {};
 }
 
-// Show a plugin window, front it, and hand focus to its editor. On Windows a background process can't
-// SetForegroundWindow to steal focus, so nudge the z-order with a brief always-on-top toggle — that needs no
-// foreground rights, and releasing it keeps the position without pinning. Focus may still be refused, but the
-// window opens in front rather than behind.
+// Show a plugin window, front it, and hand focus to its editor — the always-on-top toggle is explained in docs/pluginEditors.md.
 void raiseToFront(juce::Component& w) {
     w.setVisible(true);
     w.setAlwaysOnTop(true);
@@ -172,10 +161,7 @@ void raiseToFront(juce::Component& w) {
     w.grabKeyboardFocus();   // route focus into the editor content
 }
 
-// A top-level desktop window hosting a plugin's native editor, which it owns (deleted with the window, which
-// notifies the plugin). On close it HIDES rather than destroys: building an editor is the slow part, so keeping
-// it alive makes reopening instant, and the host holds the window until the edit is rebuilt.
-// `save_` persists the plugin's state — every 5s while on screen, and once more on close, so tweaks survive.
+// A top-level window owning a plugin's native editor; it HIDES rather than destroys on close, and `save_` autosaves — docs/pluginEditors.md.
 class PluginWindow : public juce::DocumentWindow, private juce::Timer {
 public:
     static constexpr int autosaveMs = 5000;
@@ -193,8 +179,7 @@ public:
         raiseToFront(*this);                 // show, bring to front, focus the editor (starts the timer)
     }
 
-    // Hide instead of destroy: the editor stays alive, so the next open is a visibility flip. Hiding stops the
-    // autosave timer, and a final save persists the last tweak.
+    // Hide instead of destroy: the next open is a visibility flip, and a final save persists the last tweak.
     void closeButtonPressed() override {
         setVisible(false);
         if (save_)
@@ -219,15 +204,10 @@ private:
 
 }  // namespace
 
-// Owns the plugin-editor windows and the param/preset persistence. Stateless beyond its Impl&, so EngineHost
-// builds a temporary per call and the window's autosave lambda re-binds through the stable Impl.
+// Owns the plugin-editor windows and the param/preset persistence; stateless beyond its Impl&, so EngineHost builds a temporary per call.
 class PluginEditorController {
 public:
-    // A controller serves ONE session — the one whose plugins it is addressing. Resolved once at
-    // construction rather than per call: every method here reaches for the same one, and looking it
-    // up must never CREATE it, since addressing a plugin is a read. `sess_` is null when there is no
-    // such session, and every method below treats that as "no such plugin". Safe for this object's
-    // lifetime because it is a per-call transient on the message thread, which is the only eraser.
+    // A controller serves ONE session, resolved once and never CREATED — a null `sess_` reads as "no such plugin" (docs/pluginEditors.md).
     PluginEditorController(EngineHost::Impl& impl, std::string session)
         : impl_(impl), session_(std::move(session)), sess_(impl.find(session_)) {}
 
@@ -241,8 +221,7 @@ public:
     void setPreset(const std::string& module, int programIndex, const std::string& presetPath);
 
 private:
-    // The live external instances of a module — pluginsById entries keyed "<chain>:<module>". A module reused
-    // across chains has several, sharing its definition and its .vstpreset, so a preset applies to all.
+    // The live external instances of a module — pluginsById is keyed "<chain>:<module>", and one module reused across chains has several.
     std::vector<std::pair<std::string, te::ExternalPlugin*>> moduleInstances(
         const std::string& module) const;
 
@@ -251,16 +230,13 @@ private:
     Session* sess_;
 };
 
-// Deliberately silent, unlike applyPluginParams: this is called at interactive rates by a control drag, so a
-// bad id would spam stderr. A wrong name still surfaces — the same edit is persisted and applied through
-// applyPluginParams(), which warns once per apply.
+// Deliberately silent, unlike applyPluginParams: a control drag calls this at interactive rates, and a wrong name surfaces on the next apply.
 void PluginEditorController::setParam(const std::string& id, const std::string& name, double value) {
     if (sess_ == nullptr) return;
     auto it = sess_->pluginsById.find(id);
     if (it == sess_->pluginsById.end() || it->second == nullptr)
         return;
-    // pluginParams, not namedParams: a built-in registering nothing is addressed through its ValueTree properties,
-    // and a widget dragged on one must move the plugin the same way it moves any other.
+    // pluginParams, not namedParams: a built-in registering nothing is addressed through its ValueTree properties.
     for (const auto& p : pluginParams(*it->second))
         if (p.name.toStdString() == name) {
             p.set(value);
@@ -284,10 +260,7 @@ void PluginEditorController::watch(const std::string& id, bool on) {
         sess_->watchedParams.erase(id);
 }
 
-// Sample every watched plugin and report the ones that moved. The comparison is against what was last
-// REPORTED, not the previous sample, so a slow drift still eventually reports. Exact double comparison is
-// deliberate: these are read back from the same parameter object, so an untouched one is bit-identical, and a
-// tolerance would only add a threshold below which a slow knob appears frozen.
+// Sample every watched plugin and report the ones that moved, against what was last REPORTED — docs/pluginEditors.md.
 void PluginEditorController::pumpWatches() {
     if (!impl_.pluginParamsLiveCb || sess_ == nullptr)
         return;
@@ -347,8 +320,7 @@ void PluginEditorController::show(const std::string& id) {
         warn("could not create an editor for '" + plugin.getName().toStdString() + "'", id);
         return;
     }
-    // An icon matching the plugin for its title bar and taskbar thumbnail, defaulting to st0's own. Also seed
-    // the autosave baseline with the state as loaded, so the first tick saves only a real change.
+    // An icon matching the plugin, and the autosave baseline seeded with the state as loaded so the first tick saves only a real change.
     juce::Image icon;
     if (auto* inst = dynamic_cast<juce::AudioPluginInstance*>(proc)) {
         icon = pluginIconFor(inst->getPluginDescription());
@@ -362,9 +334,7 @@ void PluginEditorController::show(const std::string& id) {
                                        [im = &impl_, id, sid = session_] { PluginEditorController(*im, sid).persist(id); });
 }
 
-// Persist a plugin's state: prefer text params when they fully capture it (the brain writes them onto the
-// module and drops the .vstpreset), else save the module's own .vstpreset — never an extended module's. A no-op
-// when nothing changed, so the 5s autosave doesn't churn files or trigger reloads while the plugin sits idle.
+// Persist a plugin's state, preferring text params and falling back to the module's own .vstpreset — docs/pluginEditors.md.
 void PluginEditorController::persist(const std::string& id) {
     if (sess_ == nullptr) return;
     auto pl = sess_->pluginsById.find(id);
@@ -406,8 +376,7 @@ PluginEditorController::moduleInstances(const std::string& module) const {
     if (sess_ == nullptr) return out;
     for (auto& [id, pl] : sess_->pluginsById) {
         if (pl == nullptr) continue;
-        // The id is "<chain>:<module>" and a module INSTANCE carries a colon of its own, so split on the FIRST colon.
-        // rfind() took only the text after the last, which for an instance is its instance name — matching nothing.
+        // The id is "<chain>:<module>" and an INSTANCE carries a colon of its own, so split on the FIRST colon, never the last.
         const auto colon = id.find(':');
         const std::string mod = colon == std::string::npos ? id : id.substr(colon + 1);
         if (mod == module)
@@ -427,9 +396,7 @@ PluginEditorController::listPresets(const std::string& module) {
 
     std::vector<EngineHost::PresetInfo> out;
 
-    // Skip a lone or absent program list (many VST3s report 1: nothing to pick), and JUCE's dummy 128
-    // "ProgramChange N" list, synthesised from a MIDI program-change parameter when the plugin publishes no real
-    // one — those aren't presets, just noise.
+    // Skip a lone or absent program list, and JUCE's dummy 128-entry "ProgramChange N" one — docs/pluginEditors.md.
     const int nprog = inst->getNumPrograms();
     const bool genericProgramList =
         nprog > 0 &&
@@ -441,8 +408,7 @@ PluginEditorController::listPresets(const std::string& module) {
             out.push_back({name, "program", i, {}});
         }
 
-    // .vstpreset files. Steinberg's convention is <root>/VST3 Presets/<Vendor>/<Plugin>/…; the roots cover user,
-    // shared, machine and factory locations. Recursive, since vendors nest presets in category subfolders.
+    // .vstpreset files, under Steinberg's <root>/VST3 Presets/<Vendor>/<Plugin>/… — recursive, since vendors nest presets by category.
     const auto desc = inst->getPluginDescription();
     const juce::String sub{"VST3 Presets"};
     juce::Array<juce::File> roots;
@@ -490,8 +456,7 @@ void PluginEditorController::setPreset(const std::string& module, int programInd
                 inst->setCurrentProgram(programIndex);
         }
     }
-    // The instances share the module's .vstpreset, so one persist covers them all: it writes the new state (the
-    // load changed it, so the idle-skip won't fire) and broadcasts preset-saved, which the brain follows.
+    // The instances share the module's .vstpreset, so one persist covers them all and broadcasts preset-saved once.
     persist(insts.front().first);
 }
 
@@ -504,42 +469,20 @@ void EngineHost::showNativePluginUI(const std::string& session, const std::strin
 
 namespace {
 
-/**
- * The orphan windows, keyed like their plugins and kept for the process.
- *
- * A file static rather than a field on anything, because an orphan hangs off no session and no
- * EngineHost — the whole point of it is that there need not BE a project. The plugins themselves
- * are held by `orphanPluginFor`, so both halves outlive this call and a reopen is a visibility
- * flip, exactly as it is for a project's own plugin windows above.
- */
+/** The orphan windows, keyed like their plugins and kept for the process — a file static, docs/pluginEditors.md. */
 std::map<std::string, std::unique_ptr<PluginWindow>> orphanWindows;
 
 }  // namespace
 
-// Open an orphan plugin's own window. See the declaration in EngineHost.h for why nothing here is
-// saved, and why the loading half is a separate call on a different thread.
+// Open an orphan plugin's own window — the declaration in EngineHost.h says why nothing here is saved.
 bool showNativePluginUIOf(const std::string& formatName, const std::string& identifier) {
-    // No WarningScope: an orphan belongs to no project, so its warnings go out unstamped rather
-    // than being attributed to whichever session happens to be open.
+    // No WarningScope: an orphan belongs to no project, so its warnings go out unstamped rather than attributed to whichever session is open.
     const auto key = formatName + "|" + identifier;
     if (auto w = orphanWindows.find(key); w != orphanWindows.end() && w->second) {
         raiseToFront(*w->second);
         return true;
     }
-    /**
-     * LOOKUP ONLY — this must never load, and the reason is the whole shape of the pair.
-     *
-     * This runs on the MESSAGE THREAD, and loading takes `paramQueryMutex` behind a plugin
-     * construction that has been seen to hang indefinitely on this machine. Doing it here would
-     * not merely make one window slow: it would stall the message thread, and with it the
-     * transport, the meters and every session on the engine — a stuck plugin window taking the
-     * whole desk down with it.
-     *
-     * So no fallback to `orphanPluginFor` "only if a caller skipped `prepareNativePluginUI`": that
-     * is exactly the case that cannot be allowed to be slow. Refusing is the correct answer — the
-     * caller is asked to prepare first, and one that did not gets a warning rather than silently
-     * borrowing the message thread's loop to load a synth.
-     */
+    /** LOOKUP ONLY — this runs on the message thread and must never load; refusing is the correct answer (docs/pluginEditors.md). */
     auto plugin = orphanPluginIfLoaded(formatName, identifier);
     if (plugin == nullptr) {
         warn("no loaded instance for '" + identifier +
@@ -547,8 +490,7 @@ bool showNativePluginUIOf(const std::string& formatName, const std::string& iden
              identifier);
         return false;
     }
-    // Only external plugins wrap a juce::AudioProcessor with a native editor. A built-in never
-    // reaches here — nothing scans one — but the check is the same one the session path makes.
+    // Only external plugins wrap a juce::AudioProcessor with a native editor; a built-in never reaches here, but the check is the same.
     auto* proc = plugin->getWrappedAudioProcessor();
     if (proc == nullptr || !proc->hasEditor()) {
         warn("'" + plugin->getName().toStdString() + "' has no native UI", identifier);
@@ -564,8 +506,7 @@ bool showNativePluginUIOf(const std::string& formatName, const std::string& iden
         icon = pluginIconFor(inst->getPluginDescription());
     if (!icon.isValid())
         icon = studioIcon();
-    // No save callback, and that is the feature rather than an omission: there is nothing this
-    // window could persist to. It hides on close like the others, so the next open is instant.
+    // No save callback, and that is the feature rather than an omission: there is nothing this window could persist to.
     orphanWindows[key] =
         std::make_unique<PluginWindow>(plugin->getName(), editor, icon, nullptr);
     return true;
@@ -582,9 +523,7 @@ bool snapshotOrphanPluginTo(const std::string& formatName, const std::string& id
         return false;
     }
     const juce::File file{juce::String(outFile)};
-    // `saveVstPreset` creates the parent, asks the VST3 client for its container, and refuses a
-    // plugin that gives back nothing — so a false here is "this plugin has no state to write",
-    // which is a real answer for some, not a failure to be papered over with an empty file.
+    // A false here is "this plugin has no state to write", a real answer for some — not a failure to paper over with an empty file.
     if (!saveVstPreset(*plugin, file)) {
         warn("could not write a base for '" + identifier + "' to " + outFile, identifier);
         return false;
@@ -592,9 +531,7 @@ bool snapshotOrphanPluginTo(const std::string& formatName, const std::string& id
     return true;
 }
 
-// Snapshot the plugin instances in the live edit for the tray's submenu: a flat walk over pluginsById, which is
-// keyed by chain:module and rebuilt with the edit. A module reused across chains has one entry per placement,
-// each its own instance — and each gets a row, so the user can open whichever they want.
+// The plugin instances in the live edit, for the tray's submenu: one row per placement, since each placement is its own instance.
 std::vector<EngineHost::PluginInstanceInfo> EngineHost::pluginInstanceInfos(const std::string& session) const {
     std::vector<PluginInstanceInfo> out;
     auto* s = impl_->find(session);
@@ -622,9 +559,7 @@ std::vector<EngineHost::PluginParamInfo> EngineHost::pluginParamInfos(const std:
     auto it = s->pluginsById.find(id);
     if (it == s->pluginsById.end() || it->second == nullptr)
         return out;
-    // Qualified, because unqualified lookup here finds EngineHost::pluginParams rather than the free function.
-    // withStates: this is the one-shot query a UI makes before drawing, so it is the only caller that pays for
-    // collecting a discrete parameter's settings.
+    // Qualified, because unqualified lookup here finds EngineHost::pluginParams; withStates, because this is the one-shot query a UI makes.
     for (const auto& p : studio::pluginParams(*it->second, true)) {
         std::vector<std::pair<std::string, double>> states;
         states.reserve(p.states.size());
