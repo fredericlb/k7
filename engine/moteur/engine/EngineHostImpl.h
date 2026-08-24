@@ -108,6 +108,8 @@ struct Session {
         masterMeter = nullptr;
         masterClient.reset();
         masterStateClient.reset();
+        // The gain is FOUND in the edit rather than made, but held all the same — docs/engineHost.md.
+        masterGain = nullptr;
     }
 
     te::TransportControl* transport() {

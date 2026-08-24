@@ -163,6 +163,41 @@ then the engine observing what leaves.
    stated rather than hidden: raising the output raises the meter's bar, and a listener on the
    broadcast hears the level this room is set to.
 
+### What holding them costs — release before the edit, not after
+
+Everything above is **held in the session**, which buys the lookups the list explains. The price
+is a rule with no exceptions: a `Plugin::Ptr` the session keeps must be let go **before** the edit
+it came from is replaced. `applyFull` assigns a new `Edit` over the old `unique_ptr`, and that is
+where the old one dies — so a reference outliving that line is a reference into freed memory, and
+the moment it is finally dropped is a destructor running against an edit that is gone.
+
+That is not theoretical. `MasterGainPlugin::~MasterGainPlugin` opens with
+`notifyListenersOfDeletion()`, which walks into the edit's `ParameterChangeHandler` and takes its
+mutex; against a destroyed edit it faults on the lock itself:
+
+```
+[crash] exception 0xc0000005
+  #0 Mtx_lock
+  #1 ParameterChangeHandler::getPendingParam
+  #2 AutomatableEditItem::deleteAutomatableParameters
+  #3 Selectable::notifyListenersOfDeletion
+  #4 studio::MasterGainPlugin::~MasterGainPlugin
+  #6 studio::EngineHost::buildLevelMeters
+  #7 applyFull
+```
+
+`teardownProjectState` states the rule in its own first comment and observes it for plugin
+windows, `pluginsById`, the waveform taps and the broadcast plugin; `detachLevelMeters` observes
+it for the meters and their clients. **`masterGain` was the one that did not**: found rather than
+made, it read as the edit's business rather than the session's, and nothing ever nulled it. The
+crash therefore waited for the reassignment on the next rebuild to drop the last reference, which
+is why it reads as a fault inside `buildLevelMeters` rather than where the edit died.
+
+It survived a long time because freed memory usually still looks like an edit. What broke the
+spell was a project growing eight stem tracks at once — more plugins, different allocation, and
+the mutex landed on something that had been reused. A lifetime bug is not made real by the shape
+of the project, only visible by it.
+
 ### The overload flag is deduced, and it is exact
 
 `masterState()` reports whether the master went over full scale since the last frame, and it
