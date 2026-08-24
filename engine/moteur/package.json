@@ -8,7 +8,7 @@
     "dev": "node ../../scripts/dev-native.mjs",
     "build:win": "cmake --preset windows-msvc && cmake --build --preset windows-msvc",
     "build:mac": "cmake --preset macos-clang && cmake --build --preset macos-clang",
-    "gen:builtin-params": "node scripts/gen-builtin-params.mjs",
+    "gen:builtin-params": "node scripts/gen-builtin-params.mjs && npx biome format --write ../../packages/song-schema/src/builtinParams.generated.ts",
     "test:mac": "cmake --preset macos-clang && cmake --build build/macos-clang --target studio_engine_tests && ctest --test-dir build/macos-clang -R studio_engine_tests --output-on-failure"
   }
 }

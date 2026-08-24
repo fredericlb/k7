@@ -9,8 +9,7 @@
 
 import type { BuiltinPluginInfo } from "./builtinParams";
 
-/** Keyed by xmlTypeName, which is what `createNewPlugin` takes. A module may name a built-in by this OR by
- *  its display name — `builtinPluginFor` accepts both, exactly as the engine's `resolveBuiltInType` does. */
+/** Keyed by xmlTypeName, what `createNewPlugin` takes; `builtinPluginFor` accepts the display name too. */
 export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
   "4osc": {
     name: "4OSC",
