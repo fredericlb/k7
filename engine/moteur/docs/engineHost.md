@@ -41,37 +41,37 @@ loop, warp **or notes** — `clipMoved()` in ProjectDiff compares all of them to
 they are applied in one place: at INSERT time, by `clipPositionFor`, `applyClipLoop`,
 `applyClipWarp` and the MIDI fill, and nowhere else.
 
-The NOTES were the last field missing from that list, and they failed exactly as the comment
-above the function predicts: *a field missing here is a field you can edit while the engine is
-up and hear nothing change*. A clip's identity is its id, which a note edit does not touch, so
-`diff` reported no change at all — and the whole note vocabulary (`sequence note new`,
-`remove`, `velocity`, `move`) reached the engine and altered nothing audible. It is a
-`std::vector<NoteDoc>`, so `NoteDoc` carries the field-by-field `operator==` this comparison
-needs. Measured on a real song before and after: removing one snare dropped the master's energy
-over its beat by a quarter, where before the fix all three readings were identical. So the incremental case removes the clip and inserts it
-again rather than calling `setStart`/`setLength`, which would move it and silently drop
-everything else it carries.
+The comment above that function carries the rule the whole thing rests on: *a field missing
+here is a field you can edit while the engine is up and hear nothing change*. NOTES are the
+trap of the set — a clip's identity is its id, which a note edit does not touch, so leave them
+out of the comparison and `diff` reports no change at all: the entire note vocabulary
+(`sequence note new`, `remove`, `velocity`, `move`) reaches the engine and alters nothing
+audible. It is a `std::vector<NoteDoc>`, so `NoteDoc` carries the field-by-field `operator==`
+this comparison needs. The audible check on a real song: remove one snare and the master's
+energy over that beat drops by a quarter — three identical readings mean the field is not in
+the comparison. So the incremental case removes the clip and inserts it again rather than
+calling `setStart`/`setLength`, which would move it and silently drop everything else it
+carries.
 
-It was an empty stub for a long time, and that is the shape of failure worth remembering:
-the diff still ran, so the changeset still said `~ clip on deckA moved` and the log read as
-a success while nothing in the edit moved. `needsFullRebuild()` does not list `ClipMoved`,
-so there was no rebuild to cover for it either.
+An empty stub in that switch is the shape of failure worth remembering: the diff still runs,
+so the changeset still says `~ clip on deckA moved` and the log reads as a success while
+nothing in the edit moves. `needsFullRebuild()` does not list `ClipMoved`, so there is no
+rebuild to cover for it either.
 
-What finally surfaced it was m9's tempo fader, which is a clip warp: the fader moved, the
-document went out carrying correct markers, the engine acknowledged the change, and the
-audio never altered. It stayed hidden that long because an **offline render of the same
-document stretched correctly** — a render calls `populateEdit`, which BUILDS rather than
-diffs, so it never touches this path. Any check that renders will pass while live playback
+Such a stub also hides from anything that renders. An **offline render stretches the same
+document correctly** whatever this path does — a render calls `populateEdit`, which BUILDS
+rather than diffs, so it never touches it. Any check that renders passes while live playback
 does nothing; the two paths have to be tested apart.
 
-The cost is a clip re-insert per change, so a control that retimes a clip should commit on
-release rather than per pixel — which is what m9's fader does.
+The cost is a clip re-insert per change, so a control that retimes a clip — a tempo fader is
+a clip warp — commits on release rather than per pixel.
 
 ### Adding a plugin does not rebuild the song
 
-`needsFullRebuild()` used to list `PluginAdded`, so putting one module in a chain threw the
-whole Edit away and built another from the document — every plugin instantiated again, the
-31 that had not changed along with the 1 that had. Measured on a real 32-plugin song:
+`needsFullRebuild()` does not list `PluginAdded`, and that omission is deliberate: listing it
+makes putting one module in a chain throw the whole Edit away and build another from the
+document — every plugin instantiated again, the 31 that have not changed along with the 1 that
+has. On a real 32-plugin song:
 
 | | |
 |---|---|
@@ -79,8 +79,8 @@ whole Edit away and built another from the document — every plugin instantiate
 | full rebuild, warm | 694–1161 ms |
 | **incremental insert** | **6 ms** |
 
-The transport is dead for all of it, because this is the thread that also reads it. It was
-the answer to "why does adding a module freeze the engine".
+The transport is dead for the whole of a rebuild, because this is the thread that also reads
+it. That is the whole of "why does adding a module freeze the engine".
 
 `apply()`'s `PluginAdded` case creates the one plugin with the same `addPlugin()` the build
 path uses, and inserts it into the live track. The position is read off the LIVE plugin
@@ -98,8 +98,10 @@ Everything it cannot place exactly where a rebuild would, it hands to a rebuild:
 - the track carries a **waveform tap** (ambiguous position, as above);
 - the preceding plugin is not in the live list (nothing to anchor to).
 
-`PluginRemoved` still rebuilds, so replacing a module — which surfaces as remove + add —
-still pays for one. That is the next one worth doing.
+`PluginRemoved` is incremental for the same reason and one of its own: a rebuild replaces the
+Edit, and therefore the transport with it, so unlinking a module would stop the song. Taking
+the plugin out of the live chain leaves what is rolling untouched. A module SWAP surfaces as
+remove + add, removals first, and so costs no rebuild either.
 
 **What is verified, and what is not.** The policy is unit-tested (`ProjectDiff_test.cpp`),
 and the timings above are measured against the real project, inserting both at the end of a

@@ -2,8 +2,8 @@
 //
 // The bind list is the only place a widget can pick a name up from, so a module whose params are invisible here
 // cannot be given a panel at all. Three sources feed it and two of them are LEARNED — the base's own `params:`
-// and whatever extends it — which is why the mixer had an empty list the day it shipped: st0 defines the
-// plugin, and nothing in any project had authored a param on it yet.
+// and whatever extends it — so a plugin st0 defines, with no param authored on it in any project, offers
+// an empty list until something supplements it.
 
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

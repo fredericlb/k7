@@ -76,7 +76,7 @@ describe("the base dropdown, which the panel cannot fill in itself", () => {
   });
 
   it("still draws `none` alone when nothing was passed", () => {
-    // The old behaviour, and now the honest one: a module with no bases has one entry, not none.
+    // The honest answer: a module with no bases has one entry, not none.
     const w = withBaseWidget()?.ui?.widgets.b;
     expect(w?.options?.map((o) => o.label)).toEqual(["none"]);
   });

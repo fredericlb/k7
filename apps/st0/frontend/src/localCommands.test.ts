@@ -34,8 +34,8 @@ describe("every shell command is one the dispatcher recognises", () => {
     expect(wrong).toEqual([]);
   });
 
-  it("tells `ui file` from the TREE's verbs, which now share no head with it", () => {
-    // The one real collision — `file new x` against `ui file x` — is gone: the tree's verbs are an `fs` group, and the group name does it.
+  it("tells `ui file` from the TREE's verbs, which share no head with it", () => {
+    // `file new x` against `ui file x` would be the one real collision: the tree's verbs are an `fs` group, and the group name settles it.
     expect(isUiLine("file kick.yaml")).toBe(true); // `ui file` — open it
     for (const l of [
       "fs file new clips kick.yaml",

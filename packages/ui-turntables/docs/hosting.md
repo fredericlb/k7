@@ -31,15 +31,13 @@ since that stretches the clip rather than the transport — so `drawNow` predict
 and estimates only the OFFSET, taking the least-delayed frame of a recent window. The drawn
 position is then a straight line, and a real seek rolls the window back.
 
-**A correction worth reading before you choose between them.** This page used to say `drawNow`
-was deliberately the less accurate of the two, because it traded accuracy for continuity. That
-was true of the clock it replaced — a rate-bending PLL, which converged on the *mean* transit
-latency. This one converges on the *minimum*, so it is not a trade any more: measured over a
-realistic feed, the raw anchor lags by whatever the last frame's transit was (4 to 55 ms, mean
-~14) while `drawNow` sits flat at the best one.
+**Worth reading before you choose between them.** `drawNow` is not the less accurate of the
+two: the clock converges on the *minimum* transit latency rather than the mean, so continuity
+costs nothing in accuracy. Measured over a realistic feed, the raw anchor lags by whatever the
+last frame's transit was (4 to 55 ms, mean ~14) while `drawNow` sits flat at the best one.
 
-Which leaves the split resting on something narrower than it was: `playhead` is what the engine
-literally said, and `drawNow` is an estimate of the same thing. Moving the cue path onto
+Which leaves the split narrow: `playhead` is what the engine literally said, and `drawNow` is
+an estimate of the same thing. Moving the cue path onto
 `drawNow` would probably be an improvement and would change where cues land by a few
 milliseconds — a musician-facing change, and so a decision rather than a tidy-up. Until then a
 host owes both, and must not implement one by calling the other.
@@ -65,11 +63,11 @@ Those are messages about what is already loaded, and no host has a second writer
 `MixView` takes `engine: { fileBase, id }` and an optional `library: { base }`. Both are as small
 as they can be on purpose:
 
-- `engine` was `RankedEngine<PublicEngine>` and used on exactly one line, `fileLink(engine)`. A
-  prop asking for a whole probe reply would force a host without one to fabricate the other
-  fifteen fields — the difference between a seam and a shape m9 happened to have.
-- `library` is pl8's API base, and it appeared because separating a record is pl8's work now:
-  pl8 holds the master (`apps/pl8/docs/stems.md`). Optional, so a host with no library to point
+- `engine` is used on exactly one line, `fileLink(engine)`. A prop asking for a whole probe
+  reply — a `RankedEngine<PublicEngine>` — would force a host without one to fabricate the other
+  fifteen fields: the difference between a seam and a shape one host happens to have.
+- `library` is pl8's API base, because separating a record is pl8's work: pl8 holds the master
+  (`apps/pl8/docs/stems.md`). Optional, so a host with no library to point
   at still draws a desk — the knobs then say a record has no stems, which is true, rather than
   the view failing to render.
 
@@ -126,13 +124,13 @@ desk's, and the chains graph is `@studio/ui-chains-react`'s. What the graph need
 
 A playlist in the workspace's `_playlists/`, named by the surface's `playlist:` and read
 through `@studio/song/playlist`. Nothing about it is desk-shaped: it names médiathèque songs,
-and st0 has a screen for writing one under its cog. That is why bringing the desk to st0 did not
-require inventing a set-list concept for st0 — the concept was already there, in the repository,
-shared by every project in it.
+and st0 has a screen for writing one under its cog. That is why hosting the desk in st0 needs no
+set-list concept of st0's own — the concept lives in the repository, shared by every project in
+it.
 
 The host passes the NAME and this package reads the file. That split is the same one `mapping`
-takes, and for the same reason: the declaration is the host's business (m9 has no `surfaces/`
-to look in), and what the file MEANS is this package's.
+takes, and for the same reason: the declaration is the host's business (a host outside st0 has
+no `surfaces/` to look in), and what the file MEANS is this package's.
 
 ## What one deck costs
 

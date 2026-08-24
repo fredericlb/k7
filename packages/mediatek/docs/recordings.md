@@ -17,7 +17,7 @@ Les deux onglets s'appellent « Morceaux » et « Enregistrements » à l'écran
 ```
 
 **Pas une quatrième famille.** `Family` est un type que tout le monde consomme — le scan,
-les jetons, le manifeste, m9, le cache. En ajouter une pour quelque chose qui ne
+les jetons, le manifeste, le pupitre, le cache. En ajouter une pour quelque chose qui ne
 produit aucune entrée coûterait un `switch` partout, pour des branches vides.
 
 **Pas un sous-dossier de `songs/` non plus.** Un enregistrement n'a ni titre, ni artiste,
@@ -25,23 +25,21 @@ ni pochette : c'est une heure et des octets. Un millier de fichiers `21-05-07.mp
 trois cents morceaux dans la liste, et la recherche ne pourrait rien en faire — aucun champ
 à interroger.
 
-C'était pourtant la première version, au motif que c'est de la matière à morceaux. Le rangement
-disait alors le contraire de ce que l'écran montre : `recordings` est une **section**, au même
-rang que les trois autres, et dans un dépôt où le système de fichiers *est* le catalogue, une
-section qui vit dans le dossier d'une autre est un mensonge qui finit par coûter. Deux
-bricoles ont d'ailleurs disparu avec le déplacement — le trou à creuser dans le manifeste de
-la famille, et le jeton qui lui était emprunté.
+Le rangement dirait alors le contraire de ce que l'écran montre : `recordings` est une
+**section**, au même rang que les trois autres, et dans un dépôt où le système de fichiers *est*
+le catalogue, une section qui vit dans le dossier d'une autre est un mensonge qui finit par
+coûter. Deux bricoles disparaissent avec ce choix — pas de trou à creuser dans le manifeste de la
+famille, pas de jeton à lui emprunter.
 
-**C'est cette zone qui a fini par vider `songs/` de ses sous-dossiers.** Les morceaux étaient rangés
-par provenance (`imported/`, `recorded/`), ce qui était une deuxième réponse, moins bonne, à
-la question à laquelle cette page répond : qu'est-ce qui est catalogué, et qu'est-ce qui est
-brut. La frontière étant tracée ici, elle a été retirée là-bas — voir
-[songs.md](songs.md).
+**C'est cette zone qui trace la frontière**, et c'est pourquoi `songs/` n'a aucun sous-dossier de
+provenance : ranger les morceaux en `imported/` / `recorded/` serait une deuxième réponse, moins
+bonne, à la question à laquelle cette page répond — qu'est-ce qui est catalogué, et qu'est-ce qui
+est brut. Voir [songs.md](songs.md).
 
-`library/` était déjà exactement cela : un dossier racine qui n'est pas une famille. La zone
-suit le précédent plutôt que d'en inventer un.
+`library/` est exactement cela : un dossier racine qui n'est pas une famille. La zone suit ce
+précédent plutôt que d'en inventer un.
 
-Conséquence, et c'est ce qui a été choisi : `scanFamily("songs")` ne la voit pas,
+Conséquence, et c'est ce qui est voulu : `scanFamily("songs")` ne la voit pas,
 `/list?family=…` n'en parle jamais, et rien de tout cela n'est un oubli — c'est testé
 (`recordings.test.ts`, « what the zone is NOT »).
 
@@ -138,9 +136,8 @@ montre malgré l'erreur sur les suivants.
 ensemble. L'écran garde donc un seul sondage pour ses quatre onglets, et chacun ne recharge
 que quand le sien a bougé.
 
-C'est ce qui a remplacé la première version, où la zone empruntait le jeton de `songs` :
-chaque enregistrement faisait alors recharger une liste de morceaux identique. Un dossier à
-la racine répond de lui-même.
+Emprunter celui de `songs` ferait recharger, à chaque enregistrement, une liste de morceaux
+identique. Un dossier à la racine répond de lui-même.
 
 Même raison pour le compte du résumé : `summary()` renvoie quatre nombres, pas trois, sinon
 le quatrième onglet afficherait zéro jusqu'à ce qu'on clique dessus.

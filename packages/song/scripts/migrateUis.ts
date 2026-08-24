@@ -4,9 +4,8 @@
 //
 //   npx tsx packages/song/scripts/migrateUis.ts <project> [project…]
 //
-// This was `ui migrate`, a command. It stopped being one with the other migrations: a one-shot
-// repair for projects written before a format change is a script you run once on a folder, not
-// a verb that sits in the palette of every session for ever. Rationale: docs/uiLibrary.md.
+// A script rather than a command: a one-shot repair for projects written against an older format
+// is run once on a folder, not a verb sitting in every session's palette. See docs/uiLibrary.md.
 
 import { statSync } from "node:fs";
 import { migrateModuleUis } from "../src/uiMigrate";

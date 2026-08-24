@@ -1,11 +1,12 @@
-// graph.ts — the deck as a WebGraph, built in the browser. The plan expected this to need a
-// throwaway project folder; it does not, and that is the finding. See docs/chains.md.
+// graph.ts — the deck as a WebGraph, built in the browser: the desk's state IS the graph, drawn by the
+// same buildGraph → layout → DomChains pipeline. `WebGraph` is a wire type, so no project folder
+// on disk is needed. See docs/hosting.md.
 
 import type { WebGraph, WebModuleCategory } from "@studio/graph-model";
 import { OFFLINE_TYPE } from "@studio/song-schema/moduleTypes";
 import { DECKS, type DeckId } from "./deck";
 
-/** A module the deck runs, as m9 holds it: a médiathèque ref plus what it plays as. */
+/** A module the deck runs, as the desk holds it: a médiathèque ref plus what it plays as. */
 export interface DeckModule {
   /** The node name, which is also the engine's `chain:module` address. */
   name: string;
@@ -37,7 +38,7 @@ export function deckGraph(
         use: modules.map((m) => ({
           module: m.name,
           category: m.category,
-          // Everything downstream of a source is audio here: m9 carries no MIDI and no video.
+          // Everything downstream of a source is audio here: the desk carries no MIDI and no video.
           emits: "audio" as const,
           enabled: m.enabled,
           // The engine address, and ONLY for a module it loads — see `file-service/src/graphDoc.ts`.

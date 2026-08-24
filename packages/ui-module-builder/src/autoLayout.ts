@@ -192,7 +192,7 @@ export function autoOrganize(params: readonly AutoParam[]): ModuleUI {
   const groups = groupParams(params);
   if (!groups.length) return { cols: AUTO_COLS, rows: 1, widgets: {} };
 
-  // Laid out first, a page's height no longer being its parameter count — see docs/autoLayout.md.
+  // Laid out first, since a page's height is not its parameter count — see docs/autoLayout.md.
   const placed = groups.map((g) => {
     const blend = g.params.filter((x) => isBlend(x.name));
     return {

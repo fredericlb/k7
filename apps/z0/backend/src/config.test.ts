@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { loadAppConfig } from "./config.ts";
 
-// The old DOMAIN-derived cases moved to auth/oidc.test.ts: nothing host-shaped is configured now.
+// Nothing host-shaped is configured here; the OIDC cases live in auth/oidc.test.ts.
 
 describe("loadAppConfig", () => {
   const keys = [

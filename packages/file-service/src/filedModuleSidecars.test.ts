@@ -1,10 +1,10 @@
 // `/module-ui` and `/module-presets` answer for a module FILED under a category folder.
 //
-// Both routes turn a path into a module ref and 400 when they cannot. `localModuleRef` matched
-// exactly four path segments, so `modules/audio/amps/neural-amp-modeler/module.yaml` was "not a
-// module file" — a 400 for a file sitting plainly in the tree, and with it no panel and no preset
-// shelf. Invisible while a project's own modules were always flat; the module bench, whose
-// `modules/` mirrors the médiathèque's catalogue, is the first project where they are not.
+// Both routes turn a path into a module ref and 400 when they cannot. A `localModuleRef` that
+// matches exactly four path segments reads `modules/audio/amps/neural-amp-modeler/module.yaml`
+// as "not a module file" — a 400 for a file sitting plainly in the tree, and with it no panel
+// and no preset shelf. It stays invisible wherever a project's own modules are flat; a bench
+// whose `modules/` mirrors a catalogue's filing is where they are not.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

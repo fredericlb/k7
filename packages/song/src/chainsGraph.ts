@@ -33,7 +33,7 @@ export function deriveChains(
   isLane?: IsLane,
 ): Record<string, Chain> {
   if (raw == null) return {};
-  // The old format, named precisely: opening last month's project needs the migration, not a schema error.
+  // The old format, named precisely: a project still in it needs the migration, not a schema error.
   if (Array.isArray(raw) || Array.isArray((raw as { chains?: unknown }).chains))
     throw new Error(
       "graph.yaml: `chains:` is the old chain-list format — chains are now derived " +

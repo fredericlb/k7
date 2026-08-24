@@ -1,10 +1,8 @@
 # Eviction — keeping a cache under a budget
 
-`docs/sync.md` ended with this open: *"Whether a cache should also drop things it simply
-has not used, and on what budget, is a policy question with no obvious answer for video,
-and it is deliberately not answered by this module."*
-
-Here is the answer, and the reasoning is more useful than the code.
+Whether a cache should also drop things it simply has not used, and on what budget, is the
+policy question `syncFamily` deliberately leaves alone (`docs/sync.md`). Here is the answer,
+and the reasoning is more useful than the code.
 
 ## Why one global budget would have been wrong
 
@@ -46,8 +44,7 @@ on the server, and the next sync brings it back.
 
 ## The trap: the manifest has to forget
 
-This is the part that would have been a real bug, and it is not about eviction policy at
-all.
+This is the part that is easy to get wrong, and it is not about eviction policy at all.
 
 `diff()` compares the owner's manifest against **what the cache remembers it holds** — not
 against the disk, for the reason `sync.md` spells out. So a file deleted from the cache

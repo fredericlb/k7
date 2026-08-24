@@ -1,6 +1,6 @@
-// mount.ts — the six lines every service repeated to hold an engine registry: the guard, the
-// registry, its routes, the relay, the announcement and the goodbye. One call instead, because
-// the copies had already drifted. See docs/shared.md.
+// mount.ts — the six things a service needs to hold an engine registry: the guard, the
+// registry, its routes, the relay, the announcement and the goodbye. One call rather than one
+// hand-written copy per service, since those drift. See docs/shared.md.
 
 import type { Server } from "node:http";
 import type {

@@ -1,7 +1,7 @@
-// The bug this exists for: one fixed step served a wheel notch and a trackpad pinch. A notch is
-// one event and a step is right; a pinch is dozens of events a second, so the same step slammed
-// into the zoom limit before the fingers had finished moving — which is what "pinch does not
-// work on the timeline" turned out to mean.
+// What this pins: a wheel notch and a trackpad pinch cannot share one fixed step. A notch is one
+// event and a step is right; a pinch is dozens of events a second, so the same step slams into
+// the zoom limit before the fingers have finished moving — which is what "pinch does not work on
+// the timeline" means.
 
 import { describe, expect, it } from "vitest";
 import {
@@ -21,7 +21,7 @@ describe("one wheel event on an arrangement", () => {
   });
 
   it("tracks the FINGERS on a pinch instead of stepping", () => {
-    // A pinch frame's delta is small and continuous: at the notch's 15% step, a second was hundreds.
+    // A pinch frame's delta is small and continuous: at the notch's 15% step, a second is hundreds.
     expect(wheelFactor(-2, true)).toBeLessThan(wheelFactor(-2, false));
     expect(wheelFactor(-2, true)).toBeCloseTo(1.02, 2);
   });
@@ -121,7 +121,7 @@ describe("what one wheel event over an arrangement means", () => {
   });
 });
 
-// The ceiling was a flat 32, a number and not a reason; it is DERIVED now — see docs/panZoom.md.
+// The ceiling is DERIVED rather than a flat 32, which would be a number and not a reason — see docs/panZoom.md.
 describe("how far a pane may zoom", () => {
   it("is what the browser can still lay out, not a constant", () => {
     // A laptop pane: thousands of times, which nobody reaches by turning a wheel.

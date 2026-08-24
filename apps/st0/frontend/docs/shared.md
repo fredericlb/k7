@@ -34,10 +34,10 @@ entrée de barre de commandes et un menu contextuel plus loin, et la vingt-sixi�
 découverte en production.
 
 Ce que `snapshot` fait dans `App` est donc une question de ce qu'on **dessine**, jamais de ce
-qu'on empêche — mais il faut le faire, et le premier essai ne l'avait pas fait assez : les clips
-se traînaient encore, le geste marchait à l'écran et ne produisait rien. **Un glissé qui se
-déroule puis revient en place est pire qu'un glissé qui ne démarre pas**, et une poignée de
-redimensionnement qui s'allume sous le curseur est une promesse. Donc :
+qu'on empêche — mais il faut le faire, et jusqu'au bout : un clip qu'on peut encore traîner est un
+geste qui marche à l'écran et ne produit rien. **Un glissé qui se déroule puis revient en place
+est pire qu'un glissé qui ne démarre pas**, et une poignée de redimensionnement qui s'allume sous
+le curseur est une promesse. Donc :
 
 - `TimelineTab` prend un `readOnly` qui rejoint la garde déjà là pour une piste générée et un
   clip gelé (`if (readOnly || track.generated || c.frozen) return`) — troisième lecture de la
@@ -47,7 +47,7 @@ redimensionnement qui s'allume sous le curseur est une promesse. Donc :
 - les cinq rappels d'édition du graphe (`onConnect`, `onDisconnect`, `onReplug`, `onMoveNode`,
   `onEdgeInsert`) et celui de l'image (`onVideoEdit`) sont **optionnels et déjà gardés par le
   moteur de rendu** : un instantané n'en passe aucun, et les prises ne sont pas offertes. Aucun
-  drapeau supplémentaire n'a été nécessaire de ce côté.
+  drapeau supplémentaire n'est nécessaire de ce côté.
 
 Les deux menus de l'en-tête disparaissent parce qu'ils n'ont pas de sens ici :
 Partager publie CE projet quelque part (il n'y a pas de projet, seulement une copie), et Réglages
@@ -87,9 +87,9 @@ parse — la règle de `fget`, pour que plusieurs composants ne se partagent jam
 
 Deux détails qui comptent :
 
-- **les valeurs sont typées**, pas transtypées. Écrire `Hints` en entier a fait échouer la
-  compilation sur `paramsByBase`, `paramMetaByBase` et `racks` — trois champs qui seraient arrivés
-  à un composant en `undefined`, sur le seul chemin de code que personne n'ouvre ;
+- **les valeurs sont typées**, pas transtypées. Écrire `Hints` en entier fait échouer la
+  compilation sur un champ oublié — `paramsByBase`, `paramMetaByBase`, `racks` — plutôt que de le
+  laisser arriver à un composant en `undefined`, sur le seul chemin de code que personne n'ouvre ;
 - `/revision` rend une **constante**. Plusieurs accroches interrogent ce jeton et rechargent
   quand il bouge ; figé, le shell se stabilise après sa première passe et cesse de demander, ce
   qui est l'énoncé vrai à propos d'un document qui ne peut pas changer.
@@ -97,12 +97,12 @@ Deux détails qui comptent :
 `/project-errors` rend « aucune erreur », et c'est une réponse et non un bouche-trou : un
 instantané est fabriqué à partir d'un projet qui compilait, par la machine qui l'a compilé.
 
-## L'adresse est un `base`, et c'est tout ce qu'il a fallu
+## L'adresse est un `base`, et c'est tout
 
 `cfg().base` est une chaîne posée une fois. Rien n'exige que ce soit le service de fichiers qui
 réponde derrière, donc pl8 sert les mêmes formes GET depuis le paquet et st0 ne s'en aperçoit pas.
 
-La seule couture à ajuster était le NOM : `fget` demande `/project-doc` parce que c'est la route
+La seule couture à ajuster est le NOM : `fget` demande `/project-doc` parce que c'est la route
 du service de fichiers, et l'instantané appelle les mêmes octets `project-doc.json` parce qu'un
 fichier a besoin d'un nom. La route publique accepte les deux orthographes — un `||` — plutôt que
 d'apprendre à l'un des deux côtés l'existence de l'autre.
@@ -125,18 +125,21 @@ page en https.
 `useSnapshotPlayer` substitue **deux verbes** — `transport` et `seek` — juste après
 `useEngineLink`, et rien d'autre.
 
-Deux endroits attendaient quand même un moteur, et rendaient le transport inutilisable :
+Deux endroits attendraient quand même un moteur, et rendraient le transport inutilisable : ils
+portent donc le drapeau `frozen` en tête de leur condition.
 
-- `waitingForEngine` était `!!ws?.activeProject && !engineReady`. La réponse en conserve de
-  `/workspace` dit `activeProject: "."`, et `engineReady` ne devient jamais vrai sans socket —
-  donc « waiting for engine… » pour toujours, et la barre grisée avec. Sur un instantané il n'y a
-  aucun moteur à attendre : ce drapeau est faux d'emblée ;
-- les quatre verbes nus retombaient sur le service de fichiers quand `connected` était faux
-  (`if (!connected || engineBusyRef.current) return false`), ce qui est le bon compromis quand il
-  Y A un service derrière. Ici il n'y en a pas, donc la barre d'espace ne faisait rien. Le chemin
-  local est le seul qui puisse répondre, et il répond toujours. Tout ce qui est en aval — la barre, les touches,
-`transport play`, la tête de lecture, `replayAtRef` — lit les mêmes trames de `store`, quel que
-soit le côté qui les remplit. Aucun de ces morceaux n'apprend qu'il n'y a pas de moteur.
+- `waitingForEngine` est `!frozen && !!ws?.activeProject && !engineReady`. La réponse en conserve
+  de `/workspace` dit `activeProject: "."`, et `engineReady` ne devient jamais vrai sans socket —
+  sans le premier terme, ce serait « waiting for engine… » pour toujours, et la barre grisée avec.
+  Sur un instantané il n'y a aucun moteur à attendre ;
+- les quatre verbes nus retombent sur le service de fichiers quand `connected` est faux
+  (`if (!frozen && (!connected || engineBusyRef.current)) return false`), ce qui est le bon
+  compromis quand il Y A un service derrière. Ici il n'y en a pas, et la barre d'espace ne ferait
+  rien : le chemin local est le seul qui puisse répondre, et il répond toujours.
+
+Tout ce qui est en aval — la barre, les touches, `transport play`, la tête de lecture,
+`replayAtRef` — lit les mêmes trames de `store`, quel que soit le côté qui les remplit. Aucun de
+ces morceaux n'apprend qu'il n'y a pas de moteur.
 
 **Un `<audio>` par fichier, et non un tampon décodé.** Le nombre décide : douze stems de quatre
 minutes décodent en plus d'un gigaoctet de float32, ce qu'aucun téléphone n'a. Un élément média
@@ -148,8 +151,7 @@ diffuse, fait ses requêtes Range — exactement ce que `streamFile` sert déjà
 Un élément média **ne se planifie pas**. `AudioBufferSourceNode.start(when)` est précis à
 l'échantillon, `el.play()` veut dire « bientôt » : plusieurs éléments lancés dans le même tick
 démarrent chacun quand il a fini de tamponner, à des centaines de millisecondes d'écart. Sur un
-jeu de stems ce n'est pas de la dérive, c'est une cacophonie — et c'est exactement ce qu'on a
-entendu au premier essai.
+jeu de stems ce n'est pas de la dérive, c'est une cacophonie.
 
 1. **On ne joue que le groupe qui SONNE.** Le mixdown, ou les stems, jamais les deux. Treize flux
    simultanés pour quelqu'un qui ne coupe jamais rien, ce serait la bande passante de tout
@@ -166,10 +168,10 @@ entendu au premier essai.
 ### Traverser vers les stems : contre le MIXDOWN, jamais contre le silence
 
 Le mixdown est rendu **à partir du document**. Une piste que le document coupe est donc déjà
-absente du fichier. Lire « cette piste est muette » comme « le visiteur l'a coupée » faisait
-passer aux stems tout projet qui coupe quoi que ce soit, **avant le moindre clic** — la façon la
-plus bruyante possible de se tromper, puisque le mixdown est le seul fichier dont le calage ne
-peut pas être faux : il est seul.
+absente du fichier. Lire « cette piste est muette » comme « le visiteur l'a coupée » ferait passer
+aux stems tout projet qui coupe quoi que ce soit, **avant le moindre clic** — la façon la plus
+bruyante possible de se tromper, puisque le mixdown est le seul fichier dont le calage ne peut pas
+être faux : il est seul.
 
 `matchesMixdown` est cette règle, pure et testée : `App` calcule `laneGains` **deux fois**, une
 fois sur les contrôles à l'écran et une fois sur le document, et seule une différence est le

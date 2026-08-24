@@ -1,6 +1,5 @@
 // SongPicker.tsx — pick a médiathèque song by typing. Over the catalogue already in memory, so
-// it answers per keystroke without a request; the old Grist editor's library modal, minus the
-// round trip it needed. See docs/editing.md.
+// it answers per keystroke without a request. See docs/editing.md.
 
 import { Input } from "@frediverse/ui/input";
 import { useMemo, useState } from "react";

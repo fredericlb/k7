@@ -1,7 +1,7 @@
 // folder.ts — load a LEGACY flat folder project (project.yaml + tracks/clips/sequences) into
-// the plain { project, tracks } shape project.ts's mapDoc consumes. This is the pre-node-model
-// path and no current song takes it: a song has graph.yaml, and its lanes are module nodes
-// (docs/trackModules.md), which compileNodeProject reads instead.
+// the plain { project, tracks } shape project.ts's mapDoc consumes. No current song takes this
+// path: a song has graph.yaml, and its lanes are module nodes (docs/trackModules.md), which
+// compileNodeProject reads instead.
 
 import { existsSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -22,12 +22,12 @@ import type {
 } from "./rawDoc";
 import { isProjectFolder } from "./yaml/moduleIO";
 
-// The LEGACY flat-track shape from before the node model — absent on any current song.
+// The LEGACY flat-track shape — absent on any current song.
 type LegacyTrack = RawTrack & {
   role?: unknown;
   plugins?: unknown[];
   sends?: unknown[];
-  /** The old flat format's own `events:` — clip IDS, not placements, so it must NOT follow the rename. */
+  /** The old flat format's own list — clip IDS, not the node model's `events:` placements. */
   clips?: unknown[];
 };
 
@@ -44,7 +44,7 @@ export function isFolderProject(abs: string): boolean {
 
 export function assembleFolder(dir: string): AssembledDoc {
   const root = loadProjectRoot(dir, true); // the root file -> project, trackOrder
-  // Read schema-free: no schema here has ever described the legacy flat track's fields.
+  // Read schema-free: no schema here describes the legacy flat track's fields.
   const tracksMap = readYamlEntities(dir, "tracks").values as Record<
     string,
     RawTrack
@@ -58,7 +58,7 @@ export function assembleFolder(dir: string): AssembledDoc {
   };
 }
 
-// Pure assembly (no fs), kept so an old flat folder still assembles (see LegacyTrack).
+// Pure assembly (no fs) — an old flat folder assembles without touching disk (see LegacyTrack).
 export function buildDoc(
   dir: string,
   root: RawProjectRoot,

@@ -6,7 +6,7 @@ the WHOLE new note list, which `notes.ts` serializes straight back into the file
 
 ## `plugin.ts` — the mounting mechanism
 
-Two mountings, and only the second has callers.
+Two mountings, and only the first has callers.
 
 **`mountSeqGrid(container, opts)`** renders a grid into a plain filling element, with no
 CodeMirror anywhere near it. It takes the file's content and hands back the WHOLE next
@@ -60,7 +60,7 @@ Mounted into a standalone pane by `plugin.ts`'s `mountSeqGrid`, filling whatever
 given. Time runs left→right, pitch top→bottom, one lane per semitone. A left gutter names each
 pitch (the piano keys); a top ruler numbers the bars.
 
-The note area FILLS the pane — st0, gridlines and notes are positioned in PERCENTAGES
+The note area FILLS the pane — so gridlines and notes are positioned in PERCENTAGES
 of it, so it stretches both ways with the pane instead of scrolling a fixed grid. Click
 an empty cell to add a one-step note; click a note to remove it.
 

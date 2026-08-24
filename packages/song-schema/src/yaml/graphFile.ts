@@ -35,7 +35,7 @@ export function parseGraph(text: string): ParsedChains {
   if (issues.length) return { value: null, issues };
 
   const raw = doc.toJS() ?? {};
-  // The old format, named precisely rather than reported as an unknown key — see docs/graphEdits.md.
+  // A `chains:` list is named precisely rather than reported as an unknown key — see docs/graphEdits.md.
   if (raw && typeof raw === "object" && Array.isArray(raw.chains))
     return {
       value: null,
@@ -61,7 +61,7 @@ export function parseGraph(text: string): ParsedChains {
   return { value: result.data, issues: [] };
 }
 
-/** Every node the file names — lanes and modules alike, which is one map now. */
+/** Every node the file names — lanes and modules alike, out of one map. */
 export function nodeNames(text: string): string[] {
   return Object.keys(parseGraph(text).value?.modules ?? {});
 }
@@ -73,7 +73,7 @@ function read(text: string): { doc: Document; file: GraphFile } {
   return { doc: parseDocument(text, OPTS), file: value };
 }
 
-/** Does the file name this node at all? One map now, so this was `sectionOf` and is a yes/no — docs/graphEdits.md. */
+/** Does the file name this node at all? One map, so the answer is a yes/no and not a section — docs/graphEdits.md. */
 const hasNode = (file: GraphFile, node: string): boolean =>
   !!file.modules && node in file.modules;
 

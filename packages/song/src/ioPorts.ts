@@ -50,7 +50,7 @@ function ioPortsIn(dir: string, prefs?: Preferences): IoPort[] {
   type Io = { kind?: string; io?: string; channel?: unknown };
   // No try/catch left: a shared root is found by location, so a missing folder is simply not one.
   const refs: Record<string, Io> = loadModuleRefs(dir);
-  // …plus the project's OWN io modules, which the ref map leaves out because an input IS a node now.
+  // …plus the project's OWN io modules, which the ref map leaves out because an input IS a node.
   let local: Record<string, Io> = {};
   try {
     local = loadModules(dir) as Record<string, Io>;

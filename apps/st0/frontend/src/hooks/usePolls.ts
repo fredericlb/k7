@@ -1,6 +1,6 @@
 // usePolls.ts — the shell's background polls, one hook each: the git badge, the strudel
 // lanes, the project errors, the waveform prewarm, and the follow of a project switch
-// made under us. Extracted from App.tsx; cadences and behaviour unchanged.
+// made under us. Apart from App.tsx so each cadence is one readable hook.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";

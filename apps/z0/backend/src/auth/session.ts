@@ -52,7 +52,7 @@ export function currentUser(req: Request): SessionUser | null {
   return u ? (u as SessionUser) : null;
 }
 
-/** Log a principal in — the guest flows only; the account login is pl8's. */
+/** Log a principal in — the guest flows only; the account login is st0's. */
 export function setSessionUser(req: Request, u: SessionUser): void {
   req.session!.user = u;
 }

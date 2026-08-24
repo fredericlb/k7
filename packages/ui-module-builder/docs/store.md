@@ -33,31 +33,23 @@ hints()             // what the code pane completes against
 write(path, text)   // save; may answer with where the content actually landed
 ```
 
-## The library half — REMOVED, and why it is written down rather than deleted
+## The two path spaces, and the one distinction that matters
 
-`@studio/ui-module-builder/library-store` implemented all of it over three calls — read one
-file, write one file, hints — deriving the sidecars as siblings of the file it was given,
-because a library serves FILES. Its header said st0's Libraries tab and pl8's module screen
-both took it.
+Over a **workspace** the SERVER decides where a panel would go, since a shared module's panel
+does not land beside the copy that forked. Over a **library** there is one place for every file
+— the module's own folder — so there is nothing to ask, and the sidecars derive as siblings of
+the file the host was given, because a library serves FILES.
 
-Neither did, and by the time this was noticed neither could: pl8's Modules section is gone
-along with that volume's `modules/`, and st0's Libraries tab reads the account's library
-repository through its own file service. The tombstone in `apps/pl8/frontend/src/api.ts` says
-so at the bottom of the same file whose middle still pointed here — a page and a comment both
-describing a wiring that had been cut.
-
-The file is deleted. What is worth keeping is the distinction it drew, which will come back the
-day a second library host does: over a **workspace** the SERVER decides where a panel would go,
-since a shared module's panel does not land beside the copy that forked; over a **library**
-there is one place for every file — the module's own folder — so there is nothing to ask.
+That is the whole difference, and it is why the store is a set of CALLS rather than a rule: a
+host answers for the space it is in, and the builder never has to know which one that is.
 
 ## Absence is a state, not an error
 
 All of a module's files may be absent — a folder somebody just made is a module with nothing in it
 yet, and the médiathèque lists one on purpose so it can be dropped into. So `read` answers `null`
 rather than throwing: the builder opens on an empty buffer and the first save creates the file,
-exactly as it already did for the panel and the shelf. Throwing turned that into
-"couldn't open … — not found" over a folder that was plainly there.
+exactly as it does for the panel and the shelf. Throwing turns that into
+"couldn't open … — not found" over a folder that is plainly there.
 
 The two sidecars and the DSP source answer the same way — the existing file, or the path it WOULD
 take plus blank content.

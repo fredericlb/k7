@@ -29,8 +29,6 @@ export { RECORDINGS_DIR };
 /** Samples split by what plays them, which is also what can read them. */
 export const SAMPLE_KINDS = ["audio", "video"] as const;
 
-// The library's namespace and `MODULE_TYPES` stood here and left with the `modules` family.
-
 export function familyDir(family: Family): string {
   return join(mediatekDir(), FAMILY_DIRS[family]);
 }
@@ -83,7 +81,7 @@ export function ensureLayout(): string {
       "utf8",
     );
 
-  // A `modules/config.yaml` was written here; the `@st0` prefix is parsed in code now, not declared.
+  // No namespace file is written: the `@st0` prefix is parsed in code rather than declared.
 
   return root;
 }

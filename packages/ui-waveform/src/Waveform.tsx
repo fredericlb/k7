@@ -340,7 +340,7 @@ function WaveformInner({
     if (canvas.width !== w) canvas.width = w;
     if (canvas.height !== h) canvas.height = h;
     const ctx = canvas.getContext("2d")!;
-    // What the resize used to reset for free, now asserted: transform here, every style set before use, `[]` restored.
+    // Nothing resets the context for free, so it is asserted: transform here, every style set before use, `[]` restored.
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, HEIGHT);
 
@@ -625,7 +625,7 @@ function WaveformInner({
     dragSel,
     editing,
     total,
-    // These five were partly missing, and the draw survived only by coincidence — see docs/marks.md.
+    // These five belong here: a fresh envelope usually redraws for them, but that is coincidence — see docs/marks.md.
     warps,
     warpDrag,
     onsets,

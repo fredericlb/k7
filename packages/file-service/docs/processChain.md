@@ -11,17 +11,16 @@ The caller is **pl8**. It holds the masters, so it owns the job: it posts a song
 collects the files, and writes them onto its own volume. This machine lends its model and its CPU
 and keeps nothing.
 
-## Why it exists, when `/stems` already did
+## Why the audio ARRIVES rather than lives here
 
-`/stems` took a path — `songs/<artiste>/<album>/<titre>/original.mp3` — and resolved it **into
-this machine's médiathèque cache**. That is the line this endpoint exists to delete. The cache was
-a scoped mirror of the hosted library kept in step by a 60-second sync, and on a machine where
-pl8's `STUDIO_MEDIATEK` pointed at the very directory the cache wrote into, that sync downloaded
-each file onto itself and rewrote three songs into 40 MB of zeros. The whole account of it is in
-[mediatekPull.md](mediatekPull.md); the short version is that a mirror has to have exactly one
-writer and this one had two.
+Taking a path — `songs/<artiste>/<album>/<titre>/original.mp3` — and resolving it **into this
+machine's médiathèque cache** is the shape this endpoint exists to avoid. That cache is a scoped
+mirror of the hosted library kept in step by a 60-second sync, and a mirror has to have exactly
+one writer: where pl8's `STUDIO_MEDIATEK` points at the very directory the cache writes into, the
+sync downloads each file onto itself and rewrites songs into tens of megabytes of zeros. The whole
+account of it is in [mediatekPull.md](mediatekPull.md).
 
-So the audio no longer *lives* here. It **arrives**, per job, and leaves with the scratch
+So the audio does not *live* here. It **arrives**, per job, and leaves with the scratch
 directory.
 
 ## Three decisions
@@ -41,11 +40,10 @@ library repository the account owns, mounted identically in every workspace. Two
 disagreed would be two checkouts of one remote at different commits, which is a sync problem and
 not an ambiguity about what `@st0/stems` means.
 
-**`?chain=` is optional, and its default is the machine's.** `/stems` never let a caller name one
-at all, on the argument that which module separates and which model it wants is one answer per
-machine — settled once by `system stems`, and asking again at every use is asking the same person
-the same question. That still holds. But pl8 now knows *which song*, and a caller that does have an
-opinion should be able to say so, so the machine's answer became the default rather than the rule.
+**`?chain=` is optional, and its default is the machine's.** Which module separates and which
+model it wants is one answer per machine — settled once by `system stems`, and asking again at
+every use is asking the same person the same question. A caller that does have an opinion should
+be able to say so, so the machine's answer is the default rather than the rule.
 
 ## What it does not do yet
 

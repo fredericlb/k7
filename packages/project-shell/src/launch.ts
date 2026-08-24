@@ -1,7 +1,7 @@
-// launch.ts — which project this editor was opened on. The address says so, and nothing
+// launch.ts — which project this editor is open on. The address says so, and nothing
 // else does: `/<repo>/<project>` (st0 answers the origin root). The parsing itself lives in
-// @studio/web-protocol/projects, beside the suffix rule it depends on, because pl8 WRITES
-// these addresses and st0/m9 READ them — that makes it a wire contract, not an app's habit.
+// @studio/web-protocol/projects, beside the suffix rule it depends on, because st0's home page
+// WRITES these addresses and both editors READ them — a wire contract, not an app's habit.
 // This module is what the two apps import. See docs/launch.md.
 
 import { serviceUrl } from "@studio/web-protocol/services";

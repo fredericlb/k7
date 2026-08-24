@@ -437,8 +437,7 @@ std::string resolveBuiltInType(const std::string& ptype) {
 // callers pass an increasing index so a chain keeps its order. A built-in comes from its xmlTypeName, an
 // external from the scan cache. A resolved .vstpreset loads first, then text params override it.
 // The whole of plugin creation, against whichever LIST it is going on: a track's, or the edit's
-// master list for the mix chain. `track` was never used for anything but the insertion, so this
-// is the same function with its one track-shaped line widened. See addPlugin below.
+// master list for the mix chain — nothing here needs the track itself. See addPlugin below.
 te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDoc& p, int index) {
     if (p.type.empty())
         return {};
@@ -542,12 +541,12 @@ void populateMasterChain(te::Edit& edit, const ProjectDoc& doc) {
     /**
      * …and the OUT node's `Volume` behind them — the last thing in the song.
      *
-     * HERE rather than in EngineHost::buildLevelMeters, where it used to be created, because that
-     * runs only on the live path: an offline render calls populateEdit and nothing else, so for as
-     * long as the gain was the meter code's, `--render`, a freeze and `clip process` all bounced at
-     * unity however the song's output level read. A bounce that comes back at a different level
-     * from playback is audible the moment you freeze a track, and `clip process` — which writes a
-     * render back onto the material — drifted a little further every pass.
+     * HERE rather than in EngineHost::buildLevelMeters, which runs only on the live path: an offline
+     * render calls populateEdit and nothing else, so a gain owned by the meter code leaves `--render`,
+     * a freeze and `clip process` all bouncing at unity however the song's output level reads. A
+     * bounce that comes back at a different level from playback is audible the moment you freeze a
+     * track, and `clip process` — which writes a render back onto the material — drifts a little
+     * further every pass.
      *
      * The live path takes hold of THIS one through `masterGainOf`. Two would multiply.
      */

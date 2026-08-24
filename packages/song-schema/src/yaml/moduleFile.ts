@@ -85,7 +85,7 @@ export function parseModule(text: string): ParsedModule {
   return { value, issues: [] };
 }
 
-/** Format an issue the way the old compiler did, so a reader recognises it. */
+/** Format an issue as `file:line:col: path: message`, the spelling a reader recognises. */
 export const formatIssue = (rel: string, i: ModuleIssue): string =>
   `${rel}${i.line ? `:${i.line}${i.col ? `:${i.col}` : ""}` : ""}: ` +
   `${i.path ? `${i.path}: ` : ""}${i.message}`;

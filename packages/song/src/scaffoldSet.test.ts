@@ -65,7 +65,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // One removal takes both: the library sits in the workspace beside the project now.
+  // One removal takes both: the library sits in the workspace beside the project.
   rmSync(ws, { recursive: true, force: true });
 });
 
@@ -85,7 +85,7 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     expect(tree()).toEqual([
       "graph.yaml",
-      // The CUE SHEET at the root: it was `songs.yaml` until the playlist took the song list.
+      // The CUE SHEET at the root: the set's own file, the song list living in the playlist.
       "mix.yaml",
       "nodes",
       "nodes/crossfade.yaml",
@@ -117,7 +117,7 @@ describe("a scaffolded set", () => {
       "nodes/tempoA.yaml",
       "nodes/tempoB.yaml",
       "project.yaml",
-      // The DESK carries its own `mapping:`, so the gone `views/mix.yaml` is one file lighter.
+      // The DESK carries its own `mapping:`, so no `views/mix.yaml` is written at all.
       "surfaces",
       "surfaces/desk.yaml",
     ]);
@@ -222,7 +222,7 @@ describe("a scaffolded set", () => {
       "stemVocalsA",
       "stemVocalsB",
     ]);
-    // The record's own run is short now: it is stretched, and then it goes to the bus.
+    // The record's own run is short: it is stretched, and then it goes to the bus.
     expect(g.chains.deckA.from).toBe("deckA");
     expect(g.chains.deckA.use.map((s) => s.module)).toEqual(["tempoA"]);
     expect(g.chains.deckA.out.map((o) => o.to)).toEqual(["eqA"]);
@@ -280,7 +280,7 @@ describe("a scaffolded set", () => {
 
   it("inherits the tempo module's BPM knob, 10 to 300", () => {
     scaffoldSet(dir, "winter");
-    // Reading the inherited range here is what stops it drifting from m9's own fader.
+    // Reading the inherited range here is what stops it drifting from the desk's own fader.
     const ui = loadGraph(dir).modules.tempoA.ui;
     expect(ui?.widgets?.target).toMatchObject({
       type: "knob",
@@ -315,7 +315,7 @@ describe("a scaffolded set", () => {
     ]);
     const busA = doc.tracks.find((t) => t.id === "eqA");
     const cross = busA?.plugins.find((p) => p.id === "eqA:crossfade");
-    // Broken once a tempo went in front: `chainsGraph` named the feeder, so the side input died.
+    // With a tempo in front, `chainsGraph` must not name the feeder, or the side input dies.
     expect(cross?.sidechainFrom).toBe("eqB");
   });
 

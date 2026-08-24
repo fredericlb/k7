@@ -102,8 +102,8 @@ a mode cannot quietly take that away — the wave is still a wave while you warp
 first click of the pair fires is harmless, since it moves the playhead to the very second the
 point is about to be placed at.
 
-The pair is drawn as an ARROW from the source moment to where it lands, not the plain connector
-it once was: the relation is directional — the source is dragged onto a beat, never the other
+The pair is drawn as an ARROW from the source moment to where it lands, rather than a plain
+connector: the relation is directional — the source is dragged onto a beat, never the other
 way — and a bare rule between two verticals says the two are related without saying which way it
 reads. Under `WARP_ARROW_PX` only the shaft draws, since a head that long would be most of the
 line; a stretch of a pixel or two is a point that has barely moved, which is worth seeing as such.
@@ -113,8 +113,8 @@ IS — the moment of the source it pins — and `clip warp` addresses points by 
 
 ## The draw effect's dependency list
 
-`warps`, `warpDrag`, `onsets`, `sourceWindow` and `winDrag` are all in it. Some were missing
-once, and the draw survived only because every change to them arrived with a fresh envelope,
-which invalidates the rasterised layers and redraws anyway. That is a coincidence of the fetch,
-not a rule, and it goes quiet the first time one of them is set from local state — which is
-exactly what every drag in flight above does.
+`warps`, `warpDrag`, `onsets`, `sourceWindow` and `winDrag` are all in it, and one left out of it
+draws correctly most of the time: changes to them usually arrive with a fresh envelope, which
+invalidates the rasterised layers and redraws anyway. That is a coincidence of the fetch, not a
+rule, and it goes quiet the first time one of them is set from local state — which is exactly
+what every drag in flight above does.

@@ -4,12 +4,8 @@ A module is a plugin. What it does is not in its file: it is heard. And the name
 parameters, their bounds and its factory banks exist only in a **loaded** plugin — which means
 in a project.
 
-That sentence used to have a whole project built around it. The **bench** (`@banc/modules.st0`)
-was a generated `.st0` whose `modules/` folder was the médiathèque's catalogue, mirrored on every
-open, and it was the one project allowed to write back to the catalogue. You opened it *in order
-to* edit a module, wired the module into its chain to hear it, and edited it there.
-
-It is gone, and what replaced it is smaller: **the file tree has a second tab.**
+So a shared module is edited from inside a project, against the engine already playing the song:
+**the file tree has a second tab.**
 
 ## The two tabs
 
@@ -18,17 +14,16 @@ It is gone, and what replaced it is smaller: **the file tree has a second tab.**
 | **Project** | the workspace, minus every module folder the other tab owns |
 | **Libraries** | one row per LEVEL — `@project`, `@workspace`, `@st0`, `@engine` — and the modules under it |
 
-**They are two different answers, and that is the correction worth writing down.** The Libraries
-tab was first built by looking for `_libraries` and `_modules` *inside the file tree* — and it
-was empty from the day it shipped, because `/tree` is deliberately rooted at the ACTIVE PROJECT
-and excludes exactly those folders: *"the rest of the clone is the REPOSITORY, not the song"*
-(`packages/file-service/docs/activeProject.md`, and a test that has always said so). The two
-shared levels sit BESIDE the project, so no amount of searching the song's own tree could ever
-find them.
+**They are two different answers, and the difference is worth writing down.** Looking for
+`_libraries` and `_modules` *inside the file tree* finds nothing, because `/tree` is deliberately
+rooted at the ACTIVE PROJECT and excludes exactly those folders: *"the rest of the clone is the
+REPOSITORY, not the song"* (`packages/file-service/docs/activeProject.md`, and a test that says
+so). The two shared levels sit BESIDE the project, so no amount of searching the song's own tree
+can find them.
 
 So they have a route of their own, `GET /module-libraries`, whose roots come from
 `@studio/song` — the project's own `modules/`, then `moduleLibraryDirs`. It therefore lists what
-the LOADER resolves against and cannot drift from it, which searching a tree never guaranteed.
+the LOADER resolves against and cannot drift from it, which searching a tree cannot guarantee.
 
 ```
 @project      01.danse.st0/modules/       the song's own
@@ -67,7 +62,7 @@ project has, and the dozen were what you were looking for. So it is browsed here
 grouped by type and where scrolling is the point, rather than completed there, where it is not.
 
 Absent from the SUGGESTIONS, not forbidden: a chain step may still name `@engine/nam`, and
-typing it works exactly as before — a completion list is an offer, never a validator. And the
+typing it works — a completion list is an offer, never a validator. And the
 one question where the engine's catalogue *is* the right answer keeps it: `extends:`, and the
 `module new` / `node replace` / `module own` arguments that ask what to inherit from. `isEngineRef`
 in `packages/song-schema/src/moduleTypes.ts` is the predicate, and it is a function rather than a
@@ -103,30 +98,21 @@ file out, so what is about to be written is never a guess, and the service refus
 no type folder — `audio/reverb` is the shortest thing the loader will key.
 
 `@engine` gets neither: `rootOf` refuses a read-only level, so the menu does not open there at
-all rather than opening with everything greyed out.
-
-**Making one** is below, under *Making things*.
-
-`@engine` is the fourth level and is not here. A scanned plugin has no folder at all, so there
-is nothing to draw and nothing to open (`packages/song/docs/moduleNamespaces.md`).
+all rather than opening with everything greyed out. A scanned plugin has no folder, so there is
+nothing to make one in (`packages/song/docs/moduleNamespaces.md`).
 
 Note the two shapes: a workspace library holds its type folders **directly**, where the
-account's repository holds two FAMILIES and `modules` is one of them. That difference is
-older than this tab and is why the rows are found from a list rather than a pattern.
+account's repository holds two FAMILIES and `modules` is one of them. That difference is why the
+rows are found from a list rather than a pattern.
 
 **The Project tab drops the project's own `modules/`**, which is `@project` on this one. Shown
 twice it would be two ways into one module, one that opens the builder and one that browses its
 files; and which folder a module lives in is the loader's business rather than somewhere to drop
 files by hand. The two SHARED levels need no dropping — the file tree is the song's own files and
-they were never in it.
+they are not in it.
 
-This was not always so. The first version of this tab read pl8's hosted `/api/mediatek/list`
-and wrote back to its volume, because the modules lived there and the machine only had a cache
-of them. Two path spaces that spelled a module identically, two stores, and a sync after every
-save. Putting the library in the workspace deleted all of it.
-
-The Libraries root rows are **namespaces** — the `@` prefix a chain writes in a ref. Today there
-is one, `@st0`, and under it the catalogue exactly as a ref spells it:
+The Libraries root rows are **namespaces** — the `@` prefix a chain writes in a ref — and under
+each, the catalogue exactly as a ref spells it:
 
 ```
 @st0
@@ -139,9 +125,9 @@ A module is one row, as it is on the Project tab and by the same code (`foldModu
 folder holds `module.yaml`, so the tree folds it and clicking it opens the builder rather than
 a file.
 
-The listing is fetched the first time somebody looks at the tab, not on mount — the catalogue is
-another service, and most sessions never open it. It is not re-polled: nothing st0 does from here
-adds or removes a module.
+The listing is fetched the first time somebody looks at the tab, not on mount — it is a walk of
+its own over four levels, and most sessions never open it. It is not re-polled: nothing st0 does
+from here adds or removes a module.
 
 ## Read-only, then a decision
 
@@ -152,7 +138,7 @@ presets (which are edits) are not offered. The header says `read-only` where the
 normally is.
 
 Beside it, an **Edit** button, and behind that a dialog that says what saving here means: the
-médiathèque's copy is the only copy, nothing forks, and every song that names this module will
+library's copy is the only copy, nothing forks, and every song that names this module will
 sound different next time it is opened. Confirm and the same screen becomes writable — with
 st0's ordinary rule, which is that there is no Save button and each file is written as soon as it
 reads as a document.
@@ -161,23 +147,19 @@ Two things make that gate worth the click rather than ceremony:
 
 * **There is no fork here.** A save aimed at a workspace's `_modules` is redirected onto a
   project-local copy and the chains are repointed (`packages/song/docs/moduleFork.md`). That is
-  the safety net everywhere else, and the médiathèque has none — its whole point is being the
+  the safety net everywhere else, and the library has none — its whole point is being the
   one editable catalogue.
 * **There is no Save button to hesitate over.** Autosave writes as soon as the buffer parses, so
   "start editing and decide later" is not a state this screen has. The decision has to happen
   before the first keystroke, which is exactly where the dialog is.
 
-## Why this is better than the bench
+## The loaded plugin comes free
 
-The bench existed to hold two things at once: an editable catalogue, and a loaded plugin. The
-second is what a project is for, so the bench had to *be* a project — an empty one, regenerated
-from the catalogue each time, that you had to leave your song to visit.
-
-The Libraries tab has both without inventing anything. You are already in a project, with a
-real engine and a real song playing; the shared module you want to change is very likely one
-that song already names. So the builder's live-plugin lookup works the same way it always has —
-read the compiled graph, find a chain step whose `module` matches — with one spelling
-difference:
+Editing a module needs two things at once: an editable catalogue, and a loaded plugin. This tab
+has both without inventing anything. You are already in a project, with a real engine and a real
+song playing; the shared module you want to change is very likely one that song already names.
+So the builder's live-plugin lookup is the ordinary one — read the compiled graph, find a chain
+step whose `module` matches — with one spelling difference:
 
 ```
 a project module   modules/audio/reverb/module.yaml            →  reverb
@@ -187,10 +169,9 @@ a shared module    modules/audio/delay/tape-delay/module.yaml  →  @st0/audio/d
 `libraryModuleRef` is that spelling (`src/libraryTree.ts`), and getting it wrong is what would
 quietly turn this tab into a text editor: no ref, no plugin, no real parameters. A module the
 open song does *not* name gets no plugin, which is an ordinary state and not an error — the
-same one the builder has always had for a module a project does not instantiate.
+same one the builder has for any module a project does not instantiate.
 
-What is lost with the bench is the ability to audition a module **no** project uses. Wire it
-into the song you have open, which is the same act the bench asked for and one step shorter.
+To hear a module no project uses, wire it into the song you have open.
 
 ## One path space, one store
 
@@ -204,10 +185,9 @@ builder gets `moduleStore` either way, and what tells them apart is a folder nam
 which tab you clicked — `isLibraryPath` reads it off the path, so `ui builder <path>` locks
 exactly as a click in the Libraries tab does.
 
-That is a simplification bought by the submodule, and it is worth naming what it replaced: two
-path spaces that spelled a module *identically* (`modules/audio/reverb/module.yaml` meant two
-different files), a second store, and a rule that the choice between them must never be
-re-derived from a path. All of it existed because the library was somebody else's service.
+That is what the submodule buys: one path space where a library served from somewhere else would
+need two that spell a module *identically*, a second store, and a rule that the choice between
+them must never be re-derived from a path.
 
 ## The builder has a Save button, and it is the only screen here that does
 
@@ -224,8 +204,8 @@ Every text pane in st0 writes as you type. This one does not, and the reason is 
 
 So Save writes all four files and then, if the module is a library one, commits and pushes.
 Ctrl+S and vim's `:w` are that button — all four files, not the pane you happen to be looking
-at. The machinery underneath is unchanged: `useAutosave`'s `manual` mode keeps the validation
-and the held-back buffers and only turns the timer off
+at. The machinery underneath is the ordinary one: `useAutosave`'s `manual` mode keeps the
+validation and the held-back buffers and only turns the timer off
 (`packages/ui-editor/docs/autosave.md`).
 
 **Publishing runs only if every file landed.** `flush()` reports whether a buffer is on disk,
@@ -264,18 +244,16 @@ pushes both commits.
 
 Nothing to commit is not a failure either — two saves with no edit between them land there.
 
-## What stayed on the bench
+## What the bench is for
 
-`@banc` is still there, and still opens **one library chain** — `/@banc/chains/<path>.st0`,
-from the chain's screen in pl8. A chain is a routing you hear, and editing one against nothing
-is half the job; it has no second home the way a module now does. The `@in`/`@out` edge
-translation is unchanged (`packages/song/src/benchChain.ts`).
+`@banc` opens **one library chain** — `/@banc/chains/<path>.st0`, from the chain's screen in
+pl8. A chain is a routing you hear, and editing one against nothing is half the job; it has no
+second home the way a module has this tab. The `@in`/`@out` edge translation is
+`packages/song/src/benchChain.ts`, and `apps/pl8/docs/banc.md` is its page.
 
-What went with the submodule is its **module mirror**: the bench used to copy the whole
-catalogue into `<project>/modules` on every open, because the catalogue was a machine-wide cache
-no project could see. The bench's workspace mounts the library like any other, so `@st0/…`
-resolves there the way it does in a song, and two hundred folders per open went with the mirror.
-`@banc/modules.st0` answers 404 with a sentence pointing here.
+There is no bench for a MODULE: `@banc/modules.st0` answers 404 with a sentence pointing here.
+The bench's workspace mounts the library like any other, so `@st0/…` resolves there the way it
+does in a song.
 
 ## What to check in a browser
 
@@ -289,8 +267,9 @@ The suites here mount nothing, so none of this is covered by a green run:
   your git host: `modules/` and `chains/` are in it;
 - open a project in a SECOND workspace → the library clones with its content and is not seeded
   again;
-- switch the tree to **Libraries** → three rows, `@project` / `@workspace` / `@st0`, in that
-  order, each holding its own modules. The Project tab no longer shows the song's `modules/`;
+- switch the tree to **Libraries** → four rows, `@project` / `@workspace` / `@st0` / `@engine`,
+  in that order, each holding its own modules. The Project tab does not show the song's
+  `modules/`;
 - open a project whose `modules/` does not exist → `@project` is still there, empty. Right-click
   it → **New module…** → type `audio/test` → the folder is made, the builder opens on it;
 - open a workspace with no `_modules` → `@workspace` is there and empty, and creating through it
@@ -319,4 +298,4 @@ The suites here mount nothing, so none of this is covered by a green run:
 - open a second project in the same workspace → the same `_libraries`, not a second copy;
 - change the libraries repository in pl8, then reopen a workspace that already has the old one →
   it is left alone, and the refusal names both URIs rather than rewriting the submodule;
-- open `/@banc/modules.st0` → a refusal that says where a module is edited now.
+- open `/@banc/modules.st0` → a refusal that says where a module is edited.

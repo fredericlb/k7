@@ -5,9 +5,9 @@ doc, waveforms) persist across requests, plus the listings st0's home page and `
 
 ## Opening does NOT create
 
-`getWorkspace` used to mkdir on first touch, which made any request that merely NAMED a
-workspace conjure one: a browser tab still retrying with a remembered name would silently
-recreate a workspace you had just deleted, empty. Creation now happens only in `createWorkspace`
+`getWorkspace` does not mkdir on first touch: that would make any request which merely NAMED a
+workspace conjure one, and a browser tab still retrying with a remembered name would silently
+recreate a workspace you had just deleted, empty. Creation happens only in `createWorkspace`
 (from `POST /workspaces`), `cloneWorkspace` (from `POST /workspaces/clone`) and the one-off
 Examples bootstrap, so what is on disk changes because someone asked for it.
 
@@ -43,10 +43,9 @@ git wrote into `remote.origin.url`.
 ## `listMachineWorkspaces` — what st0's home page draws
 
 Every workspace on this machine, with the projects it holds and the repository it came from. The
-machine is the only thing that can answer it: the projects are folders on this disk. It replaces
-`GET /api/projects` on pl8, which answered the same question out of a bare blobless mirror — a
-second copy, a fetch behind, and unable to see a project that is committed here but not yet
-pushed.
+machine is the only thing that can answer it: the projects are folders on this disk. A hosted
+answer, out of a mirror of each repository, would be a second copy, a fetch behind, and unable to
+see a project that is committed here but not yet pushed.
 
 The counted cost is `remoteOf` per workspace, which is a `git config` subprocess. It is memoized
 for the process' life and dropped only when a clone adds one, so the poll behind this pays it
@@ -72,7 +71,7 @@ The same window `Workspace.workspaceInfo` puts under its own project scan, for t
 page polls this every few seconds and the answer changes when somebody creates a project. Without
 a floor, every tab on the home page walks every workspace's directory tree on every tick — a
 `readdir` per folder, and a real workspace has hundreds. A list five seconds behind is a row that
-has not appeared yet, which is a wait; the compiled-document cache refused this trade and had to,
+has not appeared yet, which is a wait; the compiled-document cache refuses this trade and has to,
 because a stale COMPILE is confidently wrong about a song.
 
 It is dropped whole when a clone or a new workspace lands, which is the one change this service

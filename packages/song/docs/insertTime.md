@@ -34,11 +34,11 @@ An **LFO survives untouched**, and that is right — it is periodic, not placed.
 its phase relative to everything after the cut. That is a fact about music rather than a bug, and
 there is nothing to write.
 
-## Takes and alternatives needed a new writer
+## Takes and alternatives need their own writer
 
 Every placement writer in the repo goes through `eventsToEdit`, which answers "where does an edit
-to what is PLAYING go" — the selected alternative's list, and nothing else. Nothing addressed
-`takes[n].events[i].start` at all.
+to what is PLAYING go" — the selected alternative's list, and nothing else. It addresses
+`takes[n].events[i].start` not at all.
 
 That is correct for an edit and wrong for this. Inserting time is not a change to the arrangement,
 it is a change to the song's **clock**: a take you bring back next month, or an alternative you
@@ -51,14 +51,14 @@ asking where one edit belongs.
 An event whose start is at or after the point moves. One already playing **across** the point stays
 where it is and plays over the inserted silence.
 
-This is not a new rule: `moveTrackPlacementsInRange` and `selection consolidate` both select by
+It is the house rule: `moveTrackPlacementsInRange` and `selection consolidate` both select by
 where a placement starts, both ends inclusive, with a `1e-6` epsilon. It is the house answer to
 "what is in this range".
 
 The alternative — cutting the event at the point and moving its tail — is what a conventional DAW
 does, and it would make inserting time a verb that **writes new material and renders audio**.
-[materialCut.md](materialCut.md) is explicit that there is no free, exactly-reversible cut here any
-more: splitting writes two materials, rejoining writes a third, and the cut material stays on disk.
+[materialCut.md](materialCut.md) is explicit that there is no free, exactly-reversible cut here:
+splitting writes two materials, rejoining writes a third, and the cut material stays on disk.
 A clock change should not do that.
 
 `project remove` follows from the same rule: events that **start** inside the span are removed, and
@@ -78,21 +78,20 @@ comes back as `"5:1"`. That is a normalisation and it happens **once** — the r
 from a settled file, because demanding byte-equality against hand-written text would be asserting
 that the writers preserve input spelling, which they do not and should not.
 
-## Two things this turned up
+## Two places a timecode has to be quoted
 
-**Marker keys were being written unquoted.** `writeMarkers` has carried the comment *"Keys are
-QUOTED: unquoted, `2:1:1` is a YAML 1.1 sexagesimal integer"* since it was written, and did not
-quote them — `setFileValue` gives every key the plain style, and `quoteTimecodes` walks **values**
-under known keys, so neither could see a timecode used as a **key**. `setQuotedKeyMap` is that
-comment implemented, and `project marker new` goes through it now too.
+**A marker key.** Unquoted, `2:1:1` is a YAML 1.1 sexagesimal integer, so `writeMarkers` goes
+through `setQuotedKeyMap` — and so does `project marker new`. Neither of the general writers can
+do it: `setFileValue` gives every key the plain style, and `quoteTimecodes` walks **values** under
+known keys, so neither sees a timecode used as a **key**.
 
-**`time` was not in `TIMECODE_KEYS`.** A curve point's position is the one other place a timecode
-is written by a tool, and the set that every writer quotes through did not list it.
+**A curve point's `time`.** It is in `TIMECODE_KEYS`, the set every writer quotes through — the one
+other place a timecode is written by a tool.
 
 ## The picture entorse
 
 `applyVideoEdit` states plainly that the CLI has no verb for a picture placement and that the
-frontend writes the file directly. This verb is the **first exception**, and it is a decision
+frontend writes the file directly. This verb is the **one exception**, and it is a decision
 rather than an oversight: a change to the song's clock cannot leave picture behind, or a shot and
 its sound drift apart the moment a bar is inserted.
 

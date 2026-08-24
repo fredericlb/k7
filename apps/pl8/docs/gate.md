@@ -13,9 +13,8 @@ none of the third:
   `resolveWorkspace` and never read the header — which is why `api.ts` sends it empty
   rather than inventing a name.
 
-Note which way round that third one now runs. st0's gate no longer *picks* anything either:
-this app owns the repositories and opens st0 on one project (see [projects.md](projects.md)),
-so what used to be a workspace picker over there is a section over here.
+st0's gate picks nothing either: a project arrives by its ADDRESS, and the repository that
+address names is this service's registry (see [projects.md](projects.md)).
 
 ## Why it does NOT take the engine lease
 
@@ -29,8 +28,8 @@ two apps would then fight over it every renewal interval. So the gate probes, ta
 address, and claims nothing.
 
 That the lease is coarse enough to make this a real problem is worth writing down: it is
-the first place the registry model shows its age, and it will show it again when m9
-arrives.
+the first place the registry model shows its age, and it will show it again for the next
+surface that reaches the same engine.
 
 ## Why the nearest engine is taken without asking
 
@@ -56,20 +55,16 @@ nothing.
 
 **st0's backend** owns `/auth/*` for the whole origin, because st0 is what the origin root serves
 and `redirectUriFor` builds `<origin>/auth/callback` with no prefix — a prefixless redirect_uri
-belongs to the service that has no prefix. This backend held it while the médiathèque WAS the
-root; it now passes `mountRoutes: []` like m9 and k7 always have, and the ownership has followed
-the root both times it moved.
+belongs to the service that has no prefix. This backend passes `mountRoutes: []`, like k7 and z0.
 
-Nothing changes in *this* component: it still calls `/auth/me` and `/auth/login` same-origin,
-exactly as before. What changed is who answers, and the consequence to know is the one st0's
-AGENTS.md already stated in the other direction — **signing out here signs you out of every
-studio service**, and pl8 being down takes every service's login with it, not just its own.
+This component is unaffected by that: it calls `/auth/me` and `/auth/login` same-origin and does
+not care who answers. The consequence to know is the one st0's AGENTS.md states from the other
+side — **signing out here signs you out of every studio service**, and st0 being down takes
+every service's login with it, not just its own.
 
-Worth knowing when reading old commits: the day st0 took the root, the flow stayed in this
-backend for one release, routed *by name* in nginx. It worked, and it read as an exception to
-every rule around it. It is not one any more — `mountRoutes: []`, the same cookie name, the same
-`SESSION_SECRET` out of `env.yaml`'s `common`, or the check fails. And no `scopes` here: asking
-the IdP for anything is the job of whoever runs the flow.
+What makes the check pass is agreement, not routing: the same cookie name and the same
+`SESSION_SECRET` out of `env.yaml`'s `common`. And no `scopes` here — asking the IdP for
+anything is the job of whoever runs the flow.
 
 ## The bearer token, beside the session
 

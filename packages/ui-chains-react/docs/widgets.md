@@ -3,7 +3,7 @@
 A node's panel is a grid of widgets, and every one of them answers two questions before it can be
 drawn: **what does this actuate**, and **what value does it hold right now**. `DomChains.tsx`
 answers the first in `widgetTarget` and the second in `widgetValue`; this page is the reasoning
-behind both, which used to sit in the file as forty lines of prose.
+behind both.
 
 ## The bind vocabulary
 
@@ -15,8 +15,8 @@ A widget's `bind` is read in one order, and the order is the rule:
 2. **An `@` prefix is an INTRINSIC** — the thing's own field rather than a plugin param — and
    which thing that is depends on the node it is drawn on. A track's intrinsics are its mixer
    controls; a module's are the fields of its own file. That last one is how a live input's
-   `monitor` is reachable at all: it has no plugin, so it has no params, so before this every
-   widget on one was inert.
+   `monitor` is reachable at all: it has no plugin, so it has no params, so without the module
+   branch every widget on one is inert.
 3. **Everything else is a plugin param**, and needs a plugin to send it to.
 4. Failing a plugin, an **offline** target — a param of a module realised outside the graph. It
    is opt-in, so a host with no surface realising them (pl8, or st0 on a project that declares no
@@ -120,12 +120,11 @@ be loaded behind them.
 ## The knob
 
 The pointer is a rim **tick** rather than a line from the centre, because the reading is drawn in
-the middle of the dial: the line used to run from the centre to the rim, straight through where
-the number now sits. It starts at 62 % of the radius instead — the same gesture, from outside the
-text. An unknown value leaves the pointer off and the travel unfilled.
+the middle of the dial: a line from the centre would run straight through the number. It starts
+at 62 % of the radius instead — the same gesture, from outside the text. An unknown value leaves the pointer off and the travel unfilled.
 
 The font is a fraction of the dial rather than a fixed size: a knob here is anything from 14 px to
-sixty-odd depending on the cells it was given, and one size would be either unreadable on the
+sixty-odd depending on the cells it is given, and one size would be either unreadable on the
 small ones or absurd on the large.
 
 And the reading is **dropped** when it does not fit inside the tick — measured against the text
@@ -135,15 +134,15 @@ Better no reading than one over its own pointer.
 
 ## The tabs bar
 
-Three rules, each of them a bug that was there:
+Three rules, each of them a bug it prevents:
 
 - **`justifyContent: flex-start` inline**, against `.dgx-w`'s own `center`. The bar has to sit at
   the TOP of its box because that is what the sub-widget offset assumes (`+ TAB_H`). Centred, the
-  two disagreed by half the leftover height — a page's first row overlapped the bar on a one-row
-  box and hung 26 px under it on the next, with no row an author could pick that was flush. Inline
-  rather than a class so it beats the stylesheet whatever the order.
+  two disagree by half the leftover height — a page's first row overlapping the bar on a one-row
+  box and hanging 26 px under it on the next, with no row an author could pick that is flush.
+  Inline rather than a class so it beats the stylesheet whatever the order.
 - **`w-full` on the bar**, because `.dgx-w` is a centring flex column: without it the bar is sized
-  to its NAMES and parked in the middle of the widget, which is what left "General" reading
+  to its NAMES and parked in the middle of the widget, which leaves "General" reading
   "Gene…" with empty box on either side of it.
 - **`flex-auto`, not `flex-1`, on a tab.** The basis is the NAME's width, so spare space is shared
   out rather than cut into equal slices that clip a long page name next to a short one. `truncate`

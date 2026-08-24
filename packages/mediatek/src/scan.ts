@@ -188,7 +188,7 @@ function scanSamples(): MediatekEntry[] {
   return out;
 }
 
-// `scanModules`, `scanChains` and `scanPlaylists` stood here; all three left the volume, for two different reasons — see ../docs/index.md.
+// Modules, chains and playlists are not this volume's, for two different reasons — ../docs/index.md.
 
 /** Read one family off disk, sorted by name — readdir order is not stable between scans. */
 export function scanFamily(family: Family): MediatekEntry[] {

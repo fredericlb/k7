@@ -19,13 +19,13 @@ effect's `type`):
 | `video_transitions` | video → video (the renderer treats consecutive placements as a crossfade pair across cuts) |
 | `shaders` | video → video, **plus an optional AUDIO input** — the one type whose ports carry two signals, because a shader is for a picture that moves with the sound ([shaders.md](../../song-video/docs/shaders.md)) |
 
-`midi` is kept as a LEGACY alias of `transformers` (the rename) so old `modules/midi/`
-folders keep loading until their authors rename them on disk; `module create` proposes,
-and the engine catalogue reports, `transformers`.
+`midi` is a LEGACY alias of `transformers`, so a `modules/midi/` folder on disk keeps
+loading until its author renames it; `module create` proposes, and the engine catalogue
+reports, `transformers`.
 
-`kind` is `"io" | "plugin"` today; a `video_out` io module is still `kind: "io"`,
+`kind` is `"io" | "plugin"`; a `video_out` io module is still `kind: "io"`,
 distinguished by its `io: "video_out"` field (analogous to `io: "out"|"in"`). The
-`inputs[].type` union widens to include `"video"` so a video chain's typed-input check
+`inputs[].type` union includes `"video"` so a video chain's typed-input check
 (`checkChainInputs`) can refuse to feed a `video_effect` from an audio source and vice
 versa.
 
@@ -46,7 +46,7 @@ nodes/lead.yaml                         ->  "lead"    (one use of it)
 nodes/pad.yaml                          ->  "pad"     (another)
 ```
 
-The full page is **`docs/nodes.md`** — where the type comes from now that there is no
+The full page is **`docs/nodes.md`** — where the type comes from when there is no
 type folder, what lives beside a node, and why the folder is flat.
 
 ## The files a module loads
@@ -58,9 +58,8 @@ nowhere else; `listModuleAssets` walks it for the panel's dropdown.
 A path that climbs out of `assets/` is refused rather than resolved, since these come from
 files the editor writes and a shared workspace may not be yours alone.
 
-There used to be a shared asset LIBRARY here — `_library/ir/`, `_library/nam/`, searched
-nearest-first — and two module fields naming into it. Both are gone: the folder is the
-module, so what it loads travels with it. See `docs/moduleAssets.md` for the whole of it.
+There is no shared asset library: the folder is the module, so what it loads travels with
+it. See `docs/moduleAssets.md` for the whole of it.
 
 ## `loadModules` internals
 
@@ -73,7 +72,7 @@ module, so what it loads travels with it. See `docs/moduleAssets.md` for the who
   LESS: no `kind`, `inputs` or `category`, because a flat folder has no type folder to read
   them off. Leaving them absent is what lets them arrive from what the node `extends`
   (see moduleResolve.md's `OWN_ONLY`). It sets `home` — the node's own folder — since
-  `nodes/lead.vstpreset` no longer follows from a category and a module name.
+  `nodes/lead.vstpreset` does not follow from a category and a module name.
 - **Name collisions** are reported, not resolved: a module and a node answering to one
   name would make a chain step ambiguous, so the module wins and the node is an issue.
 - **`validate`** defaults to `false` because the generator itself reads modules to BUILD
@@ -83,14 +82,14 @@ module, so what it loads travels with it. See `docs/moduleAssets.md` for the who
   was READ, which is why the two flavours share one cache entry — see below.
 - **The read is memoised**, here and in `loadModuleRefs`, on a stamp of the folders they walk.
   This is the expensive half of every compile and the half that changes least; a command in st0
-  wanted it four to six times over. `docs/moduleCache.md` has the measurement, what the stamp
+  asks for it four to six times over. `docs/moduleCache.md` has the measurement, what the stamp
   covers, the two rules a caller has to keep — and the tempting variant that is wrong.
 
 ## Plugin validation rules
 
 `KNOWN_PLUGIN_TYPES` must stay in step with `EXTERNAL_PLUGIN_FORMATS` (project.ts) and
 the engine's `isExternalFormat`. `EXTERNAL_PLUGIN_FORMATS` itself has ONE definition —
-`graphDoc.ts` re-exports project.ts's rather than restating it, which it used to. A `plugin.type` outside this set is either
+`graphDoc.ts` re-exports project.ts's rather than restating it. A `plugin.type` outside this set is either
 `"not_supported"` (a deliberate marker — amber in the editor/graph) or UNKNOWN (a typo /
 an unimported plugin — red); neither is a compile error, both are bypassed by the engine
 and flagged visually instead.
@@ -107,7 +106,7 @@ take the whole project's timeline/chains down with it.
 
 ## Where a module's CATEGORY comes from
 
-Not from a folder any more. `_modules` holds only what someone wrote — jsdsp and racks —
+Not from a folder. `_modules` holds only what someone wrote — jsdsp and racks —
 and the engine answers for everything it can load, so a plugin's type folder is derived
 at read time by `categoryForRole` (moduleTypes.ts) off the `role` the scan reports.
 
@@ -118,8 +117,8 @@ with `isInstrument` can land as `"audioEffect"` even when it really is an instru
 (Kontakt and other samplers). The boolean is checked as a fallback to rescue those into
 `instruments/`, ahead of trusting `role=audioEffect`.
 
-The per-plugin category the old file catalogue filed by (`Fx|Delay` → `audio/delay/…`,
-plus a hand-kept override table for the plugins that misfiled themselves) is gone with
-it: an engine ref is flat (`@engine/tape-delay`), and what groups it in a picker is the
-module's own `category`, carried as data rather than parsed back out of a path.
+An engine ref is **flat** (`@engine/tape-delay`), so nothing files a plugin under a path
+of its own (`Fx|Delay` → `audio/delay/…`, plus a hand-kept override table for the plugins
+that misfile themselves). What groups it in a picker is the module's own `category`,
+carried as data rather than parsed back out of a path.
 

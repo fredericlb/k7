@@ -1,6 +1,6 @@
 // machine.ts — creating and deleting a project go through the MACHINE: that is where the working
 // copy being committed lives, and pl8 has only ever held the register of repositories.
-// `ensureWorkspace` is what clones, and now also serves ADDING one. See ../../docs/projects.md.
+// `ensureWorkspace` is what clones, and also serves ADDING one. See ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { engineMachine, type Machine } from "./api";

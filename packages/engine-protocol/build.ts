@@ -3,9 +3,8 @@
 // are types and erase to nothing, this one emits code.
 //
 // It exists because a ProjectDoc has ~15 required fields and a TrackDoc ~17, most of which
-// any given caller does not care about. Hand-written literals of those were already
-// duplicated across two test files; pl8's module preview and an m9 deck would
-// each have added another.
+// any given caller does not care about. Hand-written literals of those duplicate across every
+// test file and every app that builds a document.
 
 import type {
   ClipDoc,

@@ -1,9 +1,8 @@
 # Curves — automation, and the three shapes of it
 
-A curve is a normalised function of time in `curves/<id>.yaml`, bound to a module's parameter. It
-has never had a page; the prose lived in `curves.ts`'s comments and in two half-contradicting notes
-on the graph side. Two things now read it — a timeline row and `track automation add|remove` — so
-it is worth saying once, here.
+A curve is a normalised function of time in `curves/<id>.yaml`, bound to a module's parameter.
+Two things read it — a timeline row and `track automation add|remove` — so it is said once, here,
+rather than in `curves.ts`'s comments and again on the graph side.
 
 ## The three types, and what each is a function OF
 
@@ -118,13 +117,13 @@ reached, so the line into it is the envelope's own rather than a shortcut from t
 and a corner strictly past the next trigger is what triggers it — an envelope ENDING exactly where
 the next starts has nothing left to cut.
 
-**A coincident corner is NUDGED past the beat, never dropped.** Dropping was the first rule and it
-was wrong: a zero-length stage puts two corners on one beat, so an instant attack popped the point
-before it — which, where one envelope's release meets the next one's trigger, was the release's own
-landing. The ramp down vanished and the parameter simply stayed up. A vertical pair a microbeat
-apart IS what an instant stage looks like, and the engine interpolates it as the step it is.
-Coincident AND the same value is the one case still dropped: it says nothing the point before it did
-not — two zero-length stages in a row, or one envelope ending where the next begins.
+**A coincident corner is NUDGED past the beat, never dropped.** A zero-length stage puts two
+corners on one beat, so dropping one makes an instant attack swallow the point before it — which,
+where one envelope's release meets the next one's trigger, is the release's own landing: the ramp
+down vanishes and the parameter simply stays up. A vertical pair a microbeat apart IS what an
+instant stage looks like, and the engine interpolates it as the step it is. Coincident AND the same
+value is the one case dropped: it says nothing the point before it did not — two zero-length stages
+in a row, or one envelope ending where the next begins.
 
 An ADSR's stages each default to 0 but the level: an envelope with no times written is an instant
 spike, which is a legible thing to see and fix. A missing LEVEL is not — it would mean a decay to

@@ -1,25 +1,25 @@
 # Tenir un lien, pas seulement l'ouvrir
 
 Ce que `EngineClient` fait entre le moment où la socket s'ouvre et celui où elle se referme
-pour de bon. Écrit après l'audit (`docs/audit-moteur.md`), qui a montré que presque tous les
-bugs de ce domaine sont des bugs de cycle de vie — jamais de protocole.
+pour de bon. Presque tous les bugs de ce domaine sont des bugs de cycle de vie — jamais de
+protocole (`docs/audit-moteur.md`).
 
 ## Le ticket périme, l'adresse pas
 
-L'URL n'est plus une chaîne figée au constructeur mais un `EngineUrl` : une fonction, rappelée
+L'URL n'est pas une chaîne figée au constructeur mais un `EngineUrl` : une fonction, rappelée
 **avant chaque tentative**.
 
-C'est le correctif du mode de panne le plus coûteux qu'on ait eu. Depuis toute machine autre
-que celle du moteur, la seule voie praticable est le relais — une page HTTPS n'ouvre pas un
-`ws://` vers une adresse LAN — et l'URL relayée porte un ticket qui vit **une minute**
-(`engine-registry/proxy.ts`). Gelée à la construction, chaque reconnexion survenant plus d'une
-minute après la mesure rejouait un ticket mort, recevait un 401, et recommençait. Indéfiniment,
-sans que rien ne redemande la liste. Le chemin nominal, donc, pas un cas limite.
+C'est le mode de panne le plus coûteux du domaine. Depuis toute machine autre que celle du
+moteur, la seule voie praticable est le relais — une page HTTPS n'ouvre pas un `ws://` vers une
+adresse LAN — et l'URL relayée porte un ticket qui vit **une minute**
+(`engine-registry/proxy.ts`). Gelée à la construction, toute reconnexion survenant plus d'une
+minute après la mesure rejoue un ticket mort, reçoit un 401, et recommence. Indéfiniment, sans
+que rien ne redemande la liste. Le chemin nominal, donc, pas un cas limite.
 
 `engines.linkUrl(chosen)` est ce qu'on passe : il rend l'adresse **déjà mesurée** au premier
 appel — le gate vient de payer ce round-trip, le refaire serait gratuit en latence et cher en
-sockets — puis une adresse fraîche à chaque suivant. Une fonction, pour que les trois surfaces
-ne puissent pas en réussir chacune une moitié.
+sockets — puis une adresse fraîche à chaque suivant. Une fonction, pour qu'aucune surface ne
+puisse en réussir seulement la moitié.
 
 Rendre `null` veut dire « aucun moteur à joindre pour l'instant » : le client patiente et
 redemande, au lieu de compter ça comme un échec de connexion.
@@ -27,10 +27,10 @@ redemande, au lieu de compter ça comme un échec de connexion.
 ## Une socket ouverte qui ne porte rien
 
 Il n'y a de ping nulle part dans ce protocole, ni en dessous : le serveur du moteur embarque
-IXWebSocket avec `kPingIntervalSeconds(-1)` — heartbeat désactivé — et rien côté navigateur
-n'en tenait lieu. Un relais figé, un NAT expiré, un portable qui sort de veille laissent donc
-une socket qui se déclare `OPEN` et ne transporte plus rien : `close` ne part jamais, la
-reconnexion ne se déclenche jamais, et `send()` écrit dans le vide.
+IXWebSocket avec `kPingIntervalSeconds(-1)` — heartbeat désactivé. Un relais figé, un NAT
+expiré, un portable qui sort de veille laissent donc une socket qui se déclare `OPEN` et ne
+transporte plus rien : `close` ne part jamais, la reconnexion ne se déclenche jamais, et
+`send()` écrit dans le vide. D'où un chien de garde côté navigateur.
 
 Le garde-fou est asymétrique, exprès :
 
@@ -45,13 +45,12 @@ Le garde-fou est asymétrique, exprès :
 
 ## Le repli, et pourquoi il double
 
-C'était une seconde, fixe, pour toujours. Un onglet oublié en arrière-plan sur une machine dont
-le moteur est éteint frappait donc le relais une fois par seconde tant que l'onglet vivait — et
-chaque coup coûte au backend une composition **séquentielle** de toutes les adresses annoncées.
-Le même motif avait déjà été corrigé dans le service de fichiers (`pruneIdleLinks`) et laissé
-intact ici.
+Un repli fixe d'une seconde fait qu'un onglet oublié en arrière-plan sur une machine dont le
+moteur est éteint frappe le relais une fois par seconde tant que l'onglet vit — et chaque coup
+coûte au backend une composition **séquentielle** de toutes les adresses annoncées. C'est le
+même motif que `pruneIdleLinks` dans le service de fichiers.
 
-Maintenant : doublement depuis `ENGINE_RECONNECT_MIN_MS`, plafonné à `ENGINE_RECONNECT_MAX_MS`,
+D'où : doublement depuis `ENGINE_RECONNECT_MIN_MS`, plafonné à `ENGINE_RECONNECT_MAX_MS`,
 et **secoué** — la moitié de l'intervalle est tirée au hasard. Le jitter est pour l'autre
 moitié du problème : plusieurs onglets lâchés par un même redémarrage du relais reviendraient
 sinon en rang serré. Le compteur repart à zéro sur une socket qui s'est réellement ouverte.
@@ -66,11 +65,11 @@ doublent chacune, c'est ainsi qu'un réessai discret devient une inondation.
 
 ## La file d'attente couvre un clignement, et rien de plus
 
-L'`outbox` retenait tout, sans limite ni de taille ni d'âge. Une coupure de dix minutes
-accumulait donc tout ce que la surface avait envoyé, et le tout partait **d'un bloc** à la
-reconnexion, verbes de transport périmés compris.
+Sans limite de taille ni d'âge, l'`outbox` accumulerait tout ce que la surface a envoyé pendant
+une coupure de dix minutes, et le tout partirait **d'un bloc** à la reconnexion, verbes de
+transport périmés compris.
 
-Elle est maintenant bornée par `ENGINE_OUTBOX_MAX` (le plus ancien sort — la commande la plus
+Elle est donc bornée par `ENGINE_OUTBOX_MAX` (le plus ancien sort — la commande la plus
 récente est celle qui décrit encore ce que la personne veut) et par `ENGINE_OUTBOX_TTL_MS` au
 rejeu : une commande que plus personne n'attend ne vaut pas la peine d'être envoyée.
 
@@ -80,10 +79,10 @@ document rejoué ci-dessous : les mettre en file n'aurait aucun sens.
 ## Le document, rejoué
 
 Les souscriptions (`watch-plugin-params`, `subscribe-waveform`, `broadcast`) vivent dans le
-moteur et étaient déjà rejouées à chaque ouverture. Le **document** ne l'était nulle part, sur
-aucune surface.
+moteur et sont rejouées à chaque ouverture. Le **document** aussi, et c'est la moitié facile à
+oublier.
 
-Ça se voyait mal et ça coûtait cher : si le moteur redémarre, il revient vide, et la surface
+Ça se voit mal et ça coûte cher : si le moteur redémarre, il revient vide, et la surface
 continue de le piloter. Le seul symptôme est « le moteur ignore Play », sans une ligne de
 journal pour le relier à une connexion qui a cligné.
 
@@ -123,13 +122,13 @@ quelqu'un regarde est l'affaire de l'hôte, pas de ce client — d'où le défau
 que les deux moitiés doivent s'accorder.
 
 Le navigateur mesure ses candidats **en parallèle** : il dépense le budget une fois. Le relais
-les compose **en séquence**, et le dépensait donc *par adresse* — une machine annonçant deux
-interfaces mortes (un VPN, un pont Docker) demandait trois fois la patience du navigateur et
-était déclarée injoignable pendant que le moteur répondait tranquillement sur loopback. Les
-deux s'arrêtent maintenant au même mur, et une première adresse morte ne peut en manger
+les compose **en séquence** ; le dépenser *par adresse* ferait qu'une machine annonçant deux
+interfaces mortes (un VPN, un pont Docker) demande trois fois la patience du navigateur et est
+déclarée injoignable pendant que le moteur répond tranquillement sur loopback. Les deux
+s'arrêtent donc au même mur, et une première adresse morte ne peut en manger
 qu'`ENGINE_DIAL_TIMEOUT_MS`.
 
 L'autre bout du même problème est dans `engine-host/src/addresses.ts` : les interfaces
-fantômes — VPN, conteneurs, WSL, Hyper-V — ne sont plus annoncées du tout. Elles ne sont pas
-`internal`, donc le filtre existant les laissait passer, et elles portent des adresses privées
-parfaitement ordinaires ; seul leur **nom** les distingue.
+fantômes — VPN, conteneurs, WSL, Hyper-V — ne sont pas annoncées du tout. Elles ne sont pas
+`internal`, donc un filtre sur ce seul critère les laisse passer, et elles portent des adresses
+privées parfaitement ordinaires ; seul leur **nom** les distingue.

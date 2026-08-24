@@ -185,9 +185,9 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
 
     // The sample-phase nodes, in DECLARED order — which is load-bearing, because a node reading a wire
     // written later gets the previous sample's value, and that is the unit delay a feedback loop needs.
-    // Collected here so the per-sample loop iterates only these: it used to walk every node in the graph
-    // and branch on its phase, once per sample, so a graph with ten control nodes and two audio ones paid
-    // for twelve at 48 kHz. Same output, a fraction of the iterations, and vectorisable.
+    // Collected here so the per-sample loop iterates only these: walking every node and branching on its
+    // phase once per sample would make a graph with ten control nodes and two audio ones pay for twelve at
+    // 48 kHz, for the same output.
     for (size_t i = 0; i < g->nodes_.size(); ++i)
         if (g->nodes_[i].phase == Phase::sample) g->sampleNodes_.push_back((int)i);
     return g;
@@ -253,9 +253,9 @@ void DspGraph::runControlNodes()
             case Kind::lerp:  out = a + c * (b - a); break;                 // lerp(a, b, t)
             case Kind::linmap: {                                            // linmap(x, lo, hi) -> 0..1 clamped
                 // An empty range is 0, not a division. `jlimit` does NOT filter NaN — both its
-                // comparisons are false, so 0/0 came straight back out, and a NaN reaching
+                // comparisons are false, so 0/0 comes straight back out, and a NaN reaching
                 // makeBandPass below poisons that filter's state for good. The shipped auto-wah
-                // computes `lo` from a lerp, so this was reachable, not theoretical.
+                // computes `lo` from a lerp, so this is reachable, not theoretical.
                 const float span = c - b;
                 out = span == 0.0f ? 0.0f : juce::jlimit(0.0f, 1.0f, (a - b) / span);
                 break;
@@ -341,10 +341,10 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
     const int numChans = juce::jmin(buffer.getNumChannels(), 2);
     if (numSamples <= 0 || numChans <= 0) return;
 
-    // Never grow a buffer in here. A block bigger than prepare() was told about — an offline render, a
-    // rack's own render context, a device buffer that outran a re-initialise — used to `setSize` the dry
-    // snapshot below, on the AUDIO THREAD. Split the block instead: the control and analysis phases then
-    // run once per chunk, which is finer-grained rather than wrong.
+    // Never grow a buffer in here. A block bigger than prepare() was told about happens — an offline render,
+    // a rack's own render context, a device buffer that outran a re-initialise — and `setSize` on the dry
+    // snapshot below would allocate on the AUDIO THREAD. Split the block instead: the control and analysis
+    // phases then run once per chunk, which is finer-grained rather than wrong.
     const int maxBlock = dry_.getNumSamples();
     if (maxBlock > 0 && numSamples > maxBlock) {
         for (int done = 0; done < numSamples; done += maxBlock)
@@ -400,8 +400,8 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
             // and this is fed by control nodes whose inputs are automatable.
             const float freq = juce::jlimit(20.0f, (float)(sampleRate_ * 0.45), r(n.in[0]));
             const float q = juce::jmax(0.5f, r(n.in[1]));
-            // Only when the knob actually moved — see the note on lastFreq_ in the header. MixerPlugin
-            // has always done this; this interpreter did not.
+            // Only when the knob actually moved — see the note on lastFreq_ in the header, and MixerPlugin,
+            // which recomputes on the same condition.
             if (freq != n.lastFreq_ || q != n.lastQ_) {
                 const auto coeffs = n.mode == 1 ? juce::IIRCoefficients::makeLowPass(sampleRate_, freq, q)
                                   : n.mode == 2 ? juce::IIRCoefficients::makeHighPass(sampleRate_, freq, q)
@@ -527,10 +527,10 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
 
     // --- mix ------------------------------------------------------------------
     // LAST, after the sample-rate loop, because `mix` means "blend the GRAPH's output with what came in" and the
-    // graph's output does not exist until every phase has run. Applied in the audio phase it was a no-op for any
-    // graph with a sample-rate stage: the blend ran on a buffer nothing had touched yet (so it blended the dry
-    // signal with an identical copy of itself), and `aout` then overwrote the result. The flanger's Mix knob did
-    // nothing at all, at any setting, for exactly that reason.
+    // graph's output does not exist until every phase has run. Applied in the audio phase it is a no-op for any
+    // graph with a sample-rate stage: the blend runs on a buffer nothing has touched yet, so it blends the dry
+    // signal with an identical copy of itself, and `aout` then overwrites the result — a flanger's Mix knob
+    // doing nothing at all, at any setting.
     for (auto& n : nodes_) {
         if (n.kind != Kind::mix) continue;
         const float wet = juce::jlimit(0.0f, 1.0f, r(n.in[0]));

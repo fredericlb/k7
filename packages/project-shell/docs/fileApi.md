@@ -16,8 +16,8 @@ everything in `project.ts` is built from two verbs, `fget` and `fsend`. `engineI
 config beside the token because it comes from the same probe; it is **not** used to reach the file
 service, which is addressed by `base`. It is what a call to ANOTHER service must name when it is
 about to borrow this machine — pl8's `/api/stems` is the first, holding the master and asking an
-engine to cut it (`apps/pl8/docs/stems.md`), and the desk had no other way to say which machine it
-was on.
+engine to cut it (`apps/pl8/docs/stems.md`) — and it is the only way the desk can say which
+machine it is on.
 
 `mediaUrl` is the exception that proves the header rule: an `<audio>`/`<video>` element GET cannot
 send headers, so everything including the token rides in the query.
@@ -28,8 +28,8 @@ send headers, so everything including the token rides in the query.
 two requests. What it collapses is the burst. The derived views are asked for by several components
 at once, every one of them on the same reload key, and each answer costs the service a real compile
 or a real walk: in st0, four components re-fetch `/graph` on a reload and five `/project-doc`,
-whichever are mounted. The service answered each separately, with the same bytes, out of a memo
-they were all hitting — and the revision walk in front of that memo is ~5 ms every time.
+whichever are mounted. Without this the service answers each separately, with the same bytes, out
+of a memo they all hit — and the revision walk in front of that memo is ~5 ms every time.
 
 An **epoch** is the fence. It counts writes through `fsend`, and a GET may only join one issued in
 the same epoch; `fsend` bumps it on both edges, which matters both ways — the first stops a GET
@@ -37,8 +37,7 @@ issued while the write is in the air from joining one issued before it, the seco
 that follows the reply. Without it, a component asking a millisecond after a command landed would
 be handed the answer to a question asked before it, which is the one way sharing a request can lie.
 Everything else that changes an answer — another tab, a `git pull` — is what `/revision` polling is
-for, and it is no worse off than when every component asked separately: two requests could always
-have straddled a change.
+for, and sharing costs it nothing: two separate requests can straddle a change just as easily.
 
 What is shared is the **body text**, and each caller parses it. That is the whole difference
 between this and a cache: handing several components one parsed object would alias it, and a
@@ -54,7 +53,7 @@ anything in these apps writes — around twenty-five call sites in `project.ts` 
 feature and meeting the twenty-sixth one in production. Hiding buttons was never the alternative: a
 hidden button is still a keyboard shortcut, a command bar entry and a context menu away.
 `ReadOnlyDocument` has its own type so a caller can tell "this cannot be done here" from "the
-service refused", which read the same as a plain `Error`.
+service refused", which as plain `Error`s read the same.
 
 `frozen.canned` answers the routes a snapshot HAS no answer for. A share carries the three compiled
 documents and nothing else — no `/tree`, no `/hints`, no `/git/status` — and without canned bodies
@@ -135,15 +134,15 @@ the next expensive document to arrive is a member rather than a second flag besi
 `graph` comes back ONLY when the command changed the project AND the caller asked for it — the
 service builds it once inside that request rather than making the caller fetch it. Building it is
 ~62 ms on a real song, on the one thread the service has, and st0 runs mute/solo/faders through a
-path that never refetches the graph, so that whole class of gesture was paying for a document
-nobody read. Omit the option and the graph comes back as it always did; pass `want: []` to say no.
+path that never refetches the graph, so that whole class of gesture would otherwise pay for a
+document nobody reads. Omit the option and the graph comes back anyway; pass `want: []` to say no.
 
 `rev` does NOT depend on `want`: every writing command answers with the token it produced, which is
 what lets a client stop re-asking what the reply already said.
 
 `refused` is the same shape of fact about the other half — the command was understood and declined,
 and the lines in `output` say why. Present only when true, so a surface that ignores it reads a
-refusal exactly as it always did (see `packages/commands/docs/refusal.md`).
+refusal as an ordinary reply (see `packages/commands/docs/refusal.md`).
 
 `changed` names the FILES it wrote, project-relative, out of the journal's own diff. It is what
 lets a host reload only what depends on them; absent means the service could not say, which is
@@ -152,24 +151,24 @@ lets a host reload only what depends on them; absent means the service could not
 `at` points the verbs at a folder OTHER than the open project — the chains builder's template. It
 is always a path the caller was GIVEN, by `libraryChains`, and never one it built.
 
-## Two routes that used to be here
+## Two things this client deliberately has no route for
 
-- **`prepareStems` / `separation`** stood against the file service's `/stems`. They are pl8's now:
-  the library holds the masters, so it owns the cut and keeps the results, and the engine only
-  lends its model over `/process`. This client speaks to ONE machine and pl8 is not it, so the two
-  calls live where the library's other routes do — `mediatek` in `apps/st0/frontend/src/api.ts`.
-  See `apps/pl8/docs/stems.md`.
-- **`setInputPair`** remembered that two interface inputs are grouped into one stereo device, while
-  the ENGINE was told separately over the caller's own socket: one act, two doors and no name.
-  `system channel type <channel> <mono|stereo>` is both halves now, so the write goes down
-  `/command` with every other act (`packages/ui-module-builder/docs/inputChannels.md`).
+- **Cutting stems** is pl8's: the library holds the masters, so it owns the cut and keeps the
+  results, and the engine only lends its model over `/process`. This client speaks to ONE machine
+  and pl8 is not it, so those calls live where the library's other routes do — `mediatek` in
+  `apps/st0/frontend/src/api.ts`. See `apps/pl8/docs/stems.md`.
+- **Grouping two interface inputs into one stereo device** is a verb, not a route:
+  `system channel type <channel> <mono|stereo>` writes the preference and tells the engine both,
+  so it goes down `/command` with every other act
+  (`packages/ui-module-builder/docs/inputChannels.md`). Split over two doors it would be one act
+  with no name, and the two halves could disagree.
 
 ## Asking pl8: the two lookups
 
 `repoLookup.ts` is same-origin — every studio service sits at a fixed path under one origin — so
 the session cookie rides along without asking and there is no CORS to arrange. The path is asked of
-`serviceUrl` rather than spelled, which is what let this file survive the swap that moved the
-médiathèque off the origin root.
+`serviceUrl` rather than spelled, so where the médiathèque is mounted stays a fact read from one
+table and this file never has to know it.
 
 Both errors are raised in the SERVER's words, because pl8 is the side that can be specific — an
 unknown name, or a name two repositories answer to.

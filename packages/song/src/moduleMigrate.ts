@@ -172,7 +172,7 @@ export function migrateProjectModules(
           );
         base.plugin = plugin;
       } else {
-        // Authored: it stays in the library, under the namespace that now names it.
+        // Authored: it stays in the library, under the namespace that names it.
         base.extends = `@library/${target}`;
       }
 
@@ -285,7 +285,7 @@ export function migrateLibrary(root: string): LibraryMigration {
       out.changed = true;
     }
   };
-  // io lives in the projects now: IN and OUT come from the engine, and a channel belongs to a song.
+  // io lives in the projects: IN and OUT come from the engine, and a channel belongs to a song.
   const io = join(root, "io");
   if (existsSync(io)) {
     rmSync(io, { recursive: true, force: true });

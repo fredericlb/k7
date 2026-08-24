@@ -28,7 +28,7 @@ then failed on every query would be worse than one that says which variables are
 ## Why a row keeps more than it shows
 
 - **`query`** is kept verbatim: it is the row's title until MusicBrainz answers.
-- **`format`/`bitrate`** record what was actually taken, because a song filed at 128 that SAYS so
+- **`format`/`bitrate`** record what the transfer actually delivered, because a song filed at 128 that SAYS so
   will not be mistaken for a mixing reference six months later.
 - **`peer`/`switches`** are both shown, because "queued behind forty" and "nobody will send it"
   are different waits and want different patience.

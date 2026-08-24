@@ -1,9 +1,9 @@
 // `POST /command` builds the graph only when the caller will draw it.
 //
 // The cost never shows up in an answer: st0 runs mute, solo and every fader through a path that
-// never refetches `/graph`, so that picture — 62 ms on the reference song, on the service's one
-// thread — was built and dropped. A test reading only the reply passes either way, so this COUNTS
-// the builds instead; an integer does not fluctuate (docs/audit-perf-web.md).
+// never refetches `/graph`, so an unconditional picture — 62 ms on the reference song, on the
+// service's one thread — is built and dropped. A test reading only the reply passes either way,
+// so this COUNTS the builds instead; an integer does not fluctuate (docs/audit-perf-web.md).
 //
 // It mounts the router rather than the server: `req.ws` and `req.userEmail` are what
 // `resolveWorkspace` would have set, and this route needs no other gate.

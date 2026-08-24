@@ -17,7 +17,7 @@ import { FolderPlus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { projectFolderName } from "./projectName";
 
-/** The three ARCHETYPES, each named after the SURFACE it opens on — there is one app now, so a template is what tells them apart (packages/song/docs/surfaces.md). */
+/** The three ARCHETYPES, each named after the SURFACE it opens on — there is one app, so a template is what tells them apart (packages/song/docs/surfaces.md). */
 const SHAPES: { id: ProjectShape; label: string; what: string }[] = [
   {
     id: "arrangement",
@@ -99,7 +99,7 @@ export function NewProject({
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
-            {/* The archetype decides the TEMPLATE written in the folder; the suffix is no longer a choice, there being only one. */}
+            {/* The archetype decides the TEMPLATE written in the folder; the suffix is not a choice, there being only one. */}
             <div className="flex items-center gap-2">
               {SHAPES.map((sh) => (
                 <Button

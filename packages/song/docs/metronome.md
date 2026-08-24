@@ -49,8 +49,8 @@ engine's own property storage, which is what makes a fresh Edit in the same proc
 last one left off. The document still wins — `applyMetronome` runs on every apply, so a project that
 states a level overrides that memory every time.
 
-A document that predates the field defaults to **0.6**, Tracktion's own, so every song already on
-disk clicks exactly as loudly as it did before there was a level to state.
+A document that states no level defaults to **0.6**, Tracktion's own, so a song written without one
+clicks at the engine's own default rather than at some number this package picked.
 
 ## The control
 

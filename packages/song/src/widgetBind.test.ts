@@ -1,7 +1,7 @@
 // A widget is dropped on the grid FIRST and given its parameter after, by dragging one onto it — and the
-// renderer has always drawn an unbound widget inertly. The schema disagreed, so retyping a widget to a dropdown
-// stopped the whole project loading with `ui.widgets.w2.bind: incomplete value !=""`. The intent was already
-// written beside `options?`; `bind` just still required a value.
+// renderer draws an unbound widget inertly. The schema has to agree: a `bind` required to be non-empty
+// refuses the whole project with `ui.widgets.w2.bind: incomplete value !=""` the moment a widget is retyped
+// to a dropdown. The intent is written beside `options?`.
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

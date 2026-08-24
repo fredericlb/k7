@@ -2,8 +2,8 @@
 
 A library grows past the point where every module in it deserves equal billing. Half of a
 project's modules are the ones you name every day; the other half are a compressor somebody
-wrote once, a test rig, an experiment kept for reference. The palette offered all of them in the
-same alphabetical wall, so finding the one you meant was a scroll rather than a choice.
+wrote once, a test rig, an experiment kept for reference. A palette offering all of them in one
+alphabetical wall makes finding the one you meant a scroll rather than a choice.
 
 `status:` is the field that says which is which. Three values, and one of them is the absence:
 
@@ -22,7 +22,7 @@ never a validator, and that is what keeps this an ergonomic setting rather than 
 project from a dropdown. Hiding a module you are using costs you its completion and nothing else.
 
 It follows that nothing downstream of the loader reads it: it never reaches the compiled
-`ProjectDoc`, so the engine has never heard of it.
+`ProjectDoc`, so the engine never hears of it.
 
 ## The default is never written
 

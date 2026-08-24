@@ -4,7 +4,7 @@
 > avec **une** différence qui compte : elle est ajoutée toute seule.
 > Voir [videoOutputs.md](videoOutputs.md).
 
-Un graphe a maintenant **deux** sorties intégrées au lieu d'une :
+Un graphe a **deux** sorties intégrées :
 
 | nom | ce que c'est |
 |---|---|
@@ -21,12 +21,11 @@ modules:
   egaliseur:   [ OUT ]       # qui repart vers l'interface
 ```
 
-Le run entre les deux est la **chaîne master** : ses modules traitent le mix entier. C'était la
-raison de séparer les deux noms — avant, il n'y avait qu'un `OUT` et rien où poser un traitement
-sur l'ensemble.
+Le run entre les deux est la **chaîne master** : ses modules traitent le mix entier. C'est la
+raison des deux noms — un `OUT` seul ne laisse nulle part où poser un traitement sur l'ensemble.
 
-**Une chanson sans chaîne master sonne exactement comme avant.** `masterPlugins` part vide, `MIX`
-et `OUT` sont un seul fil, et le document est celui d'hier à un champ vide près.
+**Une chanson sans chaîne master ne coûte aucun son.** `masterPlugins` part vide, et `MIX` et
+`OUT` sont un seul fil.
 
 ## Ce que ça n'est PAS (encore)
 
@@ -103,27 +102,26 @@ Les quatre gabarits l'écrivent (`scaffold.ts`, `scaffoldSet.ts`, `scaffoldBench
 `chainToBench` pour une chaîne ouverte sur le banc — qui la retire au retour, puisqu'elle est le
 mobilier du PROJET et non de la chaîne éditée).
 
-Un détail qui a coûté une passe : `validate()` refusait `from: MIX` — « n'est ni une piste ni une
-chaîne ». La somme n'est ni l'une ni l'autre, c'est là où toutes arrivent, et l'oubli faisait
-avertir **tous** les projets à la fois, au sujet de la seule ligne qui est toujours juste.
+Un détail que `validate()` doit porter : `from: MIX` est accepté. La somme n'est ni une piste ni
+une chaîne, c'est là où toutes arrivent, et la refuser fait avertir **tous** les projets à la
+fois, au sujet de la seule ligne qui est toujours juste.
 
-## Migrer une chanson écrite avant
+## Migrer une chanson où `OUT` veut dire « la somme »
 
-`OUT` voulait dire « la somme » ; il nomme l'interface désormais. Le script fait les deux pas —
-réécrire les destinations, puis ajouter le trajet s'il manque :
+`OUT` nomme l'interface ; un fichier peut le nommer là où il veut dire la somme. Le script fait
+les deux pas — réécrire les destinations, puis ajouter le trajet s'il manque :
 
 ```bash
 npx tsx packages/song/scripts/migrateMixOut.ts <projet.st0>   # ou un dossier de projets
 npx tsx packages/song/scripts/migrateMixOut.ts <projet.st0> --dry
 ```
 
-Les deux pas sont **indépendants** : un projet migré avant que la ligne n'existe passe le premier
-garde (il nomme déjà `MIX`) et n'aurait jamais reçu le second. Relancer le script sur un projet
-déjà à jour ne fait rien.
+Les deux pas sont **indépendants** : un projet qui nomme déjà `MIX` passe le premier garde et
+reçoit quand même le second. Relancer le script sur un projet déjà à jour ne fait rien.
 
 Il réécrit **le texte** et non le YAML relu-réémis, pour la raison habituelle ici : un `graph.yaml`
 est commenté et édité à la main, et le re-sérialiser reformaterait tout le fichier pour changer un
-mot. Les cinq chansons de démonstration sont déjà passées.
+mot.
 
 Comme les deux noms sont aujourd'hui équivalents en fin de chaîne de piste (voir plus haut), cette
 migration ne change **aucun son**. Elle remet le fichier d'accord avec ce que les mots veulent
@@ -144,7 +142,7 @@ dire, avant qu'une vraie distinction n'existe.
 | mesuré | `engine/moteur/scripts/master-chain.ts` |
 
 Une nuance côté dessin, et une seule : **le graphe ne trace aucun câble VERS `MIX`**. Toutes les
-pistes y arrivent — c'est ce qu'est le mixeur — donc ces flèches ne disaient rien que la forme ne
+pistes y arrivent — c'est ce qu'est le mixeur — donc ces flèches ne diraient rien que la forme ne
 dise déjà, une par piste, à travers toute l'image. Seul le run qui en PART est dessiné,
 `MIX → [ chaîne master ] → OUT`, indépendant du reste. Le routage ne bouge pas pour autant : le
 moteur lit le document compilé, où chacune de ces pistes arrive toujours à la somme. Voir
@@ -152,7 +150,7 @@ moteur lit le document compilé, où chacune de ces pistes arrive toujours à la
 
 Ce qui a un prix, et un seul : l'**ondulation** du câble vivant se propage vers l'avant depuis les
 pistes que le moteur mesure, donc un nœud où rien n'arrive est un nœud qu'elle n'atteint jamais —
-le run master, le câble qui porte toute la chanson, restait le seul immobile pendant la lecture.
+le run master, le câble qui porte toute la chanson, serait le seul immobile pendant la lecture.
 `computeLive` amorce donc la marche à `MIX` aussi, dès qu'une piste est mesurée : ce n'est pas une
 approximation, puisque **toute** piste alimente le bus master quoi que nomme sa chaîne.
 
@@ -168,7 +166,6 @@ npx tsx engine/moteur/scripts/master-chain.ts
 Il rend deux fois la même note en ne changeant que `masterPlugins`, et compare les crêtes. Avec un
 `volume` à 0 sur le master : −7,5 dBFS sans la chaîne, −100 dBFS avec.
 
-Un piège rencontré en l'écrivant, qui vaut pour tout module : le paramètre s'appelle **`Volume`**,
-avec la majuscule que le plugin publie (`builtinParams.generated.ts`). Une clé en minuscules ne
-correspond à rien, ne déclenche aucune erreur, et le rendu sort **identique** — ce que la première
-exécution de ce script a mesuré avant que la casse ne soit corrigée.
+Un piège qui vaut pour tout module : le paramètre s'appelle **`Volume`**, avec la majuscule que le
+plugin publie (`builtinParams.generated.ts`). Une clé en minuscules ne correspond à rien, ne
+déclenche aucune erreur, et le rendu sort **identique** — donc rien ne dit que la casse est fausse.

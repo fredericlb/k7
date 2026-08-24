@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 
-// An input's track moved from a `track:` field to the CHAIN: a shared io/IN node cannot name one.
+// An input's track is named by the CHAIN, not by a field: a shared io/IN node cannot name one.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const SONG = join(
@@ -95,7 +95,7 @@ describe("a live input, wired by its chain", () => {
     ).toBe(true);
   });
 
-  // Signal comes FROM an input INTO a lane, which the old chain-list format drew backwards.
+  // Signal comes FROM an input INTO a lane, and the file draws that direction.
   describe("an input that FEEDS a track", () => {
     beforeEach(() => wire({ modules: { mic: [], [IN]: ["mic"] } }));
 

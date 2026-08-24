@@ -9,24 +9,22 @@ The four edits the app actually makes (the honest test set):
 
 - **bypass a module** — the graph's bypass button, many times a session
 - **insert a module** — `node insert`, and the graph's drop-on-an-arrow
-- **take a module out of the signal path, leaving it on the canvas** — `graph unlink`; `node delete` is the one that removes it (`module delete`, which removed the
-  files as well, is gone: deleting them is the file tree's)
-- **rename a module** — forking a shared module into the project (`node replace` used to do
-  this too; it repoints a node's `extends:` now and never touches a chain)
+- **take a module out of the signal path, leaving it on the canvas** — `graph unlink`; `node delete` is the one
+  that removes it, and removing its FILES is the file tree's business rather than a verb here
+- **rename a module** — forking a shared module into the project (`node replace` repoints a node's `extends:`
+  and never touches a chain)
 
-## What the shape bought
+## What the shape gives
 
-- **Bypass no longer needs a chain named.** The list format let one module sit in two chains, so bypassing it in
-  one had to leave the other running — `node bypass` had to find the chains, refuse when there were two, and
-  the frontend had to carry a chain name alongside the module. A module is named once here, so there is one
-  thing to toggle. That is why `bypassed` is a flat list at the root and not a field on the node: there is no
-  second copy for it to get out of step with.
-- **Insert is two node names, not a chain and an index.** The old `insertStepAt` took a position in a list and
-  clamped it so the module stayed ahead of the sink; `insertBetween` takes the two ends of one arrow, which is
-  what the caller had in the first place.
-- **Remove has to SPLICE.** This is the one thing the list format got for free: deleting a list item closed the
-  gap. Here the gap has to be closed on purpose — whatever fed the module now feeds what it fed — or the file
-  still parses and the track goes quiet with nothing to point at.
+- **Bypass needs no chain named.** A module is named once here, so there is one thing to toggle: no finding
+  which chains hold it, no refusal when there are two, no chain name carried alongside the module in the
+  frontend. That is why `bypassed` is a flat list at the root and not a field on the node: there is no second
+  copy for it to get out of step with.
+- **Insert is two node names, not a chain and an index.** `insertBetween` takes the two ends of one arrow,
+  which is what the caller has in the first place — no position in a list to clamp so the module stays ahead
+  of the sink.
+- **Remove has to SPLICE.** The gap has to be closed on purpose — whatever fed the module now feeds what it
+  fed — or the file still parses and the track goes quiet with nothing to point at.
 
 ## Formatting
 
@@ -40,8 +38,8 @@ The four edits the app actually makes (the honest test set):
 
 ## The colon
 
-Module names carry `:` — `eq_dj:vox` is a node, `@engine/io/IN:in-1` an inherited one. They were values
-before and are map KEYS now, which is where `:` is most dangerous: it is YAML's own key/value indicator. It
+Module names carry `:` — `eq_dj:vox` is a node, `@engine/io/IN:in-1` an inherited one. They are map KEYS, which
+is where `:` is most dangerous: it is YAML's own key/value indicator. It
 survives, because 1.2 allows `:` inside a plain scalar when no space follows. Nothing about that is obvious, and
 it is the first thing that would break silently, so chainsYaml.test.ts pins it.
 
@@ -71,9 +69,9 @@ and every word holds for it unchanged — it is the compositor's sum, every vide
 out of it is the picture's master chain (videoOutputs.md).
 
 `deriveChains` accepts the raw value, since project.yaml may inline it, and validates: a caller holding an
-unparsed object should still get chains or a clear failure, never a half-read graph. The old chain-LIST format
-is named precisely rather than reported as an unknown key — someone opening a project written last month needs
-the migration, not a schema error.
+unparsed object should still get chains or a clear failure, never a half-read graph. A file in the chain-LIST
+format is named precisely rather than reported as an unknown key — someone opening such a project needs the
+migration, not a schema error.
 
 `bypassedOf` has its own reader because a LANE's mute is its bypass, and the lane projection needs the set
 before any chain is derived: a lane appears in `from`, never in a step, so `Step.enabled` never carries it. It
@@ -91,16 +89,16 @@ derivation. A module's outputs are one signal path as far as the engine is conce
 parallel send — ports.md), so `stemsplit#drums` and `stemsplit#vocals` must stay one node or the two would
 absorb their targets into runs that in fact split. A lane's two outputs are not that: they carry different
 MATERIAL, and the engine can perfectly well hold a track for each. So `melody#audio` and `melody#midi` are two
-runs, each absorbing its own modules, and each compiling onto its own engine track. Only when both are written —
-a lane keyed once, which is every project written before this and every lane that plays one kind of thing, is
-its bare name, so nothing gained a suffix by existing.
+runs, each absorbing its own modules, and each compiling onto its own engine track. Only when both are written:
+a lane keyed once — every lane that plays one kind of thing — is its bare name, so nothing carries a suffix it
+does not need.
 
 `soleLanePort` is the other half of that. A lane wired only to its midi output is not split — its identity is
 still its bare name — but it did say which jack, and the compiler needs to hear it: that is what decides whether
 the lane's audio events have anywhere to go.
 
 A module may be keyed with a port on the SOURCE side too (`deck#cue: [...]`), so its destinations are the UNION
-of every key naming it; keying on the raw string would have split one module into two nodes that never met. The
+of every key naming it; keying on the raw string would split one module into two nodes that never meet. The
 key's port is kept on each edge as `fromPort` — the union decides the module's IDENTITY, it does not have to
 cost which jack the cable left from, and a module with several outputs (a stem separator) is unsayable without
 it (ports.md).
@@ -129,8 +127,8 @@ so they land on the step as `in`, which `validate()` checks against the module's
 
 So `absorbed(n)` holds only when all three do: exactly one thing feeds it (two would make it a meeting point, a
 bus), that one thing feeds nothing else (a split ends the run before it), and it has somewhere to go (a node the
-signal stops at is the run's DESTINATION, which is what `out` means — the same shape the old list format gave a
-chain's last node). **A LANE is never absorbed, whatever feeds it**: a live interface channel routed into one
+signal stops at is the run's DESTINATION, which is what `out` means). **A LANE is never absorbed, whatever feeds
+it**: a live interface channel routed into one
 satisfies all three, so without the guard the input's run would swallow the lane as its next step and the chain
 that OWNS the lane's material would cease to exist.
 
@@ -148,8 +146,8 @@ SOURCE and `from` after the lane, which are the same string unless the lane spli
 port (`melody#midi`) and `fromPort` says which one, so a reader asking "whose material is this" and a reader
 asking "which jack did it leave by" each get their answer without parsing the other's.
 
-There is no "both a track and a module" refusal any more. It existed because the file had two maps and one name
-could appear in each; with one map a name is one node, and the collision it guarded against cannot be written.
+There is no "both a track and a module" refusal: with one `modules:` map a name is one node, so the collision
+such a check would guard against cannot be written.
 
 **Then every module that starts a run of its own** — a bus (several things feed it), the far side of a split, or
 a node nothing feeds at all.

@@ -1,6 +1,6 @@
-// SaveState.tsx — what the three editors say in place of the Save button they no longer have:
-// nothing while the file is saved, and the reason out loud while it is not. Shared between them
-// because "non enregistré" must read the same everywhere it can happen.
+// SaveState.tsx — what an autosaving editor says in place of a Save button: nothing while the
+// file is saved, and the reason out loud while it is not. Its own component because
+// "non enregistré" must read the same everywhere it can happen.
 
 import type { Autosave } from "@studio/ui-editor/autosave";
 import { Loader2 } from "lucide-react";

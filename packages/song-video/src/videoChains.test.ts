@@ -1,6 +1,6 @@
-// The path graph.yaml -> the renderer, which is what a shader needs and what did not exist:
-// a video lane's run onto that lane, the RENDER run onto the frame, and the audio side input
-// that drives a shader. See docs/shaders.md.
+// The path graph.yaml -> the renderer, which is what a shader needs: a video lane's run onto that
+// lane, the RENDER run onto the frame, and the audio side input that drives a shader.
+// See docs/shaders.md.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -64,7 +64,7 @@ describe("a video lane's run", () => {
   });
 
   it("does not warn — a video lane is a LANE in the derivation", () => {
-    // The failure this pins: `main: [ glow ]` was read as a run whose first STEP was `main`.
+    // What this pins: `main` starts the run, so reading it as the run's first STEP warns.
     shaderModule("glow", "type: shader\nshader: pulse\n");
     graph(
       "modules:\n  main: [ glow ]\n  glow: [ RENDER ]\n  RENDER: [ VIDEO_OUT ]\n",

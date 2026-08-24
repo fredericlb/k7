@@ -14,21 +14,18 @@ line is complete without it.**
     ]
 ```
 
-## Why it had to become a field
+## Why it is a field and not prose
 
-Several hints already said so in prose — *"optional — another track, of the same type as this
-one"*. That told a person reading the catalogue and told no program anything. It cost nothing
-while the only consumer was a CLI, where a handler reads `argv` and decides for itself.
+A `hint:` can say it — *"optional — another track, of the same type as this one"* — and that
+tells a person reading the catalogue and tells no program anything. It costs nothing while the
+only consumer is a CLI, where a handler reads `argv` and decides for itself.
 
-It started costing the moment a **form** consumed the same catalogue. st0's command bar asks
-for one param at a time and dispatches on the last one, so "how many are there" is the
-question that decides when the line can run — and `args.length` answered four for a command
-three of whose params you actually have to give. The bar could never dispatch a bare
-`event move`, because it was still waiting for a param the command did not need. The prose
-was right and unreachable.
-
-So the rule the handlers already implemented is now written where the catalogue can be read:
-`requiredCount` in st0's `commandFill.ts` is the whole consumer, and it is three lines.
+It costs the moment a **form** consumes the same catalogue. st0's command bar asks for one
+param at a time and dispatches on the last one, so "how many are there" is the question that
+decides when the line can run — and `args.length` answers four for a command three of whose
+params you actually have to give, so the bar can never dispatch a bare `event move`: it waits
+for a param the command does not need. `requiredCount` in st0's `commandFill.ts` is the whole
+consumer, and it is three lines.
 
 ## TRAILING only
 
@@ -45,5 +42,5 @@ call site (a flag), which this vocabulary does not have and does not want.
   `track-N`, and that lives in the handler, not here.
 - It does not make the arg unreachable. In st0's bar, **Tab** steps onto a trailing optional
   where **Enter** would run past it; see `apps/st0/frontend/docs/commandBar.md`.
-- It changes no CLI behaviour. `argv` was always the handler's to read, and every handler that
-  treats an argument as optional did so before this field existed.
+- It changes no CLI behaviour. `argv` is the handler's to read, and a handler that treats an
+  argument as optional needs no field to do it.

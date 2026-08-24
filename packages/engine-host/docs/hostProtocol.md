@@ -17,19 +17,17 @@ mirrored in the C++ engine.
    to switch an audio device are all made in the supervisor; the tray only compares a
    signature against what it last drew.
 
-## `HostOwnership` — the staging mechanism, on the wire
+## `HostOwnership` — one owner per subsystem, on the wire
 
-The refactor moved subsystems from the Rust tray to the supervisor one at a time, and
-`HostOwnership` is that made explicit: each stage flips one more flag and deletes the Rust that
-used to do that job. The tray merges only the parts of a snapshot whose flag is set, so a
-half-migrated build has exactly **one owner per subsystem** instead of two writers racing.
+A subsystem is owned either by the Rust tray or by the supervisor, never by both, and
+`HostOwnership` is that made explicit: the tray merges only the parts of a snapshot whose flag
+is set. Two writers racing over one piece of state is the failure it makes unrepresentable.
 
 When all three are permanently true this collapses to "the tray replaces its state wholesale" and
 the type can go.
 
 Identity, settings, the registry and the web-origins allowlist are deliberately **not** in it:
-they moved in one step and have no half-owned state, so their snapshot fields are always
-authoritative.
+they have no half-owned state, so their snapshot fields are always authoritative.
 
 ## Why a snapshot is emitted only when it changed
 

@@ -1,5 +1,5 @@
 // migrateTracks.ts — rewrite the four TYPED track modules to the two that replace them, in every
-// node of a project or a workspace. A lane is no longer typed by what it carries, so
+// node of a project or a workspace. A lane is not typed by what it carries, so
 // `@studio/audio-track` and `@studio/sequence-track` are one `@studio/track`, and the two strudel
 // ones are one `@studio/strudel-track`. Nothing resolves the old spellings — a file still
 // carrying one names a module that does not exist. See docs/trackModules.md.

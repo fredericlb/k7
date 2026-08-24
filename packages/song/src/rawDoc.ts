@@ -1,7 +1,7 @@
 // rawDoc.ts — the RAW shapes the YAML loader hands the assemblers. "Raw" means as-authored: the file's own
 // field names, values as the Zod schemas let them through, and `unknown` wherever the loader can't promise —
-// the assemblers coerce. This is the typed seam that used to be `any` end to end, so a mistyped field name in
-// an assembler is now a compile error rather than an `undefined` that flows to the engine.
+// the assemblers coerce. This is the typed seam: a mistyped field name in an assembler is a compile error
+// rather than an `undefined` that flows to the engine.
 
 import type { ModuleKind } from "@studio/song-schema/moduleTypes";
 
@@ -133,7 +133,7 @@ export interface LoadedModule {
   track?: unknown; // io "in" only
   monitor?: unknown; // io "in" only
   gain?: unknown; // io "in" only — interface trim in dB
-  // A NOTE's text, on a doc module. `docs`/`todos` were here and are gone — see moduleSchema.
+  // A NOTE's text, on a doc module — no `docs`/`todos` field exists, see moduleSchema.
   content?: unknown;
   automations?: unknown;
   // The attribute SETS after the module's own fields, surviving resolution — see docs/alternatives.md.
@@ -260,9 +260,9 @@ export interface RawProjectRoot {
     libraries_from?: string[];
     [key: string]: unknown;
   };
-  // The dialect a folder used to declare, accepted and ignored — `deadProjectFields` names the line to delete.
+  // A dialect a folder may still declare, accepted and ignored — `deadProjectFields` names the line to delete.
   type?: string;
-  // Accepted and ignored, kept only so a folder written before the notion went still parses (projectSchema.ts).
+  // Accepted and ignored, so a folder still carrying it parses (projectSchema.ts).
   project_type?: string;
   trackOrder?: string[];
   // The soloed lanes — solo as project state, resolved by the engine (see projectSchema.ts).

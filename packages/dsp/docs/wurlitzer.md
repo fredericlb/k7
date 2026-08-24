@@ -5,7 +5,7 @@ page est sa provenance : il n'y a **pas** de Wurlitzer en Faust dans la distribu
 officielle, donc il est porté d'ailleurs, et tout ce qui suit est vérifiable ligne à ligne
 contre la source d'origine.
 
-## Ce que j'ai cherché avant d'écrire
+## Un port, et non une transcription
 
 Le dossier `examples/physicalModeling/faust-stk/` de la distribution Faust — le Faust-STK de
 Romain Michon, qui est l'endroit où un tel modèle vivrait s'il existait — contient vingt
@@ -16,7 +16,7 @@ de Wurlitzer.
 En revanche le **Synthesis ToolKit** de CCRMA a une classe `stk::Wurley`, en C++ : « deux
 paires FM simples sommées, aussi appelé algorithme 5 du TX81Z ». C'est de là que vient ce
 module. Ce n'est donc pas une transcription d'un modèle Faust existant, c'est un port — et
-ce qui suit dit exactement ce qui a été repris et ce qui ne l'a pas été.
+ce qui suit dit exactement ce qui en est repris et ce qui ne l'est pas.
 
 ## La table de correspondance
 
@@ -44,20 +44,19 @@ pas, et c'est le cœur du son — le bruit du marteau sur la lame appartient au 
 la note qu'on joue. Un port qui lirait `-510` comme un rapport ferait un instrument qui sonne
 juste dans le grave et faux ailleurs, sans rien qui le signale.
 
-## `pm` était déjà pris, et rien ne pouvait le dire avant un compilateur
+## `pm` est déjà pris, et rien ne le dit avant un compilateur
 
-La première version définissait `phasemod` sous le nom `pm`. `pm` est l'alias de
-`physmodels.lib` dans `stdfaust.lib`, et Faust refuse une redéfinition :
+`pm` est l'alias de `physmodels.lib` dans `stdfaust.lib`, et Faust refuse une redéfinition :
 
 ```
 stdfaust.lib:30 ERROR : redefinition of symbols are not allowed : pm
 ```
 
-Le module a donc été écrit, relu, commité, poussé dans la bibliothèque du compte et vu dans le
-constructeur **sans jamais compiler une fois**. C'est exactement ce que « le moteur n'a pas de
-compilateur » coûte, et c'est la première chose qu'un compilateur a trouvée. Les deux lettres
-sont un nom court par facilité ; les alias de `stdfaust.lib` en occupent une trentaine, tous
-de deux à trois lettres, donc un helper local doit être nommé plus longuement.
+Définir `phasemod` sous ce nom-là traverse donc l'écriture, la relecture, le commit, la poussée
+dans la bibliothèque du compte et l'affichage dans le constructeur **sans jamais compiler une
+fois**. C'est exactement ce que « le moteur n'a pas de compilateur » coûte. Les alias de
+`stdfaust.lib` occupent une trentaine de noms, tous de deux à trois lettres, donc un helper local
+doit être nommé plus longuement.
 
 ## Il dépasse 0 dBFS sur une note, et c'est STK
 
@@ -100,11 +99,11 @@ demande trois choses de plus :
   fournit (`mydsp_poly`), mais il vient avec le compilateur : sans compilateur, il n'y a pas
   de voix à répartir.
 
-Le troisième est la raison pour laquelle ça n'a pas été fait dans la même passe : il ne se
+Le troisième est la raison pour laquelle rien de tout ça ne s'écrit d'avance : il ne se
 teste pas. On peut écrire du code MIDI spéculatif contre une classe qui ne compile rien, et
 il aura l'air juste jusqu'au jour où on l'exercera. Le module est donc écrit dans la
-convention que `mydsp_poly` attend — c'est la partie qui est décidable aujourd'hui — et le
-reste attend le compilateur.
+convention que `mydsp_poly` attend — c'est la partie qui est décidable — et le reste attend
+le compilateur.
 
 ## Sources
 

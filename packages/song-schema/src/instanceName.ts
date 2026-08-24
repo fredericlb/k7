@@ -1,10 +1,8 @@
 // instanceName.ts — how a thing this project makes is named after what it came from:
 // `<owner>_<what>_<n>`. Pure, no disk, so the browser can propose a name the service will accept.
 //
-// The rule existed twice over before it existed once: `moduleFork` minted `bs_lead_tape-delay_1`
-// for a copy of a shared module, and a node had no rule at all — a person typed its name into
-// the command bar. Both are the same question ("what do I call this use of that"), and a rule
-// spelled in two places is two answers. See docs/nodes.md.
+// Copying a shared module and naming a node are the same question ("what do I call this use of
+// that"), so they share one rule: spelled in two places, it would be two answers. See docs/nodes.md.
 
 /** One segment the module vocabulary accepts, `"x"` for a name that survives as nothing (docs/names.md). */
 export const namePart = (s: string): string =>

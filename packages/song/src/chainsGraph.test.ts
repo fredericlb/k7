@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { deriveChains, isParked } from "./chainsGraph";
 
-// The file says who feeds whom; every rule the old list format stated by shape is DERIVED here.
+// The file says who feeds whom; every rule about a chain's shape is DERIVED here.
 
 const chains = (file: unknown, lanes: string[] = []) =>
   deriveChains(file, (n) => lanes.includes(n));
@@ -62,7 +62,7 @@ describe("where a run breaks", () => {
       { modules: { a: ["eq"], eq: ["verb", "OUT"], verb: ["OUT"] } },
       ["a"],
     );
-    // `eq` stays in the lane's run, but what the split reaches is no longer on one path.
+    // `eq` stays in the lane's run, but what the split reaches is not on one path.
     expect(g.a.use).toEqual([{ module: "eq" }]);
     expect(g.a.out).toEqual([
       { to: "verb", gain: 1 },
@@ -146,7 +146,7 @@ describe("what it refuses", () => {
   });
 
   it("no longer has a track/module collision to refuse", () => {
-    // With one map a name is one node, so the old `tracks:`/`modules:` collision cannot be written.
+    // With one map a name is one node, so a `tracks:`/`modules:` collision cannot be written.
     const g = chains({ modules: { x: ["OUT"] } }, ["x"]);
     expect(Object.keys(g)).toEqual(["x"]);
     expect(g.x.from).toBe("x");

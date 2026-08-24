@@ -1,15 +1,15 @@
 // MixerPlugin.h — the channel strip, as a module: level, pan and a three-knob tone control.
 //
-// It exists because a track no longer carries `volume`/`pan` of its own. Those were the one part of a track's
-// sound that lived outside its chain, so the graph could not show where they applied and no module could be put
+// It exists because a track carries no `volume`/`pan` of its own. As track fields they are the one part of a
+// track's sound living outside its chain, so the graph cannot show where they apply and no module can be put
 // after them. Here they are a module like any other: placed, ordered, bypassed, automated.
 //
 // The EQ is three GAINS at fixed frequencies — a low shelf, a mid bell, a high shelf. Not an EQ to shape a sound
 // with; an EQ to sit a track in a mix, which is what a strip's tone stack has always been. Anything more belongs
 // to a real equaliser module further up the chain.
 //
-// Level and pan go through Tracktion's own getGainsFromVolumeFaderPositionAndPan, so this reproduces the fader
-// it replaces exactly, pan law included, rather than approximating it with a law of its own.
+// Level and pan go through Tracktion's own getGainsFromVolumeFaderPositionAndPan, so this reproduces Tracktion's
+// fader exactly, pan law included, rather than approximating it with a law of its own.
 
 #pragma once
 

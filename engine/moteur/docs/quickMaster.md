@@ -28,7 +28,7 @@ primitives de `DspGraph.h` :
 | un détecteur par bande | `envelope` | phase d'analyse, sur l'ENTRÉE du graphe et sur elle seule — une bande n'existe pas encore |
 | un élargisseur stéréo | `amul`, `aadd`, `adelay`… | un fil audio est une PAIRE traitée à l'identique ; la largeur vit entièrement dans la différence entre les deux canaux, à laquelle rien ici ne donne accès |
 
-La deuxième option était d'ajouter quatre types de nœuds à l'interpréteur (`abiquad`,
+La deuxième option serait d'ajouter quatre types de nœuds à l'interpréteur (`abiquad`,
 `aswap`, un détecteur sur fil, un calculateur de gain). L'en-tête de `DspGraph.h` prévient
 justement contre ce chemin — « une primitive par effet, ce qui vide l'idée de son sens » —
 et quatre nœuds au service d'un seul module, dont trois toucheraient la boucle par
@@ -143,7 +143,7 @@ les plages ne sont pas celles qu'on croit, s'y voit tout de suite — et ce fich
 committé, donc `git diff` est la comparaison.
 
 La troisième est le vrai banc : deux pistes panoramiquées à fond, rendues hors ligne à
-travers le plugin, et six mesures. Relevé le 2026-08-23 :
+travers le plugin, et six mesures. Ce qu'il relève :
 
 ```
 no plugin              peak 0.4983  mid 0.1149  side 0.1148
@@ -163,7 +163,7 @@ width 180              peak 0.8466  mid 0.1149  side 0.2066
   limiteur est derrière l'élargisseur et qu'une image plus large qui tape dans le plafond
   redescend en niveau.
 
-Deux pièges du banc lui-même, tous les deux payés une fois :
+Deux pièges du banc lui-même :
 
 - **le rendu est du PCM 24 bits**, pas du float. Un signal chaud écrête au format, et
   toutes les mesures comparent alors deux formes d'onde écrêtées. D'où les −12 dB sur les

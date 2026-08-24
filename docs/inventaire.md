@@ -6,28 +6,19 @@ Ce que le dépôt contient et que rien n'atteint. Chaque entrée porte de quoi t
 > **Lisez le §0 avant de supprimer quoi que ce soit.** Plusieurs modules bien vivants sont
 > invisibles à un balayage des `import`. Le piège se reproduit à chaque relevé.
 
-> **Relevé du 2026-08-21 — il y a maintenant un OUTIL.** Les quatre passes ci-dessous étaient
-> le seul détecteur de code mort du dépôt, et c'est ce qui explique la forme de leur
-> péremption : pas des constats faux, mais des chemins qu'un renommage déplace et des comptes
-> qu'un commit fait bouger. `npm run lint:dead` (knip, `knip.json`) fait désormais les passes 1,
-> 2 et 4 en trente secondes. Il est **non bloquant** — le calibrage se lit, il ne se subit pas —
-> et sa liste d'exceptions est le §0 ci-dessous, traduit en configuration. Ce qu'il ne verra
-> jamais : le C++ (`biome.json` l'exclut aussi) et tout ce que le §0 décrit — knip croit ce
-> qu'on lui déclare.
+> **Relevé du 2026-08-21.** `npm run lint:dead` (knip, `knip.json`) fait les passes 1, 2 et 4
+> ci-dessous en trente secondes. Il est **non bloquant** — le calibrage se lit, il ne se subit
+> pas — et sa liste d'exceptions est le §0, traduit en configuration. Ce qu'il ne voit pas : le
+> C++ (`biome.json` l'exclut aussi) et tout ce que le §0 décrit — knip croit ce qu'on lui
+> déclare. Son `ignoreWorkspaces` ne contient que `commons/`, parce que le sous-module porte ses
+> propres docs et sa propre vérité.
 >
 > Sortie au jour du relevé : **1 fichier, 4 dépendances, 1 devDépendance, 58 exports et
 > 17 types** — 81 constats sur l'axe audio.
->
-> **Périmètre ÉLARGI depuis.** `apps/{z0,k7,pl8}` et `engine/capot` étaient dans
-> `ignoreWorkspaces` ; seul `commons/` y reste, parce que le sous-module porte ses propres docs
-> et sa propre vérité. L'élargissement a immédiatement rendu 15 dépendances inutilisées et
-> 2 fichiers que personne n'avait jamais regardés — voir §0 pour les trois exceptions qu'il a
-> fallu déclarer en même temps, dont `songs/**/jsdsp.ts` : la DSP d'une chanson de démo est une
-> donnée chargée au runtime, exactement comme `packages/dsp/modules/**/jsdsp.ts`.
 
 ## Comment ce relevé est fait
 
-Trois passes, toutes reproductibles :
+Quatre passes, toutes reproductibles :
 
 1. **Surface publiée** — chaque sous-chemin des cartes `exports` des paquets, confronté aux
    spécificateurs qui apparaissent réellement dans le source.
@@ -41,20 +32,20 @@ Trois passes, toutes reproductibles :
    n'a plus d'appelant possible. Grossier exprès : un homonyme sauve un mort, jamais l'inverse,
    donc la liste est un plancher.
 
-**Deux pièges de RELEVÉ, découverts en rejouant les quatre passes :**
+**Deux pièges de RELEVÉ**, qui portent sur la page plutôt que sur le code :
 
-- **Un renommage de fichier périme un chemin sans périmer le constat.** `chainRefFromCreate`
-  était listé sous `moduleInsert.ts`, qui n'existe plus — le fichier est `nodeInsert.ts`. Le
-  symbole, lui, a été ressuscité entre-temps. Une entrée peut donc être fausse deux fois.
-- **Un constat corrigé ne se retire pas tout seul.** Trois entrées décrivaient des problèmes
-  réparés depuis (`loginUrl`, les tests jamais joués, `isFileParam`). Un relevé qui n'est pas
-  rejoué devient un réquisitoire contre un dépôt qui a bougé.
+- **Un renommage de fichier périme un chemin sans périmer le constat.** Une entrée peut être
+  fausse deux fois : le symbole a bougé de fichier, et il a été ressuscité entre-temps. Vérifier
+  les deux, séparément.
+- **Un constat corrigé ne se retire pas tout seul.** Un commit qui met à jour la prose *autour*
+  d'une entrée sans revenir sur l'entrée elle-même laisse un réquisitoire contre un dépôt qui a
+  bougé. Rejouer les passes est la seule défense.
 
 Corollaire : **`docs/audit-moteur.md` §C5 tient sa propre liste de code mort**, au périmètre
 qui chevauche celui-ci sans lui être identique. Les deux se lisent ensemble, ou une entrée
 périme des deux côtés sans que personne le voie.
 
-**Trois pièges de méthode, tous rencontrés en écrivant ceci :**
+**Trois pièges de méthode :**
 
 - **Les extensions comptent.** `engine-host` écrit `from "./addresses.ts"`. Une recherche sur
   `"…/addresses"` ne le voit pas et déclare morts cinq de ses six sous-chemins — ils sont tous
@@ -63,22 +54,14 @@ périme des deux côtés sans que personne le voie.
   `from` en pleine prose et invente des dizaines de dépendances fantômes.
 - **Un octet NUL rend un fichier INVISIBLE.** ripgrep classe binaire tout fichier qui en
   contient un, et le saute sans un mot : le fichier cesse d'exister pour toute la passe
-  d'accessibilité. Trois fichiers en portaient un comme séparateur de clé composite, dont
-  `engine-host/src/supervisor.ts` — 781 lignes, et le fichier le plus remanié de tout le
-  domaine moteur. Les relevés antérieurs à ce jour ne l'ont donc jamais lu. Corrigé, et
-  `npm run lint:bytes` (`scripts/check-source-bytes.mjs`) refuse désormais le cas en CI.
-
-  **Et ça a recommencé.** Un QUATRIÈME est apparu depuis, même usage — séparateur de clé
-  composite — dans `packages/ui-turntables/src/setList.ts`. Corrigé le 2026-08-21 par
-  l'échappement à six caractères, au lieu de l'octet lui-même : même chaîne à l'exécution,
-  visible de tous les outils. (Cette page ne l'écrit pas littéralement — en le recopiant depuis
-  le source pour le décrire, ce relevé s'est piégé lui-même, ce qui vaut d'être su.)
-  Deux leçons. La première
-  est que le garde-fou marche, mais seulement si on le LANCE : `npm run lint:bytes` était
-  rouge et personne ne le voyait. La seconde est que ce piège est maintenant plus cher
-  qu'avant — knip lit le source comme ripgrep, donc un fichier porteur d'un NUL est invisible
-  au détecteur de code mort lui-même, et il rendra un faux « tout va bien ». **Lancer
-  `lint:bytes` AVANT `lint:dead`**, ou le second ment sur le premier.
+  d'accessibilité. Le cas se présente dès qu'on prend un NUL comme séparateur de clé composite —
+  l'échappement à six caractères donne la même chaîne à l'exécution et reste visible de tous les
+  outils. `npm run lint:bytes` (`scripts/check-source-bytes.mjs`) refuse le cas en CI, et ne sert
+  que si on le LANCE. Le piège coûte plus cher qu'il n'y paraît : knip lit le source comme
+  ripgrep, donc un fichier porteur d'un NUL est invisible au détecteur de code mort lui-même, qui
+  rendra un faux « tout va bien ». **Lancer `lint:bytes` AVANT `lint:dead`**, ou le second ment
+  sur le premier. (Cette page n'écrit pas l'octet littéralement : le recopier depuis le source
+  pour le décrire piège la page elle-même.)
 
 ---
 
@@ -90,6 +73,7 @@ périme des deux côtés sans que personne le voie.
 |---|---|
 | `packages/song/src/dspRunner.mjs` | lancé en **processus fils** par `nodeProject.ts`. Il fait `import { graph } from "@studio/dsp"`, et la dépendance `song → dsp` existe précisément pour que cet import se résolve : un dossier de morceau n'a pas de `node_modules`. |
 | `packages/dsp/modules/{normalize,sweep}/jsdsp.ts` | des DSP de MODULE. Le compilateur les trouve par nom de fichier (`JSDSP_FILE = "jsdsp.ts"`), jamais par import. |
+| `songs/**/jsdsp.ts` | même mécanisme : la DSP d'une chanson de démo est une donnée chargée au runtime. |
 | `packages/stem-separation/src/separateWorker.ts` | lancé par `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
 | `packages/engine-host/src/main.ts`, `packages/file-service/src/server.ts` | **entrées esbuild** de `engine/capot/scripts/build-engine.mjs`, qui les bundle dans le tray. Zéro import n'est pas zéro appelant. |
 | `packages/ui-chains-react/src/DomChains.stories.tsx` | ramassé par le glob de `.storybook/main.ts`. |
@@ -101,7 +85,7 @@ périme des deux côtés sans que personne le voie.
 
 ### `detectTransients` n'est appelé par personne, et doit le rester
 
-`packages/audio-probe/src/waveform.ts` l'exporte, et plus aucun code de production ne l'appelle :
+`packages/audio-probe/src/waveform.ts` l'exporte, et aucun code de production ne l'appelle :
 la détection tourne dans le moteur, en C++ (`engine/moteur/engine/Waveform.cpp`), pendant qu'il
 sous-échantillonne déjà l'audio, et le résultat va dans le sidecar `{source}.cache`.
 
@@ -140,26 +124,15 @@ et `/surface`. Les douze autres sont de la plomberie interne exposée.
 
 ## 2. Vraiment orphelin — rien ne l'atteint
 
-> **Relevé du 2026-08-17 : les suppressions faites.** `__hints_tmp.ts`, le script `serve` en
-> double, le baril mort de `z0-shared`, et quinze symboles (`valueAt`, `loadMixView`,
-> `setTrackFields`, `mediatekDirFor`, `isGeneratedTrack`, `readDoc`, `remoteListing`,
-> `forgetPlayers`, `hasLibraries`, `fileServiceLogPath`, `PORT_LEAD`, `EMPTY_SET`, `isYamlFile`,
-> `AVAILABLE_EFFECTS`, `localizedCommandNames`) plus les types `CurveType`, `EntityKind`,
-> `ViewBinding`, `ProjectSettings`, `SongEntryValue`. Et `EngineHost::waveformData()`, côté C++.
-> Les lignes ci-dessous sont donc ce qui RESTE.
-
 | quoi | où | note |
 |---|---|---|
 | `chains.tsx` | `packages/ui-turntables/src/` | la vue « chaîne d'une platine », ~60 lignes de colle. Personne ne la monte. Voir §6, c'est le bloc à trancher en entier. |
-| `index.ts` | `packages/ui-eyes/src/` | le baril de commodité. Son propre en-tête dit que « les sous-chemins sont la vraie API », et c'est exactement ce que font les appelants. **Gardé** parce que le supprimer emporte `export.ts` et `FrameClock` avec lui — c'est le bloc WebCodecs, une décision produit. Le baril JUMEAU de `z0-shared`, lui, ne tenait rien : supprimé. |
+| `index.ts` | `packages/ui-eyes/src/` | le baril de commodité. Son propre en-tête dit que « les sous-chemins sont la vraie API », et c'est exactement ce que font les appelants. **Gardé** parce que le supprimer emporte `export.ts` et `FrameClock` avec lui — c'est le bloc WebCodecs, une décision produit. |
 | `export.ts` | `packages/ui-eyes/src/` | **atteignable seulement par le baril mort ci-dessus** : `exportScene` (l'export WebCodecs, image par image) n'est donc joignable par rien. Aucune surface ne monte de bouton pour lui. |
-| `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | remplacé par le registre ; il ne reste que de la prose qui en parle au passé. Le supprimer ferait tomber une sonde loopback que rien ne rejoue : à trancher, pas à laisser pourrir. |
+| `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | le registre fait ce travail. Supprimer la sonde loopback que rien ne rejoue est à trancher, pas à laisser pourrir. |
 | type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, plus une seule référence dans tout le dépôt. |
 | `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | les deux extensions CodeMirror qui remplacent le `notes:` **sur place**, dans le texte. Le seul hôte des grilles (st0, `SeqGrid.tsx`) passe par `mountSeqGrid`, qui rend la même grille dans un conteneur à part. Elles gardent une propriété que `mountSeqGrid` n'a pas — l'enveloppe YAML reste visible autour de la grille. |
 | export `AuthUser` | `apps/pl8/frontend/src/api.ts` | utilisé dans son propre fichier, importé par personne : c'est l'`export` qui est de trop. **Et il y en a un second dans le même cas** : `apps/z0/editor/src/api.ts`. |
-| ~~`libraryStore.ts`~~ | ~~`packages/ui-module-builder/src/`~~ | **SUPPRIMÉ le 2026-08-21.** Le fichier entier — `libraryModuleStore` et `LibraryFileIO` — n'était prononcé nulle part, pas même par lui-même, alors que son en-tête affirmait servir « pl8's own screen and st0's Libraries tab » et que `docs/store.md` le documentait comme branché. La preuve était dans `apps/pl8/frontend/src/api.ts`, qui y renvoyait en son milieu et portait au bas du **même fichier** la pierre tombale disant que la section avait disparu. Trouvé par la passe 4, pas par les yeux. |
-| sous-chemin `./timeline` | `packages/commands/package.json` | **RETIRÉ le 2026-08-21.** `src/timeline.ts` est vivant — un script documenté (`commands.yaml`), lancé par `npx tsx`. Mais un script se lance par CHEMIN : la carte `exports` ne pouvait servir à personne. Le fichier reste, le sous-chemin non. Même famille que `dsp/src/emit.ts` au §0, sauf que celui-là n'était pas publié. |
-| `frame.mjs` | `packages/engine-client/` | **NOUVEAU, et trouvé par knip à son tout premier passage.** Un brouillon de sonde : neuf lignes, un chemin ABSOLU en dur vers `C:/Users/flb/.studio/engine-id.json`, aucun appelant. Suivi par git, et committé dans `a4808e35` — le dernier commit au moment du relevé. **Non supprimé** : il vient d'atterrir, donc c'est à son auteur de dire s'il partait ou s'il restait. |
 
 ### Des SYMBOLES, pas des fichiers
 
@@ -171,12 +144,12 @@ répétés.
 | symbole | où | note |
 |---|---|---|
 | `FrameClock` | `packages/ui-eyes/src/clock.ts` | l'horloge que **l'exporteur** avance — et `export.ts` est déjà mort deux lignes plus haut. Le chemin WebCodecs est mort en entier : le baril, `exportScene`, et l'horloge qui le cadence. À trancher d'un bloc, comme §6. |
-| `isDocRef` | `packages/song-schema/src/moduleTypes.ts` | une garde de type que plus rien n'interroge. (`isFileParam`, avec qui elle était listée, a été **ressuscitée** : cinq sites, dont `commands.ts`.) |
+| `isDocRef` | `packages/song-schema/src/moduleTypes.ts` | une garde de type que plus rien n'interroge. |
 | `listAll` | `packages/mediatek/src/catalogue.ts` | |
 | `PATH_SEP` | `packages/file-service/src/machinePlayer.ts` | |
 | `knownPrefs` | `apps/pl8/frontend/src/prefs.ts` | |
 | `requireDb`, `readRawAttachment`, `canRender` | `apps/z0/backend/src/{db,grist/load,render}.ts` | |
-| `drawButton`, `drawPlayerBox`, `drawSpinner`, `drawReloadIcon` | `apps/z0/presenter/src/canvas/drawHelpers.ts` | quatre primitives de dessin sur les six du fichier ; le présentateur ne dessine plus ni bouton ni boîte joueur. |
+| `drawButton`, `drawPlayerBox`, `drawSpinner`, `drawReloadIcon` | `apps/z0/presenter/src/canvas/drawHelpers.ts` | quatre primitives de dessin sur les six du fichier ; le présentateur ne dessine ni bouton ni boîte joueur. |
 
 **232 symboles de plus ne sont prononcés que par leur propre test.** Ce n'est pas du code mort —
 c'est le choix, assumé partout ici, de tester une constante ou un pas de calcul plutôt que la
@@ -185,11 +158,9 @@ prochaine passe : `ui-turntables/deck.ts` (10), `ui-chains/cableCanvas.ts` (9), 
 
 **Outillage sans point d'entrée** — des programmes, pas du code mort, mais que rien ne câble :
 
-- `packages/song/scripts/` — aucun script npm ni tâche turbo. `packages/song/src/moduleMigrate.ts`
-  (350+ lignes) n'existe que pour `migrateModules.ts`. Ce relevé en listait six, **il y en a
-  huit** : `migrateTracks.ts` et `migrateUis.ts` se sont ajoutés dans l'intervalle. La phrase
-  « le dossier grossit d'une migration à chaque renommage, et rien ne les retire une fois
-  jouées » s'est donc vérifiée littéralement entre deux passes de cette page.
+- `packages/song/scripts/` — aucun script npm ni tâche turbo. Huit migrations, et
+  `packages/song/src/moduleMigrate.ts` (350+ lignes) n'existe que pour `migrateModules.ts`. Le
+  dossier grossit d'une migration à chaque renommage, et rien ne les retire une fois jouées.
 - `packages/ui-turntables/scripts/{tempo-drag,metronome}.ts` — ceux-là sont **documentés** et se
   lancent à la main (`docs/hosting.md`) ; ils mesurent un SON, ce qu'aucun test unitaire ne fait.
 
@@ -198,77 +169,37 @@ prochaine passe : `ui-turntables/deck.ts` (10), `ui-chains/cableCanvas.ts` (9), 
 `packages/player-web/src/moteurPlayer.ts` et `moteurEffects.ts` n'ont aucun importateur de
 production. Ce n'est **pas** un oubli : ils sont documentés délibérément
 (`packages/player-web/docs/moteurPlayer.md`) et `AGENTS.md` les présente comme le joint que
-`@studio/player-web` porte déjà.
+`@studio/player-web` porte.
 
 Si on les supprimait, `@studio/engine-browser` et `@studio/engine-protocol` sortiraient des
 dépendances de `player-web` avec eux — ils ne servent qu'à ces deux fichiers.
 
-### ~~Demander à un greffon ce qu'il a — une chaîne entière sans appelant~~ RALLUMÉE
+### Demander à un greffon ce qu'il a
 
-> **Corrigé au relevé du 2026-08-21.** Ce paragraphe disait « rien ne les appelle », et c'était
-> vrai quand il a été écrit. La chaîne est rebranchée depuis `60c8e002` — le commit qui a mis à
-> jour la prose *autour* sans revenir sur le constat lui-même, ce qui est exactement le second
-> piège de relevé annoncé plus haut. Le chemin vivant :
-> `App.tsx` (`onScanParams={api.scanPluginParams}`) → `api.ts` (`GET /plugin-params`) →
-> `file-service/src/server.ts` → `awaitPluginParams` → `listPluginParams` → `list-plugin-params`
-> → `pluginParamsOf` (`ParamDump.cpp`).
->
-> Ce qui reste sans appelant est la **moitié navigateur** seulement : `listPluginParams`
-> (`engine-browser/src/engine.ts`) et `onPluginParamList`. Le reste du paragraphe — pourquoi
-> c'est la seule façon d'apprendre les paramètres d'un greffon installé, et les trois pannes que
-> ça a values — reste vrai et vaut d'être lu.
+La chaîne complète est vivante : `App.tsx` (`onScanParams={api.scanPluginParams}`) → `api.ts`
+(`GET /plugin-params`) → `file-service/src/server.ts` → `awaitPluginParams` → `listPluginParams`
+→ `list-plugin-params` → `pluginParamsOf` (`engine/moteur/engine/ParamDump.cpp`). Ce qui reste
+sans appelant est la **moitié navigateur** seulement : `listPluginParams`
+(`engine-browser/src/engine.ts`) et `onPluginParamList`.
 
-`list-plugin-params` / `plugin-param-list` dans le moteur, `pluginParamsOf`
-(`engine/moteur/engine/ParamDump.cpp`), `listPluginParams` dans les deux clients,
-`awaitPluginParams` et la route `GET /plugin-params` du service de fichiers : ~~**rien ne les
-appelle**~~. Ils ont été écrits pour un générateur de panneaux qui a été retiré, parce qu'un
-panneau déduit d'une liste de paramètres ne sait produire que des boutons et des listes
-déroulantes — jamais un fader, un `meter`, un sélecteur de fichier ni une disposition.
+Deux raisons de garder l'ensemble. C'est la **seule** façon d'apprendre les paramètres d'un
+greffon installé — un greffon les enregistre dans son constructeur, et le cache de scan n'en
+porte aucun. Et trois pannes réelles s'y lisent : le moteur reconstruisait un `te::Engine` par
+question et une quarantaine de questions d'affilée le tuaient (mesuré, deux fois) ; il demandait
+sa liste à un greffon avant que le chargement asynchrone ne l'ait construite ; et une liste vide
+confond « je n'arrive pas à charger ce greffon » avec « il se charge et n'en publie aucun ».
 
-Gardés sciemment, pour deux raisons qui ne dépendent pas du générateur. C'est la **seule** façon
-d'apprendre les paramètres d'un greffon installé — un greffon les enregistre dans son
-constructeur, et le cache de scan n'en porte aucun. Et les corrections qu'ils ont values sont
-réelles : le moteur reconstruisait un `te::Engine` par question et une quarantaine de questions
-d'affilée le tuaient (mesuré, deux fois) ; il demandait sa liste à un greffon avant que le
-chargement asynchrone ne l'ait construite ; et une liste vide confondait « je n'arrive pas à
-charger ce greffon » avec « il se charge et n'en publie aucun ».
+Ce dernier point vaut pour lui-même : **un greffon sans paramètre est presque toujours un greffon
+qui refuse de se charger** (`getLoadError` le dit, encore faut-il le lui demander). Répondre « ce
+synthé n'a aucun paramètre » énonce un fait sur le greffon là où c'est un fait sur la machine —
+une licence, une installation — et n'envoie personne au seul endroit où c'est réparable.
 
-Cette dernière était un diagnostic faux écrit ici même : vingt-sept greffons de cette machine ont
-été décrits comme ne déclarant rien alors qu'ils **refusent de se charger** (`getLoadError` le dit
-depuis toujours, personne ne le lui demandait). La réponse à « pourquoi ce synthé n'a-t-il aucun
-paramètre » était donc un fait sur le greffon là où c'est un fait sur la machine — une licence,
-une installation — et personne n'était envoyé au seul endroit où c'est réparable.
-
-Qui les rallumera : un module builder qui propose la liste des paramètres d'un VST à lier, ou un
-générateur qui saurait dessiner autre chose que des boutons.
+Un générateur de panneaux déduit d'une liste de paramètres ne sait produire que des boutons et
+des listes déroulantes — jamais un fader, un `meter`, un sélecteur de fichier ni une disposition.
+Qui rallumerait la moitié navigateur : un module builder qui propose la liste des paramètres d'un
+VST à lier.
 
 ## 4. Duplication
-
-### Le client d'auth — ~~deux comportements~~ RÉGLÉ
-
-`loginUrl` doit être un **getter**, pour capturer l'adresse où l'on est *au moment du clic*.
-Les quatre copies (`k7`, `st0`, `pl8`, `z0/editor`) en sont une aujourd'hui. Ce constat
-disait « le correctif n'a pas voyagé » ; il a voyagé depuis. Gardé barré plutôt que retiré,
-pour que la prochaine passe ne le redécouvre pas comme une nouveauté.
-
-**`AuthUser` était déclarée neuf fois** — st0, pl8, l'éditeur de projet (`z0/editor-v2` à
-l'époque, `z0/editor` depuis qu'il a repris le nom de l'éditeur Grist retiré), et les six SPA que
-z0 avait alors. Quatre de ces déclarations sont parties avec la déduplication ci-dessous ; il en
-reste cinq, et seule celle de st0 porte `email?: string | null` et `groups?: string[]`. Le
-retrait de l'écran Grist n'a rien changé à ce compte : il ne faisait que ré-exporter le type.
-
-### Le magasin d'auth de z0 : quatre fichiers identiques à l'octet — RÉGLÉ
-
-`apps/z0/{editor,monitor-web,presenter,remote}/src/lib/auth.ts` étaient **identiques à l'octet**
-(MD5 `20057DE8…`, ~100 lignes chacun) : le type `AuthUser`, le magasin de module, `bootstrap()`
-avec sa branche 401, `logout`, `useAuth`. Seul l'import du `fetch` local les distinguait — une
-différence d'import, pas de comportement, donc un paramètre.
-
-Et l'ironie était dans le fichier : sa ligne 88 disait « It lives in `z0-shared/account` rather
-than in six copies here », imprimée sous ses propres quatre-vingt-dix lignes de copie.
-
-Devenu `z0-shared/auth-store` (`createAuthStore(f)`), et les quatre fichiers font dix lignes.
-`buzzer` et `online` gardent les leurs : ceux-là diffèrent vraiment.
 
 ### Le nom d'une note MIDI, six fois, en quatre orthographes
 
@@ -299,8 +230,10 @@ bundle. Écrites ici pour qu'on cesse de les prendre pour de la paresse.
 |---|---|
 | Le plancher `-100 dBFS` : `PEAK_FLOOR_DB` (`commands/peakPass.ts`), `MIN_DB` (`commands/trimGate.ts`), `kFloorDb` (`FilePeak.cpp`), et trois fois dans `@studio/dsp` | `trimGate` est **sûr pour le navigateur** — le panneau de clip de st0 l'importe — et `peakPass` appelle `node:child_process`. Partager la constante ferait entrer un lanceur de processus dans le navigateur pour économiser un nombre. Essayé, annulé. Le C++ et le JSON généré ne peuvent pas importer du tout |
 | `FileEnvelope` (`commands/waveform.ts`) ≡ `Envelope` (`ui-turntables/waveform.ts`) | `ui-turntables` ne dépend pas de `@studio/commands`. Les deux dépendent de `web-protocol`, qui tient déjà `RegionWaveform` — c'est là que ça irait |
-| ~~Le détecteur de k7 : `backend/src/detect.ts` ≡ `packages/recorder/src/detect.ts`~~ **RÉSOLU par soustraction** | Le paquet `packages/recorder` n'existe plus du tout, donc il n'y a plus qu'une copie. Ce n'est pas la factorisation que cette ligne appelait : c'est l'autre côté qui est parti. Ce qui reste vrai de l'ancienne entrée : `backend/src/detect.ts` n'est toujours testé nulle part |
-| `isMouseWheel` : `ui-timeline/panZoom.ts` ≡ `ui-chains-react/camera.ts` | Reconnaître une molette d'une surface tactile — trois signaux (`deltaMode`, les 120 de `wheelDeltaY`, la forme du delta), identiques des deux côtés. Aucun des deux paquets ne peut dépendre de l'autre : `ui-timeline` n'a **aucune** dépendance `@studio/` et le graphe importerait un paquet nommé pour l'arrangement. Défendable ici parce que **les deux côtés sont testés**, cas par cas — c'est exactement ce qui manque au détecteur de k7 ci-dessus. Le foyer naturel serait un paquet de gestes DOM qui n'existe pas ; le créer pour une fonction de dix lignes est une décision, pas un nettoyage |
+| `isMouseWheel` : `ui-timeline/panZoom.ts` ≡ `ui-chains-react/camera.ts` | Reconnaître une molette d'une surface tactile — trois signaux (`deltaMode`, les 120 de `wheelDeltaY`, la forme du delta), identiques des deux côtés. Aucun des deux paquets ne peut dépendre de l'autre : `ui-timeline` n'a **aucune** dépendance `@studio/` et le graphe importerait un paquet nommé pour l'arrangement. Défendable ici parce que **les deux côtés sont testés**, cas par cas. Le foyer naturel serait un paquet de gestes DOM qui n'existe pas ; le créer pour une fonction de dix lignes est une décision, pas un nettoyage |
+
+Le détecteur de k7 (`apps/k7/backend/src/detect.ts`) n'a plus de jumeau, mais il n'est testé
+nulle part — c'est ce qui manque aux copies ci-dessus quand elles se défendent.
 
 ### Cosmétique, mais réelle
 
@@ -308,35 +241,36 @@ bundle. Écrites ici pour qu'on cesse de les prendre pour de la paresse.
   `apps/st0/frontend/src/trackIcons.tsx` ≡ `packages/ui-chains-react/src/moduleIcons.tsx`.
   (Le reste de la duplication des tables de glyphes est argumenté et assumé — voir
   `moduleIcons.tsx`.)
-- **Le spinner plein écran**, ~~quatre~~ **cinq** copies du même bloc :
+- **Le spinner plein écran**, cinq copies du même bloc :
   `apps/st0/frontend/src/components/{AuthGate,EngineGate}.tsx`,
-  `packages/project-shell/src/ProjectGate.tsx` (parti de st0 depuis),
-  `apps/pl8/frontend/src/Gate.tsx` et `apps/z0/editor/src/Gate.tsx`. Laissé tel quel : des
-  blocs de présentation courts, sans risque de dérive silencieuse — mais il en pousse une par
-  gate, ce qui n'était pas prévu quand ce constat disait « quatre ».
+  `packages/project-shell/src/ProjectGate.tsx`, `apps/pl8/frontend/src/Gate.tsx` et
+  `apps/z0/editor/src/Gate.tsx`. Laissé tel quel : des blocs de présentation courts, sans risque
+  de dérive silencieuse — mais il en pousse une par gate, ce qui fait de ce compte une chose à
+  revérifier.
 - **Les quatre `turbo.json` d'app** (`apps/{k7,st0,pl8,z0}`) sont **identiques octet pour
   octet**, et leur bloc `tasks.dev` reproduit celui de la racine dont ils héritent par
   `"extends": ["//"]`. Ils ne surchargent rien.
 
 ### Laissé exprès
 
-`where()` (`apps/pl8/frontend/src/engine/EnginePicker.tsx`, `apps/z0/editor/src/Gate.tsx` —
-les deux chemins de ce constat avaient tous les deux bougé) est deux lignes identiques dont le
-seul foyer naturel serait `packages/web-protocol/quality.ts`, à côté de `formatLatency` — mais
-ce paquet ne contient **aucune chaîne d'interface en français**, et « hors de portée » y ferait
-entrer la langue de l'UI dans un paquet de protocole. Deux lignes ne valent pas cette
-propriété-là. Même raisonnement pour `signedInAs` / `currentUser()`.
+`where()` (`apps/pl8/frontend/src/engine/EnginePicker.tsx`, `apps/z0/editor/src/Gate.tsx`) est
+deux lignes identiques dont le seul foyer naturel serait `packages/web-protocol/quality.ts`, à
+côté de `formatLatency` — mais ce paquet ne contient **aucune chaîne d'interface en français**,
+et « hors de portée » y ferait entrer la langue de l'UI dans un paquet de protocole. Deux lignes
+ne valent pas cette propriété-là. Même raisonnement pour `signedInAs` / `currentUser()`.
+
+`AuthUser` est déclarée cinq fois, et seule celle de st0 porte `email?: string | null` et
+`groups?: string[]`.
 
 ## 5. Config
 
 | constat | où |
 |---|---|
-| ~~Des tests qui ne tournent jamais~~ **RÉGLÉ**. Et **`engine-client` a désormais les siens** (`src/engineControl.test.ts`, 3 cas sur l'outbox) : c'était le client du chemin critique — celui qui compile et envoie le `ProjectDoc` — et le seul paquet sans un test alors qu'il en méritait. Restent sans aucun fichier de test : `graph-model` et `ui-eyes`. | — |
+| Sans aucun fichier de test : `graph-model` et `ui-eyes`. | — |
 | Lues dans le code et absentes de **tout** fichier `.md`, en plus des quatorze ci-dessous : `STUDIO_BACKEND_URL`, `STUDIO_ENGINE_PORT`, `STUDIO_FILE_PORT`. | `apps/st0/frontend/vite.config.ts`, `packages/file-service/src/server.ts` |
-| ~~Importé sans être déclaré~~ **RÉGLÉ sur l'axe audio le 2026-08-21**, et c'est knip qui l'a rendu tenable : 54 fichiers importaient `vitest` sans que personne le déclare. Déclarés depuis : `vitest` (racine, `st0-frontend`, `ui-waveform`), `yaml` (`translator`, `ui-editor`, `engine-host`), `zod` (`st0-frontend`). **Restent, hors périmètre** : `ui-chains-react` + `k7-frontend` (`@storybook/react-vite`), `pl8-frontend` (`@studio/ui-editor`). | — |
-| `yaml` chez `st0-frontend` n'est pas que du test : `rackBuilder.ts` et `sliceSymbols.ts` l'importent en production. (Ce constat nommait `sliceWaveformWidget.ts`, supprimé depuis ; les deux fichiers ci-dessus l'ont repris.) | `apps/st0/frontend` |
-| ~~`zod` + `@types/express` déclarés en devDeps sans qu'une ligne les importe~~ **RÉGLÉ** : retirés. Le paquet n'a toujours aucun bloc `dependencies`, et c'est maintenant JUSTE — `types.ts` n'importe qu'un `type` de son propre `projects.ts`. C'est cette absence de dépendance runtime qui a permis à `engine-client` de le prendre pour lire `ENGINE_OUTBOX_MAX` sans alourdir le bundle du superviseur. | `packages/web-protocol` |
-| ~~Pas de champ `description`~~ **RÉGLÉ** : les deux en ont un. | ~~`packages/ui-waveform`, `packages/web-protocol`~~ |
+| Importé sans être déclaré, hors de l'axe audio : `ui-chains-react` + `k7-frontend` (`@storybook/react-vite`), `pl8-frontend` (`@studio/ui-editor`). | — |
+| `yaml` chez `st0-frontend` n'est pas que du test : `rackBuilder.ts` et `sliceSymbols.ts` l'importent en production. | `apps/st0/frontend` |
+| `packages/web-protocol` n'a aucun bloc `dependencies`, et c'est JUSTE — `types.ts` n'importe qu'un `type` de son propre `projects.ts`. C'est cette absence de dépendance runtime qui permet à `engine-client` de le prendre pour lire `ENGINE_OUTBOX_MAX` sans alourdir le bundle du superviseur. | `packages/web-protocol` |
 | Lues dans le code, absentes de `env.example.yaml` : `STUDIO_REGISTRY_URL` (9 lectures), `STUDIO_WEB_ORIGIN` (5), `STUDIO_DEMOS` (4), `STUDIO_MODELS` (3), `STUDIO_WEB_PORT` (3), `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `Z0_RENDER_ENGINE`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |
 
 ## 6. La chaîne d'effets par platine — un bloc, à trancher en entier
@@ -359,24 +293,12 @@ par platine fait partie des options annoncées. Inscrit ici plutôt que laissé 
 la différence entre un état connu et de la pourriture. Voir
 [packages/ui-turntables/docs/mix.md](../packages/ui-turntables/docs/mix.md).
 
-**Et le chaînon qui manquait à ce paragraphe a changé de nature.** Ce relevé disait que `apps/m9`
-et `apps/v1` existaient sur le disque sans être suivis ni ignorés, et concluait : « ce n'est pas
-du code mort, c'est du code dont l'hôte est ailleurs ».
-
-**Vérifié le 2026-08-21 : les deux dossiers n'existent plus, et `apps/` contient
-`k7, pl8, st0, studio, z0`.** `apps/m9` a été suivi puis supprimé (`1039440f`, « le pupitre
-reste, m9 s'en va »). L'hôte n'est donc plus ailleurs — il n'est nulle part, et l'argument qui
-protégeait ce bloc est tombé avec lui. `M9_ICONS` n'a plus d'excuse, et la décision à prendre
-n'est plus « où vit son hôte » mais « garde-t-on une option que rien ne peut plus monter ».
-
-Restes de `m9` dans les fichiers suivis, à nettoyer avec le bloc ou avant lui :
-`env.example.yaml`, `docs/tokens.md` (une ligne `| m9 | /m9 |` dans la table des préfixes),
-`engine/moteur/AGENTS.md`, `apps/pl8/backend/src/server.ts`, `packages/web-protocol/types.ts`,
-`docs/audit-perf-web.md`, `apps/z0/AGENTS.md`, et les fixtures de `SessionRegistry_test.cpp`.
-
-⚠️ **`docs/audit-moteur.md` est plus périmé que cette page**, et les deux se lisent ensemble :
-il cite `apps/m9/frontend/src/useEngine.ts` et `apps/m9/frontend/src/Gate.tsx`, **des fichiers
-qui n'existent plus**. Il reste trois gates moteur, pas quatre.
+Ce bloc n'a **aucun hôte** : la décision n'est pas « où vit son hôte » mais « garde-t-on une
+option que rien ne peut monter ». `M9_ICONS` porte le nom d'une application qui n'existe pas, et
+ce nom traîne encore dans `env.example.yaml`, `docs/tokens.md` (une ligne de la table des
+préfixes), `engine/moteur/AGENTS.md`, `apps/pl8/backend/src/server.ts`,
+`packages/web-protocol/types.ts`, `apps/z0/AGENTS.md` et les fixtures de
+`SessionRegistry_test.cpp` : à nettoyer avec le bloc ou avant lui.
 
 ## 7. Généré, sans effet
 

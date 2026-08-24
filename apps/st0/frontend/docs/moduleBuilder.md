@@ -1,8 +1,7 @@
 # The module builder, and why it needs a project
 
-`@studio/ui-module-builder` is one component and st0 is now its only host. It used to have two:
-the médiathèque drew it as well, over its own engine link. That one is gone, and the reason is
-worth writing down, because it is the same reason this one works.
+`@studio/ui-module-builder` is one component, and st0 — the app that opens a project — is its
+only host. The reason there is only one is the reason this one works.
 
 ## A parameter list is a fact about a LOADED plugin
 
@@ -11,16 +10,16 @@ what factory banks it ships are not in the file and cannot be — they belong to
 they change when it is updated. The only thing that can answer is a running `engine/moteur`
 with that plugin **instantiated**.
 
-The médiathèque had an engine but no project, so it manufactured one: `modulePreviewDoc` built
-the smallest `ProjectDoc` that makes a plugin exist — one track, one plugin, no clips — and
-sent it down its own session. It worked, and it cost:
+A host with an engine but no project has to manufacture one — the smallest `ProjectDoc` that makes
+a plugin exist, one track, one plugin, no clips, on a session that exists only to hold it. That
+works, and it costs:
 
-- a second document on the machine, on a session that existed only to hold it;
-- an audition that could be heard nowhere else, over an input picked from a menu that had to
-  meter twenty channels at 8 Hz to be usable;
-- and a builder whose live values described a plugin nobody was playing through.
+- a second document on the machine, on a session with no other purpose;
+- an audition that can be heard nowhere else, over an input picked from a menu that has to meter
+  twenty channels at 8 Hz to be usable;
+- and a builder whose live values describe a plugin nobody is playing through.
 
-st0 has the thing the médiathèque was imitating. **The plugin the builder reads is the one the
+st0 has the thing such a host is imitating. **The plugin the builder reads is the one the
 open project instantiates**, which is also the one making the sound.
 
 ## How the builder finds it
@@ -46,18 +45,18 @@ knobs that move the real thing (the params store and the setter go in **together
 that moves without changing anything is worse than one that does not move). The subscription is
 paired with the overlay, so closing it stops the feed.
 
-Not found: the text, the grid, the module's own preset shelf — and, since the built-in table
+Not found: the text, the grid, the module's own preset shelf — and, through the built-in table
 below, **still a parameter list for a built-in**. That is an ordinary state and not an error.
 
 ## …except for a built-in, which is knowable without any of that
 
-The paragraph above was the whole story, and it was wrong about the case that matters most.
+The case that matters most is the one the section above cannot answer.
 
 A module in the LIBRARIES repository — `_libraries/modules/instruments/4osc/module.yaml`, which
 is where a shared module is authored — is not a base of the open song, is not instantiated by it,
-and the builder overlay holds no engine link. So every source was empty and the bind dropdown
-with them: 4OSC, 68 parameters, none of them offerable. st0 passes `paramRef={null}` when it opens
-a module from the file tree, so `paramsByBase` was not even consulted.
+and the builder overlay holds no engine link. st0 passes `paramRef={null}` when it opens a module
+from the file tree, so `paramsByBase` is not consulted either. Every source above is empty, and
+the bind dropdown with them: 4OSC, 68 parameters, none of them offerable.
 
 The fourth source needs no project at all: the file names its plugin, and `@studio/song` says what
 that plugin has, out of a table **generated from a real instance of every built-in the engine can
@@ -73,8 +72,8 @@ extends: "@engine/4osc"                  # a module that is only a FACE for one
 ```
 
 The whole of `_libraries/modules/instruments/4osc/module.yaml` is that second line, plus two
-comments. Reading only the first found nothing, so the list stayed empty even once the table
-existed — the fix was half a fix, and the file said so.
+comments. **Both** forms have to be read: the table on its own answers nothing for a file that
+only ever names its plugin through `extends:`.
 
 `@engine/<slug>` is `slugifyPluginName(displayName)`, the one rule `engineModuleOf` applies on the
 machine and `baseModuleRefs` applies in a browser; `builtinPluginForRef` calls it rather than
@@ -89,16 +88,15 @@ Order, when several answer: the **loaded plugin** first (it is the instance this
 is), then what the module declares, then the base's, then the io table.
 
 **The rule this puts on a chain.** Wire the module you want to work on, by the name a chain
-gives it. For a shared module that is usually already true — you are editing it because this
-song uses it — which is what made the module bench unnecessary. See
-[sharedModules.md](sharedModules.md).
+gives it. For a shared module that is usually already true: you are editing it because this
+song uses it. See [sharedModules.md](sharedModules.md).
 
 ## The grid greys out for three reasons, and only one is a fault
 
 `WidgetGridEditor` takes a REASON, not a boolean: `"unparsable"`, `"locked"`, or false.
 
-It took a boolean, and its note spoke for both halves — so **every module in a library announced
-that its panel would not parse**, about files that parse perfectly. A shared module opens
+A boolean makes one note speak for both halves — so **every module in a library announces that
+its panel will not parse**, about files that parse perfectly. A shared module opens
 read-only by design; that is how you arrive at one, not something wrong with it. The third case
 is a path with no panel at all, which the store answers by failing, and that is not a fault
 either.
@@ -117,29 +115,28 @@ project's, and cannot know whose it is or what writing to it costs. Same argumen
 ## A file-valued param is a param, and all three arguments are QUOTED
 
 Picking a file in the builder's asset browser writes `node param <node> <param> <file>`, not a
-verb of its own. It used to be one per param (`module nam …`), built from the param's own name —
-so choosing an `.onnx` sent a command nobody had written.
+verb of its own. One verb per param, built from the param's own name (`module nam …`), means
+choosing an `.onnx` sends a command nobody has written.
 
 All three arguments are quoted, and the FILENAME is the one that matters. A `.nam` routinely
 carries spaces and a subfolder: `two rocks/Two-Rock_Studio Overdrive_SM7b_All Flat_Clean.nam`.
-Unquoted, the dispatcher's splitter folded most of that path into the PARAM name — which may
-legitimately contain spaces, `Wet Level` — and took the last token as the value, so picking an amp
-refused with `"Flat_Clean.nam" is not a number`, naming the tail of the file it had just cut. The
-same fix was already written twenty lines above it, for the node ref, and had not been applied
-here: *a node ref carries a `:` and may carry spaces, and `node param` splits on them*. A filename
-does too, and more often.
+Unquoted, the dispatcher's splitter folds most of that path into the PARAM name — which may
+legitimately contain spaces, `Wet Level` — and takes the last token as the value, so picking an amp
+refuses with `"Flat_Clean.nam" is not a number`, naming the tail of the file it just cut. The node
+ref needs the same quoting for the same reason: *a node ref carries a `:` and may carry spaces, and
+`node param` splits on them*. A filename does too, and more often.
 
 The sentinel stays BARE: `none` is a word the command understands, not a file.
 
-## What did not move, and is not coming back
+## What the builder deliberately has not got
 
-- **The audition's own input picker.** A live input belongs to a TRACK now
+- **An audition input picker.** A live input belongs to a TRACK
   (`inputChannels` / `monitor` on a `TrackDoc`), which the compiler wires from the project's own
   YAML — two lines in the lane's node file — and it feeds whatever you have chained after it,
   not one module in isolation.
-- **`modulePreviewDoc`.** Nothing manufactures a project any more.
-- **The métering menu.** `io-levels` still exists and the engine still only enables the devices
-  it is asked to meter; nothing in st0 asks yet.
+- **A manufactured project.** Nothing here builds a `ProjectDoc` to make a plugin exist.
+- **A metering menu.** `io-levels` exists and the engine only enables the devices it is asked to
+  meter; nothing in st0 asks yet.
 
 ## What to check in a browser
 

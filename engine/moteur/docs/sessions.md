@@ -25,18 +25,17 @@ the caller to take the lock would be the same bug with more steps.
 `find`'s raw pointer *is* used past the lock, and that is safe for a narrower reason: only the
 message thread erases, and only the message thread calls `find`.
 
-### The race this replaced
+### The race the registry exists for
 
-Before the registry, `session(id)` was a bare `sessions[id]` — a `std::map::operator[]`, which
-inserts. `drainBroadcast` and `skipBroadcastToLive` went through it **from the sender thread**,
-while the message thread did the same on every inbound message and every 50 ms state tick, with
-no mutex anywhere.
+`drainBroadcast` and `skipBroadcastToLive` reach a session **from the sender thread**, while the
+message thread reaches one on every inbound message and every 50 ms state tick. A bare
+`sessions[id]` — `std::map::operator[]`, which inserts — is therefore an unsynchronised structural
+write from two threads.
 
-The comment justifying the lock-free access said the ring "outlives every edit". That was true
-of the ring and had stopped being true of the **lookup that finds it**, once the ring moved
-inside a map keyed by session. It was reachable rather than theoretical: `main.cpp` records a
-new listener's session under `listenersMx` *before* the posted `enableBroadcast` runs, so the
-sender thread could be the first to touch a brand-new id.
+"The ring outlives every edit" is true of the ring and does not extend to the **lookup that finds
+it**, now that the ring lives inside a map keyed by session. The case is reachable rather than
+theoretical: `main.cpp` records a new listener's session under `listenersMx` *before* the posted
+`enableBroadcast` runs, so the sender thread can be the first to touch a brand-new id.
 
 `tests/SessionRegistry_test.cpp` pins the invariants. Its concurrency case is a **stress test,
 not a race detector** — MSVC ships no TSan, so on Windows it proves only "did not tear under
@@ -49,27 +48,26 @@ mean "this client drives this project"** — `apply` / `applyFull`, `enableBroad
 and `setRecordEnabled`. Everything else uses `find()` and has an obvious answer for absence:
 the empty doc, `nullptr`, `-100 dB`, an empty vector.
 
-This matters because reading used to create. Every accessor went through the inserting form,
-including the `const` ones, so:
+Route a `const` accessor through the inserting form and three things follow at once:
 
-- the **supervisor conjured the default session**. It polls `list-edit-plugins` on a timer with
+- the **supervisor conjures the default session**. It polls `list-edit-plugins` on a timer with
   an `EngineControl` that has no session — so `DEFAULT_SESSION`, the empty string — and the
-  first touch created it. It then appeared in the tray's own Sessions submenu, reported by the
-  process that had just invented it.
-- the state timer re-touched every session it listed, forever.
-- there was no "unknown session" path at all, because there was no such thing as an unknown one.
+  first touch creates it. It then shows up in the tray's own Sessions submenu, reported by the
+  process that has just invented it.
+- the state timer re-touches every session it lists, forever.
+- there is no "unknown session" path at all, because there is no such thing as an unknown one.
 
 `main.cpp` still reads `session` with no allowlist, deliberately: naming a session is what
 creates it, and a whitelist would mean the engine had to be told about every app in advance.
 What it does have is a **ceiling** — an id longer than 256 bytes is refused, so a malformed
 client cannot grow the map without bound.
 
-### `list-edit-plugins` had to become engine-global
+### `list-edit-plugins` is engine-global
 
-Making reads non-creating would have quietly emptied the tray's "Native plugin UI" submenu:
-the supervisor asks on the default session, which after the change holds nothing. It was never
-really a per-session question anyway — with N projects there is no *the* loaded edit — so it now
-walks every session and stamps each row with the one it came from, exactly like `list-sessions`.
+It is not a per-session question — with N projects there is no *the* loaded edit — and asking it
+per session empties the tray's "Native plugin UI" submenu, since the supervisor asks on the
+default session and that one holds nothing. So it walks every session and stamps each row with
+the one it came from, exactly like `list-sessions`.
 
 That is also what makes it compose with the stamping rule rather than fight it: stamped
 per-session *and* asked on the default session, every reply would be dropped by `forSession` in
@@ -89,15 +87,15 @@ Two verbs rather than a hand-written `{"session", …}` per reply, because seven
 literals is precisely how the eighteenth gets forgotten. A new reply has to *choose*, and the
 choice is reviewable in one word.
 
-Before this, only `state` and `session-dropped` were stamped, and `forSession` passes a frame
-with no session at all. So an pl8 module audition made st0 flash `busy` and clear its warning
-badges, and st0 received `applied`, `flushed` and `recorded` for a project it did not own.
+Leave a reply unstamped and `forSession` passes it to everyone: a pl8 module audition makes st0
+flash `busy` and clear its warning badges, and st0 receives `applied`, `flushed` and `recorded`
+for a project it does not own.
 
-**`forSession` was left alone**, and that is deliberate. Pass-on-absence is what keeps a current
-client from going deaf against an older engine that stamps nothing; the leak was never in that
-rule but in the engine failing to disagree. A capability announced in `whoami` would only help
-if the engine *forgot* to stamp something — and would then make the client deaf on that frame
-instead of merely unsorted, which is strictly worse and equally silent.
+**`forSession` passes on absence anyway**, and that is deliberate. It is what keeps a current
+client from going deaf against an engine that stamps nothing; the leak is never in that rule but
+in the engine failing to disagree. A capability announced in `whoami` would only help if the
+engine *forgot* to stamp something — and would then make the client deaf on that frame instead
+of merely unsorted, which is strictly worse and equally silent.
 
 ### `engine-warning` and the WarningScope
 
@@ -125,15 +123,15 @@ frame, per tab, per session on the machine — is only visible on the raw socket
 exactly as the browser client does, since that is what declares a session; a socket that sends
 nothing declares nothing, which is the probe case its last count covers.
 
-Three regressions it exists for:
+Three regressions it exists to catch:
 
-- **Record-enable is SESSION state.** It was a process-global for a while, so arming st0 lit pl8's
-  record light and made rolling either one record into both.
-- **Only ONE of them plays.** Before sessions the second project tore the first down; before the
-  client half, the silent one saw the playing one's state frames as its own.
-- **What was SENT, not what was kept.** A state frame is a per-track level array plus whatever
-  waveform envelopes are subscribed, at 20 Hz: shouted at every socket, each tab decoded every
-  other project's meters to throw them away, and one session playing kept every other session's
+- **Record-enable is SESSION state.** As a process-global, arming st0 lights pl8's record light
+  and rolling either one records into both.
+- **Only ONE of them plays.** Without sessions the second project tears the first down; without
+  the client half, the silent one reads the playing one's state frames as its own.
+- **What is SENT, not what is kept.** A state frame is a per-track level array plus whatever
+  waveform envelopes are subscribed, at 20 Hz. Shouted at every socket, each tab decodes every
+  other project's meters to throw them away, and one session playing keeps every other session's
   tabs awake past their own idle divider.
 
 Its body is wrapped in a function rather than using top-level await, because `engine/moteur`
@@ -143,9 +141,9 @@ declares no `"type": "module"` and tsx transforms it to CJS, where a bare await 
 anyone's session, which is the difference between a diagnostic and a way to lose the song somebody
 is working on. It connects the way the supervisor does — on the DEFAULT session, driving nothing
 and asking about everyone — which is why `list-sessions` carries no session field at all. It asks
-everything the tray polls BEFORE listing, because that is the regression it guards: reading used to
-CREATE, so those very queries conjured a `""` session which then appeared in the tray's own
-Sessions submenu, reported by the process that had just invented it. It imports `engineQueries` by
+everything the tray polls BEFORE listing, because that is the regression it guards: should reading
+ever CREATE again, those queries conjure a `""` session which then appears in the tray's own
+Sessions submenu, reported by the process that has just invented it. It imports `engineQueries` by
 relative path rather than as a subpath, since that module is internal to `@studio/engine-host` and
 its `exports` says so — widening a package's public surface for a probe is the wrong trade.
 
@@ -156,10 +154,10 @@ Three layers, and only the first two are required.
 **1. Stop creating.** After the rule above, a session exists only because somebody sent it a
 project or subscribed to its audio.
 
-**2. `drop-session` stays primary.** It is wired end to end — the tray's Sessions row, the
-supervisor, `EngineControl.dropSession`, and now `EngineClient.dropSession` in the browser
-client, which had no such verb at all. The file service calls it from `unloadEngine`, the one
-place that genuinely means "this workspace is done".
+**2. `drop-session` is primary.** It is wired end to end — the tray's Sessions row, the
+supervisor, `EngineControl.dropSession` and `EngineClient.dropSession` in the browser client.
+The file service calls it from `unloadEngine`, the one place that genuinely means "this
+workspace is done".
 
 **3. A TTL on emptiness, as a backstop.** Swept from the existing state timer rather than a
 timer of its own:
@@ -178,10 +176,10 @@ take a loaded project away on every tab reload. A session with no live socket ma
 exist; a session holding nothing may not.
 
 **4. A grace on abandonment, which is a refcount with the objection answered.** The three rules
-above share a gap: a project **stays loaded for ever** once nothing releases it. A closed tab
-freed only the audio tap; a laptop that went to sleep freed nothing at all. The machine kept a
-song's worth of plugins instantiated with nobody there, and the only way back was to restart the
-engine — which is a large part of what "the engine is unstable" meant.
+above share a gap: nothing in them releases a **loaded** project, so it stays loaded for ever. A
+closed tab frees only the audio tap, and a laptop that goes to sleep frees nothing at all — the
+machine holds a song's worth of plugins instantiated with nobody there, and the only way back is
+to restart the engine.
 
 So sockets are counted after all, but only the ones that say they are **driving**:
 
@@ -210,23 +208,23 @@ already sends one on every connection, including after a reconnect, which is exa
 the count has to be restored. Registered once per socket — the browser's keepalive re-sends
 `whoami` every few seconds on a quiet link, and those must not each be a driver.
 
-> **A reload is not made cheaper by being told about.** An earlier version of this also had the
-> browser send `drop-session` on `pagehide`, so closing a tab freed the machine at once. It was
-> dropped: `pagehide` cannot tell a close from a reload, so every reload would have paid a full
-> graph rebuild — the thing `applyFull` was just reordered to stop doing twice
-> ([audit-stabilite.md](audit-stabilite.md)). The 45 seconds cost nothing and cannot be wrong.
+> **A reload is not made cheaper by being told about.** Sending `drop-session` on `pagehide`
+> would free the machine the instant a tab closes, and it is not done: `pagehide` cannot tell a
+> close from a reload, so every reload would pay a full graph rebuild — the thing `applyFull` is
+> ordered to do only once ([audit-stabilite.md](audit-stabilite.md)). The 45 seconds cost nothing
+> and cannot be wrong.
 
 ### The socket side, in the file service
 
-`packages/file-service/src/engineLink.ts` keeps one socket per session and used to prune them
-only when the chosen engine changed. Since one file service can serve several people, an
-abandoned link was not merely a leaked socket: its close handler re-dialled every second for the
-life of the process, which kept that session alive on the engine too.
+`packages/file-service/src/engineLink.ts` keeps one socket per session. Since one file service
+can serve several people, an abandoned link is not merely a leaked socket: its close handler
+re-dials every second for the life of the process, which keeps that session alive on the engine
+too.
 
-`pruneIdleLinks` now drops links untouched for five minutes, **without** telling the engine — the
+`pruneIdleLinks` drops links untouched for five minutes, **without** telling the engine — the
 person may come back and their project should still be loaded. `dropLink` deletes from the map
-*before* closing, which is the ordering the reconnect guard depends on; closing first left the
-outcome resting on the close event happening to be asynchronous.
+*before* closing, which is the ordering the reconnect guard depends on; closing first rests the
+outcome on the close event happening to be asynchronous.
 
 Note that a person's two workspaces share one session (`engineLink.test.ts` pins this), so
 switching *workspace* orphans nothing. Only a change of user or of engine does.

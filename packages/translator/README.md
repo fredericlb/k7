@@ -45,8 +45,8 @@ outDir/
                                         self-contained modules: the plugin inline +
                                         concrete params (deduped by plugin+params),
                                         with <name>.vstpreset beside them
-  tracks/<name>.yaml         arrangement: positioned clips/sequences + settings
-  clips/<id>.yaml (+.wav)    raw audio material (source only; placement is on the track)
+  nodes/<name>.yaml          a LANE: `extends` a track module, plus its placements
+  clips/<id>.yaml (+.wav)    raw audio material (source only; placement is on the lane)
   sequences/<id>.yaml        raw MIDI material (inline {t,d,k,v} note structs)
 ```
 
@@ -56,7 +56,7 @@ schemas (`packages/song/src/yaml/`).
 ## What it maps
 
 - tempo, time signature, sample rate, project name
-- each source track → a `tracks/` **arrangement** (name/volume/pan/mute + positioned
+- each source track → a `nodes/` **lane** (name/volume/pan/mute + positioned
   clips/sequences with begin/end/offset/fades)
 - audio clips with their **warp markers**, carried all the way into the C++ engine
 - MIDI clips as sequences — notes inline at full fidelity (exact onset/duration/key/velocity)

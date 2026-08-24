@@ -8,7 +8,7 @@ never happens here. These notes describe the engine.
 
 ```
 project JSON ──► ProjectDoc ──diff(old,new)──► ProjectDiff ──apply──► tracktion::Edit ──► audio
- (from @studio/song) (model)       (Phase 3)                (EngineHost)
+ (from @studio/song) (model)                              (EngineHost)
 ```
 
 One rule keeps it sane: **only `EngineHost` includes a Tracktion or JUCE
@@ -16,7 +16,7 @@ header.** Everything above it is plain data — diffable and unit-testable witho
 an audio device. The WebSocket server (`server/`) is likewise JUCE-free: it only
 uses `EngineHost`'s `post()`/`onState()`/`run()` API.
 
-## Phase 3 — diff & apply
+## Diff & apply
 
 ### Why not just rebuild the Edit on every save?
 
@@ -40,11 +40,14 @@ deltas. `apply()` executes top-to-bottom without dangling references.
 `SampleRateChanged` forces a full rebuild (the device reopens);
 `needsFullRebuild()` detects it and falls back to `applyFull()`.
 
-### Status
+### What is incremental, and what is not
 
-Implemented incrementally: tempo, time sig, track add, rename, clip add. The
-rest (`TrackRemoved`, `ClipRemoved/Moved`, plugins, automation) are explicit
-stubs in `EngineHost::apply` with the exact engine call noted in a comment.
+Every change kind but one is applied in place: tempo, time signature, master
+volume, track add/rename/params/input, clip add/remove/move, plugin
+add/remove/param/enable, and automation. `TrackRemoved` is the remaining stub —
+explicit in `EngineHost::apply`, with the engine call noted in a comment, rather
+than faked. A stub there is not free: the diff still reports the change, so the
+log says it was applied while nothing moved.
 
 ## Threading & realtime rules (non-negotiable)
 
@@ -62,8 +65,8 @@ onState() timer snapshots              reads lock-free / atomic state only
 - `onState()` runs a message-thread `juce::Timer`; the server broadcasts its
   snapshots to WebSocket clients.
 
-## Meters (wiring `trackLevelDb`)
+## Meters (`trackLevelDb`)
 
-`trackLevelDb` returns `-100` today. To make meters live, insert a
-`LevelMeterPlugin`/`LevelMeasurer` per track in `applyFull`, and read its dB in
-the accessor. It reads atomics written by the audio thread — safe to poll.
+`buildLevelMeters` appends a `LevelMeterPlugin` per track after a rebuild, and
+`trackLevelDb` reads its dB. That accessor reads atomics written by the audio
+thread — safe to poll. A track with no meter reports the `-100` floor.

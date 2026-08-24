@@ -11,10 +11,10 @@ The `@` is the whole of the difference, and it is the same `@` a widget binds.
 
 ## Why one verb
 
-There used to be a verb per field — `module channel`, `module monitor` — and none at all for
-`@gain`, which is bindable in the builder and therefore reachable from a widget: a knob bound to
-it sent `module gain …`, and the answer was *unknown command*. A vocabulary that grows a verb
-every time a field becomes settable is a vocabulary that will be one field behind.
+A verb per field — `module channel`, `module monitor` — leaves every field nobody wrote one for
+unreachable. `@gain` is bindable in the builder and therefore reachable from a widget: a knob
+bound to it would send `module gain …` and be answered *unknown command*. A vocabulary that grows
+a verb every time a field becomes settable is a vocabulary that will be one field behind.
 
 From the outside the two are one act: *set this control on this module*. So they share a verb,
 and the table of intrinsics (`INTRINSICS` in `@studio/commands`) is one line per field.
@@ -29,8 +29,8 @@ and the table of intrinsics (`INTRINSICS` in `@studio/commands`) is one line per
 | on a module with no plugin | impossible — there is nothing to send to | the only kind it can have |
 
 That last row is why intrinsics exist at all. An `io: in` module runs no plugin: the input **is**
-the module, so every control it has is a field of its file, and before there was a way to write
-one from a widget its panel was inert.
+the module, so every control it has is a field of its file, and without a way to write one from a
+widget its panel would be inert.
 
 ## The four there are
 
@@ -73,23 +73,22 @@ command says so out loud. It is the only thing here that writes outside the proj
   level and pan are params of the mixer module at the end of the chain. Different files, so
   different verbs.
 
-## …and one that stopped being one: a FILE-valued param
+## …and one thing that is NOT a verb of its own: a FILE-valued param
 
 `nam` and `onnx` land in `params:` like the numbers do, so they are `node param <node> nam
 <file>`. Two differences the handler carries: the value is checked against the assets the module
 actually holds, and it is **not** patched into the running engine, because a plugin reads its
 file when it is BUILT.
 
-`module nam` was a verb per file param, named after the param so there was one word to learn.
-`onnx` never got one — and the asset picker builds its line from the param's own name, so
-picking an `.onnx` reached a command nobody had written. The same shape as `@gain`: a family the
-UI treats generically, held together by verbs written one at a time.
+A verb per file param — `module nam`, named after the param so there is one word to learn — is
+the same shape as `module gain`: a family the UI treats generically, held together by verbs
+written one at a time. The asset picker builds its line from the param's own name, so an `.onnx`
+picked under such a scheme reaches a command nobody wrote.
 
-What it cost: the value's `assetFiles` completion. A provider is handed the host and not the
-half-typed line — the same limit that already made that list every module's assets rather than
-this one's — so `node param`'s value cannot know that the param before it was `nam`. The picker
-is unaffected; typing the line by hand no longer offers the filenames. The provider went with
-the verb.
+What it costs: the value has no `assetFiles` completion. A provider is handed the host and not
+the half-typed line — the same limit that makes that list every module's assets rather than this
+one's — so `node param`'s value cannot know that the param before it was `nam`. The picker is
+unaffected; typing the line by hand does not offer the filenames.
 
 ## Where each piece lives
 

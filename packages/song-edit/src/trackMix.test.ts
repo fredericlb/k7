@@ -121,7 +121,7 @@ events:
   });
 });
 
-// Dragging an event onto ANOTHER lane: it used to write a YAMLMap's own fields into the file.
+// Dragging an event onto ANOTHER lane: plain fields must land in the file, not a YAMLMap's own.
 describe("moving a placement onto another lane", () => {
   let dir: string;
   beforeEach(() => {
@@ -152,7 +152,7 @@ describe("moving a placement onto another lane", () => {
   });
 
   it("keeps everything the placement carried except its start", () => {
-    // `loop` proves it: a rebuild from {ref, start} would have played it once instead of twice.
+    // `loop` proves it: a rebuild from {ref, start} would play it once instead of twice.
     movePlacementToTrack(dir, "bs", "gtr", 96, "30:1", 4, 4);
     expect(gtr()).toContain("loop: 2");
     expect(gtr()).not.toContain('"25:1"'); // …and the old start did not travel

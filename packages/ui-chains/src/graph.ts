@@ -868,8 +868,6 @@ export function buildGraph(
   // The maximum step index a module holds across chains, so a shared one ranks after every pipeline.
   const moduleRank = new Map<string, number>();
 
-  // The FROZEN pass was here; freezing is gone with the field it read (packages/song/docs/trackModules.md).
-
   // Once for the whole graph, so every lane's mini timeline is drawn against the same ruler.
   const clipSpan = clipSpanOf(graph);
   /** Add a connection once — but "once" is per SOCKET, not per pair. See docs/graphBuild.md. */
@@ -1524,7 +1522,7 @@ export function layout(
     label: e.label,
     automation: e.automation,
     signal: e.signal,
-    // Carried through, and it was not — see docs/graphBuild.md for what a dropped port drew.
+    // Carried through: dropped, it puts every ported cable on the node's edge, docs/graphBuild.md.
     targetPort: e.targetPort,
     sourcePort: e.sourcePort, // the mirror, and it drops the same way if forgotten here
     points: g.edge(e.source, e.target, e.id)?.points ?? [],

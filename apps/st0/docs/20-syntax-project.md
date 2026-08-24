@@ -5,14 +5,13 @@
 The song header: tempo, rate, meter — plus what the song borrows from outside its own folder.
 
 ```yaml schema=ProjectFile
-# What this folder IS — the default, and what every project written before this
-# line existed is, so it can be left out. The only other value is `z0`, the
-# blind test's own dialect.
+# What this folder IS — the default, so it can be left out. The only other
+# value is `z0`, the blind test's own dialect.
 #
 # The folder's own suffix (`.st0`) is what decides which app opens it, and it
 # wins if the two disagree — st0 reports the contradiction rather than picking a side.
-# This line is here so the file says it too, which is the only signal left when the
-# repository IS the project and there is no suffix to read.
+# This line is here so the file says it too, which is the only signal there is when
+# the repository IS the project and there is no suffix to read.
 type: st0
 
 # What this project DRAWS is not written here at all: it is the `surfaces/`
@@ -24,11 +23,10 @@ type: st0
 # names the PLAYLIST it plays through. Two decks meeting at a crossfade, a
 # set list to play through them, and no timeline. Nothing else marks one.
 #
-# There used to be a `project_type:` line here saying `arrangement` or
-# `live`. It is gone: it was a second declaration free to disagree with the
-# surfaces, and the surfaces are what the screen actually reads. A file that
-# still carries the line still opens; nothing looks at it, and you can drop
-# it next time you edit.
+# A `project_type:` line is accepted here and read by nothing: the surfaces
+# are what the screen goes by, and a second declaration beside them would
+# only be free to disagree with them. A file carrying one still opens — drop
+# the line next time you edit it.
 
 project:
   name: my-song
@@ -41,14 +39,13 @@ project:
   # médiathèque. Nearest first, so what is beside the song beats what is global.
   # (Assets are not shared at all — a module carries the files it loads.)
   #
-  # `modules_from` and `libraries_from` used to list them. They are still
-  # accepted so older songs open, and read by nothing — st0 says so and
-  # the lines can be deleted.
+  # `modules_from` and `libraries_from` are accepted, so a song carrying them
+  # opens, and read by nothing — st0 says so, and the lines can be deleted.
 
   # `viewport` and `layers` are the song's PICTURE — the frame its video lanes
   # draw into, and their draw order. See the Video page.
-  # `video: true` is still accepted and read by nothing: a `surfaces/viewport.yaml`
-  # is what draws the frame now, and `video_tracks/` is what says there is one.
+  # `video: true` is accepted and read by nothing: a `surfaces/viewport.yaml`
+  # is what draws the frame, and `video_tracks/` is what says there is one.
 
 # Lane order in the timeline, top first. Absent = the order tracks/ is read in.
 trackOrder: [drums, bass, melody]
@@ -115,7 +112,7 @@ playlist: ete-2026
 # instead, with `playlist stems <playlist>`.
 stems: true
 
-# What each of its components moves. Same shape as `views/mix.yaml`: the
+# What each of its components moves, in the shape every surface uses: the
 # control's id, then the module the CHAINS file names and the param as the
 # module's `ui.yaml` binds it.
 #

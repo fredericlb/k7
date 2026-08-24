@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModules } from "./loader";
 
-// `plugin: {type: jsdsp}` with `jsdsp.ts` beside it, replacing two fields that had to agree.
+// `plugin: {type: jsdsp}` with `jsdsp.ts` beside it — one declaration, not two fields that must agree.
 
 let dir: string;
 

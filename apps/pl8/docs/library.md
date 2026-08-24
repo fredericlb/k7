@@ -1,8 +1,8 @@
 # The catalogue screen: the tree, and what a row means
 
 `apps/pl8/frontend/src/Library.tsx` is the médiathèque: the sections as header tabs, the current
-one's files as a tree down the side, its contents in the middle. This page holds the reasoning
-the file used to carry in prose, so the code can point at it in one line.
+one's files as a tree down the side, its contents in the middle. This page holds the reasoning, so
+the code can point at it in one line.
 
 The address side of the same screen is [routing.md](routing.md); the narrow-screen side is
 [responsive.md](responsive.md).
@@ -21,14 +21,9 @@ engine page and the hunt page are skipped outright — nothing they show is on t
 
 Changing section drops what was held AND the token claiming it was current. `entries` holds one
 section at a time, so on switching, the new section's revision token lies: it says nothing moved,
-which is true of the VOLUME and false of the screen, which now holds nothing. The poll then did
-not reload and the spinner span forever. It hangs off `section` rather than off the tab's click,
-because Back and a deep link change section without going through it.
-
-> The repositories had a SECOND poll here, on `/api/projects` and `/api/shares`, running on every
-> section because the tab's badge had to hold a number at all times. Both are st0's home page now
-> (`apps/st0/frontend/docs/projects.md`), so this screen is back to one poll for one volume. The
-> routes are untouched and still this service's; only the caller moved.
+which is true of the VOLUME and false of the screen, which now holds nothing. Without that drop
+the poll does not reload and the spinner spins forever. It hangs off `section` rather than off the
+tab's click, because Back and a deep link change section without going through it.
 
 ## What a tree row stands for
 
@@ -41,7 +36,7 @@ something up in.
 already in the strings. Directories are synthesised on the way down, so a folder holding only
 folders still appears. What no entry can stand for — an empty folder, a loose file — arrives as
 its own `unlisted` list and is walked in FIRST, so an entry landing later finds its folder already
-there. Without it, creating a folder answered 200 and showed nothing, which is the one thing a
+there. Without it, creating a folder answers 200 and shows nothing, which is the one thing a
 "create" must never do.
 
 A **song** is the odd row: a folder on disk, a leaf in the tree, and the only row of that family a
@@ -134,19 +129,17 @@ After a write of our own, `refresh` FORGETS the section's revision rather than w
 server's token to move. Waiting would leave the tree stale for a beat, and the person who just
 dropped a file is looking straight at it.
 
-## What left this screen
+## What this screen does not hold
 
-- **The `modules` and `chains` families.** A module is what a plugin is, and only a LOADED plugin
-  can say what its parameters are called; the médiathèque has no project to load one into. The
-  builder, the read-only module view, the chain editor, the engine gate over the Modules section
-  and the third column that showed a picked module all went with them. Modules are authored in st0.
-- **The pass that generated a module's `ui.yaml`** from a plugin's parameter list. A generated
-  panel can only ever be knobs and dropdowns — `fader`, `meter`, `filepicker`, a rowSpan, an
-  arrangement that means something are all things a person puts there and a parameter list cannot
-  imply. Run over a library it turned a mixer's channel strip into five knobs in a row.
-- **"Ajouter les N greffons du moteur"** and "Nouveau module depuis un greffon…", which turned a
-  machine's plugin scan into library modules. The capability belongs in st0 and is not ported yet.
-- **A song's variants as a fourth column**, shown only while nothing was open. Clicking a song now
-  OPENS it, so that condition could never be met again; they moved under the player in
-  `apps/pl8/frontend/src/SongEditor.tsx`, where they belonged anyway — the master and its
+- **No `modules` or `chains` family.** A module is what a plugin is, and only a LOADED plugin can
+  say what its parameters are called; the médiathèque has no project to load one into. Modules and
+  chains are authored in st0, against a project where the plugin is really there.
+- **No pass that GENERATES a module's `ui.yaml`** from a plugin's parameter list, anywhere. A
+  generated panel can only ever be knobs and dropdowns — `fader`, `meter`, `filepicker`, a rowSpan,
+  an arrangement that means something are all things a person puts there and a parameter list
+  cannot imply. Run over a library, such a pass turns a mixer's channel strip into five knobs in a
+  row.
+- **No fourth column for a song's variants.** A column shown only while nothing is open could never
+  be reached, since clicking a song OPENS it; the variants are under the player in
+  `apps/pl8/frontend/src/SongEditor.tsx`, where they belong anyway — the master and its
   alternative versions are the same question.

@@ -1,12 +1,12 @@
 // timecode.ts — "bar:beat:eighth:sixteenth.ticks" timecodes <-> model beats (quarter notes,
 // Tracktion's unit). POSITIONS ("1:1:1:1") are 1-based; DURATIONS ("1:0:0:0") are 0-based; the
 // colon chain names MESURE:NOIRE:CROCHE:DOUBLECROCHE and anything finer is TICKS. Chains LONGER
-// than four fields are the old deep form and are read by its own rule. See docs/timecode.md.
+// than four fields are a deeper notation the parser accepts, read by its own rule. See docs/timecode.md.
 
 /** Ticks per QUARTER NOTE — 960 because it divides by 3 as readily as by 2 (docs/timecode.md). */
 export const TICKS_PER_QUARTER = 960;
 
-// The colon chain, then optionally `.ticks`; still allowed to run deeper than four fields (docs/timecode.md).
+// The colon chain, then optionally `.ticks`; allowed to run deeper than four fields (docs/timecode.md).
 const TC_RE = /^\d+(:\d+)*(\.\d+)?$/;
 
 // Quarter-notes per metrical beat (q) and per bar, from the time signature.
@@ -107,7 +107,7 @@ export function parseDuration(tc: string, num: number, den: number): number {
   return toBeats(tc, num, den, false);
 }
 
-/** The same two forcing the OLD ÷4 rule — only the timecode migration may call them (docs/timecode.md). */
+/** The same two forcing the deep notation's ÷4 rule — only the timecode migration may call them (docs/timecode.md). */
 export function parseLegacyPosition(
   tc: string,
   num: number,

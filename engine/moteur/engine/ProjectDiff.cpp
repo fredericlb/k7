@@ -47,12 +47,12 @@ std::string keyOf(const PluginDoc& p) {
 /**
  * Key a vector for diffing — and SAY SO when two entries answer to the same key.
  *
- * `emplace` keeps the first and drops the rest in silence, so a duplicate id became invisible to
- * every later diff: `populateEdit` iterates the vector and builds it, but nothing can ever update or
- * remove it incrementally, and `trackById` routes its changes to the first match instead. That is the
- * same shape as the ring a lane requested twice used to build empty — a duplicate key taking a
- * different, quiet path. It stays first-wins, because changing which one survives would change what
- * plays; what changes is that it is now on the record.
+ * `emplace` keeps the first and drops the rest, so unannounced a duplicate id is invisible to every
+ * later diff: `populateEdit` iterates the vector and builds it, but nothing can ever update or
+ * remove it incrementally, and `trackById` routes its changes to the first match instead. Same shape
+ * as the ring a lane requests twice building empty — a duplicate key taking a different, quiet path.
+ * First-wins, because changing which one survives would change what plays; the warning is what keeps
+ * it from being quiet.
  */
 template <typename T, typename KeyFn>
 std::map<std::string, const T*> index(const std::vector<T>& v, KeyFn key) {
@@ -69,9 +69,8 @@ std::map<std::string, const T*> index(const std::vector<T>& v, KeyFn key) {
 bool clipMoved(const ClipDoc& a, const ClipDoc& b) {
     // Any timing change re-inserts the clip, because EVERY one of these is applied at insert time and nowhere
     // else (clipPositionFor, applyClipLoop, applyClipWarp). A field missing from this list is a field you can
-    // edit while the engine is up and hear nothing change — which is how `offset` and the source window read
-    // until this line was completed: the edit reached the doc, the doc reached the engine, and the engine
-    // decided there was nothing to do.
+    // edit while the engine is up and hear nothing change: the edit reaches the doc, the doc reaches the
+    // engine, and the engine decides there is nothing to do.
     return a.start != b.start || a.length != b.length || a.source != b.source
         || a.offset != b.offset
         || a.sourceFrom != b.sourceFrom || a.sourceTo != b.sourceTo
@@ -79,7 +78,7 @@ bool clipMoved(const ClipDoc& a, const ClipDoc& b) {
         || a.warp.algorithm != b.warp.algorithm || a.warp.markers != b.warp.markers
         // The NOTES, for exactly the reason above: a MIDI clip's are written into the edit when
         // the clip is inserted and nowhere else. Missing here, the whole note vocabulary — add,
-        // remove, velocity, move — reached the engine and changed nothing you could hear.
+        // remove, velocity, move — reaches the engine and changes nothing you can hear.
         || a.notes != b.notes;
 }
 
@@ -268,27 +267,14 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
 }
 
 bool needsFullRebuild(const ProjectDiff& d) {
-    // Neither adding nor removing a plugin rebuilds any more, and a swap — which surfaces as PluginRemoved +
-    // PluginAdded, removals first — is therefore incremental too.
+    // Adding a plugin, removing one, swapping one (remove + add, removals first) and changing a param are all
+    // absent from this list, deliberately. A rebuild throws the Edit away and instantiates every plugin again —
+    // 4026 ms of a 4169 ms apply on a 32-plugin song — and it replaces the transport with the Edit, so it also
+    // stops whatever is rolling. What the incremental paths cannot place exactly, they hand back to a rebuild
+    // themselves; the list of those cases and the measurements are in docs/engineHost.md.
     //
-    // REMOVING mattered for a reason of its own, beyond the seconds: a rebuild replaces the Edit, so it replaces
-    // the transport with it, and playback stops. Unlinking a module while the song plays used to stop the song.
-    //
-    // ADDING is the difference between putting a module in a chain in a second and in four.
-    // A full rebuild throws the Edit away and builds a new one from the document, so EVERY plugin is
-    // instantiated again: measured on a real song, `populate` took 4026 ms of a 4169 ms apply to put back the
-    // 31 plugins that had not changed, with the transport dead throughout. apply() now creates the one new
-    // plugin and inserts it into the live track — see its PluginAdded case, which falls back to a rebuild
-    // whenever the live graph is not in the shape that insert assumes.
-    //
-    // A SIDECHAINED plugin is excluded here: its second input is wired by a pass that runs after every track
-    // exists, against itemIDs the incremental path has no equivalent for. Rare on an add, and the fallback is
-    // exactly what happened before.
-    //
-    // PluginParamChanged was never here, for the same reason writ small: apply() sets the parameter on the live
-    // plugin by name, and rebuilding for a param change re-instantiated every plugin on each tweak — the
-    // difference between a control that can be dragged and one that can't. Known gap: diff() walks the NEW
-    // params, so a DELETED one emits nothing and the live plugin keeps its value until the next full rebuild.
+    // Known gap: diff() walks the NEW params, so a DELETED one emits nothing and the live plugin keeps its
+    // value until the next full rebuild.
 
     // A track added or removed in the SAME diff excludes the incremental ADD, and for a reason that is not about
     // plugins at all: trackById maps a doc track to the engine track at the same INDEX, so while the loop is
@@ -308,6 +294,7 @@ bool needsFullRebuild(const ProjectDiff& d) {
                 return true;
             case ChangeKind::PluginAdded:
                 if (tracksMoved) return true;
+                // A sidechain is wired by a pass that runs once every track exists, which no insert can do here.
                 if (c.plugin && !c.plugin->sidechainFrom.empty()) return true;
                 break;
             default:

@@ -105,7 +105,7 @@ export const SurfaceSchema = z
     playlist: z.string().min(1).optional(),
     // Does this desk SEPARATE a record handed to it unprepared? See packages/ui-turntables/docs/stems.md.
     stems: z.boolean().optional(),
-    // `MixViewSchema` itself, not a record built the same way — the two drifted once (docs/surfaceFiles.md).
+    // `MixViewSchema` itself, not a record built the same way, so the two cannot drift (docs/surfaceFiles.md).
     mapping: MixViewSchema.optional(),
   })
   .strict()

@@ -1,6 +1,6 @@
 // useEngineLink.ts — the shell's connection to the C++ engine, as one hook: creates the
 // EngineClient, wires its callbacks into state, and exposes the stable senders the
-// panes call. Extracted from App.tsx; the behaviour is unchanged.
+// panes call, so App.tsx holds no engine wiring of its own.
 
 import { EngineClient, type EngineUrl } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";

@@ -3,40 +3,37 @@
 A module inherits from the module it `extends` — `@library/audio/amp/marshall`, and whatever
 *that* extends, with no depth limit.
 
-That used to be two things: the `extends` chain, and the generic a node sat under. A
-project's nodes are files in a flat `nodes/` folder now and name what they use with
-`extends` like anything else, so there is one mechanism instead of two (see
-`docs/nodes.md`). The shared library still files nodes under a module, and those
-merge the old way.
+A project's nodes are files in a flat `nodes/` folder and name what they use with
+`extends` like anything else, so inheritance is ONE mechanism (see `docs/nodes.md`).
+The shared library files nodes under a module, and those merge through the generic they
+sit under.
 
-That merge used to exist in **five** places: `mergeModule` in loader.ts, four `effective*`
-helpers in graph.ts, and three inline copies (graphDoc.ts, nodeProject.ts, patternClock.ts,
-hints.ts). Two had drifted — graphDoc resolved the base with a single direct lookup where
-everything else recursed, so a module three levels deep showed the wrong params in the
-graph and the right ones in the engine.
+One mechanism means one implementation, and that is what this file is: a copy of the merge
+drifts, and drifts silently. A base resolved with a single direct lookup where everything else
+recurses shows a module three levels deep the wrong params in the graph and the right ones in
+the engine.
 
 ## The brand is the mechanism
 
 `ResolvedModule` carries a phantom brand: `declare const RESOLVED: unique symbol`, never
 written at runtime. Nothing serializes differently, and it costs nothing — but
-`resolveModule` is the only way to produce one, so a sixth inline copy would not typecheck
-against the consumers that ask for a `ResolvedModule`. Deleting the five copies was the
-easy part; this is what stops them coming back.
+`resolveModule` is the only way to produce one, so an inline copy of the merge does not
+typecheck against the consumers that ask for a `ResolvedModule`. Deleting a copy is the easy
+part; this is what stops one coming back.
 
 ## The undefined rule
 
 `mergeAuthored` skips a child value that is `undefined`, and this is the whole fix rather
 than a nicety.
 
-The loader DECORATES every module it reads, and decoration writes `ir`, `nam`, `jsdsp` and
+The loader DECORATES every module it reads, and decoration writes the file-valued fields and
 `preset` unconditionally — at `undefined` when the module declares none. A plain
-`{...parent, ...child}` therefore had the child ERASE its parent's impulse response every
-time. That is why the call sites had each grown their own `?? base?.ir`, `?? base?.nam`,
-`?? base?.jsdsp`, `?? base?.preset` — five of them in nodeProject alone, four separate
-chances to forget one.
+`{...parent, ...child}` therefore has the child ERASE its parent's file every time, and every
+call site grows its own `?? base?.nam`, `?? base?.jsdsp`, `?? base?.preset` — five of them in
+nodeProject alone, that many separate chances to forget one.
 
-Fixing the decoration instead would have touched every raw consumer without TypeScript
-flagging a single one. Fixing the merge is total and local.
+Fixing the decoration instead would touch every raw consumer without TypeScript flagging a
+single one. Fixing the merge is total and local.
 
 Note what it is NOT: skipping `undefined` is not skipping falsy. A module that silences an
 inherited `gain: 3` by writing `gain: 0` means it, and `source: ""` clears an inherited
@@ -48,9 +45,9 @@ slice source. Pinned by a test.
 
 These say WHERE the module lives, not what it does. A module filed under `audio/` that
 extends an instrument is still an effect: its icon comes from its own folder, its typed
-input ports from its own type, its chain key from its own file. Before, this held by
-accident — an absent key and a key set to `undefined` merged differently — and would have
-broken the moment decoration touched one of them.
+input ports from its own type, its chain key from its own file. Stated as a list rather than
+left to the accident that an absent key and a key set to `undefined` merge differently, since
+decoration is free to touch any of them.
 
 **"Never" means "when it has them", and the difference is load-bearing.** The rule is that
 the child wins if the KEY IS PRESENT. A node in the project's flat `nodes/` has no
@@ -81,9 +78,9 @@ folders of the WHOLE ancestry, nearest first.
 A module may name a file its parent carries — that is the normal way to use a shared amp: a thin
 local module `extends` it and says which profile to load, while the profiles live in the shared
 folder. Each module resolves its own refs against its own folder when it is loaded, which for that
-local module is a folder holding nothing, so the ref came back unresolved and `mergeAuthored` then
-kept the PARENT's path. The panel showed the chosen name and the engine loaded the inherited file:
-silently the wrong sound, which is worse than none.
+local module is a folder holding nothing, so without this pass the ref comes back unresolved and
+`mergeAuthored` keeps the PARENT's path: the panel shows the chosen name and the engine loads the
+inherited file, silently the wrong sound, which is worse than none.
 
 A chosen `base:` fails in exactly that way and is fixed here for exactly that reason. The bases are
 snapshotted onto the shared module — the one that names the plugin and travels with its sounds —

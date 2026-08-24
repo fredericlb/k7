@@ -31,10 +31,9 @@ the engine is unchanged — it only speaks the JSON protocol below.
 
 ## Where the pieces live
 
-None of this is under `apps/st0` any more. The engine, the tray and the brain
-packages serve every audio app in the repo — pl8, k7, z0 —
-so they sit beside st0 rather than inside it. What remains here is the web
-editor: `frontend` and `backend`.
+The engine, the tray and the brain packages serve every audio app in the repo —
+pl8, k7, z0 — so they sit beside `apps/st0` rather than inside it. What lives
+here is the web editor: `frontend` and `backend`.
 
 The JS packages are **members of the monorepo's npm workspaces**, consumed as raw
 TypeScript source and run via `tsx` — no build step. The engine is a native C++
@@ -121,9 +120,9 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   Declaring a lane is the opt-in that buys the id, the chain and the mixer strip;
   jamming in a fresh pattern needs no ceremony.
 - **A module carries a plugin (or io, or a rack) plus params**, and may **`extends`**
-  another module to inherit its defaults — the same defaults-plus-overrides merge the old
-  blueprint→module split gave, now between any two modules. Its **kind** and input port
-  come from its type folder. Several modules can extend one *base module*.
+  another module to inherit its defaults — a defaults-plus-overrides merge between any
+  two modules. Its **kind** and input port come from its type folder. Several modules can
+  extend one *base module*.
 - **A module is its own folder** `modules/<type>/<name>/` — the **folder** names the
   module (how chains reference it via `use`), and the file inside is always `module.yaml`:
   a flat mapping of the module's own attributes (a `plugin`/`io`/`rack`, optional
@@ -210,17 +209,15 @@ cmake --build --preset dev-gcc -j
 ## Run
 
 The **web editor is the only editing surface** — it connects to the engine via
-WebSocket. (There used to be an Ink terminal UI; it's gone. The command bar,
-the shared command layer, and `st0 cmd` all outlived it.) For a look at a
-project without opening anything, `st0 inspect graph` prints the routing and
-`st0 inspect timeline` prints the tracks and their clips.
+WebSocket. For a look at a project without opening anything, `st0 inspect graph`
+prints the routing and `st0 inspect timeline` prints the tracks and their clips.
 
-The web editor remembers the **active project** in a session file
-(`~/.studio/session.json`) so it comes back where you left it. The file service
-reconnects automatically if the engine restarts and reloads the song whenever a
-file changes on disk. `applied` messages (the exact diff the engine ran) show in
-the UI log, so editing a file and saving shows you precisely what the engine did
-in response.
+The **active project** is remembered per-workspace in a `.studio-active` marker,
+so the editor comes back where you left it. The file service reconnects
+automatically if the engine restarts and reloads the song whenever a file
+changes on disk. `applied` messages (the exact diff the engine ran) show in the
+UI log, so editing a file and saving shows you precisely what the engine did in
+response.
 
 ## The protocol
 

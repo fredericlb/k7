@@ -16,7 +16,7 @@ export interface HostOwnership {
 /** What the engine is doing, as the status line reports it. */
 export type EngineRunState = "stopped" | "running" | "error";
 
-/** One audio interface the engine offered. Mirrors the tray's old `audio.rs` shape. */
+/** One audio interface the engine offered, in the shape the tray's audio submenu draws. */
 export interface HostAudioDevice {
   name: string;
   /** The driver backend offering it ("ASIO", "Windows Audio", …). */

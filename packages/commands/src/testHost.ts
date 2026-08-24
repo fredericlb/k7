@@ -1,12 +1,10 @@
 // testHost.ts — a COMPLETE `CommandHost` for a test, of which a caller states only what matters.
 //
-// Suites used to build their own and finish it with `as never` — 128 of them, each switching the
-// typer off on the object it had just written. Two things followed, both seen: a host missing a
-// field the verb calls compiled and broke at runtime inside a test about something else, and an
-// optional field set to `undefined` took the parameter default, so a "without this capability"
-// test exercised a host that had it. That cost two false greens.
-//
-// Complete by construction here, so forgetting a field is a compile error rather than a surprise.
+// Complete by construction, so forgetting a field is a compile error rather than a surprise. A
+// suite building its own and closing it with `as never` switches the typer off: a host missing a
+// field the verb calls then breaks at runtime inside a test about something else, and an optional
+// field set to `undefined` takes the parameter default, so a "without this capability" test
+// exercises a host that has it. Both read as green.
 
 import type {
   AudioDeviceInfo,

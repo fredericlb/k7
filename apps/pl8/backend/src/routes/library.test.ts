@@ -212,7 +212,7 @@ describe("uploading a variant", () => {
   });
 });
 
-// The read side: `/file` guesses a content type, and the two shells' tables used to disagree.
+// The read side: `/file` guesses a content type, and a wrong guess is a file the browser refuses.
 describe("GET /file", () => {
   const put = (rel: string, body: string) => {
     const abs = join(root, rel);
@@ -269,5 +269,3 @@ describe("GET /search and /list", () => {
     expect(((await r.json()) as { error: string }).error).toBe(FAMILY_ERROR);
   });
 });
-
-// `describe("POST /engine-faces")` stood here; the route went with the `modules` family.

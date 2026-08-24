@@ -203,7 +203,7 @@ export class PatternClock {
       }
     }
     this.patterns = loaded;
-    // Keyed by compiled track id, one per HALF when the lane wired both outputs — both must be here.
+    // Keyed by compiled track id, one per HALF when the lane wires both outputs — both must be here.
     this.declared = new Map();
     for (const p of loaded)
       for (const lane of p.lanes.values())

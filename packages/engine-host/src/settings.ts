@@ -44,7 +44,7 @@ function port(v: unknown, fallback: number): number {
     : fallback;
 }
 
-/** The registry list, also reading the singular `registryUrl` this used to be: migration in the READER, with the new key winning. */
+/** The registry list, also reading the singular `registryUrl` an older settings file carries: migration in the READER, the list winning. */
 function urls(raw: Record<string, unknown>): string[] {
   const list = Array.isArray(raw.registryUrls)
     ? raw.registryUrls.filter(

@@ -25,7 +25,7 @@ export const CABLE: Record<WebSignal, string> = {
 };
 // An untyped cable (a source that says nothing) stays the neutral sand rather than claiming a signal it doesn't know.
 export const cableColorFor = (s?: WebSignal): string => (s ? CABLE[s] : SAND);
-export const RING = "#8b5cf6"; // the selection ring (violet-500), matching the old primary
+export const RING = "#8b5cf6"; // the selection ring (violet-500)
 export const CTRL: Record<string, string> = {
   "@mute": "#f97316", // orange-500
   "@solo": "#eab308", // yellow-500
@@ -51,7 +51,7 @@ const CSS = `
   z-index:2; }
 .dgx-cbl-shadow { fill:none; stroke:#000; stroke-opacity:.5; stroke-linecap:round; stroke-linejoin:round; }
 .dgx-cbl { fill:none; stroke-linecap:round; stroke-linejoin:round; }
-/* .dgx-cbl.auto is gone: the automation cables draw on the canvas with everything else. */
+/* No .dgx-cbl.auto rule: the automation cables draw on the canvas with everything else. */
 .dgx-hit { fill:none; stroke:transparent; stroke-width:14; cursor:pointer; pointer-events:stroke; }
 .dgx-ins-line { fill:none; stroke:#3b82f6; stroke-width:2.5; stroke-linecap:round; }
 .dgx-ins-btn { cursor:pointer; pointer-events:auto; }
@@ -245,7 +245,7 @@ const CSS = `
   background:color-mix(in srgb,${MAUVE} 18%,transparent); }
 .dgx-wlab.top { position:absolute; top:1px; left:2px; right:2px; margin-top:0;
   overflow:hidden; text-overflow:ellipsis;
-  /* Centred by text-align: out of the flow, this span is no longer a child .dgx-w can centre. */
+  /* Centred by text-align: out of the flow, this span is not a child .dgx-w can centre. */
   text-align:center; }
 /* 6px, down from 8: a caption names a control that is already drawn, so it can be the smallest thing here. */
 .dgx-wlab { font-size:6px; text-transform:uppercase; letter-spacing:.09em; color:var(--dim);

@@ -63,10 +63,10 @@ public:
     /**
      * Reset the whole ring — MESSAGE THREAD ONLY, and only while nothing is draining it.
      *
-     * `lastRead_` is the reader's cursor, so this is not something the audio side may call: the
-     * plugin's `reset()` used to, from graph preparation and transport repositioning, and rewinding
-     * `writeHead_` under a nonzero `lastRead_` makes `written - lastRead_` underflow — capped at
-     * BUFFER_SIZE by drain(), so it read back as a full ring of stale points rather than crashing.
+     * `lastRead_` is the reader's cursor, so this is not something the audio side may call — and the
+     * plugin's `reset()`, which runs on graph preparation and transport repositioning, is the audio
+     * side. Rewinding `writeHead_` under a nonzero `lastRead_` makes `written - lastRead_` underflow,
+     * capped at BUFFER_SIZE by drain(), so it reads back as a full ring of stale points, not a crash.
      * `BroadcastTapPlugin` carries the same warning and answers it by having no reset() at all.
      */
     void reset() {

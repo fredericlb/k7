@@ -134,7 +134,7 @@ describe("regionWaveform maps the FILE's transients onto the region", () => {
   });
 
   it("follows the clip file's OWN window, which is where the engine starts playing", () => {
-    // The bug this pins: a drawing reading only `offset` started every trimmed clip at the head.
+    // What this pins: a drawing reading only `offset` starts every trimmed clip at the head.
     const w = regionWaveform(
       env(),
       clip({ length: 4, sourceFrom: 1 }),
@@ -156,7 +156,7 @@ describe("regionWaveform maps the FILE's transients onto the region", () => {
   });
 
   it("detects nothing of its own — an envelope with no onsets yields none", () => {
-    // The proof that detection moved: these peaks would produce onsets if the detector ran here.
+    // Detection belongs to the engine: these peaks would produce onsets if it ran here.
     const peak = new Array(100).fill(0).map((_, i) => (i % 10 === 0 ? 1 : 0));
     const w = regionWaveform(
       env({ peak, transients: [] }),
@@ -217,7 +217,7 @@ describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {
       ] as [number, number][],
     };
     expect(warpStretch(warp, 110)).toBeCloseTo(12 / 11, 6);
-    // …and an unwarped clip is 1, which is what keeps every other clip drawn exactly as before.
+    // …and an unwarped clip is 1, so it is drawn at the file's own rate.
     expect(warpStretch(undefined, 110)).toBe(1);
     expect(
       warpStretch(
@@ -307,7 +307,7 @@ describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {
       warpStretch({ algorithm: "e", markers: [ends[0], [4, 1], ends[1]] }, 110),
       9,
     );
-    // …so anything reading only that ratio would have drawn these two identically.
+    // …so anything reading only that ratio draws these two identically.
     expect(bent.transients[0]).toBeGreaterThan(flat.transients[0] + 1e-3);
   });
 

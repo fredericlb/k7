@@ -18,4 +18,4 @@ params:
   Peak: 0
 # In a paragraph: peak normalisation. Measures the loudest sample of the whole file and applies
 # the gain that puts it at Target. Only works on a file input — live, there is nothing to
-# measure yet. (Was `docs:`; the field is gone, see packages/song/docs/docModules.md.)
+# measure yet. (A module's description is its header, here — packages/song/docs/docModules.md.)

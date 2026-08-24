@@ -27,7 +27,7 @@ export function loadEnv() {
       OIDC_ISSUER: z.string().default(""),
       OIDC_CLIENT_ID: z.string().default(""),
       OIDC_CLIENT_SECRET: z.string().default(""),
-      // Signs the guest cookie AND verifies pl8's; must be `common`'s — ../../docs/auth.md.
+      // Signs the guest cookie AND verifies st0's; must be `common`'s — ../../docs/auth.md.
       SESSION_SECRET: z.string().default(""),
       AUTH_ADMIN_GROUPS: list,
 

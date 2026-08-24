@@ -13,8 +13,9 @@
 @source "../../../../packages/ui-waveform/src";
 @source "../../packages/recorder/src";
 
-/* Tailwind's preflight zeroes element margins; the legacy stylesheet relies on
-   browser-default paragraph/heading flow in a lot of places, so restore it. */
+/* Tailwind's preflight zeroes element margins; the hand-written stylesheet
+   relies on browser-default paragraph/heading flow in a lot of places, so
+   restore it. */
 @layer base {
   p {
     margin-block: 1em;

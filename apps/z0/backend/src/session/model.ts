@@ -1,6 +1,6 @@
-// The in-memory session shapes every consumer expects (session.go's structs).
-// JSON field names match the Go `json:` tags — the SPAs read these over the
-// wire, so they are part of the public contract.
+// The in-memory session shapes every consumer expects. The SPAs read these
+// field names over the wire, so they are part of the public contract and
+// cannot be renamed on this side alone.
 
 /** A single audio track inside a fusion/multi song. */
 export interface Track {

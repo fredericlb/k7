@@ -1,11 +1,10 @@
 // timeline.ts — print a project's arrangement: every track and the clips on it, the
 // read-only counterpart to the web Timeline tab and the sibling of @studio/song's graph.ts
-// (which shows ROUTING rather than what is ARRANGED). Both were commands once — `project
-// inspect timeline` and `project inspect graph` — and are scripts alone now: what they print
-// is what the panes draw, so the palette row was a verb nobody ran. describeTimeline stays
-// pure, a doc in and strings out, which is what let the two surfaces share it. Run with
-// `npx tsx` — and NOT published in `exports`, because a script is reached by path, never by
-// specifier: the subpath was one nothing could ever import.
+// (which shows ROUTING rather than what is ARRANGED). Neither is a command: what they print
+// is what the panes draw, so a palette row would be a verb nobody runs. describeTimeline
+// stays pure, a doc in and strings out, which is what lets the two surfaces share it. Run
+// with `npx tsx` — and NOT published in `exports`, because a script is reached by path and
+// never by specifier, so the subpath would be one nothing can import.
 
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";

@@ -2,7 +2,8 @@
 
 Three files sit on one axis: `loader.ts` reads the folder, `graph.ts` assembles the
 `GraphDoc` a surface draws and checks it, `nodeProject.ts` compiles the `ProjectDoc` the
-engine plays. This page holds the reasoning those three used to carry inline.
+engine plays. This page holds the reasoning behind the three, which the code points at rather
+than carrying inline.
 
 `nodeProjectLayout.md` describes the FOLDER; this page describes the MODEL built from it.
 
@@ -19,7 +20,7 @@ callers can read any without narrowing first.
 
 There is no `contentType`. A lane is not typed by what it carries — each PLACEMENT is
 (`Placement.kind`). A reader that wants the summary asks the placements, and gets "both" as an
-honest answer, which the old field had no way to give.
+honest answer, which one word at the top of the file could not give.
 
 `Track.mute` is read off `graph.yaml`'s `bypassed:`: a lane's mute IS its module's bypass, which
 is why the lane file carries no `mute:` for the two to disagree over. `Track.solo` is always
@@ -42,9 +43,10 @@ one has to be listed in `project.layers`, so there is no "left out" state to mod
 
 ## `Out` is `WebOut`
 
-`Out` and `WebOut` were field-for-field identical, one here and one in `@studio/graph-model`,
-which is how `fromPort` came to be added twice. The name survives because it reads better inside
-a compiler that has no "web" side; the type is one. See `ports.md`.
+`Out` is an alias of `@studio/graph-model`'s `WebOut`, not a second declaration: two
+field-for-field identical types are how a field like `fromPort` gets added twice. The name is
+kept because it reads better inside a compiler that has no "web" side; the type is one. See
+`ports.md`.
 
 An output port has no `mandatory` twin: an output is offered, never required — nothing is wrong
 with a jack nobody plugged into.
@@ -74,9 +76,8 @@ loads, and the name it was authored with. `validate()` needs the pair — a name
 file the module's `assets/` does not hold, and silently loading nothing would sound like an amp
 that isn't there: quiet, and unexplained.
 
-`content` is a NOTE's text on a doc module. It replaced `docs` and `todos`, which any module
-could carry and only the Docs panel could show; a note now sits IN the graph, wired from what it
-is about. See `docModules.md`.
+`content` is a NOTE's text on a doc module. It is the only place prose about the signal path
+lives, and it sits IN the graph, wired from what it is about. See `docModules.md`.
 
 `alternatives` / `alternative` are carried AFTER the merge, deliberately: the fields above are
 already the chosen set, and these say what could be chosen instead. Absent when the module has
@@ -95,32 +96,31 @@ what the lane actually HOLDS — audio if every event names a clip, midi if ever
 sequence, and undefined when it is empty, mixed, or names something unresolved, which is the
 caller's cue to skip the check rather than guess.
 
-So `trackType` reads the events again, which is what it did before the five track modules
-existed. It is not the same reading: then it was a GUESS at a fact the file failed to state, now
-it is the fact. A lane holding a riff and a line holds a riff and a line, and no word at the top
-of the file can be more true about that than the events are. A group carries no signal of its
-own, so it is never a chain source.
+So `trackType` reads the events. That is not a guess at a fact the file failed to state, it IS
+the fact: a lane holding a riff and a line holds a riff and a line, and no word at the top of the
+file can be more true about that than the events are. A group carries no signal of its own, so it
+is never a chain source.
 
 A VIDEO track types as "video", which is what lets a chain run one through `video_effects` to
-`VIDEO_OUT` and be checked like any other. Without it a video source typed as nothing and the
-whole video-chain half of the model had no way to be reached from a real song.
+`VIDEO_OUT` and be checked like any other. Without it a video source types as nothing and the
+whole video-chain half of the model cannot be reached from a real song.
 
 `buildGraph` tells the derivation which nodes are lanes, and a video lane counts: it lives in
-`video_tracks/` rather than in `modules`, so it matched neither test and `main: [ glow ]` was read
-as a run whose first STEP was a module called `main` — reporting the lane as "not a module or
+`video_tracks/` rather than in `modules`, so nothing else recognises it and `main: [ glow ]` would
+read as a run whose first STEP is a module called `main` — reporting the lane as "not a module or
 module node", about a file sitting right there. One map, one name space, both kinds of lane.
 
 ## What ends a run
 
 `isSink` accepts the built-in outputs by name: `OUT`, `MIX`, `RENDER`, `VIDEO_OUT`. A project
 needs no `modules/io/OUT` folder for them to work and every demo song relies on that; requiring
-the folder made all four warn that the OUT ending their chains "is not a chain or io sink". `MIX`
+the folder would make all four warn that the OUT ending their chains "is not a chain or io sink". `MIX`
 is the mixer's own sum and `OUT` the master run that carries the whole mix out (`masterChain.md`);
 `RENDER` and `VIDEO_OUT` are the picture's pair, asked by the same rule (`videoOutputs.md`).
 
 A NOTE ends a run too, and legitimately: a doc module takes one input and gives nothing back, so
 a chain routed to it terminates there exactly as it does at an output. Without that, the graph
-reported every wired note as "not a chain or io sink" — a warning about a comment, on a project
+reports every wired note as "not a chain or io sink" — a warning about a comment, on a project
 that is correct. It is a sink by SHAPE rather than by role, which is why it is asked separately
 from the io test.
 
@@ -165,9 +165,9 @@ to write a module you are about to give a file to. See `coldModules.md`.
 
 `inputLandingTrack` returns the run's own source track when the input is a step ON it, else the
 TRACK its run ends at. The second form is what `"@engine/io/IN:in-2": [ ge.rythm ]` says, and it
-is the one that reads correctly — signal comes FROM an input, INTO a lane. The first is what the
-old chain-list format could express, where a chain named its track up front and the input was a
-node inside it; both still work, because both are still written.
+is the one that reads correctly — signal comes FROM an input, INTO a lane. The first is a run
+that names its track up front with the input as a node inside it; both work, because both are
+written.
 
 An input is therefore wired by the RUN it sits in, which is why `validate()` walks the chains
 rather than the modules for this. `channel` anywhere else is silently ignored, which looks like it
@@ -175,9 +175,9 @@ took effect — hence the warning.
 
 ## What `validate()` guards, and why each one is there
 
-- `from` may name a track or ANOTHER chain, never itself. Excluding self is not pedantry now that
-  a chain takes its name from its source track: an unnamed chain is called exactly what its `from`
-  says, so `g.chains[c.from]` would find ITSELF and a dangling source would look resolved. `MIX`
+- `from` may name a track or ANOTHER chain, never itself. Excluding self is not pedantry: a chain
+  takes its name from its source track, so an unnamed chain is called exactly what its `from`
+  says, `g.chains[c.from]` would find ITSELF and a dangling source would look resolved. `MIX`
   and `RENDER` are exempt — every scaffolded project writes `MIX: [ OUT ]`, and every project with
   a viewport gets the `RENDER` line automatically, so leaving them out warned on all of them at
   once about the one line that is always right.
@@ -186,26 +186,26 @@ took effect — hence the warning.
   right for a lane holding one kind of thing. Once it holds both, a synth is handed the audio clips
   too and passes them through or eats them depending on the plugin — neither a crash nor what was
   intended.
-- Routing INTO a live input is checked ahead of `isNode`, which now says yes: a module the signal
+- Routing INTO a live input is checked ahead of `isNode`, which says yes: a module the signal
   stops at starts a chain of its own, so an input at the end of a run resolves perfectly and does
   nothing.
 - Only a live input's signal may land on a LANE. A track's material is its clips, so an ordinary
   module aimed at one is silently discarded.
-- `out.fromPort` is checked because it was checked nowhere: a wrong destination port throws in
-  `checkChainInputs`, while `sep#vocls` used to route silently — the derivation dropped the typo
-  and the cable landed on the module's first jack.
+- `out.fromPort` is checked on the SOURCE side as well: a wrong destination port throws in
+  `checkChainInputs`, while `sep#vocls` would route silently — the derivation drops the typo and
+  the cable lands on the module's first jack.
 - A group is not a chain source: it holds no material, and it is not a lane the engine plays, so
   the compiler would drop the chain's plugins on the floor without a word. Fatal in
-  `checkChainInputs` rather than silent there. Before strudel lanes were declarable, wiring a chain
-  to a pattern's group was the obvious thing to try; it did nothing.
+  `checkChainInputs` rather than silent there — wiring a chain to a pattern's group is the obvious
+  thing to try, and a strudel lane is what you want instead.
 - The engine assigns ONE input per track, so a second would silently replace the first: both are
   named rather than letting the last one loaded win.
 - Disabled reads as absent, so the messages say which it is — "not found" sends the reader hunting
   for a typo in a file that is sitting right there, only switched off.
 
-There was a third refusal on a live input's landing track: a `contentType: sequences` track, since
-an interface input carries audio. A lane has an audio output whatever it holds now, so there is
-nothing left to refuse — the input lands on the audio half, which always exists.
+There is no refusal about what the landing lane HOLDS. An interface input carries audio, and a
+lane has an audio output whatever its material, so the input lands on that half — which always
+exists, leaving nothing to refuse.
 
 `checkChainInputs` fills ports in order: the chain flow (the previous step's output, or `from` for
 the first step, or the summed sends of a routed-into bus) fills the first port, and a step's `in:`
@@ -242,10 +242,10 @@ re-exports them because that is where every existing importer looks, and IMPORTS
 
 A clip's `id` is the PLACEMENT's identity, not the material's — `name` is the material, and the
 two are only the same string while a material is placed once. A SPLIT makes two placements of one
-material by definition, so `id: ref` gave both halves one id: the engine indexes clips by it,
-`emplace` keeps the first, and the second was never diffed — "edits to the other will not be
-heard", in its own words. `findClip` picked the first too, so clicking the tail drew the head's
-window.
+material by definition, so `id: ref` would give both halves one id: the engine indexes clips by
+it, `emplace` keeps the first and the second is never diffed — "edits to the other will not be
+heard", in the engine's own words — and `findClip` picks the first too, so clicking the tail would
+draw the head's window.
 
 A window EDGE is always SECONDS, which is what the engine takes and what a window into a file
 means. A number is already seconds; a timecode is musical and converted where the tempo is known.
@@ -302,15 +302,15 @@ Neither is fatal. A source that throws, or a runner that cannot start, leaves th
 graph and the engine says so. One broken effect must not take a song down. What neither can do is
 catch a syntax error — only the engine's compiler can, and it reports through the warning channel.
 
-Only a KNOWN plugin format reaches the engine. `jsdsp` was one this gate did not know for a while,
-so every module written in the new form was dropped from the compiled doc SILENTLY — nothing
-warned, because a step whose module compiles to nothing is how a bypass looks.
+Only a KNOWN plugin format reaches the engine, and a format this gate does not know is dropped
+from the compiled doc SILENTLY — nothing warns, because a step whose module compiles to nothing is
+how a bypass looks. Adding a format means adding it here (`faustModules.md` lists the four doors).
 
 `params` reach the engine as numbers only. A file-valued param (`nam`) is authored in the same map,
 because to the person editing the module it IS one of the plugin's controls, but the wire's params
 are `Record<string, number>` mirrored in C++ as a float map and a string there is not a value the
-engine could set. It leaves as `namFile` instead, which is what the engine already expected — so
-the authored shape changed and the protocol did not.
+engine could set. It leaves as `namFile` instead, which is what the engine takes — the authored
+shape says it one way, the protocol another, and the compiler is where they meet.
 
 ## Lane halves
 
@@ -319,12 +319,11 @@ always been wired. It compiles to TWO when its `audio` and `midi` outputs were k
 `graph.yaml` — `melody#audio` and `melody#midi` — each carrying the events its port fits and the
 plugins of the run that left by it.
 
-This is not a new shape for the engine. It holds ONE plugin chain per track, so a lane playing a
-riff through an amp and a line through a synth was always two tracks down there — and used to be
-two lanes up here too, one typed `audio` and one typed `sequences`, with nothing but a naming
-convention saying they belonged together. Detyping makes it one lane whose material sorts itself;
-the split survives only where the engine's model requires it, which is the same relationship
-`Mixer` already has with the engine's fader.
+The engine holds ONE plugin chain per track, so a lane playing a riff through an amp and a line
+through a synth is two tracks down there whatever the authoring model says. Detyping makes it one
+lane up here whose material sorts itself, rather than two lanes tied together by a naming
+convention; the split exists only where the engine's model requires it, which is the same
+relationship `Mixer` has with the engine's fader.
 
 The sort is over the LANES rather than the halves, so both halves of a lane take its rank and stay
 adjacent: a split reads as one thing in two strips rather than as two lanes that drifted apart in
@@ -335,8 +334,8 @@ name, so a module wired to a port from inside another chain arrives as a step na
 that chain's. Its signal is its chain's, so the lane is that chain's owner — one level deeper, same
 ownership rule. `deckB: [ tempoB ]` + `tempoB: [ crossfade#b ]` is exactly this shape and it
 appears the moment a deck gets anything of its own before the meeting point; without it the second
-input resolved to nothing and the deck went SILENT while the chains file, the graph and the panel
-all still said it was wired.
+input resolves to nothing and the deck goes SILENT while the chains file, the graph and the panel
+all say it is wired.
 
 ## Baking an envelope
 
@@ -357,7 +356,7 @@ holds one value — the same reason `bakeAdsr` cuts rather than sums.
 Which nodes are LANES has to be settled BEFORE the chains are derived — a run is named after its
 lane, and with one `modules:` map only `extends` tells a lane from a reverb. So the local modules
 are folded first and the derivation is told. The fold is pure and in memory; doing it twice costs
-a walk over a few dozen structs and buys the derivation the one fact `graph.yaml` no longer states.
+a walk over a few dozen structs and buys the derivation the one fact `graph.yaml` does not state.
 
 `loadGraph` and `compileNodeProject` both wrap their work in `withModuleStamp`: they ask the
 module cache twice, and one stamp walk covers the pair. See `moduleCache.md`. `withModuleStamp` is
@@ -368,13 +367,13 @@ caller that WRITES nothing: a stale stamp would serve a module under a name nobo
 ## Reading the module folders
 
 `readModuleTree` allows ONE level of filing under a type — `audio/reverb` and
-`audio/amps/neural-amp-modeler` both, the second keyed `amps/neural-amp-modeler`. It has always
-done that for the shared libraries and the médiathèque files its catalogue that way; a project's
-own `modules/` did not, and a folder with no `module.yaml` in it was simply skipped, so a nested
-module was not an error, it just was not there. Every symptom then described something else: a
-chain naming a module "this project doesn't have", a catalogue short a few rows, and — for the
-module bench, whose `modules/` IS the catalogue — a builder answering 400 for a file sitting right
-in the tree. Two walkers over one vocabulary had to agree.
+`audio/amps/neural-amp-modeler` both, the second keyed `amps/neural-amp-modeler`. It holds for the
+shared libraries, for the médiathèque, which files its catalogue that way, and for a project's own
+`modules/`: **two walkers over one vocabulary have to agree.** One that skipped a folder with no
+`module.yaml` in it would make a nested module not an error but simply absent, and every symptom
+would then describe something else — a chain naming a module "this project doesn't have", a
+catalogue short a few rows, and, for the module bench whose `modules/` IS the catalogue, a builder
+answering 400 for a file sitting right in the tree.
 
 A module file that will not READ is reported rather than dropped in silence, because the shape of
 that failure is the problem: the ref simply stops existing, so every symptom downstream describes
@@ -392,8 +391,8 @@ place, by two different rules — so sharing either would let one caller's overl
 next one sees. Aliases survive: a module filed under two refs stays one object.
 
 The ref map keys a project's own module TWICE, bare (`audio/reverb`) and under its explicit level
-(`@project/audio/reverb`). The bare form is what every `graph.yaml` already written says; the
-explicit one is what new files are written in. Both resolve, and nothing had to be migrated. NODES
+(`@project/audio/reverb`). The bare form is what most `graph.yaml` files say; the explicit one is
+what new files are written in. Both resolve, so neither spelling needs migrating. NODES
 are skipped when re-keying, since one would silently replace its own generic's key.
 
 The built-ins are seeded before the catalogue so anything on disk overrides both: a project or a
@@ -405,15 +404,15 @@ name.
 
 The refs a local module's own FILES may be filed under are, best first, its own and then the module
 it DERIVES from: a folder of nodes is one use of something the engine or a library provides, and a
-panel is drawn for the thing rather than for each use of it. Without the fallback, moving a project
-off the generated catalogue orphaned every panel drawn for a shared module.
+panel is drawn for the thing rather than for each use of it. Without the fallback, a project off
+the generated catalogue orphans every panel drawn for a shared module.
 
 ## The DSP source of a module
 
 The PLUGIN TYPE decides which file: `plugin.type: jsdsp` means `jsdsp.ts` in the module's own
-folder, `plugin.type: faust` the `dsp.dsp` beside it. It used to be a `jsdsp:` field naming the
-file, beside a `plugin: {type: internal, name: DSP Graph}` that said nothing about it — two things
-to keep in step, and the interesting one was the one nobody read. One statement says both now, and
-a module with the type but no file is a module whose source is missing rather than one that
-silently loads a graph host with nothing in it. ONE function covers the two languages and returns
-the FIELD rather than a path, so the type-to-filename mapping lives in one place.
+folder, `plugin.type: faust` the `dsp.dsp` beside it. ONE statement says both, rather than a field
+naming the file beside a `plugin:` block that says nothing about it — two things to keep in step,
+and the interesting one is the one nobody reads. So a module with the type but no file is a module
+whose source is missing, rather than one that silently loads a graph host with nothing in it. ONE
+function covers the two languages and returns the FIELD rather than a path, so the
+type-to-filename mapping lives in one place.

@@ -2,7 +2,7 @@
 // What is pinned here is the ALIAS: a project module's `extends` may be written bare
 // (`instruments/drum_1`) or explicit (`@project/instruments/drum_1`) — loadModuleRefs registers
 // both — and the map must answer both, or a ctrl-click and the popin's module pane go blind on
-// exactly the files written the explicit way (nodes/da_main-drum_1.yaml was one).
+// exactly the files written the explicit way.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

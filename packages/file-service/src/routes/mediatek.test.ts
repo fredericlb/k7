@@ -1,6 +1,6 @@
-// The cache shell's read side, which had no test at all while it and apps/pl8/backend's carried
-// two separate MIME tables. The two extensions asserted here are the ones the drift actually cost:
-// this side could not serve an .aiff or a .nam, and the hosted side could not serve a cover.
+// The cache shell's read side. It and apps/pl8/backend's carry MIME tables that must not drift:
+// the two extensions asserted here are what such a drift costs — an .aiff or a .nam this side
+// cannot serve, a cover the hosted side cannot.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { Server } from "node:http";

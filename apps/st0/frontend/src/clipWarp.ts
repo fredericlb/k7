@@ -70,4 +70,4 @@ export function warpLine(
   return `clip warp ${clip} ${src.toFixed(4)} ${beat.toFixed(3)}`;
 }
 
-// A `warpAt` hit test lived here twice; removing a point moved to the RIGHT-CLICK menu, where the pointer is already on the handle.
+// Removing a warp point is the RIGHT-CLICK menu's, where the pointer is already on the handle, so no hit test belongs here.

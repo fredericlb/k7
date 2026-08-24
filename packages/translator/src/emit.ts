@@ -1,6 +1,6 @@
-// emit.ts — write a Song (from dawproject.ts) out as a node/track/chain project: a
+// emit.ts — write a Song (from any mapper) out as a node/lane/chain project: a
 // project.yaml + graph.yaml, one self-contained module folder per plugin, and
-// tracks/clips/sequences. No schema file ships with it — a project is validated in
+// nodes/clips/sequences. No schema file ships with it — a project is validated in
 // process against the loader's own schemas. Layout + mapping: docs/import.md.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -520,7 +520,7 @@ export function emitFolder(
   const chainNodes = { ...chainTracks, ...chainModules };
   const seg: Record<string, unknown> = {};
   if (Object.keys(chainNodes).length) seg.modules = chainNodes;
-  // A lane the import found MUTED is bypassed, which is where a lane's mute lives now.
+  // A lane the import found MUTED is bypassed, which is where a lane's mute lives.
   const muted = song.tracks
     .filter(
       (t) =>
@@ -545,7 +545,7 @@ export function emitFolder(
     ),
   );
 
-  // Which modules survive: one whose every insert was orphaned has nothing left to write.
+  // Which modules survive: one whose every insert is orphaned has nothing left to write.
   const liveModules = modules.filter((b) => b.inserts.length > 0);
 
   // Modules -> module.yaml, plus one flat nodes/<node>.yaml per insert past the first — see docs/import.md.

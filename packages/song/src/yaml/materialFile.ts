@@ -1,6 +1,6 @@
-// materialFile.ts — READ the window a material file states. Nothing writes one any more: a clip
-// file describes the bytes and a placement describes the use, so the window lives on the event
-// (song/docs/materialCut.md). What is left is the reader the resize still consults for its bound.
+// materialFile.ts — READ the window a material file states. Nothing writes one: a clip file
+// describes the bytes and a placement describes the use, so the window lives on the event
+// (song/docs/materialCut.md). This is the reader the resize consults for its bound.
 
 import { readFileSync } from "node:fs";
 import { parseDocument } from "yaml";

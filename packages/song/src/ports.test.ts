@@ -46,7 +46,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("a port ref", () => {
   it("splits on the LAST separator, leaving every other one alone", () => {
-    // `#` was chosen because `:` and `/` were already spoken for by the namespace and the node.
+    // `#`, because `:` and `/` are spoken for by the namespace and the node.
     expect(splitPort("crossfade#b")).toEqual({ node: "crossfade", port: "b" });
     expect(splitPort("@st0/audio/crossfade:live#b")).toEqual({
       node: "@st0/audio/crossfade:live",
@@ -79,7 +79,7 @@ describe("a module's own ports", () => {
   });
 
   it("leave a module that declares none with its type's", () => {
-    // Every module written before this existed, which is the case that must not move.
+    // The overwhelming case — a module declaring no ports at all — which must not move.
     file(
       "modules/audio/amp/module.yaml",
       "plugin: {type: internal, name: Chorus}\n",
@@ -128,7 +128,7 @@ describe("wiring a named port", () => {
     });
     expect(derived.deck.out.map((o) => o.to).sort()).toEqual(["OUT", "phones"]);
     expect(Object.keys(derived).sort()).toEqual(["deck", "phones"]);
-    // …but the union must not cost the cable's origin: the source jack used to be forgotten here.
+    // …but the union must not cost the cable's origin: the source jack has to survive it.
     expect(derived.deck.out.find((o) => o.to === "phones")?.fromPort).toBe(
       "cue",
     );
@@ -167,7 +167,7 @@ describe("what validate says", () => {
   };
 
   it("accepts both inputs fed, and says nothing at all", () => {
-    // EVERY warning: filtering to /port|input/ hid two that the raw-string walk was producing.
+    // EVERY warning: filtering to /port|input/ hides two the raw-string walk produces.
     const g = wire(
       "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  crossfade: [ OUT ]\n",
     );

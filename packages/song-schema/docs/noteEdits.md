@@ -31,8 +31,8 @@ addressing and the clearing rule identical.
 ## `moveNote`
 
 The note is MOVED, not rebuilt: only `k` and `t` are rewritten, so its length and its velocity ride
-along untouched. Remove-then-add would have lost both — `sequence note new` takes no velocity at all
-— and it would have been two journal steps for one act. The destination is refused when it already
+along untouched. Remove-then-add would lose both — `sequence note new` takes no velocity at all —
+and would be two journal steps for one act. The destination is refused when it already
 holds a note: (key, start) is how every surface addresses one, so two notes sharing the pair would be
 the same note twice and the next edit could not say which it meant.
 

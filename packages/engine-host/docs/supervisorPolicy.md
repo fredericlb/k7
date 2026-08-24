@@ -70,8 +70,8 @@ anything wins outright** — they are alternatives, not a union:
 It answers a **list**, because each hosted service holds its own registry and an engine must be
 listed in st0 *and* in the médiathèque to be pickable in both. Deduped, since the same URL twice
 would mean two heartbeats a tick to one server for nothing. The legacy single file is still read
-because an older st0 backend writes only that one and a tray shipped before the directory reads
-only that one; the union is what stops a version skew from silently costing an app its engine.
+because an older st0 backend writes only that one and an older tray reads only that one; the
+union is what stops a version skew from silently costing an app its engine.
 
 The heartbeat is **all-or-nothing**: the tray shows one light, so "ok" has to mean every service
 can offer this engine. A registry that is down is simply absent from that service's picker, which
@@ -85,7 +85,7 @@ the path comes back from the service table. The first resolvable registry wins, 
 unparseable one yields nothing rather than an empty string the file service would read as
 configured.
 
-`addRegistryUrl` is an **add** and no longer a replace. Each hosted service holds its own
+`addRegistryUrl` is an **add**, not a replace. Each hosted service holds its own
 registry, so "Add web UI…" for the médiathèque must not evict st0 — that would silently take the
 engine out of one picker to put it in another, and the two are not alternatives. It is idempotent
 beyond re-announcing, and it persists the result as the explicit list so the next boot takes it
@@ -124,9 +124,8 @@ files the user has to cross-reference, their stdout/stderr are piped here and wr
 ONE file, each line tagged with its source and a timestamp. That single file is what the
 tray's "Show logs" opens and what the file service serves to the web UI's Logs panel.
 
-The line format is `HH:MM:SS [tag] text` and must stay BYTE-IDENTICAL to what the tray
-used to write: the Logs panel seeds on a tail and then polls by byte offset, so a format
-change is not cosmetic.
+The line format is `HH:MM:SS [tag] text` and must stay BYTE-IDENTICAL: the Logs panel seeds
+on a tail and then polls by byte offset, so a format change is not cosmetic.
 
 **TRUNCATION IS NOT OURS.** We open in APPEND mode, always. The tray truncates the file
 once when it starts, because the tray's lifetime is what "a session" means — and this
@@ -151,24 +150,21 @@ The spawn rule, which must not be simplified:
 3. **Neither → FAILED.** That is what the red icon and the "Restart file service" menu
    entry exist for; reporting green here would be a lie the user cannot act on.
 
-The old standalone host always spawned via `tsx`, which is branch 2 with no branch 1 —
-correct standalone, wrong under a tray, where it would race `npm run dev` for 8770.
+Branch 1 is the one that looks droppable and is not: without it the spawn races `npm run dev`
+for 8770.
 
 ## `engineProcess.ts` — adopting, and what a pidfile is not
 
 A pidfile is what makes a supervisor crash survivable: the engine outlives us, and the next
-supervisor ADOPTS it rather than finding the port held by a process nobody owns. That part is
-right and stays.
+supervisor ADOPTS it rather than finding the port held by a process nobody owns.
 
 What it is not is an identity. `engineRunning()` asks the operating system whether that NUMBER
-is a live process — nothing more — and a pid is reused. The failure that follows is silent in
-every direction:
-
-> Overnight the engine died. The OS handed its pid to an unrelated `node`. The next supervisor
-> read the pidfile, found the pid alive, logged *adopting the engine already on the pidfile*,
-> and spawned nothing. The crash watch asks the same question, so it never relaunched either.
-> The heartbeat asks it too, so all three registries went on being told an engine was there.
-> Every app listed a machine that answered nothing.
+is a live process — nothing more — and a pid is reused. Trusting it alone is silent in every
+direction: the engine dies, the OS hands its pid to an unrelated `node`, and the next
+supervisor reads the pidfile, finds the pid alive, logs *adopting the engine already on the
+pidfile* and spawns nothing. The crash watch asks the same question, so it never relaunches
+either; the heartbeat asks it too, so every registry goes on being told an engine is there, and
+every app lists a machine that answers nothing.
 
 So the port is asked as well: adopt only if something is actually serving on it, and otherwise
 treat the pidfile as stale, clear it and start a fresh engine. The dead pid's process is left
@@ -182,21 +178,22 @@ needs consecutive failures before acting — and it has not been taken.
 
 ## `engineQueries.ts` — request/reply over one connection
 
-This replaces a design where the tray opened a FRESH WebSocket per call, with loops
-running at 2s / 2s / 3s — roughly one TCP handshake per second, forever, each connection
-then reading and discarding the engine's ~20 Hz `state` broadcasts until its own typed
-reply arrived. One connection whose firehose is simply not listened to costs nothing.
+The polls run at 2 s / 2 s / 3 s, so a fresh WebSocket per call would be roughly one TCP
+handshake per second, forever, each connection then reading and discarding the engine's ~20 Hz
+`state` broadcasts until its own typed reply arrived. One connection whose firehose is simply
+not listened to costs nothing.
 
-Three things the fresh-connection design got for free, rebuilt here:
+Three things a fresh connection per call would give for free, and that a shared one has to
+provide itself:
 
 1. **REQUEST/REPLY.** Every `EngineControl` method is fire-and-forget; the reply comes
-   back as an event. Each function pairs a send with a one-shot listener and a deadline,
-   keeping the per-call timeouts the tray used.
+   back as an event. Each function pairs a send with a one-shot listener and a per-call
+   deadline.
 2. **ONE AT A TIME.** `set-audio-device` is answered with an `audio-devices` frame — the
    same type the devices poll waits for. On a shared connection a concurrent poll would
    capture the other request's reply and both would be wrong. Every call goes through
    `queue`, so exactly one is ever in flight.
-3. **NO STALE STATE.** A fresh socket each time meant none; here a dropped connection has
+3. **NO STALE STATE.** A fresh socket each time has none; here a dropped connection has
    to be noticed and redialled (see `connected`).
 
 ## `audioPolicy.ts` — which interface the engine should be on

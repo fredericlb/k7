@@ -80,7 +80,7 @@ describe("sharedFolders", () => {
   });
 
   it("survives a declaration naming a folder that is gone", () => {
-    // A deleted `_modules` used to leave a line that threw, taking the whole song down.
+    // A declaration naming a deleted `_modules` must not throw and take the whole song down.
     addMediatek("modules");
     writeFileSync(
       join(project, "project.yaml"),
@@ -94,7 +94,7 @@ describe("sharedFolders", () => {
     addModules();
     addMediatek("modules");
     expect(moduleNamespaceOf(join(ws, "_modules"))).toBe("workspace");
-    // `st0` names the app that served the library when the level was named, not the folder.
+    // `st0` names the app that serves the library, not the folder it sits in.
     expect(moduleNamespaceOf(join(libraries, "modules"))).toBe("st0");
   });
 });

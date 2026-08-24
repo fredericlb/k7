@@ -154,7 +154,7 @@ export function MixView({
     try {
       const first = await service.prepareStems(library, song, engine.id);
       if (!mine()) return;
-      // Already on disk: the flag this was decided from is a scan snapshot, so the machine is asked again.
+      // Already on disk: `meta.stems` is only a scan snapshot, so the machine is the one asked.
       if (first.ready) return landed();
 
       let job = first.job;
@@ -246,7 +246,7 @@ export function MixView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Anything wrong, across the top: it used to sit in the middle column, which has gone. */}
+      {/* Anything wrong, across the top: there is no middle column to put it in. */}
       {error ||
       decks.deskError ||
       set?.issues.length ||

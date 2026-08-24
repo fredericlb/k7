@@ -1,16 +1,14 @@
 # The claim — which project runs where, and who has it
 
-`select` used to mean one thing: "somebody is on this machine". It marked a timestamp and
-refused nobody. That was enough while an engine was a machine you picked; it stopped being
-enough the moment two people could open the same project, because nothing anywhere said they
-could not — and the two halves that then fought are not visible from either browser.
-
-A claim now carries a **project** and a **holder**, and the registry enforces three rules.
+A claim carries a **project** and a **holder**, and the registry enforces three rules. A bare
+"somebody is on this machine" timestamp, refusing nobody, is not enough the moment two people
+can open the same project: nothing anywhere says they cannot, and the two halves that then
+fight are not visible from either browser.
 
 ## The three rules
 
 **1. One engine per project.** Opening a project that is already open somewhere takes it from
-whoever had it. This is the rule people asked for, and the one whose absence produced "the
+whoever had it. This is the rule people ask for, and the one whose absence reads as "the
 engine is unstable": two browsers driving one project drive one `Edit` through two sessions
 that each believe they own it.
 
@@ -22,9 +20,9 @@ same engine, same project, no displacement.
 
 That exemption is what makes an external surface possible at all. A tablet on
 `<projet>/@external/desk` goes through the same gates as the editor and claims the same project,
-and without it the laptop was thrown out of its own song — *"this project was opened
-elsewhere"* — the moment the second screen opened. Two tabs of one song had always had the same
-problem; the surface is just where it became unmissable.
+and without it the laptop is thrown out of its own song — *"this project was opened
+elsewhere"* — the moment the second screen opens. Two tabs of one song are the same case; the
+surface is only where it becomes unmissable.
 
 It is deliberately narrow. A different ACCOUNT on this engine is displaced, because that is two
 people. The same account on a different ENGINE is displaced, because that is a second session and
@@ -73,11 +71,11 @@ the three ways a renewal comes back refused, and it is the least common:
 | `engine` | a DIFFERENT project took this engine (the second displacement rule above) | `heldBy`, and `tookFor` naming that project |
 | `lapsed` | nobody took anything: the secret aged out over a sleep or a network gap, or the engine deregistered | nothing — `heldBy` is empty |
 
-They exist because they are three different sentences on screen. st0 said "this project was
-opened elsewhere, and a project runs on one engine at a time" for all three, which is false
-twice out of three — and actively misleading on `engine`, where the honest advice is the
-opposite: pick a second engine and both projects can run. Older backends that answer a bare 409
-still read as `project`, which is what they always meant.
+They exist because they are three different sentences on screen. "This project was opened
+elsewhere, and a project runs on one engine at a time" is false for two of the three — and
+actively misleading on `engine`, where the honest advice is the opposite: pick a second engine
+and both projects can run. A backend that answers a bare 409 reads as `project`, which is what
+that answer means.
 
 A surface must not retry `project` or `engine`: somebody is holding what we asked for, and a
 quiet re-claim would take a project out from under a person who is driving it — then be taken
@@ -90,8 +88,8 @@ anything it did not already have. Our own other screen does not turn that into a
 holds what we hold and took nothing, and the exemption above is what then lets the retry land
 beside it rather than on top of it. `@studio/engine-browser`'s `holdEngine` drops the dead secret and re-opens
 on its next tick; see [lease.md](../../engine-browser/docs/lease.md) for why the next tick and
-not at once. This was a dead end on screen until then, telling someone to go and re-open by hand
-a project nobody had taken from them.
+not at once. Treated like the other two it would be a dead end on screen, telling someone to
+re-open by hand a project nobody had taken from them.
 
 `release` carries the same secret, not the engine token. A goodbye may only drop the hold it
 actually has: with the engine token, a tab closing a second after being displaced would drop the
@@ -103,8 +101,7 @@ still driving.
 Everything. The secret does not change that a holder is a browser tab, which can be closed,
 crash, or be put to sleep, and cannot be relied on to say goodbye. `ENGINE_ASSIGN_TTL_MS`
 (15 s, renewed every 5 s) is what forgets a holder nobody heard from — see
-[lease.md](../../engine-browser/docs/lease.md) for the bug that shape exists to prevent, which
-two apps shipped independently.
+[lease.md](../../engine-browser/docs/lease.md) for the bug that shape exists to prevent.
 
 Which means a crashed tab costs the next person fifteen seconds, and never a lockout. That is
 deliberate: a claim that needed clearing by hand would be a worse failure than the one it

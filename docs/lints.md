@@ -1,8 +1,7 @@
 # The four checks no test would catch
 
 Beside `biome`, `tsc` and the test suites, this repo runs four checks of its own. Two block, two
-report a debt. They exist because each guards a property the ordinary tooling has no opinion about,
-and each one was written after the property had already been broken.
+report a debt. Each guards a property the ordinary tooling has no opinion about.
 
 | script | npm | blocks? | refuses |
 |---|---|---|---|
@@ -18,8 +17,7 @@ whole, so such a file stops existing for every sweep anyone runs afterwards.
 
 The method of this repo is that the WHY lives in the prose: a comment points at a `docs/` page, and
 the page points back at the code it is about. A pointer to a file that has been renamed or deleted
-sends the reader into a wall, and nothing else notices — twenty-two of them had built up, still
-naming `apps/m9/…` two apps after the desk moved into st0.
+sends the reader into a wall, and nothing else notices.
 
 It reads only what git tracks, and only paths that look like ours.
 
@@ -41,13 +39,9 @@ legitimately name although this checkout has not got them: a page inside `engine
 which is the commons submodule and may not be checked out. A growing list there is the check going
 soft.
 
-`TOMBSTONES` is the other one, and it is the opposite of a broken link: **a page names a file
-precisely because it is gone.** This repo records what it removed and why, so the reader is not
-being sent anywhere — they are being told what used to be there. Refusing those would make the
-check fight the method it exists to protect. They are listed one by one rather than detected,
-because "the sentence around it says it went" is not something a regex can be trusted with, and
-because a list somebody has to add to is a moment to ask whether the page is recording a removal or
-has simply gone stale.
+`TOMBSTONES` is the other one, and it is empty: a path listed there is exempted because the
+sentence around it is about a file deliberately absent from the tree, and it is spelled out by hand
+rather than detected, since a regex cannot be trusted to read that.
 
 ## `lint:comments` — where the prose lives
 
@@ -55,7 +49,7 @@ The three limits are in the root `AGENTS.md`: a file header of at most 10 lines,
 exactly one line, and English. It is non-blocking, like `lint:dead`: it reports a debt that predates
 the rule and shrinks as files are touched. New code has no excuse.
 
-**French is detected on FUNCTION WORDS, never on accents.** Accents were the first try and cannot
+**French is detected on FUNCTION WORDS, never on accents.** An accent test cannot
 work: this codebase writes the names of its own things — the médiathèque, a dépôt, a chaîne —
 inside perfectly good English sentences, so an accent test flags prose that is already fine and
 never reaches zero. Function words are what a language actually is, and they also catch French that
@@ -80,8 +74,8 @@ A JSX comment's second line starts with PROSE, not with a marker:
     worth more as the current zone's tree than as three fixed buttons. */}
 ```
 
-A line-by-line match sees that as one line and reports nothing, which is how 341 of them stayed
-invisible for as long as the rule existed. So `runs()` walks the file instead, opening on `/*`,
+A line-by-line match sees that as one line and reports nothing, which leaves a whole class of
+violations invisible. So `runs()` walks the file instead, opening on `/*`,
 `/**` or JSX's `{/*` and closing on `*/`, and reports the whole run.
 
 Two guards fall out of that. A run with no closing marker within 60 lines is a **template

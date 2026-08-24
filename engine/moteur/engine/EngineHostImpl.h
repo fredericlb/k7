@@ -111,8 +111,8 @@ struct Session {
     bool broadcastWanted = false;
 
     // Whether rolling the transport RECORDS, per session for the same reason broadcastWanted is:
-    // it is a wish that outlives the Edit, and it belongs to one project. Global, it meant a deck
-    // arming record lit st0's record light and recorded into st0's take on the same engine.
+    // it is a wish that outlives the Edit, and it belongs to one project. Global, a deck arming
+    // record would light st0's record light and record into st0's take on the same engine.
     bool recordEnabled = false;
 
     // Plugins a client asked to watch, each mapped to the values last reported. The key's presence IS the
@@ -141,8 +141,7 @@ struct Session {
      * is up, so counting it would mean no session ever looks abandoned. See docs/sessions.md.
      *
      * `noDriverSinceMs` is 0 while somebody is driving. It exists so the drop can be DELAYED:
-     * refcounting alone would take a loaded project away on every tab reload, which is exactly
-     * the objection this file used to record as the reason for having no refcount at all.
+     * refcounting alone would take a loaded project away on every tab reload.
      */
     int drivers = 0;
     double noDriverSinceMs = 0.0;
@@ -249,10 +248,10 @@ struct EngineHost::Impl {
     // so unlike the output meters these are not rebuilt per project: they attach lazily on the first poll of a track
     // fed by that device and stay for the engine's life, reading the live signal used for monitoring and recording.
     //
-    // By NAME and not by pointer, which is what this was and could not be: any change to the wave-device list —
-    // enabling a channel is enough — DESTROYS every WaveInputDevice and builds new ones. Keyed by pointer, the map
-    // then held keys into freed memory, grew a second client for every rebuild, and had nothing left to read the
-    // level through. `dev` records which object the live client is attached to, so a rebuilt device gets a fresh one.
+    // By NAME and not by pointer: any change to the wave-device list — enabling a channel is enough — DESTROYS
+    // every WaveInputDevice and builds new ones. Keyed by pointer, the map would hold keys into freed memory, grow
+    // a second client per rebuild, and have nothing left to read the level through. `dev` records which object the
+    // live client is attached to, so a rebuilt device gets a fresh one.
     struct InputClient {
         te::InputDevice* dev = nullptr;
         std::unique_ptr<te::LevelMeasurer::Client> client;

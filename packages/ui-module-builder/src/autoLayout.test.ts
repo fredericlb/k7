@@ -134,7 +134,7 @@ describe("the pages", () => {
     expect(isBlend("Delay Mix")).toBe(false);
     // …and a level is not a blend, though it lives on the same page.
     expect(isBlend("Master Volume")).toBe(false);
-    // It decides a POSITION and no longer a page: the blend stays in `Mix`, where its family put it.
+    // It decides a POSITION and never a page: the blend stays in `Mix`, where its family put it.
     const groups = groupParams([p("Mix"), p("Reverb Dry/Wet"), p("@volume")]);
     expect(groups.map((g) => g.page)).toEqual(["Reverb", "Mix"]);
     expect(groups[1].params.map((x) => x.name)).toEqual(["Mix"]);

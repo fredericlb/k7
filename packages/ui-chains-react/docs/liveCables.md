@@ -2,25 +2,25 @@
 
 A cable is drawn *live* — it ripples — when the track feeding it is above the silence floor.
 That fact comes from the engine's meters, so it moves at the frame rate, and on percussive
-material tracks cross −60 dB several times a second. It used to arrive as a prop.
+material tracks cross −60 dB several times a second.
 
-## What the prop cost
+## Why it is not a prop
 
-`ChainsTab` and `GraphPanel` each called a `useActiveTracks(trackOrder)` hook and passed the
-result down as `activeTracks`. Every crossing of the floor therefore:
+As a prop, `ChainsTab` and `GraphPanel` would each call a `useActiveTracks(trackOrder)` hook and
+pass the result down as `activeTracks`. Every crossing of the floor would then:
 
-1. re-rendered the host (`ChainsTab` including its whole sidebar);
-2. re-rendered the `DomChains` body — three thousand lines of hooks and memos;
-3. re-ran `computeLive`, a fixpoint over every edge;
-4. rebuilt `cableDraws`, one fresh object per edge;
-5. and only then repainted the canvas.
+1. re-render the host (`ChainsTab` including its whole sidebar);
+2. re-render the `DomChains` body — three thousand lines of hooks and memos;
+3. re-run `computeLive`, a fixpoint over every edge;
+4. rebuild `cableDraws`, one fresh object per edge;
+5. and only then repaint the canvas.
 
 Steps 1–4 exist to reach step 5. Nothing else in the tree reads liveness: grep `live` in
 `DomChains.tsx` and the only consumers are `cableDraws` and the ripple loop. No node, no
-widget, no SVG label, no hit path. The prop was making a **canvas** concern travel through
+widget, no SVG label, no hit path. A prop makes a **canvas** concern travel through
 React's reconciler to get to a canvas.
 
-## What it is now
+## How it arrives instead
 
 `DomChains` subscribes to the host's store itself, through a raw `store.subscribe`, and keeps
 the whole chain in refs:
@@ -32,7 +32,7 @@ levels frame → activeTrackIds(snapshot, trackOrder) → activeRef
              → paintRef.current()  +  rippleRef.current()
 ```
 
-A crossing of the floor now repaints the canvas and **re-renders zero components**. The
+A crossing of the floor repaints the canvas and **re-renders zero components**. The
 subscription bails on `arrayEq` before doing any of it, so a steady signal costs one comparison
 of a short id list per frame.
 
@@ -76,10 +76,10 @@ at the chord midpoint on purpose: the hang sags below it, so the label sits clea
 The insert affordance is there too: a transparent hit path over each eligible arrow, plus the blue
 recolour and circled `+` while it is hovered.
 
-There is **no arrowhead**, and never was one here. A cable ends in a PLUG, and the plug is the
+There is **no arrowhead**. A cable ends in a PLUG, and the plug is the
 socket it disappears into — the nodes paint over this layer, so the last few pixels are hidden by
-the plate and the cable reads as seated. An arrow was the right mark while the cable pointed at a
-card and had nowhere in particular to land. Direction is not lost with it: the graph is laid out top
+the plate and the cable reads as seated. An arrow is the right mark only for a cable pointing at a
+card with nowhere in particular to land. Direction is not lost without it: the graph is laid out top
 to bottom, inputs on a card's top edge and outputs on its bottom, so which way a cable runs is read
 off where it lands.
 
@@ -89,16 +89,16 @@ is a node, and its cables are cables.
 ## The ripple loop follows the same rule as the camera
 
 It is mounted once and steered by `liveRef`, rather than being an effect with `[live]` as a
-dependency — there is no longer a re-render for such an effect to hang off. It stops itself
+dependency — there is no re-render for such an effect to hang off. It stops itself
 when nothing carries signal and `rippleRef.current()` restarts it when something does: started
 by a signal, stopped by stillness, which is what `camera.md` says about the pan and the zoom.
 
 ## The two SUMS are seeded, not reached
 
 Liveness walks FORWARD from the tracks, and neither sum has anything arriving at it: no cable is
-drawn into `MIX` or into `RENDER`, because every lane ends there and the arrows said nothing the
-picture did not (`@studio/ui-chains`'s docs/graphBuild.md). So the master run — the one cable
-carrying the whole song — was the only still cable on a playing graph.
+drawn into `MIX` or into `RENDER`, because every lane ends there and the arrows say nothing the
+picture does not (`@studio/ui-chains`'s docs/graphBuild.md). So the master run — the one cable
+carrying the whole song — would be the only still cable on a playing graph.
 
 `computeLive` therefore starts the walk at `MIX` too, whenever any track is metered. That is
 exact rather than a stand-in: every track feeds the master bus whatever its chain names
@@ -108,7 +108,7 @@ list below.
 ## The picture has no meters, so it is DERIVED
 
 The engine measures sound and knows nothing of the frame, so `activeTrackIds` is silent about a
-video lane — every cable on the picture side of the graph stayed still through a playing song.
+video lane, so every cable on the picture side of the graph would stay still through a playing song.
 What the browser has instead is the shots and the playhead, which is the same bargain st0 already
 strikes for a rack's lit pads (`apps/st0/frontend/src/rackLit.ts`).
 
@@ -132,11 +132,10 @@ Three rules hold it honest:
 
 ## For a host
 
-There is no `activeTracks` prop any more. Pass `trackOrder` and wrap the graph in an
+There is no `activeTracks` prop. Pass `trackOrder` and wrap the graph in an
 `EngineStoreProvider`, and the cables light up on their own; pass neither and they stay inert,
-which is what the médiathèque's module preview wants. One consequence worth naming: any host
-that passes `trackOrder` now gets live cables, `TrackModulesPane` included — it always had live
-meters and was simply never given the matching prop.
+which is what a module preview wants. Any host that passes `trackOrder` gets live cables,
+`TrackModulesPane` included.
 
 `videoSpans` is the same bargain for the frame: a host with no picture passes none and the video
-cables stay still, which is what they did for everybody before it existed.
+cables stay still.

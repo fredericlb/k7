@@ -1,6 +1,6 @@
-// Field decoders for Grist wire values (grist_load.go's helpers). Grist
-// returns JSON-decoded values: strings, numbers, bools, null, or arrays of the
-// form ["L", …] for ChoiceList / Attachments / RefList cells.
+// Field decoders for Grist wire values. Grist returns JSON-decoded values:
+// strings, numbers, bools, null, or arrays of the form ["L", …] for
+// ChoiceList / Attachments / RefList cells.
 
 export function asString(v: unknown): string {
   return typeof v === "string" ? v : "";

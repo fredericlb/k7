@@ -1,12 +1,11 @@
 // vocabulary.ts — the adapter between the schema-agnostic YAML editor and a studio project:
-// it turns a file's path into a kind and asks @studio/song for that kind's fields and
+// it turns a file's path into a kind and asks @studio/song-schema for that kind's fields and
 // values. Derived rather than tabulated, because hand-kept field lists drift — a derived
 // list cannot be behind its schema.
 //
-// It lives HERE, and not in an app, because three editors need the same answers: st0'
-// EditorPane, the médiathèque's, and the module builder's. It was copied between two of
-// them, with a comment in each saying its real place was a package. This is that place —
-// and the @studio/song it reaches for is pure Zod introspection, no node in it.
+// It lives HERE, and not in an app, because three editors need the same answers: st0's
+// EditorPane, the médiathèque's, and the module builder's. What it reaches for is pure
+// Zod introspection, no node in it.
 
 import type { FileKind } from "@studio/song-schema/yaml/fields";
 import {

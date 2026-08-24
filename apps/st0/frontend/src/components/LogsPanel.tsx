@@ -17,7 +17,7 @@ const KIND_CLASS: Record<LogLine["kind"], string> = {
   engine: "text-violet-400",
   file: "text-teal-400",
   info: "text-muted-foreground",
-  // A refusal is not an error but a verb declining, so it is amber and distinct from `info` — which is what it used to be recorded as.
+  // A refusal is not an error but a verb declining, so it is amber and deliberately distinct from `info`.
   refused: "text-amber-400",
   error: "text-red-400",
 };

@@ -1,6 +1,6 @@
 // jobs.ts — a cut is minutes, so it is started and then POLLED, and the shape it is polled in is
 // the ENGINE's `SeparateJob`. This service drives the work; the browser watching it should not be
-// able to tell that it moved here. See ../../docs/stems.md.
+// able to tell which side runs it. See ../../docs/stems.md.
 
 import { createHash } from "node:crypto";
 import type { SeparateJob } from "@studio/web-protocol";

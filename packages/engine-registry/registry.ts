@@ -2,7 +2,7 @@
 // available, and the CLAIMS that say which project an engine is driving and for whom.
 // Engines announce themselves with a periodic heartbeat and drop out after REGISTRY_TTL_MS of
 // silence. list() is token-stripped and verifyToken stops a lookalike claiming a real engine's
-// id — but the token is NOT a secret from the browser, whatever this line used to say: docs/token.md.
+// id — but the token is NOT a secret from the browser: docs/token.md.
 // The claim's rules — one project per engine, one engine per project, newcomer wins — and why
 // they are three rules and not one, are in docs/claim.md.
 

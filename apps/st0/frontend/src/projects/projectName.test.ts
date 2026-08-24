@@ -26,7 +26,7 @@ describe("projectFolderName", () => {
   });
 
   it("garde un « v1 » qui fait partie du nom", () => {
-    // There is no `.v1` suffix any more — picture lives in a song — but 'prise v1' is an ordinary name nothing must touch.
+    // `.v1` is not a suffix here — picture lives in a song — so 'prise v1' is an ordinary name nothing must touch.
     expect(projectFolderName("prise v1", "st0").folder).toBe("prise v1.st0");
   });
 

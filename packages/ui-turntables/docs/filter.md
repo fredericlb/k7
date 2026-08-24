@@ -39,8 +39,8 @@ disparition.
 
 ## Ce qui fait le *swoosh* : la résonance
 
-La première version avait Q = 1 — plat, sans pic — et sonnait comme « un filtre normal », parce
-que c'en était un. Un coin plat qui glisse sur un morceau ne fait que l'étouffer, progressivement
+Un Q de 1 — plat, sans pic — sonnerait comme « un filtre normal », parce que c'en serait
+un. Un coin plat qui glisse sur un morceau ne fait que l'étouffer, progressivement
 et platement. Le swoosh que tout le monde connaît est un **pic qui voyage avec le coin**, et
 soulève une bande étroite au passage. Le pic EST l'effet.
 
@@ -76,24 +76,23 @@ apparaît comme un nombre **positif**) :
 
 Un pic net posé sur un mur de 24 dB/octave, plat en dessous. C'est ça, le swoosh.
 
-Le **trim** final ne reprend que −3 dB aux extrêmes. La première tentative en prenait −6 et
-mangeait le pic exactement là où le pic est l'intérêt (+1,2 dB au coin, mesuré) — et la
-saturation qu'il prévenait était théorique : le filtre retire 14 dB au signal entier à ce
-réglage. Ce qui reste empêche un Q de 6 posé sur un kick à 30 Hz de coûter son master à
-quelqu'un.
+Le **trim** final ne reprend que −3 dB aux extrêmes. À −6 il mangerait le pic exactement là où
+le pic est l'intérêt (+1,2 dB au coin, mesuré), et la saturation qu'il préviendrait est
+théorique : le filtre retire 14 dB au signal entier à ce réglage. Ce qui reste empêche un Q de 6
+posé sur un kick à 30 Hz de coûter son master à quelqu'un.
 
-### Le piège qui a rendu le filtre muet
+### Le piège qui rend le filtre muet
 
 `geolerp` **trie ses deux bornes** côté moteur (`jmin`/`jmax`, pour qu'un graphe ne puisse pas
 demander un rapport négatif). Une paire décroissante ne casse donc pas : elle se lit comme son
-propre miroir. Écrit de la façon évidente — `geolerp(20000, 30, down)` — ce filtre se posait à
-**30 Hz au repos** et s'ouvrait quand on balayait : le silence, potard au neutre. Mesuré à
+propre miroir. Écrit de la façon évidente — `geolerp(20000, 30, down)` — ce filtre se pose à
+**30 Hz au repos** et s'ouvre quand on balaye : le silence, potard au neutre. Mesuré à
 −62 dBFS contre un témoin à −24.
 
 Pour descendre, on garde la paire croissante et on inverse le trajet :
-`geolerp(30, 20000, sub(1, t))`. Le builder **refuse** désormais une paire décroissante
-littérale, avec le message qui donne l'autre écriture — l'erreur est attrapée là où l'auteur
-est. Deux tests la figent.
+`geolerp(30, 20000, sub(1, t))`. Le builder **refuse** une paire décroissante littérale, avec le
+message qui donne l'autre écriture — l'erreur est attrapée là où l'auteur est. Deux tests la
+figent.
 
 ⚠️ Le module `audio/filter/lowpass` de la médiathèque a exactement le même défaut :
 `geolerp(20000, 200, t)`, donc son `Amount` fonctionne **à l'envers** de ce que sa doc annonce
@@ -103,14 +102,14 @@ est. Deux tests la figent.
 
 C'est un module `jsdsp`, donc un **vrai plugin** : le compilateur cuit son graphe dans le
 document (2046 octets), le moteur le charge, et le potard prend le chemin du crossfader —
-`set-plugin-param`, à chaque pixel. Rien de spécial n'a été ajouté pour lui.
+`set-plugin-param`, à chaque pixel. Rien de spécial pour lui.
 
 La synchro avec le graphe vient donc gratuitement, par le même mécanisme que l'EQ : le moteur
 rapporte ce à quoi un plugin est réglé quelle que soit la surface qui l'a réglé, et pupitre et
 graphe lisent le même `deck.params`. Mesuré contre le moteur qui tourne : il charge le plugin,
 annonce `Sweep` avec sa plage −100…+100 et son défaut 0, accepte −80 et le renvoie.
 
-C'est la différence avec le tempo, qui a eu besoin d'un canal à lui parce qu'il ne compile en
+C'est la différence avec le tempo, qui a besoin d'un canal à lui parce qu'il ne compile en
 aucun plugin — voir [deckSet.md](deckSet.md).
 
 ## Où il est dans la chaîne

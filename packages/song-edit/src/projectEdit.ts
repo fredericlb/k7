@@ -413,8 +413,6 @@ export function setModuleExtends(
   return { rel: relative(dir, path).split(sep).join("/"), dropped };
 }
 
-// `deleteModule` was here and went with the `module delete` verb that was its only caller — docs/projectEdit.md.
-
 /** Take a node out of the SIGNAL PATH, joining what fed it to what it fed, and leave it in the graph wired to nothing. */
 export function unlinkChainNode(
   dir: string,

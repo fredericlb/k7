@@ -1,7 +1,7 @@
 # `views/mix.yaml` — what a desk's controls drive
 
 A project folder gets a `views/` directory: one file per VIEW that has controls of its own,
-saying what each of them is wired to. The first is m9's Mix desk.
+saying what each of them is wired to. The first is the DJ desk's Mix view.
 
 ```yaml
 # views/mix.yaml
@@ -12,8 +12,8 @@ deckB.tempo: { module: tempoB, param: Target BPM }
 
 ## Why not the module's `controller.yaml`
 
-That file exists and does the same job for MIDI — `<param>: { ch, cc }` — and it was the
-obvious place to put this. It cannot hold it, for a reason its own doc states:
+That file does the same job for MIDI — `<param>: { ch, cc }` — and is the obvious place to
+look. It cannot hold this, for a reason its own doc states:
 
 > **Every node shares one map.** Two nodes of the same module in one song both answer
 > to CC 74, because a node is one *setting* of a device and there is only one device.
@@ -82,15 +82,14 @@ would sweep one nobody chose.
 
 ## Wired
 
-the desk plays the COMPILED project now (`packages/ui-turntables/docs/mix.md`), so the plugins a binding names are
-the ones the engine has loaded. Moving the crossfader is one call —
-`setPluginParam(pluginId, param, valueFor(binding, position))` — and the module the médiathèque
-ships does the fade. The hardcoded path is gone from normal operation; it survives only as the
-stand-in for the seconds before the compile arrives.
+The desk plays the COMPILED project (`packages/ui-turntables/docs/mix.md`), so the plugins a
+binding names are the ones the engine has loaded. Moving the crossfader is one call —
+`setPluginParam(pluginId, param, valueFor(binding, position))` — and the module the library ships
+does the fade. The hardcoded path is only the stand-in for the seconds before the compile arrives.
 
 A module that compiles to **no plugin** resolves too, by the TRACK its chain draws from. An
 `offline` module is made true outside the graph — a pass writing files, or the player
 stretching a clip — so what a binding to one names is the material, and the track is where the
-material is. m9's tempo faders go that way; the crossfade goes the other.
+material is. The desk's tempo faders go that way; the crossfade goes the other.
 
 Only a module with NEITHER is reported: nothing to tell, nothing to change.

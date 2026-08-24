@@ -389,7 +389,7 @@ export class EngineClient {
     else if (m.type === "presets" && m.module)
       for (const cb of this.presetsCbs) cb(m.module, m.presets ?? []);
     else if (m.type === "busy") for (const cb of this.busyCbs) cb(!!m.busy);
-    // `error` is handled at the bottom beside `engine-warning`; it used to be dropped, so a refused command vanished without trace.
+    // `error` is handled at the bottom beside `engine-warning`: dropped here, a refused command would vanish without trace.
     else if (m.type === "io-levels")
       for (const cb of this.ioLevelsCbs)
         cb({

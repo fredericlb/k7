@@ -1,9 +1,9 @@
 // moduleResolve.ts — "what does this module actually run with?", answered ONCE.
 //
 // A module inherits twice: from the module it `extends`, and from the generic a node
-// sits under. Both are the same merge, and it used to live in five places that had already
-// drifted. Resolving is now a step you pass THROUGH — the brand on ResolvedModule means a
-// consumer cannot take a raw module by accident. See docs/moduleResolve.md.
+// sits under. Both are the same merge, written once here. Resolving is a step you pass
+// THROUGH — the brand on ResolvedModule means a consumer cannot take a raw module by
+// accident. See docs/moduleResolve.md.
 
 import { FILE_PARAMS } from "@studio/song-schema/moduleTypes";
 import {

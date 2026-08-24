@@ -1,10 +1,8 @@
 // A module of a shared library that fails its schema is dropped from the ref map — it has to
-// be, the value is null. What it used to do besides that is NOTHING: no warning, no note, no
-// trace. The failure then wears a different disguise depending on who asks next — "extends
-// unknown module" about a file plainly on disk, a catalogue one row short, a song that played
-// yesterday going quiet — and none of the three names the file that is actually wrong.
-//
-// Two bugs hid behind that silence in one afternoon, which is what these pin.
+// be, the value is null. Dropping it in silence is the danger: no warning, no note, no trace,
+// and the failure then wears a different disguise depending on who asks next — "extends unknown
+// module" about a file plainly on disk, a catalogue one row short, a song going quiet — none of
+// which names the file that is actually wrong. These pin the diagnostic instead.
 
 import {
   cpSync,
@@ -43,7 +41,7 @@ function sharedModule(rel: string, body: string): void {
 }
 
 const GOOD = "plugin:\n  type: internal\n  name: 4osc\n";
-// `jsdsp:` as a KEY is the real one: the field moved into the plugin type and every old module went quiet.
+// `jsdsp:` as a KEY is the real one: the field belongs to the plugin type, so a module spelling it here fails.
 const BAD = "plugin:\n  type: internal\n  name: 4osc\njsdsp: auto-wah.ts\n";
 
 beforeEach(() => {

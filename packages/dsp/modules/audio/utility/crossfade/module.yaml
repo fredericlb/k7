@@ -1,6 +1,6 @@
 # A module that declares its OWN ports, instead of taking the one audio input its type folder
-# would have given it. That is the whole reason a crossfade was unsayable before: `audio/` means
-# one in, one out, and a folder is not the right place to decide how many wires an effect takes.
+# would give it. That is the whole reason a crossfade needs the ports layer: `audio/` means one
+# in, one out, and a folder is not the right place to decide how many wires an effect takes.
 #
 # `mandatory: false` on `b`: wiring one side and leaving the other silent is a legitimate state,
 # not a half-built chain. Drop this module into a chain on its own and it plays deck A alone.
@@ -18,4 +18,4 @@ params:
   # (see applyPluginParams). Centred: both decks at once, which is what makes the demo audible.
   Mix: 0.5
 # A two-input crossfade. Mix at 0 is deck A alone, at 1 deck B alone, at 0.5 both at half.
-# (Was `docs:`. To say this on the GRAPH, wire this module into a node of `@studio/doc`.)
+# (To say this on the GRAPH, wire this module into a node of `@studio/doc`.)

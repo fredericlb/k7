@@ -1,5 +1,5 @@
 // useCommandKeys.ts — the global keydown listener: every binding names a command and runs
-// through the caller's runCommand. Extracted from App.tsx so a surface alone on a second device
+// through the caller's runCommand. Apart from App.tsx so a surface alone on a second device
 // keeps the same keyboard — the same standing-aside rules, the same ⌃C exception, the same
 // double-Shift. See ../keys.ts and ../../docs/external.md.
 

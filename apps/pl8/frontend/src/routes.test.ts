@@ -122,7 +122,7 @@ describe("fromLocation", () => {
   });
 
   it("keeps the new section clear of the paths the proxy claims on the origin", () => {
-    // Free rather than load-bearing since the move under `/pl8`, and kept — see ../docs/routing.md.
+    // Free rather than load-bearing under `/pl8`, and asserted anyway — see ../docs/routing.md.
     for (const taken of [
       "st0",
       "m9",

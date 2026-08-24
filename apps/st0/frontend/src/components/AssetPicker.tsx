@@ -4,10 +4,9 @@
 // toss. The shell is TreePicker; this only says what the tree is. See docs/filePicker.md.
 //
 // The choices are the module's OWN assets/, `assets/`-relative and nested — a NAM pack is a
-// folder per amp — so they are filtered by the EXTENSION the bound param takes rather than by a
-// folder prefix. It was a prefix while a shared `_library/` existed and files were named
-// `nam/Marshall/jcm800.nam`; that library is gone (packages/song/docs/moduleAssets.md), and the
-// prefix filter matched nothing a module actually carries.
+// folder per amp — so they are filtered by the EXTENSION the bound param takes and never by a
+// folder prefix: a module's assets carry no kind prefix, so such a filter matches nothing
+// (packages/song/docs/moduleAssets.md).
 
 import { assetsForParam } from "@studio/song-schema/moduleTypes";
 import { fuzzyScore } from "../fuzzy";

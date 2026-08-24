@@ -1,4 +1,4 @@
-// two-sessions.ts — the proof that two services no longer clobber each other on one engine,
+// two-sessions.ts — the proof that two services do not clobber each other on one engine,
 // driven through the REAL clients rather than hand-rolled JSON, so it also proves the client
 // half. Two projects, two sessions: both apply, only one plays, and the idle one must not see
 // the other's transport. Plus two RAW sockets, which is the only way to see what was actually
@@ -53,7 +53,7 @@ interface Seen {
   frames: number;
   /** Whether this client ever saw record-enable ON — it is per session, not per process. */
   recordEnabled: boolean;
-  /** Replies about ONE project. Unstamped, every client on the engine used to read them all. */
+  /** Replies about ONE project. Unstamped, every client on the engine reads them all. */
   applied: number;
   flushed: number;
 }
@@ -124,15 +124,15 @@ async function main() {
   pl8.sendProject(doc("depuis-pl8", 64));
   await wait(3000);
 
-  // Record-enable is SESSION state, and was a process-global for a while (../docs/sessions.md).
+  // Record-enable is SESSION state, never a process-global (../docs/sessions.md).
   st0.setRecordEnabled(true);
   await wait(1000);
 
-  // ONE of them plays, which was true of neither half once (../docs/sessions.md).
+  // ONE of them plays, and the idle one must not read the other's transport (../docs/sessions.md).
   st0.transport("play");
   await wait(4000);
 
-  // A flush is about ONE project. Unstamped, pl8 read st0's `flushed` as its own.
+  // A flush is about ONE project. Unstamped, pl8 reads st0's `flushed` as its own.
   st0.flush();
   await wait(1000);
 

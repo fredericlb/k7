@@ -64,7 +64,7 @@ std::string readAll(const fs::path& p)
 }
 
 /** The modules written in this repo — `packages/dsp/modules/`, a place to copy FROM rather
- *  than a seed: nothing fills a library any more (packages/dsp/docs/catalogue.md). */
+ *  than a seed: nothing fills a library from it (packages/dsp/docs/catalogue.md). */
 fs::path catalogueDir() { return fs::path{STUDIO_DSP_MODULES}; }
 
 /** Compile one file the way FaustPlugin does, and answer what happened. */
@@ -143,9 +143,9 @@ static float peakOf(const std::vector<std::vector<float>>& out, int n)
 
 static void an_instrument_sounds_when_a_note_is_played()
 {
-    // The whole point of the polyphony seam, as one measurement: the Wurlitzer used to be silent
-    // because nothing opened its `gate`. This plays a note the way FaustPlugin does — through
-    // Faust's own voice allocator — and looks at what comes out.
+    // The whole point of the polyphony seam, as one measurement: an instrument whose `gate` nothing
+    // opens is silent. This plays a note the way FaustPlugin does — through Faust's own voice
+    // allocator — and looks at what comes out.
     const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
     CHECK(fs::is_regular_file(file));
     if (!fs::is_regular_file(file)) return;

@@ -11,9 +11,8 @@ Space is not a pan modifier, because Space is the transport toggle in every app 
 
 A mouse wheel and a trackpad slide arrive as the **same event** and mean opposite things here. A
 wheel is a detent, discrete, and the natural thing for it to do over an arrangement is ZOOM — which
-is what this pane was asked for. A trackpad slide is a hand pushing the view about, and zooming
-there is what made every attempt to pan a trackpad zoom instead; that is why a plain wheel stopped
-zooming in the first place. So the two are told apart rather than legislated over.
+is what this pane is for. A trackpad slide is a hand pushing the view about, and zooming there
+turns every attempt to pan into a zoom. So the two are told apart rather than legislated over.
 
 `isMouseWheel` reads three signals, most reliable first:
 
@@ -28,8 +27,8 @@ zooming in the first place. So the two are told apart rather than legislated ove
    (`MOUSE_NOTCH_MIN`).
 
 It is **wrong in one direction only, by design**: an unrecognised device is treated as a surface, so
-it keeps the behaviour that was there before. A trackpad that zooms is a broken trackpad; a mouse
-that pans is merely a mouse that does not zoom yet.
+it scrolls. A trackpad that zooms is a broken trackpad; a mouse that pans is merely a mouse that
+does not zoom yet.
 
 `isZoomWheel` is the other half. On a Mac trackpad — and on a Windows precision touchpad — a PINCH
 arrives as a wheel event with `ctrlKey` set, synthesised by the browser, while two fingers sliding
@@ -57,7 +56,7 @@ native scroll is the pan — with the momentum, the axis locking and the rubber-
 A mouse wheel arrives as ONE event per detent, with a large delta nobody reads the size of, so a
 fixed step per event (`WHEEL_STEP`) is exactly right. A trackpad PINCH arrives as Ctrl+wheel: a
 stream of small continuous deltas, dozens a second. Given the notch's fixed step, that stream
-multiplied 1.15 per event and slammed into the zoom limit before the fingers had finished moving —
+multiplies 1.15 per event and slams into the zoom limit before the fingers have finished moving —
 which is how "pinch does not work" is really spelled. Scaled BY the delta, it tracks the fingers.
 
 The delta is clamped first: a browser that reported a pinch in hundreds rather than in units would
@@ -77,14 +76,14 @@ stop agreeing with the width the caller computed, and the anchored zoom would dr
 further off with every notch. Half of that, so the margin is the browser's own rounding rather than
 a guess.
 
-`zoomCeiling` replaced a flat `max: 32`. Thirty-two was a number, not a reason — and it is the one
-people MET: past it the wheel simply stopped, with nothing on screen to say why. Derived, the
-ceiling is about 13 000× on a laptop pane, which is one 64th of a beat filling the screen on a
-five-minute song. Nobody meets that either; what they meet is the material.
+`zoomCeiling` is derived rather than a flat `max: 32`. Thirty-two is a number, not a reason — and
+it is the one people MEET: past it the wheel simply stops, with nothing on screen to say why.
+Derived, the ceiling is about 13 000× on a laptop pane, which is one 64th of a beat filling the
+screen on a five-minute song. Nobody meets that either; what they meet is the material.
 
-The tick layers had a ceiling of their own and it was the real one — a whole-song list saturates at
-64 nodes per beat. They window themselves to the pane now (`apps/st0/frontend/src/components/Ruler.tsx`'s
-`useVisibleBeats`), which is what makes this number the only one left.
+The tick layers window themselves to the pane (`apps/st0/frontend/src/components/Ruler.tsx`'s
+`useVisibleBeats`), which is what makes this number the only ceiling left: a whole-song list
+saturates at 64 nodes per beat, and that would be the real one.
 
 `min` is 1 and stays 1, and that is not the same kind of bound: **1 IS fit**, so below it the pane
 would draw the whole thing plus empty space. There is nothing further out to see.
@@ -101,14 +100,14 @@ offsets the scroll, with the gutter — which does not scale — subtracted and 
 new `scrollLeft` is stored and applied in a layout effect AFTER the width change renders: computed
 on the old width, correct on the new.
 
-It is exposed because the wheel is not the only gesture that zooms. st0's ruler zooms on a vertical
-drag and had copied this arithmetic — the same lines, descended from the same commit — **without**
-the deferral. Applied straight away, the new `scrollLeft` is clamped by the old `scrollWidth`, so an
-anchored zoom drifts. One implementation, both gestures.
+It is exposed because the wheel is not the only gesture that zooms: st0's ruler zooms on a vertical
+drag and calls this same function rather than copying the arithmetic. Applied straight away instead
+of deferred, the new `scrollLeft` is clamped by the old `scrollWidth`, so an anchored zoom drifts.
+One implementation, both gestures.
 
 `preventDefault` on the wheel stops the page moving *and* stops the browser zooming the whole PAGE
 on the same gesture — its own Ctrl+wheel zoom is exactly the gesture we just claimed. Which is why
-the listener is `passive: false`; a plain wheel returns before that and scrolls as it always would.
+the listener is `passive: false`; a plain wheel returns before that and scrolls as usual.
 
 ## Two fingers on a touchscreen
 
@@ -141,8 +140,8 @@ stopping the event, so child clicks still work.
 
 ## Written twice, on purpose
 
-The chains graph decided the wheel-vs-trackpad question before the arrangement did and holds the
-same three signals in `packages/ui-chains-react/src/camera.ts`. It keeps its own zoom factor in
+The chains graph holds the same three signals in `packages/ui-chains-react/src/camera.ts`. It
+answers the wheel-vs-trackpad question the same way, and keeps its own zoom factor in
 `packages/ui-chains/src/zoomGesture.ts` because its NOTCH branch differs — it scales by the delta
 where this one takes a step — and an arrangement package importing the graph's would be the wrong
 way round.

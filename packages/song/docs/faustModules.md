@@ -11,9 +11,9 @@ est branché aujourd'hui, qui n'est pas « ça marche ».
 ce qui est au-dessus est fini : le module se charge, se dessine dans le graphe avec la bonne
 couleur, s'édite dans le builder, arrive dans le document compilé et atteint le moteur.
 
-C'est délibérément l'ordre dans lequel ça a été fait. La couture se voit et s'exerce avant
-qu'on décide ce que coûte un compilateur — voir `engine/moteur/docs/faust.md` pour ce qui
-manque et les trois façons de le combler.
+C'est délibérément l'ordre : la couture se voit et s'exerce avant qu'on décide ce que coûte un
+compilateur — voir `engine/moteur/docs/faust.md` pour ce qui manque et les trois façons de le
+combler.
 
 ## Le dossier
 
@@ -86,8 +86,7 @@ les imports avant l'envoi. À trancher avec le compilateur, pas avant.
 ## Les quatre portes
 
 Un mot de `plugin.type` doit être connu de quatre endroits, et celui qu'on oublie ne dit
-rien. Pour mémoire, parce que la deuxième a déjà été oubliée pour `jsdsp` et que les modules
-migrés disparaissaient *silencieusement* du document compilé :
+rien : oublier la deuxième fait disparaître le module *silencieusement* du document compilé.
 
 | fichier | ce qu'il fait |
 |---|---|
@@ -103,6 +102,4 @@ migrés disparaissaient *silencieusement* du document compilé :
 
 **`dspGraph` n'y est pas**, et c'est un écart connu du côté jsdsp : éditer un `jsdsp.ts`
 pendant que le moteur tourne atteint le document et ne change rien qu'on entende, jusqu'au
-prochain rebuild complet. Noté ici parce que c'est en le décalquant qu'on le voit ; pas
-corrigé dans la même passe pour ne pas changer ce qui joue en même temps qu'on ajoute une
-langue.
+prochain rebuild complet.

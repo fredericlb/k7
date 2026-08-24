@@ -1,9 +1,9 @@
 // sliceSymbols.ts — a slice-rack file's symbols as the EDITOR knows them: where each one's
 // `from`/`to` numbers sit in the doc (for the dock's drag to rewrite), the colour each slice
 // wears everywhere (the dock's windows, the symbol names in the text), and the CodeMirror
-// extension that paints those names. The inline per-symbol waveforms this file's predecessor
-// drew are gone — the docked source waveform is THE slicer now, one picture instead of one per
-// symbol, and its handles write through the same buffer a keystroke does.
+// extension that paints those names. Nothing here draws a per-symbol waveform: the docked source
+// waveform is THE slicer, one picture instead of one per symbol, and its handles write through the
+// same buffer a keystroke does.
 
 import {
   type EditorState,

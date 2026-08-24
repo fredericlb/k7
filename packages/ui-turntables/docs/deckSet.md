@@ -13,7 +13,7 @@ nœud vu sous trois angles :
 - le graphe n'a aucun moteur à interroger, donc ses potards affichent le nombre que le fichier
   déclare et rien d'autre ;
 - un aller-retour par le graphe ramène le crossfader au centre et les EQ à plat, pendant que
-  le son, lui, reste où on l'avait mis ;
+  le son, lui, reste où on l'a mis ;
 - et le potard de tempo du graphe ne peut pas être tourné du tout : étirer un morceau demande
   les morceaux chargés et le document compilé, partis avec la vue.
 
@@ -62,7 +62,8 @@ arrive vite.
 Deux paramètres optionnels, `mapping` et `playlist`, et la même raison pour les deux : la
 DÉCLARATION est dans le fichier de l'hôte, et seul l'hôte sait lequel. Une surface st0 porte ses
 liaisons dans `surfaces/<id>.yaml` et n'a aucun `views/mix.yaml` à trouver — le lire donnerait un
-404 à chaque rechargement. m9 ne passe rien et la lecture reste exactement ce qu'elle était.
+404 à chaque rechargement. Un hôte qui n'en passe pas laisse le hook lire `views/mix.yaml`
+lui-même.
 
 `mapping` doit avoir une **identité stable** : c'est une dépendance d'effet, donc un objet neuf à
 chaque rendu referait le compile à chaque rendu. Les deux appelants le tiennent en état, ce qui
@@ -74,11 +75,11 @@ vide qui ressemble à une médiathèque vide.
 
 ## Poser un disque met le transport où la musique est
 
-`putOn` interroge le TRANSPORT, pas l'historique de l'onglet. La question a longtemps été
-`empty` — « les deux platines étaient-elles vides avant celle-ci ? » — ce qui répond à autre
-chose : rechargez la page et les platines reviennent vides pendant que le moteur tient encore
-leurs clips, donc le deuxième morceau de la soirée trouve `empty` faux, rien ne saute, et Play
-déroule en silence les dix minutes de rien qui précèdent `TIMELINE_BASE` ([bpm.md](bpm.md)).
+`putOn` interroge le TRANSPORT, pas l'historique de l'onglet. Une question du genre « les deux
+platines étaient-elles vides avant celle-ci ? » répond à autre chose : rechargez la page et les
+platines reviennent vides pendant que le moteur tient encore leurs clips, donc le deuxième
+morceau de la soirée la trouve fausse, rien ne saute, et Play déroule en silence les dix minutes
+de rien qui précèdent `TIMELINE_BASE` ([bpm.md](bpm.md)).
 
 Demander au transport est à la fois plus simple et plus sûr : ça saute exactement quand la
 position est dans cette zone morte, et ça ne peut jamais ramener une platine qui joue à son

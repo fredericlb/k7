@@ -13,7 +13,7 @@ import {
 import type { RequestHandler } from "express";
 import { getWorkspace, UnknownWorkspaceError } from "./workspaces.ts";
 
-/** What this machine can check a caller against — three states, since "" once opened every route. */
+/** What this machine can check a caller against — three states, since "" would open every route. */
 type TokenState =
   | { k: "token"; value: string }
   /** No identity on this machine at all: a bare dev run, genuinely nothing to compare with. */

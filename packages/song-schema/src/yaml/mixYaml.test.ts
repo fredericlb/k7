@@ -97,7 +97,7 @@ describe("mix.yaml", () => {
   });
 
   it("refuses an unknown key rather than ignoring it", () => {
-    // `songs:` in particular, the key this file used to have — a hand-carried set gets told.
+    // `songs:` in particular, the near miss for `cues:` — a hand-carried set gets told.
     const { value, issues } = parse("cues: []\nsongs: []\n");
     expect(value).toBe(null);
     expect(issues.length).toBe(1);

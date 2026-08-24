@@ -1,12 +1,14 @@
 # Les projets de z0
 
-Une session de blindtest est aujourd'hui un sous-arbre de lignes Grist. Cette page dit
-comment elle se range désormais comme st0 range un morceau : **un dossier de YAML**,
-versionné, ouvert sur un projet. La forme est déduite des trois sessions réelles du document
-Grist `wBLP4e1P71vAW3T5zzfQtH` — les chiffres cités viennent de là, pas d'une supposition —
-et les trois sessions ont été migrées (voir « Ce qui a été migré », en bas).
+Une session de blindtest se range comme st0 range un morceau : **un dossier de YAML**,
+versionné, ouvert sur un projet. Cette page dit sa forme, déduite des trois sessions réelles
+du document Grist `wBLP4e1P71vAW3T5zzfQtH` — les chiffres cités viennent de là, pas d'une
+supposition.
 
-## Ce que disent les sessions existantes
+Le jeu, lui, charge ses manches depuis Grist (`backend/src/grist/`) : rien côté partie ne lit
+ces YAML. C'est l'éditeur qui les écrit — [editor.md](editor.md).
+
+## Ce que disent les sessions Grist
 
 | table | lignes | ce qu'on en apprend |
 |---|---|---|
@@ -147,7 +149,7 @@ Le mot `variant:` porte **deux axes sur une seule ligne**, et c'est voulu : une 
 enregistrée (`stems`, `8bit`, `handmade` — un fichier à côté du master) ou un traitement
 (`deformees` — une chaîne que la médiathèque tient). Les deux répondent à la même question,
 « quelle version de ce morceau joue-t-on », et le sidecar sait laquelle des deux il a. Une
-catégorie ne peut pas demander les deux à la fois, et la migration l'a vérifié.
+catégorie ne peut pas demander les deux à la fois, et aucune sur le volume ne le fait.
 
 **La règle de résolution est « la version demandée si elle existe, sinon le master ».** Elle
 n'est pas un repli poli, c'est ce que fait déjà le chargeur Grist : un morceau dont la
@@ -213,75 +215,64 @@ pour le mode normal — ce sont les valeurs que les joueurs lisent déjà, incha
 (`valid` | `to_replace` | absent), `liveOnly`, `speed`, `effects`.
 
 `answer` est un **bloc littéral** (`answer: |`) dès qu'il y a plusieurs orthographes acceptées,
-une par ligne — c'est la forme qu'a écrite la migration dans les trente cas de la session 2304.
+une par ligne — c'est la forme qu'ont les trente cas de la session 2304.
 
-Les neuf colonnes `fx_*` de Grist ont disparu **en tant que colonnes**. Ce qu'un morceau porte
-encore, c'est `effects: { … }` — la carte montrée plus haut dans l'exemple `multi`, et celle que
-`categories/deformees.yaml` écrit morceau par morceau. Ce qui est bien parti avec l'audio, c'est
-le cas où le traitement est **enregistré** : la médiathèque le tient alors comme une variante que
-le sidecar nomme, et la catégorie la demande d'un mot. La catégorie dit le nom une fois
-(`variant: deformees`) et chaque morceau le résout vers sa propre chaîne, avec ses propres
-valeurs. Reste ici `speed`, qui n'est pas un traitement mais une vitesse de lecture : aucune
-chaîne n'a d'horloge. Tout est détaillé dans [effects.md](effects.md).
+Un traitement s'écrit de deux façons, et les deux coexistent. Quand il est **calculé à la
+lecture**, le morceau porte `effects: { … }` — la carte montrée plus haut dans l'exemple
+`multi`, et celle que `categories/deformees.yaml` écrit morceau par morceau. Quand il est
+**enregistré**, la médiathèque le tient comme une variante que le sidecar nomme : la catégorie
+dit le nom une fois (`variant: deformees`) et chaque morceau le résout vers sa propre chaîne,
+avec ses propres valeurs. À part : `speed`, qui n'est pas un traitement mais une vitesse de
+lecture — aucune chaîne n'a d'horloge. Tout est détaillé dans [effects.md](effects.md).
 
 **Piste** — `song` (adresse médiathèque) **ou** `file` (chemin relatif au dossier du
 projet) **ou** `youtube`, plus `start`, `end`, et `artist` / `title` en dérogation quand
 l'adresse ne les donne pas.
 
 `file:` est la porte de sortie : tout ce que la médiathèque n'a pas — un générique de
-série, un extrait bricolé — peut rester un fichier dans le projet, avec son artiste et son
-titre écrits sur place. Sans elle la migration bute sur les 11 pistes qui n'ont même pas
-d'artiste — les génériques de série des catégories `fusion`.
+série, un extrait bricolé — reste un fichier dans le projet, avec son artiste et son titre
+écrits sur place. Sans elle, les 11 pistes qui n'ont même pas d'artiste — les génériques de
+série des catégories `fusion` — n'auraient pas où aller.
 
-## Ce qui disparaît
+## Ce que la forme ne porte pas
 
-- **`OrderEntries`** : 49 lignes deviennent une liste de dix lignes dans `session.yaml`.
-- **Les pistes de révélation** : 23 lignes `Tracks` qui ne disaient que « le même morceau,
-  sans traitement », en face des 39 pistes à variante.
-- **`artist` / `title` recopiés** sur chaque piste.
-- **Les neuf colonnes `fx_*`.**
-- **Le va-et-vient des identifiants** : l'éditeur relit et réécrit chaque `id` Grist pour
-  que le réconciliateur distingue une ligne existante d'une nouvelle
-  (`editor/handlers.ts`). Le nom de fichier étant l'identifiant, tout cela tombe.
+- **Une table d'ordre.** L'ordre est une liste de dix lignes dans `session.yaml`, là où Grist
+  demande une ligne `OrderEntries` par manche.
+- **Les pistes de révélation.** `variant:` dit ce qui est joué ; la révélation est le master de
+  la même adresse, donc il n'y a pas de seconde piste à écrire.
+- **`artist` / `title` recopiés** sur chaque piste : ils viennent du sidecar de la médiathèque.
+- **Les identifiants.** Le nom du fichier EST l'identifiant, donc rien ne relit ni ne réécrit
+  d'`id` pour qu'un réconciliateur distingue une entrée existante d'une nouvelle.
 
-## Ce qui a été migré
-
-Les trois sessions Grist ont été écrites sous cette forme, et leurs 1,35 Go d'audio versés
-dans la médiathèque :
+## Les sessions sur le volume
 
 | | |
 |---|---|
 | `session-2304.z0` | 15 catégories, 24 manches, mot de passe invité `blue` |
 | `session-beta-2.z0` | 19 catégories, 20 manches |
 | `offboarding-bedrock.z0` | 4 catégories, 4 manches |
-| médiathèque | **279 morceaux** filés, **26 variantes** (`stems`, `8bit`, `handmade`) |
+| médiathèque | **279 morceaux**, **26 variantes** (`stems`, `8bit`, `handmade`) |
 
-L'import est passé par `addSong` / `addSongVariant` de `@studio/mediatek` — le code que pl8
-appelle lui-même — et non par un écrivain maison : la forme du dossier et le sidecar sont
-donc exactement ceux que la médiathèque écrit. `songs/A-Ha/Album inconnu/Take on me/` tient
-maintenant `original.mp3`, `8bit.mp3` et `handmade.mp3` sous un seul `song.yaml`, ce qui est
-la démonstration que le modèle tient.
+Leur audio est rangé par `addSong` / `addSongVariant` de `@studio/mediatek` — le code que pl8
+appelle lui-même — donc la forme du dossier et le sidecar sont exactement ceux que la
+médiathèque écrit. `songs/A-Ha/Album inconnu/Take on me/` tient `original.mp3`, `8bit.mp3` et
+`handmade.mp3` sous un seul `song.yaml`, ce qui est la démonstration que le modèle tient.
 
 Le contrôle qui compte : les 38 fichiers de catégorie se relisent, chaque `cat:` de chaque
-ordre trouve son fichier, chaque plage `songs:` correspond à la tranche Grist, et **chacune
-des 304 adresses citées existe sur le volume avec un master**.
+ordre trouve son fichier, chaque plage `songs:` correspond à sa tranche, et **chacune des 304
+adresses citées existe sur le volume avec un master**.
 
-### Les trois verrues, dans l'ordre d'urgence
+### Les deux verrues, dans l'ordre d'urgence
 
 1. **`Album inconnu` partout.** Les MP3 sont des rips ré-encodés qui ne portent aucun tag
-   ID3 — pas d'album à en tirer, et Grist n'en a jamais eu. La médiathèque range donc tout
+   ID3 — pas d'album à en tirer, et Grist n'en a pas non plus. La médiathèque range donc tout
    sous son propre libellé de trou, qui est fait pour ça et se renomme. Deux morceaux
-   portent `Album inconnu (2)` parce que deux enregistrements différents revendiquaient
+   portent `Album inconnu (2)` parce que deux enregistrements différents revendiquent
    artiste et titre identiques : « Larusso — Tu m'oublieras » (un rip et un clip) et
    « OST — Star Trek » (le générique et une version à la bouche).
 2. **Treize `original.mp3` qui sont des reprises**, décrit plus haut. Poser le vrai original
    à côté et la reprise redevient une variante — c'est une opération par morceau, sans
    toucher au YAML.
-3. ~~**`.z0` n'est pas encore un suffixe de projet.**~~ **Réglé** par l'éditeur de projet :
-   `packages/web-protocol/projects.ts` connaît `z0` comme `ProjectApp`, `PROJECT_SUFFIXES`
-   dit `.z0`, et `PROJECT_MOUNTS` ajoute `/editor` — la page d'accueil de st0 liste donc
-   ces dossiers et les ouvre dans l'éditeur de z0. Voir [editor.md](editor.md).
-   `HAS_SCAFFOLD.z0` reste `false` : un `.z0` s'ouvre et se liste, il ne se CRÉE pas encore
-   depuis « Nouveau projet ».
 
-Le chargeur Grist (`backend/src/grist/`) est intact : rien ne lit encore ces YAML.
+`HAS_SCAFFOLD.z0` vaut `false` : un `.z0` s'ouvre et se liste depuis la page d'accueil de st0,
+il ne se CRÉE pas depuis « Nouveau projet ».

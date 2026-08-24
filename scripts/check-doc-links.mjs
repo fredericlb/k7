@@ -2,8 +2,7 @@
 //
 // The method of this repo is that the WHY lives in the prose: a comment points at a `docs/` page,
 // and the page points back at the code it is about. A pointer to a file that has been renamed or
-// deleted sends the reader into a wall, and nothing else notices — twenty-two of them had built
-// up, still naming `apps/m9/…` two apps after the desk moved into st0.
+// deleted sends the reader into a wall, and nothing else notices.
 //
 // It reads only what git tracks, and only paths that look like OUR tree.
 
@@ -24,21 +23,7 @@ const ALLOW = [
 ];
 
 /** PIERRES TOMBALES — a page names a file precisely because it is gone (../docs/lints.md). */
-const TOMBSTONES = new Set([
-  // apps/k7/docs/audio.md — « Le miroir de la médiathèque a été retiré ».
-  "apps/pl8/backend/src/mirror/k7.ts",
-  // docs/constat.md — under « Ce qui a été supprimé ».
-  "packages/ui-module-builder/src/libraryStore.ts",
-  // docs/inventaire.md — names them to say that docs/audit-moteur.md is stale about them.
-  "apps/m9/frontend/src/useEngine.ts",
-  "apps/m9/frontend/src/Gate.tsx",
-  // docs/rename-test-plan.md — a HISTORICAL page, kept for its method (see the root AGENTS.md).
-  "apps/obscura/backend/src/render.ts",
-  // docs/constat.md — the draft probe it reported, deleted since; the page says so.
-  "packages/engine-client/frame.mjs",
-  // docs/inventaire.md — one half of a duplication, resolved by the whole package going.
-  "packages/recorder/src/detect.ts",
-]);
+const TOMBSTONES = new Set([]);
 
 const files = execFileSync("git", ["ls-files", "--", "*.md"], {
   encoding: "utf8",

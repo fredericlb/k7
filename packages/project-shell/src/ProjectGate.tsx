@@ -135,7 +135,7 @@ export function ProjectGate({
   app: ProjectApp;
   /** Where this app is mounted — vite's `import.meta.env.BASE_URL`, handed over, docs/launch.md. */
   base: string;
-  /** Each app owns its own wording (st0 has paraglide, m9 is French in place). */
+  /** Each app owns its own wording (st0 has paraglide, z0's editor is French in place). */
   strings: ProjectGateStrings;
   /** Rendered once the project is open — the app itself. */
   children: (ctx: {

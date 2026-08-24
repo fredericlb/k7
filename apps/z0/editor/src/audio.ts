@@ -1,7 +1,6 @@
 // audio.ts — the preview behind the start/end controls: decode once, draw a waveform, play the
 // whole track or just its window, seek. A store rather than a hook so the decoded buffer
-// survives re-renders and selection changes. Ported from the retired Grist editor's
-// useEditorAudio; what it dropped and why is in docs/editing.md.
+// survives re-renders and selection changes. See docs/editing.md.
 
 import { useSyncExternalStore } from "react";
 

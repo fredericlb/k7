@@ -1,12 +1,12 @@
-// How the Chains tab draws an `offline` module — m9's tempo is one.
+// How the Chains tab draws an `offline` module — a deck's tempo is one.
 //
 // The mirror image of jsdspGraph.test.ts, and the trap is that they look alike. Both formats
 // are `known`, so neither node goes red. But `jsdsp` becomes a real plugin in the compiled
 // document and `offline` becomes NOTHING: the compiler reads the type and skips the emit.
 //
-// So a pluginId here names an address no document contains, and everything downstream
-// believes it. m9's tempo faders were classed as plugin params and sent `set-plugin-param`
-// to `deckA:tempoA` for ever; the panel drew a knob that moved and changed nothing.
+// So a pluginId here names an address no document contains, and everything downstream believes
+// it: a tempo fader sends `set-plugin-param` to `deckA:tempoA` for ever, and the panel draws a
+// knob that moves and changes nothing.
 
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

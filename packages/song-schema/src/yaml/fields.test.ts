@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { fieldsAt, fileKindFor, valuesAt } from "./fields";
 import { ModuleSchema } from "./moduleSchema";
 
-// These tests pin the derived completions against the hand-kept tables they replace — see docs/fields.md.
+// These tests pin the completions the editor derives from the Zod schemas — see docs/fields.md.
 
 describe("derived module fields", () => {
   it("matches the hand-kept table, plus the field the table was missing", () => {
-    // The hand-kept table in order, plus `automations`, which the shipped CUE schema lacked (docs/fields.md).
+    // Every module field, in the order the completions offer them (docs/fields.md).
     expect(fieldsAt("module", [])).toEqual([
       "extends",
       "plugin",
@@ -21,9 +21,9 @@ describe("derived module fields", () => {
       "rack",
       // A COLD module works only on audio already on disk — see docs/coldModules.md.
       "cold",
-      // `ir`, `nam` and `jsdsp` sat here and are gone; there is no field left to complete against (docs/fields.md).
+      // `ir`, `nam` and `jsdsp` carry no field of their own, so there is nothing to complete against (docs/fields.md).
       "channel",
-      // `track` sat here until an input's landing place became the chain's business (docs/fields.md).
+      // No `track`: where an input LANDS is the chain's business (docs/fields.md).
       "source", // …and the OTHER kind of source: an io "file" reads audio off disk
       "monitor",
       "gain", // the other thing an input does to its signal, beside whether you hear it
@@ -31,11 +31,11 @@ describe("derived module fields", () => {
       "base",
       "ui",
       "automations",
-      // `docs` and `todos` sat here, gone with the Docs panel that read them — see docs/docModules.md.
+      // No `docs` or `todos`: no panel reads them — see docs/docModules.md.
       "content",
-      // …and a LANE's own fields, which arrived when tracks stopped being a second entity (docs/trackModules.md).
+      // …and a LANE's own fields, a lane being a module rather than a second entity (docs/trackModules.md).
       "events",
-      // …and the arrangements the lane WAS playing, beside `events:` because it is the same thing set aside.
+      // …and the arrangements a take holds, beside `events:` because it is the same thing set aside.
       "takes",
       "color",
       "disabled",
@@ -62,7 +62,7 @@ describe("derived module fields", () => {
   });
 
   it("answers for a nested struct, which the CUE version could not", () => {
-    // structFields() returned [] for anything it had no branch for, so `project: {}` offered nothing (docs/fields.md).
+    // A nested struct answers from its own shape, however deep it sits (docs/fields.md).
     expect(fieldsAt("module", ["ui"])).toEqual(["cols", "rows", "widgets"]);
     expect(fieldsAt("module", ["ui", "widgets", "w1"])).toContain("library");
     expect(fieldsAt("module", ["ui", "widgets", "w1"])).toContain("bind");
@@ -86,7 +86,7 @@ describe("derived module fields", () => {
 
 describe("derived lane fields", () => {
   it("has no kind of its own — a lane is a module file", () => {
-    // There used to be a `track` FileKind here, with a per-kind narrowing — see docs/fields.md.
+    // No `track` FileKind and no per-kind narrowing: a lane file answers as a module — see docs/fields.md.
     expect(fileKindFor("nodes/melody.yaml")).toBe("module");
     expect(fileKindFor("tracks/melody.yaml")).toBeNull();
     expect(fieldsAt("module", [])).toEqual(
@@ -146,7 +146,7 @@ describe("derived values", () => {
 
 describe("chain fields", () => {
   it("offers the file's three sections, and nothing inside them", () => {
-    // `tracks:` stays gone and `positions:` is the pins, cosmetic like the rest — see docs/fields.md.
+    // The file's three sections; `positions:` is the pins, cosmetic like the rest — see docs/fields.md.
     expect(fieldsAt("chains", [])).toEqual([
       "modules",
       "bypassed",

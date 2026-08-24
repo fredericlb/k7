@@ -2,7 +2,7 @@ import type { Category, OrderEntry, Session, Song } from "./model.ts";
 
 // The play-order machine: a category intro, then its songs, then the next slot's intro.
 
-/** Lightweight preview of what the next item will be (session.go PeekInfo). */
+/** Lightweight preview of what the next item will be. */
 export interface PeekInfo {
   type: "category" | "song" | "end";
   categoryName?: string;
@@ -12,7 +12,7 @@ export interface PeekInfo {
   finished: boolean;
 }
 
-/** What /next returns: a category intro or a song (session.go NextItem). */
+/** What /next returns: a category intro or a song. */
 export interface NextItem {
   type: "category" | "song" | "end";
   category?: Category;

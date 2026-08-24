@@ -1,6 +1,6 @@
-// Shared mutable game-state globals (mirrors main.go's package-level vars).
-// Node is single-threaded, so the Go mutexes collapse away; the write-behind
-// persistence in state/persist.ts keeps Grist in sync asynchronously.
+// Shared mutable game-state globals. Node is single-threaded, so none of this
+// needs a lock; the write-behind persistence in state/persist.ts keeps Grist in
+// sync asynchronously.
 import type { Database, Game } from "./db.ts";
 import type { GristClient } from "./grist/client.ts";
 import type { SessionProgress } from "./session/progress.ts";

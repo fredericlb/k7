@@ -20,10 +20,10 @@ distante elle-même. Le blocage de l'adresse LAN, lui, n'apparaît pas dans l'on
 seulement en console. On croit donc lire « le client insiste sur localhost » là où il faut
 lire « l'adresse LAN a été refusée avant de partir ».
 
-Ce mur est **indépendant du réseau**. Sur l'installation qui a motivé cette page, tout le
-reste était vert : moteur en écoute sur `0.0.0.0:8765`, règles de pare-feu Windows en
-`Allow` pour le binaire exact, `nc -vz <ip> 8765` réussi depuis le Mac distant. Vérifier le
-réseau ne prouve rien ici — il faut lire la console.
+Ce mur est **indépendant du réseau**. Tout le reste peut être vert — moteur en écoute sur
+`0.0.0.0:8765`, règles de pare-feu Windows en `Allow` pour le binaire exact, `nc -vz <ip> 8765`
+réussi depuis la machine distante — et le navigateur refuser quand même. Vérifier le réseau ne
+prouve rien ici : il faut lire la console.
 
 macOS ajoute un second mur au même endroit : depuis macOS 15, un navigateur doit avoir
 l'autorisation « Réseau local » pour joindre une adresse privée. Le succès d'un `nc` depuis
@@ -56,8 +56,8 @@ Elles ont des contraintes différentes, donc deux formes :
   `upgrade` WebSocket ne traverse jamais la chaîne de middlewares d'Express. C'est aussi
   pourquoi le cookie ne peut pas la garder, et pourquoi il existe un **ticket**.
 
-Chaque service appelle `attachEngineProxy(server, registry)` après son `app.listen` — les
-trois, car chacun tient sa propre instance de registre (voir [shared.md](shared.md)).
+Chaque service appelle `attachEngineProxy(server, registry)` après son `app.listen`, car chacun
+tient sa propre instance de registre (voir [shared.md](shared.md)).
 
 ## Le ticket
 
@@ -66,7 +66,7 @@ est déjà l'authentifiée, et elle renvoie déjà tous les moteurs. Un ticket d
 aurait coûté un aller-retour par moteur, avant même d'en avoir mesuré un seul.
 
 Il vit une minute, signé HMAC par un secret tiré au démarrage du **processus qui le
-vérifie** : rien à partager entre machines, aucun secret à câbler dans trois backends. Un
+vérifie** : rien à partager entre machines, aucun secret à câbler dans chaque backend. Un
 redémarrage invalide ceux qui circulent, ce qui coûte au navigateur un rechargement d'une
 liste qu'il interroge de toute façon en boucle.
 
@@ -90,7 +90,7 @@ sur l'autre moitié.
 ## Le corps qu'un parseur a déjà pris
 
 `engineFilesProxy` est une route Express, donc elle hérite de tout ce que le service a monté
-devant elle — et les trois montent `express.json()` pour l'application entière, avant le
+devant elle — et chaque service monte `express.json()` pour l'application entière, avant le
 routeur. Quand le relais est atteint, le flux de la requête est **déjà à sa fin** : un
 `req.pipe(up)` appelle `end()` immédiatement et l'amont reçoit le `content-length` d'origine
 avec zéro octet derrière.
@@ -98,17 +98,15 @@ avec zéro octet derrière.
 Le service de fichiers attend alors des octets qui ne viendront jamais, le `timeout` du dial
 tombe au bout de 1500 ms, l'adresse suivante fait pareil, et le relais répond
 `502 engine file service unreachable` — un message qui accuse le réseau alors que le relais
-s'est saboté lui-même. Les `GET` passaient, donc le moteur se choisissait, se mesurait et se
-connectait ; c'est le premier `POST /open` qui échouait, et `diagnoseFileService` traduisait ça
-en « origine bloquée, autorisez-la dans le capot ». Trois écrans de diagnostic, aucun ne
-nommant la cause.
+s'est saboté lui-même. Les `GET` passent, donc le moteur se choisit, se mesure et se connecte ;
+c'est le premier `POST /open` qui échoue, et `diagnoseFileService` traduit ça en « origine
+bloquée, autorisez-la dans le capot ». Trois écrans de diagnostic, aucun ne nommant la cause.
 
 Le relais **rejoue** donc ce que le parseur a pris (`replayBody`) plutôt que de supposer un flux
 intact, et recalcule le `content-length` : les octets re-sérialisés ne sont pas les octets
-reçus. Il pouvait aussi bien s'écrire « ne montez pas de parseur devant » — mais une règle
-d'ordre de montage que trois backends doivent respecter est exactement ce qui vient de casser,
-et rien ne l'aurait rattrapée. `proxy.test.ts` monte `express.json()` devant le relais, comme
-eux.
+reçus. Ça pourrait aussi bien s'écrire « ne montez pas de parseur devant » — mais une règle
+d'ordre de montage que chaque backend doit respecter est exactement le genre que rien ne
+rattrape. `proxy.test.ts` monte `express.json()` devant le relais, comme eux.
 
 Deux conséquences de bord, dans le même geste :
 
@@ -122,17 +120,16 @@ Deux conséquences de bord, dans le même geste :
 
 `timeout` sur un `http.request` de Node est une **inactivité de socket**. Il ne mesure pas
 « combien de temps pour se connecter » mais « depuis combien de temps rien n'a traversé le
-fil », connecté ou non. Il était désarmé dans le rappel de réponse — donc à l'arrivée du
-premier octet de l'amont.
-
-Entre les deux il reste une chose que ce rappel ne couvre pas : **le temps que la machine du
-moteur passe à réfléchir**. Et il était borné à 1500 ms.
+fil », connecté ou non. Le désarmer dans le rappel de réponse — donc à l'arrivée du premier
+octet de l'amont — laisse une chose en dehors : **le temps que la machine du moteur passe à
+réfléchir**, borné alors à 1500 ms.
 
 Presque toutes les routes du service de fichiers répondent tout de suite : une liste, un
 fichier, un `/media` qui commence à couler immédiatement (le *téléchargement* est lent, pas
 l'attente). `POST /mediatek/analyse` est l'exception, et elle est totale — elle ne dit rien
 tant qu'elle n'a pas téléchargé le master depuis la médiathèque hébergée **et** fait tourner le
-moteur dessus. Des minutes de silence, là où le relais en tolérait une seconde et demie.
+moteur dessus. Des minutes de silence, là où une borne à la réponse n'en tolérerait qu'une
+seconde et demie.
 
 Le résultat, pour chaque morceau analysé à travers le relais :
 
@@ -143,12 +140,12 @@ Le résultat, pour chaque morceau analysé à travers le relais :
 4. les adresses épuisées, le relais répond `502` ;
 5. et le travail continue des deux côtés, sans personne pour l'attendre.
 
-Le côté navigateur voyait « analyse impossible », le côté serveur voyait des sockets coupés en
+Le côté navigateur voit « analyse impossible », le côté serveur voit des sockets coupés en
 plein corps de requête — un `BadRequestError: request aborted` de `raw-body`, qui est ce qu'un
 parseur dit quand son client disparaît.
 
 Le timer est donc désarmé **à la connexion** et non à la réponse, ce qui est ce que « dial »
-voulait dire depuis le début :
+veut dire :
 
 ```ts
 up.on("socket", (s) => {
@@ -157,14 +154,14 @@ up.on("socket", (s) => {
 });
 ```
 
-Un socket **connecté** n'a alors plus aucune borne, et c'est délibéré : c'est déjà la règle que
-l'ancien commentaire invoquait pour les téléchargements, et une route qui réfléchit longtemps
-est indiscernable d'une route qui télécharge lentement. La borne restante — se connecter en
-1500 ms — est la seule que le relais peut juger sans rien savoir de la route appelée.
+Un socket **connecté** n'a alors plus aucune borne, et c'est délibéré : c'est déjà la règle des
+téléchargements, et une route qui réfléchit longtemps est indiscernable d'une route qui
+télécharge lentement. La borne restante — se connecter en 1500 ms — est la seule que le relais
+peut juger sans rien savoir de la route appelée.
 
-Conséquence à ne pas perdre : `up.on("error")` veut maintenant dire ce qu'il dit, *un hôte
-injoignable*, donc le réessai sur l'adresse suivante est gratuit. Il englobait « a répondu trop
-lentement », et renvoyait alors une requête que l'amont avait déjà acceptée et commencée.
+Conséquence à ne pas perdre : `up.on("error")` veut dire ce qu'il dit, *un hôte injoignable*,
+donc le réessai sur l'adresse suivante est gratuit. S'il englobait « a répondu trop lentement »,
+il renverrait une requête que l'amont a déjà acceptée et commencée.
 
 `proxy.test.ts` tient un amont qui met 2200 ms à écrire sa première ligne et vérifie deux
 choses : la réponse arrive, et l'amont ne l'a vue **qu'une fois**.

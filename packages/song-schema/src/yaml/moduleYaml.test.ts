@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseModule, setModuleValue } from "./moduleFile";
 
-// Three questions: does it validate as tightly, does this app's vocabulary survive it, and does an EDIT keep the file.
+// Three questions: does it validate TIGHTLY, does this app's vocabulary survive it, and does an EDIT keep the file.
 
 const M = (body: string) => body.replace(/^\n/, "");
 
@@ -30,12 +30,12 @@ ui:
     );
     expect(issues).toEqual([]);
     expect(value?.ui?.widgets.w1.bind).toBe("Depth");
-    // The default CUE spells `*"plugin"`, applied on the way out — not into the file.
+    // The schema's default `type: plugin`, applied on the way out — not into the file.
     expect(value?.type).toBe("plugin");
   });
 
   it("catches the typo a closed struct is for, and says where", () => {
-    // The CUE equivalent was "field not allowed", which is what closed structs bought.
+    // A closed struct is what makes the typo an error at all — an open one drops `paramz` silently.
     const { value, issues } = parseModule(
       "plugin:\n  type: internal\nparamz: {}\n",
     );
@@ -45,7 +45,7 @@ ui:
   });
 
   it("reports a widget field that belongs to another type", () => {
-    // Today's bug, three times over: `library` on a non-dropdown, `min` on a toggle.
+    // The common typo, three times over: `library` on a non-dropdown, `min` on a toggle.
     const { issues } = parseModule(
       M(`
 ui:
@@ -87,7 +87,7 @@ rack:
 `),
     );
     expect(slice.issues).toEqual([]);
-    // A slice rack with no source is the error the CUE `if` block caught.
+    // A slice rack with no source: the flavour's own branch is what catches it.
     const bad = parseModule(
       M(`
 type: rack

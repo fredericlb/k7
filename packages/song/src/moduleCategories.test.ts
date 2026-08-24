@@ -1,7 +1,7 @@
 // The optional CATEGORY level in a shared module folder: scanModules files a plugin that declares one at
-// `<type>/<category>/<slug>`, and for a long time the READER stopped at `<type>/<name>` — so on a real
-// 250-module folder 205 modules were invisible to every project. Writer and reader disagreeing is silent:
-// a missing module looks exactly like one that was never installed.
+// `<type>/<category>/<slug>`, and the READER has to descend that far — stopping at `<type>/<name>` hides
+// every categorised module from every project. Writer and reader disagreeing is silent: a missing module
+// looks exactly like one that was never installed.
 
 import {
   existsSync,

@@ -1,4 +1,4 @@
-// migrateSetStems.ts — give a SET written before the stems the four lanes per deck it lacks.
+// migrateSetStems.ts — give a SET the four stem lanes per deck it lacks.
 //
 //   npx tsx packages/song/scripts/migrateSetStems.ts <projet.st0> [more…] [--write]
 //

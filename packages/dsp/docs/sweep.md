@@ -54,11 +54,11 @@ vraiment.
 ## La paire est ASCENDANTE, et c'est le trajet qu'on inverse
 
 Jamais `geolerp(20000, 30, down)`. Le moteur trie les bornes d'un `geolerp`, donc une paire
-descendante se lit comme son propre miroir : écrit de la façon évidente, ce filtre s'asseyait à
-30 Hz **au repos** et s'ouvrait quand on balayait, c'est-à-dire le silence avec le potard au neutre.
-Mesuré à −62 dBFS contre un témoin à −24 dBFS, avant que le constructeur n'apprenne à le refuser
-(`docs/builder.md`). Le test épingle la forme qui l'a remplacé, parce qu'un graphe pourrait être
-réécrit de façon à passer la garde et à balayer quand même à l'envers.
+descendante se lit comme son propre miroir : écrite de la façon évidente, elle pose ce filtre à
+30 Hz **au repos** et l'ouvre quand on balaie, c'est-à-dire le silence avec le potard au neutre —
+mesuré à −62 dBFS contre un témoin à −24 dBFS. Le constructeur refuse cette paire
+(`docs/builder.md`), et le test épingle en plus la forme écrite ici, parce qu'un graphe pourrait
+être réécrit de façon à passer la garde et à balayer quand même à l'envers.
 
 `glide` sur les deux coins : un biquad recalcule ses coefficients **par bloc**, et c'est un potard
 qu'on jette — un saut entre deux blocs est un clic, et un balayage de sauts est le bruit de
@@ -79,10 +79,10 @@ même fréquence multiplient leurs pics — Q² — ce qui donne un filtre qui h
 `SWEEP_TRIM = 0.7`, soit −3 dB aux extrêmes, et il vient **après** les étages pour reprendre une
 part de ce qu'ils viennent d'ajouter.
 
-Mesuré, pas deviné, et la première tentative l'avait à l'envers. Une rampe jusqu'à −6 dB mangeait le
-pic exactement là où le pic est le sujet : du bruit blanc à mi-course ne montrait plus que +1,2 dB
-au coin. Et la peur à laquelle elle répondait s'est révélée théorique — à ce réglage le filtre
-enlève 14 dB au signal entier, il n'y avait donc pas d'écrêtage contre quoi se protéger.
+Mesuré, pas deviné, et l'excès est le piège. Une rampe jusqu'à −6 dB mange le pic exactement là où
+le pic est le sujet : du bruit blanc à mi-course ne montre alors plus que +1,2 dB au coin. Et il
+n'y a pas d'écrêtage contre quoi se protéger — à ce réglage le filtre enlève déjà 14 dB au signal
+entier.
 
 Ce qui reste est assez pour qu'un `Q` de 6 assis sur un coup de grosse caisse à 30 Hz ne coûte pas
 son master à quelqu'un, et assez petit pour que le swoosh y survive.

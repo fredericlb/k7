@@ -235,8 +235,8 @@ joignable depuis cette machine, et il reste le seul demandeur — comme pour le 
 Un **client** SFTP et non un montage : pas de FUSE, donc pas de `CAP_SYS_ADMIN` sur le conteneur
 qui détient les fichiers de tout le monde ; pas de montage à remonter après un redémarrage ; pas
 d'appel bloquant capable de geler la boucle d'événements ; et le même code en dev sous Windows
-qu'en production sous Linux. Le raisonnement complet est dans l'historique de cette décision —
-l'essentiel est que le montage aurait demandé **deux** mécanismes à faire marcher au lieu d'un.
+qu'en production sous Linux. L'essentiel : un montage demanderait **deux** mécanismes à faire
+marcher au lieu d'un.
 
 `localPathFor` reconstruit le rangement que slskd documente : `<downloads>/<dossier>/<fichier>`.
 Si le fichier n'y est pas — slskd est configurable — on le cherche par son nom sur trois niveaux,
@@ -298,24 +298,19 @@ peuvent contenir n'importe quoi. Ils traversent ici deux endroits, et chacun a s
 
 Rien de ce qu'un inconnu a tapé ne devient donc un chemin.
 
-## Ce que la chasse ne fait plus : viser une playlist
+## La chasse ne vise pas une playlist
 
-Il y avait, sous le champ, un menu « Ajouter automatiquement à la playlist : ». Le morceau trouvé
-y était ajouté dès qu'il était rangé, le choix figé sur la ligne au lancement parce qu'une
-recherche dure des minutes et que le menu à l'écran appartient déjà à la suivante.
+Une playlist vit dans le dépôt de l'espace de travail (`packages/song/docs/playlists.md`),
+c'est-à-dire sur le disque du service de fichiers — que ce service-ci ne touche pas. Et il ne faut
+pas qu'il le touche : `docs/projects.md` pose que celui qui mint la session de tout le monde et
+détient l'unique clé de déploiement ne doit pas en plus pouvoir écrire dans le dépôt de chacun.
+Un « juste une ligne de YAML » qui coûte cette propriété-là est cher.
 
-Il est parti avec les playlists. Elles vivent dans le dépôt de l'espace de travail maintenant
-(`packages/song/docs/playlists.md`), c'est-à-dire sur le disque du service de fichiers — que ce
-service-ci ne touche pas. Et il ne faut pas qu'il le touche : `docs/projects.md` pose que celui
-qui mint la session de tout le monde et détient l'unique clé de déploiement ne doit pas en plus
-pouvoir écrire dans le dépôt de chacun. Un « juste une ligne de YAML » qui coûte cette
-propriété-là est cher.
-
-Ce qui reste est le partage honnête : **la chasse range le morceau dans la médiathèque**, et
+Le partage est donc celui-ci : **la chasse range le morceau dans la médiathèque**, et
 l'ajouter à une setlist est un clic dans st0, sur exactement ce catalogue-là — sa recherche
-interroge `/api/mediatek/list?family=songs` (`apps/st0/frontend/docs/playlists.md`). Le geste
-perdu est le regroupement automatique de huit recherches d'affilée ; il se refait en huit clics
-dans un écran qui, lui, montre la setlist pendant qu'on la remplit.
+interroge `/api/mediatek/list?family=songs` (`apps/st0/frontend/docs/playlists.md`). Huit
+recherches d'affilée coûtent donc huit clics, dans un écran qui, lui, montre la setlist pendant
+qu'on la remplit.
 
 ## Le secours : « DL sur YouTube »
 
@@ -361,8 +356,8 @@ le dossier rangé, c'est la seule trace qu'on écoute la piste audio d'une vidé
 ### Ici l'artiste EST dans la requête
 
 À l'inverse exact de slskd. Un titre de vidéo YouTube s'écrit « Artiste - Titre », donc
-l'artiste est dans le champ même qu'on interroge ; chez Soulseek il était le dossier au-dessus
-et ne restreignait rien. Même information, deux endroits différents, deux décisions opposées.
+l'artiste est dans le champ même qu'on interroge ; chez Soulseek il est le dossier au-dessus
+et ne restreint rien. Même information, deux endroits différents, deux décisions opposées.
 
 `ytsearch1:` transforme la phrase en une vidéo sans qu'on ait à interroger YouTube nous-mêmes.
 Un seul résultat : le deuxième est déjà une reprise ou un live.
@@ -447,7 +442,7 @@ encore « en cours » — une ligne bleue qui tournerait pour toujours. `reconci
 tout ce qui est dans un état vivant sans qu'aucun coureur ne le revendique, à la première lecture
 suivante, qui est aussi le premier moment où quelqu'un aurait pu s'en apercevoir.
 
-Le dialogue **n'interroge que lorsqu'il est ouvert** : le travail est sur le serveur, et un
+La page **n'interroge que lorsqu'elle est ouverte** : le travail est sur le serveur, et un
 onglet qui demanderait en continu pour un écran fermé paierait un aller-retour pour rien.
 
 ## Garde-fous

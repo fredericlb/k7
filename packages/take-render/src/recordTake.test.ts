@@ -97,7 +97,7 @@ describe("a finished take", () => {
     // The two halves agreeing: the files above, read back through the compiler the engine is fed from.
     const id = addTakeToTrack(dir, doc(), take());
     const clip = loadProject(dir).tracks.find((t) => t.id === "gtr")!.clips[0];
-    // The MATERIAL the take wrote: `id` identifies the PLACEMENT now, so `name` carries the take's.
+    // The MATERIAL the take wrote: `id` identifies the PLACEMENT, so `name` carries the take's.
     expect(clip.name).toBe(id);
     expect(clip.start).toBe(8); // bar 3 == 8 beats in
     expect(clip.sourceTo).toBeCloseTo(8, 6); // eight seconds of source

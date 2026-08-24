@@ -23,8 +23,8 @@ L'ordre dans lequel les choses tombent est l'ordre inverse de ce qu'elles valent
 
 ### Et dessinée même à vide
 
-La forme d'onde a été un moment conditionnée à `load`, au motif qu'une bande vide sous une
-platine vide est du mobilier. C'est l'argument que les repères refusent déjà, et pour une
+La forme d'onde n'est **pas** conditionnée à `load`, malgré l'argument qu'une bande vide sous
+une platine vide est du mobilier. C'est l'argument que les repères refusent déjà, et pour une
 meilleure raison : un pupitre dont les contrôles apparaissent et disparaissent selon ce qui est
 chargé est un pupitre qui bouge sous les mains. La bande pousserait les repères et le titre vers
 le bas à l'instant où un morceau arrive, et l'endroit que l'œil a appris ne serait pas là pour
@@ -41,17 +41,17 @@ Pourquoi un plafond à 180 : une forme d'onde se lit pour sa **forme** — où e
 les temps — et passé un certain point plus d'amplitude ne dit rien de neuf. Le reste de la place
 sert à ce que les repères et le titre restent là où la main les attend.
 
-## Et la tranche de console, qui a failli perdre son filtre
+## Et la tranche de console, qui rétrécit sous peine de perdre son filtre
 
 Une platine a **deux** colonnes : celle décrite ci-dessus, et la **tranche** — trois potards
-d'EQ, un trait, puis le filtre (`ChannelStrip`). La tranche ne se réduisait pas. Elle demande
-**317 px** à taille pleine, et un panneau à mi-hauteur sur une fenêtre de 768 donne à la rangée
-environ **206**.
+d'EQ, un trait, puis le filtre (`ChannelStrip`). Elle demande **317 px** à taille pleine, et un
+panneau à mi-hauteur sur une fenêtre de 768 donne à la rangée environ **206**.
 
 Ses potards sont `justify-center` dans une boîte sans `overflow`. Un contenu plus haut que sa
 boîte déborde donc **des deux côtés à parts égales** — et les deux choses aux extrémités sont le
-potard du haut et **le filtre**. D'où le symptôme : pas un filtre coupé en deux, un filtre
-*disparu*, pendant que les trois bandes d'EQ avaient l'air d'aller bien.
+potard du haut et **le filtre**. Une tranche qui ne rétrécirait pas donnerait donc ce
+symptôme-là : pas un filtre coupé en deux, un filtre *disparu*, pendant que les trois bandes
+d'EQ ont l'air d'aller bien.
 
 Ici rien n'est **retiré**, contrairement au disque : trois bandes et un filtre, c'est ce qu'une
 tranche EST, et une tranche sans aigus n'est pas une tranche plus petite. Elle rétrécit — par

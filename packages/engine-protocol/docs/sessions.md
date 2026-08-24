@@ -1,21 +1,21 @@
 # Sessions — which project on the engine a client is driving
 
-One engine process hosts several projects at once (measured — see
-`engine/moteur/docs/multiEdit.md`). A **session** is the name of one of them. The wire rule
-lives in `engine/moteur/docs/protocol.md`; this page is about the client side: who picks the
-name, and the two ways it goes wrong.
+One engine process hosts several projects at once (`engine/moteur/docs/multiEdit.md`). A
+**session** is the name of one of them. The wire rule lives in
+`engine/moteur/docs/protocol.md`; this page is about the client side: who picks the name, and
+the two ways it goes wrong.
 
 ## Why there is a name at all
 
-Before sessions, the engine held one project. Everything that reached it applied to that
-one, so:
+Without a name the engine holds one project, and everything that reaches it applies to that
+one:
 
-- opening a module in the médiathèque's builder replaced the song open in st0;
-- an m9 deck loading a track did the same;
-- and the state frames were global, so st0' transport light lit up when a deck played.
+- opening a module in the médiathèque's builder replaces the song open in st0;
+- a deck loading a track does the same;
+- and the state frames are global, so st0's transport light lights up when a deck plays.
 
-Nothing arbitrated. The last `project` message won, in silence — nothing failed, nothing
-was logged, the song simply stopped being loaded.
+Nothing arbitrates. The last `project` message wins, in silence — nothing fails, nothing is
+logged, the song simply stops being loaded.
 
 ## Who passes what
 
@@ -25,11 +25,10 @@ message, at the single `send()` both funnel through. That is the point: a verb a
 is addressed by construction, and there is no per-call site to forget.
 
 The granularity is one session per **service and per person** — `sessionFor("st0",
-email)` → `st0:fred_parapluie_org`. The service half is what stopped st0, the
-médiathèque and m9 from overwriting each other. The person half became necessary the
-moment an engine could be **chosen per account**: two people can now pick the same machine,
-and on a bare `st0` they would drive one project between them — the same collision, moved
-up a level.
+email)` → `st0:fred_parapluie_org`. The service half is what keeps st0 and the médiathèque
+from overwriting each other. The person half is what an engine **chosen per account** needs:
+two people can pick the same machine, and on a bare `st0` they would drive one project between
+them — the same collision, moved up a level.
 
 One session per person, not per workspace. A person drives one project at a time, and
 splitting per workspace would leave a stopped project loaded in the engine forever.
@@ -54,7 +53,7 @@ It is the only thing in the repo that would catch them drifting.
 with no `session` field through. The binary audio frames need no filter at all — the engine
 already routes those per socket.
 
-The 20 Hz `state` frame is now routed per socket *as well as* stamped: the engine remembers which
+The 20 Hz `state` frame is routed per socket *as well as* stamped: the engine remembers which
 project each connection named in its first real message and sends each frame only to those. That
 is an optimisation, not a second filter, and `forSession` still runs on the result. Read the two
 in that order — the engine addresses with what a socket has said so far, the client decides with
@@ -70,13 +69,13 @@ sessions nothing is stamped, and that is the case pass-on-absence exists for —
 field would make a new client silently deaf rather than merely unsorted.
 
 So the correctness of one line here lives in `engine/moteur/server/main.cpp`, in its choice
-between the `broadcast` and `broadcastTo` verbs. It was not always true: for a while only
-`state` and `session-dropped` were stamped, and an pl8 module audition made st0 flash `busy`
-and receive `applied`/`flushed`/`recorded` for a project it did not own.
+between the `broadcast` and `broadcastTo` verbs. Stamp one reply too few and a pl8 module
+audition makes st0 flash `busy` and receive `applied`/`flushed`/`recorded` for a project it
+does not own.
 
-A capability handshake was considered instead and rejected: it would only help if the engine
-*forgot* to stamp something, and would then make the client deaf on that frame rather than
-merely unsorted — strictly worse, and equally silent.
+A capability handshake is the wrong answer to that: it would only help if the engine *forgot*
+to stamp something, and would then make the client deaf on that frame rather than merely
+unsorted — strictly worse, and equally silent.
 
 `DEFAULT_SESSION` is `""`, and the engine reads a missing field as exactly that. So a
 client that has never heard of sessions and one passing the default are the same client,

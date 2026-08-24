@@ -1,11 +1,11 @@
 // A project's own `modules/` may FILE its modules one level deep — `audio/amps/neural-amp-modeler`
-// — exactly as a shared library always could. Two walkers over one vocabulary disagreed:
-// `readModuleTree` (the médiathèque, `_modules`) recursed, `loadModules` (the project's own) did
-// not, and a folder with no `module.yaml` was skipped in SILENCE. So a filed module was not an
-// error, it simply was not there — and every symptom described something else.
+// — exactly as a shared library may. Two walkers read one vocabulary and both have to recurse:
+// `readModuleTree` (the médiathèque, `_modules`) and `loadModules` (the project's own). A folder
+// with no `module.yaml` is skipped in SILENCE, so a filed module one walker misses is not an
+// error, it is simply not there — and every symptom then describes something else.
 //
-// It could not bite while a project's modules were always flat. The module bench, whose
-// `modules/` is a mirror of the médiathèque's catalogue, is the first project where they are not.
+// Only a project whose `modules/` is not flat shows it: the module bench, whose `modules/`
+// mirrors the médiathèque's catalogue.
 
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

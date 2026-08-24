@@ -88,7 +88,7 @@ describe("bad input", () => {
 
 describe("ticks", () => {
   it("writes what is left below the semiquaver as a tick count", () => {
-    // A dotted 16th: one whole semiquaver, then half of one. The half used to need a level deeper.
+    // A dotted 16th: one whole semiquaver, then half of one as ticks.
     expect(beatsToPosition(0.375, 4, 4)).toBe("1:1:1:2.120");
   });
 

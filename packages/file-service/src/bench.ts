@@ -1,6 +1,6 @@
 // bench.ts — a generated `.st0` project that IS one chain of the library submodule, and whose
-// saves are written back into it instead of forking a copy. Opened on ONE chain: the
-// catalogue-at-large bench is gone, and modules are edited from st0's Libraries tab.
+// saves are written back into it instead of forking a copy. Opened on ONE chain, never on the
+// catalogue at large: modules are edited from st0's Libraries tab.
 // Rationale: apps/pl8/docs/banc.md.
 
 import {
@@ -29,9 +29,7 @@ import { slugify, workspaceRoot } from "./slug.ts";
 /** The workspace the bench lives in — reserved by convention, capitalised as `Examples` is. */
 export const BENCH_WORKSPACE = "Banc";
 
-// The catalogue MIRROR was here; the library is a submodule of the workspace now, so nothing is copied.
-
-// `ensureLive` was here, with `project_type: live`; a bench draws no timeline because it declares none.
+// Nothing is copied in: the library is a submodule, and a bench draws no timeline it does not declare.
 
 /** The scaffold both benches share, answering the project folder — see apps/pl8/docs/banc.md. */
 function ensureBenchProject(userEmail: string, project: string): string {

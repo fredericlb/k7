@@ -1,8 +1,7 @@
 # What this package writes, and why each file says what it says
 
 `take-render` is the audio a song PRODUCES: filing a take, rendering a mixdown, cutting material
-in two, reading a wav's length. This page holds the reasoning those functions used to carry
-inline.
+in two, reading a wav's length. This page holds the reasoning behind those functions.
 
 ## A freeze render is a MIXDOWN of a closure
 
@@ -20,20 +19,20 @@ Two things follow from the cut:
 - A send LEAVING the plan is dropped — its bus is not in this document — while one INSIDE it is
   how the lanes reach the point they are being frozen at.
 
-Nothing else is neutralised, unlike the per-track freeze this replaced. Gain and pan are a
-`Mixer` MODULE now: upstream of the point it belongs in the render, downstream it is not in the
-document at all. The one thing the old code had to flatten by hand is the one thing the plan
-already answers. See `packages/song/docs/freeze.md`.
+Nothing else is neutralised. Gain and pan are a `Mixer` MODULE: upstream of the point it belongs
+in the render, downstream it is not in the document at all. The one thing there would otherwise be
+to flatten by hand is the one thing the plan already answers. See
+`packages/song/docs/freeze.md`.
 
 A plugin id is `<chain>:<module>` and a module name may itself hold a colon (`synth:lead`), so
 `pluginModule` splits on the FIRST one.
 
-## `radiok7` is still read
+## `radiok7` is read as well as `k7`
 
-The k7 credentials file is the USER's, at their workspace root, so the rename could not simply
-break the old key. A key nobody reads any more fails by silently having no credentials — which
-reads as "sharing stopped working" rather than "rename your key". The new spelling wins where
-both are written.
+The credentials file is the USER's, at their workspace root, so `readK7File` accepts both
+spellings — `k7` / `k7Url` / `k7Token` and `radiok7` / `radiok7Url` / `radiok7Token` — and `k7`
+wins where both are written. A key nobody reads fails by silently having no credentials, which
+reads as "sharing is broken" rather than "rename your key".
 
 ## A recorded take's clip file states its window in full
 
@@ -81,11 +80,11 @@ at all — it would be the file's DURATION, copied into the song. That copy goes
 `clip process` repoints `source:` at a processed wav of a different length, and nothing would
 notice: the clip would draw and play to a second that no longer exists in it.
 
-The reason to want one was real. An absent extent used to reach the browser as `length: 0`, where
-nothing can measure a file, so the timeline drew a single bar for a three-bar render. That is
-answered where it belongs, on the side that HAS the audio: the file service measures the source
-and fills the length in on its way to the browser (`naturalBeats` in `workspace.ts`). One source
-of truth, and it is the file.
+The reason to want one is real: an absent extent gives the browser no length, and nothing there
+can measure a file — a three-bar render would draw as a single bar. That is answered where it
+belongs, on the side that HAS the audio: the file service measures the source and fills the length
+in on its way to the browser (`naturalBeats` in `workspace.ts`). One source of truth, and it is
+the file.
 
 The `seconds` a render reports is the wav that came OUT, not the span that went in: a tail
 ringing past the cut is in the file and is what plays, so reporting the request would understate
@@ -126,13 +125,12 @@ and bytes from the other.
 
 `describeTimeline` prints a project's arrangement — the read-only counterpart to the web Timeline
 tab, and the sibling of `@studio/song`'s `graph.ts`, which shows ROUTING rather than what is
-ARRANGED. Both were commands once (`project inspect timeline` / `project inspect graph`) and are
-scripts alone now: what they print is what the panes draw, so the palette row was a verb nobody
-ran. `describeTimeline` stays pure — a doc in, strings out — which is what let the two surfaces
-share it.
+ARRANGED. Neither is a command: what they print is what the panes draw, so a palette row would be
+a verb nobody runs. `describeTimeline` stays pure — a doc in, strings out — which is what lets the
+two surfaces share it.
 
 It is deliberately NOT published in `exports`, because a script is reached by path and never by
-specifier: the subpath was one nothing could ever import. Run it with `npx tsx`, and its
+specifier: the subpath would be one nothing can import. Run it with `npx tsx`, and its
 positionals mirror `graph.ts`'s.
 
 The output clusters like the web timeline so both surfaces describe one project alike, and a

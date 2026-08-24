@@ -2,8 +2,8 @@
 
 Le pendant de [engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md)
 pour tout ce qui n'est pas du C++ : le service de fichiers, le compilateur, les surfaces — plus le
-FIL, où les deux se rejoignent et où le lot C a fini par toucher `main.cpp`. Ce qui reste au
-C++ seul (le rappel audio, `applyFull`, les drapeaux de compilation) est chez lui, pas ici.
+FIL, où les deux se rejoignent. Ce qui reste au C++ seul (le rappel audio, `applyFull`, les
+drapeaux de compilation) est chez lui, pas ici.
 
 Il reprend sa règle de méthode, qui est la seule qui compte ici :
 
@@ -12,13 +12,7 @@ Il reprend sa règle de méthode, qui est la seule qui compte ici :
 Un chiffre pris avant un `npm i`, un redémarrage ou un changement de machine ne se compare pas
 à un chiffre pris après. Ce qui se compare, ce sont deux bras dans la même invocation.
 
-## Il y a enfin de quoi mesurer
-
-Jusqu'ici le côté web n'avait **aucun** moyen de rejouer une mesure : zéro script `bench`, zéro
-fichier `*.bench.ts`. Les seuls chiffres étaient un profil Firefox recopié dans
-[apps/st0/frontend/docs/timeline.md](../apps/st0/frontend/docs/timeline.md) et deux nombres en
-commentaire (`graphDoc` « ~280 ms », le jeton de révision « 4,8 ms ») que personne ne pouvait
-refaire. `timeline.md` dit « measure before paying for it » sans donner de quoi mesurer.
+## De quoi mesurer
 
 Trois benchs, `npm run bench` dans chacun des trois paquets :
 
@@ -29,18 +23,17 @@ Trois benchs, `npm run bench` dans chacun des trois paquets :
 | `buildGraph` | `ui-chains` | l'arithmétique nœuds/arêtes + dagre, **sans disque** : cette fonction prend un `WebGraph`, pas un dossier |
 
 La fixture est **synthétique et paramétrée par la taille** (`packages/song/src/benchProject.ts`,
-publié par la porte `./testSupport` déjà existante plutôt que par un sous-chemin de plus — voir
-`docs/inventaire.md` §1 sur les 41 sous-chemins que personne n'importe). Les projets committés
-sous `engine/capot/songs/` tiennent UNE piste, là où le « 280 ms » a été pris sur un morceau
-d'environ soixante-dix nœuds : une fixture d'une piste mesurerait le démarrage et rien d'autre.
-Deux tailles, 8 et 64 pistes, parce que ce qui se lit est la **courbe** — un coût qui double
-quand le morceau double va bien, un coût qui quadruple est le constat.
+publiée par la porte `./testSupport` déjà existante plutôt que par un sous-chemin de plus — voir
+`docs/inventaire.md` sur les sous-chemins que personne n'importe). Les projets committés sous
+`engine/capot/songs/` tiennent UNE piste : une fixture d'une piste mesurerait le démarrage et rien
+d'autre. Deux tailles, 8 et 64 pistes, parce que ce qui se lit est la **courbe** — un coût qui
+double quand le morceau double va bien, un coût qui quadruple est le constat.
 
 Le dossier finit en `.st0`, et ce n'est pas cosmétique : le service décide qu'un dossier est un
 projet d'après son NOM. Un dossier temporaire nu compile parfaitement à travers `@studio/song` et
 reste invisible pour `Workspace` — les deux moitiés du harnais doivent pouvoir l'ouvrir.
 
-## Première lecture — ce que les chiffres disent
+## Ce que les chiffres disent
 
 | | 8 pistes | 64 pistes | rapport |
 |---|---|---|---|
@@ -48,7 +41,7 @@ reste invisible pour `Workspace` — les deux moitiés du harnais doivent pouvoi
 | `compileNodeProject` | 13,4 ms | 68,1 ms | ×5 |
 | `buildGraphDoc` | 13,5 ms | 68,5 ms | ×5 |
 
-Trois choses tombent de là, et aucune ne se voyait à la lecture du code :
+Trois choses tombent de là, et aucune ne se voit à la lecture du code :
 
 - **`buildGraph` est exactement linéaire.** Huit fois les pistes, huit fois le temps. dagre et
   l'arithmétique du graphe ne sont pas un problème et n'ont pas besoin qu'on les regarde.
@@ -56,275 +49,47 @@ Trois choses tombent de là, et aucune ne se voyait à la lecture du code :
   pas le projet ici — et il coûte pourtant ce que coûte le compilateur. Les deux sont donc
   dominés par un troisième coût qu'ils partagent : la lecture des modules sur le disque.
 - **La grande taille a ±36 à 40 % de variance** (min 17 ms, max 92 ms sur la même mesure), là où
-  la petite en a ±1,5 %. Un cache qui tantôt touche et tantôt manque. C'est le fil à tirer.
+  la petite en a ±1,5 %. C'est un cache qui tantôt touche et tantôt manque, et c'est la marche
+  d'empreinte des modules — voir plus bas.
 
-## Ce qui a été corrigé
-
-### Le jeton de révision était marché plusieurs fois par dérivation
-
-`graphDoc()` demandait le jeton, puis appelait `clipExtents()` → `cachedProjectDoc()`, qui le
-redemandait. `Workspace.withRevision` le calcule une fois pour la durée d'une dérivation :
-ré-entrant plutôt que passé de main en main, parce que l'imbrication est déjà synchrone — la
-dérivation la plus externe ouvre la portée, les internes la trouvent ouverte. Exactement la forme
-de `withModuleStamp` dans `@studio/song`.
-
-`POST /command` prend la même portée pour le couple « jeton d'après + graphe », qui sont pris au
-même instant. Le jeton d'AVANT la commande reste sa propre marche : comparer deux moments est
-tout son objet.
-
-**Mesuré**, en comptant les `readdirSync` d'un `graphDoc()` sur la fixture :
-
-| | avant | après |
-|---|---|---|
-| cache plein | 8 | 8 |
-| cache manqué (reconstruction) | 32 | **24** |
-
-**Et une correction au constat de départ**, qui vaut d'être écrite : le relevé initial annonçait
-« deux parcours même en cache plein ». C'est **faux** — `graphDoc()` sort sur le `return hit.graph`
-avant d'appeler `clipExtents`, donc un cache plein n'a jamais coûté qu'une marche. Le doublon
-n'existait que sur le chemin qui reconstruit. La mesure a corrigé la lecture, ce qui est
-précisément ce à quoi sert un harnais.
-
-### `projectDoc()` n'était pas mémoïsé
-
-Des trois vues dérivées, c'était la seule à se reconstruire à chaque requête : `graphDoc()` et
-`hints()` étaient déjà mémoïsés sur le jeton. Et c'est la plus demandée — trois composants montés
-en permanence (`useProjectDoc`, `TimelineTab`, `Minimap`) la redemandent sur le même `reloadKey`,
-donc une commande valait trois re-projections complètes de chaque piste, clip et note, par
-onglet, plus trois `JSON.stringify` du morceau entier.
-
-Le compte de marches ne bouge pas — la marche était déjà là — mais la projection, elle, disparaît
-sur un cache plein.
-
-## Les lots A et B — le service de fichiers, et ce que le navigateur lui demande
+## Ce que coûte chaque route
 
 Mesuré sur le vrai poste, sur `lemo_mante/01.danse.st0` — un morceau de 15 pistes dans un dépôt
 de 721 répertoires — huit passes par point, en millisecondes :
 
-| | avant | après | |
-|---|---|---|---|
-| `GET /workspace` | 30,7 | **0,01** | 25,8 sur le rebalayage, une fois toutes les 5 s |
-| `GET /project-errors` | 48,5 | **29,2** | une marche d'empreinte au lieu de deux |
-| `GET /project-doc` | 4,9 | 4,9 | déjà mémoïsé ; c'est la marche du jeton |
-| `GET /graph` | 4,8 | 4,8 | idem |
-| `GET /module-libraries` | 14,4 | 14,4 | mesuré, laissé — voir plus bas |
-
-### `/workspace` construisait tout l'arbre du dépôt pour en garder cinq chemins
-
-La route est sondée toutes les deux secondes par chaque onglet, et ce que le sondage VEUT est
-`activeProject` (un autre onglet a changé de projet) et `lastTake` (une prise vient de tomber).
-Les deux sont gratuits. `projects` est le champ cher : `collect(this.walk(root))` allouait un
-`FileNode` par FICHIER du dépôt — un `toRel`, un `isBinary`, un objet — puis jetait l'arbre.
-
-Deux corrections. Le balayage ne construit plus rien : répertoires seulement, même `skip()`, même
-ordre (30,7 → 25,8 ms — l'allocation n'était donc PAS le gros du coût, les 721 `readdir` le sont).
-Puis la liste est tenue : rebalayée quand ce service a bougé un projet — les trois méthodes qui en
-créent, en importent ou en recyclent un le disent — et sinon au plus toutes les cinq secondes.
-
-Le compromis est écrit et testé : un dossier apparu derrière le dos du service (un `git pull`, un
-`mkdir` à la main) se voit au balayage suivant et pas au sondage suivant. `cachedProjectDoc` a
-refusé ce marché et devait le refuser — une COMPILATION périmée se trompe avec assurance sur une
-chanson. Une liste de projets en retard de cinq secondes est un sélecteur qui n'a pas encore vu un
-dossier : une attente, pas un mensonge.
-
-Le balayage descend toujours DANS un projet : `parseLaunch` décrit un `.m9` niché dans un `.st0`,
-donc s'arrêter au premier projet reconnu serait une règle que ce dépôt n'a jamais eue. Un test le
-fige, avec le projet en profondeur (`albums/winter.st0`).
-
-### `/project-errors` payait l'empreinte des modules deux fois
-
-`notSupportedModules` et `libraryModuleIssues` atteignent chacun `loadModuleRefs`, et chacun
-repayait la marche d'empreinte — 19 ms, alors que les DEUX lectures étaient déjà des succès de
-cache. Un `withModuleStamp` autour de la route couvre les deux, et un `withRevision` avec, pour la
-même raison qu'ailleurs. La route ne lit et n'écrit rien, ce qui est exactement la permission que
-`withModuleStamp` demande.
-
-`withModuleStamp` est ré-exporté par `@studio/song/loader` plutôt que par un sous-chemin de plus :
-un appelant qui en veut est, par définition, un appelant qui enchaîne des lectures de modules, et
-c'est la porte par laquelle il est déjà entré.
-
-### Le navigateur demandait la même chose à quatre ou cinq voix
-
-Sur un `reloadKey`, quatre composants montés redemandent `/graph` et cinq `/project-doc` — chacun
-sa requête, pour les mêmes octets, tirés d'un mémo qu'ils touchaient tous. Le mémo ne coûte rien ;
-la marche du jeton devant lui coûte 5 ms à chaque fois.
-
-`fget` regroupe donc les requêtes EN VOL : une route déjà en l'air est attendue plutôt que
-redemandée. Ce n'est pas un cache — rien ne survit à la requête dont il vient, donc deux appels à
-une seconde d'écart restent deux requêtes. Ce qu'il supprime est la rafale.
-
-Deux garde-fous, tous deux testés. Une ÉPOQUE, avancée par chaque écriture (`fsend`, aux deux
-bords) : une lecture émise après une commande ne peut pas être servie par une lecture émise avant.
-Et ce qui est partagé est le TEXTE de la réponse, chaque appelant l'analysant lui-même — donner un
-seul objet analysé à plusieurs composants les mettrait en alias, et une surface qui remplit les
-clips de ses platines dans le document qu'on lui a donné écrirait dans l'état d'un autre. Chacun
-paie l'analyse qu'il payait déjà ; ce qu'il cesse de payer est l'aller-retour.
-
-### Deux constats mesurés, et délibérément pas corrigés
-
-**Le clone profond de `loadModules` n'était pas le suspect.** L'audit le donnait comme cause n°1 de
-la variance. Mesuré : **0,21 ms** sur 575 refs, contre 19 ms pour l'appel entier. Le coût est la
-MARCHE D'EMPREINTE, pas le clone — et elle vaut ce qu'elle protège (une lecture de 295 ms), donc
-le remède n'est pas de la supprimer mais de la porter en portée, ce que fait `/project-errors`
-ci-dessus. C'est aujourd'hui le premier poste de dépense de tout ce voisinage.
-
-**`/module-libraries` ne gagne rien à être mis en cache.** Le seul jeton honnête pour lui est
-l'empreinte des modules, qui balaie les mêmes arbres et coûte 19 ms là où la marche en coûte 14 :
-le cache coûterait plus cher que ce qu'il évite. Et la profondeur ne peut pas être réduite —
-l'onglet Bibliothèques passe les sous-arbres tels quels à `foldModules`, qui a besoin du contenu
-d'un dossier de module pour en faire une ligne. Laissé tel quel, sciemment.
-
-## Le lot C — le fil et le moteur
-
-Les trois constats qui touchaient le son, mesurés puis corrigés. Ils sont ici et non plus dans la
-liste d'attente ci-dessous.
-
-### La trame d'état partait sur toutes les sockets
-
-`main.cpp` l'envoyait par `broadcast`, c'est-à-dire à chaque socket du port, à charge pour le
-client de la trier avec `forSession`. Ce tri reste — il est la RÈGLE — mais le moteur adresse
-désormais : il retient quelle session chaque connexion a nommée dans son premier vrai message et
-n'envoie la trame qu'à celles-là.
-
-C'est le premier message NON-SONDE qui déclare, c'est-à-dire le test exact qui vaut à une
-connexion sa ligne `[client] connected` : il pose la même question, « est-ce un client, ou une
-sonde partie dans la milliseconde ». Pas `role: "driver"`, qui laisserait le service de fichiers
-dehors — il ne déclare rien exprès, et son horloge de motifs vit de ces trames. Et une seule fois
-par socket : `drop-session` et `show-native-plugin-ui` portent l'id d'une AUTRE session en
-surcharge, donc une socket qui se rebindait dessus devenait sourde.
-
-**Mesuré** avec `engine/moteur/scripts/two-sessions.ts`, qui compte maintenant les trames sur une
-socket brute — la seule façon de voir ce qui a été ENVOYÉ plutôt que ce qu'un client a gardé. La
-machine tenait trois sessions (deux du banc, plus la vraie session pl8 du poste), neuf secondes :
-
-| | avant | après |
+| | ms | |
 |---|---|---|
-| une socket qui suit `pl8` | 200 trames, dont 34 pour elle | **34, toutes pour elle** |
-| une sonde muette (le plateau) | 200 | **0** |
+| `GET /workspace` | 0,01 | la liste est tenue ; 25,8 sur le rebalayage, une fois toutes les 5 s |
+| `GET /project-errors` | 29,2 | une seule marche d'empreinte, prise en portée |
+| `GET /project-doc` | 4,9 | mémoïsé ; c'est la marche du jeton |
+| `GET /graph` | 4,8 | idem, 62 ms à froid |
+| `GET /module-libraries` | 14,4 | pas de cache — voir plus bas |
+| les marches d'une commande qui ÉCRIT | 16 | une seule traversée par phase (`walkProject` / `withWalk`) |
+| les six routes d'un rechargement | 108 | 230 sans le watcher de dossiers de modules |
 
-83 % de décodage jeté, par socket et par onglet. Et comme le diviseur d'inactivité est PAR
-SESSION, une session qui joue tenait éveillés à 20 Hz les onglets de toutes les autres.
+Le service est **un seul processus** : tout ça fait la queue.
 
-### L'horloge de motifs renvoyait le document entier, même inchangé
+Le compromis de `/workspace` est écrit et testé : un dossier apparu derrière le dos du service
+(un `git pull`, un `mkdir` à la main) se voit au balayage suivant et pas au sondage suivant.
+`cachedProjectDoc` refuse ce marché, et doit le refuser — une COMPILATION périmée se trompe avec
+assurance sur une chanson. Une liste de projets en retard de cinq secondes est un sélecteur qui
+n'a pas encore vu un dossier : une attente, pas un mensonge.
 
-Le vrai gaspillage n'était pas le document entier — c'en était un que rien n'avait touché.
-`tick()` émettait à chaque fenêtre franchie, y compris celles où le motif ne contenait aucun
-événement et où l'élagage n'avait rien retiré : le document reconstruit était alors identique au
-précédent, et il coûtait un `stringify` ici, une analyse là-bas et un `ProjectDiff` complet dans
-le moteur, six à sept fois par seconde. La fenêtre, elle, doit continuer d'avancer —
-`scheduledCycle` dit que le motif a été LU, pas qu'il a produit quelque chose.
+Le balayage descend DANS un projet — un projet peut en nicher un autre — donc s'arrêter au
+premier reconnu serait une règle que ce dépôt n'a jamais eue. Un test le fige, avec le projet en
+profondeur (`albums/winter.st0`).
 
-**Mesuré** par `packages/song-strudel/src/patternClock.test.ts`, sur `s("bd ~ ~ ~")` à 120 bpm : une
-mesure entière passait de **14 envois à 2**. Le test échoue avant le correctif (16 au lieu de 4,
-en comptant les deux de l'amorçage), ce qui est ce qui prouve que le constat était réel.
+## L'empreinte des modules — le premier poste
 
-Ce qui reste — le document entier quand il a VRAIMENT changé — demande un message partiel dans le
-protocole et une `ProjectDiff` qui l'accepte. À décider sur un chiffre, pas sur une impression :
-tel quel, le coût ne se paie plus que sur les fenêtres qui jouent quelque chose.
+C'est le premier poste de dépense de tout ce voisinage : **19 ms** par marche, et ce sont ces
+19 ms, pas le clone profond de `loadModules` (0,21 ms sur 575 refs), qui font la variance des
+gros projets. Elle vaut ce qu'elle protège — une lecture de 295 ms — donc le remède n'est pas de
+la supprimer mais de la payer moins souvent.
 
-### …et le delta, une fois le reste fait
+### Elle ne peut pas être moins chère
 
-Ce qui restait après ça : l'horloge renvoyait le document ENTIER quand il avait vraiment changé.
-Mesuré sur un vrai projet — 15 pistes, 54 clips — et le rapport ne laisse pas de doute :
-
-| une trame d'horloge | |
-|---|---|
-| document entier | 137,6 Ko |
-| les seules pistes qui bougent | **3,7 Ko** |
-| à 6,7 Hz | 922 Ko/s → **25 Ko/s** |
-
-Plus, côté C++, un `docFromJson` et une `diff()` qui reconstruit quatre `std::map` sur chaque
-piste, clip et plugin du document — pour huit notes.
-
-Le moteur FUSIONNE dans le document qu'il tient, puis lance le même `apply`. C'est ce qui rend
-la chose à la fois bon marché et ennuyeuse : la diff, les chemins incrémentaux et le repli sur
-reconstruction sont intacts, et il n'y a pas une deuxième façon d'atteindre le moteur — seulement
-une façon plus courte de dire ce qui a bougé.
-
-Il REMPLACE par id, sans jamais ajouter ni retirer. Un id que la session ne tient pas est un
-DÉSACCORD — le cerveau croyant qu'on tient un projet qu'on ne tient pas, ce à quoi ressemble un
-redémarrage — donc il est signalé et jeté ; ajouter cacherait exactement le cas pour lequel le
-renvoi à la reconnexion existe. Et la garde côté horloge est le JEU DE PISTES, pas le contenu :
-au moindre écart, c'est le document entier qui part.
-
-`engine/moteur/scripts/track-delta.ts` éprouve les trois réponses contre un vrai moteur : refus
-sans projet chargé, silence sur une piste connue, avertissement sur une inconnue.
-
-### Le watcher strudel tenait tout le dossier de projet
-
-`chokidar.watch(dir, { ignoreInitial: true })` : `ignoreInitial` ne fait taire que les premiers
-événements, l'arbre entier est quand même parcouru et retenu. Un projet avec un `media/` de prises
-faisait tenir chacune d'elles pour une poignée de `.strudel`.
-
-Deux règles, et la seconde est ce qui évite une liste noire de dossiers lourds : les RÉPERTOIRES
-sont élagués par le `skip()` du service de fichiers — sa propre idée de ce qui n'appartient pas à
-un projet, donc pas de seconde liste à tenir en phase — et les FICHIERS ne sont gardés que si ce
-sont des motifs, où qu'ils soient. C'est ça qui rend `media/` gratuit sans que personne ait à
-prédire où un motif a le droit de vivre, et c'est le piège que ce constat annonçait : un `ignored`
-mal choisi rend une piste strudel sourde.
-
-**Mesuré** sur un projet synthétique (200 prises, 40 rendus, 300 objets git, 100 modules) en
-comptant ce que `getWatched()` rend :
-
-| | avant | après |
-|---|---|---|
-| entrées tenues | 649 | **5** |
-| répertoires surveillés | 8 | 5 |
-
-`packages/file-service/src/engineLink.test.ts` fige le prédicat, y compris l'appel en deux temps
-de chokidar 3 : rien ne peut être ignoré au premier appel, où le type n'est pas encore connu.
-
-**Et une correction au constat**, comme pour le jeton de révision : le relevé reprochait au
-watcher d'être un singleton « là où `startEngineForActive` est par espace de travail ». Ce n'en
-est pas un défaut. L'en-tête de `engineLink.ts` et le commentaire de `clockWs` disent la même
-chose depuis longtemps — l'horloge, son watcher et le `clientDoc` du navigateur sont UNE seule
-chose qui tourne, le dernier arrivé gagne, et c'est délibéré. Le watcher n'est pas un singleton de
-trop : il est la conséquence d'une décision écrite. Rien à faire, sauf la relire.
-
-## Le lot D — deux feuilles qui redessinaient pour rien
-
-### Le viewport rendait sa vue vingt fois par seconde pour nourrir une horloge
-
-`ViewportTab` lisait `playing` et `playhead` par `useEngineState`, en deux tranches séparées,
-sous un commentaire disant que c'était ce qui le tenait hors du chemin à 20 Hz. Ce n'était pas
-vrai et ne pouvait pas l'être : le playhead est justement le champ qui BOUGE. Le panneau et tout
-son sous-arbre se validaient donc à chaque trame — pour passer un nombre à une horloge impérative
-dont aucune sortie React ne dépend.
-
-La règle de `timeline.md` est que l'état vivant est dessiné par les FEUILLES. Ici rien n'est
-dessiné par React du tout, donc la bonne feuille est l'absence de composant : `VideoCanvas`
-s'abonne au magasin directement (`store.subscribe`) et appelle `clock.feed`. Zéro rendu par
-trame. C'est l'arrangement qu'a déjà la toile de câbles des chaînes — la raison pour laquelle
-`activeTrackIds` n'est délibérément pas un hook.
-
-L'horloge est en plus nourrie une fois à la construction du pilote, depuis l'instantané courant :
-une horloge neuve ne sait rien, et transport à l'arrêt la trame suivante peut être à 250 ms —
-de quoi dessiner l'image 0 d'un morceau garé à 3:20.
-
-### Et le relevé de dérive était livré à tout le monde
-
-Un sondage à 5 Hz qui re-rendait le panneau à 5 Hz, embarqué sans condition, alors que le
-`Profiler` de React est correctement conditionné dans `main.tsx`. Les deux coûtent de la même
-façon et passent désormais par le MÊME drapeau (`src/profiling.ts`, `?profile=1`) : un instrument
-qu'on laisse tourner est une mesure de lui-même. Le format et l'avertissement WebCodecs restent
-affichés — ils ne coûtent rien et disent quelque chose.
-
-**Ce que je ne peux pas vérifier ici, et il faut le dire** : rien ne monte de composant dans ce
-dépôt (`apps/st0/AGENTS.md` le pose noir sur blanc). Ces deux corrections se prouvent à la lecture
-et par le contrat du magasin, plus `tsc` et `vite build` — pas par un rendu. À exercer à l'écran :
-le transport roule, l'image suit, et un `?profile=1` fait réapparaître la bande de dérive.
-
-Le second point du lot D — `rackLit` rebalayant depuis l'index 0 à chaque trame — a été corrigé
-plus tôt, avec le bug de tri qu'il cachait (`d2a0df6`).
-
-## L'empreinte des modules — pas moins chère, moins souvent
-
-C'était le premier poste de dépense du voisinage après les lots A à D. Deux questions, dans
-l'ordre : peut-on la rendre moins chère, et sinon, la paie-t-on trop souvent ?
-
-### Non, elle ne peut pas être moins chère
-
-Mesuré, sur le même projet : **329 `readdir` = 11,7 ms, 419 `stat` = 11,9 ms**, moitié-moitié.
+Mesuré sur la chanson de référence : **329 `readdir` = 11,7 ms, 419 `stat` = 11,9 ms**,
+moitié-moitié.
 
 - `readdirSync(recursive: true)` ne gagne rien (23,6 ms contre 23,5) : il stat en interne pour
   décider de descendre. Impasse.
@@ -336,264 +101,55 @@ Mesuré, sur le même projet : **329 `readdir` = 11,7 ms, 419 `stat` = 11,9 ms**
 - Un cache à l'horloge est refusé par `moduleCache.ts` lui-même, et à raison : le dépôt écrit
   des fichiers de module dans ses tests puis les relit aussitôt.
 
-### Oui, elle était payée deux fois par route
+### Elle se paie une fois par dérivation, pas une fois par lecture
 
-Trois routes lisaient le vocabulaire deux fois hors de toute portée — `ioPorts` (refs +
-modules), `projectHints` (idem) et `graphDoc` sur reconstruction (compile + graphe). Chacune
-payait deux marches pour prouver, la seconde fois, ce que la première venait d'établir. Elles
-s'enveloppent maintenant elles-mêmes, comme `compileNodeProject` et `loadGraph` le font depuis
-toujours — dans `@studio/song` pour les deux premières, donc la CLI en profite aussi.
+`withModuleStamp` et `withRevision` sont des portées **ré-entrantes** : une portée imbriquée sur
+le même projet trouve celle qui est ouverte (`if (scope?.dir === dir) return fn()`) au lieu d'en
+ouvrir une neuve et de rejeter l'empreinte déjà payée. Le contrat est figé par un test, et il est
+exigeant dans les deux sens : à l'intérieur d'une portée, les dossiers de modules sont tenus pour
+immobiles, et l'appel imbriqué doit honorer la MÊME promesse plutôt que re-vérifier en douce.
 
-**Et hoisser une portée rendait les choses PLUS lentes, ce que seule la mesure a montré.**
-`withModuleStamp` n'était pas ré-entrant : une portée imbriquée sur le même projet ouvrait une
-portée NEUVE et jetait l'empreinte déjà payée. Envelopper `graphDoc`, dont le contenu ouvre déjà
-deux portées, ajoutait donc une marche au lieu d'en retirer une. Corrigé de la même façon que
-`withRevision` l'était — `if (scope?.dir === dir) return fn()` — avec un test qui fige le
-contrat : à l'intérieur d'une portée, les dossiers de modules sont tenus pour immobiles, et
-l'appel imbriqué doit honorer la MÊME promesse plutôt que re-vérifier en douce.
+Le jeton de révision regarde deux fichiers HORS du projet, parce que deux fichiers hors du projet
+décident de ces réponses : le cache de scan du moteur (`~/.studio/exts.json`, d'où sortent les
+modules `@engine/…`) et les préférences de la machine (`~/.studio/preferences.yaml`, d'où sort
+l'étiquette d'un canal). Deux `stat` de plus sur une marche qui en fait des centaines, et c'est
+dans le JETON plutôt que dans chaque cache, parce que c'est une propriété de « qu'est-ce qui a
+changé », pas de l'un des lecteurs.
 
-### Et payée par des routes qui n'avaient aucun cache
+### Et sous une marche par route, grâce au watcher
 
-`projectErrors`, `moduleCatalogue`, `ioPorts` et `baseModules` relisaient tout le vocabulaire à
-CHAQUE requête — 21 à 43 ms — là où `graphDoc`, `projectDoc` et `hints` sont mémoïsés sur le
-jeton de révision depuis longtemps. Les quatre passent par un helper unique (`onRevision`)
-plutôt que par quatre champs écrits à la main.
+Une portée ne va pas plus loin qu'une dérivation, et six routes sont six requêtes : descendre
+sous six marches par rechargement demande de tenir l'empreinte ENTRE deux requêtes.
+`@studio/song` a pour cela une couture d'une ligne — `useFoldersStill(fn)`, un booléen — et rien
+d'autre : ni watcher, ni horloge, ni dépendance. `false` veut dire « marche », et c'est ce que
+reçoit tout ce qui n'installe rien : les tests, un script. Le watcher est dans le service de
+fichiers, seul processus qui vive assez longtemps pour tenir des poignées, avec un plafond de dix
+secondes parce que `fs.watch` perd des événements — sans plafond, un seul événement perdu
+laisserait le vocabulaire périmé POUR DE BON. Rationale complet :
+`packages/file-service/docs/moduleWatch.md`.
 
-Ce qui a demandé d'élargir le jeton, et c'est la partie qui vaut d'être lue : deux fichiers
-HORS du projet décident de ces réponses — le cache de scan du moteur (`~/.studio/exts.json`,
-d'où sortent les modules `@engine/…`) et les préférences de la machine
-(`~/.studio/preferences.yaml`, d'où sort l'étiquette d'un canal). Le jeton ne les regardait pas.
-`hints()` avait donc ce trou depuis le jour où il a été mémoïsé : après un rescan de plugins, sa
-liste de plugins restait périmée jusqu'à une édition sans rapport. Deux `stat` de plus sur une
-marche qui en fait des centaines le referment pour toutes les vues d'un coup — dans le JETON, et
-non dans chaque cache, parce que c'est une propriété de « qu'est-ce qui a changé », pas de l'un
-des lecteurs.
+**Un watcher ne suffit pas : le processus qui écrit doit le DIRE aussi.** `fs.watch` livre ses
+événements au tick suivant, donc une commande qui écrit un fichier de module puis reconstruit le
+graphe — une seule requête, synchrone — demande avant que son propre événement n'arrive, et le
+plafond de dix secondes n'aide pas : ces dix secondes-là sont justement celles qui comptent. D'où
+`moduleFoldersMoved()`, câblé sur `Workspace.invalidateProjectDoc`, le point de passage unique de
+« quelque chose a changé ». Délibérément brutal, toutes les écritures et pas seulement celles d'un
+module : savoir lesquelles c'est déjà savoir la réponse, et une marche de plus après une écriture
+est exactement ce qu'une écriture coûtait de toute façon. La leçon vaut pour tout cache adossé à
+un watcher : les deux sources doivent être branchées, pas l'une ou l'autre.
 
-**Mesuré en MARCHES, les deux bras dans la même invocation** — le poste était trop chargé pour
-que la montre serve à quoi que ce soit ce jour-là, et un entier ne fluctue pas :
+## Ce qui est laissé tel quel, sciemment
 
-| | avant | après |
-|---|---|---|
-| un rechargement (les six routes) | 10 marches | **6** |
-| les mêmes, rien n'ayant bougé | 4 marches | **0** |
-
-Une note d'outillage, parce qu'elle m'a coûté une mesure fausse : on ne peut PAS compter les
-appels en remplaçant `fs.readdirSync` depuis un script — les imports nommés d'un module `node:`
-sont figés à la liaison, et le compteur reste à zéro sans rien dire. Ajouter un compteur
-temporaire dans le module mesuré est la façon qui marche.
-
-### …puis un watcher, pour descendre sous une marche par route
-
-Six marches par rechargement était le plancher que la portée explicite permet : une portée ne
-va pas plus loin qu'une dérivation, et six routes sont six requêtes. Descendre plus bas demande
-de tenir l'empreinte ENTRE deux requêtes, donc quelque chose qui SAIT que les dossiers n'ont pas
-bougé.
-
-`@studio/song` reçoit pour cela une couture d'une ligne — `useFoldersStill(fn)`, un booléen — et
-rien d'autre : ni watcher, ni horloge, ni dépendance. `false` veut dire « marche », et c'est ce
-que reçoit tout ce qui n'installe rien : la CLI, les tests, un script. Un BIT et non un jeton,
-délibérément : la bibliothèque doit rendre l'empreinte que la marche aurait produite, sinon le
-mémo manque et relit toute la médiathèque à chaque changement de main. Et la première lecture
-d'un projet marche toujours, quoi qu'on lui réponde — c'est ce qui rend un watcher vide sûr.
-
-Le watcher est dans le service de fichiers, seul processus qui vive assez longtemps pour tenir
-des poignées. `fs.watch(root, {recursive:true})` plutôt que chokidar, pour deux raisons :
-UNE poignée par racine au lieu d'une par dossier (quatre contre cent cinquante), et sur Windows
-une poignée tenue sur `modules/` n'empêche pas de renommer un dossier de module À L'INTÉRIEUR —
-ce qu'un renommage de module est. Chokidar dit QUEL fichier a changé ; ici on veut un compteur.
-
-Et un plafond de dix secondes, qui est le cœur de l'argument de sûreté : `fs.watch` perd des
-événements. Sans plafond, un seul événement perdu laisserait le vocabulaire périmé POUR DE BON —
-la panne « sûre d'elle et fausse » que `cachedProjectDoc` documente et refuse. Avec, c'est un
-retard de dix secondes au pire. La marche reste la source de vérité ; le watcher dit seulement
-quand on peut la sauter.
-
-**Mesuré**, les deux bras alternés dans une seule invocation pour que la dérive de la machine
-sorte de la comparaison, médiane de cinq :
-
-| les six routes d'un rechargement | ms |
-|---|---|
-| sans le watcher | 230 |
-| avec | **108** |
-
-Rationale complet : `packages/file-service/docs/moduleWatch.md`.
-
-## Le lot E — ce qu'une commande qui ÉCRIT paie
-
-Les lots A à D regardaient tous des LECTURES : les sondages, les vues dérivées, les trames. La
-plainte qui a ouvert celui-ci est l'autre moitié — « il y a une latence dans toutes les
-opérations qui écrivent » (coller, couper le son d'une piste).
-
-Décomposition sur `lemo_mante/01.danse.st0`, la chanson de référence des lots A et B, cinq
-passes, médiane. Une réserve d'entrée : la COMPILATION n'a pas pu être mesurée sur elle — dans
-l'arbre de travail du jour elle refuse (`@studio/audio-track`, `@studio/sequence-track` non
-résolus : le détypage des pistes, sans migration, `packages/song/docs/trackModules.md`). Les
-chiffres ci-dessous sont donc des **planchers** partout où la compilation entre en jeu.
-
-| | ms |
-|---|---|
-| `revision()` — une marche | 7,6 |
-| `recordChange` **à vide** — les quatre marches du journal | 25,2 |
-| `graphDoc` froid | 62 |
-| `graphDoc` chaud | 5,8 *(la marche du jeton, rien d'autre)* |
-| `projectErrors` froid | 45 |
-
-Soit ~95 ms de plancher côté service avant que le verbe fasse quoi que ce soit, dont ~40 ms de
-pure marche de répertoire à prouver que rien n'a bougé. Le service est **un seul processus** :
-tout ça fait la queue.
-
-### Le graphe était construit pour des gestes qui ne le regardent jamais
-
-`POST /command` construisait le graphe sur *toute* commande qui change quelque chose, et le
-commentaire de la route explique très bien pourquoi — l'insertion d'un module dans le canevas.
-Ce qu'il ne dit pas, et que seul un coup d'œil aux appelants montre : st0 fait passer **mute,
-solo, les faders et les potards** par `quietCommand`, qui ne bouge délibérément pas `reloadKey`.
-Rien ne redemande `/graph` derrière. Les 62 ms étaient donc dépensées, par geste, pour un
-document que personne ne lisait — sur le fil unique où tout le reste attend.
-
-Le remède est que l'appelant DISE ce qu'il va dessiner : `want` dans le corps de la requête.
-L'absence du champ garde l'ancien contrat (le graphe revient), une liste vide est un appelant
-qui dit non. Trois appelants disent non — le mixer, la première moitié du sélecteur de module
-(`node new` a besoin que le module existe, pas d'une image), et le builder de chaînes, dont le
-graphe est celui de la CHAÎNE et jamais celui du morceau ouvert.
-
-`runCommand` — coller, couper, tout ce qui recharge le shell — continue de le demander, **sans
-condition, même panneau caché**. C'est le piège de ce lot, et il vaut d'être écrit : `ChainsTab`
-reste MONTÉ quand il est masqué (il porte le runtime MIDI de tout le shell) et refait son
-`/graph` à chaque `reloadKey`. Ne pas le construire ici n'économiserait donc rien — ça
-déplacerait la construction dans une seconde requête, et lui ajouterait un aller-retour.
-
-Le test compte l'appel plutôt que de le chronométrer (`commandWant.test.ts`), avec l'assertion
-qui l'empêche de passer pour la mauvaise raison : une ligne qui n'écrit rien prend la branche
-`rev === before` et saute la construction toute seule. C'est le premier test de ce paquet qui
-monte le routeur ; `req.ws` et `req.userEmail` sont ce que `resolveWorkspace` y aurait mis.
-
-### La rafale partait deux fois par écriture
-
-`runCommand` recharge le shell, ce qui fait re-poser à chaque vue dérivée sa question. Puis, 0 à
-2 s plus tard, le tic de `/revision` trouvait un jeton qu'il n'avait jamais vu et les faisait
-**toutes recommencer** — pour un changement déjà à l'écran. Soit `/project-errors` (45 ms) et
-une relecture du fichier ouvert, par écriture.
-
-La réponse de la commande porte pourtant déjà le jeton d'après. Il était jeté. `noteRevision`
-l'adopte, en silence : le sondeur sait, personne n'est réveillé, et le tic suivant n'a rien à
-annoncer. Deux garde-fous, tous deux testés. Une réponse partie AVANT la commande ne peut pas
-écraser le jeton qu'elle a produit (une génération, comme l'époque de `fget`) — sans quoi le tic
-d'après retrouverait une différence à annoncer et la seconde rafale reviendrait. Et seul un
-appelant qui RECHARGE a le droit de noter : `quietCommand` écrit sans recharger, donc il se tait,
-ou l'éditeur cesserait de suivre un fichier qu'une commande vient de réécrire sous lui.
-
-Deux conséquences de forme sur la route : `rev` ne voyage plus avec le graphe mais avec le fait
-d'avoir changé — un appelant qui ne veut pas d'image veut quand même le jeton — et la ligne
-`[cmd]` imprime `graph=skipped`, qui est le troisième état et le seul qu'on ait envie de voir.
-
-### Six marches du même arbre, devenues deux
-
-`revision()`, `snapshotText` et `snapshotBinMeta` parcouraient le même arbre avec le même
-`skip()` : le jeton avant la commande, les deux images du journal avant, les deux mêmes après, le
-jeton après. Six passages, à quelques microsecondes d'intervalle.
-
-Ce que ça coûte, décomposé sur la chanson de référence (39 répertoires, 284 fichiers après
-`skip`) :
-
-| | ms |
-|---|---|
-| le balayage `readdir` seul | 2,1 |
-| `readdir` + un `stat` par fichier | 8,3 |
-| les trois lecteurs, comme une commande les paie | 16,4 |
-
-Les `stat` sont donc les deux tiers du coût, et ils étaient refaits à chaque passage.
-
-`walkProject` fait la marche une fois et rend, par fichier, `{abs, size, mtime, binary, source}` ;
-`withWalk` la tient le temps d'une phase, exactement comme `withRevision` tient le jeton et pour
-la même raison ; `revisionOf`, `textOf` et `binOf` la lisent. `recordChange` en ouvre une de
-chaque côté de la mutation — il DOIT traverser deux fois, c'est son diff — et rend au passage le
-jeton des deux instants, que la route lisait jusque-là en marchant elle-même. Elle n'en prend
-plus aucune : `changed` est `after !== before`, et le graphe se construit dans une portée
-*semée* avec le jeton d'après (`withRevision(fn, seed)`) au lieu d'une septième marche.
-
-**Mesuré**, les deux bras dans une seule invocation — la classe telle qu'elle était à HEAD
-importée à côté de la nouvelle, alternées, médiane de neuf :
-
-| | avant | après |
-|---|---|---|
-| les marches d'une commande qui écrit | 31–34 ms | **16 ms** |
-| `GET /revision` | 5,0–5,3 ms | 5,1–5,5 ms |
-
-Et le jeton est **identique au caractère près** (`0:186:1787222710176.4082` des deux côtés), ce
-qui est la seule chose qui compte vraiment ici : tous les mémos du service sont clés sur cette
-chaîne.
-
-Deux pièges payés en route, tous les deux invisibles au chronomètre global :
-
-**Le sondage ne doit pas payer la marche large.** `/revision` veut les sources seules ; la carte
-binaire veut tout. D'où le drapeau `sourcesOnly` — sans lui, la route la plus sondée du service
-(toutes les deux secondes, par onglet) se serait mise à `stat` un dossier de wavs.
-
-**Et il ne doit pas payer les chemins relatifs non plus.** La première version mettait un `rel`
-dans chaque entrée : `relative()` plus une passe de séparateurs, 186 fois, pour une route qui
-n'allait que les compter — ~1 ms, soit 15 % sur `/revision`. Il est calculé par `textOf` et
-`binOf`, qui se partagent la marche moitié-moitié et le calculent donc une fois par fichier,
-exactement comme les deux marches séparées le faisaient. Le reste de l'écart mesuré (0,1–0,2 ms)
-est le tableau lui-même, et c'est du bruit.
-
-`revisionWalk.test.ts` fige l'invariant qui a remplacé le risque : le jeton de la marche étroite
-et celui de la marche large disent la même chose, y compris quand un binaire vient d'apparaître —
-un fichier que la large voit et que l'étroite n'a jamais vu.
-
-### Ce que le lot E n'a PAS fait
-
-`setCachedProjectDoc` appelle `revision()` au MILIEU de la mutation — donc hors de toute portée,
-donc une marche de plus, pour toute commande qui passe par `applyProject` (mute, solo, un fader).
-Elle ne peut pas être partagée : elle décrit un instant qui n'est ni l'avant ni l'après. La
-supprimer voudrait dire que le doc compilé se donne un jeton qu'il n'a pas mesuré, ce qui est
-exactement le mensonge que `cachedProjectDoc` refuse. Laissée, sciemment.
-
-## Ce qui reste, et n'a pas été fait
-
-Écrit ici plutôt que laissé à re-trouver. Chacun demande sa propre vérification.
-
-| constat | où | pourquoi c'est en attente |
-|---|---|---|
-*(Il n'en reste aucun. Les deux d'origine étaient FAUX — voir juste en dessous ; les six marches
-ont été faites, lot E.)*
-
-## Deux constats retirés, et un bug qu'ils ont fait sortir
-
-Les deux dernières lignes de ce tableau ne décrivaient rien. Elles sont retirées plutôt que
-laissées à re-vérifier, et la vérification a trouvé autre chose.
-
-**« Le watcher ne couvre qu'un projet à la fois. »** Faux. `watchModuleFolders` tient une entrée
-PAR PROJET, et `startEngineForActive` est appelé par workspace — chaque session sondant
-`/workspace` démarre la sienne. Deux personnes sur deux projets ont donc deux surveillances, et
-un changement dans l'une ne coûte pas sa réponse à l'autre. Un test le fige désormais
-(`moduleWatch.test.ts`, « keeps two projects apart »), parce que c'est le genre de propriété
-qu'on re-suppose.
-
-**« Hors du service de fichiers, c'est-à-dire pour la CLI. »** Il n'y a pas de CLI dans ce dépôt.
-Un seul paquet déclare un `bin` — `studio-file-service` — et les commentaires qui parlent de
-`st0 config` ou `st0 engine scan` décrivent un binaire qui vit ailleurs. Les seuls appelants des
-lecteurs de modules hors `@studio/song` et hors tests sont `packages/commands`, qui tourne DANS
-le service de fichiers, et un script de migration à usage unique. Le vocabulaire de modules n'a
-donc qu'un consommateur de longue durée, et il a le watcher.
-
-**Et c'est en le vérifiant qu'un vrai bug est apparu**, introduit par le watcher lui-même.
-`fs.watch` livre ses événements au tick suivant. Une commande qui ÉCRIT un fichier de module puis
-reconstruit le graphe — une seule requête, synchrone — demandait avant que son propre événement
-n'arrive, s'entendait répondre que rien n'avait bougé, et construisait à partir d'un vocabulaire
-sans le nœud qu'elle venait de créer. Le plafond de dix secondes n'aide pas : les dix secondes
-pendant lesquelles c'est faux sont justement celles qui comptent.
-
-Le remède est que le processus qui écrit le DISE : `moduleFoldersMoved()`, câblé sur
-`Workspace.invalidateProjectDoc` — le point de passage unique de « quelque chose a changé ».
-Délibérément brutal, toutes les écritures et pas seulement celles d'un module : savoir lesquelles
-c'est déjà savoir la réponse, et une marche de plus après une écriture est exactement ce qu'une
-écriture coûtait avant. Les cinq lectures qui suivent restent gratuites, ce qui était le but.
-Le test échoue sans l'appel — c'est ce qui prouve que le bug était réel.
-
-La leçon, pour la prochaine fois qu'un cache est adossé à un watcher : un watcher répond des
-événements du SYSTÈME DE FICHIERS, et le processus qui écrit est en avance sur eux. Les deux
-sources doivent être branchées, pas l'une ou l'autre.
+- **`/module-libraries` ne gagne rien à être mis en cache.** Le seul jeton honnête pour lui est
+  l'empreinte des modules, qui balaie les mêmes arbres et coûte 19 ms là où la marche en coûte 14 :
+  le cache coûterait plus cher que ce qu'il évite. Et la profondeur ne peut pas être réduite —
+  l'onglet Bibliothèques passe les sous-arbres tels quels à `foldModules`, qui a besoin du contenu
+  d'un dossier de module pour en faire une ligne.
+- **`setCachedProjectDoc` appelle `revision()` au MILIEU de la mutation**, donc hors de toute
+  portée, donc une marche de plus pour toute commande qui passe par `applyProject` (mute, solo, un
+  fader). Elle ne peut pas être partagée : elle décrit un instant qui n'est ni l'avant ni l'après.
+  La supprimer voudrait dire que le doc compilé se donne un jeton qu'il n'a pas mesuré, ce qui est
+  exactement le mensonge que `cachedProjectDoc` refuse.
 
 ## Ce qui est déjà bon, et qu'il ne faut pas re-suspecter
 
@@ -601,12 +157,12 @@ sources doivent être branchées, pas l'une ou l'autre.
   supprimées. Il n'existe **aucun** second timer sur cette route. Les autres timers visent
   d'autres routes et sont tous conditionnés.
 - **Le clone de `loadModules` coûte 0,21 ms**, pas 19 (ci-dessus). Ne pas le re-suspecter.
-- **Les cinq gros composants React respectent la règle des feuilles** de `timeline.md` : chaque
-  lecteur à 20 Hz est son propre composant, et `Grid`, `RulerTicks`, `ClipContent`, `Node`,
-  `Widget` sont mémoïsés sur des props primitives. Le viewport était l'exception ; il ne l'est
-  plus (lot D). Et sa correction dit la limite de la règle : « une feuille » est le bon remède
-  quand quelque chose est DESSINÉ, pas quand une valeur est simplement transmise à du code
-  impératif — là, le bon nombre de composants est zéro.
+- **Les cinq gros composants React respectent la règle des feuilles** de
+  [timeline.md](../apps/st0/frontend/docs/timeline.md) : chaque lecteur à 20 Hz est son propre
+  composant, et `Grid`, `RulerTicks`, `ClipContent`, `Node`, `Widget` sont mémoïsés sur des props
+  primitives. Et la règle a une limite : « une feuille » est le bon remède quand quelque chose est
+  DESSINÉ, pas quand une valeur est simplement transmise à du code impératif — là, le bon nombre de
+  composants est zéro, et le lecteur s'abonne au magasin directement.
 - **`buildGraph` est linéaire** (ci-dessus). Ne pas y toucher pour la vitesse.
 
 ## Comment vérifier un changement ici
@@ -614,13 +170,15 @@ sources doivent être branchées, pas l'une ou l'autre.
 1. `npm run bench` dans le paquet concerné, avant et après, **sur la même machine et sans
    réinstallation entre les deux**.
 2. Pour un coût qui ne se lit pas au chronomètre — un parcours de répertoire, une allocation, une
-   trame envoyée — compter l'appel plutôt que le mesurer : une sonde qui remplace `fs.readdirSync`,
-   une socket brute qui compte les trames, `getWatched()` qui rend ce que chokidar tient. Un entier
-   ne fluctue pas, et les trois chiffres du lot C sont tous de cette forme.
+   trame envoyée — compter l'appel plutôt que le mesurer : un compteur temporaire DANS le module
+   mesuré, une socket brute qui compte les trames, `getWatched()` qui rend ce que chokidar tient.
+   Un entier ne fluctue pas. Ce qui ne marche PAS : remplacer `fs.readdirSync` depuis un script,
+   parce que les imports nommés d'un module `node:` sont figés à la liaison — le compteur reste à
+   zéro sans rien dire.
 3. `npx turbo run test --continue` reste le filet : une optimisation qui change une réponse est
    une régression, pas une optimisation.
 4. Pour le C++, en plus : `cmake --build --preset windows-msvc`, les **quatre** cibles de test
-   nommées puis `ctest -R studio_`, et un `--list-audio-devices`. Piège du poste de dev, payé une
-   fois ici : la session dev reconstruit toute seule, mais `Copy-Item` PRÉSERVE la date du fichier
-   source — un `main.cpp` restauré depuis une copie paraît plus vieux que son `.obj` et MSBuild
-   ne le recompile pas. Le binaire testé est alors l'ancien, et tout a l'air de marcher.
+   nommées puis `ctest -R studio_`, et un `--list-audio-devices`. Piège du poste de dev : la
+   session dev reconstruit toute seule, mais `Copy-Item` PRÉSERVE la date du fichier source — un
+   `main.cpp` restauré depuis une copie paraît plus vieux que son `.obj` et MSBuild ne le
+   recompile pas. Le binaire testé est alors l'ancien, et tout a l'air de marcher.

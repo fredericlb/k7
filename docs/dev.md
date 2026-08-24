@@ -13,19 +13,14 @@ npm run vscode                     # the browser editor at /dev, on its own
 `/k7`, `/z0`), with **st0** answering the root. The same shape production has under
 `studio.frediver.se`, which is the point: the two differ by their origin and nothing else.
 
-The hostname reads like the app it now serves, and that is a coincidence worth stating: it was
-named after the **médiathèque**, which was called `st0` before it became `pl8`. It never followed
-any of the renames — a DNS name lives in a router and in everyone's bookmarks, not in this repo —
-and it happens to agree again because the editor took the name the médiathèque gave up.
-
 > **The LAN proxy's path table lives on the other machine.** It is the one piece of this
 > topology not versioned here, and it must mirror `apps/studio/docker/nginx.conf`, which is
 > versioned. What that file says, as ports:
 >
 > | path | goes to | |
 > |---|---|---|
-> | `/` | **5223** | st0's dev server — was 5224 |
-> | `/pl8` | **5224** | pl8's dev server — was `/` |
+> | `/` | **5223** | st0's dev server |
+> | `/pl8` | **5224** | pl8's dev server |
 > | `/api/*` | **8789** | st0's backend — the engine registry |
 > | `/auth/*` | **8789** | st0's backend — the origin's OIDC flow |
 > | `/pl8/api/*` | 8795 | pl8's backend |
@@ -40,52 +35,35 @@ and it happens to agree again because the editor took the name the médiathèque
 > | `/z0` | 3003 | `z0-online`, the apex — must come LAST of the z0 rules |
 >
 > The SPA rows are **not** stripped: each vite `base` is the full public path, so the dev
-> server has to see it. Only the API rows strip.
+> server has to see it. Only the API rows strip. The table lists every SPA rather than stopping
+> at pl8, because a missing row on the other machine is how an address reaches the wrong dev
+> server: the proxy matches raw string prefixes, so two SPA paths where one is a prefix of the
+> other are routed by whichever rule is listed, and the wrong dev server answers with vite's own
+> message about its `base` — which reads like a bad link when the address was correct.
 >
-> **Delete any `/z0/editor-v2` rule you still have.** It routed the `.z0` project editor while
-> that editor was being built beside the Grist one; the Grist editor is retired, and the
-> survivor took `/z0/editor` and port 3006, so the rule above already covers it. This is also
-> why the table now lists the SPAs instead of stopping at pl8 — the omission is what let the
-> editor-v2 rule go missing on the other machine in the first place, and the symptom was
-> unhelpful: `/z0/editor` is a literal string prefix of `/z0/editor-v2`, so a proxy matching raw
-> prefixes handed the project address to the Grist editor on 3006, which answered with vite's
-> own message about its `base`:
->
-> ```
-> The server is configured with a public base URL of /z0/editor/ —
-> did you mean to visit /z0/editor/z0/editor-v2/lemo_mante/session-2304.z0 instead?
-> ```
->
-> That reads like a bad link on st0's home page. It was not: the address was correct and the
-> proxy sent it to the wrong dev server. One name means the two can no longer overlap.
->
-> **`/auth/*` follows the root**, so it moved to 8789 with everything else. The registered
+> **`/auth/*` follows the root**, so it is on 8789 with everything else. The registered
 > `redirect_uri` is `<origin>/auth/callback` and has no prefix, so the flow belongs to whichever
-> service answers the root — the médiathèque before, st0 now. The IdP was never touched; only
-> the process serving the callback changed.
+> service answers the root, which is st0.
 >
-> It briefly did NOT follow: for one release `/auth` stayed on 8795 while st0 already held the
-> root. That worked, and it is worth knowing what the wrong half of it looks like, because both
-> mistakes are silent in the same way — a backend that mounts no auth routes answers Express's
-> own **404, `Cannot GET /auth/login`**, which reads like a broken login rather than a misrouted
-> one. Nothing else fails and the SPA still loads; only signing in is impossible.
+> Sending `/auth` to a backend that mounts no auth routes fails silently, and it is worth
+> knowing what that looks like: Express answers its own **404, `Cannot GET /auth/login`**, which
+> reads like a broken login rather than a misrouted one. Nothing else fails and the SPA still
+> loads; only signing in is impossible.
 >
 > Routing `/auth` to **5223** instead of 8789 also works: st0's vite config proxies `/auth` to
 > its own backend, which is what makes the dev server usable when visited directly on its port.
 > 8789 is preferred here, because it is what the production edge does and the two are meant to
 > differ by their origin and nothing else.
 
-Nothing on this workstation terminates TLS any more. The name resolves to the **LAN server**,
+Nothing on this workstation terminates TLS. The name resolves to the **LAN server**,
 which reverse-proxies to the dev servers here. So there is no edge to start, no `npm run
-caddy`, and no certificate to trust — which is what the old setup cost: `studio.test` was
-`127.0.0.1` in every machine's hosts file, fronted by a local Caddy whose `tls internal` CA
-each browser had to be told about, and which node never trusted at all.
+caddy`, and no certificate to trust.
 
-Two leftovers, both of which end:
+Two things about names and ports:
 
-- **`studio.test` no longer answers here** — no local Caddy runs any more — but the name
-  may linger in hosts files, and the LAN proxy may still forward with `Host: studio.test`.
-  Every vite config therefore still accepts that Host — `scripts/dev-hosts.mjs` says why,
+- **`studio.test` is accepted as a Host beside the real name** — it may linger in hosts files,
+  and the LAN proxy may forward with `Host: studio.test`.
+  Every vite config therefore accepts it — `scripts/dev-hosts.mjs` says why,
   and a dev server answers **403** to any name not on its list, so that file is what makes
   the studio reachable at all.
 - **The Tilt UI is local only**: `http://localhost:10350` on the workstation.
@@ -182,7 +160,7 @@ remote:install` registers two Windows logon tasks that survive the session: the
 **https://console.priv.frediver.se** — where `npm run dev` is typically launched when working
 remotely. Both are their own origins, routed by hostname on the LAN proxy, and both
 start in the **user's home** with Git Bash as the default shell. The whole design —
-and why ttyd was rejected — is in [remote.md](remote.md).
+and why ttyd is not the answer — is in [remote.md](remote.md).
 
 ## One port every config names that is not its own
 
@@ -193,8 +171,8 @@ service, and in dev each dev server has to forward `/auth` there itself when it 
 on its port. `defineAppConfig`'s `proxyPaths` cannot express it — that helper points every path at
 the caller's `backendPort`, which is right for `/api` and wrong for exactly this one.
 
-It moved once already, from the médiathèque's 8795, and the whole cost of that move was finding the
-three configs that had a copy of it. Hence one export.
+Hence one export: a port hand-copied into three vite configs is three places to find the day it
+changes.
 
 st0 owns the flow because it is the service with NO path prefix: `redirectUriFor` builds
 `<origin>/auth/callback`, and that is the single `redirect_uri` the IdP has registered. See
@@ -225,7 +203,7 @@ rebuilding it would double the wait for something the tray never runs.
 **A running image cannot be relinked.** On Windows the file is held open for write, so
 cargo's relink against a live tray fails with a confusing linker error, and the engine's
 does the same while the supervisor has `studio-moteur.exe` running. The order is
-therefore stop → build → start, exactly as `restart-tray.mjs` has always done it.
+therefore stop → build → start, exactly as `restart-tray.mjs` does it.
 
 And the thing that must be stopped is *the same tray* for both targets: killing it takes
 the supervisor, the engine and the file service down with it through the job object. Two
@@ -256,14 +234,14 @@ silently run the engine you had before a `git pull`.
 ### A build that succeeds without replacing the image
 
 MSBuild prints `studio-moteur.vcxproj -> …exe` and exits **0** when a running engine holds the
-file, so the session goes on running the code you just changed away from. It cost an evening once,
-and `buildEngine` now checks the binary's mtime afterwards.
+file, so the session would go on running the code you just changed away from. `buildEngine`
+therefore checks the binary's mtime afterwards.
 
 The test is deliberately *"is the binary at least as new as its sources"* and **not** *"did it
 change"*. A watcher event can fire with nothing actually edited — Windows reports odd names for
 changes under the build tree — and a no-op build is then the correct outcome. Demanding a change
-made that harmless case a hard failure that left the tray stopped, which is worse than the bug
-being guarded. Measured, not assumed: it fired on the very first spurious event.
+turns that harmless case into a hard failure that leaves the tray stopped, which is worse than the
+bug being guarded.
 
 The watch roots filter by BASE name, because a recursive `fs.watch` reports a path relative to the
 root. Anything unmatched is ignored, which is what keeps the engine's own `build/` output — and
@@ -286,7 +264,7 @@ npm run tray:stop --workspace capot
 ## Where the steps live
 
 `engine/capot/scripts/trayProcess.mjs` holds the tray's lifetime as functions — `running`,
-`stopAll`, `buildDevApp`, `launch` — and `restart-tray.mjs` is now a thin CLI over it.
+`stopAll`, `buildDevApp`, `launch` — and `restart-tray.mjs` is a thin CLI over it.
 The one difference from a script is that every step **throws** rather than calling
 `process.exit`: a one-shot command turns that into an exit code, and a watcher meant to
 outlive a bad build cannot afford either. See

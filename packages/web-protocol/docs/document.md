@@ -11,10 +11,10 @@ behind the fields that look redundant, so the type file can stay a list of names
 the units `ClipDoc` states them in: `offset` is the placement's in-point, `sourceFrom`/`sourceTo`
 the clip file's own window in seconds (absent meaning the file's start, or its end).
 
-They are on the wire because the browser **caches** a clip's envelope. Until it could see them,
-a trim moved the window while the picture stayed: same id, so the cached envelope was reused and
-the block went on showing material the clip no longer plays. `apps/st0/frontend/src/clipEnvelope.ts`
-is the only thing that reads them.
+They are on the wire because the browser **caches** a clip's envelope. Without them, a trim moves
+the window while the picture stays: same id, so the cached envelope is reused and the block goes
+on showing material the clip does not play. `apps/st0/frontend/src/clipEnvelope.ts` is the only
+thing that reads them.
 
 All three are optional, including `offset` — which is required on `ClipDoc` and cannot be here.
 The shell **synthesises** stand-in clips to open an editor over, and those know an id and a name
@@ -32,22 +32,22 @@ builds, passed through untouched, absent when the event stated nothing beyond it
 
 Everything else on the clip is the placement and its material already resolved *together*, and
 that is one-way. `sourceFrom`/`sourceTo` are the intersection of two windows, a sequence's window
-is over in `loopStart`/`loopEnd`, and the repeat count was multiplied into `length`. So a surface
-can DRAW an event from the rest of the object and cannot WRITE one back — which is what made a
-copy/paste on the timeline drop the trim, the fades and the passes.
+is over in `loopStart`/`loopEnd`, and the repeat count is multiplied into `length`. So a surface
+can DRAW an event from the rest of the object and cannot WRITE one back — without `event` a
+copy/paste on the timeline drops the trim, the fades and the passes.
 
 `apps/st0/frontend/src/clipboard.ts` reads it, and nothing else does. It is deliberately *beside*
 the resolved numbers rather than instead of them: those stay the drawing's single source.
 
-## The fades, and why they arrived late
+## The fades
 
 `fadeIn`/`fadeOut` are in BEATS, absent meaning no fade — which is also how the file says it, the
 field being deleted rather than written as zero.
 
-They were on the placement, on the engine wire and in the C++ engine long before they were here,
-and only here: the browser was never told they existed, so the timeline could neither draw a fade
-nor let one be dragged, and the only way to set one was to type YAML. Beats rather than the file's
-timecode, like every other time on this document — a surface measures in the unit it draws in.
+They are on the placement, on the engine wire and in the C++ engine as well, and this document is
+what lets a BROWSER see them: without them the timeline can neither draw a fade nor let one be
+dragged, and the only way to set one is to type YAML. Beats rather than the file's timecode, like
+every other time on this document — a surface measures in the unit it draws in.
 
 ## `frozen`, and why editing has to know
 
@@ -101,16 +101,16 @@ file can skip the routes that answer about files and names, which cannot have ch
 Its paths are PROJECT-relative (`clips/x.yaml`) — the vocabulary `Hints.paths` speaks, and the one
 an anchored test can trust. The journal's own `files` stay workspace-relative.
 
-## A track's strip, and the fields that left it
+## A track's strip, and the fields that are NOT on it
 
 `WebMixer` is one track's strip, read off the mixer module at the end of its chain. `module` is
 the node ref an edit addresses (`"mixer:vo.jo"`); the rest are that module's params in their own
 units — dB for the level, −1..+1 for the pan.
 
-The three tone bands were here and are not any more. They remain on the MIXER — the plugin has
-them, the module declares them, a panel can bind them and a node file can hold them — but a track
-no longer carries them: a strip's EQ is the mixer module's business, reached where every other
-module param is, and lifting three of its params onto the track meant two places to read one value.
+The three tone bands are not among them. They live on the MIXER — the plugin has them, the module
+declares them, a panel can bind them and a node file can hold them — but a track does not carry
+them: a strip's EQ is the mixer module's business, reached where every other module param is, and
+lifting three of its params onto the track would mean two places to read one value.
 
 `WebTrack.mixer` being absent means the track has NO strip: not "at unity", but nowhere to put a
 level, which is a thing to say rather than a dead fader to draw.

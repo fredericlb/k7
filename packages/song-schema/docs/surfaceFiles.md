@@ -27,11 +27,10 @@ reason `type` is an enum at all — a `turntables` asking for `view` names somet
 component for, and the result is a blank screen. The issue is raised on `layout`, so the squiggle
 lands on the line that is wrong rather than on the file.
 
-**Nothing draws in `view` today** — the desk was the last one and became a pane. The word stays in
-the enum on purpose rather than being deleted: it is what lets the pair check answer a file that
-still says `layout: view` with "a 'turntables' surface draws in 'split', not in 'view'", which names
-the fix. Dropped from the enum, the same file would get zod's own "invalid enum value", which names
-the field and not the remedy.
+**Nothing draws in `view`.** The word stays in the enum on purpose rather than being deleted: it is
+what lets the pair check answer a file that says `layout: view` with "a 'turntables' surface draws in
+'split', not in 'view'", which names the fix. Dropped from the enum, the same file would get zod's
+own "invalid enum value", which names the field and not the remedy.
 
 A `split` surface is not a `view` surface drawn smaller. It takes a slot in the layout, is mounted
 for as long as the project is open (its caret and its zoom stack outlive being hidden), and joins the
@@ -41,9 +40,9 @@ pane ring — which is the whole of why the two are separate words.
   `<video>` element per layer. As a `view` it would tear both down whenever you looked at something
   else and rebuild them — with a decoder flush and a visible hitch — whenever you came back. `full`
   is how the picture gets big, which is the pane ring doing its job.
-- `turntables` was the one `view`, a screen off the header over the whole window. It is `split` now
-  for the plainest reason: a desk is something you work THE GRAPH against, and a screen that covered
-  the graph made "which module is this fader on" a round trip.
+- `turntables` is `split` for the plainest reason: a desk is something you work THE GRAPH against,
+  and a screen off the header, over the whole window, makes "which module is this fader on" a round
+  trip.
 - `mastering` is `split` for that reason and one of its own: this desk is a picture of ONE node, so
   the graph beside it is where you check that the node it names is the node in the master chain.
 
@@ -57,18 +56,18 @@ component MOVES, and neither has a component that moves one. The arrangement dra
 lanes and the frame composites its own layers.
 
 **The desk's vocabulary is written out here and held to the original by a test.**
-`@studio/song-schema` does not know what a `crossfade` is, and that is still the rule — what the test
+`@studio/song-schema` does not know what a `crossfade` is, and that is the rule — what the test
 protects against is a copy going STALE. `@studio/ui-turntables` owns the real list (`MIX_CONTROLS`,
 `REQUIRED_CONTROLS`) and cannot be imported from here in either direction: it reaches
 `@studio/engine-browser` through `deck.ts`, and the node-side half of the song packages would drag
 `node:fs` back the other way. So the copy lives in this BROWSER-SAFE module, where that package's own
 `mapping.test.ts` can import it without pulling the disk in, and fail the day the desk grows a
-control the scaffold does not offer. The rule survives; its enforcement moved.
+control the scaffold does not offer.
 
 The desk's four stem cuts are OFFERED but not REQUIRED, which is the one place the two lists differ:
-a desk with no stem cut is a complete desk — it was yesterday's — so a set that does not wire them
-must not be told it is missing something. What a scaffold offers and what a surface must have are two
-questions, and this is where they stopped having the same answer.
+a desk with no stem cut is a complete desk, so a set that does not wire them must not be told it is
+missing something. What a scaffold offers and what a surface must have are two questions, and this is
+where their answers part.
 
 `mastering`'s ten are the same copy under the same rule: st0's `mastering/controls.ts` owns the real
 list and this is the scaffold's, held to it by a test over there. Which is why the vocabulary is
@@ -85,10 +84,10 @@ bottom reads as the chain inside the node.
 It is `views/mix.yaml`'s map, key for key — control id → `{ module, param }` — and it is the same map
 because it is the same question, asked by a surface instead of by a desk. Reusing `MixViewSchema`
 itself (rather than a record built the same way) is what keeps `module` meaning "the name the CHAINS
-file uses" in both places. The two were separate shapes once and drifted the first time one of them
-grew: `null` — a component named and not wired, which is what a scaffolded desk is made of — became
-legal in one and stayed refused in the other, so the file `project surface new` writes would not
-load. See `packages/song/docs/viewBindings.md` for why a binding cannot live in the module's own
+file uses" in both places. Two shapes built alike would drift the first time one of them grew:
+`null` — a component named and not wired, which is what a scaffolded desk is made of — has to be
+legal in both, or the file `project surface new` writes will not load in the other. See
+`packages/song/docs/viewBindings.md` for why a binding cannot live in the module's own
 `controller.yaml`.
 
 It is OPTIONAL, and an absent one is not an error in the schema. Which components a given type needs
@@ -102,12 +101,11 @@ A name under the workspace's `_playlists/`, not a path (`playlistPathOf`), and a
 surface only. It is what the song browser lists: the twelve songs that are to hand tonight, rather
 than the two hundred and seventy-nine on the volume.
 
-**This is where "which songs" lives now**, and `songs.yaml` no longer answers it. The two said the
-same thing in two files, which is one too many — and the playlist is the better of the two, because
-it is a document with a screen (st0's cog opens it), it can be shared between sets, and it was
-already the thing a person had written. What `songs.yaml` keeps is the half a playlist has no place
-for: this set's CUE points on a song, which belong to the desk that plays it rather than to a list
-other sets read (`packages/song/docs/setProject.md`).
+**This is where "which songs" lives**, and `songs.yaml` does not answer it: a playlist is a document
+with a screen (st0's cog opens it), it can be shared between sets, and it is the thing a person has
+already written. What `songs.yaml` holds is the half a playlist has no place for: this set's CUE
+points on a song, which belong to the desk that plays it rather than to a list other sets read
+(`packages/song/docs/setProject.md`).
 
 Optional, and an absent one is not an error: a desk with no playlist draws, and says on the browser
 that it names none, which is a sentence you can act on.
@@ -115,10 +113,10 @@ that it names none, which is a sentence you can act on.
 ## `stems`
 
 Does this desk SEPARATE a record it is handed unprepared? A `turntables` surface only, and a boolean
-rather than a chain ref. It named the chain for one afternoon, which asked the project a question
-that has nothing to do with it: which module separates and which model it wants is one answer for the
-whole machine, and it lives in `~/.studio/preferences.yaml` where `system stems` puts it. What a SET
-decides is whether an hour of arithmetic may start because somebody put a record on — and that is
+rather than a chain ref: which module separates and which model it wants is one answer for the whole
+machine, and it lives in `~/.studio/preferences.yaml` where `system stems` puts it — asking a project
+would be asking it a question that has nothing to do with it. What a SET decides is whether an hour
+of arithmetic may start because somebody put a record on — and that is
 worth deciding per set, because a rehearsal rig and a stage rig answer it differently. Absent is
 false, and false is a state rather than a fault: the desk draws, plays, and says on its greyed knobs
 that this record was never separated (`packages/ui-turntables/docs/stems.md`).
@@ -139,7 +137,7 @@ An empty file is an ERROR, which is where this parts company with `views/mix.yam
 is a desk with nothing bound yet — a real state every project starts in. An empty surface file is a
 surface that does not say what it is, and the editor would have nothing to draw: `type` and `layout`
 are the whole of what makes it one. Both lists in that message are spelled from the enums rather than
-by hand: it said "timeline, turntables" for as long as it took two more kinds to arrive, which is a
+by hand, so a kind added never leaves the message offering fewer than there are — which would be a
 message telling somebody the word they just wrote does not exist.
 
 `.strict()` reports an unknown key on the OBJECT, so the offending name is in `keys` rather than in

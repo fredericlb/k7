@@ -1,6 +1,6 @@
 // ExternalTimeline.tsx — the ARRANGEMENT alone on a second device: the same `TimelineTab` the
 // shell's pane draws, with the writing paths it needs wired straight to `/command` instead of
-// through the shell. Its own caret, zoom and selection, because those were never the shell's —
+// through the shell. Its own caret, zoom and selection, because those are not the shell's —
 // they are the pane's, and a pane is what this is.
 //
 // See ../docs/external.md.

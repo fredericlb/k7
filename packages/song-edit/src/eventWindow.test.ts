@@ -1,4 +1,4 @@
-// Setting an EVENT's window — the only window there is since the descent; docs/trackMix.md.
+// Setting an EVENT's window — the only window there is; docs/trackMix.md.
 
 import {
   mkdirSync,

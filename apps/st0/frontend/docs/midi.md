@@ -25,10 +25,9 @@ Picking "bind this param to the next controller knob you touch" runs `ui midi le
 arguments, so there is nothing for the command bar to collect and the menu goes straight there
 (see `contextMenu.md`).
 
-It used to pre-write the line and wait for an Enter, on the grounds that a menu should never act.
-The Enter was doing no work: arming a learn changes nothing until a knob moves, and the next
-paragraph is why moving one is safe. What survives from that rule is the part that mattered —
-the gesture is still a COMMAND, typeable and logged, and not a menu action of its own.
+There is no Enter to confirm, and none is owed: arming a learn changes nothing until a knob moves,
+and the next paragraph is why moving one is safe. The rule a confirmation would be protecting is
+kept the other way — the gesture is a COMMAND, typeable and logged, not a menu action of its own.
 
 The message that teaches it is **swallowed**, not also actuated. The knob you wiggle is usually
 already mapped to something else, and moving that something while assigning is a surprise you
@@ -68,7 +67,7 @@ hand and one moved by a controller are indistinguishable downstream.
 
 ## What is deliberately not bindable
 
-- **A lane's mixer control** (`@volume` on a lane's node) — a lane is a module now
+- **A lane's mixer control** (`@volume` on a lane's node) — a lane is a module
   (`packages/song/docs/trackModules.md`), but a flat node has no module FOLDER, so
   there is nowhere to record the binding. The right-click falls through to the node's own menu.
 - **A module FIELD** (`@monitor`) — a word rather than a number; a control change has nothing to

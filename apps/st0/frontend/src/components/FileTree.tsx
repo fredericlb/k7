@@ -311,7 +311,7 @@ export function FileTree({
   }, [levels, frozen, onCreateFolder, onCreateModule]);
 
   const menuEnabled = !!onRename && !!onDelete;
-  // `t.dir` is false on a module row now, so the folded set answers instead.
+  // `t.dir` is false on a module row, so the folded set answers instead.
   const isModuleTarget = (t: TreeTarget<FileNode>) =>
     !t.root && isModule(t.path);
   // Both resolve the module inside the ACTIVE PROJECT, so neither reaches a shared one (see moduleFork.ts).

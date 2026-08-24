@@ -1,7 +1,7 @@
 // palette.ts — the shell's own command catalogue for the palette, its readable
 // descriptions, the fuzzy ranking the bar lists by, and each argument's vocabulary.
-// Extracted from App.tsx: everything here is a pure function of the backend's catalogue
-// plus a `files()` getter, no shell state. See docs/commandBar.md.
+// Apart from the shell because everything here is a pure function of the backend's catalogue
+// plus a `files()` getter, with no shell state. See docs/commandBar.md.
 
 import { api } from "./api";
 import {

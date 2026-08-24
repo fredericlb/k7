@@ -90,7 +90,7 @@ filesRouter.put(
     res.json({ audioDevice: setAudioDevicePref(name, type) });
   }),
 );
-// `PUT /preferences/input-pair` was here; it is the `system channel type` verb now — see docs/fileRoutes.md.
+// No input-pair route: grouping an interface's inputs is `system channel type` — see docs/fileRoutes.md.
 
 /** The module libraries this project can reach, in precedence order — see docs/fileRoutes.md. */
 filesRouter.get(
@@ -116,7 +116,7 @@ filesRouter.get(
   }),
 );
 
-// `POST /playlists` was here; making one is the `playlist new` command — see docs/fileRoutes.md.
+// No route makes a playlist: that is the `playlist new` command — see docs/fileRoutes.md.
 
 /** Make an empty module: `<root>/<type>/<name>/module.yaml` — see docs/fileRoutes.md for `root`'s rule. */
 const moduleBody = z.object({
@@ -379,7 +379,7 @@ filesRouter.post(
   validate(cmdBody),
   wrap(async (req, res) => {
     const { line, at, want } = req.body as z.infer<typeof cmdBody>;
-    // Absent is the old contract — build it. An empty list is a caller that means no.
+    // Absent is the default — build it. An empty list is a caller that means no.
     const wantsGraph = !want || want.includes("graph");
     const target = at ? req.ws!.mediaPath(at) : undefined;
     const t0 = performance.now();

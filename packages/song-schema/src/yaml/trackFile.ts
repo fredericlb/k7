@@ -1,4 +1,4 @@
-// trackFile.ts — editing the PLACEMENTS on a lane, now that a lane is a node file
+// trackFile.ts — editing the PLACEMENTS on a lane, a lane being a node file
 // (nodes/<name>.yaml, see docs/trackModules.md). The app's most frequent edit: every clip
 // drag writes a placement's `start`. Reading and validating the file is moduleFile's job, since
 // a lane is an ordinary module; what is here is the clip list — and WHICH list, since a lane on
@@ -50,10 +50,10 @@ function eventsToEdit(
   if (at === 0) return OWN_EVENTS;
   const mine = setEvents(at);
   if (isSeq(doc.getIn(mine))) return mine;
-  // First edit on a set that was inheriting: fork what it was PLAYING into it — see docs/laneEdits.md.
+  // First edit on a set that inherits: fork what it is PLAYING into it — see docs/laneEdits.md.
   const inherited = doc.getIn(OWN_EVENTS);
   doc.setIn(mine, isSeq(inherited) ? inherited.clone() : doc.createNode([]));
-  // An empty set was written `- {}`, whose flow map would arrive as one 400-character row.
+  // An empty set is written `- {}`, whose flow map would arrive as one 400-character row.
   const entry = doc.getIn(["alternatives", at - 1]);
   if (isMap(entry)) entry.flow = false;
   const forked = doc.getIn(mine);

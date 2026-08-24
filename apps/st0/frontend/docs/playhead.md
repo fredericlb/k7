@@ -58,7 +58,7 @@ window is **thrown away** and re-seeded from that frame alone, and the drawn off
 
 Without the flush the max filter would be actively wrong rather than merely stale: a jump
 *forward* makes every later sample smaller, so the old ones would win for a full window. That is
-what the two rollback tests pin, and they were verified red by keeping the window.
+what the two rollback tests pin.
 
 ### What is left over
 
@@ -69,7 +69,7 @@ keeps the line monotonic when the estimate moves down.
 Stopped, there is nothing to estimate: the frame IS the answer, and a scrub lands exactly where
 it says.
 
-### Measured against the version this replaced
+### Measured against a PLL
 
 The same feed, with realistic transit times (4 to 55 ms, never negative — a frame cannot arrive
 before it was sampled):
@@ -79,9 +79,9 @@ before it was sampled):
 | a PLL: anchor + elapsed, error bends the rate ±10% | 0.23 ms | 8.9 ms, up to 10.0 |
 | offset estimate | **0.00 ms** | **4.0 ms, flat** |
 
-The PLL converged on the *mean* latency, because it corrected toward every sample. The estimator
-sits at the *minimum* — 4.0 ms is the best transit in the feed, and no method can do better than
-how stale the freshest thing you were told is.
+A PLL corrects toward every sample, so it converges on the *mean* latency. The estimator sits at
+the *minimum* — 4.0 ms is the best transit in the feed, and no method can do better than how stale
+the freshest thing you were told is.
 
 One honest limit on the word "lag": this is distance from the engine's reported position, which
 is not the sound leaving the interface. Output latency (buffer + driver) sits between them and
@@ -123,7 +123,7 @@ Two consequences of writing the DOM rather than rendering:
 | `TimelineTab` | `Playhead` (transform) and `RecordingClip` (**width** — it is a growing block, and only its right edge moves) |
 | `Minimap` | `MinimapPlayhead` |
 | `PianoRoll` | `RollPlayhead` |
-| `SequencerPanel` | `StepPlayhead` — moved off `left` onto a transform while we were here; `left` is layout, and it was relaying out the grid of buttons twenty times a second |
+| `SequencerPanel` | `StepPlayhead` — a transform and not `left`: `left` is layout, and it would relay out the grid of buttons twenty times a second |
 | `AudioClipPanel` | `LiveWaveform` — the clip panel's own line, on the FILE's axis; see below |
 
 ### The clip panel converts before it draws
@@ -136,7 +136,7 @@ land as seconds after the other. The conversion is `src/clipPlayhead.ts`, on its
 held to something without mounting anything.
 
 **Outside the event it draws nothing new**: the line falls back to `act.from`, the head of what
-this event plays, which is what the panel drew before it moved at all. Not the picture's left edge
+this event plays. Not the picture's left edge
 — that is out in the bar of context `frameOnEvent` leaves either side, and a mark parked there
 reads as a playhead somewhere it never plays. `clipPlayhead` answers `null` rather than clamping,
 so the fallback is the caller's choice and not a number pretending.
@@ -156,9 +156,10 @@ already interpolates, and whose realtime driver needs the raw anchor to tell dri
 Putting a smoothed value in front of it would smooth twice and blunt exactly the discontinuity it
 hard-seeks on.
 
-It is not a React reader either, any more. The frames reach the clock through a raw
-`store.subscribe`, so no component re-renders on one: feeding a clock is not drawing, and the
-pane used to commit its whole subtree 20 times a second to do it. See `picture.md`.
+It is not a React reader either. The frames reach the clock through a raw
+`store.subscribe`, so no component re-renders on one: feeding a clock is not drawing, and a
+selector hook on the pane would commit its whole subtree 20 times a second to do it. See
+`picture.md`.
 
 **`WaveformView`'s line lives inside a canvas.** `currentTime` reaches
 `@studio/ui-waveform`'s `Waveform`, whose draw effect repaints the WHOLE canvas — grid, labels,
@@ -168,39 +169,32 @@ three times the canvas work for a smoother line: a pessimisation, not a fix. Doi
 means splitting the playhead out of that canvas onto a cheap overlay, in a package with several
 consumers. Left alone on purpose.
 
-**`useMidiRecording`'s `beatNow()` is still raw — but the reason given here was wrong.**
+**`useMidiRecording`'s `beatNow()` is raw, and not for a timing reason.** Folding it onto this
+clock would not degrade recorded timing: raw `anchor + elapsed` lags by whatever the last frame's
+transit happened to be — 4 to 55 ms, mean ~14 — while the estimate sits flat at 4. It would
+probably improve it.
 
-This page argued, twice and forcefully, that folding `beatNow()` onto this clock would *silently
-degrade recorded timing*, because the clock traded accuracy for continuity. That was true of the
-clock it replaced. The rate-bending PLL corrected toward every sample and so converged on the
-**mean** transit latency; this one converges on the **minimum**. Measured on a realistic feed,
-raw `anchor + elapsed` lags by whatever the last frame's transit happened to be — 4 to 55 ms,
-mean ~14 — while the estimate sits flat at 4.
+What stops it being a tidy-up is that it changes where recorded notes land by a few milliseconds,
+which is a musician-facing change and wants to be someone's decision, tested against a click. The
+decks' `docs/hosting.md` holds the same paragraph, where `CueButtons` raises the identical
+question.
 
-So folding them would not degrade MIDI timing. It would probably improve it. What stops it being
-a tidy-up is that it changes where recorded notes land by a few milliseconds, which is a
-musician-facing change and wants to be someone's decision, tested against a click. Recorded here
-rather than quietly done, and the same paragraph now sits in the decks' `docs/hosting.md`, where
-`CueButtons` raises the identical question.
+**The decks are on it too**, which is why the clock lives in
+`@studio/engine-browser/playhead-clock`: both st0 and `@studio/ui-turntables` depend on that
+package, and it is where the frames arrive.
 
-**The decks are on it now**, and the clock moved to `@studio/engine-browser/playhead-clock` to
-get there — both st0 and `@studio/ui-turntables` already depend on that package, and it is where
-the frames arrive.
-
-That move corrected a guess this page used to make. The decks were said to need the clock
-generalised over a RATE, because a turntable has a pitch fader. They do not: the pitch fader
+The clock takes no RATE, and a turntable's pitch fader is not an argument for one: the fader
 re-stretches the CLIP and slips it (`slipAfter`), and the transport still advances at one second
 per second — *"there is one transport and two decks, so moving it to hold one deck still would
-throw the other"*. The clock needed nothing.
+throw the other"*.
 
-What the decks did need was the split above, a second time. `MixView`'s `transportNow` fed two
-callers at once: the record's wedge (looked at) and `CueButtons`, whose `began.current = now()`
-is the position a cue is STORED at. So `Deck` now asks for both — a raw `playhead` ref and a
-steered `drawNow` — and `docs/hosting.md` says which is for what. The deck's waveform lost its
-own copy of the extrapolation along the way, and with it the `playing` test it used to decide
-whether to extrapolate: the clock holds still while stopped by itself, so the two can no longer
-disagree about what "stopped" means.
+What the decks do need is the split above, a second time. `Deck` asks for both — a raw `playhead`
+ref and a steered `drawNow` — because its two callers want different things: the record's wedge is
+looked at, while `CueButtons`' `began.current = now()` is the position a cue is STORED at.
+`docs/hosting.md` says which is for what. The deck's waveform keeps no copy of the extrapolation,
+and so no `playing` test of its own: the clock holds still while stopped by itself, so the two
+cannot disagree about what "stopped" means.
 
-`ui-eyes`' two clocks did get one fix: they read `performance.now()` now rather than `Date.now()`.
-The wall clock can step backwards under a running transport (an NTP correction), and every
-reader subtracts two readings, so a backwards step read as the picture jumping.
+`ui-eyes`' two clocks read `performance.now()` rather than `Date.now()`. The wall clock can step
+backwards under a running transport (an NTP correction), and every reader subtracts two readings,
+so a backwards step reads as the picture jumping.

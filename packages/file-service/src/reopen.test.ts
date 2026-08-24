@@ -56,7 +56,7 @@ describe("a project changed underneath the Workspace", () => {
     ws.cachedProjectDoc(proj).tracks.find((t) => t.id === "melody")?.color;
 
   it("picks up an out-of-band edit with no reopen at all", () => {
-    // Every derived view used to describe, confidently, a project the files on screen contradicted.
+    // Without this, every derived view describes confidently a project the files on screen contradict.
     colour(); // fill the memo first, so a stale hit would be the failure
     setColor("#123456");
     expect(colour()).toBe("#123456");

@@ -1,52 +1,47 @@
-# Meters at 20 Hz, and the two ways they got expensive
+# Meters at 20 Hz, and the two ways they get expensive
 
 The engine pushes a state frame **20 times a second** — every 50 ms. Every meter on screen is
 fed from it. That cadence is the whole design constraint, and both of the mistakes this page
-records come from forgetting it.
+guards against come from forgetting it.
 
-The subscription side is already right, and `engineStore.ts` says why: a frame held on `App`
-re-rendered the whole tree, so the frame is an external store and each meter subscribes to the
+The subscription side is settled, and `engineStore.ts` says why: a frame held on `App`
+re-renders the whole tree, so the frame is an external store and each meter subscribes to the
 one number it draws. What follows is about what happens *after* a meter decides to move.
 
 ## A transition shorter than the gap between frames still never finishes
 
-`.dgx-fmeter i` — the shade that masks a fader's VU ramp from the top down — carried
-`transition: height .06s linear`. Levels arrive every 50 ms; the ease lasted 60 ms. So every
-frame **restarted a transition that had not finished**, and the bar was permanently in flight
-toward a value it never reached, trailing about one frame behind the signal for ever. Removing
-it made the meter *more* accurate, not less: at 20 Hz a VU already moves smoothly, and a bar
-that lands on its value beats a bar that chases it.
+Give a meter `transition: height .06s linear` and every frame **restarts a transition that has
+not finished**: levels arrive every 50 ms, the ease lasts 60 ms. The bar is then permanently in
+flight toward a value it never reaches, trailing about one frame behind the signal for ever.
+Dropping the ease makes the meter *more* accurate, not less: at 20 Hz a VU already moves
+smoothly, and a bar that lands on its value beats a bar that chases it.
 
-The cost was not the easing. It was that `height` **cannot be animated on the compositor**, so
-each restart meant a restyle, a reflow and a display-list entry on the main thread — and there
-is one of these per fader. A Firefox profile of st0 during playback (~17 s, zoomed in far enough
-to draw the widget grids) counted:
+The cost is not the easing. It is that `height` **cannot be animated on the compositor**, so
+each restart means a restyle, a reflow and a display-list entry on the main thread — one per
+fader. It reads plainly in a Firefox profile of playback, zoomed in far enough to draw the
+widget grids: `CSS transition` markers on `height`, every one with `oncompositor: False`, and
+almost as many `transitioncancel` as `transitionrun` — roughly 200 transitions started per
+second, nearly all cancelled by the next frame before finishing.
 
-- **1 693 `CSS transition` markers, every one of them on `height`**, every one with
-  `oncompositor: False`;
-- **3 386 `transitionrun` against 2 930 `transitioncancel`** — roughly 200 transitions started
-  per second, and almost all of them cancelled by the next frame before finishing.
-
-Over the same window the retained display list stopped doing partial updates altogether:
-`PreProcessDisplayList` and `DisplayList merging` fell to zero while
-`RetainedDisplayList::DeleteAll` rose, meaning Gecko threw the list away and rebuilt it from
-the viewport frame on every single frame. That a flood of modified frames is what pushed it
+Over such a window the retained display list stops doing partial updates altogether:
+`PreProcessDisplayList` and `DisplayList merging` fall to zero while
+`RetainedDisplayList::DeleteAll` rises, meaning Gecko throws the list away and rebuilds it from
+the viewport frame on every single frame. That a flood of modified frames is what pushes it
 over its partial-update budget is the likely reading, not a proven one.
 
-**The rule this leaves:** a transition on a value the engine repaints is almost always wrong.
-If a meter ever wants ballistics — a slow release, a peak hold — that belongs in the *number*,
-computed once where the frame is read, not in a CSS ease that a later frame will cancel.
+**The rule:** a transition on a value the engine repaints is almost always wrong. If a meter
+ever wants ballistics — a slow release, a peak hold — that belongs in the *number*, computed
+once where the frame is read, not in a CSS ease that a later frame will cancel.
 
 ## An unrounded fraction re-renders on every frame by definition
 
-`useTrackLevel` and `useInputLevel` return a 0..1 position. Returned raw, it differs on
-essentially every frame, so the store's `Object.is` never stopped anything and a silent track
-cost exactly what a loud one did.
+`useTrackLevel` and `useInputLevel` return a 0..1 position. Returned raw it would differ on
+essentially every frame, so the store's `Object.is` would stop nothing and a silent track would
+cost exactly what a loud one does.
 
-They quantise to **200 steps** now. That is finer than half a percent of the tallest bar any of
+They quantise to **200 steps**. That is finer than half a percent of the tallest bar any of
 them draws, so nothing changes on screen, but a steady signal re-renders nothing at all.
-`TimelineTab`'s `LaneMeter` had been rounding its dB for exactly this reason from the start,
-with a comment saying so — the graph's own meters simply never got the same treatment.
+`TimelineTab`'s `LaneMeter` rounds its dB for the same reason.
 
 Round in the **selector**, not in the component. The selector's result is what `Object.is`
 compares; rounding after the hook has returned is rounding a value that already re-rendered.
@@ -55,8 +50,8 @@ compares; rounding after the hook has returned is rounding a value that already 
 
 Every meter here is a flat block of colour, so `transform: scaleX()` from the left (or
 `scaleY()` from the top, for the fader's shade) draws pixel-for-pixel what a `width` or a
-`height` did — and a transform is not layout. The elements all carry a fixed `width: 100%` /
-`inset: 0` and a `transform-origin` now, with only the scale factor coming from the frame.
+`height` would — and a transform is not layout. The elements all carry a fixed `width: 100%` /
+`inset: 0` and a `transform-origin`, with only the scale factor coming from the frame.
 
 The same reasoning moves the transports: `TimelineTab`'s `Playhead`, the `Minimap`'s and
 `PianoRoll`'s are parked at their left edge and **translated** rather than re-`left`-ed. Those
@@ -78,12 +73,12 @@ has yet put them in the path. Same shape, same fix, when one does.
 
 ## The cheapest frame is the one nobody is told about
 
-Everything above makes a frame cheap. The next question is whether it needed sending at all,
-and for a stopped transport over silent tracks the answer is no — yet a frame still went out
-every 50 ms, was parsed, and had every subscriber's selector run over it to conclude that
-nothing had moved. That is N selector runs, twenty times a second, to say nothing.
+Everything above makes a frame cheap. The next question is whether it needs sending at all, and
+for a stopped transport over silent tracks the answer is no: a frame that goes out every 50 ms,
+is parsed, and has every subscriber's selector run over it to conclude that nothing has moved is
+N selector runs, twenty times a second, to say nothing.
 
-It is now stopped at **both ends**, on purpose, because the two halves fix different failures:
+It is stopped at **both ends**, on purpose, because the two halves fix different failures:
 
 - **`EngineStore.set` drops a frame identical to the one it holds** (`sameFrame`). One pass over
   the frame — scalars, then the three arrays element-wise, then the waveform map by key —
@@ -107,9 +102,9 @@ and the frame differs, so both gates open on the same tick.
 **enables the input devices it measures**. A surface therefore asks only while the I/O panel is
 on screen.
 
-What comes back carries `devices`, the interface's own grouping — `EngineInputDevice`. The
-engine has ridden that along all this time and the browser was dropping it, which is a shame,
-because it is the one thing that explains a channel that exists and meters nothing.
+What comes back carries `devices`, the interface's own grouping — `EngineInputDevice`. It is
+the one thing that explains a channel that exists and meters nothing, so it must not be dropped
+on the way in.
 
 `channels` on such a device is 1-based and is the set `findWaveInput` matches **exactly**: a rig
 that pairs its inputs has no device for channel 2 alone, so asking for channel 2 on its own
@@ -129,17 +124,17 @@ channels alone now matches no device.
 `subscribeWaveform(id, side)` names a module and a side, and nothing else: the engine finds the
 plugin by id and the track from the plugin.
 
-A track index used to be required, and since the graph has none to give, this client sent `0`.
-An engine older than the change that dropped the field still **honours** that 0 — and meters the
-song's first track, quietly, whatever module you asked about. Omitting the field makes such an
-engine refuse the subscription instead, which is the failure you want.
+Never send a track index. The graph has none to give, so the only value a caller could invent is
+`0` — and an engine that still requires the field **honours** it, metering the song's first
+track quietly whatever module you asked about. Omitting the field makes such an engine refuse
+the subscription instead, which is the failure you want.
 
 ## The O(n²) that isn't worth fixing
 
 `useInputLevel` and `useTrackLevel` each do `order.indexOf(trackId)` inside the selector. Every
 metered node scanning the whole track order, twenty times a second, is the textbook shape of an
-O(n²) per frame — and it has been written up as one, by a standing pass over this repo. It is
-recorded here so the next pass does not spend the afternoon again.
+O(n²) per frame, and any pass over this repo will flag it as one. The measurement is here so
+the next one does not spend the afternoon again.
 
 Measured, with realistic track names, over one second of engine frames (20 of them), summed
 across every subscriber:

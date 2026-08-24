@@ -1,7 +1,7 @@
 // types.ts — what the mediatek catalogue hands out. Types only, shared by the scan, the
 // HTTP routes and every surface that lists the library.
 
-/** The two things the mediatek holds — bytes nobody edits in a text editor; there were five, see docs/index.md. */
+/** The two things the mediatek holds — bytes nobody edits in a text editor, see docs/index.md. */
 export type Family = "songs" | "samples";
 
 export const FAMILIES: readonly Family[] = ["songs", "samples"];
@@ -19,13 +19,13 @@ export const RECORDINGS_DIR = "recordings";
 /** The file that makes a folder a CHAIN — the same name a st0 project uses at its root, see docs/index.md. */
 export const CHAINS_FILE = "graph.yaml";
 
-/** Where a chain keeps the nodes its segments name, beside its graph file — `instances/` until migrated. */
+/** Where a chain keeps the nodes its segments name, beside its graph file. */
 export const NODES_DIR = "nodes";
 
 /** The sidecar that makes a folder a SONG and carries its title, provenance and variants. */
 export const SONG_FILE = "song.yaml";
 
-// A PLAYLIST had no such marker — it IS its file; both the rule and the parser are `@studio/song/playlist` now.
+// A PLAYLIST needs no such marker — it IS its file; the rule and the parser are `@studio/song/playlist`.
 
 /** One alternative version of a song, declared in its sidecar. See docs/variants.md. */
 export interface SongVariant {
@@ -33,7 +33,7 @@ export interface SongVariant {
   name: string;
   /** What it names, verbatim: a file beside the master. */
   ref: string;
-  /** Whether that file is actually THERE; it used to be `"file" | "chain"`, see docs/variants.md. */
+  /** Whether that file is actually THERE — the folder settles it, see docs/variants.md. */
   kind: "file" | "missing";
 }
 

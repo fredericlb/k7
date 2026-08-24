@@ -9,13 +9,12 @@ interprets the song, resolves clip paths to absolute, and sends the project as J
 
 ## Every message carries a session
 
-`{ "session": "m9", … }` on any message names **which project on this engine** it is
+`{ "session": "st0:fred", … }` on any message names **which project on this engine** it is
 about. One process hosts several (`docs/multiEdit.md`), so without it the médiathèque's
-module preview and an m9 deck would each replace whatever st0 had loaded.
+module preview and a DJ deck would each replace whatever st0 has loaded.
 
 The field is optional and absent means `""`, the default session — so a client that has
-never heard of sessions keeps working exactly as before, which is what let the engine grow
-this before the clients did.
+never heard of sessions still works.
 
 **Every reply about one project carries it back**, and only these five do not, because they are
 the machine's rather than a project's: `plugins`, `audio-devices`, `sessions`, `edit-plugins`
@@ -63,7 +62,7 @@ are in `packages/engine-protocol/docs/sessions.md`.
 | `{ type: "whoami" }` | identity probe, answered to the asking socket alone |
 | `{ type: "hello", role: "driver" }` | the same probe, **and** "a person is looking at this session" — the engine frees a project 45 s after its last driver goes. Omit `role` and nothing is counted, which is how the file service and every prober stay out of it. See [sessions.md](sessions.md). |
 | `{ type: "list-sessions" }` | → a `sessions` reply. Engine-global: it is the one question whose answer is about the OTHER sessions |
-| `{ type: "drop-session", session: "m9" }` | forget a session outright — edit, plugins, meters and tap. → `session-dropped` |
+| `{ type: "drop-session", session: "st0:fred" }` | forget a session outright — edit, plugins, meters and tap. → `session-dropped` |
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |
 | `{ type: "show-native-plugin-ui-of", format, id }` | the same window for a plugin in NO project — an ORPHAN instance on the offline engine, saved nowhere. `format`+`id` name a binary, as `list-plugin-params` does |
 | `{ type: "snapshot-plugin-base", format, id, path }` | keep what that orphan is holding: its state written to `path` as a `.vstpreset`. Refuses when no window was opened — see `plugin-base-saved` |
@@ -72,8 +71,8 @@ are in `packages/engine-protocol/docs/sessions.md`.
 ### `tracks` — the delta, and what it deliberately cannot do
 
 The pattern clock rewrites a handful of lanes' clips six or seven times a second while the rest
-of the song sits still. It used to send `project` each time: 137 KB of document parsed and diffed
-to be told about eight notes, against 3.7 KB of tracks.
+of the song sits still. Sending `project` each time is 137 KB of document parsed and diffed to be
+told about eight notes, against 3.7 KB of `tracks`.
 
 The engine **merges into the document it holds and then runs the same `apply`**. That is what
 makes this cheap and boring at once: the diff, the incremental paths and the rebuild fallback are
@@ -125,8 +124,8 @@ a session is **idle**, which means all of:
   *audition* sounds without the transport rolling, and a monitored input moves a meter while it
   does.
 
-The frame was going out every 50 ms regardless, and a browser paid for all of it — parse, then
-every subscriber's selector, to conclude nothing had moved. 4 Hz is slow enough to leave a
+At every 50 ms regardless, a browser pays for all of it — parse, then every subscriber's
+selector, to conclude nothing has moved. 4 Hz is slow enough to leave a
 profile and quick enough that a change made from another tab lands within 250 ms. Nothing is
 drained or pumped on a skipped tick, which is safe precisely because a tap or a watch is what
 makes a session non-idle.
@@ -139,19 +138,19 @@ A client must not read the cadence as a signal: it is not a heartbeat, and
 The state frame is the one reply nobody requested, so it is the only one addressed by SOCKET
 rather than by verb. `main.cpp` remembers which session each connection named in its first real
 message — the same test that earns it a `[client] connected` line — and sends each frame to those
-sockets alone. It used to `broadcast`, so every socket on the port decoded every session's meters
-and waveform envelopes before its own `forSession` dropped them; and since the idle divider above
-is *per session*, one session playing kept every other session's tabs awake at 20 Hz. Measured on
-a machine holding three sessions (`scripts/two-sessions.ts`, which now counts frames on a raw
-socket): 200 frames received per socket in nine seconds, 34 of them wanted.
+sockets alone. A plain `broadcast` here makes every socket on the port decode every session's
+meters and waveform envelopes before its own `forSession` drops them; and since the idle divider
+above is *per session*, one session playing keeps every other session's tabs awake at 20 Hz. On a
+machine holding three sessions (`scripts/two-sessions.ts`, which counts frames on a raw socket)
+that is 200 frames received per socket in nine seconds, 34 of them wanted.
 
-Deliberately not `role: "driver"` — the file service declares nothing (its link would otherwise
-count as a driver and no project would ever look abandoned) and its pattern clock runs off these
-frames. And deliberately once per socket: `drop-session` and `show-native-plugin-ui` carry another
-session's id as an override, and a socket that rebound on those would go deaf.
+The test is deliberately not `role: "driver"` — the file service declares nothing (its link would
+otherwise count as a driver and no project would ever look abandoned) and its pattern clock runs
+off these frames. And it binds once per socket: `drop-session` and `show-native-plugin-ui` carry
+another session's id as an override, and a socket that rebound on those would go deaf.
 
-A probe — the tray asking for devices and hanging up — names nothing and now gets nothing, which
-is what it always wanted.
+A probe — the tray asking for devices and hanging up — names nothing and gets nothing, which is
+what it wants.
 
 ## server -> client, BINARY
 

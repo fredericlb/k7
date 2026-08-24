@@ -60,7 +60,7 @@ function unlockBuzzersInternal(): void {
   }
 }
 
-/** The single phase-transition entry point (main.go setServerPhase). */
+/** The single phase-transition entry point. */
 export function setServerPhase(newPhase: string): void {
   const prev = gameState.currentPhase;
   if (prev === newPhase) return;
@@ -127,7 +127,7 @@ export function flushBuzzes(): void {
   if (gameState.currentPhase === "song") setServerPhase("answering");
 }
 
-// ─── Broadcast helpers shared by HTTP + WS layers (main.go) ────────────────
+// ─── Broadcast helpers shared by HTTP + WS layers ──────────────────────────
 
 export function broadcastPlayerBuzz(
   playerName: string,

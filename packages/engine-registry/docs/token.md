@@ -1,12 +1,7 @@
 # Le jeton par moteur : ce qu'il prouve, et ce qu'il ne protège pas
 
-Cette page existe parce que l'en-tête de `registry.ts` a longtemps affirmé le contraire de ce
-que fait le code :
-
-> ~~The per-engine token NEVER leaves the server.~~
-
-C'est faux, et ça l'a toujours été. Corrigé ici plutôt que retiré en silence : une phrase de
-sécurité fausse est pire qu'une phrase absente, parce qu'on construit dessus.
+**Le jeton par moteur ne reste pas côté serveur.** C'est la phrase à ne pas écrire à l'envers :
+une phrase de sécurité fausse est pire qu'une phrase absente, parce qu'on construit dessus.
 
 ## Ce qui se passe réellement
 
@@ -50,10 +45,10 @@ Ce que l'axe audio suppose aujourd'hui, en clair :
 - **L'authentification réelle est ailleurs** : le cookie de session que st0 frappe, et que pl8,
   k7 et z0 se contentent de vérifier.
 
-Rien de tout cela n'est absurde pour un outil de scène. Ce qui l'était, c'est de l'écrire à
+Rien de tout cela n'est absurde pour un outil de scène. Ce qui le serait, c'est de l'écrire à
 l'envers dans le fichier que quelqu'un lira avant d'ajouter une surface.
 
-## Ce qu'il faudrait pour que la phrase redevienne vraie
+## Ce qu'il faudrait pour que le jeton devienne un vrai secret
 
 Un lot de conception, pas un correctif — il n'est pas pris :
 

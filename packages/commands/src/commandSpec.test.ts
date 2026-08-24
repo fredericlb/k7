@@ -107,7 +107,7 @@ describe("the palette's one-field view of completions()", () => {
 
 describe("node new", () => {
   it("is a verb of its own, not one of `module`'s", () => {
-    // It was `module instance new`; a node is its own thing, so `module ` offers none of its verbs.
+    // A node is its own thing, so `module ` offers none of its verbs.
     expect(completions("node ", host([]), "cli")).toContain("node new");
     expect(completions("module ", host([]), "cli")).not.toContain("node new");
   });

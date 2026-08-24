@@ -370,7 +370,7 @@ function readModules(dir: string): ModulesRead {
     }
     for (const { name, folder } of folders) {
       const relDir = `modules/${type}/${name}`;
-      // A module folder is its `module.yaml` and nothing else now; uses live in the flat `nodes/` (docs/nodes.md).
+      // A module folder is its `module.yaml` and nothing else; uses live in the flat `nodes/` (docs/nodes.md).
       const generic = moduleFileFor(folder, relDir, "module");
       let module: Record<string, unknown> | null = null;
       if (generic) {
@@ -602,7 +602,7 @@ export function libraryModuleIssues(dir: string): Diagnostic[] {
   return issues;
 }
 
-// Fields a project still declares that nothing reads any more, so "accepted" never quietly means "ignored" (docs/sharedFolders.md).
+// Fields a project may still declare that nothing reads, so "accepted" never quietly means "ignored" (docs/sharedFolders.md).
 export function deadProjectFields(dir: string): Diagnostic[] {
   let root: RawProjectRoot;
   try {
@@ -700,7 +700,7 @@ export function loadSettings(
   return r.success ? r.data : {};
 }
 
-// Read one entity file; nothing validates here any more, since the one kind that did was the track and a lane is a module.
+// Read one entity file; nothing validates here, since a lane is a module and modules validate elsewhere.
 function readEntityFile(
   file: { path: string; rel: string },
   _sub: string,
@@ -860,7 +860,7 @@ function readModuleRefs(
   return out;
 }
 
-/** The ref map for a project — its own modules plus every shared root it inherits; a thin alias since roots stopped being declared. */
+/** The ref map for a project — its own modules plus every shared root it inherits; a thin alias, no root being declared. */
 export const projectModules = (dir: string): Record<string, LoadedModule> =>
   loadModuleRefs(dir);
 

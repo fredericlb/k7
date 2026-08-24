@@ -13,10 +13,9 @@ the module, so its panel has no scanned parameter list — `IO_IN_BINDS` gives i
 `@monitor` to bind — and it has one question no plugin module has: *which of the interface's
 inputs am I?*
 
-That question used to be answerable only by typing `channel:` into the file. The bar under
-the left column's pane answers it by picking — under whichever pane is up, because it belongs
-to the module rather than to any one of them. (It used to sit above the parameter list, back
-when that list was always on screen; the list is a tab now.)
+The bar under the left column's pane answers it by picking, rather than by typing `channel:`
+into the file. Under whichever pane is up, because it belongs to the module rather than to any
+one of them — the parameter list is a tab, so it is not the thing to hang the bar off.
 
 ## A module rarely SAYS it is an input
 
@@ -30,13 +29,13 @@ channel: [ 2 ]
 No `io:` anywhere. So `ioOf` resolves three sources in order — the file's own key, an
 `extends` naming one of the engine's io modules (`IO_MODULES`, a fixed table and not files),
 and failing both the path, since a file under `io/IN/` is one of that folder's inputs and
-that is how the loader decides it too. Reading only the first called this an ordinary plugin
-and cost it both its io binds and this bar.
+that is how the loader decides it too. Reading only the first calls this an ordinary plugin
+and costs it both its io binds and this bar.
 
 ## The sets are the engine's, not a range of numbers
 
 The obvious implementation is a spinner from 1 to however many inputs the card has. It is
-wrong, and silently:
+wrong, and silently so:
 
 > `channels` is 1-based and is the set `findWaveInput` matches EXACTLY: a rig that pairs its
 > inputs has no device for channel 2 alone, so asking for it resolves to nothing and reads as
@@ -49,9 +48,8 @@ device's own `channels` array verbatim.
 
 ## Why mono/stereo is not a filter
 
-It was, first, and on the machine this was written for it was useless: a Focusrite 18i20
-enumerates **twenty mono inputs and no stereo device at all**, so a stereo list filtered out
-of that is empty for ever.
+A filter is useless on a real rig: a Focusrite 18i20 enumerates **twenty mono inputs and no
+stereo device at all**, so a stereo list filtered out of that is empty for ever.
 
 The toggle therefore **regroups**. In stereo it offers the pairs the interface *could* be
 asked to become — two mono devices sitting on one hardware pair — and choosing one asks the
@@ -73,8 +71,8 @@ Two consequences that are the interface's and not ours:
 The grouping is remembered in `~/.studio/preferences.yaml` (`inputPairs`) and replayed to the
 engine on every connect, exactly as the audio device is. Tracktion persists a copy of its own
 and it is unreadable in practice — the only call that loads it also reopens the remembered
-interface, which `engine/moteur/AGENTS.md` forbids — so without this the pairing lasted until
-the next engine restart and then silently reverted, taking the module's sound with it.
+interface, which `engine/moteur/AGENTS.md` forbids — so without this the pairing lasts until
+the next engine restart and then silently reverts, taking the module's sound with it.
 
 ### Both halves are one COMMAND
 
@@ -82,10 +80,10 @@ the next engine restart and then silently reverted, taking the module's sound wi
 that line, and the two writes above happen on the service's side — the preference first, so a rig
 that answers slowly still remembers what was asked of it.
 
-It was the engine message on the shell's own socket **plus** a write through a file route: one act
-with two doors and no name, so nothing in the palette could pair two inputs and nothing in the log
-said anybody had. A host with no engine attached still gets the durable half and is told so, rather
-than a refusal for an act that is already recorded.
+One command and not an engine message on the shell's own socket **plus** a write through a file
+route: that would be one act with two doors and no name, so nothing in the palette could pair two
+inputs and nothing in the log would say anybody had. A host with no engine attached still gets the
+durable half and is told so, rather than a refusal for an act that is already recorded.
 
 What is left on the surface's side is asking the engine what the interface BECAME — `ioLevels([])`,
 once the command has been through, since the engine sends nothing back for the change itself.

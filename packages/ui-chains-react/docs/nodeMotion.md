@@ -1,20 +1,19 @@
 # The cards move — adding, replacing, removing, rearranging
 
-A command that changes the graph used to replace one picture with another between two frames.
-Nothing was wrong with the new picture; what was missing was the sentence linking it to the old
-one, so reading a change meant comparing two states from memory. A module inserted mid-chain
-pushed everything below it down by one rank, and the only way to know *which* card was new was
-to already know what had been there.
-
-So a re-layout is drawn as a movement: the cards slide to their new places, an added one fades
+A re-layout is drawn as a **movement**: the cards slide to their new places, an added one fades
 up, a removed one fades out.
+
+Swapping one picture for another between two frames leaves nothing wrong with the new picture —
+what is missing is the sentence linking it to the old one, so reading a change means comparing
+two states from memory. A module inserted mid-chain pushes everything below it down by one rank,
+and the only way to know *which* card is new is to already know what was there.
 
 ## FLIP, and why the positions stay React's
 
 React draws every node at its **final** place — `left`/`top` inline, exactly as before — and the
 frame loop writes the offset it still has to cover as a `transform`. The two therefore cannot
 disagree about where anything is, and a graph at rest carries no inline style at all: turn the
-animation off and this file's every write is a no-op on the DOM the old code produced.
+animation off and this file's every write is a no-op on the DOM React already produces.
 
 That ordering is the whole technique and it is easy to get wrong by one hook. React has already
 committed the new positions by the time an effect runs, so a frame painted before the offsets
@@ -26,10 +25,10 @@ and the loop only continues from there.
 declares it inline, and an unrelated re-render mid-fade would take the fade back. The two
 multiply, which is the right answer for a dimmed node on its way out.
 
-## Identity is the node id, and it was already right
+## Identity is the node id
 
 `buildGraph` mints ids from names (`mod:reverb`, `trk:gtr`), dedupes through them, and they are
-already React's `key`. So the discriminator this needed existed before it did:
+already React's `key`. That is the whole discriminator:
 
 - a re-ordered chain keeps its ids and only **moves**;
 - a renamed module is one id **leaving** and another **arriving**, which is what a rename is;
@@ -63,15 +62,15 @@ something shooting past; half a dozen at once is flicker, not motion. So `planMo
 `maxTravel`, and anything further **arrives** — fades up where it belongs — instead.
 
 The mixer view is what this is for. Turning it on re-frames the camera *and* pulls every strip
-onto one rank (`ui-chains/docs/graphBuild.md`), so cards that were off screen would otherwise
+onto one rank (`ui-chains/docs/graphBuild.md`), so cards off screen would otherwise
 come in from outside it. The cap is a screen and a half, measured in world px through the
 camera's own zoom, because what the eye can follow is a fact about the view and not about the
 layout.
 
-The camera itself still lands **outright** on a programmatic fit. That is `place`'s stated
-decision — "a fit or a chain selection, not a gesture: there is nothing to chase" — and this
-change did not overturn it. So a mixer toggle reads as the view cutting to the row while the
-cards settle into it.
+The camera itself lands **outright** on a programmatic fit. That is `place`'s stated
+decision — "a fit or a chain selection, not a gesture: there is nothing to chase" — and the
+cards moving does not change it. So a mixer toggle reads as the view cutting to the row while
+the cards settle into it.
 
 ## The timing
 
@@ -87,17 +86,14 @@ already repaints the canvas every frame, and already stops itself when nothing i
 
 ## Where it is off
 
-**Nowhere, today — no host passes the prop at all.** The one that did was pl8's chain view, and
-the médiathèque stopped drawing a graph: it declares neither `@studio/ui-chains` nor
-`@studio/ui-chains-react` any more. The prop and its default survive because the REASON does —
-that view rebuilt its layout on every keystroke, and a node is identified by its name, so typing
-`reverb` was six nodes arriving and five leaving, a picture never still long enough to read.
-Any host that redraws per keystroke rather than per *command* wants `motion={false}` again.
-
-st0's graph, the only one left, redraws after a command — which is the change worth animating.
+**Nowhere — no host passes the prop.** It survives because the REASON does: a host that rebuilds
+its layout on every keystroke wants `motion={false}`, since a node is identified by its name and
+typing `reverb` is six nodes arriving and five leaving, a picture never still long enough to
+read. What is worth animating is a redraw per *command*, which is what st0's graph — the only
+host — does.
 
 `prefers-reduced-motion: reduce` overrules the prop. Nothing here is load-bearing, so the
-reduced answer is simply the old one: everything lands at once.
+reduced answer is the plain one: everything lands at once.
 
 The **first** layout of a mount is never animated. A graph fading up every time its pane mounts
 would be an animation about nothing — and on mount the frame loop is not bound yet, so a motion

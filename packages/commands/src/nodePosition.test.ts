@@ -94,7 +94,7 @@ describe("graph move", () => {
   });
 
   it("a node CREATED with a trailing x,y is born there — pinned in the same undo step", async () => {
-    // `node new` takes the click too, and `node place` is gone (packages/song/docs/nodes.md).
+    // `node new` takes the click, so one command creates and pins (packages/song/docs/nodes.md).
     await runCommand("module new audio/verb2", host(), "cli");
     await runCommand("node new audio/verb2 verb2n 120,80", host(), "cli");
     expect(chains()).toContain("verb2n: []");

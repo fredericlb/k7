@@ -57,7 +57,7 @@ describe("bare (extends-less) modules", () => {
   it("compiles a chain that uses a bare (extends-less) module — routing only, no plugin", () => {
     createModuleFile(dir, "instruments", "bare"); // just a name, no extends
     insertChainStepAfter(dir, "lead", { module: "bare" });
-    const doc = compileNodeProject(dir); // used to throw: base '' not found
+    const doc = compileNodeProject(dir); // must not throw: an empty base is not a lookup
     const melody = doc.tracks.find((t) => t.id === "melody");
     expect(melody).toBeTruthy();
     // The bare step contributes no processor; the real one is untouched.

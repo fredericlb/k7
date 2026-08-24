@@ -12,42 +12,29 @@ A module ref carries its level as an `@` prefix:
 ## `@st0` is a git submodule in the workspace
 
 The level's folder is `<workspace>/_libraries/modules` — the account's library repository,
-mounted by the file service into every workspace. It used to be `~/.studio/mediatek/modules`,
-one folder per machine synced from the hosted médiathèque, and `moduleNamespaceOf` was an exact
-string comparison against that one path. There is one per workspace now, so the test is
-structural instead: the root's parent folder is named `_libraries`. See
-[sharedFolders.md](sharedFolders.md) for what that bought and what it cost.
+mounted by the file service into every workspace. There is one per workspace, so
+`moduleNamespaceOf`'s test is structural rather than a string comparison against a single path:
+the root's parent folder is named `_libraries`. See [sharedFolders.md](sharedFolders.md).
 
-## `@st0`, and why the cache folder is still called `mediatek`
+## `@st0` names a FOLDER of modules, and the cache folder is called `mediatek`
 
-The media library's level was named after **the app that served it**. It was `@mediatek` while
-that app was `apps/mediatek`; the app became `apps/st0` and the ref did not follow, so for a
-while a chain named a library by a word that no longer appeared anywhere else in the repo. That
-is what `migrateNamespace.ts` was written for, and the level was moved once, to `@st0`.
+The level's name follows the folder of modules rather than the path on the origin: the
+médiathèque answers under `/pl8` and is `apps/pl8`, and the level is `@st0` all the same.
+A level is written into user files, so renaming one means rewriting every chain in every
+repository on every machine at once, and the failure signature is a `?` on a graph node and
+nothing else. That is worth paying to stop a word that appears nowhere; it is not worth paying
+to chase a URL.
 
-**It has not moved since, and will not.** That app is `apps/pl8` today — renamed when the editor
-took the origin root and the médiathèque moved to `/pl8`.
+> **`@st0` is not the app `apps/st0`.** Nothing resolves through an app either way. The level
+> names a folder of modules, and that folder is what the name follows.
 
-> **`@st0` is not the app `apps/st0`.** The name `st0` has belonged to two applications: the
-> médiathèque first, this level's namesake, and the editor since — it was `l8` until l8 stopped
-> referring to anything. So the level reads like today's editor and means yesterday's
-> médiathèque. Nothing resolves through the app either way; the level names a **folder of
-> modules**, and that folder has not moved once in all of it.
+`~/.studio/mediatek` is a **cache path** on one machine, not a name anybody writes in a file —
+nothing resolves a ref through it, and renaming it would be a migration of a folder on every
+machine in exchange for nothing. `$STUDIO_MEDIATEK` and the `@studio/mediatek` package keep the
+name for the same reason: the médiathèque is what the thing is called, and `pl8` is what serves
+it.
 
-The name follows the *folder of modules*, which did not move, rather than the *path on the
-origin*, which did. The price of moving it is the whole reason: a level is written into user
-files, so every
-chain in every repository on every machine would have to be rewritten at once, and the failure
-signature is a `?` on a graph node and nothing else. Once was worth it to stop a word that
-appeared nowhere; twice would be to chase a URL.
-
-What did *not* move is `~/.studio/mediatek`. That is a **cache path** on one machine, not a name
-anybody writes in a file — nothing resolves a ref through it, and renaming it would be a
-migration of a folder on every machine in exchange for nothing. `$STUDIO_MEDIATEK` and the
-`@studio/mediatek` package stay for the same reason: the médiathèque is still what the thing is
-called, and `pl8` is what serves it.
-
-### Nothing accepts the old spelling
+### `@mediatek/…` resolves to nothing
 
 `@mediatek/…` resolves to nothing. That is deliberate, and it is the opposite of the choice
 made for [the bare ref](#the-bare-ref) below — worth putting side by side, because the two look
@@ -55,9 +42,9 @@ alike and are not:
 
 | | `audio/reverb` vs `@project/audio/reverb` | `@mediatek/…` vs `@st0/…` |
 |---|---|---|
-| what they are | two spellings of **one** level, both current | the **old** name of a level and its current one |
-| resolution | keyed twice, both work, forever | one key; the old name names nothing |
-| why | every `graph.yaml` ever written says the bare form | keeping it would mean two words for one library, permanently |
+| what they are | two spellings of **one** level, both current | a word a file may carry, and the level it means |
+| resolution | keyed twice, both work, forever | one key; the other names nothing |
+| why | every `graph.yaml` ever written says the bare form | aliasing it would mean two words for one library, permanently |
 
 So this one is migrated rather than aliased, and the failure is meant to be seen: a chain step
 naming an unknown module draws its name with a `?` on the graph, and an `extends:` that resolves
@@ -80,22 +67,16 @@ unambiguous token touches nothing else: there is no other thing in this repo spe
 
 ## The level comes from the LOCATION
 
-It used to be declared, per root, in that root's `config.yaml`:
+`moduleNamespaceOf(root)` answers from the path, and no root declares one. A `namespace:`
+field in a root's `config.yaml` would make the level a free string an author picked, with
+two consequences worth naming. A workspace library could call itself `engine` and collide
+head-on with the synthesised catalogue, so the same ref `@engine/io/IN` would mean a folder
+in one place and a scanned plugin in the next. And nothing would tie the name to how deep
+the folder actually sits, so the ref would tell you what someone had typed rather than where
+the file is.
 
-```yaml
-namespace: engine     # ← in _modules/config.yaml
-```
-
-That made the level a free string an author picked, with two consequences worth naming.
-A workspace library could call itself `engine` and collide head-on with the synthesised
-catalogue — **a dozen fixtures in this repo did exactly that**, which is why the same ref
-`@engine/io/IN` meant a folder in one test and a scanned plugin in the next. And nothing
-tied the name to how deep the folder actually sat, so the ref told you what someone had
-typed rather than where the file was.
-
-`moduleNamespaceOf(root)` answers from the path now, and the field is gone. There are only
-two shared roots — the media library, or the workspace's own — so the question has exactly
-two answers.
+There are only two shared roots — the media library, or the workspace's own — so the
+question has exactly two answers.
 
 ## No level is declared. They are all found
 
@@ -112,10 +93,10 @@ Every root is at a fixed place, so nothing in `project.yaml` names one:
 their panels (`modulePanelRoots`), the fork path (`sharedRoots`) and the builder's catalogue —
 which is what keeps the four from disagreeing about what a project can reach.
 
-`modules_from` used to declare the middle two and is gone; `libraries_from` did the same for
-assets. They could only ever name those places, so they decided nothing while leaving three
-ways to be wrong about them — see docs/sharedFolders.md, which lists the three because each
-one cost a real afternoon.
+Nothing in `project.yaml` declares one. A `modules_from` naming the middle two, or a
+`libraries_from` doing the same for assets, could only ever name those fixed places: it would
+decide nothing while leaving three ways to be wrong about them — docs/sharedFolders.md lists
+the three, each of which costs a real afternoon.
 
 What this does NOT do is put the bytes there. The library is hosted; the local folder is a
 cache of it, filled by `packages/file-service/docs/mediatekPull.md` for the modules the open
@@ -128,13 +109,12 @@ folder.
 
 ## The bare ref
 
-`audio/reverb` and `@project/audio/reverb` are the same module. Project modules were
-named bare before the levels were spelled out, and every `graph.yaml` already written
-says them that way, so `loadModuleRefs` keys each one **twice** and both resolve. Nothing
-had to be migrated; `@project/` is simply the explicit spelling.
+`audio/reverb` and `@project/audio/reverb` are the same module. Every `graph.yaml` already
+written names project modules bare, so `loadModuleRefs` keys each one **twice** and both
+resolve; `@project/` is simply the explicit spelling, and nothing has to be migrated.
 
-Two places have to know that the bare form is the project level, and both used to get it
-free from `moduleNamespaceOf` returning `null` for a root with no config:
+Two places have to know that the bare form is the project level, and each says so itself
+rather than reading it off `moduleNamespaceOf`:
 
 - `loadUiLibrary` passes `null` for the project's own `modules/`, which is what makes
   `panelsIn` key its panels bare and skip the category-folder depth a shared library has.
@@ -171,23 +151,21 @@ is the editable catalogue, so the face is drawn once, there, for every song that
 for the plugin — rather than copied into each project that plays it.
 
 Contrast that with [moduleFork.md](moduleFork.md), which copies a whole folder into the
-project. Copying was the older answer to the same question, and it is still what a save
-into a read-only `_modules` does; inheritance is the one that leaves a single copy of the
-module and a single place to fix it.
+project — what a save into a read-only `_modules` does. Inheritance is the answer that
+leaves a single copy of the module and a single place to fix it.
 
 ## Giving the WHOLE scan a face
 
 `engineFaces()` does for a library what `engineFaceModule()` does for one plugin, and pl8
-offers it on the modules section itself. On the machine this was measured against: 252 plugins
+offers it on the modules section itself. On the machine this is measured against: 252 plugins
 scanned, 242 modules written, 10 skipped.
 
-### This is not `module populate` coming back
+### A face COPIES nothing
 
-It looks like it and it is the opposite, so the difference is worth stating. `module populate`
-wrote one `module.yaml` per scanned plugin holding **two copied facts** — `plugin.type` and
-`plugin.name` — and those copies were strictly less informed than the scan they came from, had
-to be regenerated by hand, and went stale in silence. That is why it was deleted (see
-`engineCatalogue.ts`).
+Worth stating, because the pass looks like the opposite thing. A `module.yaml` per scanned
+plugin holding **two copied facts** — `plugin.type` and `plugin.name` — would be strictly
+less informed than the scan it came from, would have to be regenerated by hand, and would go
+stale in silence (see `engineCatalogue.ts`).
 
 A face copies **nothing**. It is one `extends:` line, and every fact about the plugin still
 comes from the scan through the ref. Update the plugin and the face is still right; there is no
@@ -199,8 +177,8 @@ folder behind it cannot have: a name a chain can say, and somewhere a `ui.yaml` 
 Running it twice must write nothing the second time, and "already faced" cannot be a question
 about paths. On the measured library, `audio/distortion/bitcrush` extends `@engine/de-rez` and
 `audio/utility/pitch-shift` extends `@engine/pitch-shifter` — faces somebody filed under names
-of their own. A path check would have written a second face for each, and one plugin reachable
-under two names is a chain that reads as two different things depending on which you typed.
+of their own. A path check would write a second face for each, and one plugin reachable under
+two names is a chain that reads as two different things depending on which you typed.
 
 So `@studio/mediatek`'s `extendedRefs()` walks the library and collects what every module
 extends. It is a walk on demand and not a field on `MediatekEntry`, because the scan does not
@@ -219,15 +197,15 @@ and the category from what the scan reports about the plugin itself — its **la
 `Fx|Delay` files under `delay` and `instrument|synth` under `synth`. The first segment only
 repeats the type: every effect says `Fx`.
 
-That is the axis the médiathèque already files by. `audio/distortion`, `audio/filter` and
-`audio/utility` are folders somebody made by hand before any of this existed, and the scan's
-categories land straight on them. Filing by MANUFACTURER was the other candidate; it would have
-been a second axis crossing that one, and one folder would hold most of the library the moment
-you install a big free pack — 186 of the 252 measured here come from one.
+That is the axis the médiathèque files by. `audio/distortion`, `audio/filter` and
+`audio/utility` are folders somebody made by hand, and the scan's categories land straight on
+them. Filing by MANUFACTURER is the other candidate: it would be a second axis crossing that
+one, and one folder would hold most of the library the moment you install a big free pack —
+186 of the 252 measured here come from one.
 
-Flat under the type folder was never on the table: two hundred effects in one folder is a level
+Flat under the type folder is not an option: two hundred effects in one folder is a level
 you cannot find anything in. That is also why `engineFaceModule` takes a sub-folder at all — the
-médiathèque's own modules already sit at that depth.
+médiathèque's own modules sit at that depth.
 
 `faceFolder` answers `""` for a category word that says nothing the TYPE folder does not already
 say — `fx`, `effect`, `audio`, `instrument`, `midi`. `Fx` under `audio/` would be a level holding

@@ -1,6 +1,5 @@
 // index.ts — the engine registry as a mountable pair: a store and the routes over it.
-// Shared because st0 is no longer its only consumer — pl8 must offer the same pick,
-// and m9 will. See docs/shared.md.
+// Shared because st0 is not its only consumer — pl8 offers the same pick. See docs/shared.md.
 
 export {
   ENGINE_BODY_LIMIT,

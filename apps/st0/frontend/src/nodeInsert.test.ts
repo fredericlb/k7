@@ -1,9 +1,9 @@
 // What the graph's `+` runs, and what the shell runs after it.
 //
 // TWO lines, for a vocabulary reason rather than a plumbing one: a `node …` verb acts on a node,
-// so `node insert` stopped creating modules and the gesture split into "make it" and "wire it".
+// so the gesture is "make it" then "wire it" and neither verb creates a module.
 //
-// Neither reaches the command bar now — the name is derived from the arrow clicked. The trailing
+// Neither reaches the command bar — the name is derived from the arrow clicked. The trailing
 // space `createForGraphCommand` leaves is load-bearing: it joins the two halves, and the bar
 // opens on it when there is no catalogue to pick from. See packages/song/docs/nodes.md.
 
@@ -23,7 +23,7 @@ const arrow: PendingInsert = { before: "melody", after: "OUT" };
 
 describe("the line the + builds", () => {
   it("creates the NODE, ending where its name goes", () => {
-    // `node new` and not `module new`: the latter stopped making nodes, and a chain names one.
+    // `node new` and not `module new`: the latter makes no node, and a chain names one.
     const line = createForGraphCommand("audio", "adt");
     expect(line).toBe("node new audio/adt ");
     // The trailing space is load-bearing: it is the join the name lands on, and where the cursor sits on the one path that opens the bar.
@@ -88,7 +88,7 @@ describe("reading the node's name back off what was typed", () => {
   });
 
   it("answers null for a `module new` — it makes no node to wire", () => {
-    // It used to take a trailing node name and make one; a module is not something a chain names, so there is nothing to wire.
+    // A module is not something a chain names, so `module new` takes no trailing node name and leaves nothing to wire.
     expect(chainRefFromCreate("module new audio/adt")).toBeNull();
     expect(
       chainRefFromCreate("module new audio/adt @engine/audio/delay/adt"),
@@ -184,7 +184,7 @@ describe("what the picked module lands called", () => {
       createForGraphCommand("audio", "reverb") +
         nodeNameFor(graph, "reverb", "amp"),
     ).toBe("node new audio/reverb vo_jo_reverb_1");
-    // …and the shell reads the name straight back off it, as it did when it was typed.
+    // …and the shell reads the name straight back off the line, exactly as it does for a typed one.
     expect(
       chainRefFromCreate(
         createForGraphCommand("audio", "reverb") +

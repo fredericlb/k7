@@ -71,7 +71,7 @@ boutons pilotent un programme qui tourne, celui-ci décide **quel programme est 
 l'apprend en reconstruisant la passe, comme le moteur apprend une base en reconstruisant le plugin.
 
 La liste est cherchée dans l'**ascendance** — le module lui-même puis tout ce qu'il `extends` — pour
-la raison que `moduleAssetChoices` a apprise : un morceau pointe vers un module partagé à travers
+la même raison que `moduleAssetChoices` : un morceau pointe vers un module partagé à travers
 un module local mince, dont le dossier ne contient rien. Un shader local masque un shader hérité du
 même nom, et `readShader` cherche dans le même ordre : la liste où l'on choisit et la source que
 l'on obtient doivent être d'accord.

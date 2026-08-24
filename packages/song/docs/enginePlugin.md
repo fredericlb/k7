@@ -15,17 +15,17 @@ A **format**:
 
 ## What the engine's wire format expects
 
-Older, and narrower: `type` holds EITHER the built-in's xmlTypeName OR the external
-format. So the mapping is:
+Narrower: `type` holds EITHER the built-in's xmlTypeName OR the external format. So the
+mapping is:
 
 | authored | engine `type` | engine `name` |
 |---|---|---|
 | `internal` | the xmlTypeName (from `name`) | the module's display name (`fallback`) |
 | an external format | the format | the authored plugin name, else `fallback` |
-| anything else (legacy) | passed through — already an xmlTypeName | the authored name, else `fallback` |
+| anything else | passed through — already an xmlTypeName | the authored name, else `fallback` |
 
-The legacy row is what lets a project authored before the `"internal"` model compile
-unchanged, so no existing song needs migrating.
+Both spellings are written on disk, which is what the third row is for: a module whose
+`type` is already an xmlTypeName compiles unchanged, and no song needs migrating.
 
 ## The scan cache — engineCatalogue.ts
 
@@ -47,16 +47,15 @@ happened to write is not something a project's refs should depend on.
 `ScannedPlugin.id` is JUCE's `fileOrIdentifier`, the one field that ADDRESSES a plugin rather than
 describing it. Asking the engine to load one and list its parameters resolves this and not the
 name, because two plugins can share a display name and only a path names one. Nothing that files or
-draws a module needs it, which is why it went unread for as long as it did.
+draws a module needs it.
 
 `engineModules()` keys every offered module by ref — the scanned plugins plus IN and OUT. Two rules
 are worth stating:
 
-- **`plugin.type` is the scanned FORMAT, lowercased, and nothing else.** `module populate` wrote
-  `internal` whenever the role was "instrument", which mislabelled all forty VST3 instruments on
-  this machine: a wrapper for one claimed to be a built-in, and the engine would have gone looking
-  for a built-in by that name. Nothing hit it because the projects using those plugins declare them
-  inline; the rule was simply wrong, and this is the one place it is now stated.
+- **`plugin.type` is the scanned FORMAT, lowercased, and nothing else.** Writing `internal`
+  because the role is "instrument" mislabels every VST3 instrument on the machine: a wrapper for
+  one would claim to be a built-in, and the engine would go looking for a built-in by that name.
+  This is the one place the rule is stated.
 - **The ports are the TYPE's defaults and only those.** A scanned plugin has no file to declare
   ports in — what it really offers is the plugin's business, and the engine is what would know.
 
@@ -64,7 +63,7 @@ The ref and the plugin block both come from `moduleTypes.ts`, which is also what
 browser applies to the scan reported over the socket: one rule, so the two cannot spell the same
 plugin differently. That vocabulary lives in the leaf with no filesystem so a BROWSER can name an
 engine module without pulling `node:fs` in behind it, and it is re-exported from
-`engineCatalogue.ts` because that is where every caller already looks. `IO_MODULES` moved for the
-same reason plus one more: the BUILDER has to recognise `extends: "@engine/IN"` to know it is
+`engineCatalogue.ts` because that is where every caller already looks. `IO_MODULES` sits there for
+the same reason plus one more: the BUILDER has to recognise `extends: "@engine/IN"` to know it is
 editing an input, and it runs in a browser
 ([inputChannels.md](../../ui-module-builder/docs/inputChannels.md)).

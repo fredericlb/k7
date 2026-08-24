@@ -75,7 +75,7 @@ describe("the three built-in track modules", () => {
 
 describe("a lane, read off what it extends", () => {
   it("says nothing about what it carries — the EVENTS do", () => {
-    // One lane holding a clip and a sequence, which used to take two typed lanes.
+    // One lane holding a clip and a sequence: a lane is not typed by what it carries.
     const p = project(
       [
         [
@@ -212,7 +212,7 @@ describe("a lane's mute is its module's bypass", () => {
     const doc = compileNodeProject(p);
     expect(doc.tracks.find((t) => t.id === "bass")?.mute).toBe(true);
     expect(doc.tracks.find((t) => t.id === "gtr")?.mute).toBe(false);
-    // Nothing writes solo any more: the surface derives it by bypassing the others.
+    // Nothing writes solo: the surface derives it by bypassing the others.
     expect(doc.tracks.every((t) => !t.solo)).toBe(true);
   });
 });

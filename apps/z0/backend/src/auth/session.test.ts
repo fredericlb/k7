@@ -15,7 +15,7 @@ import {
   studioUser,
 } from "./session.ts";
 
-// ONE secret, `common`'s: it signs the guest cookie here and verifies the one pl8 signed.
+// ONE secret, `common`'s: it signs the guest cookie here and verifies the one st0 signed.
 const SECRET = "the-shared-studio-secret";
 
 beforeAll(() => {
@@ -39,7 +39,7 @@ describe("studioUser", () => {
   });
 
   it("carries the groups through, which is what the admin gate reads", () => {
-    // pl8 must request the `groups` scope, or every admin surface 403s — ../../../docs/auth.md.
+    // st0 must request the `groups` scope, or every admin surface 403s — ../../../docs/auth.md.
     const u = studioUser(studioCookie({ sub: "a", groups: ["admins"] }));
     expect(isAdmin(u)).toBe(true);
   });

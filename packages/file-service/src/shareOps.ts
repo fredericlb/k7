@@ -2,10 +2,8 @@
 // and the publish to k7. Four acts with one thing in common, and that is what makes them a module:
 // each RENDERS first, then hands the result to somebody else.
 //
-// Extracted from `workspace.ts` — 2707 lines, 87 methods on one class — along the seam
-// `projectLifecycle.ts` had already cut: a HOST of a few members rather than the whole class, so
-// `safePath` and the rest do not become public API. This group left first because it is the most
-// peripheral: nothing else in the class calls it.
+// It takes a HOST of a few `Workspace` members rather than the whole class, the seam
+// `projectLifecycle.ts` uses, so `safePath` and the rest do not become public API.
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

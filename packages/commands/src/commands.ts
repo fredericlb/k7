@@ -407,7 +407,7 @@ function takeSpawnAt(parts: string[]): { x: number; y: number } | null {
   return { x: Number(m[1]), y: Number(m[2]) };
 }
 
-// `playlistFile`, `splitOptionals` and `coldInsertError` were here — docs/verbs.md says where each went.
+// `playlistFile` lives in verbs/shared.ts, so the split-out verb files import no cycle — docs/verbs.md.
 
 /** What a module already on disk extends, or "" — read from its own file, not through the loaders. */
 function existingExtends(
@@ -525,7 +525,7 @@ function resolveEvent(
   return { track, atBeats, hit, num, den, tempo: p.tempo };
 }
 
-// `track new [name]`, falling back to the next free track-N; no kind any more — docs/verbs.md.
+// `track new [name]`, falling back to the next free track-N; a lane has no kind — docs/verbs.md.
 async function newTrack(arg: string, h: CommandHost): Promise<void> {
   const name = arg.trim().split(/\s+/)[0] ?? "";
   const id = name || uniqueId("track", h.project());
@@ -1651,7 +1651,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([`track take delete failed: ${(e as Error).message}`]);
     }
   },
-  // `track gain|pan|alternative *|freeze` were here and are `node` verbs now — docs/verbs.md.
+  // A lane's level, alternatives and freeze are `node` verbs — a lane IS a module; docs/verbs.md.
 
   // event move <track> <timecode> <newTimecode> — a surgical rewrite of that placement's `start:` alone.
   "event.move": async (a, h) => {
@@ -2722,7 +2722,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const allChains = parseChains(
       loadChains(h.songPath, loadProjectRoot(h.songPath, true), true),
     );
-    // A module belongs to exactly one chain now, so there is no "used in two chains, say which" branch.
+    // A module belongs to exactly one chain, so there is no "used in two chains, say which" to answer.
     const hit = Object.entries(allChains).find(([, c]) =>
       c.use.some((s) => s.module === module),
     );
@@ -2761,7 +2761,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // `module.channel`, `module.monitor` and `module.asset` were here — `node param` answers all three now.
+  // A module's own fields and its file-valued params are all `node param` — docs/verbs.md.
 
   /** The three alternative verbs, one operation each on ONE module's file, all ending in a reload; docs/verbs.md. */
   "node.alt.select": async (a, h) => {
@@ -3050,7 +3050,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // `ui.migrate` and `chains.migrate` were here, and are scripts under packages/song/scripts/ now.
+  // One-shot format repairs are scripts under packages/song/scripts/, not rows in every palette.
 
   /** module new <category>/<name> [extends-ref] — scaffold a module, and only that; docs/verbs.md. */
   "module.create": async (a, h) => {
@@ -3109,7 +3109,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // `module.delete` was here: a module's files are the file tree's to remove — docs/verbs.md.
+  // No verb deletes a module: its files are the file tree's to remove — docs/verbs.md.
 
   /** node delete <node> — the node's file, its preset and its place in the graph; the module is untouched. */
   "node.delete": async (a, h) => {
@@ -3220,7 +3220,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // `graph.inspect` and `timeline.inspect` were here — what went is the palette row, not the describers.
+  // The graph and timeline describers have CLI entries of their own, not palette rows — commands.yaml.
 
   /** node insert <before> <after> <node> [x,y] — splice a node that EXISTS into an arrow; docs/verbs.md. */
   "node.insert": async (a, h) => {
@@ -3273,7 +3273,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // `node.place` and `chain.addModule` were here; `node new` and `node insert` cover both — docs/verbs.md.
+  // Creating a node is `node new`'s and wiring one is `node insert`'s — docs/verbs.md.
 
   /** graph organize — hand EVERY node back to the layout, the ONLY reorganizing operation; docs/verbs.md. */
   "graph.organize": async (_a, h) => {

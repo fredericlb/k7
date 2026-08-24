@@ -2,9 +2,9 @@
 // dropdown naming one, and its songs under it. Docked beside the panes rather than covering
 // them, because it is something you keep open while you work.
 //
-// Its OWN panel and not a tab of the settings one. It was briefly that, and it was the wrong
-// filing: settings are things you set and leave, and a set list is a thing you work FROM — you
-// open it to put a record on, not to configure anything. It also has the one header that is not
+// Its OWN panel and not a tab of the settings one: settings are things you set and leave, and a
+// set list is a thing you work FROM — you open it to put a record on, not to configure
+// anything. It also has the one header that is not
 // a title (a dropdown, a ＋ and the text button), which a shared tab strip has nowhere to put.
 // See ../docs/playlists.md.
 

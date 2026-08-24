@@ -9,14 +9,14 @@ import {
 export default defineAppConfig({
   dir: import.meta.url,
   base: "/z0/editor/",
-  // 3006, inherited from the Grist editor it replaced, so the proxy keeps its /z0/editor rule.
+  // 3006, which is what the proxy's /z0/editor rule targets.
   port: 3006,
   // pl8's 8795, not z0's 8080: what this app opens is a repository the médiathèque owns.
   backendPort: 8795,
   host: DEV_HOST,
   extend: {
     server: {
-      // The old name still reaches these servers — see scripts/dev-hosts.mjs.
+      // The extra host names these servers answer to — see scripts/dev-hosts.mjs.
       allowedHosts: LEGACY_DEV_HOSTS,
       // The ONE path forwarded elsewhere: the origin's OIDC flow is st0's, having no prefix.
       proxy: {
@@ -29,6 +29,6 @@ export default defineAppConfig({
       },
     },
   },
-  // Dev runs under WSL against /mnt/c, where inotify never fires (same as st0 and m9).
+  // Dev runs under WSL against /mnt/c, where inotify never fires (same as st0 and pl8).
   poll: true,
 });

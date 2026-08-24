@@ -3,8 +3,8 @@
 // A clean buffer adopts the new text silently; a dirty one asks and does nothing until told.
 // Gated on `/revision`, which moves for our own writes AND for edits made outside the app.
 //
-// This guards a data-loss bug: the editor used to read its file once, so a save wrote a stale
-// buffer over everything that had happened since. See ../docs/shell.md.
+// This guards a data-loss bug: reading a file only once means a save writes a stale buffer over
+// everything that happened since. See ../docs/shell.md.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";

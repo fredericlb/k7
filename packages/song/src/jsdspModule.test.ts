@@ -2,10 +2,9 @@
 // writes and the médiathèque's own modules use.
 //
 // `enginePlugin` maps that type to the engine's built-in graph host, but the compiler's "is
-// this a format the engine can load" gate ran FIRST and did not know the word, so every module
-// in the new form was dropped from the compiled doc. Silently: a step whose module contributes
-// no plugin is exactly how a bypass looks, so nothing warned and the modules simply were not
-// there. These pin the gate.
+// this a format the engine can load" gate runs FIRST and has to know the word, or the module is
+// dropped from the compiled doc. Silently: a step whose module contributes no plugin is exactly
+// how a bypass looks, so nothing warns and the module is simply not there. These pin the gate.
 
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -57,7 +56,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("a jsdsp module", () => {
   it("reaches the engine at all", () => {
-    // The regression in one assertion: it used to contribute nothing, like a missing module.
+    // The whole point in one assertion: contributing nothing would make it a missing module.
     asJsDsp(false);
     expect(plugins().some((p) => p.id.endsWith(":lead"))).toBe(true);
   });

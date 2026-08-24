@@ -38,7 +38,7 @@ describe("what the interface costs", () => {
 
 describe("a link, end to end", () => {
   it("adds the round trip to the interface, and bands the sum", () => {
-    // The case the whole change is for: the old locality tier called this Tier 1.
+    // A 2 ms round trip on a small buffer: near, and banded on the SUM rather than on locality.
     const near = engineLatency(2, 256, 48000);
     expect(near.totalMs).toBeCloseTo(12.67, 1);
     expect(near.quality).toBe("Q1");

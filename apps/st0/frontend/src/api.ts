@@ -33,7 +33,7 @@ export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 // ── The hosted backend (same-origin): auth + registry ───────────────────────────
 
-// The registry's own five routes are `engines` below; auth is three bare fetches, and this app's `get`/`send` went with them.
+// The registry's own five routes are `engines` below and auth is three bare fetches, so there is no `get`/`send` helper here.
 
 /** The reader `@studio/engine-browser` wants: it owns the routes, this app owns the errors. */
 async function json<T>(res: Response, what: string): Promise<T> {

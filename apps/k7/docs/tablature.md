@@ -26,7 +26,7 @@ d'un même système s'alignent sur la même grille.
 Un système est une **suite maximale de lignes de corde consécutives** ; une ligne vide ou non
 tabulaire l'interrompt.
 
-Découper sur les étiquettes a été délibérément écarté : l'accordage standard nomme `E` la
+Découper sur les étiquettes est délibérément écarté : l'accordage standard nomme `E` la
 première **et** la sixième corde, donc une règle « étiquette déjà vue, nouveau système »
 couperait la dernière corde en système à elle seule.
 

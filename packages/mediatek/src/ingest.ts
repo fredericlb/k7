@@ -1,12 +1,12 @@
-// ingest.ts — push a workspace's shared folders UP into the library. It used to copy them
-// into the local folder; that folder is a cache now, so anything put there by hand is
-// absent from the owner's manifest and the next sync deletes it. See docs/ingest.md.
+// ingest.ts — push a workspace's shared folders UP into the library, and only up: the local
+// folder is a cache, so anything put there by hand is absent from the owner's manifest and the
+// next sync deletes it. See docs/ingest.md.
 
 import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { LibrarySink } from "./remote.ts";
 
-/** What a workspace calls each folder, and where it lands; `_modules` went with the family. */
+/** What a workspace calls each folder, and where it lands — see docs/ingest.md. */
 const FOLDERS: { from: string; to: string }[] = [
   { from: "_library", to: "library" },
 ];
@@ -21,8 +21,6 @@ export interface ImportReport {
   /** Files deliberately not sent, with why — "it uploaded" and "it uploaded everything" differ. */
   skipped: { path: string; reason: string }[];
 }
-
-// `libraryOwned()` stood here, guarding `_modules/config.yaml`; both went with the family.
 
 function entries(abs: string): Dirent[] {
   try {

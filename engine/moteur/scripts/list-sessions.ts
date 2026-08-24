@@ -67,7 +67,7 @@ async function main() {
   // The supervisor's own client, on the DEFAULT session, driving nothing (../docs/sessions.md).
   const q = new EngineQueries(PORT);
 
-  // Ask everything the tray polls BEFORE listing: reading used to CREATE (../docs/sessions.md).
+  // Ask everything the tray polls BEFORE listing: a read must never CREATE (../docs/sessions.md).
   const plugins = await q.listEditPlugins();
   await q.pluginCount();
   await q.listAudioDevices();

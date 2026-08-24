@@ -265,8 +265,6 @@ export function videoProjectFiles(name: string): Record<string, string> {
   };
 }
 
-// `liveProjectFiles` was here and wrote a fourth archetype, gone with it — see docs/scaffold.md.
-
 /** Write a project's file map under `dir`, making the folders it implies. */
 export function writeProjectFiles(
   dir: string,

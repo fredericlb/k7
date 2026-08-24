@@ -122,7 +122,7 @@ describe("buildGraph", () => {
       ]);
     });
 
-    // Two cards said MIX before this: `from: MIX` fell through to the track branch. docs/graphBuild.md.
+    // Two cards otherwise: `from: MIX` falls through to the track branch. docs/graphBuild.md.
     it("draws MIX once, as a sink, with the master run leaving it", () => {
       const { nodes } = buildGraph(song());
       expect(nodes.filter((n) => n.label === "MIX").map((n) => n.id)).toEqual([
@@ -431,7 +431,7 @@ describe("buildGraph", () => {
       curves: { sweep: { type: "custom" } },
       warnings: [],
     });
-    // TWO nodes, one per binding — this test used to assert the opposite. See docs/graphBuild.md.
+    // TWO nodes, one per binding, and not one per curve. See docs/graphBuild.md.
     expect(nodes.filter((n) => n.kind === "curve")).toHaveLength(2);
     expect(edges.filter((e) => e.source.startsWith("crv:sweep@"))).toHaveLength(
       2,
@@ -602,7 +602,7 @@ describe("nodeSize", () => {
   });
 
   it("is its GRID's width, not the no-panel minimum", () => {
-    // A panelled node used to inherit NODE_W as a floor, parking dead space beside every narrow grid.
+    // NODE_W as a floor would park dead space beside every grid narrower than it.
     expect(nodeSize({ cols: 2, rows: 6, widgets: {} }).w).toBe(
       UI_PAD * 2 + 2 * CELL,
     );
@@ -773,7 +773,7 @@ describe("cable signal through a pass-through chain", () => {
   });
 });
 
-// A STALE `from` used to collapse to a self-loop and take the track node with it. docs/graphBuild.md.
+// A STALE `from` must not collapse to a self-loop and take the track node with it. docs/graphBuild.md.
 describe("a chain whose source track no longer exists", () => {
   it("still draws the track node instead of vanishing", () => {
     const { nodes, edges } = buildGraph(
@@ -1004,7 +1004,7 @@ describe("an input wired to a track", () => {
           use: [{ module: "IN:in-2" }],
           out: [{ to: "gtr", gain: 1 }],
         },
-        // …and the track's own lane, whose first module is where the arrow used to go.
+        // …and the track's own lane, whose first module is the wrong landing for that arrow.
         gtr: {
           from: "gtr",
           use: [{ module: "wah" }],
@@ -1208,7 +1208,7 @@ describe("layout honours the pins", () => {
     const { nodes, edges } = buildGraph(uneven);
     const first = layout(nodes, edges);
     const prev = new Map(first.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
-    // The same graph minus one edge — the kind of change that used to re-rank everything.
+    // The same graph minus one edge — the kind of change that would re-rank everything.
     const fewer = edges.filter((_, i) => i !== edges.length - 1);
     const second = layout(nodes, fewer, undefined, prev);
     for (const n of second.nodes) {

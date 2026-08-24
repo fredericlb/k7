@@ -1,14 +1,14 @@
 # A module's second input
 
-A module declares its own input ports now — `packages/song/docs/ports.md` is where that starts, and
+A module declares its own input ports — `packages/song/docs/ports.md` is where that starts, and
 where the chains syntax (`crossfade#b`) lives. This page is the other end: how a second signal
 actually reaches a `GraphDspPlugin`, and why it takes the shape it does.
 
 ## Tracktion already does this
 
-The claim that made this look expensive was that a second input meant turning a track from a linear
-plugin chain into a node graph. It does not. Tracktion routes a second signal into a plugin today,
-and `CompressorPlugin` is the consumer in the tree to copy:
+A second input does **not** mean turning a track from a linear plugin chain into a node graph,
+which is the assumption that makes this look expensive. Tracktion routes a second signal into a
+plugin already, and `CompressorPlugin` is the consumer in the tree to copy:
 
 - `Plugin::getChannelNames(ins, outs)` — a plugin asks for input channels beyond the stereo pair
   (the compressor adds one, `"Sidechain Trigger"`);
@@ -16,8 +16,8 @@ and `CompressorPlugin` is the consumer in the tree to copy:
 - `setSidechainSourceID(EditItemID)` says which track feeds it, and the plugin's *wires* say which
   of that track's channels land on which of its own.
 
-Nothing here is new machinery. What is new is that the routing is decided by a **song file** rather
-than by a user dragging in a UI.
+None of this is new machinery. What differs is that the routing is decided by a **song file**
+rather than by a user dragging in a UI.
 
 ## A pair per port, not a channel
 
@@ -51,8 +51,8 @@ lane comes later in the doc. It runs after the track loop, beside the aux sends,
 they do.
 
 **The diff key.** The sidechain is wired exactly once, when the plugin is inserted, and nowhere
-else. Left out of `keyOf`, moving the cable in the song produced an *empty diff*: the file said one
-thing and the engine went on playing another, with nothing on screen to suggest it. Folding it into
+else. Left out of `keyOf`, moving the cable in the song is an *empty diff*: the file says one thing
+and the engine goes on playing another, with nothing on screen to suggest it. Folding it into
 identity makes a re-wire read as a replace, which rebuilds.
 
 ## Muting the source still feeds it
@@ -74,7 +74,7 @@ caps a plugin with no sidechain source at two channels, so that state arrives as
 simply has no channel 2 — and `ain` reads zero rather than past the end. That is the behaviour, not
 a fallback.
 
-## What was measured
+## Measured
 
 Two renders of the same doc: two tracks playing the same 220 Hz sine at 0.2, a graph on the first
 summing `ain(0)` and `ain(1)`, the second track muted so only the sum reaches the master.
@@ -87,7 +87,7 @@ signal flows. `tests/DspGraph_test.cpp` pins the same three facts at the graph l
 count, the pair it reads, the silence when nothing feeds it), and `crossfade-demo` is the same
 proof through a real song — the numbers are in the song layer's page.
 
-One warning about measuring this, learned the slow way: `--render` writes into a directory that
+One warning about measuring this: `--render` writes into a directory that
 may already hold a previous `mix.wav`. Reading a stale one is indistinguishable from a render that
 produced silence, and it sends you bisecting a doc that was fine all along. Render into a fresh
 directory, and check the process's exit rather than piping it to `/dev/null`.

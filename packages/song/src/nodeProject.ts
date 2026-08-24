@@ -120,7 +120,7 @@ function placementToClip(
     name: ref,
     source: "",
     start: pos(p.start),
-    // Filled in per kind below: a placement no longer states its extent, it is `loops` × the window.
+    // Filled in per kind below: a placement states no extent, it is `loops` × the window.
     length: 0,
     offset: 0,
     fadeIn: dur(p.fadeIn),
@@ -791,7 +791,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
         plugins: trackPlugins[id] ?? [],
         sends: trackSends[id] ?? [],
         automation: [],
-        // `docs`/`todos` were carried through here for the Docs panel; a note is a doc module now (docs/docModules.md).
+        // No `docs`/`todos` carried through: a note is a doc module (docs/docModules.md).
       };
     });
   });

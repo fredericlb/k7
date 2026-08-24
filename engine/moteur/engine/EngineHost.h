@@ -178,7 +178,7 @@ public:
     //
     // Pairing DESTROYS the two mono devices: their names merge, and a device is identified by its name. Anything
     // still asking for one of those channels alone — a module with `channel: [2]` — then matches nothing and
-    // reads as silence, which is the same rule findWaveInput has always had, met from the other side.
+    // reads as silence, which is findWaveInput's own rule met from the other side.
     // Message-thread only: it touches JUCE devices.
     bool setInputStereo(int channel, bool stereo);
 
@@ -212,17 +212,15 @@ public:
     // Enable waveform tapping for a module: `id` is the PluginDoc id, `side` is input or output. Inserts a tap
     // into the chain beside that plugin; a no-op when already enabled for this id and side. The TRACK is derived
     // from the plugin, never passed in — the caller has no reliable track index to give (a chain can be a bus with
-    // no track), and one that guessed put the tap on an unrelated lane.
+    // no track), and one that guessed would put the tap on an unrelated lane.
     void enableWaveformTap(const std::string& session, const std::string& id, const std::string& side);
 
     // Disable waveform tapping for a module. Removes the tap plugin from the chain.
     void disableWaveformTap(const std::string& session, const std::string& id, const std::string& side);
 
-    // `waveformData` drained ONE module's tap and was here with no caller — the only method in this
-    // header without one. `drainAllWaveformTaps` below superseded it: the state timer drains every
-    // tap per broadcast rather than asking module by module, so there was never a second reader.
-    //
     // Drain every active tap, keyed "chain:module:side" — called by the state timer for each broadcast.
+    // Every tap at once, deliberately: there is no per-module drain, so no second reader can empty a tap
+    // the timer is about to read.
     std::map<std::string, std::vector<WaveformEnvelope>> drainAllWaveformTaps(const std::string& session);
 
     // --- Audio broadcast (TWO threads — read each method's own note) ---------
@@ -602,7 +600,7 @@ std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& fo
  * and is SECONDS — call it off the message thread, exactly as the param query does. Only then call
  * `showNativePluginUIOf`, which is the JUCE part: message thread, and fast, because the instance is
  * already there. Doing both on the message thread would stall the transport of every session on
- * this engine for as long as the plugin took to load.
+ * this engine for as long as the plugin takes to load.
  *
  * Both answer whether they worked, and the SECOND one's answer is the one a caller must relay.
  * `prepareNativePluginUI` is false when this machine cannot find, create or LOAD the plugin — the

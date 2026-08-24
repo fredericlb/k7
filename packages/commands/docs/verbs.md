@@ -49,9 +49,9 @@ once.
 ## Timecodes as YAML keys
 
 The project's `markers` map is written with QUOTED keys. Unquoted, `2:1:1` is a YAML 1.1
-sexagesimal integer. The code said so for a long time and wrote them bare anyway: `setFileValue`
-gives every key the plain style, and `quoteTimecodes` walks VALUES under known keys, so neither
-could see a timecode used as a key. `setQuotedKeyMap` is that sentence, implemented.
+sexagesimal integer. Neither of the two writers beside it can see the case: `setFileValue` gives
+every key the plain style, and `quoteTimecodes` walks VALUES under known keys, so a timecode used
+as a KEY falls between them. `setQuotedKeyMap` is the writer that covers it.
 
 ## Position vs. duration
 
@@ -88,16 +88,14 @@ what the noun promises:
 That difference is worth a command each: the word after the verb is the promise, and it leaves
 room for a third without renaming anything.
 
-### `event status` and the polarity that bit
+### `event status` and the polarity trap
 
 **`on` means the NAMED STATE is on**, in both: `event status mute on` silences the event, and
 `event status warp on` makes it FOLLOW the clip's map. One rule, no exception to remember.
 
-It was not always so. Under the old head both aspects named something negative — `event disable
-play`, `event disable warp` — so `on` meant "the disabling is on" and the two read alike. Renaming
-the head to `status` broke that symmetry: `mute` is still a negative to switch on, `warp` is a
-positive, and `warp on` went on meaning UNwarped. The `!` that produced it sat on the call to
-`setTrackPlacementWarp` and is gone; both writers now take the state under its own name.
+The two aspects have opposite sense — `mute` is a negative to switch on, `warp` a positive — so
+each writer takes the state under its own name. A `!` on the call to `setTrackPlacementWarp` is
+all it takes for `warp on` to mean UNwarped again.
 
 The FILE keeps the negative spelling (`warp: false` on the placement), because that is what an
 absent field has to mean there — an event warps because its CLIP does. Turning it is the handler's
@@ -119,18 +117,16 @@ same rule the velocity drag follows going back to full. See `packages/song/docs/
 
 ## `track new` has no kind
 
-It was `track new audio` and `track new midi`. A lane is not typed by what it carries any more:
-one lane holds events naming clips and events naming sequences alike
-(`packages/song/docs/trackModules.md`). What the MIDI flavour did beyond making a lane — seeding
-the empty sequence it played — is `sequence new`, which is what that half was really about.
+A lane is not typed by what it carries: one lane holds events naming clips and events naming
+sequences alike (`packages/song/docs/trackModules.md`). Seeding the empty sequence a lane plays is
+`sequence new`'s, a separate act.
 
 ## `track mute` — a lane's mute IS its module's bypass
 
 One state, in the one place a bypass is written (`packages/song/docs/trackModules.md`). A group is
 a lane too — one that carries no signal — and both are silenced the same way, by name, in
-`graph.yaml`'s `bypassed:`. Solo stopped being a set of mutes: it is project state now (`soloed:`
-in `project.yaml`). The doc is mutated and pushed rather than reloaded, so a mixer move stays
-snappy.
+`graph.yaml`'s `bypassed:`. Solo is not a set of mutes but project state (`soloed:` in
+`project.yaml`). The doc is mutated and pushed rather than reloaded, so a mixer move stays snappy.
 
 ## `node alternative` reads the FILE
 
@@ -150,8 +146,8 @@ disagreement rather than redundancy: a module cannot be re-parented by asking fo
 acting would ignore what was typed.
 
 It does NOT make a node. What a chain names is a node, and creating one is `node new`'s — which
-also puts it in the graph, since a node with no entry there is drawn nowhere. Bundling the two
-here is what made "create a module" and "start using it" one act that could not be had separately.
+also puts it in the graph, since a node with no entry there is drawn nowhere. Bundling the two here
+would make "create a module" and "start using it" one act nobody could have separately.
 
 ## `track automation add|remove` — a VIEW onto `node automate`
 
@@ -179,10 +175,9 @@ its own card on the graph — so nothing is orphaned invisibly, and rebinding is
 
 ## `curve point add|move|remove`
 
-The verbs the timeline's automation row was waiting for. Until these, a `custom` curve could be
-created flat (`track automation add`) and shifted wholesale (`project add`), and its individual
-points could only be typed into the file by hand — which made the row a picture of something you
-could not touch.
+What makes the timeline's automation row touchable. Without them a `custom` curve can only be
+created flat (`track automation add`) and shifted wholesale (`project add`), its individual points
+typed into the file by hand — a row drawing a picture nobody can grab.
 
 Addressed by TIME, because a curve is a function of song time: two points cannot share a moment,
 so the moment is a usable name for one. The same "one address, one value" rule that makes `param`
@@ -219,8 +214,8 @@ there is born there. See `graph move`.
 
 ## `node param @<field>` — a module's intrinsics
 
-Its own fields, in a table rather than a verb apiece (`module channel`, `module monitor`), because
-from the outside they are one act: set this control on this module. The `@` is the whole of the
+Its own fields, in a table rather than a verb apiece, because from the outside they are one act:
+set this control on this module. The `@` is the whole of the
 difference from a plugin param — a param is sent to a running plugin, a field is written into the
 file and read when the module is BUILT.
 
@@ -262,9 +257,9 @@ assets the module actually carries, and it is NOT patched into the running engin
 its file when it is BUILT, so the handler writes and reloads. Swapping an amp model is not a knob
 drag.
 
-They had a verb apiece (`module nam`), and the second one never got written: the asset picker sends
-`${param} …` for whichever param it was opened on, so picking an `.onnx` reached a command that did
-not exist. One branch answers both, and the next one costs nothing.
+ONE branch answers both, and the next one costs nothing. A verb per param cannot: the asset picker
+sends `${param} …` for whichever param it was opened on, so the param that has no verb of its own
+reaches a command that does not exist.
 
 The check runs over the module's own assets AND its ancestors', which is the same answer the
 panel's picker offers — so the command cannot refuse a file the picker just showed. It could: a
@@ -294,10 +289,9 @@ exactly here: a frame has no level, so the picture's pair is pure routing
 
 ## `track new` writes the file first
 
-`track.new` and `sequence.new` used to hand a doc built in memory to `applyProject`, which caches
-it and tells the engine — so a strip appeared in the mixer, nothing was written, and the track
-vanished on the next reload. A track IS its file: write it, then reload, so what plays is what is
-on disk.
+A track IS its file: `track.new` and `sequence.new` write it, then reload, so what plays is what is
+on disk. Handing a doc built in memory to `applyProject` instead caches it and tells the engine
+without writing anything — a strip appears in the mixer and the track vanishes on the next reload.
 
 ## `event trim`
 
@@ -313,9 +307,8 @@ window the event already plays, so a re-trim refines it and never reaches back i
 earlier trim removed (undo is how that comes back, deliberately). A gate that reached outside what
 the panel shows lit would cut on evidence nobody could see.
 
-It was `clip trim` and wrote the CLIP's window, which every placement of that clip shared. There is
-no clip window any more — a clip file describes the bytes, a placement describes the use
-(`packages/song/docs/materialCut.md`) — so it names the event it acts on, and trimming one
+There is no clip window — a clip file describes the bytes, a placement describes the use
+(`packages/song/docs/materialCut.md`) — so the verb names the EVENT it acts on, and trimming one
 placement leaves the others alone by construction rather than by a warning in the help.
 
 ## `clip warp`
@@ -333,14 +326,13 @@ writes a map and a point in one go, which is what makes the gesture whole.
 resolves it across the mixer (any soloed track silences every non-soloed one; `applySoloMute`). The
 compiler folds a group's entry onto its members.
 
-It used to be DERIVED — bypass every other lane — which rewrote N files to say one fact, could not
-hold two solos at once, and read in `graph.yaml` as a wall of mutes nobody wrote. Now one list says
-it, and turning the last solo off deletes the key: absent means what it always means here, the
+ONE list rather than a derivation: bypassing every other lane would rewrite N files to say one
+fact, could not hold two solos at once, and would read in `graph.yaml` as a wall of mutes nobody
+wrote. Turning the last solo off deletes the key — absent means what it always means here, the
 default.
 
-Soloing a MUTED lane still lifts its mute, as the old gesture did — asking to hear a lane is one
-act. The doc is mutated and pushed rather than reloaded, so the mixer stays snappy, with the same
-fold the compiler applies.
+Soloing a MUTED lane lifts its mute: asking to hear a lane is one act. The doc is mutated and
+pushed rather than reloaded, so the mixer stays snappy, with the same fold the compiler applies.
 
 ## `track take keep`
 
@@ -348,16 +340,14 @@ Named for the decision rather than for what it removes: you have listened round 
 listen is a `select`, which leaves the one you liked ON the track), and this is the button that
 says that one. Nothing names a take, because the choice was already made by whichever is playing.
 
-## Verbs that left the `track` family
+## A lane's level, its alternatives and its freeze are `node` verbs
 
-`track gain` and `track pan` are `node param <mixer node> Volume|Pan` now. A track states no level
-of its own — the value always went to the MIXER MODULE at the end of its chain — so two verbs
-addressed one module's params by the wrong noun, and every other param on that same module already
-answered to `node param`.
+A track states no level of its own: the value goes to the MIXER MODULE at the end of its chain, so
+its level and its pan are `node param <mixer node> Volume|Pan`, like every other param on that same
+module. Addressing them by the lane's name would be one module's params under the wrong noun.
 
-`track alternative select|create|copy` and `track freeze` are `node alternative *` and `node
-freeze`, because a lane IS a module: one name reaches a lane and a reverb alike. See
-`packages/song/docs/trackModules.md`.
+`node alternative *` and `node freeze` reach a lane and a reverb alike, because a lane IS a module.
+See `packages/song/docs/trackModules.md`.
 
 There is no `track normalize` / `clip normalize` either: normalising is a treatment, and a
 treatment is a chain — `track process` / `clip process` apply one.
@@ -365,10 +355,10 @@ treatment is a chain — `track process` / `clip process` apply one.
 ## `event move` between lanes
 
 A destination track makes it a move BETWEEN lanes, refused only when the destination has nowhere to
-put THIS event. It used to compare the two lanes' `contentType`, which refused every move between
-an audio lane and a sequences one — a lane is not typed now, so the question is about the event: a
-lane takes a note when its midi output is wired and a clip when its audio one is, and the wire says
-which in one word (`packages/song/docs/trackModules.md`).
+put THIS event. A lane is not typed, so the question is about the EVENT: a lane takes a note when
+its midi output is wired and a clip when its audio one is, and the wire says which in one word
+(`packages/song/docs/trackModules.md`). Comparing the two lanes' kinds instead would refuse every
+move between an audio lane and a sequences one.
 
 ## `events move` is one command, not a loop
 
@@ -384,9 +374,9 @@ doing less than asked.
 
 ## `event split`
 
-`virtual`'s pair. Where that one leaves two placements of one material, this writes two materials
-and points a placement at each — so the halves can then be trimmed, processed or warped apart,
-which is the whole reason to want it.
+Writes two MATERIALS and points a placement at each, so the halves can then be trimmed, processed
+or warped apart — which is the whole reason to want it. A split that only placed one material twice
+would leave halves nothing can treat separately.
 
 The KIND decides which half of the implementation runs, and they are genuinely different acts: a
 sequence is divided note by note in text (`@studio/song-edit`'s `materialCut`), while audio is
@@ -400,9 +390,8 @@ it, and nothing here can know what was meant to be kept.
 ## `selection consolidate`
 
 Put a range back together, whatever is in it — a split rejoined, two materials merged, a stack
-flattened, all by one act. `event join` stood beside it and only ever rewrote placements, which
-meant it held out for the one arrangement where nothing had to be written; it is gone with the
-virtual split, and this writes in every case.
+flattened, all by one act. It WRITES in every case, rather than holding out for the one arrangement
+where rewriting placements alone would do.
 
 ONE lane, and `tracks` is plural deliberately: the timeline's rectangle can span several, so the
 refusal has to be sayable here rather than in whatever built the line. A consolidation across two
@@ -428,9 +417,9 @@ would be one journal entry each — twelve Ctrl+Z to undo one paste — and a ba
 leave the earlier ones placed with nothing on screen saying which. Grouped by lane so each file is
 rewritten ONCE (`addTrackPlacements`), whatever the rectangle spanned.
 
-It takes the WHOLE placement vocabulary, not just where the event goes: a paste that carried only
-`ref` and `start` put down an untrimmed, unfaded, single pass of the material wherever the copied
-event had been trimmed, faded, silenced or repeated. The extra fields are validated against
+It takes the WHOLE placement vocabulary, not just where the event goes: a paste carrying only `ref`
+and `start` puts down an untrimmed, unfaded, single pass of the material wherever the copied event
+was trimmed, faded, silenced or repeated. The extra fields are validated against
 `PlacementSchema` rather than field by field — that schema is `.strict()`, so a key this verb has
 no business writing is refused by name instead of landing in the file, and the window's `to > from`
 rule is enforced in the one place it is stated.
@@ -439,8 +428,8 @@ rule is enforced in the one place it is stated.
 
 The other half of `graph move`, and the reason the picture stops rearranging itself: a node the
 LAYOUT placed is unpinned, so the next fresh layout is free to put it somewhere else, and it will
-whenever anything about the graph changed. That is what made the track row seem to shuffle at
-random — the change surfaced at a reload, long after the edit that caused it.
+whenever anything about the graph changed. Unrecorded, that makes the track row seem to shuffle at
+random — the change surfaces at a reload, long after the edit that caused it.
 
 So the drawing writes its own answer down, once, and after that the FILE is the layout. dagre
 speaks again only when `graph organize` empties `positions:`.
@@ -490,8 +479,8 @@ module and whether it is on, and that is one file; `loadGraph` also reads every 
 sequence and curve in the song — 220 ms on a real project, spent to answer a question `graph.yaml`
 already answers in one. Still the DERIVED chains rather than the compiled doc, so a module that is
 an io node or names nothing on disk is found too: bypass is the one verb that still works on a
-dangling reference. A module belongs to exactly one chain now — it is named once in the file — so
-the "used in two chains, say which" branch is gone.
+dangling reference. A module belongs to exactly one chain — it is named once in the file — so there
+is no "used in two chains, say which" to answer.
 
 It then persists and pushes the mutated doc rather than reloading — the same trade a fader makes,
 and for the same reason: a reload recompiles the whole song (another ~230 ms) to change one
@@ -501,22 +490,22 @@ compiled doc and nothing to diff, so those fall back to the full reload — whic
 `graph.yaml` edit take effect at all.
 
 Beware the polarity: `bypass` is already the state wanted and `setModuleBypass` takes the state
-wanted. Negating it wrote the opposite of what the log line then reported, so toggling an active
-module did nothing at all — it "re-enabled" what was already on.
+wanted. Negating it writes the opposite of what the log line reports, so toggling an active module
+does nothing at all — it "re-enables" what is already on.
 
 ## `node param` and its quoting
 
 The NODE may be quoted as the param may: a node is named by its file, and a file may carry a space.
-It could not be addressed at all before — `\S+` stopped at the space and the whole line failed to
-match — which the graph's own fader walks into, since it names the mixer node it found rather than
-a name someone typed.
+A `\S+` there stops at the space and the whole line fails to match — which the graph's own fader
+walks into, since it names the mixer node it found rather than a name someone typed.
 
-The VALUE may be quoted too, and that is not symmetry for its own sake. It was `(\S+)$`, so a value
-could never contain a space whatever the caller did — and a file-valued param routinely names one:
-`nam "roland jc 120b/Roland JC 120B Jazz Chorus_ Bright Off.nam"`. The lazy `(.+?)` for the param
-then swallowed the whole path and left the LAST token as the value, so picking an amp refused with
-`"101.nam"" is not a number` — a message naming the tail of the file it had just cut in half,
-which points nowhere near the cause.
+The VALUE may be quoted too, and that is not symmetry for its own sake: a file-valued param
+routinely names a path with spaces in it,
+`nam "roland jc 120b/Roland JC 120B Jazz Chorus_ Bright Off.nam"`. Anchor the value as `(\S+)$` and
+it can never hold a space whatever the caller does — the lazy `(.+?)` for the param swallows the
+whole path and the LAST token becomes the value, so picking an amp refuses with `"101.nam"" is not
+a number`, a message naming the tail of the file it has just cut in half, which points nowhere near
+the cause.
 
 One module in two chains is TWO `PluginDoc`s, so a write patches every one: the first alone leaves
 the other stale. The file is written first, being the source of truth, then the engine is patched
@@ -559,43 +548,40 @@ what it draws — rather than of a track, a node or a clip inside it.
 
 NO layout argument. `SURFACE_LAYOUTS_BY_TYPE` already says which one each type is drawn in and every
 type has exactly one, so the only thing an argument could add is a way to be refused by the schema a
-moment later. The usage string is spelled from the enum rather than by hand: it listed three of the
-four for as long as it took a fourth kind to arrive, and a usage string that omits the word you
-wanted is worse than none — it reads as "that is not a surface".
+moment later. The usage string is spelled from the enum rather than by hand: a hand-written list
+goes stale the moment a kind arrives, and a usage string that omits the word you wanted is worse
+than none — it reads as "that is not a surface".
 
 ## `module new`, `node new`, `node insert`, `node delete`
 
 `module new <category>/<name> [extends-ref]` scaffolds a module and only that. The optional arg is
 the ref this module INHERITS, filled by the graph's module picker when the pick comes from a
-catalogue rather than from this project. It used to take a node name too and make one in the same
-breath, which is why the picker could send one line. It does not: a module and a USE of it are two
-things, and a chain names the use. A module that is already there is not an error — it is the
-ordinary second pick of the same thing.
+catalogue rather than from this project. It makes no node: a module and a USE of it are two things,
+and a chain names the use. A module that is already there is not an error — it is the ordinary
+second pick of the same thing.
 
 `node new <category>/<name> <node-name> [x,y]` writes one USE of an existing module, as
 `nodes/<node>.yaml`, AND its place in the graph. It names what it uses with `extends` and states
 only what it changes; chains name it by its FILENAME alone. The placing is not a convenience: a node
 file with no entry in `graph.yaml` is loaded and drawn NOWHERE — the graph's blocks come off the
-chains, so creating one used to leave a node that existed on disk and was on no screen, waiting for
-a second command to become real. Every node is in the graph, and `modules: { x: [] }` is what says
-so. Unnamed, it gets `<module>_<n>` with no lane prefix — a node born here is wired to nothing, so
-there is no run for it to be named after yet. The `+` on an arrow DOES know one and spells the name
-out (the frontend's `nodeInsert.ts`); this is the bare form, for a line somebody typed.
+chains, so a node created without one exists on disk and is on no screen. Every node is in the
+graph, and `modules: { x: [] }` is what says so. Unnamed, it gets `<module>_<n>` with no lane prefix
+— a node born here is wired to nothing, so there is no run for it to be named after yet. The `+` on
+an arrow DOES know one and spells the name out (the frontend's `nodeInsert.ts`); this is the bare
+form, for a line somebody typed.
 
-`node insert <before> <after> <node> [x,y]` splices a node that EXISTS into an arrow. It used to
-create the module too, which is what made it read as a duplicate of `chain add` — they were one act
-told apart by whether a file had to be written first. Creating is `module new`'s and `node new`'s;
-this wires. The arrow is validated from `graph.yaml` alone, and a COLD module is refused here rather
-than halfway through: it works only on audio already on disk, so where it sits is the question.
+`node insert <before> <after> <node> [x,y]` splices a node that EXISTS into an arrow. Creating is
+`module new`'s and `node new`'s; this WIRES, which is what keeps the two acts tellable apart. The
+arrow is validated from `graph.yaml` alone, and a COLD module is refused here rather than halfway
+through: it works only on audio already on disk, so where it sits is the question.
 
 `node delete <node>` removes the node's file, its preset and its place in the graph. The splice is
 `graph unlink`'s — what fed it is rejoined to what it fed, so a run does not go quiet — and what
 this adds is that the files GO, which is why it is a different verb and not a flag. The module it
 uses is untouched.
 
-Three verbs are gone and their state with them: `module.delete` (a module's files are the file
-tree's to remove), `node.place` (`node new` places what it makes and `graph unlink` leaves what it
-unlinks) and `chain.addModule` (that is `node insert`).
+No verb DELETES a module: a module's files are the file tree's to remove, and other projects read
+the same module.
 
 ## `node replace`
 
@@ -614,9 +600,8 @@ of one file, while moving a name touches the file, its preset and every chain st
 If it declines, the replacement still stands — a node with a stale name plays correctly, and a
 half-done rename does not.
 
-It used to CREATE a module and rewrite the chains onto the new name. That answered a different
-question ("put a new module where this one sits"), and from the node's context menu it asked for two
-things when the only one worth naming is the replacement.
+It creates no module and rewires nothing: from the node's context menu the only thing worth naming
+is the replacement.
 
 ## The graph's layout verbs
 
@@ -635,9 +620,9 @@ readily as below it.
 `graph chain connect <from> <to>` is the patch-cable gesture and how a new chain begins. Unlike
 `node insert` there is no existing arrow to validate against, so the checks are the ends themselves:
 both must be nodes this project knows, the sink has no output, and a lane takes only what a live
-input puts on it (`runCarriesInput`). That last check used to refuse every track outright, which was
-stricter than the thing it guards and left an `IN` node with nowhere to go — see
-`packages/ui-chains/docs/graphBuild.md`.
+input puts on it (`runCarriesInput`). That last check is about the RUN and not the lane: refusing
+every track outright would be stricter than the thing it guards and leave an `IN` node with nowhere
+to go — see `packages/ui-chains/docs/graphBuild.md`.
 
 ## `transport arm` writes no file
 
@@ -657,18 +642,12 @@ so a smaller number would be accepted here, written to the file, and then played
 stating a level nobody hears. Refused by name instead, and the message says where silence actually
 lives.
 
-## What left this file
+## What sits in `verbs/` rather than in `commands.ts`
 
-- `PLAYLIST_VERBS` and `SYSTEM_VERBS` moved to `verbs/`. They import TYPES from here, which are
-  erased at compile time, so there is no runtime cycle — see `verbs/shared.ts`.
-- `playlistFile` went with them, into `verbs/shared.ts`: a helper left behind would have made
-  those files import back into this one, which is the cycle the split exists to avoid.
-- `splitWords` lives in `verbs/shared.ts` and is imported AND re-exported here — a bare
-  `export … from` would not bring the name into this module's own scope, and several handlers
-  below call it.
-- `splitOptionals` is gone. It told an `[extends-ref]` from a `[node-name]` by SHAPE, because
-  `module new` took both and they were positional. `module new` writes a module and nothing else
-  now, so there is one optional left and nothing to disambiguate.
-- `coldInsertError` is gone. The cold rule was asked of a module that did not exist yet, since
-  `node insert` created one. It takes a node that IS there now, so the general
-  `coldPlacementError` answers directly.
+- `PLAYLIST_VERBS` and `SYSTEM_VERBS`. They import TYPES from `commands.ts`, which are erased at
+  compile time, so there is no runtime cycle — see `verbs/shared.ts`.
+- `playlistFile`, in `verbs/shared.ts` for the same reason: a helper left in `commands.ts` would
+  make those files import back into it, which is the cycle the split exists to avoid.
+- `splitWords` lives in `verbs/shared.ts` and is imported AND re-exported by `commands.ts` — a bare
+  `export … from` would not bring the name into that module's own scope, and several handlers there
+  call it.

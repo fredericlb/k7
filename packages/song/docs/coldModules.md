@@ -83,8 +83,7 @@ médiathèque `modules/audio/`.
 ## Cold modules come in two shapes
 
 The normaliser **measures**: the pass reads the file and writes a number back into a param
-(`Peak`), and the module's own graph then applies it. That is one shape, and it was the only
-one this page described.
+(`Peak`), and the module's own graph then applies it. That is one shape.
 
 A stem separator is the other. It does not produce a number for a graph to use — it produces
 **four audio files**, and it has to, because a chain step compiles to a serial insert on one
@@ -116,10 +115,9 @@ placement legal. See `packages/song/docs/setProject.md`.
 
 ### What `offline` actually promises
 
-Reading it as "a pass writes files to disk" is too narrow, and the tempo module is what made
-that visible. `offline` says one thing: **there is no engine plugin, and the module is made
-true outside the graph.** The compiler acts on exactly that — `nodeProject` skips emitting a
-plugin, and nothing more.
+Reading it as "a pass writes files to disk" is too narrow. `offline` says one thing:
+**there is no engine plugin, and the module is made true outside the graph.** The compiler
+acts on exactly that — `nodeProject` skips emitting a plugin, and nothing more.
 
 *How* it is made true is the module's own business, and there are two shapes so far:
 
@@ -137,27 +135,28 @@ this deck has a tempo, which is what lets a desk control name it (`docs/viewBind
 So a binding to an `offline` module resolves by the TRACK its chain draws from rather than by
 a plugin id. The material is what changes, and the track is where the material is.
 
-## What is NOT wired yet
+## The two passes
 
-~~**The measuring pass.**~~ It is wired: `@studio/commands`' `peakPass.ts`, run inside
-`processWithChain`'s per-source loop, filled from the engine's `--peak` mode. See that package's
-`docs/peakPass.md` — including why the `{file}.cache` envelope is the wrong place to read a peak
-from, which is the mistake this was one step away from making.
+**The measuring pass** is `@studio/commands`' `peakPass.ts`, run inside `processWithChain`'s
+per-source loop and filled from the engine's `--peak` mode. See that package's `docs/peakPass.md`,
+including why the `{file}.cache` envelope is the wrong place to read a peak from.
 
-The `Peak` default still attenuates rather than boosts, and still should: a chain reaching the
-engine without the pass having run is a state the module has to survive.
+The `Peak` default attenuates rather than boosts, and should: a chain reaching the engine without
+the pass having run is a state the module has to survive.
 
-`io: file` playback remains the other half of the gap this page recorded (this package's
-`docs/fileInput.md`).
+**The producing pass** is `mediatekChain` diverting an offline step instead of resolving it to a
+plugin, `coldPass.ts` saying which model and whether this machine has it, and `processWithChain`
+running the pass **in place of** the bounce — no render, nothing repointed, the files beside the
+source. So `clip process <clip> <chaîne>` over a chain holding `stemsplit` is how a separation is
+asked for.
 
-~~**The producing pass.**~~ It is wired too: `mediatekChain` diverts an offline step instead of
-resolving it to a plugin, `coldPass.ts` says which model and whether this machine has it, and
-`processWithChain` runs the pass **in place of** the bounce — no render, nothing repointed, the
-files beside the source. So `clip process <clip> <chaîne>` over a chain holding `stemsplit` is
-how a separation is asked for.
-
-Two rules came with it, and both are about what a chain can SAY rather than what the pass can do:
+Two rules come with it, and both are about what a chain can SAY rather than what the pass can do:
 a chain separates or treats and never both (flattened for a render it is a list of names with no
 ports, so a step after a separator has four inputs and no way to name one), and the running is
 handed in through `CommandHost.runColdStep` — a host without one refuses by name. See
 `@studio/commands`' `docs/processChain.md` and `@studio/file-service`'s `docs/stemSplit.md`.
+
+## What is NOT wired yet
+
+`io: file` playback (this package's `docs/fileInput.md`) is the one gap left: nothing compiles a
+FILE module into a `ProjectDoc` from a song's own YAML.

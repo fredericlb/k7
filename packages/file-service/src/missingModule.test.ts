@@ -53,7 +53,7 @@ const ghostStep = () =>
 
 describe("a graph with a missing module", () => {
   it("reads at all, and keeps the step in its chain", () => {
-    // The project opens: this used to throw, and the UI showed "graph unavailable" for the whole song.
+    // The project opens: a throw here shows "graph unavailable" for the whole song.
     expect(() => ws.graphDoc()).not.toThrow();
     expect(ghostStep()).toBeTruthy();
   });

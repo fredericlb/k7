@@ -48,9 +48,9 @@ family.
 
 ## `POST /mediatek/import` uploads rather than copies
 
-It used to copy a workspace's `_modules` / `_library` / `_ui` into the local folder. That folder
-is a CACHE now: anything put there by hand is absent from the owner's manifest, and the next sync
-would delete it — so the same button had to become an upload or stop existing.
+The local folder is a CACHE: anything put there by hand is absent from the owner's manifest, and
+the next sync deletes it. So this uploads to the hosted library rather than copying a workspace's
+files down into that folder.
 
 The workspace is resolved from the AUTHENTICATED user, not from anything the caller sends beyond
 a name, so this cannot be pointed at somebody else's folder; `assertWorkspaceName` refuses
@@ -58,18 +58,18 @@ anything that is not one plain path segment.
 
 ## `GET /mediatek/file` — one cached file's BYTES
 
-The catalogue says where a thing is; it never says what is in it. That was enough while
-everything downstream either listed the cache or handed the moteur a path — but a browser that
-has to read a module's `plugin:` block has neither a filesystem nor a way in. This is that way
-in, and it is read-only: writing to the cache is what a sync is for, and a route that let a
-caller edit it would produce files the next sync silently deletes.
+The catalogue says where a thing is; it never says what is in it. That is enough for anything
+that lists the cache or hands the moteur a path, but a browser that has to read a module's
+`plugin:` block has neither a filesystem nor a way in. This is that way in, and it is read-only:
+writing to the cache is what a sync is for, and a route that let a caller edit it would produce
+files the next sync silently deletes.
 
 `safePath` confines every path to the cache root, lexically and via realpath — the same guard the
-hosted service uses, since this one is now reachable from a second app. A path that escapes is
+hosted service uses, this one being reachable from a second app. A path that escapes is
 the caller's mistake: 400, never 500.
 
-The mime is REQUIRED and was missing: `streamFile` sets it unconditionally, so `undefined` threw
-inside `res.setHeader` and this route answered 500 for every file it was asked for. A cache
+The mime is REQUIRED: `streamFile` sets it unconditionally, so an `undefined` throws inside
+`res.setHeader` and the route answers 500 for every file it is asked for. A cache
 serves audio, video, YAML and JSON, so it is guessed from the extension rather than pinned — and
 octet-stream is the honest default, not a lie about the content.
 

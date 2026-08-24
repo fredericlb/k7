@@ -4,7 +4,7 @@
 writes two sequences; `selection consolidate` writes one over a range. Sequences only — notes are
 text this package reads and writes, while the same verbs on audio need a render and live with the
 bounce. The vocabulary and the user-facing rules are `packages/song/docs/materialCut.md`; this
-page holds the decisions the code used to carry inline.
+page holds the decisions behind the code.
 
 ## Names climb, and nothing is overwritten
 
@@ -40,15 +40,12 @@ material says exactly what was selected. That is what keeps a gap at either end 
 no `to` ends where its last note does, and the trailing silence of a selection would simply not be
 there.
 
-But the `to` is `Math.max(rectangle, last note end)`, and that maximum is the correction that
-matters. The rectangle selects by where an event STARTS, so a selected event may legitimately play
-past the right edge — and an extent taken from the rectangle alone then declared the material over
-before its own notes. They sat in the file, after the end, and nothing played them: present, and
-silent, which is the worst shape a bug takes. **The window may only ever be widened by what it
-contains, never narrowed.**
-
-(An earlier version had the opposite failure: it wrote the rectangle's span as a bare extent while
-copying the notes whole, with the same silent result.)
+But the `to` is `Math.max(rectangle, last note end)`, and that maximum is what makes it correct. The
+rectangle selects by where an event STARTS, so a selected event may legitimately play past the right
+edge — and an extent taken from the rectangle alone would declare the material over before its own
+notes. They would sit in the file, after the end, and nothing would play them: present, and silent,
+which is the worst shape a bug takes. **The window may only ever be widened by what it contains,
+never narrowed.**
 
 ## Windows and repeats
 

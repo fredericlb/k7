@@ -535,10 +535,10 @@ bool showNativePluginUIOf(const std::string& formatName, const std::string& iden
      * transport, the meters and every session on the engine — a stuck plugin window taking the
      * whole desk down with it.
      *
-     * It used to fall back to `orphanPluginFor` "only if a caller skipped `prepareNativePluginUI`",
-     * which is exactly the case that cannot be allowed to be slow. Refusing is the correct answer:
-     * the caller is asked to prepare first, and one that did not gets a warning rather than
-     * silently borrowing the audio thread's loop to load a synth.
+     * So no fallback to `orphanPluginFor` "only if a caller skipped `prepareNativePluginUI`": that
+     * is exactly the case that cannot be allowed to be slow. Refusing is the correct answer — the
+     * caller is asked to prepare first, and one that did not gets a warning rather than silently
+     * borrowing the message thread's loop to load a synth.
      */
     auto plugin = orphanPluginIfLoaded(formatName, identifier);
     if (plugin == nullptr) {

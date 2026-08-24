@@ -112,7 +112,7 @@ export const arrayEq = (
 ): boolean =>
   a === b || (a.length === b.length && a.every((x, i) => x === b[i]));
 
-// The signal floor below which a track reads as silent (mirrors App's old ACTIVE_FLOOR_DB).
+// The signal floor below which a track reads as silent, the same one every host's activity light uses.
 const ACTIVE_FLOOR_DB = -60;
 
 // Input-meter dB range, kept in step with TimelineTab's, so the timeline and graph bars read a signal alike.

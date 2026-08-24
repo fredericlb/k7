@@ -205,9 +205,9 @@ double detectBpm(const std::vector<float>& onset, double rate) {
 
     const double bpm = 60.0 * rate / lagF;
     if (bpm < kMinBpm || bpm > kMaxBpm) return 0.0;
-    // A PRIOR and not a fold, and the difference was measured. Hard-folding into a "tempo people tap"
-    // window (80–160) reported 174 as 87 and 75 as 150 — it broke both cases it was meant to help. With no
-    // weighting at all, raw autocorrelation reported 140 as 70: for a periodic signal the double lag
+    // A PRIOR and not a fold, and the difference is measured. Hard-folding into a "tempo people tap"
+    // window (80–160) reports 174 as 87 and 75 as 150 — it breaks both cases it is meant to help. With no
+    // weighting at all, raw autocorrelation reports 140 as 70: for a periodic signal the double lag
     // correlates about as well, since every second beat lands on it.
     //
     // The prior settles that by preference rather than by decree, and a tempo far from 120 can still win

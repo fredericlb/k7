@@ -18,7 +18,7 @@ const STEM_LABELS: Record<Stem, string> = {
 /** One control on the desk — `range` is the point of the whole file, see ../docs/controls.md. */
 export interface MixControl {
   id: string;
-  /** What it is called on screen, and in a "bind to…" menu. French, like the rest of m9. */
+  /** What it is called on screen, and in a "bind to…" menu. French, like the rest of the desk. */
   label: string;
   kind: "fader" | "button";
   /** Low and high ends, in the control's OWN units. A button is 0..1. */

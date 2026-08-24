@@ -10,11 +10,11 @@ Cette page tient les raisons que le code ne porte plus qu'en une ligne.
 
 `Scalar` (contrôle), `Audio` (fil) et `Midi` (le flux de notes) sont des types **distincts**.
 
-Ils n'ont été qu'un seul `Signal` au départ, et le premier graphe à rétroaction écrit avec la
-bibliothèque était silencieusement faux : `amul(fb, Feedback)` lisait le **paramètre** `Feedback`
-comme un fil audio — un fil que personne n'écrit, donc zéro, donc la boucle ne se fermait pas et
-l'écho ne répétait qu'une fois. Le moteur ne peut pas attraper ça : des deux côtés ce ne sont que
-des noms dans un fichier texte, et le rendu avait l'air plausible.
+Un seul type `Signal` pour les trois rendrait silencieusement faux le premier graphe à rétroaction
+venu : `amul(fb, Feedback)` lirait le **paramètre** `Feedback` comme un fil audio — un fil que
+personne n'écrit, donc zéro, donc une boucle qui ne se ferme pas et un écho qui ne répète qu'une
+fois. Le moteur ne peut pas attraper ça : des deux côtés ce ne sont que des noms dans un fichier
+texte, et le rendu a l'air plausible.
 
 `Midi` est distinct pour exactement la même raison : sans lui, `transpose(dry, Semitones)` passerait
 le typage contre un fil audio et émettrait un nœud que le greffon MIDI ignore sans rien dire. Le
@@ -47,8 +47,9 @@ la paire ascendante et inverser le trajet : `geolerp(200, 20000, g.sub(1, t))`. 
 porte cette forme-là, parce que « c'est faux » n'est pas actionnable quand c'est justement
 l'orthographe évidente qui est la mauvaise.
 
-Ça a coûté à ce dépôt un filtre DJ muet à sa position neutre — mesuré à −62 dBFS contre un témoin à
-−24 dBFS — et un module `lowpass` publié dont le balayage part à l'envers (`docs/sweep.md`).
+Ce que la faute donne, faute de garde : un filtre DJ muet à sa position neutre — mesuré à −62 dBFS
+contre un témoin à −24 dBFS — et le module `lowpass` publié, dont le balayage part à l'envers
+(`docs/sweep.md`).
 
 La garde ne parle que de ce qu'elle **voit** : deux littéraux. Les bornes du auto-wah sont des
 potards (`packages/dsp/src/autowah.ts`), et laquelle est la plus grande regarde le musicien à
@@ -65,9 +66,9 @@ rapproché par-dessus ce fossé par quelqu'un. La position est ce que la liste d
 validation vérifie ses sources positionnellement), donc l'indice est le seul fait que les deux côtés
 peuvent tenir seuls.
 
-Le premier port n'émet **aucun champ** : tout graphe écrit avant l'existence des ports reste
-octet pour octet identique, ce qui compte parce que les `graphs/*.json` committés et la copie collée
-dans le moteur sont ce qui tourne vraiment.
+Le premier port n'émet **aucun champ** : un graphe qui n'a qu'une entrée est octet pour octet ce
+qu'il serait sans la couche de ports, ce qui compte parce que les `graphs/*.json` committés et la
+copie collée dans le moteur sont ce qui tourne vraiment.
 
 Un port que personne n'alimente lit le silence au lieu d'échouer : `mandatory: false` dit que câbler
 un côté et laisser l'autre muet est un état légitime, et voilà ce que ça donne à entendre.

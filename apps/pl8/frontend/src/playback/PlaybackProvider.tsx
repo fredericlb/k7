@@ -62,8 +62,6 @@ export interface Playback {
   moveInQueue: (from: number, to: number) => void;
   /** Take the head of the queue and drop it, or `null`. What auto-advance does. */
   takeNext: () => QueueItem | null;
-
-  // `claimAdvance`/`advanceClaimed` were here, arbitrating two advancers (../../docs/playback.md).
 }
 
 /** What the engine calls what we sent it — the version is IN the name (../../docs/playback.md). */

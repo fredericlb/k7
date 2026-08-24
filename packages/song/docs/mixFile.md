@@ -11,43 +11,41 @@ the médiathèque's **songs** rather than its modules.
 
 ## It is not `views/mix.yaml`
 
-Same base, different file, and the two have never had anything to do with each other. That one
-is in `views/` and held the desk's *bindings* — which module each fader moves — back when m9
-drew the desk; a surface carries its `mapping:` now, so it is gone from a scaffolded set. This
-one is at the **root** of the project and holds where the needle drops.
+Same base, different file, and the two have nothing to do with each other. A `views/mix.yaml`
+holds the desk's *bindings* — which module each fader moves — and a surface carries its
+`mapping:` instead, so a scaffolded set has none. This one is at the **root** of the project
+and holds where the needle drops.
 
 `validate.ts` tells them apart by folder, and the order of its two branches is what does it:
 the `views/` test comes first, so a root `mix.yaml` falls through to this schema.
 
-## It was `songs.yaml`, and it was the set list
+## It is not the set list either
 
-The name went when the job did. It said which songs the set drew on, and that question is
-answered by the **playlist the desk's surface names** now — `playlist:` in
-`surfaces/<desk>.yaml`, a file in the workspace's `_playlists/`
-([playlists.md](playlists.md)). What was left was a file called `songs` that no longer held a
-list of songs, which is a name describing what something used to be.
+Which songs the set draws on is answered by the **playlist the desk's surface names** —
+`playlist:` in `surfaces/<desk>.yaml`, a file in the workspace's `_playlists/`
+([playlists.md](playlists.md)). A file called `songs` holding no list of songs would be a name
+describing something else.
 
-So it is `mix.yaml`: the desk's own document, at the root beside the desk's own surface, with
-the key to match. A set that carries the old file by hand is TOLD — the schema is `.strict()`,
-so a stray `songs:` is refused by name rather than read as an empty sheet with every cue
-silently gone.
+So this is `mix.yaml`: the desk's own document, at the root beside the desk's own surface, with
+the key to match. A set carrying a `songs:` by hand is TOLD — the schema is `.strict()`, so it
+is refused by name rather than read as an empty sheet with every cue silently gone.
 
-## What the playlist took, and what stayed
+## What the playlist holds, and what stays here
 
-Nothing was wrong with this file; there were simply two of them. And of the two, the playlist
-is the better answer: it is a document with a SCREEN (st0's cog opens it), it can be shared
-between sets and reused next season, and it is the thing somebody had already written by hand.
-A list of refs in a project folder could be none of those.
+Of the two documents, the playlist is the better place for a list of songs: it is a document
+with a SCREEN (st0's cog opens it), it can be shared between sets and reused next season, and
+it is the thing somebody has already written by hand. A list of refs in a project folder is
+none of those.
 
-What stayed is the half a playlist has nowhere to put: **the cues**. A cue belongs to the desk
-that plays a song rather than to a list other sets read — two bands covering the same track
-drop the needle in two different places, and a playlist carrying one set's marks would hand
-them to the other. So an entry appears here when somebody drops a cue, and not when somebody
-adds a song.
+What stays here is the half a playlist has nowhere to put: **the cues**. A cue belongs to the
+desk that plays a song rather than to a list other sets read — two bands covering the same
+track drop the needle in two different places, and a playlist carrying one set's marks would
+hand them to the other. So an entry appears here when somebody drops a cue, and not when
+somebody adds a song.
 
-Everything below still describes the file, and the two sections about the CACHE describe what
-the playlist does now — kept because the reasoning is the same one, and it is the reasoning
-that is worth having.
+Everything below describes this file, except the two sections about the CACHE, which describe
+what the playlist does — kept here because the reasoning is the same one, and it is the
+reasoning that is worth having.
 
 ## A ref is `@st0/` plus the médiathèque id, verbatim
 
@@ -57,17 +55,16 @@ A ref that **is** the id needs nothing resolved to be compared, deduplicated, so
 fetched: resolution is a map lookup, not a computation, and a ref that resolves to nothing
 is still a perfectly good name for the thing to go and fetch.
 
-Not a path, for the reason `modules_from` is gone: `project.yaml` is committed, and an
-absolute path breaks on the next machine. Not a title either — two songs share one.
+Not a path: `project.yaml` is committed, and an absolute path breaks on the next machine.
+Not a title either — two songs share one.
 
 The refs must be **quoted**. `@` is a reserved indicator in YAML, so a plain scalar may not
 open with one. `graphFile.md` has the same note for module refs, and for the same reason.
 
 ### Why it looks a segment longer than a module ref
 
-`@st0/audio/reverb` means `modules/audio/reverb` — the module vocabulary predates the
-médiathèque having families, and omits its own. A song ref carries `songs/` because it is
-the id.
+`@st0/audio/reverb` means `modules/audio/reverb` — a module ref omits its own family. A song
+ref carries `songs/` because it is the id.
 
 The two are not made consistent. Rewriting every song already written would cost more than
 the asymmetry, and the two are read by different files with different functions
@@ -76,9 +73,9 @@ has to tell them apart at a distance, which is what would make the inconsistency
 
 ## Unordered
 
-The list has no running order, and never did. That argument was about a SET LIST — which songs
-you brought, not the order you will play them in, the order being a live decision — and it
-survives its move to the playlist, whose lines are sorted for display too
+The list has no running order. The argument is about a SET LIST — which songs you brought, not
+the order you will play them in, the order being a live decision — and it holds for the
+playlist too, whose lines are sorted for display
 ([setList.md](../../ui-turntables/docs/setList.md)).
 
 Here it means something smaller: the order cues are written in is the order they were dropped
@@ -88,15 +85,14 @@ Duplicates are dropped rather than refused. Two people merging their halves of a
 not have to resolve that by hand.
 
 It is a **sequence** and not a map, although `graph.yaml` uses a map for exactly this
-"named once" property. That decision is now the load-bearing one — see the last section: a
-bare ref and a ref carrying markers are the same shape, which is what let cues arrive without
-a migration.
+"named once" property. That decision is the load-bearing one — see the last section: a bare
+ref and a ref carrying markers are the same shape, so cues need no migration.
 
 ## What the SET LIST is for: the machine must already have the songs
 
-*(This section describes the playlist now. It stays here because the reasoning was worked out
-for this file, and `mediatekSongRefs` still answers the question — just by reading the
-surface and then the playlist, rather than reading this.)*
+*(This section describes the playlist. It stays here because the reasoning was worked out for
+this file, and `mediatekSongRefs` answers the question by reading the surface and then the
+playlist, rather than by reading this.)*
 
 This is the part that is not obvious from the shape.
 
@@ -108,9 +104,9 @@ a ref that resolves to nothing is the one worth fetching. `mediatekSongRefs` is 
 question for songs, and the pull syncs both families.
 
 So the set list is a **cache manifest** that happens to also be the thing you look at. Any
-shape that made that awkward — titles, a database, an order that mattered — would have
-failed at the job it actually does. The playlist inherits that job whole; the one thing it
-adds is that a line naming a song by its bare TITLE cannot be fetched, since resolving one
+shape that made that awkward — titles, a database, an order that mattered — would fail at the
+job it actually does. The playlist carries that job whole; the one thing it adds is that a
+line naming a song by its bare TITLE cannot be fetched, since resolving one
 needs the catalogue this loop exists to populate. Such a line is skipped, and arrives at the
 desk as a song the cache has not got — which is what it is.
 
@@ -144,10 +140,10 @@ the id's last segment.
 Dropping it from the list would make a set that is missing three songs look exactly like a
 set that never had them, on the one screen where that difference matters most.
 
-## Une entrée peut porter des réglages — et c'est tout ce qui reste
+## Une entrée peut porter des réglages — et c'est tout ce qu'elle porte
 
-Le jour annoncé plus haut est arrivé, et il n'a pas fallu transformer `cues:` en table. Une
-entrée est **soit** une référence nue **soit** une référence qui porte quelque chose :
+`cues:` n'est pas une table. Une entrée est **soit** une référence nue **soit** une référence
+qui porte quelque chose :
 
 ```yaml
 cues:
@@ -157,11 +153,11 @@ cues:
 ```
 
 Les deux formes coexistent exprès. Un morceau qui n'a rien à dire tient sur une ligne — donc
-tous, tant que personne n'y a posé de repère — et toute liste écrite avant l'existence des
-réglages se lit encore, sans migration. Une table de références vers presque-rien aurait donné
-à chaque entrée l'air qu'il lui manque quelque chose, ce que cette page redoutait.
+tous, tant que personne n'y a posé de repère — et une liste de références nues se lit telle
+quelle, sans migration. Une table de références vers presque-rien donnerait à chaque entrée
+l'air qu'il lui manque quelque chose.
 
-`markers` sont les huit repères du pupitre de m9, positionnels, en secondes dans le FICHIER :
+`markers` sont les huit repères du pupitre, positionnels, en secondes dans le FICHIER :
 [ui-turntables/docs/cues.md](../../ui-turntables/docs/cues.md). Le fichier est écrit par le pupitre, en
 plein set, et `withMarkers` l'édite **dans son texte** — les commentaires de ce scaffold sont le
 seul exemple travaillé qu'un lecteur obtient, et un pupitre qui les mangerait au premier repère

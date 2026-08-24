@@ -58,7 +58,7 @@ async function bootstrap(): Promise<void> {
       return;
     }
     if (res.status === 401) {
-      // Back from pl8 and still anonymous means the button would only bounce again: say so.
+      // Back from the login and still anonymous means the button would only bounce again: say so.
       const why = cameBackStillAnonymous() ? SIGN_IN_DID_NOT_STICK : null;
       setState({
         status: why ? "error" : "unauthenticated",
@@ -81,7 +81,7 @@ async function bootstrap(): Promise<void> {
   }
 }
 
-// One rule for all six SPAs: the account belongs to pl8, the guest cookie to z0.
+// One rule for all six SPAs: the account belongs to st0, the guest cookie to z0.
 export { login } from "z0-shared/account";
 
 export async function logout(): Promise<void> {

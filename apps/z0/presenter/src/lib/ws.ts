@@ -1,5 +1,5 @@
-// Framework-free port of composables/useWebSocket.ts — a thin typed-event
-// WebSocket client. Kept behaviour-identical: connect once, no auto-reconnect
+// Framework-free, thin typed-event
+// WebSocket client: connect once, no auto-reconnect
 // (the presenter is reloaded between shows; mid-show drops surface as a
 // stalled screen the operator refreshes).
 

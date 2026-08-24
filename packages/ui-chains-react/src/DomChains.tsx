@@ -1,8 +1,8 @@
 // DomChains.tsx — the Chains routing graph: HTML nodes over a canvas of signal cables,
 // with an SVG layer between them for the labels, the arrows and the hit paths.
-// It consumes the same laid-out graph the old Pixi renderer did (dagre still owns the
-// layout); only the DRAWING is React, which buys real type, CSS effects and a DOM a test
-// can read. Shared by the Chains tab and the Graph panel — mount it only where it has a
+// It consumes a laid-out graph (dagre owns the layout); only the DRAWING is React, which
+// buys real type, CSS effects and a DOM a test can read.
+// Shared by the Chains tab and the Graph panel — mount it only where it has a
 // real size, since fit() frames to the host. See docs/chainsGraph.md.
 
 import type { WaveformEnvelope } from "@studio/engine-browser";
@@ -305,7 +305,7 @@ interface Channels {
   offlineChannel: boolean;
   // …and can it TAKE one back? Showing without taking is legitimate — docs/hosting.md.
   offlineWritable: boolean;
-  // The same question for the other two channels, which went years without being asked.
+  // The same question for the other two channels, asked separately since they answer separately.
   pluginWritable: boolean;
   trackWritable: boolean;
   // …and for a RACK pad, which asks for a sound rather than a value: can this host make one?
@@ -1139,7 +1139,7 @@ function captionFitsBeside(
   return need <= boxW - 4; // less .dgx-w's own breathing room
 }
 
-// Memoised: it holds its own param tap now, so a frame that did not move THIS number must not redraw it.
+// Memoised: it holds its own param tap, so a frame that did not move THIS number must not redraw it.
 const Widget = memo(WidgetInner);
 
 // Fit one line of text to a box in world units: glyph-count width, capped by height, floored so it never vanishes.
@@ -2614,7 +2614,7 @@ export function DomChains({
       {
         width,
         height,
-        // `cam.current`, not `cam`: the camera is a REF now, mutated in place by the frame loop.
+        // `cam.current`, not `cam`: the camera is a REF, mutated in place by the frame loop.
         cam: cam.current,
         dpr,
         cables: cableDrawsRef.current,

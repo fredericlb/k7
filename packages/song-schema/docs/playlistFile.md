@@ -11,10 +11,10 @@ something every project in the workspace draws on, found by where it sits rather
 declaring it. A playlist is not a project and does not belong inside one — you build a set list once
 and open it against whichever project you happen to be working in.
 
-That is also why it is not in the médiathèque any more. A playlist is the one family there whose
-content was pure REFERENCE: it holds no bytes, only names of things filed elsewhere, so hosting it
-bought nothing and cost the account a document it could not version with its work. `_playlists` is in
-the repository, so a set list is committed, branched and cloned with the songs it was built for.
+That is also why it is not in the médiathèque. A playlist is pure REFERENCE: it holds no bytes, only
+names of things filed elsewhere, so hosting it buys nothing and costs the account a document it
+cannot version with its work. `_playlists` is in the repository, so a set list is committed, branched
+and cloned with the songs it was built for.
 
 ## A playlist IS its file
 

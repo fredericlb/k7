@@ -173,10 +173,10 @@ void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
     const float outGain = juce::Decibels::decibelsToGain(outDb);
 
     // A block bigger than we prepared for (a render can hand out a long one) is CHUNKED, never grown.
-    // Growing used to `setSize` and then call dsp_->Reset(), and Reset is not a pointer bump: it
-    // reallocates the whole network's Eigen matrices and prewarms it — thousands of samples of
-    // WaveNet/LSTM inference, on the audio thread, guaranteed to fire the first time the device buffer
-    // grew. The model is sample-by-sample stateful, so splitting a block changes nothing that comes out.
+    // Growing means `setSize` plus dsp_->Reset(), and Reset is not a pointer bump: it reallocates the
+    // whole network's Eigen matrices and prewarms it — thousands of samples of WaveNet/LSTM inference,
+    // on the audio thread, the first time the device buffer grows. The model is sample-by-sample
+    // stateful, so splitting a block changes nothing that comes out.
     const int chunk = mono_.getNumSamples();
     if (chunk <= 0) return;
 

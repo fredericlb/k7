@@ -14,8 +14,8 @@ npx tsx engine/moteur/scripts/pad-effects.ts
 npx tsx engine/moteur/scripts/quick-master.ts
 ```
 
-What follows is the measurement method, which is the part that took the work. The subject matter
-itself lives elsewhere: [warp.md](warp.md), [quickMaster.md](quickMaster.md), and
+What follows is the measurement method, which is the hard part. The subject matter itself lives
+elsewhere: [warp.md](warp.md), [quickMaster.md](quickMaster.md), and
 `packages/song/docs/padEffects.md`.
 
 ## Measure what the process does not smear
@@ -33,17 +33,17 @@ The bursts start at 1, 3, 5 and 7 seconds — off every marker and off sample 0.
 middle of each segment, so a burst measures the INTERPOLATION rather than a pinned point, and none
 is inside the stretcher's priming region at the head of the clip.
 
-**`pad-effects.ts` counts ISLANDS of energy with a Schmitt trigger, not onsets.** The first version
-gated the envelope and found 2 hits in a bar of 16, which read as a broken engine: a synth's release
-runs into the next note, so there is no silence for a gate to find. The fix is on both sides of the
-measurement. The synth is given a 30 ms percussive amp envelope, so every hit is loud and then
-genuinely silent; and the trigger's two thresholds sit far apart (0.3 and 0.05 of the loudest hop),
-so a decay tail crossing back and forth cannot ring it twice. Counting islands then needs no
-judgement about what an "attack" looks like.
+**`pad-effects.ts` counts ISLANDS of energy with a Schmitt trigger, not onsets.** Gating the
+envelope instead finds 2 hits in a bar of 16 and reads as a broken engine: a synth's release runs
+into the next note, so there is no silence for a gate to find. The measurement is armoured on both
+sides. The synth is given a 30 ms percussive amp envelope, so every hit is loud and then genuinely
+silent; and the trigger's two thresholds sit far apart (0.3 and 0.05 of the loudest hop), so a
+decay tail crossing back and forth cannot ring it twice. Counting islands then needs no judgement
+about what an "attack" looks like.
 
 The envelope is RMS per 5 ms hop, never peak. A peak envelope tracks the waveform itself, so a
-sustained tone makes it wobble once per period — at 65 Hz that is a rise every 15 ms, and the flux
-test counted 28 attacks in a bar of 4. RMS over a window longer than the period is flat while a
+sustained tone makes it wobble once per period — at 65 Hz that is a rise every 15 ms, and a flux
+test reads 28 attacks in a bar of 4. RMS over a window longer than the period is flat while a
 note holds, which is the property the whole measurement rests on. The test note is C5 rather than a
 kick-range C2 for exactly that reason: the measurement, not the music, chooses the pitch.
 
@@ -63,9 +63,9 @@ default ceiling never engages, which is what makes "neutral leaves the mix alone
 rather than an artefact. The first check the script runs is that the BARE render has headroom, so
 this cannot quietly stop being true.
 
-Its wav reader takes 16/24/32-bit PCM and float32 rather than pinning one: the bounce is 24-bit PCM
-today and was float while the script was being written, and a harness that fails on the render's own
-format tells you nothing about the plugin. It walks the RIFF chunks instead of assuming a 44-byte
+Its wav reader takes 16/24/32-bit PCM and float32 rather than pinning one: the bounce's format is
+the engine's to choose, and a harness that fails on it tells you nothing about the plugin. It walks
+the RIFF chunks instead of assuming a 44-byte
 header, because a float wav carries `fmt ` with an extension and often a `fact` chunk, so the fixed
 offset lands mid-sample.
 
@@ -75,9 +75,9 @@ offset lands mid-sample.
 a one-pole attack can take off a transient, so the line tests the safety clipper as much as the
 limiter. A peak above the ceiling there means the ceiling is an intention rather than a guarantee.
 
-−12 is the FLOOR of that parameter's own range, and asking for less is how the line lied for one
-run: an out-of-range value is clamped by the `AutomatableParameter`, so `Ceiling: -18` measured −12
-dBFS and read as a limiter 6 dB out.
+−12 is the FLOOR of that parameter's own range, and asking for less is how this line lies: an
+out-of-range value is clamped by the `AutomatableParameter`, so `Ceiling: -18` measures −12 dBFS
+and reads as a limiter 6 dB out.
 
 The neutral run is its own case, and it is what catches the LR4 allpass correction in `splitBands`
 going missing: without it there is a several-dB notch around the low corner, which shows up as a
@@ -120,7 +120,7 @@ question being asked is only whether the plugin ran at all.
 
 The parameter is `Volume`, capitalised, which is the name the plugin publishes
 (`packages/song-schema/src/builtinParams.generated.ts`). A lowercase key matches nothing and
-changes nothing — which is exactly what a first run of the script measured.
+changes nothing, silently, which is the failure this case is shaped to catch.
 
 The trim case is the opposite. `MasterGainPlugin` takes dB straight to a linear factor with no
 curve, so the trimmed render must land EXACTLY `TRIM_DB` below the bare one, within half a dB. That

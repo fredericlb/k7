@@ -1,7 +1,7 @@
 // What the piano roll opens on — and, for a clip that states a window, the FRAME it opens with:
-// the view spans `from`/`to` plus a margin, while the canvas runs over the whole sequence. It used
-// to be a cage (the canvas WAS the window, nothing outside drawn), and it stopped for the reason
-// the audio clip panel's did: a window is judged against what lies outside it.
+// the view spans `from`/`to` plus a margin, while the canvas runs over the whole sequence. Not a
+// cage — the canvas is not the window — for the same reason as the audio clip panel's: a window is
+// judged against what lies outside it.
 
 import { describe, expect, it } from "vitest";
 import { clipLoop } from "./clipLoop";
@@ -51,7 +51,7 @@ describe("the time axis, windowed", () => {
   });
 
   it("keeps the ORIGIN at the sequence's zero, so what is before the window is reachable", () => {
-    // It used to be the window's `from`, which put the canvas's left edge at the window and made everything before it unreachable.
+    // The window's `from` would put the canvas's left edge at the window and make everything before it unreachable.
     const f = fitFor(
       clip({
         length: 4,

@@ -1,7 +1,7 @@
 // The one property that matters: what comes back out of the bench is the chain that went in.
 // Everything else here is a case where that could quietly stop being true.
 //
-// One `modules:` map now — a lane is a module too (docs/trackModules.md) — so `@in` and the
+// One `modules:` map — a lane is a module too (docs/trackModules.md) — so `@in` and the
 // bench's own track sit in it beside everything else.
 
 import { describe, expect, it } from "vitest";
@@ -12,7 +12,7 @@ import {
 } from "./benchChain";
 import { BENCH_EDGES } from "./scaffoldBench";
 
-// The REAL furniture: a restated copy went on saying `OUT` after the sink became `MIX`.
+// The REAL furniture: a restated copy would drift from the sink the bench declares.
 const EDGES = BENCH_EDGES;
 
 // The real thing, from the médiathèque: `chains/blindtest/assourdissant/…/graph.yaml`.

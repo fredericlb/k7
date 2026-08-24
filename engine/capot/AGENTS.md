@@ -81,9 +81,9 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
   animated, described in a unit square and 3× oversampled. See `docs/trayIcon.md`.
 - **`job.rs` / `pidkill.rs`** — the two backstops that stop a supervisor outliving the tray.
 
-**Process spawning is no longer here.** There is no `engine.rs` and no `fileservice.rs`: the
-supervisor (`@studio/engine-host`) owns starting the engine and the file service, and the tray
-only asks it to. That migration is done, not pending.
+**The tray spawns no process.** There is no `engine.rs` and no `fileservice.rs`: the supervisor
+(`@studio/engine-host`) owns starting the engine and the file service, and the tray only asks it
+to. Anything that needs a process started belongs there, not here.
 
 ## reqwest and trust roots
 

@@ -4,23 +4,23 @@
 de fichiers de la machine du moteur, qui en a besoin pour cloner. Cette page dit **qui** peut
 la demander, et pour qui.
 
-## Ce qui ne marchait pas
+## Pourquoi le sujet du token ne suffit pas
 
-La règle d'origine était : le sujet du token EST le propriétaire de la clé, donc rien à
-nommer et rien à refuser. Sauf que le token qu'une machine détient est celui que
-`scripts/tokens.mjs` frappe, et son sujet est `service:st0` — une identité de service, qui n'a
-pas de clé. La route répondait donc `404 no SSH key yet`, en envoyant régénérer une clé déjà
-présente. La fonctionnalité ne pouvait pas fonctionner telle qu'écrite, sur aucune machine.
+La règle évidente — le sujet du token EST le propriétaire de la clé, donc rien à nommer et rien
+à refuser — ne peut pas marcher ici. Le token qu'une machine détient est celui que
+`scripts/tokens.mjs` frappe, et son sujet est `service:st0` : une identité de **service**, qui
+n'a pas de clé. Cette règle répondrait `404 no SSH key yet` sur chaque machine, en envoyant
+régénérer une clé déjà présente.
 
-## Ce qui a été décidé
+## La règle
 
 Un token de **service** doit nommer la personne : `?user=…`, et le nom donné est honoré. Un
-token de **compte** continue de répondre pour lui-même.
+token de **compte** répond pour lui-même.
 
-Le prix est réel et il a été accepté : qui détient le token d'une machine peut demander la clé
-de n'importe qui. C'est ce que coûte **un credential par machine** plutôt qu'un par personne —
-l'autre sortie était de frapper et coller un token de compte par machine, ce qui demandait une
-interface qui n'existe pas et cassait le test qui épingle `service:st0`.
+Le prix est réel et assumé : qui détient le token d'une machine peut demander la clé de
+n'importe qui. C'est ce que coûte **un credential par machine** plutôt qu'un par personne —
+l'autre sortie serait de frapper et coller un token de compte par machine, ce qui demande une
+interface qui n'existe pas et casse le test qui épingle `service:st0`.
 
 Ce qui tient encore, et qu'il ne faut pas relâcher :
 

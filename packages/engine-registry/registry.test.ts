@@ -1,9 +1,8 @@
 // registry.test.ts — the claim's three rules, and the one property that makes takeover
 // survivable: a renewal is not an open. docs/claim.md is the prose; this is the contract.
 //
-// Every bug this pins is a LIFECYCLE bug, which docs/audit-moteur.md §E names as the whole
-// blind spot of this area's tests: the pure policies were covered and nothing that happens to a
-// claim over time was.
+// Every bug this pins is a LIFECYCLE bug, the blind spot docs/audit-moteur.md §E names for this
+// area's tests: a pure policy is easy to cover, what happens to a claim over time is not.
 
 import { ENGINE_ASSIGN_TTL_MS } from "@studio/web-protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

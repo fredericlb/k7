@@ -343,7 +343,7 @@ describe("system repo", () => {
   });
 
   it("syncs by PULLING first, then committing and pushing", async () => {
-    // That order because `project commit` pushes, and a push is refused when the remote moved.
+    // That order because `project commit` pushes, and a push is refused when the remote has moved.
     const h = harness({ workspaces: [ws("songs", [], "songs")] });
     await h.run("system repo sync songs");
     expect(h.seen.command).toEqual([

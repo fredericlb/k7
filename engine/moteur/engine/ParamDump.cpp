@@ -153,20 +153,19 @@ namespace {
  * looks the plugin up again, in `PluginManager::knownPluginList`, and instantiates nothing when
  * that search comes back empty. Nothing seeds that list here — the moteur runs no Tracktion scan
  * and persists no plugin list (`%APPDATA%/Studio/Settings.xml` has no `pluginList` key at all),
- * so on a fresh engine it is empty and EVERY external plugin failed, whatever the plugin was.
+ * so on a fresh engine it is empty and EVERY external plugin fails, whatever the plugin is.
  *
- * What it looked like is the reason this went unnoticed for so long: Tracktion's
- * `getLoadError()` answers "there is no instance" with a sentence about the plugin —
- * `ERROR! - This plugin couldn't be loaded!` — which reads as a licence or an installation, a
- * fact about the machine that no code could fix. It is neither. `EditBuilder::makeExternalPlugin`
- * has always done this one line, with a comment saying why; the param query is simply the second
- * place that creates an external plugin, and it did not.
+ * What that looks like is why it goes unnoticed: Tracktion's `getLoadError()` answers "there is no
+ * instance" with a sentence about the plugin — `ERROR! - This plugin couldn't be loaded!` — which
+ * reads as a licence or an installation, a fact about the machine that no code could fix. It is
+ * neither. `EditBuilder::makeExternalPlugin` carries this same one line, with a comment saying
+ * why; any third site that creates an external plugin needs it too.
  *
  * No plugin CODE runs to find it — `findAllTypesForFile` reads the already-scanned type info off
  * the binary. Factored out because two callers resolve the same way and only one of them then
  * wants the plugin's state: the param query below simply creates it and asks what it has. Taking
- * the engine here rather than leaving the caller to remember is the point — the two callers are
- * exactly the two that forgot.
+ * the engine here rather than leaving the caller to remember is the point — a caller that forgets
+ * registers nothing, and every plugin it asks about answers empty.
  */
 bool describeExternal(te::Engine& engine, const std::string& formatName,
                       const std::string& identifier, juce::PluginDescription& desc) {
@@ -193,16 +192,15 @@ namespace {
 /**
  * The offline engine every parameter query shares — built on the first ask, kept for the run.
  *
- * ONE PER PROCESS, not one per question, and that difference is the whole of this. Each query
- * used to build a `te::Engine` of its own and destroy it on the way out; forty of those in a
- * row killed the engine, twice, measured on a pass that drew a panel for every module in a
- * library of two hundred and sixty. Nothing in Tracktion promises that constructing and tearing
- * down whole engines beside a live one is safe, and it is not.
+ * ONE PER PROCESS, not one per question, and that difference is the whole of this. A `te::Engine`
+ * per query, built and destroyed on the way out, kills the engine after forty of them in a row —
+ * twice, measured on a pass that drew a panel for every module in a library of two hundred and
+ * sixty. Nothing in Tracktion promises that constructing and tearing down whole engines beside a
+ * live one is safe, and it is not.
  *
  * That ONE engine can host every plugin in turn is not a hope: `dumpBuiltinParams` above creates
- * two hundred and twelve of them in a single edit, one at a time, and always has. This is the
- * same shape with the engine kept alive between calls — so a batch is also far cheaper than it
- * was, since building the engine was most of what each query cost.
+ * two hundred and twelve of them in a single edit, one at a time. Keeping the engine alive between
+ * calls also makes a batch far cheaper, since building the engine is most of what a query costs.
  *
  * Still an engine of its own rather than the live host's: that one holds the audio interface,
  * and an ASIO driver is single-client — a query that borrowed it would wedge the thing making
@@ -245,13 +243,13 @@ constexpr int kParamListTimeoutMs = 15000;
  * plugin that never loaded also sits here reporting zero, for ever. Saying so rather than
  * answering "this plugin publishes nothing" is why this returns a bool at all.
  *
- * What it must NOT be read as is a verdict on the plugin. This block used to record a
- * measurement — twenty-seven of forty external plugins "never load at all", Arturia's CS-80 V4,
- * Prophet-5 V, DX7 V and Piano V3 among them, put down to a licence or an installation. Every one
- * of those loads. They were never asked to: nothing had registered them with this engine, so
- * Tracktion looked the description up, found nothing, and built no instance — and `getLoadError`
- * reports that absence in the words of a plugin that failed (see `describeExternal`). CS-80 V4
- * answers with 719 parameters, Prophet-5 V with 603, Piano V3 with 151.
+ * What it must NOT be read as is a verdict on the plugin. A plugin nothing has registered with this
+ * engine is never ASKED to load: Tracktion looks the description up, finds nothing, builds no
+ * instance — and `getLoadError` reports that absence in the words of a plugin that failed (see
+ * `describeExternal`). Read that way, twenty-seven of forty external plugins "never load at all",
+ * Arturia's CS-80 V4, Prophet-5 V, DX7 V and Piano V3 among them, which sends you to a licence or an
+ * installation. Every one of them loads: CS-80 V4 answers with 719 parameters, Prophet-5 V with 603,
+ * Piano V3 with 151.
  *
  * The lesson worth keeping: a zero here says something about this PROCESS at least as often as
  * about the machine, so read the two apart before believing a sentence Tracktion wrote about
@@ -430,16 +428,14 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
     // A .vstpreset is a Steinberg PresetFile — a container, with a header, the plugin's class id and
     // chunk offsets around the state. `setStateInformation` expects JUCE's own VST3 state format, so
     // handed the raw container it takes none of it and returns void: no error, no exception, nothing
-    // to test. What this printed was the fresh instance's defaults, `complete: true`, with the same
-    // 77 parameters for a saved Mini V3 patch as for a plugin that had never been touched — a
-    // confident answer to a question it never asked, and the translator wrote those defaults into
-    // the chain as the musician's sound.
+    // to test. What it prints then is the fresh instance's defaults, `complete: true`, with the same
+    // 77 parameters for a saved Mini V3 patch as for a plugin never touched — a confident answer to
+    // a question it never asked, and the translator writes those defaults into the chain as the
+    // musician's sound.
     //
-    // `EditBuilder::loadVstPreset` has parsed the container correctly all along
+    // `EditBuilder::loadVstPreset` parses the container properly
     // (`VST3PluginFormat::setStateFromVSTPresetFile`), and both the rack load and the editor's
-    // preset-picker go through it. Being the third caller rather than the second hand-rolled
-    // version is the fix; the comment that used to sit here described the container accurately and
-    // then proposed writing that parser again.
+    // preset-picker go through it. Be its third caller rather than a second hand-rolled parser.
     if (!loadVstPreset(*plugin, juce::File(juce::String(stateFile))))
         std::cerr << "[dump-params-ext] no state applied from '" << stateFile
                   << "' — the params below are the plugin's own defaults\n";
@@ -455,9 +451,9 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
     // reports the same 50 values as an untouched one, and Mini V3 the same 77 — checked against the
     // JUCE `AudioProcessorParameter`s directly, not just Tracktion's cache in front of them, so this
     // is the plugin's own answer and not a value gone stale. What the preset changed is opaque
-    // chunk state, which is exactly what `complete: false` is for: keep the .vstpreset. Saying
-    // `true` there was the damage the old `setStateInformation` call did — it applied nothing, so
-    // the round-trip trivially matched, and the translator dropped a preset for the defaults.
+    // chunk state, which is exactly what `complete: false` is for: keep the .vstpreset. A `true`
+    // reached through a state load that applied NOTHING is the damage to fear — the round-trip
+    // matches trivially, and the translator drops a preset for the defaults.
     bool complete = false;
     if (auto* inst = ext->getAudioPluginInstance()) {
         juce::MemoryBlock a;
@@ -471,8 +467,8 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
                 complete = (a == b);
             }
         }
-        // Handed back like every other instance in this file — this was the one creation site that
-        // never did, so the comparison instance stayed in the cache until the Edit went.
+        // Handed back like every other instance in this file: left alone, the comparison instance
+        // sits in the cache until the Edit goes.
         plugin2->deleteFromParent();
     }
     emitParamsJson(params, complete);
@@ -481,12 +477,12 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
     // something their destructors do. `~ExternalPlugin` hands the instance to Tracktion's
     // `AsyncPluginDeleter`, which parks it in an array and starts a 100 ms `juce::Timer` — one
     // instance freed per fire. The server and the tray run a message loop, so that timer fires; a
-    // CLI runs none, so both instances were still alive when JUCE's shutdown reached
-    // `DeletedAtShutdown` and the deleter's destructor drained them itself, entering a modal state
+    // CLI runs none, so without this both instances are still alive when JUCE's shutdown reaches
+    // `DeletedAtShutdown` and the deleter's destructor drains them itself, entering a modal state
     // on a Component in the middle of teardown.
     //
-    // That is an intermittent SIGSEGV *after* a perfect answer has been printed: 7 of 32 runs before
-    // this, 0 of 32 after, on Arturia's Prophet-5 V, CS-80 V4 and Jup-8 V4. Intermittent and
+    // That is an intermittent SIGSEGV *after* a perfect answer has been printed: 7 of 32 runs without
+    // this pump, 0 of 32 with it, on Arturia's Prophet-5 V, CS-80 V4 and Jup-8 V4. Intermittent and
     // load-dependent — it disappears for twenty clean runs and comes back — so measure it over a
     // batch, never on one run. And it is the worst shape available, because `execFileSync` in the
     // translator (`packages/translator/src/params.ts`) raises on a non-zero exit and throws away the

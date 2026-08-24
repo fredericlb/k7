@@ -76,7 +76,7 @@ export function SongPlayer({
   // biome-ignore lint/correctness/useExhaustiveDependencies: `entry.path` is the trigger, not a value read here
   useEffect(() => setTab(ORIGINAL), [entry.path]);
 
-  // The audio on screen and its médiathèque path; a `rendered` lookup for chain variants stood above.
+  // The audio on screen and its médiathèque path: a tab's own file, not always the master.
   const file = take?.file ?? null;
   const path = file ? `${entry.path}/${file}` : null;
 

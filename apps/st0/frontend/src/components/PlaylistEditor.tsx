@@ -1,6 +1,6 @@
 // PlaylistEditor.tsx — a playlist opened: its YAML as text on the left, the morceaux it names
-// as a playable list on the right. The same shape the médiathèque's own screen had, kept on
-// purpose — you edit the file while hearing what it describes. See ../docs/playlists.md.
+// as a playable list on the right. Two panes on purpose — you edit the file while hearing what
+// it describes. See ../docs/playlists.md.
 
 import { Button } from "@frediverse/ui/button";
 import type { MediatekEntry } from "@studio/mediatek/types";
@@ -30,7 +30,7 @@ const playlistValidity = (text: string): Validity =>
       }
     : { ok: true, issues: [], depth: "schema", malformed: false };
 
-/** What the header says where the Save button was — the same five words EditorTab uses, and 'clean' says nothing for the same reason. */
+/** What the header says in place of a Save button — the same five words EditorTab uses, and 'clean' says nothing for the same reason. */
 const SAVE_LABEL: Record<string, string> = {
   clean: "",
   pending: "edited",
@@ -192,7 +192,7 @@ export function PlaylistEditor({
               {path}
             </div>
           </div>
-          {/* Where the Save button was: silent while saved, amber with the reason otherwise, in EditorTab's own two words. */}
+          {/* In place of a Save button: silent while saved, amber with the reason otherwise, in EditorTab's own two words. */}
           <span
             className={`ml-auto flex min-w-0 shrink-0 items-center gap-1 text-xs ${
               autosave.status === "held" || autosave.status === "error"

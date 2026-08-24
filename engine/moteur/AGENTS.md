@@ -5,7 +5,7 @@ against the current state, applies the minimal change to a Tracktion Engine edit
 audio, and pushes transport/meter state back over WebSocket. **Never parses song files.**
 
 It is deliberately its own app rather than part of st0: it serves every audio app in
-the repo. Three drive it today — st0, the médiathèque's module previews and m9's decks —
+the repo. Three drive it — st0, the médiathèque's module previews and the DJ desk —
 over the same protocol, on the same binary, and it cannot tell them apart: it only ever sees
 a compiled `ProjectDoc`. They stay out of each other's way by naming a **session**; see
 `docs/protocol.md` and `packages/engine-protocol/docs/sessions.md`.
@@ -181,8 +181,8 @@ state where possible; `.vstpreset` is the fallback for plugins that need opaque 
 is a Steinberg *container* — header, class id, chunk offsets — and `setStateInformation` wants
 JUCE's own VST3 state format, so handed the raw file it takes none of it and returns `void`.
 There is nothing to test and no error to print: the plugin keeps its defaults and every caller
-downstream believes them. `--dump-params-ext` did that, and reported `complete: true` on the
-defaults it never replaced, which told the translator to drop the musician's preset.
+downstream believes them. A dump that goes through `setStateInformation` reports `complete: true`
+on defaults it never replaced, and the translator drops the musician's preset on that word.
 
 And expect `complete: false` from the big commercial instruments once a preset really loads.
 Their patch is not in their automatable parameters — an Arturia Wurli V2 reports the same 50
@@ -201,9 +201,8 @@ often locked while the engine is running — stop it before rebuilding.
 
 > **This engine COMPILES on the dev machine, and quickly. Do not claim otherwise — check.**
 >
-> The mistake has been made more than once: an agent assumes the C++ is out of reach ("needs
-> MSVC", "the build is long"), declines the task, and hands back a plan instead of a change.
-> Every part of that assumption is wrong here. The MSVC BuildTools are installed; `cl.exe` is
+> Never decline an engine change on the grounds that the C++ is out of reach — "needs MSVC",
+> "the build is long" — and hand back a plan. The MSVC BuildTools are installed; `cl.exe` is
 > not on `PATH`, which is **normal** — CMake finds it through the toolchain, so its absence
 > proves nothing. `build/windows-msvc` is already configured with JUCE and Tracktion fetched,
 > so an incremental build is about a second:
@@ -212,11 +211,10 @@ often locked while the engine is running — stop it before rebuilding.
 > cmake --build --preset windows-msvc
 > ```
 >
-> There is a real verification loop, and it should be run on every engine change: that build,
-> then the FOUR test suites (see Tests below — every one of them must be NAMED to be built, and
-> `studio_session_tests` is the one this line used to forget), then a
-> CLI smoke run. What is genuinely NOT possible here is *listening*: a render can be measured,
-> never judged. Say that limit, and stop there — not one step earlier.
+> Run the whole verification loop on every engine change: that build, then the FOUR test suites
+> (see Tests below — every one of them must be NAMED to be built), then a CLI smoke run. What is
+> genuinely NOT possible here is *listening*: a render can be measured, never judged. Say that
+> limit, and stop there — not one step earlier.
 
 **Linux** — a preset from `CMakePresets.json` (`dev-gcc`, `dev-clang`, `asan`,
 `release-gcc`). First configure fetches JUCE + Tracktion (~hundreds of MB). Needs CMake
@@ -232,10 +230,9 @@ a layout, not a symbol, so nothing in the toolchain objects to a mismatch.
 What it does is add a field's worth of offset to everything after it. `tracks` is the LAST member of
 `ProjectDoc`, so *any* field inserted above it moves it, and a stale translation unit reads
 `doc.tracks` off the end of the struct: a garbage `std::vector`, and an access violation the moment
-something walks it. Measured 2026-08-22 — `metronomeLevel` inserted in front of `tracks`, a stale
-`ProjectDiff.obj`, and the engine died in `keyOf` on every project it was handed, so the tray sat in
-a two-second `engine is gone — relaunching` loop and no project could ever be played. Nothing in
-the log named the engine as the culprit; `installCrashHandler` above is what did.
+something walks it — typically `keyOf`, on the first project the engine is handed. The tray then
+sits in a two-second `engine is gone — relaunching` loop and no project can ever be played. Nothing
+in the log names the engine as the culprit; `installCrashHandler` (below) is what does.
 
 Suspect it whenever a fresh-looking build crashes early on a document. To confirm, compare object
 mtimes against the header — and note that "it rebuilt when I touched the header" only proves the
@@ -267,13 +264,12 @@ Build gotchas:
 
 ## Tests
 
-**The test targets are not built by an ordinary build, and that hid a broken one.** The
-presets pin `"targets": ["studio-moteur"]`, so `studio_engine_tests` / `studio_session_tests` /
-`studio_midigraph_tests` / `studio_dspgraph_tests` are only built when named. One of them had
-referenced a `TrackDoc::volume` that was removed when a track's level became a mixer module,
-and nothing reported it for as long as that took. Build them explicitly after touching the
-data layer — **all four**, or `ctest` reports the missing one as "Not Run", which reads as a
-failure:
+**The test targets are not built by an ordinary build, so a suite that stopped compiling stays
+invisible.** The presets pin `"targets": ["studio-moteur"]`, so `studio_engine_tests` /
+`studio_session_tests` / `studio_midigraph_tests` / `studio_dspgraph_tests` are only built when
+named — rename a field of the data layer and the suite still referencing it reports nothing until
+someone names it. Build them explicitly after touching the data layer — **all four**, or `ctest`
+reports the missing one as "Not Run", which reads as a failure:
 
 ```
 cmake --build build/<preset> --config RelWithDebInfo --target \
@@ -301,23 +297,23 @@ its **own** `%APPDATA%/Studio/Settings.xml`, unless the `EngineBehaviour` says n
 Both engines here say not to (`ServerBehaviour`, `HeadlessBehaviour`). Do not undo that,
 and do not construct a `te::Engine` anywhere without one.
 
-Why it matters, measured the hard way:
+Why it matters:
 
 * **An ASIO driver is single-client.** A remembered device gets reopened by *every*
   process that constructs an engine — a render, a freeze, a param dump — so any of them
   running beside the live engine collides with it. The driver then stays wedged, and
   from that point on every engine start blocks **forever, with no output at all**, which
   reads as "the tray hangs" and sends you hunting anywhere but here.
-* **It was a second source of truth.** `~/.studio/preferences.yaml` holds the device
-  the user chose; `Settings.xml` held a copy Tracktion wrote by itself and replayed
-  first. The hidden one won, before any st0 code ran.
+* **It is a second source of truth.** `~/.studio/preferences.yaml` holds the device the
+  user chose; left to itself Tracktion writes its own copy into `Settings.xml` and replays
+  that one first, so the hidden choice wins before any st0 code runs.
 
 So: offline tools open no device (`makeOfflineEngine`), the server opens one from
 `openAudioDevice()` after the port is bound, and `Settings.xml` is inert state nobody
 reads. The check that this still holds: put a `deviceType="ASIO"` `Settings.xml` in
 place, start the engine, and see the port bind in milliseconds.
 
-A related trap this cost an evening: when a render hangs, it is silent — no line is
+A related trap: when a render hangs, it is silent — no line is
 printed, and the process burns no CPU. "It prints nothing" is not "it is slow"; it is a
 wait. Test the two apart before theorising, and never call an explanation confirmed on a
 correlation alone (a wedged driver stays wedged after its second client is gone, so
@@ -334,8 +330,7 @@ That timer only fires while something pumps the message loop — and the render 
 once, deliberately, so `SamplerPlugin` can finish building its sounds. The pump runs the
 timer, the timer calls `juce::MidiInput::getAvailableDevices()`, and that is an **RPC into
 `midisrv.exe`**. When the Windows MIDI service is wedged the call never returns, in any
-process on the machine. Measured stack, from a render that had produced no output for
-three minutes at zero CPU:
+process on the machine. A render stuck this way prints nothing and burns no CPU; its stack:
 
     midiInGetNumDevs -> NdrClientCall3 -> NtAlpcSendWaitReceivePort   (waiting, forever)
       juce::Win32MidiService::getAvailableDevices
@@ -352,7 +347,7 @@ To confirm the machine rather than the code, from any shell:
     powershell -c "Add-Type -MemberDefinition '[DllImport(\"winmm.dll\")] public static extern uint midiInGetNumDevs();' -Name W -Namespace P -PassThru | % { $_::midiInGetNumDevs() }"
 
 If that hangs, `midisrv.exe` is stuck and every MIDI-enumerating app on the box is too;
-restarting the process clears it. The render no longer cares either way.
+restarting the process clears it. The render itself is immune either way.
 
 ### Debugging a CRASH with no debugger
 
@@ -370,7 +365,7 @@ reads as a supervisor fault rather than an engine one. The stack is what tells t
 
 `watchdogStack()` in `OfflineRender.cpp` prints the stuck thread's symbolised stack after
 N seconds and exits 3. It is gated on `STUDIO_RENDER_TRACE`, needs the RelWithDebInfo
-PDBs, and is how the stack above was obtained — there is no cdb or WinDbg on these
+PDBs, and is what produces a stack like the one above — there is no cdb or WinDbg on these
 machines, and `Wait, LpcReply` from `Get-Process` is as far as PowerShell gets you.
 The same env var turns on `trace()`, the coarse progress log; start there, then reach for
 the watchdog when you need to know *what* is waiting rather than *where*.

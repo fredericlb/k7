@@ -29,4 +29,4 @@ export function takesOf(entry: MediatekEntry): Take[] {
   ];
 }
 
-// `renderNames` stood here; nothing bounces any more, so a variant is its own file or it is missing.
+// Nothing bounces here: a variant is its own file beside the master, or it is missing.

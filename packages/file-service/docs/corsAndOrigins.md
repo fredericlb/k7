@@ -16,14 +16,14 @@ reads. That is what stops a page you happen to visit from driving this service, 
 though the engine still hands its token to anyone who asks it `whoami`.
 
 Hence the one rule `cors.ts` exists to enforce: **NEVER reflect an arbitrary origin.**
-The previous `cors({ origin: allowlist ?? true })` made reflect-everything the DEFAULT
-and the allowlist opt-in — and nothing ever opted in, so every launch was wide open.
-Deny-by-default is the whole point; keep it that way.
+A `cors({ origin: allowlist ?? true })` makes reflect-everything the DEFAULT and the allowlist
+opt-in, so a launch that configures nothing is wide open. Deny-by-default is the whole point;
+keep it that way.
 
 The callback form in `server.ts` is deliberate: `origin: true` would reflect ANY origin. And an
-`OPTIONS` that reaches past the middleware was refused there, so it is answered with a 403 naming the
-origin and where to allow it — running on would return a 401 that lies, since a preflight carries no
-header to be missing.
+`OPTIONS` that reaches past the middleware has been refused there, so it is answered with a 403
+naming the origin and where to allow it — running on would return a 401 that lies, since a
+preflight carries no header to be missing.
 
 ## Two routes outside the header gates
 
@@ -62,10 +62,9 @@ a relaxation of deny-by-default. Nothing here reflects an origin.
 
 ## Recording refusals (`pendingOrigins.ts`)
 
-Fixing a blocked hostname used to mean typing the URL into a menu-bar prompt — which
-only exists on macOS — or hand-editing `web-origins.json`. Recording the refusal turns
-it around: the browser that was blocked names itself, and the user approves a concrete
-origin from the tray instead of transcribing one.
+Recording a refusal turns fixing a blocked hostname around: the blocked browser names
+itself, and the user approves a concrete origin from the tray instead of transcribing a
+URL into a menu-bar prompt or hand-editing `web-origins.json`.
 
 `~/.studio/pending-origins.json` joins the shared contract:
 

@@ -1,5 +1,5 @@
-// server.ts — st0/web backend: the engine registry, and later serving the frontend. File
-// operations moved to the engine-side file service, which the browser reaches directly — so
+// server.ts — st0/web backend: the engine registry, and serving the frontend. Every file
+// operation belongs to the engine-side file service, which the browser reaches directly — so
 // this hosted piece knows WHO you are and WHICH engines exist, never what is on any engine's
 // disk. It MINTS the session every studio service verifies, being the one with no path prefix.
 // Runs under tsx to import the brain's TS.
@@ -21,7 +21,7 @@ import { z } from "zod";
 const PORT = process.env.PORT || 8789;
 const app = express();
 
-// The LEGACY single-URL endpoint file, for a tray older than `web-endpoints/`. Nothing new writes it.
+// The single-URL endpoint file a tray without `web-endpoints/` reads: written for compatibility, read by nothing here.
 const WEB_ENDPOINT_PATH = join(homedir(), ".studio", "web-endpoint.json");
 function advertiseLegacyEndpoint(url: string): void {
   try {

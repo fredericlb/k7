@@ -32,33 +32,32 @@ put noise in every line of every shelf — the names plugins use are almost all 
 written there would be one that cannot be applied.
 
 `presets.yaml`, like `ui.yaml`, is the module ITSELF and not one use of it — `nodeFiles`
-skips both by name. Without that guard a module with a shelf came back carrying a phantom
+skips both by name. Without that guard a module with a shelf comes back carrying a phantom
 node called `presets`.
 
-## What was dropped, and why
+## Why there is no opaque blob among them
 
-It used to be a `<name>.presets/` folder with one file per preset, and a preset could be
-either a params snapshot **or** an opaque `.vstpreset` blob for plugins whose state isn't
-named values.
+A preset is a name and a list of parameter values, full stop — one shape, one code path to apply
+it, and a shelf you can read and edit by hand like everything else here. A `<name>.presets/`
+folder holding either a params snapshot **or** an opaque `.vstpreset` would be two kinds of thing
+under one word.
 
-The blob is gone. A preset is a name and a list of parameter values, full stop — one shape,
-one code path to apply it, and a shelf you can read and edit by hand like everything else
-here. The cost is real and worth stating: a plugin whose state is not addressable
-parameters can no longer have several remembered states. It keeps the `<name>.vstpreset`
-in its folder that the loader reads as its default, and that is all.
+The cost is real and worth stating: a plugin whose state is not addressable parameters cannot
+have several remembered states here. It keeps the `<name>.vstpreset` in its folder that the
+loader reads as its default, and that is all.
 
-Old `.presets/` folders are **not** migrated. Same clean break as the `_ui/` tree.
+A `.presets/` folder on disk is **not** migrated. Same clean break as a `_ui/` tree.
 
-## …and what came back, under another name: `base/`
+## …and what the cost is answered by: `base/`
 
-The paragraph above states a cost — "a plugin whose state is not addressable parameters can no
-longer have several remembered states" — and that cost turned out to be most of the plugins
-anybody reaches for. It is measurable: loaded from a `.vstpreset`, an Arturia Wurli V2 reports
+That cost — "a plugin whose state is not addressable parameters cannot have several remembered
+states" — covers most of the plugins anybody reaches for. It is measurable: loaded from a
+`.vstpreset`, an Arturia Wurli V2 reports
 the same 50 parameter values as an untouched one, and a Mini V3 the same 77. Their patch is
 opaque chunk state. Written into `presets.yaml` as numbers, an Arturia sound is the factory
 default with a name on it — a shelf entry that looks saved and is not.
 
-So the blob is back, and deliberately **not** as a preset:
+So the blob has a place of its own, deliberately **not** among the presets:
 
 ```
 modules/<type>/<name>/module.yaml    what it does
@@ -97,7 +96,7 @@ FIELD, not a param — so the engine learns it by rebuilding the module, which i
 different `.vstpreset` requires.
 
 **The params still win, and that is the whole ordering.** `EditBuilder` loads the preset and then
-calls `applyPluginParams` over it — "text params override the preset", which it has always said.
+calls `applyPluginParams` over it — "text params override the preset", in its own words.
 So a base decides only what the module could not have said in text, and every value the module
 DID author survives a change of base. Picking a different sound never silently moves a parameter
 somebody set; it moves everything nobody could.
@@ -123,8 +122,8 @@ Inherited bases resolve through the whole `extends` chain (`withInheritedFiles` 
 `moduleResolve.ts`). That is the normal shape, not an edge case: the bases are snapshotted onto
 the SHARED module that names the plugin, and a song points at it through a thin local module whose
 own folder holds none. Resolved against that folder alone, the pick would find nothing and the
-merge would keep the parent's default — the panel saying `warm` while the engine played something
-else, which is the exact failure the same function already existed to stop for asset files.
+merge would keep the parent's default — the panel saying `warm` while the engine plays something
+else, which is the same failure that function stops for asset files.
 
 ### The dropdown
 

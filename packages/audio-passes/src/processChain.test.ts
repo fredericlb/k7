@@ -410,7 +410,7 @@ describe("the repoint — the `in place` half", () => {
   });
 });
 
-// From `01.danse.st0`: a 17.92 s take rendered at 19.92 s played 11% slow — docs/processChain.md.
+// An unretimed map prices the render's extra seconds as tempo: 17.92 s at 19.92 s plays 11% slow.
 describe("the stretch map follows the render", () => {
   /** A clip with a map: 8 beats over 4 seconds, which is 120 bpm. */
   const warped = (secs: number): string => {
@@ -457,7 +457,7 @@ describe("the stretch map follows the render", () => {
       [4, 2],
       [8, 4],
     ]);
-    // …and the file is otherwise the surgical edit it always was.
+    // …and the file is otherwise untouched: the repoint is a surgical edit.
     expect(readFileSync(join(dir, "clips", "take.yaml"), "utf8")).toContain(
       "# hand-written",
     );

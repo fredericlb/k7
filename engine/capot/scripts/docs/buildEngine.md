@@ -24,7 +24,7 @@ Everything needed to run with no repo and nothing on `PATH`:
 
 Tauri copies `externalBin` into the bundle beside the tray executable
 (`Contents/MacOS/studio-moteur` on macOS), which is what makes the `.app` self-contained
-— `engine.rs` prefers that copy over the repo's build directory. Tauri resolves a sidecar
+— the supervisor prefers that copy over the repo's build directory. Tauri resolves a sidecar
 as `<name>-<triple>` **plus** the platform's executable extension, so on Windows the
 `.exe`-suffixed file is the one it looks for and bundles.
 
@@ -43,10 +43,9 @@ are self-contained. It stays on the repo's Node 22 line (`.nvmrc`).
 
 The archive is **checksummed before it is trusted**. This binary is what runs
 `engine-host.mjs` and `file-service.mjs` inside the signed app, so a substituted archive is
-arbitrary code shipped under our signature — and until `verifyNodeArchive` existed the download
-was a bare `curl` with nothing compared afterwards. The C++ side already pins its ASIO SDK by
-digest (`engine/moteur/CMakeLists.txt`); this is the same rule for the other downloaded
-dependency.
+arbitrary code shipped under our signature. `verifyNodeArchive` is what compares it. The C++
+side pins its ASIO SDK by digest (`engine/moteur/CMakeLists.txt`); this is the same rule for
+the other downloaded dependency.
 
 It is checked against the release's own `SHASUMS256.txt` rather than a digest pinned in the
 script, because a table would need an entry per platform and arch and would go stale at every Node

@@ -90,7 +90,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("splitWords", () => {
   it("splits on whitespace, not on the letter s", () => {
-    // The whole bug, in one line. The old `/s+/` returned ["o", "c Filter Freq ", "weep"].
+    // A `/s+/` missing its backslash returns ["o", "c Filter Freq ", "weep"] and looks plausible.
     expect(splitWords("osc Filter Freq sweep")).toEqual([
       "osc",
       "Filter",

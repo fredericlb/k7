@@ -161,7 +161,7 @@ function wireEngine(session: string, e: EngineClient): void {
       step / 2 + Math.random() * (step / 2),
     );
   });
-  // Not silent: a refused dial used to leave no trace, so "off" and "wedged" looked identical.
+  // Not silent: with no trace of a refused dial, "off" and "wedged" look identical.
   e.on("wserror", (err: Error) =>
     console.error(`   ✗ engine socket ${session}: ${err.message}`),
   );

@@ -1,12 +1,8 @@
 # The moteur-backed player
 
-`player.ts` has said this was coming since étape 2:
-
-> It is the seam a third engine arrives through: an implementation backed by
-> `engine/moteur`, once the engine can stream to a browser at all.
-
-Étape 7 made that true, so here it is. The interface did not change to accommodate it —
-which is the point of having had a seam.
+The `player.ts` interface is the seam a third engine arrives through, and this is that
+engine: an implementation backed by `engine/moteur`. The interface accommodates it unchanged
+— which is the point of a seam.
 
 ## What it is for, and what it is not
 
@@ -22,8 +18,8 @@ things it buys, and they are the only reasons to pay for it:
   The engine has Tracktion's built-ins and 186 AirWindows effects, in a real audio thread.
 * **Files, not fetches.** The engine opens a path. No decoding a whole song into an
   `AudioBuffer` before a round can start.
-* **It comes out of the interface.** The PA hears it, not just the tab. That is what
-  "le moteur traite et **diffuse**" was about.
+* **It comes out of the interface.** The PA hears it, not just the tab — "le moteur traite
+  et **diffuse**".
 
 ## The effect mapping, and the two that do not map
 
@@ -54,14 +50,14 @@ engine would have to grow; it is not something this mapping can fake.
 
 ### Why refusing loudly is the whole design
 
-Approximating them was the tempting thing. In a blind test it is the wrong one:
+Approximating them is the tempting thing. In a blind test it is the wrong one:
 
 > A difficulty effect that silently does nothing means the players heard an easier song
 > than the round claimed — and nobody finds out, because clean audio sounds correct.
 
-So `PreloaderState` grew one optional field, `unsupported: string[]`, which the game's UI
-already subscribes to. Optional, so `SongPreloader` — which can do all nine — never sets it
-and still satisfies the type. Not a throw, because a game must not crash mid-round.
+So `PreloaderState` carries one optional field, `unsupported: string[]`, which the game's UI
+subscribes to. Optional, so `SongPreloader` — which can do all nine — never sets it and still
+satisfies the type. Not a throw, because a game must not crash mid-round.
 
 The same reasoning drives two outright rejections:
 
@@ -77,14 +73,14 @@ The same slider sounds **different** on the two engines. A browser lowpass is on
 `BiquadFilter`; AirWindows' Lowpass is a filter somebody voiced. So a saved effect preset is
 not portable between them, and a game offering both must not pretend it is.
 
-## Paths: the reason this came last
+## Paths
 
 `resolvePath` is required and has no default. z0's song paths are URLs its own backend
 serves; the engine opens files. There is no honest guess between the two.
 
-In practice it resolves through the médiathèque's local cache — which is exactly why the
-plan put this leaf last: it needs *"un moteur local sur une machine qui n'a aujourd'hui
-besoin que d'un navigateur"*. Returning `null` means "this machine does not have that song",
+In practice it resolves through the médiathèque's local cache, which is what makes this leaf
+the demanding one: it needs *"un moteur local sur une machine qui n'a aujourd'hui besoin que
+d'un navigateur"*. Returning `null` means "this machine does not have that song",
 and the player reports it in `failedPaths` **before the round starts** rather than sending
 the engine a path it warns about once and then plays silence for.
 
@@ -98,18 +94,17 @@ the engine a path it warns about once and then plays silence for.
 * **`isPlaying` comes from the engine's state frame**, never from a flag set hopefully when
   a play was sent. A document that failed to load leaves the transport stopped, and the UI
   has to show that rather than a spinner.
-* **`resumeContext` does nothing.** The audio context is the engine's, and it was open
-  before the page was.
+* **`resumeContext` does nothing.** The audio context belongs to the engine, and it is open
+  before the page is.
 
 ## Not done
 
-* **Nothing wires it in yet.** z0 still constructs `SongPreloader`; choosing between
-  the two engines is a decision for the game's own settings, and it needs somewhere to put
-  `resolvePath`.
+* **Nothing wires it in.** z0 constructs `SongPreloader`; choosing between the two engines is
+  a decision for the game's own settings, and it needs somewhere to put `resolvePath`.
 * **Never run against a real engine.** The 23 tests drive a fake `EngineClient` and check
-  what was *sent*. Whether AirWindows' "Lowpass" is the name `createNewPlugin` resolves, and
+  what is *sent*. Whether AirWindows' "Lowpass" is the name `createNewPlugin` resolves, and
   whether `Density` is really the parameter name, are exactly the claims a fake cannot test.
   The names come from `AirWindowsList.h` and `builtinParams.md`; the wire is unproven.
 * **Listening in the browser is the caller's to wire.** This drives the engine; the
-  étape-7 broadcast (`EngineClient.broadcast`, `@studio/engine-browser/stream`) is a
-  separate opt-in, because a presenter with a PA does not want it.
+  broadcast (`EngineClient.broadcast`, `@studio/engine-browser/stream`) is a separate opt-in,
+  because a presenter with a PA does not want it.

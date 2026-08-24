@@ -1,7 +1,7 @@
 // Data access for sessions, highlights and comments — backed by Grist.
 //
 // - Session metadata, the loudness envelope (JSON), highlights and comments
-//   live in Grist tables (see migrate.js for the schema).
+//   live in Grist tables (see migrate.ts for the schema).
 // - The recording's BYTES live in the médiathèque's RECORDINGS zone; Grist keeps
 //   only the path to them. Cached on local disk so it can be streamed with HTTP
 //   Range for fast seeking. See docs/audio.md.
@@ -525,7 +525,7 @@ export async function getMoment(ownerId, momentId) {
   const createdAtByUid = await ownerSessionCreatedAt(ownerId);
   const base = publicMoment(rec, createdAtByUid);
 
-  // The stored slice, or one cut live from the session for moments extracted before it.
+  // The stored slice, or one cut live from the session when the moment carries none.
   let envelope: Envelope | null = null;
   if (rec.fields.Envelope) {
     try {
@@ -1056,7 +1056,7 @@ export async function renameVersion(releaseUid, versionUid, name) {
   const v = versions.find((x) => x.fields.Uid === versionUid);
   if (!v) return null;
   await grist.patchRecord("Versions", v.id, { Name: String(name) });
-  // The folder keeps its old name and only the sidecar is rewritten — ../../docs/audio.md.
+  // The folder keeps its name and only the sidecar is rewritten — ../../docs/audio.md.
   if (v.fields.AudioPath) {
     const release = await getReleaseRecord(releaseUid);
     await mediatek

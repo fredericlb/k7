@@ -24,7 +24,7 @@ suit est déjà la route de l'app. Donc :
 | `projectBasename` | inchangé — le routeur monte au même endroit |
 | `routes.ts` | rien : `main.tsx` lit l'adresse avant le routeur |
 
-C'est le même choix de forme que `@shares/<token>.st0` a fait pour la raison inverse (un partage
+C'est le même choix de forme que `@shares/<token>.st0`, pour la raison inverse (un partage
 se glisse dans la place du PROJET, une surface externe dans celle de la ROUTE), et le même
 sentinelle `@` : il ne peut pas commencer un nom court de dépôt, et il ne peut pas non plus être
 un id de surface — `createSurfaceFile` n'accepte que lettres, chiffres, `_` et `-`. La collision
@@ -61,8 +61,8 @@ panneaux — ce ne sont pas des écrans, ce sont les trois façons de commander 
 
 ## Le transport, en tête
 
-`MiniTransport` — celui du shell, écrit à l'origine pour rouler par-dessus un popin qui masque
-l'en-tête, et c'est exactement ce cas-ci. Play/pause et l'horloge, rien d'autre : stop, rewind,
+`MiniTransport` — celui du shell, fait pour rouler par-dessus un popin qui masque l'en-tête, et
+c'est exactement ce cas-ci. Play/pause et l'horloge, rien d'autre : stop, rewind,
 record et le métronome sont des décisions sur une session qu'on regarde, et les touches les font
 toutes de toute façon.
 
@@ -75,7 +75,7 @@ niveau redessinerait la surface entière à chaque trame.
 
 ## Le clavier, entier
 
-`useCommandKeys` est le listener du shell, sorti d'`App.tsx` — mêmes règles de retrait (un champ
+`useCommandKeys` est le listener du shell, partagé avec lui — mêmes règles de retrait (un champ
 qui tape possède ses touches, un bouton focalisé rend Space et Escape), même exception ⌃C sur une
 sélection de texte, même **double-Shift**. Un même clavier ne peut pas devenir deux.
 
@@ -114,20 +114,17 @@ tient toutes. Sans elles, `m` et `s` enverraient une commande à argument vide a
 | `viewport` | `ViewportTab` | l'image compilée (`useVideoDoc`) |
 | `timeline` | `ExternalTimeline` | tout le reste — voir plus bas |
 
-C'était le pupitre **et rien d'autre**, et la raison tenait debout : les trois autres sont
-dessinées par le shell à partir d'un état que lui seul tient. Mais cet état n'était pas le même
-dans les trois cas, et c'est ça qui a fini par céder.
+Aucune des quatre ne demande le shell, et c'est ce qui fait qu'elles se pilotent toutes ici :
 
-- Le `mastering` ne demandait au shell qu'**un lien moteur**, que cet écran a déjà.
-- Le `viewport` ne demandait qu'un **document vidéo**, qui est un `GET /video-doc`.
-- La `timeline`, elle, demandait bel et bien le shell — mais ce qu'elle en tirait, c'était le
-  curseur, le zoom et la sélection, et ceux-là n'ont jamais appartenu au shell : ils appartiennent
-  au **pane**, et `TimelineTab` les tient lui-même. Ce que le shell fournissait vraiment, c'est
-  l'écriture : les commandes, les menus, la boucle. `ExternalTimeline` les recâble sans lui.
+- Le `mastering` ne demande qu'**un lien moteur**, que cet écran a déjà.
+- Le `viewport` ne demande qu'un **document vidéo**, qui est un `GET /video-doc`.
+- La `timeline` en demande davantage, mais ce qu'elle en tire — le curseur, le zoom, la
+  sélection — n'appartient pas au shell : ça appartient au **pane**, et `TimelineTab` les tient
+  lui-même. Ce que le shell fournit vraiment, c'est l'écriture : les commandes, les menus, la
+  boucle. `ExternalTimeline` les recâble sans lui.
 
-Il ne reste donc aucune surface qui n'ait qu'une adresse. Les deux écrans d'impasse — surface
-inconnue, type non pilotable — sont devenus un seul : l'adresse ne nomme aucun fichier de
-`surfaces/`.
+Aucune surface n'a donc qu'une adresse, et il n'y a qu'un seul écran d'impasse : l'adresse ne
+nomme aucun fichier de `surfaces/`.
 
 ### La timeline, sur une tablette
 
@@ -155,8 +152,8 @@ portable, donc l'essentiel de ce qu'elle doit suivre n'est pas d'elle.
 Le **graphe** est refetché ici, sur ce même jeton, là où le shell le prend du pane des chaînes :
 sans lui la gouttière ne dessinerait ni le ⋮ des alternatives ni les courbes d'automation.
 
-Le **menu contextuel** est celui du shell, `contextMenu.ts`, et le bubble ⋮ est `nodeMenu` — sorti
-de `App.tsx` pour ça : deux dérivations d'un même menu, c'est deux menus qui finissent par offrir
+Le **menu contextuel** est celui du shell, `contextMenu.ts`, et le bubble ⋮ est `nodeMenu`,
+partagé avec lui : deux dérivations d'un même menu, c'est deux menus qui finissent par offrir
 des alternatives différentes sur le même nœud.
 
 ### Une ligne, et pas une barre de commandes
@@ -194,8 +191,8 @@ C'est ce panneau et pas un autre parce que c'est déjà là qu'on va chercher **
 projet distribue** — le lien gelé, la release k7 — et parce que le geste est le même : on donne un
 lien à quelqu'un, ou à une tablette. Ce qui les sépare est dit plus bas.
 
-Le panneau liste **toutes** les surfaces déclarées. Il n'en filtrait qu'un type tant qu'un seul se
-pilotait ; les quatre se dessinent maintenant, et un filtre ici cacherait une adresse qui marche.
+Le panneau liste **toutes** les surfaces déclarées : les quatre types se dessinent, et un filtre
+ici cacherait une adresse qui marche.
 
 Cette commande la **copie** dans le presse-papier et l'écrit dans la ligne d'état — donc lisible
 et recopiable même si le navigateur refuse l'écriture. Elle ne navigue pas : tout l'intérêt est de
@@ -231,10 +228,10 @@ le moteur tient. Le croisement est celui de l'app.
 
 ### Seulement le projet chargé
 
-Ce menu listait la machine entière : chaque ligne d'un autre projet **déplaçait** le moteur, parce
-qu'un moteur tient un projet par session (`packages/engine-protocol/docs/sessions.md`). Suivre une
-ligne au hasard depuis une tablette était donc un moyen de s'interrompre soi-même à travers la
-pièce, et la seule ligne utile — celle du projet ouvert — était noyée dans les autres.
+Ce menu ne liste pas la machine entière : une ligne d'un autre projet **déplacerait** le moteur,
+parce qu'un moteur tient un projet par session (`packages/engine-protocol/docs/sessions.md`).
+Suivre une ligne au hasard depuis une tablette serait un moyen de s'interrompre soi-même à travers
+la pièce, et noierait la seule ligne utile — celle du projet ouvert — dans les autres.
 
 Le filtre est `/engine/served`, et pas le drapeau `active` que porte chaque ligne. Les deux ne
 répondent pas à la même question : `active` est le marqueur `.studio-active` d'un **espace de
@@ -250,8 +247,8 @@ corrige au tick suivant.
 
 Le projet est donc le **titre** de la page, et « Surfaces » la ligne en dessous — dans ce sens-là,
 parce que c'est ce que la page est : un menu d'écrans DE QUELQUE CHOSE. Les lignes portent leur
-type au lieu de répéter le seul point commun qu'elles ont, et le badge « ouvert » a disparu avec
-la question : toutes le seraient. Tant que le moteur ne nomme rien, le mot générique reprend le
+type au lieu de répéter le seul point commun qu'elles ont, et aucune ne porte de badge
+« ouvert » : toutes le seraient. Tant que le moteur ne nomme rien, le mot générique reprend le
 titre et il n'y a rien à mettre dessous.
 
 Deux vides, et ils ne disent pas la même chose. *Aucun projet ouvert sur le moteur* — le disque
@@ -266,7 +263,7 @@ sont l'endroit pour ça.
 
 Et cette revendication-là ne déloge pas l'éditeur. Un même compte sur un même moteur, c'est une
 seule session et un seul projet chargé : la règle « un moteur par projet » exempte ce cas, et sans
-cette exemption ouvrir une surface renvoyait le portable sur *« ce projet a été ouvert
+cette exemption ouvrir une surface renverrait le portable sur *« ce projet a été ouvert
 ailleurs »*. Voir `packages/engine-registry/docs/claim.md`.
 
 ### `external`, un nom court réservé
@@ -280,7 +277,7 @@ demandée, et un mot réservé se lit dans la barre d'adresse.
 
 ### Comment on y arrive
 
-Le menu était joignable par son adresse tapée à la main, et par `ui external <surface>` depuis un
+Le menu est joignable par son adresse tapée à la main, et par `ui external <surface>` depuis un
 projet ouvert — qui donne le lien d'UNE surface. Ni l'un ni l'autre ne se découvre depuis la
 tablette qu'on vient de poser sur l'ampli. L'en-tête de l'accueil porte donc un bouton
 **Surfaces**, à côté du lien pl8 (`projects/Home.tsx`).
@@ -323,9 +320,9 @@ adresse (`projectClaimKey`), et une tablette arrivée en `@local/…` pendant qu
 `/<dépôt>/…` ferait **deux revendications sur un même morceau**, la seconde délogeant la première.
 C'est pour ça, et pour rien d'autre, que ce menu interroge le registre de pl8.
 
-Le drapeau `active` que porte chaque ligne reste ce qu'il était — le marqueur `.studio-active` d'un
-espace de travail — et n'est plus lu par cette page : il répond à une question voisine et pas à la
-sienne, voir *Seulement le projet chargé* plus haut.
+Le drapeau `active` que porte chaque ligne — le marqueur `.studio-active` d'un espace de travail —
+n'est pas lu par cette page : il répond à une question voisine et pas à la sienne, voir
+*Seulement le projet chargé* plus haut.
 
 ## Ce que ça n'est pas
 

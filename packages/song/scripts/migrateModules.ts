@@ -86,7 +86,7 @@ for (const name of projects) {
       const folder = join(dir, "modules", "io", kind);
       mkdirSync(folder, { recursive: true });
       const path = join(folder, `${node}.yaml`);
-      // Without `io: in` from the gone generic the node is not an input and its channel is ignored.
+      // Without `io: in` written here the node is not an input and its channel is ignored.
       const io = kind === "IN" ? "in" : "out";
       if (!existsSync(path))
         writeFileSync(

@@ -1,7 +1,6 @@
 // graphDoc.ts — compile the active project's routing graph into the WebGraph the
 // Chains tab draws. A pure function of the project dir (loadGraph + loadCurves + the
-// plugin scan cache); extracted from workspace.ts, where it was the class's largest
-// method with no instance state at all.
+// plugin scan cache), and outside `Workspace` because it reads no instance state.
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -267,7 +266,7 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
         };
       }),
       enabled: c.enabled,
-      // `fromPort` only when there is one, so the wire stays what it was for every chain drawn before.
+      // `fromPort` only when there is one, so the wire stays plain for every chain drawn without one.
       out: c.out.map((o) => ({
         to: o.to,
         gain: o.gain,

@@ -40,8 +40,6 @@ const w = (rel: string, body = "x"): void => {
   writeFileSync(abs, body, "utf8");
 };
 
-// `describe("what the library keeps for itself")` stood here; its three cases went with the `modules` family.
-
 describe("pushing a workspace's shared folder up", () => {
   it("maps the workspace folder onto its library name", () => {
     w("_library/ir/hall.wav", "RIFF");

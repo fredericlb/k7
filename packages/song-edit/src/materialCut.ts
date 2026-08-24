@@ -224,7 +224,7 @@ export function splitSequenceMaterial(
     (t) => {
       const i = findPlacementAt(t, fromBeats, num, den);
       if (i < 0) return t;
-      // Every window on the placement is cleared: both halves are whole materials now.
+      // Every window on the placement is cleared: both halves are whole materials.
       let next = setPlacementField(t, i, "ref", head.ref);
       next = setPlacementField(next, i, "from", undefined);
       next = setPlacementField(next, i, "to", undefined);

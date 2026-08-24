@@ -6,8 +6,8 @@ The routing graph, declared as SEGMENTS: each module says where its signal goes 
 declares a chain — the chains are DERIVED by following the arrows.
 
 **One map.** A track is a module too (see Tracks), so the lanes are in `modules:` beside
-everything else. There used to be a `tracks:` half, and with it a rule that no name could be in
-both; a name is one node now, and the rule has nothing left to guard.
+everything else. There is no second half to the file, and no rule about a name being in both: a
+name is one node.
 
 A run breaks in exactly two places: where the signal SPLITS (a node with two destinations), and
 where two signals MEET (a node several things feed) — which is what a bus is. A run fed by a lane
@@ -34,7 +34,7 @@ params. A module is named ONCE in this file, so a bypass is one name appearing o
 there is never a second copy to keep in step.
 
 **On a LANE, `bypassed` is the mute.** A source has no input to pass through, so bypassing one
-reads as *produces nothing* — which is exactly what muting a lane has always meant. That is why a
+reads as *produces nothing* — which is exactly what muting a lane means. That is why a
 lane's file carries no `mute:` for the two to disagree over. Solo is written nowhere at all: the
 surface derives it by bypassing every other lane.
 
@@ -114,8 +114,8 @@ modules:
 
 The module itself names no lane, which is what lets `IN` come from the engine and get one node per
 project: the node carries the channel, and which lane it feeds is a per-project answer. An
-input sitting INSIDE a lane's run works too — `gtr: [ "IN:gtr" ]` — and lands on the same lane; it
-is what the old chain-list format could express, and the migration writes it that way.
+input sitting INSIDE a lane's run works too — `gtr: [ "IN:gtr" ]` — and lands on the same lane;
+that is the shape the migration below writes.
 
 Note `IN:in-1`, with a colon: `in-1.yaml` is a NODE of the `IN` module, not a folder inside
 it. Two shapes that don't work, and what they say:
@@ -125,20 +125,20 @@ it. Two shapes that don't work, and what they say:
 - an input at the END of a run, fed by something — routing INTO a live input is meaningless, since
   signal comes from it. Reported as `signal comes FROM it, not to it`.
 
-## Migrating from the chain list
+## Migrating from a chain list
 
-Projects written before this change hold a `chains:` list. They are read as an error naming the
-migration rather than as a schema complaint; run it once per project:
+A project holding a `chains:` list is read as an error naming the migration rather than as a
+schema complaint; run it once per project:
 
 ```bash
 st0 migrate chains <project>
 ```
 
 It preserves each chain's source, the order of its modules, its sink and its bypasses. Two things
-change on purpose. A chain's `as:` alias is gone (a chain is called after its lane now), which
-renames the plugin ids under it. And a module the old file used in SEVERAL chains is split into one
-node per chain — the list format compiled such a module to one plugin per chain, and a segment
-file names each module once, so leaving it shared would collapse two instruments into one.
+change on purpose. A chain's `as:` alias does not survive — a chain is called after its lane —
+which renames the plugin ids under it. And a module the list used in SEVERAL chains is split into
+one node per chain: a chain list means one plugin per chain, while a segment file names each
+module once, so leaving it shared would collapse two instruments into one.
 
 The migration rewrites `graph.yaml` and nothing else. Moving the lanes themselves out of
 `tracks/` and into `nodes/` is by hand, and the table in Tracks says what each one becomes.

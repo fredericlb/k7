@@ -38,11 +38,11 @@ project/modules/audio/guitar/module.yaml     extends: "@st0/audio/amps/guitar"
 mediatek/modules/audio/amps/guitar/assets/   ← the fourteen profiles are HERE
 ```
 
-Assets used to be looked for at `<project>/modules/<category>/<file>/assets` and nowhere else,
-which is right only for a module this project both owns and stores the files in. For the guitar
-above it listed the local folder — empty — so the one module in the médiathèque built to be
-picked from opened with nothing in it. Both the graph (`assetChoicesFor`) and the CLI completion
-(`assetFiles`) had that same line, and both were wrong the same way.
+Looking at `<project>/modules/<category>/<file>/assets` and nowhere else is right only for a
+module this project both owns and stores the files in. For the guitar above it lists the local
+folder — empty — so the one module in the médiathèque built to be picked from would open with
+nothing in it. The graph (`assetChoicesFor`) and the CLI completion (`assetFiles`) go through
+`moduleAssetChoices` for that reason, rather than each carrying the walk.
 
 A nearer module's assets come first and a duplicate path is dropped, so a local file shadows an
 inherited one of the same name.
@@ -54,21 +54,22 @@ it reads — so the ref map a caller has loaded anyway already knows. Asking the
 (`moduleFolderForRef`) is a full walk of every module library **per ancestor, per module**, which
 turned one graph build into a walk per node.
 
-The same mistake in a second shape: `buildGraphDoc` briefly loaded the ref map itself, when
-`loadGraph` — which it calls one line earlier — had already read it. That doubled the cost of a
-graph build, and a graph is polled. Both are the same lesson: this data is loaded once per
+The same trap in a second shape: `buildGraphDoc` must not load the ref map itself, because
+`loadGraph` — which it calls one line earlier — has already read it, and loading it twice doubles
+the cost of a graph build that is polled. Both are the same rule: this data is loaded once per
 request already, and the walk is expensive enough that a second one shows up as a timeout.
 
-**Three** places computed that folder, not two. The third was the WRITE: `node param` checks the
-file against the module's assets before writing it, off the same wrong line — so once the picker
-could offer a profile, the command refused it and the click did nothing at all.
+**Three** places want that folder, not two. The third is the WRITE: `node param` checks the file
+against the module's assets before writing it. Miss it there and the picker offers a profile the
+command then refuses, so the click does nothing at all.
 
 ## Choosing one has to RESOLVE, too
 
 Picking a profile for a shared amp writes the ref into the local module, and each module resolves
-its own file params against its own folder — which for that one holds nothing. The ref came back
-undefined, and `mergeAuthored` then kept the PARENT's path: the panel showed the name you chose
-while the engine loaded the inherited file. Silently the wrong sound, which is worse than none.
+its own file params against its own folder — which for that one holds nothing. Resolved there
+alone the ref comes back undefined and `mergeAuthored` keeps the PARENT's path: the panel shows
+the name you chose while the engine loads the inherited file. Silently the wrong sound, which is
+worse than none.
 
 So the fold re-resolves a file param against the folders of the whole chain
 (`withInheritedAssets`), nearest first — the same order the choices are offered in, because the
@@ -81,16 +82,15 @@ list you pick from and the path you get must agree. Two rules keep it honest:
   a shared module's containment. `resolveModuleAssetIn` holds that check, once, for both the
   single-folder and the ancestry case.
 
-## `dropdown` + `library` is the older spelling
+## `dropdown` + `library` is the other spelling
 
-Before this, the same widget was a `dropdown` carrying `library: nam`, from when the files came
-from a shared `_library/` and were named `nam/Marshall/jcm800.nam`. That library is gone
-([moduleAssets.md](moduleAssets.md)) and the picker still filtered on the `nam/` prefix, which
-nothing a module carries has — so it matched nothing even once the folder was found.
+A `dropdown` carrying `library: nam` is **accepted and read as a filepicker**, so every panel
+written that way keeps working; the builder still edits it, labelled *legacy*. New panels get the
+widget that says what it is. Nothing needs migrating, and `library` says nothing `bind` does not.
 
-The key is still **accepted and still read as a filepicker**, so every panel already written keeps
-working; the builder still edits it, labelled *legacy*. New panels get the widget that says what
-it is. Nothing needs migrating, and `library` says nothing `bind` does not.
+What it does NOT do is filter on a `nam/` prefix. There is no shared `_library/` behind the choices
+([moduleAssets.md](moduleAssets.md)) — a module carries its own assets, whose paths are relative to
+its `assets/` — so a prefix filter would match nothing at all.
 
 ## What it is NOT
 

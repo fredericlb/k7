@@ -59,7 +59,7 @@ twice — once for syntax, once by the kind's parser — which costs nothing at 
 
 ## Where the line and column come from
 
-The same `locate` the module parser uses, now exported from `moduleFile.ts`: walk the YAML
+The same `locate` the module parser uses, exported from `moduleFile.ts`: walk the YAML
 document to the deepest node on the issue's path and read its range through a `LineCounter`. An
 unknown key is reported by Zod against its *containing* object, so the key is appended to the
 path before locating — otherwise every typo would point at the top of the file.

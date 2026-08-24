@@ -17,10 +17,10 @@ comes from — `in` is a live interface channel, `file` reads an audio file
 
 `MIX` is where the mixer sums — every lane's chain ends there, and it is what the header meter
 answers for. `OUT` is the interface. A chain wired `from: MIX` to `OUT` is the MASTER CHAIN, and its
-steps process the whole mix on the way out; with no such chain the two are one wire and the song
-sounds exactly as it did before they were told apart. They are built-in NAMES rather than modules on
-disk — `isSink` takes them literally, so no project needs a `modules/io/` folder for either, and
-every demo song relies on that (`packages/song/docs/masterChain.md`).
+steps process the whole mix on the way out; with no such chain the two are one wire and the mix
+reaches the interface untouched. They are built-in NAMES rather than modules on disk — `isSink`
+takes them literally, so no project needs a `modules/io/` folder for either, and every demo song
+relies on that (`packages/song/docs/masterChain.md`).
 
 `RENDER` and `VIDEO_OUT` are the same two for PICTURE, and exist only on a project that declares a
 viewport. `RENDER` is where the compositor sums: every video lane arrives there the way every audio
@@ -28,12 +28,10 @@ lane arrives at `MIX`, and carries no parameter for the same reason. A chain wir
 `VIDEO_OUT` is the VIDEO MASTER CHAIN — where a `video_effects` or `video_transitions` module
 processes the whole composited frame.
 
-The name `VIDEO_OUT` is not new: the model has called the picture's sink that since video chains
-were first typed, in comments and in a ui-chains test. It was never a constant, so nothing could
-route to it. Note that `VideoPluginDoc` is modelled and nothing compiles it, so a module on this run
-is drawn and validated but changes no frame (`packages/song/docs/videoOutputs.md`). Unlike the audio
-pair these are added AUTOMATICALLY: a project with a viewport surface and no such run gets one
-written into its `graph.yaml`. A song with no picture never sees either name.
+`VideoPluginDoc` is modelled and nothing compiles it, so a module on this run is drawn and validated
+but changes no frame (`packages/song/docs/videoOutputs.md`). Unlike the audio pair these are added
+AUTOMATICALLY: a project with a viewport surface and no such run gets one written into its
+`graph.yaml`. A song with no picture never sees either name.
 
 ## `@master`, the owner of a master chain's plugins
 
@@ -79,8 +77,8 @@ mean wiring a lane to a shader that ignores it.
 
 ## What a lane emits
 
-A lane's signal is its OWN, not its folder's, so `moduleEmits` reads the PORTS. Which now means a
-lane usually has no answer: it offers `audio` and `midi` both, and `emits` is one word for a cable's
+A lane's signal is its OWN, not its folder's, so `moduleEmits` reads the PORTS. Which means a lane
+usually has no answer: it offers `audio` and `midi` both, and `emits` is one word for a cable's
 colour. Undefined is the honest one — the same undefined a GROUP gives, and for the same reason:
 what leaves a lane is decided per event, and the reader that needs to know asks the run which port
 it left by (`Chain.fromPort`).
@@ -92,10 +90,9 @@ where it is read (graph's `normalizeInputs`).
 
 A module may declare its own `inputs:` / `outputs:` in its `module.yaml`, and then `MODULE_TYPES` is
 not consulted at all: the type folder decides what a module IS, and a module that needs two audio
-inputs is still an audio effect. Before that was possible the folder was the only source, so "two
-inputs" was unsayable — which is what a crossfade needs and could not have. `outputs` is
-deliberately not derived from `emits`: `emits` says what KIND of signal leaves (one word, used for
-cable colour), while a port is a place something can be wired to.
+inputs — a crossfade — is still an audio effect. `outputs` is deliberately not derived from `emits`:
+`emits` says what KIND of signal leaves (one word, used for cable colour), while a port is a place
+something can be wired to.
 
 ## `ModuleKind` — four, not two
 
@@ -127,15 +124,13 @@ inheriting the category gets.
 NO input, deliberately. What arrives on a lane is its clips, and the one thing that may be routed
 into it is a live interface channel — which the compiler lands on the lane rather than wiring
 through a port, because the flat model the engine plays cannot express routing into a lane's input.
-That is an engine ceiling, not a name-space artefact, so it stayed exactly where it was when the two
-name spaces merged (`validate`'s out-check).
+That is an engine ceiling rather than a name-space artefact (`validate`'s out-check).
 
 ## `categoryForRole`
 
-The single answer to "what folder does a scanned plugin belong in". It used to live inside
-`populateModules`, which is why it read as a filing rule; it is really what decides the module's
-PORTS — a midi effect takes midi and gives midi back, an instrument takes midi and gives audio — so
-the engine catalogue and the folder writer have to agree, and now they cannot disagree.
+The single answer to "what folder does a scanned plugin belong in". It reads as a filing rule and is
+really what decides the module's PORTS — a midi effect takes midi and gives midi back, an instrument
+takes midi and gives audio — so the engine catalogue and the folder writer cannot disagree.
 
 ## `@engine`, and why the ref is built here
 
@@ -156,15 +151,14 @@ the answer.
 `extends: "@engine/…"` against the same scan reported over the engine's socket, having no project
 loader and no `node:fs`. A browser that spelt the type differently would preview a plugin the
 compiled document never loads — silence, with a panel drawn over it. It takes the FORMAT lowercased,
-never the role: `module populate` wrote `internal` whenever the role was "instrument" and
-mislabelled forty VST3s.
+never the role: a role of "instrument" says nothing about whether the plugin is a VST3 or internal,
+and reading it as one mislabels every VST3 instrument on the machine.
 
 ## The io modules the engine provides
 
 One IN and one OUT for the whole app — a project makes nodes of them, and those carry the channel,
-the monitoring and the trim. They were files in `_modules` too, one folder plus one node per
-interface channel, written by `module populate` from the machine's preferences. That put a rig's
-wiring in a library shared by every song; the nodes belong to the song that records through them.
+the monitoring and the trim. The nodes belong to the song that records through them: a folder plus a
+node per interface channel in `_modules` would put one rig's wiring in a library every song reads.
 `FILE` is audio off disk rather than off an interface — one module like the other two, and a node
 carries WHICH file, or carries none in a chain template where the audio belongs to whatever the
 template is applied to (`packages/song/docs/fileInput.md`).
@@ -244,10 +238,10 @@ module-vocabulary caller already looks. The same holds for `PORT_SEP`, `portRef`
 graph renderer can reach, and `ui-chains` draws ported edges while deliberately not depending on
 this package (`packages/song/docs/ports.md`).
 
-`LEGACY_TRACK_REFS` is kept as NAMES the way `LEGACY_MEDIATEK_NS` is: a file still saying
-`@studio/sequence-track` names a module that no longer exists, and the loader is entitled to say
-which one it means instead of leaving a reader to guess that a whole axis was removed. There is no
-migration code, deliberately — the same call `packages/song/docs/nodes.md` and
+`LEGACY_TRACK_REFS` is kept as NAMES the way `LEGACY_MEDIATEK_NS` is: a file saying
+`@studio/sequence-track` names a module that does not exist, and the loader is entitled to say which
+one it means instead of leaving a reader to guess. There is no migration code, deliberately — the
+same call `packages/song/docs/nodes.md` and
 `packages/song/docs/trackModules.md` already made.
 
 ## The four levels
@@ -262,30 +256,27 @@ this is the vocabulary, and a browser has to spell it too — st0's Libraries ta
 row, and `sharedFolders.ts` reads the disk on its first line, so importing it there would drag
 `node:fs` into a bundle.
 
-**`@st0` names the MÉDIATHÈQUE, not the app called st0.** The médiathèque held that name when the
-levels were written and is called `pl8` now; the editor took the freed name later. So the one level
-that reads like an app is the only one that names a different one — and the level DELIBERATELY did
-not follow either move. A level is written into user files: every `@st0/…` in every chain of every
-repository would have to be rewritten at once, on machines this repo does not have, and the failure
-is silent enough to be nasty (a `?` on a graph node, nothing else). The app was renamed for where it
-sits on the origin; the level names a folder of modules, which did not move.
+**`@st0` names the MÉDIATHÈQUE — `apps/pl8` — and not the app called st0.** So the one level that
+reads like an app is the only one that names a different one, and it DELIBERATELY does not follow a
+rename. A level is written into user files: every `@st0/…` in every chain of every repository would
+have to be rewritten at once, on machines this repo does not have, and the failure is silent enough
+to be nasty (a `?` on a graph node, nothing else). An app is named for where it sits on the origin;
+a level names a folder of modules.
 
-`LEGACY_MEDIATEK_NS` is what the last such rename cost, and is the argument for not spending it
-again: the médiathèque was `apps/mediatek` when the levels were named and became `apps/st0`, so the
-ref said one thing and the médiathèque another, and the level was rewritten to match, once. It is
-kept as a NAME rather than as an accepted spelling — nothing resolves it. A file still saying
-`@mediatek/…` names a module that no longer exists, which the loader reports as such; the constant
-exists so the migration and the diagnostics can say the old word out loud instead of spelling it
-inline in three places. See `packages/song/docs/moduleNamespaces.md`.
+`LEGACY_MEDIATEK_NS` is kept as a NAME rather than as an accepted spelling — nothing resolves it. A
+file saying `@mediatek/…` names a module that does not exist, which the loader reports as such; the
+constant exists so the migration and the diagnostics can say that word out loud instead of spelling
+it inline in three places. It is also the measure of what a level rename costs, and the argument for
+not spending it again. See `packages/song/docs/moduleNamespaces.md`.
 
 ## `_libraries` and `_modules`
 
 `LIBRARIES_DIR` is where the account's library repository is mounted, at the workspace root: a git
 submodule put there by the file service, holding the two families a project inherits, `modules/` and
-`chains/`. It is what `@st0/…` resolves against — the machine-wide `~/.studio/mediatek` cache used
-to be, and no longer is. Fixed, and not declared anywhere, by the same argument that removed
-`modules_from`: a path in a `project.yaml` could be wrong about a folder the loader can simply look
-for. Both it and `SHARED_MODULES_DIR` are here rather than beside `moduleLibraryDirs` because a
+`chains/`. It is what `@st0/…` resolves against, and not the machine-wide `~/.studio/mediatek`
+cache. Fixed, and not declared anywhere, by the argument that leaves `modules_from` dead: a path in
+a `project.yaml` can be wrong about a folder the loader can simply look for. Both it and
+`SHARED_MODULES_DIR` are here rather than beside `moduleLibraryDirs` because a
 browser names these folders too — st0's file tree keeps `_libraries` off the Project tab, since it
 has a tab of its own — and `sharedFolders.ts` reads the disk on its first line
 (`packages/song/docs/sharedFolders.md`).

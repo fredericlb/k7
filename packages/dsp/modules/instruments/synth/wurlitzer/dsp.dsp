@@ -55,9 +55,9 @@ vib = os.osc(8.0) * vibrato;
 // modulation : le baisser n'atténue pas, ça enlève des harmoniques. Frapper fort ouvre donc le
 // timbre en même temps que le niveau — ce qu'une lame fait vraiment.
 //
-// La première version mettait la vélocité une seule fois, à la sortie. Le résultat sonnait
-// juste et ne bougeait pas : chaque note avait exactement le même timbre, seulement plus ou
-// moins fort. Sur un piano électrique c'est l'essentiel qui manque.
+// La mettre une seule fois, à la sortie, sonne juste et ne bouge pas : chaque note a alors
+// exactement le même timbre, seulement plus ou moins fort. Sur un piano électrique c'est
+// l'essentiel qui manque.
 g(i) = gain * fmGain(i);
 
 // --- les deux paires --------------------------------------------------------

@@ -8,8 +8,8 @@ the interaction. It draws what `@studio/ui-chains` laid out and knows nothing ab
 a graph came from.
 
 A host owes the cable canvas nothing — it sizes itself off the graph host and draws itself
-outside React — but it does need the host to give `DomChains` a real size, as `fit()` already
-did. See `@studio/ui-chains`' `docs/wobble.md` for why the cables are not DOM any more.
+outside React — but it does need the host to give `DomChains` a real size, which `fit()` also
+requires. See `@studio/ui-chains`' `docs/wobble.md` for why the cables are not DOM.
 
 What stays in each app is the **shell**: fetching `/graph`, the reload polling, the chain
 list beside the canvas, the parked camera (a graph unmounts with its pane, so the camera
@@ -20,8 +20,8 @@ There is deliberately no `ChainsShell` yet. Promote one when two apps have writt
 same sidebar — guessing it now would be guessing.
 
 The camera is the one piece of that shell the package does name: `Cam` and `CamStore` are
-exported, because five surfaces had written `useRef<{x,y,k}|null>(null)` with four
-near-identical comments over it. A shape is not a sidebar; it was worth naming early.
+exported, because otherwise every surface writes `useRef<{x,y,k}|null>(null)` with its own
+near-identical comment over it. A shape is not a sidebar; it is worth naming early.
 
 ## What a host must supply
 
@@ -57,30 +57,31 @@ legitimate state (nothing set yet), so the offer has to be a fact of its own rat
 from the map's size. `offlineWritable`, `pluginWritable`, `trackWritable` and `rackTriggerable`
 then ask whether it can take one BACK.
 
-Showing without taking is legitimate: m9's graph knows a deck's tempo while the desk that sets it
-is unmounted. What is not legitimate is a knob that turns against a host with nowhere to put the
-value, and that lie is what the second half of each pair exists to avoid. It went years unasked:
-the send is an optional call (`setPluginParam?.()`, `onTrackSet?.()`), so a host that passed
-neither still got a widget that dragged, moved its optimistic override, sent nothing, and had no
-engine frame coming to correct it. st0's Graph panel was exactly that. A pad on a host that
-cannot make a sound is likewise drawn and inert, never clickable-and-silent.
+Showing without taking is legitimate: the desk's graph knows a deck's tempo while the desk that
+sets it is unmounted. What is not legitimate is a knob that turns against a host with nowhere to
+put the value, and that lie is what the second half of each pair exists to avoid. Nothing else
+catches it: the send is an optional call (`setPluginParam?.()`, `onTrackSet?.()`), so a host that
+passes neither still gets a widget that drags, moves its optimistic override, sends nothing, and
+has no engine frame coming to correct it. A pad on a host that cannot make a sound is likewise
+drawn and inert, never clickable-and-silent.
 
 `rehearsal` is the fifth, and it is not one of the pair: it says there is nowhere to send a value
-and none is needed, because the override IS the value. Without it the module builder's card drew
-every widget read-only until a plugin happened to be loaded — which is exactly the panel you
+and none is needed, because the override IS the value. Without it the module builder's card draws
+every widget read-only until a plugin happens to be loaded — which is exactly the panel you
 cannot try out yet. See `ModulePreview.tsx` above.
 
 More precisely, `rehearsal` means **a picked module FIELD is shown and never written**. A field is
 normally committed by a command that edits a file, and in the builder there is no project node for
-that command to reach — so a base dropdown either wrote into somebody else's song or did nothing
-at all, and either way the panel being written could not be tried out. Only fields are held back:
+that command to reach — so a base dropdown would either write into somebody else's song or do
+nothing at all, and either way the panel being written could not be tried out. Only fields are
+held back:
 a plugin PARAM still goes down the socket, because the plugin behind a preview is an orphan
 instance no project owns, turning its knobs is how you hear the module, and nothing about it is
 saved either.
 
 ### `moduleParams` — a value the graph cannot ask the engine for
 
-`offline` modules compile to nothing the engine holds — m9's tempo is one — so there is no plugin
+`offline` modules compile to nothing the engine holds — a deck's tempo is one — so there is no plugin
 to ask and no id to ask it by. Their value lives on whichever surface REALISES them (for the
 tempo, the desk that warps the clip), and this prop is how that surface lends it to the graph.
 Without it such a widget draws the number the file declares and never changes, which reads as a
@@ -124,17 +125,17 @@ param, and the module menu has nothing to say about which one you were pointing 
 
 Opt-in and absent by default. It sits on the OUTPUT and not on the input, because what you want
 to hear is the signal after everything in the chain has had it. st0 has a transport of its own
-and m9 has a deck, so neither wants a second play button inside the graph; the médiathèque has
-neither, which is why the prop exists.
+and the desk has a deck, so neither wants a second play button inside the graph; a host with
+neither is why the prop exists.
 
 ### The parked camera — `CamStore`
 
-It was named because it was not: six surfaces wrote `useRef<{x,y,k}|null>(null)` with four
-near-identical comments above it. The graph is torn down with its pane, so the pan and zoom have
+Named so it is one thing, rather than a `useRef<{x,y,k}|null>(null)` per surface with a
+near-identical comment above each. The graph is torn down with its pane, so the pan and zoom have
 to be held by something that outlives it (`apps/st0/frontend/docs/chainsGraph.md`). A host that
 omits it gets a fresh frame on every reopen, which is a choice, but rarely the intended one.
 `Cam` itself lives in `camera.ts` with everything else that moves it, and is re-exported from
-`DomChains.tsx` because four hosts import it from the package entry.
+`DomChains.tsx` because a host imports it from the package entry.
 
 **Stable props, and this one is not decoration.** Every node and every widget is memoised, so
 a prop whose identity changes on each of the host's renders undoes that for the whole graph.
@@ -147,17 +148,16 @@ Everything the host passes as a *callback* is already safe — the renderer read
 a ref and binds its own handlers once, precisely so a host is free to pass inline lambdas
 (st0's `App` does). It is the non-callback props above that have no such shelter.
 
-Why this is now load-bearing: the plugin-param subscription moved from the root of the graph
-down to each individual widget. Before, one frame re-rendered everything anyway and stale
-props cost nothing extra; now a frame is meant to redraw one control, and a churning prop is
-what would put the old cost back. See `@studio/engine-browser`'s `docs/params.md`.
+Why this is load-bearing: the plugin-param subscription sits on each individual widget rather
+than at the root of the graph, so a frame is meant to redraw one control. A churning prop puts
+the whole-graph cost back. See `@studio/engine-browser`'s `docs/params.md`.
 
 The engine store is **optional, and the component provides one when you don't** — the same
 arrangement `icons` has, for the same reason. `InputMeterBar` renders under every track node
-unconditionally, so a host that drew a graph without wrapping itself in an
-`EngineStoreProvider` threw `useEngineStore used outside <EngineStoreProvider>` at render.
-That is not a hypothetical: the médiathèque's module preview hit it, and m9's deck panel
-would have. Wrap the graph in your own provider to show live meters; pass nothing and they
+unconditionally, so without the fallback a host drawing a graph outside an
+`EngineStoreProvider` throws `useEngineStore used outside <EngineStoreProvider>` at render —
+which a module preview and a deck panel both do. Wrap the graph in your own provider to show
+live meters; pass nothing and they
 read silent, which is the truth for a host with no engine.
 
 ### Modules the engine has never heard of — `moduleParams` / `onModuleParam`
@@ -167,24 +167,24 @@ Optional, and off unless you pass one of them.
 A widget normally resolves to a PLUGIN param, addressed by the step's `pluginId`. An
 `offline` module has none: the compiler reads the type and emits no plugin at all, so there
 is nothing to watch and no id to watch it by. Its widgets therefore draw nothing and refuse
-the hand — correct, and the reason `buildGraphDoc` stopped inventing an id for them.
+the hand — correct, and the reason `buildGraphDoc` invents no id for them.
 
-But the value is not nowhere. It lives on whichever surface REALISES the module — m9's tempo
+But the value is not nowhere. It lives on whichever surface REALISES the module — a deck's tempo
 becomes a clip warp on the desk — and these two props are how that surface lends it:
 
 - `moduleParams: { [module]: { [param]: number } }` — keyed by MODULE name, since there is no
   plugin id to key by. Consulted before the value the file authored.
 - `onModuleParam(module, param, value)` — the way back, per frame during a drag.
 
-They are separate because **showing and taking are separate abilities**. m9's graph can show
+They are separate because **showing and taking are separate abilities**. The desk's graph can show
 a deck's tempo while the desk that sets it is unmounted, and cannot take a new one: realising
 a tempo needs that desk's songs and its document. Pass only `moduleParams` and the widget is
 read-only — drawn from a value it cannot change, rather than a knob that turns against
-nothing. That distinction is the whole point of the pair; a single prop would have brought
-back the lie the missing `pluginId` removed.
+nothing. That distinction is the whole point of the pair; a single prop would bring back the
+lie the missing `pluginId` avoids.
 
-A host that passes neither is unaffected: it draws those widgets inert, exactly as before. That
-was st0 and pl8; the médiathèque stopped drawing a graph, so st0 is the only host left.
+A host that passes neither is unaffected: it draws those widgets inert. st0 is the only host
+that draws a graph.
 
 ## What it emits
 
@@ -238,8 +238,8 @@ cable end plugged into it — only a free IN answers to nothing, having nothing 
 cable in hand, exactly the jacks that can LAND the loose end light up: the seeking side, free, and
 the same signal, because a midi cable has no business in an audio socket. And never back onto the
 node the cable LEFT: `graph chain connect` refuses that outright ("can't connect 'x' to itself"),
-so offering the socket only promised a landing the verb throws out. It was unreachable until a
-lane grew an input, which put a free socket on the very node most cables leave from.
+so offering the socket would only promise a landing the verb throws out. It matters because a
+lane has an input, which puts a free socket on the very node most cables leave from.
 
 **The plate and the cable end are one place drawn twice.** A socket's `left` is spread across the
 card's WIDTH — signal runs down, so the sockets are on the top and bottom edges — and that
@@ -273,7 +273,7 @@ put for ever.
 **Either sign.** A drop above the first track or left of it reports a negative coordinate, and
 that is a place like any other: `layout()` reports where the drawing BEGINS (`left`/`top`) next
 to how far it reaches, and the camera fit frames that box rather than `width × height` from the
-origin. It used to clamp at `0,0`, which read as a card sticking to the top edge and sliding
+origin. Clamping at `0,0` instead reads as a card sticking to the top edge and sliding
 sideways under the hand.
 
 **Zoomed past the widgets there is no header**, so the whole card takes the press instead (see
@@ -317,19 +317,19 @@ can be HEARD treating something you play rather than only inspected. Both props 
 chip is a control, and one you cannot click is worse than none. It is keyed by the source node's
 id, which is the graph's own name for the placeholder, `PREVIEW_SOURCE`.
 
-**`sourceArmed` / `onToggleSourceArm`** — the `A` button every track node's mixer strip has
-always drawn. In a preview it was inert: the strip is part of `TRACK_UI` and gets drawn whether
-or not a host wired the callbacks, so it read as a graph you cannot touch, which is what it was.
-Here it means "let this input through", the only thing a preview's source can do. The other four
+**`sourceArmed` / `onToggleSourceArm`** — the `A` button every track node's mixer strip draws.
+The strip is part of `TRACK_UI` and is drawn whether or not a host wired the callbacks, so
+unwired it reads as a graph you cannot touch. Here it means "let this input through", the only
+thing a preview's source can do. The other four
 strip controls are left at rest rather than wired to commands this graph has no way to carry
 out — a preview's source has no volume to ride and nothing to be muted against.
 
 **`paramsStore` / `onSetParam`** — the loaded plugin's live values and how to change one, what
-makes the module's own widgets SOUND rather than merely move. Both or neither. They are no
-longer what decides whether a widget answers the mouse: under `rehearsal` every widget turns and
-holds its position locally, because a panel is authored long before any plugin is loaded and "is
-this dropdown the right way round" is a question about the panel, not about the plugin. What
-these two add is the sound.
+makes the module's own widgets SOUND rather than merely move. Both or neither. They do not decide
+whether a widget answers the mouse: under `rehearsal` every widget turns and holds its position
+locally, because a panel is authored long before any plugin is loaded and "is this dropdown the
+right way round" is a question about the panel, not about the plugin. What these two add is the
+sound.
 
 **`rehearsal`, always on here.** This card is the panel being WRITTEN, tried out. A module field
 is committed by a command that edits a file, and the builder has no project node for one to
@@ -350,8 +350,3 @@ It defines its own `--sand`, `--mauve`, `--card`, `--line`, `--dim` and `--faint
 `--accent` **per node kind** — a track, a module and a sink take `--sand`, a curve `--mauve`,
 a stub red, an unsupported plugin amber. The accent dot, the selected node's border tint and
 the badge read it from whichever node they are inside.
-
-This page used to say the opposite: that nothing defined `--accent`, that five rules were
-therefore inert, and that whoever cared should fix it. That was true when it was written and
-stopped being true when the per-kind declarations landed. It is recorded here because the
-claim outlived the gap by long enough to send a reader looking for a bug that was not there.

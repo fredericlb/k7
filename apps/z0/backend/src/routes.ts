@@ -113,7 +113,7 @@ export function registerRoutes(app: Express): void {
   app.post("/next-category", adminOnly(handleNextCategory));
   app.get("/peek", adminOnly(handlePeek));
 
-  // The retired Grist editor, admin-only; its upload is a multipart "file" field, 32 MiB max.
+  // The Grist editor routes, admin-only; their upload is a multipart "file" field, 32 MiB max.
   const upload = memoryUpload(32 << 20);
   app.get("/editor/sessions", adminOnly(handleEditorListSessions));
   app.post("/editor/sessions", adminOnly(handleEditorCreateSession));

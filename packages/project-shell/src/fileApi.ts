@@ -11,7 +11,7 @@ import {
 
 export interface FileCfg {
   base: string; // http://<engine-host>:<filePort>
-  userEmail: string; // trusted (Phase-2 local trust)
+  userEmail: string; // trusted, not verified — the engine token below is the gate
   workspace: string; // the folder on that machine holding the repository
   engineToken: string; // the light LAN gate (from the whoami probe)
   /** WHICH engine this is — not for reaching it, but for naming it to another service, docs/fileApi.md. */

@@ -45,9 +45,9 @@ Notes are **hidden by default** and shown by the note button in the footer, besi
 they sit in the signal path, so drawing them always would put prose in the middle of the thing
 you are trying to read.
 
-> This replaced the `docs:` and `todos:` fields modules and tracks used to carry, and the Docs
-> panel that was their only reader. A file carrying one of them will no longer open: move the
-> prose into a `#` comment, or into a note if it is about the signal.
+> There is no `docs:` and no `todos:` field on a module or a track, and no Docs panel to read
+> one: a file carrying either does not open. Move the prose into a `#` comment, or into a note
+> if it is about the signal.
 
 An `io: in` module is a live interface input instead. It carries `channel:` — a channel number, a pair for a stereo input, or one of the labels from your preferences — plus two optional settings for what the input does before anything else sees it. It names no track: an input lands on the track at the head of the run it sits in, so one module can be shared by every project in a workspace. See [Chains](#syntax-chains).
 
@@ -81,8 +81,6 @@ params:
 ## modules/<type>/<name>/module.yaml — jsdsp: a module whose DSP is written in JS
 
 A module of type `jsdsp` gets its audio from a **description** rather than from code compiled into the engine. There is nothing to name: the type says the DSP is in **`jsdsp.ts`, in the module's own folder**, and that is the whole rule. A module is a directory you can copy, clone or share, and the source travels with it.
-
-(It used to be a `jsdsp:` field naming the file, beside a `plugin: {type: internal, name: DSP Graph}` that said nothing about it — two things that had to agree, and the interesting one was the one nobody read.)
 
 The file default-exports a function taking a graph builder. It imports nothing at runtime — the builder arrives as the argument — so a song folder needs no `node_modules`:
 
@@ -272,8 +270,8 @@ live side by side in the same file, and switching between them is one line.
 
 **The module's own fields are the first set.** The others go under `alternatives:`, and
 `alternative:` says which is on — by name, or by position when it has none. Leave `alternative:`
-out and the module runs its own fields, which is why a file that never uses this keeps exactly
-the shape it always had.
+out and the module runs its own fields, which is why a file that never uses this carries nothing
+about it.
 
 An alternative may set **any field a module has** — `params`, `plugin`, `ui`, a lane's `clips` —
 and it states only what it CHANGES. The merge is the one a node already gets over the module
@@ -292,7 +290,7 @@ bar: `node alternative select|create|copy <node> [name]`, and a bare `select` li
 For a **lane**, the timeline offers the same thing where you are already looking: a small badge
 beside the track icon carries the name of the set that is playing, amber while it is not the lane's
 own. Click it and you get that lane's menu — switch to another set, or start one. It appears only on
-a lane that has a choice, so a lane with a single set is exactly as it was.
+a lane that has a choice, so a lane with a single set carries no badge at all.
 
 A lane's sets are its **takes**, and they behave the way takes should. A new one starts **empty**
 (`events: []`), not holding the previous take's placements. Editing clips while a take is on changes
@@ -393,7 +391,7 @@ widgets:
   w4: { type: fader, col: 3, row: 0, rowSpan: 6, bind: Volume, min: -60, max: 6, label: Vol }
 ```
 
-A panel used to be a `ui:` block inside `module.yaml`. It moved into its own file so a rebuilt `_modules/` never takes hand-drawn work with it, and so a plugin every song reaches for is drawn once: a panel is saved where its module is, shared library included, and that is the one edit a shared module accepts without being forked. A plugin the engine merely reports has no folder anywhere, so it has no panel until somebody makes it a module. `ui migrate` moves the blocks still written inline. An inline `ui:` is still read, and a ui.yaml replaces it whole.
+A panel is a file of its own rather than a `ui:` block inside `module.yaml`, so that a rebuilt `_modules/` never takes hand-drawn work with it and a plugin every song reaches for is drawn once: a panel is saved where its module is, shared library included, and that is the one edit a shared module accepts without being forked. A plugin the engine merely reports has no folder anywhere, so it has no panel until somebody makes it a module. An inline `ui:` block is still read, and a ui.yaml replaces it whole; `ui migrate` moves the inline ones out into their file.
 
 ## modules/<type>/<name>/module.yaml — automations:
 

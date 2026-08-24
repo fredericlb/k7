@@ -1,6 +1,6 @@
 // ClipViewModes.tsx — the clip pane's view switch: step sequencer, piano roll, tracker. One
 // control, drawn in all three headers, because a mode you can leave but not come back to is a
-// trap: the 🎹 button this replaces only went one way, and returning meant reopening the clip.
+// trap — returning would mean reopening the clip.
 // Which modes are OFFERED is the clip's business (no rack downstream, no sequencer); this
 // only draws them. See docs/clipEditors.md.
 

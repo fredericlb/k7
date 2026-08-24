@@ -1,7 +1,6 @@
 // songPreview.ts — the smallest document that makes a CACHED SONG audible on a machine's
-// engine: its file as the one clip on the one track, and nothing else. It played a song
-// THROUGH a chain once, with the chain's steps as the track's plugins; chains left the
-// catalogue with the modules, and every caller was already passing no steps but one.
+// engine: its file as the one clip on the one track, and nothing else. The degenerate case is
+// the only case here, which is why there is one document builder and not two.
 // See ../../docs/playback.md.
 
 import { clipDoc, emptyDoc, trackDoc } from "@studio/engine-protocol/build";
@@ -77,8 +76,6 @@ export function playablePath(
   const sep = root.includes("\\") && !root.includes("/") ? "\\" : "/";
   return [root, entry.path, master].join(sep);
 }
-
-// `stepPlugin` stood here, reading a chain node's own `plugin:` block — but that is a resolution.
 
 /** What a bounce came back as; `mp3` is false when the machine had no ffmpeg (../../docs/playback.md). */
 export interface Bounced {

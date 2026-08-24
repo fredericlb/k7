@@ -8,15 +8,15 @@ holds the reasoning; the type file keeps the names.
 ## Two services answer two different questions
 
 **The machine** answers what is INSIDE a repository — `MachineWorkspace`, from the working clone
-it actually holds. Nothing else does. pl8 kept a bare blobless mirror of every repository to
-answer the same question from the hosted side; it was a second copy of what the working clone
-already had, and a worse one — a fetch behind, and blind to a project that is committed but not
-yet pushed. See `apps/st0/frontend/docs/projects.md`.
+it actually holds. Nothing else does. A hosted mirror answering the same question from the other
+side would be a second copy of what the working clone already has, and a worse one — a fetch
+behind, and blind to a project that is committed but not yet pushed. See
+`apps/st0/frontend/docs/projects.md`.
 
 **pl8** answers which repositories EXIST and what URI is behind each short name — `RepoSummary`,
-the register and nothing more. So there is no `projects`, no `branch` and no fetch status on it
-any more: all three described the mirror. What survives is what only a hosted service can hold, a
-list that belongs to a person rather than to a machine.
+the register and nothing more. Hence no `projects`, no `branch` and no fetch status on it: all
+three would describe a mirror. What it carries is what only a hosted service can hold, a list
+that belongs to a person rather than to a machine.
 
 ### The short name, and what it does not promise
 
@@ -75,7 +75,7 @@ See `packages/file-service/docs/cloneJobs.md`.
 `StemsReply` is what `POST /stems` answers — the desk asking for ONE record to be prepared. Two
 fields rather than one job, because a record already separated must start nothing: the desk asks
 on every load, and the scan flag it asks WITH is a snapshot taken minutes ago. So `ready` is the
-state of the disk, and `job` is only there when there was work to do. Encoding the first as a job
+state of the disk, and `job` is only there when there is work to do. Encoding the first as a job
 that is instantly done would hand the caller an id nobody can poll.
 
 ## Shares are the author's view
@@ -129,7 +129,7 @@ within `ENGINE_PONG_TIMEOUT_MS` means the socket is dead however open it claims 
 backoff doubles from `ENGINE_RECONNECT_MIN_MS`, jittered, resets on a connection that opened, and
 never exceeds `ENGINE_RECONNECT_MAX_MS` so a forgotten tab stops hammering the relay.
 
-**The outbox covers a blink, and only a blink.** Unbounded, it turned a ten-minute outage into a
+**The outbox covers a blink, and only a blink.** Unbounded, it turns a ten-minute outage into a
 burst of stale transport verbs delivered all at once on reconnect. `ENGINE_OUTBOX_MAX` caps it,
 oldest sent first, and `ENGINE_OUTBOX_TTL_MS` drops what nobody is waiting for any more.
 
@@ -145,5 +145,5 @@ which is how a browser reaches an engine it may not dial directly (an HTTPS page
 address); it is optional because the REGISTRY does not mint it — the `/engines` route does, being
 the authenticated one. See `packages/engine-registry/proxy.ts`.
 
-How good a link is — Q1/Q2/Q3, off a measured latency — is `./quality.md`. It replaced a locality
-tier, which ranked a gigabit LAN below a laptop running at 2048 frames.
+How good a link is — Q1/Q2/Q3, off a measured latency — is `./quality.md`. Measured, and not a
+locality tier, which would rank a gigabit LAN below a laptop running at 2048 frames.

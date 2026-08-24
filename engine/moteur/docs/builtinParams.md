@@ -5,7 +5,7 @@ name can come from. Three sources feed it, and two of them are *learned* — the
 `params:` and whatever extends it. So a plugin nobody has authored a param on yet has an **empty
 list, and no panel can be built for it at all**, which is the one thing the builder exists to do.
 
-That is what 4OSC looked like: 68 parameters, none of them offerable.
+4OSC is the case that makes it concrete: 68 parameters, none of them offerable.
 
 ## Why nothing static could find them
 
@@ -33,7 +33,7 @@ The script instantiates every entry of `builtInPlugins()` — the same list
 committed**, so nothing in the build depends on a C++ binary; re-run it after bumping Tracktion
 or adding a built-in.
 
-Today: **26 plugins, 150 parameters** — 88 of them 4OSC's.
+The table holds **26 plugins, 150 parameters** — 88 of them 4OSC's.
 
 `withStates` is on, unlike the hot path: a discrete parameter's named settings are what make a
 dropdown instead of a slider, and collecting them costs one pass here rather than one per state
@@ -52,13 +52,11 @@ properties (`depthMs.referTo (state, IDs::depthMs, um, 3.0f)`) instead of callin
 Nothing enumerates those, so the engine carries their metadata by hand in `PluginParams.cpp`'s
 `stateParamTable()`.
 
-That table used to be reached **only when the automatable walk came up empty**, which was right
-for the two plugins it was written for and wrong the moment a plugin had both kinds. 4OSC has
-both: 68 registered parameters, and its **wave shapes** on the ValueTree — so its 68 hid them, and
-it read as a synth whose oscillators could be tuned but not chosen.
-
-It is appended now, guarded by name so an entry can never shadow a registered one. 4OSC's 20 state
-controls are in it:
+That table is **appended**, never used as a fallback for an empty automatable walk. A plugin can
+have both kinds: 4OSC has 68 registered parameters *and* its **wave shapes** on the ValueTree, so
+reaching the table only when the walk comes up empty hides them and leaves a synth whose
+oscillators can be tuned but not chosen. Appending is guarded by name, so an entry can never
+shadow a registered one. 4OSC's 20 state controls are in it:
 
 | what | why it is here |
 |---|---|
@@ -80,11 +78,11 @@ draws as a list. The other three have no enum and are named all the same:
 | `filterType` | the calls it selects in `updateFilter`: `makeLowPass`, `makeHighPass`, `makeBandPass`, `makeNotchFilter`, and 0 skips the filter |
 | `filterSlope` | `filterSlopeValue == 24` is the test that cascades the second pole pair — so 12 or 24, and the values ARE the dB/octave |
 
-Read off the code that CONSUMES the value, which is exactly how this table's ranges have always
-been derived. What is still refused is a label nobody wrote down: an invented one is worse than a
-number, because it reads as knowledge.
+Read off the code that CONSUMES the value, which is how this table's ranges are derived. What is
+refused is a label nobody wrote down: an invented one is worse than a number, because it reads as
+knowledge.
 
-**4OSC is polyphonic**, and the table says so now: `Voice Mode` defaults to Poly, with 32 voices
+**4OSC is polyphonic**, and the table says so: `Voice Mode` defaults to Poly, with 32 voices
 and voice stealing on. `Voices` means something only in Poly — the other two modes reduce the pool
 to one whatever it says (`valueTreePropertyChanged`). The per-oscillator `Voices 1..4` is a
 different number: unison copies within one voice, which `Detune` and `Spread` act on.

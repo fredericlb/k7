@@ -148,16 +148,16 @@ std::string jsonString(const std::string& s) {
 
 // The `tracksToDo` bitset for a set of tracks: bit i set for each track's index in getAllTracks(edit).
 //
-// NOT te::toBitSet(), which is what this replaces. That one is broken upstream — it iterates the EDIT's tracks
-// instead of the argument it was given:
+// NOT te::toBitSet(), which is broken upstream — it iterates the EDIT's tracks instead of the argument it is
+// given:
 //
 //     for (auto t : allTracks)
 //         if (int index = allTracks.indexOf (t); index >= 0)
 //             bitset.setBit (index);
 //
-// so it sets every bit whatever you pass in, and any render asking for a subset silently got the whole mix. That
-// is what made two different frozen tracks come out bit-identical, and it had the stem export producing one copy
-// of the mixdown per track for as long as that feature has existed.
+// so it sets every bit whatever you pass in, and any render asking for a subset silently gets the whole mix:
+// two different frozen tracks coming out bit-identical, and a stem export writing one copy of the mixdown per
+// track.
 juce::BigInteger trackBits(te::Edit& edit, const juce::Array<te::Track*>& wanted) {
     juce::BigInteger bits;
     auto all = te::getAllTracks(edit);
@@ -217,11 +217,11 @@ std::unique_ptr<te::Edit> buildRenderEdit(te::Engine& engine, const ProjectDoc& 
 
 // Let the message thread finish what the render left queued before the Edit is destroyed.
 //
-// An offline bounce never pumps the loop (there is no app), so every asyncUpdate an external plugin posted while
-// it was being torn down is still sitting there when the Edit goes. That crashed roughly half of all freezes —
-// after the wav was fully written and the path printed, which is the worst shape for a bug to have: the file was
-// perfect and the caller saw a non-zero exit. Pumping here gives those callbacks a thread to run on while their
-// objects are still alive.
+// An offline bounce never pumps the loop (there is no app), so every asyncUpdate an external plugin posts while
+// it is torn down is still sitting there when the Edit goes. Roughly half of all freezes crash that way — after
+// the wav is fully written and the path printed, which is the worst shape a bug can have: a perfect file and a
+// non-zero exit at the caller. Pumping here gives those callbacks a thread to run on while their objects are
+// still alive.
 void drainMessageQueue(int ms = 200) {
     if (auto* mm = juce::MessageManager::getInstanceWithoutCreating())
         mm->runDispatchLoopUntil(ms);
@@ -243,16 +243,16 @@ double renderRate(const ProjectDoc& doc) {
  * A headless engine: everything Tracktion needs to BUILD and render an edit, and no audio device.
  *
  * `te::Engine`'s constructor opens the default device unless its EngineBehaviour says otherwise, and an offline
- * render has no use for one — it writes a file. Opening it was not merely wasteful: a device the LIVE engine
- * already holds cannot be opened twice, so a render (or a freeze) launched while the transport existed would sit
- * in the constructor waiting, printing nothing, until something killed it. Measured on an EMPTY project, which is
- * what pinned it here rather than anywhere in the rendering.
+ * render has no use for one — it writes a file. Opening one is not merely wasteful: a device the LIVE engine
+ * already holds cannot be opened twice, so a render (or a freeze) launched while the transport exists sits in
+ * the constructor waiting, printing nothing, until something kills it. Measured on an EMPTY project, which is
+ * what pins it here rather than anywhere in the rendering.
  */
 struct HeadlessBehaviour : te::EngineBehaviour {
     bool autoInitialiseDeviceManager() override { return false; }
 };
 
-// The engine both offline paths use. Constructed the same way in both, because they failed the same way.
+// The engine both offline paths use. Constructed the same way in both, because they fail the same way.
 std::unique_ptr<te::Engine> makeOfflineEngine() {
     auto engine = std::make_unique<te::Engine>("Studio", nullptr,
                                                std::make_unique<HeadlessBehaviour>());

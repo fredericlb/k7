@@ -154,7 +154,7 @@ describe("resizeTrackPlacement — what lands on disk", () => {
   });
 
   it("never writes `length` — the placement has no such field", () => {
-    // The regression this replaced: a `length` PlacementSchema is strict about, so the lane broke.
+    // PlacementSchema is strict about `length`, so writing one stops the lane loading at all.
     const dir = clipSong('events:\n  - { ref: kick, start: "1:1:1" }\n');
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 4, TEMPO);
     expect(readAt(dir, "nodes", "drums.yaml")).not.toContain("length");
@@ -231,7 +231,7 @@ describe("resizeTrackPlacement — what lands on disk", () => {
   });
 
   it("leaves the OTHER placements of the material alone", () => {
-    // The point of the event-level window: four kicks from one file no longer resize together.
+    // The point of the event-level window: four kicks from one file do not resize together.
     const dir = clipSong(
       'events:\n  - { ref: kick, start: "1:1:1" }\n  - { ref: kick, start: "2:1:1" }\n  - { ref: kick, start: "3:1:1" }\n',
     );

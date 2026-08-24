@@ -1,7 +1,7 @@
 // useModuleEngine.ts — the ONE socket to the engine this account chose. It carries the
-// transport for anything the moteur plays for the médiathèque: a chain variant, a song, a
-// playlist. It used to load MODULES too — that left with the builder, which is in st0 now,
-// where a plugin can be loaded into a real project. See docs/engine.md, docs/playbackTarget.md.
+// transport for anything the moteur plays for the médiathèque: a song, one of its variants.
+// It loads no MODULE: that needs a real project, which only st0 has.
+// See docs/engine.md, docs/playbackTarget.md.
 
 import { EngineClient, type EngineWarning } from "@studio/engine-browser";
 import type { ProjectDoc } from "@studio/engine-protocol/project";

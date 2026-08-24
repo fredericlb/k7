@@ -263,7 +263,7 @@ export const CommandBar = forwardRef<
         if (latest.current === id) setVocab(vals);
       })
       .catch(() => {});
-    // Deliberately NOT on `values`: re-fetching on every keystroke is what this replaced, the prior args being read at fetch time.
+    // Deliberately NOT on `values`: that would re-fetch on every keystroke, and the prior args are read at fetch time.
   }, [command, active, listArg]);
 
   // Keep the highlighted row on screen — an unseen selection can't be trusted.

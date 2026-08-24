@@ -41,8 +41,8 @@ std::vector<PluginInfo> builtInPlugins();
  * A SECOND list rather than part of the one above because they are registered separately and
  * come from a third party's header — but everything that asks "what can this engine create
  * without scanning" wants both, which `cachedPluginInfos` already concatenates. Exposed for the
- * same reason: `--dump-builtin-params` walked only the first, so `@engine/chorus-ensemble` and
- * 185 siblings had no parameters and therefore no panel.
+ * same reason: walking only the first leaves `@engine/chorus-ensemble` and 185 siblings with no
+ * parameters and therefore no panel in `--dump-builtin-params`.
  */
 std::vector<PluginInfo> airWindowsPlugins();
 
@@ -50,9 +50,9 @@ std::vector<PluginInfo> airWindowsPlugins();
 // the two Tracktion ships without registering (the convolver, the AirWindows set).
 //
 // ONE function, called by every path that builds an Engine — the live host, the offline renderer, the param dump.
-// It used to live only in EngineHost's constructor, so a `--render` produced a mix with no amp modeller, no
-// impulse response and no tap in it: an export that did not sound like what you had been listening to, and
-// nothing said so beyond one "could not create plugin" line on stderr.
+// A path that skips it — EngineHost's constructor alone, say — renders a mix with no amp modeller, no impulse
+// response and no tap in it: an export that does not sound like what you were listening to, and nothing says so
+// beyond one "could not create plugin" line on stderr.
 void registerBuiltInPlugins(te::Engine& engine);
 
 // Drop the memo so the next read re-parses the cache. Called once per apply (picking up a rescan) and after a

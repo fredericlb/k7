@@ -37,8 +37,8 @@ would be no help: the ten seconds it is wrong for are the ten that matter.
 So the process that writes says so, through `moduleFoldersMoved()`, wired to
 `Workspace.invalidateProjectDoc` — this service's single "something changed" choke point.
 Deliberately blunt: every write, not only a module's. Knowing which is knowing the answer, and one
-extra walk after a write is exactly what a write used to cost anyway; the five reads that follow
-it are still free, which was the point.
+extra walk after a write is exactly what a write costs without any of this; the five reads that
+follow it are free, which is the point.
 
 The rule this is an instance of, for the next cache backed by a watcher: **a watcher reports the
 FILESYSTEM's events, and the process doing the writing is ahead of them.** Both sources have to be
@@ -59,8 +59,8 @@ skipped.
 
 ## Why `fs.watch` and not chokidar
 
-The service already uses chokidar for the strudel watcher, so using it here would have been the
-default. Two reasons not to.
+The service uses chokidar for the strudel watcher, so it is the default choice here too. Two
+reasons not to.
 
 **Handles.** `fs.watch(root, { recursive: true })` is ONE handle per root — four for a project.
 Chokidar takes one per directory, which is ~150 for a médiathèque of modules. And on Windows a
@@ -96,7 +96,7 @@ failure that matters, so the check is made rather than skipped.
 `renameWithRetry` (25 attempts, 100 ms apart) is the net under all of it, and its comment already
 says so: it exists for a watcher's handle that lingers past the close.
 
-## What it measured
+## What it measures
 
 The six routes of one reload, alternating arms in a single invocation so the machine's drift
 falls out — the median of five each:

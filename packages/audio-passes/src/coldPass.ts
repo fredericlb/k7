@@ -1,5 +1,5 @@
-// coldPass.ts — the pass coldModules.md and processChain.md long recorded as missing: the work an
-// OFFLINE module does before a render, on a file, producing files. It decides WHAT to run and
+// coldPass.ts — the work an OFFLINE module does before a render, on a file, producing files
+// rather than a buffer. It decides WHAT to run and
 // refuses early; the running itself arrives as a function, because the thing that owns a
 // 166 MB model is the file service and this package must not depend on it.
 // See @studio/song's docs/coldModules.md.

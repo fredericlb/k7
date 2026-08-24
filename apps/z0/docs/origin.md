@@ -7,34 +7,32 @@ on its own reads like an arbitrary choice.
 ## Why the prefix is stripped for the API and not for the SPAs
 
 The proxy handles z0 in three blocks, and the order matters because the more specific rule
-has to win over the `/z0` catch-all. This was a repo-root Caddyfile of mutually exclusive
-`handle` blocks matched top to bottom; it is traefik on the LAN server now — see the root
+has to win over the `/z0` catch-all. It is traefik on the LAN server — see the root
 [docs/dev.md](../../../docs/dev.md) for the table it must hold, and
 `apps/studio/docker/nginx.conf` for the production twin, where nginx's longest-prefix rule
 does the ordering instead.
 
 - `/z0/api/*` — prefix **stripped**. The backend keeps seeing `/api/...` exactly as it
   would at a root, which is what the production edge does too.
-- `/z0/auth/*`, `/z0/audio/*`, `/z0/ws*` — stripped. Nothing else: this block used to add
-  `X-Forwarded-Prefix: /z0`, and that header is gone. See below.
+- `/z0/auth/*`, `/z0/audio/*`, `/z0/ws*` — stripped, and nothing more: no
+  `X-Forwarded-Prefix` header. See below.
 - the six SPAs — **not** stripped. Each vite `base` is the full public path, so the dev
   server must see the prefix; strip it and every asset request 404s against a server that is
   only listening under `/z0/<app>/`.
 
-## Why z0 no longer sets `X-Forwarded-Prefix`
+## Why z0 sets no `X-Forwarded-Prefix`
 
-`redirectUriFor` builds `<origin><X-Forwarded-Prefix>/auth/callback`. z0 set the header so
-its callback would be `/z0/auth/callback` rather than the origin root's, which belongs to
-pl8 — the service with no prefix, the one that mints `studio.sid`.
+`redirectUriFor` builds `<origin><X-Forwarded-Prefix>/auth/callback`. Setting the header
+here would name `/z0/auth/callback` rather than the origin root's, which belongs to st0 —
+the service with no prefix, the one that mints `studio.sid`.
 
-It could not work, and the reason is not z0's: **the IdP has only the prefixless callback
+That cannot work, and the reason is not z0's: **the IdP has only the prefixless callback
 registered on this client.** Asking for the prefixed one is refused at the authorization
 endpoint, before any password is typed, so no account could sign into z0 at all. A service
-mounted under a path cannot own an OIDC flow here. The header had one purpose and that
-purpose was unreachable, so it is gone; the account login is pl8's. Full account in
-[auth.md](auth.md).
+mounted under a path cannot own an OIDC flow here, so the account login is st0's. Full
+account in [auth.md](auth.md).
 
-## Why a second cookie still exists
+## Why a second cookie exists
 
 `bt_session` **beside** `studio.sid` — one written here, one only read here.
 
@@ -44,12 +42,11 @@ typed, a seat in a session, and no account anywhere. Modelling that as a studio 
 mean either inventing accounts for strangers or teaching the shared session a guest kind that
 only one app would use. So the guest cookie stays, and stays z0's.
 
-What has changed is the other half. An operator who is a studio user no longer holds two
-sessions: they hold the one studio session, the same one st0 and the médiathèque see, and
-signing out of z0 signs them out of those too. Both cookies use **one** key, `common`'s —
-z0's own `SESSION_SECRET` override had to go, and that is the whole configuration change.
-What keeps a guest cookie from being renamed into an account is not a second key but the
-signature itself, which covers the cookie's name; [auth.md](auth.md) shows it.
+The other half is not z0's. An operator who is a studio user holds one session, the same one
+st0 and the médiathèque see, and signing out of z0 signs them out of those too. Both cookies
+use **one** key, `common`'s — z0 declares no `SESSION_SECRET` of its own. What keeps a guest
+cookie from being renamed into an account is not a second key but the signature itself, which
+covers the cookie's name; [auth.md](auth.md) shows it.
 
 ## Nothing durable on disk
 

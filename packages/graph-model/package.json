@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The chains routing graph as the browser receives it. Types only, split out of @studio/web-protocol so that drawing a graph doesn't drag in auth, workspaces and the engine registry — st0, pl8 and m9 all draw chains, only st0 has the rest.",
+  "description": "The chains routing graph as the browser receives it. Types only, split out of @studio/web-protocol so that drawing a graph doesn't drag in auth, workspaces and the engine registry.",
   "types": "./types.ts",
   "exports": {
     ".": "./types.ts"

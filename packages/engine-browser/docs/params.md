@@ -10,14 +10,15 @@ times a second.
 `subscribe` wakes on **any** plugin. `subscribeTo(id, …)` wakes only on one.
 
 The whole-map channel is the honest one for a reader that genuinely needs the whole map —
-st0's `MidiFeedback`, which pushes every value back out to a control surface, and m9's
-`useDeckSet`. Those draw nothing, so a re-render costs a function call.
+st0's `MidiFeedback`, which pushes every value back out to a control surface, and the DJ desk's
+`useDeckSet` (`packages/ui-turntables/src/useDeckSet.ts`). Those draw nothing, so a re-render
+costs a function call.
 
 It is the wrong channel for anything that *draws*. A single whole-map subscription at the root
 of a tree of N nodes turns 20·N notifications into 20·N full-tree renders, each rendering N
-nodes — **quadratic in the number of plugins on screen**. That is what made st0's mixer heavy
-on a song with many tracks: the strips are the graph's own cards, one plugin each, and every
-strip re-rendered every other strip's frame.
+nodes — **quadratic in the number of plugins on screen**. That is what makes a mixer heavy on a
+song with many tracks: the strips are the graph's own cards, one plugin each, and every strip
+re-renders on every other strip's frame.
 
 ## Why per-plugin and not a selector over the map
 
@@ -63,10 +64,10 @@ screen, which is the musician's machine, and this browser may not be on it.
 
 ### Why the reply is called `plugin-param-list`
 
-Not `plugin-params`: that name was already taken, by the reply carrying a loaded INSTANCE's
-current values. The two are different questions — what a plugin type HAS versus what this one is
-set to — and sharing a name would have fed a type's list (an array) into the live-value path,
-which reads it as a map.
+Not `plugin-params`: that name belongs to the reply carrying a loaded INSTANCE's current values.
+The two are different questions — what a plugin type HAS versus what this one is set to — and
+sharing a name would feed a type's list (an array) into the live-value path, which reads it as a
+map.
 
 The `format` and the `id` ride back with the answer because the ask is slow and a caller may have
 moved on or asked about another plugin. Matching on them is what stops a late reply from filling

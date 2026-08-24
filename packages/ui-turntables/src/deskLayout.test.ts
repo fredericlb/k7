@@ -16,7 +16,7 @@ import {
 
 describe("deskLayout", () => {
   it("draws the record at full size when the deck has the room", () => {
-    // A fullscreened desk: what the deck looked like before it could be a pane, unchanged.
+    // A fullscreened desk: record, waveform, cues and title, nothing dropped.
     const l = deskLayout(900);
     expect(l.vinyl).toBe(VINYL_MAX);
     expect(l.waveform).toBe(WAVE_BASE);

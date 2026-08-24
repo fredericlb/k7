@@ -130,7 +130,7 @@ describe("filing an upload", () => {
   });
 
   it("files a published version beside every other song, saying who filed it", () => {
-    // `source` is a line in the sidecar, where a `recorded/` level in the path used to be.
+    // `source` is a line in the sidecar rather than a `recorded/` level in the path.
     const r = addSong({
       filename: "mixdown.mp3",
       bytes: Buffer.from("MIX"),

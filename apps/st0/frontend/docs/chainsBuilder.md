@@ -35,7 +35,7 @@ Three doors, and the tab is the one you find without knowing the word:
 - `chains builder` in the command bar, which toggles like `help`.
 - `/chains-builder`, or `/chains-builder/<ref>` — an address you can bookmark.
 
-The screen shipped with none of them, which is a whole feature nobody can reach. A chain row is a
+A chain row is a
 LEAF though a chain is a folder on disk: what the tab offers is the chain, not its files, and the
 module lookup beside it cannot tell the two folders apart — so the chain map is asked first.
 

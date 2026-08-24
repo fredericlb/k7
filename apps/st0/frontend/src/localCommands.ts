@@ -14,7 +14,7 @@ export const UI_EXACT: readonly string[] = [
   "popin close",
   "slot close",
   "select",
-  // `copy` was here; it is `selection copy` now, and what is left under `ui` is `copy path <file>`, the tree's own act.
+  // No bare `copy` here: copying a selection is `selection copy`, and the only `ui` one is `copy path <file>`, the tree's own act.
   "zoom",
   "zoom out",
   "zoom reset",
@@ -35,9 +35,9 @@ export const UI_EXACT: readonly string[] = [
   // …and the settings panel's tabs.
   "settings editor",
   "settings io",
-  // Who you are, the engine, the workspace, the language — the old menu's top and bottom, now a tab of their own.
+  // Who you are, the engine, the workspace, the language — one tab of their own.
   "settings account",
-  // The command catalogue as this person arranges it — still a full PAGE, a catalogue not being orderable in a 24rem column.
+  // The command catalogue as this person arranges it — a full PAGE, a catalogue not being orderable in a 24rem column.
   "settings commands",
   // The library's chains, edited as the graphs they are — a screen of its own (docs/chainsBuilder.md); `external <surface>` is a HEAD below.
   "chains builder",
@@ -65,7 +65,7 @@ export const UI_HEADS: readonly string[] = [
   "copy path ",
 ];
 
-// `BARE_NAMES` was here, for the tree's verbs; they are `fs file new` … now and share a head with nothing, so the exception is gone.
+// The tree's verbs are `fs file new` … and share a head with nothing, so no list of bare names is needed here.
 
 // `selection copy` and `selection paste` are matched by name in App rather than tabulated here — one head for the region a gesture aimed at.
 

@@ -7,7 +7,7 @@ import {
   PitchWobble,
 } from "./audioEffects";
 
-// Framework-free port of the Vue composable — monitor-web's copy, which was online's superset.
+// Framework-free: the store is plain, and React reaches it through useSyncExternalStore.
 
 export interface SongEntry {
   artist?: string;

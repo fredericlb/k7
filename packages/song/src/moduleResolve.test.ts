@@ -129,7 +129,7 @@ describe("resolvedUI", () => {
 
 describe("resolveModule", () => {
   it("merges params per key, deepest ancestor first", () => {
-    // Three levels: the bug this replaces resolved only one, so `a` was lost.
+    // Three levels: resolving only one loses `a`.
     const byRef = {
       "@library/a": mod({ params: { a: 1, b: 2, c: 3 } }),
       "@library/b": mod({ extends: "@library/a", params: { b: 20 } }),
@@ -142,7 +142,7 @@ describe("resolveModule", () => {
   });
 
   it("keeps an inherited asset the loader wrote as undefined on the child", () => {
-    // Decoration writes those keys at undefined, so a plain spread had the child erase its parent's.
+    // Decoration writes those keys at undefined, so a plain spread lets the child erase its parent's.
     const byRef = {
       "@st0/audio/amp": mod({
         nam: "/mods/amp/assets/jcm800.nam",

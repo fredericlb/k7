@@ -1,4 +1,4 @@
-// measure-broadcast.mjs — the étape-7 measurement, headless. Starts nothing: point it at a
+// measure-broadcast.mjs — the broadcast measurement, headless. Starts nothing: point it at a
 // running engine, subscribe, and read off the four numbers that decide the real design —
 // jitter spread, drift, sender-caused gaps, and whether audio actually flows.
 //

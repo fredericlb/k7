@@ -63,9 +63,9 @@ nothing, so a partial sync stays stale and the missing files are retried.
 ## Eviction lives next door
 
 `diff()` returns `drop` — what the cache holds and the owner **no longer has**. That is a
-different question from "what can this disk afford", which was open here for a while and is
-now answered in `docs/eviction.md`: a per-family byte budget, least-recently-fetched first,
-`modules` never evicted, and nothing automatic.
+different question from "what can this disk afford", which `docs/eviction.md` answers: a
+per-family byte budget, least-recently-fetched first, `modules` never evicted, and nothing
+automatic.
 
 One thing from that page belongs here too, because it is really a fact about *this* one:
 eviction has to rewrite the remembered manifest. Deleting bytes without forgetting them
@@ -85,11 +85,11 @@ système de fichiers, donc ce qui apparaît sous le vrai nom est toujours arriv�
 
 `fetch` rapporte une panne de transport en deux mots — `fetch failed` ou `terminated` — et
 range la vraie raison dans `cause`. Un appel qui se contente de `e.message` remonte donc un
-mot qui peut désigner six choses, et c'est ce qui est arrivé : « analyse impossible :
-terminated », dans un navigateur, à propos d'un téléchargement entre deux serveurs.
+mot qui peut désigner six choses — « analyse impossible : terminated », dans un navigateur, à
+propos d'un téléchargement entre deux serveurs.
 
 `why()` aplatit la chaîne des `cause` dans le message, parce que le message est le seul champ
-qui survit au trajet retour à travers HTTP jusqu'à un navigateur. On lit maintenant :
+qui survit au trajet retour à travers HTTP jusqu'à un navigateur. On lit :
 
 ```
 mediatek GET https://st0.priv.frediver.se/api/mediatek/file songs/…/original.flac:

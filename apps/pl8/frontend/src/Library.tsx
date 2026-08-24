@@ -70,8 +70,6 @@ const POLL_MS = 3000;
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
-// The three files a module is, `PANE_OF` and the two `holds…File` rows all stood here; they went with the families.
-
 /** Is this entry a SONG? The family alone answers — the scan stopped at the folder (../docs/library.md). */
 const isSong = (e: MediatekEntry): boolean => e.family === "songs";
 
@@ -233,7 +231,7 @@ export function Library() {
   }, [entries, file]);
   /** What is open: what the tree marks active, opens down to, and what the middle of the screen shows. */
   const opened = editingSong;
-  /** Where a drop lands, family-relative. It used to re-root a drop onto a MODULE into that module's `assets/`. */
+  /** Where a drop lands, family-relative: the section, plus the folder the drop resolved to. */
   const assetsTarget = useCallback(
     (dir: string): string => (dir ? `${section}/${dir}` : section),
     [section],
@@ -256,8 +254,6 @@ export function Library() {
   const playback = usePlaybackTarget();
   // Held HERE because this component RENDERS the provider — see playback/usePlayQueue.ts.
   const playQueue = usePlayQueue();
-  // The machine's plugin scan was read here, to give every scanned plugin a module; that pass went with `modules`.
-
   // The revision each family's listing was fetched at — the refetch condition.
   const seen = useRef<Record<string, string>>({});
 
@@ -443,8 +439,6 @@ export function Library() {
       clearInterval(t);
     };
   }, [isEngine, isFind, isZone, load, loadZone, section]);
-
-  // A SECOND poll for the repositories stood here; both are st0's home page now (../docs/library.md).
 
   return (
     /* Wrapping the whole shell, and holding this tab's ONE engine socket (../docs/playback.md). */
@@ -727,7 +721,6 @@ export function Library() {
                               .then(refresh)
                               .catch((e: Error) => setError(e.message)),
                         },
-                        // Two entries that made library modules out of a machine's plugin scan stood here.
                         {
                           key: "rename",
                           label: "Renommer…",

@@ -1,12 +1,9 @@
 # Where the médiathèque makes sound
 
-The library is hosted; the engines are not. So "play this" has always had two possible
-answers, and until now the app picked one for you and never said which: a song's master
-played in the browser, a chain variant played on the moteur. Both were right for their own
-reason, and neither was a choice.
-
-It is one now — an icon button in the header, left of the cog, holding a menu of
-destinations.
+The library is hosted; the engines are not. So "play this" has more than one possible answer —
+this browser, the chosen machine's moteur, that machine's own speakers — and which one is a
+CHOICE, not something the app picks for you in silence: an icon button in the header, left of
+the cog, holding a menu of destinations.
 
 ## Why a menu and not a switch
 
@@ -56,7 +53,7 @@ click is a row that cannot explain itself, and "that machine is off" is a differ
 The trap this repo keeps coming back to: **two disks**. The médiathèque this browser talks to
 is hosted, while the moteur opens paths on *its own* machine. So the engine branch does not
 play what the browser plays — it plays the copy in that machine's cache, found the same way
-`SongVariants` finds a variant and m9 finds a deck:
+the DJ desk finds a deck:
 
 ```
 GET {fileBase}/mediatek        → the cache's absolute root on that machine   (cacheRoot)
@@ -93,8 +90,7 @@ as a wait.
 `EngineHost::play` repositions the playhead only when the transport is **looping**; otherwise
 it resumes from wherever it was left. And a session outlives the documents put through it — it
 is keyed by service and person, not by what is loaded — so the playhead sitting there belongs
-to whatever this account last auditioned on that machine: a module preview, a chain variant, a
-longer song.
+to whatever this account last auditioned on that machine — very likely a longer song.
 
 Send a master and press play with no position, and the transport rolls from a point past the
 end of the clip. `playing` is true, the playhead advances, the meters move, and there is **no
@@ -102,13 +98,18 @@ sound** — a failure whose only symptom is the absence of one.
 
 So `play(doc, fromSeconds)` takes the position, between the document and the verb: the
 position belongs to the document just applied, and asking for it after `play` would be heard
-as a jump. `SongVariants` passes `0` — a variant is auditioned from the top; the player passes
-where the waveform was scrubbed to, which is `0` for a song not started yet.
+as a jump. The player passes where the waveform was scrubbed to, which is `0` for a song not
+started yet.
 
 ### A clean edit, because an apply is a diff
 
-The first real "no sound" was none of the above. Measured against the running moteur, the pl8
-session held this:
+An apply is a **diff**, and a diff can only remove what the engine's stored document says is
+there. An edit holding a plugin that document does not mention is therefore unreachable —
+`needsFullRebuild` never fires, nothing rebuilds, and the plugin stays for the life of the
+session. Since a session is keyed by service and person rather than by what is loaded, "the
+life of the session" means until the engine process exits.
+
+The symptom is silence while everything reports fine. Ask the running moteur and it reads:
 
 ```
 sessions      → { id: "pl8:fred_parapluie_org", playing: true, project: "preview: <a song>" }
@@ -116,28 +117,19 @@ edit-plugins  → [ "preview:crossfade / DSP Graph" ]
 state         → levels: [-100]        ← the track's output. Silence, while rolling.
 ```
 
-The song's document was applied — the project name is the song's — and a **module** audition's
-plugin was still on the track. The master ran through a `crossfade` graph nobody had asked for
-and came out at -100 dB. The transport reported `playing: true` throughout.
-
-Sending a document with `plugins: []` did **not** remove it. `drop-session` did, and the
-identical document then played at -25.8 dB.
-
-The reason is structural: an apply is a **diff**, and a diff can only remove what the engine's
-stored document says is there. An edit that holds a plugin that document does not mention is
-therefore unreachable — `needsFullRebuild` never fires, nothing rebuilds, and the plugin stays
-for the life of the session. Since a session is keyed by service and person rather than by what
-is loaded, "the life of the session" means until the engine process exits.
+The song's document is applied — the project name is the song's — and a plugin from some other
+audition is still on the track, so the master runs through a graph nobody asked for and comes
+out at -100 dB, `playing: true` throughout. Sending a document with `plugins: []` does **not**
+remove it; `drop-session` does, and the identical document then plays at -25.8 dB.
 
 So a document this session has not held is preceded by `reset()` — `dropSession`, which throws
 the edit away so the next apply builds one from nothing. Only when the document CHANGES: a
 pause and a resume must not rebuild the edit under the transport.
 
-**What is not established**: how the edit came to hold a plugin its document did not. Auditioning
-a module and then playing a master, on a fresh session, removes the plugin correctly — that was
-tried and it works. So this is a state the engine can reach and cannot leave, reached by a path
-not yet identified. `reset()` makes pl8 immune to it rather than fixing it, and the engine-side
-inconsistency is still worth hunting.
+**What is not established**: how the edit comes to hold a plugin its document does not. On a
+fresh session the removal works correctly, so this is a state the engine can reach and cannot
+leave, by a path nobody has identified. `reset()` makes pl8 immune to it rather than fixing it,
+and the engine-side inconsistency is still worth hunting.
 
 ### The playhead is only ours while our document is loaded
 
@@ -149,27 +141,24 @@ question with an answer.
 
 ### What the engine says is kept
 
-`onWarning` was not subscribed to, and that is expensive exactly here: a document naming a file
-the engine cannot open raises `clip source not found/invalid: <path>` and then plays silence.
-The engine *does* account for itself; pl8 was throwing the account away. It is now the first
-thing the player's footer says, above every locally-derived message, because it is the only
-one that comes from the machine actually holding the file.
+`onWarning` is subscribed to, and it earns its keep exactly here: a document naming a file the
+engine cannot open raises `clip source not found/invalid: <path>` and then plays silence. The
+engine accounts for itself, and dropping that account is expensive. It is the first thing the
+player's footer says, above every locally-derived message, because it is the only one that
+comes from the machine actually holding the file.
 
 Beside it, `sent` — a document went and nothing has rolled — covers the same failure seen from
 this side before the machine has said anything. Without it the screen is identical to a
 transport nobody asked to start.
 
-## One socket per screen
+## One socket for the tab
 
-`SongEditor` opens `useModuleEngine` **once** and hands it to both panes. It used to live
-inside `SongVariants`, which was correct while that pane was the only thing here that made the
-moteur play; the player can ask for the same engine now, and two hooks would be two
-connections to one machine from one tab — the very thing `useEngineChoice` exists not to do.
+`PlaybackProvider` opens `useModuleEngine` **once** and hands it out through `useEngine()`. Two
+hooks would be two connections to one machine from one tab — the very thing `useEngineChoice`
+exists not to do — and a song that keeps playing across screens needs the socket to outlive any
+one of them. One engine, one session, one thing playing at a time.
 
-Stopping on the way out moved with it, to the editor. The panes share a transport anyway: one
-engine, one session, one thing playing at a time.
-
-`useModuleEngine` grew two things for this — `onState` (so `playing` and the playhead come
+`useModuleEngine` carries two things for this — `onState` (so `playing` and the playhead come
 from the machine that is actually playing, never from a hopeful local flag) and `seek`. The
 seek is applied locally as well as sent, because the state frame is ~20 Hz and a playhead that
 only ever came back from the engine would lag a drag on the waveform enough to read as the
@@ -177,16 +166,11 @@ cursor snapping back.
 
 ## What the choice does not cover
 
-**Chain variants.** A variant *is* a graph of plugins, and only a moteur runs those. There is
-no browser answer to fall back to, so `SongVariants` ignores the destination rather than
-offering a choice one side of which would be silence. Same for the module builder, whose whole
-point is asking a loaded plugin what its parameters are.
-
-**Samples and recordings.** They have no play button yet, here or anywhere. When they get one,
+**Samples and recordings.** They have no play button, here or anywhere. When they get one,
 this is the setting it reads.
 
-So today the destination governs exactly one thing: a song's master. That is the surface where
-both answers are real.
+So the destination governs exactly one thing: a song's audio, master or variant. That is the
+surface where every answer is real.
 
 ## La troisième : les enceintes de la machine
 
@@ -217,9 +201,8 @@ It lives on the account, beside the engine id, in the same per-user JSON
 That store **replaces wholesale** — a merge would make a field impossible to clear — which
 means two settings that each PUT their own field erase each other. `frontend/src/prefs.ts` is
 the answer: one holder for the whole document, `patchPrefs` for a change, and nothing else
-calls `savePrefs`. `useEngineChoice` was moved onto it in the same change; before this there
-was only one field, so the bug had nowhere to happen yet.
+calls `savePrefs` — `useEngineChoice` included.
 
-`RegistryClient` in `@studio/engine-browser` is now generic in that shape (`P`), defaulted to
+`RegistryClient` in `@studio/engine-browser` is generic in that shape (`P`), defaulted to
 `{engineId?}`. The schema belongs to the host, and a union of every service's fields would be
 a shape no service actually has: pl8 remembers where playback happens, st0 does not.

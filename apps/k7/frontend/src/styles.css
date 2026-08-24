@@ -72,10 +72,9 @@ h3 {
   min-height: 100vh;
 }
 
-/* The nav that used to be a left sidebar now lives in a slim sticky header. It
-   never collapses behind a hamburger: on small screens its entries shrink to
-   icons (see the responsive rules at the bottom) so everything stays reachable
-   in one row. */
+/* The nav lives in a slim sticky header. It never collapses behind a hamburger:
+   on small screens its entries shrink to icons (see the responsive rules at the
+   bottom) so everything stays reachable in one row. */
 .topbar {
   position: sticky;
   top: 0;

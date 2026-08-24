@@ -148,7 +148,7 @@ function videoTrackFields(path: string[]): string[] {
 function moduleFields(path: string[]): string[] {
   if (path.length === 0) return keys(ModuleSchema);
   const [head, ...rest] = path;
-  // A lane's placements: `events:` is a module field now, so no track vocabulary of its own (docs/fields.md).
+  // A lane's placements: `events:` is a module field, so no track vocabulary of its own (docs/fields.md).
   if (head === "events") return keys(PlacementSchema);
   // A lane's TAKES are a list of lists, so the offer depends on how deep the path is.
   if (head === "takes") {

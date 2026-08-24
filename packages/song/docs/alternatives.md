@@ -26,8 +26,8 @@ Not written down anywhere: the fields at the top of the file ARE alternative "1"
 
 Three things follow, and all three are why it is shaped this way:
 
-- a module that never uses this keeps **exactly the file it had** — no wrapper key appeared under
-  everything, and no diff was needed to add the feature;
+- a module that never uses this keeps **exactly the file it would have anyway** — no wrapper key
+  sits under everything;
 - the first one **cannot be named**, because it has nowhere to carry a name. It answers to "1";
 - switching back to it **clears** `alternative:` rather than writing `alternative: 1`, so
   off-then-on returns the file byte for byte.
@@ -76,10 +76,10 @@ They reach a node the ordinary way, on `WebChainStep`, and only **when there is 
 list of one is not a choice, and a node with nothing to pick from should grow no button. A LANE's
 pair arrives by `WebGraph.trackAlternatives` instead, because a lane's node is built from the
 graph's track side rather than from a chain step. That fourth track-side channel is the seam worth
-collapsing next — a lane IS a module node now
+collapsing next — a lane IS a module node
 ([trackModules.md](trackModules.md)), and this says so the long way round.
 
-`trackAlternatives` has a second reader now: st0's timeline names the set each lane is playing in
+`trackAlternatives` has a second reader: st0's timeline names the set each lane is playing in
 its gutter, and opens this same menu from it. It gets there from the chains pane rather than from a
 field of its own on `WebProject` — one map for the badge and the menu means neither can name a set
 the other does not. "Only when there is more than one" is what makes that badge free for every lane
@@ -96,8 +96,8 @@ They overlap and they are different things, and the difference is what to hold o
 | applying it | STAMPS the values in; the preset is not "current" afterwards | selects it; both sets survive and one is on |
 | what it is for | a starting point | a state to switch between |
 
-Neither replaces the other, and nothing was merged: a shelf of starting points and a pair of
-states you A/B are different wishes.
+Neither replaces the other: a shelf of starting points and a pair of states you A/B are different
+wishes.
 
 ## The three verbs
 
@@ -128,19 +128,17 @@ it twice, because reading and writing do not agree:
 - **`clipsToEdit`** — where it LANDS: always the selected set, copying the inherited list into it
   on the first write.
 
-That copy-on-write is the whole of it. Every edit used to write `["clips"]` flat whichever set was
-on, so dragging a clip while on take 2 rewrote take 1 — the arrangement you were not looking at —
-and the two takes were never separate documents at all. It went unnoticed because a lane's
-alternatives were removed with the old lane shape and came back on the module while this file kept
-the constant the flattening had left it with, which its own comment named as the seam.
+That copy-on-write is the whole of it. Writing `["clips"]` flat whichever set is on would make a
+drag taken on take 2 rewrite take 1 — the arrangement you are not looking at — and the two takes
+would never be separate documents at all.
 
 Two details worth keeping:
 
 - an index found in the list that is PLAYING still points at the same placement after the fork,
   because the copy preserves order. Every index-taking edit rests on that;
-- the fork opens the set out into block style. An empty set is written `- {}`, and a flow map keeps
-  everything inside it on one line — a forked arrangement arrived as a single 400-character row, in
-  a file that is hand-edited and in git.
+- the fork opens the set out into block style. An empty set is written `- {}` that way: a flow map
+  keeps everything inside it on one line, and a forked arrangement would be a single
+  400-character row in a file that is hand-edited and in git.
 
 `color:` and `disabled:` are deliberately NOT forked: `setTrackField` writes the module's own,
 because those describe the lane rather than the take.

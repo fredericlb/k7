@@ -12,27 +12,25 @@ the same string.
 
 Every hosted app of this repo ships in a single container — `apps/studio/docker/` —
 st0 at the origin root, pl8 and k7 under their prefixes, z0's six SPAs under `/z0`, four
-backends beside one nginx that owns the path routing. It replaced four images (k7, st0,
-pl8, z0), each with its own Dockerfile, nginx.conf and build job.
+backends beside one nginx that owns the path routing.
 
-The reason is the origin. These apps were never independent: they share one hostname,
+The reason is the origin. These apps are not independent: they share one hostname,
 one session cookie, and one prefixless `/auth/*` that belongs to whichever service answers the
-root — st0 today, the médiathèque before it (the IdP has a single redirect_uri registered —
-`apps/z0/docs/origin.md` is the post-mortem of trying otherwise). Four images meant the EDGE held the path table, so which app answered which
-prefix was configuration living outside this repo, and each image had to be told which
-prefix to strip. Now the edge sends the whole origin **unstripped** and one nginx.conf,
-versioned next to the apps, decides. Deploying is one pull.
+root, which is st0 (the IdP has a single redirect_uri registered — `apps/z0/docs/origin.md`
+says what trying otherwise costs). One image per app would put the path table on the EDGE, so
+which app answers which prefix would be configuration living outside this repo, and each image
+would have to be told which prefix to strip. Here the edge sends the whole origin
+**unstripped** and one nginx.conf, versioned next to the apps, decides. Deploying is one pull.
 
 phare keeps douane out of its monolith because it fronts Authelia and deploys on its own
 cadence. **Nothing here plays that part**, so the studio image holds everything —
 `engine/moteur` and `engine/capot` excepted, and those are not server software at all:
 they run on the musician's machine, beside the audio interface.
 
-What it costs is written down rather than discovered: the four backends now share a
+What it costs is written down rather than discovered: the four backends share a
 container lifecycle, so any one of them dying recycles all four. That is `run-backends.sh`'s
-rule and phare's, and it is the price of one deployment unit. z0 in particular used to
-supervise and RESTART its own backend in place (its old `docker/entrypoint.sh`); it no
-longer does.
+rule and phare's, and it is the price of one deployment unit — no backend supervises or
+restarts itself in place.
 
 ## The chain
 
@@ -48,8 +46,8 @@ OneDev CommandStep (node -e, Europe/Paris)  →  ./build_version   e.g. "26.0803
              → <span>{VERSION}</span> in every app's chrome
 ```
 
-One stamp now covers every SPA that renders one, which is the honest thing for one image:
-they ship together, so they were never separately versionable in practice.
+One stamp covers every SPA that renders one, which is the honest thing for one image:
+they ship together, so they are not separately versionable in practice.
 
 `YY.MMDDHHmm` in Europe/Paris — `26.08031412` is 3 August 2026, 14:12. Sortable,
 readable at a glance, and short enough to sit in a header without crowding it. The
@@ -61,8 +59,8 @@ you deploy, the one you can `git show`, and the one you can read.
 
 ## Why `ENV` and not phare's `RUN VITE_APP_VERSION=… npm run build`
 
-**This is the one place studio deliberately does not copy phare**, and consolidating into
-one image made it matter more rather than less.
+**This is the one place studio deliberately does not copy phare**, and one image is what
+makes it matter.
 
 Phare writes the variable as a command prefix on the `RUN` line. That works there because
 its monolith builds each SPA on its own `RUN`… and would not survive being written as a
@@ -102,10 +100,9 @@ produced two different task hashes (`d459578664edb92f` / `04f869a3a312cc63`) and
 bundle each time, correctly stamped. So the variable both reaches the build and busts
 the cache.
 
-The Dockerfiles still call `npm run build --workspace <x>` directly, but that predates
-the stamp and is about build *scope*, not about this variable. If you ever add a
-build-time variable **without** a framework-recognised prefix, that one really would need
-a `globalEnv` entry.
+The Dockerfiles call `npm run build --workspace <x>` directly, which is about build *scope*,
+not about this variable. If you ever add a build-time variable **without** a
+framework-recognised prefix, that one really would need a `globalEnv` entry.
 
 ## The fallback is `dev`, twice
 
@@ -114,7 +111,7 @@ a `globalEnv` entry.
 locally built images read `dev`, and their `rN` tag scheme is unrelated to CI's.
 
 That script finds its apps by globbing `apps/*/docker/Dockerfile` and names the image
-after the folder, so the consolidation renamed nothing by hand: one folder, one image,
+after the folder, so nothing is named by hand: one folder, one image,
 `dev.frediver.se/frediverse/studio/studio` — the same `<repo>/<app>` shape phare's
 `phare/phare` has.
 
@@ -132,8 +129,8 @@ Eight of the nine SPAs, all in one image, so the eight stamps are always the sam
 
 | public path | SPA | render site |
 |---|---|---|
-| `/` | `pl8-frontend` | `apps/pl8/frontend/src/Library.tsx` — header, after the subtitle |
 | `/` | `st0-frontend` | `apps/st0/frontend/src/App.tsx` — header, after the title |
+| `/pl8` | `pl8-frontend` | `apps/pl8/frontend/src/Library.tsx` — header, after the subtitle |
 | `/k7` | `k7-frontend` | `apps/k7/frontend/src/views/HeaderView.tsx` — beside the mark |
 | `/z0` | `z0-online` | `src/App.tsx` — header |
 | `/z0/monitor` | `z0-monitor` | `src/views/MonitorView.tsx` — `.topbar` |
@@ -143,9 +140,7 @@ Eight of the nine SPAs, all in one image, so the eight stamps are always the sam
 | `/z0/editor` | `z0-editor` | **nowhere** — it ships in the image and renders no stamp |
 
 `z0-editor` is the one gap, and it is listed rather than left out so the table still answers
-"what is in the image". The `z0-editor` that used to hold this row rendered its stamp in
-`src/views/EditorView.tsx`, but that was the **Grist** editor, now retired; the `.z0` project
-editor took its name, its path and its port. Its chrome is `@frediverse/ui` like st0's rather
+"what is in the image". Its chrome is `@frediverse/ui` like st0's rather
 than z0's own CSS, so when the stamp is added the placement is st0's idiom and not the
 `.topbar` class its four siblings share.
 
@@ -157,7 +152,7 @@ the nginx `location` list read in the same order as this table.
 Styling follows each app's own idiom — Tailwind utilities where the surrounding chrome
 is Tailwind (st0, pl8, z0-online), a small class in the app's CSS file
 everywhere else. There is deliberately **no** shared version component: putting it in
-`z0-shared`'s auth badge would have landed it in six places at once, but that badge
+`z0-shared`'s auth badge would land it in six places at once, but that badge
 is an inline topbar item in three apps and a fixed top-right overlay in the other three.
 
 Two placements are constrained by things already on screen, and both constraints are
@@ -189,6 +184,5 @@ repo.** Secrets are per-project, so phare's does not carry over. If checkout fai
 a fresh setup, that secret is the first thing to check — a missing one fails with an
 unresolved-secret error, a wrong one with a 401 on the commons fetch.
 
-The URL was an absolute Windows path (`C:/Users/flb/Src/commons`) until August 2026,
-which no build agent could resolve. If you clone this repo and `commons/` comes up
-empty, run `git submodule sync && git submodule update --init`.
+If you clone this repo and `commons/` comes up empty, run
+`git submodule sync && git submodule update --init`.

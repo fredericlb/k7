@@ -1,11 +1,10 @@
 # routes/files.ts — the project file API, and why each route is shaped that way
 
-The project file API, re-rooted per workspace: mounted after `resolveWorkspace`, so `req.ws`
-is always a `Workspace`. Every former store call is a method on that workspace, and the
-command layer takes it explicitly.
+The project file API, rooted per workspace: mounted after `resolveWorkspace`, so `req.ws` is
+always a `Workspace`, every file call is a method on that workspace, and the command layer
+takes it explicitly.
 
-This page holds the reasoning that used to sit in the file as comment paragraphs. The code
-keeps one line per route and points here.
+This page holds the reasoning. The code keeps one line per route and points here.
 
 ## `/media` is not on this router
 
@@ -31,11 +30,11 @@ memory of its own on purpose: a picker tells the engine to switch NOW, and this 
 what has it still be on that interface after the next restart. `type` matters — ASIO and the
 Windows endpoint of one interface share a name and not a latency.
 
-`PUT /preferences/input-pair` was here too — how that interface's inputs are GROUPED, the
-other half of the same rig, remembered for the same reason and replayed on the same connect.
-It is the `system channel type` verb now: the route remembered the pairing while the browser
-told the engine on its own socket, which made one act two doors. The verb does both, in the
-order that survives a slow rig.
+How that interface's inputs are GROUPED is the other half of the same rig, remembered for the
+same reason and replayed on the same connect. It is the `system channel type` verb rather than
+a route beside this one: a route that remembers the pairing while the browser tells the engine
+on its own socket makes one act two doors, and the verb does both, in the order that survives a
+slow rig.
 
 ## The three routes that answer about things OUTSIDE the open song
 
@@ -48,8 +47,8 @@ built by the caller, so opening one is addressed the way a module library is.
 Only the LISTING of playlists is a route. Reading one and writing one are `/file` and
 `/write`, which already serve any workspace path — a second pair spelling `_playlists` into
 their URLs would be two ways to write one file, and the autosave the screen runs on is built
-on those two. `POST /playlists` was here for the same reason and went: making one is
-`playlist new`, a command like every other act on that screen.
+on those two. Making one is `playlist new`, a command like every other act on that screen, for
+the same reason.
 
 ## `POST /module` writes the file that makes a folder a module
 
@@ -112,33 +111,33 @@ as every other one on this service.
 
 ## `POST /command` — the verb, and the views the caller will draw
 
-A command that writes used to cost three sequential round trips: this one, then `/graph`, then
-`/project-doc` — and the last two each rebuild from disk, `buildGraphDoc` through `loadGraph`
-and `cachedProjectDoc` through `loadProject`. Measured on a real song (14 tracks, 58 clips, 30
-plugins): 401 ms and 367 ms, and this service is one process, so they queue rather than
-overlap. Inserting a module in the chains graph left the canvas showing the old picture for all
-of it.
+A command that writes would otherwise cost three sequential round trips: this one, then
+`/graph`, then `/project-doc` — and the last two each rebuild from disk, `buildGraphDoc`
+through `loadGraph` and `cachedProjectDoc` through `loadProject`. On a real song (14 tracks, 58
+clips, 30 plugins) that is 401 ms and 367 ms, and this service is one process, so they queue
+rather than overlap: inserting a module in the chains graph leaves the canvas showing the old
+picture for all of it.
 
 Building the graph HERE costs the same 401 ms but spends it inside a request the client is
 already waiting on, so the canvas can redraw the moment this returns instead of a fetch and a
-parse later. Keying it on the revision keeps `transport play` exactly as cheap as it was.
+parse later. Keying it on the revision keeps `transport play` as cheap as it is without one.
 
 `want` is the other half, and it took a measurement to find: st0 runs a whole class of gestures
 — mute, solo, a fader, a knob — through a caller that deliberately does NOT reload the shell,
-so nothing ever fetched `/graph` afterwards and the picture built here was thrown away whole.
+so nothing fetches `/graph` afterwards and a picture built here is thrown away whole.
 62 ms on the reference song, per knob turn, on the one thread everything else queues behind. So
-the caller says which views it will draw, and this builds only those. The old behaviour is the
-DEFAULT rather than the exception: a body without the field still gets the graph, and an empty
+the caller says which views it will draw, and this builds only those. The graph is the
+DEFAULT rather than the exception: a body without the field still gets it, and an empty
 list is a caller saying, out loud, that it wants none.
 
 `at` is a workspace-relative folder the verbs should act on INSTEAD of the open project — the
 chains builder's template. Through `safePath` like every other path a browser sends, so it
 cannot address its way out of the workspace, and absent for every ordinary command.
 
-`rev` rides beside the graph and no longer depends on it — it is the token AFTER the command,
+`rev` rides beside the graph and does not depend on it — it is the token AFTER the command,
 which a client uses to stop re-asking the questions this reply has already answered (st0's
-`noteRevision`). Pairing it with the graph meant a caller that wanted no picture also got no
-token, which is the one thing every writing caller can use.
+`noteRevision`). Pairing it with the graph would leave a caller that wanted no picture with no
+token either, which is the one thing every writing caller can use.
 
 `changed` is the third of that family and the finest-grained: WHICH files the command wrote.
 The token says something moved, this says what — so a client can re-ask the questions that
@@ -152,10 +151,10 @@ old shape sees exactly what it saw before.
 
 ### The route takes no walk of its own
 
-The two tokens come OUT of the run. It used to take two — one before the command and one after
-— and the run took four more inside `recordChange`, all of the same tree, all microseconds
-apart. `recordChange` has to cross it twice whatever happens, to diff what the mutation did, so
-it names both instants off walks it was doing anyway. `Workspace.Recorded` is the shape, and
+The two tokens come OUT of the run. Taken by the route instead — one before the command and one
+after — they would be two more walks of the tree the run already crosses four times inside
+`recordChange`, all microseconds apart. `recordChange` has to cross it twice whatever happens,
+to diff what the mutation did, so it names both instants off walks it was doing anyway. `Workspace.Recorded` is the shape, and
 `withRevision` seeds the graph build with that same token rather than a fresh walk: `graphDoc`
 asks for the revision several times over (its own memo, then `clipExtents` through the compiled
 doc). `req.userEmail` lets commit/pull pin git to this user's deploy key — see `makeHost`.
@@ -178,7 +177,7 @@ WHO plays and WHEN stays with the app holding the engine session.
 draws. A route of its own rather than a shape `/project-doc` might also return: the two are
 different documents from different compilers (a song has a tempo, its picture has a viewport),
 and one route answering either would make "which did I get" a runtime question at every call
-site. BOTH answer for the same folder now — a song carries its own picture — and a project with
+site. BOTH answer for the same folder — a song carries its own picture — and a project with
 no `video_tracks/` gets an empty document rather than an error, so "no picture" and "broken
 picture" stay two different answers.
 
@@ -190,8 +189,7 @@ the editor walking the tree and reading each file itself: the parse and its diag
 surface valid". Always 200 — a project with no surfaces has none, which is not an error.
 
 `/workspace-tree` is separate from `/tree` for the reason `Workspace.workspaceTree` is its own
-method: two questions, and only one of them is the editor's. It replaces pl8's
-`/api/projects/:id/tree`.
+method: two questions, and only one of them is the editor's.
 
 ## `POST /module-base/snapshot` — keeping a plugin's opaque state
 
@@ -230,16 +228,16 @@ genuinely does not know.
 
 A hand-edited source is a project change, and the ENGINE only ever hears about one when
 something pushes: a command through the host's `applyProject`, `/open` and a reconnect through
-`sendActiveProject`. A write did neither. So editing a clip's `from`/`to` in the editor moved
-the file, moved the revision and redrew every surface, while the engine went on playing the
-window it already had — until something restarted the link and its `open` re-sent the document.
-That is the whole of "I have to restart it for the change to land".
+`sendActiveProject`. A write does none of those by itself, so without this push editing a
+clip's `from`/`to` in the editor moves the file, moves the revision and redraws every surface
+while the engine goes on playing the window it already has — until something restarts the link
+and its `open` re-sends the document. That is the whole of "I have to restart it for the change
+to land".
 
 TWO gates, because either alone is wrong. The token — `recordChange` brackets the mutation with
-the revision either side, and the route used to take `.value` and drop both — says the tree
-moved, but it moves for a playlist and a library module too, which are not this song. And the
-path alone would push for a `.wav` dropped beside the clips. Measured, not assumed: a write to
-`_playlists/` does move that token
+the revision either side — says the tree moved, but it moves for a playlist and a library
+module too, which are not this song. And the path alone would push for a `.wav` dropped beside
+the clips. Measured, not assumed: a write to `_playlists/` does move that token
 (`packages/file-service/src/writePushes.test.ts`).
 
 `startEngineForActive` rather than `reloadActiveProject`: the latter drops the browser's
@@ -271,5 +269,5 @@ onset and a large value makes none, so neither end is a useful thing to ask for.
 ## Presets are project-local
 
 They live in the SONG, which the engine never sees, so they are handled brain-side.
-`/presets/apply` takes a NAME, not a path: the shelf is a file in the module's folder now, so
+`/presets/apply` takes a NAME, not a path: the shelf is a file in the module's folder, so
 there is nothing for a crafted path to escape.

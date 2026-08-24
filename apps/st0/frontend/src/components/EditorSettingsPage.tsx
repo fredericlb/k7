@@ -3,8 +3,8 @@
 // editor toolbar's Vim button — so this screen is a second control for the same
 // preference, not a second copy of it.
 //
-// It was a full-screen page with its own title and a Back button, which is a lot of chrome for
-// one switch. The panel supplies all three now (SettingsPanel.tsx), so this draws the switch.
+// It draws the switch and nothing else: the title, the frame and the way back are the panel's
+// (SettingsPanel.tsx), which is a lot of chrome to repeat for one control.
 
 import { Button } from "@frediverse/ui/button";
 import { Terminal } from "lucide-react";

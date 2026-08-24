@@ -7,10 +7,9 @@ points of a clip's stretch map. What warping IS, and what the engine does with a
 ## `readClipWarp`, and why it exists
 
 There are TWO compilers — `nodeProject` builds a placement, `project.mapClip` builds the unplaced
-clip a surface draws before any lane names it — and only the first of them ever read `warp`. So the
-clip editor, which asks for the whole FILE, was handed a document with no map at all: no stretch
-marks were drawn in the warp view, ever, and `warpStretch` priced a warped clip at 1 so the picture
-was drawn at the wrong rate into the bargain.
+clip a surface draws before any lane names it — and the clip editor asks for the whole FILE. This is
+what puts the map in front of it: without one, no stretch mark is drawn in the warp view and
+`warpStretch` prices a warped clip at 1, so the picture is drawn at the wrong rate as well.
 
 The DECLINE is answered separately rather than folded in, because the two callers need different
 things from it: a placement that declines still has to say `warpOff` so the timeline can cross its
@@ -19,16 +18,12 @@ cannot state a rate.
 
 ## `beatAtSource` is piecewise
 
-**The engine is piecewise and the drawing was not.** `applyClipWarp` gives every interior marker to
+**The engine is piecewise, so the drawing has to be.** `applyClipWarp` gives every interior marker to
 Tracktion's `WarpTimeManager`, which re-times each segment on its own (`EditBuilder.cpp`), while
 `warpStretch` answers ONE ratio — the first marker to the last. That ratio is the right answer to
-"how long is this clip", which is what it was written for, and the wrong one for "where is this
-moment": a point pinned in the middle moved the sound and left the picture where it was.
-
-Worth knowing when reading old comments: the engine was for a while piecewise only on paper. It
-pinned those markers as `LoopInfo` beat points, which auto-tempo prices at one constant rate, so the
-sound was a straight stretch and it was the PICTURE that was right. See the engine's own
-`docs/warp.md`.
+"how long is this clip", which is what it is for, and the wrong one for "where is this moment": under
+it a point pinned in the middle moves the sound and leaves the picture where it was. The engine's own
+`docs/warp.md` is the other half of this.
 
 Outside the map, the end segments' own rate continues. Extrapolating rather than clamping is what
 the engine does too — a clip is not silent past its last marker — and it keeps the function
@@ -69,9 +64,8 @@ as it did. The third point is what makes it a warp.
 
 The engine hands Tracktion the map's beat span as the length of the WHOLE source and lets auto-tempo
 stretch. So the map's last point has to sit at the file's end, or the engine reads the take's tempo
-off the wrong duration: a render that appended a two-second tail to a 17.92 s take turned 110 bpm
-into 98.9, played everything 11% slow, and — since an unlooped clip is capped at its window in SOURCE
-seconds — cut the phrase before its end.
+off the wrong duration: a tail a render appends stretches the whole take slow in proportion, and —
+since an unlooped clip is capped at its window in SOURCE seconds — cuts the phrase before its end.
 
 The material itself is untouched by a bounce: same start, same rate, sample for sample. So every
 existing point keeps its second, and only the END moves. What is appended continues at the map's own

@@ -1,7 +1,7 @@
-// useRevision — ONE poll of the file service's change token for the whole app: the diagnostics
-// and disk-sync hooks each ran their own 2s timer over /revision, which was the same request
-// twice. A refcounted poller answers both, and consumers react to the token rather than to a
-// timer. It takes its fetch as an argument so the refcount and de-duplication are testable.
+// useRevision — ONE poll of the file service's change token for the whole app: a 2s timer per
+// consumer over /revision would be the same request several times over. A refcounted poller
+// answers them all, and consumers react to the token rather than to a timer. It takes its fetch
+// as an argument so the refcount and de-duplication are testable.
 
 import { useSyncExternalStore } from "react";
 import { api } from "../api";

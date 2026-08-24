@@ -63,9 +63,9 @@ canvas draws worse.
 
 ## Over the cards
 
-The cable canvas sits above the node cards now (`z-index` on `.dgx-cablecv`): a patch bay's
+The cable canvas sits above the node cards (`z-index` on `.dgx-cablecv`): a patch bay's
 cables lie on top of the rack, and each cable's shadow is what seats it visually on the card
 face it crosses. This is safe because the canvas never takes the pointer — and the SVG layer
 (hit paths, labels, the insert `+`) deliberately stays *below* the nodes, so nothing a card
-offers becomes unclickable under a cable. The affordances keep their old stacking; only the
-paint rides on top.
+offers becomes unclickable under a cable. Only the paint rides on top; every affordance stays
+underneath.

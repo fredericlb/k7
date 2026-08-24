@@ -46,7 +46,7 @@ frappe visant la ligne du dessous n'aille pas charger un morceau encore en cours
 ## Ce qui n'est pas chargeable reste visible
 
 Un morceau que le cache n'a pas encore est affiché, grisé, avec son icône de téléchargement
-et la raison en infobulle. Les mêmes trois états que la liste du milieu (voir
+et la raison en infobulle. Les trois états sont ceux du `SetList` (voir
 [setList.md](setList.md)) : pas encore dans le cache, dossier sans audio, aucun moteur. Le
 faire disparaître rendrait un set auquel il manque trois morceaux identique à un set qui ne
 les a jamais eus.
@@ -58,9 +58,5 @@ de se contredire sur lequel est ouvert. La recherche est vidée **en sortant** e
 entrant : rouvrir pour l'autre platine doit repartir propre, et une recherche laissée derrière
 cacherait le set derrière le dernier mot de quelqu'un.
 
-## Redondance assumée, pour l'instant
-
-La liste du milieu du pupitre fait déjà charger un morceau sur A ou B, avec ses deux boutons.
-Le navigateur ne la remplace pas — elle n'a pas été demandée en retrait. Les deux coexistent :
-la liste du milieu est le set qu'on voit d'un coup d'œil, le navigateur est celui qu'on
-fouille. Si le milieu doit servir à autre chose, c'est là qu'il faudra trancher.
+C'est aussi la seule liste du pupitre : le milieu appartient aux platines, qui veulent la
+largeur ([mix.md](mix.md)).

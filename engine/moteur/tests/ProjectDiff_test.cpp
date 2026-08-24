@@ -111,11 +111,10 @@ void diff_track_rename_is_not_readd() {
 
 // Mute/solo/input-gain are applied in place via TrackParamsChanged (no rebuild).
 //
-// This test named `volume` until it was noticed that it had not compiled for some time:
-// ProjectDoc.h says "No volume and no pan — a track's level and position are a MIXER MODULE
-// at the end of its chain", and the field went with that change while the test did not. It
-// went unnoticed because the build presets pin `targets: ["studio-moteur"]`, so this target
-// is never built by an ordinary `npm run build:win`. See the note in AGENTS.md.
+// Not `volume`: ProjectDoc.h says "No volume and no pan — a track's level and position are a
+// MIXER MODULE at the end of its chain", so there is no such field to drift. A test naming one
+// stops compiling and nobody notices, because the build presets pin `targets: ["studio-moteur"]`
+// and this target is never built by an ordinary `npm run build:win`. See the note in AGENTS.md.
 void diff_track_params_in_place() {
     ProjectDoc a;
     a.tracks.push_back(mkTrack("t1", "Drums"));
@@ -153,8 +152,8 @@ void diff_plugin_param_drift_is_incremental() {
 }
 
 // Swapping the plugin (same module id, different name/type) is a REPLACE, not "same plugin whose params
-// drifted": it must come out as remove + add, so the old instance goes and a new one is built. It no longer
-// forces a rebuild — with both halves incremental, and removals emitted before adds, the pair does the job
+// drifted": it must come out as remove + add, so the old instance goes and a new one is built. It forces no
+// rebuild — both halves are incremental and removals are emitted before adds, so the pair does the job
 // in place: the old plugin leaves the chain and the new one is inserted after whatever still precedes it.
 void diff_plugin_swap_is_replace_and_rebuild() {
     ProjectDoc a;
@@ -195,7 +194,7 @@ void diff_plugin_add_is_incremental() {
 }
 
 // Removing one does not rebuild either, and that one is not about speed: a rebuild replaces the Edit, and the
-// transport with it, so unlinking a module while the song played used to stop the song.
+// transport with it, so taken that way unlinking a module stops the song.
 void diff_plugin_remove_is_incremental() {
     ProjectDoc a;
     {
@@ -259,12 +258,12 @@ void diff_clip_moved() {
  * Two placements of ONE material must not share an engine clip name.
  *
  * The name is how a clip is found again: `removeClipFor` matches on it and stops at the first hit.
- * All three sites spelled it `name.empty() ? id : name`, and `ClipDoc::name` is the MATERIAL — the
- * same string for every placement of a sample, and never empty — so the id was never reached.
+ * Spelled `name.empty() ? id : name` it never reaches the id, because `ClipDoc::name` is the
+ * MATERIAL — the same string for every placement of a sample, and never empty.
  *
- * What that cost: a PASTE makes a second placement of one material by definition, so moving either
- * one removed the OTHER from the edit and left the moved clip behind. The lane then played a clip
- * the document no longer held, under the one that had just moved — one event doubled from a certain
+ * What that costs: a PASTE makes a second placement of one material by definition, so moving either
+ * one removes the OTHER from the edit and leaves the moved clip behind. The lane then plays a clip
+ * the document does not hold, under the one that just moved — one event doubled from a certain
  * point, and only until the next reload, since a rebuild puts back what the document says.
  */
 void clip_name_is_the_placement_not_the_material() {
@@ -356,9 +355,9 @@ void diff_removals_before_adds() {
 }
 
 // A duplicate id is DIFFED AS ONE and SAID SO. index() keeps the first — changing which one survives would
-// change what plays — but it used to drop the rest in silence, so a second track sharing an id was built by
-// populateEdit and then invisible to every later diff: editing it reached the engine and changed nothing.
-// Same shape as the ring a lane requested twice built empty.
+// change what plays — and drops the rest, so without the warning a second track sharing an id is built by
+// populateEdit and then invisible to every later diff: editing it reaches the engine and changes nothing.
+// Same shape as the ring a lane requests twice building empty.
 void diff_duplicate_id_is_reported() {
     std::vector<Warning> seen;
     setWarningSink([&](const Warning& w) { seen.push_back(w); });

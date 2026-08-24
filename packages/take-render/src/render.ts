@@ -125,7 +125,7 @@ export interface K7Config {
   token: string;
 }
 
-/** Read `{ k7: { url, token } }` from a JSON file — `radiok7` is still read, see docs/rendering.md. */
+/** Read `{ k7: { url, token } }` from a JSON file — `radiok7` is read too, see docs/rendering.md. */
 function readK7File(path: string): { url?: string; token?: string } {
   if (!existsSync(path)) return {};
   type Pair = { url?: string; token?: string };
@@ -150,7 +150,7 @@ function readK7File(path: string): { url?: string; token?: string } {
 // The name of the per-workspace settings file that holds the k7 credentials.
 export const WORKSPACE_SETTINGS = ".settings.json";
 
-// k7 endpoint + token, from .settings.json, then the env, then the legacy host-wide config.
+// k7 endpoint + token, from .settings.json, then the env, then the host-wide config.
 export function readK7Config(
   workspaceRoot?: string,
 ): K7Config | { error: string } {

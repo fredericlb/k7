@@ -1,5 +1,5 @@
-// SettingsPanel.tsx — the cog, as a PANEL docked at the right: one tab per screen it used to
-// open, beside the panes rather than covering what it configures.
+// SettingsPanel.tsx — the cog, as a PANEL docked at the right: one tab per settings screen,
+// beside the panes rather than covering what it configures.
 //
 // Each tab is a COMMAND the shell dispatches (`ui settings io`, …), not a callback — that is
 // what keeps the palette and the panel from drifting. COMMANDS stays a full page, reached by a
@@ -144,7 +144,7 @@ export function SettingsPanel({
   );
 }
 
-/** Who you are, and the three ways out of here — the old menu's top and bottom, ACTIONS rather than a screen, given a tab now the menu is gone. */
+/** Who you are, and the three ways out of here — ACTIONS rather than a screen, given a tab of their own because there is nowhere else to put them. */
 function AccountTab({ onRun }: { onRun: (line: string) => Promise<void> }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   useEffect(() => {

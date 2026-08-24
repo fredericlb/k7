@@ -1,5 +1,5 @@
-// What the clock sends, and — the point of this file — what it no longer sends: a tick whose
-// look-ahead window held no event used to re-push a document identical to the last one.
+// What the clock sends, and — the point of this file — what it does NOT send: a tick whose
+// look-ahead window holds no event must not re-push a document identical to the last one.
 
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -59,7 +59,7 @@ describe("PatternClock", () => {
     clock.dispose();
   });
 
-  // The regression this file exists for — see docs/patternClock.md.
+  // The property this file exists for — see docs/patternClock.md.
   it("says nothing over windows that hold none", async () => {
     const sent: ProjectDoc[] = [];
     const clock = new PatternClock((d) => sent.push(d));

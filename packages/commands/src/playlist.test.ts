@@ -1,7 +1,7 @@
 // The workspace's set lists as verbs: `playlist new` and `playlist song add`. Three things here
-// would be wrong silently — a name that leaves `_playlists/` (the check the file service's route
-// used to make before making one was a command), an append that RE-SERIALISES the file and eats
-// the comments and order somebody chose, and a "create" that hands back a set list already there.
+// would be wrong silently — a name that leaves `_playlists/`, an append that RE-SERIALISES the
+// file and eats the comments and order somebody chose, and a "create" that hands back a set list
+// already there.
 
 import {
   existsSync,

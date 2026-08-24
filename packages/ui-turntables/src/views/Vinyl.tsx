@@ -61,7 +61,7 @@ export function Vinyl({
     >
       <svg
         viewBox="0 0 100 100"
-        // 1.8 s a turn — 33⅓ rpm, on Tailwind's own `spin`; the `m9-spin` it replaced was defined NOWHERE.
+        // 1.8 s a turn — 33⅓ rpm, on Tailwind's own `spin`, so no keyframes of ours to define.
         className={`h-full w-full ${spinning ? "animate-[spin_1.8s_linear_infinite]" : ""}`}
         // The record turns; the LABEL below does not — a title you tilt your head to read is worse.
         aria-hidden="true"

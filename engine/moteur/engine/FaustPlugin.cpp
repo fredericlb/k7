@@ -13,7 +13,7 @@
 // GUI in here — the voice group is a GUI client — so this is our architecture file.
 //
 // Without them the whole engine links until the last step and dies on one unresolved symbol with
-// no obvious owner, which is how this was found.
+// no obvious owner.
 std::list<GUI*> GUI::fGuiList;
 ztimedmap GUI::gTimedZoneMap;
 

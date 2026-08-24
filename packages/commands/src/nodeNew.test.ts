@@ -1,9 +1,8 @@
 // `node new` — a use of an existing module, AND its place in the graph.
 //
 // The second half is the point. A node file with no entry in `graph.yaml` is loaded by the
-// project and drawn nowhere: the graph's blocks come off the chains, so creating one used to
-// leave a node that existed on disk and was on no screen, waiting for a second command to
-// become real. Every node is in the graph; `modules: { x: [] }` is what says so.
+// project and drawn nowhere: the graph's blocks come off the chains, so a node created without
+// one exists on disk and is on no screen. Every node is in the graph; `modules: { x: [] }` says so.
 
 import {
   existsSync,
@@ -64,7 +63,7 @@ describe("node new", () => {
   it("writes the node file AND names it in the chains", async () => {
     await runCommand("node new audio/amp hall", host(), "cli");
     expect(existsSync(join(dir, "nodes", "hall.yaml"))).toBe(true);
-    // The half that used to be missing: without it the file is loaded and drawn nowhere.
+    // The half that matters: without it the file is loaded and drawn nowhere.
     expect(chains()).toMatch(/^\s*hall:/m);
   });
 

@@ -38,8 +38,8 @@ picture of. That is the same reason the desk has a mapping, arrived at from the 
 
 It is also why the gate asks for **all ten** — `unmappedControls` filters the whole list, where
 the desk's filters a `REQUIRED_CONTROLS` subset. `@studio/ui-turntables` requires its faders and
-merely offers its stem cuts, because a desk with no stem cuts is a complete desk — it was
-yesterday's. There is no smaller mastering strip: every control names the same node, so a missing
+merely offers its stem cuts, because a desk with no stem cuts is still a complete desk. There is
+no smaller mastering strip: every control names the same node, so a missing
 line is not a reduced strip, it is the same strip with a knob that does nothing. A knob that does
 nothing is the hardest thing on a screen to diagnose, so the surface says what it is missing
 instead of drawing itself.
@@ -64,7 +64,7 @@ covers — the adaptation happens by *reading* the target, not by rescaling into
 
 ## Where the value comes from
 
-The order is `held ?? live ?? home`, and it is the same rule the desk arrived at
+The order is `held ?? live ?? home`, and it is the same rule the desk follows
 (`packages/ui-turntables/docs/deckSet.md`):
 
 - **held** — the hand's value while a gesture is in flight. Optimistic, and dropped as soon as
@@ -111,7 +111,7 @@ member of the enum is what stops a new type falling off the end silently.
 Last in the column, directly over the graph, at a third of the height (the desk takes a half).
 Two reasons that happen to agree: it is the last thing the signal meets, so the stack reads in
 signal order from the top down; and every knob on it is a param on one module in the graph, so it
-wants to be next to it — the same argument that made the desk a pane.
+wants to be next to it — the same argument that makes the desk a pane.
 
 `ui mastering`, `f`, Tab and `/mastering` all reach it, through the pane ring like anything else.
 It has **no number key**: 1–4 are spoken for, and this is a pane you set up once rather than one

@@ -62,7 +62,7 @@ describe("module nodes", () => {
     expect(lead).toBeTruthy();
     expect(lead.node).toBe("lead");
     expect(lead.home).toBe("nodes"); // where its own files live
-    // No "synth:lead" anywhere: the module it uses is not part of its name any more.
+    // No "synth:lead" anywhere: the module it uses is not part of its name.
     expect(modules["synth:lead"]).toBeUndefined();
     // Which module it uses is what it EXTENDS, and that is the only place it is written.
     expect(lead.extends).toBe("@project/instruments/synth");
@@ -116,7 +116,7 @@ describe("module nodes", () => {
     const doc = compileNodeProject(dir);
     const lead = doc.tracks
       .find((t) => t.id === "melody")
-      // "melody", not "lead": a chain is called after its track since the `as:` alias went.
+      // "melody", not "lead": a chain is called after its track, there being no `as:` alias.
       ?.plugins.find((p) => p.id === "melody:lead");
     const pad = doc.tracks
       .find((t) => t.id === "pad")
@@ -212,9 +212,9 @@ describe("module nodes", () => {
     );
   });
 
-  // --- a node is an ordinary extender now ----------------------------
+  // --- a node is an ordinary extender -------------------------------
   it("merges a ui written in a node, like any other extends", () => {
-    // A node's `ui:` used to be dropped whole; it follows the ordinary per-widget merge now.
+    // A node's `ui:` follows the ordinary per-widget merge, not a wholesale drop.
     const knob = (col: number, row: number, label: string) => ({
       a: { type: "knob", col, row, bind: "Level", label },
     });

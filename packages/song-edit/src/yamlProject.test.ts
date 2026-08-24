@@ -29,7 +29,7 @@ import {
 const here = dirname(
   new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"),
 );
-// Three, not four: this file used to sit in `song/src/yaml/`, one level deeper.
+// Three, not four: `song-edit/src` → the package → `packages/` → the repo root.
 const SONG = join(
   here,
   "..",
@@ -148,7 +148,7 @@ describe("the writers", () => {
 
 describe("a song is still a song", () => {
   it("is recognised as a project by every check that asks", () => {
-    // These all used to look for `project.cue` BY NAME, so a converted song went invisible.
+    // None of these may look for `project.cue` BY NAME, or a converted song goes invisible.
     expect(existsSync(join(dir, "project.yaml"))).toBe(true);
     expect(isProjectFolder(dir)).toBe(true);
     expect(isFolderProject(dir)).toBe(true);

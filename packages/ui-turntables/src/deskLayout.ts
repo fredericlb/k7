@@ -33,7 +33,7 @@ export const WAVE_MAX = 180;
 /** Below this it is a line with a playhead on it, not something you can mix against. */
 export const WAVE_MIN = 44;
 
-/** The record at its full size — `max-w-[22rem]`, which is where it was pinned before this. */
+/** The record at its full size — the `max-w-[22rem]` the vinyl is drawn against. */
 export const VINYL_MAX = 352;
 /** The smallest record worth drawing — below it, a coin: unreadable label, merged cue radii, no rotation. */
 export const VINYL_MIN = 176;

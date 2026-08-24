@@ -176,7 +176,7 @@ export function ExternalIndex() {
                     <span className="block truncate text-sm font-medium">
                       {e.surface.id}
                     </span>
-                    {/* The TYPE, now that there are four: the file's own name need not say which screen it is. */}
+                    {/* The TYPE, there being four of them: the file's own name need not say which screen it is. */}
                     <span className="block truncate text-xs text-muted-foreground">
                       {typeLabel(e.surface.type)}
                     </span>

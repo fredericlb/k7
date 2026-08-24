@@ -1,8 +1,8 @@
-/* ─── from App.vue ─── */
+/* ─── app globals ─── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #0f0c29; }
 
-/* ─── from BuzzerView.vue ─── */
+/* ─── the buzzer view ─── */
 
 .auth-overlay {
   position: fixed;
@@ -356,7 +356,7 @@ html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #0f
   50% { transform: scale(1.15); }
 }
 
-/* ─── from LoginGate.vue ─── */
+/* ─── the login gate ─── */
 .login-gate {
   position: fixed;
   inset: 0;
@@ -491,7 +491,7 @@ html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #0f
   text-align: center;
 }
 
-/* ─── from AuthBadge.vue ─── */
+/* ─── the auth badge ─── */
 .auth-badge {
   position: fixed;
   top: 6px;

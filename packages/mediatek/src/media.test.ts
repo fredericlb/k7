@@ -1,6 +1,6 @@
-// The one table two HTTP shells serve from. They each used to carry their own, in two different
-// SHAPES — one keyed ".wav", one keyed "wav" — so neither was a superset and each sent as
-// octet-stream what the other could play. The shape lock below is what makes that unrepresentable.
+// The one table two HTTP shells serve from. A table apiece drifts in two different SHAPES —
+// one keyed ".wav", one keyed "wav" — so neither is a superset and each sends as octet-stream
+// what the other could play. The shape lock below is what makes that unrepresentable.
 
 import { describe, expect, it } from "vitest";
 import { AUDIO_EXT, extOf, MIME_BY_EXT, mimeFor, VIDEO_EXT } from "./media.ts";
@@ -69,8 +69,8 @@ describe("mimeFor", () => {
       expect(mimeFor(p)).toBe("application/octet-stream");
   });
 
-  // The two the drift actually cost: an amp model from the cache, a cover from the hosted volume.
-  it("serves the two each shell used to get wrong", () => {
+  // The two a drift costs first: an amp model from the cache, a cover from the hosted volume.
+  it("serves the two a shell most easily gets wrong", () => {
     expect(mimeFor("library/nam/fender.nam")).toBe("application/json");
     expect(mimeFor("songs/a/b/c/cover.png")).toBe("image/png");
   });

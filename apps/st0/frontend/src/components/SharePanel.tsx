@@ -1,8 +1,8 @@
 // SharePanel.tsx — render the project through the engine (MP3/WAV download, or publish to k7
 // with per-track stems), publish a frozen link, and run commit/pull on the WHOLE workspace repo.
-// A PANEL anchored at the right, docked beside the panes: it was a dropdown, and a dropdown is
-// the wrong shape for a surface that reports — a pull says how far behind you were, an export
-// takes a minute and says where the file went. See ../docs/shell.md.
+// A PANEL anchored at the right, docked beside the panes, a dropdown being the wrong shape for a
+// surface that reports — a pull says how far behind you were, an export takes a minute and says
+// where the file went. See ../docs/shell.md.
 //
 // Every entry is a COMMAND LINE the shell dispatches, not a call of its own: two of them are
 // CLI verbs (`project commit`, `project pull`) and three are the shell's (`project export`,

@@ -15,16 +15,14 @@ the graph, not about the node. It is `.yaml` like every other file in a project;
 `.yml` too (`yaml/moduleIO.ts`'s `EXTS`), so a hand-written one still reads, but this is what gets
 WRITTEN.
 
-There is ONE map, because a lane is a module too now
-(`packages/song/docs/trackModules.md`) — the `tracks:` half is gone, and with it the rule that a
-name could not be in both. `hasNode` was `sectionOf`, which answered "`tracks:` or `modules:`": a
-question every edit had to carry through, because writing a lane's destinations into the wrong half
-unwired it silently.
+There is ONE map, because a lane is a module too (`packages/song/docs/trackModules.md`): every node
+is declared in `modules:` and nowhere else, so `hasNode` is one question with one answer and no edit
+has to carry a section around. Two halves would mean a lane's destinations could be written into the
+wrong one and unwire it silently.
 
 A library CHAIN uses this same file name. It is not a second kind of document that happens to look
 like a graph — it IS one: a folder holding this file and a `nodes/` beside it, differing only in
-having no `project.yaml` and in naming its ends `@in`/`@out`. It carried `chains.yaml` and an
-`instances/` folder until both were migrated to these.
+having no `project.yaml` and in naming its ends `@in`/`@out`.
 
 ## The three sections
 
@@ -35,8 +33,8 @@ which is how a module exists before it is placed.
 `bypassed:` is the modules the signal passes through untouched. A flat list, so a bypass is one name
 appearing or disappearing — and since a module is named ONCE in this file, there is only ever one
 thing to toggle. On a LANE it reads as "produces nothing" rather than "passes through": a source has
-no input to pass through. That is what a lane's mute is, and it is why mute stopped being a field on
-the lane — one state, one place.
+no input to pass through. That is what a lane's mute IS, and it is why the lane carries no mute field
+of its own — one state, one place.
 
 `positions:` is where a node SITS on the graph, in world px, written when someone drags its header
 and absent for every node the layout still places (dagre lays out only what has no entry here). It
@@ -59,44 +57,41 @@ Version 1.2, so `5:1:1` stays a string, and no wrapping, keeping a node's destin
 
 ## What an edit must preserve
 
-Two properties, the same as they were for the list format this replaced:
+Three properties:
 
 - the model survives — nodes, destinations, bypass;
-- an EDIT keeps the file — comments, layout, one-line diffs.
-
-…plus one the list format never had to answer: removing a module from the MIDDLE has to join what
-fed it to what it fed, or the signal is cut with nothing pointing at the cut.
+- an EDIT keeps the file — comments, layout, one-line diffs;
+- removing a module from the MIDDLE joins what fed it to what it fed, or the signal is cut with
+  nothing pointing at the cut.
 
 The canonical form — one node per line, destinations as a flow sequence — IS the contract. A file
 spaced any other way is re-spaced by the first edit, and then every node shows up in the diff.
 
-`eq_dj:vox` was a value before and is a map key now, which is where `:` is most dangerous: it is
-YAML's own key/value indicator. It survives (1.2 allows it inside a plain scalar when no space
-follows), but nothing about that is obvious, and it is the first thing that would break silently.
+A name like `eq_dj:vox` is a map KEY here, which is where `:` is most dangerous: it is YAML's own
+key/value indicator. It survives (1.2 allows it inside a plain scalar when no space follows), but
+nothing about that is obvious, and it is the first thing that would break silently.
 
-## The old format is NAMED
+## The list format is NAMED
 
-Someone opening a project written before the change needs the migration, not
-`unrecognized key: chains`. So a top-level `chains:` list is reported as such rather than as an
-unknown key.
+A project still carrying a top-level `chains:` list needs the migration, not
+`unrecognized key: chains`. So that shape is reported by name rather than as an unknown key.
 
 ## The edits, one by one
 
 `addNode` puts a module in the graph wired to nothing. An empty destination list is not a
-placeholder — it is what a PLACED module looks like. The old list format had no way to say it (a
-chain was a path, and a module outside one simply was not written down), so a module had to be wired
-at the moment it was created. Here it can exist first and be connected after, which is how a graph
-editor is used. Already-known nodes are left alone, so re-adding cannot silently unwire one.
+placeholder — it is what a PLACED module looks like, so a module can exist first and be connected
+after, which is how a graph editor is used. Already-known nodes are left alone, so re-adding cannot
+silently unwire one.
 
 `setModuleEnabled` joins or leaves the root `bypassed` list, and the list disappears when it empties
 — so bypassing and un-bypassing returns the file to what it was. Otherwise a project that has never
 bypassed anything carries `bypassed: []`, and the empty list reads as a setting rather than as an
-absence. It needs no chain to be named, which is the whole reason the list format asked for one: a
-module could sit in two chains, and bypassing it in one had to leave the other running.
+absence. It needs no chain to be named: a module appears exactly once in this file, so there is one
+thing to toggle however many runs it sits in.
 
-`insertBetween` is one arrow, one rewire — which is the whole reason the file declares segments. In
-the list format this had to find a chain, find a position in it, and clamp the index so the module
-stayed ahead of the sink.
+`insertBetween` is one arrow, one rewire — which is the whole reason the file declares SEGMENTS
+rather than paths: there is no chain to find, no position in it, and no index to clamp against the
+sink.
 
 `connectNodes` draws a NEW arrow — the graph editor's patch cable. Either end may carry a `#port`
 suffix, exactly as the file spells them: the KEY carries the source's port, the destination string
@@ -117,8 +112,8 @@ branches that both rejoined through it must not leave the survivor listed twice.
 
 `unlinkNode` takes a module out of the signal path and LEAVES IT IN THE GRAPH. Every node is in the
 graph (`packages/song/docs/nodes.md`): a node with no entry in this file is loaded and drawn nowhere,
-so unlinking used to make one vanish from the canvas — which reads as a delete, and is not one. Its
-cables go, its entry stays as `modules: { <node>: [] }`, and so does its pin: a node that jumped to
+and a node vanishing from the canvas reads as a delete, which unlinking is not. Its cables go, its
+entry stays as `modules: { <node>: [] }`, and so does its pin: a node that jumped to
 wherever the layout put it would have moved for a reason nobody asked for. Its `bypassed:` flag stays
 too — it is still a node, and still silenced or not.
 

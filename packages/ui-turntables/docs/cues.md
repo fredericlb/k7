@@ -32,8 +32,8 @@ Un repère est une place dans le morceau — où est le drop, un fait sur l'enre
 que `seek` prend une place sur la timeline. Une platine étirée fait correspondre les deux par le
 rapport dont elle est étirée.
 
-Stocker le nombre de la timeline aurait déplacé **tous** les repères dès qu'on touche au fader
-de tempo, silencieusement et seulement sur les platines qui avaient été étirées. `sourceAt` et
+Stocker le nombre de la timeline déplacerait **tous** les repères dès qu'on touche au fader
+de tempo, en silence et seulement sur les platines étirées. `sourceAt` et
 `transportAt` sont cette conversion, et elle emporte aussi le décalage d'alignement du sync —
 ce qui garde une platine repérée après qu'on l'a calée.
 
@@ -46,23 +46,20 @@ cues:
     markers: [ 12.5, null, 48.25 ]
 ```
 
-**Et c'est tout ce que ce fichier fait.** Il s'appelait `songs.yaml` et disait aussi quels
-morceaux le set jouait ; c'est la playlist que la surface nomme qui le dit
-([setList.md](setList.md)), et un fichier nommé `songs` qui ne portait plus de liste de
-morceaux nommait ce qu'il avait été. Un cue reste ici parce qu'il appartient au PUPITRE qui
-joue le morceau et non à une liste que d'autres sets lisent : deux groupes qui reprennent le
-même titre ne posent pas l'aiguille au même endroit. Une entrée apparaît donc quand on pose un
-repère, pas quand on ajoute un morceau.
+**Et c'est tout ce que ce fichier fait.** Quels morceaux le set joue, c'est la playlist que la
+surface nomme qui le dit ([setList.md](setList.md)). Un cue reste ici parce qu'il appartient au
+PUPITRE qui joue le morceau et non à une liste que d'autres sets lisent : deux groupes qui
+reprennent le même titre ne posent pas l'aiguille au même endroit. Une entrée apparaît donc
+quand on pose un repère, pas quand on ajoute un morceau.
 
-À ne pas confondre avec `views/mix.yaml`, qui est un autre fichier : les anciennes liaisons du
-pupitre, dans `views/`, qu'une surface porte désormais dans son `mapping:`. Celui-ci est à la
-racine du projet.
+À ne pas confondre avec `views/mix.yaml`, qui est un autre fichier : les liaisons du pupitre,
+dans `views/`, celles qu'une surface désigne par son `mapping:`. Celui-ci est à la racine du
+projet.
 
 Une entrée est **soit** une référence nue **soit** une référence qui porte des réglages. Les
-deux, exprès : un morceau qui n'a rien à dire tient sur **une ligne** — c'est-à-dire tous les
-morceaux tant que personne n'y a posé de repère — et toute feuille écrite avant l'existence des
-repères se lit encore. Transformer `cues:` en table de références vers presque-rien aurait
-donné à chaque entrée l'air qu'il lui manque quelque chose.
+deux, exprès : un morceau qui n'a rien à dire tient sur **une ligne**, c'est-à-dire tous les
+morceaux tant que personne n'y a posé de repère. Transformer `cues:` en table de références
+vers presque-rien donnerait à chaque entrée l'air qu'il lui manque quelque chose.
 
 `markers` est **positionnel** : l'index 0 est le bouton 1, et `null` est un emplacement vide.
 Le bouton 3 reste donc le bouton 3 quoi qu'il arrive aux boutons 1 et 2 — un repère est de la
@@ -71,12 +68,12 @@ plein milieu. Seuls les vides **de fin** sont supprimés, d'où un seul nombre p
 le bouton 1 plutôt que huit.
 
 Un morceau dont on efface le dernier repère **redevient une référence nue** : une liste que
-personne n'a repérée se lit exactement comme avant que tout ceci existe.
+personne n'a repérée n'est qu'une suite de références nues.
 
 ## L'écriture préserve le fichier
 
 Le texte est **édité**, jamais réimprimé depuis un arbre de parse. Les commentaires du scaffold
-sont le seul exemple travaillé qu'un lecteur d'un set m9 obtienne, et un pupitre qui les
+sont le seul exemple travaillé qu'un lecteur d'un set obtienne, et un pupitre qui les
 mangerait au premier repère posé serait un pupitre qu'on ne pardonne pas. `withMarkers` passe
 par le `Document` du paquet `yaml`, ce pour quoi il existe.
 
@@ -97,6 +94,6 @@ avertit, pour qu'un repère ne se confonde pas avec une alerte.
 ## Ce qu'il faut savoir
 
 Le moteur n'a **qu'un** transport (voir [mix.md](mix.md)). Sauter à un repère déplace donc
-**les deux** platines. C'est le moteur que m9 a, et un repère vaut quand même la peine dessus —
+**les deux** platines. C'est le moteur que le pupitre a, et un repère vaut quand même la peine dessus —
 mais ce n'est pas ce que fait une table à deux platines, et ça se remarquera le jour où on
 voudra caler une platine pendant que l'autre passe.

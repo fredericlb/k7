@@ -14,7 +14,7 @@ reads as a broken separator rather than a wrong list.
 It lives in this package, which everything else depends on, because it is needed in three places
 that cannot import each other: the inference writes the files (`@studio/file-service`), a set's graph
 declares a lane per stem (`scaffoldSet`), and the desk loads one clip per lane
-(`@studio/ui-turntables`). It was the file service's alone while it was the only reader.
+(`@studio/ui-turntables`).
 
 ## Where the files go
 

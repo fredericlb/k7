@@ -12,18 +12,14 @@ choice the rest of this repo already made, and reversing it would cost more than
   (`scripts/build-engine.mjs`). A `.node` binary in that closure is exactly the class of
   problem that packaging avoids.
 
-  That last sentence is now half true, and saying so is cheaper than letting a reader
-  discover it. `onnxruntime-node` arrived for stem separation and the packaging DID grow a
-  way to carry a native module: marked `external`, then staged into
-  `resources/node_modules/` where Node's ordinary resolution finds it
-  (`stageNodeModule`). So the mechanism exists.
-
-  It does not change the answer here, for a reason that has nothing to do with packaging.
-  A separator earns a 166 MB model and a per-platform shared library because there is no
-  other way to do the thing at all; an index earns nothing, because a walk plus a change
-  token already produces it (below). The cost is now payable, and still not worth paying.
-  What the mechanism does not solve is macOS: nothing in this repo signs a third-party
-  `.dylib`, so a notarised `.app` carrying one is still unsolved.
+  The packaging CAN carry a native module — `onnxruntime-node` is marked `external`, then
+  staged into `resources/node_modules/` where Node's ordinary resolution finds it
+  (`stageNodeModule`) — so the cost is payable. It is still not worth paying, for a reason
+  that has nothing to do with packaging: a separator earns a 166 MB model and a per-platform
+  shared library because there is no other way to do the thing at all; an index earns
+  nothing, because a walk plus a change token already produces it (below). And the mechanism
+  does not solve macOS: nothing in this repo signs a third-party `.dylib`, so a notarised
+  `.app` carrying one is unsolved.
 - Every derived thing here is already a cache behind a change token. `workspace.ts`'s
   `revision()` is the same shape: a walk producing count + newest mtime.
 
@@ -40,45 +36,41 @@ an entry**, and there are two of those:
 - a file dropped where no catalogue reaches (`samples/<kind>` lists packs, so a file
   beside them is nobody's entry).
 
-Both answered 200 and appeared nowhere, which reads as the call having done nothing at all.
-`scanUnlisted` is the missing half: every path no entry accounts for, family-relative,
-beside the entries in the same listing.
+Either would answer 200 and appear nowhere, which reads as the call having done nothing at all.
+`scanUnlisted` is the other half: every path no entry accounts for, family-relative, beside the
+entries in the same listing.
 
 An ENTRY's folder is never descended into. A song and a module ARE folders and their
 insides are theirs — so a module's own files travel **on the entry**, as `files`. A tree
 drawing one needs both halves of that: what is actually in the folder (nodes, a
 `.vstpreset`, a jsdsp source) and which of the three canonical names are missing, so it can
-offer to create them. Drawing the three fixed rows alone meant a folder dropped with two
-files of its own showed neither, and read as having been flattened on the way in.
+offer to create them. Drawing the three fixed rows alone would show neither file of a folder
+dropped with two of its own, and read as having been flattened on the way in.
 
-## What left the volume, and why — two different reasons
+## What this volume does NOT hold, and why — two different reasons
 
-`scan.ts` held a `scanModules`, a `scanChains` and a `scanPlaylists`. None of the three is
-there now, and they went for reasons worth keeping apart.
-
-**Modules and chains** left *with their families*. A module and a chain are authored in st0,
+**Modules and chains** live *with their families*. A module and a chain are authored in st0,
 against a project where the plugin the module names is actually loaded, and committed to the
 account's **library repository** — a git repository somebody owns, not a folder on this volume.
 See `packages/song/docs/sharedFolders.md`.
 
-**Playlists** left because a playlist holds no **bytes**. It is pure reference — names of songs
-filed elsewhere — so hosting it bought nothing, while costing the account a document it could
-not version alongside the work it was written for. A set list lives in the workspace's
-`_playlists/` now, and st0 is the app that opens one (`packages/song/docs/playlists.md`).
+**Playlists** hold no **bytes**. A playlist is pure reference — names of songs filed elsewhere —
+so hosting one buys nothing, while costing the account a document it could not version alongside
+the work it was written for. A set list lives in the workspace's `_playlists/`, and st0 is the
+app that opens one (`packages/song/docs/playlists.md`).
 
 ## The words a browser needs live in `types.ts`
 
 `RECORDINGS_DIR`, `CHAINS_FILE`, `NODES_DIR` and `SONG_FILE` sit in `types.ts` rather than in
 `layout.ts` or `scan.ts`, where the rest of that shape lives. The reason is one-way: those two
 open `node:fs`, and a surface reaching for the *name* of a file must not pull the filesystem in
-with it. Both re-export the constants, so no importer had to change.
+with it. Both re-export the constants, so an importer may take them from either.
 
-`CHAINS_FILE` is `graph.yaml` — literally the same name a st0 project uses at its root. It said
-`chains.yaml` for a while, on the argument that a shared chain is a different object from a
-project's whole topology. It is not: a chain is a **folder** holding that file with a `nodes/`
-beside it, which is exactly what a project holds, and the two differ only in a chain having no
-`project.yaml` and naming its ends `@in`/`@out`. One name, so nothing downstream carries a second
-spelling. (`NODES_DIR` was `instances/` until it was migrated to `nodes/`.)
+`CHAINS_FILE` is `graph.yaml` — literally the same name a st0 project uses at its root, and
+deliberately so. A shared chain is not a different object from a project's whole topology: a chain
+is a **folder** holding that file with a `nodes/` beside it, which is exactly what a project holds,
+and the two differ only in a chain having no `project.yaml` and naming its ends `@in`/`@out`. One
+name, so nothing downstream carries a second spelling.
 
 ## `files` and `assets` are two different questions
 
@@ -86,8 +78,8 @@ An entry that is a **folder** carries both, and they are not interchangeable.
 
 `files` is the entry's own definition — its nodes, its panel, its shelf, a `.vstpreset`, a jsdsp
 source. Exactly what is on disk: nothing more, because a row for a file that is not there lies
-about the disk, and nothing less, because the tree used to draw three fixed rows and whatever had
-actually been dropped in vanished.
+about the disk, and nothing less, because three fixed rows would hide whatever was actually
+dropped in.
 
 `assets` is the **material it loads** — samples, impulse responses, amp profiles. A tree draws
 these as children and drops new ones in; nothing offers to *create* one, since they arrive as
@@ -122,10 +114,9 @@ the families move at completely different rates — a sample pack is dropped in 
 touched, songs arrive all afternoon. A shared token would make the quiet family pay for the busy
 one on every poll.
 
-Two, where there were five. The argument holds at two exactly as it did at five, and it is the
-reason to keep the shape rather than collapse it back into one token: the next family to arrive
-would have to reintroduce what was removed, and the poll it fixes is not a poll anybody watches
-until it is slow.
+Two families today, and the argument would hold at five. It is the reason to keep the shape rather
+than collapse it into one token: the next family to arrive would have to reintroduce it, and the
+poll it fixes is not a poll anybody watches until it is slow.
 
 ## Two ingredients, because neither is enough
 
@@ -141,9 +132,8 @@ token would make every surface refetch a listing that is identical.
 The counter is per process, which is the honest scope: it covers writes WE caused, and
 the walk covers everything else — a file dropped in by hand, a `git pull`, another tool.
 
-A content hash was considered and rejected for the same reason `workspace.ts` rejects it:
-reading every file to decide whether to read every file costs more than the thing it
-guards.
+A content hash is rejected for the same reason `workspace.ts` rejects it: reading every
+file to decide whether to read every file costs more than the thing it guards.
 
 ## When the walk gets slow
 
@@ -160,11 +150,10 @@ nobody revisited.
 is dropped unread.
 
 The revision token tracks the **files**: count, newest mtime, a mutation counter. Nothing
-about it moves when the SCAN changes — so a listing written by an older build matched a
-token computed by a newer one, and the cache went on answering yesterday's question. That
-is exactly what happened when the module scan learned about category folders: nothing on
-disk had changed, so nothing asked for a re-walk, and a category kept coming back as a
-module long after the code was right.
+about it moves when the SCAN changes — so a listing written by an older build matches a
+token computed by a newer one, and the cache goes on answering the old question. A scan
+that learns a new rule (a folder that counts as an entry, say) changes nothing on disk, so
+nothing asks for a re-walk and the stale answer outlives the fix.
 
 Bump it whenever what the scan PRODUCES changes — a new field, a different rule about what
 counts as an entry. A dropped index costs one walk, which is what the next section is about.
@@ -172,8 +161,8 @@ counts as an entry. A dropped index costs one walk, which is what the next secti
 ## Confinement, and the two paths a caller may not write
 
 `safePath` (layout.ts) turns a mediatek-relative path into an absolute one inside the root.
-The local library never needed it: the file service's own `safePath` confines to the workspace,
-which put the mediatek out of reach entirely. A **hosted** mediatek has no such wall — the path
+A local library does not need it: the file service's own `safePath` confines to the workspace,
+which puts the mediatek out of reach entirely. A **hosted** mediatek has no such wall — the path
 in the request is the only thing between a caller and the disk — so the check lives here, where
 both sides use it.
 
@@ -181,9 +170,9 @@ It is **lexical only**, deliberately. It runs on every byte served, and the tree
 the service itself writes; a symlink *into* it is something an operator did on purpose.
 
 Containment is asked of `relative`, **not** of `startsWith`, and the two are not the same test.
-`startsWith` compares *spellings*: a root written with forward slashes in `env.yaml` never matched
-the backslashed path `resolve` produces, and every nested path was reported as escaping a library
-it was plainly inside. `relative` normalises both sides and answers the question actually being
+`startsWith` compares *spellings*: a root written with forward slashes in `env.yaml` never matches
+the backslashed path `resolve` produces, so every nested path is reported as escaping a library it
+is plainly inside. `relative` normalises both sides and answers the question actually being
 asked — is this under that.
 
 `writablePath` adds the second half. Inside the root is not enough: two things are the library's
@@ -196,10 +185,10 @@ folders could never grow a third one.
 
 `moveEntry` (write.ts) renames, and it does so for a folder as readily as for a file.
 
-Composing the same thing from read + write + delete on the client was the previous answer, and
-it had two faults this does not: a folder cannot be read as bytes at all, and a failure between
-the write and the delete leaves a duplicate. `renameSync` is one syscall on the same volume, so
-the tree is never in a state where the entry exists twice or not at all.
+Composing the same thing from read + write + delete on the client has two faults this does not:
+a folder cannot be read as bytes at all, and a failure between the write and the delete leaves a
+duplicate. `renameSync` is one syscall on the same volume, so the tree is never in a state where
+the entry exists twice or not at all.
 
 **Both** ends are bumped. A move between families changes two listings, and revving only the
 destination would leave the source's catalogue showing something that is no longer there.

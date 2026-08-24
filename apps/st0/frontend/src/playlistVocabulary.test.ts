@@ -36,7 +36,7 @@ describe("the playlist vocabulary", () => {
   });
 
   it("offers a song ref for a bare `- ` item", () => {
-    // The common line, and the one that had no completion: `items:` is not a project file's field, so the whole file went uncovered.
+    // The commonest line in the file, and the one a project vocabulary cannot answer: `items:` is not a project file's field.
     expect(values([], "items")).toEqual([
       "AC-DC/Back in Black/Hells Bells",
       "Nirvana/Nevermind/Lithium",

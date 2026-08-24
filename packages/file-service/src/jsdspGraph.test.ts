@@ -1,10 +1,10 @@
 // How the Chains tab draws a module whose DSP is the `jsdsp.ts` beside it — the form the
 // médiathèque's own modules use.
 //
-// `known` here listed `internal` and the external formats, so `jsdsp` read as a plugin the
-// engine cannot load. The node went RED, and — the part that is easy to miss — it lost its
-// `pluginId`, which is the address the panel asks the engine for a parameter value by. A
-// module you could plainly hear drew as one that had failed to load, with empty knobs.
+// A `known` list without `jsdsp` in it makes such a module read as a plugin the engine cannot
+// load. The node goes RED, and — the part that is easy to miss — it loses its `pluginId`, which
+// is the address the panel asks the engine for a parameter value by. A module you can plainly
+// hear then draws as one that failed to load, with empty knobs.
 
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

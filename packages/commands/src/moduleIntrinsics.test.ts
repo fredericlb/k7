@@ -103,7 +103,7 @@ describe("@monitor", () => {
   });
 
   it("takes a NODE whose name has a space, quoted, as it has always taken the param", async () => {
-    // The regex stopped the ref at `\S+`, so a node named "front desk" could not be addressed.
+    // A `\S+` for the ref stops at the space, so a node named "front desk" is unaddressable.
     await runCommand('node param "front desk" @monitor off', host(), "cli");
     expect(readFileSync(spacedFile(), "utf8")).toContain('monitor: "off"');
   });

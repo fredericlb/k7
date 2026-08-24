@@ -51,8 +51,8 @@ and a desk that ate them the first time somebody dropped a cue would be a desk n
 A ref the file does not name is APPENDED. That is not a courtesy: a deck can be playing a song
 somebody removed from the playlist a moment ago, and refusing the cue would lose a gesture the DJ has
 already made. Trailing empties are trimmed, and a song whose last cue is cleared goes back to a bare
-ref — so a sheet nobody has cued reads exactly as it did before any of this existed. The cues are
-written on one line, since eight numbers down the page would bury the ref they belong to.
+ref — so a sheet nobody has cued reads as a plain list of refs. The cues are written on one line,
+since eight numbers down the page would bury the ref they belong to.
 
 ## `views/mix.yaml` — the bindings
 

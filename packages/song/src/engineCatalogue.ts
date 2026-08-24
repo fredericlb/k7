@@ -1,9 +1,8 @@
 // engineCatalogue.ts — the modules the ENGINE provides, READ from its plugin scan
 // (`~/.studio/exts.json`) rather than copied into files.
 //
-// It replaced a folder of generated wrappers that held two facts each and went stale in
-// silence; the scan they came from is strictly better informed. So `_modules` now keeps only
-// what someone authored — a jsdsp source, a rack's sample map.
+// No wrapper file mirrors that scan, so `_modules` holds only what someone authored — a jsdsp
+// source, a rack's sample map.
 //
 // A leaf: nothing here imports beyond moduleTypes.ts, so loader.ts can use it without a cycle.
 

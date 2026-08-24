@@ -4,7 +4,7 @@
 
 import { X } from "lucide-react";
 
-/** The close button, written once — it was written four times and the four had drifted; a ✕ living in the leaf cannot be relied on by the frame. */
+/** The close button, written once rather than per occupant — copies drift, and a ✕ living in the leaf cannot be relied on by the frame. */
 function CloseSlot({
   onClose,
   className,

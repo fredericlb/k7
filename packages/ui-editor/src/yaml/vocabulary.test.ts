@@ -2,7 +2,7 @@
 // invented — tracks, modules, sinks. No Zod enum can hold those, so they come off the
 // hints instead, and this is where the two halves are wired together.
 //
-// Now that the file declares segments, the vocabulary is POSITIONAL: a key under
+// The file declares segments, so the vocabulary is POSITIONAL: a key under
 // `tracks:`/`modules:` is a node's own name, and what follows it is a list of
 // destinations. There are no field names left to key on.
 
@@ -98,7 +98,7 @@ describe("the chains vocabulary", () => {
         "type",
       ),
     ).toEqual(["plugin", "rack", "video_effect", "video_transition"]);
-    // A NODE file, which is what a lane is now (packages/song/docs/trackModules.md).
+    // A NODE file, which is what a lane is (packages/song/docs/trackModules.md).
     expect(
       schemaVocabulary("nodes/melody.yaml", HINTS).valuesAt?.(
         ["modules"],

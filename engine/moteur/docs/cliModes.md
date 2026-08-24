@@ -27,9 +27,9 @@ jump; omitted, it is **2**. It is written into the sidecar beside the onsets it 
 the setting is per source and survives until something asks for a different one.
 
 Onsets are stored in FILE SECONDS. Detection happens here, once, at the file's own envelope
-resolution — not per clip region in Node, which resampled a short clip's envelope UP and made
+resolution — not per clip region in Node, which resamples a short clip's envelope UP and makes
 the same audio disagree with itself at two zoom levels. Clip-region slicing and the bar/beat
-grid still stay in Node; this only produces the whole-file envelope and its onsets.
+grid stay in Node; this only produces the whole-file envelope and its onsets.
 
 ## `--peak <file>`
 
@@ -37,8 +37,8 @@ The file's TRUE peak — the loudest sample on any channel — as JSON on stdout
 `{"peak":…,"peakDb":…,"frames":…,"channels":…,"sampleRate":…}`. Read by a COLD module's measuring
 pass (`@studio/commands`' `peakPass.ts`) to fill in the `Peak` its graph needs before a render.
 
-It exists **because `--waveform` cannot answer this**, which is not obvious and was measured: that
-envelope averages the channels into one signal before taking its per-bucket maximum, because it is
+It exists **because `--waveform` cannot answer this**, which is not obvious: that envelope
+averages the channels into one signal before taking its per-bucket maximum, because it is
 drawing a single waveform line. A peak on one channel of a stereo pair therefore reads 6 dB low
 there, and two channels in anti-phase read as **silence** — 94 dB out on a file you can plainly
 hear. It is also stored at four decimals. Right for drawing, useless for setting a gain.
@@ -58,17 +58,16 @@ The per-line threshold exists so a prewarm can rebuild a stale envelope **withou
 sensitivity somebody tuned** — the Node side reads each file's previous sidecar and sends it
 back.
 
-## `--normalize` was here, and is gone
+## There is no `--normalize`, and that is the design
 
-It peak-normalized a set of clips with one **shared gain**, each inside its own window, writing
-every file back over itself. Its only callers were the brain's `track normalize` and
-`clip normalize`, and both were removed: normalising is a TREATMENT, and a treatment in this
-system is a chain. `track process` / `clip process` bounce material through one, and the
-médiathèque ships a `normalize` module — measured by `--peak` above and rendered through
-`--render` like every other treatment. See `packages/audio-passes/docs/processChain.md`.
+Normalising is a TREATMENT, and a treatment in this system is a chain. `track process` /
+`clip process` bounce material through one, and the médiathèque ships a `normalize` module —
+measured by `--peak` above and rendered through `--render` like every other treatment. See
+`packages/audio-passes/docs/processChain.md`.
 
-What that mode could say and a chain cannot is **one gain across a SET of files**, so a track's
-clips keep their relative levels. A chain renders each source on its own, so a track processed
-through `normalize` brings every clip to the target independently. That is a real difference and
-a deliberate trade: it buys a treatment that can be followed by another, lands in a stamped
-render beside the source rather than over it, and leaves nothing hard-coded in the engine.
+What a dedicated mode could say and a chain cannot is **one gain across a SET of files**, so a
+track's clips keep their relative levels. A chain renders each source on its own, so a track
+processed through `normalize` brings every clip to the target independently. That is a real
+difference and a deliberate trade: the chain buys a treatment that can be followed by another,
+lands in a stamped render beside the source rather than over it, and leaves nothing hard-coded
+in the engine.

@@ -197,7 +197,7 @@ bool EngineHost::setAudioDevice(const std::string& name, const std::string& type
     // both, but a mic is input-only, and writing an empty name is not "leave it alone" — it REMOVES it.
     // Clearing the input is survivable; clearing the OUTPUT is not, since with nowhere to play there is no audio
     // callback, so the transport reports playing while nothing moves and no error appears anywhere. Picking the
-    // built-in mic used to do exactly that, and the setup is persisted, so it stayed broken across restarts.
+    // built-in mic is exactly that case, and the setup is persisted, so a blanked output stays broken across restarts.
     const bool hasOut = found->getDeviceNames(false).contains(wanted);
     const bool hasIn = found->getDeviceNames(true).contains(wanted);
 
@@ -259,10 +259,9 @@ EngineHost::AudioTiming EngineHost::audioTiming() const {
     // device knows it, and it changes whenever one is opened or its buffer is changed.
     //
     // Read from two ATOMICS rather than from the device. `whoami` answers on the asking socket's
-    // own thread, and this used to dereference the live juce::AudioIODevice* — which
-    // setAudioDevice below destroys and rebuilds. The browser's keepalive sends `whoami` every
-    // few seconds on every socket, so any device switch overlapping one could take the process
-    // down. The fast off-thread reply is kept; only the read moved.
+    // own thread, and setAudioDevice below destroys and rebuilds the live juce::AudioIODevice*, so
+    // dereferencing one here races every device switch. The browser's keepalive sends `whoami` every
+    // few seconds on every socket, so any switch overlapping one would take the process down.
     //
     // Zeros when nothing is open. That is not "instant": a client reads a zero as "not
     // measured" and says so, rather than crediting an engine with a latency nobody proved.

@@ -18,8 +18,8 @@ that: a finished line **runs**, an unfinished one goes to the **command bar** wi
 where the next value goes.
 
 The bar is a form for COLLECTING arguments. An entry the click answered in full has none left
-to collect, so opening the bar over it asked a question with no blanks in it and waited for an
-Enter that could only mean yes. It was never a confirm step — nothing in this app asks twice —
+to collect, so opening the bar over it would ask a question with no blanks in it and wait for an
+Enter that could only mean yes. That is not a confirm step — nothing in this app asks twice —
 and what a command changes is undone by Ctrl+Z, because every command runs inside the same
 journal (`workspace.recordChange`).
 
@@ -37,8 +37,8 @@ A row that will ask shows a trailing `…`, so which is which is visible before 
 
 A placement answers *where it starts* and nothing more. That is enough for `event remove` and
 `event move`, and one argument short for every verb that takes a **span** — `selection consolidate`
-and `events move`. Derived from the click alone they arrived incomplete, so the
-bar opened and asked for an end the selection was already holding.
+and `events move`. Derived from the click alone they arrive incomplete, so the
+bar opens and asks for an end the selection is already holding.
 
 So the clip context carries `sel`, the rectangle the click landed in, and the range verbs are
 derived from **three** slots rather than two. They then arrive complete and run, like everything
@@ -90,13 +90,11 @@ are asked at different moments, so they are answered in different places.
 | what does it do | **the status bar**, while the pointer is on the row | `MenuItem.description` |
 | what will it type | the row's `title` tooltip | `runs: …` / `fills the bar: …`, the whole line |
 
-The row used to hold the *sentence* instead — the catalogue's `help`, or this person's own name
-for it. That was right about one thing: `node bypass` written where you had just right-clicked a
-node says nothing you did not know. It was wrong about the rest. A menu of ten sentences is
-**read**, one row at a time, and a menu of ten names is **scanned**; you open a right-click menu
-knowing what you came for, and the sentence is what you want about the *one* row you are not sure
-of. So it moved to the place that shows one row at a time — and the name came back, minus its
-redundant half.
+The row holds the NAME and not the sentence. A menu of ten sentences is **read**, one row at a
+time, and a menu of ten names is **scanned**; you open a right-click menu knowing what you came
+for, and the sentence is what you want about the *one* row you are not sure of — so it belongs
+in the place that shows one row at a time. The name is the shortened one, because `node bypass`
+written where you have just right-clicked a node says nothing you did not know.
 
 ### The word that gets dropped
 
@@ -153,10 +151,9 @@ question about a HANDLER, and the catalogue only describes arguments.
   gain and four `event` verbs, none of which reach it.
 - **A dangling module.** A step naming a module that does not exist keeps exactly the verbs
   that touch `graph.yaml` alone: `node bypass` and `graph unlink`. That is about what those
-  handlers write, which no argument declares. `node replace` used to be the third — it wrote
-  a new module and rewired the reference — but it repoints an `extends:` now, and a dangling
-  name has no file to repoint: offering it would be offering a certain failure. What is left
-  for one is to take it out, or to write the file it names.
+  handlers write, which no argument declares. `node replace` is not a third: it repoints an
+  `extends:`, and a dangling name has no file to repoint, so offering it would be offering a
+  certain failure. What is left for one is to take it out, or to write the file it names.
 - **A take.** Its two verbs take a track and a number — and so do `track gain`, `track pan` and
   the three tone bands. Nothing in the argument types tells those apart, so deriving would offer
   to set a take's level. This is the same seam `node param` / `module clone` sit on, and the
@@ -170,14 +167,14 @@ because its `@engine/…` id genuinely IS a base-module ref.
 
 A right-clicked **event** deliberately gets no `clip …` entry at all (the `clipTargets`
 family). What was clicked is a PLACEMENT on a lane, and the material it references may sit on
-other lanes too — `clip process` in that menu read as "process this event" while acting on
+other lanes too — `clip process` in that menu reads as "process this event" while acting on
 every placement of the file. The event menu offers the `event …` family plus `ui file`; the
 material's own verbs stay reachable from the bar and from the clip's editor, where the clip
-itself is what you are looking at. (This also removed the one MIDI/audio split the menu had:
-`clipTargets` lists no MIDI, and with the family gone the ctx no longer needs to say which
-kind the clip is.)
+itself is what you are looking at. (It is also why the menu has no MIDI/audio split:
+`clipTargets` lists no MIDI, and without that family the ctx has no need to say which kind
+the clip is.)
 
-## The menu can now be long
+## The menu can be long
 
 Sixteen rows for a track. It is capped at 70% of the viewport and scrolls, because a menu that
 runs off the bottom of the screen hides its own tail.

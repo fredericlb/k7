@@ -1,5 +1,5 @@
 // ProjectShell.tsx — this editor's wrapper over the shared gate. The resolving, cloning and
-// opening are @studio/project-shell's, exactly as st0 and m9 mount them; what belongs here is
+// opening are @studio/project-shell's, exactly as st0 mounts them; what belongs here is
 // the wording and what to draw once the project is open.
 // See packages/project-shell/docs/launch.md.
 

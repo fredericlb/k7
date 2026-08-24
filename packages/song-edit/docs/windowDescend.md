@@ -7,24 +7,23 @@ that drives it is `scripts/migrateClipWindows.ts`; the rules and their tests liv
 
 ## `kind` is required, not inferred
 
-The two kinds of edge are not the same axis and never were. A clip's bare number is SECONDS into a
-file; a sequence's edge is a POSITION in the notes and has no other spelling (`SeqEdge`). Reading
-them with one rule is exactly the confusion this migration exists to end, so `edgeBeats` takes the
-kind rather than guessing it from the value's type.
+The two kinds of edge are not the same axis. A clip's bare number is SECONDS into a file; a
+sequence's edge is a POSITION in the notes and has no other spelling (`SeqEdge`). Reading them with
+one rule is exactly the confusion this migration exists to end, so `edgeBeats` takes the kind rather
+than guessing it from the value's type.
 
 An edge that cannot be read answers null: a half-typed timecode is left alone rather than guessed
 at.
 
 ## Which edge wins
 
-`narrowest` is the compiler's rule, unchanged: the larger `from`, the smaller `to`, so an event
-could only ever narrow what its material played. What is written back is the WINNING edge's own
-spelling — the two levels always accepted the same two spellings, so there is no reason to convert
-one.
+`narrowest` is the compiler's rule: the larger `from`, the smaller `to`, so an event can only ever
+narrow what its material plays. What is written back is the WINNING edge's own spelling — both
+levels accept the same two spellings, so there is no reason to convert one.
 
-An edge only one side states is that side's. An edge neither states stays absent, which after this
-migration means "the whole file", answered by whoever can measure it. When either side is
-unreadable the EVENT's edge is kept: it is the one a person last wrote.
+An edge only one side states is that side's. An edge neither states stays absent, which means "the
+whole file", answered by whoever can measure it. When either side is unreadable the EVENT's edge is
+kept: it is the one a person last wrote.
 
 ## Every list, not just the one playing
 

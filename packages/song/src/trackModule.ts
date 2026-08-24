@@ -124,7 +124,7 @@ export function lanesOf(
 /** What one event's ref resolves to. `missing` names nothing the project holds. */
 export type Material = "audio" | "midi" | "missing";
 
-/** Which materials a list of events actually holds — the summary nothing stores any more. */
+/** Which materials a list of events actually holds — a summary nothing stores. */
 export interface LaneMaterials {
   audio: boolean;
   midi: boolean;

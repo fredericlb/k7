@@ -1,6 +1,5 @@
-// relook.ts — when to measure the engines again. A probe is a SNAPSHOT, and it used to be taken
-// once per tab: one unlucky race marked the engine unreachable until the page was reloaded.
-// See docs/access.md.
+// relook.ts — when to measure the engines again. A probe is a SNAPSHOT: taken once per tab,
+// one unlucky race marks the engine unreachable until the page is reloaded. See docs/access.md.
 
 import { useEffect, useState } from "react";
 

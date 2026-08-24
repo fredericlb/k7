@@ -1,7 +1,6 @@
 // sharedFolders.ts — the shared `_modules/` and `_library/` a project sees, found by WHERE
 // they are and nothing else: the workspace's own beside the project, then the machine's
-// médiathèque. `modules_from`/`libraries_from` used to declare them and no longer exist.
-// Full rationale: docs/sharedFolders.md.
+// médiathèque. No project field declares them. Full rationale: docs/sharedFolders.md.
 
 import { existsSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";

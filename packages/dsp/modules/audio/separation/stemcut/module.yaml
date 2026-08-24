@@ -5,12 +5,12 @@
 # come through untouched — see packages/dsp/docs/stemcut.md.
 #
 # NOT `cold: true`, unlike its neighbour stemsplit. The separation is cold; removing what it
-# produced is one multiplication per sample, and the stem is an ordinary file on an ordinary lane.
+# produces is one multiplication per sample, and the stem is an ordinary file on an ordinary lane.
 plugin: { type: jsdsp, name: Stem Cut }
 params:
   # 0 is intact, 1 is gone. A proportion of the instrument rather than a level in dB: half is
   # −6 dB of THAT instrument, and full removal has to be reachable, which −∞ dB is not.
   Cut: 0
-# In a paragraph: subtracts a stem from the mix it was separated out of. Put it on a lane playing
+# In a paragraph: subtracts a stem from the mix it is separated out of. Put it on a lane playing
 # one of `stems/`'s files, sum that lane with the original, and Cut says how much of the
 # instrument to remove. At 0 it is silent, so the original is heard exactly as it is on disk.

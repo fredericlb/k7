@@ -16,7 +16,7 @@ import {
   parseRefList,
 } from "../grist/values.ts";
 
-// The retired Grist editor's API: every row id round-trips, so a save can tell new from existing.
+// The Grist editor API, which no client calls: every row id round-trips, so a save tells new from existing.
 
 interface EditorOrderEntry {
   id: number;
@@ -78,7 +78,7 @@ const idParam = (req: Request, res: Response): number => {
   return id;
 };
 
-/** Pull every row of a table into a Map by id (grist_tree.go indexRows). */
+/** Pull every row of a table into a Map by id. */
 async function indexRows(
   g: GristClient,
   table: string,

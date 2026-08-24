@@ -3,8 +3,7 @@
 // Renders one note three times, changing nothing but `masterPlugins` and then `masterVolume`, and
 // measures the peak of each. No TypeScript test can see this: the compiler's own suite proves the
 // document, and the C++ suite proves the diff, but neither proves the plugin ended up on the
-// master bus — nor that an offline render applies the OUT node's level at all, which for a while
-// it did not.
+// master bus, nor that an offline render applies the OUT node's level at all.
 //   npx tsx engine/moteur/scripts/master-chain.ts
 // See packages/song/docs/masterChain.md and docs/masterVolume.md.
 

@@ -1,7 +1,6 @@
 // peakPass.ts — the measuring half of a COLD module: read a file's true peak and write it into the
-// param the module reads it from, immediately before the render. This is the pass coldModules.md
-// and processChain.md long recorded as missing, and without which a normaliser applies its default
-// gain instead of normalising. Full rationale: docs/peakPass.md.
+// param the module reads it from, immediately before the render. Without it a normaliser applies
+// its default gain instead of normalising. Full rationale: docs/peakPass.md.
 
 import { spawnSync } from "node:child_process";
 import type { PluginDoc } from "@studio/song/project";

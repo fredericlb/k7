@@ -60,7 +60,7 @@ export function familyRevision(family: Family): string {
   return `${mutations[family] ?? 0}:${count}:${newest}`;
 }
 
-/** The capture zone's own token — it used to ride on the songs family and refetch it per capture. */
+/** The capture zone's own token — riding on the songs family would refetch it per capture. */
 export function recordingsRevision(): string {
   const { count, newest } = walk(recordingsDir());
   return `${mutations[RECORDINGS_DIR] ?? 0}:${count}:${newest}`;

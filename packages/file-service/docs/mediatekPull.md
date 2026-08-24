@@ -4,27 +4,24 @@ The hosted médiathèque owns the songs and samples. `~/.studio/mediatek` on a m
 is a cache of it, because the moteur opens file paths and cannot fetch a URL. `mediatekPull.ts`
 is what keeps the two in step, unattended.
 
-> **It used to own the modules too, and this loop used to fetch them.** They live in the
-> account's library repository now, mounted per workspace as a git submodule
-> (`packages/song/docs/sharedFolders.md`), and `modules` and `chains` came out of `PULLED`
-> entirely. The reason is one line of this file's own machinery: `syncFamily` deletes whatever
-> the owner's manifest does not list, so pointed at a git checkout it would remove files
-> somebody committed. Two writers, one tree. Everything below still describes how the loop
-> decides what to fetch and when; where it says `modules`, read `songs`.
+> **`PULLED` is `songs` and nothing else.** Modules and chains live in the account's library
+> repository, mounted per workspace as a git submodule
+> (`packages/song/docs/sharedFolders.md`), and they must never be a family here: `syncFamily`
+> deletes whatever the owner's manifest does not list, so pointed at a git checkout it would
+> remove files somebody committed. Two writers, one tree.
 
-Everything it needs already existed and was wired to nothing: `remoteLibrary` (the hosted
-service as a `LibrarySource`), `syncFamily` (manifest diff, download to `.part`, rename), and
-per-family revision tokens on both sides. This file is the loop that calls them.
+It is built out of three pieces: `remoteLibrary` (the hosted service as a `LibrarySource`),
+`syncFamily` (manifest diff, download to `.part`, rename), and per-family revision tokens on
+both sides. This file is the loop that calls them.
 
-## What it fetches: what the open songs name
+## What it fetches: what the open projects name
 
-Not the whole catalogue. `mediatekRefs(project)` reads the project's files — every
-`extends: "@st0/…"`, every chain segment naming one, then the closure of what those
-modules extend in turn — and each ref becomes the folder prefix
-`modules/<type>/<name>/`. A module IS its folder: the jsdsp source, the presets and the panel
-travel with `module.yaml`, so the scope is a prefix and never a file list.
+Not the whole catalogue. `mediatekSongRefs(project, root)` reads the project and the workspace
+around it for the songs a set list names, and each ref becomes a folder prefix
+(`songs/<artiste>/<album>/<titre>/`). A song IS its folder — the masters and the sidecars travel
+together — so the scope is a prefix and never a file list.
 
-The songs in question are the ones **open**: `liveWorkspaces()` is the memo the request path
+The projects in question are the ones **open**: `liveWorkspaces()` is the memo the request path
 already maintains, and each workspace's active project is exactly the song someone is working
 on. No registry to keep, and nothing walks `~/.studio/root` looking for projects.
 
@@ -51,8 +48,8 @@ already on disk.
 
 ## Why it invalidates every workspace's compiled doc
 
-`Workspace.docCache` is memoised and only our own writes clear it. A module landing on disk
-is somebody else's write, so without `invalidateProjectDoc()` a freshly fetched module would
+`Workspace.docCache` is memoised and only our own writes clear it. A file landing on disk
+is somebody else's write, so without `invalidateProjectDoc()` a freshly fetched song would
 sit there behind yesterday's compile — and the timeline would keep reporting the unresolved
 reference it was fetched to fix. It also bumps the mutation counter, which is what makes the
 browser's 700 ms poll notice and recompile.
@@ -67,16 +64,17 @@ did not land are retried on the next tick.
 With no `MEDIATEK_URL` the loop never starts. The local folder is then simply not a cache of
 anything, which is a working state: `@st0/…` still resolves against whatever is in it.
 
-## The two vocabularies `scope()` keeps apart
+## The vocabulary `scope()` reads
 
-A MODULE ref omits its family (`@st0/audio/x` → `modules/audio/x/`) and a SONG ref carries one
-(`@st0/songs/a/b/c` → `songs/a/b/c/`), so each is mapped by its own function and only the results
-are merged. The songs are a set's PLAYLIST, and they are the reason this loop matters at all off
-the desk: the machine that plays them opens file paths, so every song in the set has to be on its
-disk before the gig. Samples are fetched per clip, not by this loop.
+A SONG ref carries its family (`@st0/songs/a/b/c` → `songs/a/b/c/`), which is what
+`songPathPrefix` turns into a folder prefix — a MODULE ref, which omits its family, is a
+different vocabulary and has its own function. The songs are a set's PLAYLIST, and they are the
+reason this loop matters at all off the desk: the machine that plays them opens file paths, so
+every song in the set has to be on its disk before the gig. Samples are fetched per clip, not by
+this loop.
 
-The workspace ROOT goes down with the project directory, which it did not have to before: a
-playlist lives beside `_modules` at the top of the repository rather than inside the project
+The workspace ROOT goes down with the project directory: a playlist lives beside `_modules` at
+the top of the repository rather than inside the project
 (`packages/song/docs/playlists.md`), so answering "what does this set name" needs both halves.
 `mediatekSongRefs` is where the two meet, and the only place they do.
 
@@ -98,16 +96,15 @@ none; dropping it makes the next tick re-decide rather than skip. Never throws, 
 
 ## The loop is STOPPED, and why
 
-`startMediatekPuller` returns immediately. This guard is a stopgap rather than the design: the
-médiathèque cache is being removed (the stem cut moves to pl8, which already holds the bytes),
+`startMediatekPuller` returns immediately. The guard is a stopgap rather than the design: the
+médiathèque cache is on its way out (the stem cut moves to pl8, which already holds the bytes),
 and until it goes this loop must not run.
 
-What it did on this machine, measured 2026-08-22: `STUDIO_MEDIATEK` for pl8's backend is
-`~/.studio/mediatek` — the very directory this cache writes into (`env.yaml`) — so every tick
-downloaded each scoped file ONTO ITSELF and renamed the copy over the original while the server
-was still serving it. Three songs came back as pure zeros, 3.4 MB and 37 MB of `0x00`, and no
-other copy of them existed on the machine.
+What it does when it runs: where `STUDIO_MEDIATEK` for pl8's backend is `~/.studio/mediatek` —
+the very directory this cache writes into (`env.yaml`) — every tick downloads each scoped file
+ONTO ITSELF and renames the copy over the original while the server is still serving it. Songs
+come back as pure zeros, 3.4 MB and 37 MB of `0x00`, with no other copy of them on the machine.
 
-It could not settle, either: `syncFamily` records the manifest entry's mtime, and its own rename
-gives the file a NEW one, so the next diff always mismatched. Nine files rewritten every sixty
+It cannot settle, either: `syncFamily` records the manifest entry's mtime, and its own rename
+gives the file a NEW one, so the next diff always mismatches. Nine files rewritten every sixty
 seconds, indefinitely.

@@ -15,7 +15,7 @@ rule is that a file is written when IT is readable: a half-typed widget in the p
 the module file being saved, which is exactly what a single button writing them in sequence did.
 Each holds its own text back and says so on its own tab.
 
-**Save writes all four**, not the pane on screen — which is what Ctrl+S used to mean here. A module
+**Save writes all four**, not the pane on screen. A module
 is four files describing one thing, and saving the one you happen to be looking at leaves the other
 three behind, which on a shared module means publishing a panel for a plugin nobody else has yet.
 They are edited together, so they land together. `publish` runs only if every one landed: `flush`
@@ -70,9 +70,9 @@ The **shelf** is empty while the screen is read-only, since every one of its ent
 the plugin's own banks stay, because those load into the plugin. Applying a shelf preset stamps
 values into the module BUFFER and is an edit and nothing more — no state to push, no engine to ask
 — so trying four presets in a row writes four times, Ctrl+Z takes each one back and st0's journal
-has them all. It used to be undone by simply not saving, which was an affordance of the button and
-went with it. Stamping values into a buffer nothing will write is how you lose an afternoon, which
-is why the read-only guard is on the shelf and not on the factory presets.
+has them all. With no Save button to withhold, there is nothing else to undo them with. Stamping
+values into a buffer nothing will write is how you lose an afternoon, which is why the read-only
+guard is on the shelf and not on the factory presets.
 
 ## What is a prop, and why
 
@@ -123,8 +123,8 @@ left after it is exactly what this machine SCANNED: a VST.
 Opening resolves when an engine has TAKEN the request, not when a window is on screen — the window
 draws on the engine's machine, which may not be this one, and it rejects only when nobody took it.
 The warning that this window's state is not saved with the project is printed **once the engine has
-said it drew one** (it used to print on the request going out, reporting an open window while
-nothing had happened) and **every time**, not once: the window is the plugin's own and looks exactly
+said it drew one** — printed on the request going out, it would report an open window while nothing
+had happened — and **every time**, not once: the window is the plugin's own and looks exactly
 like the one that DOES save in a project, so "this one does not" is the thing a user has to be
 told. When something fails, the message is the HOST's — the interesting failure is "no window open
 yet", and only the side that asked the engine knows that is what happened.
@@ -142,11 +142,11 @@ module's folder, so it follows the same lock the text does.
 ## The parameter list
 
 `params` is the odd entry in the left column's strip and deliberately so: every other entry is a
-FILE on disk, this one is the module's parameter list. It joined the strip because it was a third
-of the column's height at all times, on every tab, for a list you reach for while binding and
-ignore the rest of the time. The cost is that the text and the parameters are no longer on screen
-together. It is a PANE now, so it fills the column rather than taking a fixed third of it, with no
-top border — there is nothing above it any more to be separated from.
+FILE on disk, this one is the module's parameter list. It is in the strip because standing on its
+own it takes a third of the column's height at all times, on every tab, for a list you reach for
+while binding and ignore the rest of the time. The cost is that the text and the parameters are
+not on screen together. It is a PANE, so it fills the column rather than taking a fixed third of
+it, with no top border — there is nothing above it to be separated from.
 
 The list is **read-only on purpose**: a value is edited in the text or by the plugin, never in two
 places. It is filtered, because a real plugin has dozens and a list you can only scroll is one you
@@ -223,8 +223,9 @@ moving a knob to a one-line diff. A `tabs` is the exception: its pages are a nes
 reading down the page.
 
 **Range fields belong to the NUMERIC kinds only.** A `min` on a toggle fails to load and takes the
-graph node with it. The old "not label/tabs/waveform" test held only until a knob was retyped into
-one of those. A dropdown's `options` are written out in full, because the module must draw the same
+graph node with it, so the test names the numeric kinds: a "not label/tabs/waveform" test holds
+only until a knob is retyped into one of those. A dropdown's `options` are written out in full,
+because the module must draw the same
 with no engine to re-fetch them, and its `library` is written alongside when both are set: the file
 says what the author put.
 
@@ -325,19 +326,19 @@ a line of noise per file a reader has to learn to skip.
   extends: "@engine/4osc"                  # a module that is only a FACE for one
   ```
 
-  The whole of that file is the second line. Reading only the first found nothing, which is why the
-  list was still empty after the table existed.
+  The whole of that file is the second line, so reading only the first finds nothing and leaves the
+  list empty however complete the table is.
 - **The DSP tab is drawn only for a module that HAS source.** A tab always there and usually dead
   would say every module could have DSP source, which is the opposite of what the type means.
 - **A shelf the schema refuses is SAID so**, not silently listed as empty: the dropdown above it
-  would then be missing presets plainly in the file. It is the one state that still shows on the tab
-  rather than only in its tooltip. What the tab's name no longer says — absent, unread — lives in
-  the tooltip rather than the label, so the tab reads as the file it opens.
+  would then be missing presets plainly in the file. It is the one state that shows on the tab
+  rather than only in its tooltip. Everything the tab's name does not say — absent, unread — lives
+  in the tooltip rather than the label, so the tab reads as the file it opens.
 - **A tile's glyph and caption are `pointer-events-none`**, so every drag event over a tile targets
   the TILE. They are what a tile is made of and they fill it, so a parameter dragged onto a widget
-  is nearly always over one of them — and each crossing fired `dragleave` on the tile, cleared the
-  highlight and let the cursor fall back to "no". The empty cells never had the problem because
-  they have no children, which is why dropping on bare grid always worked. A cell under a widget is
+  is nearly always over one of them — and without it each crossing fires `dragleave` on the tile,
+  clears the highlight and lets the cursor fall back to "no", while bare grid keeps working because
+  an empty cell has no children. A cell under a widget is
   covered by that widget, which is later in the DOM and therefore takes the drop; that is what
   keeps the two drop paths from overlapping.
 - **The grid refuses a drag for three reasons that mean the same thing to IT and to nobody else**,
@@ -352,7 +353,6 @@ a line of noise per file a reader has to learn to skip.
   module, so there is nothing project-wide to read.
 - **Factory presets need a live plugin instance**, so they are asked for only when editing the
   module itself.
-- **Nothing resolves a pick any more.** It used to be resolved here, from a module name through
-  `hints.paths` — which by construction only holds the project's OWN modules, so a shared one came
-  back "couldn't resolve". The builder opens the catalogue now, and that already carries the file
-  and both refs.
+- **Nothing resolves a pick.** The builder opens the catalogue, which already carries the file and
+  both refs. Resolving here from a module name through `hints.paths` cannot work: by construction
+  that map holds only the project's OWN modules, so a shared one comes back "couldn't resolve".

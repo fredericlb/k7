@@ -1,6 +1,6 @@
 // @studio/dsp — write a module's DSP in JS, emit the graph the engine runs.
 //
-// The JS runs as a BUILD step and produces JSON; it never goes near the audio thread. Throughput was never the
+// The JS runs as a BUILD step and produces JSON; it never goes near the audio thread. Throughput is not the
 // obstacle (a JS auto-wah measures 0.1% of a 5.3 ms block) — a GC pause is, and no amount of care removes it.
 // So this library's whole job is to make a description pleasant to write and impossible to mistype. What runs
 // is C++, over the primitives in engine/DspGraph.h.

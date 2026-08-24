@@ -174,7 +174,7 @@ describe("reading a window out of a DAW's (length, offset, loop region)", () => 
   });
 
   it("treats a length SHORTER than its region as one truncated pass", () => {
-    // Real material: 24 beats against a 26.38-beat region that never comes round, so it was a bound.
+    // Real material: 24 beats against a 26.38-beat region that never comes round, so it is a bound.
     expect(
       materialWindow({ length: 24, loopStart: 0, loopEnd: 26.38 }),
     ).toEqual({ from: 0, to: 24, loops: 1 });

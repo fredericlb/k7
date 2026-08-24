@@ -97,7 +97,7 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
   });
 
   it("resolves the library ref on a project header that says nothing at all", () => {
-    // `modules_from` came from the scaffold only, so every older project saw a dangling `@st0/…`.
+    // No header field declares the library, so a bare header still has to resolve `@st0/…`.
     writeFileSync(
       join(dir, "project.yaml"),
       "project:\n  name: song\n  tempo: 120\n",

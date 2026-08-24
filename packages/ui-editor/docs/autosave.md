@@ -1,8 +1,8 @@
 # Autosave — the editors have no Save button (with one exception)
 
-Every text pane in this repo used to end in the same button: `Enregistrer *`, `Save *`. It is
-gone. The buffer is written **as soon as it is a document the compiler could read**, and held
-back — visibly, with the reason — for as long as it is not.
+No text pane in this repo ends in a `Enregistrer *` / `Save *` button. The buffer is written
+**as soon as it is a document the compiler could read**, and held back — visibly, with the
+reason — for as long as it is not.
 
 The rule is one sentence: **a file is written when it is valid.** Everything below is what that
 sentence has to mean for it to be safe.
@@ -34,8 +34,8 @@ underlines the line the complaint is about.
 
 A rule that only ever refuses is a trap. A file can already be invalid **on disk** — a key this
 build does not know, a project written by a newer one, something a human typed into git — and
-if the schema gated every write, nothing you typed could make it valid, and there is no longer a
-button to overrule the check with. That file would be uneditable, forever.
+if the schema gated every write, nothing you typed could make it valid, and there is no button to
+overrule the check with. That file would be uneditable, forever.
 
 So the check that gates the write is not "is this valid" but **"does this make it worse"**:
 
@@ -90,8 +90,8 @@ with an unsaved buffer.** On a timer that is the last chance and it is taken. He
 point is that nothing writes unasked, so the buffer is KEPT instead and comes back with the file
 through `recallBuffer`. Nothing is lost either way; what differs is who decided.
 
-`flush()` resolves to **whether the buffer is on disk afterwards** — false when it was held back
-or the write failed. That is not decoration: a screen saving several files at once needs the
+`flush()` resolves to **whether the buffer is on disk afterwards** — false when it is held back
+or the write fails. That is not decoration: a screen saving several files at once needs the
 answer before doing anything that assumes they all landed. The module builder commits and pushes
 a repository on that answer, and committing a module whose `module.yaml` is still yesterday's
 would put a half-edit in front of everybody.
@@ -110,8 +110,8 @@ overrule the rule. Whoever asked does not change whether the document compiles.
 | pane | file(s) |
 |---|---|
 | st0 `EditorTab` | the open project file — plus its findings drawn in the gutter beside the server's |
-| m9 `EditView` | the open project file |
-| pl8 `SongEditor`, `ChainEditor` | the médiathèque's `song.yaml`, a chain template's `graph.yaml` |
+| st0 `ChainsBuilder`, `ModuleSidePane` | `chains.yaml`, and a module's own file from the side pane |
+| pl8 `SongEditor` | the médiathèque's `song.yaml` |
 | st0 `PlaylistEditor` | a playlist in `_playlists/` — not a project file, so it hands the hook its own `validate` |
 | `@studio/ui-module-builder` | **four** at once: `module.yaml`, `ui.yaml`, `presets.yaml`, `jsdsp.ts` |
 
@@ -120,12 +120,11 @@ save that walks them in order: they are four documents with four schemas, and a 
 widget in the panel must not stop the module file reaching disk. Its header shows the
 `loudest()` of the four; which file it is about is on its tab, where the name already is.
 
-## What changed for the files that had no file yet
+## The files that have no file yet
 
-pl8's song sidecar and st0's playlists open on a **stub** when nothing is on disk. With a button,
-the stub was written by clicking it. With autosave, the stub is loaded as `saved` as well as as
-the buffer — so opening a song files nothing, and the first thing you actually type creates it.
-Looking at something must not write it.
+pl8's song sidecar and st0's playlists open on a **stub** when nothing is on disk. The stub is
+loaded as `saved` as well as as the buffer — so opening a song files nothing, and the first thing
+you actually type creates it. Looking at something must not write it.
 
 ## What a write drags behind it
 
@@ -134,12 +133,11 @@ project changed, so the arrangement and the graph recompile. That is why the del
 second rather than the 300 ms a text editor would use — the cost of a write here is the cost of
 a compile.
 
-It also means the undo journal now records an entry per PAUSE rather than per Save. Finer, and
+It also means the undo journal records an entry per PAUSE rather than per save. Finer, and
 larger; nothing coalesces them yet.
 
 ## What it costs
 
-An edit that used to be undone by *not saving* now needs an undo. The module builder's preset
-shelf was the one place that leaned on it: trying four presets in a row wrote nothing until you
-committed. It writes four times now, and the way back is Ctrl+Z in the code pane — plus, in st0,
-the journal every write is recorded in.
+An edit has to be UNDONE, since not saving is not a way to discard it. The module builder's preset
+shelf is where that shows: trying four presets in a row writes four times, and the way back is
+Ctrl+Z in the code pane — plus, in st0, the journal every write is recorded in.

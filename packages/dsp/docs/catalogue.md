@@ -1,4 +1,4 @@
-# `modules/` — les modules écrits ici, et ce qu'ils ne sont plus
+# `modules/` — les modules écrits ici, et ce à quoi le dossier sert
 
 `packages/dsp/modules/` tient des modules **écrits dans ce dépôt** : leur `module.yaml`, leur
 panneau, et le `jsdsp.ts` ou le `dsp.dsp` qui fait le son.
@@ -23,7 +23,7 @@ Les deux de `separation/` vont ensemble et se lisent dans cet ordre : `stemsplit
 ligne, en quatre fichiers ; `stemcut` en retire un du mix d'origine, en direct, par un gain
 **négatif** (`docs/stemcut.md`). Ils ont leur propre catégorie plutôt qu'une place parmi les
 utilitaires parce qu'ils ne servent à rien l'un sans l'autre — et parce que c'est là que le dépôt
-de bibliothèques range déjà `stemsplit`, qui est la référence depuis qu'il n'y a plus de graine.
+de bibliothèques range déjà `stemsplit`, et ce dépôt-là est la référence.
 
 Trois d'entre eux ont leur propre page, parce que leurs nombres se justifient plutôt qu'ils ne se
 lisent : `sweep` (`docs/sweep.md`), `stemcut` (`docs/stemcut.md`) et le wurlitzer
@@ -53,26 +53,21 @@ Le premier segment est le **dossier de type**, qui décide de ce qu'un module es
 **catégorie**, qui décide seulement de son rangement dans un sélecteur. C'est pourquoi l'EQ est
 sous `filter` et non sous `utility`, alors que les deux sont des modules audio.
 
-## Ce n'est plus une graine
+## Ce n'est pas une graine
 
-Ce dossier a été le **catalogue de départ** : le service de fichiers le recopiait dans toute
-bibliothèque de compte encore vide (`seedIfEmpty`), après l'avoir lui-même recopié de la
-médiathèque par HTTP dans une vie antérieure. Les deux mécanismes sont partis, et avec eux
-`src/catalogue.generated.ts`, son générateur et l'export `@studio/dsp/catalogue`.
+Ce dossier n'est recopié dans aucune bibliothèque de compte. **La référence est le dépôt des
+bibliothèques du compte** : ce qu'il contient est ce qu'un projet hérite, et un build qui
+embarquerait sa propre copie des modules de quelqu'un serait une seconde source de vérité — deux
+sources ne peuvent que finir par se contredire. `initIfEmpty` ne fait qu'une chose : donner un
+commit à un dépôt qui n'en a aucun, parce qu'un gitlink doit pointer quelque part.
 
-**La référence est le dépôt des bibliothèques du compte.** Ce qu'il contient est ce qu'un projet
-hérite ; un build qui embarquait sa propre copie des modules de quelqu'un était une seconde
-source de vérité, et deux sources ne peuvent que finir par se contredire. `initIfEmpty` ne fait
-plus qu'une chose : donner un commit à un dépôt qui n'en a aucun, parce qu'un gitlink doit
-pointer quelque part.
-
-Ce que ça coûte, dit ici parce que c'est ici que la graine était argumentée : **une bibliothèque
-neuve est vide**, donc toute référence `@st0/…` ne résout rien tant qu'on n'y a rien mis — y
+Ce que ça coûte, dit ici parce que c'est ici qu'on viendrait chercher une graine : **une
+bibliothèque neuve est vide**, donc toute référence `@st0/…` ne résout rien tant qu'on n'y a rien mis — y
 compris les quatre qu'un SET échafaudé écrit pour ses platines. Et une référence non résolue
 **n'est pas une erreur de compilation** (`@studio/song`'s `docs/sharedFolders.md`) : le module est
 simplement absent du document, ce qui ressemble exactement à un module contourné.
 
-## À quoi le dossier sert encore
+## À quoi le dossier sert
 
 - **De source** pour les DSP que ce paquet expose : `crossfade.test.ts` compare le graphe compilé
   du dossier à la fonction de `src/`, dans les deux sens, pour qu'ils ne dérivent pas.
@@ -81,5 +76,5 @@ simplement absent du document, ce qui ressemble exactement à un module contourn
 - **De modèle à copier** dans une bibliothèque, à la main ou depuis st0 — qui est l'endroit où un
   module s'écrit, contre un projet où le greffon qu'il nomme est réellement chargé.
 
-Il n'y a plus rien à régénérer ni à committer en double : ajouter un module ici ne le donne à
+Il n'y a rien à régénérer ni à committer en double : ajouter un module ici ne le donne à
 personne, et c'est le point.

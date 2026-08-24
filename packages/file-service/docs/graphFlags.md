@@ -24,12 +24,12 @@ the engine":
   (`~/.studio/exts.json`) — e.g. a VST3 the project references but this machine hasn't
   scanned or installed. That's the common one on an imported song.
 
-The KNOWN types are `internal`, `jsdsp`, `offline`, and the external formats. `jsdsp` had to be added
-by hand once and was missed, which is worth remembering because of how it failed: the module
-played perfectly — the compiler hands the engine its graph — while the node drew red and its
-knobs drew empty. Empty because a red node gets no `pluginId`, and that is the address the
-panel asks the engine for a parameter value by. So a missing entry in this list costs both
-the colour and the values, and neither says which list is wrong.
+The KNOWN types are `internal`, `jsdsp`, `offline`, and the external formats. The list is kept by
+hand, and a type missing from it fails in a way worth remembering: the module plays perfectly —
+the compiler hands the engine its graph — while the node draws red and its knobs draw empty.
+Empty because a red node gets no `pluginId`, and that is the address the panel asks the engine
+for a parameter value by. So a missing entry costs both the colour and the values, and neither
+says which list is wrong.
 
 ## `offline` is known AND has no pluginId — the one case where they come apart
 
@@ -39,20 +39,19 @@ drawing it red would call a module that works exactly as written broken. But whe
 becomes a real plugin in the compiled document, `offline` becomes **nothing**: the compiler
 reads the type and skips the emit (`if (rawType === OFFLINE_TYPE) continue`). It means "no
 engine plugin, realised outside the graph" — a pass that writes files for a stem splitter,
-the player warping the clip it feeds for m9's tempo.
+the player warping the clip it feeds for a deck's tempo.
 
 So it gets no `pluginId`, and the reason is worth stating plainly: an id here would name an
-address no document contains. It carried one for a while and everything downstream believed
-it. m9's tempo faders were classed as plugin params and sent `set-plugin-param` to
-`deckA:tempoA` for ever — no error, no log, a fader that moves and changes nothing. The
-panel drew the same lie: a knob you could turn, over a param that was never there. And the
-input tap two loops below, whose comment promises an id "the engine really has", could land
-on one too.
+address no document contains, and everything downstream believes it. A deck's tempo fader
+classed as a plugin param sends `set-plugin-param` to `deckA:tempoA` for ever — no error, no
+log, a fader that moves and changes nothing. The panel draws the same lie: a knob you can
+turn, over a param that was never there. And the input tap two loops below, whose comment
+promises an id "the engine really has", could land on one too.
 
 Without the id the widget resolves to no target and goes inert — `pickWidget` returns on a
 null target — which is the honest state. What such a module's panel shows is its DECLARED
 params, since nothing live will ever arrive for them. Where the value actually lives is the
-surface that realises it: for m9 that is the desk's fader, which addresses the TRACK.
+surface that realises it: for a deck that is the desk's fader, which addresses the TRACK.
 
 ## Why the two red cases behave differently downstream
 
@@ -99,7 +98,7 @@ that names itself, which is the case the node header reads as "there is only one
   to a panel would make the panel disagree with the file. Absent reads as "no selection to show", which
   is the honest answer.
 - **`fromPort`**, on a run and on a lane's outputs, only when there is one: a module with the single
-  output most have says nothing, and the wire stays what it was for every chain drawn before.
+  output most have says nothing, and the wire stays plain for every chain drawn without one.
 
 ## The four choice lists
 
@@ -107,8 +106,8 @@ Four fields on a step are not what the module IS but what it could be SET to, an
 from the module's own folder and its ancestors' — so a thin local module that extends a médiathèque amp
 offers that amp's profiles.
 
-`assetChoices` is per module rather than once for the graph, because there is no shared library any
-more: the choices ARE the folder's contents. An unreadable folder is an empty one, never a failure.
+`assetChoices` is per module rather than once for the graph, because there is no shared library:
+the choices ARE the folder's contents. An unreadable folder is an empty one, never a failure.
 `bases` is the same for `base/`, and `shaders` the same for a shader module's GLSL — that last one is
 not asked at all unless the folder says `shaders`, so every other node is unchanged by it
 (`packages/song-video/docs/shaders.md`). Nothing for a module the engine merely reports: it has no
@@ -160,17 +159,17 @@ them. A lane that runs no plugins gets no tap — there is nothing to listen to.
   `"at"` is written last, so a point that is also inside a wider freeze still reads as the one the file
   says can be thawed (`packages/song/docs/freeze.md`).
 - **`modules`** is a note's TEXT, keyed by DOC modules and nothing else — so its keys ARE the project's
-  notes, which is what lets a surface find them without a second field saying "this one is a note". It
-  used to be `{docs, todos}` for a bottom panel that aggregated everybody's notes; a note is its own node
-  now. `content ?? ""` rather than skipping an empty one: a note somebody has not written yet is still a
-  note, and dropping it would make it vanish from the graph instead of drawing empty.
+  notes, which is what lets a surface find them without a second field saying "this one is a note". A
+  note is its own node. `content ?? ""` rather than skipping an empty one: a note somebody has not
+  written yet is still a note, and dropping it would make it vanish from the graph instead of drawing
+  empty.
 
 ## Every curve, not only the bound ones
 
-`curves` used to carry the bound ones alone, and an unreferenced curve drew nothing — which made
-`curve new` a verb whose result you could not see. A curve is a node like everything else here, so one
-that drives nothing yet is a card waiting to be wired, exactly as a module with no cable is.
-`usedCurves` is still what records each SHAPE, so a bound curve's label is unchanged; the rest are added
+Carrying the bound ones alone leaves an unreferenced curve drawing nothing, which makes `curve new` a
+verb whose result you cannot see. A curve is a node like everything else here, so one that drives
+nothing yet is a card waiting to be wired, exactly as a module with no cable is. `usedCurves` is what
+records each SHAPE, so a bound curve carries its label; the rest are added
 beside it. Only a curve that EXISTS keeps its automation, and a drawn curve's points travel while a
 parameterised one's do not — the points are what a timeline automation row is built from.
 
@@ -183,9 +182,9 @@ already holds the compiled document memoised on the revision — compiling it ag
 of a build this file has already been trimmed once for.
 
 The `extends` vocabulary comes off the graph, which has already read it: calling `loadModuleRefs` again
-here doubled the cost of every graph build (~1.8 s on a real project), and a graph is polled. The
+here doubles the cost of every graph build (~1.8 s on a real project), and a graph is polled. The
 `assets/` listings are memoised for the whole build for the same reason — ancestors repeat, so every
 module inheriting one shared amp would otherwise re-read that amp's folder.
 
-`EXTERNAL_PLUGIN_FORMATS` is re-exported, not restated: it was declared here a second time,
-identically, and the loader's list of copies to keep in step did not even mention this one.
+`EXTERNAL_PLUGIN_FORMATS` is re-exported, not restated: a second declaration here is a copy of the
+loader's list, and one the loader's own note of copies to keep in step would not mention.

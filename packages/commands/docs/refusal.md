@@ -1,9 +1,8 @@
 # Saying NO — `h.refuse()`
 
-A handler has one output channel and used to say everything through it. `selection consolidate` on
-a two-lane rectangle wrote a line; so did `selection consolidate` on a good one. Both arrived as the
-same grey text under the command bar, and the app went on as if the edit had landed — because
-nothing in the wire said otherwise.
+One output channel is not enough. `selection consolidate` on a two-lane rectangle writes a line, and
+so does `selection consolidate` on a good one; with nothing in the wire to tell them apart both
+arrive as the same grey text under the command bar, and the app goes on as if the edit had landed.
 
 So `CommandHost` has two verbs:
 
@@ -42,7 +41,7 @@ which is the tell.
 `no event on '<track>' at <tc>` is a refusal, not a finding. The verb was asked to cut something
 and there was nothing there; the caller learns that its address was wrong.
 
-## It is the whole catalogue now
+## It covers the whole catalogue
 
 Every family — `track`, `clip`, `event`, `sequence`, `node`, `module`, `graph`, `project`,
 `system`, `transport` — plus the dispatcher itself: an unknown verb, a missing handler and a line
@@ -56,9 +55,9 @@ a listing:
 
 Neither was asked to change anything, so neither declined.
 
-Two calls were SPLIT rather than classified, because one ternary carried both channels:
+Two calls are SPLIT rather than classified, because one ternary would carry both channels:
 `track take keep` on a track with no takes, and `module new` on a module that is already there.
-Both used to report a zero as though it were a result.
+Folded into one line, either reports a zero as though it were a result.
 
 ## The rule is pinned in the source
 
@@ -70,5 +69,5 @@ Both used to report a zero as though it were a result.
   threw and the project is unchanged.
 
 A source check rather than a behaviour test, because the failure it guards is INVISIBLE: a
-refusal sent through `log` runs, returns, and reads like a success. Nothing at runtime would have
-noticed, which is exactly how sixty-five of them accumulated.
+refusal sent through `log` runs, returns, and reads like a success. Nothing at runtime notices,
+so nothing at runtime can be made to.

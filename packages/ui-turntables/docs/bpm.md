@@ -6,7 +6,7 @@ fader gauche, et le fader droit devient gris et bouge tout seul.
 
 ## Le fader est le paramètre d'un MODULE
 
-Ce n'est pas une commande que m9 s'invente : le projet le dit. `example.m9` pose sur chaque
+Ce n'est pas une commande que le pupitre s'invente : le projet le dit. `example.st0` pose sur chaque
 platine un nœud du module `@st0/audio/utility/tempo` de la médiathèque, et le
 fader est le `Target BPM` de ce nœud. Un nœud par platine, parce que chaque
 platine joue à son propre BPM et qu'un paramètre appartient à un **usage**, pas à un module.
@@ -95,10 +95,10 @@ transport est une position sur cette timeline — donc ré-étirer le clip chang
 du fichier se trouve sous la tête de lecture**, et si le clip ne bouge pas avec, la musique
 saute.
 
-Mesuré avant que ça n'existe, avec une source dont la fréquence encode sa propre position (le
-banc ci-dessous) : **un seul pas d'un glissement de +8 % mangeait 980 ms du morceau**, et un
-glissement complet en mangeait une seconde pleine, livrée en une secousse par pas. Aucun
-silence, aucun clic — le morceau bondissait simplement en avant. C'est ça, « abrupt ».
+Mesuré sans la correction, avec une source dont la fréquence encode sa propre position (le
+banc ci-dessous) : **un seul pas d'un glissement de +8 % mange 980 ms du morceau**, et un
+glissement complet en mange une seconde pleine, livrée en une secousse par pas. Aucun
+silence, aucun clic — le morceau bondit simplement en avant. C'est ça, « abrupt ».
 
 Le montant n'est pas mystérieux : à 8 % près de la cible, la position dans le fichier saute de
 8 % de là où on en est. À douze secondes du début ça fait un tiers de mesure ; à trois minutes,
@@ -116,9 +116,9 @@ début' = début + s · (ratio_avant − ratio_après)
 et `T` **disparaît**. C'est tout l'intérêt. La seule estimation qui reste est *où on en est dans
 le fichier*, et elle entre **multipliée par l'écart de ratio** — de l'ordre du centième. Une
 tête de lecture vieille de 50 ms coûte donc une demi-milliseconde. Calculer au contraire une
-nouvelle position de transport et y sauter aurait rendu ces 50 ms telles quelles, en bafouillage.
+nouvelle position de transport et y sauter rendrait ces 50 ms telles quelles, en bafouillage.
 
-Et `seek` aurait été faux deux fois : **il n'y a qu'un transport pour deux platines**. Déplacer
+Et `seek` serait faux deux fois : **il n'y a qu'un transport pour deux platines**. Déplacer
 le transport pour tenir une platine immobile jetterait l'autre. La correction est donc par clip,
 et elle vit dans le document — un seul message, rien qui puisse arriver dans le désordre.
 
@@ -134,12 +134,12 @@ alors sur un transport négatif que le moteur ramène à zéro — le repère en
 silence.
 
 D'où `TIMELINE_BASE` : chaque clip de platine démarre **dix minutes** dans la timeline. Ça
-couvre une heure de morceau pliée de ±16 %, ça ne coûte rien (la timeline n'appartient qu'à m9
-et ne porte que ces deux clips), et c'est la même valeur pour les deux platines, donc elles
+couvre une heure de morceau pliée de ±16 %, ça ne coûte rien (la timeline n'appartient qu'au
+pupitre et ne porte que ces deux clips), et c'est la même valeur pour les deux platines, donc elles
 partent toujours ensemble. Le prix est que le transport ne commence plus où la musique commence
-— c'est pourquoi charger le premier morceau y saute, et pourquoi la waveform lit maintenant
-`sourceAt` au lieu du transport brut (elle dessinait le mauvais endroit du morceau dès qu'une
-platine était étirée, silencieusement).
+— c'est pourquoi charger le premier morceau y saute, et pourquoi la waveform lit `sourceAt` au
+lieu du transport brut : sinon elle dessine le mauvais endroit du morceau, en silence, dès
+qu'une platine est étirée.
 
 Le slip est borné : jamais avant le début de la timeline. `TIMELINE_BASE` est dimensionné pour
 que cette borne soit hors d'atteinte en pratique ; elle est là parce qu'un fader qui descend à
@@ -216,7 +216,7 @@ exempté : la valeur qu'on lâche doit être vraie, si petit qu'ait été le der
 
 C'est un *throttle*, délibérément pas un *debounce* : un debounce annule son échéance à chaque
 nouvelle valeur, donc un glissement continu n'enverrait rien tant que la main ne s'arrête pas
-— exactement le comportement qu'on remplace. Ici une échéance déjà posée est laissée
+— exactement ce qu'il ne faut pas ici. Une échéance déjà posée est donc laissée
 tranquille et lit la valeur courante quand elle se déclenche. Le relâchement envoie en plus la
 valeur exacte : le dernier tick cadencé peut s'en écarter de 120 ms de geste.
 
@@ -237,23 +237,24 @@ module est `offline`, il ne compile en aucun plugin — le moteur n'a rien à ra
 adresse sous laquelle le rapporter. La valeur n'existe que sur la surface qui la **réalise**,
 et c'est `useDeckSet` qui la prête au graphe, via `deck.setModuleParam`.
 
-Trois choses manquaient, et le nœud restait figé sur ce que `project.yaml` déclare — ce qui
-se lit exactement comme « le BPM ne se met pas à jour quand on charge un morceau » :
+Trois choses sont nécessaires pour ça, et sans l'une d'elles le nœud reste figé sur ce que
+`project.yaml` déclare — ce qui se lit exactement comme « le BPM ne se met pas à jour quand on
+charge un morceau » :
 
-| | ce qui manquait |
+| | ce qu'il faut |
 |---|---|
-| l'hôte | st0 ne passait ni `moduleParams` ni `onModuleParam` à `DomChains`, et les deux sont ce qui **allume** ces widgets. Le graphe dessinait `–`, inerte. |
-| `Source BPM` | **rien ne l'écrivait, nulle part.** `views/mix.yaml` lie un paramètre par contrôle, donc seul `Target BPM` est nommé ; l'autre est mesuré, et l'afficheur est resté à 0 pour tous les morceaux jamais chargés. |
-| le trou | poser un disque **efface** le fader (`clearTempo`) et la mesure arrive un instant plus tard. Une publication sautée pendant ce trou laissait le nœud sur les nombres du morceau **sortant** — au moment précis où on le regarde pour voir ce qu'on vient de poser. |
+| l'hôte | st0 passe `moduleParams` **et** `onModuleParam` à `DomChains` : ce sont les deux qui **allument** ces widgets. Sans eux le graphe dessine `–`, inerte. |
+| `Source BPM` | `views/mix.yaml` lie un paramètre par contrôle, donc seul `Target BPM` y est nommé ; l'autre est mesuré et n'a aucun écrivain dans le fichier. C'est la publication ci-dessous qui l'écrit, sinon l'afficheur reste à 0 pour tous les morceaux. |
+| le trou | poser un disque **efface** le fader (`clearTempo`) et la mesure arrive un instant plus tard. Sauter la publication pendant ce trou laisse le nœud sur les nombres du morceau **sortant** — au moment précis où on le regarde pour voir ce qu'on vient de poser. |
 
 Les deux dernières règles sont dans `offlinePublish` (`mixBindings.ts`), à côté des autres
 lectures du même fichier, pour qu'un test les tienne. Une platine sans tempo publie **0**, qui
 est le « ne touche à rien » du module lui-même — et non le silence.
 
-`offlinePublish` ne répond que pour les contrôles de **tempo**. La règle était « toute liaison
-sans plugin » et la valeur publiée était la cible de la platine : un module `offline` lié à
-autre chose — une coupure de stem — lisait donc le BPM de sa platine comme sa propre valeur.
-Cette liste est tirée des tempos et ne tient rien pour ces contrôles-là.
+`offlinePublish` ne répond que pour les contrôles de **tempo** : sa liste est tirée des tempos
+et ne tient rien d'autre. Une règle plus large — « toute liaison sans plugin », publiant la
+cible de la platine — ferait lire à un module `offline` lié à autre chose, une coupure de stem,
+le BPM de sa platine comme sa propre valeur.
 
 Le widget reste **en lecture seule** dans le graphe : `moduleParams` allume l'affichage,
 `onModuleParam` seul rendrait le knob actionnable, et le chemin retour n'existe pas encore —
@@ -266,8 +267,8 @@ Deux platines à 128 BPM dont les temps forts sont à 200 ms l'un de l'autre ne 
 synchronisées, elles *flamment*. Le sync fait donc **deux** choses : donner son tempo à
 l'esclave, puis caler sa grille sur celle du maître.
 
-Cette page a longtemps dit que caler la phase demanderait un transport par platine, que le
-moteur n'a pas. C'était l'erreur : on ne décale pas le **transport**, on décale le **clip**.
+Caler la phase ne demande pas un transport par platine, que le moteur n'a pas : on ne décale
+pas le **transport**, on décale le **clip**.
 `ClipDoc.start` est par clip, il est en beats du document, et retarder l'esclave de moins d'un
 temps suffit — ça ne coûte rien qu'on entende en tête de platine.
 
@@ -276,10 +277,10 @@ Deux morceaux à savoir mesurer pour ça :
 - **Où commence la grille.** `beats.ts` en fait une **moyenne circulaire** : chaque transitoire
   est replié sur une période de temps et devient un angle, et on moyenne les vecteurs
   unitaires. Ce qui tombe sur le temps s'additionne, le reste s'annule. La longueur du
-  résultat dit à quel point les attaques étaient d'accord, ce qui permet de refuser de
-  répondre plutôt que d'inventer une phase à partir de bruit. Ça remplace `transients[0]` :
-  une seule attaque est une seule mesure, et un clic dans une intro calme déplaçait toute la
-  grille — y compris les lignes jaunes de la waveform, qui lisent maintenant le même nombre.
+  résultat dit à quel point les attaques sont d'accord, ce qui permet de refuser de
+  répondre plutôt que d'inventer une phase à partir de bruit. Et non `transients[0]` : une
+  seule attaque est une seule mesure, et un clic dans une intro calme déplacerait toute la
+  grille — y compris les lignes jaunes de la waveform, qui lisent le même nombre.
 - **Où elle est ENTENDUE.** Une seconde source `s` est jouée à `s · natural / target` : un
   morceau à 90 BPM étiré à 120 arrive un tiers plus tôt. Prendre la phase du fichier au lieu
   de celle de la platine décalerait le temps fort de 100 ms — un flam audible.
@@ -303,7 +304,7 @@ les morceaux par leur **longueur**. Le test de **Rayleigh** est cette comparaiso
 proprement : `n·R²` contre 4,6, soit p ≈ 0,01 contre « les attaques sont réparties
 uniformément, il n'y a pas de grille ».
 
-Sur les trois morceaux d'`example.m9`, ça sépare franchement au lieu de tergiverser :
+Sur les trois morceaux d'`example.st0`, ça sépare franchement au lieu de tergiverser :
 
 | morceau | bpm | attaques | force | `n·R²` | grille |
 |---|---|---|---|---|---|

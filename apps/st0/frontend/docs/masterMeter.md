@@ -40,14 +40,14 @@ It writes `node param "OUT" Volume <dB>`, the same line the fader's own release 
 button and the fader are two views of one param rather than two controls with a coincidence between
 them. Then one reload, so the fader catches up with the number just written under it.
 
-> **It went to every mixer STRIP instead**, one shared trim across all of them, on the argument that
-> the strips are where a mix's headroom actually lives. That argument still holds — it is just not
-> something a button is qualified to do on your behalf. What it cost: thirty lanes was thirty
-> read-modify-writes and thirty undo entries, a shared bus strip needed deduplicating to avoid a
-> race between two absolute writes, and a strip already near the floor could not take the full trim
-> — so the balance the trim promised to preserve shifted anyway. The output has none of those
-> shapes. See `@studio/song`'s [`docs/masterVolume.md`](../../../../packages/song/docs/masterVolume.md)
-> for why the level moved onto the node.
+> **Not every mixer STRIP**, one shared trim across all of them. The strips are where a mix's
+> headroom actually lives, which is true and still not something a button is qualified to do on
+> your behalf: thirty lanes is thirty read-modify-writes and thirty undo entries, a shared bus
+> strip needs deduplicating to avoid a race between two absolute writes, and a strip already near
+> the floor cannot take the full trim — so the balance the trim promised to preserve shifts anyway.
+> The output has none of those shapes. See
+> `@studio/song`'s [`docs/masterVolume.md`](../../../../packages/song/docs/masterVolume.md)
+> for why the level sits on the node.
 
 `gainTrim.ts` is the arithmetic, pure and tested. Three decisions live in it:
 
@@ -136,7 +136,7 @@ fader shows — cleared when a fresh document arrives, so an edit made anywhere 
 being ignored by a fader holding its own opinion.
 
 **Its thumb is half the platform's** (~8px). A default thumb is drawn for a control that owns a
-row; this one shares a 24-pixel-wide lane with a meter bar, where at full size it read as a blob on
+row; this one shares a 24-pixel-wide lane with a meter bar, where at full size it reads as a blob on
 a hairline rather than as a fader. That needs per-browser pseudo-element rules — `appearance-none`
 takes the platform thumb away and each engine's own selector puts ours back — and **both** must be
 written or Firefox draws no thumb at all.
@@ -168,8 +168,8 @@ quietly walking the mix to silence.
 
 It reads the other way round too, and is worth knowing: **raising the fader raises the bar.** The
 meter answers "how loud is what leaves", not "how loud is my mix". Push the output and the light
-will tell you when it stops fitting — which is the question the old arrangement could not ask at
-all, at the price of no longer separating the two.
+will tell you when it stops fitting — at the price that the bar cannot separate the two, and will
+not tell you how loud the mix was before the fader.
 
 The master **chain** is upstream of all of it (`@studio/song`'s
 [`docs/masterChain.md`](../../../../packages/song/docs/masterChain.md)), so a limiter there is

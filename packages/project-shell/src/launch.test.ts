@@ -1,6 +1,6 @@
-// The address a project is opened at. All of it is pure now — the launch used to be read
-// once at import and kept in sessionStorage, and this suite could only cover the parsing
-// around it; the path IS the state, so the round trip pl8 → st0 is testable end to end.
+// The address a project is opened at. The path IS the state, so all of this is pure and the
+// round trip — st0's home page writes a link, an editor parses it back — is covered end to
+// end, in node, with nothing mounted.
 
 import { describe, expect, it } from "vitest";
 import { launchUrl, parseLaunch, projectBasename, projectsUrl } from "./launch";
@@ -15,7 +15,7 @@ describe("parseLaunch", () => {
   });
 
   it("is null for an address outside this app's mount", () => {
-    // The EDGE keeps other prefixes away from this reader; z0's editor still has one of its own.
+    // The EDGE keeps other prefixes away from this reader; z0's editor has one of its own.
     expect(parseLaunch("/k7/sessions", "z0", "/z0/editor/")).toBe(null);
   });
 
@@ -53,7 +53,7 @@ describe("parseLaunch", () => {
   });
 
   it("reads each app's OWN suffix, so a nested project belongs to the app that claims it", () => {
-    // A `.z0` inside a `.st0` is a real arrangement — see git-repos/src/mirror.ts.
+    // A `.z0` inside a `.st0` is a real arrangement: one repository, two apps.
     const path = "/z0/editor/band/winter.st0/partie.z0";
     expect(parseLaunch(path, "z0", "/z0/editor/")).toEqual({
       repo: "band",
@@ -119,7 +119,7 @@ describe("launchUrl", () => {
   });
 
   it("sends a SET to st0, like every other shape of project", () => {
-    // A set had a suffix and an app of its own once; it is an `.st0`, so there is one link.
+    // A set is an `.st0` like every other shape a project takes, so there is one link.
     expect(
       launchUrl("https://st0.priv.frediver.se", "band", "live.st0", "st0"),
     ).toBe("https://st0.priv.frediver.se/band/live.st0");
@@ -169,7 +169,7 @@ describe("launchUrl", () => {
     ).toBe("https://st0.priv.frediver.se/my%20band/a%20song.st0");
   });
 
-  // The property that matters: pl8 writes these, the apps read them back.
+  // The property that matters: st0's home page writes these, the apps read them back.
   it("round-trips through parseLaunch", () => {
     const repo = "lemo mante";
     const project = "songs/a b/c.st0";

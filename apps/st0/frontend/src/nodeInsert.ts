@@ -1,11 +1,9 @@
 // nodeInsert.ts — what the graph's `+` types into the command bar.
 //
-// It used to take TWO commands: create the module, then splice it, sent as two HTTP calls with a full project
-// recompile wasted between them. The only reason for the split was that the frontend had to learn the new
-// module's name before it could name it in a chain — and `node insert` picks that name itself. One command,
-// one round trip, one reload.
+// One command, one round trip, one reload: `node insert` creates the node AND splices it, picking the name
+// itself, so the frontend never has to learn a name before it can put it in a chain.
 //
-// The arrow goes FIRST in the line so the node name still lands last, where a person types it. That is the
+// The arrow goes FIRST in the line so the node name lands last, where a person types it. That is the
 // whole reason for the argument order.
 
 import type { WebGraph } from "@studio/graph-model";

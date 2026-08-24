@@ -7,9 +7,9 @@ type file keeps one line each.
 
 ## Why this package exists at all
 
-Three apps draw chains — st0, pl8's module builder, m9 — and only st0 wants auth, workspaces and
-the registry, which is what `@studio/web-protocol` holds. Splitting the graph off means drawing
-one does not drag any of that in.
+Drawing chains needs none of auth, workspaces and the registry, which is what
+`@studio/web-protocol` holds. Splitting the graph off means a surface that only draws one does
+not drag any of that in.
 
 The same argument decides what the *values* here are for. `PORT_SEP` and `TRACK_OUTPUTS` are
 needed by BOTH sides and neither may depend on the other: the compiler derives chains from port
@@ -21,9 +21,9 @@ how many there are or which is which.
 
 `MODULE_CATEGORIES` is written as VALUES with the type derived from them, not beside them. Both
 halves are needed — the type to write against, and the list to test a path segment against at
-runtime — and written twice they drifted: two of the four copies in the repo had dropped `midi`,
-so a transformer authored under the legacy name drew as audio on those surfaces and not on the
-others. Deriving one from the other makes that impossible.
+runtime — and written twice they drift: drop `midi` from one copy and a transformer authored
+under that alias draws as audio on the surfaces reading it and as midi on the rest. Deriving one
+from the other makes that impossible.
 
 `shaders` is its own category and not a flavour of `video_effects`, because it is the one module
 whose behaviour is a FILE it carries rather than a plugin it names. See
@@ -37,8 +37,8 @@ two lists that hold them (`outputs` and `events`) are separate for exactly that 
 ## A node's name is not its module's
 
 `WebChainStep.uses` is the module this node USES, its `extends` ref as written. A node and the
-module behind it are two different names, and the card used to draw only the first: seventeen
-nodes of one mixer read as seventeen unrelated things, and what a node IS could only be learnt by
+module behind it are two different names, and a card drawing only the node's makes seventeen
+nodes of one mixer read as seventeen unrelated things, with what a node IS learnable only by
 opening it. So the header says the MODULE, with the node's own name small underneath — see
 `moduleDisplayName`.
 
@@ -88,8 +88,8 @@ can read, and a dropdown offering something the module does not carry would writ
 resolves to nothing.
 
 - **assets** are the files a module loads by param name, relative to its own `assets/`, and the
-  choices are that folder walked. Per module and not per graph, because there is no shared library
-  any more — the choices are the folder's contents.
+  choices are that folder walked. Per module and not per graph: the choices are that one folder's
+  contents and nothing wider.
 - **base** is the opaque `.vstpreset` under a module's params, chosen from its own `base/` folder
   plus every module it extends, nearest first. `bases` is absent on a module with none, which is
   most of them; that absence is what the builder and the graph read as "no base control here".

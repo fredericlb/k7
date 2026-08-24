@@ -167,10 +167,10 @@ studio::ProjectDoc docFromJson(const json& j) {
     doc.sampleRate = j.value("sampleRate", 48000);
     doc.timeSigNumerator = j.value("timeSigNumerator", 4);
     doc.timeSigDenominator = j.value("timeSigDenominator", 4);
-    // Unity for a doc that predates the field — the same thing an absent one has always meant.
+    // Unity for a doc that does not carry the field.
     doc.masterVolume = j.value("masterVolume", 0.0f);
-    // The master chain. Absent for a doc that predates the field, which means the mixer's sum
-    // reaches the interface unprocessed — exactly what it did before there were two nodes.
+    // The master chain. Absent for a doc that does not carry the field, which means the mixer's sum
+    // reaches the interface unprocessed.
     if (j.contains("masterPlugins") && j.at("masterPlugins").is_array())
         for (const auto& p : j.at("masterPlugins"))
             doc.masterPlugins.push_back(pluginFromJson(p));
@@ -180,8 +180,8 @@ studio::ProjectDoc docFromJson(const json& j) {
     if (j.contains("settings") && j.at("settings").is_object()) {
         const auto& s = j.at("settings");
         doc.metronome = s.value("metronome", false);
-        // 0.6 for a document that predates the field — Tracktion's own default, so an old project
-        // clicks exactly as loudly as it did before there was a level to state.
+        // 0.6 for a document that does not carry the field — Tracktion's own default, so a project
+        // that states no level clicks at that one.
         doc.metronomeLevel = s.value("metronomeLevel", 0.6);
         doc.countIn = s.value("countIn", 0);
     }
@@ -474,10 +474,9 @@ int main(int argc, char** argv) {
     // the number back and writes it into the module's `Peak` before rendering through it.
     if (argc >= 3 && std::string(argv[1]) == "--peak") return studio::printFilePeak(argv[2]);
 
-    // There was a `--normalize` mode here, driving the `track normalize` / `clip normalize` commands.
-    // Both are gone: normalising is a treatment, and a treatment is a chain the brain bounces material
-    // through with `--render` (packages/commands/docs/processChain.md). The médiathèque's `normalize`
-    // module is measured by `--peak` above and rendered like any other.
+    // No `--normalize` mode: normalising is a treatment, and a treatment is a chain the brain bounces
+    // material through with `--render` (packages/commands/docs/processChain.md). The médiathèque's
+    // `normalize` module is measured by `--peak` above and rendered like any other.
 
     // Batch waveform mode: read audio paths from stdin and write every `{file}.cache` in THIS process, so a song
     // with many fresh clips pays JUCE startup once instead of per file. Prints a flushed "ok"/"err" line per file
@@ -531,8 +530,8 @@ int main(int argc, char** argv) {
 
     ix::initNetSystem();
 
-    // Constructing the host builds the Tracktion engine but no longer opens the audio device — that is queued below
-    // so the port can bind first. Opening one can take seconds, and while it did, a probing browser saw a refused
+    // Constructing the host builds the Tracktion engine and opens NO audio device — that is queued below, so the
+    // port can bind first. Opening one can take seconds, and a probing browser meanwhile sees a refused
     // connection, indistinguishable from an absent engine.
     studio::EngineHost host;
     g_host = &host;
@@ -739,8 +738,8 @@ int main(int argc, char** argv) {
                 if (firstReal)
                     std::cerr << "[client] connected (" << conn->getRemoteIp() << ")\n";
                 // …and says which project to send it state about. A probe never asks and never
-                // gets one: it opens, asks its one question and is gone, so 20 frames a second
-                // at it were pure copy.
+                // gets one: it opens, asks its one question and closes, so 20 frames a second
+                // aimed at it would be pure copy.
                 std::lock_guard<std::mutex> lk(listenersMx);
                 subscribers.emplace(&ws, session);
             }
@@ -766,9 +765,9 @@ int main(int argc, char** argv) {
                     // then execute every queued click at once. Sent inside the posted lambda, so it marks when the work starts.
                     broadcastTo(session, json{{"type", "busy"}, {"busy", true}});
 
-                    // Timed whichever path it takes. `[applyFull]` has always printed its phases, so a rebuild
-                    // could be explained and an INCREMENTAL apply could not — and now that adding a plugin is
-                    // incremental, the fast path is the one worth watching. Printed with the changes below.
+                    // Timed whichever path it takes. `[applyFull]` prints its own phases, so a rebuild explains
+                    // itself; an INCREMENTAL apply has only this number, and it is the path most applies take.
+                    // Printed with the changes below.
                     // std::chrono and not juce::Time: this file is the JUCE-free half (see EngineHost.h).
                     const auto applyT0 = std::chrono::steady_clock::now();
                     const auto changes = host.apply(session, doc, "");   // paths are absolute
@@ -785,8 +784,8 @@ int main(int argc, char** argv) {
                     }
                     broadcastTo(session, r);
 
-                    // The diff the engine ran — its actual decision, previously visible only to whichever client happened to be
-                    // listening and never in the log. A no-op re-send says so, so "nothing happened" is distinguishable from
+                    // The diff the engine ran — its actual decision, in the LOG and not only at whichever client happens to be
+                    // listening. A no-op re-send says so, so "nothing happened" is distinguishable from
                     // "nothing arrived", and long changesets are capped so one apply can't bury the rest.
                     if (described.empty()) {
                         std::cerr << "[applied] no changes (project already current)\n";
@@ -807,9 +806,9 @@ int main(int argc, char** argv) {
                  * REPLACE these tracks in the document this session already holds, and diff that.
                  *
                  * For the pattern clock, which rewrites a handful of lanes' clips six or seven
-                 * times a second while the rest of the song sits still. It used to send the whole
-                 * document each time: 137 KB parsed and diffed to be told about eight notes,
-                 * against 3.7 KB here.
+                 * times a second while the rest of the song sits still. Sending the whole document
+                 * each time is 137 KB parsed and diffed to be told about eight notes, against
+                 * 3.7 KB here.
                  *
                  * The merge is what makes this cheap AND boring: the doc is completed here and
                  * `apply` is the same apply, so the diff, the incremental paths and the rebuild
@@ -1079,7 +1078,7 @@ int main(int argc, char** argv) {
                 // Snapshot the plugin instances in EVERY session for the tray's submenu, each row naming the
                 // session it is in. ENGINE-GLOBAL like list-sessions, and for the same reason: the asker is the
                 // supervisor, which drives no session, and with N of them there is no "the" loaded edit. Per
-                // session it would ask on the default one and get an empty list now that reading never creates.
+                // session it would ask on the default one and get an empty list, since reading never creates one.
                 //
                 // Reads pluginsById, so it must run on the message thread, and the reply is broadcast like
                 // list-audio-devices — a connection may have closed between post and send.
@@ -1295,13 +1294,11 @@ int main(int argc, char** argv) {
                 // Subscribe or unsubscribe a module's waveform tap: `id` is the PluginDoc id and `side` is input or
                 // output. The tap is a transparent plugin capturing min/max envelopes at 20 Hz.
                 //
-                // There is deliberately no `trackIndex` any more. It used to be required, and the engine placed the
-                // tap on whatever track the client named — so a client that had nothing sensible to send (the graph
-                // has no track index: a chain can be a bus with no track at all) sent 0, and the tap metered the
-                // FIRST track of the song. A stale engine paired with a current client did exactly that, and the
-                // symptom — a waveform showing some unrelated track — reads as a bug in the display. The track is
-                // now derived from the plugin (see enableWaveformTap), and an old engine handed a message without
-                // the field rejects it outright: no waveform beats a confidently wrong one.
+                // There is deliberately no `trackIndex`. The graph has no track index — a chain can be a bus with
+                // no track at all — so a client naming one has nothing sensible to send, sends 0, and the tap
+                // meters the FIRST track of the song. The symptom, a waveform showing some unrelated track, reads
+                // as a bug in the display. The track is derived from the plugin instead (see enableWaveformTap),
+                // and a message with no id is rejected outright: no waveform beats a confidently wrong one.
                 const std::string wfId = j.value("id", std::string{});
                 const std::string side = j.value("side", std::string{"output"});
                 const bool subscribe = (type == "subscribe-waveform");
@@ -1319,7 +1316,7 @@ int main(int argc, char** argv) {
                 // Meter the interface itself: one peak per `channels` entry, plus the master output. Asked for
                 // rather than ridden on the state frame — the I/O panel is the only thing that wants it, and the
                 // pitch estimate below is real work per channel, so it must not cost every client 20 Hz of
-                // channels nobody is looking at. It no longer ENABLES anything: see channelLevelsDb.
+                // channels nobody is looking at. It ENABLES nothing: see channelLevelsDb.
                 std::vector<std::vector<int>> sets;
                 for (const auto& s : j.value("channels", json::array())) {
                     std::vector<int> ch;
@@ -1400,8 +1397,8 @@ int main(int argc, char** argv) {
                 // and needs the interface half from the same breath — a second query would measure a second, warmer trip.
                 // Answered off the message thread deliberately: posting it would put the probe behind whatever the engine
                 // is doing, turning the ping into a measure of its queue. That is only SAFE because audioTiming() reads
-                // two atomics the message thread publishes — it used to dereference the live device, which a concurrent
-                // set-audio-device destroys, and this keepalive fires every few seconds on every socket.
+                // two atomics the message thread publishes: dereferencing the live device here would race a concurrent
+                // set-audio-device, which destroys it, and this keepalive fires every few seconds on every socket.
                 const auto timing = host.audioTiming();
                 ws.send(json{{"type", "whoami"},
                              {"id", engineId},

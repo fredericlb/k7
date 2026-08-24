@@ -1,6 +1,6 @@
-/* Ported verbatim from the presenter's Vue components (#app → #root):
-   App.vue globals, PresenterView.vue gates, Game2D.vue overlay styles,
-   and the shared LoginGate/AuthBadge styling. */
+/* The presenter's own styles, hand-written and scoped to #root: globals, the
+   view's gates, the 2D game overlays, and the shared login gate and auth
+   badge. */
 
 * {
   margin: 0;
@@ -17,7 +17,7 @@ body,
   background: #0f0c29;
 }
 
-/* ─── from PresenterView.vue ─── */
+/* ─── the presenter view ─── */
 .auth-loading {
   position: fixed;
   inset: 0;
@@ -36,7 +36,7 @@ body,
   text-shadow: 0 0 8px #ff3366;
 }
 
-/* ─── from Game2D.vue ─── */
+/* ─── the 2D game overlays ─── */
 .game-wrap {
   position: relative;
   width: 100vw;
@@ -162,7 +162,7 @@ body,
   pointer-events: none;
 }
 
-/* ─── from shared LoginGate.vue ─── */
+/* ─── the shared login gate ─── */
 .login-gate {
   position: fixed;
   inset: 0;
@@ -215,7 +215,7 @@ body,
   background: rgba(0, 255, 136, 0.15);
 }
 
-/* ─── from shared AuthBadge.vue ─── */
+/* ─── the shared auth badge ─── */
 .auth-badge {
   position: fixed;
   top: 6px;

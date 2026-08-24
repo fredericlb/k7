@@ -56,7 +56,7 @@ export function Minimap({
     return Math.ceil((end + 1) / barBeats) * barBeats;
   }, [proj, barBeats]);
 
-  // The same rows the timeline draws, from the same track list — dropping the live lanes also dropped the groups they were in.
+  // The same rows the timeline draws, from the same track list — filtering the live lanes out also drops the groups they are in.
   const rows = useMemo(
     () =>
       proj ? projectRows(proj, [...proj.tracks, ...orbit], [], automation) : [],

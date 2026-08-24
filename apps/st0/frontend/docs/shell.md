@@ -8,7 +8,7 @@ EngineGate: resolve the repository this editor was opened on into a folder on th
 machine — cloning it if it has never been there — then mount the editor). Several tabs may
 open one project at once — there is no single-tab lease.
 
-**ProjectGate picks nothing.** st0 no longer knows what a workspace list is: pl8 owns the
+**ProjectGate picks nothing.** st0 knows no workspace list: pl8 owns the
 repositories and links here with an address — `/<repo>/<project>`, st0 answering the origin root —
 and arriving without a project in it draws the home page instead. That address is the router's
 `basename`, so the app's own routes are written below it and cannot rewrite it away. The gate is
@@ -37,14 +37,13 @@ pointed.
 
 In dev it mounts, unmounts and remounts every component, and for the imperative WebGL
 renderer here (the ui-eyes video compositor) each mount creates and then tears down a WebGL
-context. On Firefox that context thrash was losing the context and freezing the tab for
-seconds while everything was re-uploaded to restore it — confirmed: the freezes stop with
-StrictMode off.
+context. On Firefox that thrash loses the context and freezes the tab for seconds while
+everything is re-uploaded to restore it.
 
 StrictMode's double-invoke exists to surface effect-cleanup bugs, but an
 async-initialised WebGL renderer cannot be made double-mount-safe cheaply, and the freeze
-is a real user-facing cost. So the dev check is forgone here on purpose. (The chains graph
-used to be a second such renderer; it is the DOM now, and double-mounts harmlessly.)
+is a real user-facing cost. So the dev check is forgone here on purpose. The chains graph is
+DOM and double-mounts harmlessly; the compositor is the one that pays.
 
 ### …and the Profiler is behind a flag, for a related reason
 
@@ -85,9 +84,9 @@ something that is already mounted, and Escape backs out of it: `aria-pressed`, n
 and each one carries its key in its tooltip — which is why the row stays as it is rather than
 becoming labelled entries that would drop the shortcut.
 
-`items` held the project's **screen surfaces** — the desk, reached by name, one at a time — and is
-empty because there are none: every surface is a pane now, so the desk is in the icon row with the
-rest and gets a tooltip carrying its key. The prop is still passed (empty) rather than dropped,
+`items` is **empty**, and stays so while every surface is a pane: the desk is in the icon row with
+the rest and gets a tooltip carrying its key, and this app has no other page to name there. The
+prop is still passed (empty) rather than dropped,
 because it is the shared bar's slot for exactly that kind of page and the next one this app grows
 belongs in it. Note the constraint if you do: `AppHeader` folds `items` into a hamburger of its own
 below 640 px, and st0's `actions` already collapse into one — two hamburgers side by side being two
@@ -121,32 +120,29 @@ latency is a property of the SESSION rather than of a screen — it decides what
 
 ### On a phone, one menu holds everywhere there is to go
 
-There was a **bottom tab bar**, one tab per pane. It is gone and its contents are in `MobileMenu`:
-the panes, then the tools. Three reasons, and the last is the one that settles it:
+`MobileMenu` holds all of it: the panes, then the tools. There is no **bottom tab bar**, and two
+things keep one out — it would spend a row of a screen that is ~400 px tall in landscape on a
+control used a few times a session, when the panes are what you came to look at; and it could
+only ever hold the panes, leaving anything else to a second hamburger beside the first.
 
-- it spent a row of a screen that is ~400 px tall in landscape on a control used a few times a
-  session, and the panes are what you came to look at;
-- it could only ever hold the panes, so the screen surfaces sat in a second hamburger beside the
-  first — moot now that a surface IS a pane, but it was true when the tab bar went;
-- **it never worked.** `onSelect` dispatched the bare pane name, and `runLocalCommand` refuses
-  that — pane names are `ui` verbs, so a tap set the status line to *"timeline" is a ui command*
-  and changed nothing else. The menu rows send `ui <pane>`.
+**Its rows send `ui <pane>`, never the bare pane name.** `runLocalCommand` refuses a bare one —
+pane names are `ui` verbs — so a tap dispatching `timeline` sets the status line to *"timeline"
+is a ui command* and changes nothing else.
 
 A pane row is `aria-current`, not `aria-pressed`. On the desktop a pane button toggles fullscreen
 and Escape backs out of it; on a phone there is no layout to back out to, so picking one means
 "show me that" and the current row is where you are, not a switch left on.
 
-There used to be a second layout, and it was not a second *choice*: a project whose
-`project.yaml` said `project_type: live` had no arrangement, so `App` drew the chains graph on
-the whole screen. Both the field and the layout are gone. They answered a question the
-`surfaces/` folder answers better — and could contradict it, since nothing stopped a folder
-calling itself `live` while declaring a timeline.
+**There is ONE layout**, and no project chooses a second one. `project.yaml`'s `project_type` is
+accepted and ignored — the schema keeps it as a plain string so a folder still carrying it loads
+— and nothing here reads it: it could say `live` while the folder declared a timeline, a
+contradiction `surfaces/` cannot have.
 
 **The timeline itself is a SURFACE, and the project has to ask for it.** `surfaces/timeline.yaml`
 (`type: timeline`, `layout: split`) is what puts it in the layout; a folder without one opens on
-its graph, keeps its editor, and is warned about in its diagnostics. So `noArrangement` — not
-`live` — is what the transport, the minimap and the graph's claim on the column now read: a rig
-and a song that has not declared its arrangement look alike on screen and are not the same fact.
+its graph, keeps its editor, and is warned about in its diagnostics. `noArrangement` is what the
+transport, the minimap and the graph's claim on the column read: a rig and a song that has not
+declared its arrangement look alike on screen and are not the same fact.
 See [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
 **The VIEWPORT is the second of those**, `surfaces/viewport.yaml`, and it sits above the
@@ -157,20 +153,19 @@ editor's undo history relies on, protecting something more expensive. See
 
 **The DESK is the third**, `surfaces/turntables.yaml` (usually named `desk.yaml`), and it sits
 directly *over the graph* — last in the column, nearest the chains it is played against. A set
-declares no timeline, so those two panes are its whole layout, half each. It was a screen over the
-window until it became a pane, and the reason for the move is the pairing: a fader on the desk is
-a param on a module in the graph, and a screen that covered the graph made "which module is this
-one on" a round trip. `full` is how the desk gets the whole window when you do want it whole.
+declares no timeline, so those two panes are its whole layout, half each. The pairing is why it is
+a pane rather than a screen over the window: a fader on the desk is a param on a module in the
+graph, and a screen covering the graph makes "which module is this one on" a round trip. `full`
+is how the desk gets the whole window when you do want it whole.
 
 It benefits from the same mounting rule as the viewport, for a different reason: what it holds is
 a DOCUMENT — the loaded songs, the crossfader, the six EQ knobs — and a set does not stop existing
-because you went to look at the graph. That used to need a prop on `SurfaceTab`; being a pane
-covers it. See
+because you went to look at the graph. Being a pane is what covers it. See
 [packages/ui-turntables/docs/deckSet.md](../../../../packages/ui-turntables/docs/deckSet.md).
 
-The editor is not in it. It had the left half, which meant every song opened with half the
+The editor is not in it. Giving it the left half means every song opens with half the
 screen showing a YAML file you had not asked for, while the two views of the song that are
-*about the song* — where things happen in time, and how the signal flows — shared the other
+*about the song* — where things happen in time, and how the signal flows — share the other
 half. So the default is the two that answer "what is this song", and the editor is summoned:
 `ui editor` gives it the screen, and a command that sends it to a file opens it as a popin
 (below). It stays mounted throughout, so summoning it costs nothing.
@@ -179,9 +174,8 @@ See also [shellRouting.md](shellRouting.md) for how the screen state maps to the
 
 ### The Mixer is an ARRANGEMENT of the graph, not a panel
 
-It used to be one of the bottom panels; it is not any more. And it is not a second picture
-either: it is **the same graph** — same nodes, same cards, same cables — with the strips pulled
-onto one rank.
+It is not a panel, and not a second picture either: it is **the same graph** — same nodes, same
+cards, same cables — with the strips pulled onto one rank.
 
 Every track ends on a mixer module (`trackMixer`, by plugin type), but a track with a longer
 chain ends DEEPER, so by default the mixers sit on a staircase and no zoom shows them all. Give
@@ -239,23 +233,21 @@ be one reload apart.
 `Mixer` (`trackMixer`, `MIXER_PLUGIN`) at the end of a track, and nothing puts one there for
 you — of the songs in a default workspace, none has two. So the button is **disabled** when the
 count is zero and says why in its tooltip, and clicking it with one strip sets a status line
-saying there is nothing to line up. That silence is what the bottom panel used to break with a
-line of text, and dropping the panel dropped the only thing that explained an empty mixer: a
-control that answers a click with nothing is worse than one that is visibly unavailable.
+saying there is nothing to line up. Nothing else explains an empty mixer, and a control that
+answers a click with nothing is worse than one that is visibly unavailable.
 
-The cards themselves were never hand-rolled, and that is why this works at all. A strip's
-controls are its module's own panel — the very card the graph draws. There used to be a
-hand-rolled strip per track: a VU, a fader, a pan slider, M and S. That was a
-second implementation of a channel strip, and it drifted from the one the module's own
-`ui.yaml` declares — a module could grow a knob and the panel would never show it. Now
-whatever the mixer module's panel says IS the mixer, and the two cannot disagree because
-they are the same card in the same graph.
+The cards themselves are not hand-rolled, and that is why this works at all. A strip's
+controls are its module's own panel — the very card the graph draws. A hand-rolled strip per
+track — a VU, a fader, a pan slider, M and S — would be a second implementation of a channel
+strip, and it would drift from the one the module's own `ui.yaml` declares: a module grows a
+knob and the panel never shows it. Whatever the mixer module's panel says IS the mixer, and the
+two cannot disagree because they are the same card in the same graph.
 
 Three consequences, all of them the design rather than gaps:
 
 - **A track with no mixer module has no strip.** It is not "at unity" — it is a track with
   nowhere to put a level, and no card of its own to show. It simply is not in the row.
-- **Mute and solo are not here.** They were never the strip's — they are the track's, and
+- **Mute and solo are not here.** They are not the strip's but the track's, and
   they live on the timeline (`m`/`s`) and on the graph's track nodes.
 - **Two tracks sharing a strip draw one card.** In practice the compiler makes such a strip
   its own bus track, so it arrives once anyway; `mixerModules` de-duplicates regardless,
@@ -265,14 +257,12 @@ Two sources, because neither answers alone: the compiled project says *which* mo
 strips (the graph doc does not carry a plugin type), and the graph says what each one looks
 like and what feeds it.
 
-The **sockets stay**, and the cables with them. That is the difference from the row this
-replaced, which drew the strips alone and dropped every jack because it had no edges to plug
-them into. Here you can see what reaches a fader without leaving the view — which is most of
-why the mixer belongs in the graph rather than beside it.
+The **sockets stay**, and the cables with them: you can see what reaches a fader without leaving
+the view, which is most of why the mixer belongs in the graph rather than beside it. A rank of
+strips drawn on its own would have no edges to plug its jacks into.
 
-`moduleRow` in `@studio/ui-chains` still exists and still lays a bare rank of cards out; it has
-no caller since the mixer moved. Listed in [inventaire.md](../../../../docs/inventaire.md)
-rather than deleted, because it is tested and the decision to drop it is not this change's.
+`moduleRow` in `@studio/ui-chains` lays a bare rank of cards out, and this view is not its
+caller: it re-ranks the graph instead. The row it does lay out is one lane's signal path (below).
 
 #### It frames the HEIGHT, and the row pans
 
@@ -292,24 +282,22 @@ Framing the height instead keeps every strip the same readable size whatever the
 and lets the row run off the right, where it pans. A mixer you have to scroll beats one you
 cannot read.
 
-One thing the old bottom panel had and this does not: it drew its cards at 1.5× the width
-their grid asked for, elbow room that a rank of strips read better with. Here the cards are the
-graph's own, at the graph's own size — they are the same nodes, which is the point.
+The cards are drawn at the graph's own size, without the elbow room a lane's row gives itself
+(`widthScale`) — they are the same nodes as the graph's, which is the point.
 
 ### ONE panel for an audio clip, recorded or not — and clicking one reaches it
 
 `AudioClipPanel` is where an audio clip is looked at, whichever way you got to it: a take that has
 just stopped, `ui review <clip>` on an old one, or a **click on an audio event in the timeline**.
-That last one used to open `WaveformView`, which draws the same waveform and can act on none of
-it — so the route you reach by clicking a clip was the one that could not trim it, mark it or bring
-it up to level.
+One panel for the three, because the route you reach by clicking a clip has to be the one that can
+trim it, mark it and bring it up to level.
 
 Everything on the panel below `clip` is therefore OPTIONAL: a clip sitting on a lane has no take,
 no count-in and no armed track. Only `beatsPerBar` and `tempo` are worth passing anyway, because
 the twelve-bar window should be twelve of *this* song's bars.
 
-`WaveformView` stays for the editor's own pane — the one `e` opens beside a clip's text — which is
-a different surface with a different job.
+`WaveformView` draws the same waveform and can act on none of it: it is the editor's own pane —
+the one `e` opens beside a clip's text — a different surface with a different job.
 
 `AudioClipPanel` takes the graph slot, and it is the only place a clip is drawn. While a take
 rolls it shows the envelope the engine is pushing, **growing**; the moment the recorder closes the
@@ -317,11 +305,9 @@ file it shows that file instead, with its onsets, its threshold and the button t
 to level. `rolling` chooses the picture — it does not mount the panel, which outlives the take, so
 closing is the × and not the Stop.
 
-**There were two panels, and that was the bug.** A live monitor (`RecordingPane`, a red envelope
-per armed track on a bar/beat grid, drawn straight to a canvas) took the slot and kept it; the
-review sat in the column behind it. After Stop the monitor was therefore the whole screen and the
-review was nowhere — not subtly placed, not on screen at all. Both are gone; so is
-`recordingWindow.ts`, whose musical x axis existed only for that canvas.
+**One panel, and not two.** A live monitor of its own — an envelope per armed track on a bar/beat
+grid, drawn straight to a canvas — would take the slot and keep it, so after Stop the monitor
+would be the whole screen and the review nowhere: not subtly placed, not on screen at all.
 
 Three things follow from having one:
 
@@ -329,8 +315,8 @@ Three things follow from having one:
   sample per engine frame and hands over `{intervalMs, samples}` — the same shape the `/waveform`
   route answers with — so there is one renderer, one set of markers, one behaviour.
 - **One envelope, not one per armed track.** It is the LOUDEST armed input per frame: a panel is
-  about one clip, and stacking every lane is what made the old one a monitor rather than a view of
-  a take. The max is what keeps a quiet second input from being invisible.
+  about one clip, and stacking every lane makes it a monitor rather than a view of a take. The
+  max is what keeps a quiet second input from being invisible.
 - **Nothing is editable while it rolls.** There is no file yet, so there is no onset to place and
   nothing to normalise — the header offers Stop and the elapsed seconds, and that is all it can
   honestly offer.
@@ -345,7 +331,7 @@ When the lane holds **takes** — a loop record, or a punch over an event, leave
 (`packages/song/docs/takes.md`) — the panel grows a column on its left listing every version there
 is to listen to: each take in slot order, then what the lane is playing, marked. `takeOptions` in
 `takeReview.ts` derives it from the project doc, and answers empty for a lane with no takes, which
-is what keeps the ordinary single-take panel exactly as it was.
+is what keeps the ordinary single-take panel free of a column with nothing to list.
 
 **Clicking a row is `track take select`.** Not a preview: the take goes ONTO the lane, because
 the point is to hear the pass in the song — with the rest of the band — and only what a lane
@@ -369,47 +355,47 @@ mounts the same component with no sidebar, deliberately. There the clip you clic
 and a select would move it off the lane under its own view. Reaching a take from the timeline is
 what the indented take rows and their right-click menu are for (`docs/timeline.md`).
 
-`placedAt` comes from the DOCUMENT for this reason (`placedBeat`). It used to be the beat the
-transport rolled at, which is right for the take that just landed and wrong for one picked out of
-the sidebar: a take plays where it was recorded, not where the last one was.
+`placedAt` comes from the DOCUMENT for this reason (`placedBeat`), and not from the beat the
+transport rolled at: that is right for the take that just landed and wrong for one picked out of
+the sidebar, since a take plays where it was recorded and not where the last one was.
 
 #### The take's start is the SHELL's, and two surfaces read it
 
 `takeStart` lives in `App`, taken off the store on the `rolling` edge. One source, because two
 surfaces draw from it — this panel's counter, and the growing clip on the armed lane
 (`RecordingClip`, see `docs/timeline.md`) — and two captures would drift the moment they mounted
-at different times, which is a subtler version of the bug below.
+at different times, which is a subtler version of the drift below.
 
 It is READ from the snapshot rather than subscribed to: it changes once per take, and a
 subscription in the shell would re-render everything 20 times a second for a number that does not
 move.
 
-#### The counter measures THIS take, and that was the bug
+#### The counter measures THIS take
 
 `takeCounter.ts` counts the pre-roll down, then the take up in bar:beat. It is a pure function
-because the bug it replaces was arithmetic on a stale number, sitting inside a component that also
-drew a canvas and could therefore be tested by nobody.
+and not arithmetic buried in a component that also draws a canvas: what it computes has to be
+testable on its own, because a stale number in it is invisible.
 
-The old pane captured the take's start beat **once per mount** — and it outlived its take. So from
-the second take onward it measured against the *first* take's start, while the position it compared
-to is an absolute one in the song. A take punched in at bar 15 read 56 beats the instant it began;
-a take starting earlier than the last showed a pre-roll of tens of beats. The start is now captured
-on the `rolling` **edge**, the same edge `useLiveEnvelope` clears its buffer on.
+The take's start beat is captured on the `rolling` **edge**, the same edge `useLiveEnvelope`
+clears its buffer on — never once per mount, since the panel outlives its take. A capture that
+survived one would measure every take after the first against the *first* one's start, while the
+position it is compared to is an absolute one in the song: a take punched in at bar 15 reads 56
+beats the instant it begins, and a take starting earlier than the last shows a pre-roll of tens
+of beats.
 
 Both results are **clamped**, and that is not belt-and-braces: a pre-roll can never be longer than
 the pre-roll, and a take can never have run for less than nothing. Whatever the engine does with
-its playhead during a count-in — its business, not the counter's — the worst this can show now is a
+its playhead during a count-in — its business, not the counter's — the worst this can show is a
 number that stops moving, rather than one nobody can explain.
 
 **The count-in draws nothing, anywhere.** Nothing is recorded during it, so the clip panel shows
 the countdown alone and the lane's growing block does not exist yet — `recordingFrom` (the
 transport's start plus the pre-roll) is the one number both read, and the counter flips to
-"recording" on exactly that beat. Two things were wrong before it: the block was drawn from the
-TRANSPORT's start, so it appeared the instant Play was pressed and then reached back over bars the
-placement that lands on Stop does not cover; and `useLiveEnvelope` was cleared on the `rolling`
-edge, so the picture opened with however many bars of click and room the pre-roll lasted and
-everything after it sat that far right of where it is in the file. The envelope now collects from
-the first recorded frame.
+"recording" on exactly that beat. Neither may take the TRANSPORT's start instead: a block drawn
+from it appears the instant Play is pressed and reaches back over bars the placement that lands
+on Stop does not cover, and a picture opened there carries however many bars of click and room
+the pre-roll lasted, everything after it sitting that far right of where it is in the file. The
+envelope collects from the first recorded frame.
 
 #### How the tab learns a take happened at all
 
@@ -417,17 +403,12 @@ Nobody types a recording. The ENGINE writes the wav, the file service declares t
 places it on the lane, and this tab is told by neither — so the document it is drawing is one
 clip out of date and nothing in it knows.
 
-The signal is `lastTake` on `/workspace`, which the 2 s poll (`useActiveProjectFollow`) was
-already fetching and discarding: it only looked at `activeProject`. It now reads the take too,
-and the shell does the two things that were missing — `setWs`, which is what opens the review
-panel on the new clip, and a reload, which is what puts the clip on its lane.
-
-It used to work by accident and only one way. Stopping with **Space** went through the file
-service, whose reply bumped the reload for its own reasons; stopping with the header's **Stop**
-button never showed the take at all — it was on disk, on the lane, and off the screen. Routing
-the transport keys onto the engine socket (above) took the accident away, which is how this was
-finally noticed: measured on a real recording, `/workspace` was answering
-`lastTake: ge.rythm_1.1_260816T000616` while the timeline drew the song without it.
+The signal is `lastTake` on `/workspace`, read by the 2 s poll (`useActiveProjectFollow`) beside
+`activeProject`. The shell does two things with it: `setWs`, which opens the review panel on the
+new clip, and a reload, which puts the clip on its lane. Both have to hang off that read and
+nothing else — the transport keys go straight to the engine socket (above), so no reply from the
+file service comes back to bump a reload, and a take stopped from the header's Stop button would
+otherwise be on disk, on the lane, and off the screen.
 
 The first answer only SEEDS: `lastTake` is the service's memory of the newest take it ever
 wrote, not an event, so firing on it would reopen this morning's recording every time a tab
@@ -435,11 +416,11 @@ loads. `isNewTake` is that rule, and it is a pure function for exactly that reas
 
 #### …and the panel can be asked for, not only awaited
 
-The automatic appearance is a moment that passes, and it passed more easily than anyone meant:
+The automatic appearance is a moment that passes, and it passes more easily than it looks:
 `lastTake` is a variable in the file service's MEMORY — its own comment says "never cleared",
 true inside one process and false between two — so every restart of that service loses it, and in
-dev it restarts on every code change. The ✓ ends it for good as well. A take could therefore
-become unreachable while its file sat in `clips/`.
+dev it restarts on every code change. The ✓ ends it for good as well. A take would otherwise
+become unreachable while its file sits in `clips/`.
 
 `ui review <clip>` names one and opens the panel on it. It is a `ui` command because it opens a
 VIEW and writes nothing — what the panel then does (`clip process`, `event trim`, `clip onset …`)
@@ -464,7 +445,7 @@ plays** (see [clipEditors.md](clipEditors.md)), so the bars are the interval's b
 whole interval, and what a trim cut away is simply not on screen. The file is still fetched whole
 (`whole`), so onsets and every command stay in file-absolute seconds.
 
-`Waveform` gained a `view` for this: a span in seconds, absent meaning all of it as before. A
+`Waveform` takes a `view` for this: a span in seconds, absent meaning all of it. A
 **window** rather than a zoom factor, since what a host wants to say is "these twelve bars" and not
 "×3.7" — and everything crossing that boundary stays in **absolute seconds**. A view is a way of
 looking, not a change of units, so a marker's time, a selection, a trim preview and every callback
@@ -498,14 +479,12 @@ resolution.
 The gate is **bounded to the window the clip already has**: a re-trim refines `from`/`to` and never
 reaches back into material an earlier trim removed (undo is how that comes back).
 
-`clip normalize` used to be bounded the same way and beside it in this panel. It is gone, and so
-is `track normalize` — the button became **operations**, every chain the project and the library
-offer, and normalising is one of them (`clip process <clip> <chain>` over a chain naming the
-médiathèque's `normalize` module). That is the trade: a treatment that can be followed by another,
-landing in a stamped render the clip is repointed at, instead of one hard-coded gain written over
-the take. The engine's `--normalize` mode went with them. See `@studio/commands`'
-`docs/processChain.md`, which records the one thing that was given up — a single gain shared
-across a whole track's files.
+Beside it is **operations**: every chain the project and the library offer, normalising among them
+(`clip process <clip> <chain>` over a chain naming the médiathèque's `normalize` module). There is
+no `clip normalize` and no `track normalize`, and that is the trade — a treatment that can be
+followed by another, landing in a stamped render the clip is repointed at, rather than one
+hard-coded gain written over the take. See `@studio/commands`' `docs/processChain.md`, which
+records what it costs: a single gain shared across a whole track's files.
 
 Nothing above the gate changes nothing, and says so: a take entirely below it is either silence or
 a gate set too high, and a window of zero length would play nothing at all.
@@ -528,33 +507,32 @@ pixel) while local state moves the pin as you go, so the hand and the mark stay 
 that travels less than 4px is still a **click**, and a click still refuses the onset — the same
 threshold the canvas uses, so a twitch while removing a mark does not silently re-place it.
 
-### The piano roll left the bottom panel
+### The clip under the caret is REPORTED, not drawn
 
-There used to be an **Editor** panel showing the clip under the caret. It drew `ClipView`, which
-is exactly what the graph's slot draws now — the same component, with the pane's height instead
-of a resizable band's. Keeping both was the same roll twice, on two surfaces that could come to
-disagree about which clip you meant, and the panel was the worse of the two: shorter, and
-answering the caret rather than the click.
+`ClipView` is drawn in one place, the graph's slot, at the pane's full height. A second copy of it
+in a bottom panel would be the same roll twice, on two surfaces that could come to disagree about
+which clip you meant — and the panel would be the worse of the two: shorter, and answering the
+caret rather than the click.
 
-`editTarget` did NOT go with it. The caret still reports what it is over, because the command
+`editTarget` is no part of that drawing. The caret reports what it is over because the command
 conditions read it — `hover_midi_sequence` and `hover_audio_clip` are what let a command know
-which clip you mean without you naming it. What went is the drawing.
+which clip you mean without you naming it.
 
 ## A view is a LAYOUT, not a mode
 
 Every pane is mounted always, and always the *same instance* — including the editor, which
-the default layout does not show, and including the timeline in a `live` project, which no
-layout shows at all. Three pieces of state decide what you see, and none of them
+the default layout does not show. Three pieces of state decide what you see, and none of them
 mounts or unmounts anything:
 
 - `full` — which pane gets the whole screen (`null` = the layout's own arrangement)
 - `focus` — which pane gets the keys; Tab walks the focus ring (`ringPanes`, which is
   `viewPanes(...).ring`: the panes the layout actually shows, so the editor is not on it — and
   focus left on a pane the layout dropped is snapped back, or the keys would go to something off
-  screen. That snap is what moves the keys to the graph when a live project opens)
+  screen. That snap is what moves the keys to the graph when a project declaring no timeline
+  opens)
 - `panel` — the side panel, independent of both
 
-There is no fourth piece: the LAYOUT is not state at all any more. Which panes it holds is a
+There is no fourth piece: the LAYOUT is not state. Which panes it holds is a
 function of what the project declares, read fresh wherever it is needed. See
 [shellRouting.md](shellRouting.md) and
 [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
@@ -581,10 +559,9 @@ The ladder only works if each rung is **exclusive**, and that is the whole reaso
 [`src/popins.ts`](../src/popins.ts) exists. Several overlays answer Escape themselves with a
 plain bubble-phase `window` listener and no `stopPropagation` — the header's alternative menu, the
 phone's hamburger, the help page — and Radix's dialogs do the same. The
-shell's own listener is on `window` too, so both fire on the one keypress. That was survivable
-while the shell's fallback merely closed the bottom panel; the moment Escape started closing the
-graph slot, dismissing a dropdown would have thrown away the clip or the take you had open
-behind it.
+shell's own listener is on `window` too, so both fire on the one keypress — and since the shell's
+fallback closes the graph slot, dismissing a dropdown would otherwise throw away the clip or the
+take open behind it.
 
 So an overlay **registers** while it is up (`usePopin(open, close)`) and the shell reads the
 registry as its `popin` condition. Two things fall out of it, both deliberate:
@@ -604,9 +581,9 @@ on: the listener returns early for them, so no binding reaches the layout undern
 **`AudioClipPanel`** keeps Escape for stopping a rolling take, which is neither a popin nor a
 slot but a transport action.
 
-The three **docked panels** are deliberately not in that list, and the distinction arrived with
-them: a docked panel leaves the panes on screen, so the keys that drive them have to keep
-working — Space while you watch a level on the I/O tab is the whole point of that tab not being
+The three **docked panels** are deliberately not in that list: a docked panel leaves the panes on
+screen, so the keys that drive them have to keep working — Space while you watch a level on the
+I/O tab is the whole point of that tab not being
 a dialog over the thing it meters. Typing stays safe because the guard that protects it is
 about the FOCUSED element, not about which screen is open. Escape is the settings panel's own
 and closes it.
@@ -628,11 +605,10 @@ one. Opening any of them closes whichever was there, which is what a single valu
 three flags would only promise.
 
 Three panels rather than one set of tabs, because they are three different verbs — what you
-**set**, what you **play from**, what you **send**. Playlists had a tab under the cog for
-exactly one iteration, and it was filing by where it used to live: settings are things you set
-and leave, a set list is a thing you work from. The share was a dropdown, which is the wrong
-shape for a surface that *reports* — a pull says how far behind you were, an export takes a
-minute and says where the file went.
+**set**, what you **play from**, what you **send**. Playlists is not a tab under the cog:
+settings are things you set and leave, a set list is a thing you work from. Nor is the share a
+dropdown, which is the wrong shape for a surface that *reports* — a pull says how far behind you
+were, an export takes a minute and says where the file went.
 
 None of them is a **pane**. A pane is what the project DECLARES ([shellRouting.md](shellRouting.md),
 `packages/song/docs/surfaces.md`); none of this is the project's, which is why none of it is in
@@ -640,9 +616,9 @@ the URL either.
 
 ## The open file follows the disk (`hooks/useDiskSync.ts`)
 
-Every command in st0 rewrites YAML — `node param`, `track gain`, a clip drag, a bypass click.
-The editor read its file once and never again, so the moment you touched anything the buffer was
-a snapshot of the past, and the next save wrote it back over whatever had happened since.
+Every command in st0 rewrites YAML — `node param`, `track gain`, a clip drag, a bypass click. An
+editor that read its file once and never again would hold a snapshot of the past the moment you
+touched anything, and the next save would write it back over whatever had happened since.
 Silently. **That is a data-loss bug, not a cosmetic one**, and it is what this hook exists for.
 
 Two cases, and they get different answers:
@@ -659,45 +635,43 @@ polled once for the whole app; see `hooks/useRevision.ts`.
 
 ### Space is the transport, wherever the last click landed
 
-The same listener decides this, and it draws a line the old one did not. It used to stand aside
-for `INPUT`, `TEXTAREA`, `BUTTON`, `A`, `SELECT` and anything `contentEditable` — one list, every
-key. Two of those groups want different things:
+The same listener decides this, and it draws a line between two groups rather than standing aside
+for one list of tag names — `INPUT`, `TEXTAREA`, `BUTTON`, `A`, `SELECT`, `contentEditable` — on
+every key:
 
 - **Typing** — a field, or CodeMirror — owns every key it is given, Space included. That is what
-  makes it a text editor, and nothing here may touch it. Unchanged.
+  makes it a text editor, and nothing here may touch it.
 - **A focused control** — a button, a link, a select — keeps the keys the platform gives it,
   except **Space** and **Escape**. Space, because "press Space to play" has to hold whatever you
   clicked last: a button reached by pointer keeps focus, and the transport failing because you
   had just clicked Mute is the bug. Escape, because a focused button does nothing with it, and
-  Escape's first job is now to close the overlay that button is sitting in. **Enter** still
+  Escape's first job is to close the overlay that button is sitting in. **Enter** still
   activates a focused button, so a control reached by Tab is still operable from the keyboard.
 
-`blurOnClick` (`keys.ts`) stays, and its job is now narrower: it hands back every *other*
-single-key binding — `1`, `m`, `s`, `f` — after a mouse click, which the listener still lets a
-focused control keep.
+`blurOnClick` (`keys.ts`) hands back every *other* single-key binding — `1`, `m`, `s`, `f` —
+after a mouse click, which the listener lets a focused control keep.
 
 Space takes the **direct route when it can**, and the slow one when it must. `transport
 play|stop|toggle|rewind` (`BARE_TRANSPORT` in `localCommands.ts`) are answered by the shell over
-the engine WebSocket — the same socket the header's play button has always used.
+the engine WebSocket — the same socket the header's play button uses.
 
-They went through the file service, and that was a real cost, not a theoretical one: the service
-sends this very message, but only after an HTTP round trip, after the undo journal has walked the
-whole project twice to find that a transport verb changed no file (**62 ms warm, 215 ms cold**,
-measured on a real song), and behind whatever else that single-threaded process was doing — a
-project compile there is **1.5 s**. Measured end to end on an idle service, one keypress cost
-**110–145 ms**; over the socket the engine acknowledges in **13–50 ms**, most of which is waiting
-for the next 20 Hz state frame. That was the "sometimes it takes a second": the delay belonged to
-the queue, not to the transport.
+The file service route is a real cost, not a theoretical one: it sends this very message, but only
+after an HTTP round trip, after the undo journal has walked the whole project twice to find that a
+transport verb changed no file (**62 ms warm, 215 ms cold**, measured on a real song), and behind
+whatever else that single-threaded process is doing — a project compile there is **1.5 s**.
+Measured end to end on an idle service, one keypress costs **110–145 ms**; over the socket the
+engine acknowledges in **13–50 ms**, most of which is waiting for the next 20 Hz state frame. The
+delay belongs to the queue, not to the transport.
 
 Two cases still fall through to the service, and they are why the branch is a fallthrough rather
 than a send: **no socket of our own**, and an engine **mid-apply**. The WebSocket path *drops* a
-transport verb while the engine is applying a change (`useEngineLink.ts`) — a queue there turned
+transport verb while the engine is applying a change (`useEngineLink.ts`) — a queue there turns
 one press into three plays and a rewind — and dropping is right for a button you can see is
 disabled and wrong for a key whose whole promise is that it always works. So the key keeps the
 slow path for exactly that window.
 
 Nothing is lost by answering them here: they write no file, so there is nothing to journal and
-nothing to reload — the `setReloadKey` every other command pays for was pure waste on these.
+nothing to reload — the `setReloadKey` every other command pays for is pure waste on these.
 `transport metronome` is NOT one of them: it rewrites `settings.yaml`.
 
 **Shift+Space** is the shifted pair and survives a focused control by the same listener rule: it
@@ -712,42 +686,37 @@ the modifier out (`"shift+space"`) where a shifted letter arrives already upperc
 ### The editor POPIN
 
 A command that sends the editor to a file (`ui file`, `edit clip`, `edit sequence`) has to do
-something when the editor pane is off screen. It used to **fullscreen** it, which answered a
-question nobody asked: you wanted the file, and it threw away the timeline or the graph you
-were about to read it against.
+something when the editor pane is off screen. It opens as a **popin** — over the layout, on a
+dimmed backdrop, **without the file tree**, because a command already named the one file it is
+showing. Fullscreening it would answer a question nobody asked: you wanted the file, and it would
+throw away the timeline or the graph you were about to read it against.
 
-It opens as a popin instead — over the layout, on a dimmed backdrop, **without the file tree**,
-because a command already named the one file it is showing.
-
-**And it opens only once the file has been READ.** The reveal used to come first, so a name that
-resolved to nothing left an editor popped open over your work with no file in it — the tree its
-only other indication of one gone by design, and the failure itself silent: an
-`editorRef.current?.` swallowed a handle not yet attached, and a `?? arg` fallback opened whatever
-had been typed and reported an "open error" about a file nobody had named. `EditorHandle.open`
-answers whether it landed, and the popin follows that answer. A command that runs, reports success
-and does nothing is the one failure this shell says everywhere else it will not have.
+**And it opens only once the file has been READ.** `EditorHandle.open` answers whether it landed
+and the popin follows that answer; revealed first, a name that resolves to nothing leaves an
+editor popped open over your work with no file in it, and no tree beside it to say so. A command
+that runs, reports success and does nothing is the one failure this shell says everywhere else it
+will not have.
 
 What it resolves is in `src/openInEditor.ts`, and the third of its three passes is the one worth
 knowing: **half the callers name a PLACEMENT, not a file.** The right-click on an event offers
 `ui file` with a clip's id — `audio_14_0@98.5` (`@studio/song/placementId`) — and the file it
 wants is `clips/audio_14_0.yaml`. That `@98.5` is a subsequence of no path, so the fuzzy pass
-scored −1 on every file in the project. The material behind the id is tried last, after the
+scores −1 on every file in the project. The material behind the id is tried last, after the
 written name has had its say, because a material name is what `materialRefOf` returns unchanged
 and an entity may legitimately carry an `@`.
 
 It is the SAME EditorTab, in the same place in the tree, wearing different classes. That is
 forced by the invariant above and is also what makes it good: the open file, its undo history
-and the CodeMirror instance survive being popped out and put back, because nothing unmounted.
-A second editor would have been a second undo stack.
+and the CodeMirror instance survive being popped out and put back, because nothing unmounts.
+A second editor would be a second undo stack.
 
 Three details it needs to be usable:
 
 - **The popin is the active pane** while it is up (`activePane`), or the pane underneath would
   keep answering the keys.
-- **It closes on a click outside, the ×, or Escape** — see the Escape ladder below. Escape used
-  to be deliberately excluded here, on the argument that it belongs to the editor: in vim mode it
-  leaves insert mode, and a key that both leaves insert mode and closes the window you are typing
-  in is a trap. That argument was right and it still holds — it is just already paid for
+- **It closes on a click outside, the ×, or Escape** — see the Escape ladder above. Escape
+  belongs to the editor as well: in vim mode it leaves insert mode, and a key that both leaves
+  insert mode and closes the window you are typing in is a trap. That is already paid for
   somewhere else. The shell's key listener stands aside for a text editor (CodeMirror is
   `contentEditable`), so an Escape typed *into* the file never reaches the shell at all: vim gets
   it, insert mode ends, the popin stays. What reaches the shell is an Escape pressed from outside
@@ -781,9 +750,9 @@ edges only in the pane whose BUFFER holds the symbols — the module's — where
 the two numbers like a keystroke. In the split, that means the slicer sits under the MODULE
 pane alone: the instance side would show the identical picture read-only, so it stands down
 (the same dock still serves a node opened WITHOUT the split — full screen, or a base with no
-file). There used to be an inline waveform under every symbol line instead: one picture with
-coloured windows replaced the stack of them. `rackKeyOf` (projectPaths.ts) is what lets one map
-answer for both spellings of "this file is a rack": a module's folder name, a node's stem.
+file). One picture with coloured windows, rather than an inline waveform under every symbol line.
+`rackKeyOf` (projectPaths.ts) is what lets one map answer for both spellings of "this file is a
+rack": a module's folder name, a node's stem.
 
 #### The RACK BUILDER popin
 
@@ -837,10 +806,10 @@ against.
 | the take being recorded, and the take just recorded | a take starting to roll (above) |
 
 **One state (`graphSlot`), not three flags.** They cannot be there together, so a union says so:
-separate booleans would have had to agree about which wins, and the × would have had to work out
-which one it was closing.
+separate booleans would have to agree about which wins, and the × would have to work out which
+one it is closing.
 
-A rolling take **evicts** whatever the slot held. That is not arbitration, it is the one case
+A rolling take **evicts** whatever the slot holds. That is not arbitration, it is the one case
 where something other than a click opens the slot, and while a take rolls the take is the thing.
 
 The two rows can both show a piano roll, and they are **not the same one**. The grid draws a
@@ -870,18 +839,18 @@ editor that WRITES to it — the same reason `event move` and `transport record`
 
 #### A CLICK on a clip, which is a press that never moved
 
-The timeline already tracked that (`DRAG_SLOP`), to tell a drag from a right-click. A click used
-to fall through to `commitMove`, which found a move of zero beats and answered "move cancelled —
-no change": a refusal, for a gesture that had asked for nothing. It now shows the clip instead.
+The timeline tracks that (`DRAG_SLOP`), to tell a drag from a right-click, and a press that never
+moved shows the clip. Falling through to `commitMove` would find a move of zero beats and answer
+"move cancelled — no change": a refusal, for a gesture that asked for nothing.
 
-Two consequences of putting the click there rather than on the clip element:
+Two consequences of putting the click on the gesture rather than on the clip element:
 
 - **A frozen or generated lane's clip opens too.** Neither can be MOVED — there is no `clips:`
-  entry for a move to rewrite, a frozen clip being a render rather than a placement — so the
-  press used to be dropped before it was even tracked. Seeing one asks nothing of the disk, and
-  a frozen lane's render is exactly the thing you want to look at.
+  entry for a move to rewrite, a frozen clip being a render rather than a placement — so a
+  handler hung off moving would drop the press before it was even tracked. Seeing one asks
+  nothing of the disk, and a frozen lane's render is exactly the thing you want to look at.
 - **A pending `event move` still wins.** If the command bar is collecting that move, the click
-  answers the bar as it always did; showing the clip is what happens when nothing was asked.
+  answers the bar; showing the clip is what happens when nothing was asked.
 
 What it draws is `ClipView` — so audio and
 MIDI are told apart in one place and the two surfaces cannot come to disagree about a clip.
@@ -891,8 +860,7 @@ MIDI are told apart in one place and the two surfaces cannot come to disagree ab
 It is a **second view of the timeline**, and that decides where it may appear. While the
 timeline itself is on screen the minimap shows what is already there, in less detail, for a
 band of height the arrangement could have had — so it is not drawn at all. It comes back the
-moment the timeline is hidden: fullscreen another pane and it docks above the command bar,
-where it always used to live.
+moment the timeline is hidden: fullscreen another pane and it docks above the command bar.
 
 The popin is the case the docked strip cannot serve. It covers the layout, so the minimap has
 to come **over** it or not at all — and there it stops being a convenience: a screen with no
@@ -938,15 +906,12 @@ are symmetric on purpose:
 
 ### Double-clicking a lane's header lays its modules out in a row
 
-The gutter has always been the row's handle: a click selects it, a double-click focuses it —
-opening its `nodes/<name>.yaml` and framing the chains it feeds. It now also opens **one lane's
-whole signal path**, side by side, over the graph: `trackModules` walks the same reach the
-framing uses (`subgraphForTrack`, so a send out of the lane's own chain is in it) and adds the
-ORDER a node set does not carry, then `moduleRow` lays it out.
-
-That is the function the mixer used before the mixer became a rank of the graph itself. It went
-to [inventaire.md](../../../../docs/inventaire.md) with no caller, on the argument that another
-surface would want a bare rank of cards; this is that surface.
+The gutter is the row's handle: a click selects it, a double-click focuses it — opening its
+`nodes/<name>.yaml`, framing the chains it feeds, and laying **one lane's whole signal path** out
+side by side over the graph. `trackModules` walks the same reach the framing uses
+(`subgraphForTrack`, so a send out of the lane's own chain is in it) and adds the ORDER a node set
+does not carry, then `moduleRow` lays it out — the one caller of that bare rank of cards, drawing
+them at 1.5× the width their grid asks for (`widthScale`): elbow room, not bigger controls.
 
 The framing still happens underneath, deliberately: closing the row with its ✕ leaves the graph
 already framed on the track it was about, which is where you would have wanted to be anyway.
@@ -970,22 +935,17 @@ it alone — and a ragged bottom reads as cards of different importance.
 ### One frame for everything that takes the slot
 
 `GraphSlotPane` is the shell, the title bar and the ✕. The occupants supply a body and what to
-call it, and nothing else about the chrome.
-
-It was written four times before that, and the four had drifted: four different root shells —
-`relative flex h-full min-h-0 flex-1`, `flex min-h-0 min-w-0 flex-1 flex-col`, the same plus a
-background, and a fourth with `w-full` — three title bars at three type scales, and a ✕ that in
-one case was not in the occupant at all but inside `PianoRoll`, which is a leaf two of them
-draw. The tell was in `App.tsx`: two of the four mounts needed a compensating `<div>` around
-them because their root did not fill the pane on its own. That is drift patched at the call
-site, and every new occupant paid it again.
+call it, and nothing else about the chrome. One frame and not one per occupant: written per
+occupant they drift — root shells that fill the pane and root shells that need a compensating
+`<div>` around them at the call site, title bars at three type scales, a ✕ that ends up inside
+`PianoRoll`, which is a leaf several of them draw — and every new occupant pays it again.
 
 Three ways to wear it, because the occupants genuinely differ:
 
 - **`title` (+ `note`)** — a name, a detail, the ✕. The plain case.
 - **`bar`** — a strip of your own, for a header that carries CONTROLS rather than a label: the
-  recording pane counts beats and offers Stop. The ✕ is still the frame's, added last with
-  `ml-auto`, which reproduces both of that pane's layouts without it having to say so.
+  clip panel counts beats and offers Stop while a take rolls. The ✕ is still the frame's, added
+  last with `ml-auto`, which reproduces that panel's two headers without it having to say so.
 - **neither** — no bar, and the ✕ floats over the top-right corner. A clip's contents draw their
   own header already; a second row above it would say the same thing twice.
 
@@ -1009,7 +969,6 @@ for ([midi.md](midi.md)).
 The caret mark is `pointer-events-none`, so a press landing on it reads as a press on the bare
 lane; clips stop propagation, so they never reach the lane's handler at all.
 
-## The command palette
 ## The command bar
 
 It is the last row of the shell, under the minimap when there is one, full width — always there, not
@@ -1021,10 +980,10 @@ docked rather than opened is in [`commandBar.md`](commandBar.md).
 
 ## What a command RELOADS — the token, not the counter
 
-Every writing command ends in a reload, and for a long time that reload was one number. `App`
-bumped `reloadKey`, and each consumer keyed an effect off it: the compiled document, the graph,
-the project errors, the file tree, the completion vocabulary, the open file. One counter can only
-say **"everything is stale"**, so that is what every command said, whatever it had done.
+Every writing command ends in a reload, and a reload that is one number can only say
+**"everything is stale"** — whatever the command actually did. Six consumers key an effect off
+it: the compiled document, the graph, the project errors, the file tree, the completion
+vocabulary, the open file.
 
 Measured on `01.danse.st0`, per command, on a service that is **one thread** — so these queue
 rather than overlap:
@@ -1048,16 +1007,16 @@ Three things came out of that, and they are three different answers to one quest
   The two library routes are fetched on mount and by the two acts that write there.
 - **`Reload`** — the command says **which files it wrote**, and each consumer decides.
 
-That last one is what `reloadKey` became. `POST /command` answers with `changed`: the files it
+That last one is what the reload key carries. `POST /command` answers with `changed`: the files it
 wrote, project-relative, taken straight out of the undo journal's own diff — `recordChange`
 brackets every mutation and compares the two images anyway, so naming them is free. `App` holds
 `{ key, files }`; `key` is still a counter, because "the same file twice" has to fire twice and a
 list cannot say that.
 
 **`files: null` means nobody said, and every predicate reads that as *re-ask*.** That is what
-keeps a project opened, an undo, a repository pulled and a poll that noticed something behaving
-exactly as they did — none of them had to learn the new vocabulary, and a service too old or too
-broken to answer degrades to the counter it replaced.
+lets a project opened, an undo, a repository pulled and a poll that noticed something name no
+files at all, and what makes a service too old or too broken to answer degrade to a plain
+counter.
 
 The predicates are [`../src/reloadScope.ts`](../src/reloadScope.ts), and they are pure functions
 with a test each, because what they encode is a claim about the SERVICE that is not visible from
@@ -1076,26 +1035,25 @@ an audio or a video clip. A command that repointed an *existing* clip from a wav
 leave that one split stale until the next reload that does ask. Everything else about a clip —
 that it exists, where its file is, what it is called — is a name, and names are covered above.
 
-So a warp point, a note, a curve point now costs the two routes that answer about the SONG, and
+So a warp point, a note, a curve point costs the two routes that answer about the SONG, and
 neither of the two that answer about files and names. What is deliberately still unscoped:
 `/project-doc`, `/graph` and `/project-errors`, which any project write can genuinely change.
 
 ## Live state does not re-render the tree
 
-The transport and the engine's live state arrive over the WebSocket at roughly 20 Hz.
-Held as React state on `App`, each frame re-rendered the whole editor even when nothing
-visible changed. They live in an external store (`engineStore.ts`, and `pluginParamsStore.ts`
+The transport and the engine's live state arrive over the WebSocket at roughly 20 Hz. Held as
+React state on `App`, each frame would re-render the whole editor even when nothing visible
+changed. They live in an external store (`engineStore.ts`, and `pluginParamsStore.ts`
 for plugin parameters) instead, and components subscribe to just the slice they draw — so
 a state frame re-renders the meters, not the tree. Keep it that way: pulling a live value
 into `App` state costs a full render per frame.
 
 **"The slice they draw" means a LEAF draws it.** Moving the subscription off `App` is only half
 the rule, and the half that is easy to satisfy by accident: a subscription held at the top of
-any component re-renders everything that component draws. `Minimap`, `PianoRoll` and
-`WaveformView` each read `s.playhead` in their body and so reconciled a row per clip, 128 key
-rows, and a whole canvas twenty times a second — and they do it **off screen too**, because
-every pane here is mounted exactly once and merely `hidden`. Each has a playhead leaf now, the
-shape `TimelineTab` has used since the frame-rate driver came out of it
+any component re-renders everything that component draws. `s.playhead` read in the body of
+`Minimap`, `PianoRoll` or `WaveformView` reconciles a row per clip, 128 key rows, and a whole
+canvas twenty times a second — **off screen too**, because every pane here is mounted exactly
+once and merely `hidden`. Each has a playhead leaf instead, the shape `TimelineTab` uses
 ([`timeline.md`](timeline.md)).
 
 The bar takes focus on a **double-tap of Shift**: two lone Shift presses within
@@ -1136,8 +1094,8 @@ The row carries one text field per locale the app is built with — `en` and `fr
 Paraglide's `locales`, so a third language grows a third field the day it is added rather than the
 day somebody remembers this screen.
 
-It was one field, and one field meant one string for every language: renaming a command while
-reading French also renamed what English showed, with nothing on screen saying so. The split
+One field would mean one string for every language: renaming a command while reading French
+would rename what English shows too, with nothing on screen saying so. The split
 follows the line the catalogue already draws — `CommandInfo.readable` is `{en, fr}` while the
 command's NAME stays the CLI's in every language, because a name is an identifier and a sentence
 is an explanation. A person's override is a sentence, so it is translated too.
@@ -1151,52 +1109,51 @@ Three consequences worth knowing:
 - **No borrowing between languages.** A command named only in French shows the catalogue's English
   sentence in English. Falling back to the other language would put French words in an English
   menu, which is the thing this split exists to stop.
-- **A name saved before the split still reads**, in every language, and is not rewritten on load:
-  a bare string is what the field used to be and it stands for all locales. It is expanded across
+- **A bare string in the document stands for all locales**, reads in every language, and is not
+  rewritten on load. It is expanded across
   them on the first per-language edit — `setCommandLabel` takes `locales` for exactly that, since
   without it renaming in French would drop the name English had been showing, invisibly until you
   switched.
 - **`labelIn` answers as AUTHORED, and the trim lives at the two places a name is drawn**
-  (`labelOf`, the context menu's row). It used to trim, and that broke the space bar: it is the
-  value of a controlled input, so typing `Rogner` then a space held `"Rogner "` in state and
-  rendered `"Rogner"` straight back into the field. The space vanished as it was typed and a name
-  of more than one word could not be entered at all. What somebody is still typing is not what a
-  menu draws — a blank-only override is already dropped on write, so nothing needed the reader to
-  tidy up after them.
+  (`labelOf`, the context menu's row). Trimming in the reader breaks the space bar: the value is
+  a controlled input's, so typing `Rogner` then a space holds `"Rogner "` in state and renders
+  `"Rogner"` straight back into the field — the space vanishes as it is typed and a name of more
+  than one word cannot be entered at all. What somebody is still typing is not what a menu draws,
+  and a blank-only override is dropped on write, so nothing needs the reader to tidy up after
+  them.
 
 It lives in the ACCOUNT's preferences, not the rig's — what you call a command follows you to
 another browser, where which audio interface to open belongs to the machine. `St0Prefs` widens
 `EnginePrefs`, which is the extension point that type documents, and `patchPrefs` merges, so
 writing this cannot wipe the engine id beside it.
 
-**And the backend's zod schema is what actually decides**, which is worth a paragraph because it
-cost this feature its persistence for a while. A zod object strips what it does not declare, so
-`backend/src/server.ts`'s `prefsSchema` — `z.object({ engineId })`, under a comment reading *one
-field so far* — accepted every command layer this page sent, answered `{ok:true}`, and wrote the
-engine id alone. Renaming a command worked, saving said it had worked, and a reload showed the
-catalogue's own names again; on disk there was only ever `{"engineId": "…"}`. Widening `St0Prefs`
-is half of adding a preference. The router refuses a write it would have to shorten now
-(`droppedKeys`, `packages/user-prefs/docs/store.md`), so the next omission is a 400 naming the
-field rather than a feature that quietly does not last the session.
+**And the backend's zod schema is what actually decides**, which is worth a paragraph because a
+field it does not name costs this feature its persistence. A zod object strips what it does not
+declare, so a layer `backend/src/server.ts`'s `prefsSchema` says nothing about is accepted,
+answered `{ok:true}` and dropped: renaming a command works, saving says it worked, a reload shows
+the catalogue's own names again, and the disk holds `{"engineId": "…"}` alone. Widening
+`St0Prefs` is half of adding a preference. The router refuses a write it would have to shorten
+(`droppedKeys`, `packages/user-prefs/docs/store.md`), so an omission is a 400 naming the field
+rather than a feature that quietly does not last the session.
 
 #### …and this page has a Save button, which nothing else in the shell does
 
 The app's rule is autosave — the editor writes as soon as the buffer parses, and every text pane
 here follows it. This page is the second exception after the module builder, and the reason is
-not taste: **it was unusable to type in**.
+not taste: **without a button it is unusable to type in**.
 
 Three costs, all paid per character:
 
 - a `PATCH` of the whole preferences document down the wire, per keystroke;
 - a `setState` at the ROOT of the app — `commandPrefs` lives in `App`, because the menus, the
-  key listener and the palette all read it — so the entire shell re-rendered behind the overlay,
+  key listener and the palette all read it — so the entire shell re-renders behind the overlay,
   every character, with the timeline and the graph still mounted underneath;
 - `keyForCommand(canonical, prefs)` called once per ROW to fill the shortcut cell, and that call
   builds the whole effective map. Two hundred rows, two hundred rebuilds, per character.
 
 So the page holds a **draft** and writes once, on the button. The middle cost goes because the
 draft lives in the leaf; the first because there is one write per save; the third because the
-effective map is now built once per edit and inverted into `canonical → label`. The rows are
+effective map is built once per edit and inverted into `canonical → label`. The rows are
 `memo`ised on top of that, which works only because `setCommandPref` copies the document
 shallowly: every untouched command's entry keeps its identity, so one row comes back and not two
 hundred.
@@ -1220,10 +1177,10 @@ three meanings — are not remappable: they are rules, not shortcuts, and `resol
 through to them only for tokens the effective map does not name. App's listener, the help
 legend (`shortcutsByCommand`) and the pane buttons' tooltips all read the same map, so a moved
 key is advertised wherever keys are shown. The focused-control rule follows the commands rather
-than the tokens now: what comes back from a focused button is whatever runs a `transport …`
+than the tokens: what comes back from a focused button is whatever runs a `transport …`
 command — wherever the person has put it — plus Escape, with Enter left to the control.
 
-**Context menus draw those icons.** `MenuItem` gained a `verb` — the command WITHOUT the entity and
+**Context menus draw those icons.** `MenuItem` carries a `verb` — the command WITHOUT the entity and
 untranslated (`node bypass`, not `bypasser gtr`) — which is exactly what the prefs are keyed by.
 Kept as a field rather than re-derived from `command`, so a menu never has to un-localize a line to
 find out which command it is; and two entries for one verb on two different tracks are one command
@@ -1232,8 +1189,8 @@ the person's layer is applied by the RENDERER, because an arrangement is a matte
 looking and not of what an entry means. The icon gutter is held whether or not there is an icon —
 a half-decorated menu with a ragged left edge reads as a rendering fault.
 
-The icons are **lucide**, already this app's icon set, so nothing new was added to the project.
-What is new is resolving one BY NAME, which cannot be tree-shaken: everywhere else imports the
+The icons are **lucide**, already this app's icon set, so nothing new is pulled in for them. What
+this page adds is resolving one BY NAME, which cannot be tree-shaken: everywhere else imports the
 icons it draws, while "whatever the person chose" is not known at build time. `lucideIcons.ts`
 loads the set through a dynamic import and caches it, so a surface asking for an icon awaits once
 and every surface after it is synchronous. A menu opened before that lands draws its labels and no
@@ -1244,7 +1201,7 @@ recognise it faster the second time.
 above.** The build says `INEFFECTIVE_DYNAMIC_IMPORT`: some thirty components import their icons by
 name from `lucide-react`, so the bundler cannot move it into a chunk of its own. The `import()`
 buys deferred execution and no deferred download, and naming the namespace retains all ~1500
-exports where tree-shaking used to keep the forty this app draws. Measured on a real build: the
+exports where tree-shaking keeps the forty this app draws. Measured on a real build: the
 IconPicker chunk is 1 KB, the main chunk 2.4 MB.
 
 The alternative is a curated subset, statically imported: instant, bounded, tree-shakeable, and
@@ -1265,28 +1222,24 @@ It is not "writes no file", and the difference is deliberate: a pin, a language 
 flag are remembered — in `localStorage` and in the account's preferences — and remembering how
 you like to work is not editing a song. What draws the line is the PROJECT.
 
-**A better subject beats the rule.** `ui copy` and a bare paste were correct by it — the copy
-only fills a slot in this shell, the paste writes through `events add` — and that is exactly
-what put one gesture's two halves on either side of the line. Both are `selection copy` and
-`selection paste` now, beside the catalogue's `selection consolidate`: the head names what all
-three act on, the rectangle you drew. The rule is what a command falls back on when nothing
-better names it, not something to obey against a subject that is right there
-([clipEditors.md](clipEditors.md)). `ui copy path` stayed where it was — that one puts a *path*
+**A better subject beats the rule.** `selection copy` and `selection paste` sit beside the
+catalogue's `selection consolidate`: the head names what all three act on, the rectangle you
+drew. The namespace rule alone would make the copy `ui` — it only fills a slot in this shell —
+and the paste bare, since it writes through `events add`, which puts one gesture's two halves on
+either side of the line. The rule is what a command falls back on when nothing better names it,
+not something to obey against a subject that is right there
+([clipEditors.md](clipEditors.md)). `ui copy path` is not one of them — that one puts a *path*
 on the system clipboard and is a different act.
 
 A line the shell recognises but cannot act on is reported as *handled* rather than passed
 down: the backend has no such command either, and "unknown command" would say less.
 
-Two heads used to collide: `ui file <path>` opens a file, and `file new`, `file rename`, `file
-move`, `file delete`, `file upload` did something *to* one. Only the second token told them
-apart, so the table carried a `BARE_NAMES` list checked **first** — without it the pairing rule
-above answered every `file <verb>` with "type: ui file …".
-
-The tree's verbs are an **`fs` group** now — `fs file new`, `fs folder new`, `fs file rename` —
-and they share a head with nothing, so the exception is gone with the collision. `isUiLine` is
-two lists and no special case. The group is worth having on its own terms (they are the one
-family that acts on the workspace's files rather than on the song), and it happens to be what
-the exception was standing in for.
+The tree's verbs are an **`fs` group** — `fs file new`, `fs folder new`, `fs file rename` — and
+they share a head with nothing, which is what keeps `isUiLine` two lists and no special case.
+`ui file <path>` opens a file; a bare `file <verb>` doing something *to* one would collide with
+it on the head alone, and only the second token would tell them apart. The group is worth having
+on its own terms too: they are the one family that acts on the workspace's files rather than on
+the song.
 
 `ui external <surface>` is the namespace's odd one and belongs to it squarely: it reads an
 address and puts it on the clipboard, touching neither the project nor the transport nor even
@@ -1314,11 +1267,11 @@ cable dropped on a knob — because `runCommand` and `quietCommand` are the only
 both log before they dispatch. The buffer is the shell's and fills whether the panel is open or
 not; only the tray's merged process log is polled on demand (`useLogs`).
 
-Three cases needed saying out loud, because each is a command nobody typed:
+Three cases are worth saying out loud, because each is a command nobody typed:
 
 - **The picker's first half.** Choosing a module from the canvas menu runs a `module new` ahead
-  of the `node new` you were prompted for. It used to go through unrecorded, so a transcript
-  showed a node appearing with no module ever created.
+  of the `node new` you were prompted for. Unrecorded, it would leave a transcript showing a node
+  appearing with no module ever created.
 - **A rewritten line.** `canonicalizeCommand` may turn what was typed into another spelling —
   a translated verb name. The log shows both, `typed ⇒ ran`, since a transcript holding a line
   you cannot retype is worse than a slightly longer one.
@@ -1331,7 +1284,7 @@ file write, a module save, a probe. Those are not commands, and a log that mixed
 answering the question it exists for.
 
 Keeping it costs one habit — **the button runs the command, it does not call the handler**.
-Where the two would otherwise be two copies of one behaviour, the behaviour moved:
+Where the two would otherwise be two copies of one behaviour, the behaviour lives in one place:
 
 | what draws it | the command | where the behaviour lives |
 |---|---|---|
@@ -1351,7 +1304,7 @@ Where the two would otherwise be two copies of one behaviour, the behaviour move
 | the editor tab's one toggle | `ui vim` | `toggleVim` in `App` |
 | Ctrl+Z / Ctrl+Y | `project undo`, `project redo` | `@studio/project-shell/undo` |
 | the file tree's right-click menu | `fs file new`, `fs folder new`, `fs file rename`, `fs file move`, `fs file delete`, `fs file upload`, `ui pin`, `ui copy path` | `EditorHandle`, and `FileTreeHandle` under it |
-| the recording pane's *stop* | `transport stop` | the engine |
+| the clip panel's *stop*, while a take rolls | `transport stop` | the engine |
 | a `.dawproject` / `.als` clicked in the tree | `project import <path>` | `useProjectImport` |
 | the master meter's *fix* | `project master fix` | `fixClipping` in `App`, over `MasterMeterHandle` |
 | the channel strip's mono/stereo pairing | `system channel type <ch> <mono\|stereo>` | `@studio/commands` — the rig's file AND the engine |
@@ -1359,11 +1312,11 @@ Where the two would otherwise be two copies of one behaviour, the behaviour move
 | the Playlists panel's *Séparer les stems* | `playlist stems <playlist>` — the same work, song by song | pl8's `POST /api/stems`, see [playlists.md](playlists.md) |
 | the I/O tab's *séparation des stems* | `system stems <chaîne>` | `@studio/commands` — `~/.studio/preferences.yaml`, read by every screen that could start one |
 
-Two of those handles exist only for this: `EditorHandle` grew the tree's own verbs, and
+Two of those handles exist only for this: `EditorHandle` carries the tree's own verbs, and
 `FileTreeHandle` exposes the two things nothing else holds — the pins, which are that
 component's `localStorage`, and the OS file pickers, which are its two hidden inputs.
 
-Three of those rows now have TWO answers. `ui select`, `transport locate` and `transport loop`
+Three of those rows have TWO answers. `ui select`, `transport locate` and `transport loop`
 reach whichever grid is on screen: the clip pane's caret while it is open (the piano roll's or the
 sequencer's — see [clipEditors.md](clipEditors.md)), the timeline's otherwise. The commands are
 one thing, and which surface answers is a question about what you are looking at, not about the
@@ -1372,7 +1325,7 @@ verb. `ui zoom` stays the timeline's alone: it is the only one that keeps a zoom
 `selection copy` has two answers as well, and takes them in ORDER rather than picking one: the
 clip pane, then the timeline, first answer winning. It is the only one that asks the pane a
 question instead of acting on it, so a pane in front with nothing selected must not end the
-question — see [clipEditors.md](clipEditors.md), where that difference cost a working copy.
+question — see [clipEditors.md](clipEditors.md), which holds what that difference costs.
 
 Three things are deliberately NOT commands, and the line is the same one every time — a
 command names something you could *ask for*, and none of these is:
@@ -1417,7 +1370,7 @@ state in `App`:
   the command with the two ends and letting the bar's completion take over.
 
   Either way the chain will name the *node*, so a node is what is really being
-  created — and since a chain now names it by its FILENAME alone, that name is the one thing
+  created — and since a chain names it by its FILENAME alone, that name is the one thing
   only the user can supply, which is why both paths stop at the bar. From a namespace it
   takes one command: a chain cannot name `@engine/…` (`use` takes a local module), so it
   creates the local module that inherits it *and* the node, with the module name
@@ -1437,7 +1390,7 @@ a keyboard and the graph needs room.
 
 Every row of chrome is a row the panes do not get. On a phone in landscape the whole window
 is about 400px tall, so the header and footer are trimmed to what a touch target needs and
-no more — and it is why the bottom tab bar became menu rows rather than staying a row of its own.
+no more — and it is why everywhere there is to go is menu rows rather than a row of its own.
 The one control that could not simply move is the command bar's opener: a phone has no
 double-Shift, so the menu carries it.
 
@@ -1481,14 +1434,9 @@ is an oversight. A manifest's URLs resolve against **the manifest's own address*
 not rewrite the contents of a public file the way it rebases `index.html` — so anything written
 `/…` there is origin-absolute and escapes the app.
 
-That was live for a while: the manifest still said `"start_url": "/"` after st0 moved under
-`/st0/`, and the origin root was **the médiathèque**. Installing st0 as an app opened it instead.
-
-st0 answers the origin root again — the two swapped, and the médiathèque is at `/pl8` — so that
-exact bug would not reproduce today. The rule is kept anyway, and this is the paragraph that
-says why: `.` is right under BOTH mounts, an origin-absolute `/` was right under one of them,
-and which app owns the root has now changed twice. A manifest that has to be revisited when the
-edge's path table moves is a manifest written wrong.
+An origin-absolute `"start_url": "/"` therefore installs whichever app owns the root, which is
+st0 today and need not stay so. `.` is right under any mount; `/` is right under exactly one. A
+manifest that has to be revisited when the edge's path table moves is a manifest written wrong.
 
 ## Where the rest of it went
 

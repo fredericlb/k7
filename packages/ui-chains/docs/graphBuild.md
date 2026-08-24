@@ -10,11 +10,11 @@ drawing by construction.
 
 ## What a node carries from its step
 
-`CARRIED`, `FLAGS` and `Consumed` declare it once instead of copying it. `buildGraph` used to
-restate the fields one by one, which made "add a field" three edits in three files. `assetChoices`
-missed the third: it reached the browser and stopped at the node, so st0 re-fetched the whole graph
-on a click to read a value already under the mouse. The same shape of omission put every ported
-cable on the node's edge once, when `targetPort` was forgotten on the edge copy in `layout`.
+`CARRIED`, `FLAGS` and `Consumed` declare it once instead of copying it. Restating the fields one
+by one makes "add a field" three edits in three files, and the third is the one that gets missed:
+a field that reaches the browser and stops at the node sends the host re-fetching the whole graph
+on a click to read a value already under the mouse, and a field forgotten on the edge copy in
+`layout` — `targetPort` — puts every ported cable on the node's edge.
 
 The `_Unplaced` guard underneath makes the three groups cover the type: a new field on
 `WebChainStep` stops the build HERE, by name, until it is placed in one of them.
@@ -49,10 +49,10 @@ A node with no UI is a fixed size; one with a widget grid is sized BY that grid 
 and dagre is told the real size so it reserves the space and routes edges around it. A size
 it was not told is a node its neighbours overlap.
 
-`NODE_W` is the no-panel size only. It used to be a floor under panelled nodes too, which
-parked dead space to the right of every grid narrower than it — a 2-column mixer strip is
-84px of controls, and it was drawn in a 160px card. A panel now says how wide its module is,
-which is the only thing that knows. `NODE_MIN_W` is all that is left of the floor, and it is
+`NODE_W` is the no-panel size only, and **not** a floor under panelled nodes: as a floor it
+parks dead space to the right of every grid narrower than it — a 2-column mixer strip is
+84px of controls in a 160px card. A panel says how wide its module is, which is the only thing
+that knows. `NODE_MIN_W` is the one floor there is, and it is
 not aesthetic: below ~72px the header's padding and kind glyph leave no room for the name at
 all. The name ellipses at these widths, so it carries a `title` — on a wall of identically
 shaped strips, the tooltip is what tells them apart.
@@ -76,9 +76,9 @@ it needs another ~10. Anything tighter and one of the two has to go.
 card's width on a namespace every neighbour repeats leaves no room for the word that tells them
 apart. The whole ref stays as the header's `title`, so the filing is one hover away.
 
-`headerFontPx` then shrinks the size to fit. The header used to ellipse at a fixed 12.5px, which
-was fine while every card was `NODE_W` and stopped being fine when a card became only as wide as
-its grid: a two-column strip is 84px, so seventeen identically-shaped mixers all read `vo_j…`.
+`headerFontPx` then shrinks the size to fit. A fixed 12.5px would do while every card was
+`NODE_W`, but a card is only as wide as its grid: a two-column strip is 84px, so seventeen
+identically-shaped mixers would all read `vo_j…`.
 Estimated from the glyph count rather than measured — this runs for every node on every layout, and
 a DOM measurement per card is a reflow per card. `GLYPH_W` is the average advance of the header's
 face at 1px, so a name of all `m`s still ellipses and a name of all `i`s is left smaller than it
@@ -100,11 +100,11 @@ table to keep in step with one.
 
 Only the **shared** case earns one — "this module is in these chains" — a warning that
 editing it reaches more than one. It must be computed after the merge: left at whatever the
-first insertion computed, it could only ever name the chain that reached the module first,
-which is why a shared module never actually showed the list it was supposed to.
+first insertion computed, it can only ever name the chain that reached the module first, which
+is not the list it is meant to show.
 
-A chain's own name used to ride its first module too. That said nothing the drawing didn't:
-the cable from the track is right there, and the name is repeated on the track node.
+A chain's own name does **not** ride its first module: it would say nothing the drawing does
+not, since the cable from the track is right there and the name is repeated on the track node.
 
 ## Track nodes carry a built-in UI
 
@@ -112,8 +112,8 @@ Their five mixer controls are authored with the same widget primitives a module 
 The `@`-prefixed binds are **track intrinsics**, not plugin params: the renderer routes them
 to the mixer commands and reads their live values from the track-controls channel.
 `@volume` is in dB so a linear knob maps straight onto the fader's range, and it stops at
-**+6, not +12** — the engine's track fader clamps there, so a taller knob promised gain it
-could not deliver (see `MAX_GAIN_DB` in `@studio/song`).
+**+6, not +12** — the engine's track fader clamps there, so a taller knob would promise gain it
+cannot deliver (see `MAX_GAIN_DB` in `@studio/song`).
 
 A **video lane** gets one control. For picture, "mute" means hidden, and there is no solo,
 record arm, gain or pan to offer — a full strip there would be four controls that do
@@ -144,22 +144,22 @@ The hover is where the symbol lives.
 An **authored** panel wins over all of this: a rack with a hand-made panel has said what it wants
 its node to show, and a grid of pads bolted underneath would be the app overruling the file.
 
-## A live INPUT carries one too, and it had to
+## A live INPUT carries one too, and it must
 
 `inputUI` gives an `io: in` node three dropdowns — its socket, its width, and its monitoring.
 Synthesised for the reason `TRACK_UI` and `rackUI` are (these are not the module's opinion but
 what it IS), and for a second, harder one: **`@engine/IN` cannot have a `ui.yaml` at all.** A
 `ui.yaml` is keyed by a library ref, and there is no `@engine` library — an engine module is a
 built-in with no folder anywhere (`@studio/song`'s `uiLibrary.ts` says so outright and
-`moduleRootFor` throws for it). So every live input in every project drew a card reading
-**"No Options"**, and no amount of authoring could have fixed it.
+`moduleRootFor` throws for it). Without `inputUI`, every live input in every project draws a card
+reading **"No Options"**, and no amount of authoring can fix it.
 
 **Everything is a dropdown, and that is a constraint rather than a taste.** Only a widget carrying
 `options` can commit a module field — `setModuleField` in `DomChains` sends the picked option's
 `arg`, so a knob bound to a field draws, drags, and writes nothing. `@gain` is deliberately
-**absent** for that reason and only that one: a continuous trim has no options to pick. It is no
-longer for want of a verb — `node param <node> @gain <db>` exists — so what a gain knob now
-waits on is a commit-on-release path for a dragged intrinsic.
+**absent** for that reason and only that one: a continuous trim has no options to pick. Not for
+want of a verb — `node param <node> @gain <db>` exists — so what a gain knob waits on is a
+commit-on-release path for a dragged intrinsic.
 
 **Width is not a field.** Mono and stereo are not two settings — they are how wide *one* setting
 is, so the width dropdown binds `@channel` like the socket does and writes the same field one
@@ -184,12 +184,12 @@ An **authored** panel wins over all of this, exactly as for a rack.
 sockets. Both readers go through it — the node's `ui` and `nodeSize` — and that is the whole
 reason it exists.
 
-It did not use to be. The node took its panel from `carryStep` (the step's raw `ui`) with the two
-synthesised ones spliced in beside it, and only the SIZE came from `stepUI`. The two agreed about
-everything except the one thing `stepUI` alone did: fold the module's base list into the authored
-panel (`withBaseOptions`). So a widget bound to **`@base`** had its entries computed, measured,
-and then dropped — every base dropdown in the app drew `none` and nothing else, on a panel whose
-author had written exactly what the format asks for and had no way to see it was not working.
+Two sites would agree about everything except the one thing `stepUI` does on its own: fold the
+module's base list into the authored panel (`withBaseOptions`). Take the node's panel from
+`carryStep` (the step's raw `ui`) and only its SIZE from `stepUI`, and a widget bound to
+**`@base`** has its entries computed, measured, then dropped — every base dropdown drawing `none`
+and nothing else, on a panel whose author wrote exactly what the format asks for and has no way
+to see it is not working.
 
 The list cannot live in the `ui.yaml`: which bases exist changes every time somebody snapshots
 one, so a panel listing them would be a copy of a directory going stale between saves. The author
@@ -211,18 +211,18 @@ edited — the module builder's preview is the one that sets it. Two things foll
 
 **Every widget answers the mouse.** `actuable` normally asks "is there anywhere to send this" —
 `pluginWritable`, `trackWritable`, `offlineWritable` — and draws a widget read-only when the
-answer is no, which is the honest thing on a real graph. On the builder's card the answer was no
-for as long as no plugin happened to be loaded, so the panel being authored was a picture until
-somebody opened the plugin behind it: you could not check that a dropdown listed the right
-settings, or that a knob's range ran the right way, which is most of what looking at the card is
+answer is no, which is the honest thing on a real graph. On the builder's card the answer is no
+for as long as no plugin happens to be loaded, so the panel being authored would be a picture
+until somebody opened the plugin behind it: no checking that a dropdown lists the right
+settings, or that a knob's range runs the right way, which is most of what looking at the card is
 for. A rehearsal needs nowhere to send a value because the optimistic override IS the value, so
 its widgets move regardless. A rack pad is the exception and still asks: it wants a *sound*, and
 a rehearsal cannot invent one.
 
 **Nothing is committed.** Both commit paths write into a file through the command line — `node
 param <module> <name> <value>` for a plugin param, `node param <module> @<field> <label>` for a
-module field — and in the builder there is no project node for either to reach, so they wrote
-into somebody else's song or did nothing at all. Under `rehearsal` both are skipped.
+module field — and in the builder there is no project node for either to reach, so they would
+write into somebody else's song or do nothing at all. Under `rehearsal` both are skipped.
 
 What is NOT skipped is the socket: `setPluginParam` still fires when the host wired it, because
 the plugin behind a preview is an orphan instance no project owns. Turning its knobs is how you
@@ -237,8 +237,8 @@ entries, and snap back to what it was.
 ## …and the clips the lane holds
 
 Under the controls, a track node lists **what is on the lane** — the clip refs, in playing
-order. The graph said where a track's signal *goes* and never what it *plays*, so "which take
-is on this lane" was a question about the lane that you had to leave the lane to answer.
+order. Routing alone says where a track's signal *goes* and never what it *plays*, which makes
+"which take is on this lane" a question about the lane you have to leave the lane to answer.
 
 Above the list, a **mini timeline** the width of the node: one block per clip, placed where it
 starts and as wide as it runs, on **white** — the strip stands for the song itself rather than
@@ -290,7 +290,7 @@ figures stays a column however long the names beside it are. The timecode never 
 says nothing at all.
 
 Rows are separated by a **rule**, and the list by one from the controls above it. A gap alone
-left the short rows reading as one block of text.
+leaves the short rows reading as one block of text.
 
 The list comes from `WebGraph.trackClips`, which the file service fills from the compiled
 track's `placements` and **sorts by position**: authored order is whatever someone typed, and a
@@ -344,11 +344,10 @@ there is no progression to disclose. Their occupancy is per SOCKET, like the inp
 records which jack it left from (`sourcePort`), so `deck#cue: [ phones ]` fills the `cue` socket
 and leaves the others hollow.
 
-That was not always so — this page described the earlier state, where the derivation unioned
-those destinations onto one node and a module's outputs all read the same. Two things changed
-with it: the edge carries `sourcePort`, and `link()` keys a cable on the SOCKET rather than the
-pair, so a splitter feeding one target from two outputs draws two cables instead of one drawn
-from whichever jack was seen first.
+Two things make that work: the edge carries `sourcePort`, and `link()` keys a cable on the
+SOCKET rather than the pair. Union those destinations onto one node instead and a module's
+outputs all read the same — a splitter feeding one target from two outputs drawing a single
+cable, from whichever jack was seen first.
 
 Three nodes are special and each for its own reason. A **sink** has no output jack: it is where
 signal stops. A **live input** is its mirror and has no input jack — nothing plugs into a preamp,
@@ -359,8 +358,8 @@ left out of `jacksFor` (which types a jack by the signal it carries, and a curve
 and the renderer gives it one mauve socket of its own. An **automation** edge occupies no jack
 for the same reason; counted as a feeder it would have revealed the next free socket for nothing.
 
-A **track** has an input jack — what a lane PLAYS is its clips, which was never a reason nothing
-could arrive on it — typed by what the lane puts on the wire, so a midi lane offers a midi socket
+A **track** has an input jack — what a lane PLAYS is its clips, which is no reason nothing can
+arrive on it — typed by what the lane puts on the wire, so a midi lane offers a midi socket
 rather than the audio an unfed jack falls back to.
 
 And it has **two outputs, `audio` then `midi`** — orange, then blue, left to right. A lane is not
@@ -373,7 +372,7 @@ sockets and the refs cannot come to disagree about how many there are or which i
 The ORDER is load-bearing twice over. A cable that names no port is the **first** output — that is
 what `isFed`'s `i === 0 && fed.has("")` says in the compiler and what `cablePath`'s `: 0` says in
 the drawing — and audio is what a bare-wired lane overwhelmingly carries. Swap them and every
-cable drawn before source ports existed lands on the blue socket.
+cable that names no port lands on the blue socket.
 
 A lane's outputs are also its SENDS, so an output already feeding something grows a free twin
 beside it (`spare` in `jacksFor`), or a lane feeding one thing could never feed a second. The twin
@@ -384,17 +383,16 @@ engine tracks: a drag for a second send would quietly re-route the lane's materi
 what anybody reaches for a spare socket to do.
 
 That is also why lifting a cable matches on `port === jack.name` **or** `no port && index 0`: a
-bare cable has always sat on the first socket, and it only started mattering once that socket had
-a name. Without the second half the cable was drawn plugged into a jack that would not give it
-back.
+bare cable sits on the first socket, which does have a name. Without the second half the cable
+is drawn plugged into a jack that will not give it back.
 
 > What may LAND on that socket is narrower than what may be dragged to it: a run carrying a live
-> interface input, and nothing else — recording a preamp onto a lane. `graph chain connect` used
-> to refuse every track outright, stricter than the model it guards, so an `IN` node sat in the
-> graph with nowhere to go; it now asks the same question `packages/song` asks, by walking
-> UPSTREAM of the cable's source (`runCarriesInput`). The derivation splits `mic → comp` into two
-> chains, so reading either one's steps would answer no for every recording path with a plugin on
-> it.
+> interface input, and nothing else — recording a preamp onto a lane. `graph chain connect` asks
+> the same question `packages/song` asks, by walking UPSTREAM of the cable's source
+> (`runCarriesInput`). Refusing every track outright would be stricter than the model it guards
+> and leave an `IN` node in the graph with nowhere to go; and since the derivation splits
+> `mic → comp` into two chains, reading either one's steps would answer no for every recording
+> path with a plugin on it.
 
 A destination naming a **track** lands on the track node itself rather than on the first module of
 that track's chain: that is where a live input's signal actually arrives, ahead of the lane's
@@ -424,7 +422,7 @@ named one says so as `WebChain.fromPort`, which is the signal AND the jack the c
 leaving the lane bare falls back to `trackSignals`, which is what the lane HOLDS: midi when every
 event names a sequence, audio otherwise. See @studio/song's docs/trackModules.md.
 
-**The main output IS drawn, and it carries a fader** — `drawMainOut`, on by default and now on
+**The main output IS drawn, and it carries a fader** — `drawMainOut`, on by default and on
 everywhere. `MAIN_OUT_UI` is its panel: one widget, a fader bound to `Volume`, which is the song's
 output level (@studio/song's docs/masterVolume.md). A built-in UI like `TRACK_UI`, because this
 node has no `module.yaml` to declare one in — but with an ORDINARY bind rather than an `@`
@@ -447,10 +445,10 @@ The level is not in the graph document — it is a project setting — so it arr
 `mainOutVolume`, the same way `inputDevices` does. Absent, the card still draws and its fader reads
 unknown rather than claiming a level nobody supplied.
 
-> **st0's song graph turned it OFF**, and the reason was arithmetic: every lane ended at `OUT`, so
-> drawing it added a card, an edge and a rank to every chain in the song to repeat what the shape
-> already said. Lanes end at `MIX` now and only the master run reaches `OUT`, so the card costs
-> exactly one node — and it is the node the output level lives on.
+> **What turning it off would buy is arithmetic**: a card, an edge and a rank per chain that
+> reaches it, repeating what the shape already says. Lanes end at `MIX` and only the master run
+> reaches `OUT`, so the card costs exactly one node — and it is the node the output level lives
+> on.
 
 Only OUT gets the panel. Any other destination the graph cannot account for as a track, a chain or
 a used module is still drawn as a plain sink, because that name has nowhere else to appear.
@@ -458,7 +456,7 @@ a used module is still drawn as a plain sink, because that name has nowhere else
 ### The sum is implicit
 
 **No cable is drawn INTO `MIX`.** Every chain in the song ends at the sum — that is what a mixer
-is — so those arrows said nothing the picture did not already say: one per lane, crossing it end
+is — so those arrows say nothing the picture does not already say: one per lane, crossing it end
 to end, and tying every run in the song to a single rank. `buildGraph` skips a destination of
 `MIX` (`MIX_OUT` here, `MIX_NODE` in @studio/song) and draws only the run that LEAVES it:
 
@@ -470,39 +468,40 @@ standing on its own, joined to nothing else in the drawing. The routing is untou
 picture, and the engine reads the compiled document, where every one of those lanes still arrives
 at the sum.
 
-`MIX` is drawn **once**, as a sink, exactly as `OUT` is. It used to be two cards. The master run
-is written `from: MIX` and is NAMED after the sum, so `c.from !== name` was false and it fell
-through to the track branch — a lane strip with mute, solo, arm, volume and pan, on the one
-built-in node that deliberately carries no parameter at all (@studio/song's docs/masterChain.md),
-whose knobs addressed a track that does not exist. The empty run then added a pass-through card
-beside it, labelled MIX as well. `entryId`/`exitId` answer with the MIX card itself for a master
-run holding no module, and that is what collapses the pair into the one wire above.
+`MIX` is drawn **once**, as a sink, exactly as `OUT` is, and getting that wrong makes two cards.
+The master run is written `from: MIX` and NAMED after the sum, so `c.from !== name` is false and
+it falls through to the track branch — a lane strip with mute, solo, arm, volume and pan, on the
+one built-in node that deliberately carries no parameter at all (@studio/song's
+docs/masterChain.md), its knobs addressing a track that does not exist; the empty run then adds a
+pass-through card beside it, labelled MIX as well. `entryId`/`exitId` answer with the MIX card
+itself for a master run holding no module, and that is what collapses the pair into the one wire
+above.
 
 **Liveness has to be SEEDED there**, and that is the cost of the rule. A cable ripples when signal
 reaches it, and `computeLive` walks FORWARD from the metered tracks — so a card nothing arrives at
-is a card liveness cannot arrive at either, and the master run, the one cable carrying every note
-in the song, was the only still cable on a playing graph. `cables.ts` starts the walk at `MIX` as
-well as at the tracks whenever any track is metered. Exact rather than a stand-in: every track
+is a card liveness cannot arrive at either, and the master run — the one cable carrying every note
+in the song — would be the only still cable on a playing graph. `cables.ts` therefore starts the
+walk at `MIX` as well as at the tracks whenever any track is metered. Exact rather than a stand-in: every track
 feeds the master bus whatever its chain names (@studio/song's docs/masterChain.md). `RENDER` is
 seeded the same way, off the picture's own list of live lanes — which is derived from the shots
 and the playhead, nothing metering a frame. See `computeLive` and
 @studio/ui-chains-react's docs/liveCables.md.
 
 That list is `liveVideoLanes`, and it is the meters' opposite number. The engine measures sound and
-knows nothing of the frame (@studio/song's docs/picture.md), so a video lane's cables had no way to
-ripple and stayed still through a playing song — the one part of the graph that never came alive.
+knows nothing of the frame (@studio/song's docs/picture.md), so a video lane's cables have no meter
+to ripple from — the one part of the graph that could never come alive by observation.
 What the browser HAS is the shots and the playhead, which is the same bargain st0 already strikes
 for a rack's lit pads: derive it rather than observe it. The spans are half-open, like the
 compositor's own `activeAt` — a cut belongs to the LATER shot, so two shots meeting at a boundary
 never both count — and they are the host's to compute, from the same document the viewport draws.
 
-`insertFor` offers an arrow's `+` whenever at least one end is a module. It used to also demand
-that both ends belong to the same CHAIN, because the command took a chain name and an index into
-it; `chains.yaml` states its edges outright now, so an arrow IS the address, and the cases the
-same-chain rule quietly refused — a track feeding a bus, a split's branch — are ordinary arrows.
+`insertFor` offers an arrow's `+` whenever at least one end is a module, and does **not** demand
+that both ends belong to the same CHAIN. `chains.yaml` states its edges outright, so an arrow IS
+the address; a same-chain rule would quietly refuse a track feeding a bus or a split's branch,
+which are ordinary arrows.
 
-A project written before `MIX: [ OUT ]` existed declares no master run at all, and its cables into
-the sum are skipped just the same — so the pair is drawn anyway whenever something routed there.
+A project that declares no master run at all has its cables into the sum skipped just the same,
+so the pair is drawn anyway whenever something routes there.
 Not an invention: with no master chain the two ARE one wire. A host that asked for no device card
 (`drawMainOut: false`) gets neither end of it rather than half.
 
@@ -520,24 +519,24 @@ Three things differ, and only three:
 - the wire out carries **`video`**, which is what makes the run read as picture across the graph.
   `exitSignal` answers for a sum by name, because it cannot answer by following `from`: the run is
   NAMED after the sum, so the recursion re-enters the same chain and stops on `seen`. An EMPTY
-  master run therefore reached its device untyped — the audio one drew as audio by default and got
-  away with it, the video one did not;
+  master run would otherwise reach its device untyped — the audio one draws as audio by default
+  and gets away with it, the video one does not;
 - `VIDEO_OUT` gets **no panel**. `OUT` is the one built-in name with a param on it; a frame has no
   level, and a fader there would write a value `@studio/ui-eyes` never reads;
 - neither name is ever typed by hand. A project with a viewport gains the run when the surface is
   created and, failing that, when it is opened.
 
-A cable **plugs in**, and runs **straight**. dagre routes to the node's border, which was the
-right target while a cable ended in an arrowhead pointing at a card; `cablePath` moves both ends
+A cable **plugs in**, and runs **straight**. dagre routes to the node's border, which is the right
+target for a cable ending in an arrowhead pointing at a card; `cablePath` moves both ends
 onto the sockets instead — the one the destination NAMES (`crossfade#b`) on the target side, and
 the one the edge left from (`sourcePort`) on the source side, falling back to the first output
-when the chains file named none.
+when the chains file names none.
 
-Its waypoints are **dropped**. They used to be kept, so a send bent around the module it
-skipped — the right answer for a flow chart and the wrong one for a patch bay. A rack's cables
+Its waypoints are **dropped**. Kept, they bend a send around the module it skips — the right
+answer for a flow chart and the wrong one for a patch bay. A rack's cables
 run straight between plugs and cross where they cross, and reading one is following its ANGLE
 out of a socket, which a bend destroys. dagre still places the nodes; only the routing is ours.
-The short leads that used to square each exit went with the curve they existed to fight.
+No short leads squaring each exit either: they exist only to fight a curve that is not drawn.
 
 There is **no arrowhead** on a signal cable. The plug is the socket it disappears into — the
 nodes paint over the cable layer, so the last few pixels are hidden by the plate and the cable
@@ -556,7 +555,7 @@ two truths at the same time. The same link can be expressed from either end (`A.
 any gain label; chains cannot loop, so a reverse edge is the same connection seen from the other
 end and collapses too. But a module that splits feeds one target from several of its outputs
 (`sep#drums: [mix]`, `sep#bass: [mix]`), and those are genuinely different cables that must NOT
-collapse — keying on the pair alone drew the second as the first, leaving one arrow out of the
+collapse — keying on the pair alone draws the second as the first, leaving one arrow out of the
 wrong jack. So an expression that names ports gets its own identity and one that names none merges
 into whatever cable already joins the pair, order-independently, because the two ends are visited
 in whatever order the chains happen to be in. The port is IN the edge id, and the renderer keys on
@@ -589,14 +588,13 @@ a curve id reused by two params draws twice — so the id carries the chain, the
 param. The edge bypasses `link()` (no collapse, no gain) and carries the automation payload
 the renderer draws purple.
 
-That is a REVERSAL, and the reason the old rule died is worth keeping. It used to be one node per
-curve: a curve was one thing however many params it drove, each binding an edge out of the same
-card, and drawing it twice was duplication that made "where is this curve" two answers. That held
-while a curve node had no INPUT. It has one now — an envelope is restarted by an event, and which
-module fires it is per binding. One card with two event sockets could not say that the same shape
-is fired by the drums here and by the synth there; two cards say it by standing apart. The shape is
-still one file on disk and the label is still the curve's id, so the two instances are legibly the
-same curve.
+One node per CURVE is the tidier rule — a curve is one thing however many params it drives, each
+binding an edge out of the same card, and drawing it twice makes "where is this curve" two
+answers. It fails because a curve node has an INPUT: an envelope is restarted by an event, and
+which module fires it is per binding. One card with two event sockets cannot say that the same
+shape is fired by the drums here and by the synth there; two cards say it by standing apart. The
+shape is still one file on disk and the label is still the curve's id, so the two instances are
+legibly the same curve.
 
 An `adsr` curve therefore also gets the cable that FIRES it, from the announcing module's note-on
 into the curve's event socket. It runs the other way to the automation edge — events in, values out
@@ -617,18 +615,18 @@ somebody else's binding.
 
 A curve **nothing binds** is drawn free-standing, one card, driving nothing yet. A curve is a node
 like everything else here, so `curve new` has to put something on the graph: an unreferenced curve
-used to draw nothing at all, which made the verb's result invisible and the canvas menu's "add a
+drawing nothing at all would make the verb's result invisible and the canvas menu's "add a
 curve" a promise with no picture behind it. Its id carries no binding, which is exactly what tells
 it apart from an instance — one free card per curve, one bound card per binding.
 
 ## Orphans are drawn
 
-Tracks no chain mentions are drawn as orphan nodes: a node with nothing wired to it. They
-used to be simply absent, which is the worst way to show a problem — the track exists, holds
+Tracks no chain mentions are drawn as orphan nodes: a node with nothing wired to it. Leaving
+them simply absent is the worst way to show a problem — the track exists, holds
 its clips and still plays (dry, straight to the main out; a chain is what *adds* plugins and
 sends, not what makes a track audible), so a graph that omits it quietly claims the song has
-fewer tracks than it does. That is exactly how a batch of renamed tracks went unnoticed:
-their chains pointed at the old names, and the new ones were nowhere on screen.
+fewer tracks than it does. Rename a batch of tracks and their chains point at the old names
+while the new ones are nowhere on screen.
 
 `sub` carries the reason, so the node says what is unusual about it rather than leaving the
 reader to notice a missing cable. They are **not dimmed** — dim means bypassed here, and an
@@ -636,7 +634,7 @@ unrouted track is playing, not muted.
 
 Video lanes are in the same list for the same reason: one that no chain mentions still
 draws (`project.layers` composites it), so leaving it out would understate the song exactly
-as it did for audio.
+as it does for audio.
 
 ## Layout
 
@@ -648,7 +646,7 @@ ranks after both, so chain A's full pipeline is still respected.
 **Every rank ends up on its own row**, and that is `layout`'s doing rather than dagre's. The
 ranks are computed here and handed over; dagre treats them as a hint. Its `longest-path` ranker
 pushes a node as LATE as it can, hugging the sink below it, so on a fifteen-track song rank 1
-was spread over SIX lines, from y=16 to y=1380 — a first-in-chain module sitting on the mixer
+spreads over SIX lines, from y=16 to y=1380 — a first-in-chain module sitting on the mixer
 line, at the bottom of a column it belongs at the top of. That is what a stretched chain looks
 like: the mixers pinned deep, and the one module above them dragged down to meet them.
 
@@ -663,14 +661,14 @@ Two things follow, and both were found by measuring rather than by reasoning:
   overlap. One such pair on that same song, a module nested inside another. Each row is walked
   left to right and anything landing on its neighbour is pushed past it by `nodesep`.
 - **The extent is measured on the nodes**, not read off dagre. Its figure describes the picture
-  before the rows moved: 488px short there, which is the bottom of the graph missing from every
-  camera fit.
+  before the rows move: 488px short on that song, which is the bottom of the graph missing from
+  every camera fit.
 
 The extent has a second end, `left`/`top`, and it exists for the same reason. dagre lays out from
 `marginx`/`marginy` down and right, so both are 0 for a graph nobody touched — but a **pin** can
 sit anywhere, including above the first track, and `width × height` measured from the origin says
 nothing about that. A camera framing the extent alone would cut off exactly the cards somebody
-dragged up there, which is why the drop used to clamp to `0,0` instead. Both are floored at 0
+dragged up there, or force the drop to clamp to `0,0` instead. Both are floored at 0
 (never positive), so the box a fit reads — `width - left` by `height - top` — is the extent
 unchanged for every graph that begins at the origin.
 
@@ -685,7 +683,7 @@ centres; we store top-left (what a renderer wants), and an edge keeps its two en
 renderer can still draw something for a node it cannot find.
 
 The direction is a `rankdir`, and three things follow it: `nodesep` and `ranksep` swap axes
-(siblings are now side by side, stages one under the next, so the numbers swapped with them),
+(siblings side by side, stages one under the next, and the numbers swap with them),
 `jackPoint` puts inputs on a card's TOP edge and outputs on its bottom, spread across the
 width, and `cablePath`'s straight leads run on Y. Those three have to agree with the plate
 positions the renderer sets inline — the socket and the cable's end are one place drawn
@@ -725,8 +723,7 @@ this one.
 track with a wide chain pushes its mixer away from its neighbour — so a shared rank alone still
 reads as a scattered line rather than a console. Equal GAP and not equal pitch, because the cards
 are not all the same width and it is the space between them the eye reads as regular. What it costs
-is upstream: the chains feeding the row are no longer straight columns, and they are not meant to
-be. Their cables need nothing done about them, since `cablePath` reads both ends off the nodes.
+is upstream: the chains feeding the row are not straight columns, and they are not meant to be. Their cables need nothing done about them, since `cablePath` reads both ends off the nodes.
 
 `moduleRow` is the standalone surface: the named modules side by side, dagre deliberately not used
 — there are no cables between channel strips to route, and the ORDER is the caller's (the song's

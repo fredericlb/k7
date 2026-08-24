@@ -7,7 +7,7 @@ chains, and nothing about YAML beyond calling a writer. Every write changes the 
 nothing else: comments, key order and layout all survive, and no format pass runs afterwards
 because the writers emit canonical output.
 
-This page holds the reasoning the functions used to carry inline.
+This page holds the reasoning behind the functions.
 
 ## Where a module's file is
 
@@ -90,26 +90,23 @@ once, so writing it there would freeze a reverb in songs that have never been re
 
 ## A clip name is half a placement id
 
-`clipFileOf` strips the `@<beat>` before building a path, and that is the fix for a bug worth
-recording. A clip on a lane is `bass_2_0@16` (`placementId.ts`): the material, and where it
-plays. Everything in the clip section is a property of the MATERIAL — the stretch map, the
-onset corrections, the file itself — and is shared by every placement of it.
+`clipFileOf` strips the `@<beat>` before building a path. A clip on a lane is `bass_2_0@16`
+(`placementId.ts`): the material, and where it plays. Everything in the clip section is a
+property of the MATERIAL — the stretch map, the onset corrections, the file itself — and is
+shared by every placement of it.
 
-It did not strip it, and the failure was the loud kind for once: `no clip "sy.chrpan2_…@106" in
-this project`, raised while placing a stretch point from the waveform. Every surface that draws
-a clip holds the placement id, because that is what the compiler put on it and what `/waveform`
-is asked with — so the verbs `clip warp` and `clip onset …` were reachable only by typing a
-material name by hand.
+Every surface that draws a clip holds the placement id, because that is what the compiler put on
+it and what `/waveform` is asked with. So `clip warp` and `clip onset …` are handed one, and
+without the strip they are reachable only by typing a material name by hand.
 
-Fixed HERE and not in the callers, for the reason the file service fixed it at its own boundary
-(`waveformOps.ts`, `workspace.ts`, both carrying the same note): there is one rule, and the
-place that turns a name into a path is where it belongs. `materialRefOf` returns a bare material
-name unchanged, so a hand-typed one is untouched.
+Stripped HERE and not in the callers, for the reason the file service strips it at its own
+boundary (`waveformOps.ts`, `workspace.ts`, both carrying the same note): there is one rule, and
+the place that turns a name into a path is where it belongs. `materialRefOf` returns a bare
+material name unchanged, so a hand-typed one is untouched.
 
-`missingClip` exists for the other half of that story: the old message named the id alone, which
-for a placement is the one string that is NOT the file's name — it pointed at
-`sy.chrpan2_…@106` while the thing missing was `clips/sy.chrpan2_….yaml`. Naming both is what
-turns "this is broken" into "that file is gone".
+`missingClip` names BOTH the id and the file it looked for. For a placement the id is the one
+string that is NOT the file's name — `sy.chrpan2_…@106` against `clips/sy.chrpan2_….yaml` — and
+naming both is what turns "this is broken" into "that file is gone".
 
 Two more rules in that section. Onset corrections that cancel out take the `onsets:` key away
 rather than writing `onsets: {}` — a clip nobody has corrected must read exactly as it did
@@ -128,16 +125,17 @@ to arrange because a chain is not a lookalike: it is a folder holding a `graph.y
 `nodes/`, the same two things a project holds, differing only in having no `project.yaml` and
 in naming its ends `@in`/`@out`.
 
-Bypassing needs no chain name any more: the file names each module once, so there is one thing
-to toggle rather than one per chain the module happened to sit in.
+Bypassing needs no chain name: the file names each module once, so there is one thing to toggle
+however many chains the module sits in.
 
 ## Repointing, unlinking, renaming, deleting
 
 `setModuleExtends` rewrites ONE line of ONE file and that is the whole of it. The file stays
 where it is under the name it has, so its position on the graph, its panel and its alternatives
 survive; only what it IS changes. Three keys are dropped on the way — `plugin`, `params`,
-`rack` — because they described the thing it used to be and, left behind, would either outrank
-the new ref (`plugin` wins over an inherited one) or address knobs and sounds it has not got.
+`rack` — because they describe the module it extended before the rewrite and, left behind, would
+either outrank the new ref (`plugin` wins over an inherited one) or address knobs and sounds it
+has not got.
 The ref is checked against the project's real vocabulary rather than a guessed path: an
 inherited `@ns/…` has no local file to stat, and a typo must be refused before anything is
 written. Repointing something at itself is refused for the reason the resolver guards its walk —
@@ -153,9 +151,8 @@ leaves it in the graph wired to nothing. Its files are untouched and so is its p
 canvas: unlinking is "take it out of the run", not "get rid of it". Putting it back is `node
 insert`; removing it altogether is `node delete`. A node may be named as a step or only ever as
 somebody's destination — the last module in a run has no entry of its own, and it is still in
-the chain and still unlinkable. A LANE used to be refused here, because a chain started at it
-and there was nothing feeding it to rejoin to what it feeds; a lane is a module now with an
-input port of its own (`packages/song/docs/trackModules.md`), so the splice is well defined.
+the chain and still unlinkable. A LANE is not refused: it is a module like any other
+(`packages/song/docs/trackModules.md`), so the splice is well defined there too.
 
 `renameChainNode` and `deleteChainNode` share a footprint — a node is `nodes/<name>.yaml` plus,
 when it has one, `nodes/<name>.vstpreset` — and an ORDER that is load-bearing. The FILES go
@@ -179,10 +176,9 @@ several chains reach it, the same arbitrary-but-stable choice a fork makes.
 two halves are spelt the file changes atomically: a crash between "pulled" and "plugged" cannot
 leave the cable half-gone.
 
-## What went
+## What this layer does not do
 
-`deleteModule` was here: it removed a module's file or folder AND every chain step naming it,
-since a step pointing at a module that is gone is a dangling reference the compiler refuses to
-load. It went with the `module delete` verb that was its only caller — removing a module's
-files is the file tree's business now, and `unlinkChainNode` is the other half it used to
-bundle in.
+It removes no MODULE. Deleting a module's file or folder is the file tree's business, and taking
+its name out of the runs is `unlinkChainNode` and `deleteChainNode` above — two acts, because a
+chain step naming a module that is gone is a dangling reference the compiler refuses to load,
+and the two halves have owners of their own.

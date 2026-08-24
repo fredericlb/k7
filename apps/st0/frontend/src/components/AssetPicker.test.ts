@@ -2,12 +2,11 @@
 // too.
 //
 // Nesting is the whole point of this component. These folders arrive from the outside — a NAM
-// pack is a folder per amp — and the flat <select> this replaced ground the folder into the
-// filename and listed 300 entries in one alphabetical scroll.
+// pack is a folder per amp — and a flat list grinds the folder into the filename and puts 300
+// entries in one alphabetical scroll.
 //
-// The paths are `assets/`-relative, which is what `listModuleAssets` returns. They used to be
-// prefixed with a library kind (`nam/…`) and were filtered on it; module assets carry no such
-// prefix, so that filter matched nothing at all — see the guitar case below.
+// The paths are `assets/`-relative, which is what `listModuleAssets` returns: no library-kind
+// prefix (`nam/…`), so filtering on one matches nothing at all — see the guitar case below.
 
 import { describe, expect, it } from "vitest";
 import { buildAssetTree, searchAssets } from "./AssetPicker";
@@ -52,7 +51,7 @@ describe("the asset tree", () => {
   });
 
   it("lists a real module's assets, which carry NO library prefix", () => {
-    // The médiathèque's amp folder as listModuleAssets returns it: filtering on a `nam/` prefix opened the one module built to be picked from empty.
+    // A real amp folder as listModuleAssets returns it: filtering on a `nam/` prefix leaves the one module built to be picked from empty.
     const guitar = [
       "fender super reverb/Fender Super Reverb_ EQ Flat, Volume 3, sm57.nam",
       "roland jc 120b/Roland JC 120B Jazz Chorus_ Bright On, SM57.nam",

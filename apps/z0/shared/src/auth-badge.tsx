@@ -1,4 +1,4 @@
-// Username badge + optional logout (port of shared/components/AuthBadge.vue).
+// Username badge + optional logout, the terminal-styled one the game SPAs share.
 // The .auth-* classes are themed per app, so the presenter's fixed synthwave
 // badge and the editor's inline blue/grey one are this same markup.
 

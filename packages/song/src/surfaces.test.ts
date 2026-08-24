@@ -114,7 +114,7 @@ describe("parseSurface", () => {
   });
 
   it("refuses a PAIR the editor has no component for", () => {
-    // Both halves are valid alone, so the PAIR needs its own check — nothing draws in `view` now.
+    // Both halves are valid alone, so the PAIR needs its own check — nothing draws in `view`.
     const inView = parseSurface("type: turntables\nlayout: view\n");
     expect(inView.value).toBeNull();
     expect(inView.issues[0].path).toBe("layout");
@@ -211,7 +211,7 @@ describe("a project holding material and declaring no timeline", () => {
   });
 
   it("is silent for a project holding nothing arranged: a mix, or a bare rig", () => {
-    // The FOLDER answers what `project_type: live` used to, and it cannot disagree with itself.
+    // The FOLDER answers whether anything is arranged, and it cannot disagree with itself.
     expect(surfaceIssues(withSurface("desk", DESK))).toEqual([]);
   });
 
@@ -348,7 +348,7 @@ describe("createSurfaceFile", () => {
   });
 
   it("refuses a second DESK too, now that it is a pane", () => {
-    // Allowed while a desk was a `view` with its own button; as a pane, the second draws nowhere.
+    // A desk is a pane, so a second one would draw nowhere.
     const dir = project();
     createSurfaceFile(dir, "turntables", "desk");
     expect(() => createSurfaceFile(dir, "turntables", "warmup")).toThrow(

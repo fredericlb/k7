@@ -1,18 +1,15 @@
 # Éditer une session `.z0`
 
 Ce que l'éditeur fait des fichiers, et pourquoi il s'y prend comme ça. La FORME des fichiers
-est décrite dans [projects.md](projects.md) ; cette page-ci parle de l'écran par-dessus.
-
-Elle remplace l'écran Grist retiré ([editor.md](editor.md)) : les fonctions décrites ici sont
-son portage sur des fichiers, pas une réécriture d'idées. Ce qui n'a **pas** été porté, et
-pourquoi, est en bas de page — c'est la partie à lire avant de conclure qu'il manque quelque
-chose par accident.
+est décrite dans [projects.md](projects.md) ; cette page-ci parle de l'écran par-dessus. Ce
+qu'il ne fait **pas**, délibérément, est en bas de page — c'est la partie à lire avant de
+conclure qu'il manque quelque chose par accident.
 
 ## Un fichier n'est pas un enregistrement
 
-L'éditeur Grist écrivait des lignes dans une base : il pouvait relire, réécrire, et la
-question du texte ne se posait pas. Ici la source est un fichier YAML dans un dépôt git, écrit
-par un générateur *et* par des humains, commenté, et relu en diff au moment du commit.
+La source est un fichier YAML dans un dépôt git, écrit par un générateur *et* par des humains,
+commenté, et relu en diff au moment du commit — pas une ligne dans une base, qu'on relirait et
+réécrirait sans que la question du texte se pose.
 
 D'où la règle qui commande tout le reste :
 
@@ -69,9 +66,8 @@ C'est la raison d'être de l'écran. Un blindtest joue un extrait, et le choisir
 l'oreille : `TrackPanel.tsx` décode l'audio, dessine une forme d'onde, joue tout ou seulement
 la fenêtre, et pose les bornes depuis l'endroit où on écoute (« Début ici » / « Fin ici »).
 
-L'audio ne vient plus d'une pièce jointe Grist : un `.z0` ne stocke que l'identifiant
-médiathèque, donc `mediatek.ts` résout l'adresse en fichier. La règle de résolution est **celle
-du chargeur du jeu**, pas une invention d'ici :
+Un `.z0` ne stocke qu'un identifiant médiathèque, donc `mediatek.ts` résout l'adresse en
+fichier. La règle de résolution est **celle du chargeur du jeu**, pas une invention d'ici :
 
 > la version demandée par la catégorie si elle existe, sinon le master.
 
@@ -108,15 +104,21 @@ Le bouton **YAML** montre le document tel qu'il sera écrit, modifications non e
 comprises. Ce n'est pas une deuxième vue du même fichier : c'est le contrôle de ce que
 l'éditeur s'apprête à commettre dans le dépôt.
 
-## Ce qui n'a pas été porté, et pourquoi
+## Ce qu'il ne fait pas, délibérément
 
-| l'écran Grist faisait | ici |
-|---|---|
-| **lister les sessions** et en ouvrir une | non porté, **délibérément** : cet éditeur est ouvert SUR un projet par son adresse, et le choix se fait sur la page d'accueil de st0. Un deuxième sélecteur est exactement ce que `packages/project-shell/docs/launch.md` refuse. |
-| **téléverser un audio** sur la piste | non porté : l'audio vit dans la médiathèque, et l'y déposer est le travail de pl8. Une piste nomme une adresse ; elle ne porte pas d'octets. |
-| **neuf colonnes `fx_*`** par morceau | portées, sous `effects: { … }`. Les COLONNES ont disparu, pas la notion : `categories/deformees.yaml` porte bien `effects: { bitreduction: 78, chorus: 100, … }` par morceau, et [projects.md](projects.md) le montre dans son exemple `multi`. Ce que la variante remplace, c'est le cas où le traitement est *enregistré* dans la médiathèque ([effects.md](effects.md)) ; les deux coexistent. |
-| **`youtubeId`** éditable | porté, sous le nom du format (`youtube:`), avec `file:`, `artist:` et `title:`. |
-| **le modal de bibliothèque** (réutiliser une catégorie, un morceau, une piste) | porté pour les MORCEAUX (`SongPicker`), sur la médiathèque plutôt que sur des lignes Grist. Réutiliser une *catégorie* n'a plus de sens : une catégorie est un fichier, et deux manches sur la même se font déjà avec `songs:` dans l'ordre. |
+- **Lister les sessions et en ouvrir une.** Cet éditeur est ouvert SUR un projet par son
+  adresse, et le choix se fait sur la page d'accueil de st0. Un deuxième sélecteur est
+  exactement ce que `packages/project-shell/docs/launch.md` refuse.
+- **Téléverser un audio** sur une piste. L'audio vit dans la médiathèque, et l'y déposer est
+  le travail de pl8. Une piste nomme une adresse ; elle ne porte pas d'octets.
+- **Réutiliser une catégorie.** Une catégorie est un fichier, et deux manches sur la même se
+  font avec `songs:` dans l'ordre. Le sélecteur (`SongPicker`) porte donc sur les MORCEAUX, sur
+  la médiathèque.
+
+Ce qu'il fait et qu'on cherche parfois ailleurs : les effets par morceau s'éditent sous
+`effects: { … }` — `categories/deformees.yaml` porte
+`effects: { bitreduction: 78, chorus: 100, … }` morceau par morceau — et une piste porte
+`youtube:`, `file:`, `artist:` et `title:` en plus de son adresse.
 
 ## Deux formes que le format documente mal
 
@@ -127,17 +129,15 @@ Les fichiers réels en portent deux que [projects.md](projects.md) mentionne à 
   plusieurs orthographes acceptées, une par ligne. Écrire une valeur multi-lignes avec un
   `setIn` ordinaire la replierait sur une ligne entre guillemets : même valeur, diff
   méconnaissable. D'où le champ **textarea** et le `Scalar.BLOCK_LITERAL` de `format.ts`.
-- **`effects: { … }` existe bel et bien**, par morceau. La page des projets dit que les neuf
-  colonnes `fx_*` de Grist ont disparu « pas au profit d'un champ », ce qui se lit comme « les
-  traitements sont partis » — alors que son propre exemple `multi` en montre un et que
-  `deformees.yaml` en porte un par morceau. Les deux mécanismes coexistent : une variante quand
-  le traitement est *enregistré* dans la médiathèque, `effects:` quand il est calculé à la
-  lecture.
+- **`effects: { … }` existe bel et bien**, par morceau — l'exemple `multi` de
+  [projects.md](projects.md) en montre un, et `deformees.yaml` en porte un par morceau. Deux
+  mécanismes coexistent : une variante quand le traitement est *enregistré* dans la
+  médiathèque ([effects.md](effects.md)), `effects:` quand il est calculé à la lecture.
 
 Et un troisième détail, invisible jusqu'à ce qu'on écrive : une pause sans message est
 `- pause:`, alors que `yaml` écrit `null` par défaut. `serialize()` sort donc les documents
 avec `nullStr: ""`, faute de quoi une pause ajoutée ici s'écrirait `- pause: null` à côté de
-celles de la migration — même sens, deux orthographes, et un diff sur chaque fichier touché.
+celles déjà sur le disque — même sens, deux orthographes, et un diff sur chaque fichier touché.
 
 ## Ce qui manque encore
 

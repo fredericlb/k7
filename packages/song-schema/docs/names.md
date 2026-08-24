@@ -7,10 +7,9 @@ third naming rule, a track's `[position.][prefix.]label`.
 
 ## `<owner>_<what>_<n>`
 
-The rule existed twice over before it existed once: `moduleFork` minted `bs_lead_tape-delay_1` for a
-copy of a shared module, and a node had no rule at all — a person typed its name into the command
-bar. Both are the same question ("what do I call this use of that"), and a rule spelled in two places
-is two answers (`packages/song/docs/nodes.md`).
+`moduleFork`'s copy of a shared module (`bs_lead_tape-delay_1`) and a node dropped on the canvas are
+the same question — "what do I call this use of that" — so there is ONE rule and both go through it.
+A rule spelled in two places is two answers (`packages/song/docs/nodes.md`).
 
 `namePart` keeps one segment of the module vocabulary: `createNode` and `createModuleFile` both
 refuse anything else, and a lane is called `vo.jo`, so it is not cosmetic. A name that survives as
@@ -54,8 +53,8 @@ one every time and rewrite the chains to say nothing.
 `songRef.ts` is a leaf with no imports at all: the browser lists a set's songs and must not pull
 `node:os` in with the word (`mediatekRoot.ts` opens one). `MEDIATEK_REF` lives here rather than in
 that file, which owns the rest of the library's layout — the same reason `CHAINS_FILE` sits in
-`@studio/mediatek`'s `types.ts` and not in its scan. `mediatekRoot` re-exports it, so nothing that
-already imported it from there had to change.
+`@studio/mediatek`'s `types.ts` and not in its scan. `mediatekRoot` re-exports it, so the file that
+owns the layout still offers the word.
 
 A song ref is `@st0/` plus the médiathèque id, VERBATIM. A `MediatekEntry.id` is the entry's
 library-relative POSIX path (`songs/artist/album/title`) and the catalogue's own note says nothing
@@ -63,10 +62,10 @@ else survives a rescan. A ref that IS the id therefore needs nothing resolved to
 deduplicated or fetched — the resolution is a lookup, not a computation, and a ref that resolves to
 nothing is still a well-formed name for the thing to go and fetch.
 
-A MODULE ref omits its family (`@st0/audio/reverb` means `modules/audio/reverb`) because that
-vocabulary predates the médiathèque having families. The two are not made consistent: rewriting every
-song already written would cost more than the asymmetry, and they are read by different files, so
-nothing has to tell them apart at a distance.
+A MODULE ref omits its family (`@st0/audio/reverb` means `modules/audio/reverb`) where a song ref
+carries the whole id. The two are deliberately not made consistent: rewriting every song already
+written would cost more than the asymmetry, and they are read by different files, so nothing has to
+tell them apart at a distance.
 
 **Spaces are legal in a ref, and that is not a detail.** A médiathèque id is built from the tags —
 `songs/Alain Bashung/Album inconnu/La nuit je mens` is a real one — so a pattern that banned

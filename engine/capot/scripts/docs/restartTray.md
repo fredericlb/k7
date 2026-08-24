@@ -12,14 +12,14 @@ npm run tray:stop                    # stop, and stay stopped
 ```
 
 It is glue and nothing else: the build is `build-engine.mjs --dev`, the launch is
-`start-engine.mjs`. Both already existed; what was missing was the stop, the ordering and
-the verdict.
+`start-engine.mjs`. What this script adds to those two is the stop, the ordering and the
+verdict.
 
 Those four steps — `running`, `stopAll`, `buildDevApp`, `launch` — live in
 `trayProcess.mjs`, because the repo's `npm run dev` session drives the same loop from a
-watcher (see [docs/dev.md](../../../../docs/dev.md)). They **throw** where this script
-used to `process.exit`: the one-shot command turns that back into an exit code, and a
-watcher that must outlive a failed build cannot afford either.
+watcher (see [docs/dev.md](../../../../docs/dev.md)). They **throw** rather than
+`process.exit`: the one-shot command turns a throw back into an exit code, and a watcher
+that must outlive a failed build can afford neither an exit nor a swallowed error.
 
 ## Why not `tauri dev`
 
@@ -63,12 +63,12 @@ to deregister, so the registry keeps a stale entry until the fresh instance re-r
 seconds later. On Unix the same `process.kill` sends SIGTERM, which the signal task in
 `main.rs` does turn into the clean shutdown.
 
-**Stop every ENGINE too, not only the trays.** `stopAll` was tray-only, and there are two ways an
-engine outlives the tray that is supposed to take it down:
+**Stop every ENGINE too, not only the trays.** There are two ways an engine outlives the tray
+that is supposed to take it down:
 
 1. **The job object teardown is asynchronous.** Killing the tray returns as soon as the tray is
-   gone; the OS unwinds the rest of the job afterwards. Waiting only for the tray let a build start
-   while the engine was still up.
+   gone; the OS unwinds the rest of the job afterwards. Waiting only for the tray lets a build
+   start while the engine is still up.
 2. **An ADOPTED engine is in no job at all.** Job membership is inherited at creation, so an engine
    started by an earlier tray and adopted by this one (`engineProcess.ts`: *"It is NOT ours — Stop
    must leave it alone"*) belongs to the DEAD tray's job, and nothing takes it down. `devReload.ts`
@@ -93,7 +93,7 @@ The truncation is also how the script avoids reading the previous session's log:
 records the time just before launching and ignores the file until its mtime moves past it.
 
 Before that file exists there is still a window — a Rust panic in `main` — which is why
-`start-engine.mjs` now redirects the tray's own stdout to `.cache/dev/tray.log` instead of
+`start-engine.mjs` redirects the tray's own stdout to `.cache/dev/tray.log` rather than
 dropping it. That path is deliberately not under `~/.studio`: the layout there is a
 contract owned by `packages/engine-client/src/paths.ts`, and a dev script has no business
 adding to it.

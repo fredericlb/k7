@@ -1,7 +1,7 @@
 // reloadScope.ts — what a command's file list says about which routes still have to be re-asked.
 //
-// The shell's reload used to be one counter meaning "everything is stale". A writing command now
-// answers with the files it wrote, and these predicates turn that into per-route questions.
+// A writing command answers with the files it wrote, and these predicates turn that into per-route
+// questions rather than one counter meaning "everything is stale".
 // The rationale, the measurements and the one named limit are in docs/shell.md.
 
 import type { ChangedFile } from "@studio/web-protocol";

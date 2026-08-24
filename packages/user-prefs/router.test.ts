@@ -1,8 +1,8 @@
 /**
- * The bug these exist for: st0 renamed a command, saved, reloaded, and read the catalogue's own
- * names back. Its `prefsSchema` still said "one field so far: the engine they drive", a zod
- * object strips what it does not declare, and the PUT answered `{ok:true}` either way — so a
- * whole layer of preferences was accepted and thrown away, with nothing anywhere saying so.
+ * The bug these exist for: a zod object strips what it does not declare and the PUT answers
+ * `{ok:true}` either way, so a service whose schema has fallen behind its frontend accepts a
+ * whole layer of preferences and throws it away, with nothing anywhere saying so. The symptom
+ * is a save that reports success and a reload that shows the old values.
  *
  * The schema staying the host's is right (`docs/store.md`); silence when it falls behind is not.
  */

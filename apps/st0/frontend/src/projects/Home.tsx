@@ -96,7 +96,7 @@ export function Home() {
       seen.current.repos = rev;
       setRepos(list);
     } catch {
-      /* the register is no longer the screen's subject: its absence reads on the rows */
+      /* the register is not the screen's subject: its absence reads on the rows */
     }
   }, []);
 
@@ -111,7 +111,7 @@ export function Home() {
       setWorkspaces(await engineMachine.workspaces(m));
       setError(null);
     } catch (e) {
-      // The machine is the screen's subject now: say it failed rather than draw an empty list.
+      // The machine IS the screen's subject: say it failed rather than draw an empty list.
       setError((e as Error).message);
     } finally {
       setBusy(false);

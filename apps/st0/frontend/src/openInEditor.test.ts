@@ -50,7 +50,7 @@ describe("what ui file resolves", () => {
   });
 
   it("answers null when nothing matches, rather than the text that was typed", () => {
-    // The fallback used to be `arg`, which opened a path nobody named and reported an error about it over an already-popped pane.
+    // Falling back to `arg` would open a path nobody named and report an error about it over an already-popped pane.
     expect(resolve("zzz-nothing-like-this@4", FILES)).toBeNull();
   });
 

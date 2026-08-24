@@ -29,10 +29,9 @@
 // to per-sample dispatch. The auto-wah therefore still renders bit-identically to the compiled plugin, which is
 // the regression this design is checked against.
 //
-// The primitives are deliberately SMALL. A first cut had `shape` and `geomap` nodes that were an auto-wah's
-// steps wearing generic names; that way lies one primitive per effect, which defeats the point. The sensitivity
-// curve and the direction switch now live in the description as arithmetic, which is where an effect's identity
-// belongs.
+// The primitives are deliberately SMALL. A `shape` or `geomap` node is one effect's own step wearing a generic
+// name, and that way lies one primitive per effect, which defeats the point. An auto-wah's sensitivity curve and
+// direction switch live in the description as arithmetic instead, which is where an effect's identity belongs.
 //
 // Every input is either a register name or a literal number; literals get their own preloaded register at build
 // time. Scalars live in a register file resolved to INDICES when the graph is built, so process() does no

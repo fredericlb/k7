@@ -709,7 +709,7 @@ export function SoloGame({
 
   // ── effects ────────────────────────────────────────────────────────────
 
-  // Intro-phase preload kick (Vue's [phase, orderIndex] watcher).
+  // Intro-phase preload kick, on any change of phase or order index.
   const phaseKey = `${g.phase}:${g.orderIndex}`;
   useEffect(() => {
     if (g.phase !== "intro") return;

@@ -1,10 +1,10 @@
 // Where a level lands on the dB scale — the arithmetic both contours share.
 //
-// It is tested because of what it was hiding: the pane drew RMS alone on a grid labelled in
-// dBFS, so a clip normalised to −1 dBFS drew its tallest column around −10 and read as
-// untouched. The fix is a second curve, and the thing that makes a second curve worth having is
-// that it is reduced the SAME way — two curves on one axis that disagreed about how they got
-// there would be worse than one. So the reduction is pinned here rather than left to the eye.
+// It is tested because of what RMS alone hides: on a grid labelled in dBFS, a clip normalised to
+// −1 dBFS has its tallest RMS column around −10 and reads as untouched. Hence the second curve,
+// and what makes it worth having is that it is reduced the SAME way — two curves on one axis
+// that disagree about how they got there are worse than one. So the reduction is pinned here
+// rather than left to the eye.
 
 import { describe, expect, it } from "vitest";
 import { contourYs } from "./Waveform";

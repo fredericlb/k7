@@ -1,6 +1,6 @@
 // projectSchema.ts — project.yaml's shape, in Zod. Two tiers: `project: {…}` (the
-// song's own settings) plus `trackOrder`/`markers` as root siblings — mixing the tiers
-// up is what once put `libraries_from` at the top level doing nothing. `markers` keys
+// song's own settings) plus `trackOrder`/`markers` as root siblings; both tiers are
+// `.strict()`, so a key written at the wrong one refuses to load. `markers` keys
 // are quoted timecodes (unquoted, "5:1:1" is 18061 under YAML 1.1 — see trackFile.ts).
 
 import { METRONOME_MIN } from "@studio/engine-protocol/build";
@@ -60,7 +60,7 @@ export const ProjectFileSchema = z
     project: ProjectSettingsSchema.optional(),
     // DEAD and still accepted: the folder's SUFFIX says which app opens a project (docs/projectFile.md).
     type: z.string().optional(),
-    // Accepted and IGNORED, the one remnant of the mode — not an enum, deliberately (docs/projectFile.md).
+    // Accepted and IGNORED — a free string and not an enum, deliberately (docs/projectFile.md).
     project_type: z.string().optional(),
     trackOrder: z.array(z.string()).optional(), // tracks' order, bottom-first — a root sibling, read as root.trackOrder
     // The soloed lanes by id — solo as PROJECT STATE, several at once (docs/projectFile.md).

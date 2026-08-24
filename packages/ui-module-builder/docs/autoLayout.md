@@ -92,25 +92,23 @@ a control, and a page holding the one thing the rest hangs off says what it is a
 plugin's, not the intrinsic.
 
 **A module with no bases has no `General` page at all.** A page holds only what got something,
-and this one now has one candidate — so a plain effect opens on its own first family. That is
+and this one has one candidate — so a plain effect opens on its own first family. That is
 also what makes `placeGroup`'s "first row alone" rule quiet: the row is the only row.
 
-The pages are named in English like the rest of the table — one language per tab bar, and the
-other eleven are `Reverb`, `Filter`, `Envelope`… (`General` used to be drawn last, under a `tail`
-flag, on the argument that a plugin's panel should open on the plugin. The flag is gone with it.)
+`General` is drawn FIRST, like every other page, so there is no `tail` flag anywhere. The pages
+are named in English like the rest of the table — one language per tab bar, and the other eleven
+are `Reverb`, `Filter`, `Envelope`…
 
 ## The module's own blend takes the bottom-right corner of `Mix`
 
 A bare `Mix`, `Dry/Wet`, `Dry` or `Wet` lands **bottom right of its own page**.
 
-It says how much of this module you hear at all, as against how much of what went into it. That
-made it a question about the module rather than about the shape of its sound, and it used to be
-pulled onto `General` for that — the base at the top left, the blend at the bottom right, holding
-opposite corners of the front page.
-
-`General` is `@base` alone now, so the pull is gone and the blend stays in `Mix`, where its own
-family already put it. What survives is the **corner**: right-aligned on the bottom row, where an
-output stage sits on a real panel. `isBlend` decides a position and no longer a page.
+It says how much of this module you hear at all, as against how much of what went into it —
+a question about the module rather than about the shape of its sound, which reads as an argument
+for pulling it onto `General`. It is not pulled: `General` is `@base` alone, and the blend stays
+in `Mix`, where its own family already put it. What the argument buys is the **corner**:
+right-aligned on the bottom row, where an output stage sits on a real panel. `isBlend` decides a
+position, never a page.
 
 What makes one "the module's own" is the **family, not the word**. `Reverb Dry/Wet`, `Delay Mix`
 and `Chorus Wet` all carry a blend word, and the effect families ask before `Mix` does — so a
@@ -119,7 +117,7 @@ one line, and there is no second list of effect names to keep in step with the f
 
 Several are right-**aligned** together, ending at the panel's edge: a `dry` and a `wet` are two
 halves of one control (one crossfade versus two independent gains — the difference is whether the
-sum is locked), and splitting them across the row would say they were unrelated. If the bottom
+sum is locked), and splitting them across the row would say they are unrelated. If the bottom
 row's right-hand end is already occupied, the panel grows a row rather than stacking the blend on
 a knob.
 

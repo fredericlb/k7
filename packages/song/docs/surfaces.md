@@ -61,9 +61,8 @@ and `desk` reads better than `turntables` on a set.
 
 Two things it refuses. The file already existing is the ordinary one. The other is **a second
 surface of the same type**: only the first is drawn — `App.tsx` takes it and the pane ring has one
-slot per type — so a second is a file that changes nothing and shows nothing. That used to hold
-for `split` only, because a `view` surface got a header button of its own and several were a real
-arrangement. Every surface is `split` now, so the rule covers all of them.
+slot per type — so a second is a file that changes nothing and shows nothing. Every surface is
+`split`, so the rule covers all of them.
 
 ### It scaffolds the mapping
 
@@ -148,17 +147,16 @@ their own and still name something no component draws, and the result is the bla
 schema exists to prevent. It is refused on the `layout` line, with the list of what that type
 can be.
 
-**Nothing draws in `view` today.** The desk was the last one — its own screen off the header, over
-the whole window — and it is a pane now: a fader on a desk is a param on a module, and a screen
-that covered the graph made "which module is this one on" a round trip. As a pane it sits directly
-over the chains, joins the ring, and `full` is how it gets the window when you want it whole,
-which is the answer the frame already had.
+**Nothing draws in `view`.** Every surface is a pane, the desk included: a fader on a desk is a
+param on a module, and a screen covering the graph makes "which module is this one on" a round
+trip. As a pane the desk sits directly over the chains, joins the ring, and `full` is how it gets
+the window when you want it whole.
 
-The word stays in the enum on purpose. It is what lets the pair check answer a file that still
-says `layout: view` with *"a 'turntables' surface draws in 'split', not in 'view'"* — a sentence
-that names the fix. Dropped from the enum, the same file would get zod's own "invalid enum value",
+The word stays in the enum on purpose. It is what lets the pair check answer a file that says
+`layout: view` with *"a 'turntables' surface draws in 'split', not in 'view'"* — a sentence that
+names the fix. Dropped from the enum, the same file would get zod's own "invalid enum value",
 which names the field and not the remedy. Deleting it is a one-line change the day nothing on any
-disk says it any more.
+disk says it.
 
 ### Why `type` is an enum and a control id is not
 
@@ -184,15 +182,14 @@ set says it wants a desk.
 **There is no implicit one.** A folder with no timeline surface opens on its graph — its clips are
 still on disk, its lanes still compile, nothing draws them. That absence is worth a sentence, so
 `surfaceIssues` raises a **warning** (not an error: the project is valid, it opens, and the
-editor you would add the file in is inside it). A `live` project is silent — a rig has no
-arrangement to draw. `hasMaterial` is what makes them silent: a folder with no `clips/`, no
-`sequences/` and no `video_tracks/` holds nothing a timeline would have drawn. `project_type:
-live` used to answer this, and answered it worse — it was a second declaration, free to
-disagree with the folder it described.
+editor you would add the file in is inside it). A bare rig is silent — it has no arrangement to
+draw. `hasMaterial` is what makes it silent: a folder with no `clips/`, no `sequences/` and no
+`video_tracks/` holds nothing a timeline would draw.
 
 `hasMaterial` is cheap on purpose, like `isVideoProject` beside it: three `existsSync` calls and no
-parse. A folder is asked what it HOLDS rather than what it calls itself, which is the whole point of
-the mode going away — the two could disagree, and only one of them was ever true. Material and not
+parse. A folder is asked what it HOLDS rather than what it calls itself — a root key answering the
+same question is a second declaration free to disagree with the folder it describes, and only one
+of the two can be true. Material and not
 placement, deliberately: reading every lane for an `events:` key would be the exact answer and would
 cost a load of the whole `nodes/` folder on a path that runs beside the other diagnostics. An entity
 folder gives the same answer for every project anyone writes, and differs only for one somebody
@@ -204,10 +201,9 @@ need.
 reader the video document model, and that is also what keeps this package from depending on the one
 that compiles a picture.
 
-The missing-surface warnings name the COMMAND rather than the file to write. They used to spell the
-two lines out, which meant reading a diagnostic, opening a folder that may not exist, and typing a
-pair the schema is about to check — for a file whose whole content is derivable from the word
-`timeline`.
+The missing-surface warnings name the COMMAND rather than the file to write. Spelling the two
+lines out means reading a diagnostic, opening a folder that may not exist, and typing a pair the
+schema is about to check — for a file whose whole content is derivable from the word `timeline`.
 
 ## …and so is the frame
 
@@ -276,7 +272,7 @@ document — all cheap to keep, all maddening to rebuild
 
 Key for key: control id → `{ module, param }` **or `null`** for one that is named and not wired
 yet — the same `ViewBindingSchema`, nullable. It is the same map
-because it is the same question, asked by a surface instead of by m9's desk — and reusing it is
+because it is the same question, asked by a surface instead of by the desk's own file — and reusing it is
 what keeps `module` meaning "the name the **chains file** uses" in both places. A second shape
 that happened to agree would drift the first time one of them grew a field.
 
@@ -327,8 +323,8 @@ and *"you wired this to something that is not there"* are different fixes.
 
 ## How it reaches the screen
 
-Parsed by the **file service**, not the browser — unlike `views/mix.yaml`, which m9's desk reads
-itself because m9's desk is the only thing that wants it. A surface decides what the shell
+Parsed by the **file service**, not the browser — unlike `views/mix.yaml`, which the DJ desk reads
+itself because the desk is the only thing that wants it. A surface decides what the shell
 *draws*, so its validity belongs with the project's other diagnostics, and two parsers would be
 two answers to "is this surface valid".
 
@@ -361,17 +357,16 @@ Each `split` surface is a member of `Pane` — `timeline`, `viewport`, `turntabl
 beside the `editor` and `chains` the shell owns outright. So a surface is reached the way any pane
 is: its number key, `ui <pane>`, `full`, the mobile tabs, `/<pane>`.
 
-`RouteState.surface` was a field of its own beside `help`, holding the open `view` surface by
-FILENAME, because the list was the project's and a union could not name it. That reasoning was
-sound and it stopped applying when the last `view` became a pane: there is exactly one surface
-per type, so the type IS the name.
+`RouteState` needs no field of its own for the open surface. Holding one by FILENAME is what a
+project-defined list of `view` surfaces would force, since a union cannot name it — but there is
+exactly one surface per type, so the type IS the name and the pane union carries it.
 
 ### The layout table is a function
 
 `viewPanes({ timeline, viewport, turntables, mastering, frozen })`, not a constant, because four of
 the panes are the project's to declare: one that declares no timeline surface has no arrangement,
 and a list naming one would name a pane that will not be mounted. An object rather than positional
-flags — there are five now and they are all booleans, so `viewPanes(true, false, true)` said
+flags — there are five and they are all booleans, so `viewPanes(true, false, true)` would say
 nothing about which pane was which.
 
 The same flags reach `fromLocation`, so `/timeline` typed at such a project falls through to the

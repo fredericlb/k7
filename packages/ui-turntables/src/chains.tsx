@@ -1,6 +1,5 @@
 // chains.tsx — the deck's signal path, drawn. Thin on purpose: the graph package owns the
-// 2000 lines, and this is the ~60 of glue the plan said each host would write for itself.
-// See docs/chains.md.
+// 2000 lines, and each host writes only this ~60 of glue. See docs/hosting.md.
 
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import type { Cam, ChainsIcons } from "@studio/ui-chains-react";
@@ -10,7 +9,7 @@ import { useMemo, useRef, useState } from "react";
 import { DECKS, type DeckId } from "./deck";
 import { type DeckModule, deckGraph } from "./graph";
 
-/** m9's glyphs — only `TrackIcon` is its own, because a deck is not a lane and reads no name prefix. */
+/** The desk's glyphs — only `TrackIcon` is its own, because a deck is not a lane and reads no name prefix. */
 export const M9_ICONS: ChainsIcons = {
   ModuleIcon,
   moduleGlyph,
@@ -62,9 +61,9 @@ export function ChainsPanel({
       // Re-frame when the SHAPE changes, not on every redraw: a knob must not move the camera.
       fitKey={`${modules.length}`}
       onBypassModule={onBypass}
-      // m9 has no command bar, and the prop is required — so this says so out loud rather than swallowing it.
+      // The desk has no command bar, and the prop is required — so this says so out loud rather than swallowing it.
       command={(line) => {
-        console.warn(`m9 has no command bar; ignored: ${line}`);
+        console.warn(`the desk has no command bar; ignored: ${line}`);
       }}
     />
   );

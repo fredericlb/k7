@@ -36,7 +36,7 @@ let prevHome: string | undefined;
 const benchRoot = (): string =>
   join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE);
 
-/** …and the chain inside it. This is what used to be `$STUDIO_MEDIATEK/chains/…`. */
+/** …and the chain inside it, under the library mount rather than in any médiathèque cache. */
 const libraryChain = (): string => join(benchRoot(), "_libraries", CHAIN);
 
 /** Never fetched: the mount is pre-populated, so `ensureLibraries` returns without touching git. */
@@ -145,7 +145,7 @@ describe("a médiathèque chain, opened on the bench", () => {
   });
 
   it("writes a shared module in place, with no fork and no push", async () => {
-    // This used to answer `{ pushed: true }`; a shared module is an ORDINARY path now, published by a commit.
+    // A shared module is an ORDINARY path here, published by a commit rather than by the write.
     const { project } = await ensureChainBench(EMAIL, CHAIN, LIBRARIES_URI);
     const ws = new Workspace(benchRoot());
     ws.setActiveProject(project);
@@ -166,7 +166,7 @@ describe("a médiathèque chain, opened on the bench", () => {
     await expect(
       ensureChainBench(EMAIL, "chains/odd", LIBRARIES_URI),
     ).rejects.toThrow(/mixer/);
-    // And nothing was made — a refusal that left a half-built project behind would open next time.
+    // And nothing is made — a refusal that left a half-built project behind would open next time.
     expect(existsSync(benchDir("chains/odd.st0"))).toBe(false);
   });
 });

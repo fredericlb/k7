@@ -1,7 +1,6 @@
 // The one thing this key has to do is MISS when the picture would differ. Each test below is an
 // edit somebody makes on the timeline, and the question is always the same: does the block go on
-// showing the envelope it had? `clip trim` is the one that was reported, and the one the id alone
-// could never catch.
+// showing the envelope it had? `clip trim` is the edit the id alone can never catch.
 
 import { describe, expect, it } from "vitest";
 import { clipEnvelopeKey, type EnvelopeProject } from "./clipEnvelope";
@@ -28,8 +27,8 @@ const keys = (a: WebClip, b: WebClip, buckets = 160): [string, string] => [
 ];
 
 describe("what makes the envelope a different one", () => {
-  it("a TRIM — the reported bug, and the id cannot see it", () => {
-    // `clip trim` rewrites the clip file's from/to and nothing else, so a key on the id answered the trimmed block with the old envelope.
+  it("a TRIM — the case the id cannot see", () => {
+    // `clip trim` rewrites the clip file's from/to and nothing else, so a key on the id alone answers a trimmed block with a stale envelope.
     const [before, after] = keys(clip(), clip({ sourceFrom: 1.5 }));
     expect(after).not.toBe(before);
   });

@@ -9,28 +9,28 @@ Une `ScenePass` est du texte et des nombres. `@studio/ui-eyes` n'a aucune idée 
 module, un dossier ou un moteur audio — c'est la même frontière que trace `scene.ts`, et c'est ce
 qui permet de tester la chose sans projet.
 
-## Trois formes de trame, et la première est encore la plus courante
+## Trois formes de trame, et la première est la plus courante
 
 ```
-aucune passe        chaque couche -> un quad -> le canvas          (le chemin d'avant)
+aucune passe        chaque couche -> un quad -> le canvas
 passes sur couche   la trame -> sa chaîne (hors écran) -> le quad composé
 passes sur image    tout compose hors écran -> la chaîne -> un blit
 ```
 
 Un morceau sans shader **n'alloue rien** : ni cible hors écran, ni programme, et `draw` écrit
-directement sur le canvas comme il l'a toujours fait.
+directement sur le canvas.
 
 ## Deux ressources, deux durées de vie
 
-C'est la correction d'une vraie erreur, et elle vaut d'être écrite.
+La distinction n'est pas cosmétique.
 
 | | ce que c'est | quand c'est effacé |
 |---|---|---|
 | `RenderTarget` | là où les couches **s'accumulent**, quand l'image entière sera traitée | une fois par trame |
 | `PingPong` | le brouillon entre lequel une **chaîne** rebondit | à chaque passe |
 
-Partager la paire signifiait que la chaîne d'une couche effaçait la cible dans laquelle le composé
-s'accumulait : **toutes les couches sauf la dernière disparaissaient** dès qu'une seule recevait un
+Partager la paire ferait effacer, par la chaîne d'une couche, la cible dans laquelle le composé
+s'accumule : **toutes les couches sauf la dernière disparaîtraient** dès qu'une seule reçoit un
 shader. Deux durées de vie, deux ressources.
 
 `RenderTarget.bind(clear)` prend un booléen justement pour ça : `true` au premier dessin de la
@@ -144,10 +144,10 @@ npx vitest run packages/ui-eyes/src/passes.test.ts
 
 Contre un **faux** contexte GL, et le fichier dit lui-même pourquoi : il n'y a pas de WebGL2 dans
 ce runner, et ajouter un contexte natif serait une lourde dépendance pour une poignée
-d'assertions. Ce qu'un faux prouve quand même est la partie qui était réellement fausse — l'ORDRE
+d'assertions. Ce qu'un faux prouve quand même est la partie qui casse pour de bon — l'ORDRE
 des liaisons, des effacements et des dessins. Les deux bugs épinglés là (la chaîne d'une couche qui
-efface le composé, le mélange à l'intérieur d'une chaîne) étaient tous deux du séquencement, et
-aucun n'avait besoin d'un pixel pour être attrapé.
+efface le composé, le mélange à l'intérieur d'une chaîne) sont du séquencement, et aucun des deux
+n'a besoin d'un pixel pour être attrapé.
 
 Ce qu'il ne prouve pas, c'est qu'un shader dessine la bonne image. Cette vérification-là se fait
 avec les yeux : ouvrir `engine/capot/songs/video-demo.st0` et regarder.

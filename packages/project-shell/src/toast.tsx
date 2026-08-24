@@ -1,6 +1,7 @@
-// toast.tsx — lightweight auto-dismissing notifications, shared by st0 and m9. No external
-// library. Render <Toaster/> once at the app root; call `showToast({ message, variant })`
-// from anywhere. Stacks bottom-right, auto-dismisses after `duration` ms.
+// toast.tsx — lightweight auto-dismissing notifications, shared by the apps that mount this
+// shell. No external library. Render <Toaster/> once at the app root; call
+// `showToast({ message, variant })` from anywhere. Stacks bottom-right, auto-dismisses after
+// `duration` ms.
 
 import { CheckCircle2, X, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";

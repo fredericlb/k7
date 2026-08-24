@@ -44,7 +44,7 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
   const [pinned, setPinned] = useState<string | null>(null);
   const [pinNote, setPinNote] = useState<string | null>(null);
   const [logLines, setLogLines] = useState<string[] | null>(null);
-  // The APP's socket, BORROWED: this page used to build one of its own (../../docs/engine.md).
+  // The APP's socket, BORROWED: this page opens none of its own (../../docs/engine.md).
   const engine = useEngine();
   const client = engine.client;
   const connected = engine.connected;

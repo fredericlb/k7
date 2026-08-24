@@ -48,37 +48,35 @@ put a frame around nothing in every project with no shot to place, and the lette
 be discovered at the export. So an `arrangement` is not a `video` project with its picture deleted
 — it never declared a frame, and the loader says so out loud.
 
-## `live` was an archetype, and then it was nothing at all
+## There is no `live` archetype
 
-There used to be a fourth archetype, `live`: the signal path with the arrangement taken out — a
-rig, the chains graph and no surface at all. `liveProjectFiles` is gone with it. Once the
-archetypes were named after their surfaces, an entry whose whole description is "none of them"
-is not a choice anybody makes on purpose.
+A fourth archetype for the signal path with the arrangement taken out — a rig, the chains graph
+and no surface at all — is an entry whose whole description is "none of them", which is not a
+choice anybody makes on purpose once the archetypes are named after their surfaces.
 
-**And the MODE went too.** `project_type: live` was a root key saying a folder had no
-arrangement, and `mix` used to write it. Nothing writes or reads it now: what a project draws
-is what its `surfaces/` folder says, and a second declaration free to disagree with that is
-worse than none. The schema still ACCEPTS the key so every set and bench already on disk keeps
-opening — see `projectSchema.ts`, which is the only place it is still mentioned.
+**And there is no MODE either.** `project_type: live` is a root key saying a folder has no
+arrangement. Nothing writes or reads it: what a project draws is what its `surfaces/` folder
+says, and a second declaration free to disagree with that is worse than none. The schema still
+ACCEPTS the key so every set and bench on disk keeps opening — see `projectSchema.ts`, the only
+place it is mentioned.
 
-A bare rig is therefore not a kind of project any more, just a folder that declares no
-surfaces. You get one by starting from a mix and throwing the desk away.
+A bare rig is therefore not a kind of project, just a folder that declares no surfaces. You get
+one by starting from a mix and throwing the desk away.
 
 ## `mix` is excluded from the type, not defaulted away
 
 `TimelineShape` is `Exclude<ProjectShape, "mix">`, so `scaffold(dir, name, "mix")` does not
 compile: it would otherwise write a song into a folder whose whole point is that it has no
 arrangement. `scaffoldSet.ts` answers for that one, and `projectLifecycle.ts` is where the three
-are dispatched. The default is `arrangement`, which is what every caller written before the
-archetypes were named already meant by `scaffold(dir, name)`.
+are dispatched. The default is `arrangement`, which is what a bare `scaffold(dir, name)` means.
 
 ## The picture's outputs are SPLICED, not restated
 
 `videoGraph` runs `addVideoRun` (videoOutputs.ts) over the arrangement's graph — the same splice
 the open path makes on a project that arrives without the run — so the archetype and the repair
-cannot write the line two different ways. That is exactly how `MIX: [ OUT ]` ended up spelled once
-in four scaffolds and once in a migration script. The explanatory `#` note above it is scaffold.ts's
-job: the splice writes a line, not a reason.
+cannot write the line two different ways. Restated, it is the shape `MIX: [ OUT ]` has: one line
+spelled once per scaffold and once more in a migration script, free to drift. The explanatory `#`
+note above it is scaffold.ts's job: the splice writes a line, not a reason.
 
 It throws if the base graph ever loses its `modules:` map. That cannot happen from outside — the
 text is a few lines up in the same file — and a `video` project silently scaffolded without a
@@ -103,10 +101,9 @@ you could only discover by reading about it.
 
 ## Nothing points at the shared folders
 
-A project sees the workspace's own libraries and the machine's media library because of WHERE they
-are (sharedFolders.ts). The three `ensure*` calls that used to write those lists into
-`project.yaml` wrote down facts the loader already knew, and left a project wrong whenever one of
-them moved.
+A project sees the workspace's own `_modules` and the account's library repository because of
+WHERE they are (sharedFolders.ts). Writing those lists into `project.yaml` would write down facts
+the loader already knows, and leave a project wrong the day one of them moves.
 
 ## Why the files are hand-authored
 

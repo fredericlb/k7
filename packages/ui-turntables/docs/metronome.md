@@ -16,7 +16,7 @@ Il faut en plus que ce temps ait été **mesuré**. Un tempo dit à quelle fréq
 arrive, pas quel instant en est un — et `beats.ts` refuse déjà de publier une phase que les
 attaques n'ont pas dite (voir [bpm.md](bpm.md), le test de Rayleigh). Un clic sur la mauvaise
 moitié du temps n'est pas un métronome dégradé : c'en est un faux, et on se calerait dessus.
-Donc pas de phase, pas de clic. Sur les trois morceaux d'`example.m9`, ça exclut le Bashung,
+Donc pas de phase, pas de clic. Sur les trois morceaux d'`example.st0`, ça exclut le Bashung,
 dont le tempo détecté est simplement faux.
 
 L'envie est **retenue** même quand la possibilité disparaît : charger une deuxième platine
@@ -27,8 +27,8 @@ L'envie est **retenue** même quand la possibilité disparaît : charger une deu
 Le moteur en a un — `settings.metronome`, un booléen, et c'est celui de st0. Il clique sur la
 grille du **document** : les temps de `DOC_TEMPO`, comptés depuis le transport zéro.
 
-Dans st0 ça suffit, parce que le tempo du document EST celui de la musique. Dans m9 rien de tout
-ça n'est vrai :
+Sur une timeline ça suffit, parce que le tempo du document EST celui de la musique. Sur le
+pupitre rien de tout ça n'est vrai :
 
 - le tempo du document est **figé** à 120, exprès, pour que deux platines puissent jouer à deux
   BPM par leurs warps respectifs ;
@@ -44,7 +44,7 @@ la musique immobile pendant un changement de tempo déplace le temps fort du mor
 `(où on en est − où est le temps) × la variation d'étirement` — soit une vingtaine de temps à
 deux minutes du début. L'alignement ne survivrait pas à un pas de fader.
 
-## Ce que m9 fait à la place
+## Ce que le pupitre fait à la place
 
 Une piste de plus dans le document, avec un `4osc` et **un clip MIDI d'une mesure, bouclé**.
 
@@ -98,7 +98,7 @@ mesure.
 Le niveau est **fixe** (−6 dB sur sa propre tranche). Pas de réglage : le pupitre n'a pas de
 place pour un potard de plus, et un métronome qu'on n'entend pas est un métronome éteint.
 
-Il sort par l'**interface du moteur**, avec la musique, pas par le navigateur. C'était la
-contrainte de départ : un clic fabriqué dans l'onglet arriverait avec sa propre latence de
+Il sort par l'**interface du moteur**, avec la musique, pas par le navigateur. C'est la
+contrainte qui décide : un clic fabriqué dans l'onglet arriverait avec sa propre latence de
 sortie, décalé de quelques dizaines de millisecondes contre la musique — donc inutilisable pour
 exactement ce à quoi sert un métronome.

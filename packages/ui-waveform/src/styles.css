@@ -29,7 +29,7 @@
 /* A BUBBLE near the foot of the line instead of a tab hanging from the top — `place="low"`.
  *
  * Opt-in, because three surfaces draw markers on a waveform and only one of them draws ONSETS:
- * the DJ desk's cues and k7's session marks are still tabs, and moving them was not asked for.
+ * the DJ desk's cues and k7's session marks are tabs.
  *
  * Low down because the top of a waveform is where the loud material is, so a row of tabs along
  * the top edge covers the transients it points at. `bottom: 5%` with `translate(-50%, 50%)`

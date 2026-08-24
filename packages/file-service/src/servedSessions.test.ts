@@ -1,7 +1,7 @@
-// One file service, several sessions — and every path that used to ask "what is the CURRENT
-// workspace?" now asks "what is THIS session serving?". The difference only shows with two of
-// them, or with none: a global set solely by /open is null after a restart and names somebody
-// else's project the rest of the time, and both mistakes are silent. See docs/activeProject.md.
+// One file service, several sessions — so every path asks "what is THIS session serving?"
+// rather than "what is the CURRENT workspace?". The difference only shows with two of them, or
+// with none: a global set solely by /open is null after a restart and names somebody else's
+// project the rest of the time, and both mistakes are silent. See docs/activeProject.md.
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -139,7 +139,7 @@ describe("a socket coming back", () => {
 
 describe("a take the engine reports", () => {
   it("lands in the project the RECORDING session is serving", () => {
-    // Through the same global, a take was dropped after a restart and went to the wrong song with two people.
+    // Through a global, a take is dropped after a restart and goes to the wrong song with two people.
     const ana = wsFor("ana@x.org", "ana-song");
     const bo = wsFor("bo@x.org", "bo-song");
     startEngineForActive(ana);
@@ -166,7 +166,7 @@ describe("a take the engine reports", () => {
   });
 
   it("says so, loudly, when its session is serving no project", () => {
-    // The wav is on disk and this line is the only record of where it went. It used to `return`.
+    // The wav is on disk and this line is the only record of where it went; a bare `return` loses it.
     const ana = wsFor("ana@x.org", "ana-song");
     ensureEngine(ana);
     const err = vi.spyOn(console, "error").mockImplementation(() => {});

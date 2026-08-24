@@ -63,7 +63,7 @@ and what lets a clip file say only `source:`.
 `t`/`d`/`k`/`v` are single letters because every note carries all four and a pattern is hundreds of
 them on one line. `repeat` and `skip` are spelled out instead, deliberately: they appear on the few
 pads that have an effect, so they cost nothing in width, and a letter apiece would be two more things
-to learn from a file that no longer explains itself (`packages/song/docs/padEffects.md`).
+to learn from a file that does not explain itself (`packages/song/docs/padEffects.md`).
 
 `repeat` retriggers: play the note that many times inside its OWN duration, which on a pad is the
 step it was drawn on. Absent means once. `skip` falls silent on every n-th pass of the pattern: 2

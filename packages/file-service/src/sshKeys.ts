@@ -1,7 +1,7 @@
-// sshKeys.ts — the deploy key this machine clones with. It is NOT made here any more: pl8
-// owns the studio's git identity and this fetches a copy over the channel the two services
-// already share (MEDIATEK_URL + MEDIATEK_TOKEN). One key per person, one to register with a
-// git host. Why the private half is allowed to travel: packages/git-repos/docs/keys.md.
+// sshKeys.ts — the deploy key this machine clones with. It is never MADE here: pl8 owns the
+// studio's git identity and this fetches a copy over the channel the two services already
+// share (MEDIATEK_URL + MEDIATEK_TOKEN). One key per person, one to register with a git
+// host. Why the private half is allowed to travel: packages/git-repos/docs/keys.md.
 
 import { sshDir } from "@studio/engine-client/paths";
 import {

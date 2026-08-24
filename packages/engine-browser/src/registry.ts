@@ -1,7 +1,7 @@
 // registry.ts — a browser's client for its OWN service's engine registry: which engines exist,
 // taking and releasing the lease on one, and the account's remembered choice. Every hosted
 // service mounts the same five routes (@studio/engine-registry), so they are spelled once here
-// rather than per app — pl8's and m9's copies had already drifted in their return types.
+// rather than per app: a copy per app drifts, and it drifts in the return types first.
 
 /** What one account has this service remember; `engineId` is the only field EVERY service keeps, and a host widens `P` below. */
 export interface EnginePrefs {
@@ -85,7 +85,7 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
           lost?: ClaimLostReason;
           tookFor?: string | null;
         };
-        // Defaulting to `project` keeps an older backend's bare 409 reading as it always did.
+        // Defaulting to `project` is what an older backend's bare 409 means.
         throw new ClaimLost(
           body.heldBy ?? "",
           body.lost ?? "project",

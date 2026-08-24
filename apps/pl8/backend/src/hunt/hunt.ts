@@ -81,7 +81,7 @@ function alreadyFiled(tags: SongTags): string | null {
   }
 }
 
-// `addToPlaylist` was here: a hunt files the song and st0 adds it to a set list — ../../docs/hunt.md.
+// A hunt FILES the song and stops there; adding it to a set list is st0's — ../../docs/hunt.md.
 
 /** Everything the network answered, up to the window or until it says it is done. */
 async function gather(searchId: string, signal: AbortSignal) {

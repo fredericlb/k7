@@ -1,8 +1,7 @@
 // cables.ts — the cable DRAWING geometry: smooth a routed polyline into cubic beziers,
 // resample it by arc-length for the live-signal wobble, find the insert `+` midpoint,
 // build arrowheads, and propagate liveness along the edges. Pure math over the laid-out
-// graph (graph.ts owns the layout); no DOM, no React — extracted from the web app's
-// DomChains.tsx so it is testable on its own.
+// graph (graph.ts owns the layout); no DOM, no React, so it is testable on its own.
 
 import type { EdgeInsert, GraphEdge, GraphNode, Pt } from "./graph";
 import { jackPoint, MIX_OUT, RENDER_OUT } from "./graph";
@@ -159,7 +158,7 @@ export function midByArc(g: CableGeom): Pt {
   return g.base[g.base.length - 1];
 }
 
-// `arrowPoints` (the SVG arrowhead string) is gone: the head is traced in drawCables now.
+// No SVG arrowhead string here: the head is traced in drawCables.
 
 /** Which cables carry a signal now, walked FORWARD from the metered lanes and both SUMS. See docs/graphBuild.md. */
 export function computeLive(

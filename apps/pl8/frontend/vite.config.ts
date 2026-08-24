@@ -18,7 +18,7 @@ export default defineAppConfig({
   host: DEV_HOST,
   extend: {
     server: {
-      // The old name still reaches these servers — see scripts/dev-hosts.mjs.
+      // The alternate names reach these servers too — see scripts/dev-hosts.mjs.
       allowedHosts: LEGACY_DEV_HOSTS,
       // The ONE path this dev server forwards to a backend that is not its own (../../../docs/dev.md).
       proxy: {

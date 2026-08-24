@@ -90,7 +90,7 @@ function startPolling(): void {
   }, 5000);
 }
 
-// One rule for all six SPAs: the account belongs to pl8, the guest cookie to z0.
+// One rule for all six SPAs: the account belongs to st0, the guest cookie to z0.
 export { login } from "z0-shared/account";
 
 export async function logout(): Promise<void> {

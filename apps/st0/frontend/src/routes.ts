@@ -10,7 +10,7 @@ export type Pane =
   | "turntables"
   | "mastering"
   | "chains";
-// `View` and the `docs` panel were here: there is ONE layout, and which panes it holds is `viewPanes`' answer (docs/shellRouting.md).
+// No `View` and no `docs` panel: there is ONE layout, and which panes it holds is `viewPanes`' answer (docs/shellRouting.md).
 export type Panel = "graph" | "logs";
 
 /** The part of the shell's state the URL carries. */
@@ -110,7 +110,7 @@ export function fromLocation(
     builder: null,
   };
 
-  // `/help` still lands here: it was the docs' address for a while, and a bookmark shouldn't drop you elsewhere.
+  // `/help` is an alias of `/docs`: a bookmark on either address lands on the documentation rather than elsewhere.
   if (seg === "docs" || seg === "help") return { ...base, help: true };
   // `/chains-builder` is the LIST and `/chains-builder/<ref>` one chain — the tail taken whole, a ref having slashes of its own.
   if (seg === "chains-builder") return { ...base, builder: "" };

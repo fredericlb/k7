@@ -1,10 +1,10 @@
 // `PUT /file` pushes the project to the engine when the write CHANGED it — and only then.
 //
-// The gap this pins: a command reached the engine (through the host's `applyProject`) and so did
-// `/open` and a reconnect (through `sendActiveProject`), but a plain write did neither. Editing a
-// clip's `from`/`to` in the editor moved the file, moved the revision and redrew every surface
-// while the engine went on playing the window it already had — until something restarted the link
-// and its `open` re-sent the document. "I have to restart it for the change to land."
+// The gap this pins: a command reaches the engine (through the host's `applyProject`) and so do
+// `/open` and a reconnect (through `sendActiveProject`), but a plain write does none of them.
+// Without this push, editing a clip's `from`/`to` in the editor moves the file, moves the
+// revision and redraws every surface while the engine goes on playing the window it already has
+// — until something restarts the link. "I have to restart it for the change to land."
 //
 // Counting SENDS rather than reading the reply, for the reason commandWant.test.ts does: the
 // answer is identical either way, so only the engine-facing side can tell the two apart.

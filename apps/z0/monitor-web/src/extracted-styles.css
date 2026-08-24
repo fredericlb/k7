@@ -1,4 +1,4 @@
-/* Ported verbatim from monitor-web/src/App.vue <style> (#app → #root). */
+/* The monitor's own styles, hand-written and scoped to #root. */
 
 * {
   box-sizing: border-box;
@@ -409,7 +409,7 @@ body,
   50%      { opacity: 0.55; }
 }
 
-/* ─── from shared LoginGate.vue ─── */
+/* ─── the shared login gate ─── */
 .login-gate {
   position: fixed;
   inset: 0;
@@ -462,7 +462,7 @@ body,
   background: rgba(0, 255, 136, 0.15);
 }
 
-/* ─── from shared AuthBadge.vue ─── */
+/* ─── the shared auth badge ─── */
 .auth-badge {
   position: fixed;
   top: 6px;

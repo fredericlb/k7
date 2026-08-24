@@ -21,4 +21,4 @@ params:
 # ce qui est ce qui permet de l'automater depuis rien. La résonance est fixe et modeste : un pic
 # qui sonne à 200 Hz reprend la marge de manœuvre en plein set.
 #
-# (C'était un `docs:` ; le champ n'existe plus — voir packages/song/docs/docModules.md.)
+# (La description d'un module est son en-tête, ici — voir packages/song/docs/docModules.md.)

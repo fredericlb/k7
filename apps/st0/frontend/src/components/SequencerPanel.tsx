@@ -233,7 +233,7 @@ export function SequencerPanel({
     if (active) onSelection?.(!!box);
   }, [active, box, onSelection]);
 
-  /** What the grid draws, in ONE pass over the notes: a scan per cell was a hundred thousand comparisons per render. */
+  /** What the grid draws, in ONE pass over the notes: a scan per cell is a hundred thousand comparisons per render. */
   const byCell = useMemo(
     () => notesByCell(notes, origin, span, prec.beats),
     [notes, origin, span, prec.beats],
@@ -335,7 +335,7 @@ export function SequencerPanel({
     hit: WebNote | null,
     at: { row: number; col: number },
   ) => {
-    /** The PRIMARY button only, and load-bearing: without it a right-click ran the press path, removing the pad AND opening the wrong menu. */
+    /** The PRIMARY button only, and load-bearing: without it a right-click runs the press path, removing the pad AND opening the wrong menu. */
     if (e.button !== 0) return;
     e.preventDefault();
     /** SHIFT: the caret grows into the rectangle, before the note gestures, with the head's cell read off the DOM the cells already carry. */

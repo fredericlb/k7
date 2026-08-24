@@ -1,6 +1,6 @@
 // timecodeMigrate.ts — rewrite a document's timecodes in the short `bar:beat:sub.ticks` form.
 // The parser still reads the old deep colon chain, so nothing is broken by leaving them; but every
-// WRITER emits the short form now, so an untouched song drifts into two spellings the moment
+// WRITER emits the short form, so an untouched song drifts into two spellings the moment
 // anything is edited. Driven by scripts/migrateTimecodes.ts. See docs/timecode.md.
 
 import {

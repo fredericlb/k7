@@ -941,7 +941,7 @@ export function ModuleBuilder({
                   type="button"
                   disabled={!ready}
                   onClick={() => setPane(id)}
-                  // What the name no longer says lives here, so the tab reads as the file it opens.
+                  // What the name does not say lives here, so the tab reads as the file it opens.
                   title={note ? `${label} — ${note}` : label}
                   className={cn(
                     "rounded px-2 py-0.5 text-xs",
@@ -1129,7 +1129,7 @@ function ParamsPane({
     : rows;
 
   return (
-    // A pane now, filling the column, with no border-t: nothing is above it to be separated from.
+    // A pane filling the column, with no border-t: nothing is above it to be separated from.
     <div className="flex h-full min-h-0 flex-col bg-card/30">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1">
         <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -1276,4 +1276,4 @@ function ParamsPane({
   );
 }
 
-// Nothing resolves a pick any more: the catalogue carries the file and both refs — see docs/builder.md.
+// Nothing resolves a pick: the catalogue carries the file and both refs — see docs/builder.md.

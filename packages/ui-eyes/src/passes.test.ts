@@ -2,10 +2,10 @@
 //
 // A fake and not a real one, because there is no WebGL2 in this test runner and adding a native
 // one to build the repo would be a heavy dependency for a handful of assertions. What it can
-// still prove is the part that was actually wrong: the ORDER of binds, clears and draws. The two
-// bugs this pins — a layer's chain clearing the composite it was accumulating into, and a chain
-// blending each pass over the last instead of superseding it — were both sequencing, and neither
-// needed a pixel to catch. What a fake cannot prove is that a shader draws the right picture; the
+// still prove is the part that breaks for real: the ORDER of binds, clears and draws. The two
+// bugs this pins — a layer's chain clearing the composite it accumulates into, and a chain
+// blending each pass over the last instead of superseding it — are both sequencing, and neither
+// needs a pixel to catch. What a fake cannot prove is that a shader draws the right picture; the
 // verification for that is `docs/passes.md`'s "run it and look".
 
 import { describe, expect, it } from "vitest";

@@ -27,7 +27,7 @@ const seen = new Map<Family, { revision: string; scope: string }>();
 /** The last error reported, so a library that is down says so once and not every minute. */
 let lastError = "";
 
-/** The families this loop still fetches; `modules` and `chains` are GONE — see docs/mediatekPull.md. */
+/** The only family this loop fetches; a git checkout must never be one — see docs/mediatekPull.md. */
 const PULLED = ["songs"] as const;
 
 /** The library-relative folders the open projects reach for, sorted so the signature is stable. */
@@ -36,7 +36,7 @@ function scope(): Record<(typeof PULLED)[number], string[]> {
   for (const ws of liveWorkspaces()) {
     const dir = ws.activeProjectPath();
     if (!dir) continue;
-    // The modules a project names come with the workspace now — a checkout, not a fetch.
+    // Songs only: the modules a project names come with the workspace, a checkout rather than a fetch.
     for (const ref of mediatekSongRefs(dir, ws.root))
       songs.add(songPathPrefix(ref));
   }

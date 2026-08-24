@@ -5,9 +5,8 @@
 // the sharper assertion is the refusal, since a name somebody chose must not move. `unlink` is
 // the opposite shape: it rewrites chains and must leave every FILE alone.
 //
-// `module delete` was tested here until it went. A chain naming a missing module is a project
-// the compiler refuses to load, so the repairing command cannot run either — which is why
-// `unlink` still asserts the files.
+// A chain naming a missing module is a project the compiler refuses to load, and a command
+// cannot repair what it cannot open — which is why `unlink` asserts the files.
 
 import {
   existsSync,
@@ -175,7 +174,7 @@ describe("graph unlink", () => {
   });
 
   it("unlinks a LANE now, and leaves its file on disk", async () => {
-    // It used to be refused; a lane is a module now (packages/song/docs/trackModules.md).
+    // A lane is a module, so one name unlinks either (packages/song/docs/trackModules.md).
     await runCommand("graph unlink gtr", host(), "cli");
     expect(chains()).toMatch(/gtr:\s*\[\s*\]/);
     expect(existsSync(join(dir, "nodes", "gtr.yaml"))).toBe(true);

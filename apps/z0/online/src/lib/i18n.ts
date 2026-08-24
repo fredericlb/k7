@@ -1,8 +1,8 @@
 // online's i18n wiring.
 //
-// The catalogues that used to sit in this file are now messages/en.json and
-// messages/fr.json at the app root, compiled by the Paraglide plugin into
-// src/paraglide/. Editing a message file recompiles on save.
+// The catalogues are messages/en.json and messages/fr.json at the app root,
+// compiled by the Paraglide plugin into src/paraglide/. Editing a message file
+// recompiles on save.
 //
 // Components import the compiled messages directly — `import { m } from
 // "../paraglide/messages.js"`, then m["header.title"]() — so there's no

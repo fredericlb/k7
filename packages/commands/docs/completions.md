@@ -10,8 +10,8 @@ vocabularies sit side by side there and they answer three different questions:
 | `PROVIDER_HINT` / `CLASS_HINT` | what does this field accept, as a clue beside it | derived, overridable by `hint:` |
 
 A provider reads live state off the `CommandHost`. `satisfies` rather than an annotation, and that
-is load-bearing: an annotation widened the keys to `string`, which made `ProviderName` `string`
-too — so `PROVIDER_CLASS` checked nothing and the wire could not name a provider at all.
+is load-bearing: an annotation widens the keys to `string`, which makes `ProviderName` `string`
+too — so `PROVIDER_CLASS` checks nothing and the wire cannot name a provider at all.
 
 **A failed read costs the completion, never the command.** Every provider that touches the disk
 swallows its own error and answers with an empty list or an unranked one: a broken curve file, an
@@ -31,7 +31,7 @@ file every other project reads.
 
 `@engine` refs are the exception on both sides and are NOT offered. That namespace is the plugin
 scan, so its size is a fact about the MACHINE rather than about the song: a rig with four hundred
-plugins put four hundred entries in front of the dozen modules a project has. It is browsed
+plugins puts four hundred entries in front of the dozen modules a project has. It is browsed
 instead, in the file tree's Libraries tab, and it is still what `extends:` inherits from — which
 is the `baseModules` provider. The filter is on the vocabulary half only: a ref the project
 already USES arrives through `collectPluginModules` and stays completable, because a node that
@@ -56,8 +56,8 @@ answers for every name a provider offers.
   stripped, subfolders kept — `live/repet` is one name.
 - **`clipTargets`** is the audio clips this project places, then its audio files, for material no
   clip has claimed. Tracks are deliberately absent and the handler refuses one by name:
-  `track process` is the command for those. The rule behind it is old and stands — never offer
-  what the command would reject. It is the one provider with an explicit return annotation,
+  `track process` is the command for those. The rule behind it: never offer what the command would
+  reject. It is the one provider with an explicit return annotation,
   because it reaches into `PROVIDERS` for `audioFiles`: inferring it would need the map's own
   type, which is what is being inferred.
 - **`chains`** puts the project's own and the médiathèque's `@st0/` ones in one list, because the
@@ -126,19 +126,18 @@ and types nothing at all.
 the values of ONE argument, so it slices the shared prefix back off — and the two ends have to
 agree about where that prefix ends.
 
-Two failures that cost a release, both fixed and both pinned by `commandSpec.test.ts`:
+Two ways that slicing goes wrong, both pinned by `commandSpec.test.ts`:
 
 - **The line must keep its trailing space.** That space is what tells `completions()` the command
-  is settled and its arguments are being filled. Dropping it left the bare command name, which
-  reads as "still typing a name" — so opening a field offered command names instead of values.
-- **The value cannot be pulled out by token INDEX.** That assumed a one-word command, so
-  `track mute melody` handed back `mute`, and the palette looked like it was completing commands
-  where it was completing arguments.
+  is settled and its arguments are being filled. Drop it and what is left is the bare command name,
+  which reads as "still typing a name" — so opening a field offers command names instead of values.
+- **The value cannot be pulled out by token INDEX.** That assumes a one-word command, so
+  `track mute melody` hands back `mute`, and the palette looks like it is completing commands
+  where it is completing arguments.
 
 The dispatch rule is **longest prefix**, in `completions` exactly as in `runCommand`, so a
 completion offers arguments for the command that will actually run. No command name prefixes
-another today — `system channel set` closed the last one — so the rule is guarded rather than
-exercised.
+another today, so the rule is guarded rather than exercised.
 
 ## The wire carries the same two lists
 
@@ -174,10 +173,9 @@ argument gets one for free; a free-text one has to write its own `hint:`, becaus
 answers nothing, which is exactly the field you would otherwise have to run the command to
 understand.
 
-## `with:` is gone
+## A spec carries no fixed leading arguments
 
-A spec used to be able to carry `with:`, fixed leading arguments prepended before the user's, so
-several verbs could reach one shared handler. Its last user was `module nam` — one verb per
-file-valued param — and those are `node param <node> nam <file>` now, which left the mechanism
-with nobody. A verb that IS one setting of another verb is a fact for the ARGUMENT to carry, not
-for the catalogue to bake in.
+There is no `with:` — nothing lets a spec prepend arguments of its own before the user's so that
+several verbs reach one shared handler. A verb that IS one setting of another verb is a fact for
+the ARGUMENT to carry, not for the catalogue to bake in: `node param <node> nam <file>` rather than
+a verb per file-valued param.

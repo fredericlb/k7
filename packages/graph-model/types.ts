@@ -1,8 +1,8 @@
 // types.ts — the chains routing graph as the browser receives it (mirrors the essentials
 // of the song compiler's GraphDoc). Almost all types, plus the handful of values both sides
 // must agree on BY VALUE — the port separator and the category list. Lives apart from
-// @studio/web-protocol because three apps draw chains — st0, pl8's module builder, m9 — and
-// only st0 wants auth, workspaces and the registry.
+// @studio/web-protocol so that drawing a graph drags in neither auth, nor workspaces, nor
+// the engine registry.
 
 export interface WebOut {
   to: string; // a chain name or an io sink (e.g. "OUT")

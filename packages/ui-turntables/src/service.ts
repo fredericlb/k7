@@ -1,5 +1,5 @@
 // service.ts — the CHOSEN machine's file service, the only thing that knows where the
-// médiathèque's cache sits on that disk. m9 needs it because the moteur opens file
+// médiathèque's cache sits on that disk. The desk needs it because the moteur opens file
 // paths, not URLs, and the paths are that machine's. The same route, written down:
 // apps/pl8/docs/playback.md, « Deux disques ».
 
@@ -37,7 +37,7 @@ async function get<T>(s: FileLink, path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-// `post` stood here until the cut moved to the library: the file service is READ-ONLY for this package now.
+// No `post`: the cut goes to the library, so the file service is READ-ONLY for this package.
 
 /** The same pair for the LIBRARY, and the difference is the credential — a cookie, see ../docs/hosting.md. */
 async function libraryGet<T>(l: LibraryLink, path: string): Promise<T> {

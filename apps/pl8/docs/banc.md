@@ -4,25 +4,18 @@ Une chaîne est un routage. Ce qu'elle fait ne se lit pas dans son fichier : ça
 greffon chargé — le seul endroit où les noms de ses paramètres, leurs bornes et ses presets
 d'usine existent — ne vit que dans un projet.
 
-Le banc est ce projet. Depuis l'écran d'une chaîne de la médiathèque, « Ouvrir sur le banc »
-mène à `/@banc/chains/<chemin>.st0` et st0 s'ouvre sur un projet vide dont le dossier
-`modules/` est le catalogue, et dont `graph.yaml` **est** la chaîne qu'on est venu éditer.
+Le banc est ce projet, et il s'ouvre par une **adresse** : `/@banc/chains/<chemin>.st0`. st0 y
+trouve un projet vide dont le dossier `modules/` est le catalogue, et dont `graph.yaml` **est**
+la chaîne qu'on est venu éditer.
 
-> ## Il y avait un second banc, et il n'y en a plus
+> **Le banc est celui d'une CHAÎNE, et de rien d'autre.** Un module partagé s'édite depuis
+> l'onglet **Bibliothèques** de l'arborescence de n'importe quel projet déjà ouvert, contre le
+> moteur qui joue déjà la chanson — et cette chanson nomme très probablement déjà le module
+> qu'on veut changer. Les deux choses qu'il faut pour éditer un module, un catalogue modifiable
+> et un greffon chargé, y sont réunies sans rien fabriquer. Voir
+> [apps/st0/frontend/docs/sharedModules.md](../../st0/frontend/docs/sharedModules.md).
 >
-> `/@banc/modules.st0` : le même échafaudage ouvert sur le catalogue **entier**, et le seul
-> projet autorisé à écrire dans la médiathèque. On l'ouvrait *pour* modifier un module partagé —
-> il fallait quitter sa chanson, attendre le miroir du catalogue, câbler le module dans la
-> chaîne du banc pour l'entendre, et l'éditer là.
->
-> Un module partagé s'édite depuis l'onglet **Bibliothèques** de l'arborescence de n'importe
-> quel projet déjà ouvert, contre le moteur qui joue déjà la chanson — et cette chanson nomme
-> très probablement déjà le module qu'on veut changer. Les deux choses que le banc réunissait,
-> un catalogue modifiable et un greffon chargé, sont donc réunies sans rien fabriquer.
-> Voir [apps/st0/frontend/docs/sharedModules.md](../../st0/frontend/docs/sharedModules.md).
->
-> `@banc/modules.st0` répond maintenant un 404 dont la phrase dit où va se faire l'édition.
-> Ce qui reste ci-dessous vaut pour le banc de CHAÎNE, qui n'a pas d'autre maison.
+> `/@banc/modules.st0` répond donc un 404 dont la phrase dit où va se faire l'édition.
 
 ## Comment il est fabriqué
 
@@ -49,12 +42,12 @@ Le nom d'un module est le chemin **sous son dossier de type** : `tape-delay` pou
 `modules/audio/amps/neural-amp-modeler/`, qui est rangé d'un cran plus loin. La médiathèque
 range son catalogue comme ça, et le banc en est le miroir.
 
-> Ce niveau de rangement était supporté par les bibliothèques partagées (`readModuleTree`) et
-> **pas** par le `modules/` propre à un projet (`loadModules`), qui sautait en silence un dossier
-> sans `module.yaml`. Un module rangé n'était donc pas une erreur : il n'était simplement pas là,
-> et chaque symptôme parlait d'autre chose — une chaîne nommant un module « que ce projet n'a
-> pas », un 400 de `/module-ui` sur un fichier bien visible dans l'arbre. Les deux marcheurs
-> s'accordent depuis (`packages/song/src/filedModules.test.ts`).
+> Les deux marcheurs doivent s'accorder sur ce niveau de rangement : celui des bibliothèques
+> partagées (`readModuleTree`) et celui du `modules/` propre à un projet (`loadModules`), qui
+> saute en silence un dossier sans `module.yaml`. Un désaccord ne se lit pas comme une erreur —
+> le module n'est simplement pas là, et chaque symptôme parle d'autre chose : une chaîne nommant
+> un module « que ce projet n'a pas », un 400 de `/module-ui` sur un fichier bien visible dans
+> l'arbre. C'est `packages/song/src/filedModules.test.ts` qui les tient d'accord.
 
 Un module supprimé du catalogue disparaît donc du banc. C'est le but : un module périmé y
 résoudrait encore, compilerait encore et jouerait encore, ce qui est la manière de passer une
@@ -79,8 +72,8 @@ réservée par convention, exactement comme le nom d'espace de travail `Banc`.
 
 Ce que ça change de posture, dit franchement : **le service de fichiers devient un écrivain du
 catalogue**. C'est le même genre de décision que celle qui interdit à pl8 d'écrire dans les
-dépôts git ([projects.md](projects.md), « Pourquoi pl8 ne peut pas »), tranchée dans l'autre
-sens — parce que le catalogue est déjà le seul endroit modifiable du studio.
+dépôts git ([projects.md](projects.md), « Pourquoi pl8 n'écrit dans aucun dépôt »), tranchée
+dans l'autre sens — parce que le catalogue est déjà le seul endroit modifiable du studio.
 
 > L'onglet Bibliothèques tranche la même question dans l'autre sens encore : il écrit chez pl8,
 > qui est la bibliothèque, puis demande à la machine de resynchroniser son cache. Les deux
@@ -129,9 +122,10 @@ réécrit `graph.yaml` depuis le cache à chaque ouverture : sur une machine san
 hébergée — là où le cache EST la bibliothèque — une sauvegarde seulement poussée serait jetée
 par l'ouverture suivante.
 
-> Au passage : `write()` recollait le projet actif, **déjà absolu**, sur la racine de l'espace de
-> travail. `<racine>/<racine>/<projet>` n'est sous aucune écriture, donc la remontée d'un fichier
-> vers le catalogue ne se déclenchait jamais. Corrigé, et tenu par un test.
+> Piège à connaître : le chemin du projet actif que `write()` reçoit est **déjà absolu**. Le
+> recoller sur la racine de l'espace de travail donne `<racine>/<racine>/<projet>`, qui n'est
+> sous aucune écriture — la remontée d'un fichier vers le catalogue ne se déclencherait jamais,
+> en silence. Un test le tient.
 
 ## Ce qu'il n'est pas
 
@@ -152,10 +146,6 @@ par l'ouverture suivante.
   ni minimap — un projet dessine ce qu'il DÉCLARE, et celui-ci ne déclare rien. Voir
   [packages/song/docs/surfaces.md](../../../packages/song/docs/surfaces.md).
 
-  Il a porté un temps une ligne `project_type: live` dans son `project.yaml`, plus une
-  migration qui l'ajoutait aux bancs déjà créés. Les deux ont disparu avec le champ : le
-  silence dit la même chose, et ne peut pas contredire le dossier.
-
 ## Ce qu'il faut vérifier dans un navigateur
 
 Rien de tout ceci n'est couvert par une suite verte — `scaffoldBench.test.ts` ne pin que le fait
@@ -167,4 +157,4 @@ que le projet généré compile.
   `@out`, et son en-tête est intact ;
 - rouvrir le banc sur la même chaîne → ce qu'on a câblé est là ;
 - ouvrir une chaîne qui nomme un `mixer` → refus lisible, et rien de créé ;
-- ouvrir `/@banc/modules.st0` → un refus qui dit où un module s'édite maintenant.
+- ouvrir `/@banc/modules.st0` → un refus qui dit où un module s'édite.

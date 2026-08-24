@@ -1,13 +1,13 @@
 // The feedback delay — the graph the block-rate phases could not express at all.
 //
-// What is worth testing here is not the arithmetic (the engine renders that, and the taps were measured at
-// exactly x0.60 each) but the two things a description can get silently wrong: the LOOP has to be a wire read
+// What is worth testing here is not the arithmetic (the engine renders that, and the taps measure exactly
+// x0.60 each) but the two things a description can get silently wrong: the LOOP has to be a wire read
 // before it is written, and the Feedback PARAMETER has to arrive as a scalar rather than as an audio wire.
 //
-// That second one is not hypothetical. The first version of the library had one `Signal` type for both, so
-// `amul(fb, Feedback)` compiled happily and emitted Feedback as an audio wire — a wire nothing writes, hence
-// zero, hence a loop that never closed. It rendered one echo and stopped, and nothing in the engine could have
-// caught it: both are just names in a text file.
+// That second one is not hypothetical. One `Signal` type for both lets `amul(fb, Feedback)` compile happily
+// and emit Feedback as an audio wire — a wire nothing writes, hence zero, hence a loop that never closes:
+// one echo and then silence, which nothing in the engine can catch, since both are just names in a text
+// file.
 
 import { describe, expect, it } from "vitest";
 import { echo } from "./echo";

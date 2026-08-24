@@ -1,8 +1,8 @@
 // The MASTER CHAIN: the run between MIX (where the mixer sums) and OUT (the interface).
 //
 // What is pinned here is the split itself — that a lane's chain still ends at the sum, that a
-// chain wired MIX -> OUT processes the whole mix instead of vanishing, and that a song without
-// one is byte-for-byte the document it was before the two nodes were told apart.
+// chain wired MIX -> OUT processes the whole mix instead of vanishing, and that an empty
+// MIX -> OUT run changes not one byte of the compiled document.
 // See docs/masterChain.md.
 
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -74,7 +74,7 @@ describe("a chain from MIX to OUT", () => {
   });
 
   it("does NOT become a track of its own", () => {
-    // The failure to avoid now is a phantom lane called `master` in the arrangement.
+    // The failure to avoid is a phantom lane called `master` in the arrangement.
     project(withMaster);
     expect(compile().tracks.map((t) => t.id)).toEqual(["gtr"]);
   });
@@ -100,7 +100,7 @@ describe("the empty MIX -> OUT run every project now carries", () => {
   const BARE = "modules:\n  gtr: [ amp ]\n  amp: [ MIX ]\n  MIX: [ OUT ]\n";
 
   it("compiles, and changes NOTHING about the document", () => {
-    // A line that costs no sound: if this stops matching, every project changed when it was added.
+    // A line that costs no sound: if this stops matching, the empty run changes every project.
     project(BARE);
     const bare = compile();
     project(PLAIN);

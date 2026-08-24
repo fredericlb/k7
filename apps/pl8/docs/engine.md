@@ -1,10 +1,11 @@
 # The engine link — one socket, and what is left on it
 
-The médiathèque is a hosted catalogue of files. For two of its three families that is all it
-has to be: a song and a sample are bytes, and listing them needs nothing but a directory walk.
+The médiathèque is a hosted catalogue of files, and for most of what it holds that is all it has
+to be: a song, a sample and a capture are bytes, and listing them needs nothing but a directory
+walk.
 
-It still holds **one** socket to a `engine/moteur`, and it is worth being precise about what
-that socket is for now, because it used to be for two things and one of them left.
+It holds **one** socket to an `engine/moteur` all the same, and it is worth being precise about
+what that socket is for.
 
 ## What it carries
 
@@ -27,67 +28,39 @@ is deliberate: pl8 never opens one, so it must not compete for one. Claiming her
 song away from the st0 tab next door every time somebody glanced at the catalogue. See
 [packages/engine-registry/docs/claim.md](../../../packages/engine-registry/docs/claim.md).
 
-## What left: the module builder
+## What it does not carry: a module builder
 
 A **module** is different from a song and a sample. A module file names a plugin, and the only
 thing that knows what that plugin's parameters are called, what they span and what presets it
 ships is a running engine with **that plugin loaded**. No table can substitute — the answer
 belongs to the binary, and it changes when the binary is updated.
 
-The médiathèque had an engine but no project to load a plugin into, so it manufactured one: a
-one-track, one-plugin `ProjectDoc` sent down its own session, purely so there would be
-something to ask about. Everything else followed from that — an audition with its own input
-picker, its own metered channel menu, its own level gauge, and an engine gate over the whole
-Modules section demanding a machine before you could edit a text file.
+This app has an engine and no project to load a plugin into. Building one for the occasion — a
+one-track, one-plugin `ProjectDoc` down its own session, purely so there is something to ask
+about — drags a whole screen behind it: an audition with its own input picker, its own metered
+channel menu, its own level gauge, and an engine gate demanding a machine before you can edit a
+text file.
 
-That is all gone. **Modules are built in st0**, from the file tree's **Libraries** tab of
-whatever project is open, where a real project instantiates a plugin for real and the builder
-reads the one that is actually making the sound. The reasoning is in
+So **modules are built in st0**, from the file tree's **Libraries** tab of whatever project is
+open, where a real project instantiates a plugin for real and the builder reads the one that is
+actually making the sound. The reasoning is in
 [apps/st0/frontend/docs/sharedModules.md](../../st0/frontend/docs/sharedModules.md).
 
-What the médiathèque keeps is what it is: **the only editable catalogue**. The Modules section
-lists, searches, uploads, renames and deletes; opening a module shows its files, read-only. And
-st0 writes back here, through this backend's own `PUT /api/mediatek/file` — same origin, same
-session cookie — which is what makes editing a module there mean editing *the* module rather
-than forking a copy into a song.
-
-There is no engine gate on the section any more. There is nothing left on it that an engine
-would improve, and a door in front of an empty room is worse than no door.
-
-## Why the builder passed through here at all
-
-It used to be a screen inside st0, editing the workspace's `_modules` in place through an
-`editShared` flag on the file service's write route. That worked because a workspace's
-`_modules` was, at the time, where modules lived.
-
-It is not any more. Modules live in the médiathèque, which every project reads through the
-`@st0` named root; a workspace's copy is a **read-only mirror**, and the general escape
-hatch is gone (see `packages/song/docs/moduleFork.md`). So the builder moved here, where the
-catalogue is editable — and moving it here is what made it a package, `@studio/ui-module-builder`,
-which is why it could move back out again without being rewritten.
-
-The round trip was not wasted. What it settled is that the builder needs **two** things and
-they live in different places: an editable catalogue, which is here, and a loaded plugin, which
-is only ever in a project.
-
-The first answer to having both at once was the **bench** — a generated project holding the
-whole catalogue, which you opened *in order to* edit a module ([banc.md](banc.md)). The second
-is smaller and is what ships: st0 lists this catalogue in a second tab of its file tree and
-writes back over these routes, so the project supplying the loaded plugin is whichever one you
-already had open. The bench still exists for a **chain**, which has no such second home.
+The rule underneath is that a builder needs **two** things which live in different places: an
+editable catalogue, and a loaded plugin, which is only ever in a project. A **chain** has no
+project that supplies both at once, which is why it gets a generated one — the bench,
+[banc.md](banc.md).
 
 ## Holding the socket
 
 `apps/pl8/frontend/src/engine/useModuleEngine.ts` is where the one socket lives. What follows is
 the reasoning behind it, so the file itself can keep one line per fact.
 
-**The pick is handed DOWN, not read here.** `engineId` used to be read inside the hook and only
-there, because the editor REPLACED the screen the picker lives on and a choice therefore could not
-move while it was open. The editor sits beside that header now, so it can — and a socket left on
-the previous machine would answer for a plugin loaded somewhere else. The caller's pick also wins
-over the stored one: it is the same value, but it arrives already updated, whereas the fetch inside
-would still be answering with what was saved a moment ago. Omitted, it falls back to the stored
-preference exactly as before.
+**The pick is handed DOWN, not read here.** The screen and the header's picker are on show at the
+same time, so the choice can move while a pane is open — and a socket left on the previous machine
+would answer for a plugin loaded somewhere else. The caller's pick wins over the stored one: it is
+the same value, but it arrives already updated, whereas a fetch inside the hook would still be
+answering with what was saved a moment ago. Omitted, it falls back to the stored preference.
 
 **An absent engine is a normal state.** The editor edits text either way; it just cannot offer a
 parameter list. The policy of which engine to take lives in `chooseEngine`, where it can be tested.
@@ -108,7 +81,7 @@ and this hook owns the client outright — nobody else holds a reference to it.
 screen that queries on connect needs the difference. `client` itself is exposed rather than wrapped
 verb by verb, because `EnginePage` asks a dozen questions about the MACHINE — the device list, the
 session list, the installed catalogue — and drives no document; what it must not do is open a
-second connection, which is exactly what it did before there was one socket to borrow.
+second connection, which is why it borrows this one.
 
 ### Everything about the transport comes from the engine
 
@@ -130,9 +103,9 @@ restart it.
 
 A document naming a file the engine cannot open — absent, or in a format that build has no reader
 for — raises `clip source not found/invalid: <path>` and then plays SILENCE. Silence is the one
-failure a transport cannot report by itself, so this channel is the only account of it. It was
-being thrown away. It is cleared when a new document is SENT rather than on stop, so a complaint
-raised by that send survives to be read.
+failure a transport cannot report by itself, so this channel is the only account of it, and
+dropping it is expensive. It is cleared when a new document is SENT rather than on stop, so a
+complaint raised by that send survives to be read.
 
 ### The order of a play, and why `fromSeconds` matters
 
@@ -150,8 +123,8 @@ with `playing` perfectly true. That is a failure with no symptom other than no s
 ### Why `reset` exists
 
 An apply is a DIFF, and a diff can only remove what the engine's STORED document says is there. An
-edit can hold a plugin that document does not mention — a module audition left one behind, measured
-on this machine — and then no document will ever remove it: the diff sees no change, so nothing
+edit can hold a plugin that document does not mention — a state the engine can reach, measured on
+this machine — and then no document will ever remove it: the diff sees no change, so nothing
 rebuilds. What plays afterwards runs through a module nobody asked for, which for a `crossfade` is
 -100 dB. Silence, from a transport reporting that it is rolling. The session comes back on the next
 apply, since it is created by a client driving it.
@@ -165,8 +138,8 @@ whole reason it exists.
 Four things it reports, and the distinctions matter:
 
 - **`settled`** — the list and the remembered choice have both come back at least once. Distinct
-  from "nothing is chosen", which before this was indistinguishable from "we have not looked yet",
-  and a gate that cannot tell the two apart flashes in everybody's face on load.
+  from "nothing is chosen": a gate that cannot tell those two apart flashes in everybody's face on
+  load.
 - **`chosen`** — the remembered engine, *reachable from this browser*. A choice pointing at a
   machine that is off is not one.
 - **`fileBase`** — that engine's file service, `http://<host>:<filePort>`, or null when there is no
@@ -183,7 +156,7 @@ overwritten by the server's value. That choice is held in a REF rather than in t
 dependencies, so re-measuring reads it without choosing an engine triggering a full measurement.
 
 `relook` brings the hook back every fifteen seconds and when the tab returns: a probe is a
-snapshot, and one missed race marked the engine unreachable until the page was reloaded
+snapshot, and without it one missed race marks the engine unreachable until the page is reloaded
 (`packages/engine-browser/src/relook.ts`).
 
 Choosing is **optimistic, then persisted** — the tick moves under the cursor rather than after a

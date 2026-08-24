@@ -18,8 +18,8 @@ short of its own frame, with the panel's background beyond it.
 
 st0's clip panel is exactly that case. After a take it swaps in `lecture de la prise…` while the
 file is fetched, so the picture that comes back is a **fresh mount** — starting from the guess
-again, every time, which is why "the waveform doesn't fill the panel" was a thing that happened
-only after recording.
+again, every time, which is why "the waveform doesn't fill the panel" is a symptom that shows up
+after recording and nowhere else.
 
 So the box is measured in a `useLayoutEffect`, before paint, and the observer only keeps it right
 afterwards.

@@ -31,10 +31,10 @@ It stages `.gitmodules` and the gitlink and does not commit — deliberately: co
 **`--force` is not optional.** `excludeFromProjectRepo` has just written `/_libraries/` into this
 repository's `.git/info/exclude`, and `git submodule add` refuses an ignored path: *"The
 following paths are ignored by one of your .gitignore files … use -f"*. Without it every first
-mount left the library seeded, pushed and **unregistered** — the exact half-state the exclusion
-exists to make survivable, reached by the code that was supposed to end it. Found in a real
-workspace, not in a test: the test built its fixture with `-f` already, which is how a workaround
-in a fixture hides the bug in the thing it is fixturing.
+mount leaves the library seeded, pushed and **unregistered** — the exact half-state the exclusion
+exists to make survivable, reached by the code meant to end it. A test can hide that: a fixture
+built with `-f` already never meets the refusal, which is how a workaround in a fixture hides the
+bug in the thing it is fixturing.
 
 The two are not in conflict. The exclusion guards the window where the mount is untracked; this
 is the act that closes that window, so overriding it here is the point.
@@ -49,15 +49,13 @@ changes the setting.
 
 ## `initIfEmpty` gives a new repository the one thing a gitlink needs
 
-ONE question, where there were two. A gitlink has to point AT a commit, so a repository somebody
-just created through a web UI — unborn HEAD — needs one made before it can be adopted as a
-submodule (`git submodule add` on an unborn HEAD fails). That is the whole of what it does.
+A gitlink has to point AT a commit, so a repository somebody just created through a web UI —
+unborn HEAD — needs one made before it can be adopted as a submodule (`git submodule add` on an
+unborn HEAD fails). That is the whole of what it does.
 
-**It no longer fills anything.** A catalogue used to be written in here — copied from the hosted
-médiathèque over HTTP, then embedded in the build — so that `@st0/…` refs resolved on a new
-account. The account's LIBRARY REPOSITORY is the reference now: what is in it is what a project
-inherits, and a build shipping its own copy of somebody's modules was a second source of truth
-that could only ever disagree with the first.
+**It fills nothing.** The account's LIBRARY REPOSITORY is the reference: what is in it is what a
+project inherits, and a build shipping its own copy of somebody's modules would be a second
+source of truth that could only ever disagree with the first.
 
 The consequence is worth knowing rather than discovering: a new library is EMPTY, so every
 `@st0/…` ref resolves to nothing until modules are put there — including the four a scaffolded
@@ -87,8 +85,7 @@ than cloning a second time. The gitlink is recorded only after that commit was p
 
 It is idempotent and cheap in the common case: a populated mount is left alone without a single
 subprocess beyond the check. Called on every open rather than only on clone, because the setting
-can be added after a workspace already exists — which is exactly what happens to every workspace
-that predates this feature.
+can be added after a workspace already exists.
 
 Where the workspace is NOT a git repository — someone made it rather than cloned it — there is no
 superproject to hold a gitlink, so the same folder is a plain clone instead. The shape on disk is

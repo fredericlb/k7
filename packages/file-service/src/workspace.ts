@@ -30,7 +30,7 @@ import {
 import type { ShareBundle } from "@studio/commands/share-bundle";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scannedPluginNames } from "@studio/engine-client/pluginCache";
-// WebGraph is graph-model's, not web-protocol's — the graph types were split out so the three apps that draw chains needn't pull in auth and the registry.
+// WebGraph is graph-model's, not web-protocol's: an app that draws chains needn't pull in auth and the registry.
 import type { WebGraph } from "@studio/graph-model";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { CHAIN_FILE, chainFromBench } from "@studio/song/benchChain";
@@ -408,7 +408,7 @@ export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
       type: pl.type,
       name: pl.name,
     })),
-    // `docs`/`todos`, `frozen` and the alternatives went to the graph — packages/song/docs/docModules.md.
+    // `docs`/`todos`, `frozen` and the alternatives belong to the graph — packages/song/docs/docModules.md.
   }));
 }
 
@@ -437,8 +437,6 @@ export function setAudioDevicePref(name: string, type?: string): string | null {
   const p = setAudioDevice(name, type);
   return p.audioDevice ? formatAudioDevice(p.audioDevice) : null;
 }
-
-// `setInputPairPref` was here; the grouping is written by `system channel type` now.
 
 // The per-workspace active-project marker, a dotfile — exported so workspaces.ts can read it bare.
 export const ACTIVE_MARKER = ".studio-active";
@@ -1157,8 +1155,6 @@ export class Workspace {
     walk(root);
     return out.sort((a, b) => a.path.localeCompare(b.path));
   }
-
-  // `createPlaylist` was here; making a set list is the `playlist new` command now.
 
   /** Make an empty module in one of those libraries, creating the folder on the way. */
   createModule(root: string, rel: string): { path: string; dir: string } {

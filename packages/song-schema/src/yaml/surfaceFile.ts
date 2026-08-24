@@ -55,7 +55,7 @@ export function parseSurface(text: string): ParsedSurface {
       issues: [
         {
           path: "",
-          // Both lists spelled from the enums rather than by hand, which went stale once (docs/surfaceFiles.md).
+          // Both lists spelled from the enums rather than by hand, so the message cannot go stale (docs/surfaceFiles.md).
           message: `a surface file says what it is: \`type:\` (${SURFACE_TYPES.join(", ")}) and \`layout:\` (${SURFACE_LAYOUTS.join(", ")}). This one is empty.`,
         },
       ],

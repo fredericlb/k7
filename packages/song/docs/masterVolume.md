@@ -1,8 +1,8 @@
 # `masterVolume` — the song's output level, which is the OUT node's `Volume`
 
-The last gain in the song. Until it existed there was **no global output control in the app at
-all**: `EditBuilder` pinned Tracktion's master fader to 0 dB and nothing could reach it — no
-command mentioned the master, and the output carried no level of its own.
+The last gain in the song, and the app's **one global output control**. Tracktion's own master
+fader is pinned to 0 dB by `EditBuilder` and nothing reaches it; the level the song carries is
+this one.
 
 ```yaml
 # project.yaml
@@ -31,10 +31,9 @@ range, the unity rule, or how the engine learns it.
 `MIX` carries no level and refuses one by name. The mixer's sum is a place the signal passes
 through; a level belongs to what LEAVES.
 
-> It was `project.masterVolume` and nothing else — a field beside the tempo, with a fader in the
-> header and no presence in the graph at all. What moved it was the Fix button: that button and this
-> fader are the same act on the same number, and while one wrote thirty mixer strips and the other
-> wrote a project field, nothing said so. See [masterMeter.md](../../../apps/st0/frontend/docs/masterMeter.md).
+> The Fix button and this fader are the same act on the same number, which is why the level is a
+> param of a node rather than a field beside the tempo with no presence in the graph at all. See
+> [masterMeter.md](../../../apps/st0/frontend/docs/masterMeter.md).
 
 ## It belongs to the SONG, not to the machine
 
@@ -43,19 +42,18 @@ tempo rather than in `settings.yaml` beside the metronome: a level that only cha
 in this room would be a monitoring preference, which is a different field in a different file and
 does not exist yet.
 
-It moves playback, `--render` and a freeze **together**, and the engine already insisted on that
-pairing for the pin this field replaces (`EditBuilder`'s hard 0 on Tracktion's fader): a bounce that
-comes back at one level and plays at another is audible the moment you freeze a track, and `clip
-process`, which writes a render back onto the material, would drift a little further every pass.
+It moves playback, `--render` and a freeze **together**, and the engine insists on that pairing for
+its own pin too (`EditBuilder`'s hard 0 on Tracktion's fader): a bounce that comes back at one level
+and plays at another is audible the moment you freeze a track, and `clip process`, which writes a
+render back onto the material, would drift a little further every pass.
 
-> **It did not, for a while, and the gap is worth knowing about because nothing reported it.** The
-> gain was created by `EngineHost::buildLevelMeters`, which only the LIVE path runs — an offline
-> render calls `populateEdit` and nothing else — so `--render`, a freeze and `clip process` all
-> bounced at unity however this field read. It is created by `populateMasterChain` now, which both
-> paths run, and the live path takes hold of that one through `masterGainOf` rather than making a
-> second. `engine/moteur/scripts/master-chain.ts` is what measures it: a render at `-20` comes back
-> 20 dB below the same render at unity, which is the only proof there is — no C++ test builds an
-> Edit, and no TypeScript test renders.
+> **The gain is created by `populateMasterChain`, which BOTH paths run.** An offline render calls
+> `populateEdit` and nothing else, so a gain created by `EngineHost::buildLevelMeters` — the LIVE
+> path only — would leave `--render`, a freeze and `clip process` bouncing at unity however this
+> field read, with nothing to report it. The live path takes hold of that one gain through
+> `masterGainOf` rather than making a second. `engine/moteur/scripts/master-chain.ts` is what
+> measures it: a render at `-20` comes back 20 dB below the same render at unity, which is the only
+> proof there is — no C++ test builds an Edit, and no TypeScript test renders.
 
 ## The ceiling is +12, and the engine owns it
 
@@ -89,12 +87,11 @@ Three consequences worth knowing:
   Everything after it is the engine observing the signal that actually leaves, which is the point
   of observing it.
 
-  **It sat LAST, after both, and moving it was the price of one control instead of two.** While the
-  fader and the Fix button were separate acts — one writing this field, the other rewriting every
-  mixer strip — metering *before* the trim was right: raising the output would otherwise have
-  reported itself back as if the mix had got louder. Now that Fix writes this very param, a Fix the
-  meter could not see would leave the clip light lit, offer itself again on the next pass, and take
-  another 6 dB every time. So the meter reads the trim.
+  **The meter reads the trim, and that is the price of one control instead of two.** Metering
+  *before* the trim would only be right if the fader and the Fix button were separate acts — one
+  writing this field, the other rewriting every mixer strip. Fix writes this very param, so a Fix
+  the meter could not see would leave the clip light lit, offer itself again on the next pass, and
+  take another 6 dB every time.
 
   **The two costs, stated rather than hidden:** raising the fader raises the bar above it — the
   meter answers "how loud is what leaves" rather than "how loud is my mix" — and a listener on the
@@ -105,7 +102,7 @@ Three consequences worth knowing:
   be mistaken for a track's own. It starts *on* the current value when playback begins, or every
   press of play would fade the song in.
 - **The engine's parameter is wider than the field** (to +24). The schema is what decides what a
-  person may ask for, so widening again is a one-line change in `MASTER_MIN_DB` / `MASTER_MAX_DB`
+  person may ask for, so widening it is a one-line change in `MASTER_MIN_DB` / `MASTER_MAX_DB`
   rather than an engine change.
 
 Outside the range the value is **refused, not clamped** — a fader that answers 20 with 12 is worse
@@ -117,7 +114,7 @@ Worth saying plainly, because this control invites the wrong expectation. If a s
 around -20 dB — which is ordinary for a mix built with headroom — then the master gives back
 **twelve of those twenty**, and only by pushing the whole sum toward the ceiling it was left below.
 The rest of the headroom is in the strips, and reclaiming it means moving them — which this fader
-cannot do for you and the Fix button no longer tries to
+cannot do for you and the Fix button does not try to
 (`apps/st0/frontend/docs/masterMeter.md`).
 
 And some of the gap is not headroom at all. A raw mix without mastering sits near -20 LUFS where

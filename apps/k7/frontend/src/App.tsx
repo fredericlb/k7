@@ -178,7 +178,7 @@ export default function App() {
     refreshMoments();
   };
 
-  // No sign-in screen of our own: anonymous leaves for pl8's /auth/login — see auth.ts.
+  // No sign-in screen of our own: anonymous leaves for the origin root's /auth/login — see auth.ts.
   useEffect(() => {
     api
       .getMe()
@@ -193,7 +193,7 @@ export default function App() {
         setAuthChecked(true);
       })
       .catch(() => {
-        // A real failure (network, pl8 down), not a 401 — logging in won't fix it.
+        // A real failure (network, the auth backend down), not a 401 — logging in won't fix it.
         setUser(null);
         setAuthChecked(true);
       });
@@ -400,7 +400,7 @@ export default function App() {
     );
   }
 
-  // A recovery screen, not the way in: reached when the trip to pl8 brought no session back.
+  // A recovery screen, not the way in: reached when the trip to the login brought no session back.
   if (!user) {
     return <LoginView loginUrl={api.loginUrl} />;
   }

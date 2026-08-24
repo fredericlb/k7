@@ -1,19 +1,17 @@
 # Remote — keeping a hand on the machine when the dev session dies
 
-Working on the studio from elsewhere used to hang on one thread: the browser editor
-at `/dev` was a task **inside** `npm run dev`. If the session crashed, the editor died
-with it — the only door closed exactly when you needed it. The fix is an inversion:
-two services that come up with the machine and survive independently of each other,
-installed as Windows logon tasks by `scripts/remote.mjs` — while the dev session
-(`npm run dev`, Tilt) is started from either of them and runs under an orchestrator
-with a web UI, so "see what broke and restart it" is a button in a browser, not a
-terminal you no longer have.
+Working on the studio from elsewhere hangs on one rule: **the door must not die with the
+dev session.** An editor started *inside* `npm run dev` closes the moment the session
+crashes, which is exactly when it is needed. So two services come up with the machine and
+survive independently of each other, installed as Windows logon tasks by
+`scripts/remote.mjs` — while the dev session (`npm run dev`, Tilt) is started from either
+of them and runs under an orchestrator with a web UI, so "see what broke and restart it"
+is a button in a browser, not a terminal you no longer have.
 
-The way in is no longer one of them. `https://st0.priv.frediver.se` resolves to the
+The way in is not one of them. `https://st0.priv.frediver.se` resolves to the
 **LAN server**, which reverse-proxies to these ports; nothing this workstation starts
-terminates TLS any more, so the door stays open even when everything below has crashed.
-That is strictly better than the local Caddy it replaced, which was itself a logon task
-and could take the door down with it.
+terminates TLS, so the door stays open even when everything below has crashed — a local
+edge would be one more logon task able to take the door down with it.
 
 | what | where | task |
 |---|---|---|
@@ -24,11 +22,11 @@ Each is its **own origin**, routed by hostname on the LAN proxy (`code.priv.fred
 → :8798, `console.priv.frediver.se` → :8797, nothing to strip — both servers answer at
 `/`), and both start in the **user's home**, with **Git Bash** as the default shell.
 Subdomains of the owned zone on purpose: real names get real
-certificates, the whole reason the studio left `studio.test` — a made-up or
-HSTS-preloaded TLD (`.dev`…) would mean an internal CA all over again, and VS Code web
-needs a secure context (service workers), so plain HTTP is not an option either.
+certificates — a made-up or HSTS-preloaded TLD (`.dev`…) would mean an internal CA, and
+VS Code web needs a secure context (service workers), so plain HTTP is not an option
+either.
 
-The dev session is **not** one of them any more: `studio-tilt` is gone, and
+The dev session is **not** one of them:
 `npm run dev` (which *is* `tilt up`) is run by hand — typically inside a
 `console.priv.frediver.se` tab, whose PTYs the console service owns, so the session survives
 every browser.
@@ -60,7 +58,7 @@ Two deliberate settings:
 
 ## The dev session — `npm run dev`, i.e. Tilt
 
-One TUI process meant seventeen servers living and dying together, with no way to
+Seventeen servers under one TUI process live and die together, with no way to
 restart just one. The session therefore runs under **[Tilt](https://tilt.dev)**:
 `npm run dev` is `tilt up --port 10350` (`scripts/dev.mjs`, which also refuses to
 start a second session and stops the detached tray on the way out). Each dev server
@@ -113,30 +111,25 @@ the terminal instead of covering it.
 
 ## Why not ttyd (or gotty, wetty, tty-share)
 
-ttyd was evaluated first: it spawns **a new process per client** and kills it on
+ttyd is the obvious candidate: it spawns **a new process per client** and kills it on
 disconnect — shared, surviving sessions are delegated to tmux, which does not exist
 on native Windows. gotty is the same shape; wetty rides SSH; tty-share has no
 Windows support; code-server means WSL here. What tmux provides on Linux — a PTY
 that outlives and multiplexes its viewers — is exactly what `server.mjs` implements
 with node-pty and xterm.js, the bricks VS Code itself is made of.
 
-## The name, and the one still accepted beside it
+## The name, and the one accepted beside it
 
 `scripts/dev-hosts.mjs` holds both. `st0.priv.frediver.se` is one origin with one path per service
 — `/pl8`, `/k7`, `/z0` — and st0 at the root, exactly as production is under
 `studio.frediver.se`. It resolves to the LAN server, which reverse-proxies to the dev servers on
-the workstation.
+the workstation. A hostname lives in a router and in everyone's bookmarks rather than in this
+repo, so it does not follow the apps.
 
-The NAME does not follow the apps and agrees with this one by accident: it was given for the
-médiathèque, back when the médiathèque was called `st0` and served the root. That app is `pl8` now
-and the editor took the freed name, so the host matches again without ever having moved. A hostname
-lives in a router and in everyone's bookmarks, and renaming it buys nothing this repo can spend.
-
-`studio.test` was the dev URL until the LAN server took over, and it stays in `EXTRA_HOSTS` for
-exactly two reasons, **both of which end**: a local Caddy may still be running and answering it on
-127.0.0.1, and the reverse proxy may still forward with `Host: studio.test` rather than the public
-name. Vite rejects an unlisted Host outright, so dropping it before both are settled would answer
-403 to every request instead of failing somewhere legible. Delete it once neither holds.
+`studio.test` stays in `EXTRA_HOSTS` for two reasons: a local Caddy may be running and answering
+it on 127.0.0.1, and the reverse proxy may forward with `Host: studio.test` rather than the public
+name. Vite rejects an unlisted Host outright, so dropping it while either holds answers
+403 to every request instead of failing somewhere legible.
 
 ## Auth
 
@@ -156,18 +149,12 @@ decision rather than an oversight. To put VS Code's own auth back, drop
 ## Reaching it from another machine
 
 Nothing to do: `st0.priv.frediver.se` is a real name with a real certificate, so any
-machine that can reach the LAN server just opens it.
-
-This is the whole reason the move happened, and the list it replaces is worth keeping as
-a warning about what a `.test` name behind an internal CA costs. Every machine needed
-`192.168.x.x studio.test` in its own hosts file **and** Caddy's root CA
-(`%APPDATA%\Caddy\pki\authorities\local\root.crt`) installed — in Firefox's OWN
-certificate store, which ignores Windows'. A manually-accepted certificate warning was
-NOT enough for WebSockets. Nor was HTTP/3: browsers that negotiated QUIC lost their
-WebSockets (pages fine, `ws` dead), so the Caddy config stripped `Alt-Svc`, and a browser
-that had cached the old advertisement clung to h3 until a full restart. Node never trusted
-that CA at all, which is why a backend calling another service still uses `SERVICE_PORTS`
-on localhost rather than the public URL.
+machine that can reach the LAN server just opens it. That is the whole reason a public
+name is used here rather than an internal CA behind a `.test` one — a private CA has to
+be installed on every machine, in Firefox's own certificate store as well as Windows',
+node trusts it in neither, and a manually-accepted warning is not enough for WebSockets.
+A backend calling another service still takes `SERVICE_PORTS` on localhost rather than
+the public URL, for the reasons in [tokens.md](tokens.md).
 
 ## When something is wrong
 

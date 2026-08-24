@@ -127,7 +127,7 @@ describe("a gain as the strip's decibels", () => {
 
 describe("the deck's tempo is a MODULE, and the warp stands in for it", () => {
   it("names the médiathèque module the project actually puts on a deck", () => {
-    // `example.m9`'s nodes extend exactly this, and the scaffold's own test pins the other end.
+    // `example.st0`'s nodes extend exactly this, and the scaffold's own test pins the other end.
     expect(TEMPO_MODULE).toBe("@st0/audio/utility/tempo");
     expect(TEMPO_PARAM).toBe("Target BPM");
     expect(TEMPO_SOURCE_PARAM).toBe("Source BPM");
@@ -178,12 +178,12 @@ describe("stretching a deck to a tempo", () => {
 
 describe("the BPM fader's ends", () => {
   it("is the MODULE's knob, 10 to 300", () => {
-    // Not a range m9 invented: `@st0/audio/utility/tempo`'s ui.yaml declares this knob.
+    // Not a range the desk invented: `@st0/audio/utility/tempo`'s ui.yaml declares this knob.
     expect(BPM_RANGE).toEqual([10, 300]);
   });
 
   it("reaches any tempo a sync can ask for, so nothing has to be clamped", () => {
-    // The old fader was ±16 % of the song and had to widen; the module's range covers every real tempo.
+    // The module's range covers every real tempo, where a ±16 % fader would clamp a sync.
     const [lo, hi] = BPM_RANGE;
     for (const natural of [60, 90, 123.31, 174]) {
       expect(natural * (1 + PITCH_RANGE)).toBeLessThan(hi);
@@ -282,10 +282,10 @@ describe("filling the decks into the COMPILED project", () => {
     });
 
   it("keeps everything the project declared", () => {
-    // The whole point of the compiled document: m9 fills in the one thing the project cannot say.
+    // The whole point of the compiled document: the desk fills in the one thing the project cannot say.
     const before = compiled();
     const after = withDecks(before, loaded());
-    // Everything the project declared, in its order — plus the one track m9 appends for the click.
+    // Everything the project declared, in its order — plus the one track the desk appends for the click.
     expect(after.tracks.map((t) => t.id)).toEqual([
       ...before.tracks.map((t) => t.id),
       METRONOME_TRACK,

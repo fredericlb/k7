@@ -1,11 +1,11 @@
 # Ports — modules with more than one input
 
-A module used to have exactly the ports its **type folder** gave it: one audio in for `audio/`,
-one midi in for `instruments/`. That made the folder decide how many wires a module takes, which
-is not what a folder is for — a crossfade is an audio effect like any other and needs **two**
-audio inputs, and that was simply unsayable.
+A module declares its own ports rather than taking the ones its **type folder** would give it —
+one audio in for `audio/`, one midi in for `instruments/`. A folder is not for deciding how many
+wires a module takes: a crossfade is an audio effect like any other and needs **two** audio
+inputs, which a folder has no way of saying.
 
-A module now declares its own:
+So the file says it:
 
 ```yaml
 # modules/audio/crossfade/module.yaml
@@ -177,10 +177,10 @@ The route from that to the engine, in one line each:
 | `EditBuilder` | `setSidechainSourceID` plus its wires, in a pass after every lane exists |
 | `nodeProject` | emits `sidechainFrom` from `step.in`, which this layer already produced |
 
-Two of those read differently from the plan they came from. A **pair** per port, not one channel:
-Tracktion's own default routing maps a source's L/R onto the two channels after the pair, which is
-right for a crossfade, where the second input is a signal you hear — one mono channel would have
-summed it, which is right only for a compressor's trigger. And `sidechainFrom` names a **track**:
+Two of those are worth stating twice. A **pair** per port, not one channel: Tracktion's own
+default routing maps a source's L/R onto the two channels after the pair, which is right for a
+crossfade, where the second input is a signal you hear — one mono channel sums it, which is right
+only for a compressor's trigger. And `sidechainFrom` names a **track**:
 a step's `in` names nodes (a chain, or the track feeding one), and the engine routes from a lane,
 so the compiler resolves each down to the lane it compiles onto.
 
@@ -189,7 +189,7 @@ gets a pass of its own, and why the source had to go into the plugin's diff iden
 
 ### A deck feeding a port is still heard on its own
 
-The rough edge, found by writing the demo rather than by reading the code. `out` compiles as a
+The rough edge, and it shows in the demo rather than in the code. `out` compiles as a
 **parallel** path: that is what makes a send a send — the dry signal carries on to the master
 beside it — and a destination naming a port gets the same treatment. So a deck wired only to
 `crossfade#b` reaches the master twice, once raw and once through the module, and pushing Mix to

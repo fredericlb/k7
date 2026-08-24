@@ -1,9 +1,7 @@
-// The Auto Wah, written in JS — the same effect the engine ships as a compiled plugin, as a description.
+// The Auto Wah, written in JS — the effect as a description rather than as a compiled plugin.
 //
-// It began as a compiled C++ plugin (AutoWahPlugin), and this description was checked against it until the two
-// rendered bit-identical samples. That plugin is gone now — one auto-wah is enough, and the editable one is the
-// one worth keeping — so what pins this file today is autowah.test.ts, which holds it against the fallback graph
-// the engine still carries.
+// It is the only auto-wah: what pins it is autowah.test.ts, which holds this file against the
+// fallback graph the engine carries, so the two cannot drift apart.
 
 import { type GraphJson, graph, sr } from "./index";
 

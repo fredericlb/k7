@@ -16,13 +16,11 @@ the UI, since the routes are reachable without it.
 Read-only alone would be a dead end, though: a module has to be changeable somewhere. So a save aimed at a
 shared module is not refused — it is redirected.
 
-**One thing opts out: `ui.yaml`.** There used to be a general escape hatch, `editShared`, for the module builder
-whose whole subject *was* the library; the builder lives in the médiathèque now (see `moduleCatalogue.md`), so
-that one has no caller left and is gone. What replaced it is far narrower and named in `Workspace.write`: a
-module's **panel**, and nothing else. (Its `presets.yaml` is the same kind of file but stays inside the rule —
-a shelf is per-song taste, where a panel is per-plugin.) A panel is drawn for the plugin, not for the song, so forking a whole
-module to move a knob is precisely the copy nobody wanted — it was reason enough to invent a separate UI tree
-once, and this exception is what makes that tree unnecessary (see `uiLibrary.md`). Everything a module *is*
+**One thing opts out: `ui.yaml`.** There is no general escape hatch; the exception is narrow and named in
+`Workspace.write`: a module's **panel**, and nothing else. (Its `presets.yaml` is the same kind of file but
+stays inside the rule — a shelf is per-song taste, where a panel is per-plugin.) A panel is drawn for the
+plugin, not for the song, so forking a whole module to move a knob is precisely the copy nobody wanted — and
+this exception is what makes a separate UI tree unnecessary (see `uiLibrary.md`). Everything a module *is*
 stays read-only, and every save aimed into it forks — including one that meant it.
 
 ## What a fork does
@@ -35,9 +33,9 @@ stays read-only, and every save aimed into it forks — including one that meant
 2. **Name the copy after the track that plays it.** The first chain whose steps name the ref gives the name:
    `<track>_<leaf>_<n>`, with `<n>` stepping past any folder already there. A module the project doesn't play
    yet has no track to be named after and forks as `<leaf>_<n>` — it still forks, or the edit would be lost.
-   That rule is `instanceName.ts` and is not this file's alone any more: a NODE is named the same way
-   (`docs/nodes.md`), which is the same question asked about a use rather than about a copy. It was two
-   implementations that happened to agree, and one of them was a person typing.
+   That rule is `instanceName.ts` and is not this file's alone: a NODE is named the same way
+   (`docs/nodes.md`), which is the same question asked about a use rather than about a copy — one
+   implementation, so the two cannot come to disagree.
 3. **Copy the folder**, sidecars included, and write `content` as its module file.
 4. **Repoint the chains** — every step naming the ref now names the copy — *after* the files exist. A chain
    naming a module with no file is precisely what the compiler refuses to load.
@@ -47,8 +45,8 @@ The result is an ordinary project-local module. The next save goes straight to i
 Four details behind those four steps:
 
 - **`sharedRoots` reads through `moduleLibraryDirs`**, so the médiathèque is among them. A module the loader
-  keyed and the catalogue listed, but that this function did not see, was one the builder refused to open.
-- **`chainsUsing` counts `out` as well as `use`.** A module several things feed is a chain of its own now, and a
+  keys and the catalogue lists, but that this function cannot see, is one the builder refuses to open.
+- **`chainsUsing` counts `out` as well as `use`.** A module several things feed is a chain of its own, and a
   chain that only ever names itself tells nobody anything — which is why its own chain is left out. It is
   exported because naming a fork after its track and naming a NODE after its lane are the same question
   (`instanceName.ts`), and one question is entitled to one answer: the first chain it returns is the owner in
@@ -82,15 +80,16 @@ the point: the project now owns its copy, and a later edit to the library cannot
 says so in the status bar, naming the chains that moved. `FileTree` hides its mutating actions inside
 `_modules` entirely, so the read-only rule is visible before it is hit rather than after.
 
-The file tree is now the fork's ONLY entry point: it is what happens when a module file is opened as a *file*,
-in a song, rather than as a module. Opening it as a module means opening the médiathèque.
+The file tree is the fork's ONLY entry point: it is what happens when a module file is opened as a *file*,
+in a song, rather than as a module. Opening it as a module means opening it from the Libraries tab
+(`apps/st0/frontend/docs/sharedModules.md`), where a shared module is opened as shared.
 
 ## The other way in: a module with no folder at all
 
 `materialiseEngineModule` is the same act aimed at the opposite problem. A **scanned plugin** is a module with
 no files anywhere: `engineCatalogue` synthesises `@engine/<slug>` from the machine's scan cache, and a chain
 can name one with nothing on disk. That is a good arrangement — a plugin's substance is the plugin, and
-copying 273 folders of wrappers into every workspace is what `module populate` used to do and why it went.
+copying 273 folders of wrappers into every workspace buys nothing but the multiplication.
 
 It stops working the moment you want to *own* something about the module. A panel and a shelf of presets are
 FILES in a module's folder (`uiLibrary.md`, `userPresets.md`), so a module without one has nowhere to put

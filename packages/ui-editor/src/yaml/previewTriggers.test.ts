@@ -3,7 +3,7 @@ import { EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
 import { previewTriggers } from "./previewTriggers";
 
-// The ▶ gutter: which lines can be auditioned, and the cases a hand-rolled scanner had to get right.
+// The ▶ gutter: which lines can be auditioned, and the cases a hand-rolled scanner has to get right.
 
 const triggers = (doc: string) => {
   const state = EditorState.create({ doc, extensions: [yaml()] });

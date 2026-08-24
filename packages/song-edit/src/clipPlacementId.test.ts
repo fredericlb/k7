@@ -50,7 +50,7 @@ describe("clipFilePath", () => {
   });
 
   it("names the FILE it looked for, not only the id it was given", () => {
-    // The old line named the id alone — for a placement, the one string that is not a filename.
+    // Naming the id alone is useless here: for a placement, it is the one string that is not a filename.
     expect(() => clipFilePath(dir, "nope@16")).toThrow(
       /clips\/nope\.yaml does not exist/,
     );

@@ -33,14 +33,14 @@ describe("toPath", () => {
     expect(toPath(st({ full: "chains", panel: "logs" }))).toBe(
       "/chains?panel=logs",
     );
-    // `/docs` is the HELP page and `panel=graph` is a panel — two different things that both used to be spelled 'docs'.
+    // `/docs` is the HELP page and `panel=graph` is a panel — two different things, one in the path and one in the query.
     expect(toPath(st({ help: true, panel: "graph" }))).toBe(
       "/docs?panel=graph",
     );
   });
 
   it("names the desk like any other pane", () => {
-    // It was `/surface/desk` — a `view` surface was named by FILENAME, where a pane is named by the union.
+    // A pane is named by the union rather than by a surface's FILENAME, so the desk's address is `/turntables`.
     expect(toPath(st({ full: "turntables" }))).toBe("/turntables");
     expect(toPath(st({ full: "turntables", panel: "logs" }))).toBe(
       "/turntables?panel=logs",
@@ -100,7 +100,7 @@ describe("fromLocation", () => {
 
 describe("viewPanes", () => {
   it("gives the layout its timeline only when the project declares one", () => {
-    // The timeline is a `split` surface now, so the layout is a function of what the PROJECT says (packages/song/docs/surfaces.md).
+    // The timeline is a `split` surface, so the layout is a function of what the PROJECT says (packages/song/docs/surfaces.md).
     expect(viewPanes({ timeline: true })).toEqual({
       ring: ["timeline", "chains"],
       fullscreen: ["editor", "timeline", "chains"],
@@ -184,8 +184,8 @@ describe("viewPanes", () => {
     expect(fromLocation("/viewport", "", { viewport: false })).toEqual(st());
   });
 
-  it("lands an old `/video` bookmark on the frame", () => {
-    // It was the picture pane's address for a year, and is subject to the same check as any other.
+  it("lands a `/video` bookmark on the frame", () => {
+    // `/video` is an alias of the picture pane, subject to the same declared-surface check as any other address.
     expect(fromLocation("/video", "", { viewport: true }).full).toBe(
       "viewport",
     );

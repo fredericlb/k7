@@ -21,22 +21,18 @@ a live plugin**, however the graph is drawn.
 So its four outputs are four **files**, and the module says so with
 `plugin: { type: offline }` — a third recognised plugin type meaning "no engine plugin; a
 pass produces the outputs before the render". It is a word rather than a silence because
-the compiler's gate drops any type it does not know, which is how every `jsdsp` module once
-vanished from a compile with no warning at all.
+the compiler's gate drops any type it does not know, silently — an unrecognised type is how a
+module vanishes from a compile with no warning at all.
 
-The wiring is still real: `graph.yaml` can key a module by its output
-(`stemsplit#vocals: [ reverb ]`), the derivation now carries that port along the edge, and
+The wiring is real: `graph.yaml` can key a module by its output
+(`stemsplit#vocals: [ reverb ]`), the derivation carries that port along the edge, and
 the graph draws a jack per stem. See `@studio/song`'s [ports.md](../../song/docs/ports.md).
 
 ## Why a job, when `/render` refuses one
 
-[render.md](render.md) argues against a job registry, and it is still right about a render.
-Its own comment named the case that would change the answer:
-
-> `--stems` is not offered here for the same reason: it produces N files, which needs a job
-> to hold them, and nothing asks for it.
-
-Something asks now, and a separation scores "job" on every row of
+[render.md](render.md) argues against a job registry, and it is right about a render: one
+streamable file, seconds, a caller that can simply wait. A separation is the case that turns
+every one of those over, and it scores "job" on every row of
 [cloneJobs.md](cloneJobs.md)'s table: **minutes** rather than seconds, a **person** waiting
 rather than a server, **four files** rather than one streamable body, and a subprocess with
 progress worth reporting.
@@ -53,12 +49,12 @@ progress worth reporting.
 
 ## Why 24-bit WAV, and not float or FLAC
 
-The format is decided by the **consumer**, and the consumer changed. While a stem's only
-destination was another chain, float32 was the obvious answer: nothing downstream would ever
-be worse than the model's own output, so rounding on the way out was a loss taken for nobody.
-The desk's four knobs made a stem something a PLATTER opens
-([ui-turntables/docs/stems.md](../../ui-turntables/docs/stems.md)), and that reopens the
-question.
+The format is decided by the **consumer**, and the consumer is a PLATTER: the desk's four
+knobs make a stem something a deck opens
+([ui-turntables/docs/stems.md](../../ui-turntables/docs/stems.md)). Were another chain the only
+destination, float32 would be the obvious answer — nothing downstream is ever worse than the
+model's own output, so rounding on the way out is a loss taken for nobody. A deck loads the file
+itself, and that decides it.
 
 Tracktion reads WAV, AIFF and its own `FloatAudioFormat` **directly**, and decodes everything
 else into a cached proxy first:
@@ -77,7 +73,7 @@ formats that need no proxy, and there 24 bits is simply the small one:
 
 | | one stem, 4 min stereo | the four | thirty songs |
 |---|---|---|---|
-| float32 (what this wrote) | 85 Mo | 339 Mo | ~10 Go |
+| float32 | 85 Mo | 339 Mo | ~10 Go |
 | **24-bit** | 64 Mo | 254 Mo | ~7,5 Go |
 | FLAC | ~20 Mo | ~85 Mo | ~2,5 Go — behind a proxy |
 
@@ -118,26 +114,24 @@ channel, since every stem sees the same windows.
 
 The WAV writer is by hand: a 44-byte header is smaller than the argument for a dependency.
 
-## The second door is `POST /process`, and `/stems` is GONE
+## The second door is `POST /process`
 
 There are two doors. `POST /separate` is per MACHINE and takes absolute paths, including the
-model's: a caller that already knows both. The other one used to be `POST /stems` —
-workspace-scoped, taking one **cache-relative** song — and that is exactly why it went: it resolved
-into a médiathèque mirror this machine no longer keeps.
+model's: a caller that already knows both.
 
-`POST /process` replaces it ([processChain.md](processChain.md)). The audio ARRIVES in the request
-body rather than being looked up, because the caller is pl8, which holds the masters and drives the
-cut. Nothing about the worker, the registry or `stems/` below changed — only where the bytes come
-from and who is waiting.
+`POST /process` is the other ([processChain.md](processChain.md)). The audio ARRIVES in the request
+body rather than being named and looked up, because the caller is pl8, which holds the masters and
+drives the cut; nothing on this side resolves a song by name. The worker, the registry and `stems/`
+below are the same either way — only where the bytes come from and who is waiting differ.
 
-**The chain is still the machine's answer.** `~/.studio/preferences.yaml`'s `stemsChain`, written
+**The chain is the machine's answer.** `~/.studio/preferences.yaml`'s `stemsChain`, written
 once by `system stems <chaîne>`, is what `/process` falls back to when the caller names none. That
 is the shape rather than a shortcut: which module separates and which model it wants does not vary
 by set list, by project or by record, so a caller made to name one would be asked the same question
-at every use. What changed is that a caller MAY now name one, because pl8 knows which song and this
-machine knows how it cuts — the default carries the old rule without forbidding the other.
+at every use. A caller MAY name one all the same, because pl8 knows which song and this machine
+knows how it cuts — the default carries that rule without forbidding the other.
 
-The freshness check moved with the work: **pl8 asks its own disk first**, and a song whose `stems/`
+The freshness check is pl8's too: **it asks its own disk first**, and a song whose `stems/`
 already holds audio never reaches this machine at all. That is what lets a machine which has never
 been told how to separate still light the knobs on songs somebody prepared earlier.
 
@@ -223,24 +217,24 @@ number of samples.
 
 ## The call site
 
-~~What is not wired yet.~~ It is: `clip process <clip> <chain>` over a chain whose step is an
-offline module runs this. `mediatekChain` diverts the step instead of resolving it to a plugin,
+`clip process <clip> <chain>` over a chain whose step is an offline module runs this.
+`mediatekChain` diverts the step instead of resolving it to a plugin,
 `coldPass.ts` says which model and whether this machine has it, and `processWithChain` runs the
 pass in place of the bounce — no render, no repoint, four files under `stems/`. The rules that
 follow (a chain separates or treats, never both; the pass runs before the engine check) are in
 `@studio/commands`' [processChain.md](../../commands/docs/processChain.md).
 
-The running still arrives **as a function** for the reason it always did — the inference is here,
-in a package that depends on `@studio/commands`, so importing it back would be a cycle. The seam
+The running arrives **as a function**, and has to: the inference is here, in a package that
+depends on `@studio/commands`, so importing it back would be a cycle. The seam
 is `CommandHost.runColdStep`, and this service's implementation is the one place that knows what
 "run it" means here: `startSeparate` + poll, so a `clip process` gets the registry's two
 properties for free — the id hashes the WORK, so a retry or a second tab joins the run in flight,
 and the hour of arithmetic stays on a worker thread while the service answers everything else.
 
 The cost, said out loud: one `/command` request stays open for the length of a separation. The
-job registry exists precisely so that a *browser* need not — `POST /separate` is still there and
-still start-then-poll — but a command reports what it wrote, and a verb that returned a job id
-would be a different verb.
+job registry exists precisely so that a *browser* need not — `POST /separate` is start-then-poll
+for exactly that — but a command reports what it wrote, and a verb that returned a job id would
+be a different verb.
 
 **And a whole set at once** is `playlist stems <playlist> <chain>`, which runs this over every
 song a set list names, on this machine's médiathèque cache. It is the preparation half of cutting

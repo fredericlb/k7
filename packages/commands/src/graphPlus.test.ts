@@ -1,10 +1,8 @@
 // What the graph's `+` and its right-click end up writing: `node new` and `node insert`.
 //
 // Both take a node that EXISTS — one drops it in the graph wired to NOTHING, the other splices
-// it into an arrow — and neither creates anything. They used to: each took a `<category>/<name>`
-// and made the module first, which is what made `node insert` indistinguishable from the
-// `chain add` that did the same splice on a module already there. Creating is `module new`'s
-// (packages/song/docs/nodes.md), so the picker writes two lines now, and these are the second.
+// it into an arrow — and neither creates anything: creating is `module new`'s
+// (packages/song/docs/nodes.md), so the picker writes two lines and these are the second.
 //
 // The failure worth guarding against is still the quiet one: naming in graph.yaml something
 // that has no file, which is exactly what the compiler refuses to load.
@@ -35,7 +33,7 @@ const host = () =>
   }) as never;
 
 const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
-/** The picker's two lines: `module new` stopped making nodes, so this is two commands. */
+/** The picker's two lines: `module new` makes no node, so this is two commands. */
 const make = async (target: string, node: string) => {
   await runCommand(`module new ${target}`, host(), "cli");
   await runCommand(`node new ${target} ${node}`, host(), "cli");

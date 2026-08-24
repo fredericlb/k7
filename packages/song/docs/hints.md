@@ -36,9 +36,9 @@ silently compile into a Tracktion audio clip.
 walked, as assets-relative paths (`Two-Rock/Clean.nam`), keyed by the chain `use` ref. What the
 panel's dropdown offers, and what a `node param <node> nam …` is checked against. One with none is
 absent rather than empty. Per module, because a module carries the files it loads — there is no
-project-wide library to list any more. Its ancestors' assets count too: a thin local module
-extending a shared amp carries none of its own, and offering nothing there is what made the
-picker open empty. One walk covers every module — see `assetLookup`.
+project-wide library to list. Its ancestors' assets count too: a thin local module extending a
+shared amp carries none of its own, and offering nothing there opens the picker empty. One walk
+covers every module — see `assetLookup`.
 
 **`paramMetaByBase`** — what the params of a base SPAN, for the bases whose plugin is a built-in
 we define (`builtinParams.ts`). Only a plugin knows its own range, and a widget bound without one
@@ -53,7 +53,7 @@ note editors relabel notes as symbols (and enter by symbol) when a sequence name
 symbols reports the whole thing.
 
 **`keywords`** — the words YAML itself gives meaning to, offered so they can be completed rather
-than mistyped. `on`/`off`/`yes`/`no` are the ones that bite: YAML 1.1 read them as booleans, so a
+than mistyped. `on`/`off`/`yes`/`no` are the ones that bite: YAML 1.1 reads them as booleans, so a
 plugin called "on" has to be quoted.
 
 **`pluginNames`** — scanned plugin names grouped by format (lowercased key), e.g.
@@ -94,31 +94,30 @@ naming one stays legal and stays typable, it is simply not suggested.
 on modules that extend it or are nodes of it.
 
 The first source is the only complete one. The other two are learned from what somebody wrote
-down, so a built-in nobody has authored a param on yet — the mixer, on the day it shipped — has an
-empty bind list and no panel can be built for it.
+down, so a built-in nobody has authored a param on yet has an empty bind list and no panel can be
+built for it.
 
 Nodes count, and they arrive as ORDINARY extenders: one use of `mixer` is a file in `nodes/` that
-extends it. Leaving them out meant every param on every strip in a real song was invisible here.
+extends it. Leaving them out makes every param on every strip in a real song invisible here.
 
-### `byExtends` — the index that replaced a nested loop
+### `byExtends` — one pass instead of a nested loop
 
 `byExtends` maps each base ref to what its extenders have written on it, built once in one pass.
 
-This was a scan of every module INSIDE the loop over every base ref, with a fresh
-`Object.values(modules)` per turn. On `01.danse.st0` that is 573 base refs × 395 modules — 226 000
-comparisons and 573 allocations of the same array — and it was most of the 55 ms `/hints` costs,
-paid after every command in the app.
+Scanning every module INSIDE the loop over every base ref, with a fresh `Object.values(modules)`
+per turn, is 573 base refs × 395 modules on `01.danse.st0` — 226 000 comparisons and 573
+allocations of the same array, most of the 55 ms `/hints` costs, paid after every command in the
+app.
 
 A node needs no case of its own: it names what it uses with `extends`, like any other extender.
 Both spellings of a LOCAL ref land in the same bucket — a project's own module answers to the bare
 `<category>/<file>` and to `@project/<category>/<file>`, and new files write the second (see
-`loadModuleRefs`). A namespaced ref (`@st0/…`) has no second spelling and is kept whole, which is
-what the old `=== ref` arm did for it.
+`loadModuleRefs`). A namespaced ref (`@st0/…`) has no second spelling and is kept whole.
 
 The ref is normalised on the way IN too. `loadModuleRefs` registers a local module under both
 spellings, so `baseRefs` holds `audio/amp` AND `@project/audio/amp`; folding only the module side
-left the second one reading an empty bucket — 238 entries where there were 239, which is exactly
-the kind of off-by-one a rewrite of a nested loop is for.
+leaves the second one reading an empty bucket — 238 entries where there are 239, which is exactly
+the kind of off-by-one this shape is exposed to.
 
 ## `paths` — turning a reference into a link
 
@@ -130,12 +129,12 @@ are tried and the one on disk wins.
 
 `"module:"` keys by the chain `use` ref and points at the file that IS that thing: a module is
 `modules/<type>/<name>/module.yaml`, a node is `nodes/<name>.yaml`. A node carries its own folder
-in `home` precisely because it is no longer under the module it uses. `"base:"` keys by
+in `home` precisely because it does not sit under the module it uses. `"base:"` keys by
 `"type/name"` — an `extends` ref, always a module.
 
 For a base, the FIRST segment is the type and the rest is the name, filing included: a module may
-sit at `modules/audio/amps/neural-amp-modeler/`, so destructuring two segments sent "go to this
-module" at the category folder — a path with no `module.yaml` in it.
+sit at `modules/audio/amps/neural-amp-modeler/`, so destructuring two segments would send "go to
+this module" at the category folder — a path with no `module.yaml` in it.
 
 The `@project/` spelling is aliased to the same entry. It is the SAME module — `loadModuleRefs`
 registers both, and a real file's `extends` may use either — and without the alias a ctrl-click

@@ -1,8 +1,8 @@
-/* ─── from App.vue ─── */
+/* ─── app globals ─── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #0f0c29; }
 
-/* ─── from RemoteView.vue ─── */
+/* ─── the remote view ─── */
 
 .auth-overlay {
   position: fixed;
@@ -992,7 +992,7 @@ html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #0f
 }
 
 
-/* ─── from LoginGate.vue ─── */
+/* ─── the login gate ─── */
 .login-gate {
   position: fixed;
   inset: 0;
@@ -1044,7 +1044,7 @@ html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #0f
   background: rgba(0, 255, 136, 0.15);
 }
 
-/* ─── from AuthBadge.vue ─── */
+/* ─── the auth badge ─── */
 .auth-badge {
   position: fixed;
   top: 6px;
@@ -1088,7 +1088,7 @@ html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #0f
 }
 .auth-logout:hover { background: rgba(255, 68, 136, 0.15); }
 
-/* ─── from shared SessionPicker.vue ─── */
+/* ─── the shared session picker ─── */
 .panel-title {
   display: flex;
   align-items: center;
@@ -1256,7 +1256,7 @@ html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #0f
   font-variant-numeric: tabular-nums;
 }
 
-/* ─── panel primitives SessionPicker relies on (from online App.vue) ─── */
+/* ─── panel primitives the session picker relies on ─── */
 .panel { display: flex; flex-direction: column; border: 1px solid #fff; background: #050505; }
 .panel-title { padding: 4px 10px; font-size: 11px; letter-spacing: 0.1em; color: #fff; background: #000; border-bottom: 1px solid #444; text-transform: uppercase; }
 .panel-body { padding: 8px 10px; }

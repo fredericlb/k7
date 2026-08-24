@@ -4,10 +4,6 @@ Rien sur ce pupitre n'est câblé en dur. Chaque contrôle porte un identifiant,
 DÉPLACE est écrit dans le projet — repointer une ligne de `views/mix.yaml` suffit à envoyer le
 fader de gauche sur la platine de droite.
 
-(Cette page a longtemps commencé par le contraire : le crossfader posait `Volume` sur
-`deckA:level` et `deckB:level` depuis le code de m9, sans que rien ne le dise. C'est ce que la
-déclaration a remplacé.)
-
 `controls.ts` donne un identifiant à chaque contrôle ; un contrôle par platine est DÉRIVÉ des
 platines, pour qu'une troisième platine ne soit pas silencieusement impossible à lier.
 
@@ -66,9 +62,9 @@ dessiner.
 
 La seconde moitié du trajet appartient à `@studio/ui-chains/graph`. Écrite à la main —
 `min + unit × (max − min)` — elle n'est juste que pour un widget **linéaire sans `step`** : un
-paramètre `curve: log` bougé depuis le pupitre atterrissait ailleurs que le même paramètre bougé
-sur le graphe, dans la même app, sur le même plugin. st0 appelle la fonction partagée ; le
-pupitre aussi, désormais.
+paramètre `curve: log` bougé depuis le pupitre atterrirait ailleurs que le même paramètre bougé
+sur le graphe, dans la même app et sur le même plugin. st0 et le pupitre appellent donc tous
+deux la fonction partagée.
 
 ## Une ligne qui ne résout pas est DITE
 
@@ -81,7 +77,7 @@ différence entre un fader mort et un fader réparable.
 
 Le WIDGET manquant est le seul cas non fatal : sans lui il n'y a pas de `min`/`max`, donc rien à
 mettre à l'échelle — mais la cible existe, et la déclarer cassée serait faux. La liaison résout
-sans widget et l'appelant décide (m9 envoie les unités du contrôle).
+sans widget et l'appelant décide (le pupitre envoie les unités du contrôle).
 
 Un contrôle **nommé et non câblé** — ce dont un squelette de surface est fait — est sauté sans
 un mot ici : `unmappedControls` le rapporte une fois, en portail au-dessus de tout le pupitre.
@@ -89,7 +85,7 @@ Le dire deux fois donnerait deux phrases pour une seule ligne à remplir.
 
 ## Les deux chemins
 
-Le crossfader et les six potards d'EQ passent par leur liaison vers un PARAMÈTRE : m9 joue le
+Le crossfader et les six potards d'EQ passent par leur liaison vers un PARAMÈTRE : le pupitre joue le
 document compilé (voir [mix.md](mix.md)), donc `deckA:crossfade` et `deckA:eqA` sont des
 plugins chargés par le moteur, et bouger la commande pose le paramètre dessus. Un message par
 mouvement, à chaque pixel. Voir [eq.md](eq.md).
@@ -108,7 +104,7 @@ ce qui joue et non sur le câblage) ; ce qu'il DÉPLACE vient du fichier.
 
 ### Qui décide du chemin — et pourquoi ce n'est pas le graphe
 
-C'est le DOCUMENT COMPILÉ, jamais le graphe, et la nuance a coûté un commit entier.
+C'est le DOCUMENT COMPILÉ, jamais le graphe, et la nuance est plus fine qu'elle n'en a l'air.
 
 `buildGraphDoc` donne un `pluginId` à CHAQUE étape d'une chaîne : l'adresse
 `chaîne:module` que l'étape *aurait*. Y compris aux étapes dont le compilateur n'émet aucun

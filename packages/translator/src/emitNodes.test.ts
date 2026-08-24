@@ -70,7 +70,7 @@ describe("import: one module per plugin, one node per use", () => {
     expect(chains).toContain("drums: [ reverb_drums ]");
   });
 
-  it("keeps a single-use plugin exactly as it was — no node file", () => {
+  it("keeps a single-use plugin in its module — no node file", () => {
     const stats = emitFolder(
       dir,
       song([track("vox", [fx("Reverb", { mix: 0.2 })])]),
@@ -164,7 +164,7 @@ describe("what comes out is the arrangement that went in", () => {
     }) as never;
 
   it("places each clip at the beat it came from", () => {
-    // Only the START is the arrangement's business now; the extent moves to the clip file as a window.
+    // Only the START is the arrangement's business; the extent lives in the clip file as a window.
     emitFolder(dir, song([clipTrack()]), { "a.wav": new Uint8Array([82]) });
     const doc = compileNodeProject(dir);
     const vox = doc.tracks.find((t) => t.id === "vox");

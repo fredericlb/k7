@@ -3,11 +3,9 @@
 // slug a plugin earns).
 //
 // A leaf on purpose. These tables are the one thing everything about a module derives
-// from — `kind`, `inputs`, `emits`, the ref a `ui.yaml` panel answers to — and they were
-// inside loader.ts, which reads files. Anything wanting to know what `audio/` means had
-// to import the loader, and the engine catalogue (which knows about plugins and nothing
-// about folders) could not import it at all without a cycle. loader.ts re-exports every
-// name below, so no existing importer changes.
+// from — `kind`, `inputs`, `emits`, the ref a `ui.yaml` panel answers to — so knowing what
+// `audio/` means costs no import of a loader that reads files, and the engine catalogue
+// (which knows about plugins and nothing about folders) can reach them without a cycle.
 
 /** The io roles the signal comes FROM; everything else under `io/` is a sink by ELIMINATION — see docs/moduleTypes.md. */
 export const IO_SOURCES = ["in", "file"] as const;
@@ -222,7 +220,7 @@ export function engineModuleOf(p: {
 }): { ref: string; plugin: { type: string; name: string } } | null {
   const slug = slugifyPluginName(p.name ?? "");
   if (!slug) return null;
-  // The FORMAT lowercased, never the role: taking the role mislabelled forty VST3s (docs/moduleTypes.md).
+  // The FORMAT lowercased, never the role: the role mislabels a VST3 as whatever it does (docs/moduleTypes.md).
   return {
     ref: engineRef(slug),
     plugin: { type: String(p.format ?? "").toLowerCase(), name: p.name },
@@ -277,7 +275,7 @@ export {
   TRACK_OUTPUTS,
 } from "@studio/graph-model";
 
-/** What a lane extended when `extends:` still said its signal, for the DIAGNOSTIC alone — nothing resolves these (docs/moduleTypes.md). */
+/** The signal-typed lane refs a project on disk may carry, for the DIAGNOSTIC alone — nothing resolves these (docs/moduleTypes.md). */
 export const LEGACY_TRACK_REFS: Record<string, string> = {
   [`${STUDIO_NS}/audio-track`]: TRACK_REF,
   [`${STUDIO_NS}/sequence-track`]: TRACK_REF,
@@ -303,7 +301,7 @@ export const MODULE_NAMESPACES = [
 ] as const;
 export type ModuleNamespace = (typeof MODULE_NAMESPACES)[number];
 
-/** What this level was called before and nothing more — a NAME, not an accepted spelling, since nothing resolves it (docs/moduleTypes.md). */
+/** The other name this level answers to on disk — a NAME and not an accepted spelling, since nothing resolves it (docs/moduleTypes.md). */
 export const LEGACY_MEDIATEK_NS = "mediatek";
 
 /** Where the account's LIBRARY REPOSITORY is mounted at the workspace root — fixed, never declared (docs/sharedFolders.md). */

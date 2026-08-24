@@ -66,7 +66,7 @@ describe("a lane playing an alternative", () => {
 
   it("moves a clip into the SET, leaving the module's own arrangement alone", () => {
     const after = movePlacement(INHERITING, "1:1", "3:1");
-    // The bug: this used to be [3:1, 5:1] — take 1 rewritten by an edit made on take 2.
+    // [3:1, 5:1] here would mean take 1 rewritten by an edit made on take 2.
     expect(own(after)).toEqual([
       { ref: "take1_a", start: "1:1" },
       { ref: "take1_b", start: "5:1" },
@@ -120,7 +120,7 @@ describe("a lane playing an alternative", () => {
   });
 
   it("still edits the module's own list when the FIRST set is on", () => {
-    // The ordinary case, and the one that must not have moved: no `alternative:` key at all.
+    // The ordinary case, and the one that must not move: no `alternative:` key at all.
     const plain = `extends: "@studio/track"
 events:
   - { ref: a, start: "1:1" }

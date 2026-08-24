@@ -42,7 +42,7 @@ describe("the model survives the round trip", () => {
   it("reads nodes, destinations and bypass", () => {
     const { value, issues } = parseGraph(AUTHORED);
     expect(issues).toEqual([]);
-    // ONE map: the lanes and the modules are the same kind of node now.
+    // ONE map: a lane and a module are the same kind of node.
     expect(value?.modules?.["vo.jo"]).toEqual(["eq_dj:vox"]);
     expect(value?.modules?.["da.main"]).toEqual(["drum_1"]);
     expect(value?.modules?.["amp:bass"]).toEqual(["cabinet"]);
@@ -108,7 +108,7 @@ describe("bypassing a module", () => {
 
 describe("placing a module with no wiring", () => {
   it("adds it to `modules` with an empty destination list", () => {
-    // The state the list format could not express — see docs/graphEdits.md.
+    // A node on the graph and wired to nothing is a state of its own — see docs/graphEdits.md.
     const after = addNode(AUTHORED, "wah");
     expect(after).toContain("wah: []");
     expect(parseGraph(after).value?.modules?.wah).toEqual([]);

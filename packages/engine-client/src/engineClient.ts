@@ -10,7 +10,7 @@ import {
 } from "@studio/song/project";
 import { EngineControl } from "./engineControl";
 
-// Re-exported so `@studio/engine-client/engineClient` importers keep resolving what they used to get here.
+// Re-exported so an importer of `@studio/engine-client/engineClient` gets the control types too, without a second import.
 export type {
   AudioDeviceInfo,
   EditPluginInfo,

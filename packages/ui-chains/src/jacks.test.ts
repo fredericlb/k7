@@ -91,7 +91,7 @@ describe("jacksFor", () => {
       { name: "main", type: AUDIO },
       { name: "cue", type: AUDIO },
     ];
-    // A cable naming no port is the FIRST output, so `cue` stays free — occupancy is per socket now.
+    // A cable naming no port is the FIRST output, so `cue` stays free — occupancy is per socket.
     expect(jacksFor(outs, fed(""), AUDIO, false)).toEqual([
       { name: "main", type: AUDIO, free: false },
       { name: "cue", type: AUDIO, free: true },
@@ -145,7 +145,7 @@ describe("the sockets a built graph puts on its nodes", () => {
   });
 
   it("gives a lane an input socket, and a SPARE beside the output that is taken", () => {
-    // A lane used to have neither, so nothing could be routed into it and no second send was possible.
+    // Without both, nothing can be routed into a lane and no second send is possible.
     const { nodes } = buildGraph(wired);
     const deck = nodes.find((n) => n.id === "trk:deckA");
     expect(deck?.jacks?.in).toEqual([{ type: AUDIO, free: true }]);
@@ -210,8 +210,8 @@ describe("the sockets a built graph puts on its nodes", () => {
     ]);
   });
 
-  it("carries the port through layout, where it used to be dropped", () => {
-    // `targetPort` was set on the raw edge and then dropped by `layout` — see docs/graphBuild.md.
+  it("carries the port through layout", () => {
+    // `targetPort` is set on the raw edge, and `layout` has to carry it over — see docs/graphBuild.md.
     const { nodes, edges } = buildGraph(wired);
     const laid = layout(nodes, edges);
     // deckB runs no modules, so its chain's pass-through node is what the ported cable leaves.
@@ -321,7 +321,7 @@ describe("where a cable plugs in", () => {
   });
 
   it("drops dagre's waypoints — a patch bay's cables do not skirt anything", () => {
-    // They used to be kept, so a send bent around the module it skipped. See docs/graphBuild.md.
+    // Kept, they bend a send around the module it skips. See docs/graphBuild.md.
     const bend = { x: 20, y: 400 };
     const path = cablePath(
       {

@@ -49,8 +49,8 @@ void EngineHost::openAudioDevice() {
     // INPUTS are opened too, and that is not decoration: with zero input channels open the audio callback delivers
     // no input samples at all, so no WaveInputDevice ever sees one. Every input then meters exactly -100 for ever
     // while its device still reports itself enabled — which is what an interface with nothing plugged in looks
-    // like, so nothing anywhere reports a fault. It used to open `(0, 2)`; the only reason recording appeared to
-    // work is that switching device by hand goes through setAudioDevice(), which sets useDefaultInputChannels.
+    // like, so nothing anywhere reports a fault. Switching device by hand HIDES it: setAudioDevice() sets
+    // useDefaultInputChannels, so recording works right up until an engine opens the device itself.
     // 512 is Tracktion's own default, and means "as many as the device has".
     auto& dm = impl_->engine.getDeviceManager();
     dm.initialise(512, 2);
@@ -206,13 +206,11 @@ void EngineHost::buildLevelMeters(const std::string& session) {
      * own order: `MIX -> [chain] -> OUT`, then the engine observing what leaves, which is the
      * point of observing it.
      *
-     * It sat LAST, after both, while the fader and the Fix button were separate controls: the
-     * meter answered for the mix and the trim was a delivery decision on top of it. They are one
-     * control now — Fix writes this very param — and a Fix the meter could not see would leave the
-     * clip light lit and offer itself again on the next pass, taking another 6 dB each time. So
-     * the order follows the graph, and the two costs of that are stated rather than hidden:
-     * raising the output raises the bar, and a listener on the broadcast hears the level this room
-     * is set to. See packages/song/docs/masterVolume.md.
+     * The meter MUST sit after it: Fix writes this very param, and a Fix the meter could not see
+     * would leave the clip light lit and offer itself again on the next pass, taking another 6 dB
+     * each time. The two costs of following the graph are stated rather than hidden: raising the
+     * output raises the bar, and a listener on the broadcast hears the level this room is set to.
+     * See packages/song/docs/masterVolume.md.
      */
     impl_->session(session).masterGain = studio::masterGainOf(*impl_->session(session).edit);
 
@@ -230,8 +228,8 @@ void EngineHost::buildLevelMeters(const std::string& session) {
         impl_->session(session).masterMeter = master;
     }
 
-    // The broadcast tap goes back on the same list. A rebuild threw away the old edit and
-    // every plugin on it, so the WISH is what survived — without this, saving a file
+    // The broadcast tap goes back on the same list. A rebuild throws away the old edit and
+    // every plugin on it, so the WISH is what survives — without this, saving a file
     // silences every listener, which is not a fault anyone would trace back to a save.
     if (impl_->session(session).broadcastWanted) {
         impl_->session(session).broadcastPlugin = nullptr;
@@ -356,7 +354,7 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
             case ChangeKind::ClipMoved:
                 // Re-INSERT, not reposition: start, length, source, offset, source window, loop and warp are all
                 // applied at insert time and nowhere else, so setStart/setLength would drop everything but two.
-                // This was an empty stub, and the diff reported "moved" the whole time — see docs/engineHost.md.
+                // See docs/engineHost.md.
                 if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.clip) {
                     removeClipFor(*t, *c.clip);
                     if (c.clip->type == ClipType::Midi) insertMidiClip(edit, *t, *c.clip);
@@ -364,17 +362,17 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                 }
                 break;
             /**
-             * The one new plugin, into the LIVE track — what used to cost a whole rebuild.
+             * The one new plugin, into the LIVE track, rather than a whole rebuild.
              *
-             * Measured before this existed: adding one module to a 32-plugin song spent 4026 ms of a 4169 ms
-             * apply re-instantiating the 31 that had not changed, with the transport dead for all of it.
+             * What the rebuild costs, measured: adding one module to a 32-plugin song spends 4026 ms of a
+             * 4169 ms apply re-instantiating the 31 that did not change, with the transport dead for all of it.
              *
              * The position is read off the LIVE plugin list rather than from the document's own index, because
              * the two do not agree: a waveform tap is a plugin in this same list (watchWaveform inserts one
              * beside the module it watches), so a document index would land in the wrong place the moment a
              * waveform widget is open. We find the doc plugin that PRECEDES this one and insert after it.
              *
-             * Anything that does not hold falls back to the rebuild it replaced. That is the same trade the
+             * Anything that does not hold falls back to a full rebuild. That is the same trade the
              * rule in needsFullRebuild states — this path has to be exactly right or not taken.
              */
             case ChangeKind::PluginAdded: {
@@ -421,19 +419,19 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
             // --- Skeletons: structurally located, engine call TODO ------------
             // Each of these has a clear home; they are left explicit rather than faked, so the compiler keeps reminding us.
             // A stub here is NOT free: the diff still reports the change, so the log says it was applied while nothing
-            // moved. ClipMoved sat here for as long as it took a tempo fader to be built on top of it.
+            // moved.
             case ChangeKind::TrackRemoved:
                 // te::deleteRegionOfTracks / edit.deleteTrack(*t) — needs the Track (not just AudioTrack) and an undo transaction.
                 break;
             /**
              * Take the one plugin out of the LIVE chain, which is what unlinking a module is.
              *
-             * This rebuilt the whole Edit until now, and a rebuild replaces the Edit — so it replaces the
-             * TRANSPORT with it, and playback stops. That is the entire bug report: "unlinking an instance stops
-             * playback". Removing it in place leaves everything else, including what is rolling, untouched.
+             * A full rebuild replaces the Edit — and the TRANSPORT with it, so playback stops: taken that way,
+             * unlinking an instance stops the song. Removing it in place leaves everything else, including what
+             * is rolling, untouched.
              *
-             * `deleteFromParent` on a plugin in a playing chain is not new here — disableWaveformTap has always
-             * pulled its tap out that way.
+             * `deleteFromParent` on a plugin in a playing chain is safe — disableWaveformTap pulls its tap out
+             * the same way.
              */
             case ChangeKind::PluginRemoved: {
                 if (!c.plugin) break;
@@ -774,7 +772,7 @@ void EngineHost::enableBroadcast(const std::string& session, bool on) {
     if (!impl_->session(session).edit) return;                        // reasserted by buildLevelMeters later
 
     // On the MASTER list, so it hears the mix after everything — exactly like the master level
-    // meter it sits beside, and after the output gain both of them now follow. A listener hears
+    // meter it sits beside, and after the output gain both of them follow. A listener hears
     // what leaves for the interface, which is what a render and a share carry too.
     auto tap = impl_->session(session).edit->getPluginCache().createNewPlugin(
         studio::BroadcastTapPlugin::xmlTypeName, {});
@@ -783,9 +781,8 @@ void EngineHost::enableBroadcast(const std::string& session, bool on) {
     // reach it at any moment, and a plugin with no ring yet would drop those blocks.
     if (auto* bt = dynamic_cast<studio::BroadcastTapPlugin*>(tap.get()))
         bt->setTap(&impl_->session(session).broadcastRing);
-    // Appended. It used to insert AT the gain to stay upstream of it, back when the output trim
-    // was the last thing on the list; the trim is the OUT node's own param now and goes on ahead
-    // of both readers (buildLevelMeters), so there is nothing left to stay in front of.
+    // Appended: the output trim is the OUT node's own param and goes on ahead of both readers
+    // (buildLevelMeters), so the tap has nothing left to stay in front of.
     impl_->session(session).edit->getMasterPluginList().insertPlugin(tap, -1, nullptr);
     impl_->session(session).broadcastPlugin = tap;
 }
@@ -907,8 +904,8 @@ private:
      *
      * Long enough to survive a reload, a redraw and a flaky minute of Wi-Fi; short enough that
      * closing a tab and walking to the machine finds it free. Those are the two failures being
-     * traded, and neither is a corner case: a refcount with no grace at all was rejected in
-     * docs/sessions.md precisely because it took a loaded project away on every tab reload.
+     * traded, and neither is a corner case: a refcount with no grace at all takes a loaded project
+     * away on every tab reload — see docs/sessions.md.
      */
     static constexpr double kDriverGraceMs = 45 * 1000.0;
     // Every five seconds at the 50 ms tick — a hundredth of the grace, so what a person sees is
@@ -918,9 +915,9 @@ private:
     /**
      * How many ticks an IDLE session skips before it sends one anyway.
      *
-     * A frame went out every 50 ms whether or not anything was happening, and a browser paid for
-     * all of it: parse, then every subscriber's selector, twenty times a second, to conclude that
-     * a stopped transport over silent tracks still says nothing. Five ticks is 4 Hz — slow enough
+     * Without it a frame goes out every 50 ms whether or not anything is happening, and a browser
+     * pays for all of it: parse, then every subscriber's selector, twenty times a second, to conclude
+     * that a stopped transport over silent tracks still says nothing. Five ticks is 4 Hz — slow enough
      * to disappear from a profile, quick enough that a change made from another tab still shows
      * up before anyone reaches for the mouse. See docs/protocol.md.
      */

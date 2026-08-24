@@ -1,10 +1,8 @@
 // ClipView.tsx — a clip's CONTENT: the AudioClipPanel for audio, the piano roll for MIDI, and for
 // a live sequence FILE the roll of the notes parsed out of its text. Each draws its own header and
 // close button. Two hosts mount it — the Editor bottom panel, and the graph slot when a clip is
-// clicked in the timeline (see docs/shell.md).
-//
-// Audio used to open `WaveformView`, which draws the same picture and can act on none of it. There
-// is one audio clip panel now, and clicking a clip reaches it.
+// clicked in the timeline (see docs/shell.md). There is ONE audio clip panel, and clicking a clip
+// reaches it: `WaveformView` draws the same picture and can act on none of it.
 
 import { DEFAULT_METRONOME_LEVEL } from "@studio/engine-protocol/build";
 import type { WebGraph } from "@studio/graph-model";

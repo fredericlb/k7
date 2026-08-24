@@ -1,5 +1,5 @@
 // store.ts — the repositories one person has added, as one small JSON per OIDC subject on
-// the library volume, plus where that person's mirrors and deploy key live. No database:
+// the library volume, plus where that person's deploy key lives. No database:
 // the same arrangement `@studio/user-prefs` uses, and for the same reasons — see
 // packages/user-prefs/docs/store.md and ../../docs/projects.md.
 

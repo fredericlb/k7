@@ -307,7 +307,7 @@ describe("migrating the panels that are still inline", () => {
   });
 });
 
-// A bare `widgets:` read back as NULL, so the editor called the file it had just written malformed.
+// A bare `widgets:` reads back as NULL, so the editor calls the file it just wrote malformed.
 describe("a panel file reads back as what was written", () => {
   const roundTrips = (ui: Parameters<typeof uiFileText>[0]) =>
     UISchema.safeParse(parseYaml(uiFileText(ui), { version: "1.2" })).success;

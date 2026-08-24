@@ -98,7 +98,7 @@ describe("Workspace.resolvePreview on a clip", () => {
   });
 
   it("plays it when the window is written as a TIMECODE, resolved at the project's tempo", () => {
-    // "3:1" is 8 beats, 8*60/110 s at 110 BPM; without the grid it came back with no window at all.
+    // "3:1" is 8 beats, 8*60/110 s at 110 BPM; without the grid there is no window at all.
     const w = clipProject({ to: "3:1" });
     const got = w.resolvePreview({ kind: "clip", clip: "kick" });
     expect(got.start).toBe(0);

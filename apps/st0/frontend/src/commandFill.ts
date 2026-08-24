@@ -4,9 +4,8 @@
 // tests. See docs/commandBar.md.
 //
 // The model is a form, not a queue: `values` has one slot per param — "" meaning unanswered —
-// and `active` is the field with the keyboard. It was a queue (params answered in order, one
-// input) until the params moved into their own popin, where they are all on screen at once and
-// Tab walks between them; a queue cannot express "go back and change the second one".
+// and `active` is the field with the keyboard. The params share a popin, all on screen at once
+// with Tab walking between them, and a queue cannot express "go back and change the second one".
 
 import type { PaletteArg } from "./components/CommandBar";
 import type { ArgClass } from "./types";

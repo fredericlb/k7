@@ -28,4 +28,4 @@ params:
   onnx: htdemucs_fp16weights.onnx
 # In a paragraph: splits a mix into drums, bass, other and vocals. Runs offline on a file, never
 # live — the model needs the whole input, and one pass takes minutes. The four stems are written
-# as files beside the source, under stems/. (Was `docs:`; see packages/song/docs/docModules.md.)
+# as files beside the source, under stems/. (See packages/song/docs/docModules.md.)

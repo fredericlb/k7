@@ -7,8 +7,8 @@ and cannot exec anything itself.
 ## Why a process and not a message
 
 `--render` is a **one-shot CLI mode** — `studio-moteur --render - --out <dir>` — and it
-stays one. The live engine holds an ASIO device, and the repo has already paid for what
-happens when a second `te::Engine` appears beside it:
+stays one. The live engine holds an ASIO device, and the cost of a second `te::Engine`
+appearing beside it is known:
 
 > An ASIO driver is single-client. A remembered device gets reopened by *every* process that
 > constructs an engine … the driver then stays wedged, and from that point on every engine
@@ -34,14 +34,12 @@ deliberate.
 
 One request, one file, no job id. A render of an z0 clip takes seconds and the caller
 is a server: a polling protocol would be machinery in front of a wait shorter than the poll
-interval. `--stems` is deliberately not offered — N files need a job to hold them, and
-nothing asks for it.
+interval. `--stems` is deliberately not offered here — N files need a job to hold them.
 
-Something asks now, and it is not this route: stem **separation** wanted exactly that, and
-got its own — `POST /separate`, start-then-poll, see [stemSplit.md](stemSplit.md). The
-sentence above still holds for a render, and the reason is the reason it was written: those
-are per-TRACK bounces of a document a caller already has, seconds apart from the one file
-it wanted. Nothing about that changed because a different route grew a job registry.
+Stem **separation** does need exactly that, and has its own route — `POST /separate`,
+start-then-poll, see [stemSplit.md](../../stem-separation/docs/stemSplit.md). A render's stems are a different thing:
+per-TRACK bounces of a document the caller already has, seconds apart from the one file it
+wanted, which is why the one-request shape still fits here.
 
 The temp directory is removed on **every** path including the failures: a wedged machine
 renders repeatedly, and each attempt costs a song's worth of disk.

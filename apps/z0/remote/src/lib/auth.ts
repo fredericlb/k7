@@ -5,7 +5,7 @@
 import { createAuthStore } from "z0-shared/auth-store";
 import { f } from "./api";
 
-// One rule for all six SPAs: the account belongs to pl8, the guest cookie to z0.
+// One rule for all six SPAs: the account belongs to st0, the guest cookie to z0.
 export { login } from "z0-shared/account";
 export type { AuthState, AuthStatus, AuthUser } from "z0-shared/auth-store";
 

@@ -202,7 +202,7 @@ export function IoPanel({
     };
   }, []);
 
-  // Escape belongs to the PANEL now, which closes whichever tab is showing — two listeners for one key would close it twice.
+  // Escape belongs to the PANEL, which closes whichever tab is showing — two listeners for one key would close it twice.
 
   const inputs = useMemo(
     () => (ports ?? []).filter((p) => p.dir === "in"),

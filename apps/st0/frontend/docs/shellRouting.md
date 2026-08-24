@@ -12,17 +12,12 @@ rather than a component tree:
 | `full` | which single pane has the whole screen, or `null` for the layout. |
 | `panel` | the side panel (graph, logs), independent of it. |
 
-> **There was a third**, `surface`: the open `view` surface the project declared, over the layout
-> at `/surface/<id>`. It was its own field and not a `Pane` because the panes are a closed union
-> the shell declares, while a surface's list was the project's and not knowable until one was
-> open. Every surface is a pane now — there is exactly one per type, so the type IS the name —
-> and the field went with the last `view`. See
-> [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
-
-A surface is not in this table at all, and that is the point: it is *in* the layout rather than
-over it, so it has no address of its own beyond the pane's. There are three — the timeline, the
-viewport and the turntables. What they reach is the pane list below, which is a function of what
-the project declares rather than a constant.
+There is no third field for a surface, and that is the point: a surface is *in* the layout rather
+than over it, so it has no address of its own beyond the pane's. It can be a `Pane` — a closed
+union the shell declares — because there is exactly one surface per type, so the type IS the name.
+There are four: the timeline, the viewport, the turntables and the mastering strip. What they
+reach is the pane list below, which is a function of what the project declares rather than a
+constant. See [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
 ### The layout is the project's, not the user's
 
@@ -42,7 +37,7 @@ shell hands out. Its argument is those declarations, and they have to reach here
 naming a pane nothing will mount is a screen that cannot be drawn.
 
 An **object** rather than positional flags, because there are four of them and they are all
-booleans — `viewPanes(true, false, true)` said nothing about which pane was which.
+booleans — `viewPanes(true, false, true)` says nothing about which pane is which.
 
 The ring is built TOP-DOWN, in the order the panes are stacked on screen — the number keys and
 the mobile tabs read it, so a ring that disagreed with the column would make `2` land somewhere
@@ -54,22 +49,19 @@ guards that could disagree. `fromLocation` reads the same function: `/timeline` 
 project that declares no timeline names a pane that project has not got, and falls through to
 the layout rather than parsing into a state nothing can draw.
 
-> **There were TWO layouts.** `global` and `live`, chosen by nothing — `project.yaml`'s
-> `project_type` said which, and a `live` folder had no timeline. Both the field and the `View`
-> type are gone. They answered a question `surfaces/` answers better, and could contradict it:
-> a folder calling itself `live` while declaring a timeline was a legal state nothing resolved.
-> The one visible difference is the EDITOR — `live` fullscreened nothing at all, and a project
-> with no timeline now keeps its editor, which is where you would write the arrangement it has
-> not got. See [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
+> **The editor is in the fullscreen list whatever the project declares**, so a project with no
+> timeline still has one — which is where you would write the arrangement it has not got. Nothing
+> outside `surfaces/` chooses a layout; a `project.yaml` field saying which one to draw could only
+> contradict the folder it sits in. See
+> [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
 `full` is the SCREEN, so it owns the path. `panel` is a modifier on whatever
 screen you are on — you can have the mixer open over the timeline or over the chains — so
 it is a query parameter. Nesting it (`/timeline/mixer`) would say it belongs to the
 timeline, which it does not.
 
-Help (`/docs`) is a path of its own because it is an overlay over everything, and because
-it was already routed (as `#help`) before this table existed. `/help` is still accepted
-on the way in, for links written before the rename.
+Help (`/docs`) is a path of its own because it is an overlay over everything. `/help` is
+still accepted on the way in, so a link spelling it that way still resolves.
 
 ## Keeping them in step (`useViewRoute.ts`)
 
@@ -95,4 +87,4 @@ like the page blinking and never settling.
 Screen changes REPLACE rather than push, with one exception: help. Expanding a pane is a
 view adjustment, and pushing every one of them would make Back mean "undo the last thing
 I looked at" rather than "leave". Help is a place you go to and come back from, so it
-earns an entry — exactly the behaviour the old `#help` hash had.
+earns an entry.

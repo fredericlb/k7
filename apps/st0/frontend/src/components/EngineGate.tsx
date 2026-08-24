@@ -1,5 +1,5 @@
-// EngineGate.tsx — choose the engine before the editor mounts. It is no longer a fixed
-// localhost socket: engines register themselves, so this lists them, MEASURES each one's latency,
+// EngineGate.tsx — choose the engine before the editor mounts. There is no fixed localhost
+// socket: engines register themselves, so this lists them, MEASURES each one's latency,
 // and mounts <App/> with the chosen ws address. The pick belongs to the ACCOUNT — it comes
 // back on any browser — and is reused whenever it is still reachable.
 
@@ -70,7 +70,7 @@ export function EngineGate({
     };
   }, [relook, phase.k]);
 
-  /** Which project this tab is claiming, read from the address exactly as the router's basename is; the null branch keeps a rule `main.tsx` now enforces. */
+  /** Which project this tab is claiming, read from the address exactly as the router's basename is; the null branch keeps a rule `main.tsx` enforces. */
   const claimProject = useMemo(() => {
     const target = parseLaunch(
       window.location.pathname,
@@ -110,7 +110,7 @@ export function EngineGate({
     // StrictMode runs this twice in dev; both probes are harmless, and a ref guard would strand us on the spinner.
     let cancelled = false;
     void (async () => {
-      // List, preference, probe and policy in one call — the same four steps in the same order as pl8 and m9.
+      // List, preference, probe and policy in one call — the same four steps in the same order as pl8.
       const { ranked: r, chosen } = await engines.find();
       if (cancelled) return;
       setRanked(r);

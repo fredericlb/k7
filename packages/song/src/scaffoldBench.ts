@@ -13,8 +13,6 @@ const q = (s: string) => JSON.stringify(s);
 /** The marker that makes this project the one allowed to save at `@st0` level. */
 export const BENCH_MARKER = "mediatekBench";
 
-// `BENCH_MODE_LINE` went with `project_type: live`: a bench draws no timeline by declaring none.
-
 /** The bench's own furniture, named once: a COPY in `benchChain` would rewrite every chain saved. */
 export const BENCH_EDGES = {
   track: "banc",

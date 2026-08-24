@@ -325,7 +325,7 @@ describe("a module node", () => {
   });
 
   it("shrinks to the verbs that survive a DANGLING node", () => {
-    // A name nothing answers to: these touch graph.yaml alone, and `node replace` is no longer among them.
+    // A name nothing answers to: these touch graph.yaml alone, and `node replace` is not among them.
     expect(
       lines(
         contextMenu({ kind: "module", id: "gone", missing: true }, CATALOGUE),
@@ -494,7 +494,7 @@ describe("the ruler and its markers", () => {
   });
 
   it("obeys what the person turned off, like every other menu", () => {
-    // This case used to go straight to `build`, around the one filter every entry passes through.
+    // Every entry passes through the one filter, this case included: nothing goes straight to `build` around it.
     expect(
       contextMenu({ kind: "marker", name: "Chorus" }, CATALOGUE, {
         "project marker delete": { menu: false },

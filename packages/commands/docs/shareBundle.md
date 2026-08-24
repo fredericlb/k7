@@ -53,8 +53,8 @@ are the source itself. A share shows the song, not the folder it was made in.
 
 The **mixdown stays WAV** — it is the one file a visitor may download, and a download is the one
 place the format is theirs to keep rather than ours to stream. The **stems are mp3**, and the
-number is why: measured on a twelve-lane song, wav stems came to **484 MB for one share**, with no
-expiry, on the volume that also holds everybody's médiathèque. A stem is for hearing a lane in a
+number is why: on a twelve-lane song, wav stems come to **484 MB for one share**, with no expiry,
+on the volume that also holds everybody's médiathèque. A stem is for hearing a lane in a
 browser, so mp3 is not a compromise — it is what the file is for. ffmpeg missing costs the
 compression and nothing else.
 
@@ -81,8 +81,8 @@ public route, so a crashed upload is never reachable and short. The bytes are st
 (`createReadStream`, `duplex: "half"`), where k7's publish reads its one mp3 into a Blob.
 
 The credential is the machine's own pl8 bearer — `mediatekBase()` / `mediatekToken()`, the
-`service:st0` token `npm run tokens` already writes for the library pull. Sharing needed no new
-plumbing. A service token has no person of its own, so **every** call names the user (`?user=`):
+`service:st0` token `npm run tokens` already writes for the library pull. Sharing needs no plumbing
+of its own. A service token has no person of its own, so **every** call names the user (`?user=`):
 three requests, none of which remembers the others.
 
 ## The address
@@ -95,12 +95,12 @@ work: `parseLaunch` ends a project at the last segment claiming the app's suffix
 becomes the PROJECT part of an ordinary address and `parseLaunch`, `projectBasename` and every
 route below them need no change at all.
 
-That `@` is also the one character in this address with two legal spellings, and it cost a blank
-page: `encodeURIComponent` escapes it and RFC 3986 does not. The link carried a literal `@`, the
-router was handed a basename carrying `%40`, and React Router — which compares the two verbatim —
-rendered nothing at all. `projectBasename` now returns a **slice** of the path it was given
-rather than a rebuild of it, which cannot disagree with the address the browser holds; and the
-two sentinels this vocabulary mints are no longer escaped, so a link reads the way it is written.
+That `@` is also the one character in this address with two legal spellings, and it is worth a
+blank page: `encodeURIComponent` escapes it and RFC 3986 does not. A link carrying a literal `@`
+against a basename carrying `%40` makes React Router — which compares the two verbatim — render
+nothing at all. So `projectBasename` returns a **slice** of the path it was given rather than a
+rebuild of it, which cannot disagree with the address the browser holds, and the two sentinels this
+vocabulary mints are not escaped, so a link reads the way it is written.
 
 The link is built **in the browser** (`shareUrl`), because the machine that rendered has no idea
 which origin you are reading this on — a checkout, the LAN proxy and the public host are three

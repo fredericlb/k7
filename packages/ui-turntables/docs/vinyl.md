@@ -1,6 +1,6 @@
 # Le disque, et ce qu'il montre
 
-Le vinyle n'est plus seulement un décor qui tourne : il **remplit** à mesure que le morceau
+Le vinyle n'est pas qu'un décor qui tourne : il **remplit** à mesure que le morceau
 passe — vide à 0 %, plein à 100 % — et porte les repères sous forme de cercles.
 
 ## Une couche qui ne tourne PAS
@@ -27,7 +27,7 @@ Deux détails que la géométrie SVG punit en silence, tous deux figés par un t
 - **À 100 %, un arc dont les extrémités coïncident ne dessine RIEN.** Un disque qui vient de
   finir aurait donc l'air d'un disque pas commencé. Le cercle plein est un chemin à part.
 - **Au-delà de la moitié, un arc prend le chemin le plus court** sauf si on le lui interdit
-  (`largeArcFlag`). Un morceau à 75 % aurait dessiné son propre complément : presque fini
+  (`largeArcFlag`). Un morceau à 75 % dessinerait son propre complément : presque fini
   affiché comme à peine commencé.
 
 Midi et sens horaire parce que c'est là que toute horloge et tout lecteur DJ mettent le départ.
@@ -35,7 +35,7 @@ Midi et sens horaire parce que c'est là que toute horloge et tout lecteur DJ me
 ## Redessiné par frame, jamais par React
 
 La position est lue depuis une **ref** dans une `requestAnimationFrame`, et écrite directement
-dans l'attribut `d` du chemin. Une prop aurait re-rendu tout le composant — deux disques, leurs
+dans l'attribut `d` du chemin. Une prop re-rendrait tout le composant — deux disques, leurs
 étiquettes, leurs repères — pour déplacer un bord, plusieurs fois par seconde. C'est
 l'arrangement que la waveform utilise déjà, pour la même raison.
 

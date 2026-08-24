@@ -26,7 +26,7 @@ import { WsHub } from "./ws.ts";
 const config = loadAppConfig();
 initSessionAuth(config.auth);
 
-// CLI flags (main.go's flag set — the one-shot Grist tools are not ported yet).
+// CLI flags: which game to continue, and how to name it.
 const { values: flags } = parseArgs({
   options: {
     continue: { type: "string", default: "" },

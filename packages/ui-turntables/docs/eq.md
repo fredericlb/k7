@@ -9,7 +9,7 @@ platine dans le graphe. Comme tout le reste du pupitre, le lien est **déclaré*
 Le moteur héberge déjà l'égaliseur 4 bandes de Tracktion (`4bandEq`, enregistré sous le nom
 `Equaliser`), avec ses filtres en plateau et en cloche. `@st0/audio/filter/eq3` est un
 **nom et des défauts** par-dessus — exactement ce que `audio/utility/pitch-shift` est au Pitch
-Shifter. Écrire un EQ en `jsdsp` aurait produit une deuxième implémentation, moins bonne, à
+Shifter. Écrire un EQ en `jsdsp` produirait une deuxième implémentation, moins bonne, à
 maintenir.
 
 Ce que le module apporte, ce sont les **points de coupure**. Ceux de Tracktion sont ceux d'un
@@ -59,7 +59,7 @@ cherchait à éviter en retirant les chiffres.
 
 Car c'est bien pour cela qu'il existe : sur une tranche courte (un pupitre en panneau), les
 **valeurs chiffrées sont retirées** faute de hauteur — voir [deskLayout.md](deskLayout.md). Le
-chiffre était un confort, l'arc est ce qui reste pour dire combien, et il ne coûte pas un pixel
+chiffre est un confort, l'arc est ce qui reste pour dire combien, et il ne coûte pas un pixel
 de hauteur.
 
 ### Comment il est tracé
@@ -121,16 +121,15 @@ ce qu'un coup d'œil cherche, c'est quelle bande quelqu'un a touchée.
 
 ## Une seule vérité, deux images
 
-Le pupitre et le graphe dessinent les mêmes plugins. Chacun a longtemps gardé sa propre copie
-— et le graphe n'en avait aucune : sans `liveParams`, chaque widget retombait sur `n.params`,
-le nombre que le fichier du projet **déclare**. Un EQ tourné dans Mix restait donc à 0 dB dans
-le graphe, et un potard tourné dans le graphe ne faisait rien du tout, faute de
-`setPluginParam` à appeler. Les deux moitiés étaient le même fil manquant.
+Le pupitre et le graphe dessinent les mêmes plugins et lisent **une seule** image d'eux. Sans
+`liveParams`, chaque widget du graphe retomberait sur `n.params`, le nombre que le fichier du
+projet **déclare** : un EQ tourné dans Mix resterait à 0 dB dans le graphe, et un potard tourné
+dans le graphe ne ferait rien du tout, faute de `setPluginParam` à appeler. Les deux moitiés
+sont le même fil.
 
-La cause était plus bas : `useEngine` vivait **dans** `MixView`, que Studio démonte dès qu'on
-passe sur Graphe. Les deux vues ne pouvaient pas partager une image d'un plugin, puisqu'une
-seule était connectée à la fois. Le lien est remonté dans `Studio`, et `Deck.params` est le
-`PluginParamsStore` que les deux lisent.
+Le lien vit donc dans `Studio` et non dans `MixView`, que Studio démonte dès qu'on passe sur
+Graphe : un `useEngine` à l'intérieur ne laisserait qu'une vue connectée à la fois, donc aucune
+image partageable. `Deck.params` est le `PluginParamsStore` que les deux lisent.
 
 Le moteur est la seule chose qui sache à quoi un plugin est réglé, et il le rapporte quelle que
 soit la surface qui l'a réglé — mesuré : on s'abonne (`watch-plugin-params`), une autre
@@ -146,7 +145,7 @@ cessé d'écouter — le moteur peut borner ce qu'on lui a envoyé, et l'autre i
 même paramètre.
 
 C'est aussi ce qui fait qu'un creux de −12 dB est **toujours là** au retour du graphe, là où une
-copie privée aurait redessiné le potard à plat pendant que le son disait le contraire.
+copie privée redessinerait le potard à plat pendant que le son dit le contraire.
 
 ### Et le tempo, qui n'a pas de plugin du tout
 
@@ -160,10 +159,10 @@ warp de clip. Le pupitre la prête donc via `Deck.moduleParams`, et le graphe l'
 plugin. Sur le `Deck` et non dans MixView, parce que MixView est démonté exactement quand le
 graphe est à l'écran, le seul moment où celui-ci en a besoin.
 
-Et il est **tournable** depuis le graphe, parce que l'état des platines a été sorti de MixView :
-`useDeckSet` vit dans Studio et survit donc à l'onglet. Ça a réglé le même nœud trois fois — un
-aller-retour par le graphe n'oublie plus les morceaux chargés, ne ramène plus le crossfader au
-centre, et le tempo se règle des deux côtés. Voir [deckSet.md](deckSet.md).
+Et il est **tournable** depuis le graphe, parce que l'état des platines n'est pas dans MixView :
+`useDeckSet` vit dans Studio et survit donc à l'onglet. C'est le même nœud qui répond de trois
+choses — un aller-retour par le graphe garde les morceaux chargés, laisse le crossfader où il
+est, et le tempo se règle des deux côtés. Voir [deckSet.md](deckSet.md).
 
 Le retour se fait par la liaison DÉCLARÉE, lue à l'envers : le graphe ne connaît qu'un module et
 un paramètre, `controlDriving` retrouve le contrôle qui les pilote. Repointer une ligne de

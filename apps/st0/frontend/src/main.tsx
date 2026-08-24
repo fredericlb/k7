@@ -60,7 +60,7 @@ const external = parseExternal(
   import.meta.env.BASE_URL,
 );
 
-// The gates before the editor, the router outside them, and NO React.StrictMode — its double-mount froze Firefox's WebGL context (docs/shell.md).
+// The gates before the editor, the router outside them, and NO React.StrictMode — its double-mount freezes Firefox's WebGL context (docs/shell.md).
 ReactDOM.createRoot(document.getElementById("root")!).render(
   // The basename is the app's mount AND the project it was opened on: React Router only writes BELOW it, so the project cannot be rewritten out.
   <BrowserRouter

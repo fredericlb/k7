@@ -15,7 +15,7 @@ import { projectHints } from "./hints";
 import { compileNodeProject } from "./nodeProject";
 import { insertChainStepAfter, replaceChainStep } from "./testSupport";
 
-// A step may name an INHERITED module by its ref, which once took a one-line local module.
+// A step may name an INHERITED module by its ref, with no local module standing in for it.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const SONG = join(

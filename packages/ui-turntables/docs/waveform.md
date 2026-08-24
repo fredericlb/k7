@@ -71,17 +71,17 @@ Entre deux pushes, la position est **extrapolée**, sinon un push à 20 Hz donne
 défilement saccadé à 60 images par seconde. À l'arrêt, pas d'extrapolation : elle ferait
 glisser une waveform que personne ne joue.
 
-Mais extrapoler naïvement (`playhead + (now - at)`) ne suffit pas, et c'est ce que ce canvas
-faisait. Les frames n'arrivent pas sur un battement régulier — entre le timer du moteur, le
-socket et le parsing, chacune atterrit avec un délai différent — donc se ré-ancrer sur chacune
-**recopie cette gigue** dans le défilement : on obtient 60 images par seconde de saccade au
-lieu de 20. Le canvas lit maintenant `Deck.drawNow`. Le débit du transport étant CONNU — une seconde par
-seconde, fader de pitch compris, puisque celui-ci étire le clip et non le transport — l'horloge
-prédit depuis le temps local et n'estime que l'OFFSET, en retenant la frame la moins retardée
-d'une fenêtre récente (`@studio/engine-browser/playhead-clock`). La position dessinée est donc
-une droite, et un vrai seek fait reculer la fenêtre. Elle décide aussi seule de l'arrêt, ce qui est
-pourquoi ce fichier ne teste plus `playing` pour savoir s'il faut extrapoler : les deux ne
-peuvent plus être en désaccord sur ce que « à l'arrêt » veut dire.
+Mais extrapoler naïvement (`playhead + (now - at)`) ne suffit pas. Les frames n'arrivent pas sur
+un battement régulier — entre le timer du moteur, le socket et le parsing, chacune atterrit avec
+un délai différent — donc se ré-ancrer sur chacune **recopie cette gigue** dans le défilement :
+60 images par seconde de saccade au lieu de 20. Le canvas lit donc `Deck.drawNow`. Le débit du
+transport étant CONNU — une seconde par seconde, fader de pitch compris, puisque celui-ci étire
+le clip et non le transport — l'horloge prédit depuis le temps local et n'estime que l'OFFSET,
+en retenant la frame la moins retardée d'une fenêtre récente
+(`@studio/engine-browser/playhead-clock`). La position dessinée est donc une droite, et un vrai
+seek fait reculer la fenêtre. Elle décide aussi seule de l'arrêt, et c'est pourquoi ce fichier
+ne teste pas `playing` pour savoir s'il faut extrapoler : les deux ne peuvent pas être en
+désaccord sur ce que « à l'arrêt » veut dire.
 
 `drawNow` est pour ce qu'on REGARDE. Ce qui s'écrit — un point de cue, qui mémorise où le doigt
 est tombé — lit `Deck.playhead`, l'ancre brute, parce que le lissage échange de la justesse
@@ -91,15 +91,13 @@ contre de la continuité. Voir `apps/st0/frontend/docs/playhead.md`.
 
 Le moteur n'a qu'un transport (voir [mix.md](mix.md)), donc la même ref sert les deux bandes.
 
-Ce que cette page a longtemps dit ensuite était faux : que la position du transport EST la
-position dans chaque morceau, parce que les deux clips commencent à 0. Ils ne commencent pas à
-0, et ils ne l'ont jamais tous les deux fait — une platine étirée court à son propre rythme,
-une platine synchronisée est retardée pour rejoindre l'autre, et depuis le fader de pitch
-chaque clip démarre une marge dans la timeline ([bpm.md](bpm.md)). Dessiner la tête brute
-contre l'enveloppe dessinait donc le mauvais endroit du morceau, en silence et seulement une
-fois qu'on avait touché à la platine.
+La position du transport n'est **pas** la position dans chaque morceau, parce que les deux clips
+ne commencent pas à 0 : une platine étirée court à son propre rythme, une platine synchronisée
+est retardée pour rejoindre l'autre, et chaque clip démarre une marge dans la timeline
+([bpm.md](bpm.md)). Dessiner la tête brute contre l'enveloppe donnerait le mauvais endroit du
+morceau, en silence et seulement une fois qu'on a touché à la platine.
 
-La bande convertit maintenant, par le `sourceAt` que le disque et chaque repère utilisent déjà.
+La bande convertit donc, par le `sourceAt` que le disque et chaque repère utilisent déjà.
 Une seule tête, deux horloges de fichier. Le jour où les platines auront des transports
 indépendants, c'est la ref partagée qui saute, pas la conversion.
 
@@ -125,11 +123,10 @@ fige — chaque barre tombe SUR un temps, jamais entre deux.
 Rouge où est la basse, vert dans la voix, bleu sur les cymbales, et les mélanges entre —
 le vocabulaire d'une platine classique.
 
-Ce n'était pas une question de dessin : l'enveloppe ne portait que `peak` et `rms`, donc
-**aucune** donnée par fréquence. Il a fallu que l'analyse en produise. Le moteur découpe
-maintenant le signal en trois bandes pendant qu'il le lit, et écrit `low` / `mid` / `high` dans
-le sidecar, dans le même espace de buckets que `peak` — un consommateur indexe les quatre
-pareil.
+Ce n'est pas une question de dessin : `peak` et `rms` ne portent **aucune** donnée par
+fréquence, donc c'est l'analyse qui doit en produire. Le moteur découpe le signal en trois
+bandes pendant qu'il le lit, et écrit `low` / `mid` / `high` dans le sidecar, dans le même
+espace de buckets que `peak` — un consommateur indexe les quatre pareil.
 
 ### Le découpage, côté moteur
 
@@ -160,10 +157,9 @@ les trois ensemble donnent blanc. Exactement la palette décrite — et elle sor
 au lieu d'être une table de cas particuliers que quelqu'un devrait tenir à jour.
 
 Chaque bande est tirée vers sa teinte (le grave vers l'orange, l'aigu vers le violet) mais garde
-un apport **faible** dans les deux canaux qu'elle ne possède pas. Une première tentative donnait
-beaucoup de vert au rouge et au bleu réunis, et basse+aigu ressortait presque blanc au lieu du
-violet attendu : ce qu'une bande apporte aux canaux qui ne sont pas les siens décide si les
-mélanges tombent juste.
+un apport **faible** dans les deux canaux qu'elle ne possède pas. Trop de vert dans le rouge et
+le bleu réunis et basse+aigu ressort presque blanc au lieu du violet attendu : ce qu'une bande
+apporte aux canaux qui ne sont pas les siens décide si les mélanges tombent juste.
 
 Normalisé par la bande la **plus forte**, pas par la somme. Ce qu'une waveform colorée dit est
 quelle bande DOMINE ici, et ça doit se lire pareil dans un passage calme et dans un fort. Avec
@@ -172,11 +168,12 @@ comme un brun boueux.
 
 ### Ce que ça coûte
 
-Le sidecar passe en **v4**, et la porte de version est chargée de sens : un sidecar plus ancien
-a une empreinte qui CORRESPOND — l'audio n'a pas changé — donc sans la bump chaque contrôle de
-fraîcheur passerait et le morceau n'obtiendrait jamais ses bandes. Conséquence directe :
-**tous** les morceaux déjà analysés sont ré-analysés à la demande.
+Le sidecar est en **v4**, et la porte de version est chargée de sens : un sidecar d'une version
+antérieure a une empreinte qui CORRESPOND — l'audio n'a pas changé — donc sans le numéro de
+version chaque contrôle de fraîcheur passerait et le morceau n'obtiendrait jamais ses bandes.
+Conséquence directe : un morceau analysé sous une version antérieure est ré-analysé à la
+demande.
 
-Un fichier analysé avant v4 n'a pas de bandes du tout. Sa waveform reste dans le gris d'avant —
-ce qui se lit comme « pas analysé comme ça » plutôt que comme du silence, et c'est pour ça que
-les trois champs sont optionnels de bout en bout.
+Tant qu'il ne l'est pas, il n'a pas de bandes du tout et sa waveform reste grise — ce qui se lit
+comme « pas analysé comme ça » plutôt que comme du silence, et c'est pour ça que les trois
+champs sont optionnels de bout en bout.

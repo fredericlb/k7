@@ -1,11 +1,9 @@
 # Listening to the engine over the network
 
-The plan calls this "the biggest bet", and its instruction was explicit: **start with a
-throwaway mockup, not a design** — measure end-to-end latency, the CPU cost on the audio
-thread, and what happens when a listener drops, *before* writing anything definitive.
-
-This page is the browser half of that mockup, and the reasoning behind every number in it.
-The engine half is `engine/moteur/docs/broadcast.md`.
+This is a **mockup, not a design**: it exists to measure end-to-end latency, the CPU cost on
+the audio thread, and what happens when a listener drops. Everything below is the browser half
+and the reasoning behind every number in it. The engine half is
+`engine/moteur/docs/broadcast.md`.
 
 ## Why a binary frame on the existing socket
 
@@ -17,9 +15,9 @@ place as the JSON.
 So: **binary WebSocket messages on the same socket**. `ws.binaryType = "arraybuffer"` and
 one branch in `onmessage`. Text is control, binary is audio, and nothing else has to change.
 
-Worth knowing: before this, a binary frame arriving at `EngineClient` surfaced as a `Blob`,
+`binaryType` is load-bearing: without it a binary frame surfaces at `EngineClient` as a `Blob`,
 which `String()` turns into `"[object Blob]"`, which fails `JSON.parse`, which the `catch`
-swallowed. It would have been discarded in perfect silence.
+swallows. The audio would be discarded in perfect silence.
 
 ## Why float32, uncompressed
 
@@ -81,8 +79,8 @@ short enough to read in one screen, and that is the whole mitigation.
 ### What the processor does at the edges, and why
 
 * **It waits for a cushion before starting** (`startFrames`, default **150 ms**). Starting
-  on the first sample underruns on the very next block for any jitter at all. The default
-  was 50 ms until it was measured — see below.
+  on the first sample underruns on the very next block for any jitter at all, and 150 ms is
+  what the measurements below ask for.
 * **An underrun outputs silence, not a repeat of the last block.** A repeat sounds
   smoother — which is exactly the problem. This mockup exists to *find* dropouts, and a
   concealment that hides them would defeat it. When the measurements are in and the design
@@ -105,7 +103,7 @@ mockup does not correct drift. It **measures** it: `StreamStats.driftMsPerMin`, 
 `null` until a minute of stream has gone by, because below that the slope is jitter and a
 number there would invite acting on noise.
 
-That is the measurement that decides step 7's real design. Take it before writing the fix.
+That is the measurement that decides the real design. Take it before writing the fix.
 
 ## Reading the numbers
 
@@ -120,11 +118,11 @@ That is the measurement that decides step 7's real design. Take it before writin
 A run that matters is a long one: minutes, not seconds, because drift is the thing that
 only appears with time.
 
-## What the measurements actually said
+## What the measurements say
 
 `node engine/moteur/scripts/listen-headless.mjs ws://HOST:PORT [seconds]` bundles *these*
 modules with esbuild, serves them, and drives headless Chrome over CDP — so the worklet
-below really renders, with nobody in the room. Two runs against a live engine on loopback:
+below really renders, with nobody in the room. Against a live engine on loopback:
 
 | | 30 s @ 50 ms | 110 s @ 50 ms | 120 s @ 150 ms |
 |---|---|---|---|
@@ -136,23 +134,21 @@ below really renders, with nobody in the room. Two runs against a live engine on
 | buffer depth (frames) | 1920 → 2144, min 1920 | 2240 → 3104, **min 64** | 7040 → 6400, **min 5600** |
 | drift | — | −0.17 ms/min | −0.11 ms/min |
 
-The third column is the same harness after the change, and it is what closes the argument:
-the ring never came within 5600 frames of empty, where the 50 ms cushion had reached 64.
+The third column is what settles the default: at 150 ms the ring never comes within 5600
+frames of empty, where a 50 ms cushion reaches 64 and loses a block over a long run.
 
-**The finding that changed the code: the network was never the problem.** The sender's own
-jitter, measured from Node on the same machine, is 2.2 ms. Through a browser it is 22 ms
-over 30 s and 66 ms over 110 s — because the number being measured is the *listener's main
-thread*, which also runs everything else the page does. The 50 ms cushion survived the
-short run and lost one block to the long one, with the ring down to 64 frames. So the
-default became 150 ms.
+**The network is not the problem.** The sender's own jitter, measured from Node on the same
+machine, is 2.2 ms. Through a browser it is 22 ms over 30 s and 66 ms over 110 s — because the
+number being measured is the *listener's main thread*, which also runs everything else the page
+does.
 
 That is the whole shape of the lesson: a cushion is not sized against the network, it is
 sized against the worst stall of the machine playing it back. Expect a real st0 tab, with
 a React tree and a canvas, to be worse than this one.
 
-**Drift, by contrast, was a non-event** — −0.17 ms/min here, −0.46 ms/min measured from
+**Drift, by contrast, is a non-event** — −0.17 ms/min here, −0.46 ms/min measured from
 Node against the engine's own card. Both are small enough that a cushion outlives any
-session, which is why no resampler was written.
+session, which is why there is no resampler.
 
 Two caveats worth keeping: headless Chrome renders Web Audio to a null sink clocked by the
 system timer, not by a sound card, so its drift figure is not a real two-crystal

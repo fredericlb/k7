@@ -1,7 +1,7 @@
 // z0's view of its Grist doc. The transport (auth, errors, retries on
 // nothing, SQL, user actions) is @frediverse/db-grist; this class only adapts
-// it to the shapes grist.go's GristClient exposed, which the loader, the editor
-// and the state persister are written against.
+// it to the shapes the loader, the editor and the state persister are written
+// against.
 
 import type { GristRecord } from "@frediverse/db-grist";
 import {

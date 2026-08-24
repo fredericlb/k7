@@ -1,36 +1,34 @@
 # L'audio des séances — notes étendues
 
-## Grist garde les faits, plus les octets
+## Grist garde les faits, la médiathèque garde les octets
 
-Une séance était une ligne Grist **et** une pièce jointe Grist. L'audio vit maintenant dans
-la zone `RECORDINGS` de la médiathèque ; la ligne n'en garde que le chemin.
+Une séance est une ligne Grist, et son audio vit dans la zone `RECORDINGS` de la
+médiathèque ; la ligne n'en garde que le chemin.
 
-| | avant | maintenant |
-|---|---|---|
-| durée, gain, enveloppe, tags, marqueurs | Grist | Grist |
-| une séance | pièce jointe `Sessions.Recording` | `recordings/<jour>/<HH-MM-SS>.<ext>` |
-| un moment | pièce jointe `Comments.Clip` | `recordings/<jour>/moment-…` |
-| une version publiée | pièce jointe `Versions.Audio` | `songs/K7/…` |
-| ce que la ligne pointe | un `attachmentId` | un chemin (`RecordingPath`, `ClipPath`, `AudioPath`) |
-| le cache disque | inchangé | inchangé |
-| les partitions | pièce jointe `Songs.SheetFiles` | inchangé — ce n'est pas de l'audio |
+| | où ça vit |
+|---|---|
+| durée, gain, enveloppe, tags, marqueurs | Grist |
+| une séance | `recordings/<jour>/<HH-MM-SS>.<ext>` |
+| un moment | `recordings/<jour>/moment-…` |
+| une version publiée | `songs/K7/…` |
+| ce que la ligne pointe | un chemin (`RecordingPath`, `ClipPath`, `AudioPath`) |
+| les partitions | pièce jointe `Songs.SheetFiles` — ce n'est pas de l'audio |
 
-Le cache local ne bouge pas : c'est lui qui sert la lecture en Range, et il se remplit
-depuis la médiathèque au lieu de Grist. Une séance déjà en cache ne fait aucun aller-retour.
+Le cache local sert la lecture en Range, et il se remplit depuis la médiathèque. Une séance
+déjà en cache ne fait aucun aller-retour.
 
 ## Pourquoi
 
-Grist est une base de données à qui on demandait de porter des heures de wav. Une
-médiathèque est faite pour ça : un volume, des chemins, du Range natif, et une zone dont
-c'est exactement le rôle — voir `packages/mediatek/docs/recordings.md`. Le reste du studio
-sait déjà lire cette zone ; les pièces jointes Grist n'étaient lisibles que par k7.
+Grist est une base de données, et des heures de wav n'y ont pas leur place. Une médiathèque
+est faite pour ça : un volume, des chemins, du Range natif, et une zone dont c'est exactement
+le rôle — voir `packages/mediatek/docs/recordings.md`. Le reste du studio sait lire cette
+zone ; une pièce jointe Grist n'est lisible que par k7.
 
 ## Le client est celui du package
 
-`@studio/mediatek/remote` portait déjà `remoteLibrary` (télécharger en flux),
-`remoteWriter` (écrire, supprimer) et il a gagné `pushRecording`. K7 n'écrit pas un
-deuxième client HTTP : `src/mediatek.ts` est une façade de trente lignes au-dessus de
-celui-là.
+`@studio/mediatek/remote` porte `remoteLibrary` (télécharger en flux), `remoteWriter`
+(écrire, supprimer) et `pushRecording`. K7 n'écrit pas un deuxième client HTTP :
+`src/mediatek.ts` est une façade de trente lignes au-dessus de celui-là.
 
 `pushRecording` est délibérément séparé de `remoteWriter` : un *writer* écrit au chemin
 qu'il a choisi, tandis qu'un enregistrement envoie des octets **et l'instant**, à charge pour la
@@ -100,32 +98,27 @@ reconnaît. Le cache disque, lui, garde `mp4` : c'est un nom local, personne ne 
 sauvegardée après minuit appartient à la soirée où elle a été jouée, et c'est la date sous
 laquelle la zone la range.
 
-## On repart de zéro : il n'y a plus de repli
+## Le chemin ou rien : aucun repli
 
-Une première version de ce changement gardait les pièces jointes en second recours, pour
-que l'ancien continue de jouer. **Ce repli a été retiré**, et avec lui les colonnes
-`Sessions.Recording`, `Comments.Clip`, `Versions.Audio` et `Versions.TrackFiles`, le
-miroir de la médiathèque, et la fonction `attachmentIdOf` qui les lisait.
-
-Ce qui est enregistré à partir de maintenant vit dans la médiathèque. Ce qui existait avant
-n'a plus d'audio nulle part que k7 sache atteindre — c'est la décision, pas un oubli.
+k7 n'atteint l'audio d'une séance que par son chemin dans la médiathèque. Il n'y a pas de
+second recours : les colonnes `Sessions.Recording`, `Comments.Clip`, `Versions.Audio` et
+`Versions.TrackFiles` ne sont ni déclarées ni lues, et rien ici ne sait ouvrir une pièce
+jointe audio.
 
 Deux conséquences visibles, et voulues :
 
-- **`hasRecording` se déduit du CHEMIN**, plus du drapeau `HasRecording` posé à côté. Une
-  ligne d'avant porte `true` et ne pointe sur rien ; une séance qui annonce un
-  enregistrement qu'elle ne peut pas jouer est pire qu'une séance qui admet n'en avoir
-  aucun.
-- **Prolonger une telle séance recommence** au lieu d'échouer : sans chemin, il n'y a rien
-  à quoi recoller, donc la prise devient la première.
+- **`hasRecording` se déduit du CHEMIN**, pas d'un drapeau `HasRecording` posé à côté. Une
+  séance qui annonce un enregistrement qu'elle ne peut pas jouer est pire qu'une séance qui
+  admet n'en avoir aucun.
+- **Une séance sans chemin qu'on prolonge recommence** au lieu d'échouer : sans chemin, il
+  n'y a rien à quoi recoller, donc la prise devient la première.
 
-Les colonnes ne sont pas *supprimées* dans Grist — `migrateSchema` ne fait qu'ajouter ce
-qui manque — elles ne sont simplement plus déclarées ni lues. Les vider, ou vider les
-tables, est une opération à faire à la main, sciemment.
+`migrateSchema` ne fait qu'ajouter ce qui manque, donc une colonne non déclarée reste
+présente dans le document Grist. La vider, ou vider les tables, est une opération à faire à
+la main, sciemment.
 
-Les **partitions** (`Songs.SheetFiles`) restent des pièces jointes Grist : ce ne sont pas
-des enregistrements, et `uploadAttachment` / `downloadAttachment` ne servent plus qu'à
-elles.
+Les **partitions** (`Songs.SheetFiles`) sont des pièces jointes Grist : ce ne sont pas des
+enregistrements, et `uploadAttachment` / `downloadAttachment` ne servent qu'à elles.
 
 ## Les moments vont dans la même zone
 
@@ -142,8 +135,8 @@ L'heure est celle où l'extrait a été **joué** — `Sessions.CreatedAt` plus 
 non celle de l'annotation, qui peut arriver trois jours après. Le nom est le texte du
 moment quand il y en a un.
 
-Ré-extraire remplace : la borne ou le nom ont pu bouger, donc l'ancien nom de fichier est
-devenu faux. `Comments.ClipPath` remplace la pièce jointe `Clip`.
+Ré-extraire remplace : la borne ou le nom ont pu bouger, donc le nom de fichier déjà écrit
+est faux. `Comments.ClipPath` porte ce chemin.
 
 ## Les versions publiées sont des morceaux
 
@@ -170,25 +163,23 @@ Quatre décisions dedans :
 - **Republier remplace.** Le 409 de la médiathèque protège une personne qui envoie deux
   fois le même morceau, pas un service qui republie sciemment.
 
-Renommer une version **ne déplace pas le dossier** ; seul le sidecar est réécrit. C'est la
-règle du miroir, pour sa raison : un chemin de dossier est l'identifiant d'une entrée et la
-clé d'un manifeste de cache, donc le faire bouger coûterait à chaque machine le
-re-téléchargement d'octets qui n'ont pas changé.
+Renommer une version **ne déplace pas le dossier** ; seul le sidecar est réécrit, pour cette
+raison : un chemin de dossier est l'identifiant d'une entrée et la clé d'un manifeste de
+cache, donc le faire bouger coûterait à chaque machine le re-téléchargement d'octets qui
+n'ont pas changé.
 
-`Versions.AudioPath` remplace la pièce jointe `Audio`, et `TrackMeta` porte maintenant
-`{id, path, name, mime}` au lieu de `{id, attachmentId, …}`.
+`Versions.AudioPath` porte le chemin du mixdown, et `TrackMeta` porte
+`{id, path, name, mime}`.
 
-## Le miroir de la médiathèque a été retiré
+## k7 POUSSE ; la médiathèque ne tire rien
 
-`apps/pl8/backend/src/mirror/k7.ts`, sa route `POST /api/mirror/k7` et sa
-page de doc tiraient ces versions depuis Grist, une par une, en les retrouvant par leur clé
-amont. Rien de tout cela n'a plus de sens : k7 **pousse** au moment de la publication, donc
-il n'y a plus rien à tirer. La médiathèque n'a plus de dépendance sur Grist du tout —
-`@frediverse/db-grist` a quitté ses dépendances.
+Au moment de la publication, k7 envoie lui-même les octets dans la zone : il n'y a rien à
+tirer de l'autre côté, aucune route de synchronisation, et la médiathèque ne dépend pas de
+Grist — `@frediverse/db-grist` n'est pas dans ses dépendances.
 
 ## Ce qui reste dans Grist
 
-Plus aucun audio : les séances, les moments et les versions sont tous dans la médiathèque.
+Aucun audio : les séances, les moments et les versions sont tous dans la médiathèque.
 Grist garde les faits — qui, quand, combien de temps, quels tags, quel gain, quelle
 enveloppe — et les fichiers de partition (`Songs.SheetFiles`), qui ne sont pas de l'audio.
 
@@ -305,11 +296,11 @@ cesse de se croire en ligne. Les charges utiles de signalisation (`offer`, `answ
 
 ## Configuration
 
-**On ne configure plus rien à la main.** `npm run tokens` écrit les deux lignes ; voir
+**Rien ne se configure à la main.** `npm run tokens` écrit les deux lignes ; voir
 `docs/tokens.md` à la racine.
 
-`MEDIATEK_URL` a pour défaut l'adresse **fixe** du service — pl8 sert la racine de
-l'origine, donc c'est `https://studio.frediver.se` tout court :
+`MEDIATEK_URL` a pour défaut l'adresse **fixe** du service — pl8 répond sous `/pl8`, donc
+c'est `https://studio.frediver.se/pl8` :
 une origine, un chemin par service, donc un déploiement n'a rien à choisir. Un **checkout** est
 l'exception, et c'est le script qui l'écrit : le nom public sort jusqu'au proxy du LAN pour
 revenir aussitôt sur cette machine, et tombe dès que ce proxy est injoignable alors que les deux
@@ -326,5 +317,5 @@ Une machine sans checkout — un portable qui synchronise la bibliothèque hébe
 d'`env.yaml` et frappe donc le sien par la route prévue, connecté à la médiathèque :
 
 ```bash
-curl -X POST https://studio.frediver.se/api/token -b "studio.sid=<votre cookie>"
+curl -X POST https://studio.frediver.se/pl8/api/token -b "studio.sid=<votre cookie>"
 ```

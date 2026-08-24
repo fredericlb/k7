@@ -2,8 +2,8 @@
 //
 // `want` is the field that decides whether the file service spends ~62 ms building a graph
 // nobody will draw, and the way it goes wrong is a call site that forgets it rather than a
-// branch that misreads it. So this pins the three shapes: none (the old contract, which must
-// stay the default), the empty list (a caller saying no), and a folder other than the song.
+// branch that misreads it. So this pins the three shapes: no `want` at all (which must stay
+// the default), the empty list (a caller saying no), and a folder other than the song.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { configureFileApi } from "./fileApi.ts";

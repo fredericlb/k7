@@ -18,7 +18,7 @@ export interface UserPreset {
   name: string;
   source: "user";
   index: number;
-  /** The preset's own name again — what `applyPresetToModule` takes. A preset has no path of its own now. */
+  /** The preset's own name again — what `applyPresetToModule` takes. A preset has no path of its own. */
   path: string;
 }
 

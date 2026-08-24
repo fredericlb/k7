@@ -3,8 +3,7 @@
 // A lane's alternatives each restate `events:`, and a list is a scalar to the merge — so the running
 // set REPLACES the arrangement rather than adding to it (packages/song/docs/alternatives.md). A take
 // appended to the file's top-level `events:` while another set is running is therefore written to a
-// set nobody is playing: on disk, and silent. This is the shape of `nodes/ge.rythm.yaml` in a real
-// project, which is where it was found.
+// set nobody is playing: on disk, and silent. This is the shape a real lane file has.
 
 import {
   mkdirSync,

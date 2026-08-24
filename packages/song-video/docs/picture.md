@@ -94,11 +94,11 @@ three-hour cut writes `10800`.
 ## What is not there
 
 - **`video_source`.** An audio lane inheriting a video lane's placements, so a shot and its
-  sound could not drift. Nothing reads the key.
-- **`video_effect` / `video_transition` chains.** Those two shapes of `VideoPluginDoc` are still
-  modelled and still uncompiled: nothing turns one into anything a renderer runs. Their SIBLING
-  does now — a `shaders` module compiles all the way to a GLSL pass on the frame
-  ([shaders.md](shaders.md)), which is also what finally built the `graph.yaml` → renderer path
-  this entry used to say was missing entirely. What is left is a plugin format for the other two.
+  sound cannot drift. Nothing reads the key.
+- **`video_effect` / `video_transition` chains.** Those two shapes of `VideoPluginDoc` are
+  modelled and uncompiled: nothing turns one into anything a renderer runs. Their SIBLING is —
+  a `shaders` module compiles all the way to a GLSL pass on the frame
+  ([shaders.md](shaders.md)), over the `graph.yaml` → renderer path. What is missing is a plugin
+  format for the other two.
 - **Export.** `@studio/ui-eyes`'s `exportScene` works frame-by-frame through WebCodecs; no
   surface mounts a button for it.

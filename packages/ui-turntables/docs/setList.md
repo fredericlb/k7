@@ -1,12 +1,9 @@
 # La vue Mix lit une playlist
 
-Mix était la seule vue qui ne parlait pas du projet ouvert : elle listait tout le cache de
-la médiathèque sur la machine choisie, et l'arbre du projet disparaissait parce qu'il
-montrait un projet que rien à l'écran ne concernait.
-
-Ce n'est plus le cas. La liste vient de la **playlist que la surface nomme** — une ligne
-`playlist:` dans `surfaces/<desk>.yaml` — donc l'arbre reste, sur cette vue comme sur les
-autres.
+La liste des morceaux vient de la **playlist que la surface nomme** — une ligne `playlist:`
+dans `surfaces/<desk>.yaml` — et non de tout le cache de la médiathèque sur la machine
+choisie. C'est ce qui fait que cette vue parle du projet ouvert comme les autres, et que
+l'arbre du projet y reste : il montre un projet que l'écran concerne.
 
 ## C'est un PARAMÈTRE de la surface
 
@@ -28,20 +25,16 @@ donc c'est lui qui doit dire dans quoi il fouille. Une `timeline` qui porterait 
 la verrait ignorée — le schéma la refuse plutôt, pour la raison qu'il est `.strict()` : un
 champ accepté et sans effet envoie celui qui l'a écrit chercher ailleurs.
 
-## Ce que `songs.yaml` est devenu
+## Les repères ne sont pas dans la playlist
 
-Il disait **quels** morceaux le set jouait. Il ne le dit plus : deux fichiers répondaient à
-une question, et la playlist est la meilleure des deux — c'est un document qui a un écran (le
-cog de st0 l'ouvre), qui se partage entre plusieurs sets, et que quelqu'un avait déjà écrit.
+Une playlist dit **quels** morceaux le set joue, et c'est le bon document pour ça : il a un
+écran (le cog de st0 l'ouvre) et il se partage entre plusieurs sets.
 
-Ce qui en reste est la moitié qu'une playlist n'a pas où mettre : les **repères** de ce set-là,
-huit par morceau. Un cue appartient au pupitre qui joue le morceau et non à une liste que
-d'autres lisent — deux groupes qui reprennent le même titre ne posent pas l'aiguille au même
-endroit, et une playlist qui porterait les marques de l'un les donnerait à l'autre.
-
-Et le fichier a changé de nom avec son métier : c'est **`mix.yaml`**, à la racine, sous la clé
-`cues:` ([cues.md](cues.md)). Un fichier nommé `songs` ne portant plus de liste de morceaux
-nommait ce qu'il avait été.
+Ce qu'il n'a pas où mettre, ce sont les **repères** de ce set-là, huit par morceau. Un cue
+appartient au pupitre qui joue le morceau et non à une liste que d'autres lisent — deux groupes
+qui reprennent le même titre ne posent pas l'aiguille au même endroit, et une playlist qui
+porterait les marques de l'un les donnerait à l'autre. Les repères vivent donc dans
+**`mix.yaml`**, à la racine du projet, sous la clé `cues:` ([cues.md](cues.md)).
 
 ## Deux sources, et c'est la playlist qui décide
 
@@ -52,12 +45,12 @@ nommait ce qu'il avait été.
 
 `resolveItems` croise les deux — **la même fonction que l'écran des playlists de st0**
 (`@studio/mediatek/playlistItems`), et c'est le point : « le chemin d'abord, le nom ensuite »
-est une règle, et deux copies auraient divergé le jour où l'une aurait appris un cas.
+est une règle, et deux copies divergeraient le jour où l'une apprendrait un cas.
 
 D'où le fait qu'une ligne puisse nommer une **variante** : `SetEntry.file` porte le fichier
-que la ligne demande, master ou pas. Lire `meta.master` directement — ce que faisait le code
-d'avant — ne sait jouer que l'original, donc une setlist qui dit `instrumental` mettrait le
-mauvais disque devant un public.
+que la ligne demande, master ou pas. Lire `meta.master` directement ne saurait jouer que
+l'original, donc une setlist qui dit `instrumental` mettrait le mauvais disque devant un
+public.
 
 ## Trois états quand il n'y a pas de liste
 
@@ -70,15 +63,15 @@ mauvais disque devant un public.
 Trois phrases parce que le geste qui répare diffère à chaque fois. Un navigateur vide sans
 explication se lit comme une médiathèque vide, ce qui envoie chercher au mauvais endroit.
 
-## Où la liste se lit maintenant
+## Où la liste se lit
 
-Elle a quitté le milieu du pupitre. Le set se choisit **au disque lui-même** — un clic au
-centre d'un vinyle ouvre le sélecteur ([songBrowser.md](songBrowser.md)) — et c'est déjà la
-seule façon dont on chargeait une platine. Une colonne qui répétait ce que le disque sait
-prenait la largeur que les platines voulaient.
+Pas au milieu du pupitre : le set se choisit **au disque lui-même** — un clic au centre d'un
+vinyle ouvre le sélecteur ([songBrowser.md](songBrowser.md)) — et c'est déjà la seule façon de
+charger une platine. Une colonne qui répéterait ce que le disque sait prendrait la largeur que
+les platines veulent.
 
-Rien de ce qui suit ne change pour autant : le croisement, les trois états et leurs phrases
-sont ceux du sélecteur, qui lit le même `SetList`.
+Le croisement, les trois états et leurs phrases sont ceux de ce sélecteur, qui lit le même
+`SetList`.
 
 ## Une ligne qui ne se joue pas reste à l'écran
 
@@ -101,14 +94,11 @@ rangées identiques sont deux chances de charger le même disque sans savoir leq
 La variante fait partie de l'identité : le master d'un morceau et son instrumental sont deux
 disques, et les confondre en jetterait un des deux.
 
-## Ce que Mix ne fait pas encore
+## Ce qui joue, une fois la ligne choisie
 
-La platine envoie toujours un document d'**une** piste, construit dans le navigateur
-(`deck.ts`). Le crossfade du projet n'y est pas, et ce n'est pas un oubli : un module
-`jsdsp` est un graphe **cuit dans le document par le compilateur**, qui exécute la source du
-module dans un processus fils. Le navigateur ne peut pas en produire un.
-
-Jouer les vraies chaînes du set demande donc que le service de fichiers de la machine
-compile le projet et l'envoie, et que charger un morceau sur une platine devienne une
-**édition du projet** — ce que st0 fait déjà. C'est l'étape suivante. Voir
+Le document **compilé** du projet, dans lequel `withDecks` pose les clips des deux platines —
+donc les vraies chaînes du set, crossfade compris. Un module `jsdsp` est un graphe cuit dans le
+document par le compilateur, qui exécute la source du module dans un processus fils : le
+navigateur ne peut pas en produire un, et `deckDoc` n'est que le tenant-lieu d'une piste par
+platine tant que la compilation n'est pas là. Voir [mix.md](mix.md) et
 [packages/song/docs/setProject.md](../../song/docs/setProject.md).

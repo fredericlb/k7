@@ -1,18 +1,11 @@
 # Broadcasting the master over the network
 
-The plan's étape 7 — "le moteur traite et **diffuse**" — and the thing that will eventually
-let z0 be hosted. Its instruction was explicit: **a throwaway mockup, not a design**,
-and measure three things before committing to anything — end-to-end latency, the CPU cost
+The engine sends its master bus over the same WebSocket, which is what lets z0 be hosted.
+Three things govern the design and each has a number below: end-to-end latency, the CPU cost
 on the audio thread, and what happens when a listener drops.
 
 This is the engine half. The browser half is `packages/engine-browser/docs/streaming.md`,
 which holds the wire-format reasoning; this page is about what happens inside the engine.
-
-> **Status: built, run, and measured.** See "What was measured" at the bottom for the
-> numbers and the machine they came from. The one thing not covered by them is a *browser*
-> listening — the measurements were taken by a headless Node client
-> (`scripts/measure-broadcast.mjs`), which reads every number except "does it sound right
-> to a human".
 
 ## Where the tap goes, and why there
 
@@ -23,9 +16,8 @@ records about the meter: an output device carries no measurer in Tracktion, only
 So the signal leaving for the interface exists in exactly one readable spot, and both the
 VU and the broadcast read it there.
 
-`BroadcastTapPlugin` is transparent — it copies and passes through — and is the same shape
-as `WaveformTapPlugin`, deliberately: that one has been in the chain for a long time and
-works, so this borrows its structure rather than inventing a second one.
+`BroadcastTapPlugin` is transparent — it copies and passes through — and is deliberately the
+same shape as `WaveformTapPlugin`: one structure for a tap, not two.
 
 ## Two channels, fixed
 
@@ -66,8 +58,8 @@ declaration order is load-bearing — this is one more entry on that list.
 
 ## The sender is its own thread, and that is not a preference
 
-It started as a `juce::Timer` on the message thread — the simplest thing that could be
-measured. Reading the actual IXWebSocket v12.0.1 sources killed that:
+A `juce::Timer` on the message thread is the obvious spelling and it is not available here.
+The IXWebSocket v12.0.1 sources say why:
 
 * `WebSocketServer` leaves `kSendTimeoutSeconds` at **-1**, and `connectToSocket` sets
   `_blockingSend = true` for every server-side socket.
@@ -80,19 +72,17 @@ transport, no project applies — and it reads as a hang with no visible cause. 
 is a `std::thread` in `main.cpp`, where the worst a stalled listener costs is that the ring
 overruns and everyone gets a gap.
 
-It wakes every 5 ms and drains **everything waiting**, not one frame per pass. An earlier
-version took one 480-frame frame per 10 ms tick, which at 48 kHz is *exactly* the production
-rate: zero headroom, so any late wake-up added backlog no later pass could work off, the
-ring filled within a second and stayed full, and the result was a permanent 340 ms latency
-with a third of the audio dropped for ever. A ceiling equal to the production rate is not a
-ceiling, it is a leak.
+It wakes every 5 ms and drains **everything waiting**, not one frame per pass. One 480-frame
+frame per 10 ms tick is *exactly* the production rate at 48 kHz — zero headroom, so any late
+wake-up adds backlog no later pass can work off, the ring fills within a second and stays
+full, and what comes out is a permanent 340 ms latency with a third of the audio dropped for
+ever. A ceiling equal to the production rate is not a ceiling, it is a leak.
 
 **What this does not fix, and you should know before trusting it:** the JSON `broadcast()`
-still sends from the message thread, and IXWebSocket holds a per-socket write mutex for the
-whole of a send. A listener wedged in the audio path therefore still stalls the 20 Hz state
-frame behind that same mutex. That hazard predates the stream — any client could always do
-it — but a 3 Mbit/s subscriber turns it from theoretical into likely. Fixing it means giving
-the JSON path a bounded send too. Measure first.
+sends from the message thread, and IXWebSocket holds a per-socket write mutex for the whole
+of a send. A listener wedged in the audio path therefore stalls the 20 Hz state frame behind
+that same mutex. Any client can do it, but a 3 Mbit/s subscriber turns it from theoretical
+into likely. Fixing it means giving the JSON path a bounded send too. Measure first.
 
 ## Nobody listening means nobody pays
 
@@ -109,9 +99,7 @@ ever trace back to a save.
 
 ## What happens when a listener drops
 
-The third thing the plan said to measure, and the one most likely to be got wrong.
-
-The real answer is the dedicated thread above: the send blocks, so nothing else can be
+The answer is the dedicated thread above: the send blocks, so nothing else can be
 allowed to depend on it returning. The `bufferedAmount()` check against
 `kBroadcastMaxQueuedBytes` is a cheap extra, not the protection — after a *blocking* send
 returns the tx buffer is empty, so it reads ~0 nearly every time.
@@ -164,7 +152,7 @@ below mean anything. Four things about how it is built:
 What it reports is the buffer depth over time, and the **trend** is the point: a cushion that walks
 steadily one way is two clocks disagreeing, and that is what a fixed cushion eventually loses to.
 
-## What was measured
+## The numbers
 
 `node engine/moteur/scripts/measure-broadcast.mjs ws://HOST:PORT [seconds]` subscribes,
 decodes with the same `@studio/engine-protocol/stream` the browser uses, and prints the
@@ -188,7 +176,7 @@ Windows 11, Focusrite USB interface, loopback, 150 s:
 
 ### What those numbers decide
 
-**Drift is the one that mattered, and it came back small.** −0.46 ms/min means a 50 ms
+**Drift is the one that governs the design, and it is small.** −0.46 ms/min means a 50 ms
 cushion survives about an hour and a half before it drains. So the answer to "resample,
 rate-nudge, or WebRTC" is **none of them yet** — a cushion plus the existing re-cushion on
 a gap is enough for a rehearsal or a set. That is a real decision, taken on a number
@@ -201,24 +189,24 @@ tens of ppm. Read −0.46 ms/min as a floor for the same-machine case, not as th
 two machines across a room. Measuring that properly needs the browser sink's `depth` trend
 on a second machine, which is the next thing to do and cannot be done headlessly.
 
-**Jitter at 2.22 ms vindicates the dedicated sender thread**, and by implication condemns
-the `juce::Timer` it replaced — the message thread also builds plugins and applies
-projects, and a 2 ms spread would not have survived that.
+**Jitter at 2.22 ms is what the dedicated sender thread buys**, and by implication rules out
+a `juce::Timer` on the message thread — that thread also builds plugins and applies
+projects, and a 2 ms spread would not survive it.
 
-**CPU on the audio thread** was not separately profiled. The realtime ratio of 0.9999 with
+**CPU on the audio thread** is not separately profiled. The realtime ratio of 0.9999 with
 zero overruns over 150 s says the copy is not costing anything visible, which is the
 question that mattered; a profiler pass is still the honest way to put a number on it.
 
-### A real browser, since then
+### Through a real browser
 
 `scripts/listen-headless.mjs` drives headless Chrome over CDP with the actual
 `@studio/engine-browser` modules bundled in, so the `AudioWorklet` really renders. It
 plays: 10995 frames over 110 s, nothing dropped, nothing undecodable, no format change.
 
-It also moved a number. The sender's jitter is 2.2 ms measured from Node; through a browser
+It also moves a number. The sender's jitter is 2.2 ms measured from Node; through a browser
 it is 22 ms over 30 s and 66 ms over 110 s, because what is being measured there is the
-listener's *main thread*. One underrun, ring down to 64 frames. The default cushion went
-from 50 ms to 150 ms as a result — the full reasoning is in
+listener's *main thread*. One underrun, ring down to 64 frames. That is why the default
+cushion is 150 ms rather than 50 — the full reasoning is in
 `packages/engine-browser/docs/streaming.md`.
 
 ### Still unmeasured
@@ -239,7 +227,7 @@ from 50 ms to 150 ms as a result — the full reasoning is in
 * **No authentication of its own.** The stream rides the existing socket and inherits
   exactly what that socket already has, which is the engine token echoed on `whoami` — and
   no more. Worth saying plainly: anyone who can reach the port can listen to the room.
-  Acceptable on loopback and on a trusted LAN, which is where `STUDIO_ENGINE_HOST` puts it
-  today, and **not** acceptable the day this is exposed further.
-* **No multi-device output.** Master plus a headphone cue, which m9 will need, is a
-  separate chantier from this one and the plan keeps it separate.
+  Acceptable on loopback and on a trusted LAN, which is where `STUDIO_ENGINE_HOST` puts it,
+  and **not** acceptable the day this is exposed further.
+* **No multi-device output.** Master plus a headphone cue, which the DJ desk needs, is a
+  separate chantier and stays separate.

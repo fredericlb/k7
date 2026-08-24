@@ -44,7 +44,7 @@ whom*:
 
 ```
 Sessions ▸  st0 · ma-chanson · 4 tracks  ▶  ♫1   ✕
-            m9 · le-set · 1 track                ✕
+            st0 · le-set · 1 track               ✕
             pl8 · nothing loaded                 ✕
 ```
 
@@ -115,12 +115,12 @@ Two halves, and the split is the whole point:
 
 ## The remaining loops (`supervisor.rs`)
 
-The name is a misnomer now — the supervisor is `@studio/engine-host`. The registry
-heartbeat, the refused-origin poll, the crash watch, the file-service watch and all three
-engine-query polls belong to it: it owns those files, those processes, and the one
-connection to the engine.
+The name is a misnomer — the supervisor is `@studio/engine-host`. The registry heartbeat,
+the refused-origin poll, the crash watch, the file-service watch and all three engine-query
+polls belong to it: it owns those files, those processes, and the one connection to the
+engine.
 
-Two loops stayed, and both are genuinely view work:
+Two loops live here, and both are genuinely view work:
 
 - `spinner_loop` runs at 8 frames per second. Putting that on the pipe would turn an idle
   app into a constant stream of messages to redraw one glyph — exactly the cost the
@@ -132,10 +132,10 @@ Every loop snapshots the state under a short lock and **drops the guard before a
 
 ## Paths (`paths.rs`)
 
-The layout is no longer defined in the tray. `packages/engine-client/src/paths.ts` owns it,
-and the three paths the tray opens for the user (workspaces root, merged log, origins file)
-arrive in the supervisor's snapshot rather than being recomputed. What is left belongs to
-subsystems the tray has not handed over yet, and goes with them.
+The layout is defined by `packages/engine-client/src/paths.ts`, not here. The three paths the
+tray opens for the user (workspaces root, merged log, origins file) arrive in the supervisor's
+snapshot rather than being recomputed. What is left belongs to subsystems the tray has not
+handed over yet, and goes with them.
 
 ## Finding the supervisor (`hostcmd.rs`)
 
@@ -161,8 +161,8 @@ commands go down its stdin. The written definition of the format is
 Rust mirror — the same arrangement `engine-protocol` has with the C++ engine.
 
 It is deliberately **partial**: only the fields the tray consumes are mirrored. serde
-ignores the rest, so a snapshot field belonging to a subsystem the tray no longer owns
-simply does not appear — and adding one is how a later stage takes it over.
+ignores the rest, so a snapshot field belonging to a subsystem the tray does not own simply
+does not appear — and adding one is how a later stage takes it over.
 
 The supervisor is spawned into the kill-on-close job, which makes it (and everything it
 comes to own) die with the tray on Windows however the tray ends; on Unix the pipe does the

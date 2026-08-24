@@ -1,7 +1,7 @@
-// uiLibrary.ts — a module's panel: the `ui.yaml` that sits BESIDE its `module.yaml`, in the same folder. What
-// the module's `ui:` block used to be, in a file of its own, so the plugin scan can rewrite what a module IS
-// without touching how it is DRAWN. The FOLDER says which module a panel belongs to; the file only says how it
-// looks. Read across every module library the project can see, nearest first. Rationale: docs/uiLibrary.md.
+// uiLibrary.ts — a module's panel: the `ui.yaml` that sits BESIDE its `module.yaml`, in the same folder. A file
+// of its own, so the plugin scan can rewrite what a module IS without touching how it is DRAWN. The FOLDER says
+// which module a panel belongs to; the file only says how it looks. Read across every module library the project
+// can see, nearest first. Rationale: docs/uiLibrary.md.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

@@ -33,7 +33,7 @@ import {
 
 const execFileP = promisify(execFile);
 
-/** Lightweight session row for the picker UI (grist_load.go). */
+/** Lightweight session row for the picker UI. */
 export interface GristSessionInfo {
   id: number;
   name: string;

@@ -1,26 +1,22 @@
 # ingest.ts — extended notes
 
-## It pushes UP now, and it had to
+## It pushes UP
 
-This used to copy a workspace's `_modules` / `_library` **into** the local folder,
-additively, never replacing anything.
+It sends a workspace's shared folder to the hosted library, and never the other way. The local
+folder is a **cache** of that library: anything sitting in it that the owner's manifest does not
+mention is, by definition, something to delete — so the next sync would quietly remove exactly
+what an import INTO it had just copied. Up is the only direction this button can have.
 
-That stopped being correct the moment the library moved to a server. The local folder is a
-**cache** of the hosted library: anything sitting in it that the owner's manifest does not
-mention is, by definition, something to delete — so the next sync would quietly remove
-exactly what the import had just copied. The same button had to become an upload or stop
-existing.
+## Why it is not additive
 
-## Why it is no longer additive
+"Never replace what is already there" is the tempting rule, because clobbering shared material
+changes what every project naming it plays, with no author and no way back.
 
-The old rule was "never replace what is already there", because clobbering a shared module
-would change what every project inheriting it plays, with no author and no way back.
-
-That rule cannot survive the move, and pretending otherwise would cost more than it buys:
+It cannot survive the direction above, and pretending otherwise would cost more than it buys:
 asking the library "do you already have this one?" per file doubles the round trips to
 answer a question the owner is better placed to decide. A PUT replaces.
 
-What protects a shared module now is different, and honest about being different:
+What protects shared material is different, and honest about being different:
 
 - pushing a workspace up is a **deliberate act aimed at a named workspace**, not a
   side-effect of opening a screen;
@@ -34,35 +30,16 @@ One file that fails does not roll the rest back, and does not stop the walk. `fa
 carries what did not go and why, beside `uploaded`. There is nothing to undo: every file
 that landed is a file the library now has, and the caller can retry the rest.
 
-## The two folders
+## The one folder
 
 | workspace | library |
 |---|---|
-| `_modules/` | `modules/` |
 | `_library/` | `library/` |
 
-There is no third row for the panels. A module's face is the `ui.yaml` **inside** the
-module's own folder (see `@studio/song`'s `docs/uiLibrary.md`), so it travels up with
-`_modules/` and there is nothing here that has to know it exists.
+`_modules/` has **no row**. A module is authored in st0 and committed to the account's library
+repository — a git repository somebody owns, not a folder on this volume
+(`packages/song/docs/sharedFolders.md`). What travels here is the material a module NAMES:
+impulse responses, amp profiles. A module's face is the `ui.yaml` **inside** the module's own
+folder (see `@studio/song`'s `docs/uiLibrary.md`), so nothing here has to know it exists either.
 
-A workspace missing one is normal — most have some and not others — so those are reported
-in `absent` rather than thrown.
-
-## The namespace is the library's, and no longer a contributor's
-
-This used to push `_modules/config.yaml` like any other file, so the **last workspace
-uploaded renamed the whole library** — silently, for every project inheriting from it,
-because that file declares the namespace refs are keyed by (`@st0/audio/reverb`).
-
-It is now skipped, and reported in `skipped` rather than dropped quietly: "it uploaded" and
-"it uploaded everything" are different claims and only one of them is true.
-
-The declaration itself stays in `modules/config.yaml` rather than moving into
-`mediatek.yaml`, which was the earlier idea here. Two reasons it is better where it is:
-that path is where `@studio/song`'s loader already looks — a shared module root without a
-namespace is a hard error — and duplicating it into the marker would create a second source
-of truth for one string. `ensureLayout` writes it once, at creation, with `mediatek` as the
-default; nothing overwrites it afterwards.
-
-Changing it later is a **rename of every module in every project that inherits them**. The
-file says so in its own comment, which is the only place someone about to edit it will look.
+A workspace missing the folder is normal, so that is reported in `absent` rather than thrown.

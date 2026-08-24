@@ -1,10 +1,10 @@
 // The extent a clip DRAWS at, filled in on the way to the browser.
 //
 // `length: 0` on a compiled ClipDoc means "to the end of the source" — a duration the compiler
-// will not open a wav to learn and the ENGINE fills in from the file it holds. That 0 used to
-// reach the browser unchanged, where nothing can act on it: a browser may not resolve a path on
-// this machine, let alone read a header. So the timeline fell back to drawing ONE BAR, and a
-// three-bar consolidated render was drawn as one while playing all of it.
+// will not open a wav to learn and the ENGINE fills in from the file it holds. Passed to the
+// browser unchanged, nothing can act on it: a browser may not resolve a path on this machine,
+// let alone read a header. The timeline then draws ONE BAR, and a three-bar consolidated render
+// is drawn as one while playing all of it.
 //
 // Answered here because this is the only side that can. Nothing is written into the song for it.
 
@@ -73,12 +73,12 @@ const track = (c: TrackDoc["clips"][number]) =>
 const drawn = (c: TrackDoc["clips"][number], tempo?: number) =>
   toWebTracks([track(c)], tempo)[0].clips[0].length;
 
-// 110 BPM: one beat is 60/110 s, so 6.716938 s is 12.3144 beats — the reported case.
+// 110 BPM: one beat is 60/110 s, so 6.716938 s is 12.3144 beats — the reference case.
 const BEATS = (secs: number, tempo = 110) => (secs * tempo) / 60;
 
 describe("a clip whose document states no extent", () => {
   it("is drawn at its SOURCE's length", () => {
-    const w = wav(6.716938); // the reported case: 3.08 bars, drawn as one
+    const w = wav(6.716938); // the reference case: 3.08 bars, drawn as one
     expect(drawn(clip({ source: w.path }), 110)).toBeCloseTo(
       BEATS(w.seconds),
       9,

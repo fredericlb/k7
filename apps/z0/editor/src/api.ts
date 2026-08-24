@@ -5,15 +5,15 @@
 // @studio/project-shell.
 //
 // z0's own backend holds the game — its guest sessions, its Grist state, its one render
-// engine named by environment. None of that answers "which repositories do I have", so
-// pointing at it would have meant a second registry and a second login for one account.
+// engine named by environment. None of that answers "which repositories do I have", and
+// pointing at it would mean a second registry and a second login for one account.
 
 import { engineAccess } from "@studio/engine-browser/access";
 import { projectApi } from "@studio/project-shell/project";
 import type { PublicEngine } from "@studio/web-protocol";
 import { SERVICE_PATHS } from "@studio/web-protocol/services";
 
-/** Where pl8 answers; read from the table, because this prefix moved once already. */
+/** Where pl8 answers; read from the table, which is the one place a prefix is spelled. */
 const PL8 = SERVICE_PATHS.pl8;
 
 async function json<T>(res: Response, what: string): Promise<T> {

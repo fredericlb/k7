@@ -7,13 +7,12 @@ that survives an unmount — are a separate set, in
 
 ## The camera is not React state
 
-This is the load-bearing decision. The camera used to be `useState`, so **every pointer move
-of a pan re-rendered the whole graph** — every node, every widget, every fader and meter, plus
-the SVG cable layer — and none of it is memoised. All of that to change a translation the
-compositor would have done alone.
+This is the load-bearing decision. The camera lives in **refs** and is written straight onto
+`.dgx-world` as a transform. As `useState`, **every pointer move of a pan would re-render the
+whole graph** — every node, every widget, every fader and meter, plus the SVG cable layer, none
+of it memoised. All of that to change a translation the compositor would have done alone.
 
-So the camera lives in refs and is written straight onto `.dgx-world` as a transform. Two
-things follow, and both are why it was worth doing:
+Two things make it hold:
 
 - **Nothing in the render reads `x` or `y`.** Look for them: there is no consumer. A pan is
   therefore *entirely* free of React.
@@ -66,11 +65,10 @@ drifting under the pointer during the glide and snapping back at the end.
 That is not a preference, it is the only signal there is. On a Mac trackpad — and on a Windows
 precision touchpad — a **pinch** arrives as a wheel event with `ctrlKey` set, synthesised by the
 browser; **two fingers sliding** arrive as a plain wheel with `deltaX`/`deltaY`, indistinguishable
-from a mouse wheel. A trackpad has no third thing to send. So as long as the plain wheel zoomed,
-every attempt to pan a Mac trackpad zoomed instead, which is exactly what it did here until
-10 August 2026.
+from a mouse wheel. A trackpad has no third thing to send. So a plain wheel that zooms turns
+every attempt to pan a Mac trackpad into a zoom.
 
-The cost is stated plainly: **a mouse wheel now pans**, and zooming with a mouse means holding
+The cost is stated plainly: **a mouse wheel pans**, and zooming with a mouse means holding
 Ctrl. That is the Figma / Miro / Maps arrangement, and it is the price of the trackpad working
 at all — there is no rule that gives a plain wheel to zoom and to pan at once.
 
@@ -123,8 +121,8 @@ makes the pinch crawl.
 
 `isMouseWheel` exists because the two arrive as the same event and mean opposite things: a wheel
 is a **detent**, discrete, and the natural thing for it to do on a graph is zoom; a trackpad
-slide is a hand pushing the view about, and zooming there is what made every attempt to pan a
-Mac trackpad zoom instead. So the two are told apart rather than legislated over.
+slide is a hand pushing the view about, and zooming there turns every attempt to pan a Mac
+trackpad into a zoom. So the two are told apart rather than legislated over.
 
 Three signals, most reliable first:
 
@@ -138,7 +136,7 @@ Three signals, most reliable first:
    horizontal component, and is large, where a finger's is small and often fractional.
 
 It is wrong in one direction only, by design: an unrecognised device is treated as a surface, so
-it keeps the behaviour that was there before. A trackpad that zooms is a broken trackpad; a mouse
+it pans. A trackpad that zooms is a broken trackpad; a mouse
 that pans is merely a mouse that does not zoom yet.
 
 ## Framing a set — `fitTo`, and the camera a host borrows

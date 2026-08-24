@@ -1,6 +1,6 @@
 // Gate.tsx — sign in, then pick the machine the project lives on. Two conditions before a
 // third (ProjectShell): pl8 names the repository, and it has to be on that machine before
-// anything opens. Same shape as m9's gate, and deliberately so — a second dialect of "which
+// anything opens. Same shape as st0's gate, and deliberately so — a second dialect of "which
 // engine am I on" is how two apps end up disagreeing about one account.
 
 import { Button } from "@frediverse/ui/button";

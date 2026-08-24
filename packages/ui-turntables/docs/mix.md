@@ -37,11 +37,11 @@ verticale. Les deux tranches se regardent donc de part et d'autre du milieu : le
 comme un miroir plutôt que comme une répétition, et une main sait sur quelle platine elle est
 sans lever les yeux.
 
-La liste des morceaux occupait le milieu. Elle n'y est plus : on choisit un morceau **au disque
-lui-même**, en cliquant le centre du vinyle, ce qui est déjà la façon dont on charge une platine
-(voir [songBrowser.md](songBrowser.md)). Une colonne qui répétait ce que le disque sait déjà
-prenait la place que les platines voulaient. Ce qui reste au milieu ne s'affiche que quand
-quelque chose ne va pas — les cartes d'erreur, désormais en bandeau au-dessus des platines.
+Aucune liste de morceaux au milieu : on choisit un morceau **au disque lui-même**, en cliquant
+le centre du vinyle, ce qui est déjà la façon dont on charge une platine (voir
+[songBrowser.md](songBrowser.md)). Une colonne qui répéterait ce que le disque sait déjà
+prendrait la place que les platines veulent. Les cartes d'erreur sont un bandeau au-dessus des
+platines, et ne s'affichent que quand quelque chose ne va pas.
 
 ## Les vinyles
 
@@ -93,20 +93,20 @@ diffuser au moteur un document qui ne change que de deux nombres.
 
 ### Deck B est MUTÉE, et ce n'est pas optionnel
 
-La ligne dont l'absence fait passer le crossfader pour mort — et ce n'était pas le
+La ligne dont l'absence fait passer le crossfader pour mort — alors que ce n'est pas le
 crossfader.
 
 `out` compile comme un chemin **parallèle** : le signal sec continue vers le master à côté du
 module qu'il alimente, c'est ce qui fait qu'un send est un send. Deck B n'alimente que le
-second port du crossfade, donc non mutée elle atteignait le master aussi : entendue une fois
-brute et une fois à travers le module, et pousser le fader vers deck A ne l'enlevait pas.
-Tous les réglages sonnaient pareil.
+second port du crossfade, donc non mutée elle atteint le master aussi : entendue une fois
+brute et une fois à travers le module, et pousser le fader vers deck A ne l'enlève pas.
+Tous les réglages sonnent pareil.
 
 Ça marche parce que le nœud de mute de Tracktion laisse **délibérément** passer les clips vers
 les sends et les sidechains : le crossfade garde son second signal, le master cesse d'avoir un
 doublon. Voir `engine/moteur/docs/sidechain.md`.
 
-Mesuré sur le document compilé d'`example.m9`, deux morceaux de 20 s, en rendant deck A seule
+Mesuré sur le document compilé d'`example.st0`, deux morceaux de 20 s, en rendant deck A seule
 comme référence :
 
 | rendu | niveau | résidu contre deck A seule |
@@ -115,26 +115,26 @@ comme référence :
 | Mix = 1 | −23,26 dBFS | −18,55 dBFS — l'autre morceau |
 | Mix = 0, deck B **non** mutée | −18,51 dBFS | **−23,26 dBFS** |
 
-La dernière ligne est le bug : à Mix = 0, deck B est encore là, exactement à son propre
-niveau. `scaffoldM9` écrit le mute désormais, et un test le fige.
+La dernière ligne est le symptôme : à Mix = 0, deck B est encore là, exactement à son propre
+niveau. `scaffoldSet` écrit le mute, et un test le fige.
 
 ## La lecture passe par le compilateur
 
-m9 ne construit plus le document. Il **récupère celui que le projet compile** (`/engine-doc`
+Le pupitre ne construit pas le document : il **récupère celui que le projet compile** (`/engine-doc`
 sur le service de fichiers), y met les morceaux des platines, et l'envoie par son propre
 socket. Ce qui joue est donc le projet : les chaînes, le `sidechainFrom: deckB`, et le graphe
-DSP du crossfade **cuit par le compilateur** — 768 octets pour `example.m9`.
+DSP du crossfade **cuit par le compilateur** — 768 octets pour `example.st0`.
 
-Conséquence directe : le crossfader ne bouge plus deux niveaux, il pose `Mix` sur
+Conséquence directe : le crossfader ne bouge pas deux niveaux, il pose `Mix` sur
 `deckA:crossfade` — le module de la médiathèque, via la liaison déclarée dans
-`views/mix.yaml`. Le câblage en dur a disparu du chemin normal.
+`views/mix.yaml`. Rien n'est câblé en dur sur ce chemin.
 
 `withDecks` ne touche **que** les clips des pistes qui portent une platine chargée. Un
 plugin, un send, une automation que le projet déclare restent au projet ; y toucher
-remettrait m9 dans le métier de décider ce qu'un set sonne.
+remettrait le pupitre dans le métier de décider ce qu'un set sonne.
 
-**Le tenant-lieu reste**, et c'est délibéré : le temps que la compilation arrive, ou pour un
-projet qui ne compile pas, `deckDoc` construit encore deux pistes avec un niveau chacune et
+**Un tenant-lieu existe**, et c'est délibéré : le temps que la compilation arrive, ou pour un
+projet qui ne compile pas, `deckDoc` construit deux pistes avec un niveau chacune et
 le crossfader déplace les niveaux. Une platine doit pouvoir jouer avant que tout soit prêt ;
 c'est l'imitation du set, et elle le dit.
 
@@ -153,15 +153,14 @@ lecture du bas est global, et c'est pour ça qu'il est en bas et pas sur chaque 
 Écouter une platine au casque pendant que l'autre passe demanderait deux transports
 indépendants côté moteur. Ce n'est pas là.
 
-Caler les temps forts, en revanche, **n'en demande pas** — et cette page a longtemps prétendu
-le contraire. On ne décale pas le transport, on décale le **clip** : `start` est par clip, et
-retarder l'esclave de moins d'un temps suffit. C'est ce que fait le sync maintenant, voir
-[bpm.md](bpm.md).
+Caler les temps forts, en revanche, **n'en demande pas** : on ne décale pas le transport, on
+décale le **clip** — `start` est par clip, et retarder l'esclave de moins d'un temps suffit.
+C'est ce que fait le sync, voir [bpm.md](bpm.md).
 
 ## Ce qui attend une place
 
 `ChainsPanel` et `deckGraph` — la chaîne d'effets d'une platine, dessinée — ne sont montés
-par rien depuis cette refonte. Gardés parce qu'ils marchent, qu'ils sont testés, et que les
-options reviennent ; la platine qu'ils dessinent est un **paramètre** maintenant, ce qui leur
-manquait quand il n'y en avait qu'une. Voir l'entrée dans
+par rien. Gardés parce qu'ils marchent, qu'ils sont testés, et que les options reviennent ; la
+platine qu'ils dessinent est un **paramètre**, donc un panneau ouvert sur la platine B
+n'étiquette pas ses effets platine A. Voir l'entrée dans
 [docs/inventaire.md](../../../docs/inventaire.md).

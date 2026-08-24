@@ -1,10 +1,10 @@
 // Unit tests for DspGraph's AUDIO path — specifically `mix`, the one node whose meaning spans every phase.
 //
-// `mix` blends the graph's output with what came in. It used to run inside the audio phase, which is correct
-// for a graph made only of audio nodes (auto-wah: biquad, gain, mix) and a complete no-op for one with a
-// sample-rate stage (the flanger): the blend ran on a buffer no node had written yet, so it mixed the dry
-// signal with an identical copy of itself, and `aout` then overwrote the result. The Mix knob did nothing at
-// any setting. These tests are on the ARITHMETIC — a mix is a weighted sum, and a weighted sum is checkable.
+// `mix` blends the graph's output with what came in, and runs after every phase. Inside the audio phase it is
+// correct for a graph made only of audio nodes (auto-wah: biquad, gain, mix) and a complete no-op for one with
+// a sample-rate stage (the flanger): the blend runs on a buffer no node has written yet, so it mixes the dry
+// signal with an identical copy of itself, and `aout` then overwrites the result — a Mix knob that does nothing
+// at any setting. These tests are on the ARITHMETIC — a mix is a weighted sum, and a weighted sum is checkable.
 
 #include "DspGraph.h"
 #include "test_harness.h"
@@ -223,8 +223,8 @@ void linmap_with_an_empty_range_is_zero_not_nan() {
     for (int i = 0; i < kBlock; ++i) CHECK(std::isfinite(buf.getReadPointer(0)[i]));
 }
 
-// A block LARGER than prepare() was told about is processed, not grown into. process() used to setSize the dry
-// snapshot on the audio thread; it now splits the block, so the arithmetic must come out the same.
+// A block LARGER than prepare() was told about is processed, not grown into: process() splits it rather than
+// setSize the dry snapshot on the audio thread, so the arithmetic must come out the same.
 void a_block_bigger_than_prepared_is_chunked_not_grown() {
     auto g = buildGraph(kSampleGraph);
     if (!g) return;

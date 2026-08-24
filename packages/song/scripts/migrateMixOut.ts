@@ -1,9 +1,8 @@
 // migrateMixOut.ts — point a song's lanes at MIX, and give it the MIX -> OUT run.
 //
-// `OUT` used to be the only output and meant "the mixer's sum". It now names the DEVICE, and
-// `MIX` is the sum, so a run wired to OUT says something it did not mean before. Every project a
-// scaffold writes also declares `MIX: [ OUT ]` — the master chain's place, empty — and this adds
-// it to the ones written before that.
+// `OUT` names the DEVICE and `MIX` is the mixer's sum, so a song wiring its lanes straight to OUT
+// says something it does not mean. Every project a scaffold writes declares `MIX: [ OUT ]` — the
+// master chain's place, empty — and this adds it to a song that lacks it.
 //   npx tsx packages/song/scripts/migrateMixOut.ts <project.st0> [--dry]
 // See ../docs/masterChain.md.
 

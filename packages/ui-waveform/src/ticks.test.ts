@@ -23,7 +23,7 @@ describe("labelMinPx", () => {
   });
 
   it("grows with the digits — the whole point", () => {
-    // The bug this replaced: one flat minimum, sized for "7", applied to "129" as well.
+    // One flat minimum sized for "7" applies to "129" as well, and that is what this rules out.
     expect(labelMinPx("129")).toBeGreaterThan(labelMinPx("7"));
     expect(labelMinPx("129.4")).toBeGreaterThan(labelMinPx("129"));
   });
@@ -46,7 +46,7 @@ describe("labelStride", () => {
   });
 
   it("gives a wide label more room than a narrow one at the same zoom", () => {
-    // 16px between bars: "7" fits, "129" is twice as wide and does not, though the old flat 10px labelled both.
+    // 16px between bars: "7" fits, "129" is twice as wide and does not — a flat 10px would label both.
     const spacing = 16;
     expect(labelStride(spacing, labelMinPx("7"))).toBe(1);
     expect(labelStride(spacing, labelMinPx("129"))).toBeGreaterThan(1);

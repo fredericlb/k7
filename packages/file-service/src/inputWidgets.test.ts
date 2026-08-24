@@ -1,9 +1,9 @@
 // What a live input's panel needs to be more than a picture.
 //
-// An io "in" module runs no plugin, and every widget in the graph was built for one: a knob sends a param to a
-// pluginId, a waveform reads a tap keyed by pluginId. So an input drew its panel and nothing in it worked —
-// there was no id to address and no param to send. These are the two answers, both computed here because this
-// is the only place that knows both the module and the chain it sits in.
+// An io "in" module runs no plugin, and every widget in the graph is built for one: a knob sends a param to a
+// pluginId, a waveform reads a tap keyed by pluginId. Without an answer of its own an input draws its panel and
+// nothing in it works — no id to address, no param to send. These are the two answers, both computed here
+// because this is the only place that knows both the module and the chain it sits in.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

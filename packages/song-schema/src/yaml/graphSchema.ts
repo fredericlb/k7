@@ -1,8 +1,7 @@
-// chainsSchema.ts — graph.yaml's shape, in Zod. The file declares SEGMENTS, not
+// graphSchema.ts — graph.yaml's shape, in Zod. The file declares SEGMENTS, not
 // chains: each module says where its signal goes next, and the chains are derived by
-// following the arrows (see chainsGraph.ts). ONE map, because a lane is a module too now
-// (docs/trackModules.md) — the `tracks:` half is gone, and with it the rule that a name
-// could not be in both.
+// following the arrows (see chainsGraph.ts). ONE map, because a lane is a module too
+// (docs/trackModules.md): every node of the graph is named in the same place.
 
 import { z } from "zod";
 

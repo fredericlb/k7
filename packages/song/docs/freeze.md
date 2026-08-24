@@ -97,9 +97,9 @@ those lanes, those plugins, the sends between them — and renders that whole, a
 per-track bounce: a freeze point may be a bus several lanes meet at, and the engine's `--freeze
 --track` renders one track.
 
-Nothing is neutralised, unlike the per-track freeze this replaced. Gain and pan are a `Mixer`
-**module** now: upstream of the point it belongs in the render, downstream it is not in the cut doc
-at all. The one thing the old code had to flatten by hand is the one thing the plan already answers.
+Nothing is neutralised by hand. Gain and pan are a `Mixer` **module**: upstream of the point it
+belongs in the render, downstream it is not in the cut doc at all. What a per-track freeze would
+have to flatten, the plan already answers.
 
 A **strudel** lane inside the set is refused: its material is streamed by `PatternClock` while the
 transport rolls, so a stopped one has no clips and the render would be a file of silence.
@@ -120,12 +120,11 @@ The ⋮ menu offers **Freeze** / **Unfreeze** on the point, and nothing at all o
 somebody else's render: thawing that one means naming the module downstream of it, and an entry
 there would name the wrong one.
 
-## What this replaces
+## One verb for a lane and a reverb
 
-`track freeze` and `frozen:` on a track file, which froze exactly one lane and its own modules. A
-lane is a module now ([trackModules.md](trackModules.md)), so the same verb reaches a lane and a
-reverb by the same name — and the thing you actually want to stop paying for, "everything before
-here", became sayable.
+A lane is a module ([trackModules.md](trackModules.md)), so one verb reaches a lane and a reverb
+by the same name — and the thing you actually want to stop paying for, "everything before here",
+is sayable. A freeze that only ever took one lane and its own modules cannot say it.
 
 ## The limit worth knowing
 

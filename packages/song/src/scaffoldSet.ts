@@ -1,6 +1,6 @@
 // scaffoldSet.ts — the file map + writer for a new SET: two decks meeting at a crossfade, an
 // empty set list, and the desk that plays them. An `.st0` folder like every other, and that is
-// the whole of what a set is now — a project with no arrangement that declares a `turntables`
+// the whole of what a set is — a project with no arrangement that declares a `turntables`
 // surface. Hand-authored like scaffold.ts and for the same reason — the `#` comments ship to
 // disk and are the one worked example a reader gets.
 // Full rationale: docs/setProject.md.
@@ -372,7 +372,6 @@ function deckTrack(letter: string, wiring: string): string {
     `# file IS its arrangement; on a deck the material is whichever song the browser put on\n` +
     `# ten seconds ago, so what is committed is the deck's SETTINGS and its place in\n` +
     `# the graph. ${wiring}\n` +
-    // `docs:` used to close this file, restating the comment above; the field is gone (a note is a doc module).
     `extends: "@studio/track"\n`
   );
 }

@@ -699,8 +699,6 @@ export function inputLandingTrack(
   return c.out.map((o) => o.to).find(isTrack) ?? "";
 }
 
-// `frozenRender` was here. Freezing is gone with the `frozen:` field, to be replaced later — see docs/trackModules.md.
-
 export function validate(g: GraphDoc): string[] {
   const w: string[] = [];
   // Tracks on disk but left out of `g.tracks` for being disabled, so a lookup miss can be told from a typo.
@@ -763,7 +761,7 @@ export function validate(g: GraphDoc): string[] {
         w.push(`chain '${name}': out '${o.to}' is not a chain or io sink`);
       if (o.gain < 0)
         w.push(`chain '${name}': out '${o.to}' has a negative gain`);
-      // …and which output it LEFT from, which used to be asked nowhere — see docs/graphModel.md.
+      // …and which output it LEFT from — see docs/graphModel.md.
       if (o.fromPort) {
         const src = c.use.length ? c.use[c.use.length - 1].module : c.from;
         const srcModule = src ? g.modules[src] : undefined;

@@ -358,7 +358,7 @@ app.get(
 
 // No /ssh-key here: pl8 owns the git identity and sshKeys.ts fetches a copy — packages/git-repos/docs/keys.md.
 
-// `/stems` stood here and went with the mirror: pl8 drives the cut now — see docs/processChain.md.
+// No cut route here: pl8 drives a separation and posts the bytes — see docs/processChain.md.
 
 // Everything else needs a resolved workspace on req.ws.
 app.use(resolveWorkspace, filesRouter);

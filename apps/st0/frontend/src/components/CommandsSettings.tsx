@@ -77,7 +77,7 @@ export function CommandsSettings({
   // Every head the catalogue uses, so a PLURAL verb lists under its singular — see entityGroup.
   const heads = useMemo(() => commandHeads(commands), [commands]);
 
-  /** The edits, held HERE until the Save button — a write-through was a PATCH and a whole-shell re-render per character (docs/shell.md). */
+  /** The edits, held HERE until the Save button — a write-through is a PATCH and a whole-shell re-render per character (docs/shell.md). */
   const [draft, setDraft] = useState<CommandPrefs>(prefs);
   const dirty = draft !== prefs;
   // The saved document changed under us: the first fetch landing, or our own save coming back, which costs a bail-out.

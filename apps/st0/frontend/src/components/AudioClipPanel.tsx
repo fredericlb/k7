@@ -575,7 +575,7 @@ export function AudioClipPanel({
                     ? `garde ${keep.from.toFixed(2)}s → ${keep.to.toFixed(2)}s`
                     : "rien au-dessus de ce seuil"}
                 </p>
-                {/* The warning here went with what it warned about: a trim writes this EVENT's window now (song/docs/materialCut.md). */}
+                {/* No warning needed: a trim writes this EVENT's window, not the material (song/docs/materialCut.md). */}
                 <Button
                   size="sm"
                   className="mt-2 w-full"

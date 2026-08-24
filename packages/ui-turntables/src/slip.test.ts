@@ -56,8 +56,8 @@ describe("the slip a tempo change takes on", () => {
     expect(startSeconds(after)).toBeGreaterThan(0);
   });
 
-  it("composes over a whole drag, which is where the drift used to accumulate", () => {
-    // Eight steps summed to a full second of skipped music, so the error must not grow with them.
+  it("composes over a whole drag, which is where drift accumulates", () => {
+    // Eight steps sum to a full second of skipped music, so the error must not grow with them.
     let t = deck(120, 120);
     const transport = TIMELINE_BASE + 90;
     const first = heard(t, transport);

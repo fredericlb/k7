@@ -1,7 +1,8 @@
-// undo.ts — the client half of the project-wide undo/redo journal, shared by st0 and m9.
-// runUndo/runRedo call the file-service, gate a process step behind a confirm dialog, then
-// toast which file was reverted and navigate the editor to it. Each app supplies how it
-// opens a file, toasts, confirms, and refetches — the network + UX flow lives here once.
+// undo.ts — the client half of the project-wide undo/redo journal, shared by every app that
+// mounts this shell. runUndo/runRedo call the file-service, gate a process step behind a
+// confirm dialog, then toast which file was reverted and navigate the editor to it. Each app
+// supplies how it opens a file, toasts, confirms, and refetches — the network + UX flow lives
+// here once.
 
 import type { UndoResult } from "@studio/web-protocol";
 import { projectApi } from "./project.ts";

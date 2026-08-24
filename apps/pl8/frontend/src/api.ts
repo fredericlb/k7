@@ -186,8 +186,6 @@ export const engineMachine = {
     return lines ?? [];
   },
 
-  // The machine's channel LABELS and its `plugins` scan were read here, for the builder (../docs/api.md).
-
   /** Which of this machine's workspaces already holds that repository, or `null` — pl8 names it by URI. */
   workspaceForRepo: async (
     fileBase: string,
@@ -378,7 +376,7 @@ export const engineMachine = {
 /** This service's OWN registry, bound to its prefix and typed on the host's prefs (../docs/api.md). */
 export const engines = engineAccess<PublicEngine, Pl8Prefs>(BASE, json);
 
-// `/api/projects` and `/api/shares` were clients here; the routes stayed, the drawing went (../docs/api.md).
+// `/api/projects` and `/api/shares` are this service's routes, called from st0 (../docs/api.md).
 
 /** `/api/hunt`, its own prefix: what answers is a daemon on another machine, not this volume. */
 const hget = async <T>(path: string, what: string): Promise<T> =>
@@ -432,8 +430,6 @@ export const library = {
   list: (family: string) =>
     get<FamilyListing>(`/list?family=${encodeURIComponent(family)}`, "list"),
 
-  // `baseModules` and `addEngineFaces` stood here; both went with the `modules` family (../docs/api.md).
-
   /** A file's bytes, for an <audio>/<video> src. Served with Range, so seeking works. */
   fileUrl: (path: string) =>
     `${BASE}/api/mediatek/file?path=${encodeURIComponent(path)}`,
@@ -460,8 +456,6 @@ export const library = {
     if (!res.ok) throw await failed(res, "file");
     return { path, content: await res.text() };
   },
-
-  // The three module sidecars and `hints` were derived here, for the builder (../docs/api.md).
 
   /** Drop OS files into `dir`. The File goes as the BODY: writeFile takes a string and would corrupt a sample. */
   upload: async (dir: string, files: File[]): Promise<void> =>
@@ -602,5 +596,3 @@ export const library = {
     if (!res.ok) throw await failed(res, "write");
   },
 };
-
-// `moduleStore` stood here, handing this backend's three calls to the shared builder (../docs/api.md).

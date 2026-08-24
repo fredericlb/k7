@@ -15,7 +15,7 @@ import type {
   WarpOut,
 } from "./model.js";
 
-// Re-exported so the long-standing `@studio/translator/dawproject` type imports keep working.
+// Re-exported so `@studio/translator/dawproject` type imports resolve from here too.
 export type * from "./model.js";
 
 // --- small attribute helpers -------------------------------------------------

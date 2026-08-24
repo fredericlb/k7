@@ -2,10 +2,9 @@
 
 ## D'abord : mais [projects.md](projects.md) dit que pl8 ne stocke rien de lourd
 
-C'est vrai, et ça l'est devenu plus encore. La règle qu'il pose est *« pl8 ne fait aucune copie
-d'un dépôt »* : la copie qu'on édite, qu'on joue et qu'on committe vit sur la machine du moteur, et
-ce service n'en tient plus aucune — il tenait un miroir bare et sans blobs pour répondre « qu'est-ce
-qu'il y a dedans », et cette question est celle de la machine désormais.
+C'est vrai. La règle qu'il pose est *« pl8 ne fait aucune copie d'un dépôt »* : la copie qu'on
+édite, qu'on joue et qu'on committe vit sur la machine du moteur, et « qu'est-ce qu'il y a
+dedans » est une question qu'on pose à cette machine.
 
 Un partage n'est pas une copie d'un dépôt, et c'est toute la différence :
 
@@ -172,10 +171,9 @@ agir pour quiconque est dessus.
 
 Dans st0, sur sa page d'accueil, **à la rangée du projet dont il sort** : un bouton « Partages »
 qui ouvre la popin de ce projet-là (`apps/st0/frontend/src/projects/ProjectShares.tsx`, le
-découpage étant `sharesForProject.ts`). Les deux bouts d'un partage sont donc st0
-maintenant : c'est lui qui rend le paquet et l'envoie ici, et lui qui le retire. Ça a vécu dans
-la section Projets de ce service tant que cette section existait ; ce qui reste ici est ce que
-cette page décrit — les octets, l'index, les routes.
+découpage étant `sharesForProject.ts`). Les deux bouts d'un partage sont donc st0 : c'est lui
+qui rend le paquet et l'envoie ici, et lui qui le retire. Ce qui appartient à ce service est ce
+que cette page décrit — les octets, l'index, les routes.
 
 **Les octets partent d'abord, l'index est marqué ensuite.** Cet ordre est tout : effacer le
 dossier est ce qui tue un lien qui a fuité, et ça ne doit dépendre d'aucune écriture qui suit.
@@ -196,7 +194,7 @@ noreferrer"`, la page d'en face étant publique.
 
 ## Le risque qui n'a pas de plafond
 
-Un paquet construit sur un vrai morceau — douze pistes, `01.danse.st0` — pesait **484 Mo** en wav.
+Un paquet construit sur un vrai morceau — douze pistes, `01.danse.st0` — pèse **484 Mo** en wav.
 Sans expiration, sur le volume qui porte aussi la médiathèque de tout le monde. La panne, à ce
 compte-là, n'est pas « le partage ne marche plus » : c'est « le studio passe en lecture seule ».
 
@@ -212,8 +210,8 @@ Deux parades ne sont **pas** prises, et c'est délibéré :
   appartient au **brouillon** : apprendre un 507 au 400ᵉ mégaoctet est le pire endroit possible
   pour l'apprendre.
 
-## Ce qui n'a pas pu être vérifié ici
+## Ce qui se mesure en déployant
 
-Le streaming public de vrais fichiers audio derrière le proxy. `proxy_buffering off` est déjà
-posé pour la médiathèque, mais un lien partagé est le premier usage **non authentifié** de ce
-chemin, et ça se mesure en déployant.
+Le streaming public de vrais fichiers audio derrière le proxy. `proxy_buffering off` est posé
+pour la médiathèque, mais un lien partagé est le seul usage **non authentifié** de ce chemin, et
+ça ne se vérifie pas depuis une machine de développement.

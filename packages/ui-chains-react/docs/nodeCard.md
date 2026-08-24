@@ -7,9 +7,8 @@ each.
 ## Two names, stacked
 
 A node and its module are two different things — `sy_jun-chorus` is one use of
-`@st0/audio/modulation/chorus-ense` — and the header used to say only the first. Seventeen uses of
-one mixer then read as seventeen unrelated cards, and what a node IS could only be learnt by
-opening it.
+`@st0/audio/modulation/chorus-ense`. A header saying only the node's name makes seventeen uses of
+one mixer read as seventeen unrelated cards, with what a node IS learnable only by opening it.
 
 So the header wears the MODULE this node uses, or its own name when there is no second one, and
 the node's own name goes underneath, small, where it answers the second question: WHICH use is
@@ -36,15 +35,15 @@ The layout is flex, so the real figure only exists after a reflow — which is e
 per-card measurement would cost. If the CSS moves, this moves with it.
 
 The corner reservation is `corners * 12 + 2`: 12 px per bubble plus the 2 px the first one hangs
-past them. It read `hasNativePluginUI ? 26 : 0` before, which was wrong twice over — a module with
-a bypass bubble and no native UI reserved nothing, and a node with one bubble reserved room for
-two.
+past them. Counting the bubbles rather than reading `hasNativePluginUI ? 26 : 0`, which is wrong
+twice over — a module with a bypass bubble and no native UI reserves nothing, and a node with one
+bubble reserves room for two.
 
 ## One corner list, read by three things
 
 `cornerButtons` exists because the buttons, the header's padding and the width `headerNameW`
-leaves the name all need the same answer, and disagreed before it did: a module with a bypass
-bubble but no native plugin UI got no padding at all, so a long name ran under it.
+leaves the name all need the same answer, and three separate answers disagree: a module with a
+bypass bubble but no native plugin UI then gets no padding at all, and a long name runs under it.
 
 The ⋮ `menu` appears on any node that COULD use one — any module node, a lane included — not only
 on one that already has alternatives or a freeze, since creating either has to start somewhere and
@@ -115,8 +114,8 @@ Three states, and they say three different things:
 ## A lane's clips
 
 `ClipList` is its own component because the hover link between its two halves needs STATE, and the
-node around it is memoised so that a pan or a meter frame re-renders no card at all — putting a
-`useState` up there would have handed every track node a reason to re-render that has nothing to
+node around it is memoised so that a pan or a meter frame re-renders no card at all — a
+`useState` up there would hand every track node a reason to re-render that has nothing to
 do with the graph.
 
 The list is drawn only on a track, only when it holds something, and only once the widgets are
@@ -152,7 +151,7 @@ than a slider stood on its end.
 The VU's RAMP is on the box and a shade masks it from the top, so the colour is decided by the
 level; painting it on the fill instead would squeeze the whole ramp into whatever height the bar
 happened to have, and a quiet track would read red. The shade carries **no transition**: levels
-arrive every 50 ms and this was a 60 ms ease, so it was restarted before it ever finished — the bar
-never reached its own value and trailed a frame behind for ever. A height cannot run on the
-compositor either, so each restart cost a restyle, a reflow and a display-list entry. See
+arrive every 50 ms, so a 60 ms ease is restarted before it ever finishes — the bar never reaches
+its own value and trails a frame behind for ever. A height cannot run on the compositor either,
+so each restart costs a restyle, a reflow and a display-list entry. See
 `@studio/engine-browser`'s docs/meters.md.

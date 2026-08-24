@@ -35,9 +35,9 @@ le déclarer nulle part.
 prochain événement, recommencer. Faust accepte n'importe quelle longueur, donc un segment n'est
 qu'un `compute` plus court.
 
-La première version posait tout au début du bloc. À 5 ms c'est inaudible sur un jeu de clavier
-et faux sur un roulement programmé : deux frappes à 2 ms d'écart tombent ensemble, et un motif
-en triples croches perd son placement au profit de la grille des blocs.
+Tout poser au début du bloc coûte jusqu'à 5 ms : inaudible sur un jeu de clavier, faux sur un
+roulement programmé — deux frappes à 2 ms d'écart tombent ensemble, et un motif en triples
+croches perd son placement au profit de la grille des blocs.
 
 L'horodatage d'un message est absolu ; `midiBufferOffset` dit où ce bloc commence sur la même
 horloge. L'inverse exact de ce que fait `ExternalPlugin` en SORTIE. Rien n'alloue dans le
@@ -50,13 +50,8 @@ qu'il joue longtemps.
 
 ## Ce que ça coûte, mesuré
 
-| | |
-|---|---|
-| `studio-moteur.exe` avant | 36,0 Mo |
-| après | **42,1 Mo** |
-
-Six mégaoctets. C'est le prix du backend interpréteur ; celui de LLVM aurait été d'un autre
-ordre.
+`studio-moteur.exe` pèse **42,1 Mo**, contre 36,0 sans libfaust : six mégaoctets, le prix du
+backend interpréteur. Celui de LLVM serait d'un autre ordre.
 
 ## Où `import("stdfaust.lib")` est résolu
 
@@ -87,14 +82,14 @@ greffon est inscrit au catalogue avec le rôle `audioEffect`. `packages/dsp/modu
 est le premier module à demander autre chose, et il demande trois ajouts :
 
 - `takesMidiInput()` vrai, et la lecture du flux de notes dans `applyToBuffer` — le
-  `PluginRenderContext` de Tracktion porte déjà le tampon MIDI, et aucun de nos greffons
-  intégrés ne le lit aujourd'hui ;
+  `PluginRenderContext` de Tracktion porte déjà le tampon MIDI, qu'aucun de nos greffons
+  intégrés ne lit ;
 - `producesAudioWhenNoAudioInput()` vrai, sans quoi rien ne tourne sur une piste sans entrée ;
 - un **répartiteur de voix**, qui remplit les `freq`/`gain`/`gate` qu'un instrument Faust
   déclare. Faust le fournit (`mydsp_poly`) et il arrive AVEC le compilateur : sans
   compilateur il n'y a pas de voix à répartir.
 
-Le troisième est pourquoi ça n'a pas été fait d'avance : ça ne se teste pas. Du code MIDI
+Le troisième est pourquoi cette couture ne se pose pas d'avance : ça ne se teste pas. Du code MIDI
 écrit contre une classe qui ne compile rien aura l'air juste jusqu'au jour où on l'exercera,
 ce qui est la définition d'un piège. Le catalogue devra probablement porter **deux** entrées —
 un `Faust` effet et un `Faust Instrument` — puisque le rôle décide du dossier de type sous
@@ -106,7 +101,7 @@ pas répondre les deux.
 **Il n'y a pas besoin de LLVM.** Le backend interpréteur est déjà dans la bibliothèque statique
 par défaut (`build/backends/interp.cmake` pose `INTERP_COMP_BACKEND STATIC DYNAMIC`), et
 `createInterpreterDSPFactoryFromString` compile une source à l'exécution comme la variante LLVM.
-Tout ce qui suit a été construit et exécuté ici, sur Faust 2.85.9 et MSVC :
+Tout ce qui suit se construit et s'exécute ici, sur Faust 2.85.9 et MSVC :
 
 ```
 cmake -S faust/build -B out -C faust/build/backends/interp.cmake \
@@ -114,7 +109,7 @@ cmake -S faust/build -B out -C faust/build/backends/interp.cmake \
       -DINCLUDE_OSC=OFF -DINCLUDE_HTTP=OFF -DINCLUDE_EMCC=OFF -DINCLUDE_WASM_GLUE=OFF
 ```
 
-Ce que ça donne, et ce sont des nombres relevés :
+Les nombres relevés :
 
 | | |
 |---|---|
@@ -122,10 +117,10 @@ Ce que ça donne, et ce sont des nombres relevés :
 | un exécutable qui la LIE et compile un module | **4,0 Mo** |
 | les bibliothèques standard (`libraries/`) | 47 fichiers, 2,0 Mo |
 
-**Les dizaines de Mo que cette page annonçait étaient celles de LLVM.** Par cette route le coût
-réel est de l'ordre de 4 Mo, ce qui change la décision.
+**Les dizaines de Mo qu'on associe à libfaust sont celles de LLVM.** Par cette route le coût
+réel est de l'ordre de 4 Mo.
 
-Trois pièges, tous rencontrés :
+Trois pièges :
 
 - **`ws2_32` est obligatoire sur Windows.** libfaust embarque un récupérateur HTTP de sources
   (`sourcefetcher.obj`) et l'édition de liens échoue sur huit symboles Winsock sans lui.
@@ -165,8 +160,8 @@ défait la raison d'avoir fait tout ce chemin.
 
 ## La quatrième, qui ne demande rien
 
-`faust2vst3` hors ligne, `studio-moteur scan`, `module own <ref>`. Ça fonctionne aujourd'hui,
-sans une ligne de code, et c'est par là qu'il faut passer pour savoir si Faust s'installe dans
+`faust2vst3` hors ligne, `studio-moteur scan`, `module own <ref>`. Ça fonctionne sans une ligne
+de code, et c'est par là qu'il faut passer pour savoir si Faust s'installe dans
 les habitudes avant de payer l'une des trois ci-dessus. Ce qu'on y perd : un binaire par
 plateforme, et la source qui ne voyage pas avec le module.
 

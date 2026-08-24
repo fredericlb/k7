@@ -12,11 +12,11 @@
 #             not what it is good for. Those belong to `help`. **60 characters at most**, in
 #             each language, and the test enforces it: the palette draws the sentence beside
 #             the command's name on one row, so a line that runs past the row is either
-#             truncated or wraps the list into a wall — and the extra words were the ones
+#             truncated or wraps the list into a wall — and the extra words are the ones
 #             saying what `help` already says.
-#   surfaces  where the command appears (see commandSpec.ts). Only `cli` exists now —
+#   surfaces  where the command appears (see commandSpec.ts). Only `cli` exists —
 #             the web backend dispatches under it too, so every command runs on both;
-#             the field is kept for when a surface needs its own subset again.
+#             the field is there for when a surface needs its own subset.
 #   args      trailing user args. Each may carry EITHER `complete:` — a named provider
 #             in commandSpec.ts PROVIDERS, whose values come from the live project —
 #             OR `values: [...]`, a closed set fixed by the command itself. An unknown
@@ -32,10 +32,9 @@
 # The name is OPTIONAL: `track new` picks track-1, track-2, … but a track's name is its id and
 # its filename, so naming it up front saves a rename later.
 #
-# ONE verb, where there were two. `track new audio` and `track new midi` made two kinds of lane;
-# a lane is not typed by what it carries any more (packages/song/docs/trackModules.md), so there
-# is one kind. Seeding an empty sequence — what the MIDI one did beyond making a lane — is
-# `sequence new`, which is what that half of it was really about.
+# ONE verb and no kind: a lane is not typed by what it carries
+# (packages/song/docs/trackModules.md), so one lane holds clips and sequences alike. Seeding the
+# empty sequence a lane plays is `sequence new`'s, a separate act.
 - command: "track new"
   sid: track.new
   readable:
@@ -83,9 +82,9 @@
 # that writes new material and renders audio (docs/materialCut.md).
 # The SHAPE of a drawn curve, point by point — what the timeline's automation row is for.
 #
-# Until these, a `custom` curve could be created flat (`track automation add`) and shifted
-# wholesale (`project add`), and its individual points could only be typed into the file by hand.
-# The row drew a picture of something you could not touch.
+# Without them a `custom` curve can only be created flat (`track automation add`) and shifted
+# wholesale (`project add`), its individual points typed into the file by hand — a row drawing
+# a picture nobody can grab.
 #
 # Addressed by TIME, because a curve is a function of song time: two points cannot share a moment,
 # so the moment names one. `add` at a time that already has a point SETS that point rather than
@@ -217,7 +216,7 @@
 # Merges the alternative into the branch it came from and lands you there. The
 # alternative is KEPT: a direction worth reading again costs nothing to leave behind.
 # Work in progress is committed first, as `switch` does — the last edits are usually the
-# ones being applied, and refusing only sent you off to make this same commit by hand.
+# ones being applied, and refusing would only send you off to make this same commit by hand.
 - command: "project alternative apply"
   sid: project.alt.apply
   help: "merge this alternative into the branch it came from"
@@ -248,11 +247,9 @@
 # --- mixer ---
 # `track mute|solo` flip a flag; `gain`/`pan` SET a value. The verbs say which they
 # are — these two never took a state to set, so naming them `mute`/`solo` implied one.
-# Mute is the lane's bypass (chains.yaml's `bypassed:`); solo is PROJECT state —
+# Mute is the lane's bypass (graph.yaml's `bypassed:`); solo is PROJECT state —
 # membership in project.yaml's root `soloed:` list, several lanes at once, resolved by
 # the engine (any soloed track silences the rest).
-# `transport toggle` no longer shares a first word with these, so the longest-prefix
-# rule that used to be load-bearing here is not any more.
 - command: "track mute"
   sid: track.mute
   readable:
@@ -269,9 +266,8 @@
   help: "toggle a track's (or group's) solo (soloed tracks silence the rest)"
   surfaces: [cli]
   args: [{ name: track, complete: tracks }]
-# `track alternative create|copy|select` and `track freeze` were here. Both are gone with the
-# fields they wrote — `alternatives:` and `frozen:` — to be replaced by another mechanism later.
-# See packages/song/docs/trackModules.md.
+# A lane's alternatives and its freeze are addressed as a module's: `node alternative *` and
+# `node freeze`, since a lane IS a module. See packages/song/docs/trackModules.md.
 
 # --- takes ---
 # A TAKE is what a lane WAS playing, set aside — recording over an event, or round a loop, moves
@@ -380,10 +376,10 @@
       { name: chain, complete: chains },
     ]
 
-# `track normalize` and `clip normalize` were here and are gone. Normalising is a TREATMENT, and
-# the two commands above are how a treatment is applied: the médiathèque ships a `normalize`
-# module, so a chain naming it does the same job through `track process` / `clip process` — over a
-# whole track's files or over one clip's — and can be followed by something. See docs/processChain.md.
+# There is no `track normalize` / `clip normalize`. Normalising is a TREATMENT, and the two
+# commands above are how a treatment is applied: the médiathèque ships a `normalize` module, so a
+# chain naming it does the job through `track process` / `clip process` — over a whole track's
+# files or over one clip's — and can be followed by something. See docs/processChain.md.
 
 # Cut the silence off both ends of ONE EVENT. It moves that event's WINDOW (`from`/`to` on the
 # placement) and never the audio: a take's head is the tail of a count-in and the player settling,
@@ -392,9 +388,8 @@
 # journal. The gate is dBFS, default -40 — below a room's floor on any usable take, above true
 # digital silence. Nothing above the gate changes nothing, and says so.
 #
-# It was `clip trim` and wrote the CLIP's window, which every placement of that clip shared. There
-# is no clip window any more: a clip file describes the bytes, a placement describes the use (see
-# song/docs/materialCut.md). So the verb names the event it acts on, like every other `event …`,
+# There is no clip window: a clip file describes the bytes, a placement describes the use (see
+# song/docs/materialCut.md). So the verb names the EVENT it acts on, like every other `event …`,
 # and trimming one placement leaves the others alone by construction rather than by warning.
 #
 # It looks only INSIDE what that event already plays, and can only narrow it: a gate reaching past
@@ -730,8 +725,7 @@
       },
     ]
 
-# The song's OUTPUT level — the `Volume` on the OUT node, and until this verb the only global level
-# in the app was a 0 dB the engine pinned and nothing could reach.
+# The song's OUTPUT level — the `Volume` on the OUT node, and the one global level in the app.
 #
 # `node param "OUT" Volume <dB>` is the SAME write (one implementation, `writeMasterVolume`), and is
 # what the header's fader and its Fix button both send. This verb stays because it is the line a
@@ -785,8 +779,7 @@
 # `system` is what the MACHINE has, not what this song uses: the plugin cache belongs to the
 # engine's installation and outlives every project. That is why these two are not `module`
 # verbs — they answer "what is installed here", where a `module` verb acts on a file in the
-# song. A `module list vst` sat beside the first one, the same command with a format filter
-# baked in; the filter is an argument of the listing, not a second verb.
+# song. A format filter is an ARGUMENT of the listing, not a second verb.
 - command: "system plugins list"
   sid: system.plugins.list
   help: "list all cached plugins (a word narrows it by format, e.g. system plugins list vst)"
@@ -810,8 +803,8 @@
     en: "Scan the installed plugins again"
     fr: "Rescanner les greffons installés"
 # An INSTANCE is a node in this project's chains — one use of a module — and its external UI is
-# the plugin's own window, drawn by the plugin itself on the engine's machine. `module open`
-# named the module, which is the file; what opens a window is the instance loaded in the engine.
+# the plugin's own window, drawn by the plugin itself on the engine's machine. It names the
+# INSTANCE and not the module: a module is a file, the window belongs to what the engine loaded.
 - command: "node external-ui"
   sid: node.externalUi
   readable:
@@ -930,9 +923,8 @@
 # Prepare a whole set at once: separate every song the playlist names, so a deck can subtract a
 # stem live. Minutes per song — this is the command you run the night before, not during.
 # The chain DEFAULTS to the machine's — `system stems` — and naming one here is the override, for
-# the run that wants a different model. It used to be required, which asked the same question of
-# the same person at every use: which module separates and which model it wants does not vary by
-# set list.
+# the run that wants a different model. Requiring it would ask the same question of the same person
+# at every use: which module separates and which model it wants does not vary by set list.
 - command: "playlist stems"
   sid: playlist.stems
   readable:
@@ -1012,10 +1004,9 @@
         hint: "optional — x,y world px: the node is drawn there (the web fills the click)",
       },
     ]
-# `module delete` was here: it removed the module's file or folder AND every chain step
-# naming it, because a step pointing at a module that no longer exists is a dangling
-# reference the compiler refuses to load. It is gone — deleting a module's files is the file
-# tree's `file delete`, and taking a node out of the signal path is `graph unlink` below.
+# No verb DELETES a module. Deleting its files is the file tree's `file delete`, and taking a
+# node out of the signal path is `graph unlink` below — a chain step pointing at a module that
+# is not there is a dangling reference the compiler refuses to load.
 # Takes a node OUT of the signal path and leaves its FILES alone — what fed it is joined to
 # what it fed, so the run closes over the gap instead of going quiet. The counterpart of
 # `node insert`: a node you unlink still has its settings and goes back in with one command.
@@ -1084,27 +1075,25 @@
 # The shared `_modules` holds what someone WROTE — a jsdsp module's source, a rack's
 # sample map. The engine's plugins are not files: its scan is the catalogue, so there is
 # nothing to populate and nothing to keep in step. `module rescan plugins` refreshes it.
-# `ui migrate` and `chains migrate` were here — a verb each for a one-shot repair of a
-# project written before a format change. Both are scripts now, run on a folder rather than
-# offered in every session's palette for ever:
+# A one-shot repair of a project written to an older format is a SCRIPT, run on a folder,
+# rather than a verb offered in every session's palette for ever:
 #
 #   npx tsx packages/song/scripts/migrateUis.ts <project>      panels out into the _ui/ library
-#   npx tsx packages/song/scripts/migrateChains.ts <root>      a pre-segments chains.yaml
+#   npx tsx packages/song/scripts/migrateChains.ts <root>      a pre-segments graph file
 #
-# (chains.yaml used to be a LIST of chains, each naming its source, its modules and its sink.
-# It holds SEGMENTS now — who feeds whom — and the chains are derived from them. A project
-# written before that is refused, with a message pointing at the script.)
+# (graph.yaml holds SEGMENTS — who feeds whom — and the chains are derived from them. A file
+# written as a LIST of chains, each naming its source, its modules and its sink, is refused
+# with a message pointing at that script.)
 # Sets one plugin param on a module node, writing it to the module's own .cue.
 # `param` is the engine's display name for it ("Filter Freq"), which is what the
 # module UI's widgets bind to — and what `list params` prints.
 # Bypass a module: it keeps its place in the graph and its params, but passes its input
-# straight through — its name joins chains.yaml's `bypassed` list. Bare, it toggles —
+# straight through — its name joins graph.yaml's `bypassed` list. Bare, it toggles —
 # that's what the graph's bypass button sends.
 # Longest-prefix dispatch keeps this distinct from "node param".
-# `module channel` and `module monitor` were here, a verb per FIELD. Both are intrinsics —
-# a module's own field rather than a plugin's parameter — and they are written with
-# `node param <node> @channel 1,2` / `@monitor auto` now, beside `@gain`, which never
-# had a verb at all. One vocabulary: what a widget binds (`@channel`) is what you type.
+# INTRINSICS take no verb of their own. A module's own field rather than a plugin's parameter,
+# they are written `node param <node> @channel 1,2` / `@monitor auto`, beside `@gain`. One
+# vocabulary: what a widget binds (`@channel`) is what you type.
 # See `INTRINSICS` in commands.ts and packages/song/docs/intrinsics.md.
 - command: "node bypass"
   sid: node.bypass
@@ -1180,11 +1169,10 @@
   help: "bake everything upstream of a node, itself included, into one render (again: unfreeze)"
   surfaces: [cli]
   args: [{ name: node, complete: nodes }]
-# `module nam` was here — one verb per FILE-VALUED param, named after the param so there was
-# one word to learn. `module ir` had been the other and went with the shared library; `onnx`,
-# the one that came after, never got a verb at all, and the asset picker sends the param's own
-# name — so picking an `.onnx` reached a command that did not exist. It is a param: it lands in
-# `params:` like the numbers do, and it is set by `node param <node> nam <file>` now.
+# A FILE-VALUED param takes no verb of its own either: it lands in `params:` like the numbers
+# do, and is set by `node param <node> nam <file>`. One verb per param cannot work — the asset
+# picker sends the param's OWN name, so the param nobody wrote a verb for reaches a command
+# that does not exist.
 #
 # Every control a node has, under one verb. A plain name is the PLUGIN's parameter, sent to the
 # running plugin and written into `params:`. A name starting with `@` is an INTRINSIC — the
@@ -1237,17 +1225,16 @@
       { name: channel, hint: "1-16, or `none` to unbind this param" },
       { name: cc, hint: "0-127 — the control number the knob sends" },
     ]
-# `project inspect graph` was here — the routing as text. It is a reader, and the one place
-# it was reachable from the app (a right-click on a chain node) offered nothing else, so it
-# was a row in the palette nobody ran. `describeGraph` keeps its own CLI entry:
+# The routing as text is a READER rather than a palette row: `describeGraph` has its own CLI
+# entry, and nothing here offers it.
 #
 #   npx tsx packages/song/src/graph.ts <project> [track]
 #
 # Moves one placement (a clip/sequence) on a track from its current timecode to a new one.
 # The event is found by its start position; only that placement's `start:` is rewritten.
-# The optional 4th arg moves the placement to ANOTHER track. Refused unless the two
-# hold the same kind of material (both audio, or both notes) — a MIDI placement on an
-# audio lane compiles to a clip the engine can't play. The timeline's clip drag sends
+# The optional 4th arg moves the placement to ANOTHER track, refused only when the destination
+# has nowhere to put THIS event: a lane takes a note when its midi output is wired and a clip
+# when its audio one is (packages/song/docs/trackModules.md). The timeline's clip drag sends
 # this form when a clip is dropped on a different lane.
 # Puts an existing clip/sequence on a track at a timecode — the one ADDITIVE verb of this family,
 # and the counterpart of `event remove`. It creates an event, which is why it is named for one and
@@ -1280,8 +1267,8 @@
 # own lane, so a rectangle spanning several lanes is still one command.
 #
 # It takes the WHOLE placement vocabulary, not just where the event goes, because a paste has to
-# put down the event that was copied: one carrying only `ref` and `start` wrote an untrimmed,
-# unfaded, single pass of the material wherever the original had been trimmed, faded, silenced or
+# put down the event that was copied: one carrying only `ref` and `start` writes an untrimmed,
+# unfaded, single pass of the material wherever the original was trimmed, faded, silenced or
 # repeated. Every entry is checked against PlacementSchema before anything is written.
 - command: "events add"
   sid: events.add
@@ -1339,16 +1326,14 @@
 # material may sit on other tracks. Also on the timeline: right-click an event → Remove.
 # `event status <what>` — set ONE aspect of ONE event, without removing it. Two so far, and the
 # head is what makes room for a third: `status` names the act, the word after it names which
-# property. It was a bare `event disable` while silencing was the only thing you could switch off,
-# then `event disable play`; `status mute` is that command under a name that says which of an
-# event's properties it means without also asserting a direction.
+# property, without also asserting a direction the way a head like `disable` would.
 #
 # Both take `on|off|toggle` and toggle when it is omitted, and in both `on` means the NAMED STATE
 # is on: `event status mute on` silences the event, `event status warp on` makes it FOLLOW the
-# clip's map. One rule and no exception — which is the point of the head being `status` rather than
-# `disable`, under which `on` meant "the disabling is on" and `warp on` meant UNwarped.
+# clip's map. One rule and no exception — which is what the head buys: under `disable`, `on` would
+# mean "the disabling is on" and `warp on` would mean UNwarped.
 #
-# The FILE still spells warp negatively (`warp: false` on the placement): an absent field has to
+# The FILE spells warp negatively (`warp: false` on the placement): an absent field has to
 # mean "it warps, because the clip does". The command turns it, once.
 #
 # Silence one event — a track's mute at the level of a placement. It stays in the file, so its
@@ -1370,8 +1355,8 @@
 # …and whether one event plays the material's STRETCH MAP. A warp belongs to the clip — one map
 # shared by every placement of it (song/docs/warp.md) — so switching this OFF is an event declining
 # it, written `warp: false` on the placement. What that is for: the map fits the song the clip was
-# warped INTO, and a second use of that clip elsewhere wants the sample as recorded. The only way
-# before was to copy the file.
+# warped INTO, and a second use of that clip elsewhere wants the sample as recorded — which without
+# this verb means copying the file.
 - command: "event status warp"
   sid: event.statusWarp
   readable:
@@ -1388,9 +1373,8 @@
         hint: "on · off · toggle (default) — 'on' means it follows the map",
       },
     ]
-# The two FADES, one verb each. `fadeIn` and `fadeOut` have been on the placement, on the wire and
-# in the C++ engine all along — what was missing was any way to set them but typing YAML, because
-# the browser was never told they exist (they were absent from WebClip).
+# The two FADES, one verb each. `fadeIn` and `fadeOut` live on the placement, on the wire and in
+# the C++ engine; these two verbs and `WebClip` are what let a surface set them without YAML.
 #
 # The length is a DURATION, not a position: "0:1" is one beat, where the same beat spelled as a
 # position is "1:2". Both are legal timecodes and nothing downstream can tell them apart, so the
@@ -1475,19 +1459,14 @@
 # other `event` verb, the cut being its own argument. A looped event is refused: "the position of
 # the cut" has as many answers as there are passes.
 #
-# A sequence is divided note by note in text; an audio clip is RENDERED in two, so this needs a
-# machine with an engine on it. What it cut is left on disk: another placement, on another lane,
-# may still be playing it, and this verb has no way to know what was meant to be kept.
+# It cuts the MATERIAL and not the placement: two new files are written and the event is replaced
+# by two events naming them. A sequence is divided note by note in text; an audio clip is RENDERED
+# in two, so this needs a machine with an engine on it. A split that only placed one material twice
+# would leave halves nothing can treat apart, and `selection consolidate` is what rejoins anything
+# at all. See packages/song/docs/materialCut.md.
 #
-# There was a VIRTUAL split beside this one, which wrote nothing and left two placements of one
-# material — and an `event join` that put such a pair back. Both are gone: a split that does not
-# write is a split you cannot then treat the halves of, and `selection consolidate` is what rejoins
-# anything at all. See packages/song/docs/materialCut.md.
-# …and the other half of the same gesture: cut the MATERIAL, not the placement. Two new files are
-# written and the event is replaced by two events naming them — a sequence is divided note by note,
-# an audio clip is RENDERED in two, so this one needs a machine with an engine on it and the verb
-# above does not. What it cut is left on disk: another placement, on another lane, may still be
-# playing it, and this verb has no way to know what was meant to be kept.
+# What it cut is left on disk: another placement, on another lane, may still be playing it, and
+# this verb has no way to know what was meant to be kept.
 - command: "event split"
   sid: event.split
   readable:
@@ -1503,8 +1482,8 @@
     ]
 # Put a range back together, whatever is in it. It writes ONE new material over the range and
 # places it once — so it rejoins a split, merges two different materials, and flattens a stack, all
-# by the same act. `event join` stood beside it and only ever rewrote placements, which meant it
-# held out for the one case where nothing had to be written; it is gone with the virtual split.
+# by the same act, WRITING in every case rather than holding out for the one arrangement where
+# rewriting placements alone would do.
 #
 # `selection`, not `event`, and it is the only entry of that head in this file. Every other `event`
 # verb addresses ONE placement by its start; this one takes a rectangle — lane, from, to — and
@@ -1541,16 +1520,13 @@
   help: "remove a clip/sequence placement from a track (e.g. event remove drums 2:1:1)"
   surfaces: [cli]
   args: [{ name: track, complete: tracks }, { name: timecode, type: timecode }]
-# Inserts a module (block) into a chain's `use` list, between two adjacent steps in its
+# Inserts a node (block) into a chain's `use` list, between two adjacent steps in its
 # signal flow — the two ends of one arrow in the Chains graph, a source/module/sink name
 # on each side. Clicking an arrow in the graph pre-writes this with the two ends filled
-# in; you supply the module to drop in.
-# The graph's `+`, in one command: create the module and splice it into the chain. Two
-# commands were two HTTP round trips with a full project recompile wasted between them,
-# for the sole reason that the frontend had to learn the new module's name before it could
-# name it in a chain — a name THIS command picks. Takes the arrow first (before, after) so
-# the node name still lands last, where a person types it. No chain to name: the two
-# ends ARE an edge in chains.yaml, so there is nothing left to disambiguate.
+# in; you supply the node to drop in.
+#
+# The arrow comes first (before, after) so the node name lands last, where a person types it.
+# No chain to name: the two ends ARE an edge in graph.yaml, so there is nothing to disambiguate.
 - command: "node insert"
   sid: node.insert
   readable:
@@ -1577,10 +1553,9 @@
         hint: "optional — x,y world px: the node is drawn there (the web fills the click)",
       },
     ]
-# `node place <node> [x,y]` was here — it wrote `modules: { x: [] }` for a node that existed
-# but was in no chain. Two changes took its job away: `node new` puts what it makes in the graph,
-# and `graph unlink` leaves what it unlinks there. So the state it repaired — a node on disk and
-# on no screen — is one nothing reaches any more. Moving one is `graph move`.
+# No verb PLACES an existing node in the graph: `node new` puts what it makes there and
+# `graph unlink` leaves what it unlinks there, so a node on disk and on no screen is a state
+# nothing reaches. Moving one is `graph move`.
 - command: "graph organize"
   sid: graph.organize
   readable:
@@ -1592,8 +1567,8 @@
 #
 # The other half of `graph move`, and the reason the picture stops rearranging itself. A node the
 # layout placed carries no pin, so the next fresh layout is free to put it elsewhere — and it will,
-# whenever anything about the graph changed. That is what made the track row seem to shuffle at
-# random: the change surfaced at a RELOAD, long after the edit that caused it.
+# whenever anything about the graph changed. Unrecorded, that makes the track row seem to shuffle
+# at random: the change surfaces at a RELOAD, long after the edit that caused it.
 #
 # So the drawing writes its answer once and the FILE becomes the layout. dagre speaks again only
 # when `graph organize` empties `positions:`.
@@ -1615,7 +1590,7 @@
         hint: 'JSON {node: {x,y}} in world px — what the layout placed',
       },
     ]
-# Pin a node where a drag (or a hand) put it — chains.yaml's `positions:`. The graph lays
+# Pin a node where a drag (or a hand) put it — graph.yaml's `positions:`. The graph lays
 # out only the nodes with no pin, so a module moved once stays put for ever; `auto` hands
 # it back to the layout. The web sends this when a node's header is dropped.
 - command: "graph move"
@@ -1680,10 +1655,10 @@
       { name: newFrom, hint: "the source after the move (same, when the target end moved)" },
       { name: newTo, hint: "the target after the move" },
     ]
-# …and `project inspect timeline` with it — the arrangement as text, which the timeline
-# itself draws. Its describer keeps a CLI entry too:
+# The arrangement as text is a READER too — the timeline itself draws it — so its describer
+# has a CLI entry and no palette row:
 #
-#   npx tsx packages/commands/src/timeline.ts <project> [track]
+#   npx tsx packages/take-render/src/timeline.ts <project> [track]
 #
 
 # --- transport ---
@@ -1716,9 +1691,7 @@
     en: "Rewind to the start"
     fr: "Revenir au début"
 # The click plays during playback: same sound each beat, emphasised on the first beat
-# of every bar. (It used to be `toggle metronome`, which only resolved because dispatch
-# takes the longest prefix and so beat the bare `toggle`. The namespaces removed that
-# hazard entirely: `toggle` is no longer a head word at all.)
+# of every bar.
 - command: "transport metronome"
   sid: transport.metronome
   help: "toggle the metronome (click during playback, bar starts emphasised)"
@@ -1741,8 +1714,8 @@
     en: "Set the metronome's volume"
     fr: "Régler le volume du métronome"
   args: [{ name: level, type: number, hint: "0.2 … 1 — off is `transport metronome`" }]
-# Arming lives HERE and not under `track`, where it was `track rec`. It reads like a track's
-# property and is not one: nothing is written to any file, and a reload does not restore it.
+# Arming lives HERE and not under `track`. It reads like a track's property and is not one:
+# nothing is written to any file, and a reload does not restore it.
 # It is a message to the ENGINE, which holds the armed set and reports it back on every state
 # frame — the same kind of thing as play and stop, addressed at one lane.
 - command: "transport arm"

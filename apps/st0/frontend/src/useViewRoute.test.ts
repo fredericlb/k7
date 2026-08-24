@@ -53,7 +53,7 @@ function settle(
 
 describe("a deep link", () => {
   it("opens the screen it names, and stays there", () => {
-    // The regression: the app landed on /chains, bounced itself back to /, re-applied /chains, and never stopped.
+    // The loop this guards: land on /chains, bounce back to /, re-apply /chains, and never stop.
     const r = settle(GLOBAL, "/chains");
     expect(r.state.full).toBe("chains");
     expect(r.path).toBe("/chains");

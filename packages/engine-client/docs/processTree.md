@@ -10,9 +10,8 @@ of the long-lived processes st0 starts:
 - **The engine** spawns short-lived children during a plugin scan, and one left behind
   holds the audio device and the port, so the next launch fails its guard.
 
-Both callers (`stopEngineDaemon`, and the supervisor's file-service teardown) used to
-carry their own copy of this, comments included. One copy now, in the lowest package
-that needs it.
+Both callers — `stopEngineDaemon` and the supervisor's file-service teardown — share this
+one copy, in the lowest package that needs it.
 
 Both platforms need their own mechanism, and neither is optional.
 

@@ -61,4 +61,3 @@ describe("takesOf", () => {
     expect(takesOf(song("so-what.wav"))).toHaveLength(1);
   });
 });
-// `describe("renderNames")` stood here; nothing bounces any more, so there is nothing to name.

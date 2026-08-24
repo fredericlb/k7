@@ -3,8 +3,8 @@
 // `warpStretch` answers one ratio, first marker to last, which is the right answer to "how long
 // is this clip" and the wrong one to "where is this moment": `applyClipWarp` pins every interior
 // marker as its own beat point, so the segments stretch independently (EditBuilder.cpp). Drawn
-// with the ratio alone, a point pinned in the middle moved the sound and left the picture exactly
-// where it was — which is what "the waveform does not reflect the warps" was.
+// with the ratio alone, a point pinned in the middle moves the sound and leaves the picture where
+// it was: the waveform stops reflecting the warps.
 
 import { describe, expect, it } from "vitest";
 import { beatAtSource, sourceAtBeat, type WarpMarker } from "./warpPoints";

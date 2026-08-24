@@ -110,11 +110,11 @@ announces a discontinuity so the driver can hard-seek every `<video>`.
 
 **Off a raw store subscription, not through React.** `ViewportTab` reads nothing of the engine's
 state, and `VideoCanvas` renders nothing from it either: the subscription is an effect that calls
-`clock.feed` and returns. It used to be `useEngineState` on the pane, splitting `playing` and
-`playhead` into two slices, with a comment saying that was what kept the pane off the 20 Hz path.
-It was not, and could not be — the playhead is the field that MOVES, so the pane and everything
-under it committed on every frame to hand a number to an imperative clock no React output depends
-on. `timeline.md`'s rule is that live state is drawn by leaves; when nothing is *drawn* at all,
+`clock.feed` and returns. A selector hook on the pane would not save it: splitting `playing` and
+`playhead` into two slices looks like it keeps the pane off the 20 Hz path and cannot, since the
+playhead is the field that MOVES — the pane and everything under it would commit on every frame to
+hand a number to an imperative clock no React output depends on. `timeline.md`'s rule is that live
+state is drawn by leaves; when nothing is *drawn* at all,
 the right leaf is no component. The chains renderer's cable canvas is the same arrangement, which
 is why `activeTrackIds` is deliberately not a hook.
 
@@ -136,8 +136,7 @@ instrument measuring itself for everyone else.
 ## …and so do the graph's picture cables
 
 A cable ripples while it carries signal, and for sound that comes from the engine's meters. The
-engine measures no frame, so every cable on the picture side of the chains graph stayed still
-through a playing song — the one part of the graph that never came alive.
+engine measures no frame, so nothing on the picture side of the chains graph can ripple off one.
 
 `videoSpans.ts` derives it instead, the way `rackLit.ts` derives a lit pad: when each lane shows a
 picture, in seconds, out of the video document the viewport already holds. The graph is handed

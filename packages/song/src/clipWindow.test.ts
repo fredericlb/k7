@@ -167,7 +167,7 @@ describe("a window written as a timecode", () => {
     expect(kick()!.sourceTo).toBeUndefined();
   });
 
-  /** `mapClip` read `Number(c.from)`, `NaN` for every timecode, so the unplaced doc had no window. */
+  /** `mapClip` must parse the grid, not `Number(c.from)`: that is `NaN` for every timecode, so no window. */
   it("reaches the UNPLACED clip doc, given the project's grid", () => {
     clip({ source: "clips/kick.wav", from: "2:1", to: "3:1" });
     const c = loadAudioClipDoc(dir, "kick", { tempo: 120, num: 4, den: 4 })!;
@@ -224,7 +224,7 @@ describe("a window that cannot be played", () => {
     ]);
   });
 
-  /** A rejected clip leaves the map, so the compile used to say "not found" about a file that is there. */
+  /** A rejected clip leaves the map, so the compile must not say "not found" about a file that is there. */
   it("does not masquerade as a missing clip", () => {
     clip({ source: "clips/kick.wav", from: "nonsense" });
     let msg = "";
@@ -235,6 +235,6 @@ describe("a window that cannot be played", () => {
     }
     expect(msg).toContain("failed to load");
     expect(msg).toContain("clips/kick.yaml"); // the file to open
-    expect(msg).not.toContain("not found"); // the lie it used to tell
+    expect(msg).not.toContain("not found"); // the lie to avoid
   });
 });

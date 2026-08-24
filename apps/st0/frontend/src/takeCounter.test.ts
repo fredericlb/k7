@@ -22,7 +22,7 @@ describe("the pre-roll", () => {
   });
 
   it("can never show more than the pre-roll it is counting", () => {
-    // A playhead that jumped BACKWARDS used to print the difference; it now stops at the pre-roll's length.
+    // A playhead that jumped BACKWARDS would otherwise print the difference; the count stops at the pre-roll's length.
     expect(takeCounter(500, 4, 4)).toEqual({ phase: "count-in", beats: 4 });
   });
 });

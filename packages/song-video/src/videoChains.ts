@@ -1,5 +1,5 @@
-// videoChains.ts — the path graph.yaml -> the renderer, which did not exist: a video lane's run
-// becomes that lane's plugins, and the RENDER -> VIDEO_OUT run becomes the whole frame's. Shaders
+// videoChains.ts — the path graph.yaml -> the renderer: a video lane's run becomes that lane's
+// plugins, and the RENDER -> VIDEO_OUT run becomes the whole frame's. Shaders
 // arrive with their GLSL already read, because the browser cannot open a folder.
 // Full rationale: docs/shaders.md, and docs/videoOutputs.md for the two sums.
 

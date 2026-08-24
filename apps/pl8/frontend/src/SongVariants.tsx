@@ -1,7 +1,6 @@
 // SongVariants.tsx — a song's alternative versions, as its sidecar declares them: sibling audio
-// files beside the master. It drew CHAINS too, auditioned them through a moteur and bounced each
-// one to a file; that half went with the chains family, which this volume no longer holds.
-// See packages/mediatek/docs/variants.md.
+// files beside the master. A LIST and nothing more — the player's tab strip is what auditions
+// one. See packages/mediatek/docs/variants.md.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { AudioLines, FileQuestion } from "lucide-react";

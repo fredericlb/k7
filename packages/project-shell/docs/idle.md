@@ -94,7 +94,7 @@ la reprendre.
 
 Deux choses qui ne se font PAS, et les deux sont voulues :
 
-- **aucune reprise automatique.** Le but était de cesser d'être client de ce moteur ; un onglet qui
+- **aucune reprise automatique.** Le but est de cesser d'être client de ce moteur ; un onglet qui
   se reconnecterait au premier mouvement de souris aurait passé vingt minutes à ne rien obtenir.
   C'est une main sur un bouton qui rouvre.
 - **aucune garantie de récupérer la machine.** Reprendre est une réouverture délibérée, donc une
@@ -115,8 +115,7 @@ cette page.
 
 **`0` désactive.** Une application qui ne passe pas `idleTimeoutMs` ne pose aucun écouteur et
 n'atteint jamais cette phase. Les trois chaînes de l'écran sont optionnelles pour la même raison —
-c'est le motif du banc d'essai, plus haut dans `ProjectGateStrings`. Aujourd'hui st0 est le seul à
-l'activer.
+c'est le motif du banc d'essai, plus haut dans `ProjectGateStrings`. st0 est le seul à l'activer.
 
 ## Ce qu'il faut vérifier dans un navigateur
 

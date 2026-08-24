@@ -62,7 +62,7 @@ describe("a chain survives as the same signal path", () => {
   });
 
   it("folds a bus only ONE chain fed back into that chain", () => {
-    // Not a loss: a one-sender bus was a split the old format needed only to have a name.
+    // Not a loss: a one-sender bus is a split the old format needs only to have a name.
     const g = routed(
       `chains:\n` +
         `  - [ { track: a }, { module: verb } ]\n` +

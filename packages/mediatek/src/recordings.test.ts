@@ -182,7 +182,7 @@ describe("what the zone is NOT", () => {
   });
 
   it("moves its OWN token and leaves the families' alone", () => {
-    // It used to ride on the songs token, which cost that family a refetch per capture.
+    // Riding on the songs token would cost that family a refetch per capture.
     const before = revisions();
     addRecording({ filename: "a.mp3", bytes: Buffer.from("a"), at: evening });
     const after = revisions();

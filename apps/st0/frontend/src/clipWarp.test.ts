@@ -3,10 +3,10 @@
 // worth holding: a conversion taken backwards puts a stretch point somewhere the drawing never
 // showed, the picture is rebuilt from the file, and it is simply right about the wrong point.
 //
-// That is not hypothetical. `toFileSec` read the OVERALL ratio, which inverts the drawing only
-// while the map is a straight line — true with two markers, false from the third. So placing a
-// second point on a clip bent the map instead of pinning a moment where it already sat, and the
-// waveform moved under a gesture that was supposed to change nothing.
+// The trap is `toFileSec`: an OVERALL ratio inverts the drawing only while the map is a straight
+// line — true with two markers, false from the third. Read it that way and a second point bends
+// the map instead of pinning a moment where it already sits, moving the waveform under a gesture
+// meant to change nothing.
 
 import { describe, expect, it } from "vitest";
 import { toClipBeat, toFileSec, warpLine } from "./clipWarp";

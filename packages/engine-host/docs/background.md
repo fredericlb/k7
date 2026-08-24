@@ -1,10 +1,8 @@
 # Une promesse que personne n'attend
 
-Le constat qui a fait écrire cette page : `unhandledRejection`, `uncaughtException` et
-`std::set_terminate` ne renvoyaient **aucune correspondance dans tout le dépôt**. Les trois
-process de l'axe audio — le superviseur, le service de fichiers, le moteur — n'avaient aucun
-filet de dernier recours, et le superviseur lançait sept minuteurs avec `void f()` sans un
-seul `.catch`.
+Le filet de dernier recours des process de l'axe audio : `unhandledRejection` et
+`uncaughtException`, posés au démarrage. Sans eux, un sondage périodique qui échoue tue le
+process.
 
 ## Pourquoi `void f()` est un crash
 
@@ -12,7 +10,7 @@ seul `.catch`.
 l'attrape pas. Depuis Node 15, une promesse rejetée que personne n'attrape **termine le
 process** — comportement par défaut, `--unhandled-rejections=throw`.
 
-Le superviseur y était exposé sept fois (`supervisor.ts`, le bloc de démarrage) : `beat`,
+Le superviseur y expose sept minuteurs (`supervisor.ts`, le bloc de démarrage) : `beat`,
 `pollPending`, `crashWatch`, `fileServiceWatch`, `pollDevices`, `pollEditPlugins`,
 `pollSessions`. Chacun touche le réseau ou le disque. `gatherAddresses` lit
 `networkInterfaces()` ; un registre injoignable rend une erreur ; il suffit d'un.
@@ -20,10 +18,10 @@ Le superviseur y était exposé sept fois (`supervisor.ts`, le bloc de démarrag
 Et le mode de panne n'est pas « le superviseur s'arrête ». C'est : le superviseur meurt,
 **le moteur reste vivant derrière lui**, le capot le relance sur son repli (1 → 30 s), et le
 nouveau superviseur ré-adopte le moteur par son pidfile. Ça se rattrape, donc ça ne se
-remarque pas — ce qui est exactement la raison pour laquelle personne ne l'avait vu.
+remarque pas — et c'est exactement pourquoi ça peut durer sans que personne ne le voie.
 
-Le service de fichiers avait quatre sites de la même famille, dont deux dans une route et un
-dans un callback de watcher : `prewarmWaveforms` et `refreshPatterns`. Sa protection existante,
+Le service de fichiers a la même exposition, dont deux sites dans une route et un dans un
+callback de watcher : `prewarmWaveforms` et `refreshPatterns`. Sa protection de route,
 `wrap()` (`commons/packages/http/route.ts`), n'attrape que ce que le handler **retourne** — et
 `void` retourne immédiatement, donc la garde passe à côté par construction.
 

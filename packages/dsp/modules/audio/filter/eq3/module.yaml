@@ -31,5 +31,5 @@ params:
 # mixage et non celles d'un EQ de mastering. La plage est celle du plugin, ±20 dB — une table
 # coupe plus qu'elle ne remonte, ce qui est un usage et non une limite.
 #
-# (C'était un `docs:`, que seul le panneau Docs affichait. Le champ n'existe plus : une note
-# est un module doc sur le graphe, et la description d'un module est son en-tête, ici.)
+# (La description d'un module est son en-tête, ici ; une note sur le graphe est un module doc —
+# voir packages/song/docs/docModules.md.)

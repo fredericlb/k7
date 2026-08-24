@@ -1,6 +1,6 @@
 // shellMeta.tsx — the shell's static tables (panes, views, panels: icon + label) and the small
 // presentational pieces built on them: the transport clock, the metronome glyph, and the
-// mini transport the floating minimap carries. Extracted from App.tsx so the shell reads as
+// mini transport the floating minimap carries. Apart from App.tsx so the shell reads as
 // wiring, not tables.
 
 import { useEngineState } from "@studio/engine-browser/store";
@@ -43,7 +43,7 @@ export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
   chains: { icon: Workflow, label: "Chains" },
 };
 
-// `VIEW_META` was here, for `global` and `live`: there is one layout, and which panes it holds is what the project declares (routes.ts).
+// No metadata for a layout: there is one, and which panes it holds is what the project declares (routes.ts).
 
 // The bottom panels: `graph` is the caret track's path, `logs` what happened — the MIXER and a clip's CONTENTS are drawn where the graph is.
 export const PANEL_META: Record<Panel, { icon: LucideIcon; label: string }> = {

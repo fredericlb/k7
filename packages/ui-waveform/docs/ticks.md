@@ -18,8 +18,8 @@ every 2nd, then every 4th, every 8th — so the survivors are always the round o
 is handed a bar/beat list by the file service (`beatGrid`) and the sub-beat times are simply not
 in it, so when a column opens past `MAX_COLUMN_PX` the only thing left is to SPLIT what arrived —
 same halving, same threshold, so the wave and the ruler stacked over it reach the same density at
-the same zoom. Before it, zooming st0's audio clip panel in subdivided the ruler to sixteenths
-while the wave underneath stayed ruled in whole beats, and the pair read as two grids.
+the same zoom. Without it, zooming st0's audio clip panel in subdivides the ruler to sixteenths
+while the wave underneath stays ruled in whole beats, and the pair reads as two grids.
 
 It splits **per pair**, not once for the list: a warped clip's beats are not evenly spaced on
 screen, and one count for all of them would crowd the compressed passages while leaving the
@@ -66,9 +66,9 @@ digits and dots, and every one of those is a single advance in a monospace, so t
 the width. The canvas ruler could call `measureText` instead; the timeline could not,
 because it draws DOM and measuring there means forcing a layout on every zoom frame.
 
-The constant was a flat 10px before, which is what a ONE-character label needs. Bar 7 fit;
-bar 129 did not, and "12.4" needed three times it — so past a couple of hundred bars, or
-at any zoom showing beats, the numbers overlapped. The width now follows the label.
+A flat constant would be sized for a ONE-character label: 10px fits bar 7, not bar 129,
+and "12.4" needs three times it — so past a couple of hundred bars, or at any zoom
+showing beats, the numbers overlap. The width follows the label instead.
 
 ## Pass the widest the ruler CAN print
 

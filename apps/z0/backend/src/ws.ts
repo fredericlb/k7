@@ -40,7 +40,7 @@ export class WsHub {
     this.buzzer.on("connection", (conn, req: IncomingMessage) =>
       this.onBuzzerConnection(conn, req),
     );
-    // Periodic heartbeat to main clients (main.go broadcastMessages).
+    // Periodic heartbeat to main clients.
     this.heartbeat = setInterval(() => {
       if (this.mainClients.size > 0) {
         this.broadcastMain({
@@ -145,7 +145,7 @@ export class WsHub {
       case "lock_buzzers":
       case "unlock_buzzers":
       case "phase_change":
-        // The phase belongs to the server, so a client emitting one of these is legacy or racy.
+        // The phase belongs to the server, so a client emitting one of these is stale or racy.
         console.log(
           `[PhaseTrace] ignoring deprecated client emit type=${msg.type}`,
         );
@@ -457,7 +457,7 @@ export class WsHub {
     }
   }
 
-  /** Tell a device it's now registered as playerName (main.go notifyBuzzerClient). */
+  /** Tell a device it is registered as playerName. */
   notifyRegistered(deviceId: string, playerName: string): void {
     this.notifyBuzzerDevice(deviceId, {
       type: "registered",

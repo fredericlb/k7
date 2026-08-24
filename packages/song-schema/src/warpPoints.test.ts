@@ -116,7 +116,7 @@ describe("seeding a clip that has none", () => {
   });
 });
 
-// The bug this exists for: a bounce that added a two-second tail played the take 11% slow (docs/warpPoints.md).
+// The bug this exists for: a bounce that adds a two-second tail plays the take 11% slow (docs/warpPoints.md).
 describe("retiming a map onto a bounced file", () => {
   // 32.834841 beats over 17.92 s is 109.93 bpm — the real take.
   const TAKE: WarpMarker[] = [

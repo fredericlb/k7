@@ -32,21 +32,21 @@ say anything a module may say; it normally states only what it CHANGES.
 
 ## Why flat
 
-A node used to live beside the module it used —
-`modules/instruments/synth/lead.yaml`, keyed `synth:lead`. That meant the layout of a
-project's uses mirrored the layout of the things it used, and it bought nothing: the folder
-was doing the job `extends` already does, less explicitly. Two consequences of dropping it:
+A node beside the module it uses — `modules/instruments/synth/lead.yaml`, keyed `synth:lead` —
+would make the layout of a project's uses mirror the layout of the things it uses, and buy
+nothing: the folder would be doing the job `extends` does, less explicitly. Flat gains two
+things:
 
-- **A project's uses are one folder you can read.** They used to be leaves scattered across
-  the module tree, and nothing showed you the set.
-- **A use of a module you do not own needs no local folder for it.** Using a médiathèque
-  module meant creating `modules/<type>/<its name>/` just to hold the use.
+- **A project's uses are one folder you can read.** Scattered as leaves across the module tree,
+  nothing shows you the set.
+- **A use of a module you do not own needs no local folder for it.** Otherwise using a
+  médiathèque module means creating `modules/<type>/<its name>/` just to hold the use.
 
 ## Where the type comes from
 
-This is the part the folder was really carrying. `kind`, `inputs` and `category` used to be
-read off the path — `modules/audio/…` is an effect taking audio, `modules/instruments/…`
-takes MIDI and gives back audio. A flat folder has no such path.
+A flat folder has no path to read `kind`, `inputs` and `category` off — the path is what says
+`modules/audio/…` is an effect taking audio and `modules/instruments/…` takes MIDI and gives back
+audio.
 
 So they come from **what the node extends**:
 
@@ -69,16 +69,13 @@ is what says so.
 
 ## A node is an ordinary extender
 
-This is the simplification the change bought, and it is worth stating plainly: a node
-is a module that extends another module and happens to live in `nodes/`. Everything
-that used to be special about it is gone.
+A node is a module that extends another module and happens to live in `nodes/`. Nothing about it
+is special to the loader or to the resolver.
 
-One behaviour changed with it. A `ui:` written in a node used to be **dropped whole**,
-because a node had no `extends` and the loader special-cased taking the module's grid.
-It now merges per widget, like every other `extends`. A panel is still drawn for the module
-and shown on every use of it (`applyUiLibrary` looks a node up by what it extends,
-since it has no ref of its own), so the ordinary case is unchanged; what changed is that a
-node that deliberately writes `ui:` is now obeyed rather than ignored.
+A `ui:` written in a node therefore merges per widget, like every other `extends`. A panel is
+drawn for the module and shown on every use of it (`applyUiLibrary` looks a node up by what it
+extends, since it has no ref of its own), so the ordinary case writes no `ui:` at all — and a node
+that deliberately writes one is obeyed rather than ignored.
 
 ## What lives beside a node
 
@@ -88,8 +85,8 @@ Its own files, in `nodes/`:
   never overwrites another's or the module's.
 - `nodes/assets/…` — the files its params name, resolved against `nodes/`.
 
-The loader records the folder on the module as `home`, because `nodes/lead.vstpreset`
-can no longer be rebuilt from a category and a module name the way a module's path can.
+The loader records the folder on the module as `home`, because `nodes/lead.vstpreset` cannot be
+rebuilt from a category and a module name the way a module's path can.
 
 ## Names are project-wide
 
@@ -110,9 +107,9 @@ the top of this page: a module is a thing you could use, a node is one use of it
 | `module new` `module clone` `module own` | the thing itself — created, copied, given a folder |
 | `module cc` | what every use of it inherits: its MIDI map |
 
-Eight of the first list were `module …` verbs, which read as edits to the definition and were
-not: `node bypass` writes a name into `graph.yaml`, and a chain names nodes. `node param
-lead "Filter Freq" 69` sets **this** use; the synth two lanes over is untouched.
+Everything in the first list edits a USE and not the definition: `node bypass` writes a name into
+`graph.yaml`, and a chain names nodes. `node param lead "Filter Freq" 69` sets **this** use; the
+synth two lanes over is untouched.
 
 The completion draws the same line. The `nodes` provider offers the project's uses and nothing
 else, where `modules` also offers the `@refs` a shared definition is named by — and **editing a
@@ -123,25 +120,22 @@ providers, uses first.
 ## Making one, and wiring it
 
 **Every node is in the graph.** A node file with no entry in `graph.yaml` is loaded by the
-project and drawn nowhere — the blocks come off the chains — so a node that existed and was on
-no screen was not a state worth being able to reach. `node new <category>/<name> <node> [x,y]`
-therefore writes the file *and* names the node in the graph, wired to nothing
-(`modules: { <node>: [] }`), at the click when the web sends one.
+project and drawn nowhere — the blocks come off the chains — so a node on no screen is not a
+state worth being able to reach. `node new <category>/<name> <node> [x,y]` therefore writes the
+file *and* names the node in the graph, wired to nothing (`modules: { <node>: [] }`), at the click
+when the web sends one.
 
-`module new <category>/<name> [extends-ref]` writes the module and **only** the module. It used
-to take a trailing node name and make one in the same breath, which is why the graph's `+` could
-send a single line — but a module and a USE of it are two things, and a chain names the use. A
-module that is already there is not an error: it is the ordinary second pick of the same thing.
+`module new <category>/<name> [extends-ref]` writes the module and **only** the module: a module
+and a USE of it are two things, and a chain names the use. A module that is already there is not
+an error — it is the ordinary second pick of the same thing.
 
-WIRING is separate again, and it is one verb: `node insert <before> <after> <node>` splices a
-node into an arrow. There is no verb for "put this node on the canvas" any more — `node place`
-was it, and both of its reasons went away: `node new` places what it makes, and `graph unlink`
-leaves what it unlinks. Moving one is `graph move`.
+WIRING is one verb of its own: `node insert <before> <after> <node>` splices a node into an arrow.
+There is no verb for "put this node on the canvas", because `node new` places what it makes and
+`graph unlink` leaves what it unlinks. Moving one is `graph move`.
 
-The two wiring verbs used to create as well — each took a `<category>/<name>` and made the
-module first. That is what made `node insert` indistinguishable from `chain add`, which did
-this same splice on a module already there: one act, told apart only by whether a file had to
-be written on the way. `chain add` is gone, and its half is what `node insert` now IS.
+`node insert` does not create. Splicing a module already there and splicing one written on the way
+would be one act told apart only by whether a file had to be produced first, which is a
+distinction a verb should not have to carry.
 
 So the graph's `+` runs `node new <type>/<name> <node>`. For a pick from a CATALOGUE the shell
 runs a `module new` ahead of it, because `node new` instances a module that exists and a
@@ -150,8 +144,7 @@ absent and the gesture is one line. See `nodeInsert.ts` in st0's frontend.
 
 ## A node names itself
 
-It used to end in the command bar with the cursor after that trailing space, because the node's
-NAME was the one thing only a person could supply. It is derived now:
+The name is derived rather than asked for:
 
 ```
 <lane>_<module>_<n>        vo_jo_reverb_1, and the next one on that lane vo_jo_reverb_2
@@ -159,9 +152,8 @@ NAME was the one thing only a person could supply. It is derived now:
 ```
 
 Three places mint one and they share the rule, `instanceName.ts`: the graph's `+`, a `node new`
-typed with no name, and the file tree's **New node**. A forked module is named the same way and
-always was (`moduleFork.ts`) — that is where the shape comes from, and folding it into one
-function is what stopped it being two rules that happened to agree.
+typed with no name, and the file tree's **New node**. A forked module is named the same way
+(`moduleFork.ts`), out of that same function rather than a second rule that happens to agree.
 
 Three things about it are deliberate:
 
@@ -185,10 +177,10 @@ to choose one.
 delay is a name that lies about the one thing a name here carries, so the verb renames it —
 `vo_jo_delay_1` — and every chain step, its file and its preset follow.
 
-**Only when the name was OURS to move.** `renamedInstance` is the judgement, and it is the same
-rule that made the name: a name this convention could have produced from the old module is one
-nobody chose, and a node somebody called `wash` means `wash`. Renaming that would rewrite every
-chain that spells it in order to undo a decision.
+**Only when the name is OURS to move.** `renamedInstance` is the judgement, and it is the same
+rule that made the name: a name this convention could have produced from the module being
+replaced is one nobody chose, and a node somebody called `wash` means `wash`. Renaming that would
+rewrite every chain that spells it in order to undo a decision.
 
 Four things it declines to do, each for its own reason:
 
@@ -196,7 +188,7 @@ Four things it declines to do, each for its own reason:
 |---|---|
 | a name with no counter, or one that is not digits | not a name this convention made |
 | a name built from a DIFFERENT module | it says nothing about what the node should be called now |
-| the module's leaf did not change (`@st0/audio/reverb` → `@project/audio/reverb`) | a different module, the same word — nothing to follow |
+| the module's leaf does not change (`@st0/audio/reverb` → `@project/audio/reverb`) | a different module, the same word — nothing to follow |
 | a name a `surfaces/` **mapping** points at | see below |
 
 The mapping is the only place outside `graph.yaml` where a node's name is a REFERENCE, and
@@ -212,9 +204,9 @@ halfway; moving a name touches the file, the preset and every chain step that sp
 rename declines, the replacement still stands — a node with a stale name plays correctly, and a
 half-done rename does not.
 
-One refusal remains on `module new`, and it is real: an `extends-ref` that **disagrees** with
-what the module already extends. Asking for it again cannot re-parent it, so proceeding would
-silently drop the parent that was asked for. The message names the one it actually has.
+`module new` has one refusal: an `extends-ref` that **disagrees** with what the module already
+extends. Asking for it again cannot re-parent it, so proceeding would silently drop the parent
+that was asked for. The message names the one it actually has.
 
 ## Taking one back out — `graph unlink`
 
@@ -228,15 +220,14 @@ and then it is gone. The MODULE it uses is left alone either way: a node is one 
 other projects read the same module.
 
 That last clause is the whole reason it exists. Taking a module out of the signal path and
-getting rid of it are two different intentions, and for a while only the second had a command
-(`module delete`, now gone) — so "mute this out of the chain for a moment" meant deleting a node
-and losing its settings. Unlinked, it is still on disk with everything it had, and `node insert`
-puts it back.
+getting rid of it are two different intentions: with only the second, "mute this out of the chain
+for a moment" means deleting a node and losing its settings. Unlinked, it is still on disk with
+everything it had, and `node insert` puts it back.
 
-The splice itself is `removeNode`'s; a node fed from two paths has both of them rejoined. A **lane** used to be refused here — a chain started at it, so
-there was nothing feeding it to reconnect to what it feeds. A lane is a module now
-([trackModules.md](trackModules.md)), so it unlinks like anything else: it leaves the signal path
-and its file stays on disk with its clips, which is what unlinking means everywhere else.
+The splice itself is `removeNode`'s; a node fed from two paths has both of them rejoined. A
+**lane** unlinks like anything else, being a module ([trackModules.md](trackModules.md)): it
+leaves the signal path and its file stays on disk with its clips, which is what unlinking means
+everywhere else.
 
 Right-clicking a module in st0's graph offers it, along with everything else a module answers —
 that menu is derived from this catalogue, so the entry exists because the command's first
@@ -247,16 +238,15 @@ catalogue cannot say, and st0 lists it (`apps/st0/frontend/docs/contextMenu.md`)
 
 ## Not covered by this
 
-The **shared library** still files nodes beside a module's `module.yaml`, keyed
-`@engine/io/IN:in-2`. That is a different tree with a different purpose — `module populate`
-writes one per physical interface input, and those are variants of a shared module rather
-than one project's uses of it. `readModuleTree` still reads them; a chain may still name
-one. Only the PROJECT's own nodes moved.
+The **shared library** files nodes beside a module's `module.yaml`, keyed `@engine/io/IN:in-2`.
+That is a different tree with a different purpose — `module populate` writes one per physical
+interface input, and those are variants of a shared module rather than one project's uses of it.
+`readModuleTree` reads them; a chain may name one. Only a PROJECT's own nodes are flat.
 
-## There was no migration
+## No migration
 
-Deliberately. A project carrying the old layout is not read wrong — `modules/<type>/<name>/`
-now yields the module and nothing else, so an old node is simply not there, and a chain
-naming `synth:lead` reports a missing module. Moving one is: create `nodes/<name>.yaml`
-with an `extends` naming the module, and rewrite the chain's `<module>:<node>` to the
-bare name.
+Deliberately. A project filing its nodes beside their modules is not read wrong —
+`modules/<type>/<name>/` yields the module and nothing else, so such a node is simply not there,
+and a chain naming `synth:lead` reports a missing module. Moving one is: create
+`nodes/<name>.yaml` with an `extends` naming the module, and rewrite the chain's
+`<module>:<node>` to the bare name.

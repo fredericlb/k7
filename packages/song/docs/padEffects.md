@@ -26,8 +26,8 @@ typed for a three-against-four feel even though no row offers it.
 
 `t`/`d`/`k`/`v` are single letters because every note carries all four and a pattern is hundreds of
 them on one line. These two appear only on the few pads that have an effect, so they cost nothing
-in width — and a letter apiece would be two more things to learn from a file that no longer
-explains itself.
+in width — and a letter apiece would be two more things to learn from a file that explains
+nothing about itself.
 
 ## Off is a DELETION, not a value
 

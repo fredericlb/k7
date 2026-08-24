@@ -10,14 +10,13 @@ into it (`dawproject.ts`, `ableton.ts`); then `params.ts` enriches and `emit.ts`
 ```
 
 Only the mappers know a format. Everything downstream is format-blind, which is the whole
-reason adding Ableton cost one file rather than a second pipeline.
+reason a second format is one file rather than a second pipeline.
 
 ## `model.ts` — the neutral shape
 
 `Song`/`TrackOut`/`ClipOut`/`PluginOut`/`WarpOut`, plus the `Translation` a mapper returns.
-It lives apart from any mapper on purpose: these types used to sit in `dawproject.ts`, and
-a second importer reaching into a first one's file for the shared model is a lie about
-where the boundary is.
+It lives apart from any mapper on purpose: a second importer reaching into a first one's
+file for the shared model is a lie about where the boundary is.
 
 Every mapper obeys the same contract: **no disk I/O**. It returns the song plus asset
 bytes, and the caller writes them. A `.dawproject` carries its audio inside the archive; a
@@ -41,8 +40,8 @@ a later phase can wire them.
 
 A `.als` is **gzipped XML**, one `<Ableton><LiveSet>` document, no container and no
 embedded assets. Unlike DAWproject it has no spec: the schema is Live's own, undocumented,
-and it drifts between versions. What follows is what a real Live 12.4 set actually
-contained — each line is here because getting it wrong fails *silently*.
+and it drifts between versions. What follows is what a real Live 12.4 set contains — each
+line is here because getting it wrong fails *silently*.
 
 ### The readings that bite
 
@@ -124,7 +123,7 @@ without a built engine — presets are kept then.
 **Live's blobs do not survive this step**, and that is expected rather than a bug to chase:
 what a `.als` stores is the plugin's *raw* state (Arturia's is `boost::serialization`), not
 a `.vstpreset` container, so the engine loads nothing and reports no params. Measured
-against a real set, all three plugins came back empty and kept their preset — which is the
+against a real set, all three plugins come back empty and keep their preset — which is the
 normal degraded path, not a failure. `ableton.ts` does seed the named parameters Live
 exposes to automation, but they are only ever a subset (384 of a plugin's 2276), so
 `paramsComplete` is never set and `emit.ts` correctly prefers the preset over partials.
@@ -150,7 +149,7 @@ Those params matter only for a plugin whose blob would not decode at all.
 ```
 
 Nodes are **flat**, and a chain step names one by its filename alone — never
-`<module>:<node>`, the layout [nodes.md](../../song/docs/nodes.md) dropped. A plugin used
+`<module>:<node>`, the layout [nodes.md](../../song/docs/nodes.md) rules out. A plugin used
 exactly once keeps its settings in `module.yaml` and gets no node file at all.
 
 No schema file: a project is validated in process against the loader's own schemas
@@ -172,18 +171,17 @@ omission, which is how a hand would write it.
 
 **A lane file has no `name:` field.** The FILE names the lane and the track's name drives the
 slug, so the display name is that slug. A lane is a NODE of `@studio/track` and is not typed, so
-an imported track's clips carry their own kind — one holding both audio and MIDI, which used to
-have no shape here at all and was counted as `mixedTracks`, is now the ordinary case. Its mute is
-its module's bypass and goes to `graph.yaml`. The lane file's own key is `events:`, not `clips:`:
+an imported track's clips carry their own kind, and one track holding both audio and MIDI is the
+ordinary case rather than a shape with nowhere to go. Its mute is its module's bypass and goes to
+`graph.yaml`. The lane file's own key is `events:`, not `clips:`:
 a clip is the material in `clips/<id>.yaml`, and these are placements of it. See
 [trackModules.md](../../song/docs/trackModules.md).
 
 **One module per PLUGIN, one insert per use.** Modules are keyed by the plugin rather than by its
-settings, so a plugin used several times becomes nodes rather than the `reverb_2, reverb_3` pile
-imports used to make. Each insert gets its OWN node even when identically set: they are separate
-slots, and sharing one would make tweaking the vocal's reverb silently retune the drums'. A plugin
-used in exactly ONE place then folds back into `module.yaml`, so the common import reads exactly as
-it did before nodes existed — which means an import only pays for nodes where settings really
+settings, so a plugin used several times becomes nodes rather than a `reverb_2, reverb_3` pile.
+Each insert gets its OWN node even when identically set: they are separate slots, and sharing one
+would make tweaking the vocal's reverb silently retune the drums'. A plugin used in exactly ONE
+place then folds back into `module.yaml`, so an import pays for nodes only where settings really
 differ.
 
 Because a node is flat (`nodes/<name>.yaml`, named by its file alone), a node shares ONE namespace
@@ -191,8 +189,8 @@ with the lanes and the modules a chain step may equally name, and uniqueness has
 three. A module whose sole use folded back has its own name taken as far as a node is concerned.
 
 **A plugin's type folder comes from its role, and `transformers` is written rather than the legacy
-alias `midi`.** An import creates fresh folders, so writing the old name gave every imported song a
-legacy layout on day one.
+alias `midi`.** An import creates fresh folders, so writing the alias would give every imported
+song a legacy layout on day one.
 
 **Text params capture state when they are complete or when there is no preset**; otherwise the
 opaque `.vstpreset` is kept and the partial params are skipped. The preset is written beside the
@@ -212,18 +210,18 @@ module refs a SURVIVING chain names are counted before the sole-insert fold.
 
 ### The graph is SEGMENTS, and sends lose their level
 
-`graph.yaml` holds who feeds whom, and that is where the imported sends survive: the old list
-format gave a chain ONE sink, so a track that was dry to master AND feeding a bus had to lose one
-of the two, while a node here simply lists both destinations. A `to` naming another chain resolves
-to the module that chain starts at, since a chain is no longer something to route to by name.
+`graph.yaml` holds who feeds whom, and that is where the imported sends survive: a node lists as
+many destinations as it has, so a track that is dry to master AND feeding a bus keeps both — a
+format giving a chain ONE sink would have to drop one of them. A `to` naming another chain resolves
+to the module that chain starts at, since a chain is not something to route to by name.
 
-The send LEVELS are still lost. A destination list says WHERE the signal goes, not how much of it,
+The send LEVELS are lost. A destination list says WHERE the signal goes, not how much of it,
 so a weighted send arrives at full strength — the emitter counts them and writes a `NOTE:` comment
 at the top of the file saying so, with the remedy (trim them on the bus's own module).
 
 There is ONE map in that file, lanes first, because a lane is a module too and putting the runs'
 sources at the top is what makes the file read the way the signal flows. A lane the import found
-MUTED is listed under `bypassed:`, which is where a lane's mute lives now.
+MUTED is listed under `bypassed:`, which is where a lane's mute lives.
 
 ### Reading a Live set: the traps
 
@@ -305,8 +303,7 @@ that the params fully reproduce the state; the whole step is a no-op without an 
 a failure returns a human-readable reason so a kept-as-preset plugin is never silent.
 
 **Locating the engine is the CALLER's job.** This is a library, so it takes the binary rather than
-guessing where the repo is. A copy of that search used to live here and broke the moment the
-package moved — it should not come back.
+guessing where the repo is: a copy of that search living here breaks the moment the package moves.
 
 **The dump cache is keyed by the STATE FILE as well as the plugin.** Two instances carrying
 different presets must not share a dump, or the second inherits the first's values and `emit.ts`

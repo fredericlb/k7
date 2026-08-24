@@ -17,22 +17,15 @@ reads **FREE in everyone's picker, including the holder's own**, while it is sti
 Nothing errors. No request fails. The only symptom is somebody else picking an engine that was
 already in use, which surfaces far from here as two services fighting over one machine.
 
-Two apps shipped that exact bug independently:
-
-- the médiathèque, where fifteen seconds into auditioning a module its engine went back to free;
-- m9, whose deck took the lease once and had no `release` in its api client at all — so a deck
-  mid-set read as available.
-
-st0' `EngineGate` had renewed from the start. Three copies of one loop, one of which was
-missing, is what moved it here.
+It is a shape easy to get wrong in each surface separately, which is why the loop lives here
+rather than in any of them.
 
 ## What a caller supplies
 
 `holdEngine` takes the two calls rather than making them, because each service reaches **its
 own** backend under its own path prefix — `/api` (st0 has none, it answers the origin),
-`/pl8/api`, `/m9/api` — and each
-holds its own registry (see `packages/engine-registry/docs/shared.md`). The loop is the shared
-part; the address is not.
+`/pl8/api` — and each holds its own registry (see
+`packages/engine-registry/docs/shared.md`). The loop is the shared part; the address is not.
 
 `release` is typed as returning nothing and is called fire-and-forget. Use `navigator.sendBeacon`
 for it, not `fetch`: a fetch issued during `pagehide` is cancelled with the page, which is
@@ -48,7 +41,7 @@ an unreleased lease simply expires, which is the behaviour it was built for.
 ## Une expiration se rattrape, un vol non
 
 Les trois refus de renouvellement (`packages/engine-registry/docs/claim.md`) ne se valent pas,
-et la boucle n'en signale plus que deux.
+et la boucle n'en signale que deux.
 
 - `project` et `engine` — **quelqu'un** a pris le projet, ou la machine. Terminal : `onLost`
   part, l'intervalle s'arrête, la surface cesse de piloter et le dit. Réessayer, ici, c'est
@@ -59,10 +52,10 @@ et la boucle n'en signale plus que deux.
   d'une mise en veille ou d'une coupure. La boucle oublie le secret mort et le tick suivant
   rouvre — un `select` sans secret, toujours accordé, qui ne prend rien à personne.
 
-C'était un écran mort auparavant : « cet onglet a lâché le projet », un bouton vers l'accueil,
-et à l'utilisateur de rouvrir à la main ce qu'il n'avait jamais fermé. Or la socket, elle, se
-reconnecte toute seule depuis toujours (`reliability.md`) et redéclare sa session ; seule la
-revendication restait par terre. Sortir de veille rend maintenant la main tout seul.
+Traiter `lapsed` comme les deux autres donne un écran mort : « cet onglet a lâché le projet »,
+un bouton vers l'accueil, et à l'utilisateur de rouvrir à la main ce qu'il n'a jamais fermé.
+La socket, elle, se reconnecte toute seule (`reliability.md`) et redéclare sa session ; la
+revendication doit en faire autant, pour que sortir de veille rende la main sans un geste.
 
 **Le tick suivant, pas tout de suite.** Un moteur qui a quitté le registre répond `lapsed` lui
 aussi : rouvrir dans la foulée du 409 tournerait aussi vite que le réseau le permet. Attendre

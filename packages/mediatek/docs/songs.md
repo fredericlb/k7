@@ -28,8 +28,8 @@ famille : on envoie trois champs, la bibliothèque construit le chemin.
 Ce qui est interdit à l'arbre, c'est de **poser** quelque chose là où les tags n'ont rien
 demandé : créer, renommer, déplacer. Retirer un morceau ne dit rien sur la forme — le
 dossier part en entier, avec son master et son sidecar, et il ne reste rien à mal ranger.
-C'était pourtant la seule opération qui obligeait à quitter l'application pour aller sur le
-volume, ce qui est cher payé pour un import raté.
+Sans cette entrée, c'est la seule opération qui obligerait à quitter l'application pour aller
+sur le volume, ce qui est cher payé pour un import raté.
 
 ### …et ajouter une variante ne pose rien non plus
 
@@ -56,37 +56,34 @@ variantes — et le dossier n'est qu'une adresse ; corriger l'un ne déplace don
 
 ## Pas de niveau de provenance — trois segments, jamais quatre
 
-L'arborescence a porté un quatrième niveau, tout en haut : `imported/` pour le master de
-quelqu'un d'autre, `recorded/` pour ce que le studio avait produit. Il a été retiré, et
-c'est la seule vraie décision de ce renommage.
+L'arborescence ne porte pas de quatrième niveau tout en haut — `imported/` pour le master de
+quelqu'un d'autre, `recorded/` pour ce que le studio a produit. Deux raisons, dans cet ordre :
 
-Deux raisons, dans cet ordre :
-
-1. **Il séparait la mauvaise chose.** Ce qui mérite d'être à part, ce n'est pas « qui a
+1. **Il séparerait la mauvaise chose.** Ce qui mérite d'être à part, ce n'est pas « qui a
    produit ce master » mais « est-ce que c'est catalogué ou est-ce que c'est de la matière
    brute ». Et cette séparation-là existe déjà : `recordings/`, les enregistrements, est une zone à la racine,
    avec son propre jeton de révision, hors de tous les manifestes
-   (voir [recordings.md](recordings.md)). Le niveau `imported|recorded` doublait une
+   (voir [recordings.md](recordings.md)). Un niveau `imported|recorded` doublerait une
    frontière déjà tracée ailleurs, en la traçant moins bien.
-2. **Presque rien ne le lisait.** Il arrivait dans `MediatekEntry.kind`, où la seule
-   surface qui l'affichait était un badge dans la liste. En échange, il mettait chaque
-   morceau un cran plus bas que son artiste, et obligeait chaque appelant capable d'écrire —
-   k7 publiait sous `recorded`, le bouton envoyait sous `imported` — à choisir un mot pour
-   décrire quelque chose que le sidecar disait déjà mieux.
+2. **Presque rien ne le lirait.** Il arriverait dans `MediatekEntry.kind`, où la seule
+   surface capable de l'afficher est un badge dans la liste. En échange, il mettrait chaque
+   morceau un cran plus bas que son artiste, et obligerait chaque appelant capable d'écrire —
+   k7 qui publie, le bouton qui envoie — à choisir un mot pour décrire quelque chose que le
+   sidecar dit déjà mieux.
 
-Car ce qui reste, et qui suffit, c'est `source:` dans `song.yaml` : `upload` pour le bouton
+Ce qui suffit, c'est `source:` dans `song.yaml` : `upload` pour le bouton
 de la médiathèque, `k7` pour une version publiée, `mirror` pour une copie rapatriée. Une
 ligne dans un fichier, pas un niveau dans un chemin — donc lisible sans lister le dossier
 parent, et modifiable sans déplacer des octets.
 
 Conséquence directe : `songFolder()` rend toujours quatre segments (`songs` + les trois
 tags), et deux tests le vérifient **par le compte** plutôt que par l'égalité avec un
-chemin d'exemple — un cinquième niveau qui reviendrait le ferait en silence, sous la forme
-d'un dossier imbriqué qu'une comparaison de chaîne n'aurait pas remarqué.
+chemin d'exemple — un cinquième niveau apparaîtrait en silence, sous la forme d'un dossier
+imbriqué qu'une comparaison de chaîne ne remarquerait pas.
 
 L'autre conséquence est que `kind` vaut `""` pour cette famille. C'est volontairement une
 chaîne vide et non un mot d'emprunt : cette famille ne se divise pas, et une entrée qui le
-dit est honnête là où « imported » par défaut aurait menti.
+dit est honnête là où « imported » par défaut mentirait.
 
 ## Le client n'envoie jamais un chemin
 
@@ -183,8 +180,8 @@ dossier** — `module.yaml`, `ui.yaml`, `presets.yaml` (voir `@studio/song`'s
 `docs/uiLibrary.md`). « Ajouter un module » est donc un dépôt de dossier, pas de fichiers.
 
 Le navigateur ne le donne pas gratuitement : `dataTransfer.files` est une liste plate qui
-ne peut pas porter un répertoire, ce qui faisait qu'un dossier déposé n'arrivait
-**nulle part, sans erreur**. L'arbre partagé lit maintenant le dépôt par
+ne peut pas porter un répertoire, donc un dossier déposé n'arriverait **nulle part, sans
+erreur**. L'arbre partagé lit le dépôt par
 `webkitGetAsEntry` et rend chaque fichier avec le chemin qu'il occupait
 (`onDropTree` — les deux pièges sont dans `commons/packages/ui/docs/file-tree.md`).
 

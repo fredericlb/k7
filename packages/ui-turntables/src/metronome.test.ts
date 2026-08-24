@@ -1,4 +1,4 @@
-// The click is m9's own track, not the engine's metronome, because the engine's clicks on the
+// The click is the desk's own track, not the engine's metronome, because the engine's clicks on the
 // DOCUMENT's grid and the music's beat is somewhere else entirely. See ../docs/bpm.md.
 
 import { describe, expect, it } from "vitest";

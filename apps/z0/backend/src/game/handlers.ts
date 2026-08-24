@@ -34,7 +34,7 @@ export function prefixNextItem(item: NextItem): void {
   if (item.category) for (const s of item.category.songs) prefixSong(s);
 }
 
-/** 412 + JSON error when no game is selected (main.go requireGame). */
+/** 412 + JSON error when no game is selected. */
 function requireGame(res: Response): boolean {
   const ok = gameState.gameSelected && gameState.currentGame !== null;
   if (!ok) res.status(412).json({ error: "no game selected" });
@@ -333,7 +333,7 @@ export function handlePeek(_req: Request, res: Response): void {
   res.json(gameState.sessionProgress!.peek());
 }
 
-/** Canonical phase for a /next item (main.go nextItemPhase). */
+/** Canonical phase for a /next item. */
 function transitionForItem(item: NextItem): void {
   if (item.finished) {
     setServerPhase("end");

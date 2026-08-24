@@ -9,20 +9,18 @@ This page holds the reasoning; the file itself keeps one line per fact.
 
 The app is mounted under a path (`st0.priv.frediver.se/pl8`), so every backend path in the file
 concatenates `BASE` — vite's `base` with its trailing slash trimmed, so the literals keep reading
-as paths. It was the EMPTY string for as long as this app served the origin root, which is why
-every literal was already written to concatenate and why moving under a prefix cost the file
-nothing.
+as paths. Every literal is written that way, including the ones that would read fine bare: a path
+that concatenates nothing is a path that breaks the day the mount moves.
 
 `/auth/*` is spelled BARE on purpose. It is not this backend's at all: the flow belongs to st0,
 the service with no prefix, because the IdP has one prefixless `redirect_uri`. This backend only
 VERIFIES the cookie. `${BASE}/auth/me` would 404 into what reads like a broken login. See
 `packages/web-protocol/services.ts`.
 
-`loginUrl` is a GETTER rather than a constant. Evaluated at import, it captures whatever page
-happened to load the module, so every later click returned you there instead of where you were.
-`return_to` is the name the OIDC package reads; `redirect` was silently ignored, which only looked
-fine while this app owned the origin root — the fallback is st0's home page now, so a missing
-`return_to` sends you to the other application entirely.
+`loginUrl` is a GETTER rather than a constant. Evaluated at import it would capture whatever page
+happened to load the module, so every later click would return you there instead of where you
+were. `return_to` is the name the OIDC package reads, and `redirect` is silently ignored: a
+missing `return_to` falls back to st0's home page, which is a different application entirely.
 
 Signing out ends the session for the WHOLE origin: `studio.sid` is shared, so it signs you out of
 st0 and k7 too.
@@ -126,21 +124,18 @@ does the latter, and the difference matters: that one writes bytes the sidecar A
 this one is what puts the name there. Dropping a file in without it declares nothing, because the
 scan reads a song's versions from the sidecar and from nowhere else.
 
-`move` is one server-side syscall, so it works on a folder and can never leave a duplicate; it
-replaced a read+write+delete dance that could do neither. `removeTree` is its own route so that
+`move` is one server-side syscall, so it works on a folder and can never leave a duplicate — a
+read+write+delete dance could do neither. `removeTree` is its own route so that
 removing a folder is never something a caller does by accident while meaning to remove one entry.
 
-## What left this file
+## What this file does NOT ask for
 
-- **`/api/projects` and `/api/shares`.** The routes are untouched and still this service's — it owns
-  the volume they are stored on and outlives every engine — but the drawing moved to st0's home
-  page, which calls them across the origin (`apps/st0/frontend/docs/projects.md`).
-- **`baseModules`, `addEngineFaces`, `hints` and `moduleStore`.** All four served the module
-  builder, which is st0's now: a module is authored against a project where the plugin it names is
-  actually loaded. `hints` in particular had one real field — the library's own modules as refs a
-  sibling could extend — and st0 fills the same shape from the open PROJECT.
-- **The machine's channel LABELS.** They were read for the one screen that routed a live input, the
-  builder's audition. A module is auditioned in st0 now, where the input belongs to the project's
-  own track.
-- **`plugins`.** The machine's whole plugin scan, fetched so every plugin could be given a module.
-  Nothing on this screen asks a machine what it can load any more.
+- **`/api/projects` and `/api/shares`.** The routes are this service's — it owns the volume they
+  are stored on and outlives every engine — but nothing here calls them: the screen that draws
+  them is st0's home page, across the origin (`apps/st0/frontend/docs/projects.md`).
+- **A module's vocabulary and a plugin scan.** Both belong to whoever authors a module, and that
+  is st0: a module is written against a project where the plugin it names is actually LOADED, and
+  only a loaded plugin can say what its parameters are called. Nothing on this screen asks a
+  machine what it can load.
+- **The machine's channel LABELS.** Routing a live input belongs to the project's own track, in
+  st0, not to a hosted catalogue.

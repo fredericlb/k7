@@ -1,10 +1,8 @@
-# The bar at the bottom, and what had to move for it
+# The bar at the bottom
 
-A song used to be playable only from its own screen, by that screen. Leaving it stopped the
-sound — the pane owned the `<audio>` element, and the editor stopped the engine on its way out.
-
-That is exactly what a bar at the bottom cannot live with. So playback moved **above the
-screens**, into `PlaybackProvider`, and what is left in the song's pane is a *view* of it.
+Playback lives **above the screens**, in `PlaybackProvider`, and what the song's pane holds is
+a *view* of it. A bar at the bottom cannot live with a pane that owns the `<audio>` element and
+an editor that stops the engine on its way out: leaving the screen would stop the sound.
 
 ```
 PlaybackProvider ── the <audio> element, what is loaded, the one engine socket
@@ -46,21 +44,14 @@ The duration comes from the `<audio>` element, which is mounted for whatever is 
 when the engine is what plays it**: the engine's state frame carries a playhead and no length,
 and a metadata request is cheaper than a second source of truth.
 
-## One socket, and why this is what forced it
+## One socket
 
-`useModuleEngine` used to be opened per screen — the module editor's, the song editor's, the
-engine page's. That was safe only because those screens replaced one another, and it is exactly
-what a song that keeps playing breaks: its transport has to outlive the screen that started it,
-and a second socket would be a second client on the same session, driving the same project.
+`useModuleEngine` is opened once, by the provider, and handed out through `useEngine()`. One
+per screen would be safe only while screens replace one another, and a song that keeps playing
+breaks exactly that: its transport has to outlive the screen that started it, and a second
+socket is a second client on the same session, driving the same project.
 
-So the provider holds one and hands it out through `useEngine()`. Four call sites changed:
-
-| was | now |
-|---|---|
-| `SongEditor` opened one and passed it down | asks for the app's, passes it down |
-| `ModuleEditor` took `engineId` and opened one | `useEngine()`; the pick follows on its own |
-| `ModuleParams` opened one | `useEngine()` |
-| `EnginePage` built an `EngineClient` by hand | `useEngine().client` |
+So `SongPlayer` calls `useEngine()`, and `EnginePage` takes `useEngine().client`.
 
 `EnginePage` is why `ModuleEngine` exposes `client` and `connected` at all: its questions are
 the MACHINE's — the device list, the session list, the installed catalogue — not a project's,
@@ -87,8 +78,8 @@ Les deux mots se ressemblent, les deux choses n'ont rien à voir :
 | survit à | la navigation entre écrans | tout |
 
 Elle ne va donc pas sur le serveur, et elle disparaît au rechargement — comme la file de
-n'importe quel lecteur. Ce qu'on veut garder se met dans une playlist — qui s'écrit en st0
-désormais, sur ce même catalogue (`packages/song/docs/playlists.md`).
+n'importe quel lecteur. Ce qu'on veut garder se met dans une playlist, qui s'écrit en st0 sur
+ce même catalogue (`packages/song/docs/playlists.md`).
 
 ### Elle est tenue par la Library, pas par le provider
 
@@ -98,21 +89,17 @@ dont le clic droit remplit la file. Le hook `usePlayQueue` vit donc en haut et l
 reçoit en prop, puis le rediffuse — une seule file par onglet, au-dessus des écrans, comme le
 transport lui-même.
 
-### Une seule chose enchaîne, et c'est redevenu vrai
+### Une seule chose enchaîne
 
-Il y en avait deux : le panneau d'une playlist, et cette file. Toutes deux regardaient `ended`,
-aucune ne voyait l'autre, donc sans arbitrage les deux démarraient un morceau sur le même
-événement et le dernier écrit gagnait, au hasard. `claimAdvance()` était la revendication — un
-compteur et non un booléen, parce que deux panneaux peuvent être montés le temps d'une
-transition d'écran.
+Cette file est le seul prétendant : elle écoute `ended` et démarre le suivant. Il n'y a donc
+aucun arbitrage, et il n'en faut pas — un arbitrage à un seul prétendant n'arbitre rien et
+ferait croire à un lecteur qu'il y en a deux. Les playlists s'ouvrent en st0, avec un transport
+à elles (`packages/song/docs/playlists.md`).
 
-Le mécanisme est **retiré**, parce que le second prétendant est parti : les playlists s'ouvrent
-en st0, avec un transport à elles (`packages/song/docs/playlists.md`). Un arbitrage à un seul
-prétendant n'arbitre rien, et le garder ferait croire à un lecteur qu'il y en a deux.
-
-C'est écrit ici plutôt que simplement supprimé parce que la forme du bug est ce qui vaut d'être
-retenu : deux abonnés indépendants au même événement, chacun démarrant quelque chose, aucun ne
-sachant que l'autre existe. La prochaine chose qui saura enchaîner ici devra le reprendre.
+La forme du bug à éviter le jour où une deuxième chose saura enchaîner ici : deux abonnés
+indépendants au même événement, chacun démarrant un morceau, aucun ne sachant que l'autre
+existe — le dernier écrit gagne, au hasard. La revendication doit alors être un **compteur** et
+non un booléen, parce que deux panneaux peuvent être montés le temps d'une transition d'écran.
 
 ### Le démarrage à froid
 
@@ -132,19 +119,12 @@ et on ajouterait un morceau sans nulle part où le voir.
 
 Un morceau sans master est **sauté** : la file continue. Une machine sans cache **arrête** — le
 défaut est celui de la destination et non de la ligne, et vider la file pour ça effacerait ce
-que quelqu'un vient d'y mettre. Même partage que dans le panneau des playlists — parti en st0 —
-raison.
+que quelqu'un vient d'y mettre. Le panneau des playlists de st0 fait le même partage, pour la
+même raison.
 
 Enfin, `enqueue` refuse les doublons et `moveTo` prend l'indice VOULU dans la liste finale —
 insérer à l'indice de départ ferait un déplacement d'un cran trop court vers le bas, et le
 bouton semblerait mort. Les deux sont testés dans `playback/queue.test.ts`.
-
-## What the bar does not follow
-
-**A chain variant.** Auditioning one takes the engine's transport away from whatever the bar
-was following — one session plays one thing — so `SongVariants` calls `playback.close()` first.
-The bar goes rather than going on reporting a master that stopped being audible. A variant is
-an audition inside the editor; it is not a thing you walk away from.
 
 ## Where a failure is said
 

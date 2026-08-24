@@ -1,7 +1,7 @@
 // `event status mute|warp` — the POLARITY, through the dispatcher and asserted on the file.
 //
-// Both writers had tests and were right; the command's translation between them had none, and
-// that is where the stray `!` lived. A test on the writer alone could never see it.
+// The writers are each right on their own; what needs covering is the command's TRANSLATION
+// between them, where a stray `!` lives. A test on the writer alone can never see it.
 //
 // The FILE is deliberately the opposite way round from the command, which is why this goes wrong
 // quietly: an absent `warp` means "it warps, because the clip does", so `warp on` must leave

@@ -15,13 +15,13 @@ mechanisms. Keeping that straight is the whole content of this page.
 
 ## Why loop points do not work
 
-`applyClipWarp` used to pin each interior marker as a `LoopInfo` beat point:
+Pinning each interior marker as a `LoopInfo` beat point does nothing to timing:
 
 ```cpp
-li.addLoopPoint(sample, te::LoopInfo::LoopPointType::manual);   // <- did nothing to timing
+li.addLoopPoint(sample, te::LoopInfo::LoopPointType::manual);   // <- no effect on timing
 ```
 
-with a comment claiming "each segment stretches on its own". It does not, and never did.
+Each segment does *not* stretch on its own.
 `AudioSegmentList::buildAutoTempo` walks the sync points and advances its beat cursor like this
 (`tracktion_AudioSegmentList.cpp`, both the looping and the non-looping branch):
 
@@ -36,11 +36,11 @@ where the audio is **cut** (for crossfades and transposition), never how fast ea
 Under auto-tempo alone a warp map is therefore flattened to its end-to-end ratio, and every point
 the musician placed in between is silently discarded.
 
-Silently is the operative word: both sides compiled, the map reached the engine intact, the clip
-stretched by the right total amount, and the only symptom was that the middle of the clip did not
-line up. That is the failure this page exists to stop recurring.
+Silently is the operative word: both sides compile, the map reaches the engine intact, the clip
+stretches by the right total amount, and the only symptom is that the middle of the clip does not
+line up. That is the failure this page exists to prevent.
 
-## What replaced it
+## `WarpTimeManager` is what carries the interior
 
 `WarpTimeManager` is Tracktion's piecewise mechanism, and `EditNodeBuilder::getWarpMap` reads its
 markers **straight into the playback graph** — `WaveNodeRealTime` wraps the file reader in a
@@ -60,7 +60,7 @@ warpTime(i) = srcStart + (beat(i) - beatStart) / beatSpan * srcSpanS
 
 The two endpoints come out identity by construction, so the warped stream is still `srcSpanS`
 long and the `setNumBeats(beatSpan)` above it stays exact. Auto-tempo then applies the overall
-ratio on top, exactly as before.
+ratio on top.
 
 **`setUsesProxy(false)` must come first.** `WaveAudioClip::needsRender()` is
 `warpTime && canUseProxy()`, so turning warp time on while proxies are still allowed would create
@@ -89,7 +89,7 @@ nearer the map than the straight end-to-end ratio; the second half is what actua
 Expect a residual of roughly 80 ms early on the first burst decaying to ~20 ms by the last. That
 is the time-stretcher priming, not the mapping: a wrong mapping gives a constant or growing error,
 not a decaying one. With the warp map disabled the render lands within a few ms of the straight
-ratio, which is what the bug above sounded like.
+ratio, which is what a discarded map sounds like.
 
 A burst is deliberately never placed at source second 0 — the head of the clip is inside the
 stretcher's priming region, and a burst there reads ~40 ms early for reasons that have nothing to

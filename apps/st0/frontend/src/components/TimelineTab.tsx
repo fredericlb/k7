@@ -1310,7 +1310,7 @@ export function TimelineTab({
     const den = proj.timeSigDenominator;
     const fromTc = beatsToPosition(m.origStart, num, den);
     const toTc = beatsToPosition(m.origStart + m.offset, num, den);
-    // HELD, not cleared: clearing here drew the clip back at its old start for the whole write-and-reload round trip.
+    // HELD, not cleared: clearing here draws the clip back at its old start for the whole write-and-reload round trip.
     setMove({ ...m, dragging: false, pending: true });
     onMoveEvent?.(
       m.trackId,
@@ -2515,7 +2515,6 @@ export function TimelineTab({
                     )}
                     {/* The label alone: the row's position and the icon already say what "3.ge." would repeat at the gutter's expense. */}
                     <span className="truncate">{trackLabel(t.name)}</span>
-                    {/* A snowflake reported a FROZEN lane here; freezing went with the field it read (packages/song/docs/trackModules.md). */}
                   </span>
                   {/* [m]ute / [s]olo / [a]rm, the graph's track nodes' own controls; stopPropagation so a tap does not also move the caret. */}
                   {onTrackToggle && (
@@ -2626,7 +2625,6 @@ export function TimelineTab({
                   )}
                   style={{ width: laneW }}
                 >
-                  {/* A cold wash marked a FROZEN lane here, gone with the field it read (packages/song/docs/trackModules.md). */}
                   {/* record-armed: the whole lane goes red, at the bottom of the stack, off the engine's state frame rather than the project. */}
                   {armed && (
                     <div className="pointer-events-none absolute inset-0 bg-red-600/30" />
@@ -2935,7 +2933,7 @@ export function TimelineTab({
                               {ghost && (
                                 <Ghost className="h-2.5 w-2.5 shrink-0 opacity-80" />
                               )}
-                              {/* The loop badge that sat here is gone: the marks down the block say the same thing and say WHERE. */}
+                              {/* No loop badge here: the marks down the block say the same thing and say WHERE. */}
                               {stretched &&
                                 (unwarped ? (
                                   <TimerOff className="h-2.5 w-2.5 shrink-0 opacity-80" />

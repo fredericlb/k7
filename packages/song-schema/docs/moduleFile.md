@@ -18,8 +18,8 @@ other silent is a legitimate state, not a half-built chain (`packages/song/docs/
 
 `inputs:` / `outputs:` are declared on the module because the folder says what a module IS, not how
 many wires it takes: a crossfade is an audio effect like any other and needs two audio inputs, which
-was unsayable while the folder was the only source. A module that declares neither keeps its type's
-ports, which is every module written so far.
+the folder alone cannot say. A module that declares neither keeps its type's ports, which is every
+module written so far.
 
 ## The widget vocabulary
 
@@ -37,9 +37,9 @@ where the editor changed `type` but not yet the fields.
 
 ## The three files beside `module.yaml`
 
-`ui.yaml` is the panel — exactly what the `ui:` block was, at the top level and in a file of its
-own, so the plugin scan can rewrite the module without touching hand-drawn work. It says nothing
-about WHICH module it draws: the folder it sits in does (`uiLibrary.ts`).
+`ui.yaml` is the panel, at the top level of a file of its own, so the plugin scan can rewrite the
+module without touching hand-drawn work. It says nothing about WHICH module it draws: the folder it
+sits in does (`uiLibrary.ts`).
 
 `presets.yaml` is the module's named settings. A preset IS its values — the key names it, the folder
 says which module it belongs to, and there is nothing else to record. Numbers only, because that is
@@ -73,8 +73,8 @@ authored. `status:` is not one either, for the same reason — the loader applie
 that has nothing to say about it stays a file that says nothing.
 
 There is no `jsdsp:` field. A module whose DSP is its own source says so with
-`plugin: {type: jsdsp}`, and the file is `jsdsp.ts` beside the module file — one statement instead
-of two that had to agree (`loader.ts`'s `jsDspFileFor`).
+`plugin: {type: jsdsp}`, and the file is `jsdsp.ts` beside the module file — one statement rather
+than a field and a type that have to agree (`loader.ts`'s `jsDspFileFor`).
 
 `ModuleSchema` is `.strict()`: an unknown key is a typo, and silently ignoring `paramz:` is worse
 than saying so.
@@ -93,8 +93,8 @@ picture through untouched, which is what a node you have just added should do
 
 A param is a NUMBER, except the few the plugin steers with a file it loads: `nam` names a `.nam`
 model in this module's own `assets/`. It sits in `params:` because that is what it is, one of the
-plugin's controls shown in the panel beside Input and Output; its own top-level field made it a
-second kind of thing to find, edit and merge. Only the file-valued ones are strings
+plugin's controls shown in the panel beside Input and Output; a top-level field of its own would be
+a second kind of thing to find, edit and merge. Only the file-valued ones are strings
 (`moduleTypes.FILE_PARAMS`), and `nodeProject` lifts them out before the wire, which stays numeric
 (`packages/song/docs/moduleAssets.md`).
 
@@ -110,22 +110,22 @@ cold module is cold (`packages/song/docs/coldModules.md`).
 ## The io fields
 
 `channel:` says WHICH interface input an io `in` module is, and nothing about where the signal goes:
-the chain it sits in already names the track. It used to carry a `track:` too, which meant a shared
-input module — one per physical input, filed in a workspace's `_modules` by `module populate` — had
-nowhere to put a binding that is per-project by nature.
+the chain it sits in already names the track. There is no `track:` beside it, because a shared input
+module — one per physical input, filed in a workspace's `_modules` — has nowhere to put a binding
+that is per-project by nature.
 
 `source:` is the audio FILE an io `file` module reads instead of an interface channel.
 Project-relative, and named `source` for the same reason a clip's audio is: it is the same fact.
-(`file` was the obvious spelling and is taken — the loader writes the module's FOLDER name there, so
-an authored `file:` was silently overwritten by it.) It may be ABSENT, and that is the useful case
+(`file` is taken — the loader writes the module's FOLDER name there, so an authored `file:` would be
+overwritten by it.) It may be ABSENT, and that is the useful case
 rather than an oversight: a chain template's input names none, because the template is generic and
 whoever applies it supplies the audio — a song hands over its master
 (`packages/song/docs/fileInput.md`).
 
 `monitor:` is whether you hear the input while it plays. A BOOLEAN is the everyday answer —
-`monitor: true` is what a person writing this file means — and the three-state spelling stays because
-"auto" is neither: it means audible only once the track is armed, which is the default and cannot be
-said with a boolean.
+`monitor: true` is what a person writing this file means — and the three-state spelling is there
+because "auto" is neither: it means audible only once the track is armed, which is the default and
+cannot be said with a boolean.
 
 `gain:` is input trim in dB, applied at the interface before anything else sees the signal. 0 is
 unity; a guitar into a line input usually wants some, a hot synth wants less. It is not a plugin's
@@ -144,13 +144,12 @@ silently moves a param somebody set (`packages/song/docs/userPresets.md`).
 
 ## `content:` — a note on the graph
 
-Multiline free text, shown as it is written on the node itself. It replaces the `docs:` and `todos:`
-fields that used to sit here and on tracks: those were only ever readable in a bottom panel, which
-meant a note about a module lived somewhere you had to go and look, next to notes about everything
-else. A note is now a THING IN THE GRAPH, wired from what it is about, and read where you are already
-looking. It belongs to a NODE in practice — every note is a node of `@studio/doc` — but it is
+Multiline free text, shown as it is written on the node itself. A note is a THING IN THE GRAPH,
+wired from what it is about, and read where you are already looking rather than in a panel you have
+to go to. It belongs to a NODE in practice — every note is a node of `@studio/doc` — but it is
 declared on the module like any other setting, because that is what makes a node able to override it
-(`packages/song/docs/docModules.md`).
+(`packages/song/docs/docModules.md`). There is no `docs:` and no `todos:`, here or on a lane, and
+`.strict()` refuses a file that still carries either.
 
 ## A lane's own fields
 
@@ -160,11 +159,11 @@ a question about the whole project. `graph.ts`'s `validate()` reports an `events
 exactly as it reports a `channel:` on something that is not an input — same rule, same place
 (`packages/song/docs/trackModules.md`).
 
-`events:` and not `clips:`, which it was until the two words collided once too often. A CLIP is the
-material — `clips/<id>.yaml`, a source and a window into it — and one clip is placed on a lane any
-number of times. Calling both of them clips meant a `clips:` list whose entries were not clips, next
-to a `clips/` folder whose files were. Every surface already said "event" in its prose (`event
-resize`, `event remove`, the timeline's own menus); only the file disagreed.
+`events:` and not `clips:`, because a CLIP is the material — `clips/<id>.yaml`, a source and a
+window into it — and one clip is placed on a lane any number of times. Calling both of them clips
+gives a `clips:` list whose entries are not clips, next to a `clips/` folder whose files are. Every
+surface says "event" in its prose (`event resize`, `event remove`, the timeline's own menus), and
+the file says it too.
 
 `takes:` are kept beside them: each is another list of placements this lane could be playing.
 Recording over what a lane holds does not throw it away — the events that were there move into a
@@ -213,10 +212,10 @@ twice.
 guards MODULE files and not just lanes, because a lane IS a module: `nodes/melody.yaml` carries
 `events:` with a `start: "25:1"` in it, and unquoted that is a valid YAML 1.1 sexagesimal — bar 25
 reads back as beat 1501, silently, in a file nothing else would complain about. A key set through the
-document API arrives as a bare string rather than a `Scalar`, and reading only `.value` there skipped
-the pair entirely and let a freshly written `to: 3:1` out unquoted — the one bug the function exists
-to prevent. A bare string has nowhere to carry the quoting style, so it is promoted to a `Scalar`
-that does, and a sequence of them is marked item by item rather than skipped.
+document API arrives as a bare string rather than a `Scalar`, and a bare string has nowhere to carry
+the quoting style — so it is promoted to a `Scalar` that does, and a sequence of them is marked item
+by item. Looking only at `.value` would skip such a pair and let a freshly written `to: 3:1` out
+unquoted, which is the one thing this function exists to prevent.
 
 ### `setModuleList`
 
@@ -241,13 +240,13 @@ automated, so writing that would be noise that goes stale the day the binding mo
 
 ## A placement
 
-`packages/song-schema/src/yaml/placementSchema.ts` is its own file because a placement is no longer a
-track's alone: a lane is a module now, so `moduleSchema` is what carries `events:` and this is what
-it imports.
+`packages/song-schema/src/yaml/placementSchema.ts` is its own file because a placement is not a
+track's alone: a lane is a module, so `moduleSchema` is what carries `events:` and this is what it
+imports.
 
 The `TIMECODE` shape is colon-separated numbers, then optionally `.ticks`. The dot makes the quoting
 rule stricter rather than looser: `25:1` unquoted is a YAML 1.1 sexagesimal, and `1.5` unquoted is a
-plain FLOAT in any YAML, so the new form collides with a number more readily than the old one did.
+plain FLOAT in any YAML, so a tick form collides with a number more readily than a bare colon chain.
 The colon chain may still run deep here: every file written before ticks existed spells its sub-beats
 that way, and a schema that refused them would fail songs that load perfectly.
 
@@ -261,19 +260,18 @@ words for ITSELF. The effective window is the most restrictive pair: the larger 
 and `event resize` writes THESE, which is what makes a resize one event's edit instead of every
 placement's (`packages/song/docs/clipResize.md`).
 
-A placement still has no `length` and no `offset`: its extent is derived, `loop` × the effective
+A placement has no `length` and no `offset`: its extent is derived, `loop` × the effective
 window, and there is no second place for it to disagree with the material. `disabled` silences THIS
 placement without removing it — the event-level counterpart of bypassing the lane itself — so its
 position, length and fades survive being switched off and back on.
 
-`warp` says whether THIS event plays the material's stretch map, absent meaning yes, which is what
-every placement did before it existed. `warp: false` is the only value that says anything; `true` is
-the default written out. The polarity is that way round because a warp belongs to the CLIP — one map,
-shared by every placement of it (`packages/song/docs/warp.md`) — and this is a placement declining
-it. A `noWarp: true` would name the same fact as a double negative, and a reader would have to work
-out which way `noWarp: false` pointed. What it is for: one map fits the song the clip was warped
-INTO, and a second use of that clip somewhere else wants the sample at its own rate. Before this, the
-only way was to copy the file.
+`warp` says whether THIS event plays the material's stretch map, absent meaning yes. `warp: false` is
+the only value that says anything; `true` is the default written out. The polarity is that way round
+because a warp belongs to the CLIP — one map, shared by every placement of it
+(`packages/song/docs/warp.md`) — and this is a placement declining it. A `noWarp: true` would name
+the same fact as a double negative, and a reader would have to work out which way `noWarp: false`
+pointed. What it is for: one map fits the song the clip was warped INTO, and a second use of that
+clip somewhere else wants the sample at its own rate, without a copy of the file.
 
 `TIMECODE_KEYS` is what every writer in the repo quotes through. It carries the window's two words —
 on a material file AND on a placement, the same trap for the same reason, and a NUMBER under those

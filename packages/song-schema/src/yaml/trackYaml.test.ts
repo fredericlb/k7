@@ -9,7 +9,7 @@ import {
   setTrackField,
 } from "./trackFile";
 
-// The file the app writes most, and a lane is a MODULE now, so the timecode trap moved with it.
+// The file the app writes most, and a lane is a MODULE, so the timecode trap is a module file's.
 
 // A lane as the app leaves it: one placement per line as a flow map, every timecode quoted.
 const AUTHORED = `color: "#739814"

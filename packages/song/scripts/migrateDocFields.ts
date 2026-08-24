@@ -2,7 +2,7 @@
 //
 //   npx tsx packages/song/scripts/migrateDocFields.ts <dir> [more dirs…] [--write]
 //
-// Both fields are gone from the `.strict()` schemas (docs/docModules.md), so a file carrying one
+// The schemas are `.strict()` and know neither field (docs/docModules.md), so a file carrying one
 // refuses to load — the prose is MOVED rather than deleted. Through the yaml Document API and
 // never by rewriting text, so every other comment and the key order come back byte-identical.
 // Dry by default.

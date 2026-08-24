@@ -2,9 +2,8 @@
 // `surfaces/`. It turns the declaration into a component and hands it the engine, the decks and
 // the mapping. The desk itself is @studio/ui-turntables.
 //
-// It used to also mount the DOCUMENT while the screen was closed, behind an `open` prop, because
-// the desk was a `view` that came and went. A pane is mounted once and hidden with CSS, so the
-// shell's invariant now covers what that prop protected.
+// It needs no `open` prop to keep the DOCUMENT alive while the screen is hidden: a pane is
+// mounted once and hidden with CSS, and that shell invariant covers it.
 //
 // See packages/song/docs/surfaces.md and packages/ui-turntables/docs/deckSet.md.
 

@@ -1161,7 +1161,7 @@ export default function App({
         setRackBuilder(true);
         return true;
       }
-      // `project new` and `project delete` went with the workspace this app stopped showing — packages/project-shell/docs/launch.md.
+      // No `project new` or `project delete` here: making and unmaking a project is the home page's, not this shell's — packages/project-shell/docs/launch.md.
       if (line.startsWith("file ")) {
         openInEditor(s.slice(5).trim());
         return true;
@@ -1354,7 +1354,7 @@ export default function App({
         else togglePanel(want as Panel);
         return true;
       }
-      // `ui surface <id>` was here; every surface is a PANE now, and the arm stays only because the verb was in the docs.
+      // `ui surface <id>` names nothing — every surface is a PANE — and this arm exists only to say so to anyone who read the verb in the docs.
       if (line.startsWith("surface ")) {
         setStatus(
           "a surface is a pane now — use `ui turntables` (or its number key). See surfaces/.",
@@ -1674,7 +1674,7 @@ export default function App({
         const { output, refused, graph, rev, changed } = await api.command(s, {
           want: ["graph"],
         });
-        // A refusal is neither a success nor a failure, and until it had its own channel it was recorded as the first.
+        // A refusal is neither a success nor a failure, so it gets its own channel rather than being recorded as the first.
         const said = output.length ? output.join("  ·  ") : `ran: ${s}`;
         if (refused) setRefusal(said);
         else setStatus(said);
@@ -1995,7 +1995,7 @@ export default function App({
     if (tlView.zoomed) cond.timeline_zoomed = "1";
     if (tlView.loop) cond.timeline_loop = "1";
     if (clipSel && graphSlot?.kind === "clip") cond.clip_selection = "1";
-    // `clipboard_events` / `clipboard_notes` were reported here; there is one paste verb now and its binding is unconditional (keys.ts).
+    // No `clipboard_events` / `clipboard_notes` condition: there is one paste verb and its binding is unconditional (keys.ts).
     if (editTarget?.kind === "seq")
       cond.hover_midi_sequence = fileStem(editTarget.path);
     else if (editTarget?.kind === "clip") {

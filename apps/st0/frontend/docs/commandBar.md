@@ -32,9 +32,9 @@ person read the same thing in the docs (see `commandI18n.ts`). What is translate
 explanation. So each row shows the sentence on the left and the name on the right, where a
 palette you have used before puts the keybinding — and typing either finds the row.
 
-That is the whole reason for the change. "Mute a track" was reachable only by knowing the word
-`track`, and `track mute` is the third of twenty commands starting with `track`. A person
-knows what they want done before they know what it is called.
+That is the whole reason the sentence is what the row leads with. Reaching "mute a track" by
+name means knowing the word `track`, and `track mute` is the third of twenty commands starting
+with `track`. A person knows what they want done before they know what it is called.
 
 ### Everything is matched FUZZILY, with the shell's one matcher
 
@@ -68,7 +68,7 @@ would be worse than one with no history at all.
 The bonus is added **after** the no-match filter, and that order is the whole safety of it:
 `fuzzyScore` says "no match" with `-1`, so a recent command handed four points for nothing would
 surface on a query it does not match at all. History reorders what matched; it never invents a
-match. (That was a real bug, caught by the test that says so.)
+match, and a test says so.
 
 What is remembered is recorded in the shell's `runCommand`, where EVERY command passes — the
 palette, a key binding, a context menu. What you reach for by shortcut is still what you reach
@@ -98,10 +98,10 @@ components with two copies of that would be two commands.
 - **Enter** means "that is my line": it runs as soon as every required parameter is answered.
   When one is missing it moves there instead of refusing silently. On a field showing
   suggestions it takes the highlighted one, as Tab does — **unless the field already holds it**,
-  and that clause is the whole of a bug this had: an exact match still ranks first, so the list
-  stays on screen after a pick, and taking it again is a no-op. Enter was therefore eaten for
-  ever, and a command whose LAST field has a vocabulary (`node replace <node>
-  <extends-ref>`) could never be submitted at all. The three answers live in one place,
+  and that clause is load-bearing: an exact match still ranks first, so the list
+  stays on screen after a pick, and taking it again is a no-op. Without the clause Enter is
+  eaten for ever, and a command whose LAST field has a vocabulary (`node replace <node>
+  <extends-ref>`) can never be submitted at all. The three answers live in one place,
   `enterAction` in `commandFill.ts`, which is also what the footer names — so the panel cannot
   promise "run" while the key would pick.
 - **Escape** drops the list, and a second Escape abandons the command and gives the bar back.
@@ -115,7 +115,7 @@ see [that package's page](../../../../packages/commands/docs/optionalArgs.md)). 
 counts up to the last mandatory one and `canRun` asks whether those are answered; a trailing
 optional left blank is not an omission, it is the answer "not that". Without this the bar could
 not run `event move` at all: its fourth param moves the clip to another track and is usually
-not wanted, but `args.length` said four.
+not wanted, while `args.length` says four.
 
 A blank in the MIDDLE is kept as an empty token by `lineArgs`, because dropping it would shift
 every param after it one place left and the command would read a track name as a timecode.
@@ -127,7 +127,7 @@ A completion list is part of the field you are typing in, so it goes when the fo
 
 That follows from the bar not being modal: answering a param by reaching into a pane takes the
 focus away, and the list would otherwise sit parked over the timeline you just clicked —
-covering the thing the gesture was about. It is load-bearing now that the bar is docked: the
+covering the thing the gesture was about. It is load-bearing with the bar docked: the
 catalogue is non-empty from the moment it loads, so "are there matches" would leave thirty rows
 hanging over the minimap for ever. A row commits on `mousedown` and preventDefaults to keep the
 focus, so the blur that closes the list can never be the one that was about to pick from it.
@@ -138,21 +138,20 @@ On a wide screen the bar is **always there**: under the minimap, full width, the
 the window. Nothing opens it and nothing closes it. Double-tapping Shift focuses it, Escape
 blurs it, and in between it sits where a terminal's prompt sits.
 
-It got there by degrees, and each step removed a reason for the previous one. It was a modal
-palette; then it stopped being modal, because a backdrop blocks the very gestures that fill it
-(see below) and dimming hides the clip you are being asked to point at. Once it had no
-backdrop, was fed by the editor behind it, and had to be summoned before any of that could
-start, "opened" was doing no work — it was a permanent tool with a curtain in front of it.
+It has no backdrop, because a backdrop blocks the very gestures that fill it (see below) and
+dimming hides the clip you are being asked to point at. And with no backdrop, fed by the editor
+behind it, "opened" would do no work: summoning it would only be a permanent tool with a curtain
+in front of it.
 
 What being docked actually buys, beyond one less keystroke:
 
 - **It says what it accepts before you commit to it.** The prompt, the field's colour and its
   hint are on screen while you work, so the vocabulary is visible rather than recalled.
 - **A gesture has somewhere to land.** The bar reports what it is waiting for and the shell
-  routes drags to it; that contract now has no state in which the receiver does not exist.
-- **The layout stops moving.** A strip that appears over the window used to cover the bottom
-  of the panes exactly when you were pointing at them. A row that is always there is a row the
-  panes were never given.
+  routes drags to it; that contract has no state in which the receiver does not exist.
+- **The layout stops moving.** A strip that appears over the window covers the bottom of the
+  panes exactly when you are pointing at them. A row that is always there is a row the panes
+  were never given.
 
 The phone keeps the popin, opened from the hamburger. It has no minimap to sit under, and a
 permanent prompt would cost the band a phone has least of — the same trade that keeps the
@@ -212,9 +211,9 @@ A gesture answers a field you have already opened. The **caret** answers before 
 when you pick a command, whatever the timeline caret is looking at is offered first, and if that
 completes the line the bar dispatches it instead of opening a form at all.
 
-`event split` is what this was built for. It takes a track, the event's start and the cut — and
-parking on a clip states all three, so asking them back was asking you to retype what you were
-looking at. `commands.yaml` had said so since the verb was written: *"the cut is its own argument,
+`event split` is what this is for. It takes a track, the event's start and the cut — and
+parking on a clip states all three, so asking them back is asking you to retype what you are
+looking at. `commands.yaml` says so: *"the cut is its own argument,
 which is what the caret gives."*
 
 The caret speaks the same currency a gesture does, **param names** (`caretAnswers`, `commandFill.ts`):
@@ -291,21 +290,19 @@ away from it, the way a shell completion list reads.
 
 Both the list and the parameter panel are PORTALLED to the body. The bar is a flex row in the
 shell's bottom strip; a panel that size inside it would be clipped or would push the input
-around, which is the same lesson the timeline's lane menu learned from its gutter.
+around, which is the same clipping the timeline's lane menu meets in its gutter.
 
 ## `ModulePicker.tsx` — "which module?"
 
 Opened by the `+` on a graph arrow, before the command bar sees anything. The pick RUNS, like
-`ContextMenu`'s entries and unlike everything else here — and it used to only pre-write, for a
-reason that has gone away: it answered one of the verb's arguments and the node's NAME still had
-to be typed. A node names itself now (`<lane>_<module>_<n>`, see `packages/song/docs/nodes.md`),
-so nothing is left for a person to supply and stopping at the bar would be asking them to press
-Enter on a line they did not write.
+`ContextMenu`'s entries and unlike everything else here: a node names itself
+(`<lane>_<module>_<n>`, see `packages/song/docs/nodes.md`), so nothing is left for a person to
+supply and stopping at the bar would be asking them to press Enter on a line they did not write.
 
-Two picks still pre-write, and both for the original reason. A **new curve** is not an instance
-of anything — there is no module to be named after, and it drives nothing until a param binds
-it. And any pick made while the module catalogue has not arrived falls back to the bar, since
-there is no module to derive a name from either.
+Two picks pre-write instead, and for the mirror reason — there is a name left to supply. A **new
+curve** is not an instance of anything: there is no module to be named after, and it drives
+nothing until a param binds it. And any pick made while the module catalogue has not arrived
+falls back to the bar, since there is no module to derive a name from either.
 
 The first level is where a module COMES FROM:
 

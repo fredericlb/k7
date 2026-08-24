@@ -1,6 +1,6 @@
 # The undo/redo journal
 
-`history.ts` is a per-project journal that makes Ctrl+Z / Ctrl+Y in st0 and m9 undo
+`history.ts` is a per-project journal that makes Ctrl+Z / Ctrl+Y in st0 undo
 **persisted** changes to the project — an editor save, or any command that rewrote a
 file — across the whole project, not just the file on screen. It lives in the file
 service because that is the one place every mutation already funnels through, and because
@@ -30,8 +30,8 @@ It answers a `Recorded<T>` rather than the mutation's own value: whatever `mutat
 the **revision token either side**. That is not the journal's business and it is nonetheless the
 right place for it — `recordChange` is the one thing that brackets a write, and it has to cross
 the tree twice to diff it, so naming both instants costs it a filter over a list it already
-holds. Its caller would otherwise walk twice more to learn the same two facts, which is precisely
-what `POST /command` used to do. See `docs/audit-perf-web.md`, lot E.
+holds. Its caller would otherwise walk twice more to learn the same two facts. See
+`docs/audit-perf-web.md`, lot E.
 
 ## The entry model
 

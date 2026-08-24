@@ -16,9 +16,8 @@ cog ▸ Playlists   (ou le bouton du set) │ ▾ été 2026     + ⤢ ✕ │  
 
 ## Un panneau ancré à droite, pas une page
 
-C'était une page plein écran : la liste des `.yaml`, puis un écran par playlist. Ce n'était pas
-la bonne forme — on ouvre une set list **pendant** qu'on travaille, et une page oblige à quitter
-le morceau pour aller la regarder. C'est donc un panneau **collé à droite**, dans la même rangée
+On ouvre une set list **pendant** qu'on travaille, et une page plein écran oblige à quitter le
+morceau pour aller la regarder. C'est donc un panneau **collé à droite**, dans la même rangée
 que les panes : il pousse les panes au lieu de les couvrir, et on peut le laisser ouvert.
 
 La playlist se choisit dans une **liste déroulante avec recherche** — le `TreePicker`, exactement
@@ -27,15 +26,14 @@ dépôt est vieux, et taper trois lettres est le geste que ce shell a partout. L
 le titre ET le chemin, parce qu'on cherche une set list par l'un ou par l'autre (`live/repet`).
 
 Les morceaux sont **en dessous**, résolus contre la médiathèque et jouables — c'est
-`PlaylistPane`, la moitié droite de l'ancienne page, inchangée.
+`PlaylistPane`.
 
 ## Le texte reste, à un clic
 
 Le panneau fait 24rem : il n'y a pas la place pour le YAML à côté des morceaux, et le texte est
-toujours le seul moyen d'**enlever** une ligne ou d'en changer l'ordre — `PlaylistPane` sait
-ajouter et rien d'autre. La page n'est donc pas supprimée, elle est rétrogradée : le bouton ⤢
-l'ouvre en plein écran sur la playlist courante, et c'est la sortie de secours pour ce que le
-panneau ne sait pas faire.
+le seul moyen d'**enlever** une ligne ou d'en changer l'ordre — `PlaylistPane` sait ajouter et
+rien d'autre. La page plein écran existe donc toujours, un cran plus loin : le bouton ⤢ l'ouvre
+sur la playlist courante, et c'est la sortie de secours pour ce que le panneau ne sait pas faire.
 
 C'est le même composant des deux côtés. `PlaylistEditor` prend un `panel`, qui retire son
 en-tête et la moitié YAML ; en dessous tout est identique — même chargement, même tampon, même
@@ -51,10 +49,10 @@ viewport — et ce qu'ils dessinent, c'est ce que le projet DÉCLARE (`docs/shel
 travaille. Elle n'est donc pas un pane, même maintenant qu'elle a une colonne — et elle n'est
 pas non plus dans l'URL.
 
-Elle a eu, le temps d'une itération, un **onglet sous le cog**. C'était classer par l'endroit
-d'où elle venait : des réglages sont ce qu'on règle et qu'on laisse, une set list est ce à
-partir de quoi on travaille. Elle partage donc la colonne de droite avec les réglages et le
-partage (`rightPanel` dans `App`, `docs/shell.md`) sans être rangée dedans.
+Ce n'est pas non plus un **onglet des réglages**, bien que le cog soit ce qui l'ouvre : ce serait
+la classer par l'endroit d'où on y arrive. Des réglages sont ce qu'on règle et qu'on laisse, une
+set list est ce à partir de quoi on travaille. Elle partage donc la colonne de droite avec les
+réglages et le partage (`rightPanel` dans `App`, `docs/shell.md`) sans être rangée dedans.
 
 Comme tout le reste de ce shell, ce qui l'ouvre **dispatche une ligne de commande** —
 `ui playlists`, qui bascule le panneau — plutôt que d'appeler une fonction à elle : tout ce qui
@@ -73,10 +71,10 @@ pas ce pour quoi on est venu. `ui playlists` les ouvre quand même : c'est la m�
 seul comportement et une seule entrée dans le journal. Jamais sur un instantané partagé — un
 partage n'a pas de dépôt, donc pas de `_playlists/`.
 
-## Trois serveurs, dont un nouveau
+## Trois serveurs
 
-C'est le premier écran de st0 qui parle à **pl8** autrement que pour la session. Le tableau que
-`AGENTS.md` tient devient :
+C'est l'écran de st0 qui parle à **pl8** autrement que pour la session. Le tableau que
+`AGENTS.md` tient devient donc :
 
 | | pour quoi | où |
 |---|---|---|
@@ -90,11 +88,10 @@ chez son propre backend — qui n'a pas cette route. Les appels à la médiathè
 `serviceUrl(…, "pl8")`, jamais par `BASE` et jamais en dur : écrits nus, ils reviennent en 404
 et le catalogue vide se lit comme « vous n'avez aucun morceau ».
 
-C'était l'inverse avant que st0 ne prenne la racine — la médiathèque y répondait, et `/api/mediatek/*`
-nu était juste. La faute a donc changé de camp sans changer de forme, ce qui est exactement
-l'argument pour demander la table plutôt que d'écrire un préfixe. `/auth/*` en haut de `api.ts`
-est le cas qui ne bouge pas : il reste nu, parce que l'IdP ne connaît qu'un `redirect_uri` sans
-préfixe.
+Un préfixe écrit en dur serait juste tant que le service visé ne change pas de place, et faux
+sans changer de forme le jour où il en change : demander la table est ce qui ne se trompe pas.
+`/auth/*` en haut de `api.ts` est le cas qui ne bouge pas — il reste nu, parce que l'IdP ne
+connaît qu'un `redirect_uri` sans préfixe, donc c'est le service sans préfixe qui le sert.
 
 L'authentification est le cookie de session, ce qui est aussi ce qui fait marcher `songUrl` en
 `<audio src>` : un élément média ne sait pas poser d'en-tête, et n'a pas à le faire quand les
@@ -110,11 +107,10 @@ dans ses URL serait deux façons d'écrire un même fichier — et l'autosave su
 Le listing est une route à part pour la raison que `/module-libraries` l'est : `/tree` est
 enraciné sur le projet actif, exprès, donc le dossier lui est invisible.
 
-Il y a eu un `POST /playlists` pour en créer une, et il est parti par le même raisonnement, un cran
-plus loin : créer une playlist est une **commande** (ci-dessous), donc l'écriture passe par
-`/command` avec tout le reste. `Workspace.createPlaylist` est parti avec la route ; ses règles —
-le gabarit plutôt qu'un fichier vide, l'extension ajoutée, une playlist déjà là refusée — sont
-maintenant celles du verbe, avec ses tests.
+Il n'y a **pas** de `POST /playlists` non plus, par le même raisonnement un cran plus loin : créer
+une playlist est une **commande** (ci-dessous), donc l'écriture passe par `/command` avec tout le
+reste. Ses règles — le gabarit plutôt qu'un fichier vide, l'extension ajoutée, une playlist déjà
+là refusée — sont celles du verbe, avec ses tests.
 
 ## Créer et ajouter sont des verbes
 
@@ -188,9 +184,9 @@ Une rangée ajoute le **master** ; les pastilles à côté ajoutent une **varian
 mettre `instrumental` dans une setlist voudrait dire aller taper le mapping à la main, alors que
 le format existe précisément pour le porter.
 
-**« Ajouter un morceau »** prend un fichier du disque. pl8 n'avait que la recherche, parce que
-son propre onglet Morceaux était à un clic ; d'ici la médiathèque est une autre application, et
-une setlist qu'on ne peut pas finir sans en sortir est une setlist qu'on quitte.
+**« Ajouter un morceau »** prend un fichier du disque. La recherche seule suffirait si l'onglet
+Morceaux était à un clic ; d'ici la médiathèque est une autre application, et une setlist qu'on ne
+peut pas finir sans en sortir est une setlist qu'on quitte.
 
 ### L'ordre est la fonctionnalité
 
@@ -266,17 +262,17 @@ règle exige reste vrai : l'ACTE est atteignable depuis la barre de commandes.
 
 Un `<audio>`, une ligne à la fois, sur une URL de même origine.
 
-pl8 pilotait un `PlaybackProvider` partagé — un mini-lecteur qui survit à l'écran, avec une
-destination navigateur/moteur derrière. Rien de tout ça n'a suivi, délibérément : cette
-machinerie existe parce que pl8 est une application d'**écoute** dont la barre du bas vous suit
-de section en section, alors que ce shell-ci est un éditeur qui a déjà un transport à lui,
-pilotant le moteur sur un projet. Deux choses qui revendiquent le mot « en lecture » sur un même
-écran, ce sont deux transports. Ce dont une setlist a besoin pendant qu'on la monte, c'est
-d'entendre la ligne qu'on vient d'ajouter.
+pl8 a un `PlaybackProvider` partagé — un mini-lecteur qui survit à l'écran, avec une destination
+navigateur/moteur derrière. Rien de tout ça ici, délibérément : cette machinerie existe parce que
+pl8 est une application d'**écoute** dont la barre du bas vous suit de section en section, alors
+que ce shell-ci est un éditeur qui a déjà un transport à lui, pilotant le moteur sur un projet.
+Deux choses qui revendiquent le mot « en lecture » sur un même écran, ce sont deux transports. Ce
+dont une setlist a besoin pendant qu'on la monte, c'est d'entendre la ligne qu'on vient
+d'ajouter.
 
 Une ligne injouable est **sautée**, pas bloquante : une playlist qui s'arrêterait à sa troisième
 ligne à cause d'une faute de frappe serait une playlist qu'on ne peut pas écouter pendant qu'on
-la corrige. La rangée dit toujours ce qui ne va pas ; elle n'arrête plus la soirée.
+la corrige. La rangée dit ce qui ne va pas ; elle n'arrête pas la soirée.
 
 ## Ce qu'une playlist sert, une fois écrite
 
@@ -305,10 +301,9 @@ la ligne demande, pas le master. C'est la même résolution des deux côtés —
 fonction, `@studio/mediatek/playlistItems` — parce que « le chemin d'abord, le nom ensuite » est
 une règle, et que deux copies auraient divergé au premier cas appris d'un seul côté.
 
-## Ce qui est parti de pl8 avec l'écran
+## Ce que pl8 ne peut pas faire de son côté
 
-La chasse (« Trouver des morceaux ») pouvait **viser une playlist** : le morceau trouvé y était
-ajouté dès qu'il était rangé. Ce n'est plus possible et ne le redeviendra pas de ce côté-là — les
+La chasse (« Trouver des morceaux ») ne peut pas **viser une playlist**, et ne le pourra pas — les
 playlists sont sur le disque du service de fichiers, et donner à pl8 les moyens d'y écrire ferait
 du service qui tient la session et l'unique clé de déploiement un écrivain dans le dépôt de
 chacun, ce que `apps/pl8/docs/projects.md` refuse explicitement. La chasse range donc le morceau

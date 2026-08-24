@@ -304,8 +304,6 @@ libraryRouter.post(
   }),
 );
 
-// `POST /engine-faces` stood here and went with the `modules` family; st0 is where it belongs.
-
 /** An empty folder — somewhere to drop into before the first file exists. */
 libraryRouter.post(
   "/folder",

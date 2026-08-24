@@ -31,21 +31,20 @@ bytes), then up to `HEAD` bytes from the front and up to `TAIL` bytes from the e
 
 String form: `"<size>-<hex16>"`.
 
-## Transients live here too, and that moved them
+## Transients live here too
 
-They used to be detected in `@studio/audio-probe/waveform`, per CLIP REGION, on the envelope
-freshly resampled to that region. Two things were wrong with it and one was not a
-performance problem:
+Detecting them per CLIP REGION, on the envelope freshly resampled to that region, is wrong in
+two ways and neither is a performance problem:
 
-- a short clip resamples the file envelope **up**, so the detector ran on interpolated
+- a short clip resamples the file envelope **up**, so the detector runs on interpolated
   detail the file never had;
 - the same audio drawn at two sizes — the timeline clip and the slice editor's whole-source
-  view — therefore disagreed about where its onsets were.
+  view — then disagrees about where its onsets are.
 
 Detecting once, on the file's own envelope at its native resolution, fixes both. The engine
 does it while it is already downsampling, so it costs nothing extra, and
-`regionWaveform` now only shifts them by the clip's in-point and drops the ones outside the
-shown span — exactly what it already did for warp markers.
+`regionWaveform` only shifts them by the clip's in-point and drops the ones outside the
+shown span — exactly what it does for warp markers.
 
 Stored in FILE SECONDS rather than bucket indices: a consumer maps them onto whatever region
 it draws, and seconds survive a change of bucket density that indices would not.
@@ -53,15 +52,15 @@ it draws, and seconds survive a change of bucket density that indices would not.
 ### Which part of the file a region shows
 
 `regionWaveform` has to answer the same question the engine answers, or the picture and the
-sound part company. Two things decide it, and each was got wrong once:
+sound part company. Two things decide it, and each is easy to get wrong:
 
 - **The in-point** is `sourceFrom + offset`, not `offset` alone. The compiler puts an audio
   clip's in-point in `sourceFrom` (seconds into the file, from `clips/<id>.yaml`'s `from`) and
-  leaves `offset` at 0, so a drawing reading only `offset` began every trimmed clip at the file's
+  leaves `offset` at 0, so a drawing reading only `offset` begins every trimmed clip at the file's
   head. `clipPositionFor` in `EditBuilder.cpp` sums the same two.
 - **The rate** is `warpStretch(warp, tempo)` — timeline seconds per source second, the ratio
   `applyClipWarp` hands Tracktion. A warped clip covers *less* of its file per bar than an
-  unwarped one, so drawing the file at its own rate made the waveform drift away from the sound
+  unwarped one, so drawing the file at its own rate makes the waveform drift away from the sound
   across the clip, by the stretch ratio.
 
 Both are pinned in `waveform.test.ts`. What is deliberately NOT done here: a clip's `length`
@@ -72,8 +71,8 @@ changing `length` would change what is played.
 ### The detector MUST match too
 
 `detectTransients` in `@studio/audio-probe/waveform` is the **reference implementation**, and
-`Waveform.cpp` mirrors it. Nothing in production calls the TypeScript one any more — it stays
-as the written spec, and `waveform.test.ts` is the contract both are held to. Same
+`Waveform.cpp` mirrors it. Nothing in production calls the TypeScript one — it is the written
+spec, and `waveform.test.ts` is the contract both are held to. Same
 arrangement as the fingerprint above. Change one, change the other, and bump the version.
 
 ### Sensitivity is per source, and sticky
@@ -103,31 +102,32 @@ Method: a half-wave-rectified first difference of the envelope, autocorrelated o
 weighted by a Gaussian in log2-tempo centred on 120 (Ellis's prior), then parabolically
 interpolated around the winning lag.
 
-Two details that were measured rather than assumed, on synthetic click tracks:
+Two details measured rather than assumed, on synthetic click tracks:
 
 - **The tempo envelope is not the stored one.** `peak` is capped at 8192 buckets, so a
   five-minute track lands at ~27 Hz and a beat is a dozen samples wide. Tempo needs uniform
   time resolution, so the decode loop fills a *second* envelope at a fixed hop (~187 Hz at
   48k). With it, a five-minute 128 bpm track reads 127.89.
-- **The prior is a preference, not a fold.** Hard-folding into an 80–160 window reported 174 as
-  87 and 75 as 150 — it broke both cases it was meant to help. With no weighting at all, raw
-  autocorrelation reported 140 as 70, because for a periodic signal the double lag correlates
+- **The prior is a preference, not a fold.** Hard-folding into an 80–160 window reports 174 as
+  87 and 75 as 150 — it breaks both cases it is meant to help. With no weighting at all, raw
+  autocorrelation reports 140 as 70, because for a periodic signal the double lag correlates
   about as well.
 
-Measured, after the prior: 120→119.8, 90→90.0, 140→140.3, 128 (5 min)→127.9, 75→75.0,
-silence→0. **174 still reads 87**, one octave down: at that distance the prior favours 87, and
+With the prior: 120→119.8, 90→90.0, 140→140.3, 128 (5 min)→127.9, 75→75.0,
+silence→0. **174 reads 87**, one octave down: at that distance the prior favours 87, and
 no autocorrelation can tell a genre apart. That is a known limit of this class of detector, and
 it is acceptable only because the value is a starting point somebody edits.
 
 ## The version gate
 
-The sidecar carries `"v"`. v2 added `transients` and `sensitivity`, v3 added `bpm`, and
-`readSidecar` **requires the current version**.
+The sidecar carries `"v"`, and `readSidecar` **requires the current version**
+(`MIN_CACHE_VERSION`).
 
 That gate is load-bearing rather than tidy: an older sidecar has a perfectly matching
 fingerprint — the audio has not changed — so without it every freshness check would pass and
 the file would never get the new field at all. Raise it with every field the engine starts
-writing. `waveformCacheVersion.test.ts` pins it.
+writing, at the price of everything already analysed being analysed once more.
+`waveformCacheVersion.test.ts` pins it.
 
 ## Caching layers
 
@@ -136,7 +136,7 @@ writing. `waveformCacheVersion.test.ts` pins it.
    changed mtime drops the entry (the fingerprint is authoritative, but mtime is the
    cheap first gate). Cleared implicitly by process lifetime.
 2. **The freshness verdict** — `cacheFresh` reads the whole sidecar and hashes 128 kB of the
-   audio, so `staleWaveformSources` over a project of 110 takes spent ~190 ms answering
+   audio, so `staleWaveformSources` over a project of 110 takes spends ~190 ms answering
    "nothing to do". st0's browser asks for a prewarm after every command, on the same single
    process that is compiling that command's answer. A source judged fresh is remembered against
    the size+mtime of BOTH files, so the next ask is two `stat`s. Only YES is remembered: a
@@ -154,19 +154,16 @@ engine binary is unavailable: this is engine-only, there is no JS decoder fallba
 fires per file as it finishes so a caller can drive a live progress count, and each done
 source is dropped from the memo so the next read picks up the fresh sidecar.
 
-## v4 — les trois bandes
+## Les trois bandes
 
-Le sidecar porte maintenant `low` / `mid` / `high` en plus de `peak` et `rms` : la même
-enveloppe découpée à 200 Hz et 4 kHz, dans le même espace de buckets, d'où une waveform colorée
-par ce qu'il y a dedans (`packages/ui-turntables/docs/waveform.md`).
-
-`MIN_CACHE_VERSION` monte avec, et c'est la moitié qui porte : un sidecar v3 a une empreinte qui
-CORRESPOND, donc sans la bump chaque contrôle de fraîcheur passerait et le fichier n'obtiendrait
-jamais ses bandes. Le prix est que tout ce qui est déjà analysé l'est de nouveau, une fois.
+Le sidecar porte `low` / `mid` / `high` en plus de `peak` et `rms` : la même enveloppe découpée
+à 200 Hz et 4 kHz, dans le même espace de buckets, d'où une waveform colorée par ce qu'il y a
+dedans (`packages/ui-turntables/docs/waveform.md`).
 
 Les trois champs restent **optionnels** dans `FileEnvelope`. La porte de version fait qu'un
-service à jour ne sert que du v4 — mais une surface qui les lit doit se dégrader vers une
-enveloppe simple plutôt que vers une vide, et un type optionnel est ce qui l'y oblige.
+service à jour ne sert que des sidecars qui les portent — mais une surface qui les lit doit se
+dégrader vers une enveloppe simple plutôt que vers une vide, et un type optionnel est ce qui
+l'y oblige.
 
 ## waveformOps.ts — the per-session layer over the sidecars
 
@@ -179,13 +176,12 @@ sidecars above; everything in that file is in memory and per session.
 `wfSig` folds the envelope's content fingerprint plus the placement, tempo and bucket count the
 region math reads. `sourceFrom`, `sourceTo` and the warp markers are in there because
 `regionWaveform` reads all three: they decide WHICH part of the file the region shows and at what
-rate. They were absent while the region math ignored them, which was harmless then and would now
-mean trimming a clip's `from` left the old picture on screen. The markers themselves go in, not
-just "is it warped" — moving one changes the rate.
+rate. Leaving them out means trimming a clip's `from` leaves the old picture on screen. The
+markers themselves go in, not just "is it warped" — moving one changes the rate.
 
 **A CACHE IN FRONT OF THIS ONE HAS TO FOLD THE SAME THINGS.** st0's timeline keeps its own entry
-per clip and filed it under the id alone, which put that exact bug back one layer up: the block
-went on drawing the untrimmed envelope. Its mirror of this signature is
+per clip, and filed under the id alone it puts that exact bug back one layer up: the block goes
+on drawing the untrimmed envelope. Its mirror of this signature is
 `apps/st0/frontend/src/clipEnvelope.ts`; change one and read the other.
 
 The sensitivity rides in the signature too, because re-detecting changes the onsets and nothing
@@ -202,23 +198,23 @@ it. `whole` therefore reverses the usual precedence — the definition carries n
 start/length/offset, which is exactly what makes the span the file.
 
 Because the window is the thing being JUDGED against the file, it must not also crop the picture.
-It did: `regionWaveform` opens the region AT `sourceFrom` and blanks whatever lies past
-`sourceTo` (two different cuts — only the first shortens the span). So a NUMERIC `from:`/`to:` —
-exactly what `clip trim` writes — silently redrew the pane as the trim itself: head gone, tail
-flat, and no way left to see what had been cut or to judge putting it back. A TIMECODE window
-escaped it, because `mapClip` only reads a number, so the two spellings of one field drew two
-different pictures. Drawn windowless and shaded instead, they draw the same one.
+`regionWaveform` opens the region AT `sourceFrom` and blanks whatever lies past `sourceTo` (two
+different cuts — only the first shortens the span), so passing the definition's window through
+redraws the pane as the trim itself: head gone, tail flat, and no way left to see what was cut
+or to judge putting it back. It also draws two different pictures for the two spellings of one
+field, since `mapClip` reads only a NUMERIC `from:`/`to:` — exactly what `clip trim` writes —
+and a TIMECODE window escapes it. Drawn windowless and shaded instead, both draw the same one.
 
-The window that is SHADED is the PLACEMENT's, not the definition's. Since the descent
-(`packages/song/docs/materialCut.md`) a material states no window at all: a clip file describes
-the bytes, a placement describes the use. Shading with the definition's left every whole-file view
-unshaded — and a caller that has no `eventWindow` of its own, like the take review, then framed on
-the whole file and put its mark at zero instead of at the take's head. Handed a bare material
-name, there is no placement to ask and the answer is honestly nothing to shade.
+The window that is SHADED is the PLACEMENT's, not the definition's. A material states no window
+at all (`packages/song/docs/materialCut.md`): a clip file describes the bytes, a placement
+describes the use. Shading with the definition's leaves every whole-file view unshaded, and a
+caller that has no `eventWindow` of its own, like the take review, then frames on the whole file
+and puts its mark at zero instead of at the take's head. Handed a bare material name, there is
+no placement to ask and the answer is honestly nothing to shade.
 
 The tempo grid is passed down so a TIMECODE `from:`/`to:` resolves to seconds here as it does in
 the compiler. An imported song writes nearly all of them that way, and without it the definition
-came back with no window at all — the picture was right, and there was nothing to shade it with.
+comes back with no window at all — the picture is right, and there is nothing to shade it with.
 
 ### The material behind an id
 

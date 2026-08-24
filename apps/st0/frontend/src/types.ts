@@ -1,5 +1,5 @@
-// Re-export the API contract so app code imports types from one place. Two packages
-// now: the chains graph is shared with every app that draws one, the rest is st0'.
+// Re-export the API contract so app code imports types from one place. Two packages:
+// the chains graph is shared with every app that draws one, the rest is st0's.
 export * from "@studio/graph-model";
 export * from "@studio/web-protocol";
 

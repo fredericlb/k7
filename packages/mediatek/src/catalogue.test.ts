@@ -159,8 +159,6 @@ describe("scanning samples", () => {
       scanFamily("samples").filter((e) => e.kind === "video"),
     ).toHaveLength(1);
   });
-
-  // Every module and chain test that stood here went with the two scanners (docs/index.md).
 });
 
 describe("the revision token", () => {
@@ -233,10 +231,8 @@ describe("listing and search", () => {
   });
 });
 
-// A tree draws itself from the entry paths, and what is not an entry appeared nowhere — docs/index.md.
+// A tree draws itself from the entry paths, so what is not an entry appears nowhere — docs/index.md.
 describe("what the entries cannot stand for", () => {
-  // Seven cases stood here, all shaped around `modules/`; they went with the family.
-
   it("reports a nested empty folder and the one above it", () => {
     mkdirSync(join(root, "samples", "audio", "packs", "kicks"), {
       recursive: true,
@@ -249,14 +245,14 @@ describe("what the entries cannot stand for", () => {
   });
 });
 
-// The index survived a code change once, which the revision token cannot notice — docs/index.md.
+// An index can survive a code change the revision token cannot notice — docs/index.md.
 describe("the persisted index", () => {
   beforeEach(() => ensureLayout());
 
   it("is dropped when it was written by another build", () => {
     write("samples/audio/kicks/bd01.wav");
     const fresh = listFamily("samples");
-    // What the old build left: the right token, the wrong answer.
+    // What an older build leaves behind: the right token, the wrong answer.
     writeFileSync(
       join(root, ".cache", "index.json"),
       JSON.stringify({

@@ -1,11 +1,7 @@
 # Ouvrir un morceau — l'écran scindé
 
-Cliquer un morceau ne sélectionnait rien de visible. Au mieux, si le sidecar déclarait
-des `variants:`, une quatrième colonne apparaissait sur la droite ; sinon l'écran ne
-bougeait pas, et la liste du milieu restait la liste du milieu.
-
-Un morceau s'ouvre maintenant comme un module et comme une chaîne : l'arbre reste à
-gauche, et le reste de la largeur se coupe en deux.
+Un morceau s'ouvre comme un module et comme une chaîne : l'arbre reste à gauche, et le
+reste de la largeur se coupe en deux.
 
 ```
 ┌────────┬─────────────────────┬─────────────────────┐
@@ -18,9 +14,9 @@ gauche, et le reste de la largeur se coupe en deux.
 └────────┴─────────────────────┴─────────────────────┘
 ```
 
-C'est la forme que `ChainEditor` avait — texte à gauche, ce que le texte décrit à droite — et
+C'est la forme de `ChainEditor` — texte à gauche, ce que le texte décrit à droite — et
 volontairement : les deux familles posent la même question, et un troisième agencement
-n'aurait rien ajouté qu'une chose de plus à apprendre.
+n'ajouterait qu'une chose de plus à apprendre.
 
 ## Le navigateur ne décode pas l'audio
 
@@ -41,8 +37,8 @@ Trois raisons de ne pas décoder ici :
 1. **Le master pèse ce qu'il pèse.** Un flac de quatre minutes est une trentaine de Mo à
    télécharger *entièrement* avant de dessiner le premier pixel, sur une médiathèque qui
    est hébergée ailleurs. Le `.cache`, lui, fait quelques ko.
-2. **Le moteur a déjà décodé.** Il l'a fait au moment de l'envoi, et il a détecté les
-   onsets et le tempo pendant qu'il sous-échantillonnait. Refaire la moitié du travail
+2. **Le moteur a déjà décodé.** Il le fait au moment de l'envoi, et il détecte les
+   onsets et le tempo pendant qu'il sous-échantillonne. Refaire la moitié du travail
    dans le navigateur produirait une deuxième vérité, moins bonne.
 3. **C'est la règle de ce dépôt.** « Le service hébergé ne décode pas d'audio » n'est pas
    une limite de ce panneau : c'est pourquoi `/mediatek/analyse` existe.
@@ -50,7 +46,7 @@ Trois raisons de ne pas décoder ici :
 ## L'analyse est demandée, pas attendue
 
 Un morceau peut n'avoir aucun `.cache` — déposé quand aucune machine n'était joignable,
-ou rapatrié du miroir k7. `AddSong` le dit en toutes lettres : « avec aucune machine
+ou publié depuis k7. `AddSong` le dit en toutes lettres : « avec aucune machine
 joignable il ne se passe rien ici, et la première surface qui a besoin du cache le calcule
 alors ». Ce panneau **est** cette surface. Il appelle donc `engineMachine.analyse` lui-même
 et relit le sidecar, une seule fois, à l'ouverture.
@@ -64,18 +60,18 @@ C'est aussi pourquoi le moteur reste tenu quelle que soit la destination de lect
 lui qui **analyse** le master, et la forme d'onde en a besoin même quand c'est ce navigateur
 qui joue.
 
-## Ce panneau ne possède plus le transport
+## Ce panneau ne possède pas le transport
 
-Il tenait l'élément `<audio>` et l'éditeur coupait le moteur en partant — donc quitter l'écran
-coupait le son. Une barre en bas ne peut pas vivre avec ça : la lecture est remontée **au-dessus
-des écrans** (`PlaybackProvider`), et ce qui reste ici en est une *vue*. Le morceau ouvert n'est
-d'ailleurs pas forcément celui qui joue. Voir [miniPlayer.md](miniPlayer.md).
+La lecture vit **au-dessus des écrans** (`PlaybackProvider`), et ce qui est ici en est une *vue* :
+une barre en bas ne peut pas vivre avec un panneau qui tiendrait l'élément `<audio>`, puisque
+quitter l'écran couperait le son. Le morceau ouvert n'est d'ailleurs pas forcément celui qui
+joue. Voir [miniPlayer.md](miniPlayer.md).
 
-## Où le son sort n'est plus décidé ici
+## Où le son sort n'est pas décidé ici
 
-Ce panneau jouait dans le navigateur, point. C'est devenu un choix du compte — ici, ou par le
-moteur de la machine choisie — derrière **un seul transport** : tout ce qui est sous le
-bandeau lit `playing`/`current` et ne demande jamais de quel côté du fil ça joue.
+La destination est un choix du compte — ce navigateur, ou le moteur de la machine choisie —
+derrière **un seul transport** : tout ce qui est sous le bandeau lit `playing`/`current` et ne
+demande jamais de quel côté du fil ça joue.
 Voir [playbackTarget.md](playbackTarget.md), qui explique le menu, le repli quand la machine
 ne répond pas, et pourquoi une racine de cache n'est pas une copie.
 
@@ -97,31 +93,31 @@ décoratifs :
 Un échec ne réessaie donc **pas** tout seul : il affiche un bouton « Analyser ». Une analyse
 qui se relance d'elle-même est une boucle que personne n'a demandée.
 
-Le premier bug réel de tout ceci n'était d'ailleurs pas ici mais dans le relais, qui bornait à
-1500 ms le temps de réflexion de l'amont et tuait donc chaque analyse — voir
+Le piège n'est d'ailleurs pas ici mais dans le relais : un plafond sur le temps de réflexion de
+l'amont tue chaque analyse, qui dure des minutes — voir
 `packages/engine-registry/docs/proxy.md`, « 1500 ms n'est pas un délai de connexion ».
 
 ### Lire un échec
 
 Le message affiché ici est **verbatim** celui que le service de fichiers a renvoyé, qui est
 lui-même celui de son propre échec. Le maillon suivant est donc le téléchargement du master
-depuis la médiathèque hébergée, et il nomme désormais l'adresse essayée et la cause réelle —
+depuis la médiathèque hébergée, et il nomme l'adresse essayée et la cause réelle —
 voir `packages/mediatek/docs/sync.md`, « `terminated` ne dit rien ». La même ligne est écrite
 dans le journal de la machine qui a essayé, qui est l'endroit où l'on regarde quand un
 navigateur situé trois sauts plus loin dit que l'analyse a échoué.
 
-## Le transport est à nous, mais il n'est plus ici
+## Le transport est à nous, mais il n'est pas ici
 
 Pas de `controls` : la forme d'onde **est** la barre de défilement, et deux barres de
 défilement se contredisent dès qu'on tire l'une des deux. Le bouton et l'horloge du
 bandeau restent donc les seuls contrôles de ce panneau.
 
-Ce qu'ils commandent, en revanche, n'est plus à lui. `playback.toggle()` et
+Ce qu'ils commandent, en revanche, ne lui appartient pas. `playback.toggle()` et
 `playback.seek()` quand la version ouverte est celle qui joue ; `playback.start()` sinon,
 qui est la seule façon d'en charger une. L'élément `<audio>`, la boucle
 `requestAnimationFrame` qui suit la tête de lecture — `timeupdate` tombe quatre fois par
 seconde et se lit comme un sursaut — et le partage entre les deux destinations vivent
-maintenant dans `PlaybackProvider` : voir [miniPlayer.md](miniPlayer.md).
+dans `PlaybackProvider` : voir [miniPlayer.md](miniPlayer.md).
 
 Ce panneau garde ce que lui seul sait : où en est le curseur **avant** que cette version
 soit celle qui joue. On clique dans la forme d'onde d'un morceau à l'arrêt, puis on presse
@@ -141,9 +137,7 @@ le master, dont le document est le morceau — et le provider en compose
 Sous le transport, une bande d'onglets : **Original**, puis chaque variante que le sidecar
 déclare, dans l'ordre du sidecar. L'onglet ouvert décide de *tout* ce qui est en dessous — le
 fichier joué, la forme d'onde dessinée, l'analyse demandée, le chemin envoyé au moteur — parce
-que c'est une seule question posée d'une seule façon : « à quoi ressemble cette version ». Le
-panneau ne dessinait que le master, et une variante était un nom dans une liste dont on
-n'entendait rien sans passer par le graphe de la chaîne, en dessous.
+que c'est une seule question posée d'une seule façon : « à quoi ressemble cette version ».
 
 `@studio/mediatek/takes` tient la forme, hors composant et donc testable : une version, c'est un nom, un
 genre et le fichier qu'elle est.
@@ -152,44 +146,36 @@ genre et le fichier qu'elle est.
 |---|---|
 | `master` | `meta.master`, l'enregistrement du morceau lui-même |
 | `file` | `ref`, un fichier du dossier — c'est ce qui en fait une variante *fichier* |
-| `chain` | le **rendu**, s'il existe : un traitement n'est pas de l'audio |
+| `missing` | rien : le sidecar déclare un fichier que le dossier n'a pas |
 
-Une variante chaîne est donc la seule qui puisse n'avoir rien à montrer. Son rendu n'est ni
-dans le catalogue — une entrée de morceau ne porte pas de liste de fichiers, le scan s'arrête
-au dossier — ni dans le sidecar, qui nomme toujours la chaîne : `« Process »` écrit
-`<variante>.mp3` **à côté** du master, ou `.wav` sur une machine sans ffmpeg. Le panneau
-demande donc les deux noms à la médiathèque, un octet chacun (`library.exists`, le même
-`Range: bytes=0-0` que `cachedOnMachine` utilise en face). Tant qu'aucun n'existe, l'onglet dit
-quel bouton presser plutôt que de rester vide.
+`missing` est un genre à part entière plutôt qu'une absence, parce que l'onglet doit le dire.
+Un sidecar est écrit à la main et nomme volontiers un fichier qui n'est pas arrivé ; l'onglet
+s'ouvre alors sur la phrase qui le nomme, et pas sur un panneau vide.
 
 Deux conséquences qui valent d'être dites :
 
 - **L'analyse est par fichier**, pas par morceau : `attempted` retient un chemin, donc chaque
   version est analysée au plus une fois et revenir sur une version déjà dessinée ne coûte rien.
-- **Changer d'onglet n'arrête pas le son**, et c'est voulu. Le panneau ne possède plus le
+- **Changer d'onglet n'arrête pas le son**, et c'est voulu. Le panneau ne possède pas le
   transport : ce qui joue continue, et l'onglet ouvert redevient simplement un onglet qu'on
   regarde. `isCurrent` compare `path` à ce que le provider tient, donc la bande passe au repos
   et l'horloge repart du curseur — pendant que la barre du bas, elle, continue de nommer la
-  version qui joue. C'était l'inverse tant que ce panneau tenait l'élément `<audio>` : il
-  fallait alors couper en partant, sous peine de laisser le moteur sur un fichier que plus
-  rien ne désignait.
+  version qui joue.
 
 Un morceau sans variante n'a pas de bande du tout : un onglet unique est un contrôle qui ne
 sert à rien.
 
-## Les variantes ont changé de place
+## Les variantes sont sous le lecteur
 
-Elles étaient une quatrième colonne, affichée seulement quand *rien* n'était ouvert.
-Cliquer un morceau ouvre maintenant quelque chose, donc cette condition ne pouvait plus
-jamais être vraie : elles seraient devenues inatteignables. Elles sont sous le lecteur,
-dans la même moitié d'écran — le master et ses autres versions sont une seule question.
+Dans la même moitié d'écran, pas dans une colonne à part : le master et ses autres versions
+sont une seule question, et une colonne qui ne s'afficherait que lorsque *rien* n'est ouvert
+serait inatteignable, puisque cliquer un morceau ouvre quelque chose.
 
 ## Une adresse pour un morceau
 
-`/songs/<artiste>/<album>/<titre>/song.yaml` est maintenant une adresse, comme
-`/modules/audio/reverb/ui.yaml` l'était déjà. Voir [routing.md](routing.md) : `CARRIES` y
-a remplacé les deux tests `head === …`, et en passant a réparé `chains`, qui écrivait une
-URL qu'il ne savait pas relire.
+`/songs/<artiste>/<album>/<titre>/song.yaml` est une adresse, comme
+`/modules/audio/reverb/ui.yaml`. Voir [routing.md](routing.md) : `CARRIES` dit quelles sections
+portent un chemin de fichier après leur premier segment.
 
 ## Le sidecar peut ne pas exister
 

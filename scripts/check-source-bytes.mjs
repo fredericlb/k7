@@ -1,9 +1,9 @@
 // check-source-bytes.mjs — refuse a NUL byte in a tracked source file.
 //
 // ripgrep calls such a file BINARY and skips it without a word, so it stops existing for
-// every rg-based sweep: grep, editor search, the dead-code inventory. Three files carried
-// one as a composite-key separator, and `supervisor.ts` was 781 lines invisible to
-// `docs/inventaire.md`'s own reachability pass. The escape reads the same at runtime.
+// every rg-based sweep: grep, editor search, the dead-code inventory. A file can go hundreds
+// of lines invisible to a reachability pass on the strength of one separator byte. Write the
+// `\0` escape instead — it reads the same at runtime.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";

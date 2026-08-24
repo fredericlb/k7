@@ -179,8 +179,8 @@ void EngineHost::applyAllTrackInputs(const std::string& session, const ProjectDo
  * A device switch destroys Tracktion's `WaveInputDevice` objects and builds new ones, so every
  * assignment made through them — which track an input feeds, and whether it is armed — refers to
  * something that no longer exists. Nothing else re-does it: `applyAllTrackInputs` otherwise runs
- * only from a full apply, so before this the first take after changing interface recorded silence
- * from a track that still LOOKED armed. Full account in docs/audioDevice.md.
+ * only from a full apply, so without this the first take after an interface change records silence
+ * from a track that still LOOKS armed. Full account in docs/audioDevice.md.
  *
  * The rebuild is asynchronous — `rescanWaveDeviceList` only triggers it — hence the dispatch
  * first: re-wiring before it lands would wire to the devices about to be thrown away.

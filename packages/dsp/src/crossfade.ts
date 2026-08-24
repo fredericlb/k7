@@ -1,9 +1,9 @@
-// A crossfade — the effect that needed the ports layer, the way the flanger needed feedback. Two audio inputs
-// was simply unsayable while a module's ports came from its type folder, and no amount of arithmetic worked
-// around it: the second signal had nowhere to enter.
+// A crossfade — the effect that needs the ports layer, the way the flanger needs feedback. Two audio inputs
+// are unsayable while a module's ports come from its type folder, and no amount of arithmetic works around
+// it: the second signal has nowhere to enter.
 //
 // So the graph itself is almost nothing. `input(1)` reads the module's SECOND declared port and everything
-// after it is one weighted sum. That is the point — the interesting part was making the port exist.
+// after it is one weighted sum. That is the point — the interesting part is making the port exist.
 
 import { type GraphJson, graph } from "./index";
 

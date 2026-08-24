@@ -1,5 +1,5 @@
-// wavLength.ts — how long a wav is, read from its header. Written by hand for the reason
-// separateAudio's writer was: a chunk walk is smaller than the argument for a dependency, and
+// wavLength.ts — how long a wav is, read from its header. Written by hand for the same reason
+// separateAudio's writer is: a chunk walk is smaller than the argument for a dependency, and
 // the one caller needs a number rather than samples.
 
 import { closeSync, fstatSync, openSync, readSync } from "node:fs";

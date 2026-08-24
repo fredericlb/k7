@@ -1,7 +1,7 @@
 // placementId.test.ts — a clip's id identifies a PLACEMENT, not the material it plays. Two
-// placements of one material are the ordinary case (a split makes a pair), and while the id was
-// the material's name they collided: the engine diffed only the first, and every lookup by id
-// found the head when you clicked the tail. See nodeProject.ts's placementId.
+// placements of one material are the ordinary case (a split makes a pair), and an id taken from
+// the material's name collides: the engine diffs only the first, and every lookup by id finds
+// the head when you click the tail. See nodeProject.ts's placementId.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

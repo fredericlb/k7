@@ -77,7 +77,7 @@ export class Database {
     return this.games.has(gameId);
   }
 
-  /** Snapshot of every game (main.go handleListGames reads db.games). */
+  /** Snapshot of every game, which is what the games listing reads. */
   listGames(): Game[] {
     return [...this.games.values()].map((g) => ({
       ...g,
@@ -164,7 +164,7 @@ export class Database {
   }
 }
 
-/** Load an existing game by id or create a new empty one (database.go). */
+/** Load an existing game by id or create a new empty one. */
 export function initializeGame(db: Database, continueId: string): Game {
   if (continueId !== "") {
     const game = db.getGame(continueId);

@@ -1,10 +1,10 @@
 # Per-user preferences: a file, not a database
 
-One JSON per user on a volume, keyed by the OIDC subject. It exists because the hosted side
-of studio remembered **nothing** about a person: st0' engine pick lived in `sessionStorage`
-(so a second tab lost it), the médiathèque had no settings screen at all, and
-`~/.studio/preferences.yaml` — the one thing that looks like this — is per-MACHINE, on the
-engine's side of the wire, shared by every hosted user who selects that machine.
+One JSON per user on a volume, keyed by the OIDC subject. It exists because nothing else on the
+hosted side remembers anything **about a person**: without it st0's engine pick lives in
+`sessionStorage`, where a second tab does not see it, and `~/.studio/preferences.yaml` — the one
+thing that looks like this — is per-MACHINE, on the engine's side of the wire, shared by every
+hosted user who selects that machine.
 
 ## Why a file
 
@@ -59,17 +59,16 @@ to clear — you could pick an engine and never un-pick one.
 médiathèque remember different things, and a union of every service's fields would be a
 shape no service actually has.
 
-### …and it is a GATE, which is not obvious and cost a feature
+### …and it is a GATE, which is not obvious
 
 A zod object **strips what it does not declare**, silently and by default. So a service whose
 schema has fallen behind its frontend accepts a write, answers `{ok:true}`, and stores less than
 it was handed — and the browser, holding the whole object in memory, sees nothing wrong until the
 next load.
 
-st0 lost its entire command layer that way. Renaming a command worked, the page said it had saved,
-and a reload showed the catalogue's own names again: `St0Prefs` had grown a `commands` field in the
-browser while `prefsSchema` still read `z.object({ engineId: z.string().optional() })` under a
-comment that said *one field so far*. On disk there was only ever the engine id.
+That is a whole feature disappearing with no error anywhere: the gesture works, the page says it
+saved, and a reload shows the old values back. The shape to look for is a field the browser's type
+has and the service's schema has not — the disk then holds only what the schema declares.
 
 `droppedKeys` is the answer, and it is deliberately a **refusal** rather than a passthrough:
 
@@ -78,7 +77,7 @@ comment that said *one field so far*. On disk there was only ever the engine id.
 - so the missing declaration is found the first time anyone saves, by whoever is looking at it,
   instead of on somebody's next reload with nothing to point at.
 
-Passing unknown keys through would have been the other way to make the bug impossible, and it is
+Passing unknown keys through is the other way to make the bug impossible, and it is
 worse: a typo'd field would then be stored for ever, and the schema would stop meaning anything.
 The host's schema is the contract; this only stops it failing in silence.
 

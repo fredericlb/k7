@@ -1,4 +1,4 @@
-// Cue points in mix.yaml: an older sheet still reads, and a write keeps the comments (docs/deskFiles.md).
+// Cue points in mix.yaml: a sheet with none of them still reads, and a write keeps the comments (docs/deskFiles.md).
 
 import { describe, expect, it } from "vitest";
 import { cueMarkers, cueRefs, parseMix, withMarkers } from "./mixFile";
@@ -86,7 +86,7 @@ describe("writing a cue back", () => {
   });
 
   it("goes back to a BARE ref when the last cue is cleared", () => {
-    // So a sheet nobody has cued reads exactly as it did before any of this existed.
+    // So a sheet nobody has cued stays a plain list of refs, with nothing to strip.
     const cued = withMarkers(PLAIN, A, [12.5]);
     const bare = withMarkers(cued, A, [null]);
     expect(cueMarkers(parseMix(bare).value)).toEqual({});

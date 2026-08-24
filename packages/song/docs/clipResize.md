@@ -34,9 +34,8 @@ anything. `TIMECODE_KEYS` already quotes both words wherever they appear.
 `resizeTrackPlacement` reads both windows, aims the drag at the *effective* one (the extent
 on screen), and writes the result on the **placement**: its `start` when the left edge
 moved, its `loop` when the event repeats, its own `from`/`to` otherwise. The material's
-file is never touched — resizing one of four kicks placed from one `kick.yaml` no longer
-resizes the other three, which was the standing surprise of the previous model (the command
-used to announce it; now there is nothing to announce).
+file is never touched — resizing one of four kicks placed from one `kick.yaml` leaves the
+other three alone.
 
 The event's window is **clamped inside the material's** (`resizeToWindow`'s `bounds`): an
 edge written past it would never play, and the drag should land where the sound will. A
@@ -64,26 +63,21 @@ the case carrying the intent: the length was a consequence of the repeat. Length
 looped clip means another pass, not a longer window — and a partial pass is not something
 `loop:` can express anyway.
 
-## Splitting used to be the same window, said twice
+## Splitting reads the window
 
-`event split` cut an event into TWO PLACEMENTS OF ONE MATERIAL: the head kept its `start` and
-gained a `to` at the cut, the tail was a copy of the same placement opening there. Nothing was
-rendered and the material's own file was untouched — so it wrote nothing this page had not already
-described, which is why it was documented here.
+`event split` writes TWO MATERIALS — what it cuts and where the halves land is
+[materialCut.md](materialCut.md). A split whose halves cannot diverge is not why anyone cuts an
+event in two, so it is not two placements of one material.
 
-It does not work that way any more. `event split` writes two materials now, and the old behaviour
-was removed rather than kept beside it: a split whose halves cannot diverge is not why anyone cuts
-an event in two. See [materialCut.md](materialCut.md).
-
-What survives here is everything about the WINDOW itself — `from`/`to` on a material, the
-intersection with a placement's own pair, and the units each is written in. A split still reads
-them to find where the cut falls.
+What it borrows from this page is the WINDOW itself — `from`/`to` on a material, the intersection
+with a placement's own pair, and the units each is written in. That is what says where the cut
+falls.
 
 Three refusals, all of which would otherwise write a file that validates and plays something
 nobody asked for:
 
 - a cut on either edge of the event — one half would have no length, and a "split" that gives you
-  back what you started with plus nothing did not do what it says;
+  back what you started with plus nothing does not do what it says;
 - a cut outside it;
 - a **looped** event, refused by name. "The position of the cut" has as many answers as there are
   passes, and picking one silently would be picking for the person. Set `loop` back to 1 first.
@@ -91,11 +85,13 @@ nobody asked for:
 `sequence note split` is the roll's counterpart on the other side of the reference: it cuts a NOTE
 rather than a placement, in `sequenceFile.ts`, and carries the note's velocity onto both halves.
 
-## It used to write the material — and before that, `length`
+## Why the window is said at TWO levels
 
-Two generations of this command are worth remembering. The first wrote `start` + `length`
-on the placement; `PlacementSchema` is `.strict()` and had no `length`, so one edge drag
-broke the track file until the key was deleted by hand. The second wrote the material's
-`from`/`to`, which worked but made every placement of the material resize together — right
-for "this clip IS this slice", wrong for "this event should be shorter". The event-level
-window is what lets both be true at once, each said at its own level.
+Two simpler shapes are both wrong, and knowing why is what keeps the pair.
+
+A `length` on the placement is unsayable: `PlacementSchema` is `.strict()` and has no such
+key, so an edge drag that wrote one would break the track file until it was deleted by hand.
+
+Writing the MATERIAL's `from`/`to` works, and makes every placement of that material resize
+together — right for "this clip IS this slice", wrong for "this event should be shorter". The
+event-level window is what lets both be true at once, each said at its own level.

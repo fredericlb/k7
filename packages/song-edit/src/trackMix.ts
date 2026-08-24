@@ -33,7 +33,7 @@ import {
 } from "@studio/song-schema/yaml/trackFile";
 import { type MaterialKind, resizeToWindow } from "./clipResize";
 
-/** The scalar fields a lane's own file still carries — mute, solo and frozen left, docs/trackMix.md. */
+/** The scalar fields a lane's own file carries — not mute, solo or frozen, docs/trackMix.md. */
 export type TrackFields = Partial<{
   color: string;
   disabled: boolean;
@@ -302,7 +302,7 @@ export function setTrackPlacementWindow(
   return a || b;
 }
 
-/** What a resize touched — ONE event, now that the window it writes is the placement's own. */
+/** What a resize touched — ONE event, since the window it writes is the placement's own. */
 export interface ResizeReport {
   ref: string; // the material the event plays
   material: string; // its project-relative path
@@ -392,7 +392,7 @@ export function resizeTrackPlacement(
         "loop",
         next.loops > 1 ? next.loops : undefined,
       );
-      // A looped event's window did not move — its from/to stay whatever they were.
+      // A looped event's window does not move — its from/to stay as authored.
       if (next.loops <= 1) {
         out = setPlacementField(
           out,
@@ -416,8 +416,6 @@ export function resizeTrackPlacement(
   );
   return { ref, material: file.rel, kind, loops: next.loops };
 }
-
-// `splitTrackPlacement` and `joinTrackPlacements` — the VIRTUAL pair — stood here; docs/trackMix.md.
 
 /** Where a placement's material lives — `clips/<ref>` or `sequences/<ref>`, whichever exists. */
 function materialFor(
@@ -543,5 +541,3 @@ export function trackTakes(
   if (!found) return [];
   return takeValues(readFileSync(found.path, "utf8"));
 }
-
-// A lane's ALTERNATIVES lived here and belong to the MODULE a lane is now — docs/trackMix.md.

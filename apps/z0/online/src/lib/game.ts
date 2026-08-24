@@ -1,4 +1,4 @@
-// Pure game-model logic extracted from SoloGame.vue: session flattening,
+// Pure game-model logic, kept out of the component: session flattening,
 // fuzzy answer normalization/matching, and the answer-spec parser. Framework-
 // free so the matching rules stay testable.
 

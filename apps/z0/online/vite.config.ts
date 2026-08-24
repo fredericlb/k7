@@ -15,7 +15,7 @@ export default defineAppConfig({
   // Compiles messages/{locale}.json into src/paraglide/.
   extend: {
     plugins: [frediverseParaglide()],
-    // The old name still reaches these servers — see scripts/dev-hosts.mjs.
+    // The extra host names these servers answer to — see scripts/dev-hosts.mjs.
     server: { allowedHosts: LEGACY_DEV_HOSTS },
   },
 });

@@ -14,7 +14,7 @@ import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { insertChainStepAfter, replaceChainStep } from "./testSupport";
 
-// A dangling step used to be FATAL; it is a skipped step, a `?` node and a warning now.
+// A dangling step is not FATAL: it is a skipped step, a `?` node and a warning.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const SONG = join(
@@ -42,7 +42,7 @@ describe("a chain step naming a missing module", () => {
 
   it("compiles, contributing no plugin — like a bypassed step", () => {
     useGhostStep(dir);
-    const doc = compileNodeProject(dir); // used to throw: module 'ghost' not found
+    const doc = compileNodeProject(dir); // must not throw: module 'ghost' is a warning
     const melody = doc.tracks.find((t) => t.id === "melody");
     expect(melody).toBeTruthy();
     expect(melody!.plugins.some((p) => p.id.endsWith(":ghost"))).toBe(false);

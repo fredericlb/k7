@@ -6,17 +6,17 @@ them, and it links to one with an **address**:
 
 ```
 /songs/first.st0
-/m9/songs/live.m9
-/band/albums/winter.st0        a project at a depth
-/m9/band/winter.st0/live.m9       a .m9 set living inside a .st0 song
+/z0/editor/songs/party.z0
+/band/albums/winter.st0             a project at a depth
+/z0/editor/band/winter.st0/live.z0  a .z0 session living inside a .st0 song
 ```
 
 | | |
 |---|---|
-| the first segment | the repository's **short name** — its last path segment without `.git`, which is also what the clone is called on the engine's machine |
+| the first segment after the app's mount | the repository's **short name** — its last path segment without `.git`, which is also what the clone is called on the engine's machine |
 | the rest | the project folder **inside** the repository, or nothing at all when the repository *is* the project |
 
-Which of the two apps gets the link is decided by the folder's **name**: `.st0` or `.m9`
+Which of the two apps gets the link is decided by the folder's **name**: `.st0` or `.z0`
 (`@studio/web-protocol/projects`). The project is a path in the repository and not on any
 machine, because the sender has never seen the machine it will be opened on. Resolving it to a
 folder is this package's job.
@@ -25,33 +25,32 @@ folder is this package's job.
 
 Both halves of that are deliberate.
 
-**A path, not `?repo=&project=`.** The parameters were a query string, and a query string is
-exactly what an SPA's router owns: `useViewRoute` mirrors the shell's state into the address on
-every change, and what it writes comes from each app's `routes.ts`, which knows nothing about a
-repository. The launch was therefore gone within a frame of the first render — so it had to be
-read at import time and kept in `sessionStorage`, and *that* is what made a tab handed a bad
-project unable to recover: the memory replayed it on every reload and every retry, invisibly.
+**A path, not `?repo=&project=`.** A query string is exactly what an SPA's router owns:
+`useViewRoute` mirrors the shell's state into the address on every change, and what it writes
+comes from each app's `routes.ts`, which knows nothing about a repository. A launch carried
+there is therefore gone within a frame of the first render, which leaves reading it at import
+time and keeping it in `sessionStorage` — and *that* is what makes a tab handed a bad project
+unable to recover: the memory replays it on every reload and every retry, invisibly.
 
 As a path it is simply the router's **basename**. React Router only ever writes below its
-basename, so nothing can rewrite the project away, and the state that used to live in storage
-is the address itself: a reload re-reads it, a bookmark works, a link can be sent to someone
-else, and a wrong project is fixed by editing the URL. There is nothing to clear.
+basename, so nothing can rewrite the project away, and the address IS the state: a reload
+re-reads it, a bookmark works, a link can be sent to someone else, and a wrong project is fixed
+by editing the URL. There is nothing to clear.
 
 **A name, not the git URI.** `ssh://git@192.168.87.10:6611/music/lemo_mante.git` carries a
 host, a port and a user, and an address bar is copied, bookmarked and pasted into chat. The
 address carries `lemo_mante`, and the editor asks pl8 what is behind it
 (`GET /api/projects/by-name/:name` → `RepoRef`). pl8 STORES the repositories, so pl8 is the one
-side that can answer — which stayed true when the screen that lists them moved into st0 — and it
-refuses an ambiguous name rather than guessing: two hosts can both carry a `songs.git`, and
-opening the wrong one silently is worse than saying so.
+side that can answer, and it refuses an ambiguous name rather than guessing: two hosts can both
+carry a `songs.git`, and opening the wrong one silently is worse than saying so.
 
 ## Where the project ends, and the app's route begins
 
-One rule, and it is the one already in use: the project is everything up to and including the
-**last segment whose name claims this app**. `…/winter.st0/timeline` is the project `winter.st0`
-plus the app's own `/timeline`; a view segment never ends in `.st0` or `.m9`, so the two cannot
-be confused. Each app reads its OWN suffix, which is what lets m9 open `winter.st0/live.m9`
-without st0's suffix winning the match.
+One rule: the project is everything up to and including the **last segment whose name claims
+this app**. `…/winter.st0/timeline` is the project `winter.st0`
+plus the app's own `/timeline`; a view segment never ends in `.st0` or `.z0`, so the two cannot
+be confused. Each app reads its OWN suffix, which is what lets z0's editor open
+`winter.st0/live.z0` without st0's suffix winning the match.
 
 With no such segment at all, the repository itself is the project (`"."`) and everything after
 the repo name is the app's route.
@@ -74,9 +73,9 @@ repository mounts no submodule, and it is what a NEW account has — `Examples`,
 demos. Refusing to open it without a library repository would put those demos behind the single
 piece of setup they exist to precede. See `apps/st0/frontend/docs/projects.md`.
 
-The bench is the one the gate matches on the **app** as well as the name. It is a `.st0` project, so
-`/m9/@banc/…` names nothing at all and must fall through to the ordinary road, where pl8 answers
-"no such repository" — which is exactly what it is. Its wait is reported as `cloning` because from
+The bench is the one the gate matches on the **app** as well as the name. It is a `.st0` project,
+so `/z0/editor/@banc/…` names nothing at all and must fall through to the ordinary road, where pl8
+answers "no such repository" — which is exactly what it is. Its wait is reported as `cloning` because from
 here it is the same thing: a visible wait while a machine fetches a catalogue, and the first one is
 the slow one. The project part of the address rides along with it, since the same bench opens on the
 whole catalogue or on one médiathèque chain.
@@ -116,7 +115,7 @@ Two failures get a screen of their own rather than a diagnosis, because in both 
 answered and nothing is broken: an **unknown or ambiguous repo name** (404/409 from step 1) and
 a **project that is not in the workspace** (400/404 from step 4). Their only useful action is
 to go and pick again, so that is the one button. Running the reachability probe on them
-produced the worst screen in the app — "this page isn't allowed to reach the engine", a CORS
+gives the worst screen in the app — "this page isn't allowed to reach the engine", a CORS
 story, with the real message in a code block underneath — because the probe reaches a service
 that is plainly up and therefore always reports `blocked`.
 
@@ -129,16 +128,14 @@ There is still deliberately no *second* picker: one list, in one app, is the who
 editor comes back to st0's home rather than growing one of its own, because that list already
 holds `.z0` folders and a second one would be the second thing to keep in step with the first.
 
-> This used to be pl8's `/projects`, and the argument for it was that the médiathèque is the
-> studio's front door. The argument moved with the screen: the catalogue is what a project draws
-> ON, while "which repositories do I have" is the first question of the app that opens one — and
-> the machine that scaffolds a project was already st0's side of the wire. **What did not move is
-> the storage**: every route this screen calls is still pl8's, and `repoByName` /
-> `librariesRepo` below are unchanged.
+> **The screen is st0's, the storage is pl8's**, and that split is the whole arrangement: the
+> catalogue is what a project draws ON, while "which repositories do I have" is the first
+> question of the app that opens one, and the machine that scaffolds a project is st0's side of
+> the wire. So the list lives here and every route it calls — `repoByName`, `librariesRepo` —
+> is pl8's.
 >
-> The addresses caught up afterwards: st0 answers the ORIGIN now and the médiathèque is at
-> `/pl8`, so this page is `<origin>/` rather than `<origin>/st0/`. `projectsUrl` asks
-> `SERVICE_PATHS` and did not have to change.
+> st0 answers the ORIGIN and the médiathèque is at `/pl8`, so this page is `<origin>/` and not
+> `<origin>/st0/`. `projectsUrl` asks `SERVICE_PATHS` rather than spelling either.
 
 `projectsUrl` ends in a slash on purpose — that is `BASE_URL`'s own spelling, so a tab lands on the
 app's mount rather than on a redirect to it. And `serviceUrl` is what keeps the prefix a fact read
@@ -167,10 +164,10 @@ the prefix cannot change without a navigation that remounts the gate anyway.
 
 `ProjectGateStrings` is mostly required, and two groups are not: the **bench**'s wait
 (`benchWorkspace`, `benchFetching`) and the **idle** screen (`idleTitle`, `idleBody`, `resume`).
-Both are screens an app may be structurally unable to reach — the bench is a `.st0` project, so m9
-can never open one, and an app that passes no `idleTimeoutMs` never leaves the running phase.
-Required, they would each be made to translate a card nobody can see. The gate falls back to plain
-English rather than to an empty one.
+Both are screens an app may be structurally unable to reach — the bench is a `.st0` project, so
+z0's editor can never open one, and an app that passes no `idleTimeoutMs` never leaves the
+running phase. Required, they would each be made to translate a card nobody can see. The gate
+falls back to plain English rather than to an empty one.
 
 ### "Somebody else opened this project"
 
@@ -180,43 +177,42 @@ accounts of one rule. It is pure presentation: a `heldBy` string and a callback,
 this package free of `@studio/engine-browser`. The wording stays the caller's, as everything else
 here does.
 
-**No Retry**, and that is the point of it. Retrying is precisely what must not happen: the claim was
-handed over on purpose, and a tab that took it back on a timer is how one project ends up flickering
+**No Retry**, and that is the point of it. Retrying is precisely what must not happen: the claim is
+handed over on purpose, and a tab that takes it back on a timer is how one project ends up flickering
 between two people. The only move is to go and pick again — or to reopen the project deliberately,
 which is a fresh open and therefore a fresh takeover.
 
 ## Why this is a package and not two copies
 
-`docs/inventaire.md` already records what copied clients cost here: the auth client existed in
-three copies and only one had the fix. This is worse than that, because the two ends of it are
+`docs/inventaire.md` records what copied clients cost here: one auth client in three copies,
+with the fix in only one of them. This is worse than that, because the two ends of it are
 a *decision* — "is this repository already on this machine" — and the failure modes are a
 duplicate clone or a 404, neither of which looks like a drift when you meet it.
 
 The address vocabulary itself lives one level lower still, in
 `@studio/web-protocol/projects`, beside the suffix rule it depends on: st0's home page
 **writes** these addresses and both editors **read** them back, which makes it a wire contract
-rather than an app's habit. It stayed there when the writing side moved out of pl8, and that is
-the point of having put it there: neither end of the contract is where the vocabulary lives.
-`launch.ts` here is what the apps import.
+rather than an app's habit. Neither end of the contract is where the vocabulary lives, and that
+is the point. `launch.ts` here is what the apps import.
 
 Each app keeps what is genuinely its own: st0 adds waveforms, video, export, the timeline's
-tracks; m9 adds nothing at all. The wording is each app's too — st0 has paraglide, m9 is French
-in place — which is why the gate takes a `strings` object instead of owning a catalogue.
+tracks; z0's editor adds nothing at all. The wording is each app's too — st0 has paraglide,
+z0's editor is French in place — which is why the gate takes a `strings` object instead of
+owning a catalogue.
 
 ## What to check in a browser
 
 The suites here run in node and mount nothing, so `launch.test.ts` covers the addresses only —
-which is now most of it, the launch having stopped being state. These are the ones a green test
-run says nothing about:
+which is most of it, the launch being the address rather than state. These are the ones a green
+test run says nothing about:
 
-- open a project from pl8 → the address reads `/<repo>/<project>` and stays that way as you
-  move around the app;
-- **reload**, and use back/forward → still the same project, not pl8;
-- copy the URL into another tab → the same project opens there too (this is what storage could
-  never do);
+- open a project from st0's home page → the address reads `/<repo>/<project>` and stays that
+  way as you move around the app;
+- **reload**, and use back/forward → still the same project, not the home page;
+- copy the URL into another tab → the same project opens there too;
 - open a repository this machine has never seen → a progress bar with git's phases, then the
   app; do it again → no clone at all, straight in;
-- open a `.m9` folder and a `.st0` folder from the same repository → two apps, one clone;
+- open a `.z0` folder and a `.st0` folder from the same repository → two apps, one clone;
 - rename the project folder on the machine and reload → the "not in the repository" screen,
   not the CORS one, and its button lands you back on st0's home;
 - edit the repo name in the address to something nonexistent → the same screen, saying pl8 has

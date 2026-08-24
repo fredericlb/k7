@@ -3,12 +3,10 @@
 // engine/ProjectDoc.h has one TypeScript counterpart and no more.
 //
 // This is NOT "a st0 song". It is the OUTPUT of a compiler, and any app that can build
-// one can drive the engine — pl8's module preview is a one-track doc, an m9 deck
+// one can drive the engine — pl8's module preview is a one-track doc, a DJ deck
 // is two. That is why it lives here and not in @studio/song, which would drag the whole
 // YAML compiler in behind it. `@studio/song` re-exports these and owns the code that
 // PRODUCES them; `./build` has constructors for callers that have no song folder.
-
-// `ProjectMode` and `ProjectDoc.mode` were here: what a project draws is now what its `surfaces/` folder says (packages/song/docs/surfaces.md).
 
 // A named timeline marker from project.yaml's `markers` map; `beat` is that timecode in timeline beats.
 export interface Marker {
@@ -136,7 +134,7 @@ export interface TrackDoc {
   group: string; // the group this belongs to ('' == none) — a group is never a lane, only this pointer plus an entry in `groups`
   generated: boolean; // true for a lane a pattern streams onto: its clips are the scheduler's look-ahead, rewritten every tick
   color: string;
-  // No volume and no pan: they are a MODULE now (MixerPlugin) at the end of each chain, while mute and solo stay, being mixer-wide.
+  // No volume and no pan: they are a MODULE (MixerPlugin) at the end of each chain, while mute and solo are mixer-wide.
   mute: boolean;
   solo: boolean;
   disabled: boolean;
@@ -149,7 +147,6 @@ export interface TrackDoc {
   plugins: PluginDoc[];
   sends: SendDoc[];
   automation: AutomationDoc[];
-  // `docs`/`todos` were here (packages/song/docs/docModules.md), and `frozen`/`alternatives`/`alternative` too (packages/song/docs/trackModules.md).
 }
 
 // A group track: it holds no material, so the engine plays no lane for it, but surfaces draw it over its members.

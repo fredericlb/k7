@@ -76,8 +76,6 @@ export const projectApi = {
     fsend<WorkspaceInfo>("POST", "/open", { path, libraries }),
   unloadEngine: () => fsend<{ ok: true }>("POST", "/engine/unload", {}),
 
-  // `prepareStems` and `separation` stood here and are pl8's now — see docs/fileApi.md.
-
   /** Play a document this browser built, through the service so ONE thing writes to the engine. */
   sendEngineProject: (doc: ProjectDoc) =>
     fsend<{ ok: true }>("POST", "/engine/project", { doc }),
@@ -176,7 +174,6 @@ export const projectApi = {
   preferences: () => fget<WebPreferences>("/preferences"),
   setVim: (vim: boolean) =>
     fsend<{ vim: boolean }>("PUT", "/preferences/vim", { vim }),
-  // `setInputPair` was here; `system channel type` is both halves now — see docs/fileApi.md.
   logs: (offset?: number, tail = 300) =>
     fget<{ offset: number; lines: string[] }>(
       offset != null ? `/logs?offset=${offset}` : `/logs?tail=${tail}`,

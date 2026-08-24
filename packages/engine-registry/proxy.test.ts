@@ -42,7 +42,7 @@ function startUpstream(): Promise<number> {
           body,
           contentLength: req.headers["content-length"],
         });
-        // Nothing is written until the think time is up, which is what a real slow route does and what the relay used to destroy.
+        // Nothing is written until the think time is up, which is what a real slow route does and what a relay bounded at the response would destroy.
         setTimeout(() => {
           res.writeHead(200, { "content-type": "application/json" });
           res.end(JSON.stringify({ got: body }));

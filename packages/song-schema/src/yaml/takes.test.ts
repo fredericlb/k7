@@ -1,7 +1,7 @@
 // Takes — the other lists of placements a lane keeps. Recording over what a lane holds moves
 // those events into a take rather than throwing them away, and `track take select` swaps the two
 // back. These files are hand-edited and in git, so what is pinned as hard as the values is the
-// SHAPE: a take must read exactly like the arrangement it was, comments and spelling included.
+// SHAPE: a take must read exactly like the arrangement it holds, comments and spelling included.
 
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";

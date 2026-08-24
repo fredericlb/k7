@@ -44,7 +44,7 @@ export function preferencesRouter<S extends z.ZodType>(
         return res.status(400).json({
           error: parsed.error.issues.map((i) => i.message).join("; "),
         });
-      // Refused rather than stored short — see docs/store.md for the feature this cost.
+      // Refused rather than stored short, which nothing downstream would notice (docs/store.md).
       const dropped = droppedKeys(req.body, parsed.data);
       if (dropped.length)
         return res.status(400).json({

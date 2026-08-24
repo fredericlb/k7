@@ -11,22 +11,20 @@ between — the cable stays in hand and a second press lands it.
 Pressing an *occupied* jack lifts the cable end plugged into it instead; from there both gestures
 behave the same, and what lands is a replug rather than a new arrow.
 
-## Why it was only ever the second one
+## Why the socket takes the PRESS
 
-The socket used to carry a single `onClick`. A click event does not exist until the button is
-already back up, so there was nothing to draw a cable *during* a drag — and the gesture everyone
-tries first, press-and-pull, connected nothing.
+A single `onClick` gives only the second gesture. A click event does not exist until the button
+is already back up, so there is nothing to draw a cable *during* a drag — and press-and-pull, the
+gesture everyone tries first, connects nothing.
 
-It was worse than inert. The socket stopped propagation on the click but not on the **press**, so
-the press reached the host's `onPointerDown` and armed a canvas pan. Pulling away from a socket
-therefore slid the entire graph sideways under the cursor, and the release — landing on an element
-that was never the one pressed — fired no click on the input at all. The one gesture a person
-reaches for first did the one thing they did not want, and gave no sign that a cable had been
-refused.
+Worse than inert, too. Stopping propagation on the click but not on the **press** lets the press
+reach the host's `onPointerDown` and arm a canvas pan: pulling away from a socket slides the
+entire graph sideways under the cursor, and the release — landing on an element that was never
+the one pressed — fires no click on the input at all. The one gesture a person reaches for first
+does the one thing they did not want, with no sign that a cable was refused.
 
-The node header had already learned this: it stops the press for exactly this reason, and its
-comment says *"the same press must not also arm a pan — the reason every header control stops it
-too."* The socket was the control that did not.
+The node header states the same rule, and its comment says *"the same press must not also arm a
+pan — the reason every header control stops it too."*
 
 ## How both fit in one socket
 
@@ -44,8 +42,9 @@ neither has to know the other exists.
 
 ## The trap in taking the press
 
-Stopping the press also stops the pan the socket used to arm — and the pan's `pointerup` was the
-only thing that ever reset `suppressClick`, the flag that swallows the click ending a pan. Cut the
+Stopping the press also stops the pan it would otherwise arm — and that pan's `pointerup` is
+otherwise the only thing that resets `suppressClick`, the flag that swallows the click ending a
+pan. Cut the
 pan without replacing that reset and the flag latches: pan the canvas once, and every socket in
 the graph goes dead until something else pans.
 

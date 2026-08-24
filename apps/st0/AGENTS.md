@@ -4,9 +4,9 @@ A **text-based DAW**. Your song is a folder of YAML files; the terminal or a web
 is your studio.
 
 **This directory is the web editor, and only that.** The engine (`engine/moteur`), the
-tray (`engine/capot`) and the brain packages (`packages/*`, all `@studio/*`) moved out
-when they stopped belonging to st0 alone — the repo-root `AGENTS.md` holds the map of
-the whole audio side. Two workspaces live here:
+tray (`engine/capot`) and the brain packages (`packages/*`, all `@studio/*`) sit beside it
+rather than inside it, because they serve every audio app in the repo — the repo-root
+`AGENTS.md` holds the map of the whole audio side. Two workspaces live here:
 
 | Package | Role |
 |---|---|
@@ -51,11 +51,10 @@ That `redirect_uri` is `<origin>/auth/callback`, with **no prefix**, so it can o
 the service that has no prefix: st0, which answers the origin root. pl8, k7 and z0 pass
 `mountRoutes: []` and merely verify the cookie.
 
-It was pl8's while the médiathèque answered the root, and stayed there for one release after the
-swap — routed to it by name in nginx — which worked and read as an exception to every rule around
-it. It follows the root now. Nothing was re-registered at the IdP either time: the redirect_uri
-never changed, only the process serving it. Spell auth calls BARE (`/auth/me`), never under
-`BASE` — for this app the two coincide, for every other one they do not.
+`/auth/*` follows the root rather than a service name: nothing at the IdP has to change when the
+process serving the origin does, since the redirect_uri names the origin and not the app. Spell
+auth calls BARE (`/auth/me`), never under `BASE` — for this app the two coincide, for every other
+one they do not.
 
 Two consequences to know: logging out anywhere logs you out of every studio service, and
 **this backend being down means nobody can log into any studio service** — each will show its
@@ -113,13 +112,13 @@ popin without losing its undo history, and what keeps the viewport's GL context 
 are looking elsewhere. One layout, holding whichever of those panes the project declares; `full`
 sits on top of it to fullscreen one.
 
-**A note is a MODULE, not a panel.** The Docs panel is gone, and with it the `docs:`/`todos:`
-fields modules and tracks carried — both schemas are `.strict()`, so a file still holding one
-refuses to load. A note is a node of the built-in `@studio/doc`: one input, no output, one
-field (`content`), drawn as written on the graph and wired from whatever it is about. Off by
-default; the note button sits in the footer beside the mixer. Read
-`packages/song/docs/docModules.md`, and `packages/song/scripts/migrateDocFields.ts` is the tool
-that moves an old project's prose into comments.
+**A note is a MODULE, not a panel.** Neither a module nor a track takes a `docs:` or `todos:`
+field, and both schemas are `.strict()`, so a file still holding one refuses to load. A note is a
+node of the built-in `@studio/doc`: one input, no output, one field (`content`), drawn as written
+on the graph and wired from whatever it is about. Off by default; the note button sits in the
+footer beside the mixer. Read `packages/song/docs/docModules.md`, and
+`packages/song/scripts/migrateDocFields.ts` is the tool that moves a project's prose out of those
+fields and into comments.
 
 **A project declares its SURFACES.** A `surfaces/` folder, one file per special view — `type`,
 `layout`, and a `mapping` saying which module each of its components moves. Four types, and the
@@ -137,19 +136,16 @@ load-bearing (it owns a GL context and a `<video>` per layer), and for the desk 
 directly over the graph — a fader on the desk is a param on a module there, and a set, declaring
 no timeline, is those two panes and nothing else.
 
-> The desk was the one `view`: a button at the top right and a screen over the whole window,
-> addressed `/surface/<id>` and held in a `RouteState.surface` that was **not** a `Pane`, because
-> the list was the project's and a union could not name it. It is `layout: split` now. `view` is
-> still a word in the enum and nothing draws in it — kept so a file that still says it is refused
-> by name rather than by "invalid enum value". A project on disk needs the one-word edit.
+> `view` is a word in the `layout` enum and nothing draws in it: a file that says it is
+> refused by name rather than by "invalid enum value". A project on disk needs the one-word edit
+> to `split`.
 
 **A surface is MOUNTED for as long as the project declares it**; only the drawing is conditional,
 which is the ordinary pane invariant (`hidden`, never unmounted). A desk's document — the loaded
 songs, the crossfader, the six EQ knobs — is not its screen, and a set does not stop existing
-because you went to look at the graph. `SurfaceTab` used to carry that split itself, hooks above a
-line and screen below it, because a `view` came and went; being a pane is what made the prop
-unnecessary. Get it wrong and the crossfader re-centres on every round trip while the sound stays
-where you put it — see `packages/ui-turntables/docs/deckSet.md`.
+because you went to look at the graph. Being a pane is what spares `SurfaceTab` a split of its
+own between the hooks and the screen. Get it wrong and the crossfader re-centres on every round
+trip while the sound stays where you put it — see `packages/ui-turntables/docs/deckSet.md`.
 
 A component with no mapping is reported on the surface itself, not by refusing the project.
 Read `packages/song/docs/surfaces.md`.
@@ -160,15 +156,15 @@ pane ring and the fullscreen list, and that one list closes the header buttons, 
 `ui <pane>` and the mobile tabs together. A project with no `surfaces/timeline.yaml` draws no
 timeline, and the transport and the minimap go with it.
 
-> There were two layouts, `global` and `live`, picked by `project.yaml`'s `project_type`. Both
-> that field and the `View` type are gone — they answered a question `surfaces/` answers better
-> and could contradict. Read `packages/song/docs/surfaces.md` before touching any of it.
+`project.yaml` has no `project_type` and there is no `View` type: `surfaces/` answers the same
+question and is the only thing that answers it, so two sources cannot contradict. Read
+`packages/song/docs/surfaces.md` before touching any of it.
 
 The vocabulary is two words, and `src/routes.ts` is where they are declared —
 read it before changing layout. A **pane** is one of six (`editor | viewport | timeline |
 turntables | mastering | chains`) and is what `full` fullscreens; four of them — `timeline`,
 `viewport`, `turntables` and `mastering` — are mounted only when the project declares the
-matching surface. A **panel** is one of three (`graph | docs | logs`) and is what
+matching surface. A **panel** is one of two (`graph | logs`) and is what
 the editor column shows. Two things are deliberately NOT panels: the MIXER, a view of the graph
 drawn in the graph's pane, and a clip's CONTENTS, which the graph's own slot draws. Both are URL state (`src/useViewRoute.ts`); see
 `frontend/docs/shellRouting.md`.
@@ -231,9 +227,9 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   repository, and records the new version in the song with one path-limited commit moving the
   gitlink — nothing forks, because that library is the only copy. One store and one path
   space: the libraries are a git submodule inside the workspace
-  (`packages/song/docs/sharedFolders.md`), so the file service already serves them. This
-  replaced the module **bench**; `frontend/docs/sharedModules.md` is the page to read, and
-  `@banc` now opens only a library CHAIN.
+  (`packages/song/docs/sharedFolders.md`), so the file service already serves them.
+  `frontend/docs/sharedModules.md` is the page to read; `@banc` opens a library CHAIN and
+  nothing else.
 
   **st0 will not open a project without a libraries repository.** The account declares one on
   this app's own home page — the card above everything else — and `ProjectGate` refuses before it
@@ -284,22 +280,22 @@ package falls back on nullish only, so an empty array asks the IdP for *no* scop
 its defaults.
 
 **The prefs zod schema is the GATE, not a description.** A zod object strips what it does not
-declare, so a field the frontend saves and `prefsSchema` does not name is accepted, answered
-`{ok:true}`, and dropped — which is what happened to `commands` for as long as the schema said "one
-field so far". `preferencesRouter` refuses such a write out loud now (`droppedKeys`), but the rule
-to remember is that widening `St0Prefs` in the browser is only half of adding a preference.
+declare, so a field the frontend saves and `prefsSchema` does not name would be accepted, answered
+`{ok:true}`, and dropped. `preferencesRouter` refuses such a write out loud (`droppedKeys`), but
+the rule to remember is that widening `St0Prefs` in the browser is only half of adding a
+preference.
 `engineId` and not an address, for the same kind of reason: an engine's IP moves between networks
 while its identity does not, and storing a URL would pin someone to the network they first logged
 in from.
 
 ## st0 is opened ON a project — and the HOME page is where one is chosen
 
-**This app still does not own workspaces**, and never will: pl8 stores the repositories
+**This app does not own workspaces**, and never will: pl8 stores the repositories
 (`apps/pl8/docs/projects.md`) and the engine's machine holds every working copy. What this app
 owns is the SCREEN above a project, at `/` with nothing after it — the repositories, the
-projects inside them, the libraries repository, the published shares and the deploy key. It was
-pl8's Projets section until it moved here; the routes did not move with it, and
-`frontend/docs/projects.md` is the page that says why.
+projects inside them, the libraries repository, the published shares and the deploy key. The
+routes stay pl8's while the screen is here, and `frontend/docs/projects.md` is the page that says
+why.
 
 A project is named by an ADDRESS — the repository by its short name, then the project folder:
 
@@ -311,31 +307,29 @@ A project is named by an ADDRESS — the repository by its short name, then the 
 `ProjectGate` asks pl8 for the git URI behind that name
 (`GET /api/projects/by-name/:name`), resolves it to a folder on the chosen engine's machine —
 `GET /workspaces/by-repo`, cloning it with a visible progress bar if that machine has never
-seen it — then opens the project. Arriving with no project in the address is not an error to
-redirect away from any more: it is the home page, and `main.tsx` branches on `parseLaunch`
-before mounting anything. There is still deliberately no SECOND picker — z0's editor comes back
-to this one.
+seen it — then opens the project. Arriving with no project in the address is the home page rather
+than an error to redirect away from, and `main.tsx` branches on `parseLaunch` before mounting
+anything. There is deliberately no SECOND picker — z0's editor comes back to this one.
 
 **The project is the router's `basename`** (`projectBasename` in `main.tsx`), which is why
 there is no storage anywhere near it: React Router only writes below its basename, so
 `routes.ts` cannot rewrite the project away, and a reload or a pasted link simply re-reads the
-address. It used to be `?repo=&project=` held in `sessionStorage`, and a tab handed a project
-that did not exist could never get out of it. Read
+address. Hold it in a query string and a session instead, and a tab handed a project that does
+not exist can never get out of it. Read
 `packages/project-shell/docs/launch.md` before touching any of this.
 
 The gate itself is that package's too, and z0's editor mounts the same one; `components/ProjectGate.tsx`
 is a wrapper holding this app's wording and what to render once the project is open.
 
-Gone from here for good: `WorkspaceGate`, `WorkspaceSelect`, and `api.listWorkspaces` /
-`createWorkspace` — a picker over the folders under `~/.studio/root/<you>/`, which is the wrong
-level entirely. The home page lists REPOSITORIES, which belong to a person rather than to a
-machine, and a workspace is what the gate resolves one INTO. The deploy key is still pl8's —
-one key per person, which the file service fetches a copy of
-(`packages/git-repos/docs/keys.md`); what came back here is the card that shows it.
+**There is no workspace picker anywhere in this app**, and a folder under
+`~/.studio/root/<you>/` is the wrong level to offer a choice at. The home page lists
+REPOSITORIES, which belong to a person rather than to a machine, and a workspace is what the gate
+resolves one INTO. The deploy key is pl8's — one key per person, which the file service fetches a
+copy of (`packages/git-repos/docs/keys.md`); this app draws the card that shows it.
 
-Identity is still the OIDC email → folder slug → `~/.studio/root/<slug>/<workspace>`, and the
-active project is still remembered per-workspace in a `.studio-active` marker. What changed is
-who chooses. There is **no global session file**; the workspace is the scope.
+Identity is the OIDC email → folder slug → `~/.studio/root/<slug>/<workspace>`, and the active
+project is remembered per-workspace in a `.studio-active` marker. There is **no global session
+file**; the workspace is the scope.
 
 ## Many browsers at once (no lease)
 
@@ -344,9 +338,9 @@ tab's polls (`workspace`/`project`/`tree` on 2s/700ms intervals) reconcile the v
 
 Anything gated on "has a file changed" reads the `/revision` token through
 `hooks/useRevision.ts`, which polls it **once per tab** however many consumers there are —
-never on a timer of its own. Two hooks each running their own 2s timer over the same route was
-the same request twice a second, and every request is real work for whatever sits between the
-browser and the service.
+never on a timer of its own. Two hooks each running their own 2s timer over one route is the same
+request twice a second, and every request is real work for whatever sits between the browser and
+the service.
 
 ## Key conventions
 
@@ -376,10 +370,10 @@ file:
 
 - `src/index.css`'s `@source` — Tailwind emits **nothing** for a path that doesn't
   exist, without warning. The app still builds and the design-system components render
-  unstyled. A path that is simply MISSING from the list fails the same way, and worse:
-  `packages/ui-turntables/src` was absent, so every class the DESK alone uses was dropped
-  while the layout classes it shares with the app (`flex`, `w-16`) were generated anyway. The
-  strip stood in the right place, correctly spaced, with `fill-muted` and `stroke-foreground`
+  unstyled. A path that is simply MISSING from the list fails the same way, and worse: every
+  class that package alone uses is dropped while the layout classes it shares with the app
+  (`flex`, `w-16`) are generated anyway. Leave out `packages/ui-turntables/src` and the desk's
+  strip stands in the right place, correctly spaced, with `fill-muted` and `stroke-foreground`
   undefined — SVG knobs with no fill and no stroke. Present, positioned and invisible, which
   reads as "the control is gone" and sends you looking at the component. **Check the list
   against every package that renders JSX, not one at a time**:

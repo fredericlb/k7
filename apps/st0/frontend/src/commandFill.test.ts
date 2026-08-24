@@ -243,7 +243,7 @@ describe("enterAction", () => {
   });
 
   it("RUNS once the field already holds it — the bug", () => {
-    // Same suggestion still highlighted, now equal to the answer: taking it again is the no-op that ate every Enter.
+    // Same suggestion still highlighted and equal to the answer: taking it again would be a no-op that eats every Enter.
     expect(enterAction(REPLACE, ["lead", "audio/cab"], 1, "audio/cab")).toEqual(
       {
         kind: "run",

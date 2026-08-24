@@ -85,7 +85,7 @@ export interface DeckTempo {
 
 export type DeckTempos = Partial<Record<DeckId, DeckTempo>>;
 
-/** The ends of the tempo fader — the MODULE's own knob (`ui.yaml`), not a range m9 invented. See docs/bpm.md. */
+/** The ends of the tempo fader — the MODULE's own knob (`ui.yaml`), not a range the desk invented. See docs/bpm.md. */
 export const BPM_RANGE: readonly [min: number, max: number] = [10, 300];
 
 /** The ends of an EQ knob, in dB — the module's own, for the same reason `BPM_RANGE` is. See docs/eq.md. */

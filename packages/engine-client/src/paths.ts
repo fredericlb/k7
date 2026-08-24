@@ -53,7 +53,7 @@ export function pendingOriginsPath(): string {
   return join(studioDir(), "pending-origins.json");
 }
 
-/** The engine log written when NOT under the supervisor, renamed with the directory around it so it is never looked for under the wrong name. */
+/** The engine log written when NOT under the supervisor; its name follows the directory around it, so it is never looked for under another. */
 export function engineLogPath(): string {
   return join(studioDir(), ".studio-engine.log");
 }

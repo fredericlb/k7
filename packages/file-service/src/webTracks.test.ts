@@ -75,8 +75,8 @@ describe("what a clip carries to the browser", () => {
     ).toBeUndefined();
   });
 
-  it("carries the FADES, which this mapping used to drop", () => {
-    // They reached the engine and stopped exactly here, so the timeline had nothing to draw.
+  it("carries the FADES", () => {
+    // They reach the engine and stop exactly here, so dropping them leaves the timeline nothing to draw.
     const w = first(clip({ fadeIn: 1, fadeOut: 2.5 }));
     expect(w.fadeIn).toBe(1);
     expect(w.fadeOut).toBe(2.5);

@@ -118,7 +118,7 @@ export function enqueueBuzzersDirty(): void {
   enqueueDirty("buzzers");
 }
 
-/** Mark the active game dirty (state.go savePersistedState). */
+/** Mark the active game dirty, so the write-behind flush picks it up. */
 export function savePersistedState(): void {
   enqueueGameDirty(gameState.currentGame?.id ?? "");
 }
@@ -292,7 +292,7 @@ export async function loadGameFromGrist(
   return persistedStateFromGames(recs[0].id, recs[0].fields);
 }
 
-/** Snapshot for gameID with transport errors logged, not thrown (state.go). */
+/** Snapshot for gameID with transport errors logged, not thrown. */
 export async function loadPersistedState(
   gameId: string,
 ): Promise<PersistedState | null> {
@@ -392,7 +392,7 @@ export async function loadBuzzersFromGrist(): Promise<BuzzerState | null> {
   return { tokens, phoneCounter: counter };
 }
 
-/** Numeric part of a "P<n>" device id (state.go parsePhoneID). */
+/** Numeric part of a "P<n>" device id. */
 export function parsePhoneId(id: string): number | null {
   if (!id.startsWith("P")) return null;
   const n = Number(id.slice(1));

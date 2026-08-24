@@ -110,7 +110,7 @@ describe("forking on edit", () => {
     expect(text).not.toContain("@workspace/audio/delay/tape-delay");
     // Three times: the two feeders and its own entry, since either miss breaks the wiring.
     expect(text.match(/bs_lead_tape-delay_1/g)).toHaveLength(3);
-    // …and unquoted now: the shared ref needed quotes for its leading @, this name does not.
+    // …and unquoted: a shared ref needs quotes for its leading @, this name does not.
     expect(text).not.toContain('"bs_lead_tape-delay_1"');
   });
 

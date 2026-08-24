@@ -1,7 +1,7 @@
 # Keeping the documentation honest
 
 `src/docs/docs.test.ts` asks one question: does the documentation still describe the
-software? There are two ways for it to stop, and both have happened.
+software? There are two ways for it to stop.
 
 ## 1. An example goes stale
 
@@ -22,9 +22,9 @@ gets in.
 
 ## 2. A field is added and nobody writes it down
 
-`libraries_from` was undocumented for as long as it existed, and was only noticed by a human
-reading the page. Caught by walking each schema's own keys and asking whether any example
-mentions them.
+A field can live in a schema for as long as it exists with nothing on any page describing it, and
+the only thing that notices is a human reading that page. Caught by walking each schema's own keys
+and asking whether any example mentions them.
 
 This check is deliberately weak — it looks for the key *anywhere* in an example of that
 schema, not for correct usage — because its job is to fail when a field has no

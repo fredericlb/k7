@@ -1,5 +1,5 @@
 // engine.ts — the SEAM: what the desk needs from an engine, and nothing about how a host got
-// one. m9 satisfies it with its own `useEngine` (its registry, its session, its lease); st0
+// one. A standalone host satisfies it with its own `useEngine` (its registry, its session, its lease); st0
 // satisfies it from the link its shell already holds. Types only. See docs/hosting.md.
 
 import type { EngineClient } from "@studio/engine-browser";

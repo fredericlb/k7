@@ -16,33 +16,30 @@ that one is worth a command each, because the noun IS the promise. `track proces
 file the track's clips play; `clip process` treats one clip's file, and therefore every
 placement of that clip on every track.
 
-One command taking either was written first and thrown away before it landed: resolving
-track-then-clip-then-path meant `gtr` and `riff` both worked, so the first word promised nothing
-and the log line was the only place you could find out what had actually been bounced. Each
-command refuses the other's argument and names the one to run instead. Two also keeps them in
-the `<noun> <verb>` namespace every other command uses.
+One command taking either would have to resolve track-then-clip-then-path, so `gtr` and `riff`
+would both work, the first word would promise nothing, and the log line would be the only place
+you could find out what had actually been bounced. Each command refuses the other's argument and
+names the one to run instead. Two also keeps them in the `<noun> <verb>` namespace every other
+command uses.
 
-## They replaced `track normalize` and `clip normalize`
+## Normalising is a chain, not a verb
 
-Both are **gone**, and so is everything under them: `normalize.ts`, the engine's `--normalize`
-mode and `NormalizeClips.cpp`. Normalising is a TREATMENT, and these two commands are how a
-treatment is applied — the médiathèque ships a `normalize` module, so a chain naming it does the
-same job over a track's files or over one clip's, and can be *followed by something*.
+There is no `track normalize` / `clip normalize`. Normalising is a TREATMENT, and these two
+commands are how a treatment is applied — the médiathèque ships a `normalize` module, so a chain
+naming it does the same job over a track's files or over one clip's, and can be *followed by
+something*.
 
-Two things improve on the way, and one is given up.
+A bounce lands a stamped render beside the source and repoints the clip at it, so the material it
+replaced is still on disk rather than recoverable only from the journal. And `clip process` takes
+any chain rather than one hard-coded gain, so a normalisation followed by a limiter is one command
+instead of a feature request.
 
-The old commands wrote their result **over the take**; a bounce lands a stamped render beside the
-source and repoints the clip at it, so the material it replaced is still on disk rather than
-recoverable only from the journal. And `clip normalize` was one hard-coded gain where
-`clip process` is any chain, so a normalisation followed by a limiter is one command instead of a
-feature request.
-
-What is given up is **one shared gain across a SET of files**. That is what `--normalize` could
-say and a chain cannot: a track's clips normalised together, the loudest reaching the target and
-the rest keeping their relative levels. Each source is rendered on its own here (see *Offline,
-always* below), so `track process gtr normalize` brings every clip to the target independently.
-For a track of takes that were balanced against each other, that is a different result — worth
-knowing before reaching for it, and the reason this paragraph is not a footnote.
+What a chain cannot say is **one shared gain across a SET of files**: a track's clips normalised
+together, the loudest reaching the target and the rest keeping their relative levels. Each source
+is rendered on its own here (see *Offline, always* below), so `track process gtr normalize` brings
+every clip to the target independently. For a track of takes balanced against each other, that is
+a different result — worth knowing before reaching for it, and the reason this paragraph is not a
+footnote.
 
 ## What "in place" means
 
@@ -61,16 +58,14 @@ something it cannot notice.
 
 ### …but the STRETCH MAP is not anchored at the beginning
 
-It is anchored at both ends, and that is what this got wrong. `applyClipWarp` hands Tracktion the
-map's beat span as the length of the *whole source*, so the last marker's second is what says how
-long the take is and therefore at what tempo it was played.
+It is anchored at both ends. `applyClipWarp` hands Tracktion the map's beat span as the length of
+the *whole source*, so the last marker's second is what says how long the take is and therefore at
+what tempo it was played.
 
 **Every render is two seconds longer than its source**, tail or no tail: `fullRange` adds them
-unconditionally, for synth release and reverb. A 17.920 s take at 110 bpm came back 19.920 s, the
-engine read 32.834841 beats over 19.92 s as **98.9 bpm**, played 11% slow, and — an unlooped clip
-being capped at its window in SOURCE seconds — cut the phrase before its end. Two clips of
-`01.danse.st0` were in exactly that state, and the workaround that had been reached for was
-`warp: false` on the placement.
+unconditionally, for synth release and reverb. Left alone, a 17.920 s take at 110 bpm comes back
+19.920 s, the engine reads 32.834841 beats over 19.92 s as **98.9 bpm**, plays 11% slow, and — an
+unlooped clip being capped at its window in SOURCE seconds — cuts the phrase before its end.
 
 So the repoint retimes the map as it goes: `retimeWarpMarkers` moves its END onto the render's
 length, continuing at the map's own rate, and touches nothing else
@@ -78,11 +73,11 @@ length, continuing at the map's own rate, and touches nothing else
 byte-identical.
 
 The two seconds are kept rather than trimmed, deliberately: a chain *can* legitimately lengthen
-material — a reverb tail is part of the treatment, and bouncing it is the point. What was wrong
-was the map describing a file that no longer existed, not the file being longer.
+material — a reverb tail is part of the treatment, and bouncing it is the point. What has to be
+avoided is the map describing a length the file has not got, not the file being longer.
 
 Two placements of one clip are one file, so `track process` deduplicates its sources before
-rendering. Bouncing twice would have run the second pass over the first one's output.
+rendering. Bouncing twice would run the second pass over the first one's output.
 
 That is also why `clip process` says *the clip's* file rather than *this placement's*: a clip
 is material, and a placement is a reference to it. Treating one placement alone would mean
@@ -165,28 +160,24 @@ it anything else would produce a file that lies about itself.
 It is a **mixdown**, so it comes back as the master does: stereo, at the project's sample rate,
 in the engine's own bit depth. A mono clip therefore comes back stereo.
 
-**It comes back at the level it left**, which this page claimed before it was true: a −12 dBFS file
-through a chain set to exactly 0 dB of gain now renders at −12 dBFS, mono and stereo alike.
+**It comes back at the level it left**: a −12 dBFS file through a chain set to exactly 0 dB of gain
+renders at −12 dBFS, mono and stereo alike. That rests on one line — Tracktion's master fader
+defaults to −3 dB and `EditBuilder` sets it to unity, without which every mixdown would be 3 dB
+below its material (`docs/peakPass.md`).
 
-It used to come back 3 dB down, and the worked example above always said so — a 0.5 sine through a
-−6 dB strip rendering at 0.177 is −9 dB, not −6. Tracktion's master fader defaults to −3 dB and
-nothing ever moved it, so every mixdown this engine wrote was 3 dB below its material. `EditBuilder`
-sets it to unity now. The bug was old and quiet; what made it visible is that a normalisation asks
-for an exact level, so a constant offset stops hiding.
-
-## What a cold module still does not get
+## What a cold module gets
 
 A **cold** module — one that has to know the whole of its input before it can produce any of it,
 like the normaliser in `packages/dsp/modules/normalize/` — is legal here: the input is a file,
 which is the condition `coldPlacementError` enforces.
 
-The pass that measures that file and feeds the value back **now runs**, exactly where this page
-predicted it would belong: offline, on a file, immediately before the render. It is `peakPass.ts`,
-inside the per-source loop, and it reads the number from the engine's `--peak` mode rather than from
-the waveform sidecar — see `docs/peakPass.md` for why that distinction is not a detail.
+The pass that measures that file and feeds the value back is `peakPass.ts`, inside the per-source
+loop: offline, on a file, immediately before the render. It reads the number from the engine's
+`--peak` mode rather than from the waveform sidecar — see `docs/peakPass.md` for why that
+distinction is not a detail.
 
-`Peak: 0` remains the default, still attenuating rather than boosting, for a chain that reaches the
-engine some other way.
+`Peak: 0` is the default, attenuating rather than boosting, for a chain that reaches the engine
+some other way.
 
 ## A chain that SEPARATES rather than treats
 
@@ -197,7 +188,7 @@ there is no serial insert that can be, so it declares `plugin: { type: offline }
 plugin at all (`@studio/song`'s [coldModules.md](../../song/docs/coldModules.md)).
 
 `mediatekChain` diverts those steps instead of resolving them to a plugin — the line
-`@studio/file-service`'s `docs/stemSplit.md` recorded as missing. What follows from it:
+`@studio/file-service`'s `docs/stemSplit.md` points at. What follows from it:
 
 - **The chain either separates or treats, never both.** Flattened for a render (`chainSteps`) a
   chain is a list of module names with no ports on it, so a step *after* a separator would have
@@ -219,9 +210,9 @@ plugin at all (`@studio/song`'s [coldModules.md](../../song/docs/coldModules.md)
   the two failures are told apart: a module authored with no `onnx:` is a bug, a model missing
   from `~/.studio/models` is a download.
 
-**Nothing puts either of these in your library.** There is no seed any more — the account's
-libraries repository is the reference — so `stemsplit` the MODULE and a chain naming it are both
-things to put there. The module as it is authored is
+**Nothing puts either of these in your library.** The account's libraries repository is the
+reference and nothing seeds it, so `stemsplit` the MODULE and a chain naming it are both things to
+put there. The module as it is authored is
 `packages/dsp/modules/audio/separation/stemsplit/` (`@studio/dsp`'s `docs/catalogue.md`), and the
 chain is two files:
 
@@ -266,12 +257,12 @@ Every run is its OWN file: the render carries a wall-clock stamp,
 shared with a take's name). Nothing is overwritten, so a treatment you regret is one repoint away
 from being undone and the file it replaced is still on disk.
 
-It used to overwrite, and the stamp is what changed: `riff.wav` through `warm` twice landed on one
+The stamp is what keeps them apart. `riff.wav` through `warm` twice would otherwise land on one
 name, on the argument that a second run is a correction rather than a second thing. That is true of
 the INTENT and false of the file — the first render is material somebody may already have listened
 to, and a bounce that eats it leaves nothing to compare against.
 
-What has not changed is that the name must not GROW. A previous run of the same chain is stripped,
+The name must not GROW either. A previous run of the same chain is stripped,
 stamp and all, so ten passes of `warm` leave `riff_warm_<latest>.wav` and not a name carrying ten
 dates. A DIFFERENT chain still stacks, deliberately: the clip now plays the warmed file, and
 treating that is a second treatment — `riff_warm_<t1>_bright_<t2>.wav` says exactly what it is.

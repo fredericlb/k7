@@ -38,12 +38,9 @@ invite à deviner.
 `recordDir` reste vide — un aperçu joue et n'enregistre jamais, et un dossier inventé est un
 dossier où le moteur finirait par écrire.
 
-> **Il portait une CHAÎNE.** Le document s'appelait `chainPreviewDoc` et prenait les étapes
-> d'une chaîne de la médiathèque comme greffons de la piste, adressés `chain-preview:<module>` —
-> la même identité que le nœud dessiné, pour qu'un graphe montrant un filtre que le moteur n'a
-> jamais chargé soit impossible. Un bouton **Process** rendait ensuite chaque variante-chaîne
-> hors ligne, à côté du master. Tout cela est parti avec la famille `chains`, qui a quitté le
-> catalogue : une chaîne s'écrit dans st0 et se committe dans le dépôt de bibliothèques du compte.
+Un seul constructeur de document, donc, et c'est le cas dégénéré : ce que la médiathèque joue
+est toujours un fichier. Une chaîne s'écrit dans st0 et se committe dans le dépôt de
+bibliothèques du compte, où le moteur qui joue la chanson la charge déjà.
 
 ## Une session, un son
 
@@ -56,10 +53,10 @@ n'est pas à organiser, c'est à interdire.
 `apps/pl8/frontend/src/engine/songPreview.ts` envoie l'utilisateur **et** le jeton à chaque appel
 au service de fichiers d'une machine. Le jeton n'est pas facultatif en pratique : tout ce qui passe
 par `requireEngineToken` est refusé sans lui dès qu'un jeton est configuré — ce que le superviseur
-fait toujours sur une vraie machine. Deux de ces routes n'envoyaient que l'utilisateur, donc elles
-marchaient sur un run de dev nu et répondaient 401 partout ailleurs ; `cacheRoot` avalait ça en
-`null`, que l'écran formulait « cette machine n'a pas de cache de la médiathèque » — plausible, et
-faux, ce qui est exactement pourquoi c'est resté caché.
+fait toujours sur une vraie machine. Un appel qui n'enverrait que l'utilisateur marche sur un run
+de dev nu et répond 401 partout ailleurs ; `cacheRoot` avale ce 401 en `null`, que l'écran formule
+« cette machine n'a pas de cache de la médiathèque » — plausible, et faux, ce qui est exactement
+la façon dont un oubli de jeton se cache.
 
 Le jeton est **omis** quand il n'y en a pas : une machine qui n'en configure aucun ne garde rien, et
 ajouter un en-tête vide ferait échouer une comparaison qui passe.
@@ -87,11 +84,10 @@ un wav sous `.mp3` produirait une bibliothèque de fichiers qui mentent sur eux-
 ## Le transport tient au-dessus des écrans
 
 `apps/pl8/frontend/src/playback/PlaybackProvider.tsx` tient ce qui joue, et il tient la **seule**
-socket moteur de l'onglet. Elle était ouverte par écran — l'éditeur de module, celui de morceau,
-la page du moteur — ce qui n'était sûr que parce que ces écrans se remplaçaient l'un l'autre. Un
-morceau qui continue pendant qu'on navigue casse cet arrangement : son transport doit survivre à
-l'écran qui l'a lancé, et une deuxième socket serait un deuxième client sur la même session,
-pilotant le même document.
+socket moteur de l'onglet. Une socket par écran ne serait sûre que si les écrans se remplaçaient
+l'un l'autre, et un morceau qui continue pendant qu'on navigue casse exactement cet arrangement :
+son transport doit survivre à l'écran qui l'a lancé, et une deuxième socket serait un deuxième
+client sur la même session, pilotant le même document.
 
 L'élément `<audio>` reste monté quelle que soit la destination, y compris quand c'est le moteur ou
 mpv qui joue : c'est lui qui rapporte la **durée** du master — la trame d'état du moteur porte une
@@ -115,17 +111,12 @@ avancer que sur une vraie fin :
 | mpv | `idle` | franc, mais un arrêt demandé y ressemble aussi |
 
 D'où le drapeau `weStopped`, posé par **chaque** transition délibérée (start, toggle, close) et
-effacé par l'effet qui le lit. Sans lui, appuyer sur pause enchaînait sur le morceau suivant.
+effacé par l'effet qui le lit. Sans lui, appuyer sur pause enchaîne sur le morceau suivant.
 
 `ended` est un **compteur** et non un booléen : ce qu'un lecteur veut est l'événement, et un
 drapeau devrait être effacé par celui qui l'a vu. Il n'existe que pour la file, la seule chose ici
 qui ait un « suivant ». `now` n'est délibérément pas effacé à la fin — « qu'est-ce que je viens
 d'écouter » survit au dernier échantillon — et seule la croix de la barre l'efface.
-
-`claimAdvance`/`advanceClaimed` vivaient ici : deux choses pouvaient enchaîner — un panneau de
-playlist et cette file — chacune guettant `ended` sans voir l'autre, donc toutes deux lançaient une
-piste sur le même événement. Il n'en reste qu'une, les playlists étant parties dans st0, et arbitrer
-entre un seul prétendant n'arbitre rien tout en laissant croire qu'ils sont deux.
 
 ## Les trois positions
 

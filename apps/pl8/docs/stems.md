@@ -16,15 +16,14 @@ there is one, a GPU, and those are properties of a *machine* rather than of a ho
 the work is borrowed: `cut.ts` posts the master to an engine's `POST /process`, polls, collects the
 files and writes them beside the song. The engine keeps nothing.
 
-It used to be the other way round, and that is what this replaces. The engine's file service held a
-**scoped mirror** of this library — the songs a set's playlist named, synced every 60 seconds — and
-`/stems` separated out of that mirror. Two things were wrong with it, one fatal:
+The other arrangement — mirroring this library onto the engine's machine and separating out of
+the mirror — is the one to keep refusing, for two reasons, one of them fatal:
 
-- A mirror must have exactly one writer, and on a dev machine where pl8's `STUDIO_MEDIATEK` was the
-  same directory the cache wrote into, it had two. The sync downloaded each file onto itself and
-  three songs came back as pure zeros, 40 MB of `0x00`, with no other copy on the machine. The
+- A mirror must have exactly one writer, and on a dev machine where pl8's `STUDIO_MEDIATEK` is
+  the same directory the cache writes into, it has two. The sync downloads each file onto itself
+  and songs come back as pure zeros, 40 MB of `0x00`, with no other copy on the machine. The
   diagnosis is written up in the file service's `mediatekPull.ts` and `docs/processChain.md`.
-- Even working, it copied whole albums onto a machine so that one song could be cut once.
+- Even working, it copies whole albums onto a machine so that one song can be cut once.
 
 ## One long request, not a job
 

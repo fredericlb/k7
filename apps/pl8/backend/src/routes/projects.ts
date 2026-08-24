@@ -223,7 +223,5 @@ export function projectsRouter(opts: {
     }),
   );
 
-  // `/:id/status`, `/:id/refresh` and `/:id/tree` were here; all three were about the gone mirror.
-
   return router;
 }

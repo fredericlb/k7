@@ -204,7 +204,7 @@ const gridOf = (p: WebProject | null | undefined) => ({
   den: p?.timeSigDenominator || 4,
 });
 
-// What the toolbar says where the Save button was; 'clean' says nothing, a saved file being the ordinary state.
+// What the toolbar says in place of a Save button; 'clean' says nothing, a saved file being the ordinary state.
 const SAVE_LABEL: Record<string, string> = {
   clean: "",
   pending: "edited",
@@ -1221,7 +1221,7 @@ export function EditorTab({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        {/* Where the Save button was: silent while the file is saved, amber with the reason for as long as it is not. */}
+        {/* In place of a Save button: silent while the file is saved, amber with the reason for as long as it is not. */}
         <span
           className={cn(
             "flex min-w-0 shrink items-center gap-1 text-xs",
@@ -1292,7 +1292,7 @@ export function EditorTab({
                 open(path);
                 if (isMobile) setTreeOpen(false);
               }}
-              // A module row opens the BUILDER on its panel — its three files are no longer rows.
+              // A module row opens the BUILDER on its panel — its three files are not rows of their own.
               onOpenModule={(moduleFile) => {
                 onOpenBuilder(moduleFile, "panel");
                 if (isMobile) setTreeOpen(false);

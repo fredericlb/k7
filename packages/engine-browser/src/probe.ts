@@ -4,9 +4,9 @@
 // their sum is the latency every surface bands into Q1/Q2/Q3. The probe MATCHES THE ID, so a
 // lookalike listener cannot pass as this engine.
 //
-// It replaced a locality tier, which ranked a gigabit LAN below a laptop sitting at 2048 frames
-// — what a musician can do is decided by milliseconds, not by which cable they arrive over.
-// Unreachable stays its own state, because it is not a slow link. See docs/access.md.
+// Ranking is by milliseconds and never by locality: what a musician can do is decided by
+// latency, not by which cable they arrive over, so a gigabit LAN beats a laptop sitting at
+// 2048 frames. Unreachable is its own state, because it is not a slow link. See docs/access.md.
 
 import {
   type EngineLatency,

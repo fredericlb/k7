@@ -6,8 +6,8 @@
 // own mirror. `geolerp(20000, 200, t)` therefore sits at 200 Hz when t is 0 and OPENS as t
 // rises, which is the opposite of what the line says and produces no error anywhere.
 //
-// It cost this repo a DJ filter that was silent at its neutral position — measured at −62 dBFS
-// against a −24 dBFS control — and a released `lowpass` module whose sweep runs backwards.
+// It is what leaves a DJ filter silent at its neutral position — measured at −62 dBFS against a
+// −24 dBFS control — and what makes the released `lowpass` module's sweep run backwards.
 
 import { describe, expect, it } from "vitest";
 import { graph } from "./index";

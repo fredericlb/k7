@@ -14,16 +14,16 @@ totalMs = the whoami round trip  +  2 × bufferFrames / sampleRate
 | **Q2** | 20–50 ms | workable — editing, auditioning, mixing |
 | **Q3** | ≥ 50 ms | for listening rather than playing |
 
-## Why it replaced the tier
+## Why it is not a locality tier
 
-There used to be a locality TIER: loopback answered (1), a LAN address did (2), or nothing
-did (3). It read as a proxy for speed and was not one. A gigabit LAN to a machine with a
-tight interface ranked *below* the laptop in front of you running at 2048 frames — and the
-laptop is the one you cannot play through. What a musician can and cannot do on an engine
-is decided by the milliseconds, not by which cable they arrive over.
+A locality tier — loopback (1), a LAN address (2), nothing (3) — reads as a proxy for speed and
+is not one. It ranks a gigabit LAN to a machine with a tight interface *below* the laptop in
+front of you running at 2048 frames, and the laptop is the one you cannot play through. What a
+musician can and cannot do on an engine is decided by the milliseconds, not by which cable they
+arrive over.
 
-**Unreachable survived the tiers**, because it is not a slow link: nothing answered, so
-there is no number. `RankedEngine.latency` is null there, and `isReachable()` narrows it.
+**Unreachable is not a quality**, because it is not a slow link: nothing answered, so there is no
+number. `RankedEngine.latency` is null there, and `isReachable()` narrows it.
 
 ## Why the audio half is doubled
 
@@ -46,11 +46,11 @@ unknown" instead of a band.
 - **Measured once**, in `packages/engine-browser/src/probe.ts`, by the same round trip that
   identifies the engine — a second query would measure a second, warmer trip.
 - **Drawn** in the pickers (fastest first, each row badged) and in the status bar of every
-  service that drives an engine: st0, the médiathèque, m9. It belongs there because it
-  describes the SESSION, not a screen.
+  service that drives an engine. It belongs there because it describes the SESSION, not a
+  screen.
 - **Reported** to the backend on `select` (`latencyMs`), which is where the constraints this
   is for will live — "no take on a Q3 engine" is a question only the server can answer, and
-  only if it was told the number.
+  only if it is told the number.
 
 ## The engine's half of it
 

@@ -32,15 +32,15 @@ modules:
   gtr: [ amp ]            # everything this lane holds, down one chain
 ```
 
-A track has no `volume` and no `pan`. They were the one part of its sound that lived outside its
-chain — nothing could be placed after them, and the graph could not show where they applied. A
-level is a MODULE now: put a `mixer` at the end of the track's chain and set its `Volume`, `Pan`
+A track has no `volume` and no `pan`: they would be the one part of its sound sitting outside its
+chain, with nothing placeable after them and no way for the graph to show where they apply. A
+level is a MODULE — put a `mixer` at the end of the track's chain and set its `Volume`, `Pan`
 and three tone bands (see Instruments).
 
 **And no `mute` either.** A lane is a module, so it has the bypass button every module node
 carries, and that is its mute: one name in `graph.yaml`'s `bypassed:` (see Chains). On a source,
 bypass reads as *produces nothing* rather than *passes through untouched* — which is what muting
-a lane has always meant. Solo is not written down at all: the surface derives it by bypassing
+a lane means. Solo is not written down at all: the surface derives it by bypassing
 every other lane.
 
 A placement says WHERE a clip goes and HOW MANY TIMES — nothing about what it plays. How long it
@@ -116,7 +116,7 @@ events:
 
 ## nodes/<name>.yaml — both
 
-Also the same file, and this is the one that used to be unsayable:
+Also the same file — one lane holding both kinds at once:
 
 ```yaml schema=Module
 extends: "@studio/track"
@@ -213,29 +213,28 @@ called — which in practice means a lane and the synth it feeds need different 
 # nodes/synth-melody.yaml -> the 4OSC it plays through
 ```
 
-That is the one thing to know when moving an old project over: a track and its instrument that
-happened to share a name now have to be told apart.
+In a project where a lane and its instrument share a name, that is the one thing to tell apart.
 
-## What went away
+## What a lane file may not say
 
-`type:` and `contentType:` are gone. `type:` became the `extends:`; `contentType:` became
-nothing, because the events already said it — an event names a clip or a sequence, and no word at
-the top of the file can be more true about that than the event is. So are `mute:` and `solo:` (see
-above).
+There is no `type:` and no `contentType:`. The kind of lane is its `extends:`, and what it plays
+is the events' business — an event names a clip or a sequence, and no word at the top of the file
+can be more true about that than the event is. No `mute:` and no `solo:` either (see above).
 
-The four typed track modules went with it:
+Nor is there a typed track module. Four names a lane file may still carry, and what each one
+becomes:
 
-| was | is |
+| a file saying | write |
 |---|---|
 | `@studio/audio-track` | `@studio/track` |
 | `@studio/sequence-track` | `@studio/track` |
 | `@studio/audio-strudel-track` | `@studio/strudel-track` |
 | `@studio/sequence-strudel-track` | `@studio/strudel-track` |
 
-If you kept an audio lane and a sequence lane side by side for one part, they can be one lane
-now — and if the two halves need different chains, that is what `#audio:` / `#midi:` is for.
+An audio lane and a sequence lane kept side by side for one part are one lane — and if the two
+halves need different chains, that is what `#audio:` / `#midi:` is for.
 
-An old project opens with a refusal naming every lane. One command rewrites them:
+Such a project opens with a refusal naming every lane. One command rewrites them:
 
 ```bash
 npx tsx packages/song/scripts/migrateTracks.ts <your-project.st0> --write
@@ -245,16 +244,16 @@ Leave off `--write` first to see what it would touch. It lists any **streaming**
 that is the one it cannot finish for you, because only `graph.yaml` can say whether a pattern's
 events are notes or samples (`pad#midi: [ synth ]`).
 
-A lane's **alternatives** and its **freeze** are still here, and both belong to every module now
-rather than to lanes alone: `alternatives:` holds other sets of attributes (for a lane, one of
-those attributes is its `events:`), and `frozen:` names a render standing in for everything
-upstream of the module rather than for that one lane. Both are in Instruments.
+A lane's **alternatives** and its **freeze** belong to every module rather than to lanes alone:
+`alternatives:` holds other sets of attributes (for a lane, one of those attributes is its
+`events:`), and `frozen:` names a render standing in for everything upstream of the module rather
+than for that one lane. Both are in Instruments.
 
-One field is simply gone:
+One more name a lane file may not carry:
 
-- **`video_source:`** — an audio track taking its placements from a video track, so a shot and
-  its sound could not drift. Nothing reads it.
+- **`video_source:`** — an audio track taking its placements from a video track, so that a shot
+  and its sound would not drift. Nothing reads it.
 
-Every schema is `.strict()`, so a file still carrying any of them says so by name and by line
-rather than being read and dropped. There is no migration code and no accepted old spelling: an
+Every schema is `.strict()`, so a file carrying any of them says so by name and by line
+rather than being read and dropped. There is no migration code and no second accepted spelling: an
 `extends:` naming one of the four above names a module that does not exist, and says so.

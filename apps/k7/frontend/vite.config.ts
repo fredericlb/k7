@@ -14,7 +14,7 @@ export default defineAppConfig({
   wsPaths: ["/rtc"],
   extend: {
     plugins: [frediverseParaglide()],
-    // The old name still reaches these servers — see scripts/dev-hosts.mjs.
+    // The extra host names these servers answer to — see scripts/dev-hosts.mjs.
     server: { allowedHosts: LEGACY_DEV_HOSTS },
     // Plain node unit tests; component stories live in the single root Storybook.
     test: { environment: "node", include: ["src/**/*.test.ts"] },

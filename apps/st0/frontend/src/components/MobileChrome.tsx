@@ -2,9 +2,9 @@
 // side and every screen to go to. There is no global view on a phone (`full` is never null), so
 // the menu is what drives it.
 //
-// A bottom tab bar lived here too. It spent a row of a ~400px-tall landscape screen on a control
-// used a few times a session, held only the panes, and never worked — it dispatched the bare
-// pane name, which the local dispatcher refuses. One menu, one place to go somewhere.
+// No bottom tab bar: it spends a row of a ~400px-tall landscape screen on a control used a few
+// times a session, and a bare pane name is what the local dispatcher refuses. One menu, one
+// place to go somewhere.
 //
 // A plain popover, not a DropdownMenu, since what it holds is itself menus.
 

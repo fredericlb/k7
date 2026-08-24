@@ -28,7 +28,7 @@ import {
 } from "./commands";
 import { alternatives } from "./git";
 
-// One surface remains — the web backend dispatches under "cli" too — but it stays a type.
+// One surface — the web backend dispatches under "cli" too — but it stays a type.
 export type Surface = "cli";
 
 // A scalar shape checked before the handler, for ONE-token arguments only — docs/completions.md.
@@ -40,7 +40,7 @@ export interface ArgSpec {
   type?: ArgKind;
   // A named provider, checked against PROVIDERS at load, so a typo is reported rather than completing nothing.
   complete?: ProviderName;
-  // …or a literal set written in the yaml. These used to be free text, so the palette asked what it already knew.
+  // …or a literal set written in the yaml, so the palette does not ask for what it already knows.
   values?: string[];
   // A one-line clue about what this argument ACCEPTS — worth writing when the class's own clue doesn't say enough.
   hint?: string;
@@ -60,7 +60,7 @@ export interface CommandSpec {
   // The palette's line, and what it fuzzy-matches on. See commands.yaml's header.
   readable?: ReadableDescription;
   surfaces: Surface[];
-  // `with:` was here — fixed leading args, and it lost its last user; see docs/completions.md.
+  // No fixed leading args: a verb that is one setting of another is the ARG's job — docs/completions.md.
   args?: ArgSpec[]; // trailing user args (for completion)
 }
 

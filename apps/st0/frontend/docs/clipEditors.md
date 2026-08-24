@@ -21,19 +21,19 @@ nowhere.
 ### It paints first, and asks the document afterwards
 
 A `sequence note` command costs ~400 ms on the service — it recompiles the project — and the
-reload lands after that. The panel used to wait for it before lighting the cell, and to
-**disable the whole grid** meanwhile, so everything pressed during that half second was dropped
-in silence: that is what "slow at edition" was. Now a press paints at once and only fires the
-command; the ghost is held until the document AGREES (`settledEdits`), which is the rule the
-timeline already follows for a clip drag. Commands are chained rather than gated — each is a
-read-modify-write of one file, so they must not overlap, but nothing has to be refused.
+reload lands after that. So a press paints at once and only fires the command; the ghost is held
+until the document AGREES (`settledEdits`), which is the rule the timeline follows for a clip
+drag. Waiting for the reload before lighting the cell means disabling the whole grid for that
+half second and dropping everything pressed during it in silence. Commands are chained rather
+than gated — each is a read-modify-write of one file, so they must not overlap, but nothing has
+to be refused.
 
-Two costs went with it. The grid asked `noteInCell` per cell, a scan of every note per cell —
-sixteen rows of sixty-four cells over a hundred notes is a hundred thousand comparisons, redone
-on every render; `notesByCell` indexes them in one pass. And a velocity drag no longer renders
-at all: it moves the pressed cell's three level layers in place (`drawLevel`), the same rule the
-transport line follows. A ghost is keyed `<note>@<cellIndex>`, so changing the PRECISION drops
-the pending ones — an index counts cells of the step it was made at.
+Two costs are avoided the same way. `notesByCell` indexes the notes in one pass, where asking
+`noteInCell` per cell is a scan of every note per cell — sixteen rows of sixty-four cells over a
+hundred notes is a hundred thousand comparisons, redone on every render. And a velocity drag does
+not render at all: it moves the pressed cell's three level layers in place (`drawLevel`), the same
+rule the transport line follows. A ghost is keyed `<note>@<cellIndex>`, so changing the PRECISION
+drops the pending ones — an index counts cells of the step it was made at.
 
 A lit cell is "this sound hits here". A press toggles — `sequence note new` for on,
 `sequence note remove` for off — and a vertical DRAG on a lit cell is **the roll's velocity
@@ -92,9 +92,9 @@ must show, and stay editable, rather than read as data lost.
 ## The view switch
 
 One clip's notes have three readings, and the header's dropdown (`ClipViewModes.tsx`) is how you
-move between them. It is drawn in **all three headers**, which is the whole point: it replaced a
-one-way 🎹 button on the sequencer, so leaving the grid was a click and coming back meant closing
-the pane and clicking the clip again.
+move between them. It is drawn in **all three headers**, which is the whole point: a one-way
+button out of the grid would make leaving it a click and coming back a matter of closing the pane
+and clicking the clip again.
 
 | mode | what it is | how it writes |
 |---|---|---|
@@ -122,10 +122,10 @@ One consequence worth naming: the tracker reads its file **once**, deliberately,
 elsewhere needs the view reopening — refetching under a hand mid-edit is how a cursor and a
 half-typed note are lost. Switching mode and back is what reopens it.
 
-One plumbing fact this panel surfaced: the graph slot's `target` is a snapshot taken at the
-click, so `ClipView` re-reads the compiled project on every `reloadKey` and re-finds the
-placement by (id, start) — without that, a cell wrote its note and lit nothing, and the roll's
-drags snapped back on release.
+One plumbing fact: the graph slot's `target` is a snapshot taken at the click, so `ClipView`
+re-reads the compiled project on every `reloadKey` and re-finds the placement by (id, start) —
+without that, a cell writes its note and lights nothing, and the roll's drags snap back on
+release.
 
 They share their pan/zoom hook (`@studio/ui-timeline/panZoom`, and
 [timeline.md](timeline.md) says how a mouse wheel is told from a trackpad slide — one zooms, the
@@ -139,13 +139,13 @@ per beat, `RulerTicks` draws it, `Grid` repeats it one weight fainter across the
 (`Ruler.tsx`, shared with the timeline). Zooming in descends bar → beat → half → sixteenth;
 zooming out thins the *numbers* while keeping the lines, so the grid never smears.
 
-The roll was the surface that did not have this. Its own ruler — the FILE's numbering, under the
-arrangement ruler — was two loops written here: bars every `barBeats`, beats every 1, at any zoom.
-And the lane under it drew bar lines **only**. So the roll's ruler ticked at a fixed resolution
-while its canvas zoomed, and the notes sat over a grid coarser than the ruler above them. Both
-now come from `rulerScale`, at the roll's live `ppb`.
+The roll's own ruler — the FILE's numbering, under the arrangement ruler — and the grid on the
+lane under it both come from `rulerScale`, at the roll's live `ppb`. Written here instead, as two
+loops (bars every `barBeats`, beats every 1, at any zoom) with bar lines **only** beneath them,
+the ruler ticks at a fixed resolution while the canvas zooms and the notes sit over a grid coarser
+than the ruler above them.
 
-Three things fall out of sharing it, and all three were the point:
+Three things fall out of sharing it, and all three are the point:
 
 - **A position reads the same in both panes.** The timeline's bar 33 line and the roll's are the
   same line at the same weight, because one function drew them.
@@ -153,8 +153,8 @@ Three things fall out of sharing it, and all three were the point:
   tick that was drawn, so opening the view up is how a finer position is reached — the rule
   `packages/ui-waveform/docs/ticks.md` states for every ruler.
 - **The window's origin is respected for free.** The ladder counts from the coordinate's origin
-  rather than the view's left edge, so a clip windowed to open at bar 3 says 3, exactly as the
-  hand-rolled version had to arrange for itself.
+  rather than the view's left edge, so a clip windowed to open at bar 3 says 3, without the
+  surface arranging for it.
 
 The waveform canvas reaches the same density by a different route: its bar/beat lines arrive from
 the file service as a list, so it splits what it was sent (`subdivideGrid`) instead of computing a
@@ -166,9 +166,9 @@ passes its own scroller to both. See `timeline.md`.
 
 ### Both edges of a note stretch it, as both edges of an event do
 
-`sequence note timerange` always took a new start AND a new end, so this was a gesture the command
-had been waiting for: the left edge moves the start and leaves the end, the right edge moves the
-end and leaves the start, the body moves both. One verb, three grips — the same arrangement the
+`sequence note timerange` takes a new start AND a new end, which is what lets one verb carry three
+grips: the left edge moves the start and leaves the end, the right edge moves the end and leaves
+the start, the body moves both. Three grips on one verb — the same arrangement the
 timeline's events have, in the same vocabulary (`mode: "move" | "start" | "end"`, the timeline's
 `edge`), so the two panes cannot come to mean different things.
 
@@ -197,12 +197,11 @@ drawing and the caret is walking. **Hold Ctrl and the gesture follows the pointe
 rule, the arithmetic and the modifier are `src/snap.ts`, shared with the timeline
 (`timeline.md`), so the two surfaces cannot come to mean different things.
 
-The roll used to be free at every zoom, which made it the odd one out: the ruler drew lines, the
-caret walked them, the timeline's drags landed on them, and only a note ignored them. That is a
-change in what an unmodified drag does, and it is the intended one — a finer position is reached
-by opening the view, and Ctrl is how the old behaviour is asked for.
+A roll free at every zoom would be the odd one out: the ruler draws lines, the caret walks them,
+the timeline's drags land on them, and only a note would ignore them. A finer position is reached
+by opening the view, and Ctrl is how a free one is asked for.
 
-Two details the timeline settled first, kept identical here:
+Two details, identical to the timeline's:
 
 - **The OFFSET snaps, not the resulting position.** A note played in by hand at 2.43 keeps that
   phase when you move it a beat.
@@ -215,8 +214,8 @@ nearest *line* — a round — would sit one cell away from the caret half the t
 disagree about where you had just clicked. So `drawSpan` starts the note at the pressed cell's
 beat and ends it at the FAR edge of the last one, the way `colSpan` reads the rectangle: drag
 across three cells, get three cells of note. A press that never leaves its cell still returns a
-zero-length span, which is what leaves the length to the command's default — the behaviour a plain
-click has always had.
+zero-length span, which is what leaves the length to the command's default — the behaviour of a
+plain click.
 
 `atEvent` therefore stays unsnapped, and the raw beat is what the gesture remembers. The grid is
 applied where the span is READ, so Ctrl pressed or released mid-drag changes the whole answer
@@ -293,13 +292,13 @@ on a lane, where the unit is a clip rather than a grid step, the **placement** u
 over its own length. `cellBox` in `gridCaret.ts` is the grid half; `TimelineTab`'s `copy` is the
 lane half, and both feed the same `clipboard.ts` path a drawn rectangle feeds.
 
-That is a fix rather than a nicety. Copy answered a `v` rectangle and nothing else, and its key
-was *conditional on one being drawn* — so selecting an event by clicking it and pressing Ctrl+C
-did nothing and **said** nothing, and the paste then reported an empty clipboard. Two rules came
-out of it, and both are pinned in `keys.test.ts`:
+That matters rather than being a nicety: answering a `v` rectangle and nothing else, with a key
+*conditional on one being drawn*, means selecting an event by clicking it and pressing Ctrl+C does
+nothing and **says** nothing, and the paste then reports an empty clipboard. Two rules follow, both
+pinned in `keys.test.ts`:
 
 - **The clipboard keys are unconditional**, alone among the bindings. A key that goes quiet is
-  indistinguishable from one that is broken, and these two now always have an answer.
+  indistinguishable from one that is broken, and these two always have an answer.
 - **The command says what it found.** Parked on a bare stretch of lane, `selection copy` reports
   *nothing to copy* and names both ways of pointing; the status line is where a command speaks.
 
@@ -311,10 +310,10 @@ from three minutes ago.
 `transport loop` stop at the pane in front — they *act* on it. `selection copy` asks it a
 question, and the pane in front is routinely the one with no answer: clicking an event in the
 timeline is what opens the clip pane, and the roll it opens starts with its caret at key 127,
-where no note has ever been. So the copy asked the roll, found nothing, and never asked about the
-event you had just clicked — with the timeline's caret sitting on it. The paste then reported an
-empty clipboard, which was true and useless. It is the clip pane **and then the timeline** now,
-first answer winning.
+where no note has ever been. Stopping there, the copy asks the roll, finds nothing, and never
+asks about the event you just clicked — with the timeline's caret sitting on it — and the paste
+reports an empty clipboard, which is true and useless. It is the clip pane **and then the
+timeline**, first answer winning.
 
 | copied from | what is held | which the paste runs |
 |---|---|---|
@@ -322,21 +321,17 @@ first answer winning.
 | the roll | notes, by semitones below the top row | `sequence note add` |
 | the sequencer | the same, through the rack's rows | `sequence note add` |
 
-**The selection is the subject, and that is what settled the naming.** A bare `paste` came first
-and was wrong in the way that family of commands is always wrong: the first word promised nothing,
-and the status line was the only place you could find out what had been pasted where. It was
-replaced by two verbs, `events paste` and `sequence notes paste`, each naming the material it put
-down so as to name the surface that answered. That worked and said it twice — the same rectangle
-went out under `ui copy` and came back under one of two other heads, three names for one gesture,
-two of them across a namespace line.
+**The selection is the subject, and that is what the naming says.** The head names what all three
+verbs act on — the region you drew — once. A bare `paste` would promise nothing, leaving the status
+line as the only place to find out what had been pasted where; a pair of verbs naming the material
+(`events paste`, `sequence notes paste`) would say it twice, since the same rectangle goes out
+under one head and would come back under one of two others, across a namespace line.
 
-`selection` says it once. The head names what all three verbs act on — the region you drew — and
-the routing that the plural was buying is a **fact the clipboard already carries**: it was copied
-as events or as notes, so notes land in the open roll or sequencer and events on the timeline's
-caret whatever else is on screen (a clip pane holds notes and could not place a placement). Read
-off the held rectangle in `App`'s `runLocalCommand`, which is not the guess a bare `paste` made.
-The paste is one binding again, and a plain one: what the clipboard holds is read by the handler,
-so no key has to ask.
+The routing that a plural would buy is a **fact the clipboard already carries**: it was copied as
+events or as notes, so notes land in the open roll or sequencer and events on the timeline's caret
+whatever else is on screen (a clip pane holds notes and could not place a placement). Read off the
+held rectangle in `App`'s `runLocalCommand`, which is not a guess. The paste is one binding, and a
+plain one: what the clipboard holds is read by the handler, so no key has to ask.
 
 **Four tokens, two bindings.** Ctrl+C and Ctrl+V are the *only* modifier chords this shell takes
 off the browser (`CHORDS` in `keys.ts` — ⌘ fires them too, and produces the same token). They are
@@ -373,7 +368,7 @@ Four rules worth knowing, each of which could reasonably have gone the other way
 
 ### Copying an event needs the placement's own words
 
-An event's attributes were dropped by a paste for a structural reason rather than an oversight: a
+An event's attributes cannot be read back off what a surface is given, for a structural reason: a
 **compiled clip is a placement and its material already resolved together**, and that resolution is
 one-way.
 
@@ -384,16 +379,16 @@ one-way.
 | `loop: 4` | folded into `length`, as `4 × window` | no |
 | `fadeIn: "0:2"` | `fadeIn` in beats | only with the tempo |
 
-So `ref` and `start` were the only two fields a copy could read off a clip and write back, and the
-timeline copies off the compiled document because that is all a surface is given. A trimmed, faded,
-four-pass event pasted as one plain pass of the whole material, silently.
+So `ref` and `start` are the only two fields a copy could read off a compiled clip and write back,
+and the timeline copies off the compiled document because that is all a surface is given: a
+trimmed, faded, four-pass event would paste as one plain pass of the whole material, silently.
 
-Guessing the rest from the resolved numbers was the tempting fix and is wrong twice: writing the
+Guessing the rest from the resolved numbers is the tempting answer and is wrong twice: writing the
 INTERSECTION as the pasted event's own window pins it to today's material — the copy stops
 following the clip file — and a sequence's window is not separable from its loop range at all.
 
-What it took instead is one field, `ClipDoc.event`, carrying the placement's own words **unmerged
-and as authored**, mirrored onto `WebClip.event`. As authored matters: a window spelled `"2:1"`
+So one field, `ClipDoc.event`, carries the placement's own words **unmerged and as authored**,
+mirrored onto `WebClip.event`. As authored matters: a window spelled `"2:1"`
 comes back `"2:1"` rather than the seconds it means at the current tempo, because what reads it
 writes it straight back into a file that must still mean the same thing after a tempo change.
 
@@ -414,19 +409,18 @@ Three consequences worth knowing:
 `PlacementSchema` rather than field by field: that schema is `.strict()`, so a key this verb has no
 business writing is refused by name instead of landing in a lane's file.
 
-**Neither is a `ui` command any more.** `ui` promises to touch nothing of the project, and by that
-rule the copy belonged to it — the clipboard is the shell's and no file moves — while the paste
-WRITES and was bare-named, which is what put one gesture's two halves on either side of the
-namespace line. The rule still holds for everything else; here a better subject was available, and
-a head that names the thing acted on beats one that classifies the side effect. `event move` and
-the file-tree verbs are still on the far side of it.
+**Neither is a `ui` command.** `ui` promises to touch nothing of the project, and by that rule the
+copy would belong to it — the clipboard is the shell's and no file moves — while the paste WRITES
+and could only be bare-named, which puts one gesture's two halves on either side of the namespace
+line. The rule holds for everything else; here a better subject is available, and a head that
+names the thing acted on beats one that classifies the side effect. `event move` and the file-tree
+verbs are on the far side of it.
 
-## A clip with a window is FRAMED on it — it used to be caged
+## A clip with a window is FRAMED on it, not caged to it
 
-Both editors used to show the window and **nothing else**: outside it was not drawn, not
-scrollable-to, not clickable. Neither does now, and they gave it up for the same reason — a window
-can only be judged against what lies outside it, and material a trim or a resize would give back is
-material you have to be able to see. What replaced the cage is one shape, drawn twice:
+Neither editor draws the window and **nothing else**, for the same reason — a window can only be
+judged against what lies outside it, and material a trim or a resize would give back is material
+you have to be able to see. What they draw instead is one shape, twice:
 
 | | the reach | the act |
 |---|---|---|
@@ -442,31 +436,30 @@ Editing stops at the edges, and is **refused rather than clamped** in both: a no
 the window would be a note you drew, saw, and never heard, and an onset appearing at the edge
 instead of under the pointer is an edit nobody made.
 
-Two things the roll keeps from the cage. The grid stays **absolute** — a window opening at bar 3
-says 3, not 1 — and the playhead still **folds** back into the window (`localBeat % win`) instead
-of walking off along the placed extent, because the later passes of a looped clip really are the
-same picture again. The pitch fit also still reads only the notes the window contains, so a stray
-note three octaves down cannot squash the pitches that are actually playing.
+Two things the roll does anyway. The grid is **absolute** — a window opening at bar 3 says 3, not
+1 — and the playhead **folds** back into the window (`localBeat % win`) instead of walking off
+along the placed extent, because the later passes of a looped clip really are the same picture
+again. The pitch fit reads only the notes the window contains, so a stray note three octaves down
+cannot squash the pitches that are actually playing.
 
-**`WaveformView` in `whole` mode** — the strip a `clips/*.yaml` opens in the editor — was the one
-pane that never caged, and it is now the rule rather than the exception. Its purpose is to show the
-file the window is judged against, and it is where the `from`/`to` handles live.
+**`WaveformView` in `whole` mode** — the strip a `clips/*.yaml` opens in the editor — is the same
+rule at its plainest. Its purpose is to show the file the window is judged against, and it is where
+the `from`/`to` handles live.
 
 ## What the roll OPENS on, without a window
 
 `src/rollFit.ts`, and both axes work the same way: frame what is **used**, with a 20% margin, and
-let the canvas run to the placed extent — the later passes are there to be scrolled to. The pitch
-axis had always done that — the used range ±20%, clamped to the 128 keys that exist; the time axis
-had regressed to framing `[0, clip.length]` and was measured back into shape on LEMO - DANSE
-(`bs.verse/bass_2_3`, 16 beats of notes placed 35 long, opened at 38% full; it opens at 83%, the
-1/1.2 the margin implies). With a window the fit question disappears: the view IS the window, and
-the pitch fit reads only the notes the window contains.
+let the canvas run to the placed extent — the later passes are there to be scrolled to. On the
+pitch axis that is the used range ±20%, clamped to the 128 keys that exist; on the time axis it is
+the span the notes occupy, not `[0, clip.length]`, which on 16 beats of notes placed 35 long would
+open the pane 38% full where the margin asks for 83%. With a window the fit question disappears:
+the view IS the window, and the pitch fit reads only the notes the window contains.
 
 ### A different clip opens at fit, zoom included
 
-`useHZoom` holds its multiplier in state and nothing let go of it, so a clip opened after a zoomed
-one inherited the previous one's scale — the other half of "it does not open on its content", and
-the half no fit arithmetic could fix. Both panes now reset it on the clip's identity.
+`useHZoom` holds its multiplier in state, so both panes reset it on the clip's identity. Without
+that reset a clip opened after a zoomed one inherits the previous one's scale — the half of "it
+does not open on its content" that no fit arithmetic can fix.
 
 The roll's framing effect waits for that reset (`if (zoomX !== 1) return`): on the commit that
 changes `clip.id`, `ppb` still carries the old multiplier, and scrolling by it lands somewhere else
@@ -474,12 +467,12 @@ entirely.
 
 ### "A different clip" is not the same question as "different MATERIAL"
 
-The waveform's fetch hung on `clip.id`, which is exactly the thing a trim does not change: `clip
-trim` rewrites the clip file's `from`/`to` and leaves the placement alone, so the pane kept
-drawing the material it had before. It depends on `clipEnvelopeKey` now — the same key the
-timeline's envelope cache is filed under, so the pane and the blocks behind it cannot disagree
-about what a clip currently plays. `docs/timeline.md` ("Activity runs through the blocks") holds
-the reasoning and lists what is still stale until a reload.
+The waveform's fetch depends on `clipEnvelopeKey`, not on `clip.id` — which is exactly the thing a
+trim does not change: `event trim` rewrites a window and leaves the identity alone, so a fetch hung
+on the id keeps drawing the material the pane had before. It is the same key the timeline's
+envelope cache is filed under, so the pane and the blocks behind it cannot disagree about what a
+clip currently plays. `docs/timeline.md` ("Activity runs through the blocks") holds the reasoning
+and lists what is still stale until a reload.
 
 A trim therefore re-fits the pane, like opening another clip does. That is the honest reading:
 the region really is a different one.
@@ -487,12 +480,12 @@ the region really is a different one.
 ## The loop marks
 
 `src/clipLoop.ts` is the arithmetic, shared so the panes cannot disagree: the window that
-repeats, how many passes fit the placed length, and where each later pass begins. **The roll no
-longer draws any of it** — its canvas IS the window now, so a band would frame everything and mark
-nothing; only its header still states the loop and its pass count in words. The waveform strip
-(`WaveformView`, outside `whole` mode) still spans the placed length and draws the marks in violet
-— a hue it had not spent (yellow transients, blue warp marks, `primary` slice windows) — as a
-tinted band with its two edges picked out and a fainter line per repeat.
+repeats, how many passes fit the placed length, and where each later pass begins. **The roll draws
+none of it** — its canvas IS the window, so a band would frame everything and mark nothing; only
+its header states the loop and its pass count in words. The waveform strip (`WaveformView`,
+outside `whole` mode) spans the placed length and draws the marks in violet
+— the one hue nothing else there spends (yellow transients, blue warp marks, `primary` slice
+windows) — as a tinted band with its two edges picked out and a fainter line per repeat.
 
 **The two axes have different origins, and the compiler states the loop in whichever space its own
 material lives in** (`packages/song/docs/alternatives.md` is not this; the fields are set in
@@ -552,10 +545,10 @@ the placement's — `Math.max` of the froms, `Math.min` of the tos, in `nodeProj
 `WebClip`'s `sourceFrom`/`sourceTo` IS the event's effective window, and `ClipView` passes it down.
 A second copy of that arithmetic in the browser is exactly how the two would come to disagree.
 
-It used to be **caged** to the clip's window instead, and to the *definition's*: the panel asks for
-`whole`, and in that mode `WaveformOps` reads `clips/<id>.yaml` rather than the compiled placement,
-which knows nothing about which event you clicked. So a phrase placed with `from: 3.51` drew the
-whole take, and there was no way to tell which part of it was the one on the lane.
+The panel asks for `whole`, and in that mode `WaveformOps` reads `clips/<id>.yaml` rather than the
+compiled placement, which knows nothing about which event you clicked — so `act` cannot come from
+the picture the pane is drawing. Taken from there, a phrase placed with `from: 3.51` would show
+the whole take with no way to tell which part of it is the one on the lane.
 
 What acting "only on it" means, verb by verb:
 
@@ -574,38 +567,32 @@ What acting "only on it" means, verb by verb:
 - **the ruler** offsets from `act.from`, since `placedAt` is the beat that window starts playing
   at. The file's head is not placed anywhere at all.
 
-**What a trim WRITES is this EVENT's window.** It wrote the clip's, which every placement of that
-clip shared, and the panel said so in amber beside the button whenever the event was a slice. Both
-the caveat and the amber are gone with the thing they warned about: a clip file describes the bytes
-and a placement describes the use (`packages/song/docs/materialCut.md`), so trimming one event
-leaves the others alone by construction. The verb moved with the meaning — `clip trim` is
-`event trim`, and it names the placement it acts on like every other `event …`.
+**What a trim WRITES is this EVENT's window**, so there is no caveat to carry about the other
+placements of the same clip: a clip file describes the bytes and a placement describes the use
+(`packages/song/docs/materialCut.md`), and trimming one event leaves the others alone by
+construction. The verb says it — `event trim` names the placement it acts on, like every other
+`event …`.
 
-### `whole` was cropping the picture it was shading
+### `whole` draws the file, and reports the window separately
 
 `regionWaveform` opens its region at `sourceFrom` and blanks whatever lies past `sourceTo` — right
 for a placement, and wrong for the one view whose whole purpose is to show the file the window is
-judged against. `clip trim` writes SECONDS, and `mapClip` reads exactly those, so trimming a clip
-silently redrew the pane as the trim itself: the head gone, the tail flat, and no way left to see
-what had been cut or to judge putting it back.
+judged against. Cropped there, the pane draws the trim itself: the head gone, the tail flat, and no
+way left to see what was cut or to judge putting it back. So `WaveformOps` draws the whole view
+windowless and reports the window separately, which is also what keeps `WaveformView`'s own overlay
+honest — it measures `from / wf.seconds`, and over a cropped picture that shades the wrong span of
+an already wrong picture.
 
-A **timecode** window escaped it — `Number("2:1")` is `NaN`, so `mapClip` skipped the field — so one
-field's two spellings drew two different pictures. `WaveformOps` now draws the whole view windowless
-and reports the window separately, which repairs both panes at once: `WaveformView`'s own overlay
-was measuring `from / wf.seconds` from the crop's zero, i.e. shading the wrong span of an already
-wrong picture.
+### …and a timecode edge resolves the way the compiler resolves it
 
-### …and the timecode spelling had no window to shade at all
+`loadAudioClipDoc` takes the project's grid, so `mapClip` — the path it takes, and therefore the one
+the `whole` view reads — resolves an edge written as a timecode as well as one written as a number,
+exactly as `nodeProject` does. Read numerically, `Number("2:1")` is `NaN` and the field is skipped,
+which produces a clip with **no window**: one field's two spellings draw two different pictures, and
+a song whose clips are written `to: "3:1"` has no band to shade at all.
 
-The same `Number(c.from)` is why the band did not appear on a real song. `nodeProject` has always
-resolved both spellings; `mapClip` — the path `loadAudioClipDoc` takes, and therefore the one the
-`whole` view reads — resolved only numbers, so a timecode edge produced a clip with **no window**.
-Measured on 01.danse.st0, four of five sampled clips are written `to: "3:1"` and came back empty;
-only the one trimmed by `clip trim`, which writes seconds, had anything to draw.
-
-`loadAudioClipDoc` now takes the project's grid and resolves the edge the way the compiler does.
-Without a grid it still drops a timecode rather than guessing, which is exactly what it did before,
-so the preview callers that pass none are unchanged — they read only `source` anyway.
+Without a grid it drops a timecode rather than guessing, so the preview callers that pass none are
+unaffected — they read only `source` anyway.
 
 The window rides on the payload in the same display seconds as the onsets and the warp marks, mapped
 through `RegionWaveform.toDisplay` — the region's own projection, handed out rather than copied. A
@@ -623,12 +610,12 @@ names the shared source, a gutter preview is whatever was auditioned there, slic
 Deriving one from `clip.id` would work for exactly one of them: a source preview's id is a *path*.
 
 **The window is resolved server-side**, in `Workspace.resolvePreview`, and that is where the
-substance was. It used to answer `{start: 0, length: 0}` for a clip — the whole file, end to end —
-so a take trimmed down to one bar of a five-minute pass played the five minutes, and the ▶ said
-nothing about the clip you were looking at. It now reads the compiled `sourceFrom`/`sourceTo`, with
-the project's grid passed in so a **timecode** edge resolves the way it does everywhere else. An
-absent `to` stays a length of 0, which the engine reads as "to the end of the file" — the only
-honest answer about an extent nobody here has opened the wav to measure.
+substance is: it reads the compiled `sourceFrom`/`sourceTo`, with the project's grid passed in so a
+**timecode** edge resolves the way it does everywhere else. Answering `{start: 0, length: 0}` for a
+clip is the whole file end to end, so a take trimmed down to one bar of a five-minute pass plays
+the five minutes and the ▶ says nothing about the clip you are looking at. An absent `to` does stay
+a length of 0, which the engine reads as "to the end of the file" — the only honest answer about an
+extent nobody here has opened the wav to measure.
 
 One shot, and no Stop button. The engine fires a voice through a preview sampler independent of the
 transport (`EngineHost::previewSample`); there is no state to poll and nothing to stop, so a toggle
@@ -659,10 +646,9 @@ away — a new ▶ makes a new span, and a new span restarts it.
 
 ## Dragging the window's edges
 
-The window is the EVENT's, so the gesture is on the event: `AudioClipPanel`'s band has two handles,
-and releasing one runs `event window <track> <at> <from> <to>` — journalled like every other edit
-here, and undone with one Ctrl+Z. A clip file states no window at all any more (the descent, see
-`packages/song/docs/materialCut.md`), so there is nothing to drag on the editor's own strip.
+The window this pane drags is the EVENT's, so the gesture is on the event: `AudioClipPanel`'s band
+has two handles, and releasing one runs `event window <track> <at> <from> <to>` — journalled like
+every other edit here, and undone with one Ctrl+Z.
 
 The handles live **inside `@studio/ui-waveform`'s canvas**, not on a layer the host puts over it.
 `timeToX` is the one authoritative mapping — it already carries the view's zoom and the measured
@@ -713,12 +699,12 @@ Four things worth knowing:
   tell "full" from "unstated" — which is the same distinction, drawn the same way.
 - **The LINE is the handle**, inside a grab zone five pixels either side of it — a one-pixel target
   is not one, and the same reasoning sizes the waveform's 12px slice grips. Every grip on a note is
-  a PLACE now: the line sets, **either edge** stretches, the body moves. It used to be the note's
-  whole box, with the DIRECTION of the first movement choosing between velocity and a move, and two
-  gestures sharing one surface meant neither could be started deliberately — a move that began with
-  a little vertical drift set a velocity instead, and the only way to find out was to look at what
-  had changed. A note with nothing to move it (`onSetNoteRange` absent) keeps its whole box as the
-  velocity handle: there is no second gesture to tell it apart from.
+  a PLACE: the line sets, **either edge** stretches, the body moves. Taking the whole box for
+  velocity and letting the DIRECTION of the first movement choose between it and a move puts two
+  gestures on one surface, so neither can be started deliberately — a move beginning with a little
+  vertical drift sets a velocity instead, and the only way to find out is to look at what changed. A
+  note with nothing to move it (`onSetNoteRange` absent) does keep its whole box as the velocity
+  handle: there is no second gesture to tell it apart from.
 
   The consequence, either way, is that a press on a note does not bubble to the lane's draw-a-note
   gesture — no loss, since two notes cannot share a key and a start, but it is the thing to remember
@@ -731,15 +717,11 @@ The live value lives in a **ref**, with state only for what to draw: firing the 
 a `setState` updater would run it twice under StrictMode's double invocation — a velocity written,
 then written again.
 
-Velocity had to be added to the wire to draw it at all: `WebNote` carried `time`, `duration` and
-`key`, and the compiler's `vel` stopped at `toWebTracks`.
-
 ## What is deliberately NOT drawn
 
-Nothing is hidden any more: every pane here shows more than the window and marks it instead. The
-roll and the audio clip panel used to hide it — *what does not play is not on screen* — which was
-the strongest possible statement and the wrong one, because it also hid what a trim would give
-back.
+Nothing is hidden: every pane here shows more than the window and marks it instead. *What does not
+play is not on screen* is the strongest statement available and the wrong one, because hiding what
+does not play also hides what a trim would give back.
 
 The outside is treated two ways, and the difference is real. On the **roll**, a note outside the
 window is dimmed and inert: a sequence's window is its pattern, so a note before or after it sounds

@@ -134,7 +134,7 @@ export function externalHref(
 const sget = async <T>(path: string, what: string): Promise<T> =>
   json(await fetch(`${PL8_URL}/api/shares${path}`), what);
 
-/** The frozen snapshots this person has published, and taking one back — both ends st0's now (../../docs/projects.md). */
+/** The frozen snapshots this person has published, and taking one back — both ends st0's (../../docs/projects.md). */
 export const shares = {
   list: () => sget<{ shares: ShareSummary[]; revision: string }>("", "shares"),
   revision: () => sget<{ revision: string }>("/revision", "revision"),

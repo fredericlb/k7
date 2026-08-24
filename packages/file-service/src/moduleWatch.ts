@@ -82,7 +82,7 @@ export function moduleFoldersStill(dir: string): boolean {
   return true;
 }
 
-/** Let `@studio/song` ask; called once by the process, so a CLI run or a test keeps walking as before. */
+/** Let `@studio/song` ask; called once by the process, so a CLI run or a test just keeps walking. */
 export function installModuleWatch(): void {
   setFoldersStill(moduleFoldersStill);
 }

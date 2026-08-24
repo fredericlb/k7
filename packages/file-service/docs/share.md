@@ -23,9 +23,9 @@ the source itself. A share shows the song, not the folder it was made in.
 ## The credential
 
 Not k7's `.settings.json` pair but the machine's own pl8 bearer — `mediatekBase()` /
-`mediatekToken()`, the `service:st0` token `npm run tokens` already writes into the supervisor's
-settings for the library pull. Sharing needed no new plumbing: this service has been talking to
-pl8 with it all along.
+`mediatekToken()`, the `service:st0` token `npm run tokens` writes into the supervisor's
+settings for the library pull. Sharing needs no plumbing of its own: this service talks to pl8
+with it already.
 
 A service token has no person of its own, so the user is named on every call (`?user=`) — the
 same arrangement, and the same accepted cost, that `/ssh-key/private` documents.

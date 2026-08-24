@@ -4,15 +4,15 @@ Mixer and placement mutations: rewrite a lane's own file in place so the change 
 same way for every surface that reloads it (TUI watcher, web refetch). A surgical edit, never a
 re-serialization.
 
-A lane lives in `nodes/`, because a lane IS a node of a `@studio/…-track` module and the file
-names it exactly as its track file used to.
+A lane lives in `nodes/`, because a lane IS a node of a `@studio/…-track` module, and the file
+is named after it.
 
-## What is still a lane field, and what left
+## What a lane's own file carries
 
-`mute`, `solo` and `frozen` are not lane fields any more. A lane's mute is its module's bypass,
-written to `graph.yaml`'s `bypassed:` — one state in one place — and solo is derived by the
-surface. `volume` and `pan` left for the `Mixer` module before any of that. What a lane's own
-file still carries is `color` and `disabled` (`packages/song/docs/trackModules.md`).
+`color` and `disabled`, and nothing else (`packages/song/docs/trackModules.md`). Its mute is its
+module's bypass, written to `graph.yaml`'s `bypassed:` — one state in one place — and solo is
+derived by the surface; `volume` and `pan` belong to the `Mixer` module; `frozen` is a point in
+the graph rather than a lane's field.
 
 A track's `volume` is a LINEAR GAIN, not dB: 1.0 is unity, 0.5 is −6 dB. The fader floor is
 −60 dB, below which silence is stored, and the ceiling is +6 dB — Tracktion's fader position
@@ -70,8 +70,8 @@ agree or a fade lands a bar out.
 
 ## The event's window
 
-`setTrackPlacementWindow` writes the placement's `from`/`to` in SECONDS. Since the descent that
-is the only window there is: a clip file describes the bytes, a placement describes the use
+`setTrackPlacementWindow` writes the placement's `from`/`to` in SECONDS, which is where an
+event's window lives: a clip file describes the bytes, a placement describes the use
 (`packages/song/docs/materialCut.md`). It is what the clip panel's two edge handles commit and
 what `event window` writes.
 
@@ -114,17 +114,14 @@ other mutation here uses: a lane by its id, resolved to `nodes/<id>.yaml`. See
 `packages/song/docs/takes.md`. `pushTrackClipsToTake` answers false when there was nothing to
 set aside — recording onto an empty lane is not recording OVER anything.
 
-## What went
+## What is NOT here
 
-`splitTrackPlacement` and `joinTrackPlacements` stood in this file with their two report types.
-They were the VIRTUAL pair: a split that wrote nothing and left two placements of one material,
-and a join that put such a pair back. Both are gone. A split that does not write is a split
-whose halves you cannot then treat apart — which is the reason to cut one at all — and every
-case the join refused (a different material, a gap, an overlap, a restart) is a case
-`selection consolidate` writes. One verb rejoins anything now, at the cost of a file. What is
-left here is placement arithmetic that does not cut material: move, resize, disable, warp, add,
-remove.
+Placement arithmetic that does not cut material: move, resize, disable, warp, add, remove. There
+is no split and no join in this file. Cutting and merging WRITE material and live in
+`materialCut.ts` — a split whose halves you cannot treat apart is not worth cutting, and every
+case a join would refuse (a different material, a gap, an overlap, a restart) is a case
+`selection consolidate` writes, at the cost of a file.
 
-A lane's ALTERNATIVES lived here too. They belong to the MODULE a lane is now, so the verbs are
-`node alternative …` in `projectEdit.ts`, and which clip list an edit lands in is
-`yaml/trackFile.ts`'s `clipsToEdit`.
+A lane's ALTERNATIVES are not here either. They belong to the MODULE a lane is, so the verbs are
+`node alternative …` in `projectEdit.ts`, and which event list an edit lands in is
+`yaml/trackFile.ts`'s `eventsToEdit`.

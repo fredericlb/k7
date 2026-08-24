@@ -14,7 +14,7 @@ ressource Tilt (`scripts/tilt-tasks.mjs` : un paquet rejoint la session en ayant
 `dev`), donc quand le superviseur arrive, le port répond déjà — `ensure()` classe le service
 « foreign » et n'a pas d'environnement à lui passer. Aucune des deux valeurs n'arrive.
 
-Le symptôme n'était pas « la synchro est en veille » mais, à l'ouverture d'un projet :
+Le symptôme n'est pas « la synchro est en veille » mais, à l'ouverture d'un projet :
 
 ```
 no SSH key on this machine and no hosted library configured (MEDIATEK_URL) to ask for one
@@ -51,6 +51,6 @@ C'est une décision d'identité, avec son prix : `apps/pl8/docs/sshKeyForService
 ## Le partage passe par la même paire
 
 `Workspace.shareLink` rend l'instantané et l'envoie à pl8 avec ce même bearer — pas la paire de
-`.settings.json` de k7. Le partage n'a demandé aucune plomberie nouvelle : ce service parlait déjà à
+`.settings.json` de k7. Le partage ne demande aucune plomberie nouvelle : ce service parle déjà à
 pl8 avec ce token. Et pour la même raison qu'au-dessus, l'utilisateur est nommé à chaque appel
 (`?user=`), un service n'ayant pas de personne à lui.

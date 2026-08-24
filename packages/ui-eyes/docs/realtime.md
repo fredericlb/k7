@@ -65,4 +65,4 @@ picture follows `EngineClock`. It is kept because the seam is the point: for a h
 whose sample position the picture must agree with, inventing an engine to keep time would be a whole
 process running to hold a number. It has no drift to correct (there is no audio clock to drift
 against), but it MUST still announce its own discontinuities — seeking and the play/pause edge both
-fire `onSeek`, and a seek that stayed quiet would leave the picture on the old frame.
+fire `onSeek`, and a seek that stays quiet leaves the picture on the frame before it.

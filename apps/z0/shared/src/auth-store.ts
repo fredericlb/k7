@@ -2,10 +2,7 @@
 // a module-level store, read through `useSyncExternalStore`. No polling, no guest login — signing
 // in and out is `account.ts`. See apps/z0/docs/auth.md.
 //
-// It was four BYTE-IDENTICAL copies of ~100 lines, each carrying a comment about the rule living
-// in one place. Only the fetch differed, and by import rather than behaviour — which is what a
-// parameter is for.
-//
+// One store for the four, parameterised by the fetch, which is all that separates them.
 // `buzzer` and `online` keep their own: theirs genuinely differ.
 
 import { useSyncExternalStore } from "react";
@@ -74,7 +71,7 @@ export function createAuthStore(f: AuthFetch): {
         return;
       }
       if (res.status === 401) {
-        // Back from pl8 and still anonymous means the button would only bounce again: say so.
+        // Back from the login and still anonymous means the button would only bounce again: say so.
         const why = cameBackStillAnonymous() ? SIGN_IN_DID_NOT_STICK : null;
         setState({
           status: why ? "error" : "unauthenticated",

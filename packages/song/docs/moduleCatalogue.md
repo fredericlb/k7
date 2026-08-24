@@ -1,27 +1,21 @@
-# moduleCatalogue — the module builder's list
+# moduleCatalogue — what a workspace can name in a chain
 
-The module builder used to be reached from the chains graph: a step showed a small "edit module" button, and
-clicking it opened that module's file. That reading was wrong in a way that only showed up once shared modules
-became nameable directly.
+`moduleCatalogue` lists what **this workspace** can name in a chain, which is what the module picker reads.
+It feeds no builder.
 
 A module is a **workspace** thing. It lives once, in `_modules`, and the same file backs every project beside
-it (see `sharedFolders.md`). Opening it from inside one song looked like a per-project edit and never was —
-the only reason it behaved like one is that saving forked a copy (`moduleFork.md`), which is a workaround for
-the entry point, not a design. And for a module the project inherited, it did not work at all: the resolution
-went through `hints.paths`, which by construction only holds the project's **own** modules, so a shared one
-came back "couldn't resolve".
+it (see `sharedFolders.md`). So the builder is not reached from the chains graph — a small "edit module"
+button on a step, opening that module's file — for two reasons. Opening it from inside one song would look
+like a per-project edit and never be one: the only thing making it behave like one is that saving forks a copy
+(`moduleFork.md`), which is a workaround for an entry point rather than a design. And for a module the project
+inherits it would not work at all, since resolution through `hints.paths` by construction only holds the
+project's **own** modules, so a shared one comes back "couldn't resolve".
 
-So the builder moved — three times. First to st0' settings panel; then out of st0 entirely, into
-`apps/pl8` where the modules themselves live; and then back, because a parameter list is a fact
-about a LOADED plugin and only a project loads one (`apps/st0/frontend/docs/moduleBuilder.md`).
-st0 is its only host now. What answers the "a module is a workspace thing" objection is not where
-the builder lives but **which tree you opened it from**: the file tree's Libraries tab lists the
-shared libraries as themselves, so a shared module is opened as shared and says so
-(`apps/st0/frontend/docs/sharedModules.md`).
-
-`moduleCatalogue` stays, and is still useful, because it answers a different question: it lists what **this
-workspace** can name in a chain, which is what the module picker reads. What it no longer
-does is feed a builder.
+st0 is the builder's only host, because a parameter list is a fact about a LOADED plugin and only
+a project loads one (`apps/st0/frontend/docs/moduleBuilder.md`). What answers the "a module is a
+workspace thing" objection is not where the builder lives but **which tree you opened it from**:
+the file tree's Libraries tab lists the shared libraries as themselves, so a shared module is
+opened as shared and says so (`apps/st0/frontend/docs/sharedModules.md`).
 
 ## What is listed
 
@@ -38,10 +32,9 @@ listed — the builder's one job is to open it, and a row that only ever reports
 
 ## Saving
 
-Nothing here saves any more. A workspace's `_modules` is read-only without exception — the escape hatch
-(`editShared` on `Workspace.write`) is gone, because the one caller that used it moved out. A save aimed at a
-shared module still forks (`moduleFork.md`), for everybody, which is what read-only does here instead of
-refusing.
+Nothing here saves. A workspace's `_modules` is read-only without exception — `Workspace.write` carries no
+escape hatch. A save aimed at a shared module forks (`moduleFork.md`), for everybody, which is what read-only
+does here instead of refusing.
 
 Edits to a MÉDIATHÈQUE module happen against pl8's own service, from st0's Libraries tab — a
 second store over the same builder, and the confirmation in front of it is there because that

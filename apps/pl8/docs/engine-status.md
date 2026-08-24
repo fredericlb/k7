@@ -12,9 +12,9 @@ The page holds **one WebSocket to the engine itself** (`EnginePage.tsx`, via
 facts that live beside the engine rather than in it. It never goes through pl8's
 backend: the backend is hosted, and every fact here is per-machine.
 
-The one-socket-per-tab rule (`useEngineChoice.ts`) holds because this section
-replaces the module editor on screen — `useModuleEngine` is not mounted while the
-page is.
+The one-socket-per-tab rule (`useEngineChoice.ts`) holds without any care here: the
+page asks `PlaybackProvider` for the app's socket (`useEngine().client`) rather than
+opening one of its own.
 
 ## Tray ↔ page mapping
 
@@ -28,16 +28,16 @@ page is.
 | `Clear waveform cache` | « Maintenance » | `POST <fileBase>/waveforms/clear`, the same route the supervisor calls |
 | `Show logs` | « Maintenance » → Journal | `GET <fileBase>/logs?tail=300` — the merged log, read instead of opened |
 | `Start/Stop/Restart engine`, `Restart file service` | **absent, on purpose** | the supervisor's only client is the stdio peer that spawned it; it has no network surface, and that is a security stance, not a gap (see engine-host) |
-| audio FALLBACK, web origins, autostart, folders | absent | supervisor/OS policy, same reason — the fallback is a rule about a device that is *not* there, which only something watching continuously can apply. The preferred one is no longer in this row: the page writes it, because a pick nobody remembers is how a machine ends up back on the Windows endpoint after every restart |
+| audio FALLBACK, web origins, autostart, folders | absent | supervisor/OS policy, same reason — the fallback is a rule about a device that is *not* there, which only something watching continuously can apply. The preferred one is NOT in this row: the page writes it, because a pick nobody remembers is how a machine ends up back on the Windows endpoint after every restart |
 
-The wire verbs come from `@studio/engine-browser`'s `EngineClient`, which grew the
+The wire verbs come from `@studio/engine-browser`'s `EngineClient`, which carries the
 control queries (`listSessions`, `listAudioDevices`, `setAudioDevice`,
 `listPlugins`, `rescanPlugins`, `listEditPlugins`, and a `session` override on
-`showNativePluginUI`) so st0 or m9 can draw the same panel without re-stating the
+`showNativePluginUI`) so any surface can draw the same panel without re-stating the
 wire.
 
 ## Routing
 
 `engine` is a `SECTION_IDS` entry with no header tab: only the cog links to it,
 and `routes.test.ts` pins both the round-trip and the no-collision rule
-(`/console` and `/dev-status` joined the paths the proxy claims above pl8).
+(`/console` and `/dev-status` are among the paths the proxy claims above pl8).

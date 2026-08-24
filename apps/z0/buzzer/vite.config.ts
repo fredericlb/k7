@@ -15,7 +15,7 @@ export default defineAppConfig({
   // A French-only surface, pinned to baseLocale so another app's stored choice cannot leak in.
   extend: {
     plugins: [frediverseParaglide({ strategy: ["baseLocale"] })],
-    // The old name still reaches these servers — see scripts/dev-hosts.mjs.
+    // The extra host names these servers answer to — see scripts/dev-hosts.mjs.
     server: { allowedHosts: LEGACY_DEV_HOSTS },
   },
 });

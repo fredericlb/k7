@@ -15,8 +15,8 @@ Each pair pins a **moment of the source** to a **beat of the timeline**. Both ax
 source only runs one way and so does the song. At least two points, because one says where a
 single moment lands and nothing about the rate anywhere — it cannot be applied at all.
 
-It used to be import-only: written by the `.dawproject` translator, drawn by `WaveformView`, read
-by the engine, and editable nowhere. `clip warp` is the other half.
+Two things write one: the `.dawproject` translator on import, and `clip warp`. `WaveformView`
+draws it and the engine reads it.
 
 ## Moving a point leaves its neighbours alone
 
@@ -106,8 +106,8 @@ Two consequences worth knowing:
 
 - **The waveform's stretch marks disappear** while it is off. They are derived from the compiled
   clip's map through the region's own mapping, and with no map that mapping is identity — marks
-  drawn on it would be pointing at beats the picture no longer places anywhere. The markers are
-  still in the text you are looking at, which is where you switched them off.
+  drawn on it would point at beats the picture places nowhere. The markers stay in the text you
+  are looking at, which is where you switched them off.
 - **A `to:` written as a timecode still resolves at the project tempo.** The window and the map are
   independent: one says which slice of the file plays, the other how that slice is stretched onto
   the grid. Switching the map off does not un-quote the window.
@@ -135,18 +135,17 @@ tells the engine how long the take is, and therefore at what tempo it was played
 falls short of the file says the take is slower than it is.
 
 Which is what a bounce does to it. `clip process … normalize` renders the material through a chain
-and points the clip at the render, and `--render` appends **two seconds** for reverb and release: a
-17.920 s take at 110 bpm came back 19.920 s long, the engine read 32.834841 beats over 19.92 s as
-**98.9 bpm**, played everything 11% slow — and, since an unlooped clip is capped at its window in
-SOURCE seconds, cut the phrase before its end. Observed in `01.danse.st0`, on the two clips that had
-been normalised.
+and points the clip at the render, and `--render` appends **two seconds** for reverb and release.
+A 17.920 s take at 110 bpm comes back 19.920 s long, so an untouched map has the engine read
+32.834841 beats over 19.92 s as **98.9 bpm** and play everything 11% slow — and, since an unlooped
+clip is capped at its window in SOURCE seconds, cut the phrase before its end.
 
 `retimeWarpMarkers(markers, seconds)` is the repair, and `processChain` calls it as it repoints.
 Three rules, and each is the conservative one:
 
 - **every existing point keeps its second.** A bounce renders the raw file unwarped at position
-  zero (`bounceDoc`), so the material is sample-for-sample where it was — measured on the real
-  pair: zero frames of lag. Only the END moved.
+  zero (`bounceDoc`), so the material lands sample-for-sample where it was — zero frames of lag,
+  measured. Only the END moves.
 - **what is appended continues at the map's own overall rate.** A tail is not musical material,
   and the rate the take already had is the one thing here that is measured rather than assumed.
 - **a shorter file is the same statement backwards**: points past the new end describe audio that

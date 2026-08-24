@@ -1,12 +1,12 @@
 # Les neuf effets du blindtest, refaits pour le studio
 
 z0 déforme un extrait avec neuf effets, écrits en WebAudio dans
-`packages/player-web/src/audioEffects.ts` et stockés dans une session comme neuf colonnes
-`fx_*`. Cette page dit où chacun est parti, ce qui est fidèle et ce qui ne l'est pas.
+`packages/player-web/src/audioEffects.ts` et stockés dans une session Grist comme neuf colonnes
+`fx_*`. Cette page dit à quoi chacun correspond côté studio, ce qui est fidèle et ce qui ne
+l'est pas.
 
-La règle appliquée : **jsdsp quand le vocabulaire du graphe l'exprime, le moteur sinon.**
-Rien n'a été ajouté au C++ — les deux effets qu'un graphe ne peut pas décrire existaient déjà
-comme plugins internes.
+La règle : **jsdsp quand le vocabulaire du graphe l'exprime, le moteur sinon.** Rien n'est
+ajouté au C++ — les deux effets qu'un graphe ne peut pas décrire sont des plugins internes.
 
 | effet z0 | devient | forme |
 |---|---|---|
@@ -30,8 +30,8 @@ tanh de 1 à 50.
 Pas dans le YAML. Une question déformée est **une version du morceau**, et la médiathèque sait
 déjà tenir les versions d'un morceau : son sidecar les liste sous `variants:`, et une valeur
 qui ne nomme pas un fichier à côté du master nomme une **chaîne**
-([variants.md](../../../packages/mediatek/docs/variants.md)). C'est exactement le cas ici, et
-`chains.md` de la médiathèque l'avait écrit avant nous : « z0 traite un morceau avec une ».
+([variants.md](../../../packages/mediatek/docs/variants.md)). C'est exactement le cas ici :
+z0 traite un morceau avec une chaîne.
 
 Donc :
 
@@ -64,8 +64,8 @@ même chaîne, en revanche : la déduplication se fait sur la carte d'effets, pa
 
 L'ordre des modules dans la chaîne est fixe — pitch, wobble, bitcrush, lowpass, highpass,
 phaser, chorus, overdrive — le pitch d'abord parce qu'il resynthétise, la saturation en
-dernier parce qu'elle vient après la mise en forme. z0 n'avait pas d'ordre du tout : il
-chaînait les effets dans l'ordre des colonnes Grist.
+dernier parce qu'elle vient après la mise en forme. Le lecteur WebAudio de z0, lui, n'a pas
+d'ordre du tout : il chaîne les effets dans l'ordre des colonnes Grist.
 
 Ce que ça donne : **16 chaînes** pour 20 emplacements de variante sur 20 sidecars, sous
 3 catégories (`Déformées` deux fois, une par session, et `Assourdissant`). Les 15 morceaux de
@@ -73,7 +73,7 @@ Ce que ça donne : **16 chaînes** pour 20 emplacements de variante sur 20 sidec
 
 ## Ce qui n'est pas fidèle, et pourquoi
 
-**Le phaser.** z0 empilait quatre passe-tout balayés par un LFO. Le vocabulaire du graphe
+**Le phaser.** z0 empile quatre passe-tout balayés par un LFO. Le vocabulaire du graphe
 (`engine/moteur/engine/DspGraph.h`) ne peut ni l'un ni l'autre, et les deux raisons méritent
 d'être écrites une fois pour toutes :
 
@@ -91,14 +91,14 @@ balayer un, rendrait la version exacte triviale — dix lignes de graphe. Le bui
 `@engine/phaser` du moteur est un vrai phaser, mais ses trois réglages (Depth, Rate, Feedback)
 sont séparés : pas de bouton unique, donc pas la forme d'une question.
 
-**Le wobble.** z0 sommait trois LFO sur le désaccord de la source. Rien ici ne réaccorde un
+**Le wobble.** z0 somme trois LFO sur le désaccord de la source. Rien ici ne réaccorde un
 tampon, alors la hauteur vient d'où elle vient sur une bande : une ligne à retard dont la
 longueur bouge. Les trois fréquences sont celles de z0 (0,23 / 0,71 / 1,37 Hz), mutuellement
-irrationnelles pour que le voilage ne se laisse jamais prévoir. Ce qui saute, c'est la dérive
-aléatoire que z0 injectait toutes les 800 ms : un graphe est une description, évaluée
+irrationnelles pour que le voilage ne se laisse jamais prévoir. Ce qui manque, c'est la dérive
+aléatoire que z0 injecte toutes les 800 ms : un graphe est une description, évaluée
 identiquement à chaque fois, et il n'y a pas de source de bruit dans ce vocabulaire.
 
-**L'overdrive.** Même courbe `tanh(drive·x)`, drive de 1 à 50. La normalisation de z0 divisait
+**L'overdrive.** Même courbe `tanh(drive·x)`, drive de 1 à 50. La normalisation de z0 divise
 par `tanh(drive)`, et il n'y a pas de `tanh` au rythme du contrôle ; au-dessus de drive 4 ce
 diviseur vaut 1 à un demi-pour-cent près, donc une rampe à deux points couvre le bas du bouton.
 
@@ -109,8 +109,8 @@ AirWindows que Tracktion embarque, avec ses deux réglages `Rez` (longueur du mo
 
 **Le pitch.** Décaler la hauteur sans bouger l'horloge demande un rééchantillonneur fenêtré,
 c'est-à-dire un algorithme et non un graphe de primitives. Le moteur en héberge déjà un. Et
-c'est le seul endroit où la réimplémentation est **meilleure** que l'originale : z0 désaccordait
-la source, ce qui accélérait aussi le morceau ; celui-ci ne touche pas à la durée.
+c'est le seul endroit où la version studio est **meilleure** que celle de z0 : z0 désaccorde
+la source, ce qui accélère aussi le morceau ; celle-ci ne touche pas à la durée.
 
 **La vitesse.** `speed` n'est pas un effet — c'est la vitesse de lecture, `playbackRate = v/10`
 sur la source WebAudio. Aucun module ne peut la changer : un module est un insert, il voit des
@@ -118,7 +118,7 @@ sur la source WebAudio. Aucun module ne peut la changer : un module est un inser
 morceau dans la session**, seul survivant des neuf colonnes `fx_*`. Sur un clip, le studio
 l'exprime avec deux repères `warp:` (`{ algorithm: elastique, markers: [[beat, secondes], …] }`,
 voir `packages/song/src/nodeProject.ts`) — qui étire le temps *sans* descendre la hauteur, là
-où z0 faisait les deux d'un coup. Le duo « warp + Pitch Shift » reproduit l'original.
+où z0 fait les deux d'un coup. Le duo « warp + Pitch Shift » reproduit le geste de z0.
 
 ## La phase appartient au backend
 
@@ -150,8 +150,8 @@ latence réseau varie ; c'est aussi pourquoi `flushBuzzes` est le seul endroit q
 
 Une seule des six SPA tient un `AudioContext` : **`monitor-web`**. `audioPlayback.ts` y possède
 le `SongPreloader` de `@studio/player-web` et le pilote depuis le WebSocket (`next`,
-`phase_change`, `audio_command`). Le presenter ne joue plus rien du tout — il ne lui reste que
-son bip de buzz et le tic des trois dernières secondes, deux `<audio>` ordinaires.
+`phase_change`, `audio_command`). Le presenter ne joue rien : il n'a que son bip de buzz et le
+tic des trois dernières secondes, deux `<audio>` ordinaires.
 
 C'est ce qui explique une demi-douzaine de bizarreries qui, lues une par une, passent pour des
 oublis :
@@ -218,7 +218,7 @@ Le `.json` n'est pas un cache qu'on peut ignorer : c'est ce qui part dans le doc
 que le moteur ne lit aucun fichier. `compileNodeProject` relance la source dans un processus
 enfant quand elle est plus neuve et réécrit le `.json` à côté.
 
-## Ce qui a été vérifié
+## Ce qui est vérifié
 
 Sans jouer une seule note — un second moteur à côté de celui qui tourne bloquerait le pilote
 ASIO, ce que `engine/moteur/AGENTS.md` raconte en détail :
@@ -238,5 +238,5 @@ ASIO, ce que `engine/moteur/AGENTS.md` raconte en détail :
   fichier à côté du master (28), soit une chaîne qui existe (20) ; 18 retombent sur le master,
   ce qui est la règle.
 
-Ce qui n'est pas vérifié, et ne peut pas l'être ici : **le son**. Aucun de ces réglages n'a été
+Ce qui n'est pas vérifié, et ne peut pas l'être ici : **le son**. Aucun de ces réglages n'est
 écouté.

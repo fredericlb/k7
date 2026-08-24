@@ -7,12 +7,11 @@ mean, why the chain halves, why anything finer than the double-croche is ticks, 
 
 ## Everything in TICKS, rounded ONCE at the top
 
-`fromBeats` converts to ticks first and then divides with integers. The float path rounded the
-sub-beat remainder on its own, and a remainder just under a whole beat rounded UP to one:
-126.999755 beats came out as `"32:3:3"`, a quaver field holding two quavers — a whole beat that
-should have carried into the crotchet beside it. It landed on the right moment, so it played
-correctly and read wrong, and the old rule would take that spelling half a beat earlier. One
-rounding, then pure integer division, and no level can overflow.
+`fromBeats` converts to ticks first and then divides with integers. Rounding each sub-beat remainder
+on its own lets a remainder just under a whole beat round UP to one — a quaver field holding two
+quavers, a whole beat that should have carried into the crotchet beside it. Such a spelling lands on
+the right moment, so it plays correctly and reads wrong, which is the failure nothing catches. One
+rounding at the top, then pure integer division, and no level can overflow.
 
 ## What the writer leaves off
 

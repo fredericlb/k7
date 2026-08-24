@@ -191,7 +191,7 @@ describe("pruneIdleLinks", () => {
   });
 
   it("DOES drop an idle session that is holding nothing", () => {
-    // A link dialled for a preview alone; the bare session used to be spared for being bare.
+    // A link dialled for a preview alone: being the bare session is no reason to spare it.
     ensureEngine(null);
     const client = last();
     expect(pruneIdleLinks(Date.now() + 10 * 60_000)).toEqual([SESSIONS.st0]);
@@ -310,7 +310,7 @@ describe("awaitArm", () => {
   });
 
   it("lets go of its listeners on a timeout, so the next error is not swallowed", async () => {
-    // They were `once`, which never fires on a timeout: the stale listener ate the next message.
+    // A `once` never fires on a timeout, so the stale listener eats the next message.
     const c = spy();
     const out: string[] = [];
     await awaitArm(c, "gtr", out, () => true, 5);

@@ -4,7 +4,7 @@
 // has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
-/** The three the header offers, plus two with NO TAB, and the four that left (../docs/routing.md). */
+/** The three the header offers, plus two reached by a button and given no tab (../docs/routing.md). */
 export const SECTION_IDS = [
   "songs",
   "samples",
@@ -14,7 +14,7 @@ export const SECTION_IDS = [
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
 
-/** The sections whose address carries a second half — a LIST, though down to one (../docs/routing.md). */
+/** The sections whose address carries a second half — a LIST, one entry deep (../docs/routing.md). */
 const CARRIES: readonly string[] = ["songs"];
 
 const isSection = (s: string): s is SectionId =>

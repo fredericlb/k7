@@ -1,5 +1,5 @@
 // Where a z0 SPA sends the browser to sign in, and what signing out has to
-// close. One rule for the six of them: the ACCOUNT login belongs to pl8, at the
+// close. One rule for the six of them: the ACCOUNT login belongs to st0, at the
 // origin root — z0 owns only the guest cookie. See apps/z0/docs/auth.md.
 
 // The SERVICE prefix, not any SPA's: the backend answers under /z0/api while a SPA sits deeper.
@@ -27,7 +27,7 @@ export function cameBackStillAnonymous(): boolean {
   }
 }
 
-/** Sign in at pl8's PREFIXLESS `/auth/login` — the only one the IdP knows, ../../docs/auth.md. */
+/** Sign in at the PREFIXLESS `/auth/login` — the only one the IdP knows, ../../docs/auth.md. */
 export function login(): void {
   try {
     sessionStorage.setItem(RETURNING, "1");

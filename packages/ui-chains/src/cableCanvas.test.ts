@@ -1,7 +1,6 @@
-// cableCanvas.test.ts — the canvas layer's contracts: it traces EXACTLY the curve the SVG
-// `d` string described (the equality that used to be smoothPathXY's byte-identity test), the
-// wobble leaves both endpoints untouched, and a frame applies the camera and strokes
-// shadow-then-cable at the widths the stylesheet used.
+// cableCanvas.test.ts — the canvas layer's contracts: it traces EXACTLY the curve `smoothPath`'s
+// `d` string spells out, the wobble leaves both endpoints untouched, and a frame applies the
+// camera and strokes shadow-then-cable at the stylesheet's widths.
 
 import { describe, expect, it } from "vitest";
 import {

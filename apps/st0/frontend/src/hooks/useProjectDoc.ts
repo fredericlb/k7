@@ -1,7 +1,7 @@
 ﻿// useProjectDoc.ts — the compiled doc's slice of shell state, refetched on reloadKey.
 // The doc drives the strudel poll gate, the track order
 // the engine meters index by, the mixer state for the track-node controls, and the
-// recording overlay's fields. Extracted from App.tsx; behaviour unchanged.
+// recording overlay's fields. Apart from App.tsx, which only wires it.
 
 import { DEFAULT_METRONOME_LEVEL } from "@studio/engine-protocol/build";
 import { useEffect, useRef, useState } from "react";

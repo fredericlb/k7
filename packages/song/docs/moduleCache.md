@@ -17,11 +17,11 @@ médiathèque mounted as a shared library:
 | **`loadModuleRefs` total** | | **295 ms** |
 | the stamp that replaces it | 391 `stat`, 318 `readdir` | **20 ms** |
 
-That 295 ms was paid four to six times behind ONE command in st0: `loadProject` wants the
+That 295 ms is paid four to six times behind ONE command in st0: `loadProject` wants the
 vocabulary, `loadGraph` wants it again, and so do `projectErrors` and `hints` — each of which
-the browser fetches as soon as the command returns. Switching a track's alternative — one line
-rewritten in one YAML file — cost about 2.6 s of file service, almost all of it re-reading a
-médiathèque that had not changed since the app was opened.
+the browser fetches as soon as the command returns. Uncached, switching a track's alternative —
+one line rewritten in one YAML file — costs about 2.6 s of file service, almost all of it
+re-reading a médiathèque that has not changed since the app was opened.
 
 ## What the stamp covers
 
@@ -44,22 +44,22 @@ token, and `waveformCache`'s envelope memo on an mtime alone.
 ## The two rules
 
 **A cached read never leaves the loader.** `cloneModules` hands back a fresh map of fresh
-module objects. Both rules it protects are real and were found by reading the callers:
+module objects. Both rules it protects are real, and both are properties of the callers:
 
 - `ioPorts` ADDS to the map it is given — it files the project's own io modules in beside the
-  refs. A shared map would have grown a copy of them on every call.
+  refs. A shared map would grow a copy of them on every call.
 - `applyUiLibrary` writes `ui` and `cc` onto the modules in place, and `loadModules` and
   `loadModuleRefs` do it by two DIFFERENT rules (a module's own refs, versus the ref it is
   filed under). Sharing the objects would let whichever ran last decide what the other's caller
-  saw.
+  sees.
 
 Aliases survive the clone: a module filed under both `audio/reverb` and `@project/audio/reverb`
-stays one object, which is what `loadModuleRefs` has always keyed those two as.
+stays one object, which is how `loadModuleRefs` keys those two.
 
 **An injected catalogue is never cached.** `loadModuleRefs(dir, {})` is a test naming its own
 vocabulary, and the catalogue is the one input the stamp cannot see.
 
-## What was tried and does not work
+## The variant that does not work
 
 Walking the stamp **once per turn of the event loop** — memoise it, clear it on `setImmediate`
 — looks safe and is not. The reasoning behind it ("nothing can land between two synchronous
@@ -72,24 +72,24 @@ walk is 20 ms; pay it per call.
 ## `withModuleStamp` — per READ SCOPE, which a tick is not
 
 Per call is one walk too many all the same, and it shows in a profile. A compile asks the cache
-twice — `loadModules`, then `loadModuleRefs` a few lines later — and stamped twice. On the
-`01.danse.st0` song (15 tracks, 57 clips, 31 plugins, the médiathèque mounted) one walk is
-328 `readdir` + 418 `stat` and **28 ms**, against a 140 ms compile: the second walk was 19% of
-`compileNodeProject` and of `loadGraph` alike, spent proving nothing had changed since the
+twice — `loadModules`, then `loadModuleRefs` a few lines later — and stamping per call stamps
+twice. On the `01.danse.st0` song (15 tracks, 57 clips, 31 plugins, the médiathèque mounted) one
+walk is 328 `readdir` + 418 `stat` and **28 ms**, against a 140 ms compile: the second walk is
+19% of `compileNodeProject` and of `loadGraph` alike, spent proving nothing has changed since the
 previous line.
 
 `withModuleStamp(dir, fn)` gives `fn` one stamp, computed on the first ask inside it. What
 makes it safe is exactly what the tick memo lacked: the scope is **named by a caller that reads
 and never writes**. `compileNodeProject` and `loadGraph` are those callers — a compile is a pure
-read of a folder — and they are the only two. Everything outside a scope stamps per call, as
-before, so `node param`'s write-then-reload still sees its own write.
+read of a folder — and they are the only two. Everything outside a scope stamps per call, so
+`node param`'s write-then-reload still sees its own write.
 
 Lazily, too: a scope that never asks the cache walks nothing.
 
 **It is RE-ENTRANT, and that is not a nicety.** A scope already open for the same project is kept
-rather than replaced. Opening a fresh one threw the enclosing scope's stamp away and walked again —
-which is how HOISTING a scope over two calls that each open their own (a compile and a graph build)
-made things *slower*, measured at +19 ms a level. Same shape as `withRevision` in the file service,
+rather than replaced. Opening a fresh one would throw the enclosing scope's stamp away and walk
+again — which is how HOISTING a scope over two calls that each open their own (a compile and a
+graph build) makes things *slower*, by +19 ms a level. Same shape as `withRevision` in the file service,
 and for the same reason. The previous scope is RESTORED rather than cleared on the way out, because
 a scope for another folder may enclose this one — the graph of a library chain built while a project
 is open — and the two stamps are not the same.
@@ -101,18 +101,18 @@ oldest goes when there are too many.
 
 ### One more syscall per entry, next door
 
-`yamlFilesIn` in `yaml/moduleIO.ts` belongs to the same pass: listing a folder used to cost
-three syscalls per entry — the `readdir`, a `statSync` to prove the entry was a file, then
-`existsSync` back through `moduleFileFor` to find the name `readdir` had just handed over. A
-`Dirent` says file-or-directory itself; only a symlink still needs the stat.
+`yamlFilesIn` in `yaml/moduleIO.ts` belongs to the same pass: listing a folder costs one syscall
+per entry and not three. A `Dirent` says file-or-directory itself, so neither a `statSync` to
+prove the entry is a file nor an `existsSync` back through `moduleFileFor` for the name `readdir`
+has just handed over is needed; only a symlink needs the stat.
 
-With the scope above, that took the song from 140 ms to 96 ms, and `buildGraphDoc` from 133 ms
-to 102 ms. The rest of this page is what was still in those 96 ms.
+With the scope above, that puts the song at 96 ms rather than 140, and `buildGraphDoc` at 102 ms
+rather than 133. The rest of this page is what is left in those 96 ms.
 
 ## The entity files — `yaml/yamlCache.ts`
 
-`readYamlEntities` was what remained, ~40% of a compile: 183 files read and parsed on every
-command, of which one had changed.
+`readYamlEntities` is what remains, ~40% of a compile: 183 files read and parsed on every
+command, of which one has changed.
 
 **The audit the "two rules" section demands, for clips, sequences, curves and video tracks.**
 What is cached is the RAW parse; the entity schema then runs on every call, and zod **rebuilds
@@ -136,9 +136,9 @@ Measured here — 3000 same-size rewrites, as fast as Node can issue them:
 | consecutive rewrites sharing an `(mtime, size)` | **76%** |
 
 A cache keyed on that serves the previous content — for a clip file, the edit you just made
-silently not happening. It is the same class of mistake as the tick memo above, found the same
-way: by trying to break it rather than by a green suite. `packages/song` passed with the unsafe
-key.
+silently not happening. It is the same class of mistake as the tick memo above, and it is found
+the same way, by trying to break it rather than by a green suite: `packages/song` passes with the
+unsafe key.
 
 The fix is not a finer key but a narrower one. An mtime is trusted only once it is **older than
 any clock or filesystem granularity** (2 s: NTFS is sub-ms, FAT is 2 s, network mounts are 1 s),
@@ -149,7 +149,7 @@ cached; the 182 you did not touch are served.
 
 `yamlCache.test.ts` pins that invariant, and only that one — the "same size straight after a
 read" case is a sanity check, since whether two writes share a tick is up to the clock and a
-test that depends on it proves nothing. Verified red by setting `SETTLE_MS` to -1.
+test that depends on it proves nothing. It goes red with `SETTLE_MS` at -1.
 
 What is left is what this codebase already states wherever it caches on an mtime
 (`waveformCache`, `Workspace.revision()`): a clock stepped backwards past the window.
@@ -159,8 +159,8 @@ What is left is what this codebase already states wherever it caches on an mtime
 Worth knowing before optimising the next one. On this machine `readFileSync` costs ~0.36 ms per
 file **whatever its size** — it is open/read/close, not the content: 57 clip files totalling
 9 KB cost 21 ms to read and 6 ms to parse. Skipping the read is therefore the bigger half, which
-is why a content-addressed cache (keep the read, compare the text, skip only the parse) was
-tried and dropped: perfectly safe, and it recovered only 12 ms of the 46.
+is why a content-addressed cache (keep the read, compare the text, skip only the parse) is not
+the answer: perfectly safe, and it recovers only 12 ms of the 46.
 
 ## The seam: something that already knows
 
@@ -176,16 +176,16 @@ the answer changed hands. The first read of a project always walks whatever the 
 what makes an empty or lying watcher safe rather than merely unlikely.
 
 Nothing here installs one. The file service does, in its `listen` callback, because holding file
-handles is a property of being a long-lived server — a CLI run, a test and a script keep walking
-exactly as before, and none of them pays for a watcher they would immediately close. The
+handles is a property of being a long-lived server — a CLI run, a test and a script walk instead,
+and none of them pays for a watcher they would immediately close. The
 implementation, the platform quirks and the ceiling that heals a missed event live over there:
 `packages/file-service/docs/moduleWatch.md`.
 
 ## Where the time ends up
 
-Same song, same machine, warm:
+Same song, same machine:
 
-| | before | after |
+| | uncached | warm |
 |---|---|---|
 | `compileNodeProject` | 140 ms | **53 ms** |
 | `buildGraphDoc` (via `loadGraph`) | 133 ms | **57 ms** |

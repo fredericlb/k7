@@ -3,10 +3,10 @@
 // @studio/song); what is pinned here is the loop's own judgement — what it fetches, when it
 // decides nothing has to happen, and what it tells the rest of the service afterwards.
 //
-// It fetches SONGS and nothing else. Modules and chains were its other half and are gone from
-// it: they live in the account's library repository, mounted per workspace as a git submodule,
-// and a folder git owns must have exactly one writer — `syncFamily` deletes whatever the
-// owner's manifest does not list. See packages/song/docs/sharedFolders.md.
+// It fetches SONGS and nothing else. Modules and chains live in the account's library
+// repository, mounted per workspace as a git submodule, and a folder git owns must have exactly
+// one writer — `syncFamily` deletes whatever the owner's manifest does not list. See
+// packages/song/docs/sharedFolders.md.
 
 import {
   existsSync,

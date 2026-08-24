@@ -111,7 +111,7 @@ describe("finding a command by describing it", () => {
   });
 
   it("is fuzzy, not a prefix", () => {
-    // The old bar filtered by `startsWith` on the name; neither of these would have matched.
+    // Neither of these would match a `startsWith` filter on the name.
     expect(names("mute")).toContain("track mute");
     expect(names("tmut")).toContain("track mute");
   });

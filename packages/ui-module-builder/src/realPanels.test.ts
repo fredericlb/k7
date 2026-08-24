@@ -1,9 +1,8 @@
 // What "this panel couldn't be parsed" is allowed to mean.
 //
 // The grid greys itself out and says so — a warning about a FILE, so it had better be about a
-// file. It was reported on every module in a library, about panels that parse perfectly: the grid
-// took ONE boolean for two reasons, and read-only was the other one. These pin the half that is a
-// real fault, and the shapes the repository's own panels actually have.
+// file. One boolean for two reasons puts it on every panel that parses perfectly but is merely
+// read-only. These pin the half that is a real fault, and the shapes the repo's panels have.
 //
 // Fixtures rather than a directory walk, deliberately: this package has no node types and should
 // not gain them for a test. It draws a browser's screen; `node:fs` reaching it is the thing that

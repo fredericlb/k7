@@ -17,15 +17,15 @@ two questions:
 - `eventsToEdit` is where the edit LANDS: always the selected set, forking the inherited list into it
   on the first write.
 
-That fork is the whole fix. Every edit here used to write `["events"]` flat, so dragging a clip while
-on take 2 rewrote take 1 — the arrangement you were not looking at — and the two takes were never
-separate documents at all (`packages/song/docs/alternatives.md`).
+That fork is what makes two sets two documents. Writing `["events"]` flat would mean dragging a clip
+while on take 2 rewrites take 1 — the arrangement you are not looking at
+(`packages/song/docs/alternatives.md`).
 
 The fork uses `clone()` rather than a rebuild from plain values, because it is a deep copy that
-brings each placement's own comments with it. An empty set was written `- {}`, and a flow map keeps
-everything inside it on its own line — so a forked arrangement would arrive as one 400-character
-row. These files are hand-edited and they are in git, so the set opens out and its placements stay
-one per line as everywhere.
+brings each placement's own comments with it. An empty set is opened out into a block map rather
+than left as `- {}`: a flow map keeps everything inside it on its own line, so a forked arrangement
+would arrive as one 400-character row. These files are hand-edited and they are in git, so its
+placements stay one per line as everywhere.
 
 Every index-taking edit rests on one property: the index came from the list that is PLAYING, and
 forking copies it in order, so it still points at the same placement.
@@ -58,15 +58,13 @@ whole list, and half of it applied is a state nobody asked for.
 
 ## Plain values, not document nodes
 
-`placementAt` returns `toJSON()` and not the document node, and the difference is not cosmetic: it
-used to return the node (`getIn(…, false)`), which its own summary and its return type both denied.
-Its one caller — `movePlacementToTrack` — spreads what it gets, and spreading a YAMLMap copies the
-MAP's fields rather than the placement's, so dragging an event onto another lane wrote
-`{ items: […], flow: true, range: […] }` into the file. The lane then failed to compile and took the
-whole timeline with it, which is a long way from a drag. A node cannot cross documents anyway — it
-carries a `range` into offsets of the file it was parsed from — so there was never a reader that
-wanted one. `placementValues` is the list to its one, and hands back plain values for the same
-reason.
+`placementAt` returns `toJSON()` and not the document node, and the difference is not cosmetic: its
+one caller — `movePlacementToTrack` — SPREADS what it gets, and spreading a YAMLMap copies the MAP's
+own fields rather than the placement's, so a drag onto another lane would write
+`{ items: […], flow: true, range: […] }` into the file and the lane would stop compiling. A node
+cannot cross documents anyway — it carries a `range` into offsets of the file it was parsed from —
+so no reader wants one. `placementValues` is the list to its one, and hands back plain values for
+the same reason.
 
 Both of them read the DOCUMENT rather than a validated lane, as `findPlacement` does: a file with one
 bad field elsewhere still has events you can point at, and refusing a drag because something
@@ -103,8 +101,8 @@ take would leave that take playing the whole file the day you swapped it back on
 
 `packages/song-schema/src/placementId.ts` holds it in two functions with no imports, so a BROWSER can
 have the rule: it is written by the compiler, logged by the engine, carried on `/waveform`, and read
-back by every surface that has to find the file behind a clip. It lived in `nodeProject.ts`, which
-reaches for `node:fs` and `node:child_process` — the same reason `graph-model` was split out.
+back by every surface that has to find the file behind a clip. It is kept out of `nodeProject.ts`,
+which reaches for `node:fs` and `node:child_process`, for the reason `graph-model` is its own tier.
 
 Two placements of one material are the ordinary case — a split makes a pair of them, and any lane may
 drop the same sample twice — so the material's name alone cannot identify one. The start does,
@@ -112,8 +110,8 @@ because two placements cannot begin at the same beat on one lane without being t
 
 It is `@` and the start IN BEATS. Start rather than an index into `events:`, because the list's order
 is not meaningful: a split appends its tail, so an index would renumber the neighbours of every cut.
-Moving a clip does change the id, and that costs nothing — `clipMoved` already re-inserts on a
-changed `start`, so the engine was going to rebuild it either way. It is readable on purpose: it is
+Moving a clip does change the id, and that costs nothing — `clipMoved` re-inserts on a changed
+`start`, so the engine rebuilds it either way. It is readable on purpose: it is
 what the engine logs and what a `/waveform` request carries.
 
 `materialRefOf` is the inverse, for the readers that want the file rather than the placement: a
@@ -130,7 +128,7 @@ is at or after the point moves; one already playing across it stays where it is 
 inserted silence. That is what `moveTrackPlacementsInRange` and `selection consolidate` both already
 do, and the alternative — cutting at the point — would make inserting time a verb that writes new
 material and renders audio (`packages/song/docs/materialCut.md` on why there is no free, reversible
-cut any more).
+cut).
 
 Deleting removes the events that START inside the span and shifts the rest back, so insert-then-
 delete of the same span returns the file to what it was, byte for byte. That round trip is the

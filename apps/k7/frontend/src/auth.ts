@@ -7,7 +7,7 @@ import { api } from "./api";
 
 const BOUNCED = "k7.signin-bounced";
 
-/** Leave for pl8's login, remembering the trip so we only make it once. */
+/** Leave for the origin root's login, remembering the trip so we only make it once. */
 export function signIn(): void {
   sessionStorage.setItem(BOUNCED, "1");
   // replace, not assign: in history, the anonymous URL would bounce again on Back.

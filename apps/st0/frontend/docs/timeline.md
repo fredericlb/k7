@@ -20,8 +20,8 @@ included. Two positions exist:
 
 The label position is what makes a group or a generated lane reachable at all. Neither
 holds clips, so selecting the row is the whole of what they have to offer — and mute/solo
-are the only operations they take. Until the caret could land on them there was no way to
-aim one.
+are the only operations they take. Without a position the caret can land on, there is no way
+to aim one.
 
 `clampCaret` keeps the caret somewhere it can actually be: rows come and go (a reload, a
 pattern lane starting or stopping), so a vanished row falls back to the first row that can
@@ -34,16 +34,14 @@ They answer different questions — *where the transport is* and *where you are 
 nothing joins them. **The caret moves only because you moved it.** Playing, rewinding,
 clicking the ruler, scrubbing the minimap: none of them touch it.
 
-The caret used to ride the playhead's beat, on the theory that it kept you looking at where
-you were. What it actually did was take the caret away from you: start playback and the
-thing every key aims at — `e` to edit the clip under it, `m` to pick one up, `v` to start a
-rectangle — was somewhere else a moment later, dragged across the arrangement at 20 Hz. It
-also swept everything downstream of the caret along with it, so the Editor panel re-targeted
-a new clip several times a second while the transport ran.
+Riding the playhead's beat would take the caret away from you: start playback and the thing
+every key aims at — `e` to edit the clip under it, `m` to pick one up, `v` to start a
+rectangle — is somewhere else a moment later, dragged across the arrangement at 20 Hz. It
+would sweep everything downstream of the caret along with it, so the Editor panel would
+re-target a new clip several times a second while the transport ran.
 
-The coupling was never symmetric, and the direction that survives is the useful one: `t`
-(`transport locate`) sends the **playhead to the caret**. You aim, then you send the
-transport there — not the other way about.
+The one coupling there is runs the useful way: `t` (`transport locate`) sends the **playhead
+to the caret**. You aim, then you send the transport there — not the other way about.
 
 ## Live state is drawn by LEAVES, never by the body
 
@@ -52,20 +50,12 @@ a fresh snapshot object ~20 times a second, so *any* subscription held by `Timel
 re-renders the whole arrangement at frame rate — and a selector of `s => s` does it whether or
 not a single number in that frame has changed.
 
-That is not a theoretical cost. A Firefox profile of 17.7 s, taken while the app sat there:
-
-| | |
-|---|---|
-| React synchronous passes | **406 — 22.9/s**, mean 11.2 ms, 62 over 16 ms |
-| …containing `TimelineTab` | 236 of them, mean 12.4 ms |
-| React total | **4.9 s = 28 %** of the capture |
-| of which `updateProperties` (DOM writes) | **2.18 s = 12 %** |
-| Graphics — display list + paint | **6.4 s = 36 %**, ~154 paints/s |
-| Idle | **18 %** |
-
-The tab was 82 % busy drawing a playhead and two meter bars. Receiving the frames cost 55 ms —
-0.3 %. The cost was never the wire or the JSX; it was re-rendering an arrangement's worth of
-DOM to move one line.
+The cost is measured rather than theoretical. With the body subscribed, a 17.7 s Firefox profile
+of a tab sitting there spends **28 % of the capture in React** — 406 synchronous passes, 22.9/s,
+236 of them containing `TimelineTab`, half of that time in DOM writes — and **36 % in graphics**,
+at ~154 paints/s, for 18 % idle. That is a tab 82 % busy drawing a playhead and two meter bars,
+while receiving the frames costs 55 ms of it, 0.3 %. The expense is never the wire or the JSX; it
+is re-rendering an arrangement's worth of DOM to move one line.
 
 So the rule, and the three things that follow it:
 
@@ -100,8 +90,8 @@ the same reason, one level down.
 
 What is deliberately **not** memoised: the lane rows themselves. They close over some
 twenty-five values, several of them closures rebuilt every render, so a `memo()` there buys
-nothing until those are stabilised too — and with the frame-rate driver gone, what is left
-re-renders a few times a second on a poll or a keystroke, not 23. Measure before paying for it.
+nothing until those are stabilised too — and with no frame-rate driver, what is left re-renders a
+few times a second on a poll or a keystroke, not 23. Measure before paying for it.
 
 ### Dropping a marker
 
@@ -110,16 +100,15 @@ snapped to the nearest drawn tick** — the same `nearestTick` against the same 
 left-click seek uses. Both buttons therefore agree about where a point on the ruler is, and a
 marker can only land on a line you can see. The zoom is the resolution control here too.
 
-It aimed at the caret first, falling back to the playhead, on the theory that those are
-positions you chose deliberately. That was wrong for a reason worth recording: **the caret is
-always defined.** It sits at beat 0 until you move it, so "the caret if it holds a beat" is
-not a test for *has the user aimed at something* — and once the playhead stopped dragging the
-caret along (above), every right-click read that untouched beat 0 and proposed `1:1`.
+Deliberately not the caret, and not the playhead behind it: **the caret is always defined.** It
+sits at beat 0 until you move it, so "the caret if it holds a beat" is not a test for *has the
+user aimed at something* — aiming there, every right-click on an untouched timeline reads that
+beat 0 and proposes `1:1`.
 
-Snapping also removes the problem the caret was there to solve. The playhead is continuous,
-and `beatsToPosition` subdivides a leftover fraction by four until it runs out, so a raw
-transport position spelled as `4:2:2:2:4:4:2:4`; a drawn tick is always a whole multiple of
-the ruler's unit, so it spells as `4:2` or `4:2:3`.
+Snapping also removes the problem aiming at a deliberately chosen position would solve. The
+playhead is continuous, and `beatsToPosition` subdivides a leftover fraction by four until it
+runs out, so a raw transport position spells as `4:2:2:2:4:4:2:4`; a drawn tick is always a whole
+multiple of the ruler's unit, so it spells as `4:2` or `4:2:3`.
 
 ## The grid, and what a ruler click lands on
 
@@ -147,11 +136,11 @@ beat cells.
 
 ### …and so does a clip DRAG
 
-Dragging an event snaps to **the ruler's current unit**, not to whole beats. It snapped to beats
-at every zoom before, so the gesture and the grid disagreed in both directions: zoomed past the
-beat, the lines offered eighths the drag could not land on; zoomed out to bars, it still moved in
-beats you could not see. The zoom is the resolution control everywhere else here
-(`packages/ui-waveform/docs/ticks.md`); this makes the drag obey it.
+Dragging an event snaps to **the ruler's current unit**, not to whole beats. Snapping to beats at
+every zoom makes the gesture and the grid disagree in both directions: zoomed past the beat, the
+lines offer eighths the drag cannot land on; zoomed out to bars, it still moves in beats you
+cannot see. The zoom is the resolution control everywhere else here
+(`packages/ui-waveform/docs/ticks.md`), and the drag obeys it.
 
 Three details, each of which could have gone the other way:
 
@@ -187,19 +176,18 @@ reach, so it drops to a 64th (`MIN_FREE_BEATS`) — short enough to be a real ch
 that an edge dragged past the other does not leave a placement that plays nothing.
 
 It is one DOM node per tick, on top of the one the ruler already draws — a cost paid on a
-re-render, **not** on a playhead frame: `Grid` and `RulerTicks` are memoised and the body no
-longer subscribes to the transport at all (see "Live state is drawn by LEAVES" above).
+re-render, **not** on a playhead frame: `Grid` and `RulerTicks` are memoised and the body does
+not subscribe to the transport at all (see "Live state is drawn by LEAVES" above).
 
 ### …and only the ticks you can SEE are built
 
 Both layers window themselves to the scroller they are given (`useVisibleBeats` in `Ruler.tsx`),
 with a 400px margin either side so a scroll reveals lines rather than a bare strip.
 
-The count is what made this necessary. The ladder floors at a 64th of a beat, so a whole-song
-list SATURATES at 64 nodes per beat: about 19 000 for a three-minute song and 192 000 for a long
-set. That was the real ceiling on the zoom — not the browser's — and `useHZoom`'s flat `max: 32`
-was what kept anyone from meeting it. Windowed, the count follows the PANE: about forty, at any
-zoom, on any length of song.
+The count is why. The ladder floors at a 64th of a beat, so a whole-song list SATURATES at 64
+nodes per beat: about 19 000 for a three-minute song and 192 000 for a long set — the real
+ceiling on the zoom, met long before the browser's. Windowed, the count follows the PANE: about
+forty, at any zoom, on any length of song.
 
 A windowed tick is the SAME tick, by construction: `index` is computed from the ORIGIN
 (`b / unit`) and never from the first one built, so the label stride and the three weights do not
@@ -213,10 +201,11 @@ and nothing else.
 
 ### The zoom has no ceiling you can reach
 
-`useHZoom` used to clamp at `32`, which is a number and not a reason — and it is the one people
-MET: the wheel simply stopped, with nothing on screen to say why. The clamp is derived now
-(`zoomCeiling`), from the only limit that is really there: a browser refuses to lay out an
-element past about 33.5 million pixels, and a lane wider than that is silently clipped —
+`useHZoom`'s clamp is derived (`zoomCeiling`) from the only limit that is really there, rather
+than being a written-down number: a flat number is a ceiling with no reason behind it, and the one
+people MEET — the wheel simply stops, with nothing on screen to say why. The limit that is really
+there: a browser refuses to lay out an element past about 33.5 million pixels, and a lane wider
+than that is silently clipped —
 `scrollWidth` stops agreeing with the width we computed, and the anchored zoom drifts a little
 further off with every notch. On a laptop pane the ceiling is some 13 000×, which is one 64th of
 a beat filling the screen on a five-minute song.
@@ -224,9 +213,9 @@ a beat filling the screen on a five-minute song.
 `min` stays 1, and that is a different kind of bound: 1 IS fit. Below it the pane would draw the
 whole thing plus empty space, and there is nothing further out to see.
 
-The ruler's own vertical-drag zoom reads the same `zoomCeiling`. It had its own hand-written
-`32` — a number written twice is two answers waiting to disagree, which is the same trap its
-neighbouring comment already records about `scrollLeft`.
+The ruler's own vertical-drag zoom reads the same `zoomCeiling` rather than a number of its own:
+a number written twice is two answers waiting to disagree, which is the same trap its
+neighbouring comment records about `scrollLeft`.
 
 ## Clicking a header
 
@@ -246,8 +235,8 @@ why the double-click is a callback (`onFocusRow`) and not a command. What it add
 `rowTarget` in `rows.ts`, and it is the redirect the mute/solo table below already describes: a
 generated lane has no file and no chain of its own, so it names its **group**.
 
-A header selection survives playback, as every caret position now does — see "The caret and
-the playhead are independent" above.
+A header selection survives playback, as every caret position does — see "The caret and the
+playhead are independent" above.
 
 ## A lane's takes
 
@@ -275,21 +264,21 @@ and before the name. It sits with the icon because it is part of what the lane I
 something about its sound, and `shrink-0` beside a truncating label means a narrow gutter eats
 the name and never the badge.
 
-Alternatives belong to the MODULE a lane is now, so the pair comes from
+Alternatives belong to the MODULE a lane is, so the pair comes from
 `packages/song/docs/alternatives.md` and not from a field of the lane's own.
 
-Two things it keeps from the arrow that used to be here:
+Two things about it:
 
 - it costs **nothing** on a lane with no choice. The graph carries the pair only past a list of
-  one, so those lanes have no entry and grow no badge — the gutter width every other lane always
-  had is untouched;
+  one, so those lanes have no entry and grow no badge — the gutter width every other lane has is
+  untouched;
 - it is **amber** only when the lane is away from the first set. A lane whose clips appear to
   have vanished with nothing on screen explaining it is the failure that avoids, and the colour
   is what makes it readable at a glance down a column of fifteen.
 
-It shows the name **even on the first set**, where the arrow showed none. With the badge costing
-nothing on lanes that have no choice, that asymmetry was hiding the one fact a reader wants —
-that this lane has variants at all. The first set's name is `"1"`, the module's own fields having
+It shows the name **even on the first set**. Costing nothing on lanes that have no choice, a badge
+that appeared only away from the first set would hide the one fact a reader wants — that this lane
+has variants at all. The first set's name is `"1"`, the module's own fields having
 nowhere to carry one, so a single label reads as a number for an unnamed set and as a name for a
 named one without the gutter having to choose.
 
@@ -304,14 +293,13 @@ that need a name arrive in the command bar half-typed, which is what `complete` 
 
 Three things fall out of reusing it, and they are the reason to:
 
-- the old `TrackAlternatives.tsx` had to **portal** its menu to the body, because this gutter is
-  `overflow-hidden` (a zoom parks out-of-view clips at negative offsets) and a menu inside it was
-  clipped to the height of one lane. The shell's `ContextMenu` is rendered by `App` and is
-  `fixed`, so there is nothing to escape from;
-- it needed `usePopin` so Escape stopped at the menu instead of also closing the graph slot
-  behind it. The shell's menu answers Escape in the capture phase and stops it, so that whole rung
-  is somebody else's problem now — which is why "a lane's alternatives" is no longer in the list
-  of self-closing overlays in [shell.md](shell.md);
+- **nothing has to be portalled to the body.** This gutter is `overflow-hidden` (a zoom parks
+  out-of-view clips at negative offsets), so a menu of its own drawn inside it would be clipped to
+  the height of one lane; the shell's `ContextMenu` is rendered by `App` and is `fixed`, so there
+  is nothing to escape from;
+- **no `usePopin` rung.** The shell's menu answers Escape in the capture phase and stops it, so
+  Escape cannot also close the graph slot behind it — which is why "a lane's alternatives" is not
+  in the list of self-closing overlays in [shell.md](shell.md);
 - the badge is handed the **button's rectangle**, not the pointer, so the menu hangs off the badge
   whether it was reached by mouse or by keyboard.
 
@@ -366,12 +354,11 @@ trackpad still pan; a **pinch** zooms; and **holding the middle button** pans, o
 The hard part is that a wheel and a trackpad send *the same event*. A pinch is the one gesture the
 browser marks — it synthesises `ctrlKey`, on a Mac trackpad and on a Windows precision touchpad
 alike — and `isZoomWheel` reads that. Everything else arrives as a plain wheel whatever produced
-it, which is why this pane spent a while with the plain wheel meaning PAN: while it zoomed, every
-attempt to push a trackpad about zoomed the timeline instead, and there was no signal to tell the
-two apart.
+it, so without a way to tell the two apart one gesture has to mean one thing for both devices:
+either a trackpad slide zooms the timeline, or a mouse wheel cannot zoom at all.
 
-There is one, and the chains graph found it first — three signals, most reliable first, now read
-here too by `isMouseWheel` (`@studio/ui-timeline/panZoom`):
+There is a way — three signals, most reliable first, read here by `isMouseWheel`
+(`@studio/ui-timeline/panZoom`):
 
 1. a `deltaMode` of lines or pages: only a real wheel is ever reported that way (Firefox does it);
 2. `wheelDeltaY`, which Chrome and Safari still carry — a detent is a multiple of **120**, the
@@ -384,8 +371,8 @@ It is **wrong in one direction only**, deliberately: an unrecognised device is r
 and keeps panning. A trackpad that zooms when you meant to pan is a broken trackpad; a mouse that
 pans is merely a mouse that does not zoom yet.
 
-**What a mouse gives up is the vertical wheel.** The lanes no longer walk past under the wheel —
-that gesture is now the zoom — so scrolling a tall project means the middle-button drag, which
+**What a mouse gives up is the vertical wheel.** The lanes do not walk past under it — that
+gesture is the zoom — so scrolling a tall project means the middle-button drag, which
 pans both axes, or the keyboard (`j`/`k` move the caret and the pane follows). **Shift+wheel** is
 left to the browser, which already reads it as "scroll sideways", so a mouse keeps one scroll
 gesture; the pinch is tested first, so Ctrl+Shift+wheel is still a pinch with a finger resting on
@@ -415,16 +402,17 @@ first, unmeasured frame (`paneW` 0), so nothing renders zero-width before the
 Two layout traps that cost real time:
 
 - The ResizeObserver effect is keyed on `proj`, because the pane does not exist until the
-  project loads. Without the re-run, `paneW` stayed 0 for the tab's whole life and the lanes
-  never widened past the song's own extent.
+  project loads. Without the re-run, `paneW` stays 0 for the tab's whole life and the lanes
+  never widen past the song's own extent.
 - `min-w-0` on the scroll pane: without it the fixed-width lane wrapper sets the flex
-  child's min-content width, so the pane could grow with the window but never shrink back,
-  and the fit-to-pane scale ratcheted.
+  child's min-content width, so the pane grows with the window but never shrinks back,
+  and the fit-to-pane scale ratchets.
 
 The scroll offset is restored across a pane switch by hand. The zoom lives in React state
 and survives on its own, but *where the view is scrolled to* is the DOM's, and a
-`display:none` box has no layout to hold it — so going to the chains view and back returned
-the arrangement to bar 1. It restores only when the scroller has just regained size **and**
+`display:none` box has no layout to hold it — so going to the chains view and back would
+otherwise return the arrangement to bar 1. It restores only when the scroller has just
+regained size **and**
 sits at the origin, the signature of that drop; a deliberate scroll to 0 saves 0 and
 restores nothing.
 
@@ -484,23 +472,22 @@ its shape. A **sequence** sums the velocities of every note *sounding* at each p
 chord is louder than its loudest note; a missing `vel` is the schema's default, 1), tiling a
 loop window exactly as the mini-roll tiles its notes. Peaks are max-pooled into buckets, never
 averaged — a hit inside a quiet bucket is the activity the block should show. Until an audio
-envelope arrives (or when none ever will), the block wears the flat 70% it always did, so
-nothing flashes.
+envelope arrives (or when none ever will), the block wears a flat 70%, so nothing flashes.
 
 ### That cache is keyed by the WINDOW, not by the clip id
 
 `src/clipEnvelope.ts` builds the key, and it exists because the id is not enough. `event trim`
-rewrites the clip file's `from`/`to` and *nothing else* — same id, same start, same length — so
-a cache filed under the id answered the trimmed block with the untrimmed envelope, and went on
-doing so for the rest of the session, since nothing ever evicted an entry. The block kept the
-colour pattern of material it no longer played.
+rewrites the event's `from`/`to` and *nothing else* — same id, same start, same length — so a
+cache filed under the id answers the trimmed block with the untrimmed envelope, and goes on doing
+so for the rest of the session, since nothing evicts an entry: the block keeps the colour pattern
+of material it no longer plays.
 
 The key folds everything `regionWaveform` reads: the window (`offset`, `sourceFrom`,
 `sourceTo`), the placement (`start`, `length`), the fact of a warp, the project's tempo and
 time signature, and the bucket count. It is deliberately a **mirror of the file service's own
 `wfSig`** (`packages/file-service/src/waveformOps.ts`) — the two answer the same question one
-layer apart, and the service's version carries a comment about this exact failure: it had the
-window in its signature already, and the browser cache in front of it put the bug back.
+layer apart, and the service's version carries a comment about this exact failure: a cache in
+front of a correctly-keyed one puts the bug back on its own.
 
 The entry has the same shape for the same reason: `{key, data}` filed under the clip id, so a
 changed key MISSES and the replacement keeps the map bounded by the clip count however many
@@ -525,9 +512,9 @@ beat and headed at its last, on that event's lane. The caret is one cell, so cov
 eight beats long is the rectangle or nothing.
 
 That makes a click a starting point rather than a dead end. Everything the caret and the
-selection already drive now applies to the thing you pointed at: `z` frames it, Shift+L loops
-it, `m` picks it up, `m`/`s` act on its lane, and the Editor panel follows the caret onto its
-file. None of that needed writing — it is what the caret was already for.
+selection already drive applies to the thing you pointed at: `z` frames it, Shift+L loops it,
+`m` picks it up, `m`/`s` act on its lane, and the Editor panel follows the caret onto its file.
+None of it needs writing — it is what the caret is for.
 
 A length-0 placement is covered as it is DRAWN, over its natural four beats, not over the zero
 its file states. A caret stopping short of the block it is meant to be on would read as a
@@ -617,39 +604,34 @@ stranding a half-finished move whose keys no longer reach it.
 
 ### A dropped clip STAYS dropped
 
-The commit used to clear the move state and then send the command, so for the length of the
-write-and-reload round trip the clip drew at its old start — it sprang home on release and
-jumped forward a moment later. Read as "the move didn't take".
+A committed move is **held**, not cleared (`Move.pending`), and the clip keeps drawing where it
+was dropped until the project containing that move arrives. Clearing the state and then sending
+the command draws the clip at its old start for the length of the write-and-reload round trip: it
+springs home on release and jumps forward a moment later, which reads as "the move didn't take".
 
-So a committed move is **held**, not cleared (`Move.pending`), and the clip keeps drawing where
-it was dropped until the project containing that move arrives. That is also the right answer when
-the command FAILS: the clip returns to where the file still says it is, rather than sitting at a
-position nothing on disk agrees with.
+Holding it is also the right answer when the command FAILS: the clip returns to where the file
+still says it is, rather than sitting at a position nothing on disk agrees with.
 
 A pending move is deliberately **not modal** — it is already written and only still drawn, so it
 must not swallow the keys, and `m` may pick up the next clip immediately. The edge resize is held
 the same way, for the same reason.
 
-### The LEFT button, and what that cost
+### The LEFT button
 
-It was the right button for a while. The argument was that moving a clip rewrites the project
-and should not sit on the button that does every harmless thing, so one stray drag could not
-silently move a placement.
+Moving a clip rewrites the project, which argues for a button that does not do every harmless
+thing — but dragging a block is what a left button is *for*, and a gesture nobody reaches for
+protects nothing. What guards against the stray drag is the 4px slop (below it the gesture is a
+click, and a click on a clip writes nothing) and Ctrl+Z, which puts it back. There is no `u`
+binding: undo is deliberately outside `keys.ts` entirely, on the capture-phase listener in
+`App.tsx`.
 
-It is the left button now, because that argument lost to the one that matters more: dragging a
-block is what a left button is *for*, and a gesture nobody reaches for protects nothing. What
-guards against the stray drag instead is the 4px slop (below it the gesture is a click, and a
-click on a clip still writes nothing) and Ctrl+Z, which puts it back. (This said `u` for a long
-time. There has never been a `u` binding — undo is deliberately outside `keys.ts` entirely, on the
-capture-phase listener in `App.tsx`.)
+Two things fall out. The right button is only the context menu, so nothing here needs the Windows
+`contextmenu`-after-`pointerup` workaround one button doing two jobs would call for. And nothing
+else wants the left button on a clip: the caret is keyboard-driven, so `stopPropagation` there
+costs no gesture.
 
-Two things fall out, both good. The right button goes back to being only the context menu — the
-`suppressClipMenu` flag is gone, and with it the Windows `contextmenu`-after-`pointerup`
-workaround that existed solely because one button did two jobs. And nothing else wanted the left
-button on a clip: the caret is keyboard-driven, so `stopPropagation` there costs no gesture.
-
-The resize handles were already left-button and already stopped propagation, which is what keeps
-an edge grab from also starting a move.
+The resize handles are left-button too and stop propagation, which is what keeps an edge grab
+from also starting a move.
 
 ### Which lane it lands on
 
@@ -690,9 +672,8 @@ and the command are tested against each other end to end rather than each on its
 The wedge follows the cursor while a drag is in hand rather than waiting for the round trip, the
 same courtesy a moved clip gets — the gesture in hand is read before the clip's own value.
 
-This is the last piece of a feature that was otherwise finished: `fadeIn`/`fadeOut` have been on
-the placement, on the engine's wire and in the C++ engine all along, and were absent from `WebClip`
-alone. The browser had never been told they existed.
+`fadeIn`/`fadeOut` live on the placement, on the engine's wire, in the C++ engine and on
+`WebClip`: the wedge is the only part of the feature this pane owns.
 
 ## Zooming with two fingers
 
@@ -703,10 +684,10 @@ not scale alike:
   whatever delta the browser puts on it. Bare on a mouse, since `isMouseWheel` recognises the
   device; with Cmd or Ctrl it is the same step, which is how a trackpad asks for one;
 - a **trackpad pinch** arrives as Ctrl+wheel — a stream of small continuous deltas, dozens a
-  second. Given the notch's step it multiplied 1.15 per event and hit the zoom limit before the
-  fingers had finished moving, which is how "pinch does not work" was really spelled. It scales
-  BY the delta now, clamped so a browser reporting a pinch in hundreds cannot jump a decade in
-  one event;
+  second — so it scales BY the delta, clamped so a browser reporting a pinch in hundreds cannot
+  jump a decade in one event. Given the notch's whole step it would multiply 1.15 per event and
+  hit the zoom limit before the fingers had finished moving, which is how "pinch does not work"
+  is really spelled;
 - **two fingers on a touchscreen** produce no wheel at all. They are read from touch events, and
   measured against the spread the gesture STARTED at rather than frame to frame — a ratio of
   ratios accumulates rounding, and pinching out and back in would not return where it began.
@@ -729,8 +710,8 @@ arrangement package importing the graph's would be the wrong way round.
 ## The name column is wider here than the shared default
 
 `GUTTER_DESKTOP` in `@studio/ui-timeline` is sized for the least a gutter can carry: a name.
-This app's carries two meters, an instrument icon, the name and three toggles, which had left
-the name a few characters wide — so it takes 30% more (`GUTTER_WIDE`).
+This app's carries two meters, an instrument icon, the name and three toggles, which at that width
+would leave the name a few characters wide — so it takes 30% more (`GUTTER_WIDE`).
 
 Local rather than pushed into the shared package, because the width is a property of what a
 surface PUTS in the column, and a surface that drew names alone would be paying viewport for
@@ -741,9 +722,8 @@ click landing one column off, which reads as a rounding bug and is not one.
 
 ### …and it STAYS, while the lanes pan under it
 
-`sticky left-0` on every gutter cell (`GUTTER_STICKY`), which is what the piano roll's key column
-has always done — the timeline was the one pane where panning right took the names off screen and
-left a wall of anonymous clips.
+`sticky left-0` on every gutter cell (`GUTTER_STICKY`), as the piano roll's key column does —
+without it, panning right takes the names off screen and leaves a wall of anonymous clips.
 
 Sticky cells inside the ONE scroller, not a second pane beside it. Two scroll containers means two
 scroll positions to keep in step, and a pixel of drift there shows up as a lane wearing its
@@ -763,8 +743,8 @@ Two details carry it:
   the ruler.
 
 …and the scroller carries **`isolate`**, which is what keeps those four numbers a private
-conversation. Without it they compete with the SHELL's: the ruler's 40 beat the header's 20 and
-drew straight over the **cog menu**, which is a plain absolute dropdown inside the header rather
+conversation. Without it they compete with the SHELL's: the ruler's 40 beats the header's 20 and
+draws straight over the **cog menu**, which is a plain absolute dropdown inside the header rather
 than a portalled one, so it cannot escape the header's stacking context to get away from it.
 Isolated, the whole pane takes part outside at `auto` and the header sits above it — while the
 full-screen overlays (the settings screens at `z-40`, the module builder at `z-30`, every popin at
@@ -788,10 +768,9 @@ A generated lane is synthesized per tick, so muting the group is the only thing 
 silence it (see `project.ts` `withGroupMix`). Aiming at the lane would be a key that cannot
 work, so the status line names the group instead and the redirect shows.
 
-Neither `m` nor `s` writes a flag on the lane any more. `m` is the lane's module BYPASS, one
+Neither `m` nor `s` writes a flag on the lane itself. `m` is the lane's module BYPASS, one
 name in `graph.yaml`'s `bypassed:`; `s` bypasses every OTHER lane, and nothing on disk says
-"soloed" (`packages/song/docs/trackModules.md`). The keys are unchanged and so is what you
-hear — only where the state lives moved.
+"soloed" (`packages/song/docs/trackModules.md`).
 
 How a lane *reads* is not the same as the flag on it: a track is dimmed if it is muted, if
 its group is, or if something else is soloed and it is not — mirroring `withGroupMix` plus
@@ -817,12 +796,11 @@ stay unit-blind — and `bars`, the snap list every ruler gesture reads, is simp
 
 ## Both layers live in `Ruler.tsx`, and the roll draws them too
 
-`Grid` used to be declared in this file, which meant the timeline had a grid matching its ruler
-and the piano roll did not: the roll drew its own ruler from two hand-rolled loops (bars every
-`barBeats`, beats every 1, whatever the zoom) and put **bar lines only** under the notes. So
-zooming a clip in subdivided nothing and zooming it out smeared the numbers, while the same zoom
-on the timeline behaved. `Grid` sits beside `RulerTicks` now and the roll calls both, off the
-same `rulerScale`.
+`Grid` sits beside `RulerTicks` in `Ruler.tsx` rather than in this file, and the roll calls both,
+off the same `rulerScale`. Declared here it would be the timeline's alone, and the roll would be
+back to a ruler of its own — two hand-rolled loops, bars every `barBeats` and beats every 1
+whatever the zoom, with **bar lines only** under the notes: zooming a clip in subdivides nothing
+and zooming it out smears the numbers, while the same zoom on the timeline behaves.
 
 The pair is one statement and that is why they are together: a line under a ruler has to be a
 line the ruler drew, at the weight the ruler gave it. Anything with a ruler gets both —

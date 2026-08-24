@@ -33,15 +33,14 @@ stems: true               # separate a record put on unprepared (the CHAIN is th
 
 `split` is a PANE: the desk sits over the chains, half the column each, and a set — declaring no
 timeline — is those two and nothing else. That pairing is why it is a pane rather than a screen
-of its own, which is what it was: a fader on the desk is a param on a module in the graph.
+of its own: a fader on the desk is a param on a module in the graph.
 
 **The songs are not in the project.** A playlist lives at the root of the REPOSITORY, beside
 `_modules`, so one set list serves every project in the workspace and is committed with the
-work it was written for ([playlists.md](playlists.md)). `songs.yaml` said which songs the set
-drew on and no longer does: two files answered one question, and the playlist is the better of
-the two — it has a screen, it is shareable, and it is the thing somebody had already written.
-What was left of that file is the CUE sheet, and it is `mix.yaml` now — a file called `songs`
-holding no song list was a name describing what it used to be ([mixFile.md](mixFile.md)).
+work it was written for ([playlists.md](playlists.md)). Nothing inside the project restates it:
+two files answering one question is one too many, and the playlist is the better of the two — it
+has a screen and it is shareable. The CUE sheet is a separate document, `mix.yaml`
+([mixFile.md](mixFile.md)).
 
 The surface carries its own `mapping:` ([surfaces.md](surfaces.md)), so the declaration and the
 wiring are one file. The desk itself is `@studio/ui-turntables`, and st0 has an engine before it
@@ -90,9 +89,9 @@ because the two signals feed different readers, and that is exactly why it is **
 is worse than one that is refused.
 
 The values are `st0` and `z0`. A set declares nothing at the root: it is an `.st0`, and what says
-what it is is the pair above — a `turntables` surface and the playlist it names. It once said
-`project_type: live` too; that field is gone, because a folder saying it had no arrangement while
-its `surfaces/` said otherwise was a contradiction nothing could resolve.
+what it is is the pair above — a `turntables` surface and the playlist it names. There is no
+`project_type: live` beside it: a folder saying it has no arrangement while its `surfaces/` says
+otherwise is a contradiction nothing can resolve.
 
 `type` is a ROOT key, beside `trackOrder` and `markers`, and not a `project:` setting. The tier
 inside `project:` is the SONG's own settings — its tempo, its rate. This is a fact about the
@@ -174,20 +173,19 @@ The four files come from `playlist stems` (`@studio/commands`) — or, for a rec
 unprepared, from the desk itself, which is what `surfaces/desk.yaml`'s `stems:` line is for. What
 the desk does with them either way is `packages/ui-turntables/docs/stems.md`.
 
-**A set written before this has one lane a deck**, so its desk draws no stem column at all — which
-is the designed answer to an unwired mapping, not a fault. `scripts/migrateSetStems.ts` gives it
-the eight lanes, the sixteen nodes, the eight bypasses and the eight mapping lines, through the
-YAML Document API so every comment in the files comes back as it was. Dry by default:
+**A set with one lane a deck** draws no stem column at all — which is the designed answer to an
+unwired mapping, not a fault. `scripts/migrateSetStems.ts` gives it the eight lanes, the sixteen
+nodes, the eight bypasses and the eight mapping lines, through the YAML Document API so every
+comment in the files survives. Dry by default:
 
 ```bash
 npx tsx packages/song/scripts/migrateSetStems.ts <projet>.st0 --write
 ```
 
-The part it is easy to get wrong by hand is the DECK's own lane. Before the stems it fed a run —
-one feeder, so the EQ was a step the signal went through — and five feeders make that EQ a meeting
-point, so every lane now reaches it as a send. `out` is parallel, so an unmuted deck A would be
-heard twice over. The script adds it to `bypassed:` for that reason; deck B was already there,
-having always ended on a port.
+The part it is easy to get wrong by hand is the DECK's own lane. One feeder makes the EQ a step
+the signal goes through; five make it a meeting point, so every lane reaches it as a send. `out`
+is parallel, so an unmuted deck A is heard twice over. The script adds it to `bypassed:` for that
+reason; deck B is already there, ending on a port.
 
 It deliberately does NOT write the `stems: true` line. A separation is minutes a song, so it
 happens because a set asked for it. (And it never writes a chain: `system stems` holds that, once,

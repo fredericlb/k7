@@ -1,7 +1,7 @@
 // useTrackControls.ts — the per-track mixer state the timeline and the graph node
 // controls both read (doc mute/solo/volume/pan + optimistic overrides + the engine's
 // live armed set), and the toggle handler the m/s/r keys share with the buttons.
-// Extracted from App.tsx; behaviour unchanged.
+// Apart from App.tsx so the keys and the buttons share one implementation.
 
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

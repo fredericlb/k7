@@ -3,10 +3,10 @@
 // engine's fallback quietly stops matching what the library emits and nobody notices until a module without a
 // `dsp:` sounds different from one with it. So the test reads the C++ SOURCE and compares.
 //
-// It is a plain deep-equal because the C++ copy IS the emitted file, pasted. A first cut hand-wrote the C++
-// version with readable wire names (env, floorDb, travel) and reused one register across three nodes; the test
-// then needed a normalisation step to call the two equal, which is a sign the comparison had started
-// accommodating a divergence rather than preventing one. Pasting the generated text removes the divergence.
+// It is a plain deep-equal because the C++ copy IS the emitted file, pasted. Hand-writing that copy with
+// readable wire names (env, floorDb, travel) and one register reused across three nodes needs a normalisation
+// step to call the two equal, and a comparison that normalises is one accommodating a divergence rather than
+// preventing it. Pasting the generated text is what keeps the comparison exact.
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
