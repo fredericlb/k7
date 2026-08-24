@@ -1,7 +1,7 @@
 # Les stems sur le pupitre — retirer un instrument du disque
 
-Quatre potards par platine, à **gauche** de la platine, au même format que l'EQ : batterie,
-basse, reste, voix. **Au centre** le disque joue tel quel ; vers la gauche l'instrument s'en va,
+Quatre potards par platine, à **gauche** de la platine, au même format que l'EQ, disposés
+**deux par deux** : batterie et basse en haut, voix et reste en dessous. **Au centre** le disque joue tel quel ; vers la gauche l'instrument s'en va,
 vers la droite il y en a davantage.
 
 Ce que ça fait vraiment est une **soustraction**, et le raisonnement est dans
@@ -9,17 +9,24 @@ Ce que ça fait vraiment est une **soustraction**, et le raisonnement est dans
 redonne pas le morceau, donc la platine joue le disque et lui retire ce qu'on demande, plutôt que
 de rejouer quatre fichiers. Au repos, la sortie est le disque **bit à bit**.
 
-## La colonne, et pourquoi elle n'est pas en miroir
+## Le bloc, et pourquoi il n'est pas en miroir
 
 Les deux platines se font face — le tempo sur le bord extérieur, l'EQ sur l'intérieur — pour
 qu'une main sache sur laquelle elle est sans lever les yeux. **Les stems échappent à cette
 règle** : ils sont à gauche des deux. Ce que ces quatre potards retirent est une propriété du
 DISQUE et pas de la géométrie du pupitre, et chercher « la basse de la platine de droite » ne doit
-pas demander de savoir de quel côté la colonne est posée aujourd'hui.
+pas demander de savoir de quel côté le bloc est posé aujourd'hui.
 
-Même potard, même échelle de tailles, même `justify-center` que la tranche d'à côté
-(`ChannelStrip`) — c'est le même geste sur la même sorte de chose, **et la même course** : le
-milieu est le neutre et il va des deux côtés, comme un potard d'EQ.
+Même potard, même échelle de tailles, même centrage que la tranche d'à côté (`ChannelStrip`) —
+c'est le même geste sur la même sorte de chose, **et la même course** : le milieu est le neutre et
+il va des deux côtés, comme un potard d'EQ.
+
+**Deux par deux, et dans cet ordre-là.** `STEM_GRID` n'est pas `STEMS` : l'ordre du modèle est
+`drums, bass, other, vocals`, celui de la main est la section rythmique en haut et ce qui chante
+en dessous. Une colonne de quatre obligeait l'œil à descendre la liste ; un carré se vise. Le
+premier réflexe d'une soirée est la batterie, le second la basse — ils sont sur la même ligne. Un
+test tient les deux moitiés de la propriété : que le carré contienne les quatre stems exactement
+une fois, et que la première ligne soit bien la rythmique.
 
 Ça n'a pas toujours été le cas. La course allait de « rien retiré » vers « tout retiré », dans un
 seul sens, parce que le module ne savait que soustraire. Un potard qui commence à une extrémité et
@@ -27,18 +34,20 @@ dont le neutre est cette extrémité se lit mal : la main ne trouve pas le repos
 de sa course — ajouter de l'instrument, ce qu'un remix demande tout le temps — n'existait pas. Le
 gain du `stemcut` est signé depuis, et le neutre est revenu sous la main.
 
-La colonne **n'a pas d'échelle à elle** : elle prend celle de la tranche, pour que les potards
-d'un même pupitre aient tous une taille. Ce n'est sûr que parce qu'elle est plus COURTE à chaque
-cran — quatre potards d'EQ contre trois plus le filtre, plus gros, et son filet. `deskLayout.test`
-le tient : un cinquième stem, ou un potard dessiné plus grand ici, casserait la propriété — et il
-la casserait comme le filtre disparaît quand la tranche ne rétrécit pas, en débordant une boîte
-centrée par les deux bouts ([deskLayout.md](deskLayout.md)).
+Le bloc **n'a pas d'échelle à lui** : il prend celle de la tranche, pour que les potards d'un même
+pupitre aient tous une taille. Ce n'est sûr que parce qu'il est plus COURT à chaque cran — deux
+rangées contre trois potards d'EQ plus le filtre, plus gros, et son filet. La marge était de sept
+pixels au cran le plus serré quand les quatre étaient empilés ; en deux rangées elle ne l'est plus,
+et c'est le seul bénéfice de hauteur du changement. `deskLayout.test` tient quand même la
+propriété à chaque cran, parce qu'elle est ce qui autorise l'emprunt — et elle se casserait comme
+le filtre disparaît quand la tranche ne rétrécit pas, en débordant une boîte centrée par les deux
+bouts ([deskLayout.md](deskLayout.md)).
 
 ## Quatre états, quatre lectures
 
 | état | ce qu'on voit | ce qu'on fait |
 |---|---|---|
-| le set ne câble aucune coupe | **pas de colonne du tout** | rien : un pupitre sans stems est un pupitre complet |
+| le set ne câble aucune coupe | **pas de bloc du tout** | rien : un pupitre sans stems est un pupitre complet |
 | câblé, disque non séparé, `stems:` absent | quatre potards gris, avec la raison au survol | `playlist stems <playlist>`, ou écrire `stems: true` |
 | câblé, disque non séparé, `stems: true` | quatre potards gris et **le pourcentage par-dessus** | attendre — ça se fait tout seul |
 | câblé et préparé | quatre potards vifs | monter celui qu'on veut faire partir |
@@ -49,7 +58,7 @@ contrôles de stem sont **offerts sans être exigés** — `SURFACE_MAPPING_SKEL
 `REQUIRED_CONTROLS` ne les demande pas. « Ce qu'on peut câbler » et « ce qu'il faut avoir câblé
 pour que ça se dessine » sont deux listes, et les stems sont ce qui les sépare.
 
-Le deuxième se lit sur la colonne parce que le scan le rapporte : `meta.stems` est vrai quand un
+Le deuxième se lit sur le bloc parce que le scan le rapporte : `meta.stems` est vrai quand un
 dossier `stems/` est là, lu sur les entrées de dossier déjà en main — pas un syscall de plus par
 morceau, et la même question que la commande de préparation pose avant de sauter un morceau.
 
@@ -71,9 +80,9 @@ sondage toutes les deux secondes. Sur pl8 et non sur le service de fichiers : c'
 les masters, donc c'est lui qui mène la découpe, en empruntant le modèle du moteur nommé
 (`apps/pl8/docs/stems.md`). `library` est le second seam de ce paquet pour cette seule raison.
 
-Le pourcentage s'affiche **par-dessus** les potards éteints — pas au-dessus : la colonne emprunte
-l'échelle de tailles de la tranche et n'a que sept pixels de marge au cran le plus serré
-(`stemStripHeight`), donc une ligne de texte la ferait déborder.
+Le pourcentage s'affiche **par-dessus** les potards éteints — pas au-dessus : le bloc emprunte
+l'échelle de tailles de la tranche (`stemStripHeight`), et une ligne de texte en plus le ferait
+sortir de la hauteur qu'on lui a accordée, quelle que soit la marge du moment.
 
 **Un booléen, et pas une chaîne.** Nommer la chaîne dans ce fichier poserait au projet une
 question qui ne le regarde pas : quel module sépare et quel modèle il veut est

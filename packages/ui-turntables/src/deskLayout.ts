@@ -65,9 +65,9 @@ export const stripHeight = (s: StripLayout): number =>
   1 +
   knobBlock(s.filter, s.readout);
 
-/** …and the STEM column at the same step — it takes the strip's ladder, being SHORTER at every rung. */
+/** …and the STEM block at the same step: `py-2` and TWO rows of two, so it borrows the strip's ladder. */
 export const stemStripHeight = (s: StripLayout): number =>
-  16 + 4 * knobBlock(s.knob, s.readout) + 3 * s.gap;
+  16 + 2 * knobBlock(s.knob, s.readout) + s.gap;
 
 /** The largest strip that fits in `height`, or the smallest when none does. */
 export function stripLayout(height: number): StripLayout {

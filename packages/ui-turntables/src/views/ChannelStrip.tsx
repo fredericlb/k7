@@ -2,7 +2,7 @@
 // knobs and the filter under them. ROTARY, unlike the tempo fader on the other edge — a knob's
 // neutral is its middle, and a round one shows that at a glance. See ../../docs/eq.md.
 
-import { STEM_RANGE, STEMS, type Stem } from "@studio/song-schema/stems";
+import { STEM_RANGE, type Stem } from "@studio/song-schema/stems";
 import { EQ_BANDS, EQ_DB, FILTER_RANGE } from "../deck";
 import type { StripLayout } from "../deskLayout";
 
@@ -13,6 +13,9 @@ const STEM_LABELS: Record<Stem, string> = {
   other: "RESTE",
   vocals: "VOIX",
 };
+
+/** The 2x2 reading order: the rhythm section on the top row, the voice and the rest under it. */
+export const STEM_GRID: readonly Stem[] = ["drums", "bass", "vocals", "other"];
 
 /** Degrees either side of straight up — a real knob's ~300° sweep, not a full circle. */
 const SWEEP = 150;
@@ -271,11 +274,11 @@ export function StemStrip({
   return (
     // `relative`, for the badge: the column's HEIGHT may not move, so progress is drawn OVER the knobs.
     <div
-      className="relative flex w-16 shrink-0 flex-col items-center justify-center py-2"
+      className="relative grid w-32 shrink-0 grid-cols-2 content-center justify-items-center py-2"
       style={{ gap: `${layout.gap}px` }}
       title={titleFor(ready, prep)}
     >
-      {STEMS.map((s) => (
+      {STEM_GRID.map((s) => (
         <Knob
           key={s}
           label={STEM_LABELS[s]}

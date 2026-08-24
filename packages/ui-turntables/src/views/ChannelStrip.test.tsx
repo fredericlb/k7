@@ -1,6 +1,7 @@
+import { STEMS } from "@studio/song-schema/stems";
 import { describe, expect, it } from "vitest";
 import { EQ_DB, FILTER_RANGE } from "../deck";
-import { angleOf, arcPath } from "./ChannelStrip";
+import { angleOf, arcPath, STEM_GRID } from "./ChannelStrip";
 
 describe("where a value sits on the dial", () => {
   it("puts flat straight up", () => {
@@ -67,5 +68,18 @@ describe("the value arc", () => {
     // Guarded, not trusted: the size is computed, and a zero would reach the DOM as two NaNs.
     expect(arcPath(90, 0)).toBe("");
     expect(arcPath(90, -4)).toBe("");
+  });
+});
+
+describe("the stem block's reading order", () => {
+  it("draws every stem, exactly once", () => {
+    // A fifth source added to STEMS must not go missing from the desk in silence.
+    expect([...STEM_GRID].sort()).toEqual([...STEMS].sort());
+  });
+
+  it("puts the rhythm section on the top row", () => {
+    // Two by two, and WHICH two: a hand reaches for the drums without reading the labels.
+    expect(STEM_GRID.slice(0, 2)).toEqual(["drums", "bass"]);
+    expect(STEM_GRID.slice(2)).toEqual(["vocals", "other"]);
   });
 });
