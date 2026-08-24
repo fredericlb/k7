@@ -146,6 +146,25 @@ directions: `system plugins list` fires and times out after 4 s having heard not
 reports a fault. Restarting the service fixes it instantly, which is exactly the cure a re-dial
 is.
 
+### The third answer: it replies, and still never takes it
+
+The two cures above assume the answer tells you which one you are in. It does not, and the case
+that slips between them is the expensive one: a link that **answers `list-sessions` perfectly**
+while every project sent over it lands nowhere. Measured once as **569 consecutive re-sends** —
+`⚠ engine is not holding mymix.st0 — re-sending it`, five seconds apart, for the better part of
+an hour, with the engine's own log showing not one `[client] connected` in that time. The first
+cure kept firing because the session was genuinely not held; the second never fired because the
+socket was answering. Nothing escalated, and nothing said so.
+
+So a re-send now COUNTS. `RESEND_LIMIT` of them without the engine taking the project means the
+socket is deaf rather than busy, and the link is dropped and re-dialled — the same cure as a
+zombie, reached by a different symptom. The counter resets the moment the engine holds it.
+
+Three, not one: a re-send that loses a race with an engine restart is ordinary, and re-dialling
+on the first one would trade a rare wedge for a common churn. Three at `RECONCILE_EVERY_MS` is
+fifteen seconds of patience before giving up on a socket, which is long against a restart and
+short against an evening.
+
 Only `loaded` is compared, never *which* project: the wire carries a display name
 (`"LEMO - DANSE"`) and this side holds a path, so comparing the two would invent mismatches.
 Switching projects is `startEngineForActive`'s job.

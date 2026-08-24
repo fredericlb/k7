@@ -79,6 +79,8 @@ interface Served {
   /** The reconcile throttle, per session: two of them must not starve each other. */
   lastReconcile: number;
   reconciling: boolean;
+  /** Consecutive re-sends the engine did not take — a live socket can still be deaf, docs/activeProject.md. */
+  resends: number;
 }
 const served = new Map<string, Served>();
 
@@ -95,6 +97,7 @@ function noteServed(ws: Workspace, project: string): void {
     project,
     lastReconcile: 0,
     reconciling: false,
+    resends: 0,
   });
 }
 
@@ -544,6 +547,8 @@ export function reloadActiveProject(ws: Workspace): void {
 
 /** How often the /workspace poll may re-ask the engine what it holds. Polled every 2 s, per tab. */
 export const RECONCILE_EVERY_MS = 5_000;
+/** Re-sends the engine may ignore before the socket is presumed deaf — docs/activeProject.md. */
+export const RESEND_LIMIT = 3;
 /** How long the engine gets to answer that question before its link is treated as dead. */
 export const SESSIONS_TIMEOUT_MS = 2000;
 
@@ -595,9 +600,22 @@ async function reconcileEngine(
       ensureEngine(ws); // a fresh socket, whose `open` re-sends what this session was serving
       return;
     }
-    if (held.some((s) => s.id === session && s.loaded)) return;
+    if (held.some((x) => x.id === session && x.loaded)) {
+      s.resends = 0;
+      return;
+    }
+    // A socket that answers but never takes the project is deaf, not busy — docs/activeProject.md.
+    if (++s.resends > RESEND_LIMIT) {
+      console.error(
+        `   ✗ engine took ${RESEND_LIMIT} re-sends without holding ${basename(serving)} — re-dialling ${session}`,
+      );
+      s.resends = 0;
+      dropLink(session);
+      ensureEngine(ws); // a fresh socket, whose `open` re-sends what this session was serving
+      return;
+    }
     console.warn(
-      `   ⚠ engine is not holding ${basename(serving)} — re-sending it`,
+      `   ⚠ engine is not holding ${basename(serving)} — re-sending it (${s.resends}/${RESEND_LIMIT})`,
     );
     sendActiveProject(ws, serving);
   } finally {
