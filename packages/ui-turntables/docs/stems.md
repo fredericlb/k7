@@ -16,9 +16,15 @@ modèle, mesuré et stable.
 
 Les deux platines se font face — le tempo sur le bord extérieur, l'EQ sur l'intérieur — pour
 qu'une main sache sur laquelle elle est sans lever les yeux. **Les stems échappent à cette
-règle** : ils sont à gauche des deux. Ce que ces quatre potards retirent est une propriété du
-DISQUE et pas de la géométrie du pupitre, et chercher « la basse de la platine de droite » ne doit
-pas demander de savoir de quel côté le bloc est posé aujourd'hui.
+règle** : sur les deux platines, le bloc est **à gauche**. Ce que ces quatre potards dosent est une
+propriété du DISQUE et pas de la géométrie du pupitre, et chercher « la basse de la platine de
+droite » ne doit pas demander de savoir de quel côté le bloc est posé aujourd'hui.
+
+**Contre sa platine, pas au bord du pupitre.** Le bloc était la première colonne de chaque moitié,
+donc le tempo (platine A) ou l'EQ (platine B) s'intercalait entre les potards et le disque dont ils
+viennent. L'ordre est maintenant `TEMPO | STEMS | PLATINE A | EQ` d'un côté et
+`EQ | STEMS | PLATINE B | TEMPO` de l'autre : le bloc touche sa platine, et ce qui est mis
+en miroir — le tempo dehors, l'EQ dedans — le reste.
 
 Même potard, même échelle de tailles, même centrage que la tranche d'à côté (`ChannelStrip`) —
 c'est le même geste sur la même sorte de chose, **et la même course** : le milieu est le neutre et

@@ -685,7 +685,9 @@ function DeckSide({
         onDropSong(drag);
       }}
     >
-      {/* The STEMS on the left of BOTH decks, unmirrored: what they remove belongs to the record. */}
+      {/* Tempo on the OUTER edge and shaping on the INNER one, so the desk reads as a mirror. */}
+      {side === "A" ? fader : strip}
+      {/* The STEMS against their OWN deck and on its left, on both sides: unmirrored, ../../docs/stems.md. */}
       <StemStrip
         stems={stems}
         live={stemLive}
@@ -694,8 +696,6 @@ function DeckSide({
         layout={layout.strip}
         onStem={onStem}
       />
-      {/* Tempo on the OUTER edge and shaping on the INNER one, so the desk reads as a mirror. */}
-      {side === "A" ? fader : strip}
       <div className="flex min-w-0 flex-1 flex-col items-center gap-3">
         {/* The record, only when the deck is tall enough to be worth one — ../../docs/deskLayout.md. */}
         {layout.vinyl > 0 ? (
