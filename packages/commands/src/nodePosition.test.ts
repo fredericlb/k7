@@ -126,4 +126,20 @@ describe("graph move", () => {
     expect(chains()).toBe(before);
     expect(reloads).toBe(0);
   });
+
+  it("pins the BUILT-IN outputs too, which have no folder to be found in", async () => {
+    // Everything on the graph is a node; OUT and MIX are drawn, dragged and pinned like the rest.
+    for (const sink of ["OUT", "MIX", "RENDER", "VIDEO_OUT"]) {
+      logs.length = 0;
+      await runCommand(`graph move ${sink} 10 20`, host(), "cli");
+      expect(logs.join(" "), sink).not.toContain("no node");
+      expect(chains(), sink).toContain(`${sink}: { x: 10, y: 20 }`);
+    }
+  });
+
+  it("hands a built-in output back to the layout like any other", async () => {
+    await runCommand("graph move MIX 10 20", host(), "cli");
+    await runCommand("graph move MIX auto", host(), "cli");
+    expect(chains()).not.toContain("MIX: {");
+  });
 });

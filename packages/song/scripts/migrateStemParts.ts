@@ -2,16 +2,10 @@
 //
 //   npx tsx packages/song/scripts/migrateStemParts.ts <projet.st0> [more…] [--write]
 //
-// `Level` ran −1..1 against a deck that played the record and subtracted from it. It now runs 0..2
-// against a deck that plays the four PARTS, so the same sound is one higher: −0.6 removed 60% of
-// the drums, and 0.4 plays 40% of them.
-//
-// A set is moved only when NONE of its knobs is above 0, so a second run is a no-op. The one case
-// that stays ambiguous is a migrated set whose every knob has since been pulled to silence: it
-// reads exactly like an untouched old one, and would be moved again. Said rather than guarded,
-// because guarding it would mean writing a marker into a document that has no place for one.
-//
-// Dry by default, and through the yaml Document API so comments and key order survive.
+// `Level` ran −1..1 against a deck that subtracted from the record; it now runs 0..2 against one
+// that plays the four PARTS, so the same sound is one higher — −0.6 removed 60% of the drums, 0.4
+// plays 40% of them. A set moves only when none of its knobs is above 0, so a second run is a no-op;
+// the ambiguous case is in ../docs/setProject.md. Dry by default, through the yaml Document API.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

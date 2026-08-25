@@ -348,6 +348,16 @@ function writeMetronomeLevel(songPath: string, level: number): void {
 }
 
 /** The pair the graph DRAWS whether or not graph.yaml states it: a sum straight to its device — packages/song/docs/masterChain.md. */
+/** Does this name a node of THIS graph? The four built-in outputs count — they simply have no folder. */
+function namesANode(g: ReturnType<typeof loadGraph>, name: string): boolean {
+  return (
+    isBuiltinOutput(name) ||
+    name in g.modules ||
+    name in g.moduleRefs ||
+    name in g.tracks
+  );
+}
+
 const isMasterRun = (before: string, after: string): boolean =>
   (before === MIX_NODE && after === OUT_NODE) ||
   (before === RENDER_NODE && after === VIDEO_OUT_NODE);
@@ -3361,7 +3371,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         return {};
       }
     })();
-    if (!(name in g.modules) && !(name in g.tracks) && !(name in curves)) {
+    if (
+      !isBuiltinOutput(name) &&
+      !(name in g.modules) &&
+      !(name in g.tracks) &&
+      !(name in curves)
+    ) {
       h.refuse([
         `no node "${name}" in this project (modules: ${
           Object.keys(g.modules).join(", ") || "none"
@@ -3423,11 +3438,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const known = (name: string) =>
-      name === "OUT" ||
-      name in g.modules ||
-      name in g.moduleRefs ||
-      name in g.tracks;
+    const known = (name: string) => namesANode(g, name);
     for (const end of [from, to])
       if (!known(base(end))) {
         h.refuse([
@@ -3499,11 +3510,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([`'${base(newTo)}' is a track — a source; nothing can feed it`]);
       return;
     }
-    const known = (name: string) =>
-      name === "OUT" ||
-      name in g.modules ||
-      name in g.moduleRefs ||
-      name in g.tracks;
+    const known = (name: string) => namesANode(g, name);
     for (const end of [newFrom, newTo])
       if (!known(base(end))) {
         h.refuse([`no node "${base(end)}" in this project`]);

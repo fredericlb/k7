@@ -293,3 +293,21 @@ is committed, what is on a deck right now is not.
 `example.st0` compiles to deckA carrying the crossfade and nothing else. The stretch stays a
 warp on the clip the desk fills in, which is the only thing that stretches live. Making it a module
 in fact means writing the cold pass, and that is a separate piece of work from this one.
+
+## Migrer les coupes de stem, et le seul cas ambigu
+
+`scripts/migrateStemParts.ts` porte un set écrit quand la platine **soustrayait** vers celui qui
+**somme** ses quatre parties : `Level` passe de −1..1 (neutre à 0) à 0..2 (neutre à 1), en ajoutant
+un. C'est le même son — −0,6 retirait 60 % de la batterie, 0,4 en joue 40 % — et le raisonnement
+qui a fait changer de forme est dans `packages/dsp/docs/stemcut.md`.
+
+Le script décide **par set** et pas par nœud : un seul potard au-dessus de 0 veut dire que le
+document parle déjà la nouvelle course, et il ne touche à rien. Ça rend un second passage inoffensif
+dans tous les cas sauf un — un set déjà migré dont **les huit** potards auraient depuis été tirés au
+silence se relit exactement comme un ancien jamais touché, et serait remonté d'un cran.
+
+Ce cas n'est pas gardé, il est écrit. Le garder demanderait d'inscrire une marque de migration dans
+un document qui n'a pas de place pour ça : un `graph.yaml` décrit un signal, pas l'histoire des
+outils qui l'ont édité. Le prix d'une marque — un champ que tout lecteur doit ignorer, pour toujours,
+à cause d'une conversion faite une fois — est plus élevé que celui du cas, qui demande d'avoir
+silencié un set entier avant de relancer une migration terminée.

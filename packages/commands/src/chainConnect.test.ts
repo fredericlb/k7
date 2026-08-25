@@ -82,6 +82,13 @@ describe("graph chain connect", () => {
     expect(chains()).toContain("reverb: [ OUT ]");
   });
 
+  it("wires to MIX as readily as to OUT — all four built-in outputs are nodes", async () => {
+    // The two verbs used to spell `name === "OUT"` by hand, so a set's `fadeA: [ MIX ]` was unwireable.
+    await runCommand("graph chain connect reverb MIX", host(), "cli");
+    expect(logs.join(" ")).not.toContain("no node");
+    expect(chains()).toContain("reverb: [ MIX ]");
+  });
+
   it("refuses an arrow that is already there, writing nothing", async () => {
     const before = chains();
     await runCommand("graph chain connect gtr amp", host(), "cli");

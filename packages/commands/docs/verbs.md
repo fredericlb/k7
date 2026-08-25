@@ -641,6 +641,15 @@ is why a bad node name is still refused: a pin nothing can ever match would sit 
 ever. Negative coordinates are allowed and are the point: a node belongs above the first track as
 readily as below it.
 
+**"A node this project knows" includes the four BUILT-IN outputs.** `MIX`, `OUT`, `RENDER` and
+`VIDEO_OUT` have no folder under `nodes/`, so every test of the form "is this a module" has to ask
+`isBuiltinOutput` on the side — and three verbs here had each answered it their own way. `graph
+move` did not ask at all, so dragging `MIX` or `OUT` refused with a list of modules they were never
+going to be in; `graph chain connect` and its replug twin spelled `name === "OUT"` by hand, which
+left a set's `fadeA: [ MIX ]` unwireable from the picture. One `namesANode` now, because the rule
+that everything on the graph is a node is only true if every gate agrees on it
+(`packages/song/docs/graphModel.md`).
+
 `graph chain connect <from> <to>` is the patch-cable gesture and how a new chain begins. Unlike
 `node insert` there is no existing arrow to validate against, so the checks are the ends themselves:
 both must be nodes this project knows, the sink has no output, and a lane takes only what a live
