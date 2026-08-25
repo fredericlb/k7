@@ -26,6 +26,8 @@ export const CABLE: Record<WebSignal, string> = {
 // An untyped cable (a source that says nothing) stays the neutral sand rather than claiming a signal it doesn't know.
 export const cableColorFor = (s?: WebSignal): string => (s ? CABLE[s] : SAND);
 export const RING = "#8b5cf6"; // the selection ring (violet-500)
+// Where the signal enters or leaves the graph. The audio cable's own orange, since that is what an edge carries.
+export const EDGE = "#d98b45";
 export const CTRL: Record<string, string> = {
   "@mute": "#f97316", // orange-500
   "@solo": "#eab308", // yellow-500
@@ -70,6 +72,10 @@ const CSS = `
 .dgx-node.k-curve { --accent:var(--mauve); }
 .dgx-node.k-stub { --accent:#ef4444; }
 .dgx-node.k-unsupported { --accent:#f59e0b; }
+/* The graph's EDGE — a live input or a built-in output, tinted in the BACKGROUND: see docs/nodeCard.md. */
+.dgx-node.edge { background:linear-gradient(180deg,
+  color-mix(in srgb, ${EDGE} 16%, #1d1c22),
+  color-mix(in srgb, ${EDGE} 10%, var(--card))); }
 .dgx-node { border-color:color-mix(in srgb, var(--accent) 42%, var(--line)); }
 .dgx-node.sel { box-shadow:0 0 0 2px ${RING}, 0 12px 30px -10px rgba(0,0,0,.66); }
 .dgx-node.tappable { cursor:pointer; }

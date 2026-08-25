@@ -76,6 +76,33 @@ at all is **red**. That is what `graphFlags.md` has always said and what this fi
 unreachable — a not-supported plugin drew a red card, contradicting its own flag line and this
 package's own promise of "an unsupported plugin amber" (`docs/hosting.md`).
 
+## Où le signal entre et sort : un fond orangé
+
+`IN` et `OUT` ne sont pas des étapes du traitement, ce sont les **bords** du graphe — l'un est une
+prise sur l'interface, l'autre la sortie de la machine. Rien ne les distinguait des modules entre
+les deux, alors qu'un œil qui cherche « par où ça entre » les cherche en premier. Ils prennent donc
+un fond légèrement orangé (`EDGE`, l'orange que le câble audio porte déjà : c'est ce qu'un bord
+transporte).
+
+**Le fond, et pas la bordure.** La bordure dit déjà autre chose — ambre pour un greffon refusé,
+rouge pour un absent (section ci-dessus). Un liseré orange de plus se lirait comme un défaut, et
+c'est exactement le contresens à éviter sur les deux nœuds qu'on regarde d'abord.
+
+Deux marques, parce que les deux bords ne se ressemblent pas dans le modèle :
+
+| bord | ce qu'on teste | pourquoi |
+|---|---|---|
+| une sortie | `kind === "sink"` | `MIX`, `OUT`, `RENDER`, `VIDEO_OUT` n'ont pas de dossier, ils sont déjà de ce genre-là |
+| une entrée | `monitor !== undefined` | `graphDoc.ts` ne pose ce champ **que** si `io === "in"`, donc sa présence EST la question |
+
+Le second mérite d'être dit : tester `monitor` pour savoir si un nœud est une entrée ressemble à un
+raccourci, et n'en est pas un — c'est le seul champ que le modèle web porte pour cette raison-là.
+Si un jour une autre sorte de module en gagne un, il faudra une marque explicite.
+
+**Un nœud gelé reste givré.** `.frozen` pose son `background-image` plus bas dans la feuille et
+gagne donc sur ce fond : un état l'emporte sur une identité, ce qui est le bon ordre — savoir qu'un
+bord est dans un rendu compte plus que de le reconnaître comme bord.
+
 ## A note is drawn before the LOD branch
 
 Every other card drops to its name when the camera pulls back, because widgets stop being readable

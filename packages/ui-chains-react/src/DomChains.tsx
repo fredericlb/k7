@@ -1349,9 +1349,12 @@ function NodeInner({
         : n.notSupported
           ? "not supported"
           : null;
+  // Where the signal ENTERS or LEAVES: a live input, or one of the built-in outputs — docs/nodeCard.md.
+  const edge = n.kind === "sink" || n.monitor !== undefined;
   const cls = [
     "dgx-node",
     `k-${amber ? "unsupported" : red ? "stub" : n.kind}`,
+    edge ? "edge" : "",
     "tappable",
     sel ? "sel" : "",
     n.frozen ? "frozen" : "", // the frost wash, on the point and on everything inside its render
