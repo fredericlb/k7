@@ -199,23 +199,39 @@ Le scratch — trois fois la cadence d'une souris — ajoute **0,023 ms** à la 
 le maximum : l'écart est du bruit. Le compte de blocs ne bouge pas non plus (93,8/s, la valeur
 exacte de 512 à 48 kHz), donc aucun bloc n'est perdu.
 
-À 256, le même banc à vide donne 0,007 ms de moyenne et 0,137 de pire bloc pour une échéance de
-5,33 ms — 2,6 %, et 187,5 blocs par seconde, la valeur exacte. La mesure **en charge** à 256 reste
-à faire : le pupitre n'avait pas renvoyé son projet après le redémarrage du moteur. Le rapport
-attendu est le même qu'à 512 — moitié moins d'échantillons par bloc contre moitié moins de temps —
-mais c'est une attente, pas un chiffre.
+Puis à **256**, où le tampon est resté, même pupitre et même scratch piloté — échéance 5,33 ms :
+
+| état | blocs | moyen | pire bloc |
+|---|---|---|---|
+| à vide | 938 en 5 s | 0,007 ms | 0,137 ms (2,6 %) |
+| chargé, sans geste | 1126 en 6 s | 0,127 ms | 0,493 ms (9,3 %) |
+| chargé, **scratch à 2863/s** | 1125 | 0,144 ms | 0,508 ms (9,5 %) |
+
+**Le coût ne se divise pas avec le bloc, et j'avais prédit qu'il le ferait.** En passant de 512 à
+256, la moyenne en charge ne tombe pas de moitié (0,201 → 0,144, soit −28 %) et le maximum ne bouge
+pas du tout (0,456 → 0,508). Une part du callback est un coût FIXE par bloc — traversée du graphe,
+appels de greffons, comptabilité — qui ne connaît pas la taille du bloc. Donc **diviser le tampon
+par deux double à peu près la part d'échéance consommée** : 4,3 % à 512, 9,5 % à 256. La marge
+reste d'un ordre de grandeur, mais la tendance dit ce que coûterait 128, et surtout 64.
 
 **Ce que ça clot.** L'engin n'approche jamais sa date limite : facteur vingt de marge sur le pire
 bloc observé, dans toutes les conditions essayées. La théorie « on envoie trop d'instructions à la
 carte » est morte deux fois — le chemin de contrôle est gratuit, et le thread audio ne s'en aperçoit
 pas. Le point d'arrêt dans `FocusriteUsb.sys` reste un défaut de pilote, sans levier de ce côté-ci.
 
-**Le piège de lecture, pour la prochaine fois.** J'ai d'abord écarté le relevé en voyant
-`tracks=3` dans `list-sessions`, croyant à un document de secours. C'était faux : depuis les
-platines, les quatre parties d'un disque sont jouées par des GREFFONS sur la piste de la platine et
-non par des lanes, donc trois pistes est le compte juste d'un pupitre complet. La vérification qui
-tranche n'est pas le nombre de pistes mais l'existence d'un greffon — demander
-`stemDrumsA:platter` au moteur.
+**Savoir si le pupitre est VRAIMENT chargé, et les deux façons de se tromper.** J'ai d'abord écarté
+un relevé en voyant `tracks=3` dans `list-sessions`, puis je me suis corrigé en disant que trois
+pistes était le compte juste d'un pupitre à platines. Les deux fois à côté. Ce qui est vrai :
+
+- `tracks=3` EST le document de secours (`deckDoc`) — deux platines et la somme. Un pupitre
+  compilé en annonce 17.
+- Demander `stemDrumsA:platter` ne tranche PAS, parce que `deckDoc` construit les plateaux lui
+  aussi. Le greffon répond dans les deux cas.
+- `loaded=true` ne tranche pas non plus : le document de secours est un document chargé.
+
+Le seul témoin fiable est donc le **nombre de pistes**, comparé à ce que le projet compile. À
+vérifier avant de compter quoi que ce soit : un relevé sur l'imitation mesure un graphe qui n'a ni
+EQ, ni filtre, ni fondus.
 
 ## Stabilité
 
