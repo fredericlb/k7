@@ -1,6 +1,6 @@
 // MixView.tsx — the desk: two decks facing each other, each with its tempo on the outer edge
-// and its channel strip on the inner one, and the crossfader across the bottom. What plays
-// comes from the project's `songs.yaml`, chosen at the record itself. See ../../docs/mix.md.
+// and its channel strip on the inner one, and the crossfader in the gap between them. What
+// plays comes from the project's `songs.yaml`, chosen at the record itself. See ../../docs/mix.md.
 //
 // It DRAWS the decks and owns nothing about them. The document — what is loaded, what it plays
 // at, every gesture that changes either — is `useDeckSet`, held by Studio, because this view is
@@ -17,25 +17,19 @@ import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
 import type { Stem } from "@studio/song-schema/stems";
 import {
   AudioLines,
-  ChevronLeft,
-  ChevronRight,
   Headphones,
   Laptop,
   Link2,
   Play,
   RefreshCw,
+  Repeat,
   Square,
+  Undo2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { beatPhase } from "../beats";
-import {
-  type DeckId,
-  type DeckLoads,
-  type DeckTempo,
-  MIX_CENTRE,
-  NUDGE_SECONDS,
-} from "../deck";
-import { type DeskLayout, deskLayout } from "../deskLayout";
+import type { DeckId, DeckLoads, DeckTempo } from "../deck";
+import { type DeskLayout, deskLayout, stemStripHeight } from "../deskLayout";
 import type { Deck } from "../engine";
 import { MIX_VIEW_FILE } from "../mixView";
 import {
@@ -58,6 +52,7 @@ import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
 import { ChannelStrip, type StemPrep, StemStrip } from "./ChannelStrip";
 import { CueButtons } from "./CueButtons";
+import { MasterMeter, MixerColumn } from "./MixerColumn";
 import { SongBrowser } from "./SongBrowser";
 import { Vinyl } from "./Vinyl";
 import { Waveform } from "./Waveform";
@@ -274,18 +269,22 @@ export function MixView({
 
   const { loads, tempos, master, mix } = decks;
 
-  const anyLoaded = !!(loads.deckA || loads.deckB);
-  /** Is ANYTHING turning? A deck on a platter answers for itself, so the transport is not the answer. */
-  const anyRunning = decks.running("deckA") || decks.running("deckB");
   const ready = deck.phase.k === "ready";
 
   /** What each deck draws, decided by the room the decks row has — measured, not told: ../../docs/deskLayout.md. */
   const deckRow = useRef<HTMLDivElement>(null);
   // The stem block only costs height when there is no record for it to sit beside — ../../docs/deskLayout.md.
-  const layout = deskLayout(
-    useContentHeight(deckRow),
-    decks.stemLive("deckA") || decks.stemLive("deckB"),
-  );
+  const stemLive = decks.stemLive("deckA") || decks.stemLive("deckB");
+  // …and the echo costs the STRIP a row, on the same "either deck wires one" rule.
+  const echoLive = decks.echoLive("deckA") || decks.echoLive("deckB");
+  const layout = deskLayout(useContentHeight(deckRow), stemLive, echoLive);
+  /** How tall a deck's TOP row is, which the crossfader restates to land on the cue row's line. */
+  const crossfadeHead =
+    layout.vinyl > 0
+      ? layout.vinyl
+      : stemLive
+        ? stemStripHeight(layout.strip)
+        : 0;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -356,12 +355,18 @@ export function MixView({
           onKeylock={() => decks.toggleKeylock("deckA")}
           onPick={() => setBrowsing("deckA")}
           onDropSong={(d) => dropped("deckA", d)}
+          trim={decks.trimOf("deckA")}
+          trimLive={decks.trimLive("deckA")}
+          onTrim={(dB) => decks.turnTrim("deckA", dB)}
           eq={decks.eqOf("deckA")}
           eqLive={decks.eqLive("deckA")}
           onEq={(band, dB) => decks.turnEq("deckA", band, dB)}
           filter={decks.filterOf("deckA")}
           filterLive={decks.filterLive("deckA")}
           onFilter={(v) => decks.turnFilter("deckA", v)}
+          echo={decks.echoOf("deckA")}
+          echoLive={decks.echoLive("deckA")}
+          onEcho={(v) => decks.turnEcho("deckA", v)}
           stems={decks.stemsOf("deckA")}
           stemLive={decks.stemLive("deckA")}
           stemsReady={decks.stemsReady("deckA")}
@@ -385,6 +390,31 @@ export function MixView({
           }
         />
 
+        {/* Between the two, where a hand crosses from one to the other — ../../docs/mix.md.
+            The two CHANNEL faders live here too, over the crossfader, which is a mixing desk's
+            own layout and what this column was empty for. */}
+        <MixerColumn
+          mix={mix}
+          layout={layout}
+          head={crossfadeHead}
+          ready={ready}
+          levels={{
+            deckA: decks.levelOf("deckA") ?? 0,
+            deckB: decks.levelOf("deckB") ?? 0,
+          }}
+          levelLive={{
+            deckA: decks.levelLive("deckA"),
+            deckB: decks.levelLive("deckB"),
+          }}
+          meterTracks={{
+            deckA: decks.meterTrack("deckA"),
+            deckB: decks.meterTrack("deckB"),
+          }}
+          trackOrder={decks.trackOrder}
+          onLevel={(deckId, dB) => decks.turnLevel(deckId, dB)}
+          onChange={decks.crossfade}
+        />
+
         <DeckSide
           side="B"
           layout={layout}
@@ -399,12 +429,18 @@ export function MixView({
           onKeylock={() => decks.toggleKeylock("deckB")}
           onPick={() => setBrowsing("deckB")}
           onDropSong={(d) => dropped("deckB", d)}
+          trim={decks.trimOf("deckB")}
+          trimLive={decks.trimLive("deckB")}
+          onTrim={(dB) => decks.turnTrim("deckB", dB)}
           eq={decks.eqOf("deckB")}
           eqLive={decks.eqLive("deckB")}
           onEq={(band, dB) => decks.turnEq("deckB", band, dB)}
           filter={decks.filterOf("deckB")}
           filterLive={decks.filterLive("deckB")}
           onFilter={(v) => decks.turnFilter("deckB", v)}
+          echo={decks.echoOf("deckB")}
+          echoLive={decks.echoLive("deckB")}
+          onEcho={(v) => decks.turnEcho("deckB", v)}
           stems={decks.stemsOf("deckB")}
           stemLive={decks.stemLive("deckB")}
           stemsReady={decks.stemsReady("deckB")}
@@ -449,6 +485,16 @@ export function MixView({
           onClick={() => decks.toggleSync("deckA")}
         />
 
+        {/* Deck A's two MOMENTARY gestures, beside its sync — see ../../docs/fx.md. */}
+        <FxButtons
+          side="A"
+          censorable={decks.canCensor("deckA")}
+          onCensor={(on) => decks.censor("deckA", on)}
+          echoLive={decks.echoLive("deckA")}
+          echoingOut={decks.echoingOut("deckA")}
+          onEchoOut={(on) => decks.echoOut("deckA", on)}
+        />
+
         {/* Off by default, and absent entirely for a host with no stream player — ../../docs/hosting.md. */}
         {deck.setListening && (
           <label
@@ -466,34 +512,8 @@ export function MixView({
           </label>
         )}
 
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="w-4 shrink-0 text-center text-sm font-semibold">
-            A
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={mix}
-            onChange={(e) => decks.crossfade(Number(e.target.value))}
-            disabled={!ready}
-            className="min-w-0 flex-1 accent-foreground"
-            aria-label="crossfade entre la platine A et la platine B"
-          />
-          <span className="w-4 shrink-0 text-center text-sm font-semibold">
-            B
-          </span>
-          {/* Double-click the readout to recentre: the one position a mouse drag never lands on exactly. */}
-          <button
-            type="button"
-            onDoubleClick={() => decks.crossfade(MIX_CENTRE)}
-            title="double-clic : recentrer"
-            className="w-12 shrink-0 font-mono text-xs tabular-nums text-muted-foreground"
-          >
-            {Math.round(mix * 100)}%
-          </button>
-        </div>
+        {/* What the crossfader used to fill: it lives BETWEEN the decks now, on the cue row's line. */}
+        <div className="min-w-0 flex-1" />
 
         {/* The headphones, beside the metronome: both are about what YOU hear and not what the room does. */}
         <CueButton
@@ -532,30 +552,6 @@ export function MixView({
 
         <Button
           size="sm"
-          // What is RUNNING, not what the transport is doing: a platter ignores it — ../../docs/turntable.md.
-          variant={anyRunning ? "default" : "secondary"}
-          disabled={!ready || !anyLoaded}
-          title={
-            !ready
-              ? "aucun moteur sur cette machine"
-              : !anyLoaded
-                ? "aucune platine chargée"
-                : anyRunning
-                  ? "tout arrêter"
-                  : "lancer les deux platines"
-          }
-          // Not a bare `transport("play")`: this starts the PLATTERS, which take no orders from it.
-          onClick={decks.toggleTransport}
-        >
-          {anyRunning ? (
-            <Square className="h-4 w-4" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
-        </Button>
-
-        <Button
-          size="sm"
           variant="ghost"
           className="shrink-0 text-xs"
           title="Relire le cache de la médiathèque"
@@ -563,6 +559,18 @@ export function MixView({
         >
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
+
+        {/* The BLEND, and the only meter here that reads it — a channel meter is pre-fader. */}
+        <MasterMeter />
+
+        <FxButtons
+          side="B"
+          censorable={decks.canCensor("deckB")}
+          onCensor={(on) => decks.censor("deckB", on)}
+          echoLive={decks.echoLive("deckB")}
+          echoingOut={decks.echoingOut("deckB")}
+          onEchoOut={(on) => decks.echoOut("deckB", on)}
+        />
 
         <SyncButton
           side="B"
@@ -576,7 +584,7 @@ export function MixView({
   );
 }
 
-/** THIS deck's transport. Absent on a SEPARATED deck: no platter, so nothing to start alone. */
+/** THIS deck's transport, at the foot of its tempo column. Drawn GREYED with nothing on the deck. */
 function DeckPlay({
   side,
   running,
@@ -584,17 +592,22 @@ function DeckPlay({
 }: {
   side: "A" | "B";
   running: boolean;
-  onToggle: () => void;
+  /** Absent when this deck holds no record — the button stays, disabled. See ../../docs/mix.md. */
+  onToggle?: () => void;
 }) {
   return (
     <Button
       size="sm"
+      // Full width and the same height as KEY above it: the foot of the column is one block of two.
+      className="h-12 w-full shrink-0 px-0"
       variant={running ? "default" : "secondary"}
-      className="h-6 shrink-0 px-2"
+      disabled={!onToggle}
       title={
-        running
-          ? `arrêter la platine ${side} — l'autre continue`
-          : `lancer la platine ${side} seule`
+        !onToggle
+          ? `platine ${side} vide — rien à lancer`
+          : running
+            ? `arrêter la platine ${side} — l'autre continue`
+            : `lancer la platine ${side} seule`
       }
       onClick={onToggle}
       aria-pressed={running}
@@ -604,56 +617,67 @@ function DeckPlay({
   );
 }
 
-/** How fast a HELD nudge repeats — a cadence the clip era set, and a seek is cheaper, ../../docs/scratch.md. */
-const NUDGE_REPEAT_MS = 140;
-
-/** The hand on the platter: hold it back, or push it on. One bump a press — see ../../docs/scratch.md. */
-function NudgeButton({
-  way,
-  disabled,
-  onShove,
+/** A deck's two MOMENTARY effects — held, never toggled. See ../../docs/fx.md.
+ *
+ * `onPointerUp` AND `onPointerLeave`, because a press that ends off the button still has to end:
+ * without the second one a censor whose hand slid away leaves the record running backwards. */
+function FxButtons({
+  side,
+  censorable,
+  onCensor,
+  echoLive,
+  echoingOut,
+  onEchoOut,
 }: {
-  way: -1 | 1;
-  disabled: boolean;
-  onShove: (seconds: number) => void;
+  side: "A" | "B";
+  /** A record has to be on the deck for running it backwards to mean anything. */
+  censorable: boolean;
+  onCensor: (on: boolean) => void;
+  /** Does the project wire an echo for this deck? Unwired is ordinary, like an unwired cue. */
+  echoLive: boolean;
+  echoingOut: boolean;
+  onEchoOut: (on: boolean) => void;
 }) {
-  // Held down it repeats: half a beat of drift is fifty bumps, and fifty clicks is not a gesture.
-  const repeat = useRef<number | null>(null);
-  const stop = () => {
-    if (repeat.current !== null) window.clearInterval(repeat.current);
-    repeat.current = null;
-  };
-  useEffect(() => stop, []);
+  const held = (on: (down: boolean) => void, enabled: boolean) =>
+    enabled
+      ? {
+          onPointerDown: () => on(true),
+          onPointerUp: () => on(false),
+          onPointerLeave: () => on(false),
+        }
+      : {};
   return (
-    <Button
-      size="sm"
-      variant="secondary"
-      disabled={disabled}
-      className="h-6 w-7 shrink-0 px-0"
-      title={
-        way < 0
-          ? "retenir le disque — il recule d'un cheveu, et l'autre platine ne bouge pas"
-          : "pousser le disque — il avance d'un cheveu"
-      }
-      onPointerDown={() => {
-        if (disabled) return;
-        onShove(way * NUDGE_SECONDS);
-        stop();
-        repeat.current = window.setInterval(
-          () => onShove(way * NUDGE_SECONDS),
-          NUDGE_REPEAT_MS,
-        );
-      }}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-    >
-      {way < 0 ? (
-        <ChevronLeft className="h-3.5 w-3.5" />
-      ) : (
-        <ChevronRight className="h-3.5 w-3.5" />
-      )}
-    </Button>
+    <div className="flex shrink-0 items-center gap-1">
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={!censorable}
+        className="shrink-0 px-2 text-xs"
+        title={
+          censorable
+            ? `censurer la platine ${side} — le disque part à l'envers tant que le bouton est tenu`
+            : `platine ${side} vide — rien à censurer`
+        }
+        {...held(onCensor, censorable)}
+      >
+        <Undo2 className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        size="sm"
+        variant={echoingOut ? "default" : "secondary"}
+        disabled={!echoLive}
+        className="shrink-0 px-2 text-xs"
+        title={
+          echoLive
+            ? `echo-out sur la platine ${side} — coupe la voie et laisse l'écho sonner`
+            : `cette platine n'a pas d'écho câblé — reliez \`deck${side}.echo\` dans surfaces/`
+        }
+        aria-pressed={echoingOut}
+        {...held(onEchoOut, echoLive)}
+      >
+        <Repeat className="h-3.5 w-3.5" />
+      </Button>
+    </div>
   );
 }
 
@@ -751,12 +775,18 @@ function DeckSide({
   onKeylock,
   onPick,
   onDropSong,
+  trim,
+  trimLive,
+  onTrim,
   eq,
   eqLive,
   onEq,
   filter,
   filterLive,
   onFilter,
+  echo,
+  echoLive,
+  onEcho,
   stems,
   stemLive,
   stemsReady,
@@ -790,6 +820,10 @@ function DeckSide({
   onPick: () => void;
   /** A playlist line was dropped on this deck, already read off the transfer — ../../docs/setList.md. */
   onDropSong: (drag: SongDrag) => void;
+  /** The input gain in dB, at the HEAD of the strip — it reaches the record and its stems alike. */
+  trim: number | undefined;
+  trimLive: boolean;
+  onTrim: (dB: number) => void;
   /** This deck's EQ knobs, in dB by band id, and whether they reach anything. */
   eq: Partial<Record<string, number>>;
   eqLive: boolean;
@@ -798,6 +832,10 @@ function DeckSide({
   filter: number | undefined;
   filterLive: boolean;
   onFilter: (value: number) => void;
+  /** …and the one effect past it, 0..1. Unwired draws no knob rather than a dead one. */
+  echo: number | undefined;
+  echoLive: boolean;
+  onEcho: (wet: number) => void;
   /** What this deck is REMOVING of each separated instrument, 0..1. Absent is none of it. */
   stems: Partial<Record<Stem, number>>;
   /** Whether the set wires stem cuts at all — false draws no column. */
@@ -825,27 +863,38 @@ function DeckSide({
   scratchRefusal?: string;
 }) {
   const fader = (
-    <BpmFader
-      natural={tempo?.natural ?? 0}
-      target={tempo?.target ?? 0}
-      driven={driven}
-      onChange={onNudge}
-      onCommit={onCommit}
-      keylock={keylock}
-      onKeylock={onKeylock}
-    />
+    // The tempo column, with THIS deck's transport at the foot of it — under KEY, docs/mix.md.
+    <div className="flex h-full w-14 shrink-0 flex-col items-center gap-1">
+      <BpmFader
+        natural={tempo?.natural ?? 0}
+        target={tempo?.target ?? 0}
+        driven={driven}
+        onChange={onNudge}
+        onCommit={onCommit}
+        keylock={keylock}
+        onKeylock={onKeylock}
+      />
+      {/* Always drawn, greyed when the deck is empty — the rule `CueButtons` states, docs/cues.md. */}
+      <DeckPlay side={side} running={running} onToggle={onToggleDeck} />
+    </div>
   );
 
   const strip = (
     <ChannelStrip
+      trim={trim}
+      trimLive={trimLive}
       eq={eq}
       eqLive={eqLive}
       filter={filter}
       filterLive={filterLive}
+      echo={echo}
+      echoLive={echoLive}
       // The same measurement the column beside it uses — the strip has the same height to fit in.
       layout={layout.strip}
+      onTrim={onTrim}
       onEq={onEq}
       onFilter={onFilter}
+      onEcho={onEcho}
     />
   );
 
@@ -923,25 +972,15 @@ function DeckSide({
           // Draggable only with a record on and a tempo measured: `place` needs a ratio to convert by.
           onShove={load && tempo ? onShove : undefined}
         />
-        {/* The two nudges, flanking the cue row: the hand that pushes the record is beside the marks it chases. */}
-        <div className="flex items-center gap-1">
-          {/* …and THIS deck's own transport, when it has one — the leftmost thing on the row. */}
-          {onToggleDeck ? (
-            <DeckPlay side={side} running={running} onToggle={onToggleDeck} />
-          ) : null}
-          <NudgeButton way={-1} disabled={!load || !tempo} onShove={onShove} />
-          <div className="min-w-0 flex-1">
-            <CueButtons
-              markers={cues}
-              onJump={onCueJump}
-              onSet={onCueSet}
-              // The deck's OWN needle, read on the way down: no deck follows the transport any more.
-              now={needle}
-              disabled={!load}
-            />
-          </div>
-          <NudgeButton way={1} disabled={!load || !tempo} onShove={onShove} />
-        </div>
+        {/* Edge to edge, nothing flanking them: eight cues are eight targets, and a target wants width. */}
+        <CueButtons
+          markers={cues}
+          onJump={onCueJump}
+          onSet={onCueSet}
+          // The deck's OWN needle, read on the way down: no deck follows the transport any more.
+          now={needle}
+          disabled={!load}
+        />
         {/* What is loaded, in words: it earns its line only where the record's label is absent. */}
         {layout.title ? (
           <div className="w-full truncate text-center text-xs text-muted-foreground">

@@ -72,7 +72,8 @@ export function setProjectFiles(name: string): Record<string, string> {
       `cues: []\n`,
 
     [GRAPH_FILE]:
-      `# Each deck through its own tempo, EQ, filter and FADE, and the two meeting at \`MIX\`.\n` +
+      `# Each deck through its own trim, EQ, filter, LEVEL, echo and fade, and the two meeting\n` +
+      `# at \`MIX\`. That order is a channel strip's, and every step of it is explained below.\n` +
       `#\n` +
       `# The fade is what a crossfader is here, and it is TWO modules rather than one because\n` +
       `# a module's second port is wired as a sidechain, and a sidechain reads a track only\n` +
@@ -94,6 +95,23 @@ export function setProjectFiles(name: string): Record<string, string> {
       `#\n` +
       `# Filter LAST of the three. It is the effect a hand throws — the one you want on top of\n` +
       `# whatever the EQ has already done, rather than equalised afterwards.\n` +
+      `#\n` +
+      `# THE TRIM IS FIRST, and it is first because a deck is FIVE lanes: putting it on the\n` +
+      `# deck's own lane would leave it doing nothing at all on a separated record, whose four\n` +
+      `# stems play instead of the disc. Being the chain's head it trims all five together,\n` +
+      `# which is what an input gain is for — two records cut ten years apart do not arrive at\n` +
+      `# the same level, and nothing here normalises loudness.\n` +
+      `#\n` +
+      `# THE LEVEL IS THE CHANNEL FADER, and it is a different control from the crossfade below\n` +
+      `# it: most of a transition is made at the channel, the crossfader being for hard cuts.\n` +
+      `# In DECIBELS, unlike the fade — a level is read in dB, a crossfade position is not.\n` +
+      `#\n` +
+      `# THE ECHO IS AFTER THE LEVEL, which is the whole of what makes an echo-out possible:\n` +
+      `# cut the channel and the delay line keeps ringing, because what you cut was its INPUT\n` +
+      `# and not its output. Before the fader it would be cut with everything else.\n` +
+      `#\n` +
+      `# …and the headphone tap stays on \`filter\`, ahead of both — that is what pre-fade listen\n` +
+      `# means. Neither the channel fader nor the crossfader may take a deck out of your ears.\n` +
       `#\n` +
       `# Nothing about two is fixed. A third deck is a third lane, a third tempo and a second\n` +
       `# meeting point; the desk reads whatever is here. See packages/song/docs/ports.md.\n` +
@@ -146,6 +164,9 @@ export function setProjectFiles(name: string): Record<string, string> {
 
     [`nodes/${FILTER_A}.yaml`]: filterNode("A"),
     [`nodes/${FILTER_B}.yaml`]: filterNode("B"),
+
+    // The three the strip gained when it stopped being three EQ knobs — docs/setProject.md.
+    ...stripNodeFiles(),
 
     // The stems' lanes and cuts, GENERATED rather than spelled out — see docs/setProject.md.
     ...stemNodeFiles(),
@@ -205,8 +226,17 @@ export function setProjectFiles(name: string): Record<string, string> {
       `  deckA.filter: { module: ${FILTER_A}, param: Sweep }\n` +
       `  deckB.filter: { module: ${FILTER_B}, param: Sweep }\n` +
       // The CUE button is a binding like any other: the send's own gain, 0 or 1. See packages/song/docs/cue.md.
+      // Listed with the filter it is tapped off, which is also where migrateSetCue inserts it.
       `  deckA.cue: { module: ${CUE_A}, param: Mix }\n` +
       `  deckB.cue: { module: ${CUE_B}, param: Mix }\n` +
+      // The gain staging: the input trim in front of the strip, the channel fader at the end of it.
+      `  deckA.trim: { module: ${TRIM_A}, param: ${TRIM_PARAM} }\n` +
+      `  deckB.trim: { module: ${TRIM_B}, param: ${TRIM_PARAM} }\n` +
+      `  deckA.level: { module: ${LEVEL_A}, param: ${GAIN_PARAM} }\n` +
+      `  deckB.level: { module: ${LEVEL_B}, param: ${GAIN_PARAM} }\n` +
+      // …and the one effect past the filter. OPTIONAL, like the cue and the stems below it.
+      `  deckA.echo: { module: ${ECHO_A}, param: ${ECHO_PARAM} }\n` +
+      `  deckB.echo: { module: ${ECHO_B}, param: ${ECHO_PARAM} }\n` +
       // One control per stem per deck, beside the EQ's three — 0 leaves the instrument in, 1 takes it out.
       DECKS.map((deck) =>
         STEMS.map(
@@ -270,23 +300,29 @@ function stemCutNode(deck: string, stem: Stem): string {
   );
 }
 
-/** One deck's wiring: five lanes into the EQ, which is therefore a bus — see docs/setProject.md. */
+/** One deck's wiring: five lanes into the TRIM, which is therefore a bus — see docs/setProject.md. */
 function graphForDeck(deck: string): string {
   const l = letterOf(deck);
-  const eq = `eq${l}`;
+  // The bus HEAD, and therefore the chain's name: every plugin on this strip is filed under it.
+  const head = `trim${l}`;
   return (
     `  ${deck}: [ tempo${l} ]\n` +
-    `  tempo${l}: [ ${eq} ]\n` +
+    `  tempo${l}: [ ${head} ]\n` +
     STEMS.map(
       (s) =>
         `  ${stemLane(deck, s)}: [ ${stemCut(deck, s)} ]\n` +
-        `  ${stemCut(deck, s)}: [ ${eq} ]\n`,
+        `  ${stemCut(deck, s)}: [ ${head} ]\n`,
     ).join("") +
-    `  ${eq}: [ filter${l} ]\n` +
+    `  ${head}: [ eq${l} ]\n` +
+    `  eq${l}: [ filter${l} ]\n` +
     // TWO destinations, which is what a pre-fade headphone tap IS — see packages/song/docs/cue.md.
-    `  filter${l}: [ fade${l}, cue${l} ]\n` +
-    `  fade${l}: [ MIX ]\n` +
-    `  cue${l}: [ CUE ]\n`
+    `  filter${l}: [ level${l}, cue${l} ]\n` +
+    // The tap listed with the split it belongs to, which is also where migrateSetCue inserts it.
+    `  cue${l}: [ CUE ]\n` +
+    // The echo AFTER the fader, so cutting the channel leaves its tail ringing — that is echo-out.
+    `  level${l}: [ echo${l} ]\n` +
+    `  echo${l}: [ fade${l} ]\n` +
+    `  fade${l}: [ MIX ]\n`
   );
 }
 
@@ -301,7 +337,8 @@ export const BUS_ONLY_NOTE = [
 /** Every SOURCE lane is muted because `out` is a PARALLEL path — see docs/setProject.md. */
 function mutedLanes(): string {
   const lanes = DECKS.flatMap((d) => [d, ...STEMS.map((s) => stemLane(d, s))]);
-  const strips = DECKS.map((d) => `eq${letterOf(d)}`);
+  // The chain's HEAD names it, and the head is the trim now — `eqA` would not be a chain at all.
+  const strips = DECKS.map((d) => `trim${letterOf(d)}`);
   return (
     "# Heard through the bus ONLY — see scaffoldSet.ts for why this is not optional.\n" +
     `bypassed: [ ${lanes.join(", ")} ]\n` +
@@ -314,6 +351,8 @@ function mutedLanes(): string {
 const MEDIATEK_UTILITY = "@st0/audio/utility";
 /** The EQ lives under `filter/`, not `utility/`: a type folder is what draws its icon. */
 const MEDIATEK_FILTER = "@st0/audio/filter";
+/** …and the echo under `time/`, for the same reason: a delay is not a utility. */
+const MEDIATEK_TIME = "@st0/audio/time";
 /** …and the two stem modules under `separation/`: `stemsplit` writes the four files, `stemcut` removes one. */
 const MEDIATEK_SEPARATION = "@st0/audio/separation";
 /** The node names the chains file wires — short on purpose, since the ref is one line away in nodes/. */
@@ -329,6 +368,19 @@ const EQ_A = "eqA";
 const EQ_B = "eqB";
 const FILTER_A = "filterA";
 const FILTER_B = "filterB";
+/** The gain staging: the trim HEADS the strip (and so names the chain), the level ends it. */
+const TRIM_A = "trimA";
+const TRIM_B = "trimB";
+const LEVEL_A = "levelA";
+const LEVEL_B = "levelB";
+/** …and the one effect past the filter, sitting AFTER the level so its tail survives a cut. */
+const ECHO_A = "echoA";
+const ECHO_B = "echoB";
+
+/** Each module's own param name, spelled once — a rename here is otherwise four dead controls. */
+const TRIM_PARAM = "Trim";
+const GAIN_PARAM = "Gain";
+const ECHO_PARAM = "Mix";
 
 /** One deck's tempo: a node of the médiathèque's cold Tempo module. */
 /** One deck's fade — the same module twice, `Side` deciding which way its gain runs (docs/setProject.md). */
@@ -407,6 +459,89 @@ function tempoNode(letter: string): string {
     `  Source BPM: 0\n` +
     `  # What the fader sets. 0 means "leave it alone".\n` +
     `  Target BPM: 0\n`
+  );
+}
+
+/** The trim, level and echo of every deck — exported so the migration writes the same files. */
+export function stripNodeFiles(
+  decks: readonly string[] = DECKS,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const deck of decks) {
+    const l = letterOf(deck);
+    out[`nodes/trim${l}.yaml`] = trimNode(l);
+    out[`nodes/level${l}.yaml`] = levelNode(l);
+    out[`nodes/echo${l}.yaml`] = echoNode(l);
+  }
+  return out;
+}
+
+/** One deck's input trim — the chain's HEAD, so it reaches all five of the deck's lanes. */
+function trimNode(letter: string): string {
+  return (
+    `# Deck ${letter}'s TRIM — the input gain, and the first module of this deck's strip.\n` +
+    `#\n` +
+    `# First for a reason that is not taste: a deck is FIVE lanes — the record, and one per\n` +
+    `# separated stem — and they all meet HERE. A trim on the deck's own lane would do nothing\n` +
+    `# at all to a separated record, whose four parts play instead of the disc.\n` +
+    `#\n` +
+    `# Being the head, it also NAMES the chain: every plugin on this strip is filed under\n` +
+    `# \`trim${letter}:\`, which is why \`bus_only\` lists this node and not the EQ.\n` +
+    `#\n` +
+    `# What it is for: two records cut ten years apart do not arrive at the same level, and\n` +
+    `# nothing in this project normalises loudness. This is what puts them on the same footing\n` +
+    `# so that 0 dB on either channel fader means the same thing.\n` +
+    `extends: ${q(`${MEDIATEK_UTILITY}/trim`)}\n` +
+    `params:\n` +
+    `  # Unity, in the MIDDLE of the travel: the rest of a trim is "whatever the record gives".\n` +
+    `  ${TRIM_PARAM}: 0\n`
+  );
+}
+
+/** …and the CHANNEL FADER at the other end of it, which is not the crossfader. */
+function levelNode(letter: string): string {
+  return (
+    `# Deck ${letter}'s LEVEL — the channel fader, in decibels.\n` +
+    `#\n` +
+    `# Not the crossfader, and this is the distinction the desk was missing: most of a\n` +
+    `# transition is made at the channel, the crossfader being the thing you use for a hard cut.\n` +
+    `# A desk whose only level control is the crossfade can blend two records and nothing else.\n` +
+    `#\n` +
+    `# In DECIBELS, unlike the \`fade\` it feeds: a LEVEL is read in dB, and a surface sending\n` +
+    `# 0.5 for "half" would look right and be six decibels wrong. The floor is -60 and reads as\n` +
+    `# silence — a fader has a bottom, and -Infinity is not a position on one.\n` +
+    `#\n` +
+    `# It sits AFTER the cue tap, which is what pre-fade listen means: pulling this fader down\n` +
+    `# must not take the deck out of your headphones.\n` +
+    `extends: ${q(`${MEDIATEK_UTILITY}/gain`)}\n` +
+    `params:\n` +
+    `  # 0 dB = unity. A channel fader rests OPEN; it is the crossfader that decides what is heard.\n` +
+    `  ${GAIN_PARAM}: 0\n`
+  );
+}
+
+/** …and the one effect past the filter, placed so that an echo-out is possible at all. */
+function echoNode(letter: string): string {
+  return (
+    `# Deck ${letter}'s ECHO — a feedback delay, the only effect on this strip past the filter.\n` +
+    `#\n` +
+    `# AFTER the level, and that placement is the entire feature: an echo-out is cutting the\n` +
+    `# channel and letting the repeats ring on, which works because what you cut is the delay's\n` +
+    `# INPUT and not its output. Wired before the fader it would be cut along with everything else.\n` +
+    `#\n` +
+    `# \`Mix\` is what the desk's knob moves, and it rests at 0 — an effect you drop into a chain\n` +
+    `# must not be heard before somebody asks for it.\n` +
+    `#\n` +
+    `# \`Time\` is in MILLISECONDS and follows nothing: the desk knows each deck's BPM, but no\n` +
+    `# binding carries it here yet. See packages/ui-turntables/docs/fx.md.\n` +
+    `extends: ${q(`${MEDIATEK_TIME}/echo`)}\n` +
+    `params:\n` +
+    `  # A dotted eighth at 120 BPM — the dub delay that displaces rather than doubles.\n` +
+    `  Time: 375\n` +
+    `  # Three or four audible repeats: enough to hear, little enough not to pile up.\n` +
+    `  Feedback: 0.45\n` +
+    `  # DRY at rest. This is the one the desk drives.\n` +
+    `  ${ECHO_PARAM}: 0\n`
   );
 }
 

@@ -9,6 +9,7 @@
     ".": "./src/engine.ts",
     "./access": "./src/access.ts",
     "./store": "./src/engineStore.ts",
+    "./meter": "./src/meter.ts",
     "./params": "./src/params.ts",
     "./probe": "./src/probe.ts",
     "./choose": "./src/choose.ts",

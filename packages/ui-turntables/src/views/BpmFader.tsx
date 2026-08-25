@@ -33,7 +33,8 @@ export function BpmFader({
   const homeFromTop = hi > lo ? (1 - (natural - lo) / (hi - lo)) * 100 : 50;
 
   return (
-    <div className="flex h-full w-14 shrink-0 flex-col items-center gap-1">
+    // Not `h-full`: the column that holds this owns the height, and puts the deck's PLAY under KEY.
+    <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-1">
       <span
         className={`font-mono text-[11px] tabular-nums ${
           driven ? "text-muted-foreground" : ""
@@ -108,7 +109,8 @@ export function BpmFader({
       <button
         type="button"
         onClick={onKeylock}
-        className={`w-full rounded px-1 py-0.5 font-mono text-[9px] leading-none ${
+        // As tall as the PLAY under it: two blocks a hand finds without looking down.
+        className={`h-12 w-full shrink-0 rounded px-1 font-mono text-[10px] leading-none ${
           keylock
             ? "bg-primary/80 text-primary-foreground"
             : "bg-muted text-muted-foreground hover:bg-accent"

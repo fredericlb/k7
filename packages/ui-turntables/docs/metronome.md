@@ -48,6 +48,16 @@ un temps de la platine vaut `DOC_TEMPO / cible` temps du document. À 128 contre
 120, ça fait 0,9375 — un nombre non entier, et c'est très bien, personne ne compte ces temps-là.
 Le tempo du document n'est jamais touché et aucune platine n'est déplacée.
 
+## Le transport qui le porte suit les platines
+
+Le pupitre n'a plus de bouton de transport ([mix.md](mix.md)) : il n'en avait plus besoin pour la
+musique, mais ce clip-là, lui, ne sonne que si le transport roule. La règle qui remplace le bouton
+est donc **le transport suit les platines** — il roule depuis zéro dès qu'une platine tourne et
+s'arrête quand plus aucune ne tourne.
+
+Ça rattache le clic à ce qui joue, ce qui est ce qu'on veut d'un métronome : il ne peut pas rester
+seul à cliquer sur un pupitre à l'arrêt, ni se taire pendant qu'un disque passe.
+
 ## Il a l'ÉCARTEMENT et il n'a pas la PHASE
 
 > **Le clic est le dernier habitant du transport, et plus rien ne l'y accompagne.** Une platine est

@@ -70,6 +70,11 @@ export const SURFACE_MAPPING_SKELETON: Record<
             `deck${d}.tempo`,
             `un module tempo — l'étirement de la platine ${d}`,
           ],
+          // In the SIGNAL's order: the trim heads the strip, so it comes before the bands it feeds.
+          [
+            `deck${d}.trim`,
+            `un module trim — le gain d'entrée de la platine ${d}`,
+          ],
           [`deck${d}.eqLow`, `un module eq — le grave de la platine ${d}`],
           [`deck${d}.eqMid`, "le MÊME module eq — son médium"],
           [`deck${d}.eqHigh`, "le MÊME module eq — son aigu"],
@@ -77,6 +82,12 @@ export const SURFACE_MAPPING_SKELETON: Record<
             `deck${d}.filter`,
             `un module filter — le filtre de la platine ${d}`,
           ],
+          [
+            `deck${d}.level`,
+            `un module level — le fader de voie de la platine ${d}`,
+          ],
+          // OFFERED but not REQUIRED, like the stem cuts below: a desk with no effect is a desk.
+          [`deck${d}.echo`, `un module echo — l'écho de la platine ${d}`],
           // The four stem cuts: OFFERED but not REQUIRED, the one place the two lists differ (docs/surfaceFiles.md).
           [
             `deck${d}.stemDrums`,

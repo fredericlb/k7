@@ -1,0 +1,17 @@
+# panel for @st0/audio/time/echo
+#
+# Trois potards, et un seul est un geste : `Mix` est ce que le pupitre bouge en direct, les deux
+# autres se règlent une fois et se laissent. C'est pour ça que `Mix` est en bas — la rangée du bas
+# est celle qu'une main cherche.
+#
+# `min`/`max` sont les plages que le pupitre reprend telles quelles pour ses contrôles — voir
+# packages/ui-turntables/docs/controls.md.
+cols: 2
+rows: 2
+widgets:
+  time:
+    { type: knob, col: 0, row: 0, label: Temps, bind: Time, min: 1, max: 900, step: 1 }
+  feedback:
+    { type: knob, col: 1, row: 0, label: Retour, bind: Feedback, min: 0, max: 0.95, step: 0.01 }
+  mix:
+    { type: fader, col: 0, row: 1, colSpan: 2, label: Écho, bind: Mix, min: 0, max: 1, step: 0.01 }

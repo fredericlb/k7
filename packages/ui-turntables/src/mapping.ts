@@ -7,8 +7,20 @@ import type { MixView } from "@studio/song-schema/yaml/mixViewSchema";
 import { MIX_CONTROLS, type MixControl } from "./controls";
 import { DECKS } from "./deck";
 
-/** Must name a module: the ones driving a PARAM, minus `cue`, optional like the stems (../docs/cue.md). */
-const WIRED_PER_DECK = ["tempo", "eqLow", "eqMid", "eqHigh", "filter"] as const;
+/** Must name a module: the ones driving a PARAM, minus `cue`, optional like the stems (../docs/cue.md).
+ *
+ * `echo` is optional for the same reason as those two — a desk with no effect past the filter is a
+ * complete desk. `trim` and `level` are NOT: without them the crossfader is the only level control
+ * there is, which is the state this list exists to stop a surface shipping in. See ../docs/mix.md. */
+const WIRED_PER_DECK = [
+  "tempo",
+  "eqLow",
+  "eqMid",
+  "eqHigh",
+  "filter",
+  "trim",
+  "level",
+] as const;
 
 /** Every control a turntables surface needs wired, DERIVED from `DECKS` so a third deck is not skipped. */
 export const REQUIRED_CONTROLS: readonly MixControl[] = MIX_CONTROLS.filter(

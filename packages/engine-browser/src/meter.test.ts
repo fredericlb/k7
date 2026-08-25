@@ -1,19 +1,15 @@
-// The master meter's three pure decisions: where the bar sits, when the clip light clears, and
-// what the peak the Fix button spends is worth.
+// A meter's three pure decisions: where the bar sits, when the clip light clears, and what the peak
+// a "fix this" offer spends is worth.
 //
-// Only the arithmetic and the two RULES are here — nothing mounts a component in this app (see
-// AGENTS.md). What that leaves testable is the part that would be wrong silently: a scale that
-// reads the floor as full, a light that clears on the wrong event, and a peak that clears on a
-// different one from the light.
+// Only the arithmetic and the two RULES are here — no component mounts. What that leaves testable is
+// the part that would be wrong silently: a scale that reads the floor as full, a light that clears on
+// the wrong event, and a peak that clears on a different one from the light.
+//
+// It lives here rather than beside st0's header meter because the DJ desk draws the same bar off the
+// same frames, and these are the functions both of them read.
 
 import { describe, expect, it } from "vitest";
-import {
-  clipLatch,
-  FLOOR_DB,
-  meterFill,
-  newPass,
-  peakHold,
-} from "./MasterMeter";
+import { clipLatch, FLOOR_DB, meterFill, newPass, peakHold } from "./meter";
 
 describe("the bar", () => {
   it("is empty at the floor and full at 0 dB", () => {

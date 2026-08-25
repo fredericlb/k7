@@ -8,7 +8,16 @@ import {
   type Stem,
   stemControl,
 } from "@studio/song-schema/stems";
-import { BPM_RANGE, DECKS, EQ_DB, FILTER_RANGE, MIX_CENTRE } from "./deck";
+import {
+  BPM_RANGE,
+  DECKS,
+  ECHO_RANGE,
+  EQ_DB,
+  FILTER_RANGE,
+  LEVEL_DB,
+  MIX_CENTRE,
+  TRIM_DB,
+} from "./deck";
 
 /** What each stem is called on the desk — `other` is everything the three named ones are not. */
 const STEM_LABELS: Record<Stem, string> = {
@@ -67,19 +76,6 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     // One EQ module per deck, three bands on it: all three lines name it and differ by their param.
     wants: "eq",
   })),
-  // The two halves of a hand on a platter: hold one back, push the other on — see ../docs/scratch.md.
-  ...(
-    [
-      ["nudgeBack", "Retenir"],
-      ["nudgeFwd", "Pousser"],
-    ] as const
-  ).map(([suffix, what]) => ({
-    id: `${deck}.${suffix}`,
-    label: `${what} platine ${letter}`,
-    kind: "button" as const,
-    range: [0, 1] as const,
-    home: 0,
-  })),
   {
     id: `${deck}.cue`,
     label: `Casque platine ${letter}`,
@@ -98,6 +94,34 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     range: FILTER_RANGE,
     home: 0,
     wants: "filter",
+  },
+  // The GAIN STAGING, in decibels at both ends: the trim in front of the strip, the fader after it.
+  {
+    id: `${deck}.trim`,
+    label: `Trim platine ${letter}`,
+    kind: "fader",
+    range: TRIM_DB,
+    // Unity, and it is the CENTRE of the travel: a trim's rest is "what the record gives".
+    home: 0,
+    wants: "trim",
+  },
+  {
+    id: `${deck}.level`,
+    label: `Niveau platine ${letter}`,
+    kind: "fader",
+    range: LEVEL_DB,
+    // 0 dB = unity: a channel fader rests OPEN, the crossfader deciding what is heard.
+    home: 0,
+    wants: "level",
+  },
+  {
+    id: `${deck}.echo`,
+    label: `Écho platine ${letter}`,
+    kind: "fader",
+    range: ECHO_RANGE,
+    // DRY at rest — an effect must not be heard before somebody asks for it. See ../docs/fx.md.
+    home: 0,
+    wants: "echo",
   },
   // The STEMS: one knob per instrument, a PROPORTION, each naming its OWN node — see ../docs/stems.md.
   ...STEMS.map((stem) => ({

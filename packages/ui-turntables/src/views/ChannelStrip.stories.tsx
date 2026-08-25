@@ -23,6 +23,8 @@ function Both({ layout }: { layout: StripLayout }) {
   const [eq, setEq] = useState<Record<string, number>>({ eqLow: 4 });
   const [stems, setStems] = useState<Record<string, number>>({ drums: 0.4 });
   const [filter, setFilter] = useState(0);
+  const [trim, setTrim] = useState(0);
+  const [echo, setEcho] = useState(0);
   return (
     <div className="flex items-start gap-4">
       <StemStrip
@@ -34,13 +36,19 @@ function Both({ layout }: { layout: StripLayout }) {
         onStem={(s, v) => setStems((p) => ({ ...p, [s]: v }))}
       />
       <ChannelStrip
+        trim={trim}
+        trimLive
         eq={eq}
         eqLive
         filter={filter}
         filterLive
+        echo={echo}
+        echoLive
         layout={layout}
+        onTrim={setTrim}
         onEq={(b, v) => setEq((p) => ({ ...p, [b]: v }))}
         onFilter={setFilter}
+        onEcho={setEcho}
       />
     </div>
   );

@@ -141,7 +141,9 @@ describe("deskLayout", () => {
 
   it("drops the READOUTS before it shrinks the knobs to nothing", () => {
     // The value is a convenience and the knob is the control, so the text pays for the filter.
-    const stepped = [900, 300, 250, 200, 150, 100].map(stripLayout);
+    // Wrapped rather than passed by reference: `map` hands the INDEX along, which `stripLayout`
+    // now reads as its `echo` flag — every step after the first would measure a different strip.
+    const stepped = [900, 300, 250, 200, 150, 100].map((h) => stripLayout(h));
     expect(stepped[0].readout).toBe(true);
     expect(stepped[stepped.length - 1].readout).toBe(false);
   });
@@ -153,5 +155,39 @@ describe("deskLayout", () => {
       expect(Number.isFinite(l.vinyl), `at ${h}`).toBe(true);
       expect(Number.isFinite(l.waveform), `at ${h}`).toBe(true);
     }
+  });
+});
+
+// The strip grew a TRIM at its head and an optional ECHO at its foot — ../docs/mix.md, ../docs/fx.md.
+describe("the strip's two new rows", () => {
+  const steps = [900, 400, 300, 206, 100];
+
+  it("costs the echo a row only when a set wires one", () => {
+    // The flag is the whole point: reserving the row on a set with no effect would cost every
+    // deck a rung of the ladder for a knob nobody draws.
+    for (const s of steps.map((h) => stripLayout(h)))
+      expect(stripHeight(s, true)).toBeGreaterThan(stripHeight(s, false));
+  });
+
+  it("still fits what it chose, echo or not", () => {
+    // `justify-center` and no overflow: the whole safety of the column is that the step FITS.
+    const smallest = stripLayout(0);
+    for (const echo of [false, true])
+      for (const h of steps) {
+        const s = stripLayout(h, echo);
+        expect(
+          stripHeight(s, echo) <= h || s === smallest,
+          `at ${h}, echo=${echo}`,
+        ).toBe(true);
+      }
+  });
+
+  it("never picks a LARGER step for the taller strip", () => {
+    // Adding a row may only step the ladder down; a wired echo that grew the knobs would mean
+    // the two branches disagree about what fits.
+    for (const h of steps)
+      expect(stripLayout(h, true).knob).toBeLessThanOrEqual(
+        stripLayout(h, false).knob,
+      );
   });
 });

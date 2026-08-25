@@ -12,9 +12,11 @@ import {
   type LucideIcon,
   Mic,
   Music,
+  Repeat,
+  SlidersHorizontal,
   Waves,
 } from "lucide-react";
-import { EQ_BANDS, EQ_DB, FILTER_RANGE } from "../deck";
+import { ECHO_RANGE, EQ_BANDS, EQ_DB, FILTER_RANGE, TRIM_DB } from "../deck";
 import type { StripLayout } from "../deskLayout";
 
 /** What each stem is called under its knob — short, because the label sits under a 36 px dial. */
@@ -228,26 +230,43 @@ function Knob({
   );
 }
 
-/** A deck's strip on its INNER edge — each half greys on its own, or it would blame the wrong module. */
+/** A deck's strip on its INNER edge — each half greys on its own, or it would blame the wrong module.
+ *
+ * Top to bottom IS the signal path: the trim in front, then the three bands, then the filter a hand
+ * throws, then the one effect past it. See ../../docs/mix.md. */
 export function ChannelStrip({
+  trim,
+  trimLive,
   eq,
   eqLive,
   filter,
   filterLive,
+  echo,
+  echoLive,
   layout,
+  onTrim,
   onEq,
   onFilter,
+  onEcho,
 }: {
+  /** The input gain in dB, ±12. Absent is unity, which is mid-travel. */
+  trim: number | undefined;
+  trimLive: boolean;
   /** dB by band id, `eqLow` / `eqMid` / `eqHigh`. Absent is flat. */
   eq: Partial<Record<string, number>>;
   eqLive: boolean;
   /** −100..+100. Absent is the middle, where the filter is inaudible. */
   filter: number | undefined;
   filterLive: boolean;
+  /** 0..1, dry to wet. Absent is dry — and an unwired echo draws no knob at all. */
+  echo: number | undefined;
+  echoLive: boolean;
   /** How big to draw, for the height this deck has — see `stripLayout`. */
   layout: StripLayout;
+  onTrim: (dB: number) => void;
   onEq: (band: string, dB: number) => void;
   onFilter: (value: number) => void;
+  onEcho: (wet: number) => void;
 }) {
   return (
     // `justify-center` and NO overflow, safe only because `layout` guarantees a fit (../deskLayout.ts).
@@ -255,6 +274,20 @@ export function ChannelStrip({
       className="flex w-16 shrink-0 flex-col items-center justify-center py-2"
       style={{ gap: `${layout.gap}px` }}
     >
+      {/* FIRST, because it is first in the signal: everything below shapes what this one set. */}
+      <Knob
+        label="TRIM"
+        icon={SlidersHorizontal}
+        value={trim ?? 0}
+        range={TRIM_DB}
+        step={0.1}
+        size={layout.knob}
+        readout={layout.readout}
+        unit=""
+        onChange={onTrim}
+        disabled={!trimLive}
+      />
+      <div className="h-px w-8 shrink-0 bg-border" />
       {EQ_BANDS.map((b) => (
         <Knob
           key={b.id}
@@ -284,6 +317,25 @@ export function ChannelStrip({
         onChange={onFilter}
         disabled={!filterLive}
       />
+      {/* ABSENT and not greyed, unlike every knob above: a set that wires no effect is a complete
+          set, so there is nothing here to go and fix. Same rule as the stems — ../../docs/fx.md. */}
+      {echoLive ? (
+        <>
+          <div className="h-px w-8 shrink-0 bg-border" />
+          <Knob
+            label="ÉCHO"
+            icon={Repeat}
+            value={echo ?? 0}
+            range={ECHO_RANGE}
+            step={0.01}
+            size={layout.knob}
+            readout={false}
+            unit=""
+            onChange={onEcho}
+            disabled={false}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

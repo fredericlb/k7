@@ -37,7 +37,7 @@ interface Deck {
   id: string;
   /** Where the tap is taken, from `<deck>.filter`: after the EQ and the filter, before the fade. */
   filter: string;
-  /** The node its lanes meet on, from `<deck>.eqLow` — the STRIP, which loses its dry path. */
+  /** The node its lanes meet on — the STRIP's HEAD, which is what loses its dry path. */
   eq: string;
   /** What the new node is called: `cueA` for `deckA`, and the deck's own name if it is not `deck<X>`. */
   cue: string;
@@ -74,7 +74,9 @@ function decksOf(mapping: YAMLMap): Deck[] {
     // `filter` rather than `tempo`: it is the tap point, so a deck without one has nowhere to tap.
     if (!id || control !== "filter") continue;
     const filter = moduleOf(mapping, key);
-    const eq = moduleOf(mapping, `${id}.eqLow`);
+    // The TRIM heads the strip on a set that has one, and `bus_only` must name the chain's head —
+    // naming the EQ there would list a module that is only a step inside it. See docs/busOnly.md.
+    const eq = moduleOf(mapping, `${id}.trim`) ?? moduleOf(mapping, `${id}.eqLow`);
     // Refused rather than half-wired: guessing a node name writes a send nobody asked for.
     if (!filter || !eq) {
       console.error(
@@ -146,21 +148,17 @@ for (const dir of roots) {
       continue;
     }
 
-    // What it fed BEFORE, read first: the new line goes after that one, so the file reads fade then cue.
-    const wasFeeding = String(
-      (dests.items[0] as { value?: unknown })?.value ?? "",
-    );
     // The SECOND destination, beside whatever the filter already feeds — that is the whole edit.
     dests.add(gdoc.createNode(deck.cue));
     dests.flow = true;
 
-    // …after the fade's own line when it has one, or after the filter's, which every set has.
-    const lineOf = (name: string) =>
-      modules.items.findIndex(
-        (i) => String((i as { key?: { value?: unknown } }).key?.value) === name,
-      );
-    const after = lineOf(wasFeeding);
-    const at = after >= 0 ? after : lineOf(deck.filter);
+    // Straight after the FILTER's own line, which is the split this tap is one half of. Following
+    // the filter's other destination instead would land the cue in the middle of that run, which
+    // on a set with a channel fader is three lines long — see ../src/scaffoldSet.ts's graphForDeck.
+    const at = modules.items.findIndex(
+      (i) =>
+        String((i as { key?: { value?: unknown } }).key?.value) === deck.filter,
+    );
     const seq = gdoc.createNode([CUE_NODE]) as YAMLSeq;
     seq.flow = true;
     modules.items.splice(

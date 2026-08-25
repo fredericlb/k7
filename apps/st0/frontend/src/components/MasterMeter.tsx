@@ -6,6 +6,15 @@
 // to move a bar eight pixels. See engineStore.ts, and docs/masterMeter.md for the Fix button.
 
 import { cn } from "@frediverse/ui/lib/utils";
+// The arithmetic is SHARED: the DJ desk draws the same meter off the same frames — docs/masterMeter.md.
+import {
+  clipLatch,
+  FLOOR_DB,
+  HOT_DB,
+  meterFill,
+  newPass,
+  peakHold,
+} from "@studio/engine-browser/meter";
 import { useEngineState } from "@studio/engine-browser/store";
 import { MASTER_MAX_DB } from "@studio/song-schema/yaml/projectSchema";
 import {
@@ -17,35 +26,8 @@ import {
 } from "react";
 import { TARGET_DB } from "../gainTrim";
 
-/** The bottom of the scale, in dB. Below this the bar is empty rather than negative. */
-export const FLOOR_DB = -60;
-/** Where the bar turns from green to amber — the last few dB before there is no headroom left. */
-const HOT_DB = -6;
 /** The bottom of the FADER, which is not the bottom of the field: below -60 dB a fader spends its travel on inaudible (docs/masterMeter.md). */
 const FADER_MIN_DB = -60;
-
-/** dB → 0..1 across the drawn scale. Linear in dB, which is what a meter's markings are. */
-export const meterFill = (db: number): number =>
-  Math.max(0, Math.min(1, (db - FLOOR_DB) / -FLOOR_DB));
-
-/** The rising edge of `playing`: a NEW pass has begun — the one event that makes the light, the peak and the Fix offer stale. */
-export const newPass = (playing: boolean, wasPlaying: boolean): boolean =>
-  playing && !wasPlaying;
-
-export const clipLatch = (
-  lit: boolean,
-  overload: boolean,
-  playing: boolean,
-  wasPlaying: boolean,
-): boolean => overload || (lit && !newPass(playing, wasPlaying));
-
-/** The loudest the master got during this pass — cleared on the same edge as the light, and RESTARTED from this frame's level. */
-export const peakHold = (
-  held: number,
-  now: number,
-  playing: boolean,
-  wasPlaying: boolean,
-): number => (newPass(playing, wasPlaying) ? now : Math.max(held, now));
 
 /** What the Fix button knows and nothing else does — a handle, the peak being folded during render at 20 Hz; `take` marks the offer spent. */
 export interface MasterMeterHandle {

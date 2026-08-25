@@ -717,6 +717,9 @@ export default function App({
   const chainsAlone = ringPanes.length === 1;
 
   const timelineVisible = visible("timeline");
+  /** The DESK alone on screen: the transport then drives nothing visible — docs/shell.md. */
+  const deskOnly =
+    visible("turntables") && !timelineVisible && !visible("viewport");
   // Never without an ARRANGEMENT: the minimap is a second view of one, and floats over the popin the docked strip cannot serve (docs/shell.md).
   const minimapFloating = docked && !noArrangement && editorPopin;
   const minimapDocked =
@@ -2324,7 +2327,7 @@ export default function App({
             )}
 
             {/* centre: transport — play/pause, stop, the clock, then record, each dropping focus on click (docs/shell.md). */}
-            {(!noArrangement || hasTurntables) && (
+            {(!noArrangement || hasTurntables) && !deskOnly && (
               <div className="mx-auto flex shrink-0 items-center gap-1">
                 <Button
                   size="icon"

@@ -86,6 +86,18 @@ export const EQ_DB: readonly [min: number, max: number] = [-20, 20];
 /** The ends of a deck's filter knob — one signed param, so the neutral is the middle. See docs/filter.md. */
 export const FILTER_RANGE: readonly [min: number, max: number] = [-100, 100];
 
+/** The ends of the input TRIM, in dB — the `trim` module's own knob, signed so unity is mid-travel. */
+export const TRIM_DB: readonly [min: number, max: number] = [-12, 12];
+
+/** …and of the CHANNEL FADER, in dB. The bottom is SILENCE and not -Infinity — docs/mix.md. */
+export const LEVEL_DB: readonly [min: number, max: number] = [-60, 6];
+
+/** The echo's amount, dry to fully wet — the `echo` module's `Mix`. See docs/fx.md. */
+export const ECHO_RANGE: readonly [min: number, max: number] = [0, 1];
+
+/** How fast a record runs backwards under the CENSOR — a platter rate, so 1 is its own speed. */
+export const CENSOR_RATE = -1;
+
 /** The three bands a deck's EQ strip draws, low to high — the order they sit in. */
 export const EQ_BANDS = [
   { id: "eqLow", label: "GRAVE" },
@@ -104,9 +116,6 @@ export const CUE_COLOURS = [
   "#a855f7", // violet
   "#ec4899", // rose
 ] as const;
-
-/** How far one nudge shoves a record — a hundredth of a beat at 128, and what a hand does to a platter. */
-export const NUDGE_SECONDS = 0.01;
 
 /** The stretch, as a multiplier of the file's own clock. 1 when either end is unknown. */
 function ratioOf(natural: number, target: number): number {
@@ -173,7 +182,7 @@ export function plattersOf(deck: DeckId, load?: DeckLoad | null): string[] {
 /** How fast a platter runs, as a multiple of the record's own clock. 0 when stopped.
  *
  * `target / natural` and not the other way round: a 120 song asked to play at 60 runs at HALF speed.
- * The inverse is the STRETCH — what a clip's warp needs, and what `ratioOf` is used for elsewhere. */
+ * The inverse is the STRETCH, which is what the clip path wanted and what got this backwards once. */
 export function platterRate(
   tempo: DeckTempo | undefined,
   playing: boolean,

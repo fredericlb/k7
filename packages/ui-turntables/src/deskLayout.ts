@@ -57,32 +57,44 @@ const STRIP_STEPS: readonly StripLayout[] = [
 const knobBlock = (size: number, readout: boolean): number =>
   size + 2 + 9 + (readout ? 2 + 12 : 0);
 
-/** What a strip step needs: `py-2`, three EQ blocks, four gaps, the rule, and the filter. */
-export const stripHeight = (s: StripLayout): number =>
+/** What a strip step needs, top to bottom: `py-2`, the TRIM, a rule, three EQ blocks, a rule, the
+ *  filter, and — only when the set wires one — a third rule and the ECHO.
+ *
+ * The echo is a FLAG and not a constant because it is optional wiring: reserving its row on a set
+ * that has none would cost every deck a rung of the ladder for a knob nobody draws. */
+export const stripHeight = (s: StripLayout, echo = false): number =>
   16 +
+  knobBlock(s.knob, s.readout) +
   3 * knobBlock(s.knob, s.readout) +
-  4 * s.gap +
-  1 +
-  knobBlock(s.filter, s.readout);
+  knobBlock(s.filter, s.readout) +
+  (echo ? knobBlock(s.knob, false) + s.gap + 1 : 0) +
+  // Six gaps between the seven stacked pieces, and the two rules that separate the three groups.
+  6 * s.gap +
+  2;
 
 /** …and the STEM block at the same step: `py-2` and TWO rows of two, so it borrows the strip's ladder. */
 export const stemStripHeight = (s: StripLayout): number =>
   16 + 2 * knobBlock(s.knob, s.readout) + s.gap;
 
 /** The largest strip that fits in `height`, or the smallest when none does. */
-export function stripLayout(height: number): StripLayout {
+export function stripLayout(height: number, echo = false): StripLayout {
   const h = Math.max(0, height);
   return (
-    STRIP_STEPS.find((s) => stripHeight(s) <= h) ??
+    STRIP_STEPS.find((s) => stripHeight(s, echo) <= h) ??
     STRIP_STEPS[STRIP_STEPS.length - 1]
   );
 }
 
 /** What to draw in a deck column `height` tall — the record goes first, the waveform never. See ../docs/deskLayout.md. */
-export function deskLayout(height: number, stems = false): DeskLayout {
+export function deskLayout(
+  height: number,
+  stems = false,
+  /** Does either deck wire an echo? It costs the strip a row, so the ladder has to know. */
+  echo = false,
+): DeskLayout {
   const h = Math.max(0, height);
   // The strip is the same height's problem on its own ladder — the two columns share a box only.
-  const strip = stripLayout(h);
+  const strip = stripLayout(h, echo);
 
   // With the record: everything under it at its usual size — waveform, cues, title, three gaps.
   const under = WAVE_BASE + CUES + TITLE + GAP * 3;

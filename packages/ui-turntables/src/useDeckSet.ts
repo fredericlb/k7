@@ -16,6 +16,7 @@ import type { MixView as MixViewFile } from "@studio/song-schema/yaml/mixViewSch
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { alignSeek } from "./beats";
 import {
+  CENSOR_RATE,
   DECKS,
   type DeckId,
   type DeckLoads,
@@ -23,7 +24,9 @@ import {
   type DeckTempo,
   type DeckTempos,
   deckRunning,
+  ECHO_RANGE,
   EQ_BANDS,
+  LEVEL_DB,
   MIX_CENTRE,
   metronomeDeck,
   NO_LOADS,
@@ -101,6 +104,19 @@ export interface DeckSet {
   /** Where this deck's filter sits, −100..+100. Undefined until anything says. */
   filterOf: (deck: DeckId) => number | undefined;
   filterLive: (deck: DeckId) => boolean;
+  /** The input TRIM in dB, ±12 — unity at rest, and the thing the channel meter is read against. */
+  trimOf: (deck: DeckId) => number | undefined;
+  trimLive: (deck: DeckId) => boolean;
+  /** …and the CHANNEL FADER in dB, −60..+6. Not the crossfader — see docs/mix.md. */
+  levelOf: (deck: DeckId) => number | undefined;
+  levelLive: (deck: DeckId) => boolean;
+  /** The echo's amount, 0 dry to 1 wet. Optional wiring, like the cue — docs/fx.md. */
+  echoOf: (deck: DeckId) => number | undefined;
+  echoLive: (deck: DeckId) => boolean;
+  /** Which TRACK carries this deck's strip, for the meter to index — null when nothing says. */
+  meterTrack: (deck: DeckId) => string | null;
+  /** The compiled document's track ids, in the order the engine's `levels[]` uses. */
+  trackOrder: string[];
   /** Does the PROJECT wire a headphone send for this deck, and has the engine loaded it? */
   cueWired: (deck: DeckId) => boolean;
   /** …and can this MACHINE play it — i.e. has it named a pair? Both, or the button lights and lies. */
@@ -135,9 +151,6 @@ export interface DeckSet {
   /** Send the transport to one. Nothing happens on an empty slot. */
   jumpCue: (deck: DeckId, slot: number) => void;
 
-  /** Start both decks, or stop them — a transport RULE, not a click handler: play starts where the music is. */
-  toggleTransport: () => void;
-
   /** Put a song on a deck and send it. */
   putOn: (deck: DeckId, load: NonNullable<DeckLoads[DeckId]>) => void;
   /** Forget a deck's tempo — a new record starts at its OWN. */
@@ -154,6 +167,17 @@ export interface DeckSet {
   crossfade: (value: number) => void;
   turnEq: (deck: DeckId, band: string, dB: number) => void;
   turnFilter: (deck: DeckId, value: number) => void;
+  turnTrim: (deck: DeckId, dB: number) => void;
+  turnLevel: (deck: DeckId, dB: number) => void;
+  turnEcho: (deck: DeckId, wet: number) => void;
+  /** Run this deck's record BACKWARDS while held — a platter gesture, no module at all (docs/fx.md). */
+  censor: (deck: DeckId, on: boolean) => void;
+  /** Can it be censored? A record has to be turning for running it backwards to mean anything. */
+  canCensor: (deck: DeckId) => boolean;
+  /** Cut the channel and leave the echo ringing — two of the desk's OWN controls, docs/fx.md. */
+  echoOut: (deck: DeckId, on: boolean) => void;
+  /** Is it held right now? The button reads what it wrote, like the cue does. */
+  echoingOut: (deck: DeckId) => boolean;
   /** Take one instrument out of this deck's record — 0 leaves it in, 1 removes it. */
   turnStem: (deck: DeckId, stem: Stem, cut: number) => void;
   /** Put this deck in the headphones, or take it out — pre-fade, so the crossfader does not touch it. */
@@ -397,6 +421,24 @@ export function useDeckSet(
     commitRef.current();
   }, [running]);
 
+  // The transport FOLLOWS the decks. It carries only the click now, so it has no reason of its own
+  // to roll or stop, and the desk has no button for it — docs/metronome.md.
+  const sentRolling = useRef<boolean | null>(null);
+  useEffect(() => {
+    const e = deck.engine;
+    if (!e) return;
+    const any = DECKS.some((d) => running[d]);
+    if (sentRolling.current === any) return;
+    sentRolling.current = any;
+    if (!any) {
+      e.transport("stop");
+      return;
+    }
+    // From zero: the click's clip starts there and nothing else lives on this timeline.
+    e.seek(0);
+    e.transport("play");
+  }, [running, deck.engine]);
+
   // The drag's own sends: a throttle, deliberately not a debounce — see docs/bpm.md.
   useEffect(() => {
     if (!dragging.current || warpTimer.current !== null) return;
@@ -443,6 +485,33 @@ export function useDeckSet(
       deck.setModuleParam(p.module, p.param, p.value);
   }, [wiring, tempos, deck.setModuleParam]);
 
+  /** Is this control bound to a plugin the engine has actually LOADED? The four knobs' one question. */
+  const wired = useCallback(
+    (control: string): boolean => {
+      const b = bindingFor(control);
+      return !!b && hasPlugin(b, plugins);
+    },
+    [bindingFor, plugins],
+  );
+
+  /** The engine's `levels[]` are indexed by the DOCUMENT's track order — see docs/mix.md.
+   *
+   *  The metronome `withDecks` appends is not here and does not need to be: it goes on the END, so
+   *  every compiled track keeps the index this list gives it. */
+  const trackOrder = useMemo(
+    () => (compiled?.tracks ?? []).map((t) => t.id),
+    [compiled],
+  );
+
+  /** Where each channel fader was when an echo-out cut it — so letting go restores it, docs/fx.md. */
+  const [heldLevel, setHeldLevel] = useState<Partial<Record<DeckId, number>>>(
+    {},
+  );
+  // STATE and not a ref, though only this file reads it: the button lights off it, and a ref
+  // written during a press re-renders nothing — the echo would engage with a dark button.
+  const heldLevelRef = useRef(heldLevel);
+  heldLevelRef.current = heldLevel;
+
   /** Move a control bound to a REAL plugin param. One message, per pixel. */
   const pushParam = useCallback(
     (control: string, value: number): boolean => {
@@ -460,6 +529,15 @@ export function useDeckSet(
       return true;
     },
     [deck.engine, bindingFor, plugins],
+  );
+
+  /** Paint a knob and send it — the optimistic layer plus the one message, which is every knob's shape. */
+  const turn = useCallback(
+    (control: string, value: number) => {
+      setEq((e) => ({ ...e, [control]: value }));
+      pushParam(control, value);
+    },
+    [pushParam],
   );
 
   const nudge = useCallback(
@@ -514,6 +592,23 @@ export function useDeckSet(
       const x = bindingFor(`${deckId}.filter`);
       return !!x && hasPlugin(x, plugins);
     },
+
+    // The gain staging and the echo ride the SAME two rails as the EQ: a real plugin param, per pixel.
+    trimOf: (deckId) =>
+      shownValue(bindingFor(`${deckId}.trim`), eq[`${deckId}.trim`], live),
+    trimLive: (deckId) => wired(`${deckId}.trim`),
+    levelOf: (deckId) =>
+      shownValue(bindingFor(`${deckId}.level`), eq[`${deckId}.level`], live),
+    levelLive: (deckId) => wired(`${deckId}.level`),
+    echoOf: (deckId) =>
+      shownValue(bindingFor(`${deckId}.echo`), eq[`${deckId}.echo`], live),
+    echoLive: (deckId) => wired(`${deckId}.echo`),
+
+    // The STRIP's own track, read off the trim's address — `chain:module`, so the chain is the track.
+    // The trim and not the fader on purpose: this meter is PRE-fader, which is what sets a trim.
+    meterTrack: (deckId) =>
+      bindingFor(`${deckId}.trim`)?.pluginId?.split(":")[0] ?? null,
+    trackOrder,
 
     // The headphone send rides the same rails again — and unwired is an ordinary state here (docs/cue.md).
     cueWired: (deckId) => {
@@ -622,18 +717,6 @@ export function useDeckSet(
       placeRef.current(deckId, at);
     },
 
-    toggleTransport: () => {
-      const e = deck.engine;
-      if (!e) return;
-      const go = !deck.playing;
-      // BOTH: a platter takes no orders from the transport, so moving it alone started nothing.
-      setStarted(Object.fromEntries(DECKS.map((d) => [d, go])));
-      if (!go) return e.transport("stop");
-      // From zero: the only thing left on the timeline is the click, and it starts there (docs/metronome.md).
-      e.seek(0);
-      e.transport("play");
-    },
-
     putOn: (deckId, load) => {
       setDeskError(null);
       const next: DeckLoads = { ...loadsRef.current, [deckId]: load };
@@ -732,6 +815,37 @@ export function useDeckSet(
       setEq((e) => ({ ...e, [id]: value }));
       pushParam(id, value);
     },
+    turnTrim: (deckId, dB) => turn(`${deckId}.trim`, dB),
+    turnLevel: (deckId, dB) => turn(`${deckId}.level`, dB),
+    turnEcho: (deckId, wet) => turn(`${deckId}.echo`, wet),
+
+    // A CENSOR is a scratch the desk performs: the record runs backwards while the button is held,
+    // and letting go hands it back to whatever it was doing. No module, no binding — docs/fx.md.
+    censor: (deckId, on) => sendScratch(deckId, on ? CENSOR_RATE : null),
+    canCensor: (deckId) => !!loadsRef.current[deckId],
+
+    // …and an ECHO-OUT is a MACRO over two of the desk's own controls: the echo full, the channel
+    // shut. It composes what a hand could do rather than binding a param of its own — docs/fx.md.
+    echoOut: (deckId, on) => {
+      if (!wired(`${deckId}.echo`)) return;
+      const level = `${deckId}.level`;
+      // Ignored rather than re-armed: a second press while held would record the FLOOR as the
+      // level to come back to, and letting go would leave the channel shut.
+      if (on === (heldLevelRef.current[deckId] !== undefined)) return;
+      if (on) {
+        // Where the fader WAS, so letting go puts it back — not the control's home, which would
+        // silently re-open a channel somebody had deliberately left down.
+        const was = shownValue(bindingFor(level), eq[level], live) ?? 0;
+        setHeldLevel((h) => ({ ...h, [deckId]: was }));
+        turn(`${deckId}.echo`, ECHO_RANGE[1]);
+        turn(level, LEVEL_DB[0]);
+        return;
+      }
+      turn(`${deckId}.echo`, ECHO_RANGE[0]);
+      turn(level, heldLevelRef.current[deckId] ?? 0);
+      setHeldLevel((h) => ({ ...h, [deckId]: undefined }));
+    },
+    echoingOut: (deckId) => heldLevel[deckId] !== undefined,
     turnStem: (deckId, stem, cut) => {
       const id = stemControl(deckId, stem);
       setEq((e) => ({ ...e, [id]: cut }));

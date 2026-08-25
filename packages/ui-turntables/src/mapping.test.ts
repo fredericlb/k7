@@ -21,12 +21,27 @@ const full = (): MixView =>
   );
 
 describe("REQUIRED_CONTROLS", () => {
-  it("is the crossfade plus five per deck", () => {
-    expect(REQUIRED_CONTROLS).toHaveLength(1 + DECKS.length * 5);
+  it("is the crossfade plus seven per deck", () => {
+    expect(REQUIRED_CONTROLS).toHaveLength(1 + DECKS.length * 7);
     expect(ids(REQUIRED_CONTROLS)).toContain("crossfade");
     for (const d of DECKS)
-      for (const s of ["tempo", "eqLow", "eqMid", "eqHigh", "filter"])
+      for (const s of [
+        "tempo",
+        "eqLow",
+        "eqMid",
+        "eqHigh",
+        "filter",
+        // The gain staging: without these two the crossfader is the only level control there is.
+        "trim",
+        "level",
+      ])
         expect(ids(REQUIRED_CONTROLS)).toContain(`${d}.${s}`);
+  });
+
+  it("does NOT require the echo, which is optional wiring like the cue", () => {
+    // A desk with no effect past the filter is a complete desk — ../docs/fx.md.
+    for (const d of DECKS)
+      expect(ids(REQUIRED_CONTROLS)).not.toContain(`${d}.echo`);
   });
 
   it("does NOT require the buttons that name no module param", () => {

@@ -122,16 +122,27 @@ These are the buttons a mouse is most likely to land on right before reaching fo
 focused one eats the keypress. On play/pause the theft is invisible, because the button does what
 Space would; on stop and record it is not.
 
-A **set** gets the two that mean something and not the other two, **in the same place**: this is
-the bar you reach for whichever project is open, so play and stop must not move around. What it
-drops is the clock and record. A set declares no tempo and no time signature (`project.yaml` says
-so outright), so the clock would count bars nothing is written against, and record would arm a
-lane with nowhere to put a take.
+The cluster is absent where there is nothing here to address — and there are now two such cases.
 
-The cluster is absent altogether only where there is **neither** — a project with no timeline and
-no desk. Every control here addresses a position in something, and that project has nothing to
-address; sound still reaches the engine, played by whatever is wired in the graph. See
+A project with **neither a timeline nor a desk**: every control here addresses a position in
+something, and that project has none; sound still reaches the engine, played by whatever is wired
+in the graph. See
 [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
+
+…and the **DESK alone on screen** (`deskOnly`), which is the ordinary state of a set. Each deck is
+a platter carrying its own position, so the transport there drives nothing but the metronome's
+click — and each deck has its own PLAY, at the foot of its tempo column
+([packages/ui-turntables/docs/mix.md](../../../../packages/ui-turntables/docs/mix.md)). Buttons
+that look like they start the music without starting it are worse than none. The test is the
+SCREEN and not the project: a project that declares a desk *and* a timeline keeps its transport
+the moment either the timeline or the viewport is showing, because there it moves something you
+can see.
+
+A set that still shows the cluster gets the two that mean something and not the other two, **in
+the same place**: this is the bar you reach for whichever project is open, so play and stop must
+not move around. What it drops is the clock and record. A set declares no tempo and no time
+signature (`project.yaml` says so outright), so the clock would count bars nothing is written
+against, and record would arm a lane with nowhere to put a take.
 
 The status bar's **Q badge** sits beside it for a related reason: Q1/Q2/Q3 off the measured
 latency is a property of the SESSION rather than of a screen — it decides what you can do here

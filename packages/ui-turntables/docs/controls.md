@@ -16,14 +16,19 @@ platines, pour qu'une troisième platine ne soit pas silencieusement impossible 
 | `deckA.eqMid`, `deckB.eqMid` | le médium | −20..+20 dB |
 | `deckA.eqHigh`, `deckB.eqHigh` | l'aigu | −20..+20 dB |
 | `deckA.filter`, `deckB.filter` | le filtre de balayage | −100..+100 |
+| `deckA.trim`, `deckB.trim` | le gain d'entrée, en tête de la tranche | −12..+12 dB |
+| `deckA.level`, `deckB.level` | le **fader de voie** — pas le crossfader | −60..+6 dB |
+| `deckA.echo`, `deckB.echo` | l'écho, le seul effet au-delà du filtre | 0..1 |
 | `deckA.cue`, `deckB.cue` | la platine au casque, avant le crossfader | 0..1 |
-| `deckA.nudgeBack`, `deckB.nudgeBack` | retenir le disque de 10 ms | 0..1 |
-| `deckA.nudgeFwd`, `deckB.nudgeFwd` | le pousser d'autant | 0..1 |
 | `deckA.stemDrums`, `deckB.stemDrums` | la batterie qu'on RETIRE du disque | 0..1 |
 | `deckA.stemBass`, … | la basse, le reste, la voix — un contrôle chacun | 0..1 |
 
-Les quatre stems sont **offerts sans être exigés**, et le cue aussi — un pupitre qui n'en câble
-aucun est un pupitre complet. Ce sont les deux seuls endroits où le squelette du scaffold et
+Les quatre stems sont **offerts sans être exigés**, le cue aussi, et l'écho aussi
+([fx.md](fx.md)) — un pupitre qui n'en câble aucun est un pupitre complet.
+
+Le trim et le fader de voie, en revanche, sont **exigés** : sans eux le crossfader est la seule
+commande de niveau du pupitre, et c'est précisément l'état que `REQUIRED_CONTROLS` existe pour
+empêcher une surface de livrer. Voir [mix.md](mix.md). Ce sont les deux seuls endroits où le squelette du scaffold et
 `REQUIRED_CONTROLS` diffèrent, pour deux raisons voisines : un morceau peut n'avoir jamais été
 séparé, et une machine peut n'avoir qu'une paire de sortie ([cue.md](cue.md)). Chacun nomme son PROPRE module (`cutBassA`), là où les trois bandes d'EQ se partagent
 le leur — une coupe est un gain négatif sur la lane qui joue ce stem. Voir [stems.md](stems.md).

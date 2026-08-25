@@ -1,8 +1,13 @@
 # Les repères d'une platine
 
-Huit boutons sous chaque waveform. **Appui court** : la tête de lecture saute au repère.
-**Appui long** (1 s) : le repère est posé. Blanc tant qu'il est vide, sa couleur une fois
-assigné.
+Huit boutons sous chaque waveform, **sur toute sa largeur**. **Appui court** : la tête de
+lecture saute au repère. **Appui long** (1 s) : le repère est posé. Blanc tant qu'il est vide,
+sa couleur une fois assigné.
+
+Rien ne les flanque. Deux flèches « retenir / pousser » l'ont fait, qui poussaient le disque
+d'un centième de temps par appui ; elles ont été retirées et la rangée a pris leur place. Le
+même geste vit dans la **bande**, qu'on glisse ([waveform.md](waveform.md)), et huit cibles que
+la main doit apprendre par leur position valent mieux large qu'entourées.
 
 Les huit boutons sont là **même sans morceau**, simplement grisés. Un pupitre dont les
 commandes apparaissent et disparaissent avec ce qui est chargé est un pupitre qui bouge sous les

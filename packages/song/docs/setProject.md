@@ -128,16 +128,26 @@ signal**:
 ```yaml
 modules:
   deckA: [ tempoA ]         # the record, through its OWN tempo…
-  tempoA: [ eqA ]           # …into the deck's bus
+  tempoA: [ trimA ]         # …into the deck's bus, which the TRIM heads
   stemBassA: [ cutBassA ]   # …and one lane per separated instrument
-  cutBassA: [ eqA ]         #    through the cut that SUBTRACTS it, into the same bus
+  cutBassA: [ trimA ]       #    through the cut that SUBTRACTS it, into the same bus
   # …drums, other, vocals alike, ×2 decks
-  eqA: [ filterA ]          # the bus carries the strip
-  filterA: [ fadeA ]        # …and ends on this deck's own fade
+  trimA: [ eqA ]            # the bus carries the strip: trim, EQ, filter
+  eqA: [ filterA ]
+  filterA: [ levelA, cueA ] # …and SPLITS: the channel fader, and the pre-fade headphone tap
+  cueA: [ CUE ]
+  levelA: [ echoA ]         # the echo sits AFTER the fader, so a cut leaves its tail ringing
+  echoA: [ fadeA ]          # …and ends on this deck's own fade
   fadeA: [ MIX ]            # which lands on the mixer's sum, like deck B's
-  fadeB: [ MIX ]
 bypassed: [ deckA, deckB, stemBassA, … ]   # every source is heard through its bus only
+bus_only: [ trimA, trimB ]                 # …and the strip's HEAD loses its dry path
 ```
+
+Three of those are the **channel strip** rather than the crossfade, and they have their own page
+in the desk that draws them: [mix.md](../../ui-turntables/docs/mix.md) for the trim and the
+channel fader, [fx.md](../../ui-turntables/docs/fx.md) for the echo. The two rules worth knowing
+here are that the trim is FIRST because a deck is five lanes and only the bus head reaches all of
+them, and that the echo is LAST because an echo-out cuts a delay's input and not its output.
 
 ### The crossfader is TWO modules, and the engine is why
 
@@ -192,9 +202,11 @@ own — there is no fan-out in the document and no plugin with four inputs (agai
 summing at the EQ produce a SUBTRACTION: turn one up and that instrument leaves the mix, leave
 them all at zero and what you hear is the record, sample for sample.
 
-Five feeders is also what makes `eqA` a **bus**: a run breaks where two signals meet, so the EQ,
-the filter and the crossfade become a chain with no `from`, which `nodeProject` materialises as a
-return track fed by five sends.
+Five feeders is also what makes `trimA` a **bus**: a run breaks where two signals meet, so the
+trim, the EQ and the filter become a chain with no `from`, which `nodeProject` materialises as a
+return track fed by five sends. The chain is named after its HEAD, so those plugins are addressed
+`trimA:eqA` — and `bus_only:` must name `trimA` for the same reason, naming the EQ there being a
+step rather than a head.
 
 **The meeting has to happen before the EQ**, and that is the whole reason the strip moved onto a
 bus. Subtracting a raw stem from an already equalised mix leaves a residue shaped like the EQ, so

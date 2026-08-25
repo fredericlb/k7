@@ -44,6 +44,10 @@ beforeEach(() => {
     // The stem cut, copied like the others: a renamed `Cut` param is eight dead controls.
     "audio/separation/stemcut",
     "audio/filter/sweep",
+    // The gain staging and the one effect — real folders, so a broken jsdsp fails HERE.
+    "audio/utility/trim",
+    "audio/utility/gain",
+    "audio/time/echo",
   ]) {
     const to = join(mediatek, "modules", ...at.split("/"));
     mkdirSync(dirname(to), { recursive: true });
@@ -104,6 +108,9 @@ describe("a scaffolded set", () => {
       // The DECKS are nodes too — a lane is a module, so there is no `tracks/` folder.
       "nodes/deckA.yaml",
       "nodes/deckB.yaml",
+      // The one effect past the filter, AFTER the level so an echo-out has something to ring.
+      "nodes/echoA.yaml",
+      "nodes/echoB.yaml",
       "nodes/eqA.yaml",
       "nodes/eqB.yaml",
       // ONE FADE PER DECK, opposed by their `Side` — two of them are the crossfader.
@@ -111,6 +118,9 @@ describe("a scaffolded set", () => {
       "nodes/fadeB.yaml",
       "nodes/filterA.yaml",
       "nodes/filterB.yaml",
+      // THE CHANNEL FADER, which is not the crossfader — in dB, and the strip's last module.
+      "nodes/levelA.yaml",
+      "nodes/levelB.yaml",
       // …and one LANE per stem: a stem that fades on its own has to be a track of its own.
       "nodes/stemBassA.yaml",
       "nodes/stemBassB.yaml",
@@ -122,6 +132,9 @@ describe("a scaffolded set", () => {
       "nodes/stemVocalsB.yaml",
       "nodes/tempoA.yaml",
       "nodes/tempoB.yaml",
+      // The input gain, and the chain's HEAD: all five of a deck's lanes meet here.
+      "nodes/trimA.yaml",
+      "nodes/trimB.yaml",
       "project.yaml",
       // The DESK carries its own `mapping:`, so no `views/mix.yaml` is written at all.
       "surfaces",
@@ -150,6 +163,14 @@ describe("a scaffolded set", () => {
       "deckB.eqHigh": { module: "eqB", param: "High-shelf gain" },
       "deckA.filter": { module: "filterA", param: "Sweep" },
       "deckB.filter": { module: "filterB", param: "Sweep" },
+      // The gain staging: the trim HEADS the strip, the channel fader ENDS it — two different jobs.
+      "deckA.trim": { module: "trimA", param: "Trim" },
+      "deckB.trim": { module: "trimB", param: "Trim" },
+      "deckA.level": { module: "levelA", param: "Gain" },
+      "deckB.level": { module: "levelB", param: "Gain" },
+      // …and the one effect past the filter, which is where an echo-out gets something to ring.
+      "deckA.echo": { module: "echoA", param: "Mix" },
+      "deckB.echo": { module: "echoB", param: "Mix" },
       // The headphone send — the same Fade module as the crossfade, on the deck's OTHER destination.
       "deckA.cue": { module: "cueA", param: "Mix" },
       "deckB.cue": { module: "cueB", param: "Mix" },
@@ -197,7 +218,7 @@ describe("a scaffolded set", () => {
     expect(ext("nodes/tempoB.yaml")).toBe("@st0/audio/utility/tempo");
   });
 
-  it("asks the médiathèque for exactly those five modules", () => {
+  it("asks the médiathèque for exactly those eight modules", () => {
     scaffoldSet(dir, "winter");
     // One of each and not eight for the stem cut: fetching a module once per use would be a bug.
     expect(mediatekRefs(dir)).toEqual([
@@ -205,8 +226,13 @@ describe("a scaffolded set", () => {
       "@st0/audio/filter/sweep",
       // Under `separation/`, beside the `stemsplit` that writes the files it takes back out.
       "@st0/audio/separation/stemcut",
+      // Under `time/`, for the same reason the EQ is under `filter/`: a delay is not a utility.
+      "@st0/audio/time/echo",
       "@st0/audio/utility/fade",
+      // TWO gains and not one: what separates a trim from a fader is its RANGE — docs/setProject.md.
+      "@st0/audio/utility/gain",
       "@st0/audio/utility/tempo",
+      "@st0/audio/utility/trim",
     ]);
   });
 
@@ -217,22 +243,22 @@ describe("a scaffolded set", () => {
     expect(existsSync(join(dir, "surfaces", "desk.yaml"))).toBe(true);
   });
 
-  it("derives a BUS per deck: five sources meeting before the EQ", () => {
+  it("derives a BUS per deck: five sources meeting before the TRIM", () => {
     scaffoldSet(dir, "winter");
     const g = loadGraph(dir);
     // A warning here means the template references something it did not write.
     expect(g.warnings).toEqual([]);
     // A chain per lane, per strip and per strip's TWO destinations, plus `MIX` — see docs/cue.md.
+    // `fadeA` is no longer one of them: the split moved to the filter, so the fade is a STEP
+    // inside the channel-fader run rather than the head of a chain of its own.
     expect(Object.keys(g.chains).sort()).toEqual([
       "MIX",
       "cueA",
       "cueB",
       "deckA",
       "deckB",
-      "eqA",
-      "eqB",
-      "fadeA",
-      "fadeB",
+      "levelA",
+      "levelB",
       "stemBassA",
       "stemBassB",
       "stemDrumsA",
@@ -241,21 +267,34 @@ describe("a scaffolded set", () => {
       "stemOtherB",
       "stemVocalsA",
       "stemVocalsB",
+      "trimA",
+      "trimB",
     ]);
     // The record's own run is short: it is stretched, and then it goes to the bus.
     expect(g.chains.deckA.from).toBe("deckA");
     expect(g.chains.deckA.use.map((s) => s.module)).toEqual(["tempoA"]);
-    expect(g.chains.deckA.out.map((o) => o.to)).toEqual(["eqA"]);
-    // The cut meets the bus BEFORE the EQ, or the subtraction leaves a residue shaped like it.
+    expect(g.chains.deckA.out.map((o) => o.to)).toEqual(["trimA"]);
+    // The cut meets the bus BEFORE the trim, so one gain reaches the record AND its four parts.
     expect(g.chains.stemBassA.use.map((s) => s.module)).toEqual(["cutBassA"]);
-    expect(g.chains.stemBassA.out.map((o) => o.to)).toEqual(["eqA"]);
+    expect(g.chains.stemBassA.out.map((o) => o.to)).toEqual(["trimA"]);
     // No `from` at all, which is what makes the bus a bus rather than a lane's run.
-    expect(g.chains.eqA.from).toBeUndefined();
+    expect(g.chains.trimA.from).toBeUndefined();
     // The strip ENDS at the filter: what follows is two destinations, and a split ends a run.
-    expect(g.chains.eqA.use.map((s) => s.module)).toEqual(["eqA", "filterA"]);
-    expect(g.chains.eqA.out.map((o) => o.to)).toEqual(["fadeA", "cueA"]);
+    expect(g.chains.trimA.use.map((s) => s.module)).toEqual([
+      "trimA",
+      "eqA",
+      "filterA",
+    ]);
+    // …and the CUE is tapped here, ahead of the channel fader: that is what pre-fade means.
+    expect(g.chains.trimA.out.map((o) => o.to)).toEqual(["levelA", "cueA"]);
+    // The echo sits AFTER the fader, so cutting the channel leaves its tail ringing.
+    expect(g.chains.levelA.use.map((s) => s.module)).toEqual([
+      "levelA",
+      "echoA",
+      "fadeA",
+    ]);
     // One goes to the room through the crossfade, the other to the headphones — pre-fade, docs/cue.md.
-    expect(g.chains.fadeA.out.map((o) => o.to)).toEqual(["MIX"]);
+    expect(g.chains.levelA.out.map((o) => o.to)).toEqual(["MIX"]);
     expect(g.chains.cueA.out.map((o) => o.to)).toEqual(["CUE"]);
     // The blend then leaves by the master run, which is what a limiter on a set would go on.
     expect(g.chains.MIX.out.map((o) => o.to)).toEqual(["OUT"]);
@@ -267,17 +306,21 @@ describe("a scaffolded set", () => {
     // No port anywhere: the two strips never meet before the mixer, which is the whole point.
     for (const chain of Object.values(g.chains))
       for (const step of chain.use) expect(step.in ?? []).toEqual([]);
-    expect(g.chains.eqB.use.map((s) => s.module)).toEqual(["eqB", "filterB"]);
+    expect(g.chains.trimB.use.map((s) => s.module)).toEqual([
+      "trimB",
+      "eqB",
+      "filterB",
+    ]);
     // Both fades land on the mixer's sum, as two ordinary runs — no sidechain, nothing to keep audible.
-    expect(g.chains.fadeA.out.map((o) => o.to)).toEqual(["MIX"]);
-    expect(g.chains.fadeB.out.map((o) => o.to)).toEqual(["MIX"]);
+    expect(g.chains.levelA.out.map((o) => o.to)).toEqual(["MIX"]);
+    expect(g.chains.levelB.out.map((o) => o.to)).toEqual(["MIX"]);
   });
 
   it("takes each strip's DRY path away, without turning its EQ off", () => {
     scaffoldSet(dir, "winter");
     const raw = readFileSync(join(dir, GRAPH_FILE), "utf8");
-    // `bypassed: [eqA]` would ALSO bypass the EQ — the chain is named after it. See docs/busOnly.md.
-    expect(raw).toMatch(/^bus_only: \[ eqA, eqB \]$/m);
+    // `bypassed: [trimA]` would ALSO bypass the trim — the chain is named after it. See docs/busOnly.md.
+    expect(raw).toMatch(/^bus_only: \[ trimA, trimB \]$/m);
     expect(raw).not.toMatch(/^bypassed: \[[^\]]*\beqA\b/m);
   });
 
@@ -334,10 +377,8 @@ describe("a scaffolded set", () => {
       "cueB",
       "deckA",
       "deckB",
-      "eqA",
-      "eqB",
-      "fadeA",
-      "fadeB",
+      "levelA",
+      "levelB",
       "stemBassA",
       "stemBassB",
       "stemDrumsA",
@@ -346,12 +387,15 @@ describe("a scaffolded set", () => {
       "stemOtherB",
       "stemVocalsA",
       "stemVocalsB",
+      "trimA",
+      "trimB",
     ]);
     // NOTHING sidechains: the mechanism that cost the crossfade its sound is simply not used.
     for (const t of doc.tracks)
       for (const p of t.plugins) expect(p.sidechainFrom ?? "").toBe("");
-    // The FADE is what reaches the master, and it is not muted — it is the end of the audible path.
-    for (const id of ["fadeA", "fadeB"])
+    // The CHANNEL FADER's run is what reaches the master, and it is not muted — it is the end
+    // of the audible path, the fade now being a step inside it rather than a track of its own.
+    for (const id of ["levelA", "levelB"])
       expect(doc.tracks.find((t) => t.id === id)?.mute).toBe(false);
   });
 
@@ -360,10 +404,15 @@ describe("a scaffolded set", () => {
     const doc = (scaffoldSet(dir, "winter"), compileNodeProject(dir));
     const ids = (t: string) =>
       doc.tracks.find((x) => x.id === t)?.plugins.map((p) => p.id) ?? [];
-    // The strip ends at the filter; the fade and the cue are its two destinations, one plugin each.
-    expect(ids("eqA")).toEqual(["eqA:eqA", "eqA:filterA"]);
-    expect(ids("eqB")).toEqual(["eqB:eqB", "eqB:filterB"]);
-    expect(ids("fadeA")).toEqual(["fadeA:fadeA"]);
+    // The strip ends at the filter; the channel fader and the cue are its two destinations.
+    expect(ids("trimA")).toEqual(["trimA:trimA", "trimA:eqA", "trimA:filterA"]);
+    expect(ids("trimB")).toEqual(["trimB:trimB", "trimB:eqB", "trimB:filterB"]);
+    // …and the fader's own run carries the three that follow it, the echo between them.
+    expect(ids("levelA")).toEqual([
+      "levelA:levelA",
+      "levelA:echoA",
+      "levelA:fadeA",
+    ]);
     expect(ids("cueA")).toEqual(["cueA:cueA"]);
     // The record's own lane carries NOTHING: a plugin here is one the stems never went through.
     expect(ids("deckA")).toEqual([]);
@@ -376,8 +425,8 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     const doc = compileNodeProject(dir);
     const eq = doc.tracks
-      .find((t) => t.id === "eqA")
-      ?.plugins.find((p) => p.id === "eqA:eqA");
+      .find((t) => t.id === "trimA")
+      ?.plugins.find((p) => p.id === "trimA:eqA");
     expect(eq?.type).toBe("Equaliser");
     // A DJ's crossover points, not Tracktion's 80 / 3000 / 17000: a shelf at 17 kHz is air.
     expect(eq?.params).toMatchObject({
@@ -413,12 +462,13 @@ describe("a scaffolded set", () => {
     for (const id of ["deckA", "deckB", "stemBassA", "stemVocalsB"])
       expect(byId[id].mute, id).toBe(true);
     // The STRIP too, by the OTHER word: it feeds two buses, so its dry path would bypass the crossfade.
-    expect(byId.eqA.mute).toBe(true);
-    expect(byId.eqB.mute).toBe(true);
-    expect(byId.eqA.plugins.every((p) => p.enabled)).toBe(true);
-    // …and the FADE is not muted: it is what reaches the master.
-    expect(byId.fadeA.mute).toBe(false);
-    expect(byId.fadeB.mute).toBe(false);
+    // Named by its HEAD, which is the trim — `eqA` is a step inside it and not a chain at all.
+    expect(byId.trimA.mute).toBe(true);
+    expect(byId.trimB.mute).toBe(true);
+    expect(byId.trimA.plugins.every((p) => p.enabled)).toBe(true);
+    // …and the CHANNEL FADER's run is not muted: it is what reaches the master.
+    expect(byId.levelA.mute).toBe(false);
+    expect(byId.levelB.mute).toBe(false);
   });
 
   it("gives every lane an empty arrangement — the record's and the stems'", () => {
