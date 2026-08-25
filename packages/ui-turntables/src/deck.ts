@@ -14,16 +14,19 @@ import {
 } from "@studio/engine-protocol/build";
 import type {
   ClipDoc,
+  PluginDoc,
   ProjectDoc,
   TrackDoc,
 } from "@studio/engine-protocol/project";
 import {
+  deckPlatter,
   STEMS,
   STEMS_DIR,
   type Stem,
   stemFile,
   stemLane,
   stemLaneOf,
+  stemPlatter,
 } from "@studio/song-schema/stems";
 import { BEATS_PER_BAR } from "./beats";
 import type { DeckModule } from "./graph";
@@ -164,19 +167,26 @@ export function stemSource(master: string, stem: Stem): string {
   return `${stemsFolder(master)}${stemFile(stem)}`;
 }
 
-/** The engine's platter, as a module id on a TRACK — the deck's own lane, or one of its stem lanes. */
+/** The engine's platter type. Kept for the STAND-IN only — a real set DECLARES its platters now. */
 export const PLATTER_TYPE = "studio_turntable";
-export const platterId = (track: string): string => `${track}:platter`;
+
+/** A plugin's engine address: the chain it heads, then the module — `deckA:platterA`. */
+const pluginId = (track: string, module: string): string =>
+  `${track}:${module}`;
 
 /** Every platter a deck drives, in the order the parts are named. Empty when it holds nothing.
  *
  * A separated record is FOUR platters and not one: the four parts ARE the record, so they share one
- * position, one rate and one KEY, and a gesture reaches all of them. See docs/stems.md. */
+ * position, one rate and one KEY, and a gesture reaches all of them. See docs/stems.md.
+ *
+ * WHICH of the two it is depends on the record, not on the project — a set declares all five, and
+ * `load.stems` says which are playing. That is why this is derived here and not bound in
+ * `surfaces/desk.yaml`: it is true of what is on the deck right now (docs/platter-node-plan.md). */
 export function plattersOf(deck: DeckId, load?: DeckLoad | null): string[] {
   if (!load) return [];
   return load.stems
-    ? STEMS.map((s) => platterId(stemLane(deck, s)))
-    : [platterId(deck)];
+    ? STEMS.map((s) => pluginId(stemLane(deck, s), stemPlatter(deck, s)))
+    : [pluginId(deck, deckPlatter(deck))];
 }
 
 /** How fast a platter runs, as a multiple of the record's own clock. 0 when stopped.
@@ -216,28 +226,39 @@ export function deckRunning(
   return !!load && !!own[deckId];
 }
 
-/** The platter plugin for one LANE, carrying the record it OWNS — `role: instrument`, it makes its own audio. */
-function platterPlugin(
-  track: string,
+/** Put a record on a DECLARED platter: the file, and the two numbers a re-send must not lose.
+ *
+ * Three things and no more. The plugin, its id, its type and its place in the chain all come from
+ * the project now — this used to build the whole thing, which is why a set's source was invisible
+ * on the graph. See docs/platter-node-plan.md.
+ *
+ * `Rate` and `Key` are here rather than left to the node's file because they are LIVE state: a deck
+ * that is turning has to still be turning after the next document, and the file says `Rate: 0`.
+ *
+ * `Seek` is REMOVED, and that removal is the whole of this function's care. The engine reads a
+ * CHANGED seek as a needle-drop and resets its stretcher with it; the node file declares `Seek: 0`,
+ * so carrying the declared params through would re-assert 0 on every document. A tempo drag sends
+ * one every 120 ms (`LIVE_WARP_MS`), which is eight needle-jumps a second — heard as crackle.
+ * A jump is a LIVE message, and re-sending a document must not re-drop the needle. */
+function onPlatter(
+  plugin: PluginDoc,
   source: string,
   tempo: DeckTempo | undefined,
   playing: boolean,
-) {
-  return pluginDoc({
-    id: platterId(track),
-    type: PLATTER_TYPE,
-    name: "platter",
-    role: "instrument",
+): PluginDoc {
+  // Dropped rather than overwritten: a param the document omits is one the engine does not touch.
+  const { Seek: _live, ...held } = plugin.params;
+  return {
+    ...plugin,
     deckFile: source,
-    // Seek is left alone here: a jump is a live message, and re-sending the document must not re-drop the needle.
     params: {
+      ...held,
       Rate: platterRate(tempo, playing),
-      Gain: 1,
       // KEY is a param of the platter, not a second way of playing — engine/moteur/docs/turntable.md.
       // No hand here: a document is what the deck does when nobody is touching it.
       Key: platterKey(tempo, false),
     },
-  });
+  };
 }
 
 /** The COMPILED project with the decks' songs filled in — everything else is left ALONE, docs/mix.md. */
@@ -266,23 +287,46 @@ export function withDecks(
       if (stem && !load.stems) return track;
       // …and a separated one is the other way round: the four PARTS play, so the record itself does not.
       if (!stem && load.stems) return { ...track, clips: [] };
-      // Whatever plays, plays off a PLATTER: the whole record, or one of its four parts.
+      // Whatever plays, plays off a PLATTER — one the PROJECT declares. All this writes is the
+      // record and the two live numbers; the plugin, its type and its place are the compiler's.
       return {
         ...track,
         clips: [],
-        // FIRST on the chain: it is the source, and everything the project declared shapes what it makes.
-        plugins: [
-          platterPlugin(
-            track.id,
-            stem ? stemSource(load.path, stem.stem) : load.path,
-            tempos[deck],
-            !!playing[deck],
-          ),
-          ...track.plugins,
-        ],
+        plugins: track.plugins.map((p) =>
+          p.type === PLATTER_TYPE
+            ? onPlatter(
+                p,
+                stem ? stemSource(load.path, stem.stem) : load.path,
+                tempos[deck],
+                !!playing[deck],
+              )
+            : p,
+        ),
       };
     }),
   };
+}
+
+/** The stand-in's platter, BUILT rather than patched — it declares no nodes, so there is none to
+ *  patch. The last place in this file that invents a plugin, and it is why `PLATTER_TYPE` survives. */
+function standInPlatter(
+  track: string,
+  source: string,
+  tempo: DeckTempo | undefined,
+  playing: boolean,
+): PluginDoc {
+  return pluginDoc({
+    id: `${track}:platter`,
+    type: PLATTER_TYPE,
+    name: "platter",
+    role: "instrument",
+    deckFile: source,
+    params: {
+      Rate: platterRate(tempo, playing),
+      Gain: 1,
+      Key: platterKey(tempo, false),
+    },
+  });
 }
 
 /** A document built from NOTHING, for the seconds before the compile lands — an imitation, docs/mix.md. */
@@ -309,7 +353,7 @@ export function deckDoc(
           // play the parts off, and playing the record itself is the closer imitation of the two.
           plugins: [
             ...(load
-              ? [platterPlugin(deck, load.path, tempos[deck], !!playing[deck])]
+              ? [standInPlatter(deck, load.path, tempos[deck], !!playing[deck])]
               : []),
             ...(modules[deck] ?? []).map((m) => {
               const { type, name } = enginePlugin(m.plugin, m.name);

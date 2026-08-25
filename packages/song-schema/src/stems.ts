@@ -42,6 +42,13 @@ export const stemLane = (deck: string, stem: Stem): string =>
 export const stemCut = (deck: string, stem: Stem): string =>
   `cut${Cap(stem)}${letterOf(deck)}`;
 
+/** …and the PLATTER that reads its file: `platterBassA`. One reader per file — docs/platter-node-plan.md. */
+export const stemPlatter = (deck: string, stem: Stem): string =>
+  `platter${Cap(stem)}${letterOf(deck)}`;
+
+/** The platter a deck's own RECORD plays on: `platterA`. Its lane is the deck itself. */
+export const deckPlatter = (deck: string): string => `platter${letterOf(deck)}`;
+
 /** …and the desk control that drives that node: `deckA.stemBass`. */
 export const stemControl = (deck: string, stem: Stem): string =>
   `${deck}.stem${Cap(stem)}`;

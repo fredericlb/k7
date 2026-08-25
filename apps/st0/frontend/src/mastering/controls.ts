@@ -4,6 +4,7 @@
 // See ../../docs/mastering.md.
 
 import type { MixView } from "@studio/song-schema/yaml/mixViewSchema";
+import { unmappedControls as unmapped } from "@studio/ui-chains/bindings";
 
 /** The three appliances inside one quick-master node, in the order the signal meets them. */
 export const MASTER_PARTS = ["comp", "spread", "limiter"] as const;
@@ -139,11 +140,14 @@ export const MASTER_CONTROLS: readonly MasterControl[] = [
 export const masterControl = (id: string): MasterControl | undefined =>
   MASTER_CONTROLS.find((c) => c.id === id);
 
-/** The controls with no module behind them, absent or `null` — it filters the WHOLE list, a missing line being a knob that does nothing. */
+/** The controls with no module behind them, absent or `null` — it filters the WHOLE list, a missing line being a knob that does nothing.
+ *
+ * The WHOLE list, unlike the desk's, which filters its REQUIRED ones: every knob here is a picture
+ * of the one node this surface is about, so none of them is optional. */
 export function unmappedControls(
   mapping: MixView | undefined,
 ): readonly MasterControl[] {
-  return MASTER_CONTROLS.filter((c) => !mapping?.[c.id]);
+  return unmapped(MASTER_CONTROLS, mapping);
 }
 
 /** The modules this surface's mapping names, deduplicated — more than one is legal, and worth SAYING rather than refusing. */

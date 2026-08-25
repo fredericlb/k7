@@ -127,9 +127,11 @@ signal**:
 
 ```yaml
 modules:
-  deckA: [ tempoA ]         # the record, through its OWN tempo…
+  deckA: [ platterA ]       # the lane's SOURCE: the platter that reads the record…
+  platterA: [ tempoA ]      # …through its OWN tempo…
   tempoA: [ trimA ]         # …into the deck's bus, which the TRIM heads
-  stemBassA: [ cutBassA ]   # …and one lane per separated instrument
+  stemBassA: [ platterBassA ]  # …and one lane per separated instrument, each with its own reader
+  platterBassA: [ cutBassA ]
   cutBassA: [ trimA ]       #    through the cut that SUBTRACTS it, into the same bus
   # …drums, other, vocals alike, ×2 decks
   trimA: [ eqA ]            # the bus carries the strip: trim, EQ, filter
@@ -143,8 +145,15 @@ bypassed: [ deckA, deckB, stemBassA, … ]   # every source is heard through its
 bus_only: [ trimA, trimB ]                 # …and the strip's HEAD loses its dry path
 ```
 
-Three of those are the **channel strip** rather than the crossfade, and they have their own page
-in the desk that draws them: [mix.md](../../ui-turntables/docs/mix.md) for the trim and the
+**The platters are the source, and there is one per lane that plays a file** — the record, and one
+per stem. A platter reads ONE record (`loadRecord(File)`), so five files need five of them; the
+desk writes only the record and the two live numbers onto each. They used to be injected into the
+document on its way out, which is why a set's signal appeared from nowhere on the chains view.
+See [docs/platter-node-plan.md](../../../docs/platter-node-plan.md), and `migrateSetPlatter` for
+the sets that predate them.
+
+Three of the others are the **channel strip** rather than the crossfade, and they have their own
+page in the desk that draws them: [mix.md](../../ui-turntables/docs/mix.md) for the trim and the
 channel fader, [fx.md](../../ui-turntables/docs/fx.md) for the echo. The two rules worth knowing
 here are that the trim is FIRST because a deck is five lanes and only the bus head reaches all of
 them, and that the echo is LAST because an echo-out cuts a delay's input and not its output.

@@ -3,34 +3,28 @@
 // MIDI map (`mappedParams`), with a desk control as the source instead of a CC.
 // See ../../docs/controls.md.
 
-import type { WebGraph, WebWidget } from "@studio/graph-model";
+import type { WebGraph } from "@studio/graph-model";
 import type { MixView } from "@studio/song-schema/yaml/mixViewSchema";
+import {
+  type BindingProblem,
+  type ResolvedTarget,
+  resolveMapping,
+  resolveTarget,
+  stepsByModule,
+} from "@studio/ui-chains/bindings";
 import { widgetDenorm } from "@studio/ui-chains/graph";
 import { type MixControl, mixControl } from "./controls";
 import type { DeckId, DeckTempos } from "./deck";
 
-/** A binding that resolved to something that can be moved. */
-export interface ResolvedBinding {
-  control: MixControl;
-  /** The node the chains file names — what the file said. */
-  module: string;
-  param: string;
-  /** The engine's `chain:module` address, what `set-plugin-param` takes — absent for an `offline` module. */
-  pluginId?: string;
-  /** The track whose material this module processes — the address for a module realised OUTSIDE the graph. */
-  track?: string;
-  /** The widget that draws the param, and therefore states its range. Undefined is not fatal. */
-  widget?: WebWidget;
-  /** Mirror the control in its own range before writing — ../../song/docs/setProject.md. */
-  invert?: boolean;
-  /** A SECOND param this control drives — ../../song/docs/setProject.md. */
-  also?: Omit<ResolvedBinding, "control" | "also">;
-}
+// The graph half of the join is `@studio/ui-chains/bindings`, shared with st0's mastering strip.
+// What stays here is what is the DESK's: the `also:` mirror, and the SCALE (`valueFor`).
+export type { BindingProblem };
 
-/** A binding that could not be resolved, and the sentence saying why. */
-export interface BindingProblem {
-  control: string;
-  message: string;
+/** A binding that resolved to something that can be moved. */
+export interface ResolvedBinding extends ResolvedTarget {
+  control: MixControl;
+  /** A SECOND param this control drives — ../../song/docs/setProject.md. */
+  also?: ResolvedTarget;
 }
 
 export interface ResolvedBindings {
@@ -43,80 +37,33 @@ export function resolveBindings(
   view: MixView,
   graph: WebGraph | null,
 ): ResolvedBindings {
+  // `track` and not `refuse`: an `offline` module compiles to no plugin, and a tempo fader binds
+  // it by the track its chain draws from. That policy is the desk's — see docs/controls.md.
+  const { rows, problems } = resolveMapping(view, graph, {
+    control: mixControl,
+    noun: "du pupitre",
+    plugless: "track",
+  });
+
+  const steps = stepsByModule(graph);
   const bindings: ResolvedBinding[] = [];
-  const problems: BindingProblem[] = [];
-
-  // Every chain's steps by the name the chains file uses, each carrying its chain's SOURCE track.
-  const steps = new Map<
-    string,
-    { step: WebGraph["chains"][string]["use"][number]; track?: string }
-  >();
-  for (const chain of Object.values(graph?.chains ?? {}))
-    for (const step of chain.use)
-      if (!steps.has(step.module))
-        steps.set(step.module, { step, track: chain.from });
-
-  for (const [id, b] of Object.entries(view)) {
-    const control = mixControl(id);
-    if (!control) {
-      problems.push({
-        control: id,
-        message: `« ${id} » n'est pas un contrôle du pupitre`,
-      });
-      continue;
-    }
-    // NAMED and not wired — skipped here on purpose, `unmappedControls` reports it once as the gate.
-    if (!b) continue;
-    const found = steps.get(b.module);
-    if (!found) {
-      problems.push({
-        control: id,
-        message: `aucun module « ${b.module} » dans les chaînes de ce projet`,
-      });
-      continue;
-    }
-    const { step, track } = found;
-    if (!step.pluginId && !track) {
-      // Neither a plugin to tell nor material to change — named rather than skipped, so it is fixable.
-      problems.push({
-        control: id,
-        message: `« ${b.module} » n'a ni plugin ni piste à faire bouger`,
-      });
-      continue;
-    }
-    // The SECOND target, resolved the same way; an unresolvable one is reported, never silently dropped.
-    let also: ResolvedBinding["also"];
-    if (b.also) {
-      const second = steps.get(b.also.module);
-      if (!second || (!second.step.pluginId && !second.track))
+  for (const { control, target, binding } of rows) {
+    // The SECOND target, resolved the same way; an unresolvable one is reported, never dropped.
+    let also: ResolvedTarget | undefined;
+    if (binding.also) {
+      const second = resolveTarget(
+        steps.get(binding.also.module),
+        binding.also,
+        "track",
+      );
+      if (typeof second === "string")
         problems.push({
-          control: id,
-          message: `le second module « ${b.also.module} » n'a ni plugin ni piste à faire bouger`,
+          control: control.id,
+          message: `le second module « ${binding.also.module} » n'a ni plugin ni piste à faire bouger`,
         });
-      else
-        also = {
-          module: b.also.module,
-          param: b.also.param,
-          ...(second.step.pluginId ? { pluginId: second.step.pluginId } : {}),
-          ...(second.track ? { track: second.track } : {}),
-          ...(b.also.invert ? { invert: true } : {}),
-          widget: Object.values(second.step.ui?.widgets ?? {}).find(
-            (w) => w.bind === b.also?.param,
-          ),
-        };
+      else also = second;
     }
-    bindings.push({
-      control,
-      module: b.module,
-      param: b.param,
-      ...(step.pluginId ? { pluginId: step.pluginId } : {}),
-      ...(track ? { track } : {}),
-      widget: Object.values(step.ui?.widgets ?? {}).find(
-        (w) => w.bind === b.param,
-      ),
-      ...(b.invert ? { invert: true } : {}),
-      ...(also ? { also } : {}),
-    });
+    bindings.push({ ...target, control, ...(also ? { also } : {}) });
   }
   return { bindings, problems };
 }

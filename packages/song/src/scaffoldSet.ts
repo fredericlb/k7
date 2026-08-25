@@ -7,6 +7,7 @@
 
 // The stem vocabulary lives in song-schema because the DESK needs the same names and cannot import a scaffold.
 import {
+  deckPlatter,
   STEM_NEUTRAL,
   STEM_PARAM,
   STEMS,
@@ -15,6 +16,7 @@ import {
   stemCut,
   stemFile,
   stemLane,
+  stemPlatter,
 } from "@studio/song-schema/stems";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { writeProjectFiles } from "./scaffold";
@@ -168,6 +170,9 @@ export function setProjectFiles(name: string): Record<string, string> {
     // The three the strip gained when it stopped being three EQ knobs — docs/setProject.md.
     ...stripNodeFiles(),
 
+    // …and the SOURCE of every lane that plays a file — docs/platter-node-plan.md.
+    ...platterNodeFiles(),
+
     // The stems' lanes and cuts, GENERATED rather than spelled out — see docs/setProject.md.
     ...stemNodeFiles(),
 
@@ -268,6 +273,47 @@ export function stemNodeFiles(
   return out;
 }
 
+/** Every PLATTER: one per lane that plays a file — the deck's record, and one per stem.
+ *
+ * One reader per file, and that is the whole rule. A platter reads ONE record, so five files need
+ * five of them; they are generated here for the same reason the stem lanes above are, rather than
+ * being ten hand-written files that differ by a letter. See docs/platter-node-plan.md. */
+export function platterNodeFiles(
+  decks: readonly string[] = DECKS,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const deck of decks) {
+    out[`nodes/${deckPlatter(deck)}.yaml`] = platterNode(
+      letterOf(deck),
+      "le disque lui-même",
+    );
+    for (const stem of STEMS)
+      out[`nodes/${stemPlatter(deck, stem)}.yaml`] = platterNode(
+        letterOf(deck),
+        `la piste « ${stem} » du disque séparé`,
+      );
+  }
+  return out;
+}
+
+/** One platter — a NODE of the médiathèque's turntable, whose record arrives at play time. */
+function platterNode(letter: string, what: string): string {
+  return (
+    `# Le plateau de la platine ${letter} — ${what}.\n` +
+    `#\n` +
+    `# C'est la SOURCE de cette lane : elle ne prend pas d'entrée et fabrique son son toute seule.\n` +
+    `# Avant, elle n'était déclarée nulle part — le pupitre injectait ce plugin dans le document au\n` +
+    `# moment de l'envoi, donc la vue chaînes ne montrait rien avant le tempo.\n` +
+    `#\n` +
+    `# LE DISQUE N'EST PAS ICI, et c'est délibéré. Il est choisi en direct, il change dix fois par\n` +
+    `# soirée, et l'écrire dans le projet reviendrait à commiter ce qu'on jouait ce soir-là. Le\n` +
+    `# pupitre le pose sur le champ \`deckFile\` du document, en même temps que la vitesse.\n` +
+    `#\n` +
+    `# \`Rate: 0\` est donc l'état au repos : un plateau qu'on ouvre est à l'arrêt.\n` +
+    `extends: ${q(`${MEDIATEK_IO}/turntable`)}\n`
+  );
+}
+
 /** One stem's lane: a deck lane like the record's, whose material is one of `stems/`'s files. */
 function stemLaneNode(deck: string, stem: Stem): string {
   return (
@@ -306,11 +352,14 @@ function graphForDeck(deck: string): string {
   // The bus HEAD, and therefore the chain's name: every plugin on this strip is filed under it.
   const head = `trim${l}`;
   return (
-    `  ${deck}: [ tempo${l} ]\n` +
+    // The PLATTER first: it is the source, and declaring it is what puts it on the graph at all.
+    `  ${deck}: [ ${deckPlatter(deck)} ]\n` +
+    `  ${deckPlatter(deck)}: [ tempo${l} ]\n` +
     `  tempo${l}: [ ${head} ]\n` +
     STEMS.map(
       (s) =>
-        `  ${stemLane(deck, s)}: [ ${stemCut(deck, s)} ]\n` +
+        `  ${stemLane(deck, s)}: [ ${stemPlatter(deck, s)} ]\n` +
+        `  ${stemPlatter(deck, s)}: [ ${stemCut(deck, s)} ]\n` +
         `  ${stemCut(deck, s)}: [ ${head} ]\n`,
     ).join("") +
     `  ${head}: [ eq${l} ]\n` +
@@ -353,6 +402,8 @@ const MEDIATEK_UTILITY = "@st0/audio/utility";
 const MEDIATEK_FILTER = "@st0/audio/filter";
 /** …and the echo under `time/`, for the same reason: a delay is not a utility. */
 const MEDIATEK_TIME = "@st0/audio/time";
+/** …and the PLATTER under `io/`: it reads a file, which is what that category is for. */
+const MEDIATEK_IO = "@st0/audio/io";
 /** …and the two stem modules under `separation/`: `stemsplit` writes the four files, `stemcut` removes one. */
 const MEDIATEK_SEPARATION = "@st0/audio/separation";
 /** The node names the chains file wires — short on purpose, since the ref is one line away in nodes/. */

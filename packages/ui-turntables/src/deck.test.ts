@@ -1,7 +1,12 @@
-import { trackDoc, VOLUME_DB } from "@studio/engine-protocol/build";
-import type { ProjectDoc } from "@studio/engine-protocol/project";
+import { pluginDoc, trackDoc, VOLUME_DB } from "@studio/engine-protocol/build";
+import type { ProjectDoc, TrackDoc } from "@studio/engine-protocol/project";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { STEMS, stemLane } from "@studio/song-schema/stems";
+import {
+  deckPlatter,
+  STEMS,
+  stemLane,
+  stemPlatter,
+} from "@studio/song-schema/stems";
 import { describe, expect, it } from "vitest";
 import {
   BPM_RANGE,
@@ -18,7 +23,6 @@ import {
   NO_LOADS,
   PITCH_RANGE,
   PLATTER_TYPE,
-  platterId,
   platterKey,
   plattersOf,
   SCRATCH_MS,
@@ -236,10 +240,39 @@ describe("sync hands one deck's tempo to the other", () => {
   });
 });
 
+/** A platter as the PROJECT declares one — what the scaffold writes and the migration adds.
+ *
+ * Every fixture below carries these because `withDecks` no longer invents them: it patches the
+ * record and the two live numbers onto a plugin the COMPILER emitted. A set that declares none
+ * plays nothing at all, which is what `migrateSetPlatter` exists to prevent.
+ * See ../../../docs/platter-node-plan.md. */
+const declaring = (track: TrackDoc, module: string): TrackDoc => ({
+  ...track,
+  plugins: [
+    pluginDoc({
+      id: `${track.id}:${module}`,
+      type: PLATTER_TYPE,
+      name: module,
+      params: { Rate: 0, Seek: 0, Gain: 1, Key: 0 },
+    }),
+    ...track.plugins,
+  ],
+});
+
+/** …the same over a whole document: every DECK lane gets the platter its project would declare. */
+const declaringDecks = (doc: ProjectDoc): ProjectDoc => ({
+  ...doc,
+  tracks: doc.tracks.map((t) =>
+    (DECKS as readonly string[]).includes(t.id)
+      ? declaring(t, deckPlatter(t.id))
+      : t,
+  ),
+});
+
 describe("filling the decks into the COMPILED project", () => {
-  /** A stand-in for what the compiler hands back: two decks, and the crossfade on deck A. */
-  const compiled = (): ProjectDoc =>
-    deckDoc(NO_LOADS, MIX_CENTRE, {
+  /** A stand-in for what the compiler hands back: two decks, their platters, and a crossfade. */
+  const compiled = (): ProjectDoc => {
+    const base = deckDoc(NO_LOADS, MIX_CENTRE, {
       deckA: [
         {
           name: "crossfade",
@@ -249,6 +282,8 @@ describe("filling the decks into the COMPILED project", () => {
         },
       ],
     });
+    return declaringDecks(base);
+  };
 
   it("keeps everything the project declared", () => {
     // The whole point of the compiled document: the desk fills in the one thing the project cannot say.
@@ -279,7 +314,12 @@ describe("filling the decks into the COMPILED project", () => {
       tracks: [
         ...base.tracks,
         ...DECKS.flatMap((d) =>
-          STEMS.map((s) => trackDoc(stemLane(d, s), { mute: true })),
+          STEMS.map((s) =>
+            declaring(
+              trackDoc(stemLane(d, s), { mute: true }),
+              stemPlatter(d, s),
+            ),
+          ),
         ),
       ],
     };
@@ -294,10 +334,13 @@ describe("filling the decks into the COMPILED project", () => {
     expect(at(stemLane("deckA", "vocals"))?.deckFile).toBe(
       "/m/song/stems/vocals.wav",
     );
-    // …and the record's own lane holds NOTHING: the four parts ARE the record, so it would double it.
+    // …and the record's own lane holds NO RECORD: the four parts ARE the record, so feeding it too
+    // would double it. Its platter is still DECLARED — a project's shape does not change with what
+    // is on the deck — and a platter with no `deckFile` renders silence (TurntablePlugin.cpp).
     const own = doc.tracks.find((t) => t.id === "deckA");
     expect(own?.clips).toEqual([]);
-    expect(own?.plugins[0]?.type).not.toBe(PLATTER_TYPE);
+    expect(own?.plugins[0]?.type).toBe(PLATTER_TYPE);
+    expect(own?.plugins[0]?.deckFile).toBeFalsy();
   });
 
   it("drives the four parts as ONE record: same rate, same KEY", () => {
@@ -321,10 +364,13 @@ describe("filling the decks into the COMPILED project", () => {
     expect(parts[0]?.params.Rate).toBeCloseTo(126 / 120);
     expect(parts[0]?.params.Key).toBe(1);
     // …and every one of them is named, so `place` and `scratch` can reach all four.
+    // The ids are the DECLARED ones now — `<chain>:<module>`, as the compiler addresses a plugin.
     expect(plattersOf("deckA", separated().deckA)).toEqual(
-      STEMS.map((s) => `${stemLane("deckA", s)}:platter`),
+      STEMS.map((s) => `${stemLane("deckA", s)}:${stemPlatter("deckA", s)}`),
     );
-    expect(plattersOf("deckA", loaded().deckA)).toEqual(["deckA:platter"]);
+    expect(plattersOf("deckA", loaded().deckA)).toEqual([
+      `deckA:${deckPlatter("deckA")}`,
+    ]);
     expect(plattersOf("deckA", null)).toEqual([]);
   });
 
@@ -358,7 +404,8 @@ describe("filling the decks into the COMPILED project", () => {
 });
 
 describe("every deck plays a platter, and a separated one plays four", () => {
-  const compiled = (): ProjectDoc => deckDoc(NO_LOADS, MIX_CENTRE, {}, keyed());
+  const compiled = (): ProjectDoc =>
+    declaringDecks(deckDoc(NO_LOADS, MIX_CENTRE, {}, keyed()));
   const platterOf = (doc: ProjectDoc, deck: string) =>
     doc.tracks
       .find((t) => t.id === deck)
@@ -372,12 +419,17 @@ describe("every deck plays a platter, and a separated one plays four", () => {
     expect(platterOf(doc, "deckB")?.deckFile).toBe("/m/b.wav");
   });
 
-  it("puts it FIRST, so everything the project declared still shapes it", () => {
+  it("is FIRST because the PROJECT put it there, and the chain after it is untouched", () => {
     const before = compiled();
     const after = withDecks(before, loaded());
     expect(after.tracks[0].plugins[0].type).toBe(PLATTER_TYPE);
-    // …and the project's own chain follows it, in its order and untouched.
-    expect(after.tracks[0].plugins.slice(1)).toEqual(before.tracks[0].plugins);
+    // The desk no longer prepends anything: the count is the project's, and only the platter moved.
+    expect(after.tracks[0].plugins).toHaveLength(
+      before.tracks[0].plugins.length,
+    );
+    expect(after.tracks[0].plugins.slice(1)).toEqual(
+      before.tracks[0].plugins.slice(1),
+    );
   });
 
   it("turns at the SPEED the tempo asks for, and not at all when stopped", () => {
@@ -399,6 +451,22 @@ describe("every deck plays a platter, and a separated one plays four", () => {
     // …and the direction, which is what the inversion cost: asking for MORE tempo must speed it up.
     expect(at(140)).toBeGreaterThan(1);
     expect(at(60, false)).toBe(0);
+  });
+
+  it("never carries SEEK in the document — the regression that crackled", () => {
+    // The engine reads a CHANGED seek as a needle-drop AND resets its stretcher. The node file
+    // declares `Seek: 0`, so passing the declared params through re-asserts 0 on every document —
+    // and a tempo drag sends one every 120 ms, which is eight needle-jumps a second.
+    const doc = withDecks(compiled(), loaded(), {}, null, { deckA: true });
+    for (const deck of DECKS) {
+      const p = platterOf(doc, deck);
+      expect(p, deck).toBeDefined();
+      // ABSENT, not zero: a param the document omits is one the engine does not touch.
+      expect(Object.hasOwn(p?.params ?? {}, "Seek"), deck).toBe(false);
+    }
+    // …while the two that ARE live state survive, or a turning deck would stop on the next send.
+    expect(platterOf(doc, "deckA")?.params.Rate).toBeGreaterThan(0);
+    expect(platterOf(doc, "deckA")?.params).toHaveProperty("Key");
   });
 
   it("does NOT turn because the transport rolls — a platter takes no orders from it", () => {
@@ -448,11 +516,19 @@ describe("every deck plays a platter, and a separated one plays four", () => {
     const doc = withDecks(
       {
         ...base,
-        tracks: [...base.tracks, trackDoc(stemLane("deckA", "bass"))],
+        tracks: [
+          ...base.tracks,
+          declaring(
+            trackDoc(stemLane("deckA", "bass")),
+            stemPlatter("deckA", "bass"),
+          ),
+        ],
       },
       separated(),
     );
-    expect(platterOf(doc, "deckA")).toBeUndefined();
+    // Declared, and deliberately not fed: silence comes from having no record, not from having
+    // no platter. The project's shape is the same whichever record is on the deck.
+    expect(platterOf(doc, "deckA")?.deckFile).toBeFalsy();
     expect(platterOf(doc, stemLane("deckA", "bass"))?.deckFile).toBe(
       "/m/song/stems/bass.wav",
     );
@@ -521,7 +597,8 @@ describe("the decks' document", () => {
     });
     // The PLATTER leads, being the source; then the deck's own module; then the level.
     expect(doc.tracks[0].plugins.map((p) => p.id)).toEqual([
-      platterId("deckA"),
+      // The STAND-IN still builds its own: it declares no nodes, so there is none to patch.
+      "deckA:platter",
       "deckA:filter",
       levelId("deckA"),
     ]);

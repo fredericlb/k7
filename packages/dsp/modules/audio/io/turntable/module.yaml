@@ -1,0 +1,32 @@
+# Turntable  [audioEffect] — le PLATEAU : un disque, sa vitesse, et une aiguille qu'on pose.
+#
+# C'est la source d'une platine. Elle ne prend pas d'entrée et fabrique son son toute seule, à
+# partir du fichier que le pupitre lui donne — ce qui fait d'elle le seul module de ce catalogue
+# dont la matière arrive à l'EXÉCUTION plutôt que du projet.
+#
+# Pas de jsdsp : le moteur héberge déjà le plateau (`studio_turntable`), qui décode le disque en
+# entier pour qu'un scratch puisse le lire à l'envers. `type: internal` le nomme, exactement comme
+# `eq3` nomme l'égaliseur de Tracktion. Voir engine/moteur/docs/turntable.md.
+#
+# LE DISQUE N'EST PAS UN PARAMÈTRE. Un paramètre est un nombre ; le disque est un chemin, et il
+# change quand on en pose un autre. Il voyage dans le champ `deckFile` du document, que le pupitre
+# remplit — c'est la seule chose qu'il y écrive. Voir docs/platter-node-plan.md.
+plugin:
+  type: internal
+  name: studio_turntable
+params:
+  # ARRÊTÉ. Un plateau qu'on pose ne doit pas se mettre à tourner tout seul, et 0 est un vrai
+  # arrêt : sous 1e-4 le plateau se tait au lieu de tenir un échantillon, qui serait une marche DC.
+  Rate: 0
+  # Où poser l'aiguille, 0..1 du disque. Un SAUT, appliqué seulement quand la valeur CHANGE —
+  # un paramètre étant un niveau, redemander le même repère deux fois ne saute qu'une.
+  Seek: 0
+  Gain: 1
+  # Tenir la HAUTEUR pendant que la vitesse bouge. Éteint : un plateau est un varispeed, et c'est
+  # son son. La main sur le disque gagne toujours — un scratch CHANGE la hauteur, c'est le geste.
+  Key: 0
+# En un paragraphe : une platine. `Rate` est sa vitesse, signée, en multiples de la vitesse du
+# disque — 1 c'est le disque tel qu'il a été gravé, 0 l'arrêt, −1 en arrière. `Seek` pose
+# l'aiguille, `Gain` le niveau, `Key` tient la hauteur quand la vitesse s'écarte de 1.
+#
+# (La description d'un module est son en-tête, ici — voir packages/song/docs/docModules.md.)

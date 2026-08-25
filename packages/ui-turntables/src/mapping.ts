@@ -4,6 +4,7 @@
 // See packages/song/docs/surfaces.md.
 
 import type { MixView } from "@studio/song-schema/yaml/mixViewSchema";
+import { unmappedControls as unmapped } from "@studio/ui-chains/bindings";
 import { MIX_CONTROLS, type MixControl } from "./controls";
 import { DECKS } from "./deck";
 
@@ -31,9 +32,11 @@ export const REQUIRED_CONTROLS: readonly MixControl[] = MIX_CONTROLS.filter(
     ),
 );
 
-/** The required controls this mapping does not NAME — a line pointing at nothing is `resolveBindings`'. */
+/** The required controls this mapping does not NAME — a line pointing at nothing is `resolveBindings`'.
+ *
+ * The REQUIRED list and not every control: the optional ones are `unmapped`'s job to leave alone. */
 export function unmappedControls(
   mapping: MixView | undefined,
 ): readonly MixControl[] {
-  return REQUIRED_CONTROLS.filter((c) => !mapping?.[c.id]);
+  return unmapped(REQUIRED_CONTROLS, mapping);
 }

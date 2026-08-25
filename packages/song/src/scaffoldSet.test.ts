@@ -48,6 +48,8 @@ beforeEach(() => {
     "audio/utility/trim",
     "audio/utility/gain",
     "audio/time/echo",
+    // …and the SOURCE: one platter per lane that plays a file — docs/platter-node-plan.md.
+    "audio/io/turntable",
   ]) {
     const to = join(mediatek, "modules", ...at.split("/"));
     mkdirSync(dirname(to), { recursive: true });
@@ -121,6 +123,18 @@ describe("a scaffolded set", () => {
       // THE CHANNEL FADER, which is not the crossfader — in dB, and the strip's last module.
       "nodes/levelA.yaml",
       "nodes/levelB.yaml",
+      // ONE PLATTER PER LANE that plays a file: the record, and one per stem. A platter reads
+      // ONE record, so five files need five of them — docs/platter-node-plan.md.
+      "nodes/platterA.yaml",
+      "nodes/platterB.yaml",
+      "nodes/platterBassA.yaml",
+      "nodes/platterBassB.yaml",
+      "nodes/platterDrumsA.yaml",
+      "nodes/platterDrumsB.yaml",
+      "nodes/platterOtherA.yaml",
+      "nodes/platterOtherB.yaml",
+      "nodes/platterVocalsA.yaml",
+      "nodes/platterVocalsB.yaml",
       // …and one LANE per stem: a stem that fades on its own has to be a track of its own.
       "nodes/stemBassA.yaml",
       "nodes/stemBassB.yaml",
@@ -218,12 +232,14 @@ describe("a scaffolded set", () => {
     expect(ext("nodes/tempoB.yaml")).toBe("@st0/audio/utility/tempo");
   });
 
-  it("asks the médiathèque for exactly those eight modules", () => {
+  it("asks the médiathèque for exactly those nine modules", () => {
     scaffoldSet(dir, "winter");
     // One of each and not eight for the stem cut: fetching a module once per use would be a bug.
     expect(mediatekRefs(dir)).toEqual([
       "@st0/audio/filter/eq3",
       "@st0/audio/filter/sweep",
+      // The SOURCE, under `io/` because it reads a file — docs/platter-node-plan.md.
+      "@st0/audio/io/turntable",
       // Under `separation/`, beside the `stemsplit` that writes the files it takes back out.
       "@st0/audio/separation/stemcut",
       // Under `time/`, for the same reason the EQ is under `filter/`: a delay is not a utility.
@@ -272,10 +288,17 @@ describe("a scaffolded set", () => {
     ]);
     // The record's own run is short: it is stretched, and then it goes to the bus.
     expect(g.chains.deckA.from).toBe("deckA");
-    expect(g.chains.deckA.use.map((s) => s.module)).toEqual(["tempoA"]);
+    // The PLATTER first: the source is on the graph now, where it used to be injected.
+    expect(g.chains.deckA.use.map((s) => s.module)).toEqual([
+      "platterA",
+      "tempoA",
+    ]);
     expect(g.chains.deckA.out.map((o) => o.to)).toEqual(["trimA"]);
     // The cut meets the bus BEFORE the trim, so one gain reaches the record AND its four parts.
-    expect(g.chains.stemBassA.use.map((s) => s.module)).toEqual(["cutBassA"]);
+    expect(g.chains.stemBassA.use.map((s) => s.module)).toEqual([
+      "platterBassA",
+      "cutBassA",
+    ]);
     expect(g.chains.stemBassA.out.map((o) => o.to)).toEqual(["trimA"]);
     // No `from` at all, which is what makes the bus a bus rather than a lane's run.
     expect(g.chains.trimA.from).toBeUndefined();
@@ -414,10 +437,13 @@ describe("a scaffolded set", () => {
       "levelA:fadeA",
     ]);
     expect(ids("cueA")).toEqual(["cueA:cueA"]);
-    // The record's own lane carries NOTHING: a plugin here is one the stems never went through.
-    expect(ids("deckA")).toEqual([]);
-    // …and a stem lane carries its cut, which is the negative gain doing the subtracting.
-    expect(ids("stemBassA")).toEqual(["stemBassA:cutBassA"]);
+    // The record's own lane carries its PLATTER, and only that: the source, declared at last.
+    expect(ids("deckA")).toEqual(["deckA:platterA"]);
+    // …and a stem lane carries its own platter and its cut — one reader per file.
+    expect(ids("stemBassA")).toEqual([
+      "stemBassA:platterBassA",
+      "stemBassA:cutBassA",
+    ]);
   });
 
   it("compiles the EQ to a REAL plugin, unlike the tempo beside it", () => {

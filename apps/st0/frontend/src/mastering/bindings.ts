@@ -5,7 +5,15 @@
 
 import type { WebGraph, WebWidget } from "@studio/graph-model";
 import type { MixView } from "@studio/song-schema/yaml/mixViewSchema";
+import {
+  type BindingProblem,
+  resolveMapping,
+} from "@studio/ui-chains/bindings";
 import { type MasterControl, masterControl } from "./controls";
+
+// The graph half of the join is `@studio/ui-chains/bindings`, shared with the DJ desk. What stays
+// here is what is the STRIP's: `pluginId` being mandatory, and the range that refuses to normalise.
+export type { BindingProblem };
 
 /** A binding that resolved to something that can be moved. */
 export interface MasterBinding {
@@ -13,15 +21,10 @@ export interface MasterBinding {
   /** The node the chains file names — what the file said. */
   module: string;
   param: string;
-  /** The engine's `chain:module` address; what `set-plugin-param` takes. */
+  /** The engine's `chain:module` address; what `set-plugin-param` takes. Never absent — see below. */
   pluginId: string;
   /** The widget that draws the param, and therefore states its range — undefined when the module has no panel (see `masterRange`). */
   widget?: WebWidget;
-}
-
-export interface BindingProblem {
-  control: string;
-  message: string;
 }
 
 export interface ResolvedMaster {
@@ -34,51 +37,21 @@ export function resolveMasterBindings(
   view: MixView,
   graph: WebGraph | null,
 ): ResolvedMaster {
-  const bindings: MasterBinding[] = [];
-  const problems: BindingProblem[] = [];
-
-  // Every chain's steps, by the name the chains file uses — which is exactly what a binding's `module` is, so the lookup is one string.
-  const steps = new Map<string, WebGraph["chains"][string]["use"][number]>();
-  for (const chain of Object.values(graph?.chains ?? {}))
-    for (const step of chain.use)
-      if (!steps.has(step.module)) steps.set(step.module, step);
-
-  for (const [id, b] of Object.entries(view)) {
-    const control = masterControl(id);
-    if (!control) {
-      problems.push({
-        control: id,
-        message: `« ${id} » n'est pas un contrôle de cette surface`,
-      });
-      continue;
-    }
-    // NAMED and not wired — skipped in silence here, since `unmappedControls` reports it once as the gate over the whole strip.
-    if (!b) continue;
-    const step = steps.get(b.module);
-    if (!step) {
-      problems.push({
-        control: id,
-        message: `aucun module « ${b.module} » dans les chaînes de ce projet`,
-      });
-      continue;
-    }
-    if (!step.pluginId) {
-      problems.push({
-        control: id,
-        message: `« ${b.module} » ne charge aucun plugin — rien à régler pendant que le son passe`,
-      });
-      continue;
-    }
-    bindings.push({
-      control,
-      module: b.module,
-      param: b.param,
-      pluginId: step.pluginId,
-      widget: Object.values(step.ui?.widgets ?? {}).find(
-        (w) => w.bind === b.param,
-      ),
-    });
-  }
+  // `refuse` and not `track`: this surface is a picture of ONE loaded plugin, so a step that loads
+  // none is a knob that would do nothing. The desk answers the other way — docs/mastering.md.
+  const { rows, problems } = resolveMapping(view, graph, {
+    control: masterControl,
+    noun: "de cette surface",
+    plugless: "refuse",
+  });
+  const bindings = rows.map(({ control, target }) => ({
+    control,
+    module: target.module,
+    param: target.param,
+    // `refuse` is what makes this non-null: a plugin-less step never reaches a row.
+    pluginId: target.pluginId as string,
+    widget: target.widget,
+  }));
   return { bindings, problems };
 }
 
