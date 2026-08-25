@@ -1,7 +1,13 @@
 import { STEMS } from "@studio/song-schema/stems";
 import { describe, expect, it } from "vitest";
-import { EQ_DB, FILTER_RANGE } from "../deck";
-import { angleOf, arcPath, STEM_GRID } from "./ChannelStrip";
+import { EQ_BANDS as BANDS, EQ_DB, FILTER_RANGE } from "../deck";
+import {
+  angleOf,
+  arcPath,
+  EQ_ICONS,
+  STEM_GRID,
+  STEM_ICONS,
+} from "./ChannelStrip";
 
 describe("where a value sits on the dial", () => {
   it("puts flat straight up", () => {
@@ -81,5 +87,17 @@ describe("the stem block's reading order", () => {
     // Two by two, and WHICH two: a hand reaches for the drums without reading the labels.
     expect(STEM_GRID.slice(0, 2)).toEqual(["drums", "bass"]);
     expect(STEM_GRID.slice(2)).toEqual(["vocals", "other"]);
+  });
+});
+
+describe("the glyph on each knob", () => {
+  it("gives every stem one", () => {
+    // A missing entry draws no icon and says nothing — the knob renders whatever it is handed.
+    for (const s of STEMS) expect(STEM_ICONS[s], s).toBeTruthy();
+  });
+
+  it("gives every EQ band one, keyed by the band's OWN id", () => {
+    // Keyed by id rather than by position, so reordering EQ_BANDS cannot silently shuffle them.
+    for (const b of BANDS) expect(EQ_ICONS[b.id], b.id).toBeTruthy();
   });
 });

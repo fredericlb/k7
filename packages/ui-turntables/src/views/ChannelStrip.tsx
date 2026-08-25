@@ -3,6 +3,17 @@
 // neutral is its middle, and a round one shows that at a glance. See ../../docs/eq.md.
 
 import { STEM_NEUTRAL, STEM_RANGE, type Stem } from "@studio/song-schema/stems";
+import {
+  Activity,
+  AudioLines,
+  Drum,
+  Filter,
+  Guitar,
+  type LucideIcon,
+  Mic,
+  Music,
+  Waves,
+} from "lucide-react";
 import { EQ_BANDS, EQ_DB, FILTER_RANGE } from "../deck";
 import type { StripLayout } from "../deskLayout";
 
@@ -12,6 +23,22 @@ const STEM_LABELS: Record<Stem, string> = {
   bass: "BASSE",
   other: "RESTE",
   vocals: "VOIX",
+};
+
+/** …and the glyph beside it: the instrument, so a hand finds the knob without reading — ../../docs/stems.md. */
+export const STEM_ICONS: Record<Stem, LucideIcon> = {
+  drums: Drum,
+  bass: Guitar,
+  // The catch-all keeps the generic one on purpose: naming an instrument would name the wrong one.
+  other: Music,
+  vocals: Mic,
+};
+
+/** The EQ's three, by band id: a rolling wave low, a busier line mid, a spiky one high — ../../docs/eq.md. */
+export const EQ_ICONS: Record<string, LucideIcon> = {
+  eqLow: Waves,
+  eqMid: AudioLines,
+  eqHigh: Activity,
 };
 
 /** The 2x2 reading order: the rhythm section on the top row, the voice and the rest under it. */
@@ -54,6 +81,7 @@ export function arcPath(deg: number, radius: number): string {
 /** One knob, dragged VERTICALLY rather than round its arc — see ../../docs/eq.md. */
 function Knob({
   label,
+  icon: Icon,
   value,
   range,
   step,
@@ -64,6 +92,8 @@ function Knob({
   disabled,
 }: {
   label: string;
+  /** The glyph on the label's line, when the control has one — the knob draws whatever it is handed. */
+  icon?: LucideIcon;
   value: number;
   range: readonly [number, number];
   step: number;
@@ -179,7 +209,11 @@ function Knob({
           />
         </svg>
       </div>
-      <span className="font-mono text-[9px] text-muted-foreground leading-none">
+      <span className="flex items-center gap-[2px] font-mono text-[9px] text-muted-foreground leading-none">
+        {/* Sized to the LABEL's line so the block's height arithmetic is untouched — ../deskLayout.ts. */}
+        {Icon ? (
+          <Icon className="h-[9px] w-[9px] shrink-0" aria-hidden />
+        ) : null}
         {label}
       </span>
       {/* The number, only off rest, and dropped whole on a short strip — ../../docs/eq.md. */}
@@ -225,6 +259,7 @@ export function ChannelStrip({
         <Knob
           key={b.id}
           label={b.label}
+          icon={EQ_ICONS[b.id]}
           value={eq[b.id] ?? 0}
           range={EQ_DB}
           step={0.1}
@@ -239,6 +274,7 @@ export function ChannelStrip({
       <div className="h-px w-8 shrink-0 bg-border" />
       <Knob
         label="FILTRE"
+        icon={Filter}
         value={filter ?? 0}
         range={FILTER_RANGE}
         step={1}
@@ -282,6 +318,7 @@ export function StemStrip({
         <Knob
           key={s}
           label={STEM_LABELS[s]}
+          icon={STEM_ICONS[s]}
           value={stems[s] ?? STEM_NEUTRAL}
           range={STEM_RANGE}
           // Percent under the hand, −1..1 on the wire — nobody reads a level as "0.4".

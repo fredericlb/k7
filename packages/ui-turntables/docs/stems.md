@@ -63,6 +63,26 @@ propriété à chaque cran, parce qu'elle est ce qui autorise l'emprunt — et e
 le filtre disparaît quand la tranche ne rétrécit pas, en débordant une boîte centrée par les deux
 bouts ([deskLayout.md](deskLayout.md)).
 
+## Un glyphe par potard
+
+Chaque potard porte une icône sur la ligne de son étiquette : une batterie, une guitare, un micro,
+et une note pour le fourre-tout. Le fourre-tout garde la note générique **exprès** — `other` est ce
+que le modèle n'a pas su ranger ailleurs, donc y dessiner un piano ou un synthé nommerait un
+instrument qui n'y est pas forcément.
+
+L'icône est à côté du mot, pas à la place : à 9 px un glyphe seul se devine plutôt qu'il ne se lit,
+et la colonne a la largeur pour les deux. Elle est dimensionnée sur la LIGNE de l'étiquette
+(`h-[9px]`) et pas librement, parce que `knobBlock` compte cette ligne à 9 px : une icône plus haute
+grandirait chaque bloc de quelques pixels, ce que rien ne rattraperait
+([deskLayout.md](deskLayout.md)).
+
+Mesuré dans le banc `Desk/Knobs` : les quarante lignes d'étiquette — huit potards à cinq crans —
+font 9 px de haut, la plus large en fait 41 dans une colonne de 64.
+
+Un test tient l'autre moitié, celle qu'on ne voit pas : que chaque stem et chaque bande d'EQ ait une
+entrée dans sa table. Une entrée manquante ne dessine rien et ne dit rien — le potard affiche ce
+qu'on lui tend.
+
 ## Quatre états, quatre lectures
 
 | état | ce qu'on voit | ce qu'on fait |
