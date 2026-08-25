@@ -7,6 +7,8 @@ import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parentPort, workerData } from "node:worker_threads";
+// The `preferences` subpath only — node builtins plus `yaml`, not the compiler behind the rest of it.
+import { loadPreferences } from "@studio/song/preferences";
 import { chooseDmlAdapter } from "./dmlAdapters";
 import {
   CHANNELS,
@@ -178,12 +180,16 @@ interface Ort {
   Tensor: new (type: string, data: Float32Array, dims: number[]) => OrtTensor;
 }
 
-/** CPU last and always: it is the one that cannot be unavailable, and the only one on a Mac. */
+/** What this machine separates on. CPU unless it has SAID otherwise — see docs/stemSplit.md. */
 export const defaultProviders = (): string[] => {
-  // The order below is a guess about the hardware; a machine that measured otherwise says so here.
+  // The env var stays as an escape hatch for one run; it is no longer how a machine is configured.
   const asked = process.env.STUDIO_ONNX_PROVIDERS?.trim();
   if (asked) return asked.split(/[,\s]+/).filter(Boolean);
-  return process.platform === "win32" ? ["dml", "cpu"] : ["cpu"];
+  // A machine that MEASURED a faster provider says so once, and it survives every restart.
+  const remembered = loadPreferences().onnxProviders;
+  if (remembered?.length) return remembered;
+  // No guess about the hardware: where `dml` wedges it takes an hour with it — docs/stemSplit.md.
+  return ["cpu"];
 };
 
 /** The session, on the first execution provider that builds, and which one won is LOGGED — docs/stemSplit.md. */

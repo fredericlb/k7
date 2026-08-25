@@ -64,7 +64,8 @@ as **raw TypeScript source**: no build step, imported through `package.json`
 | the engine | `engine-protocol` (the wire, mirrored in C++), `engine-client` (Node), `engine-browser` (browser + React store; its `access` subpath is the ONE way an app reaches an engine — routes, probe, policy, lease, bound to that service's prefix), `engine-host` (the supervisor — a **program**, not a library), `engine-registry` (which engines exist; each service holds its own registry INSTANCE — one shared implementation, `createRegistry()` per service) |
 | the disk | `file-service` (every file operation, on the engine's machine — st0's backend has none), `stem-separation` (splitting a mix: the ONNX model, its worker thread, the job registry — split out so `onnxruntime-node`, the one NATIVE dependency in the tray's bundle closure, sits behind one package; `docs/stemSplit.md`), `mediatek` (the media library), `user-prefs`, `git-repos` (the SSH URI vocabulary and the deploy key) |
 | the views | `project-shell` (what an app needs BEFORE it can draw: the launch parameters, the file-service transport, the repository → workspace resolution, the gate — st0 and z0's editor mount the same one — and when a session goes to sleep, `docs/idle.md`), `ui-chains` + `ui-chains-react` (the chains graph — **st0 is the only host**, and the desk's own `chains.tsx` is mounted by nobody), `ui-editor` (YAML + note grids, and the autosave every text pane runs on,
-`docs/autosave.md`), `ui-eyes` (WebGL video — st0's `viewport` surface), `ui-timeline` (what an arrangement surface needs whatever its unit is: wheel zoom, middle-drag pan, a ruler's tick chooser, the lane geometry — st0's ruler reads bars OR seconds, since one grid draws a song and its picture), `ui-waveform`, `ui-module-builder` (st0 and pl8), `ui-turntables` (the DJ desk — st0's `turntables` surface; its one seam is the engine, `docs/hosting.md`, and `docs/` holds the desk's whole rationale plus the two harnesses that measure a SOUND) |
+`docs/autosave.md`), `ui-eyes` (WebGL video — st0's `viewport` surface), `ui-timeline` (what an arrangement surface needs whatever its unit is: wheel zoom, middle-drag pan, a ruler's tick chooser, the lane geometry — st0's ruler reads bars OR seconds, since one grid draws a song and its picture), `ui-waveform`, `ui-module-builder` (st0 and pl8), `ui-turntables` (the DJ desk — st0's `turntables` surface; its one seam is the engine, `docs/hosting.md`, and `docs/` holds the desk's whole rationale, and `scripts/` the harnesses that measure a SOUND or a
+GESTURE against a running engine — `put-on.ts` is what costs a record its place on a deck) |
 | the types | `web-protocol`, `graph-model` (split out so drawing a graph doesn't drag in auth) |
 | z0 | `player-web` — the blind-test player, with a moteur-backed seam behind it |
 
@@ -86,7 +87,9 @@ will be — they run on the musician's machine.
 
 Notes for the whole repo — CI, deployment, the dev session — are in `docs/`:
 [dev.md](docs/dev.md) (what `npm run dev` starts), [versioning.md](docs/versioning.md),
-and two plan/recipe pages, [module-builder-plan.md](docs/module-builder-plan.md) and
+and three plan/recipe pages, [platter-plan.md](docs/platter-plan.md) (the DJ deck's
+playback: a stretcher inside the platter, and the hybrid it deletes),
+[module-builder-plan.md](docs/module-builder-plan.md) and
 [rename-test-plan.md](docs/rename-test-plan.md) — the latter is the METHOD for renaming an
 app, a service or a protocol prefix: the order of the phases, and the rule that every check
 carries its failure signature.

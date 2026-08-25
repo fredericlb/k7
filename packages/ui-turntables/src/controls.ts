@@ -67,6 +67,29 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     // One EQ module per deck, three bands on it: all three lines name it and differ by their param.
     wants: "eq",
   })),
+  // The two halves of a hand on a platter: hold one back, push the other on — see ../docs/scratch.md.
+  ...(
+    [
+      ["nudgeBack", "Retenir"],
+      ["nudgeFwd", "Pousser"],
+    ] as const
+  ).map(([suffix, what]) => ({
+    id: `${deck}.${suffix}`,
+    label: `${what} platine ${letter}`,
+    kind: "button" as const,
+    range: [0, 1] as const,
+    home: 0,
+  })),
+  {
+    id: `${deck}.cue`,
+    label: `Casque platine ${letter}`,
+    // A BUTTON, though what it drives is a gain: pre-fade listen is on or off, never dosed.
+    kind: "button",
+    range: [0, 1],
+    // Silent at rest — a set starts with nothing in the headphones. See ../docs/cue.md.
+    home: 0,
+    wants: "cue",
+  },
   {
     id: `${deck}.filter`,
     label: `Filtre platine ${letter}`,

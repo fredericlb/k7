@@ -13,7 +13,7 @@ chain would route INTO the thing meant to feed it. The two roles differ only in 
 comes from — `in` is a live interface channel, `file` reads an audio file
 (`packages/song/docs/fileInput.md`).
 
-## The four built-in outputs
+## The five built-in outputs
 
 `MIX` is where the mixer sums — every lane's chain ends there, and it is what the header meter
 answers for. `OUT` is the interface. A chain wired `from: MIX` to `OUT` is the MASTER CHAIN, and its
@@ -32,6 +32,12 @@ processes the whole composited frame.
 but changes no frame (`packages/song/docs/videoOutputs.md`). Unlike the audio pair these are added
 AUTOMATICALLY: a project with a viewport surface and no such run gets one written into its
 `graph.yaml`. A song with no picture never sees either name.
+
+`CUE` is the fifth, and the odd one: it is the only built-in output that really leaves the mixer's
+sum, for a SECOND PAIR of the interface — the headphones on a DJ desk. `MIX` and `OUT` are a
+notation over one bus; `CUE` is a track routed off it, which is what
+`packages/song/docs/cue.md` is about. A machine that names no pair plays it nowhere at all, never
+into the room.
 
 ## `@master`, the owner of a master chain's plugins
 

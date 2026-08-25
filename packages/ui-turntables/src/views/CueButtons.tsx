@@ -21,8 +21,8 @@ function Cue({
   at: number | null;
   onJump: () => void;
   /** The press outlasted `HOLD_MS` — record the position it was given, from when it began. */
-  onSet: (transportSeconds: number) => void;
-  /** Where the transport is, RIGHT NOW. Called on the way down, never after. */
+  onSet: (sourceSeconds: number) => void;
+  /** Where this deck's NEEDLE is, in seconds of its record. Called on the way down, never after. */
   now: () => number;
   /** No song on this deck. Drawn anyway — see `CueButtons`. */
   disabled: boolean;

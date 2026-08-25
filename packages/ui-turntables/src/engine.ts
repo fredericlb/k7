@@ -35,6 +35,8 @@ export interface Deck {
   playhead: React.RefObject<Playhead>;
   /** …and the same position STEERED, for what is drawn at 60 fps — never for a value that is stored. */
   drawNow: () => number;
+  /** Each PLATTER's needle by plugin id, in seconds of its record — a deck off keylock has no other clock. */
+  platters: React.RefObject<Record<string, number>>;
   engine: EngineClient | null;
   /** Play this document — a seam, because who may write to an engine is the HOST's answer (docs/hosting.md). */
   sendProject: (doc: ProjectDoc) => void;

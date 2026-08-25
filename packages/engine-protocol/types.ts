@@ -24,6 +24,8 @@ export interface EngineState {
   masterClipped: boolean;
   // Per-module waveform envelopes keyed "chain:module:side", sampled at the state-frame rate; empty with no taps.
   waveform: Record<string, WaveformEnvelope[]>;
+  /** Each PLATTER's needle in seconds of its OWN record, by plugin id — `playhead` is not its clock. */
+  platters?: Record<string, number>;
 }
 
 // One min/max envelope point, covering a bucket of N samples (256 at 44.1 kHz ≈ 5.8 ms), normalised -1..1.

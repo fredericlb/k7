@@ -142,6 +142,7 @@ interface EngineMessage {
   armed?: string[];
   recordEnabled?: boolean;
   waveform?: Record<string, WaveformEnvelope[]>;
+  platters?: Record<string, number>; // `state` only: each platter's own needle — docs/turntable.md
   id?: string;
   // Two replies carry `params`, told apart by `type`: `plugin-param-list` (a TYPE's list) is an array, the live feeds are name -> value.
   params?: Record<string, number> | EnginePluginParam[];
@@ -375,6 +376,7 @@ export class EngineClient {
         master: Number(m.master ?? -100),
         masterClipped: !!m.masterClipped,
         waveform: (m.waveform ?? {}) as Record<string, WaveformEnvelope[]>,
+        platters: (m.platters ?? {}) as Record<string, number>,
       });
     else if (m.type === "plugin-params" && m.id)
       for (const cb of this.paramsCbs)

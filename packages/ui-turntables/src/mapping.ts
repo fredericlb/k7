@@ -7,7 +7,7 @@ import type { MixView } from "@studio/song-schema/yaml/mixViewSchema";
 import { MIX_CONTROLS, type MixControl } from "./controls";
 import { DECKS } from "./deck";
 
-/** The controls that must name a module — the ones that drive a PARAM, so not `transport`/`sync`/`listen`. */
+/** Must name a module: the ones driving a PARAM, minus `cue`, optional like the stems (../docs/cue.md). */
 const WIRED_PER_DECK = ["tempo", "eqLow", "eqMid", "eqHigh", "filter"] as const;
 
 /** Every control a turntables surface needs wired, DERIVED from `DECKS` so a third deck is not skipped. */

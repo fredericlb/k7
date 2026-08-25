@@ -161,8 +161,9 @@ prochaine passe : `ui-turntables/deck.ts` (10), `ui-chains/cableCanvas.ts` (9), 
 - `packages/song/scripts/` — aucun script npm ni tâche turbo. Huit migrations, et
   `packages/song/src/moduleMigrate.ts` (350+ lignes) n'existe que pour `migrateModules.ts`. Le
   dossier grossit d'une migration à chaque renommage, et rien ne les retire une fois jouées.
-- `packages/ui-turntables/scripts/{tempo-drag,metronome}.ts` — ceux-là sont **documentés** et se
-  lancent à la main (`docs/hosting.md`) ; ils mesurent un SON, ce qu'aucun test unitaire ne fait.
+- `packages/ui-turntables/scripts/put-on.ts` — celui-là est **documenté** et se lance à la main
+  (`packages/ui-turntables/docs/hosting.md`) ; il mesure un SON, ce qu'aucun test unitaire ne fait.
+  Ses trois voisins ont été supprimés avec le clip qu'ils mesuraient (`docs/platter-plan.md`).
 
 ## 3. Construit d'avance — à ne pas confondre avec un oubli
 

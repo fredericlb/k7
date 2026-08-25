@@ -211,6 +211,7 @@ export interface AssembledTrack {
   contentType?: unknown;
   group?: unknown;
   inputChannels?: unknown;
+  outputChannels?: unknown;
   monitor?: unknown;
   inputGain?: unknown;
   color?: unknown;

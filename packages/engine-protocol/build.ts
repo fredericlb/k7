@@ -62,6 +62,7 @@ export function trackDoc(id: string, over: Partial<TrackDoc> = {}): TrackDoc {
     solo: false,
     disabled: false,
     inputChannels: [],
+    outputChannels: [], // empty is the mixer's sum, which is where all but a CUE bus goes
     monitor: "auto",
     inputGain: 0, // dB, 0 == unity
     clips: [],

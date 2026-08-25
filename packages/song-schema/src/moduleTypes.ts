@@ -21,12 +21,16 @@ export const OUT_NODE = "OUT";
 export const RENDER_NODE = "RENDER";
 export const VIDEO_OUT_NODE = "VIDEO_OUT";
 
-/** The four built-in outputs — the two sums, and the two devices they leave by. */
+/** The HEADPHONE bus — the one built-in output that leaves the mixer's sum entirely, see packages/song/docs/cue.md. */
+export const CUE_NODE = "CUE";
+
+/** The five built-in outputs — the two sums, and the three devices they leave by. */
 export const BUILTIN_OUTPUTS = [
   MIX_NODE,
   OUT_NODE,
   RENDER_NODE,
   VIDEO_OUT_NODE,
+  CUE_NODE,
 ] as const;
 /** Is this name one of them? Neither has a folder on disk, so every "is it a module" test asks. */
 export const isBuiltinOutput = (id: string): boolean =>
@@ -209,6 +213,8 @@ export function completionOrder<T>(
 export const IO_MODULES: Record<string, { io: "in" | "out" | "file" }> = {
   IN: { io: "in" },
   OUT: { io: "out" },
+  // The headphone bus. An `out` like the interface, because that is what it is — a second pair of it.
+  [CUE_NODE]: { io: "out" },
   // The file source: audio off disk rather than off an interface, and a node carries WHICH file (docs/fileInput.md).
   FILE: { io: "file" },
 };

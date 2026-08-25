@@ -12,6 +12,7 @@ import {
 } from "@studio/song-schema/builtinParams";
 import {
   completionOrder,
+  CUE_NODE,
   isEngineRef,
   MIX_NODE,
   moduleStatusOf,
@@ -152,10 +153,12 @@ function projectHintsIn(dir: string): Hints {
   const sorted = (m: Record<string, any>): string[] =>
     Object.keys(m ?? {}).sort();
   const baseRefs = baseModuleRefs(moduleRefs as Record<string, any>);
-  // Sinks only, the two built-in outputs first, the picture's pair only on a project that has one — docs/hints.md.
+  // Sinks only, the built-in outputs first, the picture's pair only on a project that has one — docs/hints.md.
   const ioSinks = [
     MIX_NODE,
     OUT_NODE,
+    // Offered everywhere, like the two above: monitoring a lane off the mix is not a desk's privilege.
+    CUE_NODE,
     ...(Object.keys(videoTracks ?? {}).length
       ? [RENDER_NODE, VIDEO_OUT_NODE]
       : []),

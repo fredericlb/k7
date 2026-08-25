@@ -257,6 +257,11 @@ Each of these is a design decision rather than a patch, which is why none is tak
 9. **The hidden `__studio_preview__` track breaks the doc-index → lane mapping** for
    incrementally added tracks: after any preview, `TrackAdded` renames `getLast()` while
    `trackById` maps index *n* onto the preview lane.
+10. **A platter still decodes its record WHOLE**, the same family as lot 3, though it is now held
+    16-bit rather than float: 72 MB and 245 ms for one 4-minute record, 375 MB and 399 ms for
+    eight — which is what two SEPARATED decks would need, and why they are left on clips instead
+    (`docs/turntable.md`). What remains is the windowed cache, which would take both columns and
+    put a seek on the audio thread; that is why it is a lot and not a patch.
 
 ## What a change here should be verified with
 

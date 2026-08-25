@@ -245,6 +245,17 @@ public:
     // Re-read the open device and publish what it costs, after anything that opens, closes or re-buffers one. MESSAGE THREAD ONLY: it dereferences the device.
     void publishAudioTiming();
 
+    // What the audio CALLBACK has cost since the last reset. Tracktion measures it on the audio thread itself and stores it in an atomic, so ANY thread may read — docs/audit-stabilite.md.
+    struct CallbackCost {
+        double meanSeconds = 0.0;
+        double maxSeconds = 0.0;   // the block that came closest to the deadline: what a driver notices
+        double minSeconds = 0.0;
+        long long runs = 0;
+        double deadlineSeconds = 0.0;  // frames / rate — over it the driver is waiting on us
+    };
+    CallbackCost callbackCost() const;
+    void resetCallbackCost();
+
     // Enumerate the interfaces (ASIO first) and open one for input and output, false when not found; an empty `type` is "any backend". See docs/engineHost.md.
     std::vector<AudioDeviceInfo> listAudioDevices();
     bool setAudioDevice(const std::string& name, const std::string& type = {});
@@ -270,7 +281,12 @@ public:
         bool masterOverload = false;
         // Per-module waveform envelopes keyed "chain:module:side", each drained since the last poll; an empty map when no taps are active.
         std::map<std::string, std::vector<WaveformEnvelope>> waveformEnvelopes;
+        // Each PLATTER's needle in seconds of its own record, by plugin id — its own clock, docs/turntable.md.
+        std::map<std::string, double> platterSeconds;
     };
+
+    /** Every PLATTER's needle in this session, keyed by plugin id — empty when the deck plays a clip. */
+    std::map<std::string, double> platterPositions(const std::string& session) const;
 
     /** The sessions that exist, in id order. The state timer walks this. */
     std::vector<std::string> sessionIds() const;
@@ -337,6 +353,11 @@ private:
     void applyAllTrackInputs(const std::string& session, const ProjectDoc& doc);
     // The same after an INTERFACE change, restoring the arm flags from the sets read BEFORE the switch — after it there is nothing left. See docs/audioDevice.md.
     void reconnectTrackInputs(const std::map<std::string, std::vector<std::string>>& armedBefore);
+
+    // Send a track out by its own interface pair rather than the mixer's sum — what a CUE bus is. See docs/cueOutput.md.
+    void applyTrackOutput(const std::string& session, const TrackDoc& t);
+    // Re-route every track that asked for one, for the full-rebuild path where the tracks were just remade.
+    void applyAllTrackOutputs(const std::string& session, const ProjectDoc& doc);
 
     // Name each armed track's take and point the input devices at recordDir_, from play() just before the roll; false (and logged) with no recordDir.
     bool prepareTakes(const std::string& session);

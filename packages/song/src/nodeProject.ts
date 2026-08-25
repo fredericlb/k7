@@ -8,6 +8,7 @@ import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  CUE_NODE,
   isBuiltinOutput,
   MASTER_OWNER,
   MIX_NODE,
@@ -17,7 +18,7 @@ import { materialRefOf, placementId } from "@studio/song-schema/placementId";
 import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
 import { sortTracksByKind } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
-import { bypassedOf } from "./chainsGraph";
+import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
 import { activeFreezePlans } from "./freeze";
 import {
@@ -44,6 +45,7 @@ import {
   defaultPreferences,
   loadPreferences,
   type Preferences,
+  resolveCueOutput,
   resolveInput,
 } from "./preferences";
 import type {
@@ -351,6 +353,8 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
   ); // keyed by each head's resolved name
   // A lane's MUTE, from the one place a bypass is written.
   const bypassed = bypassedOf(rawChains);
+  // Kept apart from `bypassed` on purpose: one says the module is off, the other where the signal goes.
+  const busOnly = busOnlyOf(rawChains);
   // Read WITH their issues: a rejected clip is dropped from the map, and its own complaint is what stops the ref reading as "not found".
   const clipsRead = readYamlEntities(dir, "clips");
   const clipsMap = clipsRead.values as Record<string, RawClip>;
@@ -440,7 +444,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
 
   // A track-fed chain processes its track; another used as a send target becomes a bus return. See docs/nodeProject.md.
   const outTargets = (c: Chain): { to: string; gain: number }[] => c.out;
-  // The four built-in outputs end a run by NAME; without them a run ending at VIDEO_OUT is taken for a bus.
+  // The five built-in outputs end a run by NAME; without them a run ending at VIDEO_OUT is taken for a bus.
   const isSink = (to: string) =>
     !to || isBuiltinOutput(to) || modulesMap[to]?.kind === "io";
   const isTrackFed = (c: Chain) => !!c.from && !!lanesMap[c.from];
@@ -448,6 +452,11 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
   // The MASTER chain: the run between the mixer's sum and the device, which earns a reserved owner (docs/masterChain.md).
   const isMasterChain = (c: Chain): boolean =>
     c.from === MIX_NODE && outTargets(c).some(({ to }) => to === OUT_NODE);
+
+  // The CUE bus: the one run that leaves the mixer's sum for a pair of its own — see docs/cue.md.
+  const cuePair = resolveCueOutput(prefs).channels;
+  const isCued = (c: Chain): boolean =>
+    outTargets(c).some(({ to }) => to === CUE_NODE);
 
   // Non-sink targets naming a chain that isn't track-fed: routing into a track's input is inexpressible, so they drop.
   const busChains = new Set<string>();
@@ -766,6 +775,8 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
         disabled: false, // filtered out above
         // From the io "in" module that names this track, if any (see inputOf above).
         inputChannels: inp?.channels ?? [],
+        // A LANE always reaches the mixer's sum: only a bus may be lifted off it, and only by CUE (docs/cue.md).
+        outputChannels: [],
         monitor: inp?.monitor ?? "auto",
         inputGain: inp?.gain ?? 0,
         // A FROZEN lane, in three states whose ORDER matters — see docs/freeze.md.
@@ -810,11 +821,16 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
       group: "",
       generated: false,
       inputChannels: [], // a bus return is fed by sends, never by the interface
+      // A bus reaching CUE leaves the mixer's sum by its own pair; every other bus arrives at the sum (docs/cue.md).
+      outputChannels: isCued(chains[name]) ? cuePair : [],
       monitor: "auto",
       inputGain: 0,
       color: "",
-      // A bus is mutable like a lane, from the one place a mute is written — see docs/setProject.md.
-      mute: bypassed.has(name),
+      // Three different sentences that all end in silence on the sum — docs/busOnly.md and docs/cue.md.
+      mute:
+        bypassed.has(name) ||
+        busOnly.has(name) ||
+        (isCued(chains[name]) && cuePair.length === 0),
       // A bus return can be soloed like any lane — it is a strip on the same mixer.
       solo: soloed.has(name),
       disabled: false,

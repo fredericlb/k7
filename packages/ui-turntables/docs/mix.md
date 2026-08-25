@@ -150,12 +150,30 @@ Le moteur n'a **qu'un** transport. Les deux platines sont donc deux pistes d'un 
 document, elles démarrent ensemble, et c'est le fader qui choisit ce qu'on entend. Le bouton
 lecture du bas est global, et c'est pour ça qu'il est en bas et pas sur chaque platine.
 
-Écouter une platine au casque pendant que l'autre passe demanderait deux transports
-indépendants côté moteur. Ce n'est pas là.
+Il n'interdit plus rien. **Chaque platine démarre seule** depuis qu'elle joue par un plateau qui
+porte sa propre position — `engine/moteur/docs/turntable.md`. Le bouton du bas reste, et lance les
+deux ; chaque platine a le sien à côté de ses repères.
 
-Caler les temps forts, en revanche, **n'en demande pas** : on ne décale pas le transport, on
-décale le **clip** — `start` est par clip, et retarder l'esclave de moins d'un temps suffit.
-C'est ce que fait le sync, voir [bpm.md](bpm.md).
+Le bouton du bas n'est donc **plus un bouton de transport** : il lance les deux platines *et* le
+transport, et il s'allume sur ce qui TOURNE, pas sur ce que le transport fait. La nuance a coûté une
+régression — n'avoir déplacé que le transport allumait le bouton et ne démarrait rien, un plateau
+n'en prenant pas les ordres. Un test la fige.
+
+Il n'y a **plus d'exception**. Le keylock en a été une, le disque séparé aussi ; l'un tient sa
+hauteur sur le plateau et l'autre est quatre plateaux
+(`engine/moteur/docs/turntable.md`). Seule une platine vide n'a pas de bouton, n'ayant rien à lancer.
+
+Il interdit moins qu'on ne croyait, en revanche. Trois choses qui semblaient en demander un second
+n'en demandent aucun, parce qu'elles déplacent le **plateau** et non le transport :
+
+- **caler les temps forts** — amener l'esclave sur la grille du maître, ce que fait le sync
+  ([bpm.md](bpm.md)) ;
+- **poser l'aiguille** — un repère, un needle-drop, un nudge ne bougent que leur platine
+  ([scratch.md](scratch.md)) ;
+- **écouter au casque** — les deux platines jouent déjà en même temps, il ne manquait qu'une
+  seconde sortie ([cue.md](cue.md)).
+
+La position est par plateau : c'est la propriété qui porte les trois.
 
 ## Ce qui attend une place
 

@@ -13,6 +13,12 @@ namespace studio {
 // The wave input device carrying exactly `channels` (1-based), an exact match so [3,4] never lands on the mono device for 3, and null when the rig offers none.
 te::WaveInputDevice* findWaveInput(te::Engine& engine, const std::vector<int>& channels);
 
+// The same on the OUTPUT side, for a track that leaves by a pair of its own — docs/cueOutput.md.
+te::WaveOutputDevice* findWaveOutput(te::Engine& engine, const std::vector<int>& channels);
+
+// The pair a track leaves by, or the mixer's sum when it declared none — called from populateEdit AND the live diff.
+void routeTrackOutput(te::Engine& engine, te::AudioTrack& track, const TrackDoc& t);
+
 // Parse a monitor-mode string ("off"/"on"/anything else -> automatic).
 te::InputDevice::MonitorMode monitorModeOf(const std::string& s);
 

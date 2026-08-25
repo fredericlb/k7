@@ -41,6 +41,8 @@ export function useTurntableDeck({
 
   /** The transport as a REF, which is what the desk wants: every frame and NO render, with `at` stamped only when the value CHANGES. */
   const playhead = useRef<Playhead>({ seconds: 0, at: 0 });
+  /** The platters' own needles, likewise a ref: a deck off keylock has no other clock (docs/turntable.md). */
+  const platters = useRef<Record<string, number>>({});
   /** The same frames again, STEERED — the wedge wants a number that moves evenly where a cue drop wants the raw estimate (docs/playhead.md). */
   const clock = useRef(newPlayheadClock());
   useEffect(() => {
@@ -50,6 +52,8 @@ export function useTurntableDeck({
       // `at` is stamped whenever the value CHANGES, not on every frame; the steered clock is fed every frame regardless.
       if (seconds !== playhead.current.seconds)
         playhead.current = { seconds, at: performance.now() };
+      // Written straight through: a platter's needle is already its own clock and needs no steering.
+      platters.current = s.platters ?? {};
       clock.current = feedPlayhead(
         clock.current,
         s.playing,
@@ -103,6 +107,7 @@ export function useTurntableDeck({
       playing,
       playhead,
       drawNow,
+      platters,
       engine: (engineRef.current ?? null) as EngineClient | null,
       /** Through the FILE SERVICE, the only thing that writes documents to st0's engine — fire-and-forget, a round trip belonging outside a crossfade. */
       sendProject: (doc) => {

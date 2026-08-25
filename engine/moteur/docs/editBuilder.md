@@ -180,12 +180,12 @@ bus number. The return goes at the FRONT of the destination track, so bus audio 
 track's effects on the way out; each send is appended at the END of its source track, post-FX and
 post-fader. The first sender to name a destination is what wires its return.
 
-### A lane heard through one bus is ROUTED, not muted-and-sent
+### A lane heard through its buses is ROUTED, not muted-and-sent
 
-`feedsBusOnly` — muted, and exactly one enabled send — takes a different path: the track's output
-goes to the destination with `setOutputToTrack`, no `AuxSend` is made, and `applySoloMute` leaves
-it unmuted. That is not a shortcut, it is the only thing that works, and the measurement is worth
-recording because two plausible designs die on it:
+`feedsBusOnly` — muted, with at least one enabled send — takes a different path: the track's output
+goes to the **first** destination with `setOutputToTrack`, and `applySoloMute` leaves it unmuted.
+That is not a shortcut, it is the only thing that works, and the measurement is worth recording
+because two plausible designs die on it:
 
 **A muted track processes nothing.** Not its plugins, not its sends. Measured on a set whose decks
 were muted to keep them off the master: the bus received silence, so the whole mix was silent.
@@ -194,6 +194,25 @@ Moving the `AuxSend` to the front of the plugin list changes nothing, because th
 So a lane cannot be both muted and heard through a bus, and `setMute` is the wrong tool for "off
 the master". Routing the output is the right one: the track is not muted, it simply does not go to
 the device — its signal leaves by the bus and only by the bus.
+
+#### …and the SECOND destination is an ordinary send
+
+A track has one output, so only the first destination can be a routing. The rest fall through to
+`AuxSend` as usual — and they carry signal, because the routed track is **not muted**. That is what
+makes "one source, several buses, heard nowhere else" expressible: a pre-fade headphone tap beside
+a crossfade (`packages/song/docs/cue.md`), and any bus that wants two consumers.
+
+It used to require `enabled == 1`, so a second destination fell out of the routed case entirely and
+the track was muted with two dead sends — silent everywhere. Measured, on the shape a cue needs:
+
+| shape | peak at the master |
+|---|---|
+| two destinations, muted source, before this | **−100 dBFS** |
+| two destinations, muted source, first routed | −1.6 dBFS |
+| two destinations, source left unmuted | 0.0 dBFS — the dry path included |
+
+`npx tsx engine/moteur/scripts/cue-bus.ts` replays all three. The project says which buses want this
+with `bus_only:` — `packages/song/docs/busOnly.md` for why that is not the same word as `bypassed:`.
 
 **The same measurement kills `setOutputToDeviceID({})`**, tried for a run consumed by another
 module's port. It takes the track off the device, and takes it off the sidechain with it: in this

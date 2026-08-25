@@ -12,6 +12,7 @@
 #include "MidiGraphPlugin.h"
 #include "NamPlugin.h"
 #include "QuickMasterPlugin.h"
+#include "TurntablePlugin.h"
 #include "BroadcastTapPlugin.h"     // likewise, for the network broadcast tap
 #include "WaveformTapPlugin.h"      // its xmlTypeName, listed among the built-ins below
 #include "PluginScan.h"     // cachedPluginInfos / invalidatePluginInfoMemo
@@ -246,6 +247,7 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::MidiGraphPlugin>();
     pm.createBuiltInType<studio::MixerPlugin>();
     pm.createBuiltInType<studio::QuickMasterPlugin>();
+    pm.createBuiltInType<studio::TurntablePlugin>();
     // Registered so the plugin cache can create one, and deliberately ABSENT from the catalogue above — see MasterGainPlugin.h.
     pm.createBuiltInType<studio::MasterGainPlugin>();
     // Tracktion SHIPS the convolver and the 186 AirWindows effects but registers neither, so both were dead weight in the binary.

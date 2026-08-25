@@ -17,6 +17,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@studio/song": "*",
     "@studio/song-schema": "*",
     "@studio/web-protocol": "*",
     "onnxruntime-node": "^1.20.1"

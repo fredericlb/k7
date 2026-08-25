@@ -21,6 +21,54 @@ te::WaveInputDevice* findWaveInput(te::Engine& engine,
     return nullptr;
 }
 
+// The output mirror. Outputs default to STEREO pairs where inputs default to mono, so [3,4] usually matches — docs/cueOutput.md.
+te::WaveOutputDevice* findWaveOutput(te::Engine& engine,
+                                     const std::vector<int>& channels) {
+    if (channels.empty()) return nullptr;
+    auto& dm = engine.getDeviceManager();
+    for (int i = 0; i < dm.getNumWaveOutDevices(); ++i) {
+        auto* dev = dm.getWaveOutDevice(i);
+        if (dev == nullptr) continue;
+        const auto& devChannels = dev->getChannels();
+        if (devChannels.size() != channels.size()) continue;
+        bool match = true;
+        for (size_t j = 0; j < channels.size(); ++j)
+            if (devChannels[j].indexInDevice != channels[j] - 1) { match = false; break; }
+        if (match) return dev;
+    }
+    return nullptr;
+}
+
+// Send one track out by its own pair instead of the mixer's sum — the whole of what a CUE bus is, docs/cueOutput.md.
+void routeTrackOutput(te::Engine& engine, te::AudioTrack& track, const TrackDoc& t) {
+    // Empty is the DEFAULT device, not "leave it alone": a track that stops being a cue bus has to rejoin the sum.
+    if (t.outputChannels.empty()) {
+        track.getOutput().setOutputToDefaultDevice(false);
+        return;
+    }
+    auto* dev = findWaveOutput(engine, t.outputChannels);
+    if (dev == nullptr) {
+        // SILENT, never the sum: an id matching no device leaves canPlayAudio() false — docs/cueOutput.md.
+        std::string want = "studio-absent-out:";
+        for (size_t i = 0; i < t.outputChannels.size(); ++i)
+            want += (i ? "+" : "") + std::to_string(t.outputChannels[i]);
+        track.getOutput().setOutputToDeviceID(juce::String(want));
+        std::cerr << "[output] track '" << t.id << "': no interface output on channel(s)";
+        for (int ch : t.outputChannels) std::cerr << ' ' << ch;
+        std::cerr << " — it is SILENT (never folded into the mix)\n";
+        return;
+    }
+    if (!dev->isEnabled()) {
+        // Enabling rebuilds the wave-device list and deletes this object, exactly as on the input side — docs/audioDevice.md.
+        dev->setEnabled(true);
+        engine.getDeviceManager().dispatchPendingUpdates();
+        dev = findWaveOutput(engine, t.outputChannels);
+        if (dev == nullptr) return;
+    }
+    track.getOutput().setOutputToDeviceID(dev->getDeviceID());
+    std::cerr << "[output] track '" << t.id << "' -> '" << dev->getName() << "'\n";
+}
+
 te::InputDevice::MonitorMode monitorModeOf(const std::string& s) {
     if (s == "off") return te::InputDevice::MonitorMode::off;
     if (s == "on")  return te::InputDevice::MonitorMode::on;

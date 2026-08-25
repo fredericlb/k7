@@ -176,6 +176,9 @@ function mapDoc(doc: AssembledDoc, baseDir: string): ProjectDoc {
       inputChannels: (Array.isArray(t.inputChannels) ? t.inputChannels : [])
         .map(Number)
         .filter((n) => Number.isInteger(n) && n > 0),
+      outputChannels: (Array.isArray(t.outputChannels) ? t.outputChannels : [])
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n > 0),
       monitor: String(t.monitor ?? "auto"),
       inputGain: Number.isFinite(Number(t.inputGain)) ? Number(t.inputGain) : 0,
       color: String(t.color ?? ""),

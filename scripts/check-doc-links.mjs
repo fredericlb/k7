@@ -4,7 +4,7 @@
 // and the page points back at the code it is about. A pointer to a file that has been renamed or
 // deleted sends the reader into a wall, and nothing else notices.
 //
-// It reads only what git tracks, and only paths that look like OUR tree.
+// It reads what git tracks AND what it merely knows about, and only paths that look like OUR tree.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -25,10 +25,14 @@ const ALLOW = [
 /** PIERRES TOMBALES — a page names a file precisely because it is gone (../docs/lints.md). */
 const TOMBSTONES = new Set([]);
 
-const files = execFileSync("git", ["ls-files", "--", "*.md"], {
-  encoding: "utf8",
-  maxBuffer: 64 * 1024 * 1024,
-})
+// `--others` too, or a page is unchecked until the day it is committed — which is the day it is
+// written, and the day its references are most likely to be wrong. `--exclude-standard` keeps the
+// ignored tree out. Found by planting a dead reference in a new page and watching this pass.
+const files = execFileSync(
+  "git",
+  ["ls-files", "--cached", "--others", "--exclude-standard", "--", "*.md"],
+  { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+)
   .split("\n")
   .filter(Boolean)
   // The submodule brings its own docs and its own truth about them.

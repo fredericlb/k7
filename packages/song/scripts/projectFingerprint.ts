@@ -49,6 +49,7 @@ const out: string[] = [];
 for (const t of [...doc.tracks].sort((a, b) => a.id.localeCompare(b.id))) {
   const io = [
     t.inputChannels?.length ? `in=[${t.inputChannels.join(",")}]` : "",
+    t.outputChannels?.length ? `out=[${t.outputChannels.join(",")}]` : "",
     t.monitor && t.monitor !== "auto" ? `monitor=${t.monitor}` : "",
     t.inputGain ? `gain=${t.inputGain}` : "",
   ]

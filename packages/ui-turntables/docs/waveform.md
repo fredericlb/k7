@@ -87,6 +87,24 @@ désaccord sur ce que « à l'arrêt » veut dire.
 est tombé — lit `Deck.playhead`, l'ancre brute, parce que le lissage échange de la justesse
 contre de la continuité. Voir `apps/st0/frontend/docs/playhead.md`.
 
+## La bande se GLISSE
+
+Un drag horizontal pousse le disque, comme une main sur un plateau : la bande défile sous une tête
+fixe, donc tirer vers la gauche avance dans le morceau. Une platine seulement — c'est le plateau qui
+bouge, jamais le transport ([scratch.md](scratch.md)).
+
+Cadencé à 120 ms. Ce qui vaut d'être su avant de s'en
+servir : **pendant le glissement c'est approximatif, au relâchement c'est exact.** Le `pointerup`
+envoie la valeur exacte, qui est un déplacement unique et tombe donc juste — l'endroit où l'on lâche
+est le bon, même si le trajet ne l'était pas.
+
+Les 120 ms viennent du temps où chaque pas **ré-insérait un clip** et coûtait 85 ms. Un `Seek` sur un
+plateau ne coûte pas ça, et la cadence n'a pas été remesurée depuis : elle est prudente plutôt que
+justifiée. Le geste, lui, a été mesuré sous sa forme actuelle ([scratch.md](scratch.md)).
+
+Le drag n'est offert qu'avec un morceau chargé ET un tempo mesuré : sans rapport d'étirement, il n'y
+a pas de conversion entre un pixel et une seconde du fichier.
+
 ## Une seule tête pour les deux platines, mais deux horloges
 
 Le moteur n'a qu'un transport (voir [mix.md](mix.md)), donc la même ref sert les deux bandes.

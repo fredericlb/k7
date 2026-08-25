@@ -5,9 +5,9 @@ passe — vide à 0 %, plein à 100 % — et porte les repères sous forme de ce
 
 ## Une couche qui ne tourne PAS
 
-Le disque tourne (`animate-[spin_1.8s_linear_infinite]`, soit 33⅓ tours/minute — un trente
-centimètres), donc la progression et les repères vivent dans un **second SVG**,
-frère du premier, immobile.
+Le disque tourne — à 33⅓ tours/minute quand il joue à sa vitesse, et **à la vitesse à laquelle il
+joue vraiment** sinon ([bpm.md](bpm.md)) — donc la progression et les repères vivent dans un
+**second SVG**, frère du premier, immobile.
 
 Dessinés à l'intérieur du disque qui tourne, ils monteraient avec lui : un secteur qui tourne
 ne dit rien de l'avancement, et un repère serait à un endroit différent à chaque instant. C'est
@@ -65,3 +65,9 @@ sans le guetter. Et deux repères à une seconde d'intervalle restent deux ligne
 fusionner en une tache.
 
 L'étiquette couvre le tiers intérieur, là où un disque garde son propre centre de toute façon.
+
+## Et il se prend à la main
+
+Les sillons acceptent un glissement : le disque suit le doigt et l'audio suit le disque. C'est
+[scratch.md](scratch.md), y compris ce qui l'offre et ce qui ne l'offre pas. L'étiquette garde son
+clic — les deux gestes ne se disputent aucun pixel.

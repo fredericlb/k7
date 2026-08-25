@@ -3,7 +3,7 @@
 // animation frame off the deck's STEERED reader — never by React state. See ../../docs/waveform.md.
 
 import { useEffect, useRef } from "react";
-import { type DeckTempo, sourceAt } from "../deck";
+import type { DeckTempo } from "../deck";
 import { bandsAt, columnColour } from "../spectrumColour";
 import {
   barsIn,
@@ -26,25 +26,61 @@ const BAR = "#f97316";
 const TRANSIENT = "rgba(148,163,184,0.55)";
 const PLAYHEAD = "#f8fafc";
 
+/** How often a DRAG may move the record — a cadence the clip era set, see ../../docs/waveform.md. */
+const SCRUB_MS = 120;
+
+/** Drag the band to push the record: the audio slides under a fixed playhead, so LEFT is forward. */
+function scrub(
+  e: React.PointerEvent<HTMLDivElement>,
+  onShove: (seconds: number) => void,
+): void {
+  const width = e.currentTarget.clientWidth;
+  if (!(width > 0)) return;
+  e.currentTarget.setPointerCapture(e.pointerId);
+  // The anchor is the last x SENT FROM, never the previous frame: the throttle must not drop travel.
+  let from = e.clientX;
+  let last = 0;
+  const secondsSince = (x: number) => ((from - x) / width) * WINDOW_SECONDS;
+  const move = (ev: PointerEvent) => {
+    const now = Date.now();
+    if (now - last < SCRUB_MS) return;
+    last = now;
+    onShove(secondsSince(ev.clientX));
+    from = ev.clientX;
+  };
+  const up = (ev: PointerEvent) => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    // Whatever the throttle did not send: the position let go of has to be the one that plays.
+    const rest = secondsSince(ev.clientX);
+    if (rest !== 0) onShove(rest);
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+}
+
 export function Waveform({
   envelope,
-  drawNow,
-  /** This deck's stretch and placement — what turns the transport into a position in the FILE (`sourceAt`). */
+  needle,
+  /** This deck's stretch, for the beat grid — the POSITION now comes from `needle`, docs/turntable.md. */
   tempo,
   /** Said out loud while the engine computes a sidecar — an empty box would read as "no waveform". */
   analysing,
   /** Why there is none, when there will not be one — the strip cannot draw "failed" against "none". */
   problem,
   height,
+  onShove,
 }: {
   envelope: Envelope | null;
-  /** Where to draw the transport — steered, so this canvas carries no arrival jitter. See Deck.drawNow. */
-  drawNow: () => number;
+  /** This deck's needle in its RECORD — one reader for both ways of playing, see ../useDeckSet.ts. */
+  needle: () => number;
   tempo: DeckTempo | undefined;
   analysing: boolean;
   problem: string | null;
   /** How tall to draw, from `deskLayout` — `draw` reads `clientHeight` every frame, so nothing else follows it. */
   height: number;
+  /** Push the record by `seconds`, signed — absent, the band is not draggable. See ../../docs/waveform.md. */
+  onShove?: (seconds: number) => void;
 }) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
 
@@ -72,8 +108,8 @@ export function Waveform({
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       ctx.clearRect(0, 0, w, h);
 
-      // Where we are NOW: the clock behind `drawNow` holds still while stopped, so this never asks.
-      const at = sourceAt(drawNow(), tempo);
+      // Where we are NOW: a stopped deck's needle simply does not move, whichever clock it is on.
+      const at = needle();
 
       const mid = Math.round(h / 2) + 0.5;
       if (!envelope) {
@@ -128,12 +164,16 @@ export function Waveform({
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
     // The loop restarts only when the envelope, the reader or the deck's stretch changes.
-  }, [envelope, drawNow, tempo]);
+  }, [envelope, needle, tempo]);
 
   return (
     <div
-      className="relative w-full shrink-0 overflow-hidden rounded-md bg-muted/40"
+      className={`relative w-full shrink-0 overflow-hidden rounded-md bg-muted/40 ${
+        onShove ? "cursor-ew-resize touch-none" : ""
+      }`}
       style={{ height: `${height}px` }}
+      onPointerDown={onShove ? (e) => scrub(e, onShove) : undefined}
+      title={onShove ? "glisser pour pousser le disque" : undefined}
     >
       <canvas ref={canvas} className="h-full w-full" />
       {analysing ? (

@@ -1,6 +1,6 @@
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { describe, expect, it } from "vitest";
-import { DECKS, deckDoc, levelId, NO_LOADS } from "./deck";
+import { DECKS, deckDoc, levelId, NO_LOADS, PLATTER_TYPE } from "./deck";
 import { categoryOf, type DeckModule, deckGraph } from "./graph";
 
 const mod = (name: string, over: Partial<DeckModule> = {}): DeckModule => ({
@@ -28,7 +28,8 @@ const deckAModules = (modules: DeckModule[]) => {
   );
   const plugins = doc.tracks[0].plugins;
   expect(plugins.at(-1)?.id).toBe(levelId("deckA"));
-  return plugins.slice(0, -1);
+  // The PLATTER is the source rather than a step, so it is dropped like the level — docs/turntable.md.
+  return plugins.slice(0, -1).filter((p) => p.type !== PLATTER_TYPE);
 };
 
 describe("the deck as a WebGraph", () => {

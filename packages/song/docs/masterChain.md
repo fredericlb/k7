@@ -4,7 +4,8 @@
 > avec **une** différence qui compte : elle est ajoutée toute seule.
 > Voir [videoOutputs.md](videoOutputs.md).
 
-Un graphe a **deux** sorties intégrées :
+Un graphe a **deux** sorties intégrées pour le son de la salle — plus `CUE`, le casque, qui est la
+seule à quitter vraiment la somme ([cue.md](cue.md)) :
 
 | nom | ce que c'est |
 |---|---|
@@ -27,7 +28,7 @@ raison des deux noms — un `OUT` seul ne laisse nulle part où poser un traitem
 **Une chanson sans chaîne master ne coûte aucun son.** `masterPlugins` part vide, et `MIX` et
 `OUT` sont un seul fil.
 
-## Ce que ça n'est PAS (encore)
+## Ce que ça n'est PAS
 
 À écrire clairement, parce que la lecture naturelle des deux noms est plus forte que ce que le
 code fait :
@@ -39,9 +40,14 @@ de plugins de ce bus. Une piste câblée sur `OUT` la traverse donc comme les au
 sont aujourd'hui une **notation** — ce qui rend le run master exprimable — et non deux
 destinations distinctes.
 
-Un vrai contournement demanderait une piste routée hors du bus master (un output device séparé),
-ce qui n'est pas fait. En attendant, `OUT` en fin de chaîne de piste veut dire la même chose que
-`MIX`, et le script de migration ci-dessous les met d'accord.
+Un vrai contournement demande une piste routée hors du bus master, sur un output device séparé. Ce
+mécanisme **existe** désormais — c'est `TrackDoc.outputChannels`, et [cue.md](cue.md) est ce qui
+l'a amené — mais il n'est pas branché sur `OUT` : seul `CUE` le nomme. `OUT` en fin de chaîne de
+piste veut donc toujours dire la même chose que `MIX`, et le script de migration ci-dessous les met
+d'accord.
+
+Le brancher sur `OUT` serait une décision sur **chaque** projet du dépôt, pas une notation à
+corriger — la même famille que « rendre `out` en série », posée dans [ports.md](ports.md).
 
 ## L'ordre sur le bus, et le prix qu'il coûte
 

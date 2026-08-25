@@ -33,6 +33,7 @@ struct PluginDoc {
     std::string role;                                  // "instrument" | "audioFX" | "noteFX"
     bool enabled = true;
     std::string namFile;                               // .nam model to load (neural amp modeler module); empty otherwise
+    std::string deckFile;                              // the record a TURNTABLE module owns — decoded whole, docs/turntable.md
     // The DSP graph a "DSP Graph" module runs — the JSON DESCRIPTION inline, never a path (DspGraph.h); empty otherwise.
     std::string dspGraph;
     // …and a "Faust" module's SOURCE, likewise inline, but as text for THIS side to compile (FaustPlugin.h).
@@ -124,6 +125,8 @@ struct TrackDoc {
     bool disabled = false;      // true ⇒ the track file is ignored (filtered by the brain)
     // The live input feeding this track — 1-BASED PHYSICAL channels (one mono, two stereo), labels resolved by the brain; empty none, indexInDevice 0-based.
     std::vector<int> inputChannels;
+    // Where this track LEAVES by — 1-BASED PHYSICAL channels, labels resolved by the brain. EMPTY is the mixer's sum, which is every track but a cue bus.
+    std::vector<int> outputChannels;
     // "off" | "auto" | "on", mapping to te::InputDevice::MonitorMode; ignored when inputChannels is empty.
     std::string monitor = "auto";
     // Input trim in dB at the interface DEVICE, 0 == unity — so two tracks on one physical input share it; ignored when inputChannels is empty.

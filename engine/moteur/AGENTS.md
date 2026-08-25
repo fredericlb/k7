@@ -45,6 +45,8 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
 
   built-in plugins — created by the built-in factory, not the plugin cache:
   MixerPlugin.{h,cpp}       a track's level; what a track volume BECAME
+  TurntablePlugin.{h,cpp}   a deck that OWNS its record and reads it at a driven rate, reverse included
+                            — what a clip on a timeline cannot be scratched into (docs/turntable.md)
   QuickMasterPlugin.{h,cpp} a master bus in one module: 3-band compressor, spreader, limiter
                             (docs/quickMaster.md) — what st0's `mastering` surface is a picture of
   NamPlugin.{h,cpp}         Neural Amp Modeler (docs/namPlugin.md)
@@ -87,6 +89,19 @@ scripts/               Node harnesses that drive a running engine, not build ste
   listen-headless.mjs    a headless listener
   measure-broadcast.mjs  the numbers behind docs/broadcast.md
   render-once.ts         one offline render
+  turntable.ts           does the PLATTER follow a hand? A constant tone is an exact tachometer under a
+                         varispeed, which is why its source is not the clip bench's (docs/turntable.md)
+  turntable-latency.ts   …and does it follow SOON? Steps the rate at a known moment; the answer's SHAPE —
+                         a spread of one block — is what says the engine adds nothing to it
+  keylock.ts             …and does KEY hold the PITCH while the tempo moves? A tone has no tempo and a
+                         stretcher would leave it alone, so the source is a tone CHOPPED into bursts:
+                         the carrier is the pitch, the interval is the tempo (docs/turntable.md)
+  platterBench.ts        what those three share — the wav, the one-platter document, the broadcast
+                         frames and the FFT. Not a bench: a second copy of an FFT is a second place
+                         for a windowing bug to hide
+  cue-bus.ts             the two facts a CUE bus rests on, neither visible to a unit test: how many
+                         destinations a source may have and still be heard only through them, and
+                         whether `outputChannels` really takes a track off the mixdown (docs/cueOutput.md)
 ```
 
 Long-form rationale is in `docs/`: `design.md` (pipeline + threading), `engineHost.md`,
@@ -112,6 +127,8 @@ force a full rebuild — every rule there exists because leaving it out produced
 the Edit and input ones do not, and why `inputClients` is keyed by device name),
 `audioDevice.md` (which interface is opened, who remembers the choice, and what an
 interface change does to the live inputs),
+`cueOutput.md` (a track routed OFF the mixer's sum onto a second pair — why an absent pair must be
+silent rather than folded back, and why a mixdown had to learn to exclude it),
 `inputTuner.md`, `airWindowsList.md` and `airwindows-inventaire.md`.
 
 ## Key concepts
@@ -395,3 +412,9 @@ PDBs, and is what produces a stack like the one above — there is no cdb or Win
 machines, and `Wait, LpcReply` from `Get-Process` is as far as PowerShell gets you.
 The same env var turns on `trace()`, the coarse progress log; start there, then reach for
 the watchdog when you need to know *what* is waiting rather than *where*.
+
+A hang that reaches `runJob loop` and stops there is neither of the two traps above: it is the
+render loop waiting on a **proxy** for a source that is not a wav, and it is in
+`docs/cliModes.md`. The trace line tells them apart before any stack does — the MIDI trap stops
+at `populateEdit done`, this one at `runJob loop` — and unlike either of those it burns about a
+tenth of a core rather than nothing at all.

@@ -93,6 +93,10 @@ export const service = {
   prepareStems: (l: LibraryLink, song: string, engineId: string) =>
     libraryPost<StemsReply>(l, "/stems", { song, engineId }),
 
+  /** Are this song's stems already on the volume? A READ — `prepareStems` starts a job, so it cannot ask. */
+  stemsHeld: (l: LibraryLink, song: string) =>
+    libraryGet<StemsReply>(l, `/stems/held?song=${encodeURIComponent(song)}`),
+
   /** How a separation is going — 404 once a finished job is swept, which the caller reads as "ask the disk". */
   separation: (l: LibraryLink, id: string) =>
     libraryGet<SeparateJob>(l, `/stems/${encodeURIComponent(id)}`),

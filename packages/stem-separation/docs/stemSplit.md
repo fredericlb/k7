@@ -207,16 +207,35 @@ to the cache; a ref that climbs out of `assets/` is still **refused**, never red
 
 ## Execution providers
 
-Asked for in order and taken on the first that builds — `dml` then `cpu` on Windows, `cpu`
-elsewhere. ORT throws at session creation when a provider is unavailable, so trying is the
-only way to find out.
+Asked for in order and taken on the first that builds. The default is **`cpu` alone, everywhere**.
+ORT throws at session creation when a provider is unavailable, so trying is the only way to find out.
 
 **Which one won is logged** into the job's `lines`. The difference is minutes per song, and
 a silent fall back to CPU is indistinguishable from a slow machine.
 
-`STUDIO_ONNX_PROVIDERS` overrides that order — a comma-separated list, read by
-`defaultProviders()`. It exists because the order above is a **guess about the hardware**, and
-the section below is a machine where the guess is wrong in the expensive direction.
+### Why the default stopped guessing
+
+It used to be `dml` then `cpu` on Windows. That order was a **guess about the hardware**, and the
+section below is a machine where the guess is wrong in a way nothing recovers from: DirectML does
+not fail there, it hangs — un-interruptible from JavaScript, holding a worker and 26 GB of RSS until
+the job's hour is up. The two outcomes are not comparable, so the guess is not worth making:
+
+| the guess is wrong | it costs |
+|---|---|
+| CPU where DML would have been faster | a slower song, correctly separated |
+| DML where it wedges | an hour of a held worker, and no stems |
+
+A machine that has **measured** a faster provider says so once, and it survives every restart:
+
+```bash
+system onnx dml,cpu     # …or cuda,cpu, or coreml,cpu
+system onnx ""          # back to the CPU
+```
+
+It lands in `~/.studio/preferences.yaml` as `onnxProviders`, beside the audio device and the
+headphone pair, and `defaultProviders()` reads it. `STUDIO_ONNX_PROVIDERS` still overrides
+everything for one run — it is an escape hatch now, not how a machine is configured. The order it
+used to be needed FOR is the default.
 
 ### When DirectML is the slow one — measured, 2026-08
 
@@ -242,8 +261,11 @@ its `worker.terminate()` are the only things that end such a run, and a job that
 holds the worker until then.
 
 **The fallback below does not catch it either.** A device removal is what that code is written
-for, and this is not one — nothing throws, so nothing retries and nothing moves to the CPU. The
-machine has to be told, which is what the variable is for.
+for, and this is not one — nothing throws, so nothing retries and nothing moves to the CPU.
+
+Nothing in the process can rescue this, which is why the fix is not to rescue it: `dml` is no longer
+asked for unless a machine opted in. This rig is now the ordinary case rather than the one that
+needed a variable in every launcher's environment.
 
 What this does *not* establish is whether the fault is DirectML's, this driver's, or this
 architecture's. It was not chased further, because the provider that works is four times faster

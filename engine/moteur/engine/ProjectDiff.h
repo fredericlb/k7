@@ -31,6 +31,7 @@ enum class ChangeKind {
     TrackRenamed,
     TrackParamsChanged,       // volume / pan / mute — applied in place
     TrackInputChanged,        // live input channels / monitor mode — applied in place
+    TrackOutputChanged,       // which interface pair the track LEAVES by — applied in place, see docs/cueOutput.md
 
     // Track contents
     ClipAdded,

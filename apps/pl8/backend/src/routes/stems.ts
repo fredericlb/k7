@@ -5,6 +5,7 @@
 import { validate, wrap } from "@frediverse/http/route";
 import type { EngineMount } from "@studio/engine-registry";
 import { PathEscapesError } from "@studio/mediatek/layout";
+import { stemsComplete } from "@studio/song-schema/stems";
 import type { SeparateJob, StemsReply } from "@studio/web-protocol";
 import { type Request, Router } from "express";
 import { z } from "zod";
@@ -81,6 +82,24 @@ export function stemsRouter(engines: EngineMount): Router {
         );
 
       res.json({ ready: false, job: stemsJob(id) } as StemsReply);
+    }),
+  );
+
+  /** Is this song ALREADY cut? A READ — the POST above starts a job, so it cannot answer this. */
+  router.get(
+    "/held",
+    wrap((req, res) => {
+      const song = String(req.query.song ?? "");
+      if (!song) return res.status(400).json({ error: "song is required" });
+      try {
+        const held = heldStems(song);
+        // The same `ready` word the POST answers with, so one caller reads both the same way.
+        res.json({ ready: stemsComplete(held), job: null } as StemsReply);
+      } catch (e) {
+        if (e instanceof PathEscapesError)
+          return res.status(400).json({ error: e.message });
+        throw e;
+      }
     }),
   );
 

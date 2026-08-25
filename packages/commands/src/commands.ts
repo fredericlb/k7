@@ -124,6 +124,7 @@ import {
 import { builtinParamsFor } from "@studio/song-schema/builtinParams";
 import { renamedInstance } from "@studio/song-schema/instanceName";
 import {
+  CUE_NODE,
   isBuiltinOutput,
   MIX_NODE,
   OUT_NODE,
@@ -348,7 +349,7 @@ function writeMetronomeLevel(songPath: string, level: number): void {
 }
 
 /** The pair the graph DRAWS whether or not graph.yaml states it: a sum straight to its device — packages/song/docs/masterChain.md. */
-/** Does this name a node of THIS graph? The four built-in outputs count — they simply have no folder. */
+/** Does this name a node of THIS graph? The five built-in outputs count — they simply have no folder. */
 function namesANode(g: ReturnType<typeof loadGraph>, name: string): boolean {
   return (
     isBuiltinOutput(name) ||
@@ -1373,7 +1374,7 @@ async function writeMasterVolume(h: CommandHost, db: number): Promise<boolean> {
   return true;
 }
 
-/** `node param` on one of the four built-in outputs; only `OUT` carries one, the rest refuse BY NAME — docs/verbs.md. */
+/** `node param` on one of the five built-in outputs; only `OUT` carries one, the rest refuse BY NAME — docs/verbs.md. */
 async function setBuiltinOutParam(
   h: CommandHost,
   node: string,
@@ -1391,6 +1392,14 @@ async function setBuiltinOutParam(
     h.refuse([
       `${node} carries no param — the picture's outputs are routing only, and a frame has no level`,
       `the one built-in param is ${OUT_NODE}'s Volume, the song's output level in dB`,
+    ]);
+    return;
+  }
+  if (node === CUE_NODE) {
+    // A headphone amp has its own knob, and what each feed contributes is the module on its way in.
+    h.refuse([
+      `${CUE_NODE} carries no level — it is the pair the headphones are plugged into, and that amp has its own knob`,
+      `set what a feed CONTRIBUTES instead, on the module wired into ${CUE_NODE}`,
     ]);
     return;
   }

@@ -164,6 +164,16 @@ export function hasPlugin(
   return !!b.pluginId && plugins.has(b.pluginId);
 }
 
+/** Does this track leave by an interface pair of its OWN? The CUE control's question — ../docs/cue.md. */
+export function leavesByItsOwnPair(
+  b: ResolvedBinding,
+  doc: { tracks: { id: string; outputChannels?: number[] }[] } | null,
+): boolean {
+  const trackId = b.pluginId?.split(":")[0];
+  const track = doc?.tracks.find((t) => t.id === trackId);
+  return !!track?.outputChannels?.length;
+}
+
 /** Every plugin id in a compiled document — what the engine will have once it is sent. */
 export function enginePluginIds(
   doc: { tracks: { plugins: { id: string }[] }[] } | null,

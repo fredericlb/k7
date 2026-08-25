@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alignDelay, beatPhase, firstBeatAfter, NO_GRID } from "./beats";
+import { alignSeek, beatPhase, firstBeatAfter, NO_GRID } from "./beats";
 
 /** Onsets on a grid of `bpm` starting at `phase`, with `jitter` seconds of slop. */
 const onsets = (bpm: number, phase: number, n = 64, jitter = 0): number[] => {
@@ -35,7 +35,7 @@ describe("where a song's beat grid starts", () => {
   });
 
   it("always lands inside one beat, and never behind zero", () => {
-    // `atan2` answers in (-π, π], and a clip `start` cannot be less than zero.
+    // `atan2` answers in (-π, π], and a needle cannot land behind the start of a record.
     for (const phase of [0.01, 0.25, 0.3, 0.49]) {
       const g = beatPhase(onsets(120, phase), 120);
       expect(g.phase).toBeGreaterThanOrEqual(0);
@@ -79,47 +79,51 @@ describe("the first beat at or after a moment", () => {
   });
 });
 
-describe("how far the slave moves to meet the master", () => {
-  const at = (natural: number, target: number, phase: number) => ({
-    natural,
-    target,
-    phase,
-  });
+describe("aligning two PLATTERS, which share no start", () => {
+  /** Where a deck's beat falls, as a fraction of one — the thing that must come out equal. */
+  const phaseOf = (d: { natural: number; phase: number }, needle: number) => {
+    const b = ((needle - d.phase) * d.natural) / 60;
+    return ((b % 1) + 1) % 1;
+  };
 
-  it("is nothing when the two grids already coincide", () => {
-    const m = at(120, 120, 0.2);
-    expect(alignDelay(m, { ...m }, 120)).toBeCloseTo(0);
-  });
-
-  it("delays by the gap between the two grids", () => {
-    // A grid 0.1 s later than the master's waits 0.4 s for the NEXT beat, not 0.1 s backwards.
-    const d = alignDelay(at(120, 120, 0.2), at(120, 120, 0.3), 120);
-    // 0.4 s at the document's 120 bpm is 0.8 beats.
-    expect(d).toBeCloseTo(0.8, 6);
-  });
-
-  it("never asks for more than a beat, or for a negative start", () => {
-    for (const phase of [0, 0.1, 0.25, 0.4, 0.49]) {
-      const d = alignDelay(at(120, 120, 0.2), at(120, 120, phase), 120);
-      expect(d).toBeGreaterThanOrEqual(0);
-      expect(d).toBeLessThan(1); // one beat of the document
+  it("puts the slave's beat ON the master's, wherever the two happen to be", () => {
+    const master = { natural: 120, phase: 0.2 };
+    const slave = { natural: 90, phase: 0.7 };
+    for (const [a, b] of [
+      [61.3, 12.9],
+      [4.05, 180.4],
+      [0.9, 0.1],
+    ]) {
+      const moved = alignSeek(master, slave, { master: a, slave: b });
+      expect(moved).not.toBeNull();
+      expect(phaseOf(slave, moved as number)).toBeCloseTo(
+        phaseOf(master, a),
+        6,
+      );
     }
   });
 
-  it("measures the phase where it is HEARD, not where it sits in the file", () => {
-    // A grid 0.4 s into a 90 bpm FILE stretched to 120 arrives at 0.3 s — the file's number flams.
-    const master = at(120, 120, 0);
-    const slave = at(90, 120, 0.4);
-    const period = 60 / 120;
-    const heard = (0.4 * 90) / 120; // 0.3 s
-    expect(alignDelay(master, slave, 120)).toBeCloseTo(
-      ((period - heard) * 120) / 60,
-      6,
-    );
+  it("takes the SHORTER way — never more than half a beat, where a clip's delay is never negative", () => {
+    const master = { natural: 120, phase: 0 };
+    const slave = { natural: 120, phase: 0 };
+    // The slave is a hair AHEAD: pulling it back a hair beats delaying it almost a whole beat.
+    const moved = alignSeek(master, slave, { master: 10, slave: 10.05 });
+    expect(moved).toBeCloseTo(10, 6);
   });
 
-  it("returns nothing for a deck with no tempo to play at", () => {
-    expect(alignDelay(at(120, 120, 0.2), at(120, 0, 0.3), 120)).toBe(0);
-    expect(alignDelay(at(120, 120, 0.2), at(120, 120, 0.3), 0)).toBe(0);
+  it("never lands before the record starts", () => {
+    const master = { natural: 120, phase: 0 };
+    const slave = { natural: 120, phase: 0 };
+    const moved = alignSeek(master, slave, { master: 10, slave: 0.05 });
+    expect(moved as number).toBeGreaterThanOrEqual(0);
+  });
+
+  it("says NOTHING rather than invent a phase", () => {
+    const ok = { natural: 120, phase: 0 };
+    expect(alignSeek(ok, { natural: 120 }, { master: 1, slave: 1 })).toBeNull();
+    expect(alignSeek({ natural: 120 }, ok, { master: 1, slave: 1 })).toBeNull();
+    expect(
+      alignSeek(ok, { natural: 0, phase: 0 }, { master: 1, slave: 1 }),
+    ).toBeNull();
   });
 });

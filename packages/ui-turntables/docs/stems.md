@@ -167,6 +167,11 @@ les morceaux qu'on a préparés à la commande.
 - **Un dossier `stems/` incomplet ne compte pas comme séparé.** `stemsComplete` demande les quatre :
   trois parties sur quatre n'est pas une séparation à moitié réussie, c'est un morceau amputé d'un
   instrument, et le poser sur une platine s'entendrait sans que rien ne le dise.
+- **Les quatre parties sont quatre PLATEAUX**, comme un disque non séparé en est un. Elles partagent
+  une position, un débit et un `Key` ; `plattersOf` les nomme, et un geste — repère, scrub, scratch —
+  les atteint toutes. C'est ce qui a fait disparaître le second modèle de position du pupitre, et ce
+  qui rend un disque séparé scratchable. Ce que ça coûte est mesuré :
+  `packages/ui-turntables/scripts/put-on.ts`, et 157 ms de plus pour poser un morceau de 4 minutes.
 - **Le tempo ne les gêne plus.** Une somme n'exige aucune annulation, donc chaque partie s'étire
   dans son coin, keylock allumé ou pas ([bpm.md](bpm.md)).
 - **Un morceau non séparé laisse ses lanes VIDES**, et c'est sa propre lane qui le joue. Poser

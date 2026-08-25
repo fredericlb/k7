@@ -116,6 +116,7 @@ studio::PluginDoc pluginFromJson(const json& p) {
     pl.role = p.value("role", std::string{});
     pl.enabled = p.value("enabled", true);
     pl.namFile = p.value("namFile", std::string{});
+    pl.deckFile = p.value("deckFile", std::string{});
     pl.dspGraph = p.value("dspGraph", std::string{});
     pl.faustDsp = p.value("faustDsp", std::string{});
     pl.sidechainFrom = p.value("sidechainFrom", std::string{});
@@ -180,6 +181,11 @@ studio::TrackDoc trackFromJson(const json& t) {
         for (const auto& ch : t.at("inputChannels"))
             if (ch.is_number_integer() && ch.get<int>() > 0)
                 tr.inputChannels.push_back(ch.get<int>());
+    // Where it LEAVES by; absent and empty both mean the mixer's sum, which is what every track but a cue bus wants.
+    if (t.contains("outputChannels"))
+        for (const auto& ch : t.at("outputChannels"))
+            if (ch.is_number_integer() && ch.get<int>() > 0)
+                tr.outputChannels.push_back(ch.get<int>());
 
     if (t.contains("clips"))
         for (const auto& c : t.at("clips")) {
@@ -1073,6 +1079,18 @@ int main(int argc, char** argv) {
                         else
                             host.disableWaveformTap(session, wfId, side);
                     });
+            } else if (type == "audio-cost") {
+                // What the audio CALLBACK costs, and the deadline it has — the only number a DRIVER notices (docs/audit-stabilite.md). `reset` clears the window before measuring a gesture.
+                if (j.value("reset", false)) host.resetCallbackCost();
+                const auto c = host.callbackCost();
+                // Answered on the ASKING socket and OFF the message thread, like whoami and for the same reason: both reads are atomics.
+                ws.send(json{{"type", "audio-cost"},
+                             {"meanMs", c.meanSeconds * 1000.0},
+                             {"maxMs", c.maxSeconds * 1000.0},
+                             {"minMs", c.minSeconds * 1000.0},
+                             {"runs", c.runs},
+                             {"deadlineMs", c.deadlineSeconds * 1000.0}}
+                                .dump());
             } else if (type == "list-audio-devices") {
                 // Enumerate audio interfaces (message thread — touches JUCE devices).
                 host.post([session, &host, &broadcast] { broadcast(audioDevicesMsg(host)); });
@@ -1186,6 +1204,8 @@ int main(int argc, char** argv) {
             {"master", s.masterLevelDb},
             {"masterClipped", s.masterOverload},
             {"waveform", std::move(wf)},
+            // Each platter's own needle, in seconds of its record — absent for a deck playing a clip.
+            {"platters", s.platterSeconds},
         }.dump();
 
         // Chosen under the lock, sent outside it: a server-side send blocks until the peer's window drains, so holding the lock would park every connection thread; the shared_ptrs keep the sockets alive.

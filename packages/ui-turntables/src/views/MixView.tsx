@@ -17,7 +17,10 @@ import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
 import type { Stem } from "@studio/song-schema/stems";
 import {
   AudioLines,
+  ChevronLeft,
+  ChevronRight,
   Headphones,
+  Laptop,
   Link2,
   Play,
   RefreshCw,
@@ -30,10 +33,10 @@ import {
   type DeckLoads,
   type DeckTempo,
   MIX_CENTRE,
-  sourceAt,
+  NUDGE_SECONDS,
 } from "../deck";
 import { type DeskLayout, deskLayout } from "../deskLayout";
-import type { Deck, Playhead } from "../engine";
+import type { Deck } from "../engine";
 import { MIX_VIEW_FILE } from "../mixView";
 import {
   cacheRelPath,
@@ -188,6 +191,21 @@ export function MixView({
     }
   };
 
+  /** Ask the DISK whether this record is separated — a read, and `meta.stems` is only a scan snapshot. */
+  const catchUp = async (deckId: DeckId, s: SetEntry) => {
+    const song = s.entry && cacheRelPath(s.entry, s.file);
+    if (!song || !library) return;
+    const token = prepFor.current[deckId];
+    try {
+      const held = await service.stemsHeld(library, song);
+      // The same obsolescence guard the poll uses: a second record may have landed while this asked.
+      if (held.ready && prepFor.current[deckId] === token)
+        decks.stemsArrived(deckId, s.id);
+    } catch {
+      /* the knobs stay grey, which is what they already were — never an error card for a read */
+    }
+  };
+
   /** A line dropped from the playlist panel — resolved against THIS surface's set list, or refused by name. */
   const dropped = (deckId: DeckId, drag: SongDrag) => {
     const row = entryForDrag(set?.entries ?? [], drag);
@@ -226,6 +244,8 @@ export function MixView({
     setPreps((p) => ({ ...p, [deckId]: undefined }));
     // …and the catch-up itself, only when the set asked for it: a separation is minutes of arithmetic.
     if (!s.entry.meta?.stems && stems) void prepare(deckId, s, link);
+    // Asked or not, ASK THE DISK — a record separated since the listing would stay grey until a reload.
+    else if (!s.entry.meta?.stems) void catchUp(deckId, s);
 
     setWaves((w) => ({ ...w, [deckId]: { k: "loading" } }));
     // A new record starts at ITS own tempo, whatever the outgoing one was doing.
@@ -255,6 +275,8 @@ export function MixView({
   const { loads, tempos, master, mix } = decks;
 
   const anyLoaded = !!(loads.deckA || loads.deckB);
+  /** Is ANYTHING turning? A deck on a platter answers for itself, so the transport is not the answer. */
+  const anyRunning = decks.running("deckA") || decks.running("deckB");
   const ready = deck.phase.k === "ready";
 
   /** What each deck draws, decided by the room the decks row has — measured, not told: ../../docs/deskLayout.md. */
@@ -324,11 +346,8 @@ export function MixView({
           side="A"
           layout={layout}
           load={loads.deckA}
-          spinning={deck.playing}
+          spinning={decks.running("deckA")}
           wave={waves.deckA}
-          playhead={deck.playhead}
-          drawNow={deck.drawNow}
-          playing={deck.playing}
           tempo={tempos.deckA}
           driven={master === "deckB"}
           onNudge={(bpm) => decks.nudge("deckA", bpm)}
@@ -351,17 +370,27 @@ export function MixView({
           cues={decks.cuesOf("deckA")}
           onCueJump={(slot) => decks.jumpCue("deckA", slot)}
           onCueSet={(slot, at) => decks.setCue("deckA", slot, at)}
+          onShove={(seconds) => decks.shove("deckA", seconds)}
+          needle={() => decks.sourceNow("deckA")}
+          running={decks.running("deckA")}
+          onToggleDeck={
+            decks.canStartAlone("deckA")
+              ? () => decks.toggleDeck("deckA")
+              : undefined
+          }
+          onScratch={
+            decks.canScratch("deckA")
+              ? (rate) => decks.scratch("deckA", rate)
+              : undefined
+          }
         />
 
         <DeckSide
           side="B"
           layout={layout}
           load={loads.deckB}
-          spinning={deck.playing}
+          spinning={decks.running("deckB")}
           wave={waves.deckB}
-          playhead={deck.playhead}
-          drawNow={deck.drawNow}
-          playing={deck.playing}
           tempo={tempos.deckB}
           driven={master === "deckA"}
           onNudge={(bpm) => decks.nudge("deckB", bpm)}
@@ -384,6 +413,19 @@ export function MixView({
           cues={decks.cuesOf("deckB")}
           onCueJump={(slot) => decks.jumpCue("deckB", slot)}
           onCueSet={(slot, at) => decks.setCue("deckB", slot, at)}
+          onShove={(seconds) => decks.shove("deckB", seconds)}
+          needle={() => decks.sourceNow("deckB")}
+          running={decks.running("deckB")}
+          onToggleDeck={
+            decks.canStartAlone("deckB")
+              ? () => decks.toggleDeck("deckB")
+              : undefined
+          }
+          onScratch={
+            decks.canScratch("deckB")
+              ? (rate) => decks.scratch("deckB", rate)
+              : undefined
+          }
         />
       </div>
 
@@ -418,7 +460,8 @@ export function MixView({
               checked={!!deck.listening}
               onChange={(e) => deck.setListening?.(e.target.checked)}
             />
-            <Headphones className="h-4 w-4" />
+            {/* A laptop, not headphones: the CUE buttons own that icon, and this one is about THIS TAB. */}
+            <Laptop className="h-4 w-4" />
             Écouter ici
           </label>
         )}
@@ -452,6 +495,22 @@ export function MixView({
           </button>
         </div>
 
+        {/* The headphones, beside the metronome: both are about what YOU hear and not what the room does. */}
+        <CueButton
+          side="A"
+          on={decks.cueOn("deckA")}
+          wired={decks.cueWired("deckA")}
+          live={ready && decks.cueLive("deckA")}
+          onClick={() => decks.toggleCue("deckA")}
+        />
+        <CueButton
+          side="B"
+          on={decks.cueOn("deckB")}
+          wired={decks.cueWired("deckB")}
+          live={ready && decks.cueLive("deckB")}
+          onClick={() => decks.toggleCue("deckB")}
+        />
+
         {/* Next to the transport since it is about what you HEAR, and dark unless a single beat exists. */}
         <Button
           size="sm"
@@ -473,22 +532,22 @@ export function MixView({
 
         <Button
           size="sm"
-          variant={deck.playing ? "default" : "secondary"}
+          // What is RUNNING, not what the transport is doing: a platter ignores it — ../../docs/turntable.md.
+          variant={anyRunning ? "default" : "secondary"}
           disabled={!ready || !anyLoaded}
-          // ONE transport for both decks, so this runs the whole document — see ../../docs/mix.md.
           title={
             !ready
               ? "aucun moteur sur cette machine"
               : !anyLoaded
                 ? "aucune platine chargée"
-                : deck.playing
-                  ? "arrêter"
+                : anyRunning
+                  ? "tout arrêter"
                   : "lancer les deux platines"
           }
-          // Not a bare `transport("play")`: play must start where the music is — see `playFrom`.
+          // Not a bare `transport("play")`: this starts the PLATTERS, which take no orders from it.
           onClick={decks.toggleTransport}
         >
-          {deck.playing ? (
+          {anyRunning ? (
             <Square className="h-4 w-4" />
           ) : (
             <Play className="h-4 w-4" />
@@ -514,6 +573,128 @@ export function MixView({
         />
       </footer>
     </div>
+  );
+}
+
+/** THIS deck's transport. Absent on a SEPARATED deck: no platter, so nothing to start alone. */
+function DeckPlay({
+  side,
+  running,
+  onToggle,
+}: {
+  side: "A" | "B";
+  running: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Button
+      size="sm"
+      variant={running ? "default" : "secondary"}
+      className="h-6 shrink-0 px-2"
+      title={
+        running
+          ? `arrêter la platine ${side} — l'autre continue`
+          : `lancer la platine ${side} seule`
+      }
+      onClick={onToggle}
+      aria-pressed={running}
+    >
+      {running ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+    </Button>
+  );
+}
+
+/** How fast a HELD nudge repeats — a cadence the clip era set, and a seek is cheaper, ../../docs/scratch.md. */
+const NUDGE_REPEAT_MS = 140;
+
+/** The hand on the platter: hold it back, or push it on. One bump a press — see ../../docs/scratch.md. */
+function NudgeButton({
+  way,
+  disabled,
+  onShove,
+}: {
+  way: -1 | 1;
+  disabled: boolean;
+  onShove: (seconds: number) => void;
+}) {
+  // Held down it repeats: half a beat of drift is fifty bumps, and fifty clicks is not a gesture.
+  const repeat = useRef<number | null>(null);
+  const stop = () => {
+    if (repeat.current !== null) window.clearInterval(repeat.current);
+    repeat.current = null;
+  };
+  useEffect(() => stop, []);
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      disabled={disabled}
+      className="h-6 w-7 shrink-0 px-0"
+      title={
+        way < 0
+          ? "retenir le disque — il recule d'un cheveu, et l'autre platine ne bouge pas"
+          : "pousser le disque — il avance d'un cheveu"
+      }
+      onPointerDown={() => {
+        if (disabled) return;
+        onShove(way * NUDGE_SECONDS);
+        stop();
+        repeat.current = window.setInterval(
+          () => onShove(way * NUDGE_SECONDS),
+          NUDGE_REPEAT_MS,
+        );
+      }}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onPointerCancel={stop}
+    >
+      {way < 0 ? (
+        <ChevronLeft className="h-3.5 w-3.5" />
+      ) : (
+        <ChevronRight className="h-3.5 w-3.5" />
+      )}
+    </Button>
+  );
+}
+
+/** One deck in the headphones — pre-fade, so the crossfader does not reach it. See ../../docs/cue.md. */
+function CueButton({
+  side,
+  on,
+  wired,
+  live,
+  onClick,
+}: {
+  side: "A" | "B";
+  on: boolean;
+  /** Does the PROJECT wire a send for this deck? Unwired is ordinary, not a fault — ../../docs/cue.md. */
+  wired: boolean;
+  /** …and can this MACHINE play it? Two halves, two sentences: a button that lit and lied is worse. */
+  live: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      size="sm"
+      variant={on ? "default" : "secondary"}
+      disabled={!live}
+      className="shrink-0"
+      title={
+        // The reason, not the rule — and WHICH of the two is missing, since the fixes are different.
+        !wired
+          ? `cette platine n'a pas de départ casque — migrez le set (migrateSetCue) ou reliez \`deck${side}.cue\` dans surfaces/`
+          : !live
+            ? "cette machine n'a pas de paire pour le casque — nommez-la avec `system cue 3+4`, sinon le cue ne joue nulle part"
+            : on
+              ? `la platine ${side} est dans le casque — cliquer pour l'enlever`
+              : `écouter la platine ${side} au casque, avant le crossfader`
+      }
+      onClick={onClick}
+      aria-pressed={on}
+    >
+      <Headphones className="mr-1 h-3.5 w-3.5" />
+      {side}
+    </Button>
   );
 }
 
@@ -562,9 +743,6 @@ function DeckSide({
   load,
   spinning,
   wave,
-  playhead,
-  drawNow,
-  playing,
   tempo,
   driven,
   onNudge,
@@ -587,6 +765,11 @@ function DeckSide({
   cues,
   onCueJump,
   onCueSet,
+  onShove,
+  needle,
+  running,
+  onToggleDeck,
+  onScratch,
 }: {
   side: "A" | "B";
   /** What fits in the height this deck has — the record's size, the waveform's, the title. */
@@ -594,10 +777,6 @@ function DeckSide({
   load: DeckLoads[DeckId];
   spinning: boolean;
   wave: Wave | undefined;
-  playhead: React.RefObject<Playhead>;
-  /** Where to DRAW the transport — steered, see Deck.drawNow. */
-  drawNow: () => number;
-  playing: boolean;
   /** What this deck plays at — already synced, so a slave shows the master's number. */
   tempo: DeckTempo | undefined;
   /** Driven by the other deck: the fader moves on its own and greys out. */
@@ -631,7 +810,19 @@ function DeckSide({
   /** This deck's eight cue slots, and the two gestures that move them. */
   cues: readonly (number | null)[];
   onCueJump: (slot: number) => void;
-  onCueSet: (slot: number, transportSeconds: number) => void;
+  onCueSet: (slot: number, sourceSeconds: number) => void;
+  /** Push this deck's record by `seconds`, signed — the waveform's drag and the nudge buttons both. */
+  onShove: (seconds: number) => void;
+  /** Where this deck's needle is in its RECORD — its platter's clock, or the transport through the stretch. */
+  needle: () => number;
+  /** Is THIS deck turning? On a platter that is its own answer, not the transport's. */
+  running: boolean;
+  /** Start or stop it alone — absent on a separated deck, which has no platter to start. */
+  onToggleDeck?: () => void;
+  /** Drive the record by hand — absent for the same reason: a clip cannot be scratched. */
+  onScratch?: (rate: number | null) => void;
+  /** …and the sentence the record itself carries when it will not turn. */
+  scratchRefusal?: string;
 }) {
   const fader = (
     <BpmFader
@@ -644,11 +835,6 @@ function DeckSide({
       onKeylock={onKeylock}
     />
   );
-
-  /** Where the transport is RIGHT NOW — the raw anchor, extrapolated: the one to WRITE DOWN (hosting.md). */
-  const transportNow = () =>
-    playhead.current.seconds +
-    (playing ? (performance.now() - playhead.current.at) / 1000 : 0);
 
   const strip = (
     <ChannelStrip
@@ -709,34 +895,53 @@ function DeckSide({
               artist={load?.artist ?? null}
               title={load?.title ?? null}
               spinning={spinning && !!load}
+              // How fast the FILE is playing: a record stretched to another tempo turns at that speed.
+              ratio={
+                tempo && tempo.natural > 0 && tempo.target > 0
+                  ? tempo.natural / tempo.target
+                  : 1
+              }
               onPick={onPick}
-              // The FILE's clock (`sourceAt`) off the STEERED reader (`drawNow`) — see ../../docs/hosting.md.
-              at={() => sourceAt(drawNow(), tempo)}
+              // The deck's own needle — a platter's clock, or the transport through the stretch.
+              at={needle}
               length={tempo?.seconds ?? 0}
               markers={cues}
               size={layout.vinyl}
+              onScratch={onScratch}
             />
           ) : null}
         </div>
         {/* Under the record, and ALWAYS drawn even with nothing loaded — ../../docs/deskLayout.md. */}
         <Waveform
           envelope={wave?.k === "ready" ? wave.env : null}
-          drawNow={drawNow}
-          // The same conversion the record above uses — see `Waveform`'s `tempo`.
+          // The same clock the record above reads — one needle per deck, whichever way it plays.
+          needle={needle}
           tempo={tempo}
           analysing={wave?.k === "loading"}
           problem={wave?.k === "none" ? wave.why : null}
           height={layout.waveform}
+          // Draggable only with a record on and a tempo measured: `place` needs a ratio to convert by.
+          onShove={load && tempo ? onShove : undefined}
         />
-        {/* The cues, under the waveform they refer to, and drawn on an empty deck too. */}
-        <CueButtons
-          markers={cues}
-          onJump={onCueJump}
-          onSet={onCueSet}
-          // Read on the way DOWN — see `transportNow`.
-          now={transportNow}
-          disabled={!load}
-        />
+        {/* The two nudges, flanking the cue row: the hand that pushes the record is beside the marks it chases. */}
+        <div className="flex items-center gap-1">
+          {/* …and THIS deck's own transport, when it has one — the leftmost thing on the row. */}
+          {onToggleDeck ? (
+            <DeckPlay side={side} running={running} onToggle={onToggleDeck} />
+          ) : null}
+          <NudgeButton way={-1} disabled={!load || !tempo} onShove={onShove} />
+          <div className="min-w-0 flex-1">
+            <CueButtons
+              markers={cues}
+              onJump={onCueJump}
+              onSet={onCueSet}
+              // The deck's OWN needle, read on the way down: no deck follows the transport any more.
+              now={needle}
+              disabled={!load}
+            />
+          </div>
+          <NudgeButton way={1} disabled={!load || !tempo} onShove={onShove} />
+        </div>
         {/* What is loaded, in words: it earns its line only where the record's label is absent. */}
         {layout.title ? (
           <div className="w-full truncate text-center text-xs text-muted-foreground">

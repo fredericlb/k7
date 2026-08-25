@@ -31,6 +31,10 @@ export interface Preferences {
   editor: EditorPref;
   /** The chain that SEPARATES a record into stems — one answer for the whole machine, asked once. */
   stemsChain?: string;
+  /** Which output pair the `CUE` bus leaves by — a label from `channels.out`, or the numbers. See docs/cue.md. */
+  cueOutput?: string | number[];
+  /** The ONNX execution providers this machine SEPARATES on, in order — packages/stem-separation/docs/stemSplit.md. */
+  onnxProviders?: string[];
 }
 
 // The defaults, in ONE place — every other module builds on this rather than its own literal.
@@ -82,6 +86,21 @@ export function normalizePreferences(v: any): Preferences {
     // Trimmed: it is typed by hand, and a trailing space resolves to nothing with no hint why.
     if (typeof v.stemsChain === "string" && v.stemsChain.trim())
       p.stemsChain = v.stemsChain.trim();
+    // Either form, like a track's `input`: the numbers, or a label this file's `channels.out` names.
+    if (Array.isArray(v.cueOutput)) {
+      const ch = v.cueOutput
+        .map((n: any) => Number(n))
+        .filter((n: number) => Number.isInteger(n) && n > 0);
+      if (ch.length) p.cueOutput = ch;
+    } else if (typeof v.cueOutput === "string" && v.cueOutput.trim())
+      p.cueOutput = v.cueOutput.trim();
+    // Lowercased, because ORT's provider names are and a `DML` here would match nothing in silence.
+    if (Array.isArray(v.onnxProviders)) {
+      const eps = v.onnxProviders
+        .map((s: unknown) => String(s ?? "").trim().toLowerCase())
+        .filter(Boolean);
+      if (eps.length) p.onnxProviders = eps;
+    }
   }
   return p;
 }
@@ -115,6 +134,24 @@ export function setInputPair(channel: number, stereo: boolean): Preferences {
   const first = channel % 2 === 1 ? channel : channel - 1;
   const rest = p.inputPairs.filter((n) => n !== first);
   p.inputPairs = stereo ? [...rest, first].sort((a, b) => a - b) : rest;
+  savePreferences(p);
+  return p;
+}
+
+/** Remember the headphone pair. An empty spec clears it — "this machine has nowhere to send a cue". */
+export function setCueOutput(spec: string | number[] | undefined): Preferences {
+  const p = loadPreferences();
+  const want = Array.isArray(spec) ? spec : String(spec ?? "").trim();
+  p.cueOutput = (Array.isArray(want) ? want.length : want) ? want : undefined;
+  savePreferences(p);
+  return p;
+}
+
+/** Remember what this machine separates ON. Empty clears it, back to the safe default. */
+export function setOnnxProviders(eps: readonly string[]): Preferences {
+  const p = loadPreferences();
+  const want = eps.map((s) => s.trim().toLowerCase()).filter(Boolean);
+  p.onnxProviders = want.length ? want : undefined;
   savePreferences(p);
   return p;
 }
@@ -186,20 +223,37 @@ export function formatChannels(p: Preferences): { in: string; out: string } {
   return { in: fmt(p.channels.in), out: fmt(p.channels.out) };
 }
 
+// A `input`/`cueOutput` spec -> physical channels; an unresolvable LABEL reports itself rather than playing wrongly.
+function resolveChannels(
+  dir: ChannelDir,
+  spec: string | number[] | undefined,
+  p: Preferences,
+): { channels: number[]; unknownLabel?: string } {
+  if (spec == null) return { channels: [] };
+  if (Array.isArray(spec))
+    return {
+      channels: spec.map(Number).filter((n) => Number.isInteger(n) && n > 0),
+    };
+  const label = String(spec);
+  if (!label) return { channels: [] };
+  const hit = p.channels[dir].find((c) => c.label === label);
+  return hit
+    ? { channels: [...hit.ch] }
+    : { channels: [], unknownLabel: label };
+}
+
 // A track's `input` -> physical channels; an unresolvable LABEL reports itself rather than monitoring wrongly.
 export function resolveInput(
   input: string | number[] | undefined,
   p: Preferences,
 ): { channels: number[]; unknownLabel?: string } {
-  if (input == null) return { channels: [] };
-  if (Array.isArray(input))
-    return {
-      channels: input.map(Number).filter((n) => Number.isInteger(n) && n > 0),
-    };
-  const label = String(input);
-  if (!label) return { channels: [] };
-  const hit = p.channels.in.find((c) => c.label === label);
-  return hit
-    ? { channels: [...hit.ch] }
-    : { channels: [], unknownLabel: label };
+  return resolveChannels("in", input, p);
+}
+
+/** The `CUE` bus's pair -> physical channels, against the OUT labels. Empty means this machine has no headphone pair. */
+export function resolveCueOutput(p: Preferences): {
+  channels: number[];
+  unknownLabel?: string;
+} {
+  return resolveChannels("out", p.cueOutput, p);
 }

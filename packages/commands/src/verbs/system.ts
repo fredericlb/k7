@@ -1,6 +1,6 @@
 // system.ts — the `system …` verbs: what belongs to the MACHINE rather than to a project. The
-// plugin cache it scanned, its interface's labels and pairing, and the chain it splits a song into
-// stems with. All of them work with no project open, which no other group can claim.
+// plugin cache it scanned, its interface's labels and pairing, the pair a headphone CUE leaves by, and
+// the chain it splits a song into stems with. All work with no project open, which no other group can.
 
 import { resolveChain } from "@studio/audio-passes/processChain";
 import {
@@ -10,7 +10,9 @@ import {
   loadPreferences,
   parseChannels,
   setChannelLabel,
+  setCueOutput,
   setInputPair,
+  setOnnxProviders,
   setStemsChain,
 } from "@studio/song/preferences";
 import type { SidHandler } from "../commands.ts";
@@ -119,4 +121,80 @@ export const SYSTEM_VERBS: Record<string, SidHandler> = {
     setStemsChain(ref);
     h.log([`stems are separated with ${ref}${checked}`]);
   },
+
+  /** What this machine SEPARATES on — packages/stem-separation/docs/stemSplit.md. */
+  "system.onnx": (a, h) => {
+    const spec = a.trim();
+    const prefs = loadPreferences();
+    const current = prefs.onnxProviders?.join(", ");
+    if (!spec)
+      return h.refuse([
+        "usage: system onnx <providers>   e.g. system onnx dml,cpu",
+        current
+          ? `currently: ${current} — pass "" to go back to cpu`
+          : "nothing is set, so this machine separates on the CPU, which cannot be unavailable",
+      ]);
+    if (spec === '""' || spec === "''") {
+      setOnnxProviders([]);
+      return h.log(["separation goes back to the CPU"]);
+    }
+    const eps = splitWords(spec.replace(/,/g, " "));
+    const known = ["cpu", "dml", "cuda", "coreml"];
+    const bad = eps.filter((e) => !known.includes(e.toLowerCase()));
+    if (bad.length)
+      return h.refuse([
+        `unknown execution provider(s): ${bad.join(", ")}`,
+        `known here: ${known.join(", ")}`,
+      ]);
+    setOnnxProviders(eps);
+    // The warning is the whole point of the verb: `dml` is what wedged this machine for an hour.
+    h.log([
+      `separation tries ${eps.join(", ")}, in that order`,
+      ...(eps.some((e) => e.toLowerCase() === "dml")
+        ? [
+            "note: `dml` HANGS on some rigs — un-interruptible, and only the job's hour ends it. " +
+              "Measure a song before trusting it (packages/stem-separation/docs/stemSplit.md).",
+          ]
+        : []),
+    ]);
+  },
+
+  /** Which interface pair the `CUE` bus leaves by — a MACHINE's answer, see packages/song/docs/cue.md. */
+  "system.cue": (a, h) => {
+    const spec = a.trim();
+    const prefs = loadPreferences();
+    if (!spec)
+      return h.refuse([
+        "usage: system cue <canaux>   e.g. system cue 3+4, or a label from `system channels`",
+        prefs.cueOutput
+          ? `currently: ${formatCue(prefs.cueOutput)} — pass "" to clear it`
+          : "nothing is set, so a CUE bus on this machine plays nowhere at all",
+      ]);
+    if (spec === '""' || spec === "''") {
+      setCueOutput(undefined);
+      return h.log(["the headphone pair is cleared — CUE now plays nowhere"]);
+    }
+
+    // Numbers or a label, exactly as a track's `input` takes either; the label is checked HERE so a typo is said.
+    const channels = parseChannels(spec);
+    if (channels.length) {
+      setCueOutput(channels);
+      return h.log([`CUE leaves by channel(s) ${channels.join("+")}`]);
+    }
+    const hit = prefs.channels.out.find((c) => c.label === spec);
+    if (!hit)
+      return h.refuse([
+        `no output labelled '${spec}' on this machine`,
+        prefs.channels.out.length
+          ? `known: ${prefs.channels.out.map((c) => c.label).join(", ")}`
+          : "no output is labelled here — give the numbers instead, e.g. 3+4",
+      ]);
+    setCueOutput(spec);
+    h.log([`CUE leaves by '${spec}' (channel(s) ${hit.ch.join("+")})`]);
+  },
 };
+
+/** What `system cue` echoes back, whichever of the two forms is stored. */
+function formatCue(spec: string | number[]): string {
+  return Array.isArray(spec) ? spec.join("+") : spec;
+}

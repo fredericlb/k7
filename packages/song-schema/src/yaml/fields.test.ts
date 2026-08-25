@@ -145,11 +145,12 @@ describe("derived values", () => {
 });
 
 describe("chain fields", () => {
-  it("offers the file's three sections, and nothing inside them", () => {
-    // The file's three sections; `positions:` is the pins, cosmetic like the rest — see docs/fields.md.
+  it("offers the file's four sections, and nothing inside them", () => {
+    // `bus_only:` is NOT a synonym of `bypassed:` — see packages/song/docs/busOnly.md.
     expect(fieldsAt("chains", [])).toEqual([
       "modules",
       "bypassed",
+      "bus_only",
       "positions",
     ]);
     // Inside a section the keys are node NAMES, a project's own vocabulary the schema cannot know.

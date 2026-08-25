@@ -38,6 +38,17 @@ reads as *produces nothing* — which is exactly what muting a lane means. That 
 lane's file carries no `mute:` for the two to disagree over. Solo is written nowhere at all: the
 surface derives it by bypassing every other lane.
 
+`bus_only` is the fourth section, and it is about a **bus** rather than a module:
+
+```yaml schema=GraphFile
+bus_only: [ eqA ]
+```
+
+A bus named here is heard through its destinations and nowhere else — its own dry path to the
+mixer's sum is removed. It is not `bypassed`, and the difference is a real name collision: a bus
+chain is named after its first module, so `bypassed: [ eqA ]` would mute the bus **and switch the
+EQ off with it**, silently. See `@studio/song`'s `docs/busOnly.md` for the whole argument.
+
 `positions` is where you PUT a node on the graph, if you did — dragging a module's header
 writes one, and the layout only ever places the nodes that have no entry here:
 

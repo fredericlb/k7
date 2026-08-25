@@ -12,7 +12,6 @@ import {
   metronomeDeck,
   metronomeTrack,
   NO_LOADS,
-  transportAt,
 } from "./deck";
 
 const song = (id: string) => ({
@@ -95,14 +94,9 @@ describe("the click track itself", () => {
     expect(gap).not.toBeCloseTo(60 / DOC_TEMPO, 4);
   });
 
-  it("starts on the song's own downbeat, wherever the fader has left it", () => {
-    // Through `transportAt`, which already carries the stretch, sync's delay and the fader's slip.
-    const t = tempo({ target: 136, slip: -3.5, align: 0.8 });
-    const clip = metronomeTrack(t, true).clips[0];
-    expect((clip.start * 60) / DOC_TEMPO).toBeCloseTo(
-      transportAt(t.phase ?? 0, t),
-      9,
-    );
+  it("starts at the transport's zero, having no downbeat it can name", () => {
+    // A platter's downbeat is not a transport second: the click keeps the SPACING and gives up the phase.
+    expect(metronomeTrack(tempo({ target: 136 }), true).clips[0].start).toBe(0);
   });
 
   it("is one looping bar rather than a note per beat", () => {
@@ -121,12 +115,11 @@ describe("the click track itself", () => {
     expect(notes.slice(1).every((n) => n.key === notes[1].key)).toBe(true);
   });
 
-  it("stops when the record does", () => {
+  it("lasts as long as the record PLAYS for, stretch included", () => {
     // A click that outlived the music would be the desk claiming a beat nothing is playing.
-    const t = tempo({ target: 128 });
+    const t = tempo({ target: 256 }); // twice its own tempo, so half the time
     const clip = metronomeTrack(t, true).clips[0];
-    const endSeconds = ((clip.start + clip.length) * 60) / DOC_TEMPO;
-    expect(endSeconds).toBeCloseTo(transportAt(t.seconds, t), 6);
+    expect((clip.length * 60) / DOC_TEMPO).toBeCloseTo(t.seconds / 2, 6);
   });
 
   it("is silent with no tempo to click at", () => {

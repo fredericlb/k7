@@ -29,6 +29,8 @@ export const GraphFileSchema = z
     modules: z.record(z.string().min(1), DestsSchema).optional(),
     // Modules the signal passes through untouched, and a LANE's mute — one state, one place (docs/graphEdits.md).
     bypassed: z.array(z.string().min(1)).optional(),
+    // BUSES heard through their destinations only, their dry path to the sum removed — docs/busOnly.md.
+    bus_only: z.array(z.string().min(1)).optional(),
     // Where a node SITS on the graph in world px, cosmetic and absent for whatever dagre still places.
     positions: z
       .record(

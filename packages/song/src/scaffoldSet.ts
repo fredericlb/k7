@@ -135,6 +135,9 @@ export function setProjectFiles(name: string): Record<string, string> {
     [`nodes/${FADE_A}.yaml`]: fadeNode("A", true),
     [`nodes/${FADE_B}.yaml`]: fadeNode("B", false),
 
+    [`nodes/${CUE_A}.yaml`]: cueNode("A"),
+    [`nodes/${CUE_B}.yaml`]: cueNode("B"),
+
     [`nodes/${TEMPO_A}.yaml`]: tempoNode("A"),
     [`nodes/${TEMPO_B}.yaml`]: tempoNode("B"),
 
@@ -201,6 +204,9 @@ export function setProjectFiles(name: string): Record<string, string> {
       `  deckB.eqHigh: { module: ${EQ_B}, param: High-shelf gain }\n` +
       `  deckA.filter: { module: ${FILTER_A}, param: Sweep }\n` +
       `  deckB.filter: { module: ${FILTER_B}, param: Sweep }\n` +
+      // The CUE button is a binding like any other: the send's own gain, 0 or 1. See packages/song/docs/cue.md.
+      `  deckA.cue: { module: ${CUE_A}, param: Mix }\n` +
+      `  deckB.cue: { module: ${CUE_B}, param: Mix }\n` +
       // One control per stem per deck, beside the EQ's three — 0 leaves the instrument in, 1 takes it out.
       DECKS.map((deck) =>
         STEMS.map(
@@ -277,17 +283,31 @@ function graphForDeck(deck: string): string {
         `  ${stemCut(deck, s)}: [ ${eq} ]\n`,
     ).join("") +
     `  ${eq}: [ filter${l} ]\n` +
-    `  filter${l}: [ fade${l} ]\n` +
-    `  fade${l}: [ MIX ]\n`
+    // TWO destinations, which is what a pre-fade headphone tap IS — see packages/song/docs/cue.md.
+    `  filter${l}: [ fade${l}, cue${l} ]\n` +
+    `  fade${l}: [ MIX ]\n` +
+    `  cue${l}: [ CUE ]\n`
   );
 }
+
+/** The note above `bus_only:`, ONE text — migrateSetCue writes the same file and must not diverge. */
+export const BUS_ONLY_NOTE = [
+  "The strips, for the SAME reason and NOT the same word: each one now feeds two buses (the",
+  "fade and the cue), so its own dry path would reach the master unfaded. `bypassed` cannot say",
+  "this — it would ALSO turn the EQ off, the chain being named after its first module. See",
+  "packages/song/docs/busOnly.md.",
+];
 
 /** Every SOURCE lane is muted because `out` is a PARALLEL path — see docs/setProject.md. */
 function mutedLanes(): string {
   const lanes = DECKS.flatMap((d) => [d, ...STEMS.map((s) => stemLane(d, s))]);
+  const strips = DECKS.map((d) => `eq${letterOf(d)}`);
   return (
     "# Heard through the bus ONLY — see scaffoldSet.ts for why this is not optional.\n" +
-    `bypassed: [ ${lanes.join(", ")} ]\n`
+    `bypassed: [ ${lanes.join(", ")} ]\n` +
+    "\n" +
+    BUS_ONLY_NOTE.map((l) => `# ${l}\n`).join("") +
+    `bus_only: [ ${strips.join(", ")} ]\n`
   );
 }
 
@@ -300,6 +320,9 @@ const MEDIATEK_SEPARATION = "@st0/audio/separation";
 /** One per deck, facing opposite ways — TWO of them are the crossfade, docs/setProject.md. */
 const FADE_A = "fadeA";
 const FADE_B = "fadeB";
+/** …and one per deck again for the headphones, which is a second fade and not a second crossfade. */
+const CUE_A = "cueA";
+const CUE_B = "cueB";
 const TEMPO_A = "tempoA";
 const TEMPO_B = "tempoB";
 const EQ_A = "eqA";
@@ -331,6 +354,38 @@ function fadeNode(letter: string, invert: boolean): string {
     `params:\n` +
     `  # Centred, like the fader that drives it: both decks at half, which is where a set starts.\n` +
     `  Mix: 0.5\n`
+  );
+}
+
+/** One deck's cue node, by its letter and what feeds it; for the scaffold and the migration. */
+export function cueNodeFile(
+  letter: string,
+  from = `filter${letter}`,
+): Record<string, string> {
+  return { [`nodes/cue${letter}.yaml`]: cueNode(letter, from) };
+}
+
+/** One deck's headphone send — the same Fade module, used as a tap rather than as half a crossfade. */
+function cueNode(letter: string, from = `filter${letter}`): string {
+  return (
+    `# Deck ${letter}'s CUE send — what the headphones hear of this deck.\n` +
+    `#\n` +
+    `# The same Fade module as the crossfade, because the question is the same one: how much of\n` +
+    `# this deck goes down this path. \`Mix\` is that amount, and the desk's CUE button is nothing\n` +
+    `# more than this param going 0 <-> 1 — no switch anywhere in the engine.\n` +
+    `#\n` +
+    `# It is fed from \`${from}\`, which is to say AFTER the EQ and the filter and BEFORE the\n` +
+    `# fade. That is what pre-fade listen means: moving the crossfader away from this deck must\n` +
+    `# not take it out of your ears, while cutting its bass must be audible before it hits the room.\n` +
+    `#\n` +
+    `# Where it comes OUT is not this file's business and not the project's: \`CUE\` is a pair of\n` +
+    `# the interface, named once per MACHINE in ~/.studio/preferences.yaml. A machine with no\n` +
+    `# second pair plays this bus nowhere at all — never into the room, which is measured in\n` +
+    `# engine/moteur/scripts/cue-bus.ts. See packages/song/docs/cue.md.\n` +
+    `extends: ${q(`${MEDIATEK_UTILITY}/fade`)}\n` +
+    `params:\n` +
+    `  # SILENT at rest: a set starts with nothing in the headphones, and the button is what opens it.\n` +
+    `  Mix: 0\n`
   );
 }
 

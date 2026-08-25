@@ -16,6 +16,7 @@ const INITIAL: EngineState = {
   master: -100,
   masterClipped: false,
   waveform: {},
+  platters: {},
 };
 
 export class EngineStore {
@@ -48,6 +49,8 @@ function sameFrame(a: EngineState, b: EngineState): boolean {
     a.recordEnabled !== b.recordEnabled
   )
     return false;
+  // A PLATTER's needle moves while the transport does not, so `playhead` cannot speak for it.
+  if (!plattersEq(a.platters, b.platters)) return false;
   if (
     !arrayEq(a.levels, b.levels) ||
     !arrayEq(a.inputLevels, b.inputLevels) ||
@@ -64,6 +67,18 @@ function sameFrame(a: EngineState, b: EngineState): boolean {
     if (va !== vb && !(vb !== undefined && va.length === 0 && vb.length === 0))
       return false;
   }
+  return true;
+}
+
+/** Do two frames put every platter's needle in the same place? Absent on both sides counts as equal. */
+function plattersEq(
+  a: Record<string, number> | undefined,
+  b: Record<string, number> | undefined,
+): boolean {
+  if (a === b) return true;
+  const ka = Object.keys(a ?? {});
+  if (ka.length !== Object.keys(b ?? {}).length) return false;
+  for (const k of ka) if (a?.[k] !== b?.[k]) return false;
   return true;
 }
 

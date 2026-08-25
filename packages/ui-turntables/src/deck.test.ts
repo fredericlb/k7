@@ -9,7 +9,6 @@ import {
   type DeckLoads,
   type DeckTempo,
   type DeckTempos,
-  DOC_TEMPO,
   deckDoc,
   deckGain,
   gainToDb,
@@ -18,13 +17,17 @@ import {
   MIX_CENTRE,
   NO_LOADS,
   PITCH_RANGE,
+  PLATTER_TYPE,
+  platterId,
+  platterKey,
+  plattersOf,
+  SCRATCH_MS,
+  scratchDelay,
   stemSource,
   syncedTempos,
   TEMPO_MODULE,
   TEMPO_PARAM,
   TEMPO_SOURCE_PARAM,
-  TIMELINE_BASE,
-  warpFor,
   withDecks,
 } from "./deck";
 import { playablePath } from "./service";
@@ -59,6 +62,31 @@ const loaded = (over: Partial<DeckLoads> = {}): DeckLoads => ({
   deckB: { path: "/m/b.wav", title: "B side", artist: null, id: "songs/b" },
   ...over,
 });
+
+/** Tempos with KEYLOCK on. It no longer changes HOW a deck plays — only the platter's `Key`. */
+const keyed = (over: DeckTempos = {}): DeckTempos => {
+  const base: DeckTempos = {
+    deckA: { natural: 0, seconds: 0, target: 0 },
+    deckB: { natural: 0, seconds: 0, target: 0 },
+    ...over,
+  };
+  return Object.fromEntries(
+    Object.entries(base).map(([k, v]) => [k, v && { ...v, keylock: true }]),
+  ) as DeckTempos;
+};
+
+/** A SEPARATED record on deck A — four platters sharing one position, not four clips. */
+const separated = (over: Partial<DeckLoads> = {}): DeckLoads =>
+  loaded({
+    deckA: {
+      path: "/m/song/original.mp3",
+      title: "A",
+      artist: null,
+      id: "songs/a",
+      stems: true,
+    },
+    ...over,
+  });
 
 describe("turning a catalogue entry into something the engine can open", () => {
   it("joins the cache root, the entry's folder and the master file", () => {
@@ -125,67 +153,12 @@ describe("a gain as the strip's decibels", () => {
   });
 });
 
-describe("the deck's tempo is a MODULE, and the warp stands in for it", () => {
+describe("the deck's tempo is a MODULE, and the platter's rate realises it", () => {
   it("names the médiathèque module the project actually puts on a deck", () => {
     // `example.st0`'s nodes extend exactly this, and the scaffold's own test pins the other end.
     expect(TEMPO_MODULE).toBe("@st0/audio/utility/tempo");
     expect(TEMPO_PARAM).toBe("Target BPM");
     expect(TEMPO_SOURCE_PARAM).toBe("Source BPM");
-  });
-});
-
-describe("stretching a deck to a tempo", () => {
-  const tempo = (over: Partial<DeckTempo> = {}): DeckTempo => ({
-    natural: 120,
-    seconds: 60, // 120 beats of music, at its own tempo
-    target: 120,
-    ...over,
-  });
-
-  it("does NOTHING when the target is the song's own tempo", () => {
-    // An identity warp would put the stretch engine in the path to change nothing.
-    expect(warpFor(tempo())).toBeUndefined();
-    expect(warpFor(tempo({ target: 120.0000001 }))).toBeUndefined();
-  });
-
-  it("refuses when there is no tempo, no target or no length", () => {
-    expect(warpFor(tempo({ natural: 0 }))).toBeUndefined();
-    expect(warpFor(tempo({ target: 0 }))).toBeUndefined();
-    expect(warpFor(tempo({ seconds: 0 }))).toBeUndefined();
-  });
-
-  it("puts the whole file between two markers", () => {
-    const w = warpFor(tempo({ target: 60 }));
-    expect(w?.markers[0]).toEqual([0, 0]);
-    // The second marker's source time is the file's length, always — only the BEAT it lands on changes.
-    expect(w?.markers[1][1]).toBe(60);
-  });
-
-  it("plays the record FASTER by default, and holds its pitch only when asked", () => {
-    // A platter's own behaviour, and the one that keeps four parts summable — ../docs/bpm.md.
-    expect(warpFor(tempo({ target: 60 }))?.algorithm).toBe("varispeed");
-    expect(warpFor(tempo({ target: 60, keylock: true }))?.algorithm).toBe(
-      "elastique",
-    );
-  });
-
-  it("says nothing at the record's own tempo, whichever mode is on", () => {
-    // No warp at all is what makes an untouched deck play the file as it is, keylock or not.
-    expect(warpFor(tempo({ target: 120 }))).toBeUndefined();
-    expect(warpFor(tempo({ target: 120, keylock: true }))).toBeUndefined();
-  });
-
-  it("takes twice the beats at half the speed", () => {
-    // 60 s of 120 bpm played at 60 lasts twice as long, so it occupies twice the doc beats.
-    expect(warpFor(tempo({ target: 60 }))?.beats).toBeCloseTo(240);
-    expect(warpFor(tempo({ target: 240 }))?.beats).toBeCloseTo(60);
-  });
-
-  it("lands a song on the beats the DOC tempo counts, not its own", () => {
-    // The timeline is fixed at DOC_TEMPO and each deck reaches its target through its own warp.
-    const w = warpFor({ natural: 90, seconds: 60, target: DOC_TEMPO });
-    // 60 s of 90 bpm played at 120 lasts 45 s, which is 90 beats at 120 bpm.
-    expect(w?.beats).toBeCloseTo(90);
   });
 });
 
@@ -252,31 +225,14 @@ describe("sync hands one deck's tempo to the other", () => {
     expect(syncedTempos(t, "deckA").deckB?.target).toBe(0);
   });
 
-  it("ALIGNS the beats too, not just the tempos", () => {
-    // Sync is two facts: the slave also gets the delay that closes the gap, and the master gets none.
+  it("matches the TEMPO and nothing else — the beats are put together by a seek", () => {
+    // Sync's second half is `alignSeek`, on the needle. A platter has no clip to delay (../docs/bpm.md).
     const t: DeckTempos = {
       deckA: { natural: 120, seconds: 60, target: 120, phase: 0.2 },
       deckB: { natural: 120, seconds: 60, target: 120, phase: 0.3 },
     };
     const out = syncedTempos(t, "deckA");
-    expect(out.deckA?.align).toBeUndefined();
-    // B's grid is 0.1 s late, so it waits 0.4 s for the master's next beat: 0.8 doc beats.
-    expect(out.deckB?.align).toBeCloseTo(0.8, 6);
-  });
-
-  it("asks for no delay when the two grids already agree", () => {
-    const t: DeckTempos = {
-      deckA: { natural: 120, seconds: 60, target: 120, phase: 0.25 },
-      deckB: { natural: 120, seconds: 60, target: 120, phase: 0.25 },
-    };
-    expect(syncedTempos(t, "deckA").deckB?.align).toBeCloseTo(0, 6);
-  });
-
-  it("aligns nothing it was told nothing about", () => {
-    // A song with no onsets has no grid: it still gets the TEMPO, and no invented phase moves it.
-    const out = syncedTempos(both(), "deckA");
-    expect(out.deckB?.target).toBe(126);
-    expect(out.deckB?.align).toBeCloseTo(0, 6);
+    expect(out.deckB).toEqual({ ...t.deckB, target: 120 });
   });
 });
 
@@ -303,14 +259,16 @@ describe("filling the decks into the COMPILED project", () => {
       ...before.tracks.map((t) => t.id),
       METRONOME_TRACK,
     ]);
-    expect(after.tracks[0].plugins).toEqual(before.tracks[0].plugins);
     expect(after.tempo).toBe(before.tempo);
   });
 
   it("puts each deck's song on its own track", () => {
+    // The record is the PLATTER's now, so "on its own track" is which plugin holds which file.
     const doc = withDecks(compiled(), loaded());
-    expect(doc.tracks[0].clips[0].source).toBe("/m/a.wav");
-    expect(doc.tracks[1].clips[0].source).toBe("/m/b.wav");
+    const fileOn = (deck: string) =>
+      doc.tracks.find((t) => t.id === deck)?.plugins[0].deckFile;
+    expect(fileOn("deckA")).toBe("/m/a.wav");
+    expect(fileOn("deckB")).toBe("/m/b.wav");
   });
 
   /** The compiled set as it is scaffolded now: each deck's lane, plus a lane per stem. */
@@ -327,53 +285,47 @@ describe("filling the decks into the COMPILED project", () => {
     };
   };
 
-  it("fills a stem lane from the file BESIDE the record", () => {
-    const doc = withDecks(
-      withStemLanes(),
-      loaded({
-        deckA: {
-          path: "/m/song/original.mp3",
-          title: "A",
-          artist: null,
-          id: "songs/a",
-          stems: true,
-        },
-      }),
-    );
-    const at = (id: string) => doc.tracks.find((t) => t.id === id);
-    expect(at(stemLane("deckA", "bass"))?.clips[0].source).toBe(
+  it("puts a PLATTER on each stem lane, on the file beside the record", () => {
+    const doc = withDecks(withStemLanes(), separated());
+    const at = (id: string) => doc.tracks.find((t) => t.id === id)?.plugins[0];
+    expect(at(stemLane("deckA", "bass"))?.deckFile).toBe(
       "/m/song/stems/bass.wav",
     );
-    expect(at(stemLane("deckA", "vocals"))?.clips[0].source).toBe(
+    expect(at(stemLane("deckA", "vocals"))?.deckFile).toBe(
       "/m/song/stems/vocals.wav",
     );
-    // …and the record's own lane is EMPTY: the four parts ARE the record, so playing it too would double it.
-    expect(at("deckA")?.clips).toEqual([]);
+    // …and the record's own lane holds NOTHING: the four parts ARE the record, so it would double it.
+    const own = doc.tracks.find((t) => t.id === "deckA");
+    expect(own?.clips).toEqual([]);
+    expect(own?.plugins[0]?.type).not.toBe(PLATTER_TYPE);
   });
 
-  it("gives the four parts the SAME start and the same warp", () => {
-    // Four parts a few milliseconds apart are a flam on every hit, and nothing on screen would say so.
+  it("drives the four parts as ONE record: same rate, same KEY", () => {
+    // Four parts a few milliseconds or a few percent apart are a flam on every hit, and nothing
+    // on screen would say so. They share a position too — `plattersOf` is what a gesture reaches.
     const doc = withDecks(
       withStemLanes(),
-      loaded({
-        deckA: {
-          path: "/m/song/original.mp3",
-          title: "A",
-          artist: null,
-          id: "songs/a",
-          stems: true,
-        },
-      }),
-      { deckA: { natural: 120, seconds: 60, target: 126 } },
+      separated(),
+      keyed({ deckA: { natural: 120, seconds: 60, target: 126 } }),
+      null,
+      { deckA: true },
     );
-    const clips = STEMS.map(
-      (s) => doc.tracks.find((t) => t.id === stemLane("deckA", s))?.clips[0],
+    const parts = STEMS.map(
+      (s) => doc.tracks.find((t) => t.id === stemLane("deckA", s))?.plugins[0],
     );
-    for (const c of clips) {
-      expect(c?.start).toBe(clips[0]?.start);
-      expect(c?.length).toBe(clips[0]?.length);
-      expect(c?.warp).toEqual(clips[0]?.warp);
+    for (const p of parts) {
+      expect(p?.type).toBe(PLATTER_TYPE);
+      expect(p?.params.Rate).toBe(parts[0]?.params.Rate);
+      expect(p?.params.Key).toBe(parts[0]?.params.Key);
     }
+    expect(parts[0]?.params.Rate).toBeCloseTo(126 / 120);
+    expect(parts[0]?.params.Key).toBe(1);
+    // …and every one of them is named, so `place` and `scratch` can reach all four.
+    expect(plattersOf("deckA", separated().deckA)).toEqual(
+      STEMS.map((s) => `${stemLane("deckA", s)}:platter`),
+    );
+    expect(plattersOf("deckA", loaded().deckA)).toEqual(["deckA:platter"]);
+    expect(plattersOf("deckA", null)).toEqual([]);
   });
 
   it("leaves the stem lanes EMPTY for a song nobody has separated", () => {
@@ -383,8 +335,8 @@ describe("filling the decks into the COMPILED project", () => {
       expect(
         doc.tracks.find((t) => t.id === stemLane("deckA", s))?.clips,
       ).toEqual([]);
-    // And it plays the file itself: there is no separation's decode to prefer.
-    expect(doc.tracks.find((t) => t.id === "deckA")?.clips[0].source).toBe(
+    // And it plays the file itself, off its platter: there is no separation's decode to prefer.
+    expect(doc.tracks.find((t) => t.id === "deckA")?.plugins[0].deckFile).toBe(
       loaded().deckA?.path,
     );
   });
@@ -396,35 +348,114 @@ describe("filling the decks into the COMPILED project", () => {
     expect(after.tracks[1].clips).toEqual(before.tracks[1].clips);
   });
 
-  it("carries the tempo stretch onto the clip it fills in", () => {
-    // The tempo module is `offline` and compiles to no plugin, so the stretch stays a warp on the clip.
-    const doc = withDecks(compiled(), loaded(), {
-      deckA: { natural: 120, seconds: 60, target: 60 },
+  it("fills NO clip at all, on any lane", () => {
+    // A stretched, aligned, slipped tempo used to produce one on every lane; a platter takes none.
+    const doc = withDecks(withStemLanes(), separated(), {
+      deckA: { natural: 120, seconds: 60, target: 126 },
     });
-    expect(doc.tracks[0].clips[0].warp?.markers[1][0]).toBeCloseTo(240);
-    expect(doc.tracks[1].clips[0].warp).toBeUndefined();
+    for (const track of doc.tracks) expect(track.clips ?? []).toEqual([]);
+  });
+});
+
+describe("every deck plays a platter, and a separated one plays four", () => {
+  const compiled = (): ProjectDoc => deckDoc(NO_LOADS, MIX_CENTRE, {}, keyed());
+  const platterOf = (doc: ProjectDoc, deck: string) =>
+    doc.tracks
+      .find((t) => t.id === deck)
+      ?.plugins.find((p) => p.type === PLATTER_TYPE);
+
+  it("hands the record to the PLUGIN and leaves the lane empty", () => {
+    // The whole difference: the audio is the platter's, so there is nothing on the timeline to play.
+    const doc = withDecks(compiled(), loaded());
+    expect(doc.tracks[0].clips).toEqual([]);
+    expect(platterOf(doc, "deckA")?.deckFile).toBe("/m/a.wav");
+    expect(platterOf(doc, "deckB")?.deckFile).toBe("/m/b.wav");
   });
 
-  it("delays a clip by sync's alignment, and only when there is one", () => {
-    // Where beat alignment lands: `start`, in document beats, on top of the headroom every deck gets.
-    const base = (TIMELINE_BASE * DOC_TEMPO) / 60;
-    const doc = withDecks(compiled(), loaded(), {
-      deckB: { natural: 120, seconds: 60, target: 120, align: 0.8 },
-    });
-    expect(doc.tracks[1].clips[0].start).toBeCloseTo(base + 0.8);
-    // Deck A was handed no alignment: it sits on the base and nothing else.
-    expect(doc.tracks[0].clips[0].start).toBeCloseTo(base);
+  it("puts it FIRST, so everything the project declared still shapes it", () => {
+    const before = compiled();
+    const after = withDecks(before, loaded());
+    expect(after.tracks[0].plugins[0].type).toBe(PLATTER_TYPE);
+    // …and the project's own chain follows it, in its order and untouched.
+    expect(after.tracks[0].plugins.slice(1)).toEqual(before.tracks[0].plugins);
   });
 
-  it("starts every clip a HEADROOM in, so a slowed deck can slide earlier", () => {
-    // The one reason the timeline does not begin where the music does — see docs/bpm.md.
-    const doc = withDecks(compiled(), loaded(), {
-      deckA: { natural: 120, seconds: 60, target: 120, slip: -30 },
-    });
-    expect(doc.tracks[0].clips[0].start).toBeCloseTo(
-      ((TIMELINE_BASE - 30) * DOC_TEMPO) / 60,
+  it("turns at the SPEED the tempo asks for, and not at all when stopped", () => {
+    // Turning is PER DECK now: a platter carries its own transport — see docs/turntable.md.
+    const at = (target: number, playing = true) =>
+      platterOf(
+        withDecks(
+          compiled(),
+          loaded(),
+          { deckA: { natural: 120, seconds: 60, target } },
+          null,
+          { deckA: playing },
+        ),
+        "deckA",
+      )?.params.Rate;
+    // A 120 song asked to play at 60 runs at HALF speed. It read 2 — the STRETCH, which is the inverse.
+    expect(at(60)).toBeCloseTo(0.5);
+    expect(at(120)).toBeCloseTo(1);
+    // …and the direction, which is what the inversion cost: asking for MORE tempo must speed it up.
+    expect(at(140)).toBeGreaterThan(1);
+    expect(at(60, false)).toBe(0);
+  });
+
+  it("does NOT turn because the transport rolls — a platter takes no orders from it", () => {
+    // The regression this pins: PLAY moved the transport, the button lit, and every Rate stayed 0.
+    const doc = withDecks(compiled(), loaded(), {}, null, {});
+    expect(platterOf(doc, "deckA")?.params.Rate).toBe(0);
+    expect(platterOf(doc, "deckB")?.params.Rate).toBe(0);
+  });
+
+  it("turns ONE deck without the other, which the transport could never do", () => {
+    // The thing a single transport forbade: deck B rolls while deck A is stopped dead.
+    const doc = withDecks(compiled(), loaded(), {}, null, { deckB: true });
+    expect(platterOf(doc, "deckA")?.params.Rate).toBe(0);
+    expect(platterOf(doc, "deckB")?.params.Rate).toBeGreaterThan(0);
+  });
+
+  it("STAYS on the platter when keylock comes on, and says so with a param", () => {
+    // It used to hand the deck back to a stretched clip. The platter holds its own pitch now, so KEY
+    // is one parameter and not a second way of playing — engine/moteur/docs/turntable.md.
+    const doc = withDecks(compiled(), loaded(), keyed());
+    expect(platterOf(doc, "deckA")?.params.Key).toBe(1);
+    expect(doc.tracks[0].clips).toEqual([]);
+    // …and off it, the same platter with the same record.
+    const off = withDecks(compiled(), loaded());
+    expect(platterOf(off, "deckA")?.params.Key).toBe(0);
+  });
+
+  it("gives the HAND the record whatever KEY says, which is what a scratch is", () => {
+    // The join step 2 is about: a stretcher does not run backwards, and a scratch must change pitch
+    // anyway. One rule, used by the document AND by the gesture — docs/scratch.md.
+    const on: DeckTempo = {
+      natural: 120,
+      seconds: 60,
+      target: 120,
+      keylock: true,
+    };
+    const off: DeckTempo = { ...on, keylock: false };
+    expect(platterKey(on, false)).toBe(1);
+    expect(platterKey(on, true)).toBe(0);
+    expect(platterKey(off, false)).toBe(0);
+    expect(platterKey(off, true)).toBe(0);
+    expect(platterKey(undefined, false)).toBe(0);
+  });
+
+  it("leaves a separated record's OWN lane silent, so the parts are not doubled", () => {
+    const base = compiled();
+    const doc = withDecks(
+      {
+        ...base,
+        tracks: [...base.tracks, trackDoc(stemLane("deckA", "bass"))],
+      },
+      separated(),
     );
-    expect(doc.tracks[0].clips[0].start).toBeGreaterThan(0);
+    expect(platterOf(doc, "deckA")).toBeUndefined();
+    expect(platterOf(doc, stemLane("deckA", "bass"))?.deckFile).toBe(
+      "/m/song/stems/bass.wav",
+    );
   });
 });
 
@@ -453,16 +484,17 @@ describe("the decks' document", () => {
   });
 
   it("gives an empty deck a track with no clips rather than no track", () => {
-    const doc = deckDoc({ ...NO_LOADS, deckA: loaded().deckA });
-    expect(doc.tracks[0].clips).toHaveLength(1);
+    const doc = deckDoc({ ...NO_LOADS, deckA: loaded().deckA }, MIX_CENTRE);
+    // A loaded deck carries a PLATTER and no clip; an empty one carries neither, but still a track.
+    expect(doc.tracks[0].plugins[0].type).toBe(PLATTER_TYPE);
+    expect(doc.tracks[1].plugins[0].type).not.toBe(PLATTER_TYPE);
     expect(doc.tracks[1].clips).toEqual([]);
   });
 
   it("puts each deck's file on its own track", () => {
-    const doc = deckDoc(loaded());
-    expect(doc.tracks[0].clips[0].source).toBe("/m/a.wav");
-    expect(doc.tracks[1].clips[0].source).toBe("/m/b.wav");
-    expect(doc.tracks[0].clips[0].type).toBe("audio");
+    const doc = deckDoc(loaded(), MIX_CENTRE);
+    expect(doc.tracks[0].plugins[0].deckFile).toBe("/m/a.wav");
+    expect(doc.tracks[1].plugins[0].deckFile).toBe("/m/b.wav");
   });
 
   it("ends each deck with the level the crossfader moves", () => {
@@ -487,7 +519,9 @@ describe("the decks' document", () => {
         },
       ],
     });
+    // The PLATTER leads, being the source; then the deck's own module; then the level.
     expect(doc.tracks[0].plugins.map((p) => p.id)).toEqual([
+      platterId("deckA"),
       "deckA:filter",
       levelId("deckA"),
     ]);
@@ -509,5 +543,31 @@ describe("the decks' document", () => {
     // No PICTURE field to assert on: the fold this document skips is `withGroupMix` and nothing else.
     const doc = deckDoc(loaded());
     expect(doc.groups).toEqual([]);
+  });
+});
+
+describe("how often a scratch reaches the engine", () => {
+  it("lets the first move through", () => {
+    // The leading edge matters: a gesture that starts a frame late reads as a stuck record.
+    expect(scratchDelay(999, 1.5)).toBe(0);
+  });
+
+  it("holds one that comes too soon, by what is LEFT of the interval", () => {
+    // Not a fixed wait: the hand keeps its cadence instead of drifting by a frame per move.
+    expect(scratchDelay(0, 1.5, 16)).toBe(16);
+    expect(scratchDelay(6, 1.5, 16)).toBe(10);
+    expect(scratchDelay(16, 1.5, 16)).toBe(0);
+  });
+
+  it("never holds the RELEASE, however soon it comes", () => {
+    // Letting go hands the record back; delayed by even one frame it would keep scratching after the hand left.
+    expect(scratchDelay(0, null, 16)).toBe(0);
+    expect(scratchDelay(1, null)).toBe(0);
+  });
+
+  it("is far under what a pointer produces, and far over what an ear needs", () => {
+    // A 1000 Hz mouse sends one per millisecond; this keeps about sixteen of every thousand.
+    expect(SCRATCH_MS).toBeGreaterThan(8);
+    expect(SCRATCH_MS).toBeLessThanOrEqual(20);
   });
 });

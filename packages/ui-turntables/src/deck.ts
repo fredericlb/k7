@@ -18,12 +18,14 @@ import type {
   TrackDoc,
 } from "@studio/engine-protocol/project";
 import {
+  STEMS,
   STEMS_DIR,
   type Stem,
   stemFile,
+  stemLane,
   stemLaneOf,
 } from "@studio/song-schema/stems";
-import { alignDelay, BEATS_PER_BAR } from "./beats";
+import { BEATS_PER_BAR } from "./beats";
 import type { DeckModule } from "./graph";
 
 /** The two decks, named as the PROJECT names them (`chains.yaml`) — not a cosmetic match, see docs/mix.md. */
@@ -54,15 +56,7 @@ export const DOC_TEMPO = 120;
 /** How far a tempo bends either way, ±16 % — beyond it a stretch stops sounding like the record. */
 export const PITCH_RANGE = 0.16;
 
-/** Where a deck's clip sits when nothing has moved it — the headroom a pitch fader needs, docs/bpm.md. */
-export const TIMELINE_BASE = 600;
-
-/** Where PLAY should start, or null to roll from here — below the music, start at the music (docs/bpm.md). */
-export function playFrom(playheadSeconds: number): number | null {
-  return playheadSeconds < TIMELINE_BASE ? TIMELINE_BASE : null;
-}
-
-/** The module a deck's tempo BELONGS to, and the params the faders are — `offline`, so `warpFor` realises it. */
+/** The module a deck's tempo BELONGS to, and the params the faders are — `offline`, so the platter's `Rate` realises it. */
 export const TEMPO_MODULE = "@st0/audio/utility/tempo";
 export const TEMPO_PARAM = "Target BPM";
 export const TEMPO_SOURCE_PARAM = "Source BPM";
@@ -77,10 +71,6 @@ export interface DeckTempo {
   target: number;
   /** Where this song's beat grid starts, in SOURCE seconds — a fact about the file, never moved by a fader. */
   phase?: number;
-  /** TIMELINE beats to delay this clip by so its beats meet the other's — derived, never stored. */
-  align?: number;
-  /** How far this clip has slid so a tempo change did not move the music — STORED, it is a history. */
-  slip?: number;
   /** Hold the PITCH while the tempo moves? Off is a platter's own behaviour, and the default — docs/bpm.md. */
   keylock?: boolean;
 }
@@ -115,83 +105,25 @@ export const CUE_COLOURS = [
   "#ec4899", // rose
 ] as const;
 
-/** Where a moment in the FILE lands on the transport, in seconds — the conversion a cue needs, docs/cues.md. */
-export function transportAt(
-  source: number,
-  tempo: DeckTempo | undefined,
-): number {
-  const ratio = playRatio(tempo);
-  return startSeconds(tempo) + source * ratio;
-}
-
-/** …and back, for the cue somebody drops while the deck is playing. */
-export function sourceAt(
-  transport: number,
-  tempo: DeckTempo | undefined,
-): number {
-  const ratio = playRatio(tempo);
-  return Math.max(0, (transport - startSeconds(tempo)) / ratio);
-}
-
-/** How fast the file is playing, as a multiplier of its own clock. 1 when nothing says. */
-function playRatio(tempo: DeckTempo | undefined): number {
-  return ratioOf(tempo?.natural ?? 0, tempo?.target ?? 0);
-}
-
-/** Where the clip starts on the timeline, in seconds — the headroom, sync's alignment, and the slip. */
-export function startSeconds(tempo: DeckTempo | undefined): number {
-  return (
-    TIMELINE_BASE + ((tempo?.align ?? 0) * 60) / DOC_TEMPO + (tempo?.slip ?? 0)
-  );
-}
-
-/** Where a deck's clip sits, in the BEATS the document places clips in. */
-export function clipStartBeats(tempo: DeckTempo | undefined): number {
-  return (startSeconds(tempo) * DOC_TEMPO) / 60;
-}
-
-/** The slip a deck takes on so that changing its tempo does not move the MUSIC — see docs/bpm.md. */
-export function slipAfter(
-  before: DeckTempo,
-  after: DeckTempo,
-  sourceSeconds: number,
-): number {
-  const alignOf = (t: DeckTempo) => ((t.align ?? 0) * 60) / DOC_TEMPO;
-  const moved =
-    sourceSeconds *
-      (ratioOf(before.natural, before.target) -
-        ratioOf(after.natural, after.target)) -
-    (alignOf(after) - alignOf(before));
-  return Math.max((before.slip ?? 0) + moved, -TIMELINE_BASE - alignOf(after));
-}
+/** How far one nudge shoves a record — a hundredth of a beat at 128, and what a hand does to a platter. */
+export const NUDGE_SECONDS = 0.01;
 
 /** The stretch, as a multiplier of the file's own clock. 1 when either end is unknown. */
 function ratioOf(natural: number, target: number): number {
   return natural > 0 && target > 0 ? natural / target : 1;
 }
 
-/** Pitch held, or the record simply played faster — the two words `applyClipWarp` branches on. */
-export const KEYLOCK_ALGORITHM = "elastique";
-export const VARISPEED_ALGORITHM = "varispeed";
+/** How often a scratch may reach the engine. A pointer moves far faster than an ear hears — docs/scratch.md. */
+export const SCRATCH_MS = 16;
 
-/** The stretch that makes a song of `natural` BPM play at `target` — the stand-in for `TEMPO_MODULE`, docs/bpm.md. */
-export function warpFor(
-  { natural, seconds, target, keylock }: DeckTempo,
-  epsilon = 1e-6,
-):
-  | { algorithm: string; markers: [number, number][]; beats: number }
-  | undefined {
-  if (!(natural > 0) || !(target > 0) || !(seconds > 0)) return undefined;
-  if (Math.abs(target - natural) < epsilon) return undefined;
-  const beats = (seconds * DOC_TEMPO * natural) / (60 * target);
-  return {
-    algorithm: keylock ? KEYLOCK_ALGORITHM : VARISPEED_ALGORITHM,
-    markers: [
-      [0, 0],
-      [beats, seconds],
-    ],
-    beats,
-  };
+/** How long to hold this scratch: 0 goes now. A RELEASE never waits, since it hands the record back. */
+export function scratchDelay(
+  sinceLast: number,
+  rate: number | null,
+  every: number = SCRATCH_MS,
+): number {
+  if (rate === null) return 0;
+  return Math.max(0, every - sinceLast);
 }
 
 /** A deck's linear gain at crossfade `mix` — equal GAIN, the same law the project's module writes (docs/mix.md). */
@@ -223,6 +155,82 @@ export function stemSource(master: string, stem: Stem): string {
   return `${stemsFolder(master)}${stemFile(stem)}`;
 }
 
+/** The engine's platter, as a module id on a TRACK — the deck's own lane, or one of its stem lanes. */
+export const PLATTER_TYPE = "studio_turntable";
+export const platterId = (track: string): string => `${track}:platter`;
+
+/** Every platter a deck drives, in the order the parts are named. Empty when it holds nothing.
+ *
+ * A separated record is FOUR platters and not one: the four parts ARE the record, so they share one
+ * position, one rate and one KEY, and a gesture reaches all of them. See docs/stems.md. */
+export function plattersOf(deck: DeckId, load?: DeckLoad | null): string[] {
+  if (!load) return [];
+  return load.stems
+    ? STEMS.map((s) => platterId(stemLane(deck, s)))
+    : [platterId(deck)];
+}
+
+/** How fast a platter runs, as a multiple of the record's own clock. 0 when stopped.
+ *
+ * `target / natural` and not the other way round: a 120 song asked to play at 60 runs at HALF speed.
+ * The inverse is the STRETCH — what a clip's warp needs, and what `ratioOf` is used for elsewhere. */
+export function platterRate(
+  tempo: DeckTempo | undefined,
+  playing: boolean,
+): number {
+  if (!playing) return 0;
+  return ratioOf(tempo?.target ?? 0, tempo?.natural ?? 0);
+}
+
+/** What a platter's `Key` should be: 1 holds the pitch, 0 lets it follow the speed.
+ *
+ * A hand on the record wins over the switch, and that is not a compromise — a scratch CHANGES pitch,
+ * that is the sound of the gesture. See packages/ui-turntables/docs/scratch.md. */
+export function platterKey(
+  tempo: DeckTempo | undefined,
+  /** Is a hand holding the record right now? */
+  holding: boolean,
+): number {
+  return !holding && tempo?.keylock ? 1 : 0;
+}
+
+/** Which decks are turning. A platter carries its own transport, so this is PER DECK — docs/turntable.md. */
+export type DeckPlaying = Partial<Record<DeckId, boolean>>;
+
+/** Is this deck running? Its own answer: every loaded deck plays off platters, which the transport
+ *  does not command. An empty one is not running, whatever the transport is doing. */
+export function deckRunning(
+  deckId: DeckId,
+  own: DeckPlaying,
+  load?: DeckLoad | null,
+): boolean {
+  return !!load && !!own[deckId];
+}
+
+/** The platter plugin for one LANE, carrying the record it OWNS — `role: instrument`, it makes its own audio. */
+function platterPlugin(
+  track: string,
+  source: string,
+  tempo: DeckTempo | undefined,
+  playing: boolean,
+) {
+  return pluginDoc({
+    id: platterId(track),
+    type: PLATTER_TYPE,
+    name: "platter",
+    role: "instrument",
+    deckFile: source,
+    // Seek is left alone here: a jump is a live message, and re-sending the document must not re-drop the needle.
+    params: {
+      Rate: platterRate(tempo, playing),
+      Gain: 1,
+      // KEY is a param of the platter, not a second way of playing — engine/moteur/docs/turntable.md.
+      // No hand here: a document is what the deck does when nobody is touching it.
+      Key: platterKey(tempo, false),
+    },
+  });
+}
+
 /** The COMPILED project with the decks' songs filled in — everything else is left ALONE, docs/mix.md. */
 export function withDecks(
   compiled: ProjectDoc,
@@ -230,6 +238,8 @@ export function withDecks(
   tempos: DeckTempos = {},
   /** Which deck's beat the click follows, or null for no click — see `metronomeDeck`. */
   click: DeckId | null = null,
+  /** WHICH decks are turning: a platter has its own transport, so one flag for both would not do. */
+  playing: DeckPlaying = {},
 ): ProjectDoc {
   return {
     ...compiled,
@@ -247,25 +257,19 @@ export function withDecks(
       if (stem && !load.stems) return track;
       // …and a separated one is the other way round: the four PARTS play, so the record itself does not.
       if (!stem && load.stems) return { ...track, clips: [] };
-      const tempo = tempos[deck];
-      const warp = tempo && warpFor(tempo);
+      // Whatever plays, plays off a PLATTER: the whole record, or one of its four parts.
       return {
         ...track,
-        clips: [
-          clipDoc({
-            id: `${track.id}-clip`,
-            type: "audio",
-            name: load.title,
-            source: stem ? stemSource(load.path, stem.stem) : load.path,
-            // The headroom, sync's alignment and the fader's slip in one number — see `startSeconds`.
-            start: clipStartBeats(tempo),
-            ...(warp
-              ? {
-                  warp: { algorithm: warp.algorithm, markers: warp.markers },
-                  length: warp.beats,
-                }
-              : {}),
-          }),
+        clips: [],
+        // FIRST on the chain: it is the source, and everything the project declared shapes what it makes.
+        plugins: [
+          platterPlugin(
+            track.id,
+            stem ? stemSource(load.path, stem.stem) : load.path,
+            tempos[deck],
+            !!playing[deck],
+          ),
+          ...track.plugins,
         ],
       };
     }),
@@ -279,6 +283,7 @@ export function deckDoc(
   modules: Partial<Record<DeckId, DeckModule[]>> = {},
   tempos: DeckTempos = {},
   click: DeckId | null = null,
+  playing: DeckPlaying = {},
 ): ProjectDoc {
   return emptyDoc({
     name: "m9",
@@ -287,32 +292,16 @@ export function deckDoc(
     tracks: [
       ...DECKS.map((deck) => {
         const load = loads[deck];
-        const warp = tempos[deck] && warpFor(tempos[deck]);
         return trackDoc(deck, {
           name: load ? load.title : deck,
-          clips: load
-            ? [
-                clipDoc({
-                  id: `${deck}-clip`,
-                  type: "audio",
-                  name: load.title,
-                  source: load.path,
-                  start: clipStartBeats(tempos[deck]),
-                  // Both or neither: warping without the length leaves the clip claiming its unstretched span.
-                  ...(warp
-                    ? {
-                        warp: {
-                          algorithm: warp.algorithm,
-                          markers: warp.markers,
-                        },
-                        length: warp.beats,
-                      }
-                    : {}),
-                }),
-              ]
-            : [],
-          // The deck's own effects first, then the level LAST — a strip is the end of a chain.
+          clips: [],
+          // The platter FIRST when there is one — it is the source; then the effects, the level LAST.
+          // The RECORD, even when it has been separated: this stand-in declares no stem lanes to
+          // play the parts off, and playing the record itself is the closer imitation of the two.
           plugins: [
+            ...(load
+              ? [platterPlugin(deck, load.path, tempos[deck], !!playing[deck])]
+              : []),
             ...(modules[deck] ?? []).map((m) => {
               const { type, name } = enginePlugin(m.plugin, m.name);
               return pluginDoc({
@@ -392,22 +381,21 @@ export function metronomeTrack(
   });
 }
 
-/** One looping bar of clicks, placed on the song's own downbeat. */
+/** One looping bar of clicks at the deck's SPACING, from the transport's zero — no phase, docs/metronome.md. */
 function clickBar(tempo: DeckTempo): ClipDoc {
   const toBeats = (seconds: number) => (seconds * DOC_TEMPO) / 60;
   // Document beats are a unit of TIME here: one beat of the DECK lasts 60/target seconds.
   const beat = DOC_TEMPO / tempo.target;
-  const from = transportAt(tempo.phase ?? 0, tempo);
-  // To the end of the song and no further, so the click stops when the record does.
+  // As long as the record PLAYS for, so the click stops rather than outliving it.
   const span = Math.max(
     beat,
-    toBeats(transportAt(tempo.seconds, tempo) - from),
+    toBeats(tempo.seconds * ratioOf(tempo.natural, tempo.target)),
   );
   return clipDoc({
     id: `${METRONOME_TRACK}-clip`,
     type: "midi",
     name: "click",
-    start: toBeats(from),
+    start: 0,
     length: span,
     // Four notes and a loop rather than one per beat: the clip is rebuilt on every step of a drag.
     loopStart: 0,
@@ -443,42 +431,25 @@ export function sendDecks(
   tempos?: DeckTempos,
   compiled?: ProjectDoc | null,
   click: DeckId | null = null,
+  /** Which platters should be turning — their `Rate`, which the one transport does not decide. */
+  playing: DeckPlaying = {},
 ): void {
   send(
     compiled
-      ? withDecks(compiled, loads, tempos, click)
-      : deckDoc(loads, mix, modules, tempos, click),
+      ? withDecks(compiled, loads, tempos, click, playing)
+      : deckDoc(loads, mix, modules, tempos, click, playing),
   );
 }
 
-/** The faders after one has been moved — targets AND the slip each deck takes on for it, docs/bpm.md. */
+/** The faders after one has been moved — the target, and nothing else, docs/bpm.md. */
 export function nudgedTempos(
   faders: DeckTempos,
-  master: DeckId | null,
-  /** Who leads AFTER this gesture — separate from `master`, so the slip is computed against a real tempo. */
-  nextMaster: DeckId | null,
   deck: DeckId,
   bpm: number,
-  sourceOf: (deck: DeckId) => number,
 ): DeckTempos {
-  if (!faders[deck]) return faders;
-  const before = syncedTempos(faders, master);
-  const moved: DeckTempos = {
-    ...faders,
-    [deck]: { ...faders[deck], target: bpm },
-  };
-  const after = syncedTempos(moved, nextMaster);
-  const out: DeckTempos = { ...moved };
-  // BOTH decks, not just the one under the hand: a drag on the master re-stretches the slave too.
-  for (const d of DECKS) {
-    const b = before[d];
-    const a = after[d];
-    if (!b || !a || (b.target === a.target && b.align === a.align)) continue;
-    // Only the SLIP is written back: a slave's `target` is the master's, handed over each render.
-    const stored = out[d];
-    if (stored) out[d] = { ...stored, slip: slipAfter(b, a, sourceOf(d)) };
-  }
-  return out;
+  const stored = faders[deck];
+  // A platter takes the new rate where it stands, so the music does not move and nothing follows it.
+  return stored ? { ...faders, [deck]: { ...stored, target: bpm } } : faders;
 }
 
 /** The keylock switch belongs to the DECK, not to the record on it, so it is merged in rather than stored per song. */
@@ -494,7 +465,7 @@ export function withKeylock(
   return out;
 }
 
-/** What the decks PLAY at: the slave takes the master's tempo AND a delay onto its beats — docs/bpm.md. */
+/** What the decks PLAY at: the slave takes the master's tempo. Its BEATS are put together by `alignSeek`. */
 export function syncedTempos(
   tempos: DeckTempos,
   master: DeckId | null,
@@ -504,10 +475,9 @@ export function syncedTempos(
   const out: DeckTempos = { ...tempos };
   for (const deck of DECKS) {
     const t = out[deck];
-    // A deck with no natural tempo cannot be stretched to one — `warpFor` would refuse anyway.
+    // A deck with no natural tempo cannot be pulled onto one — there is no ratio to drive its platter with.
     if (!t || deck === master || !(t.natural > 0)) continue;
-    const synced = { ...t, target: lead.target };
-    out[deck] = { ...synced, align: alignDelay(lead, synced, DOC_TEMPO) };
+    out[deck] = { ...t, target: lead.target };
   }
   return out;
 }

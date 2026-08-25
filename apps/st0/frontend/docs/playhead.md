@@ -183,10 +183,10 @@ question.
 `@studio/engine-browser/playhead-clock`: both st0 and `@studio/ui-turntables` depend on that
 package, and it is where the frames arrive.
 
-The clock takes no RATE, and a turntable's pitch fader is not an argument for one: the fader
-re-stretches the CLIP and slips it (`slipAfter`), and the transport still advances at one second
-per second — *"there is one transport and two decks, so moving it to hold one deck still would
-throw the other"*.
+The clock takes no RATE, and a turntable's pitch fader is not an argument for one: the fader sets a
+platter's `Rate`, which the platter reports through its own needle, while the transport still
+advances at one second per second — *"there is one transport and two decks, so moving it to hold
+one deck still would throw the other"*.
 
 What the decks do need is the split above, a second time. `Deck` asks for both — a raw `playhead`
 ref and a steered `drawNow` — because its two callers want different things: the record's wedge is

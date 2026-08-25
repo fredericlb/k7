@@ -30,6 +30,8 @@ std::string keyOf(const PluginDoc& p) {
     if (!p.faustDsp.empty()) k += "#" + p.faustDsp;
     // A jsdsp GRAPH is built there too, params and all, so editing a module must read as a replace.
     if (!p.dspGraph.empty()) k += "~" + p.dspGraph;
+    // A platter's RECORD is loaded at insert, so putting another one on has to read as a replace.
+    if (!p.deckFile.empty()) k += "@" + p.deckFile;
     // A rack's sounds are built at insert time, so remapping a note without this reads as "same plugin".
     for (const auto& e : p.rack)
         k += "|" + e.symbol + "=" + std::to_string(e.note) + "@" + e.clip
@@ -196,6 +198,12 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
                 in.track = *t;
                 out.push_back(std::move(in));
             }
+            // …and the same for a pair it leaves by, or a cue bus the diff ADDED would arrive on the mixer's sum.
+            if (!t->outputChannels.empty()) {
+                Change o{ChangeKind::TrackOutputChanged, t->id};
+                o.track = *t;
+                out.push_back(std::move(o));
+            }
         } else {
             if (it->second->name != t->name) {
                 Change ch{ChangeKind::TrackRenamed, t->id};
@@ -211,6 +219,11 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
                 it->second->monitor != t->monitor ||
                 it->second->inputGain != t->inputGain) {
                 Change ch{ChangeKind::TrackInputChanged, t->id};
+                ch.track = *t;
+                out.push_back(std::move(ch));
+            }
+            if (it->second->outputChannels != t->outputChannels) {
+                Change ch{ChangeKind::TrackOutputChanged, t->id};
                 ch.track = *t;
                 out.push_back(std::move(ch));
             }
@@ -268,6 +281,16 @@ std::string describe(const Change& c) {
                 for (size_t i = 0; i < ch.size(); ++i) s << (i ? "+" : "") << ch[i];
                 s << " monitor=" << c.track->monitor;
                 if (c.track->inputGain != 0.0) s << " gain=" << c.track->inputGain << "dB";
+            }
+            break;
+        }
+        case ChangeKind::TrackOutputChanged: {
+            s << "~ track " << c.trackId << " output ";
+            if (!c.track || c.track->outputChannels.empty()) {
+                s << "-> mix";
+            } else {
+                const auto& ch = c.track->outputChannels;
+                for (size_t i = 0; i < ch.size(); ++i) s << (i ? "+" : "") << ch[i];
             }
             break;
         }

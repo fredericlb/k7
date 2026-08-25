@@ -11,6 +11,7 @@
 #include "NamPlugin.h"          // the neural amp modeller (a .nam model as a plugin)
 #include "BroadcastTapPlugin.h" // the transparent tap plugin for network broadcast
 #include "WaveformTapPlugin.h" // the transparent tap plugin for waveform display
+#include "TurntablePlugin.h"   // the platter, which carries a clock of its own
 #include "Warnings.h"          // WarningScope — which project an apply's warnings belong to
 
 #include <algorithm>
@@ -40,7 +41,8 @@ const ProjectDoc& EngineHost::current(const std::string& session) const {
 void EngineHost::openAudioDevice() {
     // Open the interface once, INPUTS included — with none open the callback delivers no input samples and every input meters -100 for ever. docs/engineHost.md.
     auto& dm = impl_->engine.getDeviceManager();
-    dm.initialise(512, 2);   // 512 is Tracktion's own default, and means "as many channels as the device has"
+    // 512 is Tracktion's own default, and means "as many channels as the device has" — asked of the OUTPUTS too, since a cue bus leaves by a second pair (docs/cueOutput.md).
+    dm.initialise(512, 512);
     // …then onto the buffer this engine asks for, which decides its quality band; after initialise, because there is no device to ask before it.
     applyPreferredBufferSize(dm.deviceManager);
     publishAudioTiming();   // what whoami answers with, from now on — see AudioDevices.cpp
@@ -129,6 +131,8 @@ void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, co
     impl_->session(session).baseDir = baseDir;
     // Live inputs need the context ensureContextAllocated() just made, and map ids through `current`.
     applyAllTrackInputs(session, doc);
+    // …and the tracks that leave by a pair of their own, which a rebuild has just put back on the mixer's sum.
+    applyAllTrackOutputs(session, doc);
 
     // Re-attach the record listener to this edit's transport — the previous edit's went with its listener list. Defined in Recording.cpp.
     attachRecordListener(session);
@@ -262,6 +266,7 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                     applyTrackParams(*t, *c.track);
                 break;
             case ChangeKind::TrackInputChanged:
+            case ChangeKind::TrackOutputChanged:
                 break;  // deferred to after the loop — see below
             case ChangeKind::ClipAdded:
                 if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.clip) {
@@ -388,6 +393,10 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
     for (const auto& c : d)
         if (c.kind == ChangeKind::TrackInputChanged && c.track)
             applyTrackInput(session, *c.track);
+    // Outputs for the same reason, and after them because enabling an output device rebuilds the wave list under both.
+    for (const auto& c : d)
+        if (c.kind == ChangeKind::TrackOutputChanged && c.track)
+            applyTrackOutput(session, *c.track);
     return d;
 }
 
@@ -788,6 +797,8 @@ private:
             idleTicks_[session] = 0;
 
         s.waveformEnvelopes = host_.drainAllWaveformTaps(session);
+        // A platter carries its own clock, so `playheadSeconds` says nothing about it — docs/turntable.md.
+        s.platterSeconds = host_.platterPositions(session);
         cb_(s);
         // Watched params ride the same tick rather than their own timer, and after cb_, so a slow state consumer delays the params rather than the meters.
         host_.pumpPluginParamWatches(session);
@@ -797,6 +808,17 @@ private:
     std::function<void(const EngineHost::EngineState&)> cb_;
 };
 }  // namespace
+
+std::map<std::string, double> EngineHost::platterPositions(const std::string& session) const {
+    std::map<std::string, double> out;
+    // find(), never session(): a state poll must not conjure the session it is reporting on.
+    const auto* s = impl_->find(session);
+    if (s == nullptr) return out;
+    for (const auto& [id, plugin] : s->pluginsById)
+        if (auto* deck = dynamic_cast<TurntablePlugin*>(plugin.get()))
+            out[id] = deck->needleSeconds();
+    return out;
+}
 
 std::vector<std::string> EngineHost::sessionIds() const { return impl_->ids(); }
 

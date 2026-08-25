@@ -55,6 +55,14 @@ export function bypassedOf(raw: unknown): Set<string> {
   );
 }
 
+/** …and `bus_only:`, which is a different question about a different thing — see docs/busOnly.md. */
+export function busOnlyOf(raw: unknown): Set<string> {
+  const list = (raw as { bus_only?: unknown })?.bus_only;
+  return new Set(
+    Array.isArray(list) ? list.filter((n) => typeof n === "string") : [],
+  );
+}
+
 /** The same derivation over an already-validated file. */
 export function chainsOf(
   file: GraphFile,

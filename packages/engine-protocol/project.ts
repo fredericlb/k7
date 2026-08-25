@@ -93,6 +93,8 @@ export interface PluginDoc {
   path: string; // resolved .vstpreset to LOAD (the module's own, else the extended module's); '' if none
   irFile?: string; // convolution modules only — an audio file the project owns, unlike `path`'s opaque blob
   namFile?: string; // amp-modeller modules only (a .nam model) — see irFile
+  // TURNTABLE modules only — the record the platter OWNS, decoded whole so a scratch can read it backwards.
+  deckFile?: string;
   // A DSP-graph module's description, INLINE as JSON because the engine parses no files and the plugin's constructor needs it.
   dspGraph?: string;
   // A Faust module's source, INLINE for the same reason — except the ENGINE compiles it, so the `.dsp` text itself travels.
@@ -139,6 +141,8 @@ export interface TrackDoc {
   solo: boolean;
   disabled: boolean;
   inputChannels: number[]; // 1-based physical channels; a label is resolved against ~/.studio first, so the engine only ever sees numbers
+  // Where this track LEAVES by. Empty is the mixer's sum, which is every track but a CUE bus — packages/song/docs/cue.md.
+  outputChannels: number[]; // 1-based physical channels, resolved the same way and for the same reason
   monitor: string; // Tracktion's "off" | "auto" (armed) | "on"; ignored when inputChannels is empty
   inputGain: number; // interface input trim in dB, 0 == unity; ignored when inputChannels is empty
   clips: ClipDoc[];

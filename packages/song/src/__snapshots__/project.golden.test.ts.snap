@@ -145,6 +145,7 @@ exports[`golden compile: rack-demo > compiles to a stable ProjectDoc (run \`vite
       "monitor": "auto",
       "mute": false,
       "name": "beat",
+      "outputChannels": [],
       "plugins": [
         {
           "enabled": true,
@@ -229,6 +230,7 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
       "monitor": "auto",
       "mute": false,
       "name": "kit",
+      "outputChannels": [],
       "plugins": [],
       "role": "regular",
       "sends": [],
@@ -747,6 +749,7 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
       "monitor": "auto",
       "mute": false,
       "name": "melody",
+      "outputChannels": [],
       "plugins": [
         {
           "enabled": true,
@@ -779,6 +782,7 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
       "monitor": "auto",
       "mute": false,
       "name": "pad",
+      "outputChannels": [],
       "plugins": [
         {
           "enabled": true,

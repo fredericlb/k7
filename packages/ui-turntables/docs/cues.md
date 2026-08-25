@@ -28,14 +28,17 @@ Un appui court sur un bouton **vide** ne fait rien, plutôt que de sauter à zé
 
 ## Ce qui est stocké : une position dans le FICHIER
 
-Un repère est une place dans le morceau — où est le drop, un fait sur l'enregistrement — alors
-que `seek` prend une place sur la timeline. Une platine étirée fait correspondre les deux par le
-rapport dont elle est étirée.
+Un repère est une place dans le morceau — où est le drop, un fait sur l'enregistrement. Stocker un
+nombre de timeline déplacerait **tous** les repères dès qu'on touche au fader de tempo, en silence.
 
-Stocker le nombre de la timeline déplacerait **tous** les repères dès qu'on touche au fader
-de tempo, en silence et seulement sur les platines étirées. `sourceAt` et
-`transportAt` sont cette conversion, et elle emporte aussi le décalage d'alignement du sync —
-ce qui garde une platine repérée après qu'on l'a calée.
+**Il n'y a plus de conversion à faire.** Une platine est un plateau, son aiguille est déjà en
+secondes du fichier, et c'est ce nombre qu'un appui long écrit. `sourceAt` / `transportAt` étaient
+cette conversion, du temps où une platine jouait un clip sur une timeline.
+
+Ça a été un vrai défaut, un moment : le bouton lisait la position du TRANSPORT, que plus aucune
+platine ne suit depuis que le plateau est le défaut. Poser un repère écrivait donc un nombre sans
+rapport avec l'endroit du disque — et y sauter marchait parfaitement, vers le mauvais endroit. Le
+bouton lit maintenant l'aiguille de SA platine (`needle`), et le `playhead` a quitté la vue.
 
 ## Dans mix.yaml, à côté du morceau
 
@@ -91,9 +94,18 @@ permet à une main de le trouver sans lire — l'intérêt même d'un repère ra
 sont réparties sur la roue et tiennent à distance l'ambre dans lequel l'affichage de tempo
 avertit, pour qu'un repère ne se confonde pas avec une alerte.
 
-## Ce qu'il faut savoir
+## Un repère ne déplace QUE sa platine
 
-Le moteur n'a **qu'un** transport (voir [mix.md](mix.md)). Sauter à un repère déplace donc
-**les deux** platines. C'est le moteur que le pupitre a, et un repère vaut quand même la peine dessus —
-mais ce n'est pas ce que fait une table à deux platines, et ça se remarquera le jour où on
-voudra caler une platine pendant que l'autre passe.
+Cette page a longtemps dit le contraire, et c'était une limite du `seek` plutôt que du problème.
+
+Le moteur n'a toujours qu'un transport (voir [mix.md](mix.md)), mais sauter à un repère n'y touche
+plus : c'est le **plateau** qui se déplace, par son `Seek`, et un plateau appartient à une platine.
+Poser l'aiguille sur la platine B pendant que la A passe ne bouge pas la A.
+
+Un disque séparé est quatre plateaux, et `plattersOf` les nomme tous les quatre : un repère les
+atteint ensemble, sinon les quatre parties se décalleraient entre elles.
+
+Il n'y a plus de borne à ce saut. Un repère est une **fraction du fichier**, donc il ne peut pas
+désigner un endroit qui n'existe pas — là où l'ancien mécanisme, qui déplaçait un clip, devait se
+retenir de le faire commencer avant le début de la timeline
+(`docs/platter-plan.md`, ce que l'étape 4 a supprimé).

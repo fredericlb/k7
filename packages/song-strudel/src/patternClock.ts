@@ -495,6 +495,7 @@ export class PatternClock {
       group: def.group,
       generated: true, // the pattern streams this lane; no clips can be authored on it
       inputChannels: [], // the pattern is the source here, not the interface
+      outputChannels: [], // …and it arrives at the mixer's sum like every other lane
       monitor: "auto",
       inputGain: 0, // a generated lane has no interface input to trim
       color: "",

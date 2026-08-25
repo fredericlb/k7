@@ -605,9 +605,9 @@ function positionsOf(
   return Object.keys(out).length ? out : undefined;
 }
 
-// Is `id` a sink: something the signal ENDS at, by name (OUT, MIX, RENDER, VIDEO_OUT), by role, or by shape.
+// Is `id` a sink: something the signal ENDS at, by name (OUT, MIX, RENDER, VIDEO_OUT, CUE), by role, or by shape.
 const isSink = (g: GraphDoc, id: string): boolean => {
-  // The four built-in outputs have no folder behind them — see docs/graphModel.md.
+  // The five built-in outputs have no folder behind them — see docs/graphModel.md.
   if (isBuiltinOutput(id)) return true;
   const m = g.modules[id];
   if (!m) return false;

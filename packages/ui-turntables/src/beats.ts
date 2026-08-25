@@ -58,17 +58,26 @@ export function firstBeatAfter(
 /** The metre everything here ASSUMES and nowhere measures — one number, so no two can drift apart. */
 export const BEATS_PER_BAR = 4;
 
-/** How far to delay the SLAVE so its beats land on the master's, in TIMELINE beats — ../docs/bpm.md. */
-export function alignDelay(
-  master: { natural: number; target: number; phase?: number },
-  slave: { natural: number; target: number; phase?: number },
-  docTempo: number,
+/** What a deck's grid says about where it is: its position in BEATS since its own first downbeat. */
+function beatsInto(
+  deck: { natural: number; phase?: number },
+  needle: number,
 ): number {
-  const beatOf = (d: { natural: number; target: number; phase?: number }) =>
-    d.target > 0 ? ((d.phase ?? 0) * d.natural) / d.target : 0;
-  const period = slave.target > 0 ? 60 / slave.target : 0;
-  if (!(period > 0) || !(docTempo > 0)) return 0;
-  const gap = beatOf(master) - beatOf(slave);
-  const seconds = ((gap % period) + period) % period;
-  return (seconds * docTempo) / 60;
+  return ((needle - (deck.phase ?? 0)) * deck.natural) / 60;
+}
+
+/** Where to seek the SLAVE so its beats land on the master's — two platters share no start, so this reads where they ARE. Null when a grid is unknown (../docs/bpm.md). */
+export function alignSeek(
+  master: { natural: number; phase?: number },
+  slave: { natural: number; phase?: number },
+  at: { master: number; slave: number },
+): number | null {
+  if (!(master.natural > 0) || !(slave.natural > 0)) return null;
+  if (master.phase === undefined || slave.phase === undefined) return null;
+  // The SHORTER way round: a platter can be pulled back as easily as pushed on, which a delay could not.
+  const off = beatsInto(master, at.master) - beatsInto(slave, at.slave);
+  const wrapped = off - Math.round(off);
+  const moved = at.slave + (wrapped * 60) / slave.natural;
+  // Never before the record starts: half a beat earlier than zero is a place a needle cannot go.
+  return moved >= 0 ? moved : moved + 60 / slave.natural;
 }

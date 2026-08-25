@@ -136,6 +136,7 @@ describe("the catalogue of modules", () => {
     expect(Object.keys(m)).toEqual([
       "@engine/IN",
       "@engine/OUT",
+      "@engine/CUE",
       "@engine/FILE",
     ]);
     expect(m["@engine/IN"]).toMatchObject({

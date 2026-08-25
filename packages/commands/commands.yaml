@@ -902,6 +902,50 @@
       },
     ]
 
+# WHAT THIS MACHINE SEPARATES ON — the ONNX execution providers, in the order they are tried.
+#
+# The default is `cpu` alone, and that is a decision rather than timidity: asking for `dml` first
+# was a GUESS about the hardware, and on a rig where it is wrong the job does not fall back — it
+# HANGS, un-interruptible from JavaScript, holding a worker and 26 GB until the job's hour is up.
+# CPU is four times faster than real time and cannot be unavailable. A machine that measured a
+# faster provider says so here, once, and it survives every restart.
+- command: "system onnx"
+  sid: system.onnx
+  readable:
+    en: "Set the execution providers separation runs on"
+    fr: "Choisir sur quoi tourne la séparation en stems"
+  help: "remember what this machine separates on (e.g. system onnx dml,cpu) — empty goes back to cpu"
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: providers,
+        hint: "in order, comma or space separated — cpu, dml, cuda, coreml",
+      },
+    ]
+
+# WHICH PAIR the `CUE` bus leaves by — the headphones, on a desk. Kept beside the answers above and
+# for the same reason: an interface has one headphone socket whatever project is open, so this is a
+# fact about the rig. See packages/song/docs/cue.md.
+#
+# Unset is a legitimate state and not a half-configured one: a laptop with a single output pair has
+# nowhere to send a cue, and a CUE bus on such a machine plays NOWHERE — deliberately silent rather
+# than folded into the mix, which would put the headphone feed into the room with nothing to say so.
+- command: "system cue"
+  sid: system.cue
+  readable:
+    en: "Set the interface pair the headphone CUE leaves by"
+    fr: "Choisir la paire de sortie du casque"
+  help: "remember the headphone pair (e.g. system cue 3+4, or a label from `system channel list`) — empty clears it"
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: channels,
+        hint: "the output channels — 3+4, or a label you gave them",
+      },
+    ]
+
 # --- the workspace's set lists (see @studio/song's docs/playlists.md) ---
 # A playlist belongs to the REPOSITORY rather than to a song: it lives in `_playlists/` at the
 # workspace root, so these two are the only verbs here that need no project open. The songs

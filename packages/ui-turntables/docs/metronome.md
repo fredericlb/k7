@@ -31,18 +31,13 @@ Sur une timeline ça suffit, parce que le tempo du document EST celui de la musi
 pupitre rien de tout ça n'est vrai :
 
 - le tempo du document est **figé** à 120, exprès, pour que deux platines puissent jouer à deux
-  BPM par leurs warps respectifs ;
-- la musique d'une platine est **dix minutes plus loin** ([bpm.md](bpm.md), la marge) ;
+  BPM ;
+- la musique d'une platine n'est **pas sur la timeline du tout** : elle est dans un plateau, à une
+  position que le plugin porte lui-même ;
 - son premier temps est là où l'enregistrement l'a mis, pas sur un temps du document.
 
 Ces deux grilles n'ont aucune raison de se rencontrer. Ce clic-là **flammerait** contre la
 musique — pire que pas de clic du tout, puisqu'on s'y calerait.
-
-Et on ne peut pas rattraper ça en donnant au document le tempo de la platine. Ça corrigerait
-l'**écartement** et pas la phase ; et la phase n'est pas rattrapable non plus, parce que tenir
-la musique immobile pendant un changement de tempo déplace le temps fort du morceau de
-`(où on en est − où est le temps) × la variation d'étirement` — soit une vingtaine de temps à
-deux minutes du début. L'alignement ne survivrait pas à un pas de fader.
 
 ## Ce que le pupitre fait à la place
 
@@ -51,9 +46,32 @@ Une piste de plus dans le document, avec un `4osc` et **un clip MIDI d'une mesur
 Les notes sont placées en temps du document utilisés purement comme une **unité de durée** :
 un temps de la platine vaut `DOC_TEMPO / cible` temps du document. À 128 contre un document à
 120, ça fait 0,9375 — un nombre non entier, et c'est très bien, personne ne compte ces temps-là.
-Le clip démarre sur le temps fort du morceau, via le `transportAt` qui porte déjà l'étirement,
-le retard du sync et le slip du fader de pitch. Le tempo du document n'est jamais touché et
-aucune platine n'est déplacée.
+Le tempo du document n'est jamais touché et aucune platine n'est déplacée.
+
+## Il a l'ÉCARTEMENT et il n'a pas la PHASE
+
+> **Le clic est le dernier habitant du transport, et plus rien ne l'y accompagne.** Une platine est
+> un plateau et porte sa propre position ; ce clip, lui, est posé sur une timeline que personne ne
+> suit. Il donne donc le bon **écartement** entre deux temps, et un **décalage arbitraire** contre la
+> musique — c'est-à-dire un flam, exactement ce que la section précédente refuse au métronome du
+> moteur.
+
+C'est vrai depuis que le plateau est le défaut ; l'étape 4 de `docs/platter-plan.md` n'a fait que
+cesser de le maquiller. Avant elle, le clip démarrait sur `transportAt(phase)` — une seconde de
+transport calculée à partir d'un début de clip qui n'existait plus. Le nombre était faux, mais il
+avait l'air d'être quelque chose. Maintenant le clip démarre à **zéro** et la page dit que la phase
+manque, ce qui est le même son avec un mensonge en moins.
+
+**Le remède n'est pas décidé.** Deux formes, aucune essayée :
+
+- **un plateau de plus**, qui jouerait un fichier de clic ; il partagerait alors la position et le
+  débit des autres, ce que la moitié du travail sait déjà faire (`plattersOf`) ;
+- **une ancre vivante** : à un instant donné on connaît l'aiguille de la platine ET le transport,
+  donc on sait poser le prochain temps fort. Ça se recalcule à chaque envoi de document, et ça
+  dérive dès qu'une main touche le disque.
+
+Le banc qui vérifiait le placement (`scripts/metronome.ts`) mesurait cette phase-là. Il a été
+supprimé avec elle : il ne peut revenir qu'avec une ancre à mesurer.
 
 Une mesure bouclée plutôt qu'une note par temps : le clip est reconstruit à **chaque pas** d'un
 glissement de tempo, et six minutes de morceau font mille notes à renvoyer et à diffuser pour un
@@ -81,17 +99,18 @@ présentes, chargées ou non, pour qu'un chargement soit un diff et pas une pist
 `graph.yaml` ne parle pas, et c'est assumé : le métronome est une commande du pupitre, pas une
 propriété du set. Ce que le projet déclare reste l'affaire du projet.
 
-## Le banc
+## Le banc qu'il y avait
 
-`packages/ui-turntables/scripts/metronome.ts`, pointé sur un moteur qui tourne. La platine joue un
-fichier **silencieux**, donc tout ce que la prise d'écoute entend est le clic, et chaque attaque
-est comparée à l'endroit où la grille de cette platine dit qu'un temps se trouve. Puis il bouge
-le tempo par le **vrai** geste (`nudgedTempos`, slip compris) et repose la même question, parce
-que le clip est reconstruit et que c'est le deuxième placement qui peut être faux.
+`scripts/metronome.ts` pointait sur un moteur qui tourne : la platine jouait un fichier
+**silencieux**, donc tout ce que la prise d'écoute entendait était le clic, et chaque attaque était
+comparée à l'endroit où la grille de cette platine disait qu'un temps se trouve.
 
-Mesuré : **30 clics, écart maximal 3,0 ms avant le changement et 3,1 ms après**. Les 3 ms sont
-le temps de montée du détecteur d'attaque, pas une erreur de placement — le plancher de la
-mesure.
+Mesuré, du temps des clips : **30 clics, écart maximal 3,0 ms avant un changement de tempo et
+3,1 ms après** — les 3 ms étant le temps de montée du détecteur d'attaque, soit le plancher de la
+mesure. Le placement était donc juste, et c'est le repère contre lequel une ancre devra se
+mesurer.
+
+Le banc lui-même est parti avec la phase qu'il vérifiait : sa question n'a plus de bonne réponse.
 
 ## Ce qui n'y est pas
 

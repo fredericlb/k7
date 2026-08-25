@@ -16,12 +16,16 @@ platines, pour qu'une troisième platine ne soit pas silencieusement impossible 
 | `deckA.eqMid`, `deckB.eqMid` | le médium | −20..+20 dB |
 | `deckA.eqHigh`, `deckB.eqHigh` | l'aigu | −20..+20 dB |
 | `deckA.filter`, `deckB.filter` | le filtre de balayage | −100..+100 |
+| `deckA.cue`, `deckB.cue` | la platine au casque, avant le crossfader | 0..1 |
+| `deckA.nudgeBack`, `deckB.nudgeBack` | retenir le disque de 10 ms | 0..1 |
+| `deckA.nudgeFwd`, `deckB.nudgeFwd` | le pousser d'autant | 0..1 |
 | `deckA.stemDrums`, `deckB.stemDrums` | la batterie qu'on RETIRE du disque | 0..1 |
 | `deckA.stemBass`, … | la basse, le reste, la voix — un contrôle chacun | 0..1 |
 
-Les quatre derniers sont **offerts sans être exigés** : un pupitre qui n'en câble aucun est un
-pupitre complet, et c'est le seul endroit où le squelette du scaffold et `REQUIRED_CONTROLS`
-diffèrent. Chacun nomme son PROPRE module (`cutBassA`), là où les trois bandes d'EQ se partagent
+Les quatre stems sont **offerts sans être exigés**, et le cue aussi — un pupitre qui n'en câble
+aucun est un pupitre complet. Ce sont les deux seuls endroits où le squelette du scaffold et
+`REQUIRED_CONTROLS` diffèrent, pour deux raisons voisines : un morceau peut n'avoir jamais été
+séparé, et une machine peut n'avoir qu'une paire de sortie ([cue.md](cue.md)). Chacun nomme son PROPRE module (`cutBassA`), là où les trois bandes d'EQ se partagent
 le leur — une coupe est un gain négatif sur la lane qui joue ce stem. Voir [stems.md](stems.md).
 | `transport` | lecture / arrêt | 0..1 |
 | `listen` | écouter dans cet onglet | 0..1 |

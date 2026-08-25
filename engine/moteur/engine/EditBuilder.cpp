@@ -2,9 +2,11 @@
 
 #include "EditBuilder.h"
 
+#include "AudioInputs.h"  // routeTrackOutput — which pair a track leaves by
 #include "Warnings.h"  // warn() — reaches the client, not just stderr
 #include "MasterGainPlugin.h" // the OUT node's Volume, behind the master chain
 #include "NamPlugin.h" // a .nam model is loaded onto the plugin as the Edit is built
+#include "TurntablePlugin.h" // …and a platter's record, for the same reason
 
 #include "PluginParams.h"    // applyPluginParams (via addPlugin)
 #include "PluginScan.h"      // cachedPluginInfos (via makeExternalPlugin)
@@ -263,13 +265,12 @@ void applyTrackParams(te::AudioTrack& track, const TrackDoc& t) {
 }
 
 // Solo is a mixer-wide relationship, so re-apply mute across ALL tracks after a sync — a per-track diff carries only the changed one.
-/** A lane heard through ONE bus and nowhere else: routed to it, never muted-and-sent — docs/editBuilder.md. */
+/** A lane heard through its buses and nowhere else: ROUTED to the first, aux-sent to the rest — docs/editBuilder.md. */
 bool feedsBusOnly(const TrackDoc& t) {
     if (!t.mute) return false;
-    int enabled = 0;
     for (const auto& s : t.sends)
-        if (s.enabled) ++enabled;
-    return enabled == 1;
+        if (s.enabled) return true;
+    return false;
 }
 
 void applySoloMute(te::Edit& edit, const ProjectDoc& doc) {
@@ -409,6 +410,13 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
                          " Hz - the model will not sound as trained",
                      p.id);
         }
+    // The RECORD a platter owns, decoded here on the message thread — the audio one never touches a file.
+    if (!p.deckFile.empty())
+        if (auto* deck = dynamic_cast<studio::TurntablePlugin*>(plugin.get())) {
+            juce::String err;
+            if (!deck->loadRecord(juce::File(juce::String(p.deckFile)), err))
+                warn(err.toStdString(), p.id);
+        }
     applyPluginParams(*plugin, p.params);                            // text params override the preset
 
     // Checked AFTER the params, because it depends on one: Normalize with no declared loudness has nothing to level to.
@@ -541,6 +549,8 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
         auto* track = audioTracks[static_cast<int>(i)];
         track->setName(juce::String(tdoc.name));
         applyTrackParams(*track, tdoc);
+        // Where it LEAVES by. HERE too, since an offline render builds its edit through this alone — docs/cueOutput.md.
+        routeTrackOutput(engine, *track, tdoc);
         for (const auto& c : tdoc.clips) {
             // A disabled event is placed but silent: it reaches us so the timeline can draw it, and is never built into the edit.
             if (c.disabled) continue;
@@ -584,6 +594,7 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
 
     // Auxiliary sends, a second pass once every track exists: one bus and one return per destination, one send per enabled feed.
     std::map<std::string, int> busForDest;   // dest track id -> bus number
+    std::set<te::AudioTrack*> routed;        // bus-only lanes whose ONE output is already spoken for
     int nextBus = 1;
     for (size_t i = 0; i < doc.tracks.size(); ++i) {
         auto* src = audioTracks[static_cast<int>(i)];
@@ -595,8 +606,9 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
                 warn("send target track not found: " + s.to);
                 continue;
             }
-            // Its only destination: ROUTE the output there, since a muted track would send silence (docs/editBuilder.md).
-            if (feedsBusOnly(doc.tracks[i])) {
+            // The FIRST destination is a ROUTING, which is what removes the dry path; the rest are sends (docs/editBuilder.md).
+            if (feedsBusOnly(doc.tracks[i]) && !routed.count(src)) {
+                routed.insert(src);
                 src->getOutput().setOutputToTrack(dest);
                 continue;
             }

@@ -14,6 +14,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <string>
 #include <system_error>
@@ -153,6 +154,23 @@ juce::BigInteger trackBits(te::Edit& edit, const juce::Array<te::Track*>& wanted
     return bits;
 }
 
+// Every track a MIXDOWN is made of: `tracksToDo` never consults output routing — docs/cueOutput.md.
+juce::Array<te::Track*> tracksOnTheMix(te::Edit& edit, const ProjectDoc& doc) {
+    // By INDEX, the correspondence populateEdit uses: only a bus happens to be named after its id.
+    auto audio = te::getAudioTracks(edit);
+    std::set<te::Track*> offTheMix;
+    for (size_t i = 0; i < doc.tracks.size() && i < static_cast<size_t>(audio.size()); ++i)
+        if (!doc.tracks[i].outputChannels.empty())
+            offTheMix.insert(audio[static_cast<int>(i)]);
+    juce::Array<te::Track*> keep;
+    for (auto* t : te::getAllTracks(edit))
+        if (t != nullptr && offTheMix.count(t) == 0) keep.add(t);
+    return keep;
+}
+
+// How long a render may make no progress before it is called stuck, rather than slow.
+constexpr int kStallTimeoutSeconds = 90;
+
 // Bounce a set of the edit's tracks to `out`, pumping runJob() by hand: the blocking renderToFile overloads route through UIBehaviour, a no-op headless.
 bool renderTracks(te::Edit& edit, const juce::File& out, const juce::BigInteger& bits, bool useMaster,
                   const tt::TimeRange& range, double sr) {
@@ -172,7 +190,21 @@ bool renderTracks(te::Edit& edit, const juce::File& out, const juce::BigInteger&
     auto task = te::render_utils::createRenderTask(params, "st0 export", &progress, nullptr);
     if (!task) return false;
     trace("runJob loop");
-    while (task->runJob() == juce::ThreadPoolJob::jobNeedsRunningAgain) {}
+    // Dispatch between blocks: a non-wav source plays off a PROXY whose render is kicked off by a juce Timer, so a loop that never pumps waits forever on a file nobody writes (docs/cliModes.md).
+    auto* mm = juce::MessageManager::getInstance();
+    auto lastProgress = progress.load();
+    auto lastMoved = std::chrono::steady_clock::now();
+    while (task->runJob() == juce::ThreadPoolJob::jobNeedsRunningAgain) {
+        mm->runDispatchLoopUntil(0);
+        const auto now = std::chrono::steady_clock::now();
+        if (progress.load() > lastProgress) { lastProgress = progress.load(); lastMoved = now; }
+        // A source the engine cannot decode leaves its node forever un-ready; fail loudly rather than spin, since a render that never returns reads as a wedged machine.
+        else if (now - lastMoved > std::chrono::seconds(kStallTimeoutSeconds)) {
+            std::cerr << "[render] stalled for " << kStallTimeoutSeconds
+                      << "s with no progress — a clip's source is probably undecodable\n";
+            return false;
+        }
+    }
     trace("runJob done");
     return out.existsAsFile() && out.getSize() > 0;
 }
@@ -252,7 +284,7 @@ int renderOffline(const ProjectDoc& doc, const std::string& baseDir,
         return renderTracks(*edit, out, bits, useMaster, range, sr);
     };
 
-    if (!renderOne(dir.getChildFile("mix.wav"), trackBits(*edit, te::getAllTracks(*edit)), true)) {
+    if (!renderOne(dir.getChildFile("mix.wav"), trackBits(*edit, tracksOnTheMix(*edit, doc)), true)) {
         std::cerr << "[render] mixdown produced no audio (song has nothing audible)\n";
         return 1;
     }

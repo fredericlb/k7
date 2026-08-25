@@ -73,17 +73,17 @@ rend la chose gratuite ; un appelant qui en construirait un en ligne doit le `us
 tout — il n'y a pas de chemin à demander — et le sélecteur le dit, plutôt que de montrer une liste
 vide qui ressemble à une médiathèque vide.
 
-## Poser un disque met le transport où la musique est
+## Poser un disque ne touche plus au transport
 
-`putOn` interroge le TRANSPORT, pas l'historique de l'onglet. Une question du genre « les deux
-platines étaient-elles vides avant celle-ci ? » répond à autre chose : rechargez la page et les
-platines reviennent vides pendant que le moteur tient encore leurs clips, donc le deuxième
-morceau de la soirée la trouve fausse, rien ne saute, et Play déroule en silence les dix minutes
-de rien qui précèdent `TIMELINE_BASE` ([bpm.md](bpm.md)).
+Il l'a fait, et la règle valait d'être écrite tant qu'une platine était un clip posé dix minutes
+plus loin sur la timeline : Play depuis zéro déroulait alors ces dix minutes en silence, donc
+`putOn` y sautait. Il fallait le demander au TRANSPORT et non à l'historique de l'onglet, parce
+qu'un rechargement de page rendait les platines vides pendant que le moteur tenait encore leurs
+clips.
 
-Demander au transport est à la fois plus simple et plus sûr : ça saute exactement quand la
-position est dans cette zone morte, et ça ne peut jamais ramener une platine qui joue à son
-sommet — une platine qui joue est déjà passé `TIMELINE_BASE`, donc `playFrom` répond `null`.
+Toute cette mécanique est partie avec la marge (étape 4 de `docs/platter-plan.md`). Un plateau
+possède son disque et n'est pas quelque part sur la timeline ; poser un disque n'a donc plus rien
+à dire au transport, et Play part de zéro comme dans n'importe quel projet.
 
 ## Ce qu'un appelant PÉRIMÉ doit quand même lire juste
 

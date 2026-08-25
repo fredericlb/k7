@@ -219,6 +219,21 @@ EngineHost::AudioTiming EngineHost::audioTiming() const {
             impl_->audioSampleRate.load(std::memory_order_relaxed)};
 }
 
+EngineHost::CallbackCost EngineHost::callbackCost() const {
+    // getCPUStatistics() loads one atomic the callback stored; the deadline comes from the SAME two atomics audioTiming reads, never the live device — docs/audioDevice.md.
+    const auto s = impl_->engine.getDeviceManager().getCPUStatistics();
+    const auto t = audioTiming();
+    return {s.meanSeconds,
+            s.maximumSeconds,
+            s.minimumSeconds,
+            static_cast<long long>(s.numRuns),
+            t.sampleRate > 0.0 ? t.bufferFrames / t.sampleRate : 0.0};
+}
+
+void EngineHost::resetCallbackCost() {
+    impl_->engine.getDeviceManager().restCPUStatistics();
+}
+
 std::string EngineHost::outputDeviceName() const {
     auto* dev = impl_->engine.getDeviceManager().deviceManager.getCurrentAudioDevice();
     if (dev == nullptr) return {};

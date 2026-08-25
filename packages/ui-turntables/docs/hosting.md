@@ -140,23 +140,21 @@ list precisely so adding one does not silently leave it unbindable.
 
 ## Verified how
 
-`npm run test --workspace @studio/ui-turntables` — pure logic: the deck document, the cue and
-slip maths, the beat grid, the bindings join, the set list, the waveform buckets. **Nothing
-mounts.**
+`npm run test --workspace @studio/ui-turntables` — pure logic: the deck document, the beat grid,
+the bindings join, the set list, the waveform buckets. **Nothing mounts.**
 
-**One failure mode here is a SOUND**, and `scripts/` holds the two harnesses for it. Both point
-at a running engine and drive the real `deckDoc` and `nudgedTempos`, so they measure what ships:
-
-- `tempo-drag.ts` — does moving the BPM fader move the MUSIC? It plays a source whose frequency
-  encodes its own position and reads the tone back off the broadcast tap, so a skip shows up as
-  a step in that number. `--raw` drops the slip correction, to measure the fader without it.
-- `metronome.ts` — does the click land ON the deck's beat? The deck plays a SILENT file, so
-  everything the tap hears is the click.
+**One failure mode here is a SOUND**, and `scripts/put-on.ts` is the harness left for it: it
+points at a running engine, drives the real `deckDoc`, and times the `applied` answer to putting a
+record on a deck that already holds one — the one gesture whose cost is paid in front of an
+audience (`docs/platter-plan.md`).
 
 ```
-npx tsx packages/ui-turntables/scripts/tempo-drag.ts [ws://127.0.0.1:8765] [--raw]
-npx tsx packages/ui-turntables/scripts/metronome.ts  [ws://127.0.0.1:8765]
+npx tsx packages/ui-turntables/scripts/put-on.ts [ws://127.0.0.1:8765]
 ```
 
-They live here rather than in a host, beside the maths they exercise and the pages that explain
-it (`docs/bpm.md`, `docs/metronome.md`).
+Three others lived here and went with the clip they measured (`tempo-drag.ts`, `metronome.ts`,
+`scratch-drag.ts`). What they established is kept where it belongs — `docs/bpm.md` for the fader,
+`docs/metronome.md` for the click, `docs/scratch.md` for the hand. The platter's own numbers are
+measured from the engine side now, in `engine/moteur/scripts/`.
+
+It lives here rather than in a host, beside the maths it exercises and the pages that explain it.

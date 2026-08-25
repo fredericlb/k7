@@ -35,6 +35,7 @@ const track = (clips: ClipDoc[]): TrackDoc => ({
   solo: false,
   disabled: false,
   inputChannels: [],
+  outputChannels: [],
   monitor: "off",
   inputGain: 0,
   clips,

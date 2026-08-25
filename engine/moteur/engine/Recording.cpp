@@ -129,6 +129,14 @@ void EngineHost::applyTrackInput(const std::string& session, const TrackDoc& t) 
     dev->setInputGainDb(static_cast<float>(t.inputGain));
 }
 
+// The live half of the routing: find the lane, then hand it to the same function populateEdit uses.
+void EngineHost::applyTrackOutput(const std::string& session, const TrackDoc& t) {
+    if (!impl_->session(session).edit) return;
+    auto* track = trackById(*impl_->session(session).edit, t.id, impl_->session(session).current);
+    if (track == nullptr) return;
+    routeTrackOutput(impl_->engine, *track, t);
+}
+
 // Wire every track to its input, enabling the DEVICES first and once per distinct channel set — docs/audioDevice.md.
 void EngineHost::applyAllTrackInputs(const std::string& session, const ProjectDoc& doc) {
     std::vector<std::vector<int>> toEnable;
@@ -145,6 +153,12 @@ void EngineHost::applyAllTrackInputs(const std::string& session, const ProjectDo
     if (!toEnable.empty()) impl_->engine.getDeviceManager().dispatchPendingUpdates();
 
     for (const auto& t : doc.tracks) applyTrackInput(session, t);
+}
+
+// Route every track that asked for a pair of its own. Only those: calling it for all would re-assert the default on every apply.
+void EngineHost::applyAllTrackOutputs(const std::string& session, const ProjectDoc& doc) {
+    for (const auto& t : doc.tracks)
+        if (!t.outputChannels.empty()) applyTrackOutput(session, t);
 }
 
 // Put every session's live inputs and arm flags back after the INTERFACE changed under them, dispatching the async rebuild first — docs/audioDevice.md.

@@ -5,6 +5,7 @@ import { mixControl } from "./controls";
 import {
   controlDriving,
   engineAgrees,
+  leavesByItsOwnPair,
   offlinePublish,
   resolveBindings,
   shownValue,
@@ -423,5 +424,39 @@ describe("what an offline module reads", () => {
       ]),
     ).bindings;
     expect(offlinePublish(cut, { deckA: TEMPO }, "Source BPM")).toEqual([]);
+  });
+});
+
+describe("leavesByItsOwnPair", () => {
+  const b = {
+    pluginId: "cueA:cueA",
+  } as Parameters<typeof leavesByItsOwnPair>[0];
+  const doc = (over: { outputChannels?: number[] }) => ({
+    tracks: [{ id: "cueA", ...over }],
+  });
+
+  it("says yes to a cue bus that leaves by a pair this rig has", () => {
+    expect(leavesByItsOwnPair(b, doc({ outputChannels: [3, 4] }))).toBe(true);
+  });
+
+  it("says NO to one this machine named no pair for", () => {
+    // A machine with no `system cue`: loaded, bound, heard nowhere — a button that would lie.
+    expect(leavesByItsOwnPair(b, doc({ outputChannels: [] }))).toBe(false);
+    expect(leavesByItsOwnPair(b, doc({}))).toBe(false);
+  });
+
+  it("reads the CHANNELS, never the mute — a `bus_only` strip is muted and perfectly audible", () => {
+    // The trap this replaced: keying on `mute` would have called eqA silent and killed the EQ knobs.
+    const strip = { pluginId: "eqA:eqA" } as typeof b;
+    const withStrip = {
+      tracks: [{ id: "eqA", outputChannels: [], mute: true }],
+    };
+    expect(leavesByItsOwnPair(strip, withStrip)).toBe(false);
+    // …which is why only the CUE control asks this question, and nothing else may.
+  });
+
+  it("says no when the document has no such track at all", () => {
+    expect(leavesByItsOwnPair(b, { tracks: [] })).toBe(false);
+    expect(leavesByItsOwnPair(b, null)).toBe(false);
   });
 });

@@ -36,8 +36,6 @@ import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 import { moduleKeyFromPath } from "@studio/song-schema/moduleTypes";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
-// The desk's rule about where PLAY starts, imported rather than restated here — see `transportForSet`.
-import { playFrom, TIMELINE_BASE } from "@studio/ui-turntables/deck";
 import {
   type EngineLatency,
   formatLatency,
@@ -636,20 +634,6 @@ export default function App({
 
   /** What the modules with NO plugin are set to, for the three screens that draw a graph — undefined when no surface realises one (docs/shell.md). */
   const offlineParams = hasTurntables ? turntableDeck.moduleParams : undefined;
-
-  /** The transport, with a SET's one rule folded in: play starts where the music is (`playFrom`) — docs/shell.md. */
-  const transportForSet = useCallback(
-    (action: TransportAction) => {
-      const starting = action === "play" || (action === "toggle" && !playing);
-      if (hasTurntables && starting) {
-        // The RAW anchor, not `drawNow`: this decides whether to MOVE the transport, and the steered reader may be 10% out.
-        const from = playFrom(turntableDeck.playhead.current.seconds);
-        if (from !== null) seek(from);
-      }
-      transport(action);
-    },
-    [hasTurntables, playing, seek, transport, turntableDeck.playhead],
-  );
 
   // The screen is mirrored in the URL both ways; these four setters are the only way it changes. See routes.ts.
   useViewRoute(
@@ -1265,7 +1249,7 @@ export default function App({
       if (BARE_TRANSPORT.includes(line)) {
         // On a snapshot there IS no slow path: `transport` is already the browser player, so it always answers.
         if (!frozen && (!connected || engineBusyRef.current)) return false;
-        transportForSet(line.slice("transport ".length) as TransportAction);
+        transport(line.slice("transport ".length) as TransportAction);
         return true;
       }
       // `rec <track>`: an instrument track arms in the browser, an audio track in the engine. See docs/shell.md.
@@ -2348,7 +2332,7 @@ export default function App({
                   // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
                   disabled={transportWaiting}
                   onClick={(e) => {
-                    transportForSet(playing ? "stop" : "play");
+                    transport(playing ? "stop" : "play");
                     blurOnClick(e);
                   }}
                   title={
@@ -2380,9 +2364,8 @@ export default function App({
                   variant="secondary"
                   onClick={(e) => {
                     transport("stop");
-                    // 'Back to the start' — and on a SET the start is not zero; see `playFrom`, the same rule read the other way round.
-                    if (hasTurntables) seek(TIMELINE_BASE);
-                    else transport("rewind");
+                    // Zero on a set too: every record is on a platter, and the timeline holds only the click.
+                    transport("rewind");
                     blurOnClick(e);
                   }}
                   title={m["transport.stop"]()}
