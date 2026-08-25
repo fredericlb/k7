@@ -77,6 +77,19 @@ function entryOf(r: ResolvedItem, entries: MediatekEntry[]): SetEntry {
   };
 }
 
+/** What NAMES a row: the VARIANT is part of it, since a master and its instrumental are two records. */
+export const entryKey = (ref: string, variant?: string): string =>
+  `${ref.replace(/^\/+|\/+$/g, "")}\u0000${variant ?? ""}`;
+
+/** The row a dragged playlist line means, or undefined when this set list does not carry it. */
+export function entryForDrag(
+  entries: readonly SetEntry[],
+  drag: { song: string; variant?: string },
+): SetEntry | undefined {
+  const want = entryKey(drag.song, drag.variant);
+  return entries.find((e) => entryKey(e.ref, e.variant) === want);
+}
+
 /** Resolve a playlist against a catalogue listing — every ref kept, duplicates dropped. See docs/setList.md. */
 export function resolveSet(
   text: string | null,
@@ -101,8 +114,7 @@ export function resolveSet(
   const out: SetEntry[] = [];
   for (const r of resolveItems(parsed.items, entries)) {
     const row = entryOf(r, entries);
-    // The VARIANT is part of the identity: a master and its instrumental are two records.
-    const key = `${row.ref}\u0000${row.variant ?? ""}`;
+    const key = entryKey(row.ref, row.variant);
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(row);

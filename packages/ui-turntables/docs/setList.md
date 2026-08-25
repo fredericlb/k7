@@ -94,6 +94,33 @@ rangées identiques sont deux chances de charger le même disque sans savoir leq
 La variante fait partie de l'identité : le master d'un morceau et son instrumental sont deux
 disques, et les confondre en jetterait un des deux.
 
+## Glisser une ligne sur une platine
+
+Le panneau **playlist de st0** — celui de la roue dentée, ancré à droite — peut rester ouvert
+pendant qu'une surface `turntables` est à l'écran. Ses rangées sont donc `draggable`, et chaque
+platine est une **zone de dépôt**, la tranche et les potards compris : viser l'étiquette du
+vinyle est un geste de souris posée, pas de main qui traverse l'écran.
+
+**Ce qui voyage est la LIGNE, pas le morceau résolu.** `SongDrag` porte les deux champs qu'une
+ligne de playlist *est* — `song` et, quand elle en nomme une, `variant` — et le pupitre les
+résout contre sa propre set list, exactement comme il a résolu les autres. Faire voyager l'entrée
+de médiathèque déjà résolue reviendrait à laisser une autre moitié de l'application décider ce
+qui monte sur la platine, avec sa propre idée du fichier à jouer ; la ligne, elle, ne peut mentir
+que sur elle-même. C'est aussi ce qui fait que le doublon et la variante gardent ici le sens
+qu'ils ont plus haut : `entryKey` est la même identité des deux côtés.
+
+Le format est **notre propre MIME** (`application/x-studio-song`) plutôt que `text/plain` : un
+navigateur laisse tomber sur une page à peu près n'importe quoi — un fichier, une URL, un
+morceau de texte sélectionné — et une platine qui accepterait `text/plain` chargerait ce que
+l'utilisateur vient de copier ailleurs. `parseSongDrag` refuse en plus tout ce qui n'est pas la
+forme attendue : le contenu d'un transfert est écrit par la page d'où il vient.
+
+**Un morceau que cette surface ne connaît pas est refusé par son nom.** Le panneau montre la
+playlist qu'on est en train d'éditer, qui n'est pas forcément celle que la surface nomme — et
+c'est un cas fréquent, pas une erreur de programmation. Le dépôt le dit dans la carte d'erreur
+de la vue plutôt que de ne rien faire, parce qu'un geste qui échoue en silence se relit comme
+un bug du glisser-déposer.
+
 ## Ce qui joue, une fois la ligne choisie
 
 Le document **compilé** du projet, dans lequel `withDecks` pose les clips des deux platines —

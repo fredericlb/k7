@@ -8,6 +8,11 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
+import {
+  parseSongDrag,
+  SONG_DRAG_TYPE,
+  type SongDrag,
+} from "@studio/mediatek/playlistItems";
 import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
 import type { Stem } from "@studio/song-schema/stems";
 import {
@@ -38,6 +43,7 @@ import {
   service,
 } from "../service";
 import {
+  entryForDrag,
   NO_PLAYLIST,
   resolveSet,
   type SetEntry,
@@ -182,6 +188,17 @@ export function MixView({
     }
   };
 
+  /** A line dropped from the playlist panel — resolved against THIS surface's set list, or refused by name. */
+  const dropped = (deckId: DeckId, drag: SongDrag) => {
+    const row = entryForDrag(set?.entries ?? [], drag);
+    // A panel may show another playlist than the one the surface names; saying so beats a dead drop.
+    if (!row)
+      return setError(
+        `${drag.song} : ce morceau n'est pas dans la playlist de cette surface`,
+      );
+    load(deckId, row);
+  };
+
   /** Put a song on a deck: it PLAYS at once, and the analysis lands separately, when it lands. */
   const load = (deckId: DeckId, s: SetEntry) => {
     // `link` is implied by `root` but carried explicitly, so the waveform fetch below assumes nothing.
@@ -313,6 +330,7 @@ export function MixView({
           onNudge={(bpm) => decks.nudge("deckA", bpm)}
           onCommit={decks.release}
           onPick={() => setBrowsing("deckA")}
+          onDropSong={(d) => dropped("deckA", d)}
           eq={decks.eqOf("deckA")}
           eqLive={decks.eqLive("deckA")}
           onEq={(band, dB) => decks.turnEq("deckA", band, dB)}
@@ -343,6 +361,7 @@ export function MixView({
           onNudge={(bpm) => decks.nudge("deckB", bpm)}
           onCommit={decks.release}
           onPick={() => setBrowsing("deckB")}
+          onDropSong={(d) => dropped("deckB", d)}
           eq={decks.eqOf("deckB")}
           eqLive={decks.eqLive("deckB")}
           onEq={(band, dB) => decks.turnEq("deckB", band, dB)}
@@ -543,6 +562,7 @@ function DeckSide({
   onNudge,
   onCommit,
   onPick,
+  onDropSong,
   eq,
   eqLive,
   onEq,
@@ -576,6 +596,8 @@ function DeckSide({
   onCommit: () => void;
   /** The record's middle was clicked — open the browser for this deck. */
   onPick: () => void;
+  /** A playlist line was dropped on this deck, already read off the transfer — ../../docs/setList.md. */
+  onDropSong: (drag: SongDrag) => void;
   /** This deck's EQ knobs, in dB by band id, and whether they reach anything. */
   eq: Partial<Record<string, number>>;
   eqLive: boolean;
@@ -626,8 +648,32 @@ function DeckSide({
     />
   );
 
+  const [over, setOver] = useState(false);
   return (
-    <section className="flex min-w-0 flex-1 gap-2">
+    // The WHOLE deck takes the drop, knobs included: aiming at the record's label is a gesture for a mouse at rest.
+    // biome-ignore lint/a11y/noStaticElementInteractions: a drop has no keyboard form; the vinyl's button is the one that has.
+    <section
+      className={`flex min-w-0 flex-1 gap-2 rounded-lg ${over ? "outline outline-2 outline-primary/70" : ""}`}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes(SONG_DRAG_TYPE)) return;
+        // Both, and in this order: without preventDefault the browser refuses the drop without a word.
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setOver(true);
+      }}
+      onDragLeave={(e) => {
+        // Only when the pointer LEFT the deck — a child's boundary fires this too.
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+          setOver(false);
+      }}
+      onDrop={(e) => {
+        setOver(false);
+        const drag = parseSongDrag(e.dataTransfer.getData(SONG_DRAG_TYPE));
+        if (!drag) return;
+        e.preventDefault();
+        onDropSong(drag);
+      }}
+    >
       {/* The STEMS on the left of BOTH decks, unmirrored: what they remove belongs to the record. */}
       <StemStrip
         stems={stems}

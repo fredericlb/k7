@@ -8,8 +8,10 @@ import { Button } from "@frediverse/ui/button";
 import {
   itemLabel,
   itemProblem,
+  packSongDrag,
   type ResolvedItem,
   resolveItems,
+  SONG_DRAG_TYPE,
   songMatches,
   songRef,
 } from "@studio/mediatek/playlistItems";
@@ -427,9 +429,21 @@ export function PlaylistPane({
 
                   // biome-ignore lint/suspicious/noArrayIndexKey: see above
                   key={i}
+                  // Draggable onto a DECK — the line travels, not the song, see ui-turntables/docs/setList.md.
+                  draggable={!problem && !missing}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(
+                      SONG_DRAG_TYPE,
+                      packSongDrag({
+                        song: r.item.song,
+                        ...(r.item.variant ? { variant: r.item.variant } : {}),
+                      }),
+                    );
+                    e.dataTransfer.effectAllowed = "copy";
+                  }}
                   className={`group/row flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
                     loadedHere ? "bg-accent/60" : "hover:bg-accent/30"
-                  }`}
+                  } ${!problem && !missing ? "cursor-grab active:cursor-grabbing" : ""}`}
                 >
                   <span className="w-6 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
                     {i + 1}

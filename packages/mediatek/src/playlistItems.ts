@@ -38,6 +38,32 @@ export function songMatches(entry: MediatekEntry, query: string): boolean {
   return words.every((w) => hay.includes(w));
 }
 
+// --- dragging a line onto a deck: the vocabulary BOTH listings speak (ui-turntables/docs/setList.md) ---
+
+/** Our own MIME, so a deck accepts a playlist row and refuses every other thing a browser can drop. */
+export const SONG_DRAG_TYPE = "application/x-studio-song";
+
+/** What travels is the LINE, not the resolved song: the deck resolves it exactly as its own set list did. */
+export interface SongDrag {
+  song: string;
+  variant?: string;
+}
+
+export const packSongDrag = (d: SongDrag): string => JSON.stringify(d);
+
+/** …and back, refusing anything that is not one — a drop carries whatever the page it came from wrote. */
+export function parseSongDrag(text: string): SongDrag | null {
+  try {
+    const v = JSON.parse(text) as Partial<SongDrag>;
+    if (typeof v?.song !== "string" || !v.song) return null;
+    return typeof v.variant === "string" && v.variant
+      ? { song: v.song, variant: v.variant }
+      : { song: v.song };
+  } catch {
+    return null;
+  }
+}
+
 /** One line, as far as the two listings can take it. */
 export interface ResolvedItem {
   item: PlaylistItem;

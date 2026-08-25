@@ -1,6 +1,12 @@
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
-import { browseSongs, NO_PLAYLIST, resolveSet, type SetEntry } from "./setList";
+import {
+  browseSongs,
+  entryForDrag,
+  NO_PLAYLIST,
+  resolveSet,
+  type SetEntry,
+} from "./setList";
 
 // The browser's list comes from the PLAYLIST the surface names — see ../docs/setList.md.
 
@@ -208,5 +214,35 @@ describe("a playlist resolved against the cache", () => {
 
     expect(NO_PLAYLIST.absent).toBe(true);
     expect(NO_PLAYLIST.issues).toEqual([]);
+  });
+});
+
+describe("the row a dropped playlist line means", () => {
+  const set = resolveSet(
+    "items:\n  - a/b/song\n  - song: a/b/song\n    variant: instrumental\n",
+    [],
+  );
+
+  it("finds the master and its variant apart", () => {
+    // Two records, one ref: dropping the instrumental must not put the master on the deck.
+    expect(
+      entryForDrag(set.entries, { song: "a/b/song" })?.variant,
+    ).toBeUndefined();
+    expect(
+      entryForDrag(set.entries, { song: "a/b/song", variant: "instrumental" })
+        ?.variant,
+    ).toBe("instrumental");
+  });
+
+  it("forgives the slashes a line may carry", () => {
+    // `entryOf` trims them off the row, so the drag has to be read the same way or nothing matches.
+    expect(entryForDrag(set.entries, { song: "/a/b/song/" })?.ref).toBe(
+      "a/b/song",
+    );
+  });
+
+  it("says nothing for a song this set list does not carry", () => {
+    // The panel may show ANOTHER playlist than the surface names — the view turns this into a sentence.
+    expect(entryForDrag(set.entries, { song: "x/y/z" })).toBeUndefined();
   });
 });
