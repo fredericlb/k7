@@ -179,6 +179,37 @@ Trois choses à en retenir, dont deux corrigent ce qu'on croyait :
 À rejouer avec `engine/moteur/scripts/param-cost.mjs` contre un moteur qui a un projet chargé — sans projet, le
 `set` s'arrête au défaut de la map et mesure le témoin des deux côtés.
 
+### Le callback audio est à 5 % de son échéance, geste compris
+
+Suite du précédent : le chemin de contrôle ne coûtant rien, restait à savoir si le thread AUDIO
+approchait sa date limite — c'est la seule chose qu'un pilote remarque. Tracktion mesure déjà chaque
+bloc (`DeviceManager::getCPUStatistics`, moyenne/min/**max**) ; le verbe `audio-cost` l'expose.
+
+Mesuré le 2026-08-25, tampon 512 à 48 kHz, soit une **échéance de 10,67 ms par bloc** :
+
+| état | blocs | moyen | pire bloc |
+|---|---|---|---|
+| moteur au repos, rien de chargé | 563 en 6 s | 0,010 ms | 0,046 ms (0,4 %) |
+| pupitre chargé, disque qui tourne | 90 s, 30 fenêtres | 0,13 ms | 0,476 ms (4,5 %) |
+| … sans geste, fenêtre de 5 s | 469 | 0,178 ms | 0,565 ms (5,3 %) |
+| … **scratch piloté à 2918 réglages/s** | 469 | 0,201 ms | 0,456 ms (4,3 %) |
+
+Le scratch — trois fois la cadence d'une souris — ajoute **0,023 ms** à la moyenne et fait *baisser*
+le maximum : l'écart est du bruit. Le compte de blocs ne bouge pas non plus (93,8/s, la valeur
+exacte de 512 à 48 kHz), donc aucun bloc n'est perdu.
+
+**Ce que ça clot.** L'engin n'approche jamais sa date limite : facteur vingt de marge sur le pire
+bloc observé, dans toutes les conditions essayées. La théorie « on envoie trop d'instructions à la
+carte » est morte deux fois — le chemin de contrôle est gratuit, et le thread audio ne s'en aperçoit
+pas. Le point d'arrêt dans `FocusriteUsb.sys` reste un défaut de pilote, sans levier de ce côté-ci.
+
+**Le piège de lecture, pour la prochaine fois.** J'ai d'abord écarté le relevé en voyant
+`tracks=3` dans `list-sessions`, croyant à un document de secours. C'était faux : depuis les
+platines, les quatre parties d'un disque sont jouées par des GREFFONS sur la piste de la platine et
+non par des lanes, donc trois pistes est le compte juste d'un pupitre complet. La vérification qui
+tranche n'est pas le nombre de pistes mais l'existence d'un greffon — demander
+`stemDrumsA:platter` au moteur.
+
 ## Stabilité
 
 ### Le filet d'exceptions
