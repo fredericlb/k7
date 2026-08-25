@@ -144,6 +144,41 @@ raisonnement **mesuré**, y compris un cas où hoisser une portée se révèle p
 
 ---
 
+### Le chemin de contrôle n'est pas un goulot, et il en avait l'air
+
+Deux écrans bleus `KMODE_EXCEPTION_NOT_HANDLED` dans `FocusriteUsb.sys` ont fait soupçonner le
+débit de `set-plugin-param` : le scratch en envoyait un par `pointermove`, soit 500 à 1000 par
+seconde. Mesuré le 2026-08-25 contre un moteur chargé, sur `eqA:eqA` (12 paramètres), en
+réémettant à chaque fois la valeur COURANTE pour que tout le chemin s'exécute sans que le son
+bouge :
+
+| envoi + drainage complet | témoin (`id` inexistant) | réglages réels |
+|---|---|---|
+| 5 000 messages | 45 ms | 45 ms |
+| 20 000 messages | 168 ms | 173 ms |
+
+Soit **entre 0,2 et 0,9 µs de travail moteur par réglage** selon la passe — l'écart est du bruit
+de mesure, ce qui est déjà la réponse — et un débit d'environ **110 000 par seconde**. Le scratch, à
+son pire, en utilisait moins d'un millième. Et une sonde postée derrière 20 000 messages en attente
+revient en 1,1 ms : la file `callAsync` ne se laisse pas engorger.
+
+Trois choses à en retenir, dont deux corrigent ce qu'on croyait :
+
+- **La lecture du code disait le contraire.** `pluginParams()` reconstruit le vecteur entier des
+  paramètres, chaque entrée portant quatre `std::function`, puis compare par `toStdString()` — on
+  en attendait une centaine d'allocations par réglage, donc des microsecondes. La mesure dit moins
+  d'une microseconde. **Ne pas optimiser ce chemin sans le remesurer d'abord.**
+- **Le coût réel est côté NAVIGATEUR.** 168 ms pour émettre 20 000 messages, c'est 8,4 µs par
+  message en `JSON.stringify` + `ws.send`, sur le thread principal qui dessine le pupitre. C'est ça
+  que l'étranglement du scratch économise — pas le moteur.
+- **Donc ça n'explique pas le bugcheck.** En ASIO le pilote nous APPELLE ; il n'existe pas de file
+  d'instructions vers la carte. Ce qui peut fauter un pilote, c'est un callback tardif ou bloquant,
+  et le chemin de contrôle ne touche jamais le thread audio. Les vrais candidats sont dans
+  `engine/moteur/docs/audit-stabilite.md`, section « Real-time safety ».
+
+À rejouer avec `engine/moteur/scripts/param-cost.mjs` contre un moteur qui a un projet chargé — sans projet, le
+`set` s'arrête au défaut de la map et mesure le témoin des deux côtés.
+
 ## Stabilité
 
 ### Le filet d'exceptions
