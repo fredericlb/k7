@@ -20,11 +20,21 @@ règle** : sur les deux platines, le bloc est **à gauche**. Ce que ces quatre p
 propriété du DISQUE et pas de la géométrie du pupitre, et chercher « la basse de la platine de
 droite » ne doit pas demander de savoir de quel côté le bloc est posé aujourd'hui.
 
-**Contre sa platine, pas au bord du pupitre.** Le bloc était la première colonne de chaque moitié,
-donc le tempo (platine A) ou l'EQ (platine B) s'intercalait entre les potards et le disque dont ils
-viennent. L'ordre est maintenant `TEMPO | STEMS | PLATINE A | EQ` d'un côté et
-`EQ | STEMS | PLATINE B | TEMPO` de l'autre : le bloc touche sa platine, et ce qui est mis
-en miroir — le tempo dehors, l'EQ dedans — le reste.
+**À côté du DISQUE, pas dans une colonne à lui.** Le bloc a d'abord été une colonne pleine hauteur du
+rang des platines ; il est maintenant dans la colonne de la platine, sur la même ligne que le
+vinyle et à sa gauche, au-dessus de la waveform. C'est la même main qui pose le disque et qui en
+retire la voix, donc les deux gestes sont au même endroit — et la waveform, elle, garde toute la
+largeur, parce qu'on la lit d'un bord à l'autre.
+
+Ça lui coûte zéro hauteur : le bloc est plus court que le plus petit vinyle qu'on dessine
+(`VINYL_MIN`, 176 px) à tous les crans de l'échelle, donc la ligne fait la taille du disque.
+`deskLayout.test` tient cette inégalité à chaque cran, parce que c'est elle que `deskLayout`
+suppose : un cran où le bloc serait plus grand agrandirait la ligne et pousserait la waveform hors
+de la colonne, sans que rien ne le dise.
+
+Quand la colonne est trop courte pour un disque, le bloc n'a plus de voisin et prend une ligne à
+lui — là il coûte sa hauteur, et `deskLayout` la retire à la waveform. D'où son second argument :
+un pupitre qui ne câble aucune coupe ne doit pas payer pour un bloc qu'il ne dessine pas.
 
 Même potard, même échelle de tailles, même centrage que la tranche d'à côté (`ChannelStrip`) —
 c'est le même geste sur la même sorte de chose, **et la même course** : le milieu est le neutre et

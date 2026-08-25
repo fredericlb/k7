@@ -41,6 +41,27 @@ Pourquoi un plafond à 180 : une forme d'onde se lit pour sa **forme** — où e
 les temps — et passé un certain point plus d'amplitude ne dit rien de neuf. Le reste de la place
 sert à ce que les repères et le titre restent là où la main les attend.
 
+## Le bloc de stems, qui ne coûte rien tant qu'il y a un disque
+
+Les quatre potards de stems sont sur la **même ligne que le vinyle**, à sa gauche
+([stems.md](stems.md)). C'est gratuit en hauteur, et le tableau ci-dessus explique pourquoi :
+`stemStripHeight` vaut au plus 150 px au cran le plus large, quand le plus petit disque qu'on
+dessine en fait 176. La ligne fait donc la taille du disque, et le budget est inchangé.
+
+Ce n'est pas une coïncidence à laisser dormir : `deskLayout.test` vérifie
+`stemStripHeight(s) <= VINYL_MIN` à chaque cran de l'échelle. Un potard dessiné plus grand ici, ou
+une troisième rangée, casserait l'inégalité — et la casserait en silence, en agrandissant la ligne
+jusqu'à pousser la forme d'onde hors d'une colonne dont personne ne revérifie la somme.
+
+Quand le disque est tombé (étape 1 du tableau), le bloc n'a plus de voisin. Il prend alors une ligne
+à lui et la forme d'onde la paye — elle grandit un peu moins que ce que le disque a libéré. C'est
+le second argument de `deskLayout`, et il existe parce que la réponse dépend du SET : un pupitre qui
+ne câble aucune coupe de stem ne doit pas réserver la place d'un bloc qu'il ne dessine jamais.
+
+Un troisième test additionne tout le budget — forme d'onde, repères, titre, gaps, bloc — à chaque
+hauteur qu'un panneau peut avoir, et exige que la somme tienne dans la colonne. C'est la seule
+vérification qui attrape une erreur d'arithmétique ici sans avoir à regarder l'écran.
+
 ## Et la tranche de console, qui rétrécit sous peine de perdre son filtre
 
 Une platine a **deux** colonnes : celle décrite ci-dessus, et la **tranche** — trois potards

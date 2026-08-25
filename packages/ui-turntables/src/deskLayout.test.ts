@@ -80,11 +80,36 @@ describe("deskLayout", () => {
     expect(pane.filter).toBeLessThan(tall.filter);
   });
 
-  it("keeps the STEM column inside whatever the strip fits in", () => {
-    // It borrows the strip's step, which is only safe while it is the SHORTER of the two.
-    for (let h = 0; h <= 900; h += 7) {
-      const s = stripLayout(h);
-      expect(stemStripHeight(s), `at ${h}`).toBeLessThanOrEqual(stripHeight(s));
+  it("keeps the STEM block shorter than the smallest RECORD it sits beside", () => {
+    // `deskLayout` leans on this: the row is as tall as the disc — ../docs/deskLayout.md.
+    for (let h = 0; h <= 900; h += 7)
+      expect(stemStripHeight(stripLayout(h)), `at ${h}`).toBeLessThanOrEqual(
+        VINYL_MIN,
+      );
+  });
+
+  it("charges the waveform for the block only when there is NO record", () => {
+    // The two cases the flag exists for, either side of the height where the disc is dropped.
+    const tall = 600;
+    expect(deskLayout(tall, true).vinyl).toBeGreaterThan(0);
+    expect(deskLayout(tall, true).waveform).toBe(deskLayout(tall).waveform);
+
+    const short = 320;
+    expect(deskLayout(short, true).vinyl).toBe(0);
+    expect(deskLayout(short, true).waveform).toBeLessThan(
+      deskLayout(short).waveform,
+    );
+  });
+
+  it("still fits the column when the block takes a row of its own", () => {
+    // The whole budget, added up, at every height a pane can be: nothing may exceed what it was given.
+    for (let h = 120; h <= 900; h += 7) {
+      const l = deskLayout(h, true);
+      const block = stemStripHeight(l.strip) + 12;
+      const used =
+        l.waveform + 28 + (l.title ? 16 + 12 : 0) + 12 + (l.vinyl ? 0 : block);
+      // The floored waveform is allowed to overflow a hopeless column — that case is its own test.
+      if (l.waveform > 44) expect(used, `at ${h}`).toBeLessThanOrEqual(h);
     }
   });
 

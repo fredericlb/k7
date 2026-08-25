@@ -79,7 +79,7 @@ export function stripLayout(height: number): StripLayout {
 }
 
 /** What to draw in a deck column `height` tall — the record goes first, the waveform never. See ../docs/deskLayout.md. */
-export function deskLayout(height: number): DeskLayout {
+export function deskLayout(height: number, stems = false): DeskLayout {
   const h = Math.max(0, height);
   // The strip is the same height's problem on its own ladder — the two columns share a box only.
   const strip = stripLayout(h);
@@ -90,13 +90,17 @@ export function deskLayout(height: number): DeskLayout {
   if (forVinyl >= VINYL_MIN)
     return {
       vinyl: Math.min(forVinyl, VINYL_MAX),
+      // The stem block sits BESIDE the record and costs no height — `deskLayout.test` holds that.
       waveform: WAVE_BASE,
       title: true,
       strip,
     };
 
+  // With no record to sit beside, the block has a row of its own and the waveform pays for it.
+  const block = stems ? stemStripHeight(strip) + GAP : 0;
+
   // Without it, the waveform takes the space the record gave up — the whole point of dropping it.
-  const withTitle = h - (CUES + TITLE + GAP * 2);
+  const withTitle = h - (CUES + TITLE + GAP * 2) - block;
   if (withTitle >= WAVE_MIN)
     return {
       vinyl: 0,
@@ -106,7 +110,7 @@ export function deskLayout(height: number): DeskLayout {
     };
 
   // Tighter than that the title goes, and the waveform is FLOORED rather than allowed to vanish.
-  const bare = h - (CUES + GAP);
+  const bare = h - (CUES + GAP) - block;
   return {
     vinyl: 0,
     waveform: Math.max(WAVE_MIN, Math.min(bare, WAVE_MAX)),

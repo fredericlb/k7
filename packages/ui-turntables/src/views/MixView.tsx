@@ -259,7 +259,11 @@ export function MixView({
 
   /** What each deck draws, decided by the room the decks row has — measured, not told: ../../docs/deskLayout.md. */
   const deckRow = useRef<HTMLDivElement>(null);
-  const layout = deskLayout(useContentHeight(deckRow));
+  // The stem block only costs height when there is no record for it to sit beside — ../../docs/deskLayout.md.
+  const layout = deskLayout(
+    useContentHeight(deckRow),
+    decks.stemLive("deckA") || decks.stemLive("deckB"),
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -687,31 +691,33 @@ function DeckSide({
     >
       {/* Tempo on the OUTER edge and shaping on the INNER one, so the desk reads as a mirror. */}
       {side === "A" ? fader : strip}
-      {/* The STEMS against their OWN deck and on its left, on both sides: unmirrored, ../../docs/stems.md. */}
-      <StemStrip
-        stems={stems}
-        live={stemLive}
-        ready={stemsReady}
-        prep={stemPrep}
-        layout={layout.strip}
-        onStem={onStem}
-      />
       <div className="flex min-w-0 flex-1 flex-col items-center gap-3">
-        {/* The record, only when the deck is tall enough to be worth one — ../../docs/deskLayout.md. */}
-        {layout.vinyl > 0 ? (
-          <Vinyl
-            side={side}
-            artist={load?.artist ?? null}
-            title={load?.title ?? null}
-            spinning={spinning && !!load}
-            onPick={onPick}
-            // The FILE's clock (`sourceAt`) off the STEERED reader (`drawNow`) — see ../../docs/hosting.md.
-            at={() => sourceAt(drawNow(), tempo)}
-            length={tempo?.seconds ?? 0}
-            markers={cues}
-            size={layout.vinyl}
+        {/* The STEMS beside the record and to its LEFT, above the waveform — ../../docs/stems.md. */}
+        <div className="flex shrink-0 items-center justify-center gap-2">
+          <StemStrip
+            stems={stems}
+            live={stemLive}
+            ready={stemsReady}
+            prep={stemPrep}
+            layout={layout.strip}
+            onStem={onStem}
           />
-        ) : null}
+          {/* The record, only when the deck is tall enough to be worth one — ../../docs/deskLayout.md. */}
+          {layout.vinyl > 0 ? (
+            <Vinyl
+              side={side}
+              artist={load?.artist ?? null}
+              title={load?.title ?? null}
+              spinning={spinning && !!load}
+              onPick={onPick}
+              // The FILE's clock (`sourceAt`) off the STEERED reader (`drawNow`) — see ../../docs/hosting.md.
+              at={() => sourceAt(drawNow(), tempo)}
+              length={tempo?.seconds ?? 0}
+              markers={cues}
+              size={layout.vinyl}
+            />
+          ) : null}
+        </div>
         {/* Under the record, and ALWAYS drawn even with nothing loaded — ../../docs/deskLayout.md. */}
         <Waveform
           envelope={wave?.k === "ready" ? wave.env : null}
