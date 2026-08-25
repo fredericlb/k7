@@ -185,7 +185,8 @@ Suite du précédent : le chemin de contrôle ne coûtant rien, restait à savoi
 approchait sa date limite — c'est la seule chose qu'un pilote remarque. Tracktion mesure déjà chaque
 bloc (`DeviceManager::getCPUStatistics`, moyenne/min/**max**) ; le verbe `audio-cost` l'expose.
 
-Mesuré le 2026-08-25, tampon 512 à 48 kHz, soit une **échéance de 10,67 ms par bloc** :
+Mesuré le 2026-08-25, tampon 512 à 48 kHz — la valeur d'un après-midi, rendue à 256 depuis, et
+c'est ce relevé qui l'a rendue — soit une **échéance de 10,67 ms par bloc** :
 
 | état | blocs | moyen | pire bloc |
 |---|---|---|---|
@@ -197,6 +198,12 @@ Mesuré le 2026-08-25, tampon 512 à 48 kHz, soit une **échéance de 10,67 ms p
 Le scratch — trois fois la cadence d'une souris — ajoute **0,023 ms** à la moyenne et fait *baisser*
 le maximum : l'écart est du bruit. Le compte de blocs ne bouge pas non plus (93,8/s, la valeur
 exacte de 512 à 48 kHz), donc aucun bloc n'est perdu.
+
+À 256, le même banc à vide donne 0,007 ms de moyenne et 0,137 de pire bloc pour une échéance de
+5,33 ms — 2,6 %, et 187,5 blocs par seconde, la valeur exacte. La mesure **en charge** à 256 reste
+à faire : le pupitre n'avait pas renvoyé son projet après le redémarrage du moteur. Le rapport
+attendu est le même qu'à 512 — moitié moins d'échantillons par bloc contre moitié moins de temps —
+mais c'est une attente, pas un chiffre.
 
 **Ce que ça clot.** L'engin n'approche jamais sa date limite : facteur vingt de marge sur le pire
 bloc observé, dans toutes les conditions essayées. La théorie « on envoie trop d'instructions à la

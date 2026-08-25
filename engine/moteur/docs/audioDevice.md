@@ -15,7 +15,7 @@ What the running engine reports:
 
 ```
 [device] 'Haut-parleurs (Focusrite USB Audio)' open: 2 in, 2 out
-whoami: bufferSize=512 sampleRate=48000
+whoami: bufferSize=256 sampleRate=48000
 ```
 
 and the same machine's device list:
@@ -181,28 +181,32 @@ stays as inert as `Settings.xml`.
 
 ## The buffer size the engine asks for
 
-`kPreferredBufferFrames` is **512**, asked of every device the engine opens, and it decides the
+`kPreferredBufferFrames` is **256**, asked of every device the engine opens, and it decides the
 engine's quality band — which decides what you can DO here. A browser reads `2 × buffer / rate` as
 the audio half of the link's latency (a block in, a block out) and adds its measured round trip;
-under 20 ms is playable, see `packages/web-protocol/docs/quality.md`.
+under 20 ms is playable, see `packages/web-protocol/docs/quality.md`. At 48 kHz, 256 frames is
+10.7 ms and leaves room for the network, while the 480 a Windows endpoint hands out by default is
+20 ms on its own and lands the machine in front of you in Q2.
 
-**It was 256, and raising it costs Q1.** At 48 kHz, 256 frames is 10.7 ms and leaves room for the
-network; 512 is **21.3 ms, which is already over the Q1 line before a single packet moves**. Every
-machine now shows Q2 at best, and that is not a badge artefact — the round trip really is twice
-what it was.
+**It was 512 for an afternoon, and the trial is worth keeping.** Two `KMODE_EXCEPTION_NOT_HANDLED`
+bugchecks on the machine this was written for, on 23 and 25 August 2026, both with exception
+`0x80000003` — a breakpoint, i.e. the driver reaching its own assertion — at
+`FocusriteUsb.sys+0x1ED6D` and `+0x1ECAD`, 192 bytes apart and so almost certainly the same
+routine. Both minidumps name `studio-moteur` as the current process. A bigger buffer is the
+standard answer to a driver that asserts on a late buffer switch, so 512 was tried.
 
-What bought it is a **kernel crash**. Two `KMODE_EXCEPTION_NOT_HANDLED` bugchecks on the machine
-this was written for, on 23 and 25 August 2026, both with exception `0x80000003` — a breakpoint,
-i.e. the driver reaching its own assertion — at `FocusriteUsb.sys+0x1ED6D` and `+0x1ECAD`, 192
-bytes apart and so almost certainly the same routine. Both minidumps name **`studio-moteur` as the
-current process**. The engine cannot execute a kernel breakpoint, so the fault is the driver's
-(4.144.0.362, a retail build); but the engine is what drives it there, twice out of twice, and it
-was doing it **at 256 frames**. A bigger buffer is the standard answer to a driver that asserts on a
-late buffer switch, and it is the only lever on this side.
+It was given up the same day, for a reason that is a measurement rather than a mood. 512 at 48 kHz
+is 21.3 ms, **over the Q1 line before a packet moves** — every machine reads Q2 at best, and the
+round trip really is twice what it was. And by then `audio-cost` had measured the callback: at 512
+under a driven scratch it cost 0.201 ms of mean against a 10.67 ms deadline, worst block 0.456 ms —
+**about 5 %**. An engine with twenty times the headroom it needs is not an engine the buffer is
+protecting; paying Q1 for it buys a margin nothing was consuming. `docs/constat.md` holds the
+numbers.
 
-Said plainly because the next reader will want to undo it: **this is a mitigation, not a fix**, and
-if the driver is ever repaired the right move is to put 256 back and get Q1 with it. The dumps are
-the evidence, not a hunch — offsets above.
+So the crash stays where the dump put it: inside a retail driver (4.144.0.362) that executes a
+kernel breakpoint, with no lever on this side. Raising the buffer again is a reasonable thing to
+try if it recurs — it is one constant — but do it knowing it was tried, what it cost, and that the
+callback was nowhere near its deadline either way.
 
 It is a PREFERENCE, not a promise. `applyPreferredBufferSize` takes the nearest size the device
 offers, ties going to the LARGER — too small drops out, and a dropout is a worse failure than a
