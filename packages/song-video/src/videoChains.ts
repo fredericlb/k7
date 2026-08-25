@@ -68,10 +68,12 @@ function stepDoc(
       ...(audioSourceOf(step) ? { audioFrom: audioSourceOf(step) } : {}),
     };
   }
-  if (category === "video_effects" || category === "video_transitions")
+  // Not `video_transitions`: one is NAMED by a cut and never wired, so it falls through to the
+  // `return null` below and `validate()` is what says so — see docs/transitions.md.
+  if (category === "video_effects")
     return {
       id,
-      type: category === "video_effects" ? "video_effect" : "video_transition",
+      type: "video_effect",
       name: step.module,
       enabled,
       // Numbers only: a file-valued param means nothing to a renderer — docs/shaders.md.

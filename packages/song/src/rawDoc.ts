@@ -70,6 +70,9 @@ export interface RawVideoPlacement {
   start?: unknown;
   length?: unknown;
   source_from?: unknown;
+  // A number, or `{ over, with }` naming the module that draws it (song-video/docs/transitions.md).
+  fade_in?: unknown;
+  fade_out?: unknown;
 }
 
 /** A video track file's struct (video_tracks/<id>.yaml). */

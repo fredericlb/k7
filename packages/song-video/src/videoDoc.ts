@@ -11,6 +11,24 @@ export interface VideoClipDoc {
   start: number; // seconds on the timeline
   length: number; // seconds; 0 == the source's natural length
   sourceFrom: number; // seconds, the in-point INTO the source
+  // How this shot arrives and leaves; absent is a hard cut — see docs/transitions.md.
+  fadeIn?: VideoFadeDoc;
+  fadeOut?: VideoFadeDoc;
+}
+
+/** A transition ON a placement: how long, and which kind. The kind's GLSL is on the PROJECT, once per name. */
+export interface VideoFadeDoc {
+  over: number; // seconds
+  with: string; // a modules/video_transitions/ name, or DISSOLVE
+}
+
+/** A transition's two stages, read off `modules/video_transitions/<name>/` and carried INLINE. */
+// Keyed by NAME rather than per instance: one program serves every cut that names it.
+export interface VideoTransitionDoc {
+  name: string;
+  vertex: string;
+  fragment: string;
+  params: Record<string, number>; // P1..P4, clamped 0..1 at compile
 }
 
 // A shape drawn straight onto the viewport, in px. A square/text x,y is its top-left, a circle's its CENTRE.
@@ -45,7 +63,8 @@ export interface ShaderSourceDoc {
 // A video chain's step, folded onto its lane so the renderer applies it per placement; VIDEO_OUT is the sink.
 export interface VideoPluginDoc {
   id: string; // "<trackId>:<stepIndex>" — the renderer's per-instance key
-  type: "video_effect" | "video_transition" | "shader"; // mirrors the module's `type`
+  // Mirrors the module's `type`, minus `video_transition`: one is never a chain step, docs/transitions.md.
+  type: "video_effect" | "shader";
   name: string; // the module NODE's name — what the graph calls this card
   enabled: boolean; // chain step `enabled`; false == bypassed by the renderer
   params: Record<string, number>;
@@ -89,4 +108,6 @@ export interface VideoProjectDoc {
   markers: VideoMarker[]; // sorted by second
   /** The `RENDER -> VIDEO_OUT` run — the picture's `masterPlugins`, always present; docs/shaders.md. */
   framePlugins: VideoPluginDoc[];
+  /** Every transition a placement NAMES, by name; the built-in dissolve is absent — the renderer owns it. */
+  transitions: Record<string, VideoTransitionDoc>;
 }

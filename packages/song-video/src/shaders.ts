@@ -15,7 +15,7 @@ import {
 const MAX_ANCESTRY = 16;
 
 /** Just enough of a module to find its folder and its parent — the resolved map and the ref map both fit. */
-interface ShaderOwner {
+export interface ShaderOwner {
   category?: unknown;
   file?: unknown;
   extends?: unknown;
@@ -53,7 +53,8 @@ function shadersIn(folderAbs: string): string[] {
 }
 
 /** The module folders to look in, nearest first — off the ref map, so no walk per ancestor. */
-function ownerFolders(
+// Exported for videoTransitions.ts, which walks the same ancestry over a different folder shape.
+export function ownerFolders(
   dir: string,
   module: ShaderOwner | undefined,
   refs: Readonly<Record<string, ShaderOwner>>,

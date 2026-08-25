@@ -65,6 +65,12 @@ export const SHADER_FRAGMENT = "fragment.glsl";
 /** The TYPE FOLDER a shader module lives in — the same word as `SHADERS_DIR` and a different fact, see docs/moduleTypes.md. */
 export const SHADER_CATEGORY = "shaders";
 
+/** The TYPE FOLDER a transition module lives in; unlike a shader's, one is NAMED by a placement and never wired. */
+export const TRANSITION_CATEGORY = "video_transitions";
+
+/** The kind a bare `fade_in: 1` means — resolved by the renderer, so a plain fade needs no module on disk. */
+export const DISSOLVE = "dissolve";
+
 /** The four knobs every shader gets, numbered rather than named and 0..1 — see packages/song-video/docs/shaders.md. */
 export const SHADER_PARAMS = ["P1", "P2", "P3", "P4"] as const;
 export type ShaderParam = (typeof SHADER_PARAMS)[number];
@@ -135,6 +141,8 @@ export const MODULE_TYPES: Record<
     inputs: [{ name: "in", type: "video" }],
     outputs: [{ name: "out", type: "video" }],
   },
+  // NAMED by a placement, never wired: the ports stay declared but `validate()` refuses the cable.
+  // Not emptied — empty ports mean UNCONSTRAINED here (graph.ts's normalizeInputs), the opposite.
   video_transitions: {
     kind: "plugin",
     inputs: [{ name: "in", type: "video" }],

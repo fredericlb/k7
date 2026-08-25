@@ -17,6 +17,7 @@ import {
   portRef,
   RENDER_NODE,
   splitPort,
+  TRANSITION_CATEGORY,
 } from "@studio/song-schema/moduleTypes";
 import { parsePosition } from "@studio/song-schema/timecode";
 import type { ControllerFile } from "@studio/song-schema/yaml/moduleSchema";
@@ -740,6 +741,12 @@ export function validate(g: GraphDoc): string[] {
       else if (module.extends && !g.moduleRefs[module.extends])
         w.push(
           `chain '${name}': module '${s.module}' extends unknown module '${module.extends}'`,
+        );
+      // A transition is NAMED by a cut, not wired: said by name, since the ports cannot say it —
+      // an empty `inputs` means UNCONSTRAINED here. See song-video/docs/transitions.md.
+      else if (module.category === TRANSITION_CATEGORY)
+        w.push(
+          `chain '${name}': '${s.module}' is a transition, and a transition is not wired — a cut names it (\`fade_in: { over: 1, with: ${s.module} }\` on a placement in video_tracks/<lane>.yaml)`,
         );
     }
     for (const o of c.out) {

@@ -29,6 +29,25 @@ describe("validate", () => {
     );
   });
 
+  it("refuses a TRANSITION on a chain, by name — a cut names one, a cable never does", () => {
+    // Its declared ports cannot say this: an empty `inputs` means UNCONSTRAINED (normalizeInputs),
+    // so the refusal has to be a line of its own. See song-video/docs/transitions.md.
+    const g = doc({
+      a: { use: [{ module: "wipe" }], out: [{ to: "OUT", gain: 1 }] },
+    });
+    g.modules.wipe = {
+      kind: "plugin",
+      category: "video_transitions",
+      inputs: [],
+      outputs: [],
+    };
+    expect(validate(g)).toContainEqual(
+      expect.stringMatching(
+        /'wipe' is a transition, and a transition is not wired/,
+      ),
+    );
+  });
+
   it("flags a chain with no out as a dead end", () => {
     expect(validate(doc({ a: { use: [], out: [] } }))).toContainEqual(
       expect.stringMatching(/has no out \(dead end\)/),

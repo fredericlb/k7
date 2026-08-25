@@ -6,6 +6,7 @@
 import { resolve } from "node:path";
 import { loadGraph } from "@studio/song/graph";
 import {
+  loadModuleRefs,
   loadProjectRoot,
   loadVideoTracks,
   readYamlEntities,
@@ -14,6 +15,7 @@ import type { RawClip } from "@studio/song/rawDoc";
 import { compileVideoChains } from "./videoChains";
 import type { VideoMarker, VideoProjectDoc } from "./videoDoc";
 import { compileVideoTracks, readViewport } from "./videoTracks";
+import { collectTransitions } from "./videoTransitions";
 
 /** A wall-clock position -> seconds; minutes and seconds only, since `1:30:00` would read as `bar:beat:tick`. */
 export function parseWallClock(tc: string): number | null {
@@ -65,6 +67,9 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     }
   })();
 
+  // Off the REF MAP and not the graph, so an unreadable `graph.yaml` cannot delete every wipe — docs/transitions.md.
+  const transitions = collectTransitions(abs, tracks, loadModuleRefs(abs));
+
   return {
     ...(typeof proj.uuid === "string" ? { uuid: proj.uuid } : {}),
     name: String(proj.name ?? "untitled"),
@@ -75,5 +80,6 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     ),
     markers: parseVideoMarkers(root.markers),
     framePlugins: chains.frame,
+    transitions,
   };
 }

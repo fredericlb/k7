@@ -44,6 +44,8 @@ export function sceneOf(proj: WebVideoProject): VideoScene {
         start: c.start,
         length: c.length,
         sourceFrom: c.sourceFrom,
+        ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
+        ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
       })),
       // A shape lane carries no media — the compositor rasterizes it, and a per-shape id is synthesised, the file naming none.
       shapes: t.shapes.map((s, i) => ({ id: `${t.id}:${i}`, ...s })),
@@ -52,5 +54,7 @@ export function sceneOf(proj: WebVideoProject): VideoScene {
     })),
     // The RENDER -> VIDEO_OUT run, over the frame they were composited into.
     passesOf(proj.framePlugins),
+    // …and the transitions the cuts NAME, whose GLSL rides inline for the reason a shader's does.
+    proj.transitions,
   );
 }

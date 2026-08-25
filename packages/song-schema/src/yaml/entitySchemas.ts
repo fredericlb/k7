@@ -166,12 +166,31 @@ export const ShapeSchema = z.discriminatedUnion("type", [
   TextShapeSchema,
 ]);
 
+/** The map form of a transition; the bare seconds spelling is widened into it before parsing. */
+export const FadeSchema = z
+  .object({
+    over: z.number().min(0), // seconds
+    // A module in modules/video_transitions/, by its bare name; absent is the built-in dissolve.
+    with: z.string().min(1).optional(),
+  })
+  .strict();
+
+/** How a shot arrives or leaves: seconds alone is the built-in dissolve — see song-video/docs/transitions.md. */
+// Widened rather than a union: a union reports a typo'd key as a bare "Invalid input" with no line.
+export const TransitionSchema = z.preprocess(
+  (v) => (typeof v === "number" ? { over: v } : v),
+  FadeSchema,
+);
+
 export const VideoPlacementSchema = z
   .object({
     ref: z.string().min(1),
     start: z.number().min(0).optional(), // seconds on the timeline
     length: z.number().min(0).optional(), // 0 == to the end of the source
     source_from: z.number().min(0).optional(),
+    // Seconds, and a DURATION rather than a position — the audio placement's fadeIn in this file's dialect.
+    fade_in: TransitionSchema.optional(),
+    fade_out: TransitionSchema.optional(),
   })
   .strict();
 
@@ -188,7 +207,21 @@ export const VideoTrackSchema = z
     events: z.array(VideoPlacementSchema).optional(), // "video" tracks only — see #Module's `events:`
     shapes: z.array(ShapeSchema).optional(), // "shape" tracks only
   })
-  .strict();
+  .strict()
+  // A fade_out is measured back from an END, and the LAST length-0 shot has none — the only case with no answer.
+  // A length-0 shot with another after it is fine: its end is that one's start, which is activeAt's own rule.
+  .superRefine((t, ctx) => {
+    const ev = t.events;
+    if (!ev?.length) return;
+    const i = ev.length - 1;
+    if (ev[i].fade_out && !ev[i].length)
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "fade_out needs an end, and this shot has `length: 0` with nothing after it — give it a length, or put a shot after it",
+        path: ["events", i, "fade_out"],
+      });
+  });
 
 /** The kinds this file covers, by their folder name — what a loader looks up. */
 export const ENTITY_SCHEMAS = {

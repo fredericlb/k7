@@ -14,9 +14,10 @@ import {
   UrlSource,
   VideoSampleSink,
 } from "mediabunny";
+import type { LayerBlend } from "./compositor";
 import { Compositor } from "./compositor";
 import type { VideoScene } from "./scene";
-import { activeAt } from "./timeline";
+import { type Active, layerFrameAt } from "./timeline";
 
 export interface ExportOptions {
   // Frames to emit, defaulting to duration × fps. A song ending on a natural-length clip has no known end, so pass one.
@@ -52,9 +53,13 @@ export async function exportScene(
   const comp = Compositor.create(canvas, scene);
 
   // Open (Input, sink) lazily per distinct src and cache it, so a cut reuses a source and a shared clip decodes once.
+  // Keyed by src AND SLOT: a shot dissolving into itself would otherwise ask one sink for two
+  // timestamps a frame, and mediabunny's fast path needs them monotonically sorted — a decoder
+  // flush per frame, silently, for the length of the fade.
   const cache = new Map<string, { input: Input; sink: VideoSampleSink }>();
-  const sinkFor = async (src: string) => {
-    let hit = cache.get(src);
+  const sinkFor = async (src: string, slot: 0 | 1) => {
+    const key = `${slot}:${src}`;
+    let hit = cache.get(key);
     if (!hit) {
       const input = new Input({
         source: new UrlSource(src),
@@ -63,7 +68,7 @@ export async function exportScene(
       const track = await input.getPrimaryVideoTrack();
       if (!track) throw new Error(`eyes: ${src} has no video track to export`);
       hit = { input, sink: new VideoSampleSink(track) };
-      cache.set(src, hit);
+      cache.set(key, hit);
     }
     return hit.sink;
   };
@@ -83,6 +88,7 @@ export async function exportScene(
     for (let n = 0; n < total; n++) {
       const t = n / fps;
       const visible = new Set<string>();
+      const blends = new Map<string, LayerBlend>();
       for (const layer of scene.layers) {
         if (layer.hidden) continue;
         // A shape layer has no media to sample: mark it visible and let draw() paint the fills the compositor holds.
@@ -90,20 +96,36 @@ export async function exportScene(
           visible.add(layer.id);
           continue;
         }
-        const hit = activeAt(layer, t);
-        if (!hit) continue;
-        const sink = await sinkFor(hit.clip.src);
-        const sample = await sink.getSample(hit.sourceTime);
-        if (!sample) continue;
-        try {
-          // toCanvasImageSource() yields an OffscreenCanvas or VideoFrame — either uploads exactly like a <video>.
-          comp.upload(layer.id, sample.toCanvasImageSource());
-          visible.add(layer.id);
-        } finally {
-          sample.close(); // a VideoSample holds GPU memory until closed — a leak here OOMs
+        const frame = layerFrameAt(layer, t);
+        // Slot 0 is the outgoing picture and slot 1 the incoming one; a cut uses slot 0 alone.
+        const wanted: { active: Active; slot: 0 | 1 }[] = frame.blend
+          ? [
+              ...(frame.from ? [{ active: frame.from, slot: 0 as const }] : []),
+              ...(frame.to ? [{ active: frame.to, slot: 1 as const }] : []),
+            ]
+          : frame.to
+            ? [{ active: frame.to, slot: 0 as const }]
+            : [];
+        let from = false;
+        let to = false;
+        for (const w of wanted) {
+          const sink = await sinkFor(w.active.clip.src, w.slot);
+          const sample = await sink.getSample(w.active.sourceTime);
+          if (!sample) continue;
+          try {
+            // toCanvasImageSource() yields an OffscreenCanvas or VideoFrame — either uploads exactly like a <video>.
+            comp.upload(layer.id, sample.toCanvasImageSource(), w.slot);
+            if (w.slot === 0) from = true;
+            else to = true;
+          } finally {
+            sample.close(); // a VideoSample holds GPU memory until closed — a leak here OOMs
+          }
         }
+        if (!from && !to) continue;
+        visible.add(layer.id);
+        if (frame.blend) blends.set(layer.id, { ...frame.blend, from, to });
       }
-      comp.draw(visible);
+      comp.draw(visible, blends);
       // Encode the canvas as this frame; mediabunny bounds its own queue, so awaiting here is the backpressure.
       await canvasSource.add(t, 1 / fps);
       onProgress?.({ frame: n + 1, total });

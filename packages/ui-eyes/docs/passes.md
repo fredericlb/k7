@@ -92,6 +92,23 @@ sortie de la passe précédente ensuite. C'est tout ce qui les fait s'enchaîner
 Un emplacement nul dans un `PassProgram` est donc **normal** — un shader qui ignore `uP3` n'a pas
 de `uP3`, et écrire dans un emplacement nul est un no-op en WebGL, pas une erreur.
 
+### `TRANSITION_UNIFORMS`, le second contrat
+
+Une **transition** prend deux images et une progression, ce qui est une autre forme : elle a donc sa
+propre liste, `uFrom` / `uTo` / `uProgress` à côté de `uTime`, `uResolution` et `uP1..uP4`
+([transitions.md](../../song-video/docs/transitions.md)). Deux décisions valent d'être écrites :
+
+- **`uTex` n'y est pas**, délibérément. Un fragment copié depuis un module `shaders` échoue à
+  l'écriture au lieu d'échantillonner silencieusement du vide — ce que la règle ci-dessus rend
+  autrement indétectable.
+- **`uAudio` non plus** : c'est le seul uniforme d'un shader qui exige un **câble**, et une
+  transition est nommée par une coupe, donc elle n'a pas de nœud d'où lire un niveau.
+
+Les deux compilations passent par un seul `linkProgram` — le même `bindAttribLocation` avant le
+lien, le même `finally` qui libère les étages, la même retombée sur `null` avec un avertissement qui
+nomme le nœud. Une transition et une passe ne peuvent donc pas diverger sur la façon dont elles sont
+construites, seulement sur la liste qu'elles demandent.
+
 ## L'attribut est lié à l'emplacement 0 AVANT le lien
 
 ```ts

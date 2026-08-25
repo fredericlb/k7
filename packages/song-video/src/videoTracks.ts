@@ -9,7 +9,24 @@ import type {
   RawVideoPlacement,
   RawVideoTrack,
 } from "@studio/song/rawDoc";
-import type { ShapeDoc, VideoClipDoc, VideoTrackDoc } from "./videoDoc";
+import { DISSOLVE } from "@studio/song-schema/moduleTypes";
+import type {
+  ShapeDoc,
+  VideoClipDoc,
+  VideoFadeDoc,
+  VideoTrackDoc,
+} from "./videoDoc";
+
+/** A placement's fade in the ONE shape everything downstream copies — the scalar's sugar is undone HERE. */
+// Normalised at the first hop so the union never leaves song-schema and five later copies see one shape.
+export function readFade(raw: unknown): VideoFadeDoc | undefined {
+  if (typeof raw === "number")
+    return raw > 0 ? { over: raw, with: DISSOLVE } : undefined;
+  if (!raw || typeof raw !== "object") return undefined;
+  const over = Number((raw as { over?: unknown }).over ?? 0);
+  if (!(over > 0)) return undefined; // a zero-length fade is a cut, which is the absence of one
+  return { over, with: String((raw as { with?: unknown }).with ?? DISSOLVE) };
+}
 
 // A placement -> a VideoClipDoc, in plain DECIMAL SECONDS: no tempo map ever reaches picture.
 export function videoPlacementToClip(
@@ -18,6 +35,8 @@ export function videoPlacementToClip(
   clipsMap: Record<string, RawClip>,
 ): VideoClipDoc {
   const ref = String(p.ref ?? "");
+  const fadeIn = readFade(p.fade_in);
+  const fadeOut = readFade(p.fade_out);
   return {
     id: ref,
     name: ref,
@@ -25,6 +44,9 @@ export function videoPlacementToClip(
     start: Number(p.start ?? 0),
     length: Number(p.length ?? 0),
     sourceFrom: Number(p.source_from ?? 0),
+    // Absent stays absent, the way a lane with no chain carries no `plugins`.
+    ...(fadeIn ? { fadeIn } : {}),
+    ...(fadeOut ? { fadeOut } : {}),
   };
 }
 

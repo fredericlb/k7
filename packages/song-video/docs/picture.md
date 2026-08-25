@@ -69,8 +69,12 @@ kind: video
 x: 0, y: 0, w: 1280, h: 720    # where in the viewport; omit for the full frame
 events:
   - { ref: shot_a, start: 0, length: 4 }
-  - { ref: shot_b, start: 4, length: 0, source_from: 2.5 }
+  - { ref: shot_b, start: 3, length: 0, source_from: 2.5, fade_in: 1 }
 ```
+
+`fade_in`/`fade_out` say how a shot arrives and leaves, in seconds; a bare number is a dissolve and
+a map names a kind. Overlapping two shots and fading the later one in is a cross-dissolve —
+[transitions.md](transitions.md).
 
 `length: 0` runs to the end of the source — a duration the compiler cannot know without opening
 the file, so it uses the same convention a length-0 audio clip does. `source_from` trims the
@@ -95,10 +99,13 @@ three-hour cut writes `10800`.
 
 - **`video_source`.** An audio lane inheriting a video lane's placements, so a shot and its
   sound cannot drift. Nothing reads the key.
-- **`video_effect` / `video_transition` chains.** Those two shapes of `VideoPluginDoc` are
-  modelled and uncompiled: nothing turns one into anything a renderer runs. Their SIBLING is —
-  a `shaders` module compiles all the way to a GLSL pass on the frame
-  ([shaders.md](shaders.md)), over the `graph.yaml` → renderer path. What is missing is a plugin
-  format for the other two.
+- **`video_effect` chains.** That shape of `VideoPluginDoc` is modelled and uncompiled: nothing
+  turns one into anything a renderer runs. Its SIBLINGS both have a format now — a `shaders`
+  module compiles all the way to a GLSL pass on the frame ([shaders.md](shaders.md)), over the
+  `graph.yaml` → renderer path, and a **transition** has one that is deliberately not that path
+  ([transitions.md](transitions.md)): a cut NAMES it, so it is never wired. What is missing is a
+  plugin format for `video_effect` alone.
+- **A fade_out that reveals the shot beneath it on the SAME lane.** A reveal belongs to the incoming
+  shot, and its `fade_in` is at its own start ([transitions.md](transitions.md)).
 - **Export.** `@studio/ui-eyes`'s `exportScene` works frame-by-frame through WebCodecs; no
   surface mounts a button for it.

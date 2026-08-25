@@ -33,6 +33,27 @@ Le mélange est un `over` en alpha **droit** (non prémultiplié), pour qu'un fo
 mélanger ; sur une texture vidéo, opaque, c'est un no-op. À l'intérieur d'une chaîne de passes il est
 éteint, et [passes.md](passes.md) dit pourquoi.
 
+### …sauf la couche qui fond, qui est PRÉMULTIPLIÉE
+
+Une couche en cours de transition est composée avec `blendFunc(ONE, ONE_MINUS_SRC_ALPHA)`, le temps
+de ce seul blit, puis la fonction est remise. Ce n'est pas un détail de goût :
+
+`mix(uFrom, uTo, p)` contre un texel **transparent** donne `rgb·(1−p)` **et** `a = 1−p`. En alpha
+droit, le mélange multiplie ensuite ce rgb déjà assombri par cet alpha : le fondu s'assombrit en
+plus de s'effacer, et un fondu enchaîné plonge par le noir. Prémultipliés, les deux côtés se lisent
+tels quels et **un seul `mix` est à la fois un fondu enchaîné et un fondu vers rien** — c'est ce qui
+fait qu'il n'y a qu'un chemin de code. Une texture vidéo est opaque, donc droit et prémultiplié y
+sont identiques ; seule la couche qui fond change de fonction, et une passe ordinaire garde son
+alpha droit (le `pulse` du morceau de démo le dit dans son fragment).
+
+Le second côté d'une transition est un texel **1×1 transparent** alloué une fois, plutôt qu'un
+branchement dans le GLSL : un `fade_out` n'a pas d'image entrante, et lui en donner une vide est ce
+qui lui évite d'être un cas particulier. Ce qui apparaît alors est la **couche du dessous**, pas du
+noir — le noir n'est que ce qu'on voit quand il n'y a plus de couche.
+
+`LayerBlend` dit **quels créneaux portent une image cette trame-ci**, au lieu de le déduire de
+`hasFrame` : celui-ci ne redescend jamais, donc il ne peut pas répondre « maintenant ».
+
 `draw` passe par une seule fermeture `bindComposite` plutôt que par deux branches par couche : une
 couche qui a sa propre chaîne doit **revenir** à cette cible après être passée par le brouillon, et
 les deux endroits doivent être d'accord sur laquelle c'est.

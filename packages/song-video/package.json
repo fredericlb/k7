@@ -8,7 +8,8 @@
     "./videoDoc": "./src/videoDoc.ts",
     "./videoTracks": "./src/videoTracks.ts",
     "./videoProject": "./src/videoProject.ts",
-    "./shaders": "./src/shaders.ts"
+    "./shaders": "./src/shaders.ts",
+    "./videoTransitions": "./src/videoTransitions.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

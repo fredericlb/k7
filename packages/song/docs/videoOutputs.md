@@ -16,9 +16,10 @@ modules:
   RENDER: [ VIDEO_OUT ]      # …et celle de l'image
 ```
 
-Le run entre les deux est la **chaîne master vidéo** : ses modules (`video_effects`,
-`video_transitions`) traitent l'image entière. C'est la même raison qu'a eue la séparation
-`MIX`/`OUT` — il n'y avait qu'un nom, et donc nulle part où poser un traitement sur l'ensemble.
+Le run entre les deux est la **chaîne master vidéo** : ses modules (`video_effects`, `shaders`)
+traitent l'image entière. C'est la même raison qu'a eue la séparation `MIX`/`OUT` — il n'y avait
+qu'un nom, et donc nulle part où poser un traitement sur l'ensemble. Pas `video_transitions` : une
+transition n'est pas une étape de chaîne du tout (plus bas).
 
 ## `VIDEO_OUT` n'est pas un nom neuf
 
@@ -42,9 +43,13 @@ traversait vraiment. Ce n'est plus vrai pour un type de module : un **`shaders`*
 ([shaders.md](../../song-video/docs/shaders.md)). Le chemin manquant entre un `graph.yaml` et `@studio/ui-eyes` est
 `src/videoChains.ts`, et il a été écrit pour lui.
 
-Les deux **autres** formes de `VideoPluginDoc` restent modélisées et jamais compilées :
-`video_effect` et `video_transition` n'ont toujours aucun format de plugin derrière elles, donc un
-module de ces types-là est dessiné et vérifié sans rien changer à l'image.
+Une seule **autre** forme de `VideoPluginDoc` reste modélisée et jamais compilée : `video_effect`
+n'a toujours aucun format de plugin derrière elle, donc un module de ce type-là est dessiné et
+vérifié sans rien changer à l'image.
+
+`video_transitions` a le sien, et il ne passe pas par ici : une transition est **nommée par une
+coupe** et non câblée, donc elle n'est jamais une étape de chaîne
+([transitions.md](../../song-video/docs/transitions.md)).
 
 Rien de tout cela ne touche le son : les deux compilations d'un dossier ne partagent aucun champ —
 `loadProject` produit le `ProjectDoc` que lit le moteur C++, où nulle image n'arrive jamais, et

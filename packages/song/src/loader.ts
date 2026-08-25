@@ -666,16 +666,15 @@ export function loadLanes(dir: string, validate = false): Record<string, Lane> {
 }
 
 // Video lanes, still an ENTITY of their own (video_tracks/<id>.yaml): picture shares nothing with a song's lanes.
+// Through readYamlEntities like clips/, so VideoTrackSchema actually gates the compile — docs/loader.md.
 export function loadVideoTracks(
   dir: string,
   validate = false,
 ): Record<string, RawVideoTrack> {
-  return loadEntities<RawVideoTrack>(
-    dir,
-    "video_tracks",
-    "video track",
-    validate,
-  );
+  const { values, issues } = readYamlEntities(dir, "video_tracks");
+  if (validate && issues.length)
+    throw new Error(`invalid video track(s):\n  ${issues.join("\n  ")}`);
+  return values as Record<string, RawVideoTrack>;
 }
 
 // Project settings (settings.yaml), a flat struct; {} when absent, coerced and defaulted by parseSettings.
@@ -698,38 +697,6 @@ export function loadSettings(
       ].join("\n"),
     );
   return r.success ? r.data : {};
-}
-
-// Read one entity file; nothing validates here, since a lane is a module and modules validate elsewhere.
-function readEntityFile(
-  file: { path: string; rel: string },
-  _sub: string,
-  _issues: string[],
-): unknown {
-  return parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" });
-}
-
-// Shared reader for the flat-per-file entity folders (video_tracks/, and the material folders).
-function loadEntities<T>(
-  dir: string,
-  sub: string,
-  label: string,
-  validate: boolean,
-): Record<string, T> {
-  const out: Record<string, T> = {};
-  const yamlIssues: string[] = [];
-  const edir = join(dir, sub);
-  if (!existsSync(edir)) return out;
-  for (const { id, file } of entityFiles(edir, sub)) {
-    const value = readEntityFile(file, sub, yamlIssues);
-    if (!value || typeof value !== "object") continue;
-    out[id] = value as T; // seam cast — tracks passed their schema above; other kinds validate downstream
-  }
-  if (validate) {
-    if (yamlIssues.length)
-      throw new Error(`invalid ${label}(s):\n  ${yamlIssues.join("\n  ")}`);
-  }
-  return out;
 }
 
 // The project's ROOT — `project`, `trackOrder`, `markers` — from `project.yaml`; `chains` is read separately.

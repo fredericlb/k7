@@ -16,7 +16,7 @@ effect's `type`):
 | `audio` | audio → audio |
 | `transformers` | midi → midi |
 | `video_effects` | video → video |
-| `video_transitions` | video → video (the renderer treats consecutive placements as a crossfade pair across cuts) |
+| `video_transitions` | two pictures → one, and **never wired**: a CUT names one (`fade_in: { over: 1, with: wipe }`), so it is material rather than a chain step ([transitions.md](../../song-video/docs/transitions.md)) |
 | `shaders` | video → video, **plus an optional AUDIO input** — the one type whose ports carry two signals, because a shader is for a picture that moves with the sound ([shaders.md](../../song-video/docs/shaders.md)) |
 
 `midi` is a LEGACY alias of `transformers`, so a `modules/midi/` folder on disk keeps

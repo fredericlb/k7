@@ -7,6 +7,7 @@ import {
   AdsrCurveSchema,
   AudioClipSchema,
   CustomCurveSchema,
+  FadeSchema,
   LfoCurveSchema,
   NoteSchema,
   SequenceSchema,
@@ -126,6 +127,9 @@ function curveFields(path: string[]): string[] {
 
 function videoTrackFields(path: string[]): string[] {
   if (path.length === 0) return keys(VideoTrackSchema);
+  // Inside a fade's map, which is a placement field but not a placement — its own two words.
+  if (path[0] === "events" && (path[1] === "fade_in" || path[1] === "fade_out"))
+    return keys(FadeSchema);
   if (path[0] === "events") return keys(VideoPlacementSchema);
   // A shape's fields depend on its `type`; offer every kind's, as the top level does.
   if (path[0] === "shapes")

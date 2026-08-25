@@ -1769,6 +1769,9 @@ export class Workspace {
         start: c.start,
         length: c.length,
         sourceFrom: c.sourceFrom,
+        // A fade names its kind; the kind's GLSL rides on the project, once per name.
+        ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
+        ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
       })),
       // Shapes carry no media path — each variant's fields pass straight through.
       shapes: t.shapes.map((s) => ({ ...s })),
@@ -1887,6 +1890,7 @@ export class Workspace {
         markers: [],
         videoTracks: [],
         framePlugins: [],
+        transitions: {},
       };
     const p = this.cachedVideoDoc(dir);
     const videoTracks = this.toWebVideoTracks(p.videoTracks);
@@ -1898,6 +1902,12 @@ export class Workspace {
       markers: p.markers.map((m) => ({ sec: m.sec, name: m.name, tc: m.tc })),
       videoTracks,
       framePlugins: p.framePlugins.map((pl) => ({ ...pl })),
+      transitions: Object.fromEntries(
+        Object.entries(p.transitions).map(([k, t]) => [
+          k,
+          { ...t, params: { ...t.params } },
+        ]),
+      ),
     };
   }
 

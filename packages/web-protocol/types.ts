@@ -355,6 +355,20 @@ export interface WebVideoClip {
   start: number; // seconds
   length: number; // seconds (0 == natural)
   sourceFrom: number; // seconds into the source
+  fadeIn?: WebVideoFade;
+  fadeOut?: WebVideoFade;
+}
+/** A transition ON a placement (mirrors VideoFadeDoc): how long, and which kind — song-video/docs/transitions.md. */
+export interface WebVideoFade {
+  over: number; // seconds
+  with: string; // a modules/video_transitions/ name, or "dissolve"
+}
+/** A transition's two stages (mirrors VideoTransitionDoc), keyed by NAME on the project — its GLSL rides inline. */
+export interface WebVideoTransition {
+  name: string;
+  vertex: string;
+  fragment: string;
+  params: Record<string, number>;
 }
 // A shape module (mirrors ShapeDoc): a fill or text on the viewport, geometry in px, `color` any CSS colour.
 export type WebShape =
@@ -380,7 +394,8 @@ export type WebShape =
 /** One pass over the picture (mirrors VideoPluginDoc); its GLSL rides inline and `audioFrom` names a lane — see docs/document.md. */
 export interface WebVideoPlugin {
   id: string;
-  type: "video_effect" | "video_transition" | "shader";
+  // No `video_transition`: one is NAMED by a cut and never wired — song-video/docs/transitions.md.
+  type: "video_effect" | "shader";
   name: string;
   enabled: boolean;
   params: Record<string, number>;
@@ -507,6 +522,8 @@ export interface WebVideoProject {
   videoTracks: WebVideoTrack[];
   /** The `RENDER -> VIDEO_OUT` run over the composited frame — the picture's `masterPlugins`, empty by default. */
   framePlugins: WebVideoPlugin[];
+  /** Every transition a placement NAMES, by name; the built-in dissolve is absent — the renderer owns it. */
+  transitions: Record<string, WebVideoTransition>;
 }
 
 // --- Project errors: whether the project even compiles --------------------------

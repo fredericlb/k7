@@ -4,7 +4,7 @@
 // goes where — and this is the part that runs somebody else's code.
 // Full rationale: @studio/song's docs/shaders.md, and docs/passes.md here.
 
-import type { ScenePass } from "./scene";
+import type { ScenePass, SceneTransition } from "./scene";
 
 /** The uniforms a shader may rely on — a CONTRACT, since GL cannot tell an unknown name from an unused one. See docs/passes.md. */
 export const PASS_UNIFORMS = [
@@ -12,6 +12,20 @@ export const PASS_UNIFORMS = [
   "uAudio", // float 0..1 — the live level of the lane wired to the audio port, 0 with none
   "uTime", // float seconds — the transport's position, so an effect can move with the song
   "uResolution", // vec2 px — the viewport, for anything working in pixels rather than in UV
+  "uP1",
+  "uP2",
+  "uP3",
+  "uP4",
+] as const;
+
+/** The uniforms a TRANSITION may rely on — its OWN contract, two inputs being a different shape. */
+// Deliberately not `uTex`: a shader fragment pasted in here fails loudly instead of sampling nothing.
+export const TRANSITION_UNIFORMS = [
+  "uFrom", // sampler2D — the picture on its way OUT; a transparent texel when there is none
+  "uTo", // sampler2D — …and the one coming in; transparent for a fade-out
+  "uProgress", // float 0..1 — 0 is uFrom alone, 1 is uTo alone
+  "uTime", // float seconds — the transport's position, as everywhere else
+  "uResolution", // vec2 px — the viewport
   "uP1",
   "uP2",
   "uP3",
@@ -47,25 +61,41 @@ export interface PassProgram {
   >;
 }
 
-/** Compile one pass, or null and a console line naming the NODE when its GLSL will not build — see docs/passes.md. */
-export function compilePass(
+/** …and one compiled transition, keyed by NAME since one program serves every cut that names it. */
+export interface TransitionProgram {
+  name: string;
+  prog: WebGLProgram;
+  loc: Partial<
+    Record<(typeof TRANSITION_UNIFORMS)[number], WebGLUniformLocation | null>
+  >;
+  params: Record<string, number>; // the module's four knobs, fixed for the scene
+}
+
+// Compile and link one program, looking up `uniforms`; null and a console line naming the NODE on failure.
+function linkProgram(
   gl: WebGL2RenderingContext,
-  pass: ScenePass,
-): PassProgram | null {
+  name: string,
+  vertex: string,
+  fragment: string,
+  uniforms: readonly string[],
+): {
+  prog: WebGLProgram;
+  loc: Record<string, WebGLUniformLocation | null>;
+} | null {
   let vert: WebGLShader | null = null;
   let frag: WebGLShader | null = null;
   try {
     vert = compileStage(
       gl,
       gl.VERTEX_SHADER,
-      pass.vertex,
-      `eyes: '${pass.name}' vertex.glsl`,
+      vertex,
+      `eyes: '${name}' vertex.glsl`,
     );
     frag = compileStage(
       gl,
       gl.FRAGMENT_SHADER,
-      pass.fragment,
-      `eyes: '${pass.name}' fragment.glsl`,
+      fragment,
+      `eyes: '${name}' fragment.glsl`,
     );
     const prog = gl.createProgram()!;
     gl.attachShader(prog, vert);
@@ -76,11 +106,11 @@ export function compilePass(
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
       const log = gl.getProgramInfoLog(prog);
       gl.deleteProgram(prog);
-      throw new Error(`eyes: '${pass.name}' link failed: ${log}`);
+      throw new Error(`eyes: '${name}' link failed: ${log}`);
     }
-    const loc: PassProgram["loc"] = {};
-    for (const u of PASS_UNIFORMS) loc[u] = gl.getUniformLocation(prog, u);
-    return { id: pass.id, prog, loc };
+    const loc: Record<string, WebGLUniformLocation | null> = {};
+    for (const u of uniforms) loc[u] = gl.getUniformLocation(prog, u);
+    return { prog, loc };
   } catch (e) {
     console.warn((e as Error).message);
     return null;
@@ -89,6 +119,38 @@ export function compilePass(
     if (vert) gl.deleteShader(vert);
     if (frag) gl.deleteShader(frag);
   }
+}
+
+/** Compile one pass, or null and a console line naming the NODE when its GLSL will not build — see docs/passes.md. */
+export function compilePass(
+  gl: WebGL2RenderingContext,
+  pass: ScenePass,
+): PassProgram | null {
+  const built = linkProgram(
+    gl,
+    pass.name,
+    pass.vertex,
+    pass.fragment,
+    PASS_UNIFORMS,
+  );
+  return built ? { id: pass.id, prog: built.prog, loc: built.loc } : null;
+}
+
+/** …and one TRANSITION, over the other contract. Same failure posture: the picture survives its GLSL. */
+export function compileTransition(
+  gl: WebGL2RenderingContext,
+  t: SceneTransition,
+): TransitionProgram | null {
+  const built = linkProgram(
+    gl,
+    t.name,
+    t.vertex,
+    t.fragment,
+    TRANSITION_UNIFORMS,
+  );
+  return built
+    ? { name: t.name, prog: built.prog, loc: built.loc, params: t.params }
+    : null;
 }
 
 /** Hand a compiled pass its uniforms and draw the quad; the caller owns which texture is bound to TEXTURE0. */
@@ -108,6 +170,27 @@ export function drawPass(
     gl.uniform2f(p.loc.uResolution, resolution[0], resolution[1]);
   for (const k of ["uP1", "uP2", "uP3", "uP4"] as const)
     if (p.loc[k] != null) gl.uniform1f(p.loc[k], pass.params[k.slice(1)] ?? 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+/** Hand a transition its uniforms and draw the quad; the caller owns TEXTURE0 (`uFrom`) and TEXTURE1 (`uTo`). */
+export function drawTransition(
+  gl: WebGL2RenderingContext,
+  p: TransitionProgram,
+  progress: number,
+  resolution: [number, number],
+  timeSec: number,
+): void {
+  // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook — the rule misfires on the `use` prefix.
+  gl.useProgram(p.prog);
+  if (p.loc.uFrom != null) gl.uniform1i(p.loc.uFrom, 0);
+  if (p.loc.uTo != null) gl.uniform1i(p.loc.uTo, 1);
+  if (p.loc.uProgress != null) gl.uniform1f(p.loc.uProgress, progress);
+  if (p.loc.uTime != null) gl.uniform1f(p.loc.uTime, timeSec);
+  if (p.loc.uResolution != null)
+    gl.uniform2f(p.loc.uResolution, resolution[0], resolution[1]);
+  for (const k of ["uP1", "uP2", "uP3", "uP4"] as const)
+    if (p.loc[k] != null) gl.uniform1f(p.loc[k], p.params[k.slice(1)] ?? 0);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 

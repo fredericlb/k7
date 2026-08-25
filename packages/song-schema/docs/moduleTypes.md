@@ -25,8 +25,9 @@ relies on that (`packages/song/docs/masterChain.md`).
 `RENDER` and `VIDEO_OUT` are the same two for PICTURE, and exist only on a project that declares a
 viewport. `RENDER` is where the compositor sums: every video lane arrives there the way every audio
 lane arrives at `MIX`, and carries no parameter for the same reason. A chain wired `from: RENDER` to
-`VIDEO_OUT` is the VIDEO MASTER CHAIN — where a `video_effects` or `video_transitions` module
-processes the whole composited frame.
+`VIDEO_OUT` is the VIDEO MASTER CHAIN — where a `video_effects` or `shaders` module processes the
+whole composited frame. Not a `video_transitions` one: a transition is NAMED by a cut rather than
+wired, so it is never a chain step (`packages/song-video/docs/transitions.md`).
 
 `VideoPluginDoc` is modelled and nothing compiles it, so a module on this run is drawn and validated
 but changes no frame (`packages/song/docs/videoOutputs.md`). Unlike the audio pair these are added
