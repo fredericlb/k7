@@ -350,3 +350,47 @@ describe("where a cable plugs in", () => {
     expect(path[path.length - 1]).toEqual(pts[1]);
   });
 });
+
+describe("several cables into one port-less node", () => {
+  // Four lanes meeting an EQ, the shape a deck's stem cuts make — @studio/song's docs/setProject.md.
+  const meeting: WebGraph = {
+    chains: {
+      deckA: { from: "deckA", use: [], out: [{ to: "eqA", gain: 1 }] },
+      drums: { from: "drums", use: [], out: [{ to: "eqA", gain: 1 }] },
+      bass: { from: "bass", use: [], out: [{ to: "eqA", gain: 1 }] },
+      eqA: {
+        from: "eqA",
+        use: [{ module: "eqA", emits: AUDIO }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+    },
+    tracks: ["deckA", "drums", "bass"],
+    warnings: [],
+  };
+
+  it("gives each arriving cable a socket of its own", () => {
+    // Purely drawing: three cables knotted on one hole read as one, and the picture is how this graph is understood.
+    const { nodes } = buildGraph(meeting);
+    const eq = nodes.find((n) => n.id === "mod:eqA");
+    // FOUR, not three: a bus chain starts at its own meeting point, so its own lane is a cable too.
+    expect(eq?.jacks?.in).toHaveLength(4);
+    expect(eq?.jacks?.in.every((j) => !j.free)).toBe(true);
+  });
+
+  it("ranks them in the graph's own order, so a cable keeps its socket", () => {
+    // A shuffling picture would be worse than a knot: the eye would follow a cable that moved.
+    const { edges } = buildGraph(meeting);
+    const into = edges.filter((e) => e.target === "mod:eqA");
+    expect(into.map((e) => e.targetSlot)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("leaves a node fed ONCE exactly as it was", () => {
+    // The common case must not grow a socket: one cable, one hole, and `free` still says whether it is taken.
+    expect(
+      jacksFor(undefined, fed(""), AUDIO, true, false, undefined, 1),
+    ).toEqual([{ type: AUDIO, free: false }]);
+    expect(
+      jacksFor(undefined, fed(), AUDIO, true, false, undefined, 0),
+    ).toEqual([{ type: AUDIO, free: true }]);
+  });
+});

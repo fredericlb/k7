@@ -339,6 +339,29 @@ four optional ports and one in use does not present three empty holes to someone
 past the *last occupied* port and not one past the count, or a module fed only on `b` would lose
 the `a` the reader is looking for.
 
+### Plusieurs câbles sur un module qui ne déclare aucun port
+
+Un module sans `inputs:` n'a qu'une prise — celle que tout module a. Quand cinq lanes s'y donnent
+rendez-vous, comme une platine et ses quatre coupes de stem sur son EQ
+(`@studio/song`'s docs/setProject.md), les cinq câbles atterrissaient au même point : un nœud de
+fils sur un seul trou, et l'œil ne pouvait plus suivre aucun d'eux.
+
+Il montre donc **une prise par câble arrivant à nu**, réparties sur son bord comme le sont les
+autres. C'est du **dessin et rien d'autre** : le signal atterrit sur la même entrée, il n'y a pas
+cinq entrées. Un module qui déclare des ports est laissé tel quel, et ça n'est pas une omission :
+là les prises portent des noms qui veulent dire quelque chose, et étaler sur elles des câbles qui
+visent tous le même port serait un mensonge plutôt qu'une commodité.
+
+Chaque câble garde son rang (`targetSlot`), attribué dans l'ordre de déclaration du graphe. Un
+rang stable est la moitié du bénéfice : une image où les câbles changent de trou d'un rendu à
+l'autre serait pire que le nœud, puisque l'œil suivrait un câble qui a bougé. Le rang est porté
+par l'arête jusqu'aux deux endroits qui la recopient — l'oublier dans l'un des deux remet tout le
+monde sur la prise 0, ce qui est exactement l'ancien comportement et ne se voit qu'à l'œil.
+
+Mesuré dans le banc `Chains/Ports/ManyIntoOne` : le nœud `eqA` montre six prises à 15, 38, 60, 83,
+105 et 128 px de son bord gauche, et les six câbles arrivent à six abscisses distinctes. Six et non
+cinq — une chaîne de bus part de son propre point de rendez-vous, donc sa lane est un câble aussi.
+
 Outputs do not. All of them show at once, because an output is offered rather than required and
 there is no progression to disclose. Their occupancy is per SOCKET, like the inputs': an edge
 records which jack it left from (`sourcePort`), so `deck#cue: [ phones ]` fills the `cue` socket

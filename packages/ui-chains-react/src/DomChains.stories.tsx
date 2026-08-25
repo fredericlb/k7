@@ -266,3 +266,34 @@ export const TypedSockets: Story = {
     },
   },
 };
+
+/** Five lanes meeting one EQ — a deck and its four stem cuts. Each cable gets a socket of its own,
+ *  which is DRAWING and nothing else: they all land on the same input. See ui-chains/docs/graphBuild.md. */
+export const ManyIntoOne: Story = {
+  args: {
+    graph: {
+      chains: {
+        deckA: { from: "deckA", use: [], out: [{ to: "eqA", gain: 1 }] },
+        cutDrumsA: {
+          from: "cutDrumsA",
+          use: [],
+          out: [{ to: "eqA", gain: 1 }],
+        },
+        cutBassA: { from: "cutBassA", use: [], out: [{ to: "eqA", gain: 1 }] },
+        cutOtherA: {
+          from: "cutOtherA",
+          use: [],
+          out: [{ to: "eqA", gain: 1 }],
+        },
+        cutVocalsA: {
+          from: "cutVocalsA",
+          use: [],
+          out: [{ to: "eqA", gain: 1 }],
+        },
+        eqA: { from: "eqA", use: [step("eqA")], out: [{ to: "OUT", gain: 1 }] },
+      },
+      tracks: ["deckA", "cutDrumsA", "cutBassA", "cutOtherA", "cutVocalsA"],
+      warnings: [],
+    },
+  },
+};

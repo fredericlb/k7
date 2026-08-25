@@ -212,6 +212,8 @@ export function jacksFor(
   spare = false,
   /** Which declared port a cable that NAMES none counts against — the first, except off a lane. */
   bareOn?: string,
+  /** How many BARE cables land here. Past one they each get a socket, which is drawing only — docs/graphBuild.md. */
+  bare = 0,
 ): Jack[] {
   // A module that declares nothing has the one port every module has, typed by what it handles.
   if (!ports?.length) {
@@ -222,6 +224,9 @@ export function jacksFor(
         { type, free: false },
         { type, free: true },
       ];
+    // One socket per arriving cable: four stem cuts into an EQ read as four, not as a knot on one hole.
+    if (bare > 1)
+      return Array.from({ length: bare }, () => ({ type, free: false }));
     return [{ type, free: !fed.size }];
   }
   // A cable that named no port lands on `bareOn` when the caller says which, else on the first.
@@ -272,6 +277,8 @@ export interface GraphEdge {
   targetPort?: string;
   /** …and which OUTPUT it left from (`sep#vocals: [ reverb ]`); undefined ⇒ the first. */
   sourcePort?: string;
+  /** Its rank among the BARE cables reaching this target, so each gets a socket of its own — docs/graphBuild.md. */
+  targetSlot?: number;
   points: Pt[]; // dagre's routed polyline, absolute graph coords
 }
 
@@ -332,9 +339,10 @@ export function cablePath(
   const from = src
     ? jackPoint(src, "out", fromIndex < 0 ? 0 : fromIndex)
     : pts[0];
+  // A bare cable takes the socket its RANK earned it; `jackPoint` clamps, so a node drawing one is unharmed.
   const toIndex = e.targetPort
     ? (tgt?.jacks?.in.findIndex((j) => j.name === e.targetPort) ?? -1)
-    : 0;
+    : (e.targetSlot ?? 0);
   const to = tgt
     ? jackPoint(tgt, "in", toIndex < 0 ? 0 : toIndex)
     : pts[pts.length - 1];
@@ -752,6 +760,7 @@ interface RawEdge {
   signal?: WebSignal; // what the cable carries — see GraphEdge.signal
   targetPort?: string; // which INPUT of the target it lands on — see GraphEdge.targetPort
   sourcePort?: string; // …and which OUTPUT it left from — see GraphEdge.sourcePort
+  targetSlot?: number; // its rank among the bare cables arriving — see GraphEdge.targetSlot
   weight?: number; // dagre edge weight — higher pulls endpoints closer
 }
 
@@ -1178,11 +1187,18 @@ export function buildGraph(
   const fed = new Map<string, Set<string>>();
   // …and the mirror, per OUTPUT port, so a splitter's wired and spare sockets are told apart.
   const left = new Map<string, Set<string>>();
+  // …and how MANY bare cables reach each node, which the set above cannot say: they all add "".
+  const bare = new Map<string, number>();
   for (const e of edges.values()) {
     if (e.automation) continue;
     const at = fed.get(e.target) ?? new Set<string>();
     at.add(e.targetPort ?? ""); // "" is the flow — the first port, and what a bare cable means
     fed.set(e.target, at);
+    if (!e.targetPort) {
+      // Ranked in the graph's own declaration order, so a cable keeps its socket from one draw to the next.
+      e.targetSlot = bare.get(e.target) ?? 0;
+      bare.set(e.target, e.targetSlot + 1);
+    }
     const from = left.get(e.source) ?? new Set<string>();
     from.add(e.sourcePort ?? "");
     left.set(e.source, from);
@@ -1228,6 +1244,9 @@ export function buildGraph(
             arriving.get(n.id) ??
               (n.kind === "track" ? leaving.get(n.id) : undefined),
             true,
+            false,
+            undefined,
+            bare.get(n.id) ?? 0,
           ),
       // A sink has nowhere to leave — except the SUM, where the MASTER RUN begins.
       out:
@@ -1393,6 +1412,7 @@ export function moduleRow(
             targetPort: e.targetPort,
             sourcePort: e.sourcePort,
             // Two points, which `cablePath` replaces with the sockets it computes from the nodes.
+            targetSlot: e.targetSlot, // the same rank, for the path that skips dagre
             points: [
               { x: 0, y: 0 },
               { x: 0, y: 0 },
@@ -1525,6 +1545,7 @@ export function layout(
     // Carried through: dropped, it puts every ported cable on the node's edge, docs/graphBuild.md.
     targetPort: e.targetPort,
     sourcePort: e.sourcePort, // the mirror, and it drops the same way if forgotten here
+    targetSlot: e.targetSlot, // ranked in the pass above; without it every bare cable draws to socket 0
     points: g.edge(e.source, e.target, e.id)?.points ?? [],
   }));
   // Measured on the NODES, not read off dagre, and 0 rather than -Infinity when empty. See docs/graphBuild.md.
