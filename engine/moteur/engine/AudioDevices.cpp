@@ -32,7 +32,7 @@ int deviceTypeRank(const juce::String& t) {
 }
 
 // Asked of every device we open, in frames — a PREFERENCE and not a promise, and what it costs: docs/audioDevice.md.
-constexpr int kPreferredBufferFrames = 256;
+constexpr int kPreferredBufferFrames = 512;
 
 // Enumerate the interfaces the backends offer, ASIO first and ONE row per name — the dedup and what it costs: docs/audioDevice.md.
 std::vector<AudioDeviceInfo> enumerateDevices(juce::AudioDeviceManager& jdm) {

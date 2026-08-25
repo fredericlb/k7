@@ -15,7 +15,7 @@ What the running engine reports:
 
 ```
 [device] 'Haut-parleurs (Focusrite USB Audio)' open: 2 in, 2 out
-whoami: bufferSize=256 sampleRate=48000
+whoami: bufferSize=512 sampleRate=48000
 ```
 
 and the same machine's device list:
@@ -31,10 +31,10 @@ Two things follow, and only the first is obvious:
 * The shared endpoint is the Windows mixer, so the round trip includes the mixer's own
   buffering in both directions. It is several times an ASIO driver's, and that difference
   is the whole of the complaint.
-* **`bufferSize` reads 256 either way.** The engine's quality band (`audioTiming` →
+* **`bufferSize` reads the same either way.** The engine's quality band (`audioTiming` →
   `packages/web-protocol/quality.ts`) is computed from buffer and rate, and both are
-  identical on the two devices, so the badge says ~10 ms while the truth is several times
-  that. The buffer size is not the latency, and nothing on the wire carries what JUCE does
+  identical on the two devices, so the badge shows the block arithmetic while the truth is
+  several times that. The buffer size is not the latency, and nothing on the wire carries what JUCE does
   know (`getInputLatencyInSamples`, `getOutputLatencyInSamples`) — a gap listed below.
 
 The channel counts are the cheap tell: an interface that says `2 in, 2 out` when it has
@@ -181,12 +181,28 @@ stays as inert as `Settings.xml`.
 
 ## The buffer size the engine asks for
 
-`kPreferredBufferFrames` is **256**, asked of every device the engine opens, and it decides the
+`kPreferredBufferFrames` is **512**, asked of every device the engine opens, and it decides the
 engine's quality band — which decides what you can DO here. A browser reads `2 × buffer / rate` as
 the audio half of the link's latency (a block in, a block out) and adds its measured round trip;
-under 20 ms is playable, see `packages/web-protocol/docs/quality.md`. At 48 kHz, 256 frames is
-10.7 ms and leaves room for the network, while the 480 a Windows endpoint hands out by default is
-20 ms on its own and lands the machine in front of you in Q2.
+under 20 ms is playable, see `packages/web-protocol/docs/quality.md`.
+
+**It was 256, and raising it costs Q1.** At 48 kHz, 256 frames is 10.7 ms and leaves room for the
+network; 512 is **21.3 ms, which is already over the Q1 line before a single packet moves**. Every
+machine now shows Q2 at best, and that is not a badge artefact — the round trip really is twice
+what it was.
+
+What bought it is a **kernel crash**. Two `KMODE_EXCEPTION_NOT_HANDLED` bugchecks on the machine
+this was written for, on 23 and 25 August 2026, both with exception `0x80000003` — a breakpoint,
+i.e. the driver reaching its own assertion — at `FocusriteUsb.sys+0x1ED6D` and `+0x1ECAD`, 192
+bytes apart and so almost certainly the same routine. Both minidumps name **`studio-moteur` as the
+current process**. The engine cannot execute a kernel breakpoint, so the fault is the driver's
+(4.144.0.362, a retail build); but the engine is what drives it there, twice out of twice, and it
+was doing it **at 256 frames**. A bigger buffer is the standard answer to a driver that asserts on a
+late buffer switch, and it is the only lever on this side.
+
+Said plainly because the next reader will want to undo it: **this is a mitigation, not a fix**, and
+if the driver is ever repaired the right move is to put 256 back and get Q1 with it. The dumps are
+the evidence, not a hunch — offsets above.
 
 It is a PREFERENCE, not a promise. `applyPreferredBufferSize` takes the nearest size the device
 offers, ties going to the LARGER — too small drops out, and a dropout is a worse failure than a
