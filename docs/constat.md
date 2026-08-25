@@ -214,7 +214,16 @@ appels de greffons, comptabilité — qui ne connaît pas la taille du bloc. Don
 par deux double à peu près la part d'échéance consommée** : 4,3 % à 512, 9,5 % à 256. La marge
 reste d'un ordre de grandeur, mais la tendance dit ce que coûterait 128, et surtout 64.
 
-**Ce que ça clot.** L'engin n'approche jamais sa date limite : facteur vingt de marge sur le pire
+**Ce qui reste, et qui n'était pas dans le champ.** Une seule chose que le moteur fasse atteint
+vraiment le pilote : `list-audio-devices`, qui appelle `scanForDevices()` sur chaque type, ASIO
+compris. Mesuré : **50 ms par scan**, six fois sur six — et le superviseur en demandait un **toutes
+les deux secondes**, à vie, soit 1800 contacts par heure avec un pilote mono-client pendant qu'il
+diffuse. Le callback n'en souffre pas (max 0,278 ms pendant une rafale contre 0,356 sans), donc ce
+n'est pas un problème de temps réel ; c'est la seule sollicitation répétée qu'on impose au pilote.
+`DEVICES_POLL_MS` est passé à 30 s pour voir — expérience à coût nul, pas correctif prouvé :
+`packages/engine-host/docs/supervisorPolicy.md`.
+
+**Ce que ça clot.****Ce que ça clot.** L'engin n'approche jamais sa date limite : facteur vingt de marge sur le pire
 bloc observé, dans toutes les conditions essayées. La théorie « on envoie trop d'instructions à la
 carte » est morte deux fois — le chemin de contrôle est gratuit, et le thread audio ne s'en aperçoit
 pas. Le point d'arrêt dans `FocusriteUsb.sys` reste un défaut de pilote, sans levier de ce côté-ci.

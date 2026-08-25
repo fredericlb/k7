@@ -53,7 +53,7 @@ const WATCH_MS = 2000;
 /** Relaunch backoff for a crashing engine: 1s doubling to 30s. */
 const BACKOFF_MAX_S = 30;
 /** The audio poll — this is what notices an interface being plugged in or pulled out. */
-const DEVICES_POLL_MS = 2000;
+const DEVICES_POLL_MS = 30_000;
 /** The loaded project's plugin instances; a user swaps songs at human speed. */
 const EDIT_PLUGINS_POLL_MS = 3000;
 /** Which projects the engine holds; the submenu redraws only when the SIGNATURE moves. */

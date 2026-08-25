@@ -11,12 +11,40 @@ interval is the whole of the design.
 | constant | why that pace |
 |---|---|
 | `WATCH_MS` (2 s) | both process watches. Fast enough that a crash is noticed before the user is, slow enough to be free — each tick is a pidfile stat or a socket connect. |
-| `DEVICES_POLL_MS` (2 s) | this is what notices an interface being plugged in or pulled out. A menu listing a device you unplugged a minute ago is worse than useless, and the recovery in `audioPolicy.ts` can only be as prompt as this tick. |
+| `DEVICES_POLL_MS` (30 s) | this is what notices an interface being plugged in or pulled out — and it is the one poll that TOUCHES A DRIVER, so it was slowed from 2 s. See below. |
 | `SESSIONS_POLL_MS` (2 s) | an app connecting or a song loading is a human-speed event, and the submenu redraws only when the signature moves anyway. |
 | `EDIT_PLUGINS_POLL_MS` (3 s) | a user swaps songs at human speed, not interface-unplug speed. |
 | `PLUGINS_POLL_MS` (60 s) | the plugin scan is expensive and the answer barely moves. Until it lands we ask at `PLUGINS_POLL_FAST_MS` (2 s) instead, to keep the spinner honest — that poll reschedules itself rather than sitting on one interval. |
 | `BACKOFF_MAX_S` (30 s) | the relaunch backoff for a crashing engine, doubling from 1 s. One that dies on startup — a bad audio device, a missing DLL — would otherwise be relaunched forever at one per second, and the log would be nothing but that. |
 | `DEREGISTER_TIMEOUT_MS` (1.5 s) | a hung registry must not hold the quit open. The tray gives the supervisor about 3 s in total before it kills it. |
+
+### Pourquoi celui des interfaces est le seul à 30 s
+
+Les autres sondages coûtent un `stat`, une connexion de socket ou une lecture d'état. Celui-ci
+appelle `scanForDevices()` sur **chaque** type de périphérique, ASIO compris, dans le processus du
+moteur, pendant que le callback audio tourne. Mesuré sur la machine de référence : **50 ms par
+scan**, six fois sur six. À 2 s, ça fait 1800 contacts avec le pilote par heure, pour une réponse
+qui ne change que quand on branche quelque chose.
+
+Le callback n'en souffre pas — mesuré aussi : son maximum pendant une rafale de scans est de
+0,278 ms contre 0,356 sans, donc dans le bruit. Ce n'est pas un problème de temps réel. C'est que
+**c'est la seule chose que le moteur fasse qui atteigne vraiment le pilote**, et que deux écrans
+bleus `KMODE_EXCEPTION_NOT_HANDLED` ont eu lieu dans `FocusriteUsb.sys` avec `studio-moteur` comme
+processus courant (`docs/constat.md`). Un pilote ASIO est mono-client ; le sonder sans arrêt
+pendant qu'il diffuse est le genre de sollicitation qui réveille une assertion.
+
+**Ce n'est pas prouvé**, et le ralentissement est une expérience plutôt qu'un correctif : à coût
+nul, on retire la seule sollicitation répétée qu'on impose au pilote, et on regarde si les
+plantages cessent. Si le scan est innocent, on n'aura perdu que de la promptitude.
+
+**Ce que ça coûte, dit franchement.** Brancher l'interface met jusqu'à 30 s à être remarqué, la
+bascule vers le repli aussi, et le sous-menu du tray est périmé d'autant. C'est le prix, et il se
+paie à chaque branchement.
+
+**Le vrai correctif, si celui-ci tient.** JUCE expose un `AudioIODeviceType::Listener` que Windows
+alimente sur arrivée et retrait de matériel. Y passer donnerait les deux à la fois — réaction
+immédiate ET zéro scan périodique — mais c'est du travail dans le moteur, et il ne vaut d'être fait
+que si le sondage s'avère bien coupable.
 
 ### Signatures, not arrays
 
@@ -178,7 +206,7 @@ needs consecutive failures before acting — and it has not been taken.
 
 ## `engineQueries.ts` — request/reply over one connection
 
-The polls run at 2 s / 2 s / 3 s, so a fresh WebSocket per call would be roughly one TCP
+The polls run at 30 s / 2 s / 3 s, so a fresh WebSocket per call would be roughly one TCP
 handshake per second, forever, each connection then reading and discarding the engine's ~20 Hz
 `state` broadcasts until its own typed reply arrived. One connection whose firehose is simply
 not listened to costs nothing.
