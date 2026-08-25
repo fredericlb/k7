@@ -34,20 +34,20 @@ describe("the desk's controls", () => {
     ]);
   });
 
-  it("gives the stem cuts a SIGNED proportion, resting in the middle", () => {
-    // A proportion and not decibels, and BIPOLAR: left takes the instrument out, right adds more.
+  it("gives the stem levels a proportion, resting at unity in the middle", () => {
+    // A proportion and not decibels: left takes the part out, right doubles it, and 0 is reachable.
     for (const deck of DECKS)
       for (const stem of ["stemDrums", "stemBass", "stemOther", "stemVocals"]) {
         const c = mixControl(`${deck}.${stem}`);
-        expect(c?.range, `${deck}.${stem}`).toEqual([-1, 1]);
-        // Home is 0, which is now the CENTRE of the travel rather than one end of it.
-        expect(c?.home, `${deck}.${stem}`).toBe(0);
-        expect(normalise(c!, 0)).toBe(0.5);
+        expect(c?.range, `${deck}.${stem}`).toEqual([0, 2]);
+        // Home is the part as it was cut, and it sits in the CENTRE of the travel.
+        expect(c?.home, `${deck}.${stem}`).toBe(1);
+        expect(normalise(c!, 1)).toBe(0.5);
       }
   });
 
   it("names its own module per stem, unlike the EQ's three", () => {
-    // A cut is a negative gain on the lane playing that stem, so each names a module of its own.
+    // A level belongs to the lane playing that one part, so each names a module of its own.
     for (const deck of DECKS)
       expect(mixControl(`${deck}.stemBass`)?.wants).toBe("stem");
   });

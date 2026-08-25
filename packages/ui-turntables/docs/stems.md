@@ -1,13 +1,16 @@
 # Les stems sur le pupitre — retirer un instrument du disque
 
 Quatre potards par platine, à **gauche** de la platine, au même format que l'EQ, disposés
-**deux par deux** : batterie et basse en haut, voix et reste en dessous. **Au centre** le disque joue tel quel ; vers la gauche l'instrument s'en va,
-vers la droite il y en a davantage.
+**deux par deux** : batterie et basse en haut, voix et reste en dessous. **Au centre** la partie sonne comme la séparation l'a écrite ; à fond à gauche elle disparaît,
+à droite elle monte jusqu'au double.
 
-Ce que ça fait vraiment est une **soustraction**, et le raisonnement est dans
-[`packages/dsp/docs/stemcut.md`](../../dsp/docs/stemcut.md) : la somme des quatre stems ne
-redonne pas le morceau, donc la platine joue le disque et lui retire ce qu'on demande, plutôt que
-de rejouer quatre fichiers. Au repos, la sortie est le disque **bit à bit**.
+Ce que ça fait vraiment est une **somme** : un morceau séparé n'est plus joué par sa propre lane,
+il est joué par ses quatre parties, et chaque potard dose la sienne. C'est ce que font toutes les
+platines à stems du commerce. Le raisonnement, et les deux formes qui ont précédé celle-là, sont
+dans [`packages/dsp/docs/stemcut.md`](../../dsp/docs/stemcut.md) : la version qui **soustrayait**
+du disque était exacte au repos, bit à bit, et cessait de l'être dès qu'on touchait au tempo.
+Au repos, la sortie est maintenant le disque à **34 dB près** — le résidu de reconstruction du
+modèle, mesuré et stable.
 
 ## Le bloc, et pourquoi il n'est pas en miroir
 
@@ -29,10 +32,11 @@ test tient les deux moitiés de la propriété : que le carré contienne les qua
 une fois, et que la première ligne soit bien la rythmique.
 
 Ça n'a pas toujours été le cas. La course allait de « rien retiré » vers « tout retiré », dans un
-seul sens, parce que le module ne savait que soustraire. Un potard qui commence à une extrémité et
-dont le neutre est cette extrémité se lit mal : la main ne trouve pas le repos, et la moitié droite
-de sa course — ajouter de l'instrument, ce qu'un remix demande tout le temps — n'existait pas. Le
-gain du `stemcut` est signé depuis, et le neutre est revenu sous la main.
+seul sens. Un potard qui commence à une extrémité et dont le neutre est cette extrémité se lit
+mal : la main ne trouve pas le repos, et la moitié droite de sa course — renforcer l'instrument, ce
+qu'un remix demande tout le temps — n'existait pas. Le neutre est au milieu depuis, et il y est
+resté à travers les deux changements de forme du module : c'est la seule chose dont il n'y a jamais
+eu de doute.
 
 Le bloc **n'a pas d'échelle à lui** : il prend celle de la tranche, pour que les potards d'un même
 pupitre aient tous une taille. Ce n'est sûr que parce qu'il est plus COURT à chaque cran — deux
@@ -122,21 +126,18 @@ les morceaux qu'on a préparés à la commande.
   `slip` — `withDecks` les remplit en un seul endroit pour ça. Une dérive d'un échantillon ne
   fait pas un instrument plus discret : elle fait un filtre en peigne, et rien à l'écran ne le
   dirait.
-- **La platine ouvre `stems/master.wav`, pas le fichier du catalogue.** Un mp3 porte un délai
-  d'encodage que ffmpeg coupe et que JUCE ne coupe pas : les stems, faites par ffmpeg, tombaient
-  25 ms avant le disque tel que le moteur le joue, et la soustraction rendait le bus **plus fort**
-  que l'original. La séparation écrit donc le disque lui-même à côté de ses stems, du même
-  décodeur, et c'est ce fichier-là que la lane du disque joue — les deux côtés de la soustraction
-  sortent d'un seul décodage. Mesures dans
-  [stem-separation/docs/stemSplit.md](../../stem-separation/docs/stemSplit.md).
-- **Un dossier `stems/` sans ce master ne compte pas comme séparé.** Il tient quatre fichiers qui
-  ne peuvent pas s'annuler ; `stemsComplete` en demande cinq, et un dossier d'avant se relit comme
-  « jamais séparé » plutôt que de laisser des potards qui ajoutent.
-- **Un morceau non séparé laisse ses lanes VIDES.** Une lane vide ne soustrait rien, donc poser un
-  disque que personne n'a préparé le joue tel quel. Poser quatre clips sur des fichiers absents
-  ferait dépendre « mettre un disque » d'une heure de calcul que personne n'a demandée.
+- **La lane du disque est VIDE quand le morceau est séparé.** Les quatre parties *sont* le disque ;
+  le jouer en plus le doublerait. C'est le même `withDecks` qui décide les deux, dans les deux sens.
+- **Un dossier `stems/` incomplet ne compte pas comme séparé.** `stemsComplete` demande les quatre :
+  trois parties sur quatre n'est pas une séparation à moitié réussie, c'est un morceau amputé d'un
+  instrument, et le poser sur une platine s'entendrait sans que rien ne le dise.
+- **Le tempo ne les gêne plus.** Une somme n'exige aucune annulation, donc chaque partie s'étire
+  dans son coin, keylock allumé ou pas ([bpm.md](bpm.md)).
+- **Un morceau non séparé laisse ses lanes VIDES**, et c'est sa propre lane qui le joue. Poser
+  quatre clips sur des fichiers absents ferait dépendre « mettre un disque » d'une heure de calcul
+  que personne n'a demandée.
 - **Le potard parle en proportion, pas en dB.** Ce qu'on demande est une part de l'instrument, et
-  l'enlever complètement doit être une position sur la course — ce que −∞ dB n'est pas.
+  la faire disparaître doit être une position sur la course — ce qu'un plancher à −60 dB n'est pas.
 - **Les stems s'écrivent en WAV 24 bits.** Pas en float, pas en FLAC : Tracktion lit un WAV
   directement et décode tout le reste dans un proxy avant de jouer, ce qui se paierait au moment
   précis où on pose un disque — cinq décodages, le mix et ses quatre stems. Le raisonnement

@@ -329,6 +329,8 @@ export function MixView({
           driven={master === "deckB"}
           onNudge={(bpm) => decks.nudge("deckA", bpm)}
           onCommit={decks.release}
+          keylock={decks.keylock("deckA")}
+          onKeylock={() => decks.toggleKeylock("deckA")}
           onPick={() => setBrowsing("deckA")}
           onDropSong={(d) => dropped("deckA", d)}
           eq={decks.eqOf("deckA")}
@@ -360,6 +362,8 @@ export function MixView({
           driven={master === "deckA"}
           onNudge={(bpm) => decks.nudge("deckB", bpm)}
           onCommit={decks.release}
+          keylock={decks.keylock("deckB")}
+          onKeylock={() => decks.toggleKeylock("deckB")}
           onPick={() => setBrowsing("deckB")}
           onDropSong={(d) => dropped("deckB", d)}
           eq={decks.eqOf("deckB")}
@@ -561,6 +565,8 @@ function DeckSide({
   driven,
   onNudge,
   onCommit,
+  keylock,
+  onKeylock,
   onPick,
   onDropSong,
   eq,
@@ -594,6 +600,9 @@ function DeckSide({
   driven: boolean;
   onNudge: (bpm: number) => void;
   onCommit: () => void;
+  /** Whether this deck holds the pitch, and the switch for it — ../../docs/bpm.md. */
+  keylock: boolean;
+  onKeylock: () => void;
   /** The record's middle was clicked — open the browser for this deck. */
   onPick: () => void;
   /** A playlist line was dropped on this deck, already read off the transfer — ../../docs/setList.md. */
@@ -627,6 +636,8 @@ function DeckSide({
       driven={driven}
       onChange={onNudge}
       onCommit={onCommit}
+      keylock={keylock}
+      onKeylock={onKeylock}
     />
   );
 

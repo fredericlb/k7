@@ -156,10 +156,23 @@ describe("stretching a deck to a tempo", () => {
 
   it("puts the whole file between two markers", () => {
     const w = warpFor(tempo({ target: 60 }));
-    expect(w?.algorithm).toBe("elastique");
     expect(w?.markers[0]).toEqual([0, 0]);
     // The second marker's source time is the file's length, always — only the BEAT it lands on changes.
     expect(w?.markers[1][1]).toBe(60);
+  });
+
+  it("plays the record FASTER by default, and holds its pitch only when asked", () => {
+    // A platter's own behaviour, and the one that keeps four parts summable — ../docs/bpm.md.
+    expect(warpFor(tempo({ target: 60 }))?.algorithm).toBe("varispeed");
+    expect(warpFor(tempo({ target: 60, keylock: true }))?.algorithm).toBe(
+      "elastique",
+    );
+  });
+
+  it("says nothing at the record's own tempo, whichever mode is on", () => {
+    // No warp at all is what makes an untouched deck play the file as it is, keylock or not.
+    expect(warpFor(tempo({ target: 120 }))).toBeUndefined();
+    expect(warpFor(tempo({ target: 120, keylock: true }))).toBeUndefined();
   });
 
   it("takes twice the beats at half the speed", () => {
@@ -334,17 +347,17 @@ describe("filling the decks into the COMPILED project", () => {
     expect(at(stemLane("deckA", "vocals"))?.clips[0].source).toBe(
       "/m/song/stems/vocals.wav",
     );
-    // The deck plays the separation's OWN decode of the record, never the mp3 beside it.
-    expect(at("deckA")?.clips[0].source).toBe("/m/song/stems/master.wav");
+    // …and the record's own lane is EMPTY: the four parts ARE the record, so playing it too would double it.
+    expect(at("deckA")?.clips).toEqual([]);
   });
 
-  it("gives the record and its stems the SAME start and the same warp", () => {
-    // A stem a sample off the record it is subtracted from is a comb filter, and nothing would say so.
+  it("gives the four parts the SAME start and the same warp", () => {
+    // Four parts a few milliseconds apart are a flam on every hit, and nothing on screen would say so.
     const doc = withDecks(
       withStemLanes(),
       loaded({
         deckA: {
-          path: "/m/song/master.wav",
+          path: "/m/song/original.mp3",
           title: "A",
           artist: null,
           id: "songs/a",
@@ -353,8 +366,8 @@ describe("filling the decks into the COMPILED project", () => {
       }),
       { deckA: { natural: 120, seconds: 60, target: 126 } },
     );
-    const clips = ["deckA", ...STEMS.map((s) => stemLane("deckA", s))].map(
-      (id) => doc.tracks.find((t) => t.id === id)?.clips[0],
+    const clips = STEMS.map(
+      (s) => doc.tracks.find((t) => t.id === stemLane("deckA", s))?.clips[0],
     );
     for (const c of clips) {
       expect(c?.start).toBe(clips[0]?.start);

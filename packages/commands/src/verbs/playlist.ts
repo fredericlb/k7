@@ -191,8 +191,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
         );
         done += 1;
         lines.push(
-          // "file(s)", not "stem(s)": a separation writes the record beside its four — docs/stemSplit.md.
-          `${item.song}: ${wrote.reduce((n, d) => n + d.files.length, 0)} file(s)`,
+          `${item.song}: ${wrote.reduce((n, d) => n + d.files.length, 0)} stem(s)`,
         );
       } catch (e) {
         // Per song, and the loop goes on: one unreadable file must not cost the other twenty-nine.

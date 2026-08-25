@@ -13,20 +13,20 @@ export const STEMS_DIR = "stems";
 /** One stem's file name, as the pass writes it — a float WAV, since a stem is not a deliverable. */
 export const stemFile = (stem: Stem): string => `${stem}.wav`;
 
-/** The record itself, decoded ONCE beside its stems, so both come from the same decoder (docs/stemSplit.md). */
-export const MASTER_FILE = "master.wav";
-
-/** Usable only with the master beside the four: a folder missing it cannot cancel, so it does not count. */
+/** All four, since a deck PLAYS them in place of the record — three of four is a song missing a part. */
 export function stemsComplete(names: readonly string[]): boolean {
   const have = new Set(names);
-  return have.has(MASTER_FILE) && STEMS.every((s) => have.has(stemFile(s)));
+  return STEMS.every((s) => have.has(stemFile(s)));
 }
 
 /** The `stemcut` param a desk knob drives, spelled once because the module, the scaffold and the desk all name it. */
 export const STEM_PARAM = "Level";
 
-/** Its travel: NEGATIVE removes the instrument, 0 leaves the record untouched, positive adds more of it. */
-export const STEM_RANGE = [-1, 1] as const;
+/** Its travel: 0 is the part gone, 1 is as recorded, 2 is twice as much — a LEVEL, since the lane IS the part. */
+export const STEM_RANGE = [0, 2] as const;
+
+/** The middle of that travel, and the record as it was cut — what a knob nobody touched has to read. */
+export const STEM_NEUTRAL = 1;
 
 // --- what a SET calls them: three names, since a stem you can move is a LANE (docs/stems.md) ---
 

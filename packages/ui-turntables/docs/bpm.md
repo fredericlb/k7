@@ -44,13 +44,39 @@ temps occupés    = secondes réelles × DOC_TEMPO / 60
 d'où `beats = secondes × DOC_TEMPO × naturel / (60 × cible)`. Le fichier passe entier entre
 les deux marqueurs ; seul le **beat d'arrivée** change.
 
-`elastique` **préserve la hauteur** : un disque étiré ne monte pas en tonalité, contrairement
-au plateau d'une platine. C'est le comportement moderne, et ça se sait plutôt que ça se
-suppose.
-
 Pas de warp du tout quand la cible est le tempo du morceau : un étirement identité mettrait
 le moteur d'étirement dans le chemin pour ne rien changer — du CPU et de la qualité dépensés
 pour rien.
+
+## KEY — la hauteur suit le tempo, sauf si on l'en empêche
+
+Le bouton sous le fader est le **MASTER TEMPO** d'une CDJ, le **Keylock** de Traktor, de Serato et
+de rekordbox. Il est **éteint par défaut**, comme sur le matériel : le fader de pitch d'une platine
+fait ce que faisait la courroie d'une Technics, le morceau va plus vite ET monte en hauteur. Tenir
+la tonalité est le geste supplémentaire, pas l'inverse.
+
+Les deux modes sont deux mots dans le même `WarpDoc`, et c'est `applyClipWarp` qui branche
+(`engine/moteur/docs/warp.md`) :
+
+| `algorithm` | ce que le moteur fait | ce que ça coûte |
+|---|---|---|
+| `varispeed` | `setTimeStretchMode(disabled)` + `setSpeedRatio` — un simple rééchantillonnage | la hauteur bouge |
+| `elastique` | `elastiquePro` et l'auto-tempo | du CPU, des artefacts, et voir ci-dessous |
+
+**Le défaut n'est pas qu'une question de goût.** Un étireur à hauteur constante est non linéaire :
+il choisit ses trames en fonction du signal, donc quatre parties étirées séparément ne se somment
+plus comme le disque le ferait. C'est ce qui a cassé la version du `stemcut` qui soustrayait
+(`packages/dsp/docs/stemcut.md`), et ça reste vrai de la somme, en plus discret : à keylock allumé
+les quatre parties se recollent moins bien. Le rééchantillonnage, lui, est linéaire — la même
+combinaison d'échantillons pour les quatre fichiers — et ne coûte rien de ce côté-là.
+
+Beaucoup de DJ laissent le bouton éteint pour les petits écarts : à ±3 % le décalage de hauteur
+s'entend moins que les artefacts de l'étirement.
+
+**C'est un réglage de la PLATINE, pas du disque.** Il survit au morceau qu'on pose, là où
+`clearTempo` efface le tempo à chaque chargement — d'où `withKeylock`, qui le fusionne dans les
+`DeckTempo` au lieu de l'y stocker. Le changer est un changement de DOCUMENT, donc il renvoie le
+projet, comme un coup de fader relâché.
 
 ## La plage est celle du knob du module
 

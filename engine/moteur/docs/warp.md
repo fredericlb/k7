@@ -13,6 +13,34 @@ mechanisms. Keeping that straight is the whole content of this page.
 | the OVERALL ratio — first marker to last | auto-tempo (`LoopInfo::setNumBeats`) | `clip.setAutoTempo(true)` |
 | the re-timing BETWEEN those ends | the warp map (`WarpTimeManager`) | `clip.setWarpTime(true)` |
 
+## `varispeed` is a different branch entirely
+
+`WarpDoc.algorithm` was decorative until the DJ desk needed two behaviours out of one fader. On
+`"varispeed"`, `applyClipWarp` takes none of what follows: no stretcher, no auto-tempo, no warp
+map. It disables time-stretching and sets a **speed ratio**, which is a resample — the record
+plays faster and goes UP in pitch, the way a platter does.
+
+The ratio is inverted on the way in. `speedRatio` is source seconds per timeline second
+(`getSourceLength() / speedRatio` is the clip's length), while the ratio computed above the branch
+is the other way round, so the branch passes `1.0 / ratio`.
+
+Two reasons this is worth a branch rather than an option somewhere.
+
+**It is linear, and stretching is not.** A pitch-preserving stretcher decides its frames from the
+signal, so stretching four separated parts independently does not give what stretching their sum
+would. Resampling is the same combination of input samples whatever the input, so parts stay
+summable. `packages/dsp/docs/stemcut.md` has the measurements, and the DJ desk's default is this
+one for that reason.
+
+**Interior markers are refused by construction.** A constant speed cannot express a piecewise map,
+so the branch returns before `WarpTimeManager` is touched. The desk only ever emits two markers;
+a project importing a real warp map asks for `elastique` and gets the path below. Nothing checks
+that a `varispeed` clip carries only two markers — the extra ones are simply ignored, which is the
+one thing here that could surprise somebody.
+
+A changed `algorithm` re-inserts the clip: `clipMoved` compares it, so flipping the desk's KEY
+button really does swap the mode rather than leaving the old one running (`docs/projectDiff.md`).
+
 ## Why loop points do not work
 
 Pinning each interior marker as a `LoopInfo` beat point does nothing to timing:

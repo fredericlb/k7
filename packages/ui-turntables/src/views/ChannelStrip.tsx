@@ -2,7 +2,7 @@
 // knobs and the filter under them. ROTARY, unlike the tempo fader on the other edge — a knob's
 // neutral is its middle, and a round one shows that at a glance. See ../../docs/eq.md.
 
-import { STEM_RANGE, type Stem } from "@studio/song-schema/stems";
+import { STEM_NEUTRAL, STEM_RANGE, type Stem } from "@studio/song-schema/stems";
 import { EQ_BANDS, EQ_DB, FILTER_RANGE } from "../deck";
 import type { StripLayout } from "../deskLayout";
 
@@ -261,7 +261,7 @@ export function StemStrip({
   layout,
   onStem,
 }: {
-  /** −1..1 by stem: negative removes the instrument, 0 is the record, positive adds. Absent is 0. */
+  /** 0..2 by stem: 0 drops the part, 1 is as it was cut, 2 doubles it. Absent reads as unity. */
   stems: Partial<Record<Stem, number>>;
   live: boolean;
   ready: boolean;
@@ -282,7 +282,7 @@ export function StemStrip({
         <Knob
           key={s}
           label={STEM_LABELS[s]}
-          value={stems[s] ?? 0}
+          value={stems[s] ?? STEM_NEUTRAL}
           range={STEM_RANGE}
           // Percent under the hand, −1..1 on the wire — nobody reads a level as "0.4".
           step={0.01}

@@ -9,7 +9,7 @@
 import type { GraphBuilder } from "@studio/dsp";
 
 export default (g: GraphBuilder) => {
-  const level = g.param("Level", { min: -1, max: 1, default: 0 });
-  // A SIGNED gain, `mix + (Level · stem)` — the one thing no fader and no send can express.
+  const level = g.param("Level", { min: 0, max: 2, default: 1 });
+  // The level of ONE part a deck plays: 0 drops it, 1 is as it was cut, 2 doubles it.
   g.gain(level);
 };

@@ -10,6 +10,8 @@ export function BpmFader({
   driven,
   onChange,
   onCommit,
+  keylock,
+  onKeylock,
 }: {
   /** The song's own tempo, 0 when the engine found none. */
   natural: number;
@@ -21,6 +23,9 @@ export function BpmFader({
   onChange: (bpm: number) => void;
   /** Let go. Re-warping is a DOCUMENT change, so it lands here and not on every pixel. */
   onCommit: () => void;
+  /** Is the pitch held while the tempo moves? Off is a platter's behaviour and the default. */
+  keylock: boolean;
+  onKeylock: () => void;
 }) {
   const has = natural > 0;
   const [lo, hi] = BPM_RANGE;
@@ -98,6 +103,24 @@ export function BpmFader({
           ? `${target >= natural ? "+" : ""}${(((target - natural) / natural) * 100).toFixed(1)}%`
           : "BPM"}
       </span>
+
+      {/* Pioneer's MASTER TEMPO, under the fader it changes the meaning of — ../../docs/bpm.md. */}
+      <button
+        type="button"
+        onClick={onKeylock}
+        className={`w-full rounded px-1 py-0.5 font-mono text-[9px] leading-none ${
+          keylock
+            ? "bg-primary/80 text-primary-foreground"
+            : "bg-muted text-muted-foreground hover:bg-accent"
+        }`}
+        title={
+          keylock
+            ? "hauteur tenue : le morceau garde sa tonalité, mais les stems ne se somment plus proprement"
+            : "hauteur libre : le morceau monte avec le tempo, comme un vinyle"
+        }
+      >
+        KEY
+      </button>
     </div>
   );
 }

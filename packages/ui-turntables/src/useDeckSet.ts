@@ -32,6 +32,7 @@ import {
   syncedTempos,
   TEMPO_SOURCE_PARAM,
   transportAt,
+  withKeylock,
 } from "./deck";
 import type { Deck } from "./engine";
 import {
@@ -132,6 +133,9 @@ export interface DeckSet {
   putOn: (deck: DeckId, load: NonNullable<DeckLoads[DeckId]>) => void;
   /** Forget a deck's tempo — a new record starts at its OWN. */
   clearTempo: (deck: DeckId) => void;
+  /** Is this deck holding the pitch while the tempo moves? — docs/bpm.md. */
+  keylock: (deck: DeckId) => boolean;
+  toggleKeylock: (deck: DeckId) => void;
   /** The analysis landed: this deck's scale, home notch and beat grid. */
   measured: (deck: DeckId, tempo: DeckTempo) => void;
 
@@ -196,7 +200,14 @@ export function useDeckSet(
   }, [project, rev, mapping, playlist]);
 
   const wiring = useMemo(() => resolveBindings(view, graph), [view, graph]);
-  const tempos = useMemo(() => syncedTempos(faders, master), [faders, master]);
+  // A DECK's switch, so it survives the record on it — `clearTempo` wipes the tempo and not this.
+  const [keylocks, setKeylocks] = useState<Partial<Record<DeckId, boolean>>>(
+    {},
+  );
+  const tempos = useMemo(
+    () => withKeylock(syncedTempos(faders, master), keylocks),
+    [faders, master, keylocks],
+  );
   const plugins = useMemo(() => enginePluginIds(compiled), [compiled]);
   const stretches = useMemo(
     () => stretchTargets(wiring.bindings, tempos, plugins),
@@ -226,6 +237,8 @@ export function useDeckSet(
   loadsRef.current = loads;
   const fadersRef = useRef(faders);
   fadersRef.current = faders;
+  const keylocksRef = useRef(keylocks);
+  keylocksRef.current = keylocks;
   // …and the derivations a stale caller would otherwise map through, for the same reason.
   const derived = useRef({ wiring, plugins, master });
   derived.current = { wiring, plugins, master };
@@ -472,6 +485,23 @@ export function useDeckSet(
       commitRef.current(latest.current, next);
     },
     clearTempo: (deckId) => setFaders((f) => ({ ...f, [deckId]: undefined })),
+    keylock: (deckId) => !!keylocks[deckId],
+    toggleKeylock: (deckId) => {
+      const next = {
+        ...keylocksRef.current,
+        [deckId]: !keylocksRef.current[deckId],
+      };
+      setKeylocks(next);
+      // Re-sent inline for the reason `measured` is: the warp is a DOCUMENT change, and `latest` is a render late.
+      const d = derived.current;
+      commitRef.current(
+        stretchTargets(
+          d.wiring.bindings,
+          withKeylock(syncedTempos(fadersRef.current, d.master), next),
+          d.plugins,
+        ),
+      );
+    },
     measured: (deckId, tempo) => {
       const merged = { ...fadersRef.current, [deckId]: tempo };
       setFaders(merged);

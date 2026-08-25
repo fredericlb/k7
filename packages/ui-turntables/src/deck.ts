@@ -18,7 +18,6 @@ import type {
   TrackDoc,
 } from "@studio/engine-protocol/project";
 import {
-  MASTER_FILE,
   STEMS_DIR,
   type Stem,
   stemFile,
@@ -82,6 +81,8 @@ export interface DeckTempo {
   align?: number;
   /** How far this clip has slid so a tempo change did not move the music — STORED, it is a history. */
   slip?: number;
+  /** Hold the PITCH while the tempo moves? Off is a platter's own behaviour, and the default — docs/bpm.md. */
+  keylock?: boolean;
 }
 
 export type DeckTempos = Partial<Record<DeckId, DeckTempo>>;
@@ -169,9 +170,13 @@ function ratioOf(natural: number, target: number): number {
   return natural > 0 && target > 0 ? natural / target : 1;
 }
 
+/** Pitch held, or the record simply played faster — the two words `applyClipWarp` branches on. */
+export const KEYLOCK_ALGORITHM = "elastique";
+export const VARISPEED_ALGORITHM = "varispeed";
+
 /** The stretch that makes a song of `natural` BPM play at `target` — the stand-in for `TEMPO_MODULE`, docs/bpm.md. */
 export function warpFor(
-  { natural, seconds, target }: DeckTempo,
+  { natural, seconds, target, keylock }: DeckTempo,
   epsilon = 1e-6,
 ):
   | { algorithm: string; markers: [number, number][]; beats: number }
@@ -180,7 +185,7 @@ export function warpFor(
   if (Math.abs(target - natural) < epsilon) return undefined;
   const beats = (seconds * DOC_TEMPO * natural) / (60 * target);
   return {
-    algorithm: "elastique",
+    algorithm: keylock ? KEYLOCK_ALGORITHM : VARISPEED_ALGORITHM,
     markers: [
       [0, 0],
       [beats, seconds],
@@ -218,11 +223,6 @@ export function stemSource(master: string, stem: Stem): string {
   return `${stemsFolder(master)}${stemFile(stem)}`;
 }
 
-/** The record AS THE SEPARATION DECODED IT, which is the only thing the stems can cancel — docs/stems.md. */
-export function masterSource(master: string): string {
-  return `${stemsFolder(master)}${MASTER_FILE}`;
-}
-
 /** The COMPILED project with the decks' songs filled in — everything else is left ALONE, docs/mix.md. */
 export function withDecks(
   compiled: ProjectDoc,
@@ -243,8 +243,10 @@ export function withDecks(
       const deck = (stem?.deck ?? track.id) as DeckId;
       const load = loads[deck];
       if (!load) return track;
-      // An unseparated song leaves its stem lanes EMPTY, and an empty lane subtracts nothing.
+      // An unseparated song leaves its stem lanes EMPTY, and plays off the deck's own lane instead.
       if (stem && !load.stems) return track;
+      // …and a separated one is the other way round: the four PARTS play, so the record itself does not.
+      if (!stem && load.stems) return { ...track, clips: [] };
       const tempo = tempos[deck];
       const warp = tempo && warpFor(tempo);
       return {
@@ -254,12 +256,7 @@ export function withDecks(
             id: `${track.id}-clip`,
             type: "audio",
             name: load.title,
-            source: stem
-              ? stemSource(load.path, stem.stem)
-              : // A separated song plays its OWN decode, so both sides of the subtraction agree.
-                load.stems
-                ? masterSource(load.path)
-                : load.path,
+            source: stem ? stemSource(load.path, stem.stem) : load.path,
             // The headroom, sync's alignment and the fader's slip in one number — see `startSeconds`.
             start: clipStartBeats(tempo),
             ...(warp
@@ -480,6 +477,19 @@ export function nudgedTempos(
     // Only the SLIP is written back: a slave's `target` is the master's, handed over each render.
     const stored = out[d];
     if (stored) out[d] = { ...stored, slip: slipAfter(b, a, sourceOf(d)) };
+  }
+  return out;
+}
+
+/** The keylock switch belongs to the DECK, not to the record on it, so it is merged in rather than stored per song. */
+export function withKeylock(
+  tempos: DeckTempos,
+  on: Partial<Record<DeckId, boolean>>,
+): DeckTempos {
+  const out: DeckTempos = { ...tempos };
+  for (const deck of DECKS) {
+    const t = out[deck];
+    if (t) out[deck] = { ...t, keylock: !!on[deck] };
   }
   return out;
 }

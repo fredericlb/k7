@@ -76,6 +76,16 @@ void applyClipWarp(te::AudioClipBase& clip, te::Edit& edit, const ClipDoc& c) {
     if (markers.size() == 2 && std::abs(ratio - 1.0) < 1.0e-4)
         return;
 
+    // VARISPEED: no stretcher at all, just a playback rate, so the pitch follows the tempo like a platter's does.
+    if (c.warp.algorithm == "varispeed") {
+        clip.setAutoTempo(false);
+        clip.setTimeStretchMode(te::TimeStretcher::disabled);
+        clip.setUsesProxy(false);
+        // Source seconds per timeline second: Tracktion divides the source length by it — docs/warp.md.
+        clip.setSpeedRatio(1.0 / ratio);
+        return;
+    }
+
     // Pick a stretch algorithm ACTUALLY COMPILED in: an unlinked mode silently becomes `disabled`, which is no stretching at all.
     clip.setTimeStretchMode(te::TimeStretcher::elastiquePro);
     if (clip.getTimeStretchMode() == te::TimeStretcher::disabled)

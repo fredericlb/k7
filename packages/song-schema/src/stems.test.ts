@@ -1,26 +1,27 @@
-// What counts as a separation on disk. The rule is not "the folder is there": a stems/ written
-// before the aligned master holds four files that cannot cancel, and reading it as done is what
-// would leave a desk with knobs that add instead of subtract — docs/stemSplit.md.
+// What counts as a separation on disk. A deck PLAYS the four parts in place of the record, so a
+// folder holding three of them is not a separation that half-worked: it is a song missing an
+// instrument, and reading it as done would put an incomplete record on a deck — docs/stemSplit.md.
 
 import { describe, expect, it } from "vitest";
-import { MASTER_FILE, STEMS, stemFile, stemsComplete } from "./stems";
+import { STEMS, stemFile, stemsComplete } from "./stems";
 
 const four = STEMS.map(stemFile);
 
 describe("stemsComplete", () => {
-  it("takes the five aligned files", () => {
-    expect(stemsComplete([...four, MASTER_FILE])).toBe(true);
+  it("takes the four parts", () => {
+    expect(stemsComplete(four)).toBe(true);
   });
 
-  it("refuses the four alone — the shape every folder had before the master", () => {
-    expect(stemsComplete(four)).toBe(false);
+  it("refuses a folder missing one of them", () => {
+    expect(stemsComplete(four.slice(1))).toBe(false);
   });
 
-  it("refuses a folder missing one stem", () => {
-    expect(stemsComplete([...four.slice(1), MASTER_FILE])).toBe(false);
+  it("refuses an empty folder, which is what an interrupted run leaves", () => {
+    expect(stemsComplete([])).toBe(false);
   });
 
   it("ignores whatever else the folder holds", () => {
-    expect(stemsComplete([...four, MASTER_FILE, "notes.txt"])).toBe(true);
+    // A master.wav from the version that subtracted is one of those: harmless, and not asked about.
+    expect(stemsComplete([...four, "master.wav", "notes.txt"])).toBe(true);
   });
 });

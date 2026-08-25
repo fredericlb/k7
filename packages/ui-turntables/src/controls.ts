@@ -2,6 +2,7 @@
 // `views/mix.yaml` names to bind one to a module param. See ../../docs/controls.md.
 
 import {
+  STEM_NEUTRAL,
   STEM_RANGE,
   STEMS,
   type Stem,
@@ -81,8 +82,8 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     label: `${STEM_LABELS[stem]} platine ${letter}`,
     kind: "fader" as const,
     range: STEM_RANGE,
-    // 0 is the record untouched, and it is the CENTRE of the travel: left removes, right adds.
-    home: 0,
+    // Unity is the part as it was cut, and it is the CENTRE of the travel: left removes, right adds.
+    home: STEM_NEUTRAL,
     wants: "stem",
   })),
 ];

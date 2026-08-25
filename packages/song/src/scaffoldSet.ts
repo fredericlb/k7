@@ -7,6 +7,7 @@
 
 // The stem vocabulary lives in song-schema because the DESK needs the same names and cannot import a scaffold.
 import {
+  STEM_NEUTRAL,
   STEM_PARAM,
   STEMS,
   type Stem,
@@ -238,29 +239,28 @@ function stemLaneNode(deck: string, stem: Stem): string {
     `#\n` +
     `# A lane with no arrangement, exactly like the deck beside it: the material arrives when a\n` +
     `# song is put on, and it is \`stems/${stemFile(stem)}\` in that song's own folder. A song\n` +
-    `# that has never been separated leaves this lane empty, and an empty lane subtracts nothing\n` +
+    `# that has never been separated leaves this lane empty, and the deck's own lane plays instead\n` +
     `# — which is why a deck still plays a record nobody prepared.\n` +
     `#\n` +
-    `# Muted in graph.yaml, like every source lane here: it is heard through the bus only, and\n` +
-    `# an unmuted stem would add its INVERTED copy straight to the master.\n` +
+    `# Muted in graph.yaml, like every source lane here: it is heard through the bus only, where\n` +
+    `# it is summed with the three beside it — an unmuted lane would reach the master twice.\n` +
     `extends: "@studio/track"\n`
   );
 }
 
-/** …and the node that takes it out of the record. */
+/** …and the node that says how loud that part plays. */
 function stemCutNode(deck: string, stem: Stem): string {
   return (
-    `# How much of deck ${letterOf(deck)}'s ${stem} to REMOVE — the fader's other end.\n` +
+    `# How much of deck ${letterOf(deck)}'s ${stem} to PLAY — a level on the lane carrying it.\n` +
     `#\n` +
-    `# The module's gain is negative, so this lane is subtracted from the record it was\n` +
-    `# separated out of rather than added to it. At 0 the gain is zero: the lane is silent and\n` +
-    `# the record comes through untouched, which is the whole reason it is a subtraction and not\n` +
-    `# a mix of four stems. See packages/dsp/docs/stemcut.md.\n` +
+    `# A separated record is played as its four parts rather than as itself, so this is an\n` +
+    `# ordinary gain, and the four at unity sum back to the disc. See packages/dsp/docs/stemcut.md,\n` +
+    `# which also says what the version that SUBTRACTED cost and why it went.\n` +
     `extends: ${q(`${MEDIATEK_SEPARATION}/stemcut`)}\n` +
     `params:\n` +
-    `  # −1 takes the instrument out, 0 leaves the record alone, 1 doubles it. The desk's\n` +
-    `  # ${stem} knob moves this, and it starts CENTRED — left removes, right adds.\n` +
-    `  ${STEM_PARAM}: 0\n`
+    `  # 0 drops the instrument, 1 is as it was cut, 2 doubles it. The desk's ${stem} knob\n` +
+    `  # moves this, and it starts CENTRED on unity — left removes, right adds.\n` +
+    `  ${STEM_PARAM}: ${STEM_NEUTRAL}\n`
   );
 }
 
