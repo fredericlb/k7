@@ -55,6 +55,25 @@ for: `?profile=1`, or `studio.profile` in localStorage so it survives the reload
 investigation takes. `installFreezeWatchdog()` itself stays unconditional — the heartbeat and
 the `longtask` observer are cheap and are what turn "it froze" into evidence at all.
 
+### …except that on Firefox two of the three instruments see nothing
+
+Measured 2026-08-25, on eight stall reports five to nine seconds long, arriving every ~66 s: every
+one printed *"nothing on the main thread — not ours to fix in JS"*, and that sentence was worth
+nothing. **Firefox implements no Long Tasks API**, so `observe({entryTypes: ["longtask"]})` is a
+silent no-op there — the observer exists, never fires, and an empty ring reads exactly like a quiet
+thread. The Profiler above is off by default, so the commit ring was empty for a second, unrelated
+reason. Only `activity()` breadcrumbs were really reporting.
+
+Two instruments blind out of three, and the report drew the strongest possible conclusion from
+their silence — it told the reader to stop looking in the app. So the watchdog now **asks whether
+it can see** (`PerformanceObserver.supportedEntryTypes`), says so once at startup when it cannot,
+and an empty ring then reads *"this browser measures no long task — so this says NOTHING about the
+app"*. The check is one line and it is what makes the rest trustworthy.
+
+What to do when a stall is reported on Firefox, in order: turn the Profiler on (`?profile=1`), since
+commits DO work there and will name one if React is the cause; and if that stays quiet, reproduce in
+a Chromium browser, where the long-task observer works and attributes the block.
+
 The flag is `src/profiling.ts`, and it is deliberately ONE flag rather than one per instrument.
 The viewport's per-lane drift readout is behind the same one (`picture.md`): it polls at 5 Hz and
 re-renders its pane at 5 Hz, which is the same trade as the Profiler's — worth it while somebody

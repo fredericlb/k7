@@ -27,6 +27,10 @@ const activities: Span[] = [];
 // Stretches where the page was HIDDEN: a backgrounded tab has its timers throttled, and reporting that gap as a stall is a false lead.
 const hidden: Span[] = [];
 let longTaskObs: PerformanceObserver | null = null;
+/** Does THIS browser measure long tasks? Firefox does not, and a blind ring reads exactly like a quiet one. */
+const seesLongTasks =
+  typeof PerformanceObserver !== "undefined" &&
+  (PerformanceObserver.supportedEntryTypes ?? []).includes("longtask");
 
 function push(ring: Span[], s: Span): void {
   ring.push(s);
@@ -127,13 +131,14 @@ export function installFreezeWatchdog(): void {
         `    heap      ${(mem.usedJSHeapSize / 1048576).toFixed(0)}MB of ` +
           `${(mem.jsHeapSizeLimit / 1048576).toFixed(0)}MB`,
       );
+    // An empty ring means one of two OPPOSITE things, and saying the wrong one sends the reader away for good.
+    const quiet = seesLongTasks
+      ? "\n    (nothing on the main thread — not ours to fix in JS)"
+      : "\n    (this browser measures no long task — so this says NOTHING about the app)";
     console.warn(
       `⏱️ [freeze] main thread blocked ~${Math.round(overshoot)}ms ` +
         `(at ${new Date().toLocaleTimeString()})` +
-        // No breadcrumb at all is itself a finding: the thread was taken from us rather than spent by us — do not go looking in the app.
-        (lines.length
-          ? `\n${lines.join("\n")}`
-          : "\n    (nothing on the main thread — not ours to fix in JS)"),
+        (lines.length ? `\n${lines.join("\n")}` : quiet),
     );
   }, PERIOD);
 
@@ -158,6 +163,10 @@ export function installFreezeWatchdog(): void {
   });
 
   // Long tasks: the browser's own measure of a blocking chunk. Attribution is thin, but the timing pins the stall.
+  if (!seesLongTasks)
+    console.warn(
+      "⏱️ [freeze] no long-task instrument in this browser — stall reports will be blind to JS",
+    );
   try {
     longTaskObs = new PerformanceObserver((list) => {
       for (const e of list.getEntries()) {
