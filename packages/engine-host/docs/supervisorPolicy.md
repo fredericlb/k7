@@ -11,7 +11,7 @@ interval is the whole of the design.
 | constant | why that pace |
 |---|---|
 | `WATCH_MS` (2 s) | both process watches. Fast enough that a crash is noticed before the user is, slow enough to be free — each tick is a pidfile stat or a socket connect. |
-| `DEVICES_POLL_MS` (30 s) | this is what notices an interface being plugged in or pulled out — and it is the one poll that TOUCHES A DRIVER, so it was slowed from 2 s. See below. |
+| `DEVICES_POLL_MS` (10 s) | this is what notices an interface being plugged in or pulled out — and it is the one poll that TOUCHES A DRIVER, so it was slowed from 2 s. See below. |
 | `SESSIONS_POLL_MS` (2 s) | an app connecting or a song loading is a human-speed event, and the submenu redraws only when the signature moves anyway. |
 | `EDIT_PLUGINS_POLL_MS` (3 s) | a user swaps songs at human speed, not interface-unplug speed. |
 | `PLUGINS_POLL_MS` (60 s) | the plugin scan is expensive and the answer barely moves. Until it lands we ask at `PLUGINS_POLL_FAST_MS` (2 s) instead, to keep the spinner honest — that poll reschedules itself rather than sitting on one interval. |
@@ -37,9 +37,14 @@ pendant qu'il diffuse est le genre de sollicitation qui réveille une assertion.
 nul, on retire la seule sollicitation répétée qu'on impose au pilote, et on regarde si les
 plantages cessent. Si le scan est innocent, on n'aura perdu que de la promptitude.
 
-**Ce que ça coûte, dit franchement.** Brancher l'interface met jusqu'à 30 s à être remarqué, la
-bascule vers le repli aussi, et le sous-menu du tray est périmé d'autant. C'est le prix, et il se
-paie à chaque branchement.
+**Le réglage est un curseur, et 10 s est où il s'est arrêté.** À 2 s le pilote recevait 1800 scans
+par heure ; à 10 s il en reçoit 360, à 30 s il en recevait 120. Trente secondes ont été essayées
+d'abord et rendues : une demi-minute avant qu'une interface branchée soit remarquée se sent à
+l'usage, alors que la marche de 1800 à 360 emporte déjà l'essentiel de la réduction.
+
+**Ce que ça coûte quand même.** Brancher l'interface met jusqu'à 10 s à être remarqué, la bascule
+vers le repli aussi, et le sous-menu du tray est périmé d'autant. C'est le prix, et il se paie à
+chaque branchement.
 
 **Le vrai correctif, si celui-ci tient.** JUCE expose un `AudioIODeviceType::Listener` que Windows
 alimente sur arrivée et retrait de matériel. Y passer donnerait les deux à la fois — réaction
@@ -206,7 +211,7 @@ needs consecutive failures before acting — and it has not been taken.
 
 ## `engineQueries.ts` — request/reply over one connection
 
-The polls run at 30 s / 2 s / 3 s, so a fresh WebSocket per call would be roughly one TCP
+The polls run at 10 s / 2 s / 3 s, so a fresh WebSocket per call would be roughly one TCP
 handshake per second, forever, each connection then reading and discarding the engine's ~20 Hz
 `state` broadcasts until its own typed reply arrived. One connection whose firehose is simply
 not listened to costs nothing.

@@ -220,7 +220,8 @@ compris. Mesuré : **50 ms par scan**, six fois sur six — et le superviseur en
 les deux secondes**, à vie, soit 1800 contacts par heure avec un pilote mono-client pendant qu'il
 diffuse. Le callback n'en souffre pas (max 0,278 ms pendant une rafale contre 0,356 sans), donc ce
 n'est pas un problème de temps réel ; c'est la seule sollicitation répétée qu'on impose au pilote.
-`DEVICES_POLL_MS` est passé à 30 s pour voir — expérience à coût nul, pas correctif prouvé :
+`DEVICES_POLL_MS` est passé à 10 s pour voir — 360 scans par heure au lieu de 1800 ; expérience à
+coût quasi nul, pas correctif prouvé :
 `packages/engine-host/docs/supervisorPolicy.md`.
 
 **Ce que ça clot.****Ce que ça clot.** L'engin n'approche jamais sa date limite : facteur vingt de marge sur le pire
