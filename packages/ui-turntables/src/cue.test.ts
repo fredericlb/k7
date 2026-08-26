@@ -3,7 +3,7 @@
 // the clip that needed it (docs/platter-plan.md, étape 4).
 
 import { describe, expect, it } from "vitest";
-import { CUE_COLOURS } from "./deck";
+import { CUE_COLOURS } from "./deckVocabulary";
 
 describe("the cue colours", () => {
   it("has one per button, and no two alike", () => {

@@ -17,7 +17,7 @@ import {
   useStoreState,
 } from "@studio/engine-browser/store";
 import { useEffect, useRef, useState } from "react";
-import { type DeckId, LEVEL_DB, MIX_CENTRE } from "../deck";
+import { type DeckId, LEVEL_DB, MIX_CENTRE } from "../deckVocabulary";
 import type { DeskLayout } from "../deskLayout";
 
 /** `gap-3` between the column's stacked pieces — the same one the deck columns use. */

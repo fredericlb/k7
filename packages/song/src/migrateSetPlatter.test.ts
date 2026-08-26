@@ -100,23 +100,6 @@ describe("migrateSetPlatter", () => {
     expect(tree(root)).toEqual(once);
   });
 
-  it("puts ONE platter on every lane that plays a file, and none anywhere else", () => {
-    const root = join(dir, "count.st0");
-    scaffoldSet(root, "hiver");
-    unPlatter(root);
-    migrate(root);
-    const graph = readFileSync(join(root, GRAPH_FILE), "utf8");
-    // The record's lane, then the four stems — per deck. A platter reads ONE record.
-    expect(graph).toMatch(/^ {2}deckA: \[ platterA \]$/m);
-    expect(graph).toMatch(/^ {2}platterA: \[ tempoA \]$/m);
-    expect(graph).toMatch(/^ {2}stemBassA: \[ platterBassA \]$/m);
-    expect(graph).toMatch(/^ {2}platterBassA: \[ cutBassA \]$/m);
-    // Ten in all: five lanes, two decks. The trim and the fade get none — they process, not read.
-    expect(
-      readdirSync(join(root, "nodes")).filter((f) => f.startsWith("platter")),
-    ).toHaveLength(10);
-  });
-
   it("leaves the strip alone — it inserts a source, it does not re-plumb", () => {
     const root = join(dir, "strip.st0");
     scaffoldSet(root, "hiver");

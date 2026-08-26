@@ -45,6 +45,9 @@
     "packages/song-edit": {
       "entry": ["scripts/*.ts"]
     },
+    "packages/audio-probe": {
+      "entry": ["scripts/*.ts"]
+    },
     "packages/song-schema": {
       "entry": ["src/builtinParams.generated.ts"]
     },

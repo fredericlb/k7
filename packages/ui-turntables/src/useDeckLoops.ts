@@ -6,7 +6,7 @@
 // ../docs/loop.md.
 
 import { useCallback, useRef, useState } from "react";
-import type { DeckId, DeckTempo } from "./deck";
+import type { DeckId, DeckTempo } from "./deckVocabulary";
 import {
   beatSeconds,
   beatsBetween,

@@ -9,7 +9,7 @@ import {
 import { SURFACE_MAPPING_SKELETON } from "@studio/song-schema/yaml/surfaceSchema";
 import { describe, expect, it } from "vitest";
 import { mixControl } from "./controls";
-import { DECKS } from "./deck";
+import { DECKS } from "./deckVocabulary";
 import { REQUIRED_CONTROLS, unmappedControls } from "./mapping";
 
 const ids = (cs: readonly { id: string }[]) => cs.map((c) => c.id).sort();

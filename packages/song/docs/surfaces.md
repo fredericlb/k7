@@ -295,8 +295,9 @@ to different people.
 The check is a **gate** rather than a per-knob badge: the components required are the ones that
 make a desk a desk — a crossfade, three EQ bands and a filter per deck. A desk missing its
 crossfade is not a desk with one feature off. `unmappedControls` in
-`@studio/ui-turntables/mapping` owns the list, because which components a type needs is the
-surface's own business and `@studio/song` does not know what a `crossfade` is.
+`packages/ui-turntables/src/mapping.ts` owns the list, because which components a type needs is
+the surface's own business and `@studio/song` does not know what a `crossfade` is. It is internal
+to the desk — the package publishes four subpaths, and this is not one of them.
 
 The mastering strip has its own `unmappedControls`, in `apps/st0/frontend/src/mastering/`, and it
 requires **all ten**. That is not a stricter mood; it is what the surface is. A desk with no stem

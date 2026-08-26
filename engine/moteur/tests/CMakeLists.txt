@@ -55,6 +55,8 @@ target_compile_definitions(studio_midigraph_tests PRIVATE
     JUCE_WEB_BROWSER=0
     DONT_SET_USING_JUCE_NAMESPACE=1)
 add_test(NAME studio_midigraph_tests COMMAND studio_midigraph_tests)
+# `slow` is what keeps this out of `npm run test`: linking Tracktion can cost minutes — ../../../docs/tests.md.
+set_tests_properties(studio_midigraph_tests PROPERTIES LABELS slow)
 
 
 # --- DSP graph tests ----------------------------------------------------------
@@ -72,6 +74,8 @@ target_compile_definitions(studio_dspgraph_tests PRIVATE
     JUCE_WEB_BROWSER=0
     DONT_SET_USING_JUCE_NAMESPACE=1)
 add_test(NAME studio_dspgraph_tests COMMAND studio_dspgraph_tests)
+# Slow for the same reason as the MIDI one, and opt-in the same way.
+set_tests_properties(studio_dspgraph_tests PROPERTIES LABELS slow)
 
 # --- Faust tests --------------------------------------------------------------
 # Compiles every `.dsp` this repo ships with the engine's own libfaust. JUCE-FREE, unlike the two

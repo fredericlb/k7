@@ -1,17 +1,25 @@
 # Constat global — l'axe audio
 
-**Relevé du 2026-08-21, sur `a4808e35`.** Périmètre : `apps/st0`, `engine/moteur`,
+**Relevé du 2026-08-26, sur `8f27aab1`.** Périmètre : `apps/st0`, `engine/moteur`,
 `engine/capot` et les paquets qu'ils pilotent. Hors périmètre : `apps/{z0,k7,pl8,studio}`.
+Relevé précédent : 2026-08-21 sur `a4808e35`, **116 commits plus tôt** — l'écart est dit ici
+parce qu'il est la chose que cette page a le plus mal supportée.
 
 Cette page est **autonome** — elle porte ses preuves plutôt que d'y renvoyer — ce qui veut dire
 qu'elle périme. Le remède n'est pas de la croire mais de la rejouer : la dernière section
 donne les commandes exactes. Une entrée fausse doit se découvrir en trente secondes. Les
 chiffres gardent leur date de mesure, faute de quoi ils ne se vérifient pas.
 
-Les quatre pages spécialisées gardent ce qu'elles seules détiennent :
+> **Ce que 116 commits ont changé, en une ligne chacun.** Les bancs : moyennes stables, mais la
+> variance à 64 pistes ne tient plus (voir ci-dessous). Le C++ : ses tests **tournent** enfin,
+> `turbo run test` les compile et les lance. Le filet, le jeton, `git` bloquant : inchangés,
+> revérifiés un par un. Le code mort a doublé de volume déclaré, et c'est en partie un progrès.
+
+Les cinq pages spécialisées gardent ce qu'elles seules détiennent :
 [audit-perf-web.md](audit-perf-web.md) (les lots chiffrés),
 [audit-moteur.md](audit-moteur.md) (le lien d'une surface au moteur),
-[inventaire.md](inventaire.md) (le code mort) et
+[inventaire.md](inventaire.md) (le code mort),
+[tests.md](tests.md) (ce que la suite couvre, et les deux fois où elle a menti) et
 [engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md) (le C++).
 
 ---
@@ -29,9 +37,20 @@ On corrige là où ça fait mal, et le symétrique — qui n'a pas encore fait m
 | Un filet `unhandledRejection` / `uncaughtException` aux deux points d'entrée TypeScript | Ni `try` au niveau de `main()`, ni `set_terminate` en C++ |
 | La gate de st0 : bail, relook, prédicat complet | Celle de z0 : ni bail, ni relook, joignabilité qui ignore le jeton (hors périmètre) |
 
-Et la conséquence qui tient les trois axes : **la garde automatique manque sur deux d'entre
-eux.** Pas de porte de non-régression perf, pas de test inter-process ; seul le code mort a son
-outil. Ce qui n'est pas outillé se vérifie à la main, donc décroche.
+Et la conséquence qui tient les trois axes : **la garde automatique manque sur l'un d'eux.**
+Pas de porte de non-régression perf. Ce qui n'est pas outillé se vérifie à la main, donc
+décroche.
+
+**Corrigé le 2026-08-26, et la correction dit quelque chose de la thèse.** Le relevé précédent
+écrivait « la garde manque sur DEUX » : ni perf, ni test. La moitié « test » n'était pas une
+absence de tests — c'était une absence de *lancement*. `engine/moteur` portait six cibles ctest
+et aucun script `test` que turbo sache appeler ; `packages/ui-eyes` et `apps/z0/editor` avaient
+86 tests verts que personne n'exécutait. Le jumeau nu n'était pas le code : c'était le câblage.
+Trois lignes de `package.json` l'ont refermé — voir [tests.md](tests.md).
+
+C'est le mode de panne que cette page doit chercher en priorité : **pas ce qui manque, ce qui
+existe et ne tourne pas.** Un test non lancé est indiscernable d'un test absent dans un tableau
+de bord, et bien plus cher, parce qu'il donne en plus l'illusion d'une couverture.
 
 ---
 
@@ -45,23 +64,36 @@ une raison écrite dans le fichier. Un banc qui écrit sa fixture puis mesure **
 moyenne mélange deux populations, et la variance rend le banc inutilisable. La fixture se
 vieillit d'une heure (`utimesSync`) — c'est le régime dans lequel est un vrai morceau.
 
-Repères sur cette machine, au 2026-08-21, fixture vieillie :
+Repères sur cette machine, au **2026-08-26**, fixture vieillie, **trois passes** — parce qu'une
+seule ne dit plus la vérité, et c'est le changement principal de ce relevé :
 
 | banc | 8 pistes | 64 pistes |
 |---|---|---|
-| `compileNodeProject` | 3,68 ms, rme ±1,64 % | 21,36 ms, rme ±1,74 % |
-| `buildGraphDoc` | 4,18 ms | 35,65 ms |
+| `compileNodeProject` | 3,86 – 4,19 ms, rme ±1,5 à ±1,8 % | 22,8 – 26,8 ms, rme **±5,6 à ±14,7 %** |
+| `buildGraphDoc` | 4,25 – 5,91 ms, rme ±1,6 à ±3,9 % | 34,0 – 51,5 ms, rme **±0,9 à ±14,0 %** |
 
-Deux lectures, et la seconde est la plus importante :
+Pour mémoire, au 2026-08-21 : 3,68 ms / 21,36 ms pour le compile, 4,18 ms / 35,65 ms pour le
+graphe, **le tout sous ±2 %**.
 
-1. **La variance tient sous ±2 %.** Un banc à ±40 % ne valide aucun changement de moins de 40 %,
-   c'est-à-dire aucun.
+Trois lectures, et la première est nouvelle :
+
+1. **La variance ne tient plus à 64 pistes.** L'affirmation « sous ±2 % » du relevé précédent est
+   maintenant fausse pour les grandes fixtures : mesuré jusqu'à **±14,7 %**, et la moyenne du
+   banc `buildGraphDoc` bouge de 34 à 51 ms d'une passe à l'autre. Les moyennes à 8 pistes, elles,
+   sont stables et collent à celles d'il y a 116 commits. Ce n'est donc pas une régression du
+   code : **c'est le banc qui a cessé d'être un instrument** à cette taille. Cause probable et non
+   démontrée : les grandes fixtures ne tirent que 10 à 22 échantillons, si bien qu'un seul
+   décrochage d'ordonnancement domine — et cette machine avait Tilt et un `studio-moteur.exe`
+   vivants pendant la mesure, ce que le relevé de 2026-08-21 ne dit pas de lui-même.
+   **Conséquence pratique : ne rien conclure d'un écart de moins de 15 % à 64 pistes** sans avoir
+   d'abord arrêté la session de dev et répété la passe.
 2. **Les deux bancs mesurent des choses différentes.** À cache froid ils sont tous deux dominés
    par les mêmes lectures YAML et rendent le même chiffre, ce qui fait croire que `buildGraphDoc`
-   ne coûte rien de plus. À découvert l'écart est de **14 ms** : le travail propre de
-   `buildGraphDoc`, les extents de clips. C'est ce poste qu'il faut surveiller quand un morceau
-   grossit.
-3. La courbe est douce : 8× les pistes coûtent 5,8× sur le compile.
+   ne coûte rien de plus. À découvert l'écart est de **11 à 13 ms** sur les passes calmes — le
+   travail propre de `buildGraphDoc`, les extents de clips. C'était 14 ms en 2026-08-21 : inchangé
+   dans les limites du bruit. C'est ce poste qu'il faut surveiller quand un morceau grossit.
+3. La courbe est douce, et c'est le chiffre qui a le mieux tenu : 8× les pistes coûtent toujours
+   **5,8×** sur le compile, à cinq jours et 116 commits d'écart.
 
 Page : [`packages/song/docs/benchSettle.md`](../packages/song/docs/benchSettle.md).
 
@@ -260,8 +292,11 @@ le nouveau superviseur ré-adopte le moteur par son pidfile. Ça se rattrape, do
 inaperçu. Même famille côté service de fichiers, où `wrap()` ne peut rien voir : elle n'attrape
 que ce que le handler *retourne*.
 
-**Ouvert : le C++.** Un seul `try`/`catch` dans toute la bibliothèque (`NamPlugin.cpp`) sur
-52 fichiers, ni `try` au niveau de `main()`, ni `set_terminate`.
+**Ouvert : le C++.** Revérifié au 2026-08-26, et le constat tient mot pour mot : un seul
+`catch` dans toute la bibliothèque (`NamPlugin.cpp`) sur **55** fichiers (52 au relevé
+précédent), ni `try` au niveau de `main()`, ni `set_terminate`. `server/main.cpp` en porte
+sept, tous imbriqués et locaux — `main()` ouvre à la ligne 331, les `try` qui la précèdent sont
+dans un utilitaire de chargement.
 
 ### git bloque le process qui tient le moteur
 
@@ -282,9 +317,21 @@ resserrer est un lot, pas une phrase.
 
 ### Les tests : ce que personne ne couvre
 
-`engine-browser/src/engine.ts` — 852 lignes où vit toute la fiabilité du client navigateur —
-**n'a pas de fichier de test**. Et plus large : **aucun test ne franchit une frontière de
-process**, **aucun contrat C++ ↔ TS** ne tient la trame binaire.
+`engine-browser/src/engine.ts` — **673 lignes** (852 au relevé précédent : le fichier a maigri,
+le trou non) où vit toute la fiabilité du client navigateur — **n'a toujours pas de fichier de
+test**. Ses cinq voisins en ont un (`choose`, `lease`, `meter`, `playheadClock`, `streamPlayer`) ;
+lui, non. Et plus large : **aucun test ne franchit une frontière de process**, **aucun contrat
+C++ ↔ TS** ne tient la trame binaire.
+
+**Refermé le 2026-08-26 : les tests qui existaient sans tourner.** Trois espaces de travail
+portaient des tests que `turbo run test` ne voyait pas, faute de script `test` — 86 tests
+TypeScript verts et six cibles ctest jamais compilées. La suite est passée de 44 à 47 tâches. Le
+détail, y compris pourquoi le filtre `^studio_` est porteur et pourquoi le C++ **saute** au lieu
+de configurer, est dans [tests.md](tests.md).
+
+Deux pièges y sont mesurés et valent pour toute mesure faite ici : un banc ou un test qui ne
+tourne pas est vert, et un échec qui **change de test à chaque passe** est un budget de temps
+trop court, pas un bug — cinq secondes par défaut pour 160 fichiers qui touchent le disque.
 
 ### Déjà solide
 
@@ -309,8 +356,17 @@ Sa liste d'exceptions est le §0 de l'inventaire traduit en configuration, faute
 code vivant : `dspRunner.mjs`, `separateWorker.ts`, les entrées esbuild du tray, `emit.ts`, les
 `jsdsp.ts`, les harnais de `engine/moteur/scripts/`.
 
-Sortie sur l'axe audio au 2026-08-21 : **1 fichier, 4 dépendances, 1 devDépendance, 58 exports,
-17 types** — 81 constats en 92 lignes, chacun à examiner.
+Sortie au **2026-08-26** : **1 fichier, 1 dépendance non déclarée, 2 binaires non déclarés,
+120 exports, 45 types** — 169 constats, chacun à examiner. Au 2026-08-21 : 1 fichier,
+4 dépendances, 1 devDépendance, 58 exports, 17 types, soit 81.
+
+**Le doublement est en partie un progrès, et il faut savoir lequel.** Une part est de la dérive
+réelle sur 116 commits. Mais une part vient de ce que la carte `exports` de `ui-turntables` a été
+ramenée de 15 sous-chemins à 4 le 2026-08-26 : un symbole publié est invisible à knip, qui le
+croit consommé par l'extérieur, tandis que le même symbole devenu interne devient un « export
+inutilisé » bien visible. **Rétrécir la surface publiée déplace des constats de l'ombre vers la
+liste** — le compte monte parce que le `package.json` ment moins. Un compte qui monte n'est donc
+pas lisible seul : il se lit contre les cartes `exports` du même jour.
 
 ### Lancer `lint:bytes` AVANT `lint:dead`
 
@@ -337,7 +393,13 @@ Chacun est une décision de conception, et c'est pourquoi aucun n'est pris au fi
 6. Le jeton distribué à toute socket, et `STUDIO_ENGINE_HOST` à `0.0.0.0` par défaut.
 7. Le filet d'exceptions côté C++.
 8. Les tests absents : `engine.ts`, le premier test inter-process, le premier contrat C++ ↔ TS.
-9. Le bloc WebCodecs de `ui-eyes`, et la chaîne d'effets par platine, qui n'a pas d'hôte.
+   **Rétréci le 2026-08-26** — le C++ tourne enfin, mais aucun de ces trois-là n'est écrit.
+9. Le bloc WebCodecs de `ui-eyes`, qui n'a pas d'hôte. ~~La chaîne d'effets par platine~~ :
+   tranchée en entier le 2026-08-26 — `chains.tsx`, puis `graph.ts` et `graph.test.ts` qui ne
+   servaient plus qu'à lui (inventaire §6). Quatre de ses quinze tests portaient en fait sur
+   `deck.ts` et ont été déplacés plutôt que perdus.
+10. **Le banc à 64 pistes, qui ne mesure plus rien d'utilisable** (±14,7 %). Soit on lui donne
+    assez d'échantillons et une machine au repos, soit on cesse de publier ses chiffres.
 
 ---
 
@@ -352,18 +414,34 @@ npx turbo run test --force                 # --force : un vert en cache est iden
 npx turbo run typecheck --force
 ```
 
+**Arrêter la session de dev avant les bancs.** Tilt et un `studio-moteur.exe` vivants suffisent à
+faire passer la variance à 64 pistes de ±1 % à ±15 % — c'est la découverte du relevé
+2026-08-26, et elle invalide toute comparaison faite machine chargée. Et **trois passes, pas
+une** : à cette taille le banc tire dix à vingt échantillons, assez pour qu'une seule passe
+mente sans en avoir l'air.
+
 Pour vérifier les affirmations de cette page une par une :
 
 ```bash
 # le filet — doit trouver les deux background.ts, et RIEN en C++
-grep -rn "unhandledRejection\|uncaughtException\|set_terminate" --exclude-dir=.claude .
+# git grep, PAS grep -rn : ce dernier balaie dist/ et .turbo/ et rend 700 Ko de bundles minifiés
+git grep -n "unhandledRejection\|uncaughtException\|set_terminate" -- . ':!commons'
 
 # le jeton part sur n'importe quelle socket
-grep -n "engineToken" engine/moteur/server/main.cpp
+git grep -n "engineToken" -- engine/moteur/server/main.cpp
+
+# un seul catch dans la bibliothèque, et main() n'est pas gardée
+for f in $(git ls-files 'engine/moteur/engine/*.cpp' 'engine/moteur/engine/*.h'); do
+  n=$(grep -cE 'catch\s*\(' "$f"); [ "$n" -gt 0 ] && echo "$n $f"
+done
 ```
 
-Deux pièges de mesure déjà payés ici : lire le **nombre de tests** et non le code de sortie (le
-glob vide de `docs.test.ts` passe à vide), et se méfier de `libraries.test.ts`, qui pilote du vrai
-git et sort en timeout sous charge — le remettre en cause une seconde fois avant d'accuser un
-changement. Et sur cette machine, `.claude/` contient une trentaine de worktrees : un glob à la
-racine qui ne les exclut pas rapporte les résultats d'autres branches.
+Trois pièges de mesure déjà payés ici : lire le **nombre de tests** et non le code de sortie (le
+glob vide de `docs.test.ts` passe à vide) ; se méfier des tests qui pilotent du vrai git et
+sortent en timeout sous charge — les remettre en cause une seconde fois avant d'accuser un
+changement, ils ont menti deux fois dans la même session, sur deux tests différents ; et **une
+commande passée à `tail` rend le code de sortie de `tail`**, c'est-à-dire zéro, ce qui a fait
+lire « exit 0 » sur un `biome check` qui signalait quatre erreurs. Enfin, sur cette machine
+`.claude/` contient une vingtaine de worktrees : un glob à la racine qui ne les exclut pas
+rapporte les résultats d'autres branches — `vitest.config.ts` les exclut désormais, les greps à
+la main non.

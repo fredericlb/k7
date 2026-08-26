@@ -9,8 +9,8 @@
 // number), and a corrected downbeat that still carries the guess's "not confident" flag.
 
 import { describe, expect, it } from "vitest";
-import type { DeckTempo } from "./deck";
-import { corrected } from "./useDeckSet";
+import type { DeckTempo } from "./deckVocabulary";
+import { corrected } from "./grid";
 
 /** As the analysis hands it over: a wrongly-doubled 174 on an 87 BPM record. */
 const measured: DeckTempo = {

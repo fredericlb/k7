@@ -3,7 +3,7 @@
 // See ../../docs/vinyl.md.
 
 import { useEffect, useRef } from "react";
-import { CUE_COLOURS } from "../deck";
+import { CUE_COLOURS } from "../deckVocabulary";
 import { CENTRE, pointOnDial, progressOf, wedgePath } from "../dial";
 
 /** Where the grooves sit, as fractions of the radius — dense at the rim, sparse toward the label. */

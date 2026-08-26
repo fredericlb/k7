@@ -4,7 +4,7 @@
 // The one thing a reader would get wrong: a length in BEATS becomes seconds at the record's OWN
 // tempo and never at the fader's. See ../docs/loop.md.
 
-import type { DeckTempo } from "./deck";
+import type { DeckTempo } from "./deckVocabulary";
 
 /** The lengths a button offers, in beats. Everything else is reached with ÷2 and ×2. */
 export const LOOP_BEATS = [4, 8, 16] as const;

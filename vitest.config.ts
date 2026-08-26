@@ -13,6 +13,11 @@ export default defineConfig({
       ...defaultExclude,
       "engine/moteur/build/**",
       "engine/moteur/build-*/**",
+      // Every branch ever worked on is checked out under here — see docs/tests.md.
+      ".claude/worktrees/**",
     ],
+    // Most tests here touch a real disk, and turbo runs them 30-wide — docs/tests.md.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

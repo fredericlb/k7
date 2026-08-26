@@ -1,10 +1,12 @@
 // deck.ts — the two decks as ONE document the engine plays: a track each, a level each, and
 // the crossfade between them. The engine has one transport, so both decks run off it and the
 // crossfader decides what is heard. See docs/mix.md.
+//
+// What a deck IS, and the ends of every knob, are in `deckVocabulary.ts`; the click track this
+// document carries is in `metronome.ts`. Both are read from here and neither reads back.
 
 import type { EngineClient } from "@studio/engine-browser";
 import {
-  clipDoc,
   emptyDoc,
   enginePlugin,
   MIXER_PLUGIN,
@@ -12,12 +14,7 @@ import {
   trackDoc,
   VOLUME_DB,
 } from "@studio/engine-protocol/build";
-import type {
-  ClipDoc,
-  PluginDoc,
-  ProjectDoc,
-  TrackDoc,
-} from "@studio/engine-protocol/project";
+import type { PluginDoc, ProjectDoc } from "@studio/engine-protocol/project";
 import {
   deckPlatter,
   STEMS,
@@ -28,110 +25,19 @@ import {
   stemLaneOf,
   stemPlatter,
 } from "@studio/song-schema/stems";
-import { BEATS_PER_BAR } from "./beats";
-import type { DeckModule } from "./graph";
-
-/** The two decks, named as the PROJECT names them (`chains.yaml`) — not a cosmetic match, see docs/mix.md. */
-export const DECKS = ["deckA", "deckB"] as const;
-export type DeckId = (typeof DECKS)[number];
-
-/** What a deck is holding: a file the engine can open, and who to say it is. */
-export interface DeckLoad {
-  /** Absolute, on the ENGINE's machine — the engine opens paths, never URLs. */
-  path: string;
-  title: string;
-  artist: string | null;
-  /** The médiathèque id, so a surface can tell which set-list row is on which deck. */
-  id: string;
-  /** Whether `stems/` holds this song's four files — a fact about the disk, answered by whoever loads it. */
-  stems?: boolean;
-  /** What PL8 knows about the recording, from its `song.yaml` — see mediatek's docs/songs.md.
-   *
-   * Both are facts about the RECORD and not about this set, which is why they arrive with the load
-   * rather than out of `mix.yaml`: 87 BPM is 87 BPM in every project that plays it. */
-  bpm?: number;
-  /** `C# minor`. Typed by a person — the detector measured 53 % (docs/key-detection-plan.md). */
-  key?: string;
-}
-
-export type DeckLoads = Record<DeckId, DeckLoad | null>;
-export const NO_LOADS: DeckLoads = { deckA: null, deckB: null };
-
-/** The crossfader's middle — both decks at once, which is where a set starts. */
-export const MIX_CENTRE = 0.5;
-
-/** The tempo the TIMELINE runs at. Fixed, and that is the whole trick — each deck warps its own clip. */
-export const DOC_TEMPO = 120;
-
-/** How far a tempo bends either way, ±16 % — beyond it a stretch stops sounding like the record. */
-export const PITCH_RANGE = 0.16;
-
-/** The module a deck's tempo BELONGS to, and the params the faders are — `offline`, so the platter's `Rate` realises it. */
-export const TEMPO_MODULE = "@st0/audio/utility/tempo";
-export const TEMPO_PARAM = "Target BPM";
-export const TEMPO_SOURCE_PARAM = "Source BPM";
-
-/** What one deck is playing at: the song's own tempo, its length, and where the fader is. */
-export interface DeckTempo {
-  /** The engine's estimate for this song, or 0 when it found none. */
-  natural: number;
-  /** The song's length in seconds — the second half of a warp marker. */
-  seconds: number;
-  /** What it should PLAY at. Equal to `natural` until somebody moves the fader. */
-  target: number;
-  /** Where this song's beat grid starts, in SOURCE seconds — a fact about the file, never moved by a fader. */
-  phase?: number;
-  /** Hold the PITCH while the tempo moves? Off is a platter's own behaviour, and the default — docs/bpm.md. */
-  keylock?: boolean;
-}
-
-export type DeckTempos = Partial<Record<DeckId, DeckTempo>>;
-
-/** The ends of the tempo fader — the MODULE's own knob (`ui.yaml`), not a range the desk invented. See docs/bpm.md. */
-export const BPM_RANGE: readonly [min: number, max: number] = [10, 300];
-
-/** The ends of an EQ knob, in dB — the module's own, for the same reason `BPM_RANGE` is. See docs/eq.md. */
-export const EQ_DB: readonly [min: number, max: number] = [-20, 20];
-
-/** The ends of a deck's filter knob — one signed param, so the neutral is the middle. See docs/filter.md. */
-export const FILTER_RANGE: readonly [min: number, max: number] = [-100, 100];
-
-/** The ends of the input TRIM, in dB — the `trim` module's own knob, signed so unity is mid-travel. */
-export const TRIM_DB: readonly [min: number, max: number] = [-12, 12];
-
-/** …and of the CHANNEL FADER, in dB. The bottom is SILENCE and not -Infinity — docs/mix.md. */
-export const LEVEL_DB: readonly [min: number, max: number] = [-60, 6];
-
-/** The echo's amount, dry to fully wet — the `echo` module's `Mix`. See docs/fx.md. */
-export const ECHO_RANGE: readonly [min: number, max: number] = [0, 1];
-
-/** How fast a record runs backwards under the CENSOR — a platter rate, so 1 is its own speed. */
-export const CENSOR_RATE = -1;
-
-/** The three bands a deck's EQ strip draws, low to high — the order they sit in. */
-export const EQ_BANDS = [
-  { id: "eqLow", label: "GRAVE" },
-  { id: "eqMid", label: "MÉDIUM" },
-  { id: "eqHigh", label: "AIGU" },
-] as const;
-
-/** A colour per cue BUTTON rather than per cue, kept away from the readout's amber — see docs/cues.md. */
-export const CUE_COLOURS = [
-  "#ef4444", // rouge
-  "#f97316", // orange
-  "#eab308", // jaune
-  "#22c55e", // vert
-  "#14b8a6", // turquoise
-  "#3b82f6", // bleu
-  "#a855f7", // violet
-  "#ec4899", // rose
-] as const;
-
-/** The stretch, as a multiplier of the file's own clock. 1 when either end is unknown. */
-function ratioOf(natural: number, target: number): number {
-  return natural > 0 && target > 0 ? natural / target : 1;
-}
-
+import {
+  DECKS,
+  type DeckId,
+  type DeckLoad,
+  type DeckLoads,
+  type DeckModule,
+  type DeckTempo,
+  type DeckTempos,
+  DOC_TEMPO,
+  MIX_CENTRE,
+  ratioOf,
+} from "./deckVocabulary";
+import { metronomeTrack } from "./metronome";
 /** How often a scratch may reach the engine. A pointer moves far faster than an ear hears — docs/scratch.md. */
 export const SCRATCH_MS = 16;
 
@@ -382,92 +288,6 @@ export function deckDoc(
       }),
       metronomeTrack(click ? tempos[click] : undefined, !!click),
     ],
-  });
-}
-
-/** The track the click lives on. Always in the document — see `metronomeTrack`. */
-export const METRONOME_TRACK = "metronome";
-
-/** How loud the click sits under the music, in dB on its own strip. */
-export const METRONOME_DB = -6;
-
-/** WHICH deck's beat the click follows, or null: a click needs ONE beat, and a MEASURED one — docs/metronome.md. */
-export function metronomeDeck(
-  loads: DeckLoads,
-  tempos: DeckTempos,
-  master: DeckId | null,
-): DeckId | null {
-  const on = DECKS.filter((d) => loads[d]);
-  const deck =
-    on.length === 1 ? on[0] : master && loads[master] ? master : null;
-  if (!deck) return null;
-  const t = tempos[deck];
-  return t && t.natural > 0 && t.target > 0 && t.phase !== undefined
-    ? deck
-    : null;
-}
-
-/** The click as a TRACK, never removed from the document — not the engine's own metronome, docs/metronome.md. */
-export function metronomeTrack(
-  tempo: DeckTempo | undefined,
-  on: boolean,
-): TrackDoc {
-  const bar = tempo && on ? clickBar(tempo) : null;
-  return trackDoc(METRONOME_TRACK, {
-    name: "métronome",
-    clips: bar ? [bar] : [],
-    plugins: [
-      pluginDoc({
-        id: `${METRONOME_TRACK}:synth`,
-        type: "4osc",
-        name: "click",
-        // A click is an envelope, not a waveform: instant on, gone in thirty milliseconds.
-        params: {
-          "Amp Attack": 0.001,
-          "Amp Decay": 0.03,
-          "Amp Sustain": 0,
-          "Amp Release": 0.03,
-          "Filter Amount": 0,
-        },
-        role: "instrument",
-      }),
-      pluginDoc({
-        id: `${METRONOME_TRACK}:level`,
-        type: MIXER_PLUGIN,
-        name: "métronome level",
-        params: { Volume: METRONOME_DB },
-      }),
-    ],
-  });
-}
-
-/** One looping bar of clicks at the deck's SPACING, from the transport's zero — no phase, docs/metronome.md. */
-function clickBar(tempo: DeckTempo): ClipDoc {
-  const toBeats = (seconds: number) => (seconds * DOC_TEMPO) / 60;
-  // Document beats are a unit of TIME here: one beat of the DECK lasts 60/target seconds.
-  const beat = DOC_TEMPO / tempo.target;
-  // As long as the record PLAYS for, so the click stops rather than outliving it.
-  const span = Math.max(
-    beat,
-    toBeats(tempo.seconds * ratioOf(tempo.natural, tempo.target)),
-  );
-  return clipDoc({
-    id: `${METRONOME_TRACK}-clip`,
-    type: "midi",
-    name: "click",
-    start: 0,
-    length: span,
-    // Four notes and a loop rather than one per beat: the clip is rebuilt on every step of a drag.
-    loopStart: 0,
-    loopEnd: BEATS_PER_BAR * beat,
-    notes: Array.from({ length: BEATS_PER_BAR }, (_, i) => ({
-      time: i * beat,
-      duration: beat / 4,
-      key: i === 0 ? 96 : 89, // the bar's first beat sounds different — that IS the feature
-      vel: i === 0 ? 1 : 0.7,
-      rel: 0,
-      channel: 1,
-    })),
   });
 }
 

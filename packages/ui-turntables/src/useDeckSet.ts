@@ -1,6 +1,11 @@
 // useDeckSet.ts — the two decks as a DOCUMENT: what is on them, what they play at, and every
 // gesture that changes either. Held by Studio, not by a view, so it outlives the tab you are
 // looking at. See docs/deckSet.md.
+//
+// OVER 500 LINES, and staying there for now: what is left is ONE hook, i.e. one state machine
+// whose refs and effects read each other. What could leave already has — `loop`, `grid` and the
+// vocabulary. Splitting the rest means splitting state, and this file has no test to catch a
+// regression: write `useDeckSet.test.ts` first. docs/deckSet.md carries the seam list.
 
 import { usePluginParams } from "@studio/engine-browser/params";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
@@ -16,20 +21,8 @@ import type { MixView as MixViewFile } from "@studio/song-schema/yaml/mixViewSch
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { alignSeek } from "./beats";
 import {
-  CENSOR_RATE,
-  DECKS,
-  type DeckId,
-  type DeckLoads,
   type DeckPlaying,
-  type DeckTempo,
-  type DeckTempos,
   deckRunning,
-  ECHO_RANGE,
-  EQ_BANDS,
-  LEVEL_DB,
-  MIX_CENTRE,
-  metronomeDeck,
-  NO_LOADS,
   nudgedTempos,
   platterKey,
   platterRate,
@@ -38,10 +31,25 @@ import {
   scratchDelay,
   sendDecks,
   syncedTempos,
-  TEMPO_SOURCE_PARAM,
   withKeylock,
 } from "./deck";
+import {
+  CENSOR_RATE,
+  DECKS,
+  type DeckId,
+  type DeckLoads,
+  type DeckTempo,
+  type DeckTempos,
+  ECHO_RANGE,
+  EQ_BANDS,
+  LEVEL_DB,
+  MIX_CENTRE,
+  NO_LOADS,
+  TEMPO_SOURCE_PARAM,
+} from "./deckVocabulary";
 import type { Deck } from "./engine";
+import { corrected, type GridFix } from "./grid";
+import { metronomeDeck } from "./metronome";
 import {
   type BindingProblem,
   controlDriving,
@@ -84,31 +92,6 @@ function worthARebuild(sent: DeckTempos, now: DeckTempos): boolean {
       Math.abs(a.target - b.target) >= LIVE_WARP_BPM || a.natural !== b.natural
     );
   });
-}
-
-/** What PL8 knows about a record's grid — its `song.yaml`, not this set's files. */
-export interface GridFix {
-  bpm?: number;
-}
-
-/** The analysis, with this set's correction laid over it — docs/grid.md.
- *
- * `natural` is what the record IS, so a corrected tempo replaces it and `target` follows unless a
- * fader has already moved: halving a wrongly-doubled 174 has to leave the deck playing at 87, not
- * stretching an 87 record to 174. */
-export function corrected(
-  tempo: DeckTempo,
-  fix: GridFix | undefined,
-): DeckTempo {
-  if (!fix || fix.bpm === undefined) return tempo;
-  const bpm = fix.bpm;
-  const followed = bpm !== undefined && tempo.target === tempo.natural;
-  return {
-    ...tempo,
-    ...(bpm !== undefined ? { natural: bpm } : {}),
-    // A fader already moved is a decision; only an untouched one follows the correction.
-    ...(followed ? { target: bpm } : {}),
-  };
 }
 
 /** The desk, and its loop section — which is a hook of its own, see ./useDeckLoops.ts. */

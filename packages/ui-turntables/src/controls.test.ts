@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { denormalise, MIX_CONTROLS, mixControl, normalise } from "./controls";
-import { BPM_RANGE, DECKS } from "./deck";
+import { BPM_RANGE, DECKS } from "./deckVocabulary";
 
 describe("the desk's controls", () => {
   it("has an id for every one of them, and no duplicates", () => {

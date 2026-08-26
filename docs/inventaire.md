@@ -6,15 +6,23 @@ Ce que le dépôt contient et que rien n'atteint. Chaque entrée porte de quoi t
 > **Lisez le §0 avant de supprimer quoi que ce soit.** Plusieurs modules bien vivants sont
 > invisibles à un balayage des `import`. Le piège se reproduit à chaque relevé.
 
-> **Relevé du 2026-08-21.** `npm run lint:dead` (knip, `knip.json`) fait les passes 1, 2 et 4
-> ci-dessous en trente secondes. Il est **non bloquant** — le calibrage se lit, il ne se subit
-> pas — et sa liste d'exceptions est le §0, traduit en configuration. Ce qu'il ne voit pas : le
-> C++ (`biome.json` l'exclut aussi) et tout ce que le §0 décrit — knip croit ce qu'on lui
-> déclare. Son `ignoreWorkspaces` ne contient que `commons/`, parce que le sous-module porte ses
-> propres docs et sa propre vérité.
+> **Relevé du 2026-08-26, sur `8f27aab1`** (précédent : 2026-08-21 sur `a4808e35`, 116 commits
+> plus tôt). `npm run lint:dead` (knip, `knip.json`) fait les passes 1, 2 et 4 ci-dessous en
+> trente secondes. Il est **non bloquant** — le calibrage se lit, il ne se subit pas — et sa
+> liste d'exceptions est le §0, traduit en configuration. Ce qu'il ne voit pas : le C++
+> (`biome.json` l'exclut aussi) et tout ce que le §0 décrit — knip croit ce qu'on lui déclare.
+> Son `ignoreWorkspaces` ne contient que `commons/`, parce que le sous-module porte ses propres
+> docs et sa propre vérité.
 >
-> Sortie au jour du relevé : **1 fichier, 4 dépendances, 1 devDépendance, 58 exports et
-> 17 types** — 81 constats sur l'axe audio.
+> Sortie au jour du relevé : **1 fichier, 1 dépendance non déclarée, 2 binaires non déclarés,
+> 120 exports et 45 types** — 169 constats. Au relevé précédent : 81.
+>
+> **Le compte a doublé et ce n'est pas seulement de la dérive.** Un symbole publié dans une carte
+> `exports` est invisible à knip, qui le tient pour consommé depuis l'extérieur ; le même symbole
+> devenu interne devient un « export inutilisé » bien visible. La carte de `ui-turntables` est
+> passée de 15 sous-chemins à 4 ce jour-là (§1), et onze constats ont ainsi migré de l'ombre vers
+> la liste. **Un compte qui monte peut donc mesurer un `package.json` qui ment moins.** Il ne se
+> lit jamais seul : il se lit contre les cartes `exports` du même jour.
 
 ## Comment ce relevé est fait
 
@@ -108,25 +116,35 @@ et `BACKEND_PORT` y sont lus : ils paraissent inutilisés vus d'ici, et ne le so
 
 ## 1. Surface publiée sans consommateur externe
 
-**41 sous-chemins sur 207** n'ont aucun importateur hors de leur propre paquet. C'est un
-constat sur la carte `exports`, pas sur le code : sur les 41,
-
-- **37 sont vivants à l'intérieur** de leur paquet, atteints par import relatif ;
-- **2 sont morts pour de bon** (§2) ;
-- **2 ne servent qu'à leur propre test** : `@studio/mediatek/evict`, `@studio/player-web/moteur`.
+**31 sous-chemins sur 232** n'ont aucun importateur hors de leur propre paquet (2026-08-26 ;
+c'était 41 sur 207 le 2026-08-21). C'est un constat sur la carte `exports`, pas sur le code : la
+quasi-totalité des 31 est **vivante à l'intérieur** de son paquet, atteinte par import relatif.
 
 Rétrécir la carte ne supprime donc presque rien : elle documente la vraie surface. Les paquets
-qui publient le plus large sont `ui-turntables` (12 sous-chemins sans consommateur externe),
-`song` (6) et `engine-host` (5) — le réflexe « publier tout `src/` ».
+qui publient le plus large sont maintenant `engine-host` (5 sous-chemins sans consommateur
+externe, sur 6) et `song` (5), puis quatre à égalité à 3 — `engine-browser`, `player-web`,
+`ui-editor`, `ui-eyes`. Le réflexe « publier tout `src/` ».
 
-`ui-turntables` est le cas à regarder : son seul hôte, st0, n'importe que `/deck-set`, `/engine`
-et `/surface`. Les douze autres sont de la plomberie interne exposée.
+> **`ui-turntables` : fait le 2026-08-26.** Le paquet publiait 15 sous-chemins dont 3 seulement
+> étaient importés par son unique hôte, st0. La carte est ramenée à **4** — `.`, `/surface`,
+> `/engine`, `/deck-set` — et les onze autres, de la plomberie interne exposée, restent joignables
+> par import relatif à l'intérieur du paquet. Un seul a emporté du code avec lui : `./chains`,
+> dont la cible `chains.tsx` n'était nommée par rien d'autre et a été supprimée (§6). La
+> dépendance `@studio/ui-chains-react`, qui n'existait que pour ce fichier, est partie avec.
+>
+> Ce que ça a coûté ailleurs : knip signale onze constats de plus, sans qu'une ligne de code soit
+> devenue plus morte qu'avant. Voir l'encadré du relevé, en tête de page.
+
+`engine-host` est le cas à regarder désormais : sur ses six sous-chemins, seul `/webOrigins` a un
+importateur externe (`file-service`, deux fois). **Ne pas confondre avec le piège du §0** : celui-ci
+porte sur les imports internes écrits `from "./addresses.ts"`, extension comprise, et dit que ces
+fichiers sont vivants. Ils le sont — à l'intérieur. Les deux constats coexistent sans se contredire.
 
 ## 2. Vraiment orphelin — rien ne l'atteint
 
 | quoi | où | note |
 |---|---|---|
-| `chains.tsx` | `packages/ui-turntables/src/` | la vue « chaîne d'une platine », ~60 lignes de colle. Personne ne la monte. Voir §6, c'est le bloc à trancher en entier. |
+| ~~`chains.tsx`~~ | `packages/ui-turntables/src/` | la vue « chaîne d'une platine ». **Supprimée le 2026-08-26** avec le sous-chemin `./chains` qui la publiait — voir §6 pour ce qui reste. |
 | `index.ts` | `packages/ui-eyes/src/` | le baril de commodité. Son propre en-tête dit que « les sous-chemins sont la vraie API », et c'est exactement ce que font les appelants. **Gardé** parce que le supprimer emporte `export.ts` et `FrameClock` avec lui — c'est le bloc WebCodecs, une décision produit. |
 | `export.ts` | `packages/ui-eyes/src/` | **atteignable seulement par le baril mort ci-dessus** : `exportScene` (l'export WebCodecs, image par image) n'est donc joignable par rien. Aucune surface ne monte de bouton pour lui. |
 | `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | le registre fait ce travail. Supprimer la sonde loopback que rien ne rejoue est à trancher, pas à laisser pourrir. |
@@ -280,18 +298,36 @@ Mix est un pupitre : deux vinyles et un crossfader. La chaîne d'effets d'une pl
 de place, et le seul hôte du pupitre (la surface `turntables` de st0) ne dessine pas de graphe
 par platine. Trois symboles tiennent debout les uns par les autres et par rien d'autre :
 
+> **Tranché le 2026-08-26 : le composant est supprimé.** `chains.tsx` et son `M9_ICONS` sont
+> partis avec le sous-chemin `./chains` de la carte `exports` du paquet, qui était la seule chose
+> qui les nommait encore. Ce qui suit décrit donc ce qui RESTE, et pourquoi.
+
 | symbole | où | tenu vivant par |
 |---|---|---|
-| `chains.tsx` (le composant) | `packages/ui-turntables/src/chains.tsx` | rien |
-| `M9_ICONS` | même fichier | `chains.tsx` seul |
-| `deckGraph`, `categoryOf` | `packages/ui-turntables/src/graph.ts` | `chains.tsx` et `graph.test.ts` |
+| ~~`chains.tsx`~~, ~~`M9_ICONS`~~ | supprimés | — |
+| ~~`deckGraph`~~, ~~`categoryOf`~~, ~~`graph.ts`~~, ~~`graph.test.ts`~~ | supprimés | — |
 
-`graph.ts` ne survit à la disparition de `chains.tsx` que par un import de **type** :
-`deck.ts` prend `DeckModule` chez lui. Le fichier reste donc, la fonction non.
+**Le fil est tiré en entier.** `deckGraph` construisait un `WebGraph` que seul `chains.tsx`
+dessinait ; une fois celui-ci parti, il ne restait que son propre test pour le prononcer, et
+`categoryOf` n'était qu'un ré-export de `@studio/ui-chains/modulePreview`. `graph.ts` ne gardait
+plus qu'une interface, `DeckModule`, dont `deck.ts` est le seul lecteur : elle a déménagé chez lui
+et le fichier a disparu.
 
-**Non supprimés, et c'est un choix** : ils marchent, `graph.test.ts` les couvre, et la chaîne
-par platine fait partie des options annoncées. Inscrit ici plutôt que laissé silencieux : c'est
-la différence entre un état connu et de la pourriture. Voir
+> **Ce que ce nettoyage a failli emporter, et le piège qu'il vaut la peine d'écrire.**
+> `graph.test.ts` comptait quinze tests. Onze appelaient `deckGraph` et sont morts avec lui — mais
+> **quatre n'ont jamais testé le graphe** : sous un `describe` intitulé « the graph and the
+> document agree », ils vérifiaient `deckDoc`, c'est-à-dire `deck.ts`, bien vivant. Ils portaient
+> l'ordre des modules (audible), la forme fil de `plugin:`, le bypass, et le module sans bloc
+> `plugin:`. Supprimer le fichier « parce qu'il teste du code mort » les aurait perdus en silence.
+> Ils sont dans `deck.test.ts`, sous « a deck's modules, in the document ».
+>
+> La règle : **un fichier de test ne meurt pas avec son sujet, ses tests meurent un par un.** Un
+> fichier de test nommé d'après un module en couvre régulièrement un autre par un helper partagé.
+
+**Ce qui a décidé** : le composant n'avait aucun hôte et ne pouvait pas en avoir — la surface
+`turntables` de st0, seule à monter le pupitre, ne dessine pas de graphe par platine. Garder une
+option que rien ne peut monter coûtait 70 lignes et un sous-chemin publié qui mentait sur la
+surface du paquet. Voir
 [packages/ui-turntables/docs/mix.md](../packages/ui-turntables/docs/mix.md).
 
 Ce bloc n'a **aucun hôte** : la décision n'est pas « où vit son hôte » mais « garde-t-on une

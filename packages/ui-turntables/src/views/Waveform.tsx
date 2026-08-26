@@ -3,7 +3,7 @@
 // animation frame off the deck's STEERED reader — never by React state. See ../../docs/waveform.md.
 
 import { useEffect, useRef } from "react";
-import type { DeckTempo } from "../deck";
+import type { DeckTempo } from "../deckVocabulary";
 import { bandsAt, columnColour } from "../spectrumColour";
 import {
   barsIn,

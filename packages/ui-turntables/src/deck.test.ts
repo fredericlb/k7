@@ -9,19 +9,10 @@ import {
 } from "@studio/song-schema/stems";
 import { describe, expect, it } from "vitest";
 import {
-  BPM_RANGE,
-  DECKS,
-  type DeckLoads,
-  type DeckTempo,
-  type DeckTempos,
   deckDoc,
   deckGain,
   gainToDb,
   levelId,
-  METRONOME_TRACK,
-  MIX_CENTRE,
-  NO_LOADS,
-  PITCH_RANGE,
   PLATTER_TYPE,
   platterKey,
   plattersOf,
@@ -29,11 +20,23 @@ import {
   scratchDelay,
   stemSource,
   syncedTempos,
+  withDecks,
+} from "./deck";
+import {
+  BPM_RANGE,
+  DECKS,
+  type DeckLoads,
+  type DeckModule,
+  type DeckTempo,
+  type DeckTempos,
+  MIX_CENTRE,
+  NO_LOADS,
+  PITCH_RANGE,
   TEMPO_MODULE,
   TEMPO_PARAM,
   TEMPO_SOURCE_PARAM,
-  withDecks,
-} from "./deck";
+} from "./deckVocabulary";
+import { METRONOME_TRACK } from "./metronome";
 import { playablePath } from "./service";
 
 describe("where a stem's file is", () => {
@@ -646,5 +649,63 @@ describe("how often a scratch reaches the engine", () => {
     // A 1000 Hz mouse sends one per millisecond; this keeps about sixteen of every thousand.
     expect(SCRATCH_MS).toBeGreaterThan(8);
     expect(SCRATCH_MS).toBeLessThanOrEqual(20);
+  });
+});
+
+// Moved here from graph.test.ts when `deckGraph` was deleted with the per-deck chains view: these
+// four never tested the graph, only how `deckDoc` carries a deck's MODULES — see docs/mix.md.
+const mod = (name: string, over: Partial<DeckModule> = {}): DeckModule => ({
+  name,
+  category: "audio",
+  plugin: { type: "internal", name: "4OSC" },
+  enabled: true,
+  ...over,
+});
+
+/** Deck A's MODULE plugins — everything before the level, which is not a step in the signal path. */
+const deckAModules = (modules: DeckModule[]) => {
+  const doc = deckDoc(
+    {
+      ...NO_LOADS,
+      deckA: {
+        path: "/m/song.wav",
+        title: "Song",
+        artist: null,
+        id: "songs/s",
+      },
+    },
+    0.5,
+    { deckA: modules },
+  );
+  const plugins = doc.tracks[0].plugins;
+  expect(plugins.at(-1)?.id).toBe(levelId("deckA"));
+  // The PLATTER is the source rather than a step, so it is dropped like the level — docs/turntable.md.
+  return plugins.slice(0, -1).filter((p) => p.type !== PLATTER_TYPE);
+};
+
+describe("a deck's modules, in the document", () => {
+  it("keeps the order, which is audible", () => {
+    const modules = [mod("a"), mod("b"), mod("c")];
+    expect(deckAModules(modules).map((p) => p.name)).toEqual(["a", "b", "c"]);
+  });
+
+  it("maps the authored plugin onto the engine's wire form", () => {
+    // `internal` means the NAME is the engine's type: backwards, it loads nothing at all, silently.
+    const plugins = deckAModules([mod("bass")]);
+    expect(plugins[0].type).toBe("4OSC");
+    expect(plugins[0].name).toBe("bass");
+  });
+
+  it("carries a bypass into the document", () => {
+    expect(deckAModules([mod("filter", { enabled: false })])[0].enabled).toBe(
+      false,
+    );
+  });
+
+  it("survives a module whose file had no plugin block", () => {
+    // An io module, or a half-written file. It must produce a document, not throw.
+    const plugins = deckAModules([mod("desk", { plugin: undefined })]);
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].name).toBe("desk");
   });
 });

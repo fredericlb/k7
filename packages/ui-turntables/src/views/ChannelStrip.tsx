@@ -16,7 +16,13 @@ import {
   SlidersHorizontal,
   Waves,
 } from "lucide-react";
-import { ECHO_RANGE, EQ_BANDS, EQ_DB, FILTER_RANGE, TRIM_DB } from "../deck";
+import {
+  ECHO_RANGE,
+  EQ_BANDS,
+  EQ_DB,
+  FILTER_RANGE,
+  TRIM_DB,
+} from "../deckVocabulary";
 import type { StripLayout } from "../deskLayout";
 
 /** What each stem is called under its knob — short, because the label sits under a 36 px dial. */
@@ -134,9 +140,7 @@ function Knob({
   const rest = Math.abs(value) < step / 2;
   return (
     <div className="flex flex-col items-center gap-0.5">
-      {/* biome-ignore lint/a11y/useSemanticElements: a slider's ROLE is what this needs; an
-          <input type=range> cannot be drawn as a dial, and the role plus the value pair is
-          exactly what a screen reader wants either way. */}
+      {/* A dial, so role + value pair rather than <input type=range>, which cannot be drawn as one. */}
       <div
         role="slider"
         tabIndex={disabled ? -1 : 0}

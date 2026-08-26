@@ -8,11 +8,9 @@ import {
   type DeckTempo,
   type DeckTempos,
   DOC_TEMPO,
-  METRONOME_TRACK,
-  metronomeDeck,
-  metronomeTrack,
   NO_LOADS,
-} from "./deck";
+} from "./deckVocabulary";
+import { METRONOME_TRACK, metronomeDeck, metronomeTrack } from "./metronome";
 
 const song = (id: string) => ({
   id,

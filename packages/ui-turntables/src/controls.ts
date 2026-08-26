@@ -17,7 +17,7 @@ import {
   LEVEL_DB,
   MIX_CENTRE,
   TRIM_DB,
-} from "./deck";
+} from "./deckVocabulary";
 
 /** What each stem is called on the desk — `other` is everything the three named ones are not. */
 const STEM_LABELS: Record<Stem, string> = {

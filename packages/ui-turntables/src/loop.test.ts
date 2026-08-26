@@ -5,7 +5,7 @@
 // record's, which sounds right on a deck at rest and drifts the moment somebody pitches it.
 
 import { describe, expect, it } from "vitest";
-import type { DeckTempo } from "./deck";
+import type { DeckTempo } from "./deckVocabulary";
 import {
   beatJump,
   beatSeconds,

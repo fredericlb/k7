@@ -14,7 +14,7 @@ import {
 } from "@studio/ui-chains/bindings";
 import { widgetDenorm } from "@studio/ui-chains/graph";
 import { type MixControl, mixControl } from "./controls";
-import type { DeckId, DeckTempos } from "./deck";
+import type { DeckId, DeckTempos } from "./deckVocabulary";
 
 // The graph half of the join is `@studio/ui-chains/bindings`, shared with st0's mastering strip.
 // What stays here is what is the DESK's: the `also:` mirror, and the SCALE (`valueFor`).

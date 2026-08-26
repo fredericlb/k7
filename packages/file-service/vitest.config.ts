@@ -10,5 +10,10 @@ import { join } from "node:path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  test: { env: { STUDIO_MEDIATEK: join(tmpdir(), "studio-fs-no-mediatek") } },
+  // A package config REPLACES the root one, so the disk timeout is repeated here — docs/tests.md.
+  test: {
+    env: { STUDIO_MEDIATEK: join(tmpdir(), "studio-fs-no-mediatek") },
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
+  },
 });

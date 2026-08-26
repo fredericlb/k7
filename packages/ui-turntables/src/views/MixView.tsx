@@ -2,34 +2,26 @@
 // and its channel strip on the inner one, and the crossfader in the gap between them. What
 // plays comes from the project's `songs.yaml`, chosen at the record itself. See ../../docs/mix.md.
 //
+// A deck's own column is `DeckSide.tsx` and its buttons `DeckButtons.tsx`; what is left here is
+// what SITS BETWEEN two decks. Still over 500 lines: the remainder is one component holding the
+// state both columns share — the waveforms, the browser, the separation poll — and it has no
+// test file, so the next split wants `MixView.test.tsx` first.
+import { CueButton, FxButtons, SyncButton } from "./DeckButtons";
+import { DeckSide, loopProps, type Wave } from "./DeckSide";
+//
 // It DRAWS the decks and owns nothing about them. The document — what is loaded, what it plays
 // at, every gesture that changes either — is `useDeckSet`, held by Studio, because this view is
 // unmounted the moment somebody opens the graph and a set does not stop existing then.
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import {
-  parseSongDrag,
-  SONG_DRAG_TYPE,
-  type SongDrag,
-} from "@studio/mediatek/playlistItems";
+import type { SongDrag } from "@studio/mediatek/playlistItems";
 import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
-import type { Stem } from "@studio/song-schema/stems";
-import {
-  AudioLines,
-  Headphones,
-  Laptop,
-  Link2,
-  Play,
-  RefreshCw,
-  Repeat,
-  Square,
-  Undo2,
-} from "lucide-react";
+import { AudioLines, Laptop, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { beatPhase } from "../beats";
-import type { DeckId, DeckLoads, DeckTempo } from "../deck";
-import { type DeskLayout, deskLayout, stemStripHeight } from "../deskLayout";
+import type { DeckId, DeckTempo } from "../deckVocabulary";
+import { deskLayout, stemStripHeight } from "../deskLayout";
 import type { Deck } from "../engine";
 import { loopSpan } from "../loop";
 import { MIX_VIEW_FILE } from "../mixView";
@@ -50,21 +42,9 @@ import {
 } from "../setList";
 import { useContentHeight } from "../useContentHeight";
 import type { DeckSet } from "../useDeckSet";
-import type { Envelope } from "../waveform";
-import { BpmFader } from "./BpmFader";
-import { ChannelStrip, type StemPrep, StemStrip } from "./ChannelStrip";
-import { CueButtons } from "./CueButtons";
-import { LoopRow } from "./LoopRow";
+import type { StemPrep } from "./ChannelStrip";
 import { MasterMeter, MixerColumn } from "./MixerColumn";
 import { SongBrowser } from "./SongBrowser";
-import { Vinyl } from "./Vinyl";
-import { Waveform } from "./Waveform";
-
-/** A deck's waveform — `none` CARRIES ITS REASON, since an empty strip explains nothing on its own. */
-type Wave =
-  | { k: "loading" }
-  | { k: "ready"; env: Envelope }
-  | { k: "none"; why: string };
 
 /** How often a running separation is asked how it is going — it reports per WINDOW, a few seconds apart. */
 const PREP_POLL_MS = 2000;
@@ -440,7 +420,7 @@ export function MixView({
           onCueSet={(slot, at) => decks.setCue("deckA", slot, at)}
           onShove={(seconds) => decks.shove("deckA", seconds)}
           loop={loopProps(decks, "deckA")}
-          loopSpan={loopSpan(decks.loopOf("deckA"), decks.tempos["deckA"])}
+          loopSpan={loopSpan(decks.loopOf("deckA"), decks.tempos.deckA)}
           needle={() => decks.sourceNow("deckA")}
           running={decks.running("deckA")}
           onToggleDeck={
@@ -530,7 +510,7 @@ export function MixView({
           onCueSet={(slot, at) => decks.setCue("deckB", slot, at)}
           onShove={(seconds) => decks.shove("deckB", seconds)}
           loop={loopProps(decks, "deckB")}
-          loopSpan={loopSpan(decks.loopOf("deckB"), decks.tempos["deckB"])}
+          loopSpan={loopSpan(decks.loopOf("deckB"), decks.tempos.deckB)}
           needle={() => decks.sourceNow("deckB")}
           running={decks.running("deckB")}
           onToggleDeck={
@@ -680,479 +660,3 @@ export function MixView({
 }
 
 /** THIS deck's transport, at the foot of its tempo column. Drawn GREYED with nothing on the deck. */
-function DeckPlay({
-  side,
-  running,
-  onToggle,
-}: {
-  side: "A" | "B";
-  running: boolean;
-  /** Absent when this deck holds no record — the button stays, disabled. See ../../docs/mix.md. */
-  onToggle?: () => void;
-}) {
-  return (
-    <Button
-      size="sm"
-      // Full width and the same height as KEY above it: the foot of the column is one block of two.
-      className="h-12 w-full shrink-0 px-0"
-      variant={running ? "default" : "secondary"}
-      disabled={!onToggle}
-      title={
-        !onToggle
-          ? `platine ${side} vide — rien à lancer`
-          : running
-            ? `arrêter la platine ${side} — l'autre continue`
-            : `lancer la platine ${side} seule`
-      }
-      onClick={onToggle}
-      aria-pressed={running}
-    >
-      {running ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-    </Button>
-  );
-}
-
-/** A deck's two MOMENTARY effects — held, never toggled. See ../../docs/fx.md.
- *
- * `onPointerUp` AND `onPointerLeave`, because a press that ends off the button still has to end:
- * without the second one a censor whose hand slid away leaves the record running backwards. */
-function FxButtons({
-  side,
-  censorable,
-  onCensor,
-  echoLive,
-  echoingOut,
-  onEchoOut,
-}: {
-  side: "A" | "B";
-  /** A record has to be on the deck for running it backwards to mean anything. */
-  censorable: boolean;
-  onCensor: (on: boolean) => void;
-  /** Does the project wire an echo for this deck? Unwired is ordinary, like an unwired cue. */
-  echoLive: boolean;
-  echoingOut: boolean;
-  onEchoOut: (on: boolean) => void;
-}) {
-  const held = (on: (down: boolean) => void, enabled: boolean) =>
-    enabled
-      ? {
-          onPointerDown: () => on(true),
-          onPointerUp: () => on(false),
-          onPointerLeave: () => on(false),
-        }
-      : {};
-  return (
-    <div className="flex shrink-0 items-center gap-1">
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={!censorable}
-        className="shrink-0 px-2 text-xs"
-        title={
-          censorable
-            ? `censurer la platine ${side} — le disque part à l'envers tant que le bouton est tenu`
-            : `platine ${side} vide — rien à censurer`
-        }
-        {...held(onCensor, censorable)}
-      >
-        <Undo2 className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        size="sm"
-        variant={echoingOut ? "default" : "secondary"}
-        disabled={!echoLive}
-        className="shrink-0 px-2 text-xs"
-        title={
-          echoLive
-            ? `echo-out sur la platine ${side} — coupe la voie et laisse l'écho sonner`
-            : `cette platine n'a pas d'écho câblé — reliez \`deck${side}.echo\` dans surfaces/`
-        }
-        aria-pressed={echoingOut}
-        {...held(onEchoOut, echoLive)}
-      >
-        <Repeat className="h-3.5 w-3.5" />
-      </Button>
-    </div>
-  );
-}
-
-/** One deck in the headphones — pre-fade, so the crossfader does not reach it. See ../../docs/cue.md. */
-function CueButton({
-  side,
-  on,
-  wired,
-  live,
-  onClick,
-}: {
-  side: "A" | "B";
-  on: boolean;
-  /** Does the PROJECT wire a send for this deck? Unwired is ordinary, not a fault — ../../docs/cue.md. */
-  wired: boolean;
-  /** …and can this MACHINE play it? Two halves, two sentences: a button that lit and lied is worse. */
-  live: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      size="sm"
-      variant={on ? "default" : "secondary"}
-      disabled={!live}
-      className="shrink-0"
-      title={
-        // The reason, not the rule — and WHICH of the two is missing, since the fixes are different.
-        !wired
-          ? `cette platine n'a pas de départ casque — migrez le set (migrateSetCue) ou reliez \`deck${side}.cue\` dans surfaces/`
-          : !live
-            ? "cette machine n'a pas de paire pour le casque — nommez-la avec `system cue 3+4`, sinon le cue ne joue nulle part"
-            : on
-              ? `la platine ${side} est dans le casque — cliquer pour l'enlever`
-              : `écouter la platine ${side} au casque, avant le crossfader`
-      }
-      onClick={onClick}
-      aria-pressed={on}
-    >
-      <Headphones className="mr-1 h-3.5 w-3.5" />
-      {side}
-    </Button>
-  );
-}
-
-/** One end of the sync pair: "this deck leads" — two buttons, ONE choice. See ../../docs/bpm.md. */
-function SyncButton({
-  side,
-  on,
-  enabled,
-  beats,
-  onClick,
-}: {
-  side: "A" | "B";
-  on: boolean;
-  enabled: boolean;
-  /** Can the two decks' beats be aligned, or only their tempos? */
-  beats: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      size="sm"
-      variant={on ? "default" : "secondary"}
-      disabled={!enabled}
-      className="shrink-0"
-      title={
-        !enabled
-          ? "il faut un tempo sur les deux platines"
-          : !beats
-            ? `synchroniser sur la platine ${side} — tempo seulement : l'analyse n'a pas trouvé de grille fiable sur l'un des morceaux, les temps ne seront pas calés`
-            : on
-              ? `la platine ${side} mène — cliquer pour relâcher`
-              : `synchroniser sur la platine ${side}`
-      }
-      onClick={onClick}
-    >
-      <Link2 className="mr-1 h-3.5 w-3.5" />
-      SYNC {side}
-    </Button>
-  );
-}
-
-/** One deck: its tempo fader, the record, its waveform, and what it is holding. */
-/** What a deck column needs to draw its loop row. Gathered so both decks say it once. */
-interface LoopProps {
-  beats: number | null;
-  rolling: boolean;
-  pending: boolean;
-  step: number;
-  can: boolean;
-  onJump: (beats: number) => void;
-  onIn: () => void;
-  onOut: () => void;
-  onLength: (beats: number) => void;
-  onResize: (factor: number) => void;
-  onRoll: (down: boolean) => void;
-}
-
-/** …read off the desk, so a third deck would not mean a third copy of these eleven lines. */
-function loopProps(decks: DeckSet, deckId: DeckId): LoopProps {
-  const on = decks.loopOf(deckId);
-  return {
-    beats: on?.beats ?? null,
-    rolling: !!on?.roll,
-    pending: decks.pendingOf(deckId) !== null,
-    step: decks.stepOf(deckId),
-    can: decks.canLoop(deckId),
-    onJump: (beats) => decks.beatJump(deckId, beats),
-    onIn: () => decks.loopIn(deckId),
-    onOut: () => decks.loopOut(deckId),
-    onLength: (beats) => decks.setLoop(deckId, beats),
-    onResize: (factor) => decks.resizeLoop(deckId, factor),
-    // The roll takes the length the buttons last agreed on — there is no separate roll size.
-    onRoll: (down) => decks.roll(deckId, decks.stepOf(deckId), down),
-  };
-}
-
-function DeckSide({
-  side,
-  layout,
-  load,
-  spinning,
-  wave,
-  tempo,
-  driven,
-  onNudge,
-  onCommit,
-  keylock,
-  onKeylock,
-  corrected,
-  songKey,
-  onHalve,
-  onDouble,
-  onPick,
-  onDropSong,
-  trim,
-  trimLive,
-  onTrim,
-  eq,
-  eqLive,
-  onEq,
-  filter,
-  filterLive,
-  onFilter,
-  echo,
-  echoLive,
-  onEcho,
-  stems,
-  stemLive,
-  stemsReady,
-  stemPrep,
-  onStem,
-  cues,
-  onCueJump,
-  onCueSet,
-  loop,
-  loopSpan,
-  onShove,
-  needle,
-  running,
-  onToggleDeck,
-  onScratch,
-}: {
-  side: "A" | "B";
-  /** What fits in the height this deck has — the record's size, the waveform's, the title. */
-  layout: DeskLayout;
-  load: DeckLoads[DeckId];
-  spinning: boolean;
-  wave: Wave | undefined;
-  /** What this deck plays at — already synced, so a slave shows the master's number. */
-  tempo: DeckTempo | undefined;
-  /** Driven by the other deck: the fader moves on its own and greys out. */
-  driven: boolean;
-  onNudge: (bpm: number) => void;
-  onCommit: () => void;
-  /** Whether this deck holds the pitch, and the switch for it — ../../docs/bpm.md. */
-  keylock: boolean;
-  onKeylock: () => void;
-  /** Does PL8 hold a corrected tempo for this record, and the two gestures that write one? */
-  corrected: boolean;
-  /** …and its KEY as pl8 holds it, `C# minor` or "" — typed, never detected (../../docs/grid.md). */
-  songKey: string;
-  onHalve?: () => void;
-  onDouble?: () => void;
-  /** The record's middle was clicked — open the browser for this deck. */
-  onPick: () => void;
-  /** A playlist line was dropped on this deck, already read off the transfer — ../../docs/setList.md. */
-  onDropSong: (drag: SongDrag) => void;
-  /** The input gain in dB, at the HEAD of the strip — it reaches the record and its stems alike. */
-  trim: number | undefined;
-  trimLive: boolean;
-  onTrim: (dB: number) => void;
-  /** This deck's EQ knobs, in dB by band id, and whether they reach anything. */
-  eq: Partial<Record<string, number>>;
-  eqLive: boolean;
-  onEq: (band: string, dB: number) => void;
-  /** …and its filter, on the same strip but its own module. */
-  filter: number | undefined;
-  filterLive: boolean;
-  onFilter: (value: number) => void;
-  /** …and the one effect past it, 0..1. Unwired draws no knob rather than a dead one. */
-  echo: number | undefined;
-  echoLive: boolean;
-  onEcho: (wet: number) => void;
-  /** What this deck is REMOVING of each separated instrument, 0..1. Absent is none of it. */
-  stems: Partial<Record<Stem, number>>;
-  /** Whether the set wires stem cuts at all — false draws no column. */
-  stemLive: boolean;
-  /** …and whether the record on it has been separated, which is a different grey. */
-  stemsReady: boolean;
-  /** …and the separation running to make it so, when the set declared a chain. */
-  stemPrep: StemPrep | undefined;
-  onStem: (stem: Stem, cut: number) => void;
-  /** This deck's eight cue slots, and the two gestures that move them. */
-  cues: readonly (number | null)[];
-  onCueJump: (slot: number) => void;
-  onCueSet: (slot: number, sourceSeconds: number) => void;
-  /** The loop section: what is running on this deck, and the six gestures that drive it — docs/loop.md. */
-  loop: LoopProps;
-  /** …and where it is, in source seconds, for the waveform to draw a band over. */
-  loopSpan: { start: number; end: number } | null;
-  /** Push this deck's record by `seconds`, signed — the waveform's drag and the nudge buttons both. */
-  onShove: (seconds: number) => void;
-  /** Where this deck's needle is in its RECORD — its platter's clock, or the transport through the stretch. */
-  needle: () => number;
-  /** Is THIS deck turning? On a platter that is its own answer, not the transport's. */
-  running: boolean;
-  /** Start or stop it alone — absent on a separated deck, which has no platter to start. */
-  onToggleDeck?: () => void;
-  /** Drive the record by hand — absent for the same reason: a clip cannot be scratched. */
-  onScratch?: (rate: number | null) => void;
-  /** …and the sentence the record itself carries when it will not turn. */
-  scratchRefusal?: string;
-}) {
-  const fader = (
-    // The tempo column, with THIS deck's transport at the foot of it — under KEY, docs/mix.md.
-    <div className="flex h-full w-14 shrink-0 flex-col items-center gap-1">
-      <BpmFader
-        natural={tempo?.natural ?? 0}
-        target={tempo?.target ?? 0}
-        driven={driven}
-        onChange={onNudge}
-        onCommit={onCommit}
-        keylock={keylock}
-        onKeylock={onKeylock}
-        corrected={corrected}
-        songKey={songKey}
-        onHalve={onHalve}
-        onDouble={onDouble}
-      />
-      {/* Always drawn, greyed when the deck is empty — the rule `CueButtons` states, docs/cues.md. */}
-      <DeckPlay side={side} running={running} onToggle={onToggleDeck} />
-    </div>
-  );
-
-  const strip = (
-    <ChannelStrip
-      trim={trim}
-      trimLive={trimLive}
-      eq={eq}
-      eqLive={eqLive}
-      filter={filter}
-      filterLive={filterLive}
-      echo={echo}
-      echoLive={echoLive}
-      // The same measurement the column beside it uses — the strip has the same height to fit in.
-      layout={layout.strip}
-      onTrim={onTrim}
-      onEq={onEq}
-      onFilter={onFilter}
-      onEcho={onEcho}
-    />
-  );
-
-  const [over, setOver] = useState(false);
-  return (
-    // The WHOLE deck takes the drop, knobs included: aiming at the record's label is a gesture for a mouse at rest.
-    // biome-ignore lint/a11y/noStaticElementInteractions: a drop has no keyboard form; the vinyl's button is the one that has.
-    <section
-      className={`flex min-w-0 flex-1 gap-2 rounded-lg ${over ? "outline outline-2 outline-primary/70" : ""}`}
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes(SONG_DRAG_TYPE)) return;
-        // Both, and in this order: without preventDefault the browser refuses the drop without a word.
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "copy";
-        setOver(true);
-      }}
-      onDragLeave={(e) => {
-        // Only when the pointer LEFT the deck — a child's boundary fires this too.
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null))
-          setOver(false);
-      }}
-      onDrop={(e) => {
-        setOver(false);
-        const drag = parseSongDrag(e.dataTransfer.getData(SONG_DRAG_TYPE));
-        if (!drag) return;
-        e.preventDefault();
-        onDropSong(drag);
-      }}
-    >
-      {/* Tempo on the OUTER edge and shaping on the INNER one, so the desk reads as a mirror. */}
-      {side === "A" ? fader : strip}
-      <div className="flex min-w-0 flex-1 flex-col items-center gap-3">
-        {/* The STEMS beside the record and to its LEFT, above the waveform — ../../docs/stems.md. */}
-        <div className="flex shrink-0 items-center justify-center gap-2">
-          <StemStrip
-            stems={stems}
-            live={stemLive}
-            ready={stemsReady}
-            prep={stemPrep}
-            layout={layout.strip}
-            onStem={onStem}
-          />
-          {/* The record, only when the deck is tall enough to be worth one — ../../docs/deskLayout.md. */}
-          {layout.vinyl > 0 ? (
-            <Vinyl
-              side={side}
-              artist={load?.artist ?? null}
-              title={load?.title ?? null}
-              spinning={spinning && !!load}
-              // How fast the FILE is playing: a record stretched to another tempo turns at that speed.
-              ratio={
-                tempo && tempo.natural > 0 && tempo.target > 0
-                  ? tempo.natural / tempo.target
-                  : 1
-              }
-              onPick={onPick}
-              // The deck's own needle — a platter's clock, or the transport through the stretch.
-              at={needle}
-              length={tempo?.seconds ?? 0}
-              markers={cues}
-              size={layout.vinyl}
-              onScratch={onScratch}
-            />
-          ) : null}
-        </div>
-        {/* Under the record, and ALWAYS drawn even with nothing loaded — ../../docs/deskLayout.md. */}
-        <Waveform
-          envelope={wave?.k === "ready" ? wave.env : null}
-          // The same clock the record above reads — one needle per deck, whichever way it plays.
-          needle={needle}
-          loop={loopSpan}
-          tempo={tempo}
-          analysing={wave?.k === "loading"}
-          problem={wave?.k === "none" ? wave.why : null}
-          height={layout.waveform}
-          // Draggable only with a record on and a tempo measured: `place` needs a ratio to convert by.
-          onShove={load && tempo ? onShove : undefined}
-        />
-        {/* Edge to edge, nothing flanking them: eight cues are eight targets, and a target wants width. */}
-        <CueButtons
-          markers={cues}
-          onJump={onCueJump}
-          onSet={onCueSet}
-          // The deck's OWN needle, read on the way down: no deck follows the transport any more.
-          now={needle}
-          disabled={!load}
-        />
-        {/* Under them, and greyed the same way: a loop is a length in BEATS, so it wants a grid. */}
-        <LoopRow
-          beats={loop.beats}
-          rolling={loop.rolling}
-          pending={loop.pending}
-          step={loop.step}
-          disabled={!load || !loop.can}
-          onJump={loop.onJump}
-          onIn={loop.onIn}
-          onOut={loop.onOut}
-          onLength={loop.onLength}
-          onResize={loop.onResize}
-          onRoll={loop.onRoll}
-        />
-        {/* What is loaded, in words: it earns its line only where the record's label is absent. */}
-        {layout.title ? (
-          <div className="w-full truncate text-center text-xs text-muted-foreground">
-            {load ? load.title : "rien de chargé"}
-          </div>
-        ) : null}
-      </div>
-      {side === "B" ? fader : strip}
-    </section>
-  );
-}

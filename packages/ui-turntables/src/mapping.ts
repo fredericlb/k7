@@ -6,7 +6,7 @@
 import type { MixView } from "@studio/song-schema/yaml/mixViewSchema";
 import { unmappedControls as unmapped } from "@studio/ui-chains/bindings";
 import { MIX_CONTROLS, type MixControl } from "./controls";
-import { DECKS } from "./deck";
+import { DECKS } from "./deckVocabulary";
 
 /** Must name a module: the ones driving a PARAM, minus `cue`, optional like the stems (../docs/cue.md).
  *

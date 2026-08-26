@@ -1,6 +1,6 @@
 import { STEMS } from "@studio/song-schema/stems";
 import { describe, expect, it } from "vitest";
-import { EQ_BANDS as BANDS, EQ_DB, FILTER_RANGE } from "../deck";
+import { EQ_BANDS as BANDS, EQ_DB, FILTER_RANGE } from "../deckVocabulary";
 import {
   angleOf,
   arcPath,

@@ -2,7 +2,7 @@
 // at the moment the finger landed. See ../../docs/cues.md.
 
 import { useEffect, useRef, useState } from "react";
-import { CUE_COLOURS } from "../deck";
+import { CUE_COLOURS } from "../deckVocabulary";
 
 /** How long a press has to last to mean "record this" rather than "go there". */
 export const HOLD_MS = 1000;
@@ -119,8 +119,7 @@ export function CueButtons({
     <div className="flex w-full gap-1">
       {CUE_COLOURS.map((_, i) => (
         <Cue
-          // biome-ignore lint/suspicious/noArrayIndexKey: the slot IS the identity here — a cue
-          // button is a fixed position on a desk, not a row in a list that can reorder.
+          // biome-ignore lint/suspicious/noArrayIndexKey: the slot IS the identity — a cue button is a fixed position on a desk, never a row that reorders.
           key={i}
           slot={i}
           at={markers[i] ?? null}

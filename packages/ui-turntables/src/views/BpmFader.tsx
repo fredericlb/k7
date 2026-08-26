@@ -3,7 +3,7 @@
 // platter, so it follows the screen convention.) See ../../docs/bpm.md.
 
 import { camelot, PITCH_CLASSES } from "@studio/audio-probe/key";
-import { BPM_RANGE, PITCH_RANGE } from "../deck";
+import { BPM_RANGE, PITCH_RANGE } from "../deckVocabulary";
 
 /** PL8 stores `C# minor`; the wheel wants `12A`. Parsed here rather than stored, so the mode's
  *  name survives — and an unparseable string comes back as itself rather than as nothing. */
