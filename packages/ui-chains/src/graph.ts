@@ -1477,6 +1477,38 @@ function snapToRankRows(
     : snapped;
 }
 
+/** The MASTER RUN — the sum and everything downstream of it — stands fully to the RIGHT of the rest.
+ *
+ * Shifted as a BLOCK, so the run keeps whatever shape it had and stays a column. See docs/graphBuild.md. */
+export function masterRunRight<
+  N extends { id: string; kind: Kind; label: string; x: number; w: number },
+>(nodes: N[], edges: readonly { source: string; target: string }[]): N[] {
+  const sum = nodes.find((n) => n.kind === "sink" && n.label === MIX_OUT);
+  if (!sum) return nodes;
+
+  // Everything the master run reaches. The sum is ranked where a SOURCE is, so this walks DOWN.
+  const run = new Set([sum.id]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const e of edges)
+      if (run.has(e.source) && !run.has(e.target)) {
+        run.add(e.target);
+        grew = true;
+      }
+  }
+  const others = nodes.filter((n) => !run.has(n.id));
+  // A graph that is nothing BUT the master run has no "rest" for it to stand to the right of.
+  if (!others.length) return nodes;
+
+  const rightEdge = Math.max(...others.map((n) => n.x + n.w));
+  const runLeft = Math.min(
+    ...nodes.filter((n) => run.has(n.id)).map((n) => n.x),
+  );
+  const dx = rightEdge + NODE_SEP - runLeft;
+  if (dx === 0) return nodes;
+  return nodes.map((n) => (run.has(n.id) ? { ...n, x: n.x + dx } : n));
+}
+
 /** Push every receiver below the things that feed it — a cable never climbs. See docs/graphBuild.md.
  *
  * dagre already guarantees this; a PIN does not, and a pin wins over dagre. So this runs after them,
@@ -1572,6 +1604,8 @@ export function layout(
       ),
     ),
   );
+  // BEFORE the pins: where the master column sits is a preference, and a pin outranks a preference.
+  outNodes = masterRunRight(outNodes, raw);
   if (positions || prev) {
     // `jackRef`'s name resolution, inlined because cables.ts imports this file. See docs/graphBuild.md.
     outNodes = outNodes.map((n) => {

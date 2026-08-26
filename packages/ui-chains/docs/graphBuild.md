@@ -701,8 +701,8 @@ dragged up there, or force the drop to clamp to `0,0` instead. Both are floored 
 (never positive), so the box a fit reads — `width - left` by `height - top` — is the extent
 unchanged for every graph that begins at the origin.
 
-Only the y is legislated. The x stays dagre's, so the gap along a row varies with what hangs
-under each column — right for tracks and modules, which are the tops and middles of chains of
+Only the y is legislated, and one column's x. The rest of the x stays dagre's, so the gap along a
+row varies with what hangs under each column — right for tracks and modules, which are the tops and middles of chains of
 different widths. The mixer row asks for even spacing separately (`spaceModulesEvenly`), because
 a rank of channel strips is the one place it is wanted.
 
@@ -736,6 +736,32 @@ dropped in) never reorganizes the picture. Pins outrank the session, because the
 another tab may have written one. `graph organize` is the command that empties both and lets dagre
 speak. The name resolution is `cables.ts`'s `jackRef` — a module by its chains name, the rest by
 label — inlined here because `cables.ts` imports this file.
+
+### The master run stands fully to the right
+
+`MIX -> OUT` is the run out to the interface, and the sum is ranked where a SOURCE is — it shares
+the top row with the tracks, because the master run *leaves* it going down. Which means dagre is
+free to put that column anywhere along the row, and it lands wherever the edge weights drag it:
+in the middle of the lanes as readily as at either end.
+
+`masterRunRight` puts it at the end. The run is the sum plus everything downstream of it — a master
+chain may carry modules, a limiter on the whole blend — and it moves as a **block**, so it keeps
+whatever shape it had rather than being re-laid-out. Its left edge lands one `nodesep` past the
+rightmost thing that is not on it.
+
+"Fully to the right" is a POSITION and not a minimum, so a run dagre left miles out is pulled back
+IN. A column alone on the far side of an empty screen is not organised either.
+
+It runs **before** the pins, and that is the difference from the rule below: where the master column
+sits is a *preference*, and a pin outranks a preference. A cable that climbs is *wrong*, and nothing
+outranks that.
+
+Two graphs it leaves alone: one with no sum drawn — a chain writing `out: OUT` directly never makes
+the card — and one that is nothing BUT the master run, which has no rest to stand to the right of.
+
+Only `MIX`'s run. `RENDER -> VIDEO_OUT`, the picture's sum, is ranked the same way and is left where
+dagre puts it; nobody has asked for the two columns to be stacked out there, and guessing an order
+for them is a decision this cannot make on its own.
 
 ### A receiver never sits above what feeds it
 

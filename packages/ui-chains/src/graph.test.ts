@@ -9,6 +9,7 @@ import {
   headerFontPx,
   jackPoint,
   layout,
+  masterRunRight,
   moduleDisplayName,
   moduleRow,
   NODE_H,
@@ -1930,6 +1931,146 @@ describe("pushBelowInputs", () => {
   it("ignores an edge naming a node the graph does not draw", () => {
     const nodes = [card("a", 0)];
     expect(pushBelowInputs(nodes, [{ source: "ghost", target: "a" }])).toBe(
+      nodes,
+    );
+  });
+});
+
+// The MASTER RUN — the sum and everything downstream — stands fully to the right of the rest.
+// It is a PREFERENCE and not a correctness rule, so unlike `pushBelowInputs` a pin outranks it.
+describe("the master run stands to the right", () => {
+  // The two lanes meet at the SUM, and the master chain leaves it — `MIX -> OUT`, as a set is wired.
+  const twoTracks = graph(
+    {
+      a: {
+        from: "vox",
+        use: [{ module: "comp" }],
+        out: [{ to: "MIX", gain: 1 }],
+      },
+      b: {
+        from: "gtr",
+        use: [{ module: "eq" }],
+        out: [{ to: "MIX", gain: 1 }],
+      },
+      MIX: { from: "MIX", use: [], out: [{ to: "OUT", gain: 1 }] },
+    },
+    ["vox", "gtr"],
+  );
+
+  /** The rightmost edge of everything that is NOT on the master run. */
+  const restRight = (laid: ReturnType<typeof layout>, run: Set<string>) =>
+    Math.max(...laid.nodes.filter((n) => !run.has(n.id)).map((n) => n.x + n.w));
+
+  /** The sum and what it feeds, by node id. */
+  const runOf = (laid: ReturnType<typeof layout>) => {
+    const sum = laid.nodes.find((n) => n.kind === "sink" && n.label === "MIX");
+    const ids = new Set(sum ? [sum.id] : []);
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const e of laid.edges)
+        if (ids.has(e.source) && !ids.has(e.target)) {
+          ids.add(e.target);
+          grew = true;
+        }
+    }
+    return ids;
+  };
+
+  it("puts the whole run past everything else", () => {
+    const { nodes, edges } = buildGraph(twoTracks);
+    const laid = layout(nodes, edges);
+    const run = runOf(laid);
+    expect(run.size).toBeGreaterThan(1); // the sum AND the output it feeds
+    const edge = restRight(laid, run);
+    for (const n of laid.nodes.filter((x) => run.has(x.id)))
+      expect(n.x, n.label).toBeGreaterThanOrEqual(edge);
+  });
+
+  it("leaves the y alone — that is the other rule's business", () => {
+    const { nodes, edges } = buildGraph(twoTracks);
+    const laid = layout(nodes, edges);
+    const sum = laid.nodes.find((n) => n.kind === "sink" && n.label === "MIX");
+    const track = laid.nodes.find((n) => n.label === "vox");
+    // The sum is ranked where a SOURCE is, so it shares the track row and must keep doing so.
+    expect(sum?.y).toBe(track?.y);
+  });
+
+  it("a PIN still wins: where the column sits is a preference, not a correctness rule", () => {
+    const { nodes, edges } = buildGraph(twoTracks);
+    const laid = layout(nodes, edges, { MIX: { x: 0, y: 0 } });
+    const sum = laid.nodes.find((n) => n.kind === "sink" && n.label === "MIX");
+    expect(sum?.x).toBe(0);
+  });
+});
+
+// The rule on its own, where the shift can be checked against numbers rather than against dagre.
+describe("masterRunRight", () => {
+  const card = (id: string, kind: "sink" | "module", x: number) => ({
+    id,
+    kind,
+    label: id,
+    x,
+    w: 100,
+  });
+
+  it("shifts the run as a BLOCK, keeping the gaps inside it", () => {
+    // Laid out badly on purpose: MIX at 0, OUT 40 past it, both to the LEFT of the two lanes.
+    const out = masterRunRight(
+      [
+        card("MIX", "sink", 0),
+        card("OUT", "sink", 40),
+        card("a", "module", 500),
+        card("b", "module", 900),
+      ],
+      [
+        { source: "MIX", target: "OUT" },
+        { source: "a", target: "MIX" },
+        { source: "b", target: "MIX" },
+      ],
+    );
+    const at = (id: string) => out.find((n) => n.id === id)?.x;
+    // `b` ends at 1000, so the run starts one NODE_SEP past that and keeps its own 40px gap.
+    expect(at("MIX")).toBe(1060);
+    expect(at("OUT")).toBe(1100);
+    expect([at("a"), at("b")]).toEqual([500, 900]);
+  });
+
+  it("pulls it back IN when it was left too far out", () => {
+    const out = masterRunRight(
+      [card("MIX", "sink", 5000), card("a", "module", 0)],
+      [{ source: "a", target: "MIX" }],
+    );
+    // "Fully to the right" is a POSITION, not a minimum: a column miles out is not organised either.
+    expect(out.find((n) => n.id === "MIX")?.x).toBe(160);
+  });
+
+  it("takes the whole run, however deep — a master chain may carry modules", () => {
+    const out = masterRunRight(
+      [
+        card("MIX", "sink", 0),
+        card("limiter", "module", 10),
+        card("OUT", "sink", 20),
+        card("a", "module", 400),
+      ],
+      [
+        { source: "MIX", target: "limiter" },
+        { source: "limiter", target: "OUT" },
+        { source: "a", target: "MIX" },
+      ],
+    );
+    for (const id of ["MIX", "limiter", "OUT"])
+      expect(out.find((n) => n.id === id)?.x, id).toBeGreaterThanOrEqual(500);
+  });
+
+  it("does nothing to a graph with no sum drawn", () => {
+    const nodes = [card("a", "module", 0), card("OUT", "sink", 100)];
+    expect(masterRunRight(nodes, [{ source: "a", target: "OUT" }])).toBe(nodes);
+  });
+
+  it("does nothing when the run is the WHOLE graph", () => {
+    // No rest for it to stand to the right of, and `Math.max` of nothing is -Infinity.
+    const nodes = [card("MIX", "sink", 0), card("OUT", "sink", 40)];
+    expect(masterRunRight(nodes, [{ source: "MIX", target: "OUT" }])).toBe(
       nodes,
     );
   });
