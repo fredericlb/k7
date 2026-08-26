@@ -126,16 +126,26 @@ La borne basse est remontée à do3 (7,8 Hz), qui est le plus bas demi-ton que c
 > vingt-quatre configurations, choisi sur les dix-sept morceaux qui servent aussi à le mesurer,
 > n'est pas une estimation — c'est du surapprentissage sur deux morceaux d'écart.
 
-#### Ce qu'il faudrait essayer ensuite
+#### Les pistes ont été essayées. Aucune ne marche.
 
-Rien de tout ça n'est promis, et l'ordre est celui du soupçon :
+`packages/audio-probe/scripts/key-truth.ts` rejoue les dix-sept morceaux contre quatre variantes :
 
-- **la suppression des harmoniques.** Un chromagramme d'énergie brute compte la quinte et la tierce
-  de chaque note comme si elles étaient jouées — c'est le défaut connu de la méthode, et ce que les
-  HPCP corrigent. C'est le premier suspect ;
-- **l'accord de référence.** A=440 est supposé ; un disque un quart de ton à côté vote pour ses
-  voisins ;
-- **une tonalité par SEGMENT, puis un vote**, plutôt qu'un chromagramme unique sur deux minutes.
+| variante | exact (Temperley) | exact (Krumhansl) | Camelot |
+|---|---|---|---|
+| **base** | **9/17** | 9/17 | **13/17** |
+| énergie en log | 7/17 | 6/17 | 11–12/17 |
+| harmoniques retirées | 8/17 | 10/17 | 12/17 |
+| log + harmoniques | 9/17 | 7/17 | 11/17 |
+
+**Le premier suspect était le bon soupçon et la mauvaise réponse.** Retirer les harmoniques ne
+gagne rien : un point chez Krumhansl, un de moins chez Temperley — sur dix-sept morceaux, c'est du
+bruit, pas un progrès. L'énergie en log fait franchement pire.
+
+Ce que ça dit, et c'est plus utile qu'un gain de 6 % : **le problème n'est pas dans le pliage du
+chromagramme.** Une corrélation de profil sur un chromagramme global de deux minutes jette la
+structure temporelle — or c'est là que vit la tonique (les cadences, la fin des phrases, la
+dernière note). Les détecteurs qui annoncent 85-95 % ne sont pas ce détecteur-ci mieux réglé ; ils
+font autre chose. Aller les chercher est un projet de traitement du signal, pas un réglage.
 
 #### Ce qui reste vrai malgré tout
 
@@ -186,14 +196,39 @@ L'affichage tient dans la colonne de tempo, sous KEY, où il est déjà question
 3. ~~**Le chromagramme + les profils.**~~ **FAIT** — `@studio/audio-probe/key`, 16 tests. Goertzel
    plutôt qu'une FFT : un chromagramme veut ~60 fréquences connues, pas un spectre, et cette forme
    est aussi celle qui se porte dans la boucle par échantillon du moteur.
-4. **BLOQUÉ** — 53 % de tonalités exactes, 76 % de compatibilité Camelot. Sous le seuil que ce plan
-   s'est donné, donc rien ne part vers le sidecar, le C++ ou l'écran tant que ça n'a pas monté.
-   Les pistes sont listées plus haut, la première étant la suppression des harmoniques.
+4. **BLOQUÉ, et les pistes sont épuisées** — 53 % exact, 76 % Camelot, et aucune des trois idées
+   classées ne fait mieux. Rien ne part vers le sidecar, le C++ ou l'écran.
 5. (après) La correction dans `mix.yaml`, sur le modèle exact de `bpm`/`beat`.
 6. (après) Camelot à l'écran, et les voisins.
 
 L'étape 2 est le vrai travail de décision ; 4 à 6 sont mécaniques et ressemblent à ce qui vient
 d'être fait pour la grille.
+
+## La sortie qui reste : séparer la ROUE du DÉTECTEUR
+
+L'audit demandait « pas de mix harmonique, pas de roue Camelot ». C'est la ROUE qui est la
+fonctionnalité ; le détecteur n'est qu'une façon de remplir sa case — et la moins fiable des deux.
+
+Or l'autre façon est déjà construite, à 90 % :
+
+- `mix.yaml` porte déjà des corrections par set, `bpm` et `beat`, avec leur éditeur d'entrée
+  partagé. Un `key:` à côté est le même champ, le même geste, le même fichier ;
+- la roue, ses voisins et `compatible()` sont écrits et testés — ils n'ont jamais dépendu du
+  détecteur ;
+- et une playlist fait douze à trente morceaux, pas deux cent soixante-dix-neuf. Les dix-sept
+  tonalités de ce banc ont été données à la main en une minute.
+
+Une tonalité saisie est **juste à 100 %**, là où la détectée l'est à 53 %. Pour un usage — décider
+si deux disques se mixent — c'est la différence entre une fonctionnalité et un piège.
+
+Ce que ça donne, dans l'ordre du moins cher au plus cher :
+
+1. `key:` dans `mix.yaml` + la roue à l'écran. La fonctionnalité entière, sans aucune détection,
+   sur le modèle exact de la grille. **C'est ce que je recommande.**
+2. Un import : lire un `TKEY` quand un fichier en porte un (aucun ici, mais les fichiers achetés en
+   ont souvent), et le proposer comme valeur de départ.
+3. Le détecteur, un jour, comme une PROPOSITION marquée douteuse — jamais comme une réponse — si
+   quelqu'un reprend le traitement du signal.
 
 ## Ce que ce plan ne prétend pas
 
