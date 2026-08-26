@@ -1267,15 +1267,32 @@ export function buildGraph(
     };
   }
 
-  // dagre rank hints: tracks 0, modules 1 + their max position, sinks past the deepest, pass-throughs 1.
-  let maxModRank = 0;
-  for (const r of moduleRank.values()) maxModRank = Math.max(maxModRank, r);
+  // The modules on a MASTER run — a chain sourced from a sum. Ranked AFTER every lane rather than by
+  // their position inside that run, which is small and would scatter a limiter up among the tracks.
+  const onMaster = new Set<string>();
+  for (const c of Object.values(graph.chains))
+    if (isSum(String(c.from ?? "")))
+      for (const s of c.use ?? []) onMaster.add(moduleId(s.module));
+
+  // dagre rank hints: tracks 0, lane modules 1 + their max position, then the master run, then sinks.
+  let laneMax = 0;
+  let masterMax = -1;
+  for (const [id, r] of moduleRank)
+    if (onMaster.has(id)) masterMax = Math.max(masterMax, r);
+    else laneMax = Math.max(laneMax, r);
+  // The sum comes after every lane. It used to be rank 0 — where a SOURCE is, the master run leaving
+  // it downward — which put it on the track row with `OUT` at the bottom and ONE cable spanning the
+  // whole page. Nothing is drawn INTO the sum, so nothing ever pulled it back down. docs/graphBuild.md.
+  const sumRank = 2 + laneMax;
+  const sinkRank = sumRank + 2 + masterMax;
   for (const n of nodes.values()) {
     if (n.kind === "track") n.rank = 0;
-    // Either SUM is drawn as a sink but ranked where a LANE is: the master run LEAVES it, downward.
-    else if (n.id === mixId || n.id === renderId) n.rank = 0;
-    else if (n.kind === "module") n.rank = 1 + (moduleRank.get(n.id) ?? 0);
-    else if (n.kind === "sink") n.rank = 2 + maxModRank;
+    else if (n.id === mixId || n.id === renderId) n.rank = sumRank;
+    else if (n.kind === "module")
+      n.rank = onMaster.has(n.id)
+        ? sumRank + 1 + (moduleRank.get(n.id) ?? 0)
+        : 1 + (moduleRank.get(n.id) ?? 0);
+    else if (n.kind === "sink") n.rank = sinkRank;
     else if (n.kind === "chain") n.rank = 1;
     else if (n.kind === "curve") {
       // Curves sit at the same rank as their target module.
@@ -1477,11 +1494,21 @@ function snapToRankRows(
     : snapped;
 }
 
-/** The MASTER RUN — the sum and everything downstream of it — stands fully to the RIGHT of the rest.
+/** The MASTER RUN — the sum and everything downstream of it — goes to the BOTTOM RIGHT, past the rest.
  *
- * Shifted as a BLOCK, so the run keeps whatever shape it had and stays a column. See docs/graphBuild.md. */
-export function masterRunRight<
-  N extends { id: string; kind: Kind; label: string; x: number; w: number },
+ * Shifted as a BLOCK on both axes, so the run keeps whatever shape it had. Placed rather than RANKED
+ * because it is joined to nothing else in the drawing: no cable is drawn into the sum, so ranking it
+ * among the lanes only ever put it somewhere its one visible cable had to cross. See docs/graphBuild.md. */
+export function masterRunAside<
+  N extends {
+    id: string;
+    kind: Kind;
+    label: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  },
 >(nodes: N[], edges: readonly { source: string; target: string }[]): N[] {
   const sum = nodes.find((n) => n.kind === "sink" && n.label === MIX_OUT);
   if (!sum) return nodes;
@@ -1500,13 +1527,20 @@ export function masterRunRight<
   // A graph that is nothing BUT the master run has no "rest" for it to stand to the right of.
   if (!others.length) return nodes;
 
-  const rightEdge = Math.max(...others.map((n) => n.x + n.w));
-  const runLeft = Math.min(
-    ...nodes.filter((n) => run.has(n.id)).map((n) => n.x),
+  const mine = nodes.filter((n) => run.has(n.id));
+  const dx =
+    Math.max(...others.map((n) => n.x + n.w)) +
+    NODE_SEP -
+    Math.min(...mine.map((n) => n.x));
+  // …and DOWN past the deepest lane, which is where the cables nobody draws actually arrive.
+  const dy =
+    Math.max(...others.map((n) => n.y + n.h)) +
+    RANK_SEP -
+    Math.min(...mine.map((n) => n.y));
+  if (dx === 0 && dy === 0) return nodes;
+  return nodes.map((n) =>
+    run.has(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n,
   );
-  const dx = rightEdge + NODE_SEP - runLeft;
-  if (dx === 0) return nodes;
-  return nodes.map((n) => (run.has(n.id) ? { ...n, x: n.x + dx } : n));
 }
 
 /** Push every receiver below the things that feed it — a cable never climbs. See docs/graphBuild.md.
@@ -1605,7 +1639,7 @@ export function layout(
     ),
   );
   // BEFORE the pins: where the master column sits is a preference, and a pin outranks a preference.
-  outNodes = masterRunRight(outNodes, raw);
+  outNodes = masterRunAside(outNodes, raw);
   if (positions || prev) {
     // `jackRef`'s name resolution, inlined because cables.ts imports this file. See docs/graphBuild.md.
     outNodes = outNodes.map((n) => {

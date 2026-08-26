@@ -9,7 +9,7 @@ import {
   headerFontPx,
   jackPoint,
   layout,
-  masterRunRight,
+  masterRunAside,
   moduleDisplayName,
   moduleRow,
   NODE_H,
@@ -150,7 +150,7 @@ describe("buildGraph", () => {
     });
 
     // A sink's rank is the wrong end of the page for a sum: the master run LEAVES it.
-    it("ranks MIX where a lane is, not where a sink is", () => {
+    it("ranks the whole master run AFTER every lane, in its own order", () => {
       const g = song();
       g.chains.MIX = {
         from: "MIX",
@@ -158,18 +158,46 @@ describe("buildGraph", () => {
         out: [{ to: "OUT", gain: 1 }],
       };
       const { nodes } = buildGraph(g);
-      const rank = (id: string) => nodes.find((n) => n.id === id)?.rank;
-      expect(rank("snk:MIX")).toBe(0);
-      expect(rank("snk:MIX")).toBeLessThan(rank("mod:comp") ?? 0);
-      expect(rank("mod:comp")).toBeLessThan(rank("snk:OUT") ?? 0);
+      const rank = (id: string) => nodes.find((n) => n.id === id)?.rank ?? 0;
+      // MIX used to be rank 0 — the track row — leaving its one drawn cable to span the page.
+      const lanes = nodes.filter(
+        (n) => n.kind === "module" && n.id !== "mod:comp",
+      );
+      expect(rank("snk:MIX")).toBeGreaterThan(
+        Math.max(...lanes.map((n) => n.rank ?? 0)),
+      );
+      // …and the run keeps its own order inside that: sum, its modules, then the output.
+      expect(rank("snk:MIX")).toBeLessThan(rank("mod:comp"));
+      expect(rank("mod:comp")).toBeLessThan(rank("snk:OUT"));
     });
 
-    // The mixer view pushes every sink under the strip row, and a SUM is not one of them.
-    it("leaves MIX above the row when the strips are aligned", () => {
+    it("does not rank a master module by its place INSIDE the run", () => {
+      // `comp` is step 0 of the master chain. Ranked by that it would land on the first module row,
+      // up among the lanes — which is the same disease the sum's own rank 0 was.
+      const g = song();
+      g.chains.MIX = {
+        from: "MIX",
+        use: [{ module: "comp" }],
+        out: [{ to: "OUT", gain: 1 }],
+      };
+      const { nodes } = buildGraph(g);
+      const comp = nodes.find((n) => n.id === "mod:comp");
+      const lanes = nodes.filter(
+        (n) => n.kind === "module" && n.id !== "mod:comp",
+      );
+      expect(comp?.rank).toBeGreaterThan(
+        Math.max(...lanes.map((n) => n.rank ?? 0)),
+      );
+    });
+
+    // The mixer view pushes every sink under the strip row, and a SUM is not one of them: it keeps
+    // the rank it was given rather than being shoved past the strips with the outputs.
+    it("does not push MIX when the strips are aligned", () => {
       const { nodes } = buildGraph(song());
+      const was = nodes.find((n) => n.id === "snk:MIX")?.rank;
       const aligned = alignModuleRank(nodes, ["lead", "synth-pad"]);
       const rank = (id: string) => aligned.find((n) => n.id === id)?.rank;
-      expect(rank("snk:MIX")).toBe(0);
+      expect(rank("snk:MIX")).toBe(was);
       expect(rank("snk:MIX")).toBeLessThan(rank("snk:OUT") ?? 0);
     });
 
@@ -312,11 +340,12 @@ describe("buildGraph", () => {
       ).toBeUndefined();
     });
 
-    it("leaves RENDER above the row when the strips are aligned", () => {
+    it("does not push RENDER when the strips are aligned", () => {
       const { nodes } = buildGraph(film());
+      const was = nodes.find((n) => n.id === "snk:RENDER")?.rank;
       const aligned = alignModuleRank(nodes, ["lead", "synth-pad"]);
       const rank = (id: string) => aligned.find((n) => n.id === id)?.rank;
-      expect(rank("snk:RENDER")).toBe(0);
+      expect(rank("snk:RENDER")).toBe(was);
       expect(rank("snk:RENDER")).toBeLessThan(rank("snk:VIDEO_OUT") ?? 0);
     });
 
@@ -1938,7 +1967,7 @@ describe("pushBelowInputs", () => {
 
 // The MASTER RUN — the sum and everything downstream — stands fully to the right of the rest.
 // It is a PREFERENCE and not a correctness rule, so unlike `pushBelowInputs` a pin outranks it.
-describe("the master run stands to the right", () => {
+describe("the master run goes to the bottom right", () => {
   // The two lanes meet at the SUM, and the master chain leaves it — `MIX -> OUT`, as a set is wired.
   const twoTracks = graph(
     {
@@ -1986,13 +2015,28 @@ describe("the master run stands to the right", () => {
       expect(n.x, n.label).toBeGreaterThanOrEqual(edge);
   });
 
-  it("leaves the y alone — that is the other rule's business", () => {
+  it("sits BELOW every lane, not on the track row it is ranked with", () => {
+    const { nodes, edges } = buildGraph(twoTracks);
+    const laid = layout(nodes, edges);
+    const run = runOf(laid);
+    const sum = laid.nodes.find((n) => n.kind === "sink" && n.label === "MIX");
+    // The sum is RANKED where a source is — the master run leaves it downward — and that used to
+    // leave it on the track row with `OUT` at the bottom, one cable spanning the whole page.
+    const deepest = Math.max(
+      ...laid.nodes.filter((n) => !run.has(n.id)).map((n) => n.y + n.h),
+    );
+    expect(sum?.y).toBeGreaterThanOrEqual(deepest);
+  });
+
+  it("makes the MIX -> OUT cable short instead of page-tall", () => {
     const { nodes, edges } = buildGraph(twoTracks);
     const laid = layout(nodes, edges);
     const sum = laid.nodes.find((n) => n.kind === "sink" && n.label === "MIX");
-    const track = laid.nodes.find((n) => n.label === "vox");
-    // The sum is ranked where a SOURCE is, so it shares the track row and must keep doing so.
-    expect(sum?.y).toBe(track?.y);
+    const out = laid.nodes.find((n) => n.kind === "sink" && n.label === "OUT");
+    const wire = (out?.y ?? 0) - ((sum?.y ?? 0) + (sum?.h ?? 0));
+    // One rank apart, not the height of the graph — which is what this whole rule is for.
+    expect(wire).toBeLessThanOrEqual(120);
+    expect(wire).toBeGreaterThanOrEqual(0);
   });
 
   it("a PIN still wins: where the column sits is a preference, not a correctness rule", () => {
@@ -2004,23 +2048,25 @@ describe("the master run stands to the right", () => {
 });
 
 // The rule on its own, where the shift can be checked against numbers rather than against dagre.
-describe("masterRunRight", () => {
-  const card = (id: string, kind: "sink" | "module", x: number) => ({
+describe("masterRunAside", () => {
+  const card = (id: string, kind: "sink" | "module", x: number, y = 0) => ({
     id,
     kind,
     label: id,
     x,
+    y,
     w: 100,
+    h: 40,
   });
 
-  it("shifts the run as a BLOCK, keeping the gaps inside it", () => {
-    // Laid out badly on purpose: MIX at 0, OUT 40 past it, both to the LEFT of the two lanes.
-    const out = masterRunRight(
+  it("shifts the run as a BLOCK on both axes, keeping the gaps inside it", () => {
+    // Laid out badly on purpose: the run at the origin, up and to the LEFT of the two lanes.
+    const out = masterRunAside(
       [
-        card("MIX", "sink", 0),
-        card("OUT", "sink", 40),
-        card("a", "module", 500),
-        card("b", "module", 900),
+        card("MIX", "sink", 0, 0),
+        card("OUT", "sink", 40, 90),
+        card("a", "module", 500, 300),
+        card("b", "module", 900, 700),
       ],
       [
         { source: "MIX", target: "OUT" },
@@ -2028,29 +2074,30 @@ describe("masterRunRight", () => {
         { source: "b", target: "MIX" },
       ],
     );
-    const at = (id: string) => out.find((n) => n.id === id)?.x;
-    // `b` ends at 1000, so the run starts one NODE_SEP past that and keeps its own 40px gap.
-    expect(at("MIX")).toBe(1060);
-    expect(at("OUT")).toBe(1100);
-    expect([at("a"), at("b")]).toEqual([500, 900]);
+    const at = (id: string) => out.find((n) => n.id === id);
+    // `b` ends at x=1000 and y=740, so the run starts one separation past each.
+    expect(at("MIX")).toMatchObject({ x: 1060, y: 810 });
+    // …and keeps its OWN 40px and 90px offsets: shifted, never re-laid-out.
+    expect(at("OUT")).toMatchObject({ x: 1100, y: 900 });
+    expect(at("a")).toMatchObject({ x: 500, y: 300 });
   });
 
   it("pulls it back IN when it was left too far out", () => {
-    const out = masterRunRight(
-      [card("MIX", "sink", 5000), card("a", "module", 0)],
+    const out = masterRunAside(
+      [card("MIX", "sink", 5000, 5000), card("a", "module", 0, 0)],
       [{ source: "a", target: "MIX" }],
     );
-    // "Fully to the right" is a POSITION, not a minimum: a column miles out is not organised either.
-    expect(out.find((n) => n.id === "MIX")?.x).toBe(160);
+    // A POSITION, not a minimum: a column miles out is not organised either.
+    expect(out.find((n) => n.id === "MIX")).toMatchObject({ x: 160, y: 110 });
   });
 
   it("takes the whole run, however deep — a master chain may carry modules", () => {
-    const out = masterRunRight(
+    const out = masterRunAside(
       [
-        card("MIX", "sink", 0),
-        card("limiter", "module", 10),
-        card("OUT", "sink", 20),
-        card("a", "module", 400),
+        card("MIX", "sink", 0, 0),
+        card("limiter", "module", 10, 50),
+        card("OUT", "sink", 20, 100),
+        card("a", "module", 400, 400),
       ],
       [
         { source: "MIX", target: "limiter" },
@@ -2058,19 +2105,23 @@ describe("masterRunRight", () => {
         { source: "a", target: "MIX" },
       ],
     );
-    for (const id of ["MIX", "limiter", "OUT"])
+    // The limiter travels with the sum it processes, on both axes — that is the whole point of
+    // taking the RUN rather than the two cards: a master chain may carry modules.
+    for (const id of ["MIX", "limiter", "OUT"]) {
       expect(out.find((n) => n.id === id)?.x, id).toBeGreaterThanOrEqual(500);
+      expect(out.find((n) => n.id === id)?.y, id).toBeGreaterThanOrEqual(440);
+    }
   });
 
   it("does nothing to a graph with no sum drawn", () => {
-    const nodes = [card("a", "module", 0), card("OUT", "sink", 100)];
-    expect(masterRunRight(nodes, [{ source: "a", target: "OUT" }])).toBe(nodes);
+    const nodes = [card("a", "module", 0), card("OUT", "sink", 100, 100)];
+    expect(masterRunAside(nodes, [{ source: "a", target: "OUT" }])).toBe(nodes);
   });
 
   it("does nothing when the run is the WHOLE graph", () => {
     // No rest for it to stand to the right of, and `Math.max` of nothing is -Infinity.
-    const nodes = [card("MIX", "sink", 0), card("OUT", "sink", 40)];
-    expect(masterRunRight(nodes, [{ source: "MIX", target: "OUT" }])).toBe(
+    const nodes = [card("MIX", "sink", 0), card("OUT", "sink", 40, 90)];
+    expect(masterRunAside(nodes, [{ source: "MIX", target: "OUT" }])).toBe(
       nodes,
     );
   });

@@ -538,7 +538,7 @@ Not an invention: with no master chain the two ARE one wire. A host that asked f
 
 `RENDER` and `VIDEO_OUT` (`RENDER_NODE` / `VIDEO_OUT_NODE` in @studio/song, whose
 docs/videoOutputs.md is the page) are drawn by **every rule above, unchanged**: no cable into the
-sum, one card each, the sum ranked where a lane is rather than where a sink is, the pair
+sum, one card each, the whole run ranked after every lane, the pair
 synthesised when the file declares no run, and both devices governed together by `drawMainOut` —
 which is what a host asking for it means, "do not draw where the signal leaves", and a picture
 ending nowhere beside a sound ending at a card would be half an answer.
@@ -667,8 +667,8 @@ as it does for audio.
 
 ## Layout
 
-Rank hints go to dagre: track nodes at 0, modules at 1 + their maximum position across all
-chains, sinks one past the deepest module, and chain pass-through nodes at 1. Taking the
+Rank hints go to dagre: track nodes at 0, lane modules at 1 + their maximum position across all
+chains, then the MASTER RUN (see below), then sinks, and chain pass-through nodes at 1. Taking the
 *maximum* position matters for a shared module — at index 0 in chain A and 2 in chain B it
 ranks after both, so chain A's full pipeline is still respected.
 
@@ -737,31 +737,44 @@ another tab may have written one. `graph organize` is the command that empties b
 speak. The name resolution is `cables.ts`'s `jackRef` — a module by its chains name, the rest by
 label — inlined here because `cables.ts` imports this file.
 
-### The master run stands fully to the right
+### The master run goes to the bottom right, and is ranked AFTER every lane
 
-`MIX -> OUT` is the run out to the interface, and the sum is ranked where a SOURCE is — it shares
-the top row with the tracks, because the master run *leaves* it going down. Which means dagre is
-free to put that column anywhere along the row, and it lands wherever the edge weights drag it:
-in the middle of the lanes as readily as at either end.
+`MIX -> OUT` is the run out to the interface. The sum used to be **rank 0** — where a source is, on
+the theory that the master run *leaves* it going down — and `OUT`, an ordinary sink, one past the
+deepest module. Add the rule above that **no cable is drawn into the sum**, and nothing was left to
+hold `MIX` down: it sat on the track row, `OUT` sat on the floor, and the one cable between them ran
+the height of the page. Measured on a two-deck set: `MIX` at y=16, `OUT` at y=1516, **a 1430px wire
+in a graph 1654px tall.** Of that graph's 37 edges, exactly one touched either card.
 
-`masterRunRight` puts it at the end. The run is the sum plus everything downstream of it — a master
-chain may carry modules, a limiter on the whole blend — and it moves as a **block**, so it keeps
-whatever shape it had rather than being re-laid-out. Its left edge lands one `nodesep` past the
-rightmost thing that is not on it.
+Nothing about it was an accident — each of the three decisions is deliberate and written down here.
+It was their combination that drew a cable down the whole page.
 
-"Fully to the right" is a POSITION and not a minimum, so a run dagre left miles out is pulled back
-IN. A column alone on the far side of an empty screen is not organised either.
+So the run is ranked **after every lane**: the sum one past the deepest lane module, its own modules
+after it in their own order, the sinks last. That is `sumRank` / `sinkRank`, and `onMaster` is the
+set it needs — the modules of any chain sourced from a sum. Ranking a master module by its position
+*inside* that run is the same disease: a limiter is step 0, so it would land on the first module row,
+up among the tracks.
+
+`masterRunAside` then puts the block in the **bottom-right corner** — one `nodesep` past the
+rightmost thing not on it, one `ranksep` below the deepest. Both are POSITIONS and not minimums, so
+a run dagre left miles out is pulled back IN; a column alone across an empty screen is not organised
+either. It shifts as a **block**, keeping whatever shape the ranks gave it.
+
+Bottom rather than top because that is where the cables nobody draws actually arrive: every lane
+ends at the sum, so the corner past the last of them is the honest place for it. Same set after the
+change: the wire is **96px**.
 
 It runs **before** the pins, and that is the difference from the rule below: where the master column
 sits is a *preference*, and a pin outranks a preference. A cable that climbs is *wrong*, and nothing
 outranks that.
 
-Two graphs it leaves alone: one with no sum drawn — a chain writing `out: OUT` directly never makes
-the card — and one that is nothing BUT the master run, which has no rest to stand to the right of.
+Two graphs `masterRunAside` leaves alone: one with no sum drawn — a chain writing `out: OUT` directly
+never makes the card — and one that is nothing BUT the master run, which has no rest to stand aside
+from.
 
-Only `MIX`'s run. `RENDER -> VIDEO_OUT`, the picture's sum, is ranked the same way and is left where
-dagre puts it; nobody has asked for the two columns to be stacked out there, and guessing an order
-for them is a decision this cannot make on its own.
+`RENDER -> VIDEO_OUT` is ranked by the same arithmetic, since `onMaster` reads both sums. Only the
+CORNER is `MIX`'s alone: nobody has asked for the two columns to be stacked out there, and guessing
+an order for them is a decision this cannot make on its own.
 
 ### A receiver never sits above what feeds it
 
