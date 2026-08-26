@@ -15,6 +15,7 @@ import {
   NODE_MIN_W,
   NODE_W,
   nodeSize,
+  pushBelowInputs,
   rackBindSymbol,
   rackGrid,
   rackUI,
@@ -1160,17 +1161,19 @@ describe("layout honours the pins", () => {
     ["vox"],
   );
 
-  it("a pinned module sits exactly where its pin says; everything else keeps dagre's answer", () => {
+  it("a pinned module sits exactly where its pin says; everything ABOVE it keeps dagre's answer", () => {
     const { nodes, edges } = buildGraph(uneven);
     const free = layout(nodes, edges);
     const laid = layout(nodes, edges, { comp: { x: 640, y: 480 } });
     const comp = laid.nodes.find((n) => n.module === "comp");
     expect(comp).toMatchObject({ x: 640, y: 480 });
-    // The unpinned nodes are the layout's, byte for byte — dagre still owns the new arrivals.
-    for (const n of laid.nodes.filter((x) => x.module !== "comp")) {
-      const was = free.nodes.find((f) => f.id === n.id);
-      expect({ x: n.x, y: n.y }).toEqual({ x: was?.x, y: was?.y });
-    }
+    // Its own INPUTS are untouched — dagre still owns everything the pin does not stand under.
+    const vox = laid.nodes.find((x) => x.label === "vox");
+    const wasVox = free.nodes.find((f) => f.id === vox?.id);
+    expect({ x: vox?.x, y: vox?.y }).toEqual({ x: wasVox?.x, y: wasVox?.y });
+    // What it FEEDS follows it down: a cable may not climb, so dragging a card drags its consumers.
+    const eq = laid.nodes.find((x) => x.module === "eq");
+    expect(eq?.y).toBeGreaterThanOrEqual(480 + (comp?.h ?? 0));
   });
 
   it("a pinned node still counts toward the graph's measured size", () => {
@@ -1188,7 +1191,9 @@ describe("layout honours the pins", () => {
 
   it("a pin ABOVE the first track is reported, so the camera can still frame it", () => {
     const { nodes, edges } = buildGraph(uneven);
-    const laid = layout(nodes, edges, { comp: { x: -200, y: -300 } });
+    // The TRACK and not a module: a source takes no input, so it is the one thing free to go up
+    // there. A module pinned above what feeds it is pushed back down — see the describe below.
+    const laid = layout(nodes, edges, { vox: { x: -200, y: -300 } });
     // Both past the pin by the margin every extent carries, and never positive.
     expect(laid.top).toBeLessThanOrEqual(-300);
     expect(laid.left).toBeLessThanOrEqual(-200);
@@ -1791,5 +1796,141 @@ describe("a RACK node draws its sounds", () => {
     );
     const node = g.nodes.find((n) => n.module === "kit");
     expect(Object.keys(node?.ui?.widgets ?? {})).toEqual(["g"]);
+  });
+});
+
+// A node that RECEIVES cannot sit above, or level with, what feeds it — a cable never climbs.
+// dagre already guarantees it; a PIN does not, and a pin outranks dagre. See docs/graphBuild.md.
+describe("a receiver stays below what feeds it", () => {
+  const chain = graph(
+    {
+      long: {
+        from: "vox",
+        use: [{ module: "comp" }, { module: "eq" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+    },
+    ["vox"],
+  );
+
+  /** Every edge, as `[source, target]` tops and bottoms — what the rule is actually about. */
+  const spans = (laid: ReturnType<typeof layout>) => {
+    const at = new Map(laid.nodes.map((n) => [n.id, n]));
+    return laid.edges.flatMap((e) => {
+      const from = at.get(e.source);
+      const to = at.get(e.target);
+      return from && to && from !== to ? [{ e, from, to }] : [];
+    });
+  };
+
+  it("holds with no pins at all, which is dagre doing its job", () => {
+    const { nodes, edges } = buildGraph(chain);
+    for (const { from, to } of spans(layout(nodes, edges)))
+      expect(to.y).toBeGreaterThanOrEqual(from.y + from.h);
+  });
+
+  it("a pin that would put a module above its input is pushed back down", () => {
+    const { nodes, edges } = buildGraph(chain);
+    // Straight above the track that feeds it — the one thing a pin could always do before.
+    const laid = layout(nodes, edges, { comp: { x: 40, y: -900 } });
+    for (const { from, to } of spans(laid))
+      expect(to.y, `${from.label} -> ${to.label}`).toBeGreaterThanOrEqual(
+        from.y + from.h,
+      );
+  });
+
+  it("…and one that would put it on the SAME line, which is the subtler half", () => {
+    const { nodes, edges } = buildGraph(chain);
+    const vox = layout(nodes, edges).nodes.find((n) => n.label === "vox");
+    // Exactly level with the track: no cable climbs, and it still reads as a cable going nowhere.
+    const laid = layout(nodes, edges, { comp: { x: 400, y: vox?.y ?? 0 } });
+    const comp = laid.nodes.find((n) => n.module === "comp");
+    expect(comp?.y).toBeGreaterThanOrEqual((vox?.y ?? 0) + (vox?.h ?? 0));
+  });
+
+  it("moves it no further than the rule needs, and never sideways", () => {
+    const { nodes, edges } = buildGraph(chain);
+    const laid = layout(nodes, edges, { comp: { x: 640, y: -900 } });
+    const comp = laid.nodes.find((n) => n.module === "comp");
+    const vox = laid.nodes.find((n) => n.label === "vox");
+    // The x is the half of a pin this has no opinion about, so it survives untouched.
+    expect(comp?.x).toBe(640);
+    expect(comp?.y).toBe((vox?.y ?? 0) + (vox?.h ?? 0));
+  });
+
+  it("leaves a pin that already obeys exactly where it was put", () => {
+    const { nodes, edges } = buildGraph(chain);
+    const laid = layout(nodes, edges, { comp: { x: 640, y: 4000 } });
+    expect(laid.nodes.find((n) => n.module === "comp")).toMatchObject({
+      x: 640,
+      y: 4000,
+    });
+  });
+});
+
+// The rule on its own, away from dagre: the cases a graph is hard to build for.
+describe("pushBelowInputs", () => {
+  const card = (id: string, y: number) => ({
+    id,
+    kind: "module" as const,
+    label: id,
+    x: 0,
+    y,
+    w: 100,
+    h: 40,
+  });
+  const at = (nodes: ReturnType<typeof card>[], id: string) =>
+    nodes.find((n) => n.id === id)?.y;
+
+  it("carries a push all the way down a chain", () => {
+    // Only `a` is out of place; `b` and `c` were fine until it moved, and must follow.
+    const out = pushBelowInputs(
+      [card("a", 500), card("b", 100), card("c", 200)],
+      [
+        { source: "a", target: "b" },
+        { source: "b", target: "c" },
+      ],
+    ) as ReturnType<typeof card>[];
+    expect(at(out, "a")).toBe(500);
+    expect(at(out, "b")).toBe(540);
+    expect(at(out, "c")).toBe(580);
+  });
+
+  it("clears the LOWEST of several inputs, not the first one it meets", () => {
+    const out = pushBelowInputs(
+      [card("a", 10), card("b", 900), card("sum", 0)],
+      [
+        { source: "a", target: "sum" },
+        { source: "b", target: "sum" },
+      ],
+    ) as ReturnType<typeof card>[];
+    expect(at(out, "sum")).toBe(940);
+  });
+
+  it("returns the same array when nothing is out of place", () => {
+    const nodes = [card("a", 0), card("b", 100)];
+    expect(pushBelowInputs(nodes, [{ source: "a", target: "b" }])).toBe(nodes);
+  });
+
+  it("leaves a CYCLE alone rather than hanging on it", () => {
+    // "Below its inputs" has no answer here, and a relaxation would run forever looking for one.
+    const nodes = [card("a", 0), card("b", 0)];
+    const out = pushBelowInputs(nodes, [
+      { source: "a", target: "b" },
+      { source: "b", target: "a" },
+    ]) as ReturnType<typeof card>[];
+    expect([at(out, "a"), at(out, "b")]).toEqual([0, 0]);
+  });
+
+  it("ignores a node feeding itself, which constrains nothing", () => {
+    const nodes = [card("a", 0)];
+    expect(pushBelowInputs(nodes, [{ source: "a", target: "a" }])).toBe(nodes);
+  });
+
+  it("ignores an edge naming a node the graph does not draw", () => {
+    const nodes = [card("a", 0)];
+    expect(pushBelowInputs(nodes, [{ source: "ghost", target: "a" }])).toBe(
+      nodes,
+    );
   });
 });

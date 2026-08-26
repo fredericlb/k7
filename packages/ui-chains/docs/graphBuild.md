@@ -728,13 +728,43 @@ signal path.
 held card both wins over the rows and still counts toward the graph's measured size.
 
 `positions` is what somebody PINNED — `chains.yaml`'s `positions:`, keyed by chains name. Those win
-over everything the ranker decided, and dagre only ever places what has no entry: a module dragged
+over everything the ranker decided — except the one rule below — and dagre only ever places what has
+no entry: a module dragged
 once stays where it was put, a new one still arrives laid out. `prev` is where each node was DRAWN
 last time, keyed by node id — the host's session memory, so an edit (a cable pulled, a module
 dropped in) never reorganizes the picture. Pins outrank the session, because the file outranks it:
 another tab may have written one. `graph organize` is the command that empties both and lets dagre
 speak. The name resolution is `cables.ts`'s `jackRef` — a module by its chains name, the rest by
 label — inlined here because `cables.ts` imports this file.
+
+### A receiver never sits above what feeds it
+
+**A node that takes input may not be above, or level with, the things feeding it.** A cable that has
+to climb is a cable drawn backwards, and one drawn sideways between two cards on the same line reads
+as a cable going nowhere.
+
+dagre gives this for free — `rankdir: "TB"` is exactly that statement — and `snapToRankRows` keeps
+it, since a rank's row is never above the row before. **A pin does not**, and until now a pin
+outranked both. Dragging a compressor above the track feeding it, or writing a `positions:` entry by
+hand, produced a picture whose cables ran the wrong way with nothing to say so.
+
+So `pushBelowInputs` runs AFTER the pins, and it is the one thing a pin does not win against. It
+moves a card **only as far as the rule needs** — its top to its lowest input's bottom, not one pixel
+more — and never touches the x, which is the half of a pin this has no opinion about. A pin that
+already obeys is left exactly where it was put.
+
+What follows is that dragging a card down drags **its consumers** with it: they are receivers too,
+and the constraint carries down the chain. Dragging one UP moves nothing, because the rule only ever
+pushes down.
+
+It is one pass, not a relaxation: a topological walk (Kahn) finalises a node's y only once every
+input's is settled, so a chain of any depth settles in a single sweep. Anything the walk never
+reaches is in a **cycle**, where "below its inputs" has no answer — those keep their pinned position
+rather than the layout hanging looking for one. Self-edges and edges naming a node the graph does not
+draw are skipped for the same reason: neither constrains anything.
+
+It applies to every edge, automation included. A modulation arrow that climbs is as unreadable as a
+signal cable that does.
 
 ### The mixer's row, three functions deep
 

@@ -1477,6 +1477,52 @@ function snapToRankRows(
     : snapped;
 }
 
+/** Push every receiver below the things that feed it — a cable never climbs. See docs/graphBuild.md.
+ *
+ * dagre already guarantees this; a PIN does not, and a pin wins over dagre. So this runs after them,
+ * and moves a node only as far as the rule needs: its top to its highest input's BOTTOM, no further.
+ * The x is left alone, that being the half of a pin nothing here has an opinion about. */
+export function pushBelowInputs<N extends { id: string; y: number; h: number }>(
+  nodes: N[],
+  edges: readonly { source: string; target: string }[],
+): N[] {
+  const at = new Map(nodes.map((n) => [n.id, n]));
+  const out = new Map<string, string[]>();
+  const waiting = new Map<string, number>();
+  for (const e of edges) {
+    // A node feeding itself constrains nothing, and would deadlock the walk below.
+    if (e.source === e.target || !at.has(e.source) || !at.has(e.target))
+      continue;
+    (out.get(e.source) ?? out.set(e.source, []).get(e.source))?.push(e.target);
+    waiting.set(e.target, (waiting.get(e.target) ?? 0) + 1);
+  }
+  if (!waiting.size) return nodes;
+
+  const y = new Map(nodes.map((n) => [n.id, n.y]));
+  // Kahn: a node's y is final only once every input's is, which is what makes one pass enough.
+  const ready = nodes.filter((n) => !waiting.get(n.id)).map((n) => n.id);
+  for (let i = 0; i < ready.length; i++) {
+    const id = ready[i];
+    const node = at.get(id);
+    if (!node) continue;
+    const bottom = (y.get(id) ?? node.y) + node.h;
+    for (const to of out.get(id) ?? []) {
+      if ((y.get(to) ?? 0) < bottom) y.set(to, bottom);
+      const left = (waiting.get(to) ?? 1) - 1;
+      waiting.set(to, left);
+      if (left === 0) ready.push(to);
+    }
+  }
+  // Anything the walk never reached is in a CYCLE, where "below its inputs" has no answer: left alone.
+  // The array itself comes back untouched when nothing moved, as `snapToRankRows` hands its own back.
+  return nodes.some((n) => y.get(n.id) !== n.y)
+    ? nodes.map((n) => {
+        const moved = y.get(n.id);
+        return moved === undefined || moved === n.y ? n : { ...n, y: moved };
+      })
+    : nodes;
+}
+
 // Position with dagre. It returns centres; we store top-left, edge points staying in absolute graph space.
 export function layout(
   nodes: RawNode[],
@@ -1535,6 +1581,8 @@ export function layout(
       return p ? { ...n, x: p.x, y: p.y } : n;
     });
   }
+  // AFTER the pins, because a pin is the only thing that can put a card above what feeds it.
+  outNodes = pushBelowInputs(outNodes, raw);
   const outEdges: GraphEdge[] = raw.map((e) => ({
     id: e.id,
     source: e.source,
