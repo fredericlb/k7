@@ -91,6 +91,8 @@ and four plan/recipe pages, [platter-plan.md](docs/platter-plan.md) (the DJ deck
 playback: a stretcher inside the platter, and the hybrid it deletes),
 [platter-node-plan.md](docs/platter-node-plan.md) (its sequel — the platter is injected into the
 document rather than declared, and the engine already accepts a declared one),
+[key-detection-plan.md](docs/key-detection-plan.md) (the desk detects no key: what a chromagram
+would cost in the C++ analysis pass — measured — and the ground truth it still lacks),
 [module-builder-plan.md](docs/module-builder-plan.md) and
 [rename-test-plan.md](docs/rename-test-plan.md) — the latter is the METHOD for renaming an
 app, a service or a protocol prefix: the order of the phases, and the rule that every check

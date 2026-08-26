@@ -1,0 +1,63 @@
+// Laying a set's grid CORRECTION over the analysis. The audit this answers: the grid is deduced
+// and was not correctable, while the doc itself showed a song whose detected tempo is wrong.
+//
+// What would be wrong silently here: a correction that moves the fader somebody has already set,
+// one that leaves `natural` alone (so the deck plays at the wrong RATE while showing the right
+// number), and a corrected downbeat that still carries the guess's "not confident" flag.
+
+import { describe, expect, it } from "vitest";
+import type { DeckTempo } from "./deck";
+import { corrected } from "./useDeckSet";
+
+/** As the analysis hands it over: a wrongly-doubled 174 on an 87 BPM record. */
+const measured: DeckTempo = {
+  natural: 174,
+  seconds: 200,
+  target: 174,
+  phase: 0.42,
+};
+
+describe("corrected", () => {
+  it("is the analysis itself when the set says nothing", () => {
+    expect(corrected(measured, undefined)).toBe(measured);
+    expect(corrected(measured, {})).toBe(measured);
+  });
+
+  it("replaces what the record IS, not just what it shows", () => {
+    // `natural` is the divisor in `Rate = target / natural`. Correcting only the label would leave
+    // the platter running at the wrong speed while the fader read right.
+    const fixed = corrected(measured, { bpm: 87 });
+    expect(fixed.natural).toBe(87);
+    expect(fixed.target).toBe(87);
+  });
+
+  it("does NOT move a fader somebody has already set", () => {
+    // A moved fader is a decision. Halving the detected tempo must not throw away a deck that was
+    // deliberately pulled to 176 to ride another record.
+    const nudged = { ...measured, target: 176 };
+    const fixed = corrected(nudged, { bpm: 87 });
+    expect(fixed.natural).toBe(87);
+    expect(fixed.target).toBe(176);
+  });
+
+  it("takes the downbeat WITHOUT the guess's caveat", () => {
+    // `phase` from the Rayleigh test carries `confident`; a hand-placed one is exact by definition,
+    // and `canAlign` reads `phase !== undefined` rather than the confidence.
+    const noGrid: DeckTempo = { natural: 120, seconds: 60, target: 120 };
+    expect(corrected(noGrid, { beat: 1.75 }).phase).toBe(1.75);
+    // …and a beat of ZERO is a real answer, not an absent one.
+    expect(corrected(noGrid, { beat: 0 }).phase).toBe(0);
+  });
+
+  it("takes each field on its own", () => {
+    const onlyBeat = corrected(measured, { beat: 0.1 });
+    expect(onlyBeat.natural).toBe(174); // untouched
+    expect(onlyBeat.phase).toBe(0.1);
+    const onlyBpm = corrected(measured, { bpm: 87 });
+    expect(onlyBpm.phase).toBe(0.42); // untouched
+  });
+
+  it("keeps the length, which is a fact about the FILE and never a correction", () => {
+    expect(corrected(measured, { bpm: 87, beat: 0 }).seconds).toBe(200);
+  });
+});

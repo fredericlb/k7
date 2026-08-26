@@ -12,6 +12,9 @@ export function BpmFader({
   onCommit,
   keylock,
   onKeylock,
+  corrected,
+  onHalve,
+  onDouble,
 }: {
   /** The song's own tempo, 0 when the engine found none. */
   natural: number;
@@ -26,6 +29,11 @@ export function BpmFader({
   /** Is the pitch held while the tempo moves? Off is a platter's behaviour and the default. */
   keylock: boolean;
   onKeylock: () => void;
+  /** Does THIS SET correct the analysis for the record on this deck? — ../../docs/grid.md. */
+  corrected: boolean;
+  /** Halve or double what the record IS. Absent with nothing loaded, or no tempo to halve. */
+  onHalve?: () => void;
+  onDouble?: () => void;
 }) {
   const has = natural > 0;
   const [lo, hi] = BPM_RANGE;
@@ -104,6 +112,41 @@ export function BpmFader({
           ? `${target >= natural ? "+" : ""}${(((target - natural) / natural) * 100).toFixed(1)}%`
           : "BPM"}
       </span>
+
+      {/* The octave error, which is the correction a detector actually gets wrong — ../../docs/grid.md.
+          Greyed with no tempo to halve: there is nothing to be right or wrong about yet. */}
+      <div className="flex w-full shrink-0 gap-1">
+        {(
+          [
+            ["÷2", onHalve, "moitié : le tempo détecté est le double du vrai"],
+            ["×2", onDouble, "double : le tempo détecté est la moitié du vrai"],
+          ] as const
+        ).map(([label, act, why]) => (
+          <button
+            key={label}
+            type="button"
+            disabled={!act}
+            onClick={act}
+            className={`h-5 flex-1 rounded font-mono text-[9px] leading-none ${
+              act
+                ? "bg-muted text-muted-foreground hover:bg-accent"
+                : "bg-muted/40 text-muted-foreground/40"
+            }`}
+            title={act ? why : "aucun tempo mesuré sur cette platine"}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {/* Only when this set HAS corrected something: a badge that is always there says nothing. */}
+      {corrected ? (
+        <span
+          className="shrink-0 font-mono text-[8px] text-primary leading-none"
+          title="ce set corrige la grille de ce morceau — écrit dans mix.yaml, à côté des repères"
+        >
+          GRILLE ✎
+        </span>
+      ) : null}
 
       {/* Pioneer's MASTER TEMPO, under the fader it changes the meaning of — ../../docs/bpm.md. */}
       <button

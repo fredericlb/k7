@@ -32,6 +32,7 @@ import type { DeckId, DeckLoads, DeckTempo } from "../deck";
 import { type DeskLayout, deskLayout, stemStripHeight } from "../deskLayout";
 import type { Deck } from "../engine";
 import { MIX_VIEW_FILE } from "../mixView";
+import { NO_PREWARM, type Prewarm, prewarming, prewarmSet } from "../prewarm";
 import {
   cacheRelPath,
   type FileLink,
@@ -139,6 +140,27 @@ export function MixView({
       );
     void refresh(link);
   }, [link, refresh]);
+
+  /** Analyse the set list before anybody reaches for it — ../../docs/prewarm.md. */
+  const [warm, setWarm] = useState<Prewarm>(NO_PREWARM);
+  useEffect(() => {
+    if (!link || !set?.entries.length) return;
+    // Every song the playlist NAMES and this machine holds; the rest have nothing to analyse.
+    const paths = set.entries
+      .map((s) => s.entry && cacheRelPath(s.entry, s.file))
+      .filter((p): p is string => !!p);
+    let alive = true;
+    void prewarmSet(
+      paths,
+      (path) => service.envelope(link, path),
+      () => alive,
+      setWarm,
+    );
+    // A second playlist, or a closed desk: the walk stops between songs rather than at the end.
+    return () => {
+      alive = false;
+    };
+  }, [link, set]);
 
   /** Separate what was just put on a deck, when the set says so and the record has none — ../../docs/stems.md. */
   const prepare = async (deckId: DeckId, s: SetEntry, _at: FileLink) => {
@@ -353,6 +375,22 @@ export function MixView({
           onCommit={decks.release}
           keylock={decks.keylock("deckA")}
           onKeylock={() => decks.toggleKeylock("deckA")}
+          corrected={
+            decks.gridOf("deckA").bpm !== undefined ||
+            decks.gridOf("deckA").beat !== undefined
+          }
+          onHalve={
+            tempos.deckA?.natural
+              ? () =>
+                  decks.correctGrid("deckA", { bpm: tempos.deckA!.natural / 2 })
+              : undefined
+          }
+          onDouble={
+            tempos.deckA?.natural
+              ? () =>
+                  decks.correctGrid("deckA", { bpm: tempos.deckA!.natural * 2 })
+              : undefined
+          }
           onPick={() => setBrowsing("deckA")}
           onDropSong={(d) => dropped("deckA", d)}
           trim={decks.trimOf("deckA")}
@@ -427,6 +465,22 @@ export function MixView({
           onCommit={decks.release}
           keylock={decks.keylock("deckB")}
           onKeylock={() => decks.toggleKeylock("deckB")}
+          corrected={
+            decks.gridOf("deckB").bpm !== undefined ||
+            decks.gridOf("deckB").beat !== undefined
+          }
+          onHalve={
+            tempos.deckB?.natural
+              ? () =>
+                  decks.correctGrid("deckB", { bpm: tempos.deckB!.natural / 2 })
+              : undefined
+          }
+          onDouble={
+            tempos.deckB?.natural
+              ? () =>
+                  decks.correctGrid("deckB", { bpm: tempos.deckB!.natural * 2 })
+              : undefined
+          }
           onPick={() => setBrowsing("deckB")}
           onDropSong={(d) => dropped("deckB", d)}
           trim={decks.trimOf("deckB")}
@@ -549,6 +603,20 @@ export function MixView({
         >
           <AudioLines className="h-4 w-4" />
         </Button>
+
+        {/* Only while there is something left to analyse — ../../docs/prewarm.md. */}
+        {prewarming(warm) ? (
+          <span
+            className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums"
+            title={
+              `analyse de la playlist : ${warm.done}/${warm.total} morceaux` +
+              (warm.failed ? ` (${warm.failed} illisible(s))` : "") +
+              " — un morceau analysé pose son tempo et allume SYNC tout de suite"
+            }
+          >
+            ♪ {warm.done}/{warm.total}
+          </span>
+        ) : null}
 
         <Button
           size="sm"
@@ -773,6 +841,9 @@ function DeckSide({
   onCommit,
   keylock,
   onKeylock,
+  corrected,
+  onHalve,
+  onDouble,
   onPick,
   onDropSong,
   trim,
@@ -816,6 +887,10 @@ function DeckSide({
   /** Whether this deck holds the pitch, and the switch for it — ../../docs/bpm.md. */
   keylock: boolean;
   onKeylock: () => void;
+  /** Does this SET correct the record's grid, and the two gestures that do it — ../../docs/grid.md. */
+  corrected: boolean;
+  onHalve?: () => void;
+  onDouble?: () => void;
   /** The record's middle was clicked — open the browser for this deck. */
   onPick: () => void;
   /** A playlist line was dropped on this deck, already read off the transfer — ../../docs/setList.md. */
@@ -873,6 +948,9 @@ function DeckSide({
         onCommit={onCommit}
         keylock={keylock}
         onKeylock={onKeylock}
+        corrected={corrected}
+        onHalve={onHalve}
+        onDouble={onDouble}
       />
       {/* Always drawn, greyed when the deck is empty — the rule `CueButtons` states, docs/cues.md. */}
       <DeckPlay side={side} running={running} onToggle={onToggleDeck} />

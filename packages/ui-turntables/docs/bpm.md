@@ -154,10 +154,14 @@ valeur exacte : le dernier tick cadencé peut s'en écarter de 120 ms de geste.
 
 Le tempo vient du sidecar `{fichier}.cache`, c'est-à-dire de la **même analyse** que la
 waveform. Sur cette machine, **4 morceaux sur 279** en ont un. Pour tous les autres, charger
-le morceau déclenche l'analyse par le moteur — plusieurs secondes — et d'ici là le fader
-affiche `—` et le sync est désactivé. Ce n'est pas une panne, c'est l'état normal d'un cache
-qui n'a jamais été analysé ; l'endroit naturel pour préchauffer, plus tard, c'est la liste du
-set (la playlist que la surface nomme désigne déjà exactement les morceaux concernés).
+le morceau déclencherait l'analyse par le moteur — plusieurs secondes — et d'ici là le fader
+afficherait `—` et le sync serait désactivé.
+
+**C'est fait, et ça n'arrive plus** : le pupitre analyse la playlist que la surface nomme, un
+morceau à la fois, dès qu'il a sa liste. Voir [prewarm.md](prewarm.md). Normal à un bureau,
+rédhibitoire sur scène — la seconde où l'on pose un disque est celle où l'on n'a pas cinq secondes.
+
+Et quand l'analyse se trompe, elle se corrige : [grid.md](grid.md).
 
 ## Le nœud dans le graphe montre les deux nombres
 

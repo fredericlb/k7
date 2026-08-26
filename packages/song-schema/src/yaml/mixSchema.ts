@@ -17,10 +17,26 @@ const SongRef = z
 export const MARKER_SLOTS = 8;
 const Markers = z.array(z.number().min(0).nullable()).max(MARKER_SLOTS);
 
+/** What this desk CORRECTS about a song's grid, when the analysis got it wrong — docs/grid.md.
+ *
+ * Per SET and not in the sidecar, deliberately: a grid is an opinion about how this desk plays a
+ * record, and two sets covering the same song may disagree about it. The sidecar belongs to the
+ * file and travels with it; this belongs to the night. */
+const CorrectedBpm = z.number().positive().max(400);
+/** Where the first beat falls, in SOURCE seconds — the same unit the cue markers are in. */
+const CorrectedBeat = z.number().min(0);
+
 /** A song this desk has something to say about: a bare ref, or one carrying its cues (docs/deskFiles.md). */
 const CueEntry = z.union([
   SongRef,
-  z.object({ ref: SongRef, markers: Markers.optional() }).strict(),
+  z
+    .object({
+      ref: SongRef,
+      markers: Markers.optional(),
+      bpm: CorrectedBpm.optional(),
+      beat: CorrectedBeat.optional(),
+    })
+    .strict(),
 ]);
 
 export const MixFileSchema = z

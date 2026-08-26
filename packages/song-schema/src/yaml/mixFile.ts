@@ -73,16 +73,48 @@ export function cueMarkers(
   return out;
 }
 
-/** Set one song's cue points IN the text, appending a ref the file does not name — docs/deskFiles.md. */
-export function withMarkers(
+/** One song's line, as a plain object — whatever the file said, in whichever of the two shapes. */
+interface Entry {
+  ref: string;
+  markers?: (number | null)[];
+  bpm?: number;
+  beat?: number;
+}
+
+/** Read one entry back out of the document, so a writer can change ONE field and keep the rest.
+ *
+ * Both writers replace the whole node, which is what `withMarkers` always did — so without this
+ * step, correcting a grid would erase eight cue points and dropping a cue would erase the grid. */
+function entryAt(cues: unknown, at: number, ref: string): Entry {
+  const item = (cues as { items: unknown[] }).items[at];
+  if (at < 0 || !isMap(item)) return { ref };
+  const num = (k: string) => {
+    const v = item.get(k);
+    return typeof v === "number" ? v : undefined;
+  };
+  const markers = item.get("markers", true);
+  return {
+    ref,
+    ...(isSeq(markers)
+      ? {
+          markers: markers.items.map((m) => {
+            const v = (m as { value?: unknown })?.value ?? m;
+            return typeof v === "number" ? v : null;
+          }),
+        }
+      : {}),
+    ...(num("bpm") !== undefined ? { bpm: num("bpm") } : {}),
+    ...(num("beat") !== undefined ? { beat: num("beat") } : {}),
+  };
+}
+
+/** Find this ref's line, change it, and write it back — a bare ref again when nothing is left. */
+function editEntry(
   text: string,
   ref: string,
-  markers: readonly (number | null)[],
+  change: (e: Entry) => Entry,
 ): string {
   const doc = parseDocument(text, OPTS);
-  const kept = [...markers].slice(0, MARKER_SLOTS);
-  while (kept.length && kept[kept.length - 1] == null) kept.pop();
-
   let cues = doc.get("cues", true);
   if (!isSeq(cues)) {
     doc.set("cues", doc.createNode([]));
@@ -97,17 +129,62 @@ export function withMarkers(
     return v === ref;
   });
 
-  const node = kept.length
-    ? doc.createNode({ ref, markers: kept })
-    : doc.createNode(ref);
+  const next = change(entryAt(cues, at, ref));
+  // Nothing but the ref: back to a bare string, so a cleared song leaves no empty map behind.
+  const bare =
+    !next.markers?.length && next.bpm === undefined && next.beat === undefined;
+  const node = bare ? doc.createNode(ref) : doc.createNode({ ...next });
   // Cues on one line: eight numbers down the page would bury the ref they belong to.
-  if (kept.length && isMap(node)) {
+  if (!bare && isMap(node)) {
     const m = node.get("markers", true);
     if (isSeq(m)) m.flow = true;
   }
   if (at >= 0) cues.items[at] = node;
   else cues.add(node);
   return String(doc);
+}
+
+/** Set one song's cue points IN the text, appending a ref the file does not name — docs/deskFiles.md. */
+export function withMarkers(
+  text: string,
+  ref: string,
+  markers: readonly (number | null)[],
+): string {
+  const kept = [...markers].slice(0, MARKER_SLOTS);
+  while (kept.length && kept[kept.length - 1] == null) kept.pop();
+  return editEntry(text, ref, (e) => ({
+    ...e,
+    ...(kept.length ? { markers: kept } : { markers: undefined }),
+  }));
+}
+
+/** Every song's grid CORRECTION by ref — what this desk says the analysis got wrong (docs/grid.md). */
+export function gridMarks(
+  file: MixFile | null | undefined,
+): Record<string, { bpm?: number; beat?: number }> {
+  const out: Record<string, { bpm?: number; beat?: number }> = {};
+  for (const s of file?.cues ?? []) {
+    if (typeof s === "string") continue;
+    if (s.bpm === undefined && s.beat === undefined) continue;
+    out[s.ref] = {
+      ...(s.bpm !== undefined ? { bpm: s.bpm } : {}),
+      ...(s.beat !== undefined ? { beat: s.beat } : {}),
+    };
+  }
+  return out;
+}
+
+/** …and set one, IN the text. `undefined` on a field CLEARS it — back to what the analysis said. */
+export function withGrid(
+  text: string,
+  ref: string,
+  grid: { bpm?: number; beat?: number },
+): string {
+  return editEntry(text, ref, (e) => ({
+    ...e,
+    bpm: grid.bpm,
+    beat: grid.beat,
+  }));
 }
 
 /** The médiathèque ids the sheet names — the refs with their `@st0/` taken off. */
