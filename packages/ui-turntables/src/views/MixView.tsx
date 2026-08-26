@@ -31,6 +31,7 @@ import { beatPhase } from "../beats";
 import type { DeckId, DeckLoads, DeckTempo } from "../deck";
 import { type DeskLayout, deskLayout, stemStripHeight } from "../deskLayout";
 import type { Deck } from "../engine";
+import { loopSpan } from "../loop";
 import { MIX_VIEW_FILE } from "../mixView";
 import { NO_PREWARM, type Prewarm, prewarming, prewarmSet } from "../prewarm";
 import {
@@ -53,6 +54,7 @@ import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
 import { ChannelStrip, type StemPrep, StemStrip } from "./ChannelStrip";
 import { CueButtons } from "./CueButtons";
+import { LoopRow } from "./LoopRow";
 import { MasterMeter, MixerColumn } from "./MixerColumn";
 import { SongBrowser } from "./SongBrowser";
 import { Vinyl } from "./Vinyl";
@@ -437,6 +439,8 @@ export function MixView({
           onCueJump={(slot) => decks.jumpCue("deckA", slot)}
           onCueSet={(slot, at) => decks.setCue("deckA", slot, at)}
           onShove={(seconds) => decks.shove("deckA", seconds)}
+          loop={loopProps(decks, "deckA")}
+          loopSpan={loopSpan(decks.loopOf("deckA"), decks.tempos["deckA"])}
           needle={() => decks.sourceNow("deckA")}
           running={decks.running("deckA")}
           onToggleDeck={
@@ -456,6 +460,8 @@ export function MixView({
             own layout and what this column was empty for. */}
         <MixerColumn
           mix={mix}
+          quantise={decks.quantise}
+          onQuantise={decks.toggleQuantise}
           layout={layout}
           head={crossfadeHead}
           ready={ready}
@@ -523,6 +529,8 @@ export function MixView({
           onCueJump={(slot) => decks.jumpCue("deckB", slot)}
           onCueSet={(slot, at) => decks.setCue("deckB", slot, at)}
           onShove={(seconds) => decks.shove("deckB", seconds)}
+          loop={loopProps(decks, "deckB")}
+          loopSpan={loopSpan(decks.loopOf("deckB"), decks.tempos["deckB"])}
           needle={() => decks.sourceNow("deckB")}
           running={decks.running("deckB")}
           onToggleDeck={
@@ -848,6 +856,40 @@ function SyncButton({
 }
 
 /** One deck: its tempo fader, the record, its waveform, and what it is holding. */
+/** What a deck column needs to draw its loop row. Gathered so both decks say it once. */
+interface LoopProps {
+  beats: number | null;
+  rolling: boolean;
+  pending: boolean;
+  step: number;
+  can: boolean;
+  onJump: (beats: number) => void;
+  onIn: () => void;
+  onOut: () => void;
+  onLength: (beats: number) => void;
+  onResize: (factor: number) => void;
+  onRoll: (down: boolean) => void;
+}
+
+/** …read off the desk, so a third deck would not mean a third copy of these eleven lines. */
+function loopProps(decks: DeckSet, deckId: DeckId): LoopProps {
+  const on = decks.loopOf(deckId);
+  return {
+    beats: on?.beats ?? null,
+    rolling: !!on?.roll,
+    pending: decks.pendingOf(deckId) !== null,
+    step: decks.stepOf(deckId),
+    can: decks.canLoop(deckId),
+    onJump: (beats) => decks.beatJump(deckId, beats),
+    onIn: () => decks.loopIn(deckId),
+    onOut: () => decks.loopOut(deckId),
+    onLength: (beats) => decks.setLoop(deckId, beats),
+    onResize: (factor) => decks.resizeLoop(deckId, factor),
+    // The roll takes the length the buttons last agreed on — there is no separate roll size.
+    onRoll: (down) => decks.roll(deckId, decks.stepOf(deckId), down),
+  };
+}
+
 function DeckSide({
   side,
   layout,
@@ -886,6 +928,8 @@ function DeckSide({
   cues,
   onCueJump,
   onCueSet,
+  loop,
+  loopSpan,
   onShove,
   needle,
   running,
@@ -946,6 +990,10 @@ function DeckSide({
   cues: readonly (number | null)[];
   onCueJump: (slot: number) => void;
   onCueSet: (slot: number, sourceSeconds: number) => void;
+  /** The loop section: what is running on this deck, and the six gestures that drive it — docs/loop.md. */
+  loop: LoopProps;
+  /** …and where it is, in source seconds, for the waveform to draw a band over. */
+  loopSpan: { start: number; end: number } | null;
   /** Push this deck's record by `seconds`, signed — the waveform's drag and the nudge buttons both. */
   onShove: (seconds: number) => void;
   /** Where this deck's needle is in its RECORD — its platter's clock, or the transport through the stretch. */
@@ -1066,6 +1114,7 @@ function DeckSide({
           envelope={wave?.k === "ready" ? wave.env : null}
           // The same clock the record above reads — one needle per deck, whichever way it plays.
           needle={needle}
+          loop={loopSpan}
           tempo={tempo}
           analysing={wave?.k === "loading"}
           problem={wave?.k === "none" ? wave.why : null}
@@ -1081,6 +1130,20 @@ function DeckSide({
           // The deck's OWN needle, read on the way down: no deck follows the transport any more.
           now={needle}
           disabled={!load}
+        />
+        {/* Under them, and greyed the same way: a loop is a length in BEATS, so it wants a grid. */}
+        <LoopRow
+          beats={loop.beats}
+          rolling={loop.rolling}
+          pending={loop.pending}
+          step={loop.step}
+          disabled={!load || !loop.can}
+          onJump={loop.onJump}
+          onIn={loop.onIn}
+          onOut={loop.onOut}
+          onLength={loop.onLength}
+          onResize={loop.onResize}
+          onRoll={loop.onRoll}
         />
         {/* What is loaded, in words: it earns its line only where the record's label is absent. */}
         {layout.title ? (

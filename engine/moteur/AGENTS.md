@@ -47,6 +47,9 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   MixerPlugin.{h,cpp}       a track's level; what a track volume BECAME
   TurntablePlugin.{h,cpp}   a deck that OWNS its record and reads it at a driven rate, reverse included
                             — what a clip on a timeline cannot be scratched into (docs/turntable.md)
+  TurntableLoop.h           …and its LOOP: two edges, and the position a roll hands back. JUCE-free and
+                            header-only, so tests/ has it in the FAST binary — the plugin around it
+                            is covered by scripts/turntable.ts instead
   QuickMasterPlugin.{h,cpp} a master bus in one module: 3-band compressor, spreader, limiter
                             (docs/quickMaster.md) — what st0's `mastering` surface is a picture of
   NamPlugin.{h,cpp}         Neural Amp Modeler (docs/namPlugin.md)
@@ -93,6 +96,10 @@ scripts/               Node harnesses that drive a running engine, not build ste
                          varispeed, which is why its source is not the clip bench's (docs/turntable.md)
   turntable-latency.ts   …and does it follow SOON? Steps the rate at a known moment; the answer's SHAPE —
                          a spread of one block — is what says the engine adds nothing to it
+  turntable-loop.ts      …and does it LOOP, and does a roll hand the record back? The source's AMPLITUDE
+                         ramps with time, so the level READS the position: a loop turns the ramp into a
+                         sawtooth and a roll's release is a step. `--key` runs it through the stretcher,
+                         the path where read-ahead and heard are different numbers (docs/turntable.md)
   keylock.ts             …and does KEY hold the PITCH while the tempo moves? A tone has no tempo and a
                          stretcher would leave it alone, so the source is a tone CHOPPED into bursts:
                          the carrier is the pitch, the interval is the tempo (docs/turntable.md)

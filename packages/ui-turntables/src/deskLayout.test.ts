@@ -33,7 +33,8 @@ describe("deskLayout", () => {
 
   it("drops the record rather than drawing a coin", () => {
     // One pixel either side of the threshold, below which the record only takes the waveform's height.
-    const under = WAVE_BASE + 28 + 16 + 12 * 3;
+    // Spelled out rather than imported: the point is to notice when a row is added under the record.
+    const under = WAVE_BASE + 28 + 24 + 16 + 12 * 4;
     expect(deskLayout(under + VINYL_MIN).vinyl).toBe(VINYL_MIN);
     expect(deskLayout(under + VINYL_MIN - 1).vinyl).toBe(0);
   });
@@ -106,8 +107,15 @@ describe("deskLayout", () => {
     for (let h = 120; h <= 900; h += 7) {
       const l = deskLayout(h, true);
       const block = stemStripHeight(l.strip) + 12;
+      // Waveform, cue row, LOOP row, the title when drawn, and the gaps between them.
       const used =
-        l.waveform + 28 + (l.title ? 16 + 12 : 0) + 12 + (l.vinyl ? 0 : block);
+        l.waveform +
+        28 +
+        24 +
+        12 +
+        (l.title ? 16 + 12 : 0) +
+        12 +
+        (l.vinyl ? 0 : block);
       // The floored waveform is allowed to overflow a hopeless column — that case is its own test.
       if (l.waveform > 44) expect(used, `at ${h}`).toBeLessThanOrEqual(h);
     }

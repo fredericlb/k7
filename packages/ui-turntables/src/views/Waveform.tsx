@@ -62,6 +62,7 @@ function scrub(
 export function Waveform({
   envelope,
   needle,
+  loop,
   /** This deck's stretch, for the beat grid — the POSITION now comes from `needle`, docs/turntable.md. */
   tempo,
   /** Said out loud while the engine computes a sidecar — an empty box would read as "no waveform". */
@@ -74,6 +75,8 @@ export function Waveform({
   envelope: Envelope | null;
   /** This deck's needle in its RECORD — one reader for both ways of playing, see ../useDeckSet.ts. */
   needle: () => number;
+  /** The running loop in SOURCE seconds, or null — drawn as a band, see ../../docs/loop.md. */
+  loop?: { start: number; end: number } | null;
   tempo: DeckTempo | undefined;
   analysing: boolean;
   problem: string | null;
@@ -133,6 +136,16 @@ export function Waveform({
         ctx.fillRect(px, mid - half, 1, half * 2);
       }
 
+      // --- the loop, UNDER the grid: it is a region and the beats have to stay readable on it ---
+      if (loop) {
+        ctx.fillStyle = "rgba(245,158,11,0.18)";
+        const a = xPx(loop.start);
+        ctx.fillRect(a, 0, xPx(loop.end) - a, h);
+        ctx.fillStyle = "rgba(245,158,11,0.9)";
+        for (const edge of [loop.start, loop.end])
+          ctx.fillRect(Math.round(xPx(edge)), 0, 1, h);
+      }
+
       // --- the transients, behind the beats -------------------------------------------
       ctx.fillStyle = TRANSIENT;
       for (const t of transientsIn(envelope, from, to))
@@ -164,7 +177,7 @@ export function Waveform({
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
     // The loop restarts only when the envelope, the reader or the deck's stretch changes.
-  }, [envelope, needle, tempo]);
+  }, [envelope, needle, tempo, loop]);
 
   return (
     <div

@@ -57,12 +57,18 @@ TurntablePlugin::TurntablePlugin(te::PluginCreationInfo info) : Plugin(std::move
     gain_p_ = add("gain", "Gain", 0.0f, 2.0f, 1.0f);
     // Hold the PITCH while the rate moves. Off by default: a platter is a varispeed, and that is its sound.
     key_p_ = add("key", "Key", 0.0f, 1.0f, 0.0f);
+    // The loop's two edges, 0..1 of the record like `Seek`. OFF is `End <= Start`, which is the rest state.
+    loopStart_p_ = add("loopStart", "LoopStart", 0.0f, 1.0f, 0.0f);
+    loopEnd_p_ = add("loopEnd", "LoopEnd", 0.0f, 1.0f, 0.0f);
+    // Is the NEXT loop momentary? Read when the loop engages and never again — see TurntableLoop::aim.
+    roll_p_ = add("roll", "Roll", 0.0f, 1.0f, 0.0f);
 }
 
 TurntablePlugin::~TurntablePlugin()
 {
     notifyListenersOfDeletion();
-    for (auto* p : {rate_p_.get(), seek_p_.get(), gain_p_.get(), key_p_.get()})
+    for (auto* p : {rate_p_.get(), seek_p_.get(), gain_p_.get(), key_p_.get(),
+                    loopStart_p_.get(), loopEnd_p_.get(), roll_p_.get()})
         if (p != nullptr) p->detachFromCurrentValue();
 }
 
@@ -174,6 +180,8 @@ void TurntablePlugin::reset()
     rate_ = 0.0;
     stretchReady_ = stretchRead_ = 0;
     stretching_ = false;
+    // Dropped rather than kept: the next block re-aims it from the params, latching the roll afresh.
+    loop_ = {};
 }
 
 void TurntablePlugin::frameAt(double pos, float& left, float& right) const
@@ -193,10 +201,14 @@ int TurntablePlugin::readNatural(float* left, float* right, int n)
 {
     // The stretcher is handed the record at its OWN speed: only the device's rate is corrected here.
     const auto step = recordRate_ / juce::jmax(1.0, sampleRate);
+    // A looping record never runs out, so the end of it stops being the end of this read.
+    const auto looping = loop_.active();
     int done = 0;
-    for (; done < n && position_ <= frames_ - 1; ++done) {
+    for (; done < n && (looping || position_ <= frames_ - 1); ++done) {
         frameAt(juce::jmax(0.0, position_), left[done], right[done]);
         position_ += step;
+        // `wrap`, not `step`: the shadow follows what is HEARD, and this read is ahead of it.
+        if (looping) position_ = loop_.wrap(position_);
     }
     return done;
 }
@@ -244,16 +256,18 @@ void TurntablePlugin::renderStretched(float* outL, float* outR, int start, int n
         const auto needed = juce::jmin(stretcher_.getFramesNeeded(), stretchIn_.getNumSamples());
         // A negative ask is the end of a stream, which a platter reaches only at the end of its record.
         if (needed < 0) break;
-        const auto before = position_;
         const auto got = readNatural(inL, inR, needed);
         // Only the RECORD running out ends a block early: an algorithm priming still owes us audio.
         if (got <= 0 && needed > 0) break;
-        owed_ += position_ - before;
+        // Counted from the frames READ and not from where position_ ended: a loop wraps it backwards.
+        owed_ += got * (recordRate_ / juce::jmax(1.0, sampleRate));
         juce::FloatVectorOperations::clear(inL + got, needed - got);
         juce::FloatVectorOperations::clear(inR + got, needed - got);
         stretchReady_ = stretcher_.processData(ins, needed, mids);
         stretchRead_ = 0;
     }
+    // The shadow follows what came OUT, since that is what a roll's release has to hand back.
+    loop_.carry(done * perFrame);
 }
 
 void TurntablePlugin::applyToBuffer(const te::PluginRenderContext& fc)
@@ -286,6 +300,19 @@ void TurntablePlugin::applyToBuffer(const te::PluginRenderContext& fc)
         stretching_ = false;
     }
 
+    // AFTER the seek: a needle dropped while a loop is open belongs inside it, not beside it.
+    // Over `frames - 1` and not `frames` as Seek is: an edge ON the last sample would meet the
+    // end-of-record stop below and hang there instead of wrapping.
+    const auto span = static_cast<double>(frames - 1);
+    const auto aimed = loop_.aim(loopStart_p_->getCurrentValue() * span,
+                                 loopEnd_p_->getCurrentValue() * span,
+                                 roll_p_->getCurrentValue() >= 0.5f, position_);
+    if (aimed != position_) {
+        position_ = juce::jlimit(0.0, span, aimed);
+        // A roll's release is a jump like any other, and the stretcher holds the wrong place.
+        stretching_ = false;
+    }
+
     // The scale rides on the gain: one multiply for both, rather than one per interpolation point.
     const auto g = gain_p_->getCurrentValue() * scale_;
     auto* outL = fc.destBuffer->getWritePointer(0);
@@ -299,7 +326,8 @@ void TurntablePlugin::applyToBuffer(const te::PluginRenderContext& fc)
         // The varispeed resumes from here rather than from wherever it was left when KEY came on.
         rate_ = wanted;
         // The needle says what is HEARD, so the read-ahead comes off: a cue is dropped on this number.
-        needle_.store((position_ - owed_) / recordRate_, std::memory_order_relaxed);
+        // Wrapped as well, the read-ahead having crossed an edge the heard position has not yet.
+        needle_.store(loop_.wrap(position_ - owed_) / recordRate_, std::memory_order_relaxed);
         return;
     }
     stretching_ = false;
@@ -321,7 +349,8 @@ void TurntablePlugin::applyToBuffer(const te::PluginRenderContext& fc)
         frameAt(position_, l, r);
         outL[start + i] += l * g;
         if (outR != nullptr) outR[start + i] += r * g;
-        position_ += rate_;
+        // Wraps at an edge and carries a roll's shadow — with no loop on, both are `position_ += rate_`.
+        position_ = loop_.step(position_, rate_);
     }
     // Once a block, not once a sample: the state push runs at 20 Hz and an atomic per sample is waste.
     needle_.store(position_ / recordRate_, std::memory_order_relaxed);

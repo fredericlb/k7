@@ -27,6 +27,15 @@ target_include_directories(studio_session_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 add_test(NAME studio_session_tests COMMAND studio_session_tests)
 
+# --- Turntable loop tests -----------------------------------------------------
+# A FOURTH fast binary, same reason as the one above: TurntableLoop.h is header-only and JUCE-free,
+# so the loop's arithmetic is tested without linking Tracktion. The PLUGIN around it still is not
+# — applyToBuffer needs a live te::Edit, which is what scripts/turntable.ts drives instead.
+add_executable(studio_turntable_tests TurntableLoop_test.cpp)
+target_include_directories(studio_turntable_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_turntable_tests COMMAND studio_turntable_tests)
+
 # --- MIDI graph tests ---------------------------------------------------------
 # A SECOND binary, because these need Tracktion's MidiMessageArray and so must link the engine — which is exactly
 # what the target above avoids. Keeping them apart preserves the fast tests' "builds in seconds, no audio device"

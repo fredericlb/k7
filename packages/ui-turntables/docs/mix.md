@@ -294,6 +294,21 @@ n'en demandent aucun, parce qu'elles déplacent le **plateau** et non le transpo
 
 La position est par plateau : c'est la propriété qui porte les trois.
 
+## Sous les repères, la rangée des boucles
+
+Une rangée de plus dans chaque colonne : saut de temps `◀ ▶`, `IN` / `OUT` manuels, les trois
+longueurs `4 8 16`, `÷2` et `×2` de part et d'autre de la longueur en cours, et `⟲` qu'on
+**maintient** pour un roulement. Grisée sans tempo mesuré, comme les repères sont grisés sans
+disque — une boucle est une longueur en *temps*.
+
+Elle **ne tombe pas** quand la colonne se serre. Le disque part le premier, le titre ensuite ; la
+rangée des boucles reste, parce qu'un pupitre qui ne boucle pas est exactement ce qu'elle est venue
+réparer. Le quantise, lui, est dessiné **une seule fois**, sous le crossfader : il vaut pour les
+deux platines, et deux boutons toujours d'accord diraient moins qu'un.
+
+Tout le raisonnement — pourquoi c'est dans le plateau et plus dans un clip, et l'ordre des
+paramètres qui déplace le disque si on l'inverse — est dans [loop.md](loop.md).
+
 ## Ce qui attend une place
 
 `ChainsPanel` et `deckGraph` — la chaîne d'effets d'une platine, dessinée — ne sont montés

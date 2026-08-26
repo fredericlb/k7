@@ -182,6 +182,8 @@ export function MixerColumn({
   trackOrder,
   onLevel,
   onChange,
+  quantise,
+  onQuantise,
 }: {
   mix: number;
   layout: DeskLayout;
@@ -197,6 +199,9 @@ export function MixerColumn({
   trackOrder: readonly string[];
   onLevel: (deck: DeckId, dB: number) => void;
   onChange: (mix: number) => void;
+  /** Do loop edges and beat jumps land on the grid? ONE switch for the desk — ../../docs/loop.md. */
+  quantise: boolean;
+  onQuantise: () => void;
 }) {
   return (
     <div className="flex w-40 shrink-0 flex-col items-center gap-3">
@@ -240,17 +245,36 @@ export function MixerColumn({
           B
         </span>
       </div>
-      {/* Double-click the readout to recentre: the one position a mouse drag never lands on exactly. */}
-      {layout.title ? (
+      <div className="flex w-full items-center justify-center gap-3">
+        {/* Drawn ONCE though both decks obey it: two buttons that always agreed would say less. */}
         <button
           type="button"
-          onDoubleClick={() => onChange(MIX_CENTRE)}
-          title="double-clic : recentrer"
-          className="font-mono text-muted-foreground text-xs tabular-nums"
+          onClick={onQuantise}
+          title={
+            quantise
+              ? "quantise : les boucles et les sauts tombent sur le temps"
+              : "quantise coupé : ils tombent où la main les met"
+          }
+          className={`h-6 w-8 rounded border font-mono text-[10px] ${
+            quantise
+              ? "border-amber-500 bg-amber-500 text-white"
+              : "border-border bg-background text-muted-foreground"
+          }`}
         >
-          {Math.round(mix * 100)}%
+          Q
         </button>
-      ) : null}
+        {/* Double-click the readout to recentre: the one position a mouse drag never lands on exactly. */}
+        {layout.title ? (
+          <button
+            type="button"
+            onDoubleClick={() => onChange(MIX_CENTRE)}
+            title="double-clic : recentrer"
+            className="font-mono text-muted-foreground text-xs tabular-nums"
+          >
+            {Math.round(mix * 100)}%
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

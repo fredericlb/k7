@@ -63,6 +63,7 @@ import {
   readPlaylistText,
   writeMixText,
 } from "./mixView";
+import { type DeckLoops, useDeckLoops } from "./useDeckLoops";
 
 /** How often a tempo may reach the engine while a control moves — a rate rides in the document, docs/bpm.md. */
 const LIVE_WARP_MS = 120;
@@ -110,7 +111,8 @@ export function corrected(
   };
 }
 
-export interface DeckSet {
+/** The desk, and its loop section — which is a hook of its own, see ./useDeckLoops.ts. */
+export interface DeckSet extends DeckLoops {
   loads: DeckLoads;
   /** What the decks play at — already synced, so a slave shows the master's number. */
   tempos: DeckTempos;
@@ -589,7 +591,20 @@ export function useDeckSet(
     commitRef.current();
   }, []);
 
+  // The loop section, which owns its own state and reaches the platter the way `place` does.
+  const looping = useDeckLoops({
+    platters: (deckId) => plattersOf(deckId, loadsRef.current[deckId]),
+    setParam: deck.engine
+      ? (plugin, name, value) =>
+          deck.engine?.setPluginParam(plugin, name, value)
+      : null,
+    tempoOf: (deckId) => temposRef.current[deckId],
+    needle: (deckId) => needleRef.current(deckId),
+    place: (deckId, source) => placeRef.current(deckId, source),
+  });
+
   return {
+    ...looping,
     loads,
     tempos,
     master,
@@ -744,12 +759,16 @@ export function useDeckSet(
       const id = loadsRef.current[deckId]?.id;
       const at = id ? cues[`@st0/${id}`]?.[slot] : null;
       if (at == null) return;
+      // A loop would wrap the needle straight back in, so the cue would be pressed and not heard.
+      looping.loopOff(deckId);
       // The PLATTER moves, never the transport — which is why this leaves the other deck alone.
       placeRef.current(deckId, at);
     },
 
     putOn: (deckId, load) => {
       setDeskError(null);
+      // Edges are seconds of the record that just left: on the new one they name nothing.
+      looping.loopOff(deckId);
       const next: DeckLoads = { ...loadsRef.current, [deckId]: load };
       setLoads(next);
       commitRef.current(latest.current, next);

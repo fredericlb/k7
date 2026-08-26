@@ -38,8 +38,9 @@ export const VINYL_MAX = 352;
 /** The smallest record worth drawing — below it, a coin: unreadable label, merged cue radii, no rotation. */
 export const VINYL_MIN = 176;
 
-/** The cue row, and the title line under it. Both fixed; both from their own components. */
+/** The cue row, the LOOP row, and the title line under them. All fixed; all from their own components. */
 const CUES = 28;
+const LOOP = 24;
 const TITLE = 16;
 /** `gap-3` between the stacked pieces. */
 const GAP = 12;
@@ -96,8 +97,8 @@ export function deskLayout(
   // The strip is the same height's problem on its own ladder — the two columns share a box only.
   const strip = stripLayout(h, echo);
 
-  // With the record: everything under it at its usual size — waveform, cues, title, three gaps.
-  const under = WAVE_BASE + CUES + TITLE + GAP * 3;
+  // With the record: everything under it at its usual size — waveform, cues, loop, title, four gaps.
+  const under = WAVE_BASE + CUES + LOOP + TITLE + GAP * 4;
   const forVinyl = h - under;
   if (forVinyl >= VINYL_MIN)
     return {
@@ -112,7 +113,7 @@ export function deskLayout(
   const block = stems ? stemStripHeight(strip) + GAP : 0;
 
   // Without it, the waveform takes the space the record gave up — the whole point of dropping it.
-  const withTitle = h - (CUES + TITLE + GAP * 2) - block;
+  const withTitle = h - (CUES + LOOP + TITLE + GAP * 3) - block;
   if (withTitle >= WAVE_MIN)
     return {
       vinyl: 0,
@@ -122,7 +123,8 @@ export function deskLayout(
     };
 
   // Tighter than that the title goes, and the waveform is FLOORED rather than allowed to vanish.
-  const bare = h - (CUES + GAP) - block;
+  // The loop row does NOT go with it: a desk that cannot loop is the thing this row was added for.
+  const bare = h - (CUES + LOOP + GAP * 2) - block;
   return {
     vinyl: 0,
     waveform: Math.max(WAVE_MIN, Math.min(bare, WAVE_MAX)),

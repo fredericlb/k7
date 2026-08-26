@@ -182,6 +182,56 @@ travelled far enough to say.
 **And it cannot listen.** Everything above says the audio is where it was asked to be. Whether that
 sounds like a scratch is a judgement no render makes.
 
+## The loop, and the position a ROLL owes the record
+
+Two more params, `LoopStart` and `LoopEnd`, in fractions of the record as `Seek` is. The loop is ON
+when `End - Start` is at least sixteen frames — shorter than that is not a loop but a hang, and the
+audio thread would spin inside it. Both render paths wrap: the varispeed one per sample, the
+stretched one inside `readNatural`, which stops treating the end of the record as the end of a read.
+
+The arithmetic is in **`TurntableLoop.h`**, JUCE-free and header-only so `tests/` can have it in the
+fast binary — `TurntableLoop_test.cpp`, the only coverage the loop has, `applyToBuffer` needing a
+live `te::Edit` no suite here builds. It wraps rather than clamps, and it wraps **either way**: a
+platter driven backwards leaves a loop by the start, and a clamp would park it on the edge.
+
+A **roll** is a momentary loop that hands the record back where it would have reached. The plugin
+keeps a shadow position advancing at the real rate while the reading wraps, so the answer survives a
+rate change or a scratch mid-roll — which arithmetic on the desk's side would not.
+
+Whether a loop is a roll is **latched when it engages** and never read at release. `Roll` is a
+param, so it arrives on its own message; reading it at the release would mean a `Roll = 0` landing
+one block early turns a roll into a plain loop and the record never comes back. The desk's ordering
+rules are the other half of the same seam — `packages/ui-turntables/docs/loop.md`.
+
+Two consequences worth naming rather than discovering:
+
+- `owed_` is counted from the frames READ, not from where `position_` ended: a wrap moves it
+  backwards, and the difference would be a large negative number.
+- The edges span `frames - 1` and not `frames` as `Seek` does. An edge ON the last sample would meet
+  the end-of-record stop in the varispeed loop and hang there instead of wrapping.
+
+### What was measured, of the loop
+
+`scripts/turntable-loop.ts`, against a running engine. The source's AMPLITUDE ramps linearly with
+time, so the level read back IS the position — a loop turns the ramp into a sawtooth, and a roll's
+release is a step. Both render paths, same run:
+
+| | varispeed | stretched (`--key`) |
+|---|---|---|
+| loop asked for `[6, 8] s` | heard `6.08…7.98` | `6.09…8.00` |
+| times round in 6 s | 3 | 3 |
+| roll released onto | `26.08 s` vs `26.03` owed | `26.18 s` vs `26.05` owed |
+
+The roll lands within a block of where the record would have been, on both paths. Note the roll was
+engaged from **outside** its own edges — the seek put the needle at 21.5 s for a loop at `[20, 21]` —
+so the same run says a needle dropped beside a loop is pulled into it.
+
+The expectation there is measured rather than assumed, and the first version of this harness was
+wrong about it: it hard-coded "released onto `ROLL_AT + held`", ignoring the second and a half the
+record played between the seek and the engage. It reported a two-second error that was entirely its
+own. A harness that computes what it should see from constants rather than from the tape will do
+this every time.
+
 ## The needle is on the wire
 
 A platter carries its own clock, so `playhead` says nothing about it. Every state frame therefore

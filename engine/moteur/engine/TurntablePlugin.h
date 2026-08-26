@@ -9,6 +9,8 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#include "TurntableLoop.h"
+
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -85,7 +87,11 @@ private:
     /** The last ratio handed over, since setting one re-derives how much input a block wants. */
     float lastRatio_ = 0.0f;
 
+    /** The two edges and the roll's shadow — the arithmetic lives apart, see TurntableLoop.h. */
+    TurntableLoop loop_;
+
     tracktion::engine::AutomatableParameter::Ptr rate_p_, seek_p_, gain_p_, key_p_;
+    tracktion::engine::AutomatableParameter::Ptr loopStart_p_, loopEnd_p_, roll_p_;
     std::vector<std::unique_ptr<juce::CachedValue<float>>> values_;
     /** The last `Seek` seen, so a REPEATED value is not a jump — a param carries no events, only a level. */
     float lastSeek_ = -1.0f;
