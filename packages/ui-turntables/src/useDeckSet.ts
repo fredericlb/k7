@@ -769,6 +769,14 @@ export function useDeckSet(
       setDeskError(null);
       // Edges are seconds of the record that just left: on the new one they name nothing.
       looping.loopOff(deckId);
+      // …and so do the stem knobs. A part's level is its PLATTER's `Gain`, and `deckFile` is part
+      // of a plugin's identity, so a new record re-creates the platter at the declared unity — the
+      // knob would go on drawing a cut nobody is applying. See ../../song-schema/docs/stems.md.
+      setEq((e) => {
+        const next = { ...e };
+        for (const s of STEMS) delete next[stemControl(deckId, s)];
+        return next;
+      });
       const next: DeckLoads = { ...loadsRef.current, [deckId]: load };
       setLoads(next);
       commitRef.current(latest.current, next);

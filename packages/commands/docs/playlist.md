@@ -78,8 +78,8 @@ not there.
 ## `playlist stems <playlist> [chain]`
 
 Separate every song of a set list, before the evening. This is the preparation half of cutting a
-stem live: a deck subtracts a stem from the mix it came out of (`packages/dsp/docs/stemcut.md`), and
-it can only do that over files that already exist. Minutes per song, so it is a command you run the
+stem live: a deck plays a separated record as its four parts and doses each one
+(`packages/song-schema/docs/stems.md`), and it can only do that over files that already exist. Minutes per song, so it is a command you run the
 night before rather than mid-set.
 
 **The chain is optional** and defaults to the machine's, `system stems`. Which module separates and

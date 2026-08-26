@@ -7,7 +7,7 @@ Quatre potards par platine, à **gauche** de la platine, au même format que l'E
 Ce que ça fait vraiment est une **somme** : un morceau séparé n'est plus joué par sa propre lane,
 il est joué par ses quatre parties, et chaque potard dose la sienne. C'est ce que font toutes les
 platines à stems du commerce. Le raisonnement, et les deux formes qui ont précédé celle-là, sont
-dans [`packages/dsp/docs/stemcut.md`](../../dsp/docs/stemcut.md) : la version qui **soustrayait**
+dans [`packages/song-schema/docs/stems.md`](../../song-schema/docs/stems.md) : la version qui **soustrayait**
 du disque était exacte au repos, bit à bit, et cessait de l'être dès qu'on touchait au tempo.
 Au repos, la sortie est maintenant le disque à **34 dB près** — le résidu de reconstruction du
 modèle, mesuré et stable.

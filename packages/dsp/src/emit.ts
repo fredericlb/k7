@@ -10,7 +10,6 @@ import { echo } from "./echo";
 import { fade } from "./fade";
 import { flanger } from "./flanger";
 import { normalize } from "./normalize";
-import { stemcut } from "./stemcut";
 
 const out = join(dirname(fileURLToPath(import.meta.url)), "..", "graphs");
 mkdirSync(out, { recursive: true });
@@ -21,7 +20,6 @@ for (const [name, g] of [
   ["crossfade", crossfade()],
   ["fade", fade()],
   ["normalize", normalize()],
-  ["stemcut", stemcut()],
 ] as const) {
   const file = join(out, `${name}.json`);
   writeFileSync(file, `${JSON.stringify(g, null, 2)}\n`, "utf8");

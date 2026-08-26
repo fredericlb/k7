@@ -13,7 +13,6 @@ import {
   STEMS,
   type Stem,
   stemControl,
-  stemCut,
   stemFile,
   stemLane,
   stemPlatter,
@@ -118,18 +117,16 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# Nothing about two is fixed. A third deck is a third lane, a third tempo and a second\n` +
       `# meeting point; the desk reads whatever is here. See packages/song/docs/ports.md.\n` +
       `#\n` +
-      `# EACH DECK IS FIVE LANES: the record, and one per separated stem. A stem lane runs\n` +
-      `# through a \`cut\` module whose gain is NEGATIVE, so the five meeting at the EQ SUBTRACT\n` +
-      `# rather than add — pull one up and that instrument leaves the mix. At rest every cut is\n` +
-      `# 0, its lane is silent, and what you hear is the record itself, sample for sample.\n` +
-      `# See packages/dsp/docs/stemcut.md.\n` +
+      `# EACH DECK IS FIVE LANES: the record, and one per separated stem. Only one side plays —\n` +
+      `# a separated song leaves the record's lane empty and the four parts SUM back to it; an\n` +
+      `# unseparated one is the other way round. How loud each part plays is its PLATTER's own\n` +
+      `# gain: 0 drops the instrument, 1 is as it was cut, 2 doubles it.\n` +
+      `# See packages/song-schema/docs/stems.md.\n` +
       `#\n` +
-      `# Five feeders is what makes \`eq*\` a MEETING POINT, and a meeting point breaks a run:\n` +
-      `# the EQ, the filter and the fade become a chain of their own — a bus — and each of\n` +
-      `# the five lanes reaches it as a send. Which is exactly what the subtraction needs, since\n` +
-      `# it has to happen BEFORE the EQ: taking a raw stem out of an already equalised mix would\n` +
-      `# leave a residue shaped like the EQ, and the cancellation would stop cancelling the\n` +
-      `# moment somebody touched a knob.\n` +
+      `# Five feeders is what makes \`trim*\` a MEETING POINT, and a meeting point breaks a run:\n` +
+      `# the trim, the EQ, the filter and the fade become a chain of their own — a bus — and\n` +
+      `# each of the five lanes reaches it as a send. The parts must sum BEFORE the EQ, because\n` +
+      `# a deck's strip equalises what it sends to the fader and not each instrument apart.\n` +
       `#\n` +
       `# Both fades land on \`MIX\`, the mixer's sum, and \`MIX -> OUT\` is the run out to the\n` +
       `# interface — the MASTER CHAIN. A module named on that line processes the whole blend,\n` +
@@ -246,7 +243,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       DECKS.map((deck) =>
         STEMS.map(
           (s) =>
-            `  ${stemControl(deck, s)}: { module: ${stemCut(deck, s)}, param: ${STEM_PARAM} }\n`,
+            `  ${stemControl(deck, s)}: { module: ${stemPlatter(deck, s)}, param: ${STEM_PARAM} }\n`,
         ).join(""),
       ).join(""),
   };
@@ -268,7 +265,6 @@ export function stemNodeFiles(
   for (const deck of decks)
     for (const stem of STEMS) {
       out[`nodes/${stemLane(deck, stem)}.yaml`] = stemLaneNode(deck, stem);
-      out[`nodes/${stemCut(deck, stem)}.yaml`] = stemCutNode(deck, stem);
     }
   return out;
 }
@@ -291,13 +287,17 @@ export function platterNodeFiles(
       out[`nodes/${stemPlatter(deck, stem)}.yaml`] = platterNode(
         letterOf(deck),
         `la piste « ${stem} » du disque séparé`,
+        stem,
       );
   }
   return out;
 }
 
-/** One platter — a NODE of the médiathèque's turntable, whose record arrives at play time. */
-function platterNode(letter: string, what: string): string {
+/** One platter — a NODE of the médiathèque's turntable, whose record arrives at play time.
+ *
+ * `stem` names the part when this platter reads one, which is what makes its `Gain` a bound
+ * control rather than a level nobody touches — see packages/song-schema/docs/stems.md. */
+function platterNode(letter: string, what: string, stem?: Stem): string {
   return (
     `# Le plateau de la platine ${letter} — ${what}.\n` +
     `#\n` +
@@ -310,7 +310,8 @@ function platterNode(letter: string, what: string): string {
     `# pupitre le pose sur le champ \`deckFile\` du document, en même temps que la vitesse.\n` +
     `#\n` +
     `# \`Rate: 0\` est donc l'état au repos : un plateau qu'on ouvre est à l'arrêt.\n` +
-    `extends: ${q(`${MEDIATEK_IO}/turntable`)}\n`
+    `extends: ${q(`${MEDIATEK_IO}/turntable`)}\n` +
+    (stem ? stemGain(stem) : "")
   );
 }
 
@@ -330,21 +331,16 @@ function stemLaneNode(deck: string, stem: Stem): string {
   );
 }
 
-/** …and the node that says how loud that part plays. */
-function stemCutNode(deck: string, stem: Stem): string {
-  return (
-    `# How much of deck ${letterOf(deck)}'s ${stem} to PLAY — a level on the lane carrying it.\n` +
-    `#\n` +
-    `# A separated record is played as its four parts rather than as itself, so this is an\n` +
-    `# ordinary gain, and the four at unity sum back to the disc. See packages/dsp/docs/stemcut.md,\n` +
-    `# which also says what the version that SUBTRACTED cost and why it went.\n` +
-    `extends: ${q(`${MEDIATEK_SEPARATION}/stemcut`)}\n` +
-    `params:\n` +
-    `  # 0 drops the instrument, 1 is as it was cut, 2 doubles it. The desk's ${stem} knob\n` +
-    `  # moves this, and it starts CENTRED on unity — left removes, right adds.\n` +
-    `  ${STEM_PARAM}: ${STEM_NEUTRAL}\n`
-  );
-}
+/** How loud one part plays — declared ON its platter, which is the node that reads its file.
+ *
+ * There used to be a `stemcut` module here doing `gain(Level)`, one multiply, immediately after a
+ * node that already had a linear `Gain` of the same range and the same rest.
+ * See packages/song-schema/docs/stems.md. */
+const stemGain = (stem: Stem): string =>
+  `params:\n` +
+  `  # 0 drops the instrument, 1 is as it was cut, 2 doubles it. The desk's ${stem} knob\n` +
+  `  # moves this, and it starts CENTRED on unity — left removes, right adds.\n` +
+  `  ${STEM_PARAM}: ${STEM_NEUTRAL}\n`;
 
 /** One deck's wiring: five lanes into the TRIM, which is therefore a bus — see docs/setProject.md. */
 function graphForDeck(deck: string): string {
@@ -359,8 +355,8 @@ function graphForDeck(deck: string): string {
     STEMS.map(
       (s) =>
         `  ${stemLane(deck, s)}: [ ${stemPlatter(deck, s)} ]\n` +
-        `  ${stemPlatter(deck, s)}: [ ${stemCut(deck, s)} ]\n` +
-        `  ${stemCut(deck, s)}: [ ${head} ]\n`,
+        // Straight into the bus: the platter's own Gain IS the part's level (song-schema docs/stems.md).
+        `  ${stemPlatter(deck, s)}: [ ${head} ]\n`,
     ).join("") +
     `  ${head}: [ eq${l} ]\n` +
     `  eq${l}: [ filter${l} ]\n` +
@@ -404,7 +400,8 @@ const MEDIATEK_FILTER = "@st0/audio/filter";
 const MEDIATEK_TIME = "@st0/audio/time";
 /** …and the PLATTER under `io/`: it reads a file, which is what that category is for. */
 const MEDIATEK_IO = "@st0/audio/io";
-/** …and the two stem modules under `separation/`: `stemsplit` writes the four files, `stemcut` removes one. */
+/** …and `stemsplit` under `separation/`, which writes the four files. Dosing one needs no module:
+ *  the platter reading it has a gain of its own — see packages/song-schema/docs/stems.md. */
 const MEDIATEK_SEPARATION = "@st0/audio/separation";
 /** The node names the chains file wires — short on purpose, since the ref is one line away in nodes/. */
 /** One per deck, facing opposite ways — TWO of them are the crossfade, docs/setProject.md. */

@@ -98,7 +98,7 @@ cannot answer from the path alone:
   carries no audio yet.
 - **`stems`** — has this song been separated, is there a `stems/` beside its master? The DJ desk
   asks, because a deck can only subtract an instrument from a record whose stems exist
-  (`packages/dsp/docs/stemcut.md`), and the browser shows it so a set can be prepared. It is read
+  (`packages/song-schema/docs/stems.md`), and the browser shows it so a set can be prepared. It is read
   off the dirents already in hand — the folder, not its contents: descending would be a syscall
   per song for a fact the directory entry itself carries.
 - **`bpm`** — detected at upload and then editable by hand. Surfaced on the entry because a

@@ -242,7 +242,7 @@ other twenty-nine. Writing into that cache is safe — `syncFamily` drops what i
 (`heldManifest`), never what it finds beside it.
 
 What a deck then DOES with the four files — subtract one from the mix, and why that rather than
-summing the stems — is `packages/dsp/docs/stemcut.md`.
+summing the stems — is `packages/song-schema/docs/stems.md`.
 
 The file service's implementation awaits the **job registry** rather than calling the worker: the
 id hashes the work, so a retry or a second tab joins the run in flight instead of starting another

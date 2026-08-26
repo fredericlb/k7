@@ -207,9 +207,13 @@ were applied after the fade would be stretched post-mix, along with the other de
 
 The record, and one per separated stem. A stem you can fade on its own has to be a track of its
 own — there is no fan-out in the document and no plugin with four inputs (again
-[ports.md](ports.md)) — and each runs through a `stemcut`, whose gain is **negative**. So the five
-summing at the EQ produce a SUBTRACTION: turn one up and that instrument leaves the mix, leave
-them all at zero and what you hear is the record, sample for sample.
+[ports.md](ports.md)). Only one side ever plays: a separated song leaves the record's lane empty and
+its four parts SUM back to it, an unseparated one is the other way round. How loud each part plays
+is its PLATTER's own `Gain` — 0 drops the instrument, 1 is as it was cut, 2 doubles it.
+
+There used to be a `stemcut` module on each of those lanes, and before that a version whose gain was
+negative so the five SUBTRACTED. `packages/song-schema/docs/stems.md` has both stories, and the
+measurements that ended them.
 
 Five feeders is also what makes `trimA` a **bus**: a run breaks where two signals meet, so the
 trim, the EQ and the filter become a chain with no `from`, which `nodeProject` materialises as a
@@ -320,7 +324,7 @@ in fact means writing the cold pass, and that is a separate piece of work from t
 `scripts/migrateStemParts.ts` porte un set écrit quand la platine **soustrayait** vers celui qui
 **somme** ses quatre parties : `Level` passe de −1..1 (neutre à 0) à 0..2 (neutre à 1), en ajoutant
 un. C'est le même son — −0,6 retirait 60 % de la batterie, 0,4 en joue 40 % — et le raisonnement
-qui a fait changer de forme est dans `packages/dsp/docs/stemcut.md`.
+qui a fait changer de forme est dans `packages/song-schema/docs/stems.md`.
 
 Le script décide **par set** et pas par nœud : un seul potard au-dessus de 0 veut dire que le
 document parle déjà la nouvelle course, et il ne touche à rien. Ça rend un second passage inoffensif

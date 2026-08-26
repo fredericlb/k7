@@ -29,7 +29,7 @@ Two reasons this is worth a branch rather than an option somewhere.
 **It is linear, and stretching is not.** A pitch-preserving stretcher decides its frames from the
 signal, so stretching four separated parts independently does not give what stretching their sum
 would. Resampling is the same combination of input samples whatever the input, so parts stay
-summable. `packages/dsp/docs/stemcut.md` has the measurements, and the DJ desk's default is this
+summable. `packages/song-schema/docs/stems.md` has the measurements, and the DJ desk's default is this
 one for that reason.
 
 **Interior markers are refused by construction.** A constant speed cannot express a piecewise map,

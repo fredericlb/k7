@@ -7,7 +7,7 @@ panneau, et le `jsdsp.ts` ou le `dsp.dsp` qui fait le son.
 packages/dsp/modules/
   audio/filter/{eq3,sweep,moogladder}/
   audio/utility/{crossfade,fade,tempo,normalize}/
-  audio/separation/{stemsplit,stemcut}/
+  audio/separation/stemsplit/
   audio/dynamics/quick-master/
   instruments/synth/wurlitzer/
 ```
@@ -19,15 +19,18 @@ packages/dsp/modules/
 primitives de `DspGraph` ne savent ni séparer des bandes ni atteindre la différence entre les
 deux canaux.
 
-Les deux de `separation/` vont ensemble et se lisent dans cet ordre : `stemsplit` sépare, hors
-ligne, en quatre fichiers ; `stemcut` en retire un du mix d'origine, en direct, par un gain
-**négatif** (`docs/stemcut.md`). Ils ont leur propre catégorie plutôt qu'une place parmi les
-utilitaires parce qu'ils ne servent à rien l'un sans l'autre — et parce que c'est là que le dépôt
-de bibliothèques range déjà `stemsplit`, et ce dépôt-là est la référence.
+`separation/` n'en contient plus qu'un : `stemsplit`, qui sépare hors ligne en quatre fichiers. Il
+garde sa catégorie à lui plutôt qu'une place parmi les utilitaires parce que c'est là que le dépôt
+de bibliothèques le range déjà, et ce dépôt-là est la référence.
 
-Trois d'entre eux ont leur propre page, parce que leurs nombres se justifient plutôt qu'ils ne se
-lisent : `sweep` (`docs/sweep.md`), `stemcut` (`docs/stemcut.md`) et le wurlitzer
-(`docs/wurlitzer.md`). Ce que la bibliothèque elle-même impose à tous — les trois taux, l'indice de
+Il a eu un voisin, `stemcut`, qui dosait une des quatre parties. Il a disparu quand le plateau est
+devenu un nœud : ce module compilait vers `gain(Level)`, une multiplication, juste derrière un nœud
+qui a déjà un `Gain` linéaire de même course et de même repos. Ce qu'il a coûté d'apprendre — la
+soustraction abandonnée, et ce que la somme vaut, chiffré — est dans
+`packages/song-schema/docs/stems.md`.
+
+Deux d'entre eux ont leur propre page, parce que leurs nombres se justifient plutôt qu'ils ne se
+lisent : `sweep` (`docs/sweep.md`) et le wurlitzer (`docs/wurlitzer.md`). Ce que la bibliothèque elle-même impose à tous — les trois taux, l'indice de
 port, la garde de `geolerp` — est dans `docs/builder.md`.
 
 ## `fade` et `crossfade` — le même effet, et une seule des deux formes tient sur un pupitre

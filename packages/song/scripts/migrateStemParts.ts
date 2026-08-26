@@ -9,8 +9,12 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { STEM_PARAM, STEMS, stemCut } from "@studio/song-schema/stems";
+import { STEMS, stemCut } from "@studio/song-schema/stems";
 import { type Document, parseDocument, type YAMLMap } from "yaml";
+
+/** Spelled out and NOT `PARAM`, for the reason migrateStemLevels gives: this step ends on
+ *  `Level`, and the desk has since moved the whole thing onto the platter's `Gain`. */
+const PARAM = "Level";
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
 const OUT = { lineWidth: 0 };
@@ -63,7 +67,7 @@ for (const dir of roots) {
       if (!existsSync(path)) continue;
       const doc = parseDocument(readFileSync(path, "utf8"), OPTS);
       const params = doc.get("params") as YAMLMap | undefined;
-      const raw = params?.get(STEM_PARAM);
+      const raw = params?.get(PARAM);
       if (!params || typeof raw !== "number") continue;
       found.push({ node, path, doc, params, raw });
     }
@@ -76,7 +80,7 @@ for (const dir of roots) {
   const moved: string[] = [];
   for (const f of found) {
     const next = Math.min(2, Math.max(0, f.raw + 1));
-    f.params.set(STEM_PARAM, next);
+    f.params.set(PARAM, next);
     moved.push(`${f.node}: ${f.raw} → ${next}`);
     if (write) writeFileSync(f.path, f.doc.toString(OUT), "utf8");
   }

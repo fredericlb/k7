@@ -1,7 +1,7 @@
 // stems.ts — the four sources a separation produces, and what they are called. One definition,
 // because three packages have to agree on it and nothing in the data says which is which: the
 // model's output tensor is `[1, 4, 2, N]` and the ORDER is the whole of the knowledge.
-// See packages/stem-separation/docs/stemSplit.md and packages/dsp/docs/stemcut.md.
+// See packages/stem-separation/docs/stemSplit.md and docs/stems.md.
 
 /** The four sources, IN THE ORDER the model returns them — the order IS the knowledge (docs/stems.md). */
 export const STEMS = ["drums", "bass", "other", "vocals"] as const;
@@ -19,8 +19,10 @@ export function stemsComplete(names: readonly string[]): boolean {
   return STEMS.every((s) => have.has(stemFile(s)));
 }
 
-/** The `stemcut` param a desk knob drives, spelled once because the module, the scaffold and the desk all name it. */
-export const STEM_PARAM = "Level";
+/** The param a desk knob drives — the PLATTER's own gain, spelled once because the scaffold, the
+ *  migration and the desk all name it. It was a `stemcut` module's `Level` until that module turned
+ *  out to be a second gain in series with this one (docs/stems.md). */
+export const STEM_PARAM = "Gain";
 
 /** Its travel: 0 is the part gone, 1 is as recorded, 2 is twice as much — a LEVEL, since the lane IS the part. */
 export const STEM_RANGE = [0, 2] as const;
@@ -38,7 +40,8 @@ const Cap = (s: string): string => `${s[0].toUpperCase()}${s.slice(1)}`;
 export const stemLane = (deck: string, stem: Stem): string =>
   `stem${Cap(stem)}${letterOf(deck)}`;
 
-/** …the node that removes it from the record: `cutBassA`. */
+/** …the node a set USED to dose it with: `cutBassA`. Kept because removing one is the only way a
+ *  migration can name it — nothing writes one any more (docs/stems.md). */
 export const stemCut = (deck: string, stem: Stem): string =>
   `cut${Cap(stem)}${letterOf(deck)}`;
 

@@ -10,12 +10,15 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { STEM_PARAM, STEMS, stemControl } from "@studio/song-schema/stems";
+import { STEMS, stemControl } from "@studio/song-schema/stems";
 import { parseDocument, type YAMLMap } from "yaml";
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
 const OUT = { lineWidth: 0 };
 const OLD = "Cut";
+/** Spelled out and NOT `NEW`: a migration describes ONE step of a history, and that constant
+ *  has moved on twice since — it is `Gain` now. Following it would make this rename skip two steps. */
+const NEW = "Level";
 
 const args = process.argv.slice(2);
 const write = args.includes("--write");
@@ -61,7 +64,7 @@ for (const dir of roots) {
       const line = mapping.get(control) as YAMLMap | undefined;
       if (!line?.get) continue;
       if (line.get("param") !== OLD) continue;
-      line.set("param", STEM_PARAM);
+      line.set("param", NEW);
       const module = String(line.get("module") ?? "");
       if (module)
         nodes.push({ path: join(dir, "nodes", `${module}.yaml`), module });
@@ -93,13 +96,13 @@ for (const dir of roots) {
     const pair = params.items.find(
       (i) => String((i.key as { value?: unknown })?.value) === OLD,
     );
-    if (pair) (pair.key as { value?: unknown }).value = STEM_PARAM;
+    if (pair) (pair.key as { value?: unknown }).value = NEW;
     rewritten.push({ path, text: ndoc.toString(OUT), was, now });
   }
 
   changed += 1;
   console.log(
-    `  + ${nodes.length} mapping line(s) and ${rewritten.length} node(s): ${OLD} → ${STEM_PARAM}` +
+    `  + ${nodes.length} mapping line(s) and ${rewritten.length} node(s): ${OLD} → ${NEW}` +
       (rewritten.some((r) => r.was !== 0)
         ? `, negating ${rewritten
             .filter((r) => r.was !== 0)

@@ -54,7 +54,7 @@ Mesuré, les huit d'un pupitre plein coûtent **3 points de cœur** — ce n'est
 **Le défaut n'est pas qu'une question de goût.** Un étireur à hauteur constante est non linéaire :
 il choisit ses trames en fonction du signal, donc quatre parties étirées séparément ne se somment
 plus comme le disque le ferait. C'est ce qui a cassé la version du `stemcut` qui soustrayait
-(`packages/dsp/docs/stemcut.md`), et ça reste vrai de la somme, en plus discret : à keylock allumé
+(`packages/song-schema/docs/stems.md`), et ça reste vrai de la somme, en plus discret : à keylock allumé
 les quatre parties se recollent moins bien. Le rééchantillonnage, lui, est linéaire — la même
 combinaison d'échantillons pour les quatre fichiers — et ne coûte rien de ce côté-là.
 

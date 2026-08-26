@@ -41,8 +41,6 @@ beforeEach(() => {
   for (const at of [
     "audio/utility/tempo",
     "audio/utility/fade",
-    // The stem cut, copied like the others: a renamed `Cut` param is eight dead controls.
-    "audio/separation/stemcut",
     "audio/filter/sweep",
     // The gain staging and the one effect — real folders, so a broken jsdsp fails HERE.
     "audio/utility/trim",
@@ -98,15 +96,6 @@ describe("a scaffolded set", () => {
       // One CUE SEND per deck: what the headphones hear, tapped before the fade.
       "nodes/cueA.yaml",
       "nodes/cueB.yaml",
-      // One CUT per stem per deck: the fader that takes an instrument out of the record.
-      "nodes/cutBassA.yaml",
-      "nodes/cutBassB.yaml",
-      "nodes/cutDrumsA.yaml",
-      "nodes/cutDrumsB.yaml",
-      "nodes/cutOtherA.yaml",
-      "nodes/cutOtherB.yaml",
-      "nodes/cutVocalsA.yaml",
-      "nodes/cutVocalsB.yaml",
       // The DECKS are nodes too — a lane is a module, so there is no `tracks/` folder.
       "nodes/deckA.yaml",
       "nodes/deckB.yaml",
@@ -188,15 +177,16 @@ describe("a scaffolded set", () => {
       // The headphone send — the same Fade module as the crossfade, on the deck's OTHER destination.
       "deckA.cue": { module: "cueA", param: "Mix" },
       "deckB.cue": { module: "cueB", param: "Mix" },
-      // Four more a deck, one per stem, in the same shape as the EQ's three.
-      "deckA.stemDrums": { module: "cutDrumsA", param: "Level" },
-      "deckA.stemBass": { module: "cutBassA", param: "Level" },
-      "deckA.stemOther": { module: "cutOtherA", param: "Level" },
-      "deckA.stemVocals": { module: "cutVocalsA", param: "Level" },
-      "deckB.stemDrums": { module: "cutDrumsB", param: "Level" },
-      "deckB.stemBass": { module: "cutBassB", param: "Level" },
-      "deckB.stemOther": { module: "cutOtherB", param: "Level" },
-      "deckB.stemVocals": { module: "cutVocalsB", param: "Level" },
+      // Four more a deck, one per stem — the PLATTER's own gain, since the lane IS the part
+      // and a module doing `gain(Level)` after it was a second multiply (song-schema docs/stems.md).
+      "deckA.stemDrums": { module: "platterDrumsA", param: "Gain" },
+      "deckA.stemBass": { module: "platterBassA", param: "Gain" },
+      "deckA.stemOther": { module: "platterOtherA", param: "Gain" },
+      "deckA.stemVocals": { module: "platterVocalsA", param: "Gain" },
+      "deckB.stemDrums": { module: "platterDrumsB", param: "Gain" },
+      "deckB.stemBass": { module: "platterBassB", param: "Gain" },
+      "deckB.stemOther": { module: "platterOtherB", param: "Gain" },
+      "deckB.stemVocals": { module: "platterVocalsB", param: "Gain" },
     });
   });
 
@@ -232,16 +222,14 @@ describe("a scaffolded set", () => {
     expect(ext("nodes/tempoB.yaml")).toBe("@st0/audio/utility/tempo");
   });
 
-  it("asks the médiathèque for exactly those nine modules", () => {
+  it("asks the médiathèque for exactly those eight modules", () => {
     scaffoldSet(dir, "winter");
-    // One of each and not eight for the stem cut: fetching a module once per use would be a bug.
+    // One of each and not one per use: fetching a module once per node would be a bug.
     expect(mediatekRefs(dir)).toEqual([
       "@st0/audio/filter/eq3",
       "@st0/audio/filter/sweep",
       // The SOURCE, under `io/` because it reads a file — docs/platter-node-plan.md.
       "@st0/audio/io/turntable",
-      // Under `separation/`, beside the `stemsplit` that writes the files it takes back out.
-      "@st0/audio/separation/stemcut",
       // Under `time/`, for the same reason the EQ is under `filter/`: a delay is not a utility.
       "@st0/audio/time/echo",
       "@st0/audio/utility/fade",
@@ -294,10 +282,9 @@ describe("a scaffolded set", () => {
       "tempoA",
     ]);
     expect(g.chains.deckA.out.map((o) => o.to)).toEqual(["trimA"]);
-    // The cut meets the bus BEFORE the trim, so one gain reaches the record AND its four parts.
+    // A stem lane is its PLATTER and nothing else: the part's level is that platter's own Gain.
     expect(g.chains.stemBassA.use.map((s) => s.module)).toEqual([
       "platterBassA",
-      "cutBassA",
     ]);
     expect(g.chains.stemBassA.out.map((o) => o.to)).toEqual(["trimA"]);
     // No `from` at all, which is what makes the bus a bus rather than a lane's run.
@@ -439,11 +426,8 @@ describe("a scaffolded set", () => {
     expect(ids("cueA")).toEqual(["cueA:cueA"]);
     // The record's own lane carries its PLATTER, and only that: the source, declared at last.
     expect(ids("deckA")).toEqual(["deckA:platterA"]);
-    // …and a stem lane carries its own platter and its cut — one reader per file.
-    expect(ids("stemBassA")).toEqual([
-      "stemBassA:platterBassA",
-      "stemBassA:cutBassA",
-    ]);
+    // …and a stem lane carries its own platter and NOTHING else — one reader per file, one gain.
+    expect(ids("stemBassA")).toEqual(["stemBassA:platterBassA"]);
   });
 
   it("compiles the EQ to a REAL plugin, unlike the tempo beside it", () => {

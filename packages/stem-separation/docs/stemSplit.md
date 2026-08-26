@@ -82,7 +82,7 @@ formats that need no proxy, and there 24 bits is simply the small one:
 
 What 24 bits costs is a quantisation floor at −144 dBFS, and even that is not paid in full: a
 part is scaled by its knob, so its own noise enters in proportion to the knob and vanishes with
-it ([dsp/docs/stemcut.md](../../dsp/docs/stemcut.md)). It is not
+it ([song-schema/docs/stems.md](../../song-schema/docs/stems.md)). It is not
 dithered, for the same order of magnitude — truncation at 24 bits is under the noise of any
 converter this will come out of, and dither would put a floor there on purpose instead.
 
@@ -115,7 +115,7 @@ bus LOUDER than the record.
 That was fixed by writing the record's own decode beside the stems. Then a third break turned out
 not to be fixable at all — a pitch-preserving stretch is non-linear, so no amount of shared warp
 markers keeps a subtraction cancelling once the tempo moves
-([dsp/docs/stemcut.md](../../dsp/docs/stemcut.md) has the numbers). So the desk now **plays the
+([song-schema/docs/stems.md](../../song-schema/docs/stems.md) has the numbers). So the desk now **plays the
 four parts** instead, which is what every stem-capable deck does, and nothing downstream needs a
 cancellation any more. `master.wav` went with the subtraction.
 
@@ -405,6 +405,6 @@ be a different verb.
 
 **And a whole set at once** is `playlist stems <playlist> <chain>`, which runs this over every
 song a set list names, on this machine's médiathèque cache. It is the preparation half of cutting
-a stem live on a deck (`packages/dsp/docs/stemcut.md`): a separated record is played as its four
+a stem live on a deck (`packages/song-schema/docs/stems.md`): a separated record is played as its four
 parts rather than as itself, so the files have to be there before it goes on. Sequential, skipping what is
 already done, and leaning on the id hashing the work so an interrupted evening resumes for free.

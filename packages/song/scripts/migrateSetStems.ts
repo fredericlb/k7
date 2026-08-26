@@ -2,12 +2,16 @@
 //
 //   npx tsx packages/song/scripts/migrateSetStems.ts <projet.st0> [more…] [--write]
 //
-// Adds eight lanes, sixteen nodes, eight bypasses and eight mapping lines, and nothing else.
+// Adds eight lanes, eight nodes, eight bypasses and eight mapping lines, and nothing else.
 // Idempotent, dry by default, and through the yaml Document API so comments and key order come
 // back byte-identical.
 //
+// RUN migrateSetPlatter AFTER THIS. The lanes it writes are bound to their PLATTER's gain, and it
+// is that script which puts a platter in front of each lane — a set with neither needs both, in
+// this order. See packages/song-schema/docs/stems.md.
+//
 // It does NOT write the surface's `stems:` line: separating is minutes per song, so it happens
-// because a set asked for it. See packages/dsp/docs/stemcut.md for what the lanes are.
+// because a set asked for it.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -15,8 +19,8 @@ import {
   STEM_PARAM,
   STEMS,
   stemControl,
-  stemCut,
   stemLane,
+  stemPlatter,
 } from "@studio/song-schema/stems";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { type Pair, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
@@ -159,10 +163,8 @@ for (const dir of roots) {
       (i) =>
         String((i as { key?: { value?: unknown } }).key?.value) === deck.tempo,
     );
-    const pairs = STEMS.flatMap((s) => [
-      [stemLane(deck.id, s), stemCut(deck.id, s)],
-      [stemCut(deck.id, s), deck.eq],
-    ]);
+    // One edge a stem, straight to the bus: migrateSetPlatter splices the platter in afterwards.
+    const pairs = STEMS.map((s) => [stemLane(deck.id, s), deck.eq]);
     const made = pairs.map(([from, to]) => {
       const seq = gdoc.createNode([to]) as YAMLSeq;
       seq.flow = true; // `[ eqA ]`, as every other line of this file is written
@@ -187,13 +189,13 @@ for (const dir of roots) {
     for (const s of STEMS)
       sdoc.setIn(
         ["mapping", stemControl(deck.id, s)],
-        sdoc.createNode({ module: stemCut(deck.id, s), param: STEM_PARAM }),
+        sdoc.createNode({ module: stemPlatter(deck.id, s), param: STEM_PARAM }),
       );
 
     Object.assign(files, stemNodeFiles([deck.id]));
     touched = true;
     console.log(
-      `  + ${deck.id}: ${STEMS.length} lanes, ${STEMS.length * 2} nodes, ${STEMS.length} mapping lines`,
+      `  + ${deck.id}: ${STEMS.length} lanes, ${STEMS.length} nodes, ${STEMS.length} mapping lines`,
     );
   }
 
