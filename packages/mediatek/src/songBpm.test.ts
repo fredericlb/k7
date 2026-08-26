@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { listFamily } from "./catalogue.ts";
 import { ensureLayout } from "./layout.ts";
-import { setSongBpm } from "./write.ts";
+import { setSongBpm, setSongKey } from "./write.ts";
 
 let root: string;
 const FOLDER = "songs/Miles/Kind of Blue/So What";
@@ -95,5 +95,62 @@ describe("the catalogue surfaces it", () => {
   it("carries no bpm at all when the sidecar has none", () => {
     const e = listFamily("songs").entries.find((x) => x.path === FOLDER);
     expect(e?.meta?.bpm).toBeUndefined();
+  });
+});
+
+// The KEY, which lives here for the reason the tempo does: it is a fact about the RECORDING and
+// does not change from one set to the next. What would be wrong silently: a `C# minor` truncated
+// to `C` by YAML's comment marker, and a correction that a re-detection could undo.
+describe("setSongKey", () => {
+  it("adds a key to a sidecar that has none", () => {
+    expect(setSongKey(FOLDER, "C# minor")).toBe(true);
+    expect(read()).toContain('key: "C# minor"');
+  });
+
+  it("QUOTES it, or a sharp would start a YAML comment", () => {
+    // `key: C# minor` parses as `C` — the rest is a comment, and the mode vanishes without a word.
+    setSongKey(FOLDER, "C# minor");
+    expect(listFamily("songs").entries[0]?.meta?.key).toBe("C# minor");
+  });
+
+  it("does NOT overwrite by default — a correction survives a re-detection", () => {
+    expect(setSongKey(FOLDER, "A minor")).toBe(true);
+    expect(setSongKey(FOLDER, "E major")).toBe(false);
+    expect(read()).toContain('key: "A minor"');
+  });
+
+  it("…but DOES when forced, which is what a person correcting it sends", () => {
+    setSongKey(FOLDER, "A minor");
+    expect(setSongKey(FOLDER, "E major", true)).toBe(true);
+    expect(read()).toContain('key: "E major"');
+    expect(read()).not.toContain("A minor");
+  });
+
+  it("refuses a shape that is not a key", () => {
+    for (const bad of ["", "H minor", "8A", "C#", "C# mineur", "Cb major"])
+      expect(setSongKey(FOLDER, bad), bad).toBe(false);
+  });
+
+  it("writes nothing at all to a folder with no sidecar", () => {
+    expect(setSongKey("songs/Nobody/No album/No song", "C major")).toBe(false);
+  });
+});
+
+describe("setSongBpm, forced", () => {
+  it("replaces a corrected tempo when the person asks — the halve/double door", () => {
+    setSongBpm(FOLDER, 174);
+    expect(setSongBpm(FOLDER, 87)).toBe(false); // seeding still refuses
+    expect(setSongBpm(FOLDER, 87, true)).toBe(true);
+    expect(read()).toContain("bpm: 87");
+    expect(read()).not.toContain("174");
+  });
+
+  it("leaves the rest of the sidecar alone, comments included", () => {
+    sidecar('# what this record is\ntitle: "So What"\nbpm: 174\n');
+    setSongBpm(FOLDER, 87, true);
+    const after = read();
+    expect(after).toContain("# what this record is");
+    expect(after).toContain('title: "So What"');
+    expect(after).toContain("bpm: 87");
   });
 });

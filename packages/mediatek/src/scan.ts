@@ -150,6 +150,9 @@ function scanSongs(): MediatekEntry[] {
           ...(artist ? { artist } : {}),
           // Detected at upload and then EDITABLE — see setSongBpm and docs/songs.md.
           ...(num(meta.bpm) ? { bpm: num(meta.bpm) as number } : {}),
+          // The KEY, typed rather than detected: a property of the recording, so it lives with it
+          // and not in any one set's files. `C# minor` — the wheel is drawn from it, docs/songs.md.
+          ...(str(meta.key) ? { key: str(meta.key) as string } : {}),
           ...(str(meta.uuid) ? { uuid: str(meta.uuid) as string } : {}),
         },
       });

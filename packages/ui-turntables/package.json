@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The DJ desk: two turntables meeting at a crossfade, their channel strips, waveforms, cues and set list. Drawn by st0 as a `surfaces/` view. The engine link is a SEAM (./engine) — a host supplies its own. docs/ holds the desk's rationale and scripts/ the two harnesses that measure a SOUND.",
+  "description": "The DJ desk: two turntables meeting at a crossfade, their channel strips, waveforms, cues and set list. Drawn by st0 as a `surfaces/` view. The engine link is a SEAM (./engine) \u2014 a host supplies its own. docs/ holds the desk's rationale and scripts/ the two harnesses that measure a SOUND.",
   "types": "./src/views/MixView.tsx",
   "exports": {
     ".": "./src/views/MixView.tsx",
@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@frediverse/ui": "*",
+    "@studio/audio-probe": "*",
     "@studio/engine-browser": "*",
     "@studio/engine-protocol": "*",
     "@studio/graph-model": "*",

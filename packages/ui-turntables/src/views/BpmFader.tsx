@@ -2,7 +2,23 @@
 // song's own tempo. (A Technics puts + at the BOTTOM; this is a fader on a screen, not a
 // platter, so it follows the screen convention.) See ../../docs/bpm.md.
 
+import { camelot, PITCH_CLASSES } from "@studio/audio-probe/key";
 import { BPM_RANGE, PITCH_RANGE } from "../deck";
+
+/** PL8 stores `C# minor`; the wheel wants `12A`. Parsed here rather than stored, so the mode's
+ *  name survives — and an unparseable string comes back as itself rather than as nothing. */
+function camelotOf(key: string): string {
+  const m = /^([A-G]#?)\s+(major|minor)$/.exec(key.trim());
+  if (!m) return key;
+  const tonic = PITCH_CLASSES.indexOf(m[1] as (typeof PITCH_CLASSES)[number]);
+  if (tonic < 0) return key;
+  return camelot({
+    tonic,
+    mode: m[2] as "major" | "minor",
+    // A typed key is not a guess, so the margin the detector reports has no meaning here.
+    margin: 1,
+  });
+}
 
 export function BpmFader({
   natural,
@@ -13,6 +29,7 @@ export function BpmFader({
   keylock,
   onKeylock,
   corrected,
+  songKey,
   onHalve,
   onDouble,
 }: {
@@ -29,8 +46,10 @@ export function BpmFader({
   /** Is the pitch held while the tempo moves? Off is a platter's behaviour and the default. */
   keylock: boolean;
   onKeylock: () => void;
-  /** Does THIS SET correct the analysis for the record on this deck? — ../../docs/grid.md. */
+  /** Does PL8 hold a corrected tempo for this record? — ../../docs/grid.md. */
   corrected: boolean;
+  /** Its KEY as pl8 holds it, `C# minor`, or "" when nobody has typed one. */
+  songKey: string;
   /** Halve or double what the record IS. Absent with nothing loaded, or no tempo to halve. */
   onHalve?: () => void;
   onDouble?: () => void;
@@ -138,13 +157,23 @@ export function BpmFader({
           </button>
         ))}
       </div>
-      {/* Only when this set HAS corrected something: a badge that is always there says nothing. */}
+      {/* Only when pl8 HOLDS a correction: a badge that is always there says nothing. */}
       {corrected ? (
         <span
           className="shrink-0 font-mono text-[8px] text-primary leading-none"
-          title="ce set corrige la grille de ce morceau — écrit dans mix.yaml, à côté des repères"
+          title="la médiathèque porte un tempo corrigé pour ce morceau — il suit le disque dans tous les projets"
         >
-          GRILLE ✎
+          BPM ✎
+        </span>
+      ) : null}
+
+      {/* The KEY, and its Camelot code — typed in the médiathèque, never detected (docs/grid.md). */}
+      {songKey ? (
+        <span
+          className="shrink-0 font-mono text-[9px] text-muted-foreground leading-none"
+          title={`tonalité du morceau : ${songKey} — saisie dans la médiathèque, elle suit le disque`}
+        >
+          {camelotOf(songKey)}
         </span>
       ) : null}
 

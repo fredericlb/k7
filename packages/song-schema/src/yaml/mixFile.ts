@@ -77,21 +77,16 @@ export function cueMarkers(
 interface Entry {
   ref: string;
   markers?: (number | null)[];
-  bpm?: number;
-  beat?: number;
 }
 
 /** Read one entry back out of the document, so a writer can change ONE field and keep the rest.
  *
- * Both writers replace the whole node, which is what `withMarkers` always did — so without this
- * step, correcting a grid would erase eight cue points and dropping a cue would erase the grid. */
+ * `withMarkers` replaces the whole node, so anything else on the line would go with it. One writer
+ * needs this today; it is kept because the next field added here would otherwise silently eat the
+ * cues, which is exactly what happened when a grid correction briefly lived on this line. */
 function entryAt(cues: unknown, at: number, ref: string): Entry {
   const item = (cues as { items: unknown[] }).items[at];
   if (at < 0 || !isMap(item)) return { ref };
-  const num = (k: string) => {
-    const v = item.get(k);
-    return typeof v === "number" ? v : undefined;
-  };
   const markers = item.get("markers", true);
   return {
     ref,
@@ -103,8 +98,6 @@ function entryAt(cues: unknown, at: number, ref: string): Entry {
           }),
         }
       : {}),
-    ...(num("bpm") !== undefined ? { bpm: num("bpm") } : {}),
-    ...(num("beat") !== undefined ? { beat: num("beat") } : {}),
   };
 }
 
@@ -131,8 +124,7 @@ function editEntry(
 
   const next = change(entryAt(cues, at, ref));
   // Nothing but the ref: back to a bare string, so a cleared song leaves no empty map behind.
-  const bare =
-    !next.markers?.length && next.bpm === undefined && next.beat === undefined;
+  const bare = !next.markers?.length;
   const node = bare ? doc.createNode(ref) : doc.createNode({ ...next });
   // Cues on one line: eight numbers down the page would bury the ref they belong to.
   if (!bare && isMap(node)) {
@@ -155,35 +147,6 @@ export function withMarkers(
   return editEntry(text, ref, (e) => ({
     ...e,
     ...(kept.length ? { markers: kept } : { markers: undefined }),
-  }));
-}
-
-/** Every song's grid CORRECTION by ref — what this desk says the analysis got wrong (docs/grid.md). */
-export function gridMarks(
-  file: MixFile | null | undefined,
-): Record<string, { bpm?: number; beat?: number }> {
-  const out: Record<string, { bpm?: number; beat?: number }> = {};
-  for (const s of file?.cues ?? []) {
-    if (typeof s === "string") continue;
-    if (s.bpm === undefined && s.beat === undefined) continue;
-    out[s.ref] = {
-      ...(s.bpm !== undefined ? { bpm: s.bpm } : {}),
-      ...(s.beat !== undefined ? { beat: s.beat } : {}),
-    };
-  }
-  return out;
-}
-
-/** …and set one, IN the text. `undefined` on a field CLEARS it — back to what the analysis said. */
-export function withGrid(
-  text: string,
-  ref: string,
-  grid: { bpm?: number; beat?: number },
-): string {
-  return editEntry(text, ref, (e) => ({
-    ...e,
-    bpm: grid.bpm,
-    beat: grid.beat,
   }));
 }
 

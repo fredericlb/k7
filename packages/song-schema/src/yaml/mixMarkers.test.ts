@@ -1,14 +1,7 @@
 // Cue points in mix.yaml: a sheet with none of them still reads, and a write keeps the comments (docs/deskFiles.md).
 
 import { describe, expect, it } from "vitest";
-import {
-  cueMarkers,
-  cueRefs,
-  gridMarks,
-  parseMix,
-  withGrid,
-  withMarkers,
-} from "./mixFile";
+import { cueMarkers, cueRefs, parseMix, withMarkers } from "./mixFile";
 
 const A = "@st0/songs/Daft Punk/Album inconnu/Around the world";
 const B = "@st0/songs/Alain Bashung/Album inconnu/La nuit je mens";
@@ -126,55 +119,5 @@ describe("writing a cue back", () => {
     // Eight numbers down the page would bury the ref they belong to.
     const out = withMarkers(PLAIN, A, [1, 2, 3]);
     expect(out).toMatch(/markers: \[\s*1,\s*2,\s*3\s*\]/);
-  });
-});
-
-// The grid CORRECTION, which shares a line with the cues — docs/grid.md.
-//
-// What would be wrong silently: each writer replaces the whole entry node, so without the shared
-// entry editor, correcting a grid erases eight cue points and dropping a cue erases the grid.
-describe("the grid correction", () => {
-  const REF = "@st0/songs/bashung/fantaisie/osez";
-
-  it("keeps the CUES when a grid is written", () => {
-    const withCues = withMarkers("cues: []\n", REF, [12.5, null, 48.25]);
-    const both = withGrid(withCues, REF, { bpm: 174, beat: 0.31 });
-    expect(cueMarkers(parseMix(both).value)[REF]).toEqual([12.5, null, 48.25]);
-    expect(gridMarks(parseMix(both).value)[REF]).toEqual({
-      bpm: 174,
-      beat: 0.31,
-    });
-  });
-
-  it("keeps the GRID when a cue is written", () => {
-    const withCorrection = withGrid("cues: []\n", REF, { bpm: 87 });
-    const both = withMarkers(withCorrection, REF, [1.5]);
-    expect(gridMarks(parseMix(both).value)[REF]).toEqual({ bpm: 87 });
-    expect(cueMarkers(parseMix(both).value)[REF]).toEqual([1.5]);
-  });
-
-  it("clears a field with `undefined`, and the line goes bare when nothing is left", () => {
-    const set = withGrid("cues: []\n", REF, { bpm: 174, beat: 0.31 });
-    const half = withGrid(set, REF, { bpm: 174 });
-    expect(gridMarks(parseMix(half).value)[REF]).toEqual({ bpm: 174 });
-    // …and cleared entirely: back to a bare ref, not an empty map.
-    const none = withGrid(half, REF, {});
-    expect(gridMarks(parseMix(none).value)[REF]).toBeUndefined();
-    expect(none).toContain(REF);
-    expect(none).not.toContain("bpm");
-  });
-
-  it("names no song it was never asked about", () => {
-    const one = withGrid("cues: []\n", REF, { bpm: 120 });
-    expect(Object.keys(gridMarks(parseMix(one).value))).toEqual([REF]);
-  });
-
-  it("refuses a tempo the desk could not mean", () => {
-    // The schema's job, not the desk's: a 0 or a negative BPM is a divide, and 4000 is a typo.
-    for (const bpm of [0, -120, 4000]) {
-      const bad = parseMix(`cues:\n  - ref: "${REF}"\n    bpm: ${bpm}\n`);
-      expect(bad.value, String(bpm)).toBeFalsy();
-      expect(bad.issues.length, String(bpm)).toBeGreaterThan(0);
-    }
   });
 });

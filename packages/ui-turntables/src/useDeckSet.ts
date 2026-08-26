@@ -9,9 +9,7 @@ import { projectApi as api } from "@studio/project-shell/project";
 import { STEMS, type Stem, stemControl } from "@studio/song-schema/stems";
 import {
   cueMarkers,
-  gridMarks,
   parseMix,
-  withGrid,
   withMarkers,
 } from "@studio/song-schema/yaml/mixFile";
 import type { MixView as MixViewFile } from "@studio/song-schema/yaml/mixViewSchema";
@@ -87,27 +85,21 @@ function worthARebuild(sent: DeckTempos, now: DeckTempos): boolean {
   });
 }
 
-/** What a set says about one song's grid: a tempo the analysis got wrong, and where beat one is. */
+/** What PL8 knows about a record's grid — its `song.yaml`, not this set's files. */
 export interface GridFix {
   bpm?: number;
-  beat?: number;
 }
-
-/** The cue-sheet ref of whatever is on a deck, or "" — the key both the cues and the grid use. */
-const refOf = (load: { id: string } | null | undefined): string =>
-  load ? `@st0/${load.id}` : "";
 
 /** The analysis, with this set's correction laid over it — docs/grid.md.
  *
  * `natural` is what the record IS, so a corrected tempo replaces it and `target` follows unless a
  * fader has already moved: halving a wrongly-doubled 174 has to leave the deck playing at 87, not
- * stretching an 87 record to 174. `phase` is the grid's start, and a corrected one is exact — so
- * it arrives WITHOUT the confidence caveat the Rayleigh test attaches to a guess. */
+ * stretching an 87 record to 174. */
 export function corrected(
   tempo: DeckTempo,
   fix: GridFix | undefined,
 ): DeckTempo {
-  if (!fix || (fix.bpm === undefined && fix.beat === undefined)) return tempo;
+  if (!fix || fix.bpm === undefined) return tempo;
   const bpm = fix.bpm;
   const followed = bpm !== undefined && tempo.target === tempo.natural;
   return {
@@ -115,7 +107,6 @@ export function corrected(
     ...(bpm !== undefined ? { natural: bpm } : {}),
     // A fader already moved is a decision; only an untouched one follows the correction.
     ...(followed ? { target: bpm } : {}),
-    ...(fix.beat !== undefined ? { phase: fix.beat } : {}),
   };
 }
 
@@ -194,10 +185,12 @@ export interface DeckSet {
   toggleKeylock: (deck: DeckId) => void;
   /** The analysis landed: this deck's scale, home notch and beat grid. */
   measured: (deck: DeckId, tempo: DeckTempo) => void;
-  /** What this SET corrects about the record's grid — empty when it says nothing (docs/grid.md). */
+  /** What PL8 knows about the record on this deck — its tempo and its key (docs/grid.md). */
   gridOf: (deck: DeckId) => GridFix;
-  /** Correct it. Merged over what the file says; `undefined` on a field gives it back to the analysis. */
-  correctGrid: (deck: DeckId, grid: GridFix) => void;
+  /** The record's KEY as pl8 holds it, `C# minor`, or "" — typed by a person, docs/grid.md. */
+  keyOf: (deck: DeckId) => string;
+  /** Take a corrected tempo LOCALLY, once pl8 has accepted it — the write is the caller's. */
+  correctTempo: (deck: DeckId, bpm: number) => void;
 
   nudge: (deck: DeckId, bpm: number) => void;
   release: () => void;
@@ -311,10 +304,6 @@ export function useDeckSet(
   const mix = shownValue(bindingFor("crossfade"), held, live) ?? MIX_CENTRE;
   // Every song's cues, by ref — re-read from the text, so the file stays the one place a cue lives.
   const cues = useMemo(() => cueMarkers(parseMix(mixText).value), [mixText]);
-  /** …and what this set says the ANALYSIS got wrong, read from the same file — docs/grid.md. */
-  const grids = useMemo(() => gridMarks(parseMix(mixText).value), [mixText]);
-  const gridsRef = useRef(grids);
-  gridsRef.current = grids;
   const canAlign = DECKS.every((d) => tempos[d]?.phase !== undefined);
   // Asked for, not necessarily happening: the wish is kept and the possibility derived (docs/metronome.md).
   const [wantsClick, setWantsClick] = useState(false);
@@ -795,14 +784,11 @@ export function useDeckSet(
       );
     },
     measured: (deckId, tempo) => {
-      // The SET's correction wins over the analysis — applied here, once, so everything downstream
-      // (the fader, sync, the grid lines, the click) reads one tempo. See docs/grid.md.
+      // PL8's tempo wins over the analysis — applied here, once, so everything downstream (the
+      // fader, sync, the grid lines, the click) reads one number. See docs/grid.md.
       const merged = {
         ...fadersRef.current,
-        [deckId]: corrected(
-          tempo,
-          gridsRef.current[refOf(loadsRef.current[deckId])],
-        ),
+        [deckId]: corrected(tempo, { bpm: loadsRef.current[deckId]?.bpm }),
       };
       setFaders(merged);
       // Re-sent so the OTHER deck's stretch survives this load — mapped inline, `stretches` is a render late.
@@ -816,40 +802,33 @@ export function useDeckSet(
       );
     },
 
-    /** What this set says the analysis got wrong about the record on this deck — docs/grid.md. */
-    gridOf: (deckId) => gridsRef.current[refOf(loadsRef.current[deckId])] ?? {},
-    correctGrid: (deckId, grid) => {
+    /** What PL8 holds about the record on this deck — its `song.yaml`, docs/grid.md. */
+    gridOf: (deckId) => ({ bpm: loadsRef.current[deckId]?.bpm }),
+    keyOf: (deckId) => loadsRef.current[deckId]?.key ?? "",
+
+    /** Take a corrected tempo once pl8 has ACCEPTED it — the write belongs to whoever holds the
+     *  library link, which is the view. Here it moves what PLAYS, and the record it is playing. */
+    correctTempo: (deckId, bpm) => {
       const load = loadsRef.current[deckId];
-      if (!load) return;
-      const ref = `@st0/${load.id}`;
-      // Merged over what the file already says, so halving a tempo does not forget a downbeat.
-      const next = { ...(gridsRef.current[ref] ?? {}), ...grid };
-      const text = withGrid(mixRef.current, ref, next);
-      setMixText(text);
-      // What PLAYS follows the file at once: waiting for the write would leave the fader lying.
+      if (!load || !(bpm > 0)) return;
+      // The load carries it too: a re-send, or a second correction, must not read the stale one.
+      const loads: DeckLoads = {
+        ...loadsRef.current,
+        [deckId]: { ...load, bpm },
+      };
+      setLoads(loads);
       const t = fadersRef.current[deckId];
-      if (t) {
-        const merged = {
-          ...fadersRef.current,
-          [deckId]: corrected(
-            { ...t, natural: t.natural, target: t.target },
-            next,
-          ),
-        };
-        setFaders(merged);
-        const d = derived.current;
-        commitRef.current(
-          stretchTargets(
-            d.wiring.bindings,
-            syncedTempos(merged, d.master),
-            d.plugins,
-          ),
-        );
-      }
-      void writeMixText(project, text).catch((e: Error) =>
-        setDeskError(
-          `la grille n'a pas pu être écrite dans ${MIX_FILE} : ${e.message}`,
+      if (!t) return;
+      const merged = { ...fadersRef.current, [deckId]: corrected(t, { bpm }) };
+      setFaders(merged);
+      const d = derived.current;
+      commitRef.current(
+        stretchTargets(
+          d.wiring.bindings,
+          syncedTempos(merged, d.master),
+          d.plugins,
         ),
+        loads,
       );
     },
 

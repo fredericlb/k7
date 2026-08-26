@@ -17,26 +17,15 @@ const SongRef = z
 export const MARKER_SLOTS = 8;
 const Markers = z.array(z.number().min(0).nullable()).max(MARKER_SLOTS);
 
-/** What this desk CORRECTS about a song's grid, when the analysis got it wrong — docs/grid.md.
+/** A song this desk has something to say about: a bare ref, or one carrying its cues (docs/deskFiles.md).
  *
- * Per SET and not in the sidecar, deliberately: a grid is an opinion about how this desk plays a
- * record, and two sets covering the same song may disagree about it. The sidecar belongs to the
- * file and travels with it; this belongs to the night. */
-const CorrectedBpm = z.number().positive().max(400);
-/** Where the first beat falls, in SOURCE seconds — the same unit the cue markers are in. */
-const CorrectedBeat = z.number().min(0);
-
-/** A song this desk has something to say about: a bare ref, or one carrying its cues (docs/deskFiles.md). */
+ * Cues, and ONLY cues. A tempo and a downbeat were briefly here too, and they were in the wrong
+ * file: the test is whether the fact changes between sets, and a record's tempo does not — two
+ * bands drop the needle in different places, but nobody disagrees about what 87 BPM is. Those live
+ * with the RECORD, in pl8's `song.yaml`. See packages/mediatek/docs/songs.md. */
 const CueEntry = z.union([
   SongRef,
-  z
-    .object({
-      ref: SongRef,
-      markers: Markers.optional(),
-      bpm: CorrectedBpm.optional(),
-      beat: CorrectedBeat.optional(),
-    })
-    .strict(),
+  z.object({ ref: SongRef, markers: Markers.optional() }).strict(),
 ]);
 
 export const MixFileSchema = z

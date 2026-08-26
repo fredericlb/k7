@@ -37,6 +37,7 @@ import {
   removeFile,
   removeTree,
   setSongBpm,
+  setSongKey,
 } from "@studio/mediatek/write";
 import express, { Router } from "express";
 
@@ -225,7 +226,32 @@ libraryRouter.post(
     if (!Number.isFinite(bpm) || bpm <= 0)
       return res.status(400).json({ error: "bpm must be a positive number" });
     try {
-      res.json({ set: setSongBpm(path, bpm) });
+      res.json({ set: setSongBpm(path, bpm, req.body?.force === true) });
+    } catch (e) {
+      if (writeError(e, res)) return;
+      throw e;
+    }
+  }),
+);
+
+/** A song's KEY — a fact about the RECORDING, so it lives here and not in one set's mix.yaml.
+ *
+ * Typed rather than detected: a key entered by hand is right, and the detector measured 53 %
+ * (docs/key-detection-plan.md). `force` is the same door the tempo has, for the same reason. */
+libraryRouter.post(
+  "/key",
+  express.json(),
+  wrap((req, res) => {
+    const path = String(req.body?.path ?? "");
+    const key = String(req.body?.key ?? "");
+    if (!path) return res.status(400).json({ error: "path required" });
+    // A refused SHAPE and a refused overwrite are different answers; only the first is a 400.
+    if (!/^[A-G]#?\s+(major|minor)$/.test(key.trim()))
+      return res
+        .status(400)
+        .json({ error: "key must read like `C# minor` or `A major`" });
+    try {
+      res.json({ set: setSongKey(path, key, req.body?.force === true) });
     } catch (e) {
       if (writeError(e, res)) return;
       throw e;

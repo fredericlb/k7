@@ -173,6 +173,32 @@ doit pas défaire une correction, donc une clé déjà présente — quelle que 
 Un `bpm` de 0 est le « rien trouvé » du moteur et n'écrit rien : un zéro explicite dans le
 fichier se lirait comme une affirmation, alors que l'absence est l'état honnête.
 
+**`force` est la porte du correcteur.** La règle du non-écrasement existe pour protéger une
+correction d'une RÉ-ANALYSE, pas de la personne qui corrige : les boutons `÷2` / `×2` du pupitre
+envoient donc `force`, et remplacent. Sans ça une première détection fausse serait définitive.
+
+## `key:` est saisie, jamais détectée
+
+La tonalité vit ici pour la raison qui met le tempo ici : c'est un fait sur l'ENREGISTREMENT, et il
+ne change pas d'un set à l'autre. Do dièse mineur reste do dièse mineur dans tous les projets qui
+jouent le disque — d'où `song.yaml` et non le `mix.yaml` d'un set.
+
+```yaml
+key: "C# minor"
+```
+
+**Entre guillemets, et ce n'est pas cosmétique** : un `#` nu au milieu d'une valeur ouvre un
+commentaire YAML, donc `key: C# minor` se relit `C` et le mode disparaît sans un mot. `setSongKey`
+cite toujours, et un test le fige.
+
+C'est la TONALITÉ qui est rangée, pas son code Camelot : la roue est un rendu — `12A` — et garder le
+rendu perdrait le nom du mode. Le pupitre convertit à l'affichage.
+
+Et elle est **saisie**. Un détecteur a été écrit et mesuré contre dix-sept morceaux étiquetés à la
+main : 53 % de tonalités exactes, ce qui suffit à mentir et pas à servir
+(`docs/key-detection-plan.md`). Une tonalité tapée est juste, et une playlist fait douze à trente
+morceaux — pas deux cent soixante-dix-neuf.
+
 ## Les deux autres familles : on dépose un dossier
 
 `modules/` et `samples/` se manipulent comme une arborescence, et un **module est un

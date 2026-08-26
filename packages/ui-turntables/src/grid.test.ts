@@ -1,5 +1,8 @@
-// Laying a set's grid CORRECTION over the analysis. The audit this answers: the grid is deduced
-// and was not correctable, while the doc itself showed a song whose detected tempo is wrong.
+// Laying PL8's tempo over the analysis. The audit this answers: the grid is deduced and was not
+// correctable, while the doc itself showed a song whose detected tempo is wrong.
+//
+// The correction lives with the RECORD (pl8's song.yaml) and not with the set: 87 BPM is 87 BPM in
+// every project that plays it. See ../../mediatek/docs/songs.md.
 //
 // What would be wrong silently here: a correction that moves the fader somebody has already set,
 // one that leaves `natural` alone (so the deck plays at the wrong RATE while showing the right
@@ -40,24 +43,13 @@ describe("corrected", () => {
     expect(fixed.target).toBe(176);
   });
 
-  it("takes the downbeat WITHOUT the guess's caveat", () => {
-    // `phase` from the Rayleigh test carries `confident`; a hand-placed one is exact by definition,
-    // and `canAlign` reads `phase !== undefined` rather than the confidence.
-    const noGrid: DeckTempo = { natural: 120, seconds: 60, target: 120 };
-    expect(corrected(noGrid, { beat: 1.75 }).phase).toBe(1.75);
-    // …and a beat of ZERO is a real answer, not an absent one.
-    expect(corrected(noGrid, { beat: 0 }).phase).toBe(0);
-  });
-
-  it("takes each field on its own", () => {
-    const onlyBeat = corrected(measured, { beat: 0.1 });
-    expect(onlyBeat.natural).toBe(174); // untouched
-    expect(onlyBeat.phase).toBe(0.1);
-    const onlyBpm = corrected(measured, { bpm: 87 });
-    expect(onlyBpm.phase).toBe(0.42); // untouched
+  it("leaves the analysis's own downbeat alone", () => {
+    // pl8 holds a tempo and a key, not a downbeat: where beat one falls is still the Rayleigh
+    // test's answer, and a corrected tempo must not quietly move it.
+    expect(corrected(measured, { bpm: 87 }).phase).toBe(0.42);
   });
 
   it("keeps the length, which is a fact about the FILE and never a correction", () => {
-    expect(corrected(measured, { bpm: 87, beat: 0 }).seconds).toBe(200);
+    expect(corrected(measured, { bpm: 87 }).seconds).toBe(200);
   });
 });

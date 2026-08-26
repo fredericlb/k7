@@ -93,6 +93,15 @@ export const service = {
   prepareStems: (l: LibraryLink, song: string, engineId: string) =>
     libraryPost<StemsReply>(l, "/stems", { song, engineId }),
 
+  /** Correct what pl8 knows about a RECORD — its tempo and its key, which do not change by set.
+   *
+   * `force`, always: this is a person correcting, and the sidecar's seeding rule exists to protect
+   * a correction from re-analysis rather than from the person making it (mediatek's docs/songs.md). */
+  setSongBpm: (l: LibraryLink, song: string, bpm: number) =>
+    libraryPost<{ set: boolean }>(l, "/bpm", { path: song, bpm, force: true }),
+  setSongKey: (l: LibraryLink, song: string, key: string) =>
+    libraryPost<{ set: boolean }>(l, "/key", { path: song, key, force: true }),
+
   /** Are this song's stems already on the volume? A READ — `prepareStems` starts a job, so it cannot ask. */
   stemsHeld: (l: LibraryLink, song: string) =>
     libraryGet<StemsReply>(l, `/stems/held?song=${encodeURIComponent(song)}`),

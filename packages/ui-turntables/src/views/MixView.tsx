@@ -162,6 +162,25 @@ export function MixView({
     };
   }, [link, set]);
 
+  /** Correct the record's tempo IN PL8, then take it locally — see ../../docs/grid.md.
+   *
+   * The write is here rather than in `useDeckSet` because the library link is: a tempo is a fact
+   * about the RECORD, so it goes where the record lives, exactly as a separation does. The local
+   * value follows only once pl8 has accepted, so a failed write leaves the fader telling the truth. */
+  const correctTempo = (deckId: DeckId, bpm: number) => {
+    const load = decks.loads[deckId];
+    const song = load && root ? load.path.slice(root.length + 1) : null;
+    if (!library || !song || !(bpm > 0)) return;
+    void service
+      .setSongBpm(library, song, bpm)
+      .then(() => decks.correctTempo(deckId, bpm))
+      .catch((e: Error) =>
+        setError(
+          `le tempo n'a pas pu être corrigé dans la médiathèque : ${e.message}`,
+        ),
+      );
+  };
+
   /** Separate what was just put on a deck, when the set says so and the record has none — ../../docs/stems.md. */
   const prepare = async (deckId: DeckId, s: SetEntry, _at: FileLink) => {
     const song = s.entry && cacheRelPath(s.entry, s.file);
@@ -254,6 +273,14 @@ export function MixView({
       id: s.id,
       // Whether this record has been SEPARATED — it decides whether the four stem lanes are filled.
       stems: !!s.entry.meta?.stems,
+      // …and what PL8 holds about the RECORDING: a corrected tempo, and a key somebody typed.
+      // Facts about the record, so they arrive with it — mediatek's docs/songs.md.
+      ...(typeof s.entry.meta?.bpm === "number"
+        ? { bpm: s.entry.meta.bpm }
+        : {}),
+      ...(typeof s.entry.meta?.key === "string"
+        ? { key: s.entry.meta.key }
+        : {}),
     });
 
     // Any catch-up watching the outgoing record is now obsolete — bumped whether or not a new one starts.
@@ -375,20 +402,16 @@ export function MixView({
           onCommit={decks.release}
           keylock={decks.keylock("deckA")}
           onKeylock={() => decks.toggleKeylock("deckA")}
-          corrected={
-            decks.gridOf("deckA").bpm !== undefined ||
-            decks.gridOf("deckA").beat !== undefined
-          }
+          corrected={decks.gridOf("deckA").bpm !== undefined}
+          songKey={decks.keyOf("deckA")}
           onHalve={
-            tempos.deckA?.natural
-              ? () =>
-                  decks.correctGrid("deckA", { bpm: tempos.deckA!.natural / 2 })
+            library && tempos.deckA?.natural
+              ? () => correctTempo("deckA", tempos.deckA!.natural / 2)
               : undefined
           }
           onDouble={
-            tempos.deckA?.natural
-              ? () =>
-                  decks.correctGrid("deckA", { bpm: tempos.deckA!.natural * 2 })
+            library && tempos.deckA?.natural
+              ? () => correctTempo("deckA", tempos.deckA!.natural * 2)
               : undefined
           }
           onPick={() => setBrowsing("deckA")}
@@ -465,20 +488,16 @@ export function MixView({
           onCommit={decks.release}
           keylock={decks.keylock("deckB")}
           onKeylock={() => decks.toggleKeylock("deckB")}
-          corrected={
-            decks.gridOf("deckB").bpm !== undefined ||
-            decks.gridOf("deckB").beat !== undefined
-          }
+          corrected={decks.gridOf("deckB").bpm !== undefined}
+          songKey={decks.keyOf("deckB")}
           onHalve={
-            tempos.deckB?.natural
-              ? () =>
-                  decks.correctGrid("deckB", { bpm: tempos.deckB!.natural / 2 })
+            library && tempos.deckB?.natural
+              ? () => correctTempo("deckB", tempos.deckB!.natural / 2)
               : undefined
           }
           onDouble={
-            tempos.deckB?.natural
-              ? () =>
-                  decks.correctGrid("deckB", { bpm: tempos.deckB!.natural * 2 })
+            library && tempos.deckB?.natural
+              ? () => correctTempo("deckB", tempos.deckB!.natural * 2)
               : undefined
           }
           onPick={() => setBrowsing("deckB")}
@@ -842,6 +861,7 @@ function DeckSide({
   keylock,
   onKeylock,
   corrected,
+  songKey,
   onHalve,
   onDouble,
   onPick,
@@ -887,8 +907,10 @@ function DeckSide({
   /** Whether this deck holds the pitch, and the switch for it — ../../docs/bpm.md. */
   keylock: boolean;
   onKeylock: () => void;
-  /** Does this SET correct the record's grid, and the two gestures that do it — ../../docs/grid.md. */
+  /** Does PL8 hold a corrected tempo for this record, and the two gestures that write one? */
   corrected: boolean;
+  /** …and its KEY as pl8 holds it, `C# minor` or "" — typed, never detected (../../docs/grid.md). */
+  songKey: string;
   onHalve?: () => void;
   onDouble?: () => void;
   /** The record's middle was clicked — open the browser for this deck. */
@@ -949,6 +971,7 @@ function DeckSide({
         keylock={keylock}
         onKeylock={onKeylock}
         corrected={corrected}
+        songKey={songKey}
         onHalve={onHalve}
         onDouble={onDouble}
       />

@@ -225,9 +225,15 @@ export function addSongVariant(opts: {
   return { path: `${folder}/${ref}`, ref, name, declared: !already };
 }
 
-/** Seed a song's detected tempo into its sidecar, never overwriting an existing key — see docs/songs.md. */
-export function setSongBpm(folder: string, bpm: number): boolean {
-  if (!(bpm > 0)) return false;
+/** Put one scalar into a song's sidecar. SEEDING never overwrites; FORCING replaces — docs/songs.md.
+ *
+ * A line-level edit and not a YAML round trip, which would drop the sidecar's comments. */
+function setSongField(
+  folder: string,
+  field: string,
+  value: string | number,
+  force: boolean,
+): boolean {
   const abs = writablePath(`${folder}/${SONG_FILE}`);
   let text: string;
   try {
@@ -235,15 +241,45 @@ export function setSongBpm(folder: string, bpm: number): boolean {
   } catch {
     return false; // no sidecar: the folder is not catalogued, and this does not catalogue it
   }
-  // A line-level check, not a YAML round trip, which would drop the sidecar's comments.
-  if (/^\s*bpm\s*:/m.test(text)) return false;
-  writeFileSync(
-    abs,
-    `${text.endsWith("\n") ? text : `${text}\n`}bpm: ${bpm}\n`,
-    "utf8",
-  );
+  const line = new RegExp(`^\\s*${field}\\s*:.*$`, "m");
+  const held = line.test(text);
+  // The SEEDING rule: a key already there — whatever its value — wins over a fresh detection.
+  if (held && !force) return false;
+  const next = held
+    ? text.replace(line, `${field}: ${value}`)
+    : `${text.endsWith("\n") ? text : `${text}\n`}${field}: ${value}\n`;
+  if (next === text) return false;
+  writeFileSync(abs, next, "utf8");
   bump(abs);
   return true;
+}
+
+/** Seed a song's detected tempo into its sidecar, never overwriting an existing key — see docs/songs.md.
+ *
+ * `force` is the DESK's door: a detector that halved the tempo has to be correctable, and the
+ * seeding rule exists to protect a correction from re-analysis, not from the person correcting it. */
+export function setSongBpm(
+  folder: string,
+  bpm: number,
+  force = false,
+): boolean {
+  if (!(bpm > 0)) return false;
+  return setSongField(folder, "bpm", bpm, force);
+}
+
+/** …and its KEY, which is a fact about the RECORDING and not about any one set — docs/songs.md.
+ *
+ * Camelot (`8A`) is deliberately not what is stored: the wheel is a rendering of a key, and keeping
+ * the rendering would throw away the mode's name. `C# minor` goes in; `12A` comes out of it. */
+export function setSongKey(
+  folder: string,
+  key: string,
+  force = false,
+): boolean {
+  const clean = key.trim();
+  if (!/^[A-G]#?\s+(major|minor)$/.test(clean)) return false;
+  // Quoted: a bare `#` mid-value starts a YAML comment and would truncate `C# minor` to `C`.
+  return setSongField(folder, "key", JSON.stringify(clean), force);
 }
 
 /** Rev the family or zone a path belongs to, so the next poll refetches its listing. */
