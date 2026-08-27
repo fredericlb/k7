@@ -5,6 +5,7 @@
 // The track comes from the caret, so the panel has no selection state of its own.
 
 import type { PluginParamsStore } from "@studio/engine-browser/params";
+import { ASPECTS, aspectOf } from "@studio/song-schema/aspect";
 import type { LaneSpan } from "@studio/ui-chains/cables";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
@@ -27,11 +28,13 @@ export function GraphPanel({
   trackOrder,
   videoSpans,
   noteLanes,
+  viewport,
   project,
   command,
   onBypassModule,
   onModuleField,
   onRecorder,
+  onProjectField,
   onNodeMenu,
   engineWarnings,
   onContextMenu,
@@ -54,6 +57,8 @@ export function GraphPanel({
   videoSpans?: Readonly<Record<string, readonly LaneSpan[]>>;
   /** …and the notes', for a MIDI cable's ripple (../noteSpans.ts). */
   noteLanes?: Readonly<Record<string, LaneNotes>>;
+  /** The FRAME's size, so the RENDER card ticks the shape it is (@studio/song-schema/aspect). */
+  viewport?: readonly [number, number];
   /** The compiled doc, for the rack pads' lit state — straight through to ChainsTab. */
   project?: WebProject | null;
   command: (line: string) => void | Promise<void>;
@@ -62,6 +67,8 @@ export function GraphPanel({
   /** …and so must an intrinsic, which has no optimistic value at all — see DomChains' prop. */
   onModuleField?: (line: string) => void | Promise<void>;
   /** A RECORDER's button, straight through — see DomChains' prop. */
+  /** Set a PROJECT setting — the RENDER card's frame dropdown (../noteSpans.ts's sibling). */
+  onProjectField?: (field: string, value: string) => void;
   onRecorder?: (
     verb: "record" | "clear" | "save",
     node: { module: string; pluginId?: string },
@@ -106,7 +113,14 @@ export function GraphPanel({
     if (!graph || !trackId) return null;
     const sub = subgraphForTrack(graph, trackId);
     if (!Object.keys(sub.chains).length) return null; // nothing routes this track
-    const { nodes, edges } = buildGraph(sub, { cameras });
+    // Which row the RENDER card ticks, by RATIO — the same answer ChainsTab derives.
+    const shape = viewport ? aspectOf(viewport[0], viewport[1]) : null;
+    const { nodes, edges } = buildGraph(sub, {
+      cameras,
+      ...(shape
+        ? { aspect: ASPECTS.findIndex((a) => a.name === shape.name) }
+        : {}),
+    });
     const scope = `${trackId}:${organizeKey}`;
     if (prevScope.current !== scope) {
       prevScope.current = scope;
@@ -155,6 +169,7 @@ export function GraphPanel({
         onBypassModule={onBypassModule}
         onModuleField={onModuleField}
         onRecorder={onRecorder}
+        onProjectField={onProjectField}
         onNodeMenu={onNodeMenu}
         engineWarnings={engineWarnings}
         pluginParamsStore={pluginParamsStore}

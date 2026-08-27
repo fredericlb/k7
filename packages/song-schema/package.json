@@ -6,6 +6,7 @@
   "description": "A song's FILE FORMAT and the value vocabulary around it: one zod schema and one reader/writer per kind of YAML file, plus the small pure modules a surface reads (timecode, moduleTypes, playlist, stems…). Nothing here touches node:fs, which is the whole point — this is the half of @studio/song a browser may import. Consumed as source.",
   "exports": {
     "./alternatives": "./src/alternatives.ts",
+    "./aspect": "./src/aspect.ts",
     "./builtinParams": "./src/builtinParams.ts",
     "./instanceName": "./src/instanceName.ts",
     "./moduleTypes": "./src/moduleTypes.ts",

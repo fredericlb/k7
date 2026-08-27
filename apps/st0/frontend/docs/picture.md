@@ -173,3 +173,26 @@ Two sources, deliberately:
 A ref the compiler has never seen simply has no reader, which is the honest answer rather than
 a black rectangle. The buttons edit the same buffer a keystroke does, so autosave writes them
 the same way.
+
+## La forme du cadre se choisit sur le nœud RENDER
+
+`project.viewport` est une taille en pixels et le reste — tout ce qui la lit lit des pixels. Ce
+qu'on choisit, c'est un RAPPORT : 16:9 ou 9:16 pour l'instant, et 1920×1080 / 1080×1920 est ce que
+ça veut dire ([aspect.ts](../../../../packages/song-schema/src/aspect.ts)).
+
+La carte du nœud RENDER porte la liste. Trois choses la font tenir :
+
+- **Elle se lit comme un champ, elle s'écrit comme un verbe.** La valeur courante est posée sur la
+  carte par `buildGraph` (`renderCard`), donc le menu coche la bonne ligne sans rien demander à
+  personne ; mais ce qu'elle écrit est dans `project.yaml`, et le nœud RENDER n'a pas de fichier —
+  d'où `@project:aspect`, qui lance `project aspect <valeur>`. Même famille que `@rack:` et
+  `@rec:` : un intrinsèque qui DÉCLENCHE au lieu d'écrire un champ de module.
+- **La ligne cochée se décide par le RAPPORT, pas par la taille.** Un projet écrit `[1280, 720]`
+  coche 16:9 comme un `[1920, 1080]`. Une forme qui n'est sur aucune des deux listes ne coche
+  rien — c'est légal d'avoir écrit du 4:3 à la main, et cocher le plus proche serait mentir.
+- **Le verbe garde le fps d'export.** `viewport:` accepte un troisième élément ; il n'appartient
+  pas à cette commande, qui le relit et le réécrit.
+
+Les deux noms sont épelés deux fois — dans `ASPECTS` et dans `RENDER_UI` — parce que
+`@studio/ui-chains` ne voit pas `@studio/song-schema`. Le verbe REFUSE un nom qu'il ne connaît
+pas, donc une dérive est un refus et pas une mauvaise taille écrite en silence.

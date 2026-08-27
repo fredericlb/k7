@@ -24,6 +24,7 @@ export function TrackModulesPane({
   command,
   onModuleField,
   onRecorder,
+  onProjectField,
   trackOrder,
   pluginParamsStore,
   requestPluginParams,
@@ -42,6 +43,8 @@ export function TrackModulesPane({
   /** …and the RELOADING sender for a module's own field: an intrinsic dropdown draws the file. */
   onModuleField?: (line: string) => void | Promise<void>;
   /** A RECORDER's button, straight through — see DomChains' prop. */
+  /** Set a PROJECT setting — the RENDER card's frame dropdown. */
+  onProjectField?: (field: string, value: string) => void;
   onRecorder?: (
     verb: "record" | "clear" | "save",
     node: { module: string; pluginId?: string },
@@ -140,6 +143,7 @@ export function TrackModulesPane({
       command={command}
       onModuleField={onModuleField}
       onRecorder={onRecorder}
+      onProjectField={onProjectField}
       onContextMenu={onContextMenu}
       engineWarnings={engineWarnings}
       pluginParamsStore={pluginParamsStore}

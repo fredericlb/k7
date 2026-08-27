@@ -173,6 +173,17 @@
         hint: "a LENGTH — events starting inside it are removed",
       },
     ]
+# The FRAME's shape, written as `project.viewport` — a pixel size, which is what every consumer
+# reads; the ratio is the short name a person picks. The export fps, when the file states one as a
+# third element, is kept. Two names for now: 16:9 and 9:16. See packages/song/docs/picture.md.
+- command: "project aspect"
+  sid: project.aspect
+  readable:
+    en: "Set the frame's shape"
+    fr: "Choisir la forme du cadre"
+  help: "set the viewport's aspect ratio (e.g. project aspect 16:9)"
+  surfaces: [cli]
+  args: [{ name: ratio, hint: "16:9 or 9:16" }]
 - command: "project reload"
   sid: project.reload
   help: "reload the song from disk and re-send"

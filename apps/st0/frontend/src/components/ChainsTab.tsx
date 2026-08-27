@@ -14,6 +14,7 @@ import {
   type WebAutomationLane,
 } from "@studio/graph-model";
 import { showToast } from "@studio/project-shell/toast";
+import { ASPECTS, aspectOf } from "@studio/song-schema/aspect";
 import { foldAssemblies } from "@studio/ui-chains/assembly";
 import type { LaneSpan } from "@studio/ui-chains/cables";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
@@ -65,6 +66,7 @@ export function ChainsTab({
   onBypassModule,
   onModuleField,
   onRecorder,
+  onProjectField,
   onNodeMenu,
   engineWarnings,
   onSetModuleAsset,
@@ -97,6 +99,7 @@ export function ChainsTab({
   inputDevices,
   cameras,
   masterVolume,
+  viewport,
   midiRef,
   onMidiStatus,
 }: {
@@ -122,6 +125,8 @@ export function ChainsTab({
   /** Set a module's own field. Wired to the RELOADING sender: an intrinsic dropdown draws the file. */
   onModuleField?: (line: string) => void | Promise<void>;
   /** A RECORDER's button — record and clear go to the engine, save is a command (recorder.md). */
+  /** Set a PROJECT setting — the RENDER card's frame dropdown (../noteSpans.ts's sibling). */
+  onProjectField?: (field: string, value: string) => void;
   onRecorder?: (
     verb: "record" | "clear" | "save",
     node: { module: string; pluginId?: string },
@@ -221,6 +226,9 @@ export function ChainsTab({
   cameras?: readonly string[];
   // The song's output level, for the fader on the OUT card: a project setting, so the shell hands it over.
   masterVolume?: number;
+  /** The FRAME's pixel size, so the RENDER card can tick the shape it is — absent for a project
+   *  with no picture, whose card carries no dropdown at all (@studio/song-schema's aspect.ts). */
+  viewport?: readonly [number, number];
   /** Where the shell reaches MIDI learn from — the runtime lives HERE, this being the one component that always holds the graph. */
   midiRef?: React.RefObject<MidiControlApi | null>;
   /** Say what a learn is waiting for, or what it captured. */
@@ -387,12 +395,19 @@ export function ChainsTab({
   const organizeSeen = useRef(organizeKey);
   const laid = useMemo(() => {
     if (!drawn) return null;
+    // Which row of the RENDER card's dropdown is ticked — by RATIO, so an old [1280, 720] project
+    // ticks the same row as a new one, and nothing is ticked for a shape on neither list.
+    const shape = viewport ? aspectOf(viewport[0], viewport[1]) : null;
+    const aspectRow = shape
+      ? ASPECTS.findIndex((a) => a.name === shape.name)
+      : undefined;
     // The OUT card IS drawn, and it costs one node — plus the two things not in the graph document: the inputs, and the song's output level.
     const built = buildGraph(drawn, {
       drawMainOut: true,
       inputDevices,
       cameras,
       mainOutVolume: masterVolume,
+      aspect: aspectRow,
     });
     // …then the assemblies are folded in: a box instead of its members, unless it is open — packages/song/docs/assemblies.md.
     const { nodes, edges } = foldAssemblies(drawn, built, openAssemblies);
@@ -832,6 +847,7 @@ export function ChainsTab({
             onBypassModule={bypassModule}
             onModuleField={onModuleField}
             onRecorder={onRecorder}
+            onProjectField={onProjectField}
             onNodeMenu={onNodeMenu}
             onTriggerRack={triggerRack}
             rackLit={rackLit}

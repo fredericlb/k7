@@ -70,6 +70,7 @@ import {
   jackPoint,
   type LaidOutGraph,
   moduleDisplayName,
+  projectBindField,
   type RecVerb,
   rackBindSymbol,
   recBindVerb,
@@ -119,7 +120,7 @@ import {
   zoomAbout,
 } from "./camera";
 import { CTRL, cableColorFor, MAUVE, RING, SAND, useCss } from "./chainsCss";
-import { moduleFieldValue } from "./moduleField";
+import { moduleFieldValue, projectFieldValue } from "./moduleField";
 import {
   advanceMotion,
   type Ghost,
@@ -225,7 +226,9 @@ type WidgetTarget =
   // A RACK's pad — the one target that SETS nothing, docs/widgets.md.
   | { kind: "rack"; module: string; symbol: string }
   // …and a RECORDER's button, the second of that family — engine/moteur/docs/recorder.md.
-  | { kind: "recorder"; module: string; verb: RecVerb; pluginId?: string };
+  | { kind: "recorder"; module: string; verb: RecVerb; pluginId?: string }
+  // …and a PROJECT setting: read off the card like a field, WRITTEN by a verb (docs/widgets.md).
+  | { kind: "project"; field: string };
 
 /** What a widget actuates: a pad, an `@` intrinsic, a plugin param, else offline — docs/widgets.md. */
 function widgetTarget(
@@ -253,6 +256,10 @@ function widgetTarget(
     return n.module
       ? { kind: "recorder", module: n.module, verb, pluginId: n.pluginId }
       : null;
+  // …and a PROJECT setting, before the general `@` arm for the reason the two above are: what it
+  // sets lives in project.yaml, and `@project:aspect` would become a FIELD called "project:aspect".
+  const setting = projectBindField(w.bind);
+  if (setting) return { kind: "project", field: setting };
   if (w.bind.startsWith("@")) {
     const field = w.bind.slice(1);
     if (n.kind === "track")
@@ -297,6 +304,7 @@ function targetKey(t: WidgetTarget): string {
   if (t.kind === "module") return `m:${t.module}:${t.field}`;
   // A recorder's button holds no value: the state frame says whether it is rolling, at 20 Hz.
   if (t.kind === "recorder") return `r:${t.module}:${t.verb}`;
+  if (t.kind === "project") return `p:${t.field}`;
   if (t.kind === "offline") return `o:${t.module}:${t.name}`;
   // A pad holds no value, so nothing ever writes under this key — it only covers the union.
   if (t.kind === "rack") return `r:${t.module}:${t.symbol}`;
@@ -329,6 +337,7 @@ interface Channels {
   // …and whether one can drive a RECORDER: a card with no engine behind it draws inert buttons
   // rather than buttons that do nothing — engine/moteur/docs/recorder.md.
   recorderWired: boolean;
+  projectWritable: boolean;
   // Is this graph a REHEARSAL — there is nowhere to send a value and none is needed.
   rehearsal: boolean;
   /** Which rack sounds are firing right now — a STORE, subscribed per pad. See `RackLitStore`. */
@@ -415,6 +424,8 @@ function widgetValue(
   if (tgt.kind === "rack") return undefined;
   // …nor has a recorder's button: the record light comes off the state frame, not off a value.
   if (tgt.kind === "recorder") return undefined;
+  // A project setting reads off the CARD, which `buildGraph` put the host's answer on.
+  if (tgt.kind === "project") return projectFieldValue(n, tgt.field);
   const key = targetKey(tgt);
   if (key in ch.override) return ch.override[key];
   const v =
@@ -1028,17 +1039,21 @@ function WidgetInner({
     // A pad needs a host that can make a SOUND, which a rehearsal cannot invent — so it is asked first.
     (tgt.kind === "rack"
       ? ch.rackTriggerable
-      : // …and a recorder's button needs a host wired to the ENGINE, which a rehearsal has not
-        // got: a preview card must not start a take in somebody's project.
-        tgt.kind === "recorder"
-        ? ch.recorderWired
-        : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer.
-          ch.rehearsal ||
-          (tgt.kind === "offline"
-            ? ch.offlineWritable
-            : tgt.kind === "track"
-              ? ch.trackWritable
-              : ch.pluginWritable));
+      : // …and a PROJECT setting needs a host that can run a verb: a preview card is looking at
+        // no project, so its dropdown reads and does not write.
+        tgt.kind === "project"
+        ? ch.projectWritable
+        : // …and a recorder's button needs a host wired to the ENGINE, which a rehearsal has not
+          // got: a preview card must not start a take in somebody's project.
+          tgt.kind === "recorder"
+          ? ch.recorderWired
+          : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer.
+            ch.rehearsal ||
+            (tgt.kind === "offline"
+              ? ch.offlineWritable
+              : tgt.kind === "track"
+                ? ch.trackWritable
+                : ch.pluginWritable));
   const value = widgetValue(n, w, ch, live);
   const known = value !== undefined;
   const t = known ? widgetNorm(w, value) : 0;
@@ -2277,6 +2292,7 @@ export function DomChains({
   onNodeMenu,
   onTriggerRack,
   onRecorder,
+  onProjectField,
   rackLit,
   onSetModuleAsset,
   onAssetBrowse,
@@ -2367,6 +2383,8 @@ export function DomChains({
   /** A RECORDER's button was pressed. `pluginId` is what the ENGINE keys a node by; `module` is
    *  what a VERB names. The host needs both — record and clear go down the socket, save is a
    *  command. See engine/moteur/docs/recorder.md. */
+  /** Set a PROJECT setting — `project <field> <value>`. Absent means the dropdown reads only. */
+  onProjectField?: (field: string, value: string) => void;
   onRecorder?: (
     verb: RecVerb,
     node: { module: string; pluginId?: string },
@@ -2484,6 +2502,7 @@ export function DomChains({
     onNodeMenu,
     onTriggerRack,
     onRecorder,
+    onProjectField,
     onSetModuleAsset,
     onAssetBrowse,
     onLibraryBrowse,
@@ -2510,6 +2529,7 @@ export function DomChains({
     onNodeMenu,
     onTriggerRack,
     onRecorder,
+    onProjectField,
     onSetModuleAsset,
     onAssetBrowse,
     onLibraryBrowse,
@@ -3160,6 +3180,7 @@ export function DomChains({
   const offlineWritable = onModuleParam !== undefined;
   const rackTriggerable = onTriggerRack !== undefined;
   const recorderWired = onRecorder !== undefined;
+  const projectWritable = onProjectField !== undefined;
   // Memoised on VALUES, never on the host's callbacks, which are often inline lambdas.
   const ch = useMemo<Channels>(
     () => ({
@@ -3174,6 +3195,7 @@ export function DomChains({
       offlineWritable,
       rackTriggerable,
       recorderWired,
+      projectWritable,
       rehearsal: !!rehearsal,
       rackLit,
     }),
@@ -3189,6 +3211,7 @@ export function DomChains({
       offlineWritable,
       rackTriggerable,
       recorderWired,
+      projectWritable,
       rehearsal,
       rackLit,
     ],
@@ -3568,6 +3591,13 @@ export function DomChains({
         cb.current.onModuleParam?.(tgt.module, tgt.name, value);
         return;
       }
+      // A PROJECT setting travels as the option's WORD, not its index: `project aspect 16:9` is
+      // what a person would type, and the row's position is this card's business alone.
+      if (tgt.kind === "project") {
+        const opt = w.options?.find((o) => o.value === value);
+        if (opt) cb.current.onProjectField?.(tgt.field, opt.arg ?? opt.label);
+        return;
+      }
       setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
       cb.current.setPluginParam?.(tgt.pluginId, tgt.name, value);
       if (n.module && !rehearsal)
@@ -3607,6 +3637,8 @@ export function DomChains({
         cb.current.onTriggerRack?.(tgt.module, tgt.symbol);
         return;
       }
+      // A project setting is a dropdown and is PICKED, never flipped — see `pickWidget`.
+      if (tgt.kind === "project") return;
       // A module field cycles through its own named settings — there is no 0/1 to flip.
       if (tgt.kind === "module") {
         const opts = w.options ?? [];

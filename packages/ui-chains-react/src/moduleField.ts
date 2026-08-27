@@ -41,3 +41,13 @@ export function moduleFieldValue(
   if (current === undefined) return undefined;
   return w.options?.find((o) => o.label === current)?.value;
 }
+
+/** A PROJECT setting's current value, as the option index the node carries. Its own function
+ *  because these are not module fields: nothing in the node's file says them, `buildGraph` puts
+ *  them on the card from what the host knows — see @studio/ui-chains's `renderCard`. */
+export function projectFieldValue(
+  n: GraphNode,
+  field: string,
+): number | undefined {
+  return field === "aspect" ? n.aspect : undefined;
+}

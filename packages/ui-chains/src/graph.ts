@@ -173,6 +173,10 @@ export interface GraphNode extends Carried, Flags {
 
   /** This node LISTENS for events: one socket on its left edge, above the signal ones. */
   eventIn?: boolean;
+  /** The RENDER sum's own field: which shape the FRAME is, as an index into `RENDER_UI`'s rows.
+   *  A node field rather than a step's — no chain step produces it, `renderCard` does. It reads
+   *  like any module field; only the WRITE is a verb, since it lives in project.yaml. */
+  aspect?: number;
   /** A curve node's BINDING, carried rather than parsed back out of the id — see docs/graphBuild.md. */
   curveOf?: { curve: string; module?: string; param?: string };
   /** This node sits in a row read ACROSS, so its cables meet the side edges — `moduleRow`'s doing. */
@@ -585,6 +589,40 @@ export const TRACK_UI: WebModuleUI = {
 };
 
 /** …and the MAIN OUTPUT's: the song's output level on an ORDINARY bind. See @studio/song's docs/masterVolume.md. */
+/** The bind prefix a PROJECT setting carries: `@project:aspect` runs `project aspect <value>`.
+ *  The rack pad's family again — it FIRES a verb rather than writing a module's file, because
+ *  what it sets lives in project.yaml and the RENDER node has no file of its own. */
+export const PROJECT_BIND = "@project:";
+
+/** The project setting a bind names, or null for any other bind. */
+export const projectBindField = (bind: string | undefined): string | null => {
+  if (!bind?.startsWith(PROJECT_BIND)) return null;
+  const field = bind.slice(PROJECT_BIND.length);
+  return field.length ? field : null;
+};
+
+/** What the RENDER card carries: the FRAME's shape. The two names are @studio/song-schema's
+ *  `ASPECTS` spelled again — this package cannot see that one — and the verb refuses a name it
+ *  does not know, so a drift is a refusal rather than a silent wrong size. */
+export const RENDER_UI: WebModuleUI = {
+  cols: 2,
+  rows: 1,
+  widgets: {
+    aspect: {
+      type: "dropdown",
+      col: 0,
+      row: 0,
+      colSpan: 2,
+      bind: "@project:aspect",
+      label: "frame",
+      options: [
+        { label: "16:9", value: 0 },
+        { label: "9:16", value: 1 },
+      ],
+    },
+  },
+};
+
 export const MAIN_OUT_UI: WebModuleUI = {
   cols: 1,
   rows: 2,
@@ -894,6 +932,9 @@ export function buildGraph(
     drawMainOut?: boolean;
     /** The song's output level in dB — a project setting, so not in the graph document. Absent ⇒ unknown. */
     mainOutVolume?: number;
+    /** Which row of `RENDER_UI`'s dropdown is ticked — the index of the frame's shape, or
+     *  undefined for a project with no picture, whose RENDER card carries nothing. */
+    aspect?: number;
     /** How the machine's interface groups its inputs — the sound card's to say, not the document's. */
     inputDevices?: readonly { name: string; channels: number[] }[];
     /** The CAMERAS this browser can see, by label — the browser's to say, not the document's. */
@@ -968,6 +1009,20 @@ export function buildGraph(
       hasNativePluginUI: false,
       ...extra,
     });
+  /** …and what the RENDER sum's card carries: the frame's shape, when the host said what it is.
+   *  `aspect` is a FIELD on the node, read like any module field; only the WRITE is a verb. */
+  const renderCard = (): Partial<Omit<RawNode, "id">> => {
+    const i = opts.aspect === undefined ? -1 : opts.aspect;
+    return i < 0
+      ? {}
+      : {
+          module: RENDER_OUT,
+          ui: RENDER_UI,
+          aspect: i,
+          ...nodeSize(RENDER_UI),
+        };
+  };
+
   /** …and what the MAIN OUTPUT's card carries beyond that: its own fader, absent rather than 0. */
   const mainOutCard = (): Partial<Omit<RawNode, "id">> => ({
     module: MAIN_OUT,
@@ -1253,7 +1308,7 @@ export function buildGraph(
   /** Each sum and the wire out of it, when the file declares no master run. See docs/graphBuild.md. */
   for (const sum of [MIX_OUT, RENDER_OUT] as const) {
     if (!feedsSum[sum] || isChain(sum)) continue;
-    const card = addSink(sum);
+    const card = addSink(sum, sum === RENDER_OUT ? renderCard() : {});
     if (opts.drawMainOut === false) continue;
     const video = sum === RENDER_OUT;
     link(

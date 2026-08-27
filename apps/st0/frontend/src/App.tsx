@@ -987,6 +987,14 @@ export default function App({
     [store, pushLog, setRefusal],
   );
 
+  /** A PROJECT setting off a card — today the RENDER node's frame shape. A verb, since what it
+   *  writes is project.yaml and the node has no file (packages/song/docs/picture.md). */
+  const onProjectField = useCallback(
+    (field: string, value: string) =>
+      void runCommandRef.current(`project ${field} ${value}`),
+    [],
+  );
+
   // The lenses this browser can see — the camera cards' dropdown, packages/song/docs/camera.md.
   const cameras = useCameras();
 
@@ -3032,6 +3040,7 @@ export default function App({
                       }
                       onModuleField={runCommand}
                       onRecorder={onRecorder}
+                      onProjectField={onProjectField}
                       onNodeMenu={openNodeMenu}
                       engineWarnings={engineWarnings}
                       onAssetBrowse={browseAssets}
@@ -3192,6 +3201,7 @@ export default function App({
                       command={quietCommand}
                       onModuleField={runCommand}
                       onRecorder={onRecorder}
+                      onProjectField={onProjectField}
                       trackOrder={trackOrder}
                       pluginParamsStore={pluginParamsStore}
                       requestPluginParams={requestPluginParams}
@@ -3295,6 +3305,7 @@ export default function App({
                     trackOrder={trackOrder}
                     videoSpans={videoLaneSpans}
                     noteLanes={noteLanes}
+                    viewport={videoDoc?.viewport}
                     project={projectDoc}
                     command={quietCommand}
                     onBypassModule={(mod) =>
@@ -3302,6 +3313,7 @@ export default function App({
                     }
                     onModuleField={runCommand}
                     onRecorder={onRecorder}
+                    onProjectField={onProjectField}
                     onNodeMenu={openNodeMenu}
                     engineWarnings={engineWarnings}
                     onContextMenu={openContextMenu}

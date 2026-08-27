@@ -190,6 +190,7 @@ import {
   setQuotedKeyMap,
 } from "@studio/song/yaml/edit";
 import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
+import { ASPECTS, aspectSize } from "@studio/song-schema/aspect";
 import {
   removeWarpPoint,
   seedWarp,
@@ -3886,6 +3887,33 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([`metronome volume failed: ${(e as Error).message}`]);
     }
   },
+  /** `project aspect <ratio>` — the FRAME's shape, written as `project.viewport`'s pixel size.
+   *  A ratio and not a size: a person picks 16:9, and 1920×1080 is what that means here. See
+   *  packages/song/docs/picture.md. */
+  "project.aspect": async (a, h) => {
+    const want = aspectSize(a.trim());
+    if (!want) {
+      h.refuse([
+        `"${a.trim()}" is not a frame shape — ${ASPECTS.map((x) => x.name).join(" or ")}`,
+      ]);
+      return;
+    }
+    const file = join(h.songPath, "project.yaml");
+    // The third element is the EXPORT fps and is nobody's business here: read it back and keep it,
+    // or a project that stated one silently loses it on a shape change.
+    const now = loadProjectRoot(h.songPath).project?.viewport as
+      | number[]
+      | undefined;
+    const fps = now && now.length > 2 ? Number(now[2]) : null;
+    setFileValue(
+      file,
+      ["project", "viewport"],
+      fps && fps > 0 ? [want.w, want.h, fps] : [want.w, want.h],
+    );
+    h.log([`frame is ${want.name} (${want.w}×${want.h})`]);
+    h.reload?.();
+  },
+
   "project.reload": async (_a, h) => {
     await h.reload();
   },
