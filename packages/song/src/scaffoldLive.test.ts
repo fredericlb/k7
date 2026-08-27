@@ -1,0 +1,319 @@
+// The two `live` archetypes: a rig you play through. Three things they have to get right and none
+// shows on a green build — no surface (bar the frame `live-video` cannot do without), no track and
+// no lane of either kind, and the input and the lens still arrive. See docs/liveProject.md.
+
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative, sep } from "node:path";
+import { describe, expect, it } from "vitest";
+import { loadGraph, validate } from "./graph";
+import { compileNodeProject } from "./nodeProject";
+import { MIXER_PLUGIN, RECORDER_PLUGIN, trackMixer } from "./project";
+import {
+  LIVE_CAMERA,
+  LIVE_FADER,
+  LIVE_INPUT,
+  LIVE_RECORDER,
+  LIVE_RECORDER_REF,
+  LIVE_STRIP,
+  liveProjectFiles,
+  liveVideoProjectFiles,
+  scaffoldLive,
+  scaffoldLiveVideo,
+} from "./scaffoldLive";
+import { neededRefs } from "./scaffoldNeeds";
+import {
+  hasPicture,
+  isVideoProject,
+  projectSurfaces,
+  surfaceIssues,
+} from "./surfaces";
+
+/** Every file under `dir`, project-relative and slash-separated. */
+function tree(dir: string): string[] {
+  const out: string[] = [];
+  const walk = (at: string) => {
+    for (const e of readdirSync(at, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
+      const p = join(at, e.name);
+      out.push(relative(dir, p).split(sep).join("/"));
+      if (e.isDirectory()) walk(p);
+    }
+  };
+  walk(dir);
+  return out;
+}
+
+/**
+ * A workspace holding the rig and the library it borrows from — the shared strip stubbed by the
+ * plugin it is, so what is pinned is the scaffold's ref resolving rather than the account's file.
+ */
+const made = (write: (dir: string, name: string) => unknown): string => {
+  const ws = mkdtempSync(join(tmpdir(), "live-"));
+  const lib = join(ws, "_libraries", "modules", "audio", "utility");
+  for (const [name, plugin] of [
+    ["mixer", MIXER_PLUGIN],
+    ["recorder", RECORDER_PLUGIN],
+  ] as const) {
+    mkdirSync(join(lib, name), { recursive: true });
+    writeFileSync(
+      join(lib, name, "module.yaml"),
+      `plugin:\n  type: internal\n  name: ${plugin}\n`,
+    );
+  }
+  const dir = join(ws, "rig.st0");
+  mkdirSync(dir);
+  write(dir, "rig");
+  return dir;
+};
+
+/** Run `f` against a fresh project of that shape and clean up whatever it did. */
+const onShape = (
+  write: (dir: string, name: string) => unknown,
+  f: (dir: string) => void,
+): void => {
+  const dir = made(write);
+  try {
+    f(dir);
+  } finally {
+    // The workspace, not just the project: the library beside it is part of what was made.
+    rmSync(join(dir, ".."), { recursive: true, force: true });
+  }
+};
+
+/** …the audio rig, which most of this file is about. */
+const on = (f: (dir: string) => void): void => onShape(scaffoldLive, f);
+
+/** …and the same rig with a lens. */
+const onVideo = (f: (dir: string) => void): void =>
+  onShape(scaffoldLiveVideo, f);
+
+/** The keys of `graph.yaml`'s `modules:` map, in file order. */
+const graphKeys = (dir: string): string[] =>
+  readFileSync(join(dir, "graph.yaml"), "utf8")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => !l.startsWith("#") && l.includes(": ["))
+    .map((l) => l.slice(0, l.indexOf(":")));
+
+describe("what it writes", () => {
+  it("declares NO surface at all — which is the whole of what makes it this shape", () =>
+    on((dir) => {
+      expect(existsSync(join(dir, "surfaces"))).toBe(false);
+      expect(projectSurfaces(dir).surfaces).toEqual([]);
+      // …and says nothing about it: a bare rig has no arrangement to draw and no picture to
+      // composite, so neither missing-surface warning fires. That is what "no surface" has to mean.
+      expect(surfaceIssues(dir)).toEqual([]);
+    }));
+
+  it("holds no material and no folders for it", () =>
+    on((dir) => {
+      const t = tree(dir);
+      for (const gone of ["clips", "sequences", "video_tracks", "surfaces"])
+        expect(t).not.toContain(gone);
+    }));
+
+  it("is the file map it says it is, and nothing else", () =>
+    on((dir) => {
+      expect(
+        tree(dir)
+          .filter((p) => p.endsWith(".yaml"))
+          .sort(),
+      ).toEqual(Object.keys(liveProjectFiles("rig")).sort());
+    }));
+});
+
+describe("the graph it writes", () => {
+  it("is INPUT -> FADER -> MIX -> REC -> OUT", () =>
+    on((dir) => {
+      expect(graphKeys(dir)).toEqual([
+        LIVE_INPUT,
+        LIVE_FADER,
+        "MIX",
+        LIVE_RECORDER,
+      ]);
+      const text = readFileSync(join(dir, "graph.yaml"), "utf8");
+      // The fader lands on the SUM, not on the interface: the two compile the same, and only
+      // this one draws where the signal goes. See docs/liveProject.md.
+      expect(text).toContain(`${LIVE_FADER}: [ MIX ]`);
+      // …and the recorder sits ON the master run, so a take is the whole mix.
+      expect(text).toContain(`MIX: [ ${LIVE_RECORDER} ]`);
+      expect(text).toContain(`${LIVE_RECORDER}: [ OUT ]`);
+    }));
+
+  it("authors NO track file — its two nodes are the fader and the recorder", () =>
+    on((dir) => {
+      expect(
+        tree(dir)
+          .filter((f) => f.startsWith("nodes/"))
+          .sort(),
+      ).toEqual([`nodes/${LIVE_FADER}.yaml`, `nodes/${LIVE_RECORDER}.yaml`]);
+    }));
+
+  it("borrows the SHARED strip, which is what carries the face", () =>
+    on((dir) => {
+      const node = readFileSync(
+        join(dir, "nodes", `${LIVE_FADER}.yaml`),
+        "utf8",
+      );
+      expect(node).toContain(`extends: "${LIVE_STRIP}"`);
+    }));
+
+  it("declares that borrowing, so an empty library is said at CREATION", () => {
+    // A library repository is attached rather than seeded, and an unresolved `@st0/…` ref does
+    // not warn — it refuses the whole project. `neededRefs` reads the ref off the scaffolded
+    // text, which is how the new-project screen owes it before anything is written.
+    expect(neededRefs(liveProjectFiles("rig")).sort()).toEqual(
+      [LIVE_STRIP, LIVE_RECORDER_REF].sort(),
+    );
+  });
+});
+
+describe("and it PLAYS", () => {
+  it("says exactly one thing, and it is the CHOICE only you can make", () =>
+    on((dir) => {
+      // No default input: which socket you are plugged into is a fact about the rig, so the
+      // scaffold leaves `channel:` out and the project asks for it. Nothing ELSE warns —
+      // a fresh project complaining about its own wiring would be the scaffold's fault.
+      expect(validate(loadGraph(dir))).toEqual([
+        "input 'IN': no channel — it feeds nothing",
+      ]);
+    }));
+
+  it("says nothing at all once a channel is chosen", () =>
+    on((dir) => {
+      const io = join(dir, "modules", "io", "IN", "module.yaml");
+      writeFileSync(io, `${readFileSync(io, "utf8")}channel: [1]\n`);
+      expect(validate(loadGraph(dir))).toEqual([]);
+    }));
+
+  it("MATERIALISES a track for the input, though the project authors none", () =>
+    on((dir) => {
+      // There is no lane on disk. The run carrying the input makes its own track, named after the
+      // chain — which is the input's own name here. See docs/liveProject.md.
+      const doc = compileNodeProject(dir);
+      expect(doc.tracks.map((t) => t.id)).toEqual([LIVE_INPUT]);
+      const rig = doc.tracks[0];
+      expect(rig.role).toBe("regular");
+      // Monitoring is ON, so the moment a channel is picked it is audible without arming.
+      expect(rig.monitor).toBe("on");
+      // …and no channel until one is chosen, which is the whole of "no default input".
+      expect(rig.inputChannels).toEqual([]);
+      // Nothing to play: what is heard is what is plugged in.
+      expect(rig.clips).toEqual([]);
+    }));
+
+  it("puts the FADER on that track — it is what the run runs through", () =>
+    on((dir) => {
+      expect(
+        compileNodeProject(dir).tracks[0].plugins.map((p) => p.id),
+      ).toEqual([`${LIVE_INPUT}:${LIVE_FADER}`]);
+    }));
+
+  it("puts the RECORDER on the master run, so a take is the whole mix", () =>
+    on((dir) => {
+      // Not on the input's track: what a rig should keep is what came out of it, post-fader.
+      // A master-run module compiles onto `masterPlugins`, keyed `<chain>:<module>`.
+      const doc = compileNodeProject(dir);
+      expect(doc.masterPlugins.map((p) => `${p.id}:${p.type}`)).toEqual([
+        `MIX:${LIVE_RECORDER}:${RECORDER_PLUGIN}`,
+      ]);
+      // …and it is NOT on the track, which would capture one voice of the mix instead.
+      expect(doc.tracks[0].plugins.map((p) => p.id)).toEqual([
+        `${LIVE_INPUT}:${LIVE_FADER}`,
+      ]);
+    }));
+
+  it("makes that fader the app's OWN strip, so a level on screen moves it", () =>
+    on((dir) => {
+      // `trackMixer` reads the LAST Mixer in a track's chain, and a track with none has nowhere
+      // to put a level — a fader of any other plugin is one no surface can drive.
+      const t = compileNodeProject(dir).tracks[0];
+      expect(t.plugins[0].type).toBe(MIXER_PLUGIN);
+      expect(trackMixer(t)?.id).toBe(`${LIVE_INPUT}:${LIVE_FADER}`);
+    }));
+
+  it("carries the chosen channel onto that track", () =>
+    on((dir) => {
+      const io = join(dir, "modules", "io", "IN", "module.yaml");
+      writeFileSync(io, `${readFileSync(io, "utf8")}channel: [1, 2]\n`);
+      expect(compileNodeProject(dir).tracks[0].inputChannels).toEqual([1, 2]);
+    }));
+});
+
+// The SAME rig with a lens on it: `live-video` adds a camera and the frame it fills, and adds
+// nothing else — no timeline, no video lane, no clip. See docs/liveProject.md.
+describe("the live-video archetype", () => {
+  it("is the audio rig plus exactly two files", () => {
+    const audio = Object.keys(liveProjectFiles("rig"));
+    const both = Object.keys(liveVideoProjectFiles("rig"));
+    expect(both.filter((f) => !audio.includes(f)).sort()).toEqual([
+      `modules/io/${LIVE_CAMERA}/module.yaml`,
+      "surfaces/viewport.yaml",
+    ]);
+  });
+
+  it("still authors NO lane, of either kind", () =>
+    onVideo((dir) => {
+      const t = tree(dir);
+      for (const gone of ["video_tracks", "clips", "sequences"])
+        expect(t).not.toContain(gone);
+      expect(t.filter((f) => f.startsWith("nodes/")).sort()).toEqual([
+        `nodes/${LIVE_FADER}.yaml`,
+        `nodes/${LIVE_RECORDER}.yaml`,
+      ]);
+    }));
+
+  it("wires the lens to RENDER, as the fader lands on the sum", () =>
+    onVideo((dir) => {
+      expect(graphKeys(dir)).toEqual([
+        LIVE_INPUT,
+        LIVE_FADER,
+        "MIX",
+        LIVE_RECORDER,
+        LIVE_CAMERA,
+        "RENDER",
+      ]);
+    }));
+
+  it("declares the viewport, the ONE surface this shape has", () =>
+    onVideo((dir) => {
+      expect(projectSurfaces(dir).surfaces.map((s) => s.surface.type)).toEqual([
+        "viewport",
+      ]);
+      // …and nothing is owed: no lanes to draw, so no timeline is missed.
+      expect(surfaceIssues(dir)).toEqual([]);
+    }));
+
+  it("ANSWERS that it has a picture, though it holds no video lane", () =>
+    onVideo((dir) => {
+      // The gate the file service reads before it compiles one. `video_tracks/` is not the
+      // question any more — a lens needs no lane (docs/camera.md).
+      expect(hasPicture(dir)).toBe(true);
+      expect(isVideoProject(dir)).toBe(false);
+    }));
+
+  it("keeps its SOUND exactly as the audio rig has it", () =>
+    onVideo((dir) => {
+      const doc = compileNodeProject(dir);
+      expect(doc.tracks.map((t) => t.id)).toEqual([LIVE_INPUT]);
+      expect(trackMixer(doc.tracks[0])?.id).toBe(`${LIVE_INPUT}:${LIVE_FADER}`);
+    }));
+
+  it("says the one thing the audio rig says, and nothing about the lens", () =>
+    onVideo((dir) => {
+      // A camera with no lens named is not a complaint: "" is the machine's own (docs/camera.md).
+      expect(validate(loadGraph(dir))).toEqual([
+        "input 'IN': no channel — it feeds nothing",
+      ]);
+    }));
+});
