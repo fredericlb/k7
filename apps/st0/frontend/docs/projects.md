@@ -248,28 +248,29 @@ que l'échafaudage vient d'écrire et que l'espace de travail ne résout pas
 leur sous-module y pointe toujours, et le service de fichiers REFUSE de le réécrire plutôt que
 de le faire en silence. La carte le dit au moment où on change.
 
-## Un projet s'ouvre dans un nouvel onglet
+## Un projet s'ouvre dans le MÊME onglet, et le nom dans l'en-tête ramène ici
 
 Les deux départs — la rangée en retrait sous le dépôt et le bouton de l'arborescence — sont des
-**ancres** portant `target="_blank"`, et non des boutons qui affectent `window.location`.
+**ancres** ordinaires : plus de `target="_blank"`, plus de `rel="noopener"`.
 
-L'argument est que **la liste des projets doit rester ouverte derrière**, avec ses dossiers
-dépliés. On ouvre un morceau, cinq minutes plus tard on en veut un deuxième — pour comparer deux
-mixes, ou parce que le premier n'était pas le bon — et un
-aller-retour par le bouton « précédent » redemanderait `/api/projects`, replierait l'arbre du
-dépôt, et re-sonderait les moteurs.
+Cette page a longtemps ouvert dans un nouvel onglet, et l'argument était que la liste devait
+rester derrière, dépliée : revenir redemanderait `/api/projects`, replierait l'arbre et
+re-sonderait les moteurs. Ce qui manquait pour trancher autrement, c'était **un chemin de retour**.
+Il existe maintenant — le nom de l'app dans l'en-tête de l'éditeur est un lien vers cette page
+(`projectsUrl`, celui-là même que les deux portes utilisent déjà quand elles renvoient ici) — et
+un onglet par projet ouvert n'est plus le prix à payer pour pouvoir revenir.
 
-Et ouvrir un deuxième projet ne coûte alors plus rien : deux morceaux côte à côte sont deux
-onglets, ce qui est exactement la façon dont on les compare.
+Ce qui ne change pas, et qui était la meilleure moitié de cette section : le type des props.
+`RepoList` et `RepoTree` reçoivent un `projectHref`, pas un `onOpenProject`. **Une adresse et non
+une action** — la page calcule où mène la rangée, la vue en fait un lien. C'est ce qui fait que
+**ctrl-clic et clic du milieu ouvrent toujours un nouvel onglet** pour qui en veut un, et que
+« copier l'adresse du lien » marche : le choix reste au navigateur, il a simplement cessé d'être
+imposé. Un `window.open` dans un `onClick` aurait répondu la même chose aux trois.
 
-Le corollaire est le type des props : `RepoList` et `RepoTree` reçoivent un `projectHref`, pas un
-`onOpenProject`. **Une adresse et non une action** — la page calcule où mène la rangée, la vue en
-fait un lien. Le navigateur fait le reste, et le fait mieux : ctrl-clic, clic du milieu et
-« copier l'adresse du lien » marchent parce que c'en est une. Un `window.open` dans un `onClick`
-aurait répondu la même chose aux trois.
-
-`rel="noopener"` coupe `window.opener` : l'onglet ouvert n'a rien à dire à celui-ci, et
-`@studio/project-shell` ne lit que son adresse à lui.
+Le lien de l'en-tête est une navigation de page entière, et pas un `<Link>` : le projet est le
+`basename` du routeur, donc rien en-dessous ne peut router vers l'extérieur
+(`packages/project-shell/docs/launch.md`). Sur un **partage** il n'y a pas de lien du tout : le
+visiteur n'a pas de compte, donc pas de page d'accueil où aller (`shared.md`).
 
 ## L'arborescence n'est pas le chemin normal
 
@@ -385,7 +386,7 @@ ce type, jamais le service qui a répondu : changer de source ne lui coûte pas 
    n'est pas un extra : cette liste ne montre que ce que la machine tient, donc sans lui l'ajout
    serait un formulaire qui ne change rien à l'écran.
 2. La liste affiche chaque espace de travail avec **ses projets en retrait dessous** ; un clic sur
-   l'un d'eux part directement dans son application, **dans un nouvel onglet**. Le nom de l'espace,
+   l'un d'eux part directement dans son application, **dans le même onglet**. Le nom de l'espace,
    lui, déplie l'arborescence — ici même —, où les dossiers-projets sont marqués de la même façon.
 3. Dans les deux cas on arrive à `/<app>/<nom-du-dépôt>/<dossier>` — `/band/leclip.st0` pour
    une chanson — une ADRESSE, et le dépôt par son **nom court**, pas par son URI : une barre
@@ -628,8 +629,8 @@ ne dit pas :
 - déplier un espace, recharger la page → le même espace déplié, `?ws=` dans l'adresse ;
 - créer un projet → la rangée apparaît **sans rien rafraîchir**, en cinq secondes au pire. Une
   rangée qui met plus longtemps est le signe que la liste ne vient plus de la machine ;
-- ouvrir un projet → un nouvel onglet, la page d'accueil intacte derrière ; ctrl-clic et clic du
-  milieu font la même chose ;
+- ouvrir un projet → l'app prend l'onglet ; le nom dans son en-tête ramène ici, et ctrl-clic ou
+  clic du milieu ouvrent toujours un onglet pour qui en veut un ;
 - quitter un projet depuis l'éditeur, et perdre son moteur au profit de quelqu'un d'autre → les
   deux ramènent ici ;
 - créer un projet dans un dépôt **vide** que cette machine n'a jamais vu → le clone avec la

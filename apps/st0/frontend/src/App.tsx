@@ -29,7 +29,11 @@ import type { PresetInfo, TransportAction } from "@studio/engine-protocol";
 import { AskHost } from "@studio/project-shell/ask";
 import { markActive } from "@studio/project-shell/idle";
 // The address of ONE surface, for another device to open — the same module the launch uses, so both spell a project alike (docs/external.md).
-import { externalUrl, parseLaunch } from "@studio/project-shell/launch";
+import {
+  externalUrl,
+  parseLaunch,
+  projectsUrl,
+} from "@studio/project-shell/launch";
 import { showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the loader in.
@@ -2502,7 +2506,22 @@ export default function App({
               ? "[&>div]:gap-2 [&>div]:px-3 [&>div]:py-1"
               : "[&>div]:px-3 [&>div]:py-2",
           )}
-          title="st0"
+          // The name is the way back to the home page — a whole-page navigation on purpose: the
+          // project is the router's BASENAME, so nothing below it can route out (docs/projects.md).
+          // A share visitor has no home page to go to, so theirs stays plain text (docs/shared.md).
+          title={
+            snapshot ? (
+              "st0"
+            ) : (
+              <a
+                href={projectsUrl(window.location.href)}
+                title={m["project.backToProjects"]()}
+                className="hover:underline"
+              >
+                st0
+              </a>
+            )
+          }
           subtitle={VERSION}
           items={[]}
           actions={headerActions}

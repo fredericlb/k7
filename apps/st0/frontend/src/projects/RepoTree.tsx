@@ -65,14 +65,11 @@ function Row({
             {node.name}
           </span>
         </button>
-        {/* The one way off this screen: a project opens in ITS app, named by the folder's suffix, through an anchor in a new tab (../../docs/projects.md). */}
+        {/* The one way off this screen: a project opens in ITS app, named by the folder's suffix,
+            through an anchor — in THIS tab, the header's name being the way back (../../docs/projects.md). */}
         {node.app && (
           <Button size="sm" variant="secondary" asChild>
-            <a
-              href={projectHref(node.path, node.app)}
-              target="_blank"
-              rel="noopener"
-            >
+            <a href={projectHref(node.path, node.app)}>
               <ExternalLink className="h-3.5 w-3.5" /> Ouvrir dans {node.app}
             </a>
           </Button>

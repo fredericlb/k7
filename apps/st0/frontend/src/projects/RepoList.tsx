@@ -219,7 +219,8 @@ export function RepoList({
                 </div>
               </div>
 
-              {/* The projects, indented under their workspace: a click goes straight into the app that opens one, in a new tab. */}
+              {/* The projects, indented under their workspace: a click goes straight into the app
+                  that opens one, in THIS tab — the header's name is the way back. */}
               {w.projects.length > 0 && (
                 <ul className="mt-2 ml-2 flex flex-col border-l border-border pl-3">
                   {w.projects.map((p) => (
@@ -229,8 +230,6 @@ export function RepoList({
                         className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent/50"
                         title={`Ouvrir ${p.path} dans ${p.app}`}
                         href={projectHref(w, p)}
-                        target="_blank"
-                        rel="noopener"
                       >
                         <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span className="truncate">
