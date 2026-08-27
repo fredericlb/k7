@@ -599,7 +599,7 @@ unknown rather than claiming a level nobody supplied.
 Only OUT gets the panel. Any other destination the graph cannot account for as a track, a chain or
 a used module is still drawn as a plain sink, because that name has nowhere else to appear.
 
-### The sum is implicit
+### The MIX sum is implicit — and RENDER is NOT
 
 **No cable is drawn INTO `MIX`.** Every chain in the song ends at the sum — that is what a mixer
 is — so those arrows say nothing the picture does not already say: one per lane, crossing it end
@@ -613,6 +613,16 @@ MIX ─ [ the master chain ] ─ OUT
 standing on its own, joined to nothing else in the drawing. The routing is untouched: this is the
 picture, and the engine reads the compiled document, where every one of those lanes still arrives
 at the sum.
+
+**`RENDER`'s cables ARE drawn**, and the rule stops at MIX deliberately. A picture has a handful
+of sources rather than one per lane, so the arrows are few and each says something; and left
+implicit they cost more than they save. In a `live-video` rig — `CAM -> RENDER`, and nothing else
+on the picture side — the camera hangs off nothing and the compositor reads as unfed, which is
+exactly how it was reported. The SOCKET goes with it: `jacksFor` types a sink from what ARRIVES
+(`fallback ?? "audio"`), so a compositor nothing reached grew an **audio** plug.
+
+That is the whole of the difference: MIX is a mixer and its lanes end there by definition; RENDER
+is a compositor and what reaches it is a wire somebody drew.
 
 `MIX` is drawn **once**, as a sink, exactly as `OUT` is, and getting that wrong makes two cards.
 The master run is written `from: MIX` and NAMED after the sum, so `c.from !== name` is false and

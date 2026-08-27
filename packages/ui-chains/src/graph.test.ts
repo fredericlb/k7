@@ -282,10 +282,15 @@ describe("buildGraph", () => {
       videoTracks: ["main", "pip"],
     });
 
-    it("draws no cable from a video lane's chain into RENDER", () => {
+    // The mixer's rule — no cable into the sum — stops at MIX. A picture has a handful of sources
+    // rather than one per lane, and left implicit a camera hangs off nothing while the compositor
+    // reads as unfed; that is the whole of the picture half in a `live-video` rig.
+    it("DRAWS each video chain's cable into RENDER, and still none into MIX", () => {
       const { edges } = buildGraph(film());
-      expect(edges.filter((e) => e.target === "snk:RENDER")).toEqual([]);
+      expect(edges.filter((e) => e.target === "snk:MIX")).toEqual([]);
       expect(edges.map((e) => `${e.source}->${e.target}`).sort()).toEqual([
+        "mod:corner->snk:RENDER",
+        "mod:grade->snk:RENDER",
         "snk:MIX->snk:OUT",
         "snk:RENDER->snk:VIDEO_OUT",
         "trk:main->mod:grade",

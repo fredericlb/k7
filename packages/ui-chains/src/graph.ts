@@ -1276,10 +1276,17 @@ export function buildGraph(
     for (const o of c.out) {
       // A destination may name a PORT (`crossfade#b`), split off before any test below or it invents a sink.
       const { node: toNode, port: toPort } = splitPort(o.to);
-      // A cable into the SUM is not drawn — every chain in the song ends there. See docs/graphBuild.md.
+      // A cable into MIX is NEVER drawn: every chain in the song ends at the sum, so those arrows
+      // say nothing the picture does not — one per lane, crossing it end to end. That argument is
+      // the MIXER's (docs/graphBuild.md) and it stops there.
+      //
+      // RENDER's cables ARE drawn. A picture has a handful of sources rather than one per lane,
+      // and left implicit a camera hangs off nothing while the compositor reads as unfed — which
+      // is the whole of the picture half in a `live-video` rig. The socket goes with it: nothing
+      // arriving means no signal to type it from, and a compositor grew an AUDIO plug.
       if (isSum(toNode)) {
         feedsSum[toNode] = true;
-        continue;
+        if (toNode !== RENDER_OUT) continue;
       }
       // A host may ask for the DEVICES to be left out entirely — see `drawMainOut`.
       if (isDevice(toNode) && opts.drawMainOut === false) continue;
