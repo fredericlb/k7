@@ -2,8 +2,9 @@
 // the middle, with the beats in yellow and the transients in grey. Canvas, driven by its own
 // animation frame off the deck's STEERED reader — never by React state. See ../../docs/waveform.md.
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { DeckTempo } from "../deckVocabulary";
+import { shuttleRate } from "../shuttle";
 import { bandsAt, columnColour } from "../spectrumColour";
 import {
   barsIn,
@@ -26,34 +27,51 @@ const BAR = "#f97316";
 const TRANSIENT = "rgba(148,163,184,0.55)";
 const PLAYHEAD = "#f8fafc";
 
-/** How often a DRAG may move the record — a cadence the clip era set, see ../../docs/waveform.md. */
-const SCRUB_MS = 120;
+/** How long the landed position is held after a release, while the engine catches up. */
+const HOLD_MS = 700;
+/** …and how close the needle has to get for the hold to be let go of early. */
+const HOLD_EPS = 0.08;
 
-/** Drag the band to push the record: the audio slides under a fixed playhead, so LEFT is forward. */
-function scrub(
+/** Drag the band to SHUTTLE the record: the distance held is a SPEED, not a step.
+ *
+ * Left runs forward, right rewinds, and the further out the faster (`shuttleRate`). Nothing is
+ * seeked while the hand is down — the offset is integrated here and drawn, and ONE seek goes out
+ * on release. See ../../docs/waveform.md. */
+function shuttle(
   e: React.PointerEvent<HTMLDivElement>,
   onShove: (seconds: number) => void,
+  /** Draw at the live needle plus this many seconds; `null` hands the drawing back. */
+  preview: (seconds: number | null) => void,
+  /** …and hold it at an ABSOLUTE offset after the release, until the needle arrives. */
+  hold: (seconds: number) => void,
 ): void {
   const width = e.currentTarget.clientWidth;
   if (!(width > 0)) return;
   e.currentTarget.setPointerCapture(e.pointerId);
-  // The anchor is the last x SENT FROM, never the previous frame: the throttle must not drop travel.
-  let from = e.clientX;
-  let last = 0;
-  const secondsSince = (x: number) => ((from - x) / width) * WINDOW_SECONDS;
-  const move = (ev: PointerEvent) => {
-    const now = Date.now();
-    if (now - last < SCRUB_MS) return;
+  const originX = e.clientX;
+  let dx = 0;
+  let offset = 0;
+  let last = performance.now();
+  let frame = requestAnimationFrame(function tick(now: number) {
+    frame = requestAnimationFrame(tick);
+    // Integrated on the VIEW's frames rather than on the pointer's: a hand held still keeps running.
+    offset += shuttleRate(dx, width) * ((now - last) / 1000);
     last = now;
-    onShove(secondsSince(ev.clientX));
-    from = ev.clientX;
+    preview(offset);
+  });
+  const move = (ev: PointerEvent) => {
+    dx = ev.clientX - originX;
   };
-  const up = (ev: PointerEvent) => {
+  const up = () => {
+    cancelAnimationFrame(frame);
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
-    // Whatever the throttle did not send: the position let go of has to be the one that plays.
-    const rest = secondsSince(ev.clientX);
-    if (rest !== 0) onShove(rest);
+    preview(null);
+    if (offset === 0) return;
+    // The one seek of the whole gesture — and the position is HELD until it lands, or the band
+    // would snap back to where the record still is for the length of a round trip.
+    hold(offset);
+    onShove(offset);
   };
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", up);
@@ -86,6 +104,22 @@ export function Waveform({
   onShove?: (seconds: number) => void;
 }) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
+  /** What the hand has run up while it is down — REFS, like the needle, so a shuttle at 60 fps
+   *  re-renders nothing: the canvas reads them in its own loop (../../docs/waveform.md). */
+  const drag = useRef<number | null>(null);
+  const hold = useRef<{ at: number; until: number } | null>(null);
+  const preview = useCallback((seconds: number | null) => {
+    drag.current = seconds;
+  }, []);
+  const land = useCallback(
+    (seconds: number) => {
+      hold.current = {
+        at: needle() + seconds,
+        until: performance.now() + HOLD_MS,
+      };
+    },
+    [needle],
+  );
 
   useEffect(() => {
     const el = canvas.current;
@@ -112,7 +146,20 @@ export function Waveform({
       ctx.clearRect(0, 0, w, h);
 
       // Where we are NOW: a stopped deck's needle simply does not move, whichever clock it is on.
-      const at = needle();
+      // …unless a hand is on the band. A DRAG draws the live needle plus what the shuttle has run
+      // up, and a RELEASE holds the position it landed on until the engine's needle arrives there
+      // — neither is a seek, and the ref is what keeps both off React. See ../../docs/waveform.md.
+      const held = hold.current;
+      const live = needle();
+      let at = live + (drag.current ?? 0);
+      if (held !== null) {
+        if (
+          Math.abs(live - held.at) < HOLD_EPS ||
+          performance.now() > held.until
+        )
+          hold.current = null;
+        else at = held.at;
+      }
 
       const mid = Math.round(h / 2) + 0.5;
       if (!envelope) {
@@ -185,8 +232,14 @@ export function Waveform({
         onShove ? "cursor-ew-resize touch-none" : ""
       }`}
       style={{ height: `${height}px` }}
-      onPointerDown={onShove ? (e) => scrub(e, onShove) : undefined}
-      title={onShove ? "glisser pour pousser le disque" : undefined}
+      onPointerDown={
+        onShove ? (e) => shuttle(e, onShove, preview, land) : undefined
+      }
+      title={
+        onShove
+          ? "glisser à gauche pour avancer, à droite pour reculer — plus loin, plus vite"
+          : undefined
+      }
     >
       <canvas ref={canvas} className="h-full w-full" />
       {analysing ? (

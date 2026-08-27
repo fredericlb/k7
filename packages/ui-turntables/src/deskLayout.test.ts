@@ -7,6 +7,7 @@ import {
   stemStripHeight,
   stripHeight,
   stripLayout,
+  underWave,
   VINYL_MAX,
   VINYL_MIN,
   WAVE_BASE,
@@ -167,6 +168,57 @@ describe("deskLayout", () => {
 });
 
 // The strip grew a TRIM at its head and an optional ECHO at its foot — ../docs/mix.md, ../docs/fx.md.
+describe("where the crossfader lands", () => {
+  // A deck stacks waveform, cues, loop and title against the foot of its column; the middle
+  // column stacks a `waveform`-tall box and `underWave` against the same foot. The crossfader is
+  // on the waveform's line only while those two sums agree — MixerColumn draws no number of
+  // its own, so this is the whole of the claim.
+  const deckBelowWave = (l: ReturnType<typeof deskLayout>) =>
+    12 + 28 + 12 + 24 + (l.title ? 12 + 16 : 0);
+
+  it("agrees with a deck at every height, drawn title or not", () => {
+    for (let h = 120; h <= 1400; h += 3) {
+      const l = deskLayout(h);
+      expect(underWave(l)).toBe(deckBelowWave(l));
+    }
+  });
+
+  it("loses the title's row exactly when the deck does", () => {
+    const withTitle = deskLayout(900);
+    expect(withTitle.title).toBe(true);
+    // The tightest desk drops the title, and the band under the crossfader shortens with it.
+    const bare = deskLayout(130);
+    expect(bare.title).toBe(false);
+    expect(underWave(bare)).toBe(underWave(withTitle) - (12 + 16));
+  });
+});
+
+describe("the slack a tall desk has", () => {
+  /** What the column actually draws at a given height: the pieces, and the gaps between them. */
+  const drawn = (h: number): number => {
+    const l = deskLayout(h);
+    const rows = [l.vinyl, l.waveform, 28, 24, ...(l.title ? [16] : [])].filter(
+      (n) => n > 0,
+    );
+    return rows.reduce((a, b) => a + b, 0) + 12 * (rows.length - 1);
+  };
+
+  it("leaves room over — which is what the waveform block is anchored against", () => {
+    // The record is CAPPED, so a fullscreened desk draws less than it was given. That slack used
+    // to fall after the title, pushing the cues and the loop row away from the edge a hand
+    // reaches for; `DeckSide`'s `mt-auto` puts it above the waveform instead. At 0 the
+    // anchoring would be a no-op and somebody would have made the column fill its own height.
+    expect(drawn(900)).toBeLessThan(900);
+    expect(900 - drawn(900)).toBeGreaterThan(100);
+  });
+
+  it("never draws MORE than the height it was given, at any size", () => {
+    // The other side of it: an overflowing column pushes the block off the bottom instead.
+    for (let h = 120; h <= 1400; h += 7)
+      expect(drawn(h)).toBeLessThanOrEqual(h);
+  });
+});
+
 describe("the strip's two new rows", () => {
   const steps = [900, 400, 300, 206, 100];
 

@@ -45,6 +45,15 @@ const TITLE = 16;
 /** `gap-3` between the stacked pieces. */
 const GAP = 12;
 
+/** How tall everything UNDER the waveform is: the cues, the loop row, the title when it is drawn,
+ *  and the gaps that separate them — the leading one included.
+ *
+ * The MIDDLE column pads itself by exactly this, which is what lands the crossfader on the
+ * waveform's own line rather than on the cue row's. Answered here because these four numbers are
+ * this file's, and a copy of them in the view is a copy that goes stale in silence. */
+export const underWave = (l: Pick<DeskLayout, "title">): number =>
+  GAP + CUES + GAP + LOOP + (l.title ? GAP + TITLE : 0);
+
 /** The strip's sizes, largest first — a ladder and not a formula, since a knob is a DRAWN thing. */
 const STRIP_STEPS: readonly StripLayout[] = [
   { knob: 36, filter: 44, readout: true, gap: 12 },

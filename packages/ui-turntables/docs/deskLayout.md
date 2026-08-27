@@ -110,3 +110,76 @@ pupitre, et de la présence d'un timeline. Un drapeau serait st0 qui devine.
 `deskLayout` est **totale** : 0 (avant la première mesure), un négatif ou un pixel fractionnaire
 répondent tous par une mise en page dessinable. La première image dessine donc un pupitre
 lisible et la seconde le bon, sans qu'aucun `NaN` n'atteigne un attribut de style.
+
+## Le mou tombe AU-DESSUS de la forme d'onde, pas en dessous
+
+Le disque est **plafonné** à 352 px. Une colonne plus haute que ce que `deskLayout` dessine a donc
+du mou, et il y en a beaucoup dès qu'on passe le pupitre en plein écran :
+
+| hauteur de colonne | dessiné | mou |
+|---|---|---|
+| un panneau, moitié d'un 1080 | 470 | **0** |
+| un panneau sur un grand écran | 548 | 152 |
+| plein écran sur un 1080 | 548 | **452** |
+| plein écran sur un 1440 | 548 | **812** |
+
+Empilé par le haut, ce mou tombait **après le titre** : la forme d'onde, les repères et la boucle
+remontaient vers le milieu de l'écran, loin du bord qu'une main cherche, et le bas de la colonne
+était vide. C'est pour ça que le défaut ne se voyait pas en panneau (mou nul) et sautait aux yeux
+en plein écran.
+
+`DeckSide` met donc `mt-auto` sur le bloc **forme d'onde + repères + boucle + titre** : tout ce
+qu'on TOUCHE est ancré au bas de la colonne, et le mou passe au-dessus.
+
+Et le disque ne reste pas collé en haut de ce mou : la rangée qui le porte est `flex-1` plutôt que
+`shrink-0`, donc elle prend tout ce que le bloc du bas laisse, et son propre `items-center` met le
+disque au **milieu** de cette place. Les potards de stems sont dans la même rangée, à sa gauche
+([stems.md](stems.md)), et suivent sans rien demander. Pas de `min-h-0` dessus : une rangée qui
+peut rétrécir sous le disque qu'elle porte le ferait déborder, et `deskLayout` a justement calculé
+qu'il tient.
+
+L'inégalité que ça suppose est tenue par un test (`deskLayout.test`, « the slack a tall desk has ») :
+la colonne ne dessine jamais **plus** que sa hauteur — sinon le bloc serait poussé hors du bas — et
+en dessine strictement **moins** en plein écran, sinon l'ancrage ne servirait à rien.
+
+### La colonne du milieu suit, et le crossfader tombe sur la forme d'onde
+
+Le pupitre a trois colonnes, et deux d'entre elles viennent d'être ancrées en bas. La troisième
+devait suivre, sinon le mou du plein écran tombait sous le crossfader pendant que les platines
+l'avaient au-dessus.
+
+Le crossfader ne visait pas la bonne ligne non plus. Il était poussé vers le bas par un bloc de
+faders haut de `disque + forme d'onde + gap`, ce qui le posait sur **la rangée de repères**. Or ce
+qu'il mélange, ce sont les deux bandes : sa place est celle de la **forme d'onde**.
+
+Il est donc dessiné dans une boîte de la hauteur exacte de la forme d'onde, suivie — **sans gap** —
+d'une rangée haute de `underWave(layout)`. Le bloc du milieu fait ainsi la même hauteur que le bloc
+d'une platine, et les deux ancrés au même pied tombent sur la même ligne :
+
+| hauteur | disque | forme d'onde | haut de la bande |
+|---|---|---|---|
+| 470 (panneau) | 274 | 80 | 286 — crossfader 286 |
+| 700 | 352 | 80 | 516 — crossfader 516 |
+| 1000 (plein écran) | 352 | 80 | 816 — crossfader 816 |
+| 1360 | 352 | 80 | 1176 — crossfader 1176 |
+
+`underWave` vit dans `deskLayout.ts` avec les quatre constantes qu'il additionne : une copie dans la
+vue serait une copie qui se périme en silence. `deskLayout.test` (« where the crossfader lands »)
+tient l'égalité à toutes les hauteurs, titre dessiné ou non — c'est tout ce qui garantit
+l'alignement, puisque `MixerColumn` ne calcule aucun nombre de son côté.
+
+#### Et sa LARGEUR : `self-stretch`, pas `w-full`
+
+Le crossfader doit finir là où finit la forme d'onde d'à côté. Il déborde donc de sa colonne de
+`CROSSFADE_BLEED` de chaque côté — le `gap-4` de la rangée, le `w-16` de la tranche, le `gap-2` de
+la section — par deux marges négatives.
+
+Ce qui donne sa largeur est **`self-stretch` dans un conteneur en colonne** : un élément étiré est
+dimensionné au conteneur **moins** ses marges, donc deux marges de −88 le font 160 + 176 = 336, bord
+à bord entre les deux bandes. `w-full` dans une rangée n'est **pas** la même chose : il vaut 100 %
+tout court, soit 160, et les marges ne font alors que le décaler de 88 vers la gauche. Le pupitre a
+passé une révision comme ça — la barre trop courte et posée de travers — et rien ne pouvait le dire.
+
+Les trois nombres de `CROSSFADE_BLEED` sont une **copie** de classes écrites dans trois autres
+fichiers, et une copie périmée ne casse rien : la barre s'arrête un peu avant, c'est tout.
+`crossfadeReach.test` relit donc ces classes et refuse la somme si l'une d'elles a bougé.

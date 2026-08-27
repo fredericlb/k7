@@ -195,3 +195,39 @@ demande.
 Tant qu'il ne l'est pas, il n'a pas de bandes du tout et sa waveform reste grise — ce qui se lit
 comme « pas analysé comme ça » plutôt que comme du silence, et c'est pour ça que les trois
 champs sont optionnels de bout en bout.
+
+## Glisser sur la bande : une NAVETTE, pas un pas
+
+La bande se traîne pour déplacer le disque, et le geste est celui d'une molette de navette plutôt
+que d'un curseur : **la distance tenue est une vitesse**, pas un déplacement.
+
+| | |
+|---|---|
+| vers la **gauche** | ça **avance** |
+| vers la **droite** | ça **recule** |
+| plus loin | plus vite |
+| au relâchement | **un** seek, et un seul |
+
+Le sens n'est pas une convention à retenir : l'audio glisse vers la gauche sous une tête fixe, donc
+tirer vers la gauche amène vers soi ce qui arrive. La main fait ce que fait l'audio.
+
+`shuttleRate` est la fonction, et elle est **carrée** plutôt que proportionnelle. C'est tout
+l'intérêt d'une navette : un seul geste doit couvrir « pousse-le d'un cheveu » et « va au refrain »,
+ce qu'une droite ne sait pas faire — calibrée pour que le bord serve, les premiers pixels partent
+déjà en courant. Le tiers de la course vaut donc le **neuvième** de la vitesse, et les derniers
+tiers font le reste. Le maximum est atteint à la **moitié** de la bande, qui est la distance de la
+tête au bord : tirer sous la tête tout le futur visible, c'est le plus vite qu'on aille.
+
+Une zone morte de quelques pixels garde un clic tremblé immobile.
+
+### Rien n'est seeké tant que la main est posée
+
+L'offset est intégré **sur les frames de la vue** — main immobile, le disque continue de courir — et
+dessiné en ajoutant au `needle` vivant. Le moteur n'entend rien. C'est ce que demandait le geste :
+on cherche en regardant, et on ne décide qu'en lâchant.
+
+Au relâchement, un `onShove` part avec le total. Et la position atteinte est **tenue** le temps que
+l'aiguille y arrive (`HOLD_EPS`, ou `HOLD_MS` au pire) : sans ça la bande reviendrait là où le
+disque est encore, pendant un aller-retour, avant de sauter. Les deux valeurs sont des `ref`, comme
+le `needle` lui-même et pour la même raison — une navette à 60 images par seconde qui passerait par
+un état React redessinerait les deux platines, la liste et le graphe pour bouger une ligne.

@@ -283,8 +283,12 @@ export function DeckSide({
       {/* Tempo on the OUTER edge and shaping on the INNER one, so the desk reads as a mirror. */}
       {side === "A" ? fader : strip}
       <div className="flex min-w-0 flex-1 flex-col items-center gap-3">
-        {/* The STEMS beside the record and to its LEFT, above the waveform — ../../docs/stems.md. */}
-        <div className="flex shrink-0 items-center justify-center gap-2">
+        {/* The STEMS beside the record and to its LEFT, above the waveform — ../../docs/stems.md.
+            `flex-1` and not `shrink-0`: this row takes whatever the block below leaves, and its own
+            `items-center` then puts the record — and the stem knobs beside it — in the MIDDLE of
+            that space rather than at the top of it. No `min-h-0`, so it can never shrink under the
+            record it is holding. See ../../docs/deskLayout.md. */}
+        <div className="flex flex-1 items-center justify-center gap-2">
           <StemStrip
             stems={stems}
             live={stemLive}
@@ -316,48 +320,54 @@ export function DeckSide({
             />
           ) : null}
         </div>
-        {/* Under the record, and ALWAYS drawn even with nothing loaded — ../../docs/deskLayout.md. */}
-        <Waveform
-          envelope={wave?.k === "ready" ? wave.env : null}
-          // The same clock the record above reads — one needle per deck, whichever way it plays.
-          needle={needle}
-          loop={loopSpan}
-          tempo={tempo}
-          analysing={wave?.k === "loading"}
-          problem={wave?.k === "none" ? wave.why : null}
-          height={layout.waveform}
-          // Draggable only with a record on and a tempo measured: `place` needs a ratio to convert by.
-          onShove={load && tempo ? onShove : undefined}
-        />
-        {/* Edge to edge, nothing flanking them: eight cues are eight targets, and a target wants width. */}
-        <CueButtons
-          markers={cues}
-          onJump={onCueJump}
-          onSet={onCueSet}
-          // The deck's OWN needle, read on the way down: no deck follows the transport any more.
-          now={needle}
-          disabled={!load}
-        />
-        {/* Under them, and greyed the same way: a loop is a length in BEATS, so it wants a grid. */}
-        <LoopRow
-          beats={loop.beats}
-          rolling={loop.rolling}
-          pending={loop.pending}
-          step={loop.step}
-          disabled={!load || !loop.can}
-          onJump={loop.onJump}
-          onIn={loop.onIn}
-          onOut={loop.onOut}
-          onLength={loop.onLength}
-          onResize={loop.onResize}
-          onRoll={loop.onRoll}
-        />
-        {/* What is loaded, in words: it earns its line only where the record's label is absent. */}
-        {layout.title ? (
-          <div className="w-full truncate text-center text-xs text-muted-foreground">
-            {load ? load.title : "rien de chargé"}
-          </div>
-        ) : null}
+        {/* The waveform and everything under it sit at the FOOT of the column: `deskLayout` caps the
+            record, so a tall desk has slack, and left to fall after the title it pushed the strip
+            the hands use away from the edge they reach for. `mt-auto` puts the slack ABOVE this
+            block instead — see ../../docs/deskLayout.md. */}
+        <div className="mt-auto flex w-full flex-col items-center gap-3">
+          {/* Under the record, and ALWAYS drawn even with nothing loaded — ../../docs/deskLayout.md. */}
+          <Waveform
+            envelope={wave?.k === "ready" ? wave.env : null}
+            // The same clock the record above reads — one needle per deck, whichever way it plays.
+            needle={needle}
+            loop={loopSpan}
+            tempo={tempo}
+            analysing={wave?.k === "loading"}
+            problem={wave?.k === "none" ? wave.why : null}
+            height={layout.waveform}
+            // Draggable only with a record on and a tempo measured: `place` needs a ratio to convert by.
+            onShove={load && tempo ? onShove : undefined}
+          />
+          {/* Edge to edge, nothing flanking them: eight cues are eight targets, and a target wants width. */}
+          <CueButtons
+            markers={cues}
+            onJump={onCueJump}
+            onSet={onCueSet}
+            // The deck's OWN needle, read on the way down: no deck follows the transport any more.
+            now={needle}
+            disabled={!load}
+          />
+          {/* Under them, and greyed the same way: a loop is a length in BEATS, so it wants a grid. */}
+          <LoopRow
+            beats={loop.beats}
+            rolling={loop.rolling}
+            pending={loop.pending}
+            step={loop.step}
+            disabled={!load || !loop.can}
+            onJump={loop.onJump}
+            onIn={loop.onIn}
+            onOut={loop.onOut}
+            onLength={loop.onLength}
+            onResize={loop.onResize}
+            onRoll={loop.onRoll}
+          />
+          {/* What is loaded, in words: it earns its line only where the record's label is absent. */}
+          {layout.title ? (
+            <div className="w-full truncate text-center text-xs text-muted-foreground">
+              {load ? load.title : "rien de chargé"}
+            </div>
+          ) : null}
+        </div>
       </div>
       {side === "B" ? fader : strip}
     </section>

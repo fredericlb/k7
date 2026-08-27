@@ -18,7 +18,7 @@ import {
 } from "@studio/engine-browser/store";
 import { useEffect, useRef, useState } from "react";
 import { type DeckId, LEVEL_DB, MIX_CENTRE } from "../deckVocabulary";
-import type { DeskLayout } from "../deskLayout";
+import { type DeskLayout, underWave } from "../deskLayout";
 
 /** `gap-3` between the column's stacked pieces — the same one the deck columns use. */
 const GAP = 12;
@@ -28,7 +28,7 @@ const GAP = 12;
  * the edge of a deck's cue row, which is where that fader must end — ../../docs/mix.md.
  *
  * The channel faders above it do NOT bleed: they are per-deck controls and stay in their column. */
-const CROSSFADE_BLEED = 16 + 64 + 8;
+export const CROSSFADE_BLEED = 16 + 64 + 8;
 
 /** Stood in for a host that provides no store, so the hooks below stay unconditional.
  *
@@ -169,8 +169,10 @@ function ChannelFader({
 
 /** The whole middle column: the two channel faders over the crossfader — ../../docs/mix.md.
  *
- * The spacers the crossfader used to sit under are GONE, but its line has not moved: the faders
- * take exactly the height those two rows had, gap included, so it still lands on the cue row. */
+ * BOTTOM-ANCHORED, like a deck's own column: the slack a tall desk has falls above the faders
+ * rather than under the crossfader. And the crossfader sits in a box exactly as tall as the
+ * WAVEFORM, padded below by `underWave`, so its line is the waveform's — the two bands the
+ * crossfader mixes. See ../../docs/deskLayout.md. */
 export function MixerColumn({
   mix,
   layout,
@@ -205,9 +207,9 @@ export function MixerColumn({
 }) {
   return (
     <div className="flex w-40 shrink-0 flex-col items-center gap-3">
-      {/* The two rows the crossfader used to be pushed down by, spent on the faders instead. */}
+      {/* The faders keep the height they had; `mt-auto` below is what hangs the group off the foot. */}
       <div
-        className="flex w-full shrink-0 justify-center gap-4"
+        className="mt-auto flex w-full shrink-0 justify-center gap-4"
         style={{ height: head + layout.waveform + GAP }}
       >
         {(["deckA", "deckB"] as const).map((deck, i) => (
@@ -222,58 +224,79 @@ export function MixerColumn({
           />
         ))}
       </div>
-      {/* `self-stretch` plus the bleed: the row's width becomes the column PLUS both channel strips. */}
-      <div
-        className="relative z-10 flex h-7 items-center gap-2 self-stretch"
-        style={{ marginLeft: -CROSSFADE_BLEED, marginRight: -CROSSFADE_BLEED }}
-      >
-        <span className="w-3 shrink-0 text-center font-semibold text-xs">
-          A
-        </span>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={mix}
-          onChange={(e) => onChange(Number(e.target.value))}
-          disabled={!ready}
-          className="min-w-0 flex-1 accent-foreground"
-          aria-label="crossfade entre la platine A et la platine B"
-        />
-        <span className="w-3 shrink-0 text-center font-semibold text-xs">
-          B
-        </span>
-      </div>
-      <div className="flex w-full items-center justify-center gap-3">
-        {/* Drawn ONCE though both decks obey it: two buttons that always agreed would say less. */}
-        <button
-          type="button"
-          onClick={onQuantise}
-          title={
-            quantise
-              ? "quantise : les boucles et les sauts tombent sur le temps"
-              : "quantise coupé : ils tombent où la main les met"
-          }
-          className={`h-6 w-8 rounded border font-mono text-[10px] ${
-            quantise
-              ? "border-amber-500 bg-amber-500 text-white"
-              : "border-border bg-background text-muted-foreground"
-          }`}
+      {/* The crossfader and the row under it, GAPLESS: together they are exactly as tall as a
+          deck's waveform and everything below it, so the crossfader's line IS the waveform's —
+          which is the pair of bands it mixes. See ../../docs/deskLayout.md. */}
+      <div className="flex w-full shrink-0 flex-col">
+        {/* A COLUMN, so the row below stretches on the cross axis — which is the width here. */}
+        <div
+          className="flex w-full flex-col justify-center"
+          style={{ height: layout.waveform }}
         >
-          Q
-        </button>
-        {/* Double-click the readout to recentre: the one position a mouse drag never lands on exactly. */}
-        {layout.title ? (
+          {/* `self-stretch` plus the bleed: a stretched item is sized to the container MINUS its
+              margins, so these two negatives make the row the column plus both channel strips —
+              edge to edge between the waveforms. `w-full` is not the same thing and does not work
+              here: it resolves to a flat 100% and the bleed then only shifts the row left. */}
+          <div
+            className="relative z-10 flex h-7 items-center gap-2 self-stretch"
+            style={{
+              marginLeft: -CROSSFADE_BLEED,
+              marginRight: -CROSSFADE_BLEED,
+            }}
+          >
+            <span className="w-3 shrink-0 text-center font-semibold text-xs">
+              A
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={mix}
+              onChange={(e) => onChange(Number(e.target.value))}
+              disabled={!ready}
+              className="min-w-0 flex-1 accent-foreground"
+              aria-label="crossfade entre la platine A et la platine B"
+            />
+            <span className="w-3 shrink-0 text-center font-semibold text-xs">
+              B
+            </span>
+          </div>
+        </div>
+        {/* The cue row's band, spent on the two things the desk has that a deck does not. */}
+        <div
+          className="flex w-full items-center justify-center gap-3"
+          style={{ height: underWave(layout) }}
+        >
+          {/* Drawn ONCE though both decks obey it: two buttons that always agreed would say less. */}
           <button
             type="button"
-            onDoubleClick={() => onChange(MIX_CENTRE)}
-            title="double-clic : recentrer"
-            className="font-mono text-muted-foreground text-xs tabular-nums"
+            onClick={onQuantise}
+            title={
+              quantise
+                ? "quantise : les boucles et les sauts tombent sur le temps"
+                : "quantise coupé : ils tombent où la main les met"
+            }
+            className={`h-6 w-8 rounded border font-mono text-[10px] ${
+              quantise
+                ? "border-amber-500 bg-amber-500 text-white"
+                : "border-border bg-background text-muted-foreground"
+            }`}
           >
-            {Math.round(mix * 100)}%
+            Q
           </button>
-        ) : null}
+          {/* Double-click the readout to recentre: the one position a drag never lands on exactly. */}
+          {layout.title ? (
+            <button
+              type="button"
+              onDoubleClick={() => onChange(MIX_CENTRE)}
+              title="double-clic : recentrer"
+              className="font-mono text-muted-foreground text-xs tabular-nums"
+            >
+              {Math.round(mix * 100)}%
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );
