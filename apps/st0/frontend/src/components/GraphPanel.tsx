@@ -109,17 +109,21 @@ export function GraphPanel({
   // The session memory ChainsTab keeps, per TRACK — another track is another picture — and emptied by `graph organize`.
   const prevLaid = useRef<Map<string, { x: number; y: number }> | null>(null);
   const prevScope = useRef<string | number>("");
+  /** The ticked row, as a NUMBER and outside the layout memo: the viewport is a fresh array on
+   *  every fetch, so depending on it directly would relayout on every poll — and leaving it out
+   *  is what left the menu on the old shape (../docs/picture.md). */
+  const aspectRow = useMemo(() => {
+    const shape = viewport ? aspectOf(viewport[0], viewport[1]) : null;
+    return shape ? ASPECTS.findIndex((a) => a.name === shape.name) : undefined;
+  }, [viewport]);
+
   const laid = useMemo(() => {
     if (!graph || !trackId) return null;
     const sub = subgraphForTrack(graph, trackId);
     if (!Object.keys(sub.chains).length) return null; // nothing routes this track
-    // Which row the RENDER card ticks, by RATIO — the same answer ChainsTab derives.
-    const shape = viewport ? aspectOf(viewport[0], viewport[1]) : null;
     const { nodes, edges } = buildGraph(sub, {
       cameras,
-      ...(shape
-        ? { aspect: ASPECTS.findIndex((a) => a.name === shape.name) }
-        : {}),
+      ...(aspectRow === undefined ? {} : { aspect: aspectRow }),
     });
     const scope = `${trackId}:${organizeKey}`;
     if (prevScope.current !== scope) {
@@ -137,7 +141,7 @@ export function GraphPanel({
       out.nodes.map((n) => [n.id, { x: n.x, y: n.y }]),
     );
     return out;
-  }, [graph, trackId, organizeKey, cameras]);
+  }, [graph, trackId, organizeKey, cameras, aspectRow]);
 
   // A chain selected on one track means nothing once the caret moves to another.
   useEffect(() => setSelected(null), [trackId]);

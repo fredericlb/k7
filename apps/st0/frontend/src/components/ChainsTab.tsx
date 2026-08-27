@@ -393,14 +393,20 @@ export function ChainsTab({
   // What has already been written to `positions:` this session — see the pinning effect below.
   const pinned = useRef(new Set<string>());
   const organizeSeen = useRef(organizeKey);
+  /** Which row of the RENDER card's dropdown is ticked — by RATIO, so an old [1280, 720] project
+   *  ticks the same row as a new one, and nothing is ticked for a shape on neither list.
+   *
+   *  Derived HERE rather than inside the layout memo below, and as a NUMBER: the viewport is a
+   *  fresh array on every fetch, so depending on it directly would relayout the graph on every
+   *  poll — and leaving it out of the deps altogether is what left the menu showing the old shape
+   *  until something else moved. See ../docs/picture.md. */
+  const aspectRow = useMemo(() => {
+    const shape = viewport ? aspectOf(viewport[0], viewport[1]) : null;
+    return shape ? ASPECTS.findIndex((a) => a.name === shape.name) : undefined;
+  }, [viewport]);
+
   const laid = useMemo(() => {
     if (!drawn) return null;
-    // Which row of the RENDER card's dropdown is ticked — by RATIO, so an old [1280, 720] project
-    // ticks the same row as a new one, and nothing is ticked for a shape on neither list.
-    const shape = viewport ? aspectOf(viewport[0], viewport[1]) : null;
-    const aspectRow = shape
-      ? ASPECTS.findIndex((a) => a.name === shape.name)
-      : undefined;
     // The OUT card IS drawn, and it costs one node — plus the two things not in the graph document: the inputs, and the song's output level.
     const built = buildGraph(drawn, {
       drawMainOut: true,
@@ -443,6 +449,7 @@ export function ChainsTab({
     inputDevices,
     cameras,
     masterVolume,
+    aspectRow,
     organizeKey,
     openAssemblies,
   ]);

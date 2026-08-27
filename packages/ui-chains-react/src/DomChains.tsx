@@ -1983,32 +1983,15 @@ function NodeInner({
           }),
         )}
 
-      {n.kind === "sink" ? (
+      {/* A sink with a declared FACE falls through to the widget branch below, so its controls are
+          children of the CARD and land on `widgetRect`'s coordinates. Rendering them inside
+          `.dgx-out` — which is itself absolute at top:38px — added the header's height twice and
+          pushed them out the bottom. `mainOutCard` has always sized the OUT card to its `ui`, so
+          the room was allocated and the face never drawn. */}
+      {n.kind === "sink" && !(n.ui && showWidgets) ? (
         <div className="dgx-out">
-          {/* A sink with a declared FACE draws it — the frame's shape on RENDER, the song's level
-              on OUT. `mainOutCard` has always sized the card to its `ui`; this branch drew the
-              plain body over it regardless, so the face was allocated room and never rendered. */}
-          {n.ui && showWidgets ? (
-            Object.entries(n.ui.widgets).map(([k, w]) => (
-              <Widget
-                key={k}
-                n={n}
-                w={w}
-                ch={ch}
-                onDragStart={onDragStart}
-                onTap={onTapWidget}
-                onPick={onPickWidget}
-                onPickAsset={onPickAsset}
-                onWatchWaveform={onWatchWaveform}
-                onContextParam={onContextParam}
-              />
-            ))
-          ) : (
-            <>
-              <b>OUT</b>
-              <span>stereo</span>
-            </>
-          )}
+          <b>OUT</b>
+          <span>stereo</span>
           {/* Auditioning happens at the OUTPUT, where the signal after the whole chain arrives. */}
           {sinkPlay ? (
             <button
