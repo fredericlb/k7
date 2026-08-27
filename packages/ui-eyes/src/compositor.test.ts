@@ -4,7 +4,7 @@
 // all) and none of those needs one. See song-video/docs/transitions.md.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Compositor } from "./compositor";
+import { Compositor, coverUV, sourceAR } from "./compositor";
 import type { SceneClip, SceneTransition, VideoScene } from "./scene";
 
 type Log = string[];
@@ -78,6 +78,7 @@ function fakeTarget() {
     bindTexture: (_t: unknown, tex: { id: number } | null) =>
       log.push(`bindTexture(${tex ? tex.id : 0})`),
     texImage2D: () => log.push("texImage2D"),
+    uniform4f: () => {},
     texParameteri: () => {},
     activeTexture: (u: number) => log.push(`activeTexture(${u - 33984})`),
     createFramebuffer: () => {
@@ -283,5 +284,64 @@ describe("drawing a blend", () => {
       new Map([["main", { name: "wipe", progress: 1, from: true, to: true }]]),
     );
     expect(uniforms.get("uP1")).toEqual([0.75]);
+  });
+});
+
+// A camera is 4:3 or 16:9 and the frame it lands in is whatever the project says. Sampling the
+// whole texture over the whole rect stretches one into the other, which is what these remove.
+describe("keeping a picture's shape", () => {
+  const R = (n: number) => Math.round(n * 1e6) / 1e6;
+
+  it("does nothing when the source already fits", () => {
+    expect(coverUV(16 / 9, 16 / 9)).toEqual([1, 1, 0, 0]);
+  });
+
+  it("crops the SIDES of a wide picture in a tall frame", () => {
+    // 16:9 into 9:16 — the width has to go, and evenly, or the subject drifts off-centre.
+    const [sx, sy, ox, oy] = coverUV(16 / 9, 9 / 16);
+    expect(R(sx)).toBe(R(9 / 16 / (16 / 9)));
+    expect(sy).toBe(1);
+    expect(R(ox)).toBe(R((1 - sx) / 2));
+    expect(oy).toBe(0);
+  });
+
+  it("crops the TOP AND BOTTOM of a 4:3 webcam in a 16:9 frame", () => {
+    const [sx, sy, ox, oy] = coverUV(4 / 3, 16 / 9);
+    expect(sx).toBe(1);
+    expect(R(sy)).toBe(R(4 / 3 / (16 / 9)));
+    expect(ox).toBe(0);
+    expect(R(oy)).toBe(R((1 - sy) / 2));
+  });
+
+  it("never shows outside the texture — the crop is a SUBSET of it", () => {
+    for (const [a, b] of [
+      [4 / 3, 16 / 9],
+      [16 / 9, 9 / 16],
+      [1, 2],
+      [3, 1],
+    ]) {
+      const [sx, sy, ox, oy] = coverUV(a, b);
+      expect(ox).toBeGreaterThanOrEqual(0);
+      expect(oy).toBeGreaterThanOrEqual(0);
+      expect(R(ox + sx)).toBeLessThanOrEqual(1);
+      expect(R(oy + sy)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("stays identity when a source has not said its size yet", () => {
+    // A layer draws before its first frame arrives; undistorted-or-not beats not at all.
+    expect(coverUV(0, 16 / 9)).toEqual([1, 1, 0, 0]);
+    expect(coverUV(16 / 9, 0)).toEqual([1, 1, 0, 0]);
+  });
+
+  it("reads a shape off whatever kind of source it is handed", () => {
+    expect(sourceAR({ videoWidth: 640, videoHeight: 480 } as never)).toBe(
+      4 / 3,
+    );
+    expect(sourceAR({ width: 1920, height: 1080 } as never)).toBe(16 / 9);
+    expect(sourceAR({ displayWidth: 100, displayHeight: 50 } as never)).toBe(2);
+    // A <video> before metadata reports 0×0, and 0 is what says "not yet".
+    expect(sourceAR({ videoWidth: 0, videoHeight: 0 } as never)).toBe(0);
+    expect(sourceAR({} as never)).toBe(0);
   });
 });

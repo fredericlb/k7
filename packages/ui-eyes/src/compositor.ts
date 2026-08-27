@@ -40,8 +40,45 @@ const FRAG = `#version 300 es
 precision mediump float;
 in vec2 vUV;
 uniform sampler2D uTex;
+uniform vec4 uUV;              // (scaleX, scaleY, offsetX, offsetY) — see coverUV
 out vec4 outColor;
-void main() { outColor = texture(uTex, vUV); }`;
+void main() { outColor = texture(uTex, vUV * uUV.xy + uUV.zw); }`;
+
+/** No transform: sample the texture over its whole face, which is what a rect-shaped one wants. */
+export const UV_FILL: readonly [number, number, number, number] = [1, 1, 0, 0];
+
+/**
+ * The UV transform that fills a `dstAR` rect with a `srcAR` picture WITHOUT distorting it: the
+ * overflow is cropped, evenly on both sides. A webcam is 4:3 or 16:9 and the frame it lands in is
+ * whatever the project says — sampling the whole texture over the whole rect stretches one into
+ * the other, which is the distortion this exists to remove.
+ *
+ * COVER rather than contain: a lane fills its rect. Letterboxing inside a layer would put bars in
+ * the middle of a composite, where nothing can paint over them; the FRAME's own bars are the
+ * viewport's business, not a layer's.
+ *
+ * Identity when either aspect is unknown — a source that has not said its size yet must draw
+ * undistorted-or-not rather than not at all.
+ */
+export function coverUV(
+  srcAR: number,
+  dstAR: number,
+): [number, number, number, number] {
+  if (!(srcAR > 0) || !(dstAR > 0) || srcAR === dstAR) return [1, 1, 0, 0];
+  const wide = srcAR > dstAR;
+  const sx = wide ? dstAR / srcAR : 1;
+  const sy = wide ? 1 : srcAR / dstAR;
+  return [sx, sy, (1 - sx) / 2, (1 - sy) / 2];
+}
+
+/** What a frame source is shaped like, or 0 when it will not say — see `upload`. */
+export function sourceAR(src: TexImageSource): number {
+  const v = src as Partial<HTMLVideoElement> &
+    Partial<VideoFrame> & { width?: number; height?: number };
+  const w = v.videoWidth || v.displayWidth || v.width || 0;
+  const h = v.videoHeight || v.displayHeight || v.height || 0;
+  return w > 0 && h > 0 ? w / h : 0;
+}
 
 interface LayerGL {
   id: string;
@@ -49,6 +86,10 @@ interface LayerGL {
   // The SECOND picture, only on a lane that dissolves: a lane that never does allocates nothing.
   tex2: WebGLTexture | null;
   rect: [number, number, number, number]; // clip space, precomputed from the viewport
+  /** The rect's own aspect in PIXELS, and the SOURCE's as the last upload reported it (0 = not
+   *  said yet). The two together are the UV transform that keeps a picture from stretching. */
+  dstAR: number;
+  srcAR: number;
   hasFrame: boolean; // nothing uploaded yet -> don't draw (avoids a black or garbage quad)
   // This layer's passes and their programs, index for index; a null program did not build and is stepped over.
   passes: ScenePass[];
@@ -133,6 +174,7 @@ export class Compositor {
   private gl: WebGL2RenderingContext;
   private prog: WebGLProgram;
   private uRect: WebGLUniformLocation;
+  private uUV: WebGLUniformLocation;
   private layers: LayerGL[] = [];
   private clear: [number, number, number];
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
@@ -168,6 +210,7 @@ export class Compositor {
       );
     this.prog = prog;
     this.uRect = gl.getUniformLocation(prog, "uRect")!;
+    this.uUV = gl.getUniformLocation(prog, "uUV")!;
 
     // One unit quad, shared by every layer (the per-layer rect is a uniform).
     const vbo = gl.createBuffer()!;
@@ -311,6 +354,9 @@ export class Compositor {
           tex,
           tex2: null, // a shape lane holds no clips, so it never dissolves
           rect: rectToClip(0, 0, vw, vh, vw, vh),
+          dstAR: vh > 0 ? vw / vh : 0,
+          // A shape lane is RASTERISED at viewport size, so it already fits: nothing to correct.
+          srcAR: vh > 0 ? vw / vh : 0,
           hasFrame: true,
           passes: l.passes ?? [],
           programs: (l.passes ?? []).map((p) => compilePass(gl, p)),
@@ -321,6 +367,8 @@ export class Compositor {
         tex,
         tex2: dissolves(l.clips) ? makeSlot(gl) : null,
         rect: rectToClip(l.x, l.y, l.w, l.h, vw, vh),
+        dstAR: l.h > 0 ? l.w / l.h : 0,
+        srcAR: 0, // said by the first upload, not by the document
         hasFrame: false,
         passes: l.passes ?? [],
         programs: (l.passes ?? []).map((p) => compilePass(gl, p)),
@@ -397,6 +445,8 @@ export class Compositor {
   private blit(
     tex: WebGLTexture,
     rect: [number, number, number, number],
+    /** How to sample the texture — `UV_FILL` for one already shaped like the rect. */
+    uv: readonly [number, number, number, number] = UV_FILL,
   ): void {
     const gl = this.gl;
     // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook — the rule misfires on the `use` prefix.
@@ -404,6 +454,7 @@ export class Compositor {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.uniform4fv(this.uRect, rect);
+    gl.uniform4f(this.uUV, uv[0], uv[1], uv[2], uv[3]);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
@@ -417,6 +468,10 @@ export class Compositor {
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    // Learned HERE and not from the document: a camera's shape is the machine's, and a file's is
+    // the file's — neither is anything the project could have said (docs/compositor.md).
+    const ar = sourceAR(src);
+    if (ar > 0) layer.srcAR = ar;
     if (slot === 0) layer.hasFrame = true;
   }
 
@@ -469,7 +524,12 @@ export class Compositor {
         pp.bindBack();
         gl.disable(gl.BLEND);
         if (blend) this.seedBlend(layer, blend);
-        else this.blit(layer.tex, [-1, -1, 1, 1]);
+        else
+          this.blit(
+            layer.tex,
+            [-1, -1, 1, 1],
+            coverUV(layer.srcAR, layer.dstAR),
+          );
         gl.enable(gl.BLEND);
         pp.swap();
         // The transition runs BEFORE the lane's own chain: an effect characterises the lane, so it
@@ -483,7 +543,7 @@ export class Compositor {
         continue;
       }
       bindComposite();
-      this.blit(layer.tex, layer.rect);
+      this.blit(layer.tex, layer.rect, coverUV(layer.srcAR, layer.dstAR));
     }
 
     if (!target || !pp) return;

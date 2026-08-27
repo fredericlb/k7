@@ -85,3 +85,31 @@ que des formes n'a pas de fin naturelle à rendre.
 Une couche dont aucune trame n'a encore été envoyée est **sautée** : une piste entre deux clips
 laisse voir le fond, plutôt qu'un quad noir ou le reste de la trame précédente. Une couche de formes,
 elle, est marquée dessinable dès la construction de la scène, puisque son upload a déjà eu lieu.
+
+## A picture keeps its shape — `coverUV`
+
+One textured quad per layer, sampled over its whole face, means the texture is STRETCHED into
+whatever rect the layer occupies. A webcam is 4:3 or 16:9, and the frame it lands in is whatever
+the project says: the two are rarely the same, and the difference was visible as a squashed face.
+
+So the plain program takes a UV transform, `uUV = (scaleX, scaleY, offsetX, offsetY)`, and the
+source is sampled through it: `texture(uTex, vUV * uUV.xy + uUV.zw)`.
+
+**COVER, not contain.** A lane fills its rect and the overflow is cropped, evenly on both sides.
+Letterboxing inside a layer would put bars in the middle of a composite, where no lane beneath can
+paint over them — the FRAME's bars are the viewport's business (`VideoCanvas`'s `fit`), not a
+layer's.
+
+**The source's shape is learned from the UPLOAD, never from the document.** A camera's aspect is
+the machine's and a file's is the file's; neither is anything a project could have written down.
+`sourceAR` reads whatever it is handed — `videoWidth` for a `<video>`, `displayWidth` for a
+`VideoFrame`, `width` for a canvas — and answers 0 when it is not said yet. 0 is identity: a layer
+draws before its first frame arrives, and undistorted-or-not beats not at all.
+
+The rect's own aspect comes the other way, off the scene: `l.w / l.h` at layer-build time.
+
+One limit worth stating. A layer with PASSES is seeded into a viewport-sized scratch before its
+chain runs, and blitted from there to its rect. The correction is applied at the seeding blit
+against the layer's own rect, which is exact when that rect IS the viewport — every camera, and
+every full-frame lane. A layer that is both smaller than the frame AND carries passes takes a
+second scaling from the scratch that this does not account for.
