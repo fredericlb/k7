@@ -54,6 +54,9 @@ function detectShells() {
   const gitBash = findGitBash();
   if (gitBash)
     shells.bash = { file: gitBash, args: ["-i", "-l"], display: "git bash" };
+  // The distro is where the tree lives, so it is a flavour like the others — `--cd ~` for the LINUX home.
+  if (spawnSync("wsl.exe", ["-l", "-q"], { encoding: "utf8" }).status === 0)
+    shells.wsl = { file: "wsl.exe", args: ["--cd", "~"], display: "wsl" };
   return shells;
 }
 const SHELLS = detectShells();
@@ -66,12 +69,14 @@ if (customCmd)
     process.platform === "win32"
       ? { file: "cmd.exe", args: ["/c", customCmd], display: customCmd }
       : { file: "/bin/sh", args: ["-c", customCmd], display: customCmd };
-// Git Bash first when present.
+// The distro first when there is one: that is where the sources and every npm command live (../docs/wsl.md).
 const DEFAULT_SHELL = customCmd
   ? "custom"
-  : SHELLS.bash
-    ? "bash"
-    : Object.keys(SHELLS)[0];
+  : SHELLS.wsl
+    ? "wsl"
+    : SHELLS.bash
+      ? "bash"
+      : Object.keys(SHELLS)[0];
 
 // Where every tab starts: the user's home.
 const CWD = homedir();

@@ -14,6 +14,12 @@ import {
   stopAll,
 } from "../engine/capot/scripts/trayProcess.mjs";
 
+// Under WSL the toolchain is on the host: mirror the tree and run THIS script there (../docs/wsl.md).
+if (process.env.STUDIO_NATIVE_MIRROR && process.platform !== "win32") {
+  const { runBridge } = await import("./dev-native-bridge.mjs");
+  process.exit(await runBridge());
+}
+
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const engineDir = join(repo, "engine", "moteur");
 

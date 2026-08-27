@@ -99,10 +99,11 @@ kinds, each for a reason:
 turbo keeps `build` and `test` — Tilt only owns the dev session.
 
 The **file service** is in the list deliberately. In dev the tray's supervisor does not
-spawn one (`fileservice.rs`), because `@studio/file-service`'s own `tsx watch` owns port
-8770 and a second would fight it for the port. If the tray comes up before the session
-does, the supervisor's file-service watch notices within two seconds and the icon goes
-green on its own — no ordering to get right.
+spawn one (`fileservice.rs`), because the session's own already owns port 8770 and a second
+would fight it for the port. If the tray comes up before the session does, the supervisor's
+file-service watch notices within two seconds and the icon goes green on its own — no
+ordering to get right. Under WSL that row runs on the **host** rather than in the distro,
+which is `scripts/dev-file-service.mjs` and is measured in [wsl.md](wsl.md).
 
 ## The browser editor — outside the session, on purpose
 
@@ -177,6 +178,14 @@ changes.
 st0 owns the flow because it is the service with NO path prefix: `redirectUriFor` builds
 `<origin>/auth/callback`, and that is the single `redirect_uri` the IdP has registered. See
 `packages/web-protocol/services.ts`.
+
+## Under WSL, the native task is bridged
+
+The sources live in the distro and the MSVC/cargo toolchain does not, so `dev-native.mjs` hands
+itself to `scripts/dev-native-bridge.mjs`, which mirrors the tree onto the host's NTFS and runs
+*that same script* there. Nothing below changes — the resource, its logs and its restart button
+are where they were. Why a mirror rather than a build over the share, and what the mirror does
+and does not carry, is [wsl.md](wsl.md).
 
 ## The native task — `scripts/dev-native.mjs`
 

@@ -31,6 +31,6 @@ export default defineAppConfig({
       },
     },
   },
-  // Dev runs under WSL against /mnt/c, where inotify never fires (same as st0).
-  poll: true,
+  // Polling only when asked for, the tree being on ext4 (same as st0).
+  poll: !!process.env.STUDIO_POLL,
 });
