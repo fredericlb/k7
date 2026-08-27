@@ -1,0 +1,12 @@
+# The RECORD's platter — the node that reads the file and stretches it. One reader per file, which
+# is why a separated record needs five of them. See docs/platter-node-plan.md.
+extends: "@st0/audio/io/turntable"
+params:
+  # Signed, and 0 is STOPPED: the desk writes this every frame a hand is on the disc.
+  Rate: 0
+  # A JUMP, applied when the value CHANGES rather than when it is set.
+  Seek: 0
+  # As it was cut. 0 drops the part, 2 doubles it.
+  Gain: 1
+  # Key-lock, off: 0 lets the pitch follow the rate, as a record does.
+  Key: 0

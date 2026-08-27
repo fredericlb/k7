@@ -1,0 +1,7 @@
+# This deck's half of the crossfade. Two of these ARE the crossfader — one input each, the blend
+# happening at the mixer, because a module's second port is a sidechain and a sidechain is heard
+# beside the module with no way to take it back. See engine/moteur/docs/sidechain.md.
+extends: "@st0/audio/utility/fade"
+params:
+  # Its one param IS this lane's gain: 0 silent, 1 full. The opposition lives in the mapping.
+  Mix: 0.5

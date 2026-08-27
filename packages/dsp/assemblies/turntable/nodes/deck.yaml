@@ -1,0 +1,3 @@
+# The deck's own lane. It authors no `events:` at all — the material is whichever record was put
+# on it, and it will be a different one in four minutes. See packages/song/docs/setProject.md.
+extends: "@studio/track"

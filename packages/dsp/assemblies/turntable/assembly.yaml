@@ -1,0 +1,24 @@
+# A TURNTABLE — a deck, its four stems, the channel strip and the two fades, as one box.
+#
+# What this file adds to the graph beside it: the named plugs a cable may reach, and the params
+# promoted onto the box's own face. Everything else about the appliance — why the trim heads the
+# strip, why the echo comes after the fader, why the fade is per deck rather than one crossfade —
+# is in packages/song/docs/setProject.md, which describes the same shape written out by hand.
+label: Turntable
+# No input: a turntable is a SOURCE. Its records arrive on its platters, not down a cable.
+inputs: []
+outputs:
+  # The channel's own fade, which is one half of the crossfader — it lands on the mixer's sum.
+  - { name: mix, type: audio, node: fade }
+  # …and the PRE-FADE headphone tap, which is why it leaves the filter rather than the fade.
+  - { name: cue, type: audio, node: cue }
+# The face: the five controls a hand actually reaches for, in the signal's order.
+params:
+  Trim: { node: trim, param: Trim }
+  Low: { node: eq, param: Low-shelf gain }
+  Mid: { node: eq, param: Mid gain 1 }
+  High: { node: eq, param: High-shelf gain }
+  Filter: { node: filter, param: Sweep }
+  Level: { node: level, param: Gain }
+  Echo: { node: echo, param: Mix }
+  Fade: { node: fade, param: Mix }

@@ -1,0 +1,5 @@
+# The channel fader, in DECIBELS — not the crossfader. Most of a transition is made here; the
+# crossfade is for a hard cut. The floor is -60 and reads as silence.
+extends: "@st0/audio/utility/gain"
+params:
+  Gain: 0

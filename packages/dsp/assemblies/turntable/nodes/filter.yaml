@@ -1,0 +1,5 @@
+# The one-knob sweep. Both filters live in its graph at once and the knob decides where each sits,
+# which is how the hardware works too; 0 is the middle of the travel and is inaudible.
+extends: "@st0/audio/filter/sweep"
+params:
+  Sweep: 0

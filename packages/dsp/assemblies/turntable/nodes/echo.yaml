@@ -1,0 +1,10 @@
+# The one effect past the filter, AFTER the fader so a cut leaves its tail ringing — an echo-out
+# cuts a delay's input and not its output. See packages/ui-turntables/docs/fx.md.
+extends: "@st0/audio/time/echo"
+params:
+  # A dotted eighth at 120 BPM — the dub delay that displaces rather than doubles.
+  Time: 375
+  # Three or four audible repeats: enough to hear, little enough not to pile up.
+  Feedback: 0.45
+  # DRY at rest. This is the one the desk drives.
+  Mix: 0
