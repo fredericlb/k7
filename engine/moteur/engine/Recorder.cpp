@@ -1,0 +1,257 @@
+// Recorder: the RECORDER node's per-session state — starting and stopping a take, draining its
+// ring onto a wav, popping the last one, and reporting all of it for the state frame. An
+// EngineHost member file for Recording.cpp's reason: these read impl_->session(...), which lives
+// on EngineHost. Full rationale: docs/recorder.md.
+
+#include "EngineHost.h"
+
+#include "EngineTypes.h"       // Tracktion/JUCE + the te/tt/fs aliases
+#include "EngineHostImpl.h"    // struct EngineHost::Impl
+#include "RecorderPlugin.h"
+#include "Warnings.h"          // a refused record has to reach the client, not just stderr
+
+#include <iostream>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace studio {
+
+namespace {
+
+// How many frames one drain moves at most: ~0.5 s at 48 kHz, comfortably more than a 20 Hz tick
+// needs, so a late tick catches up in one pass instead of falling further behind every time.
+constexpr size_t kDrainChunk = 24000;
+
+// Samples per envelope point on the TAKE's picture — 4096 is ~12 points a second, which draws a
+// five-minute take in 3500 points. The live tap's bucket is 256; this one is not the same picture.
+constexpr int kTakeBucket = 4096;
+
+// `260827T143208` — the shape fileStamp() writes on the TypeScript side, so a take recorded here
+// and a bounce made there sort together in a directory listing.
+juce::String stampNow() {
+    const auto now = juce::Time::getCurrentTime();
+    return juce::String::formatted("%02d%02d%02dT%02d%02d%02d", now.getYear() % 100,
+                                   now.getMonth() + 1, now.getDayOfMonth(), now.getHours(),
+                                   now.getMinutes(), now.getSeconds());
+}
+
+}  // namespace
+
+// --- one node's state --------------------------------------------------------
+
+void RecorderNode::openTake(const juce::File& file, double sampleRate) {
+    closeTake();
+    // 32-bit float, the rate the samples ARE at: a take is raw capture, and converting it here
+    // would be a decision the person saving it has not made yet.
+    juce::WavAudioFormat wav;
+    auto stream = std::make_unique<juce::FileOutputStream>(file);
+    if (!stream->openedOk()) {
+        std::cerr << "[rec] cannot write " << file.getFullPathName() << '\n';
+        return;
+    }
+    writer_.reset(wav.createWriterFor(stream.release(), sampleRate, RecorderTap::CHANNELS, 32, {},
+                                      0));
+    if (writer_ == nullptr) {
+        std::cerr << "[rec] no wav writer for " << file.getFullPathName() << '\n';
+        return;
+    }
+    path_ = file;
+    frames_ = 0;
+    rate_ = sampleRate;
+    envelope_.clear();
+    sent_ = 0;
+    bucketFrames_ = 0;
+    ring.skipToLive();   // the take begins at the press, not at whatever is still in the ring
+}
+
+void RecorderNode::closeTake() {
+    if (writer_ == nullptr) return;
+    writer_->flush();
+    writer_.reset();   // the stream is the writer's; closing it is what makes the file playable
+}
+
+/** Move whatever the ring holds onto disk, and grow the take's picture with it. */
+void RecorderNode::pump() {
+    if (writer_ == nullptr) return;
+    auto d = ring.drain(scratch_, kDrainChunk);
+    if (d.lostFrames > 0) damaged = true;
+    if (d.frames == 0) return;
+
+    // Deinterleaved for the writer, which takes one pointer per channel.
+    float* chans[RecorderTap::CHANNELS] = {};
+    for (int c = 0; c < RecorderTap::CHANNELS; ++c) {
+        planes_[(size_t)c].resize(d.frames);
+        for (size_t i = 0; i < d.frames; ++i)
+            planes_[(size_t)c][i] = scratch_[i * RecorderTap::CHANNELS + (size_t)c];
+        chans[c] = planes_[(size_t)c].data();
+    }
+    writer_->writeFromFloatArrays(chans, RecorderTap::CHANNELS, (int)d.frames);
+    frames_ += d.frames;
+
+    // …and the same samples again as min/max buckets: the card draws THIS, not the file.
+    for (size_t i = 0; i < d.frames; ++i) {
+        const float l = scratch_[i * RecorderTap::CHANNELS];
+        const float r = scratch_[i * RecorderTap::CHANNELS + 1];
+        const float lo = l < r ? l : r;
+        const float hi = l < r ? r : l;
+        if (bucketFrames_ == 0) { curMin_ = lo; curMax_ = hi; }
+        else { if (lo < curMin_) curMin_ = lo; if (hi > curMax_) curMax_ = hi; }
+        if (++bucketFrames_ >= kTakeBucket) {
+            envelope_.push_back({ curMin_, curMax_ });
+            bucketFrames_ = 0;
+        }
+    }
+}
+
+/** The points not handed out yet, and where they sit in the take — docs/recorder.md. The picture
+ *  itself is KEPT: `rewindEnvelope` hands it out whole again for a client that has none of it. */
+RecorderNode::EnvelopeSlice RecorderNode::drainEnvelope() {
+    EnvelopeSlice out;
+    out.from = sent_;
+    if (sent_ < envelope_.size())
+        out.points.assign(envelope_.begin() + (std::ptrdiff_t)sent_, envelope_.end());
+    sent_ = envelope_.size();
+    return out;
+}
+
+double RecorderNode::seconds() const {
+    return rate_ > 0.0 ? (double)frames_ / rate_ : 0.0;
+}
+
+// --- the host ----------------------------------------------------------------
+
+// The ring lives HERE and not on the plugin, so rebuilding the chain around a node does not end
+// the take: the new plugin is pointed back at the ring that was already filling.
+RecorderNode& EngineHost::recorderNode(const std::string& session, const std::string& id) {
+    auto& map = impl_->session(session).recorders;
+    auto it = map.find(id);
+    if (it == map.end())
+        it = map.emplace(id, std::make_unique<RecorderNode>()).first;
+    return *it->second;
+}
+
+void EngineHost::attachRecorderTaps(const std::string& session) {
+    auto* s = impl_->find(session);
+    if (s == nullptr) return;
+    for (auto& [id, plugin] : s->pluginsById) {
+        auto* rec = dynamic_cast<RecorderPlugin*>(plugin.get());
+        if (rec == nullptr) continue;
+        rec->setTap(&recorderNode(session, id).ring);
+    }
+    // A node that left the document takes its ring with it, and its open take is closed rather
+    // than leaked — but only when it is not recording: a rebuild mid-take must not lose the file.
+    for (auto it = s->recorders.begin(); it != s->recorders.end();) {
+        const bool gone = s->pluginsById.find(it->first) == s->pluginsById.end();
+        if (gone && !it->second->recording) {
+            it->second->closeTake();
+            it = s->recorders.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+EngineHost::RecorderResult EngineHost::setRecorderRecording(const std::string& session,
+                                                            const std::string& id, bool on) {
+    auto* s = impl_->find(session);
+    if (s == nullptr) return { false, "no session " + session };
+    const auto found = s->pluginsById.find(id);
+    if (found == s->pluginsById.end() ||
+        dynamic_cast<RecorderPlugin*>(found->second.get()) == nullptr)
+        return { false, "no recorder node \"" + id + "\" in this project" };
+
+    auto& node = recorderNode(session, id);
+    if (on == node.recording) return { true, "" };   // idempotent: two clients, one light
+
+    if (!on) {
+        node.pump();          // whatever is still in the ring belongs to this take
+        node.closeTake();
+        node.recording = false;
+        node.takes.push_back({ node.path().getFullPathName().toStdString(), node.seconds(),
+                               node.damaged });
+        return { true, "" };
+    }
+
+    if (s->current.recordDir.empty())
+        return { false, "no record directory — this project cannot record" };
+    const double rate = node.ring.sampleRate();
+    if (rate <= 0.0)
+        return { false, "\"" + id + "\" has not carried audio yet — play something through it first" };
+
+    auto dir = juce::File(s->current.recordDir);
+    dir.createDirectory();
+    const auto name = juce::File::createLegalFileName(juce::String(id)) + "-" + stampNow() + ".wav";
+    node.damaged = false;
+    node.openTake(dir.getChildFile(name), rate);
+    if (!node.writing()) return { false, "could not open a file for \"" + id + "\"" };
+    node.recording = true;
+    return { true, "" };
+}
+
+EngineHost::RecorderResult EngineHost::clearLastTake(const std::string& session,
+                                                     const std::string& id) {
+    auto* s = impl_->find(session);
+    if (s == nullptr) return { false, "no session " + session };
+    auto it = s->recorders.find(id);
+    if (it == s->recorders.end() || it->second->takes.empty())
+        return { false, "\"" + id + "\" has recorded nothing to clear" };
+    // Recording is stopped first: clearing the take being written would leave an open writer
+    // pointing at a file that is about to stop existing.
+    if (it->second->recording) setRecorderRecording(session, id, false);
+    auto& takes = it->second->takes;
+    juce::File(takes.back().file).deleteFile();
+    takes.pop_back();
+    // The picture on every card is of the take just deleted, so the node stops holding it too —
+    // otherwise the next client to connect would be sent a drawing of a file that is gone.
+    it->second->resetEnvelope();
+    return { true, "" };
+}
+
+/** Hand every recorder's WHOLE picture out on the next state frame. A client that just connected
+ *  holds none of it and the frames carry only what is new, so a reload would draw a take that
+ *  looks like it started at the reload. Harmless for the clients that already have it: the frame
+ *  says where the points START, and one that is further along keeps only the overlap's tail. */
+void EngineHost::rewindRecorderEnvelopes(const std::string& session) {
+    auto* s = impl_->find(session);
+    if (s == nullptr) return;
+    for (auto& [id, node] : s->recorders) node->rewindEnvelope();
+}
+
+bool EngineHost::anyRecording(const std::string& session) const {
+    const auto* s = impl_->find(session);
+    if (s == nullptr) return false;
+    for (const auto& [id, node] : s->recorders)
+        if (node->recording) return true;
+    return false;
+}
+
+bool EngineHost::recorderRecording(const std::string& session, const std::string& id) const {
+    const auto* s = impl_->find(session);
+    if (s == nullptr) return false;
+    const auto it = s->recorders.find(id);
+    return it != s->recorders.end() && it->second->recording;
+}
+
+std::map<std::string, EngineHost::RecorderReport> EngineHost::pumpRecorders(
+    const std::string& session) {
+    std::map<std::string, RecorderReport> out;
+    // find(), never session(): a state poll must not conjure the session it is reporting on.
+    auto* s = impl_->find(session);
+    if (s == nullptr) return out;
+    for (auto& [id, node] : s->recorders) {
+        if (node->recording) node->pump();
+        RecorderReport r;
+        r.recording = node->recording;
+        r.seconds = node->recording ? node->seconds() : 0.0;
+        r.takes = node->takes;
+        auto slice = node->drainEnvelope();
+        r.envelopeFrom = slice.from;
+        r.envelope = std::move(slice.points);
+        out[id] = std::move(r);
+    }
+    return out;
+}
+
+}  // namespace studio
