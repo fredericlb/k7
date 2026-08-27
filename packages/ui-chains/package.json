@@ -16,6 +16,7 @@
     "./modulePreview": "./src/modulePreview.ts",
     "./noteLoad": "./src/noteLoad.ts",
     "./patchGesture": "./src/patchGesture.ts",
+    "./takeClock": "./src/takeClock.ts",
     "./zoomGesture": "./src/zoomGesture.ts"
   },
   "scripts": {

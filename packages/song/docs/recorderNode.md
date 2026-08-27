@@ -89,6 +89,25 @@ The take is stamped with its own **mtime**, not with now: a take saved an hour a
 played belongs to the hour it was played, and the médiathèque files by day
 ([recordings.md](../../mediatek/docs/recordings.md)).
 
+## What the card SAYS
+
+Two states and no third, decided in one place
+([takeClock.ts](../../ui-chains/src/takeClock.ts)):
+
+- **nothing to show** — not rolling, and no take on the stack: the card reads `no record`, and
+  **no waveform is drawn at all**. An empty envelope beside those words reads as a broken meter
+  rather than as an idle machine, so the paint returns early rather than drawing its centre line.
+- **something to show** — a clock, over the picture. Counting UP while a take is being made, and
+  the finished take's LENGTH once it has stopped.
+
+`message` and `elapsed` are never both set, which is what lets the card decide "waveform or not"
+on one field.
+
+The length has to come off the take itself: the engine sends `seconds: 0` when it is not rolling
+(`r.seconds = node->recording ? node->seconds() : 0.0`), so a card reading that field would show
+`0:00.0` for every finished take. Rolling wins over a finished take, too — the clock counts the
+take being MADE, not the one before it.
+
 ## The waveform is the take, not a tap
 
 `source: take` on the waveform widget. The two live sources (`input`, `output`) draw a rolling

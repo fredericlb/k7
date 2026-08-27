@@ -87,6 +87,7 @@ import {
 } from "@studio/ui-chains/hang";
 import { type LaneNotes, noteLoadAt } from "@studio/ui-chains/noteLoad";
 import { patchAct } from "@studio/ui-chains/patchGesture";
+import { type TakeReadout, takeReadout } from "@studio/ui-chains/takeClock";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
 // The one icon this file draws from a set: the freeze badge, a snowflake being no CSS shape.
 import { Snowflake } from "lucide-react";
@@ -373,6 +374,31 @@ function useRecorderState(
     () => (store && node ? store.getSnapshot().recorders?.[node] : undefined),
     [store, node],
   );
+  return useSyncExternalStore(subscribe, read, read);
+}
+
+const NO_READOUT: TakeReadout = {};
+
+/** What a recorder card draws over (or instead of) its waveform. Subscribed as its own slice and
+ *  compared on the TEXT, so a 20 Hz frame re-renders the card only when the clock ticks over. */
+function useTakeReadout(
+  store: EngineStore | null,
+  node: string | null,
+): TakeReadout {
+  const cache = useRef<TakeReadout>(NO_READOUT);
+  const subscribe = useCallback(
+    (cb: () => void) => (store ? store.subscribe(cb) : () => {}),
+    [store],
+  );
+  const read = useCallback(() => {
+    if (!store || !node) return NO_READOUT;
+    const next = takeReadout(store.getSnapshot().recorders?.[node]);
+    const had = cache.current;
+    if (next.message === had.message && next.elapsed === had.elapsed)
+      return had;
+    cache.current = next;
+    return next;
+  }, [store, node]);
   return useSyncExternalStore(subscribe, read, read);
 }
 
@@ -713,6 +739,11 @@ function WaveformWidget({
 
   // The envelope reaches the canvas through a REF off a RAW subscription — docs/waveformWidget.md.
   const store = useEngineStoreOrNull();
+  // …and what a RECORDER's card says: a message when it holds nothing, else the take's clock.
+  const readout = useTakeReadout(store, takeKey);
+  // The message REPLACES the waveform rather than sitting over it, so the paint is told to stop.
+  const blankRef = useRef(false);
+  blankRef.current = readout.message !== undefined;
   const envelopeRef = useRef<WaveformEnvelope[]>(NO_ENVELOPE);
   const dirtyRef = useRef(true);
   // Set by the draw effect; the subscription below pokes it to restart a stopped loop.
@@ -791,6 +822,9 @@ function WaveformWidget({
         appliedDpr = dpr;
       }
       ctx.clearRect(0, 0, W, H);
+      // Nothing to show and the card SAYS so — an empty waveform beside those words would read
+      // as a broken meter rather than as an idle machine (takeClock.ts).
+      if (blankRef.current) return;
       // A take is thousands of points against a card's ~120: decimated keeping the EXTREMES,
       // since averaging them away draws a quiet take (decimate.ts).
       const env = isTake
@@ -872,12 +906,25 @@ function WaveformWidget({
     // a mounted canvas — the empty list is the loop's own, as docs/waveformWidget.md describes.
   }, [isTake]);
 
+  // The canvas is painted off refs, so the message appearing has to ask for a frame itself.
+  const blank = readout.message !== undefined;
+  useEffect(() => {
+    dirtyRef.current = true;
+    wakeRef.current();
+  }, [blank]);
+
   return (
-    <div className="dgx-w" style={style}>
+    <div className="dgx-w dgx-wave" style={style}>
       <canvas
         ref={canvasRef}
         style={{ width: "100%", height: "100%", display: "block" }}
       />
+      {readout.message !== undefined && (
+        <span className="dgx-wave-msg">{readout.message}</span>
+      )}
+      {readout.elapsed !== undefined && (
+        <span className="dgx-wave-clock">{readout.elapsed}</span>
+      )}
     </div>
   );
 }

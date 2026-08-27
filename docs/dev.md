@@ -163,6 +163,21 @@ remotely. Both are their own origins, routed by hostname on the LAN proxy, and b
 start in the **user's home** with Git Bash as the default shell. The whole design —
 and why ttyd is not the answer — is in [remote.md](remote.md).
 
+## A NEW `exports` subpath needs the dev server restarted
+
+Every `@studio/*` package is consumed as raw source through `package.json` `exports` subpaths, so
+adding a module usually means adding a line there too. Vite resolves those once and caches it:
+until the dev server is restarted, the new subpath fails with
+
+```
+"./takeClock" is not exported under the conditions ["module", "browser", "development", "import"]
+```
+
+which names `node_modules/@studio/<pkg>/package.json` and so reads as a stale install or a broken
+symlink. It is neither — the symlink points at the workspace and the field is already there. Save
+does not fix it and neither does an HMR round; `tilt trigger <resource>` does. Editing an existing
+subpath's file needs none of this: it is the exports MAP being new that the cache is holding.
+
 ## One port every config names that is not its own
 
 `scripts/dev-hosts.mjs` exports `AUTH_PORT` — st0's backend, which serves `/auth/*` for the WHOLE

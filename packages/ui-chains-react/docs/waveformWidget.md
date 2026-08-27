@@ -49,3 +49,24 @@ The loop is capped at `WOBBLE_FPS` (30), imported from `@studio/ui-chains/cableC
 than redeclared — one number for every ornament on this canvas. At a 20 Hz source the cap
 essentially never bites; it is there so that a faster engine cannot turn this back into a
 screen-rate loop by accident.
+
+## The two labels are DOM, and they DO re-render
+
+Everything above is about keeping the envelope out of React. A recorder's card carries two things
+that go the other way — `no record` when the node holds nothing, and the take's clock over the
+picture — and both are ordinary elements over the canvas rather than text drawn into it.
+
+The rule is not contradicted, because these are not per-frame data:
+
+- **Text on a canvas costs a repaint of the whole box** to change one character, and it would have
+  to be re-measured, re-shaped and re-rasterised on every one of them. Two absolutely-positioned
+  spans cost the compositor nothing and are stylable in the same stylesheet as the rest of a card.
+- **`useTakeReadout` compares on the TEXT.** It subscribes to the store the same raw way the
+  envelope does, but hands back the same object unless the string changed — so a 20 Hz frame
+  re-renders the card about ten times a second while a take is rolling, and never at all while one
+  is not. The envelope would have been a render per frame per widget for ever.
+
+The message and the waveform are exclusive: `blankRef` tells the paint to clear and return, so
+nothing is drawn beside those words — not even the centre line an empty envelope would draw. It is
+a ref, so the paint reads it without a dependency; an effect on the boolean asks for the one frame
+that makes the change visible.

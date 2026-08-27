@@ -278,6 +278,14 @@ const CSS = `
 .dgx-wval { font:10px ui-monospace,monospace; color:#e7e6ea; font-variant-numeric:tabular-nums; }
 /* A 'label' widget's own text — a heading over a group, not a reading, and 8px since it left .dgx-wval's 10. */
 .dgx-wtext { font:8px ui-monospace,monospace; color:#e7e6ea; }
+/* A RECORDER's waveform box: the canvas fills it, the two labels sit on top — docs/nodeCard.md. */
+.dgx-wave { position:relative; }
+/* "no record" — CENTRED and alone, the canvas having drawn nothing beside it (takeClock.ts). */
+.dgx-wave-msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font:8px ui-monospace,monospace; color:var(--faint); letter-spacing:.06em; pointer-events:none; }
+/* …and the clock, OVER the picture: top-right, where a growing envelope reaches last. */
+.dgx-wave-clock { position:absolute; top:2px; right:3px; font:8px ui-monospace,monospace;
+  color:#e7e6ea; text-shadow:0 0 3px #000, 0 0 3px #000; pointer-events:none; }
 .dgx-slider { width:80%; height:5px; border-radius:3px; background:#08080b; border:1px solid #212129; overflow:hidden; }
 .dgx-slider i { display:block; height:100%; background:var(--sand); }
 
