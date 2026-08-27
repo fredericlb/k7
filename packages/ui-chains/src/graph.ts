@@ -1308,7 +1308,7 @@ export function buildGraph(
   /** Each sum and the wire out of it, when the file declares no master run. See docs/graphBuild.md. */
   for (const sum of [MIX_OUT, RENDER_OUT] as const) {
     if (!feedsSum[sum] || isChain(sum)) continue;
-    const card = addSink(sum, sum === RENDER_OUT ? renderCard() : {});
+    const card = addSink(sum);
     if (opts.drawMainOut === false) continue;
     const video = sum === RENDER_OUT;
     link(
@@ -1318,6 +1318,13 @@ export function buildGraph(
       video ? "video" : "audio",
     );
   }
+
+  // The RENDER sink wears the FRAME's shape, wherever it came from. APPLIED here rather than at a
+  // creation site because it has three: a chain naming RENDER as its `from`, a run landing on it,
+  // and the sums loop above — and that loop is SKIPPED by a project declaring its own master run,
+  // which is most projects with a picture. `add` is first-write-wins, so passing it in would lose.
+  const renderSink = nodes.get(renderId);
+  if (renderSink) Object.assign(renderSink, renderCard());
 
   // Tracks (and video lanes) no chain mentions, drawn as ORPHANS with `sub` carrying the reason. See docs/graphBuild.md.
   for (const id of [...graph.tracks, ...(graph.videoTracks ?? [])]) {

@@ -3033,6 +3033,7 @@ export default function App({
                       trackOrder={trackOrder}
                       videoSpans={videoLaneSpans}
                       noteLanes={noteLanes}
+                      viewport={videoDoc?.viewport}
                       project={projectDoc}
                       command={quietCommand}
                       onBypassModule={(mod) =>
