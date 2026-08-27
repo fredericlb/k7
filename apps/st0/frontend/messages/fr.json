@@ -124,5 +124,6 @@
   "cmd.zoom": "zoom",
   "cmd.zoom out": "zoom arrière",
   "cmd.zoom reset": "zoom initial",
-  "cmd.help": "aide"
+  "cmd.help": "aide",
+  "pane.resize": "Redimensionner le volet"
 }

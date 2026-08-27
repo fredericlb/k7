@@ -1479,3 +1479,29 @@ manifest that has to be revisited when the edge's path table moves is a manifest
 | the pane/view/panel tables, transport clock | `src/shellMeta.tsx` |
 | the palette catalogue and argument completion | `src/palette.ts` |
 | self-contained slices of state | `src/hooks/` — engine link, project doc, track controls, polls, logs, MIDI recording, dialogs |
+
+## Les panneaux se redimensionnent par leur séparateur
+
+Chaque couture entre deux volets est un `PaneSplitter` (`components/PaneSplitter.tsx`) : une barre
+de 4 px qu'on attrape. Un seul composant pour les deux axes — une coupe verticale et une
+horizontale ne diffèrent que par la coordonnée qui bouge — et il redimensionne **le volet qui le
+précède**, l'ordre dans lequel toutes les coupes de ce shell sont écrites.
+
+Trois détails portent le reste :
+
+- **La taille est lue sur le DOM au début du glissement**, pas gardée par le splitter. Tant que
+  personne n'a tiré, un volet est dimensionné par sa fraction Tailwind (`w-1/3`, `h-1/2`) ; mesurer
+  est ce qui permet au premier glissement de repartir d'où cette fraction l'avait mis au lieu de
+  sauter. Une fois tiré, `paneSize` porte des pixels et le `style` l'emporte.
+- **Le dernier volet de la colonne prend ce qui reste** (`flex-1`, jamais une moitié fixe). Un
+  volet tiré plus haut doit se prendre sur quelqu'un, et deux moitiés fixes plus une couture
+  débordent de la largeur de la couture.
+- **Le curseur et `user-select` passent sur le `body`** pendant tout le glissement : le pointeur
+  quitte la barre de 4 px immédiatement, et sans ça le curseur clignote et tout ce qui passe
+  dessous se retrouve sélectionné.
+
+Un double-clic rend au volet sa fraction — la sortie d'un glissement raté, et la raison pour
+laquelle `paneSize` distingue « absent » de « zéro ».
+
+Le séparateur du panneau du bas (`graph`/`logs`) est plus ancien et reste écrit sur place : il
+redimensionne le volet qui le SUIT, donc son arithmétique est l'inverse.

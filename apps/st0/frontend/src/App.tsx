@@ -96,6 +96,7 @@ import {
   ModulePicker,
   type PickerModule,
 } from "./components/ModulePicker";
+import { PaneSplitter } from "./components/PaneSplitter";
 import type { RollHandle } from "./components/PianoRoll";
 import { PlaylistsPanel } from "./components/PlaylistsPanel";
 import { RackBuilder } from "./components/RackBuilder";
@@ -305,6 +306,19 @@ export default function App({
     ),
   );
   const [panelH, setPanelH] = useState(280);
+  /** A pane's dragged size in px, by pane. Absent (or 0) means it is still on the Tailwind
+   *  fraction it opens at — see components/PaneSplitter.tsx. */
+  const [paneSize, setPaneSize] = useState<Partial<Record<Pane, number>>>({});
+  const sizePane = useCallback(
+    (p: Pane, px: number) =>
+      setPaneSize((cur) => ({ ...cur, [p]: px > 0 ? px : undefined })),
+    [],
+  );
+  // One ref per resizable pane: the splitter measures the pane it resizes at drag start.
+  const viewportPaneRef = useRef<HTMLDivElement>(null);
+  const timelinePaneRef = useRef<HTMLDivElement>(null);
+  const deskPaneRef = useRef<HTMLDivElement>(null);
+  const masteringPaneRef = useRef<HTMLDivElement>(null);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
 
   // What the editor has open (a clip/track), for the minimap's highlight ring.
@@ -2726,13 +2740,16 @@ export default function App({
 
             <div
               className={cn(
-                "flex min-h-0 min-w-0 flex-1 flex-col",
+                // A ROW: the frame sits BESIDE the rest rather than over it — a picture is wide,
+                // and stacking it took a third of the height off every pane below (docs/picture.md).
+                "flex min-h-0 min-w-0 flex-1",
                 full === "editor" && "hidden",
               )}
             >
               {/* The FRAME: a `split` surface the project declares, hidden and never unmounted since it owns a GL context (docs/picture.md). */}
               {hasViewport && (
                 <div
+                  ref={viewportPaneRef}
                   {...paneProps("viewport")}
                   className={cn(
                     "flex min-h-0 min-w-0",
@@ -2740,13 +2757,19 @@ export default function App({
                       ? "flex-1"
                       : full !== null
                         ? "hidden"
-                        : // Expanded lanes have asked for the height; the frame stands down for
+                        : // Expanded lanes have asked for the room; the frame stands down for
                           // them as the graph does, rather than squeezing three panes into one.
                           tlView.expanded
                           ? "hidden"
-                          : "h-1/3 shrink-0 border-b border-border",
+                          : "w-1/3 shrink-0",
                     ringFor("viewport"),
                   )}
+                  // Once dragged the width is the drag's; until then it is the fraction above.
+                  style={
+                    full === null && !tlView.expanded && paneSize.viewport
+                      ? { width: paneSize.viewport }
+                      : undefined
+                  }
                 >
                   {/* `trackOrder` is what makes a shader's audio input mean anything: `levels` is indexed, not named — see src/shaderAudio.ts. */}
                   <ViewportTab
@@ -2756,410 +2779,471 @@ export default function App({
                   />
                 </div>
               )}
-              {/* The ARRANGEMENT, only when the project declares a `timeline` surface — absent means not mounted (docs/shell.md). */}
-              {hasTimeline && (
-                <div
-                  {...paneProps("timeline")}
-                  className={cn(
-                    "flex min-h-0 min-w-0",
-                    // Expanded lanes take the whole height, exactly as `full timeline` does: the pane below has stood down for them.
-                    full === "timeline" || (full === null && tlView.expanded)
-                      ? "flex-1"
-                      : full === "chains"
-                        ? "hidden"
-                        : "h-1/2 shrink-0 border-b border-border",
-                    ringFor("timeline"),
-                  )}
-                >
-                  <TimelineTab
-                    ref={timelineRef}
-                    active={activePane === "timeline"}
-                    reloadKey={reloadKey}
-                    // …so an armed lane draws the take as it is played, instead of showing nothing while you record.
-                    rolling={rolling}
-                    takeStartBeat={takeStart}
-                    // The pre-roll, in beats: the growing clip skips it, since those bars record nothing.
-                    takeCountInBeats={recInfo.countIn * recInfo.beatsPerBar}
-                    orbit={orbit}
-                    videoTracks={videoTracks}
-                    // The picture drag guards on this handler's own presence, so a snapshot simply has none.
-                    onVideoEdit={frozen ? undefined : applyVideoEdit}
-                    readOnly={frozen}
-                    setStatus={setStatus}
-                    onEditTarget={setEditTarget}
-                    // A clicked clip shows its content where the graph is, and makes the slot visible with it.
-                    onOpenClip={(t) => {
-                      setFull(null);
-                      setGraphSlot({ kind: "clip", target: t });
-                    }}
-                    // …and the bare lane puts the graph back: what a click opened, a click on nothing closes.
-                    onEmptyClick={() => setGraphSlot(null)}
-                    onCaret={setCaret}
-                    onView={setTlView}
-                    onContextMenu={openContextMenu}
-                    onSeek={seek}
-                    onSetLoop={(start, end, enabled) =>
-                      engineRef.current?.loop(start, end, enabled)
-                    }
-                    onMoveEvent={(trackId, fromTc, toTc, toTrackId) =>
-                      void runCommand(
-                        `event move ${trackId} ${fromTc} ${toTc}${toTrackId ? ` ${toTrackId}` : ""}`,
-                      )
-                    }
-                    // A tool's press, already spelled by the module that is tested for it — journalled like anything else.
-                    onToolLine={(l) => void runCommand(l)}
-                    shortcuts={shortcuts}
-                    onResizeEvent={(trackId, fromTc, startTc, endTc) =>
-                      void runCommand(
-                        `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
-                      )
-                    }
-                    // `lenTc` is a LENGTH, and the verb's name is the end it applies to — see `event fadein` in commands.yaml.
-                    onFadeEvent={(trackId, fromTc, which, lenTc) =>
-                      void runCommand(
-                        `event ${which === "fadeIn" ? "fadein" : "fadeout"} ${trackId} ${fromTc} ${lenTc}`,
-                      )
-                    }
-                    // While the bar is filling a command whose open field wants a timecode, the ruler ANSWERS it instead of committing.
-                    feedTimecode={
-                      barPending?.kind === "timecode"
-                        ? (tc, live) =>
-                            cmdRef.current?.offerValue("timecode", tc, live)
-                        : undefined
-                    }
-                    feedMove={
-                      barPending?.canonical === "event move"
-                        ? (trackId, fromTc, toTc, toTrackId, live) =>
-                            cmdRef.current?.offer(
-                              {
-                                track: trackId,
-                                timecode: fromTc,
-                                newTimecode: toTc,
-                                ...(toTrackId ? { toTrack: toTrackId } : {}),
-                              },
-                              live,
-                            )
-                        : undefined
-                    }
-                    // …and the selection rectangle answers `events move` the same way, leaving only the delta to type.
-                    feedEventsMove={
-                      barPending?.canonical === "events move"
-                        ? (tracks, from, to) =>
-                            cmdRef.current?.offer({ tracks, from, to })
-                        : undefined
-                    }
-                    onFocusRow={focusRowInPanes}
-                    // The corner button over the name column: `track new` with no name, off on a frozen song like every structural edit.
-                    onNewTrack={
-                      frozen ? undefined : () => void runCommand("track new")
-                    }
-                    trackControls={trackControls}
-                    onTrackToggle={onTrackToggle}
-                    laneNodes={laneNodes}
-                    // The lane's ⋮ menu, from the gutter badge — the SAME one the chains pane opens on a lane's node.
-                    onNodeMenu={openNodeMenu}
-                  />
-                </div>
+              {hasViewport && full === null && !tlView.expanded && (
+                <PaneSplitter
+                  pane={viewportPaneRef}
+                  axis="x"
+                  onSize={(px) => sizePane("viewport", px)}
+                  label={m["pane.resize"]()}
+                />
               )}
-              {/* The DESK: a `split` surface directly over the graph, mounted for as long as the project declares it (docs/shell.md). */}
-              {turntablesSurface && (
-                <div
-                  {...paneProps("turntables")}
-                  className={cn(
-                    "flex min-h-0 min-w-0",
-                    full === "turntables"
-                      ? "flex-1"
-                      : full !== null
-                        ? "hidden"
-                        : // Expanded lanes have asked for the height; the desk stands down for
-                          // them as the frame and the graph do.
-                          tlView.expanded
+              {/* …and the panes that stack, in the column the frame is now beside. */}
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                {/* The ARRANGEMENT, only when the project declares a `timeline` surface — absent means not mounted (docs/shell.md). */}
+                {hasTimeline && (
+                  <div
+                    ref={timelinePaneRef}
+                    {...paneProps("timeline")}
+                    className={cn(
+                      "flex min-h-0 min-w-0",
+                      // Expanded lanes take the whole height, exactly as `full timeline` does: the pane below has stood down for them.
+                      full === "timeline" || (full === null && tlView.expanded)
+                        ? "flex-1"
+                        : full === "chains"
                           ? "hidden"
-                          : "h-1/2 shrink-0 border-b border-border",
-                    ringFor("turntables"),
-                  )}
-                >
-                  <SurfaceTab
-                    surface={turntablesSurface}
-                    deck={turntableDeck}
-                    project={ws?.activeProject ?? "."}
+                          : "h-1/2 shrink-0",
+                      ringFor("timeline"),
+                    )}
+                    // Once dragged the height is the drag's; until then it is the fraction above.
+                    style={
+                      full === null && !tlView.expanded && paneSize.timeline
+                        ? { height: paneSize.timeline }
+                        : undefined
+                    }
+                  >
+                    <TimelineTab
+                      ref={timelineRef}
+                      active={activePane === "timeline"}
+                      reloadKey={reloadKey}
+                      // …so an armed lane draws the take as it is played, instead of showing nothing while you record.
+                      rolling={rolling}
+                      takeStartBeat={takeStart}
+                      // The pre-roll, in beats: the growing clip skips it, since those bars record nothing.
+                      takeCountInBeats={recInfo.countIn * recInfo.beatsPerBar}
+                      orbit={orbit}
+                      videoTracks={videoTracks}
+                      // The picture drag guards on this handler's own presence, so a snapshot simply has none.
+                      onVideoEdit={frozen ? undefined : applyVideoEdit}
+                      readOnly={frozen}
+                      setStatus={setStatus}
+                      onEditTarget={setEditTarget}
+                      // A clicked clip shows its content where the graph is, and makes the slot visible with it.
+                      onOpenClip={(t) => {
+                        setFull(null);
+                        setGraphSlot({ kind: "clip", target: t });
+                      }}
+                      // …and the bare lane puts the graph back: what a click opened, a click on nothing closes.
+                      onEmptyClick={() => setGraphSlot(null)}
+                      onCaret={setCaret}
+                      onView={setTlView}
+                      onContextMenu={openContextMenu}
+                      onSeek={seek}
+                      onSetLoop={(start, end, enabled) =>
+                        engineRef.current?.loop(start, end, enabled)
+                      }
+                      onMoveEvent={(trackId, fromTc, toTc, toTrackId) =>
+                        void runCommand(
+                          `event move ${trackId} ${fromTc} ${toTc}${toTrackId ? ` ${toTrackId}` : ""}`,
+                        )
+                      }
+                      // A tool's press, already spelled by the module that is tested for it — journalled like anything else.
+                      onToolLine={(l) => void runCommand(l)}
+                      shortcuts={shortcuts}
+                      onResizeEvent={(trackId, fromTc, startTc, endTc) =>
+                        void runCommand(
+                          `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
+                        )
+                      }
+                      // `lenTc` is a LENGTH, and the verb's name is the end it applies to — see `event fadein` in commands.yaml.
+                      onFadeEvent={(trackId, fromTc, which, lenTc) =>
+                        void runCommand(
+                          `event ${which === "fadeIn" ? "fadein" : "fadeout"} ${trackId} ${fromTc} ${lenTc}`,
+                        )
+                      }
+                      // While the bar is filling a command whose open field wants a timecode, the ruler ANSWERS it instead of committing.
+                      feedTimecode={
+                        barPending?.kind === "timecode"
+                          ? (tc, live) =>
+                              cmdRef.current?.offerValue("timecode", tc, live)
+                          : undefined
+                      }
+                      feedMove={
+                        barPending?.canonical === "event move"
+                          ? (trackId, fromTc, toTc, toTrackId, live) =>
+                              cmdRef.current?.offer(
+                                {
+                                  track: trackId,
+                                  timecode: fromTc,
+                                  newTimecode: toTc,
+                                  ...(toTrackId ? { toTrack: toTrackId } : {}),
+                                },
+                                live,
+                              )
+                          : undefined
+                      }
+                      // …and the selection rectangle answers `events move` the same way, leaving only the delta to type.
+                      feedEventsMove={
+                        barPending?.canonical === "events move"
+                          ? (tracks, from, to) =>
+                              cmdRef.current?.offer({ tracks, from, to })
+                          : undefined
+                      }
+                      onFocusRow={focusRowInPanes}
+                      // The corner button over the name column: `track new` with no name, off on a frozen song like every structural edit.
+                      onNewTrack={
+                        frozen ? undefined : () => void runCommand("track new")
+                      }
+                      trackControls={trackControls}
+                      onTrackToggle={onTrackToggle}
+                      laneNodes={laneNodes}
+                      // The lane's ⋮ menu, from the gutter badge — the SAME one the chains pane opens on a lane's node.
+                      onNodeMenu={openNodeMenu}
+                    />
+                  </div>
+                )}
+                {hasTimeline && full === null && !tlView.expanded && (
+                  <PaneSplitter
+                    pane={timelinePaneRef}
+                    axis="y"
+                    onSize={(px) => sizePane("timeline", px)}
+                    label={m["pane.resize"]()}
                   />
-                </div>
-              )}
-              {/* The MASTER STRIP, when declared: last in the column, over the graph holding the module it drives (docs/mastering.md). */}
-              {masteringSurface && (
+                )}
+                {/* The DESK: a `split` surface directly over the graph, mounted for as long as the project declares it (docs/shell.md). */}
+                {turntablesSurface && (
+                  <div
+                    ref={deskPaneRef}
+                    {...paneProps("turntables")}
+                    className={cn(
+                      "flex min-h-0 min-w-0",
+                      full === "turntables"
+                        ? "flex-1"
+                        : full !== null
+                          ? "hidden"
+                          : // Expanded lanes have asked for the height; the desk stands down for
+                            // them as the frame and the graph do.
+                            tlView.expanded
+                            ? "hidden"
+                            : "h-1/2 shrink-0",
+                      ringFor("turntables"),
+                    )}
+                    // Once dragged the height is the drag's; until then it is the fraction above.
+                    style={
+                      full === null && !tlView.expanded && paneSize.turntables
+                        ? { height: paneSize.turntables }
+                        : undefined
+                    }
+                  >
+                    <SurfaceTab
+                      surface={turntablesSurface}
+                      deck={turntableDeck}
+                      project={ws?.activeProject ?? "."}
+                    />
+                  </div>
+                )}
+                {turntablesSurface && full === null && !tlView.expanded && (
+                  <PaneSplitter
+                    pane={deskPaneRef}
+                    axis="y"
+                    onSize={(px) => sizePane("turntables", px)}
+                    label={m["pane.resize"]()}
+                  />
+                )}
+                {/* The MASTER STRIP, when declared: last in the column, over the graph holding the module it drives (docs/mastering.md). */}
+                {masteringSurface && (
+                  <div
+                    ref={masteringPaneRef}
+                    {...paneProps("mastering")}
+                    className={cn(
+                      "flex min-h-0 min-w-0",
+                      full === "mastering"
+                        ? "flex-1"
+                        : full !== null
+                          ? "hidden"
+                          : // Expanded lanes have asked for the height; the strip stands down for
+                            // them as the desk, the frame and the graph do.
+                            tlView.expanded
+                            ? "hidden"
+                            : "h-1/3 shrink-0",
+                      ringFor("mastering"),
+                    )}
+                    // Once dragged the height is the drag's; until then it is the fraction above.
+                    style={
+                      full === null && !tlView.expanded && paneSize.mastering
+                        ? { height: paneSize.mastering }
+                        : undefined
+                    }
+                  >
+                    <MasteringTab
+                      surface={masteringSurface}
+                      paramsStore={pluginParamsStore}
+                      setPluginParam={setPluginParam}
+                      watchPluginParams={watchPluginParams}
+                    />
+                  </div>
+                )}
+                {masteringSurface && full === null && !tlView.expanded && (
+                  <PaneSplitter
+                    pane={masteringPaneRef}
+                    axis="y"
+                    onSize={(px) => sizePane("mastering", px)}
+                    label={m["pane.resize"]()}
+                  />
+                )}
                 <div
-                  {...paneProps("mastering")}
+                  {...paneProps("chains")}
                   className={cn(
                     "flex min-h-0 min-w-0",
-                    full === "mastering"
+                    // Alone in the column it takes it outright — the same `flex-1` a fullscreened
+                    // graph gets (see `viewPanes`). And LAST in the column it takes what is LEFT,
+                    // for the same reason by another route: a drag on the pane above has to come
+                    // out of this one, and two fixed halves plus a seam overflow by the seam.
+                    chainsAlone || full === "chains"
                       ? "flex-1"
-                      : full !== null
+                      : chainsOffScreen
                         ? "hidden"
-                        : // Expanded lanes have asked for the height; the strip stands down for
-                          // them as the desk, the frame and the graph do.
-                          tlView.expanded
-                          ? "hidden"
-                          : "h-1/3 shrink-0 border-b border-border",
-                    ringFor("mastering"),
+                        : "flex-1",
+                    ringFor("chains"),
                   )}
                 >
-                  <MasteringTab
-                    surface={masteringSurface}
-                    paramsStore={pluginParamsStore}
-                    setPluginParam={setPluginParam}
-                    watchPluginParams={watchPluginParams}
-                  />
-                </div>
-              )}
-              <div
-                {...paneProps("chains")}
-                className={cn(
-                  "flex min-h-0 min-w-0",
-                  // Alone in the column it takes it outright — the same `flex-1` a fullscreened graph gets (see `viewPanes`).
-                  chainsAlone || full === "chains"
-                    ? "flex-1"
-                    : chainsOffScreen
-                      ? "hidden"
-                      : "h-1/2 shrink-0",
-                  ringFor("chains"),
-                )}
-              >
-                {/* The slot takes the graph's PLACE, not its mount: ChainsTab holds the MIDI runtime (docs/shell.md, docs/midi.md). */}
-                <div
-                  className={cn(
-                    "flex min-h-0 min-w-0 flex-1",
-                    graphSlot && "hidden",
+                  {/* The slot takes the graph's PLACE, not its mount: ChainsTab holds the MIDI runtime (docs/shell.md, docs/midi.md). */}
+                  <div
+                    className={cn(
+                      "flex min-h-0 min-w-0 flex-1",
+                      graphSlot && "hidden",
+                    )}
+                  >
+                    <ChainsTab
+                      cameras={cameras}
+                      reloadKey={reloadKey}
+                      organizeKey={organizeKey}
+                      active={!chainsOffScreen && !graphSlot}
+                      // A SET's lanes are DECKS and wear the record the header wears; the choice is the project's — see chainsIcons.tsx.
+                      icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
+                      // The sidebar is fullscreen chrome: it belongs wherever the graph has the whole window, which a set's desk denies it.
+                      showList={chainsAlone || full === "chains"}
+                      trackOrder={trackOrder}
+                      videoSpans={videoLaneSpans}
+                      noteLanes={noteLanes}
+                      project={projectDoc}
+                      command={quietCommand}
+                      onBypassModule={(mod) =>
+                        void runCommand(`node bypass ${mod}`)
+                      }
+                      onModuleField={runCommand}
+                      onRecorder={onRecorder}
+                      onNodeMenu={openNodeMenu}
+                      engineWarnings={engineWarnings}
+                      onAssetBrowse={browseAssets}
+                      onWatchWaveform={watchWaveform}
+                      onSetModuleAsset={(mod, kind, f) =>
+                        void runCommand(`module ${kind} ${mod} ${f}`)
+                      }
+                      onContextMenu={openContextMenu}
+                      onEdgeInsert={frozen ? undefined : insertIntoChain}
+                      onCanvasInsert={frozen ? undefined : placeInGraph}
+                      // The patch cable's landing runs the verb outright, and all five are OPTIONAL props a snapshot simply passes none of.
+                      onConnect={
+                        frozen
+                          ? undefined
+                          : (from, to) =>
+                              void runCommand(
+                                `graph chain connect ${from} ${to}`,
+                              )
+                      }
+                      // Both curve cables write one line of the same verb, with the param QUOTED, since a plugin's names have spaces.
+                      onAutomate={
+                        frozen
+                          ? undefined
+                          : (module, param, curve, trigger) =>
+                              void runCommand(
+                                `node automate ${module} ${param} ${curve}${
+                                  trigger ? ` ${trigger}` : ""
+                                }`,
+                              )
+                      }
+                      onDisconnect={
+                        frozen
+                          ? undefined
+                          : (from, to) =>
+                              void runCommand(
+                                `graph chain disconnect ${from} ${to}`,
+                              )
+                      }
+                      onReplug={
+                        frozen
+                          ? undefined
+                          : (from, to, nf, nt) =>
+                              void runCommand(
+                                `graph chain replug ${from} ${to} ${nf} ${nt}`,
+                              )
+                      }
+                      // A dropped header likewise: the drag already said everything.
+                      onMoveNode={
+                        frozen
+                          ? undefined
+                          : (mod, x, y) =>
+                              void runCommand(`graph move ${mod} ${x} ${y}`)
+                      }
+                      pendingInsert={insertingAt}
+                      seedGraph={seedGraph}
+                      // The NOTES: whether the graph draws them, and how many — the count travels up because the button is in the footer.
+                      showDocs={showDocs}
+                      onDocCount={setDocCount}
+                      onLaneNodes={setLaneNodes}
+                      pluginParamsStore={pluginParamsStore}
+                      requestPluginParams={requestPluginParams}
+                      watchPluginParams={watchPluginParams}
+                      setPluginParam={setPluginParam}
+                      moduleParams={offlineParams}
+                      trackControls={trackControls}
+                      onTrackToggle={onTrackToggle}
+                      onTrackSet={onTrackSet}
+                      focus={graphFocus}
+                      onFocused={reportFramed}
+                      // The mixer view, which is a rank change on this same graph — see mixerView.
+                      alignModules={mixerView ? mixerStrips : undefined}
+                      // The sockets a live input can be on — the same list the editor's strip uses.
+                      inputDevices={inputDevices}
+                      // …and the song's output level, for the fader on the OUT card — the same param the header's fader writes.
+                      masterVolume={projectDoc?.masterVolume}
+                      midiRef={chainsMidiRef}
+                      onMidiStatus={setStatus}
+                    />
+                  </div>
+                  {graphSlot?.kind === "grid" && (
+                    <SeqGridPane
+                      path={graphSlot.path}
+                      view={graphSlot.view}
+                      onClose={() => setGraphSlot(null)}
+                      onChanged={bumpReload}
+                      setStatus={setStatus}
+                    />
                   )}
-                >
-                  <ChainsTab
-                    cameras={cameras}
-                    reloadKey={reloadKey}
-                    organizeKey={organizeKey}
-                    active={!chainsOffScreen && !graphSlot}
-                    // A SET's lanes are DECKS and wear the record the header wears; the choice is the project's — see chainsIcons.tsx.
-                    icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
-                    // The sidebar is fullscreen chrome: it belongs wherever the graph has the whole window, which a set's desk denies it.
-                    showList={chainsAlone || full === "chains"}
-                    trackOrder={trackOrder}
-                    videoSpans={videoLaneSpans}
-                    noteLanes={noteLanes}
-                    project={projectDoc}
-                    command={quietCommand}
-                    onBypassModule={(mod) =>
-                      void runCommand(`node bypass ${mod}`)
-                    }
-                    onModuleField={runCommand}
-                    onRecorder={onRecorder}
-                    onNodeMenu={openNodeMenu}
-                    engineWarnings={engineWarnings}
-                    onAssetBrowse={browseAssets}
-                    onWatchWaveform={watchWaveform}
-                    onSetModuleAsset={(mod, kind, f) =>
-                      void runCommand(`module ${kind} ${mod} ${f}`)
-                    }
-                    onContextMenu={openContextMenu}
-                    onEdgeInsert={frozen ? undefined : insertIntoChain}
-                    onCanvasInsert={frozen ? undefined : placeInGraph}
-                    // The patch cable's landing runs the verb outright, and all five are OPTIONAL props a snapshot simply passes none of.
-                    onConnect={
-                      frozen
-                        ? undefined
-                        : (from, to) =>
-                            void runCommand(`graph chain connect ${from} ${to}`)
-                    }
-                    // Both curve cables write one line of the same verb, with the param QUOTED, since a plugin's names have spaces.
-                    onAutomate={
-                      frozen
-                        ? undefined
-                        : (module, param, curve, trigger) =>
-                            void runCommand(
-                              `node automate ${module} ${param} ${curve}${
-                                trigger ? ` ${trigger}` : ""
-                              }`,
-                            )
-                    }
-                    onDisconnect={
-                      frozen
-                        ? undefined
-                        : (from, to) =>
-                            void runCommand(
-                              `graph chain disconnect ${from} ${to}`,
-                            )
-                    }
-                    onReplug={
-                      frozen
-                        ? undefined
-                        : (from, to, nf, nt) =>
-                            void runCommand(
-                              `graph chain replug ${from} ${to} ${nf} ${nt}`,
-                            )
-                    }
-                    // A dropped header likewise: the drag already said everything.
-                    onMoveNode={
-                      frozen
-                        ? undefined
-                        : (mod, x, y) =>
-                            void runCommand(`graph move ${mod} ${x} ${y}`)
-                    }
-                    pendingInsert={insertingAt}
-                    seedGraph={seedGraph}
-                    // The NOTES: whether the graph draws them, and how many — the count travels up because the button is in the footer.
-                    showDocs={showDocs}
-                    onDocCount={setDocCount}
-                    onLaneNodes={setLaneNodes}
-                    pluginParamsStore={pluginParamsStore}
-                    requestPluginParams={requestPluginParams}
-                    watchPluginParams={watchPluginParams}
-                    setPluginParam={setPluginParam}
-                    moduleParams={offlineParams}
-                    trackControls={trackControls}
-                    onTrackToggle={onTrackToggle}
-                    onTrackSet={onTrackSet}
-                    focus={graphFocus}
-                    onFocused={reportFramed}
-                    // The mixer view, which is a rank change on this same graph — see mixerView.
-                    alignModules={mixerView ? mixerStrips : undefined}
-                    // The sockets a live input can be on — the same list the editor's strip uses.
-                    inputDevices={inputDevices}
-                    // …and the song's output level, for the fader on the OUT card — the same param the header's fader writes.
-                    masterVolume={projectDoc?.masterVolume}
-                    midiRef={chainsMidiRef}
-                    onMidiStatus={setStatus}
-                  />
+                  {/* A clicked clip's content: `ClipView` draws its own header and ✕, and tells audio from MIDI in one place. */}
+                  {graphSlot?.kind === "clip" && (
+                    <ClipView
+                      target={graphSlot.target}
+                      onClose={() => setGraphSlot(null)}
+                      // The slot's target is a snapshot from the click; this is what lets the open clip re-read itself after a reload.
+                      reloadKey={reloadKey}
+                      // A click on the editor's arrangement ruler is the timeline's seek.
+                      onSeek={seek}
+                      // The TRACKER view writes its sequence file directly rather than through a command, so its reload is asked for here.
+                      onChanged={bumpReload}
+                      setStatus={setStatus}
+                      // The caret's three verbs and the loop it sets, pointed at whichever grid this pane is drawing.
+                      caretRef={clipGridRef}
+                      onSelection={setClipSel}
+                      onSetLoop={(start, end, enabled) =>
+                        engineRef.current?.loop(start, end, enabled)
+                      }
+                      // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are command lines like everything else.
+                      command={runCommand}
+                      // …except the stretch points, whose edits change nothing outside the clip file, so they go the quiet way.
+                      quietCommand={quietCommand}
+                      // …and they get the same right-click every other entity has.
+                      onContextMenu={openContextMenu}
+                      // The roll's draw gesture, and all four ANSWER the promise rather than dropping it — the ghost is held until the reload lands (rollPending.ts).
+                      onCreateNote={(seqId, key, t0, t1) =>
+                        runCommand(
+                          `sequence note new ${seqId} ${key} ${t0} ${t1}`,
+                        )
+                      }
+                      // The roll's velocity drag, committed like the timeline's clip drag: one command on release.
+                      onSetVelocity={(seqId, key, start, vel) =>
+                        runCommand(
+                          `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
+                        )
+                      }
+                      // …and the note drag the same way — move and stretch are one verb, being one gesture with two grips.
+                      onSetNoteRange={(seqId, key, start, ns, ne) =>
+                        runCommand(
+                          `sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`,
+                        )
+                      }
+                      // …except a drag that changed the PITCH, which is the verb that keeps the duration and refuses an occupied slot.
+                      onMoveNote={(seqId, key, start, nk, ns) =>
+                        runCommand(
+                          `sequence note move ${seqId} ${key} ${start} ${nk} ${ns}`,
+                        )
+                      }
+                      // …and the ear. Straight down the engine's socket: a note heard is not an edit, so it is journalled nowhere.
+                      onPreviewNote={(track, key, vel) =>
+                        engineRef.current?.previewNote(track, key, vel)
+                      }
+                      waveRef={waveRef}
+                      onWaveView={setWaveView}
+                      rollRef={rollRef}
+                      onRollMode={setRollMode}
+                      // …and the roll's `remove` mode, which is the caret's `x` reached by the pointer instead.
+                      onRemoveNote={(seqId, key, start) =>
+                        runCommand(
+                          `sequence note remove ${seqId} ${key} ${start}`,
+                        )
+                      }
+                    />
+                  )}
+                  {/* One lane's whole signal path, read left to right; `moduleRow` lays out the graph's own cards (docs/shell.md). */}
+                  {graphSlot?.kind === "trackModules" && (
+                    <TrackModulesPane
+                      trackId={graphSlot.trackId}
+                      reloadKey={reloadKey}
+                      command={quietCommand}
+                      onModuleField={runCommand}
+                      onRecorder={onRecorder}
+                      trackOrder={trackOrder}
+                      pluginParamsStore={pluginParamsStore}
+                      requestPluginParams={requestPluginParams}
+                      watchPluginParams={watchPluginParams}
+                      setPluginParam={setPluginParam}
+                      moduleParams={offlineParams}
+                      trackControls={trackControls}
+                      onContextMenu={openContextMenu}
+                      engineWarnings={engineWarnings}
+                      onClose={() => setGraphSlot(null)}
+                    />
+                  )}
+                  {/* ONE panel for a take and for the file it becomes; `rolling` chooses the picture, not the mount (docs/shell.md). */}
+                  {graphSlot?.kind === "recording" && (
+                    <AudioClipPanel
+                      clip={rolling ? null : (reviewTake?.clip ?? null)}
+                      track={reviewTake?.track ?? ""}
+                      rolling={rolling}
+                      tempo={recInfo.tempo}
+                      beatsPerBar={recInfo.beatsPerBar}
+                      countIn={recInfo.countIn}
+                      startBeat={takeStart}
+                      // Where the clip on screen actually SITS on its lane, asked of the document: a take from the sidebar sits where it was recorded.
+                      placedAt={
+                        (reviewTake &&
+                          placedBeat(
+                            projectDoc,
+                            reviewTake.track,
+                            reviewTake.clip,
+                          )) ??
+                        takeStart
+                      }
+                      takes={reviewTakes}
+                      onPickTake={pickTake}
+                      onKeepTake={keepTake}
+                      onPlay={() => void runCommand("transport toggle")}
+                      onSeek={seek}
+                      trackOrder={trackOrder}
+                      trackNames={recInfo.names}
+                      command={runCommand}
+                      quietCommand={quietCommand}
+                      onContextMenu={openContextMenu}
+                      reloadKey={reloadKey}
+                      onStop={() => void runCommand("transport stop")}
+                      onClose={() => {
+                        setReviewOn(null);
+                        if (reviewTake) setReviewedTake(reviewTake.clip);
+                        setGraphSlot(null);
+                      }}
+                    />
+                  )}
                 </div>
-                {graphSlot?.kind === "grid" && (
-                  <SeqGridPane
-                    path={graphSlot.path}
-                    view={graphSlot.view}
-                    onClose={() => setGraphSlot(null)}
-                    onChanged={bumpReload}
-                    setStatus={setStatus}
-                  />
-                )}
-                {/* A clicked clip's content: `ClipView` draws its own header and ✕, and tells audio from MIDI in one place. */}
-                {graphSlot?.kind === "clip" && (
-                  <ClipView
-                    target={graphSlot.target}
-                    onClose={() => setGraphSlot(null)}
-                    // The slot's target is a snapshot from the click; this is what lets the open clip re-read itself after a reload.
-                    reloadKey={reloadKey}
-                    // A click on the editor's arrangement ruler is the timeline's seek.
-                    onSeek={seek}
-                    // The TRACKER view writes its sequence file directly rather than through a command, so its reload is asked for here.
-                    onChanged={bumpReload}
-                    setStatus={setStatus}
-                    // The caret's three verbs and the loop it sets, pointed at whichever grid this pane is drawing.
-                    caretRef={clipGridRef}
-                    onSelection={setClipSel}
-                    onSetLoop={(start, end, enabled) =>
-                      engineRef.current?.loop(start, end, enabled)
-                    }
-                    // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are command lines like everything else.
-                    command={runCommand}
-                    // …except the stretch points, whose edits change nothing outside the clip file, so they go the quiet way.
-                    quietCommand={quietCommand}
-                    // …and they get the same right-click every other entity has.
-                    onContextMenu={openContextMenu}
-                    // The roll's draw gesture, and all four ANSWER the promise rather than dropping it — the ghost is held until the reload lands (rollPending.ts).
-                    onCreateNote={(seqId, key, t0, t1) =>
-                      runCommand(
-                        `sequence note new ${seqId} ${key} ${t0} ${t1}`,
-                      )
-                    }
-                    // The roll's velocity drag, committed like the timeline's clip drag: one command on release.
-                    onSetVelocity={(seqId, key, start, vel) =>
-                      runCommand(
-                        `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
-                      )
-                    }
-                    // …and the note drag the same way — move and stretch are one verb, being one gesture with two grips.
-                    onSetNoteRange={(seqId, key, start, ns, ne) =>
-                      runCommand(
-                        `sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`,
-                      )
-                    }
-                    // …except a drag that changed the PITCH, which is the verb that keeps the duration and refuses an occupied slot.
-                    onMoveNote={(seqId, key, start, nk, ns) =>
-                      runCommand(
-                        `sequence note move ${seqId} ${key} ${start} ${nk} ${ns}`,
-                      )
-                    }
-                    // …and the ear. Straight down the engine's socket: a note heard is not an edit, so it is journalled nowhere.
-                    onPreviewNote={(track, key, vel) =>
-                      engineRef.current?.previewNote(track, key, vel)
-                    }
-                    waveRef={waveRef}
-                    onWaveView={setWaveView}
-                    rollRef={rollRef}
-                    onRollMode={setRollMode}
-                    // …and the roll's `remove` mode, which is the caret's `x` reached by the pointer instead.
-                    onRemoveNote={(seqId, key, start) =>
-                      runCommand(
-                        `sequence note remove ${seqId} ${key} ${start}`,
-                      )
-                    }
-                  />
-                )}
-                {/* One lane's whole signal path, read left to right; `moduleRow` lays out the graph's own cards (docs/shell.md). */}
-                {graphSlot?.kind === "trackModules" && (
-                  <TrackModulesPane
-                    trackId={graphSlot.trackId}
-                    reloadKey={reloadKey}
-                    command={quietCommand}
-                    onModuleField={runCommand}
-                    onRecorder={onRecorder}
-                    trackOrder={trackOrder}
-                    pluginParamsStore={pluginParamsStore}
-                    requestPluginParams={requestPluginParams}
-                    watchPluginParams={watchPluginParams}
-                    setPluginParam={setPluginParam}
-                    moduleParams={offlineParams}
-                    trackControls={trackControls}
-                    onContextMenu={openContextMenu}
-                    engineWarnings={engineWarnings}
-                    onClose={() => setGraphSlot(null)}
-                  />
-                )}
-                {/* ONE panel for a take and for the file it becomes; `rolling` chooses the picture, not the mount (docs/shell.md). */}
-                {graphSlot?.kind === "recording" && (
-                  <AudioClipPanel
-                    clip={rolling ? null : (reviewTake?.clip ?? null)}
-                    track={reviewTake?.track ?? ""}
-                    rolling={rolling}
-                    tempo={recInfo.tempo}
-                    beatsPerBar={recInfo.beatsPerBar}
-                    countIn={recInfo.countIn}
-                    startBeat={takeStart}
-                    // Where the clip on screen actually SITS on its lane, asked of the document: a take from the sidebar sits where it was recorded.
-                    placedAt={
-                      (reviewTake &&
-                        placedBeat(
-                          projectDoc,
-                          reviewTake.track,
-                          reviewTake.clip,
-                        )) ??
-                      takeStart
-                    }
-                    takes={reviewTakes}
-                    onPickTake={pickTake}
-                    onKeepTake={keepTake}
-                    onPlay={() => void runCommand("transport toggle")}
-                    onSeek={seek}
-                    trackOrder={trackOrder}
-                    trackNames={recInfo.names}
-                    command={runCommand}
-                    quietCommand={quietCommand}
-                    onContextMenu={openContextMenu}
-                    reloadKey={reloadKey}
-                    onStop={() => void runCommand("transport stop")}
-                    onClose={() => {
-                      setReviewOn(null);
-                      if (reviewTake) setReviewedTake(reviewTake.clip);
-                      setGraphSlot(null);
-                    }}
-                  />
-                )}
               </div>
             </div>
 

@@ -103,8 +103,11 @@ matches before changing it:
 
 ### Layout: panes, not tabs
 
-`App.tsx` stacks the panes the project declares, full width: the **frame over the timeline over
-the graph**. The EDITOR has no slot in the layout — it is fullscreened deliberately
+`App.tsx` lays out the panes the project declares: the **frame BESIDE** a column holding the
+**timeline over the desk over the strip over the graph**. A picture is wide, so stacking it took a
+third of the height off everything below; the column is what stacks. **Every seam between two
+panes is draggable** (`components/PaneSplitter.tsx`), and double-clicking one gives the pane back
+the fraction it opened at. The EDITOR has no slot in the layout — it is fullscreened deliberately
 (`ui editor`) or arrives as a popin when a command sends it to a file
 (`frontend/docs/shell.md`). A pane that IS in the layout is **mounted exactly once and never
 unmounted**; `hidden` takes it off screen, which is what lets the editor be restyled into a

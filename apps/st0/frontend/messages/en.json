@@ -124,5 +124,6 @@
   "cmd.zoom": "zoom",
   "cmd.zoom out": "zoom out",
   "cmd.zoom reset": "zoom reset",
-  "cmd.help": "help"
+  "cmd.help": "help",
+  "pane.resize": "Resize the pane"
 }
