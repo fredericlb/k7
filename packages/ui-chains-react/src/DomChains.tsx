@@ -1094,11 +1094,15 @@ function WidgetInner({
     const c = (w.bind && CTRL[w.bind]) ?? RING;
     // `clear` and `save` need a take to act on, and `save` needs one that is FINISHED — drawn
     // faint rather than hidden, so the card reads the same whether or not anything is recorded.
+    // A take being ROLLING is something `clear` can act on: it stops it and drops it, one press.
+    const none =
+      (recState?.takes.length ?? 0) === 0 && !(recState?.recording ?? false);
     const idle =
       tgt?.kind === "recorder" &&
       tgt.verb !== "record" &&
-      ((recState?.takes.length ?? 0) === 0 ||
-        (tgt.verb === "save" && (recState?.recording ?? false)));
+      (tgt.verb === "save"
+        ? (recState?.takes.length ?? 0) === 0 || (recState?.recording ?? false)
+        : none);
     body = (
       <b
         className={`dgx-btn${on ? " on" : ""}${idle ? " unknown" : ""}`}

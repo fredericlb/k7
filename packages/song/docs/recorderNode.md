@@ -32,8 +32,19 @@ no knowledge that it records. **It has no params**: its three controls are intri
 | bind | what happens | who does it |
 |---|---|---|
 | `@rec:record` | start, or stop and keep the take | the ENGINE, down the socket |
-| `@rec:clear` | drop the most recent take, file and all | the ENGINE |
-| `@rec:save` | send the take on top to pl8's `recordings/` | a VERB, through the file service |
+| `@rec:clear` | drop the most recent take, file and all — **stopping it first** if it is still rolling | the ENGINE |
+| `@rec:save` | send the take on top to pl8's `recordings/`, **then clear it** | a VERB, then the engine |
+
+`clear` acts on a take being WRITTEN as readily as on a finished one: one press stops it and drops
+it, which is what a rig wants from a button that means "no, not that". It asked only about
+finished takes at first, so clearing the very first take of a session was refused as "has recorded
+nothing to clear" while it was plainly recording.
+
+`save` clears on the way out, and **only when the save succeeded**: the bytes are in the
+médiathèque now, so a stack that kept them would offer the same take again — but a save that was
+refused (no médiathèque configured, a path outside the record directory) must leave the take
+exactly where it is. That is why the card runs this one itself instead of through `runCommand`,
+which reports a refusal without returning one.
 
 The first two write nothing to disk, so they are **not verbs**: there is no file change to
 journal and nothing for undo to restore. Saving moves bytes, so it is a verb like everything else

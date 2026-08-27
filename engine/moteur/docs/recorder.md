@@ -144,7 +144,9 @@ file service check a path a browser hands it (`packages/file-service/src/recorde
 Float, and not converted here: a take is raw capture, and a bit depth is a decision the person
 saving it has not made yet.
 
-A take is closed on stop, and `clear` deletes the file of the one it pops.
+A take is closed on stop, and `clear` deletes the file of the one it pops. It pops a take being
+WRITTEN too, stopping it first — the stop files the take, so there is always one to pop, and the
+open writer never outlives the file it points at.
 
 ## Two refusals worth their sentences
 

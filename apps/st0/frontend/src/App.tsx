@@ -940,11 +940,28 @@ export default function App({
       const takes = store.getSnapshot().recorders?.[node.pluginId]?.takes ?? [];
       const last = takes[takes.length - 1];
       if (!last) return; // the button draws faint with no take; this is the race, not the state
-      void runCommandRef.current(
-        `node record save ${JSON.stringify(last.file)}`,
-      );
+      const id = node.pluginId;
+      const line = `node record save ${JSON.stringify(last.file)}`;
+      // Run here rather than through `runCommand`, which reports a refusal but does not return
+      // one: the take is dropped after this, and dropping it on a save that failed loses it.
+      void (async () => {
+        pushLog("cmd", `› ${line}`);
+        try {
+          const { output, refused } = await api.command(line, { want: [] });
+          const said = output.length ? output.join("  ·  ") : `ran: ${line}`;
+          for (const o of output) pushLog(refused ? "refused" : "info", o);
+          if (refused) return void setRefusal(said);
+          setStatus(said);
+          // Filed, so the local take goes: its bytes are in the médiathèque now, and a stack that
+          // kept it would offer the same one again — packages/song/docs/recorderNode.md.
+          engineRef.current?.recorder(id, "clear");
+        } catch (e) {
+          setStatus(`command error: ${(e as Error).message}`);
+          pushLog("error", (e as Error).message);
+        }
+      })();
     },
-    [store],
+    [store, pushLog, setRefusal],
   );
 
   // The lenses this browser can see — the camera cards' dropdown, packages/song/docs/camera.md.

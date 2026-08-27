@@ -195,12 +195,21 @@ EngineHost::RecorderResult EngineHost::clearLastTake(const std::string& session,
     auto* s = impl_->find(session);
     if (s == nullptr) return { false, "no session " + session };
     auto it = s->recorders.find(id);
-    if (it == s->recorders.end() || it->second->takes.empty())
+    // A take being WRITTEN counts as something to clear, and this asked only about finished ones —
+    // so clearing the first take of a session was refused while it was still rolling.
+    if (it == s->recorders.end() ||
+        (it->second->takes.empty() && !it->second->recording))
         return { false, "\"" + id + "\" has recorded nothing to clear" };
-    // Recording is stopped first: clearing the take being written would leave an open writer
-    // pointing at a file that is about to stop existing.
-    if (it->second->recording) setRecorderRecording(session, id, false);
+    // Recording is stopped first, which FILES the take and so leaves one to pop below: clearing
+    // the take being written would otherwise leave an open writer pointing at a file that is
+    // about to stop existing.
+    if (it->second->recording) {
+        const auto stopped = setRecorderRecording(session, id, false);
+        if (!stopped.ok) return stopped;
+    }
     auto& takes = it->second->takes;
+    // The stop above files one, so this is empty only when the node lost its plugin mid-take.
+    if (takes.empty()) return { false, "\"" + id + "\" has recorded nothing to clear" };
     juce::File(takes.back().file).deleteFile();
     takes.pop_back();
     // The picture on every card is of the take just deleted, so the node stops holding it too —
