@@ -14,7 +14,7 @@
     "./modulePreview": "./src/modulePreview.ts",
     "./zoomGesture": "./src/zoomGesture.ts",
     "./patchGesture": "./src/patchGesture.ts",
-    "./takeEnvelope": "./src/takeEnvelope.ts"
+    "./decimate": "./src/decimate.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

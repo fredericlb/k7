@@ -84,9 +84,9 @@ played belongs to the hour it was played, and the médiathèque files by day
 window through a tap the engine inserts on demand; a recorder draws **the whole take, growing**,
 off the state frame — and needs no tap at all, since it is already in the chain.
 
-Each frame carries only the points made since the last one, so the card accumulates. Knowing when
+Each frame carries only the points made since the last one, so somebody accumulates. Knowing when
 to throw the total away is the entire difficulty, and it lives in
-[takeEnvelope.ts](../../ui-chains/src/takeEnvelope.ts): a new take starts, a take closes, or
+[takeEnvelope.ts](../../engine-browser/src/takeEnvelope.ts): a new take starts, a take closes, or
 `clear` pops the one on screen. Get it wrong and a take draws on top of the last one, which reads
 as a rendering bug for ever.
 
@@ -96,6 +96,22 @@ engine rewinds that to 0 for a socket that just connected
 offset is enough for the fold to tell a resend from an append, and the same arithmetic covers the
 overlap between them. The rest of the card needed no such thing — `recording`, `seconds` and
 `takes` are absolute in every frame, so the light and the two buttons come back on their own.
+
+### …and the accumulation belongs to the STORE, not to the card
+
+The half of this that was wrong at first, and the failure is worth stating because nothing in the
+engine or in the fold was to blame. The resend arrives in **one frame**, about 50 ms after the
+socket opens. The card that draws it does not exist yet — the graph has still to be fetched — and
+`EngineStore` keeps only the LATEST frame. So a card folding frames itself always mounted after
+the only frame that carried the picture, read a delta, and drew a take that looked like it had
+just started. Every unit test passed: they hand the frame straight to `foldTake`, which is exactly
+the consumer that was not there.
+
+So `EngineStore.takeOf(node)` is what the card reads, and the store folds on `set`. Whoever asks,
+whenever, gets the whole thing — which is also why this file is in `@studio/engine-browser` and
+not next to the canvas: only something living as long as the CONNECTION can catch that frame.
+`decimate` stayed behind in [ui-chains](../../ui-chains/src/decimate.ts), being about a width in
+pixels rather than about a socket.
 
 ## Where the `live` archetype puts it
 

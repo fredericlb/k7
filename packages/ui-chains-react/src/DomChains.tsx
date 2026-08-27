@@ -53,6 +53,7 @@ import {
   midByArc,
   smoothPath,
 } from "@studio/ui-chains/cables";
+import { decimate } from "@studio/ui-chains/decimate";
 import {
   CLIP_LIST_MAX,
   cablePath,
@@ -81,12 +82,6 @@ import {
   stepSway,
 } from "@studio/ui-chains/hang";
 import { patchAct } from "@studio/ui-chains/patchGesture";
-import {
-  decimate,
-  EMPTY_TAKE,
-  foldTake,
-  type TakeView,
-} from "@studio/ui-chains/takeEnvelope";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
 // The one icon this file draws from a set: the freeze badge, a snowflake being no CSS shape.
 import { Snowflake } from "lucide-react";
@@ -732,17 +727,18 @@ function WaveformWidget({
     return store.subscribe(read);
   }, [store, key]);
 
-  // …and the take's, ACCUMULATED: each frame carries only the points made since the last one.
-  const viewRef = useRef<TakeView>(EMPTY_TAKE);
+  // …and the take's, which the STORE accumulates rather than this card: the whole picture arrives
+  // in ONE frame when the socket connects, a second before this exists (engine-browser's
+  // takeEnvelope.ts). Folding it here would miss that frame every time.
+  const takeRef = useRef<WaveformEnvelope[]>(NO_ENVELOPE);
   useEffect(() => {
     if (!store || !takeKey) return;
     const read = (): void => {
-      const rec = store.getSnapshot().recorders?.[takeKey];
-      const next = rec ? foldTake(viewRef.current, rec) : EMPTY_TAKE;
-      // `foldTake` hands back the SAME object when nothing moved, which is most frames.
-      if (next === viewRef.current) return;
-      viewRef.current = next;
-      envelopeRef.current = next.points;
+      const points = store.takeOf(takeKey)?.points ?? NO_ENVELOPE;
+      // The store hands back the SAME array while nothing moves, which is most frames.
+      if (points === takeRef.current) return;
+      takeRef.current = points;
+      envelopeRef.current = points;
       dirtyRef.current = true;
       wakeRef.current();
     };
@@ -789,7 +785,7 @@ function WaveformWidget({
       }
       ctx.clearRect(0, 0, W, H);
       // A take is thousands of points against a card's ~120: decimated keeping the EXTREMES,
-      // since averaging them away draws a quiet take (takeEnvelope.ts).
+      // since averaging them away draws a quiet take (decimate.ts).
       const env = isTake
         ? decimate(envelopeRef.current, Math.max(1, Math.round(W)))
         : envelopeRef.current;

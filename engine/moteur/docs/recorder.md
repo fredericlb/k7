@@ -108,7 +108,8 @@ recorders: { "<chain>:<module>": { recording, seconds, takes: [{file, seconds, d
 
 `envelope` is the points made **since the last frame** — the same drain contract the waveform tap
 has, at a coarser bucket (4096 samples, ~12 points a second). The client appends;
-`packages/ui-chains/src/takeEnvelope.ts` is what knows when to throw the total away.
+`packages/engine-browser/src/takeEnvelope.ts` is what knows when to throw the total away — and it
+sits beside the STORE rather than beside the card, for the reason the next section gives.
 
 ### …and `from`, which is what makes a RELOAD work
 

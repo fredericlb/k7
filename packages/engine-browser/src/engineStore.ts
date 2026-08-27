@@ -5,6 +5,7 @@
 
 import type { EngineState, RecorderState } from "@studio/engine-protocol";
 import { createContext, useContext, useRef, useSyncExternalStore } from "react";
+import { EMPTY_TAKE, foldTake, type TakeView } from "./takeEnvelope";
 
 const INITIAL: EngineState = {
   playing: false,
@@ -23,8 +24,14 @@ const INITIAL: EngineState = {
 export class EngineStore {
   private state: EngineState = INITIAL;
   private listeners = new Set<() => void>();
+  // Each recorder's picture so far, accumulated HERE because the engine resends it whole in one
+  // frame when the socket connects — a second before any card exists. See takeEnvelope.ts.
+  private takes: Record<string, TakeView> = {};
 
   getSnapshot = (): EngineState => this.state;
+
+  /** One recorder node's accumulated take, or undefined for a node that has made none. */
+  takeOf = (node: string): TakeView | undefined => this.takes[node];
 
   subscribe = (cb: () => void): (() => void) => {
     this.listeners.add(cb);
@@ -37,6 +44,7 @@ export class EngineStore {
   set = (s: EngineState): void => {
     if (sameFrame(this.state, s)) return;
     this.state = s;
+    this.takes = foldedTakes(this.takes, s.recorders);
     for (const l of this.listeners) l();
   };
 }
@@ -108,6 +116,24 @@ function recordersEq(
     if (x.envelope !== y.envelope && y.envelope.length > 0) return false;
   }
   return true;
+}
+
+/** Every node's picture grown by one frame — the SAME map when no node moved, so a reader may
+ *  compare by identity. A node the frame stops mentioning is dropped: its take left with it. */
+function foldedTakes(
+  prev: Record<string, TakeView>,
+  frames: Record<string, RecorderState> | undefined,
+): Record<string, TakeView> {
+  if (!frames) return Object.keys(prev).length ? {} : prev;
+  const next: Record<string, TakeView> = {};
+  let moved = Object.keys(prev).length !== Object.keys(frames).length;
+  for (const id in frames) {
+    const was = prev[id] ?? EMPTY_TAKE;
+    const now = foldTake(was, frames[id]);
+    if (now !== was) moved = true;
+    next[id] = now;
+  }
+  return moved ? next : prev;
 }
 
 const EngineStoreContext = createContext<EngineStore | null>(null);

@@ -72,7 +72,9 @@ describe("a frame nothing else would notice", () => {
         { ...IDLE, recorders: { rec: rec({ seconds: 3 }) } },
         {
           ...IDLE,
-          recorders: { rec: rec({ seconds: 3, envelope: [{ min: -1, max: 1 }] }) },
+          recorders: {
+            rec: rec({ seconds: 3, envelope: [{ min: -1, max: 1 }] }),
+          },
         },
       ]),
     ).toBe(2);
@@ -94,7 +96,10 @@ describe("…and one that says nothing new is still dropped", () => {
   it("holds its peace for an idle recorder", () => {
     // Drained empty twice over is the SAME frame, and this is the case that runs 20 times a
     // second for as long as a project has a recorder in it.
-    const same = { ...IDLE, recorders: { rec: rec({ recording: false, seconds: 0 }) } };
+    const same = {
+      ...IDLE,
+      recorders: { rec: rec({ recording: false, seconds: 0 }) },
+    };
     expect(notifications([same, { ...same }, { ...same }])).toBe(1);
   });
 
@@ -110,5 +115,77 @@ describe("…and one that says nothing new is still dropped", () => {
     expect(notifications([IDLE, { ...IDLE, playhead: 2 }])).toBe(1);
     expect(notifications([IDLE, { ...IDLE, armed: ["gtr"] }])).toBe(1);
     expect(notifications([IDLE, { ...IDLE, platters: { deckA: 1 } }])).toBe(1);
+  });
+});
+
+// --- the take a card arrives too late for ------------------------------------------------------
+//
+// The bug this exists for: the engine resends a take's whole picture in ONE frame when the socket
+// connects, and the card that draws it mounts a second later. Accumulating in the card meant that
+// frame was always already gone — a reload drew a take that looked like it had just started. The
+// STORE keeps it instead, so whoever asks, whenever, gets the whole thing.
+
+describe("the accumulated take", () => {
+  const pts = (n: number, at = 0) =>
+    Array.from({ length: n }, (_, i) => ({ min: -(at + i), max: at + i }));
+
+  it("hands a LATE reader the whole picture, not the last delta", () => {
+    const store = new EngineStore();
+    // Frame 0 is the resend: the whole take, from 0. Nothing is subscribed yet — this is the
+    // page still loading, which is exactly when it arrives.
+    store.set({
+      ...IDLE,
+      recorders: { r: rec({ envelope: pts(40), from: 0 }) },
+    });
+    // …then the ordinary deltas, which is all a card mounting now would ever see by itself.
+    store.set({
+      ...IDLE,
+      recorders: { r: rec({ envelope: pts(1, 40), from: 40 }) },
+    });
+    store.set({
+      ...IDLE,
+      recorders: { r: rec({ envelope: pts(1, 41), from: 41 }) },
+    });
+    expect(store.takeOf("r")?.points).toHaveLength(42);
+  });
+
+  it("keeps the SAME array while nothing moves, so a card does not repaint on every frame", () => {
+    const store = new EngineStore();
+    store.set({
+      ...IDLE,
+      recorders: { r: rec({ envelope: pts(3), from: 0 }) },
+    });
+    const first = store.takeOf("r")?.points;
+    // A frame that brings no point and moves nothing is what an idle recorder sends 20 times a second.
+    store.set({
+      ...IDLE,
+      playhead: 1,
+      recorders: { r: rec({ envelope: [], from: 3 }) },
+    });
+    expect(store.takeOf("r")?.points).toBe(first);
+  });
+
+  it("does not draw a resent picture twice", () => {
+    const store = new EngineStore();
+    store.set({
+      ...IDLE,
+      recorders: { r: rec({ envelope: pts(3), from: 0 }) },
+    });
+    // A SECOND client connecting rewinds the session, so this one is sent the whole thing again.
+    store.set({
+      ...IDLE,
+      recorders: { r: rec({ envelope: pts(4), from: 0 }) },
+    });
+    expect(store.takeOf("r")?.points).toHaveLength(4);
+  });
+
+  it("forgets a node the frames stop mentioning", () => {
+    const store = new EngineStore();
+    store.set({
+      ...IDLE,
+      recorders: { r: rec({ envelope: pts(3), from: 0 }) },
+    });
+    store.set({ ...IDLE, playhead: 2, recorders: {} });
+    expect(store.takeOf("r")).toBeUndefined();
   });
 });
