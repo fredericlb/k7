@@ -66,3 +66,37 @@ Both follow the rule `alternative:` follows when it goes back to the first set. 
 a pad's effects only when there is one, so a pad with no effect does not gain two keys saying so.
 `NoteIn` carries them so a note that is COPIED brings them along
 (`packages/song/docs/padEffects.md`).
+
+## …and one writer for a RECTANGLE
+
+`mapNotesInRegion` is the same edit over a box rather than a note: two keys inclusive, a half-open
+beat span, and `fn` answering `null` to remove. The four `sequence notes …` verbs — remove,
+transpose, quantize, velocity — are four short functions over it.
+
+It exists because a bulk edit has to be **one journal entry**. Calling the singular writers N times
+is N of them, and half could land while the rest throw: a rectangle transposed by twelve would
+then undo a fifth of the way back, which is worse than either doing it or refusing it. One
+document pass also means one parse and one serialise, where N calls re-read the file N times.
+
+A note is in when it **starts** inside, the rule the roll's rectangle already copies by
+(`apps/st0/frontend/src/clipboard.ts`). Taking them by overlap would put the same note in two
+adjacent boxes. `repeat` and `skip` are never touched, so a pad crossed by a transposition keeps
+its effects, and a line the parse cannot read as a note is left alone rather than rewritten.
+
+An empty region answers `{ changed: 0 }` and hands the text straight back rather than throwing.
+That is the one place this file departs from "throw on a miss", and the reason is that the caller
+is a rectangle rather than an address: a box holding nothing is a thing a person can draw, not a
+surface being out of date. The COMMAND is what refuses it by name.
+
+### What the four verbs decided
+
+- **quantize moves the onset and keeps the length.** Moving the end too would be two edits under
+  one verb, and a run of notes would grow or shrink as a side effect of being lined up.
+- **transpose CLAMPS onto the keyboard**, where `pasteNotes` drops what falls off and says so. The
+  difference is that a paste is new material and a transpose is notes that exist: losing one
+  silently would leave the rest moved and no way to say what went. The engine's own `transpose`
+  node clamps for a harder reason still — a dropped note leaves its note-off behind and hangs the
+  voice (`engine/moteur/engine/DspGraph.cpp`).
+- **velocity is absolute, and 1 clears the field**, exactly as the singular verb does: a region set
+  to full leaves a file that never mentions velocity, which is what an untouched sequence looks
+  like. A relative factor would be a fifth verb, not a flag on this one.

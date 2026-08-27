@@ -31,6 +31,8 @@ const CARRIED = [
   "monitor",
   // Which socket a live input is on: `inputUI` draws it and the renderer reads it back.
   "channel",
+  // …and which LENS a camera is on, carried for exactly that reason — see docs/camera.md.
+  "camera",
   "tap",
   // The module's other attribute sets, and which is on — see packages/song/docs/alternatives.md.
   "alternatives",
@@ -136,7 +138,14 @@ export function trackModules(graph: WebGraph, track: string): string[] {
   return out;
 }
 
-export type Kind = "track" | "module" | "chain" | "sink" | "curve";
+export type Kind =
+  | "track"
+  | "module"
+  | "chain"
+  | "sink"
+  | "curve"
+  // A templated set of nodes drawn as one box — a DRAWING, never a signal. See docs/graphBuild.md.
+  | "assembly";
 
 /** A node as the renderer receives it: its step's fields (DERIVED, see CARRIED/FLAGS) plus geometry. */
 export interface GraphNode extends Carried, Flags {
@@ -147,6 +156,8 @@ export interface GraphNode extends Carried, Flags {
   // track only: this lane carries PICTURE. A flag, not a kind — it ranks, links and lays out like an audio lane.
   video?: boolean;
   color?: string; // track only: the track's authored display colour (hex), if any
+  /** This module is a lane's FADER, and this is the lane: the card wears its glyph and its name (docs/graphBuild.md). */
+  trackFace?: string;
   chain?: string; // owning chain (modules + empty pass-through chains) — first if shared
   chains?: string[]; // all chains this module belongs to (when shared across chains)
   dim: boolean; // bypassed (module or whole chain)
@@ -166,6 +177,22 @@ export interface GraphNode extends Carried, Flags {
   curveOf?: { curve: string; module?: string; param?: string };
   /** This node sits in a row read ACROSS, so its cables meet the side edges — `moduleRow`'s doing. */
   flow?: "across";
+  /** Which assembly this node is INSIDE — set on the members of an open box, and on nothing else. */
+  assembly?: string;
+  /** This node STEPPED ASIDE for an open frame, and this is where it belongs. Never written down:
+   *  closing the box stops the push, and the card is back. See `pushAsideFrames`. */
+  pushed?: Pt;
+  /** …and, on the BOX, what it is. `plugs` is what turns a plug into a graph.yaml address. */
+  assemblyOf?: {
+    uses: string;
+    open: boolean;
+    /** The project node names this box holds. A CLOSED one has swallowed their cards, so this is
+     *  the only thing left saying that a metered lane's signal now leaves from here. */
+    members: string[];
+    plugs: Record<string, { node: string; port?: string }>;
+    params?: Record<string, { node: string; param: string; pluginId?: string }>;
+    missing?: boolean;
+  };
   /** This node is a NOTE, and this is its text — a doc module's `content`, which `noteSize` measures. */
   note?: string;
   /** EVERY clip on the lane, not just the `CLIP_LIST_MAX` the list shows — see docs/graphBuild.md. */
@@ -266,6 +293,9 @@ export interface EdgeAutomation {
 }
 
 export interface GraphEdge {
+  /** The assembly this cable is INSIDE — both its ends are members of it, and it is open. A cable
+   *  that is not one crosses the frame rather than belonging to it, and is drawn faded. */
+  assembly?: string;
   id: string;
   source: string;
   target: string;
@@ -385,6 +415,13 @@ export const MIX_OUT = "MIX";
 /** The PICTURE's two, drawn by exactly the rules above — see @studio/song's docs/videoOutputs.md. */
 export const RENDER_OUT = "RENDER";
 export const VIDEO_OUT = "VIDEO_OUT";
+
+/** The id an assembly's card has, in the family of the `mod:` / `trk:` / `snk:` ids buildGraph mints. */
+export const assemblyId = (name: string): string => `asm:${name}`;
+
+/** What an OPEN box adds around the layout of its members: a title strip, and a margin. */
+export const FRAME_HEAD = 26;
+export const FRAME_PAD = 14;
 
 export const NODE_W = 160;
 export const NODE_H = 70;
@@ -573,6 +610,24 @@ export const RACK_BIND = "@rack:";
 export const rackBindSymbol = (bind: string | undefined): string | null =>
   bind?.startsWith(RACK_BIND) ? bind.slice(RACK_BIND.length) : null;
 
+/** The bind prefix a RECORDER's controls carry: `@rec:record` fires, it does not set. The second
+ *  member of the rack pad's family, and named apart from `@record` deliberately — a bare `@field`
+ *  is a module field the general case would try to WRITE. See engine/moteur/docs/recorder.md. */
+export const REC_BIND = "@rec:";
+
+/** What a recorder node can be told to do. `save` is the file service's; the other two the engine's. */
+export const REC_VERBS = ["record", "clear", "save"] as const;
+export type RecVerb = (typeof REC_VERBS)[number];
+
+/** The verb a recorder bind names, or null for any other bind — an unknown one is NOT a verb. */
+export const recBindVerb = (bind: string | undefined): RecVerb | null => {
+  if (!bind?.startsWith(REC_BIND)) return null;
+  const verb = bind.slice(REC_BIND.length);
+  return (REC_VERBS as readonly string[]).includes(verb)
+    ? (verb as RecVerb)
+    : null;
+};
+
 /** The widest a pad grid gets — four, the shape a drum grid already has. */
 const RACK_COLS = 4;
 /** …and the smallest, so a one-sound rack still reads as a rack. See docs/graphBuild.md. */
@@ -679,10 +734,52 @@ const BASE_BIND = "@base";
 /** …and the shader's, the same mechanism over a different folder. See @studio/song's docs/shaders.md. */
 const SHADER_BIND = "@shader";
 
+/** The intrinsic a camera's dropdown writes — `node param <node> @camera <label>`. */
+export const CAMERA_BIND = "@camera";
+
+/** The UI a CAMERA node carries: one dropdown, the lenses this machine has — see docs/camera.md.
+ *
+ * Synthesised for the reason `inputUI` is, and for its harder second one too: `@engine/CAM` has no
+ * folder, so it can carry no `ui.yaml`, and without this every camera in every project draws a card
+ * reading "No Options" that no amount of authoring could fix.
+ *
+ * The list is the BROWSER's — it is the browser that opens the lens — so it arrives as an argument
+ * rather than being invented here, exactly as the interface's channels do. */
+export function cameraUI(
+  cameras: readonly string[],
+  current: string | undefined,
+): WebModuleUI {
+  // "default" first and always, so a chosen lens can be un-chosen: without it the only way back to
+  // the machine's own camera is editing the file. The same argument `@base`'s `none` makes.
+  const options = [
+    { label: "default", value: 0, arg: "default" },
+    ...cameras.map((name, i) => ({ label: name, value: i + 1, arg: name })),
+  ];
+  return {
+    cols: 2,
+    rows: 1,
+    widgets: {
+      camera: {
+        type: "dropdown",
+        col: 0,
+        row: 0,
+        colSpan: 2,
+        bind: CAMERA_BIND,
+        label: "cam",
+        options,
+      },
+    },
+  };
+  // `current` is read by the RENDERER off the step, not here: a dropdown shows what the file says
+  // through `widgetValue`, and inventing a selected index here would be a second answer to that.
+  void current;
+}
+
 /** The panel a step actually draws — one function, so the node's SIZE and its `ui` cannot disagree. */
 function stepUI(
   s: WebChainStep,
   devices: readonly { name: string; channels: number[] }[] | undefined,
+  cameras: readonly string[] | undefined,
 ): WebModuleUI | undefined {
   // The folder lists fold into whichever panel is drawn, authored or synthesised, and in one place.
   if (s.ui)
@@ -692,6 +789,8 @@ function stepUI(
       s.shaders,
     );
   if (s.rack?.length) return rackUI(s.rack);
+  // A LENS is told apart the way a live input is: by the field only its own kind carries.
+  if (s.camera !== undefined) return cameraUI(cameras ?? [], s.camera);
   return s.monitor !== undefined
     ? inputUI(devices ?? [], s.channel)
     : undefined;
@@ -748,11 +847,13 @@ export function widgetDenorm(w: WebWidget, t: number): number {
   return Math.min(max, Math.max(min, Math.round(v / w.step) * w.step));
 }
 
-interface RawNode extends Omit<GraphNode, "x" | "y"> {
+export interface RawNode extends Omit<GraphNode, "x" | "y"> {
   rank?: number; // dagre rank hint — computed from longest chain position
 }
-interface RawEdge {
+export interface RawEdge {
   id: string;
+  /** See `GraphEdge.assembly` — set by `foldAssemblies`, carried through the layout. */
+  assembly?: string;
   source: string;
   target: string;
   label?: string;
@@ -795,6 +896,8 @@ export function buildGraph(
     mainOutVolume?: number;
     /** How the machine's interface groups its inputs — the sound card's to say, not the document's. */
     inputDevices?: readonly { name: string; channels: number[] }[];
+    /** The CAMERAS this browser can see, by label — the browser's to say, not the document's. */
+    cameras?: readonly string[];
   } = {},
 ): {
   nodes: RawNode[];
@@ -876,6 +979,10 @@ export function buildGraph(
   });
   // The maximum step index a module holds across chains, so a shared one ranks after every pipeline.
   const moduleRank = new Map<string, number>();
+  // A fader's lane, INVERTED once: the document keys by track like its neighbours, and a node asks the other way.
+  const mixerOwner = new Map<string, string>();
+  for (const [track, node] of Object.entries(graph.trackMixers ?? {}))
+    mixerOwner.set(node, track);
 
   // Once for the whole graph, so every lane's mini timeline is drawn against the same ruler.
   const clipSpan = clipSpanOf(graph);
@@ -960,7 +1067,7 @@ export function buildGraph(
         ? [...new Set([...existing.chains, name])]
         : [name];
       // Read once: the node's panel and the node's size are the same answer.
-      const ui = stepUI(s, opts.inputDevices);
+      const ui = stepUI(s, opts.inputDevices, opts.cameras);
       add(mid, {
         label: s.module,
         // Only the SHARED case earns a sub line: editing this module reaches more than one chain. See docs/graphBuild.md.
@@ -972,6 +1079,10 @@ export function buildGraph(
         // Distinct from `dim`, which also covers a whole chain: this is THIS step's bypass.
         bypassed: s.enabled === false,
         module: s.module,
+        // A lane's FADER wears that lane's face — its glyph and its name — since a strip is what a track's level became.
+        ...(mixerOwner.get(s.module)
+          ? { trackFace: mixerOwner.get(s.module) }
+          : {}),
         // …and whether it is inside somebody's render — one map answers for a lane and a module alike.
         ...(graph.frozen?.[s.module] ? { frozen: graph.frozen[s.module] } : {}),
         // Everything the step itself says, in one move — see CARRIED/FLAGS.
@@ -1309,6 +1420,63 @@ export function buildGraph(
   return { nodes: [...nodes.values()], edges: [...edges.values()] };
 }
 
+/** Nodes overlapping an OPEN frame step aside to make room for it — see docs/graphBuild.md.
+ *
+ * The shift is CONSTANT per side, so the cards it moves keep their spacing and the picture reads
+ * the same, only spread. And nothing here is recorded: closing the box stops the push, which is
+ * what puts every card back without anything having to remember where it was. */
+export function pushAsideFrames<
+  N extends {
+    id: string;
+    kind: Kind;
+    assembly?: string;
+    assemblyOf?: { open: boolean };
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    pushed?: Pt;
+  },
+>(nodes: N[]): N[] {
+  const frames = nodes.filter(
+    (n) => n.kind === "assembly" && n.assemblyOf?.open,
+  );
+  if (!frames.length) return nodes;
+  const moved = new Map<string, number>();
+  const at = (n: N): number => n.x + (moved.get(n.id) ?? 0);
+  for (const f of frames) {
+    const left = f.x - NODE_SEP;
+    const right = f.x + f.w + NODE_SEP;
+    const mid = f.x + f.w / 2;
+    // A member rides with its own frame, and a frame is not pushed by itself.
+    const others = nodes.filter(
+      (n) => n !== f && !n.assembly && n.y + n.h > f.y && n.y < f.y + f.h,
+    );
+    const hit = others.filter((n) => at(n) + n.w > left && at(n) < right);
+    if (!hit.length) continue;
+    // Nearer side, so nothing is dragged across the frame it was beside.
+    const goRight = hit.filter((n) => at(n) + n.w / 2 >= mid);
+    const goLeft = hit.filter((n) => at(n) + n.w / 2 < mid);
+    if (goRight.length) {
+      const dx = right - Math.min(...goRight.map(at));
+      if (dx > 0)
+        for (const n of goRight) moved.set(n.id, (moved.get(n.id) ?? 0) + dx);
+    }
+    if (goLeft.length) {
+      const dx = Math.max(...goLeft.map((n) => at(n) + n.w)) - left;
+      if (dx > 0)
+        for (const n of goLeft) moved.set(n.id, (moved.get(n.id) ?? 0) - dx);
+    }
+  }
+  if (!moved.size) return nodes;
+  return nodes.map((n) => {
+    const dx = moved.get(n.id);
+    return dx
+      ? { ...n, x: n.x + dx, pushed: n.pushed ?? { x: n.x, y: n.y } }
+      : n;
+  });
+}
+
 /** Pull the named modules onto ONE rank — the DEEPEST of theirs. See docs/graphBuild.md. */
 export function alignModuleRank(
   nodes: RawNode[],
@@ -1598,6 +1766,122 @@ export function layout(
   // Where each node was DRAWN last time, by node id — the host's session memory, outranked by a pin.
   prev?: ReadonlyMap<string, { x: number; y: number }>,
 ): LaidOutGraph {
+  const inside = new Map<string, RawNode[]>();
+  for (const n of nodes)
+    if (n.assembly) {
+      const list = inside.get(n.assembly) ?? [];
+      list.push(n);
+      inside.set(n.assembly, list);
+    }
+  return inside.size
+    ? layoutNested(nodes, raw, inside, positions, prev)
+    : layoutFlat(nodes, raw, positions, prev);
+}
+
+/** An OPEN box's members are laid out by a RECURSIVE pass, and the outer graph sees one node the
+ *  size of the result — which is what keeps the rank rows, the master column and the pins flat. */
+function layoutNested(
+  nodes: RawNode[],
+  raw: RawEdge[],
+  inside: Map<string, RawNode[]>,
+  positions?: Record<string, { x: number; y: number }>,
+  prev?: ReadonlyMap<string, { x: number; y: number }>,
+): LaidOutGraph {
+  const outerNodes = nodes.filter((n) => !n.assembly);
+  const boxIdOf = new Map<string, string>();
+  const laidInside = new Map<string, LaidOutGraph>();
+  for (const [name, members] of inside) {
+    const ids = new Set(members.map((m) => m.id));
+    const box = outerNodes.find(
+      (n) => n.kind === "assembly" && n.module === name,
+    );
+    // A member whose box is not on the graph is nobody's; it lays out with everything else.
+    if (!box) {
+      outerNodes.push(...members);
+      continue;
+    }
+    for (const m of members) boxIdOf.set(m.id, box.id);
+    // `assembly` is stripped for the inner pass, or the recursion would look for a box inside itself.
+    const laid = layoutFlat(
+      members.map((m) => ({ ...m, assembly: undefined })),
+      raw.filter((e) => ids.has(e.source) && ids.has(e.target)),
+    );
+    laidInside.set(name, laid);
+    box.w = Math.max(NODE_W, laid.width - laid.left + FRAME_PAD * 2);
+    box.h = Math.max(NODE_H, laid.height - laid.top + FRAME_PAD + FRAME_HEAD);
+  }
+  // dagre is shown the cables as they reach the BOX; the drawing gets them back pointing at the member.
+  const seen = new Set<string>();
+  const outerEdges: RawEdge[] = [];
+  for (const e of raw) {
+    const source = boxIdOf.get(e.source) ?? e.source;
+    const target = boxIdOf.get(e.target) ?? e.target;
+    if (source === target) continue;
+    const key = `${source}->${target}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    outerEdges.push({ ...e, id: key, source, target });
+  }
+  // The push runs BEFORE the members are placed, so a frame that stepped aside takes them with it.
+  const outer = pushAsideFrames(
+    layoutFlat(outerNodes, outerEdges, positions, prev).nodes,
+  );
+  const members: GraphNode[] = [];
+  for (const [name, laid] of laidInside) {
+    const box = outer.find((n) => n.kind === "assembly" && n.module === name);
+    if (!box) continue;
+    const dx = box.x + FRAME_PAD - laid.left;
+    const dy = box.y + FRAME_HEAD - laid.top;
+    for (const m of laid.nodes)
+      members.push({ ...m, assembly: name, x: m.x + dx, y: m.y + dy });
+  }
+  const outNodes = [...outer, ...members];
+  const placed = new Map(outNodes.map((n) => [n.id, n]));
+  const centre = (n: GraphNode): Pt => ({ x: n.x + n.w / 2, y: n.y + n.h / 2 });
+  const outEdges: GraphEdge[] = raw.map((e) => {
+    // dagre routed the box rather than the member, and `cablePath` recomputes both ends off the
+    // SOCKETS anyway — so what is handed over is the two centres. Two POINTS and not zero: the
+    // renderer skips an edge with fewer, which is its test for "the layout could not place this",
+    // and returning none dropped every cable on a graph with an open box. See docs/graphBuild.md.
+    const src = placed.get(e.source);
+    const tgt = placed.get(e.target);
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      label: e.label,
+      automation: e.automation,
+      signal: e.signal,
+      targetPort: e.targetPort,
+      sourcePort: e.sourcePort,
+      targetSlot: e.targetSlot,
+      assembly: e.assembly,
+      points: src && tgt ? [centre(src), centre(tgt)] : [],
+    };
+  });
+  const extent = (of: (n: GraphNode) => number): number =>
+    outNodes.length ? Math.max(...outNodes.map(of)) + GRAPH_MARGIN : 0;
+  const least = (of: (n: GraphNode) => number): number =>
+    outNodes.length
+      ? Math.min(0, Math.min(...outNodes.map(of)) - GRAPH_MARGIN)
+      : 0;
+
+  return {
+    nodes: outNodes,
+    edges: outEdges,
+    width: extent((n) => n.x + n.w),
+    height: extent((n) => n.y + n.h),
+    left: least((n) => n.x),
+    top: least((n) => n.y),
+  };
+}
+
+function layoutFlat(
+  nodes: RawNode[],
+  raw: RawEdge[],
+  positions?: Record<string, { x: number; y: number }>,
+  prev?: ReadonlyMap<string, { x: number; y: number }>,
+): LaidOutGraph {
   const g = new dagre.graphlib.Graph({ multigraph: true });
   g.setGraph({
     // Signal runs DOWN the page, so `nodesep` and `ranksep` swap axes — see docs/graphBuild.md.
@@ -1643,9 +1927,11 @@ export function layout(
   if (positions || prev) {
     // `jackRef`'s name resolution, inlined because cables.ts imports this file. See docs/graphBuild.md.
     outNodes = outNodes.map((n) => {
-      const p =
-        positions?.[n.kind === "module" ? (n.module ?? n.label) : n.label] ??
-        prev?.get(n.id);
+      const named =
+        n.kind === "module" || n.kind === "assembly"
+          ? (n.module ?? n.label)
+          : n.label;
+      const p = positions?.[named] ?? prev?.get(n.id);
       return p ? { ...n, x: p.x, y: p.y } : n;
     });
   }
@@ -1662,6 +1948,7 @@ export function layout(
     targetPort: e.targetPort,
     sourcePort: e.sourcePort, // the mirror, and it drops the same way if forgotten here
     targetSlot: e.targetSlot, // ranked in the pass above; without it every bare cable draws to socket 0
+    assembly: e.assembly,
     points: g.edge(e.source, e.target, e.id)?.points ?? [],
   }));
   // Measured on the NODES, not read off dagre, and 0 rather than -Infinity when empty. See docs/graphBuild.md.

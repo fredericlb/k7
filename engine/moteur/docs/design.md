@@ -52,10 +52,11 @@ deltas. `apply()` executes top-to-bottom without dangling references.
 
 Every change kind but one is applied in place: tempo, time signature, master
 volume, track add/rename/params/input, clip add/remove/move, plugin
-add/remove/param/enable, and automation. `TrackRemoved` is the remaining stub —
-explicit in `EngineHost::apply`, with the engine call noted in a comment, rather
-than faked. A stub there is not free: the diff still reports the change, so the
-log says it was applied while nothing moved.
+add/remove/param/enable, and automation. `TrackRemoved` is the exception, and it
+takes the whole diff to `applyFull()` alongside `SampleRateChanged`: `trackById`
+maps a document INDEX onto a lane, so a lane outliving a shortened document moves
+every later track's clips, mute and input onto its neighbour without saying so.
+`docs/audit-stabilite.md` has the worked example.
 
 ## Threading & realtime rules (non-negotiable)
 

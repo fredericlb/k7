@@ -9,6 +9,9 @@ import { jackPoint, MIX_OUT, RENDER_OUT } from "./graph";
 // graph.ts's trackId() prefix — liveness seeds from the track nodes.
 export const TRACK_NODE_PREFIX = "trk:";
 
+// …and its moduleId()'s, which liveness ALSO seeds from: a materialised track has no lane card.
+export const MODULE_NODE_PREFIX = "mod:";
+
 // …and its sinkId() for the two SUMS, the other nodes liveness starts at — see computeLive.
 export const MIX_NODE_ID = `snk:${MIX_OUT}`;
 export const RENDER_NODE_ID = `snk:${RENDER_OUT}`;
@@ -165,26 +168,45 @@ export function computeLive(
   edges: { id: string; source: string; target: string }[],
   activeTracks: string[],
   activeVideoTracks: readonly string[] = [],
+  /** Where a metered lane's signal LEAVES from when its card has been folded into a closed
+   *  assembly, by track id. Without it a folded set reaches nothing and no cable ripples. */
+  foldedAt: ReadonlyMap<string, string> = new Map(),
 ): Set<string> {
-  const reached = new Set(
-    [...activeTracks, ...activeVideoTracks].map(
-      (id) => `${TRACK_NODE_PREFIX}${id}`,
-    ),
-  );
+  const reached = new Set<string>();
+  for (const id of [...activeTracks, ...activeVideoTracks]) {
+    reached.add(`${TRACK_NODE_PREFIX}${id}`);
+    // A run that MATERIALISED its own track is drawn as its MODULES: there is no lane card to
+    // start at, and the track wears the chain's name — packages/song/docs/graphModel.md.
+    reached.add(`${MODULE_NODE_PREFIX}${id}`);
+  }
+  for (const id of activeTracks) {
+    const box = foldedAt.get(id);
+    if (box) reached.add(box);
+  }
   if (activeTracks.length) reached.add(MIX_NODE_ID);
   if (activeVideoTracks.length) reached.add(RENDER_NODE_ID);
   const live = new Set<string>();
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const g of edges) {
-      if (!live.has(g.id) && reached.has(g.source)) {
+  const walk = (from: ReadonlySet<string>, back: boolean): void => {
+    const seen = new Set(from);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const g of edges) {
+        const here = back ? g.target : g.source;
+        const next = back ? g.source : g.target;
+        // Upstream stops at another LANE: a metered card speaks for itself, and would be seeded.
+        if (back && next.startsWith(TRACK_NODE_PREFIX)) continue;
+        if (live.has(g.id) || !seen.has(here)) continue;
         live.add(g.id);
-        reached.add(g.target);
+        seen.add(next);
         changed = true;
       }
     }
-  }
+  };
+  walk(reached, false);
+  // …and UPSTREAM of each metered card, which is where a live input sits: the signal it is
+  // metering came down that cable. Seeded separately, so a silent sibling branch stays still.
+  walk(reached, true);
   return live;
 }
 
@@ -216,15 +238,37 @@ export function insertFor(
   if (!s || !t) return null;
   // Sink to sink is `MIX → OUT`, the empty master run — the one line every template writes to be dropped on.
   const masterRun = s.kind === "sink" && t.kind === "sink";
-  if (s.kind !== "module" && t.kind !== "module" && !masterRun) return null;
-  const name = (n: GraphNode) =>
-    n.kind === "module" ? (n.module ?? n.label) : n.label;
-  return { before: name(s), after: name(t) };
+  // A closed box stands for a MODULE at one end, which is what makes its boundary arrow spliceable.
+  const spliceable = (n: GraphNode) => n.kind === "module" || !!n.assemblyOf;
+  if (!spliceable(s) && !spliceable(t) && !masterRun) return null;
+  // The box's own name is never written into a chain: the arrow's real end is the MEMBER behind its plug.
+  return {
+    before: jackRef(s, portOn(s, "out")),
+    after: jackRef(t, portOn(t, "in")),
+  };
 }
 
-/** The chains.yaml name a JACK click has in hand — `insertFor`'s resolution, plus `#port`. */
+/** A closed box's only plug on that side, when it has exactly one — what an ARROW's end must resolve to. */
+function portOn(n: GraphNode, side: "in" | "out"): string | undefined {
+  if (!n.assemblyOf) return undefined;
+  const jacks = n.jacks?.[side]?.filter((j) => j.name);
+  return jacks?.length === 1 ? jacks[0].name : undefined;
+}
+
+/** The chains.yaml name a JACK click has in hand — `insertFor`'s resolution, plus `#port`.
+ *
+ * An ASSEMBLY answers with the MEMBER behind the plug, never with itself: the box is a drawing and
+ * `graph.yaml` has no key for it, so a cable dropped on `turntableA#mix` writes `fadeA`. Its bare
+ * name is still its own — that is what a pin and `graph move` address. See docs/graphBuild.md. */
 export function jackRef(n: GraphNode, port?: string): string {
-  const name = n.kind === "module" ? (n.module ?? n.label) : n.label;
+  if (n.assemblyOf && port) {
+    const plug = n.assemblyOf.plugs[port];
+    if (plug) return plug.port ? `${plug.node}#${plug.port}` : plug.node;
+  }
+  const name =
+    n.kind === "module" || n.kind === "assembly"
+      ? (n.module ?? n.label)
+      : n.label;
   return port ? `${name}#${port}` : name;
 }
 

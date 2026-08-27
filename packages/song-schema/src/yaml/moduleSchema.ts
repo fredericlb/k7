@@ -52,6 +52,13 @@ export const PortSchema = z
   })
   .strict();
 
+/** What a waveform widget draws: the live signal either side of the module, or the recorder
+ *  node's own TAKE — its whole picture, growing (engine/moteur/docs/recorder.md). */
+export const WAVEFORM_SOURCES = ["input", "output", "take"] as const;
+
+/** Every `io:` a module may declare. Named for WAVEFORM_SOURCES' reason: `fields.ts` offers it. */
+export const IO_KINDS = ["out", "in", "video_out", "file", "camera"] as const;
+
 export const WIDGET_TYPES = [
   "label",
   "knob",
@@ -84,7 +91,7 @@ const WidgetBase = z.object({
   max: z.number().optional(),
   step: z.number().positive().optional(),
   curve: z.enum(["lin", "log"]).optional(),
-  source: z.enum(["input", "output"]).optional(), // waveform
+  source: z.enum(WAVEFORM_SOURCES).optional(), // waveform
   options: z
     .array(z.object({ label: z.string(), value: z.number() }))
     .optional(), // dropdown
@@ -210,7 +217,7 @@ const MODULE_FIELDS = {
     })
     .optional(),
   // "in" and "file" are SOURCES, the rest are sinks — see moduleTypes.IO_SOURCES, which the graph reads.
-  io: z.enum(["out", "in", "video_out", "file"]).optional(),
+  io: z.enum(IO_KINDS).optional(),
   // The module's own PORTS, overriding the defaults its type folder gives — see docs/moduleFile.md.
   inputs: z.array(PortSchema).optional(),
   outputs: z.array(PortSchema).optional(),
@@ -233,6 +240,15 @@ const MODULE_FIELDS = {
   cold: z.boolean().optional(),
   // An io "in" module says WHICH interface input it is, and nothing about where the signal goes.
   channel: InputSchema.optional(),
+  // …and an io "camera" module WHICH camera, by the LABEL a person reads: a deviceId is per
+  // browser and rotates, so one written here names nothing anywhere else (docs/camera.md).
+  camera: z.string().optional(),
+  // …and WHERE in the viewport it draws, [x, y, w, h] in px. Absent is the whole frame. One key
+  // rather than four, so it cannot be confused with graph.yaml's `positions:` — which is where a
+  // node's CARD sits, a different fact about the same node (docs/camera.md).
+  frame: z
+    .tuple([z.number(), z.number(), z.number(), z.number()])
+    .optional(),
   // An io "file" module's audio FILE, project-relative, and ABSENT on a chain template — see docs/fileInput.md.
   source: z.string().optional(),
   // Whether you hear the input while it plays; the three-state spelling stays because "auto" is neither.

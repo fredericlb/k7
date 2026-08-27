@@ -95,6 +95,16 @@ One `markers:` schema serves both readings, so the key form is a superset: a son
 unsayable — `1:30:00` would be indistinguishable from a musical `bar:beat:tick` — so a
 three-hour cut writes `10800`.
 
+## A lane can be fed by a LENS instead
+
+`kind: video` says a lane draws its placements. Wire an `io: camera` node to it in `graph.yaml` and
+it draws a live picture instead — the same lane, the same rect, the same `mute`, the same passes
+over it. That is the one thing in the picture model that comes off `graph.yaml`'s SOURCES rather
+than out of `video_tracks/`, and it is why it costs no new road: everything a live layer needs, a
+lane already had. See [packages/song/docs/camera.md](../../song/docs/camera.md).
+
+An export leaves such a layer out: a lens has no frame at *t*, and a render walks a timeline.
+
 ## What is not there
 
 - **`video_source`.** An audio lane inheriting a video lane's placements, so a shot and its

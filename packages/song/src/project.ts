@@ -341,6 +341,7 @@ import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 export {
   MIXER_PARAMS,
   MIXER_PLUGIN,
+  RECORDER_PLUGIN,
   VOLUME_DB,
 } from "@studio/engine-protocol/build";
 

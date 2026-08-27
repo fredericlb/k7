@@ -88,6 +88,13 @@ graphe est bâti, si bien que `process()` ne fait **aucune recherche et aucune a
 aucun littéral ne peut la dire. Les paramètres occupent les registres juste après `sr`, dans
 l'ordre déclaré.
 
+Cette correspondance est **positionnelle** : `process()` écrit la valeur du n-ième paramètre dans le
+registre n+1, sans jamais consulter un nom. Un nom pour lequel `reg()` rend un indice qui existe
+déjà décale donc tous les paramètres suivants sur le registre d'un autre — un littéral compris — et
+rien en aval ne peut s'en apercevoir. `build()` refuse les deux cas qui le produisent : un paramètre
+déclaré deux fois, et un paramètre appelé `sr`. Refusé pendant que ce n'est encore qu'une
+description ; `DspGraph_test.cpp` épingle les deux.
+
 Un nœud porte aussi un `mode`, un seul entier pour trois usages selon son type : le genre de filtre
 d'un `biquad` (0 passe-bande, 1 passe-bas, 2 passe-haut, 3 réjecteur), la forme d'onde d'un `alfo`
 (0 sinus, 1 triangle, 2 dent de scie, 3 carré), ou le numéro de port d'un `ain`. C'est `build()`

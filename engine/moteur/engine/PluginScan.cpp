@@ -15,6 +15,7 @@
 #include "TurntablePlugin.h"
 #include "BroadcastTapPlugin.h"     // likewise, for the network broadcast tap
 #include "WaveformTapPlugin.h"      // its xmlTypeName, listed among the built-ins below
+#include "RecorderPlugin.h"         // …and the recorder NODE, which the document declares
 #include "PluginScan.h"     // cachedPluginInfos / invalidatePluginInfoMemo
 
 #include <algorithm>
@@ -219,6 +220,8 @@ std::vector<PluginInfo> builtInPlugins() {
         e("MIDI Graph", studio::MidiGraphPlugin::xmlTypeName, "midiEffect", "utility"),
         // The channel strip: level, pan and a tone stack. A track carries none itself, so this is where a mix is made, one per track.
         e("Mixer", studio::MixerPlugin::xmlTypeName, "audioEffect", "utility"),
+        // A tape machine you drop in a chain: transparent, and it captures — docs/recorder.md.
+        e("Recorder", studio::RecorderPlugin::xmlTypeName, "audioEffect", "utility"),
         // A master bus in one module: three bands compressed, a spreader, a limiter (docs/quickMaster.md).
         e("Quick Master", studio::QuickMasterPlugin::xmlTypeName, "audioEffect", "dynamics"),
     };
@@ -246,6 +249,7 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::FaustPlugin>();
     pm.createBuiltInType<studio::MidiGraphPlugin>();
     pm.createBuiltInType<studio::MixerPlugin>();
+    pm.createBuiltInType<studio::RecorderPlugin>();
     pm.createBuiltInType<studio::QuickMasterPlugin>();
     pm.createBuiltInType<studio::TurntablePlugin>();
     // Registered so the plugin cache can create one, and deliberately ABSENT from the catalogue above — see MasterGainPlugin.h.

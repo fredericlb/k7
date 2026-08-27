@@ -5,6 +5,7 @@
 
 import type { Chain, GraphDoc, Module, Step } from "@studio/song/graph";
 import {
+  CAMERA_IO,
   RENDER_NODE,
   SHADER_CATEGORY,
   SHADER_PARAMS,
@@ -20,6 +21,21 @@ export interface VideoChainDocs {
   byLane: Record<string, VideoPluginDoc[]>;
   /** The `RENDER -> VIDEO_OUT` run, over everything the lanes composited into. */
   frame: VideoPluginDoc[];
+  /** Which CAMERA feeds each lane, by the LABEL its node names — a lane with none is absent.
+   *  Empty string means "whichever camera this machine calls default" (docs/camera.md). */
+  cameraByLane: Record<string, string>;
+  /** …and the cameras that feed NO lane, which get a layer of their own: full frame unless the
+   *  node says otherwise, in the order the graph declares them (docs/camera.md). */
+  cameras: CameraLayer[];
+}
+
+/** A camera drawn as its own layer — no `video_tracks/` file behind it, and none needed. */
+export interface CameraLayer {
+  /** The node's name, which is the layer's id. */
+  node: string;
+  label: string;
+  /** [x, y, w, h] in viewport px; absent is the whole frame. */
+  frame?: number[];
 }
 
 /** The four knobs, clamped to 0..1 because the value leaves TypeScript for GLSL — docs/shaders.md. */
@@ -101,7 +117,35 @@ const runDocs = (
 /** Every video run in the project, compiled — two shapes and one loop, see docs/shaders.md. */
 export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
   const byLane: Record<string, VideoPluginDoc[]> = {};
+  const cameraByLane: Record<string, string> = {};
+  const cameras: CameraLayer[] = [];
   let frame: VideoPluginDoc[] = [];
+  // A CAMERA is a source rather than a pass: its run lands ON a picture lane, and what the lane
+  // gets from it is which lens to open. The first one wins, and `validate()` reports the second.
+  for (const c of Object.values(g.chains)) {
+    if (c.enabled === false) continue;
+    const cam = c.use.find((s) => {
+      const m = g.modules[s.module];
+      return m?.kind === "io" && m.io === CAMERA_IO;
+    });
+    if (!cam || cam.enabled === false) continue;
+    const module = g.modules[cam.module];
+    const label = String(module?.camera ?? "");
+    let landed = false;
+    for (const o of c.out) {
+      const lane = splitPort(o.to).node;
+      if (!g.videoTracks[lane]) continue;
+      landed = true;
+      if (!(lane in cameraByLane)) cameraByLane[lane] = label;
+    }
+    // No lane took it: the lens IS a layer, and the document authored none. See docs/camera.md.
+    if (!landed && !cameras.some((x) => x.node === cam.module))
+      cameras.push({
+        node: cam.module,
+        label,
+        ...(module?.frame ? { frame: module.frame } : {}),
+      });
+  }
   for (const [name, c] of Object.entries(g.chains)) {
     if (c.enabled === false) continue;
     if (!c.from) continue;
@@ -115,5 +159,5 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
     const docs = runDocs(dir, g, c.from, c);
     if (docs.length) byLane[c.from] = docs;
   }
-  return { byLane, frame };
+  return { byLane, frame, cameraByLane, cameras };
 }

@@ -73,13 +73,21 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
                 error = "a param has no name";
                 return nullptr;
             }
+            if (juce::String(dp.name) == "sr") {
+                error = "a param may not be called `sr`, which is the sample rate";
+                return nullptr;
+            }
             dp.min = (float)(double)o->getProperty("min");
             dp.max = (float)(double)o->getProperty("max");
             dp.def = (float)(double)o->getProperty("default");
             if (auto* labels = o->getProperty("labels").getArray())
                 for (const auto& l : *labels)
                     dp.labels.push_back(l.toString().toStdString());
-            g->reg(juce::String(dp.name));
+            // The nth param IS register n+1, by POSITION and never by name, so a name that already has one shifts every later param onto somebody else's register — docs/dspGraph.md.
+            if (g->reg(juce::String(dp.name)) != (int)g->params_.size() + 1) {
+                error = "a param is declared twice: " + juce::String(dp.name);
+                return nullptr;
+            }
             g->params_.push_back(std::move(dp));
         }
 

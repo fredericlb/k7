@@ -120,6 +120,44 @@ const CATALOGUE: CommandInfo[] = [
     help: "drop one stretch point (e.g. clip warp remove break 1.94)",
     args: [a("clip", "file", "clipTargets"), a("sec", "number")],
   },
+  {
+    command: "sequence note remove",
+    help: "remove one note from a sequence",
+    args: [a("sequence", "file"), a("note", "note"), a("start", "number")],
+  },
+  {
+    command: "sequence note split",
+    help: "cut one note in two",
+    args: [
+      a("sequence", "file"),
+      a("note", "note"),
+      a("start", "number"),
+      a("at", "number"),
+    ],
+  },
+  {
+    command: "sequence notes remove",
+    help: "remove every note in a region",
+    args: [
+      a("sequence", "file"),
+      a("loNote", "note"),
+      a("hiNote", "note"),
+      a("from", "number"),
+      a("to", "number"),
+    ],
+  },
+  {
+    command: "sequence notes transpose",
+    help: "shift every note in a region by n semitones",
+    args: [
+      a("sequence", "file"),
+      a("loNote", "note"),
+      a("hiNote", "note"),
+      a("from", "number"),
+      a("to", "number"),
+      a("semitones", "number"),
+    ],
+  },
 ];
 
 const lines = (items: { command: string }[]) => items.map((i) => i.command);
@@ -169,6 +207,56 @@ describe("a pad", () => {
 
   it("offers no way off an effect that is not on", () => {
     expect(lines(pad())).not.toContain("sequence note repeat beat 36 2 off");
+  });
+});
+
+/** A NOTE on the piano roll: its own two, then the RECTANGLE's, when the click landed in one. */
+describe("a roll note", () => {
+  const note = (over: Record<string, unknown> = {}) =>
+    contextMenu(
+      {
+        kind: "note",
+        sequence: "melody",
+        note: 60,
+        start: 4,
+        end: 6,
+        ...over,
+      } as never,
+      CATALOGUE,
+    );
+
+  it("offers the removal, already filled in", () => {
+    expect(lines(note())).toEqual(["sequence note remove melody 60 4"]);
+    expect(note().every((i) => i.complete)).toBe(true);
+  });
+
+  it("offers the split only where the caret would leave TWO notes", () => {
+    expect(lines(note({ at: 5 }))).toContain(
+      "sequence note split melody 60 4 5",
+    );
+    // On either edge a cut would leave a note of no length, so it is not offered at all.
+    expect(lines(note({ at: 4 }))).toHaveLength(1);
+    expect(lines(note({ at: 6 }))).toHaveLength(1);
+  });
+
+  it("adds the rectangle's verbs when the click landed in one", () => {
+    const menu = note({ region: { lo: 60, hi: 72, from: 0, to: 8 } });
+    expect(lines(menu)).toContain("sequence notes remove melody 60 72 0 8");
+    expect(lines(menu)).toContain("sequence notes transpose melody 60 72 0 8 ");
+  });
+
+  /** The box is spelt for them; the VALUE is not, so those rows go to the bar rather than running. */
+  it("leaves the value owed to the bar, and only that", () => {
+    const menu = note({ region: { lo: 60, hi: 72, from: 0, to: 8 } });
+    const by = (c: string) => menu.find((i) => i.command.startsWith(c));
+    expect(by("sequence notes remove")?.complete).toBe(true);
+    expect(by("sequence notes transpose")?.complete).toBe(false);
+  });
+
+  it("offers none of them when there is no rectangle", () => {
+    expect(lines(note()).some((l) => l.startsWith("sequence notes"))).toBe(
+      false,
+    );
   });
 });
 

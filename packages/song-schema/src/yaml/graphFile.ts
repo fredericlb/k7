@@ -193,6 +193,35 @@ export function connectNodes(text: string, from: string, to: string): string {
   return doc.toString(OUT);
 }
 
+/** Add a whole SEGMENT SET in one write — what instancing an assembly's template emits.
+ *
+ * One write rather than a `connectNodes` per edge: a turntable is eighteen nodes and twenty arrows,
+ * and a parse-and-serialise apiece would put twenty diffs' worth of reflow risk on one gesture.
+ * A node the file already names is refused, since the flat key space is the whole model here. */
+export function mergeSegments(
+  text: string,
+  add: {
+    modules: Record<string, string[]>;
+    bypassed?: string[];
+    bus_only?: string[];
+  },
+): string {
+  const { doc, file } = read(text);
+  for (const node of Object.keys(add.modules))
+    if (hasNode(file, node))
+      throw new Error(`'${node}' is already in the graph`);
+  for (const [node, dests] of Object.entries(add.modules))
+    setDests(doc, node, dests);
+  for (const key of ["bypassed", "bus_only"] as const) {
+    const names = add[key] ?? [];
+    if (!names.length) continue;
+    const have = new Set(file[key] ?? []);
+    const next = [...(file[key] ?? []), ...names.filter((n) => !have.has(n))];
+    doc.set(key, destsNode(doc, next));
+  }
+  return doc.toString(OUT);
+}
+
 /** Take ONE arrow out; a source left feeding nothing keeps its key as `[]` (docs/graphEdits.md). */
 export function disconnectNodes(
   text: string,

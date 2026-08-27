@@ -108,6 +108,14 @@ filesRouter.get(
   }),
 );
 
+/** …and the assembly templates it holds, which is the same question about the third family. */
+filesRouter.get(
+  "/library-assemblies",
+  wrap((req, res) => {
+    res.json({ assemblies: req.ws!.libraryAssemblies() });
+  }),
+);
+
 /** The LISTING of `_playlists/`; reading and writing one are `/file` and `/write` — see docs/fileRoutes.md. */
 filesRouter.get(
   "/playlists",
@@ -319,7 +327,7 @@ filesRouter.post(
 
 // Scaffold a project at the workspace root and return its path — the same scaffold `st0 create` runs.
 const createProjectBody = z.object({
-  /** The ARCHETYPE: `arrangement`, `mix` or `video`, each named after the surface it opens on — see docs/fileRoutes.md. */
+  /** The ARCHETYPE — `arrangement`, `mix`, `video` or `live`, the last declaring no surface at all. */
   shape: z.enum(PROJECT_SHAPES),
   name: z.string().min(1),
 });

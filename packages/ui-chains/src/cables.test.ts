@@ -87,6 +87,31 @@ describe("midByArc", () => {
   });
 });
 
+describe("computeLive, over a folded assembly", () => {
+  // A metered lane whose card has been swallowed by a CLOSED box: its signal leaves from the box.
+  const edges = [
+    { id: "a", source: "asm:turntableA", target: "snk:CUE" },
+    { id: "b", source: "snk:MIX", target: "snk:OUT" },
+  ];
+
+  it("reaches nothing without the map — the lane's own card is gone", () => {
+    expect([...computeLive(edges, ["deckA"])]).toEqual(["b"]);
+  });
+
+  it("ripples off the BOX once told where the lane went", () => {
+    const folded = new Map([["deckA", "asm:turntableA"]]);
+    expect([...computeLive(edges, ["deckA"], [], folded)].sort()).toEqual([
+      "a",
+      "b",
+    ]);
+  });
+
+  it("says nothing about a box holding no metered lane", () => {
+    const folded = new Map([["deckB", "asm:turntableB"]]);
+    expect([...computeLive(edges, ["deckA"], [], folded)]).toEqual(["b"]);
+  });
+});
+
 describe("computeLive", () => {
   const edge = (id: string, source: string, target: string) => ({
     id,
@@ -158,6 +183,74 @@ describe("computeLive", () => {
     it("leaves the frame still while only sound is playing", () => {
       expect(computeLive(edges, ["melody"])).toEqual(new Set(["sound"]));
     });
+  });
+});
+
+// A meter sits on a LANE, and the input feeding it is upstream — so a forward-only walk left the
+// one cable a live rig has still. See docs/graphBuild.md.
+describe("computeLive, upstream of the meter", () => {
+  const edge = (id: string, source: string, target: string) => ({
+    id,
+    source,
+    target,
+  });
+  const lane = `${TRACK_NODE_PREFIX}gtr`;
+
+  it("lights the cable from an INPUT into the lane it feeds", () => {
+    const edges = [edge("in", "mod:IN", lane), edge("out", lane, "mod:amp")];
+    expect(computeLive(edges, ["gtr"])).toEqual(new Set(["in", "out"]));
+  });
+
+  it("keeps going up a chain of modules ahead of the lane", () => {
+    const edges = [edge("a", "mod:IN", "mod:amp"), edge("b", "mod:amp", lane)];
+    expect(computeLive(edges, ["gtr"])).toEqual(new Set(["a", "b"]));
+  });
+
+  it("stops at another LANE, which speaks for itself", () => {
+    // `pad` is silent: its own cable must stay still even though what it feeds is sounding.
+    const edges = [
+      edge("pad", `${TRACK_NODE_PREFIX}pad`, lane),
+      edge("in", "mod:IN", lane),
+    ];
+    expect(computeLive(edges, ["gtr"])).toEqual(new Set(["in"]));
+  });
+
+  it("leaves a SILENT lane's input alone", () => {
+    const edges = [edge("in", "mod:IN", lane)];
+    expect(computeLive(edges, [])).toEqual(new Set());
+  });
+
+  it("does not light a sibling branch the input also feeds", () => {
+    // Upstream is seeded from the METER only, so reaching IN must not walk forward out of it.
+    const edges = [
+      edge("in", "mod:IN", lane),
+      edge("other", "mod:IN", `${TRACK_NODE_PREFIX}quiet`),
+    ];
+    expect(computeLive(edges, ["gtr"])).toEqual(new Set(["in"]));
+  });
+});
+
+// A `live` project authors no lane at all: the run materialises its own track, so there is no
+// `trk:` card to seed at and the track wears the chain's name — packages/song/docs/liveProject.md.
+describe("computeLive on a materialised track", () => {
+  const edge = (id: string, source: string, target: string) => ({
+    id,
+    source,
+    target,
+  });
+
+  it("seeds at the MODULE the track was named after", () => {
+    const edges = [
+      edge("a", "mod:IN", "mod:fader"),
+      edge("b", "mod:fader", MIX_NODE_ID),
+      edge("c", MIX_NODE_ID, "snk:OUT"),
+    ];
+    expect(computeLive(edges, ["IN"])).toEqual(new Set(["a", "b", "c"]));
+  });
+
+  it("stays still when that track is silent", () => {
+    const edges = [edge("a", "mod:IN", "mod:fader")];
+    expect(computeLive(edges, [])).toEqual(new Set());
   });
 });
 

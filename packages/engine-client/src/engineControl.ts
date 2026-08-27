@@ -16,6 +16,7 @@ import {
 } from "@studio/engine-protocol/sessions";
 import { ENGINE_OUTBOX_MAX, ENGINE_OUTBOX_TTL_MS } from "@studio/web-protocol";
 import WebSocket from "ws";
+import { enginePathMap, mapFrame } from "./enginePaths";
 
 // The wire shapes shared with the browser client live in @studio/engine-protocol, so the two can't drift.
 export type { EngineState, TransportAction } from "@studio/engine-protocol";
@@ -117,6 +118,9 @@ export class EngineControl extends EventEmitter {
       }
       // Another project's news on a shared socket, dropped before the switch so a frame type that grows a session later is covered.
       if (!forSession(msg, this.session)) return;
+      // Spelled back into our own path style, `state` excepted: it arrives at meter rate and carries no path.
+      const pathMap = msg.type === "state" ? null : enginePathMap();
+      if (pathMap) msg = mapFrame(msg, pathMap.back);
       switch (msg.type) {
         case "state":
           this.emit("state", {
@@ -232,8 +236,10 @@ export class EngineControl extends EventEmitter {
 
   protected send(obj: object): void {
     // The one choke point every verb goes through, omitted when default so the bytes stay identical to before sessions.
+    const pathMap = enginePathMap();
     const s = JSON.stringify(
       this.session ? { session: this.session, ...obj } : obj,
+      pathMap ? (_k, v) => (typeof v === "string" ? pathMap.out(v) : v) : undefined,
     );
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(s);

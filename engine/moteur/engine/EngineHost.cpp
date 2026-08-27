@@ -115,6 +115,9 @@ void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, co
     populateEdit(impl_->engine, *edit, doc, baseDir, &impl_->session(session).pluginsById, &impl_->session(session).presetSaveById);
     const double t2 = juce::Time::getMillisecondCounterHiRes();
     buildLevelMeters(session);           // append a metering plugin + client to each track
+    // …and point every recorder node back at the ring the SESSION owns, so a take in progress
+    // survives the rebuild that just replaced the plugin writing it (docs/recorder.md).
+    attachRecorderTaps(session);
     // A fresh Edit starts with no click, so re-assert the metronome flag, or every apply would silence it.
     applyMetronome(session);
     const double t3 = juce::Time::getMillisecondCounterHiRes();
@@ -327,10 +330,8 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                 break;
             }
 
-            // --- Skeletons: structurally located, engine call TODO — left explicit rather than faked, and NOT free, since the diff reports the change as applied ------
             case ChangeKind::TrackRemoved:
-                // te::deleteRegionOfTracks / edit.deleteTrack(*t) — needs the Track (not just AudioTrack) and an undo transaction.
-                break;
+                break;  // unreachable (handled by needsFullRebuild above), like SampleRateChanged
             /** Take the one plugin out of the LIVE chain: a rebuild replaces the Edit and the transport with it, so unlinking a module would stop the song. */
             case ChangeKind::PluginRemoved: {
                 if (!c.plugin) break;
@@ -534,6 +535,18 @@ void EngineHost::previewSample(const std::string& session, const std::string& fi
             s->playNotes(keys);
         }
     });
+}
+
+void EngineHost::previewNote(const std::string& session, const std::string& trackId, int key,
+                             float velocity) {
+    auto* s = impl_->find(session);
+    if (s == nullptr || ! s->edit) return;   // nothing loaded — nothing to play through
+    auto* track = trackById(*s->edit, trackId, s->current);
+    if (track == nullptr) return;
+    // Never 0: a note-on with velocity 0 IS a note-off, so the quietest audition would be silence.
+    const int vel = juce::jlimit(1, 127, (int) std::lround(velocity * 127.0f));
+    // playGuideNote owns the note-off on a 100 ms timer, and forceNote skips a preference about a HOST's keyboard (docs/protocol.md).
+    track->playGuideNote(juce::jlimit(0, 127, key), te::MidiChannel(1), vel, true, true, true);
 }
 
 float EngineHost::trackLevelDb(const std::string& session, int trackIndex) const {
@@ -786,6 +799,10 @@ private:
 
         /** Nothing is happening here, so most of these frames are not sent; the levels are in the test because an AUDITION sounds with the transport stopped. docs/engineHost.md. */
         const bool idle = !s.playing && !s.recordEnabled && s.armedTracks.empty() &&
+                          // A recorder node is free-running: a rig capturing with the transport
+                          // stopped looks exactly like an idle session, and skipping its drain
+                          // would let the ring lap and lose the take (docs/recorder.md).
+                          !host_.anyRecording(session) &&
                           !host_.sessionWatched(session) && allSilent(s.trackLevelsDb) &&
                           allSilent(s.trackInputLevelsDb);
         // Counting up to the divisor and back to zero, not modulo a counter that only grows: this runs for as long as the engine does.
@@ -797,6 +814,8 @@ private:
             idleTicks_[session] = 0;
 
         s.waveformEnvelopes = host_.drainAllWaveformTaps(session);
+        // …and the recorders, drained onto disk in the same breath: this tick IS the writer thread.
+        s.recorders = host_.pumpRecorders(session);
         // A platter carries its own clock, so `playheadSeconds` says nothing about it — docs/turntable.md.
         s.platterSeconds = host_.platterPositions(session);
         cb_(s);

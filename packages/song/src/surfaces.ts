@@ -3,8 +3,15 @@
 // (yaml/surfaceFile.ts), so an app can read one out of the file service without this.
 // Full rationale: docs/surfaces.md.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
+import { CAMERA_IO } from "@studio/song-schema/moduleTypes";
 import {
   type ProjectSurface,
   type ProjectSurfaces,
@@ -109,9 +116,40 @@ function mappingSkeleton(type: SurfaceType): string {
     .join("")}`;
 }
 
-/** Whether `dir` carries picture at all — a folder probe, kept out of song-video, docs/surfaces.md. */
+/** Whether `dir` authors video LANES — a folder probe, kept out of song-video, docs/surfaces.md. */
 export function isVideoProject(dir: string): boolean {
   return existsSync(resolve(dir, "video_tracks"));
+}
+
+/** `io: camera`, the one field that says a module is a lens — see docs/camera.md. */
+const CAMERA_FIELD = new RegExp(
+  `^\\s*io\\s*:\\s*["']?${CAMERA_IO}["']?\\s*$`,
+  "m",
+);
+
+/** Whether `dir` declares a LENS, which needs no lane — the same probe, one folder along. */
+function namesCamera(dir: string): boolean {
+  const io = join(resolve(dir), "modules", "io");
+  let found: string[];
+  try {
+    found = readdirSync(io);
+  } catch {
+    return false; // no `modules/io/` — as good as no camera
+  }
+  return found.some((name) => {
+    try {
+      return CAMERA_FIELD.test(
+        readFileSync(join(io, name, "module.yaml"), "utf8"),
+      );
+    } catch {
+      return false; // not a module folder, or unreadable
+    }
+  });
+}
+
+/** Whether this project has a PICTURE at all: lanes of it, or a lens that needs none. */
+export function hasPicture(dir: string): boolean {
+  return isVideoProject(dir) || namesCamera(dir);
 }
 
 /** Whether this folder holds anything the timeline would have drawn — see docs/surfaces.md. */

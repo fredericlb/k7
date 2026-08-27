@@ -225,6 +225,21 @@ export function setModuleShader(
   return editModuleValue(dir, module, ["shader"], clean || null);
 }
 
+/** Which CAMERA a live picture node opens, by the LABEL a person reads; empty means the default one.
+ *
+ * A label and not a deviceId, and the schema's comment says why: an id is salted per browser and
+ * per origin, so one written into a committed file names nothing on the next machine. The browser
+ * matches this against what it enumerates — see packages/song/docs/camera.md. */
+export function setModuleCamera(
+  dir: string,
+  module: string,
+  label: string,
+): string {
+  // Empty REMOVES the key, exactly as a cleared shader does: `camera: ""` names no camera at all.
+  const clean = label.trim();
+  return editModuleValue(dir, module, ["camera"], clean || null);
+}
+
 /** Choose which named BASE this module starts from, per instance — see packages/song/docs/userPresets.md. */
 export function setModuleBase(
   dir: string,

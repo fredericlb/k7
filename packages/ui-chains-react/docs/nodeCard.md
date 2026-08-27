@@ -16,11 +16,53 @@ this. The far LOD says the module too, for the same reason — at that zoom the 
 and the useful one is what the node is rather than which copy of it. Two LODs answering
 differently would be two cards.
 
-The stack lives inside `UI_HEADER` (38 px), which the layout and the hit areas share, so `.dgx-nms`
-states both line-heights rather than inheriting them: 7 px of padding either side leaves 24, and a
-header that grew would put every widget grid under its own card's chrome. `min-width:0` on the
-column is what makes an ellipsis inside a flex row work at all — the same reason it appears on the
-track's input label, where a long channel name would otherwise push the node's own name out.
+The stack lives inside `UI_HEADER` (38 px), which the layout and the hit areas share, so both
+line-heights are stated rather than inherited: 7 px of padding either side leaves 24, and a header
+that grew would put every widget grid under its own card's chrome. `min-width:0` on the row is what
+makes an ellipsis inside a flex row work at all — the same reason it appears on the track's input
+label, where a long channel name would otherwise push the node's own name out.
+
+### The header is a COLUMN, and only its top row makes way for the bubbles
+
+`.dgx-hd` stacks two things: `.dgx-hdtop`, a row carrying the glyph, the module's name and whatever
+stands beside them, and `.dgx-nodenm` under it. Two consequences, both of them the point:
+
+- **the glyph leads the module's name and nothing else.** Centred against the whole two-line block
+  it belonged to neither line, and read as an ornament of the card rather than of the name;
+- **neither line makes way for the corner bubbles.** They are `position:absolute; top:-8px;
+  right:-8px`: 17 px discs hung on the card's top-right CORNER, half of each one outside it
+  altogether. Against a name whose line starts 7 px down, that is about two pixels of overlap, at
+  the very top of the glyphs and only in the last 28 px of the row. The header used to reserve
+  `corners * 12 + 2` px against it, which on a narrow card is a quarter of the width — so a name
+  ellipsed with a visibly empty gap before the buttons, reading as far longer than it was. A name
+  is now cut by the CARD's width and by nothing else.
+
+## A lane's FADER wears that lane's face
+
+A strip is what a track's level became, so the node that carries it reads as the track: the lane's
+instrument glyph, and the lane's name on the first line, with the node's own name underneath as
+ever. Otherwise every song's mixer row is a wall of cards all called `Mixer`, and which lane each
+one belongs to is learnable only by following a cable.
+
+**The node is not renamed.** `label` and `module` stay what they were, or every verb aimed at that
+node would miss; only the FACE changes. `trackFace` is the lane, and it is the one field that says so.
+
+The name is spelt **without the lane's instrument code**: `ge.rythm-machine` reads `rythm-machine`,
+because the glyph beside it is what that `ge.` was for and saying it twice costs a third of a narrow
+card. The TRACK node keeps its full id — it IS addressed by that string, and a lane whose card and
+whose commands disagree about its name is worse than a repeated prefix.
+
+Which codes exist is `@studio/song-schema`'s table, and drawing a graph must not drag that in — so
+`trackLabel` arrives through `ChainsIcons`, beside `TrackIcon`, for the reason `chainsIcons.tsx`
+gives for the glyph itself. It is the same table on both sides: the prefix the icon is picked from
+is the prefix the name drops, so one cannot change without the other. It is optional, and a host
+that supplies none simply gets the full name.
+
+Where it comes from is worth knowing, because it cannot come from the graph: `graph.yaml` says what
+a module is wired to, never what plugin it turns out to be, and a strip is defined by its TYPE
+(`Mixer`). So `trackMixersOf` reads it off the compiled project and hands it to `buildGraphDoc`,
+exactly as the clip extents are handed in. The document keys it by track, like `trackColors` and
+every other per-lane map; `buildGraph` inverts it once, since a node asks the other way.
 
 ## The header's arithmetic is repeated, not measured
 
@@ -29,21 +71,19 @@ and at a fixed 12.5 px seventeen identically-shaped mixers all read `vo_j…`. W
 the card less the header's padding, the leading glyph or dot, and the room a corner button takes out
 of the right. The `title` stays anyway: the fit is floored, so a long enough name is still cut.
 
-`headerNameW` is `.dgx-hd`'s own numbers written out again: 10 px of padding each side, a 7 px
-gap, a 13 px glyph or an 8 px dot leading the name, and the padding-right a corner button adds.
+`headerNameW` is the top row's own numbers written out again: 10 px of padding each side, a 7 px
+gap, a 13 px glyph or an 8 px dot leading the name, and the padding-right a corner button adds. It
+sizes the MODULE's line alone — the node's name below it is ellipsed, not fitted, having a whole
+card's width to run in.
 The layout is flex, so the real figure only exists after a reflow — which is exactly what a
 per-card measurement would cost. If the CSS moves, this moves with it.
 
-The corner reservation is `corners * 12 + 2`: 12 px per bubble plus the 2 px the first one hangs
-past them. Counting the bubbles rather than reading `hasNativePluginUI ? 26 : 0`, which is wrong
-twice over — a module with a bypass bubble and no native UI reserves nothing, and a node with one
-bubble reserves room for two.
+## One corner list, and what it no longer decides
 
-## One corner list, read by three things
-
-`cornerButtons` exists because the buttons, the header's padding and the width `headerNameW`
-leaves the name all need the same answer, and three separate answers disagree: a module with a
-bypass bubble but no native plugin UI then gets no padding at all, and a long name runs under it.
+`cornerButtons` says which bubbles a node shows and, through `--slot`, where each one sits. It
+used to say a third thing — how much width the header gave up for them — and that is gone: the
+discs hang off the corner rather than standing in the text, so there was nothing to give up. What
+is left is one list read by the buttons themselves, which cannot disagree with anything.
 
 The ⋮ `menu` appears on any node that COULD use one — any module node, a lane included — not only
 on one that already has alternatives or a freeze, since creating either has to start somewhere and

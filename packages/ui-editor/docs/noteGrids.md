@@ -98,3 +98,20 @@ Three things about how it gets there:
 
 The tracker's edges are inset SHADOWS rather than borders: these rows have a fixed height,
 and a border would add to it and walk the whole grid a pixel down.
+
+## What this path DROPS, and does not say so
+
+`notes.ts`'s own `Note` is `{ t, d, k, v? }`. A sequence's schema has two fields more —
+`repeat` and `skip`, a pad's effects (`packages/song/docs/padEffects.md`) — and since these
+grids call back with the WHOLE list, a single click in one silently rewrites every pad in the
+file without them.
+
+Nothing in `ui-editor` can hit that today: a pad only ever gets an effect from the step
+sequencer or the roll's right-click, and neither is this path. But it is not a rule the code
+enforces, only a gap nobody has walked into. The other writer, `@studio/song-schema`'s
+`sequenceFile.ts`, addresses ONE note and touches only the fields the edit names — including
+`mapNotesInRegion`, which rewrites a whole rectangle and still leaves both effects alone. Two
+writers over one file, and only one of them round-trips the format.
+
+Widening `Note` and `renderNotes` is ten lines. It is written down here rather than done because
+the honest fix is one writer, not two that agree.

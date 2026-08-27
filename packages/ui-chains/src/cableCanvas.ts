@@ -28,6 +28,10 @@ export const AUTO_DASH: readonly number[] = [5, 4];
 export const AUTO_ARROW = 6.5; // arrowhead length, world px (scaled by boost like the strokes)
 const NO_DASH: readonly number[] = [];
 
+/** What a cable CROSSING an open frame is drawn at: half, so the box's own wiring reads first
+ *  while the traffic passing over it stays followable. See docs/graphBuild.md. */
+export const FOREIGN_ALPHA = 0.5;
+
 /** Only what this file calls on a canvas context, which a real one satisfies structurally. */
 export interface CableCtx {
   lineWidth: number;
@@ -60,6 +64,7 @@ export interface CableCtx {
   stroke(): void;
   fill(): void;
   setLineDash(segments: readonly number[]): void;
+  globalAlpha: number;
 }
 
 /** The flat `[x0,y0,x1,y1,…]` scratch every draw reuses. Held by the caller, grown here. */
@@ -164,6 +169,8 @@ export interface CableDraw {
   geom: CableGeom;
   color: string;
   live: boolean;
+  /** 0..1, absent meaning opaque — what fades a cable that merely crosses an open frame. */
+  alpha?: number;
   // The cable's swing state, read at DRAW time and shared with whatever steps the spring.
   sway?: { ox: number; oy: number };
   // The dress an AUTOMATION cable wears (see AUTO_*); absent, the signal defaults stand.
@@ -215,6 +222,9 @@ export function drawCables(
         ? swayInto(scratch, c.geom.base, sx, sy)
         : flattenInto(scratch, c.geom.base);
     if (n < 2) continue;
+    // The SHADOW fades with the cable: a full-strength shadow under a half-strength line reads
+    // as a darker cable rather than a fainter one.
+    ctx.globalAlpha = c.alpha ?? 1;
     ctx.beginPath();
     tracePolyline(ctx, scratch.buf, n);
     // Shadow then cable, per cable rather than in two passes, and the shadow always SOLID.
@@ -244,5 +254,6 @@ export function drawCables(
       ctx.fillStyle = c.color;
       ctx.fill();
     }
+    ctx.globalAlpha = 1;
   }
 }

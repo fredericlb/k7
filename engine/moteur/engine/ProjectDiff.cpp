@@ -237,14 +237,17 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
 bool needsFullRebuild(const ProjectDiff& d) {
     // Plugin add/remove/param are deliberately absent: a rebuild costs 4026 ms of a 4169 ms apply on a 32-plugin song (docs/projectDiff.md).
 
-    // A track added or removed in the SAME diff excludes the incremental add: trackById maps by INDEX, so the lane would be wrong.
+    // A track added in the SAME diff excludes the incremental plugin insert: trackById maps by INDEX, so the lane would be wrong. (A track REMOVED takes the whole diff to a rebuild below.)
     bool tracksMoved = false;
     for (const auto& c : d)
-        if (c.kind == ChangeKind::TrackAdded || c.kind == ChangeKind::TrackRemoved) tracksMoved = true;
+        if (c.kind == ChangeKind::TrackAdded) tracksMoved = true;
 
     for (const auto& c : d)
         switch (c.kind) {
             case ChangeKind::SampleRateChanged:
+                return true;
+            // A track GOING is a rebuild: trackById maps a doc INDEX onto a lane, so a lane outliving a shortened document moves every later track's — docs/projectDiff.md.
+            case ChangeKind::TrackRemoved:
                 return true;
             // The master list is not on the incremental path — that one walks TRACKS — so the chain is rebuilt whole.
             case ChangeKind::MasterChainChanged:
@@ -269,7 +272,7 @@ std::string describe(const Change& c) {
         case ChangeKind::TimeSignatureChanged: s << "time sig -> " << c.intA << "/" << c.intB; break;
         case ChangeKind::SampleRateChanged:    s << "sample rate -> " << c.intA << " (full rebuild)"; break;
         case ChangeKind::TrackAdded:           s << "+ track " << c.trackId; break;
-        case ChangeKind::TrackRemoved:         s << "- track " << c.trackId; break;
+        case ChangeKind::TrackRemoved:         s << "- track " << c.trackId << " (full rebuild)"; break;
         case ChangeKind::TrackRenamed:         s << "~ track " << c.trackId << " renamed"; break;
         case ChangeKind::TrackParamsChanged:   s << "~ track " << c.trackId << " mute/solo"; break;
         case ChangeKind::TrackInputChanged: {

@@ -188,7 +188,70 @@ with the right one painting last. Invisible, deliberately: the note's own edge i
 pair of drawn tabs on every note in a dense roll would be all you could see.
 
 `tSpan` answers where a drag has taken the note, and **the ghost and the commit both read it** —
-two copies of that arithmetic is a preview that lands somewhere else than the write.
+two copies of that arithmetic is a preview that lands somewhere else than the write. It lives in
+`src/rollDrag.ts` with `drawSpan` and `velAt`, the three answers that decide what a gesture
+writes, pulled out of the component for the reason `rollFit`, `snap` and `stepGrid` were: nothing
+here mounts a component, so arithmetic left inline in one is arithmetic no test can reach.
+
+### The roll has three modes, and `select` is the default
+
+`rollMode.ts`: `select`, `create`, `remove`. They are the roll's own rather than the timeline's
+tools — what a lane holds here is NOTES, so creating and removing are the two acts, and neither
+means anything on a track. A 32px column of icons down the pane's left edge is the third way to
+one, beside the keys and the bar, and the only one a finger has; each button dispatches
+`ui roll <mode>` rather than setting the state beside it.
+
+| mode | a press on a bare lane | a press on a note |
+|---|---|---|
+| `select` | frames — the `v` rectangle, drawn with the pointer | moves, stretches, sets its velocity |
+| `create` | draws a note | **lets the press through** to the lane, which draws |
+| `remove` | places the caret | `sequence note remove` |
+
+**`select` being the default reverses what this pane used to do**: a bare drag drew a note, and
+framing needed Shift. The roll now opens ready to READ. Shift still frames in every mode, because
+Shift is this app's one modifier for "grow the selection" and a hand arriving from the timeline is
+already right.
+
+Two details that are easy to get wrong and were:
+
+- in `create`, the note's own press handler returns **before** `stopPropagation`, or a drag begun
+  over an existing note would be swallowed by a note that has nothing to do in that mode;
+- `remove` takes the note on the PRESS and arms nothing — no grip, no pointer capture, no drag to
+  cancel. The ghost is painted the same way every other edit here is, so a refused command puts
+  the note back.
+
+`a` selects, `n` creates, `d` removes, and Escape returns to `select`. `a` is the neutral one on
+all three surfaces and `d` takes something away on two: the pane in FRONT wins both, which is the
+rule the clip pane's other verbs already follow.
+
+### The body also drags in PITCH, and that is a different verb
+
+A roll whose notes only slide sideways is a roll you cannot compose on. The body drag therefore
+carries a `dKeys` beside its `dBeats`, snapped to the row and **never freed by Ctrl** — a row IS a
+semitone, and there is nothing between two of them for the modifier to reach. The two edge grips
+stay horizontal: they are on the note's ENDS, and an end has no pitch.
+
+Which verb commits is decided by whether the pitch changed:
+
+- it did → **`sequence note move`**, which keeps the duration, the velocity and a pad's effects;
+- it did not → `sequence note timerange`, as before.
+
+Not one verb for both, though `move` could carry a purely horizontal drag: `moveNote` **refuses an
+occupied destination** and `setNoteTimeRange` does not (`@studio/song-schema` `docs/noteEdits.md`),
+so routing every move through it would start refusing drags that work today. A drag whose pitch
+change the keyboard's edge swallowed counts as horizontal, which is what `movesPitch` answers.
+
+### Removing and splitting
+
+`x` removes what the caret is on, or everything a rectangle holds, through `selection delete` —
+one more line of the same family as `selection copy` and `selection paste`, answered by whichever
+grid is on screen through `ClipGridHandle`. The pane answers with a command **line** rather than
+running one, which is what keeps a gesture worth exactly one Ctrl+Z; the shell runs it.
+
+Right-click on a note offers the same removal and, when the caret sits strictly inside it,
+`sequence note split`. Both were verbs with no gesture. The menu is derived from the catalogue
+like every other (`contextMenu.md`); a split on either edge is not offered at all, since a cut
+there leaves a note of no length.
 
 ### …and the roll's gestures land on those lines, unless Ctrl says otherwise
 
@@ -213,9 +276,11 @@ places the caret, which belongs to the cell you pointed *inside* — a floor. A 
 nearest *line* — a round — would sit one cell away from the caret half the time, and the two would
 disagree about where you had just clicked. So `drawSpan` starts the note at the pressed cell's
 beat and ends it at the FAR edge of the last one, the way `colSpan` reads the rectangle: drag
-across three cells, get three cells of note. A press that never leaves its cell still returns a
-zero-length span, which is what leaves the length to the command's default — the behaviour of a
-plain click.
+across three cells, get three cells of note. A press that never leaves its cell covers **that
+cell** — one grid step — rather than leaving the length to the command's own default, which is a
+whole beat: on a 1/16 grid a plain click would otherwise lay down sixteen cells of note, and the
+draft box would have shown one. Ctrl frees the grid and there is then no cell to take, so a freed
+click is worth `gridUnit` all the same.
 
 `atEvent` therefore stays unsnapped, and the raw beat is what the gesture remembers. The grid is
 applied where the span is READ, so Ctrl pressed or released mid-drag changes the whole answer
@@ -348,7 +413,59 @@ grid's rectangle is not a DOM selection (the timeline's lanes are `select-none`,
 
 `selection consolidate` is the third of the head, and the catalogue's own rather than the shell's
 (`commands.yaml`). Same subject: it takes a rectangle — one lane, `from`, `to` — where every
-`event …` verb takes one placement by its start.
+`event …` verb takes one placement by its start. `selection delete` is the fourth, back on the
+shell's side because the pane is what knows which notes the box holds.
+
+### What else the rectangle can do
+
+Four `sequence notes …` verbs — remove, transpose, quantize, velocity — take a rectangle rather
+than one note, which is why they are plural. Their address is the box the roll already draws:
+two keys inclusive and a half-open beat span, and a note is in when it STARTS inside, which is
+`notesInRegion` in `clipboard.ts` — the rule stated once, so copying and deleting cannot disagree
+about the same box.
+
+Each is **one pass over the file** and therefore one journal entry.
+Running the singular verb N times would be N of them, and half could land while the rest failed —
+an undo would then be a fifth of the way back. `mapNotesInRegion` in `@studio/song-schema` is
+where that pass lives; the four verbs are four three-line functions over it.
+
+They are offered on the note's own right-click, when the click landed inside the rectangle. The
+three that owe a value go to the bar with the box already spelt (`needsMore`), which is what the
+mechanism is for and what spares the shell three more key bindings. What each of them decided —
+quantize keeps the length, transpose clamps rather than drops, velocity is absolute and 1 clears
+the field — is in `@studio/song-schema` `docs/noteEdits.md`, beside the writers.
+
+### The roll paints first too
+
+`sequence note` costs the same ~400 ms here as it does in the sequencer, and the roll now holds
+its own ghost while the reload is out: `src/rollPending.ts`, keyed by `${key}@${start}` — the
+address every note verb takes — rather than by cell and precision, which is the sequencer's shape
+and not this one's. `settledEdits` is deliberately not generalised over the two.
+
+One thing it has that the sequencer's has not: a **move** is one ghost saying "gone from here,
+there instead", so it settles only when both halves have landed. A document holding the note at
+both addresses is a half-read reload, not a settled edit. And the same rule as the sequencer's
+otherwise — nothing in flight and a document arrived means the document has the last word, so a
+ghost that still disagrees was a command that FAILED and is dropped. That is why the four commit
+callbacks answer the command's promise instead of dropping it.
+
+### The click is HEARD
+
+A note posted in silence is a note you cannot check. The press plays it — the note under the
+pointer at what it is worth, or the pitch a draw gesture is starting on — and a pitch drag
+re-plays on every row it crosses, which is what makes a transposition judgeable at all against a
+128-lane grid.
+
+It is `{ type: "note-preview", track, key, vel }`, straight down the engine's socket rather than
+through the file service (`engine/moteur/docs/protocol.md`). Two things follow from the choice:
+
+- **It goes through the TRACK's own chain**, so what you hear is the instrument you are writing
+  for — unlike `preview`, which loads a file into a hidden sampler and bypasses everything.
+  A sequence FILE open in the editor has no placement and therefore no chain, so that roll stays
+  silent: honest, rather than a wrong instrument.
+- **There is no note-off on the wire.** The engine releases it after 100 ms, through Tracktion's
+  own `playGuideNote`. A release that has to arrive is a hanging voice every time it does not —
+  a dropped pointerup, a closed pane, a socket that blinked.
 
 Four rules worth knowing, each of which could reasonably have gone the other way:
 
@@ -526,6 +643,46 @@ answer it two ways:
 Where it is still a band it is deliberately colourless — a white wash with its two edges picked
 out. These panes already spend violet on a selection, blue on a warp, teal on a marker, emerald on
 a note; a seventh hue for the thing all of those sit *inside* would compete with every one of them.
+
+### The waveform's three views ARE its three gestures
+
+`standard`, `onsets`, `warp` — named in `waveMode.ts`, and they were always modes: each one decides
+what is DRAWN over the wave *and* what pointing at it does. That pairing is deliberate and is why,
+unlike the timeline, there is **no separate tool axis here**. On a lane a tool and a mode are worth
+keeping apart, because the pointer's meaning is not drawn anywhere. On the wave it is: the marks
+you can touch are the marks you can see, so a second axis could only let the picture and the
+pointer disagree about what a click would do.
+
+| view | what a press does |
+|---|---|
+| `standard` | nothing on the wave itself — the window's two edges still drag, which is what sets an event's window |
+| `onsets` | a click adds a transient, a click on a pin removes it, dragging one moves it — `clip onset add` / `remove` / `move` |
+| `warp` | a double-click pins a stretch point, dragging it says where its beat lands, a right-click removes it — `clip warp` / `clip warp remove` |
+
+What was missing was never the modality — it was **a way in that was not the mouse**. The view sat
+in a `<select>` and nowhere else, which broke the shell's own rule that no control on screen is
+unreachable from the command bar (`shell.md`). It is now `ui wave <mode>`, the select DISPATCHES
+that command instead of setting the state beside it, and `o` and `w` reach the two mark views while
+`a` — or Escape — comes back to `standard`.
+
+`a` is shared with the timeline's arrow, and the waveform wins it: the clip pane is the surface in
+front, which is the rule its other verbs already follow (`clipGrid ?? timeline` in `App`). Escape's
+rung is conditional on `wave_marks` rather than on a waveform being open at all — in `standard`
+there is no mark to back out of, so the ladder should fall through to the pane behind.
+
+The panel says what a press would do on every change of view, and the footer's badge carries the
+name while it is anything but `standard`. Same reason as the timeline's: the status line is a
+message and passes, a mode does not.
+
+A **32px column of icons** sits down the panel's left edge, one per view, the current one lit —
+the same strip the timeline carries, from the same table (`modeIcons.tsx`), and the only way to a
+view that a finger has. It is drawn only once there is a file: while a take rolls there is no mark
+to point at, so there would be nothing to choose between. Like the select above it, each button
+dispatches the command.
+
+**The cursor over the wave is the button's own drawing**, built from the same SVG body — see
+`timeline.md` for why that matters and how the outline and hotspots work. `standard` keeps the
+system's arrow, having no mark to place and so nothing to promise.
 
 ### The clip panel frames the EVENT, and acts only on it
 
@@ -707,9 +864,8 @@ Four things worth knowing:
   handle: there is no second gesture to tell it apart from.
 
   The consequence, either way, is that a press on a note does not bubble to the lane's draw-a-note
-  gesture — no loss, since two notes cannot share a key and a start, but it is the thing to remember
-  if that gesture is ever wired up (App does not pass `onCreateNote` today, so the roll's drawing is
-  unreachable from the shell).
+  gesture — no loss, since two notes cannot share a key and a start, and it is what lets the two
+  live on one surface now that `onCreateNote` is passed and the drawing is reachable.
 - **A press that never moves commits nothing.** A stray click on a note must not silently rewrite
   what it is worth.
 

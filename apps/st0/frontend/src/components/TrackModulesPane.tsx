@@ -22,6 +22,8 @@ export function TrackModulesPane({
   trackId,
   reloadKey,
   command,
+  onModuleField,
+  onRecorder,
   trackOrder,
   pluginParamsStore,
   requestPluginParams,
@@ -37,6 +39,13 @@ export function TrackModulesPane({
   trackId: string;
   reloadKey: number;
   command: (line: string) => void | Promise<void>;
+  /** …and the RELOADING sender for a module's own field: an intrinsic dropdown draws the file. */
+  onModuleField?: (line: string) => void | Promise<void>;
+  /** A RECORDER's button, straight through — see DomChains' prop. */
+  onRecorder?: (
+    verb: "record" | "clear" | "save",
+    node: { module: string; pluginId?: string },
+  ) => void;
   trackOrder: string[];
   pluginParamsStore: PluginParamsStore;
   requestPluginParams: (id: string) => void;
@@ -129,6 +138,8 @@ export function TrackModulesPane({
       // A row is read across: the wheel walks along it and nothing pans vertically.
       row
       command={command}
+      onModuleField={onModuleField}
+      onRecorder={onRecorder}
       onContextMenu={onContextMenu}
       engineWarnings={engineWarnings}
       pluginParamsStore={pluginParamsStore}

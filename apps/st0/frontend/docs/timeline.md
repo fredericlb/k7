@@ -9,6 +9,106 @@ header", below) are the exception that proves it: neither writes anything — on
 caret, the other aims the shell's other panes — so there is no command for them to disagree
 with.
 
+## Modes and tools — two axes, one derived and one chosen
+
+**A mode says where the KEYBOARD is; a tool says what a PRESS means.** They are orthogonal: you
+cut just as well with a rectangle drawn as without.
+
+### The mode was already there, unnamed
+
+Three states existed and already excluded one another — a clip in hand, a rectangle drawn,
+neither — and each already made `hjkl` mean something different. `timelineMode.ts` gives them one
+name, and **derives it rather than storing it**: naming a state must not add a fourth source of
+truth that can come to disagree with the three it reads. That is the rule
+`packages/song/docs/surfaces.md` states for `surfaces/` against a `project_type`, applied here.
+
+| mode | what the keys do |
+|---|---|
+| `normal` | `hjkl` walk the caret; every other key is a command |
+| `select` | `hjkl` walk the rectangle's HEAD instead |
+| `move` | the four that carry a clip, and it swallows every other key HARD — a nudge must not also scroll the pane |
+
+A move that is **pending** — released, written, waiting for the reload — is not being carried, so
+it is not the mode: the pane must not go deaf for a round trip.
+
+The mode is published through `onView`, which is already the one channel the shell learns this
+pane's state through, and lands in `App`'s `ConditionCtx` as one condition per name. Nothing new
+was needed to dispatch on it: `keys.ts` bindings are already `{ if: "…", command }` tried in
+order, so `{ if: "tl_select" }` is a condition like any other. **That is why there is no vim
+grammar here** — no operators, no counts, no `d2j`. A grammar would be a second keyboard path
+beside `useCommandKeys`, and the rule this app keeps is that a key NAMES a command and takes the
+path typing it would take. Modes-as-conditions buy a whole second keymap without giving that up.
+
+### A tool is chosen, and belongs to the surface
+
+`timelineTools.ts`, four of them: `pointer` (today's grab, marquee and caret), `cut`, `erase`,
+`mute`. `a` is the arrow and `b` the blade — **DaVinci Resolve's**, so a hand arriving from an
+edit suite is already right; `d` is the eraser, which no suite agrees on. All three are
+conditional on the timeline owning the keys: changing a tool on a surface you are not looking at
+is a change you cannot see. Escape puts it down, on the ladder above the fullscreen rung.
+
+Each tool stands on **one verb**, so a press stays one command and one Ctrl+Z:
+
+| tool | press on a clip |
+|---|---|
+| `cut` | `event split`, at the beat under the pointer |
+| `erase` | `event remove` |
+| `mute` | `event status mute`, sent BARE so the toggling is the verb's |
+
+**There is no pencil**, and the reason is worth writing down: `event add` places a clip that
+already exists, so drawing one would be `sequence new` and then `event add` — two journal entries
+for one gesture, and an undo that goes half way back. There is no fade tool either: every clip
+already carries its two corner handles, and a tool would only restate them.
+
+The whole tool axis touches the pointer path in **one place**, a guard at the top of
+`beginClipDrag`: the tool answers with a line and the grab never starts, or it answers `null` and
+today's gesture runs. The other twelve pointer gestures — the ruler, the marquee, the resize and
+fade handles, the middle-drag, the wheel, every right-click — are out of these three tools' reach,
+which is the reason for that set rather than a bigger one. The grab's three guards
+(`readOnly`, `generated`, `frozen`) come first: a frozen song has no tools for the reason it has
+no pickup.
+
+A tool produces a command LINE rather than a named act, alone among this pane's writes
+(`onToolLine`). Naming them would be one prop per tool and would move the verb out of the pure
+module that is tested for it.
+
+### The strip, and the cursor that is the same picture
+
+Down the pane's left edge, a **32px column of icons** — one per tool, the current one lit. It is
+the third way to a tool beside the keys and the bar, and the only one a finger has: a tablet has no
+`b` to press. Each button DISPATCHES `ui tool <name>` rather than setting the state, which is the
+rule that keeps a control and its verb from drifting apart.
+
+**The cursor is built from the button's own drawing.** `modeIcons.tsx` holds one SVG body per mode
+and both readers take it from there — two pictures for one tool is a pointer that can come to lie
+about what a click will do. Three things that fall out of doing it that way:
+
+- the glyphs paint with `fill="currentColor"`, which is what lets the cursor pass recolour them;
+- the cursor draws the body **twice**, a heavy dark outline under a white fill, because it has to
+  read on a lit waveform and on a dark lane alike and neither background is ours to choose;
+- each glyph carries its own **hotspot**, since that is the pixel a click actually lands on — the
+  blade's is its tip, where the split goes, not the centre of the icon.
+
+The pointer tool has a drawing for the strip and deliberately no cursor: the system already draws
+that one, and replacing an arrow with a picture of an arrow only makes it worse.
+
+### Saying which state you are in
+
+Two surfaces used to lie about this, and both are now derived:
+
+- **The header legend** was a hand-written string of fourteen keys. It was already wrong for
+  anyone who had rebound one, and would have been plainly wrong per mode. `timelineLegend.ts`
+  answers rows for the current mode, resolved against `shortcutsByCommand` — **a row naming a
+  command nothing binds is dropped**, which is how a legend stops being able to advertise a key
+  that does not exist. Its test caught one on the first run: `selection consolidate` has no
+  binding, so that row would never have drawn.
+- **The status line** was already a hand-rolled mode line — a priority chain that renders the
+  state as prose and names the way out of it every time. It keeps that convention and takes the
+  tool, then the mode, as its first branches.
+
+And the footer carries a **badge**: the line beside it is a message and passes, a state does not.
+A state nobody can see is a state you leave by surprise.
+
 ## The caret
 
 The caret walks the same rows that are drawn, group headers and live pattern lanes

@@ -19,6 +19,7 @@ import {
   useInputLevel,
   useTrackLevel,
 } from "@studio/engine-browser/store";
+import type { RecorderState } from "@studio/engine-protocol";
 import type {
   WebCc,
   WebModuleCategory,
@@ -32,6 +33,7 @@ import {
   AUTO_W,
   type CableDraw,
   drawCables,
+  FOREIGN_ALPHA,
   newScratch,
   WOBBLE_FPS,
   WOBBLE_HZ,
@@ -63,7 +65,9 @@ import {
   jackPoint,
   type LaidOutGraph,
   moduleDisplayName,
+  type RecVerb,
   rackBindSymbol,
+  recBindVerb,
   type TrackControlValues,
   widgetDenorm,
   widgetNorm,
@@ -77,6 +81,12 @@ import {
   stepSway,
 } from "@studio/ui-chains/hang";
 import { patchAct } from "@studio/ui-chains/patchGesture";
+import {
+  decimate,
+  EMPTY_TAKE,
+  foldTake,
+  type TakeView,
+} from "@studio/ui-chains/takeEnvelope";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
 // The one icon this file draws from a set: the freeze badge, a snowflake being no CSS shape.
 import { Snowflake } from "lucide-react";
@@ -108,6 +118,7 @@ import {
   zoomAbout,
 } from "./camera";
 import { CTRL, cableColorFor, MAUVE, RING, SAND, useCss } from "./chainsCss";
+import { moduleFieldValue } from "./moduleField";
 import {
   advanceMotion,
   type Ghost,
@@ -131,6 +142,8 @@ export type GraphMenuCtx =
   | { kind: "module"; id: string; missing?: boolean }
   | { kind: "chain"; id: string }
   | { kind: "sink"; id: string }
+  // A BOX right-clicked: the instance, and the template behind it — a host may offer either.
+  | { kind: "assembly"; id: string; uses: string }
   // One WIDGET right-clicked: the param it drives, and the CC already mapped to it.
   | {
       kind: "param";
@@ -161,6 +174,12 @@ export interface ChainsIcons {
     className?: string;
     style?: React.CSSProperties;
   }) => React.ReactNode;
+  /**
+   * A track's name WITHOUT the instrument code its glyph was picked from — `ge.rythm-machine` reads
+   * `rythm-machine`, the prefix being said by the icon already. The host's, like the glyphs: which
+   * codes exist is `@studio/song-schema`'s table, and drawing a graph must not drag that in.
+   */
+  trackLabel?: (name: string) => string;
 }
 
 // Carried by context, not by props, and provided by DomChains itself — docs/hosting.md.
@@ -202,7 +221,9 @@ type WidgetTarget =
   // A param of a module realised OUTSIDE the graph — see `offlineOf`.
   | { kind: "offline"; module: string; name: string }
   // A RACK's pad — the one target that SETS nothing, docs/widgets.md.
-  | { kind: "rack"; module: string; symbol: string };
+  | { kind: "rack"; module: string; symbol: string }
+  // …and a RECORDER's button, the second of that family — engine/moteur/docs/recorder.md.
+  | { kind: "recorder"; module: string; verb: RecVerb; pluginId?: string };
 
 /** What a widget actuates: a pad, an `@` intrinsic, a plugin param, else offline — docs/widgets.md. */
 function widgetTarget(
@@ -212,10 +233,24 @@ function widgetTarget(
   offline = false,
 ): WidgetTarget | null {
   if (!w.bind) return null;
+  // A PROMOTED param is a shortcut and nothing else: it resolves to the member's own param, and is
+  // then read, written and committed by exactly the arms below. See packages/song/docs/assemblies.md.
+  const promoted = n.assemblyOf?.params?.[w.bind];
+  if (promoted)
+    return promoted.pluginId
+      ? { kind: "plugin", pluginId: promoted.pluginId, name: promoted.param }
+      : { kind: "offline", module: promoted.node, name: promoted.param };
   // A rack pad, before the general `@` case: an intrinsic that FIRES rather than sets.
   const symbol = rackBindSymbol(w.bind);
   if (symbol)
     return n.module ? { kind: "rack", module: n.module, symbol } : null;
+  // …and a recorder's, for the same reason and with the same urgency: reaching the arm below,
+  // `@rec:record` would resolve to a FIELD called "rec:record" and the button would write it.
+  const verb = recBindVerb(w.bind);
+  if (verb)
+    return n.module
+      ? { kind: "recorder", module: n.module, verb, pluginId: n.pluginId }
+      : null;
   if (w.bind.startsWith("@")) {
     const field = w.bind.slice(1);
     if (n.kind === "track")
@@ -258,6 +293,8 @@ function dropChannel(
 function targetKey(t: WidgetTarget): string {
   if (t.kind === "track") return `t:${t.trackId}:${t.control}`;
   if (t.kind === "module") return `m:${t.module}:${t.field}`;
+  // A recorder's button holds no value: the state frame says whether it is rolling, at 20 Hz.
+  if (t.kind === "recorder") return `r:${t.module}:${t.verb}`;
   if (t.kind === "offline") return `o:${t.module}:${t.name}`;
   // A pad holds no value, so nothing ever writes under this key — it only covers the union.
   if (t.kind === "rack") return `r:${t.module}:${t.symbol}`;
@@ -265,29 +302,6 @@ function targetKey(t: WidgetTarget): string {
 }
 
 /** A module field's current value as a WIDGET number, through the widget's own options — docs/widgets.md. */
-function moduleFieldValue(
-  n: GraphNode,
-  w: WebWidget,
-  field: string,
-): number | undefined {
-  if (field === "channel") {
-    if (!n.channel?.length) return undefined;
-    const arg = n.channel.join(",");
-    return w.options?.find((o) => o.arg === arg)?.value;
-  }
-  // A base and a shader are matched on the LABEL, which is the name written in the file.
-  const current =
-    field === "monitor"
-      ? n.monitor
-      : field === "base"
-        ? (n.base ?? "none")
-        : field === "shader"
-          ? (n.shader ?? "none")
-          : undefined;
-  if (current === undefined) return undefined;
-  return w.options?.find((o) => o.label === current)?.value;
-}
-
 /** Where a host parks the camera between mounts — `Cam` itself lives in camera.ts, docs/hosting.md. */
 export type { Cam };
 export type CamStore = React.MutableRefObject<Cam | null>;
@@ -310,6 +324,9 @@ interface Channels {
   trackWritable: boolean;
   // …and for a RACK pad, which asks for a sound rather than a value: can this host make one?
   rackTriggerable: boolean;
+  // …and whether one can drive a RECORDER: a card with no engine behind it draws inert buttons
+  // rather than buttons that do nothing — engine/moteur/docs/recorder.md.
+  recorderWired: boolean;
   // Is this graph a REHEARSAL — there is nowhere to send a value and none is needed.
   rehearsal: boolean;
   /** Which rack sounds are firing right now — a STORE, subscribed per pad. See `RackLitStore`. */
@@ -340,6 +357,24 @@ function useRackLit(
   return useSyncExternalStore(subscribe, read, read);
 }
 
+/** One recorder node's state off the store — subscribed HERE rather than passed as a prop, for
+ *  the reason liveCables.md gives: a 20 Hz frame must not re-render three thousand lines of hooks
+ *  to move one light. Null module is "nothing to watch", so the hook stays unconditional. */
+function useRecorderState(
+  store: EngineStore | null,
+  node: string | null,
+): RecorderState | undefined {
+  const subscribe = useCallback(
+    (cb: () => void) => (store ? store.subscribe(cb) : () => {}),
+    [store],
+  );
+  const read = useCallback(
+    () => (store && node ? store.getSnapshot().recorders?.[node] : undefined),
+    [store, node],
+  );
+  return useSyncExternalStore(subscribe, read, read);
+}
+
 /** The value a widget shows: override, else engine, else authored, else nothing — docs/widgets.md. */
 function widgetValue(
   n: GraphNode,
@@ -351,6 +386,8 @@ function widgetValue(
   if (!tgt) return undefined;
   // A pad has no value to show; whether it is LIT is `useRackLit`'s separate question.
   if (tgt.kind === "rack") return undefined;
+  // …nor has a recorder's button: the record light comes off the state frame, not off a value.
+  if (tgt.kind === "recorder") return undefined;
   const key = targetKey(tgt);
   if (key in ch.override) return ch.override[key];
   const v =
@@ -388,6 +425,8 @@ interface EdgeGeom extends CableGeom {
   target: string;
   label?: string;
   signal?: WebSignal; // what the cable carries — picks its colour (see cableColor)
+  /** This cable merely CROSSES an open frame rather than belonging to it — drawn at half. */
+  faded?: boolean;
   insert: EdgeInsert | null;
 }
 
@@ -657,10 +696,18 @@ function WaveformWidget({
   onWatch?: (pluginId: string, side: "input" | "output", on: boolean) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // A recorder node draws its TAKE, not a live tap: the whole of it, growing, off the state
+  // frame's `recorders` rather than `waveform` — see engine/moteur/docs/recorder.md.
+  const isTake = w.source === "take";
   // Where to listen: this node's own plugin, or the tap it names — docs/waveformWidget.md.
   const tap = n.tap ?? (n.pluginId ? { id: n.pluginId, side: w.source } : null);
   // The waveform key is pluginId:side (e.g. "chain:module:output").
-  const key = tap?.id && tap.side ? `${tap.id}:${tap.side}` : null;
+  const key = isTake
+    ? null
+    : tap?.id && tap.side
+      ? `${tap.id}:${tap.side}`
+      : null;
+  const takeKey = isTake ? (n.pluginId ?? null) : null;
 
   // The envelope reaches the canvas through a REF off a RAW subscription — docs/waveformWidget.md.
   const store = useEngineStoreOrNull();
@@ -670,12 +717,10 @@ function WaveformWidget({
   const wakeRef = useRef<() => void>(NOOP);
 
   useEffect(() => {
-    if (!store) return;
+    if (!store || !key) return;
     // Read on subscribe too, so a widget repointed between two frames drops the previous picture.
     const read = (): void => {
-      const env = key
-        ? (store.getSnapshot().waveform[key] ?? NO_ENVELOPE)
-        : NO_ENVELOPE;
+      const env = store.getSnapshot().waveform[key] ?? NO_ENVELOPE;
       if (env === envelopeRef.current) return;
       // A module with no tap sends nothing, and empty-after-empty is not a repaint.
       if (env.length === 0 && envelopeRef.current.length === 0) return;
@@ -687,8 +732,27 @@ function WaveformWidget({
     return store.subscribe(read);
   }, [store, key]);
 
-  // The tap costs the ENGINE a plugin, so it is placed and removed with this widget — docs/waveformWidget.md.
-  const id = tap?.id;
+  // …and the take's, ACCUMULATED: each frame carries only the points made since the last one.
+  const viewRef = useRef<TakeView>(EMPTY_TAKE);
+  useEffect(() => {
+    if (!store || !takeKey) return;
+    const read = (): void => {
+      const rec = store.getSnapshot().recorders?.[takeKey];
+      const next = rec ? foldTake(viewRef.current, rec) : EMPTY_TAKE;
+      // `foldTake` hands back the SAME object when nothing moved, which is most frames.
+      if (next === viewRef.current) return;
+      viewRef.current = next;
+      envelopeRef.current = next.points;
+      dirtyRef.current = true;
+      wakeRef.current();
+    };
+    read();
+    return store.subscribe(read);
+  }, [store, takeKey]);
+
+  // The tap costs the ENGINE a plugin, so it is placed and removed with this widget —
+  // docs/waveformWidget.md. A take needs none: the recorder is already in the chain.
+  const id = isTake ? undefined : tap?.id;
   const side = tap?.side === "input" ? "input" : "output";
   useEffect(() => {
     if (!id || !onWatch) return;
@@ -724,7 +788,11 @@ function WaveformWidget({
         appliedDpr = dpr;
       }
       ctx.clearRect(0, 0, W, H);
-      const env = envelopeRef.current;
+      // A take is thousands of points against a card's ~120: decimated keeping the EXTREMES,
+      // since averaging them away draws a quiet take (takeEnvelope.ts).
+      const env = isTake
+        ? decimate(envelopeRef.current, Math.max(1, Math.round(W)))
+        : envelopeRef.current;
       const mid = H / 2;
       if (env.length === 0) {
         // No data — draw a flat center line.
@@ -797,7 +865,9 @@ function WaveformWidget({
       if (raf) cancelAnimationFrame(raf);
       wakeRef.current = NOOP;
     };
-  }, []);
+    // `isTake` is read in the draw and is a property of the WIDGET, which does not change under
+    // a mounted canvas — the empty list is the loop's own, as docs/waveformWidget.md describes.
+  }, [isTake]);
 
   return (
     <div className="dgx-w" style={style}>
@@ -863,6 +933,11 @@ function WidgetInner({
       : null,
   );
 
+  // …and a RECORDER's, the same way and for the same reason: what lights it is the engine
+  // saying it is rolling, never the click, which would light on a refusal too.
+  const recNode = tgt?.kind === "recorder" ? (tgt.pluginId ?? null) : null;
+  const recState = useRecorderState(useEngineStoreOrNull(), recNode);
+
   // Tabs widget: delegate to TabsWidget
   if (w.type === "tabs") {
     return (
@@ -903,13 +978,17 @@ function WidgetInner({
     // A pad needs a host that can make a SOUND, which a rehearsal cannot invent — so it is asked first.
     (tgt.kind === "rack"
       ? ch.rackTriggerable
-      : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer.
-        ch.rehearsal ||
-        (tgt.kind === "offline"
-          ? ch.offlineWritable
-          : tgt.kind === "track"
-            ? ch.trackWritable
-            : ch.pluginWritable));
+      : // …and a recorder's button needs a host wired to the ENGINE, which a rehearsal has not
+        // got: a preview card must not start a take in somebody's project.
+        tgt.kind === "recorder"
+        ? ch.recorderWired
+        : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer.
+          ch.rehearsal ||
+          (tgt.kind === "offline"
+            ? ch.offlineWritable
+            : tgt.kind === "track"
+              ? ch.trackWritable
+              : ch.pluginWritable));
   const value = widgetValue(n, w, ch, live);
   const known = value !== undefined;
   const t = known ? widgetNorm(w, value) : 0;
@@ -1010,11 +1089,23 @@ function WidgetInner({
     );
   } else if (w.type === "button") {
     // A rack pad has no value, so `t` says nothing about it: what lights it is its own note.
-    const on = padSymbol ? padLit : known && t >= 0.5;
+    // A recorder's `record` is the same shape: lit while the ENGINE says it is rolling.
+    const on = padSymbol
+      ? padLit
+      : tgt?.kind === "recorder"
+        ? tgt.verb === "record" && (recState?.recording ?? false)
+        : known && t >= 0.5;
     const c = (w.bind && CTRL[w.bind]) ?? RING;
+    // `clear` and `save` need a take to act on, and `save` needs one that is FINISHED — drawn
+    // faint rather than hidden, so the card reads the same whether or not anything is recorded.
+    const idle =
+      tgt?.kind === "recorder" &&
+      tgt.verb !== "record" &&
+      ((recState?.takes.length ?? 0) === 0 ||
+        (tgt.verb === "save" && (recState?.recording ?? false)));
     body = (
       <b
-        className={`dgx-btn${on ? " on" : ""}`}
+        className={`dgx-btn${on ? " on" : ""}${idle ? " unknown" : ""}`}
         style={{ ["--c" as string]: c }}
       >
         {/* A rack PAD draws bare, its symbol left to the tooltip; see docs/widgets.md. */}
@@ -1149,18 +1240,17 @@ function fitFont(label: string, w: number, h: number): number {
   return Math.max(8, Math.min(byWidth, h * 0.6));
 }
 
-/** What the header leaves the NAME, in px — `.dgx-hd`'s own numbers, repeated, docs/nodeCard.md. */
-function headerNameW(n: GraphNode, hasGlyph: boolean, corners: number): number {
+/** What the header leaves the NAME, in px — the top row's own numbers, repeated, docs/nodeCard.md. */
+function headerNameW(n: GraphNode, hasGlyph: boolean): number {
   const HD_PAD = 10;
   const HD_GAP = 7;
   const lead = hasGlyph ? 13 : 8;
-  // The same figure `.dgx-hd`'s padding-right uses: 12px per bubble plus 2px of overhang.
-  const corner = corners ? corners * 12 + 2 : 0;
-  return Math.max(16, n.w - HD_PAD * 2 - lead - HD_GAP - corner);
+  // The corner bubbles take NOTHING: they hang off the card at `top:-8px`, over its border rather than its text.
+  return Math.max(16, n.w - HD_PAD * 2 - lead - HD_GAP);
 }
 
 /** One corner bubble, in the order they sit: the corner first, then leftwards. */
-export type CornerButton = "plugin" | "bypass" | "menu";
+export type CornerButton = "plugin" | "bypass" | "menu" | "open";
 
 /** Which bubbles a node's corner shows — ONE list, read by three things, docs/nodeCard.md. */
 function cornerButtons(n: GraphNode, canOpenMenu: boolean): CornerButton[] {
@@ -1170,6 +1260,8 @@ function cornerButtons(n: GraphNode, canOpenMenu: boolean): CornerButton[] {
   if (n.hasNativePluginUI && n.module && !baked) out.push("plugin");
   if (n.kind === "module" && n.module && !baked) out.push("bypass");
   if (canOpenMenu && n.module && n.note === undefined) out.push("menu");
+  // The only way into a box, and the only way back out of one — see packages/song/docs/assemblies.md.
+  if (n.assemblyOf && n.module) out.push("open");
   return out;
 }
 
@@ -1239,6 +1331,7 @@ function NodeInner({
   onContext,
   onOpenPlugin,
   onBypass,
+  onToggleAssembly,
   onNodeMenu,
   warning,
   onDragStart,
@@ -1270,6 +1363,8 @@ function NodeInner({
   onContext: (n: GraphNode, e: React.MouseEvent) => void;
   onOpenPlugin: (module: string) => void;
   onBypass: (module: string) => void;
+  /** Open or close an assembly's box. Session state: nothing about it is written to the project. */
+  onToggleAssembly?: (name: string) => void;
   /** The ⋮ bubble was clicked: this host's menu for the node — the button exists only when given. */
   onNodeMenu?: (n: GraphNode, at: { x: number; y: number }) => void;
   /** What the engine reported about THIS node's plugin, if anything. */
@@ -1317,7 +1412,7 @@ function NodeInner({
   /** The header was pressed on a node the host lets you move — absent, the press pans instead. */
   onHeaderDrag?: (n: GraphNode, e: React.PointerEvent) => void;
 }) {
-  const { ModuleIcon, moduleGlyph, TrackIcon } = useIcons();
+  const { ModuleIcon, moduleGlyph, TrackIcon, trackLabel } = useIcons();
   // The category whose glyph this node wears. A sink has none of its own, but it IS io, so it gets io's arrows.
   const iconCategory =
     n.kind === "sink"
@@ -1325,10 +1420,18 @@ function NodeInner({
       : n.kind === "module"
         ? n.category
         : undefined;
+  /** A lane's FADER wears that lane's face — a strip is what a track's level became, so it reads as the track. */
+  const trackFace = n.trackFace;
   // Does this node draw a glyph? Decides whether the accent dot steps aside and the far card reserves height.
-  const hasGlyph = n.kind === "track" || !!moduleGlyph(iconCategory, n.missing);
-  // The name the card wears: the MODULE this node uses, its own underneath — docs/nodeCard.md.
-  const headName = n.uses ? moduleDisplayName(n.uses) : n.label;
+  const hasGlyph =
+    n.kind === "track" || !!trackFace || !!moduleGlyph(iconCategory, n.missing);
+  // The name the card wears: the lane it is the strip of, else the MODULE this node uses — its own underneath (docs/nodeCard.md).
+  // A lane's is spelt WITHOUT its instrument code, which the glyph beside it already says; the TRACK node keeps its id, being addressed by it.
+  const headName = trackFace
+    ? (trackLabel?.(trackFace) ?? trackFace)
+    : n.uses
+      ? moduleDisplayName(n.uses)
+      : n.label;
   // The corner cluster, decided once, since three things read this same list.
   const corners = cornerButtons(n, !!onNodeMenu);
   const slot = (b: CornerButton) => corners.indexOf(b);
@@ -1387,6 +1490,37 @@ function NodeInner({
         aria-label="creating a module"
       >
         <i className="dgx-spin" />
+      </div>
+    );
+
+  // An OPEN assembly: a frame around its members, drawn BEFORE them so they sit on top of it. It
+  // has no sockets — the members are showing the real ones. See packages/song/docs/assemblies.md.
+  if (n.assemblyOf?.open)
+    return (
+      <div
+        className={`dgx-frame${onHeaderDrag ? " grab" : ""}`}
+        data-node-id={n.id}
+        style={{ left: n.x, top: n.y, width: n.w, height: n.h }}
+        onContextMenu={(e) => onContext(n, e)}
+      >
+        <div
+          className="dgx-frame-hd"
+          onPointerDown={(e) => onHeaderDrag?.(n, e)}
+          title={n.assemblyOf.uses}
+        >
+          <span className="dgx-frame-nm">{n.label}</span>
+          <span
+            className="dgx-cbtn dgx-obtn on"
+            title={`Close ${n.label}`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (n.module) onToggleAssembly?.(n.module);
+            }}
+          >
+            <i />
+          </span>
+        </div>
       </div>
     );
 
@@ -1500,56 +1634,55 @@ function NodeInner({
     >
       <div
         className={`dgx-hd${onHeaderDrag ? " grab" : ""}`}
-        style={{ "--corners": corners.length } as React.CSSProperties}
         // Drag the header, move the card — the pin gesture, docs/hosting.md.
         onPointerDown={onHeaderDrag ? (e) => onHeaderDrag(n, e) : undefined}
       >
-        {/* The accent dot marks identity only on a node with no glyph of its own, which leads the row instead. */}
-        {!hasGlyph && <span className="dgx-tri" />}
-        {n.kind === "track" ? (
-          <TrackIcon name={n.label} video={n.video} className="dgx-ticon" />
-        ) : (
-          <ModuleIcon
-            category={iconCategory}
-            missing={n.missing}
-            className="dgx-ticon"
-          />
-        )}
-        {/* The name is SIZED to fit rather than ellipsed, by headerFontPx over headerNameW; see docs/nodeCard.md. */}
-        <span className="dgx-nms">
+        {/* The TOP row: the glyph, the module's name, and whatever stands beside them. */}
+        <span className="dgx-hdtop">
+          {/* The accent dot marks identity only on a node with no glyph of its own, which leads the row instead. */}
+          {!hasGlyph && <span className="dgx-tri" />}
+          {trackFace ? (
+            <TrackIcon name={trackFace} className="dgx-ticon" />
+          ) : n.kind === "track" ? (
+            <TrackIcon name={n.label} video={n.video} className="dgx-ticon" />
+          ) : (
+            <ModuleIcon
+              category={iconCategory}
+              missing={n.missing}
+              className="dgx-ticon"
+            />
+          )}
+          {/* The name is SIZED to fit rather than ellipsed, by headerFontPx over headerNameW; see docs/nodeCard.md. */}
           <span
             className={`dgx-nm${flagCls}`}
             // The whole ref, not just the word drawn: the filing is one hover away rather than gone.
             title={n.uses ? `${n.uses}\n${n.label}` : n.label}
             style={{
-              fontSize: headerFontPx(
-                headName,
-                headerNameW(n, hasGlyph, corners.length),
-              ),
+              fontSize: headerFontPx(headName, headerNameW(n, hasGlyph)),
             }}
           >
             {headName}
           </span>
-          {/* Only when there are two names to tell apart; a repeated second line would be noise. */}
-          {n.uses && <span className="dgx-nodenm">{n.label}</span>}
+          {/* The header keeps only a real sub — the chains a module is shared across; the flag is drawn in the content area. */}
+          {n.sub && <span className={`dgx-sub${flagCls}`}>{n.sub}</span>}
+          {/* What feeds this track, in the header row rather than on a corner because it carries a NAME. */}
+          {trackInput !== undefined && (
+            <button
+              type="button"
+              className={`dgx-tin${trackInput === "aucune" ? " unknown" : ""}`}
+              title={`Entrée de l'interface : ${trackInput} — cliquer pour changer`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPickTrackInput(n, e.clientX, e.clientY);
+              }}
+            >
+              {trackInput}
+            </button>
+          )}
         </span>
-        {/* The header keeps only a real sub — the chains a module is shared across; the flag is drawn in the content area. */}
-        {n.sub && <span className={`dgx-sub${flagCls}`}>{n.sub}</span>}
-        {/* What feeds this track, in the header row rather than on a corner because it carries a NAME. */}
-        {trackInput !== undefined && (
-          <button
-            type="button"
-            className={`dgx-tin${trackInput === "aucune" ? " unknown" : ""}`}
-            title={`Entrée de l'interface : ${trackInput} — cliquer pour changer`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              onPickTrackInput(n, e.clientX, e.clientY);
-            }}
-          >
-            {trackInput}
-          </button>
-        )}
+        {/* The node's own name, UNDER the row and clear of the bubbles — only when there are two names to tell apart. */}
+        {n.uses && <span className="dgx-nodenm">{n.label}</span>}
       </div>
 
       {/* The native plugin's editor: a corner bubble, not a header item, where it stole width from the longest names. */}
@@ -1579,6 +1712,26 @@ function NodeInner({
           onClick={(e) => {
             e.stopPropagation();
             onBypass(n.module!);
+          }}
+        >
+          <i />
+        </span>
+      )}
+
+      {/* A box's only gesture: open it to see what is inside, close it to get the appliance back. */}
+      {corners.includes("open") && (
+        <span
+          className={`dgx-cbtn dgx-obtn${n.assemblyOf?.open ? " on" : ""}`}
+          style={{ "--slot": slot("open") } as React.CSSProperties}
+          title={
+            n.assemblyOf?.open
+              ? `Close ${n.label}`
+              : `Open ${n.label} — ${n.assemblyOf?.uses ?? ""}`
+          }
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (n.module) onToggleAssembly?.(n.module);
           }}
         >
           <i />
@@ -1924,6 +2077,8 @@ function CablesInner({
             x={mid.x}
             y={mid.y - 6}
             textAnchor="middle"
+            // A label at full strength over a half-strength cable reads as a different cable.
+            opacity={g.faded ? FOREIGN_ALPHA : undefined}
           >
             {g.label}
           </text>
@@ -2011,6 +2166,10 @@ function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
       return { kind: "chain", id: n.chain ?? n.label };
     case "sink":
       return { kind: "sink", id: n.label };
+    case "assembly":
+      return n.module && n.assemblyOf
+        ? { kind: "assembly", id: n.module, uses: n.assemblyOf.uses }
+        : null;
     case "curve":
       return null;
   }
@@ -2058,8 +2217,11 @@ export function DomChains({
   fitAxis = "both",
   command,
   onBypassModule,
+  onModuleField,
+  onToggleAssembly,
   onNodeMenu,
   onTriggerRack,
+  onRecorder,
   rackLit,
   onSetModuleAsset,
   onAssetBrowse,
@@ -2134,10 +2296,22 @@ export function DomChains({
   command: (line: string) => void | Promise<void>;
   // Bypass a module. Separate from `command` because it must RELOAD — the quiet path never bumps reloadKey.
   onBypassModule?: (module: string) => void;
+  /** Set a module's own FIELD, `node param <node> @<field> <v>`. Separate for onBypassModule's
+   *  reason and one more: an intrinsic has no optimistic value, so the reload IS the feedback. */
+  onModuleField?: (line: string) => void | Promise<void>;
+  /** Open or close an ASSEMBLY's box. Session state the HOST holds: nothing is written to the project. */
+  onToggleAssembly?: (name: string) => void;
   /** The ⋮ bubble: open THIS host's menu for that node — the menu is the host's, docs/hosting.md. */
   onNodeMenu?: (n: GraphNode, at: { x: number; y: number }) => void;
   /** A RACK pad was clicked: the graph says WHICH sound was asked for and stops there — docs/hosting.md. */
   onTriggerRack?: (module: string, symbol: string) => void;
+  /** A RECORDER's button was pressed. `pluginId` is what the ENGINE keys a node by; `module` is
+   *  what a VERB names. The host needs both — record and clear go down the socket, save is a
+   *  command. See engine/moteur/docs/recorder.md. */
+  onRecorder?: (
+    verb: RecVerb,
+    node: { module: string; pluginId?: string },
+  ) => void;
   /** Which rack sounds are firing right now, as a store each pad subscribes to. See `RackLitStore`. */
   rackLit?: RackLitStore;
   // Set a file-valued param on a module: `param` is the key ("nam"), `file` assets-relative or "none".
@@ -2247,8 +2421,10 @@ export function DomChains({
     onMoveNode,
     command,
     onBypassModule,
+    onModuleField,
     onNodeMenu,
     onTriggerRack,
+    onRecorder,
     onSetModuleAsset,
     onAssetBrowse,
     onLibraryBrowse,
@@ -2271,8 +2447,10 @@ export function DomChains({
     onMoveNode,
     command,
     onBypassModule,
+    onModuleField,
     onNodeMenu,
     onTriggerRack,
+    onRecorder,
     onSetModuleAsset,
     onAssetBrowse,
     onLibraryBrowse,
@@ -2286,6 +2464,15 @@ export function DomChains({
   // --- the compiled geometry: signal cables (with insert eligibility) + automations ---
   const model = useMemo(() => {
     const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+    // With a box OPEN, the cables that are not its own are the traffic crossing it: they still run
+    // right over the frame, at half, so the wiring inside reads first. Nothing fades otherwise.
+    const anyOpen = graph.nodes.some((n) => n.assemblyOf?.open);
+    // …and a CLOSED box has swallowed its lanes' cards, so a metered one's signal now leaves from
+    // the box. Without this a folded set reaches nothing and not one cable ripples.
+    const foldedAt = new Map<string, string>();
+    for (const n of graph.nodes)
+      if (n.assemblyOf && !n.assemblyOf.open)
+        for (const m of n.assemblyOf.members) foldedAt.set(m, n.id);
     const signal: EdgeGeom[] = [];
     const auto: AutoTarget[] = [];
     // An automation cable is a CABLE: only its param LABEL stays in the SVG, off the AutoTarget list.
@@ -2318,10 +2505,11 @@ export function DomChains({
         target: e.target,
         label: e.label,
         signal: e.signal,
+        faded: anyOpen && !e.assembly,
         insert: insertFor(e.source, e.target, byId),
       });
     }
-    return { byId, signal, auto, autoGeom };
+    return { byId, signal, auto, autoGeom, foldedAt };
   }, [graph]);
 
   // --- node motion: the cards slide, arrive and leave rather than jumping (docs/nodeMotion.md) ---
@@ -2407,6 +2595,8 @@ export function DomChains({
     }
     const draws: CableDraw[] = [];
     const lifted = patchRef.current?.edge?.id;
+    // The fade has to hold through a slide too, or every cable snaps to full while cards move.
+    const anyOpen = graph.nodes.some((n) => n.assemblyOf?.open);
     for (const e of graph.edges) {
       if (e.id === lifted) continue; // its end is in hand — the dashed ghost draws it
       // The automation cables move too: a curve is a node, and its cables are cables.
@@ -2439,6 +2629,7 @@ export function DomChains({
         color: cableColorFor(e.signal),
         live: false,
         sway,
+        ...(anyOpen && !e.assembly ? { alpha: FOREIGN_ALPHA } : {}),
       });
     }
     return draws;
@@ -2550,6 +2741,7 @@ export function DomChains({
             color: cableColorFor(g.signal),
             live: live.has(g.id),
             sway,
+            ...(g.faded ? { alpha: FOREIGN_ALPHA } : {}),
           };
         }),
       // The automation cables, same physics, wearing the auto dress — a cable is a cable.
@@ -2586,6 +2778,7 @@ export function DomChains({
       model.signal,
       activeRef.current,
       activeVideoRef.current,
+      model.foldedAt,
     );
     rebuildCables.current();
     paintRef.current();
@@ -2868,6 +3061,7 @@ export function DomChains({
   const trackWritable = onTrackSet !== undefined || onTrackToggle !== undefined;
   const offlineWritable = onModuleParam !== undefined;
   const rackTriggerable = onTriggerRack !== undefined;
+  const recorderWired = onRecorder !== undefined;
   // Memoised on VALUES, never on the host's callbacks, which are often inline lambdas.
   const ch = useMemo<Channels>(
     () => ({
@@ -2881,6 +3075,7 @@ export function DomChains({
       trackWritable,
       offlineWritable,
       rackTriggerable,
+      recorderWired,
       rehearsal: !!rehearsal,
       rackLit,
     }),
@@ -2895,6 +3090,7 @@ export function DomChains({
       trackWritable,
       offlineWritable,
       rackTriggerable,
+      recorderWired,
       rehearsal,
       rackLit,
     ],
@@ -3244,9 +3440,10 @@ export function DomChains({
         return;
       }
       // `arg` where the entry SAYS one thing and SETS another, and the field is named as the WIDGET does.
-      cb.current.command(
-        `node param ${tgt.module} @${tgt.field} ${opt.arg ?? opt.label}`,
-      );
+      const line = `node param ${tgt.module} @${tgt.field} ${opt.arg ?? opt.label}`;
+      // The RELOADING sender when the host wired one: this control shows the file and nothing else,
+      // so a command that brings no graph back leaves it on the old value. See docs/widgets.md.
+      void (cb.current.onModuleField ?? cb.current.command)(line);
     },
     [rehearsal],
   );
@@ -3255,8 +3452,15 @@ export function DomChains({
   const pickWidget = useCallback(
     (n: GraphNode, w: WebWidget, value: number) => {
       const tgt = widgetTarget(n, w, chRef.current.offlineChannel);
-      // A track intrinsic has no named settings and a rack pad no value: neither can be SET here.
-      if (!tgt || tgt.kind === "track" || tgt.kind === "rack") return;
+      // A track intrinsic has no named settings, and a pad and a recorder button no value at
+      // all: none of the three can be SET here.
+      if (
+        !tgt ||
+        tgt.kind === "track" ||
+        tgt.kind === "rack" ||
+        tgt.kind === "recorder"
+      )
+        return;
       if (tgt.kind === "module") {
         setModuleField(w, tgt, value);
         return;
@@ -3289,6 +3493,15 @@ export function DomChains({
           tgt.control === "arm"
         )
           cb.current.onTrackToggle?.(tgt.trackId, tgt.control);
+        return;
+      }
+      // A RECORDER's button fires and is done, exactly as a pad does: no optimistic value, since
+      // the state frame answers at 20 Hz and a light that lied about a refusal is worse.
+      if (tgt.kind === "recorder") {
+        cb.current.onRecorder?.(tgt.verb, {
+          module: tgt.module,
+          pluginId: tgt.pluginId,
+        });
         return;
       }
       // A RACK pad fires its sound and is done: no override to place, nothing to commit.
@@ -3769,6 +3982,7 @@ export function DomChains({
                 onContext={contextNode}
                 onOpenPlugin={openPlugin}
                 onBypass={bypassModule}
+                onToggleAssembly={onToggleAssembly}
                 onNodeMenu={onNodeMenu ? openNodeMenu : undefined}
                 warning={n.pluginId ? engineWarnings?.[n.pluginId] : undefined}
                 onDragStart={beginDrag}
@@ -3791,8 +4005,11 @@ export function DomChains({
                 onLandAutomation={onAutomate ? landAutomation : undefined}
                 onStartEvent={onAutomate ? startEvent : undefined}
                 onLandEvent={onAutomate ? landEvent : undefined}
-                // EVERY node can be pinned, all by jackRef's answer; only the ROW refuses.
-                onHeaderDrag={onMoveNode && !row ? beginNodeDrag : undefined}
+                // EVERY node can be pinned, all by jackRef's answer; the ROW refuses, and so does a
+                // member of an OPEN box — its place is its FRAME's, not the graph's.
+                onHeaderDrag={
+                  onMoveNode && !row && !n.assembly ? beginNodeDrag : undefined
+                }
               />
             ))}
           </div>

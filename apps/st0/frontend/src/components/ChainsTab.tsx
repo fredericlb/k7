@@ -14,6 +14,7 @@ import {
   type WebAutomationLane,
 } from "@studio/graph-model";
 import { showToast } from "@studio/project-shell/toast";
+import { foldAssemblies } from "@studio/ui-chains/assembly";
 import type { LaneSpan } from "@studio/ui-chains/cables";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
 import {
@@ -60,6 +61,8 @@ export function ChainsTab({
   project,
   command,
   onBypassModule,
+  onModuleField,
+  onRecorder,
   onNodeMenu,
   engineWarnings,
   onSetModuleAsset,
@@ -90,6 +93,7 @@ export function ChainsTab({
   onFocused,
   alignModules,
   inputDevices,
+  cameras,
   masterVolume,
   midiRef,
   onMidiStatus,
@@ -111,6 +115,13 @@ export function ChainsTab({
   command: (line: string) => void | Promise<void>;
   // Toggle a module's bypass: the canvas flips the node itself on click and lets the refetch confirm — see pendingBypass.
   onBypassModule?: (module: string) => void;
+  /** Set a module's own field. Wired to the RELOADING sender: an intrinsic dropdown draws the file. */
+  onModuleField?: (line: string) => void | Promise<void>;
+  /** A RECORDER's button — record and clear go to the engine, save is a command (recorder.md). */
+  onRecorder?: (
+    verb: "record" | "clear" | "save",
+    node: { module: string; pluginId?: string },
+  ) => void;
   /** The ⋮ bubble on a node: open that node's menu at those viewport coords — straight through, the menu being the SHELL's. */
   onNodeMenu?: (
     n: {
@@ -202,6 +213,8 @@ export function ChainsTab({
   alignModules?: readonly string[];
   // How the machine's interface groups its inputs, for a live input's socket dropdown — empty with no engine, which is the honest picture.
   inputDevices?: readonly { name: string; channels: number[] }[];
+  /** The lenses this BROWSER can see, by label — see packages/song/docs/camera.md. */
+  cameras?: readonly string[];
   // The song's output level, for the fader on the OUT card: a project setting, so the shell hands it over.
   masterVolume?: number;
   /** Where the shell reaches MIDI learn from — the runtime lives HERE, this being the one component that always holds the graph. */
@@ -312,6 +325,18 @@ export function ChainsTab({
   // Which of this project's rack sounds are firing right now — derived from the arrangement and the playhead (rackLit.ts).
   const rackLit = useLiveRackLit(project, graph);
 
+  // Which boxes are OPEN: session state, never written — packages/song/docs/assemblies.md.
+  const [openAssemblies, setOpenAssemblies] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const toggleAssembly = useCallback((name: string) => {
+    setOpenAssemblies((open) => {
+      const next = new Set(open);
+      if (!next.delete(name)) next.add(name);
+      return next;
+    });
+  }, []);
+
   /** The project's NOTES, by name: `graph.modules` is keyed by doc modules and nothing else, so its keys ARE the notes. */
   const docNames = useMemo(
     () => new Set(Object.keys(graph?.modules ?? {})),
@@ -359,11 +384,14 @@ export function ChainsTab({
   const laid = useMemo(() => {
     if (!drawn) return null;
     // The OUT card IS drawn, and it costs one node — plus the two things not in the graph document: the inputs, and the song's output level.
-    const { nodes, edges } = buildGraph(drawn, {
+    const built = buildGraph(drawn, {
       drawMainOut: true,
       inputDevices,
+      cameras,
       mainOutVolume: masterVolume,
     });
+    // …then the assemblies are folded in: a box instead of its members, unless it is open — packages/song/docs/assemblies.md.
+    const { nodes, edges } = foldAssemblies(drawn, built, openAssemblies);
     // The mixer view is an ARRANGEMENT of this same graph: one rank, then an even re-spacing for a console's rhythm.
     const row = alignModules ?? [];
     // `graph organize` ran: forget the session's positions AND ignore the old pins this once, since the reload may not have landed.
@@ -386,10 +414,19 @@ export function ChainsTab({
     );
     if (!row.length)
       prevLaid.current = new Map(
-        out.nodes.map((n) => [n.id, { x: n.x, y: n.y }]),
+        // Where a pushed-aside card BELONGS, not where the open frame shoved it (docs/assemblies.md).
+        out.nodes.map((n) => [n.id, n.pushed ?? { x: n.x, y: n.y }]),
       );
     return out;
-  }, [drawn, alignModules, inputDevices, masterVolume, organizeKey]);
+  }, [
+    drawn,
+    alignModules,
+    inputDevices,
+    cameras,
+    masterVolume,
+    organizeKey,
+    openAssemblies,
+  ]);
 
   /** The graph writes down where it drew itself — once, and then the FILE is the layout; not the mixer row, not a curve, not twice (docs/chainsGraph.md). */
 
@@ -401,9 +438,16 @@ export function ChainsTab({
     const at: Record<string, { x: number; y: number }> = {};
     for (const n of laid.nodes) {
       if (n.kind === "curve") continue;
-      const name = n.kind === "module" ? (n.module ?? n.label) : n.label;
+      // A member of an OPEN box sits where its FRAME put it; that number means nothing on the graph.
+      if (n.assembly) continue;
+      const name =
+        n.kind === "module" || n.kind === "assembly"
+          ? (n.module ?? n.label)
+          : n.label;
       if (!name || have[name] || pinned.current.has(name)) continue;
-      at[name] = { x: Math.round(n.x), y: Math.round(n.y) };
+      // …and a card that stepped aside is pinned where it BELONGS, for the same reason.
+      const spot = n.pushed ?? n;
+      at[name] = { x: Math.round(spot.x), y: Math.round(spot.y) };
     }
     const names = Object.keys(at);
     if (!names.length) return;
@@ -760,6 +804,7 @@ export function ChainsTab({
       <main className="min-w-0 flex-1">
         {active && (
           <DomChains
+            onToggleAssembly={toggleAssembly}
             icons={icons}
             // The mixer arrangement is a ROW: the wheel walks along it, derived from the same list that made it one.
             row={(alignModules?.length ?? 0) > 0}
@@ -780,6 +825,8 @@ export function ChainsTab({
             camStore={camStore}
             command={command}
             onBypassModule={bypassModule}
+            onModuleField={onModuleField}
+            onRecorder={onRecorder}
             onNodeMenu={onNodeMenu}
             onTriggerRack={triggerRack}
             rackLit={rackLit}

@@ -89,6 +89,9 @@ export interface VideoTrackDoc {
   shapes: ShapeDoc[]; // "shape" tracks only
   // This lane's own video run, applied to the layer BEFORE it is composited; absent when it has none.
   plugins?: VideoPluginDoc[];
+  /** A live CAMERA feeds this lane instead of its placements — the LABEL a node wired to it names,
+   *  and "" for whichever this machine calls default. Absent is the ordinary lane (docs/camera.md). */
+  camera?: string;
 }
 
 /** A named point on the cut, in seconds. `tc` is the key it is stored under, which is its delete key. */

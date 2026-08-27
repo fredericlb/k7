@@ -10,6 +10,7 @@
 #include "EngineHostImpl.h"    // struct EngineHost::Impl
 #include "EditBuilder.h"       // trackById
 #include "AudioInputs.h"       // findWaveInput / monitorModeOf / findTrackInput
+#include "Warnings.h"          // warn() — a refused arm has to reach the client, not just stderr
 
 #include <algorithm>
 #include <iostream>
@@ -375,22 +376,33 @@ bool EngineHost::prepareTakes(const std::string& session) {
                                                now.getYear() % 100, now.getMonth() + 1,
                                                now.getDayOfMonth(), now.getHours(),
                                                now.getMinutes(), now.getSeconds());
+    // The filename mask belongs to the DEVICE, so two tracks armed on one input would chase a single file — docs/engineHost.md.
+    std::map<te::InputDevice*, std::string> maskedBy;
     for (const auto& id : armed) {
         const TrackDoc* td = nullptr;
         for (const auto& t : impl_->session(session).current.tracks)
             if (t.id == id) { td = &t; break; }
         if (td == nullptr) continue;
 
-        const auto base = juce::File::createLegalFileName(juce::String(td->name)) + "-" + stamp;
-        impl_->session(session).pendingTakes[id] = base.toStdString();
-
         auto ti = findTrackInput(impl_->session(session).edit.get(), impl_->engine, impl_->session(session).current, id);
         if (ti.instance == nullptr) continue;
-        if (auto* wave = dynamic_cast<te::WaveInputDevice*>(&ti.instance->getInputDevice()))
-            wave->setFilenameMask(juce::File(impl_->session(session).current.recordDir).getChildFile(base).getFullPathName());
+        auto* wave = dynamic_cast<te::WaveInputDevice*>(&ti.instance->getInputDevice());
+        if (wave == nullptr) continue;
+        if (const auto claimed = maskedBy.find(wave); claimed != maskedBy.end()) {
+            // Said out loud: silently recording one of the two is exactly the shape nobody would trace back here.
+            warn("track \"" + id + "\" shares its input with \"" + claimed->second +
+                     "\", which is already recording it — disarm one of the two",
+                 "rec");
+            continue;
+        }
+        maskedBy.emplace(wave, id);
+
+        const auto base = juce::File::createLegalFileName(juce::String(td->name)) + "-" + stamp;
+        impl_->session(session).pendingTakes[id] = base.toStdString();
+        wave->setFilenameMask(juce::File(impl_->session(session).current.recordDir).getChildFile(base).getFullPathName());
         std::cerr << "[rec] track '" << id << "' -> " << base << ".wav\n";
     }
-    return true;
+    return !impl_->session(session).pendingTakes.empty();
 }
 
 }  // namespace studio

@@ -9,7 +9,7 @@
 // is what guarantees that when two graphs are mounted — the desk and the Chaînes tab are.
 
 import type { WebSignal } from "@studio/graph-model";
-import { PORT_PLATE } from "@studio/ui-chains/graph";
+import { FRAME_HEAD, PORT_PLATE } from "@studio/ui-chains/graph";
 import { useEffect } from "react";
 
 // Signal-typed accents. Sand is the neutral, automation mauve; a track control keeps its own M/S/A identity colour.
@@ -68,7 +68,7 @@ const CSS = `
 .dgx-node { position:absolute; box-sizing:border-box; border-radius:11px;
   background:linear-gradient(180deg,#1d1c22,var(--card)); border:1px solid var(--line);
   box-shadow:0 12px 30px -10px rgba(0,0,0,.66); transition:box-shadow .16s, border-color .16s; }
-.dgx-node.k-track,.dgx-node.k-module,.dgx-node.k-sink { --accent:var(--sand); }
+.dgx-node.k-track,.dgx-node.k-module,.dgx-node.k-sink,.dgx-node.k-assembly { --accent:var(--sand); }
 .dgx-node.k-curve { --accent:var(--mauve); }
 .dgx-node.k-stub { --accent:#ef4444; }
 .dgx-node.k-unsupported { --accent:#f59e0b; }
@@ -91,9 +91,12 @@ const CSS = `
 /* GRAB — no header at this zoom, so the whole card is the handle; three classes to outrank .tappable. */
 .dgx-node.far.grab { cursor:grab; }
 .dgx-node.far.grab:active { cursor:grabbing; }
-.dgx-hd { position:absolute; top:0; left:0; right:0; display:flex; align-items:center; gap:7px;
+/* A COLUMN: the glyph and the module name share one row, the node's own name runs under it. */
+.dgx-hd { position:absolute; top:0; left:0; right:0; display:flex; flex-direction:column; justify-content:center;
   padding:7px 10px; box-sizing:border-box; border-bottom:1px solid #2f2f36; border-radius:11px 11px 0 0;
   background:linear-gradient(180deg,rgba(255,255,255,.015),transparent); }
+/* The top row, and the ONLY thing the corner bubbles stand over — see its padding-right below. */
+.dgx-hdtop { display:flex; align-items:center; gap:7px; min-width:0; }
 /* GRAB — the header moves the card, where the host allows it (the pin gesture). */
 .dgx-hd.grab { cursor:grab; }
 .dgx-hd.grab:active { cursor:grabbing; }
@@ -110,8 +113,8 @@ const CSS = `
 .dgx-nm { font-size:12.5px; font-weight:560; letter-spacing:-.005em; flex:1;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* TWO names stacked inside UI_HEADER's 38px, both line-heights stated rather than inherited; see docs/nodeCard.md. */
-.dgx-nms { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; }
-.dgx-nms .dgx-nm { flex:none; line-height:14px; }
+.dgx-hd .dgx-nm { flex:1; min-width:0; line-height:14px; }
+/* The node's own name, on its own line and so cut only by the CARD's width — the bubbles are a row above it. */
 .dgx-nodenm { font:9.5px ui-monospace,monospace; line-height:10px; color:var(--faint);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* A track's instrument glyph, white rather than the track's colour, which the border and tint already carry. */
@@ -197,13 +200,29 @@ const CSS = `
   position:relative; }
 .dgx-bbtn i::after { content:""; position:absolute; left:50%; top:-3px;
   width:1.4px; height:5px; background:currentColor; transform:translateX(-50%); }
-/* A long name stops short of the bubbles, driven by the --corners count they are placed from. */
-.dgx-hd { padding-right:calc(10px + max(0px, (var(--corners,0) * 12px) + 2px)); }
+/* No reservation for the bubbles: they hang off the corner (top:-8px), so a name is cut by the CARD and nothing else. */
 .dgx-pbtn i { width:9px; height:1.4px; background:currentColor; box-shadow:0 3px currentColor,0 -3px currentColor; }
 /* Alternatives — the module's other attribute sets, lit when a set other than its own is on. */
 .dgx-abtn.on { color:#0d0d0f; background:var(--sand); border-color:var(--sand); }
 .dgx-abtn i { width:3px; height:3px; border-radius:50%; background:currentColor;
   box-shadow:0 -4px currentColor, 0 4px currentColor; }
+
+/* An ASSEMBLY's bubble: a box you open, and the same disc closed again when it is. */
+.dgx-obtn.on { color:#0d0d0f; background:var(--sand); border-color:var(--sand); }
+.dgx-obtn i { width:7px; height:7px; border:1.4px solid currentColor; border-radius:1.5px; }
+/* …and the CARD of a closed one, told apart from a module by its outline rather than by a glyph. */
+.dgx-node.k-assembly { border-style:double; border-width:3px; }
+
+/* An OPEN box: a frame BEHIND its members, drawn as the appliance's own case around them. */
+.dgx-frame { position:absolute; box-sizing:border-box; border:1px dashed var(--line);
+  border-radius:12px; background:rgba(255,255,255,.025); }
+.dgx-frame.grab .dgx-frame-hd { cursor:grab; }
+.dgx-frame-hd { position:absolute; left:0; right:0; top:0; height:${FRAME_HEAD}px;
+  display:flex; align-items:center; gap:6px; padding:0 10px; box-sizing:border-box; }
+.dgx-frame-nm { font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* The close disc sits IN the strip rather than off the corner: a frame has no corner to hang one on. */
+.dgx-frame .dgx-cbtn { position:static; margin-left:auto; }
 
 /* A PORT: a socket in a plate stepped off the card's edge, flat side against it; see docs/nodeCard.md. */
 .dgx-port { position:absolute; display:grid; place-items:center;

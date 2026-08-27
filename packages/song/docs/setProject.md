@@ -303,6 +303,28 @@ Derived, this is **two** chains and no chain called `crossfade`: the module has 
 flow feeder, so it is a step inside deck A's run rather than a meeting point of its own.
 `scaffoldSet.test.ts` pins that, which is the cheapest way to notice if `#b` is ever lost.
 
+## The eighteen nodes of a deck are drawn as ONE box
+
+`assemblies/turntableA.yaml` and `turntableB.yaml`, written by the scaffold beside the nodes
+above, say that this deck's lane, its four stem lanes, its five platters, its tempo and its whole
+strip are one appliance called a **turntable**. On the graph that is one card with two plugs —
+`mix` and `cue` — and eight knobs, and an open button that unfolds it in place.
+
+**It changes nothing here.** No node is renamed, no arrow moved, and `graph.yaml` is not touched:
+a set with those two files compiles to the `ProjectDoc` it compiled to without them, which is what
+`assemblyCompile`'s case in `assemblies.test.ts` pins. The plugs and the knobs come from the
+template the files name, `@st0/turntable`, which lives in the account's library —
+`packages/dsp/assemblies/turntable/` is the copy this repo ships to copy FROM.
+
+A set written before this gets the same two files from a migration that writes nothing else:
+
+```bash
+npx tsx packages/song/scripts/migrateSetAssemblies.ts <projet>.st0 --write
+```
+
+An unpublished template is not a fault: the box still draws, from its members alone, with no plugs
+and no knobs, and says which ref is missing. See [assemblies.md](assemblies.md).
+
 ## What plays is the compiled project
 
 The desk fetches the compiled `ProjectDoc` from the machine's file service (`GET /engine-doc`),

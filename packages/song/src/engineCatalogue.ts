@@ -7,7 +7,6 @@
 // A leaf: nothing here imports beyond moduleTypes.ts, so loader.ts can use it without a cycle.
 
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   categoryForRole,
@@ -18,10 +17,11 @@ import {
   MODULE_TYPES,
   slugifyPluginName,
 } from "@studio/song-schema/moduleTypes";
+import { studioHome } from "./studioHome";
 import type { LoadedModule } from "./rawDoc";
 
 /** The scan cache. CONTRACT path — the C++ engine writes and reads this same file (PluginScan.cpp `extsCacheFile()`). */
-export const EXTS_PATH = join(homedir(), ".studio", "exts.json");
+export const EXTS_PATH = join(studioHome(), "exts.json");
 
 /** One plugin as the engine's scan describes it. `format` is as scanned ("VST3", "internal"). */
 export interface ScannedPlugin {

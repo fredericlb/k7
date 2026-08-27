@@ -664,6 +664,87 @@
       { name: notes, hint: "JSON [{t,d,k,v?}] — beats from the start of the clip" },
     ]
 
+# The four verbs that take a RECTANGLE rather than one note, which is why they are `notes`
+# and not `note`: two keys inclusive and a half-open beat span, exactly the box the piano
+# roll's `v` selection draws. A note is in when it STARTS inside, whatever its length does
+# past the far edge. Each is ONE pass over the file and so one undo — running the singular
+# verb N times would be N journal entries, and half of them could land while the rest fail.
+# An empty rectangle is refused by name; a pad's `repeat`/`skip` are never touched.
+# See @studio/song-schema docs/noteEdits.md.
+- command: "sequence notes remove"
+  sid: sequence.notesRemove
+  readable:
+    en: "Delete the notes in a region"
+    fr: "Supprimer les notes d'une région"
+  help: "remove every note in a region (e.g. sequence notes remove melody C4 C5 0 4)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: loNote, type: note },
+      { name: hiNote, type: note },
+      { name: from, type: number, hint: "beats from the start of the sequence" },
+      { name: to, type: number, hint: "beats — the far edge, excluded" },
+    ]
+
+# Clamped onto the keyboard rather than dropped off it: a note that vanished would leave the
+# rest transposed and no way to say what went. The engine's `transpose` NODE clamps for a
+# harder reason still — a dropped note leaves its note-off behind and hangs the voice.
+- command: "sequence notes transpose"
+  sid: sequence.notesTranspose
+  readable:
+    en: "Transpose the notes in a region"
+    fr: "Transposer les notes d'une région"
+  help: "shift every note in a region by n semitones (e.g. sequence notes transpose melody C4 C5 0 4 12)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: loNote, type: note },
+      { name: hiNote, type: note },
+      { name: from, type: number, hint: "beats from the start of the sequence" },
+      { name: to, type: number, hint: "beats — the far edge, excluded" },
+      { name: semitones, type: number, hint: "whole semitones, negative to go down" },
+    ]
+
+# The ONSET moves and the length is kept: quantizing the end too would be two edits under one
+# verb, and a run of notes would grow or shrink as a side effect of being lined up.
+- command: "sequence notes quantize"
+  sid: sequence.notesQuantize
+  readable:
+    en: "Line the notes in a region up on a grid"
+    fr: "Aligner les notes d'une région sur une grille"
+  help: "snap every note's start in a region to a grid, in beats (e.g. sequence notes quantize melody C4 C5 0 4 0.25)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: loNote, type: note },
+      { name: hiNote, type: note },
+      { name: from, type: number, hint: "beats from the start of the sequence" },
+      { name: to, type: number, hint: "beats — the far edge, excluded" },
+      { name: grid, type: number, hint: "beats per step — 0.25 is a sixteenth in 4/4" },
+    ]
+
+# Absolute, not a factor, and 1 CLEARS the field like the singular verb: a region set to full
+# leaves a file that never mentions velocity, which is what an untouched sequence looks like.
+- command: "sequence notes velocity"
+  sid: sequence.notesVelocity
+  readable:
+    en: "Set the velocity of the notes in a region"
+    fr: "Régler la vélocité des notes d'une région"
+  help: "set every note's velocity in a region, 0..1 (e.g. sequence notes velocity melody C4 C5 0 4 0.7)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: loNote, type: note },
+      { name: hiNote, type: note },
+      { name: from, type: number, hint: "beats from the start of the sequence" },
+      { name: to, type: number, hint: "beats — the far edge, excluded" },
+      { name: velocity, type: number, hint: "0..1 — 1 clears the field" },
+    ]
+
 # --- curves (automation shapes) ---
 # A curve is a normalised function of song time, living in curves/<id>.yaml, which a
 # module's `automation:` then binds to a parameter. Creating one is its own step because
@@ -1176,6 +1257,40 @@
   help: "delete a node: its file, its preset and its place in the graph (e.g. node delete lead)"
   surfaces: [cli]
   args: [{ name: "node", complete: modules }]
+# A templated set of nodes, drawn as one box. Instancing copies the template's node files into
+# the project and its wiring into graph.yaml, so what lands on disk is an ordinary graph plus one
+# record saying which nodes are that box — nothing about the sound changes, in either direction.
+# See packages/song/docs/assemblies.md.
+- command: "assembly new"
+  sid: assembly.new
+  readable:
+    en: "Put a templated box of nodes in the graph"
+    fr: "Poser une boîte de nœuds templatée dans le graphe"
+  help: "instance an assembly template from the library, nodes and wiring and all (e.g. assembly new @st0/turntable turntableA)"
+  surfaces: [cli]
+  args:
+    - { name: "ref", complete: assemblyTemplates }
+    - { name: "name", hint: "what to call this one; its members are named after it" }
+# Takes the box AND everything in it: each member is deleted the way `node delete` deletes one,
+# closing the gap behind it. `assembly dissolve` is the milder one, which keeps every node.
+- command: "assembly delete"
+  sid: assembly.delete
+  readable:
+    en: "Delete a box and its nodes"
+    fr: "Supprimer une boîte et ses nœuds"
+  help: "delete an assembly: the record, and every node it holds (e.g. assembly delete turntableA)"
+  surfaces: [cli]
+  args: [{ name: "name", complete: assemblies }]
+# Drops the RECORD and nothing else. The nodes stay on the graph exactly as they were, wired as
+# they were — this is "stop drawing these as one thing", not "get rid of them".
+- command: "assembly dissolve"
+  sid: assembly.dissolve
+  readable:
+    en: "Stop drawing a box, keep its nodes"
+    fr: "Ne plus dessiner la boîte, garder ses nœuds"
+  help: "drop an assembly's record, leaving every node on the graph untouched (e.g. assembly dissolve turntableA)"
+  surfaces: [cli]
+  args: [{ name: "name", complete: assemblies }]
 - command: "graph unlink"
   sid: graph.unlink
   readable:
@@ -1248,6 +1363,21 @@
 # they are written `node param <node> @channel 1,2` / `@monitor auto`, beside `@gain`. One
 # vocabulary: what a widget binds (`@channel`) is what you type.
 # See `INTRINSICS` in commands.ts and packages/song/docs/intrinsics.md.
+# A RECORDER node captures free-running: record, clear, and this one. The first two go straight
+# down the engine's socket and write nothing, so they are NOT verbs — nothing to journal, and no
+# file changes. Saving does move bytes, so it is a verb like everything else that does.
+# Named by the FILE rather than the node: a node holds a stack of takes and the card knows which
+# is on top. See packages/song/docs/recorderNode.md.
+- command: "node record save"
+  sid: node.record.save
+  readable:
+    en: "Save a recorder's take"
+    fr: "Enregistrer une prise"
+  help: "send a recorder node's take to the médiathèque's recordings"
+  surfaces: [cli]
+  args:
+    - { name: file, hint: "the take's own .wav, as the card knows it" }
+    - { name: name, hint: "an optional name, which files it as a moment" }
 - command: "node bypass"
   sid: node.bypass
   readable:

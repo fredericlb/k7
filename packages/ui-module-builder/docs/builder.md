@@ -356,3 +356,28 @@ a line of noise per file a reader has to learn to skip.
 - **Nothing resolves a pick.** The builder opens the catalogue, which already carries the file and
   both refs. Resolving here from a module name through `hints.paths` cannot work: by construction
   that map holds only the project's OWN modules, so a shared one comes back "couldn't resolve".
+
+## The ASSEMBLY builder — a second screen, and why it is second
+
+`AssemblyBuilder.tsx` edits an assembly TEMPLATE (`packages/song/docs/assemblies.md`). Its own
+component rather than a pane on the one above, because it edits a different thing: a template is a
+graph of members, and a module is one plugin's face. Nothing about the widget grid, the presets, the
+DSP source or the plugin scan applies to it.
+
+**Its whole job is the promotion**, which is the one thing a template says that a chain does not:
+which of its members' params are knobs on the box. Everything else — the plugs, the label — is text,
+in the pane beside the list, because those are two lines each and a form for them would say less.
+
+**The param list is the template's own GRAPH.** An assembly folder is a graph folder — `graph.yaml`
+and `nodes/` — so `GET /graph?at=<path>` resolves every member through its `extends` and hands back
+what it runs with. No new route, and the same road `chainsBuilder.md` takes. That also means the
+five sources the module builder unions do not apply here: what the members are is what the file
+service already answered.
+
+**A newly promoted param takes its own name**, and the next free `<name> 2` when the box already
+wears one by that word: the key IS the knob, so two of them would be one knob written twice.
+
+**The Save button, for the reason the module builder has one**: a template is in the account's
+library, so a save is a publish. `useAutosave`'s `manual` mode keeps the validation and the
+held-back buffer and turns the timer off. It opens read-only behind the same confirmation a shared
+module opens behind (`apps/st0/frontend/docs/sharedModules.md`).

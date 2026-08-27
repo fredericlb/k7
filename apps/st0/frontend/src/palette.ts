@@ -12,12 +12,16 @@ import {
 import type { PaletteArg, PaletteCommand } from "./components/CommandBar";
 import { fuzzyScore } from "./fuzzy";
 import { MAX_RECENT } from "./recentCommands";
+import { ROLL_MODES } from "./rollMode";
 import { PANES } from "./shellMeta";
+import { TOOLS } from "./timelineTools";
 import type { CommandInfo } from "./types";
+import { WAVE_MODES } from "./waveMode";
 
 // Everything whose ONLY effect is on the shell lives under `ui` — not 'writes no file': a pin and a language are remembered, which is not editing a song.
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
+  "ui assembly", // open an assembly TEMPLATE in the builder, by the ref a box names
   "ui global", // the layout view — the default, and the only one a project does not derive
   ...PANES.map((p) => `ui ${p}`), // fullscreen one pane
   "ui focus next", // move the keys to the next pane (tab)
@@ -32,6 +36,9 @@ export const LOCAL_COMMANDS = [
   // Arm MIDI learn on a module's param — a UI command because the LISTENING is the browser's; `module cc` writes the map.
   "ui midi learn",
   // The timeline's selection, zoom, loop and move: the state lives in TimelineTab and these reach it via its handle.
+  "ui tool", // what a PRESS means on the active surface — pointer · cut · erase · mute
+  "ui wave", // …and on an audio clip's waveform, where the view IS the gesture — standard · onsets · warp
+  "ui roll", // …and on the piano roll — select · create · remove
   "ui select", // caret <-> selection rectangle
   "ui zoom", // frame the selection
   "ui zoom out", // back to the enclosing view
@@ -43,6 +50,7 @@ export const LOCAL_COMMANDS = [
   /** The RECTANGLE's own two, beside the catalogue's `selection consolidate` — one head for the three verbs that take a region. */
   "selection copy", // the selected rectangle onto the shell's clipboard (events or notes)
   "selection paste", // put it down at the caret — on the timeline, or in the open grid
+  "selection delete", // remove what the rectangle holds, in ONE command line so it is one undo
   "event move", // pick up the clip under the caret and nudge it; commits to disk
   "ui help", // the `?` overlay: commands, keys, and the song-file syntax reference
   // The footer's own buttons, beside the panel row, and the two toggles in the timeline's header.
@@ -96,6 +104,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui file": {
     en: "Open a file of this project in the editor",
     fr: "Ouvrir un fichier de ce projet dans l'éditeur",
+  },
+  "ui assembly": {
+    en: "Open an assembly template in the builder",
+    fr: "Ouvrir un modèle d'assemblage dans le constructeur",
   },
   "ui global": {
     en: "Show the timeline and the chains together",
@@ -177,6 +189,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Paste what was copied at the caret",
     fr: "Coller ce qui a été copié au curseur",
   },
+  "selection delete": {
+    en: "Delete the selected notes",
+    fr: "Supprimer les notes sélectionnées",
+  },
   "transport locate": {
     en: "Move the playhead to the caret",
     fr: "Placer la tête de lecture sur le curseur",
@@ -233,6 +249,18 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui review": {
     en: "Reopen the take review on a clip",
     fr: "Rouvrir la relecture d'une prise",
+  },
+  "ui tool": {
+    en: "Choose what a press does on this surface",
+    fr: "Choisir ce que fait un clic sur cette surface",
+  },
+  "ui wave": {
+    en: "Choose what the waveform is for",
+    fr: "Choisir à quoi sert la forme d'onde",
+  },
+  "ui roll": {
+    en: "Choose what a press does on the piano roll",
+    fr: "Choisir ce que fait un clic sur le piano roll",
   },
   "ui ruler": {
     en: "Read the ruler in bars or in seconds",
@@ -358,6 +386,13 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
 // The trailing params for the shell's own commands; `kind` is what the param NAMES, and colours the field
 export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "ui file": [{ name: "path", kind: "file", hint: "a file of this project" }],
+  "ui assembly": [
+    {
+      name: "ref",
+      kind: "module",
+      hint: "an assembly template the library holds (@st0/<path>)",
+    },
+  ],
   "ui external": [
     { name: "surface", kind: "text", hint: "a surface this project declares" },
   ],
@@ -380,6 +415,15 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   ],
   // The four fixed sets below are completed in makeCompleteArg: none is a project's, so there is no round trip to spend.
   "ui panel": [{ name: "panel", kind: "choice", hint: "graph · logs" }],
+  "ui tool": [
+    { name: "tool", kind: "choice", hint: "pointer · cut · erase · mute" },
+  ],
+  "ui wave": [
+    { name: "view", kind: "choice", hint: "standard · onsets · warp" },
+  ],
+  "ui roll": [
+    { name: "mode", kind: "choice", hint: "select · create · remove" },
+  ],
   "ui surface": [
     { name: "surface", kind: "choice", hint: "a surface of this project" },
   ],
@@ -568,6 +612,9 @@ export function makeListArg(shell: {
     const first = priorArgs.length === 0;
     // The shell's other fixed sets, each the shell's OWN vocabulary — asking the backend would be a round trip for a literal.
     if (canonical === "ui panel" && first) return ["graph", "logs"];
+    if (canonical === "ui tool" && first) return [...TOOLS];
+    if (canonical === "ui wave" && first) return [...WAVE_MODES];
+    if (canonical === "ui roll" && first) return [...ROLL_MODES];
     if (canonical === "ui language" && first) return shell.locales();
     if (canonical === "project export" && first) return ["wav", "mp3"];
     if (canonical === "fs file upload" && !first) return ["files", "folder"];

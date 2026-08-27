@@ -12,8 +12,8 @@ import {
   readYamlEntities,
 } from "@studio/song/loader";
 import type { RawClip } from "@studio/song/rawDoc";
-import { compileVideoChains } from "./videoChains";
-import type { VideoMarker, VideoProjectDoc } from "./videoDoc";
+import { compileVideoChains, type VideoChainDocs } from "./videoChains";
+import type { VideoMarker, VideoProjectDoc, VideoTrackDoc } from "./videoDoc";
 import { compileVideoTracks, readViewport } from "./videoTracks";
 import { collectTransitions } from "./videoTransitions";
 
@@ -63,7 +63,12 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     try {
       return compileVideoChains(abs, loadGraph(abs));
     } catch {
-      return { byLane: {}, frame: [] };
+      return {
+        byLane: {},
+        frame: [],
+        cameraByLane: {},
+        cameras: [],
+      } satisfies VideoChainDocs;
     }
   })();
 
@@ -75,9 +80,36 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     name: String(proj.name ?? "untitled"),
     viewport,
     fps,
-    videoTracks: tracks.map((t) =>
-      chains.byLane[t.id] ? { ...t, plugins: chains.byLane[t.id] } : t,
-    ),
+    videoTracks: [
+      ...tracks.map((t) => ({
+        ...t,
+        ...(chains.byLane[t.id] ? { plugins: chains.byLane[t.id] } : {}),
+        // A lane a camera is wired to draws the LENS rather than its placements — docs/camera.md.
+        ...(t.id in chains.cameraByLane
+          ? { camera: chains.cameraByLane[t.id] }
+          : {}),
+      })),
+      // …and the cameras that feed no lane, each a layer of its own, ON TOP of the authored ones
+      // and in the order the graph declares them. Nothing in `layers:` names these: the document
+      // authored no lane, which is the whole point of the shape (docs/camera.md).
+      ...chains.cameras.map(
+        (cam): VideoTrackDoc => ({
+          id: cam.node,
+          name: cam.node,
+          color: "",
+          mute: false,
+          kind: "video",
+          camera: cam.label,
+          x: cam.frame?.[0] ?? 0,
+          y: cam.frame?.[1] ?? 0,
+          // No frame written is the WHOLE viewport, which is what one camera on its own wants.
+          w: cam.frame?.[2] ?? viewport[0],
+          h: cam.frame?.[3] ?? viewport[1],
+          clips: [],
+          shapes: [],
+        }),
+      ),
+    ],
     markers: parseVideoMarkers(root.markers),
     framePlugins: chains.frame,
     transitions,

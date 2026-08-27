@@ -337,6 +337,14 @@ reference keeping the tap alive, as does the track's `pluginList`.
 `drainAllWaveformTaps` drains every tap at once, deliberately: there is no per-module drain, so no
 second reader can empty a tap the state timer is about to read.
 
+**One envelope point per FRAME, not per sample.** The drain is a single chronological array and
+`WaveformWidget` draws it as one line, so the two channels have to fold into the same bucket —
+`WaveformTap::pushFrame` takes the min and the max across the pair. The plugin used to push the
+whole left block through `pushSample` and then the whole right block, which drew every block
+**twice** at twice the documented rate; and since a 256-sample bucket does not divide an arbitrary
+block, the bucket straddling the L→R seam mixed two channels into one point. A correlated mix hid
+it; anything hard-panned flickered. `pushSample` survives as `pushFrame(s, s)` for the mono case.
+
 The broadcast section of the header is the one place that is **not** uniformly message-thread.
 `enableBroadcast` and the tap's insertion are; `drainBroadcast` and `skipBroadcastToLive` belong
 to the sender thread and must never be wrapped in `post()`, which would put a second consumer on a

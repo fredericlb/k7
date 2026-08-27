@@ -465,11 +465,29 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
       if (!isSink(to) && chains[to] && !isTrackFed(chains[to]))
         busChains.add(to);
 
-  // The track id a chain contributes to: its source track or its own bus track, both being the chain's own NAME.
+  /** A run carrying a LIVE INPUT and landing on no lane owns its own track.
+   *
+   * The engine assigns an input to a TRACK and to nothing else, so a rig with no lane authored —
+   * `IN -> fader -> OUT` — would otherwise hand its input nowhere and play silence. It is the same
+   * materialisation a BUS gets, for the same reason: the document names a run, and the engine's
+   * model needs a strip. See docs/liveProject.md. */
+  const carriesLiveInput = (c: Chain): boolean =>
+    c.use.some((s) => modulesMap[s?.module]?.io === "in");
+  const inputChains = new Set<string>();
+  for (const [name, c] of Object.entries(chains)) {
+    if (isMasterChain(c) || isTrackFed(c) || busChains.has(name)) continue;
+    if (!carriesLiveInput(c)) continue;
+    // …unless it DOES land on a lane, which is the ordinary recording shape and already works.
+    if (inputLandingTrack(c, (id) => !!lanesMap[id])) continue;
+    inputChains.add(name);
+  }
+
+  // The track id a chain contributes to: its source track, its own bus track, or its own INPUT
+  // track — all three being the chain's own NAME.
   const ownerOf = (name: string, c: Chain): string =>
     isMasterChain(c)
       ? MASTER_OWNER
-      : isTrackFed(c) || busChains.has(name)
+      : isTrackFed(c) || busChains.has(name) || inputChains.has(name)
         ? name
         : "";
 
@@ -810,6 +828,33 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
     throw new Error(
       `lane wiring invalid:\n  - ${[...new Set(laneErrs)].join("\n  - ")}`,
     );
+
+  // A channel per lane-less INPUT run: what a rig you play through is made of. No clips — what is
+  // heard is what is plugged in — and `regular` rather than `effect`, since it is not a return.
+  for (const name of inputChains) {
+    const inp = inputOf[name];
+    tracks.push({
+      id: name,
+      name,
+      role: "regular",
+      contentType: "audio",
+      group: "",
+      generated: false,
+      color: "",
+      mute: bypassed.has(name),
+      solo: soloed.has(name),
+      disabled: false,
+      inputChannels: inp?.channels ?? [],
+      // It reaches the sum like a lane; only a bus may be lifted off it, and only by CUE.
+      outputChannels: isCued(chains[name]) ? cuePair : [],
+      monitor: inp?.monitor ?? "auto",
+      inputGain: inp?.gain ?? 0,
+      clips: [],
+      plugins: trackPlugins[name] ?? [],
+      sends: trackSends[name] ?? [],
+      automation: [],
+    });
+  }
 
   // A return track per bus: no clips, the bus chain's plugins (its AuxReturn goes ahead of them), and onward sends.
   for (const name of busChains)

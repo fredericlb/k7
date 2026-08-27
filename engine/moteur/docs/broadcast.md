@@ -118,6 +118,18 @@ Deciding inside the lock and posting outside lets two connection threads queue i
 inverted order — a departing listener's `false` landing after an arriving one's `true`,
 silencing someone who is still there, with nothing to re-assert it.
 
+And both count **that session's** listeners, never the engine's total. The explicit
+`{"broadcast": false}` used to read `listeners.size()`, so the last ear on one session leaving
+while another session still had one computed `want = true` and the tap stayed on a project nobody
+was hearing — the exact fault the `Close` handler above was fixed for, reached by the other door.
+The `off` path also retires the socket's **own** subscription whatever session the message names,
+because the two can disagree and only the stored one cannot strand a tap.
+
+The sender's per-session bookkeeping — the sequence counters and the "no sample rate yet" latch —
+is pruned against the sessions the **engine** still holds, never against who is listening right
+now. A counter reset under a listener who came back would read as a four-billion-frame hole:
+`seqGap` in `packages/engine-protocol/stream.ts` is unsigned.
+
 The listener set is keyed by raw socket pointer, matched against `server.getClients()`. The
 sender prunes entries that are no longer connected on every pass, so an address the
 allocator reuses cannot inherit a subscription — otherwise one of the tray's several

@@ -23,6 +23,9 @@ describe("derived module fields", () => {
       "cold",
       // `ir`, `nam` and `jsdsp` carry no field of their own, so there is nothing to complete against (docs/fields.md).
       "channel",
+      // …and WHICH lens an io "camera" opens, plus where in the viewport it draws — docs/camera.md.
+      "camera",
+      "frame",
       // No `track`: where an input LANDS is the chain's business (docs/fields.md).
       "source", // …and the OTHER kind of source: an io "file" reads audio off disk
       "monitor",
@@ -132,6 +135,21 @@ describe("derived values", () => {
       "video_transition",
     ]);
     expect(valuesAt("module", [], "monitor")).toEqual(["off", "auto", "on"]);
+    // Both DERIVED from the schema's own constants — this table had already fallen two values
+    // behind `io:` before they were, which is the drift the two `as const`s now prevent.
+    expect(valuesAt("module", [], "io")).toEqual([
+      "out",
+      "in",
+      "video_out",
+      "file",
+      "camera",
+    ]);
+    // …and the recorder node's own picture, beside the two live taps — docs/recorder.md.
+    expect(valuesAt("module", ["ui", "widgets", "w1"], "source")).toEqual([
+      "input",
+      "output",
+      "take",
+    ]);
     expect(valuesAt("module", ["ui", "widgets", "w1"], "type")).toContain(
       "dropdown",
     );

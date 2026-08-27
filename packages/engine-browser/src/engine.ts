@@ -12,6 +12,7 @@ import type {
   ParamMeta,
   PluginParams,
   PresetInfo,
+  RecorderState,
   TransportAction,
   WaveformEnvelope,
 } from "@studio/engine-protocol";
@@ -35,6 +36,7 @@ export type {
   ParamMeta,
   PluginParams,
   PresetInfo,
+  RecorderState,
   TransportAction,
   WaveformEnvelope,
 } from "@studio/engine-protocol";
@@ -143,6 +145,8 @@ interface EngineMessage {
   recordEnabled?: boolean;
   waveform?: Record<string, WaveformEnvelope[]>;
   platters?: Record<string, number>; // `state` only: each platter's own needle — docs/turntable.md
+  // …and `state` only too: each recorder node's light, takes and envelope — docs/recorder.md.
+  recorders?: Record<string, RecorderState>;
   id?: string;
   // Two replies carry `params`, told apart by `type`: `plugin-param-list` (a TYPE's list) is an array, the live feeds are name -> value.
   params?: Record<string, number> | EnginePluginParam[];
@@ -377,6 +381,8 @@ export class EngineClient {
         masterClipped: !!m.masterClipped,
         waveform: (m.waveform ?? {}) as Record<string, WaveformEnvelope[]>,
         platters: (m.platters ?? {}) as Record<string, number>,
+        // Dropped here, a recorder never lights, never draws and never saves — packages/song/docs/recorderNode.md.
+        recorders: (m.recorders ?? {}) as Record<string, RecorderState>,
       });
     else if (m.type === "plugin-params" && m.id)
       for (const cb of this.paramsCbs)
@@ -457,6 +463,34 @@ export class EngineClient {
       start: Math.max(0, start),
       end: Math.max(0, end),
       enabled,
+    });
+  }
+  /**
+   * Audition ONE note through a track's own chain — the piano roll's click, released by the engine
+   * after 100 ms. Sent straight down this socket rather than through the file service, unlike a
+   * sample `preview`: there is no path to resolve, only a track the loaded song already names.
+   */
+  previewNote(track: string, key: number, vel = 1): void {
+    this.send({
+      type: "note-preview",
+      track,
+      key: Math.max(0, Math.min(127, Math.round(key))),
+      vel: Math.max(0, Math.min(1, vel)),
+    });
+  }
+  /**
+   * A RECORDER node's two ENGINE verbs. Free-running: neither consults the transport, which is
+   * what makes this usable in a rig that never presses play. `on` omitted TOGGLES that node —
+   * and that node only. `save` is not here: the engine's job ends at a wav on disk, and sending
+   * it anywhere is the file service's, which runs on the machine the file is on.
+   * See engine/moteur/docs/recorder.md.
+   */
+  recorder(node: string, action: "record" | "clear", on?: boolean): void {
+    this.send({
+      type: "recorder",
+      node,
+      action,
+      ...(on === undefined ? {} : { on }),
     });
   }
   // `session` overrides this client's own — a status surface opening a window in a project it does not drive.

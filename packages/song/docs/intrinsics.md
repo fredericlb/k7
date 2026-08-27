@@ -32,7 +32,7 @@ That last row is why intrinsics exist at all. An `io: in` module runs no plugin:
 the module, so every control it has is a field of its file, and without a way to write one from a
 widget its panel would be inert.
 
-## The four there are
+## The five there are
 
 - **`@channel`** — which interface input a live input listens on: one channel, or two for a
   stereo pair. A pair is even/odd and nothing else, because `findWaveInput` matches a device on
@@ -40,6 +40,10 @@ widget its panel would be inert.
   Nothing in the command can check that — the rig is the engine's to know — so it refuses only
   the shapes that could never be one, and the surfaces that offer the choice offer only sets the
   machine declares.
+- **`@camera`** — WHICH lens an io `camera` node opens, by the **label** a person reads rather than
+  by a deviceId, which is salted per browser and rotates. `default` clears it. Nothing is checked
+  against the machine here: which cameras exist is the browser's to say, and the surface offering
+  the choice offers only what it enumerated ([camera.md](camera.md)).
 - **`@monitor`** — `off` / `auto` (audible once armed) / `on`. Written quoted: `on` and `off` are
   YAML 1.1 booleans, and `monitor: on` read by anything that does not parse 1.2 stops being a
   word.

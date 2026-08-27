@@ -45,8 +45,16 @@ export const ProjectSettingsSchema = z
   })
   .strict();
 
-/** The ARCHETYPES, each named after the SURFACE it opens on — and `mix` writes a SET (docs/projectFile.md). */
-export const PROJECT_SHAPES = ["arrangement", "mix", "video"] as const;
+/** The ARCHETYPES. Three are named after the SURFACE they open on — and `mix` writes a SET — while
+ *  the two `live` ones are named after what they ARE: a rig you play through, with no timeline and
+ *  nothing arranged (docs/projectFile.md, and packages/song/docs/liveProject.md). */
+export const PROJECT_SHAPES = [
+  "arrangement",
+  "mix",
+  "video",
+  "live",
+  "live-video",
+] as const;
 export type ProjectShape = (typeof PROJECT_SHAPES)[number];
 
 /** v1's marker key: a WALL-CLOCK position, a superset of TIMECODE where the two overlap (docs/projectFile.md). */

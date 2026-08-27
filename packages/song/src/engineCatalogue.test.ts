@@ -136,6 +136,8 @@ describe("the catalogue of modules", () => {
     expect(Object.keys(m)).toEqual([
       "@engine/IN",
       "@engine/OUT",
+      // The lens, which the BROWSER opens rather than the engine — packages/song/docs/camera.md.
+      "@engine/CAM",
       "@engine/CUE",
       "@engine/FILE",
     ]);

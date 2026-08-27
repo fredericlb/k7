@@ -33,7 +33,8 @@ te::Plugin::Ptr addPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc
 te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDoc& p, int index);
 
 // The song's MIX -> OUT run onto the edit's master list, then the OUT node's own `Volume` as a MasterGainPlugin — docs/editBuilder.md.
-void populateMasterChain(te::Edit& edit, const ProjectDoc& doc);
+void populateMasterChain(te::Edit& edit, const ProjectDoc& doc,
+                         std::map<std::string, te::Plugin::Ptr>* pluginsOut = nullptr);
 
 // That gain, found again on the master list, so the live path takes hold of it rather than making a second; null if there is none.
 te::Plugin::Ptr masterGainOf(te::Edit& edit);

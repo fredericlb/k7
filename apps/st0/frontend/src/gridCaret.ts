@@ -111,6 +111,8 @@ export interface ClipGridHandle {
   copy: () => MaybeClipboard;
   /** `selection paste` — the command LINE that would put the clipboard down at the caret, so one paste is one Ctrl+Z. */
   pasteLine: (clip: Clipboard) => PasteResult;
+  /** `selection delete` — the LINE that removes what the caret or the rectangle points at; absent on a grid that deletes by clicking. */
+  deleteLine?: () => PasteResult;
 }
 
 /** What a pane answers `selection paste` with: what to run, if anything, and what to say. */

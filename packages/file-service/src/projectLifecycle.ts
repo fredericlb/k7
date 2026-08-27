@@ -12,6 +12,12 @@ import {
   scaffold,
   videoProjectFiles,
 } from "@studio/song/scaffold";
+import {
+  liveProjectFiles,
+  liveVideoProjectFiles,
+  scaffoldLive,
+  scaffoldLiveVideo,
+} from "@studio/song/scaffoldLive";
 import { missingRefs, neededRefs } from "@studio/song/scaffoldNeeds";
 import { scaffoldSet, setProjectFiles } from "@studio/song/scaffoldSet";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
@@ -114,7 +120,7 @@ export function importProjectInto(
   return { project, log };
 }
 
-/** Which scaffold each ARCHETYPE runs — a Record, so a fourth shape fails to compile until it is named. */
+/** Which scaffold each ARCHETYPE runs — a Record, so a NEW shape fails to compile until it is named. */
 const SCAFFOLD_FOR_SHAPE: Record<
   ProjectShape,
   (dir: string, name: string) => void
@@ -123,6 +129,10 @@ const SCAFFOLD_FOR_SHAPE: Record<
   // The label a project CALLS itself drops the suffix; `projectLabel` is where that rule is stated.
   mix: (dir, name) => void scaffoldSet(dir, projectLabel(name)),
   video: (dir, name) => void scaffold(dir, name, "video"),
+  // The one archetype that declares no surface — see packages/song/docs/liveProject.md.
+  live: (dir, name) => void scaffoldLive(dir, projectLabel(name)),
+  // …and the same rig with a lens, whose ONE surface is the frame that lens fills.
+  "live-video": (dir, name) => void scaffoldLiveVideo(dir, projectLabel(name)),
 };
 
 /** What each ARCHETYPE's file map is, without writing it — so what it will NEED can be read first. */
@@ -133,6 +143,8 @@ const FILES_FOR_SHAPE: Record<
   arrangement: (name) => projectFiles(name),
   mix: (name) => setProjectFiles(projectLabel(name)),
   video: (name) => videoProjectFiles(name),
+  live: (name) => liveProjectFiles(projectLabel(name)),
+  "live-video": (name) => liveVideoProjectFiles(projectLabel(name)),
 };
 
 /** Scaffold a NEW `.st0` folder at the workspace root, its ARCHETYPE picking the file map. */

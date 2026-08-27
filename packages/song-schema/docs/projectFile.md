@@ -61,13 +61,15 @@ order, bottom first. They sit in the SHARED settings tier because one schema val
 
 ## The archetypes
 
-Each is named after the SURFACE it opens on, because that is the whole of what is being chosen:
+Three are named after the SURFACE they open on, because that is the whole of what is being chosen.
+The fourth is named after what it IS, being the one that opens on none:
 
 | archetype | the surfaces it writes, and what fills them |
 |---|---|
 | `arrangement` | `timeline` — a lane, a synth, a pattern |
 | `mix` | `turntables` — two decks meeting at a crossfade, an empty `songs.yaml` |
 | `video` | `timeline` + `viewport` — the arrangement, plus a lane of picture |
+| `live` | **none** — an input, the lane it lands on, and the master run (`packages/song/docs/liveProject.md`) |
 
 There is ONE list, and it names archetypes rather than kinds of folder: every project is an `.st0`
 folder that opens in st0, and what differs is the screen it asks for. Closing the layout down when
@@ -75,6 +77,11 @@ there is no timeline, and silencing the warning about one, are `surfaces/` quest
 a project draws what it DECLARES (`packages/song/docs/surfaces.md`). A second field saying almost the
 same thing could only drift from it — a folder declaring a timeline while calling itself `live` would
 be a legal state nothing could resolve.
+
+`live` is the sharpest case of that, and the reason it costs no new machinery: **nothing on disk says
+`live`**. The archetype is what you ask for at creation; what lands is a folder with no `surfaces/`
+in it, and being surfaceless is a fact anyone can read off the folder rather than a word that could
+disagree with it.
 
 **`mix` writes a SET**, and that pair of names is the one mismatch here. `mix` is what you ASK for,
 named like its two neighbours; a set is what lands on disk — `songs.yaml`, decks, a desk — and

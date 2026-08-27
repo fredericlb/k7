@@ -5,6 +5,7 @@
   "type": "module",
   "description": "st0's routing-graph engine \u2014 compiles a project graph to a dagre layout the web app draws as HTML nodes + SVG cables. Framework-agnostic; consumed as source.",
   "exports": {
+    "./assembly": "./src/assembly.ts",
     "./graph": "./src/graph.ts",
     "./bindings": "./src/bindings.ts",
     "./cables": "./src/cables.ts",
@@ -12,7 +13,8 @@
     "./hang": "./src/hang.ts",
     "./modulePreview": "./src/modulePreview.ts",
     "./zoomGesture": "./src/zoomGesture.ts",
-    "./patchGesture": "./src/patchGesture.ts"
+    "./patchGesture": "./src/patchGesture.ts",
+    "./takeEnvelope": "./src/takeEnvelope.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

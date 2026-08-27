@@ -4,15 +4,13 @@
 // only direction the dependency graph allows. `paths.ts` states the same rule for
 // EXTS_PATH and delegates to song for exactly this reason.
 
-import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { studioHome } from "./studioHome";
 
 /** The ref PREFIX a médiathèque module is named under, defined in the leaf a browser may import. */
 export { MEDIATEK_REF } from "@studio/song-schema/songRef";
 
 /** `~/.studio/mediatek` or `$STUDIO_MEDIATEK`, NORMALISED so a text comparison cannot read `/` as escaping. */
 export function mediatekRoot(): string {
-  return resolve(
-    process.env.STUDIO_MEDIATEK || join(homedir(), ".studio", "mediatek"),
-  );
+  return resolve(process.env.STUDIO_MEDIATEK || join(studioHome(), "mediatek"));
 }

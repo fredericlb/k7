@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "tsx src/server.ts",
-    "dev": "tsx watch src/server.ts",
+    "dev": "node ../../scripts/dev-file-service.mjs",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

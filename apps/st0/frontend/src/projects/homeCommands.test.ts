@@ -210,11 +210,14 @@ describe("what a field offers", () => {
     repos: [repo("songs"), repo("band")],
     openWs: null,
   };
-  it("the three archetypes, the projects, the repositories", () => {
+  it("the five archetypes, the projects, the repositories", () => {
     expect(homeArgValues("project new", 0, ctx)).toEqual([
       "arrangement",
       "mix",
       "video",
+      // The two that open on no timeline — packages/song/docs/liveProject.md.
+      "live",
+      "live-video",
     ]);
     expect(homeArgValues("project delete init", 0, ctx)).toEqual(["hiver.st0"]);
     expect(homeArgValues("system repo remove", 0, ctx)).toEqual([
@@ -245,10 +248,20 @@ describe("project new", () => {
   });
 
   it("refuses an archetype that is not one, and creates nothing", async () => {
+    // `live` used to be the example here, which is exactly why it is not any more.
     const h = harness();
-    await h.run("project new live hiver");
-    expect(h.refused.join(" ")).toMatch(/arrangement, mix, video/);
+    await h.run("project new podcast hiver");
+    expect(h.refused.join(" ")).toMatch(/arrangement, mix, video, live/);
     expect(h.seen.create).toEqual([]);
+  });
+
+  it("makes a LIVE one — the archetype with no surface at all", async () => {
+    const h = harness({
+      workspaces: [ws("songs"), ws("band")],
+      openWs: "band",
+    });
+    expect(await h.run("project new live hiver")).toBe(true);
+    expect(h.seen.create).toEqual([[MACHINE, "band", "hiver.st0", "live"]]);
   });
 
   it("refuses a name the folder rules refuse", async () => {

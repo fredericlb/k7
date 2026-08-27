@@ -10,6 +10,7 @@ import {
   currentAlternative,
 } from "@studio/song-schema/alternatives";
 import {
+  CAMERA_IO,
   isBuiltinOutput,
   isIoSource,
   MIX_NODE,
@@ -21,6 +22,7 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import { parsePosition } from "@studio/song-schema/timecode";
 import type { ControllerFile } from "@studio/song-schema/yaml/moduleSchema";
+import { type Assembly, resolveAssemblies } from "./assemblies";
 import { bypassedOf, deriveChains, isParked } from "./chainsGraph";
 import {
   exportSub,
@@ -209,6 +211,10 @@ export interface Module {
   source?: string;
   // io: "in" only — a live interface input, as DECLARED rather than resolved; see docs/graphModel.md.
   channel?: string | number[];
+  // io: "camera" only — WHICH lens, by the LABEL a person reads; "" or absent is the default one.
+  camera?: string;
+  // …and where in the viewport it draws, [x, y, w, h] in px; absent is the whole frame.
+  frame?: number[];
   monitor?: "off" | "auto" | "on";
   // A NOTE's text on a doc module — multiline, drawn as written on the node itself; see docs/docModules.md.
   content?: string;
@@ -246,6 +252,8 @@ export interface GraphDoc {
   moduleRefs: Record<string, Module>;
   // graph.yaml's `positions:`, verbatim; nothing about the SIGNAL reads it, it rides through to the renderer.
   positions?: Record<string, { x: number; y: number }>;
+  // The `assemblies/` folder, RESOLVED — a drawing fact the compiler never reads, see docs/assemblies.md.
+  assemblies: Record<string, Assembly>;
   warnings: string[];
 }
 
@@ -404,7 +412,7 @@ export function checkChainInputs(
   return errs;
 }
 
-// --- assembly (pure; no fs) --------------------------------------------------
+// --- building the doc (pure; no fs) -----------------------------------------
 
 // A declared `input`, normalised but NOT resolved: a label stays a label, and this only has to survive a hand-edit mid-save.
 function normInput(v: unknown): string | number[] | undefined {
@@ -441,6 +449,8 @@ export function buildGraph(
   modulesMap: Record<string, LoadedModule>,
   moduleRefsMap: Record<string, LoadedModule>,
   videoTracksMap: Record<string, RawVideoTrack> = {},
+  // Resolved by the fs side (assemblies.ts), so this function stays pure like everything else here.
+  assembliesMap: Record<string, Assembly> = {},
 ): GraphDoc {
   const ts = String(root?.project?.timeSignature ?? "4/4");
   const [num, den] = ts.split("/").map((n) => parseInt(n, 10));
@@ -464,6 +474,13 @@ export function buildGraph(
     params: b?.params ?? {},
     // Inherited like `plugin`, so a use of a cold module is cold and nothing has to restate it.
     cold: b?.cold === true ? true : undefined,
+    // WHICH lens an io camera opens, inherited the same way — see docs/camera.md.
+    camera: typeof b?.camera === "string" ? b.camera : undefined,
+    // …and its rectangle in the viewport, four numbers or nothing at all.
+    frame:
+      Array.isArray(b?.frame) && b.frame.length === 4
+        ? b.frame.map(Number)
+        : undefined,
     // Which SHADER a shader node runs, inherited like `plugin` — see packages/song-video/docs/shaders.md.
     shader: typeof b?.shader === "string" && b.shader ? b.shader : undefined,
     ui: resolvedUI(b),
@@ -585,6 +602,7 @@ export function buildGraph(
     modules,
     moduleRefs,
     ...(positionsOf(chainsMap) ? { positions: positionsOf(chainsMap) } : {}),
+    assemblies: assembliesMap,
     warnings: [],
   };
   g.warnings = validate(g);
@@ -619,6 +637,14 @@ const isSink = (g: GraphDoc, id: string): boolean => {
 // The other io edge: a LIVE interface source (io: "in"), deliberately narrower than "is a source" (docs/graphModel.md).
 export const isInputModule = (_g: GraphDoc, b: Module): boolean =>
   b.kind === "io" && b.io === "in";
+/** …and the CAMERA, the one io source whose signal is a picture. See docs/camera.md.
+ *
+ * Kept apart from `isInputModule` for the reason that one is narrow: everything it gates — a
+ * channel, monitoring, a trim, the tuner — is about a physical AUDIO input, and none of it means
+ * anything for a lens. What a camera shares with it is only that signal comes FROM it. */
+export const isCameraModule = (b: Module): boolean =>
+  b.kind === "io" && b.io === CAMERA_IO;
+
 /** …and the file source (io: "file"), which reads audio off disk. See docs/fileInput.md. */
 export const isFileInputModule = (b: Module): boolean =>
   b.kind === "io" && b.io === "file";
@@ -650,6 +676,13 @@ const isNode = (g: GraphDoc, id: string): boolean => {
   const { node } = splitPort(id);
   return !!g.chains[node] || isSink(g, node) || !!chainHosting(g, node);
 };
+/** Does this chain carry a CAMERA — a live picture, which is what a video lane may be fed by? */
+export const carriesCamera = (g: GraphDoc, c: Chain): boolean =>
+  c.use.some((s) => {
+    const b = g.modules[s.module];
+    return !!b && isCameraModule(b);
+  });
+
 /** Does this chain carry a live interface input? */
 const carriesInput = (g: GraphDoc, c: Chain): boolean =>
   c.use.some((s) => {
@@ -758,13 +791,29 @@ export function validate(g: GraphDoc): string[] {
         w.push(
           `chain '${name}': out '${o.to}' is a live input — signal comes FROM it, not to it`,
         );
+      // …and the same about a lens, which is the other thing signal only ever comes out of.
+      else if (target && isCameraModule(target))
+        w.push(
+          `chain '${name}': out '${o.to}' is a camera — picture comes FROM it, not to it`,
+        );
+      // A PICTURE lane takes one thing: a camera. Everything else aimed at one is discarded silently,
+      // and a camera aimed anywhere else has nowhere to be drawn — see docs/camera.md.
+      else if (g.videoTracks[to]) {
+        if (!carriesCamera(g, c))
+          w.push(
+            `chain '${name}': out '${o.to}' is a picture lane — only a camera's picture lands on one`,
+          );
+      }
       // Only a live input's signal may land on a LANE; anything else aimed at one is silently discarded.
       else if (g.tracks[to] || disabled.has(to)) {
         if (!carriesInput(g, c))
           w.push(
             `chain '${name}': out '${o.to}' is a track — only a live input's signal lands on a lane`,
           );
-      } else if (!isNode(g, o.to))
+      }
+      // A camera is exempt from the last test: landing on no picture lane is not a fault, since it
+      // draws a LAYER of its own and the document authors none — see docs/camera.md.
+      else if (!isNode(g, o.to) && !carriesCamera(g, c))
         w.push(`chain '${name}': out '${o.to}' is not a chain or io sink`);
       if (o.gain < 0)
         w.push(`chain '${name}': out '${o.to}' has a negative gain`);
@@ -809,12 +858,10 @@ export function validate(g: GraphDoc): string[] {
         c,
         (id) => !!g.tracks[id] || disabled.has(id),
       );
-      if (!track) {
-        w.push(
-          `input '${s.module}': chain '${chainName}' reaches no track — an input's signal has to land on one`,
-        );
-        continue;
-      }
+      // No lane is no longer a fault: a run carrying an input and landing on none MATERIALISES its
+      // own track, which is what a rig you play through is made of (docs/liveProject.md). There is
+      // nothing further to check about a lane that does not exist, so the walk stops here.
+      if (!track) continue;
       const target = g.tracks[track];
       if (!target)
         // Disabled reads as absent here, so say which it is rather than send the reader hunting for a typo.
@@ -859,6 +906,24 @@ export function validate(g: GraphDoc): string[] {
       const owner = claimed.get(m);
       if (owner) w.push(`track '${m}': in two groups ('${owner}', '${id}')`);
       else claimed.set(m, id);
+    }
+  }
+
+  // Assembly membership: the same three questions a group's is, over any node rather than over lanes.
+  const inBox = new Map<string, string>();
+  for (const [id, a] of Object.entries(g.assemblies)) {
+    // One flat key space: a box drawn under a name a chain step already spells is two things called one word.
+    if (g.modules[id] || g.tracks[id])
+      w.push(`assembly '${id}': a node of this project is already called that`);
+    for (const [member, node] of Object.entries(a.members)) {
+      if (!g.modules[node] && !g.tracks[node] && !disabled.has(node))
+        w.push(
+          `assembly '${id}': member '${member}' names '${node}', which this project has not got`,
+        );
+      const owner = inBox.get(node);
+      if (owner)
+        w.push(`node '${node}': in two assemblies ('${owner}', '${id}')`);
+      else inBox.set(node, id);
     }
   }
 
@@ -1086,6 +1151,7 @@ function loadGraphIn(dir: string): GraphDoc {
     modulesMap,
     moduleRefsMap,
     videoTracksMap,
+    resolveAssemblies(dir),
   );
   g.warnings.push(...checkInputLabels(g));
   return g;

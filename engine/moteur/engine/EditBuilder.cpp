@@ -445,10 +445,15 @@ te::Plugin::Ptr addPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc
 }
 
 /** The MASTER CHAIN — the song's `MIX -> OUT` run — FIRST on the edit's master plugin list; docs/editBuilder.md. */
-void populateMasterChain(te::Edit& edit, const ProjectDoc& doc) {
+void populateMasterChain(te::Edit& edit, const ProjectDoc& doc,
+                         std::map<std::string, te::Plugin::Ptr>* pluginsOut) {
     int index = 0;
     for (const auto& p : doc.masterPlugins)
-        if (addPluginTo(edit, edit.getMasterPluginList(), p, index) != nullptr) ++index;
+        if (auto pl = addPluginTo(edit, edit.getMasterPluginList(), p, index)) {
+            ++index;
+            // BY ID as a track's are: everything keyed by id skips a master module otherwise, in silence — docs/recorder.md.
+            if (pluginsOut) (*pluginsOut)[p.id] = pl;
+        }
 
     /** …and the OUT node's `Volume` behind them, made HERE so an offline render gets it too — docs/editBuilder.md. */
     if (auto gain = edit.getPluginCache().createNewPlugin(MasterGainPlugin::xmlTypeName, {})) {
@@ -530,7 +535,7 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
     if (auto master = edit.getMasterVolumePlugin()) master->setVolumeDb(0.0f);
 
     // …and the song's own master chain onto that same bus, before anything the engine appends.
-    populateMasterChain(edit, doc);
+    populateMasterChain(edit, doc, pluginsOut);
 
     edit.tempoSequence.getTempo(0)->setBpm(doc.tempo);
     if (auto* ts = edit.tempoSequence.getTimeSig(0)) {

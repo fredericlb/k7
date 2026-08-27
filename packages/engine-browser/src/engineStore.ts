@@ -3,7 +3,7 @@
 // the WHOLE tree even when nothing changed. Components subscribe to just the SLICE they
 // draw via useEngineState(selector), so the editor never re-renders on a frame at all.
 
-import type { EngineState } from "@studio/engine-protocol";
+import type { EngineState, RecorderState } from "@studio/engine-protocol";
 import { createContext, useContext, useRef, useSyncExternalStore } from "react";
 
 const INITIAL: EngineState = {
@@ -17,6 +17,7 @@ const INITIAL: EngineState = {
   masterClipped: false,
   waveform: {},
   platters: {},
+  recorders: {},
 };
 
 export class EngineStore {
@@ -51,6 +52,9 @@ function sameFrame(a: EngineState, b: EngineState): boolean {
     return false;
   // A PLATTER's needle moves while the transport does not, so `playhead` cannot speak for it.
   if (!plattersEq(a.platters, b.platters)) return false;
+  // …and a RECORDER runs while everything else is still: a rig captures with the transport
+  // stopped, so nothing above this line would notice the take growing (docs/recorder.md).
+  if (!recordersEq(a.recorders, b.recorders)) return false;
   if (
     !arrayEq(a.levels, b.levels) ||
     !arrayEq(a.inputLevels, b.inputLevels) ||
@@ -79,6 +83,30 @@ function plattersEq(
   const ka = Object.keys(a ?? {});
   if (ka.length !== Object.keys(b ?? {}).length) return false;
   for (const k of ka) if (a?.[k] !== b?.[k]) return false;
+  return true;
+}
+
+/** Do two frames say the same about every recorder? A new envelope point is a difference. */
+function recordersEq(
+  a: Record<string, RecorderState> | undefined,
+  b: Record<string, RecorderState> | undefined,
+): boolean {
+  if (a === b) return true;
+  const ka = Object.keys(a ?? {});
+  if (ka.length !== Object.keys(b ?? {}).length) return false;
+  for (const k of ka) {
+    const x = a?.[k];
+    const y = b?.[k];
+    if (x === undefined || y === undefined) return false;
+    if (x.recording !== y.recording || x.seconds !== y.seconds) return false;
+    if (x.takes.length !== y.takes.length) return false;
+    // Where the points START is news on its own: a frame that only rewinds it is the engine
+    // resending a picture, and one that only drops it is a take cleared away.
+    if (x.from !== y.from) return false;
+    // Points arrive to be APPENDED, so any at all make this frame new — but two drained-empty
+    // frames are the same frame, which is what an idle recorder sends 20 times a second.
+    if (x.envelope !== y.envelope && y.envelope.length > 0) return false;
+  }
   return true;
 }
 

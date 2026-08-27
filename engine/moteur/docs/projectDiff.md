@@ -86,11 +86,16 @@ exactly, they hand back to a rebuild themselves; those cases and the measurement
 **Known gap:** `diff()` walks the NEW params, so a *deleted* one emits nothing and the live plugin
 keeps its value until the next full rebuild.
 
-Two cases do force one:
+Three cases do force one:
 
-- **A plugin added in a diff that also adds or removes a track.** Not about plugins at all:
-  `trackById` maps a doc track to the engine track at the same INDEX, so while the loop is still
-  adding tracks the two are briefly out of step and the plugin would land on the wrong lane. The
-  remove path does not care — it finds its plugin by id, never by track position.
+- **A track REMOVED.** The same INDEX correspondence, but permanent rather than transient: a lane
+  left standing under a document that got shorter puts every later track's clips, mute, input and
+  meter one lane off, for good. `docs/audit-stabilite.md` works the example through. This is the
+  one case where the incremental path was not merely incomplete but *wrong*, and it is why the
+  change kind is no longer a stub in `EngineHost::apply`.
+- **A plugin added in a diff that also adds a track.** Not about plugins at all: `trackById` maps a
+  doc track to the engine track at the same INDEX, so while the loop is still adding tracks the two
+  are briefly out of step and the plugin would land on the wrong lane. The remove path does not
+  care — it finds its plugin by id, never by track position.
 - **A plugin arriving with a sidechain source**, since that is wired by a pass which runs once
   every track exists, and no insert here can do that.

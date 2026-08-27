@@ -280,7 +280,33 @@ void an_envelope_on_a_mono_buffer_reads_one_channel() {
         CHECK(std::abs(buf.getReadPointer(0)[i] - 0.5f * 0.5f) < 1e-3f);
 }
 
+// A param name that resolves to an EXISTING register is refused while it is still a description: process()
+// writes the nth param into register n+1 by position, so the shift would land a later one on a literal.
+void a_duplicate_param_name_is_refused() {
+    juce::String error;
+    auto g = DspGraph::build(juce::JSON::parse(R"({
+      "params": [ { "name": "Amount", "min": 0, "max": 1, "default": 0.5 },
+                  { "name": "Amount", "min": 0, "max": 1, "default": 0.25 } ],
+      "nodes":  [ { "type": "gain", "in": ["Amount"] } ]
+    })"), error);
+    CHECK(g == nullptr);
+    CHECK(error.contains("declared twice"));
+}
+
+// …and `sr`, which the graph reserves for the sample rate: taking it would put a param on register 0.
+void a_param_called_sr_is_refused() {
+    juce::String error;
+    auto g = DspGraph::build(juce::JSON::parse(R"({
+      "params": [ { "name": "sr", "min": 0, "max": 1, "default": 0.5 } ],
+      "nodes":  [ { "type": "gain", "in": ["sr"] } ]
+    })"), error);
+    CHECK(g == nullptr);
+    CHECK(error.contains("sr"));
+}
+
 int main() {
+    RUN(a_duplicate_param_name_is_refused);
+    RUN(a_param_called_sr_is_refused);
     RUN(an_envelope_follows_the_louder_channel);
     RUN(an_envelope_follows_it_on_either_side);
     RUN(an_envelope_on_a_mono_buffer_reads_one_channel);

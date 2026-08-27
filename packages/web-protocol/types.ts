@@ -417,6 +417,9 @@ export interface WebVideoTrack {
   shapes: WebShape[];
   // This lane's own run, applied to the layer BEFORE it is composited; absent on a lane no run starts at.
   plugins?: WebVideoPlugin[];
+  /** A live CAMERA feeds this lane instead of its placements — the LABEL a node wired to it names,
+   *  and "" for whichever this machine calls default. See packages/song/docs/camera.md. */
+  camera?: string;
 }
 // GET /commands — the palette's catalogue; mirrors ARG_CLASSES in packages/commands/src/commandSpec.ts.
 export type ArgClass =
@@ -432,6 +435,10 @@ export type ArgClass =
 // The PRECISE type of thing an argument names, where `kind` is only its colour — see docs/document.md.
 export type ArgProvider =
   | "alternatives"
+  // A BOX this project declares — `assemblies/<name>.yaml`, see packages/song/docs/assemblies.md.
+  | "assemblies"
+  // …and a TEMPLATE the library holds, which is what a new one is made from.
+  | "assemblyTemplates"
   | "audioFiles"
   | "baseModules"
   | "categories"

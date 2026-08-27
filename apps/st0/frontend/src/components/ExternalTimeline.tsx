@@ -32,6 +32,7 @@ import { useTrackControls } from "../hooks/useTrackControls";
 import { useVideoEdits } from "../hooks/useVideoEdits";
 import { useLocale } from "../i18n";
 import type { ConditionCtx } from "../keys";
+import { modeCondition, type TimelineMode } from "../timelineMode";
 import type { CommandInfo } from "../types";
 import { ContextMenu } from "./ContextMenu";
 import { type TimelineHandle, TimelineTab } from "./TimelineTab";
@@ -192,10 +193,21 @@ export function ExternalTimeline({
     [onConditions],
   );
   const onView = useCallback(
-    (v: { selecting: boolean; zoomed: boolean; loop: boolean }) =>
+    (v: {
+      mode: TimelineMode;
+      selecting: boolean;
+      zoomed: boolean;
+      loop: boolean;
+    }) =>
       onConditions((prev) => {
+        // The mode is published here too — a second device has no tools, but its keys read the same conditions.
         const next: ConditionCtx = {
           ...prev,
+          tl_normal: undefined,
+          tl_select: undefined,
+          tl_move: undefined,
+          [modeCondition(v.mode)]: "1",
+          timeline_mode: v.mode,
           timeline_selection: v.selecting ? "1" : undefined,
           timeline_zoomed: v.zoomed ? "1" : undefined,
           timeline_loop: v.loop ? "1" : undefined,

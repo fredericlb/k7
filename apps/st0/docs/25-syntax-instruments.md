@@ -62,6 +62,23 @@ monitor: true    # hear it whether or not the track is armed
 gain: 6          # …and trim it 6 dB on the way in
 ```
 
+An `io: camera` module is a live **picture** source — a webcam. It carries `camera:`, the name of the camera as your machine reports it, and nothing else. Wire it to a picture lane and that lane draws the lens instead of its shots; the lane keeps its rectangle in the viewport, its `mute`, and any effects over it.
+
+Written by NAME and not by a device id on purpose: an id is different in every browser and changes on its own, so a project carrying one would show a black rectangle on the next machine. A camera this machine has not got falls back to the default one and says which ones it does have. Leave `camera:` out and you get whichever camera your machine calls default, which is what a new node does.
+
+The card on the chains graph lists the cameras your browser can see, so the ordinary way to set this is to pick one there rather than to type it.
+
+A camera needs **no picture lane at all**. On its own it draws a layer of its own, filling the frame, and nothing has to be listed in `layers:` — the document authors no lane, which is the point. Give it a `frame:` to place it instead: `[x, y, w, h]` in viewport pixels, so two cameras can sit side by side. Wire it to a picture lane instead and that lane draws the lens, keeping its own rectangle and its effects.
+
+```yaml schema=Module
+# nodes/cam.yaml — a webcam. Put it in graph.yaml and it draws itself.
+extends: "@engine/CAM"
+camera: "Logitech BRIO"   # leave it out for whichever is default
+frame: [40, 40, 320, 180] # …and leave THIS out to fill the frame
+```
+
+> An export leaves a camera out. A render walks the timeline frame by frame, and a live picture has no frame at a given moment — what it would record is whatever the lens happened to be showing while the encoder ran.
+
 ## modules/<type>/<name>/module.yaml — a NAM amp and its level
 
 A `.nam` profile is trained at whatever level its author played at, and it records that level in the file. Nothing makes two profiles agree, so a model can play back several dB below what went in — which sounds like the amp doing nothing at all. The Neural Amp Modeler module carries three parameters for this. `Normalize` (off/on, **on** by default) levels the profile to a fixed reference using its declared loudness, so swapping one amp for another stops being a volume change; `Input` and `Output` are ±20 dB trims around it. `Input` is a tone control as much as a level one — how hard you hit a modelled amp is half of what it sounds like. A profile that declares no loudness gives `Normalize` nothing to work from, and the module shows a warning saying so.

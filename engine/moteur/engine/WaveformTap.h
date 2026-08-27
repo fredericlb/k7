@@ -23,14 +23,19 @@ public:
     explicit WaveformTap(int bucketSize = 256)
         : bucketSize_(bucketSize > 0 ? bucketSize : 256) {}
 
-    // Called per-sample from the audio thread: min/max across the current bucket, flushed as one envelope point when the bucket fills.
-    void pushSample(float sample) {
+    // Called per-FRAME from the audio thread: min/max across the current bucket, flushed as one envelope point when the bucket fills.
+    void pushSample(float sample) { pushFrame(sample, sample); }
+
+    // A stereo frame, both sides folded into ONE bucket: the drain is a single chronological stream — docs/engineHost.md.
+    void pushFrame(float left, float right) {
+        const float lo = left < right ? left : right;
+        const float hi = left < right ? right : left;
         if (samplesInBucket_ == 0) {
-            curMin_ = sample;
-            curMax_ = sample;
+            curMin_ = lo;
+            curMax_ = hi;
         } else {
-            if (sample < curMin_) curMin_ = sample;
-            if (sample > curMax_) curMax_ = sample;
+            if (lo < curMin_) curMin_ = lo;
+            if (hi > curMax_) curMax_ = hi;
         }
         if (++samplesInBucket_ >= bucketSize_) {
             const auto pos = writeHead_.load(std::memory_order_relaxed);

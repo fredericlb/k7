@@ -52,6 +52,35 @@ export const stemPlatter = (deck: string, stem: Stem): string =>
 /** The platter a deck's own RECORD plays on: `platterA`. Its lane is the deck itself. */
 export const deckPlatter = (deck: string): string => `platter${letterOf(deck)}`;
 
+/** The BOX a deck's eighteen nodes are drawn as, and the template behind it — see
+ *  packages/song/docs/assemblies.md. Spelled here beside the other names a set is made of, so the
+ *  scaffold, the migration and the desk cannot come to disagree about what a turntable is called. */
+export const TURNTABLE_REF = "@st0/turntable";
+export const turntableBox = (deck: string): string =>
+  `turntable${letterOf(deck)}`;
+
+/** …and which of that deck's nodes each of the template's members is. */
+export function turntableMembers(deck: string): Record<string, string> {
+  const l = letterOf(deck);
+  const out: Record<string, string> = {
+    deck,
+    platter: deckPlatter(deck),
+    tempo: `tempo${l}`,
+    trim: `trim${l}`,
+    eq: `eq${l}`,
+    filter: `filter${l}`,
+    level: `level${l}`,
+    echo: `echo${l}`,
+    fade: `fade${l}`,
+    cue: `cue${l}`,
+  };
+  for (const stem of STEMS) {
+    out[`stem${Cap(stem)}`] = stemLane(deck, stem);
+    out[`platter${Cap(stem)}`] = stemPlatter(deck, stem);
+  }
+  return out;
+}
+
 /** …and the desk control that drives that node: `deckA.stemBass`. */
 export const stemControl = (deck: string, stem: Stem): string =>
   `${deck}.stem${Cap(stem)}`;

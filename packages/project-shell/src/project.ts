@@ -67,6 +67,11 @@ export const projectApi = {
     fget<{ chains: { ref: string; path: string; nodes: string[] }[] }>(
       "/library-chains",
     ),
+  /** …and the ASSEMBLY templates, the third family — packages/song/docs/assemblies.md. */
+  libraryAssemblies: () =>
+    fget<{ assemblies: { ref: string; path: string; file: string }[] }>(
+      "/library-assemblies",
+    ),
   /** Make an empty module in one: `root` is a path that call answered with, `rel` at least `<type>/<name>`. */
   createModule: (root: string, rel: string) =>
     fsend<{ path: string; dir: string }>("POST", "/module", { root, rel }),

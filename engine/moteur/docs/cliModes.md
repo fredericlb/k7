@@ -176,6 +176,11 @@ inputs" is simply what this track's plugins ARE.
 **The caller neutralises the track's gain, pan, mute and every solo in the song** before handing the
 doc over. Those stay live on a frozen track, so baking them in would apply each of them twice.
 
+`--track` takes a track **id**, and the lane is found with `trackById` — the same doc-index map the
+live engine uses. It used to compare the id against `Track::getName()`, which `populateEdit` sets
+from the track's `name`: the two coincide only when a document omits the name, so freezing anything
+else answered "no track '<id>' in the project". The name is still tried as a fallback.
+
 A track that renders silent is refused rather than written: a file of zeroes would then play in
 place of a track the user can still fix.
 

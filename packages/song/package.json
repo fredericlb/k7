@@ -40,9 +40,13 @@
     "./engineCatalogue": "./src/engineCatalogue.ts",
     "./engineFace": "./src/engineFace.ts",
     "./mediatekRoot": "./src/mediatekRoot.ts",
+    "./studioHome": "./src/studioHome.ts",
     "./mediatekRefs": "./src/mediatekRefs.ts",
     "./surfaces": "./src/surfaces.ts",
+    "./assemblies": "./src/assemblies.ts",
+    "./assemblyEdit": "./src/assemblyEdit.ts",
     "./scaffoldBench": "./src/scaffoldBench.ts",
+    "./scaffoldLive": "./src/scaffoldLive.ts",
     "./scaffoldSet": "./src/scaffoldSet.ts",
     "./videoOutputs": "./src/videoOutputs.ts",
     "./rawDoc": "./src/rawDoc.ts"

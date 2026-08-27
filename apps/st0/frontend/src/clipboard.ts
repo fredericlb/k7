@@ -75,6 +75,23 @@ export type Clipboard =
 /** Nothing to put down — an empty rectangle copies as `null` rather than as an empty clipboard. */
 export type MaybeClipboard = Clipboard | null;
 
+/** What a rectangle HOLDS — a note is in when it STARTS inside; exported so copying and deleting cannot disagree (docs/clipEditors.md). */
+export function notesInRegion<T extends { key: number; time: number }>(
+  notes: readonly T[],
+  loKey: number,
+  hiKey: number,
+  from: number,
+  to: number,
+): T[] {
+  return notes.filter(
+    (n) =>
+      n.key >= loKey &&
+      n.key <= hiKey &&
+      n.time >= from - 1e-9 &&
+      n.time < to - 1e-9,
+  );
+}
+
 /** The notes inside the rectangle, relative to its corner: a note is IN when it STARTS inside, and its length is carried uncut. */
 export function copyNotes(
   notes: readonly {
@@ -91,13 +108,7 @@ export function copyNotes(
   from: number,
   to: number,
 ): MaybeClipboard {
-  const inside = notes.filter(
-    (n) =>
-      n.key >= loKey &&
-      n.key <= hiKey &&
-      n.time >= from - 1e-9 &&
-      n.time < to - 1e-9,
-  );
+  const inside = notesInRegion(notes, loKey, hiKey, from, to);
   if (!inside.length) return null;
   return {
     kind: "notes",

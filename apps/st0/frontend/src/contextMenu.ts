@@ -37,6 +37,8 @@ export type MenuCtx =
   // A pass-through node — a chain with no modules; nothing is offered on it now, so the id is all it needs to say.
   | { kind: "chain"; id: string }
   | { kind: "sink"; id: string }
+  // A BOX — an assembly instance, plus the template ref, so a row may address either (packages/song/docs/assemblies.md).
+  | { kind: "assembly"; id: string; uses: string }
   // Right-click on the timeline ruler — offer to drop a marker at `tc`, the beat under the pointer snapped to the drawn grid.
   | { kind: "marker-add"; tc: string }
   // Right-click on an existing marker — offer to delete it by name.
@@ -53,6 +55,16 @@ export type MenuCtx =
       start: number;
       repeat?: number;
       skip?: number;
+    }
+  /** A NOTE on the roll: key and start as every `sequence note …` verb takes them, `at` the caret a split would cut at, `region` the rectangle the four plural verbs need — a clip's `sel` again. */
+  | {
+      kind: "note";
+      sequence: string;
+      note: number;
+      start: number;
+      end: number;
+      at?: number;
+      region?: { lo: number; hi: number; from: number; to: number };
     };
 
 /** The values a pad's effects are offered at — a closed set, so the menu is a choice; the schema still takes any whole number from 2 up. */
@@ -129,6 +141,8 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   "curve-point": "curve",
   chain: "",
   sink: "",
+  // What you clicked is the box, and every row about one already begins with the word.
+  assembly: "assembly",
   "marker-add": "project",
   marker: "project",
   // 'clip': the row reads 'warp remove', which is what the point under the pointer is about.
@@ -137,6 +151,8 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   "picture-shot": "picture",
   // 'sequence note': a pad's rows are named for the value they set, and the head is what every one of them shares.
   pad: "sequence note",
+  // The same head, for the same reason: on the roll the rows read 'remove' and 'split'.
+  note: "sequence note",
 };
 
 const shortName = (name: string, head: string): string =>
@@ -386,6 +402,17 @@ export function contextMenu(
       return [];
     case "sink":
       return []; // OUT — nothing per-entity to do
+    case "assembly":
+      // Derived like every other family: the verbs whose first argument is an assembly, plus the
+      // one door out of the box — its TEMPLATE, which is where its plugs and its knobs are decided.
+      return offer([
+        ...from([{ provider: "assemblies", value: ctx.id }]),
+        {
+          verb: "ui assembly",
+          arg: ctx.uses,
+          help: "open the template this box is one of, in the builder",
+        },
+      ]);
     case "marker-add":
       // A bare timecode: `project marker new <tc> `, leaving the TEXT cursor where the name is typed.
       return offer(from([{ kind: "timecode", value: ctx.tc }]));
@@ -437,6 +464,30 @@ export function contextMenu(
           arg: `${where} off`,
           name: "skip off",
         });
+      return offer(rows);
+    }
+    case "note": {
+      /** The roll's own two, both already addressed by the click — nothing here owes an argument to the bar. */
+      const where = `${ctx.sequence} ${ctx.note} ${ctx.start}`;
+      const rows: Entry[] = [{ verb: "sequence note remove", arg: where }];
+      // Split is offered only where there is something to split: a cut on either edge would leave a note of length zero.
+      if (
+        ctx.at !== undefined &&
+        ctx.at > ctx.start + 1e-6 &&
+        ctx.at < ctx.end - 1e-6
+      )
+        rows.push({ verb: "sequence note split", arg: `${where} ${ctx.at}` });
+      // …then the RECTANGLE's four, when the click landed in one. The three that owe a value go to the bar with the box already spelt.
+      const r = ctx.region;
+      if (r) {
+        const box = `${ctx.sequence} ${r.lo} ${r.hi} ${r.from} ${r.to}`;
+        rows.push(
+          { verb: "sequence notes remove", arg: box },
+          { verb: "sequence notes transpose", arg: box, needsMore: true },
+          { verb: "sequence notes quantize", arg: box, needsMore: true },
+          { verb: "sequence notes velocity", arg: box, needsMore: true },
+        );
+      }
       return offer(rows);
     }
   }

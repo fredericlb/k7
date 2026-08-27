@@ -36,6 +36,7 @@ import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 import { moduleKeyFromPath } from "@studio/song-schema/moduleTypes";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
+import { AssemblyBuilder } from "@studio/ui-module-builder/assembly";
 import {
   type EngineLatency,
   formatLatency,
@@ -62,6 +63,7 @@ import { canonicalizeCommand } from "./commandI18n";
 import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
 import { AlternativePicker } from "./components/AlternativePicker";
 import { AssetPicker } from "./components/AssetPicker";
+import type { AudioClipHandle } from "./components/AudioClipPanel";
 import { AudioClipPanel } from "./components/AudioClipPanel";
 import { ChainsBuilder } from "./components/ChainsBuilder";
 import { ChainsTab } from "./components/ChainsTab";
@@ -90,6 +92,7 @@ import {
   ModulePicker,
   type PickerModule,
 } from "./components/ModulePicker";
+import type { RollHandle } from "./components/PianoRoll";
 import { PlaylistsPanel } from "./components/PlaylistsPanel";
 import { RackBuilder } from "./components/RackBuilder";
 import { SeqGridPane } from "./components/SeqGridPane";
@@ -115,6 +118,7 @@ import {
 } from "./contextMenu";
 import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
+import { useCameras } from "./hooks/useCameras";
 import { useCommandKeys } from "./hooks/useCommandKeys";
 import { useEngineLink } from "./hooks/useEngineLink";
 import { useInputDevices } from "./hooks/useInputDevices";
@@ -144,6 +148,7 @@ import {
   type ConditionCtx,
   effectiveKeys,
   keyForCommand,
+  shortcutsByCommand,
 } from "./keys";
 import { laneGains } from "./laneGains";
 import { isLibraryPath, libraryModuleRef } from "./libraryTree";
@@ -163,6 +168,13 @@ import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
 import { rememberCommand } from "./recentCommands";
 import { type Reload, UNKNOWN_RELOAD } from "./reloadScope";
+import {
+  isRollMode,
+  ROLL_MODES,
+  ROLL_PRESS,
+  type RollMode,
+  rollCondition,
+} from "./rollMode";
 import { type Pane, type Panel, viewPanes } from "./routes";
 import type { RowKey, RowTarget } from "./rows";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
@@ -180,6 +192,8 @@ import {
   takeOptions,
   trackPlacing,
 } from "./takeReview";
+import { modeCondition, type TimelineMode } from "./timelineMode";
+import { isTool, TOOLS, type Tool } from "./timelineTools";
 import type {
   CommandInfo,
   ProjectInfo,
@@ -191,6 +205,12 @@ import type {
 import { useIsMobile } from "./useIsMobile";
 import { useViewRoute } from "./useViewRoute";
 import { videoSpans } from "./videoSpans";
+import {
+  isWaveMode,
+  WAVE_MODES,
+  type WaveMode,
+  waveCondition,
+} from "./waveMode";
 
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
@@ -241,6 +261,29 @@ export default function App({
     /** Whether this shared module has been unlocked for editing; whether it IS shared is read off the path. */
     unlocked?: boolean;
   } | null>(null);
+  /** The assembly TEMPLATE open in its builder: the file, and its folder's graph once it lands. */
+  const [assemblyBuilder, setAssemblyBuilder] = useState<{
+    file: string;
+    folder: string;
+  } | null>(null);
+  const [assemblyGraph, setAssemblyGraph] = useState<WebGraph | null>(null);
+  /** …and whether it has been unlocked, the same one-click confirmation a shared module opens behind. */
+  const [assemblyUnlocked, setAssemblyUnlocked] = useState(false);
+  // The template's own graph is what the builder lists params from: an assembly folder IS a graph folder.
+  useEffect(() => {
+    if (!assemblyBuilder) {
+      setAssemblyGraph(null);
+      return;
+    }
+    let live = true;
+    void api
+      .graphAt(assemblyBuilder.folder)
+      .then((g) => live && setAssemblyGraph(g))
+      .catch(() => live && setAssemblyGraph(null));
+    return () => {
+      live = false;
+    };
+  }, [assemblyBuilder]);
   // The shared module the Edit button asks about, held so the dialog closes without touching what is behind it.
   const [editShared, setEditShared] = useState<string | null>(null);
   /** The LIVE plugin behind the builder's module, matched on the chain step's NAME — see docs/moduleBuilder.md. */
@@ -330,7 +373,16 @@ export default function App({
   );
   // MIDI recording is browser-side (the engine records audio only), one track at a time, landing in its sequence.
   const [midiArmed, setMidiArmed] = useState<string | null>(null);
-  const [tlView, setTlView] = useState({
+  const [tlView, setTlView] = useState<{
+    mode: TimelineMode;
+    tool: Tool;
+    selecting: boolean;
+    zoomed: boolean;
+    loop: boolean;
+    expanded: boolean;
+  }>({
+    mode: "normal",
+    tool: "pointer",
     selecting: false,
     zoomed: false,
     loop: false,
@@ -427,6 +479,12 @@ export default function App({
   const timelineRef = useRef<TimelineHandle>(null);
   /** The clip pane's caret — the timeline handle's three verbs on whichever grid the pane draws (gridCaret.ts). */
   const clipGridRef = useRef<ClipGridHandle>(null);
+  /** The AUDIO leaf's counterpart of `clipGridRef`, and the mode it is in — one clip pane draws one or the other. */
+  const waveRef = useRef<AudioClipHandle>(null);
+  const [waveView, setWaveView] = useState<WaveMode | null>(null);
+  /** …and the ROLL's, the third surface with a mode of its own (rollMode.ts). */
+  const rollRef = useRef<RollHandle>(null);
+  const [rollMode, setRollMode] = useState<RollMode | null>(null);
   const [clipSel, setClipSel] = useState(false);
   /** The shell's ONE clipboard, carrying its KIND so one paste verb names the surface — see clipboard.ts. */
   const [clipboard, setClipboard] = useState<MaybeClipboard>(null);
@@ -486,6 +544,11 @@ export default function App({
   }, []);
   // The keymap as this person has it, computed once per prefs change — the key listener reads it on every press.
   const effKeys = useMemo(() => effectiveKeys(commandPrefs), [commandPrefs]);
+  // …and the same table read the other way, for a legend that can only ever advertise a key that binds (keys.ts).
+  const shortcuts = useMemo(
+    () => shortcutsByCommand(commandPrefs),
+    [commandPrefs],
+  );
   const lastActive = useRef<string | null>(null);
   const pendingPrewrite = useRef<string | null>(null);
 
@@ -863,7 +926,31 @@ export default function App({
     [quietCommand],
   );
 
-  // The interface's inputs and the one act that regroups them, asked once per connection — two surfaces want the list.
+  // A RECORDER's button: two go down the socket, `save` is a verb — packages/song/docs/recorderNode.md.
+  const onRecorder = useCallback(
+    (
+      verb: "record" | "clear" | "save",
+      node: { module: string; pluginId?: string },
+    ) => {
+      if (!node.pluginId) return; // in the document but not in the running graph
+      if (verb !== "save") {
+        engineRef.current?.recorder(node.pluginId, verb);
+        return;
+      }
+      const takes = store.getSnapshot().recorders?.[node.pluginId]?.takes ?? [];
+      const last = takes[takes.length - 1];
+      if (!last) return; // the button draws faint with no take; this is the race, not the state
+      void runCommandRef.current(
+        `node record save ${JSON.stringify(last.file)}`,
+      );
+    },
+    [store],
+  );
+
+  // The lenses this browser can see — the camera cards' dropdown, packages/song/docs/camera.md.
+  const cameras = useCameras();
+
+  // The interface's inputs and the act that regroups them, asked once per connection.
   const { devices: inputDevices, regroup: regroupInputs } = useInputDevices(
     engineRef.current ?? null,
     connected,
@@ -1183,6 +1270,47 @@ export default function App({
         timelineRef.current?.zoomReset();
         return true;
       }
+      /** `ui roll <mode>` — where a press on the piano roll goes: select, create, remove (rollMode.ts). */
+      if (namesLine(line, "roll")) {
+        const want = line.slice("roll".length).trim();
+        if (!isRollMode(want)) {
+          setStatus(`unknown mode "${want}" — ${ROLL_MODES.join(" · ")}`);
+          return true;
+        }
+        if (!rollRef.current) {
+          setStatus("no piano roll open — click a MIDI event first");
+          return true;
+        }
+        rollRef.current.setMode(want);
+        setStatus(`${want} — ${ROLL_PRESS[want]}`);
+        return true;
+      }
+      /** `ui wave <mode>` — the waveform's picture and its gestures are ONE thing, so one verb sets both (waveMode.ts). */
+      if (namesLine(line, "wave")) {
+        const want = line.slice("wave".length).trim();
+        if (!isWaveMode(want)) {
+          setStatus(`unknown view "${want}" — ${WAVE_MODES.join(" · ")}`);
+          return true;
+        }
+        if (!waveRef.current) {
+          setStatus("no audio clip open — click one on the timeline first");
+          return true;
+        }
+        waveRef.current.setView(want);
+        return true;
+      }
+      /** `ui tool <name>` — the tool belongs to the SURFACE, so it is routed like every other pane verb. */
+      if (namesLine(line, "tool")) {
+        const want = line.slice("tool".length).trim();
+        if (!isTool(want)) {
+          setStatus(`unknown tool "${want}" — ${TOOLS.join(" · ")}`);
+          return true;
+        }
+        // Only the timeline holds tools today; the graph gets its own once it has a keyboard (docs/timeline.md).
+        timelineRef.current?.setTool(want);
+        setStatus(want === "pointer" ? "pointer" : `tool: ${want}`);
+        return true;
+      }
       if (line === "transport locate") {
         if (clipGrid) clipGrid.seekToCaret();
         else timelineRef.current?.seekToCaret();
@@ -1232,6 +1360,17 @@ export default function App({
           return true;
         }
         const out = pane.pasteLine(held);
+        if (out.line) void runCommand(out.line);
+        setStatus(out.note);
+        return true;
+      }
+      /** `selection delete` — the clip grid's alone: the timeline deletes an event by its own verb, which names it. */
+      if (line === "selection delete") {
+        const out = clipGrid?.deleteLine?.();
+        if (!out) {
+          setStatus("no clip grid open — click a MIDI event first");
+          return true;
+        }
         if (out.line) void runCommand(out.line);
         setStatus(out.note);
         return true;
@@ -1378,6 +1517,22 @@ export default function App({
         const path = resolveModuleFile(arg, editorRef.current?.files() ?? []);
         if (!path) setStatus(`no module "${arg}" in this project`);
         else setBuilder({ path, pane: "module" });
+        return true;
+      }
+      // An assembly TEMPLATE, by its ref. The PATH is the file service's to give — never one built here.
+      if (line.startsWith("assembly ")) {
+        const ref = s.slice("assembly ".length).trim();
+        void api
+          .libraryAssemblies()
+          .then(({ assemblies }) => {
+            const hit = assemblies.find((a) => a.ref === ref);
+            if (!hit) {
+              setStatus(`no assembly template "${ref}" in the library`);
+              return;
+            }
+            setAssemblyBuilder({ file: hit.file, folder: hit.path });
+          })
+          .catch((e: Error) => setStatus(e.message));
         return true;
       }
 
@@ -1981,7 +2136,33 @@ export default function App({
     if (tlView.selecting) cond.timeline_selection = "1";
     if (tlView.zoomed) cond.timeline_zoomed = "1";
     if (tlView.loop) cond.timeline_loop = "1";
+    // The timeline's MODE and TOOL, one condition per name — `{ if: "tl_select" }` is the truthiness test keys.ts does (docs/timeline.md).
+    cond[modeCondition(tlView.mode)] = "1";
+    cond.timeline_mode = tlView.mode;
+    cond.timeline_tool = tlView.tool;
+    // Both gated on the timeline OWNING the keys: a tool belongs to a surface, and one you are not looking at is one you cannot see.
+    if (activePane === "timeline") cond.timeline_active = "1";
+    if (activePane === "timeline" && tlView.tool !== "pointer")
+      cond.tool_held = "1";
+    // The WAVEFORM's mode, when an audio clip is the one open — its picture and its gestures are one thing (waveMode.ts).
+    if (waveView && graphSlot?.kind === "clip") {
+      cond.wave_open = "1";
+      cond[waveCondition(waveView)] = "1";
+      cond.wave_mode = waveView;
+      // `wave_marks` is Esc's rung: standard touches no mark, so there is nothing to back out OF there.
+      if (waveView !== "standard") cond.wave_marks = "1";
+    }
+    // …and the ROLL's, on the same terms — one clip pane draws one leaf or the other, never both.
+    if (rollMode && graphSlot?.kind === "clip") {
+      cond.roll_open = "1";
+      cond[rollCondition(rollMode)] = "1";
+      cond.roll_mode = rollMode;
+      // Esc's rung, for the same reason as the wave's: `select` writes nothing, so there is nothing to back out of.
+      if (rollMode !== "select") cond.roll_armed = "1";
+    }
     if (clipSel && graphSlot?.kind === "clip") cond.clip_selection = "1";
+    // …and the grid itself, whether or not it holds a rectangle: `x` acts on the caret's own cell when there is none.
+    if (graphSlot?.kind === "clip") cond.clip_grid = "1";
     // No `clipboard_events` / `clipboard_notes` condition: there is one paste verb and its binding is unconditional (keys.ts).
     if (editTarget?.kind === "seq")
       cond.hover_midi_sequence = fileStem(editTarget.path);
@@ -2000,6 +2181,10 @@ export default function App({
     tlView,
     focusPane,
     full,
+    // `activePane` is `full ?? focusPane`, and both are above — but the tool conditions read it by name.
+    activePane,
+    waveView,
+    rollMode,
   ]);
 
   /** The command entry a double-Shift opens: docked it FOCUSES the bar, on the phone it opens the popin palette. */
@@ -2580,6 +2765,9 @@ export default function App({
                         `event move ${trackId} ${fromTc} ${toTc}${toTrackId ? ` ${toTrackId}` : ""}`,
                       )
                     }
+                    // A tool's press, already spelled by the module that is tested for it — journalled like anything else.
+                    onToolLine={(l) => void runCommand(l)}
+                    shortcuts={shortcuts}
                     onResizeEvent={(trackId, fromTc, startTc, endTc) =>
                       void runCommand(
                         `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
@@ -2704,6 +2892,7 @@ export default function App({
                   )}
                 >
                   <ChainsTab
+                    cameras={cameras}
                     reloadKey={reloadKey}
                     organizeKey={organizeKey}
                     active={!chainsOffScreen && !graphSlot}
@@ -2718,6 +2907,8 @@ export default function App({
                     onBypassModule={(mod) =>
                       void runCommand(`node bypass ${mod}`)
                     }
+                    onModuleField={runCommand}
+                    onRecorder={onRecorder}
                     onNodeMenu={openNodeMenu}
                     engineWarnings={engineWarnings}
                     onAssetBrowse={browseAssets}
@@ -2828,16 +3019,42 @@ export default function App({
                     quietCommand={quietCommand}
                     // …and they get the same right-click every other entity has.
                     onContextMenu={openContextMenu}
+                    // The roll's draw gesture, and all four ANSWER the promise rather than dropping it — the ghost is held until the reload lands (rollPending.ts).
+                    onCreateNote={(seqId, key, t0, t1) =>
+                      runCommand(
+                        `sequence note new ${seqId} ${key} ${t0} ${t1}`,
+                      )
+                    }
                     // The roll's velocity drag, committed like the timeline's clip drag: one command on release.
                     onSetVelocity={(seqId, key, start, vel) =>
-                      void runCommand(
+                      runCommand(
                         `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
                       )
                     }
                     // …and the note drag the same way — move and stretch are one verb, being one gesture with two grips.
                     onSetNoteRange={(seqId, key, start, ns, ne) =>
-                      void runCommand(
+                      runCommand(
                         `sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`,
+                      )
+                    }
+                    // …except a drag that changed the PITCH, which is the verb that keeps the duration and refuses an occupied slot.
+                    onMoveNote={(seqId, key, start, nk, ns) =>
+                      runCommand(
+                        `sequence note move ${seqId} ${key} ${start} ${nk} ${ns}`,
+                      )
+                    }
+                    // …and the ear. Straight down the engine's socket: a note heard is not an edit, so it is journalled nowhere.
+                    onPreviewNote={(track, key, vel) =>
+                      engineRef.current?.previewNote(track, key, vel)
+                    }
+                    waveRef={waveRef}
+                    onWaveView={setWaveView}
+                    rollRef={rollRef}
+                    onRollMode={setRollMode}
+                    // …and the roll's `remove` mode, which is the caret's `x` reached by the pointer instead.
+                    onRemoveNote={(seqId, key, start) =>
+                      runCommand(
+                        `sequence note remove ${seqId} ${key} ${start}`,
                       )
                     }
                   />
@@ -2848,6 +3065,8 @@ export default function App({
                     trackId={graphSlot.trackId}
                     reloadKey={reloadKey}
                     command={quietCommand}
+                    onModuleField={runCommand}
+                    onRecorder={onRecorder}
                     trackOrder={trackOrder}
                     pluginParamsStore={pluginParamsStore}
                     requestPluginParams={requestPluginParams}
@@ -2943,6 +3162,7 @@ export default function App({
               >
                 {panel === "graph" && (
                   <GraphPanel
+                    cameras={cameras}
                     reloadKey={reloadKey}
                     organizeKey={organizeKey}
                     trackId={caret?.trackId ?? null}
@@ -2953,6 +3173,8 @@ export default function App({
                     onBypassModule={(mod) =>
                       void runCommand(`node bypass ${mod}`)
                     }
+                    onModuleField={runCommand}
+                    onRecorder={onRecorder}
                     onNodeMenu={openNodeMenu}
                     engineWarnings={engineWarnings}
                     onContextMenu={openContextMenu}
@@ -2994,6 +3216,38 @@ export default function App({
                 connected ? "engine connected" : "engine disconnected"
               }
             />
+            {/* The MODE and the tool, PERSISTENT unlike the line beside it: a state nobody can see is one you leave by surprise (docs/timeline.md). */}
+            {/* The waveform's comes FIRST when one is open, the clip pane being the surface in front. */}
+            {rollMode && graphSlot?.kind === "clip" ? (
+              rollMode !== "select" && (
+                <Badge
+                  variant="rec"
+                  className="shrink-0"
+                  title={`piano roll: ${rollMode} — esc or a backs out`}
+                >
+                  {rollMode}
+                </Badge>
+              )
+            ) : waveView && graphSlot?.kind === "clip" ? (
+              waveView !== "standard" && (
+                <Badge
+                  variant="rec"
+                  className="shrink-0"
+                  title={`waveform: ${waveView} — esc or a backs out`}
+                >
+                  {waveView}
+                </Badge>
+              )
+            ) : ringPanes.includes("timeline") &&
+              (tlView.mode !== "normal" || tlView.tool !== "pointer") ? (
+              <Badge
+                variant={tlView.tool !== "pointer" ? "rec" : "default"}
+                className="shrink-0"
+                title={`timeline: ${tlView.mode}${tlView.tool !== "pointer" ? ` · ${tlView.tool}` : ""} — esc backs out`}
+              >
+                {tlView.tool !== "pointer" ? tlView.tool : tlView.mode}
+              </Badge>
+            ) : null}
             {/* The open menu speaks FIRST and borrows the line rather than writing it, so closing gives back what the app last said. */}
             <span
               // This line is the shell's whole error channel, so it is also its only live region.
@@ -3293,6 +3547,31 @@ export default function App({
         )}
 
         {/* The shared module builder over the whole shell; it holds no engine link, so no factory banks and no live params (docs/moduleBuilder.md). */}
+        {assemblyBuilder && (
+          <div className="absolute inset-0 z-30 bg-background">
+            <AssemblyBuilder
+              store={moduleStore}
+              path={assemblyBuilder.file}
+              graph={assemblyGraph}
+              vimMode={vimMode}
+              // A template lives in the library, so it opens the way a shared module does: locked.
+              readOnly={
+                isLibraryPath(assemblyBuilder.file) && !assemblyUnlocked
+              }
+              onRequestEdit={
+                isLibraryPath(assemblyBuilder.file) && !assemblyUnlocked
+                  ? () => setAssemblyUnlocked(true)
+                  : undefined
+              }
+              onClose={() => {
+                setAssemblyBuilder(null);
+                setAssemblyUnlocked(false);
+                bumpReload();
+              }}
+            />
+          </div>
+        )}
+
         {builder && (
           <div className="absolute inset-0 z-30 bg-background">
             <ModuleBuilder

@@ -11,6 +11,7 @@ import {
   CABLE_W,
   type CableCtx,
   drawCables,
+  FOREIGN_ALPHA,
   flattenInto,
   newScratch,
   SHADOW_COLOR,
@@ -39,12 +40,12 @@ type Call = [string, ...number[]];
 // A context that records instead of drawing, plus the state a frame sets on it.
 function recorder(): CableCtx & {
   calls: Call[];
-  strokes: [string, number][];
+  strokes: [string, number, number][];
   fills: string[];
   dashes: (readonly number[])[];
 } {
   const calls: Call[] = [];
-  const strokes: [string, number][] = [];
+  const strokes: [string, number, number][] = [];
   const fills: string[] = [];
   const dashes: (readonly number[])[] = [];
   return {
@@ -53,6 +54,7 @@ function recorder(): CableCtx & {
     fills,
     dashes,
     lineWidth: 0,
+    globalAlpha: 1,
     strokeStyle: "",
     fillStyle: "",
     lineCap: "",
@@ -67,7 +69,11 @@ function recorder(): CableCtx & {
     setLineDash: (segs) => void dashes.push(segs),
     stroke() {
       calls.push(["stroke"]);
-      strokes.push([String(this.strokeStyle), this.lineWidth]);
+      strokes.push([
+        String(this.strokeStyle),
+        this.lineWidth,
+        this.globalAlpha,
+      ]);
     },
     fill() {
       calls.push(["fill"]);
@@ -214,6 +220,52 @@ describe("swayInto", () => {
   });
 });
 
+describe("a cable crossing an open frame", () => {
+  const g = buildCableGeom(bend);
+  const paint = (cables: Parameters<typeof drawCables>[1]["cables"]) => {
+    const ctx = recorder();
+    drawCables(
+      ctx,
+      {
+        width: 800,
+        height: 600,
+        cam: { x: 0, y: 0, k: 1 },
+        dpr: 1,
+        cables,
+        phase: 0,
+        boost: 1,
+      },
+      newScratch(),
+    );
+    return ctx;
+  };
+
+  it("is stroked at half, SHADOW included", () => {
+    const ctx = paint([
+      { geom: g, color: "#d98b45", live: false, alpha: FOREIGN_ALPHA },
+    ]);
+    // Shadow then cable, and both at the same alpha: a full-strength shadow under a half-strength
+    // line reads as a darker cable rather than a fainter one.
+    expect(ctx.strokes.map((k) => k[2])).toEqual([0.5, 0.5]);
+  });
+
+  it("leaves the next cable alone — the alpha is per cable, not a mode", () => {
+    const ctx = paint([
+      { geom: g, color: "#d98b45", live: false, alpha: FOREIGN_ALPHA },
+      { geom: g, color: "#5b9bd5", live: false },
+    ]);
+    expect(ctx.strokes.map((k) => k[2])).toEqual([0.5, 0.5, 1, 1]);
+  });
+
+  it("draws opaque when nothing asked for a fade", () => {
+    expect(
+      paint([{ geom: g, color: "#d98b45", live: false }]).strokes.map(
+        (k) => k[2],
+      ),
+    ).toEqual([1, 1]);
+  });
+});
+
 describe("drawCables", () => {
   const g = buildCableGeom(bend);
   const frame = (over: Partial<Parameters<typeof drawCables>[1]> = {}) => ({
@@ -240,8 +292,8 @@ describe("drawCables", () => {
     const ctx = recorder();
     drawCables(ctx, frame({ boost: 2 }), newScratch());
     expect(ctx.strokes).toEqual([
-      [SHADOW_COLOR, SHADOW_W * 2],
-      ["#d98b45", CABLE_W * 2],
+      [SHADOW_COLOR, SHADOW_W * 2, 1],
+      ["#d98b45", CABLE_W * 2, 1],
     ]);
   });
 
@@ -294,8 +346,8 @@ describe("drawCables", () => {
       newScratch(),
     );
     expect(ctx.strokes).toEqual([
-      [SHADOW_COLOR, AUTO_SHADOW_W],
-      ["#a889b5", AUTO_W],
+      [SHADOW_COLOR, AUTO_SHADOW_W, 1],
+      ["#a889b5", AUTO_W, 1],
     ]);
     // Solid for the shadow, the dash for the cable, solid again for the head.
     expect(ctx.dashes).toEqual([[], AUTO_DASH, []]);

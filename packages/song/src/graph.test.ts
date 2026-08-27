@@ -11,6 +11,7 @@ describe("validate", () => {
     disabledTracks: [],
     modules: { OUT: { kind: "io", io: "out", inputs: [], outputs: [] } },
     moduleRefs: { OUT: { kind: "io", io: "out", inputs: [], outputs: [] } },
+    assemblies: {},
     warnings: [],
   });
 

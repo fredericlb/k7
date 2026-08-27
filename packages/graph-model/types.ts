@@ -38,7 +38,9 @@ export interface WebWidget {
   step?: number;
   curve?: "lin" | "log";
   pages?: Record<string, Record<string, WebWidget>>; // tabs only: named pages of sub-widgets
-  source?: "input" | "output"; // waveform only: which audio tap to display
+  // waveform only: which audio tap to display, or "take" for a RECORDER node's own picture —
+  // the whole take, growing, off the state frame rather than a tap (engine docs/recorder.md).
+  source?: "input" | "output" | "take";
   // dropdown only: a discrete param's named settings, `arg` differing from the label — see docs/graph.md.
   options?: { label: string; value: number; arg?: string }[];
   // dropdown only, HISTORICAL: the older spelling of a filepicker, still read as one — docs/graph.md.
@@ -112,6 +114,9 @@ export interface WebChainStep {
   monitor?: "off" | "auto" | "on";
   /** io "in" only: the channels this input listens on, 1-based; only the NUMERIC form travels — docs/graph.md. */
   channel?: number[];
+  /** io "camera" only: WHICH lens, by the LABEL a person reads — "" being whichever is default.
+   *  Present is what says this step IS a camera, the way `monitor` does for a live audio input. */
+  camera?: string;
   // Where this node's waveform widget listens, an io "in" borrowing one step downstream — see docs/graph.md.
   tap?: { id: string; side: "input" | "output" };
   // Which curve (by id) drives which param. The graph draws each as a curve node arrowing into the module.
@@ -204,6 +209,32 @@ export interface WebTrackClip {
   kind: "audio" | "midi" | "missing";
 }
 
+/** One PLUG on an assembly's box: a port, plus the member node whose own port it stands for. */
+export interface WebPlug {
+  name: string;
+  type: WebSignal;
+  node: string;
+  port?: string;
+  mandatory?: boolean;
+}
+
+/** One ASSEMBLY as the browser receives it — a template's box over nodes this project holds.
+ *
+ * `WebNodeAssembly` rather than `WebAssembly`, which is a JS global: shadowing it inside a
+ * renderer that may one day touch wasm is a name nobody would suspect. See
+ * packages/song/docs/assemblies.md. */
+export interface WebNodeAssembly {
+  uses: string; // the template ref (`@st0/turntable`)
+  label: string; // the template's `label:`, else the instance's own name
+  members: string[]; // this project's node names, in the template's declaration order
+  inputs?: WebPlug[];
+  outputs?: WebPlug[];
+  /** A PROMOTED param: the box's own knob, and the member param it writes. */
+  params?: Record<string, { node: string; param: string; pluginId?: string }>;
+  // The template resolved to nothing: the box draws from its members alone, with no plugs.
+  missing?: boolean;
+}
+
 export interface WebGraph {
   chains: Record<string, WebChain>;
   tracks: string[]; // track ids, for resolving `from`
@@ -215,6 +246,8 @@ export interface WebGraph {
   trackSignals?: Record<string, WebSignal>;
   // Per-track display colour by track id — the timeline's colour. Absent when the track authors none.
   trackColors?: Record<string, string>;
+  /** Which NODE is each track's fader — the `Mixer` at the end of its chain, so that card can wear the lane's face. */
+  trackMixers?: Record<string, string>;
   // What each track HOLDS, in playing order; absent for a group or a strudel lane, which hold no placements.
   trackClips?: Record<string, WebTrackClip[]>;
   /** A lane's other attribute SETS, in its own map because a lane's node is built from the track side — docs/graph.md. */
@@ -228,6 +261,8 @@ export interface WebGraph {
   modules?: Record<string, WebModuleMeta>;
   // Every curve a module binds, keyed by id — its shape, for the node's label. An unreferenced curve draws nothing.
   curves?: Record<string, WebCurve>;
+  /** The boxes, keyed by name — a DRAWING fact, so no chain and no step reads one; docs/assemblies.md. */
+  assemblies?: Record<string, WebNodeAssembly>;
   warnings: string[];
 }
 

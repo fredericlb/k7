@@ -229,35 +229,86 @@ engine-global, **two sessions share one count-in**. That is survivable only beca
 asserts the mode it needs — which is why the call must stay next to the transport call and must
 not be hoisted.
 
+## A track that GOES takes the whole diff to a rebuild
+
+An invariant, and it replaces what used to be the first lot on this page — `TrackRemoved` as a stub
+that did nothing while the diff reported it applied.
+
+The stub was worse than "the lane keeps playing", which is how it was written down. `trackById` maps
+a document **index** onto a lane:
+
+```cpp
+for (size_t i = 0; i < doc.tracks.size(); ++i)
+    if (doc.tracks[i].id == id) { ... return tracks[(int)i]; }
+```
+
+So a lane left standing under a document that just got shorter puts **every later track one lane
+off**. Delete the first of three and the doc is `[B, C]` while the Edit is still `[A, B, C]`:
+`trackById("B")` hands back **A**. From there every clip insert, every mute, every input wiring,
+every arm and every meter reading lands on the wrong lane, silently, until something else forces a
+full rebuild. `applySoloMute` and `inputLevelsDb` walk the same correspondence, so they go with it.
+
+`needsFullRebuild` therefore returns true on `TrackRemoved`, next to `SampleRateChanged`. That costs
+a rebuild — and a rebuild replaces the Edit and stops the transport — on a verb that already changes
+the shape of the song. `MasterChainChanged` pays the same price for the same reason.
+`diff_track_removed_forces_rebuild` and `diff_last_track_removed_forces_rebuild` pin it, the second
+because the *last* track going shifts no index and would otherwise look safe.
+
+## An exception on the socket costs that client its connection, silently
+
+The other invariant, and the one that was measured rather than reasoned about.
+
+IXWebSocket has **no `catch` anywhere in it** — grep the checkout. `nlohmann`'s `value(key, default)`
+throws `type_error.302` on a field of the wrong type and `type_error.306` on a message that is not a
+JSON object at all, and both are reachable from any client: `[]`, `null`, `"hi"`, or
+`{"type":"transport","action":5}`. The handler had a `try` around `json::parse` and around
+`docFromJson` only, so everything else threw straight into the library.
+
+What that costs is not a crash, which is what makes it bad. Measured against the pre-fix binary, on
+two ports side by side:
+
+| | pre-fix | with the catch |
+|---|---|---|
+| reply to the malformed message | none | `{"type":"error","message":"malformed message: …302…"}` |
+| `whoami` afterwards **on the same socket** | none, ever | answered |
+| close frame | none | none — the socket stays up |
+| engine process | alive | alive |
+
+The connection thread unwinds and that socket is **dead while still looking open**: no error, no
+close, so nothing on the client side triggers a reconnect. The tab keeps a live WebSocket that will
+never answer again. Worse, the `Close` handler never runs either, so the socket's entries in
+`listeners`, `drivers` and `subscribers` are never retired, and it stays in `server.getClients()` —
+which is exactly what the sender thread prunes against, so a dead socket can go on being handed
+3 Mbit/s of audio.
+
+Hence the one `try/catch` wrapping the whole dispatch, and why `onMessage` is a named lambda rather
+than an inline one: the wrapper needs something to wrap.
+
 ## Left as lots
 
 Each of these is a design decision rather than a patch, which is why none is taken here.
 
-1. **`TrackRemoved` is a stub** that does nothing while the diff reports it as applied. Removing
-   a track from the song leaves its lane, its plugins and its clips playing until something else
-   forces a full rebuild. `engineHost.md` documents the shape of that failure: the changelog says
-   success, the audio does not move.
-2. **`keyOf(PluginDoc)` folds in the preset path, the sidechain source and every rack entry**, so
+1. **`keyOf(PluginDoc)` folds in the preset path, the sidechain source and every rack entry**, so
    any change to one of those surfaces as remove+add rather than as a change to the live plugin:
    the module is re-instantiated and drops whatever state it held.
-3. **Rack samples decoded whole into RAM on a deferred update** (above).
-4. **The duplicate-key family** beyond the diff: `trackById`, `busForDest`, `inputClients`.
+2. **Rack samples decoded whole into RAM on a deferred update** (above).
+3. **The duplicate-key family** beyond the diff: `trackById`, `busForDest`, `inputClients`.
    `PluginParams` already solves it properly by disambiguating (`name + " #" + n`); that is the
    pattern to copy.
-5. **`juce::IIRFilter` → `juce::dsp::IIR::Filter`**, to drop the last blocking lock on the audio
+4. **`juce::IIRFilter` → `juce::dsp::IIR::Filter`**, to drop the last blocking lock on the audio
    thread.
-6. **FTZ/DAZ per audio thread**, to cover Tracktion's own effects.
-7. **The 20 Hz `state` frame is broadcast synchronously from the message thread** to every
+5. **FTZ/DAZ per audio thread**, to cover Tracktion's own effects.
+6. **The 20 Hz `state` frame is broadcast synchronously from the message thread** to every
    client, and IXWebSocket holds a per-socket write mutex for the whole send. `broadcast.md`
    names this hazard and it is live — one wedged client stalls the engine. The binary audio
    path escapes it via a dedicated sender thread; the JSON path does not.
-8. **`Change` is a fat value type** — four `std::optional`s of whole docs, so a `PluginParamChanged`
+7. **`Change` is a fat value type** — four `std::optional`s of whole docs, so a `PluginParamChanged`
    copies the entire `PluginDoc` (params map and rack vector) *per differing parameter*. A knob
    drag sending twenty params copies it twenty times.
-9. **The hidden `__studio_preview__` track breaks the doc-index → lane mapping** for
+8. **The hidden `__studio_preview__` track breaks the doc-index → lane mapping** for
    incrementally added tracks: after any preview, `TrackAdded` renames `getLast()` while
    `trackById` maps index *n* onto the preview lane.
-10. **A platter still decodes its record WHOLE**, the same family as lot 3, though it is now held
+9. **A platter still decodes its record WHOLE**, the same family as lot 2, though it is now held
     16-bit rather than float: 72 MB and 245 ms for one 4-minute record, 375 MB and 399 ms for
     eight — which is what two SEPARATED decks would need, and why they are left on clips instead
     (`docs/turntable.md`). What remains is the windowed cache, which would take both columns and

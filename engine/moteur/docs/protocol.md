@@ -36,6 +36,22 @@ The engine's own half of this — the registry's threading model and the lifecyc
 `docs/sessions.md`. Client rules, who picks the name, and why st0's two halves must agree on it
 are in `packages/engine-protocol/docs/sessions.md`.
 
+## A malformed message is ANSWERED, never thrown
+
+The whole dispatch in `server/main.cpp` sits inside one `try`, and that is load-bearing rather than
+tidy: **IXWebSocket contains no `catch` at all**, so an exception leaving the handler unwinds the
+connection thread and leaves that socket alive-looking and permanently deaf — no reply, no close
+frame, so nothing on the client ever triggers a reconnect. The measurement, and what it costs the
+listener and driver maps, is in `docs/audit-stabilite.md`.
+
+Two throws are reachable from any client, both out of `nlohmann`'s `value(key, default)`:
+`type_error.306` when the message is not a JSON **object** (`[]`, `null`, `"hi"` all parse), and
+`type_error.302` when a field carries the wrong type (`{"type":"transport","action":5}`). Neither is
+worth hunting field by field, which is why the guard is one catch rather than a hundred checks. A
+client gets `{"type":"error","message":"malformed message: …"}` and keeps its socket.
+
+The handler is a **named** lambda, `onMessage`, for that reason alone: the registration wraps it.
+
 ## client → server
 
 | message | meaning |
@@ -47,6 +63,7 @@ are in `packages/engine-protocol/docs/sessions.md`.
 | `{ type: "transport", action: "seek", position: 12.5 }` | seconds |
 | `{ type: "transport", action: "loop", start: 4, end: 8, enabled: true }` | loop region, in seconds |
 | `{ type: "preview", file: "/abs/kick.wav", start: 0, length: 0 }` | audition a sample |
+| `{ type: "note-preview", track: "melody", key: 60, vel: 1 }` | audition ONE note through that track's own chain — the piano roll's click. Transport-independent like `preview`, but not the same thing: `preview` loads a FILE into a hidden sampler and bypasses every chain, while this plays a note into the track the loaded song already names, so what you hear is the instrument you are writing for. The engine releases it after 100 ms, which is why there is no note-off on the wire: a release that has to arrive is a hanging voice whenever it does not |
 | `{ type: "watch-plugin-params", id: "chain:module", on: true }` | follow a plugin's values live |
 | `{ type: "subscribe-waveform", id, side: "input"\|"output", trackIndex }` | tap a module's audio |
 | `{ type: "unsubscribe-waveform", id, side }` | drop that tap |

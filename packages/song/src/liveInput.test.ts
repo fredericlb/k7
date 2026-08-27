@@ -86,13 +86,20 @@ describe("a live input, wired by its chain", () => {
     expect(melody?.inputChannels).toEqual([]);
   });
 
-  it("says so when its run reaches no track", () => {
-    // No lane owns the input, so the signal has nowhere to land — and it must say so.
+  it("MAKES its own track when its run reaches no lane", () => {
+    // The lane stops feeding it, leaving `IN: [OUT]` — a rig with nothing arranged. That used to
+    // warn and compile to nothing; it now materialises a track of its own, the way a bus does,
+    // because the engine assigns an input to a track and there is no lane to be. docs/liveProject.md.
     wire({ modules: { mic: [] } });
-    const w = loadGraph(dir).warnings;
     expect(
-      w.some((x) => x.includes("an input's signal has to land on one")),
-    ).toBe(true);
+      loadGraph(dir).warnings.some((x) => x.includes("has to land on one")),
+    ).toBe(false);
+    // Named after the CHAIN, which is this file's whole subject — here the input node's own ref.
+    const own = compileNodeProject(dir).tracks.find((t) => t.id === IN);
+    expect(own?.inputChannels).toEqual([1]);
+    expect(own?.role).toBe("regular");
+    // Nothing to play: what is heard is what is plugged in.
+    expect(own?.clips).toEqual([]);
   });
 
   // Signal comes FROM an input INTO a lane, and the file draws that direction.

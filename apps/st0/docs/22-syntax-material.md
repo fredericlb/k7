@@ -59,9 +59,15 @@ draws the same band, read from the text as you type it, and a `to:` reaching pas
 the grid rather than clipping them — the silence at the end is deliberate, and the band is what says so.
 
 Each note also carries a thin line across it: its **velocity**, at the bottom of the note for 0 and at the top
-for full. Drag a note up or down to change it (`sequence note velocity` on the command bar). A note that says
-nothing about velocity draws at full and stays that way in the file — dragging one back to the top removes the
-`v` rather than writing `v: 1`.
+for full. Drag **that line** up or down to change it (`sequence note velocity` on the command bar). A note that
+says nothing about velocity draws at full and stays that way in the file — dragging one back to the top removes
+the `v` rather than writing `v: 1`.
+
+Every grip on a note is a place, which is what lets one box hold four gestures: the line sets the velocity, the
+**body** moves the note — sideways in time, up and down to another pitch — and **either edge** stretches it.
+Drag on an empty lane to draw a note, `x` removes what the cursor is on, and right-clicking one offers to remove
+or to split it. Each of those is a command line, so each is one undo. Hold Ctrl to leave the grid; you hear
+every note you press, through the track's own instrument.
 
 ```yaml schema=Sequence
 # sequences/melody.yaml

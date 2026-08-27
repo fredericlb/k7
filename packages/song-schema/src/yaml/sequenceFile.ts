@@ -1,7 +1,8 @@
 // sequenceFile.ts — editing sequences/<id>.yaml: `notes:` lists {t,d,k,v?} (t/d in beats, k a
 // MIDI key, v a 0..1 velocity). Appends for `note add` and `sequence.recordNotes`, and addresses
-// one note by (key, start) for the roll's velocity drag. One note per line (flow mapping) — the
-// shape a recorded sequence shares with a hand-entered one.
+// one note by (key, start) for the roll's velocity drag. `mapNotesInRegion` is the same edit over
+// a RECTANGLE, in one pass, because a bulk edit has to be one undo. One note per line (flow
+// mapping) — the shape a recorded sequence shares with a hand-entered one.
 
 import { isSeq, parseDocument } from "yaml";
 
@@ -147,6 +148,81 @@ export function setNoteVelocity(
   if (v === undefined) doc.deleteIn(["notes", at, "v"]);
   else doc.setIn(["notes", at, "v"], v);
   return doc.toString({ lineWidth: 0 });
+}
+
+/** A rectangle of the roll, as a surface draws one: two keys INCLUSIVE, and a half-open beat span. */
+export interface NoteRegion {
+  loKey: number;
+  hiKey: number;
+  from: number;
+  to: number;
+}
+
+/** One note read back out of the document, or null for a line that is not one — a broken entry is left alone, not rewritten. */
+function readNote(
+  doc: ReturnType<typeof parseDocument>,
+  i: number,
+): NoteIn | null {
+  const t = Number(doc.getIn(["notes", i, "t"]) ?? Number.NaN);
+  const d = Number(doc.getIn(["notes", i, "d"]) ?? Number.NaN);
+  const k = Number(doc.getIn(["notes", i, "k"]) ?? Number.NaN);
+  const v = doc.getIn(["notes", i, "v"]);
+  if (!Number.isFinite(t) || !Number.isFinite(d) || !Number.isFinite(k))
+    return null;
+  return { t, d, k, ...(typeof v === "number" ? { v } : {}) };
+}
+
+/**
+ * Rewrite every note the region HOLDS, in one document pass; `fn` answering null removes one.
+ * A note is in when it STARTS inside, the rule the roll's rectangle already copies by. One pass
+ * and not N calls to the writers above, because a bulk edit has to be ONE journal entry — see
+ * docs/noteEdits.md. `repeat` and `skip` are never touched, so a pad keeps its effects.
+ */
+export function mapNotesInRegion(
+  text: string,
+  region: NoteRegion,
+  fn: (n: NoteIn) => NoteIn | null,
+): { text: string; changed: number } {
+  const doc = parseDocument(text, OPTS);
+  const list = doc.getIn(["notes"]);
+  if (!isSeq(list)) return { text, changed: 0 };
+  const drop: number[] = [];
+  let changed = 0;
+  for (let i = 0; i < list.items.length; i++) {
+    const n = readNote(doc, i);
+    if (
+      !n ||
+      n.k < region.loKey ||
+      n.k > region.hiKey ||
+      n.t < region.from - EPS ||
+      n.t >= region.to - EPS
+    )
+      continue;
+    const next = fn(n);
+    if (next === null) {
+      drop.push(i);
+      changed++;
+      continue;
+    }
+    if (!isPlayableNote(next))
+      throw new Error(
+        `k${n.k} at beat ${n.t} would become a note nothing can play`,
+      );
+    if (next.k !== n.k) doc.setIn(["notes", i, "k"], next.k);
+    if (next.t !== n.t) doc.setIn(["notes", i, "t"], next.t);
+    if (next.d !== n.d) doc.setIn(["notes", i, "d"], next.d);
+    // Velocity keeps the file's own rule: `undefined` CLEARS the key rather than writing the schema's default back.
+    if (next.v !== n.v) {
+      if (next.v === undefined) doc.deleteIn(["notes", i, "v"]);
+      else doc.setIn(["notes", i, "v"], next.v);
+    }
+    changed++;
+  }
+  // Back to front, so an index taken before the first deletion still points at its own note.
+  for (const i of drop.reverse()) doc.deleteIn(["notes", i]);
+  return changed
+    ? { text: doc.toString({ lineWidth: 0 }), changed }
+    : { text, changed: 0 };
 }
 
 /** The two effects a PAD can carry — see @studio/song docs/padEffects.md. */

@@ -15,12 +15,14 @@ import type { MenuCtx } from "../contextMenu";
 import type { ClipGridHandle, OnGridSelection } from "../gridCaret";
 import { fileStem } from "../projectPaths";
 import { rackFor } from "../rackFor";
+import type { RollMode } from "../rollMode";
 import { trackPlacing } from "../takeReview";
 import type { Hints, WebClip, WebNote, WebProject } from "../types";
-import { AudioClipPanel } from "./AudioClipPanel";
+import type { WaveMode } from "../waveMode";
+import { type AudioClipHandle, AudioClipPanel } from "./AudioClipPanel";
 import { type ClipViewMode, ClipViewModes } from "./ClipViewModes";
 import { GraphSlotPane } from "./GraphSlotPane";
-import { PianoRoll } from "./PianoRoll";
+import { PianoRoll, type RollHandle } from "./PianoRoll";
 import { SeqGridFile } from "./SeqGridFile";
 import { SequencerPanel } from "./SequencerPanel";
 
@@ -52,16 +54,23 @@ function SeqRoll({
   onCreateNote,
   onSetVelocity,
   onSetNoteRange,
+  onMoveNote,
+  onContextMenu,
 }: {
   path: string;
   content: string;
-  onCreateNote?: (seqId: string, key: number, t0: number, t1: number) => void;
+  onCreateNote?: (
+    seqId: string,
+    key: number,
+    t0: number,
+    t1: number,
+  ) => void | Promise<void>;
   onSetVelocity?: (
     seqId: string,
     key: number,
     startBeat: number,
     vel: number,
-  ) => void;
+  ) => void | Promise<void>;
   /** Move or stretch a note (`sequence note timerange`): where it starts NOW, then where it should start and end. */
   onSetNoteRange?: (
     seqId: string,
@@ -69,7 +78,16 @@ function SeqRoll({
     startBeat: number,
     newStart: number,
     newEnd: number,
-  ) => void;
+  ) => void | Promise<void>;
+  /** Move a note to another PITCH (`sequence note move`), which keeps its duration. */
+  onMoveNote?: (
+    seqId: string,
+    key: number,
+    startBeat: number,
+    newKey: number,
+    newStart: number,
+  ) => void | Promise<void>;
+  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
 }) {
   const [project, setProject] = useState<WebProject | null>(null);
 
@@ -134,6 +152,12 @@ function SeqRoll({
             ? (k, t, ns, ne) => onSetNoteRange(name, k, t, ns, ne)
             : undefined
         }
+        onMoveNote={
+          onMoveNote
+            ? (k, t, nk, ns) => onMoveNote(name, k, t, nk, ns)
+            : undefined
+        }
+        onContextMenu={onContextMenu}
       />
     </div>
   );
@@ -155,6 +179,13 @@ export function ClipView({
   onCreateNote,
   onSetVelocity,
   onSetNoteRange,
+  onMoveNote,
+  onPreviewNote,
+  onRemoveNote,
+  waveRef,
+  onWaveView,
+  rollRef,
+  onRollMode,
 }: {
   target: EditTarget;
   onClose: () => void;
@@ -176,17 +207,22 @@ export function ClipView({
   command: (line: string) => void | Promise<void>;
   /** …and the same without the shell-wide reload, for an edit confined to one clip. */
   quietCommand?: (line: string) => void | Promise<void>;
-  /** The shell's right-click menu, for the waveform's stretch points. Absent ⇒ the browser's own. */
+  /** The shell's right-click menu — the waveform's stretch points, a sequencer pad, a roll note. Absent ⇒ the browser's own. */
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   // Draw a note into a sequence: (seqId, key, startBeat, endBeat). Runs `sequence note new`.
-  onCreateNote?: (seqId: string, key: number, t0: number, t1: number) => void;
+  onCreateNote?: (
+    seqId: string,
+    key: number,
+    t0: number,
+    t1: number,
+  ) => void | Promise<void>;
   // Set one note's velocity: (seqId, key, startBeat, 0..1). Runs `sequence note velocity`.
   onSetVelocity?: (
     seqId: string,
     key: number,
     startBeat: number,
     vel: number,
-  ) => void;
+  ) => void | Promise<void>;
   /** Move or stretch a note (`sequence note timerange`): where it starts NOW, then where it should start and end. */
   onSetNoteRange?: (
     seqId: string,
@@ -194,7 +230,29 @@ export function ClipView({
     startBeat: number,
     newStart: number,
     newEnd: number,
-  ) => void;
+  ) => void | Promise<void>;
+  /** Move a note to another PITCH (`sequence note move`), which keeps its duration — the roll's vertical drag. */
+  onMoveNote?: (
+    seqId: string,
+    key: number,
+    startBeat: number,
+    newKey: number,
+    newStart: number,
+  ) => void | Promise<void>;
+  /** Hear one note through a TRACK's chain — over the engine's socket, not through a command; the track is found here. */
+  onPreviewNote?: (track: string, key: number, vel: number) => void;
+  /** Remove one note (`sequence note remove`) — the roll's `remove` mode, and the caret's `x` by another road. */
+  onRemoveNote?: (
+    seqId: string,
+    key: number,
+    startBeat: number,
+  ) => void | Promise<void>;
+  /** The AUDIO leaf's mode, the counterpart of `caretRef` for the three grids — `ui wave <mode>` arrives through it. */
+  waveRef?: RefObject<AudioClipHandle | null>;
+  onWaveView?: (v: WaveMode | null) => void;
+  /** …and the ROLL's, the third of the three — `ui roll <mode>`. */
+  rollRef?: RefObject<RollHandle | null>;
+  onRollMode?: (m: RollMode | null) => void;
 }) {
   /** The open clip, kept FRESH: `target` is a snapshot from the click, and the placement is found again by (id, start). */
   const [freshProject, setFreshProject] = useState<WebProject | null>(null);
@@ -282,6 +340,8 @@ export function ClipView({
           onCreateNote={onCreateNote}
           onSetVelocity={onSetVelocity}
           onSetNoteRange={onSetNoteRange}
+          onMoveNote={onMoveNote}
+          onContextMenu={onContextMenu}
         />
       ) : clip?.type === "midi" ? (
         graph === undefined ? (
@@ -375,6 +435,25 @@ export function ClipView({
                     ? (k, t, ns, ne) => onSetNoteRange(seqId, k, t, ns, ne)
                     : undefined
                 }
+                onMoveNote={
+                  onMoveNote
+                    ? (k, t, nk, ns) => onMoveNote(seqId, k, t, nk, ns)
+                    : undefined
+                }
+                onContextMenu={onContextMenu}
+                // A sequence FILE has no placement, so no chain to hear it through: the roll is then silent, and honestly so.
+                onPreviewNote={
+                  onPreviewNote && midiTrack
+                    ? (k, v) => onPreviewNote(midiTrack, k, v)
+                    : undefined
+                }
+                onRemoveNote={
+                  onRemoveNote ? (k, t) => onRemoveNote(seqId, k, t) : undefined
+                }
+                // The roll's mode: down from the shell so a key reaches it, up so a condition and the badge can read it.
+                onCommand={command}
+                modeRef={rollRef}
+                onModeChange={onRollMode}
               />
             </div>
           </div>
@@ -405,6 +484,10 @@ export function ClipView({
             onSeek={onSeek}
             command={command}
             onClose={onClose}
+            // The waveform's mode: down from the shell so a key reaches it, up so a condition and the badge can read it.
+            viewRef={waveRef}
+            onViewChange={onWaveView}
+            setStatus={setStatus}
           />
         )
       )}

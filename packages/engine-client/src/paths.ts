@@ -3,14 +3,14 @@
 // USE THESE, never a hand-joined path: a wrong path doesn't throw, it reads as an empty
 // file, so a second spelling diverges silently.
 
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { EXTS_PATH } from "@studio/song/engineCatalogue";
 import { mediatekRoot } from "@studio/song/mediatekRoot";
+import { studioHome } from "@studio/song/studioHome";
 
-/** `~/.studio` — the shared state dir. */
+/** `~/.studio` — the shared state dir; `$STUDIO_HOME` moves it, so a WSL process can share the host's. */
 export function studioDir(): string {
-  return join(homedir(), ".studio");
+  return studioHome();
 }
 
 /** The engine's stable local identity, `{ id, token, createdAt }`. */

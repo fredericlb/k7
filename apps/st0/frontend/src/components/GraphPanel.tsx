@@ -20,6 +20,7 @@ import type { WebProject } from "../types";
 
 export function GraphPanel({
   reloadKey,
+  cameras,
   organizeKey = 0,
   trackId,
   trackOrder,
@@ -27,6 +28,8 @@ export function GraphPanel({
   project,
   command,
   onBypassModule,
+  onModuleField,
+  onRecorder,
   onNodeMenu,
   engineWarnings,
   onContextMenu,
@@ -38,6 +41,8 @@ export function GraphPanel({
   onTrackSet,
 }: {
   reloadKey: number;
+  /** The lenses this browser can see — a camera card's dropdown, packages/song/docs/camera.md. */
+  cameras?: readonly string[];
   // Bumped when `graph organize` ran — empties the held node positions (see ChainsTab's).
   organizeKey?: number;
   trackId: string | null;
@@ -50,6 +55,13 @@ export function GraphPanel({
   command: (line: string) => void | Promise<void>;
   // Bypass must RELOAD, unlike `command`'s quiet path, or the canvas keeps drawing the pre-bypass state.
   onBypassModule?: (module: string) => void;
+  /** …and so must an intrinsic, which has no optimistic value at all — see DomChains' prop. */
+  onModuleField?: (line: string) => void | Promise<void>;
+  /** A RECORDER's button, straight through — see DomChains' prop. */
+  onRecorder?: (
+    verb: "record" | "clear" | "save",
+    node: { module: string; pluginId?: string },
+  ) => void;
   /** The ⋮ bubble on a node → the shell opens that node's menu (alternatives, freeze). */
   onNodeMenu?: (
     n: {
@@ -90,7 +102,7 @@ export function GraphPanel({
     if (!graph || !trackId) return null;
     const sub = subgraphForTrack(graph, trackId);
     if (!Object.keys(sub.chains).length) return null; // nothing routes this track
-    const { nodes, edges } = buildGraph(sub);
+    const { nodes, edges } = buildGraph(sub, { cameras });
     const scope = `${trackId}:${organizeKey}`;
     if (prevScope.current !== scope) {
       prevScope.current = scope;
@@ -107,7 +119,7 @@ export function GraphPanel({
       out.nodes.map((n) => [n.id, { x: n.x, y: n.y }]),
     );
     return out;
-  }, [graph, trackId, organizeKey]);
+  }, [graph, trackId, organizeKey, cameras]);
 
   // A chain selected on one track means nothing once the caret moves to another.
   useEffect(() => setSelected(null), [trackId]);
@@ -136,6 +148,8 @@ export function GraphPanel({
         camStore={camStore}
         command={command}
         onBypassModule={onBypassModule}
+        onModuleField={onModuleField}
+        onRecorder={onRecorder}
         onNodeMenu={onNodeMenu}
         engineWarnings={engineWarnings}
         pluginParamsStore={pluginParamsStore}

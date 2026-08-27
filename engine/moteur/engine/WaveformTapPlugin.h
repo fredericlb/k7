@@ -59,20 +59,14 @@ public:
 
         const int numSamples = ctx.bufferNumSamples;
         const int startSample = ctx.bufferStartSample;
+        const int numChans = ctx.destBuffer->getNumChannels();
+        if (numChans <= 0 || numSamples <= 0) return;
 
-        // Push left channel samples (or mono if only one channel)
-        if (ctx.destBuffer->getNumChannels() > 0) {
-            const float* data = ctx.destBuffer->getReadPointer(0, startSample);
-            for (int i = 0; i < numSamples; ++i)
-                tap_.pushSample(data[i]);
-        }
-
-        // For stereo, push the right channel interleaved into the same tap, so a browser can draw L/R apart or summed.
-        if (ctx.destBuffer->getNumChannels() > 1) {
-            const float* data = ctx.destBuffer->getReadPointer(1, startSample);
-            for (int i = 0; i < numSamples; ++i)
-                tap_.pushSample(data[i]);
-        }
+        // One point per FRAME, both sides in one bucket: left-block-then-right-block drew every block twice — docs/engineHost.md.
+        const float* l = ctx.destBuffer->getReadPointer(0, startSample);
+        const float* r = numChans > 1 ? ctx.destBuffer->getReadPointer(1, startSample) : l;
+        for (int i = 0; i < numSamples; ++i)
+            tap_.pushFrame(l[i], r[i]);
     }
 
     void restorePluginStateFromValueTree(const juce::ValueTree&) override {}

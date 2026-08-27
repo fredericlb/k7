@@ -36,6 +36,15 @@ target_include_directories(studio_turntable_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 add_test(NAME studio_turntable_tests COMMAND studio_turntable_tests)
 
+# --- Recorder ring tests ------------------------------------------------------
+# A FIFTH fast binary, for the reason the two above give: RecorderTap.h is header-only and
+# JUCE-free, so the one property no eye can check — that an overrun is COUNTED rather than
+# forgiven — is tested without linking Tracktion. See ../docs/recorder.md.
+add_executable(studio_recorder_tests RecorderTap_test.cpp)
+target_include_directories(studio_recorder_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_recorder_tests COMMAND studio_recorder_tests)
+
 # --- MIDI graph tests ---------------------------------------------------------
 # A SECOND binary, because these need Tracktion's MidiMessageArray and so must link the engine — which is exactly
 # what the target above avoids. Keeping them apart preserves the fast tests' "builds in seconds, no audio device"

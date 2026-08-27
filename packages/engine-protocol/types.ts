@@ -26,6 +26,32 @@ export interface EngineState {
   waveform: Record<string, WaveformEnvelope[]>;
   /** Each PLATTER's needle in seconds of its OWN record, by plugin id — `playhead` is not its clock. */
   platters?: Record<string, number>;
+  /** Each RECORDER node, by plugin id — absent when the project declares none. */
+  recorders?: Record<string, RecorderState>;
+}
+
+/** One take a recorder node finished: where the engine wrote it, and what it cost. */
+export interface RecorderTake {
+  /** ABSOLUTE, on the engine's machine — the file service is what reads it, and it runs there. */
+  file: string;
+  seconds: number;
+  /** The ring lapped: frames are MISSING from this file. Reported rather than left to be noticed. */
+  damaged?: boolean;
+}
+
+/** One recorder node as the state frame reports it — free-running, so none of this is transport. */
+export interface RecorderState {
+  recording: boolean;
+  /** The take being written; 0 when idle. */
+  seconds: number;
+  /** Oldest first, so the last one is what `clear` pops. */
+  takes: RecorderTake[];
+  /** Points made SINCE THE LAST FRAME. The client APPENDS them — see engine docs/recorder.md. */
+  envelope: WaveformEnvelope[];
+  /** Where those points START in the take. Normally the count the client already holds — but the
+   *  engine rewinds it to 0 for a socket that just connected, which is how a RELOAD gets the whole
+   *  picture instead of a take that looks like it began at the reload. */
+  from: number;
 }
 
 // One min/max envelope point, covering a bucket of N samples (256 at 44.1 kHz ≈ 5.8 ms), normalised -1..1.

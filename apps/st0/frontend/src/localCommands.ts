@@ -55,11 +55,19 @@ export const UI_HEADS: readonly string[] = [
   // Reopens the take review on a clip — a VIEW, so `ui`. The panel's own buttons are the brain's.
   "review ",
   "midi learn ",
+  // Which TOOL the active surface is holding — session state, so `ui`: it touches neither the project nor the transport.
+  "tool ",
+  // …and the same for the audio clip's waveform, whose three views ARE its three gestures (waveMode.ts).
+  "wave ",
+  // …and the piano roll's three: select, create, remove (rollMode.ts).
+  "roll ",
   "panel ",
   "surface ",
   // A surface's link, for another device — `ui external <surface>`. See docs/external.md.
   "external ",
   "builder ",
+  // An assembly TEMPLATE in the builder, by the ref a box names — packages/song/docs/assemblies.md.
+  "assembly ",
   "language ",
   "pin ",
   "copy path ",

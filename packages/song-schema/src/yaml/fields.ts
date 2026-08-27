@@ -24,6 +24,8 @@ import {
   RackSoundSchema,
   TakeSchema,
   UISchema,
+  IO_KINDS,
+  WAVEFORM_SOURCES,
   WIDGET_TYPES,
 } from "./moduleSchema";
 import { PlacementSchema } from "./placementSchema";
@@ -201,11 +203,11 @@ export function valuesAt(
   if (kind === "module") {
     if (path.length === 0 && field === "type")
       return ["plugin", "rack", "video_effect", "video_transition"];
-    if (path.length === 0 && field === "io") return ["out", "in", "video_out"];
+    if (path.length === 0 && field === "io") return [...IO_KINDS];
     if (path.length === 0 && field === "monitor") return ["off", "auto", "on"];
     if (path[0] === "ui" && field === "type") return [...WIDGET_TYPES];
     if (path[0] === "ui" && field === "curve") return ["lin", "log"];
-    if (path[0] === "ui" && field === "source") return ["input", "output"];
+    if (path[0] === "ui" && field === "source") return [...WAVEFORM_SOURCES];
     if (path[0] === "rack" && field === "rack_type")
       return ["samples", "slice"];
     return [];

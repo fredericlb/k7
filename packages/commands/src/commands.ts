@@ -18,6 +18,13 @@ import type {
   PluginInfo,
 } from "@studio/engine-client/engineClient";
 import { METRONOME_MIN } from "@studio/engine-protocol/build";
+import {
+  assemblyMembers,
+  createAssembly,
+  dissolveAssembly,
+  dropNodeFromAssemblies,
+  renameNodeInAssemblies,
+} from "@studio/song/assemblyEdit";
 import { bindModuleCc } from "@studio/song/controllerBind";
 import {
   createCurveFile,
@@ -92,6 +99,7 @@ import {
   setModuleAutomationBinding,
   setModuleBase,
   setModuleBypass,
+  setModuleCamera,
   setModuleChannel,
   setModuleExtends,
   setModuleFrozen,
@@ -201,7 +209,9 @@ import {
 import {
   appendNotes,
   isPlayableNote,
+  mapNotesInRegion,
   moveNote,
+  type NoteIn,
   type PadEffect,
   removeNote,
   setNoteEffect,
@@ -276,6 +286,9 @@ export interface CommandHost {
   repoDir?: string;
   // Back up a file the command is about to overwrite, so undo can restore it — docs/verbs.md.
   snapshot?(absPath: string): void;
+  /** Send one recorder take to the médiathèque. Handed in, because the bytes are on the ENGINE's
+   *  machine and only the file service is there — packages/song/docs/recorderNode.md. */
+  saveTake?(file: string, label?: string): Promise<string>;
 }
 
 export type SidHandler = (
@@ -332,6 +345,25 @@ export function parseMidiNote(s: string): number | null {
 
 // A beat value for a note struct, 6 decimals max, mirroring the tracker so drags don't churn the file.
 const fmtBeat = (v: number) => String(Math.round(v * 1e6) / 1e6);
+
+/** The first argument off a command line, JSON-quoted or bare, and the rest behind it. The inverse
+ *  of the `JSON.stringify` a caller wraps a PATH in — the one spelling a Windows backslash and a
+ *  space both survive, where stripping the quotes would leave `C:\\Users`. See docs/verbs.md. */
+function firstArg(a: string): { head: string; rest: string } | null {
+  const quoted = /^"(?:[^"\\]|\\.)*"/.exec(a);
+  if (quoted) {
+    try {
+      return {
+        head: JSON.parse(quoted[0]) as string,
+        rest: a.slice(quoted[0].length).trim(),
+      };
+    } catch {
+      return null;
+    }
+  }
+  const bare = /^\S+/.exec(a);
+  return bare ? { head: bare[0], rest: a.slice(bare[0].length).trim() } : null;
+}
 
 // Rewrite the project's `markers` map with QUOTED keys — unquoted, `2:1:1` is a YAML 1.1 integer; docs/verbs.md.
 function writeMarkers(songPath: string, map: Record<string, string>): void {
@@ -633,6 +665,89 @@ function padEffectCommand(effect: PadEffect): SidHandler {
         ? `repeated ×${n}`
         : `silent every ${n} passes`;
     h.log([`${seqId}: ${noteStr} (k${k}) at ${fmtBeat(t)} → ${said}`]);
+    await h.reload();
+  };
+}
+
+/**
+ * The four `sequence notes …` verbs: one RECTANGLE, one document pass, one journal entry — which
+ * is why they exist beside the eight that address a single note. All five arguments are parsed
+ * here and only the EDIT is each verb's own. See @studio/song-schema docs/noteEdits.md.
+ */
+function regionCommand(
+  verb: string,
+  /** The trailing argument, or undefined for a verb that wants none (`remove`). */
+  value: { name: string; check: (v: number) => string | null } | undefined,
+  edit: (v: number) => (n: NoteIn) => NoteIn | null,
+): SidHandler {
+  const usage = `usage: sequence notes ${verb} <sequence> <loNote> <hiNote> <from> <to>${value ? ` <${value.name}>` : ""}`;
+  return async (arg, h) => {
+    const [seqId, loStr, hiStr, fromStr, toStr, vStr] = arg.trim().split(/\s+/);
+    if (
+      !seqId ||
+      !loStr ||
+      !hiStr ||
+      fromStr === undefined ||
+      toStr === undefined ||
+      (value && vStr === undefined)
+    ) {
+      h.refuse([usage]);
+      return;
+    }
+    const lo = parseMidiNote(loStr);
+    const hi = parseMidiNote(hiStr);
+    if (lo === null || hi === null) {
+      h.refuse([
+        `bad note in "${loStr} ${hiStr}" — use a name (C4, F#3) or a number 0..127`,
+      ]);
+      return;
+    }
+    const from = Number(fromStr);
+    const to = Number(toStr);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) {
+      h.refuse(["from/to must be numbers (beats)"]);
+      return;
+    }
+    const v = value ? Number(vStr) : 0;
+    if (value) {
+      if (!Number.isFinite(v)) {
+        h.refuse([`${value.name} must be a number`]);
+        return;
+      }
+      const bad = value.check(v);
+      if (bad) {
+        h.refuse([bad]);
+        return;
+      }
+    }
+    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
+    let text: string;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+      return;
+    }
+    let out: { text: string; changed: number };
+    try {
+      out = mapNotesInRegion(
+        text,
+        { loKey: Math.min(lo, hi), hiKey: Math.max(lo, hi), from, to },
+        edit(v),
+      );
+    } catch (e) {
+      h.refuse([`sequence notes ${verb}: ${(e as Error).message}`]);
+      return;
+    }
+    // An empty rectangle is REFUSED by name, like every other note edit: silence would read as success.
+    if (!out.changed) {
+      h.refuse([
+        `no note between ${loStr} and ${hiStr} from beat ${from} to ${to}`,
+      ]);
+      return;
+    }
+    writeFileSync(file, out.text, "utf8");
+    h.log([`${seqId}: ${out.changed} note(s) ${verb}d`]);
     await h.reload();
   };
 }
@@ -1276,6 +1391,14 @@ const INTRINSICS: Record<
       said: name ? `shader ${name}` : "no shader",
     };
   },
+  /** Which CAMERA a live picture node opens, by its LABEL; `default` clears it — docs/camera.md. */
+  camera: (dir, module, raw) => {
+    const name = raw.trim() === "default" ? "" : raw.trim();
+    return {
+      path: setModuleCamera(dir, module, name),
+      said: name ? `camera ${name}` : "the default camera",
+    };
+  },
   /** Which named BASE this module starts from — the opaque `.vstpreset` under its params; docs/verbs.md. */
   base: (dir, module, raw) => {
     const name = raw.trim() === "none" ? "" : raw.trim();
@@ -1443,9 +1566,12 @@ function renameForNewModule(
     return `${node}: kept its name — ${mapped.length > 1 ? "surfaces" : "surface"} ${mapped.join(", ")} name it, and a mapping is not rewritten`;
   try {
     const { rewired } = renameChainNode(dir, node, next);
+    // A box's member is a reference this CAN write back, unlike a surface mapping above — so it does.
+    const boxes = renameNodeInAssemblies(dir, node, next);
     return (
       `${node} → ${next}, following the module it now extends` +
-      (rewired.length ? ` (rewired ${rewired.join(", ")})` : "")
+      (rewired.length ? ` (rewired ${rewired.join(", ")})` : "") +
+      (boxes.length ? ` (followed in ${boxes.join(", ")})` : "")
     );
   } catch (e) {
     return `${node}: kept its name — ${(e as Error).message}`;
@@ -2569,6 +2695,44 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "sequence.noteRepeat": padEffectCommand("repeat"),
   "sequence.noteSkip": padEffectCommand("skip"),
 
+  "sequence.notesRemove": regionCommand("remove", undefined, () => () => null),
+  /**
+   * Transposing CLAMPS onto the keyboard rather than dropping what falls off it — the engine's own
+   * `transpose` node does the same, and for the sharper reason: a dropped note leaves its note-off
+   * behind and hangs the voice (engine/moteur DspGraph.cpp). A paste, which is not an edit of notes
+   * that exist, drops instead and says so.
+   */
+  "sequence.notesTranspose": regionCommand(
+    "transpose",
+    {
+      name: "semitones",
+      check: (v) =>
+        Number.isInteger(v) ? null : "semitones must be a whole number",
+    },
+    (v) => (n) => ({ ...n, k: Math.max(0, Math.min(127, n.k + v)) }),
+  ),
+  /** Quantizing moves the ONSET and keeps the length: stretching too would be two edits under one verb. */
+  "sequence.notesQuantize": regionCommand(
+    "quantize",
+    {
+      name: "grid",
+      check: (v) => (v > 0 ? null : "the grid has to be more than 0 beats"),
+    },
+    (v) => (n) => ({ ...n, t: Math.max(0, Math.round(n.t / v) * v) }),
+  ),
+  /** Absolute, and 1 CLEARS the field, so a run of notes set to full leaves a file that never mentions velocity. */
+  "sequence.notesVelocity": regionCommand(
+    "velocity",
+    {
+      name: "velocity",
+      check: (v) => (v >= 0 && v <= 1 ? null : "velocity is 0..1"),
+    },
+    (v) => (n) => ({
+      ...n,
+      ...(v === 1 ? { v: undefined } : { v: Math.round(v * 100) / 100 }),
+    }),
+  ),
+
   /** Set ONE note's velocity, 0..1, clamped rather than refused; a velocity of 1 CLEARS the field — docs/verbs.md. */
   "sequence.noteVelocity": async (arg, h) => {
     const [seqId, noteStr, startStr, velStr] = arg.trim().split(/\s+/);
@@ -2773,6 +2937,33 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
     await h.showNativePluginUI(match.id);
     h.log([`opening ${match.module} (${match.type}) on ${match.track}…`]);
+  },
+
+  /** `node record save <file> [name]` — send a recorder's take to the médiathèque's recordings
+   *  zone. The FILE and not the node: a node has a stack of takes and the card knows which one is
+   *  on top, so naming it here would be a second answer to that. See docs/recorderNode.md. */
+  "node.record.save": async (a, h) => {
+    // The path comes JSON-quoted, since a take's is absolute and on Windows full of backslashes.
+    const m = firstArg(a.trim());
+    if (!m) {
+      h.refuse(["usage: node record save <take-file> [name]"]);
+      return;
+    }
+    const { head: file, rest: label } = m;
+    if (!h.saveTake) {
+      // Never silent: this host has no médiathèque behind it, which is a fact about WHERE the
+      // command ran rather than about the take.
+      h.refuse([
+        "this surface cannot save a take — it runs nowhere near the recording",
+      ]);
+      return;
+    }
+    try {
+      const at = await h.saveTake(file, label || undefined);
+      h.log([`saved ${at}`]);
+    } catch (e) {
+      h.refuse([`could not save the take: ${(e as Error).message}`]);
+    }
   },
 
   // `node bypass` writes into graph.yaml's `bypassed` list, not the module file — docs/verbs.md.
@@ -3175,6 +3366,76 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
+  /** assembly new <ref> <name> [x,y] — a templated box of nodes, wiring and all; docs/assemblies.md. */
+  "assembly.new": async (a, h) => {
+    const usage = "usage: assembly new <template-ref> <name> [x,y]";
+    const parts = a.trim().split(/\s+/).filter(Boolean);
+    const at = takeSpawnAt(parts);
+    if (parts.length !== 2) {
+      h.refuse([usage]);
+      return;
+    }
+    const [ref, name] = parts;
+    try {
+      const { file, members } = createAssembly(
+        h.songPath,
+        ref,
+        name,
+        at ?? undefined,
+      );
+      h.log([
+        `created ${file} — ${Object.keys(members).length} nodes, drawn as one box`,
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.refuse([`assembly new failed: ${(e as Error).message}`]);
+    }
+  },
+
+  /** assembly delete <name> — the record AND every node it holds, each spliced out like `node delete`. */
+  "assembly.delete": async (a, h) => {
+    const name = a.trim().split(/\s+/).filter(Boolean)[0];
+    if (!name) {
+      h.refuse(["usage: assembly delete <name>"]);
+      return;
+    }
+    try {
+      const members = assemblyMembers(h.songPath, name);
+      // The record goes FIRST: each delete below asks the assemblies which boxes hold the node.
+      const file = dissolveAssembly(h.songPath, name);
+      const removed: string[] = [];
+      for (const node of members) {
+        // A member with no file left is one somebody already deleted — not a reason to stop halfway.
+        try {
+          removed.push(...deleteChainNode(h.songPath, node).removed);
+        } catch {}
+      }
+      h.log([`deleted ${file} and ${removed.length} of its files`]);
+      await h.reload();
+    } catch (e) {
+      h.refuse([`assembly delete failed: ${(e as Error).message}`]);
+    }
+  },
+
+  /** assembly dissolve <name> — the record only; every node stays on the graph, wired as it was. */
+  "assembly.dissolve": async (a, h) => {
+    const name = a.trim().split(/\s+/).filter(Boolean)[0];
+    if (!name) {
+      h.refuse(["usage: assembly dissolve <name>"]);
+      return;
+    }
+    try {
+      const members = assemblyMembers(h.songPath, name);
+      const file = dissolveAssembly(h.songPath, name);
+      h.log([
+        `dropped ${file} — its ${members.length} nodes are on the graph, untouched`,
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.refuse([`assembly dissolve failed: ${(e as Error).message}`]);
+    }
+  },
+
   // No verb deletes a module: its files are the file tree's to remove — docs/verbs.md.
 
   /** node delete <node> — the node's file, its preset and its place in the graph; the module is untouched. */
@@ -3186,6 +3447,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
     try {
       const { rewired, removed } = deleteChainNode(h.songPath, node);
+      // …and out of any box holding it, which loses its record once it has no members left.
+      dropNodeFromAssemblies(h.songPath, node);
       h.log([
         `deleted ${removed.join(", ")}` +
           (rewired.length
@@ -3380,16 +3643,20 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         return {};
       }
     })();
+    // An ASSEMBLY is drawn as a card and pinned like one, though it is no key of `modules:` —
+    // one flat key space, so its name sits in `positions:` beside every node's (docs/assemblies.md).
     if (
       !isBuiltinOutput(name) &&
       !(name in g.modules) &&
       !(name in g.tracks) &&
+      !(name in g.assemblies) &&
       !(name in curves)
     ) {
+      const boxes = Object.keys(g.assemblies);
       h.refuse([
         `no node "${name}" in this project (modules: ${
           Object.keys(g.modules).join(", ") || "none"
-        })`,
+        }${boxes.length ? `; assemblies: ${boxes.join(", ")}` : ""})`,
       ]);
       return;
     }

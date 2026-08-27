@@ -5,7 +5,12 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { isPluginScanned } from "@studio/engine-client/pluginCache";
-import type { WebChainStep, WebGraph, WebRackSound } from "@studio/graph-model";
+import type {
+  WebChainStep,
+  WebGraph,
+  WebNodeAssembly,
+  WebRackSound,
+} from "@studio/graph-model";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { loadCurves } from "@studio/song/curves";
 import { activeFreezePlans } from "@studio/song/freeze";
@@ -20,9 +25,10 @@ import {
   EXTERNAL_PLUGIN_FORMATS,
   FAUST_TYPE,
   JSDSP_TYPE,
+  MIXER_PLUGIN,
   OFFLINE_TYPE,
 } from "@studio/song/project";
-import { SHADER_CATEGORY } from "@studio/song-schema/moduleTypes";
+import { CAMERA_IO, SHADER_CATEGORY } from "@studio/song-schema/moduleTypes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { moduleShaderChoices } from "@studio/song-video/shaders";
 
@@ -128,7 +134,33 @@ export function clipExtentsOf(doc: {
   return out;
 }
 
-export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
+/** Which node is each track's FADER, by track id — handed in like the extents, and for the same reason. */
+export type TrackMixers = Record<string, string>;
+
+/**
+ * The `Mixer` at the end of each track's chain, from the COMPILED project: `graph.yaml` alone says
+ * what a module is wired to, not what plugin it turns out to be, and the strip is defined by its type.
+ */
+export function trackMixersOf(doc: {
+  tracks: { id: string; plugins: { type: string; name: string }[] }[];
+}): TrackMixers {
+  const out: TrackMixers = {};
+  for (const t of doc.tracks) {
+    // The LAST one, as `trackMixer` reads it: a chain may pass through more than one and the level lives on the last.
+    for (let i = t.plugins.length - 1; i >= 0; i--)
+      if (t.plugins[i].type === MIXER_PLUGIN) {
+        out[t.id] = t.plugins[i].name;
+        break;
+      }
+  }
+  return out;
+}
+
+export function buildGraphDoc(
+  dir: string,
+  extents?: ClipExtents,
+  mixers?: TrackMixers,
+): WebGraph {
   // loadGraph reads graph.yaml exactly as the compile does.
   const g = loadGraph(dir);
   // Curve shapes for automation node labels, narrowed below to the curves a module actually binds.
@@ -262,6 +294,9 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
           // …and which socket it is on, NUMBERS only — a preferences label stays absent, docs/graphFlags.md.
           channel:
             module?.io === "in" ? numericChannels(module.channel) : undefined,
+          // A CAMERA's own field, on the same terms — and PRESENT even when empty, since that is
+          // what tells the card it is a lens at all: "" is the default one (docs/camera.md).
+          camera: module?.io === CAMERA_IO ? (module.camera ?? "") : undefined,
           automations: automations.length ? automations : undefined,
         };
       }),
@@ -347,6 +382,32 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
         });
     }
   }
+  // The boxes. Already resolved onto this project's node names by `@studio/song`; what is added
+  // here is the engine ADDRESS of each promoted param, which only the compiled steps know.
+  const pluginIds = new Map<string, string>();
+  for (const c of Object.values(chains))
+    for (const step of c.use)
+      if (step.pluginId) pluginIds.set(step.module, step.pluginId);
+  const assemblies: NonNullable<WebGraph["assemblies"]> = {};
+  for (const [id, a] of Object.entries(g.assemblies)) {
+    const params: NonNullable<WebNodeAssembly["params"]> = {};
+    for (const [name, t] of Object.entries(a.params))
+      params[name] = {
+        ...t,
+        ...(pluginIds.has(t.node) ? { pluginId: pluginIds.get(t.node) } : {}),
+      };
+    assemblies[id] = {
+      uses: a.uses,
+      label: a.label,
+      // In the TEMPLATE's declaration order, which is the order its own graph is written in.
+      members: Object.values(a.members),
+      ...(a.inputs.length ? { inputs: a.inputs } : {}),
+      ...(a.outputs.length ? { outputs: a.outputs } : {}),
+      ...(Object.keys(params).length ? { params } : {}),
+      ...(a.missing ? { missing: true } : {}),
+    };
+  }
+
   return {
     chains,
     tracks: Object.keys(g.tracks),
@@ -354,9 +415,18 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
     videoTracks: Object.keys(g.videoTracks),
     trackColors,
     trackSignals,
+    // Only the lanes this graph really draws: a mixer named for a track the file no longer has is a card nobody would find.
+    ...(mixers && Object.keys(mixers).length
+      ? {
+          trackMixers: Object.fromEntries(
+            Object.entries(mixers).filter(([id]) => id in g.tracks),
+          ),
+        }
+      : {}),
     ...(Object.keys(trackClips).length ? { trackClips } : {}),
     ...(Object.keys(trackAlternatives).length ? { trackAlternatives } : {}),
     ...(Object.keys(frozen).length ? { frozen } : {}),
+    ...(Object.keys(assemblies).length ? { assemblies } : {}),
     modules,
     // EVERY curve the project has, not only the bound ones — see docs/graphFlags.md.
     curves: (() => {

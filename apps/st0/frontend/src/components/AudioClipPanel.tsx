@@ -18,8 +18,10 @@ import { Waveform } from "@studio/ui-waveform";
 import { Check, Loader2, Play, Square, X } from "lucide-react";
 import {
   type ComponentProps,
+  type RefObject,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -31,9 +33,11 @@ import { clipPlayhead } from "../clipPlayhead";
 import { warpLine } from "../clipWarp";
 import type { MenuCtx } from "../contextMenu";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
+import { cursorOf, ModeStrip } from "../modeIcons";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { TakeOption } from "../takeReview";
 import type { WebWaveform } from "../types";
+import { WAVE_MODES, WAVE_PRESS, type WaveMode } from "../waveMode";
 import { ArrangementRuler } from "./Ruler";
 
 // The waveform fills whatever the panel has left under its header, MEASURED because a canvas needs its height in pixels; 120 is only the first frame.
@@ -43,13 +47,6 @@ const BUCKETS = 1200;
 const SENS_MIN = 0.25;
 const SENS_MAX = 8;
 
-/** The three ways of looking at a clip's wave — they differ in what is DRAWN over it and in what pointing at it does (see `view`). */
-type ClipMarkView = "standard" | "onsets" | "warp";
-const CLIP_VIEWS: { value: ClipMarkView; label: string }[] = [
-  { value: "standard", label: "standard" },
-  { value: "onsets", label: "onsets" },
-  { value: "warp", label: "warp" },
-];
 // The gate's range, in dBFS: −80 is below anything a take carries and −10 above a signal, so neither end is useless.
 const GATE_MIN = -80;
 const GATE_MAX = -10;
@@ -62,6 +59,12 @@ const NO_TAKES: TakeOption[] = [];
 // The chain token, the filter and the command line live in ../clipOps.ts — two surfaces, one spelling.
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
+
+/** What the shell drives on the AUDIO leaf — the counterpart of `ClipGridHandle` for the three note grids. */
+export interface AudioClipHandle {
+  /** `ui wave <mode>` — the three views are also the three gestures, so one verb sets both (waveMode.ts). */
+  setView: (v: WaveMode) => void;
+}
 
 export function AudioClipPanel({
   clip,
@@ -87,6 +90,9 @@ export function AudioClipPanel({
   reloadKey = 0,
   onStop,
   onClose,
+  viewRef,
+  onViewChange,
+  setStatus,
 }: {
   /** The clip on screen — null while a take is rolling, since the file does not exist yet. */
   clip: string | null;
@@ -131,6 +137,12 @@ export function AudioClipPanel({
   /** Stop the take. Absent when there is no take to stop — a clip opened from the timeline. */
   onStop?: () => void;
   onClose: () => void;
+  /** Where the shell reaches this panel's MODE — `ui wave <mode>` arrives here, as the timeline's tools do (waveMode.ts). */
+  viewRef?: RefObject<AudioClipHandle | null>;
+  /** …and the same fact going up, for the key conditions and the footer's badge. */
+  onViewChange?: (v: WaveMode | null) => void;
+  /** Where this panel says what a press would do — a mode you cannot see is one you edit in by accident. */
+  setStatus?: (s: string) => void;
 }) {
   const [wf, setWf] = useState<WebWaveform | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -162,9 +174,20 @@ export function AudioClipPanel({
   // The window the person asked for: how many bars, and from which bar — ONE state, since a zoom about the cursor writes both together.
   const [asked, setAsked] = useState({ bars: DEFAULT_BARS, start: 0 });
   /** What the picture is FOR right now, and so what it draws and what a click means — the three answers are exclusive in practice. */
-  const [view, setView] = useState<ClipMarkView>("standard");
+  const [view, setView] = useState<WaveMode>("standard");
   const editingOnsets = view === "onsets";
   const editingWarp = view === "warp";
+  // `standard` keeps the system's arrow: it places no mark, so there is nothing for a picture to promise.
+  const waveCursor = view === "standard" ? undefined : cursorOf(view);
+  // The shell's way in and this panel's way out — the select above dispatches the command, so both ends meet here.
+  useImperativeHandle(viewRef, (): AudioClipHandle => ({ setView }), []);
+  useEffect(() => onViewChange?.(view), [view, onViewChange]);
+  // …and NULL on the way out: a MIDI clip opened next would otherwise leave the shell believing a waveform is still on screen.
+  useEffect(() => () => onViewChange?.(null), [onViewChange]);
+  // What a press would do, said on every change of mode: three pictures that take three different gestures.
+  useEffect(() => {
+    if (!rolling) setStatus?.(`${view} — ${WAVE_PRESS[view]}`);
+  }, [view, rolling, setStatus]);
   // The box the waveform fills, measured (see MIN_WAVE_H); the width came along for the arrangement ruler.
   const waveBox = useRef<HTMLDivElement>(null);
   const [waveH, setWaveH] = useState(MIN_WAVE_H);
@@ -505,18 +528,18 @@ export function AudioClipPanel({
               </span>
             )}
 
-            {/* What the picture is for; a native `<select>` like the sliders beside it, this toolbar being plain controls. */}
+            {/* What the picture is for — and the select DISPATCHES the command rather than doubling it (docs/shell.md). */}
             <label className="ml-auto flex items-center gap-1.5 whitespace-nowrap">
               vue
               <select
                 className="rounded border border-input bg-background px-1 py-0.5"
                 value={view}
-                onChange={(e) => setView(e.target.value as ClipMarkView)}
+                onChange={(e) => void command(`ui wave ${e.target.value}`)}
                 aria-label="type de vue"
               >
-                {CLIP_VIEWS.map((v) => (
-                  <option key={v.value} value={v.value}>
-                    {v.label}
+                {WAVE_MODES.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
                   </option>
                 ))}
               </select>
@@ -654,6 +677,16 @@ export function AudioClipPanel({
 
       {/* The take list beside the wave: one row when there is nothing to choose between, two columns after several passes. */}
       <div className="flex min-h-0 flex-1 gap-2">
+        {/* The three views as a 32px column — the only way to one a finger has; absent while a take rolls, there being no mark yet. */}
+        {!rolling && clip && (
+          <ModeStrip
+            modes={WAVE_MODES}
+            current={view}
+            onPick={(m) => void command(`ui wave ${m}`)}
+            title={(m) => `${m} — ${WAVE_PRESS[m]}`}
+            className="-my-2 -ml-2"
+          />
+        )}
         {sidebar && (
           /** Every version of this lane, oldest slot first, with what it is PLAYING last — clicking one is a `track take select`. */
           <aside
@@ -770,7 +803,12 @@ export function AudioClipPanel({
           {/* The wheel zooms the window ANCHORED under the cursor, a trackpad pinch arriving as Ctrl+wheel (@studio/ui-timeline/panZoom). */}
           <div
             ref={waveBox}
-            className="min-h-0 flex-1 touch-none"
+            // The view's own icon AS the pointer — `standard` keeps the system's, having no mark to place (modeIcons.tsx).
+            style={waveCursor ? { cursor: waveCursor } : undefined}
+            className={cn(
+              "min-h-0 flex-1 touch-none",
+              waveCursor && "[&_*]:!cursor-[inherit]",
+            )}
             onWheel={(e) => {
               if (rolling || !wf) return;
               e.preventDefault();

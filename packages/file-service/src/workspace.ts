@@ -32,6 +32,11 @@ import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scannedPluginNames } from "@studio/engine-client/pluginCache";
 // WebGraph is graph-model's, not web-protocol's: an app that draws chains needn't pull in auth and the registry.
 import type { WebGraph } from "@studio/graph-model";
+import {
+  ASSEMBLY_FILE,
+  assemblyIssues,
+  libraryAssemblies,
+} from "@studio/song/assemblies";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { CHAIN_FILE, chainFromBench } from "@studio/song/benchChain";
 import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
@@ -84,7 +89,7 @@ import {
   moduleNamespaceOf,
 } from "@studio/song/sharedFolders";
 import {
-  isVideoProject,
+  hasPicture,
   projectSurfaces,
   surfaceIssues,
 } from "@studio/song/surfaces";
@@ -130,7 +135,13 @@ import {
   isBenchProject,
   writeChainToLibraries,
 } from "./bench.ts";
-import { buildGraphDoc, type ClipExtents, clipExtentsOf } from "./graphDoc.ts";
+import {
+  buildGraphDoc,
+  type ClipExtents,
+  clipExtentsOf,
+  type TrackMixers,
+  trackMixersOf,
+} from "./graphDoc.ts";
 import {
   type FileChange,
   type HistoryPeek,
@@ -1110,6 +1121,18 @@ export class Workspace {
     return out.sort((a, b) => a.ref.localeCompare(b.ref));
   }
 
+  /** The ASSEMBLY templates the library holds — what the builder lists and `assembly new` completes on.
+   *
+   * `file` is the `assembly.yaml` inside, and it is answered HERE rather than joined in a browser:
+   * a path a caller builds is one `safePath` never saw. Same rule as `/module-libraries`. */
+  libraryAssemblies(): { ref: string; path: string; file: string }[] {
+    return libraryAssemblies(this.activeProject ?? this.root).map((a) => ({
+      ref: a.ref,
+      path: this.toRel(a.path),
+      file: this.toRel(join(a.path, ASSEMBLY_FILE)),
+    }));
+  }
+
   /** The playlists this workspace holds, at the ROOT and at any depth — see docs/workspace.md. */
   playlists(): {
     path: string;
@@ -1757,6 +1780,8 @@ export class Workspace {
       color: t.color,
       mute: t.mute,
       kind: t.kind,
+      // The LENS wired to this lane, when one is — packages/song/docs/camera.md.
+      ...(t.camera === undefined ? {} : { camera: t.camera }),
       x: t.x,
       y: t.y,
       w: t.w,
@@ -1808,6 +1833,8 @@ export class Workspace {
           ...deadProjectFields(dir),
           // A `surfaces/` file that is THERE and malformed draws nothing, and says nothing either.
           ...surfaceIssues(dir),
+          // …and an assembly whose template is not in the library draws a box with no plugs.
+          ...assemblyIssues(dir),
         ],
       };
     } catch (e) {
@@ -1881,7 +1908,7 @@ export class Workspace {
   /** The project's picture, or an EMPTY one when it has none — never a throw, since every song may carry one. */
   videoProjectDoc(): WebVideoProject {
     const dir = this.requireActive();
-    if (!isVideoProject(dir))
+    if (!hasPicture(dir))
       return {
         name: basename(dir),
         viewport: [0, 0],
@@ -1915,7 +1942,7 @@ export class Workspace {
   videoProjectErrors(): { errors: string[]; diagnostics: Diagnostic[] } {
     const dir = this.activeProject;
     // No lanes is not an error, for the same reason the document above is empty rather than a throw.
-    if (!dir || !isVideoProject(dir)) return { errors: [], diagnostics: [] };
+    if (!dir || !hasPicture(dir)) return { errors: [], diagnostics: [] };
     try {
       this.cachedVideoDoc(dir);
       return { errors: [], diagnostics: [] };
@@ -1942,6 +1969,15 @@ export class Workspace {
     }
   }
 
+  /** …and which node is each lane's fader, off the same compile: `graph.yaml` does not say what a module IS. */
+  private trackMixers(dir: string): TrackMixers | undefined {
+    try {
+      return trackMixersOf(this.cachedProjectDoc(dir));
+    } catch {
+      return undefined;
+    }
+  }
+
   // `at` builds the graph of a folder OTHER than the open project — a library chain, for the builder.
   graphDoc(at?: string): WebGraph {
     // TWO scopes for the whole derivation, one level apart — see docs/workspace.md.
@@ -1955,11 +1991,15 @@ export class Workspace {
     const dir = at ?? this.requireActive();
     // The token describes the ACTIVE project; for anything else there is nothing honest to key on, so build it.
     if (dir !== this.activeProject)
-      return buildGraphDoc(dir, this.clipExtents(dir));
+      return buildGraphDoc(dir, this.clipExtents(dir), this.trackMixers(dir));
     const { rev } = this.revision();
     const hit = this.graphCache;
     if (hit && hit.dir === dir && hit.rev === rev) return hit.graph;
-    const graph = buildGraphDoc(dir, this.clipExtents(dir));
+    const graph = buildGraphDoc(
+      dir,
+      this.clipExtents(dir),
+      this.trackMixers(dir),
+    );
     this.graphCache = { dir, rev, graph };
     return graph;
   }

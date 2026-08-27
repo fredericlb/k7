@@ -5,7 +5,6 @@
 // disk and are the one worked example a reader gets.
 // Full rationale: docs/setProject.md.
 
-// The stem vocabulary lives in song-schema because the DESK needs the same names and cannot import a scaffold.
 import {
   deckPlatter,
   STEM_NEUTRAL,
@@ -16,7 +15,13 @@ import {
   stemFile,
   stemLane,
   stemPlatter,
+  TURNTABLE_REF,
+  turntableBox,
+  turntableMembers,
 } from "@studio/song-schema/stems";
+// The stem vocabulary lives in song-schema because the DESK needs the same names and cannot import a scaffold.
+import { formatAssembly } from "@studio/song-schema/yaml/assemblyFile";
+import { ASSEMBLIES_DIR } from "@studio/song-schema/yaml/assemblySchema";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { writeProjectFiles } from "./scaffold";
 
@@ -173,6 +178,9 @@ export function setProjectFiles(name: string): Record<string, string> {
     // The stems' lanes and cuts, GENERATED rather than spelled out — see docs/setProject.md.
     ...stemNodeFiles(),
 
+    // …and the RECORD that draws each deck's eighteen nodes as one box — docs/assemblies.md.
+    ...assemblyFiles(),
+
     "surfaces/desk.yaml":
       `# The DESK, and what each of its controls drives.\n` +
       `#\n` +
@@ -256,6 +264,33 @@ export function fadeNodeFile(
   invert: boolean,
 ): Record<string, string> {
   return { [`nodes/fade${letter}.yaml`]: fadeNode(letter, invert) };
+}
+
+/** One `assemblies/turntable<L>.yaml` per deck: the box its eighteen nodes are drawn as.
+ *
+ * It writes NO graph change and no node, which is the whole point — an assembly is a drawing, so a
+ * set with these files and one without compile to the same `ProjectDoc`. Exported for the same
+ * reason `stemNodeFiles` is: the migration gives an older set exactly the files a new one gets. */
+export function assemblyFiles(
+  decks: readonly string[] = DECKS,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const deck of decks) {
+    const box = turntableBox(deck);
+    out[`${ASSEMBLIES_DIR}/${box}.yaml`] = formatAssembly(
+      { uses: TURNTABLE_REF, members: turntableMembers(deck) },
+      `# ${box} — deck ${letterOf(deck)}'s nodes, drawn as one appliance.
+` +
+        `#
+` +
+        `# This file changes NOTHING about the sound: it says which of the graph's nodes are one
+` +
+        `# box and nothing else. Its plugs and its knobs come from the template it names, which
+` +
+        `# lives in the account's library — see packages/song/docs/assemblies.md.`,
+    );
+  }
+  return out;
 }
 
 export function stemNodeFiles(

@@ -142,6 +142,9 @@ export const FAUST_FILE = "dsp.dsp";
 /** The plugin type a mixer module instantiates — an internal plugin reaches the engine under its DISPLAY name, so this is what a PluginDoc carries. */
 export const MIXER_PLUGIN = "Mixer";
 
+/** …and a RECORDER node's, spelled the same way and for the same reason — engine docs/recorder.md. */
+export const RECORDER_PLUGIN = "Recorder";
+
 /** The five knobs a strip has, in the order a strip reads them. Also the param names in the module file. */
 export const MIXER_PARAMS = ["Volume", "Pan", "Low", "Mid", "High"] as const;
 

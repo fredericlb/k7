@@ -41,6 +41,7 @@ import {
 import chokidar from "chokidar";
 import { guard } from "./background.ts";
 import { closeModuleWatch, watchModuleFolders } from "./moduleWatch.ts";
+import { saveTake } from "./recorderSave.ts";
 import { rootDir, slugify } from "./slug.ts";
 import { sshCommand } from "./sshKeys.ts";
 import { skip, type Workspace } from "./workspace.ts";
@@ -801,6 +802,14 @@ function makeHost(
     refuse: (lines) => {
       out.refused = true;
       out.push(...lines);
+    },
+    // The take's bytes are on THIS machine — the engine wrote them — so this host is the only
+    // one that can answer `node record save`. The record directory is the document's, which is
+    // what the path is checked against (recorderSave.ts).
+    saveTake: async (file, label) => {
+      const dir = ws.cachedProjectDoc(requireDir()).recordDir;
+      const res = await saveTake({ recordDir: dir, file, label });
+      return res.path;
     },
     reload: () => {
       try {

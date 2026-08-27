@@ -19,6 +19,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <sstream>
@@ -58,14 +59,19 @@ constexpr size_t kBroadcastMaxQueuedBytes = 512 * 1024;
 // A ceiling on a session id, not a shape: naming one creates it, so only a length that attacks the map is worth refusing — real ids are tens of bytes.
 constexpr size_t kMaxSessionIdBytes = 256;
 
-// Sender thread only, so no synchronisation: it is the one thing that reads or writes it.
-
-uint32_t broadcastSeq = 0;
+// Sender thread only, so no synchronisation: it is the one thing that reads or writes any of this.
 
 // One sequence per session: sharing a counter would have each service read the other's frames as its own dropped ones.
+std::map<std::string, uint32_t> broadcastSeq;
+
 uint32_t nextSeq(const std::string& s, uint32_t by) {
-    static std::map<std::string, uint32_t> seq;
-    return seq[s] += by;
+    return broadcastSeq[s] += by;
+}
+
+// Drop the counters of sessions nobody is listening to any more: naming a session creates it, so a client cycling ids would otherwise grow this map for the life of the engine.
+void forgetSeqsExcept(const std::set<std::string>& live) {
+    for (auto it = broadcastSeq.begin(); it != broadcastSeq.end();)
+        it = live.count(it->first) ? std::next(it) : broadcastSeq.erase(it);
 }
 
 // Sessions whose first listener just arrived, so the sender — the only thread that may move the ring's read cursor — skips to live; a set, since two can arrive in one tick.
@@ -541,6 +547,11 @@ int main(int argc, char** argv) {
         "whoami", "list-audio-devices", "list-plugins", "list-edit-plugins",
         "list-sessions", "io-levels"};
 
+    // Verbs whose `session` names ANOTHER project than the sender's, so they must not bind one: the binding is
+    // once per socket, and a tray whose first message is `drop-session` would be deaf to its own for ever.
+    static const std::unordered_set<std::string> overrideQueries = {
+        "drop-session", "show-native-plugin-ui", "show-native-plugin-ui-of"};
+
     // Which connections earned their deferred "[client] connected" line, so a disconnect logs only when the connect did; mutex-guarded, since IXWebSocket runs each callback on its own thread.
     std::mutex loggedMx;
     std::unordered_set<std::string> loggedConns;
@@ -555,7 +566,8 @@ int main(int argc, char** argv) {
     // WHICH project each socket is about, learned from its first REAL message and bound ONCE, so the 20 Hz state frame reaches only the sockets that asked (docs/protocol.md).
     std::unordered_map<const ix::WebSocket*, std::string> subscribers;
 
-    server.setOnClientMessageCallback(
+    // Named rather than passed inline, so the registration below can wrap it in the one try/catch this socket has — see there.
+    auto onMessage =
         [&host, &broadcast, &broadcastTo, &loggedMx, &loggedConns, &listenersMx, &listeners,
          &drivers, &subscribers, engineId, engineToken](
             std::shared_ptr<ix::ConnectionState> conn,
@@ -636,8 +648,17 @@ int main(int argc, char** argv) {
                 if (firstReal)
                     std::cerr << "[client] connected (" << conn->getRemoteIp() << ")\n";
                 // …and says which project to send it state about; a probe never asks, so 20 frames a second aimed at it would be pure copy.
-                std::lock_guard<std::mutex> lk(listenersMx);
-                subscribers.emplace(&ws, session);
+                if (overrideQueries.count(type) == 0) {
+                    bool joined;
+                    {
+                        std::lock_guard<std::mutex> lk(listenersMx);
+                        joined = subscribers.emplace(&ws, session).second;
+                    }
+                    // A NEW subscriber holds none of the take being recorded, and the frames carry
+                    // only what is new — so the next one carries the whole picture (docs/recorder.md).
+                    if (joined)
+                        host.post([&host, session] { host.rewindRecorderEnvelopes(session); });
+                }
             }
 
             if (type == "project") {
@@ -737,20 +758,29 @@ int main(int argc, char** argv) {
                 const bool on = j.value("on", false);
                 size_t remaining = 0;
                 bool first = false;
+                // Which session this actually changes; resolved under the lock below, and logged after it.
+                std::string target = session;
                 {
                     // Same discipline as the Close handler: decide and queue under one lock.
                     std::lock_guard<std::mutex> lk(listenersMx);
+                    // Turning OFF retires the socket's OWN subscription, whatever session the message names — the Close handler's rule, and the only one that cannot strand a tap.
+                    if (!on)
+                        if (auto it = listeners.find(&ws); it != listeners.end()) target = it->second;
                     // FIRST for THIS session, counted rather than tested on emptiness: another service already listening does not make this one mid-stream.
                     first = on && std::none_of(listeners.begin(), listeners.end(),
-                                               [&](const auto& kv) { return kv.second == session; });
-                    if (on) listeners[&ws] = session;
+                                               [&](const auto& kv) { return kv.second == target; });
+                    if (on) listeners[&ws] = target;
                     else listeners.erase(&ws);
-                    remaining = listeners.size();
-                    if (first) { std::lock_guard<std::mutex> a(arrivedMx); arrived.insert(session); }
-                    host.post([session, &host, want = remaining > 0] { host.enableBroadcast(session, want); });
+                    // THIS session's ears, exactly as the Close handler counts them: the engine-wide total
+                    // would leave the tap on a session nobody hears whenever another one still has a listener.
+                    remaining = static_cast<size_t>(
+                        std::count_if(listeners.begin(), listeners.end(),
+                                      [&](const auto& kv) { return kv.second == target; }));
+                    if (first) { std::lock_guard<std::mutex> a(arrivedMx); arrived.insert(target); }
+                    host.post([target, &host, want = remaining > 0] { host.enableBroadcast(target, want); });
                 }
-                std::cerr << "[broadcast] " << (on ? "listener added" : "listener removed")
-                          << " (" << remaining << " listening)\n";
+                std::cerr << "[broadcast] " << (on ? "listener added to '" : "listener removed from '")
+                          << target << "' (" << remaining << " listening to it)\n";
             } else if (type == "flush") {
                 // Forget the project — plugins, edit, diff baseline — when the client switches projects; the engine stays up with its audio device and scan cache.
                 host.post([session, &host, &broadcastTo]() {
@@ -793,6 +823,15 @@ int main(int argc, char** argv) {
                                   << length << "]\n";
                         host.previewSample(session, file, start, length);
                     });
+            } else if (type == "note-preview") {
+                // Audition one note through a track's OWN chain — the piano roll's click. Transport-independent, like `preview`.
+                const std::string track = j.value("track", std::string{});
+                const int key = j.value("key", -1);
+                const double vel = j.value("vel", 1.0);
+                if (! track.empty() && key >= 0 && key <= 127)
+                    host.post([session, &host, track, key, vel] {
+                        host.previewNote(session, track, key, (float) vel);
+                    });
             } else if (type == "arm") {
                 // Arm or disarm a track, omitting "armed" to toggle; the reply says which way it went, so the caller reports it without racing the state frame.
                 const std::string track = j.value("track", std::string{});
@@ -807,6 +846,27 @@ int main(int argc, char** argv) {
                         return;
                     }
                     broadcastTo(session, json{{"type", "armed"}, {"track", track}, {"armed", r.armed}});
+                });
+            } else if (type == "recorder") {
+                // The RECORDER node's two engine verbs, free-running and transport-independent:
+                // `record` (omit "on" to toggle) and `clear`, which pops the last take. `save` is
+                // NOT here — the engine's job ends at a wav on disk. See docs/recorder.md.
+                const std::string node = j.value("node", std::string{});
+                const std::string action = j.value("action", std::string{});
+                std::optional<bool> on;
+                if (j.contains("on") && j.at("on").is_boolean())
+                    on = j.at("on").get<bool>();
+                host.post([session, &host, &broadcastTo, node, action, on] {
+                    if (node.empty()) return;
+                    const auto r = (action == "clear")
+                        ? host.clearLastTake(session, node)
+                        : host.setRecorderRecording(session, node,
+                                                    on.value_or(!host.recorderRecording(session, node)));
+                    if (!r.ok) {
+                        std::cerr << "[rec] refused: " << r.error << std::endl;
+                        broadcastTo(session, json{{"type", "error"}, {"message", r.error}});
+                    }
+                    // No reply on success: the state frame carries the light, at 20 Hz.
                 });
             } else if (type == "record-enable") {
                 // This session's record enable — whether play() records its armed tracks; omitting "enabled" toggles, and the value is echoed at once so the button lights.
@@ -1179,6 +1239,26 @@ int main(int argc, char** argv) {
                 std::cerr << "[client] unknown message type: '" << type << "'\n";
                 ws.send(json{{"type", "error"}, {"message", "unknown message type: " + type}}.dump());
             }
+        };
+
+    // The ONE catch on this socket, and it is load-bearing: IXWebSocket has none of its own, so an
+    // exception escaping the handler reaches std::terminate and takes every session with it. `value()`
+    // throws on a field of the wrong TYPE and on a message that is not an object at all. docs/protocol.md.
+    server.setOnClientMessageCallback(
+        [&onMessage](std::shared_ptr<ix::ConnectionState> conn, ix::WebSocket& ws,
+                     const ix::WebSocketMessagePtr& msg) {
+            try {
+                onMessage(std::move(conn), ws, msg);
+            } catch (const std::exception& e) {
+                // Logged as well as answered: a client ignoring `error` would otherwise leave no trace of it at all.
+                std::cerr << "[client] refused a message: " << e.what() << "\n";
+                ws.send(json{{"type", "error"},
+                             {"message", std::string("malformed message: ") + e.what()}}
+                            .dump());
+            } catch (...) {
+                std::cerr << "[client] refused a message (unknown exception)\n";
+                ws.send(json{{"type", "error"}, {"message", "malformed message"}}.dump());
+            }
         });
 
     // Push transport/meter state ~20x/second to the sockets that asked about THIS project, not to every socket on the port (docs/protocol.md).
@@ -1189,6 +1269,22 @@ int main(int argc, char** argv) {
             for (const auto& e : envelopes)
                 arr.push_back({{"min", e.min}, {"max", e.max}});
             wf[key] = std::move(arr);
+        }
+        json recs = json::object();
+        for (const auto& [key, r] : s.recorders) {
+            json takes = json::array();
+            for (const auto& t : r.takes)
+                takes.push_back({{"file", t.file}, {"seconds", t.seconds}, {"damaged", t.damaged}});
+            json env = json::array();
+            for (const auto& e : r.envelope)
+                env.push_back({{"min", e.min}, {"max", e.max}});
+            recs[key] = json{{"recording", r.recording},
+                             {"seconds", r.seconds},
+                             {"takes", std::move(takes)},
+                             {"envelope", std::move(env)},
+                             // Where those points START in the take, so a client can tell an
+                             // append from a resend it has already drawn (docs/recorder.md).
+                             {"from", r.envelopeFrom}};
         }
         const auto payload = json{
             {"type", "state"},
@@ -1206,6 +1302,9 @@ int main(int argc, char** argv) {
             {"waveform", std::move(wf)},
             // Each platter's own needle, in seconds of its record — absent for a deck playing a clip.
             {"platters", s.platterSeconds},
+            // …and each RECORDER node: whether it is rolling, and the take's picture SINCE THE LAST
+            // FRAME, which the client appends rather than replaces (docs/recorder.md).
+            {"recorders", std::move(recs)},
         }.dump();
 
         // Chosen under the lock, sent outside it: a server-side send blocks until the peer's window drains, so holding the lock would park every connection thread; the shared_ptrs keep the sockets alive.
@@ -1277,7 +1376,8 @@ int main(int argc, char** argv) {
     std::atomic<bool> senderRunning{true};
     std::thread senderThread([&host, &server, &listenersMx, &listeners, &sinceBoot,
                               &senderRunning] {
-        bool warnedNoRate = false;
+        // Per SESSION, not per engine: one latch would have the second project's unprepared tap withhold frames in silence.
+        std::set<std::string> warnedNoRate;
 
         // Drain ONE session's ring and send it to ONE session's listeners — a lambda, because the pass below loops over sessions.
         const auto pump =
@@ -1290,11 +1390,9 @@ int main(int argc, char** argv) {
 
                     // A rate of 0 means this session's tap has never been through initialise(), and stream.ts rejects it, so it would vanish in silence.
                     if (chunk.sampleRate < 8000.0) {
-                        if (!warnedNoRate) {
-                            std::cerr << "[broadcast] a tap has no sample rate yet — frames "
-                                         "withheld until the graph has prepared it\n";
-                            warnedNoRate = true;
-                        }
+                        if (warnedNoRate.insert(sid).second)
+                            std::cerr << "[broadcast] the tap on '" << sid << "' has no sample rate "
+                                         "yet — frames withheld until the graph has prepared it\n";
                         break;
                     }
 
@@ -1345,6 +1443,18 @@ int main(int argc, char** argv) {
             }
 
             for (const auto& [sid, targets] : bySession) pump(sid, targets);
+
+            // Retire the counters of sessions the ENGINE has forgotten — never merely of ones with no listener
+            // right now: a sequence that restarted under a listener who came back would read as a 4-billion-frame
+            // hole (`seqGap` is unsigned). Only when there is something stale to find, this asking for a lock.
+            if (broadcastSeq.size() > bySession.size()) {
+                std::set<std::string> live;
+                for (const auto& sid : host.sessionIds()) live.insert(sid);
+                forgetSeqsExcept(live);
+                for (auto it = warnedNoRate.begin(); it != warnedNoRate.end();)
+                    it = live.count(*it) ? std::next(it) : warnedNoRate.erase(it);
+            }
+
             std::this_thread::sleep_for(std::chrono::milliseconds(kBroadcastTickMs));
         }
     });

@@ -323,14 +323,14 @@ int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::st
     auto& engine = *enginePtr;
     auto edit = buildRenderEdit(engine, doc, baseDir);
 
-    // Matched by NAME, which is what populateEdit gives the track, and audio tracks only — a group has no material of its own to bake.
-    auto tracks = te::getAudioTracks(*edit);
-    te::Track* found = nullptr;
-    for (auto* t : tracks)
-        if (t->getName().toStdString() == trackId) {
-            found = t;
-            break;
-        }
+    // By the doc ID through the same index map the live engine uses; the NAME is only a fallback, and matching on it alone was the bug — docs/cliModes.md.
+    te::Track* found = trackById(*edit, trackId, doc);
+    if (found == nullptr)
+        for (auto* t : te::getAudioTracks(*edit))
+            if (t->getName().toStdString() == trackId) {
+                found = t;
+                break;
+            }
     if (found == nullptr) {
         std::cerr << "[freeze] no track '" << trackId << "' in the project\n";
         return 1;

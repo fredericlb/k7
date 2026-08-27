@@ -22,6 +22,7 @@ add_library(studio_engine STATIC
     Waveform.cpp
     WaveformTapPlugin.cpp
     BroadcastTapPlugin.cpp
+    RecorderPlugin.cpp
     NamPlugin.cpp
     DspGraph.cpp
     GraphDspPlugin.cpp
@@ -36,7 +37,8 @@ add_library(studio_engine STATIC
     AudioInputs.cpp
     InputTuner.cpp
     PluginEditor.cpp
-    Recording.cpp)
+    Recording.cpp
+    Recorder.cpp)
 
 add_library(studio::engine ALIAS studio_engine)
 

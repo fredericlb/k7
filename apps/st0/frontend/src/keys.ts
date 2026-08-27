@@ -37,10 +37,13 @@ export const KEYS: Record<string, Binding> = {
   enter: "transport rewind",
   // t locates the transport to the timeline caret; quiet on a label, which is a row rather than a beat.
   t: "transport locate",
-  // Esc backs out ONE layer, first match winning, outermost first: a popin shadows the graph slot, then a fullscreen pane, then the panel.
+  // Esc backs out ONE layer, outermost first: a popin, the graph slot, the tool in hand, a fullscreen pane, the panel. First match wins.
   esc: [
     { if: "popin", command: "ui popin close" },
     { if: "graph_slot", command: "ui slot close" },
+    { if: "roll_armed", command: "ui roll select" },
+    { if: "wave_marks", command: "ui wave standard" },
+    { if: "tool_held", command: "ui tool pointer" },
     { if: "fullscreen", command: "ui global" },
     "ui close",
   ],
@@ -81,6 +84,23 @@ export const KEYS: Record<string, Binding> = {
   c: COPY_SELECTION,
   // `p` is one line whatever is held: the clipboard carries its kind, so the condition is merely that something IS held.
   p: PASTE_SELECTION,
+  // `x` deletes what a clip grid's rectangle holds — conditional on a grid being open, since the timeline has no counterpart.
+  x: { if: "clip_grid", command: "selection delete" },
+  // The MODES of all three surfaces. `a` is the neutral one everywhere and `d` takes something away on two — the pane in FRONT wins both.
+  a: [
+    { if: "roll_open", command: "ui roll select" },
+    { if: "wave_open", command: "ui wave standard" },
+    { if: "timeline_active", command: "ui tool pointer" },
+  ],
+  b: { if: "timeline_active", command: "ui tool cut" },
+  d: [
+    { if: "roll_open", command: "ui roll remove" },
+    { if: "timeline_active", command: "ui tool erase" },
+  ],
+  // …the roll's own third, and the waveform's other two, where the view IS the gesture (docs/clipEditors.md).
+  n: { if: "roll_open", command: "ui roll create" },
+  o: { if: "wave_open", command: "ui wave onsets" },
+  w: { if: "wave_open", command: "ui wave warp" },
 };
 
 /** The clipboard chords, and the ONLY ones this shell takes off the browser; ⌘ and ⌃ produce the SAME token. */

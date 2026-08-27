@@ -18,9 +18,27 @@ export { LIBRARIES_DIR, LIBRARIES_PATH } from "@studio/song-schema/moduleTypes";
 
 import { LIBRARIES_DIR, LIBRARIES_PATH } from "@studio/song-schema/moduleTypes";
 
-/** The two families the library repository carries — `library/` is not one, see docs/moduleAssets.md. */
-export const librariesDirFor = (dir: string, kind: "modules" | "chains") =>
-  resolve(dir, LIBRARIES_PATH, kind);
+/** The three families the library repository carries — `library/` is not one, see docs/moduleAssets.md. */
+export const librariesDirFor = (
+  dir: string,
+  kind: "modules" | "chains" | "assemblies",
+) => resolve(dir, LIBRARIES_PATH, kind);
+
+/** …and the same folder when `dir` is INSIDE the library already, which a template being edited is. */
+export function librariesFamilyRoot(
+  dir: string,
+  kind: "modules" | "chains" | "assemblies",
+): string | null {
+  const root = librariesDirFor(dir, kind);
+  if (existsSync(root)) return root;
+  const abs = resolve(dir);
+  const segs = abs.split(/[\\/]+/);
+  const at = segs.lastIndexOf(LIBRARIES_DIR);
+  if (at < 0) return null;
+  // Walked UP rather than rejoined: a POSIX path splits to a leading "" that join() drops, answering a RELATIVE path.
+  const inside = resolve(abs, ...Array(segs.length - 1 - at).fill(".."), kind);
+  return existsSync(inside) ? inside : null;
+}
 
 /** Is this path inside a shared module library, by SEGMENT and either separator? See docs/moduleFork.md. */
 export function isInSharedModules(path: string): boolean {
@@ -34,14 +52,7 @@ export function hasSharedModules(dir: string): boolean {
 
 /** The library repository's modules as mounted beside this project, or null — docs/sharedFolders.md. */
 export function librariesModulesRoot(dir: string): string | null {
-  const root = librariesDirFor(dir, "modules");
-  if (existsSync(root)) return root;
-  // …or `dir` is INSIDE the library repository already, which a chain template is — docs/sharedFolders.md.
-  const segs = dir.split(/[\\/]+/);
-  const at = segs.lastIndexOf(LIBRARIES_DIR);
-  if (at < 0) return null;
-  const inside = join(...segs.slice(0, at + 1), "modules");
-  return existsSync(inside) ? inside : null;
+  return librariesFamilyRoot(dir, "modules");
 }
 
 /** Every shared module root this project inherits, nearest FIRST, none of them declared — docs/sharedFolders.md. */

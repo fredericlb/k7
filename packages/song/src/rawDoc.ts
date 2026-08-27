@@ -131,6 +131,8 @@ export interface LoadedModule {
   // The module's MIDI map from its folder's `controller.yaml`, stamped on beside `ui` and by the same rule.
   cc?: unknown;
   channel?: unknown; // io "in" only
+  camera?: unknown; // io "camera" only — the LABEL, see packages/song/docs/camera.md
+  frame?: unknown; // …and its rectangle in the viewport, [x, y, w, h]
   // io "file" only — the audio it reads, project-relative; NOT `file`, which the loader owns (moduleSchema).
   source?: unknown;
   track?: unknown; // io "in" only
@@ -186,6 +188,7 @@ export interface AssembledNote {
   key?: unknown;
   vel?: unknown;
   channel?: unknown;
+  camera?: unknown;
   rel?: unknown;
 }
 

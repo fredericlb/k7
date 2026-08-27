@@ -17,6 +17,7 @@
 #include "ProjectDoc.h"
 #include "ProjectDiff.h"
 #include "WaveformTap.h"     // WaveformEnvelope — pure C++, no JUCE
+#include "RecorderTap.h"     // RecorderTake — likewise, and for the same reason
 
 // Forward-declare to keep Tracktion headers out of this interface.
 namespace tracktion { inline namespace engine {
@@ -25,6 +26,10 @@ class Edit;
 }}  // namespace tracktion::engine
 
 namespace studio {
+
+// One recorder node's ring and takes. FORWARD-declared: its own header sees JUCE, and this one is
+// the public interface, which does not — the same rule Impl follows (docs/recorder.md).
+class RecorderNode;
 
 // A discovered plugin (plain struct — no JUCE in this interface).
 struct PluginInfo {
@@ -96,6 +101,9 @@ public:
     // Audition `file` from `startSeconds` through a hidden one-shot SamplerPlugin voice, transport-independent; length <= 0 plays it whole. Message-thread only.
     void previewSample(const std::string& session, const std::string& file, double startSeconds, double lengthSeconds);
 
+    // Audition one note on a TRACK'S OWN chain — what the piano roll's click plays; velocity 0..1, released after 100 ms. Message-thread only.
+    void previewNote(const std::string& session, const std::string& trackId, int key, float velocity);
+
     // Per-track output level in dB, for meters (-100 == silent).
     float trackLevelDb(const std::string& session, int trackIndex) const;
 
@@ -108,7 +116,7 @@ public:
         bool found = false;
     };
 
-    // Peak dB per channel set, in order — the INTERFACE, not the song. ENABLES each device it finds, so poll only while a surface looks. Message-thread only.
+    // Peak dB per channel set, in order — the INTERFACE, not the song. Read off the tuner's own tap, which it ATTACHES on the first ask and leaves on. Message-thread only.
     std::vector<ChannelLevel> channelLevelsDb(const std::vector<std::vector<int>>& channelSets);
 
     // How this rig actually groups its inputs: one entry per wave input device with the 1-based channels it carries — stereo pairing is the normal case.
@@ -151,6 +159,47 @@ public:
 
     // Drain every active tap at once, keyed "chain:module:side" — no per-module drain exists, so nothing can empty one the state timer is about to read.
     std::map<std::string, std::vector<WaveformEnvelope>> drainAllWaveformTaps(const std::string& session);
+
+    // --- The RECORDER node: a tape machine the DOCUMENT declares, free-running and transport-independent. docs/recorder.md.
+
+    // What a recorder verb answered; `error` is the sentence the client shows, empty when ok.
+    struct RecorderResult {
+        bool ok = false;
+        std::string error;
+    };
+
+    // Start or stop the take on that node; idempotent, so two clients cannot fight over one light.
+    RecorderResult setRecorderRecording(const std::string& session, const std::string& id, bool on);
+
+    // Drop the most recent take, file and all. Stops first if it is the one being written.
+    RecorderResult clearLastTake(const std::string& session, const std::string& id);
+
+    // Send every recorder's WHOLE picture on the next state frame rather than only what is new.
+    // What a client that just connected needs, and harmless for the ones already drawing it.
+    void rewindRecorderEnvelopes(const std::string& session);
+
+    // Whether ANY node is recording — the state pump asks before it decides a session is idle.
+    bool anyRecording(const std::string& session) const;
+
+    // …and whether THIS one is, which is what a toggle needs: `anyRecording` would flip the wrong
+    // node the moment a project has two.
+    bool recorderRecording(const std::string& session, const std::string& id) const;
+
+    // One node as the state frame carries it: `envelope` is the points SINCE THE LAST POLL, and
+    // `envelopeFrom` where they START in the take — what lets a client tell an append from a resend.
+    struct RecorderReport {
+        bool recording = false;
+        double seconds = 0.0;
+        std::vector<RecorderTake> takes;
+        std::vector<WaveformEnvelope> envelope;
+        size_t envelopeFrom = 0;
+    };
+
+    // Drain every recording node onto its file and report them all — the state tick's, message thread.
+    std::map<std::string, RecorderReport> pumpRecorders(const std::string& session);
+
+    // Point every RecorderPlugin in the running edit at its session-owned ring; after each build.
+    void attachRecorderTaps(const std::string& session);
 
     // --- Audio broadcast: the mix copied out for the network only once somebody asks, and NOT uniformly message-thread — read each method. docs/broadcast.md.
 
@@ -283,12 +332,14 @@ public:
         std::map<std::string, std::vector<WaveformEnvelope>> waveformEnvelopes;
         // Each PLATTER's needle in seconds of its own record, by plugin id — its own clock, docs/turntable.md.
         std::map<std::string, double> platterSeconds;
+        // Each RECORDER node's state, by plugin id — empty when the project declares none.
+        std::map<std::string, RecorderReport> recorders;
     };
 
     /** Every PLATTER's needle in this session, keyed by plugin id — empty when the deck plays a clip. */
     std::map<std::string, double> platterPositions(const std::string& session) const;
 
-    /** The sessions that exist, in id order. The state timer walks this. */
+    /** The sessions that exist, in id order. The state timer walks this; the broadcast sender does too, so ANY THREAD — the registry copies them out under its lock. */
     std::vector<std::string> sessionIds() const;
 
     /** What one session holds — a summary and not a `ProjectDoc`, since the tray draws a menu line and the document would be a megabyte per poll. */
@@ -361,6 +412,9 @@ private:
 
     // Name each armed track's take and point the input devices at recordDir_, from play() just before the roll; false (and logged) with no recordDir.
     bool prepareTakes(const std::string& session);
+
+    // This node's ring and take state, minted on first use — a recorder is not known until asked for.
+    RecorderNode& recorderNode(const std::string& session, const std::string& id);
 
     // Create once and attach the record listener to the current edit's transport; defined in Recording.cpp, where RecordListener is complete.
     void attachRecordListener(const std::string& session);

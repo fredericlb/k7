@@ -8,7 +8,7 @@
 // (which knows about plugins and nothing about folders) can reach them without a cycle.
 
 /** The io roles the signal comes FROM; everything else under `io/` is a sink by ELIMINATION — see docs/moduleTypes.md. */
-export const IO_SOURCES = ["in", "file"] as const;
+export const IO_SOURCES = ["in", "file", "camera"] as const;
 export type IoSource = (typeof IO_SOURCES)[number];
 export const isIoSource = (io: unknown): io is IoSource =>
   (IO_SOURCES as readonly unknown[]).includes(io);
@@ -47,7 +47,7 @@ export const MODULE_EMITS: Record<
   string,
   "audio" | "midi" | "video" | undefined
 > = {
-  io: undefined, // a sink emits nothing; an io SOURCE is audio (see moduleEmits)
+  io: undefined, // a sink emits nothing; an io SOURCE is audio or PICTURE (see moduleEmits)
   instruments: "audio",
   audio: "audio",
   transformers: "midi",
@@ -86,7 +86,9 @@ export function moduleEmits(
   io?: string,
   outputs?: readonly { type: "audio" | "midi" | "video" }[],
 ): "audio" | "midi" | "video" | undefined {
-  if (category === "io") return isIoSource(io) ? "audio" : undefined;
+  // A CAMERA is the one io source that is not audio — it is a live picture, docs/camera.md.
+  if (category === "io")
+    return io === CAMERA_IO ? "video" : isIoSource(io) ? "audio" : undefined;
   // A lane's signal is its OWN, so the PORTS are read and two of them means undefined — see docs/moduleTypes.md.
   if (category === TRACK_CATEGORY) {
     const types = new Set((outputs ?? []).map((o) => o.type));
@@ -217,10 +219,21 @@ export function completionOrder<T>(
   return [...favorite, ...listed];
 }
 
+/** The io kind a live PICTURE source is — spelled once, since three tiers test for it. */
+export const CAMERA_IO = "camera";
+
+/** The node a camera is: `@engine/io/CAM`, the picture's answer to `IN`. See docs/camera.md. */
+export const CAMERA_NODE = "CAM";
+
 /** The io modules the engine provides — one IN and one OUT for the whole app, and a node carries the wiring: docs/moduleTypes.md. */
-export const IO_MODULES: Record<string, { io: "in" | "out" | "file" }> = {
+export const IO_MODULES: Record<
+  string,
+  { io: "in" | "out" | "file" | "camera" }
+> = {
   IN: { io: "in" },
   OUT: { io: "out" },
+  // A live PICTURE, and the one io source that emits video — the browser opens it, not the engine.
+  [CAMERA_NODE]: { io: CAMERA_IO },
   // The headphone bus. An `out` like the interface, because that is what it is — a second pair of it.
   [CUE_NODE]: { io: "out" },
   // The file source: audio off disk rather than off an interface, and a node carries WHICH file (docs/fileInput.md).

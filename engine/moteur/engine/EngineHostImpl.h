@@ -9,6 +9,7 @@
 #include "EngineHost.h"
 #include "EngineTypes.h"
 #include "BroadcastTap.h"
+#include "RecorderNode.h"
 #include "InputTuner.h"
 #include "SessionRegistry.h"
 #include "WaveformTap.h"
@@ -34,6 +35,9 @@ struct ServerBehaviour : te::EngineBehaviour {
 // Everything belonging to ONE project, so it can exist N times where Impl holds what the MACHINE has one of; the ring is declared FIRST to die LAST, after the audio-thread plugin writing into it (docs/multiEdit.md).
 struct Session {
     BroadcastTap broadcastRing;
+    // …and one ring per RECORDER node, by plugin id, for the same reason and one more: a rebuild
+    // of the chain around a node must not end the take it is writing (docs/recorder.md).
+    std::map<std::string, std::unique_ptr<RecorderNode>> recorders;
 
     std::unique_ptr<te::Edit> edit;
     ProjectDoc current;     // the diff baseline — what this session's engine state IS

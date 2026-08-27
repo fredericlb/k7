@@ -321,6 +321,33 @@ void diff_removals_before_adds() {
     CHECK(rem >= 0 && add >= 0 && rem < add);
 }
 
+// A track GOING forces a rebuild: trackById maps a doc INDEX onto a lane, so a lane left standing under a
+// shortened document silently moves every later track's clips, mute and input onto its neighbour.
+void diff_track_removed_forces_rebuild() {
+    ProjectDoc a;
+    a.tracks.push_back(mkTrack("t1", "Drums"));
+    a.tracks.push_back(mkTrack("t2", "Bass"));
+    a.tracks.push_back(mkTrack("t3", "Keys"));
+    ProjectDoc b;
+    b.tracks.push_back(mkTrack("t2", "Bass"));   // t1 deleted — t2 and t3 both shift down a lane
+    b.tracks.push_back(mkTrack("t3", "Keys"));
+
+    const auto d = diff(a, b);
+    CHECK(hasKind(d, ChangeKind::TrackRemoved));
+    CHECK(needsFullRebuild(d));
+}
+
+// …and the LAST track going too, where no index shifts: the lane would otherwise play on with nothing naming it.
+void diff_last_track_removed_forces_rebuild() {
+    ProjectDoc a;
+    a.tracks.push_back(mkTrack("t1", "Drums"));
+    a.tracks.push_back(mkTrack("t2", "Bass"));
+    ProjectDoc b;
+    b.tracks.push_back(mkTrack("t1", "Drums"));
+
+    CHECK(needsFullRebuild(diff(a, b)));
+}
+
 // A duplicate id is DIFFED AS ONE and SAID SO: index() keeps the first and drops the rest, so without the warning the second track is built and then invisible to every later diff.
 void diff_duplicate_id_is_reported() {
     std::vector<Warning> seen;
@@ -451,6 +478,8 @@ int main() {
     RUN(clip_name_is_the_placement_not_the_material);
     RUN(diff_clip_retimed_by_every_field);
     RUN(diff_removals_before_adds);
+    RUN(diff_track_removed_forces_rebuild);
+    RUN(diff_last_track_removed_forces_rebuild);
     RUN(diff_duplicate_id_is_reported);
     TEST_MAIN_END();
 }

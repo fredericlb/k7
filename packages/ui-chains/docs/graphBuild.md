@@ -204,6 +204,42 @@ authored `ui.yaml` and a second fold-in would be a second thing to remember.
 is a position in the list and nothing more — `setModuleField` writes the option's LABEL, which is
 the base's name, so adding a base can renumber the list without changing what any entry writes.
 
+## An intrinsic that can be SET must be readable BACK
+
+A module-field dropdown places **no optimistic override** — `setModuleField` sends the command and
+stops. That is deliberate: the file is the only state, so the select shows what the file says and
+two answers can never disagree. The price is that the read-back path is load-bearing rather than a
+nicety, and it fails **silently**: a bind with no arm in `moduleFieldValue` writes correctly, the
+file changes, the graph rebuilds, and the select snaps back to `—`. It reads as "the control is
+broken" while every part of it works.
+
+That is why the function is its own file — `packages/ui-chains-react/src/moduleField.ts` — with a
+case per intrinsic rather than a branch inside the renderer:
+`@channel` (both dropdowns, matched on the CHANNELS through `arg`),
+`@monitor`, `@base`, `@shader`, `@camera`. `@camera` was added a version after the dropdown that
+writes it, which is exactly the shape of the bug the list now guards.
+
+A camera's `""` reads back as **`default`** — the empty string is a lens, the machine's own, and
+showing it as nothing would say the node is not a camera. Only an *absent* `camera` means that.
+
+## `source: take` — the same canvas, a different series
+
+A waveform widget normally draws a tap: `input` or `output`, a rolling window the engine captures
+through a plugin it inserts for as long as the widget is mounted. `source: take` is the RECORDER
+node's own picture — the whole take, growing — and differs in three ways that all follow from
+that one:
+
+- **it places no tap.** The recorder is already in the chain; asking for a second plugin to watch
+  it would be watching the watcher;
+- **it reads `recorders[pluginId]`, not `waveform[pluginId:side]`**, since the take is not a live
+  signal and has no side;
+- **it accumulates.** Each frame carries only the points made since the last, so `foldTake` keeps
+  the total and decides when to drop it (`src/takeEnvelope.ts`).
+
+It is DECIMATED to the canvas width in the draw, keeping the extremes: a five-minute take is
+~3500 points against a card's ~120 pixels, and averaging them would draw a quiet take — a
+waveform's whole job is the peaks.
+
 ## A REHEARSAL moves, and writes nothing
 
 `rehearsal` on `DomChains` says this graph is a card being **tried out** rather than a song being
@@ -433,6 +469,93 @@ look at them without starting the engine, the tray, the file service and the edi
 > A curve's own vocabulary — the three types, what each is a function of, and why only a `custom`
 > one has points on the wire — is `@studio/song`'s docs/curves.md.
 
+## Assemblies — a box instead of its members
+
+`assembly.ts` folds them in AFTER `buildGraph`, in the family of `alignModuleRank` and
+`masterRunAside`: the model it reads is a drawing fact, so nothing there may change what a cable
+means, only where it lands. The host holds which boxes are OPEN — session state, not the document.
+
+**Closed**, the members go and every cable between two of them goes with them; a boundary cable is
+re-pointed at the box with the plug's name as its port, and the socket pass is re-run over the boxes
+alone, since their cables moved. Two members feeding one thing collapse onto ONE plug, drawn once —
+the edge key carries both ports, so a box with two plugs into one target still draws two.
+
+The box's panel is `assemblyUI`, a knob per promoted param on `rackGrid`'s shape, folded in
+through the same `nodeSize` every other card is measured by. Its rank is the LOWEST of its
+members': the box replaces the whole column, and `pushBelowInputs` corrects whatever that gets
+wrong.
+
+**Open**, the members stay, tagged `assembly`, and the box becomes a frame. `layout` is where the
+nesting happens, because layout is dagre's and only dagre's: the members are laid out by a
+RECURSIVE `layoutFlat` call, the outer graph is given one node the size of that result, and the
+members are offset by where it landed. So the outer graph stays flat and the rank rows, the master
+column and the pins are untouched.
+
+A frame has **no sockets**. The members are showing the real ones and the cable lands on the real
+one, which is truer than a plug on the frame plus a lead to the member — and needs no cable maths of
+its own.
+
+**Every edge comes back with TWO points**, and that is not decoration. `cablePath` recomputes both
+ends off the sockets and drops dagre's waypoints, so the nested pass has nothing useful to route —
+but the renderer skips an edge with fewer than two (`DomChains`' test for "the layout could not
+place this"), so handing back an empty list drew **no cable at all** on a graph with a box open, the
+members' own included. It hands over the two node centres instead, and none only when an end is
+genuinely unplaced. `assembly.test.ts` pins it.
+
+### What is the box's, and what merely crosses it
+
+An open frame is a whole signal path's worth of cable, and the rest of the graph keeps running past
+it. So a cable whose **both ends** are members carries `GraphEdge.assembly` and is drawn at full
+strength; everything else — the feeds in, the ways out, and any cable that happens to span the
+frame — is drawn at `FOREIGN_ALPHA`, half. Nothing fades while every box is shut.
+
+The **shadow fades with it**: a full-strength shadow under a half-strength line reads as a darker
+cable rather than a fainter one, so the alpha wraps the pair. Its LABEL fades too, for the same
+reason. The alpha is per cable rather than a mode on the frame, so one faded cable does not dim the
+one drawn after it, and the fade holds through a slide — the motion path reads the same flag, or
+every cable would snap back to full while the cards move.
+
+They are **not clipped and not hidden**: the cable canvas sits behind `.dgx-world` and the frame's
+fill is 2.5% white, so a crossing cable runs right over the box and stays followable end to end.
+
+### A folded lane still has to come alive
+
+`computeLive` walks forward from the metered tracks' own cards — and a CLOSED box has swallowed
+them, so on a folded set it reached nothing and **not one cable rippled**, the master run aside. The
+box carries `assemblyOf.members` for exactly this, and `computeLive` takes a `foldedAt` map —
+track id → the node its signal now leaves from — so a metered lane seeds at its box.
+
+An OPEN box needs none of it: the members' cards are back, and the walk finds them itself.
+
+### Making room, and giving it back
+
+An open frame is the size of a whole signal path, and it appears where a card was. On a graph
+nobody has touched dagre lays the rest out around it — but a **pin outranks the layout**, and a
+project that has drawn itself once has pinned every node it has, so opening a box would grow one
+card straight through its neighbours.
+
+`pushAsideFrames` is the answer, and it runs on the outer nodes BEFORE the members are placed, so
+a frame that steps aside takes its contents with it. A card overlapping a frame moves to the
+**nearer side**, so nothing is dragged across the frame it was already beside, and the shift is
+**constant per side** — the cards it moves keep their spacing, and the picture reads the same, only
+spread. A member never moves: its place is its frame's.
+
+**Nothing about the push is recorded**, and that is what puts every card back when the box closes:
+the pass simply stops running. The one thing that could break it is the graph writing a pushed
+position down, so a moved card carries `pushed` — where it belongs — and st0's session memory and
+its auto-pin both read THAT rather than where the card is drawn. Pin the shoved position once and
+closing the box would leave the card there for good.
+
+### A plug is not a graph.yaml address
+
+`jackRef` answers a box's plug with the MEMBER behind it, and that one function is why no verb
+changed for any of this: a cable dropped on `turntableA#mix` writes `graph chain connect fadeA
+OUT`. `insertFor` resolves the same way. The box's BARE name is still its own — that is what a pin
+and `graph move` address, which is why `layout`'s pin lookup reads `module` for an assembly as
+it does for a module.
+
+See `packages/song/docs/assemblies.md`.
+
 ## Cables
 
 A cable carries what its **source** emits: the upstream module's type folder, or — from a lane —
@@ -509,6 +632,29 @@ feeds the master bus whatever its chain names (@studio/song's docs/masterChain.m
 seeded the same way, off the picture's own list of live lanes — which is derived from the shots
 and the playhead, nothing metering a frame. See `computeLive` and
 @studio/ui-chains-react's docs/liveCables.md.
+
+### …and UPSTREAM of the meter, which is where an input sits
+
+The same rule leaves a second gap, and it is worse because it is on the shape the walk was written
+for. A meter is on a **lane**, and a live input is *ahead* of the lane it lands on — so `IN → gtr`
+is the one cable a forward-only walk can never reach, and a rig with a guitar plugged in drew a
+still wire out of the very thing making the sound.
+
+So `computeLive` runs the walk **twice**: forward from the seeds, then backward from the same
+seeds. What feeds a card that is sounding is carrying what that card is metering. Two details keep
+it honest:
+
+- **Upstream stops at another lane.** A metered card speaks for itself: if it were sounding it
+  would be in the seed set, so crossing into it would light a silent lane's cables from its
+  neighbour's meter.
+- **The backward walk is seeded from the meters only**, never from what it reaches. Reach `IN` from
+  a live lane and you must not then walk forward out of `IN` — a second lane it also feeds is
+  silent, and its cable has to stay still.
+
+**A materialised track has no lane card at all.** A `live` project authors none: the run makes its
+own track, named after the chain (@studio/song's docs/liveProject.md), so `trk:IN` matches nothing
+and every cable in the rig stayed still. The seed is therefore `mod:<id>` as well as `trk:<id>` —
+one flat key space means a track id that names a module names the run that produced it.
 
 That list is `liveVideoLanes`, and it is the meters' opposite number. The engine measures sound and
 knows nothing of the frame (@studio/song's docs/picture.md), so a video lane's cables have no meter

@@ -34,6 +34,8 @@ export function sceneOf(proj: WebVideoProject): VideoScene {
     proj.videoTracks.map((t) => ({
       id: t.id,
       mute: t.mute,
+      // A lens wired to this lane in `graph.yaml` — packages/song/docs/camera.md.
+      ...(t.camera === undefined ? {} : { camera: t.camera }),
       x: t.x,
       y: t.y,
       w: t.w,

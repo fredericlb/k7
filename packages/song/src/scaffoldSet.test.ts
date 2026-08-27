@@ -89,6 +89,10 @@ describe("a scaffolded set", () => {
   it("writes the whole shape and nothing else", () => {
     scaffoldSet(dir, "winter");
     expect(tree()).toEqual([
+      // One BOX per deck — a drawing over the nodes below, and nothing else (docs/assemblies.md).
+      "assemblies",
+      "assemblies/turntableA.yaml",
+      "assemblies/turntableB.yaml",
       "graph.yaml",
       // The CUE SHEET at the root: the set's own file, the song list living in the playlist.
       "mix.yaml",

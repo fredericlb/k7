@@ -5,7 +5,7 @@
 // times there) and no static reading of the source can be trusted to keep up. Re-run the script
 // after bumping Tracktion or adding a built-in. See engine/moteur/docs/builtinParams.md.
 //
-// 214 plugins, 967 parameters.
+// 215 plugins, 967 parameters.
 
 import type { BuiltinPluginInfo } from "./builtinParams";
 
@@ -469,6 +469,11 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
       { name: "Mid", min: -18, max: 18, def: 0 },
       { name: "High", min: -18, max: 18, def: 0 },
     ],
+  },
+  studio_recorder: {
+    name: "Recorder",
+    role: "audioEffect",
+    params: [],
   },
   studio_quickmaster: {
     name: "Quick Master",

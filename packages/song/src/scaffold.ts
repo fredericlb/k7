@@ -13,8 +13,9 @@ import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { DEFAULT_COUNT_IN } from "./project";
 import { addVideoRun } from "./videoOutputs";
 
-/** The archetypes THIS module writes — `mix` is excluded rather than defaulted away, docs/scaffold.md. */
-export type TimelineShape = Exclude<ProjectShape, "mix">;
+/** The archetypes THIS module writes: the two with a TIMELINE. `Extract`, so a rename breaks it and
+ *  a shape with its own scaffold — `mix`, and both `live` ones — cannot be passed here by mistake. */
+export type TimelineShape = Extract<ProjectShape, "arrangement" | "video">;
 
 const q = (s: string) => JSON.stringify(s);
 

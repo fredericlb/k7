@@ -7,6 +7,7 @@ import { type Dirent, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chainNames } from "@studio/audio-passes/processChain";
+import { libraryAssemblies, projectAssemblies } from "@studio/song/assemblies";
 import { loadCurves } from "@studio/song/curves";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
 import { alternativesOf } from "@studio/song-schema/alternatives";
@@ -78,6 +79,12 @@ function moduleStatuses(h: CommandHost): (name: string) => ModuleStatus {
 // Named providers behind commands.yaml `complete:`; `satisfies` is load-bearing, docs/completions.md.
 const PROVIDERS = {
   baseModules: (h) => h.baseModules,
+  /** The boxes this project declares — read off the folder, since a name is all a verb needs. */
+  assemblies: (h) =>
+    h.songPath ? projectAssemblies(h.songPath).assemblies.map((a) => a.id) : [],
+  /** …and the templates the library holds, by ref — what `assembly new` makes one from. */
+  assemblyTemplates: (h) =>
+    h.songPath ? libraryAssemblies(h.songPath).map((a) => a.ref) : [],
   // The module category folders, each with a trailing "/" so completing leaves you at the name.
   categories: () => Object.keys(MODULE_TYPES).map((c) => `${c}/`),
   /** The project's blocks plus the INHERITED refs, minus `@engine` — see docs/completions.md. */
@@ -327,6 +334,10 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   pictureLanes: "file",
   // Not "file": the surface's file does not exist yet — naming its type is what creates it.
   surfaceTypes: "choice",
+  // A box is not a module and not a file the palette would colour: it is one of a closed set of names.
+  assemblies: "choice",
+  // …and a template IS its folder in the library, named the way a module ref is.
+  assemblyTemplates: "module",
 };
 
 export function argClass(a: ArgSpec): ArgClass {
@@ -347,6 +358,9 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   curves: "an automation curve of this project (curves/<id>.yaml)",
   modules: "a module of this project",
   nodes: "a node of this project — one of its uses of a module",
+  assemblies: "a box this project declares (assemblies/<name>.yaml)",
+  assemblyTemplates:
+    "an assembly template the library holds (@st0/<path>) — its nodes and wiring are copied in",
   baseModules:
     "the module to inherit from — the engine's catalogue and this project's",
   categories:

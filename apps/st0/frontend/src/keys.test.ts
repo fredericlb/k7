@@ -125,3 +125,112 @@ describe("effectiveKeys / resolveToken", () => {
     expect(keyForCommand("transport toggle")).toBe("space");
   });
 });
+
+/** The tools: three keys and one rung of the ladder, all conditional on the timeline OWNING the keys. */
+describe("the timeline's tools", () => {
+  const eff = effectiveKeys({});
+
+  it("picks a tool up only while the timeline is active", () => {
+    const on = { timeline_active: "1" };
+    expect(resolveToken("b", on, eff)).toBe("ui tool cut");
+    expect(resolveToken("d", on, eff)).toBe("ui tool erase");
+    expect(resolveToken("a", on, eff)).toBe("ui tool pointer");
+  });
+
+  it("goes quiet elsewhere, rather than changing a surface you are not looking at", () => {
+    for (const t of ["a", "b", "d"])
+      expect(resolveToken(t, {}, eff)).toBeNull();
+  });
+
+  it("puts the tool down on Escape, under the two overlays and OVER the fullscreen rung", () => {
+    expect(esc({ tool_held: "1", fullscreen: "1" })).toBe("ui tool pointer");
+    expect(esc({ popin: "1", tool_held: "1" })).toBe("ui popin close");
+    expect(esc({ graph_slot: "1", tool_held: "1" })).toBe("ui slot close");
+  });
+
+  it("leaves the ladder alone with no tool in hand", () => {
+    expect(esc({ fullscreen: "1" })).toBe("ui global");
+  });
+
+  /** They are the app's, like every other conditional binding — but the HELP page must still find their keys. */
+  it("advertises all three, so the legend and the help page can name them", () => {
+    const by = shortcutsByCommand();
+    expect(by["ui tool cut"]).toBe("b");
+    expect(by["ui tool erase"]).toBe("d");
+    // Two keys put the tool down and the table keeps the FIRST — Esc, the app's way out of everything; `a` still works.
+    expect(by["ui tool pointer"]).toBe("Esc");
+  });
+});
+
+/** The waveform: three views that are also three gestures, so one verb sets both (waveMode.ts). */
+describe("the waveform's views", () => {
+  const eff = effectiveKeys({});
+  const open = { wave_open: "1" };
+
+  it("reaches all three only while an audio clip is open", () => {
+    expect(resolveToken("o", open, eff)).toBe("ui wave onsets");
+    expect(resolveToken("w", open, eff)).toBe("ui wave warp");
+    expect(resolveToken("a", open, eff)).toBe("ui wave standard");
+  });
+
+  it("goes quiet with no waveform on screen", () => {
+    for (const t of ["o", "w"]) expect(resolveToken(t, {}, eff)).toBeNull();
+  });
+
+  /** `a` is shared: the clip pane in front wins, which is the rule its other verbs already follow. */
+  it("gives `a` to the waveform over the timeline's arrow", () => {
+    expect(resolveToken("a", { ...open, timeline_active: "1" }, eff)).toBe(
+      "ui wave standard",
+    );
+    expect(resolveToken("a", { timeline_active: "1" }, eff)).toBe(
+      "ui tool pointer",
+    );
+  });
+
+  it("backs out to standard on Escape, above the timeline's tool rung", () => {
+    expect(esc({ wave_marks: "1", tool_held: "1", fullscreen: "1" })).toBe(
+      "ui wave standard",
+    );
+  });
+
+  it("has no rung in standard — there is no mark there to back out of", () => {
+    expect(esc({ wave_open: "1", fullscreen: "1" })).toBe("ui global");
+  });
+});
+
+/** The piano roll: three modes, and the two letters it SHARES with the surfaces behind it. */
+describe("the piano roll's modes", () => {
+  const eff = effectiveKeys({});
+  const open = { roll_open: "1" };
+
+  it("reaches all three only while a roll is open", () => {
+    expect(resolveToken("a", open, eff)).toBe("ui roll select");
+    expect(resolveToken("n", open, eff)).toBe("ui roll create");
+    expect(resolveToken("d", open, eff)).toBe("ui roll remove");
+  });
+
+  it("goes quiet with no roll on screen", () => {
+    expect(resolveToken("n", {}, eff)).toBeNull();
+  });
+
+  /** `a` is the neutral one on all three surfaces and `d` takes something away on two — the pane in FRONT wins. */
+  it("takes `a` and `d` from the timeline, and `a` from the waveform", () => {
+    const all = { ...open, wave_open: "1", timeline_active: "1" };
+    expect(resolveToken("a", all, eff)).toBe("ui roll select");
+    expect(resolveToken("d", all, eff)).toBe("ui roll remove");
+    // …and hands them back when no roll is drawn.
+    expect(resolveToken("d", { timeline_active: "1" }, eff)).toBe(
+      "ui tool erase",
+    );
+  });
+
+  it("backs out to select on Escape, above every other mode rung", () => {
+    expect(esc({ roll_armed: "1", wave_marks: "1", tool_held: "1" })).toBe(
+      "ui roll select",
+    );
+  });
+
+  it("has no rung in select — there is nothing armed to back out of", () => {
+    expect(esc({ roll_open: "1", fullscreen: "1" })).toBe("ui global");
+  });
+});
