@@ -3905,12 +3905,21 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       | number[]
       | undefined;
     const fps = now && now.length > 2 ? Number(now[2]) : null;
+    // RESHAPE the frame, do not resize it: the long edge is kept, so a 1280×720 project asked for
+    // 9:16 becomes 720×1280 rather than jumping to 1080×1920. Picking the shape you are already
+    // on then writes back what you had, instead of quietly changing your resolution.
+    const long = now?.[0] && now?.[1] ? Math.max(now[0], now[1]) : 0;
+    const [vw, vh] = !long
+      ? [want.w, want.h]
+      : want.w >= want.h
+        ? [long, Math.round((long * want.h) / want.w)]
+        : [Math.round((long * want.w) / want.h), long];
     setFileValue(
       file,
       ["project", "viewport"],
-      fps && fps > 0 ? [want.w, want.h, fps] : [want.w, want.h],
+      fps && fps > 0 ? [vw, vh, fps] : [vw, vh],
     );
-    h.log([`frame is ${want.name} (${want.w}×${want.h})`]);
+    h.log([`frame is ${want.name} (${vw}×${vh})`]);
     h.reload?.();
   },
 

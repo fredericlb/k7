@@ -3,7 +3,7 @@
 // Document API so the rest of the file comes back byte-identical, comments included.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { isMap, isScalar, parseDocument, Scalar } from "yaml";
+import { isMap, isScalar, isSeq, parseDocument, Scalar } from "yaml";
 
 const read = (file: string) =>
   parseDocument(existsSync(file) ? readFileSync(file, "utf8") : "{}", {
@@ -20,7 +20,13 @@ export function setFileValue(
   value: unknown,
 ): void {
   const doc = read(file);
-  doc.setIn(path, doc.createNode(value));
+  const node = doc.createNode(value);
+  // A list the author wrote INLINE stays inline. `createNode` always builds a block sequence, so
+  // writing `viewport: [1280, 720, 30]` turned one line into four — churn in a file whose whole
+  // point is that a value change is a one-line diff. The author's style is the file's.
+  const had = doc.getIn(path, true);
+  if (isSeq(had) && had.flow && isSeq(node)) node.flow = true;
+  doc.setIn(path, node);
   save(file, doc);
 }
 

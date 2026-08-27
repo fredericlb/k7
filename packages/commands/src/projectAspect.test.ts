@@ -35,7 +35,7 @@ beforeEach(() => {
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("project aspect", () => {
-  it("writes the pixels the ratio means", async () => {
+  it("turns the frame on its side", async () => {
     dir = song("[1920, 1080]");
     await runCommand("project aspect 9:16", host(), "cli");
     expect(viewport()).toEqual([1080, 1920]);
@@ -48,10 +48,34 @@ describe("project aspect", () => {
     expect(viewport()).toEqual([1080, 1920, 25]);
   });
 
-  it("adds no fps where the file stated none", async () => {
+  it("RESHAPES the frame rather than resizing it", async () => {
+    // The long edge is kept. A 720p project asked for portrait is 720×1280, not 1080×1920 —
+    // picking a shape must not quietly change somebody's resolution.
+    dir = song("[1280, 720]");
+    await runCommand("project aspect 9:16", host(), "cli");
+    expect(viewport()).toEqual([720, 1280]);
+  });
+
+  it("writes back what it found when the shape already matches", async () => {
+    // The card ticks 16:9 for a 1280×720 project, so picking 16:9 is picking what you have.
     dir = song("[1280, 720]");
     await runCommand("project aspect 16:9", host(), "cli");
+    expect(viewport()).toEqual([1280, 1080 * (1280 / 1920)]);
+  });
+
+  it("falls back to the list's own size when the file states none", async () => {
+    dir = song("[0, 0]");
+    await runCommand("project aspect 16:9", host(), "cli");
     expect(viewport()).toEqual([1920, 1080]);
+  });
+
+  it("keeps an INLINE list inline — a value change is a one-line diff", async () => {
+    // `createNode` builds a block sequence, which turned one line into four.
+    dir = song("[1920, 1080, 30]");
+    await runCommand("project aspect 9:16", host(), "cli");
+    expect(readFileSync(join(dir, "project.yaml"), "utf8")).toContain(
+      "viewport: [ 1080, 1920, 30 ]",
+    );
   });
 
   it("refuses a shape that is not on the list, and writes nothing", async () => {
