@@ -38,6 +38,8 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   ParamDump.cpp             --dump-params / --dump-params-ext / --dump-builtin-params
   PluginEditor.cpp          native plugin editor windows + PluginEditorController
   Recording.cpp             arming, takes, transport record listener
+  Recorder.cpp              the RECORDER node: free-running capture, its takes, and the state it
+                            reports — transport-independent, unlike the file above (docs/recorder.md)
   FilePeak.cpp              one file's true peak (--peak), what a cold module is measured with
   Waveform.cpp              waveform peak data
   Warnings.{h,cpp}          the warning channel the UI shows
@@ -62,6 +64,10 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
 
   taps — pull state out of the running graph without owning it:
   BroadcastTap.h + BroadcastTapPlugin.{h,cpp}   master audio over the wire (docs/broadcast.md)
+  RecorderTap.h + RecorderPlugin.{h,cpp}        a NODE's capture — the same shape, except that an
+                                                overrun is COUNTED rather than forgiven, since a
+                                                take that is silently short is a take you trust
+                                                (docs/recorder.md); RecorderNode.h is one node's state
   WaveformTap.h + WaveformTapPlugin.{h,cpp}     peak data while playing
   InputTuner.{h,cpp}                            pitch detection on inputs (docs/inputTuner.md)
 
@@ -251,8 +257,8 @@ often locked while the engine is running — stop it before rebuilding.
 
 ### A half-rebuilt engine now REFUSES to start — it used to crash on the first project
 
-An interrupted Windows build — the dev watcher restarting mid-compile, a PDB collision (see the
-`C1041` note in `docs/dev.md`) — can leave `studio_engine.dir/RelWithDebInfo` with **some** objects
+An interrupted Windows build — the dev watcher restarting mid-compile, a PDB collision (the
+`C1041` that `/FS` below exists to prevent) — can leave `studio_engine.dir/RelWithDebInfo` with **some** objects
 compiled against the new `ProjectDoc.h` and some against the old one. It still links: the struct is
 a layout, not a symbol, so nothing in the toolchain objects to a mismatch.
 
@@ -303,6 +309,35 @@ Get-ChildItem build/windows-msvc/engine/studio_engine.dir/RelWithDebInfo -Filter
   Where-Object { $srcs -contains $_.BaseName } | Remove-Item
 ```
 
+### On MSVC a project's files compile in PARALLEL — `/MP`, set in `CMakeLists.txt`
+
+The presets build with the **Visual Studio generator**, not the Ninja the other platforms inherit,
+and MSBuild runs `cl.exe` once per file. Nothing noticed while the only target anyone built was
+`studio-moteur`, whose own TUs are few. The test suites are where it bit: `studio_midigraph_tests`
+and `studio_dspgraph_tests` each link Tracktion themselves — with their own defines, so they can
+share nothing with `studio_engine` — and JUCE's CMake compiles its modules INTO each target that
+links them. That is **30 translation units and 565 MB of objects per binary**, twice, for two
+executables that run in 0.02 s. Serially, on one core of twelve.
+
+Measured here, one target cold, same machine:
+
+| | `studio_dspgraph_tests`, from no objects |
+|---|---|
+| before | **201 s** |
+| with `/MP` | **70 s** |
+
+The floor is the longest single TU, and no flag moves it: JUCE and Tracktion modules are unity
+builds, so there are only 30 chunks and they are wildly uneven. 68 of those 70 seconds are the
+compile phase — link and MSBuild overhead are noise.
+
+**`/FS` is set beside it, and is not optional.** Several `cl.exe` now write one `.pdb`, and
+without it they collide as `C1041` — which does not fail cleanly: it leaves the object directory
+half-written, which is the exact input to the half-rebuild disease above.
+
+A word on what NOT to add: `--parallel` / `/m` is the OTHER axis, MSBuild building several
+*projects* at once. Composed with `/MP` on a 12-core box that is 144 compiler processes, and the
+bottleneck here is one project's 30 files rather than several projects. `/MP` alone saturates it.
+
 Build gotchas:
 - The macOS deployment target must be re-asserted **after** Tracktion's
   `FetchContent_MakeAvailable` forces 10.13.
@@ -316,14 +351,16 @@ Build gotchas:
 
 **The test targets are not built by an ordinary build, so a suite that stopped compiling stays
 invisible.** The presets pin `"targets": ["studio-moteur"]`, so `studio_engine_tests` /
-`studio_session_tests` / `studio_midigraph_tests` / `studio_dspgraph_tests` are only built when
-named — rename a field of the data layer and the suite still referencing it reports nothing until
-someone names it. Build them explicitly after touching the data layer — **all four**, or `ctest`
-reports the missing one as "Not Run", which reads as a failure:
+`studio_session_tests` / `studio_midigraph_tests` / `studio_dspgraph_tests` /
+`studio_recorder_tests` are only built when named — rename a field of the data layer and the
+suite still referencing it reports nothing until someone names it. Build them explicitly after
+touching the data layer — **all of them**, or `ctest` reports the missing one as "Not Run", which
+reads as a failure:
 
 ```
 cmake --build build/<preset> --config RelWithDebInfo --target \
-      studio_engine_tests studio_session_tests studio_midigraph_tests studio_dspgraph_tests
+      studio_engine_tests studio_session_tests studio_midigraph_tests \
+      studio_dspgraph_tests studio_recorder_tests
 ctest --test-dir build/<preset> -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 

@@ -6,6 +6,15 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# MSBuild runs cl.exe once per file, so a target compiling JUCE and Tracktion — which the two
+# graph test binaries each do, 30 TUs apiece — went through on ONE core of twelve. Ninja needs
+# none of this, which is why it is guarded. `/FS` because several cl.exe now write one .pdb,
+# and that is what C1041 asks for. Numbers and the rest: AGENTS.md, "Building".
+# Set before FetchContent so it reaches Tracktion's targets, exactly as the flags below do.
+if(MSVC)
+    add_compile_options(/MP /FS)
+endif()
+
 # -----------------------------------------------------------------------------
 # Shared dependencies (fetched once here, consumed by the packages below)
 #
