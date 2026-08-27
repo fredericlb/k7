@@ -24,6 +24,7 @@ import {
   spaceModulesEvenly,
   subgraphForTrack,
 } from "@studio/ui-chains/graph";
+import type { LaneNotes } from "@studio/ui-chains/noteLoad";
 import {
   type Cam,
   type ChainsCamApi,
@@ -58,6 +59,7 @@ export function ChainsTab({
   icons = STUDIO_ICONS,
   trackOrder,
   videoSpans,
+  noteLanes,
   project,
   command,
   onBypassModule,
@@ -110,6 +112,8 @@ export function ChainsTab({
   trackOrder: string[];
   /** …and the PICTURE's half of the same answer, since nothing meters a frame: when each video lane is showing one (../videoSpans.ts). */
   videoSpans?: Readonly<Record<string, readonly LaneSpan[]>>;
+  /** …and the notes', for a MIDI cable's ripple — nothing meters those either (../noteSpans.ts). */
+  noteLanes?: Readonly<Record<string, LaneNotes>>;
   /** The compiled doc, for the one thing the graph cannot derive: which notes a lane plays, which is what lights a rack's pads. */
   project?: WebProject | null;
   command: (line: string) => void | Promise<void>;
@@ -812,6 +816,7 @@ export function ChainsTab({
             selected={selected}
             trackOrder={trackOrder}
             videoSpans={videoSpans}
+            noteLanes={noteLanes}
             onSelect={selectFromGraph}
             onContextMenu={onContextMenu}
             onEdgeInsert={edgeInsert}

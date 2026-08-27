@@ -7,7 +7,11 @@ import type { CableGeom } from "./cables";
 import type { Pt } from "./graph";
 
 // Cable wobble — a travelling sine on a live cable. Amplitudes are WORLD units, so they scale with zoom.
-export const WOBBLE_AMP = 2.5; // peak perpendicular displacement, world px
+export const WOBBLE_AMP = 2.5; // peak perpendicular displacement at half strength, world px
+// …and the two ends of the range a cable's FLOW picks between: a wire at the noise floor barely
+// stirs, one at 0 dB throws. Both world px. See docs/wobble.md.
+export const WOBBLE_MIN_AMP = 0.5;
+export const WOBBLE_MAX_AMP = 7;
 export const WOBBLE_WAVELENGTH = 40; // world px between crests
 export const WOBBLE_HZ = 1.2; // crests per second travelling down the cable
 export const WOBBLE_STEP = 8; // densify a segment to ~this spacing so the curve is smooth
@@ -164,11 +168,21 @@ export function tracePolyline(
   }
 }
 
-// One cable to draw: its geometry, the colour it carries, and whether it is rippling.
+/** How far a cable at this flow swings — nothing at all when nothing is going through it. */
+export function wobbleAmp(flow: number): number {
+  if (!(flow > 0)) return 0;
+  const t = flow > 1 ? 1 : flow;
+  return WOBBLE_MIN_AMP + (WOBBLE_MAX_AMP - WOBBLE_MIN_AMP) * t;
+}
+
+// One cable to draw: its geometry, the colour it carries, and HOW HARD it is rippling.
 export interface CableDraw {
+  /** The edge this draws, so a meter frame can move its `flow` without rebuilding the array. */
+  id?: string;
   geom: CableGeom;
   color: string;
-  live: boolean;
+  /** 0..1 — what the wire is carrying, `flow.ts`. 0 hangs still, 1 throws. */
+  flow: number;
   /** 0..1, absent meaning opaque — what fades a cable that merely crosses an open frame. */
   alpha?: number;
   // The cable's swing state, read at DRAW time and shared with whatever steps the spring.
@@ -208,16 +222,9 @@ export function drawCables(
   for (const c of f.cables) {
     const sx = c.sway?.ox ?? 0;
     const sy = c.sway?.oy ?? 0;
-    const n = c.live
-      ? wobbleInto(
-          scratch,
-          c.geom,
-          f.phase,
-          WOBBLE_AMP,
-          WOBBLE_WAVELENGTH,
-          sx,
-          sy,
-        )
+    const amp = wobbleAmp(c.flow);
+    const n = amp
+      ? wobbleInto(scratch, c.geom, f.phase, amp, WOBBLE_WAVELENGTH, sx, sy)
       : sx || sy
         ? swayInto(scratch, c.geom.base, sx, sy)
         : flattenInto(scratch, c.geom.base);

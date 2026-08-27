@@ -161,6 +161,7 @@ import {
   type PendingInsert,
   wireCommand,
 } from "./nodeInsert";
+import { noteSpans } from "./noteSpans";
 import { resolveEditorFile } from "./openInEditor";
 import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { m } from "./paraglide/messages.js";
@@ -925,6 +926,10 @@ export default function App({
       void quietCommand(`node param "OUT" Volume ${db.toFixed(1)}`),
     [quietCommand],
   );
+
+  // …and the NOTES' half of the picture's answer, since nothing meters MIDI either: when each
+  // lane's notes sound, and how hard, so a note cable ripples with what it carries (noteSpans.ts).
+  const noteLanes = useMemo(() => noteSpans(projectDoc), [projectDoc]);
 
   // A RECORDER's button: two go down the socket, `save` is a verb — packages/song/docs/recorderNode.md.
   const onRecorder = useCallback(
@@ -2919,6 +2924,7 @@ export default function App({
                     showList={chainsAlone || full === "chains"}
                     trackOrder={trackOrder}
                     videoSpans={videoLaneSpans}
+                    noteLanes={noteLanes}
                     project={projectDoc}
                     command={quietCommand}
                     onBypassModule={(mod) =>
@@ -3185,6 +3191,7 @@ export default function App({
                     trackId={caret?.trackId ?? null}
                     trackOrder={trackOrder}
                     videoSpans={videoLaneSpans}
+                    noteLanes={noteLanes}
                     project={projectDoc}
                     command={quietCommand}
                     onBypassModule={(mod) =>

@@ -19,7 +19,10 @@ import {
   swayInto,
   tracePolyline,
   WOBBLE_AMP,
+  WOBBLE_MAX_AMP,
+  WOBBLE_MIN_AMP,
   WOBBLE_WAVELENGTH,
+  wobbleAmp,
   wobbleInto,
 } from "./cableCanvas";
 import { buildCableGeom, type CableGeom, smoothPath } from "./cables";
@@ -242,7 +245,7 @@ describe("a cable crossing an open frame", () => {
 
   it("is stroked at half, SHADOW included", () => {
     const ctx = paint([
-      { geom: g, color: "#d98b45", live: false, alpha: FOREIGN_ALPHA },
+      { geom: g, color: "#d98b45", flow: 0, alpha: FOREIGN_ALPHA },
     ]);
     // Shadow then cable, and both at the same alpha: a full-strength shadow under a half-strength
     // line reads as a darker cable rather than a fainter one.
@@ -251,17 +254,15 @@ describe("a cable crossing an open frame", () => {
 
   it("leaves the next cable alone — the alpha is per cable, not a mode", () => {
     const ctx = paint([
-      { geom: g, color: "#d98b45", live: false, alpha: FOREIGN_ALPHA },
-      { geom: g, color: "#5b9bd5", live: false },
+      { geom: g, color: "#d98b45", flow: 0, alpha: FOREIGN_ALPHA },
+      { geom: g, color: "#5b9bd5", flow: 0 },
     ]);
     expect(ctx.strokes.map((k) => k[2])).toEqual([0.5, 0.5, 1, 1]);
   });
 
   it("draws opaque when nothing asked for a fade", () => {
     expect(
-      paint([{ geom: g, color: "#d98b45", live: false }]).strokes.map(
-        (k) => k[2],
-      ),
+      paint([{ geom: g, color: "#d98b45", flow: 0 }]).strokes.map((k) => k[2]),
     ).toEqual([1, 1]);
   });
 });
@@ -273,7 +274,7 @@ describe("drawCables", () => {
     height: 600,
     cam: { x: 10, y: -20, k: 2 },
     dpr: 3,
-    cables: [{ geom: g, color: "#d98b45", live: false }],
+    cables: [{ geom: g, color: "#d98b45", flow: 0 }],
     phase: 0,
     boost: 1,
     ...over,
@@ -304,7 +305,7 @@ describe("drawCables", () => {
     drawCables(
       moving,
       frame({
-        cables: [{ geom: g, color: "#d98b45", live: true }],
+        cables: [{ geom: g, color: "#d98b45", flow: 1 }],
         phase: 1.1,
       }),
       newScratch(),
@@ -320,7 +321,7 @@ describe("drawCables", () => {
     const ctx = recorder();
     drawCables(
       ctx,
-      frame({ cables: [{ geom: stub, color: "#fff", live: false }] }),
+      frame({ cables: [{ geom: stub, color: "#fff", flow: 0 }] }),
       newScratch(),
     );
     expect(ctx.strokes).toEqual([]);
@@ -335,7 +336,7 @@ describe("drawCables", () => {
           {
             geom: g,
             color: "#a889b5",
-            live: false,
+            flow: 0,
             width: AUTO_W,
             shadowWidth: AUTO_SHADOW_W,
             dash: AUTO_DASH,
@@ -362,5 +363,31 @@ describe("drawCables", () => {
     const last = g.base[g.base.length - 1];
     expect(tip?.[1]).toBeCloseTo(last.x, 12);
     expect(tip?.[2]).toBeCloseTo(last.y, 12);
+  });
+});
+
+describe("the wobble's size", () => {
+  it("is nothing at all when nothing is going through", () => {
+    expect(wobbleAmp(0)).toBe(0);
+    expect(wobbleAmp(-1)).toBe(0);
+  });
+
+  it("runs from a stir at the floor to a throw at unity", () => {
+    expect(wobbleAmp(1)).toBe(WOBBLE_MAX_AMP);
+    // The smallest flow above zero is still visible: "little wobble at -80 dB", not "none".
+    expect(wobbleAmp(0.0001)).toBeGreaterThanOrEqual(WOBBLE_MIN_AMP);
+    expect(wobbleAmp(0.0001)).toBeLessThan(WOBBLE_MIN_AMP + 0.01);
+  });
+
+  it("grows with what the wire carries", () => {
+    expect(wobbleAmp(0.75)).toBeGreaterThan(wobbleAmp(0.25));
+    expect(wobbleAmp(0.5)).toBeCloseTo(
+      (WOBBLE_MIN_AMP + WOBBLE_MAX_AMP) / 2,
+      6,
+    );
+  });
+
+  it("clamps rather than throwing off the card", () => {
+    expect(wobbleAmp(4)).toBe(WOBBLE_MAX_AMP);
   });
 });

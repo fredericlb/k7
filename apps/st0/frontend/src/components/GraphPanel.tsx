@@ -8,6 +8,7 @@ import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { LaneSpan } from "@studio/ui-chains/cables";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
+import type { LaneNotes } from "@studio/ui-chains/noteLoad";
 import { type Cam, DomChains } from "@studio/ui-chains-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
@@ -25,6 +26,7 @@ export function GraphPanel({
   trackId,
   trackOrder,
   videoSpans,
+  noteLanes,
   project,
   command,
   onBypassModule,
@@ -50,6 +52,8 @@ export function GraphPanel({
   trackOrder: string[];
   /** …and when each video lane shows a picture, which nothing meters — straight through, for a subgraph holding one (../videoSpans.ts). */
   videoSpans?: Readonly<Record<string, readonly LaneSpan[]>>;
+  /** …and the notes', for a MIDI cable's ripple (../noteSpans.ts). */
+  noteLanes?: Readonly<Record<string, LaneNotes>>;
   /** The compiled doc, for the rack pads' lit state — straight through to ChainsTab. */
   project?: WebProject | null;
   command: (line: string) => void | Promise<void>;
@@ -140,6 +144,7 @@ export function GraphPanel({
         selected={selected}
         trackOrder={trackOrder}
         videoSpans={videoSpans}
+        noteLanes={noteLanes}
         rackLit={rackLit}
         onSelect={setSelected}
         onContextMenu={onContextMenu}

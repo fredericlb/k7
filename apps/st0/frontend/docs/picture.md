@@ -125,7 +125,7 @@ playhead is the field that MOVES — the pane and everything under it would comm
 hand a number to an imperative clock no React output depends on. `timeline.md`'s rule is that live
 state is drawn by leaves; when nothing is *drawn* at all,
 the right leaf is no component. The chains renderer's cable canvas is the same arrangement, which
-is why `activeTrackIds` is deliberately not a hook.
+is why `seedFlows` is deliberately not a hook.
 
 The clock is also fed once when the driver is built, from the store's current snapshot: a fresh
 clock knows nothing, and with the transport stopped the next frame can be 250 ms away — long

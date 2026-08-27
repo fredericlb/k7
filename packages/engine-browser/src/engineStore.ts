@@ -182,7 +182,6 @@ export const arrayEq = (
   a === b || (a.length === b.length && a.every((x, i) => x === b[i]));
 
 // The signal floor below which a track reads as silent, the same one every host's activity light uses.
-const ACTIVE_FLOOR_DB = -60;
 
 // Input-meter dB range, kept in step with TimelineTab's, so the timeline and graph bars read a signal alike.
 export const INPUT_VU_MIN_DB = -60;
@@ -215,16 +214,4 @@ export function useTrackLevel(trackId: string, order: string[]): number | null {
     const t = (db - INPUT_VU_MIN_DB) / (INPUT_VU_MAX_DB - INPUT_VU_MIN_DB);
     return vuStep(t < 0 ? 0 : t > 1 ? 1 : t);
   });
-}
-
-/** The ids above the silence floor, as a PURE function of a frame and deliberately not a hook — see ui-chains-react/docs/liveCables.md. */
-export function activeTrackIds(
-  s: EngineState,
-  trackOrder: readonly string[],
-): string[] {
-  const ids: string[] = [];
-  for (let i = 0; i < trackOrder.length; i++)
-    if ((s.levels[i] ?? Number.NEGATIVE_INFINITY) > ACTIVE_FLOOR_DB)
-      ids.push(trackOrder[i]);
-  return ids;
 }

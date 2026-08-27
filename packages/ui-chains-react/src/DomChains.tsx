@@ -11,8 +11,6 @@ import {
   usePluginParamValue,
 } from "@studio/engine-browser/params";
 import {
-  activeTrackIds,
-  arrayEq,
   EngineStore,
   EngineStoreProvider,
   useEngineStoreOrNull,
@@ -45,7 +43,7 @@ import {
   autoTarget,
   buildCableGeom,
   type CableGeom,
-  computeLive,
+  computeFlow,
   insertFor,
   jackRef,
   type LaneSpan,
@@ -54,6 +52,12 @@ import {
   smoothPath,
 } from "@studio/ui-chains/cables";
 import { decimate } from "@studio/ui-chains/decimate";
+import {
+  type LaneSource,
+  type NodeFlow,
+  seedFlows,
+  seedsEq,
+} from "@studio/ui-chains/flow";
 import {
   CLIP_LIST_MAX,
   cablePath,
@@ -81,6 +85,7 @@ import {
   newSway,
   stepSway,
 } from "@studio/ui-chains/hang";
+import { type LaneNotes, noteLoadAt } from "@studio/ui-chains/noteLoad";
 import { patchAct } from "@studio/ui-chains/patchGesture";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
 // The one icon this file draws from a set: the freeze badge, a snowflake being no CSS shape.
@@ -194,7 +199,8 @@ const EMPTY_PARAMS_STORE = new PluginParamsStore();
 // A stable empty track order: a fresh `[]` per render would change every Node's props each frame.
 const EMPTY_ORDER: string[] = [];
 // The same for "no cable carries signal" — never mutated, always replaced.
-const EMPTY_LIVE: Set<string> = new Set();
+const EMPTY_LIVE: Map<string, number> = new Map();
+const EMPTY_SEEDS: Map<string, NodeFlow> = new Map();
 // …and for "nothing is leaving", so settling twice does not re-render the graph twice.
 const EMPTY_GHOSTS: Ghost<GraphNode>[] = [];
 // A cable drawn mid-move is drawn STILL — docs/nodeMotion.md.
@@ -660,6 +666,7 @@ function TabsWidget({
 // Module-level so "no envelope" is one identity: a fresh [] per read would look like a change every frame.
 const NO_ENVELOPE: WaveformEnvelope[] = [];
 const NOOP = (): void => {};
+const NOOP1 = (_: unknown): void => {};
 
 // Hand a node back to React: the three properties the frame loop writes, and only those.
 function clearMotionStyle(el: HTMLElement | undefined): void {
@@ -2199,6 +2206,7 @@ export function DomChains({
   selected,
   trackOrder,
   videoSpans,
+  noteLanes,
   onSelect,
   onPickModule,
   onContextMenu,
@@ -2250,6 +2258,10 @@ export function DomChains({
   trackOrder?: string[];
   /** When each VIDEO lane is showing a picture, in seconds — omitted, its cables stay still, docs/liveCables.md. */
   videoSpans?: Readonly<Record<string, readonly LaneSpan[]>>;
+  /** …and the NOTES' half of it: nothing meters MIDI, so a note cable's ripple is the velocities
+   *  sounding at the playhead, against the busiest that lane ever gets (@studio/ui-chains's
+   *  noteLoad.ts). By lane id, as `videoSpans` is; a lane with no notes is left out. */
+  noteLanes?: Readonly<Record<string, LaneNotes>>;
   onSelect: (c: string | null) => void;
   onPickModule?: (module: string | null) => void;
   onContextMenu?: (ctx: GraphMenuCtx, x: number, y: number) => void;
@@ -2609,7 +2621,7 @@ export function DomChains({
         draws.push({
           geom: { base, samples: NO_SAMPLES, len: 0 },
           color: MAUVE,
-          live: false,
+          flow: 0,
           sway,
           width: AUTO_W,
           shadowWidth: AUTO_SHADOW_W,
@@ -2627,7 +2639,7 @@ export function DomChains({
       draws.push({
         geom: { base, samples: NO_SAMPLES, len: 0 },
         color: cableColorFor(e.signal),
-        live: false,
+        flow: 0,
         sway,
         ...(anyOpen && !e.assembly ? { alpha: FOREIGN_ALPHA } : {}),
       });
@@ -2694,13 +2706,18 @@ export function DomChains({
 
   // --- what carries signal: refs, not state, so a crossing re-renders nothing (docs/liveCables.md) ---
   const hostStore = useEngineStoreOrNull();
-  const liveRef = useRef<Set<string>>(EMPTY_LIVE);
-  const activeRef = useRef<string[]>(EMPTY_ORDER);
-  // …and which VIDEO lanes are showing a frame, seeded separately — docs/liveCables.md.
-  const activeVideoRef = useRef<string[]>(EMPTY_ORDER);
+  const liveRef = useRef<Map<string, number>>(EMPTY_LIVE);
+  // What each lane is PUTTING OUT, per kind of wire — the seed the walk seeds from, and the
+  // reason a cable's ripple says how loud rather than merely whether. See docs/liveCables.md.
+  const seedRef = useRef<Map<string, NodeFlow>>(EMPTY_SEEDS);
   const cableDrawsRef = useRef<CableDraw[]>([]);
   const rebuildCables = useRef<() => void>(NOOP);
   const applyLive = useRef<() => void>(NOOP);
+  // …and its cheap half, for the frames where only the LEVELS moved.
+  const applyFlow = useRef<() => void>(NOOP);
+  // Assigned every render like `applyLive`, so the walk always sees the CURRENT edges: the meter
+  // effect below mounts once and would otherwise close over the graph as it was then.
+  const applyMeter = useRef<(seeds: Map<string, NodeFlow>) => void>(NOOP1);
   // Set by the ripple effect below; poked whenever liveness changes, to start a stopped loop.
   const rippleRef = useRef<() => void>(NOOP);
   // One swing per cable, keyed by edge id and SHARED with the draws, so settling rebuilds nothing.
@@ -2737,9 +2754,10 @@ export function DomChains({
           const sway = swayFor(g.id);
           exciteSway(sway, g.base[0], g.base[g.base.length - 1]);
           return {
+            id: g.id,
             geom: g,
             color: cableColorFor(g.signal),
-            live: live.has(g.id),
+            flow: live.get(g.id) ?? 0,
             sway,
             ...(g.faded ? { alpha: FOREIGN_ALPHA } : {}),
           };
@@ -2751,7 +2769,7 @@ export function DomChains({
         return {
           geom: g,
           color: MAUVE,
-          live: false,
+          flow: 0,
           sway,
           width: AUTO_W,
           shadowWidth: AUTO_SHADOW_W,
@@ -2772,12 +2790,33 @@ export function DomChains({
     }
     swayKick.current();
   };
-  // The liveness set is keyed by EDGE, so a graph change goes through here too, not just a meter frame.
+  /** A meter frame moves the NUMBERS and nothing else: rebuilding would re-excite every spring
+   *  twenty times a second, and reallocate the array with it. See docs/liveCables.md. */
+  applyFlow.current = () => {
+    const live = liveRef.current;
+    let moved = false;
+    for (const c of cableDrawsRef.current) {
+      const f = (c.id && live.get(c.id)) || 0;
+      if (c.flow === f) continue;
+      c.flow = f;
+      moved = true;
+    }
+    if (!moved) return;
+    paintRef.current();
+    rippleRef.current();
+  };
+
+  applyMeter.current = (seeds) => {
+    seedRef.current = seeds;
+    liveRef.current = computeFlow(model.signal, seeds, model.foldedAt);
+    applyFlow.current();
+  };
+
+  // The flow map is keyed by EDGE, so a graph change goes through here too, not just a meter frame.
   applyLive.current = () => {
-    liveRef.current = computeLive(
+    liveRef.current = computeFlow(
       model.signal,
-      activeRef.current,
-      activeVideoRef.current,
+      seedRef.current,
       model.foldedAt,
     );
     rebuildCables.current();
@@ -2890,21 +2929,33 @@ export function DomChains({
     const spans = videoSpans;
     const read = (): void => {
       const s = hostStore.getSnapshot();
-      const ids = activeTrackIds(s, order);
-      const lanes =
+      const showing =
         spans && s.playing ? liveVideoLanes(spans, s.playhead) : EMPTY_ORDER;
-      if (
-        arrayEq(ids, activeRef.current) &&
-        arrayEq(lanes, activeVideoRef.current)
-      )
-        return;
-      activeRef.current = ids;
-      activeVideoRef.current = lanes;
-      applyLive.current();
+      const lanes: Record<string, LaneSource> = {};
+      for (let i = 0; i < order.length; i++) {
+        const id = order[i];
+        const notes = noteLanes?.[id];
+        lanes[id] = {
+          db: s.levels[i],
+          ...(notes
+            ? {
+                notes: {
+                  load: noteLoadAt(notes.spans, s.playhead),
+                  peak: notes.peak,
+                },
+              }
+            : {}),
+        };
+      }
+      for (const id of showing) lanes[id] = { ...lanes[id], showing: true };
+      const seeds = seedFlows(lanes);
+      if (seedsEq(seeds, seedRef.current)) return;
+      seedRef.current = seeds;
+      applyMeter.current(seeds);
     };
     read();
     return hostStore.subscribe(read);
-  }, [hostStore, trackOrder, videoSpans]);
+  }, [hostStore, trackOrder, videoSpans, noteLanes]);
 
   // --- fit: frame the whole graph to the host; it ANSWERS whether it did (docs/camera.md) ---
   const fit = useRef<() => boolean>(() => false);

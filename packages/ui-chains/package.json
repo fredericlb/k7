@@ -3,18 +3,20 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "st0's routing-graph engine \u2014 compiles a project graph to a dagre layout the web app draws as HTML nodes + SVG cables. Framework-agnostic; consumed as source.",
+  "description": "st0's routing-graph engine — compiles a project graph to a dagre layout the web app draws as HTML nodes + SVG cables. Framework-agnostic; consumed as source.",
   "exports": {
     "./assembly": "./src/assembly.ts",
-    "./graph": "./src/graph.ts",
     "./bindings": "./src/bindings.ts",
-    "./cables": "./src/cables.ts",
     "./cableCanvas": "./src/cableCanvas.ts",
+    "./cables": "./src/cables.ts",
+    "./decimate": "./src/decimate.ts",
+    "./flow": "./src/flow.ts",
+    "./graph": "./src/graph.ts",
     "./hang": "./src/hang.ts",
     "./modulePreview": "./src/modulePreview.ts",
-    "./zoomGesture": "./src/zoomGesture.ts",
+    "./noteLoad": "./src/noteLoad.ts",
     "./patchGesture": "./src/patchGesture.ts",
-    "./decimate": "./src/decimate.ts"
+    "./zoomGesture": "./src/zoomGesture.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

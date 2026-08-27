@@ -1,8 +1,9 @@
 // cables.ts — the cable DRAWING geometry: smooth a routed polyline into cubic beziers,
 // resample it by arc-length for the live-signal wobble, find the insert `+` midpoint,
-// build arrowheads, and propagate liveness along the edges. Pure math over the laid-out
+// build arrowheads, and propagate the SIGNAL'S STRENGTH along the edges. Pure math over the laid-out
 // graph (graph.ts owns the layout); no DOM, no React, so it is testable on its own.
 
+import { flowOf, type NodeFlow, STILL } from "./flow";
 import type { EdgeInsert, GraphEdge, GraphNode, Pt } from "./graph";
 import { jackPoint, MIX_OUT, RENDER_OUT } from "./graph";
 
@@ -12,7 +13,7 @@ export const TRACK_NODE_PREFIX = "trk:";
 // …and its moduleId()'s, which liveness ALSO seeds from: a materialised track has no lane card.
 export const MODULE_NODE_PREFIX = "mod:";
 
-// …and its sinkId() for the two SUMS, the other nodes liveness starts at — see computeLive.
+// …and its sinkId() for the two SUMS, the other nodes the walk starts at — see computeFlow.
 export const MIX_NODE_ID = `snk:${MIX_OUT}`;
 export const RENDER_NODE_ID = `snk:${RENDER_OUT}`;
 
@@ -163,31 +164,47 @@ export function midByArc(g: CableGeom): Pt {
 
 // No SVG arrowhead string here: the head is traced in drawCables.
 
-/** Which cables carry a signal now, walked FORWARD from the metered lanes and both SUMS. See docs/graphBuild.md. */
-export function computeLive(
-  edges: { id: string; source: string; target: string }[],
-  activeTracks: string[],
-  activeVideoTracks: readonly string[] = [],
+/**
+ * HOW HARD each cable ripples now, walked FORWARD from the metered lanes and both SUMS, and
+ * BACKWARD from each metered card. See docs/graphBuild.md and ui-chains-react/docs/liveCables.md.
+ *
+ * The seed a node carries travels with the signal, and each cable takes from it the number that
+ * matches what IT carries (`flowOf`). That is what lets one lane drive two different ripples: the
+ * MIDI cable into an instrument moves with the notes, and the audio cable out of it with the
+ * meter — one seed, two readings, because the wires are not carrying the same thing.
+ */
+export function computeFlow(
+  edges: {
+    id: string;
+    source: string;
+    target: string;
+    signal?: "audio" | "midi" | "video" | "event";
+  }[],
+  /** What each metered lane or sum is putting out, by node id. Absent = nothing at all. */
+  seeds: ReadonlyMap<string, NodeFlow>,
   /** Where a metered lane's signal LEAVES from when its card has been folded into a closed
    *  assembly, by track id. Without it a folded set reaches nothing and no cable ripples. */
   foldedAt: ReadonlyMap<string, string> = new Map(),
-): Set<string> {
-  const reached = new Set<string>();
-  for (const id of [...activeTracks, ...activeVideoTracks]) {
-    reached.add(`${TRACK_NODE_PREFIX}${id}`);
+): Map<string, number> {
+  const reached = new Map<string, NodeFlow>();
+  const seed = (node: string, f: NodeFlow): void => {
+    const had = reached.get(node);
+    reached.set(node, had ? louder(had, f) : f);
+  };
+  for (const [id, f] of seeds) {
+    seed(`${TRACK_NODE_PREFIX}${id}`, f);
     // A run that MATERIALISED its own track is drawn as its MODULES: there is no lane card to
     // start at, and the track wears the chain's name — packages/song/docs/graphModel.md.
-    reached.add(`${MODULE_NODE_PREFIX}${id}`);
-  }
-  for (const id of activeTracks) {
+    seed(`${MODULE_NODE_PREFIX}${id}`, f);
     const box = foldedAt.get(id);
-    if (box) reached.add(box);
+    if (box) seed(box, f);
+    // Both sums carry whatever reaches them; which one depends on what the lane puts out.
+    if (f.audio > STILL) seed(MIX_NODE_ID, f);
+    if (f.video > STILL) seed(RENDER_NODE_ID, f);
   }
-  if (activeTracks.length) reached.add(MIX_NODE_ID);
-  if (activeVideoTracks.length) reached.add(RENDER_NODE_ID);
-  const live = new Set<string>();
-  const walk = (from: ReadonlySet<string>, back: boolean): void => {
-    const seen = new Set(from);
+  const flow = new Map<string, number>();
+  const walk = (back: boolean): void => {
+    const seen = new Map(reached);
     let changed = true;
     while (changed) {
       changed = false;
@@ -196,18 +213,37 @@ export function computeLive(
         const next = back ? g.source : g.target;
         // Upstream stops at another LANE: a metered card speaks for itself, and would be seeded.
         if (back && next.startsWith(TRACK_NODE_PREFIX)) continue;
-        if (live.has(g.id) || !seen.has(here)) continue;
-        live.add(g.id);
-        seen.add(next);
-        changed = true;
+        const f = seen.get(here);
+        if (!f) continue;
+        // Only what MOVES is recorded: a zero entry would keep the ripple's rAF running for a
+        // cable that hangs still, and `size === 0` is how that loop knows to stop.
+        const v = flowOf(f, g.signal);
+        const had = flow.get(g.id) ?? 0;
+        if (v > had) flow.set(g.id, v);
+        else if (seen.has(next)) continue;
+        const was = seen.get(next);
+        if (!was || louder(was, f) !== was) {
+          seen.set(next, was ? louder(was, f) : f);
+          changed = true;
+        }
       }
     }
   };
-  walk(reached, false);
+  walk(false);
   // …and UPSTREAM of each metered card, which is where a live input sits: the signal it is
   // metering came down that cable. Seeded separately, so a silent sibling branch stays still.
-  walk(reached, true);
-  return live;
+  walk(true);
+  return flow;
+}
+
+/** The louder of two seeds, per kind — the SAME object when the first already wins on all three. */
+function louder(a: NodeFlow, b: NodeFlow): NodeFlow {
+  if (a.audio >= b.audio && a.midi >= b.midi && a.video >= b.video) return a;
+  return {
+    audio: Math.max(a.audio, b.audio),
+    midi: Math.max(a.midi, b.midi),
+    video: Math.max(a.video, b.video),
+  };
 }
 
 /** A stretch of time one video lane is on screen, in SECONDS; `to` may be `Infinity`. See @studio/ui-eyes. */

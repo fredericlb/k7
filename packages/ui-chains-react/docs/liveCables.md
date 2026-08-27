@@ -26,24 +26,26 @@ React's reconciler to get to a canvas.
 the whole chain in refs:
 
 ```
-levels frame → activeTrackIds(snapshot, trackOrder) → activeRef
-             → computeLive(model.signal, …)         → liveRef
-             → cableDraws                            → cableDrawsRef
+levels frame → seedFlows(per-lane dB / notes / picture) → seedRef
+             → computeFlow(model.signal, seeds, …)      → liveRef
+             → applyFlow: move each draw's `flow` in place
              → paintRef.current()  +  rippleRef.current()
 ```
 
-A crossing of the floor repaints the canvas and **re-renders zero components**. The
-subscription bails on `arrayEq` before doing any of it, so a steady signal costs one comparison
-of a short id list per frame.
+A level moving repaints the canvas and **re-renders zero components**. The subscription bails on
+`seedsEq` before doing any of it, so a steady signal costs one comparison of a short map per frame.
 
 Three things hold this together, and all three are load-bearing:
 
-- **`activeTrackIds` is a pure function, not a hook** (`@studio/engine-browser/store`). Made a
-  hook it would be a re-render again; kept pure it is callable from a subscription. The −60 dB
-  floor lives there and nowhere else.
-- **`rebuildCables` and `applyLive` are reassigned on every render**, like `paint` and `fit`
-  beside them. That is what lets a subscription bound once still see the *current* edges without
-  taking the graph as a dependency.
+- **`seedFlows` is a pure function, not a hook** (`@studio/ui-chains/flow`). Made a hook it would
+  be a re-render again; kept pure it is callable from a subscription. The −80 dB floor lives there
+  and nowhere else.
+- **`applyFlow` moves the numbers and rebuilds NOTHING.** A meter frame arrives twenty times a
+  second, and `rebuildCables` re-runs `exciteSway` on every cable — kicking each spring twenty
+  times a second for ever, besides reallocating the array. Only a change to the GRAPH rebuilds.
+- **`rebuildCables`, `applyLive` and `applyMeter` are reassigned on every render**, like `paint`
+  and `fit` beside them. That is what lets a subscription bound once still see the *current* edges
+  without taking the graph as a dependency.
 - **A graph change goes through `applyLive` too**, not just a meter frame. The liveness set is
   keyed by EDGE id, so new edges mean it has to be recomputed even though the track ids did not
   move.
@@ -107,7 +109,7 @@ list below.
 
 ## The picture has no meters, so it is DERIVED
 
-The engine measures sound and knows nothing of the frame, so `activeTrackIds` is silent about a
+The engine measures sound and knows nothing of the frame, so the levels are silent about a
 video lane, so every cable on the picture side of the graph would stay still through a playing song.
 What the browser has instead is the shots and the playhead, which is the same bargain st0 already
 strikes for a rack's lit pads (`apps/st0/frontend/src/rackLit.ts`).
@@ -139,3 +141,21 @@ which is what a module preview wants. Any host that passes `trackOrder` gets liv
 
 `videoSpans` is the same bargain for the frame: a host with no picture passes none and the video
 cables stay still.
+
+## …and HOW HARD, which is a second question
+
+Which cables move is this walk; how much each moves is [flow.ts](../../ui-chains/src/flow.ts), and
+the size of the ripple is [wobble.md](../../ui-chains/docs/wobble.md). Two things about it belong
+here, beside the subscription:
+
+- **The seed is per LANE and carries all three measures** — its level in dB, its notes sounding,
+  whether it is showing a picture. A cable takes the one matching what it carries, which is how one
+  sequences lane ripples its MIDI cable with the notes and its instrument's audio cable with the
+  meter.
+- **Nothing meters MIDI, and nothing meters a frame.** The engine sends levels for sound and
+  silence about the rest, so both of those are DERIVED in the browser from what it already holds:
+  `videoSpans.ts` for the picture and `noteSpans.ts` for the notes, each memoised on the document
+  and handed in as a prop.
+
+The subscription reads all three off one frame, builds the seeds, and stops at `seedsEq` when
+nothing moved — which is most frames, and is what keeps a 20 Hz meter from walking the graph.
