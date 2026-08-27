@@ -70,10 +70,16 @@ export interface ScenePass {
   audio: number; // uAudio, 0..1 — replaced every frame by the host
 }
 
-// A layer in the draw stack: a VIDEO lane (a rect plus clips) or a SHAPE lane, discriminated by a non-empty `shapes`.
+// A layer in the draw stack: a VIDEO lane (a rect plus clips), a SHAPE lane, or a CAMERA — the
+// third discriminated by `camera` being present, since a live lane holds no clips and no shapes.
 export interface VideoLayer {
   id: string;
   hidden: boolean;
+  /** A LIVE picture fills this layer: the camera's LABEL, or "" for whichever is default.
+   *
+   * A label rather than a deviceId because an id is salted per browser and per origin — the
+   * runtime matches this against what it enumerates. See packages/song/docs/camera.md. */
+  camera?: string;
   x: number;
   y: number;
   w: number;
@@ -114,6 +120,8 @@ export interface SceneLayerInput {
   }[];
   shapes?: SceneShape[];
   passes?: ScenePass[];
+  /** See `VideoLayer.camera` — a live lane, which holds no clips at all. */
+  camera?: string;
 }
 
 // Assemble a VideoScene from already-adapted layers; a natural-length clip contributes only its start to durationSec.
@@ -131,6 +139,8 @@ export function buildScene(
     return {
       id: l.id,
       hidden: l.mute,
+      // A LIVE lane, whose picture has no start and no end — so it adds nothing to `durationSec`.
+      ...(l.camera === undefined ? {} : { camera: l.camera }),
       x: l.x,
       y: l.y,
       w: l.w,

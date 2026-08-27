@@ -96,6 +96,11 @@ export async function exportScene(
           visible.add(layer.id);
           continue;
         }
+        // A LIVE lane is skipped, and that is the honest answer rather than a limitation to fix:
+        // an export walks a timeline frame by frame, faster or slower than real time, and a lens
+        // has no frame at t. What it would record is "whatever the camera happened to show while
+        // the encoder ran", which is not the picture anybody asked for. See docs/camera.md.
+        if (layer.camera !== undefined) continue;
         const frame = layerFrameAt(layer, t);
         // Slot 0 is the outgoing picture and slot 1 the incoming one; a cut uses slot 0 alone.
         const wanted: { active: Active; slot: 0 | 1 }[] = frame.blend

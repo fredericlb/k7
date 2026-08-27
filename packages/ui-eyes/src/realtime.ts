@@ -5,6 +5,7 @@
 // two-speed: playbackRate for a small drift, a hard seek for a jump.
 // Full rationale: docs/realtime.md, and song-video/docs/transitions.md.
 
+import { cameraConstraint, matchCamera } from "./camera";
 import type { SeekingClock } from "./clock";
 import type { LayerBlend } from "./compositor";
 import { Compositor } from "./compositor";
@@ -23,6 +24,13 @@ interface Lane {
   els: HTMLVideoElement[];
   loaded: (number | null)[]; // which clip INDEX each element is loaded with
   settleUntil: number[];
+  /** A LIVE lane: one element carrying a camera's stream. It chases no clock and holds no clip —
+   *  a lens has no timeline — so every seek and drift rule below skips it (docs/camera.md). */
+  live?: {
+    el: HTMLVideoElement;
+    stream: MediaStream | null;
+    problem: string | null;
+  };
 }
 
 // The frontend can read this to show a drift debug line (see the plan's verification).
@@ -35,6 +43,43 @@ export interface LaneDebug {
 
 const clamp = (v: number, lo: number, hi: number) =>
   v < lo ? lo : v > hi ? hi : v;
+
+/** The parked, decodable element a lane draws from — the same 1px trick a clip's uses. */
+function liveElement(host: HTMLElement): HTMLVideoElement {
+  const el = document.createElement("video");
+  el.muted = true;
+  el.playsInline = true;
+  el.style.cssText =
+    "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0";
+  host.appendChild(el);
+  return el;
+}
+
+/** Open the lens a layer names and hand it to `live.el`. Fire and forget: the first frames arrive
+ *  whenever the browser and the person granting permission agree, and the lane draws nothing until
+ *  they do. Every failure is CARRIED rather than thrown — a refused camera must not take the whole
+ *  viewport down with it, and the other layers have pictures to show. See docs/camera.md. */
+async function openCamera(label: string, live: NonNullable<Lane["live"]>) {
+  const media = globalThis.navigator?.mediaDevices;
+  if (!media?.getUserMedia) {
+    live.problem = "this browser offers no camera";
+    return;
+  }
+  try {
+    // Enumerated FIRST, so a named lens is matched before anything is opened. The labels are blank
+    // until permission has been granted once, which is why an unmatched label falls back rather
+    // than refusing: on the first run there is nothing to match against yet.
+    const devices = await media.enumerateDevices();
+    const match = matchCamera(label, devices);
+    live.problem = match.problem ?? null;
+    const stream = await media.getUserMedia(cameraConstraint(match));
+    live.stream = stream;
+    live.el.srcObject = stream;
+    await live.el.play().catch(() => undefined);
+  } catch (e) {
+    live.problem = `camera unavailable: ${(e as Error).message}`;
+  }
+}
 
 export class RealtimeDriver {
   private comp: Compositor;
@@ -61,6 +106,13 @@ export class RealtimeDriver {
   ): RealtimeDriver {
     const comp = Compositor.create(host, scene);
     const lanes: Lane[] = scene.layers.map((layer) => {
+      // A LIVE lane: one element, one stream, and nothing to decode or chase (docs/camera.md).
+      if (layer.camera !== undefined) {
+        const el = liveElement(host);
+        const live: Lane["live"] = { el, stream: null, problem: null };
+        openCamera(layer.camera, live);
+        return { layer, els: [], loaded: [], settleUntil: [], live };
+      }
       // A shape layer has no media — the compositor draws its fills, so it needs no element and no drift control.
       if (layer.shapes?.length)
         return { layer, els: [], loaded: [], settleUntil: [] };
@@ -169,6 +221,22 @@ export class RealtimeDriver {
       // A hidden layer is omitted, exactly as export does — otherwise preview would show a track the render drops.
       if (lane.layer.hidden) {
         this.park(lane);
+        continue;
+      }
+
+      // A LIVE lane draws whatever the lens is showing: no clip, no seek, no drift — and it is
+      // drawn while the transport is STOPPED too, which is what "live" has to mean.
+      if (lane.live) {
+        if (lane.live.stream) {
+          visible.add(lane.layer.id);
+          this.comp.upload(lane.layer.id, lane.live.el, 0);
+        }
+        this.debug.push({
+          id: lane.layer.id,
+          active: !!lane.live.stream,
+          errMs: 0,
+          rate: 1,
+        });
         continue;
       }
 
@@ -316,13 +384,21 @@ export class RealtimeDriver {
     this.disposed = true;
     cancelAnimationFrame(this.raf);
     this.clock.onSeek = undefined;
-    for (const lane of this.lanes)
+    for (const lane of this.lanes) {
       for (const el of lane.els) {
         el.pause();
         el.removeAttribute("src");
         el.load();
         el.remove();
       }
+      // A camera left running is a lamp left on: the browser keeps the indicator lit and the
+      // device held until the tab closes, on a surface you merely navigated away from.
+      if (lane.live) {
+        for (const track of lane.live.stream?.getTracks() ?? []) track.stop();
+        lane.live.el.srcObject = null;
+        lane.live.el.remove();
+      }
+    }
     this.comp.destroy();
   }
 }
