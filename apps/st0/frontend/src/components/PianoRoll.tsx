@@ -1,8 +1,9 @@
 // PianoRoll.tsx — a piano-roll view/editor of a MIDI clip. A clip that states a window
 // (`from`/`to`) is FRAMED on it with a margin either side, the canvas still spanning the whole
 // sequence: what is outside sounds in no pass, so it is drawn dimmed and cannot be edited
-// (rollFit.ts, docs/clipEditors.md). Left-click-drag draws a note (press = pitch + start,
-// release = end) via `sequence note new`; a wheel zooms time and a middle-drag pans.
+// (rollFit.ts, docs/clipEditors.md). Left-click-drag draws a note via `sequence note new`, a body
+// drag moves it in TIME and in PITCH, either edge stretches it, and `x` removes what the caret is
+// on. What each gesture writes is rollDrag.ts, where it is tested; a wheel zooms and middle drags pan.
 // Drawn by the Editor bottom panel and, when a clip is clicked, where the graph is (ClipView).
 
 import { cn } from "@frediverse/ui/lib/utils";
@@ -17,8 +18,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { copyNotes, droppedCount, pasteNotes } from "../clipboard";
+import {
+  copyNotes,
+  droppedCount,
+  notesInRegion,
+  pasteNotes,
+} from "../clipboard";
 import { clipLoop, playedZone } from "../clipLoop";
+import type { MenuCtx } from "../contextMenu";
 import {
   type ClipGridHandle,
   cellBox,
@@ -29,8 +36,25 @@ import {
 } from "../gridCaret";
 import { useGridCaret } from "../hooks/useGridCaret";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
+import { cursorOf, ModeStrip } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
+import {
+  dragMoved,
+  drawSpan,
+  keyOffset,
+  movesPitch,
+  type RollDrag,
+  tSpan,
+  velAt,
+} from "../rollDrag";
 import { rollFit } from "../rollFit";
+import { laneDraws, ROLL_MODES, ROLL_PRESS, type RollMode } from "../rollMode";
+import {
+  noteAddr,
+  paintNotes,
+  type RollNote,
+  settledNotes,
+} from "../rollPending";
 import { freeSnap, snapTo } from "../snap";
 import type { WebClip, WebProject } from "../types";
 import { ArrangementRuler, Grid, RulerTicks, rulerScale } from "./Ruler";
@@ -45,12 +69,15 @@ const isBlack = (k: number) => [1, 3, 6, 8, 10].includes(pc(k));
 const N_NOTES = 128; // every possible MIDI note (0..127)
 const PX_PER_BEAT = 24; // fallback beat width for the first, unmeasured frame only
 const GUTTER = 44; // note-name column, px
-// The shortest a stretch may leave a note: a 64th at any tempo — a real choice, and not a note vanishing from the roll.
-const MIN_NOTE_BEATS = 1 / 16;
 const RULER_H = 18; // bar/beat ruler height, px
 const KEYS = Array.from({ length: N_NOTES }, (_, i) => 127 - i); // high → low, top → bottom
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
+
+/** What the shell drives on the ROLL — the third of these, beside `TimelineHandle` and `AudioClipHandle`. */
+export interface RollHandle {
+  setMode: (m: RollMode) => void;
+}
 
 export function PianoRoll({
   project,
@@ -66,6 +93,13 @@ export function PianoRoll({
   onCreateNote,
   onSetVelocity,
   onSetNoteRange,
+  onMoveNote,
+  onRemoveNote,
+  onContextMenu,
+  onPreviewNote,
+  onCommand,
+  modeRef,
+  onModeChange,
 }: {
   project: WebProject;
   clip: WebClip;
@@ -84,19 +118,99 @@ export function PianoRoll({
   onSetLoop?: (fromSec: number, toSec: number, on: boolean) => void;
   /** Seek the transport, in SONG seconds — what a click on the arrangement ruler does. */
   onSeek?: (seconds: number) => void;
-  // Draw a note via `sequence note new`; absent, the roll is read-only (no known sequence to write to).
-  onCreateNote?: (key: number, startBeat: number, endBeat: number) => void;
+  // Draw a note via `sequence note new`, ANSWERING the command's promise like the three below (rollPending.ts); absent, the roll is read-only.
+  onCreateNote?: (
+    key: number,
+    startBeat: number,
+    endBeat: number,
+  ) => void | Promise<void>;
   /** Commit a note's velocity via `sequence note velocity` — 0..1; absent ⇒ nothing to write to, though the line is still DRAWN. */
-  onSetVelocity?: (key: number, startBeat: number, vel: number) => void;
+  onSetVelocity?: (
+    key: number,
+    startBeat: number,
+    vel: number,
+  ) => void | Promise<void>;
   /** Commit a note's new time range via `sequence note timerange`, in beats — absent ⇒ notes cannot be moved or stretched. */
   onSetNoteRange?: (
     key: number,
     startBeat: number,
     newStart: number,
     newEnd: number,
-  ) => void;
+  ) => void | Promise<void>;
+  /** Commit a note's new PITCH via `sequence note move`, which keeps the duration — absent ⇒ a drag stays horizontal. */
+  onMoveNote?: (
+    key: number,
+    startBeat: number,
+    newKey: number,
+    newStart: number,
+  ) => void | Promise<void>;
+  /** Remove one note via `sequence note remove` — what the `remove` mode's press runs (rollMode.ts). */
+  onRemoveNote?: (key: number, startBeat: number) => void | Promise<void>;
+  /** The shell's right-click menu, for a note's own two verbs — remove, and split at the caret (contextMenu.ts). */
+  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
+  /** Hear a note as it is pressed, through the track's own chain — absent when nothing knows which track that is. */
+  onPreviewNote?: (key: number, vel: number) => void;
+  /** Runs a command line through the shell — the strip's own way of switching mode, a button dispatching rather than doubling. */
+  onCommand?: (line: string) => void | Promise<void>;
+  /** Where the shell reaches this roll's MODE — `ui roll <mode>` arrives here, as the other two surfaces' do. */
+  modeRef?: RefObject<RollHandle | null>;
+  /** …and the same fact going up, for the key conditions and the footer's badge. */
+  onModeChange?: (m: RollMode | null) => void;
 }) {
-  const notes = clip.notes;
+  /** Where a press goes — CHOSEN, and `select` by default: the roll opens ready to read rather than ready to write. */
+  const [mode, setMode] = useState<RollMode>("select");
+  // `select` keeps the system's arrow: framing is what an arrow already means, and a picture of one is worse than one.
+  const rollCursor = mode === "select" ? undefined : cursorOf(mode);
+  useImperativeHandle(modeRef, (): RollHandle => ({ setMode }), []);
+  useEffect(() => onModeChange?.(mode), [mode, onModeChange]);
+  // …and NULL on the way out, so an audio clip opened next does not leave the shell believing a roll is on screen.
+  useEffect(() => () => onModeChange?.(null), [onModeChange]);
+  /** Edits the document has not caught up with: each is painted at once and held until it AGREES (rollPending.ts). */
+  const [pending, setPending] = useState<Map<string, RollNote | null>>(
+    new Map(),
+  );
+  const inFlight = useRef(0);
+  useEffect(() => {
+    setPending((cur) => {
+      if (!cur.size) return cur;
+      // Nothing in flight and a document has landed: it has the last word, so a ghost that still disagrees was a command that FAILED.
+      if (inFlight.current === 0) return new Map();
+      const done = settledNotes(clip.notes, cur);
+      if (!done.length) return cur;
+      const next = new Map(cur);
+      for (const k of done) next.delete(k);
+      return next;
+    });
+  }, [clip.notes]);
+  // A different clip's ghosts are not this one's.
+  useEffect(() => {
+    setPending(new Map());
+  }, [clip.id]);
+  /** Ghost an edit at `addr` — where the note is NOW, which is how the verb addresses it (docs/clipEditors.md). */
+  const paint = (edits: [string, RollNote | null][]) =>
+    setPending((cur) => {
+      const next = new Map(cur);
+      for (const [a, to] of edits) next.set(a, to);
+      return next;
+    });
+  const commit = (
+    addr: string,
+    to: RollNote | null,
+    run: () => void | Promise<void>,
+  ) => {
+    paint([[addr, to]]);
+    inFlight.current++;
+    void Promise.resolve(run()).finally(() => {
+      inFlight.current--;
+    });
+  };
+
+  const notes = paintNotes(clip.notes, pending);
+  /** The note a gesture is on, as the ROLL currently reads it — a ghost carries the fields the edit does not name. */
+  const docNote = (key: number, time: number) =>
+    notes.find((n) => n.key === key && Math.abs(n.time - time) < 1e-6);
+  const noteDur = (key: number, time: number) =>
+    docNote(key, time)?.duration ?? 0;
   // The sequence a note command names — the same rule every caller of `sequence note …` uses.
   const seqId = clip.name || clip.id;
   const barBeats = Math.max(1, project.timeSigNumerator || 4);
@@ -201,6 +315,21 @@ export function PianoRoll({
     [origin, gridUnit],
   );
 
+  /** What the shell's three region verbs act on: the rectangle, or the caret's own cell when there is none. */
+  const caretBox = () =>
+    grid.sel ? selBox(grid.sel) : cellBox({ row: caret.row, col: caret.col });
+  /** …and the notes it holds, by the rule `copyNotes` applies — so copying and deleting cannot disagree about one box. */
+  const caretNotes = () => {
+    const b = caretBox();
+    return notesInRegion(
+      notes,
+      127 - b.rowHi,
+      127 - b.rowLo,
+      beatOfCol(b.colLo),
+      beatOfCol(b.colHi + 1),
+    );
+  };
+
   useImperativeHandle(
     caretRef,
     (): ClipGridHandle => ({
@@ -225,9 +354,7 @@ export function PianoRoll({
       },
       /** `selection copy` — the notes the rectangle holds, in its own coordinates; with no rectangle the caret's cell is one. */
       copy: () => {
-        const s = grid.sel;
-        // The caret's two fields spelt out rather than the object: they are all a cell is.
-        const b = s ? selBox(s) : cellBox({ row: caret.row, col: caret.col });
+        const b = caretBox();
         return copyNotes(
           notes,
           seqId,
@@ -252,6 +379,24 @@ export function PianoRoll({
           note:
             `${out.length} note${out.length > 1 ? "s" : ""} collée${out.length > 1 ? "s" : ""}` +
             (dropped ? ` — ${dropped} hors clavier, laissée(s)` : ""),
+        };
+      },
+      /** `selection delete` — what the rectangle holds, or the caret's cell; one line, so N notes are one Ctrl+Z. */
+      deleteLine: () => {
+        const hit = caretNotes();
+        if (!hit.length)
+          return { note: "rien à supprimer — le caret n'est sur aucune note" };
+        // Painted here rather than through `commit`: the SHELL runs the line, so there is no promise to hold the ghost against.
+        paint(hit.map((n) => [noteAddr(n.key, n.time), null]));
+        if (hit.length === 1)
+          return {
+            line: `sequence note remove ${seqId} ${hit[0].key} ${hit[0].time}`,
+            note: `${noteName(hit[0].key)} supprimée`,
+          };
+        const b = caretBox();
+        return {
+          line: `sequence notes remove ${seqId} ${127 - b.rowHi} ${127 - b.rowLo} ${beatOfCol(b.colLo)} ${beatOfCol(b.colHi + 1)}`,
+          note: `${hit.length} notes supprimées`,
         };
       },
     }),
@@ -316,26 +461,16 @@ export function PianoRoll({
     return { row: 127 - key, col: colOfBeat(beat) };
   };
 
-  /** The span a draw gesture covers, in beats — the CELLS it was dragged across, so a note lands where the caret does. */
-  const drawSpan = (
-    a: number,
-    b: number,
-    step: number,
-  ): { from: number; to: number } => {
-    if (step <= 0) return { from: Math.min(a, b), to: Math.max(a, b) };
-    const lo = Math.min(colOfBeat(a), colOfBeat(b));
-    const hi = Math.max(colOfBeat(a), colOfBeat(b));
-    return {
-      from: beatOfCol(lo),
-      to: hi > lo ? beatOfCol(hi) + step : beatOfCol(lo),
-    };
-  };
+  /** The span a draw gesture covers, in beats — the cells it crossed, `gridUnit` being what a Ctrl-freed click is worth (rollDrag.ts). */
+  const drawnSpan = (a: number, b: number, step: number) =>
+    drawSpan(a, b, step, origin, gridUnit);
 
   const onLanePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return; // left only; middle pans
-    /** SHIFT: the caret grows into the rectangle, before the draw branch, so shift never draws — and a read-only roll still selects. */
-    if (e.shiftKey) {
+    /** The RECTANGLE: what `select` means, and what SHIFT means in EVERY mode — before the draw branch, so shift never draws. */
+    if (e.shiftKey || !laneDraws(mode)) {
       e.preventDefault();
+      grid.placeCaret(cellAtEvent(e));
       const feed = grid.beginDrag(cellAtEvent(e));
       const move = (ev: PointerEvent) => feed(cellAtEvent(ev));
       const up = () => {
@@ -355,11 +490,13 @@ export function PianoRoll({
     // Outside the event's window a new note would not sound, so it is refused rather than clamped; the caret still moved.
     if (!inAct(beat)) return;
     drag.current = { k: key, t0: beat };
+    // Heard on the PRESS, before anything is written: the ear is what tells C# from D, and a drag has not chosen a length yet.
+    onPreviewNote?.(key, 1);
     setDraft({ k: key, t0: beat, t1: beat });
     const move = (ev: PointerEvent) => {
       const d = drag.current;
       if (!d) return;
-      const { from, to } = drawSpan(d.t0, atEvent(ev).beat, stepAt(ev));
+      const { from, to } = drawnSpan(d.t0, atEvent(ev).beat, stepAt(ev));
       setDraft({ k: d.k, t0: from, t1: to });
     };
     const up = (ev: PointerEvent) => {
@@ -369,9 +506,13 @@ export function PianoRoll({
       drag.current = null;
       setDraft(null);
       if (!d) return;
-      const { from, to } = drawSpan(d.t0, atEvent(ev).beat, stepAt(ev));
-      // A press that never left its cell leaves the length to the command's default.
-      onCreateNote(d.k, from, to - from > 0.01 ? to : from);
+      // A press that never left its cell covers that CELL: the command's own default is a whole beat, sixteen of them on a 1/16 grid.
+      const { from, to } = drawnSpan(d.t0, atEvent(ev).beat, stepAt(ev));
+      commit(
+        noteAddr(d.k, from),
+        { key: d.k, time: from, duration: to - from },
+        () => onCreateNote(d.k, from, to),
+      );
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -385,20 +526,12 @@ export function PianoRoll({
     moved: boolean;
   }
 
-  /** --- drag a note's TIME RANGE: four grips, each a PLACE rather than a direction, with the RIGHT edge tested first. */
+  /** --- drag a note's TIME RANGE and its PITCH: four grips, each a PLACE rather than a direction (rollDrag.ts holds the arithmetic). */
   const EDGE_PX = 6;
   /** How far either side of the white line still counts as holding it — a line is one pixel and nobody can hit one. */
   const VEL_PX = 5;
-  interface TDrag {
-    key: number;
-    time: number; // where it starts NOW — how the command addresses it
-    dur: number;
-    // Which end is in hand, or the whole note — the timeline's own vocabulary for the same gesture.
-    mode: "move" | "start" | "end";
-    dBeats: number; // how far it has travelled, in beats
-  }
-  const [tDraw, setTDraw] = useState<TDrag | null>(null);
-  const tDrag = useRef<TDrag | null>(null);
+  const [tDraw, setTDraw] = useState<RollDrag | null>(null);
+  const tDrag = useRef<RollDrag | null>(null);
   // Which gesture this press became, once it has travelled far enough to say — a ref, since a state updater runs twice under StrictMode.
   const gesture = useRef<"vel" | "time" | null>(null);
   const pressAt = useRef<{ x: number; y: number } | null>(null);
@@ -406,12 +539,49 @@ export function PianoRoll({
   const [vDraw, setVDraw] = useState<VDrag | null>(null);
   const vDrag = useRef<VDrag | null>(null);
 
-  const velAt = (clientY: number, top: number): number => {
+  /** The pointer's velocity, once its Y is expressed inside the note's own row (the scale itself is rollDrag.ts's). */
+  const velOf = (clientY: number, top: number): number => {
     const el = laneRef.current;
-    if (!el || rowH <= 1) return 1;
-    // Where the pointer sits inside the note's row, bottom-up.
-    const y = clientY - el.getBoundingClientRect().top - top;
-    return clamp(1 - y / Math.max(1, rowH - 1), 0, 1);
+    if (!el) return 1;
+    return velAt(clientY - el.getBoundingClientRect().top - top, rowH);
+  };
+
+  /** Right-click on a note: its own two verbs, through the shell's menu. The CARET is where a split would cut, not the pointer. */
+  const onNoteMenu = (
+    e: React.MouseEvent,
+    n: { key: number; time: number; duration: number },
+  ) => {
+    if (!onContextMenu) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const b = grid.sel ? selBox(grid.sel) : null;
+    onContextMenu(
+      {
+        kind: "note",
+        sequence: seqId,
+        note: n.key,
+        start: n.time,
+        end: n.time + n.duration,
+        at: beatOfCol(caret.col),
+        // The rectangle, only when this note is IN it: the four plural verbs must not act on a box the click was outside of.
+        ...(b &&
+        n.key >= 127 - b.rowHi &&
+        n.key <= 127 - b.rowLo &&
+        n.time >= beatOfCol(b.colLo) - 1e-9 &&
+        n.time < beatOfCol(b.colHi + 1) - 1e-9
+          ? {
+              region: {
+                lo: 127 - b.rowHi,
+                hi: 127 - b.rowLo,
+                from: beatOfCol(b.colLo),
+                to: beatOfCol(b.colHi + 1),
+              },
+            }
+          : {}),
+      },
+      e.clientX,
+      e.clientY,
+    );
   };
 
   /** A press on a note, and `grip` says WHICH of its four it landed on — named by the element that took it, not hit-tested. */
@@ -420,22 +590,36 @@ export function PianoRoll({
     n: { key: number; time: number; duration: number; vel?: number },
     grip?: "line" | "start" | "end",
   ) => {
-    if (e.button !== 0 || (!onSetVelocity && !onSetNoteRange)) return;
+    if (e.button !== 0) return;
+    // In CREATE a note is no target — the press is let through to the LANE, so this returns before `stopPropagation`.
+    if (mode === "create") return;
     e.preventDefault();
     e.stopPropagation(); // not a new note: this press belongs to the one already here
+    // REMOVE takes the note and asks nothing else of the press — no grip, no capture, no drag to arm.
+    if (mode === "remove") {
+      if (onRemoveNote)
+        commit(noteAddr(n.key, n.time), null, () =>
+          onRemoveNote(n.key, n.time),
+        );
+      return;
+    }
+    if (!onSetVelocity && !onSetNoteRange) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     pressAt.current = { x: e.clientX, y: e.clientY };
     // Claimed on the PRESS: a grip is a place, not a direction, so none of them waits to see which way the hand goes.
-    const t: TDrag = {
+    const t: RollDrag = {
       key: n.key,
       time: n.time,
       dur: n.duration,
       mode: grip === "start" || grip === "end" ? grip : "move",
       dBeats: 0,
+      dKeys: 0,
     };
     tDrag.current = t;
     const v = { key: n.key, time: n.time, vel: n.vel ?? 1, moved: false };
     vDrag.current = v;
+    // A press on a note plays it, at what it is WORTH — which is how a velocity drag is judged by ear rather than by the line's height.
+    onPreviewNote?.(n.key, v.vel);
     // The line sets, an edge stretches, the body moves — and a note with nowhere to move keeps its body as the velocity handle.
     gesture.current =
       grip === "line" && onSetVelocity
@@ -462,7 +646,7 @@ export function PianoRoll({
         Math.abs(e.clientY - from.y) < 4
       )
         return;
-      const next = { ...d, vel: velAt(e.clientY, top), moved: true };
+      const next = { ...d, vel: velOf(e.clientY, top), moved: true };
       vDrag.current = next;
       setVDraw(next);
       return;
@@ -470,30 +654,19 @@ export function PianoRoll({
     const d = tDrag.current;
     if (!d || !from) return;
     // The OFFSET snaps, not the resulting position — the timeline's rule, so a note played in by hand keeps its phase. Ctrl frees it, live.
-    const next = {
+    const next: RollDrag = {
       ...d,
       dBeats: snapTo((e.clientX - from.x) / Math.max(1, ppb), stepAt(e)),
+      // Ctrl does not reach this axis: a row IS a semitone, and there is nothing between two of them to free.
+      dKeys:
+        onMoveNote && d.mode === "move"
+          ? keyOffset(e.clientY - from.y, rowH)
+          : 0,
     };
+    // Each ROW crossed is heard as it is crossed: a transposition judged by eye against a 128-lane grid is not judged.
+    if (next.dKeys !== d.dKeys) onPreviewNote?.(tSpan(next).key, 1);
     tDrag.current = next;
     setTDraw(next);
-  };
-
-  /** Where a drag has taken the note, whichever grip it is on — ONE answer, read by the preview and by the commit. */
-  const tSpan = (t: TDrag): { start: number; end: number } => {
-    if (t.mode === "move") {
-      const start = Math.max(0, t.time + t.dBeats);
-      return { start, end: start + t.dur };
-    }
-    const end = t.time + t.dur;
-    return t.mode === "start"
-      ? {
-          start: Math.max(0, Math.min(end - MIN_NOTE_BEATS, t.time + t.dBeats)),
-          end,
-        }
-      : {
-          start: t.time,
-          end: Math.max(t.time + MIN_NOTE_BEATS, end + t.dBeats),
-        };
   };
 
   const endVDrag = () => {
@@ -506,10 +679,44 @@ export function PianoRoll({
     pressAt.current = null;
     setVDraw(null);
     setTDraw(null);
-    if (g === "vel" && v?.moved) onSetVelocity?.(v.key, v.time, v.vel);
-    if (g === "time" && t && Math.abs(t.dBeats) > 1e-6) {
-      const { start, end } = tSpan(t);
-      onSetNoteRange?.(t.key, t.time, start, end);
+    if (g === "vel" && v?.moved && onSetVelocity)
+      commit(
+        noteAddr(v.key, v.time),
+        {
+          key: v.key,
+          time: v.time,
+          duration: noteDur(v.key, v.time),
+          vel: v.vel,
+        },
+        () => onSetVelocity(v.key, v.time, v.vel),
+      );
+    if (g === "time" && t && dragMoved(t)) {
+      const { key, start, end } = tSpan(t);
+      const addr = noteAddr(t.key, t.time);
+      const was = docNote(t.key, t.time);
+      // A changed PITCH is `sequence note move`, anything else the two-grip range verb — and not one verb for both (docs/clipEditors.md).
+      if (movesPitch(t) && onMoveNote)
+        commit(
+          addr,
+          {
+            key,
+            time: start,
+            duration: t.dur,
+            ...(was?.vel === undefined ? {} : { vel: was.vel }),
+          },
+          () => onMoveNote(t.key, t.time, key, start),
+        );
+      else if (onSetNoteRange)
+        commit(
+          addr,
+          {
+            key: t.key,
+            time: start,
+            duration: end - start,
+            ...(was?.vel === undefined ? {} : { vel: was.vel }),
+          },
+          () => onSetNoteRange(t.key, t.time, start, end),
+        );
     }
   };
 
@@ -543,8 +750,8 @@ export function PianoRoll({
           )}
           {onCreateNote && (
             <span className="ml-2 text-muted-foreground/70">
-              · drag to draw · ctrl: hors grille · pinch to zoom · middle-drag
-              pan
+              · drag to draw · x supprime · ctrl: hors grille · pinch to zoom ·
+              middle-drag pan
             </span>
           )}
         </span>
@@ -563,46 +770,124 @@ export function PianoRoll({
         )}
       </div>
 
-      <div ref={bodyRef} className="relative min-h-0 flex-1 overflow-auto">
+      <div className="flex min-h-0 flex-1">
+        {/* The three modes as a 32px column — the only way to one a finger has, the keys and the bar being the other two. */}
+        {onModeChange && (
+          <ModeStrip
+            modes={ROLL_MODES}
+            current={mode}
+            onPick={(m) => void onCommand?.(`ui roll ${m}`)}
+            title={(m) => `${m} — ${ROLL_PRESS[m]}`}
+          />
+        )}
         <div
-          className="relative font-mono"
-          style={{ width: GUTTER + laneW, height: rulersH + gridH }}
+          ref={bodyRef}
+          // The mode's own icon AS the pointer — `select` keeps the system's, framing being what an arrow already means.
+          style={rollCursor ? { cursor: rollCursor } : undefined}
+          className={cn(
+            "relative min-h-0 flex-1 overflow-auto",
+            rollCursor && "[&_*]:!cursor-[inherit]",
+          )}
         >
-          {/* The rulers, stacked and sticky as one: the SONG's positions on top, the file's own bars and beats below. */}
-          <div className="sticky top-0 z-20 bg-background text-[10px] text-muted-foreground">
-            {placed && (
+          <div
+            className="relative font-mono"
+            style={{ width: GUTTER + laneW, height: rulersH + gridH }}
+          >
+            {/* The rulers, stacked and sticky as one: the SONG's positions on top, the file's own bars and beats below. */}
+            <div className="sticky top-0 z-20 bg-background text-[10px] text-muted-foreground">
+              {placed && (
+                <div className="flex" style={{ height: RULER_H }}>
+                  <div
+                    className="sticky left-0 z-10 shrink-0 border-b border-r border-border bg-background"
+                    style={{ width: GUTTER }}
+                  />
+                  <div
+                    className="relative border-b border-border/50"
+                    style={{ width: laneW }}
+                  >
+                    <ArrangementRuler
+                      startBeat={clip.start}
+                      beats={canvasBeats}
+                      ppb={ppb}
+                      barBeats={barBeats}
+                      tempo={project.tempo}
+                      height={RULER_H}
+                      onSeek={onSeek}
+                    />
+                  </div>
+                </div>
+              )}
+              {/* bars + beats ruler — the FILE's own numbering, window origin included, on the ladder every ruler here draws. */}
               <div className="flex" style={{ height: RULER_H }}>
                 <div
                   className="sticky left-0 z-10 shrink-0 border-b border-r border-border bg-background"
                   style={{ width: GUTTER }}
                 />
                 <div
-                  className="relative border-b border-border/50"
+                  className="relative overflow-hidden border-b border-border"
                   style={{ width: laneW }}
                 >
-                  <ArrangementRuler
-                    startBeat={clip.start}
-                    beats={canvasBeats}
-                    ppb={ppb}
+                  <RulerTicks
+                    mode="bars"
+                    beatLo={origin}
+                    lastBeat={gridEnd}
+                    unit={gridUnit}
                     barBeats={barBeats}
-                    tempo={project.tempo}
-                    height={RULER_H}
-                    onSeek={onSeek}
+                    bps={bps}
+                    secStep={gridSecStep}
+                    scroller={bodyRef}
+                    ppb={ppb}
+                    barStride={gridStride}
                   />
                 </div>
               </div>
-            )}
-            {/* bars + beats ruler — the FILE's own numbering, window origin included, on the ladder every ruler here draws. */}
-            <div className="flex" style={{ height: RULER_H }}>
+            </div>
+
+            {/* piano gutter + note grid */}
+            <div className="flex" style={{ height: gridH }}>
               <div
-                className="sticky left-0 z-10 shrink-0 border-b border-r border-border bg-background"
+                className="sticky left-0 z-10 shrink-0 border-r border-border bg-background"
                 style={{ width: GUTTER }}
-              />
-              <div
-                className="relative overflow-hidden border-b border-border"
-                style={{ width: laneW }}
               >
-                <RulerTicks
+                {KEYS.map((k) => (
+                  <div
+                    key={k}
+                    className={`flex items-center justify-end pr-1 text-[9px] text-muted-foreground ${isBlack(k) ? "bg-muted/50" : ""}`}
+                    style={{ height: rowH, lineHeight: `${rowH}px` }}
+                  >
+                    {showLabels && pc(k) === 0 ? (
+                      <>
+                        {noteName(k)} <span className="opacity-50">{k}</span>
+                      </>
+                    ) : (
+                      ""
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div
+                ref={laneRef}
+                // overflow-hidden is the cage's edge: a note crossing the window is drawn at its true beats and cut where it ends.
+                className={`relative overflow-hidden ${onCreateNote ? "cursor-crosshair" : ""}`}
+                style={{ width: laneW }}
+                onPointerDown={onLanePointerDown}
+              >
+                {KEYS.filter(isBlack).map((k) => (
+                  <div
+                    key={`b${k}`}
+                    className="absolute left-0 right-0 bg-muted/15"
+                    style={{ top: keyTop(k), height: rowH }}
+                  />
+                ))}
+                {KEYS.filter((k) => pc(k) === 0).map((k) => (
+                  <div
+                    key={`o${k}`}
+                    className="absolute left-0 right-0 border-t border-border/30"
+                    style={{ top: keyTop(k) }}
+                  />
+                ))}
+                {/* The ruler's own lines carried down over the notes, one step fainter — the layer the timeline puts under its lanes (Ruler.tsx). */}
+                <Grid
                   mode="bars"
                   beatLo={origin}
                   lastBeat={gridEnd}
@@ -612,255 +897,202 @@ export function PianoRoll({
                   secStep={gridSecStep}
                   scroller={bodyRef}
                   ppb={ppb}
-                  barStride={gridStride}
+                  laneW={laneW}
+                  left0={0}
+                  top={0}
+                  height={gridH}
+                />
+                {/* The caret cell and its rectangle, under the notes and `pointer-events-none`: both are marks, not targets (docs/clipEditors.md). */}
+                {active && !box && (
+                  <div
+                    className="pointer-events-none absolute bg-primary/25 outline outline-1 -outline-offset-1 outline-primary"
+                    style={{
+                      left: (beatOfCol(caret.col) - origin) * ppb,
+                      width: Math.max(1, gridUnit * ppb),
+                      top: caret.row * rowH,
+                      height: Math.max(1, rowH),
+                    }}
+                  />
+                )}
+                {active && box && (
+                  <div
+                    className="pointer-events-none absolute bg-primary/25 outline outline-1 -outline-offset-1 outline-primary"
+                    style={{
+                      left: (beatOfCol(box.colLo) - origin) * ppb,
+                      width: Math.max(
+                        1,
+                        (box.colHi - box.colLo + 1) * gridUnit * ppb,
+                      ),
+                      top: box.rowLo * rowH,
+                      height: Math.max(1, (box.rowHi - box.rowLo + 1) * rowH),
+                    }}
+                  />
+                )}
+                {/* THE EVENT'S WINDOW as ground — the span this placement plays, colourless on purpose since four hues are already spent (docs/clipEditors.md). */}
+                {act && (
+                  <div
+                    className="pointer-events-none absolute inset-y-0 z-0 border-x border-white/50 bg-white/[0.06]"
+                    style={{
+                      left: (act.from - origin) * ppb,
+                      width: Math.max(1, (act.to - act.from) * ppb),
+                    }}
+                  />
+                )}
+                {visNotes.map((n, i) => {
+                  const h = Math.max(1, rowH - 1);
+                  // What this note is worth: the file's `vel`, or the drag's live value — absent IS the schema's default of 1.
+                  const live =
+                    vDraw && vDraw.key === n.key && vDraw.time === n.time
+                      ? vDraw.vel
+                      : (n.vel ?? 1);
+                  // Where the velocity sits in the note: 0 at its bottom edge, 1 at its top.
+                  const lineY = (1 - live) * (h - 1);
+                  // Is THIS the note being moved or stretched, addressed the way the command addresses it — key and current start.
+                  const dragging =
+                    !!tDraw && tDraw.key === n.key && tDraw.time === n.time;
+                  // The SAME arithmetic the commit runs (`tSpan`), so the ghost lands exactly where the write will — pitch included.
+                  const at = dragging && tDraw ? tSpan(tDraw) : null;
+                  const drawStart = at ? at.start : n.time;
+                  const drawDur = at ? at.end - at.start : n.duration;
+                  // The row the note is DRAWN on, which a vertical drag moves; the velocity gesture never runs at the same time.
+                  const top = keyTop(at ? at.key : n.key);
+                  // Does this note SOUND in the event? One that does not is context: drawn, so the window can be judged, and not a target.
+                  const plays = notePlays(n);
+                  return (
+                    <div
+                      key={i}
+                      title={
+                        plays
+                          ? `${noteName(n.key)} · ${n.time}–${n.time + n.duration}b · vel ${+live.toFixed(2)}${
+                              onSetVelocity
+                                ? " — drag the white line for velocity"
+                                : ""
+                            }${
+                              onSetNoteRange
+                                ? `, the body to move${onMoveNote ? " (up or down to transpose)" : ""}, either edge to stretch`
+                                : ""
+                            }`
+                          : `${noteName(n.key)} · ${n.time}–${n.time + n.duration}b — outside this event's window`
+                      }
+                      onPointerDown={
+                        plays ? (e) => onNotePointerDown(e, n) : undefined
+                      }
+                      onContextMenu={
+                        plays ? (e) => onNoteMenu(e, n) : undefined
+                      }
+                      onPointerMove={
+                        plays ? (e) => onNotePointerMove(e, top) : undefined
+                      }
+                      onPointerUp={plays ? endVDrag : undefined}
+                      onLostPointerCapture={plays ? endVDrag : undefined}
+                      className={cn(
+                        "absolute overflow-hidden rounded-[1px] touch-none",
+                        !plays && "pointer-events-none opacity-30",
+                        plays &&
+                          (onSetNoteRange
+                            ? "cursor-grab"
+                            : onSetVelocity && "cursor-ns-resize"),
+                        // A move outranks the velocity cursor while one is happening: the pointer says which gesture it is IN.
+                        dragging &&
+                          (tDraw?.mode === "move"
+                            ? "cursor-grabbing"
+                            : "cursor-ew-resize"),
+                      )}
+                      style={{
+                        top,
+                        height: h,
+                        // The note follows the hand while it is being dragged — a picture, not an edit; nothing is committed until release.
+                        left: ((dragging ? drawStart : n.time) - origin) * ppb,
+                        width: Math.max(
+                          2,
+                          (dragging
+                            ? drawDur
+                            : n.duration > 0
+                              ? n.duration
+                              : 0.25) * ppb,
+                        ),
+                      }}
+                    >
+                      {/* The note reads as a LEVEL before the line is looked for, the colour living on these two halves rather than on the box. */}
+                      <div
+                        className="pointer-events-none absolute inset-x-0 top-0 bg-emerald-500/80"
+                        style={{ height: lineY }}
+                      />
+                      <div
+                        className="pointer-events-none absolute inset-x-0 bottom-0 bg-emerald-500"
+                        style={{ top: lineY }}
+                      />
+                      {/* The line itself, half the note's width and centred, inside a `VEL_PX` grab zone that takes the press (docs/clipEditors.md). */}
+                      {h >= 4 && (
+                        <div
+                          onPointerDown={(e) => onNotePointerDown(e, n, "line")}
+                          onPointerMove={(e) => onNotePointerMove(e, top)}
+                          onPointerUp={endVDrag}
+                          onLostPointerCapture={endVDrag}
+                          className={cn(
+                            "absolute left-1/4 w-1/2",
+                            onSetVelocity && "cursor-ns-resize",
+                          )}
+                          style={{
+                            top: lineY - VEL_PX,
+                            height: 2 * VEL_PX + 1,
+                          }}
+                        >
+                          <div
+                            className="pointer-events-none absolute inset-x-0 h-px bg-white"
+                            style={{ top: VEL_PX }}
+                          />
+                        </div>
+                      )}
+
+                      {/* The two STRETCH grips, boxes rather than a hit-test so the cursor says where the handle is, and LAST in the note (docs/clipEditors.md). */}
+                      {onSetNoteRange && plays && (
+                        <>
+                          <div
+                            onPointerDown={(e) =>
+                              onNotePointerDown(e, n, "start")
+                            }
+                            onPointerMove={(e) => onNotePointerMove(e, top)}
+                            onPointerUp={endVDrag}
+                            onLostPointerCapture={endVDrag}
+                            className="absolute inset-y-0 left-0 cursor-ew-resize"
+                            style={{ width: EDGE_PX }}
+                          />
+                          <div
+                            onPointerDown={(e) =>
+                              onNotePointerDown(e, n, "end")
+                            }
+                            onPointerMove={(e) => onNotePointerMove(e, top)}
+                            onPointerUp={endVDrag}
+                            onLostPointerCapture={endVDrag}
+                            className="absolute inset-y-0 right-0 cursor-ew-resize"
+                            style={{ width: EDGE_PX }}
+                          />
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+                {draftBox && (
+                  <div
+                    className="pointer-events-none absolute z-10 rounded-[1px] bg-emerald-300/80 outline outline-1 outline-emerald-200"
+                    style={{
+                      top: draftBox.top,
+                      height: Math.max(1, rowH - 1),
+                      left: draftBox.left,
+                      width: draftBox.width,
+                    }}
+                  />
+                )}
+                <RollPlayhead
+                  tempo={project.tempo}
+                  clipStart={clip.start}
+                  placedEnd={placedEnd}
+                  span={canvasBeats}
+                  ppb={ppb}
+                  height={gridH}
                 />
               </div>
-            </div>
-          </div>
-
-          {/* piano gutter + note grid */}
-          <div className="flex" style={{ height: gridH }}>
-            <div
-              className="sticky left-0 z-10 shrink-0 border-r border-border bg-background"
-              style={{ width: GUTTER }}
-            >
-              {KEYS.map((k) => (
-                <div
-                  key={k}
-                  className={`flex items-center justify-end pr-1 text-[9px] text-muted-foreground ${isBlack(k) ? "bg-muted/50" : ""}`}
-                  style={{ height: rowH, lineHeight: `${rowH}px` }}
-                >
-                  {showLabels && pc(k) === 0 ? (
-                    <>
-                      {noteName(k)} <span className="opacity-50">{k}</span>
-                    </>
-                  ) : (
-                    ""
-                  )}
-                </div>
-              ))}
-            </div>
-            <div
-              ref={laneRef}
-              // overflow-hidden is the cage's edge: a note crossing the window is drawn at its true beats and cut where it ends.
-              className={`relative overflow-hidden ${onCreateNote ? "cursor-crosshair" : ""}`}
-              style={{ width: laneW }}
-              onPointerDown={onLanePointerDown}
-            >
-              {KEYS.filter(isBlack).map((k) => (
-                <div
-                  key={`b${k}`}
-                  className="absolute left-0 right-0 bg-muted/15"
-                  style={{ top: keyTop(k), height: rowH }}
-                />
-              ))}
-              {KEYS.filter((k) => pc(k) === 0).map((k) => (
-                <div
-                  key={`o${k}`}
-                  className="absolute left-0 right-0 border-t border-border/30"
-                  style={{ top: keyTop(k) }}
-                />
-              ))}
-              {/* The ruler's own lines carried down over the notes, one step fainter — the layer the timeline puts under its lanes (Ruler.tsx). */}
-              <Grid
-                mode="bars"
-                beatLo={origin}
-                lastBeat={gridEnd}
-                unit={gridUnit}
-                barBeats={barBeats}
-                bps={bps}
-                secStep={gridSecStep}
-                scroller={bodyRef}
-                ppb={ppb}
-                laneW={laneW}
-                left0={0}
-                top={0}
-                height={gridH}
-              />
-              {/* The caret cell and its rectangle, under the notes and `pointer-events-none`: both are marks, not targets (docs/clipEditors.md). */}
-              {active && !box && (
-                <div
-                  className="pointer-events-none absolute bg-primary/25 outline outline-1 -outline-offset-1 outline-primary"
-                  style={{
-                    left: (beatOfCol(caret.col) - origin) * ppb,
-                    width: Math.max(1, gridUnit * ppb),
-                    top: caret.row * rowH,
-                    height: Math.max(1, rowH),
-                  }}
-                />
-              )}
-              {active && box && (
-                <div
-                  className="pointer-events-none absolute bg-primary/25 outline outline-1 -outline-offset-1 outline-primary"
-                  style={{
-                    left: (beatOfCol(box.colLo) - origin) * ppb,
-                    width: Math.max(
-                      1,
-                      (box.colHi - box.colLo + 1) * gridUnit * ppb,
-                    ),
-                    top: box.rowLo * rowH,
-                    height: Math.max(1, (box.rowHi - box.rowLo + 1) * rowH),
-                  }}
-                />
-              )}
-              {/* THE EVENT'S WINDOW as ground — the span this placement plays, colourless on purpose since four hues are already spent (docs/clipEditors.md). */}
-              {act && (
-                <div
-                  className="pointer-events-none absolute inset-y-0 z-0 border-x border-white/50 bg-white/[0.06]"
-                  style={{
-                    left: (act.from - origin) * ppb,
-                    width: Math.max(1, (act.to - act.from) * ppb),
-                  }}
-                />
-              )}
-              {visNotes.map((n, i) => {
-                const top = keyTop(n.key);
-                const h = Math.max(1, rowH - 1);
-                // What this note is worth: the file's `vel`, or the drag's live value — absent IS the schema's default of 1.
-                const live =
-                  vDraw && vDraw.key === n.key && vDraw.time === n.time
-                    ? vDraw.vel
-                    : (n.vel ?? 1);
-                // Where the velocity sits in the note: 0 at its bottom edge, 1 at its top.
-                const lineY = (1 - live) * (h - 1);
-                // Is THIS the note being moved or stretched, addressed the way the command addresses it — key and current start.
-                const dragging =
-                  !!tDraw && tDraw.key === n.key && tDraw.time === n.time;
-                // The SAME arithmetic the commit runs (`tSpan`), so the ghost lands exactly where the write will.
-                const span = dragging && tDraw ? tSpan(tDraw) : null;
-                const drawStart = span ? span.start : n.time;
-                const drawDur = span ? span.end - span.start : n.duration;
-                // Does this note SOUND in the event? One that does not is context: drawn, so the window can be judged, and not a target.
-                const plays = notePlays(n);
-                return (
-                  <div
-                    key={i}
-                    title={
-                      plays
-                        ? `${noteName(n.key)} · ${n.time}–${n.time + n.duration}b · vel ${+live.toFixed(2)}${
-                            onSetVelocity
-                              ? " — drag the white line for velocity"
-                              : ""
-                          }${
-                            onSetNoteRange
-                              ? ", the body to move, either edge to stretch"
-                              : ""
-                          }`
-                        : `${noteName(n.key)} · ${n.time}–${n.time + n.duration}b — outside this event's window`
-                    }
-                    onPointerDown={
-                      plays ? (e) => onNotePointerDown(e, n) : undefined
-                    }
-                    onPointerMove={
-                      plays ? (e) => onNotePointerMove(e, top) : undefined
-                    }
-                    onPointerUp={plays ? endVDrag : undefined}
-                    onLostPointerCapture={plays ? endVDrag : undefined}
-                    className={cn(
-                      "absolute overflow-hidden rounded-[1px] touch-none",
-                      !plays && "pointer-events-none opacity-30",
-                      plays &&
-                        (onSetNoteRange
-                          ? "cursor-grab"
-                          : onSetVelocity && "cursor-ns-resize"),
-                      // A move outranks the velocity cursor while one is happening: the pointer says which gesture it is IN.
-                      dragging &&
-                        (tDraw?.mode === "move"
-                          ? "cursor-grabbing"
-                          : "cursor-ew-resize"),
-                    )}
-                    style={{
-                      top,
-                      height: h,
-                      // The note follows the hand while it is being dragged — a picture, not an edit; nothing is committed until release.
-                      left: ((dragging ? drawStart : n.time) - origin) * ppb,
-                      width: Math.max(
-                        2,
-                        (dragging
-                          ? drawDur
-                          : n.duration > 0
-                            ? n.duration
-                            : 0.25) * ppb,
-                      ),
-                    }}
-                  >
-                    {/* The note reads as a LEVEL before the line is looked for, the colour living on these two halves rather than on the box. */}
-                    <div
-                      className="pointer-events-none absolute inset-x-0 top-0 bg-emerald-500/80"
-                      style={{ height: lineY }}
-                    />
-                    <div
-                      className="pointer-events-none absolute inset-x-0 bottom-0 bg-emerald-500"
-                      style={{ top: lineY }}
-                    />
-                    {/* The line itself, half the note's width and centred, inside a `VEL_PX` grab zone that takes the press (docs/clipEditors.md). */}
-                    {h >= 4 && (
-                      <div
-                        onPointerDown={(e) => onNotePointerDown(e, n, "line")}
-                        onPointerMove={(e) => onNotePointerMove(e, top)}
-                        onPointerUp={endVDrag}
-                        onLostPointerCapture={endVDrag}
-                        className={cn(
-                          "absolute left-1/4 w-1/2",
-                          onSetVelocity && "cursor-ns-resize",
-                        )}
-                        style={{
-                          top: lineY - VEL_PX,
-                          height: 2 * VEL_PX + 1,
-                        }}
-                      >
-                        <div
-                          className="pointer-events-none absolute inset-x-0 h-px bg-white"
-                          style={{ top: VEL_PX }}
-                        />
-                      </div>
-                    )}
-
-                    {/* The two STRETCH grips, boxes rather than a hit-test so the cursor says where the handle is, and LAST in the note (docs/clipEditors.md). */}
-                    {onSetNoteRange && plays && (
-                      <>
-                        <div
-                          onPointerDown={(e) =>
-                            onNotePointerDown(e, n, "start")
-                          }
-                          onPointerMove={(e) => onNotePointerMove(e, top)}
-                          onPointerUp={endVDrag}
-                          onLostPointerCapture={endVDrag}
-                          className="absolute inset-y-0 left-0 cursor-ew-resize"
-                          style={{ width: EDGE_PX }}
-                        />
-                        <div
-                          onPointerDown={(e) => onNotePointerDown(e, n, "end")}
-                          onPointerMove={(e) => onNotePointerMove(e, top)}
-                          onPointerUp={endVDrag}
-                          onLostPointerCapture={endVDrag}
-                          className="absolute inset-y-0 right-0 cursor-ew-resize"
-                          style={{ width: EDGE_PX }}
-                        />
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-              {draftBox && (
-                <div
-                  className="pointer-events-none absolute z-10 rounded-[1px] bg-emerald-300/80 outline outline-1 outline-emerald-200"
-                  style={{
-                    top: draftBox.top,
-                    height: Math.max(1, rowH - 1),
-                    left: draftBox.left,
-                    width: draftBox.width,
-                  }}
-                />
-              )}
-              <RollPlayhead
-                tempo={project.tempo}
-                clipStart={clip.start}
-                placedEnd={placedEnd}
-                span={canvasBeats}
-                ppb={ppb}
-                height={gridH}
-              />
             </div>
           </div>
         </div>

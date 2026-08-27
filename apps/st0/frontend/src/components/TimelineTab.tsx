@@ -62,6 +62,7 @@ import type { PasteResult } from "../gridCaret";
 import { useDocument } from "../hooks/useDocument";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { blurOnClick } from "../keys";
+import { cursorOf, ModeStrip } from "../modeIcons";
 import {
   findRow,
   HATCH,
@@ -77,6 +78,9 @@ import {
 } from "../rows";
 import { dragOffset, freeSnap, snapTo } from "../snap";
 import { recordingFrom } from "../takeCounter";
+import { legendRows } from "../timelineLegend";
+import { type TimelineMode, timelineMode } from "../timelineMode";
+import { TOOL_LABEL, TOOLS, type Tool, toolLine } from "../timelineTools";
 import { TrackIcon, trackIcon } from "../trackIcons";
 import type {
   WebAutomationLane,
@@ -449,6 +453,8 @@ export interface TimelineHandle {
   // The two header toggles, so `ui ruler` and `ui lanes` reach what the buttons reach.
   toggleRuler: () => void;
   toggleLanes: () => void;
+  /** `ui tool <name>` — which tool this surface is holding. Its own, since a cut means nothing on a graph. */
+  setTool: (t: Tool) => void;
 }
 
 export function TimelineTab({
@@ -471,6 +477,8 @@ export function TimelineTab({
   onSeek,
   onSetLoop,
   onMoveEvent,
+  onToolLine,
+  shortcuts,
   onResizeEvent,
   onFadeEvent,
   feedMove,
@@ -519,6 +527,10 @@ export function TimelineTab({
   ) => void;
   // What state the timeline is in, for the key conditions — and for `expanded`, which the SHELL acts on (docs/shell.md).
   onView: (v: {
+    /** Which MODE the keyboard is in, derived from the two below rather than stored (timelineMode.ts). */
+    mode: TimelineMode;
+    /** …and which TOOL a press means, which is chosen rather than derived (timelineTools.ts). */
+    tool: Tool;
     selecting: boolean;
     zoomed: boolean;
     loop: boolean;
@@ -552,6 +564,10 @@ export function TimelineTab({
     toTc: string,
     toTrackId?: string,
   ) => void;
+  /** A TOOL's press as the command LINE it produced, alone among this pane's writes; absent ⇒ no tools (docs/timeline.md). */
+  onToolLine?: (line: string) => void;
+  /** Which key binds which command, the PERSON's prefs applied — the header's legend is drawn from it, never from a literal. */
+  shortcuts?: Record<string, string>;
   // Present only while the command bar is filling `event move`: the drag then ANSWERS the bar instead of committing (docs/timeline.md).
   feedMove?: (
     trackId: string,
@@ -611,6 +627,21 @@ export function TimelineTab({
   const [move, setMove] = useState<Move | null>(null);
   const moveRef = useRef<Move | null>(move);
   moveRef.current = move;
+  /** Which mode the keyboard is in — DERIVED here beside the two states it reads, so nothing can come to disagree (timelineMode.ts). */
+  const mode = timelineMode(move, sel);
+  const modeRef = useRef<TimelineMode>(mode);
+  modeRef.current = mode;
+  /** …and the TOOL, which is CHOSEN rather than derived: what a press means. Session only, never written (timelineTools.ts). */
+  const [tool, setTool] = useState<Tool>("pointer");
+  const toolRef = useRef<Tool>(tool);
+  toolRef.current = tool;
+  // The tool's icon as the pointer — undefined for the arrow, whose picture the system already draws (modeIcons.tsx).
+  const toolCursor = tool === "pointer" ? undefined : cursorOf(tool);
+  /** What the header advertises, for THIS mode and only for keys that bind — the shell hands the table down (timelineLegend.ts). */
+  const legend = useMemo(
+    () => legendRows(mode, shortcuts ?? {}, tool !== "pointer"),
+    [mode, shortcuts, tool],
+  );
   // Read by the pointer-drag callbacks, which are defined above both — a drop uses the same commit enter does.
   const projRef = useRef<WebProject | null>(null);
   projRef.current = proj;
@@ -965,6 +996,32 @@ export function TimelineTab({
       // Shifted, it is a selection press, not a grab: bubble to the lane, which grows the rectangle.
       if (e.shiftKey) return;
       e.stopPropagation();
+      // A tool other than the pointer answers the press itself and the grab never starts — with the grab's own three guards (docs/timeline.md).
+      if (toolRef.current !== "pointer" && onToolLine) {
+        e.preventDefault();
+        if (readOnly || track.generated || c.frozen) return;
+        const p = projRef.current;
+        if (!p) return;
+        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        // The clip's own left edge IS its start, so the pointer's beat needs no scroll or gutter arithmetic.
+        const at =
+          c.start + (e.clientX - r.left) / Math.max(1e-6, ppbRef.current);
+        const tc = (b: number) =>
+          beatsToPosition(b, p.timeSigNumerator, p.timeSigDenominator);
+        const act = toolLine(toolRef.current, {
+          track: track.id,
+          name: c.name || c.id,
+          start: c.start,
+          length: c.length,
+          at,
+          tc: tc(c.start),
+          atTc: tc(at),
+          muted: c.disabled,
+        });
+        if (act?.line) onToolLine?.(act.line);
+        if (act) setStatus(act.note);
+        return;
+      }
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
       dragRef.current = {
         x: e.clientX,
@@ -989,7 +1046,7 @@ export function TimelineTab({
         dragging: true,
       });
     },
-    [readOnly],
+    [readOnly, onToolLine, setStatus],
   );
 
   // Resizing an event by its edge, kept apart from the move drag: a resize changes start AND length and never leaves the lane.
@@ -1333,8 +1390,9 @@ export function TimelineTab({
           el.isContentEditable)
       )
         return;
-      // Move mode is modal and swallows keys HARD; a PENDING move is not being carried, so it must not swallow them for a reload.
-      if (moveRef.current && !moveRef.current.pending) {
+      // One block per MODE, and the mode is derived from the state this used to read directly (timelineMode.ts).
+      if (modeRef.current === "move") {
+        // Move swallows keys HARD, the four it answers and every other: a nudge must not also scroll the pane.
         if (e.key === "ArrowLeft" || e.key === "j") nudgeMove(-1);
         else if (e.key === "ArrowRight" || e.key === "m") nudgeMove(1);
         else if (e.key === "Enter") commitMove();
@@ -1346,7 +1404,7 @@ export function TimelineTab({
         e.stopImmediatePropagation();
         return;
       }
-      const selecting = !!selRef.current;
+      const selecting = modeRef.current === "select";
       // Escape drops the selection and stops there, or the shell would also throw you out of the fullscreen pane.
       if (selecting && e.key === "Escape") {
         const s = selRef.current;
@@ -1357,6 +1415,7 @@ export function TimelineTab({
         e.stopImmediatePropagation();
         return;
       }
+      // hjkl and the arrows walk in both remaining modes; WHAT they walk is the difference between them.
       let handled = true;
       // Left off beat 1 selects the label; right returns to the lane, unless the row has none (clampCaret pins it).
       if (e.key === "ArrowLeft" || e.key === "h")
@@ -1555,6 +1614,11 @@ export function TimelineTab({
         setRulerMode((m) => (m === "bars" ? "seconds" : "bars")),
       // The height button: tall lanes draw each clip's waveform or notes.
       toggleLanes: () => setExpanded((v) => !v),
+      // Picking up a tool drops the rectangle: the two are different questions, and a press is about to mean something else.
+      setTool: (t) => {
+        setTool(t);
+        if (t !== "pointer") setSel(null);
+      },
     }),
     [
       caret,
@@ -1575,12 +1639,14 @@ export function TimelineTab({
   useEffect(
     () =>
       onView({
+        mode,
+        tool,
         selecting: !!sel,
         zoomed: zoom.length > 0,
         loop: !!loop,
         expanded,
       }),
-    [sel, zoom, loop, expanded, onView],
+    [mode, tool, sel, zoom, loop, expanded, onView],
   );
 
   // Leaving the tab drops the pickup, rather than stranding a move whose keys no longer reach it.
@@ -1647,6 +1713,11 @@ export function TimelineTab({
 
   useEffect(() => {
     if (!active) return;
+    // A TOOL in hand outranks everything below: a press is about to do something other than what this pane usually does.
+    if (tool !== "pointer") {
+      setStatus(`${tool} — click an event · esc or a rend la flèche`);
+      return;
+    }
     // Move mode owns the status line: where the clip started, where it sits now, and how to finish.
     if (move && proj) {
       const num = proj.timeSigNumerator;
@@ -1723,6 +1794,8 @@ export function TimelineTab({
     resize,
     // Move mode takes over the readout, so a pickup / nudge / drop must refresh it.
     move,
+    // …and a tool outranks even that.
+    tool,
     proj,
   ]);
 
@@ -1815,22 +1888,16 @@ export function TimelineTab({
     // min-w-0: without it the fixed-width lane sets this flex child's min width and the fit-to-pane scale ratchets.
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
+        {/* The legend is DERIVED from what binds, per mode — a hand-written one lies as soon as a key is rebound (timelineLegend.ts). */}
         <div className="min-w-0 flex-1 truncate">
           {proj.name} · {Math.round(proj.tempo)} bpm · {proj.timeSigNumerator}/
-          {proj.timeSigDenominator} · {nTracks} tracks —{" "}
-          <span className="text-foreground">hjkl/arrows</span> move ·{" "}
-          <span className="text-foreground">←</span> at beat 1 selects the row ·
-          space play/pause · enter rewind ·{" "}
-          <span className="text-foreground">t</span> playhead to caret ·{" "}
-          <span className="text-foreground">e</span> edit clip ·{" "}
-          <span className="text-foreground">m</span> move clip / mute ·{" "}
-          <span className="text-foreground">s</span> solo ·{" "}
-          <span className="text-foreground">r</span> rec ·{" "}
-          <span className="text-foreground">v</span> select ·{" "}
-          <span className="text-foreground">z</span> zoom in ·{" "}
-          <span className="text-foreground">Z</span> out ·{" "}
-          <span className="text-foreground">0</span> reset ·{" "}
-          <span className="text-foreground">⇧L</span> loop
+          {proj.timeSigDenominator} · {nTracks} tracks
+          {legend.map((r) => (
+            <span key={r.what}>
+              {" · "}
+              <span className="text-foreground">{r.key}</span> {r.what}
+            </span>
+          ))}
         </div>
         {/* The hovered marker's name: the header is where a marker labels itself, so it reads however zoomed the ruler is. */}
         {hoverMarker && (
@@ -1879,1136 +1946,1177 @@ export function TimelineTab({
           <StretchVertical className="h-3.5 w-3.5" />
         </button>
       </div>
-      {/* `isolate` — load-bearing: it keeps this pane's four z-indices private from the shell's (docs/timeline.md). */}
-      <div ref={scrollRef} className="isolate min-h-0 flex-1 overflow-auto">
-        <div
-          style={{ width: GUTTER + laneW }}
-          className="relative select-none font-mono text-xs"
-        >
-          {/* The GRID: the ruler's own ticks continued down the lanes, dashed and FIRST in the wrapper so everything paints over it. */}
-          <Grid
-            {...tickProps}
-            ppb={ppb}
-            laneW={laneW}
-            left0={GUTTER}
-            scroller={scrollRef}
-            top={ROW_H} // below the ruler, which draws its own solid tick
-            height={contentH - ROW_H}
+      <div className="flex min-h-0 flex-1">
+        {/* The tools as a 32px column — the third way to one, beside the keys and the bar, and the only one a finger has. */}
+        {onToolLine && (
+          <ModeStrip
+            modes={TOOLS}
+            current={tool}
+            onPick={(t) => onToolLine(`ui tool ${t}`)}
+            title={(t) => TOOL_LABEL[t]}
           />
-          {/* ruler */}
+        )}
+        {/* `isolate` — load-bearing: it keeps this pane's four z-indices private from the shell's (docs/timeline.md). */}
+        <div
+          ref={scrollRef}
+          // The tool's own icon AS the cursor, forced past the clip's `cursor-grab` so the hand says what a press will do.
+          style={toolCursor ? { cursor: toolCursor } : undefined}
+          className={cn(
+            "isolate min-h-0 flex-1 overflow-auto",
+            toolCursor && "[&_*]:!cursor-[inherit]",
+          )}
+        >
           <div
-            className="sticky top-0 z-40 flex bg-background"
-            style={{ height: ROW_H }}
+            style={{ width: GUTTER + laneW }}
+            className="relative select-none font-mono text-xs"
           >
-            {/* The corner: sticky BOTH ways, and needing no ground of its own since the ruler row is opaque across the full width. */}
+            {/* The GRID: the ruler's own ticks continued down the lanes, dashed and FIRST in the wrapper so everything paints over it. */}
+            <Grid
+              {...tickProps}
+              ppb={ppb}
+              laneW={laneW}
+              left0={GUTTER}
+              scroller={scrollRef}
+              top={ROW_H} // below the ruler, which draws its own solid tick
+              height={contentH - ROW_H}
+            />
+            {/* ruler */}
             <div
-              style={{ width: GUTTER }}
-              className="sticky left-0 z-10 flex shrink-0 items-center border-r border-border bg-background px-1"
+              className="sticky top-0 z-40 flex bg-background"
+              style={{ height: ROW_H }}
             >
-              {/* NEW TRACK, in the corner: the one place above the lanes that scrolls with neither axis, and `track new` like everything else. */}
-              {onNewTrack && (
-                <button
-                  type="button"
-                  onClick={onNewTrack}
-                  title="nouvelle piste (track new)"
-                  className="flex h-5 items-center gap-1 rounded px-1 text-[10px] text-muted-foreground uppercase tracking-wider hover:bg-accent hover:text-foreground"
-                >
-                  <Plus className="h-3 w-3" />
-                  piste
-                </button>
-              )}
-            </div>
-            {/* The ruler is both the transport scrubber and a time-range selector — click seeks, drag sweeps `v`'s rectangle (docs/timeline.md). */}
-            <div
-              className="relative cursor-pointer overflow-hidden"
-              style={{ width: laneW }}
-              onMouseDown={(e) => {
-                if (e.button !== 0) return;
-                if (!visRows.length) return;
-                const el = e.currentTarget;
-                const rect = el.getBoundingClientRect();
-                const startX = e.clientX;
-                const startY = e.clientY;
-                const cellAt = (cx: number) =>
-                  Math.max(
-                    beatLo,
-                    Math.min(
-                      beatHi,
-                      Math.floor(beatLo + (cx - rect.left) / ppb),
-                    ),
-                  );
-                const startBeat = cellAt(startX);
-                const firstRow = rowKey(visRows[0]);
-                const lastRow = rowKey(visRows[visRows.length - 1]);
-                // 0 = undecided, 1 = horizontal select, -1 = vertical zoom
-                let gesture: 0 | 1 | -1 = 0;
-                let dragged = false;
-                const zoomStart = zoomX;
-                const GESTURE_SLOP = 4; // px before committing to a gesture
-                const onMove = (ev: MouseEvent) => {
-                  const dx = ev.clientX - startX;
-                  const dy = ev.clientY - startY;
-                  if (gesture === 0) {
-                    if (
-                      Math.abs(dx) < GESTURE_SLOP &&
-                      Math.abs(dy) < GESTURE_SLOP
-                    )
-                      return;
-                    gesture = Math.abs(dy) > Math.abs(dx) ? -1 : 1;
-                    if (gesture === -1) el.style.cursor = "ns-resize";
-                  }
-                  if (gesture === -1) {
-                    // Vertical drag → zoom, 1.005 per px; the ceiling is the pane's, not a constant of its own.
-                    const next = Math.max(
-                      1,
-                      Math.min(zoomCeiling(availW), zoomStart * 1.005 ** -dy),
-                    );
-                    // Anchor: keep the beat under the cursor fixed after the width change, through the package — see useHZoom's `zoomAt`.
-                    zoomAtX(next, startX);
-                  } else {
-                    // Horizontal drag → selection
-                    if (!dragged && Math.abs(dx) <= GESTURE_SLOP) return;
-                    dragged = true;
-                    setSel({
-                      anchor: { row: firstRow, beat: startBeat },
-                      head: { row: lastRow, beat: cellAt(ev.clientX) },
-                    });
-                  }
-                };
-                const onUp = () => {
-                  window.removeEventListener("mousemove", onMove);
-                  window.removeEventListener("mouseup", onUp);
-                  el.style.cursor = "";
-                  if (gesture === -1) return; // zoom gesture — nothing to undo
-                  if (dragged) return; // selection stays
-                  setSel(null); // plain click deselects and seeks
-                  // Snapped to the nearest tick the ruler DREW: `bars` is that list, so the grid you see and the positions you can land on agree.
-                  const raw = Math.max(0, beatLo + (startX - rect.left) / ppb);
-                  const beat = nearestTick(bars, raw) ?? raw;
-                  // If the bar is asking for a timecode, the click ANSWERS it and the transport stays put — only a click, never a drag.
-                  if (feedTimecodeRef.current) {
-                    feedTimecodeRef.current(
-                      beatsToPosition(beat, tsNum, tsDen),
-                      false,
-                    );
-                    return;
-                  }
-                  onSeek?.((beat * 60) / proj.tempo);
-                };
-                window.addEventListener("mousemove", onMove);
-                window.addEventListener("mouseup", onUp);
-                e.preventDefault();
-              }}
-              onContextMenu={(e) => {
-                // Right-click the ruler → 'add marker here', snapped to the same drawn tick a left-click seek uses (docs/timeline.md).
-                e.preventDefault();
-                const rect = e.currentTarget.getBoundingClientRect();
-                const raw = Math.max(0, beatLo + (e.clientX - rect.left) / ppb);
-                const at = nearestTick(bars, raw) ?? raw;
-                onContextMenu?.(
-                  {
-                    kind: "marker-add",
-                    tc: beatsToPosition(at, tsNum, tsDen),
-                  },
-                  e.clientX,
-                  e.clientY,
-                );
-              }}
-            >
-              {/* The RULES always draw; only the NUMBERS thin out, strided on the bar's own index so scrolling never moves them (ticks.ts). */}
-              <RulerTicks
-                {...tickProps}
-                ppb={ppb}
-                barStride={barStride}
-                scroller={scrollRef}
-              />
-              {/* The transport loop region over its bar range; the ENGINE does the wrapping, this only shows what is looping. */}
-              {loop && (
-                <div
-                  className="pointer-events-none absolute top-0 z-10 h-full border-x-2 border-amber-400 bg-amber-400/20"
-                  style={{
-                    left: x(loop.lo),
-                    width: (loop.hi + 1 - loop.lo) * ppb,
-                  }}
-                  title="loop region — Shift+L to clear"
-                />
-              )}
-              {/* Marker handles: a diamond flag in the ruler, hover for the name and right-click to delete; the full line is drawn below. */}
-              {visMarkers.map((mk) => (
-                <div
-                  key={mk.tc}
-                  className="absolute top-0 z-20 h-full -translate-x-1/2 cursor-pointer"
-                  style={{ left: x(mk.beat), width: 12 }}
-                  title={mk.name}
-                  onMouseEnter={() => setHoverMarker(mk.name)}
-                  onMouseLeave={() =>
-                    setHoverMarker((n) => (n === mk.name ? null : n))
-                  }
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation(); // don't also fire the ruler's "add marker"
-                    onContextMenu?.(
-                      { kind: "marker", name: mk.name },
-                      e.clientX,
-                      e.clientY,
-                    );
-                  }}
-                >
-                  <div
-                    className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 rotate-45"
-                    style={{ background: MARKER_COLOR }}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* lanes — group headers with their members nested under them, then any live Strudel orbit lanes, which nest too. */}
-          {visRows.map((row, ri) => {
-            // Is this the caret's row, with its LABEL selected? The gutter wears the caret's own marks, because it IS the caret.
-            const onRow = rowKey(row) === caret.row;
-            const labelled = onRow && caret.beat === LABEL;
-            // Inside the `v` rectangle? The gutter marks it too, so a rectangle reads as covering whole lanes.
-            const inSel = !!selBox && ri >= selBox.rowLo && ri <= selBox.rowHi;
-
-            // A group holds no material: a grey band naming what is below it. Its label still takes the caret, for mute/solo.
-            if (row.kind === "group")
-              return (
-                <div
-                  key={`group:${row.group.id}`}
-                  // Hit-tested by the shift-drag selection, as laneAtPoint does with data-lane-track.
-                  data-sel-row={rowKey(row)}
-                  className={cn(
-                    "flex border-b border-border/40",
-                    // A group dims on its own flag only: with no lane of its own, the mixer-wide solo rule doesn't reach the header.
-                    row.group.mute && "opacity-50",
-                  )}
-                  style={{ height: ROW_H }}
-                  // Right-click a group header → its mute/solo commands.
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    onContextMenu?.(
-                      { kind: "group", id: row.group.id },
-                      e.clientX,
-                      e.clientY,
-                    );
-                  }}
-                >
-                  <div
-                    style={{ width: GUTTER }}
-                    {...gutterProps(row)}
-                    className={cn(
-                      "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/60 px-2",
-                      GUTTER_STICKY,
-                      inSel && "bg-primary/20",
-                      labelled && LABEL_SELECTED,
-                    )}
+              {/* The corner: sticky BOTH ways, and needing no ground of its own since the ruler row is opaque across the full width. */}
+              <div
+                style={{ width: GUTTER }}
+                className="sticky left-0 z-10 flex shrink-0 items-center border-r border-border bg-background px-1"
+              >
+                {/* NEW TRACK, in the corner: the one place above the lanes that scrolls with neither axis, and `track new` like everything else. */}
+                {onNewTrack && (
+                  <button
+                    type="button"
+                    onClick={onNewTrack}
+                    title="nouvelle piste (track new)"
+                    className="flex h-5 items-center gap-1 rounded px-1 text-[10px] text-muted-foreground uppercase tracking-wider hover:bg-accent hover:text-foreground"
                   >
-                    {row.group.color && (
-                      <span
-                        className="size-2 shrink-0 rounded-sm"
-                        style={{ background: row.group.color }}
-                      />
-                    )}
-                    <span
-                      className={cn(
-                        "truncate font-semibold",
-                        row.group.solo && "text-amber-400",
-                      )}
-                      title={`${row.group.name} — a group; holds no clips of its own`}
-                    >
-                      {/* Stripped like a track row's: a group can pin its position too, and the full name stays in the title. */}
-                      {trackLabel(row.group.name)}
-                    </span>
-                  </div>
-                  <div
-                    className="relative overflow-hidden bg-muted/60"
-                    style={{ width: laneW }}
-                  >
-                    {inSel && selBox && selSlice(selBox)}
-                  </div>
-                </div>
-              );
-
-            /** A PICTURE lane: decimal seconds against a beat grid, exactly convertible here, so they can be dragged (docs/picture.md). */
-            if (row.kind === "video") {
-              const vt = row.track;
-              const toBeats = (s: number) => s * bps;
-              return (
-                <div
-                  key={`video:${vt.id}`}
-                  data-sel-row={rowKey(row)}
-                  className={cn(
-                    "flex border-b border-border/40",
-                    vt.mute && "opacity-50", // "mute" on a video lane == hidden
-                  )}
-                  // No context menu: it is DERIVED from the command catalogue, and picture has no verbs in it (docs/contextMenu.md).
-                  style={{ height: ROW_H }}
-                >
-                  <div
-                    style={{ width: GUTTER }}
-                    {...gutterProps(row)}
-                    className={cn(
-                      "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/40 px-2",
-                      GUTTER_STICKY,
-                      inSel && "bg-primary/20",
-                      labelled && LABEL_SELECTED,
-                    )}
-                  >
-                    {vt.color && (
-                      <span
-                        className="size-2 shrink-0 rounded-sm"
-                        style={{ background: vt.color }}
-                      />
-                    )}
-                    <TrackIcon
-                      name={vt.name}
-                      video
-                      className="h-3.5 w-3.5 shrink-0 opacity-70"
-                    />
-                    <span
-                      className="truncate"
-                      title={`${vt.name} — a ${vt.kind === "shape" ? "shape" : "video"} lane; cut in seconds, composited on the viewport`}
-                    >
-                      {trackLabel(vt.name)}
-                    </span>
-                  </div>
-                  <div
-                    className="relative overflow-hidden"
-                    style={{
-                      width: laneW,
-                      // A shape lane holds no placements at all, so it is hatched rather than drawn as an empty row.
-                      ...(vt.kind === "shape"
-                        ? { backgroundImage: HATCH }
-                        : null),
-                    }}
-                  >
-                    {vt.clips.map((c, i) => {
-                      // The one being dragged draws where the pointer says — the ghost the commit then makes true.
-                      const live =
-                        vdrag && vdrag.trackId === vt.id && vdrag.ref === c.id
-                          ? vdrag
-                          : null;
-                      const start = live ? live.start : c.start;
-                      const length = live ? live.length : c.length;
-                      // A length-0 placement runs to the end of a source nothing has measured, so it draws provisional: dashed and amber.
-                      const provisional = length <= 0;
-                      const w = Math.max(
-                        ppb,
-                        toBeats(provisional ? V_NATURAL : length) * ppb,
-                      );
-                      return (
-                        <div
-                          // By placement, not by ref: one source may be placed twice, and the file keys its placements by ref too (videoTrackFile.ts).
-                          key={`${c.id}:${i}`}
-                          onPointerDown={(e) =>
-                            beginVideoDrag(e, vt, c, "move")
-                          }
-                          onPointerMove={onVideoDragMove}
-                          onPointerUp={commitVideoDrag}
-                          onPointerCancel={commitVideoDrag}
-                          onContextMenu={(e) => {
-                            // The shot's own start, not the pointer's: that is what the `picture …` verbs address it by.
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onContextMenu?.(
-                              {
-                                kind: "picture-shot",
-                                lane: vt.id,
-                                at: String(c.start),
-                                name: c.name || c.id,
-                              },
-                              e.clientX,
-                              e.clientY,
-                            );
-                          }}
-                          className={cn(
-                            "absolute inset-y-0.5 flex items-center gap-0.5 overflow-hidden rounded-sm px-1 text-[10px] text-white",
-                            onVideoEdit ? "cursor-grab" : "",
-                            provisional
-                              ? "border border-dashed border-amber-400 bg-amber-600/50"
-                              : "bg-violet-600/70",
-                            live?.pending && "opacity-60",
-                          )}
-                          style={{ left: x(toBeats(start)), width: w }}
-                          title={`${c.name || c.id} — ${
-                            provisional
-                              ? "to the end of the source"
-                              : `${length}s`
-                          } at ${start}s, from ${c.sourceFrom}s into the source`}
-                        >
-                          <TrackIcon
-                            name={c.name}
-                            video
-                            className="h-2.5 w-2.5 shrink-0 opacity-80"
-                          />
-                          <span className="truncate">{c.name || c.id}</span>
-                          {/* The two trim handles, wider than they look: a 6px target is a miss, and a miss lands on the body's own drag. */}
-                          {onVideoEdit && (
-                            <>
-                              <span
-                                onPointerDown={(e) =>
-                                  beginVideoDrag(e, vt, c, "in")
-                                }
-                                className="absolute inset-y-0 left-0 w-2 cursor-ew-resize"
-                              />
-                              <span
-                                onPointerDown={(e) =>
-                                  beginVideoDrag(e, vt, c, "out")
-                                }
-                                className="absolute inset-y-0 right-0 w-2 cursor-ew-resize"
-                              />
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {inSel && selBox && selSlice(selBox)}
-                  </div>
-                </div>
-              );
-            }
-
-            /** A TAKE of the lane above — read-only, deliberately: the one thing you do to a take is move it back, and that is a command (packages/song/docs/takes.md). */
-            if (row.kind === "take") {
-              const tk = row.track;
-              return (
-                <div
-                  key={`take:${tk.id}:${row.n}`}
-                  data-sel-row={rowKey(row)}
-                  className="flex border-b border-border/40 opacity-70"
-                  style={{ height: ROW_H }}
-                  // The take's own two verbs. Its lane's menu must not also fire.
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onContextMenu?.(
-                      { kind: "take", track: tk.id, n: row.n },
-                      e.clientX,
-                      e.clientY,
-                    );
-                  }}
-                >
-                  <div
-                    style={{ width: GUTTER }}
-                    {...gutterProps(row)}
-                    className={cn(
-                      "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/30 px-2 text-muted-foreground",
-                      GUTTER_STICKY,
-                      // Indented past its lane — and past the lane's own indent when that lane is in a group.
-                      "pl-5",
-                      inSel && "bg-primary/20",
-                      labelled && LABEL_SELECTED,
-                    )}
-                  >
-                    <span
-                      className="truncate italic"
-                      title={`take ${row.n} of ${tk.name} — not playing; right-click to move it onto the track`}
-                    >
-                      {row.take.name || `take ${row.n}`}
-                    </span>
-                  </div>
-                  <div
-                    className="relative overflow-hidden bg-muted/20"
-                    style={{ width: laneW }}
-                  >
-                    {row.take.clips.map((c, i) => (
-                      <div
-                        // Same key rule as a lane's events: one ref may be placed twice.
-                        key={`${c.id}-${i}`}
-                        title={`${c.name} — take ${row.n}, at beat ${c.start + 1}`}
-                        className="pointer-events-none absolute inset-y-1 overflow-hidden rounded-sm border border-dashed border-muted-foreground/50 bg-muted-foreground/20 px-1 text-[10px] leading-4"
-                        style={{
-                          left: x(c.start),
-                          width: Math.max(
-                            ppb,
-                            (c.length > 0 ? c.length : NATURAL) * ppb,
-                          ),
-                        }}
-                      >
-                        <span className="truncate">{c.name}</span>
-                      </div>
-                    ))}
-                    {inSel && selBox && selSlice(selBox)}
-                  </div>
-                </div>
-              );
-            }
-
-            /** An AUTOMATION row: one knob of the lane above against song time — only a `custom` curve has a shape, and its header addresses the TRACK. */
-            if (row.kind === "automation") {
-              const lane = row.lane;
-              const pts = lane.points
-                .map((pt) => {
-                  try {
-                    return {
-                      b: parsePosition(
-                        pt.time,
-                        proj?.timeSigNumerator ?? 4,
-                        proj?.timeSigDenominator ?? 4,
+                    <Plus className="h-3 w-3" />
+                    piste
+                  </button>
+                )}
+              </div>
+              {/* The ruler is both the transport scrubber and a time-range selector — click seeks, drag sweeps `v`'s rectangle (docs/timeline.md). */}
+              <div
+                className="relative cursor-pointer overflow-hidden"
+                style={{ width: laneW }}
+                onMouseDown={(e) => {
+                  if (e.button !== 0) return;
+                  if (!visRows.length) return;
+                  const el = e.currentTarget;
+                  const rect = el.getBoundingClientRect();
+                  const startX = e.clientX;
+                  const startY = e.clientY;
+                  const cellAt = (cx: number) =>
+                    Math.max(
+                      beatLo,
+                      Math.min(
+                        beatHi,
+                        Math.floor(beatLo + (cx - rect.left) / ppb),
                       ),
-                      v: Math.min(1, Math.max(0, pt.value)),
-                    };
-                  } catch {
-                    return null; // an unreadable timecode is one point, not a broken row
-                  }
-                })
-                .filter((pt): pt is { b: number; v: number } => !!pt)
-                .sort((a, b) => a.b - b.b);
-              return (
-                <div
-                  key={rowKey(row)}
-                  data-sel-row={rowKey(row)}
-                  className="flex border-border/40 border-b opacity-80"
-                  style={{ height: ROW_H }}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // The MOMENT under the pointer, snapped to a tick the ruler actually drew — what makes the `curve point …` verbs act where you aimed.
-                    const box = (
-                      e.currentTarget as HTMLElement
-                    ).getBoundingClientRect();
+                    );
+                  const startBeat = cellAt(startX);
+                  const firstRow = rowKey(visRows[0]);
+                  const lastRow = rowKey(visRows[visRows.length - 1]);
+                  // 0 = undecided, 1 = horizontal select, -1 = vertical zoom
+                  let gesture: 0 | 1 | -1 = 0;
+                  let dragged = false;
+                  const zoomStart = zoomX;
+                  const GESTURE_SLOP = 4; // px before committing to a gesture
+                  const onMove = (ev: MouseEvent) => {
+                    const dx = ev.clientX - startX;
+                    const dy = ev.clientY - startY;
+                    if (gesture === 0) {
+                      if (
+                        Math.abs(dx) < GESTURE_SLOP &&
+                        Math.abs(dy) < GESTURE_SLOP
+                      )
+                        return;
+                      gesture = Math.abs(dy) > Math.abs(dx) ? -1 : 1;
+                      if (gesture === -1) el.style.cursor = "ns-resize";
+                    }
+                    if (gesture === -1) {
+                      // Vertical drag → zoom, 1.005 per px; the ceiling is the pane's, not a constant of its own.
+                      const next = Math.max(
+                        1,
+                        Math.min(zoomCeiling(availW), zoomStart * 1.005 ** -dy),
+                      );
+                      // Anchor: keep the beat under the cursor fixed after the width change, through the package — see useHZoom's `zoomAt`.
+                      zoomAtX(next, startX);
+                    } else {
+                      // Horizontal drag → selection
+                      if (!dragged && Math.abs(dx) <= GESTURE_SLOP) return;
+                      dragged = true;
+                      setSel({
+                        anchor: { row: firstRow, beat: startBeat },
+                        head: { row: lastRow, beat: cellAt(ev.clientX) },
+                      });
+                    }
+                  };
+                  const onUp = () => {
+                    window.removeEventListener("mousemove", onMove);
+                    window.removeEventListener("mouseup", onUp);
+                    el.style.cursor = "";
+                    if (gesture === -1) return; // zoom gesture — nothing to undo
+                    if (dragged) return; // selection stays
+                    setSel(null); // plain click deselects and seeks
+                    // Snapped to the nearest tick the ruler DREW: `bars` is that list, so the grid you see and the positions you can land on agree.
                     const raw = Math.max(
                       0,
-                      beatLo + (e.clientX - box.left - GUTTER) / ppb,
+                      beatLo + (startX - rect.left) / ppb,
                     );
-                    onContextMenu?.(
-                      {
-                        kind: "curve-point",
-                        curve: row.lane.curve,
-                        param: row.lane.param,
-                        tc: beatsToPosition(
-                          nearestTick(bars, raw) ?? raw,
-                          proj?.timeSigNumerator ?? 4,
-                          proj?.timeSigDenominator ?? 4,
-                        ),
-                      },
-                      e.clientX,
-                      e.clientY,
-                    );
-                  }}
-                >
-                  <div
-                    style={{ width: GUTTER }}
-                    {...gutterProps(row)}
-                    className={cn(
-                      "flex shrink-0 cursor-pointer select-none items-center gap-1 truncate border-r border-border bg-muted/30 px-2 text-[10px] text-muted-foreground",
-                      GUTTER_STICKY,
-                      // Indented past its lane, like a take's row: the knob belongs to the lane above.
-                      "pl-5",
-                    )}
-                    title={`${lane.module} · ${lane.param} ← ${lane.curve}`}
-                  >
-                    <span className="truncate">{lane.param}</span>
-                  </div>
-                  <div className="relative flex-1 overflow-hidden">
-                    {pts.length > 1 && (
-                      // `vectorEffect` so the stroke keeps its width whatever the viewBox does — the x axis here is an extreme aspect.
-                      <svg
-                        className="pointer-events-none absolute inset-0 h-full w-full"
-                        aria-hidden="true"
-                      >
-                        <title>{lane.param}</title>
-                        <polyline
-                          fill="none"
-                          stroke="#a889b5"
-                          strokeWidth={1.5}
-                          vectorEffect="non-scaling-stroke"
-                          points={pts
-                            .map(
-                              (pt) =>
-                                `${x(pt.b)},${(1 - pt.v) * (ROW_H - 6) + 3}`,
-                            )
-                            .join(" ")}
-                        />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-              );
-            }
-
-            const { track: t, index: ti } = row;
-            const eff = effOf(t);
-            const armed = armedIds.includes(t.id);
-            // Present only for a lane with a CHOICE of attribute sets — see LaneAlternative.
-            const alt = laneNodes?.alternatives?.[t.id];
-            // M/S/A states: the graph's live trackControls when available, else the doc's own values. Arm is always the engine's.
-            const ctl = trackControls?.[t.id];
-            const msa: [string, "mute" | "solo" | "arm", boolean, string][] = [
-              [
-                "M",
-                "mute",
-                ctl ? ctl.mute === 1 : !!t.mute,
-                "bg-orange-500 text-white",
-              ],
-              [
-                "S",
-                "solo",
-                ctl ? ctl.solo === 1 : !!eff.solo,
-                "bg-amber-400 text-black",
-              ],
-              ["A", "arm", armed, "bg-red-500 text-white"],
-            ];
-            return (
-              <div
-                key={t.id}
-                data-sel-row={rowKey(row)}
-                className={cn(
-                  "flex border-b border-border/40",
-                  // Dimmed == not audible: muted itself, muted by its group, or silenced because something else is soloed.
-                  silent(t) && "opacity-50",
-                )}
-                style={{ height: rowH }}
-                // Right-click the lane or gutter → the track's commands. A clip stops this so its own menu wins.
-                onContextMenu={(e) => {
+                    const beat = nearestTick(bars, raw) ?? raw;
+                    // If the bar is asking for a timecode, the click ANSWERS it and the transport stays put — only a click, never a drag.
+                    if (feedTimecodeRef.current) {
+                      feedTimecodeRef.current(
+                        beatsToPosition(beat, tsNum, tsDen),
+                        false,
+                      );
+                      return;
+                    }
+                    onSeek?.((beat * 60) / proj.tempo);
+                  };
+                  window.addEventListener("mousemove", onMove);
+                  window.addEventListener("mouseup", onUp);
                   e.preventDefault();
+                }}
+                onContextMenu={(e) => {
+                  // Right-click the ruler → 'add marker here', snapped to the same drawn tick a left-click seek uses (docs/timeline.md).
+                  e.preventDefault();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const raw = Math.max(
+                    0,
+                    beatLo + (e.clientX - rect.left) / ppb,
+                  );
+                  const at = nearestTick(bars, raw) ?? raw;
                   onContextMenu?.(
-                    { kind: "track", id: t.id },
+                    {
+                      kind: "marker-add",
+                      tc: beatsToPosition(at, tsNum, tsDen),
+                    },
                     e.clientX,
                     e.clientY,
                   );
                 }}
               >
-                <div
-                  style={{ width: GUTTER }}
-                  {...gutterProps(row)}
-                  className={cn(
-                    // No `relative`: GUTTER_STICKY positions it, and two position classes would fight in `cn`.
-                    "flex shrink-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-r border-border px-2",
-                    GUTTER_STICKY,
-                    // On the row: a faint tint. Label selected: the full caret mark.
-                    onRow && !labelled && "bg-primary/10",
-                    inSel && "bg-primary/20",
-                    labelled && LABEL_SELECTED,
-                  )}
-                >
-                  {/* Both live meters, subscribing for themselves — see LaneMeter. */}
-                  <LaneMeter index={ti} armed={armed} />
-                  {/* The instrument the name's prefix asks for ("ge.lead" → a strat), in the track's colour; undeclared gets a question mark. */}
-                  <span
-                    // The row shows the label alone, so the full name — the track's id and filename — has to be reachable here.
-                    title={[
-                      t.name,
-                      trackIcon(t.name)?.label,
-                      armed && "record-armed; records on play",
-                    ]
-                      .filter(Boolean)
-                      .join(" — ")}
-                    className={cn(
-                      "relative flex min-w-0 flex-1 items-center gap-1 truncate",
-                      row.grouped && "pl-3",
-                      // Armed red, soloed yellow. A ternary, not two classes: both can be true, and armed is about to write to disk.
-                      armed ? "text-red-400" : eff.solo && "text-amber-400",
-                    )}
-                  >
-                    <TrackIcon
-                      name={t.name}
-                      color={t.color || undefined}
-                      // A coloured icon is the track's identity and holds full strength; an uncoloured one is decoration and sits back.
-                      className={cn("shrink-0", !t.color && "opacity-70")}
-                    />
-                    {/* Which attribute set this lane plays, before the name; `shrink-0` means a narrow gutter eats the name, not this. */}
-                    {alt && onNodeMenu && (
-                      <LaneAlternative
-                        track={t.name}
-                        names={alt.alternatives}
-                        current={alt.alternative}
-                        onOpen={(at) =>
-                          onNodeMenu(
-                            {
-                              // A lane IS a module node, so it is addressable as one (packages/song/docs/trackModules.md).
-                              module: t.id,
-                              alternatives: alt.alternatives,
-                              alternative: alt.alternative,
-                              frozen: laneNodes?.frozen?.[t.id],
-                            },
-                            at,
-                          )
-                        }
-                      />
-                    )}
-                    {/* The label alone: the row's position and the icon already say what "3.ge." would repeat at the gutter's expense. */}
-                    <span className="truncate">{trackLabel(t.name)}</span>
-                  </span>
-                  {/* [m]ute / [s]olo / [a]rm, the graph's track nodes' own controls; stopPropagation so a tap does not also move the caret. */}
-                  {onTrackToggle && (
-                    <div className="relative flex shrink-0 items-center gap-0.5">
-                      {msa.map(([label, control, on, onCls]) => (
-                        <button
-                          key={control}
-                          title={`${control} ${t.name}`}
-                          aria-label={`${control} ${t.name}`}
-                          aria-pressed={on}
-                          onPointerDown={(e) => e.stopPropagation()}
-                          // dblclick is its own event and bubbles past the click handler's stop.
-                          onDoubleClick={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onTrackToggle(t.id, control);
-                            // Or the next Space re-toggles this button instead of rolling the transport — see blurOnClick.
-                            blurOnClick(e);
-                          }}
-                          className={cn(
-                            "flex h-4 w-4 items-center justify-center rounded-sm text-[9px] font-bold leading-none",
-                            on
-                              ? onCls
-                              : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground",
-                          )}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {/* overflow-hidden because a zoom puts out-of-view clips at negative offsets, which would spill across the gutter. */}
-                <div
-                  // Hit-tested by a clip drag (laneAtPoint), rather than re-deriving row geometry there.
-                  data-lane-track={t.id}
-                  /** A click on the BARE lane: it puts the caret there, and `dragRef` is the test, since clips bubble to here. */
-                  onPointerDown={(e) => {
-                    if (e.button !== 0) return;
-                    if (dragRef.current) return; // a clip took this press
-                    /** Shift: the caret GROWS into the `v` rectangle — the same Selection the keyboard's `v` builds, and it works over a clip too. */
-                    if (e.shiftKey) {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const cellAt = (cx: number) =>
-                        Math.max(
-                          beatLo,
-                          Math.min(
-                            beatHi,
-                            Math.floor(beatLo + (cx - rect.left) / ppb),
-                          ),
-                        );
-                      const anchor: Cell = sel
-                        ? sel.anchor
-                        : clampCell({
-                            row: caret.row,
-                            beat: caret.beat === LABEL ? beatLo : caret.beat,
-                          });
-                      setSel({
-                        anchor,
-                        head: clampCell({
-                          row: `track:${t.id}` as RowKey,
-                          beat: cellAt(e.clientX),
-                        }),
-                      });
-                      const onSelMove = (ev: PointerEvent) => {
-                        // The head's row comes off the rows' own DOM (data-sel-row): rows have three heights, and a second copy would drift.
-                        const key = document
-                          .elementFromPoint(ev.clientX, ev.clientY)
-                          ?.closest?.("[data-sel-row]")
-                          ?.getAttribute("data-sel-row") as RowKey | null;
-                        setSel(
-                          (s) =>
-                            s && {
-                              ...s,
-                              head: clampCell({
-                                row: key ?? s.head.row,
-                                beat: cellAt(ev.clientX),
-                              }),
-                            },
-                        );
-                      };
-                      const onSelUp = () => {
-                        window.removeEventListener("pointermove", onSelMove);
-                        window.removeEventListener("pointerup", onSelUp);
-                      };
-                      window.addEventListener("pointermove", onSelMove);
-                      window.addEventListener("pointerup", onSelUp);
-                      return;
+                {/* The RULES always draw; only the NUMBERS thin out, strided on the bar's own index so scrolling never moves them (ticks.ts). */}
+                <RulerTicks
+                  {...tickProps}
+                  ppb={ppb}
+                  barStride={barStride}
+                  scroller={scrollRef}
+                />
+                {/* The transport loop region over its bar range; the ENGINE does the wrapping, this only shows what is looping. */}
+                {loop && (
+                  <div
+                    className="pointer-events-none absolute top-0 z-10 h-full border-x-2 border-amber-400 bg-amber-400/20"
+                    style={{
+                      left: x(loop.lo),
+                      width: (loop.hi + 1 - loop.lo) * ppb,
+                    }}
+                    title="loop region — Shift+L to clear"
+                  />
+                )}
+                {/* Marker handles: a diamond flag in the ruler, hover for the name and right-click to delete; the full line is drawn below. */}
+                {visMarkers.map((mk) => (
+                  <div
+                    key={mk.tc}
+                    className="absolute top-0 z-20 h-full -translate-x-1/2 cursor-pointer"
+                    style={{ left: x(mk.beat), width: 12 }}
+                    title={mk.name}
+                    onMouseEnter={() => setHoverMarker(mk.name)}
+                    onMouseLeave={() =>
+                      setHoverMarker((n) => (n === mk.name ? null : n))
                     }
-                    if (e.target !== e.currentTarget) return;
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const beat = Math.floor(
-                      beatLo + (e.clientX - rect.left) / ppb,
-                    );
-                    setSel(null);
-                    setCaret(
-                      clampCaret({ row: `track:${t.id}` as RowKey, beat }),
-                    );
-                    onEmptyClick?.();
-                  }}
-                  className={cn(
-                    "relative overflow-hidden",
-                    // The lane a dragged clip would land on, while it is a legal target.
-                    move?.dragging &&
-                      move.toTrackId === t.id &&
-                      move.trackId !== t.id &&
-                      "bg-primary/10 outline outline-1 outline-primary/60",
-                  )}
-                  style={{ width: laneW }}
-                >
-                  {/* record-armed: the whole lane goes red, at the bottom of the stack, off the engine's state frame rather than the project. */}
-                  {armed && (
-                    <div className="pointer-events-none absolute inset-0 bg-red-600/30" />
-                  )}
-                  {/* caret cell — gone while the label is selected, and while a rectangle is being drawn, the rectangle BEING the caret then. */}
-                  {onRow && !labelled && !selBox && (
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation(); // don't also fire the ruler's "add marker"
+                      onContextMenu?.(
+                        { kind: "marker", name: mk.name },
+                        e.clientX,
+                        e.clientY,
+                      );
+                    }}
+                  >
                     <div
-                      // pointer-events-none: it is a mark, not a target, so a press on it reads as a press on the bare lane.
-                      className="pointer-events-none absolute top-0 h-full bg-primary/25 outline outline-1 outline-primary"
-                      style={{ left: x(caret.beat), width: ppb }}
+                      className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 rotate-45"
+                      style={{ background: MARKER_COLOR }}
                     />
-                  )}
-                  {inSel && selBox && selSlice(selBox)}
-                  {/* A generated lane carries only the scheduler's look-ahead, rewritten every tick, so it is hatched rather than drawn. */}
-                  {t.generated ? (
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* lanes — group headers with their members nested under them, then any live Strudel orbit lanes, which nest too. */}
+            {visRows.map((row, ri) => {
+              // Is this the caret's row, with its LABEL selected? The gutter wears the caret's own marks, because it IS the caret.
+              const onRow = rowKey(row) === caret.row;
+              const labelled = onRow && caret.beat === LABEL;
+              // Inside the `v` rectangle? The gutter marks it too, so a rectangle reads as covering whole lanes.
+              const inSel =
+                !!selBox && ri >= selBox.rowLo && ri <= selBox.rowHi;
+
+              // A group holds no material: a grey band naming what is below it. Its label still takes the caret, for mute/solo.
+              if (row.kind === "group")
+                return (
+                  <div
+                    key={`group:${row.group.id}`}
+                    // Hit-tested by the shift-drag selection, as laneAtPoint does with data-lane-track.
+                    data-sel-row={rowKey(row)}
+                    className={cn(
+                      "flex border-b border-border/40",
+                      // A group dims on its own flag only: with no lane of its own, the mixer-wide solo rule doesn't reach the header.
+                      row.group.mute && "opacity-50",
+                    )}
+                    style={{ height: ROW_H }}
+                    // Right-click a group header → its mute/solo commands.
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      onContextMenu?.(
+                        { kind: "group", id: row.group.id },
+                        e.clientX,
+                        e.clientY,
+                      );
+                    }}
+                  >
                     <div
-                      title={`${t.name} — generated by an algo pattern; can't hold clips`}
-                      className="pointer-events-none absolute inset-0 text-muted-foreground/30"
-                      style={{ backgroundImage: HATCH }}
-                    />
-                  ) : (
-                    <>
-                      {/* The take growing on its lane: nothing on disk names it yet, so it is drawn from the transport and replaced on Stop. */}
-                      {rolling && armedIds.includes(t.id) && (
-                        <RecordingClip
-                          tempo={proj.tempo}
-                          startBeat={takeStartBeat}
-                          countInBeats={takeCountInBeats}
-                          beatLo={beatLo}
-                          beatHi={beatHi}
-                          ppb={ppb}
+                      style={{ width: GUTTER }}
+                      {...gutterProps(row)}
+                      className={cn(
+                        "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/60 px-2",
+                        GUTTER_STICKY,
+                        inSel && "bg-primary/20",
+                        labelled && LABEL_SELECTED,
+                      )}
+                    >
+                      {row.group.color && (
+                        <span
+                          className="size-2 shrink-0 rounded-sm"
+                          style={{ background: row.group.color }}
                         />
                       )}
-                      {/* The move ghost: where the clip was picked up, on its own lane only, gone the instant the move commits or cancels. */}
-                      {move && move.trackId === t.id && (
-                        <div
-                          className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded border border-dashed border-primary/70 bg-primary/5"
-                          style={{
-                            left: x(move.origStart),
-                            width: Math.max(
-                              ppb,
-                              (move.length > 0 ? move.length : NATURAL) * ppb,
-                            ),
-                          }}
+                      <span
+                        className={cn(
+                          "truncate font-semibold",
+                          row.group.solo && "text-amber-400",
+                        )}
+                        title={`${row.group.name} — a group; holds no clips of its own`}
+                      >
+                        {/* Stripped like a track row's: a group can pin its position too, and the full name stays in the title. */}
+                        {trackLabel(row.group.name)}
+                      </span>
+                    </div>
+                    <div
+                      className="relative overflow-hidden bg-muted/60"
+                      style={{ width: laneW }}
+                    >
+                      {inSel && selBox && selSlice(selBox)}
+                    </div>
+                  </div>
+                );
+
+              /** A PICTURE lane: decimal seconds against a beat grid, exactly convertible here, so they can be dragged (docs/picture.md). */
+              if (row.kind === "video") {
+                const vt = row.track;
+                const toBeats = (s: number) => s * bps;
+                return (
+                  <div
+                    key={`video:${vt.id}`}
+                    data-sel-row={rowKey(row)}
+                    className={cn(
+                      "flex border-b border-border/40",
+                      vt.mute && "opacity-50", // "mute" on a video lane == hidden
+                    )}
+                    // No context menu: it is DERIVED from the command catalogue, and picture has no verbs in it (docs/contextMenu.md).
+                    style={{ height: ROW_H }}
+                  >
+                    <div
+                      style={{ width: GUTTER }}
+                      {...gutterProps(row)}
+                      className={cn(
+                        "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/40 px-2",
+                        GUTTER_STICKY,
+                        inSel && "bg-primary/20",
+                        labelled && LABEL_SELECTED,
+                      )}
+                    >
+                      {vt.color && (
+                        <span
+                          className="size-2 shrink-0 rounded-sm"
+                          style={{ background: vt.color }}
                         />
                       )}
-                      {/* The resize ghost: where the event stood when its edge was grabbed, in the move ghost's outline — one gesture language. */}
-                      {resize && resize.trackId === t.id && (
-                        <div
-                          className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded border border-dashed border-primary/70 bg-primary/5"
-                          style={{
-                            left: x(resize.origStart),
-                            width: Math.max(
-                              ppb,
-                              (resize.origEnd - resize.origStart) * ppb,
-                            ),
-                          }}
-                        />
-                      )}
-                      {t.clips.map((c, i) => {
-                        const w = (c.length > 0 ? c.length : NATURAL) * ppb;
-                        // A clip whose content loops to fill its length: flagged, so the repeats aren't mistaken for one long take.
-                        const looping = (c.loopEnd ?? 0) > (c.loopStart ?? 0);
-                        // …and WHERE it starts over: the marks come off `passes`, so a MIDI clip stating its window draws none (clipLoop.ts).
-                        const loop = clipLoop(c);
-                        const loopMarks = loop ? placedRepeats(loop, ppb) : [];
-                        // A glyph needs room the bare rule does not; `MIN_LOOP_GLYPH_PX` is where it stops being a glyph and starts being grit.
-                        const loopGlyphs =
-                          !!loop && loop.win * ppb >= MIN_LOOP_GLYPH_PX;
-                        // A time-stretched clip gets a countdown-timer icon, CROSSED when this event has declined the map (`event status warp`).
-                        const stretched = !!c.warped;
-                        const unwarped = !!c.warpOff;
-                        /** The same material, placed elsewhere too: `ghost` marks every placement but the earliest, and `kin` lights the rest from the caret. */
-                        const inst = instances.get(materialOf(c));
-                        const ghost =
-                          (inst?.n ?? 1) > 1 &&
-                          !isFirstPlacement(inst, t.id, c.start);
-                        const kin =
-                          !!kinOfCaret &&
-                          materialOf(c) === kinOfCaret &&
-                          c !== clipUnderCaret;
-                        // Is THIS placement the one being moved? Pinned by track + original start, since an id can sit at several beats.
-                        const moving =
-                          !!move &&
-                          move.trackId === t.id &&
-                          c.id === move.clipId &&
-                          Math.abs(c.start - move.origStart) < 1e-6;
-                        // Is THIS placement the one being resized? Same pinning as the move.
-                        const resizing =
-                          !!resize &&
-                          resize.trackId === t.id &&
-                          c.id === resize.clipId &&
-                          Math.abs(c.start - resize.origStart) < 1e-6;
-                        const drawStart = resizing
-                          ? resize.start
-                          : moving
-                            ? move.origStart + move.offset
-                            : c.start;
-                        // Dragging either edge changes the WIDTH too, unlike a move.
-                        const drawW = resizing
-                          ? (resize.end - resize.start) * ppb
-                          : w;
+                      <TrackIcon
+                        name={vt.name}
+                        video
+                        className="h-3.5 w-3.5 shrink-0 opacity-70"
+                      />
+                      <span
+                        className="truncate"
+                        title={`${vt.name} — a ${vt.kind === "shape" ? "shape" : "video"} lane; cut in seconds, composited on the viewport`}
+                      >
+                        {trackLabel(vt.name)}
+                      </span>
+                    </div>
+                    <div
+                      className="relative overflow-hidden"
+                      style={{
+                        width: laneW,
+                        // A shape lane holds no placements at all, so it is hatched rather than drawn as an empty row.
+                        ...(vt.kind === "shape"
+                          ? { backgroundImage: HATCH }
+                          : null),
+                      }}
+                    >
+                      {vt.clips.map((c, i) => {
+                        // The one being dragged draws where the pointer says — the ghost the commit then makes true.
+                        const live =
+                          vdrag && vdrag.trackId === vt.id && vdrag.ref === c.id
+                            ? vdrag
+                            : null;
+                        const start = live ? live.start : c.start;
+                        const length = live ? live.length : c.length;
+                        // A length-0 placement runs to the end of a source nothing has measured, so it draws provisional: dashed and amber.
+                        const provisional = length <= 0;
+                        const w = Math.max(
+                          ppb,
+                          toBeats(provisional ? V_NATURAL : length) * ppb,
+                        );
                         return (
                           <div
-                            // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
-                            key={`${c.id}-${i}`}
-                            title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""}${(inst?.n ?? 1) > 1 ? ` · ${ghost ? "another instance" : "first"} of ${inst?.n}` : ""} — click to select, drag to move (ctrl : hors grille)`}
-                            // Drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
-                            onPointerDown={(e) => beginClipDrag(e, t, c)}
-                            onPointerMove={onClipDragMove}
-                            onPointerUp={endClipDrag}
-                            onPointerCancel={endClipDrag}
-                            // Right-click an event → the PLACEMENT's commands; stop the event so the lane's track menu doesn't also fire.
+                            // By placement, not by ref: one source may be placed twice, and the file keys its placements by ref too (videoTrackFile.ts).
+                            key={`${c.id}:${i}`}
+                            onPointerDown={(e) =>
+                              beginVideoDrag(e, vt, c, "move")
+                            }
+                            onPointerMove={onVideoDragMove}
+                            onPointerUp={commitVideoDrag}
+                            onPointerCancel={commitVideoDrag}
                             onContextMenu={(e) => {
+                              // The shot's own start, not the pointer's: that is what the `picture …` verbs address it by.
                               e.preventDefault();
                               e.stopPropagation();
                               onContextMenu?.(
                                 {
-                                  kind: "clip",
-                                  id: c.id,
-                                  // Where this placement SITS, so the menu can offer `event remove` — the same pair the move drag commits with.
-                                  track: t.id,
-                                  tc: beatsToPosition(
-                                    c.start,
-                                    proj.timeSigNumerator,
-                                    proj.timeSigDenominator,
-                                  ),
-                                  // …and the RECTANGLE, when one is drawn: a range verb takes a span, and the placement only says where it starts.
-                                  sel: selRange,
+                                  kind: "picture-shot",
+                                  lane: vt.id,
+                                  at: String(c.start),
+                                  name: c.name || c.id,
                                 },
                                 e.clientX,
                                 e.clientY,
                               );
                             }}
                             className={cn(
-                              // `isolate` keeps the activity layer's -z-10 inside this block; `group` is what the name reads.
-                              "group absolute top-1 flex h-[calc(100%-8px)] cursor-grab overflow-hidden rounded px-1 text-[10px] active:cursor-grabbing isolate",
-                              // Disabled: still placed, still readable, plainly off — an event you cannot see is a deleted one.
-                              c.disabled &&
-                                "opacity-40 saturate-0 outline-dashed outline-1 outline-muted-foreground",
-                              // A SIBLING of the one under the caret: light on purpose, so it does not compete with the clip you picked.
-                              kin &&
-                                "outline outline-1 -outline-offset-1 outline-primary/60 brightness-110",
-                              // Expanded: name on top, content filling the rest. Collapsed: the name centred in the short block as before.
-                              expanded ? "flex-col" : "items-center",
-                              // The clip in hand: ring it and lift it over its ghost.
-                              (moving || resizing) &&
-                                "z-10 outline outline-2 outline-primary",
-                              // …and while DRAGGING let the pointer through, or laneAtPoint would always answer "the lane I started on".
-                              moving && move?.dragging && "pointer-events-none",
+                              "absolute inset-y-0.5 flex items-center gap-0.5 overflow-hidden rounded-sm px-1 text-[10px] text-white",
+                              onVideoEdit ? "cursor-grab" : "",
+                              provisional
+                                ? "border border-dashed border-amber-400 bg-amber-600/50"
+                                : "bg-violet-600/70",
+                              live?.pending && "opacity-60",
                             )}
-                            style={{
-                              left: x(drawStart),
-                              width: Math.max(ppb, drawW),
-                            }}
+                            style={{ left: x(toBeats(start)), width: w }}
+                            title={`${c.name || c.id} — ${
+                              provisional
+                                ? "to the end of the source"
+                                : `${length}s`
+                            } at ${start}s, from ${c.sourceFrom}s into the source`}
                           >
-                            {/* The fill, with the content's activity running through it: 50% opaque where quiet, 100% where loud (docs/timeline.md). */}
-                            <ClipActivity
-                              clip={c}
-                              spanBeats={c.length > 0 ? c.length : NATURAL}
-                              color={t.color || undefined}
-                              project={envProject}
+                            <TrackIcon
+                              name={c.name}
+                              video
+                              className="h-2.5 w-2.5 shrink-0 opacity-80"
                             />
-                            {/* Where the material STARTS OVER, one rule per pass: `placedRepeats`, since this axis begins at the event's left edge (clipLoop.ts). */}
-                            {loopMarks
-                              .filter((b) => b * ppb < drawW)
-                              .map((b) => (
-                                <div
-                                  key={b}
-                                  className="pointer-events-none absolute inset-y-0 w-px bg-white/30"
-                                  style={{ left: b * ppb }}
-                                >
-                                  {/* Only when a pass is wide enough to hold it — below that the glyphs touch and read as a dotted smear. */}
-                                  {loopGlyphs && (
-                                    <Repeat className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 h-2 w-2 text-white/75" />
-                                  )}
-                                </div>
-                              ))}
-                            {/* The FADES as two wedges, `pointer-events-none` since the corner handle is what you grab; `fadeOf` keeps them live mid-drag (docs/timeline.md). */}
-                            {(["fadeIn", "fadeOut"] as const).map((which) => {
-                              const live =
-                                fade?.clipId === c.id &&
-                                fade.trackId === t.id &&
-                                fade.which === which
-                                  ? fade.len
-                                  : undefined;
-                              const len =
-                                live ??
-                                (which === "fadeIn" ? c.fadeIn : c.fadeOut) ??
-                                0;
-                              if (len <= 0) return null;
-                              const w = Math.min(drawW, len * ppb);
-                              return (
-                                <div
-                                  key={which}
-                                  className={cn(
-                                    "pointer-events-none absolute inset-y-0 bg-black/45",
-                                    which === "fadeIn" ? "left-0" : "right-0",
-                                  )}
-                                  style={{
-                                    width: w,
-                                    // The wedge itself: a fade-in is dark at the head and clear by its end, a fade-out the mirror.
-                                    clipPath:
-                                      which === "fadeIn"
-                                        ? "polygon(0 0, 100% 100%, 0 100%)"
-                                        : "polygon(100% 0, 100% 100%, 0 100%)",
-                                  }}
-                                />
-                              );
-                            })}
-                            {/* …and the two corner handles that drag them, at the TOP corners so they never share a pixel with the resize strips. */}
-                            {!readOnly &&
-                              (["fadeIn", "fadeOut"] as const).map((which) => {
-                                const len =
-                                  (which === "fadeIn" ? c.fadeIn : c.fadeOut) ??
-                                  0;
-                                return (
-                                  <div
-                                    key={`h-${which}`}
-                                    className={cn(
-                                      "absolute top-0 z-30 h-2 w-2 cursor-ew-resize rounded-sm",
-                                      which === "fadeIn" ? "left-0" : "right-0",
-                                      // Visible once there is a fade; otherwise on hover, the same disclosure the edge handles use.
-                                      len > 0
-                                        ? "bg-white/60"
-                                        : "bg-white/0 group-hover:bg-white/35",
-                                    )}
-                                    title={
-                                      which === "fadeIn"
-                                        ? "Drag to fade in — Ctrl frees the grid"
-                                        : "Drag to fade out — Ctrl frees the grid"
-                                    }
-                                    onPointerDown={(e) => {
-                                      e.stopPropagation();
-                                      (
-                                        e.currentTarget as HTMLElement
-                                      ).setPointerCapture(e.pointerId);
-                                      setFade({
-                                        trackId: t.id,
-                                        clipId: c.id,
-                                        which,
-                                        start: c.start,
-                                        span: c.length > 0 ? c.length : NATURAL,
-                                        orig: len,
-                                        len,
-                                        x: e.clientX,
-                                        ppb,
-                                      });
-                                    }}
-                                    onPointerMove={onFadeMove}
-                                    onPointerUp={commitFade}
-                                    onPointerCancel={() => setFade(null)}
-                                  />
-                                );
-                              })}
-                            {/* Edge handles, narrow strips INSIDE the block's own ends, and absent rather than inert on a read-only document. */}
-                            {!readOnly &&
-                              (["start", "end"] as const).map((edge) => (
-                                <div
-                                  key={edge}
-                                  className={cn(
-                                    "absolute inset-y-0 z-20 w-1.5 cursor-ew-resize",
-                                    edge === "start" ? "left-0" : "right-0",
-                                    "hover:bg-primary/60",
-                                  )}
-                                  onPointerDown={(e) => {
-                                    // Stop it here or the clip's own move drag starts too.
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    (
-                                      e.currentTarget as HTMLElement
-                                    ).setPointerCapture?.(e.pointerId);
-                                    const end =
-                                      c.start +
-                                      (c.length > 0 ? c.length : NATURAL);
-                                    setResize({
-                                      trackId: t.id,
-                                      clipId: c.id,
-                                      edge,
-                                      origStart: c.start,
-                                      origEnd: end,
-                                      start: c.start,
-                                      end,
-                                      x: e.clientX,
-                                      ppb,
-                                    });
-                                  }}
-                                  onPointerMove={onResizeMove}
-                                  onPointerUp={commitResize}
-                                  onPointerCancel={() => setResize(null)}
-                                  title={
-                                    edge === "start"
-                                      ? "drag to move this event's start"
-                                      : "drag to move this event's end"
+                            <span className="truncate">{c.name || c.id}</span>
+                            {/* The two trim handles, wider than they look: a 6px target is a miss, and a miss lands on the body's own drag. */}
+                            {onVideoEdit && (
+                              <>
+                                <span
+                                  onPointerDown={(e) =>
+                                    beginVideoDrag(e, vt, c, "in")
                                   }
+                                  className="absolute inset-y-0 left-0 w-2 cursor-ew-resize"
                                 />
-                              ))}
-                            <div className="flex items-center gap-0.5 leading-tight">
-                              {/* Kind at a glance: a note for MIDI/sequence clips, a speaker for audio. */}
-                              {c.type === "midi" ? (
-                                <Music className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                              ) : (
-                                <Volume2 className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                              )}
-                              {/* A RETURN of material heard earlier, drawn on every placement but the first (docs/timeline.md). */}
-                              {ghost && (
-                                <Ghost className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                              )}
-                              {/* No loop badge here: the marks down the block say the same thing and say WHERE. */}
-                              {stretched &&
-                                (unwarped ? (
-                                  <TimerOff className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                                ) : (
-                                  <Timer className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                                ))}
-                              {/* The name on HOVER, faded rather than unmounted so the row keeps its height — and shown outright while the block is in hand. */}
-                              <span
-                                className={cn(
-                                  "truncate opacity-0 transition-opacity group-hover:opacity-100",
-                                  (moving || resizing) && "opacity-100",
-                                )}
-                              >
-                                {c.name || c.id}
-                              </span>
-                            </div>
-                            {/* The clip's waveform or mini piano-roll, only when there is room; `relative` anchors ClipContent's absolute fill. */}
-                            {expanded && (
-                              <div className="relative mt-0.5 min-h-0 flex-1">
-                                <ClipContent
-                                  clip={c}
-                                  spanBeats={c.length > 0 ? c.length : NATURAL}
-                                  project={envProject}
+                                <span
+                                  onPointerDown={(e) =>
+                                    beginVideoDrag(e, vt, c, "out")
+                                  }
+                                  className="absolute inset-y-0 right-0 w-2 cursor-ew-resize"
                                 />
-                              </div>
+                              </>
                             )}
                           </div>
                         );
                       })}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                      {inSel && selBox && selSlice(selBox)}
+                    </div>
+                  </div>
+                );
+              }
 
-          {/* marker lines spanning the ruler and every lane, non-interactive: the ruler handle above owns hover and right-click. */}
-          {visMarkers.map((mk) => (
-            <div
-              key={mk.tc}
-              className="pointer-events-none absolute top-0 z-20"
-              style={{
-                left: GUTTER + x(mk.beat),
-                height: contentH,
-                width: 1,
-                background: MARKER_COLOR,
-                boxShadow:
-                  hoverMarker === mk.name ? `0 0 6px ${MARKER_COLOR}` : "none",
-              }}
+              /** A TAKE of the lane above — read-only, deliberately: the one thing you do to a take is move it back, and that is a command (packages/song/docs/takes.md). */
+              if (row.kind === "take") {
+                const tk = row.track;
+                return (
+                  <div
+                    key={`take:${tk.id}:${row.n}`}
+                    data-sel-row={rowKey(row)}
+                    className="flex border-b border-border/40 opacity-70"
+                    style={{ height: ROW_H }}
+                    // The take's own two verbs. Its lane's menu must not also fire.
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onContextMenu?.(
+                        { kind: "take", track: tk.id, n: row.n },
+                        e.clientX,
+                        e.clientY,
+                      );
+                    }}
+                  >
+                    <div
+                      style={{ width: GUTTER }}
+                      {...gutterProps(row)}
+                      className={cn(
+                        "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/30 px-2 text-muted-foreground",
+                        GUTTER_STICKY,
+                        // Indented past its lane — and past the lane's own indent when that lane is in a group.
+                        "pl-5",
+                        inSel && "bg-primary/20",
+                        labelled && LABEL_SELECTED,
+                      )}
+                    >
+                      <span
+                        className="truncate italic"
+                        title={`take ${row.n} of ${tk.name} — not playing; right-click to move it onto the track`}
+                      >
+                        {row.take.name || `take ${row.n}`}
+                      </span>
+                    </div>
+                    <div
+                      className="relative overflow-hidden bg-muted/20"
+                      style={{ width: laneW }}
+                    >
+                      {row.take.clips.map((c, i) => (
+                        <div
+                          // Same key rule as a lane's events: one ref may be placed twice.
+                          key={`${c.id}-${i}`}
+                          title={`${c.name} — take ${row.n}, at beat ${c.start + 1}`}
+                          className="pointer-events-none absolute inset-y-1 overflow-hidden rounded-sm border border-dashed border-muted-foreground/50 bg-muted-foreground/20 px-1 text-[10px] leading-4"
+                          style={{
+                            left: x(c.start),
+                            width: Math.max(
+                              ppb,
+                              (c.length > 0 ? c.length : NATURAL) * ppb,
+                            ),
+                          }}
+                        >
+                          <span className="truncate">{c.name}</span>
+                        </div>
+                      ))}
+                      {inSel && selBox && selSlice(selBox)}
+                    </div>
+                  </div>
+                );
+              }
+
+              /** An AUTOMATION row: one knob of the lane above against song time — only a `custom` curve has a shape, and its header addresses the TRACK. */
+              if (row.kind === "automation") {
+                const lane = row.lane;
+                const pts = lane.points
+                  .map((pt) => {
+                    try {
+                      return {
+                        b: parsePosition(
+                          pt.time,
+                          proj?.timeSigNumerator ?? 4,
+                          proj?.timeSigDenominator ?? 4,
+                        ),
+                        v: Math.min(1, Math.max(0, pt.value)),
+                      };
+                    } catch {
+                      return null; // an unreadable timecode is one point, not a broken row
+                    }
+                  })
+                  .filter((pt): pt is { b: number; v: number } => !!pt)
+                  .sort((a, b) => a.b - b.b);
+                return (
+                  <div
+                    key={rowKey(row)}
+                    data-sel-row={rowKey(row)}
+                    className="flex border-border/40 border-b opacity-80"
+                    style={{ height: ROW_H }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // The MOMENT under the pointer, snapped to a tick the ruler actually drew — what makes the `curve point …` verbs act where you aimed.
+                      const box = (
+                        e.currentTarget as HTMLElement
+                      ).getBoundingClientRect();
+                      const raw = Math.max(
+                        0,
+                        beatLo + (e.clientX - box.left - GUTTER) / ppb,
+                      );
+                      onContextMenu?.(
+                        {
+                          kind: "curve-point",
+                          curve: row.lane.curve,
+                          param: row.lane.param,
+                          tc: beatsToPosition(
+                            nearestTick(bars, raw) ?? raw,
+                            proj?.timeSigNumerator ?? 4,
+                            proj?.timeSigDenominator ?? 4,
+                          ),
+                        },
+                        e.clientX,
+                        e.clientY,
+                      );
+                    }}
+                  >
+                    <div
+                      style={{ width: GUTTER }}
+                      {...gutterProps(row)}
+                      className={cn(
+                        "flex shrink-0 cursor-pointer select-none items-center gap-1 truncate border-r border-border bg-muted/30 px-2 text-[10px] text-muted-foreground",
+                        GUTTER_STICKY,
+                        // Indented past its lane, like a take's row: the knob belongs to the lane above.
+                        "pl-5",
+                      )}
+                      title={`${lane.module} · ${lane.param} ← ${lane.curve}`}
+                    >
+                      <span className="truncate">{lane.param}</span>
+                    </div>
+                    <div className="relative flex-1 overflow-hidden">
+                      {pts.length > 1 && (
+                        // `vectorEffect` so the stroke keeps its width whatever the viewBox does — the x axis here is an extreme aspect.
+                        <svg
+                          className="pointer-events-none absolute inset-0 h-full w-full"
+                          aria-hidden="true"
+                        >
+                          <title>{lane.param}</title>
+                          <polyline
+                            fill="none"
+                            stroke="#a889b5"
+                            strokeWidth={1.5}
+                            vectorEffect="non-scaling-stroke"
+                            points={pts
+                              .map(
+                                (pt) =>
+                                  `${x(pt.b)},${(1 - pt.v) * (ROW_H - 6) + 3}`,
+                              )
+                              .join(" ")}
+                          />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              const { track: t, index: ti } = row;
+              const eff = effOf(t);
+              const armed = armedIds.includes(t.id);
+              // Present only for a lane with a CHOICE of attribute sets — see LaneAlternative.
+              const alt = laneNodes?.alternatives?.[t.id];
+              // M/S/A states: the graph's live trackControls when available, else the doc's own values. Arm is always the engine's.
+              const ctl = trackControls?.[t.id];
+              const msa: [string, "mute" | "solo" | "arm", boolean, string][] =
+                [
+                  [
+                    "M",
+                    "mute",
+                    ctl ? ctl.mute === 1 : !!t.mute,
+                    "bg-orange-500 text-white",
+                  ],
+                  [
+                    "S",
+                    "solo",
+                    ctl ? ctl.solo === 1 : !!eff.solo,
+                    "bg-amber-400 text-black",
+                  ],
+                  ["A", "arm", armed, "bg-red-500 text-white"],
+                ];
+              return (
+                <div
+                  key={t.id}
+                  data-sel-row={rowKey(row)}
+                  className={cn(
+                    "flex border-b border-border/40",
+                    // Dimmed == not audible: muted itself, muted by its group, or silenced because something else is soloed.
+                    silent(t) && "opacity-50",
+                  )}
+                  style={{ height: rowH }}
+                  // Right-click the lane or gutter → the track's commands. A clip stops this so its own menu wins.
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    onContextMenu?.(
+                      { kind: "track", id: t.id },
+                      e.clientX,
+                      e.clientY,
+                    );
+                  }}
+                >
+                  <div
+                    style={{ width: GUTTER }}
+                    {...gutterProps(row)}
+                    className={cn(
+                      // No `relative`: GUTTER_STICKY positions it, and two position classes would fight in `cn`.
+                      "flex shrink-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-r border-border px-2",
+                      GUTTER_STICKY,
+                      // On the row: a faint tint. Label selected: the full caret mark.
+                      onRow && !labelled && "bg-primary/10",
+                      inSel && "bg-primary/20",
+                      labelled && LABEL_SELECTED,
+                    )}
+                  >
+                    {/* Both live meters, subscribing for themselves — see LaneMeter. */}
+                    <LaneMeter index={ti} armed={armed} />
+                    {/* The instrument the name's prefix asks for ("ge.lead" → a strat), in the track's colour; undeclared gets a question mark. */}
+                    <span
+                      // The row shows the label alone, so the full name — the track's id and filename — has to be reachable here.
+                      title={[
+                        t.name,
+                        trackIcon(t.name)?.label,
+                        armed && "record-armed; records on play",
+                      ]
+                        .filter(Boolean)
+                        .join(" — ")}
+                      className={cn(
+                        "relative flex min-w-0 flex-1 items-center gap-1 truncate",
+                        row.grouped && "pl-3",
+                        // Armed red, soloed yellow. A ternary, not two classes: both can be true, and armed is about to write to disk.
+                        armed ? "text-red-400" : eff.solo && "text-amber-400",
+                      )}
+                    >
+                      <TrackIcon
+                        name={t.name}
+                        color={t.color || undefined}
+                        // A coloured icon is the track's identity and holds full strength; an uncoloured one is decoration and sits back.
+                        className={cn("shrink-0", !t.color && "opacity-70")}
+                      />
+                      {/* Which attribute set this lane plays, before the name; `shrink-0` means a narrow gutter eats the name, not this. */}
+                      {alt && onNodeMenu && (
+                        <LaneAlternative
+                          track={t.name}
+                          names={alt.alternatives}
+                          current={alt.alternative}
+                          onOpen={(at) =>
+                            onNodeMenu(
+                              {
+                                // A lane IS a module node, so it is addressable as one (packages/song/docs/trackModules.md).
+                                module: t.id,
+                                alternatives: alt.alternatives,
+                                alternative: alt.alternative,
+                                frozen: laneNodes?.frozen?.[t.id],
+                              },
+                              at,
+                            )
+                          }
+                        />
+                      )}
+                      {/* The label alone: the row's position and the icon already say what "3.ge." would repeat at the gutter's expense. */}
+                      <span className="truncate">{trackLabel(t.name)}</span>
+                    </span>
+                    {/* [m]ute / [s]olo / [a]rm, the graph's track nodes' own controls; stopPropagation so a tap does not also move the caret. */}
+                    {onTrackToggle && (
+                      <div className="relative flex shrink-0 items-center gap-0.5">
+                        {msa.map(([label, control, on, onCls]) => (
+                          <button
+                            key={control}
+                            title={`${control} ${t.name}`}
+                            aria-label={`${control} ${t.name}`}
+                            aria-pressed={on}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            // dblclick is its own event and bubbles past the click handler's stop.
+                            onDoubleClick={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTrackToggle(t.id, control);
+                              // Or the next Space re-toggles this button instead of rolling the transport — see blurOnClick.
+                              blurOnClick(e);
+                            }}
+                            className={cn(
+                              "flex h-4 w-4 items-center justify-center rounded-sm text-[9px] font-bold leading-none",
+                              on
+                                ? onCls
+                                : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground",
+                            )}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* overflow-hidden because a zoom puts out-of-view clips at negative offsets, which would spill across the gutter. */}
+                  <div
+                    // Hit-tested by a clip drag (laneAtPoint), rather than re-deriving row geometry there.
+                    data-lane-track={t.id}
+                    /** A click on the BARE lane: it puts the caret there, and `dragRef` is the test, since clips bubble to here. */
+                    onPointerDown={(e) => {
+                      if (e.button !== 0) return;
+                      if (dragRef.current) return; // a clip took this press
+                      /** Shift: the caret GROWS into the `v` rectangle — the same Selection the keyboard's `v` builds, and it works over a clip too. */
+                      if (e.shiftKey) {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const cellAt = (cx: number) =>
+                          Math.max(
+                            beatLo,
+                            Math.min(
+                              beatHi,
+                              Math.floor(beatLo + (cx - rect.left) / ppb),
+                            ),
+                          );
+                        const anchor: Cell = sel
+                          ? sel.anchor
+                          : clampCell({
+                              row: caret.row,
+                              beat: caret.beat === LABEL ? beatLo : caret.beat,
+                            });
+                        setSel({
+                          anchor,
+                          head: clampCell({
+                            row: `track:${t.id}` as RowKey,
+                            beat: cellAt(e.clientX),
+                          }),
+                        });
+                        const onSelMove = (ev: PointerEvent) => {
+                          // The head's row comes off the rows' own DOM (data-sel-row): rows have three heights, and a second copy would drift.
+                          const key = document
+                            .elementFromPoint(ev.clientX, ev.clientY)
+                            ?.closest?.("[data-sel-row]")
+                            ?.getAttribute("data-sel-row") as RowKey | null;
+                          setSel(
+                            (s) =>
+                              s && {
+                                ...s,
+                                head: clampCell({
+                                  row: key ?? s.head.row,
+                                  beat: cellAt(ev.clientX),
+                                }),
+                              },
+                          );
+                        };
+                        const onSelUp = () => {
+                          window.removeEventListener("pointermove", onSelMove);
+                          window.removeEventListener("pointerup", onSelUp);
+                        };
+                        window.addEventListener("pointermove", onSelMove);
+                        window.addEventListener("pointerup", onSelUp);
+                        return;
+                      }
+                      if (e.target !== e.currentTarget) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const beat = Math.floor(
+                        beatLo + (e.clientX - rect.left) / ppb,
+                      );
+                      setSel(null);
+                      setCaret(
+                        clampCaret({ row: `track:${t.id}` as RowKey, beat }),
+                      );
+                      onEmptyClick?.();
+                    }}
+                    className={cn(
+                      "relative overflow-hidden",
+                      // The lane a dragged clip would land on, while it is a legal target.
+                      move?.dragging &&
+                        move.toTrackId === t.id &&
+                        move.trackId !== t.id &&
+                        "bg-primary/10 outline outline-1 outline-primary/60",
+                    )}
+                    style={{ width: laneW }}
+                  >
+                    {/* record-armed: the whole lane goes red, at the bottom of the stack, off the engine's state frame rather than the project. */}
+                    {armed && (
+                      <div className="pointer-events-none absolute inset-0 bg-red-600/30" />
+                    )}
+                    {/* caret cell — gone while the label is selected, and while a rectangle is being drawn, the rectangle BEING the caret then. */}
+                    {onRow && !labelled && !selBox && (
+                      <div
+                        // pointer-events-none: it is a mark, not a target, so a press on it reads as a press on the bare lane.
+                        className="pointer-events-none absolute top-0 h-full bg-primary/25 outline outline-1 outline-primary"
+                        style={{ left: x(caret.beat), width: ppb }}
+                      />
+                    )}
+                    {inSel && selBox && selSlice(selBox)}
+                    {/* A generated lane carries only the scheduler's look-ahead, rewritten every tick, so it is hatched rather than drawn. */}
+                    {t.generated ? (
+                      <div
+                        title={`${t.name} — generated by an algo pattern; can't hold clips`}
+                        className="pointer-events-none absolute inset-0 text-muted-foreground/30"
+                        style={{ backgroundImage: HATCH }}
+                      />
+                    ) : (
+                      <>
+                        {/* The take growing on its lane: nothing on disk names it yet, so it is drawn from the transport and replaced on Stop. */}
+                        {rolling && armedIds.includes(t.id) && (
+                          <RecordingClip
+                            tempo={proj.tempo}
+                            startBeat={takeStartBeat}
+                            countInBeats={takeCountInBeats}
+                            beatLo={beatLo}
+                            beatHi={beatHi}
+                            ppb={ppb}
+                          />
+                        )}
+                        {/* The move ghost: where the clip was picked up, on its own lane only, gone the instant the move commits or cancels. */}
+                        {move && move.trackId === t.id && (
+                          <div
+                            className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded border border-dashed border-primary/70 bg-primary/5"
+                            style={{
+                              left: x(move.origStart),
+                              width: Math.max(
+                                ppb,
+                                (move.length > 0 ? move.length : NATURAL) * ppb,
+                              ),
+                            }}
+                          />
+                        )}
+                        {/* The resize ghost: where the event stood when its edge was grabbed, in the move ghost's outline — one gesture language. */}
+                        {resize && resize.trackId === t.id && (
+                          <div
+                            className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded border border-dashed border-primary/70 bg-primary/5"
+                            style={{
+                              left: x(resize.origStart),
+                              width: Math.max(
+                                ppb,
+                                (resize.origEnd - resize.origStart) * ppb,
+                              ),
+                            }}
+                          />
+                        )}
+                        {t.clips.map((c, i) => {
+                          const w = (c.length > 0 ? c.length : NATURAL) * ppb;
+                          // A clip whose content loops to fill its length: flagged, so the repeats aren't mistaken for one long take.
+                          const looping = (c.loopEnd ?? 0) > (c.loopStart ?? 0);
+                          // …and WHERE it starts over: the marks come off `passes`, so a MIDI clip stating its window draws none (clipLoop.ts).
+                          const loop = clipLoop(c);
+                          const loopMarks = loop
+                            ? placedRepeats(loop, ppb)
+                            : [];
+                          // A glyph needs room the bare rule does not; `MIN_LOOP_GLYPH_PX` is where it stops being a glyph and starts being grit.
+                          const loopGlyphs =
+                            !!loop && loop.win * ppb >= MIN_LOOP_GLYPH_PX;
+                          // A time-stretched clip gets a countdown-timer icon, CROSSED when this event has declined the map (`event status warp`).
+                          const stretched = !!c.warped;
+                          const unwarped = !!c.warpOff;
+                          /** The same material, placed elsewhere too: `ghost` marks every placement but the earliest, and `kin` lights the rest from the caret. */
+                          const inst = instances.get(materialOf(c));
+                          const ghost =
+                            (inst?.n ?? 1) > 1 &&
+                            !isFirstPlacement(inst, t.id, c.start);
+                          const kin =
+                            !!kinOfCaret &&
+                            materialOf(c) === kinOfCaret &&
+                            c !== clipUnderCaret;
+                          // Is THIS placement the one being moved? Pinned by track + original start, since an id can sit at several beats.
+                          const moving =
+                            !!move &&
+                            move.trackId === t.id &&
+                            c.id === move.clipId &&
+                            Math.abs(c.start - move.origStart) < 1e-6;
+                          // Is THIS placement the one being resized? Same pinning as the move.
+                          const resizing =
+                            !!resize &&
+                            resize.trackId === t.id &&
+                            c.id === resize.clipId &&
+                            Math.abs(c.start - resize.origStart) < 1e-6;
+                          const drawStart = resizing
+                            ? resize.start
+                            : moving
+                              ? move.origStart + move.offset
+                              : c.start;
+                          // Dragging either edge changes the WIDTH too, unlike a move.
+                          const drawW = resizing
+                            ? (resize.end - resize.start) * ppb
+                            : w;
+                          return (
+                            <div
+                              // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
+                              key={`${c.id}-${i}`}
+                              title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""}${(inst?.n ?? 1) > 1 ? ` · ${ghost ? "another instance" : "first"} of ${inst?.n}` : ""} — click to select, drag to move (ctrl : hors grille)`}
+                              // Drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
+                              onPointerDown={(e) => beginClipDrag(e, t, c)}
+                              onPointerMove={onClipDragMove}
+                              onPointerUp={endClipDrag}
+                              onPointerCancel={endClipDrag}
+                              // Right-click an event → the PLACEMENT's commands; stop the event so the lane's track menu doesn't also fire.
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onContextMenu?.(
+                                  {
+                                    kind: "clip",
+                                    id: c.id,
+                                    // Where this placement SITS, so the menu can offer `event remove` — the same pair the move drag commits with.
+                                    track: t.id,
+                                    tc: beatsToPosition(
+                                      c.start,
+                                      proj.timeSigNumerator,
+                                      proj.timeSigDenominator,
+                                    ),
+                                    // …and the RECTANGLE, when one is drawn: a range verb takes a span, and the placement only says where it starts.
+                                    sel: selRange,
+                                  },
+                                  e.clientX,
+                                  e.clientY,
+                                );
+                              }}
+                              className={cn(
+                                // `isolate` keeps the activity layer's -z-10 inside this block; `group` is what the name reads.
+                                "group absolute top-1 flex h-[calc(100%-8px)] cursor-grab overflow-hidden rounded px-1 text-[10px] active:cursor-grabbing isolate",
+                                // Disabled: still placed, still readable, plainly off — an event you cannot see is a deleted one.
+                                c.disabled &&
+                                  "opacity-40 saturate-0 outline-dashed outline-1 outline-muted-foreground",
+                                // A SIBLING of the one under the caret: light on purpose, so it does not compete with the clip you picked.
+                                kin &&
+                                  "outline outline-1 -outline-offset-1 outline-primary/60 brightness-110",
+                                // Expanded: name on top, content filling the rest. Collapsed: the name centred in the short block as before.
+                                expanded ? "flex-col" : "items-center",
+                                // The clip in hand: ring it and lift it over its ghost.
+                                (moving || resizing) &&
+                                  "z-10 outline outline-2 outline-primary",
+                                // …and while DRAGGING let the pointer through, or laneAtPoint would always answer "the lane I started on".
+                                moving &&
+                                  move?.dragging &&
+                                  "pointer-events-none",
+                              )}
+                              style={{
+                                left: x(drawStart),
+                                width: Math.max(ppb, drawW),
+                              }}
+                            >
+                              {/* The fill, with the content's activity running through it: 50% opaque where quiet, 100% where loud (docs/timeline.md). */}
+                              <ClipActivity
+                                clip={c}
+                                spanBeats={c.length > 0 ? c.length : NATURAL}
+                                color={t.color || undefined}
+                                project={envProject}
+                              />
+                              {/* Where the material STARTS OVER, one rule per pass: `placedRepeats`, since this axis begins at the event's left edge (clipLoop.ts). */}
+                              {loopMarks
+                                .filter((b) => b * ppb < drawW)
+                                .map((b) => (
+                                  <div
+                                    key={b}
+                                    className="pointer-events-none absolute inset-y-0 w-px bg-white/30"
+                                    style={{ left: b * ppb }}
+                                  >
+                                    {/* Only when a pass is wide enough to hold it — below that the glyphs touch and read as a dotted smear. */}
+                                    {loopGlyphs && (
+                                      <Repeat className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 h-2 w-2 text-white/75" />
+                                    )}
+                                  </div>
+                                ))}
+                              {/* The FADES as two wedges, `pointer-events-none` since the corner handle is what you grab; `fadeOf` keeps them live mid-drag (docs/timeline.md). */}
+                              {(["fadeIn", "fadeOut"] as const).map((which) => {
+                                const live =
+                                  fade?.clipId === c.id &&
+                                  fade.trackId === t.id &&
+                                  fade.which === which
+                                    ? fade.len
+                                    : undefined;
+                                const len =
+                                  live ??
+                                  (which === "fadeIn" ? c.fadeIn : c.fadeOut) ??
+                                  0;
+                                if (len <= 0) return null;
+                                const w = Math.min(drawW, len * ppb);
+                                return (
+                                  <div
+                                    key={which}
+                                    className={cn(
+                                      "pointer-events-none absolute inset-y-0 bg-black/45",
+                                      which === "fadeIn" ? "left-0" : "right-0",
+                                    )}
+                                    style={{
+                                      width: w,
+                                      // The wedge itself: a fade-in is dark at the head and clear by its end, a fade-out the mirror.
+                                      clipPath:
+                                        which === "fadeIn"
+                                          ? "polygon(0 0, 100% 100%, 0 100%)"
+                                          : "polygon(100% 0, 100% 100%, 0 100%)",
+                                    }}
+                                  />
+                                );
+                              })}
+                              {/* …and the two corner handles that drag them, at the TOP corners so they never share a pixel with the resize strips. */}
+                              {!readOnly &&
+                                (["fadeIn", "fadeOut"] as const).map(
+                                  (which) => {
+                                    const len =
+                                      (which === "fadeIn"
+                                        ? c.fadeIn
+                                        : c.fadeOut) ?? 0;
+                                    return (
+                                      <div
+                                        key={`h-${which}`}
+                                        className={cn(
+                                          "absolute top-0 z-30 h-2 w-2 cursor-ew-resize rounded-sm",
+                                          which === "fadeIn"
+                                            ? "left-0"
+                                            : "right-0",
+                                          // Visible once there is a fade; otherwise on hover, the same disclosure the edge handles use.
+                                          len > 0
+                                            ? "bg-white/60"
+                                            : "bg-white/0 group-hover:bg-white/35",
+                                        )}
+                                        title={
+                                          which === "fadeIn"
+                                            ? "Drag to fade in — Ctrl frees the grid"
+                                            : "Drag to fade out — Ctrl frees the grid"
+                                        }
+                                        onPointerDown={(e) => {
+                                          e.stopPropagation();
+                                          (
+                                            e.currentTarget as HTMLElement
+                                          ).setPointerCapture(e.pointerId);
+                                          setFade({
+                                            trackId: t.id,
+                                            clipId: c.id,
+                                            which,
+                                            start: c.start,
+                                            span:
+                                              c.length > 0 ? c.length : NATURAL,
+                                            orig: len,
+                                            len,
+                                            x: e.clientX,
+                                            ppb,
+                                          });
+                                        }}
+                                        onPointerMove={onFadeMove}
+                                        onPointerUp={commitFade}
+                                        onPointerCancel={() => setFade(null)}
+                                      />
+                                    );
+                                  },
+                                )}
+                              {/* Edge handles, narrow strips INSIDE the block's own ends, and absent rather than inert on a read-only document. */}
+                              {!readOnly &&
+                                (["start", "end"] as const).map((edge) => (
+                                  <div
+                                    key={edge}
+                                    className={cn(
+                                      "absolute inset-y-0 z-20 w-1.5 cursor-ew-resize",
+                                      edge === "start" ? "left-0" : "right-0",
+                                      "hover:bg-primary/60",
+                                    )}
+                                    onPointerDown={(e) => {
+                                      // Stop it here or the clip's own move drag starts too.
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      (
+                                        e.currentTarget as HTMLElement
+                                      ).setPointerCapture?.(e.pointerId);
+                                      const end =
+                                        c.start +
+                                        (c.length > 0 ? c.length : NATURAL);
+                                      setResize({
+                                        trackId: t.id,
+                                        clipId: c.id,
+                                        edge,
+                                        origStart: c.start,
+                                        origEnd: end,
+                                        start: c.start,
+                                        end,
+                                        x: e.clientX,
+                                        ppb,
+                                      });
+                                    }}
+                                    onPointerMove={onResizeMove}
+                                    onPointerUp={commitResize}
+                                    onPointerCancel={() => setResize(null)}
+                                    title={
+                                      edge === "start"
+                                        ? "drag to move this event's start"
+                                        : "drag to move this event's end"
+                                    }
+                                  />
+                                ))}
+                              <div className="flex items-center gap-0.5 leading-tight">
+                                {/* Kind at a glance: a note for MIDI/sequence clips, a speaker for audio. */}
+                                {c.type === "midi" ? (
+                                  <Music className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                ) : (
+                                  <Volume2 className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                )}
+                                {/* A RETURN of material heard earlier, drawn on every placement but the first (docs/timeline.md). */}
+                                {ghost && (
+                                  <Ghost className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                )}
+                                {/* No loop badge here: the marks down the block say the same thing and say WHERE. */}
+                                {stretched &&
+                                  (unwarped ? (
+                                    <TimerOff className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                  ) : (
+                                    <Timer className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                  ))}
+                                {/* The name on HOVER, faded rather than unmounted so the row keeps its height — and shown outright while the block is in hand. */}
+                                <span
+                                  className={cn(
+                                    "truncate opacity-0 transition-opacity group-hover:opacity-100",
+                                    (moving || resizing) && "opacity-100",
+                                  )}
+                                >
+                                  {c.name || c.id}
+                                </span>
+                              </div>
+                              {/* The clip's waveform or mini piano-roll, only when there is room; `relative` anchors ClipContent's absolute fill. */}
+                              {expanded && (
+                                <div className="relative mt-0.5 min-h-0 flex-1">
+                                  <ClipContent
+                                    clip={c}
+                                    spanBeats={
+                                      c.length > 0 ? c.length : NATURAL
+                                    }
+                                    project={envProject}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* marker lines spanning the ruler and every lane, non-interactive: the ruler handle above owns hover and right-click. */}
+            {visMarkers.map((mk) => (
+              <div
+                key={mk.tc}
+                className="pointer-events-none absolute top-0 z-20"
+                style={{
+                  left: GUTTER + x(mk.beat),
+                  height: contentH,
+                  width: 1,
+                  background: MARKER_COLOR,
+                  boxShadow:
+                    hoverMarker === mk.name
+                      ? `0 0 6px ${MARKER_COLOR}`
+                      : "none",
+                }}
+              />
+            ))}
+            {/* playhead — its own subscriber, so the transport moves one div and re-renders nothing else here (see Playhead). */}
+            <Playhead
+              tempo={proj.tempo}
+              beatLo={beatLo}
+              beatHi={lastBeat}
+              ppb={ppb}
+              left0={GUTTER}
+              height={contentH}
             />
-          ))}
-          {/* playhead — its own subscriber, so the transport moves one div and re-renders nothing else here (see Playhead). */}
-          <Playhead
-            tempo={proj.tempo}
-            beatLo={beatLo}
-            beatHi={lastBeat}
-            ppb={ppb}
-            left0={GUTTER}
-            height={contentH}
-          />
+          </div>
         </div>
       </div>
     </div>
