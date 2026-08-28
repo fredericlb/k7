@@ -1,10 +1,11 @@
 // export.ts — render the viewport frame-by-frame to an mp4, deterministically: the same
 // compositor as realtime, but frame n maps to second n/fps and each source frame is
-// pulled EXACTLY, so a song always yields the same picture. Video only — the song's sound
-// is the engine's mix, married in later. WebCodecs-gated (effectively Chrome-only).
+// pulled EXACTLY, so a song always yields the same picture. The song's SOUND is the engine's
+// mix and is handed in decoded — see `ExportOptions.audio`. WebCodecs-gated (Chrome-only).
 
 import {
   ALL_FORMATS,
+  AudioBufferSource,
   BufferTarget,
   CanvasSource,
   Input,
@@ -25,6 +26,14 @@ export interface ExportOptions {
   // H.264 keyframe interval in seconds: frequent keyframes help seeking in the output, at the cost of size.
   keyIntervalSec?: number;
   bitrate?: number; // bits/s; omit for QUALITY_HIGH
+  /**
+   * The song's sound, DECODED, to marry into the container. Absent makes a silent film.
+   *
+   * An AudioBuffer rather than the mixdown's bytes: the engine renders a wav or an mp3 and the
+   * container wants neither, so it would be decoded here anyway — and taking it decoded keeps
+   * every format question on the caller's side of this seam.
+   */
+  audio?: AudioBuffer;
 }
 
 export interface ExportProgress {
@@ -82,7 +91,15 @@ export async function exportScene(
     ...(opts.keyIntervalSec ? { keyFrameInterval: opts.keyIntervalSec } : {}),
   });
   output.addVideoTrack(canvasSource);
+  // The sound, when there is any. Added BEFORE `start()`: an output's tracks are declared once.
+  const audioSource = opts.audio
+    ? new AudioBufferSource({ codec: "aac", bitrate: QUALITY_HIGH })
+    : null;
+  if (audioSource) output.addAudioTrack(audioSource);
   await output.start();
+  // …and fed in one go: an AudioBuffer is the whole song, and the muxer interleaves it against
+  // the frames itself. Awaited here rather than at the end so a failure lands before the render.
+  if (audioSource && opts.audio) await audioSource.add(opts.audio);
 
   try {
     for (let n = 0; n < total; n++) {

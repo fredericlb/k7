@@ -10,7 +10,7 @@ copy. Anyone who has it can listen and look; nobody can change anything, because
 on the other end that could be changed.
 
 It is the fourth way a project leaves this machine, and the only one that shows the PROJECT:
-`project export` downloads a mixdown, `project share k7` publishes a release, `project commit`
+`project export audio` downloads a mixdown and `project export video` the picture, `project share k7` publishes a release, `project commit`
 pushes a repository only another studio can open.
 
 ## "Every module is frozen" is one render, not N freezes

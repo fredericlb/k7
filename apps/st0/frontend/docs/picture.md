@@ -196,3 +196,36 @@ La carte du nœud RENDER porte la liste. Trois choses la font tenir :
 Les deux noms sont épelés deux fois — dans `ASPECTS` et dans `RENDER_UI` — parce que
 `@studio/ui-chains` ne voit pas `@studio/song-schema`. Le verbe REFUSE un nom qu'il ne connaît
 pas, donc une dérive est un refus et pas une mauvaise taille écrite en silence.
+
+## Exporter l'image — `project export video mp4`
+
+La commande a deux moitiés maintenant, et le premier mot dit laquelle sort :
+
+```
+project export audio wav|mp3          le mixage, rendu par le moteur
+project export video mp4 [wav|mp3|none]   l'image, rendue ici — avec le son marié dedans
+```
+
+`exportScene` (`@studio/ui-eyes`) rend le viewport image par image dans un mp4 : le même
+compositeur qu'en temps réel, mais l'image *n* vaut la seconde *n/fps* et chaque trame source est
+tirée EXACTEMENT, donc un morceau rend toujours la même image. WebCodecs, donc Chrome en pratique
+— `ViewportTab` le dit déjà quand `VideoEncoder` manque.
+
+**Le son est marié dans le même conteneur.** `ExportOptions.audio` prend un `AudioBuffer` — décodé,
+pas les octets du mixage : le moteur rend un wav ou un mp3, le conteneur ne veut ni l'un ni
+l'autre, et il faudrait le décoder ici de toute façon. Prendre le tampon décodé garde toute la
+question des formats du côté de l'appelant.
+
+Trois choses dans l'ordre, et l'ordre compte :
+
+- **le son d'abord.** Il passe par le moteur, et un échec là ne doit pas coûter une minute de
+  trames déjà rendues.
+- **la piste est ajoutée avant `output.start()`** : les pistes d'un conteneur se déclarent une
+  fois. Puis le tampon entier est poussé d'un coup — le muxeur l'entrelace lui-même avec les
+  trames.
+- **le défaut est SONORE.** Un film muet se demande, `project export video mp4 none` ; c'est la
+  vidéo d'un morceau, et silencieuse serait la réponse surprenante.
+
+L'ancienne ligne nue, `project export wav`, est REFUSÉE plutôt que relue comme de l'audio : le
+mot qui suit dit maintenant quelle moitié sort, et l'accepter ferait de `project export mp4` un
+mixage. [exportArgs.ts](../src/exportArgs.ts) est la lecture, et son test la liste des formes.

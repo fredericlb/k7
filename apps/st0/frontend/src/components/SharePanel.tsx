@@ -47,6 +47,7 @@ export function SharePanel({
   gitStatus,
   busy,
   externals,
+  hasPicture,
   onRun,
   onClose,
 }: {
@@ -55,6 +56,9 @@ export function SharePanel({
   busy: boolean;
   /** Every surface this project declares — empty is a project that declares none, and the section is then absent rather than empty. */
   externals: readonly SurfaceLink[];
+  /** Does this project draw a picture? The MP4 row is absent when it does not — a project with
+   *  no video document has nothing to render, and a greyed row would not say why. */
+  hasPicture?: boolean;
   onRun: (command: string) => void;
   onClose: () => void;
 }) {
@@ -136,7 +140,7 @@ export function SharePanel({
           type="button"
           className={row}
           disabled={busy}
-          onClick={() => onRun("project export mp3")}
+          onClick={() => onRun("project export audio mp3")}
         >
           <Download className="h-4 w-4 text-muted-foreground" />
           Export MP3
@@ -145,11 +149,25 @@ export function SharePanel({
           type="button"
           className={row}
           disabled={busy}
-          onClick={() => onRun("project export wav")}
+          onClick={() => onRun("project export audio wav")}
         >
           <Download className="h-4 w-4 text-muted-foreground" />
           Export WAV
         </button>
+
+        {/* …and the PICTURE, on a project that draws one. The sound is married in: a video of a
+            song is a video of its sound, so the silent one is `project export video mp4 none`. */}
+        {hasPicture ? (
+          <button
+            type="button"
+            className={row}
+            disabled={busy}
+            onClick={() => onRun("project export video mp4")}
+          >
+            <Download className="h-4 w-4 text-muted-foreground" />
+            Export MP4
+          </button>
+        ) : null}
 
         <div className="my-1 border-t border-border" />
         {/* The two that PUBLISH different things: k7 gets a release, a link gets a frozen copy (packages/commands/docs/shareBundle.md). */}

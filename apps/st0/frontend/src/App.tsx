@@ -121,6 +121,7 @@ import {
   nodeMenu,
   withAmbient,
 } from "./contextMenu";
+import { EXPORT_USAGE, parseExportAsk } from "./exportArgs";
 import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
 import { useCameras } from "./hooks/useCameras";
@@ -140,7 +141,7 @@ import {
 import { useProjectImport } from "./hooks/useProjectDialogs";
 import { useProjectDoc } from "./hooks/useProjectDoc";
 import { noteRevision } from "./hooks/useRevision";
-import { isMixFormat, MIX_FORMATS, useShare } from "./hooks/useShare";
+import { useShare } from "./hooks/useShare";
 import { useSnapshotPlayer } from "./hooks/useSnapshotPlayer";
 import { useSurfaces } from "./hooks/useSurfaces";
 import { useTrackControls } from "./hooks/useTrackControls";
@@ -183,6 +184,7 @@ import {
 } from "./rollMode";
 import { type Pane, type Panel, viewPanes } from "./routes";
 import type { RowKey, RowTarget } from "./rows";
+import { sceneOf } from "./scene";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
   MiniTransport,
@@ -1760,10 +1762,16 @@ export default function App({
         return true;
       }
       if (line.startsWith("project export")) {
-        const fmt = s.slice("project export".length).trim().toLowerCase();
-        if (!isMixFormat(fmt))
-          setStatus(`usage: project export <${MIX_FORMATS.join("|")}>`);
-        else void share.exportMix(fmt);
+        // Which HALF of the project leaves is the first word now — see exportArgs.ts.
+        const ask = parseExportAsk(s.slice("project export".length));
+        if (!ask) setStatus(EXPORT_USAGE);
+        else if (ask.kind === "audio") void share.exportMix(ask.format);
+        else
+          void share.exportVideo(
+            videoDoc ? sceneOf(videoDoc) : null,
+            ask.audio,
+            projectDoc?.name ?? "video",
+          );
         return true;
       }
       if (line === "project share k7") {
@@ -3280,6 +3288,7 @@ export default function App({
                 gitStatus={gitStatus}
                 busy={share.busy}
                 externals={externals}
+                hasPicture={!!videoDoc}
                 onRun={(c) => void runCommand(c)}
                 onClose={() => setRightPanel(null)}
               />

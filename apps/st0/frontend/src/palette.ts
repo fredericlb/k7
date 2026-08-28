@@ -10,6 +10,8 @@ import {
   commandTranslations,
 } from "./commandI18n";
 import type { PaletteArg, PaletteCommand } from "./components/CommandBar";
+// Everything whose ONLY effect is on the shell lives under `ui` — not 'writes no file': a pin and a language are remembered, which is not editing a song.
+import { MIX_FORMATS, VIDEO_FORMATS } from "./exportArgs";
 import { fuzzyScore } from "./fuzzy";
 import { MAX_RECENT } from "./recentCommands";
 import { ROLL_MODES } from "./rollMode";
@@ -18,7 +20,6 @@ import { TOOLS } from "./timelineTools";
 import type { CommandInfo } from "./types";
 import { WAVE_MODES } from "./waveMode";
 
-// Everything whose ONLY effect is on the shell lives under `ui` — not 'writes no file': a pin and a language are remembered, which is not editing a song.
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
   "ui assembly", // open an assembly TEMPLATE in the builder, by the ref a box names
@@ -344,8 +345,8 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     fr: "Baisser les tranches pour rentrer le dernier passage",
   },
   "project export": {
-    en: "Render the mixdown and download it",
-    fr: "Rendre le mixage et le télécharger",
+    en: "Render the mixdown or the picture, and download it",
+    fr: "Rendre le mixage ou l'image, et le télécharger",
   },
   "project share k7": {
     en: "Publish this song to k7",
@@ -428,7 +429,16 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
     { name: "surface", kind: "choice", hint: "a surface of this project" },
   ],
   "ui language": [{ name: "language", kind: "choice", hint: "en · fr" }],
-  "project export": [{ name: "format", kind: "choice", hint: "wav · mp3" }],
+  // Which HALF leaves first, then its format — and for a video, the sound married into it.
+  "project export": [
+    { name: "what", kind: "choice", hint: "audio · video" },
+    { name: "format", kind: "choice", hint: "wav · mp3 · mp4" },
+    {
+      name: "sound",
+      kind: "choice",
+      hint: "the video's audio — wav · mp3 · none",
+    },
+  ],
   // Optional, and the blank is the ordinary answer: a number is for the case the meter cannot serve — another tab, a CLI.
   "project master fix": [
     {
@@ -616,7 +626,16 @@ export function makeListArg(shell: {
     if (canonical === "ui wave" && first) return [...WAVE_MODES];
     if (canonical === "ui roll" && first) return [...ROLL_MODES];
     if (canonical === "ui language" && first) return shell.locales();
-    if (canonical === "project export" && first) return ["wav", "mp3"];
+    if (canonical === "project export") {
+      if (first) return ["audio", "video"];
+      // The format offered depends on the half: only a video has a container, and only a video
+      // takes a third word at all.
+      if (priorArgs.length === 1)
+        return priorArgs[0] === "video" ? [...VIDEO_FORMATS] : [...MIX_FORMATS];
+      if (priorArgs.length === 2 && priorArgs[0] === "video")
+        return [...MIX_FORMATS, "none"];
+      return [];
+    }
     if (canonical === "fs file upload" && !first) return ["files", "folder"];
     // …and the ones that are the project's, but that only this app can answer.
     if (canonical === "ui external" && first) return shell.surfaces();
