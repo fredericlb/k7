@@ -38,10 +38,12 @@ afterEach(async () => {
   rmSync(home, { recursive: true, force: true });
 });
 
+// A port of its own per test: fixed ports are the app's contract, not the suite's, and a
+// server closing in the background would otherwise decide which one the next test got.
+let nextPort = 39800;
 const start = async () => {
-  // Port 0 is not usable here (the whole point is a fixed port), so probe from a high one.
   server = await startLocalServer({
-    port: 39871,
+    port: (nextPort += 3),
     distDir: dist,
     host: "127.0.0.1",
   });
@@ -103,13 +105,14 @@ describe("the local origin", () => {
   });
 
   it("moves off a held port rather than failing to start", async () => {
+    const port = (nextPort += 3);
     const first = await startLocalServer({
-      port: 39881,
+      port,
       distDir: dist,
       host: "127.0.0.1",
     });
     const second = await startLocalServer({
-      port: 39881,
+      port,
       distDir: dist,
       host: "127.0.0.1",
     });
@@ -122,7 +125,8 @@ describe("the local origin", () => {
   });
 
   it("finds the port it was asked for when nothing holds it", async () => {
-    expect(await firstFreePort(39891)).toBe(39891);
+    const port = (nextPort += 3);
+    expect(await firstFreePort(port)).toBe(port);
   });
 });
 

@@ -88,6 +88,10 @@ export async function startLocalServer(
     port,
     close: () =>
       new Promise((resolve) => {
+        // Keep-alive sockets are the norm here — a browser holds one, and so does a tablet on
+        // the LAN. Without this, close() waits for them to drain and Quit hangs on a device
+        // that is merely idle rather than gone.
+        server.closeAllConnections();
         server.close(() => resolve());
       }),
   };
