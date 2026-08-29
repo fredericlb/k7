@@ -88,8 +88,6 @@ read by the `Tiltfile`) instead of spelling out seventeen entries, so a new app 
 existing. It runs over every workspace package that has a `dev` script and drops three
 kinds, each for a reason:
 
-- **`capot`**, whose `dev` is `tauri dev` — the tool for a human watching a terminal.
-  Here it would fight the native monitor for the same single-instance tray.
 - **the `apps/<x>` aggregators**, whose `dev` is itself `turbo run dev --filter=…` over
   their own children. Running the parent *and* the children would start every server
   twice.
@@ -196,7 +194,7 @@ st0 owns the flow because it is the service with NO path prefix: `redirectUriFor
 
 ## Under WSL, the native task is bridged
 
-The sources live in the distro and the MSVC/cargo toolchain does not, so `dev-native.mjs` hands
+The sources live in the distro and the MSVC toolchain does not, so `dev-native.mjs` hands
 itself to `scripts/dev-native-bridge.mjs`, which mirrors the tree onto the host's NTFS and runs
 *that same script* there. Nothing below changes — the resource, its logs and its restart button
 are where they were. Why a mirror rather than a build over the share, and what the mirror does
@@ -206,18 +204,24 @@ and does not carry, is [wsl.md](wsl.md).
 
 It is `engine/moteur`'s `dev` script, which is what gives it a pane in the TUI beside the
 servers. That it also rebuilds the tray is not a mis-filing: the engine is the reason the
-monitor exists — it is the half with no watch mode — and the tray is simply how the
-engine is run in dev, since the supervisor inside it is what spawns the binary. `capot`
-keeps `tauri dev` for the case that tool is actually good at.
+monitor exists — it is the half with no watch mode — and the desktop app is simply how the
+engine is run in dev, since the supervisor inside it is what spawns the binary.
 
-The engine is C++ and the tray is Rust, so neither has a watch mode that means anything:
-there is nothing to hot-reload, only a binary to relink and a process to restart. That
-is what the monitor does — watch the sources, rebuild, restart:
+The engine is C++, so it has no watch mode that means anything: there is nothing to
+hot-reload, only a binary to relink and a process to restart. **The app is no longer in that
+position.** `engine/capot/dist/main.cjs` is an esbuild bundle, not a linked image, so a
+running app does not hold it open — its BUILD is an ordinary Tilt resource (`capot`, running
+`build-main.mjs --watch`), and only its LIFETIME stays here, because a running engine holds
+`studio-moteur` open and nothing but stopping the app releases it.
 
 | target | watched | rebuilt with |
 |---|---|---|
 | `moteur` | `engine/`, `server/`, `CMakeLists.txt`, `CMakePresets.json` | `npm run build:win` / `build:mac --workspace moteur` |
-| `capot` | `src-tauri/src/`, `Cargo.toml`, `build.rs`, `tauri.conf.json` | `build-engine.mjs --dev` |
+| `capot` | `dist/main.cjs` — the OUTPUT, not the sources | nothing; the restart is the whole cycle |
+
+A failed app build therefore no longer leaves anything down: esbuild fails in its own Tilt
+pane, `dist/main.cjs` keeps its last good bytes, and the running app is untouched. Only a
+broken `.cpp` can still leave the session without an engine.
 
 `engine/moteur/tests/` is deliberately not watched: it links a binary of its own, and
 rebuilding it would double the wait for something the tray never runs.
@@ -225,7 +229,7 @@ rebuilding it would double the wait for something the tray never runs.
 ### Why one process owns both watches
 
 **A running image cannot be relinked.** On Windows the file is held open for write, so
-cargo's relink against a live tray fails with a confusing linker error, and the engine's
+a relink against a live binary fails with a confusing linker error, and the engine's
 does the same while the supervisor has `studio-moteur.exe` running. The order is
 therefore stop → build → start, exactly as `restart-tray.mjs` does it.
 
@@ -245,12 +249,12 @@ set **before** its build, not after, so a save landing mid-build is not swallowe
 just queues another cycle. A save landing during a build re-arms the timer, which keeps
 retrying until the cycle in flight frees the tray.
 
-A failed build puts its target back in the dirty set and stops there, leaving the tray
+A failed build puts its target back in the dirty set and stops there, leaving the app
 down. It is **not** retried on a timer: a broken build retried every 500 ms is a fan, not
-a signal. Save again and it tries again.
+a signal. Save again and it tries again. Only the ENGINE can fail this way now — the app's
+build is the `capot` Tilt resource and never leaves anything stopped.
 
-At startup the monitor rebuilds the tray unconditionally — a cargo no-op is seconds, and
-it is what guarantees `out/dev` matches `src-tauri/src` — but rebuilds the engine only if
+At startup the monitor launches the app unconditionally, and rebuilds the engine only if
 there is no binary, or if the sources are newer than the one in `engine/moteur/build`. A
 session should not pay a cmake run to be told there is nothing to do, and should not
 silently run the engine you had before a `git pull`.
@@ -271,7 +275,7 @@ The watch roots filter by BASE name, because a recursive `fs.watch` reports a pa
 root. Anything unmatched is ignored, which is what keeps the engine's own `build/` output — and
 every editor swap file — from triggering a rebuild. The rebuild order is engine first: the tray's
 `--dev` build stages nothing from the engine, but building the slow one first means a broken C++
-never costs a cargo run.
+never costs a native build.
 
 ### On exit
 

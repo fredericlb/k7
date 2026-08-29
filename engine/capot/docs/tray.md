@@ -3,7 +3,7 @@
 ## Names, and the three this rename did NOT touch
 
 The binary and the displayed name are `studio-capot`; the engine it supervises is
-`studio-moteur`. That covers the Cargo package, Tauri's `productName`, the tray tooltip,
+`studio-moteur`. That covers the npm package, electron-builder's `productName`, the tooltip,
 the Quit item and the AppleScript dialog titles.
 
 Three names stayed, each for a reason worth more than consistency:
@@ -11,7 +11,7 @@ Three names stayed, each for a reason worth more than consistency:
 * **`org.parapluie.studio.engine-tray`**, the bundle identifier. On macOS this is the app's
   *identity*: changing it makes the OS treat the build as a different application, dropping
   its microphone and automation (TCC) grants and its login item while leaving the old one
-  registered. It is also what Tauri keys single-instance on, so a mid-flight change means
+  registered. It is also what `requestSingleInstanceLock` keys on, so a mid-flight change means
   two trays can run at once. Its own migration, not a side effect of a rename.
 * **`~/.studio/engine-tray.json`**, the supervisor's settings. Renaming the file discards
   every existing user's audio-device pick and registry override. Read-old/write-new, or
@@ -23,9 +23,20 @@ Three names stayed, each for a reason worth more than consistency:
 The pattern: a *build artifact* can be renamed in one commit because the next build
 replaces it. A name the user's disk or the OS remembers cannot.
 
+## Running it at all: `npm run app:setup`
+
+`electron@44` declares **no scripts**, so `npm install` never fetches its runtime and
+`node_modules/electron/dist` simply never appears. Nothing says so: what you get is `spawn
+ENOENT` on a path that looks installed, which reads as a corrupt tree rather than a missing
+step. `scripts/fetch-electron.mjs` is that step, idempotent, and `start-engine.mjs` and both
+spikes check for it and name it rather than failing raw.
+
+Under WSL it is needed **twice** — once in the distro and once in the mirror
+(`C:\studio-native`), which keeps its own `node_modules` and is where the app actually runs.
+
 ---
 
-`studio-capot` is a tray-only Tauri app with no window. It is the **VIEW** over the
+`studio-capot` is a tray-only Electron app with no window. It is the **VIEW** over the
 supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
 stdio: the supervisor owns the `~/.studio` contract, the registry, and — stage by stage —
 the engine and the file service. The tray renders its snapshots and sends its clicks back.
@@ -158,11 +169,13 @@ Tier 3 exists only because `buildDevApp()` deliberately ships an app with an emp
 One JSON object per line: snapshots and notifications come up on the supervisor's stdout,
 commands go down its stdin. The written definition of the format is
 `packages/engine-host/src/hostProtocol.ts`; the structs in `host.rs` are its hand-written
-Rust mirror — the same arrangement `engine-protocol` has with the C++ engine.
+TypeScript type import — there is no mirror at all, which is what the port to Electron
+bought: the hand-written Rust `Snapshot` that had to be kept in step is simply gone. (The C++
+engine still mirrors `engine-protocol` by hand, and still has to.)
 
-It is deliberately **partial**: only the fields the tray consumes are mirrored. serde
-ignores the rest, so a snapshot field belonging to a subsystem the tray does not own simply
-does not appear — and adding one is how a later stage takes it over.
+The app reads only the fields it draws and ignores the rest, exactly as the partial serde
+mirror did — but now by not referencing them, rather than by omitting them from a second
+declaration that could drift.
 
 The supervisor is spawned into the kill-on-close job, which makes it (and everything it
 comes to own) die with the tray on Windows however the tray ends; on Unix the pipe does the

@@ -1,10 +1,13 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.4/schema.json",
-  "extends": ["./commons/biome.base.json"],
+  "extends": [
+    "./commons/biome.base.json"
+  ],
   "files": {
     "includes": [
       "!commons",
       "!**/node_modules",
+      "!**/.tmp-*",
       "!**/dist",
       "!**/.turbo",
       "!**/storybook-static",
@@ -14,6 +17,19 @@
       "!**/*.min.js",
       "!**/*.css",
       "!engine/moteur"
+    ]
+  },
+  "linter": {
+    "rules": {
+      "correctness": {
+        "noUndeclaredVariables": "error"
+      }
+    }
+  },
+  "javascript": {
+    "globals": [
+      "Terminal",
+      "FitAddon"
     ]
   }
 }

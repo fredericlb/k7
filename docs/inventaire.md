@@ -83,7 +83,7 @@ périme des deux côtés sans que personne le voie.
 | `packages/dsp/modules/{normalize,sweep}/jsdsp.ts` | des DSP de MODULE. Le compilateur les trouve par nom de fichier (`JSDSP_FILE = "jsdsp.ts"`), jamais par import. |
 | `songs/**/jsdsp.ts` | même mécanisme : la DSP d'une chanson de démo est une donnée chargée au runtime. |
 | `packages/stem-separation/src/separateWorker.ts` | lancé par `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
-| `packages/engine-host/src/main.ts`, `packages/file-service/src/server.ts` | **entrées esbuild** de `engine/capot/scripts/build-engine.mjs`, qui les bundle dans le tray. Zéro import n'est pas zéro appelant. |
+| `packages/engine-host/src/main.ts`, `packages/engine-host/src/cli.ts`, `packages/file-service/src/server.ts` | **entrées esbuild** de `engine/capot/scripts/stage.mjs`, qui les bundle dans l'application. Zéro import n'est pas zéro appelant. |
 | `packages/ui-chains-react/src/DomChains.stories.tsx` | ramassé par le glob de `.storybook/main.ts`. |
 | `packages/dsp/src/emit.ts` | le script `build` du paquet (`tsx src/emit.ts`). Une passe qui ne regarde que `bin` et les entrées esbuild le déclare mort ; **un `scripts` de `package.json` est un appelant.** |
 
@@ -339,6 +339,6 @@ préfixes), `engine/moteur/AGENTS.md`, `apps/pl8/backend/src/server.ts`,
 
 ## 7. Généré, sans effet
 
-`engine/capot/src-tauri/resources/{file-service,engine-host}.mjs` et les entrées
+`engine/capot/staging/{file-service,engine-host}.mjs` et les entrées
 `.turbo/cache/*-manifest.json` sont des artefacts de build : ils disparaissent au prochain
-`build-engine.mjs`. La vérité de source est `packages/engine-protocol/sessions.ts`.
+`stage.mjs`. La vérité de source est `packages/engine-protocol/sessions.ts`.

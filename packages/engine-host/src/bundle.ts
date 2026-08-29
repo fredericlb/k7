@@ -33,7 +33,7 @@ function dir(...candidates: string[]): string | null {
 const exe = (name: string): string =>
   process.platform === "win32" ? `${name}.exe` : name;
 
-// A Tauri resource lands in Contents/Resources on macOS and beside the exe elsewhere: probe both.
+// A packaged resource lands in Contents/Resources on macOS and beside the exe elsewhere: probe both.
 function resource(name: string): string | null {
   const d = exeDir();
   return file(

@@ -1,0 +1,82 @@
+# electron-builder.yml — packaging for the desktop shell.
+# Two entries here are FROZEN and two are load-bearing; the reasons are inline.
+# See docs/tray.md and ../../docs/dev.md.
+
+# FROZEN. On macOS this is the app's IDENTITY: change it and the OS treats this as a new
+# application, dropping its TCC (microphone, automation) grants and its login item while
+# leaving the old one registered. It is also what single-instance keys on, so a mid-flight
+# change means two apps can run at once. Its own migration, never a side effect.
+appId: org.parapluie.studio.engine-tray
+productName: studio-capot
+
+directories:
+  # engine/capot/out, beside the scripts — NOT the repo-root out/, which is turbo prune's
+  # (see the root .gitignore). buildEngine.md says the desktop app is what ships its artifacts.
+  output: out
+  buildResources: build
+
+files:
+  - dist/**/*
+  - package.json
+
+# Nothing native is loaded by Electron itself (koffi is Node-API, and onnxruntime-node is
+# loaded by the VENDORED node, not by us). Rebuilding would target Electron's ABI, which is
+# exactly the pain the supervisor's process boundary exists to avoid.
+npmRebuild: false
+
+# The `electron` devDependency is pinned EXACTLY rather than ranged, because electron-builder
+# downloads platform binaries for one release and refuses to guess from a range. Upgrading is
+# a deliberate act, not something `npm update` should do under a musician.
+
+# ONE FLAT directory, and the flatness is load-bearing: engine-host's bundle.ts derives
+# exeDir() from process.execPath — which for the supervisor is the VENDORED NODE, not
+# Electron — and probes <exeDir>/<name> and <exeDir>/resources/<name>. `staging/` is built
+# with exactly that shape by scripts/stage.mjs, so it is copied in whole rather than listed
+# file by file. Nest anything and the installed app shows a working engine with a permanently
+# red icon and "file service down", nothing in the log to say why, and every developer
+# machine working fine.
+extraResources:
+  - from: staging
+    to: .
+    filter:
+      - "**/*"
+  # node_modules needs an entry of ITS OWN: electron-builder drops that name from a directory
+  # copy, so without this onnxruntime-node vanishes from the bundle while everything else
+  # arrives — and nothing fails until the first stem split, months later.
+  - from: staging/node_modules
+    to: node_modules
+    filter:
+      - "**/*"
+
+# extraResources land OUTSIDE the asar already, so nothing here needs unpacking — the rule is
+# still worth stating: you cannot spawn a binary or dlopen a .node from inside an asar, so if
+# any of node, studio-moteur or onnxruntime-node ever moves into `files`, it must be listed.
+asarUnpack:
+  - "**/*.node"
+
+mac:
+  category: public.app-category.music
+  target:
+    - dmg
+    - zip
+  # Belt and braces with app.dock.hide(): the plist alone is not enough, and dock.hide()
+  # alone still flashes a Dock icon at launch.
+  extendInfo:
+    LSUIElement: true
+  # DELIBERATE, not an oversight: the Tauri build never notarised either, so this is not a
+  # regression. It is set explicitly because electron-builder SIGNS BY DEFAULT when a
+  # Developer ID is in the keychain — and a partial signing (app signed, vendored node /
+  # studio-moteur / libonnxruntime.dylib absent from `binaries`) gives an app that launches,
+  # shows a tray, and never starts an engine: Gatekeeper SIGKILLs the unsigned child and the
+  # only trace is "engine exited" in the merged log.
+  identity: null
+
+win:
+  target:
+    - nsis
+
+linux:
+  category: Audio
+  target:
+    - AppImage
+    - deb

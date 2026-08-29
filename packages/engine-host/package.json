@@ -1,19 +1,24 @@
 {
   "name": "@studio/engine-host",
   "version": "0.0.1",
+  "bin": {
+    "studio-engine": "./src/cli.ts"
+  },
   "private": true,
   "type": "module",
-  "description": "st0's engine supervisor \u2014 owns the engine's identity, the ~/.studio contract, the registry heartbeat and the web-UI allowlist. Spawned by studio-capot (the menu-bar view) and driven over NDJSON on stdio; not a standalone CLI. Consumed as source.",
+  "description": "st0's engine supervisor — owns the engine's identity, the ~/.studio contract, the registry heartbeat and the web-UI allowlist. Two front ends over one startSupervisor: src/main.ts, spawned by the desktop app and driven over NDJSON on stdio, and src/cli.ts (`studio-engine`) for a terminal. Consumed as source.",
   "exports": {
     "./identity": "./src/identity.ts",
     "./addresses": "./src/addresses.ts",
     "./settings": "./src/settings.ts",
     "./hostProtocol": "./src/hostProtocol.ts",
     "./webOrigins": "./src/webOrigins.ts",
-    "./audioPolicy": "./src/audioPolicy.ts"
+    "./audioPolicy": "./src/audioPolicy.ts",
+    "./logbus": "./src/logbus.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
+    "start": "tsx --use-system-ca src/cli.ts",
     "dev": "tsc --noEmit --watch --preserveWatchOutput",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

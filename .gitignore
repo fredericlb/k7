@@ -2,10 +2,12 @@ node_modules/
 .turbo/
 dist/
 
-# The tray's frontendDist stub. Tauri refuses to build without it and nothing
-# generates it, so it is version-controlled despite the blanket dist/ rule above.
-!engine/capot/dist/
-!engine/capot/dist/index.html
+# What the packaged app carries, assembled flat by engine/capot/scripts/stage.mjs.
+engine/capot/staging/
+# One-shot codemods written during a change and kept only until it lands. Excluded from
+# biome too, for the same reason: they are not source.
+.tmp-*
+
 storybook-static/
 
 # `turbo prune` output (the Docker deps stage generates this inside the image)

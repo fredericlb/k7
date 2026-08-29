@@ -91,3 +91,22 @@ A file starting with `#!/usr/bin/env node` has a first line that is neither blan
 the skip stops immediately and the header that follows is counted as body. The same happens to a
 comment sitting under a file's imports. Neither is a real violation; the header rule is what
 applies, and those headers are within it.
+
+## `noUndeclaredVariables` — the one that only fails at runtime
+
+Enabled in **studio's own `biome.json`**, not in `commons/biome.base.json`: that base is shared
+with phare, and turning a rule on there is a decision for both repos.
+
+An identifier used but never imported **parses fine**. `node --check` passes, the file loads,
+and it dies on whichever branch first reaches it — so a build script can be green for weeks and
+throw `ReferenceError` on the one path that matters. It happened here twice in one afternoon:
+a guard added to `spike-job.mjs` without its `existsSync` import, and seven `node:fs` calls left
+dangling when `build-engine.mjs` was split into `stage.mjs`. Both were only found by running the
+exact path, on the exact platform.
+
+Two settings go with it:
+
+- `javascript.globals` declares `Terminal` and `FitAddon`, which `scripts/console/index.html`
+  gets from xterm's `<script>` tags and biome cannot see.
+- `!**/.tmp-*` is excluded from `files.includes`. Scratch scripts at the repo root are not
+  source, and linting them put 86 errors in front of the five that are real.

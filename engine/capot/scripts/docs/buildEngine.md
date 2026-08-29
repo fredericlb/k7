@@ -1,12 +1,41 @@
 # `npm run engine:build`
 
-`build-engine.mjs` builds the native pieces and collects their artifacts into
-`engine/capot/out/` — beside the script, not in st0: the tray is what ships them:
+Three files, and the split is what keeps the staging single-definition while two packagers
+use it — and each file under the 500-line rule:
 
-1. the **C++ engine** — CMake, with the preset chosen from the host platform. Delegated to
-   the moteur's own `build:*` npm scripts so "how the engine builds" is defined once; Linux has
-   no such script yet and keeps its preset in this file.
-2. the **tray app** — a Tauri release bundle.
+| file | what it is |
+|---|---|
+| `stage.mjs` | everything the app CARRIES: the vendored node, the two esbuilt `.mjs`, the demos, the Faust libraries, onnxruntime. Plus `run`, `findEngineBinary` and the build number. No packager knowledge. |
+| `build-app.mjs` | `npm run app:pack` — the C++ engine, `stageAll` into `staging/`, then electron-builder. |
+| `make-dmg.mjs` | a macOS dmg by hand, for when electron-builder's own target hits hdiutil's EAGAIN. A fallback, not the path. |
+
+Both collect into `engine/capot/out/` — beside the scripts, not in st0: the desktop app is
+what ships them. The **C++ engine** is CMake with the preset chosen from the host platform,
+delegated to the moteur's own `build:*` npm scripts so "how the engine builds" is defined
+once; Linux has no such script yet and keeps its preset here.
+
+## What electron-builder needs told twice
+
+`node_modules` gets an `extraResources` entry **of its own**, beside the one that copies
+`staging/` whole. A directory copy silently drops that name, so without the second entry
+onnxruntime-node vanishes from the bundle while everything else arrives — and nothing fails
+until the first stem split. The same shape of bug as the `napi-v3` pin below, found the same
+way: by listing `resources/` after a real pack rather than trusting the config.
+
+And the `electron` devDependency is pinned EXACTLY, not ranged: electron-builder downloads
+platform binaries for one release and refuses to guess from a range.
+
+## The flat resources rule
+
+`stageAll` puts node, `studio-moteur`, `engine-host.mjs`, `file-service.mjs`, `songs/`,
+`faust-libs/` and `node_modules/` in **one flat directory**, which electron-builder copies in
+whole. That is not tidiness: `engine-host`'s `bundle.ts` derives its resource dir from
+`process.execPath`, and for the supervisor that is the **vendored node** — so everything it
+looks for has to be node's sibling. Nest anything and `vendoredNode()` returns null,
+`fileServiceRuntime()` returns null, and `fileServiceProcess` reports `unavailable` — which
+means "dev, the watcher owns 8770" and shows as a working engine with a permanently red icon
+and "file service down", with nothing in the log to say why. Every developer machine works,
+because there the watcher really is there.
 
 `out/` is gitignored (the repo-root `out/` rule matches at any depth).
 
@@ -16,17 +45,16 @@ Everything needed to run with no repo and nothing on `PATH`:
 
 | staged as | what |
 |---|---|
-| `externalBin` sidecar | `studio-moteur` — the audio engine |
-| `externalBin` sidecar | `node` — runs the bundled JS processes |
+| staged resource | `studio-moteur` — the audio engine |
+| staged resource | `node` — runs the bundled JS processes |
 | resource | the file service, bundled to one `.mjs` |
 | resource | the supervisor, bundled to one `.mjs` |
 | resource | the demo songs |
 
-Tauri copies `externalBin` into the bundle beside the tray executable
-(`Contents/MacOS/studio-moteur` on macOS), which is what makes the `.app` self-contained
-— the supervisor prefers that copy over the repo's build directory. Tauri resolves a sidecar
-as `<name>-<triple>` **plus** the platform's executable extension, so on Windows the
-`.exe`-suffixed file is the one it looks for and bundles.
+`stageAll` puts them all in one flat directory, which electron-builder copies into
+`resources/` whole — that is what makes the app self-contained, and the supervisor prefers
+that copy over the repo's build directory. No `<name>-<triple>` naming any more: that was
+Tauri's sidecar convention, and it took the only need for `rustc` with it.
 
 The demo songs matter for the same reason: a new workspace is seeded from them (see
 `file-service/src/demos.ts`), and a double-clicked `.app` has no repo to copy them out of.
@@ -88,11 +116,18 @@ need no interop shimming. Two things this needs:
   costs chokidar nothing. This one has no fallback, so external alone would only move the
   failure from build time to first use. `stageNodeModule` copies the package (and
   `onnxruntime-common`, which it requires) into `resources/node_modules/`, where the
-  `.mjs` in `resources/` resolves it by ordinary Node lookup. Only the host's own
-  `bin/napi-v3/<platform>/<arch>` tree is copied — ONNX Runtime ships one shared library
+  `.mjs` beside it resolves it by ordinary Node lookup. Only the host's own
+  `bin/napi-v<n>/<platform>/<arch>` tree is copied — ONNX Runtime ships one shared library
   per platform and the rest would be dead weight.
 
-  **macOS is not covered.** `makeDmg` signs nothing, and a third-party `libonnxruntime.dylib`
+  The Node-API generation is **discovered, never spelled**. It was pinned to `napi-v3` while
+  the installed package had moved to `napi-v6`, so the prune matched nothing to keep and
+  excluded *every* binding: the bundle carried the JS with no native module at all. Nothing
+  fails until the first stem split, and then it says "onnxruntime-node is not installed — run
+  `npm install` at the repo root", which means nothing on a musician's machine.
+  `src/staging.test.ts` is the regression test.
+
+  **macOS is not covered.** Nothing here signs, and a third-party `libonnxruntime.dylib`
   inside a `.app` is a notarisation problem this repo has never solved. Windows and Linux
   bundles carry it correctly; a macOS bundle needs signing work that does not exist yet.
 
@@ -100,17 +135,19 @@ esbuild is driven through its **JS API, not its CLI**: `run()` goes through `cmd
 Windows, which splits the spaces inside `--banner:js=...` into separate arguments, and
 esbuild then errors with *"Must use outdir when there are multiple input files"*.
 
-Both bundles are produced in the `--sidecar-only` path too, and must be:
-`tauri.conf.json` lists both files as resources and Tauri **errors on a resource glob that
-matches nothing**, so without them even `cargo check` and `tauri dev` fail.
+## The flag that went
 
-## The flags
+There used to be a `--sidecar-only`, and it was mandatory before any build command:
+`tauri.conf.json` listed the two `.mjs` files as resources and Tauri **errors on a resource
+glob that matches nothing**, so without them even `cargo check` failed. electron-builder does
+no such validation and `electron dist/main.cjs` needs nothing staged at all, so the flag lost
+its reason and the staging became an ordinary step of `build-app.mjs`.
 
-### `--sidecar-only`
-
-Skips the builds and just stages the sidecars. Any cargo/tauri command on the tray needs
-them present (`tauri_build` validates `externalBin`), so this is the one-shot fix for a
-plain `cargo check` / `tauri dev` workflow.
+`buildDevApp()` went the same way. Its whole job was producing an app that carried NOTHING, so
+the Rust would take its dev fallbacks. Unpackaged, `app.isPackaged` is false and
+`process.resourcesPath` points inside `node_modules/electron`, so `hostCmd.bundled()` misses
+and falls through to the repo tsx tier by itself — no config override, no `out/dev` copy, and
+no way to end up running against a zero-byte `node.exe` placeholder.
 
 ### `--dev`
 
@@ -125,53 +162,34 @@ bundles and runs the file service. Fast to produce, not distributable. Dev mode 
 rebuilds the engine either — it points at whatever is already in `engine/moteur/build`, which is
 what makes the loop fast.
 
-The build number the tray displays is local wall-clock `YYYYMMDD.HHMM`, stamped into the
-binary via `build.rs` (`STUDIO_BUILD`), so it records when *this binary* was produced
-rather than when it happens to run.
+The build number the menu displays is local wall-clock `YYYYMMDD.HHMM`, substituted into the
+bundle by esbuild as `__STUDIO_BUILD__`, so it records when *this bundle* was produced rather
+than when it happens to run.
 
 ## Platform traps
-
-### `--config` takes a file path, not inline JSON
-
-`run()` spawns through `cmd.exe` on Windows (`shell: true`, for the `.cmd` shims), which
-strips the JSON's double quotes and leaves Tauri parsing `{bundle:...}`. A file is
-quoting-proof everywhere.
-
-### Windows has no "app" bundle format
-
-That is the macOS `.app` wrapper. Asking for it on Windows just builds the exe and produces
-no `bundle/` directory at all — the debug exe *is* the dev artifact there, so bundling is
-skipped and it is collected directly. For a release build the Windows deliverable is the
-NSIS installer.
 
 ### Windows: use System32's `bsdtar` by path
 
 It reads `.zip`. A bare `tar` can resolve to Git Bash's GNU tar depending on `PATH` order,
 which does not.
 
-### macOS: we build the `.dmg` ourselves
+### macOS: `hdiutil` is flaky here, and `make-dmg.mjs` is the way round it
 
-Tauri's `dmg` bundle target drives `hdiutil convert` through `bundle_dmg.sh`, which fails
-on this machine with errno 35 (`EAGAIN`) out of `CUDIFFileAccess::updateHeader`. It fails
-on a trivial 5 MB image too, so it is not about our bundle. `hdiutil create -srcfolder`
-takes a different code path and works, so that is what `makeDmg` uses: stage the `.app`
-next to an `/Applications` symlink (the drag-to-install affordance) and compress in one
-step. What we give up is the styled Finder window — background art, icon positions — that
-`bundle_dmg.sh`'s AppleScript adds.
+electron-builder's `dmg` target is the normal path. But it drives `hdiutil` like Tauri's did
+before it, and `hdiutil` fails on this machine with errno 35 (`EAGAIN`) out of
+`CUDIFFileAccess::updateHeader` — on a trivial 5 MB image too, so it is not about our bundle.
 
-`hdiutil` is intermittently flaky here in the same `EAGAIN` family (seen failing right
-after another image was detached), so `makeDmg` retries rather than silently shipping
-without a dmg; `-ov` makes a retry safe. EAGAIN means "try again *later*" — retrying
-instantly just fails again (observed: three back-to-back failures, then success moments
-later), so it backs off between attempts.
+`scripts/make-dmg.mjs` is the fallback, kept rather than deleted because the bug is still on
+the machine: set `mac.target: ["dir"]` and run it against the built `.app`. It uses
+`hdiutil create -srcfolder`, a different code path that works, staging the `.app` beside an
+`/Applications` symlink (the drag-to-install affordance) and compressing in one step. What
+that gives up is the styled Finder window — background art, icon positions.
 
-`CI=true` makes Tauri's `bundle_dmg.sh` skip the Finder/AppleScript styling, which needs an
-interactive GUI session. A dmg failure is deliberately non-fatal: the bundler builds the
-`.app` first and the `.dmg` second, so a dmg-only failure should not throw away a good
-`.app`. We collect it, then exit non-zero.
+It retries rather than silently shipping without a dmg; `-ov` makes a retry safe. EAGAIN means
+"try again *later*" — retrying instantly just fails again (observed: three back-to-back
+failures, then success moments later), so it backs off between attempts.
 
 ## Still repo-dependent
 
-The tray spawns the **file service** through the repo's `tsx` in a dev build, and a
-packaged app carries its own bundle — but the engine itself is still built from this
-checkout. Bundling a Node runtime for every platform is a separate, deferred step.
+The app spawns the **file service** through the repo's `tsx` in a dev build, and a packaged
+app carries its own bundle — but the engine itself is still built from this checkout.

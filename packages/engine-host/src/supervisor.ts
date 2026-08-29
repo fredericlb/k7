@@ -16,6 +16,7 @@ import { guard } from "./background.ts";
 import * as engineProcess from "./engineProcess.ts";
 import { EngineQueries } from "./engineQueries.ts";
 import * as fileService from "./fileServiceProcess.ts";
+import { acquire, release } from "./hostLock.ts";
 import type {
   EngineRunState,
   HostAudioDevice,
@@ -24,10 +25,10 @@ import type {
   HostOwnership,
   HostSession,
   HostSnapshot,
+  HostTransport,
 } from "./hostProtocol.ts";
 import { SHOW_UI_SEP } from "./hostProtocol.ts";
 import { type EngineIdentity, ensureEngineIdentity } from "./identity.ts";
-import { emit, listen } from "./ipcStdio.ts";
 import { line } from "./logbus.ts";
 import {
   deregister,
@@ -66,6 +67,8 @@ const DEREGISTER_TIMEOUT_MS = 1500;
 
 export interface SupervisorOptions {
   own: HostOwnership;
+  /** Where snapshots go and commands come from — stdio for the app, a terminal for the CLI. */
+  transport: HostTransport;
 }
 
 interface State {
@@ -146,6 +149,15 @@ function snapshot(s: State): HostSnapshot {
 }
 
 export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
+  // Before anything is spawned or adopted: a second supervisor would adopt the FIRST one's
+  // engine, and its shutdown does not spare an adopted engine — see hostLock.ts.
+  const lock = acquire();
+  if (!lock.ok) {
+    throw new Error(
+      `an engine supervisor is already running (pid ${lock.heldBy}) — quit it first`,
+    );
+  }
+
   // First run only: trust the hosted studio, before anything reads the list, so it is in the very first snapshot.
   seedDefault();
 
@@ -196,7 +208,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     const frame = JSON.stringify({ t: "state", ...snapshot(state) });
     if (frame === lastFrame) return; // nothing the tray draws has moved
     lastFrame = frame;
-    emit(JSON.parse(frame));
+    opts.transport.emit(JSON.parse(frame));
   };
 
   const notify = (
@@ -204,7 +216,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     title: string,
     body: string,
   ): void => {
-    emit({ t: "notify", kind, title, body });
+    opts.transport.emit({ t: "notify", kind, title, body });
   };
 
   // --- the engine and the file service --------------------------------------
@@ -479,7 +491,12 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   // --- commands -------------------------------------------------------------
 
   const reply = (id: number, ok: boolean, message?: string): void => {
-    emit({ t: "result", id, ok, ...(message ? { message } : {}) });
+    opts.transport.emit({
+      t: "result",
+      id,
+      ok,
+      ...(message ? { message } : {}),
+    });
   };
 
   /** ADD a registry — persist, adopt live, announce; an add and never a replace, see docs/supervisorPolicy.md. */
@@ -707,11 +724,12 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     // Then tear down, and unlike Stop this does NOT spare an adopted engine — see docs/supervisorPolicy.md.
     fileService.stop(state.fileChild);
     engineProcess.stop();
+    release();
     process.exit(0);
   };
 
   // stdin ending IS the tray going away — the whole teardown on Unix, the belt to the job object on Windows.
-  listen(
+  opts.transport.listen(
     (cmd) => {
       void onCommand(cmd).catch((e) => {
         reply(cmd.id, false, String(e));
@@ -721,6 +739,10 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   );
   process.on("SIGINT", () => void shutdown());
   process.on("SIGTERM", () => void shutdown());
+  // Closing a terminal sends SIGHUP, whose Node default TERMINATES without running the exit
+  // path: the engine would keep the audio device and both ports with nothing on screen to
+  // explain it. Harmless under the desktop app, which is not attached to a terminal.
+  process.on("SIGHUP", () => void shutdown());
 
   refreshOrigins(); // the first snapshot: the tray draws nothing until it arrives
 

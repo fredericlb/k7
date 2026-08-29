@@ -23,6 +23,11 @@ export function enginePidPath(): string {
   return join(studioDir(), "engine.pid");
 }
 
+/** The running SUPERVISOR's pid — one per machine, or two would fight over one engine (docs/supervisorPolicy.md). */
+export function hostPidPath(): string {
+  return join(studioDir(), "engine-host.pid");
+}
+
 /** Written by the web backend on boot, superseded by `webEndpointsDir` but still READ, so an older backend keeps working. */
 export function webEndpointPath(): string {
   return join(studioDir(), "web-endpoint.json");

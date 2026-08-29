@@ -1,10 +1,11 @@
-# hostProtocol.ts — the supervisor ⇄ tray contract
+# hostProtocol.ts — the supervisor ⇄ app contract
 
-The tray spawns the host and talks to it over NDJSON on stdio — one JSON object per
-line, host→tray on stdout, tray→host on stdin. `hostProtocol.ts` is the single written
-definition of that format, mirrored BY HAND in Rust
-(`engine/capot/src-tauri/src/host.rs`), the same way `@studio/engine-protocol` is
-mirrored in the C++ engine.
+The desktop app spawns the host and talks to it over NDJSON on stdio — one JSON object per
+line, host→app on stdout, app→host on stdin. `hostProtocol.ts` is the single written
+definition of that format, and the app **imports it**: there is no mirror. There was one, by
+hand in Rust, until the app was ported to Electron — losing it is the largest thing that port
+bought. `@studio/engine-protocol` still is mirrored by hand in the C++ engine, and still has
+to be.
 
 ## Three rules, all load-bearing
 
@@ -51,3 +52,31 @@ tray dies the OS closes the pipe, stdin ends, and the host tears down.
 
 A loopback port would also sit in front of `weburi.add`, which widens the CORS
 allowlist, and any page can `fetch()` a loopback port.
+
+## Two front ends, one supervisor
+
+`startSupervisor` takes its channel as a **`HostTransport`** rather than importing one, which
+is what lets the same supervisor serve two callers without a second implementation of the
+contract:
+
+| entry | transport | who drives it |
+|---|---|---|
+| `src/main.ts` | `ipcStdio` — NDJSON on stdout, commands on stdin | the desktop app |
+| `src/cli.ts` (`studio-engine`) | a status line on a terminal, and no commands at all | a person who wants only the engine |
+
+`cli.ts` deliberately does **not** import `ipcStdio`: that import reassigns
+`process.stdout.write` to stderr as a side effect, and there stdout is for the human.
+
+### What stops either outliving its driver
+
+The app's supervisor ends when its stdin closes. The CLI has no such channel, so the bounds
+are: it never daemonises or forks (the terminal IS the window), SIGINT/SIGTERM already run
+`shutdown()`, and **SIGHUP** is handled too — closing a terminal sends it, and Node's default
+terminates without running the exit path, leaving the engine holding the audio device and both
+ports with nothing on screen to explain it.
+
+And `hostLock.ts` guards both: one supervisor per machine, in `~/.studio/engine-host.pid`.
+Without it a CLI started beside the app would **adopt** the app's engine (`ownsEngine: false`)
+— and `shutdown` deliberately does not spare an adopted engine, so Ctrl-C on the CLI would stop
+the app's engine, whose crash-watch restarts it two seconds later. The only symptom is an
+unexplained audio dropout with a self-healing icon. `src/hostLock.test.ts` is the test.

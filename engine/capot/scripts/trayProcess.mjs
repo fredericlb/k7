@@ -5,7 +5,7 @@
 // See docs/restartTray.md.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +14,8 @@ const here = dirname(fileURLToPath(import.meta.url)); // engine/capot/scripts
 export const trayDir = dirname(here); //                engine/capot
 export const MERGED = join(homedir(), ".studio", ".studio.log"); // truncated by logbus::init on every launch
 export const TRAY_LOG = join(trayDir, ".cache", "dev", "tray.log"); // where start-engine.mjs puts its stdout
+/** The Electron app's own pid in dev, since unpackaged its image is `electron` (docs/restartTray.md). */
+export const DEV_PID = join(trayDir, ".cache", "dev", "app.pid");
 export const EXE_NAME =
   process.platform === "win32" ? "studio-capot.exe" : "studio-capot";
 /** The engine. Stopped here too — see stopAll for why the tray's job object is not enough. */
@@ -66,9 +68,43 @@ function processesNamed(exe) {
     .flatMap((l) => (l.trim() ? [{ pid: Number(l.trim()), path: exe }] : []));
 }
 
-/** Every tray process and not just ours, since they share one identifier (docs/restartTray.md). */
+/** Alive? `kill 0` asks without signalling, and answers for a pid we did not spawn. */
+function alive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The dev app, read from its pidfile. Scanning by image name cannot find it: unpackaged the
+ * process is `electron`, and killing every `electron` on the machine is not an option.
+ */
+function devApp() {
+  try {
+    const { pid, platform } = JSON.parse(readFileSync(DEV_PID, "utf8"));
+    // A pidfile that crossed machines names an UNRELATED process here, and killing it would
+    // be the worst outcome this file can have. Under WSL the tree is mirrored, so this is not
+    // hypothetical — `.cache` is skipped for the same reason (../../../scripts/dev-native-bridge.mjs).
+    if (platform !== process.platform) return [];
+    if (Number.isInteger(pid) && pid > 0 && alive(pid))
+      return [{ pid, path: `electron (dev, ${platform})` }];
+    // A stale file outlives a crash; leaving it would make every later stop believe it worked.
+    rmSync(DEV_PID, { force: true });
+  } catch {}
+  return [];
+}
+
+/**
+ * Every tray, and not just ours: single-instance is keyed on the IDENTIFIER, not the path, so
+ * a survivor silently wins and the new instance exits without a word (docs/restartTray.md).
+ * Two ways to find one: the image name for an INSTALLED build, and the dev pidfile for an
+ * unpackaged run, whose process is `electron`.
+ */
 export function running() {
-  return processesNamed(EXE_NAME);
+  return [...processesNamed(EXE_NAME), ...devApp()];
 }
 
 /** Every engine process, whoever started it — and the same reasoning applies. See stopAll. */
@@ -119,9 +155,12 @@ export async function stopAll() {
   return found.length;
 }
 
-/** Rebuild the debug tray app into out/dev. The caller must have stopped it first. */
+/**
+ * Rebuild the app's main process. Unlike the Rust it replaces, dist/main.cjs is not a linked
+ * image, so a running app does not hold it open — the caller no longer has to stop first.
+ */
 export function buildDevApp() {
-  node("build-engine.mjs", ["--dev"]);
+  node("build-main.mjs");
 }
 
 /** The merged log as of now, but only once THIS launch has truncated and rewritten it. */
@@ -143,11 +182,15 @@ const tail = (path, n = 20) =>
 export async function launch() {
   const since = Date.now();
   node("start-engine.mjs");
-  await until(
-    () => running().length > 0,
-    5_000,
-    "the tray exited as soon as it started",
-  );
+  try {
+    await until(() => running().length > 0, 5_000, "start failed");
+  } catch {
+    // The commonest early failure is the runtime not starting at all, and the merged log
+    // does not exist yet — so its own stdout is the only thing that can say why.
+    throw new StepError(
+      `the app exited as soon as it started. Its output:\n${tail(TRAY_LOG)}`,
+    );
+  }
 
   // The tray's own stdout stays empty when all is well, so the merged log is the signal.
   let text = null;

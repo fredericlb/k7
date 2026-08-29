@@ -1,7 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "vitest": {
-    "config": ["vitest.config.ts"],
+    "config": [
+      "vitest.config.ts"
+    ],
     "entry": [
       "**/*.{test,bench}.?(c|m)[jt]s?(x)",
       "**/__tests__/**/*.?(c|m)[jt]s?(x)"
@@ -17,57 +19,109 @@
     "yaml",
     "onnxruntime-node"
   ],
-  "ignoreBinaries": ["cmake", "ctest", "ffmpeg", "tilt", "where.exe", "rustc"],
-  "ignore": ["scripts/dev-hosts.d.mts"],
-  "ignoreWorkspaces": ["commons/**"],
+  "ignoreBinaries": [
+    "cmake",
+    "ctest",
+    "ffmpeg",
+    "tilt",
+    "where.exe",
+    "osascript"
+  ],
+  "ignore": [
+    "scripts/dev-hosts.d.mts"
+  ],
+  "ignoreWorkspaces": [
+    "commons/**"
+  ],
   "workspaces": {
     ".": {
-      "entry": ["scripts/*.mjs", "scripts/**/*.mjs"]
+      "entry": [
+        "scripts/*.mjs",
+        "scripts/**/*.mjs"
+      ]
     },
     "engine/moteur": {
-      "entry": ["scripts/*.{ts,mjs}"]
+      "entry": [
+        "scripts/*.{ts,mjs}"
+      ]
     },
     "engine/capot": {
-      "entry": ["scripts/*.mjs", "songs/**/jsdsp.ts"]
+      "entry": [
+        "src/main.ts",
+        "scripts/*.mjs",
+        "songs/**/jsdsp.ts"
+      ],
+      "ignoreDependencies": [
+        "electron-builder"
+      ]
     },
     "apps/st0/frontend": {
-      "entry": ["src/docs/examples.ts"]
+      "entry": [
+        "src/docs/examples.ts"
+      ]
     },
     "apps/k7/backend": {
-      "ignoreDependencies": ["@types/multer"]
+      "ignoreDependencies": [
+        "@types/multer"
+      ]
     },
     "apps/z0/backend": {
-      "entry": ["src/render.ts"]
+      "entry": [
+        "src/render.ts"
+      ]
     },
     "packages/song": {
-      "entry": ["src/dspRunner.mjs", "src/benchProject.ts", "scripts/*.ts"]
+      "entry": [
+        "src/dspRunner.mjs",
+        "src/benchProject.ts",
+        "scripts/*.ts"
+      ]
     },
     "packages/song-edit": {
-      "entry": ["scripts/*.ts"]
+      "entry": [
+        "scripts/*.ts"
+      ]
     },
     "packages/audio-probe": {
-      "entry": ["scripts/*.ts"]
+      "entry": [
+        "scripts/*.ts"
+      ]
     },
     "packages/song-schema": {
-      "entry": ["src/builtinParams.generated.ts"]
+      "entry": [
+        "src/builtinParams.generated.ts"
+      ]
     },
     "packages/dsp": {
-      "entry": ["modules/**/jsdsp.ts"]
+      "entry": [
+        "modules/**/jsdsp.ts"
+      ]
     },
     "packages/file-service": {
-      "entry": ["src/render.ts"]
+      "entry": [
+        "src/render.ts"
+      ]
     },
     "packages/stem-separation": {
-      "entry": ["src/separateWorker.ts"]
+      "entry": [
+        "src/separateWorker.ts"
+      ]
     },
     "packages/engine-host": {
-      "entry": ["src/main.ts", "src/engineQueries.ts"]
+      "entry": [
+        "src/main.ts",
+        "src/engineQueries.ts"
+      ]
     },
     "packages/take-render": {
-      "entry": ["src/timeline.ts"]
+      "entry": [
+        "src/timeline.ts"
+      ]
     },
     "packages/ui-turntables": {
-      "entry": ["scripts/*.ts"]
+      "entry": [
+        "scripts/*.ts"
+      ]
     },
     "packages/ui-chains-react": {}
   }

@@ -3,7 +3,7 @@
 The audio half of this repo cannot leave Windows: `engine/moteur` wants WASAPI/ASIO and
 `engine/capot` hosts the machine's VSTs. Everything else is TypeScript and has no reason to
 stay. So the sources live in the distro, on ext4, and Windows keeps exactly two jobs:
-**compile C++ and Rust, and run the binaries that come out.**
+**compile C++, and run the binaries and the desktop app that come out.**
 
 One rule holds the whole arrangement up:
 
@@ -59,12 +59,20 @@ What crosses, and what does not:
 
 - **`/MIR`, one way.** The mirror is derived. Editing it is editing something that the next
   pass will overwrite.
-- **Skipped**: `node_modules` (the mirror keeps its own, installed once — the tray build needs
-  esbuild and the Tauri CLI on the host), `.git`, `build`, `target`, `out`, `.turbo`, `.vite`,
+- **`.cache` is skipped**, and the reason is worth more than the disk it saves: it holds the
+  dev pidfile, the app's own stdout and vendored node downloads for ONE platform. Mirrored, the
+  distro's crash lands in the log the host tails — which is how a Linux dynamic-linker error
+  once got blamed for a Windows launch. Two guards remain in case a copy crosses anyway: the
+  pidfile carries its platform and is ignored when it does not match (a foreign pid names an
+  unrelated process, and `stopAll` would kill it), and `tray.log` opens with a line naming the
+  platform that wrote it.
+- **Skipped**: `node_modules` (the mirror keeps its own, installed once — the host runs
+  Electron and needs its runtime there), `.git`, `build`, `target`, `out`, `.turbo`, `.vite`,
   `.claude`.
-- **`dist` is NOT skipped.** `engine/capot/dist/index.html` is tracked by git: it is the tray's
-  web assets, not build output, and Tauri stops with *"Unable to find your web assets"* without
-  it. It is the one directory here whose name says output and whose content is source.
+- **`dist` is NOT skipped**, and it is the one directory here whose name says output and whose
+  content has to travel: `engine/capot/dist/main.cjs` is the desktop app's main process,
+  esbuilt by the `capot` Tilt resource in the DISTRO, and the mirror is how it reaches the host
+  that runs it.
 - **Each caller names the subtrees its loop covers.** A whole-tree pass every second would spend
   half of it walking directories. The native task watches `engine/` alone, since the TypeScript
   it would carry is bundled into the tray at startup rather than mid-session; the file service
@@ -163,15 +171,16 @@ cannot initialise the submodule, and a clone would drop the working tree's uncom
 ```bash
 mkdir -p ~/studio && cd /mnt/c/Users/<you>/Src/studio
 tar -cf - --exclude='*/node_modules' --exclude='*/.claude/worktrees' \
-          --exclude='*/engine/moteur/build' --exclude='*/engine/capot/src-tauri/target' . \
+          --exclude='*/engine/moteur/build' . \
   | (cd ~/studio && tar -xf -)
 cd ~/studio && npm ci
 ```
 
 Then, once, on the Windows side: `npm ci` in the mirror (`C:\studio-native` by default), so the
-tray build finds esbuild and the Tauri CLI — and so the file service finds tsx and everything it
-imports, that install being its `node_modules` too. Redo it there whenever a dependency changes:
-the mirror carries sources one way and never `node_modules`, so nothing else will. After that,
+file service finds tsx and everything it imports, that install being its `node_modules` too —
+followed by `npm run app:setup --workspace capot`, because `electron` declares no scripts and
+`npm ci` alone never fetches its runtime. Redo both whenever a dependency changes: the mirror
+carries sources one way and never `node_modules`, so nothing else will. After that,
 `npm run dev` from the distro is the
 whole story — `scripts/dev.mjs` derives `STUDIO_NATIVE_SOURCE`, `STUDIO_NATIVE_MIRROR`,
 `STUDIO_ENGINE_PATH_STYLE` and `STUDIO_HOME` from `$WSL_DISTRO_NAME` and `wslpath`, rather than

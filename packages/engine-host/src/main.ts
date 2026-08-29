@@ -1,11 +1,11 @@
-// main.ts — the supervisor's entry point. Spawned BY the menu-bar app and driven over
-// NDJSON on stdio: not a CLI, takes no arguments, reads what it needs from ~/.studio,
-// and has no standalone mode (a supervisor outliving the tray would be a ghost engine).
-// The import order matters — ipcStdio quarantines stdout as an import side effect.
+// main.ts — the supervisor's entry point when the DESKTOP APP drives it: NDJSON on stdio,
+// no arguments, everything read from ~/.studio. cli.ts is the other front end, over the same
+// startSupervisor; what stops either outliving its driver is hostLock.ts plus, here, stdin
+// ending. The import order matters — ipcStdio quarantines stdout as an import side effect.
 
-import "./ipcStdio.ts";
 import { installProcessNet } from "./background.ts";
 import { armDevReload, RELOAD_EXIT_CODE } from "./devReload.ts";
+import { emit, listen } from "./ipcStdio.ts";
 import { startSupervisor } from "./supervisor.ts";
 
 // First, and only here: a rejected poll must not take the supervisor down with the engine behind it — see docs/background.md.
@@ -28,6 +28,7 @@ void startSupervisor({
     fileService: true,
     engineQueries: true,
   },
+  transport: { emit, listen },
 }).catch((e) => {
   // Nothing above us will report this — the tray only sees a process that exited — so say why on stderr.
   process.stderr.write(`[host] fatal: ${e instanceof Error ? e.stack : e}\n`);

@@ -8,7 +8,7 @@ The music and stage apps of the frediverse.
 | `apps/st0` | text-first DAW — the web editor; the origin's front door | `st0.priv.frediver.se` |
 | `apps/pl8` | the media library — songs, samples, recordings | `st0.priv.frediver.se/pl8` |
 | `engine/moteur` | the native C++ audio engine (JUCE/Tracktion) | — |
-| `engine/capot` | the Tauri tray that supervises the engine | — |
+| `engine/capot` | the desktop app that supervises the engine | — |
 | `apps/z0` | blind-test game — six SPAs behind one origin | `st0.priv.frediver.se/z0` |
 
 `packages/` is studio's shared tier, all `@studio/*` and consumed as raw
@@ -36,7 +36,7 @@ Nothing here terminates TLS: the name resolves to the LAN server, which reverse-
 the dev servers. See [docs/dev.md](docs/dev.md).
 
 `npm run dev` runs the whole studio as one turbo session — every app's frontend and
-backend, plus a task that builds the C++ engine and the Tauri tray, launches the tray,
+backend, plus a task that builds the C++ engine and launches the desktop app,
 and rebuilds+restarts both on save. One app on its own is still `npm run dev` inside its
 directory. See [docs/dev.md](docs/dev.md).
 
@@ -60,20 +60,19 @@ fetch. To pull a commons change made from phare: `npm run commons:sync`.
 
 ## The native parts
 
-`engine/moteur` is a CMake/JUCE/Tracktion C++ project and `engine/capot` a
-Tauri/Rust app. Neither is built by `turbo run build` — the moteur deliberately
-declares no `build` script at all, so turbo can never try to compile C++. They
-have their own commands:
+`engine/moteur` is a CMake/JUCE/Tracktion C++ project; `engine/capot` is an Electron
+app around it. The moteur deliberately declares no `build` script at all, so turbo can
+never try to compile C++. They have their own commands:
 
 ```bash
 npm run build:win --workspace moteur     # or build:mac
-npm run engine:build --workspace capot   # engine + sidecars + the tray bundle
+npm run app:setup --workspace capot      # once: fetch the Electron runtime
+npm run engine:build --workspace capot   # engine + staging + the packaged app
 ```
 
-Their build directories are large (~30 GB combined) and fully gitignored. Both
-bake absolute paths into their caches, so **moving or renaming the repo requires
-wiping `engine/moteur/build` and `engine/capot/src-tauri/target`** — otherwise the
-build fails looking for the old path.
+`engine/moteur/build` is large (~30 GB) and fully gitignored. It bakes absolute paths into
+its caches, so **moving or renaming the repo requires wiping it** — otherwise the build
+fails looking for the old path.
 
 ## Images
 

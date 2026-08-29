@@ -1,8 +1,8 @@
 # restart-tray.mjs — the tray's edit→run loop
 
-`npm run tray:restart` is the Rust half of what `devReload.ts` already does for the
+`npm run tray:restart` is the app's half of what `devReload.ts` already does for the
 supervisor: stop, rebuild, relaunch, and **say whether it came up**. It exists so an
-agent — or anyone without the tray in front of them — can change `src-tauri/src/` and get
+agent — or anyone without the tray in front of them — can change `src/` and get
 a running tray back from one command, with an exit code that means something.
 
 ```bash
@@ -21,37 +21,43 @@ watcher (see [docs/dev.md](../../../../docs/dev.md)). They **throw** rather than
 `process.exit`: the one-shot command turns a throw back into an exit code, and a watcher
 that must outlive a failed build can afford neither an exit nor a swallowed error.
 
-## Why not `tauri dev`
+## Why not just leave it running
 
-`tauri dev` is the right tool when a human is watching a terminal: it holds the console,
-prints the Rust logs there, and rebuilds on save. It is the wrong tool for a scripted
+A watch that rebuilds in place is the right tool when a human is watching a terminal: it
+holds the console and prints there. It is the wrong tool for a scripted
 loop — it never returns, so nothing downstream can say "the tray is up now", and its
 output dies with the terminal. This script does the opposite: it returns, non-zero if the
 tray did not come up, and leaves the app running detached.
 
-## Why not a plain `cargo build` either
+## Why the dev tier is reached by itself
 
-Because `target/debug/studio-capot.exe` is not the dev artifact — `out/dev/studio-capot.exe`
-is, and the difference is not cosmetic. `--dev` builds with `externalBin` and `resources`
-emptied and then **copies the exe out of `target/debug`**, and that copy is what makes
-`hostcmd.rs` take its dev tier: `bundled()` looks for a `node` sibling of the exe, finds
-none in `out/dev`, and falls through to the repo's tsx on the TypeScript source. Build
-with the real config and Tauri stages the sidecars beside the exe, so `bundled()` wins —
-with whatever `src-tauri/binaries/node.exe` happens to hold. When that is a zero-byte
-placeholder (it is, in a tree where `engine:sidecar` never ran), the tray comes up and
-loops on `could not start supervisor: os error 193`. Same reason the dev app needs no
-engine rebuild: it uses `engine/moteur/build/` directly.
+There used to be a whole build mode for this — an app deliberately carrying NOTHING, so the
+Rust would fall through to the repo's tsx instead of a vendored `node` that might be a
+zero-byte placeholder. Getting it wrong left the tray looping on
+`could not start supervisor: os error 193`.
+
+None of that survives. Unpackaged, `app.isPackaged` is false and `process.resourcesPath`
+points inside `node_modules/electron`, so `hostCmd.bundled()` misses and takes the dev tier
+on its own. Nothing to configure and nothing to get wrong. The dev app still needs no engine
+rebuild: it uses `engine/moteur/build/` directly.
 
 ## The order is not negotiable
 
-**Stop before build.** Windows holds a running image open for write, so cargo's relink
+**Stop before build — for the ENGINE only now.** `dist/main.cjs` is an esbuild bundle, not a
+linked image, so a running app does not hold it open and its build needs no stop at all. Do
+not re-add one: it would reintroduce the bounce for nothing. What follows still applies to
+`studio-moteur`, and applied to the Rust tray this replaced — Windows holds a running image
+open for write, so a relink
 fails against a live tray with a confusing linker error rather than a busy-file one.
 
 **Stop every tray, not only the one we are about to build.**
-`tauri-plugin-single-instance` is keyed on the app identifier, not the path: with a tray
+`requestSingleInstanceLock()` is keyed on the app identifier, not the path: with a tray
 already up — the one `npm run engine:start` left, or an installed bundle — launching a
 second makes the *new* process the no-op, and it exits without a word. So the scan matches
-the image name `studio-capot.exe` and stops all of them, printing each path as it goes:
+both the image name `studio-capot.exe` (an installed build) and the dev pidfile at
+`.cache/dev/app.pid` — unpackaged, the process is `electron`, and scanning by name would find
+nothing while killing every `electron` on the machine is not an option. It stops all of them,
+printing each path as it goes:
 taking the menu bar from another build is worth saying out loud.
 
 **The kill is hard, and that is fine.** The tray is windowless: there is no close message
@@ -92,7 +98,7 @@ start supervisor`. Only the first is success; the tail is printed either way.
 The truncation is also how the script avoids reading the previous session's log: it
 records the time just before launching and ignores the file until its mtime moves past it.
 
-Before that file exists there is still a window — a Rust panic in `main` — which is why
+Before that file exists there is still a window — a crash before `whenReady` — which is why
 `start-engine.mjs` redirects the tray's own stdout to `.cache/dev/tray.log` rather than
 dropping it. That path is deliberately not under `~/.studio`: the layout there is a
 contract owned by `packages/engine-client/src/paths.ts`, and a dev script has no business

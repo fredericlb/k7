@@ -152,3 +152,14 @@ export interface HostCommand {
   /** The command's single argument, when it takes one; an empty string is meaningful for `audio.fallback`, where it means "none". */
   arg?: string;
 }
+
+/**
+ * How a supervisor talks to whatever is driving it. Injected rather than imported, so the
+ * SAME supervisor serves the desktop app (NDJSON on stdio) and the command line (a status
+ * line on a terminal) — one implementation of the contract, two front ends.
+ */
+export interface HostTransport {
+  emit(event: HostEvent): void;
+  /** Read commands until the channel ends, then call `onEnd`; on Unix that END is the whole teardown. */
+  listen(onCommand: (cmd: HostCommand) => void, onEnd: () => void): void;
+}

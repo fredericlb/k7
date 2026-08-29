@@ -1,18 +1,15 @@
 #!/usr/bin/env node
-// dev-native.mjs — the native half of the dev session: builds the C++ engine and the tray,
-// launches the tray, then watches both source trees and rebuilds+restarts on save. One
-// process owns both watches because both rebuilds need the SAME tray stopped first — a
-// running image cannot be relinked on Windows. See docs/dev.md.
+// dev-native.mjs — the native half of the dev session: builds the C++ engine, launches the
+// desktop app, then watches both and restarts on save. It still owns the app's LIFETIME
+// because a running engine holds studio-moteur open and only stopping the app releases it —
+// but it no longer owns the app's BUILD, which is an ordinary Tilt resource now that
+// dist/main.cjs is not a linked image. See docs/dev.md.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, statSync, watch } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  buildDevApp,
-  launch,
-  stopAll,
-} from "../engine/capot/scripts/trayProcess.mjs";
+import { launch, stopAll } from "../engine/capot/scripts/trayProcess.mjs";
 
 // Under WSL the toolchain is on the host: mirror the tree and run THIS script there (../docs/wsl.md).
 if (process.env.STUDIO_NATIVE_MIRROR && process.platform !== "win32") {
@@ -49,28 +46,22 @@ const TARGETS = {
     ],
     build: buildEngine,
   },
-  // The tray; build.rs and tauri.conf.json are in because cargo re-runs on both.
+  // The desktop app. Watched on its BUILD OUTPUT, not its sources: the `capot` Tilt resource
+  // runs esbuild, so what reaches us is already compiled, and a failed build simply never
+  // produces a new file — leaving the running app untouched instead of down.
   capot: {
     dirs: [
       {
-        path: join(repo, "engine", "capot", "src-tauri", "src"),
-        recursive: true,
-        match: (base) => base.endsWith(".rs"),
-      },
-      {
-        path: join(repo, "engine", "capot", "src-tauri"),
+        path: join(repo, "engine", "capot", "dist"),
         recursive: false,
-        match: (base) =>
-          base === "Cargo.toml" ||
-          base === "build.rs" ||
-          base === "tauri.conf.json",
+        match: (base) => base === "main.cjs",
       },
     ],
-    build: buildDevApp,
+    build: null, // nothing to build here; the restart is the whole cycle
   },
 };
 
-// Rebuild order: the slow one first, so a broken C++ never costs a cargo run (../docs/dev.md).
+// Rebuild order: the slow one first, so a broken C++ never costs anything downstream.
 const ORDER = ["moteur", "capot"];
 
 /** Delegated to the moteur's own build:* scripts, so this holds no CMake knowledge. */
@@ -182,7 +173,7 @@ async function cycle() {
     for (const name of todo) {
       current = name;
       dirty.delete(name); // before the build, not after: a save made DURING it must still count
-      TARGETS[name].build();
+      TARGETS[name].build?.();
     }
     current = null;
     console.log(await launch());
@@ -190,7 +181,7 @@ async function cycle() {
   } catch (err) {
     if (current) dirty.add(current); // failed — retried on the next save, never in a loop
     console.error(`\nnative | ✖ ${err.message}`);
-    console.error("native | the tray is stopped — fix and save again.");
+    console.error("native | the app is stopped — fix and save again.");
   } finally {
     busy = false;
   }
@@ -203,7 +194,7 @@ async function shutdown() {
   if (stopping) return;
   stopping = true;
   clearTimeout(timer);
-  log("stopping the tray…");
+  log("stopping the app…");
   try {
     await stopAll();
   } catch (err) {
@@ -223,7 +214,8 @@ if (!bin) {
   log("the engine is older than its sources — rebuilding");
   dirty.add("moteur");
 }
-dirty.add("capot"); // always: a cargo no-op is seconds, and it is what guarantees out/dev matches src
+// Always, but it costs nothing now: `capot` has no build here, so this only means "launch it".
+dirty.add("capot");
 
 await cycle();
 
@@ -241,5 +233,7 @@ for (const [target, { dirs }] of Object.entries(TARGETS))
     }
   }
 
-log("watching engine/moteur and engine/capot — save to rebuild and restart");
+log(
+  "watching engine/moteur and engine/capot/dist — save to rebuild and restart",
+);
 setInterval(() => {}, 1 << 30); // the watchers are unref'd, so hold the process open ourselves

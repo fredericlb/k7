@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// dev-native-bridge.mjs — the native task when the sources live in WSL and the MSVC/cargo
+// dev-native-bridge.mjs — the native task when the sources live in WSL and the MSVC
 // toolchain does not. It mirrors the tree onto the host's NTFS and runs dev-native.mjs THERE,
 // unchanged, so the whole native half keeps the shape docs/dev.md describes. Nothing is built
 // across the share: MSBuild lowercases the dependency it tracks, which a case-sensitive
@@ -17,7 +17,9 @@ const ROBOCOPY = "/mnt/c/Windows/System32/Robocopy.exe";
 const CMD = "/mnt/c/Windows/System32/cmd.exe";
 
 // Everything derived stays on the host: the mirror keeps its OWN node_modules, and no build output travels back.
-// `dist` is NOT on this list — engine/capot/dist is the tray's web assets, tracked by git, and tauri stops without it.
+// `dist` is NOT on this list: engine/capot/dist/main.cjs is the desktop app's main process,
+// esbuilt by the `capot` Tilt resource IN THE DISTRO, and the mirror is how it reaches the
+// host that actually runs Electron.
 const SKIP = [
   "node_modules",
   ".git",
@@ -27,6 +29,10 @@ const SKIP = [
   ".turbo",
   ".vite",
   ".claude",
+  // Per-MACHINE derived state: a dev pidfile, the app's own stdout, and vendored node
+  // downloads for one platform. Mirroring it put the DISTRO's crash into the log the Windows
+  // side tails, so a failure there was diagnosed with a Linux dynamic-linker error.
+  ".cache",
 ];
 
 /** One mirror pass over `sub` (the whole tree when empty); true when something moved. */

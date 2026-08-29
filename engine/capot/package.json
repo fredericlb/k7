@@ -3,22 +3,38 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "st0 menu-bar / system-tray supervisor (Tauri v2, native Rust). Runs the C++ engine as a background app and registers it with the web server. Interchangeable with @studio/engine-host over the same ~/.studio + registry contract.",
+  "description": "The desktop app: a menu-bar view over the engine supervisor. Electron/TypeScript, windowless. Spawns @studio/engine-host as a child and drives it over NDJSON on stdio; computes no policy of its own.",
+  "main": "dist/main.cjs",
   "scripts": {
-    "predev": "node scripts/build-engine.mjs --sidecar-only",
-    "dev": "tauri dev",
-    "prebuild": "node scripts/build-engine.mjs --sidecar-only",
-    "build": "tauri build",
-    "tauri": "tauri",
-    "engine:build": "node scripts/build-engine.mjs",
-    "engine:dev": "node scripts/build-engine.mjs --dev",
-    "engine:sidecar": "node scripts/build-engine.mjs --sidecar-only",
+    "app:setup": "node scripts/fetch-electron.mjs",
+    "app:build": "node scripts/build-main.mjs",
+    "app:watch": "node scripts/build-main.mjs --watch",
+    "app:start": "electron dist/main.cjs",
+    "build": "node scripts/build-app.mjs",
+    "app:spike-job": "node scripts/spike-job.mjs",
+    "app:spike-menu": "node scripts/spike-menu.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dev": "node scripts/build-main.mjs --watch",
+    "engine:build": "node scripts/build-app.mjs",
+    "engine:dev": "node scripts/build-main.mjs",
     "engine:start": "node scripts/start-engine.mjs",
-    "engine:buildstart": "npm run engine:dev && npm run engine:start",
     "tray:restart": "node scripts/restart-tray.mjs",
     "tray:stop": "node scripts/restart-tray.mjs --stop"
   },
+  "dependencies": {
+    "@studio/engine-client": "*",
+    "@studio/engine-host": "*"
+  },
   "devDependencies": {
-    "@tauri-apps/cli": "^2"
+    "electron": "44.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "optionalDependencies": {
+    "koffi": "^3.1.6",
+    "@koromix/koffi-win32-x64": "^3.1.6",
+    "@koromix/koffi-win32-arm64": "^3.1.6",
+    "@koromix/koffi-linux-x64": "^3.1.6",
+    "@koromix/koffi-darwin-arm64": "^3.1.6"
   }
 }
