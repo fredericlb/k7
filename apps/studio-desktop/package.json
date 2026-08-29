@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The desktop app: a menu-bar view over the engine supervisor. Electron/TypeScript, windowless. Spawns @studio/engine-host as a child and drives it over NDJSON on stdio; computes no policy of its own.",
+  "description": "st0 in a window, and the engine that window needs. Electron/TypeScript: it serves st0 from its own local origin and spawns @studio/engine-host as a child over NDJSON on stdio, computing no policy of its own. Closing the window stops the engine.",
+  "author": "F <fred@parapluie.org>",
+  "homepage": "https://studio.frediver.se",
   "main": "dist/main.cjs",
   "scripts": {
     "app:setup": "node scripts/fetch-electron.mjs",

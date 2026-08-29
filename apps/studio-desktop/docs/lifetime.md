@@ -155,12 +155,28 @@ file service and pumps both into it. Two jobs are left on the tray side:
 Both writers open in APPEND mode after the truncate. A single append-mode write is atomic
 on both platforms, so whole lines interleave rather than tearing.
 
-## An icon, which does not exist yet
+## The icon is st0's own
 
-The old one was DRAWN, four states with a spinner, because a menu-bar item had to say whether
-an engine was running. A windowed app says that on its settings page instead, so the drawing
-went with the menu.
+The old one was DRAWN, four states with a spinner, because a menu-bar item had only a glyph to
+say whether an engine was running. A windowed app says that on its settings page, so the
+drawing went with the menu.
 
-What is left is the ordinary need: a Dock, taskbar and installer icon. electron-builder looks
-for `build/icon.png` (512×512) under `directories.buildResources`, and **there is none**, so a
-package built today carries the default Electron icon. Nothing breaks; it just is not ours.
+What replaces it is `apps/st0/frontend/public/icon-512.png` — **the web app's icon, referenced
+rather than copied**. They are the same studio, and a second PNG would be the one that stops
+being updated. electron-builder derives the `.icns` and `.ico` from that single source, and
+`window.ts` uses the same file for the window itself where that matters (Linux, and an
+unpackaged run; macOS takes it from the bundle).
+
+Two things to know:
+
+- **Only the 512 size is installed on Linux.** A single PNG gives electron-builder one size,
+  where an icon *directory* would give it several — st0's other sizes are named `icon-192.png`
+  rather than `192x192.png`, so they cannot be used as one without copies. Desktops downscale.
+- **A wrong path fails QUIETLY**: electron-builder logs `default Electron icon is used` and
+  carries on. That line is the check, not the exit code.
+
+## Packaging a `.deb` needs two fields
+
+`author` and `homepage` in `package.json`, or the build stops before it reaches the icon. Both
+are set. Note that `fpm` — the tool electron-builder shells out to for `deb` — needs a working
+Ruby, and fails with exit 127 where it has none; the `dir` and `AppImage` targets do not use it.

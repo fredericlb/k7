@@ -9,6 +9,11 @@
 appId: org.parapluie.studio.engine-tray
 productName: studio-capot
 
+# st0's own mark, not a copy of it: the web app and the desktop app are the same studio, and a
+# second PNG would be the one that stops being updated. electron-builder derives the .icns and
+# .ico from this single 512×512 source.
+icon: ../st0/frontend/public/icon-512.png
+
 directories:
   # apps/studio-desktop/out, beside the scripts — NOT the repo-root out/, which is turbo prune's
   # (see the root .gitignore). buildEngine.md says the desktop app is what ships its artifacts.
