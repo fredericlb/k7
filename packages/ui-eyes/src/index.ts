@@ -4,6 +4,7 @@
 export * from "./clock";
 export { Compositor } from "./compositor";
 export { type ExportOptions, type ExportProgress, exportScene } from "./export";
+export { type ExportSupport, probeExportSupport } from "./exportSupport";
 export { type LaneDebug, RealtimeDriver } from "./realtime";
 export * from "./scene";
 export * from "./timeline";

@@ -168,3 +168,23 @@ n'a besoin d'un pixel pour être attrapé.
 
 Ce qu'il ne prouve pas, c'est qu'un shader dessine la bonne image. Cette vérification-là se fait
 avec les yeux : ouvrir `demos/video-demo.st0` et regarder.
+
+## What "can this export?" actually asks
+
+`"VideoEncoder" in window` answers the wrong question. It is true in every Chromium — and in
+**Electron it is always true** — while saying nothing about the platform encoder behind it
+(Media Foundation, VideoToolbox, OpenH264). A build with WebCodecs and no H.264 fails at
+frame 0, *after* the progress bar has drawn, with a `NotSupportedError` that names no cause.
+
+So `exportSupport.ts` asks `VideoEncoder.isConfigSupported` at the scene's own size — H.264
+support is level-dependent, so 4K is a different question from 720p — and
+`AudioEncoder.isConfigSupported` for AAC-LC, which `export.ts` requests as `codec: "aac"`.
+The answer distinguishes three cases, because they need three different sentences: no
+WebCodecs at all, no H.264 (the mp4 would carry no video track), no AAC (it would come out
+silent).
+
+Any ONE of the H.264 profiles is enough. A false negative would hide an export that works,
+which is worse than the failure this exists to catch.
+
+`ViewportTab` runs it once per viewport size, off the render path, and it gates the WORDS
+rather than the pane: realtime works either way.

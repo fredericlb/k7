@@ -3,18 +3,16 @@
 // the project is open — a GL context and one <video> per layer are exactly the state that must
 // not be rebuilt every time you look elsewhere. See packages/song/docs/surfaces.md.
 
+import { type ExportSupport, probeExportSupport } from "@studio/ui-eyes/export";
 import type { LaneDebug } from "@studio/ui-eyes/realtime";
 import type { WebVideoProject } from "@studio/web-protocol";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PROFILING } from "../profiling";
 import { sceneOf } from "../scene";
 import { audioSources } from "../shaderAudio";
 import type { Rect } from "../viewportRect";
 import { VideoCanvas } from "./VideoCanvas";
 import { ViewportOverlay } from "./ViewportOverlay";
-
-// Whether this browser can export (WebCodecs): realtime works everywhere, so say so rather than fail at frame 0.
-const CAN_EXPORT = typeof window !== "undefined" && "VideoEncoder" in window;
 
 export function ViewportTab({
   doc,
@@ -40,6 +38,20 @@ export function ViewportTab({
   /** Which layer the frame has selected, and the canvas's letterboxed size the overlay must match. */
   const [selected, setSelected] = useState<string | null>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  /** Whether this build can encode the export, ASKED rather than assumed — see ui-eyes/exportSupport.ts. */
+  const [canExport, setCanExport] = useState<ExportSupport | null>(null);
+
+  // Asked once per viewport size, off the render path: isConfigSupported is async and the
+  // answer only moves when the size does. Realtime works either way, so this gates the WORDS
+  // rather than the pane.
+  const [vw, vh] = doc?.viewport ?? [1920, 1080];
+  useEffect(() => {
+    let live = true;
+    void probeExportSupport(vw, vh).then((s) => live && setCanExport(s));
+    return () => {
+      live = false;
+    };
+  }, [vw, vh]);
 
   // Rebuilt only when the DOCUMENT changes: the scene owns a GL context and a <video> per layer, and both would be torn down per frame.
   const scene = useMemo(
@@ -98,10 +110,8 @@ export function ViewportTab({
             {d.id}: {d.active ? `${d.errMs}ms ×${d.rate.toFixed(2)}` : "—"}
           </span>
         ))}
-        {!CAN_EXPORT && (
-          <span className="ml-auto text-amber-400">
-            l'export demande Chrome (WebCodecs)
-          </span>
+        {canExport?.ok === false && (
+          <span className="ml-auto text-amber-400">{canExport.detail}</span>
         )}
       </div>
     </div>

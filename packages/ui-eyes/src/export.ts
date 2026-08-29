@@ -1,7 +1,8 @@
 // export.ts — render the viewport frame-by-frame to an mp4, deterministically: the same
 // compositor as realtime, but frame n maps to second n/fps and each source frame is
 // pulled EXACTLY, so a song always yields the same picture. The song's SOUND is the engine's
-// mix and is handed in decoded — see `ExportOptions.audio`. WebCodecs-gated (Chrome-only).
+// mix and is handed in decoded — see `ExportOptions.audio`. Needs an H.264 encoder, which
+// `exportSupport.ts` ASKS for rather than inferring from WebCodecs being present.
 
 import {
   ALL_FORMATS,
@@ -17,6 +18,10 @@ import {
 } from "mediabunny";
 import type { LayerBlend } from "./compositor";
 import { Compositor } from "./compositor";
+import { probeExportSupport } from "./exportSupport";
+
+export { type ExportSupport, probeExportSupport } from "./exportSupport";
+
 import type { VideoScene } from "./scene";
 import { type Active, layerFrameAt } from "./timeline";
 
@@ -47,12 +52,12 @@ export async function exportScene(
   opts: ExportOptions = {},
   onProgress?: (p: ExportProgress) => void,
 ): Promise<ArrayBuffer> {
-  if (typeof VideoEncoder === "undefined")
-    throw new Error(
-      "eyes: video export needs WebCodecs (VideoEncoder), which this browser doesn't provide — use Chrome",
-    );
-
   const [vw, vh] = scene.viewport;
+  // ASKED, not assumed: `"VideoEncoder" in window` is true in every Chromium and always true
+  // in Electron, and says nothing about the platform encoder behind it. Without this the
+  // failure is a NotSupportedError at frame 0, after the progress bar has drawn.
+  const can = await probeExportSupport(vw, vh, opts.audio !== undefined);
+  if (!can.ok) throw new Error(`eyes: ${can.detail}`);
   const fps = scene.fps;
   const total =
     opts.frameCount ?? Math.max(1, Math.round(scene.durationSec * fps));
