@@ -1,15 +1,10 @@
-// remote.ts — `/pl8/*` against the configured server, when there is one. Two rules carry the
-// whole file, and both are about what happens when things are NOT fine.
-//
-// 1. It never fails the connection. A network error falls back to the offline shim, because a
-//    throw reaches the gate as an unexpected error, and the gate's probe on a service that is
-//    up always answers `blocked` — the worst screen in the app (../../docs/pl8Shim.md).
-// 2. The bearer is attached for a LOOPBACK caller only. It is the user's account credential,
-//    and this server binds the LAN (../../docs/server.md).
-//
-// Hand-rolled over fetch rather than a proxy library: https and redirects come free, and
-// "never fail" is written here instead of layered onto a library whose default is to be
-// faithful. Responses are buffered, which suits pl8's JSON; a streaming route would want more.
+// remote.ts — `/pl8/*` against the configured server. Two rules, both about what happens when
+// things are NOT fine: it never fails the connection (a throw reaches the gate as the CORS
+// screen — ../../docs/pl8Shim.md), and the bearer is attached for a LOOPBACK caller only
+// (it is the account credential, and this server binds the LAN — ../../docs/server.md).
+// Hand-rolled over fetch so "never fail" is written here rather than layered onto a library
+// whose default is to be faithful; responses are buffered, which suits pl8's JSON.
+// What a second device may read, and why it must: ../../docs/externals.md.
 
 import { serviceUrl } from "@studio/web-protocol/services";
 import type { Express, Request, Response } from "express";
@@ -24,6 +19,51 @@ export interface RemoteConfig {
 
 /** Read fresh per request, so pairing takes effect without a restart. */
 export type ReadRemote = () => RemoteConfig;
+
+/**
+ * The two routes a SECOND DEVICE may see through the proxy, and the reason is correctness
+ * rather than convenience.
+ *
+ * `externalHref` picks a project's address from the register — `/<repo>/<projet>` when the
+ * repository is registered, `@local/…` otherwise — and its own comment says why: "so the
+ * tablet and the laptop claim the same song". Give the laptop the real register and the tablet
+ * an empty one and they compute different addresses, hence different `projectClaimKey`s, hence
+ * two claims on one project: the laptop gets `ProjectTakenOver` and, since that screen has no
+ * Retry by design, the song flickers between two people.
+ *
+ * So the LAN gets the register, READ ONLY and with `uri` blanked. That field is the git host,
+ * port and path, and `launch.md` already keeps it out of addresses for the same reason it is
+ * kept out of here. Everything else — writes, shares, the key, the médiathèque — stays the
+ * shim's 503, and the bearer never leaves the loopback path.
+ */
+const LAN_READABLE = new Set([
+  "/pl8/api/projects",
+  "/pl8/api/projects/revision",
+]);
+
+/** Exported for the test: the whole LAN policy in one predicate. */
+export function lanMayRead(method: string, path: string): boolean {
+  return method === "GET" && LAN_READABLE.has(path);
+}
+
+/** Blank what the LAN has no business reading, leaving the shape the frontend expects. */
+export function redactForLan(body: Buffer): Buffer {
+  try {
+    const doc = JSON.parse(body.toString("utf8")) as {
+      repos?: { uri?: string }[];
+    };
+    if (Array.isArray(doc.repos)) {
+      for (const r of doc.repos) r.uri = "";
+    }
+    return Buffer.from(JSON.stringify(doc), "utf8");
+  } catch {
+    // Not the shape we expected: answer nothing rather than pass an unread body to the LAN.
+    return Buffer.from(
+      JSON.stringify({ repos: [], revision: "offline" }),
+      "utf8",
+    );
+  }
+}
 
 /** Headers we must not forward: the hop's own, and anything naming the local origin. */
 /**
@@ -72,9 +112,15 @@ export function mountRemotePl8(
     const { serverUrl, serverToken } = read();
     if (!serverUrl) return next(); // unpaired: the shim answers
 
-    // The LAN gets the offline answers. A peer riding this would simply have the account, and
-    // nothing about that shows — see origin.ts.
-    if (!isLoopback(req)) return next();
+    // The LAN gets the offline answers, except for the register it needs to agree with this
+    // machine about a project's address. A peer riding the rest would simply have the account,
+    // and nothing about that shows — see origin.ts.
+    // originalUrl, never `req.path`: inside an `app.use` mount express strips the matched
+    // prefix, so `req.path` is a DIFFERENT string from the one this handler forwards — and a
+    // policy checked against one while the request goes to the other is no policy at all.
+    const path = req.originalUrl.split("?")[0] ?? "";
+    const lan = !isLoopback(req);
+    if (lan && !lanMayRead(req.method, path)) return next();
 
     // `/pl8/...` on our origin is `<server>/pl8/...` on theirs, which serviceUrl already spells.
     const base = serviceUrl(serverUrl, "pl8");
@@ -92,7 +138,8 @@ export function mountRemotePl8(
         redirect: "follow",
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
-      const buf = Buffer.from(await up.arrayBuffer());
+      const raw = Buffer.from(await up.arrayBuffer());
+      const buf = lan ? redactForLan(raw) : raw;
       res.status(up.status);
       const type = up.headers.get("content-type");
       if (type) res.type(type);
