@@ -15,6 +15,7 @@ import { line } from "../logbus.ts";
 import { mountLocalAuth } from "./auth.ts";
 import { serveFromVite } from "./devProxy.ts";
 import { serveFrontend } from "./frontend.ts";
+import { mountPl8Shim } from "./pl8Shim.ts";
 import { firstFreePort } from "./port.ts";
 
 export interface LocalServerOptions {
@@ -53,7 +54,8 @@ export async function startLocalServer(
   // BEFORE the SPA, always: a route that falls through to the catch-all answers index.html,
   // and a fetch expecting JSON would parse a page.
   mountLocalAuth(app);
-  // LOT B3 mounts the pl8 shim here, for the same reason.
+  // LOT C puts the remote proxy in front of this, for loopback callers with a paired server.
+  mountPl8Shim(app);
 
   // No requireAuth: this origin serves one person, at their own machine. The engine token is
   // still what guards the engine, exactly as it does for a browser.
