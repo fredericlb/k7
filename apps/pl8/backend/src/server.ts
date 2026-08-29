@@ -15,6 +15,7 @@ import {
 import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
+import { isLoopbackReturn } from "@studio/web-protocol/pairing";
 import express from "express";
 import { z } from "zod";
 import { huntRouter } from "./routes/hunt.ts";
@@ -93,6 +94,27 @@ app.use(
     prefsSchema,
   ),
 );
+
+// A token for a DESKTOP app on its loopback port; isLoopbackReturn IS this route's security (apps/studio-desktop/docs/pairing.md).
+app.get("/api/token/pair", requireAuth, (req, res) => {
+  const back = String(req.query.return ?? "");
+  // The predicate is shared with the app that builds this address: one rule, two sides.
+  if (!isLoopbackReturn(back))
+    return res
+      .status(400)
+      .json({ error: "return must be an http loopback address" });
+  const target = new URL(back);
+
+  const who = (req as { user?: { sub?: string; email?: string } }).user;
+  const id = who?.sub ?? who?.email;
+  if (!id) return res.status(401).json({ error: "no user on the session" });
+
+  target.searchParams.set("token", issueApiToken(id));
+  target.searchParams.set("identity", who?.email ?? id);
+  if (typeof req.query.state === "string")
+    target.searchParams.set("state", req.query.state);
+  res.redirect(target.toString());
+});
 
 /** Mint a token for the signed-in user. Session only: a token must not mint another. */
 app.post("/api/token", requireAuth, (req, res) => {

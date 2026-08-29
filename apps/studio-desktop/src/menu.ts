@@ -17,6 +17,8 @@ export interface MenuView {
   spinner: number;
   autostart: boolean;
   build: string;
+  /** The paired server's origin, or null — the label is the whole of the settings UI for now. */
+  server: string | null;
 }
 
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -333,6 +335,13 @@ export function buildTemplate(
       checked: v.autostart,
       click: () => click("autostart"),
     },
+    // The label IS the state: with no settings window, this row is where "am I paired?" is
+    // answered, so it says which server rather than just offering to change it.
+    act(
+      "server",
+      v.server ? `Server: ${v.server}…` : "Connect to a server…",
+      true,
+    ),
     act("open_root", "Open workspaces root folder", true),
     act("open_log", "Show logs", true),
     { type: "separator" },

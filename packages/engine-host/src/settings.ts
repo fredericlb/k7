@@ -37,6 +37,14 @@ export interface Settings {
    * See apps/studio-desktop/docs/identity.md.
    */
   identity: string | null;
+  /** The studio server this machine is paired with, or null for a machine on its own. */
+  serverUrl: string | null;
+  /**
+   * The bearer that stands in for a session against that server. The desktop page holds NO
+   * cookie for it — the proxy attaches this, and only for a loopback caller. That is what
+   * keeps the whole third-party-cookie and ITP class of problem out of the app.
+   */
+  serverToken: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -51,6 +59,8 @@ export const DEFAULT_SETTINGS: Settings = {
   // 5223 (vite) and 10350 (Tilt).
   webPort: 8780,
   identity: null,
+  serverUrl: null,
+  serverToken: null,
 };
 
 // A hand-edited file is normal here, so each field is validated alone: one bad key must not lose the other four.
@@ -95,6 +105,8 @@ export function loadSettings(): Settings {
     mediatekToken: str(raw.mediatekToken),
     webPort: port(raw.webPort, DEFAULT_SETTINGS.webPort),
     identity: str(raw.identity),
+    serverUrl: str(raw.serverUrl),
+    serverToken: str(raw.serverToken),
   };
 }
 

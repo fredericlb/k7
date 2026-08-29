@@ -11,7 +11,8 @@
     "./projects": "./projects.ts",
     "./tree": "./tree.ts",
     "./quality": "./quality.ts",
-    "./hunt": "./hunt.ts"
+    "./hunt": "./hunt.ts",
+    "./pairing": "./pairing.ts"
   },
   "scripts": {
     "test": "vitest run",

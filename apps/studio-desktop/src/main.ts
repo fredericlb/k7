@@ -4,8 +4,11 @@
 // is inherited), and the log truncate before the supervisor opens the same file for append.
 // See docs/tray.md.
 
+import { settingsPath } from "@studio/engine-client/paths";
 import { loadSettings, saveSettings } from "@studio/engine-host/settings";
-import { app, nativeTheme } from "electron";
+import { pairUrl } from "@studio/web-protocol/pairing";
+import { serviceUrl } from "@studio/web-protocol/services";
+import { app, nativeTheme, shell } from "electron";
 import { clearDevPid, writeDevPid } from "./devPid.ts";
 import { HostLink } from "./host.ts";
 import { resolve as resolveHostCmd } from "./hostCmd.ts";
@@ -18,13 +21,16 @@ import {
   openOriginsFile,
   openTextFile,
   promptForOrigin,
+  promptForServer,
   toggleAutostart,
 } from "./localActions.ts";
 import { initMergedLog, line } from "./logbus.ts";
 import { backstop } from "./pidkill.ts";
 import { routeMenuId } from "./route.ts";
 import { bundledDist } from "./server/frontend.ts";
+import { adoptIdentity } from "./server/identity.ts";
 import { type LocalServer, startLocalServer } from "./server/index.ts";
+import { armPairing, pairingReturnUrl } from "./server/pairing.ts";
 import { StudioTray } from "./tray.ts";
 import { destroyWindow, markQuitting, openWindow } from "./window.ts";
 
@@ -61,6 +67,9 @@ function onMenuClick(id: string): void {
       break;
     case "autostart":
       tray?.setAutostart(toggleAutostart());
+      break;
+    case "server":
+      void connectToServer();
       break;
     case "openRoot":
       openFolder(paths.root);
@@ -100,6 +109,7 @@ app.whenReady().then(() => {
   tray = new StudioTray(__STUDIO_BUILD__, onMenuClick);
   tray.start();
   tray.setAutostart(autostartEnabled());
+  tray.setServer(loadSettings().serverUrl);
 
   // Push-based, which is what deletes supervisor.rs's five-second appearance poll.
   nativeTheme.on("updated", () => tray?.repaint());
@@ -144,6 +154,36 @@ app.whenReady().then(() => {
 });
 
 /**
+ * Set a server, then pair with it in the SYSTEM BROWSER. Not a window of our own: an embedded
+ * webview is where an OIDC sign-in must not happen (RFC 8252 §8.12), and the browser is where
+ * the user's password manager and existing session already are.
+ */
+async function connectToServer(): Promise<void> {
+  const settings = loadSettings();
+  const url = promptForServer(settings.serverUrl);
+  if (!url) {
+    // No native prompt off macOS: the settings file is hand-editable by design.
+    openTextFile(settingsPath());
+    return;
+  }
+  saveSettings({ ...loadSettings(), serverUrl: url });
+  tray?.setServer(url);
+
+  if (!web) {
+    line("host", "no local server yet — cannot pair");
+    return;
+  }
+  const state = armPairing();
+  const open = pairUrl(
+    serviceUrl(url, "pl8"),
+    pairingReturnUrl(web.url),
+    state,
+  );
+  line("host", `pairing: opening ${serviceUrl(url, "pl8")} in the browser`);
+  await shell.openExternal(open);
+}
+
+/**
  * Serve st0 from this machine, and REMEMBER the port. A port that moves every launch breaks
  * four things at once — see server/port.ts — so what was actually bound is written back.
  */
@@ -154,6 +194,18 @@ async function startWeb(): Promise<void> {
     web = await startLocalServer({
       port: settings.webPort,
       distDir,
+      // Read per request, not captured: pairing must take effect without a restart.
+      remote: () => {
+        const s = loadSettings();
+        return { serverUrl: s.serverUrl, serverToken: s.serverToken };
+      },
+      onPaired: ({ token, identity }) => {
+        saveSettings({ ...loadSettings(), serverToken: token });
+        // The workspaces move with the identity, or every offline project simply stops being
+        // listed and reads as "my songs are gone" — see server/identity.ts.
+        if (identity) adoptIdentity(identity);
+        tray?.setServer(loadSettings().serverUrl);
+      },
       // In dev the SPA comes from the session's vite, so the origin contract is the same one
       // a packaged build has rather than a second arrangement nobody exercises.
       viteUrl: distDir ? undefined : "http://localhost:5223",

@@ -28,6 +28,7 @@ const view = (
   spinner: 0,
   autostart: false,
   build: "26.08291200",
+  server: null,
   ...rest,
 });
 

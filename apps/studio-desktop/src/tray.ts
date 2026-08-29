@@ -35,6 +35,7 @@ export class StudioTray {
       spinner: 0,
       autostart: false,
       build,
+      server: null,
     };
   }
 
@@ -62,6 +63,11 @@ export class StudioTray {
 
   setAutostart(autostart: boolean): void {
     this.view = { ...this.view, autostart };
+    this.render();
+  }
+
+  setServer(server: string | null): void {
+    this.view = { ...this.view, server };
     this.render();
   }
 

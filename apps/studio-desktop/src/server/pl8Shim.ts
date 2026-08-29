@@ -22,6 +22,15 @@ function say(res: Response, status: number, error: string): void {
 const NO_SERVER =
   "no server is configured, so this belongs to nobody yet — set one in Settings";
 
+/**
+ * The catch-all answer, as a handler the REMOTE proxy can fall back to when the server cannot
+ * be reached. Same body, so a paired machine that loses its network behaves exactly like one
+ * that never had a server.
+ */
+export function pl8Offline(_req: unknown, res: Response): void {
+  say(res, 503, NO_SERVER);
+}
+
 export function mountPl8Shim(app: Express): void {
   // ── the register ──────────────────────────────────────────────────────────
 

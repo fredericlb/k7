@@ -15,8 +15,10 @@ import { line } from "../logbus.ts";
 import { mountLocalAuth } from "./auth.ts";
 import { serveFromVite } from "./devProxy.ts";
 import { serveFrontend } from "./frontend.ts";
-import { mountPl8Shim } from "./pl8Shim.ts";
+import { mountPairing, type PairingResult } from "./pairing.ts";
+import { mountPl8Shim, pl8Offline } from "./pl8Shim.ts";
 import { firstFreePort } from "./port.ts";
+import { mountRemotePl8, type ReadRemote } from "./remote.ts";
 
 export interface LocalServerOptions {
   /** From settings; taken as a starting point, since something else may hold it. */
@@ -29,6 +31,12 @@ export interface LocalServerOptions {
    * does. What must NOT cross that boundary is guarded per-route, not by the bind — see origin.ts.
    */
   host?: string;
+  /**
+   * Read fresh per request, so pairing takes effect without a restart. Absent means unpaired,
+   * which is the state a machine starts in and the one every test wants.
+   */
+  remote?: ReadRemote;
+  onPaired?: (r: PairingResult) => void;
 }
 
 export interface LocalServer {
@@ -54,7 +62,14 @@ export async function startLocalServer(
   // BEFORE the SPA, always: a route that falls through to the catch-all answers index.html,
   // and a fetch expecting JSON would parse a page.
   mountLocalAuth(app);
-  // LOT C puts the remote proxy in front of this, for loopback callers with a paired server.
+  mountPairing(app, opts.onPaired ?? (() => {}));
+  // The remote goes FIRST and the shim behind it: the shim stays the answer for an unpaired
+  // machine, for the LAN, and for anything the remote could not be asked.
+  mountRemotePl8(
+    app,
+    opts.remote ?? (() => ({ serverUrl: null, serverToken: null })),
+    pl8Offline,
+  );
   mountPl8Shim(app);
 
   // No requireAuth: this origin serves one person, at their own machine. The engine token is

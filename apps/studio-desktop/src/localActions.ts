@@ -68,6 +68,22 @@ export function promptForOrigin(): string | null {
   return value ? value : null;
 }
 
+/**
+ * Ask for a studio server's address. Same shape as `promptForOrigin`, and the same limitation:
+ * macOS has a native text prompt, elsewhere the settings file is opened for hand-editing —
+ * which `settings.ts` was designed for ("small and hand-editable on purpose").
+ */
+export function promptForServer(current: string | null): string | null {
+  if (process.platform !== "darwin") return null;
+  const script =
+    'display dialog "The studio server to connect this machine to.\n\nIts address, e.g. https://studio.example.com" ' +
+    `default answer ${JSON.stringify(current ?? "https://")} with icon note with title "studio-capot"`;
+  const out = spawnSync("osascript", ["-e", script], { encoding: "utf8" });
+  if (out.status !== 0) return null;
+  const value = out.stdout.match(/text returned:(.*)$/)?.[1]?.trim();
+  return value ? value : null;
+}
+
 /** Off macOS: make sure the origins file exists, then open it — an absent file opens as nothing at all. */
 export function openOriginsFile(path: string): void {
   if (!path) return;
