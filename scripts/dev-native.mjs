@@ -9,7 +9,10 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, statSync, watch } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launch, stopAll } from "../engine/capot/scripts/trayProcess.mjs";
+import {
+  launch,
+  stopAll,
+} from "../apps/studio-desktop/scripts/trayProcess.mjs";
 
 // Under WSL the toolchain is on the host: mirror the tree and run THIS script there (../docs/wsl.md).
 if (process.env.STUDIO_NATIVE_MIRROR && process.platform !== "win32") {
@@ -46,13 +49,13 @@ const TARGETS = {
     ],
     build: buildEngine,
   },
-  // The desktop app. Watched on its BUILD OUTPUT, not its sources: the `capot` Tilt resource
+  // The desktop app. Watched on its BUILD OUTPUT, not its sources: the `studio-desktop` Tilt resource
   // runs esbuild, so what reaches us is already compiled, and a failed build simply never
   // produces a new file — leaving the running app untouched instead of down.
-  capot: {
+  "studio-desktop": {
     dirs: [
       {
-        path: join(repo, "engine", "capot", "dist"),
+        path: join(repo, "apps", "studio-desktop", "dist"),
         recursive: false,
         match: (base) => base === "main.cjs",
       },
@@ -62,7 +65,7 @@ const TARGETS = {
 };
 
 // Rebuild order: the slow one first, so a broken C++ never costs anything downstream.
-const ORDER = ["moteur", "capot"];
+const ORDER = ["moteur", "studio-desktop"];
 
 /** Delegated to the moteur's own build:* scripts, so this holds no CMake knowledge. */
 function buildEngine() {
@@ -214,8 +217,8 @@ if (!bin) {
   log("the engine is older than its sources — rebuilding");
   dirty.add("moteur");
 }
-// Always, but it costs nothing now: `capot` has no build here, so this only means "launch it".
-dirty.add("capot");
+// Always, but it costs nothing now: the app has no build here, so this only means "launch it".
+dirty.add("studio-desktop");
 
 await cycle();
 
@@ -234,6 +237,6 @@ for (const [target, { dirs }] of Object.entries(TARGETS))
   }
 
 log(
-  "watching engine/moteur and engine/capot/dist — save to rebuild and restart",
+  "watching engine/moteur and apps/studio-desktop/dist — save to rebuild and restart",
 );
 setInterval(() => {}, 1 << 30); // the watchers are unref'd, so hold the process open ourselves

@@ -8,12 +8,12 @@ The music and stage apps of the frediverse.
 | `apps/st0` | text-first DAW — the web editor; the origin's front door | `st0.priv.frediver.se` |
 | `apps/pl8` | the media library — songs, samples, recordings | `st0.priv.frediver.se/pl8` |
 | `engine/moteur` | the native C++ audio engine (JUCE/Tracktion) | — |
-| `engine/capot` | the desktop app that supervises the engine | — |
+| `apps/studio-desktop` | the desktop app that supervises the engine | — |
 | `apps/z0` | blind-test game — six SPAs behind one origin | `st0.priv.frediver.se/z0` |
 
 `packages/` is studio's shared tier, all `@studio/*` and consumed as raw
 TypeScript source: the song compiler, the command layer, the engine client and
-supervisor, the view engines, the waveform component. The engine and the tray
+supervisor, the view engines, the waveform component. The engine and the desktop app
 serve every audio app, not just st0 — hence their own directories. Anything
 shared with the `phare` monorepo lives in `commons/` instead.
 
@@ -28,7 +28,7 @@ If you already cloned without it: `git submodule update --init`.
 ```bash
 npm ci
 cp env.example.yaml env.yaml   # then fill in the secrets
-npm run dev                    # every app, plus the engine and the tray
+npm run dev                    # every app, plus the engine and the desktop app
 ```
 
 The studio answers at **https://st0.priv.frediver.se** — one origin, one path per service.
@@ -58,16 +58,18 @@ git add commons && git commit -m "bump commons"
 before the pointer — without it you'd push a pointer to a commit nobody can
 fetch. To pull a commons change made from phare: `npm run commons:sync`.
 
-## The native parts
+## What runs on the musician's machine
 
-`engine/moteur` is a CMake/JUCE/Tracktion C++ project; `engine/capot` is an Electron
-app around it. The moteur deliberately declares no `build` script at all, so turbo can
+`engine/moteur` is a CMake/JUCE/Tracktion C++ project; `apps/studio-desktop` is an Electron
+app around it. Neither is in the deployed image — the desktop app sits under `apps/` with the
+server apps, and stays out of the image because `turbo prune` names its packages rather than
+globbing the directory. The moteur deliberately declares no `build` script at all, so turbo can
 never try to compile C++. They have their own commands:
 
 ```bash
 npm run build:win --workspace moteur     # or build:mac
-npm run app:setup --workspace capot      # once: fetch the Electron runtime
-npm run engine:build --workspace capot   # engine + staging + the packaged app
+npm run app:setup --workspace studio-desktop      # once: fetch the Electron runtime
+npm run engine:build --workspace studio-desktop   # engine + staging + the packaged app
 ```
 
 `engine/moteur/build` is large (~30 GB) and fully gitignored. It bakes absolute paths into

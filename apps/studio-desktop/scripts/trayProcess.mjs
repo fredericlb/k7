@@ -10,8 +10,8 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const here = dirname(fileURLToPath(import.meta.url)); // engine/capot/scripts
-export const trayDir = dirname(here); //                engine/capot
+const here = dirname(fileURLToPath(import.meta.url)); // apps/studio-desktop/scripts
+export const trayDir = dirname(here); //                apps/studio-desktop
 export const MERGED = join(homedir(), ".studio", ".studio.log"); // truncated by logbus::init on every launch
 export const TRAY_LOG = join(trayDir, ".cache", "dev", "tray.log"); // where start-engine.mjs puts its stdout
 /** The Electron app's own pid in dev, since unpackaged its image is `electron` (docs/restartTray.md). */

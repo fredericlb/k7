@@ -37,7 +37,8 @@
     ".": {
       "entry": [
         "scripts/*.mjs",
-        "scripts/**/*.mjs"
+        "scripts/**/*.mjs",
+        "demos/**/jsdsp.ts"
       ]
     },
     "engine/moteur": {
@@ -45,11 +46,10 @@
         "scripts/*.{ts,mjs}"
       ]
     },
-    "engine/capot": {
+    "apps/studio-desktop": {
       "entry": [
         "src/main.ts",
-        "scripts/*.mjs",
-        "songs/**/jsdsp.ts"
+        "scripts/*.mjs"
       ],
       "ignoreDependencies": [
         "electron-builder"

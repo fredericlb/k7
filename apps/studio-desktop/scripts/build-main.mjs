@@ -39,7 +39,9 @@ const options = {
 if (process.argv.includes("--watch")) {
   const ctx = await esbuild.context(options);
   await ctx.watch();
-  console.log("watching engine/capot/src — save to rebuild dist/main.cjs");
+  console.log(
+    "watching apps/studio-desktop/src — save to rebuild dist/main.cjs",
+  );
 } else {
   await esbuild.build(options);
 }

@@ -44,7 +44,7 @@ engine/moteur/               the C++ project (studio-moteur)          — native
   CMakeLists.txt · CMakePresets.json · docs/design.md
   engine/    library studio::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
   server/    app studio-moteur       (WebSocket audio server, main.cpp)
-engine/capot/                the menu-bar view (spawns @studio/engine-host, the supervisor)
+apps/studio-desktop/                the menu-bar view (spawns @studio/engine-host, the supervisor)
 apps/st0/                the web editor — frontend / backend
 packages/                  studio's shared tier (consumed as raw TS source):
   song/                    @studio/song            — song model + compiler + Strudel patterns

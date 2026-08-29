@@ -1,7 +1,7 @@
 # Constat global — l'axe audio
 
 **Relevé du 2026-08-26, sur `8f27aab1`.** Périmètre : `apps/st0`, `engine/moteur`,
-`engine/capot` et les paquets qu'ils pilotent. Hors périmètre : `apps/{z0,k7,pl8,studio}`.
+`apps/studio-desktop` et les paquets qu'ils pilotent. Hors périmètre : `apps/{z0,k7,pl8,studio}`.
 Relevé précédent : 2026-08-21 sur `a4808e35`, **116 commits plus tôt** — l'écart est dit ici
 parce qu'il est la chose que cette page a le plus mal supportée.
 

@@ -20,8 +20,8 @@ import {
 import { basename, dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const here = dirname(fileURLToPath(import.meta.url)); // engine/capot/scripts
-export const trayDir = dirname(here); //               engine/capot
+const here = dirname(fileURLToPath(import.meta.url)); // apps/studio-desktop/scripts
+export const trayDir = dirname(here); //               apps/studio-desktop
 export const repo = join(trayDir, "..", ".."); //      the monorepo root
 export const engineDir = join(repo, "engine", "moteur");
 export const CACHE = join(trayDir, ".cache"); // vendored downloads (gitignored)

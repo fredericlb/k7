@@ -25,7 +25,7 @@
     "apps/pl8/frontend",
     "apps/pl8/backend",
     "engine/moteur",
-    "engine/capot"
+    "apps/studio-desktop"
   ],
   "scripts": {
     "dev": "node scripts/dev.mjs",

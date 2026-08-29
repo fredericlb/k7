@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // tilt-tasks.mjs — the dev-session task list as JSON, for the Tiltfile: a package
 // joins by having a `dev` script; dropped are the `apps/<x>` aggregators (their `dev`
-// re-runs their children — every server twice) and the tsc --watch panes. `capot` used
+// re-runs their children — every server twice) and the tsc --watch panes. The desktop app used
 // to be dropped too, when it was a native build; now its `dev` only runs esbuild and starts
 // no app, so it is an ordinary resource.
 // The reasons are docs/dev.md's "The task list".

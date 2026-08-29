@@ -182,7 +182,7 @@ pas pour servir d'objectif de performance sur une machine qui construit en même
 
 ### `faust -lang cpp` à la compilation du moteur
 
-Un script dans `engine/capot/scripts/` qui passe les `.dsp` du dépôt par le compilateur et
+Un script dans `apps/studio-desktop/scripts/` qui passe les `.dsp` du dépôt par le compilateur et
 génère une liste, à la manière de `AirWindowsList.h`. Zéro dépendance à l'exécution, vitesse
 native, rien à lire côté licence.
 

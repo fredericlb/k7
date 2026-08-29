@@ -1,4 +1,9 @@
-# AGENTS.md — capot
+# AGENTS.md — studio-desktop
+
+The DIRECTORY moved out of `engine/` and the npm package is `studio-desktop`; the app the
+user installs is still called **`studio-capot`** — `productName`, the executable, the Quit
+item, the tooltip. Renaming that is its own change: `docs/tray.md` lists what a rename may
+and may not touch, and the bundle identifier is frozen regardless.
 
 The **menu-bar / system-tray view** over the engine supervisor — Electron, TypeScript,
 windowless.

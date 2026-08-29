@@ -8,11 +8,11 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { repoRoot } from "./hostCmd.ts";
 
-/** `engine/capot/.cache/dev/app.pid`, beside the dev tray log, or null when there is no repo. */
+/** `apps/studio-desktop/.cache/dev/app.pid`, beside the dev tray log, or null when there is no repo. */
 function devPidPath(): string | null {
   const root = repoRoot();
   if (!root) return null;
-  return join(root, "engine", "capot", ".cache", "dev", "app.pid");
+  return join(root, "apps", "studio-desktop", ".cache", "dev", "app.pid");
 }
 
 export function writeDevPid(): void {

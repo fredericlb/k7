@@ -10,7 +10,7 @@ appId: org.parapluie.studio.engine-tray
 productName: studio-capot
 
 directories:
-  # engine/capot/out, beside the scripts — NOT the repo-root out/, which is turbo prune's
+  # apps/studio-desktop/out, beside the scripts — NOT the repo-root out/, which is turbo prune's
   # (see the root .gitignore). buildEngine.md says the desktop app is what ships its artifacts.
   output: out
   buildResources: build

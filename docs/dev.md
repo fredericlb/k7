@@ -209,7 +209,7 @@ engine is run in dev, since the supervisor inside it is what spawns the binary.
 
 The engine is C++, so it has no watch mode that means anything: there is nothing to
 hot-reload, only a binary to relink and a process to restart. **The app is no longer in that
-position.** `engine/capot/dist/main.cjs` is an esbuild bundle, not a linked image, so a
+position.** `apps/studio-desktop/dist/main.cjs` is an esbuild bundle, not a linked image, so a
 running app does not hold it open — its BUILD is an ordinary Tilt resource (`capot`, running
 `build-main.mjs --watch`), and only its LIFETIME stays here, because a running engine holds
 `studio-moteur` open and nothing but stopping the app releases it.
@@ -286,15 +286,15 @@ its own handler to run, and an orphaned menu-bar icon with no session to explain
 the one leak worth being sure about. If one ever escapes anyway:
 
 ```bash
-npm run tray:stop --workspace capot
+npm run tray:stop --workspace studio-desktop
 ```
 
 ## Where the steps live
 
-`engine/capot/scripts/trayProcess.mjs` holds the tray's lifetime as functions — `running`,
+`apps/studio-desktop/scripts/trayProcess.mjs` holds the tray's lifetime as functions — `running`,
 `stopAll`, `buildDevApp`, `launch` — and `restart-tray.mjs` is a thin CLI over it.
 The one difference from a script is that every step **throws** rather than calling
 `process.exit`: a one-shot command turns that into an exit code, and a watcher meant to
 outlive a bad build cannot afford either. See
-[engine/capot/scripts/docs/restartTray.md](../engine/capot/scripts/docs/restartTray.md) for
+[apps/studio-desktop/scripts/docs/restartTray.md](../apps/studio-desktop/scripts/docs/restartTray.md) for
 what those steps do and why the order is not negotiable.

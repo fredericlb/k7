@@ -3,7 +3,7 @@
 // 8fps animation does not rebuild the menu (and, on macOS, close it under the cursor) eight
 // times a second.
 //
-//   npm run app:spike-menu --workspace capot
+//   npm run app:spike-menu --workspace studio-desktop
 //
 // Run it on macOS, Windows and Linux. See docs/trayIcon.md.
 
@@ -72,7 +72,7 @@ Quit from the menu when you are done.
 
 if (!existsSync(exe)) {
   console.error(
-    "error: no Electron runtime. `npm run app:setup --workspace capot` fetches it —\n" +
+    "error: no Electron runtime. `npm run app:setup --workspace studio-desktop` fetches it —\n" +
       "  electron@44 declares no postinstall, so `npm install` alone never does.",
   );
   process.exit(1);

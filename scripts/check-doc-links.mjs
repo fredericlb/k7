@@ -17,7 +17,7 @@ const REF =
 /** Paths a page may name although this checkout has not got them — kept short (../docs/lints.md). */
 const ALLOW = [
   // Written relative to engine/moteur, whose own docs are the only ones that do it.
-  /^engine\/(?!moteur\/|capot\/)/,
+  /^engine\/(?!moteur\/)/,
   // The commons submodule, which a shallow checkout may not have.
   /^packages\/(http|oidc|pkg|a)\//,
 ];

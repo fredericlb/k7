@@ -1,7 +1,7 @@
 // spike-job.mjs — WINDOWS ONLY. Proves the one thing no green test run can: that a
 // FORCE-KILLED app takes its children with it. Run it before trusting job.ts.
 //
-//   node engine/capot/scripts/spike-job.mjs
+//   node apps/studio-desktop/scripts/spike-job.mjs
 //
 // It builds a throwaway Electron main that inits the real src/job.ts, spawns a long-lived
 // grandchild, then taskkill /F's the Electron process WITHOUT /T — so only the job can be
@@ -71,7 +71,7 @@ const electron = join(
 );
 if (!existsSync(electron)) {
   console.error(
-    "error: no Electron runtime. `npm run app:setup --workspace capot` fetches it —\n" +
+    "error: no Electron runtime. `npm run app:setup --workspace studio-desktop` fetches it —\n" +
       "  electron@44 declares no postinstall, so `npm install` alone never does.",
   );
   process.exit(1);

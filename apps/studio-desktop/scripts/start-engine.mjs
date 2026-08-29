@@ -10,8 +10,8 @@ import { existsSync, mkdirSync, openSync, writeSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const here = dirname(fileURLToPath(import.meta.url)); // engine/capot/scripts
-const trayDir = dirname(here); //                      engine/capot
+const here = dirname(fileURLToPath(import.meta.url)); // apps/studio-desktop/scripts
+const trayDir = dirname(here); //                      apps/studio-desktop
 const repo = join(trayDir, "..", "..");
 const MAIN = join(trayDir, "dist", "main.cjs");
 const LOG_DIR = join(trayDir, ".cache", "dev");
@@ -31,7 +31,7 @@ const ELECTRON = join(
 
 if (!existsSync(MAIN)) {
   console.error(
-    `error: no ${MAIN} — build it first (npm run app:build --workspace capot).`,
+    `error: no ${MAIN} — build it first (npm run app:build --workspace studio-desktop).`,
   );
   process.exit(1);
 }

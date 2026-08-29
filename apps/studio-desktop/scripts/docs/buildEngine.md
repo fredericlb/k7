@@ -9,7 +9,7 @@ use it — and each file under the 500-line rule:
 | `build-app.mjs` | `npm run app:pack` — the C++ engine, `stageAll` into `staging/`, then electron-builder. |
 | `make-dmg.mjs` | a macOS dmg by hand, for when electron-builder's own target hits hdiutil's EAGAIN. A fallback, not the path. |
 
-Both collect into `engine/capot/out/` — beside the scripts, not in st0: the desktop app is
+Both collect into `apps/studio-desktop/out/` — beside the scripts, not in st0: the desktop app is
 what ships them. The **C++ engine** is CMake with the preset chosen from the host platform,
 delegated to the moteur's own `build:*` npm scripts so "how the engine builds" is defined
 once; Linux has no such script yet and keeps its preset here.

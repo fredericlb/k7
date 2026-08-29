@@ -17,8 +17,8 @@ const ROBOCOPY = "/mnt/c/Windows/System32/Robocopy.exe";
 const CMD = "/mnt/c/Windows/System32/cmd.exe";
 
 // Everything derived stays on the host: the mirror keeps its OWN node_modules, and no build output travels back.
-// `dist` is NOT on this list: engine/capot/dist/main.cjs is the desktop app's main process,
-// esbuilt by the `capot` Tilt resource IN THE DISTRO, and the mirror is how it reaches the
+// `dist` is NOT on this list: apps/studio-desktop/dist/main.cjs is the desktop app's main process,
+// esbuilt by the `studio-desktop` Tilt resource IN THE DISTRO, and the mirror is how it reaches the
 // host that actually runs Electron.
 const SKIP = [
   "node_modules",
@@ -72,9 +72,12 @@ const onHost = (line) =>
 export async function runBridge({
   name = "native",
   command = "node scripts\\dev-native.mjs",
-  // Only engine/ by default: the tray bundles its TS at startup, so nothing else need travel.
-  watch = ["\\engine"],
-  stopCommand = "node engine\\capot\\scripts\\restart-tray.mjs --stop",
+  // Two subtrees, and the second is not optional since the app left engine/: the C++ sources
+  // the host compiles, AND apps/studio-desktop, whose dist/main.cjs is esbuilt in the DISTRO
+  // and is the very thing the host runs. Watching engine/ alone would mirror a stale app
+  // forever, with every save appearing to do nothing.
+  watch = ["\\engine", "\\apps\\studio-desktop"],
+  stopCommand = "node apps\\studio-desktop\\scripts\\restart-tray.mjs --stop",
   periodMs = PERIOD_MS,
   // Set when the host task has no watcher of its own worth trusting — see ../docs/wsl.md.
   restartOnChange = false,

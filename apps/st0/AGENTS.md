@@ -4,7 +4,7 @@ A **text-based DAW**. Your song is a folder of YAML files; the terminal or a web
 is your studio.
 
 **This directory is the web editor, and only that.** The engine (`engine/moteur`), the
-tray (`engine/capot`) and the brain packages (`packages/*`, all `@studio/*`) sit beside it
+tray (`apps/studio-desktop`) and the brain packages (`packages/*`, all `@studio/*`) sit beside it
 rather than inside it, because they serve every audio app in the repo — the repo-root
 `AGENTS.md` holds the map of the whole audio side. Two workspaces live here:
 

@@ -10,4 +10,4 @@ The **engine** is a C++ binary (`engine/moteur`) built on JUCE + Tracktion. It k
 
 The **web app** (`apps/st0/frontend`) is st0' UI. It talks HTTP to the file service for anything on disk, and WebSocket straight to the engine for anything live — transport, meters, plugin parameters. Those two channels are deliberately separate: one is durable state, the other is a 20 Hz feed nobody should persist.
 
-A **tray supervisor** (`engine/capot`, Electron) starts and watches the engine and the file service, and publishes the engine's address so a browser can find it.
+A **tray supervisor** (`apps/studio-desktop`, Electron) starts and watches the engine and the file service, and publishes the engine's address so a browser can find it.
