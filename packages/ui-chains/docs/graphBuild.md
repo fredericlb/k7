@@ -813,13 +813,26 @@ sends, not what makes a track audible), so a graph that omits it quietly claims 
 fewer tracks than it does. Rename a batch of tracks and their chains point at the old names
 while the new ones are nowhere on screen.
 
-`sub` carries the reason, so the node says what is unusual about it rather than leaving the
-reader to notice a missing cable. They are **not dimmed** — dim means bypassed here, and an
-unrouted track is playing, not muted.
+They carry **no note** under the name. One said "no chain", and it was noise: every lane in a
+project that routes nothing wore it, which is most of a song before its chains are written, and a
+label repeated on every card says nothing about any of them. The missing cable is the mark, and it
+is the one a reader is already looking at.
+
+They are **not dimmed** either — dim means bypassed here, and an unrouted track is playing, not
+muted.
 
 Video lanes are in the same list for the same reason: one that no chain mentions still
 draws (`project.layers` composites it), so leaving it out would understate the song exactly
 as it does for audio.
+
+### A lane is a lane at BOTH ends of a cable
+
+`isLane` — either kind — is what decides three things: whether a chain's source is drawn as a
+lane, whether its signal is followed or read off the lane, and whether a run's DESTINATION is an
+existing card or a sink to invent. That third one read `graph.tracks` alone, so a lens wired to a
+picture lane (`packages/song/docs/camera.md`) resolved to an unknown destination and got a **sink
+card of its own**, named after the lane — an output node nobody asked for, sitting beside the real
+lane with the camera cabled to the wrong one. A lane is never a sink: it is already on the canvas.
 
 ## Layout
 

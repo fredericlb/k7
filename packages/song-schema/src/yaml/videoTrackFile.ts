@@ -3,7 +3,7 @@
 // other file editor here (trackFile.ts, sequenceFile.ts): these files carry the comments that
 // document the format, and a round trip through the serialiser would delete every one of them.
 // Browser-safe, because the editor's readers strip edits a buffer that has not been saved yet.
-// Two ways in: by REF, which the drag uses, and by INDEX — see docs/videoTrackFile.md.
+// Two ways in: by REF, which the drag uses, and by INDEX — packages/song-video/docs/picture.md.
 
 import { isSeq, parseDocument } from "yaml";
 
@@ -43,6 +43,37 @@ export function listVideoPlacements(text: string): VideoPlacement[] {
     });
   });
   return out;
+}
+
+/** Set (or clear) the lane's `mute:` — HIDDEN, there being no sound on a picture lane. */
+export function setVideoLaneMute(text: string, mute: boolean): string {
+  let doc: ReturnType<typeof parseDocument>;
+  try {
+    doc = parseDocument(text, OPTS);
+  } catch {
+    return text;
+  }
+  // Removed rather than written `false`: absent already means audible, and a file says what is unusual.
+  if (mute) doc.setIn(["mute"], true);
+  else doc.deleteIn(["mute"]);
+  return doc.toString({ lineWidth: 0 });
+}
+
+/** Set the LANE's own rect — x/y/w/h, top-level keys, in viewport px (packages/song-video/docs/picture.md). */
+export function setVideoLaneRect(
+  text: string,
+  rect: { x: number; y: number; w: number; h: number },
+): string {
+  let doc: ReturnType<typeof parseDocument>;
+  try {
+    doc = parseDocument(text, OPTS);
+  } catch {
+    return text;
+  }
+  // All four, always: a lane stating three of them and inheriting the fourth is a rect nobody can read.
+  for (const k of ["x", "y", "w", "h"] as const)
+    doc.setIn([k], Math.round(rect[k]));
+  return doc.toString({ lineWidth: 0 });
 }
 
 /** Set one numeric field of the placement whose `ref` is `ref` — by REF and not by index, since a drag grabbed a strip. */

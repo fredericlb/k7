@@ -4,6 +4,7 @@
 // component. Both must be fed the same tracks — live Strudel lanes come from their own
 // endpoint, so passing only `project.tracks` silently loses them and any group they fill.
 
+import { splitPort } from "@studio/song-schema/moduleTypes";
 import { HATCH } from "@studio/ui-timeline/lanes";
 import type {
   WebAutomationLane,
@@ -17,13 +18,16 @@ import type {
 // The hatching lives in @studio/ui-timeline, re-exported here so the two surfaces that use it keep reaching for one import.
 export { HATCH };
 
+/** The LANE behind an engine track: one wired on two ports compiles to `lane#audio` and `lane#midi`, and an order is the lane's. */
+export const laneOf = (trackId: string): string => splitPort(trackId).node;
+
 export type Row =
   | { kind: "group"; group: WebGroup }
   // `index` is the track's position in the ORIGINAL array: clustering reorders the display, not the engine's levels.
   | { kind: "track"; track: WebTrack; index: number; grouped: boolean }
   // A TAKE of the lane above it, drawn indented and playing nothing until moved back; `n` is 1-based, as the two commands name it.
   | { kind: "take"; track: WebTrack; take: WebTake; n: number }
-  // A VIDEO lane has no engine index — picture is the renderer's — and is drawn after the audio rows, in `layers:` draw order.
+  // A VIDEO lane has no engine index — picture is the renderer's — and is drawn after the audio rows, FRONT layer first.
   | { kind: "video"; track: WebVideoTrack }
   // An AUTOMATION lane of the track above: one knob against song time, holding no material but addressing its TRACK.
   | { kind: "automation"; track: WebTrack; lane: WebAutomationLane };
@@ -70,8 +74,9 @@ export function projectRows(
       withTakes(m.track, m.index, true);
   });
 
-  // Video lanes last, as their own block: no group, no engine index, and the renderer stacks them in their own order.
-  for (const track of videoTracks) rows.push({ kind: "video", track });
+  // Video lanes last, and REVERSED: `layers:` is bottom-first, and a row above another means IN FRONT of it (docs/picture.md).
+  for (let i = videoTracks.length - 1; i >= 0; i--)
+    rows.push({ kind: "video", track: videoTracks[i] });
 
   return rows;
 }
@@ -93,6 +98,10 @@ export const rowKey = (r: Row): RowKey =>
             // and its param name the row uniquely and `track automation remove` names it back.
             `auto:${r.track.id}:${r.lane.param}`
           : `track:${r.track.id}`;
+
+/** The picture lane a row key names, or null — the ONE place `video:` is taken apart again. */
+export const pictureRowId = (key: RowKey | null | undefined): string | null =>
+  key?.startsWith("video:") ? key.slice("video:".length) : null;
 
 export const rowIndexOf = (rows: Row[], key: RowKey): number =>
   rows.findIndex((r) => rowKey(r) === key);
@@ -132,4 +141,33 @@ export function stepRow(
   for (let i = at + delta; i >= 0 && i < rows.length; i += delta)
     if (can(rows[i])) return rowKey(rows[i]);
   return key;
+}
+
+/** The two lists a reorder can write: a song's lanes (`trackOrder`), and its picture's (`layers`). */
+export type LaneFamily = "track" | "video";
+
+/** The lane a row's header can DRAG, or null — a group, and a live pattern lane, each state no order. */
+export function orderableLane(
+  row: Row,
+): { family: LaneFamily; lane: string } | null {
+  if (row.kind === "video") return { family: "video", lane: row.track.id };
+  // The LIVE pattern lanes are appended from their own endpoint, so a row cannot tell one from a lane the project declares.
+  if (row.kind === "track" && !row.track.generated)
+    return { family: "track", lane: laneOf(row.track.id) };
+  return null;
+}
+
+/** …and the lane a row is a DROP on: a take or an automation row answers with the lane it belongs to. */
+export function dropLaneOf(
+  rows: Row[],
+  key: RowKey | null | undefined,
+  family: LaneFamily,
+): string | null {
+  const row = key ? findRow(rows, key) : undefined;
+  if (!row) return null;
+  if (family === "video") return row.kind === "video" ? row.track.id : null;
+  // A group header is no lane, and moving one would move every member — a different act, and not this one.
+  if (row.kind === "group" || row.kind === "video") return null;
+  // Refused as a target for the reason it cannot be dragged: it may be a live lane, which no list holds.
+  return row.track.generated ? null : laneOf(row.track.id);
 }

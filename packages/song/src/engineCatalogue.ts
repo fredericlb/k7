@@ -17,8 +17,8 @@ import {
   MODULE_TYPES,
   slugifyPluginName,
 } from "@studio/song-schema/moduleTypes";
-import { studioHome } from "./studioHome";
 import type { LoadedModule } from "./rawDoc";
+import { studioHome } from "./studioHome";
 
 /** The scan cache. CONTRACT path — the C++ engine writes and reads this same file (PluginScan.cpp `extsCacheFile()`). */
 export const EXTS_PATH = join(studioHome(), "exts.json");

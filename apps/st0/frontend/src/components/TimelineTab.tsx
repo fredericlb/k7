@@ -4,6 +4,12 @@
 // is a key binding naming a command, run from the shell via this component's imperative
 // handle. See docs/timeline.md.
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@frediverse/ui/dropdown-menu";
 import { cn } from "@frediverse/ui/lib/utils";
 import { arrayEq, useEngineState } from "@studio/engine-browser/store";
 import {
@@ -58,15 +64,20 @@ import {
 } from "../clipInstances";
 import { clipLoop, placedRepeats } from "../clipLoop";
 import type { MenuCtx } from "../contextMenu";
+import { acceptsFileDrop, dragPayload } from "../fileDrop";
 import type { PasteResult } from "../gridCaret";
 import { useDocument } from "../hooks/useDocument";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { blurOnClick } from "../keys";
 import { cursorOf, ModeStrip } from "../modeIcons";
 import {
+  dropLaneOf,
   findRow,
   HATCH,
   isCellRow,
+  type LaneFamily,
+  laneOf,
+  orderableLane,
   projectRows,
   type Row,
   type RowKey,
@@ -78,6 +89,7 @@ import {
 } from "../rows";
 import { dragOffset, freeSnap, snapTo } from "../snap";
 import { recordingFrom } from "../takeCounter";
+import type { DropLane, DropUpload, TimelineDropEvent } from "../timelineDrop";
 import { legendRows } from "../timelineLegend";
 import { type TimelineMode, timelineMode } from "../timelineMode";
 import { TOOL_LABEL, TOOLS, type Tool, toolLine } from "../timelineTools";
@@ -99,6 +111,7 @@ import {
   rulerScale,
   rulerTicks,
 } from "./Ruler";
+import { UploadProgress } from "./UploadProgress";
 
 // Fallback beat width, used only before the pane is measured — after that the view's range fills it exactly.
 const PX_PER_BEAT = 24;
@@ -110,6 +123,15 @@ const EXPAND_EXTRA = 40;
 // The shortest an event may be left by a FREE resize — a 64th; the grid's own step is the floor while there is one.
 const MIN_FREE_BEATS = 1 / 16;
 const NATURAL = 4; // beats drawn for a length-0 clip
+// The lane something is about to land on — a clip drag's target lane, and an OS file drag's alike.
+const DROP_LANE = "bg-primary/10 outline outline-1 outline-primary/60";
+// The row a dragged header would take the place of — the same outline the lane targets wear, one vocabulary.
+const DROP_ROW = "outline outline-1 -outline-offset-1 outline-primary";
+// A header that can be dragged to another slot. `cursor-pointer` stays: the same press still selects the row.
+const GRAB_ROW = "cursor-grab active:cursor-grabbing";
+// The corner's new-lane button, named because it is spelled twice: bare, and as a dropdown's trigger.
+const NEW_TRACK_BTN =
+  "flex h-5 items-center gap-1 rounded px-1 text-[10px] text-muted-foreground uppercase tracking-wider hover:bg-accent hover:text-foreground";
 // How wide a pass must be before its loop mark also gets the glyph: the 8px icon needs its own width plus air.
 const MIN_LOOP_GLYPH_PX = 18;
 const VU_MIN_DB = -60; // name-header VU meter: dB mapped to an empty header fill
@@ -489,6 +511,14 @@ export function TimelineTab({
   onTrackToggle,
   laneNodes,
   onNodeMenu,
+  onNewVideoTrack,
+  onReorder,
+  videoArmed,
+  videoRecording,
+  onVideoArm,
+  onVideoToggle,
+  onDropFiles,
+  dropUpload,
   readOnly = false,
   ref,
 }: {
@@ -507,6 +537,10 @@ export function TimelineTab({
   videoTracks: WebVideoTrack[];
   /** A picture placement was dragged: set these fields of it in SECONDS, by `ref`, as a LIST — one gesture, one read-modify-write (docs/picture.md). */
   onVideoEdit?: (trackId: string, edits: VideoEdit[]) => void;
+  /** OS files were dropped on a lane: upload, declare and place them. Absent ⇒ the pane refuses the drag (hooks/useTimelineDrop.ts). */
+  onDropFiles?: (d: TimelineDropEvent) => void;
+  /** …and how far that upload has got, drawn at the foot of the pane — the file tree's bar, over here. */
+  dropUpload?: DropUpload | null;
   setStatus: (s: string) => void;
   onEditTarget: (t: EditTarget | null) => void; // the clip under the caret, for the Editor panel
   // A clip was CLICKED — a press that never moved; the caret-driven `onEditTarget` above is a different question.
@@ -540,6 +574,17 @@ export function TimelineTab({
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   /** Make a lane — the corner button over the name column; absent ⇒ no button, which is what a frozen song gets. */
   onNewTrack?: () => void;
+  /** …and a PICTURE lane, which turns that button into a menu; absent ⇒ the project declares no viewport and there is nothing to choose between. */
+  onNewVideoTrack?: () => void;
+  /** A header was dragged onto another's row: `takes` is the lane whose place it should have (docs/timeline.md). */
+  onReorder?: (family: LaneFamily, lane: string, takes: string) => void;
+  /** The PICTURE lane armed to record its camera, and whether one is rolling — the browser's, not the engine's (hooks/useVideoRecording.ts). */
+  videoArmed?: string | null;
+  videoRecording?: boolean;
+  /** Toggle that arm; absent ⇒ no button, which is what a frozen song gets. */
+  onVideoArm?: (id: string) => void;
+  /** A picture lane's mute or solo — the audio lane's two words, over picture (docs/picture.md). */
+  onVideoToggle?: (id: string, control: "mute" | "solo") => void;
   // Move the transport, in seconds — the same engine seek the minimap's click uses.
   onSeek?: (seconds: number) => void;
   // Set/clear the transport loop region, in seconds (Shift+L → toggleLoop below).
@@ -631,6 +676,10 @@ export function TimelineTab({
   const mode = timelineMode(move, sel);
   const modeRef = useRef<TimelineMode>(mode);
   modeRef.current = mode;
+  /** Where an OS file drag is hovering — the lane it would land on and the beat it would land at, drawn until it leaves. */
+  const [dropAt, setDropAt] = useState<{ lane: string; beat: number } | null>(
+    null,
+  );
   /** …and the TOOL, which is CHOSEN rather than derived: what a press means. Session only, never written (timelineTools.ts). */
   const [tool, setTool] = useState<Tool>("pointer");
   const toolRef = useRef<Tool>(tool);
@@ -853,13 +902,69 @@ export function TimelineTab({
     [onFocusRow],
   );
 
+  /** Dragging a header to a new slot: which lane is in hand, and which row's place it would take. */
+  const [rowDrag, setRowDrag] = useState<{
+    family: LaneFamily;
+    lane: string;
+    over: string | null;
+  } | null>(null);
+  // Read by the gutter's own onClick: a drag that moved must not also read as the click that selects the row.
+  const rowMoved = useRef(false);
+
+  const beginRowDrag = useCallback(
+    (e: React.PointerEvent, row: Row) => {
+      if (e.button !== 0 || readOnly || !onReorder) return;
+      // The gutter carries controls — mute, solo, arm, the ⋮ menu. A press on one of those is not a press on the handle.
+      if ((e.target as HTMLElement).closest?.("button")) return;
+      const from = orderableLane(row);
+      if (!from) return;
+      rowMoved.current = false;
+      const y0 = e.clientY;
+      const onMove = (ev: PointerEvent) => {
+        if (!rowMoved.current && Math.abs(ev.clientY - y0) <= DRAG_SLOP) return;
+        rowMoved.current = true;
+        // The row under the pointer off the DOM, as every other drag here does — rows have three heights.
+        const key = document
+          .elementFromPoint(ev.clientX, ev.clientY)
+          ?.closest?.("[data-sel-row]")
+          ?.getAttribute("data-sel-row");
+        const over = dropLaneOf(rows, key, from.family);
+        setRowDrag({ family: from.family, lane: from.lane, over });
+      };
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        setRowDrag((d) => {
+          // A drop on nothing, or on the lane's own row, writes nothing: there is no move to journal.
+          if (d?.over && d.over !== d.lane) onReorder(d.family, d.lane, d.over);
+          return null;
+        });
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    [readOnly, onReorder, rows],
+  );
+
   // The gutter is the row's handle on all three kinds of row, paired with `select-none`: a double-click would else select the name.
   const gutterProps = useCallback(
     (row: Row) => ({
-      onClick: () => selectRow(row),
+      onPointerDown: (e: React.PointerEvent) => beginRowDrag(e, row),
+      // Swallowed after a drag: the same press cannot both move the lane and select it.
+      onClick: () => {
+        if (rowMoved.current) return;
+        selectRow(row);
+      },
       onDoubleClick: () => focusRow(row),
     }),
-    [selectRow, focusRow],
+    [selectRow, focusRow, beginRowDrag],
+  );
+
+  /** …and how a PICTURE lane reads: hidden itself, or hidden because something else is soloed (pictureMix.ts). */
+  const pictureOff = useCallback(
+    (t: WebVideoTrack) =>
+      t.mute || (videoTracks.some((x) => x.solo) && !t.solo),
+    [videoTracks],
   );
 
   // How a lane READS: muted, its group muted, or soloed away — mirroring withGroupMix and the engine's solo rule.
@@ -1862,6 +1967,45 @@ export function TimelineTab({
     (mk) => mk.beat >= beatLo && mk.beat <= lastBeat,
   );
 
+  // --- dropping OS files on a lane (docs/timeline.md) -------------------------------
+
+  /** The lanes a drop may walk down, in drawing order — a generated lane holds no file, a shape lane no placement. */
+  const dropTargets = visRows.flatMap((r): DropLane[] =>
+    r.kind === "track" && !r.track.generated
+      ? [{ id: r.track.id, kind: "audio" }]
+      : r.kind === "video" && r.track.kind !== "shape"
+        ? [{ id: r.track.id, kind: "video" }]
+        : [],
+  );
+  const dropping = !readOnly && !!onDropFiles;
+  /** Where a file drag is over: the DOM says which lane, as it does for a clip drag, and the lane's own left edge says which beat. */
+  const dropPointAt = (
+    cx: number,
+    cy: number,
+  ): { lane: string; beat: number } | null => {
+    const el = document
+      .elementFromPoint(cx, cy)
+      ?.closest?.("[data-lane-track],[data-lane-video]");
+    const id =
+      el?.getAttribute("data-lane-track") ??
+      el?.getAttribute("data-lane-video");
+    if (!el || !id) return null;
+    const raw = Math.max(
+      0,
+      beatLo + (cx - el.getBoundingClientRect().left) / ppb,
+    );
+    // Snapped to the lines actually drawn, whichever unit the ruler is reading — the rule every gesture here follows.
+    return { lane: id, beat: nearestTick(bars, raw) ?? raw };
+  };
+  /** Where the drop would land on this lane — a caret rather than a block, the material having no width until it is read. */
+  const dropMark = (lane: string) =>
+    dropAt?.lane === lane ? (
+      <div
+        className="pointer-events-none absolute inset-y-0 z-30 w-0.5 bg-primary"
+        style={{ left: x(dropAt.beat) }}
+      />
+    ) : null;
+
   // The rectangle's slice on one row: drawn per row so it clips with the lane and the row's dimming reads through.
   const selSlice = (b: { beatLo: number; beatHi: number }) => (
     <div
@@ -1965,6 +2109,44 @@ export function TimelineTab({
             "isolate min-h-0 flex-1 overflow-auto",
             toolCursor && "[&_*]:!cursor-[inherit]",
           )}
+          /** OS files: preventDefault is what ACCEPTS the drop — without it the browser silently refuses and then opens the file (fileDrop.ts). */
+          onDragOver={(e) => {
+            if (!dropping || !acceptsFileDrop(dragPayload(e))) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+            const spot = dropPointAt(e.clientX, e.clientY);
+            // Returning the same object bails the update out: `dragover` fires per frame, and this component is not small.
+            setDropAt((d) =>
+              d?.lane === spot?.lane && d?.beat === spot?.beat ? d : spot,
+            );
+          }}
+          // `dragleave` also fires crossing into a child, so the mark comes down only when the pointer really left the pane.
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+              setDropAt(null);
+          }}
+          onDrop={(e) => {
+            if (!dropping || !acceptsFileDrop(dragPayload(e))) return;
+            e.preventDefault();
+            setDropAt(null);
+            const spot = dropPointAt(e.clientX, e.clientY);
+            const files = Array.from(e.dataTransfer.files);
+            if (!files.length) return;
+            // A lane is what says WHERE the material goes, so a drop between rows is refused by name rather than guessed at.
+            if (!spot) {
+              setStatus(
+                "drop it on a lane — a lane is what says where it goes",
+              );
+              return;
+            }
+            onDropFiles?.({
+              lane: spot.lane,
+              lanes: dropTargets,
+              tc: beatsToPosition(spot.beat, tsNum, tsDen),
+              seconds: Math.round((spot.beat / bps) * 1000) / 1000,
+              files,
+            });
+          }}
         >
           <div
             style={{ width: GUTTER + laneW }}
@@ -1991,17 +2173,53 @@ export function TimelineTab({
                 className="sticky left-0 z-10 flex shrink-0 items-center border-r border-border bg-background px-1"
               >
                 {/* NEW TRACK, in the corner: the one place above the lanes that scrolls with neither axis, and `track new` like everything else. */}
-                {onNewTrack && (
-                  <button
-                    type="button"
-                    onClick={onNewTrack}
-                    title="nouvelle piste (track new)"
-                    className="flex h-5 items-center gap-1 rounded px-1 text-[10px] text-muted-foreground uppercase tracking-wider hover:bg-accent hover:text-foreground"
-                  >
-                    <Plus className="h-3 w-3" />
-                    piste
-                  </button>
-                )}
+                {/* One button, two shapes: a song with no frame has one kind of lane, so a menu of one would be a click for nothing. */}
+                {onNewTrack &&
+                  (onNewVideoTrack ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          title="nouvelle piste — audio ou vidéo"
+                          className={NEW_TRACK_BTN}
+                        >
+                          <Plus className="h-3 w-3" />
+                          piste
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem
+                          className="gap-2 text-xs"
+                          onSelect={onNewTrack}
+                        >
+                          <Music className="h-3.5 w-3.5 opacity-70" />
+                          piste audio
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="gap-2 text-xs"
+                          onSelect={onNewVideoTrack}
+                        >
+                          {/* The camcorder every picture lane wears, so the entry and the row it makes are one thing. */}
+                          <TrackIcon
+                            name=""
+                            video
+                            className="h-3.5 w-3.5 opacity-70"
+                          />
+                          piste vidéo
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onNewTrack}
+                      title="nouvelle piste (track new)"
+                      className={NEW_TRACK_BTN}
+                    >
+                      <Plus className="h-3 w-3" />
+                      piste
+                    </button>
+                  ))}
               </div>
               {/* The ruler is both the transport scrubber and a time-range selector — click seeks, drag sweeps `v`'s rectangle (docs/timeline.md). */}
               <div
@@ -2232,7 +2450,12 @@ export function TimelineTab({
                     data-sel-row={rowKey(row)}
                     className={cn(
                       "flex border-b border-border/40",
-                      vt.mute && "opacity-50", // "mute" on a video lane == hidden
+                      // Dimmed == not on screen: hidden itself, or hidden because something else is soloed.
+                      pictureOff(vt) && "opacity-50",
+                      rowDrag?.lane === vt.id && "opacity-40",
+                      rowDrag?.over === vt.id &&
+                        rowDrag.lane !== vt.id &&
+                        DROP_ROW,
                     )}
                     // No context menu: it is DERIVED from the command catalogue, and picture has no verbs in it (docs/contextMenu.md).
                     style={{ height: ROW_H }}
@@ -2243,6 +2466,7 @@ export function TimelineTab({
                       className={cn(
                         "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/40 px-2",
                         GUTTER_STICKY,
+                        onReorder && GRAB_ROW,
                         inSel && "bg-primary/20",
                         labelled && LABEL_SELECTED,
                       )}
@@ -2259,14 +2483,88 @@ export function TimelineTab({
                         className="h-3.5 w-3.5 shrink-0 opacity-70"
                       />
                       <span
-                        className="truncate"
+                        className="flex-1 truncate"
                         title={`${vt.name} — a ${vt.kind === "shape" ? "shape" : "video"} lane; cut in seconds, composited on the viewport`}
                       >
                         {trackLabel(vt.name)}
                       </span>
+                      {/* [m]ute and [s]olo, the audio lane's two, meaning HIDDEN and hides-the-rest. */}
+                      {onVideoToggle && (
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          {(
+                            [
+                              [
+                                "M",
+                                "mute",
+                                vt.mute,
+                                "bg-orange-500 text-white",
+                              ],
+                              ["S", "solo", vt.solo, "bg-amber-400 text-black"],
+                            ] as const
+                          ).map(([label, control, on, onCls]) => (
+                            <button
+                              key={control}
+                              type="button"
+                              title={`${control} ${vt.name}`}
+                              aria-label={`${control} ${vt.name}`}
+                              aria-pressed={on}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onDoubleClick={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onVideoToggle(vt.id, control);
+                                blurOnClick(e);
+                              }}
+                              className={cn(
+                                "flex h-4 w-4 items-center justify-center rounded-sm font-bold text-[9px] leading-none",
+                                on
+                                  ? onCls
+                                  : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground",
+                              )}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {/* ARM: a picture lane records its camera in the BROWSER, so a shape lane — which has no input — gets no button. */}
+                      {onVideoArm && vt.kind !== "shape" && (
+                        <button
+                          type="button"
+                          title={`arm ${vt.name} — record + play captures its camera`}
+                          aria-label={`arm ${vt.name}`}
+                          aria-pressed={videoArmed === vt.id}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onDoubleClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onVideoArm(vt.id);
+                            blurOnClick(e);
+                          }}
+                          className={cn(
+                            "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm font-bold text-[9px] leading-none",
+                            videoArmed === vt.id
+                              ? "bg-red-500 text-white"
+                              : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground",
+                            // Pulsing while the camera is actually rolling: armed and recording are two states.
+                            videoArmed === vt.id &&
+                              videoRecording &&
+                              "animate-pulse",
+                          )}
+                        >
+                          A
+                        </button>
+                      )}
                     </div>
                     <div
-                      className="relative overflow-hidden"
+                      // Hit-tested by a file drop, as data-lane-track is: a shape lane holds no placements, so it takes none.
+                      data-lane-video={vt.kind === "shape" ? undefined : vt.id}
+                      className={cn(
+                        "relative overflow-hidden",
+                        dropAt?.lane === vt.id && DROP_LANE,
+                        // Armed red, the whole lane, exactly as an armed audio lane reads.
+                        videoArmed === vt.id && "bg-red-600/30",
+                      )}
                       style={{
                         width: laneW,
                         // A shape lane holds no placements at all, so it is hatched rather than drawn as an empty row.
@@ -2356,6 +2654,7 @@ export function TimelineTab({
                         );
                       })}
                       {inSel && selBox && selSlice(selBox)}
+                      {dropMark(vt.id)}
                     </div>
                   </div>
                 );
@@ -2551,6 +2850,11 @@ export function TimelineTab({
                     "flex border-b border-border/40",
                     // Dimmed == not audible: muted itself, muted by its group, or silenced because something else is soloed.
                     silent(t) && "opacity-50",
+                    // …and the reorder drag's two marks: the lane in hand, and the slot it would take.
+                    rowDrag?.lane === laneOf(t.id) && "opacity-40",
+                    rowDrag?.over === laneOf(t.id) &&
+                      rowDrag.lane !== laneOf(t.id) &&
+                      DROP_ROW,
                   )}
                   style={{ height: rowH }}
                   // Right-click the lane or gutter → the track's commands. A clip stops this so its own menu wins.
@@ -2570,6 +2874,7 @@ export function TimelineTab({
                       // No `relative`: GUTTER_STICKY positions it, and two position classes would fight in `cn`.
                       "flex shrink-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-r border-border px-2",
                       GUTTER_STICKY,
+                      onReorder && !t.generated && GRAB_ROW,
                       // On the row: a faint tint. Label selected: the full caret mark.
                       onRow && !labelled && "bg-primary/10",
                       inSel && "bg-primary/20",
@@ -2729,7 +3034,8 @@ export function TimelineTab({
                       move?.dragging &&
                         move.toTrackId === t.id &&
                         move.trackId !== t.id &&
-                        "bg-primary/10 outline outline-1 outline-primary/60",
+                        DROP_LANE,
+                      dropAt?.lane === t.id && DROP_LANE,
                     )}
                     style={{ width: laneW }}
                   >
@@ -2737,6 +3043,7 @@ export function TimelineTab({
                     {armed && (
                       <div className="pointer-events-none absolute inset-0 bg-red-600/30" />
                     )}
+                    {dropMark(t.id)}
                     {/* caret cell — gone while the label is selected, and while a rectangle is being drawn, the rectangle BEING the caret then. */}
                     {onRow && !labelled && !selBox && (
                       <div
@@ -3119,6 +3426,15 @@ export function TimelineTab({
           </div>
         </div>
       </div>
+      {/* The drop's own bar, at the foot of the pane: a dragged video is where this surface waits longest. */}
+      <UploadProgress
+        fileName={dropUpload?.fileName ?? null}
+        loaded={dropUpload?.loaded ?? 0}
+        total={dropUpload?.total ?? 0}
+        done={dropUpload?.done ?? 0}
+        count={dropUpload?.count ?? 0}
+        active={!!dropUpload}
+      />
     </div>
   );
 }

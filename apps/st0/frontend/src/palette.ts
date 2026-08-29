@@ -36,6 +36,8 @@ export const LOCAL_COMMANDS = [
   "sequence edit tracker",
   // Arm MIDI learn on a module's param — a UI command because the LISTENING is the browser's; `module cc` writes the map.
   "ui midi learn",
+  // …and arm a PICTURE lane, for the same reason: the camera is the browser's and the engine never hears about it.
+  "ui picture arm",
   // The timeline's selection, zoom, loop and move: the state lives in TimelineTab and these reach it via its handle.
   "ui tool", // what a PRESS means on the active surface — pointer · cut · erase · mute
   "ui wave", // …and on an audio clip's waveform, where the view IS the gesture — standard · onsets · warp
@@ -165,6 +167,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui midi learn": {
     en: "Learn a MIDI control for a module's parameter",
     fr: "Apprendre un contrôle MIDI pour un paramètre de module",
+  },
+  "ui picture arm": {
+    en: "Arm a picture lane to record its camera",
+    fr: "Armer une piste vidéo pour enregistrer sa caméra",
   },
   "ui select": {
     en: "Switch between the caret and a selection",
@@ -404,6 +410,9 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "ui midi learn": [
     { name: "module", kind: "module", hint: "a module of this project" },
     { name: "param", kind: "text", hint: "the name its widget binds" },
+  ],
+  "ui picture arm": [
+    { name: "lane", kind: "text", hint: "a picture lane — bare, it disarms" },
   ],
   "ui edit clip": [
     { name: "name", kind: "file", hint: "a clip of this project" },

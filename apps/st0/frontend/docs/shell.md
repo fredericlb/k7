@@ -259,12 +259,18 @@ Which modules are strips is the project's answer, not the package's — `mixerSt
 off the compiled doc and `useProjectDoc` hands the list up, so the row and the faders can never
 be one reload apart.
 
-**A song can have no strips at all, and most do not.** A strip is a module of plugin type
-`Mixer` (`trackMixer`, `MIXER_PLUGIN`) at the end of a track, and nothing puts one there for
-you — of the songs in a default workspace, none has two. So the button is **disabled** when the
-count is zero and says why in its tooltip, and clicking it with one strip sets a status line
-saying there is nothing to line up. Nothing else explains an empty mixer, and a control that
-answers a click with nothing is worse than one that is visibly unavailable.
+**Every audio lane has a strip**, and `track new` writes it with the lane
+([packages/song/docs/trackMixer.md](../../../../packages/song/docs/trackMixer.md)): a module of
+plugin type `Mixer` (`trackMixer`, `MIXER_PLUGIN`) last in the lane's run. It did not use to —
+nothing put one there for you, so a song's faders had nowhere to write and the Mixer view was
+empty for every project in a default workspace. `scripts/migrateTrackMixer.ts` gives one to the
+lanes that predate the rule.
+
+A song can still have **none** — one whose lanes all run into buses, or one with no `graph.yaml`
+at all. So the button stays **disabled** when the count is zero and says why in its tooltip, and
+clicking it with one strip sets a status line saying there is nothing to line up. Nothing else
+explains an empty mixer, and a control that answers a click with nothing is worse than one that is
+visibly unavailable.
 
 The cards themselves are not hand-rolled, and that is why this works at all. A strip's
 controls are its module's own panel — the very card the graph draws. A hand-rolled strip per
@@ -1327,6 +1333,10 @@ Where the two would otherwise be two copies of one behaviour, the behaviour live
 | the log panel's *clear* | `ui logs clear` | `useLogs` |
 | a surface's pane button (the desk) | `ui turntables` | `fullscreen` / `setFull` in `App`, like any pane |
 | the timeline header's clock / height | `ui ruler`, `ui lanes` | `TimelineHandle` |
+| the timeline corner's ＋ piste | `track new`, and `picture lane new` on a project with a viewport | `App` — the menu appears only when there are two kinds of lane, see [timeline.md](timeline.md) |
+| a timeline header dragged to another row | `track order`, `picture lane order` | `App` — the drag names the lane whose place is taken, see [timeline.md](timeline.md) |
+| a layer moved or resized in the VIEWPORT | `picture rect` | `App` — the selection box is `components/ViewportOverlay.tsx`, see [picture.md](picture.md) |
+| a picture lane's **A** button, and `r` on its row | `ui picture arm <lane>` | `App` — browser-side like `ui midi learn`, since the camera is the browser's ([picture.md](picture.md)) |
 | the cog | `ui settings` — toggles its panel | `App` |
 | the header's Playlists button, on a SET | `ui playlists` — toggles its panel | `App` |
 | the header's Share button | `ui share` — toggles its panel | `App` |
@@ -1340,6 +1350,7 @@ Where the two would otherwise be two copies of one behaviour, the behaviour live
 | the file tree's right-click menu | `fs file new`, `fs folder new`, `fs file rename`, `fs file move`, `fs file delete`, `fs file upload`, `ui pin`, `ui copy path` | `EditorHandle`, and `FileTreeHandle` under it |
 | the clip panel's *stop*, while a take rolls | `transport stop` | the engine |
 | a `.dawproject` / `.als` clicked in the tree | `project import <path>` | `useProjectImport` |
+| a file dropped on a timeline lane | `event add`, `picture add` — the PLACING half; the upload and the `clips/<id>.yaml` go through routes | `hooks/useTimelineDrop.ts`, see [timeline.md](timeline.md) |
 | the master meter's *fix* | `project master fix` | `fixClipping` in `App`, over `MasterMeterHandle` |
 | the channel strip's mono/stereo pairing | `system channel type <ch> <mono\|stereo>` | `@studio/commands` — the rig's file AND the engine |
 | the Playlists panel's *＋* | `playlist new <name>` | `@studio/commands`, in `_playlists/` |

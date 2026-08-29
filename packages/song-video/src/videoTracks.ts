@@ -33,8 +33,15 @@ export function videoPlacementToClip(
   dir: string,
   p: RawVideoPlacement,
   clipsMap: Record<string, RawClip>,
+  /** Where a ref naming no clip is REPORTED — a shot with no source draws nothing and would say nothing. */
+  warnings?: string[],
+  lane?: string,
 ): VideoClipDoc {
   const ref = String(p.ref ?? "");
+  if (!clipsMap[ref])
+    warnings?.push(
+      `${lane ? `${lane}: ` : ""}'${ref}' names no clip — add clips/${ref}.yaml, or this shot draws nothing`,
+    );
   const fadeIn = readFade(p.fade_in);
   const fadeOut = readFade(p.fade_out);
   return {
@@ -99,6 +106,12 @@ export function compileVideoTracks(
   layersRaw: unknown,
   videoTracksMap: Record<string, RawVideoTrack>,
   clipsMap: Record<string, RawClip>,
+  /** The frame, so a lane STATING no rect can fill it — see docs/picture.md. */
+  viewport: readonly [number, number] = [0, 0],
+  /** `project.yaml`'s `soloed:` — the SAME list audio reads, each compile filtering to its own lanes. */
+  soloed: readonly string[] = [],
+  /** Non-fatal problems, pushed as they are found: a blank lane has to be able to say why. */
+  warnings?: string[],
 ): VideoTrackDoc[] {
   const ids = Object.keys(videoTracksMap);
   const layers = (Array.isArray(layersRaw) ? layersRaw : []).map(String);
@@ -124,6 +137,7 @@ export function compileVideoTracks(
   if (errs.length)
     throw new Error(`video config invalid:\n  - ${errs.join("\n  - ")}`);
 
+  const solos = new Set(soloed.map(String));
   return layers.map((id: string) => {
     const t = videoTracksMap[id] ?? {};
     const kind = t.kind === "shape" ? "shape" : "video";
@@ -132,16 +146,18 @@ export function compileVideoTracks(
       name: String(t.name ?? id),
       color: String(t.color ?? ""),
       mute: !!t.mute,
+      solo: solos.has(id),
       kind,
       x: Number(t.x ?? 0),
       y: Number(t.y ?? 0),
-      w: Number(t.w ?? 0),
-      h: Number(t.h ?? 0),
+      // No rect written is the WHOLE frame, as it already is for a camera layer: 0 would be a lane that draws nothing.
+      w: Number(t.w ?? viewport[0]),
+      h: Number(t.h ?? viewport[1]),
       // Only the matching field is read downstream, so the other stays empty.
       clips:
         kind === "video"
           ? (Array.isArray(t.events) ? t.events : []).map((p) =>
-              videoPlacementToClip(dir, p, clipsMap),
+              videoPlacementToClip(dir, p, clipsMap, warnings, id),
             )
           : [],
       shapes:

@@ -76,6 +76,46 @@ describe("layers", () => {
     );
   });
 
+  // The bug: a rect-less lane compiled to 0x0 and drew nothing, in FRONT of the full-frame one.
+  it("gives a lane stating no rect the whole frame, not a 0x0 quad", () => {
+    project(`  viewport: [640, 360]\n  layers: [main]\n`);
+    clip("a", "a.mp4");
+    lane("main", `events:\n  - { ref: a, start: 0, length: 1 }\n`);
+    const [t] = loadVideoProject(dir).videoTracks;
+    expect([t.x, t.y, t.w, t.h]).toEqual([0, 0, 640, 360]);
+  });
+
+  it("keeps a rect the lane DOES state", () => {
+    project(`  viewport: [640, 360]\n  layers: [main]\n`);
+    clip("a", "a.mp4");
+    lane(
+      "main",
+      `x: 320\ny: 180\nw: 320\nh: 180\nevents:\n  - { ref: a, start: 0, length: 1 }\n`,
+    );
+    const [t] = loadVideoProject(dir).videoTracks;
+    expect([t.x, t.y, t.w, t.h]).toEqual([320, 180, 320, 180]);
+  });
+
+  // A shot naming a clip that is not there COMPILES — and then draws nothing, which is the one
+  // failure the frame cannot show you. It is a warning, not a throw: the rest of the picture is fine.
+  it("reports a shot whose clip is missing rather than drawing a blank lane in silence", () => {
+    project(`  viewport: [640, 360]\n  layers: [main]\n`);
+    lane("main", `events:\n  - { ref: gone, start: 0, length: 1 }\n`);
+    const doc = loadVideoProject(dir);
+    expect(doc.warnings).toEqual([
+      expect.stringContaining("'gone' names no clip"),
+    ]);
+    // …and the lane still compiles, so everything else in the frame still draws.
+    expect(doc.videoTracks[0].clips[0].source).toBe("");
+  });
+
+  it("says nothing about a picture that is simply right", () => {
+    project(`  viewport: [640, 360]\n  layers: [main]\n`);
+    clip("a", "a.mp4");
+    lane("main", `events:\n  - { ref: a, start: 0, length: 1 }\n`);
+    expect(loadVideoProject(dir).warnings).toEqual([]);
+  });
+
   it("refuses a layer naming no lane", () => {
     project(`  viewport: [640, 360]\n  layers: [main, nope]\n`);
     lane("main", `events: []\n`);

@@ -408,6 +408,8 @@ export interface WebVideoTrack {
   name: string;
   color: string;
   mute: boolean;
+  /** Soloed, off `project.yaml`'s `soloed:` — the same list audio reads (packages/song-video/docs/picture.md). */
+  solo: boolean;
   kind: "video" | "shape";
   x: number;
   y: number;
@@ -420,6 +422,8 @@ export interface WebVideoTrack {
   /** A live CAMERA feeds this lane instead of its placements — the LABEL a node wired to it names,
    *  and "" for whichever this machine calls default. See packages/song/docs/camera.md. */
   camera?: string;
+  /** …and WHEN that lens opens: `off` never, `auto` while the lane is armed, `on` always. */
+  cameraMonitor?: "off" | "auto" | "on";
 }
 // GET /commands — the palette's catalogue; mirrors ARG_CLASSES in packages/commands/src/commandSpec.ts.
 export type ArgClass =

@@ -174,12 +174,18 @@ for (const dir of roots) {
     console.log("  = no `cut` nodes — already on the platter's gain");
     continue;
   }
-  if (placed) console.log(`  - ${placed} orphaned position(s) in \`positions:\``);
+  if (placed)
+    console.log(`  - ${placed} orphaned position(s) in \`positions:\``);
   changed += 1;
   // Reported apart: the graph and the surface are two files, so a set can be half done.
   if (dead.length)
-    console.log(`  - ${dead.length} cut(s) out of the graph: ${dead.join(", ")}`);
-  if (rebound) console.log(`  + ${rebound} knob(s) moved onto their platter's ${STEM_PARAM}`);
+    console.log(
+      `  - ${dead.length} cut(s) out of the graph: ${dead.join(", ")}`,
+    );
+  if (rebound)
+    console.log(
+      `  + ${rebound} knob(s) moved onto their platter's ${STEM_PARAM}`,
+    );
 
   if (!write) {
     console.log("  (dry run — pass --write to save)");

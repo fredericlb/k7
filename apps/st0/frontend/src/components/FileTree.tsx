@@ -34,6 +34,8 @@ import {
 } from "react";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
 import { libraryTree, readOnlyPaths, rootOf } from "../libraryTree";
+import { isVideoTrackFile } from "../projectPaths";
+import { TrackIcon } from "../trackIcons";
 import type { FileNode } from "../types";
 
 /** The active project's own `modules/`, which the Libraries tab draws as `@project`. */
@@ -561,6 +563,9 @@ export function FileTree({
           icon={(node, open) =>
             isModule(node.path) ? (
               <Boxes className="h-4 w-4 shrink-0" />
+            ) : // A picture lane wears the camcorder here too: a lane is a lane whichever surface is drawing it.
+            isVideoTrackFile(node.path) ? (
+              <TrackIcon name="" video className="h-4 w-4 shrink-0" />
             ) : node.dir ? (
               open ? (
                 <FolderOpen className="h-4 w-4 shrink-0" />

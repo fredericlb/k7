@@ -13,6 +13,22 @@ Two surfaces are involved, both `split` (`packages/song/docs/surfaces.md`):
 There is **no separate picture timeline**. One grid draws both, and the ruler is what makes that
 readable.
 
+## The picture rows are drawn FRONT FIRST
+
+`layers:` is **bottom-first** — the last name draws last, so it is the one in front. The timeline
+lists its picture rows the other way round, topmost layer at the top, which is the ordering every
+compositing tool uses and the only one under which "drag this lane to the top" can mean what it
+looks like.
+
+It read the other way at first, and the bug that came out of it is worth keeping written down: a
+lane dragged to the top row became the FIRST layer, went behind the full-frame lane it had been
+over, and disappeared. Nothing was broken — the row order simply meant the opposite of what the
+gesture did. `rows.test.ts` pins the round trip now, from the top row to the resulting `layers:`.
+
+The reversal is `projectRows`' alone. Nothing downstream re-sorts: the compile hands out
+`videoTracks` bottom-first and the compositor draws them in that order
+(`packages/ui-eyes/src/compositor.ts`), so the frame is unaffected by how the timeline lists them.
+
 ## The ruler reads either unit
 
 The clock button in the timeline's header toggles `RulerMode` between `bars` and `seconds`.
@@ -40,6 +56,102 @@ is one `tempo:` and **no tempo map**. That is the fact the whole feature rests o
 
 It changes nothing on disk. It is a per-session view toggle, beside Expand, because which unit
 you want depends on what you are doing this minute rather than on what the song is.
+
+## Mute, solo, and when a lens is open
+
+A picture row carries **M** and **S** where an audio lane carries M/S/A, and `m`/`s` reach them
+from the keyboard through the same ordered binding `r` uses — `caret_track` first, then
+`caret_picture`, the two lanes' words living in two places.
+
+- **M** is `picture mute`, which on picture means HIDDEN — the lane's own file carries it.
+- **S** is `picture solo`, which writes `project.yaml`'s `soloed:` — the SAME list audio uses
+  ([packages/song-video/docs/picture.md](../../../../packages/song-video/docs/picture.md)).
+
+`pictureMix.ts` is the fold, and it is one module because two surfaces read it: the frame, which
+composites, and the timeline, which dims a row that is off screen. Two copies of "is this lane
+showing" is two answers to a question with one.
+
+The third rule in it is the LENS: a camera wired to a lane opens `off` never, `auto` while that
+lane is armed, and `on` always
+([packages/song/docs/camera.md](../../../../packages/song/docs/camera.md)). A shut lens is dropped
+from the scene rather than drawn-and-hidden, so the camera is never opened and its indicator stays
+off — which is what `off` has to mean to be worth having.
+
+That is also why `sceneOf` takes the armed lane: `auto` is the one visibility rule keyed on SESSION
+state rather than on the document, so arming rebuilds the scene. Arming is a click and the scene
+rebuild is the one this pane already pays for a document change — the alternative is a live channel
+into the driver for a value that moves twice an hour.
+
+## Recording a lane's input
+
+A picture lane carries an **A** button in its timeline gutter. Arm it, enable record, press play,
+and the lane's input — a webcam, the only kind there is for now — is captured for as long as the
+transport rolls. On stop the take lands in `clips/` and is placed on that lane where the playhead
+was, with `picture add`, so it is one journal entry and one Ctrl+Z like every other placement.
+
+**The capture is the browser's, top to bottom**, for exactly the reason the lens itself is: the
+engine never hears about a camera ([packages/song/docs/camera.md](../../../../packages/song/docs/camera.md)).
+`useVideoRecording.ts` is the hook, and `useMidiRecording.ts` beside it is the same shape — the
+third kind of arm this app holds, after the ENGINE's (an audio lane) and the browser's (a MIDI
+lane). Which is why arming a picture lane is `ui picture arm` and not `transport arm`: nothing is
+written, no file changes, and the engine has nothing to be told.
+
+Which camera: the one the lane NAMES if it names one (`camera:`, matched by label, exactly as the
+live lens is), otherwise the machine's default. A label that matches nothing falls back and says
+which cameras there are — the rule the lens already follows, and this reuses `matchCamera` rather
+than restating it.
+
+### Four things the recording has to get right
+
+- **The start is the playhead when the CAMERA started**, read in `onstart`, not when the key was
+  pressed. Opening a lens takes time — a permission prompt takes much more — and a take placed
+  where the gesture began would sit that far ahead of its own first frame.
+- **The length is measured and written.** `picture add` takes one, and a take that omitted it would
+  compile as `length: 0`, "to the end of the source" — a duration the compiler would then have to
+  read out of the file.
+- **A fresh WebM has no duration in it**, which makes it unseekable, which makes it a clip the
+  frame cannot scrub. `fix-webm-duration` repairs the blob before it is uploaded — the same library
+  and the same fix k7's audio recorder already applies.
+- **The lens is let go** on stop and on unmount. A stream left running keeps the indicator lit and
+  the device held until the tab closes.
+
+A take with no bytes — a camera that never delivered a frame — files nothing and says so, rather
+than placing a clip over an empty file.
+
+## Selecting a layer IN the frame, and dragging its rect
+
+Click the picture and you select the layer under the pointer; it gets a box with eight handles.
+Drag the body to move it, drag a handle to resize it, and on release the shell runs
+**`picture rect <lane> <x> <y> <w> <h>`** — a command, so one journal entry and one Ctrl+Z, unlike
+the three timeline drags below. Escape drops the selection.
+
+What is being dragged is the **lane's** rect, not a placement's. A lane says where in the frame it
+draws and its placements say what plays there, so there is one rect per lane however many shots
+run through it — which is also why this is the only geometry verb picture has.
+
+`ViewportOverlay` is **HTML over the GL canvas**, the way the chains graph draws HTML nodes over
+its cable canvas. A hit test inside the renderer would be a second copy of geometry the document
+already states, and it would have to be kept in step with the one the compositor draws from.
+`VideoCanvas` reports its letterboxed CSS size (`onFit`) and the overlay sits on exactly that box,
+absolutely positioned so the canvas keeps the host's centring to itself. One number converts
+between the two spaces — `box.w / viewport[0]` — and it is applied at the edges only: everything
+in `viewportRect.ts` thinks in viewport px, which is what the file states.
+
+### Alt-click reaches the layer behind
+
+A plain click takes the FRONT layer, which is the one you can see. That is right until a project
+has two full-frame lanes, which is the first thing that happens after `picture lane new` — and
+then the one behind can never be clicked at all. **Alt cycles down the stack** and wraps, so every
+layer under the pointer is reachable without a layer list.
+
+### Three limits, each deliberate
+
+- **A `shape` lane is not selectable.** Its rect is not what it draws by — its shapes each carry
+  their own — so a box around it would move a number nothing reads.
+- **Nothing is clamped to the frame.** A shot may legitimately hang off the edge; refusing that
+  would make a pan impossible to author.
+- **`MIN_SIDE` is the floor** (16 px). A layer resized to nothing is unclickable, so it could not
+  be brought back — the one state a drag must not be able to reach.
 
 ## The three drags
 
@@ -76,6 +188,15 @@ it.
 `pxPerSec` and the tick list are captured at the GRAB rather than read live — exactly as the
 audio clip drag captures `ppb`. A zoom arriving mid-drag would otherwise re-scale the offset
 under the cursor and the shot would slide away from the pointer.
+
+### A fourth gesture makes one
+
+The three above move a shot that is already there. Dropping a video file from the desktop onto a
+picture lane is what CREATES one: the bytes into `clips/`, a `clips/<id>.yaml` declaring the
+source, then `picture add <lane> <ref> <seconds>` — a command, so it is one journal entry and one
+Ctrl+Z, unlike the three drags. `apps/st0/frontend/docs/timeline.md` has the whole account; what
+matters here is that the position is converted at the timeline's edge, since the verb's dialect is
+the lane file's own and the grid is in beats.
 
 ## The drag is not a command, but the edit is
 

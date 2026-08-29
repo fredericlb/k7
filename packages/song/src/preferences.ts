@@ -97,7 +97,11 @@ export function normalizePreferences(v: any): Preferences {
     // Lowercased, because ORT's provider names are and a `DML` here would match nothing in silence.
     if (Array.isArray(v.onnxProviders)) {
       const eps = v.onnxProviders
-        .map((s: unknown) => String(s ?? "").trim().toLowerCase())
+        .map((s: unknown) =>
+          String(s ?? "")
+            .trim()
+            .toLowerCase(),
+        )
         .filter(Boolean);
       if (eps.length) p.onnxProviders = eps;
     }

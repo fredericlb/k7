@@ -57,9 +57,33 @@ follows the transport.
 is an error you would expect. A file no name lists is *also* an error, and that is the one
 worth stating: such a lane compiles perfectly and simply never appears.
 
+### A picture that BUILDS can still be wrong
+
+`loadVideoProject` throws for what cannot be built at all — a missing `viewport`, a `layers:` that
+names nothing. Everything else goes in **`warnings`**, and `GET /video-errors` reports them beside
+the throws.
+
+The one that made this necessary: a placement naming a clip that is not there. It compiles — to a
+shot with an empty `source` — and then draws nothing, on a lane that otherwise looks perfectly
+ordinary. `picture add` says so once, at the moment of placing, and then it is gone; a lane blank
+for that reason had no way left to tell you. A throw would be wrong here, since the rest of the
+frame is fine and should still draw.
+
 A song with no `video_tracks/` folder needs neither line. `GET /video-doc` answers with an
 **empty** document for it rather than an error, so "this song has no picture" and "this song's
 picture will not compile" stay two different answers.
+
+### Making a lane is therefore TWO writes
+
+`createVideoTrackFile` (`packages/song/src/loader.ts`) writes `video_tracks/<id>.yaml` **and**
+appends `<id>` to `project.layers`, and the verb behind it — `picture lane new` — is what st0's
+timeline calls. It looks the project file up *before* either write: the half-done state is the one
+above, a lane that compiles perfectly and never appears, and it would have to be repaired by hand.
+
+The new lane is appended, so it draws **last** — on top, and at the TOP of the timeline's picture
+rows, which are listed front-first (`apps/st0/frontend/docs/picture.md`). It states **no**
+`x`/`y`/`w`/`h`, which is the whole frame — see the lane section below for why that had to be made
+true first.
 
 ## A lane, and what `mute` means on one
 
@@ -76,6 +100,16 @@ events:
 a map names a kind. Overlapping two shots and fading the later one in is a cross-dissolve —
 [transitions.md](transitions.md).
 
+The rect is also what the VIEWPORT drags: selecting a layer there and moving or resizing it runs
+`picture rect`, which writes these four keys (`apps/st0/frontend/docs/picture.md`).
+
+**A lane stating no `x`/`y`/`w`/`h` fills the frame.** The compile reads an absent `w`/`h` as the
+viewport's, exactly as it already did for a camera layer. It read them as `0` until the first lane
+anyone made with `picture lane new` proved what that costs: a 0x0 quad, in FRONT of the full-frame
+lane, drawing nothing — which reads as "the reorder did not work" rather than as "this lane has no
+size", because a lane with no size looks exactly like a lane. `videoProject.test.ts` pins both
+halves, the default and a rect that IS stated.
+
 `length: 0` runs to the end of the source — a duration the compiler cannot know without opening
 the file, so it uses the same convention a length-0 audio clip does. `source_from` trims the
 head *of the source*, leaving `start` to say where on the timeline the shot sits: the same
@@ -83,6 +117,18 @@ separation between MATERIAL and ARRANGEMENT that a song's `from`/`to` versus `st
 
 **`mute` means hidden.** There is no sound on a lane, so the word has to mean the other thing;
 the alternative is a second word for the one gesture every lane in every app has.
+
+**And `solo` is `project.yaml`'s `soloed:`** — the SAME list a song's lanes use, not a second one.
+Each compile filters it to its own lanes, so soloing a shot silences nothing and soloing a guitar
+hides nothing; any picture solo hides every un-soloed picture lane, which is the mixer-wide rule
+audio already keeps. The fold is the browser's, since the browser is what composites
+(`apps/st0/frontend/src/pictureMix.ts`) — the engine resolves the audio half and is told about no
+lane of picture at all.
+
+One list means one collision: a project that names an audio lane and a picture lane alike — which
+it may, the two being different entities — solos both with one word. That is the flat name space
+the folder already has, and the two lanes were already indistinguishable in every list that names
+one by id.
 
 A `kind: shape` lane draws rectangles, circles and text instead, in viewport px, and holds no
 placements at all — which is why the timeline hatches it rather than drawing an empty row that

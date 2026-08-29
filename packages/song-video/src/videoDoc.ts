@@ -80,6 +80,8 @@ export interface VideoTrackDoc {
   name: string;
   color: string;
   mute: boolean; // hidden
+  /** Soloed, from `project.yaml`'s `soloed:` — the same list audio uses, resolved within picture (docs/picture.md). */
+  solo: boolean;
   kind: "video" | "shape";
   x: number;
   y: number;
@@ -92,7 +94,12 @@ export interface VideoTrackDoc {
   /** A live CAMERA feeds this lane instead of its placements — the LABEL a node wired to it names,
    *  and "" for whichever this machine calls default. Absent is the ordinary lane (docs/camera.md). */
   camera?: string;
+  /** …and WHEN that lens is opened: `off` never, `auto` while the lane is armed, `on` always. */
+  cameraMonitor?: CameraMonitor;
 }
+
+/** When a lens is opened — the audio input's three words, meaning SHOWN rather than heard. */
+export type CameraMonitor = "off" | "auto" | "on";
 
 /** A named point on the cut, in seconds. `tc` is the key it is stored under, which is its delete key. */
 export interface VideoMarker {
@@ -113,4 +120,7 @@ export interface VideoProjectDoc {
   framePlugins: VideoPluginDoc[];
   /** Every transition a placement NAMES, by name; the built-in dissolve is absent — the renderer owns it. */
   transitions: Record<string, VideoTransitionDoc>;
+  /** What compiled but is not right — a shot naming no clip, say. A THROW is for a picture that
+   *  cannot be built at all; this is for the ones that build and then draw nothing (docs/picture.md). */
+  warnings: string[];
 }

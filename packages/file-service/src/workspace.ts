@@ -1779,9 +1779,12 @@ export class Workspace {
       name: t.name,
       color: t.color,
       mute: t.mute,
+      solo: t.solo,
       kind: t.kind,
-      // The LENS wired to this lane, when one is — packages/song/docs/camera.md.
-      ...(t.camera === undefined ? {} : { camera: t.camera }),
+      // The LENS wired to this lane, when one is, and when it opens — packages/song/docs/camera.md.
+      ...(t.camera === undefined
+        ? {}
+        : { camera: t.camera, cameraMonitor: t.cameraMonitor ?? "on" }),
       x: t.x,
       y: t.y,
       w: t.w,
@@ -1944,8 +1947,9 @@ export class Workspace {
     // No lanes is not an error, for the same reason the document above is empty rather than a throw.
     if (!dir || !hasPicture(dir)) return { errors: [], diagnostics: [] };
     try {
-      this.cachedVideoDoc(dir);
-      return { errors: [], diagnostics: [] };
+      // A picture that BUILT can still be wrong — a shot naming no clip draws nothing and, without
+      // this, said nothing either. A throw is the other case: a picture that cannot be built at all.
+      return { errors: this.cachedVideoDoc(dir).warnings, diagnostics: [] };
     } catch (e) {
       return { errors: [(e as Error).message], diagnostics: [] };
     }

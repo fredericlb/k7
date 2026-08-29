@@ -795,7 +795,7 @@ export function cameraUI(
   ];
   return {
     cols: 2,
-    rows: 1,
+    rows: 2,
     widgets: {
       camera: {
         type: "dropdown",
@@ -805,6 +805,20 @@ export function cameraUI(
         bind: CAMERA_BIND,
         label: "cam",
         options,
+      },
+      // A lens gets the input's own three words, meaning SHOWN rather than heard (docs/camera.md).
+      monitor: {
+        type: "dropdown",
+        col: 0,
+        row: 1,
+        colSpan: 2,
+        bind: "@monitor",
+        label: "mon",
+        options: [
+          { label: "off", value: 0 },
+          { label: "auto", value: 1 },
+          { label: "on", value: 2 },
+        ],
       },
     },
   };
@@ -834,12 +848,13 @@ function stepUI(
     : undefined;
 }
 
-// A VIDEO lane's strip: "mute" means hidden, and a full strip would be four controls that do nothing.
+// A VIDEO lane's strip: mute (hidden) and solo, the two words picture HAS — no gain, no pan, no arm.
 export const VIDEO_TRACK_UI: WebModuleUI = {
-  cols: 1,
+  cols: 2,
   rows: 1,
   widgets: {
     mute: { type: "button", col: 0, row: 0, bind: "@mute", label: "M" },
+    solo: { type: "button", col: 1, row: 0, bind: "@solo", label: "S" },
   },
 };
 
@@ -952,6 +967,8 @@ export function buildGraph(
   const isChain = (n: string) => n in graph.chains;
   const isTrack = (n: string) => graph.tracks.includes(n);
   const isVideoTrack = (n: string) => !!graph.videoTracks?.includes(n);
+  /** A LANE, of EITHER kind — never followed as a chain, and never drawn as a sink. See docs/graphBuild.md. */
+  const isLane = (n: string) => isTrack(n) || isVideoTrack(n);
   const trackId = (n: string) => `trk:${n}`;
   const sinkId = (n: string) => `snk:${n}`;
   // The sum's card — a SINK like `OUT`, whatever the run headed by it is written as.
@@ -1106,9 +1123,9 @@ export function buildGraph(
     if (isSum(c.from)) return c.from === RENDER_OUT ? "video" : "audio";
     // A run that left a lane by a named output carries that output's signal, whatever the lane holds.
     if (c.fromPort === "midi" || c.fromPort === "audio") return c.fromPort;
-    return isChain(c.from) && !isTrack(c.from)
-      ? exitSignal(c.from, seen)
-      : graph.trackSignals?.[c.from];
+    if (isChain(c.from) && !isLane(c.from)) return exitSignal(c.from, seen);
+    // A picture lane carries one signal and has no `trackSignals` entry — picture is the other compile's.
+    return isVideoTrack(c.from) ? "video" : graph.trackSignals?.[c.from];
   };
 
   for (const [name, c] of Object.entries(graph.chains)) {
@@ -1226,7 +1243,7 @@ export function buildGraph(
           undefined,
           c.from === RENDER_OUT ? "video" : "audio",
         );
-      else if (c.from !== name && isChain(c.from) && !isTrack(c.from))
+      else if (c.from !== name && isChain(c.from) && !isLane(c.from))
         link(exitId(c.from), entryId(name), undefined, exitSignal(c.from));
       else {
         const video = isVideoTrack(c.from);
@@ -1292,7 +1309,7 @@ export function buildGraph(
       if (isDevice(toNode) && opts.drawMainOut === false) continue;
       // …and when OUT is drawn it carries its own fader; `VIDEO_OUT` has no param, so it draws bare.
       const mainOut = toNode === MAIN_OUT ? mainOutCard() : {};
-      const to = isTrack(toNode)
+      const to = isLane(toNode)
         ? trackId(toNode)
         : isChain(toNode)
           ? entryId(toNode)
@@ -1333,7 +1350,7 @@ export function buildGraph(
   const renderSink = nodes.get(renderId);
   if (renderSink) Object.assign(renderSink, renderCard());
 
-  // Tracks (and video lanes) no chain mentions, drawn as ORPHANS with `sub` carrying the reason. See docs/graphBuild.md.
+  // Tracks (and video lanes) no chain mentions, drawn as ORPHANS — the missing cable IS the mark. See docs/graphBuild.md.
   for (const id of [...graph.tracks, ...(graph.videoTracks ?? [])]) {
     const nid = trackId(id);
     if (nodes.has(nid)) continue; // a chain already claimed it
@@ -1341,7 +1358,6 @@ export function buildGraph(
     const ui = video ? VIDEO_TRACK_UI : TRACK_UI;
     add(nid, {
       label: id,
-      sub: "no chain",
       kind: "track",
       video,
       // Both outputs, exactly as a routed lane's: a lane offers them whether or not anything is plugged in.

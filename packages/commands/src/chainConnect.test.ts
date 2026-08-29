@@ -59,6 +59,13 @@ function song(): string {
       "utf8",
     );
   }
+  // A PICTURE lane, which is a card on the graph and takes a cable from a lens (packages/song/docs/camera.md).
+  mkdirSync(join(d, "video_tracks"), { recursive: true });
+  writeFileSync(
+    join(d, "video_tracks", "main.yaml"),
+    "kind: video\nevents: []\n",
+    "utf8",
+  );
   return d;
 }
 
@@ -205,5 +212,28 @@ describe("graph chain replug", () => {
     await runCommand("graph chain replug gtr amp gtr nothere", host(), "cli");
     expect(logs.join(" ")).toContain('no node "nothere"');
     expect(chains()).toBe(before);
+  });
+});
+
+// `namesANode` read modules/tracks only, so every cable to a picture lane was refused.
+describe("a cable to a picture lane", () => {
+  it("connects, a lane being a node like any other", async () => {
+    await runCommand("graph chain connect amp main", host(), "cli");
+    expect(chains()).toContain("amp: [ OUT, main ]");
+    expect(reloads).toBe(1);
+  });
+
+  it("replugs onto one too", async () => {
+    await runCommand("graph chain connect amp reverb", host(), "cli");
+    logs.length = 0;
+    await runCommand("graph chain replug amp reverb amp main", host(), "cli");
+    expect(chains()).toContain("main");
+    expect(logs.join(" ")).not.toMatch(/no node/);
+  });
+
+  it("names the picture lanes when the name is none of them", async () => {
+    await runCommand("graph chain connect amp nope", host(), "cli");
+    expect(logs.join(" ")).toContain("picture lanes: main");
+    expect(reloads).toBe(0);
   });
 });

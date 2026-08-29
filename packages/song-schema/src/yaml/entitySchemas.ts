@@ -16,7 +16,8 @@ export const WarpSchema = z
   })
   .strict();
 
-const VIDEO_SOURCE = /\.(mp4|mov|m4v|webm|mkv)$/i;
+/** A clip is PICTURE when its source ends in one of these — the whole reason a clip file can say only `source:`. */
+export const VIDEO_SOURCE = /\.(mp4|mov|m4v|webm|mkv)$/i;
 
 /** `from`/`to` window the SOURCE FILE, in seconds or as a timecode — see docs/entityFiles.md. */
 const WindowEdge = z.union([

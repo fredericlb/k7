@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  orderPosition,
+  orderTracks,
   parseTrackName,
+  reorderTracks,
   sortTracksByKind,
   TRACK_FAMILIES,
   TRACK_PREFIXES,
@@ -229,5 +232,73 @@ describe("trackLabel", () => {
 
   it("falls back to the whole name rather than showing an empty row", () => {
     expect(trackLabel("ge.")).toBe("ge.");
+  });
+});
+
+// A stated order must beat the names OUTRIGHT: two answers to "which lane is second" is the bug.
+describe("orderTracks", () => {
+  const names = ["ge.lead", "vo.main", "da.kit"];
+  const order = (stated?: string[]) => orderTracks(names, (n) => n, stated);
+
+  it("falls back to the families when the project states nothing", () => {
+    expect(order()).toEqual(["vo.main", "da.kit", "ge.lead"]);
+    expect(order([])).toEqual(["vo.main", "da.kit", "ge.lead"]);
+  });
+
+  it("obeys a stated order outright, family rank and all", () => {
+    expect(order(["ge.lead", "da.kit", "vo.main"])).toEqual([
+      "ge.lead",
+      "da.kit",
+      "vo.main",
+    ]);
+  });
+
+  it("puts a lane the list forgot after the ones it names, in family order", () => {
+    // Added by hand, or by an editor that did not know: an unlisted lane is still a lane.
+    expect(order(["ge.lead"])).toEqual(["ge.lead", "vo.main", "da.kit"]);
+  });
+
+  it("ignores a name in the list that is no lane of this song", () => {
+    expect(order(["gone", "da.kit"])).toEqual(["da.kit", "vo.main", "ge.lead"]);
+  });
+});
+
+describe("reorderTracks", () => {
+  const abc = ["a", "b", "c", "d"];
+
+  it("moves one and states the whole list", () => {
+    expect(reorderTracks(abc, "d", 1)).toEqual(["d", "a", "b", "c"]);
+    expect(reorderTracks(abc, "a", 3)).toEqual(["b", "c", "a", "d"]);
+  });
+
+  it("clamps rather than refusing, both ends", () => {
+    expect(reorderTracks(abc, "c", 0)).toEqual(["c", "a", "b", "d"]);
+    expect(reorderTracks(abc, "a", 99)).toEqual(["b", "c", "d", "a"]);
+  });
+
+  it("is a no-op where the lane already is", () => {
+    expect(reorderTracks(abc, "b", 2)).toEqual(abc);
+  });
+
+  it("adds a lane the list did not hold, rather than dropping the move", () => {
+    expect(reorderTracks(abc, "e", 2)).toEqual(["a", "e", "b", "c", "d"]);
+  });
+});
+
+describe("orderPosition", () => {
+  const lanes = ["a", "b", "c"];
+
+  it("reads a 1-based slot", () => {
+    expect(orderPosition(lanes, "2")).toBe(2);
+    expect(orderPosition(lanes, "99")).toBe(99); // clamping is reorderTracks's, not this one's
+  });
+
+  it("reads a LANE as the slot that lane holds", () => {
+    expect(orderPosition(lanes, "c")).toBe(3);
+  });
+
+  it("answers null for a word that is neither", () => {
+    expect(orderPosition(lanes, "top")).toBeNull();
+    expect(orderPosition(lanes, "")).toBeNull();
   });
 });

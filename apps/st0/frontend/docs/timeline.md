@@ -748,6 +748,124 @@ keyboard nudge never changes lane at all.
 Generated lanes are excluded from all of this: their clips are the scheduler's look-ahead,
 rewritten every tick and backed by no file, so there is no `start:` to rewrite.
 
+## A picture row's ARM
+
+A picture lane's gutter carries one button, **A**, where an audio lane carries M/S/A. It arms the
+lane for its own camera, and record + play then captures onto it
+([picture.md](picture.md)). The lane goes red while armed and the button pulses while the camera is
+actually rolling — armed and recording are two states, and only one of them is holding a device.
+
+`r` reaches it from the keyboard, the same key that arms an audio lane. The binding is TWO entries
+tried in order, on `caret_track` and on `caret_picture`, because the two arms live in two places:
+an audio lane's in the engine (`transport arm`), a picture lane's in this browser
+(`ui picture arm`). A picture row reports no `caret_track` — it never has — so the first condition
+simply does not match, which is what an ordered keymap is for.
+
+A **shape** lane gets no button: it has no input to record.
+
+## Reordering: drag a header to another row
+
+A lane's **gutter** is its handle. Press it and drag vertically and the row under the pointer is
+outlined: that is the slot the lane in hand would take. Release and the lane takes it —
+`track order` on a song's lanes, `picture lane order` on its picture, both commands, so both are
+one journal entry and one Ctrl+Z. Below the 4px slop the press is still the click it always was,
+and `rowMoved` is what keeps one gesture from also selecting the row.
+
+**A picture row above another means IN FRONT of it.** `layers:` is bottom-first and the rows are
+drawn reversed, so dragging a lane to the top row puts it in front — see
+[picture.md](picture.md), which records what happened when the two read the same way round.
+
+**The drop names a LANE, never a slot.** `onReorder` sends the id of the lane whose place is being
+taken, and the verb counts. It has to be that way round: this view CLUSTERS its rows — a group's
+members follow its header, wherever they sit in the compiled list — so a position counted here
+could name a different lane in the file. Naming the lane is the one spelling both sides read the
+same. `packages/song/docs/trackKind.md` has the file's side.
+
+Three rows are deliberately not draggable and not droppable:
+
+- a **group header** — moving it would move every member, which is a different act;
+- a **live pattern lane**, because the row cannot tell one apart from a lane the project declares:
+  the live ones are appended from their own endpoint (`rows.ts`), and no list on disk holds them;
+- **across the two families**. A song's lanes and its picture's are two lists in two files, so a
+  drop from one onto the other resolves to nothing rather than to a guess.
+
+A take's row and an automation row DO answer, with the lane they belong to: they are drawn as part
+of it, and a drop that landed on one plainly meant it.
+
+**Groups are the honest limit.** The order written is the compiled list's; the view re-clusters it
+by group afterwards. So dragging within a group does what it looks like, and dragging a lane into
+the middle of another group moves it in the file and then draws it back outside — its `group:` is
+a different fact, and a drag does not change it.
+
+## The corner button makes a lane — of which KIND, when there are two
+
+The `＋ piste` button over the name column dispatches `track new`, like every other button here.
+On a project that declares a **viewport** surface it opens a two-item menu instead — *piste audio*
+(`track new`) and *piste vidéo* (`picture lane new`) — because such a project has two kinds of lane
+and the button cannot guess which one you meant.
+
+**A song with no frame keeps the bare button.** A menu of one item is a click that asks a question
+with a single answer, so the shape follows what the project declares: `onNewVideoTrack` is passed
+only when `hasViewport`, and the component branches on the handler's own presence — the idiom the
+picture drag already uses.
+
+Making a picture lane is **two writes**, and that is the interesting part: the lane file, and
+`project.layers`, which is what says a lane exists and in which order it draws. A lane missing from
+that list compiles perfectly and never appears, so the verb owns both
+([packages/song-video/docs/picture.md](../../../../packages/song-video/docs/picture.md)).
+
+### The camcorder is the picture lane's mark
+
+One glyph — `TrackIcon`'s `video-16` — wherever a picture lane is named: its gutter row here, its
+clips on it, its node on the chains graph, its `video_tracks/*.yaml` row in the file tree, and the
+menu entry that makes one. A second drawing for the same thing is how a reader learns that two
+pictures mean two things.
+
+The minimap is the deliberate exception: at a few pixels per row it draws a violet band and no
+glyph, because a 14px icon in a 4px row is not a smaller icon, it is a different picture.
+
+## Dropping files from the desktop
+
+Dragging audio or video off the OS onto a lane does three things, in the one order that works:
+the bytes go into the project's `clips/`, a `clips/<id>.yaml` declares each one, and only then is
+each **placed** — `event add` on an audio lane, `picture add` on a picture one. The plan is
+`timelineDrop.ts`, pure; the three round trips are `hooks/useTimelineDrop.ts`.
+
+**Where it lands is where you dropped it**, snapped to the ticks the ruler is actually drawing —
+the same rule the clip drag and the ruler's click follow, so the lines you can see are the
+positions you can land on. The lane comes off the DOM (`data-lane-track`, `data-lane-video`) for
+the reason `laneAtPoint` does: rows have three heights and a second copy of that arithmetic would
+drift.
+
+**`dragover` must call `preventDefault`, or the drop does not happen** — the browser refuses it
+silently and then navigates to the file, which is the worst of both. `fileDrop.ts` is the module
+that answers "is this a file drag", shared with the file tree, and its test exists for exactly
+that silence.
+
+### The FILENAME is the id
+
+A dropped `Prise été n°3.wav` lands as `clips/Prise-ete-n-3.wav` and declares itself in
+`clips/Prise-ete-n-3.yaml`, holding `source:` and nothing else — no window, so the clip is the
+whole file, which is what an untrimmed recording is (`apps/st0/docs/22-syntax-material.md`).
+Accents are folded and everything else a path would argue about becomes one dash.
+
+**An existing declaration is never overwritten.** `clips/kick.yaml` may already carry a trim, a
+warp or corrected onsets, and a drop knows none of them; dropping a `kick.wav` next to one places
+*that* clip and says so. The bytes are the same story: the upload refuses to clobber (409), and
+the drop carries on with the file that was already there.
+
+### Several files walk down the lanes
+
+The first lands on the lane you dropped on, the second on the next lane **of the same kind**, and
+so on. What runs out of lanes is left rather than folded onto the last one — the rule a paste
+already follows (`clipboard.ts`) — and a file of the *other* kind is declared without being
+placed, since it is in the project wanting a lane rather than being a mistake. Only a file that
+is neither audio nor video is refused outright, by name.
+
+Nothing here measures a duration, and that is why the files spread across lanes rather than in
+time: the browser would have to decode each one to know how long it is, and a `.mkv` it cannot
+decode would make the arrangement depend on the codec the machine happens to ship.
+
 ## Fading a clip
 
 Each end of a block carries a **corner handle** at the top. Dragging it inwards opens a fade,

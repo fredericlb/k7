@@ -144,10 +144,12 @@ import { noteRevision } from "./hooks/useRevision";
 import { useShare } from "./hooks/useShare";
 import { useSnapshotPlayer } from "./hooks/useSnapshotPlayer";
 import { useSurfaces } from "./hooks/useSurfaces";
+import { useTimelineDrop } from "./hooks/useTimelineDrop";
 import { useTrackControls } from "./hooks/useTrackControls";
 import { useTurntableDeck } from "./hooks/useTurntableDeck";
 import { useVideoDoc } from "./hooks/useVideoDoc";
 import { useVideoEdits } from "./hooks/useVideoEdits";
+import { useVideoRecording } from "./hooks/useVideoRecording";
 import { useLocale } from "./i18n";
 import {
   blurOnClick,
@@ -183,7 +185,7 @@ import {
   rollCondition,
 } from "./rollMode";
 import { type Pane, type Panel, viewPanes } from "./routes";
-import type { RowKey, RowTarget } from "./rows";
+import { pictureRowId, type RowKey, type RowTarget } from "./rows";
 import { sceneOf } from "./scene";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
@@ -394,6 +396,8 @@ export default function App({
   );
   // MIDI recording is browser-side (the engine records audio only), one track at a time, landing in its sequence.
   const [midiArmed, setMidiArmed] = useState<string | null>(null);
+  /** …and the PICTURE lane armed, which records its camera in the browser (hooks/useVideoRecording.ts). */
+  const [videoArmed, setVideoArmed] = useState<string | null>(null);
   const [tlView, setTlView] = useState<{
     mode: TimelineMode;
     tool: Tool;
@@ -665,6 +669,10 @@ export default function App({
     for (const t of videoTracks) for (const c of t.clips) out[c.id] = c.src;
     return out;
   }, [videoTracks]);
+
+  // Read by `onLaneToggle`, which must not re-bind every time the picture doc is refetched.
+  const videoTracksRef = useRef(videoTracks);
+  videoTracksRef.current = videoTracks;
 
   // Commit a finished picture drag — hooks/useVideoEdits.ts, shared with the surface a second device draws.
   const applyVideoEdit = useVideoEdits(
@@ -1500,6 +1508,17 @@ export default function App({
         armMidiLearn(s.slice("midi learn ".length).trim());
         return true;
       }
+      // `ui picture arm [lane]` — nothing is written: the camera is the browser's, so the arm is too.
+      if (line === "picture arm" || line.startsWith("picture arm ")) {
+        const lane = s.slice("picture arm".length).trim();
+        setVideoArmed((cur) => (!lane || cur === lane ? null : lane));
+        setStatus(
+          lane && videoArmed !== lane
+            ? `${lane} armed — record + play captures its camera onto it`
+            : "picture disarmed",
+        );
+        return true;
+      }
 
       // --- what the footer and the timeline header draw ------------------------
       if (line === "mixer") {
@@ -1907,6 +1926,37 @@ export default function App({
   );
   runCommandRef.current = runCommand;
 
+  /** The graph's lane buttons: a PICTURE lane's two words are the `picture` verbs, not the `track` ones. */
+  const onLaneToggle = useCallback(
+    (id: string, control: "mute" | "solo" | "arm") => {
+      if (!videoTracksRef.current.some((t) => t.id === id))
+        return onTrackToggle(id, control);
+      if (control !== "arm")
+        void runCommandRef.current(`picture ${control} ${id}`);
+    },
+    [onTrackToggle],
+  );
+
+  // Files dropped on a lane — here rather than beside the picture drag, since it PLACES with commands (hooks/useTimelineDrop.ts).
+  const { onDrop: onDropOnTimeline, upload: timelineUpload } = useTimelineDrop(
+    ws?.activeProject ?? ".",
+    runCommand,
+    setStatus,
+    bumpReload,
+  );
+  // …and the armed PICTURE lane's own recording, which places its take the same way.
+  const { recording: videoRecording } = useVideoRecording({
+    store,
+    project: ws?.activeProject ?? ".",
+    armed: videoArmed,
+    camera: videoTracks.find((t) => t.id === videoArmed)?.camera,
+    recordEnabled,
+    playing,
+    runCommand,
+    setStatus,
+    bumpReload,
+  });
+
   // --- following a track across the panes ------------------------------------------
 
   // A double-click on a timeline header says 'this one' to the whole shell; the nonce is what makes the SAME track re-frame.
@@ -2188,6 +2238,9 @@ export default function App({
     if (graphSlot) cond.graph_slot = "1";
     if (full) cond.fullscreen = "1";
     if (caret?.trackId) cond.caret_track = caret.trackId;
+    // …and the PICTURE lane under it, which reports no track id and arms through its own verb.
+    const pic = pictureRowId(caret?.row);
+    if (pic) cond.caret_picture = pic;
     // A rectangle, on whichever grid drew it: `z` stays the timeline's, but ⇧L means 'loop what is selected' anywhere (keys.ts).
     if (tlView.selecting) cond.timeline_selection = "1";
     if (tlView.zoomed) cond.timeline_zoomed = "1";
@@ -2792,6 +2845,18 @@ export default function App({
                     doc={videoDoc}
                     error={videoError}
                     trackIds={trackOrder}
+                    readOnly={frozen}
+                    // An armed lane opens the lens a `monitor: auto` camera wired to it names.
+                    armed={videoArmed}
+                    // A layer moved or resized in the frame — a command, so one journal entry and one Ctrl+Z.
+                    onRect={
+                      frozen
+                        ? undefined
+                        : (lane, r) =>
+                            void runCommand(
+                              `picture rect ${lane} ${r.x} ${r.y} ${r.w} ${r.h}`,
+                            )
+                    }
                   />
                 </div>
               )}
@@ -2840,6 +2905,9 @@ export default function App({
                       videoTracks={videoTracks}
                       // The picture drag guards on this handler's own presence, so a snapshot simply has none.
                       onVideoEdit={frozen ? undefined : applyVideoEdit}
+                      // …and so does the file drop, for the same reason: a frozen song has nowhere to put the bytes.
+                      onDropFiles={frozen ? undefined : onDropOnTimeline}
+                      dropUpload={timelineUpload}
                       readOnly={frozen}
                       setStatus={setStatus}
                       onEditTarget={setEditTarget}
@@ -2908,6 +2976,37 @@ export default function App({
                       // The corner button over the name column: `track new` with no name, off on a frozen song like every structural edit.
                       onNewTrack={
                         frozen ? undefined : () => void runCommand("track new")
+                      }
+                      // …and its PICTURE half, which makes that button a menu — only a song with a frame has two kinds of lane.
+                      onNewVideoTrack={
+                        frozen || !hasViewport
+                          ? undefined
+                          : () => void runCommand("picture lane new")
+                      }
+                      // The picture lane armed for its camera, and whether one is rolling (hooks/useVideoRecording.ts).
+                      videoArmed={videoArmed}
+                      videoRecording={videoRecording}
+                      onVideoArm={
+                        frozen
+                          ? undefined
+                          : (id) => void runCommand(`ui picture arm ${id}`)
+                      }
+                      onVideoToggle={
+                        frozen
+                          ? undefined
+                          : (id, control) =>
+                              void runCommand(`picture ${control} ${id}`)
+                      }
+                      // A header dragged to another slot: two lists, one gesture (packages/song/docs/trackKind.md).
+                      onReorder={
+                        frozen
+                          ? undefined
+                          : (family, lane, takes) =>
+                              void runCommand(
+                                family === "video"
+                                  ? `picture lane order ${lane} ${takes}`
+                                  : `track order ${lane} ${takes}`,
+                              )
                       }
                       trackControls={trackControls}
                       onTrackToggle={onTrackToggle}
@@ -3115,7 +3214,7 @@ export default function App({
                       setPluginParam={setPluginParam}
                       moduleParams={offlineParams}
                       trackControls={trackControls}
-                      onTrackToggle={onTrackToggle}
+                      onTrackToggle={onLaneToggle}
                       onTrackSet={onTrackSet}
                       focus={graphFocus}
                       onFocused={reportFramed}
@@ -3331,7 +3430,7 @@ export default function App({
                     setPluginParam={setPluginParam}
                     moduleParams={offlineParams}
                     trackControls={trackControls}
-                    onTrackToggle={onTrackToggle}
+                    onTrackToggle={onLaneToggle}
                     onTrackSet={onTrackSet}
                   />
                 )}

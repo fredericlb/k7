@@ -98,6 +98,47 @@ export function trackKindRank(name: string): number {
   return kind ? TRACK_FAMILIES.indexOf(kind.family) : UNKNOWN_RANK;
 }
 
+/** The order `trackOrder` STATES, or the one the names imply — ONE rule, never both at once (docs/trackKind.md). */
+export function orderTracks<T>(
+  tracks: T[],
+  nameOf: (t: T) => string,
+  stated?: readonly string[],
+): T[] {
+  const at = new Map((stated ?? []).map((id, i) => [id, i] as const));
+  if (!at.size) return sortTracksByKind(tracks, nameOf);
+  const listed = tracks
+    .filter((t) => at.has(nameOf(t)))
+    .sort((a, b) => (at.get(nameOf(a)) ?? 0) - (at.get(nameOf(b)) ?? 0));
+  // A lane the list forgot follows the ones it names, in family order: an unlisted lane is still a lane.
+  const rest = tracks.filter((t) => !at.has(nameOf(t)));
+  return [...listed, ...sortTracksByKind(rest, nameOf)];
+}
+
+/** Where a reorder lands: a 1-based slot, or the LANE whose place is taken — null when it names neither. */
+export function orderPosition(
+  order: readonly string[],
+  where: string,
+): number | null {
+  const n = Number(where);
+  // A lane id, not an index: a view that CLUSTERS its rows (groups) cannot count slots the file agrees with.
+  if (!where.trim() || !Number.isFinite(n)) {
+    const at = order.indexOf(where);
+    return at < 0 ? null : at + 1;
+  }
+  return Math.round(n);
+}
+
+/** `id` moved to 1-based `position`, clamped — the WHOLE list, since a stated order states all of it. */
+export function reorderTracks(
+  order: readonly string[],
+  id: string,
+  position: number,
+): string[] {
+  const rest = order.filter((x) => x !== id);
+  const at = Math.min(Math.max(Math.round(position) - 1, 0), rest.length);
+  return [...rest.slice(0, at), id, ...rest.slice(at)];
+}
+
 // Order tracks by instrument family, with any PINNED positions honoured first (stable sort — see docs/trackKind.md).
 export function sortTracksByKind<T>(
   tracks: T[],

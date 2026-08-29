@@ -63,6 +63,13 @@ function song(): string {
     "type: lfo\nfrequency: 2\n",
     "utf8",
   );
+  // …and a PICTURE lane, which is a card on the graph and is no key of `modules:` either.
+  mkdirSync(join(d, "video_tracks"), { recursive: true });
+  writeFileSync(
+    join(d, "video_tracks", "main.yaml"),
+    "kind: video\nevents: []\n",
+    "utf8",
+  );
   return d;
 }
 
@@ -117,6 +124,19 @@ describe("graph move", () => {
     expect(chains()).not.toContain("positions");
     expect(logs.join(" ")).toContain("reorganized");
     expect(reloads).toBe(1);
+  });
+
+  // `videoTracks` is its own key, and reading only modules/tracks refused the node just dragged.
+  it("pins a PICTURE lane, which the graph draws as a card like any other", async () => {
+    await runCommand("graph move main 120 60", host(), "cli");
+    expect(chains()).toContain("main");
+    expect(chains()).toContain("120");
+    expect(reloads).toBe(1);
+  });
+
+  it("names the picture lanes when a name is none of them", async () => {
+    await runCommand("graph move nothere 10 10", host(), "cli");
+    expect(logs.join(" ")).toContain("picture lanes: main");
   });
 
   it("refuses a node the project does not know, writing nothing", async () => {

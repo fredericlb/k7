@@ -4,6 +4,7 @@
 // being told apart by a rule nobody wrote.
 
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -175,5 +176,94 @@ describe("two shots at one instant", () => {
     );
     await runCommand("picture move main 5 9", host(), "cli");
     expect(shots().map((s) => s.start)).toEqual([0, 9]);
+  });
+});
+
+describe("picture lane new", () => {
+  // The lane file alone is not a lane: `layers:` is what says one exists, and the compile refuses without it.
+  const project = (body: string): void =>
+    writeFileSync(join(song, "project.yaml"), body, "utf8");
+
+  it("writes the lane AND lists it in project.layers", async () => {
+    project("project:\n  name: t\n  viewport: [1280, 720]\n  layers: [main]\n");
+    lane("kind: video\nevents: []\n");
+    await runCommand("picture lane new broll", host(), "cli");
+    expect(read("broll")).toContain("kind: video");
+    expect(readFileSync(join(song, "project.yaml"), "utf8")).toMatch(
+      /layers:\s*\[\s*main\s*,\s*broll\s*\]/,
+    );
+  });
+
+  it("creates layers: on a project that names none", async () => {
+    project("project:\n  name: t\n  viewport: [1280, 720]\n");
+    await runCommand("picture lane new broll", host(), "cli");
+    expect(readFileSync(join(song, "project.yaml"), "utf8")).toMatch(/broll/);
+  });
+
+  it("picks layer-N when you don't name one", async () => {
+    project("project:\n  name: t\n  viewport: [1280, 720]\n  layers: []\n");
+    await runCommand("picture lane new", host(), "cli");
+    expect(read("layer-1")).toContain("kind: video");
+  });
+
+  it("refuses a name a lane already has, and writes nothing", async () => {
+    project("project:\n  name: t\n  viewport: [1280, 720]\n  layers: [main]\n");
+    lane("# the camera\nkind: video\nevents: []\n");
+    await runCommand("picture lane new main", host(), "cli");
+    expect(refusals.join(" ")).toMatch(/already exists/);
+    expect(read()).toContain("# the camera");
+  });
+
+  it("states no rect, which the compile reads as the whole frame", async () => {
+    project("project:\n  name: t\n  viewport: [1280, 720]\n  layers: []\n");
+    await runCommand("picture lane new broll", host(), "cli");
+    expect(read("broll")).not.toMatch(/^[wh]:/m);
+  });
+
+  it("refuses before writing when there is no project.yaml to list it in", async () => {
+    await runCommand("picture lane new broll", host(), "cli");
+    expect(refusals.join(" ")).toMatch(/nowhere to be listed/);
+    expect(existsSync(join(song, "video_tracks", "broll.yaml"))).toBe(false);
+  });
+});
+
+describe("picture rect", () => {
+  it("writes all four keys and keeps the comments", async () => {
+    lane(`# the camera\nkind: video\nevents: []\n`);
+    await runCommand("picture rect main 960 540 320 180", host(), "cli");
+    expect(read()).toContain("# the camera");
+    expect(read()).toMatch(/x: 960/);
+    expect(read()).toMatch(/y: 540/);
+    expect(read()).toMatch(/w: 320/);
+    expect(read()).toMatch(/h: 180/);
+  });
+
+  it("replaces a rect the lane already had", async () => {
+    lane("kind: video\nx: 0\ny: 0\nw: 1280\nh: 720\nevents: []\n");
+    await runCommand("picture rect main 10 20 30 40", host(), "cli");
+    expect(read().match(/^w: .*$/m)?.[0]).toBe("w: 30");
+    expect(read().split("w:").length).toBe(2); // one key, not a second one appended
+  });
+
+  it("rounds to whole pixels — a frame is measured in them", async () => {
+    lane("kind: video\nevents: []\n");
+    await runCommand("picture rect main 0.4 0.6 320.5 180", host(), "cli");
+    expect(read()).toMatch(/x: 0\n/);
+    expect(read()).toMatch(/y: 1\n/);
+    expect(read()).toMatch(/w: 321\n/);
+  });
+
+  it("refuses a zero side, which is a lane that draws nothing", async () => {
+    const before = "kind: video\nevents: []\n";
+    lane(before);
+    await runCommand("picture rect main 0 0 0 720", host(), "cli");
+    expect(refusals.join(" ")).toMatch(/draws nothing/);
+    expect(read()).toBe(before);
+  });
+
+  it("refuses four arguments that are not four numbers", async () => {
+    lane("kind: video\nevents: []\n");
+    await runCommand("picture rect main 0 0 320", host(), "cli");
+    expect(refusals.join(" ")).toMatch(/usage: picture rect/);
   });
 });

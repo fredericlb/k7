@@ -11,8 +11,8 @@ import {
   type ParamRange,
 } from "@studio/song-schema/builtinParams";
 import {
-  completionOrder,
   CUE_NODE,
+  completionOrder,
   isEngineRef,
   MIX_NODE,
   moduleStatusOf,

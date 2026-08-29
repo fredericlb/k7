@@ -53,6 +53,7 @@ import {
   loadProjectRoot,
   moduleRefOf,
   nodeNameTaken,
+  setLaneOrder,
 } from "@studio/song/loader";
 import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
@@ -69,6 +70,7 @@ import {
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import { loadAudioClipDoc, trackMixer } from "@studio/song/project";
 import { createSurfaceFile, surfacesNaming } from "@studio/song/surfaces";
+import { addTrackMixer } from "@studio/song/trackMixerFile";
 import { spliceProjectTime } from "@studio/song-edit/insertTime";
 import {
   consolidateSequenceMaterial,
@@ -137,6 +139,7 @@ import {
   MIX_NODE,
   OUT_NODE,
   RENDER_NODE,
+  splitPort,
   VIDEO_OUT_NODE,
 } from "@studio/song-schema/moduleTypes";
 import {
@@ -153,6 +156,7 @@ import {
   parseDuration,
   parsePosition,
 } from "@studio/song-schema/timecode";
+import { orderPosition, reorderTracks } from "@studio/song-schema/trackKind";
 import {
   type Placement,
   PlacementSchema,
@@ -388,8 +392,20 @@ function namesANode(g: ReturnType<typeof loadGraph>, name: string): boolean {
     isBuiltinOutput(name) ||
     name in g.modules ||
     name in g.moduleRefs ||
-    name in g.tracks
+    name in g.tracks ||
+    // A PICTURE lane is a card too, and `videoTracks` is its own key (packages/song/docs/camera.md).
+    name in g.videoTracks
   );
+}
+
+/** The names there ARE, for a refusal that can be acted on — one sentence, so the verbs cannot list different sets. */
+function knownNodes(g: ReturnType<typeof loadGraph>): string {
+  const parts = [`modules: ${Object.keys(g.modules).join(", ") || "none"}`];
+  const lanes = Object.keys(g.videoTracks);
+  if (lanes.length) parts.push(`picture lanes: ${lanes.join(", ")}`);
+  const boxes = Object.keys(g.assemblies);
+  if (boxes.length) parts.push(`assemblies: ${boxes.join(", ")}`);
+  return parts.join("; ");
 }
 
 const isMasterRun = (before: string, after: string): boolean =>
@@ -609,11 +625,69 @@ async function newTrack(arg: string, h: CommandHost): Promise<void> {
   const id = name || uniqueId("track", h.project());
   try {
     const written = createTrackFile(h.songPath, id);
+    // …and its STRIP, which a lane with nowhere to wire one is SAID to lack rather than refused for.
+    let strip: string[] = [];
+    let noStrip = "";
+    try {
+      strip = addTrackMixer(h.songPath, id, loadGraph(h.songPath)) ?? [];
+    } catch (e) {
+      noStrip = (e as Error).message;
+    }
     h.reload(); // the doc now comes from disk, so the mixer and the engine agree with it
-    h.log([`+ track ${id} (${written.join(", ")})`]);
+    h.log([
+      `+ track ${id} (${[...written, ...strip].join(", ")})`,
+      ...(noStrip ? [`no strip: ${noStrip}`] : []),
+    ]);
   } catch (e) {
     h.refuse([`track new: ${(e as Error).message}`]);
   }
+}
+
+// `track order <track> <where>` — states the WHOLE order, since half of one is not an order; docs/verbs.md.
+async function orderTrack(arg: string, h: CommandHost): Promise<void> {
+  const [trackArg, whereArg] = splitWords(arg);
+  if (!trackArg || !whereArg) {
+    h.refuse([
+      "usage: track order <track> <position|lane>  (e.g. track order gtr 2, or track order gtr vo.main)",
+    ]);
+    return;
+  }
+  const p = h.project();
+  // A lane wired on two ports compiles to two engine tracks; the ORDER is the lane's, so both move together.
+  const laneOf = (id: string): string => splitPort(id).node;
+  const lanes = [...new Set(p.tracks.map((t) => laneOf(t.id)))];
+  const named = (a: string): string | null => {
+    const hit = p.tracks.find((t) => t.id === a || t.name === a);
+    return hit ? laneOf(hit.id) : lanes.includes(a) ? a : null;
+  };
+  const lane = named(trackArg);
+  if (!lane) {
+    h.refuse([
+      `no track "${trackArg}"${lanes.length ? ` — try: ${lanes.join(", ")}` : ""}`,
+    ]);
+    return;
+  }
+  const pos = orderPosition(lanes, named(whereArg) ?? whereArg);
+  if (pos === null) {
+    h.refuse([
+      `'${whereArg}' is neither a position nor a lane of this song — try a number 1..${lanes.length}`,
+    ]);
+    return;
+  }
+  try {
+    const file = setLaneOrder(
+      h.songPath,
+      "trackOrder",
+      reorderTracks(lanes, lane, pos),
+    );
+    h.log([
+      `${lane} is now lane ${Math.min(Math.max(pos, 1), lanes.length)} of ${lanes.length} (${file})`,
+    ]);
+  } catch (e) {
+    h.refuse([`track order: ${(e as Error).message}`]);
+    return;
+  }
+  await h.reload();
 }
 
 /** `sequence note repeat|skip <sequence> <note> <start> <n|off>` — a PAD's two effects, one factory; docs/verbs.md. */
@@ -1584,6 +1658,7 @@ function renameForNewModule(
 export const SID_HANDLERS: Record<string, SidHandler> = {
   // A track IS its file: write it, then reload, so what plays is what is on disk — docs/verbs.md.
   "track.new": async (a, h) => newTrack(a, h),
+  "track.order": async (a, h) => orderTrack(a, h),
   "sequence.new": async (a, h) => newSequence(a, h),
 
   // Bounce material through a chain and keep the result — `scope` is all that differs; docs/processChain.md.
@@ -3650,15 +3725,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       !isBuiltinOutput(name) &&
       !(name in g.modules) &&
       !(name in g.tracks) &&
+      // A picture lane is a CARD on the graph like any other, and `videoTracks` is its own key.
+      !(name in g.videoTracks) &&
       !(name in g.assemblies) &&
       !(name in curves)
     ) {
-      const boxes = Object.keys(g.assemblies);
-      h.refuse([
-        `no node "${name}" in this project (modules: ${
-          Object.keys(g.modules).join(", ") || "none"
-        }${boxes.length ? `; assemblies: ${boxes.join(", ")}` : ""})`,
-      ]);
+      h.refuse([`no node "${name}" in this project (${knownNodes(g)})`]);
       return;
     }
     try {
@@ -3718,11 +3790,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const known = (name: string) => namesANode(g, name);
     for (const end of [from, to])
       if (!known(base(end))) {
-        h.refuse([
-          `no node "${base(end)}" in this project (modules: ${
-            Object.keys(g.modules).join(", ") || "none"
-          })`,
-        ]);
+        h.refuse([`no node "${base(end)}" in this project (${knownNodes(g)})`]);
         return;
       }
     try {
@@ -3790,7 +3858,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const known = (name: string) => namesANode(g, name);
     for (const end of [newFrom, newTo])
       if (!known(base(end))) {
-        h.refuse([`no node "${base(end)}" in this project`]);
+        h.refuse([`no node "${base(end)}" in this project (${knownNodes(g)})`]);
         return;
       }
     try {

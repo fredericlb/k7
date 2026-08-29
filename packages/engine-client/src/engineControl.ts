@@ -239,7 +239,9 @@ export class EngineControl extends EventEmitter {
     const pathMap = enginePathMap();
     const s = JSON.stringify(
       this.session ? { session: this.session, ...obj } : obj,
-      pathMap ? (_k, v) => (typeof v === "string" ? pathMap.out(v) : v) : undefined,
+      pathMap
+        ? (_k, v) => (typeof v === "string" ? pathMap.out(v) : v)
+        : undefined,
     );
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(s);

@@ -9,7 +9,9 @@ import { useMemo, useState } from "react";
 import { PROFILING } from "../profiling";
 import { sceneOf } from "../scene";
 import { audioSources } from "../shaderAudio";
+import type { Rect } from "../viewportRect";
 import { VideoCanvas } from "./VideoCanvas";
+import { ViewportOverlay } from "./ViewportOverlay";
 
 // Whether this browser can export (WebCodecs): realtime works everywhere, so say so rather than fail at frame 0.
 const CAN_EXPORT = typeof window !== "undefined" && "VideoEncoder" in window;
@@ -18,18 +20,32 @@ export function ViewportTab({
   doc,
   error,
   trackIds,
+  onRect,
+  readOnly,
+  armed,
 }: {
   /** The compiled picture, or null when this song carries none — see hooks/useVideoDoc.ts. */
   doc: WebVideoProject | null;
   error: string | null;
   /** The compiled track order — how the engine's `levels` array is indexed; only a shader with an audio input reads it. */
   trackIds?: readonly string[];
+  /** A layer was moved or resized in the frame: `picture rect`'s four numbers (viewportRect.ts). */
+  onRect?: (lane: string, rect: Rect) => void;
+  readOnly?: boolean;
+  /** The armed picture lane — what `monitor: auto` opens a lens for (../pictureMix.ts). */
+  armed?: string | null;
 }) {
   // NOTHING of the engine's state is read here: `VideoCanvas` takes the frames off a raw subscription, so this pane commits on a document change.
   const [debug, setDebug] = useState<LaneDebug[]>([]);
+  /** Which layer the frame has selected, and the canvas's letterboxed size the overlay must match. */
+  const [selected, setSelected] = useState<string | null>(null);
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
 
   // Rebuilt only when the DOCUMENT changes: the scene owns a GL context and a <video> per layer, and both would be torn down per frame.
-  const scene = useMemo(() => (doc ? sceneOf(doc) : null), [doc]);
+  const scene = useMemo(
+    () => (doc ? sceneOf(doc, armed ?? null) : null),
+    [doc, armed],
+  );
   // Which lane drives each shader pass, memoised beside the scene: the LEVELS move at 20 Hz, this map does not.
   const sources = useMemo(() => audioSources(doc), [doc]);
 
@@ -57,7 +73,19 @@ export function ViewportTab({
           audioSources={sources}
           trackIds={trackIds}
           onDebug={PROFILING ? setDebug : undefined}
-        />
+          onFit={setBox}
+        >
+          {/* The lanes come from the DOCUMENT and not from the scene: only the document says which is a shape lane. */}
+          <ViewportOverlay
+            tracks={doc?.videoTracks ?? []}
+            viewport={scene.viewport}
+            box={box}
+            selected={selected}
+            onSelect={setSelected}
+            onRect={onRect}
+            readOnly={readOnly}
+          />
+        </VideoCanvas>
       </div>
       {/* The strip: the format always, and the per-lane sync error only while profiling, it costing a 5 Hz re-render (docs/picture.md). */}
       <div className="flex shrink-0 items-center gap-3 border-t border-border bg-background px-3 py-1 font-mono text-[11px] text-muted-foreground">

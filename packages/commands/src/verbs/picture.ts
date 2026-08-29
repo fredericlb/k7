@@ -5,12 +5,21 @@
 // palette, no CLI, and no entry in the undo journal. Sound had `event move` and picture had a
 // mouse. See docs/picture.md for the three that mirror the three drags.
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import {
+  createVideoTrackFile,
+  loadProjectRoot,
+  setLaneOrder,
+} from "@studio/song/loader";
+import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
+import { orderPosition, reorderTracks } from "@studio/song-schema/trackKind";
 import {
   addVideoPlacement,
   listVideoPlacements,
   removeVideoPlacementAt,
+  setVideoLaneMute,
+  setVideoLaneRect,
   setVideoPlacementFieldAt,
   type VideoPlacement,
 } from "@studio/song-schema/yaml/videoTrackFile";
@@ -136,7 +145,143 @@ function target(
   return { ...found, list, at, index, rest };
 }
 
+/** `layer-N`, the first free one — the lanes are a DIRECTORY, not something the song's own doc holds. */
+function nextLaneId(h: CommandHost): string {
+  const dir = resolve(h.songPath, LANES_DIR);
+  const taken = new Set(
+    existsSync(dir)
+      ? readdirSync(dir).map((f) => f.replace(/\.ya?ml$/i, ""))
+      : [],
+  );
+  let n = 1;
+  while (taken.has(`layer-${n}`)) n++;
+  return `layer-${n}`;
+}
+
 export const PICTURE_VERBS: Record<string, SidHandler> = {
+  /** `picture lane new [name]` — `track new`'s counterpart, and the only picture verb that MAKES something. */
+  "picture.laneNew": async (a, h) => {
+    const id = splitWords(a)[0] || nextLaneId(h);
+    try {
+      const written = createVideoTrackFile(h.songPath, id);
+      h.log([`+ picture lane ${id} (${written.join(", ")})`]);
+    } catch (e) {
+      h.refuse([`picture lane new: ${(e as Error).message}`]);
+      return;
+    }
+    return h.reload();
+  },
+
+  /** `picture lane order <lane> <position>` — `layers` IS the draw order, so reordering is one list write. */
+  "picture.laneOrder": async (a, h) => {
+    const [laneArg, whereArg] = splitWords(a);
+    if (!laneArg || !whereArg) {
+      h.refuse([
+        "usage: picture lane order <lane> <position|lane>  (e.g. picture lane order pip 1)",
+      ]);
+      return;
+    }
+    const stated = loadProjectRoot(h.songPath, true).project?.layers;
+    const layers = Array.isArray(stated) ? stated.map(String) : [];
+    if (!layers.includes(laneArg)) {
+      h.refuse([
+        `no picture lane '${laneArg}'${layers.length ? ` — project.layers names ${layers.join(", ")}` : " — this song lists none"}`,
+      ]);
+      return;
+    }
+    const pos = orderPosition(layers, whereArg);
+    if (pos === null) {
+      h.refuse([
+        `'${whereArg}' is neither a position nor a lane of this song — try a number 1..${layers.length}`,
+      ]);
+      return;
+    }
+    try {
+      const file = setLaneOrder(
+        h.songPath,
+        "layers",
+        reorderTracks(layers, laneArg, pos),
+      );
+      h.log([
+        `${laneArg} is now layer ${Math.min(Math.max(pos, 1), layers.length)} of ${layers.length}, bottom first (${file})`,
+      ]);
+    } catch (e) {
+      h.refuse([`picture lane order: ${(e as Error).message}`]);
+      return;
+    }
+    return h.reload();
+  },
+
+  /** `picture mute <lane>` — HIDDEN, there being no sound on a lane; the lane's own file carries it. */
+  "picture.mute": async (a, h) => {
+    const lane = splitWords(a)[0];
+    if (!lane) {
+      h.refuse(["usage: picture mute <lane>"]);
+      return;
+    }
+    const found = laneFile(lane, h);
+    if (!found) return;
+    // Read back rather than assumed: a toggle has to start from what the file says right now.
+    const on = !/^mute:\s*true\b/m.test(found.text);
+    if (!put(found.abs, setVideoLaneMute(found.text, on), h, "mute")) return;
+    h.log([`${found.rel}: ${on ? "hidden" : "shown"}`]);
+    return h.reload();
+  },
+
+  /** `picture solo <lane>` — `soloed:` at project.yaml's root, the SAME list audio uses (docs/picture.md). */
+  "picture.solo": async (a, h) => {
+    const lane = splitWords(a)[0];
+    if (!lane) {
+      h.refuse(["usage: picture solo <lane>"]);
+      return;
+    }
+    if (!laneFile(lane, h)) return;
+    const cur = (loadProjectRoot(h.songPath).soloed ?? []).map(String);
+    const on = !cur.includes(lane);
+    const next = on ? [...cur, lane] : cur.filter((x) => x !== lane);
+    const file = join(h.songPath, "project.yaml");
+    try {
+      if (next.length) setFileValue(file, ["soloed"], next);
+      else deleteFileValue(file, ["soloed"]);
+    } catch (e) {
+      h.refuse([`picture solo: ${(e as Error).message}`]);
+      return;
+    }
+    h.log([
+      `${lane}: solo ${on ? "on" : "off"}` +
+        (next.length ? ` — soloed: ${next.join(", ")}` : ""),
+    ]);
+    return h.reload();
+  },
+
+  /** `picture rect <lane> <x> <y> <w> <h>` — where in the frame a lane draws; the viewport drag's verb. */
+  "picture.rect": async (a, h) => {
+    const [laneArg, ...nums] = splitWords(a);
+    const [x, y, w, box] = nums.map(Number);
+    if (
+      !laneArg ||
+      nums.length !== 4 ||
+      [x, y, w, box].some((n) => !Number.isFinite(n))
+    ) {
+      h.refuse([
+        "usage: picture rect <lane> <x> <y> <w> <h>  (e.g. picture rect pip 960 540 320 180)",
+      ]);
+      return;
+    }
+    if (w <= 0 || box <= 0) {
+      h.refuse([
+        `a lane ${w}x${box} draws nothing — the width and height ARE the frame it fills, in viewport px`,
+      ]);
+      return;
+    }
+    const found = laneFile(laneArg, h);
+    if (!found) return;
+    const next = setVideoLaneRect(found.text, { x, y, w, h: box });
+    if (!put(found.abs, next, h, "rect")) return;
+    h.log([`${found.rel}: ${w}x${box} at ${x},${y}`]);
+    return h.reload();
+  },
+
   /** `picture move <lane> <at> <to>` — the body drag: `start`, and nothing else. */
   "picture.move": (a, h) => {
     const t = target(a, h, "move", "<to>");

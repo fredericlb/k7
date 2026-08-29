@@ -16,7 +16,7 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import { materialRefOf, placementId } from "@studio/song-schema/placementId";
 import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
-import { sortTracksByKind } from "@studio/song-schema/trackKind";
+import { orderTracks } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
@@ -736,13 +736,14 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
       solo: soloed.has(id),
     }));
 
-  // One entry per HALF, sorted by instrument family over the LANES so both halves stay adjacent — see docs/trackKind.md.
+  // One entry per HALF, ordered over the LANES so both halves stay adjacent — see docs/trackKind.md.
   const laneErrs: string[] = [];
-  const tracks: TrackDoc[] = sortTracksByKind(
+  const tracks: TrackDoc[] = orderTracks(
     Object.entries(lanesMap).filter(
       ([, t]) => t.type !== "group" && !t.disabled,
     ),
     ([id]) => id,
+    root.trackOrder,
   ).flatMap(([lane, t]): TrackDoc[] => {
     const halves = halvesOf(lane);
     // Which half each of this lane's events plays on; one whose material has no half is NAMED rather than dropped.

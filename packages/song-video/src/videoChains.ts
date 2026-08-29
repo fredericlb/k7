@@ -13,7 +13,7 @@ import {
   VIDEO_OUT_NODE,
 } from "@studio/song-schema/moduleTypes";
 import { readShader } from "./shaders";
-import type { VideoPluginDoc } from "./videoDoc";
+import type { CameraMonitor, VideoPluginDoc } from "./videoDoc";
 
 /** Where a compiled video run lands: on the lane that starts it, or over the composited frame. */
 export interface VideoChainDocs {
@@ -24,6 +24,8 @@ export interface VideoChainDocs {
   /** Which CAMERA feeds each lane, by the LABEL its node names — a lane with none is absent.
    *  Empty string means "whichever camera this machine calls default" (docs/camera.md). */
   cameraByLane: Record<string, string>;
+  /** …and WHEN each of those lenses is opened — `off` / `auto` / `on`, the input's own word (docs/camera.md). */
+  cameraMonitorByLane: Record<string, CameraMonitor>;
   /** …and the cameras that feed NO lane, which get a layer of their own: full frame unless the
    *  node says otherwise, in the order the graph declares them (docs/camera.md). */
   cameras: CameraLayer[];
@@ -36,6 +38,15 @@ export interface CameraLayer {
   label: string;
   /** [x, y, w, h] in viewport px; absent is the whole frame. */
   frame?: number[];
+  /** When the lens opens. A lens on no lane has nothing to arm, so `auto` reads as `on` for it. */
+  monitor: CameraMonitor;
+}
+
+/** A node's `monitor:` — a boolean maps onto the ends, and absent is `on`, not audio's `auto` (docs/camera.md). */
+export function readMonitor(raw: unknown): CameraMonitor {
+  if (raw === false || raw === "off") return "off";
+  if (raw === "auto") return "auto";
+  return "on";
 }
 
 /** The four knobs, clamped to 0..1 because the value leaves TypeScript for GLSL — docs/shaders.md. */
@@ -118,6 +129,7 @@ const runDocs = (
 export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
   const byLane: Record<string, VideoPluginDoc[]> = {};
   const cameraByLane: Record<string, string> = {};
+  const cameraMonitorByLane: Record<string, CameraMonitor> = {};
   const cameras: CameraLayer[] = [];
   let frame: VideoPluginDoc[] = [];
   // A CAMERA is a source rather than a pass: its run lands ON a picture lane, and what the lane
@@ -131,18 +143,23 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
     if (!cam || cam.enabled === false) continue;
     const module = g.modules[cam.module];
     const label = String(module?.camera ?? "");
+    const monitor = readMonitor(module?.monitor);
     let landed = false;
     for (const o of c.out) {
       const lane = splitPort(o.to).node;
       if (!g.videoTracks[lane]) continue;
       landed = true;
-      if (!(lane in cameraByLane)) cameraByLane[lane] = label;
+      if (!(lane in cameraByLane)) {
+        cameraByLane[lane] = label;
+        cameraMonitorByLane[lane] = monitor;
+      }
     }
     // No lane took it: the lens IS a layer, and the document authored none. See docs/camera.md.
     if (!landed && !cameras.some((x) => x.node === cam.module))
       cameras.push({
         node: cam.module,
         label,
+        monitor,
         ...(module?.frame ? { frame: module.frame } : {}),
       });
   }
@@ -159,5 +176,5 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
     const docs = runDocs(dir, g, c.from, c);
     if (docs.length) byLane[c.from] = docs;
   }
-  return { byLane, frame, cameraByLane, cameras };
+  return { byLane, frame, cameraByLane, cameraMonitorByLane, cameras };
 }

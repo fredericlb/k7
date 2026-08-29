@@ -1,5 +1,15 @@
+import { orderPosition, reorderTracks } from "@studio/song-schema/trackKind";
 import { describe, expect, it } from "vitest";
-import { isCellRow, projectRows, type Row, rowKey, rowTarget } from "./rows";
+import {
+  dropLaneOf,
+  isCellRow,
+  orderableLane,
+  pictureRowId,
+  projectRows,
+  type Row,
+  rowKey,
+  rowTarget,
+} from "./rows";
 import type { WebGroup, WebTrack, WebVideoTrack } from "./types";
 
 // The lane layout, and what each kind of row ADDRESSES — what a header click, a mute key and a graph lookup all ask it.
@@ -29,6 +39,7 @@ const videoTrack = (id: string): WebVideoTrack => ({
   kind: "video",
   color: "",
   mute: false,
+  solo: false,
   x: 0,
   y: 0,
   w: 1920,
@@ -110,14 +121,14 @@ describe("rowTarget", () => {
 });
 
 describe("a song that carries picture", () => {
-  it("puts the video lanes last, in the order the picture compiled them", () => {
-    // `layers:` is the draw order, already applied by the compile: the rows follow it, so the frame and the timeline cannot disagree.
+  it("puts the video lanes last, front layer FIRST", () => {
+    // `layers:` is bottom-first, so the rows reverse it: a row above another means IN FRONT of it.
     const rows = projectRows(
       { groups: [] },
       [track({ id: "bass" })],
-      [videoTrack("main"), videoTrack("pip")],
+      [videoTrack("main"), videoTrack("pip")], // compiled bottom-first: main is behind pip
     );
-    expect(rows.map(rowKey)).toEqual(["track:bass", "video:main", "video:pip"]);
+    expect(rows.map(rowKey)).toEqual(["track:bass", "video:pip", "video:main"]);
   });
 
   it("tells a video lane from an audio lane of the same name", () => {
@@ -249,5 +260,74 @@ describe("an automation row", () => {
     expect(
       projectRows({ groups: [] }, [track({ id: "gtr" })]).map(rowKey),
     ).toEqual(["track:gtr"]);
+  });
+});
+
+// Where a reorder goes wrong silently: which rows are one lane, and which are no lane at all.
+describe("reordering by header", () => {
+  const rows = projectRows(
+    { groups: [group("g")] },
+    [
+      track({ id: "vo.main" }),
+      track({ id: "lead#audio", group: "g" }),
+      track({ id: "lead#midi", group: "g" }),
+      track({ id: "orbit", generated: true }),
+    ],
+    [videoTrack("main"), videoTrack("pip")],
+  );
+
+  it("says which lane a header drags, and refuses the rows that are not one", () => {
+    const by = (key: string) => rows.find((r) => rowKey(r) === key) as Row;
+    expect(orderableLane(by("track:lead#midi"))).toEqual({
+      family: "track",
+      lane: "lead",
+    });
+    expect(orderableLane(by("video:pip"))).toEqual({
+      family: "video",
+      lane: "pip",
+    });
+    // A group has no file of its own to order, and a pattern lane is the scheduler's.
+    expect(orderableLane(by("group:g"))).toBeNull();
+    expect(orderableLane(by("track:orbit"))).toBeNull();
+  });
+
+  it("resolves a drop onto either half of a lane to that lane", () => {
+    expect(dropLaneOf(rows, "track:lead#audio", "track")).toBe("lead");
+    expect(dropLaneOf(rows, "track:lead#midi", "track")).toBe("lead");
+  });
+
+  it("refuses a drop across the two families, which are two lists", () => {
+    expect(dropLaneOf(rows, "video:main", "track")).toBeNull();
+    expect(dropLaneOf(rows, "track:vo.main", "video")).toBeNull();
+    expect(dropLaneOf(rows, "group:g", "track")).toBeNull();
+    expect(dropLaneOf(rows, "track:orbit", "track")).toBeNull();
+    expect(dropLaneOf(rows, null, "track")).toBeNull();
+  });
+});
+
+// The regression: a drag reading the direction the other way hid the lane behind the full-frame one.
+describe("a picture lane dragged to the top row", () => {
+  it("ends up in FRONT, which is last in project.layers", () => {
+    const layers = ["main", "pip", "box"]; // bottom first, as the file states them
+    const rows = projectRows({ groups: [] }, [], layers.map(videoTrack));
+    // The top row is what a person drops onto to mean "put it over everything".
+    const onto = dropLaneOf(rows, rowKey(rows[0]), "video");
+    expect(onto).toBe("box");
+    const at = orderPosition(layers, onto as string);
+    expect(reorderTracks(layers, "main", at as number)).toEqual([
+      "pip",
+      "box",
+      "main",
+    ]);
+  });
+});
+
+describe("pictureRowId", () => {
+  // `r` arms whatever the caret is on, and only a row key says which of the two arms that is.
+  it("names the lane behind a picture row, and nothing behind any other", () => {
+    expect(pictureRowId("video:main")).toBe("main");
+    expect(pictureRowId("track:main")).toBeNull();
+    expect(pictureRowId("group:g")).toBeNull();
+    expect(pictureRowId(null)).toBeNull();
   });
 });

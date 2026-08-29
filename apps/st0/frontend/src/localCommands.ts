@@ -55,6 +55,8 @@ export const UI_HEADS: readonly string[] = [
   // Reopens the take review on a clip — a VIEW, so `ui`. The panel's own buttons are the brain's.
   "review ",
   "midi learn ",
+  // …and arming a PICTURE lane, which is the browser's the way MIDI learn is. Bare, it disarms.
+  "picture arm ",
   // Which TOOL the active surface is holding — session state, so `ui`: it touches neither the project nor the transport.
   "tool ",
   // …and the same for the audio clip's waveform, whose three views ARE its three gestures (waveMode.ts).

@@ -52,10 +52,17 @@ export const KEYS: Record<string, Binding> = {
     { if: "hover_midi_sequence", command: "event move" },
     { if: "hover_audio_clip", command: "event move" },
     { if: "caret_track", command: "track mute {caret_track}" },
+    { if: "caret_picture", command: "picture mute {caret_picture}" },
   ],
-  s: { if: "caret_track", command: "track solo {caret_track}" },
-  // r arms the track under the caret — session state the engine holds, which is why the verb is `transport arm`.
-  r: { if: "caret_track", command: "transport arm {caret_track}" },
+  s: [
+    { if: "caret_track", command: "track solo {caret_track}" },
+    { if: "caret_picture", command: "picture solo {caret_picture}" },
+  ],
+  // r arms the row under the caret — two verbs, the two arms being held in two places (docs/timeline.md).
+  r: [
+    { if: "caret_track", command: "transport arm {caret_track}" },
+    { if: "caret_picture", command: "ui picture arm {caret_picture}" },
+  ],
   // Shift+R toggles the GLOBAL record enable — what play DOES with the armed set, not what is armed.
   R: "transport record",
   // e edits the clip under the caret; with none there the binding resolves to nothing.

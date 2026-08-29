@@ -15,8 +15,9 @@ listed what that cost:
 - **no CLI**, so a script could not place a shot;
 - **no undo entry**, since the journal records commands.
 
-Five verbs close it. They are not a new model of picture editing — they are the three drags the
-page already documents, plus create and delete.
+Seven verbs close it. Five are not a new model of picture editing — they are the three drags the
+page already documents, plus create and delete. The sixth makes the LANE and the seventh places it
+in the frame; before them, both took a text editor.
 
 | verb | writes | the gesture it mirrors |
 |---|---|---|
@@ -24,7 +25,9 @@ page already documents, plus create and delete.
 | `picture length <lane> <at> <seconds>` | `length` | the right-edge drag |
 | `picture head <lane> <at> <to>` | `start`, `source_from` **and** `length` | the left-edge drag |
 | `picture delete <lane> <at>` | — | (none — the drag has no delete) |
-| `picture add <lane> <ref> <at> …` | a new entry | (none — a drop from the tree) |
+| `picture add <lane> <ref> <at> …` | a new entry | dropping a video file on a picture lane (`apps/st0/frontend/docs/timeline.md`) |
+| `picture lane new [name]` | a new LANE, and `project.layers` | the timeline's `＋ piste` menu |
+| `picture rect <lane> <x> <y> <w> <h>` | `x`, `y`, `w`, `h` | selecting a layer in the VIEWPORT and dragging it |
 
 ## A shot is addressed by WHERE IT STARTS
 
@@ -71,6 +74,43 @@ Two refusals guard it, because a command can be typed where a drag could only be
 
 A `length: 0` shot keeps its length untouched. Zero means "to the end of the source", a duration
 only the compiler can measure, so pinning a number here would invent one.
+
+## `picture rect` is the only verb here about SPACE
+
+Every other one is about time — where a shot starts, how long it runs, which lane draws first. This
+one says where in the frame a lane draws, in viewport px, and it is what the viewport's selection
+box writes on release (`apps/st0/frontend/docs/picture.md`).
+
+It writes **all four** keys, always. A lane stating three of them and inheriting the fourth is a
+rect nobody can read, and the fourth would come from the viewport default that exists precisely so
+a lane can state NO rect and fill the frame. Either say the whole rect or say none of it.
+
+A zero side is refused by name rather than written: a lane `0` wide draws nothing while looking
+exactly like a lane, which is the failure this format has already paid for once.
+
+## `picture lane order` counts in `layers`, which is bottom-first
+
+Position 1 draws FIRST, which puts the lane at the BACK. That is the file's own direction and the
+verb keeps it rather than inventing a friendlier one — `layers:` is read by the compiler, and a
+verb that counted the other way would disagree with the list it writes.
+
+The timeline lists its picture rows the other way round (front layer at the top), so its drag never
+sends a number: it names the lane whose place is being taken, and this verb does the counting.
+`apps/st0/frontend/docs/picture.md` has the reason that reversal exists.
+
+## `picture lane new` writes TWO files, and looks the second up first
+
+Every other verb here rewrites one lane. This one writes `video_tracks/<id>.yaml` **and** appends
+the id to `project.layers` — because `layers` is the membership, not just the order: a lane absent
+from it fails the picture compile by name. Two writes, one act.
+
+So `project.yaml` is found *before* either write happens. A song with none is refused with
+`no project.yaml — a picture lane has nowhere to be listed`, rather than left holding a lane file
+that would have to be listed by hand. Named nothing, it picks `layer-N` off the directory — the
+lanes are files, not something the song's own document holds.
+
+It refuses a name a lane, a track or a module already has: the graph draws a song's lanes and its
+picture lanes in one name space.
 
 ## `picture add` reports rather than refuses
 

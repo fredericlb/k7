@@ -17,6 +17,7 @@ import type { DroppedFile } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
 import { askConfirm } from "@studio/project-shell/ask";
 import { showToast } from "@studio/project-shell/toast";
+import { VIDEO_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
 import {
   listVideoPlacements,
   setVideoPlacementField,
@@ -189,10 +190,9 @@ function resolveGutterSource(
 }
 
 // clips/ holds audio and video: the kind comes off the source extension, read with readScalarField, since YAML does not quote.
-const VIDEO_EXT = /\.(mp4|mov|m4v|webm|mkv)$/i;
 const isAudioClipFile = (text: string): boolean => {
   const src = readScalarField(text, "source");
-  return !!src && !VIDEO_EXT.test(src);
+  return !!src && !VIDEO_SOURCE.test(src);
 };
 
 // The rack module a sequence names via use_rack, so a slice rack can dock its source waveform.

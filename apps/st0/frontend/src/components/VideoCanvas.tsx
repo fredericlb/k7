@@ -16,13 +16,15 @@ function fit(
   driver: RealtimeDriver,
   host: HTMLElement,
   scene: VideoScene,
-): void {
+): { w: number; h: number } | null {
   const [vw, vh] = scene.viewport;
-  if (!vw || !vh) return;
+  if (!vw || !vh) return null;
   const hw = host.clientWidth;
   const hh = host.clientHeight;
   const s = Math.min(hw / vw, hh / vh);
-  driver.resize(Math.round(vw * s), Math.round(vh * s));
+  const box = { w: Math.round(vw * s), h: Math.round(vh * s) };
+  driver.resize(box.w, box.h);
+  return box;
 }
 
 export function VideoCanvas({
@@ -30,20 +32,28 @@ export function VideoCanvas({
   audioSources,
   trackIds,
   onDebug,
+  onFit,
+  children,
 }: {
   scene: VideoScene;
+  /** Drawn OVER the canvas, inside the same centring host — see ViewportOverlay. */
+  children?: React.ReactNode;
   /** Which lane drives each shader pass's `uAudio`, by pass id (shaderAudio.ts) — empty for every song that shades nothing. */
   audioSources?: Readonly<Record<string, string>>;
   /** The compiled track order — how the engine's nameless `levels` array is indexed. */
   trackIds?: readonly string[];
   /** Per-lane drift, a few times a second. Omitted unless somebody is profiling — see profiling.ts. */
   onDebug?: (d: LaneDebug[]) => void;
+  /** The canvas's CSS size after letterboxing — what an overlay must match to sit exactly on the frame. */
+  onFit?: (box: { w: number; h: number } | null) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const driverRef = useRef<RealtimeDriver | null>(null);
   const clockRef = useRef<EngineClock | null>(null);
   const onDebugRef = useRef(onDebug);
   onDebugRef.current = onDebug;
+  const onFitRef = useRef(onFit);
+  onFitRef.current = onFit;
   // In a ref for the same reason the debug callback is: the subscription must read a fresh map without losing the GL context.
   const sourcesRef = useRef(audioSources);
   sourcesRef.current = audioSources;
@@ -67,7 +77,7 @@ export function VideoCanvas({
       return;
     }
     driverRef.current = driver;
-    fit(driver, host, scene);
+    onFitRef.current?.(fit(driver, host, scene));
     // Where the transport is RIGHT NOW: a fresh clock knows nothing, and with the transport stopped the next frame can be 250 ms away.
     const now = store.getSnapshot();
     clock.feed(now.playing, now.playhead);
@@ -108,17 +118,19 @@ export function VideoCanvas({
     if (!host) return;
     const ro = new ResizeObserver(() => {
       const d = driverRef.current;
-      if (d) fit(d, host, scene);
+      if (d) onFitRef.current?.(fit(d, host, scene));
     });
     ro.observe(host);
     return () => ro.disconnect();
   }, [scene]);
 
-  // The driver appends its own canvas and parked <video>s, so this host stays empty and merely centres them.
+  // The driver appends its own canvas and parked <video>s; `children` is the overlay, sitting on it.
   return (
     <div
       ref={hostRef}
       className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black"
-    />
+    >
+      {children}
+    </div>
   );
 }

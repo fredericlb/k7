@@ -56,7 +56,16 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     RawClip
   >;
   const videoTracksMap = loadVideoTracks(abs, true);
-  const tracks = compileVideoTracks(abs, proj.layers, videoTracksMap, clipsMap);
+  const warnings: string[] = [];
+  const tracks = compileVideoTracks(
+    abs,
+    proj.layers,
+    videoTracksMap,
+    clipsMap,
+    viewport,
+    Array.isArray(root.soloed) ? root.soloed.map(String) : [],
+    warnings,
+  );
 
   // The video CHAINS, the one thing here reading `graph.yaml`, and best-effort — docs/shaders.md.
   const chains = (() => {
@@ -67,6 +76,7 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
         byLane: {},
         frame: [],
         cameraByLane: {},
+        cameraMonitorByLane: {},
         cameras: [],
       } satisfies VideoChainDocs;
     }
@@ -86,7 +96,10 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
         ...(chains.byLane[t.id] ? { plugins: chains.byLane[t.id] } : {}),
         // A lane a camera is wired to draws the LENS rather than its placements — docs/camera.md.
         ...(t.id in chains.cameraByLane
-          ? { camera: chains.cameraByLane[t.id] }
+          ? {
+              camera: chains.cameraByLane[t.id],
+              cameraMonitor: chains.cameraMonitorByLane[t.id],
+            }
           : {}),
       })),
       // …and the cameras that feed no lane, each a layer of its own, ON TOP of the authored ones
@@ -98,8 +111,12 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
           name: cam.node,
           color: "",
           mute: false,
+          // A lens on no lane is in no `soloed:` list either — it has no lane id to be named by.
+          solo: false,
           kind: "video",
           camera: cam.label,
+          // A lens on no lane has no arm, so `auto` cannot mean "while armed" for it — it shows.
+          cameraMonitor: cam.monitor === "auto" ? "on" : cam.monitor,
           x: cam.frame?.[0] ?? 0,
           y: cam.frame?.[1] ?? 0,
           // No frame written is the WHOLE viewport, which is what one camera on its own wants.
@@ -113,5 +130,6 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     markers: parseVideoMarkers(root.markers),
     framePlugins: chains.frame,
     transitions,
+    warnings,
   };
 }

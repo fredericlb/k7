@@ -35,6 +35,9 @@
 # ONE verb and no kind: a lane is not typed by what it carries
 # (packages/song/docs/trackModules.md), so one lane holds clips and sequences alike. Seeding the
 # empty sequence a lane plays is `sequence new`'s, a separate act.
+#
+# It DOES write the lane's strip, which is not a separate act: a lane with no `Mixer` module has
+# nowhere to put a level, so its faders would draw and do nothing. See packages/song/docs/trackMixer.md.
 - command: "track new"
   sid: track.new
   readable:
@@ -49,6 +52,21 @@
         optional: true,
         hint: "the track's id, which is its filename — optional",
       },
+    ]
+# The order lanes are DRAWN and mixed in. A project states it or it does not: with no `trackOrder`
+# the names decide (a "3." pin, then the instrument family), and the first reorder writes the whole
+# list — half an order is not an order. See packages/song/docs/trackKind.md.
+- command: "track order"
+  sid: track.order
+  readable:
+    en: "Move a track to another position"
+    fr: "Déplacer une piste à une autre position"
+  help: "put a track at a position (e.g. track order gtr 2) — 1 is the top, past the end is the bottom"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: position, hint: "1-based, counting lanes from the top" },
     ]
 - command: "sequence new"
   sid: sequence.new
@@ -1133,6 +1151,75 @@
 # there is one tempo, so a musical spelling would be a second dialect for the same number.
 # Two shots starting at the same instant on one lane are refused rather than guessed between: the
 # format allows the pair and nothing here may pick one.
+# The one picture verb that MAKES something, and the only one writing two files: the lane, and
+# `project.layers`, which is what says a lane exists and in which order it draws. A lane missing
+# from that list fails the picture compile by name, so the two are one act.
+- command: "picture lane new"
+  sid: picture.laneNew
+  readable:
+    en: "Add a picture lane"
+    fr: "Ajouter une piste vidéo"
+  help: "add a video lane (e.g. picture lane new broll) — named layer-N if you don't say"
+  surfaces: [cli, timeline]
+  args:
+    [
+      {
+        name: name,
+        optional: true,
+        hint: "the lane's id, which is its filename — optional",
+      },
+    ]
+# `layers:` is the draw order AND the membership, so reordering picture is one list write and
+# needs no second field. Bottom first, which is the order the timeline draws its picture rows in.
+- command: "picture lane order"
+  sid: picture.laneOrder
+  readable:
+    en: "Move a picture lane to another position"
+    fr: "Déplacer une piste vidéo à une autre position"
+  help: "reorder a video lane (e.g. picture lane order pip 1) — 1 draws first, so it sits under the rest"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: position, hint: "1-based in `layers`, bottom first" },
+    ]
+# WHERE in the frame a lane draws, in viewport px — the one picture verb about geometry rather
+# than about time. A lane stating no rect fills the frame, so this is what a viewport drag writes
+# the moment you move or resize one. See apps/st0/frontend/docs/picture.md.
+# A lane's two mixer words, spelled for PICTURE. `mute` is HIDDEN — there is no sound on a lane —
+# and lives in the lane's own file. `solo` is `soloed:` at project.yaml's root, the SAME list audio
+# uses: each compile filters it to its own lanes, so soloing a shot silences nothing.
+- command: "picture mute"
+  sid: picture.mute
+  readable:
+    en: "Hide or show a picture lane"
+    fr: "Masquer ou afficher une piste vidéo"
+  help: "toggle a video lane's mute — which on picture means hidden (e.g. picture mute pip)"
+  surfaces: [cli, timeline]
+  args: [{ name: lane, complete: pictureLanes }]
+- command: "picture solo"
+  sid: picture.solo
+  readable:
+    en: "Solo a picture lane"
+    fr: "Isoler une piste vidéo"
+  help: "toggle a video lane's solo — soloed lanes hide the rest of the picture (e.g. picture solo pip)"
+  surfaces: [cli, timeline]
+  args: [{ name: lane, complete: pictureLanes }]
+- command: "picture rect"
+  sid: picture.rect
+  readable:
+    en: "Set where a picture lane draws"
+    fr: "Placer une piste vidéo dans le cadre"
+  help: "place and size a lane in the frame (e.g. picture rect pip 960 540 320 180) — viewport px"
+  surfaces: [cli, viewport]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: x, hint: "px from the frame's left edge" },
+      { name: y, hint: "px from its top edge" },
+      { name: w, hint: "width in px" },
+      { name: h, hint: "height in px" },
+    ]
 - command: "picture move"
   sid: picture.move
   readable:

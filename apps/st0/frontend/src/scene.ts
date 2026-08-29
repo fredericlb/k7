@@ -9,6 +9,7 @@ import {
 } from "@studio/ui-eyes/scene";
 import type { WebVideoPlugin, WebVideoProject } from "@studio/web-protocol";
 import { mediaUrl } from "./api";
+import { laneHidden, lensOpen } from "./pictureMix";
 
 /** A compiled video plugin → the pass eyes runs, or null — two ordinary ways to be null, and `audio` is replaced per frame by the driver. */
 function passOf(p: WebVideoPlugin): ScenePass | null {
@@ -27,15 +28,22 @@ function passOf(p: WebVideoPlugin): ScenePass | null {
 const passesOf = (list: WebVideoPlugin[] | undefined): ScenePass[] =>
   (list ?? []).map(passOf).filter((p): p is ScenePass => p !== null);
 
-export function sceneOf(proj: WebVideoProject): VideoScene {
+export function sceneOf(
+  proj: WebVideoProject,
+  /** The armed picture lane, which is what `monitor: auto` opens a lens for (pictureMix.ts). */
+  armed: string | null = null,
+): VideoScene {
   return buildScene(
     proj.viewport,
     proj.fps,
     proj.videoTracks.map((t) => ({
       id: t.id,
-      mute: t.mute,
-      // A lens wired to this lane in `graph.yaml` — packages/song/docs/camera.md.
-      ...(t.camera === undefined ? {} : { camera: t.camera }),
+      // The FOLD, done here: `mute` on the wire is the lane's own flag, and the scene wants the answer.
+      mute: laneHidden(proj.videoTracks, t, armed),
+      // The lens, DROPPED when shut: a camera nothing draws must not be opened (packages/song/docs/camera.md).
+      ...(t.camera !== undefined && lensOpen(t, armed)
+        ? { camera: t.camera }
+        : {}),
       x: t.x,
       y: t.y,
       w: t.w,

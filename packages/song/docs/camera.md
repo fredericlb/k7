@@ -36,7 +36,10 @@ is making you say something the compiler already knows.
 
 **Wiring it to a lane still works**, and is what you want when the lens should share a lane's
 rectangle, its `mute`, or the shader passes over it. Then the lane draws the camera instead of its
-placements.
+placements. `graph chain connect cam main` is that cable, and so is dragging it on the graph — a
+picture lane is a node like any other to every verb that names one (`namesANode`), which it had to
+be taught: `videoTracks` is its own key on the graph doc, and reading only `modules` and `tracks`
+refused every cable to a card the graph had just drawn.
 
 ## Why the LABEL and not a deviceId
 
@@ -99,6 +102,43 @@ a parked `<video>`, and the compositor uploads from it exactly as it does from a
   from.
 - **A failure is carried, never thrown.** A refused permission must not take the viewport down with
   it; the other layers have pictures to show.
+
+## `monitor:` — when the lens opens
+
+The live input's own three words, meaning SHOWN rather than heard, and settable the same way
+(`node param cam @monitor auto`, or the card's dropdown — `@monitor` was already an intrinsic, and
+this only teaches picture to read it):
+
+| | |
+|---|---|
+| `off` | never opened. The lane draws nothing — its placements are not what it was showing |
+| `auto` | opened while its LANE is armed, and closed the moment it is not |
+| `on` | always, which is what a camera node has always done |
+
+**`on` is the default, where audio's is `auto`**, and the difference is not an oversight: `auto`
+exists for sound because monitoring a live input you are not recording bleeds into the room. A lens
+has no feedback path, and every camera node written before this rule existed would otherwise have
+gone dark.
+
+A lens on **no lane** has nothing to arm, so `auto` on one reads as `on` — a camera you can neither
+arm nor see would be a dead end.
+
+Closing means closing: a shut lens is dropped from the scene rather than merely not drawn, so the
+stream is never opened and the machine's indicator stays off. That is the same rule as teardown,
+one paragraph up, applied to a lane that is simply not being watched.
+
+## Recording it is the browser's too
+
+Arming a picture lane and rolling the transport captures a lens into a clip on that lane —
+`MediaRecorder`, in `apps/st0/frontend/docs/picture.md`. It follows from the line above rather than
+adding anything to this model: the engine has no camera to record, so the half that holds one is
+the half that records it. The label is matched by `matchCamera`, so a take records the lens the
+lane names and falls back the same way.
+
+It opens a stream of its **own** rather than reaching into the compositor's. Two reasons, and the
+second is the one that decides it: the driver does not hand its stream out, and the lane being
+recorded onto usually has no lens wired at all — a lane that HAS one draws it live and ignores its
+placements, so recording onto that one would file a shot nothing draws.
 
 ## Export skips it, and that is the answer rather than a gap
 

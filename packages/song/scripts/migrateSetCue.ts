@@ -69,14 +69,17 @@ function moduleOf(mapping: YAMLMap, control: string): string | null {
 function decksOf(mapping: YAMLMap): Deck[] {
   const out: Deck[] = [];
   for (const item of mapping.items) {
-    const key = String((item as { key?: { value?: unknown } }).key?.value ?? "");
+    const key = String(
+      (item as { key?: { value?: unknown } }).key?.value ?? "",
+    );
     const [id, control] = key.split(".");
     // `filter` rather than `tempo`: it is the tap point, so a deck without one has nowhere to tap.
     if (!id || control !== "filter") continue;
     const filter = moduleOf(mapping, key);
     // The TRIM heads the strip on a set that has one, and `bus_only` must name the chain's head —
     // naming the EQ there would list a module that is only a step inside it. See docs/busOnly.md.
-    const eq = moduleOf(mapping, `${id}.trim`) ?? moduleOf(mapping, `${id}.eqLow`);
+    const eq =
+      moduleOf(mapping, `${id}.trim`) ?? moduleOf(mapping, `${id}.eqLow`);
     // Refused rather than half-wired: guessing a node name writes a send nobody asked for.
     if (!filter || !eq) {
       console.error(
@@ -212,7 +215,11 @@ for (const dir of roots) {
   // After the LAST `.filter`, which is where the scaffold's own block sits — the stems follow it.
   let last = -1;
   mapping.items.forEach((i, n) => {
-    if (String((i as { key?: { value?: unknown } }).key?.value).endsWith(".filter"))
+    if (
+      String((i as { key?: { value?: unknown } }).key?.value).endsWith(
+        ".filter",
+      )
+    )
       last = n;
   });
   mapping.items.splice(last < 0 ? mapping.items.length : last + 1, 0, ...bind);

@@ -25,6 +25,7 @@
     "./moduleCatalogue": "./src/moduleCatalogue.ts",
     "./moduleCache": "./src/moduleCache.ts",
     "./moduleResolve": "./src/moduleResolve.ts",
+    "./trackMixerFile": "./src/trackMixerFile.ts",
     "./trackModule": "./src/trackModule.ts",
     "./scaffold": "./src/scaffold.ts",
     "./scaffoldNeeds": "./src/scaffoldNeeds.ts",

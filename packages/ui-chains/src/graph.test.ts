@@ -874,7 +874,7 @@ describe("a chain whose source track no longer exists", () => {
 });
 
 describe("orphan tracks", () => {
-  it("draws a track no chain mentions, marked and unwired", () => {
+  it("draws a track no chain mentions, unwired and unlabelled", () => {
     const { nodes, edges } = buildGraph(
       graph(
         {
@@ -890,7 +890,8 @@ describe("orphan tracks", () => {
     const spare = nodes.find((n) => n.id === "trk:spare");
     expect(spare).toBeTruthy();
     expect(spare?.kind).toBe("track");
-    expect(spare?.sub).toBe("no chain");
+    // No note under the name: the missing cable already says it, and a lane with none still plays.
+    expect(spare?.sub).toBeUndefined();
     // Unwired is the point — nothing routes it anywhere.
     expect(
       edges.some((e) => e.source === "trk:spare" || e.target === "trk:spare"),
@@ -984,20 +985,36 @@ describe("video tracks", () => {
   it("draws an unrouted video lane as an orphan, exactly as an audio one", () => {
     const { nodes } = buildGraph(withVideo({}, ["spare"], ["main"]));
     const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
-    // Same kind, same "no chain" note — the two read alike because they mean alike.
-    expect(byId["trk:spare"]).toMatchObject({ kind: "track", sub: "no chain" });
-    expect(byId["trk:main"]).toMatchObject({
-      kind: "track",
-      sub: "no chain",
-      video: true,
-    });
+    // Same kind and the same absence of a note — the two read alike because they mean alike.
+    expect(byId["trk:spare"]).toMatchObject({ kind: "track" });
+    expect(byId["trk:spare"].sub).toBeUndefined();
+    expect(byId["trk:main"]).toMatchObject({ kind: "track", video: true });
+    expect(byId["trk:main"].sub).toBeUndefined();
+  });
+
+  // A picture lane read as an unknown DESTINATION was drawn as a sink beside itself (docs/graphBuild.md).
+  it("lands a cable on the LANE, not on a sink invented for it", () => {
+    const { nodes, edges } = buildGraph(
+      withVideo(
+        { cam: { from: "cam", use: [], out: [{ to: "main", gain: 1 }] } },
+        [],
+        ["main"],
+      ),
+    );
+    expect(
+      nodes.filter((n) => n.kind === "sink").map((n) => n.label),
+    ).not.toContain("main");
+    expect(edges.find((e) => e.target === "trk:main")).toBeTruthy();
   });
 
   it("gives a video lane a mute-only strip, not the mixer's five controls", () => {
     const { nodes } = buildGraph(withVideo({}, ["spare"], ["main"]));
     const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
-    // Picture has no solo, no record arm, no gain and no pan to offer.
-    expect(Object.keys(byId["trk:main"].ui?.widgets ?? {})).toEqual(["mute"]);
+    // Mute and solo, the two words picture HAS — no gain, no pan, and no arm to offer.
+    expect(Object.keys(byId["trk:main"].ui?.widgets ?? {})).toEqual([
+      "mute",
+      "solo",
+    ]);
     expect(Object.keys(byId["trk:spare"].ui?.widgets ?? {})).toEqual([
       "mute",
       "solo",
@@ -1022,7 +1039,7 @@ describe("video tracks", () => {
       ),
     );
     const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
-    // Routed, so no "no chain" note — but still marked video.
+    // Routed, and still marked video: the flag is about the SIGNAL, not about being wired.
     expect(byId["trk:main"]).toMatchObject({ kind: "track", video: true });
     expect(byId["trk:main"].sub).toBeUndefined();
     const cable = edges.find((e) => e.source === "trk:main");

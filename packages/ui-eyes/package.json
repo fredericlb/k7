@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The studio's eyes — composites a song's video lanes onto its viewport with WebGL, in real time or frame-by-frame to a file. Knows nothing about audio, and nothing about the brain: it takes a plain VideoScene.",
+  "description": "The studio's eyes \u2014 composites a song's video lanes onto its viewport with WebGL, in real time or frame-by-frame to a file. Knows nothing about audio, and nothing about the brain: it takes a plain VideoScene.",
   "exports": {
     "./scene": "./src/scene.ts",
     "./timeline": "./src/timeline.ts",
@@ -11,6 +11,7 @@
     "./compositor": "./src/compositor.ts",
     "./realtime": "./src/realtime.ts",
     "./export": "./src/export.ts",
+    "./camera": "./src/camera.ts",
     ".": "./src/index.ts"
   },
   "scripts": {

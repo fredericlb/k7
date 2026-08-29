@@ -37,7 +37,10 @@ function rowsOf(
   const out: Row[] = [];
   const seen = new Set<string>();
   const under = new Map(
-    Object.entries(promoted).map(([as, t]) => [`${t.node}\u0000${t.param}`, as]),
+    Object.entries(promoted).map(([as, t]) => [
+      `${t.node}\u0000${t.param}`,
+      as,
+    ]),
   );
   for (const chain of Object.values(graph?.chains ?? {}))
     for (const step of chain.use) {

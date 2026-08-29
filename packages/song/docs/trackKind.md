@@ -37,3 +37,30 @@ Two names claiming the same slot is not an error: the lower-numbered (then earli
 takes it and the other moves DOWN to the next free slot, so a duplicated number costs
 one position rather than losing a track. A number past the end lands last, for the same
 reason — `"99."` reads as "put this at the bottom," which is what it does.
+
+## A STATED order, and why it beats the names outright
+
+`orderTracks` is what the compiler calls, and it answers with one of two things:
+
+- `project.yaml`'s **`trackOrder`**, when the project states one — a list of lane ids, top first;
+- the names, through `sortTracksByKind` above, when it does not.
+
+It is deliberately not a blend. Two rules that can both apply to one lane is two answers to "which
+lane is second", and the one you get depends on which rule the reader remembers. A project states
+its order or it does not.
+
+What `trackOrder` does not name follows the lanes it does, in family order. That case is not an
+error to refuse: a lane added by hand, or by a tool written before the list existed, is still a
+lane, and dropping it would lose a track over a bookkeeping detail.
+
+**The first reorder writes the whole list.** `track order <track> <position|lane>` reads the lanes
+as they compile now, moves one, and states all of them — half an order is not an order, and a list
+holding only what moved would put everything else at the bottom by the rule above.
+
+The target may be a **lane** rather than a number, and the timeline's drag always sends one. A view
+that clusters its rows — a group's members follow its header — cannot count slots the file would
+agree with, so it names the lane whose place is being taken and lets the verb do the counting.
+
+A picture lane's order is `project.layers` and `picture lane order` writes it, bottom first: the
+same gesture on the other list ([packages/song-video/docs/picture.md](../../song-video/docs/picture.md)).
+The timeline lists those rows front-first, which is why its drag names a lane and never a number.
