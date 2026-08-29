@@ -4,10 +4,13 @@
 // is inherited), and the log truncate before the supervisor opens the same file for append.
 // See docs/tray.md.
 
+import { networkInterfaces } from "node:os";
 import { settingsPath } from "@studio/engine-client/paths";
+import type { HostSnapshot } from "@studio/engine-host/hostProtocol";
 import { ensureEngineIdentity } from "@studio/engine-host/identity";
 import { loadSettings, saveSettings } from "@studio/engine-host/settings";
 import { pairUrl } from "@studio/web-protocol/pairing";
+import { SETTINGS_REPO } from "@studio/web-protocol/projects";
 import { serviceUrl } from "@studio/web-protocol/services";
 import { app, nativeTheme, shell } from "electron";
 import { clearDevPid, writeDevPid } from "./devPid.ts";
@@ -44,6 +47,9 @@ let tray: StudioTray | null = null;
 let host: HostLink | null = null;
 let spinner: NodeJS.Timeout | null = null;
 let web: LocalServer | null = null;
+// The settings screen draws from the SAME snapshot the menu does; there is one, and this is it.
+let snapshot: HostSnapshot | null = null;
+let hostError: string | null = null;
 // The last snapshot's paths, for the rows that open something — sent by the supervisor rather
 // than recomputed, so ~/.studio has one definition.
 let paths = { root: "", mergedLog: "", webOrigins: "" };
@@ -69,8 +75,9 @@ function onMenuClick(id: string): void {
     case "autostart":
       tray?.setAutostart(toggleAutostart());
       break;
-    case "server":
-      void connectToServer();
+    case "settings":
+      // The page IS the settings, so the row opens the window on it.
+      if (web) openWindow(`${web.url}/${SETTINGS_REPO}`);
       break;
     case "openRoot":
       openFolder(paths.root);
@@ -127,13 +134,18 @@ app.whenReady().then(() => {
     {
       onSnapshot: (s) => {
         paths = s.paths ?? paths;
+        snapshot = s;
+        hostError = null;
         tray?.setSnapshot(s);
       },
       onNotify: (kind, title, body) =>
         kind === "modal"
           ? notifyModal(title, body)
           : notifyPassive(title, body),
-      onHostError: (message) => tray?.setHostError(message),
+      onHostError: (message) => {
+        hostError = message;
+        tray?.setHostError(message);
+      },
     },
     resolveHostCmd({
       packaged: app.isPackaged,
@@ -153,6 +165,67 @@ app.whenReady().then(() => {
     if (web) openWindow(web.url);
   });
 });
+
+/** The addresses a SECOND DEVICE can use — the same listener, seen from the LAN (docs/externals.md). */
+function lanUrls(port: number): string[] {
+  const out: string[] = [];
+  for (const list of Object.values(networkInterfaces())) {
+    for (const i of list ?? []) {
+      if (i.family === "IPv4" && !i.internal)
+        out.push(`http://${i.address}:${port}`);
+    }
+  }
+  return out;
+}
+
+/** The rows the supervisor has no command for. The menu did these; now the screen does too. */
+async function localAction(
+  what: string,
+  arg?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  switch (what) {
+    case "autostart": {
+      const on = toggleAutostart();
+      tray?.setAutostart(on);
+      return { ok: true };
+    }
+    case "openRoot":
+      openFolder(paths.root);
+      return { ok: true };
+    case "openLog":
+      openTextFile(paths.mergedLog);
+      return { ok: true };
+    case "openSettingsFile":
+      openTextFile(settingsPath());
+      return { ok: true };
+    case "setServer": {
+      if (!arg) return { ok: false, error: "no address" };
+      saveSettings({ ...loadSettings(), serverUrl: arg });
+      tray?.setServer(arg);
+      return { ok: true };
+    }
+    case "pair":
+      return await beginPairing();
+    case "unpair":
+      saveSettings({ ...loadSettings(), serverUrl: null, serverToken: null });
+      tray?.setServer(null);
+      return { ok: true };
+    default:
+      return { ok: false, error: `unknown action: ${what}` };
+  }
+}
+
+/** Open the pairing round trip in the SYSTEM browser — never a window of ours (RFC 8252 §8.12). */
+async function beginPairing(): Promise<{ ok: boolean; error?: string }> {
+  const { serverUrl } = loadSettings();
+  if (!serverUrl) return { ok: false, error: "no server is set" };
+  if (!web) return { ok: false, error: "the local server is not up" };
+  const state = armPairing();
+  await shell.openExternal(
+    pairUrl(serviceUrl(serverUrl, "pl8"), pairingReturnUrl(web.url), state),
+  );
+  return { ok: true };
+}
 
 /**
  * Set a server, then pair with it in the SYSTEM BROWSER. Not a window of our own: an embedded
@@ -207,6 +280,20 @@ async function startWeb(): Promise<void> {
           engineToken: ensureEngineIdentity().token,
           user: currentIdentity(),
         };
+      },
+      desktop: {
+        state: () => ({
+          snapshot,
+          hostError,
+          build: __STUDIO_BUILD__,
+          autostart: autostartEnabled(),
+          identity: currentIdentity(),
+          server: loadSettings().serverUrl,
+          paired: loadSettings().serverToken !== null,
+          lanUrls: lanUrls(web?.port ?? settings.webPort),
+        }),
+        send: (cmd, arg) => host?.send(cmd, arg),
+        local: localAction,
       },
       onPaired: ({ token, identity }) => {
         saveSettings({ ...loadSettings(), serverToken: token });

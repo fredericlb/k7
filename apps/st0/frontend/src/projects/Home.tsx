@@ -10,12 +10,20 @@ import type {
   RepoSummary,
   ShareSummary,
 } from "@studio/web-protocol";
-import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
-import { Library, RefreshCw, Server, ServerOff, Tablet } from "lucide-react";
+import { EXTERNAL_INDEX, SETTINGS_REPO } from "@studio/web-protocol/projects";
+import {
+  Library,
+  RefreshCw,
+  Server,
+  ServerOff,
+  SlidersHorizontal,
+  Tablet,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, engines } from "../api";
 import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
+import { desktop } from "../desktop";
 import { useLocale } from "../i18n";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
 import { engineMachine, pl8Url, projects, shares as sharesApi } from "./api";
@@ -38,6 +46,12 @@ const WS_PARAM = "ws";
 export function Home() {
   const [params, setParams] = useSearchParams();
   const openWs = params.get(WS_PARAM);
+
+  // Asked once: a hosted origin will not grow the route mid-session (../desktop.ts).
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    void desktop.state().then((d) => setIsDesktop(d !== null));
+  }, []);
 
   const [workspaces, setWorkspaces] = useState<MachineWorkspace[]>([]);
   // pl8's register — not a list to draw, but what decides whether a portable address resolves.
@@ -278,6 +292,19 @@ export function Home() {
               />
             </Button>
             {/* pl8 — the catalogue a project USES, one link away and on the HOME page alone, in the same tab (../../docs/projects.md). */}
+            {/* Settings — the DESKTOP app's own screen, and offered only where it exists: the
+                probe answers on the app's origin and 404s on the hosted one, so the same
+                bundle ships to both (../desktop.ts). */}
+            {isDesktop && (
+              <Button variant="ghost" size="sm" asChild>
+                <a
+                  href={`${import.meta.env.BASE_URL}${SETTINGS_REPO}`}
+                  title="Réglages — le moteur, l'audio, le serveur de cette machine"
+                >
+                  <SlidersHorizontal className="h-4 w-4" /> Réglages
+                </a>
+              </Button>
+            )}
             {/* Surfaces — `/external`, and an `<a>` rather than a route, since a client navigation would keep the editor's manifest (../../docs/external.md). */}
             <Button variant="ghost" size="sm" asChild>
               <a

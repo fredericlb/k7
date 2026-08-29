@@ -12,7 +12,7 @@ export type MenuAction =
 
 export type LocalAction =
   | "openWindow"
-  | "server"
+  | "settings"
   | "autostart"
   | "openRoot"
   | "openLog"
@@ -28,20 +28,17 @@ const PREFIX: ReadonlyArray<[string, HostCommandName]> = [
   ["weburi_deny:", "weburi.deny"],
 ];
 
-const PLAIN: Readonly<Record<string, HostCommandName>> = {
-  start: "engine.start",
-  // One command, not stop-then-start: the supervisor sequences it, so no crash-watch tick
-  // sees the gap and "recovers" mid-restart.
-  restart: "engine.restart",
-  stop: "engine.stop",
-  restart_file: "fileService.restart",
-  clear_waveform_cache: "waveforms.clear",
-  rescan: "plugins.rescan",
-};
+/**
+ * Empty on purpose. Every engine command reaches the supervisor from the SETTINGS PAGE now,
+ * over `/desktop/command`, so the menu no longer names any — see ../docs/settings.md. The
+ * table stays because the shape is the point: a menu id is one act, and adding a row back here
+ * means adding it here too rather than wiring a click straight to a command.
+ */
+const PLAIN: Readonly<Record<string, HostCommandName>> = {};
 
 const LOCAL: Readonly<Record<string, LocalAction>> = {
   open_window: "openWindow",
-  server: "server",
+  settings: "settings",
   autostart: "autostart",
   open_root: "openRoot",
   open_log: "openLog",

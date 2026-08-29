@@ -66,7 +66,8 @@ app (Electron, windowless)     ← the process the user kills; creates the Job O
 - **`menu.ts`** — the whole menu as a template. Its electron import is TYPE-ONLY and erased at
   build, which is what makes every label and enable rule testable without a browser process.
 - **`tray.ts`** — the template applied to a real `Tray`, rebuilt only when what it SHOWS
-  changed. Quit stops the engine **only if THIS app owns it**.
+  changed. The menu is four rows now: every control is at `/@settings` in st0, and the icon
+  keeps only presence and the way back to a window. See `docs/settings.md`.
 - **`route.ts`** — one menu id to one act. The two encodings that fail quietly live here:
   `SHOW_UI_SEP` in a plugin row, and `fb:` as a meaningful empty arg.
 - **`iconRaster.ts` / `trayIcon.ts`** — the icon drawn in code rather than loaded from PNGs,

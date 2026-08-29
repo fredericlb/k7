@@ -7,34 +7,17 @@ import { describe, expect, it } from "vitest";
 import { routeMenuId } from "./route.ts";
 
 describe("routing a menu click", () => {
-  it("sends one restart command, not stop-then-start", () => {
-    expect(routeMenuId("restart")).toEqual({
-      kind: "command",
-      cmd: "engine.restart",
-    });
-  });
-
-  it("maps the plain rows to their commands", () => {
-    expect(routeMenuId("start")).toEqual({
-      kind: "command",
-      cmd: "engine.start",
-    });
-    expect(routeMenuId("stop")).toEqual({
-      kind: "command",
-      cmd: "engine.stop",
-    });
-    expect(routeMenuId("restart_file")).toEqual({
-      kind: "command",
-      cmd: "fileService.restart",
-    });
-    expect(routeMenuId("clear_waveform_cache")).toEqual({
-      kind: "command",
-      cmd: "waveforms.clear",
-    });
-    expect(routeMenuId("rescan")).toEqual({
-      kind: "command",
-      cmd: "plugins.rescan",
-    });
+  it("names no engine command any more — the page sends those over /desktop/command", () => {
+    for (const id of [
+      "start",
+      "stop",
+      "restart",
+      "restart_file",
+      "clear_waveform_cache",
+      "rescan",
+    ]) {
+      expect(routeMenuId(id), id).toBeNull();
+    }
   });
 
   it("forwards a plugin row's session and id VERBATIM, separator included", () => {

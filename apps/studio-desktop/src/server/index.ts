@@ -13,6 +13,7 @@ import {
 import express from "express";
 import { line } from "../logbus.ts";
 import { mountLocalAuth } from "./auth.ts";
+import { type DesktopHooks, mountDesktopApi } from "./desktop.ts";
 import { serveFromVite } from "./devProxy.ts";
 import { serveFrontend } from "./frontend.ts";
 import { mountMediatekCache, type ReadCache } from "./mediatek.ts";
@@ -40,6 +41,8 @@ export interface LocalServerOptions {
   onPaired?: (r: PairingResult) => void;
   /** The machine's own médiathèque, for when there is no server to ask. Absent = no cache. */
   cache?: ReadCache;
+  /** The settings screen's two routes; absent leaves st0 with no desktop to detect. */
+  desktop?: DesktopHooks;
 }
 
 export interface LocalServer {
@@ -65,6 +68,7 @@ export async function startLocalServer(
   // BEFORE the SPA, always: a route that falls through to the catch-all answers index.html,
   // and a fetch expecting JSON would parse a page.
   mountLocalAuth(app);
+  if (opts.desktop) mountDesktopApi(app, opts.desktop);
   mountPairing(app, opts.onPaired ?? (() => {}));
   // The remote goes FIRST and the shim behind it: the shim stays the answer for an unpaired
   // machine, for the LAN, and for anything the remote could not be asked.

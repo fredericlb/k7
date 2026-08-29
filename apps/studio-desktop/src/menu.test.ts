@@ -1,6 +1,7 @@
-// Menu parity, item by item. The checks that matter are the ones whose failure looks like
-// normal operation: a green status line over a dead file service, an enabled "Stop engine"
-// over someone else's engine, and an empty submenu where a sentence belongs.
+// What is LEFT of the menu once every control moved to `/@settings`. The rules that used to
+// live here — the safety rule, the audio "preferred" gap, SHOW_UI_SEP — moved WITH the screen
+// and are tested beside it, in apps/st0/frontend/src/settings/rules.test.ts. What stays here is
+// the two lines the icon still carries and the one row that opens the app.
 
 import type { HostSnapshot } from "@studio/engine-host/hostProtocol";
 import { SHOW_UI_SEP } from "@studio/engine-host/hostProtocol";
@@ -99,183 +100,50 @@ describe("the icon badge", () => {
   });
 });
 
-describe("the window row", () => {
-  it("is first, and enabled with no engine — starting a project is how you get one", () => {
+describe("what the icon still carries", () => {
+  it("opens the app first, and with no engine — starting a project is how you get one", () => {
     const t = buildTemplate(view(), () => {});
     expect(t[0]?.id).toBe("open_window");
     expect(byId(t, "open_window")?.enabled).toBe(true);
   });
 
-  it("does not move the status line off the snapshot it reports", () => {
+  it("offers the settings page rather than the settings", () => {
+    expect(
+      byId(
+        buildTemplate(view(), () => {}),
+        "settings",
+      )?.enabled,
+    ).toBe(true);
+  });
+
+  it("still says whether there is an engine, which is why the icon is there at all", () => {
+    expect(
+      byId(
+        buildTemplate(view(RUN), () => {}),
+        "status",
+      )?.label,
+    ).toContain("Running");
+  });
+
+  it("carries no engine control any more — those have a page with room to explain", () => {
     const t = buildTemplate(view(RUN), () => {});
-    expect(byId(t, "status")?.label).toContain("Running");
-  });
-});
-
-describe("the safety rule", () => {
-  it("enables Stop and Restart only for an engine we own", () => {
-    const own = buildTemplate(view(RUN), () => {});
-    expect(byId(own, "stop")?.enabled).toBe(true);
-    expect(byId(own, "restart_file")?.enabled).toBe(true);
-
-    const foreign = buildTemplate(
-      view({ ...RUN, ownsEngine: false }),
-      () => {},
-    );
-    expect(byId(foreign, "stop")?.enabled).toBe(false);
-    expect(byId(foreign, "restart")?.enabled).toBe(false);
-    expect(byId(foreign, "restart_file")?.enabled).toBe(false);
-    expect(byId(foreign, "clear_waveform_cache")?.enabled).toBe(false);
-    // But it IS running, so Start stays off and Rescan stays on.
-    expect(byId(foreign, "start")?.enabled).toBe(false);
-    expect(byId(foreign, "rescan")?.enabled).toBe(true);
-  });
-});
-
-describe("the submenus", () => {
-  it("gives an empty Sessions a sentence, not an empty list", () => {
-    const t = buildTemplate(view(), () => {});
-    expect(byId(t, "sessions_none")?.label).toBe(
-      "No app is driving this engine",
-    );
-    expect(byId(t, "sessions_none")?.enabled).toBe(false);
-  });
-
-  it("labels a session with project, tracks, and the live facts only when true", () => {
-    expect(
-      sessionLabel({
-        id: "st0",
-        project: "ma-chanson",
-        loaded: true,
-        playing: true,
-        tracks: 4,
-        listeners: 2,
-      }),
-    ).toBe("st0 · ma-chanson · 4 tracks  ▶  ♫2   ✕");
-    expect(
-      sessionLabel({
-        id: "st0",
-        project: "x",
-        loaded: true,
-        playing: false,
-        tracks: 1,
-        listeners: 0,
-      }),
-    ).toBe("st0 · x · 1 track   ✕");
-    expect(
-      sessionLabel({
-        id: "",
-        project: "",
-        loaded: false,
-        playing: false,
-        tracks: 0,
-        listeners: 0,
-      }),
-    ).toBe("(default) · nothing loaded   ✕");
-  });
-
-  it("keeps SHOW_UI_SEP in a plugin row id — any other separator opens the wrong editor", () => {
-    const t = buildTemplate(
-      view({
-        editPlugins: [
-          { session: "st0", id: "n1", name: "Diva", hasNativePluginUI: true },
-        ],
-      }),
-      () => {},
-    );
-    expect(byId(t, `plugin_open:st0${SHOW_UI_SEP}n1`)?.label).toBe("Diva");
-  });
-
-  it("qualifies plugin rows by session only when sessions differ", () => {
-    const two = buildTemplate(
-      view({
-        editPlugins: [
-          { session: "a", id: "1", name: "Diva", hasNativePluginUI: true },
-          { session: "b", id: "2", name: "Zebra", hasNativePluginUI: true },
-        ],
-      }),
-      () => {},
-    );
-    expect(byId(two, `plugin_open:a${SHOW_UI_SEP}1`)?.label).toBe("a · Diva");
-  });
-
-  it("hides built-ins, which have no native editor, and disables the submenu when none are left", () => {
-    const t = buildTemplate(
-      view({
-        editPlugins: [
-          { session: "st0", id: "n1", name: "Gain", hasNativePluginUI: false },
-        ],
-      }),
-      () => {},
-    );
-    expect(byId(t, "edit_plugins")?.enabled).toBe(false);
-    expect(byId(t, "edit_plugins_none")?.label).toBe(
-      "No plugins with a native UI",
-    );
-  });
-
-  it("marks the remembered audio pick only when the engine is NOT on it", () => {
-    const off = buildTemplate(
-      view({
-        audioDevices: [
-          { name: "Scarlett", deviceType: "CoreAudio", current: false },
-        ],
-        audioPreferred: "Scarlett",
-      }),
-      () => {},
-    );
-    expect(byId(off, "dev:Scarlett")?.label).toBe(
-      "Scarlett [CoreAudio]   (preferred)",
-    );
-
-    const on = buildTemplate(
-      view({
-        audioDevices: [
-          { name: "Scarlett", deviceType: "CoreAudio", current: true },
-        ],
-        audioPreferred: "Scarlett",
-      }),
-      () => {},
-    );
-    expect(byId(on, "dev:Scarlett")?.label).toBe("Scarlett [CoreAudio]");
-    expect(byId(on, "dev:Scarlett")?.checked).toBe(true);
-  });
-
-  it("still lists an unplugged preferred device — otherwise the question has no answer", () => {
-    const t = buildTemplate(
-      view({ audioDevices: [], audioPreferred: "Scarlett" }),
-      () => {},
-    );
-    expect(byId(t, "dev_missing")?.label).toBe(
-      "Scarlett   (preferred — not connected)",
-    );
-    expect(byId(t, "audio")?.enabled).toBe(true);
-  });
-
-  it("offers the blocked origins for approval, and keeps Add reachable when empty", () => {
-    const t = buildTemplate(
-      view({ webOrigins: [], webPending: ["https://daw.test"] }),
-      () => {},
-    );
-    expect(byId(t, "weburi")?.enabled).toBe(true);
-    expect(byId(t, "weburi_none")?.label).toBe("No web UI added");
-    expect(byId(t, "weburi_pending_head")?.label).toBe(
-      "Blocked just now — allow?",
-    );
-    expect(byId(t, "weburi_allow:https://daw.test")?.label).toBe(
-      "✓ https://daw.test",
-    );
-    expect(byId(t, "weburi_add")?.label).toBe("Add web UI…");
-  });
-
-  it("puts the ✕ on an allowed origin, a tray menu having no delete key", () => {
-    const t = buildTemplate(
-      view({ webOrigins: ["https://daw.test"] }),
-      () => {},
-    );
-    expect(byId(t, "weburi_del:https://daw.test")?.label).toBe(
-      "https://daw.test   ✕",
-    );
+    for (const gone of [
+      "start",
+      "stop",
+      "restart",
+      "restart_file",
+      "clear_waveform_cache",
+      "rescan",
+      "audio",
+      "sessions",
+      "edit_plugins",
+      "weburi",
+      "autostart",
+      "open_root",
+      "open_log",
+    ]) {
+      expect(byId(t, gone), gone).toBeUndefined();
+    }
   });
 });
 
@@ -308,10 +176,15 @@ describe("the rebuild gate", () => {
     );
     expect(a).toBe(b);
   });
+  it("notices the engine coming up, which is the one thing it still draws", () => {
+    const off = menuSignature(buildTemplate(view(), () => {}));
+    const on = menuSignature(buildTemplate(view(RUN), () => {}));
+    expect(off).not.toBe(on);
+  });
 
-  it("notices a session appearing, a device changing and an origin being blocked", () => {
+  it("ignores a session appearing — that is the page's to draw now, not the icon's", () => {
     const base = menuSignature(buildTemplate(view(RUN), () => {}));
-    const withSession = menuSignature(
+    const busy = menuSignature(
       buildTemplate(
         view({
           ...RUN,
@@ -320,42 +193,17 @@ describe("the rebuild gate", () => {
               id: "st0",
               project: "p",
               loaded: true,
-              playing: false,
+              playing: true,
               tracks: 1,
-              listeners: 0,
+              listeners: 2,
             },
           ],
+          webPending: ["https://x.test"],
         }),
         () => {},
       ),
     );
-    const withPending = menuSignature(
-      buildTemplate(view({ ...RUN, webPending: ["https://x.test"] }), () => {}),
-    );
-    expect(withSession).not.toBe(base);
-    expect(withPending).not.toBe(base);
-  });
-
-  it("notices the playhead's effect on a row, but not the playhead itself", () => {
-    const s = {
-      id: "st0",
-      project: "p",
-      loaded: true,
-      tracks: 1,
-      listeners: 0,
-    };
-    const still = menuSignature(
-      buildTemplate(
-        view({ ...RUN, sessions: [{ ...s, playing: false }] }),
-        () => {},
-      ),
-    );
-    const rolling = menuSignature(
-      buildTemplate(
-        view({ ...RUN, sessions: [{ ...s, playing: true }] }),
-        () => {},
-      ),
-    );
-    expect(still).not.toBe(rolling);
+    // A playing session no longer rebuilds the menu at all: it draws none of it.
+    expect(busy).toBe(base);
   });
 });

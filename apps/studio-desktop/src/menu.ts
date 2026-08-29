@@ -139,164 +139,16 @@ const disabled = (id: string, label: string): MenuItemConstructorOptions => ({
   enabled: false,
 });
 
-function sessionsSubmenu(
-  v: MenuView,
-  click: (id: string) => void,
-): MenuItemConstructorOptions {
-  const rows = v.snapshot.sessions.map((s) => ({
-    id: `session_drop:${s.id}`,
-    label: sessionLabel(s),
-    // The row IS the drop, and the ✕ says so; there is no other click it could be confused with.
-    click: () => click(`session_drop:${s.id}`),
-  }));
-  return {
-    id: "sessions",
-    label: "Sessions",
-    enabled: true,
-    submenu: rows.length
-      ? rows
-      : [disabled("sessions_none", "No app is driving this engine")],
-  };
-}
-
-function pluginsSubmenu(
-  v: MenuView,
-  click: (id: string) => void,
-): MenuItemConstructorOptions {
-  // Externals only: a built-in has no native editor to open.
-  const openable = v.snapshot.editPlugins.filter((p) => p.hasNativePluginUI);
-  const manySessions = new Set(openable.map((p) => p.session)).size > 1;
-  const rows = openable.map((p) => {
-    const id = `plugin_open:${p.session}${SHOW_UI_SEP}${p.id}`;
-    return {
-      id,
-      label: manySessions ? `${p.session} · ${p.name}` : p.name,
-      click: () => click(id),
-    };
-  });
-  return {
-    id: "edit_plugins",
-    label: "Native plugin UI",
-    enabled: rows.length > 0,
-    submenu: rows.length
-      ? rows
-      : [disabled("edit_plugins_none", "No plugins with a native UI")],
-  };
-}
-
-function audioSubmenu(
-  v: MenuView,
-  click: (id: string) => void,
-): MenuItemConstructorOptions {
-  const { audioDevices: devices, audioPreferred, audioFallback } = v.snapshot;
-  const items: MenuItemConstructorOptions[] = devices.map((d) => {
-    const base = d.deviceType ? `${d.name} [${d.deviceType}]` : d.name;
-    // Mark the remembered pick only when the engine ISN'T on it: that gap is what needs explaining.
-    const gap = audioPreferred === d.name && !d.current ? "   (preferred)" : "";
-    return {
-      id: `dev:${d.name}`,
-      label: `${base}${gap}`,
-      type: "checkbox" as const,
-      checked: d.current,
-      click: () => click(`dev:${d.name}`),
-    };
-  });
-
-  // A remembered pick absent from the list still gets a row, or "why am I not on my
-  // interface?" has no answer on screen.
-  if (audioPreferred && !devices.some((d) => d.name === audioPreferred)) {
-    items.push(
-      disabled(
-        "dev_missing",
-        `${audioPreferred}   (preferred — not connected)`,
-      ),
-    );
-  }
-
-  const fb: MenuItemConstructorOptions[] = [
-    {
-      id: "fb:",
-      label: "None",
-      type: "checkbox",
-      checked: audioFallback === null,
-      // "" is meaningful on the wire: it IS "none".
-      click: () => click("fb:"),
-    },
-    ...devices.map((d) => ({
-      id: `fb:${d.name}`,
-      label: d.name,
-      type: "checkbox" as const,
-      checked: audioFallback === d.name,
-      click: () => click(`fb:${d.name}`),
-    })),
-  ];
-  if (audioFallback && !devices.some((d) => d.name === audioFallback)) {
-    fb.push(disabled("fb_missing", `${audioFallback}   (not connected)`));
-  }
-
-  items.push({ type: "separator" });
-  items.push({
-    id: "audio_fallback",
-    label: audioFallback ? `Fallback: ${audioFallback}` : "Fallback: none",
-    submenu: fb,
-  });
-
-  return {
-    id: "audio",
-    label: "Audio interface",
-    enabled: devices.length > 0 || audioPreferred !== null,
-    submenu: items,
-  };
-}
-
-function webUiSubmenu(
-  v: MenuView,
-  click: (id: string) => void,
-): MenuItemConstructorOptions {
-  const { webOrigins, webPending } = v.snapshot;
-  const items: MenuItemConstructorOptions[] = webOrigins.map((o) => ({
-    id: `weburi_del:${o}`,
-    // The ✕ carries the affordance: a tray menu has no context menu and no delete key.
-    label: `${o}   ✕`,
-    click: () => click(`weburi_del:${o}`),
-  }));
-  if (!items.length) items.push(disabled("weburi_none", "No web UI added"));
-
-  if (webPending.length) {
-    items.push({ type: "separator" });
-    items.push(disabled("weburi_pending_head", "Blocked just now — allow?"));
-    for (const o of webPending) {
-      items.push({
-        id: `weburi_allow:${o}`,
-        label: `✓ ${o}`,
-        click: () => click(`weburi_allow:${o}`),
-      });
-      items.push({
-        id: `weburi_deny:${o}`,
-        label: "        ignore",
-        click: () => click(`weburi_deny:${o}`),
-      });
-    }
-  }
-
-  items.push({ type: "separator" });
-  items.push({
-    id: "weburi_add",
-    label: "Add web UI…",
-    click: () => click("weburi_add"),
-  });
-
-  // Always enabled: it holds "Add…" even when empty, which is when you need it most.
-  return { id: "weburi", label: "Web UI", enabled: true, submenu: items };
-}
-
-/** The whole menu, in the order tray.rs fixed. */
+/**
+ * What is LEFT of the menu. Every control moved to `/@settings` in st0 — a page has room for
+ * the sentence a greyed-out row could never carry — so this keeps only what a page cannot be:
+ * the app's presence while no window is open, and the way back to one.
+ * See ../docs/settings.md.
+ */
 export function buildTemplate(
   v: MenuView,
   click: (id: string) => void,
 ): MenuItemConstructorOptions[] {
-  const owns = ownsRunning(v);
-  const isRunning = running(v);
   const act = (id: string, label: string, enabled: boolean) => ({
     id,
     label,
@@ -313,37 +165,9 @@ export function buildTemplate(
     disabled("status", statusLabel(v)),
     disabled("registry", registryLabel(v)),
     disabled("plugins", pluginsLabel(v)),
-    // Needs the engine running: it sends a WebSocket command.
-    act("rescan", "Rescan plugins", isRunning),
-    sessionsSubmenu(v, click),
-    pluginsSubmenu(v, click),
-    audioSubmenu(v, click),
-    webUiSubmenu(v, click),
     { type: "separator" },
-    act("start", "Start engine", !isRunning),
-    act("stop", "Stop engine", owns),
-    act("restart", "Restart engine", owns),
-    // Only when there is one of OURS to restart — i.e. we own a running engine.
-    act("restart_file", "Restart file service", owns),
-    // Same condition: clearing the cache is an HTTP call to our own file service.
-    act("clear_waveform_cache", "Clear waveform cache", owns),
-    { type: "separator" },
-    {
-      id: "autostart",
-      label: "Launch at login",
-      type: "checkbox",
-      checked: v.autostart,
-      click: () => click("autostart"),
-    },
-    // The label IS the state: with no settings window, this row is where "am I paired?" is
-    // answered, so it says which server rather than just offering to change it.
-    act(
-      "server",
-      v.server ? `Server: ${v.server}…` : "Connect to a server…",
-      true,
-    ),
-    act("open_root", "Open workspaces root folder", true),
-    act("open_log", "Show logs", true),
+    // Everything that was here is on the page now; this is the way to it.
+    act("settings", "Settings…", true),
     { type: "separator" },
     disabled("build", `build ${v.build}`),
     act("quit", "Quit studio-capot", true),

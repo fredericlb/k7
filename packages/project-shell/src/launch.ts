@@ -14,6 +14,7 @@ export {
   externalOf,
   externalUrl,
   isExternalIndex,
+  isSettings,
   launchUrl,
   parseExternal,
   parseLaunch,
