@@ -2,18 +2,11 @@
 // is the OIDC email with every non-alphanumeric char replaced by "_".
 
 import { join } from "node:path";
-import { rootDir } from "@studio/engine-client/paths";
+import { rootDir, slugify, userRoot } from "@studio/engine-client/paths";
 
-// Re-exported so `./slug` importers keep resolving it; defined in engine-client/paths, the shared spelling.
-export { rootDir };
-
-export function slugify(email: string): string {
-  return email.replace(/[^a-zA-Z0-9]/g, "_");
-}
-
-export function userRoot(slug: string): string {
-  return join(rootDir(), slug);
-}
+// Re-exported so `./slug` importers keep resolving them; defined in engine-client/paths,
+// the shared spelling — the desktop app needs the same slug to migrate a workspace root.
+export { rootDir, slugify, userRoot };
 
 // One ordinary path segment, by ALLOWLIST: a denylist lets "." through, which IS the user root.
 const WORKSPACE_NAME = /^[A-Za-z0-9][A-Za-z0-9._ -]*$/;

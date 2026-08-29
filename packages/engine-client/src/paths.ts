@@ -23,6 +23,21 @@ export function enginePidPath(): string {
   return join(studioDir(), "engine.pid");
 }
 
+/**
+ * A person's workspace root is `root/<slug>`, and the slug is their email with every
+ * non-alphanumeric character replaced by `_`. Here rather than in the file service because it
+ * names a DIRECTORY: a second spelling would not throw, it would quietly point at an empty
+ * one — the same reason every other path in this file is here.
+ */
+export function slugify(email: string): string {
+  return email.replace(/[^a-zA-Z0-9]/g, "_");
+}
+
+/** `~/.studio/root/<slug>` — everything one person's machine holds. */
+export function userRoot(slug: string): string {
+  return join(rootDir(), slug);
+}
+
 /** The running SUPERVISOR's pid — one per machine, or two would fight over one engine (docs/supervisorPolicy.md). */
 export function hostPidPath(): string {
   return join(studioDir(), "engine-host.pid");

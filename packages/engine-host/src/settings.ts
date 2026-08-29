@@ -30,6 +30,13 @@ export interface Settings {
    * is per-origin. See apps/studio-desktop/docs/server.md.
    */
   webPort: number;
+  /**
+   * Who this machine's workspaces belong to. Offline there is no OIDC to ask, and the file
+   * service keys `~/.studio/root/<slug>` on an email — so one is REMEMBERED rather than
+   * derived afresh, or a project would move house whenever the answer changed.
+   * See apps/studio-desktop/docs/identity.md.
+   */
+  identity: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -43,6 +50,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // Free against 8765/8770 (engine, file service), 8789/8795/8787/8080 (the hosted backends),
   // 5223 (vite) and 10350 (Tilt).
   webPort: 8780,
+  identity: null,
 };
 
 // A hand-edited file is normal here, so each field is validated alone: one bad key must not lose the other four.
@@ -86,6 +94,7 @@ export function loadSettings(): Settings {
     mediatekDir: str(raw.mediatekDir),
     mediatekToken: str(raw.mediatekToken),
     webPort: port(raw.webPort, DEFAULT_SETTINGS.webPort),
+    identity: str(raw.identity),
   };
 }
 

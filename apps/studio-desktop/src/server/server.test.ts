@@ -130,6 +130,43 @@ describe("the local origin", () => {
   });
 });
 
+describe("/auth/*", () => {
+  it("NEVER 401s — a 401 draws a sign-in card in front of an app that needs none", async () => {
+    const { url } = await start();
+    const r = await fetch(`${url}/auth/me`);
+    expect(r.status).toBe(200);
+    const { user } = (await r.json()) as { user: { email: string } };
+    expect(user.email).toMatch(/@/);
+  });
+
+  it("answers before the SPA catch-all, or a fetch would parse a page as JSON", async () => {
+    const { url } = await start();
+    expect(
+      (await fetch(`${url}/auth/me`)).headers.get("content-type"),
+    ).toContain("application/json");
+  });
+
+  it("keeps /auth/login a redirect rather than a 404 that returns the app", async () => {
+    const { url } = await start();
+    const r = await fetch(`${url}/auth/login?return_to=%2Fsongs`, {
+      redirect: "manual",
+    });
+    expect(r.status).toBe(302);
+    expect(r.headers.get("location")).toBe("/songs");
+  });
+
+  it("refuses to be redirected off-origin by return_to", async () => {
+    const { url } = await start();
+    const r = await fetch(
+      `${url}/auth/login?return_to=https%3A%2F%2Fevil.test`,
+      {
+        redirect: "manual",
+      },
+    );
+    expect(r.headers.get("location")).toBe("/");
+  });
+});
+
 describe("the loopback guard", () => {
   it("accepts this machine, in either address family", () => {
     for (const a of ["127.0.0.1", "::1", "::ffff:127.0.0.1"]) {

@@ -12,6 +12,7 @@ import {
 } from "@studio/engine-registry";
 import express from "express";
 import { line } from "../logbus.ts";
+import { mountLocalAuth } from "./auth.ts";
 import { serveFromVite } from "./devProxy.ts";
 import { serveFrontend } from "./frontend.ts";
 import { firstFreePort } from "./port.ts";
@@ -49,8 +50,10 @@ export async function startLocalServer(
   const app = express();
   app.use(express.json({ limit: ENGINE_BODY_LIMIT }));
 
-  // LOT B2 replaces this: /auth/me answers a local identity, or the cached remote one.
-  // LOT B3 mounts the pl8 shim here, BEFORE the SPA, so it can never fall through to index.html.
+  // BEFORE the SPA, always: a route that falls through to the catch-all answers index.html,
+  // and a fetch expecting JSON would parse a page.
+  mountLocalAuth(app);
+  // LOT B3 mounts the pl8 shim here, for the same reason.
 
   // No requireAuth: this origin serves one person, at their own machine. The engine token is
   // still what guards the engine, exactly as it does for a browser.
