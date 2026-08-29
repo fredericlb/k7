@@ -15,6 +15,7 @@ import { line } from "../logbus.ts";
 import { mountLocalAuth } from "./auth.ts";
 import { serveFromVite } from "./devProxy.ts";
 import { serveFrontend } from "./frontend.ts";
+import { mountMediatekCache, type ReadCache } from "./mediatek.ts";
 import { mountPairing, type PairingResult } from "./pairing.ts";
 import { mountPl8Shim, pl8Offline } from "./pl8Shim.ts";
 import { firstFreePort } from "./port.ts";
@@ -37,6 +38,8 @@ export interface LocalServerOptions {
    */
   remote?: ReadRemote;
   onPaired?: (r: PairingResult) => void;
+  /** The machine's own médiathèque, for when there is no server to ask. Absent = no cache. */
+  cache?: ReadCache;
 }
 
 export interface LocalServer {
@@ -70,6 +73,9 @@ export async function startLocalServer(
     opts.remote ?? (() => ({ serverUrl: null, serverToken: null })),
     pl8Offline,
   );
+  // Behind the remote and in front of the shim: with a server, the server wins; without one,
+  // the panel browses what this machine has rather than nothing.
+  if (opts.cache) mountMediatekCache(app, opts.cache);
   mountPl8Shim(app);
 
   // No requireAuth: this origin serves one person, at their own machine. The engine token is

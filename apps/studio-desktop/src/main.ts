@@ -5,6 +5,7 @@
 // See docs/tray.md.
 
 import { settingsPath } from "@studio/engine-client/paths";
+import { ensureEngineIdentity } from "@studio/engine-host/identity";
 import { loadSettings, saveSettings } from "@studio/engine-host/settings";
 import { pairUrl } from "@studio/web-protocol/pairing";
 import { serviceUrl } from "@studio/web-protocol/services";
@@ -28,7 +29,7 @@ import { initMergedLog, line } from "./logbus.ts";
 import { backstop } from "./pidkill.ts";
 import { routeMenuId } from "./route.ts";
 import { bundledDist } from "./server/frontend.ts";
-import { adoptIdentity } from "./server/identity.ts";
+import { adoptIdentity, currentIdentity } from "./server/identity.ts";
 import { type LocalServer, startLocalServer } from "./server/index.ts";
 import { armPairing, pairingReturnUrl } from "./server/pairing.ts";
 import { StudioTray } from "./tray.ts";
@@ -198,6 +199,14 @@ async function startWeb(): Promise<void> {
       remote: () => {
         const s = loadSettings();
         return { serverUrl: s.serverUrl, serverToken: s.serverToken };
+      },
+      cache: () => {
+        const s = loadSettings();
+        return {
+          filePort: s.filePort,
+          engineToken: ensureEngineIdentity().token,
+          user: currentIdentity(),
+        };
       },
       onPaired: ({ token, identity }) => {
         saveSettings({ ...loadSettings(), serverToken: token });

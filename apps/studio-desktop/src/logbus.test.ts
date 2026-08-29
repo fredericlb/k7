@@ -28,6 +28,26 @@ async function fresh(): Promise<typeof import("./logbus.ts")> {
   return await import("./logbus.ts");
 }
 
+/** The log so far, or "" while it does not exist yet. */
+function read(): string {
+  try {
+    return readFileSync(join(home, ".studio.log"), "utf8");
+  } catch {
+    return "";
+  }
+}
+
+/** Wait for a value rather than for a duration; a fixed sleep is the flake this file had. */
+async function until<T>(get: () => T | null, ms = 5000): Promise<T> {
+  const stop = Date.now() + ms;
+  for (;;) {
+    const v = get();
+    if (v !== null) return v;
+    if (Date.now() > stop) throw new Error("the merged log never got its line");
+    await new Promise((r) => setTimeout(r, 5));
+  }
+}
+
 describe("the merged log", () => {
   it("truncates a previous session's file, leaving no NUL padding", async () => {
     const log = join(home, ".studio.log");
@@ -46,9 +66,12 @@ describe("the merged log", () => {
     initMergedLog();
     line("host", "supervisor up");
 
-    // The stream is opened lazily on first write, so let the event loop flush it.
-    await new Promise((r) => setTimeout(r, 20));
-    const text = readFileSync(join(home, ".studio.log"), "utf8");
+    // POLLED, not slept on. The stream opens lazily on first write, and a fixed delay is a
+    // race that only loses on a busy machine — which is exactly when a suite runs.
+    const text = await until(() => {
+      const t = read();
+      return t.length > 0 ? t : null;
+    });
     expect(text).toMatch(/^\d{2}:\d{2}:\d{2} \[host] supervisor up\n$/);
   });
 

@@ -76,8 +76,8 @@ app.use("/api/hunt", requireAuth, huntRouter);
 // This service's OWN engine registry, mounted as st0 mounts one — see docs/engine.md.
 const engine = mountEngineRegistry(app, { service: "pl8", requireAuth });
 
-// Cutting a song into stems, driven from HERE because the bytes are here — docs/stems.md.
-app.use("/api/stems", requireAuth, stemsRouter(engine));
+// Cutting a song into stems, driven from HERE because the bytes are here; a bearer too, unlike /api/hunt above — docs/stems.md.
+app.use("/api/stems", bearerOrSession(requireAuth), stemsRouter(engine));
 
 // `engineId` is this app's own choice, `playbackTarget` a plain string — docs/playbackTarget.md.
 const prefsSchema = z.object({
