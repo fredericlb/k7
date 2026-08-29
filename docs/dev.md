@@ -96,11 +96,11 @@ kinds, each for a reason:
 
 turbo keeps `build` and `test` — Tilt only owns the dev session.
 
-The **file service** is in the list deliberately. In dev the tray's supervisor does not
-spawn one (`fileservice.rs`), because the session's own already owns port 8770 and a second
-would fight it for the port. If the tray comes up before the session does, the supervisor's
-file-service watch notices within two seconds and the icon goes green on its own — no
-ordering to get right. Under WSL that row runs on the **host** rather than in the distro,
+The **file service** is in the list deliberately. In dev the supervisor does not spawn one
+(`fileServiceProcess.ts`), because the session's own already owns port 8770 and a second
+would fight it for the port. If the app comes up before the session does, the supervisor's
+file-service watch notices within two seconds and the settings page goes green on its own —
+no ordering to get right. Under WSL that row runs on the **host** rather than in the distro,
 which is `scripts/dev-file-service.mjs` and is measured in [wsl.md](wsl.md).
 
 ## The browser editor — outside the session, on purpose

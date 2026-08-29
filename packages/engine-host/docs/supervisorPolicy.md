@@ -246,8 +246,8 @@ a protocol capability — which is why it lives here and not in `@studio/engine-
 
 ## `devReload.ts` — restart on source change, in dev only
 
-The mechanism is deliberately not a mechanism: we EXIT, and the tray's existing relaunch
-loop (`host.rs run_forever`) starts a fresh one. That path is already built, already
+The mechanism is deliberately not a mechanism: we EXIT, and the app's existing relaunch
+loop (`host.ts`) starts a fresh one. That path is already built, already
 tested, and already correct about the hard part — the engine survives, because it is
 tracked by `~/.studio/engine.pid` and the new supervisor adopts it. So a reload costs a
 few hundred milliseconds and never touches the audio device.

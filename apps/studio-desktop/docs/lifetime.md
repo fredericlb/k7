@@ -39,11 +39,11 @@ Under WSL it is needed **twice** — once in the distro and once in the mirror
 `studio-capot` is an ordinary windowed app. It is the **VIEW** over the
 supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
 stdio: the supervisor owns the `~/.studio` contract, the registry, and — stage by stage —
-the engine and the file service. The tray renders its snapshots and sends its clicks back.
+the engine and the file service. The app renders its snapshots and sends its clicks back.
 
-Nothing in `tray.rs` opens a socket, spawns a process or reads a state file. What to allow,
+Nothing in this app opens a socket, spawns a process or reads a state file. What to allow,
 which engine is running, what the ports are, where to heartbeat: all of it comes down in a
-snapshot (`host.rs`), and a click goes back up as a command.
+snapshot (`host.ts`), and a click goes back up as a command.
 
 ## The window IS the app
 
@@ -70,23 +70,39 @@ the second refuses and names the first, which is what stops one stopping the oth
 
 Stop and Restart are enabled **only** when the supervisor OWNS the running engine. An
 adopted (foreign) engine shows as Running with those items greyed out, so this app can
-never kill a process another owner manages — see `AppState::owns_running`.
+never kill a process another owner manages — `ownsEngine` in the snapshot is the flag, and
+`engineActions` in st0's settings page is what reads it.
 
 ## The Windows job object (`job.ts`)
 
-The graceful path (`cleanup_async`) stops the engine and file service when the user picks
-Quit, but nothing runs when the tray is force-killed or crashes — and its children would
-then orphan and keep the engine and file ports bound.
+The graceful path stops the engine and file service when the user closes the window, but
+nothing runs when the app is force-killed or crashes — and its children would then orphan and
+keep the engine and file ports bound.
 
-A job object closes that gap. Every process the tray spawns is assigned to one job whose
+A job object closes that gap. Every process the app spawns is assigned to one job whose
 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` flag terminates all members when the last handle to
-the job closes, and the OS closes our handles when the tray ends however it ends. It also
+the job closes, and the OS closes our handles when the app ends however it ends. It also
 subsumes the grandchild problem for free: a process created *by* a job member joins the job
 automatically, so the `tsx`-forked file-service node is covered with no tree walking.
 
-This is why the job is created in `main.rs` **before anything is spawned** — membership is
-inherited, so a force-killed tray takes the whole stack with it. Off Windows the closing
-stdin pipe plays the same role.
+This is why the job is created at the top of `whenReady()` **before anything is spawned** —
+membership is inherited, so a force-killed app takes the whole stack with it. Off Windows the
+closing stdin pipe plays the same role.
+
+**The three Win32 calls go through `koffi`**, an `optionalDependency` loaded lazily on win32
+only. That is the answer to a question the port had to settle out loud: not an in-repo N-API
+addon, which Electron would load against its own ABI and so would need `electron-rebuild`;
+not a PowerShell handle-holder, a permanent extra process for one call. koffi is Node-API, so
+its prebuilds are ABI-stable across Node and Electron and ship inside the tarball. A
+nested-job failure degrades rather than throws, logged once as
+`[host] no kill-on-close job (nested job?)` so reduced coverage is visible rather than
+assumed.
+
+**Measured, 2026-08-30, Windows:** `npm run app:spike-job -w studio-desktop` force-kills an
+Electron victim with `taskkill /F` and asserts the grandchild went with it — it passes. The
+spike checks the grandchild was actually alive first, because the cheap version of this test
+passes just as well when nothing ever started. So the containment is the job, not `pidkill`
+alone; `pidkill` runs on the graceful path only.
 
 ## Quitting
 
@@ -95,14 +111,14 @@ is still up and the entry still means something), then stop the file service and
 engine, foreign or not — closing the app is terminal, and an engine left listening holds
 the audio device and both ports.
 
-`pidkill.rs` is the second half of that sentence, and runs after the supervisor on the way
+`pidkill.ts` is the second half of that sentence, and runs after the supervisor on the way
 out for the case where it never got there: it hung on an unresponsive registry and was
 killed past its deadline, or it had already crashed when the user quit. An engine that
 survives the app is not just untidy — the NEXT launch adopts a process nobody is
 supervising. The pidfile is the contract both sides already agree on (see
 `engineDaemon.ts`), which is why this needs nothing else to work.
 
-Signals get the same treatment as menu Quit: launchd sends SIGTERM to stop a LaunchAgent
+Signals get the same treatment as closing the window: launchd sends SIGTERM to stop a LaunchAgent
 (autostart), and a Ctrl-C in dev should deregister and stop the owned engine too.
 
 ## Finding the supervisor (`hostCmd.ts`)
@@ -125,9 +141,9 @@ Tier 3 exists only because `buildDevApp()` deliberately ships an app with an emp
 
 One JSON object per line: snapshots and notifications come up on the supervisor's stdout,
 commands go down its stdin. The written definition of the format is
-`packages/engine-host/src/hostProtocol.ts`; the structs in `host.rs` are its hand-written
-TypeScript type import — there is no mirror at all, which is what the port to Electron
-bought: the hand-written Rust `Snapshot` that had to be kept in step is simply gone. (The C++
+`packages/engine-host/src/hostProtocol.ts`, and `host.ts` IMPORTS it — there is no mirror at
+all, which is what the port to Electron bought: the hand-written Rust `Snapshot` that had to
+be kept in step is simply gone. (The C++
 engine still mirrors `engine-protocol` by hand, and still has to.)
 
 The app reads only the fields it draws and ignores the rest, exactly as the partial serde

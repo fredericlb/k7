@@ -92,10 +92,10 @@ backend interpréteur. Celui de LLVM serait d'un autre ordre.
 ## Où `import("stdfaust.lib")` est résolu
 
 À l'**exécution**, quand le moteur compile un module — pas à la construction. Le dossier doit
-donc voyager avec l'app : `build-engine.mjs` copie les 43 `.lib` du sous-module dans
+donc voyager avec l'app : `stage.mjs` copie les 43 `.lib` du sous-module dans
 `resources/faust-libs/`, et `faustLibrariesDir()` sonde les quatre dispositions qu'un paquet
-Tauri peut prendre, dans le même ordre et pour la même raison que `hostcmd.rs` le fait pour le
-script du superviseur.
+Electron peut prendre, dans le même ordre et pour la même raison que `hostCmd.ts` le fait pour
+le script du superviseur.
 
 Le repli est le dossier que le CMake du moteur a récupéré. Il est dans un répertoire de
 construction et ne voyage pas : y arriver dans une app installée veut dire que la mise en

@@ -11,7 +11,7 @@ npm run app:restart -- --no-build   # just bounce it
 npm run app:stop                    # stop, and stay stopped
 ```
 
-It is glue and nothing else: the build is `build-engine.mjs --dev`, the launch is
+It is glue and nothing else: the build is `build-main.mjs`, the launch is
 `start-engine.mjs`. What this script adds to those two is the stop, the ordering and the
 verdict.
 
@@ -60,39 +60,40 @@ nothing while killing every `electron` on the machine is not an option. It stops
 printing each path as it goes:
 taking the menu bar from another build is worth saying out loud.
 
-**The kill is hard, and that is fine.** The tray is windowless: there is no close message
-to send it, and on Windows `process.kill` is `TerminateProcess`, so `cleanup()` in
-`main.rs` never runs. Nothing leaks — the job object created in `main.rs` before anything
-spawns terminates the supervisor, the engine and the file service when the tray's last
-handle to it closes. What is skipped is the *graceful* path: the supervisor does not get
+**The kill is hard, and that is fine.** The script kills by pid rather than asking the window
+to close, because it has to stop every instance including one that is hung; and on Windows
+`process.kill` is `TerminateProcess`, so the `before-quit` handler in `main.ts` never runs.
+Nothing leaks — the job object created at the top of `whenReady()` before anything spawns
+terminates the supervisor, the engine and the file service when the app's last handle to it
+closes. What is skipped is the *graceful* path: the supervisor does not get
 to deregister, so the registry keeps a stale entry until the fresh instance re-registers
-seconds later. On Unix the same `process.kill` sends SIGTERM, which the signal task in
-`main.rs` does turn into the clean shutdown.
+seconds later. On Unix the same `process.kill` sends SIGTERM, which `main.ts`'s signal
+handlers do turn into the clean shutdown.
 
-**Stop every ENGINE too, not only the trays.** There are two ways an engine outlives the tray
+**Stop every ENGINE too, not only the apps.** There are two ways an engine outlives the app
 that is supposed to take it down:
 
-1. **The job object teardown is asynchronous.** Killing the tray returns as soon as the tray is
-   gone; the OS unwinds the rest of the job afterwards. Waiting only for the tray lets a build
+1. **The job object teardown is asynchronous.** Killing the app returns as soon as the app is
+   gone; the OS unwinds the rest of the job afterwards. Waiting only for the app lets a build
    start while the engine is still up.
 2. **An ADOPTED engine is in no job at all.** Job membership is inherited at creation, so an engine
-   started by an earlier tray and adopted by this one (`engineProcess.ts`: *"It is NOT ours — Stop
-   must leave it alone"*) belongs to the DEAD tray's job, and nothing takes it down. `devReload.ts`
+   started by an earlier app and adopted by this one (`engineProcess.ts`: *"It is NOT ours — Stop
+   must leave it alone"*) belongs to the DEAD app's job, and nothing takes it down. `devReload.ts`
    makes that routine in dev: every edit under `packages/engine-host/src` restarts the supervisor
    and has the engine adopted.
 
 Either way the survivor keeps `studio-moteur.exe` open for execute and the next relink cannot
 replace the image — silently, which is what makes it expensive. Every engine is stopped, whoever
-started it, for the same reason every tray is: a survivor wins, and here it wins by making your
+started it, for the same reason every app instance is: a survivor wins, and here it wins by making your
 build a no-op.
 
-## How it knows the tray is alive
+## How it knows the app is alive
 
-A tray that starts and supervises nothing looks exactly like a healthy one from the
-outside — the failure `hostcmd.rs` is written to shout about. So the script does not
+An app that starts and supervises nothing looks exactly like a healthy one from the
+outside — the failure `hostCmd.ts` is written to shout about. So the script does not
 report success on "the process is still running". It watches `~/.studio/.studio.log`, the
-merged log `logbus::init` **truncates on every launch**, and waits for one of the lines
-`host.rs` writes there: `supervisor up (pid …)`, `supervisor not found`, or `could not
+merged log `logbus.ts` **truncates on every launch**, and waits for one of the lines
+`host.ts` writes there: `supervisor up (pid …)`, `supervisor not found`, or `could not
 start supervisor`. Only the first is success; the tail is printed either way.
 
 The truncation is also how the script avoids reading the previous session's log: it

@@ -143,26 +143,19 @@ glob that matches nothing**, so without them even `cargo check` failed. electron
 no such validation and `electron dist/main.cjs` needs nothing staged at all, so the flag lost
 its reason and the staging became an ordinary step of `build-app.mjs`.
 
-`buildDevApp()` went the same way. Its whole job was producing an app that carried NOTHING, so
-the Rust would take its dev fallbacks. Unpackaged, `app.isPackaged` is false and
-`process.resourcesPath` points inside `node_modules/electron`, so `hostCmd.bundled()` misses
-and falls through to the repo tsx tier by itself — no config override, no `out/dev` copy, and
-no way to end up running against a zero-byte `node.exe` placeholder.
+A `--dev` flag went with it. Its whole job was producing an app that carried NOTHING, so the
+Rust would take its dev fallbacks — the config override emptied `externalBin` and `resources`.
+Unpackaged, `app.isPackaged` is false and `process.resourcesPath` points inside
+`node_modules/electron`, so `hostCmd.bundled()` misses and falls through to the repo tsx tier
+by itself — no config override, no `out/dev` copy, and no way to end up running against a
+zero-byte `node.exe` placeholder. The NAME `buildDevApp()` survives in `appProcess.mjs`, now
+one line calling `build-main.mjs`.
 
-### `--dev`
+So editing engine or file-service code needs no rebuild of this app, and the dev loop never
+rebuilds the engine either — it points at whatever is already in `engine/moteur/build`, which
+is what makes it fast.
 
-Builds a **debug tray app that carries nothing**: the config override empties `externalBin`
-and `resources`, so the Rust finds no bundled engine, node or file service beside itself
-and takes its dev fallbacks — the repo's `engine/moteur/build` for the engine, and `tsx` for the
-file service. With no bundled file service the tray does not run one at all: it is started
-separately with hot-reload by `npm run dev` (see `fileservice.rs`).
-
-So editing engine or file-service code needs no rebuild of this app. Only `engine:build`
-bundles and runs the file service. Fast to produce, not distributable. Dev mode never
-rebuilds the engine either — it points at whatever is already in `engine/moteur/build`, which is
-what makes the loop fast.
-
-The build number the menu displays is local wall-clock `YYYYMMDD.HHMM`, substituted into the
+The build number the settings page displays is local wall-clock `YYYYMMDD.HHMM`, substituted into the
 bundle by esbuild as `__STUDIO_BUILD__`, so it records when *this bundle* was produced rather
 than when it happens to run.
 

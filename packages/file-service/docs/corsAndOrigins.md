@@ -47,7 +47,7 @@ open run is an open run on the whole LAN — worth a line rather than a state yo
 ## The user's own web UIs
 
 `~/.studio/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the
-shared `~/.studio` contract (the tray's `paths.rs` / `weburi.rs` write it). It exists
+shared `~/.studio` contract (the supervisor's `paths.ts` / `webOrigins.ts` write it). It exists
 because the built-in rules cannot cover a web UI on a real hostname: a reverse proxy in
 front of the SPA is neither loopback nor private, so without this the editor loads and
 then fails every preflight.
@@ -72,7 +72,7 @@ URL into a menu-bar prompt or hand-editing `web-origins.json`.
 {"pending": [{"origin": "https://daw.test", "lastSeen": 1721430000000, "count": 3}]}
 ```
 
-The tray reads it (`weburi.rs`) and clears an entry when it is allowed or dismissed.
+The supervisor reads it (`webOrigins.ts`) and clears an entry when it is allowed or dismissed.
 
 ### Three rules
 
