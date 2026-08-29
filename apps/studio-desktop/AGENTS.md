@@ -114,3 +114,6 @@ they cannot, and each has a script or a checklist:
 - By hand: **one** process; `ps -o args=` on the supervisor showing `--use-system-ca` FIRST;
   and the one that matters most now — close the window and confirm the engine, the file service
   and the supervisor are all gone.
+
+Every `app:*` script above is this workspace's, not the root's: from the repo root they need
+`-w studio-desktop`, and the root answers a bare one with `Missing script`.
