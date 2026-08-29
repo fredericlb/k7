@@ -24,9 +24,12 @@
   },
   "dependencies": {
     "@studio/engine-client": "*",
-    "@studio/engine-host": "*"
+    "@studio/engine-host": "*",
+    "@studio/engine-registry": "*",
+    "express": "^4.19.2"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "electron": "44.0.0",
     "electron-builder": "^26.0.12"
   },

@@ -22,6 +22,14 @@ export interface Settings {
   mediatekDir: string | null;
   /** The token this machine syncs its cache with, since a headless service has no cookie jar; the library's URL is derived, not stored. */
   mediatekToken: string | null;
+  /**
+   * The desktop app's own HTTP port — where it serves st0 and proxies what needs a server.
+   * FIXED and persisted rather than ephemeral, and each reason is a bug you would meet: the
+   * file service captures its CORS allowlist at SPAWN, `advertiseRegistry` writes a URL other
+   * processes read, a second device has the address bookmarked, and a service worker's scope
+   * is per-origin. See apps/studio-desktop/docs/server.md.
+   */
+  webPort: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,6 +40,9 @@ export const DEFAULT_SETTINGS: Settings = {
   audioFallback: null,
   mediatekDir: null,
   mediatekToken: null,
+  // Free against 8765/8770 (engine, file service), 8789/8795/8787/8080 (the hosted backends),
+  // 5223 (vite) and 10350 (Tilt).
+  webPort: 8780,
 };
 
 // A hand-edited file is normal here, so each field is validated alone: one bad key must not lose the other four.
@@ -74,6 +85,7 @@ export function loadSettings(): Settings {
     audioFallback: str(raw.audioFallback),
     mediatekDir: str(raw.mediatekDir),
     mediatekToken: str(raw.mediatekToken),
+    webPort: port(raw.webPort, DEFAULT_SETTINGS.webPort),
   };
 }
 

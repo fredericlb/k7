@@ -4,6 +4,7 @@
 // is inherited), and the log truncate before the supervisor opens the same file for append.
 // See docs/tray.md.
 
+import { loadSettings, saveSettings } from "@studio/engine-host/settings";
 import { app, nativeTheme } from "electron";
 import { clearDevPid, writeDevPid } from "./devPid.ts";
 import { HostLink } from "./host.ts";
@@ -22,6 +23,8 @@ import {
 import { initMergedLog, line } from "./logbus.ts";
 import { backstop } from "./pidkill.ts";
 import { routeMenuId } from "./route.ts";
+import { bundledDist } from "./server/frontend.ts";
+import { type LocalServer, startLocalServer } from "./server/index.ts";
 import { StudioTray } from "./tray.ts";
 
 declare const __STUDIO_BUILD__: string;
@@ -32,6 +35,7 @@ const SPINNER_MS = 120;
 let tray: StudioTray | null = null;
 let host: HostLink | null = null;
 let spinner: NodeJS.Timeout | null = null;
+let web: LocalServer | null = null;
 // The last snapshot's paths, for the rows that open something — sent by the supervisor rather
 // than recomputed, so ~/.studio has one definition.
 let paths = { root: "", mergedLog: "", webOrigins: "" };
@@ -123,7 +127,35 @@ app.whenReady().then(() => {
   host.start();
 
   spinner = setInterval(() => tray?.tick(), SPINNER_MS);
+
+  // The app's own origin. LOT F opens a window on it; until the local /auth and the pl8 shim
+  // exist (lots B2 and B3), st0 served from here would stop at its "auth is down" screen.
+  void startWeb();
 });
+
+/**
+ * Serve st0 from this machine, and REMEMBER the port. A port that moves every launch breaks
+ * four things at once — see server/port.ts — so what was actually bound is written back.
+ */
+async function startWeb(): Promise<void> {
+  const settings = loadSettings();
+  const distDir = app.isPackaged ? bundledDist(process.resourcesPath) : null;
+  try {
+    web = await startLocalServer({
+      port: settings.webPort,
+      distDir,
+      // In dev the SPA comes from the session's vite, so the origin contract is the same one
+      // a packaged build has rather than a second arrangement nobody exercises.
+      viteUrl: distDir ? undefined : "http://localhost:5223",
+    });
+    if (web.port !== settings.webPort) {
+      saveSettings({ ...settings, webPort: web.port });
+      line("host", `web port ${settings.webPort} was taken — kept ${web.port}`);
+    }
+  } catch (e) {
+    line("host", `no local server: ${String(e)}`);
+  }
+}
 
 // Quit is the supervisor's cue to deregister while the engine is still up, so the app has to
 // stay alive for it. `quitting` stops the second before-quit from re-entering the teardown.
@@ -138,6 +170,7 @@ app.on("before-quit", (event) => {
     // After the supervisor, for the case where it never got there: it hung on an
     // unresponsive registry and was killed past its deadline, or had already crashed.
     backstop();
+    await web?.close();
     clearDevPid();
     tray?.destroy();
     app.quit();
