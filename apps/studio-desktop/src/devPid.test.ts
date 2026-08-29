@@ -6,7 +6,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // @ts-expect-error — a build script, deliberately plain .mjs with no types.
-import { DEV_PID, running } from "../scripts/trayProcess.mjs";
+import { DEV_PID, running } from "../scripts/appProcess.mjs";
 
 const pidfile = DEV_PID as string;
 const list = running as () => { pid: number; path: string }[];

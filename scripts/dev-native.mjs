@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import {
   launch,
   stopAll,
-} from "../apps/studio-desktop/scripts/trayProcess.mjs";
+} from "../apps/studio-desktop/scripts/appProcess.mjs";
 
 // Under WSL the toolchain is on the host: mirror the tree and run THIS script there (../docs/wsl.md).
 if (process.env.STUDIO_NATIVE_MIRROR && process.platform !== "win32") {

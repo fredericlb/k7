@@ -3,7 +3,7 @@
 // second time: `HH:MM:SS [tag] text` is contract, since st0's Logs panel polls the file by
 // byte OFFSET and never parses it. What is genuinely ours is the truncate — the app's
 // lifetime is what "a session" means, and the supervisor can relaunch mid-session, so
-// truncating there would wipe the lines explaining the crash. See docs/tray.md.
+// truncating there would wipe the lines explaining the crash. See docs/lifetime.md.
 
 import { closeSync, mkdirSync, openSync } from "node:fs";
 import { mergedLogPath, studioDir } from "@studio/engine-client/paths";

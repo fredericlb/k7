@@ -1,4 +1,4 @@
-# The tray app
+# What starts, and what stops it
 
 ## Names, and the three this rename did NOT touch
 
@@ -36,7 +36,7 @@ Under WSL it is needed **twice** — once in the distro and once in the mirror
 
 ---
 
-`studio-capot` is a tray-only Electron app with no window. It is the **VIEW** over the
+`studio-capot` is an ordinary windowed app. It is the **VIEW** over the
 supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
 stdio: the supervisor owns the `~/.studio` contract, the registry, and — stage by stage —
 the engine and the file service. The tray renders its snapshots and sends its clicks back.
@@ -45,33 +45,26 @@ Nothing in `tray.rs` opens a socket, spawns a process or reads a state file. Wha
 which engine is running, what the ports are, where to heartbeat: all of it comes down in a
 snapshot (`host.rs`), and a click goes back up as a command.
 
-## "Sessions ▸" — what the status line could never say
+## The window IS the app
 
-One engine now holds several projects at once, one per app driving it. The status line
-reports the PROCESS (`● Running · id 3f2a91c4 · :8765`), and that read the same whether the
-engine held nothing, held st0' song, or held a song and a deck and a module preview
-together. The submenu is the only place the tray answers *what is my engine doing, and for
-whom*:
+Opening it starts the supervisor, which starts the engine and the file service. Closing the
+last one stops all three: `window-all-closed` quits, and `before-quit` does the teardown in
+order — supervisor first (its exit is what DEREGISTERS, and that wants to happen while the
+engine is still up and the entry still means something), then `pidkill`'s backstop for the case
+where it never got there.
 
-```
-Sessions ▸  st0 · ma-chanson · 4 tracks  ▶  ♫1   ✕
-            st0 · le-set · 1 track               ✕
-            pl8 · nothing loaded                 ✕
-```
+There is no tray and nothing runs on behind the window. That is a deliberate simplification of
+what this was, and it has two consequences worth stating rather than discovering:
 
-`▶` means that session's transport is rolling; `♫n` means n sockets are subscribed to its
-audio — someone is listening over the network. Both are shown only when true: a column of
-`▶ no · 0 listening` would bury the one session that *is* playing among the ones that are
-not.
+- **A second device loses the engine when you close the window here.** While the window is
+  open, `/external` on a tablet works exactly as before; when it closes, the engine goes with
+  it. The LAN address stops answering, not just the surface.
+- **A browser using this machine's engine loses it too.** The app still registers with a
+  configured server, so a hosted st0 can pick this engine — for as long as the window is open.
 
-Clicking a row **drops** that session — its edit, plugins, meters and broadcast tap. The row
-*is* the drop, and the `✕` says so; there is no other click on a session row it could be
-confused with. The app driving it is not told, and will simply find an empty project.
-
-Gated on `sessionsSig` like the audio and plugin submenus, and for a sharper reason here:
-the playhead moves 20 times a second, so a signature built from the whole snapshot would put
-the frame on the wire — and tear down a submenu the user has open — at frame rate. The
-signature is built from what the rows *show*.
+Whoever wants an engine with no window runs **`studio-engine`**, the same `startSupervisor`
+with a terminal in front of it. `~/.studio/engine-host.pid` keeps the two from running at once:
+the second refuses and names the first, which is what stops one stopping the other's engine.
 
 ## Safety rule: never kill someone else's engine
 
@@ -79,7 +72,7 @@ Stop and Restart are enabled **only** when the supervisor OWNS the running engin
 adopted (foreign) engine shows as Running with those items greyed out, so this app can
 never kill a process another owner manages — see `AppState::owns_running`.
 
-## The Windows job object (`job.rs`)
+## The Windows job object (`job.ts`)
 
 The graceful path (`cleanup_async`) stops the engine and file service when the user picks
 Quit, but nothing runs when the tray is force-killed or crashes — and its children would
@@ -112,43 +105,7 @@ supervising. The pidfile is the contract both sides already agree on (see
 Signals get the same treatment as menu Quit: launchd sends SIGTERM to stop a LaunchAgent
 (autostart), and a Ctrl-C in dev should deregister and stop the owned engine too.
 
-## State (`state.rs`)
-
-Two halves, and the split is the whole point:
-
-- **`snapshot`** is what the SUPERVISOR reported. The engine, the file service, the
-  identity, the ports, the registry, the audio picks, the allowlist — none of it is
-  computed or written here. It arrives whole and replaces what was.
-- **everything else** is view state the tray genuinely owns, and there is very little left:
-  the spinner frame, the menu-bar darkness, the menu handles, and the two signatures
-  recording what the submenus were last *drawn* from (the supervisor computes the
-  signatures; these are the tray's memory of which one it rendered).
-
-## The remaining loops (`supervisor.rs`)
-
-The name is a misnomer — the supervisor is `@studio/engine-host`. The registry heartbeat,
-the refused-origin poll, the crash watch, the file-service watch and all three engine-query
-polls belong to it: it owns those files, those processes, and the one connection to the
-engine.
-
-Two loops live here, and both are genuinely view work:
-
-- `spinner_loop` runs at 8 frames per second. Putting that on the pipe would turn an idle
-  app into a constant stream of messages to redraw one glyph — exactly the cost the
-  snapshot design exists to avoid.
-- `appearance_loop` re-reads the menu bar's light/dark, which nothing pushes to us.
-
-Every loop snapshots the state under a short lock and **drops the guard before any
-`.await`**: a std `Mutex` must never be held across an await point.
-
-## Paths (`paths.rs`)
-
-The layout is defined by `packages/engine-client/src/paths.ts`, not here. The three paths the
-tray opens for the user (workspaces root, merged log, origins file) arrive in the supervisor's
-snapshot rather than being recomputed. What is left belongs to subsystems the tray has not
-handed over yet, and goes with them.
-
-## Finding the supervisor (`hostcmd.rs`)
+## Finding the supervisor (`hostCmd.ts`)
 
 The tray answers one question — "what do I exec?" — in three tiers, and says clearly when
 the answer is "nothing", because a tray that silently supervises nothing looks exactly like
@@ -164,7 +121,7 @@ a healthy one:
 Tier 3 exists only because `buildDevApp()` deliberately ships an app with an empty
 `resources` list; that is what makes a dev build take this path rather than a stale bundle.
 
-## The link itself (`host.rs`)
+## The link itself (`host.ts`)
 
 One JSON object per line: snapshots and notifications come up on the supervisor's stdout,
 commands go down its stdin. The written definition of the format is
@@ -182,7 +139,7 @@ comes to own) die with the tray on Windows however the tray ends; on Unix the pi
 same. A supervisor that crashes is relaunched with 1s→30s backoff, and the engine survives
 that because the pidfile lets the fresh supervisor re-adopt it.
 
-## The merged log (`logbus.rs`)
+## The merged log (`logbus.ts`)
 
 `~/.studio/.studio.log` is written by the supervisor, which owns the engine and the
 file service and pumps both into it. Two jobs are left on the tray side:
@@ -197,3 +154,13 @@ file service and pumps both into it. Two jobs are left on the tray side:
 
 Both writers open in APPEND mode after the truncate. A single append-mode write is atomic
 on both platforms, so whole lines interleave rather than tearing.
+
+## An icon, which does not exist yet
+
+The old one was DRAWN, four states with a spinner, because a menu-bar item had to say whether
+an engine was running. A windowed app says that on its settings page instead, so the drawing
+went with the menu.
+
+What is left is the ordinary need: a Dock, taskbar and installer icon. electron-builder looks
+for `build/icon.png` (512×512) under `directories.buildResources`, and **there is none**, so a
+package built today carries the default Electron icon. Nothing breaks; it just is not ours.

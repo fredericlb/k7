@@ -1,8 +1,10 @@
-// main.ts — the Electron shell: windowless, and it owns the process
-// lifetime, the single-instance lock, the tray and the supervisor child, and nothing else.
-// The ORDER in whenReady is load-bearing: the kill-on-close job before ANY spawn (membership
-// is inherited), and the log truncate before the supervisor opens the same file for append.
-// See docs/tray.md.
+// main.ts — the desktop app: a window onto st0, and the engine that window needs. Opening it
+// starts the supervisor, which starts the engine and the file service; closing it stops all
+// three. Nothing runs on behind the window.
+//
+// The ORDER in whenReady is load-bearing: the kill-on-close job before ANY spawn (membership is
+// inherited), and the log truncate before the supervisor opens the same file for append.
+// See docs/lifetime.md.
 
 import { networkInterfaces } from "node:os";
 import { settingsPath } from "@studio/engine-client/paths";
@@ -10,9 +12,8 @@ import type { HostSnapshot } from "@studio/engine-host/hostProtocol";
 import { ensureEngineIdentity } from "@studio/engine-host/identity";
 import { loadSettings, saveSettings } from "@studio/engine-host/settings";
 import { pairUrl } from "@studio/web-protocol/pairing";
-import { SETTINGS_REPO } from "@studio/web-protocol/projects";
 import { serviceUrl } from "@studio/web-protocol/services";
-import { app, nativeTheme, shell } from "electron";
+import { app, shell } from "electron";
 import { clearDevPid, writeDevPid } from "./devPid.ts";
 import { HostLink } from "./host.ts";
 import { resolve as resolveHostCmd } from "./hostCmd.ts";
@@ -22,113 +23,46 @@ import {
   notifyModal,
   notifyPassive,
   openFolder,
-  openOriginsFile,
   openTextFile,
-  promptForOrigin,
-  promptForServer,
   toggleAutostart,
 } from "./localActions.ts";
 import { initMergedLog, line } from "./logbus.ts";
 import { backstop } from "./pidkill.ts";
-import { routeMenuId } from "./route.ts";
 import { bundledDist } from "./server/frontend.ts";
 import { adoptIdentity, currentIdentity } from "./server/identity.ts";
 import { type LocalServer, startLocalServer } from "./server/index.ts";
 import { armPairing, pairingReturnUrl } from "./server/pairing.ts";
-import { StudioTray } from "./tray.ts";
-import { destroyWindow, markQuitting, openWindow } from "./window.ts";
+import { destroyWindow, openWindow } from "./window.ts";
 
 declare const __STUDIO_BUILD__: string;
 
-/** The tick that animates both the icon badge and the menu's braille spinner, so they cannot disagree. */
-const SPINNER_MS = 120;
-
-let tray: StudioTray | null = null;
 let host: HostLink | null = null;
-let spinner: NodeJS.Timeout | null = null;
 let web: LocalServer | null = null;
-// The settings screen draws from the SAME snapshot the menu does; there is one, and this is it.
+// What the settings page draws from — the SAME snapshot, and there is only one.
 let snapshot: HostSnapshot | null = null;
 let hostError: string | null = null;
-// The last snapshot's paths, for the rows that open something — sent by the supervisor rather
-// than recomputed, so ~/.studio has one definition.
 let paths = { root: "", mergedLog: "", webOrigins: "" };
 
-// Keyed on the bundle identifier, not the path — a second launch must be a silent no-op.
+// Keyed on the bundle identifier, not the path — a second launch must raise the first window
+// rather than start a second engine.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 }
-
-function onMenuClick(id: string): void {
-  const action = routeMenuId(id);
-  if (!action) return;
-  if (action.kind === "command") {
-    host?.send(action.cmd, action.arg);
-    return;
-  }
-  switch (action.what) {
-    case "openWindow":
-      if (web) openWindow(web.url);
-      else line("host", "no local server yet — nothing to open");
-      break;
-    case "autostart":
-      tray?.setAutostart(toggleAutostart());
-      break;
-    case "settings":
-      // The page IS the settings, so the row opens the window on it.
-      if (web) openWindow(`${web.url}/${SETTINGS_REPO}`);
-      break;
-    case "openRoot":
-      openFolder(paths.root);
-      break;
-    case "openLog":
-      openTextFile(paths.mergedLog);
-      break;
-    case "addWebUi": {
-      const origin = promptForOrigin();
-      // Off macOS there is no prompt, so the origins file is opened for hand-editing.
-      if (origin) host?.send("weburi.add", origin);
-      else openOriginsFile(paths.webOrigins);
-      break;
-    }
-    case "quit":
-      app.quit();
-      break;
-  }
-}
+app.on("second-instance", () => {
+  if (web) openWindow(web.url);
+});
 
 app.whenReady().then(() => {
   // FIRST, above everything: job membership is inherited at creation, so a process spawned
   // before the job exists is never in it, ever.
   initJob();
 
-  // Unpackaged only, and before anything else can fail: the restart scripts cannot find an
-  // `electron` process by name, so this is how they know which instance is ours.
   if (!app.isPackaged) writeDevPid();
 
   // Before the supervisor is spawned, because it opens the same file for append.
   initMergedLog();
-  line("host", `studio-capot ${__STUDIO_BUILD__} starting`);
-
-  // No Dock icon and no app-switcher entry; LSUIElement in electron-builder.yml is the other half.
-  app.dock?.hide();
-
-  tray = new StudioTray(__STUDIO_BUILD__, onMenuClick);
-  tray.start();
-  tray.setAutostart(autostartEnabled());
-  tray.setServer(loadSettings().serverUrl);
-
-  // Push-based, which is what deletes supervisor.rs's five-second appearance poll.
-  nativeTheme.on("updated", () => tray?.repaint());
-
-  // A tray that never appeared looks exactly like a healthy one, so say so out loud.
-  if (process.platform === "linux") {
-    line(
-      "host",
-      "linux: if no icon appears, this desktop has no StatusNotifierItem host — install the AppIndicator extension",
-    );
-  }
+  line("host", `studio ${__STUDIO_BUILD__} starting`);
 
   host = new HostLink(
     {
@@ -136,7 +70,6 @@ app.whenReady().then(() => {
         paths = s.paths ?? paths;
         snapshot = s;
         hostError = null;
-        tray?.setSnapshot(s);
       },
       onNotify: (kind, title, body) =>
         kind === "modal"
@@ -144,7 +77,6 @@ app.whenReady().then(() => {
           : notifyPassive(title, body),
       onHostError: (message) => {
         hostError = message;
-        tray?.setHostError(message);
       },
     },
     resolveHostCmd({
@@ -154,17 +86,41 @@ app.whenReady().then(() => {
   );
   host.start();
 
-  spinner = setInterval(() => tray?.tick(), SPINNER_MS);
-
-  // The app's own origin, and the window onto it. Not opened here: the app starts with the
-  // machine and lives in the menu bar, so a window on every login would be the wrong default.
   void startWeb();
 
-  // macOS: clicking the Dock icon of a running app reopens its window rather than doing nothing.
+  // macOS keeps an app alive with no windows; clicking the Dock icon reopens rather than
+  // starting a second copy.
   app.on("activate", () => {
     if (web) openWindow(web.url);
   });
 });
+
+/** The window IS the app, so the last one closing ends it — engine, file service and all. */
+app.on("window-all-closed", () => app.quit());
+
+let quitting = false;
+app.on("before-quit", (event) => {
+  if (quitting) return;
+  quitting = true;
+  event.preventDefault();
+  void (async () => {
+    // The supervisor first: its exit is what DEREGISTERS, and that wants to happen while the
+    // engine is still up and the registry entry still means something.
+    await host?.shutdownAndWait();
+    // Then the backstop, for the case where it never got there — hung on an unresponsive
+    // registry and killed past its deadline, or already crashed.
+    backstop();
+    await web?.close();
+    clearDevPid();
+    destroyWindow();
+    app.quit();
+  })();
+});
+
+// launchd stops a login item with SIGTERM, and Ctrl-C in dev must behave the same.
+for (const sig of ["SIGTERM", "SIGINT", "SIGHUP"] as const) {
+  process.on(sig, () => app.quit());
+}
 
 /** The addresses a SECOND DEVICE can use — the same listener, seen from the LAN (docs/externals.md). */
 function lanUrls(port: number): string[] {
@@ -178,17 +134,15 @@ function lanUrls(port: number): string[] {
   return out;
 }
 
-/** The rows the supervisor has no command for. The menu did these; now the screen does too. */
+/** The rows the supervisor has no command for. The settings page is the only caller. */
 async function localAction(
   what: string,
   arg?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   switch (what) {
-    case "autostart": {
-      const on = toggleAutostart();
-      tray?.setAutostart(on);
+    case "autostart":
+      toggleAutostart();
       return { ok: true };
-    }
     case "openRoot":
       openFolder(paths.root);
       return { ok: true };
@@ -198,17 +152,14 @@ async function localAction(
     case "openSettingsFile":
       openTextFile(settingsPath());
       return { ok: true };
-    case "setServer": {
+    case "setServer":
       if (!arg) return { ok: false, error: "no address" };
       saveSettings({ ...loadSettings(), serverUrl: arg });
-      tray?.setServer(arg);
       return { ok: true };
-    }
     case "pair":
       return await beginPairing();
     case "unpair":
       saveSettings({ ...loadSettings(), serverUrl: null, serverToken: null });
-      tray?.setServer(null);
       return { ok: true };
     default:
       return { ok: false, error: `unknown action: ${what}` };
@@ -228,38 +179,8 @@ async function beginPairing(): Promise<{ ok: boolean; error?: string }> {
 }
 
 /**
- * Set a server, then pair with it in the SYSTEM BROWSER. Not a window of our own: an embedded
- * webview is where an OIDC sign-in must not happen (RFC 8252 §8.12), and the browser is where
- * the user's password manager and existing session already are.
- */
-async function connectToServer(): Promise<void> {
-  const settings = loadSettings();
-  const url = promptForServer(settings.serverUrl);
-  if (!url) {
-    // No native prompt off macOS: the settings file is hand-editable by design.
-    openTextFile(settingsPath());
-    return;
-  }
-  saveSettings({ ...loadSettings(), serverUrl: url });
-  tray?.setServer(url);
-
-  if (!web) {
-    line("host", "no local server yet — cannot pair");
-    return;
-  }
-  const state = armPairing();
-  const open = pairUrl(
-    serviceUrl(url, "pl8"),
-    pairingReturnUrl(web.url),
-    state,
-  );
-  line("host", `pairing: opening ${serviceUrl(url, "pl8")} in the browser`);
-  await shell.openExternal(open);
-}
-
-/**
- * Serve st0 from this machine, and REMEMBER the port. A port that moves every launch breaks
- * four things at once — see server/port.ts — so what was actually bound is written back.
+ * Serve st0 from this machine, then open the window on it. The port is REMEMBERED: one that
+ * moves every launch breaks four things at once — see server/port.ts.
  */
 async function startWeb(): Promise<void> {
   const settings = loadSettings();
@@ -268,7 +189,9 @@ async function startWeb(): Promise<void> {
     web = await startLocalServer({
       port: settings.webPort,
       distDir,
-      // Read per request, not captured: pairing must take effect without a restart.
+      // In dev the SPA comes from the session's vite, so the window runs the same origin
+      // contract a packaged build has rather than a second arrangement nobody exercises.
+      viteUrl: distDir ? undefined : "http://localhost:5223",
       remote: () => {
         const s = loadSettings();
         return { serverUrl: s.serverUrl, serverToken: s.serverToken };
@@ -297,52 +220,19 @@ async function startWeb(): Promise<void> {
       },
       onPaired: ({ token, identity }) => {
         saveSettings({ ...loadSettings(), serverToken: token });
-        // The workspaces move with the identity, or every offline project simply stops being
-        // listed and reads as "my songs are gone" — see server/identity.ts.
+        // The workspaces move with the identity, or every offline project stops being listed
+        // and reads as "my songs are gone" — see server/identity.ts.
         if (identity) adoptIdentity(identity);
-        tray?.setServer(loadSettings().serverUrl);
       },
-      // In dev the SPA comes from the session's vite, so the origin contract is the same one
-      // a packaged build has rather than a second arrangement nobody exercises.
-      viteUrl: distDir ? undefined : "http://localhost:5223",
     });
     if (web.port !== settings.webPort) {
       saveSettings({ ...settings, webPort: web.port });
       line("host", `web port ${settings.webPort} was taken — kept ${web.port}`);
     }
+    openWindow(web.url);
   } catch (e) {
-    line("host", `no local server: ${String(e)}`);
-  }
-}
-
-// Quit is the supervisor's cue to deregister while the engine is still up, so the app has to
-// stay alive for it. `quitting` stops the second before-quit from re-entering the teardown.
-let quitting = false;
-app.on("before-quit", (event) => {
-  if (quitting) return;
-  quitting = true;
-  // Before anything else: the window's own close handler intercepts to HIDE, and would
-  // swallow the quit.
-  markQuitting();
-  event.preventDefault();
-  void (async () => {
-    if (spinner) clearInterval(spinner);
-    destroyWindow();
-    await host?.shutdownAndWait();
-    // After the supervisor, for the case where it never got there: it hung on an
-    // unresponsive registry and was killed past its deadline, or had already crashed.
-    backstop();
-    await web?.close();
-    clearDevPid();
-    tray?.destroy();
+    // With no origin there is no window, and the app has nothing left to be.
+    line("host", `no local server: ${String(e)} — quitting`);
     app.quit();
-  })();
-});
-
-// There are no windows, so the default "quit when the last one closes" must not apply.
-app.on("window-all-closed", () => {});
-
-// launchd stops a LaunchAgent with SIGTERM, and Ctrl-C in dev must behave the same.
-for (const sig of ["SIGTERM", "SIGINT", "SIGHUP"] as const) {
-  process.on(sig, () => app.quit());
+  }
 }

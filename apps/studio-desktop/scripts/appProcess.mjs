@@ -1,8 +1,8 @@
-// trayProcess.mjs — the tray's edit→run loop as reusable steps: list every running tray,
+// appProcess.mjs — the app's edit→run loop as reusable steps: list every running tray,
 // stop them, build the dev app, and launch it waiting for the merged log to say the
 // supervisor came up. Every step THROWS instead of exiting, so a long-lived watcher can
-// survive a failed build. Shared by restart-tray.mjs and scripts/dev-native.mjs.
-// See docs/restartTray.md.
+// survive a failed build. Shared by restart-app.mjs and scripts/dev-native.mjs.
+// See docs/restartApp.md.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -14,7 +14,7 @@ const here = dirname(fileURLToPath(import.meta.url)); // apps/studio-desktop/scr
 export const trayDir = dirname(here); //                apps/studio-desktop
 export const MERGED = join(homedir(), ".studio", ".studio.log"); // truncated by logbus::init on every launch
 export const TRAY_LOG = join(trayDir, ".cache", "dev", "tray.log"); // where start-engine.mjs puts its stdout
-/** The Electron app's own pid in dev, since unpackaged its image is `electron` (docs/restartTray.md). */
+/** The Electron app's own pid in dev, since unpackaged its image is `electron` (docs/restartApp.md). */
 export const DEV_PID = join(trayDir, ".cache", "dev", "app.pid");
 export const EXE_NAME =
   process.platform === "win32" ? "studio-capot.exe" : "studio-capot";
@@ -99,7 +99,7 @@ function devApp() {
 
 /**
  * Every tray, and not just ours: single-instance is keyed on the IDENTIFIER, not the path, so
- * a survivor silently wins and the new instance exits without a word (docs/restartTray.md).
+ * a survivor silently wins and the new instance exits without a word (docs/restartApp.md).
  * Two ways to find one: the image name for an INSTALLED build, and the dev pidfile for an
  * unpackaged run, whose process is `electron`.
  */
@@ -120,12 +120,12 @@ async function until(ok, ms, what) {
   throw new StepError(what);
 }
 
-/** Stop every tray AND every engine, waiting for both, and return how many trays there were (docs/restartTray.md). */
+/** Stop every tray AND every engine, waiting for both, and return how many trays there were (docs/restartApp.md). */
 export async function stopAll() {
   const found = running();
   for (const { pid, path } of found)
     console.log(`▸ stopping tray (pid ${pid}) ${path}`);
-  // A hard terminate on Windows, since the tray is windowless (docs/restartTray.md).
+  // A hard terminate on Windows, since the tray is windowless (docs/restartApp.md).
   for (const { pid } of found) {
     try {
       process.kill(pid);
@@ -178,7 +178,7 @@ const tail = (path, n = 20) =>
     ? readFileSync(path, "utf8").trimEnd().split("\n").slice(-n).join("\n")
     : "(empty)";
 
-/** Start the dev app and WAIT for the merged log to say the supervisor came up (docs/restartTray.md). */
+/** Start the dev app and WAIT for the merged log to say the supervisor came up (docs/restartApp.md). */
 export async function launch() {
   const since = Date.now();
   node("start-engine.mjs");

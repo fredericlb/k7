@@ -2,7 +2,7 @@
 // the process image is `electron`, not `studio-capot`, so scanning by name finds nothing:
 // stopAll would report nothing to stop, the old instance would keep the single-instance lock,
 // and the new one would exit without a word. Deliberately NOT under ~/.studio, whose layout is
-// a contract owned by engine-client/paths.ts. See scripts/docs/restartTray.md.
+// a contract owned by engine-client/paths.ts. See scripts/docs/restartApp.md.
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

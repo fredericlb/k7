@@ -3,7 +3,7 @@
 // immediately; quit it from its tray icon. Its stdout lands in .cache/dev/tray.log, which is
 // where a crash thrown before the merged log exists is the only trace left. Deliberately not
 // under ~/.studio, whose layout is a contract a dev script has no business adding to.
-// See docs/restartTray.md.
+// See docs/restartApp.md.
 
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, openSync, writeSync } from "node:fs";

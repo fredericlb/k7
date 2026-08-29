@@ -291,10 +291,10 @@ npm run tray:stop --workspace studio-desktop
 
 ## Where the steps live
 
-`apps/studio-desktop/scripts/trayProcess.mjs` holds the tray's lifetime as functions — `running`,
+`apps/studio-desktop/scripts/appProcess.mjs` holds the tray's lifetime as functions — `running`,
 `stopAll`, `buildDevApp`, `launch` — and `restart-tray.mjs` is a thin CLI over it.
 The one difference from a script is that every step **throws** rather than calling
 `process.exit`: a one-shot command turns that into an exit code, and a watcher meant to
 outlive a bad build cannot afford either. See
-[apps/studio-desktop/scripts/docs/restartTray.md](../apps/studio-desktop/scripts/docs/restartTray.md) for
+[apps/studio-desktop/scripts/docs/restartApp.md](../apps/studio-desktop/scripts/docs/restartApp.md) for
 what those steps do and why the order is not negotiable.

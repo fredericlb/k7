@@ -1,7 +1,7 @@
 // pidkill.ts — the last-resort cleanup on quit, for the case where the supervisor never got
 // there (hung, or already crashed). An engine that survives the app holds the audio device
 // and both ports — and the NEXT launch adopts a process nobody is supervising. The pidfile is
-// the contract both sides already agree on (engineDaemon.ts). See docs/tray.md.
+// the contract both sides already agree on (engineDaemon.ts). See docs/lifetime.md.
 
 import { spawnSync } from "node:child_process";
 import { readFileSync, rmSync } from "node:fs";

@@ -9,7 +9,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { stopAll } from "../apps/studio-desktop/scripts/trayProcess.mjs";
+import { stopAll } from "../apps/studio-desktop/scripts/appProcess.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 10350;

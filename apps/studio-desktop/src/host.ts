@@ -2,7 +2,7 @@
 // commands, and keep it alive across crashes. There is NO hand-written mirror of the
 // protocol here — the types come from the supervisor's own hostProtocol.ts, which is what
 // stops the two ends drifting. The supervisor computes every policy; this file only carries
-// its frames. See docs/tray.md.
+// its frames. See docs/lifetime.md.
 
 import { type ChildProcess, spawn } from "node:child_process";
 import { createInterface } from "node:readline";

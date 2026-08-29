@@ -3,7 +3,7 @@
 // NOT redundant with `npm install`: electron@44 declares NO scripts at all, so npm never runs
 // its install.js and `node_modules/electron/dist` simply never appears. The failure is
 // `spawn ENOENT` on a path that looks installed, which reads as a corrupt tree rather than a
-// missing step. Idempotent — a present dist is left alone. See docs/tray.md.
+// missing step. Idempotent — a present dist is left alone. See docs/lifetime.md.
 
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";

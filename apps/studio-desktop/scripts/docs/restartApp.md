@@ -1,14 +1,14 @@
-# restart-tray.mjs — the tray's edit→run loop
+# restart-app.mjs — the app's edit→run loop
 
-`npm run tray:restart` is the app's half of what `devReload.ts` already does for the
+`npm run app:restart` is the app's half of what `devReload.ts` already does for the
 supervisor: stop, rebuild, relaunch, and **say whether it came up**. It exists so an
 agent — or anyone without the tray in front of them — can change `src/` and get
 a running tray back from one command, with an exit code that means something.
 
 ```bash
-npm run tray:restart                 # stop → build --dev → start → wait for "supervisor up"
-npm run tray:restart -- --no-build   # just bounce it
-npm run tray:stop                    # stop, and stay stopped
+npm run app:restart                 # stop → build --dev → start → wait for "supervisor up"
+npm run app:restart -- --no-build   # just bounce it
+npm run app:stop                    # stop, and stay stopped
 ```
 
 It is glue and nothing else: the build is `build-engine.mjs --dev`, the launch is
@@ -16,7 +16,7 @@ It is glue and nothing else: the build is `build-engine.mjs --dev`, the launch i
 verdict.
 
 Those four steps — `running`, `stopAll`, `buildDevApp`, `launch` — live in
-`trayProcess.mjs`, because the repo's `npm run dev` session drives the same loop from a
+`appProcess.mjs`, because the repo's `npm run dev` session drives the same loop from a
 watcher (see [docs/dev.md](../../../../docs/dev.md)). They **throw** rather than
 `process.exit`: the one-shot command turns a throw back into an exit code, and a watcher
 that must outlive a failed build can afford neither an exit nor a swallowed error.

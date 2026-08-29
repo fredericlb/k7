@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// restart-tray.mjs — `npm run tray:restart`: the tray's edit→run loop. Stops every running
+// restart-app.mjs — `npm run app:restart`: the app's edit→run loop. Stops every running
 // tray (single-instance would make our launch the no-op, and Windows locks the exe against
 // the relink), rebuilds the dev app, starts it, and waits for the merged log to say the
 // supervisor came up — so the exit code, not a screenshot, says whether the tray is alive.
-// The steps themselves live in trayProcess.mjs. See docs/restartTray.md.
+// The steps themselves live in appProcess.mjs. See docs/restartApp.md.
 
-import { buildDevApp, launch, stopAll } from "./trayProcess.mjs";
+import { buildDevApp, launch, stopAll } from "./appProcess.mjs";
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);

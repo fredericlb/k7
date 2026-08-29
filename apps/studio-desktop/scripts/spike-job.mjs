@@ -5,7 +5,7 @@
 //
 // It builds a throwaway Electron main that inits the real src/job.ts, spawns a long-lived
 // grandchild, then taskkill /F's the Electron process WITHOUT /T — so only the job can be
-// what kills the grandchild. See docs/tray.md.
+// what kills the grandchild. See docs/lifetime.md.
 
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";

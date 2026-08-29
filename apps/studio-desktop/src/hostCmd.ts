@@ -1,7 +1,7 @@
 // hostCmd.ts — where the supervisor (@studio/engine-host) lives and how to run it, in three
 // tiers: $STUDIO_ENGINE_HOST_CMD, the packaged node + engine-host.mjs, or the repo's tsx on
 // the TypeScript source. Says clearly when the answer is "nothing" — an app that silently
-// supervises nothing looks exactly like a healthy one. See docs/tray.md.
+// supervises nothing looks exactly like a healthy one. See docs/lifetime.md.
 
 import { statSync } from "node:fs";
 import { dirname, join } from "node:path";

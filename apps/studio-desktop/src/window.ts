@@ -1,26 +1,18 @@
-// window.ts — st0 in a window, loaded from this app's OWN origin (see docs/server.md).
-// Three rules, and each is a bug if you get it wrong: closing must not quit (this is still a
-// background supervisor), Chromium must not throttle us when occluded (the playhead and the
-// meters would freeze the moment you switch apps), and on macOS the Dock icon follows the
-// WINDOW rather than the app, since without one an open window cannot be reached by Cmd-Tab.
-// See docs/window.md.
+// window.ts — st0's window, which IS the app. Opening it starts the engine; closing it stops
+// the engine, the file service and the supervisor with it. There is no tray and nothing runs
+// on behind the window: whoever wants an engine without one runs `studio-engine`, the same
+// supervisor with a terminal in front of it. See docs/lifetime.md.
 
-import { app, BrowserWindow, shell } from "electron";
+import { BrowserWindow, shell } from "electron";
 import { line } from "./logbus.ts";
 
 let win: BrowserWindow | null = null;
-/** Set on quit, so the close handler stops intercepting and lets the window go. */
-let quitting = false;
-
-export function markQuitting(): void {
-  quitting = true;
-}
 
 export function hasWindow(): boolean {
   return win !== null && !win.isDestroyed();
 }
 
-/** Open the window, or bring the existing one forward — never a second one. */
+/** Open it, or bring the existing one forward — never a second. */
 export function openWindow(url: string): void {
   if (win && !win.isDestroyed()) {
     if (win.isMinimized()) win.restore();
@@ -37,38 +29,24 @@ export function openWindow(url: string): void {
     show: false,
     title: "studio",
     webPreferences: {
-      // NOT the default. Chromium throttles timers in an occluded window to about one a
-      // minute, so the transport's playhead and the meters would stop the moment the window
-      // went behind another — and st0's freeze watchdog would fill the console with stalls
-      // that look like a render bug.
+      // NOT the default, and the default is wrong here. Chromium throttles timers in an
+      // occluded window to about one a minute, so the transport's playhead and the meters
+      // would freeze the moment the window went behind another — and st0's freeze watchdog
+      // would fill the console with stalls that read as a render bug.
       backgroundThrottling: false,
-      // The page is st0, served over http from this machine. It gets no node.
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
   // Paint before showing, or the window opens white and fills in.
-  win.once("ready-to-show", () => {
-    win?.show();
-    app.dock?.show();
-  });
-
-  // Closing is HIDING, on every platform: the supervisor, the engine and the file service all
-  // outlive the window, and Quit is the tray's or the app menu's.
-  win.on("close", (event) => {
-    if (quitting) return;
-    event.preventDefault();
-    win?.hide();
-    app.dock?.hide();
-  });
-
+  win.once("ready-to-show", () => win?.show());
   win.on("closed", () => {
     win = null;
   });
 
-  // A link out of the app opens in the user's BROWSER, not in a chromeless window with no
-  // address bar — which is where an OIDC sign-in has to happen anyway (RFC 8252).
+  // A link out opens in the user's BROWSER, not in a chromeless window with no address bar —
+  // which is also where an OIDC sign-in has to happen (RFC 8252 §8.12).
   win.webContents.setWindowOpenHandler(({ url: target }) => {
     void shell.openExternal(target);
     return { action: "deny" };
@@ -79,9 +57,7 @@ export function openWindow(url: string): void {
   });
 }
 
-/** Tear it down for real, on the way out. */
 export function destroyWindow(): void {
-  quitting = true;
   win?.destroy();
   win = null;
 }

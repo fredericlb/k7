@@ -12,15 +12,14 @@
     "app:start": "electron dist/main.cjs",
     "build": "node scripts/build-app.mjs",
     "app:spike-job": "node scripts/spike-job.mjs",
-    "app:spike-menu": "node scripts/spike-menu.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "dev": "node scripts/build-main.mjs --watch",
     "engine:build": "node scripts/build-app.mjs",
     "engine:dev": "node scripts/build-main.mjs",
     "engine:start": "node scripts/start-engine.mjs",
-    "tray:restart": "node scripts/restart-tray.mjs",
-    "tray:stop": "node scripts/restart-tray.mjs --stop"
+    "app:restart": "node scripts/restart-app.mjs",
+    "app:stop": "node scripts/restart-app.mjs --stop"
   },
   "dependencies": {
     "@studio/engine-client": "*",

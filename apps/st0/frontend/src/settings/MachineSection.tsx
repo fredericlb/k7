@@ -129,8 +129,8 @@ export function MachineSection({
 
       <Section title="This machine">
         <Row
-          label="Start studio when I log in"
-          detail="Opens no window: it keeps an engine up for whatever asks."
+          label="Open studio when I log in"
+          detail="The engine starts with the window and stops with it; `studio-engine` is the one that needs neither."
         >
           <Action onClick={() => local("autostart")}>
             {state.autostart ? "On" : "Off"}

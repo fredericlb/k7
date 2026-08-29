@@ -2,7 +2,7 @@
 // orphan the engine and file service holding their ports. Membership is INHERITED, which is
 // why init() must run before anything spawns and why assigning the supervisor alone covers
 // the engine and the tsx-forked file service for free. A no-op off Windows, where the closing
-// stdin pipe plays the same role. See docs/tray.md.
+// stdin pipe plays the same role. See docs/lifetime.md.
 
 import type { ChildProcess } from "node:child_process";
 import { line } from "./logbus.ts";

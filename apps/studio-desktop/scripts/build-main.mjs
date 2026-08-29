@@ -2,7 +2,7 @@
 // CJS on purpose: Electron's ESM main has sharp edges around asar and __dirname, and
 // there is nothing to gain here. `--watch` keeps a context open for the dev session.
 // `electron` is external because Electron provides it; `koffi` because it loads a .node.
-// See docs/tray.md and ../../docs/dev.md.
+// See docs/lifetime.md and ../../docs/dev.md.
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
