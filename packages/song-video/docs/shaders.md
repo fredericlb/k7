@@ -230,6 +230,6 @@ npx vitest run apps/st0/frontend/src/shaderAudio.test.ts
 Ces suites prouvent le document, l'ordre des passes et la conversion du niveau. **Aucune ne prouve
 qu'un pixel a changé** — il n'y a pas de WebGL2 dans le runner, et `passes.test.ts` dit lui-même ce
 qu'un faux contexte peut et ne peut pas établir. La vérification qui reste est celle qu'on fait avec
-les yeux : ouvrir `engine/capot/songs/video-demo.st0`, lancer la lecture, et regarder l'image
+les yeux : ouvrir `demos/video-demo.st0`, lancer la lecture, et regarder l'image
 respirer avec la batterie. Changer le menu de `pulse` à `ripple` doit changer l'effet sans toucher
 au câblage.

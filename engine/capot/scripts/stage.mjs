@@ -169,9 +169,9 @@ function vendorNode() {
   return cached;
 }
 
-export // This app's songs/ into the app's resources, replaced wholesale (docs/buildEngine.md).
-function stageDemos(destDir) {
-  const src = join(trayDir, "songs");
+// The repo's demos/ into the app's resources, replaced wholesale (docs/buildEngine.md).
+export function stageDemos(destDir) {
+  const src = join(repo, "demos");
   if (!existsSync(src)) {
     console.error(`error: no demo songs at ${src}.`);
     process.exit(1);

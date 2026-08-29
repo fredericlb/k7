@@ -167,4 +167,4 @@ efface le composé, le mélange à l'intérieur d'une chaîne) sont du séquence
 n'a besoin d'un pixel pour être attrapé.
 
 Ce qu'il ne prouve pas, c'est qu'un shader dessine la bonne image. Cette vérification-là se fait
-avec les yeux : ouvrir `engine/capot/songs/video-demo.st0` et regarder.
+avec les yeux : ouvrir `demos/video-demo.st0` et regarder.

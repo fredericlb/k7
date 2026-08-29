@@ -5,7 +5,7 @@ import { loadProject } from "./project";
 
 // Two fixture songs snapshotted whole: one covers the params/preset merge, the other rack SYMBOLS.
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONGS = join(here, "..", "..", "..", "engine", "capot", "songs");
+const SONGS = join(here, "..", "..", "..", "demos");
 
 // Blank absolute paths — POSIX, drive-letter and UNC — so the snapshot is not this checkout's.
 const ABS_PATH = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/;

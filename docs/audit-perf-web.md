@@ -25,7 +25,7 @@ Trois benchs, `npm run bench` dans chacun des trois paquets :
 La fixture est **synthétique et paramétrée par la taille** (`packages/song/src/benchProject.ts`,
 publiée par la porte `./testSupport` déjà existante plutôt que par un sous-chemin de plus — voir
 `docs/inventaire.md` sur les sous-chemins que personne n'importe). Les projets committés sous
-`engine/capot/songs/` tiennent UNE piste : une fixture d'une piste mesurerait le démarrage et rien
+`demos/` tiennent UNE piste : une fixture d'une piste mesurerait le démarrage et rien
 d'autre. Deux tailles, 8 et 64 pistes, parce que ce qui se lit est la **courbe** — un coût qui
 double quand le morceau double va bien, un coût qui quadruple est le constat.
 

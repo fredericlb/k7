@@ -35,9 +35,7 @@ const SONG = join(
   "..",
   "..",
   "..",
-  "engine",
-  "capot",
-  "songs",
+  "demos",
   "synth-demo.st0",
 );
 const SYNTH = ["modules", "instruments", "synth"];

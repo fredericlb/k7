@@ -49,7 +49,7 @@ l'appliquer : lister et marquer sont le même code, du même côté. Un seul end
 ce qui est une raison de moins de se tromper.
 
 > **Le suffixe est obligatoire.** Un dossier de projet sans suffixe n'est pas un projet — les
-> démos de `engine/capot/songs/` s'appellent `synth-demo.st0`, `rack-demo.st0`… ; leur champ
+> démos de `demos/` s'appellent `synth-demo.st0`, `rack-demo.st0`… ; leur champ
 > `name:` reste sans suffixe, c'est leur libellé et non leur dossier. Un dépôt doit contenir **au
 > moins un dossier suffixé** : un dépôt qui *est* lui-même un projet ne se liste pas, puisque sa
 > racine n'a pas de nom dans l'arbre.

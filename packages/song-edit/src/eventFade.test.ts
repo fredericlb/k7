@@ -26,9 +26,7 @@ const SONG = join(
   "..",
   "..",
   "..",
-  "engine",
-  "capot",
-  "songs",
+  "demos",
   "node-demo.st0",
 );
 

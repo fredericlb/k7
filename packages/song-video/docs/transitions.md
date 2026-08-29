@@ -227,5 +227,5 @@ de mélange est en vigueur pour quel tracé, quelle texture sur quelle unité, e
 
 **Aucune ne prouve qu'un pixel a changé** : il n'y a pas de WebGL2 dans le runner, et
 `compositor.test.ts` le dit de lui-même. La vérification qui reste est celle qu'on fait avec les
-yeux — ouvrir `engine/capot/songs/video-demo.st0`, faire chevaucher les deux plans, donner un
+yeux — ouvrir `demos/video-demo.st0`, faire chevaucher les deux plans, donner un
 `fade_in` au second, et regarder la coupe devenir un fondu.

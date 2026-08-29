@@ -1,6 +1,6 @@
 // benchProject.ts — a synthetic project of N lanes, written to a temp folder, for the benches.
 //
-// Not a fixture committed under `engine/capot/songs/`: those hold ONE lane, and the numbers this
+// Not a fixture committed under `demos/`: those hold ONE lane, and the numbers this
 // repo quotes (`graphDoc` at ~278 ms) are for a song of some seventy nodes. A one-lane
 // fixture would measure startup and nothing else. Parameterised because what a bench has to show
 // here is the CURVE — a cost that doubles when the song doubles is fine, one that quadruples is

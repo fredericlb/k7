@@ -226,9 +226,7 @@ describe("the crossfade-demo song", () => {
     "..",
     "..",
     "..",
-    "engine",
-    "capot",
-    "songs",
+    "demos",
     "crossfade-demo.st0",
   );
 

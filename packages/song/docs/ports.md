@@ -154,7 +154,7 @@ export default (g: GraphBuilder) => {
 };
 ```
 
-That module is real and shipped: `engine/capot/songs/crossfade-demo` is two decks meeting at it,
+That module is real and shipped: `demos/crossfade-demo` is two decks meeting at it,
 and it is mirrored into every user's Examples workspace. The same graph is `@studio/dsp`'s
 `crossfade()`, emitted to `packages/dsp/graphs/crossfade.json` — a module is a folder you can
 copy, so it carries its own source rather than pointing at the library, and a test holds the two

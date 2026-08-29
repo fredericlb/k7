@@ -5,7 +5,7 @@ import { buildGraphDoc } from "./graphDoc";
 
 // The guard project.golden.test.ts gives the ENGINE's doc, for the one the Chains tab draws.
 const here = dirname(fileURLToPath(import.meta.url)); // packages/file-service/src
-const SONGS = join(here, "..", "..", "..", "engine", "capot", "songs");
+const SONGS = join(here, "..", "..", "..", "demos");
 
 // Blank absolute paths (POSIX, drive-letter, UNC) so the snapshot holds structure, not a location.
 const ABS_PATH = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/;
