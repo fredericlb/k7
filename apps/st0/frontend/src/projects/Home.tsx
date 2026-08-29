@@ -47,10 +47,15 @@ export function Home() {
   const [params, setParams] = useSearchParams();
   const openWs = params.get(WS_PARAM);
 
-  // Asked once: a hosted origin will not grow the route mid-session (../desktop.ts).
+  // Asked once: a hosted origin will not grow the route mid-session (../desktop.ts). The
+  // SERVER comes back with it, because the catalogue link needs it — see the pl8 button.
   const [isDesktop, setIsDesktop] = useState(false);
+  const [server, setServer] = useState<string | null>(null);
   useEffect(() => {
-    void desktop.state().then((d) => setIsDesktop(d !== null));
+    void desktop.state().then((d) => {
+      setIsDesktop(d !== null);
+      setServer(d?.server ?? null);
+    });
   }, []);
 
   const [workspaces, setWorkspaces] = useState<MachineWorkspace[]>([]);
@@ -291,7 +296,12 @@ export function Home() {
                 className={probing ? "h-4 w-4 animate-spin" : "h-4 w-4"}
               />
             </Button>
-            {/* pl8 — the catalogue a project USES, one link away and on the HOME page alone, in the same tab (../../docs/projects.md). */}
+            {/* pl8 — the catalogue a project USES, one link away and on the HOME page alone.
+                Hosted, it is the same origin and opens in the same tab (../../docs/projects.md).
+                On the DESKTOP it is the paired server's, opened in the system BROWSER: pl8 is a
+                hosted app, our origin serves only its offline shim, and `target="_blank"` is
+                what the app turns into `shell.openExternal`. Unpaired there is no catalogue to
+                open, so the button says so instead of linking at a 503. */}
             {/* Settings — the DESKTOP app's own screen, and offered only where it exists: the
                 probe answers on the app's origin and 404s on the hosted one, so the same
                 bundle ships to both (../desktop.ts). */}
@@ -314,14 +324,28 @@ export function Home() {
                 <Tablet className="h-4 w-4" /> Surfaces
               </a>
             </Button>
-            <Button variant="secondary" size="sm" asChild>
-              <a
-                href={pl8Url()}
-                title="pl8 — la médiathèque : morceaux, samples, prises"
+            {isDesktop && !server ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled
+                title="pl8 — la médiathèque : associez un serveur dans les Réglages pour l'ouvrir"
               >
                 <Library className="h-4 w-4" /> pl8
-              </a>
-            </Button>
+              </Button>
+            ) : (
+              <Button variant="secondary" size="sm" asChild>
+                <a
+                  href={pl8Url(server)}
+                  {...(isDesktop
+                    ? { target: "_blank", rel: "noreferrer" }
+                    : {})}
+                  title="pl8 — la médiathèque : morceaux, samples, prises"
+                >
+                  <Library className="h-4 w-4" /> pl8
+                </a>
+              </Button>
+            )}
           </>
         }
       />

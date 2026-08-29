@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, mediatek } from "../api";
+import { desktop } from "../desktop";
 import { pl8Url } from "../projects/api";
 
 /** How many search hits are drawn at once: three hundred morceaux in one scrolling box is not a list you read, so the field is the way through. */
@@ -141,6 +142,16 @@ export function PlaylistPane({
   const playable = rows.filter((r) => fileOf(r)).length;
 
   // --- adding ----------------------------------------------------------------------
+
+  // Where the catalogue is, for the link at the foot: the desktop's paired server, or this
+  // origin when hosted. Null on the desktop until paired, and then there is nothing to open.
+  const [catalogue, setCatalogue] = useState<string | null>(pl8Url());
+  useEffect(() => {
+    void desktop.state().then((d) => {
+      // Hosted, pl8 is this same origin; on the desktop it is the server's, or nowhere.
+      setCatalogue(d ? (d.server ? pl8Url(d.server) : null) : pl8Url());
+    });
+  }, []);
 
   // One act here — SEARCH, over morceaux pl8 already holds; putting a new one on that volume is pl8's own screen, linked at the foot of the list.
   const [searching, setSearching] = useState(false);
@@ -552,15 +563,27 @@ export function PlaylistPane({
             })}
           </ol>
         )}
-        {/* Where a morceau ARRIVES, at the foot of the list rather than as a button: this pane names songs, pl8 is the volume that holds them. */}
-        <a
-          href={pl8Url()}
-          className="mt-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/30 hover:text-foreground"
-          title="pl8 — la médiathèque : c'est là qu'on dépose un morceau"
-        >
-          <Library className="h-3.5 w-3.5 shrink-0" />
-          Ajouter de nouveaux morceaux
-        </a>
+        {/* Where a morceau ARRIVES, at the foot of the list rather than as a button: this pane
+            names songs, pl8 is the volume that holds them. On the desktop it is the SERVER's
+            catalogue in the system browser — see Home.tsx's pl8 button for why. */}
+        {catalogue ? (
+          <a
+            href={catalogue}
+            {...(desktop.isDesktop
+              ? { target: "_blank", rel: "noreferrer" }
+              : {})}
+            className="mt-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/30 hover:text-foreground"
+            title="pl8 — la médiathèque : c'est là qu'on dépose un morceau"
+          >
+            <Library className="h-3.5 w-3.5 shrink-0" />
+            Ajouter de nouveaux morceaux
+          </a>
+        ) : (
+          <p className="mt-2 flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
+            <Library className="h-3.5 w-3.5 shrink-0" />
+            Associez un serveur dans les Réglages pour déposer un morceau
+          </p>
+        )}
       </div>
 
       <footer className="flex shrink-0 items-center gap-2 border-t px-3 py-1 text-xs text-muted-foreground">

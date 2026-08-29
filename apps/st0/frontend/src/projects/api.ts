@@ -34,8 +34,14 @@ import { serviceUrl } from "@studio/web-protocol/services";
 /** Where pl8 answers — another service on the SAME origin, DERIVED from the services table rather than declared (`globalThis.location`, for node tests). */
 const PL8_URL = serviceUrl(globalThis.location?.origin ?? "", "pl8");
 
-/** Where the catalogue answers — the header's link out; exported for `Home.tsx`, which needs the address and none of the verbs. */
-export const pl8Url = (): string => PL8_URL;
+/**
+ * Where the catalogue answers — the header's link out; exported for the two screens that need
+ * the address and none of the verbs. Pass the DESKTOP's configured server to get that server's
+ * catalogue: on the desktop our own origin holds the offline shim, which answers pl8's API
+ * routes and serves none of its screens, so linking there gives a 503 rather than a library.
+ */
+export const pl8Url = (server?: string | null): string =>
+  server ? serviceUrl(server, "pl8") : PL8_URL;
 
 /** The error the far side carried, or a status code when it carried none — its `status` rides along, a 202 and a 404 being answers. */
 async function failed(res: Response, what: string): Promise<Error> {
