@@ -26,6 +26,7 @@ import { routeMenuId } from "./route.ts";
 import { bundledDist } from "./server/frontend.ts";
 import { type LocalServer, startLocalServer } from "./server/index.ts";
 import { StudioTray } from "./tray.ts";
+import { destroyWindow, markQuitting, openWindow } from "./window.ts";
 
 declare const __STUDIO_BUILD__: string;
 
@@ -54,6 +55,10 @@ function onMenuClick(id: string): void {
     return;
   }
   switch (action.what) {
+    case "openWindow":
+      if (web) openWindow(web.url);
+      else line("host", "no local server yet — nothing to open");
+      break;
     case "autostart":
       tray?.setAutostart(toggleAutostart());
       break;
@@ -128,9 +133,14 @@ app.whenReady().then(() => {
 
   spinner = setInterval(() => tray?.tick(), SPINNER_MS);
 
-  // The app's own origin. LOT F opens a window on it; until the local /auth and the pl8 shim
-  // exist (lots B2 and B3), st0 served from here would stop at its "auth is down" screen.
+  // The app's own origin, and the window onto it. Not opened here: the app starts with the
+  // machine and lives in the menu bar, so a window on every login would be the wrong default.
   void startWeb();
+
+  // macOS: clicking the Dock icon of a running app reopens its window rather than doing nothing.
+  app.on("activate", () => {
+    if (web) openWindow(web.url);
+  });
 });
 
 /**
@@ -163,9 +173,13 @@ let quitting = false;
 app.on("before-quit", (event) => {
   if (quitting) return;
   quitting = true;
+  // Before anything else: the window's own close handler intercepts to HIDE, and would
+  // swallow the quit.
+  markQuitting();
   event.preventDefault();
   void (async () => {
     if (spinner) clearInterval(spinner);
+    destroyWindow();
     await host?.shutdownAndWait();
     // After the supervisor, for the case where it never got there: it hung on an
     // unresponsive registry and was killed past its deadline, or had already crashed.

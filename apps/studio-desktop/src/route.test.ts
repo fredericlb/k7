@@ -93,6 +93,10 @@ describe("routing a menu click", () => {
   });
 
   it("keeps the rows this app does itself out of the supervisor's hands", () => {
+    expect(routeMenuId("open_window")).toEqual({
+      kind: "local",
+      what: "openWindow",
+    });
     expect(routeMenuId("autostart")).toEqual({
       kind: "local",
       what: "autostart",

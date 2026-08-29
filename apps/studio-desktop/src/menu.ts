@@ -303,6 +303,11 @@ export function buildTemplate(
   });
 
   return [
+    // First, because opening the app is what a click on the icon is usually for. Enabled even
+    // with no engine: the home page lists local projects and starting one is how you get an
+    // engine in the first place.
+    act("open_window", "Open studio", true),
+    { type: "separator" },
     disabled("status", statusLabel(v)),
     disabled("registry", registryLabel(v)),
     disabled("plugins", pluginsLabel(v)),

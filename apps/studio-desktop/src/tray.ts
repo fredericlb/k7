@@ -40,6 +40,12 @@ export class StudioTray {
 
   start(): void {
     this.tray = new Tray(this.image());
+    // Windows and Linux: a left-click on a tray icon opens the app, and the menu is the RIGHT
+    // one. macOS has no such convention — there the menu is the click — so `setContextMenu`
+    // already answers and this never fires.
+    if (process.platform !== "darwin") {
+      this.tray.on("click", () => this.onClick("open_window"));
+    }
     this.render();
   }
 

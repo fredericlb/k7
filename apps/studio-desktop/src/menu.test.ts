@@ -98,6 +98,19 @@ describe("the icon badge", () => {
   });
 });
 
+describe("the window row", () => {
+  it("is first, and enabled with no engine — starting a project is how you get one", () => {
+    const t = buildTemplate(view(), () => {});
+    expect(t[0]?.id).toBe("open_window");
+    expect(byId(t, "open_window")?.enabled).toBe(true);
+  });
+
+  it("does not move the status line off the snapshot it reports", () => {
+    const t = buildTemplate(view(RUN), () => {});
+    expect(byId(t, "status")?.label).toContain("Running");
+  });
+});
+
 describe("the safety rule", () => {
   it("enables Stop and Restart only for an engine we own", () => {
     const own = buildTemplate(view(RUN), () => {});

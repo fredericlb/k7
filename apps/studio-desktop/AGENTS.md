@@ -5,8 +5,9 @@ user installs is still called **`studio-capot`** — `productName`, the executab
 item, the tooltip. Renaming that is its own change: `docs/tray.md` lists what a rename may
 and may not touch, and the bundle identifier is frozen regardless.
 
-The **menu-bar / system-tray view** over the engine supervisor — Electron, TypeScript,
-windowless.
+The **menu-bar view** over the engine supervisor, and the window st0 opens in — Electron,
+TypeScript. It serves st0 itself, from its own http origin, which is what makes the desktop
+build cost the frontend almost nothing (`docs/server.md`).
 
 It is not itself a supervisor. It spawns **`@studio/engine-host`** as a child and drives it
 over NDJSON on stdio: the supervisor owns the `~/.studio` contract, the registry, the engine
@@ -75,6 +76,11 @@ app (Electron, windowless)     ← the process the user kills; creates the Job O
 - **`job.ts` / `pidkill.ts`** — the two backstops that stop a supervisor outliving the app.
 - **`devPid.ts`** — in dev only, our pid where the restart scripts can find it: unpackaged the
   process image is `electron`, so scanning by name finds nothing.
+- **`window.ts`** — st0's window. Closing HIDES, `backgroundThrottling` is off, and the Dock
+  icon follows the window rather than the app. See `docs/window.md`.
+- **`server/`** — the app's own http origin: st0's dist, the engine registry, a local `/auth`
+  that never 401s, and pl8's routes answered locally. `docs/server.md`, `docs/identity.md`,
+  `docs/pl8Shim.md`.
 
 **The app spawns no process but the supervisor.** Anything that needs a process started
 belongs in `@studio/engine-host`, not here.

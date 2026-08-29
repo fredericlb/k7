@@ -11,6 +11,7 @@ export type MenuAction =
   | { kind: "local"; what: LocalAction };
 
 export type LocalAction =
+  | "openWindow"
   | "autostart"
   | "openRoot"
   | "openLog"
@@ -38,6 +39,7 @@ const PLAIN: Readonly<Record<string, HostCommandName>> = {
 };
 
 const LOCAL: Readonly<Record<string, LocalAction>> = {
+  open_window: "openWindow",
   autostart: "autostart",
   open_root: "openRoot",
   open_log: "openLog",

@@ -177,3 +177,19 @@ would be a worse problem than either.
 That the suite is fast, or that 30 s is the right number forever. If a test file starts *needing*
 thirty seconds, the fix is that test, not this ceiling. The claim is narrower: the suite now runs
 everything it has, and it fails only when something is actually broken.
+
+## `$STUDIO_HOME` and the pool
+
+`apps/studio-desktop` has a vitest config of its own, setting `pool: "forks"`. The reason is
+worth knowing before you copy the default anywhere else that redirects `~/.studio`.
+
+The default pool runs test FILES concurrently in one process, and `process.env` is shared
+across them. Several files here point `$STUDIO_HOME` at a temp dir of their own in
+`beforeEach` — so one file's setup redirects another file's writes mid-test. It surfaced as a
+merged-log assertion failing about one run in six, and never in isolation, which is the worst
+shape a flake can have.
+
+`forks` gives each file its own process, so the env var is the isolation it already looks
+like. It costs a process start per file; the suite is ~5s either way.
+
+If a package redirects `$STUDIO_HOME` in more than one test file, it wants the same thing.
