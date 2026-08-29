@@ -1,34 +1,22 @@
-// cut.ts — separating a song, driven from HERE. pl8 holds the masters, so pl8 owns the job: it
-// posts the bytes at an engine's `/process`, polls, and writes the stems back onto its own
-// volume. Nothing is mirrored anywhere. See ../../docs/stems.md.
+// cut.ts — separating a song, HERE. pl8 holds the masters, so pl8 owns the job and now does the
+// work too: it runs the model in a worker thread and the stems are written straight into the
+// song's own folder. Nothing is posted anywhere and nothing is collected back.
+// See ../../docs/stems.md.
 
-import { createWriteStream, existsSync, mkdirSync, readdirSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import type { EngineEntry } from "@studio/engine-registry";
 import { safePath } from "@studio/mediatek/layout";
 import { isAudio } from "@studio/mediatek/media";
 import { STEMS_DIR, stemsComplete } from "@studio/song-schema/stems";
 import {
-  ENGINE_TOKEN_HEADER,
-  type SeparateJob,
-  USER_HEADER,
-} from "@studio/web-protocol";
+  separateJob,
+  startSeparate,
+} from "@studio/stem-separation/separateJobs";
+import type { SeparateJob } from "@studio/web-protocol";
+import { NoModelError, stemsModel } from "./model.ts";
 
-/** How often the engine is asked where a cut got to — a separation is minutes, not a hot loop. */
-const POLL_MS = 2000;
-/** Past any honest run: this only catches an engine that stopped answering at all. */
-const GIVE_UP_MS = 90 * 60 * 1000;
-
-/** Where an engine's file service answers — loopback first, then each LAN address in turn. */
-export function fileServiceBases(engine: EngineEntry): string[] {
-  const { loopback, lanIps, filePort } = engine.addresses;
-  return [loopback, ...lanIps]
-    .filter(Boolean)
-    .map((host) => `http://${host}:${filePort}`);
-}
+/** In-process, so this is only how often the progress is REDRAWN, not a network round trip. */
+const POLL_MS = 500;
 
 export class CutError extends Error {}
 
@@ -38,26 +26,13 @@ export function heldStems(song: string): string[] {
   return existsSync(outDir) ? readdirSync(outDir).filter(isAudio) : [];
 }
 
-/** The headers the file service gates on: the engine's own token, and who is asking. */
-function headersFor(
-  engine: EngineEntry,
-  userEmail: string,
-): Record<string, string> {
-  return {
-    [ENGINE_TOKEN_HEADER]: engine.token,
-    [USER_HEADER]: userEmail,
-  };
-}
-
 /** Cut one song into stems and keep them in `stems/` under its folder — ../../docs/stems.md. */
 export async function cutStems(opts: {
-  engine: EngineEntry;
   userEmail: string;
   song: string;
-  chain: string;
   onProgress?: (job: SeparateJob) => void;
 }): Promise<{ ready: true; files: string[] }> {
-  const { engine, userEmail, song, chain } = opts;
+  const { userEmail, song } = opts;
   const source = safePath(song);
   if (!existsSync(source)) throw new CutError(`${song} is not on this volume`);
 
@@ -67,89 +42,30 @@ export async function cutStems(opts: {
   // COMPLETE, not merely present: a folder from before the aligned master cannot cancel — docs/stemSplit.md.
   if (stemsComplete(held)) return { ready: true, files: held };
 
-  const bases = fileServiceBases(engine);
-  if (!bases.length)
-    throw new CutError("that engine advertises no address to reach it on");
-
-  // The BYTES, in the body: the engine holds no copy, so the master travels once per job.
-  const audio = await readFile(source);
-  const name = song.slice(song.lastIndexOf("/") + 1);
-
-  let base = "";
-  let job: SeparateJob | null = null;
-  let lastError = "";
-  for (const candidate of bases) {
-    try {
-      const res = await fetch(
-        `${candidate}/process?chain=${encodeURIComponent(chain)}&name=${encodeURIComponent(name)}`,
-        {
-          method: "POST",
-          headers: {
-            ...headersFor(engine, userEmail),
-            "content-type": "application/octet-stream",
-          },
-          body: audio,
-        },
-      );
-      if (!res.ok) {
-        // A refusal is the engine ANSWERING, so it is reported, not tried at the next address.
-        const said = (
-          (await res.json().catch(() => ({}))) as { error?: string }
-        ).error;
-        throw new CutError(
-          said ?? `the engine refused the cut (${res.status})`,
-        );
-      }
-      job = (await res.json()) as SeparateJob;
-      base = candidate;
-      break;
-    } catch (e) {
-      if (e instanceof CutError) throw e;
-      lastError = (e as Error).message;
-    }
+  let model: string;
+  try {
+    model = stemsModel();
+  } catch (e) {
+    if (e instanceof NoModelError) throw new CutError(e.message);
+    throw e;
   }
-  if (!job) throw new CutError(`no engine address answered: ${lastError}`);
 
+  // The worker writes the four stems into outDir itself, and creates it.
+  let job = startSeparate({ userEmail, source, model, outDir });
   opts.onProgress?.(job);
-  const until = Date.now() + GIVE_UP_MS;
+
   while (!job.done) {
-    if (Date.now() > until)
-      throw new CutError(`the engine stopped answering about ${song}`);
     await new Promise((r) => setTimeout(r, POLL_MS));
-    const res = await fetch(`${base}/process/${job.id}`, {
-      headers: headersFor(engine, userEmail),
-    });
-    if (!res.ok)
-      throw new CutError(`the engine forgot this cut (${res.status})`);
-    job = (await res.json()) as SeparateJob;
-    // Forwarded VERBATIM: this service is a pipe for the engine's progress, not a second opinion.
+    const now = separateJob(job.id);
+    // A swept job is overwhelmingly one that LANDED, so ask the folder — ../../docs/stems.md.
+    if (!now) {
+      const done = heldStems(song);
+      if (stemsComplete(done)) return { ready: true, files: done };
+      throw new CutError(`the separation of ${song} was forgotten`);
+    }
+    job = now;
     opts.onProgress?.(job);
   }
   if (job.failed) throw new CutError(job.error ?? "the separation failed");
-
-  // A phase of our own, and the only one — an unlabelled gap at 100% reads as a hang.
-  opts.onProgress?.({ ...job, phase: "collecting", percent: null });
-
-  // One at a time and streamed: four stems of a long song are hundreds of megabytes.
-  mkdirSync(outDir, { recursive: true });
-  for (const file of job.files) {
-    const res = await fetch(
-      `${base}/process/${job.id}/file?name=${encodeURIComponent(file)}`,
-      { headers: headersFor(engine, userEmail) },
-    );
-    if (!res.ok || !res.body)
-      throw new CutError(`the engine would not hand over ${file}`);
-    await pipeline(
-      Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]),
-      createWriteStream(join(outDir, file)),
-    );
-  }
-
-  // …and tell the engine to drop the scratch. Best-effort: it sweeps on its own an hour later.
-  await fetch(`${base}/process/${job.id}`, {
-    method: "DELETE",
-    headers: headersFor(engine, userEmail),
-  }).catch(() => {});
-
   return { ready: true, files: job.files };
 }

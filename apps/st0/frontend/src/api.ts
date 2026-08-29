@@ -296,13 +296,13 @@ export const mediatek = {
   songUrl: (path: string) =>
     `${PL8}/api/mediatek/file?path=${encodeURIComponent(path)}`,
 
-  /** Separate one song of the library — pl8's, since it holds the master (apps/pl8/docs/stems.md); `engineId` names whose model is borrowed. */
-  prepareStems: async (song: string, engineId: string): Promise<StemsReply> => {
+  /** Separate one song of the library — pl8's from end to end, since it holds the master AND the model (apps/pl8/docs/stems.md). */
+  prepareStems: async (song: string): Promise<StemsReply> => {
     const res = await fetch(`${PL8}/api/stems`, {
       method: "POST",
       credentials: "include",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ song, engineId }),
+      body: JSON.stringify({ song }),
     });
     if (!res.ok) {
       const said = (await res.json().catch(() => ({}))) as { error?: string };
