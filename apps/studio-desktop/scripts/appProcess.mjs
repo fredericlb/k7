@@ -7,12 +7,30 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url)); // apps/studio-desktop/scripts
 export const trayDir = dirname(here); //                apps/studio-desktop
-export const MERGED = join(homedir(), ".studio", ".studio.log"); // truncated by logbus::init on every launch
+/**
+ * The state dir, which is `@studio/song`'s `studioHome()` — spelled a second time HERE, and only
+ * here, because this file is plain `.mjs` run by `node` and that one is TypeScript consumed as
+ * source. Keep the two in step: a wrong path does not throw, it reads as a missing file, and
+ * this script then reports a healthy app as silent. See packages/engine-client/docs/paths.md.
+ */
+function stateDir() {
+  if (process.env.STUDIO_HOME) return resolve(process.env.STUDIO_HOME);
+  const home = homedir();
+  const library =
+    process.platform === "darwin"
+      ? join(home, "Library", "Application Support")
+      : process.platform === "win32"
+        ? process.env.APPDATA || join(home, "AppData", "Roaming")
+        : process.env.XDG_CONFIG_HOME || join(home, ".config");
+  return join(library, "st0");
+}
+
+export const MERGED = join(stateDir(), ".studio.log"); // truncated by logbus::init on every launch
 export const TRAY_LOG = join(trayDir, ".cache", "dev", "tray.log"); // where start-engine.mjs puts its stdout
 /** The Electron app's own pid in dev, since unpackaged its image is `electron` (docs/restartApp.md). */
 export const DEV_PID = join(trayDir, ".cache", "dev", "app.pid");
@@ -20,7 +38,7 @@ export const EXE_NAME =
   process.platform === "win32" ? "studio-capot.exe" : "studio-capot";
 /** The engine. Stopped here too — see stopAll for why the tray's job object is not enough. */
 export const ENGINE_EXE_NAME =
-  process.platform === "win32" ? "studio-moteur.exe" : "studio-moteur";
+  process.platform === "win32" ? "st0-engine.exe" : "st0-engine";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -208,7 +226,7 @@ export async function launch() {
 
   if (!text)
     throw new StepError(
-      `no ~/.studio/.studio.log activity after 20s — the tray is up but silent.`,
+      `no activity in ${MERGED} after 20s — the tray is up but silent.`,
     );
   const recent = text.trimEnd().split("\n").slice(-20).join("\n");
   if (!/supervisor up/.test(text))

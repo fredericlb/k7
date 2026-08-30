@@ -25,13 +25,32 @@ way: by listing `resources/` after a real pack rather than trusting the config.
 And the `electron` devDependency is pinned EXACTLY, not ranged: electron-builder downloads
 platform binaries for one release and refuses to guess from a range.
 
+## The binary was called `studio-moteur` until it was called `st0-engine`
+
+Nothing persists that name — it is a filename on disk and a CMake target, in no user file and on
+no wire — so there is no migration. What there is, on a machine that had the old build, is a
+window where **both** names exist and only one is looked for. Two signatures, and each reads as
+something other than a rename:
+
+- **An old engine still running.** `runningEngines()` in `appProcess.mjs` scans by executable
+  name, so a `studio-moteur` left over from before is invisible to `stopAll`: it keeps the audio
+  device and ports 8765/8770 while nothing on the machine can see it, and the new engine fails to
+  bind with no explanation naming the old one. **Stop the engine before the first build after
+  pulling this**, or kill it by its old name once.
+- **A stale binary that is no longer found.** `findEngineBinary` looks for `st0-engine` only —
+  deliberately, since accepting both names would let a pre-rename binary win the newest-first sort
+  and run the OLD engine from a tree that looks freshly built. So the first build after pulling is
+  a real one, and until it finishes every caller says *no st0-engine binary on this machine*.
+
+`build/<preset>/studio-moteur` is then dead weight and can be deleted; nothing looks for it.
+
 ## The flat resources rule
 
-`stageAll` puts node, `studio-moteur`, `engine-host.mjs`, `file-service.mjs`, `songs/`,
+`stageAll` puts node, `st0-engine`, `engine-cli.mjs`, `file-service.mjs`, `songs/`,
 `faust-libs/` and `node_modules/` in **one flat directory**, which electron-builder copies in
-whole. That is not tidiness: `engine-host`'s `bundle.ts` derives its resource dir from
-`process.execPath`, and for the supervisor that is the **vendored node** — so everything it
-looks for has to be node's sibling. Nest anything and `vendoredNode()` returns null,
+whole. That is not tidiness: the app hands that directory to `engine-host`'s `setBundleRoot`,
+and `bundle.ts` probes **siblings of it** — so everything it looks for has to be node's
+neighbour. Nest anything and `vendoredNode()` returns null,
 `fileServiceRuntime()` returns null, and `fileServiceProcess` reports `unavailable` — which
 means "dev, the watcher owns 8770" and shows as a working engine with a permanently red icon
 and "file service down", with nothing in the log to say why. Every developer machine works,
@@ -45,7 +64,7 @@ Everything needed to run with no repo and nothing on `PATH`:
 
 | staged as | what |
 |---|---|
-| staged resource | `studio-moteur` — the audio engine |
+| staged resource | `st0-engine` — the audio engine |
 | staged resource | `node` — runs the bundled JS processes |
 | resource | the file service, bundled to one `.mjs` |
 | resource | the supervisor, bundled to one `.mjs` |
@@ -70,7 +89,7 @@ machine. A Homebrew `node` is a small shim that links Homebrew dylibs under
 are self-contained. It stays on the repo's Node 22 line (`.nvmrc`).
 
 The archive is **checksummed before it is trusted**. This binary is what runs
-`engine-host.mjs` and `file-service.mjs` inside the signed app, so a substituted archive is
+`file-service.mjs` inside the signed app, so a substituted archive is
 arbitrary code shipped under our signature. `verifyNodeArchive` is what compares it. The C++
 side pins its ASIO SDK by digest (`engine/moteur/CMakeLists.txt`); this is the same rule for
 the other downloaded dependency.

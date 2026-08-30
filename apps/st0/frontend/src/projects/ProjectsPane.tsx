@@ -11,17 +11,23 @@ import type {
   ShareSummary,
 } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { projects as api, engineMachine, projectHref } from "./api";
+import {
+  projects as api,
+  engineMachine,
+  projectHref,
+  workspaceHref,
+} from "./api";
 import { LibrariesCard } from "./LibrariesCard";
 import {
+  createLocalWorkspace,
   createProjectOnMachine,
   deleteProjectOnMachine,
   ensureWorkspace,
   type Machine,
+  publishWorkspace,
 } from "./machine";
 import { RepoList } from "./RepoList";
 import { RepoTree } from "./RepoTree";
-import { SshKeyCard } from "./SshKeyCard";
 
 export function ProjectsPane({
   workspaces,
@@ -75,20 +81,40 @@ export function ProjectsPane({
     return machine;
   }, [machine, blocked]);
 
-  /** Adding a repository means registering it with pl8 AND THEN cloning it here — the clone is what makes it APPEAR. */
-  const add = useCallback(
+  /** Importing means registering it with pl8 AND THEN cloning it here — the clone is what makes it APPEAR. */
+  const importRepo = useCallback(
     async (uri: string) => {
       setError(null);
       try {
         await api.add(uri);
         onChanged();
         await ensureWorkspace(chosen(), uri, (s) => setAdding(s));
-      } catch (e) {
-        setError((e as Error).message);
       } finally {
+        // The dialog reports its own failure and stays open; this only stops the row's narration.
         setAdding(null);
         onChanged();
       }
+    },
+    [chosen, onChanged],
+  );
+
+  /** A workspace made HERE: git, no repository, and EMPTY — the editor asks for the first project. */
+  const createWorkspace = useCallback(
+    async (workspace: string, onStep: (s: string) => void) => {
+      setError(null);
+      await createLocalWorkspace(chosen(), workspace, onStep);
+      onChanged();
+    },
+    [chosen, onChanged],
+  );
+
+  /** …and its first repository. `api.add` is the register, passed in so the act stays one call. */
+  const publish = useCallback(
+    (w: MachineWorkspace, uri: string, onStep: (s: string) => void) => {
+      setError(null);
+      return publishWorkspace(chosen(), w.name, uri, onStep, (u) =>
+        api.add(u).then(onChanged),
+      );
     },
     [chosen, onChanged],
   );
@@ -106,6 +132,7 @@ export function ProjectsPane({
         folder,
         onStep,
         shape,
+        !w.origin,
       );
       onChanged();
       // The project EXISTS on the machine; only the push failed. Throwing would invite a retry.
@@ -137,6 +164,7 @@ export function ProjectsPane({
         w.name,
         p.path,
         onStep,
+        !w.origin,
       );
       onChanged();
       if (gripe) setError(`${p.path} supprimé, mais : ${gripe}`);
@@ -179,31 +207,28 @@ export function ProjectsPane({
           }
         />
       ) : (
-        <>
-          <RepoList
-            workspaces={workspaces}
-            busy={busy}
-            error={error}
-            adding={adding}
-            hasMachine={machine !== null}
-            onAdd={(uri) => void add(uri)}
-            onOpen={(w) => onOpen(w.name)}
-            blocked={blocked}
-            onCreate={create}
-            onDelete={removeProject}
-            repoFor={repoFor}
-            onForget={forgetRepo}
-            // Same departure as from the tree: the app's address, not a view local to here.
-            projectHref={(w, p) => projectHref(w, p, registered)}
-            // Shares COME OUT of a project, so they belong to its row rather than to a card below.
-            shares={shares}
-            onChanged={onChanged}
-          />
-          {/* The deploy key stays right at the bottom: set once, on the account. */}
-          <div className="mt-auto">
-            <SshKeyCard />
-          </div>
-        </>
+        <RepoList
+          workspaces={workspaces}
+          busy={busy}
+          error={error}
+          adding={adding}
+          hasMachine={machine !== null}
+          onImport={importRepo}
+          onCreateWorkspace={createWorkspace}
+          onPublish={publish}
+          onOpen={(w) => onOpen(w.name)}
+          blocked={blocked}
+          onCreate={create}
+          onDelete={removeProject}
+          repoFor={repoFor}
+          onForget={forgetRepo}
+          // Same departure as from the tree: the app's address, not a view local to here.
+          projectHref={(w, p) => projectHref(w, p, registered)}
+          workspaceHref={(w) => workspaceHref(w, registered)}
+          // Shares COME OUT of a project, so they belong to its row rather than to a card below.
+          shares={shares}
+          onChanged={onChanged}
+        />
       )}
     </div>
   );

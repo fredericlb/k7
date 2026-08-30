@@ -32,7 +32,7 @@ import {
   diagnoseFileService,
   type FileServiceFault,
 } from "./fileApi.ts";
-import { useIdleTimeout } from "./idle.ts";
+import { sleepMove, useIdleTimeout } from "./idle.ts";
 import { parseLaunch, projectsUrl } from "./launch.ts";
 import { projectApi } from "./project.ts";
 import { librariesRepo, repoByName } from "./repoLookup.ts";
@@ -48,8 +48,11 @@ type Phase =
   | { k: "missing"; message: string }
   // The account has no library repository, so nothing resolves and nothing retries — docs/launch.md.
   | { k: "no-libraries" }
+  // The workspace opened and holds no project at all — the host app's wizard, see docs/launch.md.
+  | { k: "empty"; workspace: string }
   // Nobody has touched this tab for a long time; the one button reopens it — see docs/idle.md.
-  | { k: "idle" }
+  /** `why` decides whether waking is automatic: a tab put behind another wakes itself. */
+  | { k: "idle"; why: "timeout" | "hidden" }
   | { k: "open"; workspace: string; project: string };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -80,11 +83,20 @@ export interface ProjectGateStrings {
   /** The bench's wait — a catalogue fetch, not a clone. Optional, see docs/launch.md. */
   benchWorkspace?: string;
   benchFetching?: string;
+  /** A workspace holding no project at all — a state a NEW workspace can be left in, docs/launch.md. */
+  emptyWorkspace?: string;
   /** The idle screen. Optional like the bench's, and for the same reason — docs/launch.md. */
   idleTitle?: string;
   idleBody?: string;
   resume?: string;
 }
+
+/**
+ * What a workspace with no project in it says. Not a fault and not a missing project: the
+ * workspace opened, and there is nothing in it yet — the home page is where one is added.
+ */
+const EMPTY_WORKSPACE =
+  "this workspace holds no project yet — add one from the projects page";
 
 /** "Somebody else opened this project" — one screen, and no Retry. See docs/launch.md. */
 export function ProjectTakenOver({
@@ -125,8 +137,10 @@ export function ProjectGate({
   base,
   strings,
   children,
+  renderEmpty,
   onQuit,
   idleTimeoutMs = 0,
+  asleep = false,
   onIdle,
   onResume,
 }: {
@@ -144,10 +158,21 @@ export function ProjectGate({
     userEmail: string;
     quit: () => void;
   }) => ReactNode;
+  /**
+   * What to draw for a workspace holding NO project — st0 puts its first-project wizard here.
+   * `onCreated` re-runs the whole resolve, so the gate opens whatever was just made rather than
+   * being told about it. Without it, a sentence and the way back. See docs/launch.md.
+   */
+  renderEmpty?: (ctx: {
+    workspace: string;
+    onCreated: () => void;
+  }) => ReactNode;
   /** Called before leaving, for an app that must let go of something first. */
   onQuit?: () => void;
   /** Close the session after this long untouched; `0` — the default — is off. See docs/idle.md. */
   idleTimeoutMs?: number;
+  /** The project is out of sight — a tab behind another. Same closing, and it reopens by itself. */
+  asleep?: boolean;
   /** Whatever the APP holds and the gate cannot see — st0's engine lease. See docs/idle.md. */
   onIdle?: () => void;
   /** Taking it back. Called before the reopen starts, so the app can retake what it released. */
@@ -187,8 +212,22 @@ export function ProjectGate({
 
   /** Armed only while the project is OPEN — every other phase idles already. See docs/idle.md. */
   useIdleTimeout(phase.k === "open" ? idleTimeoutMs : 0, () => {
-    setPhase({ k: "idle" });
+    setPhase({ k: "idle", why: "timeout" });
   });
+
+  /** Taking the session back: the Retry road, from the button or from a tab coming forward. */
+  const resume = useCallback(() => {
+    onResume?.();
+    setPhase({ k: "resolving" });
+    setAttempt((n) => n + 1);
+  }, [onResume]);
+
+  /** A tab behind another sleeps, and only `hidden` wakes on its own — see docs/idle.md. */
+  useEffect(() => {
+    const move = sleepMove(asleep, phase);
+    if (move === "sleep") setPhase({ k: "idle", why: "hidden" });
+    if (move === "wake") resume();
+  }, [asleep, phase, resume]);
 
   // By ref, and load-bearing: an inline `onIdle` would re-fire the effect below every render.
   const idleCallback = useRef(onIdle);
@@ -342,7 +381,11 @@ export function ProjectGate({
 
         configure(userEmail, workspace);
         try {
-          await projectApi.open(project, libraries.uri);
+          // A bare workspace address sends `.`, and the machine answers WHICH project that is —
+          // the marker, then the first on disk. See file-service/docs/workspaces.md.
+          const opened = await projectApi.open(project, libraries.uri);
+          // Nothing in it: not a fault and not a missing project — the workspace is simply new.
+          if (!opened.activeProject) return setPhase({ k: "empty", workspace });
         } catch (e) {
           if (cancelled) return;
           // A refusal, not a fault: probing it would bury the answer under the CORS banner.
@@ -451,6 +494,33 @@ export function ProjectGate({
       </div>
     );
 
+  // Nothing in the workspace. The host app draws the wizard if it has one, since what a first
+  // project IS — which archetype, which suffix — is the app's vocabulary and not the gate's.
+  if (phase.k === "empty")
+    return (
+      <>
+        {renderEmpty ? (
+          renderEmpty({ workspace: phase.workspace, onCreated: resume })
+        ) : (
+          <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
+            <div className="flex max-w-md flex-col items-center gap-4 text-center">
+              <FolderSearch className="h-10 w-10 text-amber-500" />
+              <p className="text-muted-foreground text-sm">
+                {strings.emptyWorkspace ?? EMPTY_WORKSPACE}
+              </p>
+              <button
+                type="button"
+                className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground text-sm"
+                onClick={quit}
+              >
+                {strings.back}
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+
   // Resuming is the Retry road below, and it takes a hand on a button — see docs/idle.md.
   if (phase.k === "idle")
     return (
@@ -468,11 +538,7 @@ export function ProjectGate({
             <button
               type="button"
               className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
-              onClick={() => {
-                onResume?.();
-                setPhase({ k: "resolving" });
-                setAttempt((n) => n + 1);
-              }}
+              onClick={resume}
             >
               {strings.resume ?? "Resume"}
             </button>

@@ -110,8 +110,8 @@ exigeant dans les deux sens : à l'intérieur d'une portée, les dossiers de mod
 immobiles, et l'appel imbriqué doit honorer la MÊME promesse plutôt que re-vérifier en douce.
 
 Le jeton de révision regarde deux fichiers HORS du projet, parce que deux fichiers hors du projet
-décident de ces réponses : le cache de scan du moteur (`~/.studio/exts.json`, d'où sortent les
-modules `@engine/…`) et les préférences de la machine (`~/.studio/preferences.yaml`, d'où sort
+décident de ces réponses : le cache de scan du moteur (`<state>/exts.json`, d'où sortent les
+modules `@engine/…`) et les préférences de la machine (`<state>/preferences.yaml`, d'où sort
 l'étiquette d'un canal). Deux `stat` de plus sur une marche qui en fait des centaines, et c'est
 dans le JETON plutôt que dans chaque cache, parce que c'est une propriété de « qu'est-ce qui a
 changé », pas de l'un des lecteurs.

@@ -276,19 +276,19 @@ endif()
 # The C++ packages (monorepo-style)
 #
 #   engine/  -> studio::engine  (library: model, diff, Tracktion host)
-#   server/  -> studio-moteur  (app: WebSocket audio server)
+#   server/  -> st0-engine  (app: WebSocket audio server)
 #
 # The frontend lives in ../brain as a standalone Node app and is NOT built here.
 #
 # Note: Tracktion also declares example/test targets nothing here depends on, so
-# building the `studio-moteur` target never touches them. The build presets
-# pin "targets": ["studio-moteur"] to keep it that way.
+# building the `st0-engine` target never touches them. The build presets
+# pin "targets": ["st0-engine"] to keep it that way.
 # -----------------------------------------------------------------------------
 add_subdirectory(engine)
 add_subdirectory(server)
 
 # --- Unit tests (JUCE-free data layer) ----------------------------------------
-# ON by default for local dev; the build presets pin "targets": ["studio-moteur"],
+# ON by default for local dev; the build presets pin "targets": ["st0-engine"],
 # so the test target isn't built by a normal preset build — build + run it with
 # `npm run test:mac --workspace moteur` (or `ctest`). Off with -DSTUDIO_BUILD_TESTS=OFF.
 option(STUDIO_BUILD_TESTS "Build the engine unit tests" ON)

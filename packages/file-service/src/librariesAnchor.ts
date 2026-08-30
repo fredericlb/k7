@@ -5,11 +5,11 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { LIBRARIES_DIR } from "@studio/song/sharedFolders";
-import { slugify, userRoot } from "./slug.ts";
+import { rootDir } from "./slug.ts";
 
 /** A path to hand `resolveChain` when a request has no workspace; ANY of the account's will do (docs/processChain.md). */
-export function librariesAnchor(userEmail: string): string | null {
-  const root = userRoot(slugify(userEmail));
+export function librariesAnchor(): string | null {
+  const root = rootDir();
   let names: string[];
   try {
     names = readdirSync(root);

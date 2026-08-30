@@ -55,7 +55,7 @@ extraResources:
 
 # extraResources land OUTSIDE the asar already, so nothing here needs unpacking — the rule is
 # still worth stating: you cannot spawn a binary or dlopen a .node from inside an asar, so if
-# any of node, studio-moteur or onnxruntime-node ever moves into `files`, it must be listed.
+# any of node, st0-engine or onnxruntime-node ever moves into `files`, it must be listed.
 asarUnpack:
   - "**/*.node"
 
@@ -67,7 +67,7 @@ mac:
   # DELIBERATE, not an oversight: the Tauri build never notarised either, so this is not a
   # regression. It is set explicitly because electron-builder SIGNS BY DEFAULT when a
   # Developer ID is in the keychain — and a partial signing (app signed, vendored node /
-  # studio-moteur / libonnxruntime.dylib absent from `binaries`) gives an app that launches,
+  # st0-engine / libonnxruntime.dylib absent from `binaries`) gives an app that launches,
   # shows a tray, and never starts an engine: Gatekeeper SIGKILLs the unsigned child and the
   # only trace is "engine exited" in the merged log.
   identity: null

@@ -32,7 +32,7 @@ import { asFamily, FAMILY_ERROR } from "@studio/mediatek/types";
 import { Router } from "express";
 import { z } from "zod";
 import { mediatekBase, mediatekToken } from "../mediatekLink.ts";
-import { slugify, workspaceRoot } from "../slug.ts";
+import { workspaceRoot } from "../slug.ts";
 import {
   CACHE_EXT,
   cachePath,
@@ -173,7 +173,7 @@ mediatekRouter.post(
     const { workspace } = req.body as z.infer<typeof importBody>;
     let root: string;
     try {
-      root = workspaceRoot(slugify(req.userEmail!), workspace);
+      root = workspaceRoot(workspace);
     } catch (e) {
       // assertWorkspaceName refuses anything that isn't one plain path segment.
       return res.status(400).json({ error: (e as Error).message });

@@ -324,6 +324,52 @@ Le drapeau `active` que porte chaque ligne — le marqueur `.studio-active` d'un
 n'est pas lu par cette page : il répond à une question voisine et pas à la sienne, voir
 *Seulement le projet chargé* plus haut.
 
+## Ressembler à une application sans pouvoir en être une
+
+Une PWA s'installe depuis une origine **sécurisée**, et une tablette qui joint la machine par le
+LAN en clair n'en a pas (`apps/studio-desktop/docs/externals.md`). L'installation est donc hors
+d'atteinte là où elle servirait le plus. Ce qu'on peut quand même avoir, c'est ce qu'une
+application installée donne *à l'écran* — et aucune des deux moitiés n'exige d'origine sécurisée.
+
+### Le plein écran
+
+L'API Fullscreen n'est conditionnée qu'à un **geste**, jamais à un contexte sécurisé. Un bouton en
+pied de surface (`useFullscreen`) suffit donc à faire disparaître la barre d'adresse, en clair
+comme en https. Deux détails qui ne se voient qu'à l'usage :
+
+- Safari n'a jamais eu que l'orthographe préfixée, d'où les deux de chaque dans le hook ;
+- **Safari iPhone n'a pas l'API du tout** (elle n'existe que pour `<video>`), alors le bouton
+  n'est pas dessiné plutôt que dessiné mort — `available` répond à ça et à rien d'autre.
+
+iOS se rattrape ailleurs, et à l'envers de l'ordinaire : `apple-mobile-web-app-capable` dans
+`index.html` donne un vrai lanceur autonome **sans service worker et sans https**. Sur un iPad on
+a donc l'icône *et* le plein écran en clair ; sur Android, où l'installabilité exige https, il
+reste le bouton. Entre les deux, chaque tablette peut perdre sa barre d'adresse.
+
+Le nom que l'appareil affiche vient du meta et jamais du manifeste : `appMain.tsx` échange les
+deux ensemble quand la page est `/external`, sinon l'icône dirait « st0 » pour un menu de surfaces.
+
+### L'écran qui reste allumé
+
+Celle-là est une vraie perte, et c'est la plus coûteuse des deux : `navigator.wakeLock` **exige**
+un contexte sécurisé, donc sur la tablette en clair il n'existe pas. Une surface qu'on regarde
+sans la toucher s'éteint au bout de deux minutes, ce qui, en pleine séance, ne se lit pas comme
+une politique d'économie d'énergie mais comme un plantage.
+
+`useStayAwake` prend donc le verrou quand il est là, et sinon joue une **vidéo muette de 1×1**
+tirée d'un canvas — le vieux tour, celui que les navigateurs de téléphone n'ont jamais cessé
+d'honorer. Rien de tout ça ne se vérifie depuis un script : c'est du meilleur effort par
+construction, et la signature de l'échec est l'écran qui baisse quand même.
+
+Le verrou est relâché par le navigateur à chaque passage en arrière-plan, donc il est **repris**
+au retour ; sans ça il ne tiendrait que jusqu'à la première notification.
+
+### La caméra
+
+Elle n'est pas perdue non plus, et pour une raison qui n'a rien à voir avec les deux ci-dessus :
+`RTCPeerConnection` n'est conditionné à rien. La machine ouvre l'objectif, la tablette le reçoit —
+voir `apps/studio-desktop/docs/camera.md`, qui dit aussi pourquoi c'est dans ce sens-là.
+
 ## Ce que ça n'est pas
 
 Ce n'est pas un partage. Un partage (`@shares/<token>.st0`) est un instantané **gelé**, sans

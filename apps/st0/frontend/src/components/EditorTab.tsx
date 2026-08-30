@@ -57,6 +57,7 @@ import { useDiskSync } from "../hooks/useDiskSync";
 import { moduleBehind } from "../moduleBehind";
 import {
   fileStem,
+  inActiveProject,
   isClipFile,
   isModuleFile,
   isRackModuleFile,
@@ -353,7 +354,9 @@ export function EditorTab({
     const p = (file?.path ?? "").replace(/\\/g, "/");
     const stem = fileStem(p);
     const item: MinimapItem | null =
-      !file || file.binary
+      // A file of ANOTHER project in this workspace points at nothing here: the minimap draws the
+      // one the engine holds, and its ids are that project's — projectPaths.ts.
+      !file || file.binary || !inActiveProject(p, activeProject)
         ? null
         : isClipFile(p) || isSeqFile(p)
           ? { kind: "clip", id: stem }
@@ -361,7 +364,7 @@ export function EditorTab({
             ? { kind: "track", id: stem }
             : null;
     onOpenItem(item);
-  }, [file, onOpenItem]);
+  }, [file, onOpenItem, activeProject]);
 
   // A new file — drop the previous preview so a stale waveform doesn't linger.
   useEffect(() => {
@@ -478,6 +481,14 @@ export function EditorTab({
     const p = file.path.replace(/\\/g, "/");
     let cancelled = false;
     const stem = fileStem(p);
+
+    // Same rule as the minimap: a clip of another project would be looked up in THIS project's
+    // compiled doc, and answer with the wrong thing or with nothing at all.
+    if (!inActiveProject(p, activeProject)) {
+      setAudioClip(null);
+      onEditTarget(null);
+      return;
+    }
 
     if (isSeqFile(p)) {
       // A sequence driving a SLICE rack docks that rack's source waveform, with each symbol's [from,to] drawn on it.

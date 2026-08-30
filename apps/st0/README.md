@@ -40,10 +40,10 @@ TypeScript source and run via `tsx` — no build step. The engine is a native C+
 binary, built separately.
 
 ```
-engine/moteur/               the C++ project (studio-moteur)          — native, not a workspace
+engine/moteur/               the C++ project (st0-engine)             — native, not a workspace
   CMakeLists.txt · CMakePresets.json · docs/design.md
   engine/    library studio::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
-  server/    app studio-moteur       (WebSocket audio server, main.cpp)
+  server/    app st0-engine          (WebSocket audio server, main.cpp)
 apps/studio-desktop/                the menu-bar view (spawns @studio/engine-host, the supervisor)
 apps/st0/                the web editor — frontend / backend
 packages/                  studio's shared tier (consumed as raw TS source):
@@ -183,7 +183,7 @@ Xcode — so the Command Line Tools are enough, no full Xcode.app). It targets m
 11.0+ and builds native arm64. Sanity-check the result without starting a server:
 
 ```sh
-./engine/build/macos-clang/studio-moteur --list-audio-devices   # lists CoreAudio devices, then exits
+./engine/build/macos-clang/st0-engine --list-audio-devices   # lists CoreAudio devices, then exits
 ```
 
 On Linux, build with a preset from `engine/moteur/CMakePresets.json` (`dev-gcc`,
@@ -203,7 +203,7 @@ sudo apt update && sudo apt install -y \
 cd engine
 cmake --preset dev-gcc
 cmake --build --preset dev-gcc -j
-# binary: engine/build/dev-gcc/studio-moteur
+# binary: engine/build/dev-gcc/st0-engine
 ```
 
 ## Run
@@ -261,7 +261,7 @@ preset (it pins both C and C++ compilers) from a clean build dir:
 
 **`Segmentation fault` linking `EngineInPluginDemo`** — Tracktion example plugins
 whose LV2 helper crashes headless/WSL. The presets pin
-`"targets": ["studio-moteur"]` so a normal preset build skips them; only a plain
+`"targets": ["st0-engine"]` so a normal preset build skips them; only a plain
 `ninja` / `cmake --build build` (all targets) hits it.
 
 **No sound in WSL2** — point ALSA at WSLg's PulseAudio:

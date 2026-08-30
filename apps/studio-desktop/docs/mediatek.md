@@ -31,7 +31,7 @@ back, and the body is **streamed** rather than buffered — a song is not a JSON
 **The file service gates on headers.** `requireEngineToken` and `resolveUser`, and deliberately
 no workspace: `file-service/src/server.ts` says it in as many words — *"The media library is per
 MACHINE: the user for the gate, and no workspace."* So the proxy carries
-`x-studio-engine-token` from `~/.studio/engine-id.json` and `x-studio-user` from the app's
+`x-studio-engine-token` from `<state>/engine-id.json` and `x-studio-user` from the app's
 identity (`docs/identity.md`). The query-token path is `/media`'s alone and does not apply here.
 
 ## Where it sits

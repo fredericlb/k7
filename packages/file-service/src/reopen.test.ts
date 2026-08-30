@@ -8,14 +8,7 @@ import { Workspace } from "./workspace.ts";
 // The Workspace CACHES the compiled project, keyed on `revision()` and not on its own writes — docs/workspace.md.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/file-service/src
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 
 let root: string;
 let proj: string;

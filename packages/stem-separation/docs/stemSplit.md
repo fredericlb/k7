@@ -161,7 +161,7 @@ body rather than being named and looked up, because the caller is pl8, which hol
 drives the cut; nothing on this side resolves a song by name. The worker, the registry and `stems/`
 below are the same either way — only where the bytes come from and who is waiting differ.
 
-**The chain is the machine's answer.** `~/.studio/preferences.yaml`'s `stemsChain`, written
+**The chain is the machine's answer.** `<state>/preferences.yaml`'s `stemsChain`, written
 once by `system stems <chaîne>`, is what `/process` falls back to when the caller names none. That
 is the shape rather than a shortcut: which module separates and which model it wants does not vary
 by set list, by project or by record, so a caller made to name one would be asked the same question
@@ -201,7 +201,7 @@ swaps two stems.
 material so it survives a fork, an upload and a sync — and the argument inverts past a few
 hundred megabytes, where `forkSharedModule`'s recursive copy would duplicate the file per
 fork, per médiathèque upload and per machine. So the module **declares** the model as an
-ordinary file-valued param (`onnx:`, exactly as an amp names `nam:`) and `~/.studio/models`
+ordinary file-valued param (`onnx:`, exactly as an amp names `nam:`) and `<state>/models`
 holds the bytes. `resolveModuleAsset` tries the module's own `assets/` first and falls back
 to the cache; a ref that climbs out of `assets/` is still **refused**, never redirected.
 
@@ -232,7 +232,7 @@ system onnx dml,cpu     # …or cuda,cpu, or coreml,cpu
 system onnx ""          # back to the CPU
 ```
 
-It lands in `~/.studio/preferences.yaml` as `onnxProviders`, beside the audio device and the
+It lands in `<state>/preferences.yaml` as `onnxProviders`, beside the audio device and the
 headphone pair, and `defaultProviders()` reads it. `STUDIO_ONNX_PROVIDERS` still overrides
 everything for one run — it is an escape hatch now, not how a machine is configured. The order it
 used to be needed FOR is the default.

@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 // cli.ts — `studio-engine`: the supervisor for someone who wants only the engine, no desktop
-// app. The SAME startSupervisor as main.ts, over a transport that prints a status line
-// instead of NDJSON — one implementation of the contract, two front ends.
-//
-// It deliberately does NOT import ipcStdio: importing that reassigns process.stdout.write to
-// stderr as a side effect, and here stdout is for the human. See docs/supervisorPolicy.md.
+// app. The SAME startSupervisor the desktop app embeds, over a transport that prints a status
+// line — one implementation of the contract, two front ends. This is the one that OWNS its
+// process, so it takes the default exit and the signal handlers with it.
+// See docs/supervisorPolicy.md.
 
 import { installProcessNet } from "./background.ts";
 import type { HostEvent, HostSnapshot, HostTransport } from "./hostProtocol.ts";

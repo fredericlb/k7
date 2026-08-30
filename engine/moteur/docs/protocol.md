@@ -1,6 +1,6 @@
 # The engine's WebSocket protocol (`server/main.cpp`)
 
-`studio-moteur` is a headless audio server: a thin WebSocket bridge over
+`st0-engine` is a headless audio server: a thin WebSocket bridge over
 `studio::engine`, speaking JSON. The engine does not parse files — the Node brain
 interprets the song, resolves clip paths to absolute, and sends the project as JSON.
 

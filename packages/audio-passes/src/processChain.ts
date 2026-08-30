@@ -512,7 +512,7 @@ export async function processWithChain(
   if (!engine)
     return {
       lines: [
-        `${verb} failed: studio-moteur binary not found (build the engine)`,
+        `${verb} failed: st0-engine binary not found (build the engine)`,
       ],
       changed: false,
     };

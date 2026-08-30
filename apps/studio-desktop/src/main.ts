@@ -1,10 +1,10 @@
-// main.ts — the desktop app: a window onto st0, and the engine that window needs. Opening it
-// starts the supervisor, which starts the engine and the file service; closing it stops all
-// three. Nothing runs on behind the window.
+// main.ts — the desktop app: a window onto st0, and the engine that window needs. The
+// supervisor runs IN this process and starts the engine and the file service; closing the
+// window stops all three. Nothing runs on behind the window.
 //
-// The ORDER in whenReady is load-bearing: the kill-on-close job before ANY spawn (membership is
-// inherited), and the log truncate before the supervisor opens the same file for append.
-// See docs/lifetime.md.
+// The ORDER in whenReady is load-bearing: the kill-on-close job before ANY spawn — and this
+// process is now a member, since the engine is spawned from here — and the log truncate
+// before the supervisor opens the same file for append. See docs/lifetime.md.
 
 import { networkInterfaces } from "node:os";
 import { settingsPath } from "@studio/engine-client/paths";
@@ -15,9 +15,7 @@ import { pairUrl } from "@studio/web-protocol/pairing";
 import { serviceUrl } from "@studio/web-protocol/services";
 import { app, shell } from "electron";
 import { clearDevPid, writeDevPid } from "./devPid.ts";
-import { HostLink } from "./host.ts";
-import { resolve as resolveHostCmd } from "./hostCmd.ts";
-import { init as initJob } from "./job.ts";
+import { assignSelf, init as initJob } from "./job.ts";
 import {
   autostartEnabled,
   notifyModal,
@@ -27,16 +25,18 @@ import {
   toggleAutostart,
 } from "./localActions.ts";
 import { initMergedLog, line } from "./logbus.ts";
-import { backstop } from "./pidkill.ts";
+import { repoRoot } from "./repoRoot.ts";
+import { backstop, enginePid } from "./pidkill.ts";
 import { bundledDist } from "./server/frontend.ts";
 import { adoptIdentity, currentIdentity } from "./server/identity.ts";
 import { type LocalServer, startLocalServer } from "./server/index.ts";
 import { armPairing, pairingReturnUrl } from "./server/pairing.ts";
+import { SupervisorLink } from "./supervisorLink.ts";
 import { destroyWindow, openWindow } from "./window.ts";
 
 declare const __STUDIO_BUILD__: string;
 
-let host: HostLink | null = null;
+let host: SupervisorLink | null = null;
 let web: LocalServer | null = null;
 // What the settings page draws from — the SAME snapshot, and there is only one.
 let snapshot: HostSnapshot | null = null;
@@ -54,9 +54,9 @@ app.on("second-instance", () => {
 });
 
 app.whenReady().then(() => {
-  // FIRST, above everything: job membership is inherited at creation, so a process spawned
-  // before the job exists is never in it, ever.
+  // FIRST, and we join it ourselves: membership is inherited, and the engine is spawned from here.
   initJob();
+  assignSelf();
 
   if (!app.isPackaged) writeDevPid();
 
@@ -64,7 +64,7 @@ app.whenReady().then(() => {
   initMergedLog();
   line("host", `studio ${__STUDIO_BUILD__} starting`);
 
-  host = new HostLink(
+  host = new SupervisorLink(
     {
       onSnapshot: (s) => {
         paths = s.paths ?? paths;
@@ -79,10 +79,9 @@ app.whenReady().then(() => {
         hostError = message;
       },
     },
-    resolveHostCmd({
-      packaged: app.isPackaged,
-      resourcesPath: process.resourcesPath,
-    }),
+    // Told rather than probed: `process.execPath` is Electron here — see docs/supervisor.md.
+    app.isPackaged ? process.resourcesPath : null,
+    app.isPackaged ? null : repoRoot(),
   );
   host.start();
 
@@ -104,15 +103,21 @@ app.on("before-quit", (event) => {
   quitting = true;
   event.preventDefault();
   void (async () => {
+    // BEFORE the teardown: it removes the pidfile, so a shutdown that got that far and no
+    // further would leave the backstop below with nothing to read — see pidkill.ts.
+    const engine = enginePid();
+    line("host", "quitting: stopping the engine…");
     // The supervisor first: its exit is what DEREGISTERS, and that wants to happen while the
     // engine is still up and the registry entry still means something.
     await host?.shutdownAndWait();
     // Then the backstop, for the case where it never got there — hung on an unresponsive
     // registry and killed past its deadline, or already crashed.
-    backstop();
+    if (backstop(engine))
+      line("host", "the engine outlived the teardown — killed by the backstop");
     await web?.close();
     clearDevPid();
     destroyWindow();
+    line("host", "quit");
     app.quit();
   })();
 });

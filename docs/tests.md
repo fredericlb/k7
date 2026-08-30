@@ -181,7 +181,7 @@ everything it has, and it fails only when something is actually broken.
 ## `$STUDIO_HOME` and the pool
 
 `apps/studio-desktop` has a vitest config of its own, setting `pool: "forks"`. The reason is
-worth knowing before you copy the default anywhere else that redirects `~/.studio`.
+worth knowing before you copy the default anywhere else that redirects `<state>`.
 
 The default pool runs test FILES concurrently in one process, and `process.env` is shared
 across them. Several files here point `$STUDIO_HOME` at a temp dir of their own in

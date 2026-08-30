@@ -29,7 +29,7 @@ re-reading a médiathèque that has not changed since the app was opened.
 
 - the project's own `modules/`, and its flat `nodes/`
 - every shared library `modulePanelRoots` finds — the workspace's `_modules`, the médiathèque
-- `~/.studio/exts.json`, the engine's plugin scan, which is a module source with no folder
+- `<state>/exts.json`, the engine's plugin scan, which is a module source with no folder
 
 For each entry it mixes the NAME into an FNV-1a hash, counts it, and — for the files whose
 content decides what a module is (`.yaml`, `.yml`, `.ts`, `.vstpreset`) — takes the newest

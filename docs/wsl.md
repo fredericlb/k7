@@ -17,11 +17,11 @@ One rule holds the whole arrangement up:
 | npm | the one `node_modules` | the mirror's own, for the tray build |
 | dev servers | vite, the four backends, Tilt | **the file service** — see below |
 | moteur, capot | — | built and run, exactly as before |
-| `~/.studio` | seen as `/mnt/c/Users/<you>/.studio` | its real place, read natively |
+| `<state>` | seen as `/mnt/c/Users/<you>/.studio` | its real place, read natively |
 | console, VS Code web | — | the logon tasks of [remote.md](remote.md) |
 
 The file service is the one dev server that crossed back. Everything else here reads its own
-sources and talks over sockets; that one reads `~/.studio/root`, which stays on NTFS for the
+sources and talks over sockets; that one reads `<state>/workspace`, which stays on NTFS for the
 engine's sake — so from the distro every `readdir` it makes is a 9p round trip.
 
 ## Why a mirror, and not a build over the share
@@ -130,7 +130,7 @@ Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "*server.ts*
 
 ## The two things the code had to learn
 
-**One spelling of `~/.studio`.** It had three — `studioDir()` in
+**One spelling of `<state>`.** It had three — `studioDir()` in
 `packages/engine-client/src/paths.ts`, `EXTS_PATH` in `packages/song/src/engineCatalogue.ts`,
 and `packages/song/src/mediatekRoot.ts` — each joining `homedir()` itself. They now all go
 through `studioHome()` (`packages/song/src/studioHome.ts`), which honours **`$STUDIO_HOME`**.

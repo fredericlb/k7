@@ -1,6 +1,6 @@
 # The engine's offline CLI modes
 
-Besides serving WebSocket clients, `studio-moteur` runs a few one-shot jobs. The engine
+Besides serving WebSocket clients, `st0-engine` runs a few one-shot jobs. The engine
 owns them because it owns audio decoding — any format JUCE reads, not just WAV.
 
 ## `--waveform <file> [<sensitivity>]`

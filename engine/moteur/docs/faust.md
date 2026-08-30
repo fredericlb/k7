@@ -86,7 +86,7 @@ qu'il joue longtemps.
 
 ## Ce que ça coûte, mesuré
 
-`studio-moteur.exe` pèse **42,1 Mo**, contre 36,0 sans libfaust : six mégaoctets, le prix du
+`st0-engine.exe` pèse **42,1 Mo**, contre 36,0 sans libfaust : six mégaoctets, le prix du
 backend interpréteur. Celui de LLVM serait d'un autre ordre.
 
 ## Où `import("stdfaust.lib")` est résolu
@@ -94,8 +94,8 @@ backend interpréteur. Celui de LLVM serait d'un autre ordre.
 À l'**exécution**, quand le moteur compile un module — pas à la construction. Le dossier doit
 donc voyager avec l'app : `stage.mjs` copie les 43 `.lib` du sous-module dans
 `resources/faust-libs/`, et `faustLibrariesDir()` sonde les quatre dispositions qu'un paquet
-Electron peut prendre, dans le même ordre et pour la même raison que `hostCmd.ts` le fait pour
-le script du superviseur.
+Electron peut prendre, dans le même ordre et pour la même raison que `bundle.ts` le fait pour
+le service de fichiers.
 
 Le repli est le dossier que le CMake du moteur a récupéré. Il est dans un répertoire de
 construction et ne voyage pas : y arriver dans une app installée veut dire que la mise en
@@ -105,7 +105,7 @@ copier, plutôt que de produire un paquet qui a l'air construit.
 ## Deux pièges qui n'apparaissent pas chez celui qui écrit
 
 - **Lier la CIBLE `staticlib`, jamais le chemin du `.lib`.** Les presets épinglent
-  `targets: ["studio-moteur"]`, donc rien ne construit une bibliothèque dont personne ne
+  `targets: ["st0-engine"]`, donc rien ne construit une bibliothèque dont personne ne
   dépend. Nommer le fichier lie parfaitement sur un arbre où il existe déjà — et échoue avec
   `LNK1104` sur un arbre neuf, au tout dernier pas d'une construction de vingt minutes.
 - **`ws2_32` est obligatoire** sur Windows : libfaust embarque un récupérateur HTTP de sources,
@@ -192,7 +192,7 @@ défait la raison d'avoir fait tout ce chemin.
 
 ## La quatrième, qui ne demande rien
 
-`faust2vst3` hors ligne, `studio-moteur scan`, `module own <ref>`. Ça fonctionne sans une ligne
+`faust2vst3` hors ligne, `st0-engine scan`, `module own <ref>`. Ça fonctionne sans une ligne
 de code, et c'est par là qu'il faut passer pour savoir si Faust s'installe dans
 les habitudes avant de payer l'une des trois ci-dessus. Ce qu'on y perd : un binaire par
 plateforme, et la source qui ne voyage pas avec le module.

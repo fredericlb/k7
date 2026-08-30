@@ -78,13 +78,21 @@ export interface HeartbeatBody extends EnginePresence {
 // Every call is bounded: a registry that connects and never answers is harmless on a heartbeat and fatal on the deregister.
 const REQUEST_TIMEOUT_MS = 1500;
 
+/** The one outbound TLS in this process; everything else it dials is loopback. */
+let send: typeof fetch = (...a) => globalThis.fetch(...a);
+
+/** Whose network stack the heartbeat rides — the private-CA question, docs/supervisorPolicy.md. */
+export function setRegistryFetch(f: typeof fetch | null): void {
+  send = f ?? ((...a) => globalThis.fetch(...a));
+}
+
 async function post(
   url: string,
   path: string,
   body: unknown,
 ): Promise<boolean> {
   try {
-    const res = await fetch(url.replace(/\/$/, "") + path, {
+    const res = await send(url.replace(/\/$/, "") + path, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),

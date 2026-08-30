@@ -9,6 +9,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -80,5 +81,53 @@ describe("the supervisor lock", () => {
     writeFileSync(pidfile(), "999999\n", "utf8");
     release();
     expect(existsSync(pidfile())).toBe(true);
+  });
+
+  it("lets go of a lock nobody has refreshed, even while that pid is alive", async () => {
+    // THE case a liveness check alone never recovers from — see docs/supervisorPolicy.md.
+    const stranger = spawn(
+      process.execPath,
+      ["-e", "setInterval(()=>{},1000)"],
+      {
+        stdio: "ignore",
+      },
+    );
+    try {
+      writeFileSync(pidfile(), `${stranger.pid}\n`, "utf8");
+      const old = new Date(Date.now() - 60_000);
+      utimesSync(pidfile(), old, old);
+      const { acquire } = await lock();
+      expect(acquire()).toEqual({ ok: true });
+      expect(readFileSync(pidfile(), "utf8").trim()).toBe(String(process.pid));
+    } finally {
+      stranger.kill();
+    }
+  });
+
+  it("still refuses a lock that IS being refreshed", async () => {
+    // The other half: staleness must not become a way to take a live supervisor's lock.
+    const other = spawn(process.execPath, ["-e", "setInterval(()=>{},1000)"], {
+      stdio: "ignore",
+    });
+    try {
+      writeFileSync(pidfile(), `${other.pid}\n`, "utf8"); // written now, so fresh
+      const { acquire } = await lock();
+      expect(acquire()).toEqual({ ok: false, heldBy: other.pid });
+    } finally {
+      other.kill();
+    }
+  });
+
+  it("keeps its own lock fresh while it holds it", async () => {
+    const { acquire, release } = await lock();
+    acquire();
+    const stale = new Date(Date.now() - 60_000);
+    utimesSync(pidfile(), stale, stale);
+    await new Promise((r) => setTimeout(r, 2500)); // one touch interval
+    const { mtimeMs } = await import("node:fs").then((fs) =>
+      fs.statSync(pidfile()),
+    );
+    expect(Date.now() - mtimeMs).toBeLessThan(15_000);
+    release();
   });
 });

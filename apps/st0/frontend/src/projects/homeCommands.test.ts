@@ -49,6 +49,8 @@ interface Seen {
   create: unknown[][];
   remove: unknown[][];
   clone: unknown[][];
+  newWorkspace: unknown[][];
+  publish: unknown[][];
   addRepo: string[];
   forgetRepo: string[];
   command: { workspace: string; line: string }[];
@@ -67,6 +69,8 @@ function harness(
     create: [],
     remove: [],
     clone: [],
+    newWorkspace: [],
+    publish: [],
     addRepo: [],
     forgetRepo: [],
     command: [],
@@ -88,6 +92,16 @@ function harness(
     clone: async (_m, uri) => {
       seen.clone.push([uri]);
       return "cloned-ws";
+    },
+    newWorkspace: async (m, workspace) => {
+      seen.newWorkspace.push([m, workspace]);
+      return { workspace };
+    },
+    publish: async (m, workspace, uri, _onStep, register) => {
+      seen.publish.push([m, workspace, uri]);
+      // The real one registers through pl8; the fake takes the same road so the call is seen.
+      await register(uri);
+      return { registered: true };
     },
     addRepo: async (uri: string) => {
       seen.addRepo.push(uri);
@@ -370,6 +384,61 @@ describe("system repo", () => {
     await h.run("system repo sync nope");
     expect(h.refused.join(" ")).toMatch(/aucun espace de travail/);
     expect(h.seen.command).toEqual([]);
+  });
+});
+
+describe("system workspace new", () => {
+  it("makes an EMPTY workspace, and says so", async () => {
+    const h = harness();
+    await h.run("system workspace new hiver");
+    expect(h.seen.newWorkspace).toEqual([[MACHINE, "hiver"]]);
+    // No project: the archetype is asked for by the editor, on the empty workspace.
+    expect(h.said.join(" ")).toMatch(/vide et sans dépôt/);
+  });
+
+  it("strips a suffix somebody typed — a workspace is a plain folder", async () => {
+    const h = harness();
+    await h.run("system workspace new hiver.st0");
+    expect(h.seen.newWorkspace).toEqual([[MACHINE, "hiver"]]);
+  });
+
+  it("refuses a name git could not carry, before touching the machine", async () => {
+    const h = harness();
+    await h.run("system workspace new a/b");
+    expect(h.seen.newWorkspace).toEqual([]);
+    expect(h.refused.join(" ")).toMatch(/« \/ »/);
+  });
+});
+
+describe("system workspace publish", () => {
+  it("sets the remote and registers the repository, in that order", async () => {
+    const h = harness();
+    await h.run("system workspace publish songs git@h:u/songs.git");
+    expect(h.seen.publish).toEqual([[MACHINE, "songs", "git@h:u/songs.git"]]);
+    // The register is what makes the short address resolve, so it is part of publishing.
+    expect(h.seen.addRepo).toEqual(["git@h:u/songs.git"]);
+    expect(h.said.join(" ")).toMatch(/\/songs\//);
+  });
+
+  it("refuses a workspace that already has one rather than letting git say so later", async () => {
+    const h = harness({
+      workspaces: [{ ...ws("songs", ["hiver.st0"]), origin: "h/u/songs" }],
+    });
+    await h.run("system workspace publish songs git@h:u/other.git");
+    expect(h.seen.publish).toEqual([]);
+    expect(h.refused.join(" ")).toMatch(/déjà un dépôt/);
+  });
+
+  it("offers only the workspaces that have none", () => {
+    const workspaces = [ws("local"), { ...ws("cloned"), origin: "h/u/cloned" }];
+    expect(
+      homeArgValues("system workspace publish", 0, {
+        machine: MACHINE,
+        workspaces,
+        repos: [],
+        openWs: null,
+      }),
+    ).toEqual(["local"]);
   });
 });
 

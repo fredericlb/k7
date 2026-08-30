@@ -6,7 +6,7 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { rootDir, userRoot } from "./slug.ts";
+import { rootDir } from "./slug.ts";
 
 /** The workspace the demos are put in. */
 export const EXAMPLES_WORKSPACE = "Examples";
@@ -87,7 +87,7 @@ export function syncAllRepos(): void {
   }
   for (const slug of slugs) {
     try {
-      const synced = mirrorDemos(join(userRoot(slug), EXAMPLES_WORKSPACE));
+      const synced = mirrorDemos(join(rootDir(), EXAMPLES_WORKSPACE));
       if (synced.length)
         console.log(`   demos synced for ${slug}: ${synced.join(", ")}`);
     } catch {

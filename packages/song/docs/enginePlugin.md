@@ -29,7 +29,7 @@ Both spellings are written on disk, which is what the third row is for: a module
 
 ## The scan cache — engineCatalogue.ts
 
-`~/.studio/exts.json` is a CONTRACT path: the C++ engine writes and reads the same file
+`<state>/exts.json` is a CONTRACT path: the C++ engine writes and reads the same file
 (`PluginScan.cpp`'s `extsCacheFile()`). `engineCatalogue.ts` reads it so the engine's own modules
 are read rather than copied into files.
 

@@ -42,6 +42,17 @@ vingt : le battement ne peut pas rater la fenêtre, et il ne coûte rien.
 Tout ce qui se passe sans qu'on touche à rien et qui doit compter passe par là. Rien d'autre ne
 devrait avoir à connaître ce module.
 
+### Un onglet passé derrière un autre s'endort tout de suite
+
+Le même sommeil, sans les vingt minutes : dans l'app de bureau, un onglet qui n'est plus devant
+rend son bail et décharge son projet immédiatement — une machine ne tient qu'un projet à la fois
+(`apps/studio-desktop/docs/tabs.md`). `ProjectGate` prend pour cela une propriété `asleep`, qui
+le met dans la phase `idle` exactement comme le minuteur.
+
+La phase retient **pourquoi** elle s'est endormie, et ce champ porte : un onglet revenu devant se
+réveille seul, une session fermée par le MINUTEUR attend une main sur le bouton. Sans la
+distinction, le réveil automatique annulerait toute cette page.
+
 ### Le minuteur n'est armé que pendant la phase `open`
 
 `ProjectGate` passe `0` dans toutes les autres. Un clone en cours, une erreur, l'écran qui renvoie

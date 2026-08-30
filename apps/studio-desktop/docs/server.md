@@ -32,7 +32,7 @@ the shim's own page.
 
 ## The port is fixed, and remembered
 
-`webPort` in `~/.studio/engine-tray.json`, default **8780** — free against 8765/8770 (engine,
+`webPort` in `<state>/engine-tray.json`, default **8780** — free against 8765/8770 (engine,
 file service), 8789/8795/8787/8080 (the hosted backends), 5223 (vite) and 10350 (Tilt). If
 something holds it, `port.ts` probes upward and `main.ts` **writes back what it got**.
 
@@ -51,7 +51,7 @@ st0: the engine it lists is on this machine and the direct loopback probe always
 `/pl8/*` and `/auth/*` ever leave.
 
 It advertises as **`studio-desktop`**, not `st0`. A hosted st0 backend writes
-`~/.studio/web-endpoints/st0.json`, and two writers of one file would take turns being the
+`<state>/web-endpoints/st0.json`, and two writers of one file would take turns being the
 registry the supervisor heartbeats to. With distinct slugs the supervisor heartbeats to both,
 which is what "serving an engine to the web version" means.
 

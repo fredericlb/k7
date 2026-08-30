@@ -1,4 +1,4 @@
-# studio-moteur — design notes
+# st0-engine — design notes
 
 Everything above this engine is **Node and TypeScript**: `@studio/song` compiles a folder of
 YAML into a `ProjectDoc`, and `@studio/file-service` sends it over a WebSocket. YAML parsing

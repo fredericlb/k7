@@ -24,7 +24,7 @@ D'où le repli, sur les mêmes fichiers que le superviseur lit lui-même.
 
 ## L'URL : le fichier de pl8, par son nom
 
-`~/.studio/web-endpoints/pl8.json`, et pas l'origine du premier registre venu. Hébergé, tous
+`<state>/web-endpoints/pl8.json`, et pas l'origine du premier registre venu. Hébergé, tous
 les services partagent une origine à un chemin fixe, donc les deux reviendraient au même. Dans
 un checkout, non : chaque backend annonce **son propre port** de loopback, si bien que
 « l'origine de n'importe quel registre » tombe sur le 8789 de st0 aussi souvent que sur le 8795
@@ -35,7 +35,7 @@ C'est la même adresse que `packages/git-repos/docs/keys.md` donne pour le dev
 
 ## Le token : les réglages du superviseur
 
-`~/.studio/engine-tray.json`, clé `mediatekToken` — là où `npm run tokens` l'écrit et où le
+`<state>/engine-tray.json`, clé `mediatekToken` — là où `npm run tokens` l'écrit et où le
 superviseur le lit avant de le passer. Le lire directement ne fait que retirer un
 intermédiaire absent.
 

@@ -21,7 +21,7 @@ the engine":
 
 - **an unknown `plugin.type`** — a typo, or a format the engine has no loader for;
 - **a known EXTERNAL format whose plugin isn't in the scan cache**
-  (`~/.studio/exts.json`) — e.g. a VST3 the project references but this machine hasn't
+  (`<state>/exts.json`) — e.g. a VST3 the project references but this machine hasn't
   scanned or installed. That's the common one on an imported song.
 
 The KNOWN types are `internal`, `jsdsp`, `offline`, and the external formats. The list is kept by

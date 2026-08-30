@@ -83,7 +83,7 @@ Trois lectures, et la première est nouvelle :
    sont stables et collent à celles d'il y a 116 commits. Ce n'est donc pas une régression du
    code : **c'est le banc qui a cessé d'être un instrument** à cette taille. Cause probable et non
    démontrée : les grandes fixtures ne tirent que 10 à 22 échantillons, si bien qu'un seul
-   décrochage d'ordonnancement domine — et cette machine avait Tilt et un `studio-moteur.exe`
+   décrochage d'ordonnancement domine — et cette machine avait Tilt et un `st0-engine.exe`
    vivants pendant la mesure, ce que le relevé de 2026-08-21 ne dit pas de lui-même.
    **Conséquence pratique : ne rien conclure d'un écart de moins de 15 % à 64 pistes** sans avoir
    d'abord arrêté la session de dev et répété la passe.
@@ -414,7 +414,7 @@ npx turbo run test --force                 # --force : un vert en cache est iden
 npx turbo run typecheck --force
 ```
 
-**Arrêter la session de dev avant les bancs.** Tilt et un `studio-moteur.exe` vivants suffisent à
+**Arrêter la session de dev avant les bancs.** Tilt et un `st0-engine.exe` vivants suffisent à
 faire passer la variance à 64 pistes de ±1 % à ±15 % — c'est la découverte du relevé
 2026-08-26, et elle invalide toute comparaison faite machine chargée. Et **trois passes, pas
 une** : à cette taille le banc tire dix à vingt échantillons, assez pour qu'une seule passe

@@ -448,7 +448,7 @@ it. Absent is again a state rather than a fault: the knobs grey with the reason,
 list can be prepared in advance with `playlist stems` instead.
 
 It is a BOOLEAN, and it named a chain for exactly one afternoon. Which module separates and which
-model it wants is one answer for the machine — `system stems`, kept in `~/.studio/preferences.yaml`
+model it wants is one answer for the machine — `system stems`, kept in `<state>/preferences.yaml`
 — and asking a project for it made three surfaces spell the same thing. What a set decides is
 whether an hour of arithmetic may start because somebody put a record on, which is worth deciding
 per set: a rehearsal rig and a stage rig answer it differently. See

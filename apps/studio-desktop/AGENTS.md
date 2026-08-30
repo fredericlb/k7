@@ -13,9 +13,11 @@ Opening the window starts the supervisor, the engine and the file service; closi
 three. There is no tray and nothing runs on behind it — `docs/lifetime.md` has the teardown
 order and what a second device loses. An engine with no window is `studio-engine`, the CLI.
 
-It is not itself a supervisor. It spawns **`@studio/engine-host`** as a child and drives it
-over NDJSON on stdio: the supervisor owns the `~/.studio` contract, the registry, the engine
-and the file service. The app draws what the supervisor reports and sends clicks back.
+It **embeds** the supervisor: `@studio/engine-host`'s `startSupervisor` runs in this process,
+and `supervisorLink.ts` is a third front end over it beside `cli.ts` — not a second
+implementation. The supervisor still owns the `<state>` contract, the registry, the engine
+and the file service; the app draws what it reports and sends clicks back. It was its own
+process driven over NDJSON until `docs/supervisor.md`, which says what that cost and bought.
 
 There is exactly ONE implementation of the contract, and it is `@studio/engine-host`. If you
 find yourself about to add a second, that is the thing this arrangement exists to prevent.
@@ -23,52 +25,54 @@ It was a Tauri/Rust app until the port; `docs/lifetime.md` keeps the reasoning t
 
 All source lives under `src/`, all build and lifecycle scripts under `scripts/`.
 
-## The protocol
+## The contract
 
 `packages/engine-host/src/hostProtocol.ts` is the definition, and the app **imports it** —
-there is no mirror to keep in step, which is the single biggest thing the port bought. Three
-rules, all load-bearing:
+there is no mirror to keep in step, which is the single biggest thing the port bought. It is
+no longer serialised; `HostTransport` is now two function calls. Two rules survive that, and
+both are load-bearing:
 
-- **stdout is the protocol.** The supervisor's `ipcStdio.ts` redirects its own stdout to
-  stderr at module load, and every child it spawns is piped, never `inherit`. One stray line
-  corrupts the frame stream. The app pumps the supervisor's stderr into the merged log.
 - **Snapshots, not deltas.** A `state` frame is the whole picture, emitted only when its
-  serialisation changes — so a supervisor that crashed and relaunched resyncs in one message,
-  and an idle app is silent on the wire.
+  serialisation changes — so an idle app costs nothing, and a view that missed one is never
+  half-right, only late.
 - **The app computes no policy.** Ports, identity, the registry URL, the audio picks and the
-  allowlist all arrive in the snapshot. A click goes back up as a `cmd`.
+  allowlist all arrive in the snapshot. A click goes back as a `cmd`. Sharing an address space
+  makes reaching past that seam easy and no more correct: everything still goes through the
+  transport, which is what keeps `cli.ts` an equal front end rather than a lesser one.
 
 ## Lifetime
 
 ```
-app (Electron, one window)     ← the process the user kills; creates the Job Object
- └─ node engine-host.mjs       ← job.assign() — the ONLY assign call
-     ├─ studio-moteur          ← joins the job automatically (created by a job member)
-     └─ node file-service.mjs  ← joins; its forked grandchild joins too
+app (Electron, one window)     ← the process the user kills; creates the Job Object and JOINS it
+ ├─ st0-engine                 ← spawned by the supervisor in here; inherits the job
+ └─ node file-service.mjs      ← inherits too; its forked grandchild joins as well
 ```
 
-- **Windows**: `job.init()` is the first statement of `whenReady()`, before anything spawns.
-  Job membership is inherited, so a force-killed app takes the whole tree with it.
-- **Unix**: the pipe does the same. When the app dies the OS closes the supervisor's stdin,
-  `ipcStdio`'s end callback fires, and it tears down.
-- **Supervisor crash**: relaunched with 1s→30s backoff; the status line reads
-  `⚠ supervisor restarting…`. The engine survives it — the pidfile lets the fresh supervisor
-  re-adopt.
-- **Quit**: `shutdownAndWait` first (its exit is what deregisters, and that wants to happen
-  while the engine is still up), then `pidkill.backstop()` catches anything a hung supervisor
-  never got to.
+- **Windows**: `job.init()` then `job.assignSelf()` are the first statements of `whenReady()`,
+  before anything spawns. Membership is inherited, so a force-killed app takes the tree with
+  it — and since there is no supervisor child left to assign, THIS process has to be the
+  member. Forget `assignSelf` and the safety net is silently off.
+- **Unix**: killing the app runs its exit path, and the supervisor's `shutdown()` with it.
+- **Supervisor crash**: there is no longer such a thing on its own — it shares this process's
+  fate, and a throw out of `startSupervisor` is reported through `onHostError` and never
+  retried. What used to be a relaunch is now the app restarting.
+- **Quit**: `shutdownAndWait` first (the deregister wants to happen while the engine is still
+  up), then `pidkill.backstop()` catches anything a hung teardown never got to.
 
 ## Key modules
 
-- **`host.ts`** — spawn + `job.assign`, the NDJSON read loop, `send`, the relaunch backoff.
-  Takes its command already resolved, so a fake supervisor makes it testable.
-- **`hostCmd.ts`** — where the supervisor lives: `$STUDIO_ENGINE_HOST_CMD`, else the vendored
-  `node` + `engine-host.mjs` from resources, else the repo's tsx on the TS source. A miss must
-  be LOUD (`⚠ supervisor not found`) — an app supervising nothing looks identical to a healthy
-  one. Takes `Packaging` rather than importing `electron`, so the `--use-system-ca` argv is
-  testable.
-- **`window.ts`** — the one window. Closing it quits; `backgroundThrottling` is off, or the
-  playhead freezes behind another app. See `docs/window.md`.
+- **`supervisorLink.ts`** — `startSupervisor` in this process, the `HostTransport` that
+  carries its frames to the window, and the two things a vendored node used to supply for
+  free: the bundle root and a network stack that reads the OS certificate store. See
+  `docs/supervisor.md`.
+- **`repoRoot.ts`** — where the checkout is, for the dev pidfile and the window icon. What
+  survived `hostCmd.ts` when the supervisor stopped being a program to find.
+- **`window.ts`** — the one window: a `BaseWindow` holding a strip of tabs above one project
+  view each. Closing it quits; `backgroundThrottling` is off on every view, or the playhead
+  freezes behind another tab. See `docs/window.md`.
+- **`tabs.ts` / `preload.ts`** — the tabs themselves, and the one rule under them: only the tab
+  in FRONT holds a project, so switching unloads one and loads the other. The page is told it
+  went behind rather than inferring it, and told BEFORE it is hidden. See `docs/tabs.md`.
 - **`logbus.ts`** — the truncate is ours; the FORMAT and the writing are re-exported from
   `@studio/engine-host/logbus`, so `HH:MM:SS [tag]` has one definition.
 - **`job.ts` / `pidkill.ts`** — the two backstops that stop a supervisor outliving the app.
@@ -81,15 +85,24 @@ app (Electron, one window)     ← the process the user kills; creates the Job O
 **The app spawns no process but the supervisor.** Anything that needs a process started
 belongs in `@studio/engine-host`, not here.
 
-## `--use-system-ca`, and why the supervisor is a child
+## The private CA, and why that is no longer a reason for a child process
 
-The supervisor is launched as a child of a **vendored `node`**, not run inside Electron, and
-the flag is the reason. A web UI added from this app is routinely fronted by a local proxy
-with a private CA, which lives in the OS store and nowhere else; without `--use-system-ca` the
-heartbeat handshake fails **silently** and the engine never appears in that UI's picker.
+This section used to say the supervisor had to be a child of a vendored `node`, because a
+registry is routinely fronted by a local proxy with a **private CA** that lives in the OS store
+and nowhere else — and without `--use-system-ca` the heartbeat handshake fails *silently*, so
+the engine never appears in that UI's picker.
 
-That flag belongs to a Node version we ship. Do not move the supervisor under
-`ELECTRON_RUN_AS_NODE`, whose Node version and flag support you do not control.
+The concern is real and the silence is the worst part of it. The conclusion was wrong: it only
+considered `ELECTRON_RUN_AS_NODE`, whose Node version and flag support you genuinely do not
+control. Running **in the main process** is a different thing, and a better one — Electron's
+`net.fetch` goes through Chromium, which reads the OS store natively. No flag, no vendored Node
+version to depend on, and one fewer thing to get wrong than an argv whose ORDER mattered.
+
+So the rule that replaces it: **the heartbeat must never use node's `fetch`.**
+`supervisorLink.ts` passes `net.fetch` into `startSupervisor`, and `registryClient.ts` takes it
+through `setRegistryFetch` — its default stays node's, because `studio-engine` runs under a real
+node with `--use-system-ca` in its `start` script. Two front ends, two correct answers, one
+seam. `docs/supervisor.md` has the rest.
 
 ## Build / run
 
@@ -97,7 +110,7 @@ That flag belongs to a Node version we ship. Do not move the supervisor under
 `npm run app:setup` is that step, and both spikes and `start-engine.mjs` check for it.
 
 - `npm run dev` — esbuild watch on `src/`, a Tilt resource. It starts no app; `dev-native.mjs`
-  owns the app's lifetime, because a running engine holds `studio-moteur` open.
+  owns the app's lifetime, because a running engine holds `st0-engine` open.
 - `npm run build` — the C++ engine, `stageAll` into `staging/`, then electron-builder. The
   staged layout is FLAT and that is load-bearing — see `scripts/docs/buildEngine.md`.
 - `npm run app:restart` — stop → build → start, waiting for the merged log to say
@@ -111,9 +124,14 @@ they cannot, and each has a script or a checklist:
 
 - `npm run app:spike-job` — Windows. Force-kills the app and asserts the grandchild died with
   it. A regression here orphans the engine on 8765/8770 after any crash.
-- By hand: **one** process; `ps -o args=` on the supervisor showing `--use-system-ca` FIRST;
-  and the one that matters most now — close the window and confirm the engine, the file service
-  and the supervisor are all gone.
+- By hand: **one** app process, with `st0-engine` and the file service as its children —
+  there is no supervisor process to look for any more; and the one that matters most, close the
+  window and confirm the engine and the file service are both gone.
+- By hand, against a registry behind a private CA: the engine appears in its picker. That is
+  the whole of what `--use-system-ca` used to buy, and nothing in a green test run covers it.
+- By hand, for the tabs: open two on two projects, switch, and confirm the one you left says
+  the session is suspended while the one you arrived at reopens by itself — and that the engine
+  reports the SECOND project loaded, not both (`docs/tabs.md`).
 
 Every `app:*` script above is this workspace's, not the root's: from the repo root they need
 `-w studio-desktop`, and the root answers a bare one with `Missing script`.

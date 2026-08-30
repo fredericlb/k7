@@ -65,6 +65,23 @@ export const norm = (path: string): string => path.replace(/\\/g, "/");
 export const fileStem = (path: string): string =>
   (norm(path).split("/").pop() ?? "").replace(PROJECT_EXT, "");
 
+/**
+ * Is this path inside the project the ENGINE holds? The tree is the whole WORKSPACE now, so a
+ * clip or a lane may belong to a project that is not playing — and every rule above matches on
+ * `(^|/)`, which cannot tell them apart. See packages/file-service/docs/activeProject.md.
+ */
+export function inActiveProject(
+  path: string,
+  activeProject: string | null,
+): boolean {
+  if (activeProject === null) return false;
+  const ap = norm(activeProject).replace(/\/+$/, "");
+  // `.` is the workspace itself being the project: everything in it is the project's.
+  if (!ap || ap === ".") return true;
+  const p = norm(path);
+  return p === ap || p.startsWith(`${ap}/`);
+}
+
 /** The generic module file beside `rel` — a node's sibling. */
 export const moduleFileOf = (rel: string): string =>
   norm(rel).replace(/\/[^/]+\.ya?ml$/i, "/module.yaml");

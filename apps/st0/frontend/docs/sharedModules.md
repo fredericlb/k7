@@ -49,7 +49,7 @@ mount, not a folder to fill in, so an empty row would be an offer nothing here c
 ## `@engine`, which is not a folder
 
 The fourth level is here too, last, and it is **read-only** — the one level that is not files at
-all. `engineCatalogue` synthesises it from this machine's plugin scan (`~/.studio/exts.json`),
+all. `engineCatalogue` synthesises it from this machine's plugin scan (`<state>/exts.json`),
 so there is no path, nothing to open and nothing to write. Its rows are a **vocabulary a chain
 can name**, and they are greyed for exactly that reason: the same treatment a `.wav` gets, and
 for the same reason — something you can read and cannot open.

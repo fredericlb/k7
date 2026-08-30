@@ -108,13 +108,13 @@ A `.vstpreset` is an opaque blob; text params are diffable and live in the chain
 module asks the engine to enumerate a plugin's parameters as `paramID -> value`, so
 `emit.ts` can write chain params instead of a preset:
 
-- **built-ins**: `studio-moteur --dump-params <type>`
-- **externals**: `studio-moteur --dump-params-ext <format> <id> <statefile>`
+- **built-ins**: `st0-engine --dump-params <type>`
+- **externals**: `st0-engine --dump-params-ext <format> <id> <statefile>`
   (instantiate the plugin, restore its `.vstpreset`, dump params)
 
 The engine reports whether the params fully reproduce the state ("complete"); only then
 is the opaque preset dropped. An external plugin is located in the st0 cache
-(`~/.studio/exts.json`) by name to get its format + identifier, and its state bytes
+(`<state>/exts.json`) by name to get its format + identifier, and its state bytes
 (from the archive) are written to a temp file for the engine.
 
 The whole step is a no-op when the engine binary isn't found, so import still works

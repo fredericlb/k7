@@ -10,7 +10,7 @@ de st0 et qu'elle ne peut pas l'être.
 ## Le problème de fond : ce backend n'a pas de disque de moteur
 
 st0 remplit ses `Hints` depuis la machine où tourne son backend : les modules du projet, les
-pistes, et le cache de scan (`~/.studio/exts.json`) que le moteur écrit à côté de lui.
+pistes, et le cache de scan (`<state>/exts.json`) que le moteur écrit à côté de lui.
 
 La médiathèque est **hébergée**. Son backend sert un volume de fichiers ; il n'a jamais vu de
 scan de greffons, et il ne verra jamais celui de la machine devant laquelle vous êtes. Un

@@ -45,7 +45,7 @@ wrong": a folder with no sidecar yet is a state, a dead backend is not.
 `engineMachine` is reached cross-origin and directly — the same seam st0 uses, and the only way to
 learn a fact about that MACHINE rather than about the library. This app's backend is hosted: it has
 no scan cache and never will. The origin has to be trusted on that machine
-(`~/.studio/web-origins.json`, offered by the tray); a refusal reads as a network error here, which
+(`<state>/web-origins.json`, offered by the tray); a refusal reads as a network error here, which
 is why a caller treats an empty list as "cannot say" rather than as "nothing there".
 
 It is also the only thing that can WRITE into a repository — create or delete a project — because

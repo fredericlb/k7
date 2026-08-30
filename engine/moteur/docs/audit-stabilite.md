@@ -323,10 +323,10 @@ cmake --build --preset windows-msvc
 cmake --build build/windows-msvc --target studio_engine_tests studio_session_tests \
       studio_midigraph_tests studio_dspgraph_tests --config RelWithDebInfo
 ctest --test-dir build/windows-msvc -C RelWithDebInfo -R studio_ --output-on-failure
-./build/windows-msvc/RelWithDebInfo/studio-moteur.exe --list-audio-devices
+./build/windows-msvc/RelWithDebInfo/st0-engine.exe --list-audio-devices
 ```
 
-Four suites, and each must be **named** to be built — the presets pin `targets: ["studio-moteur"]`.
+Four suites, and each must be **named** to be built — the presets pin `targets: ["st0-engine"]`.
 
 What none of that says anything about: the `[applyFull]` line on a real project, and whether a
 `play` issued the instant it appears is served immediately. That is the measurement this page

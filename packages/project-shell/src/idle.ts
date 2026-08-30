@@ -30,6 +30,23 @@ export function markActive(): void {
 /** How long nothing has happened. Exported for tests and the status bar. */
 export const idleForMs = (): number => Date.now() - lastActive;
 
+/** Why a session went to sleep — a tab put behind another, or the timer above. */
+export type SleepReason = "timeout" | "hidden";
+
+/** What a change in sight means for a gate's phase; `null` is "stay where you are". */
+export type SleepMove = "sleep" | "wake" | null;
+
+/** The rule tabs and the timer share; only `hidden` wakes on its own — see docs/idle.md. */
+export function sleepMove(
+  outOfSight: boolean,
+  phase: { k: string; why?: SleepReason },
+): SleepMove {
+  if (outOfSight && phase.k === "open") return "sleep";
+  if (!outOfSight && phase.k === "idle" && phase.why === "hidden")
+    return "wake";
+  return null;
+}
+
 /** Call `onIdle` once after `timeoutMs` of nothing; `<= 0` disables it, listeners included. */
 export function useIdleTimeout(timeoutMs: number, onIdle: () => void): void {
   // By ref: `onIdle` is rebuilt each render, and depending on it would resubscribe every frame.

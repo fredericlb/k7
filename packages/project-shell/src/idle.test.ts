@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { IDLE_TIMEOUT_MS, idleForMs, markActive } from "./idle.ts";
+import { IDLE_TIMEOUT_MS, idleForMs, markActive, sleepMove } from "./idle.ts";
 
 // A clock held by hand: the hook mounts a component, which no suite here does.
 beforeEach(() => {
@@ -31,5 +31,32 @@ describe("l'horloge d'inactivité", () => {
     expect(idleForMs()).toBeLessThan(IDLE_TIMEOUT_MS);
     vi.advanceTimersByTime(1000);
     expect(idleForMs()).toBe(IDLE_TIMEOUT_MS);
+  });
+});
+
+describe("s'endormir parce qu'on est passé derrière", () => {
+  it("un projet ouvert qui sort de vue s'endort", () => {
+    expect(sleepMove(true, { k: "open" })).toBe("sleep");
+  });
+
+  it("un onglet revenu devant se réveille seul", () => {
+    expect(sleepMove(false, { k: "idle", why: "hidden" })).toBe("wake");
+  });
+
+  it("une session fermée par le MINUTEUR ne se réveille pas seule", () => {
+    // The case that decides: without `why`, coming back to this tab would undo the whole sleep.
+    expect(sleepMove(false, { k: "idle", why: "timeout" })).toBe(null);
+  });
+
+  it("ne touche à rien pendant que le gate résout, clone ou explique", () => {
+    for (const k of ["resolving", "cloning", "missing", "taken"]) {
+      expect(sleepMove(true, { k })).toBe(null);
+      expect(sleepMove(false, { k })).toBe(null);
+    }
+  });
+
+  it("rester devant un projet ouvert ne fait rien, et rester derrière non plus", () => {
+    expect(sleepMove(false, { k: "open" })).toBe(null);
+    expect(sleepMove(true, { k: "idle", why: "hidden" })).toBe(null);
   });
 });

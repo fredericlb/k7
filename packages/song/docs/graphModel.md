@@ -227,7 +227,7 @@ sources fill the rest. A module that declares no ports is unconstrained and skip
 FATAL — a mis-wired project fails to read — where `validate()` only warns.
 
 `checkInputLabels` is kept OUT of `validate()`, which is pure, because whether a channel label
-exists is a machine question: the answer depends on `~/.studio`, not the song, so the same project
+exists is a machine question: the answer depends on `<state>`, not the song, so the same project
 warns here and not on the rig the labels were written for.
 
 ## The `— did you mean` tail

@@ -1,22 +1,25 @@
 # hostProtocol.ts — the supervisor ⇄ app contract
 
-The desktop app spawns the host and talks to it over NDJSON on stdio — one JSON object per
-line, host→app on stdout, app→host on stdin. `hostProtocol.ts` is the single written
-definition of that format, and the app **imports it**: there is no mirror. There was one, by
+`hostProtocol.ts` is the single written definition of what moves between the supervisor and
+whatever is driving it, and every driver **imports it**: there is no mirror. There was one, by
 hand in Rust, until the app was ported to Electron — losing it is the largest thing that port
 bought. `@studio/engine-protocol` still is mirrored by hand in the C++ engine, and still has
 to be.
 
-## Three rules, all load-bearing
+It was NDJSON on stdio until the desktop app embedded the supervisor
+(`apps/studio-desktop/docs/supervisor.md`). Nothing is serialised now — `HostTransport` is two
+function calls — which retires the rule that used to head this page, *stdout IS the protocol,
+one stray line corrupts the frame stream*. The types did not change with it, and that is the
+point: what a frame MEANS never depended on how it travelled.
 
-1. **STDOUT IS THE PROTOCOL.** Nothing else may write to it — see `ipcStdio.ts`, which
-   redirects console output to stderr at module load and pipes every child rather than
-   letting it inherit. One stray line corrupts the frame stream.
-2. **SNAPSHOTS, NOT DELTAS.** `state` carries the whole picture every time, so a host
-   that crashed and relaunched resyncs the tray in one message with no replay.
-3. **THE TRAY COMPUTES NO POLICY.** Signatures, labels-worth-of-state, and the decision
-   to switch an audio device are all made in the supervisor; the tray only compares a
-   signature against what it last drew.
+## Two rules, both load-bearing
+
+1. **SNAPSHOTS, NOT DELTAS.** `state` carries the whole picture every time, so a driver is
+   never half-right — only late — and an idle supervisor costs nothing.
+2. **THE DRIVER COMPUTES NO POLICY.** Signatures, labels-worth-of-state, and the decision
+   to switch an audio device are all made in the supervisor; a view only compares a
+   signature against what it last drew. Sharing an address space with it changes nothing
+   here: reach past the transport and `cli.ts` becomes the lesser front end.
 
 ## `HostOwnership` — one owner per subsystem, on the wire
 
@@ -61,21 +64,24 @@ contract:
 
 | entry | transport | who drives it |
 |---|---|---|
-| `src/main.ts` | `ipcStdio` — NDJSON on stdout, commands on stdin | the desktop app |
+| `supervisorLink.ts`, in the desktop app | direct calls, in the app's own process | the window |
 | `src/cli.ts` (`studio-engine`) | a status line on a terminal, and no commands at all | a person who wants only the engine |
 
-`cli.ts` deliberately does **not** import `ipcStdio`: that import reassigns
-`process.stdout.write` to stderr as a side effect, and there stdout is for the human.
+They differ in one more thing than the transport, and it is worth knowing: the CLI **owns its
+process** and the embedded one does not. `SupervisorOptions.exit` is how that is said — pass
+one and the supervisor stops calling `process.exit` and stops installing signal handlers,
+because both belong to the host then.
 
 ### What stops either outliving its driver
 
-The app's supervisor ends when its stdin closes. The CLI has no such channel, so the bounds
-are: it never daemonises or forks (the terminal IS the window), SIGINT/SIGTERM already run
-`shutdown()`, and **SIGHUP** is handled too — closing a terminal sends it, and Node's default
-terminates without running the exit path, leaving the engine holding the audio device and both
-ports with nothing on screen to explain it.
+The app's supervisor cannot: it IS the app, and shares its exit. The CLI has no such
+guarantee, so the bounds are: it never daemonises or forks (the terminal IS the window),
+SIGINT/SIGTERM run `shutdown()`, and **SIGHUP** is handled too — closing a terminal sends it,
+and Node's default terminates without running the exit path, leaving the engine holding the
+audio device and both ports with nothing on screen to explain it. Those handlers are installed
+only when no `exit` was passed, so the embedded one does not race the app's own teardown.
 
-And `hostLock.ts` guards both: one supervisor per machine, in `~/.studio/engine-host.pid`.
+And `hostLock.ts` guards both: one supervisor per machine, in `<state>/engine-host.pid`.
 Without it a CLI started beside the app would **adopt** the app's engine (`ownsEngine: false`)
 — and `shutdown` deliberately does not spare an adopted engine, so Ctrl-C on the CLI would stop
 the app's engine, whose crash-watch restarts it two seconds later. The only symptom is an

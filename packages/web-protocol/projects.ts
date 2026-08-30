@@ -238,12 +238,14 @@ export function localProjectUrl(
 }
 
 /**
- * The DESKTOP app's settings screen. A sentinel rather than a plain `/settings`, for the
+ * The settings screen — the desktop app's, mostly. A sentinel rather than a plain `/settings`, for the
  * reason every other one here is: a reserved path would make `settings` a repository name
  * that could never be opened, on the hosted origin too, for ever. `@` cannot begin a git
  * short name, so this costs nobody anything.
  *
- * It answers only where the app serves st0 itself — see apps/studio-desktop/docs/settings.md.
+ * The engine, the server and the machine's own rows answer only where the app serves st0
+ * itself; the Sync tab, which is the account's deploy key, answers on the hosted origin too —
+ * see apps/studio-desktop/docs/settings.md.
  */
 export const SETTINGS_REPO = "@settings";
 
@@ -254,6 +256,18 @@ export function isSettings(repo: string): boolean {
 /** Where the settings screen is, on whatever origin the app is serving from. */
 export function settingsUrl(origin: string): string {
   return `${serviceUrl(origin, "st0")}/${SETTINGS_REPO}`;
+}
+
+/** The desktop app's TAB STRIP: a sentinel for the same reason `@settings` is one, and chrome rather than a screen — apps/studio-desktop/docs/tabs.md. */
+export const TABS_REPO = "@tabs";
+
+export function isTabs(repo: string): boolean {
+  return repo === TABS_REPO;
+}
+
+/** Where the strip is, on whatever origin the app is serving from. */
+export function tabsUrl(origin: string): string {
+  return `${serviceUrl(origin, "st0")}/${TABS_REPO}`;
 }
 
 /** How a project is NAMED in an engine claim — the one spelling "one engine per project" rests on; docs/addresses.md. */

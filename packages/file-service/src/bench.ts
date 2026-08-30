@@ -24,7 +24,7 @@ import {
   benchProjectForChain,
 } from "@studio/web-protocol/projects";
 import { ensureLibraries, librariesDir } from "./libraries.ts";
-import { slugify, workspaceRoot } from "./slug.ts";
+import { workspaceRoot } from "./slug.ts";
 
 /** The workspace the bench lives in — reserved by convention, capitalised as `Examples` is. */
 export const BENCH_WORKSPACE = "Banc";
@@ -32,8 +32,8 @@ export const BENCH_WORKSPACE = "Banc";
 // Nothing is copied in: the library is a submodule, and a bench draws no timeline it does not declare.
 
 /** The scaffold both benches share, answering the project folder — see apps/pl8/docs/banc.md. */
-function ensureBenchProject(userEmail: string, project: string): string {
-  const dir = join(workspaceRoot(slugify(userEmail), BENCH_WORKSPACE), project);
+function ensureBenchProject(project: string): string {
+  const dir = join(workspaceRoot(BENCH_WORKSPACE), project);
   const projectFile = join(dir, "project.yaml");
   if (!existsSync(projectFile)) scaffoldBench(dir, basename(project, ".st0"));
   return dir;
@@ -46,7 +46,7 @@ export async function ensureChainBench(
   libraries: string,
 ): Promise<{ workspace: string; project: string }> {
   // A workspace of its own, so a library submodule of its own: the chain and its modules are both in it.
-  const root = workspaceRoot(slugify(userEmail), BENCH_WORKSPACE);
+  const root = workspaceRoot(BENCH_WORKSPACE);
   mkdirSync(root, { recursive: true });
   await ensureLibraries(userEmail, root, libraries);
 
@@ -61,7 +61,7 @@ export async function ensureChainBench(
   if (clash) throw new Error(clash);
 
   const project = benchProjectForChain(chainPath);
-  const dir = ensureBenchProject(userEmail, project);
+  const dir = ensureBenchProject(project);
   writeFileSync(join(dir, CHAIN_FILE), chainToBench(text, BENCH_EDGES));
 
   // A copy and not a conversion, since both places use one shape; emptied first, so a dropped node goes.

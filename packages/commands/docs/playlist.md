@@ -93,7 +93,7 @@ thirty songs.
 Every surface that could start a separation reads it — this verb, a desk's surface, the playlist
 panel's button — and asking each of them would be asking the same question three times: which
 module separates and which model it wants is a fact about the library and about this machine's
-`~/.studio/models`, not about the set list in front of you.
+`<state>/models`, not about the set list in front of you.
 
 It is **checked while it is set**, which is the cheap moment: a chain that does not separate is
 refused there rather than thirty songs into a set list. A machine with no project open stores it

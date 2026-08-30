@@ -156,3 +156,16 @@ node param cam @camera default             # back to the machine's own
 One verb, because that is the rule intrinsics already follow: a vocabulary that grows a verb every
 time a field becomes settable is a vocabulary that will be one field behind
 ([intrinsics.md](intrinsics.md)). The card's dropdown sends exactly that line.
+
+## The browser that opens it is not always the one that draws
+
+`matchCamera` resolves a label against the browser that draws the lane, and on a second device
+that is the wrong machine: a tablet has neither the lens the file names nor — over the LAN, in the
+clear — any right to open one, `getUserMedia` being absent outside a secure context.
+
+So the opener is **injected**. `RealtimeDriver.create` takes a `LensOpener`, whose default is this
+browser's own camera; a surface on a second device is handed one that asks the machine instead and
+receives the stream over a peer connection. `apps/studio-desktop/docs/camera.md` is that page.
+
+What matters here is that the file keeps meaning what it says: the label is matched where it was
+written, so `"Logitech BRIO"` names the machine's lens whichever screen is drawing it.

@@ -68,7 +68,7 @@ Two consequences that are the interface's and not ours:
   matches nothing and goes silent, with no error anywhere. The bar says so in amber *before*
   the act, not after.
 
-The grouping is remembered in `~/.studio/preferences.yaml` (`inputPairs`) and replayed to the
+The grouping is remembered in `<state>/preferences.yaml` (`inputPairs`) and replayed to the
 engine on every connect, exactly as the audio device is. Tracktion persists a copy of its own
 and it is unreadable in practice — the only call that loads it also reopens the remembered
 interface, which `engine/moteur/AGENTS.md` forbids — so without this the pairing lasts until

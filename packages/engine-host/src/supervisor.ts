@@ -13,6 +13,7 @@ import {
 import { gatherAddresses } from "./addresses.ts";
 import { desiredSwitch, menuSignature, signature } from "./audioPolicy.ts";
 import { guard } from "./background.ts";
+import { setBundleRoot, setRepoRoot } from "./bundle.ts";
 import * as engineProcess from "./engineProcess.ts";
 import { EngineQueries } from "./engineQueries.ts";
 import * as fileService from "./fileServiceProcess.ts";
@@ -27,7 +28,7 @@ import type {
   HostSnapshot,
   HostTransport,
 } from "./hostProtocol.ts";
-import { SHOW_UI_SEP } from "./hostProtocol.ts";
+import { PRIORITY_SEP, SHOW_UI_SEP } from "./hostProtocol.ts";
 import { type EngineIdentity, ensureEngineIdentity } from "./identity.ts";
 import { line } from "./logbus.ts";
 import {
@@ -35,6 +36,7 @@ import {
   heartbeat,
   mediatekUrlFor,
   resolveRegistryUrls,
+  setRegistryFetch,
 } from "./registryClient.ts";
 import { loadSettings, type Settings, saveSettings } from "./settings.ts";
 import {
@@ -69,6 +71,14 @@ export interface SupervisorOptions {
   own: HostOwnership;
   /** Where snapshots go and commands come from — stdio for the app, a terminal for the CLI. */
   transport: HostTransport;
+  /** The staged bundle's directory, when the host knows it — see docs/supervisorPolicy.md. */
+  bundleRoot?: string | null;
+  /** The checkout, in a dev run; a bundled host cannot walk up from its own path — same page. */
+  repoRoot?: string | null;
+  /** Whose network stack the heartbeat rides; the default is this runtime's — same page. */
+  fetch?: typeof fetch | null;
+  /** What ends things once the teardown is done; the default IS ending the process — docs/supervisorPolicy.md. */
+  exit?: () => void;
 }
 
 interface State {
@@ -130,8 +140,7 @@ function snapshot(s: State): HostSnapshot {
     lastHeartbeatOk: s.lastHeartbeatOk,
     pluginCount: s.pluginCount,
     audioDevices: s.audioDevices,
-    audioPreferred: s.settings.audioDevice,
-    audioFallback: s.settings.audioFallback,
+    audioPriority: s.settings.audioPriority,
     audioMenuSig: s.audioMenuSig,
     editPlugins: s.editPlugins,
     editPluginsSig: s.editPluginsSig,
@@ -149,6 +158,13 @@ function snapshot(s: State): HostSnapshot {
 }
 
 export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
+  // Before the lock, because both decide what this process CAN do rather than whether it may.
+  setBundleRoot(opts.bundleRoot ?? null);
+  setRepoRoot(opts.repoRoot ?? null);
+  setRegistryFetch(opts.fetch ?? null);
+
+  const exit = opts.exit ?? ((): never => process.exit(0));
+
   // Before anything is spawned or adopted: a second supervisor would adopt the FIRST one's
   // engine, and its shutdown does not spare an adopted engine — see hostLock.ts.
   const lock = acquire();
@@ -362,11 +378,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     if (!devices) return;
     state.audioDevices = devices;
 
-    const want = desiredSwitch(
-      devices,
-      state.settings.audioDevice,
-      state.settings.audioFallback,
-    );
+    const want = desiredSwitch(devices, state.settings.audioPriority);
     const sig = signature(devices);
     if (want) {
       // Don't retry a switch that didn't take until the device SET changes, or a refused device is retried forever.
@@ -385,8 +397,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     // The tray rebuilds its submenu on this, so the signature — not the device array — decides whether anything moved.
     state.audioMenuSig = menuSignature(
       state.audioDevices,
-      state.settings.audioDevice,
-      state.settings.audioFallback,
+      state.settings.audioPriority,
     );
     publish();
   };
@@ -634,40 +645,40 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         await deregister(state.registryUrls, state.identity);
         reply(cmd.id, true);
         return;
-      case "audio.select": {
-        // Two independent effects — REMEMBER the pick, so a refused switch does not lose it, and switch now.
-        state.settings.audioDevice = arg || null;
-        state.lastAttempt = null; // a deliberate pick deserves a fresh attempt
+      case "audio.priority": {
+        // The WHOLE ranking, in one command: a reorder is one act, and two halves of it could be interleaved with a poll.
+        const ranked = arg ? arg.split(PRIORITY_SEP).filter(Boolean) : [];
+        state.settings.audioPriority = [...new Set(ranked)];
+        state.lastAttempt = null; // a deliberate ranking deserves a fresh attempt
         saveSettings(state.settings);
+        // REMEMBER first, then switch: a refused device must not cost the user the order they just set.
+        state.audioMenuSig = menuSignature(
+          state.audioDevices,
+          state.settings.audioPriority,
+        );
         publish();
+        const want = desiredSwitch(
+          state.audioDevices,
+          state.settings.audioPriority,
+        );
+        if (!want) {
+          reply(cmd.id, true);
+          return;
+        }
         const type =
-          state.audioDevices.find((d) => d.name === arg)?.deviceType ?? "";
-        const updated = await engine.setAudioDevice(arg, type);
+          state.audioDevices.find((d) => d.name === want)?.deviceType ?? "";
+        const updated = await engine.setAudioDevice(want, type);
         if (updated) {
           state.audioDevices = updated;
           state.audioMenuSig = menuSignature(
             updated,
-            state.settings.audioDevice,
-            state.settings.audioFallback,
+            state.settings.audioPriority,
           );
           publish();
         }
         reply(cmd.id, updated !== null);
         return;
       }
-      case "audio.fallback":
-        // An empty arg means "no fallback" — a real choice. It switches nothing now, only where to go if the pick leaves.
-        state.settings.audioFallback = arg || null;
-        state.lastAttempt = null; // a new fallback deserves a fresh attempt
-        saveSettings(state.settings);
-        state.audioMenuSig = menuSignature(
-          state.audioDevices,
-          state.settings.audioDevice,
-          state.settings.audioFallback,
-        );
-        publish();
-        reply(cmd.id, true);
-        return;
       case "plugins.rescan":
         // Show the spinner at once: the scan runs detached inside the engine and its count returns via pollPlugins.
         state.pluginCount = null;
@@ -725,7 +736,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     fileService.stop(state.fileChild);
     engineProcess.stop();
     release();
-    process.exit(0);
+    exit();
   };
 
   // stdin ending IS the tray going away — the whole teardown on Unix, the belt to the job object on Windows.
@@ -737,12 +748,12 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     },
     () => void shutdown(),
   );
-  process.on("SIGINT", () => void shutdown());
-  process.on("SIGTERM", () => void shutdown());
-  // Closing a terminal sends SIGHUP, whose Node default TERMINATES without running the exit
-  // path: the engine would keep the audio device and both ports with nothing on screen to
-  // explain it. Harmless under the desktop app, which is not attached to a terminal.
-  process.on("SIGHUP", () => void shutdown());
+  // Only when we own the process; SIGHUP is in because its Node default skips the exit path.
+  if (!opts.exit) {
+    process.on("SIGINT", () => void shutdown());
+    process.on("SIGTERM", () => void shutdown());
+    process.on("SIGHUP", () => void shutdown());
+  }
 
   refreshOrigins(); // the first snapshot: the tray draws nothing until it arrives
 

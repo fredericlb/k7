@@ -77,7 +77,7 @@ export async function runBridge({
   // and is the very thing the host runs. Watching engine/ alone would mirror a stale app
   // forever, with every save appearing to do nothing.
   watch = ["\\engine", "\\apps\\studio-desktop"],
-  stopCommand = "node apps\\studio-desktop\\scripts\\restart-tray.mjs --stop",
+  stopCommand = "node apps\\studio-desktop\\scripts\\restart-app.mjs --stop",
   periodMs = PERIOD_MS,
   // Set when the host task has no watcher of its own worth trusting — see ../docs/wsl.md.
   restartOnChange = false,
@@ -121,8 +121,7 @@ export async function runBridge({
     // A replaced child's exit is a restart, not the task ending, so identity decides and not a flag.
     c.on("exit", (code) => {
       if (stopping || child !== c) return;
-      stop();
-      resolveExit(code ?? 0);
+      stop(code ?? 0);
     });
   };
 
@@ -151,13 +150,15 @@ export async function runBridge({
     }
   }, periodMs);
 
-  const stop = () => {
+  const stop = (code = 0) => {
     if (stopping) return;
     stopping = true;
     clearInterval(timer);
     child?.kill();
     log("stopping on the host…");
     endOnHost();
+    // The ONE place `exited` settles, or a signal leaves the top-level await pending (node exits 13).
+    resolveExit(code);
   };
   for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => stop());
 

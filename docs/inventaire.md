@@ -83,7 +83,7 @@ périme des deux côtés sans que personne le voie.
 | `packages/dsp/modules/{normalize,sweep}/jsdsp.ts` | des DSP de MODULE. Le compilateur les trouve par nom de fichier (`JSDSP_FILE = "jsdsp.ts"`), jamais par import. |
 | `songs/**/jsdsp.ts` | même mécanisme : la DSP d'une chanson de démo est une donnée chargée au runtime. |
 | `packages/stem-separation/src/separateWorker.ts` | lancé par `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
-| `packages/engine-host/src/main.ts`, `packages/engine-host/src/cli.ts`, `packages/file-service/src/server.ts` | **entrées esbuild** de `apps/studio-desktop/scripts/stage.mjs`, qui les bundle dans l'application. Zéro import n'est pas zéro appelant. |
+| `packages/engine-host/src/cli.ts`, `packages/file-service/src/server.ts` | **entrées esbuild** de `apps/studio-desktop/scripts/stage.mjs`, qui les bundle dans l'application. Zéro import n'est pas zéro appelant. |
 | `packages/ui-chains-react/src/DomChains.stories.tsx` | ramassé par le glob de `.storybook/main.ts`. |
 | `packages/dsp/src/emit.ts` | le script `build` du paquet (`tsx src/emit.ts`). Une passe qui ne regarde que `bin` et les entrées esbuild le déclare mort ; **un `scripts` de `package.json` est un appelant.** |
 

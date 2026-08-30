@@ -2,7 +2,7 @@
 
 One JSON per user on a volume, keyed by the OIDC subject. It exists because nothing else on the
 hosted side remembers anything **about a person**: without it st0's engine pick lives in
-`sessionStorage`, where a second tab does not see it, and `~/.studio/preferences.yaml` — the one
+`sessionStorage`, where a second tab does not see it, and `<state>/preferences.yaml` — the one
 thing that looks like this — is per-MACHINE, on the engine's side of the wire, shared by every
 hosted user who selects that machine.
 

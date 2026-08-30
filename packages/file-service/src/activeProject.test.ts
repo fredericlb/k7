@@ -8,14 +8,7 @@ import { Workspace } from "./workspace.ts";
 // The two consequences of being opened ON a project instead of picking one — see docs/activeProject.md.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 
 let root: string;
 let ws: Workspace;
@@ -43,27 +36,36 @@ const names = (): string[] =>
     .map((n) => n.name)
     .sort();
 
-describe("the tree is rooted at the active project", () => {
+describe("the tree is rooted at the workspace", () => {
   it("shows the whole workspace while nothing is open", () => {
-    // Nothing has been opened, so there is no narrower answer to give.
     expect(names()).toContain("other.st0");
     expect(names()).toContain("orig");
   });
 
-  it("shows only the open project's own files once one is open", () => {
+  it("goes on showing it once a project is open — that is what the selector picks from", () => {
     ws.setActiveProject("song.st0");
     const shown = names();
-    expect(shown).toContain("nodes");
-    expect(shown).toContain("project.yaml");
-    // The rest of the clone is the REPOSITORY, not the song.
-    expect(shown).not.toContain("other.st0");
-    expect(shown).not.toContain("_modules");
-    expect(shown).not.toContain("orig");
+    // Both songs, and the repository around them: opening one narrows the ENGINE, not the tree.
+    expect(shown).toContain("song.st0");
+    expect(shown).toContain("other.st0");
+    expect(shown).toContain("_modules");
+    expect(shown).toContain("orig");
+  });
+
+  it("marks every project, so a row knows which one to offer the engine to", () => {
+    ws.setActiveProject("song.st0");
+    const projects = ws
+      .tree()
+      .filter((n) => n.project)
+      .map((n) => n.path)
+      .sort();
+    expect(projects).toEqual(["other.st0", "song.st0"]);
   });
 
   it("keeps paths workspace-relative, so every other route still takes them", () => {
     ws.setActiveProject("song.st0");
-    const projectYaml = ws.tree().find((n) => n.name === "project.yaml");
+    const song = ws.tree().find((n) => n.name === "song.st0");
+    const projectYaml = song?.children?.find((n) => n.name === "project.yaml");
     expect(projectYaml?.path).toBe("song.st0/project.yaml");
     expect(ws.read("song.st0/project.yaml").content).toContain("project:");
   });
@@ -87,6 +89,39 @@ describe("the tree is rooted at the active project", () => {
       "song.st0",
       "song.st0/live.z0",
     ]);
+  });
+});
+
+// `/band` with no project after it: the workspace decides which of its projects opens.
+describe("the project a bare workspace address opens", () => {
+  it("takes the one last open, whatever order the disk is in", () => {
+    ws.setActiveProject("other.st0");
+    expect(new Workspace(root).defaultProject()).toBe("other.st0");
+  });
+
+  it("falls to the first on disk when nothing was ever opened", () => {
+    expect(ws.defaultProject()).toBe("other.st0"); // alphabetical: the walk's order, not a preference
+  });
+
+  it("answers null for a workspace holding no project — a tree and nothing more", () => {
+    const empty = mkdtempSync(join(tmpdir(), "td-empty-"));
+    try {
+      expect(new Workspace(empty).defaultProject()).toBeNull();
+    } finally {
+      rmSync(empty, { recursive: true, force: true });
+    }
+  });
+
+  it("is `.` when the workspace IS the project", () => {
+    const holder = mkdtempSync(join(tmpdir(), "td-one-"));
+    const single = join(holder, "hiver.st0");
+    mkdirSync(single);
+    try {
+      // A workspace whose own folder claims st0 has one project and it is the root.
+      expect(new Workspace(single).defaultProject()).toBe(".");
+    } finally {
+      rmSync(holder, { recursive: true, force: true });
+    }
   });
 });
 

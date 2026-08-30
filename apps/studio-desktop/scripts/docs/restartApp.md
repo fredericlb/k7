@@ -46,7 +46,7 @@ rebuild: it uses `engine/moteur/build/` directly.
 **Stop before build — for the ENGINE only now.** `dist/main.cjs` is an esbuild bundle, not a
 linked image, so a running app does not hold it open and its build needs no stop at all. Do
 not re-add one: it would reintroduce the bounce for nothing. What follows still applies to
-`studio-moteur`, and applied to the Rust tray this replaced — Windows holds a running image
+`st0-engine`, and applied to the Rust tray this replaced — Windows holds a running image
 open for write, so a relink
 fails against a live tray with a confusing linker error rather than a busy-file one.
 
@@ -82,7 +82,7 @@ that is supposed to take it down:
    makes that routine in dev: every edit under `packages/engine-host/src` restarts the supervisor
    and has the engine adopted.
 
-Either way the survivor keeps `studio-moteur.exe` open for execute and the next relink cannot
+Either way the survivor keeps `st0-engine.exe` open for execute and the next relink cannot
 replace the image — silently, which is what makes it expensive. Every engine is stopped, whoever
 started it, for the same reason every app instance is: a survivor wins, and here it wins by making your
 build a no-op.
@@ -90,17 +90,17 @@ build a no-op.
 ## How it knows the app is alive
 
 An app that starts and supervises nothing looks exactly like a healthy one from the
-outside — the failure `hostCmd.ts` is written to shout about. So the script does not
-report success on "the process is still running". It watches `~/.studio/.studio.log`, the
-merged log `logbus.ts` **truncates on every launch**, and waits for one of the lines
-`host.ts` writes there: `supervisor up (pid …)`, `supervisor not found`, or `could not
-start supervisor`. Only the first is success; the tail is printed either way.
+outside. So the script does not report success on "the process is still running". It watches
+`<state>/.studio.log`, the merged log `logbus.ts` **truncates on every launch**, and waits
+for one of the lines `supervisorLink.ts` writes there: `starting supervisor (in process)`
+followed by the engine coming up, or `supervisor did not start`. Only the first is success;
+the tail is printed either way.
 
 The truncation is also how the script avoids reading the previous session's log: it
 records the time just before launching and ignores the file until its mtime moves past it.
 
 Before that file exists there is still a window — a crash before `whenReady` — which is why
 `start-engine.mjs` redirects the tray's own stdout to `.cache/dev/tray.log` rather than
-dropping it. That path is deliberately not under `~/.studio`: the layout there is a
+dropping it. That path is deliberately not under `<state>`: the layout there is a
 contract owned by `packages/engine-client/src/paths.ts`, and a dev script has no business
 adding to it.

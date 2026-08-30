@@ -199,7 +199,7 @@ plugin at all (`@studio/song`'s [coldModules.md](../../song/docs/coldModules.md)
   at; the four stems land in `stems/` beside the source, where the médiathèque already looks for
   them (`apps/k7/docs/audio.md`). What changes is the workspace, not the project — the run still
   reports `changed`, because the tree has four new files in it.
-- **It runs before the engine check**, and needs no `studio-moteur`: a separation is ffmpeg and a
+- **It runs before the engine check**, and needs no `st0-engine`: a separation is ffmpeg and a
   model, not a bounce.
 - **The running is handed in**, `CommandHost.runColdStep` (`coldPass.ts`'s `RunColdStep`). The
   166 MB model lives in `@studio/file-service`, which depends on this package, so importing it
@@ -208,7 +208,7 @@ plugin at all (`@studio/song`'s [coldModules.md](../../song/docs/coldModules.md)
 - **Which model, and whether this machine has it**, is answered while the chain is resolved
   (`coldStepOf`), so a machine that has not downloaded it costs no time and leaves no file — and
   the two failures are told apart: a module authored with no `onnx:` is a bug, a model missing
-  from `~/.studio/models` is a download.
+  from `<state>/models` is a download.
 
 **Nothing puts either of these in your library.** The account's libraries repository is the
 reference and nothing seeds it, so `stemsplit` the MODULE and a chain naming it are both things to
@@ -228,13 +228,13 @@ extends: "@st0/audio/separation/stemsplit"
 …and then `clip process riff @st0/stems`.
 
 **Name it once with `system stems @st0/stems`.** Which chain separates is a standing answer — the
-same for every playlist, every set and every clip — so it lives in `~/.studio/preferences.yaml`
+same for every playlist, every set and every clip — so it lives in `<state>/preferences.yaml`
 beside the rig's other ones, and `playlist stems` and `POST /stems` read it rather than asking. The
 verb checks, when it is set, that the chain really separates: the cheap moment to find that out is
 before thirty songs, not during them.
 
 **For a SET it is `playlist stems <playlist> [chain]`** — the same work over every song a set list
-names, and over the MACHINE's copies (`~/.studio/mediatek/songs/…`), since that is the disk a deck
+names, and over the MACHINE's copies (`<state>/mediatek/songs/…`), since that is the disk a deck
 opens. Three properties make it a command you run the night before rather than once: a song whose
 `stems/` already holds something is skipped, the registry's id hashes the WORK (so even an
 interrupted pass costs nothing twice), and an unreadable song costs its own line rather than the

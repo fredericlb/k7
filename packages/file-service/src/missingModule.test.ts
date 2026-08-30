@@ -16,14 +16,7 @@ import { Workspace } from "./workspace.ts";
 // A chain step naming an undefined module is drawn as a `?` node, with every module affordance empty.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/file-service/src
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 
 let root: string;
 let proj: string;

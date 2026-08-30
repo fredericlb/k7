@@ -4,7 +4,7 @@ st0 is three processes and a folder of text.
 
 The **folder** is the song: YAML files under a project directory, one entity per file. Nothing is hidden in a binary — a song diffs, merges and greps like source, because it is.
 
-The **file service** (`packages/file-service`) runs on the machine with the audio interface. It owns `~/.studio/root/<user>/<workspace>`, reads and writes those files, compiles them, and serves the web app over HTTP.
+The **file service** (`packages/file-service`) runs on the machine with the audio interface. It owns `<state>/workspace/<user>/<workspace>`, reads and writes those files, compiles them, and serves the web app over HTTP.
 
 The **engine** is a C++ binary (`engine/moteur`) built on JUCE + Tracktion. It knows nothing about YAML or about files: it receives a compiled `ProjectDoc` as JSON over a WebSocket and plays it. It is not st0' engine in particular — it is the machine's, and any app that can produce a `ProjectDoc` can drive it.
 

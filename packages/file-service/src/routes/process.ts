@@ -63,7 +63,7 @@ processRouter.post(
     if (!name || name.startsWith("."))
       return res.status(400).json({ error: "name must be a plain filename" });
 
-    const anchor = librariesAnchor(req.userEmail!);
+    const anchor = librariesAnchor();
     if (!anchor)
       return res.status(409).json({
         error:

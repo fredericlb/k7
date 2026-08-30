@@ -38,7 +38,7 @@ Les deux moitiés épellent une personne différemment, et c'est délibéré de 
 
 | | ce qu'elle manipule | pourquoi |
 |---|---|---|
-| le service de fichiers | l'**email** (`x-studio-user`) | c'est ce que le navigateur envoie, et toute son arborescence `~/.studio/root/<slug>` en dépend |
+| le service de fichiers | l'**email** (`x-studio-user`) | c'est ce que le navigateur envoie, et toute son arborescence `<state>/workspace` en dépend |
 | pl8 | le **sujet OIDC** | `subOf` prend `sub` d'abord ; tout ici est classé sous `fileFor(sub)` |
 
 Aucune des deux ne peut adopter l'autre sans déplacer des dossiers existants. Donc pl8 tient

@@ -1,13 +1,20 @@
 # La page d'accueil — st0 ouvre un projet, et c'est ici qu'on le choisit
 
 `/` sans rien après est un écran, et non une adresse à corriger : les dépôts git du compte,
-les projets qu'ils contiennent, le dépôt des bibliothèques, les partages publiés et la clé de
-déploiement. C'est de là qu'on part, et c'est là qu'on revient en quittant un morceau.
+les projets qu'ils contiennent, le dépôt des bibliothèques et les partages publiés. C'est de là
+qu'on part, et c'est là qu'on revient en quittant un morceau.
+
+La **clé de déploiement n'y est plus** : elle est passée dans l'onglet Sync des réglages
+(`/@settings`, `../../../studio-desktop/docs/settings.md`). Elle se colle une fois chez
+l'hébergeur git et ne se regarde plus jamais ; la garder en bas d'un écran qu'on ouvre à chaque
+morceau, c'était payer tous les jours pour un geste d'installation. Les deux phrases d'ici qui
+en parlent pointent dessus, parce que le jour où elle manque, c'est ici qu'on s'en aperçoit.
 
 ## Qui dessine, qui détient
 
-**st0 dessine, pl8 détient.** Les routes sont celles de pl8 : `/api/projects`, `/api/shares`,
-`/api/projects/ssh-key`. Le volume est le sien, la clé aussi, et les octets d'un partage aussi —
+**st0 dessine, pl8 détient.** Les routes sont celles de pl8 : `/api/projects` et `/api/shares`
+ici, `/api/projects/ssh-key` depuis les réglages. Le volume est le sien, la clé aussi, et les
+octets d'un partage aussi —
 [apps/pl8/docs/projects.md](../../pl8/docs/projects.md) dit pourquoi ce service en est le bon
 dépositaire.
 
@@ -105,10 +112,13 @@ clone) : les projets sont des dossiers sur cette machine, donc elle seule sait l
 Sans elle, la liste est remplacée par la phrase qui le dit, plutôt que par un écran vide qui
 ressemblerait à un compte neuf.
 
-Ce qui se lit et se règle **sans machine** est ce qui sauve le jour de l'installation : la clé de
-déploiement et le dépôt des bibliothèques. On peut donc faire, moteur éteint, exactement ce qu'il
-faut faire avant d'en allumer un — une page qu'un sélecteur de moteur barrerait entièrement serait
-une page où l'on ne peut pas poser de clé tant qu'il n'y a pas de moteur.
+Ce qui se lit et se règle **sans machine** est ce qui sauve le jour de l'installation : le dépôt
+des bibliothèques ici, et la clé de déploiement dans les réglages. On peut donc faire, moteur
+éteint, exactement ce qu'il faut faire avant d'en allumer un — une page qu'un sélecteur de moteur
+barrerait entièrement serait une page où l'on ne peut rien poser tant qu'il n'y a pas de moteur.
+Le déménagement de la clé ne coûte rien à cet argument, et c'est la condition qu'il a fallu tenir :
+l'onglet Sync ne demande que pl8, donc il s'affiche sans moteur — et sur le studio hébergé, où les
+trois autres onglets n'ont rien à montrer, il s'affiche seul.
 
 Les partages, eux, sont derrière un bouton sur la rangée d'un projet, donc derrière une liste qui
 exige une machine (§ Les partages). Ça ne touche pas l'argument d'installation — un compte neuf
@@ -296,7 +306,7 @@ dossiers qui ne sont pas des projets.
 
 ### Une rangée par ESPACE DE TRAVAIL, pas par dépôt
 
-La liste montre ce que la machine tient, donc ses dossiers sous `~/.studio/root/<vous>/`. Deux
+La liste montre ce que la machine tient, donc ses dossiers sous `<state>/workspace/<vous>/`. Deux
 conséquences, et il faut les deux :
 
 **Un dépôt inscrit chez pl8 que cette machine n'a pas cloné n'a aucune rangée.** Une deuxième
@@ -333,6 +343,13 @@ la même chanson sur n'importe quelle machine — c'est par `<dépôt>/<projet>`
 identifie un projet, et c'est ce qu'un lien collé à quelqu'un doit être. `@local` nomme un dossier
 sur celle-ci et rien ailleurs. L'adresse portable gagne donc dès qu'elle existe, et `@local` est
 le repli.
+
+**Ce n'est plus seulement un repli, c'est le point de départ.** Un espace de travail se crée
+ICI — `git init`, aucun dépôt distant — et jusqu'au jour où on le publie, `@local` est la seule
+adresse qu'il ait. Ça n'est pas un état dégradé : c'est l'état d'un morceau qu'on commence, et
+tout marche dedans sauf pousser (`packages/file-service/docs/workspaces.md`). Publier lui donne
+son `origin` ET l'inscrit chez pl8, et l'adresse portable prend le relais au poll suivant sans
+que personne n'ait rien à faire.
 
 Trois cas y tombent, et c'est la page qui tranche parce qu'elle est la seule à parler aux deux
 services :
@@ -380,11 +397,37 @@ ce type, jamais le service qui a répondu : changer de source ne lui coûte pas 
 
 ## Le trajet complet
 
-1. Sur la page d'accueil, on colle une URI SSH. pl8 génère la clé de déploiement si elle
-   n'existe pas encore et inscrit le dépôt à son registre ; la page enchaîne aussitôt sur
+1. Sur la page d'accueil, deux boutons, et c'est tout ce qu'il y a en haut de la liste.
+
+   **Nouveau** ne parle à personne : `POST /workspaces` crée le dossier et l'initialise avec git,
+   sans dépôt distant. Aucun serveur, aucune clé, aucun compte — c'est la seule chose de cet écran
+   qui marche entièrement hors ligne, et c'est celle par laquelle on commence.
+
+   **Et il est VIDE.** Pas de projet par défaut : l'archétype décide de ce que l'écran montre —
+   une timeline, deux platines, un rig sans surface — et c'est une question qu'on répond mal
+   depuis une popin sur une liste, avant d'avoir rien vu. La rangée d'un espace vide n'a donc
+   qu'un lien, « Créer le premier projet », qui ouvre l'espace ; l'éditeur y pose l'assistant
+   (`FirstProject.tsx`), et c'est là qu'on choisit. Un espace de travail qu'on vient de faire est
+   un dossier git vide, ce qui est exactement ce qu'il prétend être.
+
+   **Importer** est l'ancien champ d'URI, derrière un bouton : pl8 génère la clé de déploiement si
+   elle n'existe pas encore et inscrit le dépôt à son registre ; la page enchaîne aussitôt sur
    `POST /workspaces/clone` et suit le job, **avec la progression de git à l'écran**. Le clone
    n'est pas un extra : cette liste ne montre que ce que la machine tient, donc sans lui l'ajout
    serait un formulaire qui ne change rien à l'écran.
+
+   C'est aussi le seul chemin vers cet espace tant qu'il est vide : les rangées lient des PROJETS,
+et il n'y en a pas. `workspaceHref` construit l'adresse de l'espace lui-même — `/@local/hiver` ou
+`/hiver` selon que le nom court résout —, et le projet y est `.`, que la machine résout
+(`packages/file-service/docs/workspaces.md`).
+
+Le troisième geste vit sur la rangée et pas en haut, parce qu'il agit sur UN espace :
+   **Publier**, offert seulement quand `origin` est nul. Il demande l'URI du dépôt — qui doit
+   exister et être vide —, la pose en `origin`, pousse, puis l'inscrit chez pl8. Les deux moitiés
+   ne sont pas de même nature et la popin le dit : le push est celui qui peut échouer bruyamment
+   (git parle lui-même — « Permission denied (publickey) »), l'inscription est celle qu'on peut
+   refaire plus tard. Si elle seule rate, on le dit et on ne referme pas : ce qui a été poussé
+   l'a été.
 2. La liste affiche chaque espace de travail avec **ses projets en retrait dessous** ; un clic sur
    l'un d'eux part directement dans son application, **dans le même onglet**. Le nom de l'espace,
    lui, déplie l'arborescence — ici même —, où les dossiers-projets sont marqués de la même façon.
@@ -583,7 +626,7 @@ et donc invisible la plupart du temps.
 
 Et il y a un second prix, plus discret : **cette popin est derrière la liste des projets, qui
 exige une machine.** Les partages ne sont donc pas dans la colonne « se règle moteur éteint », où
-sont la clé et les bibliothèques.
+sont les bibliothèques — et la clé, un écran plus loin.
 
 ## Deux polls, parce qu'il y a deux services
 
@@ -622,8 +665,9 @@ ne dit pas :
 
 - ouvrir `/` sans être connecté → l'écran de connexion, puis la page d'accueil ;
 - **sans machine moteur** : la liste des projets est remplacée par la phrase qui dit pourquoi,
-  le champ d'ajout et « Nouveau projet » sont gris, et la clé et les bibliothèques se règlent
-  quand même — c'est le contrôle qui tient tout le paragraphe sur le prix payé ;
+  le champ d'ajout et « Nouveau projet » sont gris, et les bibliothèques se règlent quand même —
+  c'est le contrôle qui tient tout le paragraphe sur le prix payé. Le lien « réglages » de cette
+  phrase mène à la clé, et elle s'y génère sans moteur elle aussi ;
 - **avec une machine et AUCUN dépôt de bibliothèques** : `Examples` est là, et une de ses démos
   s'ouvre sur `/@local/Examples/<démo>.st0`. C'est le contrôle du jour de l'installation ;
 - déplier un espace, recharger la page → le même espace déplié, `?ws=` dans l'adresse ;

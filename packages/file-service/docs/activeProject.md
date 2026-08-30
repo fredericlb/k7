@@ -1,32 +1,46 @@
-# The active project — what an editor is actually looking at
+# The active project — what the ENGINE is holding
 
-A workspace is **one git clone**. The project is one folder inside it, and an app opens **on**
-a project by an address rather than through a picker
-(`packages/project-shell/docs/launch.md`). Two questions follow from that.
+A workspace is **one git repository**, made here or cloned, and it holds **several projects**.
+The editor draws the whole of it; the *active* project is the one folder the engine is playing,
+and choosing it is a gesture on screen. An app is still opened by an address rather than through
+a picker (`packages/project-shell/docs/launch.md`), and that address may name the project — but
+it no longer decides alone, and it is no longer the only thing that can change it.
 
-## The tree is the project's, not the clone's
+## The tree is the clone's, not the project's
 
-`tree()` walks the **active project**, not the workspace root.
+`tree()` walks the **workspace root**. It used to walk the active project, and the reason it
+stopped is the reason it was worth writing down either way: what the tree shows is what you can
+choose from.
 
-A real repository holds far more than the song you opened: other projects, a `_modules`
-library shared between them, mixdowns, an `orig/` full of `.dawproject` and `.als` sessions
-the songs were imported from. Rooting the tree at the clone shows all of it, which reads as
-"st0 is showing me the repository" — and it invites you to open a file belonging to a project
-that is not the one playing.
+The old rule's argument was that a real repository holds far more than the song you opened —
+other projects, a `_modules` library shared between them, mixdowns, an `orig/` full of
+`.dawproject` and `.als` sessions — and that showing all of it "invites you to open a file
+belonging to a project that is not the one playing". Every word of that is still true. What
+changed is that this is now the point: a workspace is several songs, and the one the engine
+takes is picked from the tree, on the ▶ that `FileTree.tsx` draws on every project row — filled
+for the active one, hollow for the rest.
 
-**Paths stay workspace-relative.** Only the root of the walk moves; `/file`, `/rename`,
-`/move` and `/folder` take those same strings.
+**Paths stay workspace-relative**, and always were; only the root of the walk moved. `/file`,
+`/rename`, `/move` and `/folder` take the same strings they always did, and nothing on either
+side of the wire had to change for this.
 
-Two consequences worth knowing:
+What the wider tree costs, and how each is paid:
 
-- With **no** active project the tree is the workspace, which is also what a lone-project
-  workspace answers (its root *is* the project).
-- The shared `_modules` library is not browsable as text from st0, and not editable either —
-  `guardShared` refuses every write, and a UI edit forks a project-local copy. What a project
-  needs of it arrives through `/module-catalogue`, `/module-ui` and `/hints`.
-- A `.dawproject` sitting **outside** the project folder is likewise off the tree, so it
-  cannot be clicked to import. Importing lands a *new* project at the workspace root, which
-  st0 cannot open by itself anyway.
+- **A file may belong to a project that is not playing.** `projectPaths.ts`'s rules match on
+  `(^|/)`, so `other.st0/clips/a.yaml` is a clip by every test there is — and looking its id up
+  in the ACTIVE project's compiled doc answers with the wrong thing or with nothing.
+  `inActiveProject()` is the predicate that stops it, and st0's editor gates its minimap item
+  and its clip/sequence panel on it. Opening such a file gives you its TEXT, which is right: it
+  is a file in this repository and you may read and edit it.
+- **The shared `_modules` library is now visible.** It is still not editable — `guardShared`
+  refuses every write and a UI edit forks a project-local copy — and what a project needs of it
+  still arrives through `/module-catalogue`, `/module-ui` and `/hints`.
+- **A `.dawproject` outside a project folder is now on the tree**, and can therefore be clicked
+  to import. That is a gain rather than a cost: importing lands a new project at the workspace
+  root, which is exactly where the tree now looks.
+
+`workspaceTree()` is kept as an alias of `tree()`: `/workspace-tree` asks it of a workspace the
+home page has not opened, which is a different question with the same answer.
 
 ## Opening a project that is not there
 
@@ -332,9 +346,10 @@ and why they cannot answer this (`packages/engine-protocol/docs/sessions.md`).
 `servedProject` is a belief about another process, like every other read of `served`: the engine can have
 restarted under us. It is not worth asking `list-sessions` here — the poll that owns that question is
 `prewarmEngineForActive`, throttled and running anyway, and a menu that briefly names a project the engine
-has just dropped is corrected within one tick. It answers in ADDRESSES rather than absolute paths, built
-from the slug the same way `sessionOf` builds one from a workspace root; a workspace this machine cannot
-name in an address answers null, because a row nobody could follow is worse than no row.
+has just dropped is corrected within one tick. It answers in ADDRESSES rather than absolute paths — one
+segment under the workspaces root, since there is no per-user level beneath it
+(`packages/engine-client/docs/paths.md`); a workspace this machine cannot name in an address answers
+null, because a row nobody could follow is worse than no row.
 
 `/workspaces/by-repo` is the one that pairs with them: pl8 names a repo by its URI and knows nothing about
 this machine's folders, so this is the question st0 asks before deciding whether anything needs cloning at

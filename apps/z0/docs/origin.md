@@ -80,7 +80,7 @@ tells, and three details follow from the same fact — **nobody here is sitting 
   hardware.
 - **It names the file service's base URL** on that machine (`http://192.168.1.20:8770`), not the
   engine's own WebSocket. The socket has no render verb and never will: an offline bounce is a
-  one-shot `studio-moteur --render`, and letting the live server spawn one would put a second
+  one-shot `st0-engine --render`, and letting the live server spawn one would put a second
   engine inside the process that holds the audio device.
 - **The wav comes back whole, in memory.** z0's clips are seconds long, and a temp file this
   container then has to clean up on every failure path is more machinery than the bytes are

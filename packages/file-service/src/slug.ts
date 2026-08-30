@@ -1,14 +1,14 @@
-// slug.ts — the per-user workspace root, ~/.studio/root/<slug>/<workspace>. The slug
-// is the OIDC email with every non-alphanumeric char replaced by "_".
+// slug.ts — the workspace root, `<state>/workspace/<workspace>`. There is no per-user level:
+// one machine holds one person's workspaces (packages/engine-client/docs/paths.md). The slug
+// survives for the SSH keys and the engine session, which are not directories here.
 
 import { join } from "node:path";
-import { rootDir, slugify, userRoot } from "@studio/engine-client/paths";
+import { rootDir, slugify } from "@studio/engine-client/paths";
 
-// Re-exported so `./slug` importers keep resolving them; defined in engine-client/paths,
-// the shared spelling — the desktop app needs the same slug to migrate a workspace root.
-export { rootDir, slugify, userRoot };
+// Re-exported so `./slug` importers keep resolving them; defined in engine-client/paths.
+export { rootDir, slugify };
 
-// One ordinary path segment, by ALLOWLIST: a denylist lets "." through, which IS the user root.
+// One ordinary path segment, by ALLOWLIST: a denylist lets "." through, which IS the root.
 const WORKSPACE_NAME = /^[A-Za-z0-9][A-Za-z0-9._ -]*$/;
 
 export function assertWorkspaceName(name: string): void {
@@ -16,7 +16,7 @@ export function assertWorkspaceName(name: string): void {
     throw new Error(`invalid workspace name: ${name}`);
 }
 
-export function workspaceRoot(slug: string, workspace: string): string {
+export function workspaceRoot(workspace: string): string {
   assertWorkspaceName(workspace);
-  return join(userRoot(slug), workspace);
+  return join(rootDir(), workspace);
 }

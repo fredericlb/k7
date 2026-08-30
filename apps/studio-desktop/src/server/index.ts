@@ -13,6 +13,7 @@ import {
 import express from "express";
 import { line } from "../logbus.ts";
 import { mountLocalAuth } from "./auth.ts";
+import { attachCameraRtc } from "./cameraRtc.ts";
 import { type DesktopHooks, mountDesktopApi } from "./desktop.ts";
 import { serveFromVite } from "./devProxy.ts";
 import { serveFrontend } from "./frontend.ts";
@@ -111,6 +112,9 @@ export async function startLocalServer(
   // since that file is read on this machine only.
   const url = `http://127.0.0.1:${port}`;
   engine.serve(server, url);
+  // Beside the engine relay and on the same server: a lens this machine has, for a device that
+  // may not open one of its own (docs/camera.md).
+  attachCameraRtc(server, engine.registry);
   line("host", `serving st0 on ${url} (bound ${host})`);
 
   return {

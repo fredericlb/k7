@@ -177,8 +177,14 @@ filesRouter.post(
         console.warn(`[libraries] ${(e as Error).message}`);
       }
     try {
-      req.ws!.setActiveProject(path);
-      startEngineForActive(req.ws!);
+      // `.` is the WORKSPACE, which now holds several projects: it names one only when the
+      // folder itself is one. Otherwise the workspace decides — see docs/workspaces.md.
+      const want = path === "." ? req.ws!.defaultProject() : path;
+      // A workspace with no project at all opens as a tree; there is nothing to start.
+      if (want) {
+        req.ws!.setActiveProject(want);
+        startEngineForActive(req.ws!);
+      }
       res.json(req.ws!.workspaceInfo());
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });

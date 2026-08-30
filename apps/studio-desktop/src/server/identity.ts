@@ -1,12 +1,10 @@
-// identity.ts — who this machine's workspaces belong to. The file service keys
-// `~/.studio/root/<slug>` on an email (engine-client/paths' `slugify`), and offline there is
-// no OIDC to ask for one — so it is REMEMBERED. The hazard this file exists for: pairing a
-// server later changes the answer, and with it the slug, and every offline project would
-// simply stop being listed. Nothing errors. See ../../docs/identity.md.
+// identity.ts — who this machine's workspaces belong to. Offline there is no OIDC to ask, so
+// it is REMEMBERED; it names the engine SESSION and the SSH key directory, and the frontend
+// draws it. It no longer names a workspace directory — one machine holds one person's
+// workspaces (packages/engine-client/docs/paths.md), which is what retired the hazard this
+// file was written for. See ../../docs/identity.md.
 
-import { existsSync, renameSync } from "node:fs";
 import { userInfo } from "node:os";
-import { slugify, userRoot } from "@studio/engine-client/paths";
 import { loadSettings, saveSettings } from "@studio/engine-host/settings";
 import { line } from "../logbus.ts";
 
@@ -47,43 +45,12 @@ export function asUser(email: string): DesktopUser {
   return { sub: email, name: email.split("@")[0] ?? email, email, groups: [] };
 }
 
-/**
- * Adopt a new identity, taking the workspaces with it.
- *
- * This is the whole point of the file. Pair a server and the identity becomes the account's
- * email; the slug changes; `listWorkspaces` finds nothing under the new one and cheerfully
- * bootstraps a fresh empty `Examples`. The user's reading of that is "my songs are gone",
- * with no error anywhere to disagree. `rename-test-plan.md` already names `root/` as the one
- * thing that does not regenerate.
- *
- * Renames only when the old root exists and the new one does NOT — merging two real roots is
- * a decision, not a migration, and is left to the person who has both.
- */
+/** Adopt a new identity. It used to MOVE the workspaces; there is no slug in the tree now — ../../docs/identity.md. */
 export function adoptIdentity(next: string): { moved: boolean } {
   const settings = loadSettings();
-  const prev = settings.identity;
-  if (prev === next) return { moved: false };
-
-  let moved = false;
-  if (prev) {
-    const from = userRoot(slugify(prev));
-    const to = userRoot(slugify(next));
-    if (existsSync(from) && !existsSync(to)) {
-      try {
-        renameSync(from, to);
-        moved = true;
-        line("host", `workspaces moved with the identity: ${from} → ${to}`);
-      } catch (e) {
-        // Loud, because the consequence is an apparently empty machine.
-        line("host", `could not move ${from} → ${to}: ${String(e)}`);
-      }
-    } else if (existsSync(from) && existsSync(to)) {
-      line(
-        "host",
-        `both ${from} and ${to} exist — leaving them alone; the old workspaces are still there`,
-      );
-    }
-  }
+  if (settings.identity === next) return { moved: false };
   saveSettings({ ...settings, identity: next });
-  return { moved };
+  line("host", `identity: ${next}`);
+  // Kept in the shape the caller reads, and now always false: the workspaces never move.
+  return { moved: false };
 }

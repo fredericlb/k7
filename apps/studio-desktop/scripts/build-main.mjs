@@ -1,4 +1,6 @@
-// build-main.mjs — bundle the Electron main process to dist/main.cjs.
+// build-main.mjs — bundle the Electron main process to dist/main.cjs, and the tab preload
+// to dist/preload.cjs beside it (window.ts resolves it from __dirname, so they must be one
+// directory).
 // CJS on purpose: Electron's ESM main has sharp edges around asar and __dirname, and
 // there is nothing to gain here. `--watch` keeps a context open for the dev session.
 // `electron` is external because Electron provides it; `koffi` because it loads a .node.
@@ -22,8 +24,9 @@ function buildNumber() {
 }
 
 const options = {
-  entryPoints: [join(root, "src", "main.ts")],
-  outfile: join(root, "dist", "main.cjs"),
+  entryPoints: [join(root, "src", "main.ts"), join(root, "src", "preload.ts")],
+  outdir: join(root, "dist"),
+  outExtension: { ".js": ".cjs" },
   bundle: true,
   platform: "node",
   format: "cjs",

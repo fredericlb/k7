@@ -61,6 +61,7 @@ vi.mock("@studio/take-render/recordTake", () => ({
 
 const {
   ensureEngine,
+  noteOwner,
   sessionOf,
   setSelectedEngine,
   startEngineForActive,
@@ -69,12 +70,17 @@ const {
 } = await import("./engineLink.ts");
 
 const dirs: string[] = [];
-/** A workspace OWNED by `email` — that is what puts it in its own session — serving a real folder. */
-const wsFor = (email: string, name: string) => {
+/**
+ * Two sessions still coexist in this process, and they are no longer two PEOPLE: one machine
+ * holds one person's workspaces now (docs/activeProject.md). What is left is the owner's
+ * session and the BARE one — a folder opened from outside the workspaces root, which is what
+ * a preview and the engine queries run in. `inRoot` chooses which.
+ */
+const wsFor = (inRoot: boolean, name: string) => {
   const project = mkdtempSync(join(tmpdir(), "td-served-"));
   dirs.push(project);
   return {
-    root: join(rootDir(), slugify(email), "songs"),
+    root: inRoot ? join(rootDir(), "songs") : join(tmpdir(), "elsewhere", name),
     activeProjectPath: () => project,
     cachedProjectDoc: () => emptyDoc({ name }),
     invalidateProjectDoc: () => {},
@@ -92,6 +98,7 @@ const namesSent = (ws: { root: string }) =>
   clientFor(ws).sent.map((d) => d.name);
 
 beforeEach(() => {
+  noteOwner("someone@example.test"); // or the owner's session IS the bare one
   built.length = 0;
   addTakeToTrack.mockClear();
   // A fresh url each time, so setSelectedEngine really clears the link map rather than no-opping.
@@ -99,30 +106,32 @@ beforeEach(() => {
 });
 afterEach(async () => {
   // Both sessions, so no test leaves the next one a project it did not serve.
-  for (const email of ["ana@x.org", "bo@x.org"])
-    await unloadEngine({
-      root: join(rootDir(), slugify(email), "songs"),
-    } as never);
+  for (const root of [
+    join(rootDir(), "songs"),
+    join(tmpdir(), "elsewhere", "x"),
+  ])
+    await unloadEngine({ root } as never);
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
 describe("a socket coming back", () => {
   it("re-sends what ITS OWN session was serving, not the last workspace to open one", async () => {
-    // The stranding: with one global pair, Ana's reconnecting socket found a note naming Bo and declined to re-send.
+    // The stranding: with one global pair, the reconnecting socket found a note naming the
+    // OTHER session and declined to re-send.
     vi.useFakeTimers();
     try {
-      const ana = wsFor("ana@x.org", "ana-song");
-      const bo = wsFor("bo@x.org", "bo-song");
-      startEngineForActive(ana);
-      startEngineForActive(bo); // Ana is no longer "current" — and never was the point
+      const mine = wsFor(true, "my-song");
+      const bare = wsFor(false, "bare-song");
+      startEngineForActive(mine);
+      startEngineForActive(bare); // mine is no longer "current" — and never was the point
       // A baseline rather than a count: dialling sends once into the outbox and once from `open`.
-      const n = clientFor(ana).sent.length;
-      const m = clientFor(bo).sent.length;
+      const n = clientFor(mine).sent.length;
+      const m = clientFor(bare).sent.length;
 
-      clientFor(ana).close(); // the engine went away under her
+      clientFor(mine).close(); // the engine went away under it
       await vi.advanceTimersByTimeAsync(1100); // the re-dial, whose `open` restores the project
-      expect(namesSent(ana).slice(n)).toEqual(["ana-song"]);
-      expect(namesSent(bo).slice(m)).toEqual([]); // and nobody else's was touched
+      expect(namesSent(mine).slice(n)).toEqual(["my-song"]);
+      expect(namesSent(bare).slice(m)).toEqual([]); // and the other one was not touched
     } finally {
       vi.useRealTimers();
     }
@@ -130,20 +139,20 @@ describe("a socket coming back", () => {
 
   it("restores nothing for a session that was serving nothing", () => {
     // A link dialled for a preview alone, which is all there is before the first /open.
-    const ana = wsFor("ana@x.org", "ana-song");
-    ensureEngine(ana);
-    clientFor(ana).connect();
-    expect(namesSent(ana)).toEqual([]);
+    const mine = wsFor(true, "my-song");
+    ensureEngine(mine);
+    clientFor(mine).connect();
+    expect(namesSent(mine)).toEqual([]);
   });
 });
 
 describe("a take the engine reports", () => {
   it("lands in the project the RECORDING session is serving", () => {
-    // Through a global, a take is dropped after a restart and goes to the wrong song with two people.
-    const ana = wsFor("ana@x.org", "ana-song");
-    const bo = wsFor("bo@x.org", "bo-song");
-    startEngineForActive(ana);
-    startEngineForActive(bo);
+    // Through a global, a take is dropped after a restart and goes to the wrong song.
+    const mine = wsFor(true, "my-song");
+    const bare = wsFor(false, "bare-song");
+    startEngineForActive(mine);
+    startEngineForActive(bare);
 
     const take = {
       track: "gtr",
@@ -151,27 +160,27 @@ describe("a take the engine reports", () => {
       start: 0,
       length: 2,
     };
-    clientFor(ana).emit("recorded", take);
+    clientFor(mine).emit("recorded", take);
 
     expect(addTakeToTrack).toHaveBeenCalledTimes(1);
     const [dir, doc] = addTakeToTrack.mock.calls[0] as unknown as [
       string,
       ProjectDoc,
     ];
-    expect(dir).toBe(ana.activeProjectPath()); // hers, though Bo opened last
-    expect(doc.name).toBe("ana-song");
-    // Offered back to HER poll only: one shared `lastTake` handed the clip to whoever asked next.
-    expect(takeJustRecorded(ana)).toEqual({ clip: "take-1", track: "gtr" });
-    expect(takeJustRecorded(bo)).toBeNull();
+    expect(dir).toBe(mine.activeProjectPath()); // ours, though the other opened last
+    expect(doc.name).toBe("my-song");
+    // Offered back to OUR poll only: one shared `lastTake` handed the clip to whoever asked next.
+    expect(takeJustRecorded(mine)).toEqual({ clip: "take-1", track: "gtr" });
+    expect(takeJustRecorded(bare)).toBeNull();
   });
 
   it("says so, loudly, when its session is serving no project", () => {
     // The wav is on disk and this line is the only record of where it went; a bare `return` loses it.
-    const ana = wsFor("ana@x.org", "ana-song");
-    ensureEngine(ana);
+    const mine = wsFor(true, "my-song");
+    ensureEngine(mine);
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      clientFor(ana).emit("recorded", {
+      clientFor(mine).emit("recorded", {
         track: "gtr",
         file: "C:/takes/gtr.wav",
         start: 0,
@@ -179,7 +188,7 @@ describe("a take the engine reports", () => {
       });
       expect(addTakeToTrack).not.toHaveBeenCalled();
       expect(err.mock.calls[0]?.[0]).toContain("C:/takes/gtr.wav");
-      expect(err.mock.calls[0]?.[0]).toContain(sessionOf(ana));
+      expect(err.mock.calls[0]?.[0]).toContain(sessionOf(mine));
     } finally {
       err.mockRestore();
     }

@@ -24,16 +24,16 @@ const OUT = join(
 /** Wherever the current platform's preset put the binary. First one that exists wins. */
 function engineBinary() {
   const candidates = [
-    "build/windows-msvc/RelWithDebInfo/studio-moteur.exe",
-    "build/macos-clang/studio-moteur",
-    "build/dev-gcc/studio-moteur",
-    "build/dev-clang/studio-moteur",
-    "build/release-gcc/studio-moteur",
+    "build/windows-msvc/RelWithDebInfo/st0-engine.exe",
+    "build/macos-clang/st0-engine",
+    "build/dev-gcc/st0-engine",
+    "build/dev-clang/st0-engine",
+    "build/release-gcc/st0-engine",
   ].map((p) => join(moteur, p));
   const found = candidates.find((p) => existsSync(p));
   if (!found)
     throw new Error(
-      `no studio-moteur binary — build it first (npm run build:win|build:mac --workspace moteur).\nLooked in:\n  ${candidates.join("\n  ")}`,
+      `no st0-engine binary — build it first (npm run build:win|build:mac --workspace moteur).\nLooked in:\n  ${candidates.join("\n  ")}`,
     );
   return found;
 }

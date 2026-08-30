@@ -7,6 +7,8 @@ import { IDLE_TIMEOUT_MS } from "@studio/project-shell/idle";
 import App from "../App";
 import { engines } from "../api";
 import { m } from "../paraglide/messages.js";
+import { FirstProject } from "../projects/FirstProject";
+import { useInFront } from "../tabs/useInFront";
 import type { RankedEngine } from "../types";
 import { ExternalSurface } from "./ExternalSurface";
 
@@ -27,12 +29,15 @@ export function ProjectGate({
   /** …and taking it back. */
   onResume: () => void;
 }) {
+  // A tab behind another stops being that engine's client too, and does not wait twenty minutes — apps/studio-desktop/docs/tabs.md.
+  const inFront = useInFront();
   return (
     <Shared
       engine={engine}
       app="st0"
       // Twenty minutes untouched and this tab stops being a client of that engine.
       idleTimeoutMs={IDLE_TIMEOUT_MS}
+      asleep={!inFront}
       onIdle={onIdle}
       onResume={onResume}
       // The same two the router's basename is built from, read out of the address rather than handed over, so both sides agree.
@@ -48,6 +53,7 @@ export function ProjectGate({
         bothBody: m["filesGate.body"](),
         missingTitle: m["project.missingTitle"](),
         missingBody: m["project.missingBody"](),
+        emptyWorkspace: m["project.emptyWorkspace"](),
         librariesTitle: m["project.librariesTitle"](),
         librariesBody: m["project.librariesBody"](),
         benchWorkspace: m["project.benchWorkspace"](),
@@ -59,6 +65,10 @@ export function ProjectGate({
         }),
         resume: m["project.resume"](),
       }}
+      /* A workspace with nothing in it asks for its first project rather than refusing to open. */
+      renderEmpty={({ workspace, onCreated }) => (
+        <FirstProject workspace={workspace} onCreated={onCreated} />
+      )}
     >
       {({ workspace, project, userEmail, quit }) =>
         external ? (

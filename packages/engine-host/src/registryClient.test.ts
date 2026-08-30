@@ -1,22 +1,17 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-// `studioDir()` is `homedir()/.studio` with no env override, so the home directory IS the seam, mocked before the import below.
-let home = "";
-vi.mock("node:os", async (real) => {
-  const os = await real<typeof import("node:os")>();
-  return { ...os, homedir: () => home || os.homedir() };
-});
-
+// `$STUDIO_HOME` is the seam: where the state dir lives is the platform's business, and
+// mocking `homedir()` would miss `$APPDATA` / `$XDG_CONFIG_HOME` — packages/song/src/studioHome.ts.
 const { DEFAULT_STUDIO_URL, mediatekUrlFor, resolveRegistryUrls } =
   await import("./registryClient.ts");
 
 // Every hosted service holds its OWN registry, so an engine must heartbeat to all of them to be pickable in all of them.
 
 let dir: string;
-const endpoints = () => join(dir, ".studio", "web-endpoints");
+const endpoints = () => join(dir, "web-endpoints");
 const advertise = (service: string, url: string) => {
   mkdirSync(endpoints(), { recursive: true });
   writeFileSync(join(endpoints(), `${service}.json`), JSON.stringify({ url }));
@@ -24,11 +19,11 @@ const advertise = (service: string, url: string) => {
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-registry-"));
-  home = dir;
+  process.env.STUDIO_HOME = dir;
   delete process.env.STUDIO_REGISTRY_URL;
 });
 afterEach(() => {
-  home = "";
+  delete process.env.STUDIO_HOME;
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -51,9 +46,9 @@ describe("where an engine announces itself", () => {
 
   it("still reads the legacy single file, and does not list it twice", () => {
     // Both are kept so a version skew between backend and tray cannot cost an app its engine.
-    mkdirSync(join(dir, ".studio"), { recursive: true });
+    mkdirSync(dir, { recursive: true });
     writeFileSync(
-      join(dir, ".studio", "web-endpoint.json"),
+      join(dir, "web-endpoint.json"),
       JSON.stringify({ url: "http://localhost:8789" }),
     );
     expect(resolveRegistryUrls()).toEqual(["http://localhost:8789"]);
@@ -118,8 +113,8 @@ describe("which médiathèque this machine caches", () => {
   });
 });
 
-// A sanity check on the mock itself: a test that silently read the real ~/.studio would pass or fail on whatever this machine has.
-it("reads the temp home, not the real one", () => {
-  expect(home).not.toBe(homedir.toString());
+// A sanity check on the seam itself: a test that silently read the real state dir would pass or fail on whatever this machine has.
+it("reads the temp state dir, not the real one", () => {
+  expect(process.env.STUDIO_HOME).toBe(dir);
   expect(endpoints().startsWith(dir)).toBe(true);
 });

@@ -114,7 +114,7 @@ that it names none, which is a sentence you can act on.
 
 Does this desk SEPARATE a record it is handed unprepared? A `turntables` surface only, and a boolean
 rather than a chain ref: which module separates and which model it wants is one answer for the whole
-machine, and it lives in `~/.studio/preferences.yaml` where `system stems` puts it — asking a project
+machine, and it lives in `<state>/preferences.yaml` where `system stems` puts it — asking a project
 would be asking it a question that has nothing to do with it. What a SET decides is whether an hour
 of arithmetic may start because somebody put a record on — and that is
 worth deciding per set, because a rehearsal rig and a stage rig answer it differently. Absent is

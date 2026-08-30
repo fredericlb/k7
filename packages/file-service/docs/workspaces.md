@@ -9,12 +9,57 @@ doc, waveforms) persist across requests, plus the listings st0's home page and `
 workspace conjure one, and a browser tab still retrying with a remembered name would silently
 recreate a workspace you had just deleted, empty. Creation happens only in `createWorkspace`
 (from `POST /workspaces`), `cloneWorkspace` (from `POST /workspaces/clone`) and the one-off
-Examples bootstrap, so what is on disk changes because someone asked for it.
+Examples bootstrap, so what is on disk changes because someone asked for it. Those first two are
+the two ways one appears on st0's home page, and they are the same pair of buttons: **Nouveau**
+and **Importer**.
 
 The existence check runs before the memo, on every call: a folder deleted from Finder would
 otherwise be served from cache and 500 deep in `fs`. `UnknownWorkspaceError` is carried as a type
 so the HTTP layer can answer 404 rather than lumping it in with a malformed name, which is a 400
 — `workspaceRoot()` throws on a traversing or empty name.
+
+## A workspace does not need a repository
+
+`createWorkspace` **git-initialises** what it makes, with no remote at all **and nothing in it**.
+That is the ordinary first workspace: someone opens studio, makes one, and the editor asks what
+the first project should be. There is no host to name, no key to
+paste, no account to have — `@local/<espace>/<projet>` addresses it and every command that acts
+on the working copy works, `project commit` included. What does not work is the one thing that
+genuinely needs a repository: pushing.
+
+Three things are written at init, and each answers a failure:
+
+- **`main`, explicitly** (`git init -b main`). git's default branch name depends on the version
+  and on a config file this service deliberately ignores, and a workspace whose branch is
+  `master` on one machine and `main` on another is a push that is refused for a reason nobody
+  will guess.
+- **A `.gitignore`** — `_recycle_bin/`, `_history/`, `*.cache`, `.studio-active`. A clone brings
+  its author's; this one never had an author. Without it a deleted project comes back through
+  the repository, and the undo journal — a ring of up to a thousand entries, blobs included — is
+  committed and pushed with the song.
+- **A repo-local `user.email` / `user.name`.** Not hygiene: `gitEnvFor` pins
+  `GIT_CONFIG_GLOBAL` to `/dev/null` (see below), so a machine WITH a git identity has none
+  here, and the very first commit would fail with *"Please tell me who you are"* — on a musician's
+  machine, in a screen that has no business explaining git config.
+
+An init that fails is logged and not thrown: the folder exists and is usable, and the first
+`project commit` is what will say that it is not a repository. Creating the workspace and being
+able to version it are two different promises.
+
+## Its FIRST repository, later
+
+`setWorkspaceRemote` is that day: `git remote add origin` and `git push -u origin HEAD`, both in
+one call because they are one act — a remote nobody has pushed to is a workspace that LOOKS
+published and is not. It refuses a workspace that already has an origin, because re-pointing one
+at another repository is a different act with different consequences, and it is not this one.
+
+**A failed push takes the remote back off.** Otherwise the workspace is left claiming a
+repository it never reached: `listMachineWorkspaces` would draw its URI, `workspaceForRepo` would
+answer it, and st0 would stop offering the one button that fixes it. Half-published is the state
+worth not having.
+
+Both caches are dropped afterwards, and it has to be both: the row's origin comes from
+`remotes`, and the row itself from `listings`.
 
 ## Cloning
 
@@ -101,3 +146,19 @@ answers it in one place — see `apps/st0/frontend/docs/external.md`.
 
 `activeOf` reads the marker file straight off disk rather than opening a `Workspace`, which would
 build its caches to read one line.
+
+## Which project a bare workspace address opens
+
+`Workspace.defaultProject()` answers it, and `POST /open` calls it whenever the address said `.`
+without the workspace's own folder being a project. Three tiers, most deliberate first:
+
+1. the `.studio-active` marker — the project last open here, which is what someone coming back
+   expects;
+2. the first `projectDirsUnder(root)`, which is alphabetical because the walk is;
+3. `null` — and that is the ORDINARY state of a workspace just made, since `createWorkspace`
+   writes no project. The gate turns it into st0's first-project wizard rather than mounting an
+   editor over nothing (`packages/project-shell/docs/launch.md`).
+
+`setActiveProject` is untouched by all of this and keeps its exact rule: it checks existence
+before the name rule and refuses anything that is not a project folder. A fallback belongs where
+the ambiguity is, which is the address, not the check.

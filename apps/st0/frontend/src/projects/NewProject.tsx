@@ -12,45 +12,11 @@ import {
   DialogTitle,
 } from "@frediverse/ui/dialog";
 import { Input } from "@frediverse/ui/input";
-import {
-  PROJECT_SHAPES,
-  type ProjectShape,
-} from "@studio/song-schema/yaml/projectSchema";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { FolderPlus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { projectFolderName } from "./projectName";
-
-/** Ce que chaque ARCHETYPE ouvre, dans la langue de l'écran.
- *
- * Un RECORD sur `ProjectShape` et pas une liste : un archétype ajouté à `PROJECT_SHAPES` et pas ici
- * ne compile plus. C'est une deuxième copie de ce vocabulaire, et la première a dérivé — `live` est
- * arrivé dans l'enum sans arriver dans cette boîte, et rien ne pouvait le dire. */
-const WHAT: Record<ProjectShape, { label: string; what: string }> = {
-  arrangement: {
-    label: "arrangement",
-    what: "la timeline au-dessus du graphe — une piste, un synthé, un motif",
-  },
-  mix: {
-    label: "mix",
-    what: "deux platines, un crossfade, et une liste de morceaux vide",
-  },
-  video: {
-    label: "vidéo",
-    what: "la timeline et le viewport — l'arrangement, plus une piste d'image",
-  },
-  live: {
-    label: "live",
-    what: "aucune surface — une entrée, un fader, la sortie",
-  },
-  "live-video": {
-    label: "live vidéo",
-    what: "le même rig, plus une webcam et le viewport qu'elle remplit",
-  },
-};
-
-/** …dans l'ordre où le vocabulaire les déclare, qui est l'ordre où on les propose. */
-const SHAPES: { id: ProjectShape; label: string; what: string }[] =
-  PROJECT_SHAPES.map((id) => ({ id, ...WHAT[id] }));
+import { SHAPES } from "./shapes";
 
 export function NewProject({
   /** Why it is impossible, or "" — an offline machine is the ordinary state. */
@@ -110,7 +76,8 @@ export function NewProject({
             <DialogTitle>Nouveau projet</DialogTitle>
             <DialogDescription>
               Le projet est créé sur la machine choisie, avec les réglages par
-              défaut, puis committé et poussé.
+              défaut, puis committé — et poussé si l'espace de travail a un
+              dépôt.
             </DialogDescription>
           </DialogHeader>
 

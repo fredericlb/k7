@@ -25,7 +25,7 @@ name** rather than guessing.
 declares the type; nothing here reaches for the implementation.
 
 `stemsChain` is handed in for a different reason. The file is one import away and other `system`
-verbs do read `~/.studio/preferences.yaml` directly — but a suite exercising "no chain named"
+verbs do read `<state>/preferences.yaml` directly — but a suite exercising "no chain named"
 would otherwise pass or fail by whether whoever runs it has set one. The verb that WRITES it
 still writes it directly: that is its whole job.
 

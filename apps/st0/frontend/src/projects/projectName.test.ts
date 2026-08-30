@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectFolderName } from "./projectName";
+import { projectFolderName, workspaceFolderName } from "./projectName";
 
 describe("projectFolderName", () => {
   it("pose le suffixe de l'application choisie", () => {
@@ -52,5 +52,23 @@ describe("projectFolderName", () => {
     expect(projectFolderName("Back in Black (démo)", "st0").folder).toBe(
       "Back in Black (démo).st0",
     );
+  });
+});
+
+// A workspace is a plain folder: the same refusals, and no suffix on the end.
+describe("workspaceFolderName", () => {
+  it("ne met aucun suffixe", () => {
+    expect(workspaceFolderName("hiver").folder).toBe("hiver");
+  });
+
+  it("retire un suffixe déjà tapé — sinon `hiver.st0/` contiendrait `hiver.st0/`", () => {
+    expect(workspaceFolderName("hiver.st0").folder).toBe("hiver");
+  });
+
+  it("refuse ce que projectFolderName refuse, dans les mêmes mots", () => {
+    expect(workspaceFolderName("a/b").error).toBeTruthy();
+    expect(workspaceFolderName(".caché").error).toBeTruthy();
+    expect(workspaceFolderName("   ").error).toBeTruthy();
+    expect(workspaceFolderName(".st0").error).toBeTruthy();
   });
 });

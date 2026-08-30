@@ -12,7 +12,7 @@
 // `--hold=30 [--key]` répond à l'autre question : ce que HUIT plateaux coûtent en tournant, avec ou
 // sans étireur. Il charge deux platines séparées, les lance et tient ; le CPU se lit à côté :
 //
-//   Get-Process studio-moteur | Select-Object CPU   (deux fois, et on divise l'écart par le temps)
+//   Get-Process st0-engine | Select-Object CPU   (deux fois, et on divise l'écart par le temps)
 
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

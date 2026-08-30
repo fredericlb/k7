@@ -50,9 +50,9 @@ même corps à la journalisation près. C'est assumé, et c'est le raisonnement 
 - `commons/` est le socle partagé avec `phare`, et y toucher engage deux dépôts ;
 - créer un paquet pour dix lignes est une décision, pas un nettoyage.
 
-Ce qui les distingue vraiment est le canal : le superviseur écrit sur `stderr` parce que
-`ipcStdio` met `stdout` en quarantaine pour le NDJSON du capot ; le service écrit par
-`console.error` avec le préfixe `   ✗ ` de ses voisins. Deux journaux différents, un même
+Ce qui les distingue vraiment est le canal : le superviseur écrit sur `stderr`, où le capot
+le ramasse pour le journal fusionné ; le service écrit par `console.error` avec le préfixe
+`   ✗ ` de ses voisins. Deux journaux différents, un même
 corps — inscrit ici pour que la copie soit un état connu plutôt que de la pourriture.
 
 ## Ce que ça ne couvre pas

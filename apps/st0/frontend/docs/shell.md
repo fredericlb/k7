@@ -92,10 +92,21 @@ wiring and the layout; almost nothing else.
 
 | slot | what st0 puts there |
 |---|---|
-| `title` / `subtitle` | `st0`, and the build stamp |
-| `children` | the project's name, its alternatives picker, the workspace warning, and the **transport** centred over them |
+| `title` / `subtitle` | **nothing**, inside a project — see below |
+| `children` | the **master meter**, the project's name, its alternatives picker, the workspace warning, and the **transport** centred over them |
 | `items` | **empty** — see below |
 | `actions` | the pane row, Playlists (a SET only), Share, the cog — or, on a phone, the one menu they collapse into |
+
+**The name and the build stamp are gone from the bar, and the meter has their place.** The brand
+is what the home page says — repeating it over a song names the tool rather than the work — and
+the stamp said `dev` in every build ever shipped, `VITE_APP_VERSION` being set by nothing in this
+repo. What the left of a bar you look at while playing is worth is the one reading that moves:
+the master meter, which used to sit at the far right among the pane buttons, three groups away
+from the transport it belongs beside.
+
+The **way back to the home page** moved with it, onto the project's own name, which is the only
+name left in the bar. It is still a whole-page navigation and still plain text on a frozen share,
+for the same two reasons as before (`docs/shared.md`).
 
 The split between `items` and `actions` is the shared bar's own rule (*a page goes in `items`, a
 control goes in `actions`*), and here it lands on a real distinction. A **pane** button fullscreens
@@ -1355,7 +1366,7 @@ Where the two would otherwise be two copies of one behaviour, the behaviour live
 | the channel strip's mono/stereo pairing | `system channel type <ch> <mono\|stereo>` | `@studio/commands` — the rig's file AND the engine |
 | the Playlists panel's *＋* | `playlist new <name>` | `@studio/commands`, in `_playlists/` |
 | the Playlists panel's *Séparer les stems* | `playlist stems <playlist>` — the same work, song by song | pl8's `POST /api/stems`, see [playlists.md](playlists.md) |
-| the I/O tab's *séparation des stems* | `system stems <chaîne>` | `@studio/commands` — `~/.studio/preferences.yaml`, read by every screen that could start one |
+| the I/O tab's *séparation des stems* | `system stems <chaîne>` | `@studio/commands` — `<state>/preferences.yaml`, read by every screen that could start one |
 
 Two of those handles exist only for this: `EditorHandle` carries the tree's own verbs, and
 `FileTreeHandle` exposes the two things nothing else holds — the pins, which are that

@@ -21,7 +21,7 @@ légitime, et c'est exactement pour ça qu'il faut l'écrire d'avance.
 
 ## L'ordre des phases
 
-1. **Le dossier d'état** (`~/.studio`) — bloquant, et fait à la main. Rien ne démarre
+1. **Le dossier d'état** (`<state>`) — bloquant, et fait à la main. Rien ne démarre
    correctement tant que le contenu n'a pas bougé. On déplace le *contenu*, pas le dossier.
    Le log fusionné et le `engine.pid` ne se reprennent pas : le log est tronqué à chaque
    lancement et ne garderait que des lignes écrites par le moteur d'avant — dont une bannière
@@ -73,7 +73,7 @@ chacune de ces lignes produit un symptôme qu'on prendrait sinon pour un bug :
 |---|---|
 | une reconnexion | le cookie de session change de nom |
 | le choix d'espace de travail | clé localStorage renommée |
-| les préférences par service (`~/.studio/prefs/<service>/`) | répertoire renommé |
+| les préférences par service (`<state>/prefs/<service>/`) | répertoire renommé |
 | `%APPDATA%/Studio/Settings.xml` vierge | nom d'application JUCE renommé — le superviseur rebascule sur le bon périphérique au premier cycle de poll |
 | les alias de canaux et défauts MIDI de Tracktion | même cause ; les libellés d'entrée viennent de `preferences.yaml` et sont intacts |
 | `branch.<b>.studioParent` | clé git locale — les branches en cours perdent leur parent mémorisé |

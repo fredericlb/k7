@@ -42,7 +42,7 @@ Le projet dit `CUE`. Il ne dit pas quelle paire — une interface a une prise ca
 morceau ouvert, donc c'est un fait sur le rig, rangé avec les autres :
 
 ```yaml
-# ~/.studio/preferences.yaml
+# <state>/preferences.yaml
 cueOutput: [3, 4]      # ou "casque", un label de `channels.out`
 ```
 
@@ -113,7 +113,7 @@ Tout est lu sur le projet plutôt que supposé : le point de tap vient de `<deck
 de `<deck>.eqLow`. Une platine dont le mapping ne nomme ni l'un ni l'autre est **refusée nommément**
 plutôt qu'à moitié câblée — inventer un nom de nœud écrirait un départ que personne n'a demandé.
 
-Il ne touche **pas** `~/.studio` : la paire du casque appartient à une machine, et un projet qui
+Il ne touche **pas** `<state>` : la paire du casque appartient à une machine, et un projet qui
 voyage ne doit pas en porter une. `system cue` reste à faire, une fois par machine.
 
 Un test fige la propriété qui pourrirait en silence — un set migré est **exactement** le set que le

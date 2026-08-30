@@ -3,7 +3,7 @@
 ## Names, and the three this rename did NOT touch
 
 The binary and the displayed name are `studio-capot`; the engine it supervises is
-`studio-moteur`. That covers the npm package, electron-builder's `productName`, the tooltip,
+`st0-engine`. That covers the npm package, electron-builder's `productName`, the tooltip,
 the Quit item and the AppleScript dialog titles.
 
 Three names stayed, each for a reason worth more than consistency:
@@ -13,11 +13,11 @@ Three names stayed, each for a reason worth more than consistency:
   its microphone and automation (TCC) grants and its login item while leaving the old one
   registered. It is also what `requestSingleInstanceLock` keys on, so a mid-flight change means
   two trays can run at once. Its own migration, not a side effect of a rename.
-* **`~/.studio/engine-tray.json`**, the supervisor's settings. Renaming the file discards
+* **`<state>/engine-tray.json`**, the supervisor's settings. Renaming the file discards
   every existing user's audio-device pick and registry override. Read-old/write-new, or
   not at all.
-* **`~/.studio/.studio-engine.log`**, and the `STUDIO_*` environment variables, and
-  `x-studio-engine-token`. All part of the `~/.studio` contract, which the plan keeps as a
+* **`<state>/.studio-engine.log`**, and the `STUDIO_*` environment variables, and
+  `x-studio-engine-token`. All part of the `<state>` contract, which the plan keeps as a
   separate change for the same reason: a partial landing destroys user data.
 
 The pattern: a *build artifact* can be renamed in one commit because the next build
@@ -37,13 +37,16 @@ Under WSL it is needed **twice** — once in the distro and once in the mirror
 ---
 
 `studio-capot` is an ordinary windowed app. It is the **VIEW** over the
-supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
-stdio: the supervisor owns the `~/.studio` contract, the registry, and — stage by stage —
-the engine and the file service. The app renders its snapshots and sends its clicks back.
+supervisor (`@studio/engine-host`), which it **embeds**: `startSupervisor` runs in this
+process, and the supervisor owns the `<state>` contract, the registry, the engine and the
+file service. The app renders its snapshots and sends its clicks back. Why it stopped being a
+child process, and the three things that had to be handed to it once it was not:
+`docs/supervisor.md`.
 
 Nothing in this app opens a socket, spawns a process or reads a state file. What to allow,
-which engine is running, what the ports are, where to heartbeat: all of it comes down in a
-snapshot (`host.ts`), and a click goes back up as a command.
+which engine is running, what the ports are, where to heartbeat: all of it comes through a
+snapshot (`supervisorLink.ts`), and a click goes back as a command. Sharing an address space
+does not make reaching past that seam any more correct.
 
 ## The window IS the app
 
@@ -63,7 +66,7 @@ what this was, and it has two consequences worth stating rather than discovering
   configured server, so a hosted st0 can pick this engine — for as long as the window is open.
 
 Whoever wants an engine with no window runs **`studio-engine`**, the same `startSupervisor`
-with a terminal in front of it. `~/.studio/engine-host.pid` keeps the two from running at once:
+with a terminal in front of it. `<state>/engine-host.pid` keeps the two from running at once:
 the second refuses and names the first, which is what stops one stopping the other's engine.
 
 ## Safety rule: never kill someone else's engine
@@ -79,15 +82,16 @@ The graceful path stops the engine and file service when the user closes the win
 nothing runs when the app is force-killed or crashes — and its children would then orphan and
 keep the engine and file ports bound.
 
-A job object closes that gap. Every process the app spawns is assigned to one job whose
-`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` flag terminates all members when the last handle to
-the job closes, and the OS closes our handles when the app ends however it ends. It also
-subsumes the grandchild problem for free: a process created *by* a job member joins the job
-automatically, so the `tsx`-forked file-service node is covered with no tree walking.
+A job object closes that gap. Its `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` flag terminates all
+members when the last handle to the job closes, and the OS closes our handles when the app ends
+however it ends. It subsumes the grandchild problem for free: a process created *by* a job
+member joins automatically, so the forked file-service node is covered with no tree walking.
 
-This is why the job is created at the top of `whenReady()` **before anything is spawned** —
-membership is inherited, so a force-killed app takes the whole stack with it. Off Windows the
-closing stdin pipe plays the same role.
+**This process is itself the member.** `job.assignSelf()` runs beside `job.init()` at the top
+of `whenReady()`, **before anything is spawned** — membership is inherited, so everything the
+embedded supervisor starts from here joins. When the supervisor was a child there was one
+`assign()` call and it covered the tree; with the child gone, forgetting to join ourselves
+leaves the engine and the file service in no job at all, and the safety net silently off.
 
 **The three Win32 calls go through `koffi`**, an `optionalDependency` loaded lazily on win32
 only. That is the answer to a question the port had to settle out loud: not an in-repo N-API
@@ -111,6 +115,20 @@ is still up and the entry still means something), then stop the file service and
 engine, foreign or not — closing the app is terminal, and an engine left listening holds
 the audio device and both ports.
 
+### The pid is taken before the teardown, not after
+
+`backstop()` is handed the engine's pid by `before-quit`, read **before** `shutdownAndWait()`
+runs. The pidfile is the contract, and the shutdown REMOVES it — so a teardown that got as far
+as removing it and no further would leave the backstop with nothing to read, and the engine
+holding the audio device and both ports with nobody supervising it. Reading it first closes
+that window; the cost is that the pid could in principle be recycled in the seconds between,
+the same trap `hostLock.ts` documents, and here the window is a quit rather than a session.
+
+The quit says what it did: `quitting: stopping the engine…`, then `quit` — and, only when the
+graceful path did not finish in time, `the engine outlived the teardown — killed by the
+backstop`. That middle line is the one worth grepping for: it means the 3-second grace in
+`supervisorLink.ts` expired, which is a real answer rather than an absence.
+
 `pidkill.ts` is the second half of that sentence, and runs after the supervisor on the way
 out for the case where it never got there: it hung on an unresponsive registry and was
 killed past its deadline, or it had already crashed when the user quit. An engine that
@@ -121,52 +139,43 @@ supervising. The pidfile is the contract both sides already agree on (see
 Signals get the same treatment as closing the window: launchd sends SIGTERM to stop a LaunchAgent
 (autostart), and a Ctrl-C in dev should deregister and stop the owned engine too.
 
-## Finding the supervisor (`hostCmd.ts`)
+## There is no supervisor to find
 
-The tray answers one question — "what do I exec?" — in three tiers, and says clearly when
-the answer is "nothing", because a tray that silently supervises nothing looks exactly like
-a healthy one:
+There were three tiers answering "what do I exec?" — an env override, the vendored `node` on
+the app's staged `engine-host.mjs`, and the repo's `tsx` on the TypeScript source — plus the
+rule that a miss had to be LOUD, since an app supervising nothing looks exactly like a healthy
+one. All of it is gone with the child process. What replaced the *packaged* half of it is
+`setBundleRoot`, because the supervisor still has to find the file service and the demos and
+can no longer do it from `process.execPath` — `docs/supervisor.md`.
 
-1. **`$STUDIO_ENGINE_HOST_CMD`** — an executable run with no arguments. The escape hatch
-   for testing a custom supervisor build.
-2. **Packaged** — the vendored `node` beside our executable, running the esbuild'd
-   `engine-host.mjs` from the app's resources. Nothing on PATH, no repo needed.
-3. **Dev** — `node` from PATH running the repo's `tsx` CLI on the TypeScript source, so
-   `npm run engine:dev` supervises with no build step.
+## The link itself (`supervisorLink.ts`)
 
-Tier 3 exists only because `buildDevApp()` deliberately ships an app with an empty
-`resources` list; that is what makes a dev build take this path rather than a stale bundle.
-
-## The link itself (`host.ts`)
-
-One JSON object per line: snapshots and notifications come up on the supervisor's stdout,
-commands go down its stdin. The written definition of the format is
-`packages/engine-host/src/hostProtocol.ts`, and `host.ts` IMPORTS it — there is no mirror at
+`HostTransport` is two function calls: `emit` hands a frame to the window, `listen` takes
+commands. The written definition of what moves is
+`packages/engine-host/src/hostProtocol.ts`, and the app IMPORTS it — there is no mirror at
 all, which is what the port to Electron bought: the hand-written Rust `Snapshot` that had to
-be kept in step is simply gone. (The C++
-engine still mirrors `engine-protocol` by hand, and still has to.)
+be kept in step is simply gone. Nothing is serialised any more either, so the rule that used to
+sit under it — *stdout IS the protocol, one stray line corrupts everything* — has no work left
+to do. (The C++ engine still mirrors `engine-protocol` by hand, and still has to.)
 
 The app reads only the fields it draws and ignores the rest, exactly as the partial serde
 mirror did — but now by not referencing them, rather than by omitting them from a second
 declaration that could drift.
 
-The supervisor is spawned into the kill-on-close job, which makes it (and everything it
-comes to own) die with the tray on Windows however the tray ends; on Unix the pipe does the
-same. A supervisor that crashes is relaunched with 1s→30s backoff, and the engine survives
-that because the pidfile lets the fresh supervisor re-adopt it.
+The supervisor shares this process, so it cannot outlive the app or crash separately from it;
+what it spawns is in the kill-on-close job and dies with us on Windows however we end. The
+pidfile lock stays, because `studio-engine` can still be running — and a crashed one leaving a
+stale pid behind is a known trap, `packages/engine-host/src/hostLock.ts`.
 
 ## The merged log (`logbus.ts`)
 
-`~/.studio/.studio.log` is written by the supervisor, which owns the engine and the
+`<state>/.studio.log` is written by the supervisor, which owns the engine and the
 file service and pumps both into it. Two jobs are left on the tray side:
 
-1. **Truncate it once, at startup.** The tray's lifetime is what "a session" means, and it
-   is the only process that knows a session began: the supervisor can be relaunched
-   mid-session after a crash, and truncating there would wipe the log the user is reading
-   to find out why it crashed.
-2. **Write the `[host]` lines** — the supervisor's own stderr, plus the tray's notes about
-   starting and losing it. These are what remain when the supervisor is the thing that
-   broke, so they cannot live in the supervisor.
+1. **Truncate it once, at startup.** The app's lifetime is what "a session" means, and the
+   truncate belongs at its start rather than anywhere inside the supervisor's own setup.
+2. **Write the `[host]` lines** — the app's notes about starting the supervisor and about
+   what it reported going wrong.
 
 Both writers open in APPEND mode after the truncate. A single append-mode write is atomic
 on both platforms, so whole lines interleave rather than tearing.

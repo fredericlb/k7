@@ -1,8 +1,8 @@
 // job.ts — a Windows Job Object with kill-on-close, so a force-killed or crashed app can't
 // orphan the engine and file service holding their ports. Membership is INHERITED, which is
-// why init() must run before anything spawns and why assigning the supervisor alone covers
-// the engine and the tsx-forked file service for free. A no-op off Windows, where the closing
-// stdin pipe plays the same role. See docs/lifetime.md.
+// why init() must run before anything spawns and why putting THIS process in covers the
+// engine and the file service for free — the supervisor runs in here now. A no-op off
+// Windows, where the closing stdin pipe plays the same role. See docs/lifetime.md.
 
 import type { ChildProcess } from "node:child_process";
 import { line } from "./logbus.ts";
@@ -113,10 +113,25 @@ export function init(): void {
  * some CI agents and MDM setups do); the child then falls back to the graceful quit path.
  */
 export function assign(child: ChildProcess): void {
-  if (!job || !k32 || child.pid === undefined) return;
-  const proc = k32.OpenProcess(PROCESS_ACCESS, false, child.pid);
+  if (child.pid === undefined) return;
+  assignPid(child.pid);
+}
+
+/** Put THIS process in, so all it spawns inherits — the supervisor is no longer a child to assign. */
+export function assignSelf(): void {
+  assignPid(process.pid);
+}
+
+function assignPid(pid: number): void {
+  if (!job || !k32) {
+    // Silence here is what "the safety net is off" used to look like from the outside.
+    if (process.platform === "win32")
+      line("host", `no job to put pid ${pid} in — a force-kill will orphan`);
+    return;
+  }
+  const proc = k32.OpenProcess(PROCESS_ACCESS, false, pid);
   if (!proc) {
-    line("host", `could not open pid ${child.pid} to put it in the job`);
+    line("host", `could not open pid ${pid} to put it in the job`);
     return;
   }
   try {

@@ -212,7 +212,7 @@ hot-reload, only a binary to relink and a process to restart. **The app is no lo
 position.** `apps/studio-desktop/dist/main.cjs` is an esbuild bundle, not a linked image, so a
 running app does not hold it open — its BUILD is an ordinary Tilt resource (`capot`, running
 `build-main.mjs --watch`), and only its LIFETIME stays here, because a running engine holds
-`studio-moteur` open and nothing but stopping the app releases it.
+`st0-engine` open and nothing but stopping the app releases it.
 
 | target | watched | rebuilt with |
 |---|---|---|
@@ -230,8 +230,8 @@ rebuilding it would double the wait for something the tray never runs.
 
 **A running image cannot be relinked.** On Windows the file is held open for write, so
 a relink against a live binary fails with a confusing linker error, and the engine's
-does the same while the supervisor has `studio-moteur.exe` running. The order is
-therefore stop → build → start, exactly as `restart-tray.mjs` does it.
+does the same while the supervisor has `st0-engine.exe` running. The order is
+therefore stop → build → start, exactly as `restart-app.mjs` does it.
 
 And the thing that must be stopped is *the same tray* for both targets: killing it takes
 the supervisor, the engine and the file service down with it through the job object. Two
@@ -261,7 +261,7 @@ silently run the engine you had before a `git pull`.
 
 ### A build that succeeds without replacing the image
 
-MSBuild prints `studio-moteur.vcxproj -> …exe` and exits **0** when a running engine holds the
+MSBuild prints `st0-engine.vcxproj -> …exe` and exits **0** when a running engine holds the
 file, so the session would go on running the code you just changed away from. `buildEngine`
 therefore checks the binary's mtime afterwards.
 
@@ -292,7 +292,7 @@ npm run tray:stop --workspace studio-desktop
 ## Where the steps live
 
 `apps/studio-desktop/scripts/appProcess.mjs` holds the tray's lifetime as functions — `running`,
-`stopAll`, `buildDevApp`, `launch` — and `restart-tray.mjs` is a thin CLI over it.
+`stopAll`, `buildDevApp`, `launch` — and `restart-app.mjs` is a thin CLI over it.
 The one difference from a script is that every step **throws** rather than calling
 `process.exit`: a one-shot command turns that into an exit code, and a watcher meant to
 outlive a bad build cannot afford either. See

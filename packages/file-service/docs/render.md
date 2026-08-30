@@ -6,7 +6,7 @@ and cannot exec anything itself.
 
 ## Why a process and not a message
 
-`--render` is a **one-shot CLI mode** — `studio-moteur --render - --out <dir>` — and it
+`--render` is a **one-shot CLI mode** — `st0-engine --render - --out <dir>` — and it
 stays one. The live engine holds an ASIO device, and the cost of a second `te::Engine`
 appearing beside it is known:
 

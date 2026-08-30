@@ -2,14 +2,22 @@
 // whether st0 clones or opens, and a wrong answer costs either a duplicate clone or a 404.
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // STATIC, not `await import(...)`: paying this module's load in the first test body blew the 5 s timeout.
-import { slugify, userRoot } from "./slug.ts";
+import { rootDir } from "./slug.ts";
 import {
+  createWorkspace,
   listMachineWorkspaces,
+  setWorkspaceRemote,
   workspaceForRepo,
   workspaceNameFor,
 } from "./workspaces.ts";
@@ -41,7 +49,7 @@ afterEach(() => {
 });
 
 const myRoot = (): string => {
-  const root = userRoot(slugify(USER));
+  const root = rootDir();
   mkdirSync(root, { recursive: true });
   return root;
 };
@@ -84,16 +92,12 @@ describe("workspaceForRepo", () => {
 
 describe("workspaceNameFor", () => {
   it("is the repository's own name", () => {
-    expect(workspaceNameFor(USER, "git@github.com:me/my-songs.git")).toBe(
-      "my-songs",
-    );
+    expect(workspaceNameFor("git@github.com:me/my-songs.git")).toBe("my-songs");
   });
 
   it("steps aside for a folder that is already there", () => {
     mkdirSync(join(myRoot(), "songs"), { recursive: true });
-    expect(workspaceNameFor(USER, "git@github.com:me/songs.git")).toBe(
-      "songs-2",
-    );
+    expect(workspaceNameFor("git@github.com:me/songs.git")).toBe("songs-2");
   });
 });
 
@@ -155,5 +159,85 @@ describe("listMachineWorkspaces", () => {
       { path: "hiver.st0", app: "st0" },
       { path: "quiz.z0", app: "z0" },
     ]);
+  });
+});
+
+describe("a workspace made here, which starts with no repository", () => {
+  const gitIn = (dir: string, ...args: string[]): string =>
+    execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+
+  it("is a git repository with nothing to push to", async () => {
+    myRoot();
+    expect(await createWorkspace(USER, "hiver")).toBe(true);
+    const dir = join(rootDir(), "hiver");
+    expect(gitIn(dir, "rev-parse", "--is-inside-work-tree")).toBe("true");
+    // No remote: that is the whole point, and what the row draws as "on this machine only".
+    expect(gitIn(dir, "remote")).toBe("");
+    expect(await workspaceForRepo(USER, "git@github.com:me/hiver.git")).toBe(
+      null,
+    );
+  });
+
+  it("can commit with no git identity on the machine", async () => {
+    // GIT_CONFIG_GLOBAL is pinned to /dev/null, so the repo-local identity is the only one there is.
+    myRoot();
+    await createWorkspace(USER, "hiver");
+    const dir = join(rootDir(), "hiver");
+    writeFileSync(join(dir, "a.yaml"), "x: 1\n");
+    gitIn(dir, "add", "-A");
+    gitIn(dir, "-c", "core.hooksPath=", "commit", "-m", "first");
+    expect(gitIn(dir, "rev-parse", "--abbrev-ref", "HEAD")).toBe("main");
+  });
+
+  it("ignores what a workspace makes and no repository should carry", async () => {
+    myRoot();
+    await createWorkspace(USER, "hiver");
+    const ignored = readFileSync(
+      join(rootDir(), "hiver", ".gitignore"),
+      "utf8",
+    );
+    for (const line of [
+      "_recycle_bin/",
+      "_history/",
+      "*.cache",
+      ".studio-active",
+    ])
+      expect(ignored).toContain(line);
+  });
+
+  it("refuses a second repository rather than re-pointing the first", async () => {
+    checkout(myRoot(), "songs", "git@github.com:me/songs.git");
+    await expect(
+      setWorkspaceRemote(USER, "songs", "git@github.com:me/other.git"),
+    ).rejects.toThrow(/already has a repository/);
+  });
+
+  it("refuses a uri git must never be handed, before touching the workspace", async () => {
+    myRoot();
+    await createWorkspace(USER, "hiver");
+    await expect(
+      setWorkspaceRemote(USER, "hiver", "https://github.com/me/hiver"),
+    ).rejects.toThrow(/not an SSH git URI/);
+    expect(
+      execFileSync("git", ["remote"], {
+        cwd: join(rootDir(), "hiver"),
+        encoding: "utf8",
+      }).trim(),
+    ).toBe("");
+  });
+
+  it("leaves no half-published workspace when the push is refused", async () => {
+    myRoot();
+    await createWorkspace(USER, "hiver");
+    // A host that does not answer: the remote is added, the push fails, and the remote goes back.
+    await expect(
+      setWorkspaceRemote(USER, "hiver", "git@127.0.0.1:nope/nope.git"),
+    ).rejects.toThrow();
+    expect(
+      execFileSync("git", ["remote"], {
+        cwd: join(rootDir(), "hiver"),
+        encoding: "utf8",
+      }).trim(),
+    ).toBe("");
   });
 });

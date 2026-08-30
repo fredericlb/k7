@@ -13,11 +13,13 @@ import type {
 import type { PaletteArg, PaletteCommand } from "../components/CommandBar";
 import { engineMachine, type Machine, projects as registry } from "./api";
 import {
+  createLocalWorkspace,
   createProjectOnMachine,
   deleteProjectOnMachine,
   ensureWorkspace,
+  publishWorkspace,
 } from "./machine";
-import { projectFolderName } from "./projectName";
+import { projectFolderName, workspaceFolderName } from "./projectName";
 
 /** The catalogue, in the same shape the editor's is — imperative, no example, no full stop, 60 characters at most in each language. */
 export const HOME_COMMANDS: {
@@ -62,6 +64,35 @@ export const HOME_COMMANDS: {
       fr: "Supprimer le projet désigné, et pousser",
     },
     args: [{ name: "name", kind: "file", hint: "the same project again" }],
+  },
+  {
+    canonical: "system workspace new",
+    readable: {
+      en: "Make an empty workspace here, with no repository behind it",
+      fr: "Créer un espace de travail vide ici, sans dépôt derrière",
+    },
+    args: [
+      {
+        name: "name",
+        kind: "text",
+        hint: "its name — the folder takes it, and it starts empty",
+      },
+    ],
+  },
+  {
+    canonical: "system workspace publish",
+    readable: {
+      en: "Give a local workspace its first repository, and push",
+      fr: "Donner son premier dépôt à un espace local, et pousser",
+    },
+    args: [
+      { name: "workspace", kind: "choice", hint: "one with no repository yet" },
+      {
+        name: "repo_url",
+        kind: "text",
+        hint: "an SSH URI — the repository must exist and be empty",
+      },
+    ],
   },
   {
     canonical: "system repo add",
@@ -174,6 +205,9 @@ export function homeArgValues(
     const found = resolveWorkspace(ctx);
     return "ws" in found ? found.ws.projects.map((p) => p.path) : [];
   }
+  // Only the ones that HAVE none: offering the rest would offer an act that is refused by definition.
+  if (canonical === "system workspace publish" && argIndex === 0)
+    return ctx.workspaces.filter((w) => !w.origin).map((w) => w.name);
   if (canonical === "system repo remove" && argIndex === 0)
     return ctx.repos.map((r) => r.name);
   // …and SYNC offers what the MACHINE holds rather than what pl8 registers: a clone added by hand is still one you can push.
@@ -193,6 +227,8 @@ export interface HomeActs {
   create: typeof createProjectOnMachine;
   remove: typeof deleteProjectOnMachine;
   clone: typeof ensureWorkspace;
+  newWorkspace: typeof createLocalWorkspace;
+  publish: typeof publishWorkspace;
   addRepo: (uri: string) => Promise<unknown>;
   forgetRepo: (id: string) => Promise<unknown>;
   command: typeof engineMachine.command;
@@ -202,6 +238,8 @@ export const HOME_ACTS: HomeActs = {
   create: createProjectOnMachine,
   remove: deleteProjectOnMachine,
   clone: ensureWorkspace,
+  newWorkspace: createLocalWorkspace,
+  publish: publishWorkspace,
   addRepo: (uri) => registry.add(uri),
   forgetRepo: (id) => registry.remove(id),
   command: engineMachine.command,
@@ -337,6 +375,58 @@ export async function runHomeCommand(
       return true;
     }
 
+    case "system workspace new": {
+      if (!rest) return use(d.refuse, "usage: system workspace new <nom>");
+      const { folder, error } = workspaceFolderName(rest);
+      if (error) return use(d.refuse, error);
+      const m = machineOf(d);
+      if (!m) return true;
+      try {
+        const { workspace } = await d.acts.newWorkspace(m, folder, d.say);
+        d.changed();
+        // Said out loud: it holds nothing, and the editor is where the first project is chosen.
+        d.say(
+          `+ ${workspace} — vide et sans dépôt ; ouvrez-le pour y faire un projet`,
+        );
+      } catch (e) {
+        d.refuse(`system workspace new: ${(e as Error).message}`);
+      }
+      return true;
+    }
+
+    case "system workspace publish": {
+      const [name, uri] = rest.split(/\s+/).filter(Boolean);
+      if (!name || !uri)
+        return use(
+          d.refuse,
+          "usage: system workspace publish <espace> <uri ssh>",
+        );
+      const ws = d.workspaces.find((w) => w.name === name);
+      if (!ws) return use(d.refuse, `aucun espace de travail « ${name} »`);
+      // Said rather than attempted: the machine would refuse it too, and later.
+      if (ws.origin)
+        return use(
+          d.refuse,
+          `${name} a déjà un dépôt (${ws.origin}) — publier est pour un espace qui n'en a pas`,
+        );
+      const m = machineOf(d);
+      if (!m) return true;
+      try {
+        const { registered } = await d.acts.publish(m, name, uri, d.say, (u) =>
+          d.acts.addRepo(u),
+        );
+        d.changed();
+        d.say(
+          registered
+            ? `${name} publié — /${repoShortName(uri)}/… se résout maintenant`
+            : `${name} poussé, mais le dépôt n'a pas pu être inscrit — l'adresse courte ne se résout pas`,
+        );
+      } catch (e) {
+        d.refuse(`system workspace publish: ${(e as Error).message}`);
+      }
+      return true;
+    }
+
     case "system repo add": {
       const uri = rest;
       if (!uri) return use(d.refuse, "usage: system repo add <uri ssh>");
@@ -411,6 +501,10 @@ export async function runHomeCommand(
   }
   return false;
 }
+
+/** The last segment of an SSH URI without `.git` — what pl8 will file it under, and what the address carries. */
+const repoShortName = (uri: string): string =>
+  (uri.split("/").pop() ?? uri).replace(/\.git$/i, "");
 
 /** Say it and answer `true` — the branches above are one statement each because of it. */
 function use(to: (s: string) => void, text: string): boolean {

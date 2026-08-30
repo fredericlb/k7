@@ -1,4 +1,4 @@
-// EngineSection.tsx — the engine, its plugins and its audio interface. The rules the tray menu
+// EngineSection.tsx — the engine, its plugins and its file service. The rules the tray menu
 // carried come with it: Stop and Restart are enabled ONLY for an engine this supervisor spawned
 // (a foreign one belongs to whoever started it), and a dead file service turns the status red
 // even with the engine fine, because "running" would otherwise be a lie.
@@ -7,10 +7,8 @@
 import type { HostCommandName } from "@studio/engine-host/hostProtocol";
 import type { DesktopState } from "../desktop";
 import {
-  audioRow,
   engineActions,
   fileServiceWarning,
-  missingDevice,
   pluginsLine,
   statusLine,
 } from "./rules";
@@ -81,59 +79,6 @@ export function EngineSection({
           Clear waveform cache
         </Action>
       </Row>
-
-      {(s?.audioDevices.length || s?.audioPreferred) && (
-        <AudioRows state={state} send={send} />
-      )}
     </Section>
-  );
-}
-
-function AudioRows({
-  state,
-  send,
-}: {
-  state: DesktopState;
-  send: (cmd: HostCommandName, arg?: string) => void;
-}) {
-  const s = state.snapshot;
-  if (!s) return null;
-  const missing = missingDevice(s);
-
-  return (
-    <>
-      {s.audioDevices.map((d) => (
-        <Row key={d.name} {...audioRow(d, s)}>
-          <Action
-            onClick={() => send("audio.select", d.name)}
-            disabled={d.current}
-          >
-            Use
-          </Action>
-          <Action
-            onClick={() => send("audio.fallback", d.name)}
-            disabled={s.audioFallback === d.name}
-          >
-            Fallback
-          </Action>
-        </Row>
-      ))}
-      {missing && (
-        // Listed even when absent, or "why am I not on my interface?" has no answer on screen.
-        <Row label={`○ ${missing}`} detail="preferred — not connected" />
-      )}
-      <Row
-        label={`Fallback: ${s.audioFallback ?? "none"}`}
-        detail="Where to go when the pick is not there — the point is never to end up on no device."
-      >
-        {/* "" is meaningful on the wire: it IS none. */}
-        <Action
-          onClick={() => send("audio.fallback", "")}
-          disabled={s.audioFallback === null}
-        >
-          None
-        </Action>
-      </Row>
-    </>
   );
 }

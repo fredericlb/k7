@@ -22,7 +22,7 @@ import {
   type RecordedTake,
 } from "@studio/engine-client/engineClient";
 import type { SessionInfo } from "@studio/engine-client/engineControl";
-import { SESSIONS } from "@studio/engine-protocol/sessions";
+import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { listBaseModules } from "@studio/song/loader";
 import { loadPreferences } from "@studio/song/preferences";
 import type { ProjectDoc, TrackDoc } from "@studio/song/project";
@@ -102,13 +102,21 @@ function noteServed(ws: Workspace, project: string): void {
   });
 }
 
-/** Which session a workspace's project belongs to, from the OWNER SLUG — docs/activeProject.md. */
+/** Whose workspaces this machine holds. One root means one person — docs/activeProject.md. */
+let owner = "";
+
+/** Told by the request that carries it; the path no longer says, since the slug left the tree. */
+export function noteOwner(email: string): void {
+  if (email) owner = email;
+}
+
+/** Which session this machine's projects belong to — through `sessionFor`, so the browser's half cannot differ. */
 export function sessionOf(ws: { root: string } | null): string {
-  if (!ws) return SESSIONS.st0;
+  if (!ws || !owner) return SESSIONS.st0;
   const rel = relative(rootDir(), ws.root);
-  const slug = rel.split(/[\\/]/)[0];
-  if (!slug || slug.startsWith("..")) return SESSIONS.st0;
-  return `${SESSIONS.st0}:${slug}`;
+  // Outside the root is a workspace this service does not own — the bare session, as before.
+  if (!rel || rel.startsWith("..")) return SESSIONS.st0;
+  return sessionFor(SESSIONS.st0, owner);
 }
 
 /** The note above read from outside, in ADDRESSES rather than paths — see docs/activeProject.md. */
@@ -120,11 +128,11 @@ export function servedProject(
     served.get(`${SESSIONS.st0}:${slug}`) ?? served.get(SESSIONS.st0) ?? null;
   if (!s) return null;
   const ws = relative(rootDir(), s.ws.root).split(/[\\/]/);
-  // Anything but `<slug>/<workspace>` is a workspace this machine cannot name in an address.
-  if (ws.length < 2 || !ws[1]) return null;
+  // Anything but a single `<workspace>` is one this machine cannot name in an address.
+  if (!ws[0] || ws[0].startsWith("..")) return null;
   const rel = relative(s.ws.root, s.project).replace(/\\/g, "/");
   // `.` for a lone-project clone, which is how the surface listing spells it too.
-  return { workspace: ws[1], path: rel === "" ? "." : rel };
+  return { workspace: ws[0], path: rel === "" ? "." : rel };
 }
 
 function wireEngine(session: string, e: EngineClient): void {

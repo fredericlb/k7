@@ -16,14 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildGraphDoc } from "./graphDoc";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 
 let dir: string;
 

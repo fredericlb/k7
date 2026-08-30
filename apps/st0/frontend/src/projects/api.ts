@@ -115,6 +115,20 @@ export function projectHref(
     : localProjectUrl(window.location.origin, ws.name, p.path, p.app);
 }
 
+/**
+ * Where the WORKSPACE itself opens — the same choice of address with `.` for the project, which
+ * the machine then resolves: the one last open, else the first, else the first-project wizard.
+ * This is the only way into a workspace that holds nothing (../../docs/projects.md).
+ */
+export function workspaceHref(
+  ws: Addressable,
+  registered: Set<string>,
+): string {
+  return namedByRepo(ws, registered) && ws.repoName
+    ? launchUrl(window.location.origin, ws.repoName, ".", "st0")
+    : localProjectUrl(window.location.origin, ws.name, ".", "st0");
+}
+
 /** …and the same question on its own, for the row that wants to SAY which address it got. */
 export const isRegistered = namedByRepo;
 
@@ -221,6 +235,34 @@ export const engineMachine = {
       "workspace",
     );
     return workspace ?? null;
+  },
+
+  /** A workspace on this machine and NOTHING else: git-initialised, with no repository behind it. */
+  createWorkspace: async (m: Machine, name: string): Promise<void> => {
+    await json(
+      await fetch(`${m.fileBase}/workspaces`, {
+        method: "POST",
+        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      }),
+      "espace de travail",
+    );
+  },
+
+  /** …and give it its first repository: the remote, and the push onto it, in one call. */
+  setRemote: async (
+    m: Machine,
+    workspace: string,
+    uri: string,
+  ): Promise<void> => {
+    await json(
+      await fetch(`${m.fileBase}/workspaces/remote`, {
+        method: "POST",
+        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ name: workspace, uri }),
+      }),
+      "publication",
+    );
   },
 
   /** Start the clone, and hand back the job to poll: a real repository takes tens of seconds. */

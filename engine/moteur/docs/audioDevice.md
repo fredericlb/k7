@@ -51,8 +51,8 @@ wrong when a preference exists and is not applied.
 
 | where | who writes it | who applies it | when |
 |---|---|---|---|
-| `~/.studio/preferences.yaml` (`audioDevice`) | the machine's file service — `PUT /preferences/audio-device` | `engineLink.wireEngine`, on the socket's `open` | the first socket any session opens, and every reconnect after — so every engine restart, before anything plays |
-| `~/.studio/engine-tray.json` (`audioDevice` / `audioFallback`) | the tray's audio submenu | the supervisor's `audioPolicy` | continuously — it also RE-selects the device when it is replugged |
+| `<state>/preferences.yaml` (`audioDevice`) | the machine's file service — `PUT /preferences/audio-device` | `engineLink.wireEngine`, on the socket's `open` | the first socket any session opens, and every reconnect after — so every engine restart, before anything plays |
+| `<state>/engine-tray.json` (`audioPriority`) | the settings page's Audio interfaces rows | the supervisor's `audioPolicy` | continuously — it also RE-selects the device when it is replugged |
 | `%APPDATA%/Studio/Settings.xml` | Tracktion, by itself | nobody | never — inert on purpose, see AGENTS.md |
 
 The first row is the one a browser can reach, and it is the one that is easy to leave half
@@ -62,9 +62,13 @@ Writing `preferences.yaml` through `PUT /preferences/audio-device` is what makes
 `packages/song/src/preferences.ts`'s `setAudioDevice()` writes the field and `engineLink`
 replays it on every connect.
 
-The tray's row does not cover for it: the tray is not used in dev at all, and its setting
-is reachable only from its own menu — the supervisor has no network surface, so a browser
-cannot write it.
+That second row is an ordered LIST, best first, and no longer a pick plus a fallback: the
+engine goes to the highest-ranked interface actually plugged in
+(`packages/engine-host/docs/supervisorPolicy.md`).
+
+It does not cover for the first: the supervisor is not running in dev at all, and its setting is
+written from the desktop app's own settings page over a loopback-only route, so a hosted browser
+cannot reach it.
 
 So a picker must do both halves: tell the engine to switch NOW, and ask that machine's
 file service to still be on it next time. They are two facts — a live engine and a file on
@@ -171,7 +175,7 @@ engine never calls it, and the pairing bits go down a well.
 
 To check rather than assume: pair channel 5, restart the engine, ask again — twenty mono devices.
 
-So the grouping is remembered the same way the interface is, in `~/.studio/preferences.yaml`
+So the grouping is remembered the same way the interface is, in `<state>/preferences.yaml`
 (`inputPairs`, the 1-based odd channel of each pair), and replayed by `engineLink` on every connect,
 in the same `try`, one line after `setAudioDevice`. The order is load-bearing: opening a device
 rebuilds the wave devices from scratch, so a pairing sent first would be thrown away.
@@ -192,7 +196,7 @@ under 20 ms is playable, see `packages/web-protocol/docs/quality.md`. At 48 kHz,
 bugchecks on the machine this was written for, on 23 and 25 August 2026, both with exception
 `0x80000003` — a breakpoint, i.e. the driver reaching its own assertion — at
 `FocusriteUsb.sys+0x1ED6D` and `+0x1ECAD`, 192 bytes apart and so almost certainly the same
-routine. Both minidumps name `studio-moteur` as the current process. A bigger buffer is the
+routine. Both minidumps name `st0-engine` as the current process. A bigger buffer is the
 standard answer to a driver that asserts on a late buffer switch, so 512 was tried.
 
 It was given up the same day, for a reason that is a measurement rather than a mood. 512 at 48 kHz

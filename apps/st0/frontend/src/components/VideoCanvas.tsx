@@ -5,11 +5,21 @@
 // engine — this component owns the EngineClock and feeds it the reported playhead.
 
 import { useEngineStore } from "@studio/engine-browser/store";
+import { localLens } from "@studio/ui-eyes/camera";
 import { EngineClock } from "@studio/ui-eyes/clock";
 import { type LaneDebug, RealtimeDriver } from "@studio/ui-eyes/realtime";
 import type { VideoScene } from "@studio/ui-eyes/scene";
 import { useEffect, useRef } from "react";
+import { canAskForLens, remoteLens } from "../camera/remoteLens";
 import { levelsForPasses, smoothLevels } from "../shaderAudio";
+
+/** Whose camera a live lane draws: this browser's, or the machine's over a peer connection when
+ *  this device may not open one — which is every device reaching the app over the LAN.
+ *  Falling back to the local opener with neither leaves it to say why. See ../camera/relay.ts. */
+const lensOpener = () =>
+  typeof navigator.mediaDevices?.getUserMedia === "function" || !canAskForLens()
+    ? localLens
+    : remoteLens;
 
 // Letterbox the viewport's aspect in the host: the backing store keeps its pixel size, only CSS size changes.
 function fit(
@@ -71,7 +81,7 @@ export function VideoCanvas({
     if (!host) return;
     const clock = new EngineClock();
     clockRef.current = clock;
-    const driver = RealtimeDriver.create(host, scene, clock);
+    const driver = RealtimeDriver.create(host, scene, clock, lensOpener());
     if (!alive) {
       driver.destroy();
       return;

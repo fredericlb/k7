@@ -11,7 +11,7 @@ import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 let home: string;
 let real: { HOME?: string; USERPROFILE?: string; URL?: string; TOK?: string };
 
-/** Both HOME and USERPROFILE: `homedir()` reads one or the other. */
+/** `$STUDIO_HOME` is the seam; HOME/USERPROFILE are still faked for anything reading `homedir()`. */
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "fs-link-home-"));
   real = {
@@ -24,7 +24,10 @@ beforeEach(() => {
   process.env.USERPROFILE = home;
   delete process.env.MEDIATEK_URL;
   delete process.env.MEDIATEK_TOKEN;
-  mkdirSync(join(home, ".studio", "web-endpoints"), { recursive: true });
+  // STUDIO_HOME rather than a hand-joined `.studio`: where the state dir lives is the
+  // platform's business now (packages/song/src/studioHome.ts).
+  process.env.STUDIO_HOME = join(home, "st0");
+  mkdirSync(join(home, "st0", "web-endpoints"), { recursive: true });
 });
 
 afterEach(() => {
@@ -36,19 +39,20 @@ afterEach(() => {
   ] as const)
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
+  delete process.env.STUDIO_HOME;
   rmSync(home, { recursive: true, force: true });
 });
 
 const advertise = (service: string, url: string) =>
   writeFileSync(
-    join(home, ".studio", "web-endpoints", `${service}.json`),
+    join(home, "st0", "web-endpoints", `${service}.json`),
     JSON.stringify({ service, url }),
     "utf8",
   );
 
 const settings = (body: unknown) =>
   writeFileSync(
-    join(home, ".studio", "engine-tray.json"),
+    join(home, "st0", "engine-tray.json"),
     JSON.stringify(body),
     "utf8",
   );
@@ -72,14 +76,14 @@ describe("mediatekBase", () => {
     expect(mediatekBase()).toBeNull();
   });
 
-  it("is null with no ~/.studio at all", () => {
-    rmSync(join(home, ".studio"), { recursive: true, force: true });
+  it("is null with no state dir at all", () => {
+    rmSync(join(home, "st0"), { recursive: true, force: true });
     expect(mediatekBase()).toBeNull();
   });
 
   it("ignores a half-written endpoint file rather than throwing", () => {
     writeFileSync(
-      join(home, ".studio", "web-endpoints", "pl8.json"),
+      join(home, "st0", "web-endpoints", "pl8.json"),
       '{"service":"pl8","url":',
       "utf8",
     );

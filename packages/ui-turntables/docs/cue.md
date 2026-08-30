@@ -77,7 +77,7 @@ flux. La première dépend de la machine, pas de l'hôte.
 ## Où ça sort, et ce qui arrive quand il n'y a nulle part
 
 La paire est un fait sur la **machine**, pas sur le set : `system cue 3+4`, rangé dans
-`~/.studio/preferences.yaml`. Une machine qui n'en nomme pas joue le bus de cue **nulle part** —
+`<state>/preferences.yaml`. Une machine qui n'en nomme pas joue le bus de cue **nulle part** —
 jamais replié sur le master, ce qui mettrait le retour casque dans la salle. Trois portes ferment ce
 cas, et elles sont mesurées : `packages/song/docs/cue.md`.
 

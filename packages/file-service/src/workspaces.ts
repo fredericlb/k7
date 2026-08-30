@@ -8,6 +8,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -25,7 +26,7 @@ import type {
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
 import { EXAMPLES_WORKSPACE, mirrorDemos } from "./demos.ts";
-import { slugify, userRoot, workspaceRoot } from "./slug.ts";
+import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
 import {
   ACTIVE_MARKER,
@@ -52,7 +53,7 @@ export function getWorkspace(userEmail: string, workspace: string): Workspace {
   const slug = slugify(userEmail);
   const key = `${slug}/${workspace}`;
   // workspaceRoot() throws on a traversing/empty name; that stays a 400.
-  const root = workspaceRoot(slug, workspace);
+  const root = workspaceRoot(workspace);
   // Before the memo, every call: a folder deleted from Finder would else be served from cache and 500 deep in fs.
   if (!existsSync(root)) {
     live.delete(key);
@@ -71,14 +72,99 @@ export function liveWorkspaces(): Workspace[] {
   return [...live.values()];
 }
 
-/** Create a workspace folder. Returns false if it was already there. */
-export function createWorkspace(userEmail: string, workspace: string): boolean {
+/**
+ * What a workspace this service made ignores. A clone brings its own; this is the list for one
+ * that never had an author to write it — see docs/workspaces.md.
+ */
+const GITIGNORE = [
+  "_recycle_bin/",
+  "_history/",
+  "*.cache",
+  ".studio-active",
+  "",
+].join("\n");
+
+/** Create a workspace folder, git-initialised with NO remote. Returns false if it was already there. */
+export async function createWorkspace(
+  userEmail: string,
+  workspace: string,
+): Promise<boolean> {
   const slug = slugify(userEmail);
-  const root = workspaceRoot(slug, workspace);
+  const root = workspaceRoot(workspace);
   if (existsSync(root)) return false;
   mkdirSync(root, { recursive: true });
+  const env = gitEnvFor(userEmail);
+  try {
+    await run("git", ["init", "-b", "main"], {
+      cwd: root,
+      env,
+      timeout: 10_000,
+    });
+    writeFileSync(join(root, ".gitignore"), GITIGNORE, "utf8");
+    // Not hygiene: `gitEnvFor` pins GIT_CONFIG_GLOBAL to /dev/null, so a machine with a git
+    // identity has none HERE, and the first commit would fail with "Please tell me who you are".
+    await run("git", ["config", "user.email", userEmail], {
+      cwd: root,
+      env,
+      timeout: 10_000,
+    });
+    await run(
+      "git",
+      ["config", "user.name", userEmail.split("@")[0] || "studio"],
+      {
+        cwd: root,
+        env,
+        timeout: 10_000,
+      },
+    );
+  } catch (e) {
+    // The folder is there and usable; only versioning is missing, which `project commit` will say.
+    console.warn(`[workspaces] git init ${workspace}: ${(e as Error).message}`);
+  }
   forgetListing(slug); // a folder this service just made must not wait out the window
   return true;
+}
+
+/**
+ * Give a local workspace its first remote and push onto it — see docs/workspaces.md.
+ * Throws git's own stderr: "Permission denied (publickey)" is the whole answer, and ours
+ * would be worse.
+ */
+export async function setWorkspaceRemote(
+  userEmail: string,
+  workspace: string,
+  uri: string,
+): Promise<void> {
+  assertSshGitUri(uri);
+  const slug = slugify(userEmail);
+  const root = workspaceRoot(workspace);
+  if (!existsSync(root)) throw new UnknownWorkspaceError(workspace);
+  // Re-pointing a workspace at another repository is a different act, and not this one.
+  if (await remoteOf(slug, workspace))
+    throw new Error(
+      `${workspace} already has a repository — publishing is for a workspace that has none`,
+    );
+  const env = gitEnvFor(userEmail);
+  const git = (args: string[], timeout: number) =>
+    run("git", args, { cwd: root, env, timeout });
+  try {
+    await git(["remote", "add", "origin", "--", uri], 10_000);
+    await git(["push", "-u", "origin", "HEAD"], 120_000);
+  } catch (e) {
+    // Leave nothing half-published: a workspace with an origin it never reached reads as done.
+    await git(["remote", "remove", "origin"], 10_000).catch(() => {});
+    throw new Error(gitSaid(e));
+  } finally {
+    // Both caches: the row's origin is read from one and drawn from the other.
+    forgetRemotes(slug);
+    forgetListing(slug);
+  }
+}
+
+/** git's stderr, which is the message worth showing — `execFile` puts ours in `message`. */
+function gitSaid(e: unknown): string {
+  const err = e as { stderr?: string; message?: string };
+  return (err.stderr || err.message || "git failed").trim();
 }
 
 // Re-exported: the rule moved to @studio/git-repos when pl8 needed it too, and callers here need not know.
@@ -111,12 +197,12 @@ export async function cloneWorkspace(
 ): Promise<void> {
   assertSshGitUri(uri);
   const slug = slugify(userEmail);
-  const root = workspaceRoot(slug, workspace); // validates the name
+  const root = workspaceRoot(workspace); // validates the name
   if (existsSync(root))
     throw new Error(`workspace already exists: ${workspace}`);
   // Throws NoKeyError with a sentence naming the fix; pl8 owns the key, this machine holds a copy.
   await ensureKey(userEmail);
-  mkdirSync(userRoot(slug), { recursive: true });
+  mkdirSync(rootDir(), { recursive: true });
   try {
     await gitClone(uri, root, gitEnvFor(userEmail), onProgress);
   } catch (e) {
@@ -203,7 +289,7 @@ async function remoteOf(slug: string, name: string): Promise<string | null> {
     const { stdout } = await run(
       "git",
       ["config", "--get", "remote.origin.url"],
-      { cwd: workspaceRoot(slug, name), timeout: 10_000 },
+      { cwd: workspaceRoot(name), timeout: 10_000 },
     );
     value = normalizeGitUri(stdout.trim());
   } catch {
@@ -221,7 +307,7 @@ export async function workspaceForRepo(
 ): Promise<string | null> {
   const want = normalizeGitUri(uri);
   const slug = slugify(userEmail);
-  const dir = userRoot(slug);
+  const dir = rootDir();
   if (!existsSync(dir)) return null;
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     if (!e.isDirectory() || e.name.startsWith(".")) continue;
@@ -231,20 +317,19 @@ export async function workspaceForRepo(
 }
 
 /** A free workspace name for this repository — its own, then `-2`, `-3`… */
-export function workspaceNameFor(userEmail: string, uri: string): string {
-  const slug = slugify(userEmail);
+export function workspaceNameFor(uri: string): string {
   const base = repoName(uri) || "repo";
-  if (!existsSync(workspaceRoot(slug, base))) return base;
+  if (!existsSync(workspaceRoot(base))) return base;
   for (let n = 2; n < 1000; n++) {
     const candidate = `${base}-${n}`;
-    if (!existsSync(workspaceRoot(slug, candidate))) return candidate;
+    if (!existsSync(workspaceRoot(candidate))) return candidate;
   }
   throw new Error(`no free workspace name for ${base}`);
 }
 
 // Every workspace folder under the user's root; a first-seen user gets Examples, the one never asked for.
 export function listWorkspaces(userEmail: string): WorkspaceSummary[] {
-  const dir = userRoot(slugify(userEmail));
+  const dir = rootDir();
   if (!existsSync(dir)) {
     // Keyed on the USER ROOT being absent, so it is a once-per-user bootstrap and not the open path conjuring folders.
     mkdirSync(dir, { recursive: true });
@@ -286,7 +371,7 @@ export async function listMachineWorkspaces(
   const slug = slugify(userEmail);
   const hit = listings.get(slug);
   if (hit && Date.now() - hit.at < LISTING_RESCAN_MS) return hit.rows;
-  const dir = userRoot(slug);
+  const dir = rootDir();
   const names = workspaceNames(dir);
   // The origins first and on their own: a short name only identifies a workspace when no other answers to it.
   const origins = await Promise.all(names.map((n) => remoteOf(slug, n)));
@@ -332,7 +417,7 @@ export async function listSurfacedProjects(
   const slug = slugify(userEmail);
   const hit = surfaced.get(slug);
   if (hit && Date.now() - hit.at < LISTING_RESCAN_MS) return hit.rows;
-  const dir = userRoot(slug);
+  const dir = rootDir();
   const workspaces = await listMachineWorkspaces(userEmail);
   const rows: SurfacedProject[] = [];
   for (const w of workspaces) {

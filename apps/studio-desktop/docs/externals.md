@@ -43,15 +43,22 @@ address, because `req.socket.remoteAddress` is not exercised any other way.
 ## The honest loss: no secure context
 
 `http://192.168.x.x:<port>` is **not** a secure context. `http://127.0.0.1` is — which is why
-this machine's own window has `crypto.subtle` and a tablet does not. Two consequences, and
-neither has a workaround worth shipping:
+this machine's own window has `crypto.subtle` and a tablet does not. What follows from that is
+no longer one loss but two halves that came apart, and only one of them is still standing.
 
-- **no service worker, so no PWA install.** That is precisely what `external.md`'s "the
-  starting point of a PWA" section is for: the surface opens in a browser tab and reopens from
-  scratch rather than living as an app;
-- **no `getUserMedia`**, so no webcam surface on that device.
+**The camera is answered**, by the one powerful feature that turned out not to be gated on a
+secure context at all: `RTCPeerConnection`. The machine opens the lens and the tablet receives it
+over a peer connection, which needs no certificate and is exempt from the mixed-content rule that
+stops every other way of reaching this machine. [camera.md](camera.md) is that page.
 
-Three answers, in order of preference:
+**The service worker is not, and cannot be.** Registration requires a secure context and there is
+no exemption comparable to WebRTC's, so there is no install and no offline shell. What the
+surface gets instead is the *other* half of looking like an app, neither of which needs a secure
+context either — the browser's own fullscreen, and a screen that stays lit. Both live in st0
+(`apps/st0/frontend/docs/external.md`), because they are what the surface DRAWS rather than
+anything this server does.
+
+Three answers to the half that remains, in order of preference:
 
 1. **Configure a server.** The tablet then uses its https origin exactly as it does today,
    reaching the engine through the origin's relay — and nothing is lost.

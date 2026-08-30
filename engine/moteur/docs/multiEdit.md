@@ -33,7 +33,7 @@ is how Waveform auditions a clip while an Edit plays.
 
 ## The probe, and what it reports
 
-`studio-moteur --multi-edit-test <doc…> [--device N --device-type T] [--seconds S]`
+`st0-engine --multi-edit-test <doc…> [--device N --device-type T] [--seconds S]`
 (`engine/MultiEditTest.cpp`). It builds one Edit per document, hangs a `LevelMeterPlugin` on
 each master, allocates every context on the one DeviceManager, plays them all, and reports
 each Edit's own peak. Per-edit level is the measurement on purpose: *"addContext did not

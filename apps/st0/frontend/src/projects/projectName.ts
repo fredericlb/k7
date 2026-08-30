@@ -18,14 +18,25 @@ const SUFFIXES = Object.values(PROJECT_SUFFIXES);
 
 /** The folder to create, shown BEFORE creating: separators are REFUSED rather than replaced, and a suffix already typed is stripped. */
 export function projectFolderName(raw: string, app: ProjectApp): ProjectName {
+  const { folder: stem, error } = workspaceFolderName(raw);
+  if (error) return { folder: "", error };
+  return { folder: `${stem}${PROJECT_SUFFIXES[app]}`, error: "" };
+}
+
+/**
+ * The same name rules, with NO suffix on the end — a workspace is a plain folder, and the
+ * suffix is what decides which app opens a PROJECT. Shared so the two dialogs refuse the same
+ * things in the same words.
+ */
+export function workspaceFolderName(raw: string): ProjectName {
   const name = raw.trim();
   if (!name) return { folder: "", error: "il faut un nom" };
   if (/[/\\]/.test(name))
     return {
       folder: "",
-      error: "pas de « / » ni de « \\ » dans un nom de projet",
+      error: "pas de « / » ni de « \\ » dans un nom",
     };
-  // A name starting with a dot is a hidden folder: the project would exist unseen, here and in the repository's tree alike.
+  // A name starting with a dot is a hidden folder: it would exist unseen, here and in the repository's tree alike.
   if (name.startsWith("."))
     return { folder: "", error: "un nom ne peut pas commencer par un point" };
   const stem = SUFFIXES.reduce(
@@ -36,5 +47,5 @@ export function projectFolderName(raw: string, app: ProjectApp): ProjectName {
     name,
   );
   if (!stem) return { folder: "", error: "il faut un nom" };
-  return { folder: `${stem}${PROJECT_SUFFIXES[app]}`, error: "" };
+  return { folder: stem, error: "" };
 }

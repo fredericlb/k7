@@ -1,12 +1,36 @@
 // bundle.ts — the binaries and assets vendored into a packaged app, resolved relative to
 // the app's executable directory (nothing is looked up on PATH — a double-clicked app has
-// none). In a DEV run every function returns null, which is the intended answer: it routes
-// the caller to the repo's own copy.
+// none), or to a root the host HANDS OVER when it knows better. In a DEV run every function
+// returns null, which is the intended answer: it routes the caller to the repo's own copy.
 
 import { statSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const exeDir = (): string => dirname(process.execPath);
+
+/** Where the staged bundle is, when the caller knows — see docs/supervisorPolicy.md. */
+let staged: string | null = null;
+
+/** Told rather than guessed: embedded, `process.execPath` is the HOST — see docs/supervisorPolicy.md. */
+export function setBundleRoot(dir: string | null): void {
+  staged = dir;
+}
+
+/** …read back, for the one probe that lives in another package (`findEngineBinary`). */
+export function bundleRoot(): string | null {
+  return staged;
+}
+
+/** The CHECKOUT, in a dev run, for the same reason: a bundled caller cannot walk up from itself. */
+let repo: string | null = null;
+
+export function setRepoRoot(dir: string | null): void {
+  repo = dir;
+}
+
+export function repoRoot(): string | null {
+  return repo;
+}
 
 function file(...candidates: string[]): string | null {
   for (const p of candidates) {
@@ -37,6 +61,7 @@ const exe = (name: string): string =>
 function resource(name: string): string | null {
   const d = exeDir();
   return file(
+    ...(staged ? [join(staged, name)] : []),
     join(d, "..", "Resources", name),
     join(d, "..", "Resources", "resources", name),
     join(d, name),
@@ -44,9 +69,12 @@ function resource(name: string): string | null {
   );
 }
 
-/** The vendored `node` — us, when packaged. Null when running under a PATH node. */
-export function vendoredNode(): string | null {
-  return file(join(exeDir(), exe("node")));
+/** The vendored `node`: a sibling of the bundle, and the file service's runtime — nothing else runs under it now. */
+function vendoredNode(): string | null {
+  return file(
+    ...(staged ? [join(staged, exe("node"))] : []),
+    join(exeDir(), exe("node")),
+  );
 }
 
 /** The (node, file-service.mjs) pair if this is a packaged app; null in dev, which is load-bearing — the watcher owns that port. */
@@ -61,6 +89,7 @@ export function fileServiceRuntime(): { node: string; script: string } | null {
 export function demos(): string | null {
   const d = exeDir();
   return dir(
+    ...(staged ? [join(staged, "songs")] : []),
     join(d, "..", "Resources", "songs"),
     join(d, "..", "Resources", "resources", "songs"),
     join(d, "songs"),

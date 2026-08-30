@@ -26,10 +26,10 @@ if (process.platform === "linux" && process.env.WSL_DISTRO_NAME) {
   process.env.STUDIO_NATIVE_SOURCE ??= `\\\\wsl.localhost\\${distro}${repo.replaceAll("/", "\\")}`;
   process.env.STUDIO_NATIVE_MIRROR ??= "C:\\studio-native";
   process.env.STUDIO_ENGINE_PATH_STYLE ??= "windows";
-  // `wslpath` rather than a second spelling of the map that engine-client already owns.
-  const profile = capture("cmd.exe", ["/c", "echo %USERPROFILE%"]);
-  const home = profile ? capture("wslpath", ["-u", profile]) : "";
-  if (home) process.env.STUDIO_HOME ??= join(home, ".studio");
+  // The HOST's state dir, ASKED for rather than assembled — a redirected AppData is still right.
+  const appdata = capture("cmd.exe", ["/c", "echo %APPDATA%"]);
+  const library = appdata ? capture("wslpath", ["-u", appdata]) : "";
+  if (library) process.env.STUDIO_HOME ??= join(library, "st0");
 }
 // biome-ignore-end lint/suspicious/noUndeclaredEnvVars: see above
 

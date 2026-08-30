@@ -58,7 +58,7 @@ plugin called "on" has to be quoted.
 
 **`pluginNames`** — scanned plugin names grouped by format (lowercased key), e.g.
 `{ vst3: ["Serum"], au: ["Massive"] }`. Populated by the file service from the engine's scan cache
-(`~/.studio/exts.json`); the brain's `projectHints()` returns an empty record.
+(`<state>/exts.json`); the brain's `projectHints()` returns an empty record.
 
 **`media`** — every audio file in the project, grouped by its project-relative folder (`""` = the
 root), filenames only. So a rack's `source:` (or a samples symbol's `clip:`) completes against the

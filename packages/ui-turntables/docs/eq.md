@@ -175,7 +175,7 @@ projet n'est pas rouvert : ce que le potard montre est l'état du **moteur**, et
 n'atteint le moteur qu'au prochain envoi de document.
 
 Et `extends: "@engine/equaliser"` se résout contre le **scan de plugins de la machine**
-(`~/.studio/exts.json`, un chemin qu'aucune variable d'environnement ne déplace). Sur une
+(`<state>/exts.json`, un chemin qu'aucune variable d'environnement ne déplace). Sur une
 machine qui n'a jamais scanné, la référence ne résout pas et le module devient un **stub** —
 silencieusement pour le compilateur, qui n'émet alors aucun plugin. Le graphe, lui, le dessine
 comme un stub. C'est ce qui rend un EQ « absent sans message », et c'est pour ça que le fixture

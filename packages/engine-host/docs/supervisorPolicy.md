@@ -29,7 +29,7 @@ qui ne change que quand on branche quelque chose.
 Le callback n'en souffre pas — mesuré aussi : son maximum pendant une rafale de scans est de
 0,278 ms contre 0,356 sans, donc dans le bruit. Ce n'est pas un problème de temps réel. C'est que
 **c'est la seule chose que le moteur fasse qui atteigne vraiment le pilote**, et que deux écrans
-bleus `KMODE_EXCEPTION_NOT_HANDLED` ont eu lieu dans `FocusriteUsb.sys` avec `studio-moteur` comme
+bleus `KMODE_EXCEPTION_NOT_HANDLED` ont eu lieu dans `FocusriteUsb.sys` avec `st0-engine` comme
 processus courant (`docs/constat.md`). Un pilote ASIO est mono-client ; le sonder sans arrêt
 pendant qu'il diffuse est le genre de sollicitation qui réveille une assertion.
 
@@ -96,7 +96,7 @@ anything wins outright** — they are alternatives, not a union:
 1. what the user pinned with "Add web UI…" — a deliberate, persisted choice beats an ambient one,
    which is why it sits above the environment variable;
 2. `$STUDIO_REGISTRY_URL`, comma-separated for more than one;
-3. what the local backends advertised — `~/.studio/web-endpoints/*.json`, one file per service,
+3. what the local backends advertised — `<state>/web-endpoints/*.json`, one file per service,
    plus the legacy single `web-endpoint.json` — so a local dev setup beats the hosted default;
 4. the hosted studio.
 
@@ -139,8 +139,8 @@ deny-by-default CORS policy cannot admit it on its own (see
 written here, read there, and read on EVERY request, so adding a web UI from the menu
 bar takes effect immediately with nothing restarted.
 
-`~/.studio/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the
-shared `~/.studio` contract, like `engine-id.json` and `web-endpoint.json`.
+`<state>/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the
+shared `<state>` contract, like `engine-id.json` and `web-endpoint.json`.
 
 Only ORIGINS are stored (`scheme://host[:port]`). A browser's `Origin` header is always
 bare, so a path or query the user pasted would simply never match; it's stripped at the
@@ -209,6 +209,34 @@ engine that is playing. `start()` runs before anything plays, so a wrong answer 
 engine instead of somebody's audio. Extending it to the crash watch is a real decision — it
 needs consecutive failures before acting — and it has not been taken.
 
+## `hostLock.ts` — the same lesson, one file over
+
+One supervisor per machine, in `<state>/engine-host.pid`. It had the bug the section above
+warns about, in the form that section says is unrecoverable: it asked only whether the pid was
+**alive**.
+
+So a supervisor crashes, Windows hands its pid to an unrelated process — this app spawns plenty
+— and from then on every supervisor reads the pidfile, finds a live pid, and refuses. For ever.
+The check that exists to clear a stale lock (`rmSync` when the pid is dead) can never fire,
+because the pid is not dead; it just isn't a supervisor. The app runs, supervises nothing, and
+says `an engine supervisor is already running (pid …)` on a loop. Measured, on this machine.
+
+`engineProcess.ts` solves its half by asking the **port** as well — adopt only if something is
+actually serving. The supervisor listens on nothing, so there is no port to ask, and the
+analogue is the one `engine-registry` already uses for `assignedSeen`: **the holder keeps
+saying so.** `acquire()` starts a 2 s refresh of the file's mtime, and a lock nobody has
+refreshed for 15 s is stale whatever its pid claims. A recycled pid now costs at most fifteen
+seconds instead of a reinstall.
+
+Both tests are in `hostLock.test.ts`, and the pair is the point: a lock that is stale AND alive
+is taken, a lock that is being refreshed is refused. Staleness must not become a way to steal a
+live supervisor's lock — seven missed beats is the margin, and a main thread stalled that long
+is pathological rather than busy.
+
+The refresh also **reads before it writes**. A lock that has come to name somebody else was
+taken from us, which is the one thing this file exists to make impossible, so it is reported
+rather than silently overwritten.
+
 ## `engineQueries.ts` — request/reply over one connection
 
 The polls run at 10 s / 2 s / 3 s, so a fresh WebSocket per call would be roughly one TCP
@@ -233,29 +261,57 @@ provide itself:
 
 The engine picks *some* device at boot and, when one is pulled out from under it, falls
 to whatever the OS offers next. That's not a decision the user made. The policy that
-corrects it:
+corrects it is **one ordered list**, `audioPriority`, best first:
 
-1. the interface the user PICKED, whenever it's present — so replugging it is enough to
-   get it back, with no trip to the menu;
-2. otherwise the FALLBACK they configured (typically the built-in output);
-3. otherwise leave the engine alone — better a device we didn't choose than none.
+1. the highest-ranked interface that is actually plugged in — so replugging one is enough
+   to get it back, with nothing said twice;
+2. otherwise leave the engine alone, including when it is on something nobody ranked —
+   better a device we didn't choose than none.
+
+### Why a list, and not a pick plus a fallback
+
+It used to be two fields, `audioDevice` and `audioFallback`, and the rules around them were
+the tell: the fallback applied only when the pick was "genuinely missing or was never made",
+never over a device someone was deliberately on. That is a two-entry ranking with the
+precedence written out in prose instead of held in the order.
+
+What it could not say is the third choice. A musician with an interface, a USB headset and the
+built-in output had to leave two of the three to the OS, and the one it picked was whichever
+JUCE happened to enumerate. The list has no arity, so that question stops existing — and the
+old pair migrates into it exactly, `[audioDevice, audioFallback]`, which is what `settings.ts`'s
+`priority()` does on read.
+
+It also removes a state the old pair could reach and the screen could not explain: a fallback
+ranked ABOVE nothing, with no pick, which the code answered by consulting the fallback only when
+no device was current. Order cannot express that, so it cannot happen.
+
+**An unranked device is never switched to.** Not the same as "the ranking is empty means take
+the first thing you see": a fresh machine has an empty list and the engine keeps whatever it
+opened, exactly as before. Ranking is how the user says *this one matters*, and a list of
+devices the OS invented would not be one.
+
+`reorder()` lives here too, though only the screen calls it. A move is a rule about the list —
+what happens at either end, and what an unranked row becomes when it is moved — and it is tested
+beside `desiredSwitch` rather than in a component. `audio.priority` carries the WHOLE order in
+one command for the same reason: a reorder is one act, and two halves of it could be interleaved
+with a device poll.
 
 Kept apart from the loop that calls it so the rules are readable and testable without a
 running engine. This is supervisor POLICY (which device this machine should be on), not
 a protocol capability — which is why it lives here and not in `@studio/engine-client`.
 
-## `devReload.ts` — restart on source change, in dev only
+## Reloading on a source change, in dev
 
-The mechanism is deliberately not a mechanism: we EXIT, and the app's existing relaunch
-loop (`host.ts`) starts a fresh one. That path is already built, already
-tested, and already correct about the hard part — the engine survives, because it is
-tracked by `~/.studio/engine.pid` and the new supervisor adopts it. So a reload costs a
-few hundred milliseconds and never touches the audio device.
+There was a `devReload.ts` here: on a source change the supervisor EXITED with a distinct code
+and the app's relaunch loop started a fresh one, the engine surviving because
+`<state>/engine.pid` let the new supervisor adopt it.
 
-Two things it must NOT do:
+Both halves of that are gone. The supervisor is in the app's process
+(`apps/studio-desktop/docs/supervisor.md`), so there is no relaunch loop to exit into, and a
+change to this package rebuilds the app's bundle — which `scripts/dev-native.mjs` already
+watches, stopping and restarting the whole thing. One watcher instead of two, and the engine no
+longer survives a supervisor reload because there is no longer such an event.
 
-- **Run the shutdown path.** That deregisters and stops the engine — turning a source
-  edit into an audio dropout and a registry round-trip. We exit and leave the stack
-  standing; adoption picks it back up.
-- **Arm in a packaged build.** The watcher is gated on running from TypeScript source
-  (`isDevSource`), so a shipped app carries these few lines and never calls them.
+What the old note got right and is worth keeping: a reload must never run the **shutdown**
+path, which deregisters and stops the engine. It does not — the app's restart kills the tree
+outright and starts over.

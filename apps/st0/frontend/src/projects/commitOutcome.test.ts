@@ -21,6 +21,21 @@ describe("commitOutcome", () => {
     ).toMatch(/push failed/);
   });
 
+  it("tait le push raté d'un espace jamais publié — c'est son état normal", () => {
+    // A workspace with no remote CANNOT push; saying so on every commit would make it read as broken.
+    expect(
+      commitOutcome(
+        [
+          "committed a1b2c3d (4 files) — new project hiver.st0",
+          "push failed (commit is local): No configured push destination.",
+        ],
+        { noRemote: true },
+      ),
+    ).toBeNull();
+    // …and the commit itself is still judged the same way: `noRemote` excuses the push, nothing else.
+    expect(commitOutcome(["no repository"], { noRemote: true })).toBeTruthy();
+  });
+
   it("traite comme un ÉCHEC tout ce qui ne prouve pas un commit", () => {
     // The original bug: looking for known failure words meant 'unknown command' read as a success, and a project was neither committed nor pushed.
     for (const out of [

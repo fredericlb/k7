@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   entityFile,
   fileStem,
+  inActiveProject,
   isClipFile,
   isRackModuleFile,
   isSeqFile,
@@ -154,5 +155,29 @@ describe("rackKeyOf", () => {
   it("answers nothing for every other file", () => {
     expect(rackKeyOf("clips/kick.yaml")).toBe(null);
     expect(rackKeyOf("modules/instruments/drum_1/panel.yaml")).toBe(null);
+  });
+});
+
+// The tree is the whole workspace now, so "is this file the open project's?" became a question.
+describe("inActiveProject", () => {
+  it("keeps a file of another project out", () => {
+    expect(inActiveProject("song.st0/clips/a.yaml", "song.st0")).toBe(true);
+    expect(inActiveProject("other.st0/clips/a.yaml", "song.st0")).toBe(false);
+    // Not a prefix match on the STRING: `song.st0-old` is a different folder.
+    expect(inActiveProject("song.st0-old/clips/a.yaml", "song.st0")).toBe(
+      false,
+    );
+  });
+
+  it("lets everything through when the workspace IS the project", () => {
+    expect(inActiveProject("clips/a.yaml", ".")).toBe(true);
+  });
+
+  it("lets nothing through when no project is open", () => {
+    expect(inActiveProject("song.st0/clips/a.yaml", null)).toBe(false);
+  });
+
+  it("reads a windows path like every other rule here", () => {
+    expect(inActiveProject("song.st0\\clips\\a.yaml", "song.st0")).toBe(true);
   });
 });

@@ -127,7 +127,7 @@ sortir de la hauteur qu'on lui a accordée, quelle que soit la marge du moment.
 **Un booléen, et pas une chaîne.** Nommer la chaîne dans ce fichier poserait au projet une
 question qui ne le regarde pas : quel module sépare et quel modèle il veut est
 une réponse unique pour la machine, écrite une fois par `system stems` dans
-`~/.studio/preferences.yaml`. Ce qu'un SET décide, c'est si une heure d'arithmétique a le droit de
+`<state>/preferences.yaml`. Ce qu'un SET décide, c'est si une heure d'arithmétique a le droit de
 démarrer parce qu'on a posé un disque — et ça, ça se décide par set : une machine de répétition et
 une machine de scène ne répondent pas pareil.
 

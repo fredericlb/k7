@@ -222,9 +222,6 @@ import {
   waveCondition,
 } from "./waveMode";
 
-// Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
-const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
-
 /** One frozen empty list, so a builder with no live plugin does not get a new array per render. */
 const EMPTY_PRESETS: PresetInfo[] = [];
 
@@ -353,6 +350,12 @@ export default function App({
   );
   const [project, setProject] = useState<ProjectInfo | null>(null);
   const [ws, setWs] = useState<WorkspaceInfo | null>(null);
+
+  // The song's own name in the tab, over the folder `appMain` named it from (docs/tabs.md).
+  const tabName = snapshot?.manifest.name || project?.name;
+  useEffect(() => {
+    if (tabName) document.title = tabName;
+  }, [tabName]);
   // The take this tab has dismissed: the server names the last one for ever, so this is what shows the review ONCE.
   const [reviewedTake, setReviewedTake] = useState<string | null>(null);
   /** Where the take now rolling STARTED, in beats — one source for two surfaces, read at the `rolling` edge rather than subscribed. */
@@ -2500,18 +2503,6 @@ export default function App({
 
   const headerActions = (
     <div className="flex min-w-0 items-center gap-1">
-      {/* The mix leaving for the interface — absent on a phone, which cannot fit it, and on a snapshot, which has no engine. */}
-      {!isMobile && !snapshot && (
-        <MasterMeter
-          className="mr-2"
-          ref={masterMeterRef}
-          // The button dispatches the command rather than calling the handler, like every other button in this shell.
-          onFix={() => void runCommand("project master fix")}
-          // The song's own level, off the compiled doc — what the FILE says, so the fader reads right before a note has played.
-          master={projectDoc?.masterVolume}
-          onMaster={setMaster}
-        />
-      )}
       {/* On a phone ONE button holds everywhere there is to go, and a pane is a destination — always `ui <pane>` (docs/shell.md). */}
       {isMobile ? (
         <MobileMenu open={mobileMenu} onOpenChange={setMobileMenu}>
@@ -2589,38 +2580,45 @@ export default function App({
               ? "[&>div]:gap-2 [&>div]:px-3 [&>div]:py-1"
               : "[&>div]:px-3 [&>div]:py-2",
           )}
-          // The name is the way back to the home page — a whole-page navigation on purpose: the
-          // project is the router's BASENAME, so nothing below it can route out (docs/projects.md).
-          // A share visitor has no home page to go to, so theirs stays plain text (docs/shared.md).
-          title={
-            snapshot ? (
-              "st0"
-            ) : (
-              <a
-                href={projectsUrl(window.location.href)}
-                title={m["project.backToProjects"]()}
-                className="hover:underline"
-              >
-                st0
-              </a>
-            )
-          }
-          subtitle={VERSION}
+          // No name and no build stamp inside a project — the left of this bar is the meter's (docs/shell.md).
+          title={null}
           items={[]}
           actions={headerActions}
         >
           {/* Between the two: what you are looking AT, and the transport centred over it with `mx-auto`, the bar owning the outer layout. */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <span className="max-w-[10rem] truncate text-sm text-muted-foreground">
-              {snapshot?.manifest.name || project?.name || "…"}
-            </span>
-            {/* Said where the version goes and dressed as a state, not a warning: a visitor has no other way to learn it (docs/shared.md). */}
+            {/* The mix leaving for the interface, where the title was; no phone fits it and a snapshot has no engine. */}
+            {!isMobile && !snapshot && (
+              <MasterMeter
+                ref={masterMeterRef}
+                // The button dispatches the command rather than calling the handler, like every other button in this shell.
+                onFix={() => void runCommand("project master fix")}
+                // The song's own level, off the compiled doc — what the FILE says, so the fader reads right before a note has played.
+                master={projectDoc?.masterVolume}
+                onMaster={setMaster}
+              />
+            )}
+            {/* The way back, whole-page since the project is the router's BASENAME; a share has none (docs/shared.md). */}
+            {snapshot ? (
+              <span className="max-w-[10rem] truncate text-muted-foreground text-sm">
+                {snapshot.manifest.name || "…"}
+              </span>
+            ) : (
+              <a
+                href={projectsUrl(window.location.href)}
+                title={m["project.backToProjects"]()}
+                className="max-w-[10rem] truncate text-muted-foreground text-sm hover:text-foreground hover:underline"
+              >
+                {project?.name || "…"}
+              </a>
+            )}
+            {/* Dressed as a state, not a warning: a visitor has no other way to learn it (docs/shared.md). */}
             {snapshot && (
               <span className="flex shrink-0 items-center gap-1 truncate rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                 <Lock className="h-3 w-3" /> {m["share.readOnly"]()}
               </span>
             )}
-            {/* The workspace repo's alternatives, right after the title; a snapshot has no repository to switch between. */}
+            {/* The workspace repo's alternatives, right after the project's name; a snapshot has no repository to switch between. */}
             {!frozen && (
               <AlternativePicker
                 reloadKey={reloadKey}

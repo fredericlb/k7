@@ -12,6 +12,7 @@ import {
   ensureEngineDaemon,
   stopEngineDaemon,
 } from "@studio/engine-client/engineDaemon";
+import { bundleRoot, repoRoot } from "./bundle.ts";
 import type { EngineIdentity } from "./identity.ts";
 import { line, pump } from "./logbus.ts";
 import { isServing } from "./portProbe.ts";
@@ -43,7 +44,8 @@ export async function start(
     // Cleared, or `ensureEngineDaemon` refuses on the same check and adopts the ghost again; the process itself is somebody else's now.
     rmSync(ENGINE_PID, { force: true });
   }
-  const bin = findEngineBinary();
+  // The staged bundle, when the app told us: embedded, `process.execPath` is not the engine's neighbour.
+  const bin = findEngineBinary(bundleRoot(), repoRoot());
   if (!bin) return { kind: "missing" };
 
   try {

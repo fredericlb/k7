@@ -46,8 +46,8 @@ open run is an open run on the whole LAN — worth a line rather than a state yo
 
 ## The user's own web UIs
 
-`~/.studio/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the
-shared `~/.studio` contract (the supervisor's `paths.ts` / `webOrigins.ts` write it). It exists
+`<state>/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the
+shared `<state>` contract (the supervisor's `paths.ts` / `webOrigins.ts` write it). It exists
 because the built-in rules cannot cover a web UI on a real hostname: a reverse proxy in
 front of the SPA is neither loopback nor private, so without this the editor loads and
 then fails every preflight.
@@ -66,7 +66,7 @@ Recording a refusal turns fixing a blocked hostname around: the blocked browser 
 itself, and the user approves a concrete origin from the tray instead of transcribing a
 URL into a menu-bar prompt or hand-editing `web-origins.json`.
 
-`~/.studio/pending-origins.json` joins the shared contract:
+`<state>/pending-origins.json` joins the shared contract:
 
 ```json
 {"pending": [{"origin": "https://daw.test", "lastSeen": 1721430000000, "count": 3}]}

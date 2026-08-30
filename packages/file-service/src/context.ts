@@ -11,6 +11,7 @@ import {
   WORKSPACE_HEADER,
 } from "@studio/web-protocol";
 import type { RequestHandler } from "express";
+import { noteOwner } from "./engineLink.ts";
 import { getWorkspace, UnknownWorkspaceError } from "./workspaces.ts";
 
 /** What this machine can check a caller against — three states, since "" would open every route. */
@@ -68,6 +69,8 @@ export const resolveUser: RequestHandler = (req, res, next) => {
   const email = req.get(USER_HEADER);
   if (!email) return res.status(400).json({ error: "missing user header" });
   req.userEmail = email;
+  // One root means one person, and the tree no longer says who — so the request does, once.
+  noteOwner(email);
   next();
 };
 

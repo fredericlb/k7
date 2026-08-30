@@ -28,7 +28,7 @@ to chase a URL.
 > **`@st0` is not the app `apps/st0`.** Nothing resolves through an app either way. The level
 > names a folder of modules, and that folder is what the name follows.
 
-`~/.studio/mediatek` is a **cache path** on one machine, not a name anybody writes in a file —
+`<state>/mediatek` is a **cache path** on one machine, not a name anybody writes in a file —
 nothing resolves a ref through it, and renaming it would be a migration of a folder on every
 machine in exchange for nothing. `$STUDIO_MEDIATEK` and the `@studio/mediatek` package keep the
 name for the same reason: the médiathèque is what the thing is called, and `pl8` is what serves
@@ -53,8 +53,8 @@ in this repo has to clear (`docs/rename-test-plan.md`).
 
 ```bash
 # a project, a workspace, or the médiathèque itself — dry by default
-npx tsx packages/song/scripts/migrateNamespace.ts ~/.studio/root/<you>/<workspace> --write
-npx tsx packages/song/scripts/migrateNamespace.ts ~/.studio/mediatek --write
+npx tsx packages/song/scripts/migrateNamespace.ts <state>/workspace/<you>/<workspace> --write
+npx tsx packages/song/scripts/migrateNamespace.ts <state>/mediatek --write
 ```
 
 That script is a **text replace** on `@mediatek/`, where `migrateDocFields.ts` beside it goes

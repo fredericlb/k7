@@ -73,7 +73,7 @@ geste de la main. Le fader de BPM à côté est étranglé dix fois plus (120 ms
 du temps où un pas reconstruisait un clip et n'a pas été remesurée depuis ([bpm.md](bpm.md)).
 
 **Pourquoi ça compte au-delà du confort.** Deux écrans bleus `KMODE_EXCEPTION_NOT_HANDLED` ont eu
-lieu sur cette machine avec `studio-moteur` comme processus courant et un point d'arrêt à
+lieu sur cette machine avec `st0-engine` comme processus courant et un point d'arrêt à
 `FocusriteUsb.sys+0x1ECAD` / `+0x1ED6D` — le pilote atteignant sa propre assertion. Le scratch
 n'existait pas lors du premier, donc **ce n'était pas la cause** ; mais noyer le thread message
 pendant qu'ASIO attend est exactement le genre de charge qui rend ce genre de défaut plus probable,

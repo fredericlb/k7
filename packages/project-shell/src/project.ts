@@ -76,6 +76,9 @@ export const projectApi = {
   createModule: (root: string, rel: string) =>
     fsend<{ path: string; dir: string }>("POST", "/module", { root, rel }),
   project: () => fget<ProjectInfo>("/project"),
+  /** Scaffold a project in the OPEN workspace: `name` carries its suffix, `shape` is the archetype. */
+  createProject: (shape: string, name: string) =>
+    fsend<{ project: string }>("POST", "/project/create", { shape, name }),
   /** Open the project, and say which library repository to mount — see docs/fileApi.md. */
   open: (path: string, libraries?: string) =>
     fsend<WorkspaceInfo>("POST", "/open", { path, libraries }),

@@ -175,8 +175,8 @@ The audio thread must not block or allocate. Marshal work to the message thread 
 Created via the plugin cache (`scanInstalledPlugins` → find by name+format →
 `createNewPlugin(ExternalPlugin::xmlTypeName, desc)`), not the built-in factory. A
 missing plugin must warn, not crash. Plugin scanning is a separate CLI path — the engine's
-own `scan` subcommand (`studio-moteur scan`, `scan --force` to start over), which writes
-`~/.studio/exts.json`.
+own `scan` subcommand (`st0-engine scan`, `scan --force` to start over), which writes
+`<state>/exts.json`.
 
 **Add the description to `knownPluginList` before you create it**, on whichever engine is
 about to. `createNewPlugin` keeps none of what you hand it: `initialiseFully` looks the plugin
@@ -229,7 +229,7 @@ values loaded from a preset as untouched, Mini V3 the same 77, checked against t
 
 **macOS** — `npm run build:mac --workspace moteur`. Drives the `macos-clang`
 preset (Ninja + AppleClang, RelWithDebInfo, native arm64). Needs `brew install cmake
-ninja`. Sanity check: `./build/macos-clang/studio-moteur --list-audio-devices`.
+ninja`. Sanity check: `./build/macos-clang/st0-engine --list-audio-devices`.
 
 **Windows** — `npm run build:win --workspace moteur`. Needs the MSVC toolchain. The .exe is
 often locked while the engine is running — stop it before rebuilding.
@@ -313,7 +313,7 @@ Get-ChildItem build/windows-msvc/engine/studio_engine.dir/RelWithDebInfo -Filter
 
 The presets build with the **Visual Studio generator**, not the Ninja the other platforms inherit,
 and MSBuild runs `cl.exe` once per file. Nothing noticed while the only target anyone built was
-`studio-moteur`, whose own TUs are few. The test suites are where it bit: `studio_midigraph_tests`
+`st0-engine`, whose own TUs are few. The test suites are where it bit: `studio_midigraph_tests`
 and `studio_dspgraph_tests` each link Tracktion themselves — with their own defines, so they can
 share nothing with `studio_engine` — and JUCE's CMake compiles its modules INTO each target that
 links them. That is **30 translation units and 565 MB of objects per binary**, twice, for two
@@ -344,13 +344,13 @@ Build gotchas:
 - Tracktion pins JUCE as an SSH submodule — the top-level `CMakeLists.txt` rewrites to
   HTTPS via `GIT_CONFIG_*` env vars.
 - The ASIO SDK is fetched at configure time and is REQUIRED on Windows.
-- Presets pin `"targets": ["studio-moteur"]` — don't switch to all-targets.
+- Presets pin `"targets": ["st0-engine"]` — don't switch to all-targets.
 - `<windows.h>` must precede `<shellapi.h>` with `NOMINMAX` + `WIN32_LEAN_AND_MEAN`.
 
 ## Tests
 
 **The test targets are not built by an ordinary build, so a suite that stopped compiling stays
-invisible.** The presets pin `"targets": ["studio-moteur"]`, so `studio_engine_tests` /
+invisible.** The presets pin `"targets": ["st0-engine"]`, so `studio_engine_tests` /
 `studio_session_tests` / `studio_midigraph_tests` / `studio_dspgraph_tests` /
 `studio_recorder_tests` are only built when named — rename a field of the data layer and the
 suite still referencing it reports nothing until someone names it. Build them explicitly after
@@ -391,7 +391,7 @@ Why it matters:
   running beside the live engine collides with it. The driver then stays wedged, and
   from that point on every engine start blocks **forever, with no output at all**, which
   reads as "the tray hangs" and sends you hunting anywhere but here.
-* **It is a second source of truth.** `~/.studio/preferences.yaml` holds the device the
+* **It is a second source of truth.** `<state>/preferences.yaml` holds the device the
   user chose; left to itself Tracktion writes its own copy into `Settings.xml` and replays
   that one first, so the hidden choice wins before any st0 code runs.
 

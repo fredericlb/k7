@@ -70,7 +70,7 @@ before it puts anything there. Per-checkout, never committed, never travelling �
 no tracked file of a repository that is not ours — and inert once the submodule is registered,
 since an ignore rule has no say over a path git already tracks.
 
-**A module root is a git checkout, never the médiathèque cache.** `~/.studio/mediatek/modules`
+**A module root is a git checkout, never the médiathèque cache.** `<state>/mediatek/modules`
 is not one. Three things follow:
 
 - **Two writers on one tree is what that avoids.** `syncFamily` deletes whatever the owner's
@@ -91,7 +91,7 @@ is not one. Three things follow:
 every project beside it, and it forks on write (`docs/moduleFork.md`) — nothing gives it a way
 back.
 
-The médiathèque holds songs and samples, serves them over HTTP, and `~/.studio/mediatek` is the
+The médiathèque holds songs and samples, serves them over HTTP, and `<state>/mediatek` is the
 cache a machine plays them from. Modules do not live there.
 
 There is no row for assets either: a module carries the files it loads in its own `assets/`, so

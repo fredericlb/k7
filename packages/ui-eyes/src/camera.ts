@@ -55,3 +55,33 @@ export const cameraConstraint = (m: CameraMatch): MediaStreamConstraints => ({
   video: m.deviceId ? { deviceId: m.deviceId } : true,
   audio: false,
 });
+
+/** An opened lens, or the sentence saying why there is none — never a throw, see `openLens`. */
+export interface Lens {
+  stream: MediaStream | null;
+  problem: string | null;
+}
+
+/** How a live lane gets its picture. Injected, because the browser that DRAWS a surface is not
+ *  always the one that may open a camera: over the LAN a tablet has no secure context, so its
+ *  lens arrives over a peer connection instead. See packages/song/docs/camera.md. */
+export type LensOpener = (label: string) => Promise<Lens>;
+
+/** This browser's own camera — the ordinary opener, and the only one on the machine itself. */
+export const localLens: LensOpener = async (label) => {
+  const media = globalThis.navigator?.mediaDevices;
+  if (!media?.getUserMedia)
+    return { stream: null, problem: "this browser offers no camera" };
+  try {
+    // Enumerated FIRST, so a named lens is matched before anything is opened (docs/camera.md).
+    const devices = await media.enumerateDevices();
+    const match = matchCamera(label, devices);
+    const stream = await media.getUserMedia(cameraConstraint(match));
+    return { stream, problem: match.problem ?? null };
+  } catch (e) {
+    return {
+      stream: null,
+      problem: `camera unavailable: ${(e as Error).message}`,
+    };
+  }
+};

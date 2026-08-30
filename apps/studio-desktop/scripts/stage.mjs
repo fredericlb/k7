@@ -58,7 +58,7 @@ export // The freshest built engine binary, Debug last — see @studio/engine-cl
 function findEngineBinary() {
   const build = join(engineDir, "build");
   if (!existsSync(build)) return null;
-  const names = ["studio-moteur.exe", "studio-moteur"];
+  const names = ["st0-engine.exe", "st0-engine"];
   const configs = ["", "Release", "RelWithDebInfo", "Debug"];
   const found = [];
   for (const preset of readdirSync(build))
@@ -296,11 +296,11 @@ export function pruneOtherPlatforms(rel) {
 
 /**
  * Everything the packaged app carries, in ONE FLAT directory. The layout is not a preference:
- * engine-host's bundle.ts derives its resource dir from `process.execPath`, which for the
- * supervisor is the VENDORED NODE — so node, the two .mjs bundles, songs, faust-libs and
- * node_modules must all be its siblings. Nest them and the installed app shows a working
- * engine with a permanently red icon and "file service down", with nothing in the log to say
- * why, while every developer machine works. See docs/buildEngine.md.
+ * the app hands this directory to engine-host as its bundle root, and bundle.ts probes
+ * siblings of it — so node, the .mjs bundles, songs, faust-libs and node_modules must all sit
+ * beside each other. Nest them and the installed app shows a working engine with a permanently
+ * red icon and "file service down", with nothing in the log to say why, while every developer
+ * machine works. See docs/buildEngine.md.
  */
 export async function stageAll(destDir, engineBin) {
   mkdirSync(destDir, { recursive: true });
@@ -309,7 +309,7 @@ export async function stageAll(destDir, engineBin) {
   const exe = process.platform === "win32" ? ".exe" : "";
   for (const [src, name] of [
     [nodeBin, `node${exe}`],
-    [engineBin, `studio-moteur${exe}`],
+    [engineBin, `st0-engine${exe}`],
   ]) {
     const dest = join(destDir, name);
     copyFileSync(src, dest);
@@ -321,11 +321,8 @@ export async function stageAll(destDir, engineBin) {
     join(repo, "packages", "file-service", "src", "server.ts"),
     join(destDir, "file-service.mjs"),
   );
-  await bundleTs(
-    join(repo, "packages", "engine-host", "src", "main.ts"),
-    join(destDir, "engine-host.mjs"),
-  );
-  // The same supervisor with a terminal in front of it, for whoever wants only the engine.
+  // The supervisor with a terminal in front of it, for whoever wants only the engine — the
+  // app carries no bundle of its own, running it in its main process instead.
   // Nearly free: the runtime, the engine binary, the demos and the Faust libs are all here.
   await bundleTs(
     join(repo, "packages", "engine-host", "src", "cli.ts"),

@@ -109,7 +109,7 @@ target_link_libraries(studio_engine PUBLIC studio_nam)
 # `faust/dsp/interpreter-dsp.h` and `faust/gui/UI.h` live).
 #
 # `staticlib` is a TARGET, not a path, and that is load-bearing: the build presets pin
-# `targets: ["studio-moteur"]`, so nothing builds a library nobody depends on. Naming the file
+# `targets: ["st0-engine"]`, so nothing builds a library nobody depends on. Naming the file
 # instead — which is what this said first — links fine on a tree where it happens to exist and
 # fails with `LNK1104: cannot open libfaust.lib` on a fresh one, at the very last step of a long
 # build. The generic name is Faust's own (build/CMakeLists.txt); it is not ours to rename.

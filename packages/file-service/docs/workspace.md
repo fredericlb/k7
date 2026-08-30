@@ -31,7 +31,7 @@ in front of it turns a constant cost into one paid per edit.
   process (a `git pull`, another tab, an external editor) moves it too. There is no
   watcher here; this walk is what stands in for one.
 - **two files outside the project**, folded into the same "newest mtime": the engine's scan
-  cache (`~/.studio/exts.json`) and the machine's preferences (`~/.studio/preferences.yaml`).
+  cache (`<state>/exts.json`) and the machine's preferences (`<state>/preferences.yaml`).
   Every view keyed on this token reads one of them — `@engine/…` modules come out of the scan,
   a channel's label out of the preferences — and neither is in the project, so a plugin rescan
   or a `system channel set` would leave the memoised answers stale until an unrelated edit moved
@@ -287,7 +287,7 @@ own answer: none of them can be read out of that tree.
   library" and "an empty library" look the same when only one of them can be fixed by adding a
   module.
 - **`@engine` is the odd one.** Every other level is a FOLDER; this one is synthesised from
-  `~/.studio/exts.json`, so there is no path, no file to open and nothing to write. Its type folders
+  `<state>/exts.json`, so there is no path, no file to open and nothing to write. Its type folders
   are synthesised too — a ref is flat (`@engine/nam`), and two hundred and fifty plugins in one list
   is a level nobody can find anything in — so the folder rows carry a made-up path and the LEAVES
   carry the real ref. Each leaf is deliberately a leaf: `foldModules` turns a folder holding

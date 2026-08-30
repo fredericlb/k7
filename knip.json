@@ -109,7 +109,6 @@
     },
     "packages/engine-host": {
       "entry": [
-        "src/main.ts",
         "src/engineQueries.ts"
       ]
     },

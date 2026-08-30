@@ -20,13 +20,22 @@ import { externalIndexUrl } from "@studio/project-shell/launch";
 import type { ProjectSurface } from "@studio/song-schema/yaml/surfaceFile";
 import type { Deck } from "@studio/ui-turntables/engine";
 import type { WebVideoProject } from "@studio/web-protocol";
-import { ChevronLeft, Loader2, Terminal, Unplug } from "lucide-react";
+import {
+  ChevronLeft,
+  Loader2,
+  Maximize,
+  Minimize,
+  Terminal,
+  Unplug,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, engines } from "../api";
 import type { CommandPrefs } from "../commandPrefs";
 import { useCommandKeys } from "../hooks/useCommandKeys";
 import { useEngineLink } from "../hooks/useEngineLink";
+import { useFullscreen } from "../hooks/useFullscreen";
 import { useProjectDoc } from "../hooks/useProjectDoc";
+import { useStayAwake } from "../hooks/useStayAwake";
 import {
   type SurfaceCommands,
   useSurfaceCommands,
@@ -71,6 +80,9 @@ export function ExternalSurface({
 }) {
   const store = useRef(new EngineStore()).current;
   const pluginParamsStore = useRef(new PluginParamsStore()).current;
+  // A surface is watched and not touched, and this device may be one no lock is offered on.
+  useStayAwake(true);
+  const fullscreen = useFullscreen();
   // The one live slice this level draws; NOT the playhead, whose clock subscribes for itself (shellMeta.tsx).
   const playing = useStoreState(store, (s) => s.playing);
   /** Where a fault goes on a screen with no status line — one line in the footer, which is what a phone has room for. */
@@ -299,6 +311,23 @@ export function ExternalSurface({
             <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
               {status}
             </p>
+          ) : null}
+          {/* The other half of "an app" on a device that could not install one — ../docs/external.md. */}
+          {fullscreen.available ? (
+            <button
+              type="button"
+              onClick={fullscreen.toggle}
+              title={
+                fullscreen.active ? "Quitter le plein écran" : "Plein écran"
+              }
+              className="ml-auto flex shrink-0 items-center rounded px-1 py-0.5 text-muted-foreground hover:bg-accent"
+            >
+              {fullscreen.active ? (
+                <Minimize className="h-4 w-4" />
+              ) : (
+                <Maximize className="h-4 w-4" />
+              )}
+            </button>
           ) : null}
         </footer>
       </div>

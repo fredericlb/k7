@@ -1,5 +1,6 @@
-// audioPolicy.ts — which interface the engine should be on: the one the user PICKED
-// whenever it's present, else their configured fallback, else leave the engine alone.
+// audioPolicy.ts — which interface the engine should be on: the user's list in THEIR order,
+// best first, and the first entry actually plugged in wins. There is no default and no
+// fallback any more — a fallback was only ever the second line of this list.
 // Kept apart from the loop that calls it so the rules stay testable without a running
 // engine. Full rationale: docs/supervisorPolicy.md.
 
@@ -22,41 +23,50 @@ export function signature(devices: AudioDevice[]): string {
     .join(US);
 }
 
-/** Everything the audio submenu's contents depend on, `current` and the two settings included, so polling every 2s does not mean rebuilding. */
+/** Everything the audio rows depend on, `current` and the ranking included, so polling every 10s does not mean redrawing. */
 export function menuSignature(
   devices: AudioDevice[],
-  preferred: string | null,
-  fallback: string | null,
+  priority: string[],
 ): string {
   const rows = devices
     .map((d) => `${d.name}|${d.deviceType}|${d.current}`)
     .sort();
-  return `${rows.join(US)}${RS}${preferred ?? ""}${RS}${fallback ?? ""}`;
+  // The ranking is joined IN ORDER, unsorted: a reorder that moved no membership is the whole point of this list.
+  return `${rows.join(US)}${RS}${priority.join(US)}`;
 }
 
-const has = (devices: AudioDevice[], name: string): boolean =>
-  devices.some((d) => d.name === name);
+/** The best-ranked interface that is actually there, or null when the user has ranked none of the visible ones. */
+export function bestPresent(
+  devices: AudioDevice[],
+  priority: string[],
+): string | null {
+  return priority.find((n) => devices.some((d) => d.name === n)) ?? null;
+}
 
 /** The device the engine should switch to, or null when it is already where it belongs and nothing better is reachable. */
 export function desiredSwitch(
   devices: AudioDevice[],
-  preferred: string | null,
-  fallback: string | null,
+  priority: string[],
 ): string | null {
   if (!devices.length) return null; // the engine answered with nothing — don't thrash
+  const want = bestPresent(devices, priority);
+  // Nothing ranked is plugged in: leave the engine where it is, since a device we did not choose beats none.
+  if (!want) return null;
   const current = devices.find((d) => d.current)?.name ?? null;
+  return current === want ? null : want;
+}
 
-  // 1. The user's pick, if it's plugged in.
-  if (preferred && has(devices, preferred))
-    return current !== preferred ? preferred : null;
-
-  // The fallback applies only when the pick is genuinely missing or was never made — never over a device someone is deliberately on.
-  const pickMissing = !!preferred && !has(devices, preferred);
-  if (pickMissing || (!preferred && current === null)) {
-    if (fallback && has(devices, fallback) && current !== fallback)
-      return fallback;
-  }
-
-  // 3. Leave it be.
-  return null;
+/**
+ * The ranking after moving one name by `delta` places, unchanged when that would run off
+ * either end. It is given the rows the user can SEE — the ranking plus any present device
+ * missing from it — so the first move on a fresh install ranks the whole visible list.
+ */
+export function reorder(rows: string[], name: string, delta: number): string[] {
+  const from = rows.indexOf(name);
+  const to = from + delta;
+  if (from === -1 || to < 0 || to >= rows.length) return rows;
+  const next = [...rows];
+  next.splice(from, 1);
+  next.splice(to, 0, name);
+  return next;
 }

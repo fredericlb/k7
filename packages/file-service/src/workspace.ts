@@ -1052,14 +1052,25 @@ export class Workspace {
           };
     });
   }
-  /** The file tree an editor draws: the ACTIVE PROJECT's own files — see docs/activeProject.md. */
+  /** The file tree an editor draws: the WHOLE workspace, every project in it — see docs/activeProject.md. */
   tree(): FileNode[] {
-    return this.walk(this.activeProject ?? this.root);
+    return this.walk(this.root);
   }
 
-  /** The WHOLE workspace as a tree — the home page's 'look inside', not the editor's. */
+  /** The same walk under the home page's own route, which asks it of a workspace it has not opened. */
   workspaceTree(): FileNode[] {
-    return this.walk(this.root);
+    return this.tree();
+  }
+
+  /**
+   * Which project a bare workspace address opens: the one last open, else the first on disk,
+   * else none — a workspace holding no project is a tree and nothing more. See docs/workspaces.md.
+   */
+  defaultProject(): string | null {
+    if (this.rootIsProject) return ".";
+    const marked = this.readActiveMarker();
+    if (marked && isProjectDir(marked)) return this.toRel(marked);
+    return projectDirsUnder(this.root)[0] ?? null;
   }
 
   /** The module libraries this project can reach, in precedence order — see docs/workspace.md. */

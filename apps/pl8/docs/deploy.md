@@ -1,6 +1,6 @@
 # Deploying the médiathèque
 
-The library is **hosted**: `studio.frediver.se` owns the files, and `~/.studio/mediatek` is a
+The library is **hosted**: `studio.frediver.se` owns the files, and `<state>/mediatek` is a
 cache the moteur reads from. The service is `pl8`, served under `/pl8`, and the whole design
 depends on it being deployed — a Dockerfile, an nginx entry and a CI job.
 

@@ -1,7 +1,7 @@
 # Où la médiathèque lit sa configuration
 
 Le backend lit `STUDIO_MEDIATEK` — le volume de la bibliothèque — et **refuse de démarrer
-sans elle**. Pas de défaut : `@studio/mediatek` retomberait sur `~/.studio/mediatek`, qui
+sans elle**. Pas de défaut : `@studio/mediatek` retomberait sur `<state>/mediatek`, qui
 dans un conteneur est un répertoire vide que personne n'a monté. Le service démarrerait en
 bonne santé et servirait une bibliothèque vide, ce qui est la pire panne possible ici.
 
@@ -18,7 +18,7 @@ lisant l'environnement, à commencer par `mediatekRoot()`
 
 Un chargeur qui se contenterait de *retourner* la valeur — ce que fait `defineEnv`, qui
 valide et rend un objet sans toucher à `process.env` — laisserait donc tous ces
-consommateurs sur le repli `~/.studio/mediatek`. Le backend, lui, verrait bien sa valeur et
+consommateurs sur le repli `<state>/mediatek`. Le backend, lui, verrait bien sa valeur et
 passerait son propre garde-fou. Résultat : un service qui démarre, se déclare sain, et sert
 le mauvais répertoire. Exactement la panne que le garde-fou existe pour empêcher.
 

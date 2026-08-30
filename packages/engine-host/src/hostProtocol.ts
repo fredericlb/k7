@@ -25,6 +25,9 @@ export interface HostAudioDevice {
   current: boolean;
 }
 
+/** What joins `audio.priority`'s ordered names: U+001F again, which no device name can contain. A command carries ONE argument, and the ranking is one value. */
+export const PRIORITY_SEP = "";
+
 /** What separates `plugin.showUI`'s two halves: U+001F, the one byte neither a session id nor a plugin id can contain (mirrored in tray.rs). */
 export const SHOW_UI_SEP = "";
 
@@ -95,10 +98,8 @@ export interface HostSnapshot {
   /** null means "the engine hasn't answered yet" — the spinner, not "none found". */
   pluginCount: number | null;
   audioDevices: HostAudioDevice[];
-  /** The device the user picked, remembered so it can be RE-selected when it returns. */
-  audioPreferred: string | null;
-  /** Where to go when the preferred one isn't there. */
-  audioFallback: string | null;
+  /** The interfaces the user RANKED, best first. The first one present is where the engine goes; a name with nothing behind it is one that is unplugged, and keeps its rank. */
+  audioPriority: string[];
   /** Changes exactly when the audio submenu's CONTENT would — the tray rebuilds only when it differs from what it last drew. */
   audioMenuSig: string;
   editPlugins: HostEditPlugin[];
@@ -131,8 +132,7 @@ export type HostCommandName =
   | "engine.restart"
   | "fileService.restart"
   | "plugins.rescan"
-  | "audio.select"
-  | "audio.fallback"
+  | "audio.priority"
   | "plugin.showUI"
   | "session.drop"
   | "weburi.add"
@@ -149,7 +149,7 @@ export interface HostCommand {
   /** Correlates the `result`. The tray allocates these; the host only echoes them. */
   id: number;
   cmd: HostCommandName;
-  /** The command's single argument, when it takes one; an empty string is meaningful for `audio.fallback`, where it means "none". */
+  /** The command's single argument, when it takes one; an empty string is meaningful for `audio.priority`, where it means "rank nothing". */
   arg?: string;
 }
 

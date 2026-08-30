@@ -4,6 +4,7 @@
 // An enabled Stop on somebody else's engine. A green status over a dead file service. A
 // plugin row whose id opens the wrong editor. See apps/studio-desktop/docs/settings.md.
 
+import { reorder } from "@studio/engine-host/audioPolicy";
 import type {
   HostAudioDevice,
   HostSession,
@@ -65,24 +66,66 @@ export function pluginsLine(state: DesktopState): string {
   return s?.status === "running" ? "Plugins: scanning…" : "Plugins: —";
 }
 
-/** A device row. The remembered pick is marked only when the engine is NOT on it — that gap is what needs explaining. */
-export function audioRow(
-  d: HostAudioDevice,
-  s: HostSnapshot,
-): { label: string; detail: string } {
-  const preferred = s.audioPreferred === d.name && !d.current;
-  return {
-    label: `${d.current ? "● " : "○ "}${d.name}`,
-    detail: d.deviceType + (preferred ? " · preferred" : ""),
-  };
+export interface AudioRow {
+  name: string;
+  label: string;
+  detail: string;
+  /** Plugged in right now. An absent one still gets a row, or "why am I not on my interface?" has no answer on screen. */
+  present: boolean;
+  /** In the user's list, as opposed to merely visible. Only a ranked device is ever switched to. */
+  ranked: boolean;
 }
 
-/** A remembered pick that is not plugged in still gets a row, or the question has no answer on screen. */
-export function missingDevice(s: HostSnapshot | null): string | null {
-  if (!s?.audioPreferred) return null;
-  return s.audioDevices.some((d) => d.name === s.audioPreferred)
-    ? null
-    : s.audioPreferred;
+/**
+ * Every interface worth a row, in the order the engine consults them: the user's ranking first,
+ * then whatever else is plugged in. Moving any row sends this whole list back, so the first move
+ * on a fresh machine ranks all of it at once — see apps/studio-desktop/docs/settings.md.
+ */
+export function audioRows(s: HostSnapshot): AudioRow[] {
+  const byName = new Map(s.audioDevices.map((d) => [d.name, d]));
+  const unranked = s.audioDevices
+    .filter((d) => !s.audioPriority.includes(d.name))
+    .map((d) => d.name);
+  return [...s.audioPriority, ...unranked].map((name, i) => {
+    const d = byName.get(name);
+    const ranked = i < s.audioPriority.length;
+    return {
+      name,
+      label: `${ranked ? `${i + 1}. ` : ""}${d?.current ? "● " : "○ "}${name}`,
+      detail: rowDetail(d, ranked),
+      present: d !== undefined,
+      ranked,
+    };
+  });
+}
+
+function rowDetail(d: HostAudioDevice | undefined, ranked: boolean): string {
+  if (!d) return "not connected — it keeps its place until you say otherwise";
+  if (!ranked) return `${d.deviceType} · not ranked`;
+  return d.current ? `${d.deviceType} · in use` : d.deviceType;
+}
+
+/** The list a move sends back: what the user could SEE, with one name shifted. `reorder` is the supervisor's, so both ends agree on what a move is. */
+export function movedPriority(
+  rows: AudioRow[],
+  name: string,
+  delta: number,
+): string[] {
+  return reorder(
+    rows.map((r) => r.name),
+    name,
+    delta,
+  );
+}
+
+/** Putting an unranked device into the list, where it sits on screen — which ranks the ones above it too, since a position means nothing without them. */
+export function rankedPriority(rows: AudioRow[]): string[] {
+  return rows.map((r) => r.name);
+}
+
+/** Forgetting one entry. Offered on an absent device only: a present one you demote is still on screen, where a name for hardware you sold is not. */
+export function forgottenPriority(rows: AudioRow[], name: string): string[] {
+  return rows.map((r) => r.name).filter((n) => n !== name);
 }
 
 /** One session: which project, how big, and the two live facts ONLY when they are true. */

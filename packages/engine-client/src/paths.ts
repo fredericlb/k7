@@ -1,14 +1,15 @@
-// paths.ts — the single definition of the shared ~/.studio/ layout, which the C++
-// engine, the file service, the supervisor and the web backend all read or write by name.
-// USE THESE, never a hand-joined path: a wrong path doesn't throw, it reads as an empty
-// file, so a second spelling diverges silently.
+// paths.ts — the single definition of the state directory's layout, which the C++ engine,
+// the file service, the supervisor and the desktop app all read or write by name. Where the
+// directory IS: @studio/song's studioHome.ts. USE THESE, never a hand-joined path: a wrong
+// path doesn't throw, it reads as an empty file, so a second spelling diverges silently.
+// See docs/paths.md.
 
 import { join } from "node:path";
 import { EXTS_PATH } from "@studio/song/engineCatalogue";
 import { mediatekRoot } from "@studio/song/mediatekRoot";
 import { studioHome } from "@studio/song/studioHome";
 
-/** `~/.studio` — the shared state dir; `$STUDIO_HOME` moves it, so a WSL process can share the host's. */
+/** The state dir — `<library>/st0`, or `$STUDIO_HOME` so a WSL process can share the host's. */
 export function studioDir(): string {
   return studioHome();
 }
@@ -23,19 +24,9 @@ export function enginePidPath(): string {
   return join(studioDir(), "engine.pid");
 }
 
-/**
- * A person's workspace root is `root/<slug>`, and the slug is their email with every
- * non-alphanumeric character replaced by `_`. Here rather than in the file service because it
- * names a DIRECTORY: a second spelling would not throw, it would quietly point at an empty
- * one — the same reason every other path in this file is here.
- */
+/** An email as `_`-separated; it names the SSH key dir and the SESSION, no longer a workspace root — docs/paths.md. */
 export function slugify(email: string): string {
   return email.replace(/[^a-zA-Z0-9]/g, "_");
-}
-
-/** `~/.studio/root/<slug>` — everything one person's machine holds. */
-export function userRoot(slug: string): string {
-  return join(rootDir(), slug);
 }
 
 /** The running SUPERVISOR's pid — one per machine, or two would fight over one engine (docs/supervisorPolicy.md). */
@@ -83,17 +74,17 @@ export function mergedLogPath(): string {
   return join(studioDir(), ".studio.log");
 }
 
-/** `~/.studio/root` — the per-user workspaces root the file service owns. */
+/** `<state>/workspace` — the workspaces the file service owns, one level, no user beneath it. */
 export function rootDir(): string {
-  return join(studioDir(), "root");
+  return join(studioDir(), "workspace");
 }
 
-/** `~/.studio/mediatek` — the media library, per MACHINE rather than per user and overridable via `$STUDIO_MEDIATEK`; `@studio/song` owns the spelling. */
+/** `<state>/mediatek` — the media library, overridable via `$STUDIO_MEDIATEK`; `@studio/song` owns the spelling. */
 export function mediatekDir(): string {
   return mediatekRoot();
 }
 
-/** Per-workspace SSH keys, `~/.studio/ssh/<slug>`, written by the file service so a workspace can talk to a git remote as itself. */
+/** Per-person SSH keys, `<state>/ssh/<slug>`, written by the file service so a workspace can talk to a git remote as itself. */
 export function sshDir(slug: string): string {
   return join(studioDir(), "ssh", slug);
 }

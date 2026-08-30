@@ -95,7 +95,7 @@ function peakDb(bin: string, file: string): number {
 
 async function main() {
   const bin = findEngineBinary();
-  if (!bin) throw new Error("no studio-moteur binary on this machine");
+  if (!bin) throw new Error("no st0-engine binary on this machine");
   const render = async (tracks: unknown[]) =>
     peakDb(bin, (await renderProject({ ...base, tracks })).files[0]);
 

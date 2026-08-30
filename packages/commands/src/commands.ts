@@ -3177,7 +3177,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const engine = findEngineBinary();
     if (!engine) {
       h.refuse([
-        "freeze failed: studio-moteur binary not found (build the engine)",
+        "freeze failed: st0-engine binary not found (build the engine)",
       ]);
       return;
     }

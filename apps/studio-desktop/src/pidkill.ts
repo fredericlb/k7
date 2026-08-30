@@ -29,19 +29,29 @@ export function killTree(pid: number): void {
   } catch {}
 }
 
-/**
- * Kill whatever the pidfile names, tree and all, and remove it. A missing pidfile or a dead
- * pid is the normal case — this is a backstop, not a step.
- */
-export function backstop(): void {
-  const path = enginePidPath();
+/** What the pidfile names, read while it still exists. See `backstop` for why that matters. */
+export function enginePid(): number | null {
   let text: string;
   try {
-    text = readFileSync(path, "utf8");
+    text = readFileSync(enginePidPath(), "utf8");
   } catch {
-    return;
+    return null;
   }
   const pid = Number.parseInt(text.trim(), 10);
-  if (Number.isInteger(pid) && pid > 0) killTree(pid);
-  rmSync(path, { force: true });
+  return Number.isInteger(pid) && pid > 0 ? pid : null;
+}
+
+/** Kill the engine if the teardown did not; `pid` is taken BEFORE it runs — see docs/lifetime.md. */
+export function backstop(pid?: number | null): boolean {
+  const target = pid ?? enginePid();
+  rmSync(enginePidPath(), { force: true });
+  if (!target) return false;
+  try {
+    // Asks without signalling; EPERM means it exists and is somebody else's.
+    process.kill(target, 0);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "EPERM") return false;
+  }
+  killTree(target);
+  return true;
 }

@@ -27,7 +27,7 @@ control at its range minimum misreports it: **4OSC's filter opens at 69 of 0..13
 ## So the table is generated, from a real instance of every built-in
 
 ```
-studio-moteur --dump-builtin-params          # what a TYPE has: name, range, default, named states
+st0-engine --dump-builtin-params          # what a TYPE has: name, range, default, named states
 node engine/moteur/scripts/gen-builtin-params.mjs
   → packages/song-schema/src/builtinParams.generated.ts
 ```

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // dev-native.mjs — the native half of the dev session: builds the C++ engine, launches the
 // desktop app, then watches both and restarts on save. It still owns the app's LIFETIME
-// because a running engine holds studio-moteur open and only stopping the app releases it —
+// because a running engine holds st0-engine open and only stopping the app releases it —
 // but it no longer owns the app's BUILD, which is an ordinary Tilt resource now that
 // dist/main.cjs is not a linked image. See docs/dev.md.
 
@@ -35,7 +35,7 @@ const log = (msg) => console.log(`native | ${msg}`);
 const isCxx = (base) => /\.(cpp|h|hpp|mm)$/.test(base);
 
 const TARGETS = {
-  // The C++ that ends up in studio-moteur; tests/ is deliberately out (../docs/dev.md).
+  // The C++ that ends up in st0-engine; tests/ is deliberately out (../docs/dev.md).
   moteur: {
     dirs: [
       { path: join(engineDir, "engine"), recursive: true, match: isCxx },
@@ -102,7 +102,7 @@ function buildEngine() {
 function engineBinary() {
   const build = join(engineDir, "build");
   if (!existsSync(build)) return null;
-  const names = ["studio-moteur.exe", "studio-moteur"];
+  const names = ["st0-engine.exe", "st0-engine"];
   const found = [];
   for (const preset of readdirSync(build))
     for (const cfg of ["", "Release", "RelWithDebInfo", "Debug"])

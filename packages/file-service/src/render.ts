@@ -28,7 +28,7 @@ export async function renderProject(
 ): Promise<RenderResult> {
   const bin = findEngineBinary();
   // Named out loud, or "render failed" reads as a broken document rather than a missing binary.
-  if (!bin) throw new RenderError("no studio-moteur binary on this machine");
+  if (!bin) throw new RenderError("no st0-engine binary on this machine");
 
   const dir = mkdtempSync(join(tmpdir(), "studio-render-"));
   try {

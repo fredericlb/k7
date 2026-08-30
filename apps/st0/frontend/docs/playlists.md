@@ -234,7 +234,7 @@ même raison : ce sur quoi elle travaille reste visible en dessous.
 
 - **La chaîne n'est pas demandée ici.** Elle est AFFICHÉE — la barre montre celle qui va tourner et
   rien de plus. Quel module sépare et quel modèle il veut est une réponse unique pour la machine :
-  elle se donne une fois dans les réglages, sous I/O, et vit dans `~/.studio/preferences.yaml`
+  elle se donne une fois dans les réglages, sous I/O, et vit dans `<state>/preferences.yaml`
   (`system stems`). Un sélecteur ici posait la même question à la même personne à chaque set list,
   et trois écrans qui la posent, ce sont trois endroits où se tromper. La préférence est relue à
   chaque ouverture de la barre, parce que les réglages sont à un clic.

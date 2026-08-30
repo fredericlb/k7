@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { emptyDoc } from "@studio/engine-protocol/build";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { rootDir, slugify } from "./slug.ts";
+import { rootDir } from "./slug.ts";
 
 // A stand-in engine, recording what was done to it: the prune is about the MAP and the reconnect.
 const built: FakeClient[] = [];
@@ -59,13 +59,14 @@ const {
   ensureEngine,
   outsideTheWatch,
   pruneIdleLinks,
+  noteOwner,
   sessionOf,
   setSelectedEngine,
   startEngineForActive,
 } = await import("./engineLink.ts");
 
-const wsFor = (email: string, name = "songs") => ({
-  root: join(rootDir(), slugify(email), name),
+const wsFor = (_email: string, name = "songs") => ({
+  root: join(rootDir(), name),
 });
 
 /** `wsFor` with enough of a Workspace to actually SERVE `dir` — which is what `served` records. */
@@ -77,26 +78,29 @@ const wsServing = (email: string, dir: string) => ({
 });
 
 describe("sessionOf", () => {
-  // THE agreement: this side reads the owner slug out of the path, the browser slugs the email.
+  // THE agreement: this side names the owner it was TOLD, the browser slugs the same email.
+  // The tree no longer carries it — one root, one person (docs/activeProject.md).
   it("matches what the browser half computes from the same email", () => {
     for (const email of [
       "fred@parapluie.org",
       "a.b+c@example.co.uk",
       "UPPER@Example.COM",
-    ])
+    ]) {
+      noteOwner(email);
       expect(sessionOf(wsFor(email))).toBe(sessionFor(SESSIONS.st0, email));
+    }
   });
 
-  it("separates two people, and joins one person's workspaces", () => {
-    expect(sessionOf(wsFor("a@x.org"))).not.toBe(sessionOf(wsFor("b@x.org")));
-    // Same person, two workspaces: ONE session — see docs/activeProject.md.
+  it("joins one person's workspaces into ONE session", () => {
+    noteOwner("a@x.org");
     expect(sessionOf(wsFor("a@x.org", "one"))).toBe(
       sessionOf(wsFor("a@x.org", "two")),
     );
   });
 
-  // A bare folder opened directly has no owner in its path: one machine, one person.
-  it("falls back to the bare service id outside the users root", () => {
+  // Nothing served, or a folder outside the root: the bare session, as before.
+  it("falls back to the bare service id outside the workspaces root", () => {
+    noteOwner("a@x.org");
     expect(sessionOf({ root: join("/tmp", "some-song") })).toBe(SESSIONS.st0);
     expect(sessionOf(null)).toBe(SESSIONS.st0);
   });

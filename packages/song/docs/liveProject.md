@@ -134,7 +134,7 @@ dropdown lists what this machine declares — or write it:
 
 ```yaml
 channel: [1]        # 1-based; a PAIR for a stereo input, e.g. [1, 2]
-channel: "guitar"   # …or a label from ~/.studio/preferences.yaml (channels.in)
+channel: "guitar"   # …or a label from <state>/preferences.yaml (channels.in)
 ```
 
 A label is the spelling that survives being opened on another machine

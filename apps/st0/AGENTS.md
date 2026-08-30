@@ -21,7 +21,7 @@ by the LAN reverse proxy.
 | | `backend` | `@studio/file-service` | `engine/moteur` |
 |---|---|---|---|
 | runs on | the hosted machine | the **engine's** machine | the engine's machine |
-| owns | the engine registry, and `/auth/*` for the whole origin | `~/.studio/root/<user>/<workspace>` — every file op | audio playback |
+| owns | the engine registry, and `/auth/*` for the whole origin | `<state>/workspace/<user>/<workspace>` — every file op | audio playback |
 | reached | same-origin (`/api`, `/auth` via the Vite proxy) | **cross-origin and direct (CORS-gated) when the browser may, else relayed through this origin** | **WebSocket — direct when the browser may, else relayed through this origin** |
 | auth | session cookie (`studio.sid`) | `x-studio-{user,workspace,engine-token}` headers | engine token echoed on `whoami` |
 
@@ -31,7 +31,7 @@ here.
 
 The file service does **not** share the session cookie. Its CORS allowlist
 (`packages/file-service/src/cors.ts`) is the actual security boundary: deny-by-default,
-loopback/private plus the user-trusted origins in `~/.studio/web-origins.json`.
+loopback/private plus the user-trusted origins in `<state>/web-origins.json`.
 
 `AuthGate` → `EngineGate` → `ProjectGate` → editor, when the address names a project.
 When it names none, `main.tsx` mounts `AuthGate` → `Home` instead — the projects page, which
@@ -197,7 +197,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
 - **Editor** — `@uiw/react-codemirror` with `@studio/ui-editor` for YAML support and a
   hint-driven completion source. Vim mode is on by default (a global preference in
-  `~/.studio/preferences.yaml`). **There is no Save button here**: the buffer is written as soon
+  `<state>/preferences.yaml`). **There is no Save button here**: the buffer is written as soon
   as it is a document the compiler could read, and held back with the reason while it is not
   (`@studio/ui-editor/autosave`, whose `docs/autosave.md` is the page to read first). The MODULE
   BUILDER is the one screen that does have one — see Modules below. `:w` and
@@ -291,12 +291,28 @@ preference.
 while its identity does not, and storing a URL would pin someone to the network they first logged
 in from.
 
-## st0 is opened ON a project — and the HOME page is where one is chosen
+## st0 is opened ON a workspace, and plays ONE of the projects in it
+
+A workspace is one git repository and holds **several projects**. The editor's tree is the whole
+workspace, and the ▶ on a project row is what hands that one to the engine — `POST /open`, which
+writes `.studio-active` and switches the session, with no navigation and no remount
+(`packages/file-service/docs/activeProject.md`). The address may still name a project, and that
+is what it opens ON; a bare `/<dépôt>` opens the one last played.
+
+**A workspace does not need a repository, and starts EMPTY.** `Nouveau` on the home page git-inits
+one here with no remote and no project; opening it draws the first-project wizard, since the
+archetype decides what the screen shows and that is a question better asked where the answer will
+be looked at. Everything works in it but pushing; `Publier` is the day it gets an `origin`, and
+`Importer` is the clone of one that already exists (`packages/file-service/docs/workspaces.md`).
+
+## the HOME page is where a workspace is chosen
 
 **This app does not own workspaces**, and never will: pl8 stores the repositories
 (`apps/pl8/docs/projects.md`) and the engine's machine holds every working copy. What this app
 owns is the SCREEN above a project, at `/` with nothing after it — the repositories, the
-projects inside them, the libraries repository, the published shares and the deploy key. The
+projects inside them, the libraries repository and the published shares. The deploy key is NOT
+here any more — it is the Sync tab of `/@settings` (`apps/studio-desktop/docs/settings.md`),
+which the hosted origin draws too, since the key is the account's rather than the app's. The
 routes stay pl8's while the screen is here, and `frontend/docs/projects.md` is the page that says
 why.
 
@@ -325,12 +341,12 @@ The gate itself is that package's too, and z0's editor mounts the same one; `com
 is a wrapper holding this app's wording and what to render once the project is open.
 
 **There is no workspace picker anywhere in this app**, and a folder under
-`~/.studio/root/<you>/` is the wrong level to offer a choice at. The home page lists
+`<state>/workspace/<you>/` is the wrong level to offer a choice at. The home page lists
 REPOSITORIES, which belong to a person rather than to a machine, and a workspace is what the gate
 resolves one INTO. The deploy key is pl8's — one key per person, which the file service fetches a
 copy of (`packages/git-repos/docs/keys.md`); this app draws the card that shows it.
 
-Identity is the OIDC email → folder slug → `~/.studio/root/<slug>/<workspace>`, and the active
+Identity is the OIDC email, which names the engine SESSION rather than a folder — the workspaces are `<state>/workspace/<workspace>` with nobody underneath (`packages/engine-client/docs/paths.md`) — and the active
 project is remembered per-workspace in a `.studio-active` marker. There is **no global session
 file**; the workspace is the scope.
 

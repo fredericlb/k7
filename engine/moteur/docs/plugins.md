@@ -168,7 +168,7 @@ child exits — and bounds the wait at 20 s, so a hung plugin is killed and the 
 `ChildProcess::start(StringArray)` is used rather than a command line so a `C:\Program Files\…`
 path reaches the child's argv intact.
 
-The cache is `~/.studio/exts.json`, keyed by identifier and carrying the file's mtime. An entry is
+The cache is `<state>/exts.json`, keyed by identifier and carrying the file's mtime. An entry is
 reused only when the file is unchanged **and** it already holds a full `PluginDescription` as XML
 — older caches do not — so a plain rescan upgrades pre-description entries without needing
 `--force`. Keeping the description is what lets `makeExternalPlugin` instantiate without calling

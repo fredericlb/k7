@@ -291,7 +291,7 @@ describe("a chain that separates", () => {
     expect(r.lines.join("\n")).toMatch(/4 file\(s\)/);
     expect(r.lines.join("\n")).toMatch(/stems\/vocals\.wav/);
     // No render, so nothing about the engine binary: the cold branch is BEFORE that check.
-    expect(r.lines.join("\n")).not.toMatch(/studio-moteur/);
+    expect(r.lines.join("\n")).not.toMatch(/st0-engine/);
   });
 
   it("refuses when the host cannot run an offline step, and writes nothing", async () => {

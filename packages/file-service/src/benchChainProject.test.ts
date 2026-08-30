@@ -16,7 +16,6 @@ import { join } from "node:path";
 import { rootDir } from "@studio/engine-client/paths";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BENCH_WORKSPACE, ensureChainBench } from "./bench.ts";
-import { slugify } from "./slug.ts";
 import { Workspace } from "./workspace.ts";
 
 const EMAIL = "someone@example.test";
@@ -30,11 +29,9 @@ modules:
 `;
 
 let home: string;
-let prevHome: string | undefined;
 
 /** The bench's workspace, which is where the library submodule is mounted. */
-const benchRoot = (): string =>
-  join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE);
+const benchRoot = (): string => join(rootDir(), BENCH_WORKSPACE);
 
 /** …and the chain inside it, under the library mount rather than in any médiathèque cache. */
 const libraryChain = (): string => join(benchRoot(), "_libraries", CHAIN);
@@ -44,9 +41,9 @@ const LIBRARIES_URI = "git@example.test:studio/libraries.git";
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "td-benchchain-home-"));
-  prevHome = process.env.HOME;
-  // Off the real machine: this test WRITES to a library checkout, and the user's own is not a fixture.
-  process.env.HOME = home;
+  // Off the real machine: this test WRITES to a library checkout, and the user's own is not a
+  // fixture. `$STUDIO_HOME` and not a faked HOME — the state dir is the platform's business now.
+  process.env.STUDIO_HOME = home;
 
   // The library submodule, laid out by hand where the file service would have cloned it.
   mkdirSync(join(libraryChain(), "nodes"), { recursive: true });
@@ -59,14 +56,13 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  if (prevHome === undefined) delete process.env.HOME;
-  else process.env.HOME = prevHome;
+  delete process.env.STUDIO_HOME;
   rmSync(home, { recursive: true, force: true });
 });
 
 /** The bench project folder for the chain, as the service lays it out. */
 const benchDir = (project: string): string =>
-  join(rootDir(), slugify(EMAIL), BENCH_WORKSPACE, project);
+  join(rootDir(), BENCH_WORKSPACE, project);
 
 describe("a médiathèque chain, opened on the bench", () => {
   it("is a project whose chain is the bench's own wiring", async () => {

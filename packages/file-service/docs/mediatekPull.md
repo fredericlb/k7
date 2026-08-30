@@ -1,6 +1,6 @@
 # mediatekPull — how a machine keeps up with the médiathèque
 
-The hosted médiathèque owns the songs and samples. `~/.studio/mediatek` on a musician's machine
+The hosted médiathèque owns the songs and samples. `<state>/mediatek` on a musician's machine
 is a cache of it, because the moteur opens file paths and cannot fetch a URL. `mediatekPull.ts`
 is what keeps the two in step, unattended.
 
@@ -23,7 +23,7 @@ together — so the scope is a prefix and never a file list.
 
 The projects in question are the ones **open**: `liveWorkspaces()` is the memo the request path
 already maintains, and each workspace's active project is exactly the song someone is working
-on. No registry to keep, and nothing walks `~/.studio/root` looking for projects.
+on. No registry to keep, and nothing walks `<state>/workspace` looking for projects.
 
 ## The two reasons to sync
 
@@ -100,7 +100,7 @@ none; dropping it makes the next tick re-decide rather than skip. Never throws, 
 médiathèque cache is on its way out (the stem cut moves to pl8, which already holds the bytes),
 and until it goes this loop must not run.
 
-What it does when it runs: where `STUDIO_MEDIATEK` for pl8's backend is `~/.studio/mediatek` —
+What it does when it runs: where `STUDIO_MEDIATEK` for pl8's backend is `<state>/mediatek` —
 the very directory this cache writes into (`env.yaml`) — every tick downloads each scoped file
 ONTO ITSELF and renames the copy over the original while the server is still serving it. Songs
 come back as pure zeros, 3.4 MB and 37 MB of `0x00`, with no other copy of them on the machine.

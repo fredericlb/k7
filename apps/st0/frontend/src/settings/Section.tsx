@@ -1,8 +1,8 @@
-// Section.tsx — the shared furniture of the settings screen: a titled block, a row, and the
-// one button shape every action uses. Here rather than repeated four times, so the screen
-// reads as one surface and a fifth section costs a title.
+// Section.tsx — the shared furniture of the settings screen: the tab strip, a titled block, a
+// row, and the one button shape every action uses. Here rather than repeated four times, so the
+// screen reads as one surface and a fifth section costs a title.
 
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 export function Section({
   title,
@@ -78,5 +78,47 @@ export function Action({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * The strip above the sections. Not the window's tabs — those hold projects (see
+ * apps/studio-desktop/docs/tabs.md); these only choose which part of one page is drawn.
+ */
+export function Tabs<T extends string>({
+  tabs,
+  current,
+  onPick,
+}: {
+  tabs: readonly {
+    id: T;
+    label: string;
+    icon: ComponentType<{ className?: string }>;
+  }[];
+  current: T;
+  onPick: (id: T) => void;
+}) {
+  return (
+    <nav className="flex gap-1 border-neutral-800 border-b">
+      {tabs.map(({ id, label, icon: Icon }) => {
+        const on = id === current;
+        return (
+          <button
+            key={id}
+            type="button"
+            aria-current={on ? "page" : undefined}
+            onClick={() => onPick(id)}
+            className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors ${
+              on
+                ? "border-neutral-300 text-neutral-100"
+                : "border-transparent text-neutral-500 hover:text-neutral-300"
+            }`}
+          >
+            <Icon className="size-3.5" />
+            {label}
+          </button>
+        );
+      })}
+    </nav>
   );
 }

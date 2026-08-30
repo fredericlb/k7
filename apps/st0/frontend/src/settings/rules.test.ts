@@ -7,10 +7,11 @@ import { SHOW_UI_SEP } from "@studio/engine-host/hostProtocol";
 import { describe, expect, it } from "vitest";
 import type { DesktopState } from "../desktop";
 import {
-  audioRow,
+  audioRows,
   engineActions,
   fileServiceWarning,
-  missingDevice,
+  forgottenPriority,
+  movedPriority,
   needsSessionPrefix,
   openablePlugins,
   pluginArg,
@@ -31,8 +32,7 @@ const snap = (over: Partial<HostSnapshot> = {}): HostSnapshot =>
     lastHeartbeatOk: true,
     pluginCount: null,
     audioDevices: [],
-    audioPreferred: null,
-    audioFallback: null,
+    audioPriority: [],
     editPlugins: [],
     sessions: [],
     webOrigins: [],
@@ -125,36 +125,58 @@ describe("the plugin count", () => {
 });
 
 describe("the audio rows", () => {
-  const dev = (over = {}) =>
+  const dev = (name: string, over = {}) =>
     ({
-      name: "Scarlett",
+      name,
       deviceType: "CoreAudio",
       current: false,
       ...over,
     }) as never;
 
-  it("marks the remembered pick only when the engine is NOT on it", () => {
-    const s = snap({ audioDevices: [dev()], audioPreferred: "Scarlett" });
-    expect(audioRow(dev(), s).detail).toContain("preferred");
-
-    const on = snap({
-      audioDevices: [dev({ current: true })],
-      audioPreferred: "Scarlett",
+  it("draws the ranking in its own order, numbered, whatever order the engine reported", () => {
+    const s = snap({
+      audioDevices: [dev("Built-in"), dev("Scarlett", { current: true })],
+      audioPriority: ["Scarlett", "Built-in"],
     });
-    expect(audioRow(dev({ current: true }), on).detail).not.toContain(
-      "preferred",
-    );
+    expect(audioRows(s).map((r) => r.name)).toEqual(["Scarlett", "Built-in"]);
+    expect(audioRows(s)[0].label).toBe("1. ● Scarlett");
+    expect(audioRows(s)[1].label).toBe("2. ○ Built-in");
   });
 
-  it("still names an unplugged pick — otherwise the question has no answer on screen", () => {
-    expect(
-      missingDevice(snap({ audioDevices: [], audioPreferred: "Scarlett" })),
-    ).toBe("Scarlett");
-    expect(
-      missingDevice(
-        snap({ audioDevices: [dev()], audioPreferred: "Scarlett" }),
-      ),
-    ).toBeNull();
+  it("still names an unplugged entry — otherwise the question has no answer on screen", () => {
+    const rows = audioRows(
+      snap({ audioDevices: [], audioPriority: ["Scarlett"] }),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].present).toBe(false);
+    expect(rows[0].detail).toContain("not connected");
+  });
+
+  it("lists a device nobody ranked LAST, and says so", () => {
+    const rows = audioRows(
+      snap({ audioDevices: [dev("HDMI")], audioPriority: ["Scarlett"] }),
+    );
+    expect(rows.map((r) => r.name)).toEqual(["Scarlett", "HDMI"]);
+    expect(rows[1].ranked).toBe(false);
+    expect(rows[1].label).toBe("○ HDMI"); // no number: an unranked device is never switched to
+    expect(rows[1].detail).toContain("not ranked");
+  });
+
+  it("a move sends back the WHOLE visible list, so the first one ranks the unranked too", () => {
+    const rows = audioRows(
+      snap({ audioDevices: [dev("HDMI"), dev("Built-in")], audioPriority: [] }),
+    );
+    expect(movedPriority(rows, "Built-in", -1)).toEqual(["Built-in", "HDMI"]);
+  });
+
+  it("forgetting drops one name and keeps the rest in order", () => {
+    const rows = audioRows(
+      snap({
+        audioDevices: [dev("HDMI")],
+        audioPriority: ["Scarlett", "HDMI"],
+      }),
+    );
+    expect(forgottenPriority(rows, "Scarlett")).toEqual(["HDMI"]);
   });
 });
 

@@ -51,7 +51,7 @@ function peakDb(bin: string, file: string): number {
 
 async function main() {
   const bin = findEngineBinary();
-  if (!bin) throw new Error("no studio-moteur binary on this machine");
+  if (!bin) throw new Error("no st0-engine binary on this machine");
 
   const bare = await renderProject({ ...base, masterPlugins: [] });
   // Tracktion's own volume plugin, pinned to the BOTTOM of its fader (../docs/renderHarnesses.md).

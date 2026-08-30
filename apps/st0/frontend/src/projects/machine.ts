@@ -51,11 +51,16 @@ export async function ensureWorkspace(
   return job.workspace;
 }
 
-/** Commit and push what was just done, returning the gripe if there is one — `project commit`, since a bare `commit` names no command. */
+/**
+ * Commit and push what was just done, returning the gripe if there is one — `project commit`,
+ * since a bare `commit` names no command. `noRemote` says the workspace has never been
+ * published, where a failed push is the ordinary state rather than news.
+ */
 export async function commitAndPush(
   m: Machine,
   workspace: string,
   message: string,
+  noRemote = false,
 ): Promise<string | null> {
   const out = await engineMachine.command(
     m,
@@ -63,7 +68,47 @@ export async function commitAndPush(
     // The message is the rest of the line, unquoted; a newline would make it two commands.
     `project commit ${message.replace(/[\r\n]+/g, " ")}`,
   );
-  return commitOutcome(out);
+  return commitOutcome(out, { noRemote });
+}
+
+/**
+ * A workspace of one's own: git-initialised on the machine, with no repository behind it and
+ * NOTHING in it. Nothing here needs a server, which is the point — and no project either,
+ * because choosing an archetype is a question the editor asks better, on the empty workspace
+ * itself. See ../../docs/projects.md.
+ */
+export async function createLocalWorkspace(
+  m: Machine,
+  name: string,
+  onStep: (s: string) => void,
+): Promise<{ workspace: string }> {
+  onStep(`création de ${name}…`);
+  await engineMachine.createWorkspace(m, name);
+  return { workspace: name };
+}
+
+/**
+ * Its FIRST repository: the remote and the push in one call on the machine, then the register
+ * on pl8 — which is what makes `/<dépôt>/<projet>` resolve. The push is the half that can
+ * fail loudly; the register is the half that can be done later.
+ */
+export async function publishWorkspace(
+  m: Machine,
+  workspace: string,
+  uri: string,
+  onStep: (s: string) => void,
+  register: (uri: string) => Promise<unknown>,
+): Promise<{ registered: boolean }> {
+  onStep("envoi vers le dépôt…");
+  await engineMachine.setRemote(m, workspace, uri);
+  onStep("inscription du dépôt…");
+  try {
+    await register(uri);
+    return { registered: true };
+  } catch {
+    // The push LANDED. Saying it failed would send someone to redo the one half that worked.
+    return { registered: false };
+  }
 }
 
 /** Create a project: clone if needed, scaffold, commit — and a failed commit does not undo the creation. */
@@ -75,6 +120,8 @@ export async function createProjectOnMachine(
   onStep: (s: string) => void,
   /** Which template to write: `arrangement`, `mix` or `video`. */
   shape: ProjectShape,
+  /** The workspace has no repository yet, so the push cannot land and must not be reported. */
+  noRemote = false,
 ): Promise<{ project: string; gripe: string | null }> {
   onStep(`création de ${folder}…`);
   const project = await engineMachine.createProject(
@@ -83,10 +130,10 @@ export async function createProjectOnMachine(
     folder,
     shape,
   );
-  onStep("commit et envoi…");
+  onStep(noRemote ? "commit…" : "commit et envoi…");
   return {
     project,
-    gripe: await commitAndPush(m, workspace, `new project ${folder}`),
+    gripe: await commitAndPush(m, workspace, `new project ${folder}`, noRemote),
   };
 }
 
@@ -96,9 +143,17 @@ export async function deleteProjectOnMachine(
   workspace: string,
   path: string,
   onStep: (s: string) => void,
+  noRemote = false,
 ): Promise<{ gripe: string | null }> {
   onStep(`suppression de ${path}…`);
   await engineMachine.deleteProject(m, workspace, path);
-  onStep("commit et envoi…");
-  return { gripe: await commitAndPush(m, workspace, `delete project ${path}`) };
+  onStep(noRemote ? "commit…" : "commit et envoi…");
+  return {
+    gripe: await commitAndPush(
+      m,
+      workspace,
+      `delete project ${path}`,
+      noRemote,
+    ),
+  };
 }

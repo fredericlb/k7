@@ -11,22 +11,27 @@ import type {
   RepoSummary,
   ShareSummary,
 } from "@studio/web-protocol";
-import { projectLabel } from "@studio/web-protocol/projects";
+import { projectLabel, settingsUrl } from "@studio/web-protocol/projects";
 import {
   CornerDownRight,
   FolderGit2,
+  FolderPlus,
   HardDrive,
   Loader2,
-  Plus,
   ServerOff,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
-import { useState } from "react";
 import { DeleteProject } from "./DeleteProject";
+import { ImportWorkspace } from "./ImportWorkspace";
 import { NewProject } from "./NewProject";
+import { NewWorkspace } from "./NewWorkspace";
 import { ProjectShares } from "./ProjectShares";
+import { PublishWorkspace } from "./PublishWorkspace";
 import { sharesOf } from "./sharesForProject";
+
+// The one link out of this screen, since the key moved: computed rather than spelled, so a service that moves takes it with it.
+const SETTINGS_URL = settingsUrl(globalThis.location?.origin ?? "");
 
 /** The folder's name without its suffix, with the path that places it in the workspace beside it. */
 const nameOf = (p: RepoProject): string =>
@@ -44,7 +49,9 @@ export function RepoList({
   error,
   adding,
   hasMachine,
-  onAdd,
+  onImport,
+  onCreateWorkspace,
+  onPublish,
   onOpen,
   blocked,
   onCreate,
@@ -52,6 +59,7 @@ export function RepoList({
   repoFor,
   onForget,
   projectHref,
+  workspaceHref,
   shares,
   onChanged,
 }: {
@@ -61,7 +69,19 @@ export function RepoList({
   /** Where the running clone is, in git's own words, or null — adding a repository CLONES it, or it would be registered and invisible here. */
   adding: string | null;
   hasMachine: boolean;
-  onAdd: (uri: string) => void;
+  /** Register a repository and clone it — the Import button's act. */
+  onImport: (uri: string) => Promise<void>;
+  /** A workspace of one's own, git-initialised here with no repository behind it and nothing in it. */
+  onCreateWorkspace: (
+    workspace: string,
+    onStep: (s: string) => void,
+  ) => Promise<void>;
+  /** Its first repository: the remote, the push, and the register — offered on a local workspace only. */
+  onPublish: (
+    ws: MachineWorkspace,
+    uri: string,
+    onStep: (s: string) => void,
+  ) => Promise<{ registered: boolean }>;
   onOpen: (ws: MachineWorkspace) => void;
   /** Why create and delete are impossible, or "" — both go through the machine, which is also what READS this list (../../docs/projects.md). */
   blocked: string;
@@ -83,52 +103,20 @@ export function RepoList({
   onForget: (repo: RepoSummary) => void;
   /** A project's address in ITS app — an address and not an action: the row is a link, opening in a new tab. */
   projectHref: (ws: MachineWorkspace, project: RepoProject) => string;
+  /** …and where the WORKSPACE opens, for a row that has no project to link to yet. */
+  workspaceHref: (ws: MachineWorkspace) => string;
   /** Every share of the account, cut per row here (`sharesOf`) — pl8 returns the whole list, which saves a request per project. */
   shares: ShareSummary[];
   /** After a revocation, so the page re-reads without waiting for the poll. */
   onChanged: () => void;
 }) {
-  const [uri, setUri] = useState("");
-  const add = () => {
-    const v = uri.trim();
-    if (v) {
-      onAdd(v);
-      setUri("");
-    }
-  };
-
   return (
     <div className="flex flex-col gap-4 p-6">
+      {/* The two ways one appears, side by side: made here, or brought back from a repository. */}
       <div className="flex items-center gap-2">
-        <input
-          className="flex-1 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm outline-none focus:border-primary disabled:opacity-50"
-          placeholder="git@hôte:utilisateur/depot.git — URI SSH uniquement"
-          value={uri}
-          disabled={!hasMachine || adding !== null}
-          title={blocked || undefined}
-          onChange={(e) => setUri(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-        />
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={add}
-          title={blocked || undefined}
-          disabled={!uri.trim() || !hasMachine || adding !== null}
-        >
-          {adding !== null ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}{" "}
-          Ajouter
-        </Button>
+        <NewWorkspace blocked={blocked} onCreate={onCreateWorkspace} />
+        <ImportWorkspace blocked={blocked} step={adding} onImport={onImport} />
       </div>
-
-      {/* Git's own words during the clone, not ours: a silent thirty-second wait reads as a frozen screen. */}
-      {adding !== null && (
-        <span className="text-xs text-muted-foreground">{adding}</span>
-      )}
 
       {error && (
         <code className="max-w-full overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-red-400">
@@ -145,8 +133,12 @@ export function RepoList({
             cette machine, c'est donc elle qui dit lesquels existent.
           </span>
           <span className="text-xs">
-            Les bibliothèques, les partages et la clé de déploiement se règlent
-            sans elle, plus bas.
+            Les bibliothèques et les partages se règlent sans elle, plus bas ;
+            la clé de déploiement est dans les{" "}
+            <a href={SETTINGS_URL} className="underline">
+              réglages
+            </a>
+            .
           </span>
         </div>
       ) : workspaces.length === 0 ? (
@@ -157,8 +149,13 @@ export function RepoList({
             </span>
           ) : (
             <>
-              Rien sur cette machine. Collez une URI SSH ci-dessus — et pensez à
-              ajouter la clé de déploiement chez votre hébergeur git d'abord.
+              Rien sur cette machine. <strong>Nouveau</strong> en crée un ici,
+              sans dépôt et sans rien à régler ; <strong>Importer</strong> en
+              rapatrie un qui existe — et pour celui-là, pensez à ajouter la{" "}
+              <a href={SETTINGS_URL} className="underline">
+                clé de déploiement
+              </a>{" "}
+              chez votre hébergeur git d'abord.
             </>
           )}
         </div>
@@ -202,6 +199,14 @@ export function RepoList({
                       onCreate(w, folder, onStep, shape)
                     }
                   />
+                  {/* A workspace with no repository has one gesture the others do not: getting one. */}
+                  {!w.origin && (
+                    <PublishWorkspace
+                      workspace={w.name}
+                      blocked={blocked}
+                      onPublish={(uri, onStep) => onPublish(w, uri, onStep)}
+                    />
+                  )}
                   {/* Only when there is a registered repository to remove; the label says the list is what is left, not the disk. */}
                   {repoFor(w) && (
                     <Button
@@ -218,6 +223,20 @@ export function RepoList({
                   )}
                 </div>
               </div>
+
+              {/* Nothing in it yet. The link opens the WORKSPACE, and the editor asks for the
+                  first project there — see FirstProject.tsx. It is the only way in: with no
+                  project there is no project row to click. */}
+              {w.projects.length === 0 && (
+                <a
+                  className="mt-2 ml-2 flex w-fit items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent/50"
+                  href={workspaceHref(w)}
+                  title={`Ouvrir ${w.name} et y créer un projet`}
+                >
+                  <FolderPlus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>Créer le premier projet</span>
+                </a>
+              )}
 
               {/* The projects, indented under their workspace: a click goes straight into the app
                   that opens one, in THIS tab — the header's name is the way back. */}

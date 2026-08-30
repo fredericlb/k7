@@ -14,10 +14,8 @@ export interface Settings {
   port: number;
   /** The engine-side file service's HTTP port. */
   filePort: number;
-  /** The interface the user picked, remembered so replugging it restores it with no trip back to the menu. */
-  audioDevice: string | null;
-  /** Where to go when `audioDevice` isn't present, typically the built-in output — the point is to never end up on no device. */
-  audioFallback: string | null;
+  /** The interfaces in the user's own order, best first: the first one PRESENT is where the engine goes. Absent names keep their rank, so replugging restores it. */
+  audioPriority: string[];
   /** The media library's root, null meaning `~/.studio/mediatek`; hand-edited like the ports, and passed down as $STUDIO_MEDIATEK. */
   mediatekDir: string | null;
   /** The token this machine syncs its cache with, since a headless service has no cookie jar; the library's URL is derived, not stored. */
@@ -51,8 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
   registryUrls: [],
   port: 8765,
   filePort: 8770,
-  audioDevice: null,
-  audioFallback: null,
+  audioPriority: [],
   mediatekDir: null,
   mediatekToken: null,
   // Free against 8765/8770 (engine, file service), 8789/8795/8787/8080 (the hosted backends),
@@ -85,6 +82,20 @@ function urls(raw: Record<string, unknown>): string[] {
   return one ? [one] : [];
 }
 
+/** The order, also reading the `audioDevice` + `audioFallback` an older file carries: migration in the READER, exactly as `urls` does, and those two WERE a two-entry ranking. */
+function priority(raw: Record<string, unknown>): string[] {
+  const list = Array.isArray(raw.audioPriority)
+    ? raw.audioPriority.filter(
+        (v): v is string => typeof v === "string" && v !== "",
+      )
+    : [];
+  if (list.length) return [...new Set(list)];
+  const pair = [str(raw.audioDevice), str(raw.audioFallback)].filter(
+    (v): v is string => v !== null,
+  );
+  return [...new Set(pair)];
+}
+
 export function loadSettings(): Settings {
   let raw: Record<string, unknown>;
   try {
@@ -99,8 +110,7 @@ export function loadSettings(): Settings {
     registryUrls: urls(raw),
     port: port(raw.port, DEFAULT_SETTINGS.port),
     filePort: port(raw.filePort, DEFAULT_SETTINGS.filePort),
-    audioDevice: str(raw.audioDevice),
-    audioFallback: str(raw.audioFallback),
+    audioPriority: priority(raw),
     mediatekDir: str(raw.mediatekDir),
     mediatekToken: str(raw.mediatekToken),
     webPort: port(raw.webPort, DEFAULT_SETTINGS.webPort),

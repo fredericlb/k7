@@ -52,8 +52,32 @@ plus the app's own `/timeline`; a view segment never ends in `.st0` or `.z0`, so
 be confused. Each app reads its OWN suffix, which is what lets z0's editor open
 `winter.st0/live.z0` without st0's suffix winning the match.
 
-With no such segment at all, the repository itself is the project (`"."`) and everything after
-the repo name is the app's route.
+With no such segment at all, the project part is `"."` — and that means two different things,
+which the MACHINE settles rather than the address:
+
+- the workspace's own folder is a project (`hiver.st0/` cloned as itself), so `.` names it;
+- it is not, and the workspace holds several projects. Then `.` names none of them, and
+  `POST /open` resolves it: the `.studio-active` marker first, then the first project on disk,
+  then nothing at all — see `packages/file-service/docs/workspaces.md`.
+
+That last case is what a bare `/band` is, and it is why the address may name a project without
+being the only thing that can choose one. A workspace holds several, the editor draws all of
+them, and the ▶ on a project row moves the engine between them **without touching the address**:
+the gate has already resolved, and `POST /open` is a call rather than a navigation. The address
+is where you ARRIVE, not a running account of where you are.
+
+## A workspace with nothing in it
+
+`POST /open` answering `activeProject: null` is not a failure — a workspace is CREATED empty
+(`packages/file-service/docs/workspaces.md`), so this is the first thing a new one does. The gate
+has a phase of its own for it and hands it to the host app through **`renderEmpty`**, because
+what a first project IS — which archetypes exist, which suffix ends it — is the app's vocabulary
+and not the gate's. st0 draws its wizard there; an app that passes nothing gets a sentence and
+the way back.
+
+`onCreated` re-runs the whole resolve rather than being told what was made. The wizard therefore
+does not have to report a project, an address or a workspace correctly: it makes one and asks the
+gate to look again, which is the same road every other arrival takes.
 
 ## Three addresses take a road of their own, and take it first
 

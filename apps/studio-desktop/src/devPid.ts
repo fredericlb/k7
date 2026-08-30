@@ -6,7 +6,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { repoRoot } from "./hostCmd.ts";
+import { repoRoot } from "./repoRoot.ts";
 
 /** `apps/studio-desktop/.cache/dev/app.pid`, beside the dev tray log, or null when there is no repo. */
 function devPidPath(): string | null {

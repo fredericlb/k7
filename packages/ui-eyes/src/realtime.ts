@@ -5,7 +5,7 @@
 // two-speed: playbackRate for a small drift, a hard seek for a jump.
 // Full rationale: docs/realtime.md, and song-video/docs/transitions.md.
 
-import { cameraConstraint, matchCamera } from "./camera";
+import { type LensOpener, localLens } from "./camera";
 import type { SeekingClock } from "./clock";
 import type { LayerBlend } from "./compositor";
 import { Compositor } from "./compositor";
@@ -59,26 +59,17 @@ function liveElement(host: HTMLElement): HTMLVideoElement {
  *  whenever the browser and the person granting permission agree, and the lane draws nothing until
  *  they do. Every failure is CARRIED rather than thrown — a refused camera must not take the whole
  *  viewport down with it, and the other layers have pictures to show. See docs/camera.md. */
-async function openCamera(label: string, live: NonNullable<Lane["live"]>) {
-  const media = globalThis.navigator?.mediaDevices;
-  if (!media?.getUserMedia) {
-    live.problem = "this browser offers no camera";
-    return;
-  }
-  try {
-    // Enumerated FIRST, so a named lens is matched before anything is opened. The labels are blank
-    // until permission has been granted once, which is why an unmatched label falls back rather
-    // than refusing: on the first run there is nothing to match against yet.
-    const devices = await media.enumerateDevices();
-    const match = matchCamera(label, devices);
-    live.problem = match.problem ?? null;
-    const stream = await media.getUserMedia(cameraConstraint(match));
-    live.stream = stream;
-    live.el.srcObject = stream;
-    await live.el.play().catch(() => undefined);
-  } catch (e) {
-    live.problem = `camera unavailable: ${(e as Error).message}`;
-  }
+async function openCamera(
+  label: string,
+  live: NonNullable<Lane["live"]>,
+  open: LensOpener,
+) {
+  const lens = await open(label);
+  live.problem = lens.problem;
+  if (!lens.stream) return;
+  live.stream = lens.stream;
+  live.el.srcObject = lens.stream;
+  await live.el.play().catch(() => undefined);
 }
 
 export class RealtimeDriver {
@@ -103,6 +94,8 @@ export class RealtimeDriver {
     host: HTMLElement,
     scene: VideoScene,
     clock: SeekingClock,
+    /** Where a live lane's picture comes from; the default is this browser's own camera. */
+    openLens: LensOpener = localLens,
   ): RealtimeDriver {
     const comp = Compositor.create(host, scene);
     const lanes: Lane[] = scene.layers.map((layer) => {
@@ -110,7 +103,7 @@ export class RealtimeDriver {
       if (layer.camera !== undefined) {
         const el = liveElement(host);
         const live: Lane["live"] = { el, stream: null, problem: null };
-        openCamera(layer.camera, live);
+        openCamera(layer.camera, live, openLens);
         return { layer, els: [], loaded: [], settleUntil: [], live };
       }
       // A shape layer has no media — the compositor draws its fills, so it needs no element and no drift control.

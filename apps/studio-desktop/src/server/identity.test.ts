@@ -32,10 +32,11 @@ afterEach(() => {
 const mod = () => import("./identity.ts");
 const settings = () =>
   JSON.parse(readFileSync(join(home, "engine-tray.json"), "utf8"));
-const root = (slug: string) => join(home, "root", slug);
-const seed = (slug: string) => {
-  mkdirSync(join(root(slug), "Examples"), { recursive: true });
-  writeFileSync(join(root(slug), "Examples", "a.st0"), "x", "utf8");
+/** The workspaces root: ONE level, with no slug under it — packages/engine-client/docs/paths.md. */
+const root = () => join(home, "workspace");
+const seed = () => {
+  mkdirSync(join(root(), "Examples"), { recursive: true });
+  writeFileSync(join(root(), "Examples", "a.st0"), "x", "utf8");
 };
 
 describe("the machine's identity", () => {
@@ -66,32 +67,17 @@ describe("the machine's identity", () => {
 });
 
 describe("adopting a server's identity", () => {
-  it("takes the workspaces with it — otherwise they simply stop being listed", async () => {
+  // What this used to guard: the workspaces lived under `root/<slug>`, so adopting an identity
+  // renamed the directory or the machine read as empty. There is no slug in the tree now, and
+  // the assertion that matters is that the SAME workspaces are still there afterwards.
+  it("leaves the workspaces exactly where they were", async () => {
     const { adoptIdentity, currentIdentity } = await mod();
-    const local = currentIdentity();
-    seed(local.replace(/[^a-zA-Z0-9]/g, "_"));
-
-    expect(adoptIdentity("fred@parapluie.org")).toEqual({ moved: true });
-
-    const to = root("fred_parapluie_org");
-    expect(existsSync(join(to, "Examples", "a.st0"))).toBe(true);
-    expect(existsSync(root(local.replace(/[^a-zA-Z0-9]/g, "_")))).toBe(false);
-    expect(settings().identity).toBe("fred@parapluie.org");
-  });
-
-  it("leaves BOTH alone when both exist — merging two real roots is a decision, not a migration", async () => {
-    const { adoptIdentity, currentIdentity } = await mod();
-    const local = currentIdentity();
-    const from = local.replace(/[^a-zA-Z0-9]/g, "_");
-    seed(from);
-    seed("fred_parapluie_org");
+    currentIdentity();
+    seed();
 
     expect(adoptIdentity("fred@parapluie.org")).toEqual({ moved: false });
-    expect(existsSync(join(root(from), "Examples", "a.st0"))).toBe(true);
-    expect(
-      existsSync(join(root("fred_parapluie_org"), "Examples", "a.st0")),
-    ).toBe(true);
-    // The identity still changes: the user asked for it, and nothing was lost.
+
+    expect(existsSync(join(root(), "Examples", "a.st0"))).toBe(true);
     expect(settings().identity).toBe("fred@parapluie.org");
   });
 

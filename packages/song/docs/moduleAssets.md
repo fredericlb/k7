@@ -99,7 +99,7 @@ per machine synced to.
 
 So a model is named exactly like an amp profile (`onnx:` in `params:`, one of `FILE_PARAMS`)
 and `resolveModuleAsset` looks in two places: the module's own `assets/` first, then the
-machine's `~/.studio/models`. The module stays self-describing — it still says which model it
+machine's `<state>/models`. The module stays self-describing — it still says which model it
 wants — while the bytes live where a 166 MB file belongs, which is once per machine, beside the
 engine binary and the plugin scan.
 

@@ -49,7 +49,7 @@ import { playerRouter } from "./routes/player.ts";
 import { processRouter } from "./routes/process.ts";
 import { renderRouter } from "./routes/render.ts";
 import { separateRouter } from "./routes/separate.ts";
-import { rootDir, slugify, workspaceRoot } from "./slug.ts";
+import { rootDir, workspaceRoot } from "./slug.ts";
 import {
   assertSshGitUri,
   createWorkspace,
@@ -57,6 +57,7 @@ import {
   listMachineWorkspaces,
   listSurfacedProjects,
   listWorkspaces,
+  setWorkspaceRemote,
   UnknownWorkspaceError,
   workspaceForRepo,
   workspaceNameFor,
@@ -159,15 +160,35 @@ const newWsBody = z.object({ name: z.string().min(1) });
 app.post(
   "/workspaces",
   validate(newWsBody),
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const { name } = req.body as z.infer<typeof newWsBody>;
     // The ONE place a workspace is created on request — getWorkspace deliberately refuses to (Examples aside).
     try {
-      createWorkspace(req.userEmail!, name);
+      res.json({ created: await createWorkspace(req.userEmail!, name) });
     } catch (e) {
-      return res.status(400).json({ error: (e as Error).message });
+      res.status(400).json({ error: (e as Error).message });
     }
-    res.json({ ok: true });
+  }),
+);
+
+/** A local workspace's FIRST repository: the remote, and the push onto it — docs/workspaces.md. */
+const remoteBody = z.object({
+  name: z.string().min(1),
+  uri: z.string().min(1),
+});
+app.post(
+  "/workspaces/remote",
+  validate(remoteBody),
+  wrap(async (req, res) => {
+    const { name, uri } = req.body as z.infer<typeof remoteBody>;
+    try {
+      await setWorkspaceRemote(req.userEmail!, name, uri);
+      res.json({ ok: true });
+    } catch (e) {
+      // A refused URI, a workspace that already has one, and a push git turned down are all
+      // things the caller can act on — and the last one is git's own words. See docs/workspaces.md.
+      res.status(400).json({ error: (e as Error).message });
+    }
   }),
 );
 
@@ -258,7 +279,7 @@ app.post(
     const { name, uri } = req.body as z.infer<typeof cloneBody>;
     try {
       assertSshGitUri(uri);
-      const workspace = name || workspaceNameFor(req.userEmail!, uri);
+      const workspace = name || workspaceNameFor(uri);
       res.json(startClone(req.userEmail!, workspace, uri));
     } catch (e) {
       // Everything thrown here is caller-fixable — bad URI, no free name — so 400, not 500.

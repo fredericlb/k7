@@ -280,7 +280,7 @@ not spending it again. See `packages/song/docs/moduleNamespaces.md`.
 
 `LIBRARIES_DIR` is where the account's library repository is mounted, at the workspace root: a git
 submodule put there by the file service, holding the two families a project inherits, `modules/` and
-`chains/`. It is what `@st0/…` resolves against, and not the machine-wide `~/.studio/mediatek`
+`chains/`. It is what `@st0/…` resolves against, and not the machine-wide `<state>/mediatek`
 cache. Fixed, and not declared anywhere, by the argument that leaves `modules_from` dead: a path in
 a `project.yaml` can be wrong about a folder the loader can simply look for. Both it and
 `SHARED_MODULES_DIR` are here rather than beside `moduleLibraryDirs` because a
