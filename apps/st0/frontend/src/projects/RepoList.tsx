@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { DeleteProject } from "./DeleteProject";
 import { ImportWorkspace } from "./ImportWorkspace";
+import type { Machine } from "./machine";
 import { NewProject } from "./NewProject";
 import { NewWorkspace } from "./NewWorkspace";
 import { ProjectShares } from "./ProjectShares";
@@ -62,6 +63,8 @@ export function RepoList({
   workspaceHref,
   shares,
   onChanged,
+  machine,
+  lanUrls,
 }: {
   workspaces: MachineWorkspace[];
   busy: boolean;
@@ -105,6 +108,10 @@ export function RepoList({
   projectHref: (ws: MachineWorkspace, project: RepoProject) => string;
   /** …and where the WORKSPACE opens, for a row that has no project to link to yet. */
   workspaceHref: (ws: MachineWorkspace) => string;
+  /** The chosen machine, which is what knows a project's surfaces — null when none answers. */
+  machine: Machine | null;
+  /** Where a second device reaches this app (apps/studio-desktop/docs/externals.md). */
+  lanUrls: string[];
   /** Every share of the account, cut per row here (`sharesOf`) — pl8 returns the whole list, which saves a request per project. */
   shares: ShareSummary[];
   /** After a revocation, so the page re-reads without waiting for the poll. */
@@ -266,6 +273,13 @@ export function RepoList({
                         label={p.path === "." ? w.name : nameOf(p)}
                         shares={sharesOf(shares, w.name, p.path)}
                         onChanged={onChanged}
+                        // …and the same popin's other tab: the QR codes that open this project
+                        // on a second device (../../docs/projects.md).
+                        projectUrl={projectHref(w, p)}
+                        workspace={w.name}
+                        path={p.path}
+                        machine={machine}
+                        lanUrls={lanUrls}
                       />
                       <DeleteProject
                         path={p.path}

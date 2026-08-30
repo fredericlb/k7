@@ -51,10 +51,14 @@ export function Home() {
   // SERVER comes back with it, because the catalogue link needs it — see the pl8 button.
   const [isDesktop, setIsDesktop] = useState(false);
   const [server, setServer] = useState<string | null>(null);
+  // …and the LAN addresses, which is what a QR code has to carry: every href here is built on
+  // `window.location.origin`, and in this window that is loopback (projects/remoteUrl.ts).
+  const [lanUrls, setLanUrls] = useState<string[]>([]);
   useEffect(() => {
     void desktop.state().then((d) => {
       setIsDesktop(d !== null);
       setServer(d?.server ?? null);
+      setLanUrls(d?.lanUrls ?? []);
     });
   }, []);
 
@@ -363,6 +367,7 @@ export function Home() {
         busy={busy}
         openWs={openWs}
         machine={machine ?? null}
+        lanUrls={lanUrls}
         onOpen={open}
         onChanged={changed}
       />

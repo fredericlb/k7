@@ -36,6 +36,7 @@ export function ProjectsPane({
   busy,
   openWs,
   machine,
+  lanUrls,
   onOpen,
   onChanged,
 }: {
@@ -50,6 +51,8 @@ export function ProjectsPane({
   openWs: string | null;
   /** The chosen machine, or null when none answers — it is what READS the list, projects being its folders. */
   machine: Machine | null;
+  /** Where a second device reaches this app — empty on the hosted build, whose origin already is one. */
+  lanUrls: string[];
   onOpen: (name: string | null) => void;
   /** Call after any write, so the page reloads without waiting for the poll. */
   onChanged: () => void;
@@ -228,6 +231,9 @@ export function ProjectsPane({
           // Shares COME OUT of a project, so they belong to its row rather than to a card below.
           shares={shares}
           onChanged={onChanged}
+          // A surface is an address ONTO the running engine, so its row needs the machine itself.
+          machine={machine}
+          lanUrls={lanUrls}
         />
       )}
     </div>
