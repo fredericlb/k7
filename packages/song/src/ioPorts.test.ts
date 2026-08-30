@@ -16,14 +16,7 @@ import type { Preferences } from "./preferences";
 // A port's CHANNEL can be a label from the rig's preferences, resolved before anything is metered.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 const PREFS = {
   channels: { in: [{ label: "guitar", ch: [3] }], out: [] },
 } as unknown as Preferences;

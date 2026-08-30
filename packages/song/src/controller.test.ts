@@ -21,14 +21,7 @@ import { bindModuleCc } from "./controllerBind";
 import { loadGraph } from "./graph";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 const REF = "instruments/synth";
 
 // A module's MIDI map is the fourth sibling in its folder, and must never read as a node of it.

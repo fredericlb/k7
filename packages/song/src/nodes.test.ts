@@ -26,14 +26,7 @@ import { writeModule, writeNode } from "./testSupport";
 // A node is one USE of a module, filed FLAT in `nodes/`, naming what it uses by `extends` alone.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 
 describe("splitModuleKey", () => {
   it("splits a ref on its first separator", () => {

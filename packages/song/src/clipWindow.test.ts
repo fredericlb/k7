@@ -12,14 +12,7 @@ import { writeYaml } from "./testSupport";
 // `from`/`to` window the SOURCE FILE at two levels, and the effective pair is the most restrictive.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "node-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "node-demo.st0");
 
 let dir: string;
 const clip = (body: Record<string, unknown>) =>

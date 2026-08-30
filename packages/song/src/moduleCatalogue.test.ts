@@ -15,14 +15,7 @@ import { moduleCatalogue } from "./moduleCatalogue";
 // The builder's list IS what is editable: an unopenable entry is a module nobody can reach.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 
 describe("the shared module catalogue", () => {
   let ws: string;

@@ -17,14 +17,7 @@ import { compileNodeProject } from "./nodeProject";
 // An input's track is named by the CHAIN, not by a field: a shared io/IN node cannot name one.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 const IN = "@workspace/io/IN:in-1";
 
 describe("a live input, wired by its chain", () => {

@@ -17,14 +17,7 @@ import { insertChainStepAfter, replaceChainStep } from "./testSupport";
 // A dangling step is not FATAL: it is a skipped step, a `?` node and a warning.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 
 // Point the instrument step at a module that does not exist, and change nothing else.
 const useGhostStep = (dir: string): void =>

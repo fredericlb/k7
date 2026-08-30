@@ -24,14 +24,7 @@ import {
 // A module needn't extend anything, so the schema, the ref-check and the build loop must all allow it.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 
 // Found by the PREFIX "synth", since the song names a NODE there, and a miss throws loudly.
 
