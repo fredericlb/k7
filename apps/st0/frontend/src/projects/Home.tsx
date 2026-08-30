@@ -5,6 +5,7 @@
 
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
+import { AskHost } from "@studio/project-shell/ask";
 import type {
   MachineWorkspace,
   RepoSummary,
@@ -259,6 +260,9 @@ export function Home() {
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
+      {/* Without this, `askConfirm` answers NO with no host to draw on and every destructive
+          button on this page silently does nothing — see @studio/project-shell/ask. */}
+      <AskHost />
       <AppHeader
         title="st0"
         subtitle="Projets"

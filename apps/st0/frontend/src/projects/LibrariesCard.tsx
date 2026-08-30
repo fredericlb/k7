@@ -8,9 +8,10 @@ import { cn } from "@frediverse/ui/lib/utils";
 import type { RepoRef } from "@studio/web-protocol";
 import { LibraryBig, Loader2, Pencil, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
-import { projects } from "./api";
+import { engineMachine } from "./api";
+import type { Machine } from "./machine";
 
-export function LibrariesCard() {
+export function LibrariesCard({ machine }: { machine: Machine | null }) {
   // `undefined` = not read yet, `null` = read and there is none: a new account must read 'you need one', not a loading blank.
   const [repo, setRepo] = useState<RepoRef | null | undefined>(undefined);
   const [uri, setUri] = useState("");
@@ -19,24 +20,28 @@ export function LibrariesCard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void projects
-      .libraries()
-      .then((r) => setRepo(r.libraries))
+    // The MACHINE holds it, so there is nothing to read until one answers.
+    if (!machine) return setRepo(null);
+    void engineMachine
+      .libraries(machine)
+      .then(setRepo)
       .catch((e: Error) => {
         setError(e.message);
         setRepo(null);
       });
-  }, []);
+  }, [machine]);
 
   const save = () => {
     const v = uri.trim();
     if (!v) return;
     setBusy(true);
     setError(null);
-    void projects
-      .setLibraries(v)
+    if (!machine)
+      return setError("aucune machine joignable pour l'enregistrer");
+    void engineMachine
+      .setLibraries(machine, v)
       .then((r) => {
-        setRepo(r.libraries);
+        setRepo(r);
         setUri("");
         setEditing(false);
       })

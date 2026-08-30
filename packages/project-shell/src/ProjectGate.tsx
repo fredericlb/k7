@@ -260,7 +260,9 @@ export function ProjectGate({
         setEmail(userEmail);
         configure(userEmail, ""); // base set; the workspace is what we are about to find
 
-        // `@local` names a folder already here: no lookup, no clone, no libraries — docs/launch.md.
+        // `@local` names a folder already here: no lookup and no clone. It DOES need the
+        // libraries pointer — every `@st0/…` a project extends resolves through `_libraries`,
+        // and this was the only address left after the register went (docs/launch.md).
         if (isLocal(repoName)) {
           const local = localTarget(project);
           if (!local)
@@ -270,8 +272,12 @@ export function ProjectGate({
                 "@local opens a project in a workspace on this machine — `/@local/<workspace>/<projet>`.",
             });
           configure(userEmail, local.workspace);
+          // Absent is not a refusal here: a song started on this machine may extend nothing
+          // shared, and the project's own "unresolved reference" is the better complaint.
+          const localLibs = await librariesRepo().catch(() => null);
+          if (cancelled) return;
           try {
-            await projectApi.open(local.project);
+            await projectApi.open(local.project, localLibs?.uri);
           } catch (e) {
             if (cancelled) return;
             const status = (e as { status?: number }).status;

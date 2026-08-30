@@ -1,9 +1,10 @@
-import { fget, fsend } from "@studio/project-shell/fileApi";
 // api.ts — the two services this screen talks to, and they are not the same machine:
-// pl8 (same origin, session cookie) holds the REGISTER of repositories, the libraries pointer,
-// the deploy key and the shares; the file service on the chosen ENGINE holds every working copy,
-// so what projects EXIST — and creating, deleting and opening one — is its answer.
-// See ../../docs/projects.md.
+// pl8 (same origin, session cookie) holds the SHARES and nothing about git; the file service on
+// the chosen ENGINE holds every working copy, the deploy key and the libraries pointer, so what
+// projects EXIST — and creating, deleting and opening one — is its answer.
+//
+// Every call to it names its MACHINE: this screen opens no project, so `fileApi`'s module-level
+// transport is unconfigured here and would throw. See ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import {
@@ -60,7 +61,7 @@ async function json<T>(res: Response, what: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-// ── pl8: the repositories, the libraries, the key ───────────────────────────────
+// ── pl8: what is left of it here ─────────────────────────────────────────────
 
 // `PL8_URL` and not a relative path: st0 is mounted at the origin ROOT, so a bare `/api/projects` would reach st0's own backend.
 
@@ -92,12 +93,7 @@ export const projects = {
   sshKey: () => pget<SshKeyInfo>("/ssh-key", "ssh-key"),
   generateSshKey: () => psend<SshKeyInfo>("POST", "/ssh-key", {}),
 
-  /** The LIBRARY repository, held by the MACHINE — `null` is the ordinary state of a new one,
-   *  hence a 200 with a null rather than a 404. It was pl8's until pl8 stopped knowing about git. */
-  libraries: () => fget<{ libraries: RepoRef | null }>("/account/libraries"),
   /** SET, not add — there is one. Doing it twice with the same URI is doing it once. */
-  setLibraries: (uri: string) =>
-    fsend<{ libraries: RepoRef }>("PUT", "/account/libraries", { uri }),
 };
 
 /** The three fields an address is chosen from — narrower than `MachineWorkspace` on purpose, the surfaces listing carrying the same identity flattened. */
@@ -180,6 +176,36 @@ export interface Machine {
 
 /** The file-service calls this page makes, each carrying its machine explicitly: a row touches a different repository every time. */
 export const engineMachine = {
+  /**
+   * The LIBRARY repository this machine holds — `null` is the ordinary state of a new one, hence
+   * a 200 with a null rather than a 404. It was pl8's until pl8 stopped knowing about git.
+   *
+   * Named machine and not through `fileApi`: this screen opens no project, so the module-level
+   * transport is unconfigured and `cfg()` would throw "no project opened yet" (../../docs/projects.md).
+   */
+  libraries: async (m: Machine): Promise<RepoRef | null> => {
+    const { libraries } = await json<{ libraries: RepoRef | null }>(
+      await fetch(`${m.fileBase}/account/libraries`, {
+        headers: machineHeaders(m),
+      }),
+      "libraries",
+    );
+    return libraries;
+  },
+
+  /** SET it — the same URI twice is the same as once. */
+  setLibraries: async (m: Machine, uri: string): Promise<RepoRef> => {
+    const { libraries } = await json<{ libraries: RepoRef }>(
+      await fetch(`${m.fileBase}/account/libraries`, {
+        method: "PUT",
+        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ uri }),
+      }),
+      "libraries",
+    );
+    return libraries;
+  },
+
   /** Every workspace on this machine, with the projects in it — the MACHINE answers, they being folders on its disk. */
   workspaces: async (m: Machine): Promise<MachineWorkspace[]> => {
     const { workspaces } = await json<MachineWorkspaceList>(
@@ -325,6 +351,18 @@ export const engineMachine = {
   },
 
   /** Unload the project and recycle its folder — the commit that follows is what takes it out of the repository. */
+  /** Remove a workspace from the machine — the folder and everything under it, for good. */
+  removeWorkspace: async (m: Machine, workspace: string): Promise<void> => {
+    await json(
+      await fetch(`${m.fileBase}/workspaces/remove`, {
+        method: "POST",
+        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ name: workspace }),
+      }),
+      "suppression",
+    );
+  },
+
   deleteProject: async (
     m: Machine,
     workspace: string,

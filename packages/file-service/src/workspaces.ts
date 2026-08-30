@@ -27,6 +27,7 @@ import type {
 import { projectApp } from "@studio/web-protocol/projects";
 import { EXAMPLES_WORKSPACE, mirrorDemos } from "./demos.ts";
 import { pullLfs, setUpLfs } from "./gitLfs.ts";
+import { ensureLibraries, librariesUri } from "./libraries.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
 import {
@@ -217,6 +218,27 @@ export async function cloneWorkspace(
   // Before the media, so a workspace that is ON DISK is one the listing can already see.
   forgetRemotes(slug);
   forgetListing(slug);
+
+  // The LIBRARY, here rather than at the first open: `git clone` writes `.gitmodules` and leaves
+  // `_libraries` empty, so an import that stopped here would land a workspace whose every
+  // `@st0/…` is unresolved until something else thought to mount it. Non-fatal for the same
+  // reason the media fetch is — the workspace is cloned, and this says so instead of undoing it.
+  const libraries = librariesUri();
+  if (libraries)
+    try {
+      onProgress?.({
+        phase: "libraries",
+        percent: null,
+        line: "LIBRARIES: mounting",
+      });
+      await ensureLibraries(userEmail, root, libraries);
+    } catch (e) {
+      onProgress?.({
+        phase: "libraries",
+        percent: null,
+        line: `LIBRARIES: ${(e as Error).message}`,
+      });
+    }
   // The clone brought pointers rather than audio: this service hides the machine's git config.
   // A failure HERE leaves the workspace standing and merely reports — see docs/workspaces.md.
   // Its meter carries a percentage, and a fetch now allowed to take an hour needs to show one:
@@ -325,6 +347,31 @@ async function remoteOf(slug: string, name: string): Promise<string | null> {
 }
 
 /** The workspace already holding this repository, compared on NORMALIZED uris — see docs/workspaces.md. */
+/**
+ * Remove a workspace from this machine: the folder and everything under it, for good.
+ *
+ * There is no recycle bin for this one — the bin lives INSIDE a workspace (`_recycle_bin`), so a
+ * workspace has nowhere of its own to fall into. What makes that acceptable is that a workspace
+ * with an `origin` is re-cloneable and one without was only ever here; what makes it dangerous is
+ * that the second kind is gone for good, which is why the caller asks first.
+ *
+ * `unload` is not optional on Windows: a handle open anywhere under the folder answers EPERM and
+ * the delete half-succeeds — the same wall a person hits deleting it by hand. See docs/workspaces.md.
+ */
+export async function removeWorkspace(
+  userEmail: string,
+  workspace: string,
+  unload?: (abs: string) => void | Promise<unknown>,
+): Promise<void> {
+  const root = workspaceRoot(workspace); // validates the name
+  if (!existsSync(root)) throw new Error(`no such workspace: ${workspace}`);
+  await unload?.(root);
+  rmSync(root, { recursive: true, force: true });
+  const slug = slugify(userEmail);
+  forgetRemotes(slug);
+  forgetListing(slug);
+}
+
 export async function workspaceForRepo(
   userEmail: string,
   uri: string,

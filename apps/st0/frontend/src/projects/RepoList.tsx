@@ -26,6 +26,7 @@ import { NewProject } from "./NewProject";
 import { NewWorkspace } from "./NewWorkspace";
 import { ProjectShares } from "./ProjectShares";
 import { PublishWorkspace } from "./PublishWorkspace";
+import { RemoveWorkspace } from "./RemoveWorkspace";
 import { sharesOf } from "./sharesForProject";
 
 // The one link out of this screen, since the key moved: computed rather than spelled, so a service that moves takes it with it.
@@ -64,6 +65,7 @@ export function RepoList({
   blocked,
   onCreate,
   onDelete,
+  onRemoveWorkspace,
   onCopy,
   projectHref,
   workspaceHref,
@@ -118,6 +120,8 @@ export function RepoList({
   projectHref: (ws: MachineWorkspace, project: RepoProject) => string;
   /** …and where the WORKSPACE opens, for a row that has no project to link to yet. */
   workspaceHref: (ws: MachineWorkspace) => string;
+  /** Take a whole workspace off the machine — the folder and everything in it. */
+  onRemoveWorkspace: (ws: MachineWorkspace) => Promise<void>;
   /** Every share of the account, cut per row here (`sharesOf`) — pl8 returns the whole list, which saves a request per project. */
   shares: ShareSummary[];
   /** After a revocation, so the page re-reads without waiting for the poll. */
@@ -220,6 +224,13 @@ export function RepoList({
                       onPublish={(uri, onStep) => onPublish(w, uri, onStep)}
                     />
                   )}
+                  {/* Last, and discreet: the one act on this row that cannot be undone. */}
+                  <RemoveWorkspace
+                    workspace={w.name}
+                    origin={w.origin ?? null}
+                    blocked={blocked}
+                    onRemove={() => onRemoveWorkspace(w)}
+                  />
                 </div>
               </div>
 

@@ -91,6 +91,21 @@ export function ProjectsPane({
     [chosen, onChanged],
   );
 
+  /** Take a workspace off the machine. Final: there is no bin a whole workspace fits in. */
+  const removeWorkspace = useCallback(
+    async (w: MachineWorkspace) => {
+      setError(null);
+      try {
+        await engineMachine.removeWorkspace(chosen(), w.name);
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        onChanged();
+      }
+    },
+    [chosen, onChanged],
+  );
+
   /** A workspace made HERE: git, no repository, and EMPTY — the editor asks for the first project. */
   const createWorkspace = useCallback(
     async (workspace: string, onStep: (s: string) => void) => {
@@ -202,7 +217,7 @@ export function ProjectsPane({
   // The libraries repository comes FIRST: nothing else here works until a new account has one.
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-      <LibrariesCard />
+      <LibrariesCard machine={machine} />
       {ws ? (
         <RepoTree
           workspace={ws}
@@ -224,6 +239,7 @@ export function ProjectsPane({
           blocked={blocked}
           onCreate={create}
           onDelete={removeProject}
+          onRemoveWorkspace={removeWorkspace}
           onCopy={copyProject}
           // Same departure as from the tree: the app's address, not a view local to here.
           projectHref={(w, p) => projectHref(w, p)}

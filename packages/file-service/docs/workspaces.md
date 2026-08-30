@@ -252,3 +252,39 @@ Two things that fetch needs and `execFile` could not give:
   nothing at all — and a timer that watches for silence would then kill every fetch it ever ran.
 - **The meter reaching the screen.** Those lines go through `parse` like git's own, so the
   percentage shows. A fetch now allowed to take an hour cannot be a motionless "clonage…".
+
+## Removing one is FINAL, and that is why the button asks
+
+`removeWorkspace` deletes the folder and everything under it. There is no recycle bin for this:
+the bin is `_recycle_bin` **inside** a workspace, so a project falls into it and a workspace has
+nowhere of its own to fall.
+
+Two things make that acceptable, and the confirmation says which one it is looking at, because
+only the first is reversible:
+
+| the workspace | what removing it costs |
+|---|---|
+| has an `origin` | what was pushed is at the git host, and importing it again brings it back; what was not pushed goes |
+| has none | it only ever existed here, and nothing brings it back |
+
+**The engine is unloaded first, and that is not politeness.** A project of this workspace still
+loaded holds files open, and Windows answers EPERM half-way through a delete — the same wall a
+person hits removing the folder by hand, where Explorer reports it as a request for admin rights
+and elevating does not help. `deleteProject` has carried that rule since it was written
+(*"Release every handle inside the folder before renaming"*); this route follows it.
+
+## An import mounts the LIBRARY too, and that is not the gate's job
+
+`git clone` writes `.gitmodules` and leaves `_libraries` **empty**: a submodule is not populated
+until something inits it. So a clone that stopped at the media would land a workspace whose every
+`@st0/…` is unresolved — twenty-seven of them on a real song — with nothing on screen to say the
+folder is there but hollow.
+
+`cloneWorkspace` therefore mounts it, after the clone lands and before the media. Non-fatal, for
+the same reason the LFS fetch is: the workspace IS cloned, and a library that would not mount is
+reported rather than a reason to undo the rest.
+
+It is `_libraries` **per WORKSPACE**, not per project — one library that every project in the
+workspace resolves against, which is what `@st0` means. `ProjectGate` still passes the pointer on
+open, and `ensureLibraries` is idempotent, so the two do not fight: the import is where it usually
+happens, the open is what catches a workspace that predates the pointer.

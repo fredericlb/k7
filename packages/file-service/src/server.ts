@@ -40,6 +40,7 @@ import {
   servedProject,
   setSelectedEngine,
   showNativePluginUIOf,
+  unloadEngineIfServing,
 } from "./engineLink.ts";
 import { librariesUri, setLibrariesUri } from "./libraries.ts";
 import { startMediatekPuller, syncMediatekFamily } from "./mediatekPull.ts";
@@ -61,6 +62,7 @@ import {
   listMachineWorkspaces,
   listSurfacedProjects,
   listWorkspaces,
+  removeWorkspace,
   setWorkspaceRemote,
   UnknownWorkspaceError,
   workspaceForRepo,
@@ -191,6 +193,27 @@ app.post(
     } catch (e) {
       // A refused URI, a workspace that already has one, and a push git turned down are all
       // things the caller can act on — and the last one is git's own words. See docs/workspaces.md.
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/** Remove a workspace: it names the one it destroys, so it sits before the workspace gate. */
+const removeWorkspaceBody = z.object({ name: z.string().min(1) });
+app.post(
+  "/workspaces/remove",
+  validate(removeWorkspaceBody),
+  wrap(async (req, res) => {
+    const { name } = req.body as z.infer<typeof removeWorkspaceBody>;
+    try {
+      // The engine first: a project of this workspace still loaded holds files open, and on
+      // Windows that answers EPERM half-way through — see workspaces.ts.
+      await removeWorkspace(req.userEmail!, name, (abs) =>
+        unloadEngineIfServing(abs),
+      );
+      res.json({ ok: true });
+    } catch (e) {
+      // A bad name and an absent workspace are both the caller's to fix.
       res.status(400).json({ error: (e as Error).message });
     }
   }),
