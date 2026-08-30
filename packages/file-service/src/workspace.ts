@@ -151,7 +151,11 @@ import {
 } from "./history.ts";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { moduleFoldersMoved } from "./moduleWatch.ts";
-import { createProjectIn, importProjectInto } from "./projectLifecycle.ts";
+import {
+  copyProjectInto,
+  createProjectIn,
+  importProjectInto,
+} from "./projectLifecycle.ts";
 // The four export acts, behind a host of six members — see shareOps.ts.
 import {
   buildShare,
@@ -772,6 +776,33 @@ export class Workspace {
     rawName: string,
   ): { project: string; missing: string[] } {
     const r = createProjectIn(this.lifecycleHost(), shape, rawName);
+    this.forgetProjects();
+    return r;
+  }
+
+  /** One of this workspace's projects, guarded — what a copy to ANOTHER workspace reads from. */
+  projectFolder(rel: string): string {
+    const abs = this.safePath(rel);
+    if (this.isRecycled(abs))
+      throw new Error(`project is in the recycle bin: ${rel}`);
+    if (!isProjectDir(abs))
+      throw new Error(
+        `not a project (the folder must end in ${Object.values(PROJECT_SUFFIXES).join(", ")}): ${rel}`,
+      );
+    return abs;
+  }
+
+  /** …and the receiving end: that folder copied in here under `name` — see projectLifecycle.ts. */
+  async copyProject(
+    srcAbs: string,
+    name: string,
+  ): Promise<{ project: string }> {
+    // A workspace that IS one project lists nothing under it, so a copy in it would be invisible.
+    if (this.rootIsProject)
+      throw new Error(
+        `${basename(this.root)} is itself a project — copy into a workspace that holds several`,
+      );
+    const r = await copyProjectInto(this.lifecycleHost(), srcAbs, name, skip);
     this.forgetProjects();
     return r;
   }

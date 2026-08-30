@@ -1,9 +1,10 @@
 // projectLifecycle.ts — creating a project in a workspace: from scratch (the same
-// scaffold `st0 create` runs) or by translating a foreign project (.dawproject, .als).
-// Extracted from workspace.ts; both re-root the output INSIDE the workspace and guard the
-// path through the host's safePath. See docs/import.md for the sample-path rule.
+// scaffold `st0 create` runs), by translating a foreign project (.dawproject, .als), or by
+// copying one that exists. Extracted from workspace.ts; all three re-root the output INSIDE
+// the workspace and guard the path through the host's safePath. See docs/import.md.
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { cp } from "node:fs/promises";
 import { basename, extname, join, posix } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { loadModuleRefs } from "@studio/song/loader";
@@ -171,4 +172,36 @@ export function createProjectIn(
     // The project is written and that is what was asked for; an unreadable ref map is not a failed create.
   }
   return { project: host.toRel(abs), missing };
+}
+
+/**
+ * Copy an EXISTING project folder in under a new name — the other end of a copy between two
+ * workspaces, `srcAbs` having been guarded by the workspace it belongs to. `ignored` is that
+ * workspace's own idea of what is not content (caches, node_modules, the undo journal), so the
+ * copy carries what the tree, the watcher and the diff already agree a project is made of.
+ */
+export async function copyProjectInto(
+  host: LifecycleHost,
+  srcAbs: string,
+  rawName: string,
+  ignored: (name: string) => boolean,
+): Promise<{ project: string }> {
+  const name = rawName.trim().replace(/[/\\]/g, "_").replace(/^\.+/, "");
+  if (!name) throw new Error("project name required");
+  // The SUFFIX decides which app opens the copy, so it has to stay the one the source carries.
+  if (
+    projectApp(name) === null ||
+    projectApp(name) !== projectApp(basename(srcAbs))
+  )
+    throw new Error(
+      `a copy of ${basename(srcAbs)} must keep its suffix: "${name}" does not`,
+    );
+  const abs = host.safePath(name);
+  if (abs === host.root) throw new Error("project name required");
+  if (existsSync(abs)) throw new Error(`"${name}" already exists`);
+  await cp(srcAbs, abs, {
+    recursive: true,
+    filter: (from) => from === srcAbs || !ignored(basename(from)),
+  });
+  return { project: host.toRel(abs) };
 }

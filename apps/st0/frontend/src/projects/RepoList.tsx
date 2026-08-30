@@ -3,12 +3,10 @@
 // Presentational — the section holds the async and this file draws. See ../../docs/projects.md.
 
 import { Badge } from "@frediverse/ui/badge";
-import { Button } from "@frediverse/ui/button";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type {
   MachineWorkspace,
   RepoProject,
-  RepoSummary,
   ShareSummary,
 } from "@studio/web-protocol";
 import { projectLabel, settingsUrl } from "@studio/web-protocol/projects";
@@ -19,12 +17,11 @@ import {
   HardDrive,
   Loader2,
   ServerOff,
-  Trash2,
   TriangleAlert,
 } from "lucide-react";
+import { CopyProject } from "./CopyProject";
 import { DeleteProject } from "./DeleteProject";
 import { ImportWorkspace } from "./ImportWorkspace";
-import type { Machine } from "./machine";
 import { NewProject } from "./NewProject";
 import { NewWorkspace } from "./NewWorkspace";
 import { ProjectShares } from "./ProjectShares";
@@ -37,6 +34,16 @@ const SETTINGS_URL = settingsUrl(globalThis.location?.origin ?? "");
 /** The folder's name without its suffix, with the path that places it in the workspace beside it. */
 const nameOf = (p: RepoProject): string =>
   projectLabel(p.path.split("/").pop() ?? p.path);
+
+/**
+ * Where a copy of a project may land: every workspace but its own, minus the ones that ARE a
+ * single project — those list nothing under them, so a copy in one would exist and never show.
+ */
+const targetsFor = (
+  all: MachineWorkspace[],
+  from: MachineWorkspace,
+): MachineWorkspace[] =>
+  all.filter((w) => w.name !== from.name && !w.isSingleProject);
 
 /** The folder holding the project, or null when it sits at the workspace root. */
 const parentOf = (p: RepoProject): string | null => {
@@ -57,14 +64,11 @@ export function RepoList({
   blocked,
   onCreate,
   onDelete,
-  repoFor,
-  onForget,
+  onCopy,
   projectHref,
   workspaceHref,
   shares,
   onChanged,
-  machine,
-  lanUrls,
 }: {
   workspaces: MachineWorkspace[];
   busy: boolean;
@@ -100,18 +104,20 @@ export function RepoList({
     project: RepoProject,
     onStep: (s: string) => void,
   ) => Promise<void>;
+  /** Copy a project into ANOTHER workspace on this machine — the destination commits, and pushes if it has a repository. */
+  onCopy: (
+    ws: MachineWorkspace,
+    project: RepoProject,
+    to: MachineWorkspace,
+    folder: string,
+    onStep: (s: string) => void,
+  ) => Promise<void>;
   /** The pl8-registered repository behind this workspace, or null — what makes the portable address resolvable, and what can be removed. */
-  repoFor: (ws: MachineWorkspace) => RepoSummary | null;
   /** Take the repository out of the register — the folder stays: removing a name from a list deletes nobody's files. */
-  onForget: (repo: RepoSummary) => void;
   /** A project's address in ITS app — an address and not an action: the row is a link, opening in a new tab. */
   projectHref: (ws: MachineWorkspace, project: RepoProject) => string;
   /** …and where the WORKSPACE opens, for a row that has no project to link to yet. */
   workspaceHref: (ws: MachineWorkspace) => string;
-  /** The chosen machine, which is what knows a project's surfaces — null when none answers. */
-  machine: Machine | null;
-  /** Where a second device reaches this app (apps/studio-desktop/docs/externals.md). */
-  lanUrls: string[];
   /** Every share of the account, cut per row here (`sharesOf`) — pl8 returns the whole list, which saves a request per project. */
   shares: ShareSummary[];
   /** After a revocation, so the page re-reads without waiting for the poll. */
@@ -214,20 +220,6 @@ export function RepoList({
                       onPublish={(uri, onStep) => onPublish(w, uri, onStep)}
                     />
                   )}
-                  {/* Only when there is a registered repository to remove; the label says the list is what is left, not the disk. */}
-                  {repoFor(w) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      title="Retirer ce dépôt de vos dépôts — le dossier reste sur la machine"
-                      onClick={() => {
-                        const r = repoFor(w);
-                        if (r) onForget(r);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
               </div>
 
@@ -273,13 +265,17 @@ export function RepoList({
                         label={p.path === "." ? w.name : nameOf(p)}
                         shares={sharesOf(shares, w.name, p.path)}
                         onChanged={onChanged}
-                        // …and the same popin's other tab: the QR codes that open this project
-                        // on a second device (../../docs/projects.md).
-                        projectUrl={projectHref(w, p)}
-                        workspace={w.name}
+                      />
+                      {/* Between reading and destroying: a copy adds, so it sits ahead of the one act that takes away. */}
+                      <CopyProject
                         path={p.path}
-                        machine={machine}
-                        lanUrls={lanUrls}
+                        label={p.path === "." ? w.name : nameOf(p)}
+                        app={p.app}
+                        blocked={blocked}
+                        targets={targetsFor(workspaces, w)}
+                        onCopy={(to, folder, onStep) =>
+                          onCopy(w, p, to, folder, onStep)
+                        }
                       />
                       <DeleteProject
                         path={p.path}
@@ -299,16 +295,6 @@ export function RepoList({
                   <span>
                     deux copies répondent au nom « {w.repoName} » — ces projets
                     s'ouvrent par une adresse propre à cette machine
-                  </span>
-                </span>
-              )}
-              {w.origin && w.uniqueName && !repoFor(w) && (
-                <span className="mt-2 flex items-start gap-1 text-xs text-muted-foreground">
-                  <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
-                  <span>
-                    ce dépôt n'est pas dans vos dépôts — ces projets s'ouvrent
-                    par une adresse propre à cette machine. Collez son URI
-                    ci-dessus pour l'inscrire.
                   </span>
                 </span>
               )}

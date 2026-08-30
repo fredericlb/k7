@@ -9,10 +9,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, statSync, watch } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  launch,
-  stopAll,
-} from "../apps/studio-desktop/scripts/appProcess.mjs";
+import { launch, stopAll } from "../apps/st0-desktop/scripts/appProcess.mjs";
 
 // Under WSL the toolchain is on the host: mirror the tree and run THIS script there (../docs/wsl.md).
 if (process.env.STUDIO_NATIVE_MIRROR && process.platform !== "win32") {
@@ -45,17 +42,20 @@ const TARGETS = {
         recursive: false,
         match: (base) =>
           base === "CMakeLists.txt" || base === "CMakePresets.json",
+        // Worth a rebuild, but no PROOF of one: adding a preset or a CI target changes no
+        // compilation input, so MSBuild rightly relinks nothing — see the guard in buildEngine.
+        proves: false,
       },
     ],
     build: buildEngine,
   },
-  // The desktop app. Watched on its BUILD OUTPUT, not its sources: the `studio-desktop` Tilt resource
+  // The desktop app. Watched on its BUILD OUTPUT, not its sources: the `st0-desktop` Tilt resource
   // runs esbuild, so what reaches us is already compiled, and a failed build simply never
   // produces a new file — leaving the running app untouched instead of down.
-  "studio-desktop": {
+  "st0-desktop": {
     dirs: [
       {
-        path: join(repo, "apps", "studio-desktop", "dist"),
+        path: join(repo, "apps", "st0-desktop", "dist"),
         recursive: false,
         match: (base) => base === "main.cjs",
       },
@@ -65,7 +65,7 @@ const TARGETS = {
 };
 
 // Rebuild order: the slow one first, so a broken C++ never costs anything downstream.
-const ORDER = ["moteur", "studio-desktop"];
+const ORDER = ["moteur", "st0-desktop"];
 
 /** Delegated to the moteur's own build:* scripts, so this holds no CMake knowledge. */
 function buildEngine() {
@@ -87,7 +87,7 @@ function buildEngine() {
 
   // A build reporting SUCCESS without replacing the image is what this guards (../docs/dev.md).
   const after = engineBinary();
-  if (after && statSync(after).mtimeMs < newestSource("moteur"))
+  if (after && statSync(after).mtimeMs < newestSource("moteur", true))
     throw new Error(
       `the engine build reported success but ${basename(after)} is still older than its ` +
         "sources — something is holding it open (a surviving engine? see stopAll)",
@@ -120,7 +120,8 @@ function engineBinary() {
 }
 
 /** The newest mtime under a target's watch roots — the same files the watcher reacts to. */
-function newestSource(target) {
+/** `proving` narrows it to the sources a successful build MUST have turned into a new image. */
+function newestSource(target, proving = false) {
   let newest = 0;
   const visit = (dir, recursive, match) => {
     let entries;
@@ -138,8 +139,8 @@ function newestSource(target) {
       }
     }
   };
-  for (const { path, recursive, match } of TARGETS[target].dirs)
-    visit(path, recursive, match);
+  for (const { path, recursive, match, proves } of TARGETS[target].dirs)
+    if (!(proving && proves === false)) visit(path, recursive, match);
   return newest;
 }
 
@@ -218,7 +219,7 @@ if (!bin) {
   dirty.add("moteur");
 }
 // Always, but it costs nothing now: the app has no build here, so this only means "launch it".
-dirty.add("studio-desktop");
+dirty.add("st0-desktop");
 
 await cycle();
 
@@ -237,6 +238,6 @@ for (const [target, { dirs }] of Object.entries(TARGETS))
   }
 
 log(
-  "watching engine/moteur and apps/studio-desktop/dist — save to rebuild and restart",
+  "watching engine/moteur and apps/st0-desktop/dist — save to rebuild and restart",
 );
 setInterval(() => {}, 1 << 30); // the watchers are unref'd, so hold the process open ourselves

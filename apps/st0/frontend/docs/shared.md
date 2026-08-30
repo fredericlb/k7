@@ -195,3 +195,46 @@ is the rule the engine applies to `soloed:`, stated where there is no engine to 
 A stem whose render matched no track (`track: ""`) is deliberately absent from the table: it sounds,
 and no button addresses it — which is honest, where hanging it on an invented identifier would light
 up another track's button.
+
+## Comments: the one write, and the one panel
+
+A share is frozen, and a **comment** is not an exception to that: it changes nothing of the
+project. It is a block of text beside the snapshot, with an optional timecode — where the playhead
+was when it was written.
+
+`CommentsPanel.tsx` is a **panel**, docked at the right beside the panes, and takes the fourth slot
+in `rightPanel`. Not a pane: a pane is something the project declares, and this is not part of the
+song. The header's button replaces nothing — it sits beside the download, which was until now the
+whole of a visitor's half of the header.
+
+**It is the only write in this shell that does not go through `fsend`.** That is the sentence to
+keep: the transport's refusal is what makes a share read-only, and nothing here weakens it. This
+panel talks to pl8's public router directly, on the same base the audio streams from, and the file
+service is not in the path at all. What bounds that route is
+[apps/pl8/docs/comments.md](../../../pl8/docs/comments.md).
+
+### The timecode is CAPTURED, never live
+
+The pin button reads `store.getSnapshot().playhead` at the click and freezes it on the chip; a
+second click drops it. The panel does not subscribe to the store, and that is the point: the
+playhead publishes ~60 times a second, and a panel re-rendering at that rate while someone is
+typing into a textarea is a panel that fights them. What the chip says is what will be filed.
+
+Going the other way, a comment's timecode is a **button**, and it seeks. A note about a moment is
+worth nothing if reaching that moment is a scrub.
+
+### The visitor's name is a claim, not a fact
+
+There are no accounts here — that is what a share is. So the name is a field, remembered in
+`localStorage` under one key so the second comment does not ask again, and a comment with none
+reads as "someone". Nothing pretends it is verified, because nothing could.
+
+### The three states are shown, and not offered
+
+`active`, `resolved`, `ignored`, as a chip on every row and with **no tabs**: a visitor reads one
+list. Whoever wrote a comment is owed the answer to "was this looked at", so hiding what became of
+it would be the wrong secret to keep; moving it is the author's, and happens in st0's home page —
+[projects.md](projects.md).
+
+The panel does not poll. A share is read in one sitting, and a timer per open tab against a public
+route is a cost the feature does not need; the list re-reads when the panel is opened.

@@ -2,9 +2,10 @@
 // that may not. It runs on the LOOPBACK origin only, which is both the secure context that makes
 // getUserMedia possible and the proof we are the machine rather than a guest on its LAN.
 // One peer connection per viewer, one stream per LABEL: two tablets on one lens open it once.
-// See apps/studio-desktop/docs/camera.md.
+// See apps/st0-desktop/docs/camera.md.
 
 import { type Lens, localLens } from "@studio/ui-eyes/camera";
+import { tabBridge } from "../tabs/bridge";
 import { type Frame, ICE, readFrame, relayUrl, sendFrame } from "./relay";
 
 /** Reconnect delay after the socket drops, doubling to this — the app restarting is the usual cause. */
@@ -38,7 +39,12 @@ function lensCache(): (label: string) => Promise<Lens> {
   };
 }
 
-/** Answer every viewer this relay sends us, until the returned function is called. */
+/** Answer every viewer this relay sends us, until the returned function is called.
+ *
+ * Only while this tab is IN FRONT. Every project tab runs this file, the relay holds one host
+ * slot, and a second offer closes the first — whose reconnect then closes the second, once a
+ * second for ever. Following the front tab is the same rule the rest of the app already obeys
+ * (apps/st0-desktop/docs/tabs.md), and off the desktop there are no tabs and it is always true. */
 export function serveLenses(): () => void {
   let ws: WebSocket | null = null;
   let timer = 0;
@@ -132,11 +138,28 @@ export function serveLenses(): () => void {
     socket.onerror = () => undefined;
   };
 
-  connect();
-  return () => {
-    stopped = true;
+  /** Offer while in front, and go quiet behind — the socket is dropped rather than left idle. */
+  const follow = (active: boolean) => {
+    if (active === !stopped) return;
+    stopped = !active;
+    if (active) {
+      wait = RETRY_MS;
+      connect();
+      return;
+    }
     clearTimeout(timer);
     for (const id of [...peers.keys()]) drop(id);
     ws?.close();
+  };
+
+  const bridge = tabBridge();
+  stopped = true; // `follow` toggles from here, so the first call always does the connecting
+  follow(bridge?.state().active ?? true);
+  const unsubscribe = bridge?.subscribe((s) => follow(s.active));
+
+  return () => {
+    unsubscribe?.();
+    follow(false);
+    stopped = true;
   };
 }

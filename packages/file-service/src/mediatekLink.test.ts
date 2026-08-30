@@ -52,7 +52,7 @@ const advertise = (service: string, url: string) =>
 
 const settings = (body: unknown) =>
   writeFileSync(
-    join(home, "st0", "engine-tray.json"),
+    join(home, "st0", "engine-host.json"),
     JSON.stringify(body),
     "utf8",
   );

@@ -24,7 +24,7 @@ would have to be told which prefix to strip. Here the edge sends the whole origi
 
 phare keeps douane out of its monolith because it fronts Authelia and deploys on its own
 cadence. **Nothing here plays that part**, so the studio image holds everything —
-`engine/moteur` and `apps/studio-desktop` excepted, and those are not server software at all:
+`engine/moteur` and `apps/st0-desktop` excepted, and those are not server software at all:
 they run on the musician's machine, beside the audio interface. The desktop app lives under
 `apps/` and is still not in the image — `turbo prune` in `apps/studio/docker/Dockerfile`
 names its packages one by one rather than globbing the directory, which is what keeps that

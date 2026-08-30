@@ -1,5 +1,5 @@
 // homeCommands.ts — the HOME page's own command vocabulary: what the bar under the projects
-// list offers, and what a line does. Six verbs, none of them the editor's — this screen has no
+// list offers, and what a line does. None of them the editor's — this screen has no
 // project, no engine session and no file open, so `LOCAL_COMMANDS` would be a catalogue of
 // things that cannot be done here. Pure but for the acts it is handed. See ../../docs/projects.md.
 
@@ -13,6 +13,7 @@ import type {
 import type { PaletteArg, PaletteCommand } from "../components/CommandBar";
 import { engineMachine, type Machine, projects as registry } from "./api";
 import {
+  copyProjectOnMachine,
   createLocalWorkspace,
   createProjectOnMachine,
   deleteProjectOnMachine,
@@ -43,6 +44,23 @@ export const HOME_COMMANDS: {
         name: "name",
         kind: "text",
         hint: "its name — the folder gets the .st0 suffix",
+      },
+    ],
+  },
+  {
+    canonical: "project copy",
+    readable: {
+      en: "Copy a project into another workspace",
+      fr: "Copier un projet vers un autre espace de travail",
+    },
+    args: [
+      { name: "name", kind: "file", hint: "a project of the open repository" },
+      { name: "workspace", kind: "choice", hint: "where the copy lands" },
+      {
+        name: "new_name",
+        kind: "text",
+        hint: "the copy's name — the source's, left blank",
+        optional: true,
       },
     ],
   },
@@ -205,6 +223,20 @@ export function homeArgValues(
     const found = resolveWorkspace(ctx);
     return "ws" in found ? found.ws.projects.map((p) => p.path) : [];
   }
+  if (canonical === "project copy") {
+    const found = resolveWorkspace(ctx);
+    if (argIndex === 0)
+      return "ws" in found ? found.ws.projects.map((p) => p.path) : [];
+    // The same list the dialog offers, and for the same two reasons — see RepoList's `targetsFor`.
+    if (argIndex === 1)
+      return ctx.workspaces
+        .filter(
+          (w) =>
+            !w.isSingleProject &&
+            (!("ws" in found) || w.name !== found.ws.name),
+        )
+        .map((w) => w.name);
+  }
   // Only the ones that HAVE none: offering the rest would offer an act that is refused by definition.
   if (canonical === "system workspace publish" && argIndex === 0)
     return ctx.workspaces.filter((w) => !w.origin).map((w) => w.name);
@@ -225,6 +257,7 @@ export interface ArmedDelete {
 /** What a line DOES, injected — so the dispatcher below is testable without a machine, and the bar and the buttons cannot diverge. */
 export interface HomeActs {
   create: typeof createProjectOnMachine;
+  copy: typeof copyProjectOnMachine;
   remove: typeof deleteProjectOnMachine;
   clone: typeof ensureWorkspace;
   newWorkspace: typeof createLocalWorkspace;
@@ -236,6 +269,7 @@ export interface HomeActs {
 
 export const HOME_ACTS: HomeActs = {
   create: createProjectOnMachine,
+  copy: copyProjectOnMachine,
   remove: deleteProjectOnMachine,
   clone: ensureWorkspace,
   newWorkspace: createLocalWorkspace,
@@ -318,20 +352,59 @@ export async function runHomeCommand(
       return true;
     }
 
+    case "project copy": {
+      const [name, to, ...words] = rest.split(/\s+/).filter(Boolean);
+      if (!name || !to)
+        return use(
+          d.refuse,
+          "usage: project copy <projet> <espace> [nom de la copie]",
+        );
+      const found = resolveWorkspace(d);
+      if ("error" in found) return use(d.refuse, found.error);
+      const p = findProject(found.ws, name);
+      if (!p) return use(d.refuse, projectGripe(found.ws, name));
+      const dest = d.workspaces.find((w) => w.name === to);
+      if (!dest) return use(d.refuse, `aucun espace de travail « ${to} »`);
+      // Said rather than attempted: the machine refuses both too, and later.
+      if (dest.name === found.ws.name)
+        return use(d.refuse, `${to} est déjà celui du projet`);
+      if (dest.isSingleProject)
+        return use(
+          d.refuse,
+          `${to} est lui-même un projet — la copie n'y serait jamais listée`,
+        );
+      // No name given is the source's own, suffix included, which `projectFolderName` puts back.
+      const label = words.join(" ") || (p.path.split("/").pop() ?? p.path);
+      const { folder, error } = projectFolderName(label, p.app);
+      if (error) return use(d.refuse, error);
+      const m = machineOf(d);
+      if (!m) return true;
+      try {
+        const { gripe } = await d.acts.copy(
+          m,
+          found.ws.name,
+          p.path,
+          dest.name,
+          folder,
+          d.say,
+          !dest.origin,
+        );
+        d.changed();
+        // The copy IS there whatever the push did, as with a creation.
+        if (gripe) d.refuse(`${folder} copié dans ${to}, mais : ${gripe}`);
+        else d.say(`+ ${to}/${folder}`);
+      } catch (e) {
+        d.refuse(`project copy: ${(e as Error).message}`);
+      }
+      return true;
+    }
+
     case "project delete init": {
       if (!rest) return use(d.refuse, "usage: project delete init <projet>");
       const found = resolveWorkspace(d);
       if ("error" in found) return use(d.refuse, found.error);
       const p = findProject(found.ws, rest);
-      if (!p)
-        return use(
-          d.refuse,
-          `aucun projet « ${rest} » dans ${found.ws.name}${
-            found.ws.projects.length
-              ? ` — ${found.ws.projects.map((x) => x.path).join(", ")}`
-              : ""
-          }`,
-        );
+      if (!p) return use(d.refuse, projectGripe(found.ws, rest));
       d.armed.current = { workspace: found.ws.name, path: p.path };
       // What the dialog's paragraph says, said here instead: 'are you sure?' on its own names nothing.
       d.say(
@@ -501,6 +574,12 @@ export async function runHomeCommand(
   }
   return false;
 }
+
+/** No such project, with the ones there are — a refusal that names nothing is a refusal you retype. */
+const projectGripe = (ws: MachineWorkspace, name: string): string =>
+  `aucun projet « ${name} » dans ${ws.name}${
+    ws.projects.length ? ` — ${ws.projects.map((x) => x.path).join(", ")}` : ""
+  }`;
 
 /** The last segment of an SSH URI without `.git` — what pl8 will file it under, and what the address carries. */
 const repoShortName = (uri: string): string =>

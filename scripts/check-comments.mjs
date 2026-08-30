@@ -101,7 +101,8 @@ for (const file of files) {
   // The header is the comment run the file opens with, after any blank lines.
   let i = 0;
   // What may sit ABOVE the header: a shebang, or a C++ include guard (../docs/lints.md).
-  while (i < lines.length && (isBlank(lines[i]) || PREAMBLE.test(lines[i]))) i++;
+  while (i < lines.length && (isBlank(lines[i]) || PREAMBLE.test(lines[i])))
+    i++;
   const headerStart = i;
   while (i < lines.length && /^\s*(\/\/|\/\*|\*)/.test(lines[i])) i++;
   const headerLen = i - headerStart;

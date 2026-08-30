@@ -2,7 +2,7 @@
 // is paired with, the web UIs allowed to drive its engine, and the LAN address a second device
 // opens. The "Blocked just now" list is the one that matters: the file service records an origin
 // it refused, and allowing it is a click rather than a file to find and edit.
-// See apps/studio-desktop/docs/settings.md.
+// See apps/st0-desktop/docs/settings.md.
 
 import type { HostCommandName } from "@studio/engine-host/hostProtocol";
 import { useState } from "react";

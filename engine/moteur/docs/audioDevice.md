@@ -52,7 +52,7 @@ wrong when a preference exists and is not applied.
 | where | who writes it | who applies it | when |
 |---|---|---|---|
 | `<state>/preferences.yaml` (`audioDevice`) | the machine's file service — `PUT /preferences/audio-device` | `engineLink.wireEngine`, on the socket's `open` | the first socket any session opens, and every reconnect after — so every engine restart, before anything plays |
-| `<state>/engine-tray.json` (`audioPriority`) | the settings page's Audio interfaces rows | the supervisor's `audioPolicy` | continuously — it also RE-selects the device when it is replugged |
+| `<state>/engine-host.json` (`audioPriority`) | the settings page's Audio interfaces rows | the supervisor's `audioPolicy` | continuously — it also RE-selects the device when it is replugged |
 | `%APPDATA%/Studio/Settings.xml` | Tracktion, by itself | nobody | never — inert on purpose, see AGENTS.md |
 
 The first row is the one a browser can reach, and it is the one that is easy to leave half

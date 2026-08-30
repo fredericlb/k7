@@ -3,11 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The hosted media library: a folder on a volume, served over HTTP. No database — the filesystem is the index, exactly as it is on the machine that caches it.",
+  "description": "The hosted media library: a folder on a volume, served over HTTP. The filesystem is the index, exactly as it is on the machine that caches it — the one exception being the comments left on a frozen share, which are concurrent writes and live in SQLite (docs/comments.md).",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "NODE_OPTIONS=--experimental-sqlite tsx watch src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "NODE_OPTIONS=--experimental-sqlite vitest run"
   },
   "dependencies": {
     "@frediverse/env": "*",

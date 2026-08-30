@@ -68,7 +68,7 @@ function Row({
         {/* The one way off this screen: a project opens in ITS app, named by the folder's suffix,
             through an anchor — in this tab on the web, the header's name being the way back
             (../../docs/projects.md). An ANCHOR and not a router link, which is also what lets the
-            desktop app open it beside a pinned home tab (apps/studio-desktop/docs/tabs.md). */}
+            desktop app open it beside a pinned home tab (apps/st0-desktop/docs/tabs.md). */}
         {node.app && (
           <Button size="sm" variant="secondary" asChild>
             <a href={projectHref(node.path, node.app)}>

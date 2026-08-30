@@ -165,7 +165,7 @@ clear — any right to open one, `getUserMedia` being absent outside a secure co
 
 So the opener is **injected**. `RealtimeDriver.create` takes a `LensOpener`, whose default is this
 browser's own camera; a surface on a second device is handed one that asks the machine instead and
-receives the stream over a peer connection. `apps/studio-desktop/docs/camera.md` is that page.
+receives the stream over a peer connection. `apps/st0-desktop/docs/camera.md` is that page.
 
 What matters here is that the file keeps meaning what it says: the label is matched where it was
 written, so `"Logitech BRIO"` names the machine's lens whichever screen is drawing it.

@@ -1,0 +1,170 @@
+// gitLfs.ts — the LFS half of a workspace's repository: what it tracks, and the repo-local
+// filter without which git would not know about LFS at all here. A song IS its audio, and
+// plain git keeps a whole new copy of every wav on every edit — see docs/workspaces.md.
+
+import { execFile, spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { promisify } from "node:util";
+import { AUDIO_EXT, VIDEO_EXT } from "@studio/mediatek/media";
+
+const run = promisify(execFile);
+
+/** How long the fetch may say NOTHING before it is presumed stuck — never how long it may take.
+ *  A total cap cut off any repository whose media was larger than the link was fast, which for a
+ *  song repository is the ordinary case rather than the exception. See docs/workspaces.md. */
+const FETCH_IDLE_MS = 120_000;
+const QUICK_MS = 10_000;
+
+const ATTR = "filter=lfs diff=lfs merge=lfs -text";
+
+/** `*.[Ww][Aa][Vv]`: git matches an attribute pattern case-sensitively, and a library hands over `.FLAC`. */
+function anyCase(ext: string): string {
+  const body = [...ext.slice(1)]
+    .map((c) => (c.toUpperCase() === c ? c : `[${c.toUpperCase()}${c}]`))
+    .join("");
+  return `*.${body}`;
+}
+
+/** What a workspace this service makes puts through LFS — every media extension the library knows. */
+export const GITATTRIBUTES: string = [
+  "# Media through git LFS — see packages/file-service/docs/workspaces.md",
+  ...[...new Set([...AUDIO_EXT, ...VIDEO_EXT])]
+    .sort()
+    .map((ext) => `${anyCase(ext)} ${ATTR}`),
+  "",
+].join("\n");
+
+// One probe for the process' life: this is asked once per created or cloned workspace.
+let probe: Promise<boolean> | null = null;
+
+/** Is git-lfs on this machine at all? Everything below turns on the answer. */
+export function lfsAvailable(): Promise<boolean> {
+  probe ??= run("git", ["lfs", "version"], { timeout: QUICK_MS }).then(
+    () => true,
+    () => false,
+  );
+  return probe;
+}
+
+/**
+ * Point THIS repository's filters at git-lfs. `--local` rather than the machine's own install:
+ * `gitEnvFor` pins `GIT_CONFIG_GLOBAL` to /dev/null, so nothing global is visible — docs/workspaces.md.
+ */
+async function installLfs(root: string, env: NodeJS.ProcessEnv): Promise<void> {
+  await run("git", ["lfs", "install", "--local"], {
+    cwd: root,
+    env,
+    timeout: QUICK_MS,
+  });
+}
+
+/** Write the LFS rules and install the filter — see docs/workspaces.md for what a machine without git-lfs gets. */
+export async function setUpLfs(
+  root: string,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
+  writeFileSync(join(root, ".gitattributes"), GITATTRIBUTES, "utf8");
+  if (!(await lfsAvailable())) {
+    console.warn(
+      `[workspaces] no git-lfs on this machine: ${root} versions its audio as ordinary git blobs — https://git-lfs.com`,
+    );
+    return;
+  }
+  await installLfs(root, env);
+}
+
+/** Does anything in this checkout route through LFS? Its own `.gitattributes` files are what say so. */
+async function usesLfs(root: string, env: NodeJS.ProcessEnv): Promise<boolean> {
+  try {
+    // Every .gitattributes in the tree, not just the root one: a repository may declare LFS per folder.
+    await run(
+      "git",
+      ["grep", "-l", "-F", "filter=lfs", "HEAD", "--", "*.gitattributes"],
+      { cwd: root, env, timeout: QUICK_MS },
+    );
+    return true;
+  } catch {
+    return false; // no match, or an unborn HEAD — both are "nothing through LFS"
+  }
+}
+
+/** Thrown when a clone's media can only arrive as pointer text — the sentence names the fix. */
+export class NoLfsError extends Error {
+  constructor(uri: string) {
+    super(
+      `${uri} stores its media with git LFS, and git-lfs is not installed on this machine. ` +
+        `Install it from https://git-lfs.com, then import the repository again.`,
+    );
+    this.name = "NoLfsError";
+  }
+}
+
+/** Turn a fresh clone's pointers back into bytes — a clone here fetches none on its own (docs/workspaces.md). */
+export async function pullLfs(
+  root: string,
+  uri: string,
+  env: NodeJS.ProcessEnv,
+  onLine?: (line: string) => void,
+): Promise<void> {
+  if (!(await lfsAvailable())) {
+    if (await usesLfs(root, env)) throw new NoLfsError(uri);
+    return;
+  }
+  await installLfs(root, env);
+  onLine?.("LFS: fetching media");
+  await lfsPull(root, env, onLine);
+}
+
+/**
+ * `git lfs pull`, bounded by SILENCE. `execFile`'s `timeout` is a total cap and reports nothing
+ * on the way, so this spawns instead and resets the clock on every line — the same rule
+ * `gitClone` follows, and for the same repository.
+ */
+function lfsPull(
+  root: string,
+  env: NodeJS.ProcessEnv,
+  onLine?: (line: string) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // git-lfs draws its meter only for a terminal; piped, it says nothing at all and every
+    // fetch would look stuck to the timer below.
+    const child = spawn("git", ["lfs", "pull"], {
+      cwd: root,
+      env: { ...env, GIT_LFS_FORCE_PROGRESS: "1" },
+    });
+    let tail = "";
+    const said: string[] = [];
+    let timer = setTimeout(() => child.kill(), FETCH_IDLE_MS);
+    const alive = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => child.kill(), FETCH_IDLE_MS);
+    };
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      alive();
+      // \r as well as \n: the meter is rewritten in place rather than emitted line by line.
+      const parts = (tail + chunk).split(/\r\n|[\r\n]/);
+      tail = parts.pop() ?? "";
+      for (const line of parts) {
+        const text = line.trim();
+        if (!text) continue;
+        said.push(text);
+        if (said.length > 200) said.shift();
+        onLine?.(text);
+      }
+    });
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      reject(e);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) return resolve();
+      // git-lfs's own words: "batch response: Repository or object not found" is the answer.
+      reject(
+        new Error(said.join("\n").trim() || `git lfs pull failed (${code})`),
+      );
+    });
+  });
+}

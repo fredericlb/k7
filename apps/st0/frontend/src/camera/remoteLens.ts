@@ -2,7 +2,7 @@
 // second device draws with: over the LAN the page is not a secure context, so getUserMedia is
 // not there at all — but RTCPeerConnection is, being gated on nothing, and a peer connection is
 // exempt from the mixed-content rule that stops every other way of reaching this machine.
-// One socket and one peer connection per live lane. See apps/studio-desktop/docs/camera.md.
+// One socket and one peer connection per live lane. See apps/st0-desktop/docs/camera.md.
 
 import { cfg } from "@studio/project-shell/fileApi";
 import type { Lens, LensOpener } from "@studio/ui-eyes/camera";

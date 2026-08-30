@@ -12,9 +12,7 @@
 import { Button } from "@frediverse/ui/button";
 import { askText } from "@studio/project-shell/ask";
 import {
-  ClipboardCopy,
   Download,
-  ExternalLink,
   GitCommitHorizontal,
   GitPullRequestArrow,
   Link2,
@@ -24,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import type { GitStatus } from "../types";
+import { SurfaceQr } from "./SurfaceQr";
 
 /** One surface's address, ready to hand over — computed by `App`, which holds both the launch parameters and the surface list. */
 export type SurfaceLink = { id: string; type: string; url: string };
@@ -47,6 +46,7 @@ export function SharePanel({
   gitStatus,
   busy,
   externals,
+  lanUrls,
   hasPicture,
   onRun,
   onClose,
@@ -56,6 +56,8 @@ export function SharePanel({
   busy: boolean;
   /** Every surface this project declares — empty is a project that declares none, and the section is then absent rather than empty. */
   externals: readonly SurfaceLink[];
+  /** Where a second device reaches this app; empty leaves each code saying there is nowhere to send it. */
+  lanUrls: readonly string[];
   /** Does this project draw a picture? The MP4 row is absent when it does not — a project with
    *  no video document has nothing to render, and a greyed row would not say why. */
   hasPicture?: boolean;
@@ -191,37 +193,23 @@ export function SharePanel({
           Share to k7
         </button>
 
-        {/* The addresses of this project's surfaces, apart from the shares because these need the account and an engine and WRITE (../docs/external.md). */}
+        {/* This project's addresses, as codes to SCAN: the whole project first, so a tablet can
+            edit it and not only drive a surface, then each surface it declares. */}
         {externals.length ? (
           <>
             <div className="my-1 border-t border-border" />
             <div className={head}>Sur un autre appareil</div>
-            {externals.map((x) => (
-              <div key={x.id} className="flex items-center gap-1">
-                {/* A LINK, not a command: opening it here would replace the editor, so it goes to a new tab and the copy beside it IS the command. */}
-                <a
-                  href={x.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={x.url}
-                  className={`${row} min-w-0 flex-1`}
-                >
-                  <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 truncate">{x.id}</span>
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                    {x.type}
-                  </span>
-                </a>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  title="Copier le lien"
-                  onClick={() => onRun(`ui external ${x.id}`)}
-                >
-                  <ClipboardCopy className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+            <ul className="grid grid-cols-2 gap-2 px-2 py-1">
+              {externals.map((x) => (
+                <SurfaceQr
+                  key={x.id}
+                  id={x.id}
+                  type={x.type}
+                  url={x.url}
+                  lanUrls={lanUrls}
+                />
+              ))}
+            </ul>
             <p className="px-2 py-1 text-xs text-muted-foreground">
               même moteur, même session : ce qui est fait là-bas est fait ici.
             </p>

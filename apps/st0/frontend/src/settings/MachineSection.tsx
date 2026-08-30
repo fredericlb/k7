@@ -1,6 +1,6 @@
 // MachineSection.tsx — the machine's own rows: whether the app comes back at login, the folders
 // it keeps, and the build. The Misc tab, and deliberately the last one — nothing here is
-// touched twice in a session. See apps/studio-desktop/docs/settings.md.
+// touched twice in a session. See apps/st0-desktop/docs/settings.md.
 
 import type { DesktopState, LocalAction } from "../desktop";
 import { Action, Row, Section } from "./Section";
@@ -22,6 +22,23 @@ export function MachineSection({
       >
         <Action onClick={() => local("autostart")}>
           {state.autostart ? "On" : "Off"}
+        </Action>
+      </Row>
+      {/* A second screen on the SAME project: same account, same engine, one session with two
+          windows, which the claim exempts by name (@studio/engine-registry/docs/claim.md). */}
+      <Row
+        label="Second window"
+        detail={
+          state.frontProject
+            ? `On ${new URL(state.frontProject).pathname.replace(/^\//, "")} — no tabs, and closing it changes nothing here.`
+            : "Open a project in the window first: this opens a second view of the one it holds."
+        }
+      >
+        <Action
+          onClick={() => local("secondWindow")}
+          disabled={!state.frontProject}
+        >
+          Open
         </Action>
       </Row>
       <Row label="Workspaces folder" detail={s?.paths.root}>

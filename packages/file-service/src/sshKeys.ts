@@ -1,18 +1,18 @@
-// sshKeys.ts — the deploy key this machine clones with. It is never MADE here: pl8 owns the
-// studio's git identity and this fetches a copy over the channel the two services already
-// share (MEDIATEK_URL + MEDIATEK_TOKEN). One key per person, one to register with a git
-// host. Why the private half is allowed to travel: packages/git-repos/docs/keys.md.
+// sshKeys.ts — the deploy key this machine clones with. It is MADE here and never leaves:
+// a repository belongs to the machine that holds the working copy, so the key that opens it
+// does too. It was fetched from pl8 over MEDIATEK_TOKEN until pl8 stopped knowing about git
+// at all — packages/git-repos/docs/keys.md has what that traded away.
 
 import { sshDir } from "@studio/engine-client/paths";
 import {
+  generateKey,
   hasKey,
-  installKey,
+  publicKey as publicHalf,
   sshCommand as sshCommandFor,
 } from "@studio/git-repos/keys";
-import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { slugify } from "./slug.ts";
 
-/** Where this machine keeps its copy — unchanged, so an existing key is still found. */
+/** Where this machine keeps it — unchanged, so a key fetched by the older build is still found. */
 function dirFor(userEmail: string): string {
   return sshDir(slugify(userEmail));
 }
@@ -24,40 +24,35 @@ export class NoKeyError extends Error {
   }
 }
 
-/** Make sure this user's key is on disk, fetching it from pl8 if not; the common case does no network. */
+/**
+ * Make sure this user's key is on disk, MAKING it if it is not. Idempotent in `generateKey`,
+ * so the common case touches nothing — and there is no network here at all any more.
+ *
+ * A fresh key opens nothing until its public half is registered with the git host, which is
+ * why `publicKeyFor` exists and why the home page draws it: the first clone after a new key
+ * fails with git's own "Permission denied (publickey)", and that sentence is the instruction.
+ */
 export async function ensureKey(userEmail: string): Promise<void> {
   const dir = dirFor(userEmail);
   if (hasKey(dir)) return;
-  const base = mediatekBase();
-  if (!base)
+  try {
+    await generateKey(dir, `st0 ${userEmail}`);
+  } catch (e) {
+    // ssh-keygen absent is the one failure worth naming: everything else here is a disk error.
     throw new NoKeyError(
-      "no SSH key on this machine and no hosted library configured (MEDIATEK_URL) to ask for one",
-    );
-  const token = mediatekToken();
-  if (!token)
-    throw new NoKeyError(
-      "no SSH key on this machine, and no API token (MEDIATEK_TOKEN) to fetch one with — paste a token into this machine's settings",
-    );
-  // Named, because a machine's token is a SERVICE's and has no key — see apps/pl8/docs/sshKeyForService.md.
-  const res = await fetch(
-    `${base.replace(/\/+$/, "")}/api/projects/ssh-key/private?user=${encodeURIComponent(userEmail)}`,
-    { headers: { authorization: `Bearer ${token}` } },
-  );
-  if (!res.ok) {
-    const said = await res
-      .json()
-      .then((b) => (b as { error?: string }).error)
-      .catch(() => null);
-    throw new NoKeyError(
-      said || `could not fetch the SSH key: ${res.status} ${res.statusText}`,
+      `could not make an SSH key on this machine: ${(e as Error).message}`,
     );
   }
-  const body = (await res.json()) as {
-    privateKey?: string;
-    publicKey?: string | null;
-  };
-  if (!body.privateKey) throw new NoKeyError("the library returned no key");
-  await installKey(dir, body.privateKey, body.publicKey ?? undefined);
+}
+
+/** The public half to paste at a git host, or null before anything has needed one. */
+export function publicKeyFor(userEmail: string): string | null {
+  return publicHalf(dirFor(userEmail));
+}
+
+/** …and make one on purpose, for a screen that offers it before the first clone. */
+export async function createKeyFor(userEmail: string): Promise<string> {
+  return generateKey(dirFor(userEmail), `st0 ${userEmail}`);
 }
 
 /** The GIT_SSH_COMMAND that pins git to this user's key. */

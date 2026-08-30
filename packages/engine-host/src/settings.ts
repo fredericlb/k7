@@ -1,11 +1,16 @@
-// settings.ts — the supervisor's persisted settings (`~/.studio/engine-tray.json`).
+// settings.ts — the supervisor's persisted settings, `<state>/engine-host.json` and that name
+// alone: the tray's `engine-tray.json` is no longer read — see engine-client/docs/paths.md.
 //
 // Small and hand-editable on purpose: the ports are not exposed anywhere in the UI, so
 // changing one means opening this file. Autostart is deliberately NOT stored here — the
 // OS login item is the source of truth for that.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { settingsPath, studioDir } from "@studio/engine-client/paths";
+import {
+  existingSettingsPath,
+  settingsPath,
+  studioDir,
+} from "@studio/engine-client/paths";
 
 export interface Settings {
   /** The registries the user pinned via "Add web UI…", overriding every other tier; a LIST, because each service holds its own. */
@@ -25,16 +30,22 @@ export interface Settings {
    * FIXED and persisted rather than ephemeral, and each reason is a bug you would meet: the
    * file service captures its CORS allowlist at SPAWN, `advertiseRegistry` writes a URL other
    * processes read, a second device has the address bookmarked, and a service worker's scope
-   * is per-origin. See apps/studio-desktop/docs/server.md.
+   * is per-origin. See apps/st0-desktop/docs/server.md.
    */
   webPort: number;
   /**
    * Who this machine's workspaces belong to. Offline there is no OIDC to ask, and the file
    * service keys `~/.studio/root/<slug>` on an email — so one is REMEMBERED rather than
    * derived afresh, or a project would move house whenever the answer changed.
-   * See apps/studio-desktop/docs/identity.md.
+   * See apps/st0-desktop/docs/identity.md.
    */
   identity: string | null;
+  /**
+   * The libraries repository, for a machine with NO server to hold it. pl8 owns the account's
+   * pointer and wins whenever it can be asked; this is the fallback so shared modules work
+   * offline — see apps/st0-desktop/docs/pl8Shim.md.
+   */
+  librariesUri: string | null;
   /** The studio server this machine is paired with, or null for a machine on its own. */
   serverUrl: string | null;
   /**
@@ -52,6 +63,7 @@ export const DEFAULT_SETTINGS: Settings = {
   audioPriority: [],
   mediatekDir: null,
   mediatekToken: null,
+  librariesUri: null,
   // Free against 8765/8770 (engine, file service), 8789/8795/8787/8080 (the hosted backends),
   // 5223 (vite) and 10350 (Tilt).
   webPort: 8780,
@@ -99,7 +111,7 @@ function priority(raw: Record<string, unknown>): string[] {
 export function loadSettings(): Settings {
   let raw: Record<string, unknown>;
   try {
-    raw = JSON.parse(readFileSync(settingsPath(), "utf8")) as Record<
+    raw = JSON.parse(readFileSync(existingSettingsPath(), "utf8")) as Record<
       string,
       unknown
     >;
@@ -113,6 +125,7 @@ export function loadSettings(): Settings {
     audioPriority: priority(raw),
     mediatekDir: str(raw.mediatekDir),
     mediatekToken: str(raw.mediatekToken),
+    librariesUri: str(raw.librariesUri),
     webPort: port(raw.webPort, DEFAULT_SETTINGS.webPort),
     identity: str(raw.identity),
     serverUrl: str(raw.serverUrl),

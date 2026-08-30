@@ -45,6 +45,7 @@ export function startClone(
     phase: "starting",
     percent: null,
     lines: [],
+    emitted: 0,
     at: Date.now(),
   };
   jobs.set(id, job);
@@ -53,6 +54,8 @@ export function startClone(
     job.phase = p.phase;
     job.percent = p.percent;
     job.lines.push(p.line);
+    job.emitted++;
+    // `lines` is a window; `emitted` is the count, so a reader can tell a gap from a repeat.
     if (job.lines.length > MAX_LINES) job.lines.shift();
   })
     .then(() => {

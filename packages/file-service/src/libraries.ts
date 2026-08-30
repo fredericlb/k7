@@ -16,6 +16,7 @@ import { dirname, join, sep } from "node:path";
 import { promisify } from "node:util";
 import { assertSshGitUri, normalizeGitUri } from "@studio/git-repos/uri";
 import { LIBRARIES_DIR } from "@studio/song/sharedFolders";
+import { studioHome } from "@studio/song/studioHome";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
 
 const run = promisify(execFile);
@@ -326,3 +327,32 @@ export async function commitLibraries(
 
 /** Where the libraries are mounted in this workspace, whether or not anything is there. */
 export const librariesDir = (root: string): string => join(root, LIBRARIES_DIR);
+
+// ── the account's library repository, which this machine now holds ────────────
+
+/** Where the pointer lives. One line of JSON beside the workspaces, not in any of them. */
+const pointerPath = (): string => join(studioHome(), "libraries.json");
+
+/**
+ * The library repository every project resolves its shared modules through, or null.
+ *
+ * It was pl8's — the one pointer that service held about git — and it is here because nothing
+ * outlives this machine any more (apps/st0/frontend/docs/projects.md). `null` is the ordinary
+ * state of a machine nobody has set one on, and the gate has a screen for it.
+ */
+export function librariesUri(): string | null {
+  try {
+    const raw = JSON.parse(readFileSync(pointerPath(), "utf8")) as {
+      uri?: unknown;
+    };
+    return typeof raw.uri === "string" && raw.uri ? raw.uri : null;
+  } catch {
+    return null; // absent, or written by a hand that got it wrong
+  }
+}
+
+/** SET it — the same URI twice is the same as once. */
+export function setLibrariesUri(uri: string): void {
+  mkdirSync(studioHome(), { recursive: true });
+  writeFileSync(pointerPath(), `${JSON.stringify({ uri }, null, 2)}\n`);
+}

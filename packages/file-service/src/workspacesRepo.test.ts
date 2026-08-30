@@ -205,6 +205,28 @@ describe("a workspace made here, which starts with no repository", () => {
       expect(ignored).toContain(line);
   });
 
+  it("puts its media through git LFS", async () => {
+    myRoot();
+    await createWorkspace(USER, "hiver");
+    const attrs = readFileSync(
+      join(rootDir(), "hiver", ".gitattributes"),
+      "utf8",
+    );
+    expect(attrs).toContain("*.[Ww][Aa][Vv] filter=lfs diff=lfs merge=lfs");
+    expect(attrs).toContain("*.[Mm][Pp]4 filter=lfs");
+  });
+
+  it("commits its audio whether or not this machine has git-lfs", async () => {
+    // An unconfigured filter is a no-op in git, so the rules above cost nothing where lfs is missing.
+    myRoot();
+    await createWorkspace(USER, "hiver");
+    const dir = join(rootDir(), "hiver");
+    writeFileSync(join(dir, "kick.wav"), "RIFF....");
+    gitIn(dir, "add", "-A");
+    gitIn(dir, "-c", "core.hooksPath=", "commit", "-m", "first");
+    expect(gitIn(dir, "ls-tree", "--name-only", "HEAD")).toContain("kick.wav");
+  });
+
   it("refuses a second repository rather than re-pointing the first", async () => {
     checkout(myRoot(), "songs", "git@github.com:me/songs.git");
     await expect(

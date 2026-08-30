@@ -21,7 +21,10 @@ const flagValue = (name) => {
   return i >= 0 && args[i + 1] ? args[i + 1] : null;
 };
 const ENV_FILE = flagValue("env") ?? join(repo, "env.yaml");
-const TRAY_SETTINGS = join(stateDir(), "engine-tray.json");
+const SETTINGS = join(stateDir(), "engine-host.json");
+/** The name it carried before; read, never written. Mirrors `existingSettingsPath` in paths.ts. */
+// One name: the tray's is no longer read anywhere — packages/engine-client/docs/paths.md.
+const settingsToRead = () => SETTINGS;
 
 /** The loopback a checkout takes instead of going out to the LAN proxy and back (../docs/tokens.md). */
 const MEDIATEK_DEV_URL = "http://127.0.0.1:8795"; // SERVICE_PORTS.pl8
@@ -34,7 +37,7 @@ const LINKS = [
     // The file service reads it from the supervisor's settings, and derives its URL (../docs/tokens.md).
     read: () => trayValue("mediatekToken"),
     assign: (token) => setTrayValue("mediatekToken", token),
-    where: `${TRAY_SETTINGS} (mediatekToken)`,
+    where: `${SETTINGS} (mediatekToken)`,
   },
   {
     name: "k7 → pl8",
@@ -123,7 +126,7 @@ function setIn(doc, path, value) {
 
 function trayJson() {
   try {
-    return JSON.parse(readFileSync(TRAY_SETTINGS, "utf8"));
+    return JSON.parse(readFileSync(settingsToRead(), "utf8"));
   } catch {
     return {}; // absent or unreadable — the supervisor writes defaults on its first change
   }
@@ -135,13 +138,10 @@ const trayValue = (key) => {
 };
 
 function setTrayValue(key, value) {
+  // Read old, WRITE NEW: a machine keeps its audio pick and its registry override.
   const settings = { ...trayJson(), [key]: value };
-  mkdirSync(dirname(TRAY_SETTINGS), { recursive: true });
-  writeFileSync(
-    TRAY_SETTINGS,
-    `${JSON.stringify(settings, null, 2)}\n`,
-    "utf8",
-  );
+  mkdirSync(dirname(SETTINGS), { recursive: true });
+  writeFileSync(SETTINGS, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
 }
 
 // --- the run -------------------------------------------------------------------------------

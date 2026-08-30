@@ -5,7 +5,7 @@ the projects inside them, the libraries repository and the published shares. It 
 start, and where you come back to on leaving a song.
 
 The **deploy key is not here**: it is in the Sync tab of the settings (`/@settings`,
-`../../../studio-desktop/docs/settings.md`). It is pasted into the git host once and never looked
+`../../../st0-desktop/docs/settings.md`). It is pasted into the git host once and never looked
 at again, and keeping it at the foot of a screen opened for every song is paying every day for an
 installation gesture. The two sentences here that mention it point there, because the day it is
 missing, this is where you notice.
@@ -133,11 +133,12 @@ follows is what sets it apart here.
 **Its vocabulary is its own** (`src/projects/homeCommands.ts`), and not `LOCAL_COMMANDS`. This
 screen has no open project, no engine session and no file: the editor's catalogue here would be a
 list of things you cannot do, and the half that comes from the file service would not even answer
-— `/complete` and `/command` want an active project. Eight verbs, and they are the page's buttons:
+— `/complete` and `/command` want an active project. Nine verbs, and they are the page's buttons:
 
 | the line | what it does, and through what |
 |---|---|
 | `project new <type> <name>` | the three archetypes, then `projectFolderName` adds the `.st0` — scaffold on the machine, then commit and push |
+| `project copy <name> <workspace> [new name]` | copies it there and commits in the DESTINATION — the name is optional, and is the source's without it |
 | `project delete init <name>` | **names** the project and says what confirming will do. Writes nothing |
 | `project delete confirm <name>` | deletes that one, if it is the one that was named |
 | `system workspace new <name>` | an empty workspace here, no repository behind it |
@@ -161,7 +162,7 @@ address unfolded (`?ws=`), or failing that the only one there is. Between severa
 is a commit pushed where nobody was looking.
 
 **Buttons and bar go through the same functions** — `createProjectOnMachine`,
-`deleteProjectOnMachine`, `ensureWorkspace`, pl8's register: one implementation, two doors, as the
+`copyProjectOnMachine`, `deleteProjectOnMachine`, `ensureWorkspace`, pl8's register: one implementation, two doors, as the
 file tree's menu and the `fs …` verbs already have (`docs/shell.md`). What the bar adds is doing
 it without the mouse, and saying so in a status line above it: refusals in amber, because these
 verbs talk to two services and a silent "that did nothing" is avoided everywhere else. A line this
@@ -261,6 +262,22 @@ contact, is a clone of nothing — and it is what a new account has on the day i
 A list drawn from registered repositories would leave it invisible. So it needs an address, and
 that is `@local`.
 
+## With no server, an import IS a local project
+
+The register is pl8's and a machine holds no copy of it (`apps/st0-desktop/docs/pl8Shim.md`). Where
+no server is configured the shim answers the register with **`revision: "offline"`**, and that word
+is the point: it says there is no register, which is not the same as an empty one.
+
+The difference decides a sentence on screen. *"ce dépôt n'est pas dans vos dépôts — collez son URI
+ci-dessus pour l'inscrire"* is right when a register exists and this repository is missing from it.
+With no register it is a dead end twice over: there is nothing to be absent from, and pasting the
+URI cannot inscribe it anywhere — `api.add` answers 503 and the import simply clones again.
+
+So the row is drawn only where `hasRegister` (`@studio/web-protocol/projects`) is true. Offline, an
+imported workspace reads exactly like one made here: a folder with projects in it, addressed
+`@local`, with nothing to apologise for. What it keeps that a local one has not is its `origin`, so
+it still pulls and pushes — the register was only ever about the ADDRESS, never about the git.
+
 ## `@local` — a project that belongs to no repository
 
 ```
@@ -279,10 +296,17 @@ the app's suffix, the ordinary rule. `localTarget` detaches the workspace from t
 is the only rule specific to `@local`. A workspace that IS a project has nothing after its name
 and the project is `"."`, so nothing downstream changes.
 
-**The price, written where it is paid: this address is not portable.** A repository address opens
-the same song on any machine — `projectClaimKey` identifies a project by `<dépôt>/<projet>`, and
-that is what a link pasted to somebody has to be. `@local` names a folder on this one and nowhere
-else, so the portable address wins as soon as it exists.
+**It is now the ONLY address.** There was a second — `/<dépôt>/<projet>`, resolved by asking pl8's
+register what URI a short name stood for — and it is gone with the register. `projectHref`,
+`workspaceHref` and `externalHref` no longer take a set of registered names and no longer choose:
+a project is a folder on the machine that holds it, and nothing outlives that machine to say
+otherwise.
+
+What that gives up is portability between machines: a link pasted to somebody names a folder on
+yours. What it buys is that there is one answer instead of two, and no service to ask. It also
+makes the second-device case free rather than delicate — `projectClaimKey` is computed from the
+address, and where there is one address both ends compute it alike, which is the failure
+[external.md](external.md) spends a section warning about.
 
 **It is also the starting point.** A workspace is created HERE — `git init`, no remote — and until
 the day it is published, `@local` is the only address it has. That is not a degraded state: it is
@@ -342,9 +366,46 @@ whether the short name resolves — and the project there is `.`, which the mach
 (`packages/file-service/docs/workspaces.md`).
 
 **Importer** takes a URI: pl8 generates the deploy key if it does not exist yet and registers the
-repository, then the page follows immediately with `POST /workspaces/clone` and follows the job,
-**with git's progress on screen**. The clone is not an extra: this list shows only what the machine
-holds, so without it adding would be a form that changes nothing on screen.
+repository, then the page follows immediately with `POST /workspaces/clone` and follows the job.
+The clone is not an extra: this list shows only what the machine holds, so without it adding would
+be a form that changes nothing on screen.
+
+**A percentage is on screen; git's own words are in the console.** Every line git writes used to
+become the dialog's one status line, which is a log flickering past too fast to read and gone the
+moment it works. So the screen keeps only what is progress — `Receiving objects 45%`, and a plain
+"clonage…" when git is doing something it cannot measure — and each line goes to `console.debug`
+as `git: …`, where it can be scrolled after the fact. A FAILURE is unchanged: git's last words are
+the error, on screen, because that is the one time they are the answer.
+
+The machine keeps the last 50 lines (`cloneJobs.ts`) and counts them all in `emitted`, so the page
+logs each line exactly once and says `…(N lines the machine no longer holds)` when a clone outran
+the 800 ms poll. Matching on the text instead would have skipped whole runs — git repeats its
+counter lines verbatim.
+
+**A FAILED clone is where this mattered most**, and it was the worst of the two. `gitClone` rejects
+with `stderr.join("\n")` — everything git said, up to two hundred lines — and the popin drew all of
+it in one block. The answer is at the END of that: `Permission denied (publickey).` and then the
+`fatal:` that followed from it, and either alone is half the story. `gitReason` keeps the last two
+non-empty lines for the screen and puts the whole of it in the console, saying so when there was
+more.
+
+And the workspace really does go: a clone that failed leaves no workspace, by design — see
+`cloneWorkspace`. What made that read as a bug was not the removal but the wall of log above it,
+with the reason somewhere in the middle.
+
+**And the register is the half that may be missing.** With no server configured the desktop's shim
+answers the register with a 503 (`apps/st0-desktop/src/server/pl8Shim.ts`) — correctly, since the
+register is pl8's and a local copy would be a second source of truth. But importing MEANS the
+clone, and the clone is the machine's: a 503 there is stepped over and the import goes on, landing
+the workspace on this disk where it opens by its `@local` address, which the row then says in
+words. Only that status is stepped over — a pl8 that is reachable and refuses (a bad URI, a name
+already taken) is heard, before anything has been cloned.
+
+That is the same rule **Publier** already followed, and import was the odd one out for a reason
+worth naming: publish does the real work FIRST and registers after, so a failed register is
+visibly the lesser half. Import registered first, so the optional half could abort the essential
+one — which is exactly what it did, with a sentence about Settings on a machine that needed no
+server at all.
 
 **Publier** lives on the row and not at the top, because it acts on ONE workspace, and it is
 offered only when `origin` is null. It asks for a repository URI — which must exist and be empty —,
@@ -367,10 +428,10 @@ comes back here too on leaving a project: this list holds `.z0` folders as much 
 second picker on its side would be the second thing to keep in step that this package exists to
 avoid.
 
-## Creating and deleting a project — on the machine, not here
+## Creating, copying and deleting a project — on the machine, not here
 
 Each repository's block carries a **"Nouveau projet"** (the archetype, and a name), and each
-project a small **"Supprimer"** with confirmation. Neither is done by pl8: what this page calls is
+project a small **"Copier"** and a small **"Supprimer"**, both with a dialog. Neither is done by pl8: what this page calls is
 the file service the whole app uses as soon as a project is open, not a seam that would serve only
 here.
 
@@ -382,6 +443,7 @@ project a tab has opened; this page touches a different repository on every row.
 |---|---|
 | scaffold at default settings | `POST <fileBase>/project/create` → `createProjectIn` |
 | deletion (the folder is recycled) | `POST <fileBase>/project/delete` |
+| a copy into another workspace | `POST <fileBase>/workspaces/copy-project` |
 | index, commit, push | the `commit` command → `packages/commands/src/git.ts` |
 | clone the repository if it is not there | `POST /workspaces/clone` + the jobs to poll |
 
@@ -450,6 +512,24 @@ throwing away somebody's work over a network fault, and throwing would invite st
 creation that has happened. There is nothing to ask for afterwards: the machine answers the list,
 so the project appears at the next tick.
 
+### Copying a project — the DESTINATION is what commits
+
+"Copier" takes a project into another workspace on the same machine: pick where it lands, name the
+copy, and the original is not touched. One call does the copy (`CopyProject.tsx` → `machine.ts`'s
+`copyProjectOnMachine`), and the commit that follows is run **in the workspace that received it**,
+because that is the repository whose history gained a project. Which also settles the push: it
+happens when the destination has an `origin` and does not when it has none, exactly as creating a
+project does — so the picker says which of the two each row is, before the click rather than in
+the error afterwards.
+
+The destination list leaves out two workspaces. Its own, since a copy needs somewhere else to be
+useful and the same-workspace duplicate is a different gesture; and any workspace that IS a single
+project, where nothing under the root is listed and the copy would exist without ever showing up.
+
+**A failed push does not undo the copy**, for the reason the creation states above — with one more
+edge: retrying would hit a name that is now taken, so the page says "copié dans …, mais : …" and
+leaves the fix to be a push rather than a second copy.
+
 ## Shares, on the row of the project they came out of
 
 A **"Partages"** button on each project row, beside "Supprimer", opens a popin listing the frozen
@@ -482,6 +562,28 @@ The **count is on the button** ("Partages (2)"): otherwise you would open ten po
 which is not empty. The button is there even at zero, because a button that appears and disappears
 with state is not looked for in the right place.
 
+### Comments, behind the row rather than beside the link
+
+Every row carries a **"Commentaires"** button opening `ShareComments.tsx`, a second popin over the
+first: what the people you gave the link to wrote on **that** snapshot. This is the only screen
+that can move a comment between the three states — `Actifs`, `Résolus`, `Ignorés`, three tabs in
+the order a comment travels, since every one lands in the first and leaves for one of the others.
+The frozen viewer draws the same comments with a chip and no tabs
+([shared.md](shared.md)); pl8's half is [apps/pl8/docs/comments.md](../../../pl8/docs/comments.md).
+
+**Nothing deletes**, and the popin says so: `Résolu` and `Ignoré` are two ways out of the active
+list, not two spellings of gone. A `Réactiver` puts one back.
+
+The count on the button is the **active** one alone, and comes down on the share's own row
+(`ShareSummary.comments`) rather than from a second request per row: a resolved comment must stop
+adding to a number that exists to say "there is something to read". It is counted server-side on
+the way out and never stored, and it moves the shares' revision token, so the poll this page
+already runs is what refreshes it.
+
+The button is there on a **revoked** row too, where the link and the size are not. The bytes were
+the cost of the share; what was written on it survives, and losing the feedback with the audio
+would make withdrawing one a choice nobody should have to make.
+
 ### Attaching a share to a project is a join, and it is fallible
 
 `origin` is written by the machine, as two basenames:
@@ -511,54 +613,6 @@ and therefore invisible most of the time.
 
 A second, quieter price: **this popin is behind the project list, which needs a machine.** Shares
 are not in the "settable with the engine off" column, where the libraries are.
-
-## Surfaces, in the same popin — and as QR codes
-
-A project row's popin has **two tabs**. *Partages*, above. *Surfaces*: one thumbnail per screen
-this project can open on a second device, the whole project first, then each surface it declares.
-Scan from the tablet and you are in it.
-
-**Two tabs and not two lists in one body**, because the two look alike — "here is how this project
-gets out of here" — and are not the same thing at all. [external.md](external.md) holds the line,
-in these terms: *"It is not a share. A share is a frozen snapshot, with no account, no engine
-and no source. An external surface is the opposite on all three counts: it demands the account,
-it requires an engine, and it writes."* Mixed, somebody would send a "surface" to an
-audience believing they were sending a frozen copy. The sentence under the title changes with the
-tab to say which of the two you are looking at.
-
-**A code, and nothing else.** No address written under the thumbnail, no copy button: scanning IS
-the gesture, and an address in full is what this screen replaces. A thumbnail carries the surface's
-name, its type, and the code. The price is real and accepted: a device that cannot scan — no
-camera, a lens that will not focus — has no fallback here.
-
-### What the QR code must contain
-
-This is the screen's one trap, and it is silent. Every address on this page is built on
-`window.location.origin` (`projects/api.ts`), and in the desktop window that origin is
-**`http://127.0.0.1:8780`**. Encoded as it is, the thumbnail scans perfectly, the phone opens the
-address — and lands on itself. The symptom is "the QR code does not work", which sends you looking
-at the camera or the code's size.
-
-`projects/remoteUrl.ts` is that conversion, tested separately for that reason:
-
-| the page's origin | what the thumbnail carries |
-|---|---|
-| loopback, and the app announces LAN addresses | the one chosen in `lanUrls` (`apps/studio-desktop/docs/externals.md`) |
-| loopback, and no LAN address | **nothing** — the thumbnail says there is nothing to reach |
-| a real origin (hosted studio, LAN proxy) | the address as it is: it is already reachable |
-
-**When the machine has several addresses, it offers them instead of choosing one.** A development
-workstation commonly has three — Wi-Fi, Ethernet, and WSL's or a VPN's virtual adapter — and
-nothing in their order says which one the phone can reach. Guessing produces a thumbnail on
-`172.28.x.x` that never answers, with the same symptom as above. Beyond one address, a picker
-appears above the thumbnails.
-
-The list of surfaces comes from `/workspaces/surfaces`, the route `/external` already queries (see
-[external.md](external.md)), asked **when the tab mounts** and not when the page does: it is a
-per-project scan on the machine, and a home page does not pay for it for popins nobody will open.
-A surface's address is `externalOf(projectHref(…), id)`, the same one the `/external` menu gives —
-otherwise there would be two claims on one song, which `external.md` explains about
-`projectClaimKey`. A failure to draw the code **is said** instead of leaving a spinner running.
 
 ## Two polls, because there are two services
 

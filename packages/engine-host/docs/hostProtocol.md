@@ -7,7 +7,7 @@ bought. `@studio/engine-protocol` still is mirrored by hand in the C++ engine, a
 to be.
 
 It was NDJSON on stdio until the desktop app embedded the supervisor
-(`apps/studio-desktop/docs/supervisor.md`). Nothing is serialised now — `HostTransport` is two
+(`apps/st0-desktop/docs/supervisor.md`). Nothing is serialised now — `HostTransport` is two
 function calls — which retires the rule that used to head this page, *stdout IS the protocol,
 one stray line corrupts the frame stream*. The types did not change with it, and that is the
 point: what a frame MEANS never depended on how it travelled.

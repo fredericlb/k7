@@ -1,6 +1,7 @@
 // store.ts — the frozen snapshots one person has shared: one small JSON per OIDC subject listing
 // them, and one directory of bytes each. No database, the same arrangement `../projects/store.ts`
-// uses and for the same reasons. See ../../docs/shares.md.
+// uses and for the same reasons — what visitors WRITE has many authors and is `comments.ts`.
+// See ../../docs/shares.md.
 
 import { createHash, randomBytes } from "node:crypto";
 import {

@@ -1,10 +1,17 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureLayout } from "@studio/mediatek/layout";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { closeComments } from "../shares/comments.ts";
 import { blobDir, isKey, keyOf } from "../shares/store.ts";
 import { publicShareRouter } from "./publicShare.ts";
 import { sharesRouter } from "./shares.ts";
@@ -42,6 +49,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await new Promise((ok) => server.close(ok));
+  // The database is opened once and cached; the next test points at another directory entirely.
+  closeComments();
   delete process.env.STUDIO_MEDIATEK;
   rmSync(root, { recursive: true, force: true });
   who = "alice";
@@ -272,5 +281,131 @@ describe("taking one back", () => {
       await fetch(`${base}/api/shares`),
     );
     expect(shares).toEqual([]);
+  });
+});
+
+/** The one write a public route takes, and the three states only its author can move it between. */
+describe("commenting on one", () => {
+  const write = (key: string, c: Record<string, unknown>) =>
+    fetch(`${base}/api/public/share/${key}/comments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(c),
+    });
+
+  const read = (key: string) =>
+    fetch(`${base}/api/public/share/${key}/comments`).then(
+      body<{ comments: { id: number; at: number | null; state: string }[] }>,
+    );
+
+  it("takes one with no credential at all, and reads it back", async () => {
+    const { key } = await share();
+    expect((await write(key, { author: "Zoé", body: "la basse" })).status).toBe(
+      200,
+    );
+    const { comments } = await read(key);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].state).toBe("active");
+  });
+
+  it("keeps the timecode when there is one, and null when there is not", async () => {
+    const { key } = await share();
+    await write(key, { body: "ici", at: 12.5 });
+    await write(key, { body: "en général" });
+    const { comments } = await read(key);
+    expect(comments.map((c) => c.at)).toEqual([12.5, null]);
+  });
+
+  it("refuses an empty one", async () => {
+    const { key } = await share();
+    expect((await write(key, { body: "   " })).status).toBe(400);
+  });
+
+  it("refuses one on a share that does not exist, without saying whether it did", async () => {
+    expect((await write("f".repeat(64), { body: "hé" })).status).toBe(404);
+    expect((await write("nope", { body: "hé" })).status).toBe(404);
+  });
+
+  it("goes quiet with the bytes: a revoked link answers nothing, comments included", async () => {
+    const { key } = await share();
+    await write(key, { body: "avant" });
+    await fetch(`${base}/api/shares/${key}`, { method: "DELETE" });
+    expect(
+      (await fetch(`${base}/api/public/share/${key}/comments`)).status,
+    ).toBe(404);
+    // …but the AUTHOR still has them: the bytes were the cost, the feedback is what it bought.
+    const { comments } = await body<{ comments: unknown[] }>(
+      await fetch(`${base}/api/shares/${key}/comments`),
+    );
+    expect(comments).toHaveLength(1);
+  });
+
+  it("counts the three states on the row, without storing them on it", async () => {
+    const { key } = await share();
+    await write(key, { body: "un" });
+    await write(key, { body: "deux" });
+    const { comments } = await read(key);
+    await fetch(`${base}/api/shares/${key}/comments/${comments[0].id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ state: "resolved" }),
+    });
+    const { shares } = await body<{
+      shares: { comments: { active: number; resolved: number } }[];
+    }>(await fetch(`${base}/api/shares`));
+    expect(shares[0].comments).toEqual({
+      active: 1,
+      resolved: 1,
+      ignored: 0,
+    });
+    // The row on DISK never learned any of it — the count is made on the way out.
+    const dir = join(root, ".shares", "index");
+    const filed = readdirSync(dir).map((f) =>
+      readFileSync(join(dir, f), "utf8"),
+    );
+    expect(filed.join("")).not.toContain("comments");
+  });
+
+  it("refuses a state that is not one of the three", async () => {
+    const { key } = await share();
+    await write(key, { body: "un" });
+    const { comments } = await read(key);
+    const r = await fetch(
+      `${base}/api/shares/${key}/comments/${comments[0].id}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ state: "deleted" }),
+      },
+    );
+    expect(r.status).toBe(400);
+  });
+
+  it("lets nobody else resolve them", async () => {
+    const { key } = await share();
+    await write(key, { body: "un" });
+    const { comments } = await read(key);
+    who = "bob";
+    const r = await fetch(
+      `${base}/api/shares/${key}/comments/${comments[0].id}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ state: "ignored" }),
+      },
+    );
+    expect(r.status).toBe(404);
+  });
+
+  it("moves the revision token, so the author's poll notices", async () => {
+    const { key } = await share();
+    const before = await body<{ revision: string }>(
+      await fetch(`${base}/api/shares/revision`),
+    );
+    await write(key, { body: "un" });
+    const after = await body<{ revision: string }>(
+      await fetch(`${base}/api/shares/revision`),
+    );
+    expect(after.revision).not.toBe(before.revision);
   });
 });

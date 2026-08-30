@@ -29,7 +29,7 @@ export function ProjectGate({
   /** …and taking it back. */
   onResume: () => void;
 }) {
-  // A tab behind another stops being that engine's client too, and does not wait twenty minutes — apps/studio-desktop/docs/tabs.md.
+  // A tab behind another stops being that engine's client too, and does not wait twenty minutes — apps/st0-desktop/docs/tabs.md.
   const inFront = useInFront();
   return (
     <Shared

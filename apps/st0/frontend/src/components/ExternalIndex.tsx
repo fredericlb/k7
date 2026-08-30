@@ -6,11 +6,7 @@
 // See ../docs/external.md.
 
 import { Button } from "@frediverse/ui/button";
-import type {
-  RepoSummary,
-  ServedProject,
-  SurfacedProject,
-} from "@studio/web-protocol";
+import type { ServedProject, SurfacedProject } from "@studio/web-protocol";
 import {
   Disc3,
   type LucideIcon,
@@ -20,7 +16,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, engines } from "../api";
-import { engineMachine, externalHref, projects } from "../projects/api";
+import { engineMachine, externalHref } from "../projects/api";
 import type { Machine } from "../projects/machine";
 import { PANE_META } from "../shellMeta";
 
@@ -33,7 +29,6 @@ export function ExternalIndex() {
   const [rows, setRows] = useState<SurfacedProject[]>([]);
   // What the engine is HOLDING, which is not what the disk has — see where it is fetched.
   const [served, setServed] = useState<ServedProject | null>(null);
-  const [repos, setRepos] = useState<RepoSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
 
@@ -84,16 +79,6 @@ export function ExternalIndex() {
     return () => clearInterval(t);
   }, [machine, load]);
 
-  /** pl8's register, for one reason: which workspaces can be named by their REPOSITORY, so the tablet and the editor make one claim. */
-  useEffect(() => {
-    projects
-      .list()
-      .then((r) => setRepos(r.repos))
-      // No register is not a failure of this page: every row falls back to its `@local` address, which resolves on this machine.
-      .catch(() => setRepos([]));
-  }, []);
-  const registered = useMemo(() => new Set(repos.map((r) => r.name)), [repos]);
-
   /** The row the engine is holding, if the disk still has it — one project, by construction. */
   const open = useMemo(
     () =>
@@ -112,10 +97,10 @@ export function ExternalIndex() {
         ? open.surfaces.map((s) => ({
             key: `${open.workspace}/${open.path}/${s.id}`,
             surface: s,
-            href: externalHref(open, s.id, registered),
+            href: externalHref(open, s.id),
           }))
         : [],
-    [open, registered],
+    [open],
   );
 
   const refresh = () => {

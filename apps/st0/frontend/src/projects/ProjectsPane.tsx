@@ -7,10 +7,9 @@ import type {
   FileNode,
   MachineWorkspace,
   RepoProject,
-  RepoSummary,
   ShareSummary,
 } from "@studio/web-protocol";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   projects as api,
   engineMachine,
@@ -19,6 +18,7 @@ import {
 } from "./api";
 import { LibrariesCard } from "./LibrariesCard";
 import {
+  copyProjectOnMachine,
   createLocalWorkspace,
   createProjectOnMachine,
   deleteProjectOnMachine,
@@ -31,19 +31,15 @@ import { RepoTree } from "./RepoTree";
 
 export function ProjectsPane({
   workspaces,
-  repos,
   shares,
   busy,
   openWs,
   machine,
-  lanUrls,
   onOpen,
   onChanged,
 }: {
   /** What the machine holds, projects included — the only source, a project being a folder there. */
   workspaces: MachineWorkspace[];
-  /** pl8's register — not a list to draw, but the other half of 'does this address resolve': a copy it ignores opens `@local`. */
-  repos: RepoSummary[];
   /** Frozen snapshots published by `project share link` — the account's WHOLE list, cut up by the rows with `sharesOf`. */
   shares: ShareSummary[];
   busy: boolean;
@@ -51,8 +47,6 @@ export function ProjectsPane({
   openWs: string | null;
   /** The chosen machine, or null when none answers — it is what READS the list, projects being its folders. */
   machine: Machine | null;
-  /** Where a second device reaches this app — empty on the hosted build, whose origin already is one. */
-  lanUrls: string[];
   onOpen: (name: string | null) => void;
   /** Call after any write, so the page reloads without waiting for the poll. */
   onChanged: () => void;
@@ -61,17 +55,6 @@ export function ProjectsPane({
   const [nodes, setNodes] = useState<FileNode[] | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
   const ws = workspaces.find((w) => w.name === openWs) ?? null;
-  // The register by short name. A Map rather than a `find` per row, which every project re-runs.
-  const registry = useMemo(
-    () => new Map(repos.map((r) => [r.name, r])),
-    [repos],
-  );
-  const registered = useMemo(() => new Set(registry.keys()), [registry]);
-  /** The registered repository behind a workspace, or null — which is what makes removal possible. */
-  const repoFor = useCallback(
-    (w: MachineWorkspace) => (w.repoName && registry.get(w.repoName)) || null,
-    [registry],
-  );
 
   /** What stops a write, in one sentence, or "". Said on the button rather than found on click. */
   const blocked = machine
@@ -89,7 +72,14 @@ export function ProjectsPane({
     async (uri: string) => {
       setError(null);
       try {
-        await api.add(uri);
+        // The register is pl8's, the CLONE is the machine's, and only the second is what
+        // importing means. With no server the first answers 503 and the import carries on:
+        // the workspace lands on this disk and opens by its `@local` address, which the row
+        // then says in words. Any other refusal is pl8's and stops us — ../../docs/projects.md.
+        await api.add(uri).catch((e: Error & { status?: number }) => {
+          if (e.status !== 503) throw e;
+          setAdding("aucun serveur pour le registre — import en dépôt local…");
+        });
         onChanged();
         await ensureWorkspace(chosen(), uri, (s) => setAdding(s));
       } finally {
@@ -144,18 +134,6 @@ export function ProjectsPane({
     [chosen, onChanged],
   );
 
-  /** Remove a repository from pl8's register and nothing else: the row stays, and what changes is the address. */
-  const forgetRepo = useCallback(
-    (r: RepoSummary) => {
-      setError(null);
-      void api
-        .remove(r.id)
-        .then(onChanged)
-        .catch((e: Error) => setError(e.message));
-    },
-    [onChanged],
-  );
-
   const removeProject = useCallback(
     async (
       w: MachineWorkspace,
@@ -171,6 +149,31 @@ export function ProjectsPane({
       );
       onChanged();
       if (gripe) setError(`${p.path} supprimé, mais : ${gripe}`);
+    },
+    [chosen, onChanged],
+  );
+
+  /** …and copying one across: the DESTINATION is what commits, so it is its repository that decides the push. */
+  const copyProject = useCallback(
+    async (
+      w: MachineWorkspace,
+      p: RepoProject,
+      to: MachineWorkspace,
+      folder: string,
+      onStep: (s: string) => void,
+    ) => {
+      const { gripe } = await copyProjectOnMachine(
+        chosen(),
+        w.name,
+        p.path,
+        to.name,
+        folder,
+        onStep,
+        !to.origin,
+      );
+      onChanged();
+      // The copy IS there; only its push failed. Throwing would invite a retry that clobbers.
+      if (gripe) setError(`${folder} copié dans ${to.name}, mais : ${gripe}`);
     },
     [chosen, onChanged],
   );
@@ -205,9 +208,7 @@ export function ProjectsPane({
           workspace={ws}
           nodes={nodes}
           onBack={() => onOpen(null)}
-          projectHref={(path, app) =>
-            projectHref(ws, { path, app }, registered)
-          }
+          projectHref={(path, app) => projectHref(ws, { path, app })}
         />
       ) : (
         <RepoList
@@ -223,17 +224,13 @@ export function ProjectsPane({
           blocked={blocked}
           onCreate={create}
           onDelete={removeProject}
-          repoFor={repoFor}
-          onForget={forgetRepo}
+          onCopy={copyProject}
           // Same departure as from the tree: the app's address, not a view local to here.
-          projectHref={(w, p) => projectHref(w, p, registered)}
-          workspaceHref={(w) => workspaceHref(w, registered)}
+          projectHref={(w, p) => projectHref(w, p)}
+          workspaceHref={(w) => workspaceHref(w)}
           // Shares COME OUT of a project, so they belong to its row rather than to a card below.
           shares={shares}
           onChanged={onChanged}
-          // A surface is an address ONTO the running engine, so its row needs the machine itself.
-          machine={machine}
-          lanUrls={lanUrls}
         />
       )}
     </div>

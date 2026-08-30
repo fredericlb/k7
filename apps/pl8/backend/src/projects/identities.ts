@@ -4,7 +4,12 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { projectsDir } from "./store.ts";
+import { mediatekDir } from "@studio/mediatek/layout";
+
+/** Where this directory lives; a dot-directory, so no family scan ever walks it. */
+function projectsDir(): string {
+  return process.env.STUDIO_PROJECTS_DIR || join(mediatekDir(), ".projects");
+}
 
 /** Case-insensitive: an IdP may hand back `Fred@…` today and `fred@…` tomorrow. */
 const key = (email: string): string => email.trim().toLowerCase();

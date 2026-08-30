@@ -11,9 +11,10 @@ hosted user who selects that machine.
 What is stored is one engine id per person. Losing it costs one click. That is the whole
 risk budget, and it does not buy a database:
 
-- st0-backend and pl8-backend have **no database dependency today**. Adding Grist to
-  both, for a string, would be the largest dependency either has ever taken for the smallest
-  fact either has ever stored.
+- st0-backend and pl8-backend have **no database dependency today** — pl8's one database is
+  `node:sqlite`, which is Node itself (`apps/pl8/docs/comments.md`). Adding Grist to both, for a
+  string, would be the largest dependency either has ever taken for the smallest fact either has
+  ever stored.
 - The médiathèque's own argument applies unchanged — *the filesystem is the index* — and it
   is already deployed on a volume for exactly that reason.
 

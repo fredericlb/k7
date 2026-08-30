@@ -83,7 +83,7 @@ export function Action({
 
 /**
  * The strip above the sections. Not the window's tabs — those hold projects (see
- * apps/studio-desktop/docs/tabs.md); these only choose which part of one page is drawn.
+ * apps/st0-desktop/docs/tabs.md); these only choose which part of one page is drawn.
  */
 export function Tabs<T extends string>({
   tabs,

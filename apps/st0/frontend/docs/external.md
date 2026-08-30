@@ -202,8 +202,8 @@ opened knowing nothing, on which an installed application starts. That is `/exte
 surfaces of the project the engine is holding**, one line per surface.
 
 Opening it the first time is its own problem, and typing an address on a touch keyboard is not a way:
-a project row's popin on the home page has a *Surfaces* tab giving the **QR codes**, this one
-included (`apps/st0/frontend/src/projects/ProjectSurfaces.tsx`).
+the **open project's share panel** gives the QR codes — the whole project first, then each surface
+(`apps/st0/frontend/src/components/SharePanel.tsx`, section *Sur un autre appareil*).
 
 ```
 GET /workspaces/surfaces        (file service)
@@ -310,7 +310,7 @@ menu queries pl8's registry.
 ## Looking like an application without being able to be one
 
 A PWA installs from a **secure** origin, and a tablet reaching the machine over the LAN in the clear
-has none (`apps/studio-desktop/docs/externals.md`). Installation is therefore out of reach exactly
+has none (`apps/st0-desktop/docs/externals.md`). Installation is therefore out of reach exactly
 where it would help most. What can still be had is what an installed application gives *on screen* —
 and neither half requires a secure origin.
 
@@ -352,7 +352,7 @@ without that it would hold only until the first notification.
 
 Not lost either, for a reason unrelated to the two above: `RTCPeerConnection` is conditioned on
 nothing. The machine opens the lens, the tablet receives it — see
-`apps/studio-desktop/docs/camera.md`, which also says why it runs in that direction.
+`apps/st0-desktop/docs/camera.md`, which also says why it runs in that direction.
 
 ## What this is not
 

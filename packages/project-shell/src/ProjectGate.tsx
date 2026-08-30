@@ -35,10 +35,9 @@ import {
 import { sleepMove, useIdleTimeout } from "./idle.ts";
 import { parseLaunch, projectsUrl } from "./launch.ts";
 import { projectApi } from "./project.ts";
-import { librariesRepo, repoByName } from "./repoLookup.ts";
+import { librariesRepo } from "./repoLookup.ts";
 
 /** How often the clone is asked how far it has got. Fast: it is the only thing on screen. */
-const POLL_MS = 400;
 
 type Phase =
   | { k: "resolving" }
@@ -54,8 +53,6 @@ type Phase =
   /** `why` decides whether waking is automatic: a tab put behind another wakes itself. */
   | { k: "idle"; why: "timeout" | "hidden" }
   | { k: "open"; workspace: string; project: string };
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** What the gate needs about its engine, structurally — see docs/launch.md. */
 export interface GateEngine {
@@ -328,76 +325,17 @@ export function ProjectGate({
           });
         }
 
-        // The address carries a NAME; git needs a URI, and pl8 is what holds the pairing.
-        let repo: string;
-        try {
-          repo = (await repoByName(repoName)).uri;
-        } catch (e) {
-          if (cancelled) return;
-          // pl8 answered "no such name" / "two of them" — a target problem, not a fault.
-          const status = (e as { status?: number }).status;
-          if (status === 404 || status === 409) {
-            setPhase({ k: "missing", message: (e as Error).message });
-            return;
-          }
-          throw e;
-        }
-        if (cancelled) return;
-
-        let workspace = (await projectApi.workspaceByRepo(repo)).workspace;
-        if (cancelled) return;
-
-        if (!workspace) {
-          // Never cloned on this machine. Start it and follow it — this is the visible wait.
-          let job = await projectApi.startClone(repo);
-          setPhase({
-            k: "cloning",
-            workspace: job.workspace,
-            phase: job.phase,
-            percent: job.percent,
-          });
-          while (!job.done) {
-            await sleep(POLL_MS);
-            if (cancelled) return;
-            job = await projectApi.cloneStatus(job.id);
-            setPhase({
-              k: "cloning",
-              workspace: job.workspace,
-              phase: job.phase,
-              percent: job.percent,
-            });
-          }
-          if (job.failed) {
-            // A clone failure is the USER'S to fix, and git's own words say which — show them.
-            setPhase({
-              k: "error",
-              message: job.error ?? "the clone failed",
-              lines: job.lines,
-            });
-            return;
-          }
-          workspace = job.workspace;
-        }
-
-        configure(userEmail, workspace);
-        try {
-          // A bare workspace address sends `.`, and the machine answers WHICH project that is —
-          // the marker, then the first on disk. See file-service/docs/workspaces.md.
-          const opened = await projectApi.open(project, libraries.uri);
-          // Nothing in it: not a fault and not a missing project — the workspace is simply new.
-          if (!opened.activeProject) return setPhase({ k: "empty", workspace });
-        } catch (e) {
-          if (cancelled) return;
-          // A refusal, not a fault: probing it would bury the answer under the CORS banner.
-          const status = (e as { status?: number }).status;
-          if (status === 400 || status === 404) {
-            setPhase({ k: "missing", message: (e as Error).message });
-            return;
-          }
-          throw e; // anything else (a transport failure, a 500) is diagnosed below
-        }
-        if (cancelled) return;
-        setPhase({ k: "open", workspace, project });
+        // Everything else is an address from BEFORE: `/<dépôt>/<projet>`, which read a short
+        // name against pl8's register. There is no register — a project is a folder on the
+        // machine that holds it — so this refuses rather than guessing which folder was meant.
+        // See apps/st0/frontend/docs/projects.md.
+        return setPhase({
+          k: "missing",
+          message:
+            `« ${repoName} » is a repository name, and this studio no longer keeps a register ` +
+            "of those: a project is a folder on this machine. Open it from the home page — " +
+            "its address will be `/@local/<espace de travail>/<projet>`.",
+        });
       } catch (e) {
         if (cancelled) return;
         // "NetworkError…" covers a refused origin and a dead service, whose fixes are opposite.

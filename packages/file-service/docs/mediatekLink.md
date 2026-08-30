@@ -34,7 +34,7 @@ That is the same address `packages/git-repos/docs/keys.md` gives for dev
 
 ## The token: the supervisor's settings
 
-`<state>/engine-tray.json`, key `mediatekToken` — where `npm run tokens` writes it and where the
+`<state>/engine-host.json`, key `mediatekToken` — where `npm run tokens` writes it and where the
 supervisor reads it before passing it on. Reading it directly only removes an absent middleman.
 
 ## And the token's subject

@@ -30,7 +30,7 @@ issuing service, the identity the callee will see, and where the caller reads it
 
 | link | signed with | `sub` | written to |
 |---|---|---|---|
-| st0 → pl8 | `pl8-backend.API_TOKEN_SECRET` | `service:st0` | `<state>/engine-tray.json` (`mediatekToken`) |
+| st0 → pl8 | `pl8-backend.API_TOKEN_SECRET` | `service:st0` | `<state>/engine-host.json` (`mediatekToken`) |
 | k7 → pl8 | the same secret | `service:k7` | `env.yaml` (`k7-backend.MEDIATEK_TOKEN`) |
 
 The env section is `pl8-backend`, and that spelling matters: a section name `env.yaml` does not
@@ -99,7 +99,7 @@ else.
 So nothing asks for a service's URL:
 
 - the supervisor **derives** the médiathèque from the registries it already announces to
-  (`mediatekUrlFor`) rather than reading a URL out of `<state>/engine-tray.json`. A
+  (`mediatekUrlFor`) rather than reading a URL out of `<state>/engine-host.json`. A
   hand-typed second copy of a fact already on disk is precisely how a machine ends up
   heartbeating to one studio and syncing from another;
 - the st0 frontend derives it from `window.location.origin`, so no host is named at build time;

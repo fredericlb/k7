@@ -1,3 +1,4 @@
+import { fget, fsend } from "@studio/project-shell/fileApi";
 // api.ts — the two services this screen talks to, and they are not the same machine:
 // pl8 (same origin, session cookie) holds the REGISTER of repositories, the libraries pointer,
 // the deploy key and the shares; the file service on the chosen ENGINE holds every working copy,
@@ -7,6 +8,7 @@
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import {
   type CloneJob,
+  type CommentState,
   ENGINE_TOKEN_HEADER,
   type FileNode,
   type MachineWorkspace,
@@ -16,6 +18,7 @@ import {
   type RepoSummary,
   type ServedProject,
   type ServedProjectReply,
+  type ShareComment,
   type ShareSummary,
   type SshKeyInfo,
   type SurfacedProject,
@@ -25,7 +28,6 @@ import {
 } from "@studio/web-protocol";
 import {
   externalOf,
-  launchUrl,
   localProjectUrl,
   shareUrl,
 } from "@studio/web-protocol/projects";
@@ -90,29 +92,21 @@ export const projects = {
   sshKey: () => pget<SshKeyInfo>("/ssh-key", "ssh-key"),
   generateSshKey: () => psend<SshKeyInfo>("POST", "/ssh-key", {}),
 
-  /** The LIBRARY repository — `libraries: null` is the ordinary state of a new account, hence a 200 with a null rather than a 404. */
-  libraries: () =>
-    pget<{ libraries: RepoRef | null }>("/libraries", "libraries"),
+  /** The LIBRARY repository, held by the MACHINE — `null` is the ordinary state of a new one,
+   *  hence a 200 with a null rather than a 404. It was pl8's until pl8 stopped knowing about git. */
+  libraries: () => fget<{ libraries: RepoRef | null }>("/account/libraries"),
   /** SET, not add — there is one. Doing it twice with the same URI is doing it once. */
   setLibraries: (uri: string) =>
-    psend<{ libraries: RepoRef }>("PUT", "/libraries", { uri }),
+    fsend<{ libraries: RepoRef }>("PUT", "/account/libraries", { uri }),
 };
 
 /** The three fields an address is chosen from — narrower than `MachineWorkspace` on purpose, the surfaces listing carrying the same identity flattened. */
 type Addressable = Pick<MachineWorkspace, "name" | "repoName" | "uniqueName">;
 
-const namedByRepo = (ws: Addressable, registered: Set<string>): boolean =>
-  ws.uniqueName && ws.repoName !== null && registered.has(ws.repoName);
-
-/** Where a project opens — st0 or z0 by its folder name, at the repository's address whenever it works and `@local` otherwise (../../docs/projects.md). */
-export function projectHref(
-  ws: Addressable,
-  p: RepoProject,
-  registered: Set<string>,
-): string {
-  return namedByRepo(ws, registered) && ws.repoName
-    ? launchUrl(window.location.origin, ws.repoName, p.path, p.app)
-    : localProjectUrl(window.location.origin, ws.name, p.path, p.app);
+/** Where a project opens. ALWAYS `@local`: a project is a folder on the machine that holds it,
+ *  and no service outlives that machine to say otherwise (../../docs/projects.md). */
+export function projectHref(ws: Addressable, p: RepoProject): string {
+  return localProjectUrl(window.location.origin, ws.name, p.path, p.app);
 }
 
 /**
@@ -120,33 +114,18 @@ export function projectHref(
  * the machine then resolves: the one last open, else the first, else the first-project wizard.
  * This is the only way into a workspace that holds nothing (../../docs/projects.md).
  */
-export function workspaceHref(
-  ws: Addressable,
-  registered: Set<string>,
-): string {
-  return namedByRepo(ws, registered) && ws.repoName
-    ? launchUrl(window.location.origin, ws.repoName, ".", "st0")
-    : localProjectUrl(window.location.origin, ws.name, ".", "st0");
+export function workspaceHref(ws: Addressable): string {
+  return localProjectUrl(window.location.origin, ws.name, ".", "st0");
 }
 
-/** …and the same question on its own, for the row that wants to SAY which address it got. */
-export const isRegistered = namedByRepo;
-
 /** Where ONE SURFACE of that project opens, on its own — through `projectHref`, so the tablet and the laptop claim the same song. */
-export function externalHref(
-  row: SurfacedProject,
-  surface: string,
-  registered: Set<string>,
-): string {
+export function externalHref(row: SurfacedProject, surface: string): string {
   const ws: Addressable = {
     name: row.workspace,
     repoName: row.repoName,
     uniqueName: row.uniqueName,
   };
-  return externalOf(
-    projectHref(ws, { path: row.path, app: row.app }, registered),
-    surface,
-  );
+  return externalOf(projectHref(ws, { path: row.path, app: row.app }), surface);
 }
 
 // ── pl8: the shares ─────────────────────────────────────────────────────────────
@@ -165,6 +144,24 @@ export const shares = {
       method: "DELETE",
     });
     if (!res.ok) throw await failed(res, "revoke");
+  },
+
+  /** What visitors wrote on one snapshot — the author's view, revoked shares included (../../docs/projects.md). */
+  comments: (key: string) =>
+    sget<{ comments: ShareComment[] }>(`/${key}/comments`, "comments"),
+
+  /** Resolve one, ignore it, or put it back. There is no fourth verb: nothing here deletes. */
+  setCommentState: async (
+    key: string,
+    id: number,
+    state: CommentState,
+  ): Promise<void> => {
+    const res = await fetch(`${PL8_URL}/api/shares/${key}/comments/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ state }),
+    });
+    if (!res.ok) throw await failed(res, "comment");
   },
 
   /** The link, built from the origin the browser is on: pl8 holds the secret and never the address. */
@@ -304,6 +301,25 @@ export const engineMachine = {
         body: JSON.stringify({ shape, name }),
       }),
       "création",
+    );
+    return project;
+  },
+
+  /** Copy a project into another workspace on this machine. No workspace HEADER: the body names both. */
+  copyProject: async (
+    m: Machine,
+    from: string,
+    path: string,
+    to: string,
+    name: string,
+  ): Promise<string> => {
+    const { project } = await json<{ project: string }>(
+      await fetch(`${m.fileBase}/workspaces/copy-project`, {
+        method: "POST",
+        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ from, path, to, name }),
+      }),
+      "copie",
     );
     return project;
   },

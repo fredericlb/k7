@@ -2,7 +2,8 @@
 // set that precedent: desktop chrome is a page on the app's own origin, not a second build.
 // It is loaded in a view of its own and outlives every project below it — docs/tabs.md.
 
-import { House, X } from "lucide-react";
+import { isProjectAddress } from "@studio/web-protocol/projects";
+import { House, Music, X } from "lucide-react";
 import { type CSSProperties, useEffect, useState } from "react";
 import { type TabRow, tabsBridge } from "./bridge";
 
@@ -66,7 +67,17 @@ export function TabStrip() {
             title={row.home ? "Projects" : row.url}
             aria-label={row.home ? "Projects" : undefined}
           >
-            {row.home ? <House className="h-3.5 w-3.5" /> : label(row)}
+            {row.home ? (
+              <House className="h-3.5 w-3.5" />
+            ) : (
+              <span className="flex min-w-0 items-center gap-1.5">
+                {/* A note marks the tabs that hold a SONG, so settings and the rest read as chrome. */}
+                {isProjectAddress(row.url) && (
+                  <Music className="h-3 w-3 shrink-0" />
+                )}
+                <span className="min-w-0 truncate">{label(row)}</span>
+              </span>
+            )}
           </button>
           {/* No close on home: it is where every other tab is opened from. */}
           {!row.home && (

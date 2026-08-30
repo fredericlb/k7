@@ -2,7 +2,7 @@
 // never say it: before sessions there was one project and nothing to list. Dropping a row drops
 // that session's edit, plugins, meters and broadcast tap — the app driving it is not told, and
 // simply finds an empty project. The tray put a ✕ on the row to say so; a page can say it in
-// words. See apps/studio-desktop/docs/settings.md.
+// words. See apps/st0-desktop/docs/settings.md.
 
 import type { HostCommandName } from "@studio/engine-host/hostProtocol";
 import type { DesktopState } from "../desktop";

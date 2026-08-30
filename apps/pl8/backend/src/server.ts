@@ -1,7 +1,8 @@
 // server.ts — pl8: the hosted media library. A folder on a volume scanned by @studio/mediatek
 // and served over HTTP — the same vocabulary the local service speaks. It VERIFIES the session
-// st0 mints and mounts no auth routes of its own. No database; see the package's docs/index.md
-// and ../docs/auth.md.
+// st0 mints and mounts no auth routes of its own. The filesystem is the index; the one exception
+// is the comments on a share, which have many writers (../docs/comments.md). See the package's
+// docs/index.md and ../docs/auth.md.
 
 import { join } from "node:path";
 import { loadServiceEnv } from "@frediverse/env";
@@ -20,7 +21,6 @@ import express from "express";
 import { z } from "zod";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
-import { projectsRouter } from "./routes/projects.ts";
 import { publicShareRouter } from "./routes/publicShare.ts";
 import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
@@ -57,12 +57,7 @@ const { issueApiToken, verifyApiToken, bearerOrSession } = apiTokenAuth(
 // Everything is behind one of the two: a library is somebody's work, not a public bucket.
 app.use("/api/mediatek", bearerOrSession(requireAuth), libraryRouter);
 
-// The user's git repositories — the browser has a cookie, the file service a bearer; docs/projects.md.
-app.use(
-  "/api/projects",
-  bearerOrSession(requireAuth),
-  projectsRouter({ verifyApiToken }),
-);
+// NO /api/projects: this service knows nothing about git — apps/st0/frontend/docs/projects.md.
 
 /** THE ONE PUBLIC SURFACE: unguarded, and mounted ABOVE the `/api` guard — see docs/shares.md. */
 app.use("/api/public/share", publicShareRouter());
@@ -96,7 +91,7 @@ app.use(
   ),
 );
 
-// A token for a DESKTOP app on its loopback port; isLoopbackReturn IS this route's security (apps/studio-desktop/docs/pairing.md).
+// A token for a DESKTOP app on its loopback port; isLoopbackReturn IS this route's security (apps/st0-desktop/docs/pairing.md).
 app.get("/api/token/pair", requireAuth, (req, res) => {
   const back = String(req.query.return ?? "");
   // The predicate is shared with the app that builds this address: one rule, two sides.

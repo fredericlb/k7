@@ -55,6 +55,7 @@ would pass it without a murmur.
 ```
 <media library>/.shares/
   index/<sub>.json          one person's list — one file per OIDC subject
+  comments.db               what visitors wrote — the one database here (comments.md)
   blobs/<key>/
     pending.json            present = the draft is unfinished, so nothing answers
     snapshot.json           the manifest — present = the link is live
@@ -67,8 +68,9 @@ A **dot folder**, invisible for free: `writablePath` refuses any segment startin
 `.prefs`, `.projects`, `.hunts` and `.cache` live there for the same reason.
 
 The index is a small JSON per person, named by `fileFor(sub)` — the arrangement of the preferences
-and the repositories, and for the same reason: there is no database here, and a list its owner
-alone reads needs none.
+and the repositories, and for the same reason: a list its owner alone WRITES needs no database.
+`comments.db` beside it is the one thing on this volume that does not have a single writer, and
+[comments.md](comments.md) is why that changes the answer.
 
 **Index writes throw**, where reads never do. A read that fails means "no shares", a real state. A
 write that fails in silence means a link its author is about to hand out and that this service
@@ -91,7 +93,8 @@ mounted **before** it, each guarded explicitly:
 |---|---|
 | `POST /api/shares` (draft), `PUT /:key/file`, `POST /:key/finish` | `bearerOrSession(requireAuth)` |
 | `GET /api/shares`, `GET /revision`, `DELETE /:key` | the same — session in practice |
-| `GET /api/public/share/:key/*` | **none** |
+| `GET /:key/comments`, `PATCH /:key/comments/:id` | the same, and the share must be YOURS |
+| `GET /api/public/share/:key/*`, `POST /:key/comments` | **none** |
 
 The direction of failure is the right one: a badly mounted share becomes *unreachable*, not
 *public*. `routes/shares.test.ts` mounts the routers **the way `server.ts` mounts them**, barrier
@@ -131,6 +134,13 @@ bytes `project-doc.json` because a file needs a name. Accepting both spellings c
 teaching either side about the other would put a special case in the one place — the transport —
 that must stay ignorant of who answers.
 
+### One write got through, deliberately
+
+`POST /api/public/share/:key/comments` is the only unauthenticated write this service takes, and it
+is what makes a share a conversation rather than a broadcast. What bounds it — the lengths, the
+ceiling per snapshot, the window per address — and why the comments are the one thing here kept in
+SQLite rather than in a file, is [comments.md](comments.md).
+
 ## The upload is in three steps
 
 pl8 does no multipart: `PUT /api/mediatek/file`, `POST /song`, `POST /recording` are all
@@ -165,7 +175,8 @@ second click is not an error.
 
 **The row survives, dated.** A share that vanished from the list would leave its author wondering
 whether it ever existed, and the sizes stay readable. The token is **erased from the register**: a
-revoked row cannot be copied back off the screen that still draws it.
+revoked row cannot be copied back off the screen that still draws it. **The comments survive with
+it**, and the row still opens them: the bytes were the cost, the feedback is what it bought.
 
 The confirmation names the two things that surprise: the bytes go at once and for good, and **a
 link already sent cannot be un-sent** — it answers "not found" to everyone holding it, which is

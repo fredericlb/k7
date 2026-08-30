@@ -704,6 +704,9 @@ export interface CloneJob {
   phase: string; // git's own words: "Receiving objects", "Resolving deltas", …
   percent: number | null; // null while git is doing something it cannot measure
   lines: string[]; // the tail of git's output, for a failure that needs reading
+  /** How many lines have been emitted ALTOGETHER — `lines` is the last few, so a reader that
+   *  wants the log needs this to know what it missed. Only ever grows. */
+  emitted: number;
 }
 
 /** How a stem separation is doing — CloneJob's shape plus the `files` it produced; see docs/machine.md. */
@@ -775,6 +778,32 @@ export interface ShareSummary {
   stems: number;
   /** Set once revoked. The row SURVIVES dated: a share that vanished would leave a doubt. */
   revokedAt?: string;
+  /** How many comments sit in each state — COUNTED on the way out, never stored on the row. */
+  comments?: CommentCounts;
+}
+
+/** What an author does with a comment. `active` is where every one lands; see apps/pl8/docs/comments.md. */
+export type CommentState = "active" | "resolved" | "ignored";
+
+/** One block of text a visitor left on a frozen snapshot — public, so it carries no identity beyond a chosen name. */
+export interface ShareComment {
+  id: number;
+  /** What the visitor typed as their name, or "" — a share has no accounts, so this is a claim and not a fact. */
+  author: string;
+  body: string;
+  /** Where the playhead was, in seconds, or null — a comment about the whole song has no timecode. */
+  at: number | null;
+  state: CommentState;
+  createdAt: string;
+  /** When the state last moved. Equal to `createdAt` until an author touches it. */
+  updatedAt: string;
+}
+
+/** The three tabs' sizes, in one object — the author's list and the row's badge read the same numbers. */
+export interface CommentCounts {
+  active: number;
+  resolved: number;
+  ignored: number;
 }
 
 /** An engine as the browser sees it — the secret token is never sent to the client. */

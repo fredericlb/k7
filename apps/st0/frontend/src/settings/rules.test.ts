@@ -53,6 +53,7 @@ const st = (
   server: null,
   paired: false,
   lanUrls: [],
+  frontProject: null,
   ...over,
 });
 

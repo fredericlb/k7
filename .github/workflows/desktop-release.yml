@@ -1,0 +1,253 @@
+# Desktop releases — the packaged app for Linux, Windows and macOS.
+#
+# What st0.yml deliberately leaves out: the job that builds the C++ engine. It belongs here
+# rather than on every push, because it is the expensive half — JUCE, Tracktion, Faust and
+# Eigen are fetched and compiled from source, and that is tens of minutes per platform.
+#
+# Two channels, one pipeline:
+#
+#   snapshot — every commit on master, published as a PRERELEASE on a rolling `snapshot` tag.
+#              The release is deleted and recreated so the tag follows master and no asset
+#              from a previous commit survives: a "snapshot" that mixes two commits is worse
+#              than no snapshot at all. Asset names carry no version, so the download URL of
+#              "the current build for Linux" never moves.
+#   release  — a `vX.Y.Z` tag. Assets carry the version, notes are generated from the log.
+#
+# The three artifacts are built on their own runner and NOT cross-compiled: the engine is
+# native (WASAPI/ASIO, CoreAudio, ALSA), and stage.mjs vendors a Node and an onnxruntime
+# binding for the host it runs on. There is no matrix entry that could be merged.
+#
+# What is NOT signed: nothing here holds a certificate, so the macOS app is unsigned and
+# unnotarised, and the Windows installer is unsigned. That is the state of the repo, stated
+# rather than discovered — see docs/desktop-release.md.
+
+name: desktop
+
+on:
+  push:
+    branches: [master]
+    # Only three-part versions. A `v1.2` or a `v1.2.3-rc1` tag builds nothing, on purpose:
+    # electron-builder's version is a semver and the mapping stays one-to-one.
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+
+# The release job creates tags and uploads assets.
+permissions:
+  contents: write
+
+# Per ref: a second commit on master makes the first snapshot pointless, while two version
+# tags are two releases and neither cancels the other.
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # One place computes the version, so the three runners and the release job cannot disagree.
+  stamp:
+    name: version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      channel: ${{ steps.v.outputs.channel }}
+      name: ${{ steps.v.outputs.name }}
+    steps:
+      - id: v
+        # electron-builder demands a semver, so a snapshot is one — the sha is the prerelease
+        # part, which keeps `0.0.0-snapshot.<sha>` below every real version.
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+            channel=release
+            name="${GITHUB_REF_NAME}"
+          else
+            version="0.0.0-snapshot.${GITHUB_SHA:0:7}"
+            channel=snapshot
+            name=snapshot
+          fi
+          {
+            echo "version=$version"
+            echo "channel=$channel"
+            echo "name=$name"
+          } >> "$GITHUB_OUTPUT"
+          echo "$channel $version"
+
+  build:
+    name: ${{ matrix.label }}
+    needs: stamp
+    runs-on: ${{ matrix.os }}
+    # The engine from cold is the whole cost here; a two-hour ceiling is a hang, not a slow build.
+    timeout-minutes: 120
+    strategy:
+      # One platform failing must not take the other two artifacts with it.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: linux-x64
+            preset: release-gcc
+          - os: windows-latest
+            label: windows-x64
+            # NOT windows-msvc: that preset selects the VS 18 2026 generator, and the runner
+            # image carries Visual Studio 2022. Same build, the toolset the runner has.
+            preset: windows-msvc-2022
+          - os: macos-latest
+            # arm64 only — that is what macos-latest is, and an Intel artifact would need its
+            # own runner, its own vendored Node and a second onnxruntime binding.
+            label: macos-arm64
+            preset: macos-clang
+    env:
+      # electron-builder SIGNS BY DEFAULT when a Developer ID is discoverable. Nothing here
+      # has one, and a half-signed app launches, shows a window and never starts an engine.
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    # bash on all three, Git Bash on the runner: PowerShell mangles UTF-8 and rejects `&&`,
+    # so a step that works on two platforms would fail on the third for its own reasons.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22, the line the vendored runtime is on and the one both bundles target — NOT
+          # .nvmrc, which is the version the dev session runs.
+          node-version: 22
+          cache: npm
+
+      # JUCE's Linux dependencies, plus ninja for the preset's generator and fakeroot for the
+      # .deb target. Every one of these is a link error away, not a runtime surprise.
+      - name: system libraries (linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build fakeroot \
+            libasound2-dev libjack-jackd2-dev libcurl4-openssl-dev \
+            libfreetype-dev libfontconfig1-dev \
+            libx11-dev libxext-dev libxrender-dev libxrandr-dev \
+            libxcursor-dev libxinerama-dev libxcomposite-dev \
+            libglu1-mesa-dev mesa-common-dev libwebkit2gtk-4.1-dev
+
+      # cmake is in the image; ninja is the generator the macos-clang preset inherits.
+      - name: ninja (macos)
+        if: runner.os == 'macOS'
+        run: brew list ninja >/dev/null 2>&1 || brew install ninja
+
+      # Keyed on the CMake inputs alone, so it is written ONCE and then only restored: our own
+      # .cpp files still recompile, the fetched third parties do not. A miss is a cold build,
+      # which is the price of the cache being evicted rather than a failure.
+      - name: cache the engine build tree
+        uses: actions/cache@v4
+        with:
+          path: engine/moteur/build/${{ matrix.preset }}
+          key: engine-${{ matrix.preset }}-${{ hashFiles('engine/moteur/CMakeLists.txt', 'engine/moteur/CMakePresets.json', 'engine/moteur/*/CMakeLists.txt') }}
+          restore-keys: engine-${{ matrix.preset }}-
+
+      # The two downloads the packaging needs: Electron's runtime, and the Node stage.mjs
+      # vendors. Both are pinned, so the key is what pins them.
+      - name: cache the vendored runtimes
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/st0-desktop/.cache
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: runtimes-${{ matrix.label }}-${{ hashFiles('apps/st0-desktop/package.json', 'apps/st0-desktop/scripts/stage.mjs') }}
+          restore-keys: runtimes-${{ matrix.label }}-
+
+      - run: npm ci
+
+      # electron-builder reads the version out of this package.json, and it is what names
+      # every artifact and what the installed app reports.
+      - name: stamp the version
+        run: npm pkg set version=${{ needs.stamp.outputs.version }} --workspace st0-desktop
+
+      # Separately from build-app.mjs, which would pick the preset from the host: only this
+      # file knows the runner carries VS 2022 rather than the 2026 the local preset names.
+      - name: the C++ engine
+        run: node engine/moteur/scripts/build.mjs ${{ matrix.preset }}
+
+      # The SPA and the staging are the script's own steps; the engine is already built above.
+      - name: stage and package
+        run: node apps/st0-desktop/scripts/build-app.mjs --no-engine
+
+      # One name per platform and extension, so a snapshot URL is stable and a release asset
+      # says its version. electron-builder also leaves .blockmap, .yml and the unpacked tree
+      # in out/ — none of those are ours to publish.
+      - name: name the artifacts
+        run: |
+          set -euo pipefail
+          stamp='${{ needs.stamp.outputs.channel == 'snapshot' && 'snapshot' || needs.stamp.outputs.version }}'
+          cd apps/st0-desktop
+          mkdir -p publish
+          shopt -s nullglob
+          found=0
+          for f in out/*.AppImage out/*.deb out/*.exe out/*.dmg out/*.zip; do
+            dest="publish/studio-capot-${stamp}-${{ matrix.label }}.${f##*.}"
+            # Two targets of one extension would silently overwrite each other, and the
+            # release would carry whichever the glob reached last.
+            if [ -e "$dest" ]; then
+              echo "error: $f and an earlier artifact both want $dest." >&2
+              exit 1
+            fi
+            cp "$f" "$dest"
+            found=$((found + 1))
+          done
+          if [ "$found" = 0 ]; then
+            echo "error: electron-builder produced no installable artifact." >&2
+            ls -la out || true
+            exit 1
+          fi
+          ls -la publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}
+          path: apps/st0-desktop/publish/*
+          if-no-files-found: error
+          # They are published seconds later; this is only the handover between two jobs.
+          retention-days: 7
+
+  publish:
+    name: publish ${{ needs.stamp.outputs.name }}
+    needs: [stamp, build]
+    # A dispatch from a branch that is not master builds the three artifacts and attaches them
+    # to the run. It does NOT touch the snapshot release, which belongs to master alone.
+    if: github.ref_type == 'tag' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      # gh needs a checkout to know which repository it is talking about.
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: publish
+          merge-multiple: true
+
+      # Delete-then-create for a snapshot, so the tag MOVES to this commit and no asset from
+      # a previous one is left beside the new ones. `|| true`: the first ever run has none.
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ls -la publish
+          if [ '${{ needs.stamp.outputs.channel }}' = snapshot ]; then
+            gh release delete snapshot --yes --cleanup-tag || true
+            gh release create snapshot publish/* \
+              --prerelease \
+              --target "$GITHUB_SHA" \
+              --title "snapshot ${GITHUB_SHA:0:7}" \
+              --notes "The desktop app built from master at ${GITHUB_SHA}. Unsigned, and replaced by the next commit."
+          else
+            gh release create "$GITHUB_REF_NAME" publish/* \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes
+          fi

@@ -36,7 +36,7 @@ non-alphanumeric character replaced by `_`. It is now `workspace/<workspace>`.
 level existed for a multi-user file service that a musician's laptop never is — and it cost
 more than it bought:
 
-- `apps/studio-desktop/src/server/identity.ts` existed to RENAME that directory when the
+- `apps/st0-desktop/src/server/identity.ts` existed to RENAME that directory when the
   identity changed, because pairing a server turns a local identity into an account email, the
   slug changes with it, and every offline project stops being listed with no error anywhere to
   say so. There is nothing to rename now, and that whole hazard is gone.
@@ -55,3 +55,18 @@ reads as an empty file — so a second spelling diverges in silence. That is why
 lives in `@studio/song` (a leaf, node builtins only) rather than being re-derived per package,
 and why a test points `$STUDIO_HOME` somewhere rather than faking `HOME`: faking the home
 directory used to work and now misses `%APPDATA%` and `$XDG_CONFIG_HOME` entirely.
+
+## The settings file has had two names, and reads only one
+
+`<state>/engine-host.json`, pairing with `engine-host.pid`. It was `engine-tray.json` while the app
+was a tray, and `existingSettingsPath` read whichever a machine had — the migration in ONE place,
+because a reader that forgot it would answer defaults and lose an audio pick with nothing to say so.
+
+**That fallback is gone.** The tray it was named after no longer exists, and carrying a second name
+for ever costs a branch in every reader plus a test that has to keep asserting it. A machine that
+still holds only `engine-tray.json` therefore starts from defaults: the ports go back to 8765/8770,
+the audio priority empties, and a paired server has to be paired again.
+
+That is the whole of the migration, and it is a deliberate loss rather than an oversight — the
+file is small, hand-editable, and its values are all re-enterable from the settings screen. Anyone
+who wants the old one back renames it by hand, which is the same act the code used to do for them.

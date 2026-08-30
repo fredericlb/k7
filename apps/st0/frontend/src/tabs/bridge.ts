@@ -1,13 +1,13 @@
 // bridge.ts — what the desktop app's preload puts on `window`, typed once. Absent on the
 // hosted build, and that absence IS the probe: a browser tab is never behind another tab of
-// ours. See apps/studio-desktop/docs/tabs.md.
+// ours. See apps/st0-desktop/docs/tabs.md.
 
 export interface TabRow {
   id: number;
   url: string;
   title: string;
   active: boolean;
-  /** The one that cannot be closed and draws as an icon — see apps/studio-desktop/docs/tabs.md. */
+  /** The one that cannot be closed and draws as an icon — see apps/st0-desktop/docs/tabs.md. */
   home: boolean;
 }
 

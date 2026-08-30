@@ -3,7 +3,7 @@
 // The detection is a PROBE, not a build flag: `/desktop/state` exists only where the app
 // serves st0 itself, and a hosted backend answers 404. So the same bundle is shipped to both
 // and the settings screen is simply absent on the web — nothing to keep in step, and no user
-// agent to sniff. See apps/studio-desktop/docs/settings.md.
+// agent to sniff. See apps/st0-desktop/docs/settings.md.
 
 import type {
   HostCommandName,
@@ -20,6 +20,8 @@ export interface DesktopState {
   server: string | null;
   paired: boolean;
   lanUrls: string[];
+  /** The project the window is on, or null — what a second window would open on. */
+  frontProject: string | null;
 }
 
 /** What the app can do that the supervisor has no command for. */
@@ -30,7 +32,8 @@ export type LocalAction =
   | "openSettingsFile"
   | "setServer"
   | "pair"
-  | "unpair";
+  | "unpair"
+  | "secondWindow";
 
 /**
  * Asked once and remembered: a hosted origin will never grow the route mid-session, and every

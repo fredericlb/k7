@@ -14,6 +14,13 @@ import { wrap } from "@frediverse/http/route";
 import express, { type Request, Router, type Router as RouterT } from "express";
 import { rememberIdentity, subFor } from "../projects/identities.ts";
 import {
+  commentsStamp,
+  countsFor,
+  isState,
+  listComments,
+  setCommentState,
+} from "../shares/comments.ts";
+import {
   addShare,
   blobDir,
   findShare,
@@ -64,9 +71,15 @@ export function sharesRouter(): RouterT {
   router.get(
     "/revision",
     wrap((req, res) => {
-      res.json({ revision: revision(owner(req)) });
+      res.json({ revision: stamp(owner(req)) });
     }),
   );
+
+  /** The rows AND the comments in one token: a resolved comment must move the badge on the next poll. */
+  function stamp(sub: string): string {
+    const keys = listShares(sub).map((s) => s.key);
+    return `${revision(sub)}|${commentsStamp(keys)}`;
+  }
 
   /** WHOSE shares: a SERVICE token has no person and must NAME one — ../../docs/sshKeyForService.md. */
   function owner(req: Request): string {
@@ -79,9 +92,14 @@ export function sharesRouter(): RouterT {
   router.get(
     "/",
     wrap((req, res) => {
+      const sub = owner(req);
+      // Counted on the way OUT and never stored on the row: a saved count is a count that goes stale.
       res.json({
-        shares: listShares(owner(req)),
-        revision: revision(owner(req)),
+        shares: listShares(sub).map((s) => ({
+          ...s,
+          comments: countsFor(s.key),
+        })),
+        revision: stamp(sub),
       });
     }),
   );
@@ -196,6 +214,35 @@ export function sharesRouter(): RouterT {
         stems: m.media.stems.length,
       });
       res.json({ ok: true, key, bytes });
+    }),
+  );
+
+  /** What was written on one snapshot — the author's view, which is the only one with three tabs. */
+  router.get(
+    "/:key/comments",
+    wrap((req, res) => {
+      const sub = owner(req);
+      if (!isKey(req.params.key) || !findShare(sub, req.params.key))
+        return res.status(404).json({ error: "no such share" });
+      // Revoked shares keep theirs: the bytes were the cost, and the feedback is what the author kept it for.
+      res.json({ comments: listComments(req.params.key) });
+    }),
+  );
+
+  /** Resolve one, ignore it, or put it back — the three states, and no fourth verb to delete. */
+  router.patch(
+    "/:key/comments/:id",
+    wrap((req, res) => {
+      const sub = owner(req);
+      if (!isKey(req.params.key) || !findShare(sub, req.params.key))
+        return res.status(404).json({ error: "no such share" });
+      const state = String((req.body as { state?: string })?.state ?? "");
+      if (!isState(state))
+        return res.status(400).json({ error: `'${state}' is not a state` });
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || !setCommentState(req.params.key, id, state))
+        return res.status(404).json({ error: "no such comment" });
+      res.json({ ok: true });
     }),
   );
 

@@ -26,6 +26,7 @@ import type {
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
 import { EXAMPLES_WORKSPACE, mirrorDemos } from "./demos.ts";
+import { pullLfs, setUpLfs } from "./gitLfs.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
 import {
@@ -117,6 +118,8 @@ export async function createWorkspace(
         timeout: 10_000,
       },
     );
+    // Last, so a machine with no git-lfs still gets the identity the first commit needs.
+    await setUpLfs(root, env);
   } catch (e) {
     // The folder is there and usable; only versioning is missing, which `project commit` will say.
     console.warn(`[workspaces] git init ${workspace}: ${(e as Error).message}`);
@@ -203,18 +206,30 @@ export async function cloneWorkspace(
   // Throws NoKeyError with a sentence naming the fix; pl8 owns the key, this machine holds a copy.
   await ensureKey(userEmail);
   mkdirSync(rootDir(), { recursive: true });
+  const env = gitEnvFor(userEmail);
   try {
-    await gitClone(uri, root, gitEnvFor(userEmail), onProgress);
+    await gitClone(uri, root, env, onProgress);
   } catch (e) {
     // `root` didn't exist above, so whatever is there is our debris — a half-clone must not survive in the picker.
     rmSync(root, { recursive: true, force: true });
     throw e;
   }
+  // Before the media, so a workspace that is ON DISK is one the listing can already see.
   forgetRemotes(slug);
   forgetListing(slug);
+  // The clone brought pointers rather than audio: this service hides the machine's git config.
+  // A failure HERE leaves the workspace standing and merely reports — see docs/workspaces.md.
+  // Its meter carries a percentage, and a fetch now allowed to take an hour needs to show one:
+  // `parse` already reads `(\d+)%` out of a line, and the phase is ours rather than git-lfs's.
+  await pullLfs(root, uri, env, (line) =>
+    onProgress?.({ ...parse(line), phase: "LFS" }),
+  );
 }
 
 /** `--progress` because git only writes counters when it thinks it has a terminal. */
+/** How long git may say NOTHING before it is presumed stuck — never how long it may take. */
+const CLONE_IDLE_MS = 120_000;
+
 function gitClone(
   uri: string,
   root: string,
@@ -227,9 +242,18 @@ function gitClone(
     });
     let tail = "";
     const stderr: string[] = [];
-    const timer = setTimeout(() => child.kill(), 120_000);
+    // SILENCE, not duration: `--progress` means git speaks while it works, so a clone that is
+    // getting somewhere resets this however long it takes. A total cap killed a repository that
+    // simply had a lot of audio in it, and the half-clone was then removed — the workspace
+    // appeared while cloning and vanished when it "finished". See docs/workspaces.md.
+    let timer = setTimeout(() => child.kill(), CLONE_IDLE_MS);
+    const alive = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => child.kill(), CLONE_IDLE_MS);
+    };
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk: string) => {
+      alive();
       // \r as well as \n: git rewrites the counter line in place rather than emitting new ones.
       const parts = (tail + chunk).split(/\r\n|[\r\n]/);
       tail = parts.pop() ?? "";
@@ -405,7 +429,7 @@ export async function listMachineWorkspaces(
 const LISTING_RESCAN_MS = 5_000;
 const listings = new Map<string, { at: number; rows: MachineWorkspace[] }>();
 // Both listings, since the second is built on the first — see docs/workspaces.md.
-const forgetListing = (slug: string) => {
+export const forgetListing = (slug: string) => {
   listings.delete(slug);
   surfaced.delete(slug);
 };

@@ -44,9 +44,18 @@ export function webEndpointsDir(): string {
   return join(studioDir(), "web-endpoints");
 }
 
-/** The supervisor's own settings; it keeps the name `engine-tray.json` so that moving `~/.lanes` to `~/.studio` stayed exactly ONE move. */
+/** The supervisor's own settings — where they are WRITTEN, and what pairs with `engine-host.pid`. */
 export function settingsPath(): string {
-  return join(studioDir(), "engine-tray.json");
+  return join(studioDir(), "engine-host.json");
+}
+
+/**
+ * Where to READ them from. One name now: `engine-tray.json` was read here until the tray it was
+ * named after stopped existing, and a machine still carrying only that one starts from defaults —
+ * see docs/paths.md for what that costs and why it is the whole of the migration.
+ */
+export function existingSettingsPath(): string {
+  return settingsPath();
 }
 
 /** The plugin scan cache, deleted before a forced rescan; a contract path the C++ engine reads and writes, and `@studio/song` owns the constant. */

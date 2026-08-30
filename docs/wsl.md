@@ -1,7 +1,7 @@
 # Developing in WSL, with the engine and the tray on the host
 
 The audio half of this repo cannot leave Windows: `engine/moteur` wants WASAPI/ASIO and
-`apps/studio-desktop` hosts the machine's VSTs. Everything else is TypeScript and has no reason to
+`apps/st0-desktop` hosts the machine's VSTs. Everything else is TypeScript and has no reason to
 stay. So the sources live in the distro, on ext4, and Windows keeps exactly two jobs:
 **compile C++, and run the binaries and the desktop app that come out.**
 
@@ -70,7 +70,7 @@ What crosses, and what does not:
   Electron and needs its runtime there), `.git`, `build`, `target`, `out`, `.turbo`, `.vite`,
   `.claude`.
 - **`dist` is NOT skipped**, and it is the one directory here whose name says output and whose
-  content has to travel: `apps/studio-desktop/dist/main.cjs` is the desktop app's main process,
+  content has to travel: `apps/st0-desktop/dist/main.cjs` is the desktop app's main process,
   esbuilt by the `capot` Tilt resource in the DISTRO, and the mirror is how it reaches the host
   that runs it.
 - **Each caller names the subtrees its loop covers.** A whole-tree pass every second would spend
@@ -178,7 +178,7 @@ cd ~/studio && npm ci
 
 Then, once, on the Windows side: `npm ci` in the mirror (`C:\studio-native` by default), so the
 file service finds tsx and everything it imports, that install being its `node_modules` too —
-followed by `npm run app:setup --workspace studio-desktop`, because `electron` declares no scripts and
+followed by `npm run app:setup --workspace st0-desktop`, because `electron` declares no scripts and
 `npm ci` alone never fetches its runtime. Redo both whenever a dependency changes: the mirror
 carries sources one way and never `node_modules`, so nothing else will. After that,
 `npm run dev` from the distro is the

@@ -23,10 +23,15 @@ it**. That refusal is load-bearing: a missing root would otherwise scan an empty
 and serve a perfectly plausible, empty catalogue. A library that has silently lost
 everything looks exactly like a library nobody has filled in yet.
 
-There is **no database**, and that is not a shortcut — `packages/mediatek/docs/index.md`
+The catalogue has **no database**, and that is not a shortcut — `packages/mediatek/docs/index.md`
 argues the filesystem is the index, and being on a server changes nothing about that
 argument. It is also what lets one scanner serve both sides: the server walks its volume,
 the client walks its cache, same `scanFamily`, same `familyRevision`.
+
+One thing on this volume is not a file: the comments visitors leave on a shared snapshot,
+in `.shares/comments.db`. What is different about them is that they have MANY writers, which
+is the one thing the filesystem-as-index argument does not cover — see
+[comments.md](comments.md).
 
 Verified: on an empty volume the backend creates its layout (`songs/`, `samples/`,
 `modules/`, `ui/`, `library/`, `.cache/`, `mediatek.yaml`) and answers `401` on

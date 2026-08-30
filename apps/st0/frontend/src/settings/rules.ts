@@ -2,7 +2,7 @@
 // tray menu with the screen, and they are here rather than inline in a component for the same
 // reason they were testable there: each one has a failure that LOOKS like working software.
 // An enabled Stop on somebody else's engine. A green status over a dead file service. A
-// plugin row whose id opens the wrong editor. See apps/studio-desktop/docs/settings.md.
+// plugin row whose id opens the wrong editor. See apps/st0-desktop/docs/settings.md.
 
 import { reorder } from "@studio/engine-host/audioPolicy";
 import type {
@@ -79,7 +79,7 @@ export interface AudioRow {
 /**
  * Every interface worth a row, in the order the engine consults them: the user's ranking first,
  * then whatever else is plugged in. Moving any row sends this whole list back, so the first move
- * on a fresh machine ranks all of it at once — see apps/studio-desktop/docs/settings.md.
+ * on a fresh machine ranks all of it at once — see apps/st0-desktop/docs/settings.md.
  */
 export function audioRows(s: HostSnapshot): AudioRow[] {
   const byName = new Map(s.audioDevices.map((d) => [d.name, d]));

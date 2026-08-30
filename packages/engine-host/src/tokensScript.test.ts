@@ -45,7 +45,7 @@ function run(...args: string[]): string {
 }
 
 const tray = () =>
-  JSON.parse(readFileSync(join(state, "engine-tray.json"), "utf8"));
+  JSON.parse(readFileSync(join(state, "engine-host.json"), "utf8"));
 
 const secretIn = (file: string): string =>
   (parse(readFileSync(file, "utf8"))?.["pl8-backend"] ?? {}).API_TOKEN_SECRET;
@@ -131,11 +131,12 @@ describe("the tokens script", () => {
     expect(() => tray()).toThrow(); // no settings file was created either
   });
 
-  it("keeps the rest of the tray settings", () => {
-    // It is the supervisor's file, so rewriting it wholesale would cost a musician their interface choice to gain a token.
+  it("keeps the settings a machine already has while adding a token", () => {
+    // It is the supervisor's file, so rewriting it wholesale would cost a musician their
+    // interface choice to gain a token.
     mkdirSync(state, { recursive: true });
     writeFileSync(
-      join(state, "engine-tray.json"),
+      join(state, "engine-host.json"),
       JSON.stringify({ port: 9001, audioDevice: "Scarlett" }),
       "utf8",
     );

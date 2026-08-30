@@ -2,7 +2,7 @@
 // carried come with it: Stop and Restart are enabled ONLY for an engine this supervisor spawned
 // (a foreign one belongs to whoever started it), and a dead file service turns the status red
 // even with the engine fine, because "running" would otherwise be a lie.
-// See apps/studio-desktop/docs/settings.md.
+// See apps/st0-desktop/docs/settings.md.
 
 import type { HostCommandName } from "@studio/engine-host/hostProtocol";
 import type { DesktopState } from "../desktop";

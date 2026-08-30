@@ -8,7 +8,7 @@ The music and stage apps of the frediverse.
 | `apps/st0` | text-first DAW — the web editor; the origin's front door | `st0.priv.frediver.se` |
 | `apps/pl8` | the media library — songs, samples, recordings | `st0.priv.frediver.se/pl8` |
 | `engine/moteur` | the native C++ audio engine (JUCE/Tracktion) | — |
-| `apps/studio-desktop` | the desktop app that supervises the engine | — |
+| `apps/st0-desktop` | the desktop app that supervises the engine | — |
 | `apps/z0` | blind-test game — six SPAs behind one origin | `st0.priv.frediver.se/z0` |
 
 `packages/` is studio's shared tier, all `@studio/*` and consumed as raw
@@ -60,7 +60,7 @@ fetch. To pull a commons change made from phare: `npm run commons:sync`.
 
 ## What runs on the musician's machine
 
-`engine/moteur` is a CMake/JUCE/Tracktion C++ project; `apps/studio-desktop` is an Electron
+`engine/moteur` is a CMake/JUCE/Tracktion C++ project; `apps/st0-desktop` is an Electron
 app around it. Neither is in the deployed image — the desktop app sits under `apps/` with the
 server apps, and stays out of the image because `turbo prune` names its packages rather than
 globbing the directory. The moteur deliberately declares no `build` script at all, so turbo can
@@ -68,8 +68,8 @@ never try to compile C++. They have their own commands:
 
 ```bash
 npm run build:win --workspace moteur     # or build:mac
-npm run app:setup --workspace studio-desktop      # once: fetch the Electron runtime
-npm run engine:build --workspace studio-desktop   # engine + staging + the packaged app
+npm run app:setup --workspace st0-desktop      # once: fetch the Electron runtime
+npm run engine:build --workspace st0-desktop   # engine + staging + the packaged app
 ```
 
 `engine/moteur/build` is large (~30 GB) and fully gitignored. It bakes absolute paths into

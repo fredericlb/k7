@@ -1,4 +1,4 @@
-// The home page's own six verbs. Three things here would be wrong silently: a line landing in
+// The home page's own verbs. Three things here would be wrong silently: a line landing in
 // the WRONG repository (a commit pushed where nobody was looking), a `project delete confirm`
 // that deletes whatever happened to be armed rather than what it names, and a catalogue row
 // whose sentence is missing or too long to read — the same rules commandSpec.test.ts holds the
@@ -47,6 +47,7 @@ const repo = (name: string): RepoSummary => ({
 /** What each act was called with — the whole point of injecting them. */
 interface Seen {
   create: unknown[][];
+  copy: unknown[][];
   remove: unknown[][];
   clone: unknown[][];
   newWorkspace: unknown[][];
@@ -67,6 +68,7 @@ function harness(
 ) {
   const seen: Seen = {
     create: [],
+    copy: [],
     remove: [],
     clone: [],
     newWorkspace: [],
@@ -84,6 +86,10 @@ function harness(
     create: async (m, w, folder, _onStep, shape) => {
       seen.create.push([m, w, folder, shape]);
       return { project: folder, gripe };
+    },
+    copy: async (m, from, path, to, name, _onStep, noRemote) => {
+      seen.copy.push([m, from, path, to, name, noRemote]);
+      return { project: name, gripe };
     },
     remove: async (m, w, path) => {
       seen.remove.push([m, w, path]);
@@ -298,6 +304,84 @@ describe("project new", () => {
     await h.run("project new mix hiver");
     expect(h.refused.join(" ")).toMatch(/aucune machine/);
     expect(h.seen.create).toEqual([]);
+  });
+});
+
+describe("project copy", () => {
+  const two = () => [ws("songs", ["hiver.st0"]), ws("band")];
+
+  it("copies into the named workspace, keeping the source's name by default", async () => {
+    const h = harness({ workspaces: two(), openWs: "songs" });
+    expect(await h.run("project copy hiver band")).toBe(true);
+    expect(h.seen.copy).toEqual([
+      [MACHINE, "songs", "hiver.st0", "band", "hiver.st0", true],
+    ]);
+    expect(h.said.join(" ")).toMatch(/band\/hiver\.st0/);
+    expect(h.changes()).toBe(1);
+  });
+
+  it("renames the copy when a name is given, suffix and all", async () => {
+    const h = harness({ workspaces: two(), openWs: "songs" });
+    await h.run("project copy hiver band printemps");
+    expect(h.seen.copy[0]?.[4]).toBe("printemps.st0");
+  });
+
+  // The destination is what commits, so it is ITS repository that decides whether a push is expected.
+  it("expects a push when the DESTINATION has a repository", async () => {
+    const dest = { ...ws("band"), origin: "git@h:u/band.git" };
+    const h = harness({
+      workspaces: [ws("songs", ["hiver.st0"]), dest],
+      openWs: "songs",
+    });
+    await h.run("project copy hiver band");
+    expect(h.seen.copy[0]?.[5]).toBe(false);
+  });
+
+  it("refuses the workspace the project is already in", async () => {
+    const h = harness({ workspaces: two(), openWs: "songs" });
+    await h.run("project copy hiver songs");
+    expect(h.refused.join(" ")).toMatch(/déjà/);
+    expect(h.seen.copy).toEqual([]);
+  });
+
+  it("refuses a destination that is itself one project", async () => {
+    const solo = { ...ws("solo.st0"), isSingleProject: true };
+    const h = harness({
+      workspaces: [ws("songs", ["hiver.st0"]), solo],
+      openWs: "songs",
+    });
+    await h.run("project copy hiver solo.st0");
+    expect(h.refused.join(" ")).toMatch(/jamais listée/);
+    expect(h.seen.copy).toEqual([]);
+  });
+
+  it("names the projects there are when the source is not one of them", async () => {
+    const h = harness({ workspaces: two(), openWs: "songs" });
+    await h.run("project copy automne band");
+    expect(h.refused.join(" ")).toMatch(/hiver\.st0/);
+    expect(h.seen.copy).toEqual([]);
+  });
+
+  it("says the copy EXISTS when only the push failed", async () => {
+    const h = harness({
+      workspaces: two(),
+      openWs: "songs",
+      gripe: "push refusé",
+    });
+    await h.run("project copy hiver band");
+    expect(h.seen.copy).toHaveLength(1);
+    expect(h.refused.join(" ")).toMatch(/copié dans band, mais : push refusé/);
+  });
+
+  it("offers the other workspaces, and not the ones a copy would hide in", async () => {
+    const solo = { ...ws("solo.st0"), isSingleProject: true };
+    const ctx = {
+      machine: MACHINE,
+      workspaces: [ws("songs", ["hiver.st0"]), ws("band"), solo],
+      repos: [],
+      openWs: "songs",
+    };
+    expect(homeArgValues("project copy", 1, ctx)).toEqual(["band"]);
   });
 });
 

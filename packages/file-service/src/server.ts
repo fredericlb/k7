@@ -1,3 +1,4 @@
+import { isSshGitUri, repoName } from "@studio/git-repos/uri";
 // server.ts — the engine-side file service: owns ~/.studio/root/<user>/<workspace>
 // and serves every file op to the browser DIRECTLY (cross-origin, hence CORS). Dials
 // the LOCAL C++ engine to compile-and-send; the browser drives transport itself.
@@ -30,6 +31,7 @@ import {
   resolveUser,
   resolveWorkspace,
 } from "./context.ts";
+import { copyProjectBetween } from "./copyProject.ts";
 import { allowedOrigin, originPolicySummary } from "./cors.ts";
 import { syncAllRepos } from "./demos.ts";
 import {
@@ -39,6 +41,7 @@ import {
   setSelectedEngine,
   showNativePluginUIOf,
 } from "./engineLink.ts";
+import { librariesUri, setLibrariesUri } from "./libraries.ts";
 import { startMediatekPuller, syncMediatekFamily } from "./mediatekPull.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
@@ -50,6 +53,7 @@ import { processRouter } from "./routes/process.ts";
 import { renderRouter } from "./routes/render.ts";
 import { separateRouter } from "./routes/separate.ts";
 import { rootDir, workspaceRoot } from "./slug.ts";
+import { createKeyFor, publicKeyFor } from "./sshKeys.ts";
 import {
   assertSshGitUri,
   createWorkspace,
@@ -188,6 +192,30 @@ app.post(
       // A refused URI, a workspace that already has one, and a push git turned down are all
       // things the caller can act on — and the last one is git's own words. See docs/workspaces.md.
       res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/** Copy a project into ANOTHER workspace: it names two, so it sits before the workspace gate. */
+const copyProjectBody = z.object({
+  from: z.string().min(1),
+  path: z.string().min(1),
+  to: z.string().min(1),
+  name: z.string().min(1),
+});
+app.post(
+  "/workspaces/copy-project",
+  validate(copyProjectBody),
+  wrap(async (req, res) => {
+    const { from, path, to, name } = req.body as z.infer<
+      typeof copyProjectBody
+    >;
+    try {
+      res.json(await copyProjectBetween(req.userEmail!, from, path, to, name));
+    } catch (e) {
+      // A workspace that is gone sends the page back to the list; a refused name is the dialog's to fix.
+      const code = e instanceof UnknownWorkspaceError ? 404 : 400;
+      res.status(code).json({ error: (e as Error).message });
     }
   }),
 );
@@ -377,7 +405,57 @@ app.get(
   }),
 );
 
-// No /ssh-key here: pl8 owns the git identity and sshKeys.ts fetches a copy — packages/git-repos/docs/keys.md.
+/**
+ * The deploy key, which is THIS machine's — pl8 knows nothing about git any more. The public
+ * half is what gets pasted at a git host; the private half is never served, by anyone, ever.
+ *
+ * `null` with a 200 and not a 404: "no key yet" is the ordinary state of a machine that has
+ * cloned nothing, and the screen has a button for it rather than an error.
+ */
+/**
+ * The account's library repository — the pointer pl8 used to hold, now this machine's. Answered
+ * BEFORE `resolveWorkspace`, like the key: the gate asks for it with no workspace chosen yet.
+ *
+ * `null` with a 200 and not a 404: no library repository is the ordinary state of a new machine,
+ * and the gate draws a screen for it rather than an error.
+ */
+app.get(
+  "/account/libraries",
+  wrap((_req, res) => {
+    const uri = librariesUri();
+    res.json({ libraries: uri ? { uri, name: repoName(uri) } : null });
+  }),
+);
+
+app.put(
+  "/account/libraries",
+  wrap((req, res) => {
+    const uri = String((req.body as { uri?: unknown })?.uri ?? "").trim();
+    // The servers' own rule, so a paste refused here is refused everywhere.
+    if (!isSshGitUri(uri))
+      return res
+        .status(400)
+        .json({ error: `not an SSH git URI: ${uri || "(empty)"}` });
+    setLibrariesUri(uri);
+    res.json({ libraries: { uri, name: repoName(uri) } });
+  }),
+);
+
+app.get(
+  "/ssh-key",
+  wrap((req, res) => {
+    res.json({ publicKey: publicKeyFor(req.userEmail!) });
+  }),
+);
+
+app.post(
+  "/ssh-key",
+  wrap(async (req, res) => {
+    // Idempotent in `generateKey`: an existing key is answered rather than replaced, or every
+    // press would orphan the half already pasted at a git host.
+    res.json({ publicKey: await createKeyFor(req.userEmail!) });
+  }),
+);
 
 // No cut route here: pl8 drives a separation and posts the bytes — see docs/processChain.md.
 

@@ -2,7 +2,7 @@
 // Reached at `/@settings`, which the desktop opens as a TAB of its own — so it carries no app
 // bar and no way back: the tab strip above it is both. Three of the four need the desktop app, which `/desktop/state`
 // answers for; Sync does not, so the hosted studio gets that one alone rather than a wall.
-// See apps/studio-desktop/docs/settings.md.
+// See apps/st0-desktop/docs/settings.md.
 //
 // It polls rather than subscribing. The supervisor already publishes only on change, and a
 // second a screen like this is late is a second nobody notices — where a socket would be a
@@ -120,7 +120,7 @@ export function Settings() {
 
 /**
  * No app bar and no way back, both deliberately: this page is a TAB of its own
- * (apps/studio-desktop/docs/tabs.md), so the strip above it already names it, and a link to `/`
+ * (apps/st0-desktop/docs/tabs.md), so the strip above it already names it, and a link to `/`
  * would open a second home tab beside the first rather than return to it.
  */
 function Shell({ children }: { children: React.ReactNode }) {

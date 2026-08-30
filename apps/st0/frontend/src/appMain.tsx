@@ -1,6 +1,6 @@
 // appMain.tsx — st0 itself: the gates, the router and the editor. It was `main.tsx` until the
 // tab strip needed an address on this origin without paying for any of it — main.tsx is now a
-// dispatcher that imports one of us, and this is the heavy branch. See apps/studio-desktop/docs/tabs.md.
+// dispatcher that imports one of us, and this is the heavy branch. See apps/st0-desktop/docs/tabs.md.
 
 import {
   isExternalIndex,
@@ -14,20 +14,37 @@ import {
   projectLabel,
   shareToken,
 } from "@studio/web-protocol/projects";
-import { Profiler } from "react";
+import { Loader2 } from "lucide-react";
+import { lazy, Profiler, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import App from "./App";
 import { canServeLenses, serveLenses } from "./camera/serveLenses";
 import { AuthGate } from "./components/AuthGate";
-import { EngineGate } from "./components/EngineGate";
-import { ExternalIndex } from "./components/ExternalIndex";
-import { SharedGate } from "./components/SharedGate";
+
+/** The four screens that are NOT the home page, split out of the entry — see docs/shell.md.
+ *  Only one address is ever taken, so only one of these is ever fetched. */
+const App = lazy(() => import("./App"));
+const EngineGate = lazy(() =>
+  import("./components/EngineGate").then((m) => ({ default: m.EngineGate })),
+);
+const ExternalIndex = lazy(() =>
+  import("./components/ExternalIndex").then((m) => ({
+    default: m.ExternalIndex,
+  })),
+);
+const SharedGate = lazy(() =>
+  import("./components/SharedGate").then((m) => ({ default: m.SharedGate })),
+);
+
 import { installFreezeWatchdog, reportCommit } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
 import { PROFILING } from "./profiling";
 import { Home } from "./projects/Home";
-import { Settings } from "./settings/Settings";
+
+const Settings = lazy(() =>
+  import("./settings/Settings").then((m) => ({ default: m.Settings })),
+);
+
 import "./index.css";
 /** The waveform's own wrapper and marker rules — a plain stylesheet, so the `@source` scan cannot produce it and it has to be imported. */
 import "@studio/ui-waveform/styles.css";
@@ -68,7 +85,7 @@ if (externalIndex) {
 
 /**
  * …and every page says which one it is, because the desktop's strip labels a tab from
- * `document.title` (apps/studio-desktop/docs/tabs.md) and index.html's names the APP, which is
+ * `document.title` (apps/st0-desktop/docs/tabs.md) and index.html's names the APP, which is
  * the one thing a tab beside three others need not repeat. Off the ADDRESS, so it is right
  * before anything has loaded; `App` refines it to the song's own name once it has one.
  */
@@ -96,6 +113,16 @@ const external = parseExternal(
   import.meta.env.BASE_URL,
 );
 
+/** What is on screen while a split-out screen arrives. The window is already painted in the
+ *  app's colour by then (apps/st0-desktop/docs/window.md), so this only has to say "coming". */
+function Booting() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
 // The gates before the editor, the router outside them, and NO React.StrictMode — its double-mount freezes Firefox's WebGL context (docs/shell.md).
 ReactDOM.createRoot(document.getElementById("root")!).render(
   // The basename is the app's mount AND the project it was opened on: React Router only writes BELOW it, so the project cannot be rewritten out.
@@ -108,38 +135,42 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   >
     <LocaleProvider>
       {sharedToken ? (
-        <SharedGate token={sharedToken}>
-          {(share) => (
-            <App
-              snapshot={share}
-              // No engine to reach, ever — and `null` is the ONE answer EngineClient already understands as that, so it backs off.
-              engineUrl={() => null}
-              engineLatency={null}
-              userEmail=""
-              onQuitWorkspace={() => {}}
-              onChangeEngine={() => {}}
-            />
-          )}
-        </SharedGate>
+        <Suspense fallback={<Booting />}>
+          <SharedGate token={sharedToken}>
+            {(share) => (
+              <App
+                snapshot={share}
+                // No engine to reach, ever — and `null` is the ONE answer EngineClient already understands as that, so it backs off.
+                engineUrl={() => null}
+                engineLatency={null}
+                userEmail=""
+                onQuitWorkspace={() => {}}
+                onChangeEngine={() => {}}
+              />
+            )}
+          </SharedGate>
+        </Suspense>
       ) : (
         <AuthGate>
-          {/* No project in the address: the home page, behind the account and nothing else, since listing repositories needs no engine. */}
-          {externalIndex ? (
-            // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
-            <ExternalIndex />
-          ) : settings ? (
-            // The desktop app's own screen. A sentinel repo, so it reserves no name that a
-            // real repository could have wanted — see @studio/web-protocol/projects.
-            <Settings />
-          ) : !at ? (
-            <Home />
-          ) : profiling ? (
-            <Profiler id="app" onRender={reportCommit}>
+          <Suspense fallback={<Booting />}>
+            {/* No project in the address: the home page, behind the account and nothing else, since listing repositories needs no engine. */}
+            {externalIndex ? (
+              // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
+              <ExternalIndex />
+            ) : settings ? (
+              // The desktop app's own screen. A sentinel repo, so it reserves no name that a
+              // real repository could have wanted — see @studio/web-protocol/projects.
+              <Settings />
+            ) : !at ? (
+              <Home />
+            ) : profiling ? (
+              <Profiler id="app" onRender={reportCommit}>
+                <EngineGate external={external} />
+              </Profiler>
+            ) : (
               <EngineGate external={external} />
-            </Profiler>
-          ) : (
-            <EngineGate external={external} />
-          )}
+            )}
+          </Suspense>
         </AuthGate>
       )}
     </LocaleProvider>

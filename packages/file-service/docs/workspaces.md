@@ -27,7 +27,7 @@ paste, no account to have — `@local/<espace>/<projet>` addresses it and every 
 on the working copy works, `project commit` included. What does not work is the one thing that
 genuinely needs a repository: pushing.
 
-Three things are written at init, and each answers a failure:
+Four things are written at init, and each answers a failure:
 
 - **`main`, explicitly** (`git init -b main`). git's default branch name depends on the version
   and on a config file this service deliberately ignores, and a workspace whose branch is
@@ -41,10 +41,49 @@ Three things are written at init, and each answers a failure:
   `GIT_CONFIG_GLOBAL` to `/dev/null` (see below), so a machine WITH a git identity has none
   here, and the very first commit would fail with *"Please tell me who you are"* — on a musician's
   machine, in a screen that has no business explaining git config.
+- **A `.gitattributes` routing media through LFS**, and the repo-local filter behind it — see
+  [Media through LFS](#media-through-lfs).
 
 An init that fails is logged and not thrown: the folder exists and is usable, and the first
 `project commit` is what will say that it is not a repository. Creating the workspace and being
 able to version it are two different promises.
+
+## Media through LFS
+
+A song IS its audio, and git stores a whole new copy of a file on every commit that changes it.
+A trimmed wav re-committed a dozen times is a dozen wavs in the history, forever, and the cost is
+paid again by every clone and every push. So a workspace made here tracks every audio and video
+extension the médiathèque knows — `gitLfs.ts`, over `AUDIO_EXT` and `VIDEO_EXT` from
+`packages/mediatek/src/media.ts`, so the list that decides what the library will PLAY is the list
+that decides what the repository stores by reference.
+
+The patterns are spelled `*.[Ww][Aa][Vv]`. git matches an attribute pattern case-sensitively, and
+a real library hands over `.FLAC` and `.WAV`; a rule that only said `*.wav` would silently commit
+those whole. Every rule carries `-text` as well, since git otherwise reserves the right to rewrite
+line endings inside a binary on checkout.
+
+**`git lfs install --local`, never `--global`.** This is not tidiness: `gitEnvFor` pins
+`GIT_CONFIG_GLOBAL` to `/dev/null` and sets `GIT_CONFIG_NOSYSTEM`, so a machine where the musician
+already ran `git lfs install` has NO lfs filter as far as this service is concerned. The repository's
+own config is the only place the filter can be seen from here.
+
+## A machine without git-lfs
+
+Creating a workspace still works, and writes the same `.gitattributes`. An attribute naming a
+filter git has no driver for is a no-op — the wav is committed as an ordinary blob — so the rules
+cost nothing while they cannot be honoured, and start being honoured the day git-lfs is installed.
+It is logged once, and the failure is not thrown: as with the git identity above, being able to
+version the workspace and being able to version it WELL are two different promises.
+
+**Cloning is the other way round, and refuses.** A clone whose media is in LFS lands as pointer
+files — a few hundred bytes of text where a wav should be — and nothing downstream says so: the
+decoder fails, the waveform is empty, the project looks corrupt. `NoLfsError` names the fix
+instead, and the clone's debris is removed by the same path that handles a refused push.
+
+That fetch is ours to run even when git-lfs IS there: `git clone` smudges nothing, because the
+filter lives in a config the clone does not have yet. `pullLfs` installs it into the fresh
+checkout and pulls, reporting an `LFS` phase so the wait in `cloneJobs.md`'s progress bar has a
+name.
 
 ## Its FIRST repository, later
 
@@ -84,6 +123,29 @@ a `git config` per workspace on every lookup would be a subprocess per poll. `wo
 is what stops st0 re-cloning something already on disk, and it compares NORMALIZED uris because
 the two sides learn the address by different routes: pl8 has what was pasted, this has whatever
 git wrote into `remote.origin.url`.
+
+## Copying a project from one workspace to another
+
+`copyProject.ts` is its own module because it is the one act naming TWO workspaces: neither
+`Workspace` instance owns it, and each end still answers for its own guards — the source resolves
+and validates what is read (`projectFolder`), the destination resolves and validates where it
+lands (`copyProject`, over `copyProjectInto` in `projectLifecycle.ts`).
+
+**The copy keeps the source's suffix.** The suffix is what decides which application opens a
+folder, so a `.st0` copied as `.z0` would be a song z0 is asked to read: refused by name here
+rather than discovered by whoever opens it.
+
+**A workspace that IS a single project is refused as a destination.** Such a workspace lists `.`
+and nothing under it, so the copy would be on disk and in no listing — an act that appears to have
+done nothing.
+
+**What is not content is left out**, through the same `skip` the tree, the watcher and the diff
+use: caches (`*.cache`), `node_modules`, the undo journal, the recycle bin. A dotfile inside a
+project is invisible to every one of those already, so the copy loses nothing anything can see,
+and gains none of the machine-local weight.
+
+The COMMIT is not here. A copy changes the workspace that receives it, and committing that is
+st0's call in one place — see `apps/st0/frontend/docs/projects.md`.
 
 ## `listMachineWorkspaces` — what st0's home page draws
 
@@ -162,3 +224,31 @@ without the workspace's own folder being a project. Three tiers, most deliberate
 `setActiveProject` is untouched by all of this and keeps its exact rule: it checks existence
 before the name rule and refuses anything that is not a project folder. A fallback belongs where
 the ambiguity is, which is the address, not the check.
+
+## A clone is bounded by SILENCE, not by duration
+
+`gitClone` runs with `--progress`, so git writes a counter line continuously while it works. The
+kill timer is reset by every one of those lines: a clone may take as long as it takes, and is only
+killed after **two minutes with nothing said at all**.
+
+It was a total cap of two minutes, and the failure it produced was hard to read from the outside.
+A repository with a lot of audio in it goes past two minutes easily; git was killed mid-checkout,
+`close` fired non-zero, and the `catch` removed the half-clone — so the workspace **appeared while
+cloning and vanished when it "finished"**, with git's last words being whatever it had been saying
+when it died. Nothing in that reads as a timeout.
+
+The client gives up drawing progress after ten minutes (`CLONE_CAP_MS`), and that is now only the
+PAGE giving up: the machine goes on cloning and the workspace appears by itself. The message says
+so, because "le clonage n'en finit pas" read as a failure of something that was working.
+
+**`git lfs pull` now follows the same rule**, and needed it more: `FETCH_MS` was a total cap of
+five minutes on `execFile`, and a song repository's media is routinely larger than five minutes of
+link. It is `lfsPull` in `gitLfs.ts` — a spawn rather than `execFile`, with the clock reset by
+every line, so the fetch may take an hour and is killed only after two minutes of silence.
+
+Two things that fetch needs and `execFile` could not give:
+
+- **`GIT_LFS_FORCE_PROGRESS`.** git-lfs draws its meter only for a terminal; piped, it says
+  nothing at all — and a timer that watches for silence would then kill every fetch it ever ran.
+- **The meter reaching the screen.** Those lines go through `parse` like git's own, so the
+  percentage shows. A fetch now allowed to take an hour cannot be a motionless "clonage…".

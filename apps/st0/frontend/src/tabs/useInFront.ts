@@ -1,5 +1,5 @@
 // useInFront.ts — whether this page is the tab in front. Always true off the desktop app,
-// where there are no tabs to be behind. See apps/studio-desktop/docs/tabs.md.
+// where there are no tabs to be behind. See apps/st0-desktop/docs/tabs.md.
 
 import { useEffect, useState } from "react";
 import { tabBridge } from "./bridge";

@@ -1036,13 +1036,38 @@ before that lands draws its labels and no icons — the honest degradation, sinc
 MEANS.
 
 **The split does not actually happen, which is worth knowing before trusting the paragraph above.** The
-build says `INEFFECTIVE_DYNAMIC_IMPORT`: some thirty components import their icons by name from
-`lucide-react`, so the bundler cannot move it into a chunk of its own. The `import()` buys deferred
-execution and no deferred download, and naming the namespace retains all ~1500 exports where tree-shaking
-keeps the forty this app draws. Measured on a real build: the IconPicker chunk is 1 KB, the main chunk
-2.4 MB. The alternative is a curated subset, statically imported: instant, bounded, tree-shakeable, and
-offering two hundred icons where the ask was a complete library — a product decision rather than a
-refactor, which is why it has not been taken unasked.
+`import()` buys deferred execution and no deferred download: some thirty components import their icons by
+name from `lucide-react`, so it is reachable statically from the first screen either way, and naming the
+namespace retains all ~1500 exports where tree-shaking keeps the forty this app draws.
+
+Since the entry was split (below) it *is* a chunk of its own — and that only made the price legible.
+Measured on a real build: **`lucide-react` is 621 KB, and the home page loads all of it** to draw about
+thirty icons. It is the largest single item on the first-paint path now that the editor is off it.
+
+The alternative is a curated subset, statically imported: instant, bounded, tree-shakeable, and offering
+two hundred icons where the ask was a complete library — a product decision rather than a refactor, which
+is why it has not been taken unasked.
+
+## The entry is split by ADDRESS, and the home page is what that is for
+
+`main.tsx` already branched before importing anything heavy, so a 36-pixel tab strip would not load the
+whole of st0. `appMain.tsx` did not, and the home page paid for it: it statically imported `App`, so
+opening the app at `/` parsed and executed the entire editor — CodeMirror, dagre, `@studio/ui-eyes`,
+`@studio/ui-turntables` — before drawing a single repository row. The symptom is a window that opens and
+stays blank for seconds, which reads as the app hanging rather than as a bundle being parsed.
+
+The four screens that are not the home page are therefore `lazy()`: `App`, `EngineGate`, `ExternalIndex`,
+`SharedGate` and `Settings`. One address is ever taken, so one of them is ever fetched.
+
+| | before | after |
+|---|---|---|
+| **home page** | 3428 KB | **1186 KB** |
+| the entry chunk itself | 2562 KB | 51 KB |
+| opening a project | (already loaded) | +2175 KB, on demand |
+
+What stays eager is what the home page actually draws: the gates, `Home`, and the shared vendor chunks.
+`Booting` is the one thing on screen while a split-out screen arrives — the window is already painted in
+the app's own colour by then (`apps/st0-desktop/docs/window.md`), so it only has to say "coming".
 
 ## The `ui` namespace
 
@@ -1076,10 +1101,20 @@ the one family that acts on the workspace's files rather than on the song.
 transport nor even this shell's view. It **does not navigate** — the whole point of the address is to be
 carried to a second device, and following it here would replace the editor you are standing at with the
 tablet's screen. The line is echoed in the status bar as well as copied, so a browser that refuses the
-clipboard still leaves it readable. The share panel lists the same addresses as real `<a target="_blank">`
-links, which is not a second copy of the behaviour: OPENING one is navigation, which a command has no
-business being, while the *Copier* button beside each row dispatches this line
-([external.md](external.md)).
+clipboard still leaves it readable. The share panel no longer draws those addresses as links at all: its
+*Sur un autre appareil* section is **QR codes**, the whole project first so a tablet can edit it and not
+only drive a surface, then one per surface ([external.md](external.md)). Scanning is the gesture the
+section exists for, and an address written out is what it replaces; the cost is that a device which
+cannot scan has no fallback there, and `ui external <surface>` is what remains for that case.
+
+### The one thing a QR code here gets wrong on its own
+
+Every address in this app is built on `window.location.origin`, and in the desktop window that origin is
+**loopback**. Encoded straight into a code, it scans perfectly and the phone opens *itself* — a silent
+failure that reads as a broken camera. `src/remoteUrl.ts` is the conversion, and it is a tested pure
+function for that reason: a loopback origin is rebased onto the app's LAN address (`lanUrls`,
+`apps/st0-desktop/docs/externals.md`), a real origin is already reachable and left alone, and a machine
+with no network address gets **no code** and a tile that says so.
 
 ## Every action on screen is a command
 
@@ -1132,7 +1167,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | the settings panel's *Commandes* | `ui settings commands` — the one that is still a page | `App` |
 | the account tab's rows | `ui engine`, `ui workspace quit`, `ui logout`, `ui language` | `App` |
 | the share panel's rows | `project commit`, `project pull`, `project export`, `project share k7\|link` | `@studio/commands` and `hooks/useShare.ts` |
-| the share panel's *Copier* beside a surface | `ui external <surface>` | `App` — the row itself is an anchor, see above |
+| `ui external <surface>` | the palette's way to the same address, the panel now drawing codes rather than links | `App` |
 | the editor tab's one toggle | `ui vim` | `toggleVim` in `App` |
 | Ctrl+Z / Ctrl+Y | `project undo`, `project redo` | `@studio/project-shell/undo` |
 | the file tree's right-click menu | `fs file new`, `fs folder new`, `fs file rename`, `fs file move`, `fs file delete`, `fs file upload`, `ui pin`, `ui copy path` | `EditorHandle`, and `FileTreeHandle` under it |

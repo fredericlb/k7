@@ -46,7 +46,7 @@
         "scripts/*.{ts,mjs}"
       ]
     },
-    "apps/studio-desktop": {
+    "apps/st0-desktop": {
       "entry": [
         "src/main.ts",
         "scripts/*.mjs"

@@ -245,7 +245,7 @@ export function localProjectUrl(
  *
  * The engine, the server and the machine's own rows answer only where the app serves st0
  * itself; the Sync tab, which is the account's deploy key, answers on the hosted origin too —
- * see apps/studio-desktop/docs/settings.md.
+ * see apps/st0-desktop/docs/settings.md.
  */
 export const SETTINGS_REPO = "@settings";
 
@@ -258,7 +258,7 @@ export function settingsUrl(origin: string): string {
   return `${serviceUrl(origin, "st0")}/${SETTINGS_REPO}`;
 }
 
-/** The desktop app's TAB STRIP: a sentinel for the same reason `@settings` is one, and chrome rather than a screen — apps/studio-desktop/docs/tabs.md. */
+/** The desktop app's TAB STRIP: a sentinel for the same reason `@settings` is one, and chrome rather than a screen — apps/st0-desktop/docs/tabs.md. */
 export const TABS_REPO = "@tabs";
 
 export function isTabs(repo: string): boolean {
@@ -329,6 +329,17 @@ export function externalOf(projectUrl: string, surface: string): string {
   return `${projectUrl}/${EXTERNAL_SEGMENT}/${encodeSegment(surface)}`;
 }
 
+/**
+ * The register's revision when there is NO register — the desktop's shim answers it where no
+ * server is configured. It is not "the register is empty": there is nothing to be absent from,
+ * so a screen must not offer to add anything to it. See apps/st0/frontend/docs/projects.md.
+ */
+export const NO_REGISTER = "offline";
+
+/** Is there an account register at all behind this revision? */
+export const hasRegister = (revision: string): boolean =>
+  revision !== NO_REGISTER;
+
 /** The MENU of those addresses, `/external` — a RESERVED repository short name; see docs/addresses.md. */
 export const EXTERNAL_INDEX = "external";
 
@@ -339,6 +350,26 @@ export function isExternalIndex(pathname: string, base: string): boolean {
   for (let i = 0; i < skip.length; i++) if (segs[i] !== skip[i]) return false;
   const rest = segs.slice(skip.length);
   return rest.length === 1 && rest[0] === EXTERNAL_INDEX;
+}
+
+/**
+ * Does this ADDRESS open a project? Every screen on this origin that is not one is named here:
+ * the home page has no segment at all, `@settings` and `@tabs` are chrome, and `external` is the
+ * menu of surfaces. Everything else is `<dépôt>/<projet>`, `@local/…` and `@shares/…` included.
+ *
+ * One definition because two sides ask it and would drift: the main process, to know what a
+ * second window would open on, and the tab strip, to know which tabs wear a note.
+ */
+export function isProjectAddress(url: string): boolean {
+  let head: string;
+  try {
+    head = new URL(url).pathname.split("/").filter(Boolean)[0] ?? "";
+  } catch {
+    return false; // not an address we can reason about
+  }
+  return (
+    head !== "" && !isSettings(head) && !isTabs(head) && head !== EXTERNAL_INDEX
+  );
 }
 
 /** …and the whole URL of it: a surface cannot use the router, its basename ending at the project. */

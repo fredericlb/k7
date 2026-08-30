@@ -1,7 +1,7 @@
 // AudioSection.tsx — the interfaces, ranked. There is no default and no fallback: the list IS
 // both, since a fallback was only ever the second line of it. The rows the user can see are the
 // ranking plus anything else plugged in, and moving one sends the whole order back.
-// See apps/studio-desktop/docs/settings.md.
+// See apps/st0-desktop/docs/settings.md.
 
 import type { HostCommandName } from "@studio/engine-host/hostProtocol";
 import { PRIORITY_SEP as SEP } from "@studio/engine-host/hostProtocol";

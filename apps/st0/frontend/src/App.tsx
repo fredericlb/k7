@@ -31,6 +31,7 @@ import { markActive } from "@studio/project-shell/idle";
 // The address of ONE surface, for another device to open — the same module the launch uses, so both spell a project alike (docs/external.md).
 import {
   externalUrl,
+  launchUrl,
   parseLaunch,
   projectsUrl,
 } from "@studio/project-shell/launch";
@@ -41,6 +42,7 @@ import { moduleKeyFromPath } from "@studio/song-schema/moduleTypes";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { AssemblyBuilder } from "@studio/ui-module-builder/assembly";
+import { projectLabel } from "@studio/web-protocol/projects";
 import {
   type EngineLatency,
   formatLatency,
@@ -50,6 +52,7 @@ import {
   ListMusic,
   Loader2,
   Lock,
+  MessageSquare,
   Pause,
   Play,
   Settings,
@@ -79,6 +82,7 @@ import {
   type PaletteCommand,
 } from "./components/CommandBar";
 import { CommandsSettings } from "./components/CommandsSettings";
+import { CommentsPanel } from "./components/CommentsPanel";
 import { ContextMenu } from "./components/ContextMenu";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EditSharedModuleDialog } from "./components/EditSharedModuleDialog";
@@ -121,6 +125,7 @@ import {
   nodeMenu,
   withAmbient,
 } from "./contextMenu";
+import { desktop } from "./desktop";
 import { EXPORT_USAGE, parseExportAsk } from "./exportArgs";
 import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
@@ -418,7 +423,7 @@ export default function App({
   });
   /** Which panel has the RIGHT COLUMN, or null — one state because there is one column (docs/shell.md). */
   const [rightPanel, setRightPanel] = useState<
-    "settings" | "playlists" | "share" | null
+    "settings" | "playlists" | "share" | "comments" | null
   >(null);
   /** Which tab the settings panel shows, kept while closed so the cog reopens where you left it. */
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(SETTINGS_TABS[0]);
@@ -426,7 +431,7 @@ export default function App({
   const [commandsPage, setCommandsPage] = useState(false);
   /** Open `which`, or close it when it is already the one showing — every panel button toggles. */
   const toggleRight = useCallback(
-    (which: "settings" | "playlists" | "share") =>
+    (which: "settings" | "playlists" | "share" | "comments") =>
       setRightPanel((cur) => (cur === which ? null : which)),
     [],
   );
@@ -703,7 +708,8 @@ export default function App({
   );
   const hasMastering = !!masteringSurface;
 
-  /** The addresses this project's surfaces answer on, for the share panel — EVERY surface, since all four draw there (docs/external.md). */
+  /** The addresses this project answers on, for the share panel — the WHOLE project first, so a
+   *  second device can edit it and not only drive a surface, then EVERY surface (docs/external.md). */
   const externals = useMemo(() => {
     const at = parseLaunch(
       window.location.pathname,
@@ -711,12 +717,26 @@ export default function App({
       import.meta.env.BASE_URL,
     );
     if (!at) return [];
-    return surfaces.map((s) => ({
-      id: s.id,
-      type: s.surface.type,
-      url: externalUrl(window.location.href, at, s.id, "st0"),
-    }));
+    return [
+      {
+        id: projectLabel(at.project),
+        type: "projet",
+        url: launchUrl(window.location.origin, at.repo, at.project, "st0"),
+      },
+      ...surfaces.map((s) => ({
+        id: s.id,
+        type: s.surface.type,
+        url: externalUrl(window.location.href, at, s.id, "st0"),
+      })),
+    ];
   }, [surfaces]);
+
+  /** Where a SECOND DEVICE reaches this app: a QR code built on `location.origin` would carry
+   *  loopback in the desktop window, which scans to the phone itself (remoteUrl.ts). */
+  const [lanUrls, setLanUrls] = useState<string[]>([]);
+  useEffect(() => {
+    void desktop.state().then((d) => setLanUrls(d?.lanUrls ?? []));
+  }, []);
 
   const turntableDeck = useTurntableDeck({
     store,
@@ -2440,7 +2460,20 @@ export default function App({
   const { behind, conflicted, badge } = shareBadge(gitStatus);
 
   const headerTools = snapshot ? (
-    <ShareDownload base={snapshot.base} />
+    <>
+      {/* The one thing a visitor may WRITE, and it is a panel rather than a pane: it is not part of the song. */}
+      <Button
+        size="icon"
+        variant={rightPanel === "comments" ? "default" : "ghost"}
+        aria-pressed={rightPanel === "comments"}
+        title={m["share.comments"]()}
+        aria-label={m["share.comments"]()}
+        onClick={() => toggleRight("comments")}
+      >
+        <MessageSquare className="h-4 w-4" />
+      </Button>
+      <ShareDownload base={snapshot.base} />
+    </>
   ) : (
     <>
       {/* The PLAYLIST, for a SET only — every project's are reachable from the palette instead (docs/playlists.md). */}
@@ -3380,11 +3413,20 @@ export default function App({
                 onClose={() => setRightPanel(null)}
               />
             )}
+            {rightPanel === "comments" && snapshot && (
+              <CommentsPanel
+                base={snapshot.base}
+                store={store}
+                onSeek={seek}
+                onClose={() => setRightPanel(null)}
+              />
+            )}
             {rightPanel === "share" && (
               <SharePanel
                 gitStatus={gitStatus}
                 busy={share.busy}
                 externals={externals}
+                lanUrls={lanUrls}
                 hasPicture={!!videoDoc}
                 onRun={(c) => void runCommand(c)}
                 onClose={() => setRightPanel(null)}

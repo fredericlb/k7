@@ -5,7 +5,10 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { settingsPath, webEndpointsDir } from "@studio/engine-client/paths";
+import {
+  existingSettingsPath,
+  webEndpointsDir,
+} from "@studio/engine-client/paths";
 
 /** One JSON file's `.url`, or null when it is absent, unparseable, or half-written. */
 function urlIn(path: string): string | null {
@@ -26,7 +29,7 @@ export function mediatekBase(): string | null {
 export function mediatekToken(): string | null {
   if (process.env.MEDIATEK_TOKEN) return process.env.MEDIATEK_TOKEN;
   try {
-    const v = JSON.parse(readFileSync(settingsPath(), "utf8")) as {
+    const v = JSON.parse(readFileSync(existingSettingsPath(), "utf8")) as {
       mediatekToken?: unknown;
     };
     return typeof v.mediatekToken === "string" && v.mediatekToken !== ""

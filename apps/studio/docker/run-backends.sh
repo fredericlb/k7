@@ -27,7 +27,10 @@ spawn() {
 }
 
 spawn st0/backend  env PORT=8789 /app/node_modules/.bin/tsx src/server.ts
-spawn pl8/backend env PORT=8795 /app/node_modules/.bin/tsx src/server.ts
+# NODE_OPTIONS and not a flag on the line: `tsx` is the process, and the flag is for the node under it.
+# `node:sqlite` is what the shares' comments are kept in, and it is still behind this flag on Node 22
+# — the base image's runtime. Accepted as a no-op on 24+, so the bump costs nothing to prepare for.
+spawn pl8/backend env PORT=8795 NODE_OPTIONS=--experimental-sqlite /app/node_modules/.bin/tsx src/server.ts
 spawn k7/backend  env PORT=8787 node --experimental-strip-types --env-file-if-exists=.env src/server.ts
 # EXTRA_FLAGS passes CLI flags to z0's server (e.g. `--latest`); unset is none.
 spawn z0/backend  env BACKEND_PORT=8080 node --experimental-strip-types src/server.ts ${EXTRA_FLAGS:-}

@@ -76,7 +76,7 @@ without anyone seeing it.
 | `packages/dsp/modules/{normalize,sweep}/jsdsp.ts` | MODULE DSPs. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import. |
 | `songs/**/jsdsp.ts` | same mechanism: a demo song's DSP is data loaded at runtime. |
 | `packages/stem-separation/src/separateWorker.ts` | launched by `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
-| `packages/engine-host/src/cli.ts`, `packages/file-service/src/server.ts` | **esbuild entries** of `apps/studio-desktop/scripts/stage.mjs`, which bundles them into the application. Zero imports is not zero callers. |
+| `packages/engine-host/src/cli.ts`, `packages/file-service/src/server.ts` | **esbuild entries** of `apps/st0-desktop/scripts/stage.mjs`, which bundles them into the application. Zero imports is not zero callers. |
 | `packages/ui-chains-react/src/DomChains.stories.tsx` | picked up by `.storybook/main.ts`'s glob. |
 | `packages/dsp/src/emit.ts` | the package's `build` script (`tsx src/emit.ts`). A pass looking only at `bin` and esbuild entries declares it dead; **a `package.json` `scripts` entry is a caller.** |
 
@@ -295,6 +295,6 @@ that name still lingers in `env.example.yaml`, `docs/tokens.md` (one row of the 
 
 ## 7. Generated, no effect
 
-`apps/studio-desktop/staging/{file-service,engine-host}.mjs` and the `.turbo/cache/*-manifest.json`
+`apps/st0-desktop/staging/{file-service,engine-host}.mjs` and the `.turbo/cache/*-manifest.json`
 entries are build artefacts: they disappear at the next `stage.mjs`. The source of truth is
 `packages/engine-protocol/sessions.ts`.

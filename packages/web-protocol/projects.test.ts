@@ -11,6 +11,7 @@ import {
   HAS_SCAFFOLD,
   isExternalIndex,
   isLocal,
+  isProjectAddress,
   isShare,
   LOCAL_REPO,
   launchUrl,
@@ -402,5 +403,33 @@ describe("a project in a workspace with no repository", () => {
     for (const sentinel of [LOCAL_REPO, BENCH_REPO, SHARE_REPO])
       expect(sentinel.startsWith("@")).toBe(true);
     expect(new Set([LOCAL_REPO, BENCH_REPO, SHARE_REPO]).size).toBe(3);
+  });
+});
+
+// Two sides ask this and would drift: the main process, to know what a second window opens on,
+// and the tab strip, to know which tabs wear a note (apps/st0-desktop/docs/window.md).
+describe("which addresses open a project", () => {
+  const O = "http://127.0.0.1:8780";
+
+  it("says yes to a project, however it is addressed", () => {
+    for (const p of [
+      "/songs/first.st0",
+      "/band/albums/winter.st0",
+      "/songs/first.st0/timeline",
+      "/@local/lemo_mante/mymix.st0",
+      "/@shares/a7f3.st0",
+      "/songs/first.st0/@external/desk",
+    ])
+      expect(isProjectAddress(O + p), p).toBe(true);
+  });
+
+  it("says no to the home page and to the chrome", () => {
+    for (const p of ["/", "", "/@settings", "/@tabs", "/external"])
+      expect(isProjectAddress(O + p), p || "(empty)").toBe(false);
+  });
+
+  it("says no to something that is not an address at all", () => {
+    expect(isProjectAddress("")).toBe(false);
+    expect(isProjectAddress("not a url")).toBe(false);
   });
 });
