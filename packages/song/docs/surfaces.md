@@ -52,17 +52,16 @@ Under `project`, with the markers and the alternatives: a surface is a property 
 — what it draws — rather than of a track, a node or a clip inside it.
 
 **There is no `layout` argument**, and that is the point: the table below already says which one
-each type is drawn in, and every type has exactly one — so an argument could only ever be right,
-or be refused by the schema a moment later. Deriving it means `createSurfaceFile` writes a file
-the parser accepts by construction, which is the whole job of a scaffold.
+each type is drawn in, and every type has exactly one — so an argument could only ever be right, or
+be refused by the schema a moment later. Deriving it means `createSurfaceFile` writes a file the
+parser accepts by construction, which is the whole job of a scaffold.
 
-The id defaults to the type. It stays an argument because it is the filename you open and read,
-and `desk` reads better than `turntables` on a set.
+The id defaults to the type. It stays an argument because it is the filename you open and read, and
+`desk` reads better than `turntables` on a set.
 
 Two things it refuses. The file already existing is the ordinary one. The other is **a second
 surface of the same type**: only the first is drawn — `App.tsx` takes it and the pane ring has one
-slot per type — so a second is a file that changes nothing and shows nothing. Every surface is
-`split`, so the rule covers all of them.
+slot per type — so a second is a file that changes nothing and shows nothing.
 
 ### It scaffolds the mapping
 
@@ -72,45 +71,35 @@ A `turntables` surface comes out with every component listed, each waiting for a
 type: turntables
 layout: split
 mapping:
-  crossfade: null # un module crossfade — son param de mélange
-  deckA.tempo: null # un module tempo — l'étirement de la platine A
-  deckA.eqLow: null # un module eq — le grave de la platine A
-  deckA.eqMid: null # le MÊME module eq — son médium
+  crossfade: null # a crossfade module — its mix param
+  deckA.tempo: null # a tempo module — deck A's stretch
+  deckA.eqLow: null # an eq module — deck A's low band
+  deckA.eqMid: null # the SAME eq module — its mid
   …
 ```
 
 **`null`, not a comment.** A commented line is not something a parser will ever tell you that you
 got wrong; a key that is *there* is validated the moment you fill it in. Absent and null mean the
-same thing downstream — `unmappedControls` reports both, because both are unwired — so the
-skeleton costs nothing and answers the question a bare `mapping:` leaves open, which is what the
-ids even are. `MixViewSchema` takes `ViewBindingSchema.nullable()` for exactly this.
+same thing downstream — `unmappedControls` reports both, because both are unwired — so the skeleton
+costs nothing and answers the question a bare `mapping:` leaves open, which is what the ids even
+are. `MixViewSchema` takes `ViewBindingSchema.nullable()` for exactly this.
 
-`timeline` and `viewport` get **no `mapping:` at all**, and that is not an omission: a mapping
-says which module a component MOVES, and neither has a component that moves one. The arrangement
-draws the project's own lanes; the frame composites its own layers.
+`timeline` and `viewport` get **no `mapping:` at all**, and that is not an omission: a mapping says
+which module a component MOVES, and neither has a component that moves one. The arrangement draws
+the project's own lanes; the frame composites its own layers.
 
-A `mastering` surface scaffolds ten lines that all want the **same** module, which is what makes
-it a different shape of declaration from the desk's. A desk is a room of appliances and its map
-says which is which; this one is a picture of a single appliance, and its map says which one:
-
-```yaml
-type: mastering
-layout: split
-mapping:
-  comp.low: null # le module quick-master — sa quantité de compression sur le grave
-  comp.mid: null # le MÊME module — sa quantité sur le médium
-  …
-```
+A `mastering` surface scaffolds ten lines that all want the **same** module, which is what makes it
+a different shape of declaration from the desk's. A desk is a room of appliances and its map says
+which is which; this one is a picture of a single appliance, and its map says which one.
 
 **The list is duplicated, and a test is what keeps it true.** The rule below still holds —
 `@studio/song` does not know what a `crossfade` is — but the two packages cannot import each other
 in either direction: `@studio/ui-turntables`' `controls.ts` reaches `deck.ts` reaches
 `@studio/engine-browser`, and `song/src/surfaces.ts` is the disk walk, so pulling it into a screen
-package drags `node:fs` in. So `SURFACE_MAPPING_SKELETON` lives in **`yaml/surfaceSchema.ts`**,
-the browser-safe module beside the other two tables — where `ui-turntables/mapping.test.ts` can
-import it without the disk, and fail the day the desk grows a control the scaffold does not offer
-or offers one it does not require. What the boundary protects against is the copy going stale;
-only the enforcement moved. Each note is checked against the control's own `wants`, so an
+package drags `node:fs` in. So `SURFACE_MAPPING_SKELETON` lives in **`yaml/surfaceSchema.ts`**, the
+browser-safe module beside the other two tables — where `ui-turntables/mapping.test.ts` can import
+it without the disk, and fail the day the desk grows a control the scaffold does not offer or
+offers one it does not require. Each note is checked against the control's own `wants`, so an
 expectation that changes takes the scaffold's sentence with it.
 
 ### A mapping holds a node's NAME, so a rename asks first
@@ -120,8 +109,8 @@ every project, and asked before a node is RENAMED. A mapping is the only place o
 where a node's name is a reference, and nothing writes one back: a desk pointing at a name that has
 moved loses the knob silently, with a screen that draws and a control that does nothing. So the
 rename declines instead, and says which file is holding the name. A surface that would not parse
-contributes nothing, deliberately — it is already reported by `surfaceIssues`, and a file the
-reader cannot understand is not evidence that a name is free.
+contributes nothing, deliberately — it is already reported by `surfaceIssues`, and a file the reader
+cannot understand is not evidence that a name is free.
 
 ## The three fields
 
@@ -142,175 +131,153 @@ reader cannot understand is not evidence that a name is free.
 | `turntables` | `split` |
 | `mastering` | `split` |
 
-The pair is checked for the same reason `type` is an enum at all. Both halves can be valid on
-their own and still name something no component draws, and the result is the blank screen this
-schema exists to prevent. It is refused on the `layout` line, with the list of what that type
-can be.
+The pair is checked for the same reason `type` is an enum at all. Both halves can be valid on their
+own and still name something no component draws, and the result is the blank screen this schema
+exists to prevent. It is refused on the `layout` line, with the list of what that type can be.
 
 **Nothing draws in `view`.** Every surface is a pane, the desk included: a fader on a desk is a
-param on a module, and a screen covering the graph makes "which module is this one on" a round
-trip. As a pane the desk sits directly over the chains, joins the ring, and `full` is how it gets
-the window when you want it whole.
+param on a module, and a screen covering the graph makes "which module is this one on" a round trip.
+As a pane the desk sits directly over the chains, joins the ring, and `full` is how it gets the
+window when you want it whole.
 
 The word stays in the enum on purpose. It is what lets the pair check answer a file that says
 `layout: view` with *"a 'turntables' surface draws in 'split', not in 'view'"* — a sentence that
-names the fix. Dropped from the enum, the same file would get zod's own "invalid enum value",
-which names the field and not the remedy. Deleting it is a one-line change the day nothing on any
-disk says it.
+names the fix. Dropped from the enum, the same file would get zod's own "invalid enum value", which
+names the field and not the remedy. Deleting it is a one-line change the day nothing on any disk
+says it.
 
 ### Why `type` is an enum and a control id is not
 
-`views/mix.yaml` deliberately does **not** validate its control ids: they are the app's
-vocabulary, and a schema that guessed would go stale the day a panel gains a knob
+`views/mix.yaml` deliberately does **not** validate its control ids: they are the app's vocabulary,
+and a schema that guessed would go stale the day a panel gains a knob
 ([viewBindings.md](viewBindings.md)). That reasoning is right and it does not extend to `type`.
 
 A control id names a knob on a panel that already exists; getting it wrong is one dead control,
-reported by whoever draws the panel, against the list it actually has. A `type` names a
-**component that must exist in the editor**. A folder asking for one nothing can draw opens onto
-a blank screen with no explanation — so it is refused at the schema, by name, with the list of
-what there is.
+reported by whoever draws the panel. A `type` names a **component that must exist in the editor**,
+and a folder asking for one nothing can draw opens onto a blank screen with no explanation — so it
+is refused at the schema, by name, with the list of what there is.
 
-`layout` is separate from `type` because the alternatives are real: the same turntables could be
-a PANEL beside the graph or a band under the timeline. Those are layouts, not types. Two axes
-means a new layout does not re-cut the type list, and vice versa.
+`layout` is separate from `type` because the alternatives are real: the same turntables could be a
+PANEL beside the graph or a band under the timeline. Two axes means a new layout does not re-cut the
+type list, and vice versa.
 
 ## The arrangement is one of these
 
-The timeline is a `type: timeline` surface: a song says it wants an arrangement the same way a
-set says it wants a desk.
+The timeline is a `type: timeline` surface: a song says it wants an arrangement the same way a set
+says it wants a desk.
 
 **There is no implicit one.** A folder with no timeline surface opens on its graph — its clips are
 still on disk, its lanes still compile, nothing draws them. That absence is worth a sentence, so
-`surfaceIssues` raises a **warning** (not an error: the project is valid, it opens, and the
-editor you would add the file in is inside it). A bare rig is silent — it has no arrangement to
-draw. `hasMaterial` is what makes it silent: a folder with no `clips/`, no `sequences/` and no
+`surfaceIssues` raises a **warning** (not an error: the project is valid, it opens, and the editor
+you would add the file in is inside it). A bare rig is silent — it has no arrangement to draw.
+`hasMaterial` is what makes it silent: a folder with no `clips/`, no `sequences/` and no
 `video_tracks/` holds nothing a timeline would draw.
 
 `hasMaterial` is cheap on purpose, like `isVideoProject` beside it: three `existsSync` calls and no
 parse. A folder is asked what it HOLDS rather than what it calls itself — a root key answering the
-same question is a second declaration free to disagree with the folder it describes, and only one
-of the two can be true. Material and not
-placement, deliberately: reading every lane for an `events:` key would be the exact answer and would
-cost a load of the whole `nodes/` folder on a path that runs beside the other diagnostics. An entity
-folder gives the same answer for every project anyone writes, and differs only for one somebody
-emptied out — which warns about a timeline they can delete rather than staying silent about one they
-need.
+same question is a second declaration free to disagree with the folder it describes. Material and
+not placement, deliberately: reading every lane for an `events:` key would be the exact answer and
+would cost a load of the whole `nodes/` folder on a path running beside the other diagnostics. The
+two answers differ only for a project somebody emptied out — which warns about a timeline they can
+delete rather than staying silent about one they need.
 
 `isVideoProject` lives in `@studio/song` rather than beside the compiler it guards
 (`@studio/song-video`) because it is a folder probe and nothing more: asking it must not cost the
 reader the video document model, and that is also what keeps this package from depending on the one
 that compiles a picture.
 
-The missing-surface warnings name the COMMAND rather than the file to write. Spelling the two
-lines out means reading a diagnostic, opening a folder that may not exist, and typing a pair the
-schema is about to check — for a file whose whole content is derivable from the word `timeline`.
+The missing-surface warnings name the COMMAND rather than the file to write. Spelling the two lines
+out means reading a diagnostic, opening a folder that may not exist, and typing a pair the schema is
+about to check — for a file whose whole content is derivable from the word `timeline`.
 
 ## …and so is the frame
 
 `type: viewport` is the picture: a song asks for it exactly as it asks for its arrangement.
 
-It gets the **same warning from the other side**: a folder holding `video_tracks/` and declaring
-no viewport compiles its lanes, draws them on the timeline, and composites them nowhere. That
-one is worth saying precisely because the lanes are visible — the project looks like it is
-working. A song with no `video_tracks/` is silent, the way a rig is about its timeline.
+It gets the **same warning from the other side**: a folder holding `video_tracks/` and declaring no
+viewport compiles its lanes, draws them on the timeline, and composites them nowhere — worth saying
+precisely because the lanes are visible, so the project looks like it is working. A song with no
+`video_tracks/` is silent, the way a rig is about its timeline.
 
-Et c'est la seule surface qui **écrit dans le graphe** : déclarer un viewport ajoute à
-`graph.yaml` le run `RENDER: [ VIDEO_OUT ]`, les deux sorties de l'image, que
-`createSurfaceFile` pose dans la foulée et que l'ouverture d'un projet rattrape s'il ne l'a pas.
-Une surface qui compose une image sans que l'image ait par où sortir serait une déclaration à
-moitié faite. Voir [videoOutputs.md](videoOutputs.md).
+And it is the only surface that **writes into the graph**: declaring a viewport adds the run
+`RENDER: [ VIDEO_OUT ]` to `graph.yaml`, the picture's two outputs, which `createSurfaceFile` lays
+down straight away and which opening a project catches up if it is not there. A surface that
+composites a picture with no way for the picture to get out would be a half-made declaration. See
+[videoOutputs.md](videoOutputs.md).
 
 ### Why `viewport` is `split`-only
 
-The sharpest version of the "`split` is not `view` drawn smaller" argument below. A viewport
-owns a **WebGL context and one `<video>` element per layer**, and neither is state a host can
-hold for it the way it holds a desk's document: they belong to the DOM the screen draws. As a
-`view` it would tear both down whenever you looked at something else and rebuild them — with a
-decoder flush and a visible hitch — whenever you came back.
+The sharpest version of the argument below. A viewport owns a **WebGL context and one `<video>`
+element per layer**, and neither is state a host can hold for it the way it holds a desk's document:
+they belong to the DOM the screen draws. As a `view` it would tear both down whenever you looked at
+something else and rebuild them — with a decoder flush and a visible hitch — whenever you came back.
 
-Getting the picture big is `full` (its number key, or `ui viewport`), which is the pane ring
-doing its job rather than a second mounting rule.
+Getting the picture big is `full` (its number key, or `ui viewport`), which is the pane ring doing
+its job rather than a second mounting rule.
 
 ### It is the frame ALONE
 
 A viewport surface draws the composited picture and nothing else. Where the picture's lanes are
-*placed* is the timeline's business — the same timeline the song's audio lanes are on, whose
-ruler reads bars or seconds. There is deliberately no second arrangement surface for picture:
-one grid that can be read in two units beats two grids that must be kept in step. See
+*placed* is the timeline's business — the same timeline the song's audio lanes are on, whose ruler
+reads bars or seconds. There is deliberately no second arrangement surface for picture: one grid
+that can be read in two units beats two grids that must be kept in step. See
 [picture.md](../../song-video/docs/picture.md) and `apps/st0/frontend/docs/picture.md`.
 
-### `split` was never `view` drawn smaller
+### `split` is not `view` drawn smaller
 
-| | `view` *(historic)* | `split` |
-|---|---|---|
-| where | its own screen, off the header | a slot in the layout, sharing the window |
-| drawn | only while open | whenever the layout shows it |
-| in the pane ring | no | yes — number keys, `ui <pane>`, `full`, the mobile tabs |
-| reached by | a header button, `/surface/<id>` | it is already there |
-
-Every surface is `split` today; the left column is kept because it is what the difference between
-the two words *was*, and the argument is what a future `view` would have to answer.
-
-The row says **drawn**, not *mounted*, and the difference is load-bearing.
-
-A surface's DOCUMENT is not its screen. A desk holds the loaded songs, the crossfader, the six
-EQ knobs and a compiled project; a set does not stop existing because you went to look at the
-graph. While the desk was a `view`, `SurfaceTab` had to split the two itself — the hooks above a
-line, the screen below it, mounted for as long as the project declared the surface and drawing
-only when its id was in the address. Hold the document in the screen instead and a round trip
-re-centres the crossfader and flattens the EQ while the sound stays where you put it. See
+A surface's DOCUMENT is not its screen. A desk holds the loaded songs, the crossfader, the six EQ
+knobs and a compiled project; a set does not stop existing because you went to look at the graph.
+Hold the document in the screen and a round trip re-centres the crossfader and flattens the EQ while
+the sound stays where you put it. See
 [../../ui-turntables/docs/deckSet.md](../../ui-turntables/docs/deckSet.md).
 
-A `split` surface does not raise the question, which is the quiet reason the desk moving over was
-a simplification rather than a port: **a pane is mounted once and never unmounted**, `hidden`
-takes it off screen, and that one invariant covers what the prop was protecting. The timeline
-holds a caret and a zoom stack, the viewport a GL context and a `<video>` per layer, the desk its
-document — all cheap to keep, all maddening to rebuild
-(`apps/st0/frontend/docs/shell.md`).
+A `split` surface does not raise the question: **a pane is mounted once and never unmounted**,
+`hidden` takes it off screen, and that one invariant covers it. The timeline holds a caret and a
+zoom stack, the viewport a GL context and a `<video>` per layer, the desk its document — all cheap
+to keep, all maddening to rebuild (`apps/st0/frontend/docs/shell.md`).
 
 ## `mapping` is `views/mix.yaml`'s binding, reused
 
-Key for key: control id → `{ module, param }` **or `null`** for one that is named and not wired
-yet — the same `ViewBindingSchema`, nullable. It is the same map
-because it is the same question, asked by a surface instead of by the desk's own file — and reusing it is
-what keeps `module` meaning "the name the **chains file** uses" in both places. A second shape
-that happened to agree would drift the first time one of them grew a field.
+Key for key: control id → `{ module, param }` **or `null`** — the same `ViewBindingSchema`,
+nullable. The same map because it is the same question, asked by a surface instead of by the desk's
+own file, and reusing it is what keeps `module` meaning "the name the **chains file** uses" in both
+places. A second shape that happened to agree would drift the first time one of them grew a field.
 
 Read [viewBindings.md](viewBindings.md) for why a binding cannot live in the module's own
-`controller.yaml`: a set puts a tempo module on each deck, one `controller.yaml` serves every
-node of a module, and "deck A's fader drives deck A's stretch" is unsayable in it.
+`controller.yaml`: a set puts a tempo module on each deck, one `controller.yaml` serves every node of
+a module, and "deck A's fader drives deck A's stretch" is unsayable in it.
 
 ## An unwired component is a SCREEN error, not a load error
 
-`mapping` is optional and a missing component does not stop the project opening. It could have:
-the schema knows the field is absent. It does not, because the two places say different things
-to different people.
+`mapping` is optional and a missing component does not stop the project opening. It could have: the
+schema knows the field is absent. It does not, because the two places say different things to
+different people.
 
-- **Refusing the file** would refuse to open a project because one knob is unwired — and the
-  editor you would fix it in is inside that project.
+- **Refusing the file** would refuse to open a project because one knob is unwired — and the editor
+  you would fix it in is inside that project.
 - **Saying it on the screen** puts the sentence next to the thing that does not work:
 
   > Le composant `deckA.eqLow` de cette vue n'est pas mappé à un module
 
-The check is a **gate** rather than a per-knob badge: the components required are the ones that
-make a desk a desk — a crossfade, three EQ bands and a filter per deck. A desk missing its
-crossfade is not a desk with one feature off. `unmappedControls` in
-`packages/ui-turntables/src/mapping.ts` owns the list, because which components a type needs is
-the surface's own business and `@studio/song` does not know what a `crossfade` is. It is internal
-to the desk — the package publishes four subpaths, and this is not one of them.
+The check is a **gate** rather than a per-knob badge: the components required are the ones that make
+a desk a desk — a crossfade, three EQ bands and a filter per deck. A desk missing its crossfade is
+not a desk with one feature off. `unmappedControls` in `packages/ui-turntables/src/mapping.ts` owns
+the list, because which components a type needs is the surface's own business and `@studio/song`
+does not know what a `crossfade` is. It is internal to the desk — the package publishes four
+subpaths, and this is not one of them.
 
 The mastering strip has its own `unmappedControls`, in `apps/st0/frontend/src/mastering/`, and it
 requires **all ten**. That is not a stricter mood; it is what the surface is. A desk with no stem
 cuts is a complete desk, so those are offered and not required — there is no smaller mastering
-strip, because every control on it names one node, and a missing line is the same strip with a
-dead knob.
+strip, because every control on it names one node, and a missing line is the same strip with a dead
+knob.
 
 ### Which components are required
 
-Those that drive a module **param**: `crossfade`, and per deck `tempo`, `eqLow`, `eqMid`,
-`eqHigh`, `filter`. Not `transport`, `sync` or `listen` — those are actions of the application
-(play the set, align two beats, monitor in this tab). They name no param, so requiring a mapping
-for them would print an error nobody can clear.
+Those that drive a module **param**: `crossfade`, and per deck `tempo`, `eqLow`, `eqMid`, `eqHigh`,
+`filter`. Not `transport`, `sync` or `listen` — those are actions of the application (play the set,
+align two beats, monitor in this tab). They name no param, so requiring a mapping for them would
+print an error nobody can clear.
 
 Derived from `DECKS` rather than listed, so a third deck does not silently arrive with its knobs
 unrequired — which reads as "already fine" rather than "not wired yet".
@@ -319,15 +286,15 @@ unrequired — which reads as "already fine" rather than "not wired yet".
 
 A component with **no line** is this check. A line that IS there but names a module the chains do
 not have is `resolveBindings`' business, against the compiled graph, and it can say which name was
-not found. Keeping them apart is what lets each say something true: *"you have not wired this"*
-and *"you wired this to something that is not there"* are different fixes.
+not found. Keeping them apart is what lets each say something true: *"you have not wired this"* and
+*"you wired this to something that is not there"* are different fixes.
 
 ## How it reaches the screen
 
 Parsed by the **file service**, not the browser — unlike `views/mix.yaml`, which the DJ desk reads
-itself because the desk is the only thing that wants it. A surface decides what the shell
-*draws*, so its validity belongs with the project's other diagnostics, and two parsers would be
-two answers to "is this surface valid".
+itself because the desk is the only thing that wants it. A surface decides what the shell *draws*,
+so its validity belongs with the project's other diagnostics, and two parsers would be two answers
+to "is this surface valid".
 
 ```
 surfaces/<id>.yaml
@@ -344,13 +311,11 @@ surfaces/<id>.yaml
 
 Three of the four are the shell's because of what they need beyond the declaration: the first two
 need most of `App`, and the mastering strip needs the **engine link** — `setPluginParam`,
-`watchPluginParams` and the params store — which `SurfaceTab` has not got and should not grow.
-Its switch keeps an arm for each of them all the same, so the file says which road every type
-takes rather than falling off the end.
-
-Malformed files are reported through the same array as `projectTypeIssues` and the dead-field
-warnings, so a surface that will not parse is a squiggle in the editor rather than a blank
-screen. One bad surface does not take the good ones down with it.
+`watchPluginParams` and the params store — which `SurfaceTab` has not got and should not grow. Its
+switch keeps an arm for each of them all the same, so the file says which road every type takes
+rather than falling off the end. Malformed files are reported through the same array as
+`projectTypeIssues` and the dead-field warnings, so a surface that will not parse is a squiggle in
+the editor rather than a blank screen, and one bad surface does not take the good ones down with it.
 
 ## In st0's shell: every surface is a pane
 
@@ -367,8 +332,8 @@ exactly one surface per type, so the type IS the name and the pane union carries
 `viewPanes({ timeline, viewport, turntables, mastering, frozen })`, not a constant, because four of
 the panes are the project's to declare: one that declares no timeline surface has no arrangement,
 and a list naming one would name a pane that will not be mounted. An object rather than positional
-flags — there are five and they are all booleans, so `viewPanes(true, false, true)` would say
-nothing about which pane was which.
+flags — there are five and they are all booleans, so `viewPanes(true, false, true)` would say nothing
+about which pane was which.
 
 The same flags reach `fromLocation`, so `/timeline` typed at such a project falls through to the
 layout instead of parsing into a screen that cannot be drawn.
@@ -383,42 +348,41 @@ optimism — each is the exception, so the same default would make `/viewport`, 
 
 Directly over the graph: the ring is built top-down as the panes are stacked — frame, arrangement,
 desk, master, chains. A set declares no timeline, so in practice the desk and the graph *are* its
-column, each taking half, which is the point of the desk being a pane at all. A fader on the desk
-is a param on a module in the graph, and the two are now readable at once; `full` is how either
-gets the whole window.
+column, each taking half, which is the point of the desk being a pane at all. A fader on the desk is
+a param on a module in the graph, and the two are readable at once; `full` is how either gets the
+whole window.
 
 The **master strip is last** in that column for two reasons that happen to agree: it is the last
 thing the signal meets, so the stack reads in signal order from the top down; and like the desk it
-is a picture of modules in the graph, so it wants to be next to them. It is shorter than the desk
-— ten sliders rather than two decks — and takes a third of the height instead of a half.
+is a picture of modules in the graph, so it wants to be next to them. It is shorter than the desk —
+ten sliders rather than two decks — and takes a third of the height instead of a half.
 
 ## `mastering`
 
 A picture of ONE node: the three appliances inside a `quick-master` — a three-band compressor, a
 stereo spreader and a limiter — drawn as three boxes in the order the signal meets them.
 
-That is what makes it different in kind from every other surface here. The others draw something
-the PROJECT is: its lanes, its picture, its decks. This one draws a single module's parameters,
-and needs a mapping for the same reason the desk does — the node's *name* is the project's to
-choose, so nothing but the file can say which of them this is.
+That is what makes it different in kind from every other surface here. The others draw something the
+PROJECT is: its lanes, its picture, its decks. This one draws a single module's parameters, and
+needs a mapping for the same reason the desk does — the node's *name* is the project's to choose, so
+nothing but the file can say which of them this is.
 
-The vocabulary is `apps/st0/frontend/src/mastering/controls.ts`, ten ids in three groups
-(`comp.*`, `spread.*`, `limiter.*`), and `SURFACE_MAPPING_SKELETON.mastering` is the scaffold's
-copy of it under the same duplication rule as the desk's — held to it by
-`mastering/controls.test.ts` over there.
+The vocabulary is `apps/st0/frontend/src/mastering/controls.ts`, ten ids in three groups (`comp.*`,
+`spread.*`, `limiter.*`), and `SURFACE_MAPPING_SKELETON.mastering` is the scaffold's copy of it under
+the same duplication rule as the desk's — held to it by `mastering/controls.test.ts` over there.
 
 **Nothing normalises on this surface**, and that is where it parts company with
 [viewBindings.md](viewBindings.md). A desk control declares a range of its own and the widget's
 expands it, because a crossfader is a gesture that could drive anything. Here the control IS the
-param: the slider's ends are the module's own widget's when it draws one, and the number under
-the slider is the number sent. A ceiling reading −0.3 dB sends −0.3 dB. A mastering value that had
-been through two scales could not be checked against a meter, and a meter is the only way anybody
-knows whether a master is right.
+param: the slider's ends are the module's own widget's when it draws one, and the number under the
+slider is the number sent. A ceiling reading −0.3 dB sends −0.3 dB. A mastering value that had been
+through two scales could not be checked against a meter, and a meter is the only way anybody knows
+whether a master is right.
 
-There is **no `surfaceIssues` warning** for a project that has a quick-master node and no
-mastering surface, unlike the timeline's and the viewport's. Those two exist because material on
-disk is drawn nowhere without them; a node with no surface is drawn perfectly well — its panel is
-on the graph, where every other module's is. The strip is a convenience, not a missing half.
+There is **no `surfaceIssues` warning** for a project that has a quick-master node and no mastering
+surface, unlike the timeline's and the viewport's. Those two exist because material on disk is drawn
+nowhere without them; a node with no surface is drawn perfectly well — its panel is on the graph,
+where every other module's is. The strip is a convenience, not a missing half.
 
 See `apps/st0/frontend/docs/mastering.md` for the screen, and
 `engine/moteur/docs/quickMaster.md` for what the node actually does to the sound.
@@ -430,52 +394,51 @@ satisfies from the link its shell already holds; see that package's
 [docs/hosting.md](../../ui-turntables/docs/hosting.md).
 
 A turntables surface plays a **set**, and it says which one: `playlist:`, a name under the
-workspace's `_playlists/` ([playlists.md](playlists.md)). That is what the desk's song browser
-lists — the twelve songs to hand tonight rather than the two hundred on the volume.
+workspace's `_playlists/` ([playlists.md](playlists.md)). That is what the desk's song browser lists
+— the twelve songs to hand tonight rather than the two hundred on the volume.
 
-**The only surface type with parameters of its own**, and the schema refuses them on the other
-two: a `timeline` or a `viewport` draws no song browser, so a playlist on one names something
-nothing reads. Refused rather than ignored, for the reason the object is `.strict()` — a field
-that is accepted and does nothing sends whoever wrote it looking elsewhere.
+**The only surface type with parameters of its own**, and the schema refuses them on the other two:
+a `timeline` or a `viewport` draws no song browser, so a playlist on one names something nothing
+reads. Refused rather than ignored, for the reason the object is `.strict()` — a field that is
+accepted and does nothing sends whoever wrote it looking elsewhere.
 
-It is OPTIONAL, like `mapping` and for the same reason: a desk that names none still draws and
-says so on its browser, which is a sentence you can act on. Refusing the file would refuse to
-open the project over a set list nobody has chosen yet.
+It is OPTIONAL, like `mapping` and for the same reason: a desk that names none still draws and says
+so on its browser, which is a sentence you can act on. Refusing the file would refuse to open the
+project over a set list nobody has chosen yet.
 
 `stems:` is the second, and follows every one of those rules. `stems: true` lets a record put on a
-deck unprepared get separated then and there, with the progress shown on the knobs that will use
-it. Absent is again a state rather than a fault: the knobs grey with the reason, and the whole set
-list can be prepared in advance with `playlist stems` instead.
+deck unprepared get separated then and there, with the progress shown on the knobs that will use it.
+Absent is again a state rather than a fault: the knobs grey with the reason, and the whole set list
+can be prepared in advance with `playlist stems` instead.
 
-It is a BOOLEAN, and it named a chain for exactly one afternoon. Which module separates and which
-model it wants is one answer for the machine — `system stems`, kept in `<state>/preferences.yaml`
-— and asking a project for it made three surfaces spell the same thing. What a set decides is
-whether an hour of arithmetic may start because somebody put a record on, which is worth deciding
-per set: a rehearsal rig and a stage rig answer it differently. See
-[ui-turntables/docs/stems.md](../../ui-turntables/docs/stems.md).
+It is a BOOLEAN. Which module separates and which model it wants is one answer for the machine —
+`system stems`, kept in `<state>/preferences.yaml` — and asking a project for it would make three
+surfaces spell the same thing. What a set decides is whether an hour of arithmetic may start because
+somebody put a record on, which is worth deciding per set: a rehearsal rig and a stage rig answer it
+differently. See [ui-turntables/docs/stems.md](../../ui-turntables/docs/stems.md).
 
 A playlist is not desk-specific and is not the project's either — it is a document in the
-repository, shared by every project in the workspace and written in st0 under the cog. That is
-why bringing the desk to st0 needed no set-list concept invented for st0: an `.st0` folder whose
-`surfaces/` names a playlist is a set ([setProject.md](setProject.md)).
+repository, shared by every project in the workspace and written in st0 under the cog. So an `.st0`
+folder whose `surfaces/` names a playlist is a set ([setProject.md](setProject.md)), with no set-list
+concept invented for st0.
 
 ### One writer for one engine
 
 The desk drives the engine by **sending a whole `ProjectDoc`**: `sendDecks` takes the compiled
 project (`GET /engine-doc`), fills the decks' clips into it (`withDecks`) and plays the result.
 
-**The file service is the only writer**, because it is what loads st0's project into the engine
-in the first place. Two writers for one engine means whichever wrote last wins: a save during a
-set drops the decks' clips, a deck gesture undoes a change the service just applied.
-`Deck.sendProject` is the seam that keeps it to one — st0 posts to `POST /engine/project`, which
-the service forwards on its own link. Taking a `Deck` rather than an `EngineClient` is what
-makes this a parameter rather than a fork: `sendDecks` knows nothing about a socket.
+**The file service is the only writer**, because it is what loads st0's project into the engine in
+the first place. Two writers for one engine means whichever wrote last wins: a save during a set
+drops the decks' clips, a deck gesture undoes a change the service just applied. `Deck.sendProject`
+is the seam that keeps it to one — st0 posts to `POST /engine/project`, which the service forwards on
+its own link. Taking a `Deck` rather than an `EngineClient` is what makes this a parameter rather
+than a fork: `sendDecks` knows nothing about a socket.
 
 #### The ordering rule, in one place
 
-Inside the service (`engineLink.ts`) a browser-supplied document is held as `clientDoc` and
-becomes the **pattern clock's base**, so it goes out through the same single `sendProject` the
-disk-driven push uses — a strudel lane still overlays its events onto it. While one is in force:
+Inside the service (`engineLink.ts`) a browser-supplied document is held as `clientDoc` and becomes
+the **pattern clock's base**, so it goes out through the same single `sendProject` the disk-driven
+push uses — a strudel lane still overlays its events onto it. While one is in force:
 
 | event | what happens | why |
 |---|---|---|
@@ -484,5 +447,5 @@ disk-driven push uses — a strudel lane still overlays its events onto it. Whil
 | a different project is served | **dropped** | a document naming the previous set's tracks must not play over the next project |
 | the engine is unloaded | **dropped** | nothing is being served |
 
-`clientProject.test.ts` pins all four. The rule is tested; the *screen* is not — nothing here
-mounts a component, so the desk has to be watched running.
+`clientProject.test.ts` pins all four. The rule is tested; the *screen* is not — nothing here mounts
+a component, so the desk has to be watched running.

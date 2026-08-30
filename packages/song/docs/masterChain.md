@@ -1,183 +1,177 @@
-# `MIX` et `OUT` — les deux sorties, et la chaîne entre elles
+# `MIX` and `OUT` — the two outputs, and the chain between them
 
-> L'image a la même paire, `RENDER` et `VIDEO_OUT`, bâtie sur tout ce que dit cette page —
-> avec **une** différence qui compte : elle est ajoutée toute seule.
-> Voir [videoOutputs.md](videoOutputs.md).
+> The picture has the same pair, `RENDER` and `VIDEO_OUT`, built on everything this page says —
+> with **one** difference that counts: it is added on its own.
+> See [videoOutputs.md](videoOutputs.md).
 
-Un graphe a **deux** sorties intégrées pour le son de la salle — plus `CUE`, le casque, qui est la
-seule à quitter vraiment la somme ([cue.md](cue.md)) :
+A graph has **two** built-in outputs for the room's sound — plus `CUE`, the headphones, the only
+one that really leaves the sum ([cue.md](cue.md)):
 
-| nom | ce que c'est |
+| name | what it is |
 |---|---|
-| `MIX` | la **somme du mixeur** — là où finit la chaîne de chaque piste. Ne porte aucun paramètre : un niveau appartient à ce qui **sort** |
-| `OUT` | la **sortie réelle**, l'interface — et le seul nœud intégré qui porte un paramètre, `Volume`, le niveau de sortie du morceau ([masterVolume.md](masterVolume.md)). C'est ce dont le vumètre d'en-tête répond, et ce que son bouton Fix écrit |
+| `MIX` | the **mixer's sum** — where each track's chain ends. Carries no parameter: a level belongs to what goes **out** |
+| `OUT` | the **real output**, the interface — and the only built-in node carrying a parameter, `Volume`, the song's output level ([masterVolume.md](masterVolume.md)). It is what the header meter answers for, and what its Fix button writes |
 
 ```yaml
 # graph.yaml
 modules:
   gtr:      [ ampli ]
-  ampli:    [ MIX ]        # la piste arrive à la somme, comme toutes les autres
-  MIX:      [ compresseur ]  # …et voici la CHAÎNE MASTER
-  compresseur: [ egaliseur ]
-  egaliseur:   [ OUT ]       # qui repart vers l'interface
+  ampli:    [ MIX ]        # the track reaches the sum, like every other
+  MIX:      [ compressor ] # …and here is the MASTER CHAIN
+  compressor: [ eq ]
+  eq:         [ OUT ]      # which goes back out to the interface
 ```
 
-Le run entre les deux est la **chaîne master** : ses modules traitent le mix entier. C'est la
-raison des deux noms — un `OUT` seul ne laisse nulle part où poser un traitement sur l'ensemble.
+The run between the two is the **master chain**: its modules process the whole mix. That is the
+reason for two names — an `OUT` alone leaves nowhere to put a treatment on the whole.
 
-**Une chanson sans chaîne master ne coûte aucun son.** `masterPlugins` part vide, et `MIX` et
-`OUT` sont un seul fil.
+**A song without a master chain costs no sound.** `masterPlugins` starts empty, and `MIX` and `OUT`
+are a single wire.
 
-## Ce que ça n'est PAS
+## What it is NOT
 
-À écrire clairement, parce que la lecture naturelle des deux noms est plus forte que ce que le
-code fait :
+Worth stating plainly, because the natural reading of the two names is stronger than what the code
+does:
 
-> **Router une piste sur `OUT` ne court-circuite pas la chaîne master.**
+> **Routing a track to `OUT` does not bypass the master chain.**
 
-Dans Tracktion **toute** piste alimente le bus master, et la chaîne master est posée sur la liste
-de plugins de ce bus. Une piste câblée sur `OUT` la traverse donc comme les autres. Les deux noms
-sont aujourd'hui une **notation** — ce qui rend le run master exprimable — et non deux
-destinations distinctes.
+In Tracktion **every** track feeds the master bus, and the master chain sits on that bus's plugin
+list. A track wired to `OUT` therefore passes through it like the others. The two names are a
+**notation** — what makes the master run expressible — and not two distinct destinations.
 
-Un vrai contournement demande une piste routée hors du bus master, sur un output device séparé. Ce
-mécanisme **existe** désormais — c'est `TrackDoc.outputChannels`, et [cue.md](cue.md) est ce qui
-l'a amené — mais il n'est pas branché sur `OUT` : seul `CUE` le nomme. `OUT` en fin de chaîne de
-piste veut donc toujours dire la même chose que `MIX`, et le script de migration ci-dessous les met
-d'accord.
+A real bypass needs a track routed off the master bus, onto a separate output device. That
+mechanism exists — `TrackDoc.outputChannels`, which [cue.md](cue.md) uses — but it is not wired to
+`OUT`: only `CUE` names it. `OUT` at the end of a track chain therefore means the same as `MIX`,
+and the migration script below makes them agree.
 
-Le brancher sur `OUT` serait une décision sur **chaque** projet du dépôt, pas une notation à
-corriger — la même famille que « rendre `out` en série », posée dans [ports.md](ports.md).
+Wiring it to `OUT` would be a decision about **every** project in the repository, not a notation to
+correct — the same family as "make `out` serial", posed in [ports.md](ports.md).
 
-## L'ordre sur le bus, et le prix qu'il coûte
+## The order on the bus, and what it costs
 
 ```
-pistes -> [ chaîne master ] -> masterVolume -> vumètre -> tap de diffusion -> interface
+tracks -> [ master chain ] -> masterVolume -> meter -> broadcast tap -> interface
 ```
 
-L'ordre suit le graphe : `MIX -> [ chaîne ] -> OUT`, et `masterVolume` est le paramètre `Volume`
-que porte `OUT` ([masterVolume.md](masterVolume.md)). Tout ce qui vient après, c'est le moteur qui
-regarde le signal qui **part** — ce qui est justement l'intérêt de le regarder.
+The order follows the graph: `MIX -> [ chain ] -> OUT`, and `masterVolume` is the `Volume`
+parameter `OUT` carries ([masterVolume.md](masterVolume.md)). Everything after that is the engine
+watching the signal that **leaves** — which is the point of watching it.
 
-- ces plugins **sont** le mix, et le niveau de sortie en est la dernière étape plutôt qu'une
-  décision posée par-dessus ;
-- le vumètre et le bouton Fix répondent donc du mix traité, sortie comprise — et c'est ce qui
-  permet à Fix d'écrire `OUT` et de voir le témoin d'écrêtage s'éteindre à la passe suivante ;
-- un auditeur du flux entend ce que la pièce entend, niveau de sortie inclus.
+- those plugins **are** the mix, and the output level is its last stage rather than a decision laid
+  on top;
+- the meter and the Fix button therefore answer for the processed mix, output included — and that
+  is what lets Fix write `OUT` and see the clip indicator go out on the next pass;
+- a listener on the stream hears what the room hears, output level included.
 
-**Le prix, énoncé plutôt que caché :** un limiteur posé là est en amont du vumètre, donc le témoin
-d'écrêtage cesse de voir la somme brute qu'il existe pour attraper. Fix continue de fonctionner —
-il baisse la sortie, qui est en aval du limiteur — mais il n'a plus grand-chose à attraper, et
-c'est à savoir avant de poser un limiteur.
+**The price, stated rather than hidden:** a limiter placed there is upstream of the meter, so the
+clip indicator stops seeing the raw sum it exists to catch. Fix still works — it lowers the output,
+downstream of the limiter — but it has little left to catch, and that is worth knowing before
+placing a limiter.
 
-## Modifier la chaîne master ARRÊTE la lecture
+## Changing the master chain STOPS playback
 
-`diff()` compare `masterPlugins` **en bloc** et toute différence force une reconstruction
-complète — donc la lecture s'arrête, le temps de rebâtir l'Edit.
+`diff()` compares `masterPlugins` **as a block** and any difference forces a full rebuild — so
+playback stops while the Edit is rebuilt.
 
-Volontairement plus grossier que le diff des plugins d'une piste, qui ajoute et retire en place
-justement pour ne pas couper le son. Deux raisons : la liste master n'est pas sur le chemin
-incrémental (celui-ci parcourt les *pistes*), et surtout régler le bus de mix est une décision
-qu'on prend entre deux passes, là où tripoter la chaîne d'une piste est exactement le contraire.
+Deliberately coarser than the per-track plugin diff, which adds and removes in place precisely so
+as not to cut the sound. Two reasons: the master list is not on the incremental path (which walks
+*tracks*), and above all setting the mix bus is a decision taken between two takes, where fiddling
+with a track's chain is exactly the opposite.
 
-L'**ordre** fait partie de la comparaison : intervertir le compresseur et l'égaliseur laisse les
-deux clés présentes et change le son, donc une comparaison non ordonnée aurait conclu « rien n'a
-bougé ».
+**Order** is part of the comparison: swapping the compressor and the EQ leaves both keys present
+and changes the sound, so an unordered comparison would conclude "nothing moved".
 
-## `MIX: [ OUT ]` — la ligne que porte tout projet
+## `MIX: [ OUT ]` — the line every project carries
 
-Tout projet écrit par un gabarit déclare le trajet, **vide** :
+Every project written by a scaffold declares the run, **empty**:
 
 ```yaml
 modules:
   melody: [ synth-melody ]
   synth-melody: [ MIX ]
-  MIX: [ OUT ]          # la chaîne master : sa place, sans rien dessus
+  MIX: [ OUT ]          # the master chain: its place, with nothing on it
 ```
 
-Elle ne coûte **aucun son** — `masterPlugins` reste vide et le document compilé est exactement
-celui d'un projet qui ne la porte pas, ce que `masterChain.test.ts` épingle. Ce qu'elle apporte est
-ailleurs :
+It costs **no sound** — `masterPlugins` stays empty and the compiled document is exactly that of a
+project without it, which `masterChain.test.ts` pins. What it buys is elsewhere:
 
-- le graphe a une **carte `OUT`** à dessiner, et c'est le nœud qui porte le niveau de sortie
-  ([masterVolume.md](masterVolume.md)) — sans le trajet, rien n'atteint `OUT` et la carte n'existe
-  pas ;
-- il y a un **endroit où déposer un module master**, écrit d'avance, plutôt qu'une ligne à deviner.
+- the graph has an **`OUT` card** to draw, and that is the node carrying the output level
+  ([masterVolume.md](masterVolume.md)) — without the run, nothing reaches `OUT` and the card does
+  not exist;
+- there is a **place to drop a master module**, written in advance, rather than a line to guess.
 
-C'est un endroit au sens propre : le `+` du graphe est offert **sur ce fil-là**, entre les deux
-cartes intégrées (`insertFor`, `packages/ui-chains/docs/graphBuild.md`), et le clic écrit
-`node insert MIX OUT <nœud>`. Un projet qui ne porte pas la ligne voit le fil quand même —
-le graphe le dessine dès que quelque chose atteint la somme — et le verbe l'écrit alors avant
-d'y insérer, pour que le `+` tienne sa promesse d'une seule commande.
+A place in the literal sense: the graph's `+` is offered **on that wire**, between the two built-in
+cards (`insertFor`, `packages/ui-chains/docs/graphBuild.md`), and the click writes
+`node insert MIX OUT <node>`. A project without the line sees the wire anyway — the graph draws it
+as soon as something reaches the sum — and the verb writes it before inserting, so the `+` keeps
+its promise of a single command.
 
-Les quatre gabarits l'écrivent (`scaffold.ts`, `scaffoldSet.ts`, `scaffoldBench.ts`, et
-`chainToBench` pour une chaîne ouverte sur le banc — qui la retire au retour, puisqu'elle est le
-mobilier du PROJET et non de la chaîne éditée).
+The four scaffolds write it (`scaffold.ts`, `scaffoldSet.ts`, `scaffoldBench.ts`, and
+`chainToBench` for a chain opened on the bench — which strips it on the way back, since it is the
+PROJECT's furniture and not the edited chain's).
 
-Un détail que `validate()` doit porter : `from: MIX` est accepté. La somme n'est ni une piste ni
-une chaîne, c'est là où toutes arrivent, et la refuser fait avertir **tous** les projets à la
-fois, au sujet de la seule ligne qui est toujours juste.
+One detail `validate()` has to carry: `from: MIX` is accepted. The sum is neither a track nor a
+chain, it is where all of them arrive, and refusing it warns **every** project at once about the
+one line that is always right.
 
-## Migrer une chanson où `OUT` veut dire « la somme »
+## Migrating a song where `OUT` means "the sum"
 
-`OUT` nomme l'interface ; un fichier peut le nommer là où il veut dire la somme. Le script fait
-les deux pas — réécrire les destinations, puis ajouter le trajet s'il manque :
+`OUT` names the interface; a file may name it where it means the sum. The script does both steps —
+rewrite the destinations, then add the run if it is missing:
 
 ```bash
-npx tsx packages/song/scripts/migrateMixOut.ts <projet.st0>   # ou un dossier de projets
-npx tsx packages/song/scripts/migrateMixOut.ts <projet.st0> --dry
+npx tsx packages/song/scripts/migrateMixOut.ts <project.st0>   # or a folder of projects
+npx tsx packages/song/scripts/migrateMixOut.ts <project.st0> --dry
 ```
 
-Les deux pas sont **indépendants** : un projet qui nomme déjà `MIX` passe le premier garde et
-reçoit quand même le second. Relancer le script sur un projet déjà à jour ne fait rien.
+The two steps are **independent**: a project already naming `MIX` passes the first guard and still
+gets the second. Re-running on an up-to-date project does nothing.
 
-Il réécrit **le texte** et non le YAML relu-réémis, pour la raison habituelle ici : un `graph.yaml`
-est commenté et édité à la main, et le re-sérialiser reformaterait tout le fichier pour changer un
-mot.
+It rewrites **the text** and not re-read, re-emitted YAML, for the usual reason here: a `graph.yaml`
+is commented and hand-edited, and re-serialising would reformat the whole file to change one word.
 
-Comme les deux noms sont aujourd'hui équivalents en fin de chaîne de piste (voir plus haut), cette
-migration ne change **aucun son**. Elle remet le fichier d'accord avec ce que les mots veulent
-dire, avant qu'une vraie distinction n'existe.
+Since the two names are equivalent at the end of a track chain (above), this migration changes **no
+sound**. It brings the file back in line with what the words mean, before a real distinction exists.
 
-## Les couches traversées
+## The layers crossed
 
 | | |
 |---|---|
-| écrit | `graph.yaml` — un run de `MIX` vers `OUT` |
-| dérivé | `chainsGraph.ts` : `MIX` démarre un run, comme `@in` et comme une piste |
-| compilé | `nodeProject.ts` : ce run a pour propriétaire `@master`, et ses étapes deviennent `masterPlugins` |
-| le fil | `@studio/engine-protocol`'s `ProjectDoc.masterPlugins` — toujours envoyé, vide par défaut |
-| décodé | `docFromJson` dans `engine/moteur/server/main.cpp` (via `pluginFromJson`, partagé avec les pistes) |
-| posé | `populateMasterChain` dans `EditBuilder.cpp`, en tête de la liste master — suivi du gain de sortie |
-| dessiné | les cartes `MIX` et `OUT` du graphe (`MAIN_OUT_UI` dans `@studio/ui-chains`), la seconde avec son fader |
-| diffé | `ChangeKind::MasterChainChanged` — reconstruction complète |
-| mesuré | `engine/moteur/scripts/master-chain.ts` |
+| written | `graph.yaml` — a run from `MIX` to `OUT` |
+| derived | `chainsGraph.ts`: `MIX` starts a run, like `@in` and like a track |
+| compiled | `nodeProject.ts`: that run's owner is `@master`, and its steps become `masterPlugins` |
+| the wire | `@studio/engine-protocol`'s `ProjectDoc.masterPlugins` — always sent, empty by default |
+| decoded | `docFromJson` in `engine/moteur/server/main.cpp` (via `pluginFromJson`, shared with tracks) |
+| placed | `populateMasterChain` in `EditBuilder.cpp`, at the head of the master list — followed by the output gain |
+| drawn | the graph's `MIX` and `OUT` cards (`MAIN_OUT_UI` in `@studio/ui-chains`), the second with its fader |
+| diffed | `ChangeKind::MasterChainChanged` — full rebuild |
+| measured | `engine/moteur/scripts/master-chain.ts` |
 
-Une nuance côté dessin, et une seule : **le graphe ne trace aucun câble VERS `MIX`**. Toutes les
-pistes y arrivent — c'est ce qu'est le mixeur — donc ces flèches ne diraient rien que la forme ne
-dise déjà, une par piste, à travers toute l'image. Seul le run qui en PART est dessiné,
-`MIX → [ chaîne master ] → OUT`, indépendant du reste. Le routage ne bouge pas pour autant : le
-moteur lit le document compilé, où chacune de ces pistes arrive toujours à la somme. Voir
+One nuance on the drawing side: **the graph draws no cable TO `MIX`**. Every track arrives there —
+that is what the mixer is — so those arrows would say nothing the shape does not already say, one
+per track, across the whole picture. Only the run LEAVING it is drawn,
+`MIX → [ master chain ] → OUT`, independent of the rest. The routing does not move for that: the
+engine reads the compiled document, where each of those tracks still arrives at the sum. See
 `packages/ui-chains/docs/graphBuild.md`.
 
-Ce qui a un prix, et un seul : l'**ondulation** du câble vivant se propage vers l'avant depuis les
-pistes que le moteur mesure, donc un nœud où rien n'arrive est un nœud qu'elle n'atteint jamais —
-le run master, le câble qui porte toute la chanson, serait le seul immobile pendant la lecture.
-`computeLive` amorce donc la marche à `MIX` aussi, dès qu'une piste est mesurée : ce n'est pas une
-approximation, puisque **toute** piste alimente le bus master quoi que nomme sa chaîne.
+That has one price: the live cable's **ripple** propagates forward from the tracks the engine
+measures, so a node nothing arrives at is a node it never reaches — the master run, the cable
+carrying the whole song, would be the only still one during playback. `computeLive` therefore seeds
+the walk at `MIX` too, as soon as one track is measured: not an approximation, since **every** track
+feeds the master bus whatever its chain names.
 
-## Le vérifier
+## Checking it
 
-Les suites TypeScript prouvent le document, la suite C++ prouve le diff, et **ni l'une ni l'autre
-ne prouve que le plugin a atterri sur le bus**. C'est ce que mesure le harnais :
+The TypeScript suites prove the document, the C++ suite proves the diff, and **neither proves the
+plugin landed on the bus**. That is what the harness measures:
 
 ```bash
 npx tsx engine/moteur/scripts/master-chain.ts
 ```
 
-Il rend deux fois la même note en ne changeant que `masterPlugins`, et compare les crêtes. Avec un
-`volume` à 0 sur le master : −7,5 dBFS sans la chaîne, −100 dBFS avec.
+It renders the same note twice changing only `masterPlugins`, and compares the peaks. With a
+`volume` of 0 on the master: −7.5 dBFS without the chain, −100 dBFS with.
 
-Un piège qui vaut pour tout module : le paramètre s'appelle **`Volume`**, avec la majuscule que le
-plugin publie (`builtinParams.generated.ts`). Une clé en minuscules ne correspond à rien, ne
-déclenche aucune erreur, et le rendu sort **identique** — donc rien ne dit que la casse est fausse.
+A trap that holds for any module: the parameter is called **`Volume`**, with the capital the plugin
+publishes (`builtinParams.generated.ts`). A lower-case key matches nothing, raises no error, and the
+render comes out **identical** — so nothing tells you the case is wrong.

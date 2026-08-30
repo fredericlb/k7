@@ -1,118 +1,102 @@
-# recordings.ts — notes étendues
+# recordings.ts — the recordings zone
 
-Un mot sur le vocabulaire, parce que les deux langues cohabitent ici : le **stockage** et le
-**code** sont en anglais (`songs/`, `recordings/`, `addSong`), la **prose** et l'**interface**
-sont en français. Un `songs/` contient des *morceaux*, un `recordings/` des *enregistrements*.
-Les deux onglets s'appellent « Morceaux » et « Enregistrements » à l'écran.
+Two languages live here: **storage** and **code** are English (`songs/`, `recordings/`, `addSong`),
+the **prose** and the **interface** are French — the two tabs read « Morceaux » and
+« Enregistrements » on screen.
 
-## Une zone à la racine, pas une famille, pas un *kind*
+## A root zone, not a family, not a *kind*
 
 ```
-<racine>/
-  songs/        ← famille : les morceaux, <artiste>/<album>/<titre>/, catalogués
-  samples/      ← famille
-  modules/      ← famille
-  library/      ← zone : les assets qu'un module nomme (ir/, nam/)
-  recordings/   ← zone : les enregistrements, <YYYY-MM-DD>/<HH-MM-SS>.<ext>
+<root>/
+  songs/        ← family: the songs, <artist>/<album>/<title>/, catalogued
+  samples/      ← family
+  modules/      ← family
+  library/      ← zone: the assets a module names (ir/, nam/)
+  recordings/   ← zone: the recordings, <YYYY-MM-DD>/<HH-MM-SS>.<ext>
 ```
 
-**Pas une quatrième famille.** `Family` est un type que tout le monde consomme — le scan,
-les jetons, le manifeste, le pupitre, le cache. En ajouter une pour quelque chose qui ne
-produit aucune entrée coûterait un `switch` partout, pour des branches vides.
+**Not a fourth family.** `Family` is a type everyone consumes — the scan, the tokens, the manifest,
+the desk, the cache. Adding one for something that produces no catalogue entry would cost a `switch`
+everywhere, for empty branches.
 
-**Pas un sous-dossier de `songs/` non plus.** Un enregistrement n'a ni titre, ni artiste,
-ni pochette : c'est une heure et des octets. Un millier de fichiers `21-05-07.mp3` noierait
-trois cents morceaux dans la liste, et la recherche ne pourrait rien en faire — aucun champ
-à interroger.
+**Not a subfolder of `songs/` either.** A recording has no title, no artist, no cover: it is a time
+and some bytes. A thousand `21-05-07.mp3` files would drown three hundred songs in the list, and
+search could do nothing with them — no field to query. The filing would then say the opposite of what
+the screen shows: `recordings` is a **section**, level with the other three, and in a repository
+where the filesystem *is* the catalogue, a section living inside another's folder is a lie that
+eventually costs. Two chores vanish with the choice — no hole to dig in the family's manifest, no
+token to borrow from it.
 
-Le rangement dirait alors le contraire de ce que l'écran montre : `recordings` est une
-**section**, au même rang que les trois autres, et dans un dépôt où le système de fichiers *est*
-le catalogue, une section qui vit dans le dossier d'une autre est un mensonge qui finit par
-coûter. Deux bricoles disparaissent avec ce choix — pas de trou à creuser dans le manifeste de la
-famille, pas de jeton à lui emprunter.
+**This zone is what draws the line**, and that is why `songs/` has no provenance subfolder: filing
+songs under `imported/` / `recorded/` would be a second, worse answer to the question this page
+answers — what is catalogued, and what is raw ([songs.md](songs.md)). `library/` is the same thing, a
+root folder that is not a family; the zone follows that precedent rather than inventing one.
 
-**C'est cette zone qui trace la frontière**, et c'est pourquoi `songs/` n'a aucun sous-dossier de
-provenance : ranger les morceaux en `imported/` / `recorded/` serait une deuxième réponse, moins
-bonne, à la question à laquelle cette page répond — qu'est-ce qui est catalogué, et qu'est-ce qui
-est brut. Voir [songs.md](songs.md).
+So `scanFamily("songs")` does not see it and `/list?family=…` never mentions it — not an oversight,
+and tested (`recordings.test.ts`, "what the zone is NOT").
 
-`library/` est exactement cela : un dossier racine qui n'est pas une famille. La zone suit ce
-précédent plutôt que d'en inventer un.
+## Outside the manifests, so outside the caches
 
-Conséquence, et c'est ce qui est voulu : `scanFamily("songs")` ne la voit pas,
-`/list?family=…` n'en parle jamais, et rien de tout cela n'est un oubli — c'est testé
-(`recordings.test.ts`, « what the zone is NOT »).
+`manifest()` takes a **family**. The zone is not one: no possible argument reaches it, so it does not
+sync — structurally, and not through a filter someone could forget to maintain. A cache downloads
+what a manifest lists; these files enter no catalogue, so mirroring them would fill every disk with
+bytes no surface can name or play. The hosted volume keeps them, the machines do not pull them back.
+Should a recording need to play from a deck, the path is to **promote** it to a song, not to widen
+the manifest.
 
-## Hors des manifestes, donc hors des caches
+## The time comes from the caller, when it knows it
 
-`manifest()` prend une **famille**. La zone n'en est pas une : aucun argument possible ne
-l'atteint, donc elle ne se synchronise pas — structurellement, et non par un filtre qu'on
-pourrait oublier de maintenir.
+`POST /api/mediatek/recording?filename=…&at=<ISO>` — `at` is the moment of the **recording**, not of
+the upload, and it is optional:
 
-C'est voulu. Un cache télécharge ce qu'un manifeste liste ; ces fichiers n'entrent dans
-aucun catalogue, donc les mirroiter remplirait chaque disque d'octets qu'aucune surface ne
-sait ni nommer ni jouer. Le volume hébergé les garde, les machines ne les rapatrient pas.
-
-Si un jour un enregistrement doit se jouer depuis une platine, le chemin est de le
-**promouvoir** en morceau — pas d'élargir le manifeste.
-
-## L'heure vient de l'appelant, quand il la connaît
-
-`POST /api/mediatek/recording?filename=…&at=<ISO>` — `at` est le moment de l'**enregistrement**,
-pas celui de l'envoi, et il est facultatif :
-
-| appelant | `at` | pourquoi |
+| caller | `at` | why |
 |---|---|---|
-| un enregistreur qui pousse en direct | absent | l'horloge du serveur dit la même chose |
-| un lot rapatrié le lendemain | fourni | sinon la séance entière atterrit sous la mauvaise date |
-| le bouton de la médiathèque | la mtime du fichier | pour un enregistrement, c'est son heure |
+| a recorder pushing live | absent | the server clock says the same thing |
+| a batch pulled back the next day | supplied | otherwise the whole session lands under the wrong date |
+| the médiathèque's button | the file's mtime | for a recording, that is its time |
 
-Un `at` illisible est un **400**, pas un repli silencieux sur maintenant : un appelant qui a
-pris la peine d'en envoyer un se soucie de l'endroit où le fichier atterrit, et aujourd'hui
-est la seule réponse qu'il ne voulait certainement pas.
+An unreadable `at` is a **400**, not a silent fallback to now: a caller that took the trouble to send
+one cares where the file lands, and today is the one answer it certainly did not want.
 
-Le jour et l'heure sont **locaux**, pas UTC. Une répétition qui finit à 00h30 se range au
-jour que la personne qui jouait appellerait « hier soir ».
+Day and time are **local**, not UTC. A rehearsal ending at 00:30 files under the day the person
+playing would call "last night".
 
-## Les moments sont dans le même dossier de jour
+## Moments live in the same day folder
 
-Un moment est un extrait découpé dans une séance : une heure, une durée et, parfois, un
-nom. Les trois sont dans le nom du fichier.
+A moment is an excerpt cut out of a session: a time, a duration and sometimes a name. All three are
+in the filename.
 
 ```
-recordings/2026-08-03/21-05-07.webm                          ← la séance
-recordings/2026-08-03/moment-21-01-30--15--Le solo.webm      ← un extrait, nommé
-recordings/2026-08-03/moment-21-01-30--15.webm               ← un extrait, anonyme
+recordings/2026-08-03/21-05-07.webm                          ← the session
+recordings/2026-08-03/moment-21-01-30--15--The solo.webm      ← an excerpt, named
+recordings/2026-08-03/moment-21-01-30--15.webm               ← an excerpt, anonymous
 ```
 
-Le même dossier que les enregistrements, et non un sous-dossier : **un moment EST un
-enregistrement**, plus court. Les séparer ferait de « qu'est-ce qu'on a joué ce soir-là »
-deux endroits.
+The same folder as the recordings, not a subfolder: **a moment IS a recording**, shorter. Separating
+them would make "what did we play that night" two places.
 
-L'heure est celle où l'extrait a été **joué** — le début de la séance plus sa position
-dedans — et non celle où quelqu'un l'a annoté, qui peut être trois jours plus tard. La zone
-range par heure de jeu ; un moment n'y fait pas exception.
+The time is when the excerpt was **played** — the session's start plus its offset — not when someone
+annotated it, which may be three days later. The zone files by playing time; a moment is no
+exception.
 
-`--` sépare les champs, donc un nom qui porte sa propre suite de tirets est réduit à un
-seul. Rien ne re-parse ce nom — les métadonnées restent chez l'appelant — mais quelqu'un
-qui lit `moment-21-05-07--15--Solo` ne doit pas avoir à deviner où finit la durée.
+`--` separates the fields, so a name carrying its own run of dashes is reduced to a single one.
+Nothing re-parses that name — the metadata stays with the caller — but someone reading
+`moment-21-05-07--15--Solo` should not have to guess where the duration ends.
 
-## Deux fichiers à la même seconde ne sont pas un conflit
+## Two files on the same second are not a conflict
 
-Le nom pris gagne `-2`, `-3`… Deux micros qui s'arrêtent ensemble, c'est un après-midi
-ordinaire, pas une erreur à signaler.
+The taken name wins a `-2`, `-3`… Two microphones stopping together is an ordinary afternoon, not an
+error to report.
 
-C'est l'inverse de `addSong`, qui répond 409 quand le dossier déduit est occupé — et les
-deux ont raison, parce que le doublon ne veut pas dire la même chose : là-bas, deux envois
-qui déduisent un même dossier sont presque toujours **le même morceau** deux fois ; ici,
-deux fichiers à la même seconde sont **deux fichiers**.
+The opposite of `addSong`, which answers 409 when the deduced folder is occupied — and both are right,
+because the duplicate does not mean the same thing: there, two uploads deducing one folder are almost
+always **the same song** twice; here, two files on the same second are **two files**.
 
-## L'API est la voie principale
+## The API is the main road
 
-La route est derrière le même `bearerOrSession` que le reste de la bibliothèque (voir
-`apps/pl8/backend/src/server.ts`). Un enregistreur sans navigateur n'a donc rien de
-particulier à faire : il présente un jeton d'API — celui que `POST /api/token` délivre — et
-pousse ses octets bruts.
+The route sits behind the same `bearerOrSession` as the rest of the library (see
+`apps/pl8/backend/src/server.ts`), so a recorder with no browser has nothing special to do: it
+presents an API token — the one `POST /api/token` issues — and pushes raw bytes.
 
 ```bash
 curl -X POST \
@@ -123,32 +107,25 @@ curl -X POST \
 # → { "ok": true, "path": "recordings/2026-08-03/21-05-07.mp3", "day": "…", "name": "…" }
 ```
 
-Corps brut et non multipart, pour la raison qui vaut déjà pour `PUT /file` : un
-enregistrement d'une heure ne doit jamais devenir un champ dans un parseur de formulaire.
+Raw body and not multipart, for the reason that already holds for `PUT /file`: an hour-long recording
+must never become a field in a form parser.
 
-Le bouton de la médiathèque envoie exactement la même requête, une par fichier. Un envoi
-partiel est un vrai résultat : les fichiers passés sont dans la zone, et l'interface les
-montre malgré l'erreur sur les suivants.
+The médiathèque's button sends exactly the same request, one per file. A partial upload is a real
+result: the files that went through are in the zone, and the interface shows them despite the error
+on the ones after.
 
-## Son propre jeton, dans la même carte
+## Its own token, on the same card
 
-`revisions()` rend un jeton par famille **plus celui de la zone**, et `/revision` les sert
-ensemble. L'écran garde donc un seul sondage pour ses quatre onglets, et chacun ne recharge
-que quand le sien a bougé.
+`revisions()` returns one token per family **plus the zone's**, and `/revision` serves them together:
+one poll for four tabs, each reloading only when its own moved. Borrowing `songs`'s would reload an
+identical song list on every recording. Same reason for `summary()` returning four numbers and not
+three — otherwise the fourth tab shows zero until it is clicked.
 
-Emprunter celui de `songs` ferait recharger, à chaque enregistrement, une liste de morceaux
-identique. Un dossier à la racine répond de lui-même.
+## What the section shows
 
-Même raison pour le compte du résumé : `summary()` renvoie quatre nombres, pas trois, sinon
-le quatrième onglet afficherait zéro jusqu'à ce qu'on clique dessus.
+A tab beside the three families, listing days then recordings, newest first, with the size — and
+nothing else, because a recording has no title, no artist and no *kind* to show.
 
-## Ce que la section montre
-
-Un onglet à côté des trois familles. L'arbre de gauche liste les jours puis les
-enregistrements ; le panneau central les reprend jour par jour, du plus récent au plus
-ancien, avec la taille — et rien d'autre, parce qu'un enregistrement n'a ni titre, ni
-artiste, ni *kind* à afficher.
-
-L'arbre n'y écrit pas : renommer un enregistrement produirait un fichier à une heure à
-laquelle il n'a pas été enregistré. C'est la même décision que pour `songs/`, pour une raison
-différente, et dans les deux cas la porte est un bouton d'en-tête.
+The tree does not write there: renaming a recording would produce a file at a time it was not
+recorded at. The same decision as for `songs/`, for a different reason, and in both cases the door is
+a header button.

@@ -1,122 +1,113 @@
-# Le filtre d'une platine
+# A deck's filter
 
-Un potard par platine, sous les trois de l'EQ et séparé d'eux par un trait — ce n'est pas une
-quatrième bande, c'est un autre instrument sur la même tranche. Il commande un module `sweep`
-posé sur cette platine dans le graphe, et comme tout le reste du pupitre le lien est **déclaré**
-dans `views/mix.yaml`.
+One knob per deck, below the three of the EQ and separated from them by a rule — it is not a fourth
+band, it is another instrument on the same strip. It drives a `sweep` module placed on that deck in
+the graph, and like everything else on the desk the link is **declared** in `views/mix.yaml`.
 
-## Un seul paramètre, et c'est la contrainte qui fait le module
+## One parameter, and that constraint is what shapes the module
 
-Un contrôle du pupitre pilote **au plus un** paramètre
-([viewBindings.md](../../../packages/song/docs/viewBindings.md)). Donc « passe-bas ou
-passe-haut » ne peut pas être un second réglage qu'on bascule : il faut que le sens du balayage
-soit lisible dans le seul nombre qu'on envoie.
+A desk control drives **at most one** parameter
+([viewBindings.md](../../../packages/song/docs/viewBindings.md)). So "low-pass or high-pass" cannot
+be a second setting you toggle: the direction of the sweep has to be legible in the single number
+sent.
 
-D'où la forme : `Sweep` va de −100 à +100, et les **deux** filtres sont toujours dans la
-chaîne. Vers la gauche un passe-bas descend, vers la droite un passe-haut monte, et chacun se
-range hors du chemin quand ce n'est pas son tour :
+Hence the shape: `Sweep` runs −100 to +100, and **both** filters are always in the chain. Left, a
+low-pass walks down; right, a high-pass walks up; each parks out of the way when it is not its
+turn:
 
-| position | passe-bas | passe-haut | Q | ce qu'on entend |
+| position | low-pass | high-pass | Q | what you hear |
 |---|---|---|---|---|
-| −100 | 30 Hz | 20 Hz | 6 | il ne reste que le pic qui siffle |
-| 0 | 20 kHz | 20 Hz | 0,707 | **rien** — les deux coins sont hors du matériel |
-| +100 | 20 kHz | 10 kHz | 6 | mince, il ne reste que l'air |
+| −100 | 30 Hz | 20 Hz | 6 | only the peak, whistling |
+| 0 | 20 kHz | 20 Hz | 0.707 | **nothing** — both corners are outside the material |
+| +100 | 20 kHz | 10 kHz | 6 | thin, only air left |
 
-Ce n'est pas un compromis : c'est aussi le fonctionnement du matériel que ça imite.
+Not a compromise: it is also how the hardware this imitates works.
 
-Le neutre est **inaudible plutôt que contourné**. Il n'y a pas de bypass dans ce vocabulaire, et
-un module qu'il faudrait retirer pour être silencieux est un module qu'une chaîne ne peut pas
-automater depuis rien. À 0 les deux coins sont simplement au-delà de ce qu'il y a dans le
-morceau.
+Neutral is **inaudible rather than bypassed**. There is no bypass in this vocabulary, and a module
+you would have to remove to silence is a module a chain cannot automate from nothing. At 0 both
+corners are simply beyond anything in the track.
 
-Il ferme **loin** : 30 Hz, pas quelques centaines de hertz. Un filtre qui s'arrêterait plus haut
-laisse un bourdon boueux ; on attend d'un filtre DJ qu'il enlève le morceau, et le dernier tiers
-de la course — là où il ne reste que le pic qui siffle — est justement la partie qu'on utilise.
+It closes **far**: 30 Hz, not a few hundred hertz. A filter stopping higher leaves a muddy drone; a
+DJ filter is expected to take the track away, and the last third of the travel — where only the
+whistling peak is left — is exactly the part that gets used. The two halves are deliberately
+asymmetric: the high-pass stops at 10 kHz. Past that only air is left, and sweeping the bass away
+is a rise rather than a disappearance.
 
-Les deux moitiés ne sont pas symétriques, et c'est voulu : le passe-haut s'arrête à 10 kHz. À ce
-point il ne reste plus que de l'air, et balayer la basse est une montée plutôt qu'une
-disparition.
+## What makes the *swoosh*: the resonance
 
-## Ce qui fait le *swoosh* : la résonance
+A flat corner sliding over a track only smothers it, gradually and flatly — "a normal filter". The
+swoosh is a **peak travelling with the corner**, lifting a narrow band as it passes. The peak IS
+the effect.
 
-Un Q de 1 — plat, sans pic — sonnerait comme « un filtre normal », parce que c'en serait
-un. Un coin plat qui glisse sur un morceau ne fait que l'étouffer, progressivement
-et platement. Le swoosh que tout le monde connaît est un **pic qui voyage avec le coin**, et
-soulève une bande étroite au passage. Le pic EST l'effet.
+Resonance **rises** with distance from centre: 0.707 (Butterworth, flat) at rest, 6 at the
+extremes. A filter doing nothing therefore colours nothing, and the size of the gesture decides the
+size of the song. Each half has its **own**: sharing one would leave the high-pass ringing at 20 Hz
+while the low-pass walks down — a peak parked on the sub.
 
-La résonance **monte** avec la distance au centre : 0,707 (Butterworth, plat) au repos, 6 aux
-extrêmes. Un filtre qui ne fait rien ne colore donc rien, et l'ampleur du geste décide de
-l'ampleur du chant. Chaque moitié a la **sienne** : partager une seule laisserait le passe-haut
-sonner à 20 Hz pendant qu'on descend le passe-bas — un pic garé sur le sub.
+**Two stages per side**, so 24 dB/octave and not 12. One pole pair smothers; two are the wall a DJ
+filter raises. The first stage of each pair stays **flat** and only the second resonates: two
+resonant stages at the same frequency multiply their peaks (Q²), a filter that screams before it
+sweeps.
 
-**Deux étages par côté**, donc 24 dB/octave et non 12. Une paire de pôles étouffe ; deux, c'est
-le mur qu'un filtre DJ dresse. Le premier étage de chaque paire reste **plat** et seul le second
-résonne : deux étages résonnants à la même fréquence multiplient leurs pics (Q²), soit un filtre
-qui crie avant même de balayer.
+**`glide` on both corners.** A biquad recomputes its coefficients per **block**, and this is a knob
+you throw: a jump between two blocks is a click, and a burst of jumps is the zipper noise that
+makes a filter sound broken rather than fast.
 
-**`glide` sur les deux coins.** Un biquad recalcule ses coefficients par **bloc**, et c'est un
-potard qu'on lance : un saut entre deux blocs est un clic, et une rafale de sauts est le bruit de
-fermeture éclair qui fait passer un filtre pour cassé plutôt que pour rapide.
+### Measured, not assumed
 
-### Mesuré, pas supposé
+White noise through the filter, each band compared to the same band at neutral (so a peak shows as
+a **positive** number):
 
-Bruit blanc à travers le filtre, chaque bande comparée à la même bande au neutre (donc un pic
-apparaît comme un nombre **positif**) :
-
-| bande | à Sweep = −50 |
+| band | at Sweep = −50 |
 |---|---|
-| 250 Hz | −0,2 dB |
-| 400 Hz | **+1,2 dB** |
-| 600 Hz | **+3,7 dB** |
-| 775 Hz | **+3,9 dB** ← le coin |
-| 1 kHz | −2,2 dB |
-| 1,3 kHz | −9,1 dB |
-| 2,5 kHz | −21,0 dB |
-| 10 kHz | −38,6 dB |
+| 250 Hz | −0.2 dB |
+| 400 Hz | **+1.2 dB** |
+| 600 Hz | **+3.7 dB** |
+| 775 Hz | **+3.9 dB** ← the corner |
+| 1 kHz | −2.2 dB |
+| 1.3 kHz | −9.1 dB |
+| 2.5 kHz | −21.0 dB |
+| 10 kHz | −38.6 dB |
 
-Un pic net posé sur un mur de 24 dB/octave, plat en dessous. C'est ça, le swoosh.
+A sharp peak on a 24 dB/octave wall, flat below.
 
-Le **trim** final ne reprend que −3 dB aux extrêmes. À −6 il mangerait le pic exactement là où
-le pic est l'intérêt (+1,2 dB au coin, mesuré), et la saturation qu'il préviendrait est
-théorique : le filtre retire 14 dB au signal entier à ce réglage. Ce qui reste empêche un Q de 6
-posé sur un kick à 30 Hz de coûter son master à quelqu'un.
+The final **trim** takes back only −3 dB at the extremes. At −6 it would eat the peak exactly where
+the peak is the point (+1.2 dB at the corner, measured), and the clipping it would prevent is
+theoretical: the filter removes 14 dB from the whole signal at that setting. What is left stops a Q
+of 6 on a 30 Hz kick from costing someone their master.
 
-### Le piège qui rend le filtre muet
+### The trap that makes the filter silent
 
-`geolerp` **trie ses deux bornes** côté moteur (`jmin`/`jmax`, pour qu'un graphe ne puisse pas
-demander un rapport négatif). Une paire décroissante ne casse donc pas : elle se lit comme son
-propre miroir. Écrit de la façon évidente — `geolerp(20000, 30, down)` — ce filtre se pose à
-**30 Hz au repos** et s'ouvre quand on balaye : le silence, potard au neutre. Mesuré à
-−62 dBFS contre un témoin à −24.
+`geolerp` **sorts its two bounds** engine-side (`jmin`/`jmax`, so a graph cannot ask for a negative
+ratio). A descending pair therefore does not break: it reads as its own mirror. Written the obvious
+way — `geolerp(20000, 30, down)` — this filter parks at **30 Hz at rest** and opens as you sweep:
+silence, knob at neutral. Measured at −62 dBFS against a −24 control.
 
-Pour descendre, on garde la paire croissante et on inverse le trajet :
-`geolerp(30, 20000, sub(1, t))`. Le builder **refuse** une paire décroissante littérale, avec le
-message qui donne l'autre écriture — l'erreur est attrapée là où l'auteur est. Deux tests la
-figent.
+To sweep down, keep the ascending pair and reverse the journey: `geolerp(30, 20000, sub(1, t))`.
+The builder **refuses** a literal descending pair, with the message that gives the other spelling —
+the error is caught where the author is. Two tests pin it.
 
-⚠️ Le module `audio/filter/lowpass` de la médiathèque a exactement le même défaut :
-`geolerp(20000, 200, t)`, donc son `Amount` fonctionne **à l'envers** de ce que sa doc annonce
-(fermé à 0, ouvert à 100). Il est dans le catalogue de pl8, pas dans ce dépôt.
+⚠️ The mediatek's `audio/filter/lowpass` module has exactly the same defect:
+`geolerp(20000, 200, t)`, so its `Amount` works **backwards** from what its doc announces (closed
+at 0, open at 100). It is in pl8's catalogue, not in this repository.
 
-## Le chemin, et la synchro dans les deux sens
+## The path, and sync both ways
 
-C'est un module `jsdsp`, donc un **vrai plugin** : le compilateur cuit son graphe dans le
-document (2046 octets), le moteur le charge, et le potard prend le chemin du crossfader —
-`set-plugin-param`, à chaque pixel. Rien de spécial pour lui.
+It is a `jsdsp` module, so a **real plugin**: the compiler bakes its graph into the document
+(2046 bytes), the engine loads it, and the knob takes the crossfader's path — `set-plugin-param`,
+every pixel. Sync with the graph therefore comes free, by the same mechanism as the EQ: the engine
+reports what a plugin is set to whatever surface set it, and desk and graph read the same
+`deck.params`. Measured against the running engine: it loads the plugin, announces `Sweep` with its
+−100…+100 range and its default 0, accepts −80 and reports it back.
 
-La synchro avec le graphe vient donc gratuitement, par le même mécanisme que l'EQ : le moteur
-rapporte ce à quoi un plugin est réglé quelle que soit la surface qui l'a réglé, et pupitre et
-graphe lisent le même `deck.params`. Mesuré contre le moteur qui tourne : il charge le plugin,
-annonce `Sweep` avec sa plage −100…+100 et son défaut 0, accepte −80 et le renvoie.
+That is the difference from the tempo, which needs a channel of its own because it compiles into no
+plugin — see [deckSet.md](deckSet.md).
 
-C'est la différence avec le tempo, qui a besoin d'un canal à lui parce qu'il ne compile en
-aucun plugin — voir [deckSet.md](deckSet.md).
-
-## Où il est dans la chaîne
+## Where it is in the chain
 
 ```
 deckA → tempoA → eqA → filterA → crossfade → OUT
 ```
 
-**Dernier des trois.** C'est l'effet qu'une main lance, celui qu'on veut par-dessus ce que l'EQ
-a déjà fait — plutôt que d'égaliser après coup ce que le filtre vient de laisser passer.
+**Last of the three.** It is the effect a hand throws, the one you want on top of what the EQ has
+already done — rather than equalising after the fact what the filter has just let through.

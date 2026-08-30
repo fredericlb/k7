@@ -1,184 +1,175 @@
-# Audit — vitesse du côté web
+# Audit — speed on the web side
 
-Le pendant de [engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md)
-pour tout ce qui n'est pas du C++ : le service de fichiers, le compilateur, les surfaces — plus le
-FIL, où les deux se rejoignent. Ce qui reste au C++ seul (le rappel audio, `applyFull`, les
-drapeaux de compilation) est chez lui, pas ici.
+The counterpart to [engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md)
+for everything that is not C++: the file service, the compiler, the surfaces — plus the WIRE, where
+the two meet. What belongs to C++ alone (the audio callback, `applyFull`, the compile flags) stays
+there.
 
-Il reprend sa règle de méthode, qui est la seule qui compte ici :
+It takes that page's method rule, the only one that matters here:
 
-> **Mesurer à travers deux compilations n'est pas mesurer.**
+> **Measuring across two builds is not measuring.**
 
-Un chiffre pris avant un `npm i`, un redémarrage ou un changement de machine ne se compare pas
-à un chiffre pris après. Ce qui se compare, ce sont deux bras dans la même invocation.
+A number taken before an `npm i`, a restart or a change of machine does not compare with one taken
+after. What compares is two arms of the same invocation.
 
-## De quoi mesurer
+## What to measure with
 
-Trois benchs, `npm run bench` dans chacun des trois paquets :
+Three benches, `npm run bench` in each of three packages:
 
-| cible | paquet | ce qu'elle isole |
+| target | package | what it isolates |
 |---|---|---|
-| `compileNodeProject` | `song` | le compilateur, disque compris |
-| `buildGraphDoc` | `file-service` | la vue chaînes, **sans** les extents de clips — ceux-là sont le compilateur, et deux coûts pliés en un ne veulent rien dire |
-| `buildGraph` | `ui-chains` | l'arithmétique nœuds/arêtes + dagre, **sans disque** : cette fonction prend un `WebGraph`, pas un dossier |
+| `compileNodeProject` | `song` | the compiler, disk included |
+| `buildGraphDoc` | `file-service` | the chains view, **without** clip extents — those are the compiler, and two costs folded into one mean nothing |
+| `buildGraph` | `ui-chains` | node/edge arithmetic + dagre, **no disk**: this function takes a `WebGraph`, not a folder |
 
-La fixture est **synthétique et paramétrée par la taille** (`packages/song/src/benchProject.ts`,
-publiée par la porte `./testSupport` déjà existante plutôt que par un sous-chemin de plus — voir
-`docs/inventaire.md` sur les sous-chemins que personne n'importe). Les projets committés sous
-`demos/` tiennent UNE piste : une fixture d'une piste mesurerait le démarrage et rien
-d'autre. Deux tailles, 8 et 64 pistes, parce que ce qui se lit est la **courbe** — un coût qui
-double quand le morceau double va bien, un coût qui quadruple est le constat.
+The fixture is **synthetic and parameterised by size** (`packages/song/src/benchProject.ts`,
+published through the existing `./testSupport` door rather than one more subpath — see
+`docs/inventaire.md` on subpaths nobody imports). The projects committed under `demos/` hold ONE
+track: a one-track fixture would measure startup and nothing else. Two sizes, 8 and 64 tracks,
+because what is read is the **curve** — a cost that doubles when the song doubles is fine, a cost
+that quadruples is the finding.
 
-Le dossier finit en `.st0`, et ce n'est pas cosmétique : le service décide qu'un dossier est un
-projet d'après son NOM. Un dossier temporaire nu compile parfaitement à travers `@studio/song` et
-reste invisible pour `Workspace` — les deux moitiés du harnais doivent pouvoir l'ouvrir.
+The folder ends in `.st0`, and that is not cosmetic: the service decides a folder is a project by
+its NAME. A bare temporary folder compiles perfectly through `@studio/song` and stays invisible to
+`Workspace` — both halves of the harness have to be able to open it.
 
-## Ce que les chiffres disent
+## What the numbers say
 
-| | 8 pistes | 64 pistes | rapport |
+| | 8 tracks | 64 tracks | ratio |
 |---|---|---|---|
-| `buildGraph` (sans disque) | 0,046 ms | 0,365 ms | **×8** |
-| `compileNodeProject` | 13,4 ms | 68,1 ms | ×5 |
-| `buildGraphDoc` | 13,5 ms | 68,5 ms | ×5 |
+| `buildGraph` (no disk) | 0.046 ms | 0.365 ms | **×8** |
+| `compileNodeProject` | 13.4 ms | 68.1 ms | ×5 |
+| `buildGraphDoc` | 13.5 ms | 68.5 ms | ×5 |
 
-Trois choses tombent de là, et aucune ne se voit à la lecture du code :
+Three things fall out, none of them visible from reading the code:
 
-- **`buildGraph` est exactement linéaire.** Huit fois les pistes, huit fois le temps. dagre et
-  l'arithmétique du graphe ne sont pas un problème et n'ont pas besoin qu'on les regarde.
-- **Les deux autres coûtent la même chose à la milliseconde près.** `buildGraphDoc` ne compile
-  pas le projet ici — et il coûte pourtant ce que coûte le compilateur. Les deux sont donc
-  dominés par un troisième coût qu'ils partagent : la lecture des modules sur le disque.
-- **La grande taille a ±36 à 40 % de variance** (min 17 ms, max 92 ms sur la même mesure), là où
-  la petite en a ±1,5 %. C'est un cache qui tantôt touche et tantôt manque, et c'est la marche
-  d'empreinte des modules — voir plus bas.
+- **`buildGraph` is exactly linear.** Eight times the tracks, eight times the time. dagre and the
+  graph arithmetic are not a problem and need no attention.
+- **The other two cost the same to the millisecond.** `buildGraphDoc` does not compile the project
+  here — and it still costs what the compiler costs. Both are therefore dominated by a third cost
+  they share: reading the modules off disk.
+- **The large size has ±36 to 40 % variance** (min 17 ms, max 92 ms on the same measurement), where
+  the small one has ±1.5 %. That is a cache sometimes hitting and sometimes missing, and it is the
+  module stamp walk — below.
 
-## Ce que coûte chaque route
+## What each route costs
 
-Mesuré sur le vrai poste, sur `lemo_mante/01.danse.st0` — un morceau de 15 pistes dans un dépôt
-de 721 répertoires — huit passes par point, en millisecondes :
+Measured on the real workstation, on `lemo_mante/01.danse.st0` — a 15-track song in a repository of
+721 directories — eight passes per point, in milliseconds:
 
 | | ms | |
 |---|---|---|
-| `GET /workspace` | 0,01 | la liste est tenue ; 25,8 sur le rebalayage, une fois toutes les 5 s |
-| `GET /project-errors` | 29,2 | une seule marche d'empreinte, prise en portée |
-| `GET /project-doc` | 4,9 | mémoïsé ; c'est la marche du jeton |
-| `GET /graph` | 4,8 | idem, 62 ms à froid |
-| `GET /module-libraries` | 14,4 | pas de cache — voir plus bas |
-| les marches d'une commande qui ÉCRIT | 16 | une seule traversée par phase (`walkProject` / `withWalk`) |
-| les six routes d'un rechargement | 108 | 230 sans le watcher de dossiers de modules |
+| `GET /workspace` | 0.01 | the list is held; 25.8 on the rescan, once every 5 s |
+| `GET /project-errors` | 29.2 | one stamp walk, taken in scope |
+| `GET /project-doc` | 4.9 | memoised; this is the token walk |
+| `GET /graph` | 4.8 | same, 62 ms cold |
+| `GET /module-libraries` | 14.4 | no cache — below |
+| the walks of a command that WRITES | 16 | one traversal per phase (`walkProject` / `withWalk`) |
+| the six routes of a reload | 108 | 230 without the module-folder watcher |
 
-Le service est **un seul processus** : tout ça fait la queue.
+The service is **one process**: all of that queues.
 
-Le compromis de `/workspace` est écrit et testé : un dossier apparu derrière le dos du service
-(un `git pull`, un `mkdir` à la main) se voit au balayage suivant et pas au sondage suivant.
-`cachedProjectDoc` refuse ce marché, et doit le refuser — une COMPILATION périmée se trompe avec
-assurance sur une chanson. Une liste de projets en retard de cinq secondes est un sélecteur qui
-n'a pas encore vu un dossier : une attente, pas un mensonge.
+`/workspace`'s trade-off is written down and tested: a folder appearing behind the service's back (a
+`git pull`, a hand `mkdir`) shows on the next scan and not the next poll. `cachedProjectDoc` refuses
+that bargain, and must — a stale COMPILE is confidently wrong about a song. A project list five
+seconds behind is a picker that has not yet seen a folder: a wait, not a lie.
 
-Le balayage descend DANS un projet — un projet peut en nicher un autre — donc s'arrêter au
-premier reconnu serait une règle que ce dépôt n'a jamais eue. Un test le fige, avec le projet en
-profondeur (`albums/winter.st0`).
+The scan descends INTO a project — a project can nest another — so stopping at the first one
+recognised would be a rule this repository has never had. A test pins it, with the deep project
+(`albums/winter.st0`).
 
-## L'empreinte des modules — le premier poste
+## The module stamp — the top cost
 
-C'est le premier poste de dépense de tout ce voisinage : **19 ms** par marche, et ce sont ces
-19 ms, pas le clone profond de `loadModules` (0,21 ms sur 575 refs), qui font la variance des
-gros projets. Elle vaut ce qu'elle protège — une lecture de 295 ms — donc le remède n'est pas de
-la supprimer mais de la payer moins souvent.
+It is the top cost in this whole neighbourhood: **19 ms** per walk, and it is those 19 ms, not
+`loadModules`'s deep clone (0.21 ms over 575 refs), that make the variance of large projects. It is
+worth what it protects — a 295 ms read — so the remedy is not to remove it but to pay it less often.
 
-### Elle ne peut pas être moins chère
+### It cannot be cheaper
 
-Mesuré sur la chanson de référence : **329 `readdir` = 11,7 ms, 419 `stat` = 11,9 ms**,
-moitié-moitié.
+Measured on the reference song: **329 `readdir` = 11.7 ms, 419 `stat` = 11.9 ms**, half and half.
 
-- `readdirSync(recursive: true)` ne gagne rien (23,6 ms contre 23,5) : il stat en interne pour
-  décider de descendre. Impasse.
-- Les 419 `stat` sont sur des fichiers dont le contenu est VRAIMENT lu : 291 `module.yaml`,
-  42 `ui.yaml`, 68 fichiers de `nodes/`. Restent une quinzaine de `jsdsp.ts` et `.vstpreset`
-  dont seul le CHEMIN est retenu — 4 % du total. Rétrécir `DEFINITION` ne vaut pas son risque.
-- La mtime d'un DOSSIER ne bouge pas quand le contenu d'un fichier change (NTFS), donc elle ne
-  peut pas remplacer les `stat` de fichiers. C'est ce qui ferme la porte.
-- Un cache à l'horloge est refusé par `moduleCache.ts` lui-même, et à raison : le dépôt écrit
-  des fichiers de module dans ses tests puis les relit aussitôt.
+- `readdirSync(recursive: true)` gains nothing (23.6 ms against 23.5): it stats internally to decide
+  whether to descend. Dead end.
+- The 419 `stat`s are on files whose content is REALLY read: 291 `module.yaml`, 42 `ui.yaml`, 68
+  files under `nodes/`. That leaves a dozen or so `jsdsp.ts` and `.vstpreset` of which only the PATH
+  is kept — 4 % of the total. Shrinking `DEFINITION` is not worth its risk.
+- A DIRECTORY's mtime does not move when a file's content changes (NTFS), so it cannot replace the
+  file `stat`s. That is what closes the door.
+- A clock-based cache is refused by `moduleCache.ts` itself, and rightly: the repository writes
+  module files in its tests and reads them straight back.
 
-### Elle se paie une fois par dérivation, pas une fois par lecture
+### It is paid once per derivation, not once per read
 
-`withModuleStamp` et `withRevision` sont des portées **ré-entrantes** : une portée imbriquée sur
-le même projet trouve celle qui est ouverte (`if (scope?.dir === dir) return fn()`) au lieu d'en
-ouvrir une neuve et de rejeter l'empreinte déjà payée. Le contrat est figé par un test, et il est
-exigeant dans les deux sens : à l'intérieur d'une portée, les dossiers de modules sont tenus pour
-immobiles, et l'appel imbriqué doit honorer la MÊME promesse plutôt que re-vérifier en douce.
+`withModuleStamp` and `withRevision` are **re-entrant** scopes: a scope nested on the same project
+finds the open one (`if (scope?.dir === dir) return fn()`) instead of opening a new one and throwing
+away the stamp already paid. A test pins the contract, and it is demanding both ways: inside a
+scope, module folders are held to be still, and the nested call must honour the SAME promise rather
+than quietly re-checking.
 
-Le jeton de révision regarde deux fichiers HORS du projet, parce que deux fichiers hors du projet
-décident de ces réponses : le cache de scan du moteur (`<state>/exts.json`, d'où sortent les
-modules `@engine/…`) et les préférences de la machine (`<state>/preferences.yaml`, d'où sort
-l'étiquette d'un canal). Deux `stat` de plus sur une marche qui en fait des centaines, et c'est
-dans le JETON plutôt que dans chaque cache, parce que c'est une propriété de « qu'est-ce qui a
-changé », pas de l'un des lecteurs.
+The revision token looks at two files OUTSIDE the project, because two files outside the project
+decide those answers: the engine's scan cache (`<state>/exts.json`, source of the `@engine/…`
+modules) and the machine's preferences (`<state>/preferences.yaml`, source of a channel's label).
+Two more `stat`s on a walk that does hundreds, and it is in the TOKEN rather than in each cache,
+because it is a property of "what has changed", not of one of the readers.
 
-### Et sous une marche par route, grâce au watcher
+### And under one walk per route, thanks to the watcher
 
-Une portée ne va pas plus loin qu'une dérivation, et six routes sont six requêtes : descendre
-sous six marches par rechargement demande de tenir l'empreinte ENTRE deux requêtes.
-`@studio/song` a pour cela une couture d'une ligne — `useFoldersStill(fn)`, un booléen — et rien
-d'autre : ni watcher, ni horloge, ni dépendance. `false` veut dire « marche », et c'est ce que
-reçoit tout ce qui n'installe rien : les tests, un script. Le watcher est dans le service de
-fichiers, seul processus qui vive assez longtemps pour tenir des poignées, avec un plafond de dix
-secondes parce que `fs.watch` perd des événements — sans plafond, un seul événement perdu
-laisserait le vocabulaire périmé POUR DE BON. Rationale complet :
-`packages/file-service/docs/moduleWatch.md`.
+A scope goes no further than one derivation, and six routes are six requests: getting under six
+walks per reload means holding the stamp BETWEEN requests. `@studio/song` has a one-line seam for
+that — `useFoldersStill(fn)`, a boolean — and nothing else: no watcher, no clock, no dependency.
+`false` means "walk", and that is what everything installing nothing gets: the tests, a script. The
+watcher is in the file service, the only process living long enough to hold handles, with a
+ten-second ceiling because `fs.watch` loses events — without a ceiling, one lost event would leave
+the vocabulary stale FOR GOOD. Full rationale: `packages/file-service/docs/moduleWatch.md`.
 
-**Un watcher ne suffit pas : le processus qui écrit doit le DIRE aussi.** `fs.watch` livre ses
-événements au tick suivant, donc une commande qui écrit un fichier de module puis reconstruit le
-graphe — une seule requête, synchrone — demande avant que son propre événement n'arrive, et le
-plafond de dix secondes n'aide pas : ces dix secondes-là sont justement celles qui comptent. D'où
-`moduleFoldersMoved()`, câblé sur `Workspace.invalidateProjectDoc`, le point de passage unique de
-« quelque chose a changé ». Délibérément brutal, toutes les écritures et pas seulement celles d'un
-module : savoir lesquelles c'est déjà savoir la réponse, et une marche de plus après une écriture
-est exactement ce qu'une écriture coûtait de toute façon. La leçon vaut pour tout cache adossé à
-un watcher : les deux sources doivent être branchées, pas l'une ou l'autre.
+**A watcher is not enough: the writing process must SAY so too.** `fs.watch` delivers its events on
+the next tick, so a command that writes a module file and then rebuilds the graph — one request,
+synchronous — asks before its own event arrives, and the ten-second ceiling does not help: those ten
+seconds are exactly the ones that count. Hence `moduleFoldersMoved()`, wired to
+`Workspace.invalidateProjectDoc`, the single crossing point of "something changed". Deliberately
+blunt, every write and not only a module's: knowing which ones is already knowing the answer, and
+one more walk after a write is exactly what a write cost anyway. The lesson holds for any
+watcher-backed cache: both sources must be wired, not one or the other.
 
-## Ce qui est laissé tel quel, sciemment
+## Left as it is, knowingly
 
-- **`/module-libraries` ne gagne rien à être mis en cache.** Le seul jeton honnête pour lui est
-  l'empreinte des modules, qui balaie les mêmes arbres et coûte 19 ms là où la marche en coûte 14 :
-  le cache coûterait plus cher que ce qu'il évite. Et la profondeur ne peut pas être réduite —
-  l'onglet Bibliothèques passe les sous-arbres tels quels à `foldModules`, qui a besoin du contenu
-  d'un dossier de module pour en faire une ligne.
-- **`setCachedProjectDoc` appelle `revision()` au MILIEU de la mutation**, donc hors de toute
-  portée, donc une marche de plus pour toute commande qui passe par `applyProject` (mute, solo, un
-  fader). Elle ne peut pas être partagée : elle décrit un instant qui n'est ni l'avant ni l'après.
-  La supprimer voudrait dire que le doc compilé se donne un jeton qu'il n'a pas mesuré, ce qui est
-  exactement le mensonge que `cachedProjectDoc` refuse.
+- **`/module-libraries` gains nothing from caching.** Its only honest token is the module stamp,
+  which walks the same trees and costs 19 ms where the route costs 14: the cache would cost more
+  than it saves. And the depth cannot be reduced — the Libraries tab passes the subtrees as they are
+  to `foldModules`, which needs a module folder's content to make a row of it.
+- **`setCachedProjectDoc` calls `revision()` in the MIDDLE of the mutation**, so outside any scope,
+  so one more walk for every command going through `applyProject` (mute, solo, a fader). It cannot
+  be shared: it describes an instant that is neither the before nor the after. Removing it would
+  mean the compiled doc gives itself a token it did not measure, which is exactly the lie
+  `cachedProjectDoc` refuses.
 
-## Ce qui est déjà bon, et qu'il ne faut pas re-suspecter
+## Already good, and not to be re-suspected
 
-- **Le sondage `/revision` est unique et recompté** (`useRevision.ts`), requêtes en vol
-  supprimées. Il n'existe **aucun** second timer sur cette route. Les autres timers visent
-  d'autres routes et sont tous conditionnés.
-- **Le clone de `loadModules` coûte 0,21 ms**, pas 19 (ci-dessus). Ne pas le re-suspecter.
-- **Les cinq gros composants React respectent la règle des feuilles** de
-  [timeline.md](../apps/st0/frontend/docs/timeline.md) : chaque lecteur à 20 Hz est son propre
-  composant, et `Grid`, `RulerTicks`, `ClipContent`, `Node`, `Widget` sont mémoïsés sur des props
-  primitives. Et la règle a une limite : « une feuille » est le bon remède quand quelque chose est
-  DESSINÉ, pas quand une valeur est simplement transmise à du code impératif — là, le bon nombre de
-  composants est zéro, et le lecteur s'abonne au magasin directement.
-- **`buildGraph` est linéaire** (ci-dessus). Ne pas y toucher pour la vitesse.
+- **The `/revision` poll is single and refcounted** (`useRevision.ts`), in-flight requests dropped.
+  There is **no** second timer on that route. The other timers target other routes and are all
+  conditional.
+- **`loadModules`'s clone costs 0.21 ms**, not 19 (above).
+- **The five large React components follow the leaf rule** of
+  [timeline.md](../apps/st0/frontend/docs/timeline.md): each 20 Hz reader is its own component, and
+  `Grid`, `RulerTicks`, `ClipContent`, `Node`, `Widget` are memoised on primitive props. The rule
+  has a limit: "a leaf" is the right remedy when something is DRAWN, not when a value is merely
+  handed to imperative code — there, the right number of components is zero, and the reader
+  subscribes to the store directly.
+- **`buildGraph` is linear** (above). Do not touch it for speed.
 
-## Comment vérifier un changement ici
+## How to verify a change here
 
-1. `npm run bench` dans le paquet concerné, avant et après, **sur la même machine et sans
-   réinstallation entre les deux**.
-2. Pour un coût qui ne se lit pas au chronomètre — un parcours de répertoire, une allocation, une
-   trame envoyée — compter l'appel plutôt que le mesurer : un compteur temporaire DANS le module
-   mesuré, une socket brute qui compte les trames, `getWatched()` qui rend ce que chokidar tient.
-   Un entier ne fluctue pas. Ce qui ne marche PAS : remplacer `fs.readdirSync` depuis un script,
-   parce que les imports nommés d'un module `node:` sont figés à la liaison — le compteur reste à
-   zéro sans rien dire.
-3. `npx turbo run test --continue` reste le filet : une optimisation qui change une réponse est
-   une régression, pas une optimisation.
-4. Pour le C++, en plus : `cmake --build --preset windows-msvc`, les **quatre** cibles de test
-   nommées puis `ctest -R studio_`, et un `--list-audio-devices`. Piège du poste de dev : la
-   session dev reconstruit toute seule, mais `Copy-Item` PRÉSERVE la date du fichier source — un
-   `main.cpp` restauré depuis une copie paraît plus vieux que son `.obj` et MSBuild ne le
-   recompile pas. Le binaire testé est alors l'ancien, et tout a l'air de marcher.
+1. `npm run bench` in the package concerned, before and after, **on the same machine and with no
+   reinstall in between**.
+2. For a cost that does not read on a stopwatch — a directory walk, an allocation, a frame sent —
+   count the call rather than time it: a temporary counter INSIDE the measured module, a raw socket
+   counting frames, `getWatched()` returning what chokidar holds. An integer does not fluctuate.
+   What does NOT work: replacing `fs.readdirSync` from a script, because named imports of a `node:`
+   module are frozen at binding — the counter stays at zero without a word.
+3. `npx turbo run test --continue` stays the net: an optimisation that changes an answer is a
+   regression, not an optimisation.
+4. For C++, additionally: `cmake --build --preset windows-msvc`, the **four** named test targets then
+   `ctest -R studio_`, and a `--list-audio-devices`. Dev-workstation trap: the dev session rebuilds
+   on its own, but `Copy-Item` PRESERVES the source file's date — a `main.cpp` restored from a copy
+   looks older than its `.obj` and MSBuild does not recompile it. The binary tested is then the old
+   one, and everything looks fine.

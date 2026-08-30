@@ -1,96 +1,91 @@
-# Le compositeur — quel quad va où
+# The compositor — which quad goes where
 
-`compositor.ts` est la **mise en place** : une texture par couche, un quad texturé chacune,
-composées du bas vers le haut. Ce que fait le GLSL entre les deux est dans
-[passes.md](passes.md) ; comment l'image suit la lecture est dans [realtime.md](realtime.md).
-Le vocabulaire du document vidéo, lui, est dans `packages/song-video/docs/picture.md`.
+`compositor.ts` is the **placement**: one texture per layer, one textured quad each, composed
+bottom upwards. What the GLSL does in between is [passes.md](passes.md); how the picture follows
+playback is [realtime.md](realtime.md). The video document's vocabulary is
+`packages/song-video/docs/picture.md`.
 
-C'est **l'unique moteur de rendu** que les deux pilotes partagent, parce que `texImage2D` prend un
-`HTMLVideoElement` et un `VideoFrame` de la même façon : le compositeur n'apprend jamais lequel des
-deux le pilote.
+It is the **single renderer** both drivers share, because `texImage2D` takes an
+`HTMLVideoElement` and a `VideoFrame` the same way: the compositor never learns which of the two
+the driver has.
 
-## Il possède son canvas
+## It owns its canvas
 
-Un canvas fourni par React ferait courir deux contextes GL l'un contre l'autre au moindre rendu, donc
-le compositeur crée le sien — sauf pour l'export, qui lui passe un `OffscreenCanvas` dont il est
-propriétaire.
+A canvas handed in by React would race two GL contexts against each other on any render, so the
+compositor makes its own — except for export, which passes it an `OffscreenCanvas` it owns.
 
-Dans les deux cas le **tampon** fait la taille en pixels du viewport, c'est-à-dire celle du modèle,
-et le CSS ne change que l'affichage : `resize()` n'écrit que `style.width/height`. Le rendu est donc
-indépendant de la résolution de l'écran, et une capture d'export est identique à ce qui est à
-l'écran.
+Either way the **buffer** is the viewport's size in pixels, i.e. the model's, and CSS only changes
+the display: `resize()` writes `style.width/height` and nothing else. Rendering is therefore
+independent of screen resolution, and an export capture is identical to what is on screen.
 
-`preserveDrawingBuffer: true` est là pour l'export, qui relit les pixels après le dessin.
+`preserveDrawingBuffer: true` is there for export, which reads the pixels back after the draw.
 
-## Repères et mélange
+## Frames and blending
 
-Le viewport a son origine **en haut à gauche**, l'espace de découpe **en bas à gauche** :
-`rectToClip` fait la conversion et retourne y. Les trames vidéo arrivent aussi de haut en bas alors
-que les textures GL sont de bas en haut, d'où `UNPACK_FLIP_Y_WEBGL` à l'envoi — les coordonnées de
-texture restent ainsi les 0..1 évidents.
+The viewport's origin is **top left**, clip space's is **bottom left**: `rectToClip` converts and
+flips y. Video frames also arrive top-down while GL textures are bottom-up, hence
+`UNPACK_FLIP_Y_WEBGL` on upload — texture coordinates stay the obvious 0..1.
 
-Le mélange est un `over` en alpha **droit** (non prémultiplié), pour qu'un fond de forme puisse se
-mélanger ; sur une texture vidéo, opaque, c'est un no-op. À l'intérieur d'une chaîne de passes il est
-éteint, et [passes.md](passes.md) dit pourquoi.
+Blending is `over` in **straight** (non-premultiplied) alpha, so a shape layer's background can
+blend; on an opaque video texture it is a no-op. Inside a pass chain it is off, and
+[passes.md](passes.md) says why.
 
-### …sauf la couche qui fond, qui est PRÉMULTIPLIÉE
+### …except the layer that is fading, which is PREMULTIPLIED
 
-Une couche en cours de transition est composée avec `blendFunc(ONE, ONE_MINUS_SRC_ALPHA)`, le temps
-de ce seul blit, puis la fonction est remise. Ce n'est pas un détail de goût :
+A layer mid-transition is composed with `blendFunc(ONE, ONE_MINUS_SRC_ALPHA)` for that one blit,
+then the function is put back. Not a matter of taste:
 
-`mix(uFrom, uTo, p)` contre un texel **transparent** donne `rgb·(1−p)` **et** `a = 1−p`. En alpha
-droit, le mélange multiplie ensuite ce rgb déjà assombri par cet alpha : le fondu s'assombrit en
-plus de s'effacer, et un fondu enchaîné plonge par le noir. Prémultipliés, les deux côtés se lisent
-tels quels et **un seul `mix` est à la fois un fondu enchaîné et un fondu vers rien** — c'est ce qui
-fait qu'il n'y a qu'un chemin de code. Une texture vidéo est opaque, donc droit et prémultiplié y
-sont identiques ; seule la couche qui fond change de fonction, et une passe ordinaire garde son
-alpha droit (le `pulse` du morceau de démo le dit dans son fragment).
+`mix(uFrom, uTo, p)` against a **transparent** texel gives `rgb·(1−p)` **and** `a = 1−p`. In
+straight alpha the blend then multiplies that already-darkened rgb by that alpha: the fade darkens
+as well as vanishing, and a crossfade dips through black. Premultiplied, both sides read as they
+are and **one `mix` is both a crossfade and a fade to nothing** — which is what keeps this to one
+code path. A video texture is opaque, so straight and premultiplied are identical there; only the
+fading layer changes function, and an ordinary pass keeps its straight alpha (the demo song's
+`pulse` says so in its fragment).
 
-Le second côté d'une transition est un texel **1×1 transparent** alloué une fois, plutôt qu'un
-branchement dans le GLSL : un `fade_out` n'a pas d'image entrante, et lui en donner une vide est ce
-qui lui évite d'être un cas particulier. Ce qui apparaît alors est la **couche du dessous**, pas du
-noir — le noir n'est que ce qu'on voit quand il n'y a plus de couche.
+The far side of a transition is a **1×1 transparent texel**, allocated once, rather than a branch
+in the GLSL: a `fade_out` has no incoming picture, and handing it an empty one is what saves it
+from being a special case. What appears then is the **layer beneath**, not black — black is only
+what you see when there is no layer left.
 
-`LayerBlend` dit **quels créneaux portent une image cette trame-ci**, au lieu de le déduire de
-`hasFrame` : celui-ci ne redescend jamais, donc il ne peut pas répondre « maintenant ».
+`LayerBlend` says **which slots carry a picture this frame**, instead of deducing it from
+`hasFrame`: that never goes back down, so it cannot answer "now".
 
-`draw` passe par une seule fermeture `bindComposite` plutôt que par deux branches par couche : une
-couche qui a sa propre chaîne doit **revenir** à cette cible après être passée par le brouillon, et
-les deux endroits doivent être d'accord sur laquelle c'est.
+`draw` goes through a single `bindComposite` closure rather than two branches per layer: a layer
+with its own chain has to **return** to that target after going through the scratch, and both
+places must agree on which one it is.
 
-## Les formes passent par un canvas 2D
+## Shapes go through a 2D canvas
 
-C'est toute la raison pour laquelle une couche de formes réutilise le chemin texturé : Canvas2D
-dessine des rectangles, des arcs et du vrai **texte**, et sait lire une couleur CSS — ce que WebGL
-brut ne peut pas faire sans atlas de glyphes. Le rendu est **statique**, donc il a lieu une fois par
-scène, à la résolution du viewport, et le résultat se compose exactement comme une trame vidéo.
+That is the whole reason a shape layer reuses the textured path: Canvas2D draws rectangles, arcs
+and real **text**, and reads a CSS colour — which raw WebGL cannot do without a glyph atlas. The
+render is **static**, so it happens once per scene, at viewport resolution, and the result
+composes exactly like a video frame.
 
-Les conventions, déclarées dans `scene.ts` :
+The conventions, declared in `scene.ts`:
 
-| | ce que ça veut dire |
+| | what it means |
 |---|---|
-| `color` | n'importe quelle couleur que le canvas 2D sait lire |
-| `x, y` d'un carré ou d'un texte | son coin **haut-gauche** |
-| `x, y` d'un cercle | son **centre** |
-| `w` d'un texte | une largeur **maximale** : le canvas condense les glyphes pour tenir, il ne renvoie pas à la ligne (texte d'une seule ligne) |
+| `color` | any colour the 2D canvas can read |
+| `x, y` of a square or of text | its **top-left** corner |
+| `x, y` of a circle | its **centre** |
+| `w` of text | a **maximum** width: the canvas condenses glyphs to fit, it does not wrap (single-line text) |
 
-Chaque forme porte sa propre géométrie, donc le rectangle de la couche est ignoré : une couche de
-formes couvre le viewport entier.
+Each shape carries its own geometry, so the layer's rect is ignored: a shape layer covers the
+whole viewport. Shapes carry no time, so they do not extend `durationSec` — a song of nothing but
+shapes has no natural end to render.
 
-Les formes ne portent pas de temps, donc elles n'allongent pas `durationSec` — un morceau qui n'a
-que des formes n'a pas de fin naturelle à rendre.
+## What is drawn and what is not
 
-## Ce qui est dessiné et ce qui ne l'est pas
-
-Une couche dont aucune trame n'a encore été envoyée est **sautée** : une piste entre deux clips
-laisse voir le fond, plutôt qu'un quad noir ou le reste de la trame précédente. Une couche de formes,
-elle, est marquée dessinable dès la construction de la scène, puisque son upload a déjà eu lieu.
+A layer no frame has been uploaded to yet is **skipped**: a track between two clips shows the
+background, rather than a black quad or the rest of the previous frame. A shape layer is marked
+drawable as soon as the scene is built, its upload having already happened.
 
 ## A picture keeps its shape — `coverUV`
 
 One textured quad per layer, sampled over its whole face, means the texture is STRETCHED into
 whatever rect the layer occupies. A webcam is 4:3 or 16:9, and the frame it lands in is whatever
-the project says: the two are rarely the same, and the difference was visible as a squashed face.
+the project says: the two are rarely the same, and the difference shows as a squashed face.
 
 So the plain program takes a UV transform, `uUV = (scaleX, scaleY, offsetX, offsetY)`, and the
 source is sampled through it: `texture(uTex, vUV * uUV.xy + uUV.zw)`.

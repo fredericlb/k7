@@ -1,70 +1,66 @@
-# Un banc doit vieillir sa fixture
+# A bench must age its fixture
 
-`yamlCache` refuse délibérément de mettre en cache un fichier dont la mtime a moins de
-`SETTLE_MS` (2 s). La raison est écrite dans `yaml/yamlCache.ts` : une mtime trop jeune peut
-encore être reproduite par la réécriture suivante, donc la mettre en clé sert un contenu
-périmé — pour un fichier de clip, l'édition qu'on vient de faire, silencieusement annulée.
+`yamlCache` deliberately refuses to cache a file whose mtime is younger than `SETTLE_MS` (2 s).
+The reason is written in `yaml/yamlCache.ts`: a young mtime can still be reproduced by the next
+write, so keying on it serves stale content — for a clip file, the edit you have just made,
+silently undone.
 
-Un banc qui écrit sa fixture puis mesure **immédiatement** se trouve donc à cheval sur deux
-régimes : pendant les deux premières secondes chaque itération lit, parse et jette — le cache ne
-*peut* pas toucher — et passé la fenêtre il touche toutes les fois. À 64 pistes un banc dure
-~1,5 s, exactement la largeur de la fenêtre, et sa moyenne mélange les deux populations. L'écart
-entre elles est un facteur cinq :
+A bench that writes its fixture and then measures **immediately** therefore straddles two
+regimes: for the first two seconds every iteration reads, parses and throws away — the cache
+*cannot* hit — and past the window it hits every time. At 64 tracks a bench runs ~1.5 s, exactly
+the width of the window, so its mean mixes the two populations. They are a factor of five apart:
 
-| | 1er compile | après la fenêtre |
+| | first compile | past the window |
 |---|---|---|
-| 8 pistes | 19,2 ms | **4,5 ms** |
-| 64 pistes | 109,4 ms | **21,5 ms** |
+| 8 tracks | 19.2 ms | **4.5 ms** |
+| 64 tracks | 109.4 ms | **21.5 ms** |
 
-## Ce que fait `writeBenchProject`
+## What `writeBenchProject` does
 
-Il estampille chaque fichier une heure en arrière (`utimesSync`) juste après l'avoir écrit. Une
-heure plutôt qu'un `sleep` de 2 s : ce qu'on veut n'est pas un banc plus lent, c'est une fixture
-**dans l'état où est un vrai morceau** — des fichiers écrits il y a des jours, que le cache a le
-droit de servir. C'est le régime dans lequel un musicien compile.
+It stamps every file an hour into the past (`utimesSync`) right after writing it. An hour rather
+than a 2 s `sleep`: what we want is not a slower bench but a fixture **in the state a real song
+is in** — files written days ago, which the cache is allowed to serve. That is the regime a
+musician compiles in.
 
-Les clés de la map de fichiers *sont* les chemins relatifs, donc l'estampillage ne fait aucun
-parcours de dossier et n'appelle aucune option de `readdir` qui dépendrait de la version de
-Node (le paquet déclare `>=18`).
+The file map's keys *are* the relative paths, so the stamping walks no directory and calls no
+`readdir` option whose behaviour depends on the Node version (the package declares `>=18`).
 
-## Les chiffres, une fois le régime tenu
+## The numbers, once the regime holds
 
-Même machine, deux bancs joués séquentiellement.
+Same machine, two benches run sequentially.
 
-| banc | temps | rme |
+| bench | time | rme |
 |---|---|---|
-| `compileNodeProject` — 8 pistes | 3,68 ms | ±1,64 % |
-| `compileNodeProject` — 64 pistes | 21,36 ms | ±1,74 % |
-| `buildGraphDoc` — 8 pistes | 4,18 ms | |
-| `buildGraphDoc` — 64 pistes | 35,65 ms | |
+| `compileNodeProject` — 8 tracks | 3.68 ms | ±1.64 % |
+| `compileNodeProject` — 64 tracks | 21.36 ms | ±1.74 % |
+| `buildGraphDoc` — 8 tracks | 4.18 ms | |
+| `buildGraphDoc` — 64 tracks | 35.65 ms | |
 
-Deux choses valent d'être retenues.
+**The two benches do not measure the same thing.** `buildGraphDoc` costs **35.65 ms against
+21.36** — the ~14 ms gap is its own work, the clip extents. In the mixed regime both are
+dominated by the same uncached YAML reads, which return a figure identical to within 0.6 % and
+hide that whole item.
 
-**Les deux bancs ne mesurent pas la même chose.** `buildGraphDoc` coûte **35,65 ms contre
-21,36** — les ~14 ms d'écart sont le travail qui lui est propre, les extents de clips. À régime
-mêlé les deux sont dominés par les mêmes lectures YAML non cachées, qui rendent un chiffre
-identique à 0,6 % près et masquent ce poste entier.
+**The curve is gentle.** 8× the tracks costs 5.8× (compile) and 8.5× (graphDoc).
+`compileNodeProject` is sub-linear per track, so `buildGraphDoc` is the item to watch as a song
+grows.
 
-**La courbe est douce.** 8× les pistes coûtent 5,8× (compile) et 8,5× (graphDoc).
-`compileNodeProject` est donc sous-linéaire par piste, et c'est `buildGraphDoc` qui est le poste à
-surveiller quand un morceau grossit.
+## The rule, which outlives this bench
 
-## La règle, qui dépasse ce banc
+`audit-perf-web.md` opens on "measuring across two compilations is not measuring". This is its
+twin: **measuring across a cache that changes state mid-measurement is not measuring either.** A
+bench must decide which regime it works in and stay there, or its standard deviation is the only
+honest thing it publishes — and a bench at ±40 % cannot validate any change smaller than 40 %,
+which is to say almost none: it only spots a catastrophe.
 
-`audit-perf-web.md` ouvre sur « mesurer à travers deux compilations n'est pas mesurer ». Voici le
-jumeau de cette phrase : **mesurer à travers un cache qui change d'état en cours de mesure n'est
-pas mesurer non plus.** Un banc doit décider dans quel régime il travaille et s'y tenir, sinon son
-écart-type est la seule chose honnête qu'il publie — et un banc à ±40 % ne peut valider aucun
-changement de moins de 40 %, c'est-à-dire presque aucun : il ne sert qu'à repérer une catastrophe.
+So a bench that touches the disk in this repo must age its fixture. The same holds for any
+measurement made by hand: compiling a freshly written project twice in a row gives two numbers
+that do not mean the same thing.
 
-Un banc qui touche au disque dans ce dépôt doit donc vieillir sa fixture. Ce qui vaut aussi pour
-toute mesure faite à la main : compiler deux fois de suite un projet qu'on vient d'écrire donne
-deux nombres qui n'ont pas le même sens.
+## What must NOT be cached
 
-## Ce qu'il ne faut PAS mettre en cache
-
-Le `safeParse` de zod (`loader.ts`) n'est pas mis en cache alors que le parse YAML l'est, et ça
-ressemble au poste suivant. Mesuré : **1,0 % d'un compile à 64 pistes**, 1 à 2,5 % à 8. Et le
-mettre en cache casserait un invariant que `loader.ts` écrit noir sur blanc — le parse caché n'est
-sûr *que parce que* `r.data` est une structure neuve que zod rebâtit, si bien que rien de partagé
-ne sort de la boucle. Mettre `r.data` en cache reviendrait à distribuer un objet partagé.
+Zod's `safeParse` (`loader.ts`) is not cached although the YAML parse is, and it looks like the
+next item along. Measured: **1.0 % of a 64-track compile**, 1 to 2.5 % at 8. And caching it would
+break an invariant `loader.ts` states outright — the cached parse is safe *only because* `r.data`
+is a fresh structure zod rebuilds, so nothing shared escapes the loop. Caching `r.data` would be
+handing out a shared object.

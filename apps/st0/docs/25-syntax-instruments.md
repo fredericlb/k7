@@ -30,8 +30,8 @@ create, so a note costs one file — its node.
 # nodes/notes-amp.yaml — one note
 extends: "@studio/doc"
 content: |
-  Le NAM tire fort : -6 dB avant,
-  sinon ça écrête sur les attaques.
+  The NAM pulls hard: -6 dB before it,
+  or it clips on the attacks.
 ```
 
 …then wire it in `graph.yaml`, like anything else:

@@ -1,61 +1,56 @@
-# Les projets de z0
+# z0's projects
 
-Une session de blindtest se range comme st0 range un morceau : **un dossier de YAML**,
-versionné, ouvert sur un projet. Cette page dit sa forme, déduite des trois sessions réelles
-du document Grist `wBLP4e1P71vAW3T5zzfQtH` — les chiffres cités viennent de là, pas d'une
-supposition.
+A blindtest session is filed the way st0 files a song: **a folder of YAML**, versioned, opened on
+a project. This page states its shape, derived from the three real sessions in the Grist document
+`wBLP4e1P71vAW3T5zzfQtH` — the figures cited come from there.
 
-Le jeu, lui, charge ses manches depuis Grist (`backend/src/grist/`) : rien côté partie ne lit
-ces YAML. C'est l'éditeur qui les écrit — [editor.md](editor.md).
+The game loads its rounds from Grist (`backend/src/grist/`): nothing on the play side reads these
+YAML. The editor is what writes them — [editor.md](editor.md).
 
-## Ce que disent les sessions Grist
+## What the Grist sessions say
 
-| table | lignes | ce qu'on en apprend |
+| table | rows | what it tells us |
 |---|---|---|
-| `Sessions` | 3 | `name`, `guestPassword`, `urlToken`, et l'ordre en `RefList` |
-| `OrderEntries` | 49 | 45 catégories jouées, 4 pauses |
-| `Categories` | 38 | **chacune n'appartient qu'à une seule session** (38/38) |
-| `Songs` | 279 | 9 seulement sont partagés entre deux catégories |
-| `Tracks` | 307 | 12 partagés entre deux morceaux |
-| pièces jointes | 305 | **1,35 Go de MP3**, nommés `Artiste - Titre.mp3` |
+| `Sessions` | 3 | `name`, `guestPassword`, `urlToken`, and the order as a `RefList` |
+| `OrderEntries` | 49 | 45 categories played, 4 breaks |
+| `Categories` | 38 | **each belongs to exactly one session** (38/38) |
+| `Songs` | 279 | only 9 are shared between two categories |
+| `Tracks` | 307 | 12 shared between two songs |
+| attachments | 305 | **1.35 GB of MP3**, named `Artiste - Titre.mp3` |
 
-Cinq observations décident de la forme :
+Five observations decide the shape:
 
-1. **Rien n'est vraiment partagé entre sessions.** Le schéma Grist est un graphe de
-   références parce qu'une table est un graphe ; les données, elles, sont un arbre. Une
-   session peut donc être un dossier autonome sans rien perdre.
-2. **L'ordre est une suite de tranches.** Session 1 : `Stems [0:5]`, puis plus tard
-   `[5:10]`, puis `[10:]` — un bac de 15 morceaux joué en trois passages. La catégorie
-   apparaît trois fois dans l'ordre, avec une fenêtre différente. C'est une vraie
-   intention (« ce bac tient ensemble »), pas un artefact : il faut la garder.
-3. **`trackType` est une variante, et la médiathèque sait déjà les modéliser.** Une
-   catégorie `Stems` joue la piste `type: stems` et révèle la piste `type: ""` du même
-   morceau — deux lignes `Tracks` avec le *même* artiste et le *même* titre. C'est
-   exactement `variants:` dans `song.yaml`
-   (voir [packages/mediatek/docs/variants.md](../../../packages/mediatek/docs/variants.md),
-   dont l'exemple de chaîne s'appelle déjà `blindtest/vocal-strip`). Les 9 morceaux
-   partagés entre deux catégories sont d'ailleurs le même cas : « Take on me » sert de
-   `8bit` dans une catégorie et de `handmade` dans une autre.
-4. **`notice` est du boilerplate.** 24 catégories sur 38 portent exactement la même phrase
-   (`À TROUVER: ARTISTE ET TITRE`) — elle veut un défaut au niveau de la session.
-   `illustration` est vide partout : optionnelle, jamais écrite.
-5. **1,35 Go n'entrent pas dans un dépôt git.** L'audio va dans la médiathèque, le YAML
-   ne porte que l'adresse.
+1. **Nothing is really shared between sessions.** The Grist schema is a graph of references
+   because a table is a graph; the data is a tree. A session can therefore be a self-contained
+   folder without losing anything.
+2. **The order is a sequence of slices.** Session 1: `Stems [0:5]`, then later `[5:10]`, then
+   `[10:]` — a crate of 15 songs played in three passes. The category appears three times in the
+   order with a different window each time. That is a real intention ("this crate hangs
+   together") and has to be kept.
+3. **`trackType` is a variant, and the médiathèque already models those.** A `Stems` category
+   plays the `type: stems` track and reveals the `type: ""` track of the same song — two `Tracks`
+   rows with the *same* artist and title. That is exactly `variants:` in `song.yaml`
+   (see [packages/mediatek/docs/variants.md](../../../packages/mediatek/docs/variants.md), whose
+   example chain is already called `blindtest/vocal-strip`). The 9 songs shared between two
+   categories are the same case: "Take on me" serves as `8bit` in one and `handmade` in another.
+4. **`notice` is boilerplate.** 24 of 38 categories carry the exact same sentence
+   (`À TROUVER: ARTISTE ET TITRE`) — it wants a default at session level. `illustration` is empty
+   everywhere: optional, never written.
+5. **1.35 GB does not go in a git repository.** The audio goes to the médiathèque; the YAML
+   carries only the address.
 
-## Le partage : ce que le YAML garde, ce que la base garde
+## What the YAML keeps, what the database keeps
 
-La ligne est nette et elle vaut la peine d'être écrite :
+> the YAML holds **what an author writes**, the database holds **what a game produces**.
 
-> le YAML tient **ce qu'un auteur écrit**, la base tient **ce qu'une partie produit**.
+So the database — Grist or SQLite, that debate is elsewhere — keeps `Games`, `GamePlayers`,
+`Scores`, `SoloProgress`, `Buzzers`, `Guests`, `Counters`, `Playlists`, `PlaylistScores`. None of
+those describes a session; all of them describe a game played.
 
-Restent donc en base — Grist ou SQLite, ce débat est ailleurs — `Games`, `GamePlayers`,
-`Scores`, `SoloProgress`, `Buzzers`, `Guests`, `Counters`, `Playlists`, `PlaylistScores`.
-Aucune de ces tables ne décrit une session ; toutes décrivent une partie jouée.
+## The shape
 
-## La forme
-
-Comme un `.st0` : un dossier, un fichier d'en-tête, un fichier par entité, et **le nom du
-fichier est l'identifiant**.
+Like a `.st0`: a folder, a header file, one file per entity, and **the file name is the
+identifier**.
 
 ```
 blindtest-2304.z0/
@@ -67,17 +62,16 @@ blindtest-2304.z0/
     …
 ```
 
-Les clés sont en **anglais** et la prose en français : c'est la règle que la médiathèque
-énonce déjà pour `song.yaml` (« le stockage et le code sont en anglais, la prose et
-l'interface sont en français », [songs.md](../../../packages/mediatek/docs/songs.md)).
+Keys are in **English** and prose in French: the rule the médiathèque already states for
+`song.yaml` ([songs.md](../../../packages/mediatek/docs/songs.md)).
 
 ### `session.yaml`
 
 ```yaml
 name: Blindtest 2304
 token: blue                              # l'URL publique (ex-urlToken)
-password: "…"                            # ex-guestPassword, absent = pas de mot de passe
-notice: "À TROUVER : ARTISTE ET TITRE"   # le défaut de toutes les catégories
+password: "…"                            # ex-guestPassword, absent = no password
+notice: "À TROUVER : ARTISTE ET TITRE"   # the default for every category
 
 order:
   - cat: la-chauffe
@@ -95,23 +89,22 @@ order:
     songs: 11-
 ```
 
-`cat:` nomme un fichier de `categories/`, pas le nom affiché : deux entrées qui se suivent
-sur `stems` sont bien la même catégorie découpée. `songs:` est une plage **1-basée et
-inclusive**, bornes ouvertes acceptées (`11-`) ; absente, la catégorie est jouée en entier.
-Elle se lit à l'endroit où on la corrige, ce que `[5:10]` ne fait pas. La conversion depuis
-Grist est mécanique : `start = n-1`, `end = m`.
+`cat:` names a file in `categories/`, not the displayed name: two consecutive entries on `stems`
+really are one category sliced. `songs:` is a **1-based, inclusive** range, open bounds accepted
+(`11-`); absent, the category is played whole. It reads where it is corrected, which `[5:10]`
+does not.
 
-Une pause est `- pause:` — la valeur, si elle est là, est le message affiché à l'écran
+A break is `- pause:` — the value, when present, is the message shown on screen
 (`- pause: Entracte`).
 
-**Le mot de passe invité est en clair**, et c'est un choix : il voyage avec la session, une
-session sans lui n'ouvre à personne, et un fichier local à côté serait celui que personne ne
-pense à copier. C'est un mot de passe de soirée, pas un secret — mais il est en clair dans un
-dépôt git, ce qui veut dire que le changer c'est un commit.
+**The guest password is in clear**, and that is a choice: it travels with the session, a session
+without it opens to nobody, and a local file beside it would be the one nobody thinks to copy. It
+is a party password, not a secret — but it is in clear in a git repository, which means changing
+it is a commit.
 
 ### `categories/<slug>.yaml`
 
-Le cas courant, une piste par morceau :
+The common case, one track per song:
 
 ```yaml
 name: La Chauffe
@@ -123,15 +116,15 @@ songs:
   - song: songs/Daft Punk/Discovery/Harder Better Faster Stronger
 ```
 
-`song:` est l'identifiant médiathèque, c'est-à-dire le chemin relatif à sa racine — le seul
-identifiant stable qu'elle offre (`MediatekEntry.id`). L'artiste et le titre viennent du
-sidecar : ils ne sont plus recopiés ici.
+`song:` is the médiathèque identifier, i.e. the path relative to its root — the only stable
+identifier it offers (`MediatekEntry.id`). Artist and title come from the sidecar and are not
+copied here.
 
-Une catégorie à variante — c'est là que le gain est le plus visible :
+A category with a variant, where the gain is clearest:
 
 ```yaml
 name: Stems
-variant: stems          # ce qui est JOUÉ ; le master est ce qui est RÉVÉLÉ
+variant: stems          # what is PLAYED; the master is what is REVEALED
 songs:
   - song: songs/Zaz/Album inconnu/Je veux
     start: 24.78
@@ -142,23 +135,23 @@ songs:
     end: 196.79
 ```
 
-Deux lignes `Tracks` par morceau disparaissent au profit d'un mot : la piste de révélation
-*est* le master de la même adresse. Même chose pour `8bit` et `handmade`.
+Two `Tracks` rows per song collapse into one word: the reveal track *is* the master at the same
+address. Same for `8bit` and `handmade`.
 
-Le mot `variant:` porte **deux axes sur une seule ligne**, et c'est voulu : une version
-enregistrée (`stems`, `8bit`, `handmade` — un fichier à côté du master) ou un traitement
-(`deformees` — une chaîne que la médiathèque tient). Les deux répondent à la même question,
-« quelle version de ce morceau joue-t-on », et le sidecar sait laquelle des deux il a. Une
-catégorie ne peut pas demander les deux à la fois, et aucune sur le volume ne le fait.
+`variant:` carries **two axes on one line**, deliberately: a recorded version (`stems`, `8bit`,
+`handmade` — a file beside the master) or a treatment (`deformees` — a chain the médiathèque
+holds). Both answer the same question, "which version of this song do we play", and the sidecar
+knows which of the two it has. A category cannot ask for both at once, and none on the volume
+does.
 
-**La règle de résolution est « la version demandée si elle existe, sinon le master ».** Elle
-n'est pas un repli poli, c'est ce que fait déjà le chargeur Grist : un morceau dont la
-catégorie réclame `8bit` alors qu'aucune piste de ce type n'existe se joue tel quel, sans
-audio de révélation distinct. Treize entrées sont dans ce cas, toutes des reprises dont
-personne n'a jamais rangé l'original à côté — leur `original.mp3` **est** la reprise.
+**The resolution rule is "the version asked for if it exists, otherwise the master".** That is
+not a polite fallback, it is what the Grist loader already does: a song whose category asks for
+`8bit` when no track of that type exists plays as it is, with no distinct reveal audio. Thirteen
+entries are in that case, all covers whose original nobody ever filed beside them — their
+`original.mp3` **is** the cover.
 
-Une catégorie à plusieurs pistes par morceau — `fusion` (deux extraits, un jeu de mots) et
-`multi` (cinq extraits joués ensemble) :
+A category with several tracks per song — `fusion` (two extracts, a pun) and `multi` (five
+extracts played together):
 
 ```yaml
 name: Fusion
@@ -175,9 +168,9 @@ songs:
         start: 8.14
 ```
 
-Le générique de série n'a pas d'artiste dans Grist, et personne ne lui en a inventé un : il
-est filé sous `Artiste inconnu`, ce qui est vrai et se corrige d'un renommage. Onze pistes
-sont dans ce cas, toutes des génériques des catégories `fusion`.
+The TV theme has no artist in Grist and nobody invented one: it is filed under
+`Artiste inconnu`, which is true and is fixed by a rename. Eleven tracks are in that case, all
+themes from the `fusion` categories.
 
 ```yaml
 name: Assourdissant
@@ -196,83 +189,79 @@ songs:
         start: 81.45
 ```
 
-`song:` et `tracks:` sont exclusifs : un morceau à une piste s'écrit à plat, un morceau à
-plusieurs pistes ouvre une liste. C'est la seule règle de forme à retenir.
+`song:` and `tracks:` are exclusive: a one-track song is written flat, a multi-track song opens a
+list. That is the only shape rule to remember.
 
-### Le vocabulaire complet
+### The full vocabulary
 
 **Session** — `name`, `token`, `password`, `notice`, `order`.
 
-**Entrée d'ordre** — `cat` + `songs` (plage), ou `pause` (+ message).
+**Order entry** — `cat` + `songs` (range), or `pause` (+ message).
 
-**Catégorie** — `name` (affiché), `mode`, `variant`, `notice`, `illustration`, `liveOnly`,
+**Category** — `name` (displayed), `mode`, `variant`, `notice`, `illustration`, `liveOnly`,
 `songs`.
 
-`mode` vaut `one`, `free`, `slow`, `fusion`, `reversed`, `mystery`, `multi`, ou est absent
-pour le mode normal — ce sont les valeurs que les joueurs lisent déjà, inchangées.
+`mode` is `one`, `free`, `slow`, `fusion`, `reversed`, `mystery`, `multi`, or absent for the
+normal mode — the values players already read.
 
-**Morceau** — `song` **ou** `tracks`, plus `label`, `answer`, `status`
+**Song** — `song` **or** `tracks`, plus `label`, `answer`, `status`
 (`valid` | `to_replace` | absent), `liveOnly`, `speed`, `effects`.
 
-`answer` est un **bloc littéral** (`answer: |`) dès qu'il y a plusieurs orthographes acceptées,
-une par ligne — c'est la forme qu'ont les trente cas de la session 2304.
+`answer` is a **literal block** (`answer: |`) as soon as several spellings are accepted, one per
+line — the form the thirty cases of session 2304 have.
 
-Un traitement s'écrit de deux façons, et les deux coexistent. Quand il est **calculé à la
-lecture**, le morceau porte `effects: { … }` — la carte montrée plus haut dans l'exemple
-`multi`, et celle que `categories/deformees.yaml` écrit morceau par morceau. Quand il est
-**enregistré**, la médiathèque le tient comme une variante que le sidecar nomme : la catégorie
-dit le nom une fois (`variant: deformees`) et chaque morceau le résout vers sa propre chaîne,
-avec ses propres valeurs. À part : `speed`, qui n'est pas un traitement mais une vitesse de
-lecture — aucune chaîne n'a d'horloge. Tout est détaillé dans [effects.md](effects.md).
+A treatment is written two ways, and both coexist. Computed **at playback**, the song carries
+`effects: { … }` — the map in the `multi` example above, and what `categories/deformees.yaml`
+writes song by song. **Recorded**, the médiathèque holds it as a variant the sidecar names: the
+category says the name once (`variant: deformees`) and each song resolves it to its own chain
+with its own values. Apart: `speed`, which is not a treatment but a playback rate — no chain has
+a clock. All of it is in [effects.md](effects.md).
 
-**Piste** — `song` (adresse médiathèque) **ou** `file` (chemin relatif au dossier du
-projet) **ou** `youtube`, plus `start`, `end`, et `artist` / `title` en dérogation quand
-l'adresse ne les donne pas.
+**Track** — `song` (médiathèque address) **or** `file` (path relative to the project folder)
+**or** `youtube`, plus `start`, `end`, and `artist` / `title` as a derogation when the address
+does not give them.
 
-`file:` est la porte de sortie : tout ce que la médiathèque n'a pas — un générique de
-série, un extrait bricolé — reste un fichier dans le projet, avec son artiste et son titre
-écrits sur place. Sans elle, les 11 pistes qui n'ont même pas d'artiste — les génériques de
-série des catégories `fusion` — n'auraient pas où aller.
+`file:` is the way out: anything the médiathèque has not — a TV theme, a home-made extract —
+stays a file in the project, with its artist and title written on the spot. Without it the 11
+tracks that have not even an artist would have nowhere to go.
 
-## Ce que la forme ne porte pas
+## What the shape does not carry
 
-- **Une table d'ordre.** L'ordre est une liste de dix lignes dans `session.yaml`, là où Grist
-  demande une ligne `OrderEntries` par manche.
-- **Les pistes de révélation.** `variant:` dit ce qui est joué ; la révélation est le master de
-  la même adresse, donc il n'y a pas de seconde piste à écrire.
-- **`artist` / `title` recopiés** sur chaque piste : ils viennent du sidecar de la médiathèque.
-- **Les identifiants.** Le nom du fichier EST l'identifiant, donc rien ne relit ni ne réécrit
-  d'`id` pour qu'un réconciliateur distingue une entrée existante d'une nouvelle.
+- **An order table.** The order is a ten-line list in `session.yaml`, where Grist wants one
+  `OrderEntries` row per round.
+- **Reveal tracks.** `variant:` says what is played; the reveal is the master at the same
+  address, so there is no second track to write.
+- **`artist` / `title` copied** onto each track: they come from the médiathèque sidecar.
+- **Identifiers.** The file name IS the identifier, so nothing re-reads or rewrites an `id` for a
+  reconciler to tell an existing entry from a new one.
 
-## Les sessions sur le volume
+## The sessions on the volume
 
 | | |
 |---|---|
-| `session-2304.z0` | 15 catégories, 24 manches, mot de passe invité `blue` |
-| `session-beta-2.z0` | 19 catégories, 20 manches |
-| `offboarding-bedrock.z0` | 4 catégories, 4 manches |
-| médiathèque | **279 morceaux**, **26 variantes** (`stems`, `8bit`, `handmade`) |
+| `session-2304.z0` | 15 categories, 24 rounds, guest password `blue` |
+| `session-beta-2.z0` | 19 categories, 20 rounds |
+| `offboarding-bedrock.z0` | 4 categories, 4 rounds |
+| médiathèque | **279 songs**, **26 variants** (`stems`, `8bit`, `handmade`) |
 
-Leur audio est rangé par `addSong` / `addSongVariant` de `@studio/mediatek` — le code que pl8
-appelle lui-même — donc la forme du dossier et le sidecar sont exactement ceux que la
-médiathèque écrit. `songs/A-Ha/Album inconnu/Take on me/` tient `original.mp3`, `8bit.mp3` et
-`handmade.mp3` sous un seul `song.yaml`, ce qui est la démonstration que le modèle tient.
+Their audio is filed by `addSong` / `addSongVariant` from `@studio/mediatek` — the code pl8 calls
+itself — so the folder shape and the sidecar are exactly the médiathèque's.
+`songs/A-Ha/Album inconnu/Take on me/` holds `original.mp3`, `8bit.mp3` and `handmade.mp3` under
+one `song.yaml`, which is the demonstration that the model holds.
 
-Le contrôle qui compte : les 38 fichiers de catégorie se relisent, chaque `cat:` de chaque
-ordre trouve son fichier, chaque plage `songs:` correspond à sa tranche, et **chacune des 304
-adresses citées existe sur le volume avec un master**.
+The check that counts: the 38 category files re-read, every `cat:` in every order finds its file,
+every `songs:` range matches its slice, and **each of the 304 addresses cited exists on the
+volume with a master**.
 
-### Les deux verrues, dans l'ordre d'urgence
+### The two warts, in order of urgency
 
-1. **`Album inconnu` partout.** Les MP3 sont des rips ré-encodés qui ne portent aucun tag
-   ID3 — pas d'album à en tirer, et Grist n'en a pas non plus. La médiathèque range donc tout
-   sous son propre libellé de trou, qui est fait pour ça et se renomme. Deux morceaux
-   portent `Album inconnu (2)` parce que deux enregistrements différents revendiquent
-   artiste et titre identiques : « Larusso — Tu m'oublieras » (un rip et un clip) et
-   « OST — Star Trek » (le générique et une version à la bouche).
-2. **Treize `original.mp3` qui sont des reprises**, décrit plus haut. Poser le vrai original
-   à côté et la reprise redevient une variante — c'est une opération par morceau, sans
-   toucher au YAML.
+1. **`Album inconnu` everywhere.** The MP3s are re-encoded rips carrying no ID3 tag — no album to
+   take, and Grist has none either. The médiathèque files everything under its own hole label,
+   which is made for that and can be renamed. Two songs carry `Album inconnu (2)` because two
+   different recordings claim the same artist and title: "Larusso — Tu m'oublieras" (a rip and a
+   video) and "OST — Star Trek" (the theme and a mouth version).
+2. **Thirteen `original.mp3` that are covers**, described above. Put the real original beside it
+   and the cover becomes a variant again — one operation per song, touching no YAML.
 
-`HAS_SCAFFOLD.z0` vaut `false` : un `.z0` s'ouvre et se liste depuis la page d'accueil de st0,
-il ne se CRÉE pas depuis « Nouveau projet ».
+`HAS_SCAFFOLD.z0` is `false`: a `.z0` opens and lists from st0's home page; it is not CREATED
+from "Nouveau projet".

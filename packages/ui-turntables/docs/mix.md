@@ -1,4 +1,4 @@
-# La vue Mix — le pupitre
+# The Mix view — the desk
 
 ```
 ┌───┬──────────────┬───┬────────┬───┬──────────────┬───┐
@@ -12,307 +12,282 @@
 ├───┴──────────────┴───┴────────┴───┴──────────────┴───┤
 │ SYNC A ↺ ⟳ Écouter    🎧A 🎧B ♩ ⟳ ▬▬▬· ↺ ⟳ SYNC B │
 └──────────────────────────────────────────────────────┘
-   ↑ le fader BPM, bord extérieur   ↑ la tranche, bord intérieur :
-      puis KEY et le ▶ de CETTE       TRIM, 3 potards d'EQ, le filtre,
-      platine, deux blocs égaux       et l'écho quand il est câblé
+   ↑ tempo fader, outer edge     ↑ the strip, inner edge:
+      then KEY and THIS deck's      TRIM, 3 EQ knobs, the filter,
+      ▶, two equal blocks           and the echo when one is wired
 ```
 
-Au **milieu**, les deux faders de voie avec leur vumètre, et le crossfader dessous : c'est la
-disposition d'une table de mixage, et c'est ce que cette colonne attendait — elle ne portait
-qu'un slider et trois espaceurs.
+In the **middle**, the two channel faders with their meters, and the crossfader below: that is a
+mixer's layout.
 
-Sous chaque vinyle, la waveform qui défile sous la tête de lecture, beats en jaune et
-transitoires en gris — elle a ses propres règles, dans [waveform.md](waveform.md). Sur le
-bord extérieur, le fader de tempo, et aux deux bouts de la barre du bas les boutons SYNC :
-[bpm.md](bpm.md). Sur le bord intérieur, la tranche : le trim, l'EQ ([eq.md](eq.md)), le filtre
-([filter.md](filter.md)) et l'écho ([fx.md](fx.md)). Sous la waveform, les huit repères — appui
-court pour y aller, long pour les poser : [cues.md](cues.md). **Un clic au centre d'un vinyle**
-ouvre le sélecteur de morceaux : [songBrowser.md](songBrowser.md). Dans la barre du bas, le
-métronome, qui n'est proposé que lorsqu'il n'y a qu'un temps — une seule platine, ou deux
-synchronisées : [metronome.md](metronome.md) — le vumètre du master, et par platine les deux
-boutons momentanés, censor et echo-out ([fx.md](fx.md)).
+Under each vinyl, the waveform scrolling under the playhead, beats in yellow and transients in grey
+— its own rules are in [waveform.md](waveform.md). On the outer edge the tempo fader, and at both
+ends of the bottom bar the SYNC buttons: [bpm.md](bpm.md). On the inner edge the strip: trim, EQ
+([eq.md](eq.md)), filter ([filter.md](filter.md)) and echo ([fx.md](fx.md)). Under the waveform the
+eight cue points — short press to go, long to set: [cues.md](cues.md). **A click at the centre of a
+vinyl** opens the song browser: [songBrowser.md](songBrowser.md). In the bottom bar, the metronome,
+offered only when there is a single beat — one deck, or two in sync
+([metronome.md](metronome.md)) — the master meter, and per deck the two momentary buttons, censor
+and echo-out ([fx.md](fx.md)).
 
-Pas d'arbre de fichiers ici. Ce n'est pas que Mix ignore le projet — il joue la playlist que la
-surface de ce projet nomme — c'est que le pupitre veut la largeur. Les fichiers, c'est
-l'Édition.
+No file tree here. Not that Mix ignores the project — it plays the playlist this project's surface
+names — but the desk wants the width. Files are Edit's business.
 
-## La disposition
+## The layout
 
-Deux platines qui se font face, et rien entre elles. Chacune porte son **tempo sur le bord
-extérieur** et sa **tranche sur le bord intérieur** — trois potards d'EQ puis le filtre, à la
-verticale. Les deux tranches se regardent donc de part et d'autre du milieu : le pupitre se lit
-comme un miroir plutôt que comme une répétition, et une main sait sur quelle platine elle est
-sans lever les yeux.
+Two decks facing each other, and nothing between them. Each carries its **tempo on the outer edge**
+and its **strip on the inner edge** — three EQ knobs then the filter, vertically. The two strips
+therefore face each other across the middle: the desk reads as a mirror rather than a repetition,
+and a hand knows which deck it is on without looking up.
 
-Aucune liste de morceaux au milieu : on choisit un morceau **au disque lui-même**, en cliquant
-le centre du vinyle, ce qui est déjà la façon dont on charge une platine (voir
-[songBrowser.md](songBrowser.md)). Une colonne qui répéterait ce que le disque sait déjà
-prendrait la place que les platines veulent. Les cartes d'erreur sont un bandeau au-dessus des
-platines, et ne s'affichent que quand quelque chose ne va pas.
+No song list in the middle: a song is chosen **at the record itself**, by clicking the vinyl's
+centre, which is already how a deck is loaded ([songBrowser.md](songBrowser.md)). A column repeating
+what the record already knows would take the space the decks want. Error cards are a banner above
+the decks, shown only when something is wrong.
 
-## Les vinyles
+## The vinyls
 
-Un disque en SVG : un dégradé radial (un vrai disque se lit parce que la lumière s'y
-déplace), des sillons, et une étiquette au centre qui porte **l'artiste et le titre** de ce
-qui est chargé. Vide, l'étiquette dit « platine A » ou « platine B ».
+An SVG record: a radial gradient (a real record reads because light moves across it), grooves, and a
+centre label carrying **the artist and title** of what is loaded. Empty, the label reads « platine
+A » or « platine B ».
 
-Le disque **se remplit** au fil du morceau — vide à 0 %, plein à 100 % — et porte les repères
-en cercles, chacun dans la couleur de son bouton. Les deux vivent sur une couche qui ne tourne
-PAS, et sont redessinés par frame plutôt que par React : [vinyl.md](vinyl.md).
+The record **fills** as the track plays — empty at 0 %, full at 100 % — and carries the cues as
+circles, each in its button's colour. Both live on a layer that does NOT turn, and are redrawn per
+frame rather than by React: [vinyl.md](vinyl.md).
 
-Le disque tourne quand le transport tourne **et** que cette platine tient quelque chose.
-Deux détails qui ne sont pas décoratifs :
+The record turns when the transport runs **and** this deck holds something. Two details that are not
+decorative:
 
-- **Un sillon plus clair, en pointillé**, décalé dans la pile. Un disque parfaitement
-  uniforme qui tourne a l'air parfaitement immobile ; c'est ce sillon-là qui rend la
-  rotation visible.
-- **L'étiquette ne tourne pas.** Sur une vraie platine si, mais un titre qu'il faut suivre
-  de la tête se lit mal — les logiciels de DJ font le même compromis.
+- **A lighter, dotted groove**, offset in the stack. A perfectly uniform spinning record looks
+  perfectly still; that groove is what makes the rotation visible.
+- **The label does not turn.** On a real deck it does, but a title you have to follow with your head
+  reads badly — DJ software makes the same trade.
 
-`prefers-reduced-motion` arrête l'animation : un disque qui tourne en boucle est exactement
-ce que ce réglage vise, et la platine reste lisible à l'arrêt.
+`prefers-reduced-motion` stops the animation: a record spinning in a loop is exactly what that
+setting targets, and the deck stays legible stopped.
 
-L'artiste vient des tags du morceau ; à défaut — un morceau pas encore dans le cache, donc
-sans sidecar à lire — du **deuxième segment de l'id** (`songs/<artiste>/<album>/<titre>`),
-qui est le dossier sous lequel la médiathèque l'a rangé. Ce n'est pas une devinette.
+The artist comes from the song's tags; failing that — a song not yet in the cache, so with no
+sidecar to read — from the **second segment of the id** (`songs/<artist>/<album>/<title>`), the
+folder the mediatek filed it under. That is not a guess.
 
-## Le crossfade
+## The crossfade
 
-### Il est ENTRE les deux platines, d'un rang de repères à l'autre
+### It is BETWEEN the two decks, from one cue row to the other
 
-Pas en bas. Un crossfader passe d'une platine à l'autre, et le geste se lit s'il a lieu **dans
-l'espace qui les sépare** — la main va de A vers B et le fader va dans le même sens, à la même
-hauteur que les repères qu'elle vient de quitter.
+Not at the bottom. A crossfader moves from one deck to the other, and the gesture reads if it
+happens **in the space that separates them** — the hand goes from A to B and the fader goes the same
+way, at the height of the cues it has just left.
 
-**En hauteur**, il tient cette ligne sans rien mesurer : sa colonne **répète les pièces** de la
-colonne d'à côté — une rangée de la hauteur du disque, puis une de la hauteur de la waveform, puis
-lui. Les trois valeurs viennent du même `deskLayout` que les platines lisent, donc les trois lignes
-ne peuvent pas se désaligner ([deskLayout.md](deskLayout.md)).
+**Vertically**, it holds that line without measuring anything: its column **repeats the pieces** of
+the column beside it — a row of the record's height, then one of the waveform's height, then itself.
+All three values come from the same `deskLayout` the decks read, so the three lines cannot fall out
+of alignment ([deskLayout.md](deskLayout.md)).
 
-**En largeur**, il va de la droite des repères de A à la gauche de ceux de B — donc il dépasse sa
-propre colonne, par-dessus les deux tranches. C'est un débord assumé (`CROSSFADE_BLEED`), et la
-valeur n'est pas devinée : c'est le `gap-4` de la rangée, la tranche (`w-16`) et le `gap-2` de la
-platine, soit exactement la distance du bord de cette colonne au bord d'un rang de repères. Les
-tranches centrent leurs potards verticalement, donc à la ligne des repères il n'y a rien sous le
-fader.
+**Horizontally**, it runs from the right of A's cues to the left of B's — so it overruns its own
+column, over both strips. A deliberate bleed (`CROSSFADE_BLEED`), and the value is not guessed: it
+is the row's `gap-4`, the strip (`w-16`) and the deck's `gap-2`, exactly the distance from this
+column's edge to the edge of a cue row. The strips centre their knobs vertically, so at the cue line
+there is nothing under the fader.
 
-> La seule colonne où ça se dispute est une colonne **si courte** que la tranche remplit toute sa
-> hauteur — l'échelle de `stripLayout` choisissant alors son plus petit cran sans y arriver. C'est
-> le même cas que `deskLayout` traite déjà en laissant la waveform déborder, et il est déjà
-> inutilisable pour d'autres raisons.
+> The only column where that contends is one so short that the strip fills its whole height —
+> `stripLayout`'s scale then picking its smallest notch and still not fitting. The same case
+> `deskLayout` already handles by letting the waveform overflow, and already unusable for other
+> reasons.
 
-Le pourcentage sous le fader suit la même règle que le titre : il ne gagne sa ligne que dans une
-colonne assez haute (`layout.title`). Lui ne déborde pas — il reste centré sur la colonne.
+The percentage under the fader follows the same rule as the title: it earns its line only in a tall
+enough column (`layout.title`). It does not bleed — it stays centred on the column.
 
-### La loi
+### The law
 
-Le fader commande le niveau des deux platines, selon la loi **exacte** que le module
-`crossfade` du projet écrit dans son `jsdsp.ts` :
+The fader drives both decks' levels, by the **exact** law the project's `crossfade` module writes in
+its `jsdsp.ts`:
 
 ```
 gain(A) = 1 - mix        gain(B) = mix
 ```
 
-Gain constant, pas puissance constante : ça creuse d'environ 3 dB au centre pour deux
-sources décorrélées. C'est la forme connue d'un fondu à gain constant, pas un bug — la
-puissance constante demande une racine carrée, et le module n'a pas cette primitive.
+Constant gain, not constant power: it dips about 3 dB at centre for two uncorrelated sources. That
+is the known shape of a constant-gain fade, not a bug — constant power needs a square root, and the
+module does not have that primitive.
 
-Le `Volume` d'une tranche est en **décibels** (−60 à +6, 0 = unité), jamais en 0..1 : une
-surface qui enverrait 0,5 pour « moitié » aurait l'air de marcher et se tromperait de six
-décibels. `VOLUME_DB` dit la plage, `gainToDb` fait la conversion, et le silence est le
-**plancher** et non −∞ — un fader a un bas.
+A strip's `Volume` is in **decibels** (−60 to +6, 0 = unity), never 0..1: a surface sending 0.5 for
+"half" would look like it works and be six decibels wrong. `VOLUME_DB` states the range, `gainToDb`
+converts, and silence is the **floor** rather than −∞ — a fader has a bottom.
 
-Bouger le fader n'envoie **pas** un document : c'est `set-plugin-param`, un message par
-mouvement, comme les potentiomètres de st0. Renvoyer un projet entier par pixel ferait
-diffuser au moteur un document qui ne change que de deux nombres.
+Moving the fader sends **no** document: it is `set-plugin-param`, one message per movement, like
+st0's knobs. Sending a whole project per pixel would broadcast a document to the engine that differs
+by two numbers.
 
-## La tranche est une table de mixage, pas trois EQ
+## The strip is a mixer, not three EQs
 
-Le crossfader n'est **pas** la commande de niveau d'une platine, et pendant longtemps il a été
-la seule. C'est le manque que cette page décrivait : on pouvait fondre A vers B, et rien
-d'autre. L'essentiel des transitions se fait à la **voie**.
-
-Trois choses ont été ajoutées, et elles se lisent dans l'ordre du signal :
+The crossfader is **not** a deck's level control. Most transitions are made at the **channel**, and
+the three controls read in signal order:
 
 ```
 deckA ─┐
 stems ─┼→ trimA → eqA → filterA ─┬→ levelA → echoA → fadeA → MIX → OUT
        ┘                          └→ cueA → CUE
-        ↑ le gain d'entrée         ↑ le fader de voie    ↑ le crossfade
+        ↑ input gain              ↑ channel fader       ↑ crossfade
 ```
 
-### Le trim est en TÊTE, et la raison n'est pas le goût
+### The trim is at the HEAD, and the reason is not taste
 
-Une platine est **cinq lanes** — le disque, et une par stem séparé — qui se rejoignent sur un
-bus ([stems.md](stems.md)). Un trim posé sur la lane du disque ne ferait donc **rien du tout**
-sur un morceau séparé, dont les quatre parties jouent à la place du disque. En tête du bus, il
-les atteint toutes les cinq.
+A deck is **five lanes** — the record, and one per separated stem — meeting on a bus
+([stems.md](stems.md)). A trim on the record's lane would therefore do **nothing at all** on a
+separated song, whose four parts play instead of the record. At the head of the bus, it reaches all
+five.
 
-Conséquence à connaître : c'est le trim qui **nomme la chaîne** maintenant, donc les plugins
-d'une tranche sont adressés `trimA:eqA` et non plus `eqA:eqA`, et `bus_only:` nomme `trimA`.
-Nommer l'EQ y désignerait une ÉTAPE au lieu d'une tête, et le chemin sec reviendrait
-([busOnly.md](../../song/docs/busOnly.md)). `migrateSetStrip` porte ce renommage.
+Consequence worth knowing: the trim is what **names the chain**, so a strip's plugins are addressed
+`trimA:eqA` and not `eqA:eqA`, and `bus_only:` names `trimA`. Naming the EQ there would point at a
+STEP instead of a head, and the dry path would come back
+([busOnly.md](../../song/docs/busOnly.md)).
 
-Ce qu'il sert : **rien ici ne normalise la loudness**. Deux morceaux gravés à dix ans d'écart
-n'arrivent pas au même niveau, et le trim est ce qui les met d'accord pour que 0 dB sur les deux
-faders de voie veuille dire la même chose.
+What it is for: **nothing here normalises loudness**. Two records cut ten years apart do not arrive
+at the same level, and the trim is what makes them agree so that 0 dB on both channel faders means
+the same thing.
 
-### Le fader de voie, et pourquoi le cue passe AVANT
+### The channel fader, and why the cue is BEFORE it
 
-`levelA` est en **décibels** (−60 à +6, 0 = unité), comme tout niveau ici et pour la même
-raison : une surface qui enverrait 0,5 pour « moitié » se tromperait de six décibels. Le bas de
-la course est le **silence** et non −∞ — un fader a un bas.
+`levelA` is in **decibels** (−60 to +6, 0 = unity), like every level here and for the same reason.
+The bottom of the travel is **silence**, not −∞.
 
-Le départ casque est branché sur `filterA`, donc **avant** ce fader : baisser une voie ne doit
-pas la retirer de vos oreilles, alors que couper sa basse doit s'entendre au casque avant la
-salle. C'est la définition du pre-fade listen ([cue.md](cue.md)).
+The headphone send is tapped on `filterA`, so **before** this fader: dropping a channel must not
+take it out of your ears, whereas cutting its bass must be heard in the headphones before the room.
+That is the definition of pre-fade listen ([cue.md](cue.md)).
 
-## Les vumètres
+## The meters
 
-Ils viennent du moteur sans rien coûter : la trame d'état porte déjà `levels[]` par piste,
-`master` et `masterClipped`, vingt fois par seconde. Ce qui manquait n'était pas la mesure,
-c'était de la dessiner.
+They come from the engine at no cost: the state frame already carries `levels[]` per track, `master`
+and `masterClipped`, twenty times a second.
 
-**Par voie, le vumètre est PRE-fader.** Il lit la piste de la tranche — celle que la liaison
-`deckA.trim` adresse, donc `trimA` — c'est-à-dire après l'EQ et le filtre et **avant** le fader
-de voie. C'est ce qu'il faut pour régler un trim : on le monte jusqu'à ce que le vumètre
-approche du haut, fader baissé, et seulement ensuite on ouvre la voie. Un vumètre post-fader
-mesurerait ce qu'on a décidé d'envoyer, pas ce qu'on a à envoyer.
+**Per channel, the meter is PRE-fader.** It reads the strip's track — the one the `deckA.trim`
+binding addresses, so `trimA` — that is, after the EQ and filter and **before** the channel fader.
+That is what setting a trim needs: you raise it until the meter approaches the top, fader down, and
+only then open the channel. A post-fader meter would measure what you decided to send, not what you
+have to send.
 
-**Le master, lui, est post-tout**, dans la barre du bas : c'est le seul qui répond du mélange,
-et le seul endroit où l'on voit qu'on écrête. Son témoin rouge **tient** — l'écrêtage est
-rapporté pour une fenêtre de 50 ms, et une lampe qui ne dirait la vérité que pendant ce
-temps-là est une lampe que personne ne voit.
+**The master is post-everything**, in the bottom bar: the only one that answers for the mix, and the
+only place clipping shows. Its red indicator **latches** — clipping is reported for a 50 ms window,
+and a lamp that told the truth only for that long is a lamp nobody sees.
 
-L'échelle et les deux règles de mémoire (`meterFill`, `clipLatch`, `peakHold`) sont dans
-`@studio/engine-browser/meter`, partagées avec le vumètre d'en-tête de st0 : deux copies de
-« la lampe est-elle encore allumée » sont deux réponses.
+The scale and the two memory rules (`meterFill`, `clipLatch`, `peakHold`) are in
+`@studio/engine-browser/meter`, shared with st0's header meter: two copies of "is the lamp still
+on" are two answers.
 
-Chaque barre **s'abonne pour elle-même** au store, et se dessine par `transform` plutôt que par
-une largeur : une trame toutes les 50 ms qui remonterait jusqu'au pupitre le redessinerait vingt
-fois par seconde pour bouger huit pixels.
+Each bar **subscribes for itself** to the store, and draws by `transform` rather than by a width: a
+frame every 50 ms lifted up to the desk would redraw it twenty times a second to move eight pixels.
 
-Un hôte qui ne fournit **aucun** store est prévu : les barres restent au plancher au lieu de
-faire échouer la vue. C'est ce que `SILENT` est — un store jamais écrit, pour que les hooks
-restent inconditionnels.
+A host supplying **no** store is provided for: the bars stay at the floor instead of failing the
+view. That is what `SILENT` is — a store never written, so the hooks stay unconditional.
 
-### Deck B est MUTÉE, et ce n'est pas optionnel
+### Deck B is MUTED, and that is not optional
 
-La ligne dont l'absence fait passer le crossfader pour mort — alors que ce n'est pas le
-crossfader.
+The line whose absence makes the crossfader look dead — when it is not the crossfader.
 
-`out` compile comme un chemin **parallèle** : le signal sec continue vers le master à côté du
-module qu'il alimente, c'est ce qui fait qu'un send est un send. Deck B n'alimente que le
-second port du crossfade, donc non mutée elle atteint le master aussi : entendue une fois
-brute et une fois à travers le module, et pousser le fader vers deck A ne l'enlève pas.
-Tous les réglages sonnent pareil.
+`out` compiles as a **parallel** path: the dry signal carries on to the master beside the module it
+feeds, which is what makes a send a send. Deck B feeds only the crossfade's second port, so unmuted
+it reaches the master as well: heard once raw and once through the module, and pushing the fader
+towards deck A does not remove it. Every setting sounds the same.
 
-Ça marche parce que le nœud de mute de Tracktion laisse **délibérément** passer les clips vers
-les sends et les sidechains : le crossfade garde son second signal, le master cesse d'avoir un
-doublon. Voir `engine/moteur/docs/sidechain.md`.
+It works because Tracktion's mute node **deliberately** lets clips through to sends and sidechains:
+the crossfade keeps its second signal, the master stops having a duplicate. See
+`engine/moteur/docs/sidechain.md`.
 
-Mesuré sur le document compilé d'`example.st0`, deux morceaux de 20 s, en rendant deck A seule
-comme référence :
+Measured on `example.st0`'s compiled document, two 20 s tracks, rendering deck A alone as the
+reference:
 
-| rendu | niveau | résidu contre deck A seule |
+| render | level | residual against deck A alone |
 |---|---|---|
-| Mix = 0, deck B mutée | −20,32 dBFS | **−120 dBFS** — identique |
-| Mix = 1 | −23,26 dBFS | −18,55 dBFS — l'autre morceau |
-| Mix = 0, deck B **non** mutée | −18,51 dBFS | **−23,26 dBFS** |
+| Mix = 0, deck B muted | −20.32 dBFS | **−120 dBFS** — identical |
+| Mix = 1 | −23.26 dBFS | −18.55 dBFS — the other track |
+| Mix = 0, deck B **not** muted | −18.51 dBFS | **−23.26 dBFS** |
 
-La dernière ligne est le symptôme : à Mix = 0, deck B est encore là, exactement à son propre
-niveau. `scaffoldSet` écrit le mute, et un test le fige.
+The last line is the symptom: at Mix = 0, deck B is still there, at exactly its own level.
+`scaffoldSet` writes the mute, and a test pins it.
 
-## La lecture passe par le compilateur
+## Playback goes through the compiler
 
-Le pupitre ne construit pas le document : il **récupère celui que le projet compile** (`/engine-doc`
-sur le service de fichiers), y met les morceaux des platines, et l'envoie par son propre
-socket. Ce qui joue est donc le projet : les chaînes, le `sidechainFrom: deckB`, et le graphe
-DSP du crossfade **cuit par le compilateur** — 768 octets pour `example.st0`.
+The desk does not build the document: it **fetches the one the project compiles** (`/engine-doc` on
+the file service), puts the decks' songs into it, and sends it over its own socket. What plays is
+therefore the project: the chains, the `sidechainFrom: deckB`, and the crossfade's DSP graph **baked
+by the compiler** — 768 bytes for `example.st0`.
 
-Conséquence directe : le crossfader ne bouge pas deux niveaux, il pose `Mix` sur
-`deckA:crossfade` — le module de la médiathèque, via la liaison déclarée dans
-`views/mix.yaml`. Rien n'est câblé en dur sur ce chemin.
+Direct consequence: the crossfader does not move two levels, it sets `Mix` on `deckA:crossfade` —
+the mediatek's module, through the binding declared in `views/mix.yaml`. Nothing on that path is
+hard-wired.
 
-`withDecks` ne touche **que** les clips des pistes qui portent une platine chargée. Un
-plugin, un send, une automation que le projet déclare restent au projet ; y toucher
-remettrait le pupitre dans le métier de décider ce qu'un set sonne.
+`withDecks` touches **only** the clips of tracks carrying a loaded deck. A plugin, a send, an
+automation the project declares stay the project's; touching them would put the desk back in the
+business of deciding what a set sounds like.
 
-**Un tenant-lieu existe**, et c'est délibéré : le temps que la compilation arrive, ou pour un
-projet qui ne compile pas, `deckDoc` construit deux pistes avec un niveau chacune et
-le crossfader déplace les niveaux. Une platine doit pouvoir jouer avant que tout soit prêt ;
-c'est l'imitation du set, et elle le dit.
+**A stand-in exists**, deliberately: until the compile arrives, or for a project that does not
+compile, `deckDoc` builds two tracks with one level each and the crossfader moves the levels. A deck
+must be able to play before everything is ready; it is an imitation of the set, and it says so.
 
-Le tempo passe par son module lui aussi, par l'autre chemin. `tempo` est `offline` : aucun
-plugin, donc rien à qui poser un paramètre — mais `offline` ne veut pas dire « ne fait rien »,
-il veut dire « rendu vrai hors du graphe ». Ce qu'une liaison vers un tel module désigne, c'est
-la PISTE dont il traite la matière, et l'étirement est un warp sur le clip que `withDecks` y
-remplit — ce que Tracktion fait en direct. Voir [bpm.md](bpm.md).
+The tempo goes through its module too, by the other path. `tempo` is `offline`: no plugin, so
+nothing to set a parameter on — but `offline` does not mean "does nothing", it means "rendered true
+outside the graph". What a binding to such a module designates is the TRACK whose material it
+treats, and the stretch is a warp on the clip `withDecks` fills there — which Tracktion does live.
+See [bpm.md](bpm.md).
 
-## Un seul transport, et plus aucun bouton pour lui
+## One transport, and no button left for it
 
-Le moteur n'a **qu'un** transport, et il ne reste **rien de la musique dessus** : chaque platine
-est un plateau qui porte sa propre position (`engine/moteur/docs/turntable.md`), et le seul
-habitant de cette timeline est le clip du métronome ([metronome.md](metronome.md)).
+The engine has **one** transport, and **none of the music is on it**: each deck is a platter
+carrying its own position (`engine/moteur/docs/turntable.md`), and this timeline's only inhabitant
+is the metronome clip ([metronome.md](metronome.md)).
 
-D'où la conséquence, qui est une SUPPRESSION : **le pupitre n'a plus de bouton de transport.**
-Ni celui du bas, qui lançait les deux platines, ni ceux de l'en-tête de st0, qui sont masqués tant
-que la surface Mix est seule à l'écran. Ils ne commandaient plus que le clic, en le présentant
-comme la lecture — et un bouton qui a l'air de lancer la musique sans la lancer est pire qu'aucun
-bouton.
+Hence: **the desk has no transport button.** Neither at the bottom nor in st0's header, which is
+hidden while the Mix surface is alone on screen. They would command only the click while presenting
+themselves as playback — and a button that looks like it starts the music without starting it is
+worse than no button.
 
-Ce qui les remplace : **chaque platine démarre seule**, par son ▶ au pied de sa colonne de tempo,
-sous KEY. C'est la colonne des choses qui appartiennent à cette platine seule, et démarrer en est
-une. Les deux boutons y font la même hauteur, parce qu'une main les cherche sans regarder.
+Instead, **each deck starts on its own**, by its ▶ at the foot of its tempo column, under KEY. That
+is the column of things belonging to this deck alone, and starting is one. The two buttons are the
+same height there, because a hand finds them without looking.
 
-Et le transport **suit** : dès qu'une platine tourne il roule depuis zéro, quand plus aucune ne
-tourne il s'arrête. C'est ce qui garde le métronome audible sans lui rendre un bouton — le clic
-appartient à la musique, pas à une commande séparée. La règle vit dans `useDeckSet`, en un seul
-effet, plutôt que dans chaque geste qui démarre une platine.
+And the transport **follows**: as soon as one deck turns it rolls from zero, when none turns it
+stops. That is what keeps the metronome audible without giving it a button back — the click belongs
+to the music, not to a separate control. The rule lives in `useDeckSet`, in one effect, rather than
+in each gesture that starts a deck.
 
-Ce que ça n'enlève pas : dans un projet qui déclare AUSSI une timeline ou un viewport, l'en-tête
-garde son transport dès que l'un des deux est à l'écran. Il y commande alors quelque chose qu'on
-voit.
+What it does not remove: in a project that ALSO declares a timeline or a viewport, the header keeps
+its transport as soon as either is on screen. It then commands something you can see.
 
-Il n'y a **plus d'exception** au démarrage par platine. Le keylock en a été une, le disque séparé
-aussi ; l'un tient sa hauteur sur le plateau et l'autre est quatre plateaux.
+There is **no exception** to per-deck start.
 
-Une platine **vide** garde son bouton, **grisé**. C'est la règle que les repères énoncent déjà
-([cues.md](cues.md)) : grisé dit « pas encore », absent dit « cherche-le ». Elle est devenue
-visible en déplaçant le bouton au pied de la colonne de tempo — caché dans la rangée des repères,
-son absence ne laissait pas de trou ; sous KEY, elle en laisse un, et on lit ça comme une panne.
+An **empty** deck keeps its button, **greyed**. The rule the cue points already state
+([cues.md](cues.md)): greyed says "not yet", absent says "go and look for it". At the foot of the
+tempo column, under KEY, an absent button leaves a hole, and a hole reads as a fault.
 
-Il interdit moins qu'on ne croyait, en revanche. Trois choses qui semblaient en demander un second
-n'en demandent aucun, parce qu'elles déplacent le **plateau** et non le transport :
+It forbids less than it seems, though. Three things that look like they need a second transport need
+none, because they move the **platter** and not the transport:
 
-- **caler les temps forts** — amener l'esclave sur la grille du maître, ce que fait le sync
-  ([bpm.md](bpm.md)) ;
-- **poser l'aiguille** — un repère, un needle-drop, un glissement de bande ne bougent que leur
-  platine ([scratch.md](scratch.md)) ;
-- **écouter au casque** — les deux platines jouent déjà en même temps, il ne manquait qu'une
-  seconde sortie ([cue.md](cue.md)).
+- **lining up the downbeats** — bringing the slave onto the master's grid, which sync does
+  ([bpm.md](bpm.md));
+- **dropping the needle** — a cue, a needle-drop, a tape slide move only their deck
+  ([scratch.md](scratch.md));
+- **listening on headphones** — both decks already play at once, only a second output was missing
+  ([cue.md](cue.md)).
 
-La position est par plateau : c'est la propriété qui porte les trois.
+Position is per platter: that is the property carrying all three.
 
-## Sous les repères, la rangée des boucles
+## Under the cues, the loop row
 
-Une rangée de plus dans chaque colonne : saut de temps `◀ ▶`, `IN` / `OUT` manuels, les trois
-longueurs `4 8 16`, `÷2` et `×2` de part et d'autre de la longueur en cours, et `⟲` qu'on
-**maintient** pour un roulement. Grisée sans tempo mesuré, comme les repères sont grisés sans
-disque — une boucle est une longueur en *temps*.
+One more row in each column: beat jump `◀ ▶`, manual `IN` / `OUT`, the three lengths `4 8 16`, `÷2`
+and `×2` either side of the current length, and `⟲` **held** for a roll. Greyed with no measured
+tempo, as the cues are greyed with no record — a loop is a length in *beats*.
 
-Elle **ne tombe pas** quand la colonne se serre. Le disque part le premier, le titre ensuite ; la
-rangée des boucles reste, parce qu'un pupitre qui ne boucle pas est exactement ce qu'elle est venue
-réparer. Le quantise, lui, est dessiné **une seule fois**, sous le crossfader : il vaut pour les
-deux platines, et deux boutons toujours d'accord diraient moins qu'un.
+It **does not drop** when the column narrows. The record goes first, the title next; the loop row
+stays, because a desk that cannot loop is exactly what it came to fix. The quantise, though, is
+drawn **once**, under the crossfader: it holds for both decks, and two buttons always in agreement
+would say less than one.
 
-Tout le raisonnement — pourquoi c'est dans le plateau et plus dans un clip, et l'ordre des
-paramètres qui déplace le disque si on l'inverse — est dans [loop.md](loop.md).
+The whole reasoning — why it is in the platter and not in a clip, and the parameter order that moves
+the record if reversed — is in [loop.md](loop.md).
 
-## Ce qui attend une place
+## Waiting for a place
 
-`ChainsPanel` et `deckGraph` — la chaîne d'effets d'une platine, dessinée — ne sont montés
-par rien. Gardés parce qu'ils marchent, qu'ils sont testés, et que les options reviennent ; la
-platine qu'ils dessinent est un **paramètre**, donc un panneau ouvert sur la platine B
-n'étiquette pas ses effets platine A. Voir l'entrée dans
+`ChainsPanel` and `deckGraph` — a deck's effect chain, drawn — are mounted by nothing. Kept because
+they work, they are tested, and options come back; the deck they draw is a **parameter**, so a panel
+opened on deck B does not label its effects deck A. See the entry in
 [docs/inventaire.md](../../../docs/inventaire.md).

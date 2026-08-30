@@ -19,8 +19,7 @@ one and go and look at another — so it compares `playback.now.path` with its o
 transport at rest when they differ. `path` is the identity: two songs can share a name.
 
 Before the open song is the playing one, the waveform still scrubs: the position goes into a
-local `cursor`, and pressing play starts from there. Clicking into a song and hitting play does
-the obvious thing, which is what that state is for.
+local `cursor`, and pressing play starts from there.
 
 ## The bar stays when the song ends
 
@@ -51,8 +50,6 @@ per screen would be safe only while screens replace one another, and a song that
 breaks exactly that: its transport has to outlive the screen that started it, and a second
 socket is a second client on the same session, driving the same project.
 
-So `SongPlayer` calls `useEngine()`, and `EnginePage` takes `useEngine().client`.
-
 `EnginePage` is why `ModuleEngine` exposes `client` and `connected` at all: its questions are
 the MACHINE's — the device list, the session list, the installed catalogue — not a project's,
 and wrapping a dozen verbs to keep the object private would buy nothing. `connected` exists
@@ -60,71 +57,69 @@ because `phase: ready` only says a socket was made and told to connect, while th
 ask its questions once the socket is actually open; `onConnected` does not replay a state it
 already reached, so the queries are issued on mount instead.
 
-## La liste de lecture
+## The play queue
 
-Clic droit sur un morceau dans l'arbre → « Ajouter à la liste de lecture ». Un morceau qui se
-termine enchaîne sur le suivant. Le bouton à droite de la barre l'ouvre : on y déplace et on y
-retire des lignes.
+Right-click a song in the tree → "Ajouter à la liste de lecture". A song that ends chains into
+the next. The button right of the bar opens it: rows can be moved and removed there.
 
-### Une file d'attente n'est pas une playlist
+### A queue is not a playlist
 
-Les deux mots se ressemblent, les deux choses n'ont rien à voir :
+The two words look alike; the two things have nothing to do with each other:
 
-| | la file d'attente | une playlist |
+| | the queue | a playlist |
 |---|---|---|
-| ce que c'est | **ce qu'on écoute maintenant** | **un document** |
-| où elle vit | dans l'onglet, en mémoire | un fichier YAML sous `_playlists/`, dans le dépôt |
-| qui la voit | cet onglet | tout le monde, et l'éditeur à gauche |
-| survit à | la navigation entre écrans | tout |
+| what it is | **what you are listening to now** | **a document** |
+| where it lives | in the tab, in memory | a YAML file under `_playlists/`, in the repository |
+| who sees it | this tab | everyone, and the editor on the left |
+| survives | navigating between screens | everything |
 
-Elle ne va donc pas sur le serveur, et elle disparaît au rechargement — comme la file de
-n'importe quel lecteur. Ce qu'on veut garder se met dans une playlist, qui s'écrit en st0 sur
-ce même catalogue (`packages/song/docs/playlists.md`).
+So it never goes to the server, and it disappears on reload — like any player's queue. What you
+want to keep goes into a playlist, written in st0 over this same catalogue
+(`packages/song/docs/playlists.md`).
 
-### Elle est tenue par la Library, pas par le provider
+### The Library holds it, not the provider
 
-Ça a l'air à l'envers, et c'est forcé : `Library` **rend** `PlaybackProvider`, elle est donc
-au-dessus du contexte et ne peut pas appeler `usePlayback()`. Or c'est elle qui porte l'arbre
-dont le clic droit remplit la file. Le hook `usePlayQueue` vit donc en haut et le provider le
-reçoit en prop, puis le rediffuse — une seule file par onglet, au-dessus des écrans, comme le
-transport lui-même.
+That looks backwards and is forced: `Library` **renders** `PlaybackProvider`, so it is above the
+context and cannot call `usePlayback()` — and it is the one holding the tree whose right-click
+fills the queue. The `usePlayQueue` hook therefore lives at the top and the provider receives it
+as a prop, then re-broadcasts it: one queue per tab, above the screens, like the transport
+itself.
 
-### Une seule chose enchaîne
+### Only one thing chains
 
-Cette file est le seul prétendant : elle écoute `ended` et démarre le suivant. Il n'y a donc
-aucun arbitrage, et il n'en faut pas — un arbitrage à un seul prétendant n'arbitre rien et
-ferait croire à un lecteur qu'il y en a deux. Les playlists s'ouvrent en st0, avec un transport
-à elles (`packages/song/docs/playlists.md`).
+This queue is the sole claimant: it listens for `ended` and starts the next. So there is no
+arbitration, and none is needed — arbitration with one claimant arbitrates nothing and would
+make a reader believe there are two. Playlists open in st0, with a transport of their own.
 
-La forme du bug à éviter le jour où une deuxième chose saura enchaîner ici : deux abonnés
-indépendants au même événement, chacun démarrant un morceau, aucun ne sachant que l'autre
-existe — le dernier écrit gagne, au hasard. La revendication doit alors être un **compteur** et
-non un booléen, parce que deux panneaux peuvent être montés le temps d'une transition d'écran.
+The shape of the bug to avoid the day a second thing can chain here: two independent subscribers
+to the same event, each starting a song, neither knowing the other exists — last write wins, at
+random. The claim then has to be a **counter** and not a boolean, because two panels can be
+mounted for the length of a screen transition.
 
-### Le démarrage à froid
+### The cold start
 
-L'avance n'écoute que la **fin** d'un morceau. Ajouter à une file alors que rien ne joue
-resterait donc là indéfiniment — ce qu'un lecteur ne fait pas. Un second effet démarre la tête
-quand `now` est nul et que la file n'est pas vide.
+Advancing only listens for the **end** of a song, so adding to an empty-transport queue would
+sit there indefinitely — which no player does. A second effect starts the head when `now` is
+null and the queue is not empty.
 
-Ça ne se déclenche jamais entre deux titres : `now` n'est pas vidé quand un morceau se termine
-(« ce que je viens d'écouter » survit au dernier échantillon), donc le cas ne se présente
-qu'avant la première lecture ou après avoir fermé la barre.
+It never fires between two tracks: `now` is not cleared when a song ends ("what I have just
+heard" outlives the last sample), so the case only arises before the first play or after closing
+the bar.
 
-Et la barre apparaît pour une file non vide, pas seulement pour un morceau chargé : sinon le
-bouton qui montre la file vivrait dans une barre que la file ne suffit pas à faire apparaître,
-et on ajouterait un morceau sans nulle part où le voir.
+And the bar appears for a non-empty queue, not only for a loaded song: otherwise the button that
+shows the queue would live in a bar the queue is not enough to raise, and you would add a song
+with nowhere to see it.
 
-### Ce qui est sauté et ce qui arrête
+### What is skipped and what stops
 
-Un morceau sans master est **sauté** : la file continue. Une machine sans cache **arrête** — le
-défaut est celui de la destination et non de la ligne, et vider la file pour ça effacerait ce
-que quelqu'un vient d'y mettre. Le panneau des playlists de st0 fait le même partage, pour la
-même raison.
+A song with no master is **skipped**: the queue carries on. A machine with no cache **stops** —
+the fault belongs to the destination and not to the row, and emptying the queue for that would
+erase what someone has just put in it. st0's playlist pane makes the same split, for the same
+reason.
 
-Enfin, `enqueue` refuse les doublons et `moveTo` prend l'indice VOULU dans la liste finale —
-insérer à l'indice de départ ferait un déplacement d'un cran trop court vers le bas, et le
-bouton semblerait mort. Les deux sont testés dans `playback/queue.test.ts`.
+Finally, `enqueue` refuses duplicates and `moveTo` takes the INTENDED index in the final list —
+inserting at the starting index would make a downward move one notch short, and the button would
+seem dead. Both are tested in `playback/queue.test.ts`.
 
 ## Where a failure is said
 

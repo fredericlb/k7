@@ -6,6 +6,13 @@
 - **A file header is at most 10 lines.** What the file does, and the one thing a reader would get wrong.
 - **A comment inside the body is exactly one line.** No exceptions, no wrapped sentences, no JSDoc paragraphs.
 - Long rationale goes to the zone's `docs/` page, and the code points at it.
+- **Documentation is in English**, like the comments — including the pages in every `docs/`.
+- **A page carries CHOICES, not mechanism.** What was decided and what forced it. Not a
+  walkthrough of what happens when: the code is what says how a thing works, and prose that
+  restates it is prose that goes stale without anyone noticing.
+- **A page describes the project AS IT IS.** No history: no "it used to be", no account of what
+  a change replaced, no migration narrative. Where a past failure is what justifies a decision,
+  state the hazard in the present tense and drop the story.
 
 These rules hold in every language here — TypeScript and C++. They are about *where* the
 prose lives and *how much* of it sits in the code: this codebase still writes down the **why**,

@@ -1,56 +1,53 @@
-# Où est la médiathèque hébergée, vue de la machine du moteur
+# Where the hosted médiathèque is, seen from the engine's machine
 
-Deux valeurs — `MEDIATEK_URL` et `MEDIATEK_TOKEN` — dont tout ce qui parle à pl8 depuis ce
-service dépend : la synchro du cache (`mediatekPull.ts`), les routes `/mediatek/*`, et la
-**clé SSH** que `sshKeys.ts` va chercher pour cloner un dépôt.
+Two values — `MEDIATEK_URL` and `MEDIATEK_TOKEN` — that everything talking to pl8 from this
+service depends on: the cache sync (`mediatekPull.ts`), the `/mediatek/*` routes, and the
+**SSH key** `sshKeys.ts` fetches in order to clone a repository.
 
-## Ce qui les fournit, et ce qui ne les fournit pas
+## What supplies them, and what does not
 
-Le superviseur les passe dans l'environnement quand c'est **lui** qui démarre ce service
-(`packages/engine-host/src/fileServiceProcess.ts`). C'est le cas avec le capot.
+The supervisor passes them in the environment when **it** is the one starting this service
+(`packages/engine-host/src/fileServiceProcess.ts`). That is the case under the desktop app.
 
-Dans un checkout, ce n'est jamais le cas. La session de dev démarre ce service comme sa propre
-ressource Tilt (`scripts/tilt-tasks.mjs` : un paquet rejoint la session en ayant un script
-`dev`), donc quand le superviseur arrive, le port répond déjà — `ensure()` classe le service
-« foreign » et n'a pas d'environnement à lui passer. Aucune des deux valeurs n'arrive.
+In a checkout it never is. The dev session starts this service as its own Tilt resource
+(`scripts/tilt-tasks.mjs`: a package joins the session by having a `dev` script), so by the time
+the supervisor arrives the port already answers — `ensure()` classes the service "foreign" and
+has no environment to hand it. Neither value arrives.
 
-Le symptôme n'est pas « la synchro est en veille » mais, à l'ouverture d'un projet :
+The symptom is not "the sync is idle" but, on opening a project:
 
 ```
 no SSH key on this machine and no hosted library configured (MEDIATEK_URL) to ask for one
 ```
 
-D'où le repli, sur les mêmes fichiers que le superviseur lit lui-même.
+Hence the fallback, onto the same files the supervisor itself reads.
 
-## L'URL : le fichier de pl8, par son nom
+## The URL: pl8's file, by name
 
-`<state>/web-endpoints/pl8.json`, et pas l'origine du premier registre venu. Hébergé, tous
-les services partagent une origine à un chemin fixe, donc les deux reviendraient au même. Dans
-un checkout, non : chaque backend annonce **son propre port** de loopback, si bien que
-« l'origine de n'importe quel registre » tombe sur le 8789 de st0 aussi souvent que sur le 8795
-de pl8 — et les routes de la médiathèque n'y sont pas.
+`<state>/web-endpoints/pl8.json`, and not the origin of whichever registry answers first.
+Hosted, every service shares one origin at a fixed path, so the two would agree. In a checkout
+they do not: each backend announces **its own** loopback port, so "the origin of any registry"
+lands on st0's 8789 as often as on pl8's 8795 — and the médiathèque's routes are not there.
 
-C'est la même adresse que `packages/git-repos/docs/keys.md` donne pour le dev
-(`http://localhost:8795`), obtenue en la lisant plutôt qu'en l'écrivant une deuxième fois.
+That is the same address `packages/git-repos/docs/keys.md` gives for dev
+(`http://localhost:8795`), obtained by reading it rather than writing it down twice.
 
-## Le token : les réglages du superviseur
+## The token: the supervisor's settings
 
-`<state>/engine-tray.json`, clé `mediatekToken` — là où `npm run tokens` l'écrit et où le
-superviseur le lit avant de le passer. Le lire directement ne fait que retirer un
-intermédiaire absent.
+`<state>/engine-tray.json`, key `mediatekToken` — where `npm run tokens` writes it and where the
+supervisor reads it before passing it on. Reading it directly only removes an absent middleman.
 
-## Et le sujet du token
+## And the token's subject
 
-Savoir où demander ne dit pas encore **pour qui**. Le token qu'une machine détient est celui
-d'un service (`sub: "service:st0"`), qui n'a pas de clé à lui, alors que la clé est classée
-sous le sujet OIDC de la personne. `sshKeys.ts` nomme donc l'utilisateur dans la requête —
-l'email, la seule orthographe que ce service connaisse — et pl8 fait le pont vers le sujet.
+Knowing where to ask does not yet say **for whom**. The token a machine holds is a service's
+(`sub: "service:st0"`), which has no key of its own, while the key is filed under the person's
+OIDC subject. So `sshKeys.ts` names the user in the request — the email, the only spelling this
+service knows — and pl8 bridges to the subject. That is an identity decision with a price:
+`apps/pl8/docs/sshKeyForService.md`.
 
-C'est une décision d'identité, avec son prix : `apps/pl8/docs/sshKeyForService.md`.
+## Sharing goes through the same pair
 
-## Le partage passe par la même paire
-
-`Workspace.shareLink` rend l'instantané et l'envoie à pl8 avec ce même bearer — pas la paire de
-`.settings.json` de k7. Le partage ne demande aucune plomberie nouvelle : ce service parle déjà à
-pl8 avec ce token. Et pour la même raison qu'au-dessus, l'utilisateur est nommé à chaque appel
-(`?user=`), un service n'ayant pas de personne à lui.
+`Workspace.shareLink` renders the snapshot and posts it to pl8 with this same bearer — not k7's
+`.settings.json` pair. Sharing needs no new plumbing: this service already talks to pl8 with
+this token. And for the reason above, the user is named on every call (`?user=`), a service
+having no person of its own.

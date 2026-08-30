@@ -1,7 +1,7 @@
-# `modules/` — les modules écrits ici, et ce à quoi le dossier sert
+# `modules/` — the modules written here, and what the folder is for
 
-`packages/dsp/modules/` tient des modules **écrits dans ce dépôt** : leur `module.yaml`, leur
-panneau, et le `jsdsp.ts` ou le `dsp.dsp` qui fait le son.
+`packages/dsp/modules/` holds modules **written in this repo**: their `module.yaml`, their panel,
+and the `jsdsp.ts` or `dsp.dsp` that makes the sound.
 
 ```
 packages/dsp/modules/
@@ -12,94 +12,88 @@ packages/dsp/modules/
   instruments/synth/wurlitzer/
 ```
 
-`quick-master` est le seul de la liste qui **ne fait pas son son ici** : ni `jsdsp.ts` ni
-`dsp.dsp`, seulement un `extends: "@engine/quick-master"` et des défauts par-dessus, comme
-`eq3` en pose sur l'égaliseur du moteur. Ce qu'il nomme est un built-in compilé, et
-`engine/moteur/docs/quickMaster.md` dit pourquoi ce ne pouvait pas être un graphe : les
-primitives de `DspGraph` ne savent ni séparer des bandes ni atteindre la différence entre les
-deux canaux.
+The first segment is the **type folder**, which decides what a module IS (`audio`, `instruments`,
+`transformers`, `io`… — see `@studio/song`'s `docs/loader.md`). The second is its **category**,
+which decides only where it sits in a picker. That is why the EQ is under `filter` and not under
+`utility`, though both are audio modules.
 
-`separation/` n'en contient plus qu'un : `stemsplit`, qui sépare hors ligne en quatre fichiers. Il
-garde sa catégorie à lui plutôt qu'une place parmi les utilitaires parce que c'est là que le dépôt
-de bibliothèques le range déjà, et ce dépôt-là est la référence.
+`quick-master` is the only one that **does not make its sound here**: no `jsdsp.ts`, no `dsp.dsp`,
+only an `extends: "@engine/quick-master"` and defaults over it, the way `eq3` sits on the engine's
+equaliser. What it names is a compiled built-in, and `engine/moteur/docs/quickMaster.md` says why
+it could not be a graph: `DspGraph`'s primitives can neither split bands nor reach the difference
+between the two channels.
 
-Il a eu un voisin, `stemcut`, qui dosait une des quatre parties. Il a disparu quand le plateau est
-devenu un nœud : ce module compilait vers `gain(Level)`, une multiplication, juste derrière un nœud
-qui a déjà un `Gain` linéaire de même course et de même repos. Ce qu'il a coûté d'apprendre — la
-soustraction abandonnée, et ce que la somme vaut, chiffré — est dans
-`packages/song-schema/docs/stems.md`.
+`separation/` holds one module, `stemsplit`, which separates offline into four files. It keeps a
+category of its own rather than a place among the utilities because that is where the libraries
+repository already files it, and that repository is the reference. There is no per-stem gain
+module beside it: that compiles to `gain(Level)`, a multiplication, straight behind a platter node
+that already has a linear `Gain` of the same range and rest. What the subtraction it replaced cost
+to learn, measured, is in `packages/song-schema/docs/stems.md`.
 
-Deux d'entre eux ont leur propre page, parce que leurs nombres se justifient plutôt qu'ils ne se
-lisent : `sweep` (`docs/sweep.md`) et le wurlitzer (`docs/wurlitzer.md`). Ce que la bibliothèque elle-même impose à tous — les trois taux, l'indice de
-port, la garde de `geolerp` — est dans `docs/builder.md`.
+Two modules have their own page, because their numbers are argued rather than read: `sweep`
+(`docs/sweep.md`) and the wurlitzer (`docs/wurlitzer.md`). What the library itself imposes on all
+of them — the three rates, the port index, `geolerp`'s guard — is in `docs/builder.md`.
 
-## `fade` et `crossfade` — le même effet, et une seule des deux formes tient sur un pupitre
+## `fade` and `crossfade` — the same effect, and only one shape holds on a desk
 
-Les deux fondent entre deux signaux. `crossfade` le fait dans **un** module à deux ports ; `fade`
-le fait avec **deux** modules à un port, pilotés en **miroir** par le même contrôle. Le paramètre
-d'un `fade` EST son gain — 0 muet, 1 plein — donc son panneau se lit seul, sans second nombre à
-travers lequel le traduire.
+Both fade between two signals. `crossfade` does it in **one** module with two ports; `fade` does
+it with **two** one-port modules, driven in **mirror** by the same control. A `fade`'s parameter
+IS its gain — 0 silent, 1 full — so its panel reads on its own, with no second number to translate
+it through.
 
-L'arithmétique est identique. Ce qui diffère est ce que chaque forme exige du moteur, et c'est là
-que la seconde gagne. Le second port d'un module se câble en **sidechain**, et une sidechain ne
-lit une piste que si cette piste atteint réellement une sortie audible — mesuré cinq fois, dans
-`engine/moteur/docs/sidechain.md`. Une platine qui n'alimente qu'un crossfade est donc entendue
-**à côté** de lui, brute, et le fondu ne peut rien lui retirer. Aucun mute, aucun débranchement,
-aucun routage vers un puits ne dénoue ça : tout ce qui la retire du master la retire du fondu.
+The arithmetic is identical. What differs is what each shape demands of the engine, and that is
+where the second wins. A module's second port is wired as a **sidechain**, and a sidechain only
+reads a track if that track actually reaches an audible output — measured five times, in
+`engine/moteur/docs/sidechain.md`. A deck feeding only a crossfade is therefore heard **beside**
+it, raw, and the fade can take nothing away from it. No mute, no unplugging, no routing to a sink
+undoes that: everything that removes it from the master removes it from the fade.
 
-Deux `fade` n'ont pas ce problème parce qu'ils n'ont pas de second port. Chaque côté reste une
-piste ordinaire, avec sa sortie ordinaire, et la somme se fait au mixeur — là où les sommes se
-font. Le prix est un module de plus dans le graphe et une règle de plus dans le mappage du pupitre :
-un contrôle, deux paramètres, dont l'un en miroir (`packages/song/docs/setProject.md`).
+Two `fade`s do not have this problem because they have no second port. Each side stays an ordinary
+track with an ordinary output, and the sum happens at the mixer — where sums happen. The price is
+one more module in the graph and one more rule in the desk's mapping: one control, two parameters,
+one of them mirrored (`packages/song/docs/setProject.md`).
 
-`crossfade` reste juste, et reste le bon choix partout où ses deux entrées vivent déjà sur la même
-piste. C'est sur un pupitre, où elles n'y vivent pas, qu'il ne peut pas tenir.
+`crossfade` stays correct, and stays the right choice wherever its two inputs already live on the
+same track. It is on a desk, where they do not, that it cannot hold.
 
-## `normalize` — le graphe est trivial, et c'est tout le sujet
+## `normalize` — the graph is trivial, and that is the whole subject
 
-`packages/dsp/src/normalize.ts` applique un gain, un nœud, et rien d'autre. Savoir **quel** gain est
-la partie difficile, et aucun graphe par bloc ne peut y répondre : un nœud en flux ne voit que les
-échantillons qu'il a, et le plus fort peut être le dernier. La mesure n'est donc pas là — `Peak` est
-une **entrée** du graphe, remplie par la passe froide qui lit le fichier de bout en bout
-(`packages/song/docs/coldModules.md`), et ce qui reste à décrire est l'arithmétique.
+`packages/dsp/src/normalize.ts` applies a gain, one node, and nothing else. Knowing **which** gain
+is the hard part, and no block graph can answer it: a streaming node sees only the samples it has,
+and the loudest can be the last. So the measurement is not there — `Peak` is an **input** to the
+graph, filled by the cold pass that reads the file end to end
+(`packages/song/docs/coldModules.md`), and what is left to describe is the arithmetic. That is
+what makes the module *cold* rather than merely expensive: not that measuring costs too much live,
+but that live there is nothing to measure yet.
 
-C'est exactement ce qui rend le module *froid* plutôt que simplement coûteux : ce n'est pas que
-mesurer coûte trop cher en direct, c'est qu'en direct il n'y a encore rien à mesurer.
+Two details hold the rest. `Peak` defaults to **0 dBFS**: with no pass, the gain reduces to
+`Target` and the module only attenuates, which is the harmless direction to be wrong in. And the
+difference is **clamped** before going linear, because the arithmetic has a very loud degenerate
+case: near-silence measures −100 dBFS and would ask for +99 dB, turning hiss into a full-scale
+roar. +30 is generous for anything worth normalising and finite for everything else.
 
-Deux détails tiennent le reste. `Peak` vaut **0 dBFS** par défaut : sans passe, le gain se réduit à
-`Target` et le module ne fait qu'atténuer, ce qui est la direction inoffensive pour se tromper. Et
-la différence est **bornée** avant le passage en linéaire, parce que l'arithmétique a un cas
-dégénéré très bruyant : un quasi-silence mesure −100 dBFS et demanderait +99 dB, transformant un
-souffle en rugissement pleine échelle. +30 est généreux pour tout ce qui vaut d'être normalisé et
-fini pour le reste.
+## It is not a seed
 
-Le premier segment est le **dossier de type**, qui décide de ce qu'un module est (`audio`,
-`instruments`, `transformers`, `io`… — voir `@studio/song`'s `docs/loader.md`). Le second est sa
-**catégorie**, qui décide seulement de son rangement dans un sélecteur. C'est pourquoi l'EQ est
-sous `filter` et non sous `utility`, alors que les deux sont des modules audio.
+This folder is copied into no account library. **The reference is the account's libraries
+repository**: what it holds is what a project inherits, and a build shipping its own copy of
+someone's modules would be a second source of truth — two sources can only end up contradicting
+each other. `initIfEmpty` does one thing: give a commit to a repository that has none, because a
+gitlink has to point somewhere.
 
-## Ce n'est pas une graine
+What that costs, said here because here is where you would come looking for a seed: **a new
+library is empty**, so any `@st0/…` reference resolves to nothing until something is put in it —
+including the four a scaffolded SET writes for its decks. And an unresolved reference **is not a
+compile error** (`@studio/song`'s `docs/sharedFolders.md`): the module is simply absent from the
+document, which looks exactly like a module that was bypassed.
 
-Ce dossier n'est recopié dans aucune bibliothèque de compte. **La référence est le dépôt des
-bibliothèques du compte** : ce qu'il contient est ce qu'un projet hérite, et un build qui
-embarquerait sa propre copie des modules de quelqu'un serait une seconde source de vérité — deux
-sources ne peuvent que finir par se contredire. `initIfEmpty` ne fait qu'une chose : donner un
-commit à un dépôt qui n'en a aucun, parce qu'un gitlink doit pointer quelque part.
+## What the folder is for
 
-Ce que ça coûte, dit ici parce que c'est ici qu'on viendrait chercher une graine : **une
-bibliothèque neuve est vide**, donc toute référence `@st0/…` ne résout rien tant qu'on n'y a rien mis — y
-compris les quatre qu'un SET échafaudé écrit pour ses platines. Et une référence non résolue
-**n'est pas une erreur de compilation** (`@studio/song`'s `docs/sharedFolders.md`) : le module est
-simplement absent du document, ce qui ressemble exactement à un module contourné.
+- **A source** for the DSP this package exposes: `crossfade.test.ts` compares the folder's
+  compiled graph to `src/`'s function, both ways, so they cannot drift.
+- **A bench for the engine**: `engine/moteur/tests/Faust_test.cpp` compiles the `.dsp` files from
+  here (`STUDIO_DSP_MODULES`), the wurlitzer first.
+- **A model to copy** into a library, by hand or from st0 — which is where a module is written,
+  against a project where the plugin it names is actually loaded.
 
-## À quoi le dossier sert
-
-- **De source** pour les DSP que ce paquet expose : `crossfade.test.ts` compare le graphe compilé
-  du dossier à la fonction de `src/`, dans les deux sens, pour qu'ils ne dérivent pas.
-- **De banc au moteur** : `engine/moteur/tests/Faust_test.cpp` compile les `.dsp` d'ici
-  (`STUDIO_DSP_MODULES`), le wurlitzer en tête.
-- **De modèle à copier** dans une bibliothèque, à la main ou depuis st0 — qui est l'endroit où un
-  module s'écrit, contre un projet où le greffon qu'il nomme est réellement chargé.
-
-Il n'y a rien à régénérer ni à committer en double : ajouter un module ici ne le donne à
-personne, et c'est le point.
+There is nothing to regenerate and nothing to commit twice: adding a module here gives it to
+nobody, and that is the point.

@@ -1,67 +1,58 @@
-# pl8 sur un écran étroit
+# pl8 on a narrow screen
 
-La médiathèque est **hébergée** : elle s'ouvre depuis un téléphone aussi facilement que depuis
-le poste de travail, et c'est le seul écran du studio dont c'est vrai. Le piège est le chrome —
-une bande d'onglets, une colonne d'arbre de 240 px et ce qui la borde font des centaines de
-pixels avant le premier pixel de contenu.
+The media library is hosted, so it opens from a phone as easily as from the desk — the only
+studio screen of which that is true. The hazard is chrome: a tab strip, a 240 px tree column and
+what borders it come to hundreds of pixels before the first pixel of content.
 
-Un seul point de bascule, `md` (768 px). Pas trois : chaque palier est une deuxième mise en page
-à vérifier, et ce qui casse ici casse d'un coup — au-dessous, la place manque pour toutes les
-colonnes à la fois ; au-dessus, elle suffit pour toutes.
+## One breakpoint, `md` (768 px)
 
-## Les sections : une liste, et la barre partagée
+Not three. Every step is a second layout to check, and what breaks here breaks all at once:
+below, there is not room for every column at the same time; above, there is room for all of
+them.
 
-`SectionNav.tsx` tient la liste ; **la barre est celle de `@frediverse/ui`** (`AppHeader`), qui
-rend les deux formes — bande d'onglets au-dessus de son point de bascule, hamburger au-dessous.
-Une seule liste : deux copies divergeraient à la première section ajoutée, et une section qui
-n'existe que sur un écran est une section qu'on ne trouve pas.
+## The sections are one list, drawn by the shared bar
 
-Trois conséquences :
+`SectionNav.tsx` holds the list; `@frediverse/ui`'s `AppHeader` renders both forms — a tab strip
+above its breakpoint, a hamburger below. Two copies would diverge at the first section added,
+and a section that exists on only one screen is one nobody finds.
 
-- **Le compte de chaque section est sur le `trailing`** de l'item — un emplacement d'`AppHeaderItem`
-  prévu pour ça. Pas dans le libellé : le libellé est la chaîne que le menu coche et
-  qu'`aria-current` annonce, et un nombre fondu dedans serait lu comme une partie du nom de la
-  page — et changerait à chaque fois que le catalogue change.
-- **Le nom de la section courante est dit**, en `subtitle` de la barre plutôt qu'à côté du
-  hamburger. Un hamburger seul ne dit pas où l'on est, et c'est la première question qu'on pose à
-  un écran de téléphone. Le titre « pl8 » tient à côté, séparé par un point.
-- **Le point de bascule des sections est celui de la barre** (`sm`, 640 px), pas le `md` du reste
-  de cette page. La barre est partagée, donc son palier est à elle : le faire bouger pour une app
-  le ferait bouger pour toutes.
+- **Each section's count goes on the item's `trailing`**, an `AppHeaderItem` slot meant for it,
+  not in the label. The label is what the menu ticks and what `aria-current` announces; a number
+  folded into it reads as part of the page's name and changes whenever the catalogue does.
+- **The current section's name is said**, as the bar's `subtitle`. A hamburger alone does not say
+  where you are, which is the first question asked of a phone screen.
+- **The sections' breakpoint is the bar's** (`sm`, 640 px), not this page's `md`. The bar is
+  shared, so its step belongs to it: moving it for one app moves it for all.
 
-Le menu se referme sur le choix — c'est le comportement du `DropdownMenu` qu'il utilise.
+## The tree becomes a drawer
 
-## L'arbre : une colonne qui devient un tiroir
+240 fixed pixels leave nothing for content on a phone. Below `md` the `aside` leaves the flow and
+becomes a drawer with its own button in the header — absent where there is no tree, the engine
+and search screens drawing their own full width because nothing they show is on the volume.
 
-240 px fixes ne laissent rien au contenu sur un téléphone. Sous `md`, l'`aside` sort du flux et
-devient un tiroir, ouvert par son propre bouton dans l'en-tête — absent là où il n'y a pas
-d'arbre (le moteur et la recherche dessinent toute la largeur eux-mêmes, parce que rien de ce
-qu'ils montrent n'est sur le volume).
+It is the **same markup** in both cases with different classes. Extracting it to render twice
+would duplicate the two hundred lines of menu actions it carries — the kind of duplication where
+one copy gets a new action and the other does not.
 
-C'est **le même balisage** dans les deux cas, avec des classes différentes. L'extraire dans un
-composant pour le rendre deux fois aurait dupliqué les deux cents lignes d'actions de menu qu'il
-porte — le genre de duplication où l'une des deux copies reçoit une action et pas l'autre.
+The drawer closes on what it opens and on a section change. The veil exists **only** while it is
+open: an invisible element covering the screen is one that swallows clicks.
 
-Il se referme sur ce qu'on ouvre, et au changement de section. Le voile n'existe **que** pendant
-qu'il est ouvert : un élément invisible qui couvre l'écran est un élément qui avale les clics.
+## What goes, and in which order
 
-## Ce qui disparaît, et dans quel ordre
+What leaves first is what is never needed in the moment:
 
-Ce qui part en premier est ce dont on n'a jamais besoin dans l'instant :
-
-| élément | seuil | pourquoi |
+| element | threshold | why |
 |---|---|---|
-| la version | `lg` | rien ne s'y décide |
-| la phrase « Trouver des morceaux » | `sm` | l'icône reste, donc le bouton aussi |
-| les onglets de section | `sm` | ils passent dans le hamburger de la barre partagée |
-| le nom de la section (sous-titre) | 420 px | seuil de `AppHeader`, pas le nôtre |
+| the version | `lg` | nothing is decided on it |
+| the "Find songs" label | `sm` | the icon stays, so the button does |
+| the section tabs | `sm` | they move into the shared bar's hamburger |
+| the section name (subtitle) | 420 px | `AppHeader`'s threshold, not ours |
 
-L'éditeur en deux volets (le morceau) **s'empile** au lieu de se partager la
-largeur : deux moitiés d'un écran de téléphone font deux colonnes où rien ne tient. Le YAML
-prend la moitié haute, ce qu'il décrit la moitié basse — le même ordre que de gauche à droite.
+The song's two-pane editor **stacks** rather than splitting the width: two halves of a phone
+screen are two columns nothing fits in. The YAML takes the top half and what it describes the
+bottom — the same order as left to right.
 
-## Ce qui n'est pas résolu
+## Not solved
 
-La **forme d'onde** se déplace et se zoome à la souris. Elle répond au doigt pour le déplacement,
-mais rien n'y est fait pour le pincement, et les contrôles du transport sont dessinés à des
-tailles pensées pour un curseur.
+The **waveform** pans and zooms with a mouse. It answers a finger for panning, but nothing is
+done for pinch, and the transport controls are drawn at sizes meant for a cursor.

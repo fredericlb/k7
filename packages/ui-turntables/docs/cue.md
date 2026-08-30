@@ -1,88 +1,83 @@
-# Le casque — préécouter une platine pendant que l'autre passe
+# The headphones — cueing one deck while the other plays
 
-Deux boutons dans la barre du bas, à côté du métronome : **A** et **B**, une icône de casque.
-Appuyer met cette platine dans les oreilles, sans rien changer à ce que la salle entend.
+Two buttons in the bottom bar, beside the metronome: **A** and **B**, a headphone icon. Press one
+and that deck is in your ears, with nothing changed for the room. It is what makes the desk a
+two-deck table: you can line the next record up before you launch it.
 
-C'est le geste qui manquait au pupitre pour qu'il soit une table à deux platines : caler le morceau
-suivant avant de le lancer.
+## It needs no second transport
 
-## Ça ne demandait pas un second transport
+Both decks **already play at once** — they are two tracks of one document, and the crossfader
+decides what leaves. What was missing was not a transport but a second **output**.
 
-Le raisonnement naturel — « préécouter, c'est jouer B pendant qu'A passe, donc deux transports » —
-est faux ici, et c'est ce qui rend la chose possible. Les deux platines **jouent déjà en même
-temps** : elles sont deux pistes d'un même document, et c'est le crossfader qui décide de ce qui
-sort. Il ne manquait pas un second transport, il manquait une seconde **sortie**.
+What one transport still forbids: launching a deck on its own, and a cue point that moves only
+that deck ([mix.md](mix.md), [cues.md](cues.md)).
 
-Ce qu'un transport unique interdit toujours : lancer une platine seule, et un repère qui ne déplace
-qu'elle ([mix.md](mix.md), [cues.md](cues.md)).
+## Pre-fade: before the crossfader, after the EQ
 
-## Pre-fade : avant le crossfader, après l'EQ
+The tap is taken on `filter<X>` — **after the EQ and the filter, before the fade**. Both halves
+are load-bearing:
 
-Le départ est pris sur `filter<X>`, donc **après l'EQ et le filtre, avant le fade**. Les deux moitiés
-comptent :
+- **before the fade** — moving the crossfader away from a deck must not take it out of the
+  headphones, or nothing can be prepared;
+- **after the EQ** — cutting the bass of the incoming deck has to be audible in the headphones
+  *before* it touches the room. That is the commonest transition gesture, and hearing it
+  afterwards is no use.
 
-- **avant le fade** — éloigner le crossfader de cette platine ne doit pas la retirer des oreilles,
-  sinon on ne peut rien préparer ;
-- **après l'EQ** — couper le grave de la platine qui arrive doit s'entendre au casque *avant* que ça
-  touche la salle. C'est le geste de transition le plus courant ; l'entendre après coup ne sert à rien.
+## The button switches nothing
 
-## Le bouton ne commute rien
+`cue<X>` is a node of the `fade` module, like the two halves of the crossfade. Its `Mix` is how
+much of that deck goes to the headphones, and the button is that param moving between 0 and 1 —
+the same `set-plugin-param` mechanism as the crossfader, the EQ and the stem cuts. There is
+therefore **no** cue switch in the engine and nothing new on the wire. At rest `Mix: 0`: a set
+starts with nothing in the ears.
 
-`cue<X>` est un nœud du module `fade`, comme les deux moitiés du crossfade. Son `Mix` est la quantité
-de cette platine qui part au casque, et le bouton est cette liaison passant de 0 à 1 — la même
-mécanique que le crossfader, l'EQ et les coupes de stems, par `set-plugin-param`.
+A **button** and not a knob, though what it moves is a gain: cueing is yes or no. Headphone
+volume is the interface's own amp knob — hardware that already has one, and one control fewer to
+draw.
 
-Il n'y a donc **aucun** interrupteur de cue dans le moteur, et rien de nouveau sur le fil. Au repos
-`Mix: 0` : un set commence avec rien dans les oreilles.
+## Unwired is an ORDINARY state — and there are TWO ways to be it
 
-C'est un **bouton** et pas un potard, bien que ce qu'il déplace soit un gain : préécouter est oui ou
-non, on ne le dose pas. Le volume du casque est le bouton de l'ampli casque de l'interface — un
-matériel qui en a un, et une commande de moins à dessiner.
+The button is off and disabled in two cases with different remedies, and it says which:
 
-## Non câblé est un état ORDINAIRE — et il y a DEUX façons de l'être
-
-Le bouton est éteint et désactivé dans deux cas qui n'ont pas le même remède, et il dit lequel :
-
-| ce qui manque | ce que le bouton dit |
+| what is missing | what the button says |
 |---|---|
-| le PROJET ne câble pas de départ (`cueWired`) | « migrez le set (`migrateSetCue`) ou reliez `deckA.cue` dans `surfaces/` » |
-| la MACHINE n'a pas nommé de paire (`cueLive`) | « nommez-la avec `system cue 3+4`, sinon le cue ne joue nulle part » |
+| the PROJECT wires no tap (`cueWired`) | "migrate the set (`migrateSetCue`), or wire `deckA.cue` in `surfaces/`" |
+| the MACHINE has named no pair (`cueLive`) | "name it with `system cue 3+4`, or the cue plays nowhere" |
 
-Le second est celui qu'on oublie, et sans lui le bouton **s'allumerait pour ne rien faire** — ce que
-[hosting.md](hosting.md) refuse déjà pour « Écouter ici » : une commande qui ne peut pas être honorée
-est pire qu'absente.
+The second is the one that gets forgotten, and without it the button **would light up and do
+nothing** — which [hosting.md](hosting.md) already refuses for "Listen here": a command that
+cannot be honoured is worse than an absent one.
 
-Le pupitre le sait sans rien demander de neuf : la piste de cue du **document compilé** porte ses
-`outputChannels`, et `leavesByItsOwnPair` les lit. Cette fonction interroge les CANAUX et jamais le
-mute — un strip `bus_only:` est muté lui aussi et parfaitement audible par ses départs, donc s'y fier
-éteindrait les potards d'EQ. Un test fige cette distinction.
+The desk knows this without asking for anything new: the compiled document's cue track carries
+its `outputChannels`, and `leavesByItsOwnPair` reads them. That function asks about CHANNELS and
+never about the mute — a `bus_only:` strip is muted too and perfectly audible through its sends,
+so trusting the mute would grey out the EQ knobs. A test pins the distinction.
 
-`deck<X>.cue` est **offert sans être exigé** — il ne figure pas dans `REQUIRED_CONTROLS`, comme les
-quatre stems et pour une raison de même nature : une machine à une seule paire de sortie n'a nulle
-part où envoyer un casque, et un pupitre qui refuserait de se dessiner y aurait tort.
+`deck<X>.cue` is **offered without being required** — it is not in `REQUIRED_CONTROLS`, like the
+four stems and for the same kind of reason: a machine with one output pair has nowhere to send a
+headphone feed, and a desk that refused to draw itself there would be wrong.
 
-## À ne pas confondre avec « Écouter ici »
+## Not to be confused with "Listen here"
 
-Deux commandes voisines, deux questions différentes — d'où deux icônes depuis que les boutons CUE
-existent :
+Two neighbouring commands, two different questions, hence two icons:
 
-| | ce que c'est | icône |
+| | what it is | icon |
 |---|---|---|
-| **CUE A / B** | une platine vers la **seconde paire de l'interface** — le casque du DJ | un casque |
-| **Écouter ici** | le master diffusé dans **cet onglet**, pour un laptop sans monitoring | un portable |
+| **CUE A / B** | one deck to the interface's **second pair** — the DJ's headphones | headphones |
+| **Listen here** | the master streamed into **this tab**, for a laptop with no monitoring | a laptop |
 
-La seconde est décrite dans [hosting.md](hosting.md) et reste absente chez un hôte sans lecteur de
-flux. La première dépend de la machine, pas de l'hôte.
+The second is [hosting.md](hosting.md)'s, and is absent on a host with no stream player. The
+first depends on the machine, not on the host.
 
-## Où ça sort, et ce qui arrive quand il n'y a nulle part
+## Where it leaves, and what happens when there is nowhere
 
-La paire est un fait sur la **machine**, pas sur le set : `system cue 3+4`, rangé dans
-`<state>/preferences.yaml`. Une machine qui n'en nomme pas joue le bus de cue **nulle part** —
-jamais replié sur le master, ce qui mettrait le retour casque dans la salle. Trois portes ferment ce
-cas, et elles sont mesurées : `packages/song/docs/cue.md`.
+The pair is a fact about the **machine**, not about the set: `system cue 3+4`, filed in
+`<state>/preferences.yaml`. A machine that names none plays the cue bus **nowhere** — never
+folded back onto the master, which would put the headphone feed into the room. Three doors close
+that case, and they are measured: `packages/song/docs/cue.md`.
 
-## Ce que ça ne fait pas encore
+## What it does not do
 
-Un **niveau de casque** dans l'application, et un mélange cue/master : l'ampli de l'interface a son
-propre bouton, et une platine par bouton suffit à caler. Le jour où une machine sans bouton physique
-en aura besoin, c'est un `Mix` intermédiaire sur le même nœud — rien de structurel.
+A **headphone level** in the app, and a cue/master blend: the interface's amp has its own knob,
+and one deck per button is enough to line a record up. The day a machine without a physical knob
+needs it, it is an intermediate `Mix` on the same node — nothing structural.

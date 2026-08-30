@@ -1,247 +1,193 @@
-# Plan — la tonalité, et ce qu'elle coûte vraiment
+# Plan — key detection, and what it would really cost
 
-Troisième point de l'audit du pupitre, et le seul des trois qui n'est pas fait : **aucune tonalité
-n'est détectée**. KEY tient la hauteur sans dire laquelle, donc pas de mix harmonique et pas de roue
-Camelot.
+**No key is detected.** KEY holds the pitch without saying which one, so there is no harmonic
+mixing and no Camelot wheel. The other two points of the desk audit are done — the playlist
+pre-warms ([prewarm.md](../packages/ui-turntables/docs/prewarm.md)) and the grid is correctable
+([grid.md](../packages/ui-turntables/docs/grid.md)). This one is different in kind: it is not a
+missing button, it is a **measurement**, and it is in the C++.
 
-Les deux autres points sont réglés — la playlist se préchauffe ([prewarm.md](../packages/ui-turntables/docs/prewarm.md))
-et la grille se corrige ([grid.md](../packages/ui-turntables/docs/grid.md)). Celui-ci est différent
-en nature : ce n'est pas un bouton qui manque, c'est une **mesure**, et elle est dans le C++.
+## Where it would live
 
-## Où ça vit
+`engine/moteur/engine/Waveform.cpp`, the `--waveform <file>` mode: one pass that decodes, builds
+the envelopes, detects the transients, estimates the tempo, and writes `{file}.cache`.
 
-`engine/moteur/engine/Waveform.cpp`, le mode `--waveform <fichier>` : une passe qui décode,
-construit les enveloppes, détecte les transitoires, estime le tempo, et écrit `{fichier}.cache`.
+Three things to have read before proposing anything:
 
-Trois choses qu'il faut avoir lues avant de proposer quoi que ce soit :
+**The pass is ENTIRELY time-domain.** A streaming decode, sample by sample, summed to mono; the
+three bands come out of two one-pole followers, and the tempo envelope out of a fixed hop. **No FFT
+anywhere.** A chromagram is usually an FFT affair, so that is the first real design choice, not an
+implementation detail.
 
-**La passe est ENTIÈREMENT temporelle.** Un décodage en flux, échantillon par échantillon,
-sommé en mono ; les trois bandes sortent de deux suiveurs à un pôle, et l'enveloppe de tempo d'un
-saut fixe. **Aucune FFT nulle part.** Un chromagramme est habituellement une affaire de FFT, donc
-c'est le premier vrai choix de conception, et pas un détail d'implémentation.
+**The FFT is nevertheless already there.** `juce_dsp` is a declared dependency of
+`tracktion_engine` (`tracktion_engine.h`, line 28), so `juce::dsp::FFT` is already linked and costs
+nothing to reach. Nothing uses it in the engine today, but nothing has to be added to the build.
 
-**La FFT est pourtant déjà là.** `juce_dsp` est une dépendance déclarée de `tracktion_engine`
-(`tracktion_engine.h`, ligne 28), donc `juce::dsp::FFT` est déjà liée et ne coûte rien à atteindre.
-Personne ne s'en sert dans le moteur aujourd'hui — mais rien n'est à ajouter au build.
-
-**Le sidecar est VERSIONNÉ**, et c'est la conséquence la plus lourde du plan :
+**The sidecar is VERSIONED**, and that is the heaviest consequence:
 
 ```cpp
 // v2 added `transients` + `sensitivity`, v3 `bpm`, v4 the three bands
 out += "{\"v\":4,\"fingerprint\":\"";
 ```
 
-`waveformCache.ts` exige `MIN_CACHE_VERSION = 4`. Passer en v5 **invalide tous les sidecars
-existants** : chaque morceau est réanalysé à la première ouverture.
+`waveformCache.ts` requires `MIN_CACHE_VERSION = 4`. Going to v5 **invalidates every existing
+sidecar**: every song is re-analysed on first opening. Pre-warming absorbs that — it walks the
+playlist by itself as soon as the surface has its list — so the invalidation is paid in the
+background rather than on the first record put on.
 
-> Ça aurait été rédhibitoire il y a une semaine. Ça ne l'est plus : le préchauffage marche la
-> playlist tout seul dès que la surface a sa liste, donc l'invalidation se paie en tâche de fond
-> plutôt que sur le premier disque qu'on pose. Les deux points de l'audit se rendent service.
+## The cost is a non-issue, and it is measured
 
-## Ce qu'il faut décider AVANT d'écrire
+What the pass costs today, on six real songs from this machine (`--waveform`, RelWithDebInfo):
 
-### 1. FFT, ou un banc de résonateurs ?
-
-| | pour | contre |
-|---|---|---|
-| **FFT** (`juce::dsp::FFT`) | la façon habituelle ; déjà liée | demande de **tamponner** par trames et de fenêtrer — la passe actuelle ne tamponne rien |
-| **Goertzel / résonateurs**, un par demi-ton sur ~5 octaves | épouse la passe existante : un état par filtre, mis à jour par échantillon, comme les suiveurs à un pôle qui sont déjà là | ~60 filtres, coût par échantillon à mesurer |
-
-Le second est le moins étranger à ce fichier : la passe est une boucle par échantillon sans mémoire
-de trame, et y greffer un tampon de FFT change sa forme.
-
-### Mesuré — et ça décide
-
-Ce que la passe coûte AUJOURD'HUI, sur six morceaux réels de cette machine
-(`--waveform`, RelWithDebInfo) :
-
-| morceau | durée | analyse | du temps réel |
+| song | duration | analysis | of real time |
 |---|---|---|---|
-| Sans titre | 204 s | 386 ms | **0,19 %** |
-| En Bande organisée | 376 s | 636 ms | 0,17 % |
-| In da club | 249 s | 457 ms | 0,18 % |
-| Take on me | 246 s | 456 ms | 0,19 % |
-| Money Money Money | 188 s | 389 ms | 0,21 % |
-| P.I.M.P | 15 s | 82 ms | 0,54 % |
+| Sans titre | 204 s | 386 ms | **0.19 %** |
+| En Bande organisée | 376 s | 636 ms | 0.17 % |
+| In da club | 249 s | 457 ms | 0.18 % |
+| Take on me | 246 s | 456 ms | 0.19 % |
+| Money Money Money | 188 s | 389 ms | 0.21 % |
+| P.I.M.P | 15 s | 82 ms | 0.54 % |
 
-**Un cinquième de pour cent du temps réel**, et parfaitement linéaire : ~0,19 % sur tout ce qui
-dure plus d'une minute (le 0,54 % du morceau de 15 s est le démarrage du processus, pas l'analyse).
-Une playlist de vingt morceaux se préchauffe en **une dizaine de secondes**.
+**A fifth of a per cent of real time**, and perfectly linear: ~0.19 % on anything over a minute
+(the 0.54 % of the 15 s song is process startup, not analysis). A twenty-song playlist pre-warms in
+**about ten seconds**.
 
-Conséquence directe sur le choix ci-dessus : **il n'y a pas de budget à défendre.** Même une
-approche dix fois plus chère resterait sous 2 % du temps réel et une playlist tiendrait sous deux
-minutes en tâche de fond. Le critère n'est donc pas la vitesse — c'est la JUSTESSE et la forme du
-code. Ce qui retire l'argument principal du banc de résonateurs et laisse la FFT, qui est la façon
-habituelle, mieux comprise, et déjà liée.
+So **there is no budget to defend.** Even an approach ten times more expensive would stay under 2 %
+of real time and a playlist would stay under two minutes in the background. The criterion is not
+speed but ACCURACY and the shape of the code — which removes the resonator bank's main argument and
+leaves the FFT, the usual way, better understood, and already linked.
 
-> Ça renverse ce que ce plan disait avant la mesure. Il annonçait le coût comme la première
-> décision ; le coût s'avère être un non-sujet, et le vrai risque est ailleurs — dans le taux de
-> bonne réponse, qui n'a pas encore de jeu d'essai pour être mesuré.
+## The ground truth it lacks
 
-### 2. Quel profil, et quelle vérité de terrain ?
+Chromagram over 12 classes, then correlation against major/minor profiles —
+Krumhansl-Schmuckler, or Temperley's revised profiles. `argmax` over 24 gives tonic + mode.
 
-Chromagramme sur 12 classes, puis corrélation contre des profils majeur/mineur —
-Krumhansl-Schmuckler, ou les profils révisés de Temperley. `argmax` sur 24 donne tonique + mode.
+**No labels in the files** — the 302 mp3s were scanned, ten carry any ID3 text at all, none carries
+a `TKEY`. **Seventeen keys have been supplied by hand**, and that is what the measurement below
+rests on.
 
-**Aucune étiquette dans les fichiers** — les 302 mp3 ont été scannés, dix portent la moindre trame
-de texte ID3, aucun ne porte de `TKEY`. Mais **dix-sept tonalités ont été fournies à la main**, et
-c'est avec elles que la section suivante tranche.
+What remains available without them is SYNTHETIC material, whose key is known because it was
+written. That does not measure accuracy on real material, and
+`packages/audio-probe/src/key.test.ts` says so in its header rather than letting anyone believe
+otherwise. It measures what breaks silently: a mis-mapped pitch class, a profile turned the wrong
+way, a wheel whose neighbours are not neighbours.
 
-Ce qui reste possible sans elle : de la matière SYNTHÉTIQUE, dont la tonalité est connue parce
-qu'on l'a écrite. Ça ne mesure pas la justesse sur du vrai matériel — et
-`packages/audio-probe/src/key.test.ts` le dit en en-tête plutôt que de laisser croire le contraire.
-Ça mesure ce qui casse en silence : une classe de hauteur mal mappée, un profil tourné à l'envers,
-une roue dont les voisins n'en sont pas.
+## Measured on real material — and it fails
 
-### 3. MESURÉ SUR DU VRAI MATÉRIEL — et c'est un échec
+Seventeen songs of known key, decoded to mono 22 k and put through the detector
+(`@studio/audio-probe/key`):
 
-Dix-sept morceaux de tonalité connue, décodés en mono 22 k et passés au détecteur
-(`@studio/audio-probe/key`) :
-
-| | juste |
+| | right |
 |---|---|
-| tonalité EXACTE, profil Temperley | **9/17 — 53 %** |
-| tonalité exacte, profil Krumhansl | 9/17 — 53 % |
-| code Camelot COMPATIBLE (ce dont un DJ a besoin) | 13/17 — 76 % |
+| EXACT key, Temperley profile | **9/17 — 53 %** |
+| exact key, Krumhansl profile | 9/17 — 53 % |
+| COMPATIBLE Camelot code (what a DJ needs) | 13/17 — 76 % |
 
-**C'est en dessous du seuil que ce plan s'était lui-même fixé.** « Une détection fausse une fois sur
-quatre est pire qu'aucune » : celle-ci se trompe une fois sur deux sur la tonalité, et une fois sur
-quatre sur la compatibilité. Elle ne doit pas être branchée sur le pupitre en l'état.
+**That is below the threshold this plan set itself.** "A detection wrong one time in four is worse
+than none": this one is wrong one time in two on the key, and one in four on compatibility. It must
+not be wired to the desk as it stands. The two profiles tie, so the material still does not separate
+them — for a new reason: both are wrong.
 
-Les deux profils sont à égalité, donc la matière ne les départage toujours pas — mais pour une
-autre raison qu'avant : ils se trompent tous les deux.
+### Two real defects, and the settings they justify
 
-#### Deux vrais défauts trouvés en mesurant
+**The frame is a DURATION, not a sample count.** 4096 samples give 5.4 Hz bins at 22 k but
+**11.7 Hz at 48 k**, the rate the engine runs at — so a C++ port would resolve worse than the
+prototype, silently. `FRAME_SECONDS` is what keeps the resolution independent of the file.
 
-**La trame était en ÉCHANTILLONS et pas en secondes.** 4096 échantillons donnent des bacs de 5,4 Hz
-à 22 k mais de **11,7 Hz à 48 k**, la fréquence à laquelle le moteur tourne — donc le portage C++
-aurait résolu moins bien que le prototype, en silence. La trame est maintenant une DURÉE
-(`FRAME_SECONDS`), et la résolution ne dépend plus du fichier.
+**The bottom of the spectrum does not resolve.** A semitone is 3.9 Hz at C2 against 5.4 Hz of
+resolution: the bottom octave smears each note over its neighbours and votes for the wrong class.
+The low bound is C3 (7.8 Hz), the lowest semitone this frame separates.
 
-**Le bas du spectre ne résolvait pas.** L'écart d'un demi-ton vaut 3,9 Hz à do2 contre 5,4 Hz de
-résolution : l'octave du bas étalait chaque note sur ses voisines et votait pour la mauvaise classe.
-La borne basse est remontée à do3 (7,8 Hz), qui est le plus bas demi-ton que cette trame sépare.
+> A parameter sweep found 11/17 by raising the bound to G3. Rejected: the best of twenty-four
+> configurations, chosen on the same seventeen songs that measure it, is not an estimate — it is
+> overfitting on a two-song margin.
 
-> Un balayage des paramètres a trouvé 11/17 en remontant la borne à sol3. Écarté : le meilleur de
-> vingt-quatre configurations, choisi sur les dix-sept morceaux qui servent aussi à le mesurer,
-> n'est pas une estimation — c'est du surapprentissage sur deux morceaux d'écart.
+### The leads have been tried. None works.
 
-#### Les pistes ont été essayées. Aucune ne marche.
+`packages/audio-probe/scripts/key-truth.ts` replays the seventeen songs against four variants:
 
-`packages/audio-probe/scripts/key-truth.ts` rejoue les dix-sept morceaux contre quatre variantes :
-
-| variante | exact (Temperley) | exact (Krumhansl) | Camelot |
+| variant | exact (Temperley) | exact (Krumhansl) | Camelot |
 |---|---|---|---|
 | **base** | **9/17** | 9/17 | **13/17** |
-| énergie en log | 7/17 | 6/17 | 11–12/17 |
-| harmoniques retirées | 8/17 | 10/17 | 12/17 |
-| log + harmoniques | 9/17 | 7/17 | 11/17 |
+| log energy | 7/17 | 6/17 | 11–12/17 |
+| harmonics removed | 8/17 | 10/17 | 12/17 |
+| log + harmonics | 9/17 | 7/17 | 11/17 |
 
-**Le premier suspect était le bon soupçon et la mauvaise réponse.** Retirer les harmoniques ne
-gagne rien : un point chez Krumhansl, un de moins chez Temperley — sur dix-sept morceaux, c'est du
-bruit, pas un progrès. L'énergie en log fait franchement pire.
+Removing harmonics gains nothing: one point for Krumhansl, one fewer for Temperley — noise over
+seventeen songs, not progress. Log energy is frankly worse.
 
-Ce que ça dit, et c'est plus utile qu'un gain de 6 % : **le problème n'est pas dans le pliage du
-chromagramme.** Une corrélation de profil sur un chromagramme global de deux minutes jette la
-structure temporelle — or c'est là que vit la tonique (les cadences, la fin des phrases, la
-dernière note). Les détecteurs qui annoncent 85-95 % ne sont pas ce détecteur-ci mieux réglé ; ils
-font autre chose. Aller les chercher est un projet de traitement du signal, pas un réglage.
+What that says is more useful than a 6 % gain: **the problem is not in the chromagram folding.** A
+profile correlation over a global two-minute chromagram throws away the temporal structure — and
+that is where the tonic lives (the cadences, the ends of phrases, the last note). Detectors claiming
+85–95 % are not this detector better tuned; they do something else. Going and getting them is a
+signal-processing project, not a tuning exercise.
 
-#### Ce qui reste vrai malgré tout
+### What holds anyway
 
-| matière | détecté | marge |
+| material | detected | margin |
 |---|---|---|
-| I–V–vi–IV majeur, **les douze tonalités** | juste, 12/12 | 0,185 |
-| i–iv–V–i mineur, **les douze** | juste, 12/12 | **0,410** |
-| i–VI–III–VII mineur (éolien), les douze | **le RELATIF MAJEUR** | 0,185 |
+| I–V–vi–IV major, **all twelve keys** | right, 12/12 | 0.185 |
+| i–iv–V–i minor, **all twelve** | right, 12/12 | **0.410** |
+| i–VI–III–VII minor (aeolian), all twelve | the RELATIVE MAJOR | 0.185 |
 
-Sur de la matière SYNTHÉTIQUE le détecteur est juste 12/12 en majeur et 12/12 en mineur avec
-dominante, et se trompe de relatif sur un mineur éolien. Ce dernier n'est pas un bug :
-`i–VI–III–VII` en do mineur contient **exactement** les sept notes de mi bémol majeur. Aucun chromagramme ne peut les distinguer, parce qu'il n'y a rien à
-distinguer — la différence est laquelle des deux sonne comme la maison, et ça n'est pas dans
-l'histogramme des classes de hauteur. La deuxième ligne réussit précisément parce que le V y met
-une sensible, la seule note que le relatif majeur n'a pas.
+On synthetic material the detector is right 12/12 in major and 12/12 in minor with a dominant, and
+gets the relative wrong on an aeolian minor. That last is not a bug: `i–VI–III–VII` in C minor
+contains **exactly** the seven notes of E flat major. No chromagram can tell them apart, because
+there is nothing to tell apart — the difference is which of the two sounds like home, and that is
+not in the pitch-class histogram. The second row succeeds precisely because the V puts a leading
+note in, the one note the relative major has not got.
 
-**Et cette erreur-là ne coûte rien à un DJ**, ce qui est la raison de continuer : une tonalité et
-son relatif partagent l'HEURE Camelot et ne diffèrent que par la lettre — `8A` contre `8B` — et la
-roue les déclare compatibles. L'erreur la plus fréquente tombe donc sur un code qui se mixe avec le
-bon. Un test le vérifie sur les douze.
+**And that error costs a DJ nothing**, which is the reason to carry on: a key and its relative share
+the Camelot HOUR and differ only in the letter — `8A` against `8B` — and the wheel declares them
+compatible. The commonest error therefore lands on a code that mixes with the right one. A test
+checks it over all twelve.
 
-La marge, elle, ne sépare PAS ces deux cas (0,185 des deux côtés) : elle dit « c'est l'un de ces
-deux relatifs », pas lequel. C'est une information honnête, et il faut la présenter comme telle
-plutôt que comme une confiance.
+The margin does **not** separate those two cases (0.185 on both sides): it says "it is one of these
+two relatives", not which. That is honest information and must be presented as such rather than as
+a confidence.
 
-Deux conséquences :
+## What shipping it would require
 
-- il faut **la même échappatoire que la grille** : une tonalité corrigeable, dans `mix.yaml`, à
-  côté de `bpm` et `beat`. C'est le même geste, le même fichier, la même raison (une opinion de ce
-  set-là), et ça coûte un champ `key:` ;
-- il faut **dire ce qu'on ne sait pas**. Une corrélation faible doit s'afficher comme un doute et
-  non comme une réponse — la grille a déjà ce vocabulaire avec `confident`.
+- **The same escape hatch as the grid**: a correctable key, in `mix.yaml`, beside `bpm` and `beat`.
+  Same gesture, same file, same reason (an opinion belonging to that set), and it costs one `key:`
+  field.
+- **Saying what is not known.** A weak correlation must display as a doubt and not as an answer —
+  the grid already has that vocabulary with `confident`.
 
-## Ce que ça donne à l'écran
+The Camelot wheel is a pure table: 24 keys → `1A`…`12B`, and two songs mix if their codes are
+identical, adjacent (±1) or of opposite mode at the same number. No measurement in it, so nothing to
+decide — and nothing useful either while the measurement is unreliable. The display fits in the
+tempo column, under KEY, where pitch is already the subject.
 
-La roue **Camelot** est une pure table : 24 tonalités → `1A`…`12B`, et deux morceaux se mixent si
-leurs codes sont identiques, voisins (±1) ou de mode opposé au même chiffre. Aucune mesure là-dedans,
-donc rien à décider — mais aussi rien d'utile tant que la mesure n'est pas fiable.
+## The way out: separate the WHEEL from the DETECTOR
 
-L'affichage tient dans la colonne de tempo, sous KEY, où il est déjà question de hauteur.
+The audit asked for "no harmonic mixing, no Camelot wheel". It is the WHEEL that is the feature; the
+detector is only one way of filling its box, and the less reliable of the two.
 
-## L'ordre
+The other way is already 90 % built:
 
-1. ~~**Mesurer le coût.**~~ **FAIT** — 0,19 % du temps réel, donc pas de budget à défendre, et
-   c'est la FFT qui gagne par familiarité plutôt qu'un banc de résonateurs par économie.
-2. ~~**Se donner une vérité de terrain.**~~ **CHERCHÉE, ABSENTE** — 302 mp3, aucun `TKEY`. Reste la
-   matière synthétique, qui valide l'algorithme et **pas** la justesse sur du vrai matériel.
-3. ~~**Le chromagramme + les profils.**~~ **FAIT** — `@studio/audio-probe/key`, 16 tests. Goertzel
-   plutôt qu'une FFT : un chromagramme veut ~60 fréquences connues, pas un spectre, et cette forme
-   est aussi celle qui se porte dans la boucle par échantillon du moteur.
-4. **BLOQUÉ, et les pistes sont épuisées** — 53 % exact, 76 % Camelot, et aucune des trois idées
-   classées ne fait mieux. Rien ne part vers le sidecar, le C++ ou l'écran.
-5. (après) La correction dans `mix.yaml`, sur le modèle exact de `bpm`/`beat`.
-6. (après) Camelot à l'écran, et les voisins.
+- `mix.yaml` already carries per-set corrections, `bpm` and `beat`, with their shared entry editor.
+  A `key:` beside them is the same field, the same gesture, the same file;
+- the wheel, its neighbours and `compatible()` are written and tested — they never depended on the
+  detector;
+- and a playlist is twelve to thirty songs, not two hundred and seventy-nine. The seventeen keys of
+  this bench were given by hand in a minute.
 
-L'étape 2 est le vrai travail de décision ; 4 à 6 sont mécaniques et ressemblent à ce qui vient
-d'être fait pour la grille.
+An entered key is **100 % right**, where a detected one is 53 %. For one use — deciding whether two
+records mix — that is the difference between a feature and a trap.
 
-## La sortie qui reste : séparer la ROUE du DÉTECTEUR
+Cheapest first:
 
-L'audit demandait « pas de mix harmonique, pas de roue Camelot ». C'est la ROUE qui est la
-fonctionnalité ; le détecteur n'est qu'une façon de remplir sa case — et la moins fiable des deux.
+1. `key:` in `mix.yaml` + the wheel on screen. The whole feature, with no detection at all, on the
+   grid's exact model. **This is the recommendation.**
+2. An import: read a `TKEY` when a file carries one (none here, but bought files often do), and
+   offer it as a starting value.
+3. The detector, one day, as a PROPOSAL marked doubtful — never as an answer — if somebody takes up
+   the signal processing.
 
-Or l'autre façon est déjà construite, à 90 % :
+## What is acquired and will not need redoing
 
-- `mix.yaml` porte déjà des corrections par set, `bpm` et `beat`, avec leur éditeur d'entrée
-  partagé. Un `key:` à côté est le même champ, le même geste, le même fichier ;
-- la roue, ses voisins et `compatible()` sont écrits et testés — ils n'ont jamais dépendu du
-  détecteur ;
-- et une playlist fait douze à trente morceaux, pas deux cent soixante-dix-neuf. Les dix-sept
-  tonalités de ce banc ont été données à la main en une minute.
+The test bench (seventeen labelled songs, decoded by ffmpeg), the Camelot wheel and its neighbours,
+the transposition tests that catch a shifted class mapping, and the cost — 0.19 % of real time,
+which will never be the problem.
 
-Une tonalité saisie est **juste à 100 %**, là où la détectée l'est à 53 %. Pour un usage — décider
-si deux disques se mixent — c'est la différence entre une fonctionnalité et un piège.
-
-Ce que ça donne, dans l'ordre du moins cher au plus cher :
-
-1. `key:` dans `mix.yaml` + la roue à l'écran. La fonctionnalité entière, sans aucune détection,
-   sur le modèle exact de la grille. **C'est ce que je recommande.**
-2. Un import : lire un `TKEY` quand un fichier en porte un (aucun ici, mais les fichiers achetés en
-   ont souvent), et le proposer comme valeur de départ.
-3. Le détecteur, un jour, comme une PROPOSITION marquée douteuse — jamais comme une réponse — si
-   quelqu'un reprend le traitement du signal.
-
-## Ce que ce plan ne prétend pas
-
-Une seule des inconnues est levée : le **coût**, mesuré ci-dessus, et il ne pose pas de problème.
-Le reste de ce qui est établi se lit dans la source — la passe est temporelle, la FFT est liée, le
-sidecar est versionné et son invalidation est désormais absorbée par le préchauffage.
-
-La justesse EST mesurée maintenant, et elle ne suffit pas : **53 %**. Ce plan ne prétend donc pas
-que la tonalité est faite — il prétend qu'elle est chiffrée, que deux vrais défauts ont été trouvés
-et corrigés en la chiffrant, et qu'on sait quoi essayer ensuite.
-
-Ce qui est acquis et ne sera pas à refaire : le banc d'essai (dix-sept morceaux étiquetés, décodés
-par ffmpeg), la roue Camelot et ses voisins, les tests de transposition qui attrapent un mappage de
-classe décalé, et le coût — 0,19 % du temps réel, qui ne sera jamais le problème.
-
-Ce qui reste : un chromagramme qui compte les harmoniques comme des notes.
+What remains: a chromagram that counts harmonics as notes.

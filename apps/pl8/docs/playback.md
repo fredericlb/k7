@@ -1,139 +1,131 @@
-# Deux disques, et le piège entre les deux
+# Two records, and the trap between them
 
-La médiathèque est **hébergée** ; le moteur ouvre des **chemins sur sa propre machine** et ne
-sait pas aller chercher une URL. Ce qui joue n'est donc jamais les octets que cet écran liste :
-c'est la copie dans le cache de la machine choisie, atteinte par le service de fichiers de
-cette machine-là.
+The médiathèque is **hosted**; the engine opens **paths on its own machine** and cannot fetch a
+URL. What plays is therefore never the bytes this screen lists: it is the copy in the chosen
+machine's cache, reached through that machine's file service.
 
-C'est le fait le plus facile à oublier de tout ce service, et il vaut pour tout ce qu'un moteur
-joue pour la médiathèque — un morceau, une variante.
+That is the easiest fact in this whole service to forget, and it holds for everything an engine
+plays for the médiathèque — a track, a variant.
 
-| quoi | d'où | pourquoi |
+| what | from where | why |
 |---|---|---|
-| l'audio | le cache de la machine du moteur (`/mediatek` → `root`, plus le chemin de l'entrée et `meta.master`) | le moteur l'ouvre comme un fichier |
-| ce qu'on liste à l'écran | la bibliothèque hébergée | c'est de la DONNÉE, et c'est la même des deux côtés |
+| the audio | the engine machine's cache (`/mediatek` → `root`, plus the entry's path and `meta.master`) | the engine opens it as a file |
+| what is listed on screen | the hosted library | it is DATA, and it is the same on both sides |
 
-`cacheRoot` demande sa racine à la machine, `playablePath` la recolle au chemin de l'entrée, et
-`cachedOnMachine` répond « cette machine l'a-t-elle » avec un `Range: bytes=0-0` — un octet, pas
-le fichier, parce que demander doit coûter moins cher que se tromper.
+`cacheRoot` asks the machine for its root, `playablePath` glues it to the entry's path, and
+`cachedOnMachine` answers "does this machine have it" with a `Range: bytes=0-0` — one byte, not
+the file, because asking must cost less than being wrong.
 
-## Ce que le bouton dit quand il ne peut pas jouer
+A cache root is not a copy. Only `modules` are pulled automatically
+(`packages/file-service/src/mediatekPull.ts`); a track is on a machine because something put it
+there, and on a fresh machine it simply is not. The engine would then open nothing and play
+silence, the one failure a transport cannot report. Hence the probe — and hence **every** refusal
+reading as absent: treating an unreachable machine as "present" would bring the silence back.
 
-Il reste grisé et son infobulle dit laquelle des trois raisons s'applique :
+## What the button says when it cannot play
 
-- **aucun moteur** — rien n'a été choisi, ou rien n'a répondu à la sonde ;
-- **cette machine n'a pas de cache de la médiathèque** — le service de fichiers a répondu, mais
-  ne tient aucune bibliothèque ;
-- **ce morceau n'a pas de fichier audio** — un dossier avec un sidecar et pas de master, ce qui
-  est un état réel (un miroir arrêté en route, un dossier fait à la main) et non une panne à
-  cacher.
+It stays greyed and its tooltip says which of the three reasons applies:
 
-La distinction compte parce que les trois se réparent différemment, et un bouton simplement gris
-invite à deviner.
+- **no engine** — nothing chosen, or nothing answered the probe;
+- **this machine has no médiathèque cache** — the file service answered but holds no library;
+- **this track has no audio file** — a folder with a sidecar and no master, which is a real state
+  (a mirror stopped halfway, a hand-made folder) and not a fault to hide.
 
-## Le document
+The distinction matters because the three are fixed differently, and a plain grey button invites
+guessing. `playablePath` returns `null` for a REAL state and not for a swallowed error: a track is
+a folder, and a folder carrying a sidecar with no audio has nothing to play. The service reports a
+native root (`C:\…` or `/home/…`) while entry paths are POSIX, and the engine accepts both — so
+they are joined with a separator chosen from the root rather than normalised into a form this app
+has no business deciding.
 
-`songPreviewDoc` est **une piste, un clip** : le fichier tel quel. Rien d'autre.
+## The document
 
-`recordDir` reste vide — un aperçu joue et n'enregistre jamais, et un dossier inventé est un
-dossier où le moteur finirait par écrire.
+`songPreviewDoc` is **one track, one clip**: the file as it is. Nothing else.
 
-Un seul constructeur de document, donc, et c'est le cas dégénéré : ce que la médiathèque joue
-est toujours un fichier. Une chaîne s'écrit dans st0 et se committe dans le dépôt de
-bibliothèques du compte, où le moteur qui joue la chanson la charge déjà.
+`recordDir` stays empty — a preview plays and never records, and an invented folder is a folder
+the engine would eventually write into.
 
-## Une session, un son
+One document builder, then, and it is the degenerate case: what the médiathèque plays is always a
+file. A chain is written in st0 and committed to the account's libraries repository, where the
+engine playing the song already loads it.
 
-L'aperçu part sur `SESSIONS.pl8`, par service **et** par personne. Jouer quelque chose remplace
-donc ce que cette session tenait. C'est voulu : faire jouer deux choses à la fois sur un moteur
-n'est pas à organiser, c'est à interdire.
+## One session, one sound
 
-## Les deux en-têtes que la machine exige
+The preview goes out on `SESSIONS.pl8`, per service **and** per person. Playing something
+therefore replaces whatever that session held. That is deliberate: making an engine play two
+things at once is not something to organise, it is something to forbid.
 
-`apps/pl8/frontend/src/engine/songPreview.ts` envoie l'utilisateur **et** le jeton à chaque appel
-au service de fichiers d'une machine. Le jeton n'est pas facultatif en pratique : tout ce qui passe
-par `requireEngineToken` est refusé sans lui dès qu'un jeton est configuré — ce que le superviseur
-fait toujours sur une vraie machine. Un appel qui n'enverrait que l'utilisateur marche sur un run
-de dev nu et répond 401 partout ailleurs ; `cacheRoot` avale ce 401 en `null`, que l'écran formule
-« cette machine n'a pas de cache de la médiathèque » — plausible, et faux, ce qui est exactement
-la façon dont un oubli de jeton se cache.
+## The two headers the machine demands
 
-Le jeton est **omis** quand il n'y en a pas : une machine qui n'en configure aucun ne garde rien, et
-ajouter un en-tête vide ferait échouer une comparaison qui passe.
+`apps/pl8/frontend/src/engine/songPreview.ts` sends the user **and** the token on every call to a
+machine's file service. The token is not optional in practice: anything behind
+`requireEngineToken` is refused without it as soon as a token is configured — which the supervisor
+always does on a real machine. A call sending only the user works on a bare dev run and answers
+401 everywhere else; `cacheRoot` swallows that 401 as `null`, which the screen words as "this
+machine has no médiathèque cache" — plausible, and false, which is exactly how a missing token
+hides.
 
-Une racine de cache n'est pas une copie. Seuls les `modules` sont rapatriés automatiquement
-(`packages/file-service/src/mediatekPull.ts`) ; un morceau est sur une machine parce que quelque
-chose l'y a mis, et sur une machine neuve il n'y est simplement pas. Le moteur n'ouvrirait alors
-rien et jouerait le silence, qui est la seule panne qu'un transport ne sait pas rapporter. D'où le
-`Range: bytes=0-0` de `cachedOnMachine`, et le fait que **tout** refus se lit comme absent : traiter
-une machine injoignable comme « présente » remettrait le silence.
+The token is **omitted** when there is none: a machine that configures no token keeps none, and
+adding an empty header would fail a comparison that passes.
 
-`playablePath` rend `null` pour un état RÉEL et non pour une erreur avalée : un morceau est un
-dossier, et un dossier portant un sidecar sans audio n'a rien à jouer. Le service rapporte une
-racine native (`C:\…` ou `/home/…`) tandis que les chemins d'entrée sont POSIX, et le moteur accepte
-les deux — ils sont donc joints avec un séparateur choisi d'après la racine plutôt que normalisés
-vers une forme que cette app n'a pas à décider.
+`bounce` is the **offline** render (`--render`) and not the transport: it opens no audio device,
+so it cannot collide with an engine that is playing — which is what makes "process every variant"
+launchable while you listen to one. `format: mp3` is a **request** and not a guarantee: the engine
+writes wav, mp3 is an ffmpeg transcode on that machine at best. What comes back says which, by its
+content type, because filing a wav under `.mp3` produces a library of files that lie about
+themselves.
 
-`bounce` est le rendu **hors ligne** (`--render`) et non le transport : il n'ouvre aucun périphérique
-audio, donc il ne peut pas entrer en collision avec un moteur qui joue — ce qui est ce qui rend
-« traiter toutes les variantes » lançable pendant qu'on en écoute une. `format: mp3` est une
-**demande** et non une garantie : le moteur écrit du wav, le mp3 est un transcodage ffmpeg sur cette
-machine-là, au mieux. Ce qui revient dit lequel des deux, par son type de contenu, parce que classer
-un wav sous `.mp3` produirait une bibliothèque de fichiers qui mentent sur eux-mêmes.
+## The transport sits above the screens
 
-## Le transport tient au-dessus des écrans
+`apps/pl8/frontend/src/playback/PlaybackProvider.tsx` holds what is playing, and it holds the
+tab's **only** engine socket. One socket per screen would only be safe if screens replaced one
+another, and a track that keeps playing while you navigate breaks exactly that arrangement: its
+transport has to outlive the screen that started it, and a second socket would be a second client
+on the same session, driving the same document.
 
-`apps/pl8/frontend/src/playback/PlaybackProvider.tsx` tient ce qui joue, et il tient la **seule**
-socket moteur de l'onglet. Une socket par écran ne serait sûre que si les écrans se remplaçaient
-l'un l'autre, et un morceau qui continue pendant qu'on navigue casse exactement cet arrangement :
-son transport doit survivre à l'écran qui l'a lancé, et une deuxième socket serait un deuxième
-client sur la même session, pilotant le même document.
+The `<audio>` element stays mounted whatever the destination, including when the engine or mpv is
+playing: it is what reports the master's **duration** — the engine's state frame carries a
+playhead and no length — and keeping it here is what lets a track outlive its screen. When mpv
+plays, its own duration wins: it has already read the file.
 
-L'élément `<audio>` reste monté quelle que soit la destination, y compris quand c'est le moteur ou
-mpv qui joue : c'est lui qui rapporte la **durée** du master — la trame d'état du moteur porte une
-tête de lecture et aucune longueur — et le garder ici est ce qui laisse un morceau survivre à
-l'écran. Quand mpv joue, sa durée à lui gagne : il a déjà lu le fichier.
+What is loaded is identified by a **path**, never a name: two tracks can share a name, not a path.
+And the document name sent to the engine carries the variant (`track · instrumental`), because the
+session is shared with everything pl8 auditions — two versions of a track under one name are two
+indistinguishable lines in its log.
 
-L'identité de ce qui est chargé est un **chemin**, jamais un nom : deux morceaux peuvent partager
-un nom, pas un chemin. Et le nom du document envoyé au moteur porte la variante (`morceau ·
-instrumental`), parce que la session est partagée avec tout ce que pl8 auditionne — deux versions
-d'un morceau sous un seul nom sont deux lignes indiscernables dans son journal.
+## Knowing a track ended by itself
 
-## Savoir qu'un morceau s'est terminé tout seul
+The three destinations do not say so the same way, and a queue must only advance on a real end:
 
-Les trois destinations ne le disent pas de la même façon, et un enchaînement de file ne doit
-avancer que sur une vraie fin :
-
-| destination | signal | ce qu'il faut en faire |
+| destination | signal | what to make of it |
 |---|---|---|
-| le navigateur | `onEnded` | exact : il ne se déclenche que pour une fin |
-| le moteur | `playing` passe à faux | ambigu : c'est aussi ce que fait un arrêt demandé |
-| mpv | `idle` | franc, mais un arrêt demandé y ressemble aussi |
+| the browser | `onEnded` | exact: it only fires for an end |
+| the engine | `playing` goes false | ambiguous: that is also what a requested stop does |
+| mpv | `idle` | plain, but a requested stop looks like it too |
 
-D'où le drapeau `weStopped`, posé par **chaque** transition délibérée (start, toggle, close) et
-effacé par l'effet qui le lit. Sans lui, appuyer sur pause enchaîne sur le morceau suivant.
+Hence the `weStopped` flag, set by **every** deliberate transition (start, toggle, close) and
+cleared by the effect that reads it. Without it, pressing pause chains to the next track.
 
-`ended` est un **compteur** et non un booléen : ce qu'un lecteur veut est l'événement, et un
-drapeau devrait être effacé par celui qui l'a vu. Il n'existe que pour la file, la seule chose ici
-qui ait un « suivant ». `now` n'est délibérément pas effacé à la fin — « qu'est-ce que je viens
-d'écouter » survit au dernier échantillon — et seule la croix de la barre l'efface.
+`ended` is a **counter** and not a boolean: what a player wants is the event, and a flag would
+have to be cleared by whoever saw it. It exists only for the queue, the one thing here with a
+"next". `now` is deliberately not cleared at the end — "what did I just listen to" outlives the
+last sample — and only the bar's close button clears it.
 
-## Les trois positions
+## The three positions
 
-- Le navigateur est suivi en `requestAnimationFrame` pendant qu'il joue : `timeupdate` ne tombe
-  qu'environ quatre fois par seconde, ce qui se lit comme un saccadement sur une forme d'onde.
-- Le moteur pousse sa trame assez vite pour n'avoir besoin d'aucune boucle ; ce qui est gardé à
-  part, c'est **où on lui a demandé d'être**, parce qu'entre la demande et la première trame
-  (~20 Hz) c'est la seule réponse honnête.
-- mpv est **interrogé** deux fois par seconde : il est ailleurs et n'a aucun moyen de pousser sa
-  position ici. Une tique manquée est silencieuse — une machine occupée n'est pas une erreur à
-  montrer à quelqu'un qui écoute. Le déplacement du curseur est optimiste, la tique suivante dit la
-  vérité : attendre l'aller-retour ferait reculer le curseur sous la souris.
+- The browser is tracked in `requestAnimationFrame` while it plays: `timeupdate` only fires about
+  four times a second, which reads as stutter on a waveform.
+- The engine pushes its frame fast enough to need no loop; what is kept aside is **where it was
+  asked to be**, because between the request and the first frame (~20 Hz) that is the only honest
+  answer.
+- mpv is **polled** twice a second: it is elsewhere and has no way to push its position here. A
+  missed tick is silent — a busy machine is not an error to show someone who is listening. Cursor
+  movement is optimistic and the next tick tells the truth: waiting for the round trip would make
+  the cursor jump back under the mouse.
 
-Passé la fin, ni mpv ni le moteur ne rembobinent seuls — mpv est `idle`, le moteur ne rejoue rien —
-donc le bouton redemande le fichier depuis zéro. L'élément `<audio>`, lui, rembobine tout seul, ce
-qui est exactement le comportement dont a besoin une barre qui survit à la fin d'un morceau.
+Past the end, neither mpv nor the engine rewinds by itself — mpv is `idle`, the engine replays
+nothing — so the button asks for the file again from zero. The `<audio>` element rewinds on its
+own, which is exactly the behaviour a bar that outlives a track needs.
 
-Un document que la session n'a jamais tenu demande un `reset` avant d'être envoyé : un apply est un
-diff, et un diff ne peut pas retirer un greffon que le document stocké du moteur n'a jamais
-mentionné.
+A document the session never held needs a `reset` before being sent: an apply is a diff, and a
+diff cannot remove a plugin the engine's stored document never mentioned.

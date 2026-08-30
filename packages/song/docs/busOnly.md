@@ -1,78 +1,70 @@
-# `bus_only:` — retirer le chemin à sec d'un bus
+# `bus_only:` — dropping a bus's dry path
 
-Une quatrième section de `graph.yaml`, à côté de `modules:`, `bypassed:` et `positions:` :
+A fourth section of `graph.yaml`, beside `modules:`, `bypassed:` and `positions:`:
 
 ```yaml
 bus_only: [ eqA, eqB ]
 ```
 
-Elle dit : **ce bus est entendu par ses destinations et nulle part ailleurs.** Son propre chemin
-à sec vers la somme du mixeur est retiré.
+It says: **this bus is heard by its destinations and nowhere else.** Its own dry path to the
+mixer sum is removed.
 
-## Pourquoi ce n'est pas `bypassed:`
+## Why it is not `bypassed:`
 
-C'est la question qu'on se pose en la lisant, et la réponse est une collision de noms bien réelle.
+`bypassed:` already does **two** things depending on what you put in it — muting a **lane**, and
+bypassing a **module** — and a bus chain is named after its first module: the chain `eqA` starts at
+the rendez-vous point `eqA`, so its steps are `[eqA, filterA]`. Writing `bypassed: [ eqA ]` would
+mute the bus **and kill the EQ**, silently. Both readings are legitimate and the file cannot
+arbitrate. Two questions, two words.
 
-`bypassed:` fait déjà **deux** choses selon ce qu'on y met : le mute d'une **lane**, et le contournement
-d'un **module**. Or une chaîne de bus porte le nom de son premier module — la chaîne `eqA` commence
-au point de rendez-vous `eqA`, donc ses pas sont `[eqA, filterA]`.
-
-Écrire `bypassed: [ eqA ]` muterait bien le bus… **et couperait l'EQ**, silencieusement. Les deux
-lectures sont légitimes et le fichier ne peut pas trancher. Deux questions, deux mots.
-
-| mot | ce qu'il dit | ce que ça donne dans le document |
+| word | what it says | what it means in the document |
 |---|---|---|
-| `bypassed:` | ce module est contourné / cette lane est mutée | `enabled: false` sur le pas, ou `mute` sur la lane |
-| `bus_only:` | ce bus n'est entendu que par ses destinations | `mute` sur la piste de bus, ses plugins intacts |
+| `bypassed:` | this module is bypassed / this lane is muted | `enabled: false` on the step, or `mute` on the lane |
+| `bus_only:` | this bus is heard only by its destinations | `mute` on the bus track, its plugins intact |
 
-## Pourquoi il en faut un du tout
+## Why one is needed at all
 
-`out` compile en chemin **parallèle** — c'est ce qui fait qu'un send est un send : le signal sec
-continue vers le master à côté. C'est le bon défaut pour une reverb.
+`out` compiles to a **parallel** path — that is what makes a send a send: the dry signal carries on
+to the master alongside. That is the right default for a reverb.
 
-Ça ne l'est pas pour un strip de platine qui alimente une fade *et* un cue : sa sortie à sec
-arriverait au master **sans passer par le crossfader**, et tous les réglages sonneraient pareil.
-C'est exactement la panne que [ports.md](ports.md) décrit pour une platine câblée sur un seul
-crossfade, et que `scaffoldSet` évite pour les lanes en les mutant.
+It is not the right default for a deck strip feeding a fade *and* a cue: its dry output reaches the
+master **without passing through the crossfader**, and every setting sounds the same. That is
+exactly the failure [ports.md](ports.md) describes for a deck wired onto a single crossfade, and
+that `scaffoldSet` avoids for lanes by muting them. A lane can say it with `bypassed:` because a
+lane is no module's name. A bus cannot.
 
-Une lane le dit avec `bypassed:` parce qu'une lane n'est le nom d'aucun module. Un bus ne le peut
-pas. D'où ce mot-ci.
+## What the engine does with it
 
-## Ce que le moteur en fait
+`mute` on a track that has sends triggers `feedsBusOnly` in `EditBuilder.cpp`: the **first**
+destination becomes an output ROUTING — which is what removes the dry path — and the rest stay
+ordinary aux sends.
 
-`mute` sur une piste qui a des départs déclenche `feedsBusOnly` dans `EditBuilder.cpp` : la
-**première** destination devient un ROUTAGE de sortie — ce qui est ce qui enlève le chemin à sec —
-et les suivantes restent des départs aux ordinaires.
+The order is not cosmetic, and it is measured: **a mute alone is not enough.** A muted track does
+not feed its aux sends — it is silent everywhere, not only on the dry path.
 
-L'ordre n'est pas cosmétique, et il est mesuré : **un mute seul ne suffit pas.** Une piste mutée
-n'alimente pas ses départs aux — elle est silencieuse partout, pas seulement au sec.
-
-| forme | crête au master |
+| form | peak at master |
 |---|---|
-| deux destinations, source mutée, sans le routage | **−100 dBFS** — rien nulle part |
-| deux destinations, source mutée, première routée | −1,6 dBFS |
-| deux destinations, source non mutée | 0,0 dBFS — dont le chemin à sec |
+| two destinations, source muted, no routing | **−100 dBFS** — nothing anywhere |
+| two destinations, source muted, first routed | −1.6 dBFS |
+| two destinations, source unmuted | 0.0 dBFS — dry path included |
 
-`npx tsx engine/moteur/scripts/cue-bus.ts` rejoue les trois.
+`npx tsx engine/moteur/scripts/cue-bus.ts` replays all three.
 
-C'est aussi pour ça qu'une piste ne peut avoir qu'**une** destination sans chemin à sec au sens
-strict : elle n'a qu'une sortie. Les autres passent par des départs, qui sont post-plugins et
-post-fader sur la piste source — ce qui est correct ici, le fade et le cue étant tous deux en aval du
-strip entier.
+It is also why a track can have only **one** destination without a dry path: it has one output. The
+others go through sends, post-plugin and post-fader on the source track — correct here, since fade
+and cue are both downstream of the whole strip.
 
-## Qui l'écrit
+## Who writes it
 
-Le gabarit d'un set (`scaffoldSet.ts`) et la migration (`scripts/migrateSetCue.ts`), qui partagent
-la note posée au-dessus de la clé — `BUS_ONLY_NOTE`, un seul texte, pour que les deux produisent le
-même fichier à l'octet près.
+A set's scaffold (`scaffoldSet.ts`) and the migration (`scripts/migrateSetCue.ts`), which share the
+note placed above the key — `BUS_ONLY_NOTE`, one text, so both produce the same file byte for byte.
+By hand otherwise: it is one line, and the graph does not write it from a click.
 
-À la main, sinon : c'est une ligne, et le graphe ne l'écrit pas encore depuis un clic.
+## What it is not
 
-## Ce que ça n'est pas
+It is **not** a decision about every bus in the repository. `out` stays parallel everywhere else,
+and a bus that does not name this word keeps its dry path. [ports.md](ports.md) poses the wider
+question — making `out` serial — and it stays open: that is a decision about each bus in the
+repository, not about ports or about the headphone feed.
 
-Ce n'est **pas** une décision sur tous les bus du dépôt. `out` reste parallèle partout ailleurs, et
-un bus qui ne nomme pas ce mot garde son chemin à sec. [ports.md](ports.md) pose la question plus
-large — rendre `out` en série — et elle reste ouverte : c'est une décision sur chaque bus du dépôt,
-pas sur les ports ni sur le casque.
-
-Voir [cue.md](cue.md), qui est la raison pour laquelle ce mot existe aujourd'hui.
+See [cue.md](cue.md), which is why this word exists.

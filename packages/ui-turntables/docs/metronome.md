@@ -1,133 +1,111 @@
-# Le métronome
+# The metronome
 
-Un bouton dans la barre du bas, à côté du transport. Allumé, un clic marque le temps de la
-musique, avec le premier temps de chaque mesure plus haut. Éteint ou noir le reste du temps.
+A button in the bottom bar, beside the transport. Lit, a click marks the music's beat, with the
+first beat of each bar higher. Off and black the rest of the time.
 
-## Il n'est pas toujours proposé, et c'est le sujet
+## It is not always offered, and that is the subject
 
-Un clic doit être sur **un** temps. Deux platines qui tournent librement en ont deux, et un clic
-sur l'un est un clic contre l'autre — donc le bouton s'éteint plutôt que de choisir. Il s'allume
-dans exactement deux cas :
+A click has to be on **one** beat. Two decks running freely have two, and a click on one is a
+click against the other — so the button goes dark rather than choose. It lights in exactly two
+cases:
 
-- **une seule platine chargée** : c'est son temps ;
-- **les deux synchronisées** : c'est celui du maître, puisque le sync a mis l'autre dessus.
+- **one deck loaded**: that is its beat;
+- **both synchronised**: the master's, since the sync put the other on it.
 
-Il faut en plus que ce temps ait été **mesuré**. Un tempo dit à quelle fréquence un temps
-arrive, pas quel instant en est un — et `beats.ts` refuse déjà de publier une phase que les
-attaques n'ont pas dite (voir [bpm.md](bpm.md), le test de Rayleigh). Un clic sur la mauvaise
-moitié du temps n'est pas un métronome dégradé : c'en est un faux, et on se calerait dessus.
-Donc pas de phase, pas de clic. Sur les trois morceaux d'`example.st0`, ça exclut le Bashung,
-dont le tempo détecté est simplement faux.
+That beat must also have been **measured**. A tempo says how often a beat arrives, not which
+instant is one, and `beats.ts` already refuses to publish a phase the onsets did not give (see
+[bpm.md](bpm.md), the Rayleigh test). A click on the wrong half of the beat is not a degraded
+metronome, it is a false one, and you would play to it. So: no phase, no click. Of the three
+songs in `example.st0` that rules out the Bashung, whose detected tempo is simply wrong.
 
-L'envie est **retenue** même quand la possibilité disparaît : charger une deuxième platine
-éteint le clic, la resynchroniser le rallume, sans repasser par le bouton.
+The wish is **kept** even when the possibility disappears: loading a second deck stops the click,
+resyncing brings it back, without going through the button again.
 
-## Pourquoi ce n'est PAS le métronome du moteur
+## Why it is NOT the engine's metronome
 
-Le moteur en a un — `settings.metronome`, un booléen, et c'est celui de st0. Il clique sur la
-grille du **document** : les temps de `DOC_TEMPO`, comptés depuis le transport zéro.
+The engine has one — `settings.metronome`, a boolean, and it is st0's. It clicks on the
+**document's** grid: `DOC_TEMPO` beats, counted from transport zero.
 
-Sur une timeline ça suffit, parce que le tempo du document EST celui de la musique. Sur le
-pupitre rien de tout ça n'est vrai :
+On a timeline that is enough, because the document's tempo IS the music's. On the desk none of it
+holds:
 
-- le tempo du document est **figé** à 120, exprès, pour que deux platines puissent jouer à deux
-  BPM ;
-- la musique d'une platine n'est **pas sur la timeline du tout** : elle est dans un plateau, à une
-  position que le plugin porte lui-même ;
-- son premier temps est là où l'enregistrement l'a mis, pas sur un temps du document.
+- the document tempo is **frozen** at 120, deliberately, so two decks can play at two BPM;
+- a deck's music is **not on the timeline at all**: it is in a platter, at a position the plugin
+  carries itself;
+- its first beat is where the recording put it, not on a document beat.
 
-Ces deux grilles n'ont aucune raison de se rencontrer. Ce clic-là **flammerait** contre la
-musique — pire que pas de clic du tout, puisqu'on s'y calerait.
+The two grids have no reason to meet. That click would **flam** against the music — worse than no
+click, since you would play to it.
 
-## Ce que le pupitre fait à la place
+## What the desk does instead
 
-Une piste de plus dans le document, avec un `4osc` et **un clip MIDI d'une mesure, bouclé**.
+One more track in the document, with a `4osc` and **a one-bar MIDI clip, looped**.
 
-Les notes sont placées en temps du document utilisés purement comme une **unité de durée** :
-un temps de la platine vaut `DOC_TEMPO / cible` temps du document. À 128 contre un document à
-120, ça fait 0,9375 — un nombre non entier, et c'est très bien, personne ne compte ces temps-là.
-Le tempo du document n'est jamais touché et aucune platine n'est déplacée.
+The notes are placed in document beats used purely as a **unit of duration**: one deck beat is
+`DOC_TEMPO / target` document beats. At 128 against a 120 document that is 0.9375 — a non-integer,
+and fine, since nobody counts those beats. The document tempo is never touched and no deck is
+moved.
 
-## Le transport qui le porte suit les platines
+A looped bar rather than a note per beat: the clip is rebuilt at **every step** of a tempo drag,
+and six minutes of song is a thousand notes to resend and to diffuse for a sound that repeats
+every four.
 
-Le pupitre n'a plus de bouton de transport ([mix.md](mix.md)) : il n'en avait plus besoin pour la
-musique, mais ce clip-là, lui, ne sonne que si le transport roule. La règle qui remplace le bouton
-est donc **le transport suit les platines** — il roule depuis zéro dès qu'une platine tourne et
-s'arrête quand plus aucune ne tourne.
+The click is an **envelope**, not a waveform: immediate attack, over in thirty milliseconds,
+nothing held. The pitch is the note's, so the downbeat is simply higher — like the engine's
+`clickTrackEmphasiseBars`, and for the same reason: hearing where the bar starts IS the feature,
+not a separate option.
 
-Ça rattache le clic à ce qui joue, ce qui est ce qu'on veut d'un métronome : il ne peut pas rester
-seul à cliquer sur un pupitre à l'arrêt, ni se taire pendant qu'un disque passe.
+## The transport that carries it follows the decks
 
-## Il a l'ÉCARTEMENT et il n'a pas la PHASE
+The desk has no transport button ([mix.md](mix.md)) — it needs none for the music, but this clip
+only sounds while the transport rolls. The rule that replaces the button is therefore **the
+transport follows the decks**: it rolls from zero as soon as a deck turns, and stops when none
+does. That ties the click to what is playing, which is what a metronome wants: it cannot be left
+clicking on a stopped desk, nor go quiet while a record plays.
 
-> **Le clic est le dernier habitant du transport, et plus rien ne l'y accompagne.** Une platine est
-> un plateau et porte sa propre position ; ce clip, lui, est posé sur une timeline que personne ne
-> suit. Il donne donc le bon **écartement** entre deux temps, et un **décalage arbitraire** contre la
-> musique — c'est-à-dire un flam, exactement ce que la section précédente refuse au métronome du
-> moteur.
+## It has the SPACING and it has not the PHASE
 
-C'est vrai depuis que le plateau est le défaut ; l'étape 4 de `docs/platter-plan.md` n'a fait que
-cesser de le maquiller. Avant elle, le clip démarrait sur `transportAt(phase)` — une seconde de
-transport calculée à partir d'un début de clip qui n'existait plus. Le nombre était faux, mais il
-avait l'air d'être quelque chose. Maintenant le clip démarre à **zéro** et la page dit que la phase
-manque, ce qui est le même son avec un mensonge en moins.
+> **The click is the transport's last inhabitant.** A deck is a platter and carries its own
+> position; this clip sits on a timeline nobody follows. So it gives the right **spacing**
+> between beats and an **arbitrary offset** against the music — that is, a flam, exactly what the
+> section above refuses the engine's metronome.
 
-**Le remède n'est pas décidé.** Deux formes, aucune essayée :
+The clip starts at **zero** and this page says the phase is missing rather than simulating it.
 
-- **un plateau de plus**, qui jouerait un fichier de clic ; il partagerait alors la position et le
-  débit des autres, ce que la moitié du travail sait déjà faire (`plattersOf`) ;
-- **une ancre vivante** : à un instant donné on connaît l'aiguille de la platine ET le transport,
-  donc on sait poser le prochain temps fort. Ça se recalcule à chaque envoi de document, et ça
-  dérive dès qu'une main touche le disque.
+**The remedy is not decided.** Two shapes, neither tried:
 
-Le banc qui vérifiait le placement (`scripts/metronome.ts`) mesurait cette phase-là. Il a été
-supprimé avec elle : il ne peut revenir qu'avec une ancre à mesurer.
+- **one more platter**, playing a click file; it would then share the others' position and rate,
+  which half the work already knows how to do (`plattersOf`);
+- **a live anchor**: at a given instant both the deck's needle and the transport are known, so
+  the next downbeat can be placed. It is recomputed on every document send, and it drifts the
+  moment a hand touches the record.
 
-Une mesure bouclée plutôt qu'une note par temps : le clip est reconstruit à **chaque pas** d'un
-glissement de tempo, et six minutes de morceau font mille notes à renvoyer et à diffuser pour un
-son qui se répète toutes les quatre.
+**There is no bench for the placement**, because there is no phase for it to measure: one can
+only exist alongside an anchor. The mark an anchor will have to meet, measured when the click
+rode a clip: **30 clicks, maximum deviation 3.0 ms before a tempo change and 3.1 ms after** — the
+3 ms being the onset detector's rise time, i.e. the measurement floor.
 
-Le clic est une **enveloppe**, pas une forme d'onde : attaque immédiate, fini en trente
-millisecondes, rien de tenu. La hauteur est celle de la note, donc le temps fort est simplement
-plus haut — comme le `clickTrackEmphasiseBars` du moteur, et pour la même raison : entendre où
-commence la mesure EST la fonctionnalité, pas une option séparée.
+### The track stays when the click is off
 
-### La piste reste là quand le clic est éteint
+Not for tidiness. `ChangeKind::TrackRemoved` is a **stub** in the engine (`EngineHost.cpp`): a
+track dropped from the document stays in the edit. A metronome you could not switch off would be
+a worse bug than the feature is a feature — so silence is an **empty clip list**, clip removal
+being genuinely implemented.
 
-Pas par propreté. `ChangeKind::TrackRemoved` est un **squelette** dans le moteur
-(`EngineHost.cpp`) : une piste retirée du document reste dans l'edit. Un métronome qu'on ne
-pourrait pas éteindre serait un bug pire que la fonctionnalité n'est une fonctionnalité — donc
-le silence est une **liste de clips vide**, et la suppression de clip, elle, est réellement
-implémentée.
+It is also the pattern the decks' document already follows: both tracks are always present,
+loaded or not, so that loading is a diff and not a track appearing.
 
-C'est aussi le motif que le document des platines suit déjà : les deux pistes sont toujours
-présentes, chargées ou non, pour qu'un chargement soit un diff et pas une piste qui apparaît.
+### It is added, not declared
 
-### Elle est ajoutée, pas déclarée
+`withDecks` puts it **after** the project's tracks. It is the only track in the document
+`graph.yaml` says nothing about, and that is owned: the metronome is a desk command, not a
+property of the set. What the project declares stays the project's business.
 
-`withDecks` la met **après** les pistes du projet. C'est la seule piste du document dont
-`graph.yaml` ne parle pas, et c'est assumé : le métronome est une commande du pupitre, pas une
-propriété du set. Ce que le projet déclare reste l'affaire du projet.
+## What is not there
 
-## Le banc qu'il y avait
+The level is **fixed** (−6 dB on its own strip). No control: the desk has no room for another
+knob, and a metronome you cannot hear is a metronome that is off.
 
-`scripts/metronome.ts` pointait sur un moteur qui tourne : la platine jouait un fichier
-**silencieux**, donc tout ce que la prise d'écoute entendait était le clic, et chaque attaque était
-comparée à l'endroit où la grille de cette platine disait qu'un temps se trouve.
-
-Mesuré, du temps des clips : **30 clics, écart maximal 3,0 ms avant un changement de tempo et
-3,1 ms après** — les 3 ms étant le temps de montée du détecteur d'attaque, soit le plancher de la
-mesure. Le placement était donc juste, et c'est le repère contre lequel une ancre devra se
-mesurer.
-
-Le banc lui-même est parti avec la phase qu'il vérifiait : sa question n'a plus de bonne réponse.
-
-## Ce qui n'y est pas
-
-Le niveau est **fixe** (−6 dB sur sa propre tranche). Pas de réglage : le pupitre n'a pas de
-place pour un potard de plus, et un métronome qu'on n'entend pas est un métronome éteint.
-
-Il sort par l'**interface du moteur**, avec la musique, pas par le navigateur. C'est la
-contrainte qui décide : un clic fabriqué dans l'onglet arriverait avec sa propre latence de
-sortie, décalé de quelques dizaines de millisecondes contre la musique — donc inutilisable pour
-exactement ce à quoi sert un métronome.
+It leaves through the **engine's interface**, with the music, not through the browser. That is
+the constraint that decides: a click made in the tab would arrive with its own output latency,
+tens of milliseconds off the music — useless for exactly what a metronome is for.

@@ -35,33 +35,32 @@ An engine is therefore listed in several services at once, and **that is the int
 state**: one machine, one audio interface, several apps driving it through separate sessions
 (`packages/engine-protocol/docs/sessions.md`).
 
-## Un registre par service, mais un seul montage
+## One registry per service, but a single mounting
 
-Chaque service tient son registre ; aucun n'a de raison de tenir son propre **montage**.
-`mountEngineRegistry(app, { service, requireAuth })` pose la garde, le registre et les routes,
-et rend un `serve(server, url)` qui attache le relais après `listen` — le relais a besoin de
-l'`http.Server`, qu'Express n'a pas avant.
+Every service holds its registry; none has a reason to hold its own **mounting**.
+`mountEngineRegistry(app, { service, requireAuth })` installs the guard, the registry and the
+routes, and answers a `serve(server, url)` that attaches the relay after `listen` — the relay
+needs the `http.Server`, which Express does not have before then.
 
-L'ordre est la partie porteuse, et c'est pourquoi c'est une fonction plutôt qu'un paragraphe :
-`requireAuth` va sur les chemins destinés au NAVIGATEUR **avant** le routeur, pour que ceux
-destinés au MOTEUR — `heartbeat`, `deregister`, où une machine s'authentifie avec son propre
-jeton — restent ouverts. Écrit à la main par service, cet ordre serait une règle que chaque
-fichier devrait tenir ; qu'un seul monte une garde sur tout `/api` et la seule chose qui
-protégerait encore le heartbeat serait que le routeur a déjà répondu.
+The ORDER is the load-bearing part, and that is why this is a function rather than a paragraph:
+`requireAuth` goes on the paths meant for the BROWSER **before** the router, so that those meant
+for the ENGINE — `heartbeat`, `deregister`, where a machine authenticates with its own token —
+stay open. Written by hand per service, that order would be a rule every file had to keep; let
+one of them mount a guard over the whole of `/api` and the only thing still protecting the
+heartbeat would be that the router had already answered.
 
-Trois dérives que le socle supprime par construction :
+Three drifts the base removes by construction:
 
-- **La limite de corps.** Le relais fait de ces backends un tuyau vers le service de fichiers,
-  qui accepte 8 Mo. Relevée dans un service et pas dans l'autre, la même requête passe ou fait
-  413 selon l'origine depuis laquelle le navigateur l'envoie. C'est `ENGINE_BODY_LIMIT`, un
-  seul nombre.
-- **Le gestionnaire d'erreur.** Un corps qui cesse d'arriver lève **dans** le parseur, là où
-  aucun `try/catch` de route ne le voit, et tous les services relaient les mêmes octets. C'est
-  `engineErrorHandler`, à monter en DERNIER.
-- **Le départ.** Un service qui laisse son fichier d'annonce derrière lui est battu vers un
-  port mort pour toujours. Le socle installe SIGINT et SIGTERM, et `alsoOnStop` est là pour ce
-  qu'un service a en propre — st0 y met son fichier legacy, parce que le socle sort du processus
-  dans ses gestionnaires et qu'un second, enregistré après, ne s'exécuterait jamais.
+- **The body limit.** The relay makes these backends a pipe to the file service, which accepts
+  8 MB. Raised in one service and not the other, the same request passes or answers 413
+  depending on which origin the browser sends it from. It is `ENGINE_BODY_LIMIT`, one number.
+- **The error handler.** A body that stops arriving throws **inside** the parser, where no
+  route's `try/catch` sees it, and every service relays the same bytes. It is
+  `engineErrorHandler`, to be mounted LAST.
+- **Leaving.** A service that leaves its advertisement file behind is beaten towards a dead port
+  for ever. The base installs SIGINT and SIGTERM, and `alsoOnStop` is there for what a service
+  has of its own — st0 puts its legacy file there, because the base exits the process inside its
+  handlers and a second one registered afterwards would never run.
 
 ## What `assigned` means, and why it is nearly obsolete
 

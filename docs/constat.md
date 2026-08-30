@@ -1,447 +1,377 @@
-# Constat global — l'axe audio
+# Overall findings — the audio axis
 
-**Relevé du 2026-08-26, sur `8f27aab1`.** Périmètre : `apps/st0`, `engine/moteur`,
-`apps/studio-desktop` et les paquets qu'ils pilotent. Hors périmètre : `apps/{z0,k7,pl8,studio}`.
-Relevé précédent : 2026-08-21 sur `a4808e35`, **116 commits plus tôt** — l'écart est dit ici
-parce qu'il est la chose que cette page a le plus mal supportée.
+Scope: `apps/st0`, `engine/moteur`, `apps/studio-desktop` and the packages they drive. Out of
+scope: `apps/{z0,k7,pl8,studio}`.
 
-Cette page est **autonome** — elle porte ses preuves plutôt que d'y renvoyer — ce qui veut dire
-qu'elle périme. Le remède n'est pas de la croire mais de la rejouer : la dernière section
-donne les commandes exactes. Une entrée fausse doit se découvrir en trente secondes. Les
-chiffres gardent leur date de mesure, faute de quoi ils ne se vérifient pas.
+This page is **self-contained** — it carries its evidence rather than pointing at it — which means
+it goes stale. The remedy is not to believe it but to replay it: the last section gives the exact
+commands. A false entry must be discoverable in thirty seconds.
 
-> **Ce que 116 commits ont changé, en une ligne chacun.** Les bancs : moyennes stables, mais la
-> variance à 64 pistes ne tient plus (voir ci-dessous). Le C++ : ses tests **tournent** enfin,
-> `turbo run test` les compile et les lance. Le filet, le jeton, `git` bloquant : inchangés,
-> revérifiés un par un. Le code mort a doublé de volume déclaré, et c'est en partie un progrès.
-
-Les cinq pages spécialisées gardent ce qu'elles seules détiennent :
-[audit-perf-web.md](audit-perf-web.md) (les lots chiffrés),
-[audit-moteur.md](audit-moteur.md) (le lien d'une surface au moteur),
-[inventaire.md](inventaire.md) (le code mort),
-[tests.md](tests.md) (ce que la suite couvre, et les deux fois où elle a menti) et
-[engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md) (le C++).
+The five specialised pages keep what only they hold:
+[audit-perf-web.md](audit-perf-web.md) (the costed lots),
+[audit-moteur.md](audit-moteur.md) (what links a surface to the engine),
+[inventaire.md](inventaire.md) (dead code),
+[tests.md](tests.md) (what the suite covers, and the two times it lied) and
+[engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md) (the C++).
 
 ---
 
-## La thèse
+## The thesis
 
-**Ce dépôt durcit la face qu'il regarde, et laisse le jumeau intact.**
+**This repo hardens the face it is looking at, and leaves the twin bare.**
 
-Ce n'est pas une négligence : c'est la signature d'un travail sérieux mené une panne à la fois.
-On corrige là où ça fait mal, et le symétrique — qui n'a pas encore fait mal — reste nu.
+That is not negligence: it is the signature of serious work done one breakdown at a time. You fix
+where it hurts, and the symmetrical thing — which has not hurt yet — stays naked.
 
-| durci | le jumeau, resté nu |
+| hardened | the twin, left bare |
 |---|---|
-| Le web est benché, chiffres publiés | Aucun banc C++, aucun banc navigateur |
-| Un filet `unhandledRejection` / `uncaughtException` aux deux points d'entrée TypeScript | Ni `try` au niveau de `main()`, ni `set_terminate` en C++ |
-| La gate de st0 : bail, relook, prédicat complet | Celle de z0 : ni bail, ni relook, joignabilité qui ignore le jeton (hors périmètre) |
+| The web is benched, figures published | No C++ bench, no browser bench |
+| An `unhandledRejection` / `uncaughtException` net at both TypeScript entry points | Neither a `try` at `main()` level nor `set_terminate` in C++ |
+| st0's gate: lease, re-look, full predicate | z0's: no lease, no re-look, reachability that ignores the token (out of scope) |
 
-Et la conséquence qui tient les trois axes : **la garde automatique manque sur l'un d'eux.**
-Pas de porte de non-régression perf. Ce qui n'est pas outillé se vérifie à la main, donc
-décroche.
+And the consequence holding all three axes together: **there is no automatic guard on
+performance.** No non-regression gate. What is not tooled is checked by hand, and so slips.
 
-**Corrigé le 2026-08-26, et la correction dit quelque chose de la thèse.** Le relevé précédent
-écrivait « la garde manque sur DEUX » : ni perf, ni test. La moitié « test » n'était pas une
-absence de tests — c'était une absence de *lancement*. `engine/moteur` portait six cibles ctest
-et aucun script `test` que turbo sache appeler ; `packages/ui-eyes` et `apps/z0/editor` avaient
-86 tests verts que personne n'exécutait. Le jumeau nu n'était pas le code : c'était le câblage.
-Trois lignes de `package.json` l'ont refermé — voir [tests.md](tests.md).
-
-C'est le mode de panne que cette page doit chercher en priorité : **pas ce qui manque, ce qui
-existe et ne tourne pas.** Un test non lancé est indiscernable d'un test absent dans un tableau
-de bord, et bien plus cher, parce qu'il donne en plus l'illusion d'une couverture.
+The failure mode to look for first is **not what is missing, but what exists and does not run.** An
+unrun test is indistinguishable from an absent test on a dashboard, and far more expensive, because
+it additionally gives the illusion of coverage.
 
 ---
 
-## Performances
+## Performance
 
-### Un banc mesure deux régimes à la fois s'il ne vieillit pas sa fixture
+### A bench measures two regimes at once unless it ages its fixture
 
-`yamlCache` refuse de mettre en cache un fichier dont la mtime a moins de 2 s (`SETTLE_MS`), pour
-une raison écrite dans le fichier. Un banc qui écrit sa fixture puis mesure **immédiatement** ne
-*peut* pas toucher le cache aux premières itérations et le touche à toutes les suivantes : la
-moyenne mélange deux populations, et la variance rend le banc inutilisable. La fixture se
-vieillit d'une heure (`utimesSync`) — c'est le régime dans lequel est un vrai morceau.
+`yamlCache` refuses to cache a file whose mtime is younger than 2 s (`SETTLE_MS`), for a reason
+written in the file. A bench that writes its fixture then measures **immediately** *cannot* hit the
+cache on the first iterations and hits it on all the rest: the mean mixes two populations and the
+variance makes the bench unusable. The fixture is aged by an hour (`utimesSync`) — the regime a
+real song is in.
 
-Repères sur cette machine, au **2026-08-26**, fixture vieillie, **trois passes** — parce qu'une
-seule ne dit plus la vérité, et c'est le changement principal de ce relevé :
+Reference figures on this machine, aged fixture, **three passes**:
 
-| banc | 8 pistes | 64 pistes |
+| bench | 8 tracks | 64 tracks |
 |---|---|---|
-| `compileNodeProject` | 3,86 – 4,19 ms, rme ±1,5 à ±1,8 % | 22,8 – 26,8 ms, rme **±5,6 à ±14,7 %** |
-| `buildGraphDoc` | 4,25 – 5,91 ms, rme ±1,6 à ±3,9 % | 34,0 – 51,5 ms, rme **±0,9 à ±14,0 %** |
+| `compileNodeProject` | 3.86 – 4.19 ms, rme ±1.5 to ±1.8 % | 22.8 – 26.8 ms, rme **±5.6 to ±14.7 %** |
+| `buildGraphDoc` | 4.25 – 5.91 ms, rme ±1.6 to ±3.9 % | 34.0 – 51.5 ms, rme **±0.9 to ±14.0 %** |
 
-Pour mémoire, au 2026-08-21 : 3,68 ms / 21,36 ms pour le compile, 4,18 ms / 35,65 ms pour le
-graphe, **le tout sous ±2 %**.
+Three readings:
 
-Trois lectures, et la première est nouvelle :
+1. **The variance does not hold at 64 tracks.** Up to **±14.7 %**, and `buildGraphDoc`'s mean moves
+   from 34 to 51 ms between passes. The 8-track means are stable, so this is not a code regression:
+   **the bench has stopped being an instrument** at that size. Probable and undemonstrated cause: the
+   big fixtures draw only 10 to 22 samples, so a single scheduling stall dominates — and this machine
+   had Tilt and a live `st0-engine.exe` during the measurement. **Practical consequence: conclude
+   nothing from a gap of less than 15 % at 64 tracks** without first stopping the dev session and
+   repeating the pass.
+2. **The two benches measure different things.** Cold-cache they are both dominated by the same YAML
+   reads and return the same figure, which suggests `buildGraphDoc` costs nothing extra. In the open
+   the gap is **11 to 13 ms** on the quiet passes — `buildGraphDoc`'s own work, the clip extents.
+   That is the item to watch as a song grows.
+3. The curve is gentle: 8× the tracks still costs **5.8×** on the compile.
 
-1. **La variance ne tient plus à 64 pistes.** L'affirmation « sous ±2 % » du relevé précédent est
-   maintenant fausse pour les grandes fixtures : mesuré jusqu'à **±14,7 %**, et la moyenne du
-   banc `buildGraphDoc` bouge de 34 à 51 ms d'une passe à l'autre. Les moyennes à 8 pistes, elles,
-   sont stables et collent à celles d'il y a 116 commits. Ce n'est donc pas une régression du
-   code : **c'est le banc qui a cessé d'être un instrument** à cette taille. Cause probable et non
-   démontrée : les grandes fixtures ne tirent que 10 à 22 échantillons, si bien qu'un seul
-   décrochage d'ordonnancement domine — et cette machine avait Tilt et un `st0-engine.exe`
-   vivants pendant la mesure, ce que le relevé de 2026-08-21 ne dit pas de lui-même.
-   **Conséquence pratique : ne rien conclure d'un écart de moins de 15 % à 64 pistes** sans avoir
-   d'abord arrêté la session de dev et répété la passe.
-2. **Les deux bancs mesurent des choses différentes.** À cache froid ils sont tous deux dominés
-   par les mêmes lectures YAML et rendent le même chiffre, ce qui fait croire que `buildGraphDoc`
-   ne coûte rien de plus. À découvert l'écart est de **11 à 13 ms** sur les passes calmes — le
-   travail propre de `buildGraphDoc`, les extents de clips. C'était 14 ms en 2026-08-21 : inchangé
-   dans les limites du bruit. C'est ce poste qu'il faut surveiller quand un morceau grossit.
-3. La courbe est douce, et c'est le chiffre qui a le mieux tenu : 8× les pistes coûtent toujours
-   **5,8×** sur le compile, à cinq jours et 116 commits d'écart.
+Page: [`packages/song/docs/benchSettle.md`](../packages/song/docs/benchSettle.md).
 
-Page : [`packages/song/docs/benchSettle.md`](../packages/song/docs/benchSettle.md).
+### Do not cache zod's `safeParse`
 
-### Ne pas mettre le `safeParse` de zod en cache
+The YAML parse is cached, the `safeParse` is not, and it looks like the next item along. Measured:
+**1.0 % of a 64-track compile**, 1 to 2.5 % at 8. And caching it would break an invariant `loader.ts`
+states outright — the cached parse is safe *only because* `r.data` is a fresh structure, so nothing
+shared escapes the loop. Do not do it.
 
-Le parse YAML est caché, pas le `safeParse` de zod, et ça ressemble au poste suivant. Mesuré :
-**1,0 % d'un compile à 64 pistes**, 1 à 2,5 % à 8. Et le cacher casserait un invariant que
-`loader.ts` écrit noir sur blanc — le parse caché n'est sûr *que parce que* `r.data` est une
-structure neuve, si bien que rien de partagé ne sort de la boucle. Ne pas le faire.
+### Post-command reloading is targeted, and what that really costs
 
-### Le rechargement après commande est ciblé, et ce que ça coûte de vrai
+The revision token is `${mutations}:${count}:${newest}`, and `mutations` is incremented by EVERY
+write: it moves for everything, by construction. It cannot be finer without becoming wrong again —
+it is what defends against two writes in the same millisecond, the same trap `SETTLE_MS` parries in
+`yamlCache`. Precision therefore comes from the client: `POST /command` returns the list of files
+written (`changed`, project-relative), `reloadKey` is `{ key, files }`, and `EditorTab` re-asks for
+`/tree` and `/hints` only if what moved can have moved them.
 
-Le jeton de révision est `${mutations}:${count}:${newest}`, et `mutations` est incrémenté par
-TOUTE écriture : il bouge pour tout, par construction. Il ne peut pas être plus fin sans
-redevenir faux — c'est lui qui défend contre deux écritures dans la même milliseconde, le même
-piège que `SETTLE_MS` pare dans `yamlCache`. La précision vient donc du client : `POST /command`
-rend la liste des fichiers écrits (`changed`, project-relative), `reloadKey` vaut `{ key, files }`,
-et `EditorTab` ne redemande `/tree` et `/hints` que si ce qui a bougé peut les avoir bougés.
-
-| ce qui a changé | `/tree` | `/hints` |
+| what changed | `/tree` | `/hints` |
 |---|---|---|
-| un fichier apparaît ou disparaît | oui | oui |
-| réécriture d'un `clips/`, `sequences/`, `curves/` | non | non — ils sont recensés PAR NOM |
-| réécriture de n'importe quoi d'autre | non | oui |
-| liste absente (`null`) | oui | oui — personne n'a rien dit |
+| a file appears or disappears | yes | yes |
+| rewrite of a `clips/`, `sequences/`, `curves/` | no | no — they are listed BY NAME |
+| rewrite of anything else | no | yes |
+| list absent (`null`) | yes | yes — nobody said anything |
 
-`null` ≠ `[]` est le point porteur : un service qui n'a pas pu differ dit « je ne sais pas », et
-tout redevient l'ancien compteur. L'ouverture d'un projet, un undo, un `project pull` et le tic
-`/revision` n'ont donc rien à savoir de ce mécanisme. `/project-doc`, `/graph` et
-`/project-errors` restent inconditionnels : une écriture peut réellement les changer.
+`null` ≠ `[]` is the load-bearing point: a service that could not diff says "I do not know", and
+everything reverts to the old counter. Opening a project, an undo, a `project pull` and the
+`/revision` tick therefore need know nothing of this mechanism. `/project-doc`, `/graph` and
+`/project-errors` stay unconditional: a write really can change them.
 
-Deux limites, dites plutôt que cachées :
+Two limits, said rather than hidden:
 
-- `/module-libraries` et `/library-chains` lisent les **dossiers partagés**, qu'une commande de
-  projet ne peut pas toucher : ils sont lus au montage du volet, et rechargés par les trois seuls
-  actes qui les changent — créer un module, forker un module partagé, publier depuis le builder.
-  Une bibliothèque changée **hors de cet onglet** (un `project pull`, un autre navigateur)
-  n'apparaît donc qu'au prochain montage. C'est le marché que « Many browsers at once » prend
-  déjà partout ailleurs.
-- Le `source` d'un clip décide aussi s'il est listé comme clip audio ou vidéo. Une commande qui
-  repointerait un clip EXISTANT d'un wav vers un mp4 laisserait cette seule répartition périmée
-  jusqu'au prochain rechargement complet. Les prédicats et leurs tests sont dans
-  `apps/st0/frontend/src/reloadScope.ts`.
+- `/module-libraries` and `/library-chains` read the **shared folders**, which a project command
+  cannot touch: they are read when the pane mounts, and reloaded by the only three acts that change
+  them — creating a module, forking a shared module, publishing from the builder. A library changed
+  **outside this tab** (a `project pull`, another browser) therefore appears only at the next mount.
+  That is the bargain "Many browsers at once" already takes everywhere else.
+- A clip's `source` also decides whether it is listed as an audio or a video clip. A command
+  re-pointing an EXISTING clip from a wav to an mp4 would leave that one split stale until the next
+  full reload. The predicates and their tests are in `apps/st0/frontend/src/reloadScope.ts`.
 
-Le même raisonnement vaut pour les gestes : `quietCommand` (`want: []`, pas de bump) porte sa
-propre mesure — « 62 ms per mute, per solo, per knob turn, built and dropped ». Les gestes de
-warp l'empruntent, ce qui les tient à ~130 ms au lieu de ~465.
+The same reasoning holds for gestures: `quietCommand` (`want: []`, no bump) carries its own
+measurement — "62 ms per mute, per solo, per knob turn, built and dropped". Warp gestures borrow it,
+which holds them at ~130 ms instead of ~465.
 
-### Ce qui reste, par ordre de rendement
+### What remains, in order of return
 
-1. **`ClipWaveform` rend son hôte à la cadence des frames.** Il lit le transport avec
-   `useEngineState((s) => s.playhead)` — un hook SÉLECTEUR — alors que le dépôt a déjà la réponse :
-   `usePlayheadFrames`, qui s'abonne au store brut, ne rend jamais, et écrit sur un nœud DOM à
-   60 Hz. Son en-tête dit exactement pourquoi. On ne peut pas l'y substituer tel quel, parce que
-   `Waveform` dessine sa tête de lecture *sur le canevas* : il faut une couche de survol mince.
-   C'est le même geste que `layers.md` écarte pour le REMPLISSAGE de progression, et pour une
-   raison qui ne vaut pas ici — un lavis violet sur les numéros de mesure se voit, un trait d'un
-   pixel non.
-2. **`App.tsx` : 4 200 lignes, 51 `useState`, 11 `useMemo`, aucun panneau mémoïsé.** Or un panneau
-   du layout est monté une fois et jamais démonté (`hidden` le sort de l'écran) : tout changement
-   d'état re-rend les 3 513 lignes de `TimelineTab` **y compris cachée**. Le seul profil existant
-   (`timeline.md`) est **antérieur** aux lots C et D — le re-mesurer est le préalable, pas le
-   correctif.
-3. **`EditorTab` peut émettre une requête HTTP par frappe.** Son effet dépend de `file`, recréé à
-   chaque caractère, et appelle `api.projectDoc()` en trois endroits. `fget` ne dédoublonne que
-   les requêtes en vol, ce n'est pas un cache — et le service est mono-processus.
-4. **Côté moteur** : la trame d'état à 20 Hz envoyée synchronement depuis le thread message (un
-   client coincé fige le moteur) ; `Change`, type valeur gras, qui copie le `PluginDoc` entier
-   *par paramètre* pendant un drag de potard ; `diff()` qui reconstruit quatre `std::map` à clés
-   concaténées par apply ; et le chemin d'horloge de motifs qui paie **deux copies profondes du
-   `ProjectDoc`** par tick, à 6,7 Hz.
+1. **`ClipWaveform` re-renders its host at frame rate.** It reads the transport with
+   `useEngineState((s) => s.playhead)` — a SELECTOR hook — when the repo already has the answer:
+   `usePlayheadFrames`, which subscribes to the raw store, never renders, and writes to a DOM node at
+   60 Hz. Its header says exactly why. It cannot be substituted as is, because `Waveform` draws its
+   playhead *on the canvas*: a thin overlay layer is needed. That is the gesture `layers.md` rejects
+   for progress FILL, for a reason that does not apply here — a purple wash over the bar numbers
+   shows, a one-pixel line does not.
+2. **`App.tsx`: 4,200 lines, 51 `useState`, 11 `useMemo`, no memoised panel.** A layout panel is
+   mounted once and never unmounted (`hidden` takes it off screen), so any state change re-renders
+   `TimelineTab`'s 3,513 lines **even hidden**. The only existing profile (`timeline.md`) predates
+   lots C and D — re-measuring is the prerequisite, not the fix.
+3. **`EditorTab` can emit one HTTP request per keystroke.** Its effect depends on `file`, recreated
+   at every character, and it calls `api.projectDoc()` in three places. `fget` only dedupes in-flight
+   requests, it is not a cache — and the service is single-process.
+4. **Engine side**: the 20 Hz state frame sent synchronously from the message thread (a stuck client
+   freezes the engine); `Change`, a fat value type, copying the whole `PluginDoc` *per parameter*
+   during a knob drag; `diff()` rebuilding four `std::map`s with concatenated keys per apply; and the
+   pattern clock path paying **two deep copies of the `ProjectDoc`** per tick, at 6.7 Hz.
 
-### Ce qui est déjà excellent — ne pas re-suspecter
+### Already excellent — do not re-suspect
 
-Le rappel audio est sans allocation et ses seuls verrous sont des `try_lock` qui jettent un bloc.
-`BroadcastTap` est un anneau SPSC exemplaire. `moduleCache` et `yamlCache` portent leur
-raisonnement **mesuré**, y compris un cas où hoisser une portée se révèle plus lent.
-`engineStore` quantifie dans le sélecteur. Et la table « l'O(n²) qui ne vaut pas la peine » de
-`meters.md` est un verdict chiffré : la Map mémoïsée PERD sous ~50 pistes.
+The audio callback is allocation-free and its only locks are `try_lock`s that drop a block.
+`BroadcastTap` is an exemplary SPSC ring. `moduleCache` and `yamlCache` carry their **measured**
+reasoning, including a case where hoisting a scope proves slower. `engineStore` quantises in the
+selector. And `meters.md`'s "the O(n²) that is not worth it" table is a costed verdict: the memoised
+Map LOSES below ~50 tracks.
 
----
+### The control path is not a bottleneck, and it looked like one
 
-### Le chemin de contrôle n'est pas un goulot, et il en avait l'air
+Measured against a loaded engine, on `eqA:eqA` (12 parameters), re-sending the CURRENT value each
+time so the whole path runs without the sound moving:
 
-Deux écrans bleus `KMODE_EXCEPTION_NOT_HANDLED` dans `FocusriteUsb.sys` ont fait soupçonner le
-débit de `set-plugin-param` : le scratch en envoyait un par `pointermove`, soit 500 à 1000 par
-seconde. Mesuré le 2026-08-25 contre un moteur chargé, sur `eqA:eqA` (12 paramètres), en
-réémettant à chaque fois la valeur COURANTE pour que tout le chemin s'exécute sans que le son
-bouge :
-
-| envoi + drainage complet | témoin (`id` inexistant) | réglages réels |
+| send + full drain | control (nonexistent `id`) | real settings |
 |---|---|---|
-| 5 000 messages | 45 ms | 45 ms |
-| 20 000 messages | 168 ms | 173 ms |
+| 5,000 messages | 45 ms | 45 ms |
+| 20,000 messages | 168 ms | 173 ms |
 
-Soit **entre 0,2 et 0,9 µs de travail moteur par réglage** selon la passe — l'écart est du bruit
-de mesure, ce qui est déjà la réponse — et un débit d'environ **110 000 par seconde**. Le scratch, à
-son pire, en utilisait moins d'un millième. Et une sonde postée derrière 20 000 messages en attente
-revient en 1,1 ms : la file `callAsync` ne se laisse pas engorger.
+That is **between 0.2 and 0.9 µs of engine work per setting** depending on the pass — the gap is
+measurement noise, which is already the answer — and a throughput of about **110,000 per second**.
+Scratching, at its worst, used less than a thousandth of it. And a probe posted behind 20,000 queued
+messages returns in 1.1 ms: the `callAsync` queue does not clog.
 
-Trois choses à en retenir, dont deux corrigent ce qu'on croyait :
+Three things to keep from it:
 
-- **La lecture du code disait le contraire.** `pluginParams()` reconstruit le vecteur entier des
-  paramètres, chaque entrée portant quatre `std::function`, puis compare par `toStdString()` — on
-  en attendait une centaine d'allocations par réglage, donc des microsecondes. La mesure dit moins
-  d'une microseconde. **Ne pas optimiser ce chemin sans le remesurer d'abord.**
-- **Le coût réel est côté NAVIGATEUR.** 168 ms pour émettre 20 000 messages, c'est 8,4 µs par
-  message en `JSON.stringify` + `ws.send`, sur le thread principal qui dessine le pupitre. C'est ça
-  que l'étranglement du scratch économise — pas le moteur.
-- **Donc ça n'explique pas le bugcheck.** En ASIO le pilote nous APPELLE ; il n'existe pas de file
-  d'instructions vers la carte. Ce qui peut fauter un pilote, c'est un callback tardif ou bloquant,
-  et le chemin de contrôle ne touche jamais le thread audio. Les vrais candidats sont dans
-  `engine/moteur/docs/audit-stabilite.md`, section « Real-time safety ».
+- **Reading the code said the opposite.** `pluginParams()` rebuilds the entire parameter vector, each
+  entry carrying four `std::function`s, then compares by `toStdString()` — a hundred allocations per
+  setting were expected, so microseconds. The measurement says under one microsecond. **Do not
+  optimise this path without re-measuring first.**
+- **The real cost is BROWSER side.** 168 ms to emit 20,000 messages is 8.4 µs per message in
+  `JSON.stringify` + `ws.send`, on the main thread drawing the desk. That is what throttling the
+  scratch saves — not the engine.
+- **So it does not explain the bugcheck.** `KMODE_EXCEPTION_NOT_HANDLED` in `FocusriteUsb.sys` stays
+  a driver defect with no lever on this side. Under ASIO the driver CALLS us; there is no instruction
+  queue towards the card. What can fault a driver is a late or blocking callback, and the control path
+  never touches the audio thread. The real candidates are in
+  `engine/moteur/docs/audit-stabilite.md`, "Real-time safety".
 
-À rejouer avec `engine/moteur/scripts/param-cost.mjs` contre un moteur qui a un projet chargé — sans projet, le
-`set` s'arrête au défaut de la map et mesure le témoin des deux côtés.
+Replay with `engine/moteur/scripts/param-cost.mjs` against an engine that has a project loaded —
+without one, the `set` stops at the map miss and measures the control on both sides.
 
-### Le callback audio est à 5 % de son échéance, geste compris
+### The audio callback is at 5 % of its deadline, gesture included
 
-Suite du précédent : le chemin de contrôle ne coûtant rien, restait à savoir si le thread AUDIO
-approchait sa date limite — c'est la seule chose qu'un pilote remarque. Tracktion mesure déjà chaque
-bloc (`DeviceManager::getCPUStatistics`, moyenne/min/**max**) ; le verbe `audio-cost` l'expose.
+Tracktion already measures every block (`DeviceManager::getCPUStatistics`, mean/min/**max**); the
+`audio-cost` verb exposes it.
 
-Mesuré le 2026-08-25, tampon 512 à 48 kHz — la valeur d'un après-midi, rendue à 256 depuis, et
-c'est ce relevé qui l'a rendue — soit une **échéance de 10,67 ms par bloc** :
+At buffer 512 / 48 kHz — a **10.67 ms deadline per block**:
 
-| état | blocs | moyen | pire bloc |
+| state | blocks | mean | worst block |
 |---|---|---|---|
-| moteur au repos, rien de chargé | 563 en 6 s | 0,010 ms | 0,046 ms (0,4 %) |
-| pupitre chargé, disque qui tourne | 90 s, 30 fenêtres | 0,13 ms | 0,476 ms (4,5 %) |
-| … sans geste, fenêtre de 5 s | 469 | 0,178 ms | 0,565 ms (5,3 %) |
-| … **scratch piloté à 2918 réglages/s** | 469 | 0,201 ms | 0,456 ms (4,3 %) |
+| engine idle, nothing loaded | 563 in 6 s | 0.010 ms | 0.046 ms (0.4 %) |
+| desk loaded, record turning | 90 s, 30 windows | 0.13 ms | 0.476 ms (4.5 %) |
+| … no gesture, 5 s window | 469 | 0.178 ms | 0.565 ms (5.3 %) |
+| … **scratch driven at 2918 settings/s** | 469 | 0.201 ms | 0.456 ms (4.3 %) |
 
-Le scratch — trois fois la cadence d'une souris — ajoute **0,023 ms** à la moyenne et fait *baisser*
-le maximum : l'écart est du bruit. Le compte de blocs ne bouge pas non plus (93,8/s, la valeur
-exacte de 512 à 48 kHz), donc aucun bloc n'est perdu.
+The scratch — three times a mouse's rate — adds **0.023 ms** to the mean and *lowers* the maximum:
+the gap is noise. The block count does not move either (93.8/s, the exact value for 512 at 48 kHz),
+so no block is lost.
 
-Puis à **256**, où le tampon est resté, même pupitre et même scratch piloté — échéance 5,33 ms :
+At **256**, where the buffer sits, same desk and same driven scratch — 5.33 ms deadline:
 
-| état | blocs | moyen | pire bloc |
+| state | blocks | mean | worst block |
 |---|---|---|---|
-| à vide | 938 en 5 s | 0,007 ms | 0,137 ms (2,6 %) |
-| chargé, sans geste | 1126 en 6 s | 0,127 ms | 0,493 ms (9,3 %) |
-| chargé, **scratch à 2863/s** | 1125 | 0,144 ms | 0,508 ms (9,5 %) |
+| empty | 938 in 5 s | 0.007 ms | 0.137 ms (2.6 %) |
+| loaded, no gesture | 1126 in 6 s | 0.127 ms | 0.493 ms (9.3 %) |
+| loaded, **scratch at 2863/s** | 1125 | 0.144 ms | 0.508 ms (9.5 %) |
 
-**Le coût ne se divise pas avec le bloc, et j'avais prédit qu'il le ferait.** En passant de 512 à
-256, la moyenne en charge ne tombe pas de moitié (0,201 → 0,144, soit −28 %) et le maximum ne bouge
-pas du tout (0,456 → 0,508). Une part du callback est un coût FIXE par bloc — traversée du graphe,
-appels de greffons, comptabilité — qui ne connaît pas la taille du bloc. Donc **diviser le tampon
-par deux double à peu près la part d'échéance consommée** : 4,3 % à 512, 9,5 % à 256. La marge
-reste d'un ordre de grandeur, mais la tendance dit ce que coûterait 128, et surtout 64.
+**The cost does not halve with the block.** Going 512 → 256, the loaded mean does not fall by half
+(0.201 → 0.144, −28 %) and the maximum does not move at all (0.456 → 0.508). Part of the callback is
+a FIXED per-block cost — graph traversal, plugin calls, bookkeeping — that does not know the block
+size. So **halving the buffer roughly doubles the share of deadline consumed**: 4.3 % at 512, 9.5 %
+at 256. The margin is still an order of magnitude, but the trend says what 128, and above all 64,
+would cost.
 
-**Ce qui reste, et qui n'était pas dans le champ.** Une seule chose que le moteur fasse atteint
-vraiment le pilote : `list-audio-devices`, qui appelle `scanForDevices()` sur chaque type, ASIO
-compris. Mesuré : **50 ms par scan**, six fois sur six — et le superviseur en demandait un **toutes
-les deux secondes**, à vie, soit 1800 contacts par heure avec un pilote mono-client pendant qu'il
-diffuse. Le callback n'en souffre pas (max 0,278 ms pendant une rafale contre 0,356 sans), donc ce
-n'est pas un problème de temps réel ; c'est la seule sollicitation répétée qu'on impose au pilote.
-`DEVICES_POLL_MS` est passé à 10 s pour voir — 360 scans par heure au lieu de 1800 ; expérience à
-coût quasi nul, pas correctif prouvé :
-`packages/engine-host/docs/supervisorPolicy.md`.
+**The one thing that really reaches the driver** is `list-audio-devices`, which calls
+`scanForDevices()` on every type, ASIO included. Measured: **50 ms per scan**, six times out of six.
+The callback does not suffer (max 0.278 ms during a burst against 0.356 without), so it is not a
+real-time problem; it is the only repeated solicitation imposed on a single-client driver while it is
+streaming. `DEVICES_POLL_MS` is at 10 s — 360 scans an hour instead of 1800; a near-zero-cost
+experiment, not a proven fix: `packages/engine-host/docs/supervisorPolicy.md`.
 
-**Ce que ça clot.****Ce que ça clot.** L'engin n'approche jamais sa date limite : facteur vingt de marge sur le pire
-bloc observé, dans toutes les conditions essayées. La théorie « on envoie trop d'instructions à la
-carte » est morte deux fois — le chemin de contrôle est gratuit, et le thread audio ne s'en aperçoit
-pas. Le point d'arrêt dans `FocusriteUsb.sys` reste un défaut de pilote, sans levier de ce côté-ci.
+**What this closes.** The engine never approaches its deadline: a factor of twenty of margin on the
+worst block observed, in every condition tried. The "we send the card too many instructions" theory
+is dead twice over — the control path is free, and the audio thread does not notice it.
 
-**Savoir si le pupitre est VRAIMENT chargé, et les deux façons de se tromper.** J'ai d'abord écarté
-un relevé en voyant `tracks=3` dans `list-sessions`, puis je me suis corrigé en disant que trois
-pistes était le compte juste d'un pupitre à platines. Les deux fois à côté. Ce qui est vrai :
+**Knowing whether the desk is REALLY loaded**, before counting anything:
 
-- `tracks=3` EST le document de secours (`deckDoc`) — deux platines et la somme. Un pupitre
-  compilé en annonce 17.
-- Demander `stemDrumsA:platter` ne tranche PAS, parce que `deckDoc` construit les plateaux lui
-  aussi. Le greffon répond dans les deux cas.
-- `loaded=true` ne tranche pas non plus : le document de secours est un document chargé.
+- `tracks=3` IS the fallback document (`deckDoc`) — two decks and the sum. A compiled desk announces
+  17.
+- Asking for `stemDrumsA:platter` does NOT decide, because `deckDoc` builds the platters too. The
+  plugin answers in both cases.
+- `loaded=true` does not decide either: the fallback document is a loaded document.
 
-Le seul témoin fiable est donc le **nombre de pistes**, comparé à ce que le projet compile. À
-vérifier avant de compter quoi que ce soit : un relevé sur l'imitation mesure un graphe qui n'a ni
-EQ, ni filtre, ni fondus.
+The only reliable witness is therefore the **track count**, compared with what the project compiles.
+A measurement taken on the stand-in measures a graph with no EQ, no filter and no fades.
 
-## Stabilité
+## Stability
 
-### Le filet d'exceptions
+### The exception net
 
-`void f()` n'attrape rien — il annonce à Biome qu'on n'attendra pas la promesse — et depuis
-Node 15 une promesse rejetée non attrapée **termine le process**. Côté TypeScript, un `guard()`
-par process et le filet aux deux points d'entrée couvrent ça, avec les deux moitiés
-volontairement asymétriques : un rejet est journalisé et on vit, une exception non attrapée est
-journalisée avec sa pile et on sort. Page :
+`void f()` catches nothing — it tells Biome the promise will not be awaited — and since Node 15 an
+unhandled rejection **terminates the process**. TypeScript side, one `guard()` per process and the
+net at both entry points cover that, with the two halves deliberately asymmetric: a rejection is
+logged and we live, an uncaught exception is logged with its stack and we exit. Page:
 [`packages/engine-host/docs/background.md`](../packages/engine-host/docs/background.md).
 
-Le mode de panne que ce filet pare est instructif parce qu'il ne se remarque pas : quand le
-superviseur meurt, **le moteur reste vivant derrière lui**, le capot le relance sur son repli et
-le nouveau superviseur ré-adopte le moteur par son pidfile. Ça se rattrape, donc ça passe
-inaperçu. Même famille côté service de fichiers, où `wrap()` ne peut rien voir : elle n'attrape
-que ce que le handler *retourne*.
+The failure mode that net parries is instructive because it goes unnoticed: when the supervisor
+dies, **the engine stays alive behind it**, the tray restarts it on its fallback and the new
+supervisor re-adopts the engine by its pidfile. It recovers, so it passes unseen. Same family on the
+file-service side, where `wrap()` can see nothing: it only catches what the handler *returns*.
 
-**Ouvert : le C++.** Revérifié au 2026-08-26, et le constat tient mot pour mot : un seul
-`catch` dans toute la bibliothèque (`NamPlugin.cpp`) sur **55** fichiers (52 au relevé
-précédent), ni `try` au niveau de `main()`, ni `set_terminate`. `server/main.cpp` en porte
-sept, tous imbriqués et locaux — `main()` ouvre à la ligne 331, les `try` qui la précèdent sont
-dans un utilitaire de chargement.
+**Open: the C++.** One `catch` in the whole library (`NamPlugin.cpp`) across **55** files, no `try`
+at `main()` level, no `set_terminate`. `server/main.cpp` carries seven, all nested and local —
+`main()` opens at line 331, and the `try`s before it are in a loading utility.
 
-### git bloque le process qui tient le moteur
+### git blocks the process holding the engine
 
-`packages/commands/src/git.ts` fait tout en `execFileSync`, et les routes aussi. Ce process tient
-la socket vers le moteur, l'horloge de motifs et le watcher. Les commandes sont bornées, mais le
-fond reste : `gitStatus` fait un `fetch` bloquant jusqu'à 30 s, et **il n'y a aucun verrou nulle
-part**. `commitAndPush` fait `add -A`, puis `status`, puis `commit` en trois sous-process : une
-écriture d'autosave qui atterrit entre le premier et le troisième est hors du commit. Et
-`cancelAlternative` fait `reset --hard` puis `clean -fd` sans exclusion.
+`packages/commands/src/git.ts` does everything with `execFileSync`, and so do the routes. That
+process holds the socket to the engine, the pattern clock and the watcher. The commands are bounded,
+but the substance remains: `gitStatus` does a blocking `fetch` of up to 30 s, and **there is no lock
+anywhere**. `commitAndPush` does `add -A`, then `status`, then `commit` in three subprocesses: an
+autosave write landing between the first and the third is outside the commit. And
+`cancelAlternative` does `reset --hard` then `clean -fd` with no exclusion.
 
-### Le jeton de moteur part sur n'importe quelle socket
+### The engine token goes out on any socket
 
-Le moteur rend son jeton à **toute socket** qui envoie `whoami`, sans authentification, et le
-navigateur le stocke. Ce que le jeton prouve vraiment (l'anti-confusion) et ce qu'il ne protège
-pas sont écrits dans
-[`packages/engine-registry/docs/token.md`](../packages/engine-registry/docs/token.md). Le
-resserrer est un lot, pas une phrase.
+The engine returns its token to **any socket** sending `whoami`, with no authentication, and the
+browser stores it. What the token really proves (anti-confusion) and what it does not protect are in
+[`packages/engine-registry/docs/token.md`](../packages/engine-registry/docs/token.md). Tightening it
+is a lot, not a sentence.
 
-### Les tests : ce que personne ne couvre
+### Tests: what nobody covers
 
-`engine-browser/src/engine.ts` — **673 lignes** (852 au relevé précédent : le fichier a maigri,
-le trou non) où vit toute la fiabilité du client navigateur — **n'a toujours pas de fichier de
-test**. Ses cinq voisins en ont un (`choose`, `lease`, `meter`, `playheadClock`, `streamPlayer`) ;
-lui, non. Et plus large : **aucun test ne franchit une frontière de process**, **aucun contrat
-C++ ↔ TS** ne tient la trame binaire.
+`engine-browser/src/engine.ts` — **673 lines**, where the whole reliability of the browser client
+lives — **still has no test file**. Its five neighbours have one (`choose`, `lease`, `meter`,
+`playheadClock`, `streamPlayer`); it does not. More broadly: **no test crosses a process boundary**,
+and **no C++ ↔ TS contract** holds the binary frame.
 
-**Refermé le 2026-08-26 : les tests qui existaient sans tourner.** Trois espaces de travail
-portaient des tests que `turbo run test` ne voyait pas, faute de script `test` — 86 tests
-TypeScript verts et six cibles ctest jamais compilées. La suite est passée de 44 à 47 tâches. Le
-détail, y compris pourquoi le filtre `^studio_` est porteur et pourquoi le C++ **saute** au lieu
-de configurer, est dans [tests.md](tests.md).
+Two traps are measured in [tests.md](tests.md) and hold for any measurement made here: a bench or a
+test that does not run is green, and a failure that **changes test on every pass** is a time budget
+too short, not a bug — five seconds by default for 160 files touching the disk.
 
-Deux pièges y sont mesurés et valent pour toute mesure faite ici : un banc ou un test qui ne
-tourne pas est vert, et un échec qui **change de test à chaque passe** est un budget de temps
-trop court, pas un bug — cinq secondes par défaut pour 160 fichiers qui touchent le disque.
+### Already solid
 
-### Déjà solide
-
-Le client navigateur du moteur dans son entier. `moduleWatch` avec ses trois moitiés — le watcher,
-le plafond de 10 s qui guérit un événement perdu, et la moitié écrivain, parce que `fs.watch`
-délivre un tick trop tard. Le bail sur un projet, testé 21 fois. Et `reconcileEngine`, qui est la
-réponse écrite à ce que le code appelle lui-même « l'échec le plus silencieux de ce dépôt » :
-envoyer à une session vide.
+The engine's browser client in its entirety. `moduleWatch` with its three halves — the watcher, the
+10 s ceiling that heals a lost event, and the writer half, because `fs.watch` delivers one tick too
+late. The lease on a project, tested 21 times. And `reconcileEngine`, the written answer to what the
+code itself calls "the quietest failure in this repo": sending to an empty session.
 
 ---
 
-## Code mort
+## Dead code
 
-### L'outil, et ce qu'il ne voit pas
+### The tool, and what it does not see
 
-Biome ne voit que l'intra-fichier — un `export` que personne n'importe lui est invisible **par
-construction** — et `biome.json` exclut `engine/moteur`. `npm run lint:dead` (knip, `knip.json`)
-fait trois des quatre passes de `inventaire.md` en trente secondes. **Non bloquant** : un faux
-positif se lit, il ne doit pas bloquer un merge.
+Biome sees only intra-file — an `export` nobody imports is invisible to it **by construction** — and
+`biome.json` excludes `engine/moteur`. `npm run lint:dead` (knip, `knip.json`) does three of
+`inventaire.md`'s four passes in thirty seconds. **Non-blocking**: a false positive is read, it must
+not block a merge.
 
-Sa liste d'exceptions est le §0 de l'inventaire traduit en configuration, faute de quoi il tue du
-code vivant : `dspRunner.mjs`, `separateWorker.ts`, les entrées esbuild du tray, `emit.ts`, les
-`jsdsp.ts`, les harnais de `engine/moteur/scripts/`.
+Its exception list is the inventory's §0 translated into configuration, without which it kills live
+code: `dspRunner.mjs`, `separateWorker.ts`, the tray's esbuild entries, `emit.ts`, the `jsdsp.ts`
+files, the harnesses in `engine/moteur/scripts/`.
 
-Sortie au **2026-08-26** : **1 fichier, 1 dépendance non déclarée, 2 binaires non déclarés,
-120 exports, 45 types** — 169 constats, chacun à examiner. Au 2026-08-21 : 1 fichier,
-4 dépendances, 1 devDépendance, 58 exports, 17 types, soit 81.
+Output: **1 file, 1 undeclared dependency, 2 undeclared binaries, 120 exports, 45 types** — 169
+findings, each to be examined. A rising count is not readable on its own: shrinking a published
+`exports` map moves findings out of the shadow and into the list, so the count goes up because the
+`package.json` lies less. Read it against the `exports` maps of the same day.
 
-**Le doublement est en partie un progrès, et il faut savoir lequel.** Une part est de la dérive
-réelle sur 116 commits. Mais une part vient de ce que la carte `exports` de `ui-turntables` a été
-ramenée de 15 sous-chemins à 4 le 2026-08-26 : un symbole publié est invisible à knip, qui le
-croit consommé par l'extérieur, tandis que le même symbole devenu interne devient un « export
-inutilisé » bien visible. **Rétrécir la surface publiée déplace des constats de l'ombre vers la
-liste** — le compte monte parce que le `package.json` ment moins. Un compte qui monte n'est donc
-pas lisible seul : il se lit contre les cartes `exports` du même jour.
+### Run `lint:bytes` BEFORE `lint:dead`
 
-### Lancer `lint:bytes` AVANT `lint:dead`
+One NUL byte in a source file is enough for ripgrep to class it binary and skip it **without a
+word**: the file stops existing for every reachability pass. `npm run lint:bytes` is the guard, and
+it only helps if it is run.
 
-Un octet NUL dans un fichier source suffit à le faire classer binaire par ripgrep, qui le saute
-**sans un mot** : le fichier cesse d'exister pour toute passe d'accessibilité. `npm run
-lint:bytes` est le garde-fou, et il ne sert que si on le lance.
-
-Ce piège coûte plus cher qu'il n'y paraît : knip lit le source comme ripgrep, donc un fichier
-porteur d'un NUL est invisible au détecteur de code mort lui-même, qui rendra un « rien à
-signaler » parfaitement faux. Et attention en décrivant le problème — recopier l'octet depuis le
-source pour l'illustrer dans une page réintroduit le NUL dans cette page.
+That trap costs more than it looks: knip reads source the way ripgrep does, so a file carrying a NUL
+is invisible to the dead-code detector itself, which will return a perfectly false "nothing to
+report". And take care when describing the problem — copying the byte out of the source to
+illustrate it reintroduces the NUL into the page.
 
 ---
 
-## Les lots ouverts
+## The open lots
 
-Chacun est une décision de conception, et c'est pourquoi aucun n'est pris au fil de l'eau.
+Each is a design decision, which is why none is taken in passing.
 
-1. La trame d'état à 20 Hz, envoyée synchronement depuis le thread message.
-2. `Change`, type valeur gras.
-3. La couche de survol de `Waveform`, pour sortir la tête de lecture du dessin complet.
-4. `App.tsx` — **à re-mesurer avant de toucher** : le seul profil est antérieur aux lots C/D.
-5. `git` hors du process du service, ou sérialisé derrière un verrou.
-6. Le jeton distribué à toute socket, et `STUDIO_ENGINE_HOST` à `0.0.0.0` par défaut.
-7. Le filet d'exceptions côté C++.
-8. Les tests absents : `engine.ts`, le premier test inter-process, le premier contrat C++ ↔ TS.
-   **Rétréci le 2026-08-26** — le C++ tourne enfin, mais aucun de ces trois-là n'est écrit.
-9. Le bloc WebCodecs de `ui-eyes`, qui n'a pas d'hôte. ~~La chaîne d'effets par platine~~ :
-   tranchée en entier le 2026-08-26 — `chains.tsx`, puis `graph.ts` et `graph.test.ts` qui ne
-   servaient plus qu'à lui (inventaire §6). Quatre de ses quinze tests portaient en fait sur
-   `deck.ts` et ont été déplacés plutôt que perdus.
-10. **Le banc à 64 pistes, qui ne mesure plus rien d'utilisable** (±14,7 %). Soit on lui donne
-    assez d'échantillons et une machine au repos, soit on cesse de publier ses chiffres.
+1. The 20 Hz state frame, sent synchronously from the message thread.
+2. `Change`, a fat value type.
+3. `Waveform`'s overlay layer, to take the playhead out of the full redraw.
+4. `App.tsx` — **re-measure before touching**: the only profile predates lots C/D.
+5. `git` out of the service's process, or serialised behind a lock.
+6. The token handed to any socket, and `STUDIO_ENGINE_HOST` at `0.0.0.0` by default.
+7. The exception net on the C++ side.
+8. The missing tests: `engine.ts`, the first inter-process test, the first C++ ↔ TS contract.
+9. `ui-eyes`' WebCodecs block, which has no host.
+10. **The 64-track bench, which no longer measures anything usable** (±14.7 %). Either give it enough
+    samples and an idle machine, or stop publishing its figures.
 
 ---
 
-## Comment rejouer ce relevé
+## How to replay this survey
 
 ```
-npm run lint:bytes                         # AVANT lint:dead, ou le second ment
-npm run lint:dead                          # knip — lire la SORTIE, pas le code de sortie
-npm run bench --workspace @studio/song     # séquentiellement : deux bancs en parallèle
-npm run bench --workspace @studio/file-service   #   se concurrencent et le chiffre ment
-npx turbo run test --force                 # --force : un vert en cache est identique à un vrai vert
+npm run lint:bytes                         # BEFORE lint:dead, or the second lies
+npm run lint:dead                          # knip — read the OUTPUT, not the exit code
+npm run bench --workspace @studio/song     # sequentially: two benches in parallel
+npm run bench --workspace @studio/file-service   #   compete and the figure lies
+npx turbo run test --force                 # --force: a cached green is identical to a real green
 npx turbo run typecheck --force
 ```
 
-**Arrêter la session de dev avant les bancs.** Tilt et un `st0-engine.exe` vivants suffisent à
-faire passer la variance à 64 pistes de ±1 % à ±15 % — c'est la découverte du relevé
-2026-08-26, et elle invalide toute comparaison faite machine chargée. Et **trois passes, pas
-une** : à cette taille le banc tire dix à vingt échantillons, assez pour qu'une seule passe
-mente sans en avoir l'air.
+**Stop the dev session before the benches.** Tilt and a live `st0-engine.exe` are enough to take the
+64-track variance from ±1 % to ±15 %, which invalidates any comparison made on a loaded machine. And
+**three passes, not one**: at that size the bench draws ten to twenty samples, enough for a single
+pass to lie without looking like it.
 
-Pour vérifier les affirmations de cette page une par une :
+To check this page's claims one by one:
 
 ```bash
-# le filet — doit trouver les deux background.ts, et RIEN en C++
-# git grep, PAS grep -rn : ce dernier balaie dist/ et .turbo/ et rend 700 Ko de bundles minifiés
+# the net — must find both background.ts, and NOTHING in C++
+# git grep, NOT grep -rn: the latter sweeps dist/ and .turbo/ and returns 700 KB of minified bundles
 git grep -n "unhandledRejection\|uncaughtException\|set_terminate" -- . ':!commons'
 
-# le jeton part sur n'importe quelle socket
+# the token goes out on any socket
 git grep -n "engineToken" -- engine/moteur/server/main.cpp
 
-# un seul catch dans la bibliothèque, et main() n'est pas gardée
+# one catch in the library, and main() is unguarded
 for f in $(git ls-files 'engine/moteur/engine/*.cpp' 'engine/moteur/engine/*.h'); do
   n=$(grep -cE 'catch\s*\(' "$f"); [ "$n" -gt 0 ] && echo "$n $f"
 done
 ```
 
-Trois pièges de mesure déjà payés ici : lire le **nombre de tests** et non le code de sortie (le
-glob vide de `docs.test.ts` passe à vide) ; se méfier des tests qui pilotent du vrai git et
-sortent en timeout sous charge — les remettre en cause une seconde fois avant d'accuser un
-changement, ils ont menti deux fois dans la même session, sur deux tests différents ; et **une
-commande passée à `tail` rend le code de sortie de `tail`**, c'est-à-dire zéro, ce qui a fait
-lire « exit 0 » sur un `biome check` qui signalait quatre erreurs. Enfin, sur cette machine
-`.claude/` contient une vingtaine de worktrees : un glob à la racine qui ne les exclut pas
-rapporte les résultats d'autres branches — `vitest.config.ts` les exclut désormais, les greps à
-la main non.
+Four measurement traps already paid for here: read the **number of tests** and not the exit code
+(`docs.test.ts`'s empty glob passes on nothing); distrust tests driving real git that time out under
+load — question them a second time before blaming a change, they have lied twice in one session on
+two different tests; **a command piped into `tail` returns `tail`'s exit code**, that is zero, which
+had "exit 0" read off a `biome check` reporting four errors; and on this machine `.claude/` holds a
+score of worktrees, so a root glob that does not exclude them reports results from other branches —
+`vitest.config.ts` excludes them now, hand-written greps do not.

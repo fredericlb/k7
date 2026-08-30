@@ -1,105 +1,96 @@
-# Un module écrit en Faust
+# A module written in Faust
 
-`plugin: {type: faust}` et un `dsp.dsp` dans le dossier du module. C'est le frère de
-`jsdsp`, et cette page tient à la différence entre les deux — plus l'état exact de ce qui
-est branché aujourd'hui, qui n'est pas « ça marche ».
+`plugin: {type: faust}` and a `dsp.dsp` in the module's folder. It is `jsdsp`'s brother, and this
+page holds the difference between the two — plus the exact state of what is wired today, which is not
+"it works".
 
-## L'état, d'abord
+## The state, first
 
-**Le moteur ne compile rien.** `FaustPlugin` existe, se charge, reçoit la source et
-*passe l'audio sans le toucher*, en le disant une fois sur le canal des avertissements. Tout
-ce qui est au-dessus est fini : le module se charge, se dessine dans le graphe avec la bonne
-couleur, s'édite dans le builder, arrive dans le document compilé et atteint le moteur.
+**The engine compiles nothing.** `FaustPlugin` exists, loads, receives the source and *passes audio
+through untouched*, saying so once on the warnings channel. Everything above it is finished: the
+module loads, draws in the graph with the right colour, edits in the builder, and reaches the
+compiled document and the engine. That order is deliberate — the seam is visible and exercised before
+anyone decides what a compiler costs. See `engine/moteur/docs/faust.md` for what is missing and the
+three ways to fill it.
 
-C'est délibérément l'ordre : la couture se voit et s'exerce avant qu'on décide ce que coûte un
-compilateur — voir `engine/moteur/docs/faust.md` pour ce qui manque et les trois façons de le
-combler.
-
-## Le dossier
+## The folder
 
 ```
 modules/audio/moogladder/
   module.yaml       plugin: {type: faust}, params:
-  dsp.dsp           la source           (nom FIXE — FAUST_FILE)
-  ui.yaml           la face
-  presets.yaml      les réglages nommés
-  assets/           ce que ses params nomment
+  dsp.dsp           the source           (FIXED name — FAUST_FILE)
+  ui.yaml           the face
+  presets.yaml      the named settings
+  assets/           what its params name
 ```
 
-Le nom du fichier est une constante et non un champ, exactement comme `jsdsp.ts` : le type
-dit que le fichier est là, et un module reste un dossier qu'on copie sans rien réécrire
-dedans.
+The filename is a constant and not a field, exactly like `jsdsp.ts`: the type says the file is there,
+and a module stays a folder you copy without rewriting anything inside it. No `.vstpreset` — a Faust
+module's state *is* its parameters, so `presets.yaml` suffices, same as for a jsdsp module.
 
-Pas de `.vstpreset` : l'état d'un module Faust *est* ses paramètres, donc `presets.yaml`
-suffit. Même raison que pour un module jsdsp.
+## What separates it from jsdsp: WHO compiles
 
-## Ce qui le distingue de jsdsp : QUI compile
-
-C'est la seule différence, et elle explique tout le reste.
+That is the only difference, and it explains all the rest.
 
 | | `jsdsp` | `faust` |
 |---|---|---|
-| la source | `jsdsp.ts` | `dsp.dsp` |
-| qui la compile | **ici**, `readJsDspGraph` lance un process Node | **le moteur**, dans le constructeur du greffon |
-| ce qui part sur le fil | `dspGraph` — le JSON produit | `faustDsp` — le texte de la source |
-| artefact frère commité | `jsdsp.json`, reconstruit sur la mtime | **aucun** |
-| ce qui tourne sur le thread audio | l'interpréteur `DspGraph` | du code compilé |
+| the source | `jsdsp.ts` | `dsp.dsp` |
+| who compiles it | **here**, `readJsDspGraph` spawns a Node process | **the engine**, in the plugin's constructor |
+| what goes on the wire | `dspGraph` — the produced JSON | `faustDsp` — the source text |
+| committed sibling artefact | `jsdsp.json`, rebuilt on mtime | **none** |
+| what runs on the audio thread | the `DspGraph` interpreter | compiled code |
 
-L'absence d'artefact frère n'est pas un oubli. Le `.json` de jsdsp existe parce qu'il faut
-Node pour lire un `.ts` et qu'on ne veut pas payer 200 ms par compilation ni exiger Node
-d'un poste qui joue. Ici le compilateur est déjà de l'autre côté du fil : un cache de sa
-sortie serait une deuxième source de vérité au profit de personne. `readFaustSource` lit le
-fichier, point.
+The absent sibling artefact is not an oversight. jsdsp's `.json` exists because reading a `.ts` needs
+Node, and nobody wants to pay 200 ms per compile nor require Node of a machine that plays. Here the
+compiler is already on the other side of the wire: a cache of its output would be a second source of
+truth for nobody's benefit. `readFaustSource` reads the file, full stop.
 
-**Le jour où l'app aura besoin de la liste des paramètres SANS moteur**, ça change : il
-faudra `faust -json` à la compilation et un `dsp.json` frère après tout. Ce jour n'est pas
-venu — le panneau et le graphe lisent les noms dans le `params:` du `module.yaml`, que
-l'auteur écrit de toute façon.
+That holds only while nothing here needs the parameter list WITHOUT an engine: the panel and the
+graph read the names from the `module.yaml`'s `params:`, which the author writes anyway. Needing them
+otherwise means `faust -json` at compile time and a sibling `dsp.json` after all.
 
-## Les paramètres, et ce que personne ne vérifie
+## The parameters, and what nobody checks
 
-Un `hslider("Cutoff", 1200, 20, 20000, 1)` donne nom, minimum, maximum, défaut et pas :
-la forme exacte de `DspGraphParam`, donc `params:`, `ui.yaml`, `presets.yaml`, les
-automations et les `viewBindings` continuent sans rien savoir de Faust.
+An `hslider("Cutoff", 1200, 20, 20000, 1)` gives name, minimum, maximum, default and step: the exact
+shape of `DspGraphParam`, so `params:`, `ui.yaml`, `presets.yaml`, automation and `viewBindings`
+carry on knowing nothing about Faust.
 
-Ce qu'aucun des deux côtés ne vérifie, c'est que le `params:` du `module.yaml` et les
-`hslider` de la source parlent des mêmes noms. Rien ici ne peut le faire : les paramètres
-sont déclarés par le compilateur, qui est dans le moteur. Une faute de frappe donne donc un
-réglage que personne ne lit — et le moteur le dit, une ligne par nom inconnu
-(`applyPluginParams`, PluginParams.cpp). C'est le seul filet, et il est à l'exécution.
+Neither side checks that the `module.yaml`'s `params:` and the source's `hslider`s speak of the same
+names, and nothing here can: the parameters are declared by the compiler, which is in the engine. A
+typo yields a setting nobody reads — the engine says so, one line per unknown name
+(`applyPluginParams`, PluginParams.cpp). That is the only net, and it is at runtime.
 
-## Les imports
+## The imports
 
-`import("stdfaust.lib")` doit se résoudre quelque part, et un dossier de module doit rester
-copiable. La règle prévue, non implémentée puisque rien ne compile encore :
+`import("stdfaust.lib")` has to resolve somewhere, and a module folder has to stay copyable. The
+intended rule, unimplemented since nothing compiles yet:
 
-- les **bibliothèques standard** voyagent avec le moteur, jamais dans le dossier du module ;
-- ce que le module a écrit lui-même va dans un `lib/` à lui ;
-- le chemin d'inclusion est `[<dossier du module>, <libs du moteur>]`, dans cet ordre, et un
-  import qui sort du dossier est refusé comme `resolveAssets` refuse un `../`.
+- the **standard libraries** travel with the engine, never in the module's folder;
+- what the module wrote itself goes in a `lib/` of its own;
+- the include path is `[<module folder>, <engine libs>]`, in that order, and an import leaving the
+  folder is refused as `resolveAssets` refuses a `../`.
 
-Ce qui suppose que le dossier du module soit connu du moteur — il ne l'est pas : ce qui part
-sur le fil est le TEXTE de la source, pas son chemin. Un module qui importe un fichier à lui
-demandera donc soit un champ de plus dans `PluginDoc`, soit que le compilateur d'ici aplatisse
-les imports avant l'envoi. À trancher avec le compilateur, pas avant.
+Which assumes the engine knows the module's folder — it does not: what goes on the wire is the source
+TEXT, not its path. A module importing a file of its own therefore wants either one more field in
+`PluginDoc`, or that the compiler here flattens imports before sending. To settle with the compiler,
+not before.
 
-## Les quatre portes
+## The four gates
 
-Un mot de `plugin.type` doit être connu de quatre endroits, et celui qu'on oublie ne dit
-rien : oublier la deuxième fait disparaître le module *silencieusement* du document compilé.
+A `plugin.type` word must be known to four places, and the one you forget says nothing: forgetting the
+second makes the module disappear *silently* from the compiled document.
 
-| fichier | ce qu'il fait |
+| file | what it does |
 |---|---|
-| `loader.ts` `dspSourceFor` | résout la source contre le dossier du module |
-| `nodeProject.ts` | la porte du compilateur — un type inconnu est jeté sans un mot |
-| `graphDoc.ts` `known` | la couleur du nœud : rouge veut dire « le moteur ne sait pas charger ça » |
-| `enginePlugin` (engine-protocol/build.ts) | la correspondance vers le greffon intégré |
+| `loader.ts` `dspSourceFor` | resolves the source against the module's folder |
+| `nodeProject.ts` | the compiler's gate — an unknown type is dropped without a word |
+| `graphDoc.ts` `known` | the node's colour: red means "the engine cannot load this" |
+| `enginePlugin` (engine-protocol/build.ts) | the mapping onto the built-in plugin |
 
-## Éditer la source pendant que ça joue
+## Editing the source while it plays
 
-`keyOf` (ProjectDiff.cpp) plie `faustDsp` dans l'identité du greffon, donc sauvegarder
-`dsp.dsp` le fait re-créer — obligatoire, puisque la compilation est dans le constructeur.
+`keyOf` (ProjectDiff.cpp) folds `faustDsp` into the plugin's identity, so saving `dsp.dsp` re-creates
+it — mandatory, since compilation is in the constructor.
 
-**`dspGraph` n'y est pas**, et c'est un écart connu du côté jsdsp : éditer un `jsdsp.ts`
-pendant que le moteur tourne atteint le document et ne change rien qu'on entende, jusqu'au
-prochain rebuild complet.
+**`dspGraph` is not in there**, and that is a known gap on the jsdsp side: editing a `jsdsp.ts` while
+the engine runs reaches the document and changes nothing audible, until the next full rebuild.

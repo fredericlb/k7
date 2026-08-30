@@ -18,12 +18,10 @@ readable.
 `layers:` is **bottom-first** — the last name draws last, so it is the one in front. The timeline
 lists its picture rows the other way round, topmost layer at the top, which is the ordering every
 compositing tool uses and the only one under which "drag this lane to the top" can mean what it
-looks like.
-
-It read the other way at first, and the bug that came out of it is worth keeping written down: a
-lane dragged to the top row became the FIRST layer, went behind the full-frame lane it had been
-over, and disappeared. Nothing was broken — the row order simply meant the opposite of what the
-gesture did. `rows.test.ts` pins the round trip now, from the top row to the resulting `layers:`.
+looks like. Ordered the other way, a lane dragged to the top row becomes the FIRST layer, goes
+behind the full-frame lane it was over, and disappears — nothing broken, the row order simply
+meaning the opposite of the gesture. `rows.test.ts` pins the round trip, from the top row to the
+resulting `layers:`.
 
 The reversal is `projectRows`' alone. Nothing downstream re-sorts: the compile hands out
 `videoTracks` bottom-first and the compositor draws them in that order
@@ -31,28 +29,25 @@ The reversal is `projectRows`' alone. Nothing downstream re-sorts: the compile h
 
 ## The ruler reads either unit
 
-The clock button in the timeline's header toggles `RulerMode` between `bars` and `seconds`.
-Both modes are one function, `rulerTicks`, returning ticks positioned in **beats** — the
-surface's only coordinate — each carrying its own label and weight.
+The clock button in the timeline's header toggles `RulerMode` between `bars` and `seconds`. Both
+modes are one function, `rulerTicks`, returning ticks positioned in **beats** — the surface's
+only coordinate — each carrying its own label and weight.
 
 | mode | ladder | coarse / medium / fine |
 |---|---|---|
 | `bars` | a bar halves: bar, beat, half-beat (`subdivideBeats`) | bar · beat · subdivision |
 | `seconds` | 1/2/5/10 per decade, then 15s 30s 1m 2m 5m… (`SECOND_TICKS`) | minute · second · fraction |
 
-They are different in KIND, not just in scale: bars halve and time does not. `16s` between
-labels is not a duration anyone reads.
+They are different in KIND, not just in scale: bars halve and time does not. `16s` between labels
+is not a duration anyone reads.
 
-The conversion is one number, `bps = tempo / 60`, and it is exact and reversible because there
-is one `tempo:` and **no tempo map**. That is the fact the whole feature rests on.
+The conversion is one number, `bps = tempo / 60`, and it is exact and reversible because there is
+one `tempo:` and **no tempo map**. That is the fact the whole feature rests on.
 
-### What the mode changes
-
-- what the ruler prints, and what the grid rules under the lanes
-- **what a gesture snaps to.** `bars` — the beat list — is the drawn ticks whichever unit
-  produced them, and both the ruler's click-to-seek and a picture drag snap to it. So the
-  lines you can see are exactly the positions you can land on, in either reading, and opening
-  the zoom is how you reach a finer one.
+The mode changes what the ruler prints, what the grid rules under the lanes, and **what a gesture
+snaps to**: `bars` — the beat list — is the drawn ticks whichever unit produced them, and both
+the ruler's click-to-seek and a picture drag snap to it. So the lines you can see are exactly the
+positions you can land on, in either reading, and opening the zoom is how you reach a finer one.
 
 It changes nothing on disk. It is a per-session view toggle, beside Expand, because which unit
 you want depends on what you are doing this minute rather than on what the song is.
@@ -77,41 +72,40 @@ lane is armed, and `on` always
 from the scene rather than drawn-and-hidden, so the camera is never opened and its indicator stays
 off — which is what `off` has to mean to be worth having.
 
-That is also why `sceneOf` takes the armed lane: `auto` is the one visibility rule keyed on SESSION
-state rather than on the document, so arming rebuilds the scene. Arming is a click and the scene
-rebuild is the one this pane already pays for a document change — the alternative is a live channel
-into the driver for a value that moves twice an hour.
+That is also why `sceneOf` takes the armed lane: `auto` is the one visibility rule keyed on
+SESSION state rather than on the document, so arming rebuilds the scene. Arming is a click and
+the scene rebuild is the one this pane already pays for a document change — the alternative is a
+live channel into the driver for a value that moves twice an hour.
 
 ## Recording a lane's input
 
-A picture lane carries an **A** button in its timeline gutter. Arm it, enable record, press play,
-and the lane's input — a webcam, the only kind there is for now — is captured for as long as the
-transport rolls. On stop the take lands in `clips/` and is placed on that lane where the playhead
-was, with `picture add`, so it is one journal entry and one Ctrl+Z like every other placement.
+A picture lane carries an **A** button in its timeline gutter: armed, its input — a webcam, the
+only kind there is for now — is captured while the transport rolls, and on stop the take lands in
+`clips/` and is placed with `picture add`, so it is one journal entry and one Ctrl+Z like every
+other placement.
 
 **The capture is the browser's, top to bottom**, for exactly the reason the lens itself is: the
 engine never hears about a camera ([packages/song/docs/camera.md](../../../../packages/song/docs/camera.md)).
 `useVideoRecording.ts` is the hook, and `useMidiRecording.ts` beside it is the same shape — the
 third kind of arm this app holds, after the ENGINE's (an audio lane) and the browser's (a MIDI
 lane). Which is why arming a picture lane is `ui picture arm` and not `transport arm`: nothing is
-written, no file changes, and the engine has nothing to be told.
+written and the engine has nothing to be told.
 
 Which camera: the one the lane NAMES if it names one (`camera:`, matched by label, exactly as the
 live lens is), otherwise the machine's default. A label that matches nothing falls back and says
-which cameras there are — the rule the lens already follows, and this reuses `matchCamera` rather
-than restating it.
+which cameras there are — `matchCamera`, the lens's own rule rather than a restatement of it.
 
 ### Four things the recording has to get right
 
 - **The start is the playhead when the CAMERA started**, read in `onstart`, not when the key was
   pressed. Opening a lens takes time — a permission prompt takes much more — and a take placed
   where the gesture began would sit that far ahead of its own first frame.
-- **The length is measured and written.** `picture add` takes one, and a take that omitted it would
-  compile as `length: 0`, "to the end of the source" — a duration the compiler would then have to
-  read out of the file.
+- **The length is measured and written.** `picture add` takes one, and a take that omitted it
+  would compile as `length: 0`, "to the end of the source" — a duration the compiler would then
+  have to read out of the file.
 - **A fresh WebM has no duration in it**, which makes it unseekable, which makes it a clip the
-  frame cannot scrub. `fix-webm-duration` repairs the blob before it is uploaded — the same library
-  and the same fix k7's audio recorder already applies.
+  frame cannot scrub. `fix-webm-duration` repairs the blob before it is uploaded — the same
+  library and the same fix k7's audio recorder already applies.
 - **The lens is let go** on stop and on unmount. A stream left running keeps the indicator lit and
   the device held until the tab closes.
 
@@ -131,11 +125,9 @@ run through it — which is also why this is the only geometry verb picture has.
 
 `ViewportOverlay` is **HTML over the GL canvas**, the way the chains graph draws HTML nodes over
 its cable canvas. A hit test inside the renderer would be a second copy of geometry the document
-already states, and it would have to be kept in step with the one the compositor draws from.
-`VideoCanvas` reports its letterboxed CSS size (`onFit`) and the overlay sits on exactly that box,
-absolutely positioned so the canvas keeps the host's centring to itself. One number converts
-between the two spaces — `box.w / viewport[0]` — and it is applied at the edges only: everything
-in `viewportRect.ts` thinks in viewport px, which is what the file states.
+already states, kept in step by hand with the one the compositor draws from. One number converts
+between the two spaces — `box.w / viewport[0]`, off `VideoCanvas`'s letterboxed CSS size — and it
+is applied at the edges only: everything in `viewportRect.ts` thinks in viewport px.
 
 ### Alt-click reaches the layer behind
 
@@ -171,19 +163,18 @@ The left edge writing **three** fields is the interesting one, and each is load-
   wearing a trim's clothes.
 
 A `length: 0` placement needs its extent pinned for a second reason on top — the source's own
-length would otherwise undo the trim on the next compile — and it is the same write, so it is
-not a special case.
+length would otherwise undo the trim on the next compile — and it is the same write, so it is not
+a special case.
 
-A length-0 placement draws dashed and amber at a placeholder width. The browser has not
-measured the source, so the honest thing is a shape that says "this is provisional" rather
-than a confident rectangle of the wrong size.
+A length-0 placement draws dashed and amber at a placeholder width. The browser has not measured
+the source, so the honest thing is a shape that says "this is provisional" rather than a
+confident rectangle of the wrong size.
 
 ### Seconds in, seconds out
 
-The gesture happens on a beat grid and the file says seconds, so the conversion is at the
-edges and nowhere in between: `VDrag` thinks in seconds throughout and multiplies by `bps`
-only to draw. Re-typing `tempo:` therefore slides the grid under the cut rather than moving
-it.
+The gesture happens on a beat grid and the file says seconds, so the conversion is at the edges
+and nowhere in between: `VDrag` thinks in seconds throughout and multiplies by `bps` only to
+draw. Re-typing `tempo:` therefore slides the grid under the cut rather than moving it.
 
 `pxPerSec` and the tick list are captured at the GRAB rather than read live — exactly as the
 audio clip drag captures `ppb`. A zoom arriving mid-drag would otherwise re-scale the offset
@@ -200,37 +191,35 @@ the lane file's own and the grid is in beats.
 
 ## The drag is not a command, but the edit is
 
-Every audio edit this shell makes is a **command** — `event move <track> <from> <to>`,
-dispatched through `@studio/commands`, which owns the verb. The picture DRAG still is not one,
-for the reason every continuous gesture is left out (`shell.md`): a pointer move is not a
-sentence. `App.applyVideoEdit` reads the lane's file, applies every field of the gesture to one
-buffer with `setVideoPlacementField`, and writes it once.
+Every audio edit this shell makes is a **command** — `event move <track> <from> <to>`, dispatched
+through `@studio/commands`, which owns the verb. The picture DRAG is not one, for the reason
+every continuous gesture is left out (`shell.md`): a pointer move is not a sentence.
+`App.applyVideoEdit` reads the lane's file, applies every field of the gesture to one buffer with
+`setVideoPlacementField`, and writes it once.
 
-What changed is that the same five edits now have verbs beside them —
-`picture move | length | head | delete | add`, in `packages/commands/docs/picture.md`. This page
-used to say there was no `picture move` in the catalogue to look for, and list what that cost:
-no context menu on a picture lane, nothing in the palette, no CLI, no undo entry. That list is
-what the verbs are for.
+The same five edits have verbs beside them — `picture move | length | head | delete | add`, in
+`packages/commands/docs/picture.md` — which is what buys a context menu on a picture lane, an
+entry in the palette, a CLI and an undo entry.
 
-**The caret still reports no track id on a picture lane**, and that is unrelated and unchanged: a
-video lane is not an engine track — no level, no arm, no mixer command — so `caretTrackId` is null
-there and everything downstream refuses it without having to know why. `m` still hides the lane,
-which is what `mute` means on picture.
+**The caret reports no track id on a picture lane**: a video lane is not an engine track — no
+level, no arm, no mixer command — so `caretTrackId` is null there and everything downstream
+refuses it without having to know why. `m` still hides the lane, which is what `mute` means on
+picture.
 
 A surgical rewrite, never a re-serialisation: these files carry the comments that document the
 format. The drag's edit is keyed by `ref`, so a placement that moved in the file between render
 and drop is still the one that was grabbed.
 
-**One limit follows from that key**: a source placed *twice on the same lane* has one ref for
-two placements, and a drag on either writes the first. The format keys them the same way, so it
-is the format's limit and not the component's — the workaround is a second lane, or a second
+**One limit follows from that key**: a source placed *twice on the same lane* has one ref for two
+placements, and a drag on either writes the first. The format keys them the same way, so it is
+the format's limit and not the component's — the workaround is a second lane, or a second
 `clips/` entry naming the same file. Placing one source on several lanes is fine; that is what
 the scaffold's own picture-in-picture does.
 
 **The verbs do not have that limit**, because they address a shot by where it starts rather than
 by its ref, and `setVideoPlacementFieldAt` writes by index. So the way to separate two placements
-of one source today is `picture move` on the second — after which the drag can tell them apart
-too. What the verbs cannot tell apart is two shots starting at the *same instant* on one lane, and
+of one source is `picture move` on the second — after which the drag can tell them apart too.
+What the verbs cannot tell apart is two shots starting at the *same instant* on one lane, and
 they refuse that pair by name rather than picking.
 
 ## The frame follows the engine
@@ -238,30 +227,27 @@ they refuse that pair by name rather than picking.
 `VideoCanvas` feeds an `EngineClock`, which interpolates with a wall clock between frames and
 announces a discontinuity so the driver can hard-seek every `<video>`.
 
-**Off a raw store subscription, not through React.** `ViewportTab` reads nothing of the engine's
-state, and `VideoCanvas` renders nothing from it either: the subscription is an effect that calls
-`clock.feed` and returns. A selector hook on the pane would not save it: splitting `playing` and
-`playhead` into two slices looks like it keeps the pane off the 20 Hz path and cannot, since the
-playhead is the field that MOVES — the pane and everything under it would commit on every frame to
-hand a number to an imperative clock no React output depends on. `timeline.md`'s rule is that live
-state is drawn by leaves; when nothing is *drawn* at all,
-the right leaf is no component. The chains renderer's cable canvas is the same arrangement, which
-is why `seedFlows` is deliberately not a hook.
+**Off a raw store subscription, not through React.** The subscription is an effect that calls
+`clock.feed` and returns; neither `ViewportTab` nor `VideoCanvas` renders anything from engine
+state. A selector hook on the pane would not save it: splitting `playing` and `playhead` into two
+slices looks like it keeps the pane off the 20 Hz path and cannot, since the playhead is the field
+that MOVES — the pane and everything under it would commit on every frame to hand a number to an
+imperative clock no React output depends on. `timeline.md`'s rule is that live state is drawn by
+leaves; when nothing is *drawn* at all, the right leaf is no component. The chains renderer's
+cable canvas is the same arrangement, which is why `seedFlows` is deliberately not a hook.
 
 The clock is also fed once when the driver is built, from the store's current snapshot: a fresh
 clock knows nothing, and with the transport stopped the next frame can be 250 ms away — long
 enough to draw frame 0 of a song parked at 3:20.
 
 `@studio/ui-eyes` knows nothing about any of that: it takes a `SeekingClock`, so the renderer is
-independent of where its time comes from.
-
-The scene is rebuilt only when the DOCUMENT changes, never on a playhead frame — it owns a GL
-context and a `<video>` per layer.
+independent of where its time comes from. The scene is rebuilt only when the DOCUMENT changes,
+never on a playhead frame — it owns a GL context and a `<video>` per layer.
 
 The strip under the frame shows the format always and the **per-lane sync error only while
-profiling** (`?profile=1`, `src/profiling.ts` — the same flag that arms the React Profiler). It
-is a 5 Hz poll and a 5 Hz re-render of the pane: fair for someone looking at it, and an
-instrument measuring itself for everyone else.
+profiling** (`?profile=1`, `src/profiling.ts` — the same flag that arms the React Profiler): a
+5 Hz poll and a 5 Hz re-render, fair for someone looking at it and an instrument measuring itself
+for everyone else.
 
 ## …and so do the graph's picture cables
 
@@ -281,72 +267,67 @@ seeded rather than reached.
 ## The readers strip
 
 For an open `video_tracks/*.yaml`, the editor grows a dock of small `<video>` readers, one per
-placement, with **Set From** / **Set To** writing that placement's `source_from` / `length`.
-The in-point of a shot is a frame you recognise, not a number you type.
+placement, with **Set From** / **Set To** writing that placement's `source_from` / `length`. The
+in-point of a shot is a frame you recognise, not a number you type.
 
-Two sources, deliberately:
+Two sources, deliberately: the **times** come from the BUFFER, since a trim typed a second ago has
+no compiled form yet and a strip that waited for one would be a step behind every edit; the **file
+each ref names** comes from the COMPILED document, because only the compiler read `clips/<ref>.yaml`
+to find out. A ref the compiler has never seen simply has no reader, which is honest where a black
+rectangle is not. The buttons edit the same buffer a keystroke does, so autosave writes them the
+same way.
 
-- the **times** come from the BUFFER — a trim typed a second ago has no compiled form yet, and
-  a strip that waited for one would be a step behind every edit;
-- the **file each ref names** comes from the COMPILED document, because only the compiler read
-  `clips/<ref>.yaml` to find out.
+## The frame's shape is chosen on the RENDER node
 
-A ref the compiler has never seen simply has no reader, which is the honest answer rather than
-a black rectangle. The buttons edit the same buffer a keystroke does, so autosave writes them
-the same way.
+`project.viewport` is a size in pixels and nothing else — everything that reads it reads pixels.
+What is chosen is a RATIO: 16:9 or 9:16 for now, and 1920×1080 / 1080×1920 is what that means
+([aspect.ts](../../../../packages/song-schema/src/aspect.ts)).
 
-## La forme du cadre se choisit sur le nœud RENDER
+The RENDER node's card carries the list. Three things hold it together:
 
-`project.viewport` est une taille en pixels et le reste — tout ce qui la lit lit des pixels. Ce
-qu'on choisit, c'est un RAPPORT : 16:9 ou 9:16 pour l'instant, et 1920×1080 / 1080×1920 est ce que
-ça veut dire ([aspect.ts](../../../../packages/song-schema/src/aspect.ts)).
+- **It reads as a field and writes as a verb.** The current value is put on the card by
+  `buildGraph` (`renderCard`), so the menu ticks the right line without asking anyone; but what
+  it writes is in `project.yaml`, and the RENDER node has no file — hence `@project:aspect`,
+  which runs `project aspect <value>`. Same family as `@rack:` and `@rec:`: an intrinsic that
+  TRIGGERS instead of writing a module field.
+- **The ticked line is decided by the RATIO, not the size.** A project writing `[1280, 720]` ticks
+  16:9 as a `[1920, 1080]` does. A shape on neither list ticks nothing — hand-written 4:3 is
+  legal, and ticking the nearest would be a lie.
+- **The verb keeps the export fps.** `viewport:` accepts a third element; it does not belong to
+  this command, which re-reads and rewrites it.
 
-La carte du nœud RENDER porte la liste. Trois choses la font tenir :
+The two names are spelled twice — in `ASPECTS` and in `RENDER_UI` — because `@studio/ui-chains`
+does not see `@studio/song-schema`. The verb REFUSES a name it does not know, so a drift is a
+refusal rather than a wrong size written silently.
 
-- **Elle se lit comme un champ, elle s'écrit comme un verbe.** La valeur courante est posée sur la
-  carte par `buildGraph` (`renderCard`), donc le menu coche la bonne ligne sans rien demander à
-  personne ; mais ce qu'elle écrit est dans `project.yaml`, et le nœud RENDER n'a pas de fichier —
-  d'où `@project:aspect`, qui lance `project aspect <valeur>`. Même famille que `@rack:` et
-  `@rec:` : un intrinsèque qui DÉCLENCHE au lieu d'écrire un champ de module.
-- **La ligne cochée se décide par le RAPPORT, pas par la taille.** Un projet écrit `[1280, 720]`
-  coche 16:9 comme un `[1920, 1080]`. Une forme qui n'est sur aucune des deux listes ne coche
-  rien — c'est légal d'avoir écrit du 4:3 à la main, et cocher le plus proche serait mentir.
-- **Le verbe garde le fps d'export.** `viewport:` accepte un troisième élément ; il n'appartient
-  pas à cette commande, qui le relit et le réécrit.
+## Exporting the picture — `project export video mp4`
 
-Les deux noms sont épelés deux fois — dans `ASPECTS` et dans `RENDER_UI` — parce que
-`@studio/ui-chains` ne voit pas `@studio/song-schema`. Le verbe REFUSE un nom qu'il ne connaît
-pas, donc une dérive est un refus et pas une mauvaise taille écrite en silence.
-
-## Exporter l'image — `project export video mp4`
-
-La commande a deux moitiés maintenant, et le premier mot dit laquelle sort :
+The command has two halves, and the first word says which one comes out:
 
 ```
-project export audio wav|mp3          le mixage, rendu par le moteur
-project export video mp4 [wav|mp3|none]   l'image, rendue ici — avec le son marié dedans
+project export audio wav|mp3              the mix, rendered by the engine
+project export video mp4 [wav|mp3|none]   the picture, rendered here — the sound married into it
 ```
 
-`exportScene` (`@studio/ui-eyes`) rend le viewport image par image dans un mp4 : le même
-compositeur qu'en temps réel, mais l'image *n* vaut la seconde *n/fps* et chaque trame source est
-tirée EXACTEMENT, donc un morceau rend toujours la même image. WebCodecs, donc Chrome en pratique
-— `ViewportTab` le dit déjà quand `VideoEncoder` manque.
+`exportScene` (`@studio/ui-eyes`) renders the viewport frame by frame into an mp4: the same
+compositor as in real time, but frame *n* is second *n/fps* and every source frame is pulled
+EXACTLY, so a song always renders the same picture. WebCodecs, so Chrome in practice —
+`ViewportTab` already says so when `VideoEncoder` is missing.
 
-**Le son est marié dans le même conteneur.** `ExportOptions.audio` prend un `AudioBuffer` — décodé,
-pas les octets du mixage : le moteur rend un wav ou un mp3, le conteneur ne veut ni l'un ni
-l'autre, et il faudrait le décoder ici de toute façon. Prendre le tampon décodé garde toute la
-question des formats du côté de l'appelant.
+**The sound is married into the same container.** `ExportOptions.audio` takes an `AudioBuffer` —
+decoded, not the mixdown's bytes: the engine renders a wav or an mp3, the container wants neither,
+and it would have to be decoded here anyway. Taking the decoded buffer keeps the whole question
+of formats on the caller's side.
 
-Trois choses dans l'ordre, et l'ordre compte :
+Three things in order, and the order matters:
 
-- **le son d'abord.** Il passe par le moteur, et un échec là ne doit pas coûter une minute de
-  trames déjà rendues.
-- **la piste est ajoutée avant `output.start()`** : les pistes d'un conteneur se déclarent une
-  fois. Puis le tampon entier est poussé d'un coup — le muxeur l'entrelace lui-même avec les
-  trames.
-- **le défaut est SONORE.** Un film muet se demande, `project export video mp4 none` ; c'est la
-  vidéo d'un morceau, et silencieuse serait la réponse surprenante.
+- **the sound first.** It goes through the engine, and a failure there must not cost a minute of
+  already-rendered frames.
+- **the track is added before `output.start()`**: a container's tracks are declared once. Then the
+  whole buffer is pushed in one go — the muxer interleaves it with the frames itself.
+- **the default has SOUND.** A silent film is asked for, `project export video mp4 none`; this is
+  a song's video, and silent would be the surprising answer.
 
-L'ancienne ligne nue, `project export wav`, est REFUSÉE plutôt que relue comme de l'audio : le
-mot qui suit dit maintenant quelle moitié sort, et l'accepter ferait de `project export mp4` un
-mixage. [exportArgs.ts](../src/exportArgs.ts) est la lecture, et son test la liste des formes.
+The bare line `project export wav` is REFUSED rather than read as audio: the following word now
+says which half comes out, and accepting it would make `project export mp4` a mixdown.
+[exportArgs.ts](../src/exportArgs.ts) is the reading, and its test is the list of shapes.

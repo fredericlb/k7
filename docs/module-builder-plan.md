@@ -1,133 +1,128 @@
-# Le module builder partagé, et `ui.yaml` à côté du module
+# The shared module builder, and `ui.yaml` beside the module
 
-Un module est **son dossier**, ce qui le décrit tient dans trois fichiers dedans, et les deux
-apps dessinent le même builder par-dessus. Ce document tient les règles qui rendent ça vrai ;
-ce qu'il reste à faire tient dans la dernière section.
+A module is **its folder**, what describes it fits in three files inside it, and the two apps draw
+the same builder over it. This page holds the rules that make that true; what is left to do is the
+last section but one.
 
-## Un module, son dossier
+## A module, its folder
 
 ```
-modules/<type>/<nom>/module.yaml    ce qu'il fait
-modules/<type>/<nom>/ui.yaml        à quoi il ressemble
-modules/<type>/<nom>/presets.yaml   ses réglages nommés
+modules/<type>/<name>/module.yaml    what it does
+modules/<type>/<name>/ui.yaml        what it looks like
+modules/<type>/<name>/presets.yaml   its named settings
 ```
 
-Dans la médiathèque, cliquer sur n'importe lequel ouvre le même builder que st0.
+In the media library, clicking any of them opens the same builder as st0.
 
-## Les règles
+## The rules
 
-1. Le builder partagé est un paquet à lui, **`@studio/ui-module-builder`**, et non un morceau de
-   `@studio/ui-editor`. Ce dernier est la pile *langage* — mode YAML CodeMirror, complétions
-   dérivées du schéma, liens d'entités, widget tracker — et il est framework-agnostique ; le
-   builder est une *vue* React. Les fondre ferait entrer React dans un paquet qui s'en passe. (Ce
-   qui n'empêche pas un bout de remonter dans `ui-editor` quand il relève vraiment du langage —
-   voir le vocabulaire, plus bas.)
-2. **Un panneau s'écrit dans le dossier de son module, bibliothèque partagée comprise.**
-   `Workspace.write` laisse passer `ui.yaml` sous `_modules/`, seule exception au verrou de
-   lecture seule. Conséquence assumée : éditer un panneau depuis un projet change ce que voient
-   tous les autres — c'est le sens de « dessiné une fois pour le greffon ».
-3. Le dossier est la clé, et le fichier ne porte pas de `ref:` : ce serait une seconde source de
-   vérité. `uiPathFor` écrit `<type>/<sub>/ui.yaml`, `loadUiLibrary` parcourt les bibliothèques de
-   **modules** et dérive le ref du dossier, `writeUiFile` résout le ref vers sa bibliothèque
-   (`packages/song/src/uiLibrary.ts`, rationale dans `packages/song/docs/uiLibrary.md`).
+1. The shared builder is a package of its own, **`@studio/ui-module-builder`**, and not a piece of
+   `@studio/ui-editor`. The latter is the *language* stack — CodeMirror YAML mode, completions
+   derived from the schema, entity links, tracker widget — and it is framework-agnostic; the
+   builder is a React *view*. Merging them would bring React into a package that does without it.
+   (Which does not stop a piece moving up into `ui-editor` when it really belongs to the language —
+   see the vocabulary, below.)
+2. **A panel is written into its module's folder, shared library included.** `Workspace.write` lets
+   `ui.yaml` through under `_modules/`, the sole exception to the read-only lock. Accepted
+   consequence: editing a panel from one project changes what every other one sees — that is the
+   meaning of "drawn once for the plugin".
+3. The folder is the key, and the file carries no `ref:`: that would be a second source of truth.
+   `uiPathFor` writes `<type>/<sub>/ui.yaml`, `loadUiLibrary` walks the **module** libraries and
+   derives the ref from the folder, `writeUiFile` resolves the ref to its library
+   (`packages/song/src/uiLibrary.ts`, rationale in `packages/song/docs/uiLibrary.md`).
 
-Le cas `io/` est l'exception qui reste : un ref io nu (`desk`) n'a pas de segment de type, donc
-`uiPathFor` remet le `io/` ou le fichier atterrit à la racine de la bibliothèque. Le test le pose
-explicitement.
+The `io/` case is the remaining exception: a bare io ref (`desk`) has no type segment, so
+`uiPathFor` puts the `io/` back or the file lands at the root of the library. The test states it
+explicitly.
 
-## Le piège : les trois fichiers ne sont pas des nœuds
+## The trap: the three files are not nodes
 
-Il se présente à chaque étage, et toujours de la même façon : compter comme **nœud** tout `.yaml`
-du dossier qui n'est pas `module.yaml`. Sans garde, un panneau revient comme un nœud `reverb:ui`,
-et une tagère de presets comme un autre. `nodeFiles` (`packages/song/src/yaml/moduleIO.ts`) et
-`scanModules` sautent donc les deux, nommés au même endroit — `UI_BASE` et `PRESETS_BASE`. Côté
-médiathèque, l'entrée d'un module porte `files` : ce que le dossier contient vraiment.
+It appears at every storey, always the same way: counting as a **node** every `.yaml` in the folder
+that is not `module.yaml`. Unguarded, a panel comes back as a `reverb:ui` node and a preset shelf
+as another. `nodeFiles` (`packages/song/src/yaml/moduleIO.ts`) and `scanModules` therefore skip
+both, named in the same place — `UI_BASE` and `PRESETS_BASE`. On the media library side, a module's
+entry carries `files`: what the folder really contains.
 
-## Un module a toujours un dossier
+## A module always has a folder
 
-Un greffon scanné n'a de fichier nulle part : `engineCatalogue` synthétise `@engine/<slug>` à
-partir du cache de scan, et une chaîne peut le nommer sans que rien ne soit sur le disque. C'est
-une bonne disposition — copier 273 dossiers d'emballages dans chaque espace de travail ne sert
-personne.
+A scanned plugin has a file nowhere: `engineCatalogue` synthesises `@engine/<slug>` from the scan
+cache, and a chain can name it with nothing on disk. That is a good arrangement — copying 273
+wrapper folders into every workspace serves nobody.
 
-Elle cesse de tenir dès qu'on veut **posséder** quelque chose du module : une face et une tagère
-de presets sont des *fichiers dans le dossier d'un module*. D'où la règle, et le mécanisme qui la
-rend vraie : `materialiseEngineModule` (moduleFork.ts) fabrique le dossier, écrit un `module.yaml`
-qui enregistre **quel** greffon charger — le scan est une aide à la découverte, pas la mémoire du
-projet — et repointe les chaînes, exactement comme un fork.
+It stops holding as soon as one wants to **own** something of the module: a face and a preset shelf
+are *files in a module's folder*. Hence the rule, and the mechanism that makes it true:
+`materialiseEngineModule` (moduleFork.ts) builds the folder, writes a `module.yaml` recording
+**which** plugin to load — the scan is a discovery aid, not the project's memory — and repoints the
+chains, exactly like a fork.
 
-Atteint par la commande **`module own <ref>`** ; dans le graphe des chaînes, un clic droit sur un
-bloc `@engine/…` l'offre à la place de `ui file`, qui n'a aucun fichier à ouvrir. `writeUiFile`
-refuse un `@engine/`, et le message dit quoi faire.
+Reached by the **`module own <ref>`** command; in the chains graph, a right click on an `@engine/…`
+block offers it in place of `ui file`, which has no file to open. `writeUiFile` refuses an
+`@engine/`, and the message says what to do.
 
-## Les presets sont un fichier du dossier
+## Presets are a file in the folder
 
-Troisième frère de `module.yaml` et `ui.yaml` : `presets.yaml`, un nom et les valeurs qu'il pose.
+Third sibling of `module.yaml` and `ui.yaml`: `presets.yaml`, a name and the values it sets.
 
-Pas de blob `.vstpreset` : un preset est un nom et une liste de valeurs de paramètres, point — une
-seule forme, un seul chemin de code pour l'appliquer, et une tagère lisible et éditable à la main
-comme tout le reste. Un greffon dont l'état n'est pas des paramètres adressables ne peut pas
-mémoriser plusieurs états ; il garde le `.vstpreset` par défaut de son dossier.
+No `.vstpreset` blob: a preset is a name and a list of parameter values, full stop — one shape, one
+code path to apply it, and a shelf readable and editable by hand like everything else. A plugin
+whose state is not addressable parameters cannot memorise several states; it keeps the default
+`.vstpreset` of its folder.
 
-Côté builder : un troisième onglet, et un groupe « This module » dans le menu Preset. Appliquer un
-preset **estampille les valeurs dans le tampon** du module — une édition, rien de plus, donc
-visible avant d'être validée et annulée en ne sauvegardant pas. C'est ce qui rend supportable d'en
-essayer quatre de suite. `POST /presets/apply` prend un **nom** et non un chemin, ce qui fait
-tomber le garde anti-traversée de la route.
+In the builder: a third tab, and a "This module" group in the Preset menu. Applying a preset
+**stamps the values into the module's buffer** — an edit, nothing more, so visible before being
+committed and undone by not saving. That is what makes trying four in a row bearable.
+`POST /presets/apply` takes a **name** and not a path, which drops the route's traversal guard.
 
-## Le paquet partagé, et la couture
+## The shared package, and the seam
 
-`@studio/ui-module-builder` : `ModuleBuilder.tsx`, `WidgetGridEditor.tsx`, `YamlPane.tsx`,
-`moduleUi.ts` et `paramDrag.ts`, plus `store.ts` — la couture. Les deux apps le dessinent.
+`@studio/ui-module-builder`: `ModuleBuilder.tsx`, `WidgetGridEditor.tsx`, `YamlPane.tsx`,
+`moduleUi.ts` and `paramDrag.ts`, plus `store.ts` — the seam. Both apps draw it.
 
-**La couture, c'est `ModuleStore` : cinq appels** (`read`, `moduleUi`, `presets`, `hints`,
-`write`), et le builder ne fabrique jamais un chemin — il ne repasse que ceux qu'on lui a donnés.
-Les deux espaces de chemins se ressemblent trop pour qu'il puisse en construire un. Le rationale
-complet est dans `packages/ui-module-builder/docs/store.md`, y compris la seule asymétrie :
-`write` peut répondre « ç'a atterri ailleurs », parce que st0 redirige une sauvegarde visant
-`_modules` vers une copie locale. Le builder le remonte par `onRelocated` et ne suit pas le chemin
-lui-même.
+**The seam is `ModuleStore`: five calls** (`read`, `moduleUi`, `presets`, `hints`, `write`), and
+the builder never builds a path — it only hands back the ones it was given. The two path spaces
+resemble each other too closely for it to construct one. Full rationale in
+`packages/ui-module-builder/docs/store.md`, including the one asymmetry: `write` may answer "it
+landed elsewhere", because st0 redirects a save aimed at `_modules` to a local copy. The builder
+surfaces that through `onRelocated` and does not follow the path itself.
 
-Deux fichiers vivent plus loin que le builder :
+Two files live further out than the builder:
 
-- `yamlVocabulary.ts` est dans **`@studio/ui-editor/yaml/vocabulary`** : trois éditeurs veulent
-  les mêmes réponses (l'`EditorPane` de st0, celui de la médiathèque, celui du builder), et « ce
-  qui se complète où » est une affaire de *langage*, pas de vue. `@studio/song/yaml/fields` est du
-  Zod pur, donc `ui-editor` reste navigable.
-- `paramDrag.ts` est exporté par le builder (`/param-drag`) : `fileDrop.ts` de st0 lit le MIME
-  pour ignorer le glisser, et deux copies d'un protocole ne sont pas un protocole.
+- `yamlVocabulary.ts` is in **`@studio/ui-editor/yaml/vocabulary`**: three editors want the same
+  answers (st0's `EditorPane`, the media library's, the builder's), and "what completes where" is a
+  matter of *language*, not of view. `@studio/song/yaml/fields` is pure Zod, so `ui-editor` stays
+  navigable.
+- `paramDrag.ts` is exported by the builder (`/param-drag`): st0's `fileDrop.ts` reads the MIME to
+  ignore the drag, and two copies of a protocol are not a protocol.
 
-**Côté st0**, un bouton *Builder* dans la barre de l'éditeur quand le fichier ouvert est un
-module, et une surcouche plein écran au-dessus du shell. Un **bouton** et pas un clic détourné :
-ouvrir `module.yaml` doit continuer d'ouvrir son texte, parce que c'est le chemin par lequel un
-module partagé se forke. La surcouche n'offre ni presets ni paramètres de greffon vivants — ils
-sont l'affaire du moteur et cette surcouche n'a pas de lien moteur.
+**In st0**, a *Builder* button in the editor bar when the open file is a module, and a full-screen
+overlay above the shell. A **button** and not a hijacked click: opening `module.yaml` must go on
+opening its text, because that is the path by which a shared module is forked. The overlay offers
+neither presets nor live plugin parameters — those are the engine's business and this overlay has
+no engine link.
 
-**Côté médiathèque**, l'arbre descend au niveau des fichiers : une entrée `modules` a ses deux
-enfants, et cliquer l'un ou l'autre ouvre le builder sur le bon onglet (`initialPane`). L'arbre
-montre **exactement les fichiers qui existent** : une ligne pour un fichier absent ment sur le
-disque. Le panneau et la tagère se créent dans le builder, qui les offre de toute façon — c'est
-lui l'entrée, pas l'arbre.
+**In the media library**, the tree descends to file level: a `modules` entry has its two children,
+and clicking either opens the builder on the right tab (`initialPane`). The tree shows **exactly
+the files that exist**: a row for an absent file lies about the disk. The panel and the shelf are
+created in the builder, which offers them anyway — it is the entrance, not the tree.
 
-## Ce qui reste
+## What is left
 
-- **Rien n'est exercé dans un navigateur.** Les deux apps compilent, se construisent et le
-  serveur de dev sert les modules à travers l'alias de l'espace de travail ; le shell frontend n'a
-  pas de tests (voir `apps/st0/AGENTS.md`). La surcouche st0 et l'arbre de la médiathèque
-  demandent un vrai clic.
-- **Sauvegarder les params courants comme preset depuis le builder.** `saveModuleAsPreset` et
-  `POST /presets/save` existent et n'ont pas de bouton : il faut un champ « nom », et une tagère
-  s'écrit aussi bien à la main dans le troisième onglet. Volontairement laissé de côté.
-- **`api.listUserPresets` côté st0** ne sert à personne : le builder lit la tagère par son *store*,
-  pas par cette route, ce qui marche identiquement dans les deux apps.
+- **Nothing is exercised in a browser.** Both apps typecheck, build, and the dev server serves the
+  modules through the workspace alias; the frontend shell has no tests (see `apps/st0/AGENTS.md`).
+  The st0 overlay and the media library tree want a real click.
+- **Save the current params as a preset from the builder.** `saveModuleAsPreset` and
+  `POST /presets/save` exist and have no button: it needs a "name" field, and a shelf is as easily
+  written by hand in the third tab. Deliberately left aside.
+- **`api.listUserPresets` on the st0 side** serves nobody: the builder reads the shelf through its
+  *store*, not through that route, which works identically in both apps.
 
-## Le chrome de la médiathèque
+## The media library chrome
 
-La médiathèque porte le chrome de st0 : familles en onglets, `FileTree` partagé en sidebar avec
-menus contextuels et glisser-déposer, cog pour le moteur et la déconnexion. Le backend a
-`POST /move`, `POST /folder` et `DELETE /folder` (`apps/pl8/backend/src/routes/library.ts`,
-adossées à `@studio/mediatek/write`).
+The media library carries st0's chrome: families as tabs, the shared `FileTree` in the sidebar with
+context menus and drag and drop, a cog for the engine and for signing out. The backend has
+`POST /move`, `POST /folder` and `DELETE /folder` (`apps/pl8/backend/src/routes/library.ts`, backed
+by `@studio/mediatek/write`).
 
-Piège du `FileTree` partagé : le menu contextuel **ne s'ouvre pas du tout** si aucune action ne
-passe son `when` (`file-tree.tsx:385`), et `rootLabel` ne dessine aucune ligne — il ne nomme que
-la cible du menu du fond. Un nœud racine visible se synthétise.
+Trap in the shared `FileTree`: the context menu **does not open at all** if no action passes its
+`when` (`file-tree.tsx:385`), and `rootLabel` draws no row — it only names the target of the
+background menu. A visible root node has to be synthesised.

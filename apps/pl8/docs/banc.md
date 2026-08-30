@@ -1,160 +1,154 @@
-# Le banc d'essai — un projet st0 qui EST une chaîne de la médiathèque
+# The bench — an st0 project that IS a médiathèque chain
 
-Une chaîne est un routage. Ce qu'elle fait ne se lit pas dans son fichier : ça s'entend. Et un
-greffon chargé — le seul endroit où les noms de ses paramètres, leurs bornes et ses presets
-d'usine existent — ne vit que dans un projet.
+A chain is a routing. What it does cannot be read in its file: it has to be heard. And a loaded
+plugin — the only place its parameter names, their bounds and its factory presets exist — only
+lives inside a project.
 
-Le banc est ce projet, et il s'ouvre par une **adresse** : `/@banc/chains/<chemin>.st0`. st0 y
-trouve un projet vide dont le dossier `modules/` est le catalogue, et dont `graph.yaml` **est**
-la chaîne qu'on est venu éditer.
+The bench is that project, and it opens by **address**: `/@banc/chains/<path>.st0`. st0 finds an
+empty project whose `modules/` folder is the catalogue, and whose `graph.yaml` **is** the chain
+you came to edit.
 
-> **Le banc est celui d'une CHAÎNE, et de rien d'autre.** Un module partagé s'édite depuis
-> l'onglet **Bibliothèques** de l'arborescence de n'importe quel projet déjà ouvert, contre le
-> moteur qui joue déjà la chanson — et cette chanson nomme très probablement déjà le module
-> qu'on veut changer. Les deux choses qu'il faut pour éditer un module, un catalogue modifiable
-> et un greffon chargé, y sont réunies sans rien fabriquer. Voir
+> **The bench is a CHAIN's, and nothing else's.** A shared module is edited from the
+> **Libraries** tab of any already-open project's tree, against the engine that is already
+> playing the song — and that song very probably already names the module you want to change.
+> The two things module editing needs, an editable catalogue and a loaded plugin, are both there
+> without fabricating anything. See
 > [apps/st0/frontend/docs/sharedModules.md](../../st0/frontend/docs/sharedModules.md).
 >
-> `/@banc/modules.st0` répond donc un 404 dont la phrase dit où va se faire l'édition.
+> `/@banc/modules.st0` therefore answers a 404 whose sentence says where the editing happens.
 
-## Comment il est fabriqué
+## How it is built
 
-À chaque ouverture, et c'est voulu :
+On every open, deliberately:
 
-1. **une synchronisation complète des familles `chains` et `modules`.** `mediatekPull` ne
-   récupère que ce que les projets OUVERTS nomment
-   ([mediatekPull.md](../../../packages/file-service/docs/mediatekPull.md)), et un banc qui
-   n'existe pas encore ne nomme rien — sans cette passe il refléterait ce qui traînait dans le
-   cache pour d'autres morceaux. C'est l'attente visible de la première ouverture ;
-2. **l'échafaudage**, la première fois seulement (`@studio/song/scaffoldBench`) ;
-3. **le miroir** : `modules/` est vidé puis reconstruit depuis le cache, parce que la chaîne
-   nomme des modules du catalogue et ne résoudrait pas sans eux. Les définitions (`*.yaml`,
-   `*.ts`, `*.vstpreset`) sont **copiées**, parce que ce sont elles qu'on écrit — un lien dur
-   qu'on modifie modifierait le cache sur place, et le cache est écrasé à la synchronisation
-   suivante. Tout le reste — impulsions, profils NAM, échantillons — est **lié en dur** quand le
-   système de fichiers le permet, copié sinon : ce sont les gros fichiers, rien ne les édite, et
-   en dupliquer les octets à chaque ouverture serait la seule chose qui rendrait ce banc cher ;
-4. **la chaîne**, réécrite depuis le cache avec ses deux bords traduits (plus bas), et `nodes/`
-   recopié — c'est l'autre moitié de ce qu'est une chaîne.
+1. **a full sync of the `chains` and `modules` families.** `mediatekPull` only fetches what OPEN
+   projects name ([mediatekPull.md](../../../packages/file-service/docs/mediatekPull.md)), and a
+   bench that does not exist yet names nothing — without this pass it would reflect whatever was
+   lying in the cache for other songs. This is the visible wait on a first open;
+2. **the scaffold**, first time only (`@studio/song/scaffoldBench`);
+3. **the mirror**: `modules/` is emptied and rebuilt from the cache, because the chain names
+   catalogue modules and would not resolve without them. Definitions (`*.yaml`, `*.ts`,
+   `*.vstpreset`) are **copied**, because they are what gets written — a hard link edited in place
+   would edit the cache, and the cache is overwritten by the next sync. Everything else —
+   impulses, NAM profiles, samples — is **hard-linked** where the filesystem allows and copied
+   otherwise: those are the big files, nothing edits them, and duplicating their bytes on every
+   open is the one thing that would make this bench expensive;
+4. **the chain**, rewritten from the cache with its two edges translated (below), and `nodes/`
+   copied across — the other half of what a chain is.
 
-Le nom d'un module est le chemin **sous son dossier de type** : `tape-delay` pour
-`modules/audio/tape-delay/`, `amps/neural-amp-modeler` pour
-`modules/audio/amps/neural-amp-modeler/`, qui est rangé d'un cran plus loin. La médiathèque
-range son catalogue comme ça, et le banc en est le miroir.
+A module's name is its path **under its type folder**: `tape-delay` for
+`modules/audio/tape-delay/`, `amps/neural-amp-modeler` for
+`modules/audio/amps/neural-amp-modeler/`, which is filed one level deeper. The médiathèque
+arranges its catalogue that way, and the bench mirrors it.
 
-> Les deux marcheurs doivent s'accorder sur ce niveau de rangement : celui des bibliothèques
-> partagées (`readModuleTree`) et celui du `modules/` propre à un projet (`loadModules`), qui
-> saute en silence un dossier sans `module.yaml`. Un désaccord ne se lit pas comme une erreur —
-> le module n'est simplement pas là, et chaque symptôme parle d'autre chose : une chaîne nommant
-> un module « que ce projet n'a pas », un 400 de `/module-ui` sur un fichier bien visible dans
-> l'arbre. C'est `packages/song/src/filedModules.test.ts` qui les tient d'accord.
+> The two walkers have to agree on that nesting level: the shared-libraries one
+> (`readModuleTree`) and the project-local `modules/` one (`loadModules`), which silently skips a
+> folder with no `module.yaml`. A disagreement does not read as an error — the module is simply
+> not there, and each symptom talks about something else: a chain naming a module "this project
+> does not have", a 400 from `/module-ui` on a file plainly visible in the tree.
+> `packages/song/src/filedModules.test.ts` keeps them in agreement.
 
-Un module supprimé du catalogue disparaît donc du banc. C'est le but : un module périmé y
-résoudrait encore, compilerait encore et jouerait encore, ce qui est la manière de passer une
-heure à déboguer quelque chose qui n'existe plus.
+A module deleted from the catalogue therefore disappears from the bench. That is the point: a
+stale module would still resolve, still compile and still play, which is how you spend an hour
+debugging something that no longer exists.
 
-## Un projet qui écrit dans la médiathèque
+## A project that writes into the médiathèque
 
-Partout ailleurs, enregistrer un module partagé le **duplique** dans le projet et rebranche les
-chaînes sur la copie (`packages/song/docs/moduleFork.md`). C'est la bonne règle : un morceau qui
-modifierait un module du catalogue changerait le son de tous les autres morceaux qui s'en
-servent, sans que personne l'ait demandé.
+Everywhere else, saving a shared module **forks** it into the project and rewires the chains onto
+the copy (`packages/song/docs/moduleFork.md`). That is the right rule: a song that modified a
+catalogue module would change the sound of every other song using it, unasked.
 
-Le banc est une exception, et il l'est parce qu'il n'est **que** ça. On ne l'ouvre pas pour faire
-un morceau ; on l'ouvre pour travailler sur une chaîne partagée. Y forker une copie serait
-écrire dans un dossier qui est régénéré à l'ouverture suivante, c'est-à-dire jeter le travail en
-silence.
+The bench is an exception, because it is **only** that. You do not open it to make a song; you
+open it to work on a shared chain. Forking a copy here would write into a folder that is
+regenerated on the next open — that is, throwing the work away in silence.
 
-Le marqueur qui autorise ça est un champ de `project.yaml`, `mediatekBench: true`, écrit par le
-générateur et par personne d'autre. Il est dans le schéma (`ProjectSettingsSchema` est
-`.strict()`), donc un projet qui le porterait à la main s'ouvrirait aussi — c'est une clé
-réservée par convention, exactement comme le nom d'espace de travail `Banc`.
+The marker that authorises it is a `project.yaml` field, `mediatekBench: true`, written by the
+generator and by nobody else. It is in the schema (`ProjectSettingsSchema` is `.strict()`), so a
+project carrying it by hand would open too — a key reserved by convention, exactly like the
+workspace name `Banc`.
 
-Ce que ça change de posture, dit franchement : **le service de fichiers devient un écrivain du
-catalogue**. C'est le même genre de décision que celle qui interdit à pl8 d'écrire dans les
-dépôts git ([projects.md](projects.md), « Pourquoi pl8 n'écrit dans aucun dépôt »), tranchée
-dans l'autre sens — parce que le catalogue est déjà le seul endroit modifiable du studio.
+Stated plainly, the posture this changes: **the file service becomes a writer of the catalogue**.
+That is the same kind of decision as the one forbidding pl8 to write into git repositories
+([projects.md](projects.md), "Why pl8 writes into no repository"), settled the other way —
+because the catalogue is already the studio's one editable place.
 
-> L'onglet Bibliothèques tranche la même question dans l'autre sens encore : il écrit chez pl8,
-> qui est la bibliothèque, puis demande à la machine de resynchroniser son cache. Les deux
-> chemins existent parce qu'ils partent d'endroits différents — le banc écrit depuis la machine,
-> qui a le fichier ; st0 écrit depuis le navigateur, qui a la session.
+> The Libraries tab settles the same question a third way: it writes to pl8, which is the
+> library, then asks the machine to resync its cache. Both paths exist because they start
+> somewhere different — the bench writes from the machine, which has the file; st0 writes from
+> the browser, which has the session.
 
-## La traduction des bords
+## Translating the edges
 
-Une chaîne partagée va de `@in` à `@out` : elle décrit un traitement et ne dit rien de ce qui le
-traverse. Un projet st0 n'a ni l'un ni l'autre — il a une piste, une tranche, une sortie. Les
-deux fichiers ont sinon exactement la même forme, donc l'ouverture ne **convertit** rien : elle
-renomme les deux bords, et la sauvegarde les renomme dans l'autre sens.
+A shared chain runs from `@in` to `@out`: it describes a treatment and says nothing about what
+crosses it. An st0 project has neither — it has a track, a strip, an output. The two files are
+otherwise exactly the same shape, so opening **converts** nothing: it renames the two edges, and
+saving renames them back.
 
-| dans la médiathèque | sur le banc |
+| in the médiathèque | on the bench |
 |---|---|
-| `"@in": [ … ]` sous `modules:` | `banc: [ … ]` — la piste |
-| une destination `"@out"` | `mixer`, puis `mixer: [ OUT ]` |
+| `"@in": [ … ]` under `modules:` | `banc: [ … ]` — the track |
+| a destination `"@out"` | `mixer`, then `mixer: [ OUT ]` |
 
-Les deux sens vivent dans un seul fichier, `packages/song/src/benchChain.ts`, sous un même jeu
-de tests d'aller-retour : séparés ils dériveraient, et une dérive ici veut dire une chaîne
-partagée qu'on a silencieusement réécrite. `packages/file-service/src/benchChainProject.test.ts`
-refait le tour complet par le disque, parce que c'est le seul chemin du service qui écrit dans un
-catalogue **partagé**.
+Both directions live in one file, `packages/song/src/benchChain.ts`, under one set of round-trip
+tests: separated they would drift, and drift here means a shared chain silently rewritten.
+`packages/file-service/src/benchChainProject.test.ts` does the whole loop through the disk,
+because this is the service's only path that writes into a **shared** catalogue.
 
-La tranche n'est ajoutée que si quelque chose l'atteint : une chaîne `@in → @out` ne repart donc
-pas avec un meuble qu'elle n'a jamais traversé. Et le bloc de commentaires du haut est préservé à
-part — `formatChains` réémet un document canonique, ce qui rend l'aller-retour démontrable et
-mangerait tous les commentaires ; or celui du haut porte ce que la chaîne EST.
+The strip is added only if something reaches it: an `@in → @out` chain does not leave with
+furniture it never crossed. And the top comment block is preserved separately — `formatChains`
+re-emits a canonical document, which is what makes the round trip demonstrable and would eat
+every comment; the top one carries what the chain IS.
 
-### Ce qui est refusé
+### What is refused
 
-Une chaîne qui a déjà un nœud appelé `mixer`, `OUT` ou `banc` ne s'ouvre pas, et le message le
-dit. La sauvegarde retirerait la tranche du banc et emporterait le module de la chaîne avec
-elle ; renommer d'office changerait la chaîne qu'on est venu éditer. Le portail l'affiche comme
-un projet introuvable — la phrase du service est toute l'explication.
+A chain that already has a node called `mixer`, `OUT` or `banc` does not open, and the message
+says so. Saving would strip the bench's own strip and take the chain's module with it; renaming
+by fiat would change the chain you came to edit. The gate shows it as a project not found — the
+service's sentence is the whole explanation.
 
-### Ce qui revient, et ce qui reste
+### What goes back, and what stays
 
-`graph.yaml` (retraduit) et `nodes/` repartent vers `chains/<chemin>/` de la médiathèque.
-Le reste — `project.yaml`, le miroir `modules/`, et la piste du banc — est le meuble du banc et
-n'a rien à faire dans une chaîne que d'autres projets chargent. La piste est dans `nodes/`
-comme les autres, donc ce qui la retient ici est son NOM (`BENCH_EDGES.track`) et rien d'autre.
+`graph.yaml` (translated back) and `nodes/` return to the médiathèque's `chains/<path>/`. The
+rest — `project.yaml`, the `modules/` mirror, and the bench track — is the bench's furniture and
+has no business in a chain other projects load. The track is in `nodes/` like the others, so what
+holds it here is its NAME (`BENCH_EDGES.track`) and nothing else.
 
-L'écriture touche AUSSI le cache local et pas seulement la bibliothèque hébergée. Le banc
-réécrit `graph.yaml` depuis le cache à chaque ouverture : sur une machine sans bibliothèque
-hébergée — là où le cache EST la bibliothèque — une sauvegarde seulement poussée serait jetée
-par l'ouverture suivante.
+The write touches the local cache too, not only the hosted library. The bench rewrites
+`graph.yaml` from the cache on every open, so on a machine with no hosted library — where the
+cache IS the library — a save that only pushed would be thrown away by the next open.
 
-> Piège à connaître : le chemin du projet actif que `write()` reçoit est **déjà absolu**. Le
-> recoller sur la racine de l'espace de travail donne `<racine>/<racine>/<projet>`, qui n'est
-> sous aucune écriture — la remontée d'un fichier vers le catalogue ne se déclencherait jamais,
-> en silence. Un test le tient.
+> Trap to know: the active project path `write()` receives is **already absolute**. Gluing it
+> back onto the workspace root gives `<root>/<root>/<project>`, which is under no write — the
+> promotion of a file back to the catalogue would never fire, silently. A test holds it.
 
-## Ce qu'il n'est pas
+## What it is not
 
-- **Pas un dépôt git.** Il n'a pas d'URI, il ne se clone pas, il ne se pousse pas. Le mettre
-  sous gestion de version reviendrait à versionner un cache. C'est pour ça que l'adresse porte
-  un nom de dépôt **réservé**, `@banc` : `@` ne peut pas commencer un nom court de dépôt git, donc
-  la collision est impossible, et le portail de `@studio/project-shell` prend une autre route en
-  le voyant — pas de résolution de nom chez pl8, pas de clone, un seul appel à la machine.
-- **Pas partagé.** Il vit dans l'espace de travail `Banc` de votre compte, sur la machine
-  choisie. Deux personnes ont deux bancs — et, par la règle « un projet, un moteur »
-  ([claim.md](../../../packages/engine-registry/docs/claim.md)), deux adresses différentes, donc
-  aucune des deux ne prend le banc de l'autre.
-- **Pas un morceau.** Rien n'y est arrangé, rien n'y est enregistré (`recordDir` n'y est pas
-  posé, la piste n'a pas de clip). Ce qu'on veut garder d'un essai, on le garde dans la chaîne.
+- **Not a git repository.** It has no URI, it is not cloned, it is not pushed. Version-controlling
+  it would mean version-controlling a cache. That is why the address carries a **reserved**
+  repository name, `@banc`: `@` cannot start a git short name, so collision is impossible, and
+  `@studio/project-shell`'s gate takes another route on seeing it — no name resolution at pl8, no
+  clone, one call to the machine.
+- **Not shared.** It lives in your account's `Banc` workspace, on the chosen machine. Two people
+  have two benches — and, by the "one project, one engine" rule
+  ([claim.md](../../../packages/engine-registry/docs/claim.md)), two different addresses, so
+  neither takes the other's.
+- **Not a song.** Nothing is arranged and nothing is recorded (`recordDir` is not set, the track
+  has no clip). What you want to keep from a trial, you keep in the chain.
 
-  Le banc ne déclare donc **aucune surface** : pas de `surfaces/timeline.yaml`, pas de
-  `surfaces/viewport.yaml`. st0 l'ouvre sur le graphe des chaînes, plein écran, sans transport
-  ni minimap — un projet dessine ce qu'il DÉCLARE, et celui-ci ne déclare rien. Voir
+  So the bench declares **no surface**: no `surfaces/timeline.yaml`, no `surfaces/viewport.yaml`.
+  st0 opens it on the chains graph, full screen, with no transport and no minimap — a project
+  draws what it DECLARES, and this one declares nothing. See
   [packages/song/docs/surfaces.md](../../../packages/song/docs/surfaces.md).
 
-## Ce qu'il faut vérifier dans un navigateur
+## What to check in a browser
 
-Rien de tout ceci n'est couvert par une suite verte — `scaffoldBench.test.ts` ne pin que le fait
-que le projet généré compile.
+None of this is covered by a green suite — `scaffoldBench.test.ts` only pins that the generated
+project compiles.
 
-- ouvrir une chaîne de la médiathèque sur le banc → le graphe montre la piste, le module, la
-  tranche, la sortie ;
-- insérer un module, sauvegarder, revenir dans pl8 → la chaîne montre le module, entre `@in` et
-  `@out`, et son en-tête est intact ;
-- rouvrir le banc sur la même chaîne → ce qu'on a câblé est là ;
-- ouvrir une chaîne qui nomme un `mixer` → refus lisible, et rien de créé ;
-- ouvrir `/@banc/modules.st0` → un refus qui dit où un module s'édite.
+- open a médiathèque chain on the bench → the graph shows the track, the module, the strip, the
+  output;
+- insert a module, save, go back to pl8 → the chain shows the module between `@in` and `@out`,
+  and its header is intact;
+- reopen the bench on the same chain → what you wired is there;
+- open a chain naming a `mixer` → a readable refusal, and nothing created;
+- open `/@banc/modules.st0` → a refusal saying where a module is edited.

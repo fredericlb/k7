@@ -1,144 +1,124 @@
-# `RENDER` et `VIDEO_OUT` — les deux sorties de l'image
+# `RENDER` and `VIDEO_OUT` — the picture's two outputs
 
-Un graphe a **quatre** sorties intégrées, et non deux. Les deux premières sont celles du son
-([masterChain.md](masterChain.md)) ; celles-ci sont leurs jumelles pour l'image :
+A graph has **four** built-in outputs, not two. The first pair belongs to the sound
+([masterChain.md](masterChain.md)); these are their twins for the picture:
 
-| nom | ce que c'est |
+| name | what it is |
 |---|---|
-| `RENDER` | la **somme du compositeur** — là où arrivent toutes les pistes vidéo, exactement comme toutes les pistes audio arrivent à `MIX`. Ne porte aucun paramètre |
-| `VIDEO_OUT` | l'**image qui sort**, celle que le `viewport` compose. Ne porte aucun paramètre non plus — une image n'a pas de niveau |
+| `RENDER` | the **compositor's sum** — where every video track arrives, exactly as every audio track arrives at `MIX`. Carries no parameter |
+| `VIDEO_OUT` | the **picture that leaves**, the one the `viewport` composes. Carries no parameter either — a picture has no level |
 
 ```yaml
 # graph.yaml
 modules:
   drums:  [ MIX ]
-  MIX:    [ OUT ]            # la chaîne master du son
-  RENDER: [ VIDEO_OUT ]      # …et celle de l'image
+  MIX:    [ OUT ]            # the sound's master chain
+  RENDER: [ VIDEO_OUT ]      # …and the picture's
 ```
 
-Le run entre les deux est la **chaîne master vidéo** : ses modules (`video_effects`, `shaders`)
-traitent l'image entière. C'est la même raison qu'a eue la séparation `MIX`/`OUT` — il n'y avait
-qu'un nom, et donc nulle part où poser un traitement sur l'ensemble. Pas `video_transitions` : une
-transition n'est pas une étape de chaîne du tout (plus bas).
+The run between the two is the **video master chain**: its modules (`video_effects`, `shaders`)
+process the whole picture. Same reason the `MIX`/`OUT` split has — with one name there is nowhere
+to put a treatment on the whole. Not `video_transitions`: a transition is not a chain step at all
+(below).
 
-## `VIDEO_OUT` n'est pas un nom neuf
+## What crosses this run, and what does not
 
-Le modèle appelle le puits de l'image ainsi **depuis que les chaînes vidéo sont typées**. Trois
-endroits l'écrivaient déjà en prose avant que ce fichier n'existe :
+A **`shaders`** module on `RENDER -> VIDEO_OUT` processes the composited frame, in GLSL, down to
+the pixel ([shaders.md](../../song-video/docs/shaders.md)). The path from a `graph.yaml` to
+`@studio/ui-eyes` is `src/videoChains.ts`.
 
-- `src/graph.ts`, la note de `sourceType` : « ce qui permet à une chaîne de faire passer une piste
-  vidéo par `video_effects` jusqu'à `VIDEO_OUT` » ;
-- `src/graph.ts` encore, dans `validate()` ;
-- `src/videoDoc.ts`, au-dessus de `VideoPluginDoc` : « `VIDEO_OUT` est le puits ».
+One **other** form of `VideoPluginDoc` is modelled and never compiled: `video_effect` has no plugin
+format behind it, so a module of that type is drawn and validated without changing the picture.
 
-Ce n'était **aucune constante**. Le nom décrivait un chemin que rien ne pouvait emprunter : écrit
-dans un `graph.yaml`, il tombait dans `isSink`, n'y était pas, et ressortait en « n'est ni une
-chaîne ni un puits io ». Ce lot rend le nom réel ; il ne l'invente pas.
-
-## Ce qui traverse ce trajet, et ce qui n'y passe pas
-
-Ce lot est né en **notation** — le trajet dessiné, vérifié et complété, mais qu'aucun module ne
-traversait vraiment. Ce n'est plus vrai pour un type de module : un **`shaders`** posé sur
-`RENDER -> VIDEO_OUT` traite bel et bien la trame composée, en GLSL, jusqu'au pixel
-([shaders.md](../../song-video/docs/shaders.md)). Le chemin manquant entre un `graph.yaml` et `@studio/ui-eyes` est
-`src/videoChains.ts`, et il a été écrit pour lui.
-
-Une seule **autre** forme de `VideoPluginDoc` reste modélisée et jamais compilée : `video_effect`
-n'a toujours aucun format de plugin derrière elle, donc un module de ce type-là est dessiné et
-vérifié sans rien changer à l'image.
-
-`video_transitions` a le sien, et il ne passe pas par ici : une transition est **nommée par une
-coupe** et non câblée, donc elle n'est jamais une étape de chaîne
+`video_transitions` has one, and it does not come through here: a transition is **named by a cut**
+rather than wired, so it is never a chain step
 ([transitions.md](../../song-video/docs/transitions.md)).
 
-Rien de tout cela ne touche le son : les deux compilations d'un dossier ne partagent aucun champ —
-`loadProject` produit le `ProjectDoc` que lit le moteur C++, où nulle image n'arrive jamais, et
-`loadVideoProject` produit le `VideoProjectDoc` que lit le compositeur ([picture.md](../../song-video/docs/picture.md)).
-Le run vidéo n'a donc **aucun propriétaire** dans `nodeProject.ts`, et ce qu'il porte ne peut pas
-atterrir sur un bus audio par accident.
+None of this touches the sound: a folder's two compiles share no field — `loadProject` produces the
+`ProjectDoc` the C++ engine reads, where no picture ever arrives, and `loadVideoProject` produces
+the `VideoProjectDoc` the compositor reads ([picture.md](../../song-video/docs/picture.md)). The
+video run therefore has **no owner** in `nodeProject.ts`, and what it carries cannot land on an
+audio bus by accident.
 
-## Pas de paramètre, et ce n'est pas un oubli
+## No parameter, and that is not an oversight
 
-`OUT` est le seul des quatre noms qui porte quelque chose : son `Volume` est le niveau de sortie du
-morceau ([masterVolume.md](masterVolume.md)). La symétrie s'arrête là.
+`OUT` is the only one of the four names that carries anything: its `Volume` is the song's output
+level ([masterVolume.md](masterVolume.md)). The symmetry stops there.
 
-Un fader sur `VIDEO_OUT` — une opacité globale, une luminosité — serait une commande **branchée sur
-rien** : `@studio/ui-eyes` ne lit aucun niveau global, et écrire une valeur qu'aucun rendu ne
-consulte est précisément le genre de contrôle qui se règle pendant dix minutes avant qu'on comprenne
-qu'il ne fait rien. `node param "VIDEO_OUT" …` est donc refusé **par son nom**, avec la phrase qui
-le dit, plutôt que laissé au message générique « aucun module plugin ».
+A fader on `VIDEO_OUT` — a global opacity, a brightness — would be a control **wired to nothing**:
+`@studio/ui-eyes` reads no global level, and writing a value no render consults is exactly the kind
+of control someone adjusts for ten minutes before realising it does nothing. `node param
+"VIDEO_OUT" …` is refused **by name**, with the sentence that says so, rather than left to the
+generic "no plugin module".
 
-## Ajoutées toutes seules — la seule vraie différence avec le son
+## Added on their own — the one real difference from the sound
 
-C'est le point où cette paire ne se comporte **pas** comme l'autre.
+`MIX: [ OUT ]` is never back-filled: projects without it exist, and a script has to be run by hand.
+The picture does not go through that:
 
-`MIX: [ OUT ]` a été rétro-ajouté par un script (`scripts/migrateMixOut.ts`) qu'il fallait lancer à
-la main, et les projets qui ne l'ont jamais reçu existent toujours. L'image ne repasse pas par là :
-
-| quand | où |
+| when | where |
 |---|---|
-| un projet `video` est créé | `scaffold.ts` — `videoGraph()` ajoute la ligne au graphe commun |
-| `project surface new viewport` | `surfaces.ts` — `createSurfaceFile` la pose dans la foulée |
-| un projet est **ouvert** | `file-service`'s `setActiveProject` → `repairVideoOutputs` |
+| a `video` project is created | `scaffold.ts` — `videoGraph()` adds the line to the common graph |
+| `project surface new viewport` | `surfaces.ts` — `createSurfaceFile` places it straight after |
+| a project is **opened** | `file-service`'s `setActiveProject` → `repairVideoOutputs` |
 
-La troisième est celle qui compte : tout projet déclarant un `viewport` a le trajet au moment où
-quoi que ce soit lit son graphe, **y compris ceux écrits avant que ces noms n'existent**. Un projet
-sans `viewport` n'en reçoit rien, et ne voit jamais ni l'un ni l'autre des deux noms — y compris
-dans la complétion, qui ne les propose qu'à un projet qui a des pistes vidéo.
+The third is the one that counts: any project declaring a `viewport` has the run by the time
+anything reads its graph, **including those written before these names existed**. A project without
+a `viewport` gets nothing, and never sees either name — including in completion, which offers them
+only to a project that has video tracks.
 
-L'écriture est **textuelle** et non un YAML relu-réémis, pour la raison habituelle ici : un
-`graph.yaml` est commenté et édité à la main, et le re-sérialiser reformaterait tout le fichier pour
-ajouter une ligne. La ligne va à la **fin** de la carte `modules:`, où arrive le signal.
+The write is **textual** rather than YAML re-read and re-emitted, for the usual reason here: a
+`graph.yaml` is commented and hand-edited, and re-serialising would reformat the whole file to add
+one line. The line goes at the **end** of the `modules:` map, where the signal arrives.
 
-Une carte en bloc s'étend sur « les lignes indentées sous la clé » : un commentaire indenté avec la
-carte lui appartient et est enjambé, seule la ligne non indentée suivante la termine. Et `null` pour
-un graphe sans `modules:` du tout — inventer la carte pour y loger une ligne serait écrire un fichier
-que le projet n'a jamais eu, le même refus que `migrateMixOut.ts`.
+A block map extends over "the lines indented under the key": a comment indented with the map
+belongs to it and is stepped over, only the next unindented line ends it. And `null` for a graph
+with no `modules:` at all — inventing the map to house a line would write a file the project never
+had, the same refusal as `scripts/migrateMixOut.ts`.
 
-`ensureVideoRun` **ne demande pas** si le projet a un viewport : l'appelant l'a déjà décidé, et les
-deux appelants le savent différemment — `createSurfaceFile` est celui qui écrit la surface, le
-service de fichiers ouvre un projet dont il vient de lire les surfaces. Le redemander ici imposerait
-d'importer `surfaces.ts`, qui importe ce fichier, et le cycle servirait à réexaminer une question
-tranchée.
+`ensureVideoRun` **does not ask** whether the project has a viewport: the caller has already
+decided, and the two callers know it differently — `createSurfaceFile` is the one writing the
+surface, the file service opens a project whose surfaces it has just read. Asking again here would
+mean importing `surfaces.ts`, which imports this file, and the cycle would serve to re-examine a
+settled question.
 
-`ensureVideoRun` est **best-effort** de bout en bout : pas de `graph.yaml`, pas de carte `modules:`,
-un dossier en lecture seule — le projet est laissé tel quel et s'ouvre quand même. Gagner une
-commodité n'est pas une condition pour ouvrir un morceau.
+`ensureVideoRun` is **best-effort** throughout: no `graph.yaml`, no `modules:` map, a read-only
+folder — the project is left as it is and opens anyway. Gaining a convenience is not a condition
+for opening a song.
 
-## Aucun câble n'est dessiné VERS `RENDER`
+## No cable is drawn TO `RENDER`
 
-La même nuance que pour `MIX`, et le même motif. Toutes les pistes vidéo y arrivent — c'est ce
-qu'est un compositeur — donc ces flèches ne diraient rien que la forme ne dise déjà. Seul le run
-qui en **PART** est dessiné, `RENDER → [ chaîne ] → VIDEO_OUT`.
+Same nuance as `MIX`, same motive. Every video track arrives there — that is what a compositor is —
+so those arrows would say nothing the shape does not already say. Only the run **leaving** it is
+drawn, `RENDER → [ chain ] → VIDEO_OUT`.
 
-Et comme `MIX`, `RENDER` est dessiné en puits mais **se tient là où se tient une source** :
-`alignModuleRank` l'exempte de la poussée qu'il applique aux vrais puits, sans quoi il se
-retrouverait sous le run qu'il alimente.
+And like `MIX`, `RENDER` is drawn as a sink but **stands where a source stands**:
+`alignModuleRank` exempts it from the push it applies to real sinks, without which it would end up
+below the run it feeds.
 
-`buildGraph` synthétise la paire quand le fichier ne déclare aucun run — ce que le service de
-fichiers devrait avoir rendu impossible. Ce n'est pas une ceinture et des bretelles : le même code
-dessine un graphe **en train d'être tapé**, l'éditeur re-parsant à chaque frappe, et une piste
-pointée sur `RENDER` une seconde avant que la ligne ne soit écrite ne doit pas perdre sa carte
-entre-temps.
+`buildGraph` synthesises the pair when the file declares no run — which the file service should
+have made impossible. Not belt and braces: the same code draws a graph **being typed**, the editor
+re-parsing on each keystroke, and a track pointed at `RENDER` a second before the line is written
+must not lose its card in the meantime.
 
-## Les couches traversées
+## The layers crossed
 
 | | |
 |---|---|
-| écrit | `graph.yaml` — un run de `RENDER` vers `VIDEO_OUT`, ajouté sans qu'on le demande |
-| ajouté | `src/videoOutputs.ts` — `ensureVideoRun`, appelé à la création de la surface et à l'ouverture |
-| dérivé | `src/chainsGraph.ts` : `RENDER` démarre un run, comme `@in`, comme `MIX` et comme une piste |
-| validé | `src/graph.ts` : `isSink` prend les quatre noms au mot, `validate()` exempte `from: RENDER` |
-| compilé | **nulle part** — et `nodeProject.ts` le dit à l'endroit où il compile l'autre paire |
-| dessiné | les cartes `RENDER` et `VIDEO_OUT` (`@studio/ui-chains`), la seconde sans fader |
-| refusé | `@studio/commands`' `setBuiltinOutParam` — les deux, par leur nom |
+| written | `graph.yaml` — a run from `RENDER` to `VIDEO_OUT`, added unasked |
+| added | `src/videoOutputs.ts` — `ensureVideoRun`, called at surface creation and at open |
+| derived | `src/chainsGraph.ts`: `RENDER` starts a run, like `@in`, like `MIX`, like a track |
+| validated | `src/graph.ts`: `isSink` takes all four names at their word, `validate()` exempts `from: RENDER` |
+| compiled | **nowhere** — and `nodeProject.ts` says so where it compiles the other pair |
+| drawn | the `RENDER` and `VIDEO_OUT` cards (`@studio/ui-chains`), the second without a fader |
+| refused | `@studio/commands`' `setBuiltinOutParam` — both, by name |
 
-## Le vérifier
+## Checking it
 
 ```bash
 npx vitest run packages/song/src/videoOutputs.test.ts
 npx vitest run packages/ui-chains/src/graph.test.ts
 ```
 
-Et à la main, ce qui est le vrai test de l'ajout automatique : prendre un projet avec un
-`viewport` et sans la ligne, l'ouvrir, relire son `graph.yaml`.
+And by hand, the real test of the automatic add: take a project with a `viewport` and without the
+line, open it, read its `graph.yaml` back.

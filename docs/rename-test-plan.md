@@ -1,87 +1,82 @@
-# Recette d'un renommage
+# Recipe for a rename
 
-Renommer une application, un service ou un préfixe de protocole dans ce dépôt touche des
-choses qui ne se plaignent pas quand elles cassent : un dossier d'état, une sentinelle dans
-la sortie du moteur, un en-tête HTTP, un identifiant écrit dans un fichier utilisateur. La
-plupart de ces fautes se lisent comme un fichier vide, pas comme une erreur. Cette page tient
-la **méthode** de vérification ; elle ne décrit aucun renommage particulier.
+Renaming an application, a service or a protocol prefix in this repo touches things that do not
+complain when they break: a state directory, a sentinel in the engine's output, an HTTP header, an
+identifier written into a user's file. Most of those faults read as an empty file rather than an
+error. This page holds the **method**; it describes no particular rename.
 
-## Les deux règles
+## The two rules
 
-**Ordre imposé.** Chaque phase suppose la précédente verte. Une phase qui échoue rend les
-suivantes ininterprétables, parce que le socle est partagé : un moteur qui écrit son
-catalogue au mauvais endroit fait apparaître une médiathèque vide, et on cherche le défaut
-dans la mauvaise application.
+**The order is fixed.** Each phase assumes the previous one green. A failing phase makes the ones
+after it uninterpretable, because the base is shared: an engine writing its catalogue to the wrong
+place produces an empty médiathèque, and the fault gets hunted in the wrong app.
 
-**Chaque contrôle porte sa signature d'échec** : ce qu'on verrait *précisément* si le
-renommage était faux à cet endroit. Sans elle, « ça a l'air de marcher » ne prouve rien. La
-signature la plus utile est celle qui ressemble à un fonctionnement normal — « le moteur
-démarre mais ne trouve aucun espace de travail » se confond avec un premier lancement
-légitime, et c'est exactement pour ça qu'il faut l'écrire d'avance.
+**Every check carries its failure signature** — what you would see *precisely* if the rename were
+wrong at that point. Without it, "it seems to work" proves nothing. The most useful signature is
+the one that looks like normal operation: "the engine starts but finds no workspace" is
+indistinguishable from a legitimate first launch, and that is exactly why it has to be written
+down in advance.
 
-## L'ordre des phases
+## The phases
 
-1. **Le dossier d'état** (`<state>`) — bloquant, et fait à la main. Rien ne démarre
-   correctement tant que le contenu n'a pas bougé. On déplace le *contenu*, pas le dossier.
-   Le log fusionné et le `engine.pid` ne se reprennent pas : le log est tronqué à chaque
-   lancement et ne garderait que des lignes écrites par le moteur d'avant — dont une bannière
-   à l'ancien nom, qui se lit comme une panne du renommage. Un `engine.pid` périmé pousse un
-   superviseur neuf à adopter un moteur mort plutôt qu'à en lancer un. Ce qui ne se régénère
-   pas, c'est `root/`, qui porte les espaces de travail.
-2. **Le moteur seul** — compilation, tests unitaires, énumération des périphériques, scan de
-   plugins. Aucun superviseur, aucun navigateur. Les sentinelles de sortie (`STUDIO_*_BEGIN` /
-   `_END`) sont ce que le TypeScript cherche pour borner une réponse : une sentinelle à
-   l'ancien nom donne un moteur qui répond et un appelant qui lit vide.
-3. **Superviseur et service de fichiers** — le socle partagé. C'est ici que se vérifient les
-   en-têtes `x-studio-{user,workspace,engine-token}` : la route gardée doit répondre avec les
-   en-têtes neufs **et refuser** les anciens. Un refus, 401 ou 400 ; si la liste revient, un
-   ancien en-tête est resté quelque part.
-4. **Le plateau**, si la version empaquetée sert. Le superviseur de la phase précédente est
-   interchangeable avec lui sur le même contrat, donc cette phase est optionnelle.
-5. **Chaque application, une par une**, du plus petit consommateur du socle au plus gros.
-   L'ordre compte : une application qui tient son propre registre de moteurs ne prouve rien
-   sur celle d'à côté.
-6. **Non-régression** sur les applications qui consomment `packages/*` sans avoir été la
-   cible du renommage. Un consommateur des en-têtes hors du socle est le dernier endroit où
-   un renommage partiel se voit, donc le premier à contrôler ici.
+1. **The state directory** (`<state>`) — blocking, and done by hand. Nothing starts correctly
+   until the content has moved. Move the *content*, not the directory. The merged log and
+   `engine.pid` are not carried over: the log is truncated on every launch and would keep only
+   lines written by the previous engine — including a banner under the old name, which reads as a
+   broken rename. A stale `engine.pid` pushes a fresh supervisor into adopting a dead engine
+   rather than starting one. What does not regenerate is `root/`, which holds the workspaces.
+2. **The engine alone** — build, unit tests, device enumeration, plugin scan. No supervisor, no
+   browser. The output sentinels (`STUDIO_*_BEGIN` / `_END`) are what the TypeScript looks for to
+   bound a reply: a sentinel under the old name gives an engine that answers and a caller that
+   reads empty.
+3. **Supervisor and file service** — the shared base. This is where the
+   `x-studio-{user,workspace,engine-token}` headers are checked: the guarded route must answer
+   with the new headers **and refuse** the old ones. A refusal, 401 or 400; if the list comes
+   back, an old header is still somewhere.
+4. **The tray**, if the packaged build is in use. The supervisor from the previous phase is
+   interchangeable with it on the same contract, so this phase is optional.
+5. **Each application, one by one**, from the smallest consumer of the base to the largest. The
+   order matters: an app holding its own engine registry proves nothing about the one next door.
+6. **Non-regression** on the apps that consume `packages/*` without having been the rename's
+   target. A consumer of the headers outside the base is the last place a partial rename shows,
+   so the first to check here.
 
-## Le contrôle qui compte le plus
+## The check that matters most
 
-Un renommage qui touche un identifiant **écrit dans un fichier utilisateur** n'est pas du
-même ordre que les autres : le dépôt peut être vert et les projets de la personne cassés.
-Ceux-là demandent une migration et une signature d'échec lisible — voir
-[packages/song/docs/moduleNamespaces.md](../packages/song/docs/moduleNamespaces.md) pour le
-niveau de module, le seul de cette famille.
+A rename touching an identifier **written into a user's file** is not of the same order as the
+others: the repo can be green and that person's projects broken. Those need a migration and a
+readable failure signature — see
+[packages/song/docs/moduleNamespaces.md](../packages/song/docs/moduleNamespaces.md) for the module
+level, the only one of this family.
 
-Le corollaire : un identifiant que personne ne tape et qui ne sort pas de la machine se
-renomme sans migration, et parfois ne se renomme pas du tout — le prix d'une migration sur
-toutes les machines pour un mot invisible ne se justifie pas.
+The corollary: an identifier nobody types and that never leaves the machine renames without a
+migration, and sometimes does not rename at all — a migration on every machine for an invisible
+word does not pay.
 
-Sur les built-in du moteur, la vérification se lit sur `complete`, pas sur `params` : un
-built-in créé avec succès rend un `params` vide pour certains types, ce qui ne dit rien.
-`dumpPluginParams` émet `complete:false` et sort en **2** quand `createNewPlugin` rend
-`nullptr`, c'est-à-dire quand le type est introuvable. `resolveBuiltInType`
-(`engine/EditBuilder.cpp`) accepte soit le nom affiché soit l'identifiant interne, donc un
-`module.yaml` écrit avec la forme humaine survit à un renommage d'id.
+On the engine's built-ins, the check reads on `complete`, not on `params`: a built-in created
+successfully returns an empty `params` for some types, which says nothing. `dumpPluginParams`
+emits `complete:false` and exits **2** when `createNewPlugin` returns `nullptr`, i.e. when the
+type is not found. `resolveBuiltInType` (`engine/EditBuilder.cpp`) accepts either the display name
+or the internal identifier, so a `module.yaml` written in the human form survives an id rename.
 
-## Ce qui repart de zéro, légitimement
+## What legitimately starts from zero
 
-À ne pas confondre avec une panne. La liste est à établir *avant* de renommer, parce que
-chacune de ces lignes produit un symptôme qu'on prendrait sinon pour un bug :
+Not to be mistaken for a fault. The list is drawn up *before* renaming, because each of these
+lines produces a symptom that would otherwise be taken for a bug:
 
-| | pourquoi |
+| | why |
 |---|---|
-| une reconnexion | le cookie de session change de nom |
-| le choix d'espace de travail | clé localStorage renommée |
-| les préférences par service (`<state>/prefs/<service>/`) | répertoire renommé |
-| `%APPDATA%/Studio/Settings.xml` vierge | nom d'application JUCE renommé — le superviseur rebascule sur le bon périphérique au premier cycle de poll |
-| les alias de canaux et défauts MIDI de Tracktion | même cause ; les libellés d'entrée viennent de `preferences.yaml` et sont intacts |
-| `branch.<b>.studioParent` | clé git locale — les branches en cours perdent leur parent mémorisé |
-| le plateau vu comme une application neuve | identifiant de bundle renommé : un élément de démarrage automatique pointe l'ancien et doit être refait |
+| a re-login | the session cookie changes name |
+| the workspace choice | localStorage key renamed |
+| per-service preferences (`<state>/prefs/<service>/`) | directory renamed |
+| a blank `%APPDATA%/Studio/Settings.xml` | JUCE application name renamed — the supervisor switches back to the right device on the first poll cycle |
+| Tracktion's channel aliases and MIDI defaults | same cause; input labels come from `preferences.yaml` and are intact |
+| `branch.<b>.studioParent` | local git key — branches in flight lose their remembered parent |
+| the tray seen as a new application | bundle identifier renamed: a startup item points at the old one and has to be redone |
 
-## Ce qui ne se renomme pas
+## What does not rename
 
-`lane` est le mot pour une rangée de clips sur la timeline : un morceau a des `tracks` **et**
-des `lanes`. Les éléments `<Lanes>` que l'import DAWproject parse appartiennent au format de
-quelqu'un d'autre, et `biPlanes` est un champ du `BITMAPINFOHEADER` de Win32. Un renommage
-qui balaie sur le mot plutôt que sur l'identifiant les emporte tous les trois.
+`lane` is the word for a row of clips on the timeline: a song has `tracks` **and** `lanes`. The
+`<Lanes>` elements the DAWproject import parses belong to somebody else's format, and `biPlanes`
+is a field of Win32's `BITMAPINFOHEADER`. A rename sweeping on the word rather than on the
+identifier takes all three with it.

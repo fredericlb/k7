@@ -1,130 +1,122 @@
-# Les contrôles du pupitre, et comment les lier à un paramètre
+# The desk's controls, and how to bind one to a parameter
 
-Rien sur ce pupitre n'est câblé en dur. Chaque contrôle porte un identifiant, et ce qu'il
-DÉPLACE est écrit dans le projet — repointer une ligne de `views/mix.yaml` suffit à envoyer le
-fader de gauche sur la platine de droite.
+Nothing on this desk is hard-wired. Each control carries an identifier, and what it MOVES is
+written in the project — repointing one line of `views/mix.yaml` is enough to send the left fader
+to the right deck.
 
-`controls.ts` donne un identifiant à chaque contrôle ; un contrôle par platine est DÉRIVÉ des
-platines, pour qu'une troisième platine ne soit pas silencieusement impossible à lier.
+`controls.ts` gives every control an identifier; the per-deck ones are DERIVED from the decks, so
+a third deck cannot be silently impossible to bind.
 
-| id | quoi | plage |
+| id | what | range |
 |---|---|---|
-| `crossfade` | le crossfader | 0..1 |
-| `deckA.tempo`, `deckB.tempo` | le fader de tempo d'une platine | 10..300 (le knob du module) |
-| `deckA.sync`, `deckB.sync` | le bouton SYNC d'une platine | 0..1 |
-| `deckA.eqLow`, `deckB.eqLow` | le grave d'une platine | −20..+20 dB |
-| `deckA.eqMid`, `deckB.eqMid` | le médium | −20..+20 dB |
-| `deckA.eqHigh`, `deckB.eqHigh` | l'aigu | −20..+20 dB |
-| `deckA.filter`, `deckB.filter` | le filtre de balayage | −100..+100 |
-| `deckA.trim`, `deckB.trim` | le gain d'entrée, en tête de la tranche | −12..+12 dB |
-| `deckA.level`, `deckB.level` | le **fader de voie** — pas le crossfader | −60..+6 dB |
-| `deckA.echo`, `deckB.echo` | l'écho, le seul effet au-delà du filtre | 0..1 |
-| `deckA.cue`, `deckB.cue` | la platine au casque, avant le crossfader | 0..1 |
-| `deckA.stemDrums`, `deckB.stemDrums` | la batterie qu'on RETIRE du disque | 0..1 |
-| `deckA.stemBass`, … | la basse, le reste, la voix — un contrôle chacun | 0..1 |
+| `crossfade` | the crossfader | 0..1 |
+| `deckA.tempo`, `deckB.tempo` | a deck's tempo fader | 10..300 (the module's knob) |
+| `deckA.sync`, `deckB.sync` | a deck's SYNC button | 0..1 |
+| `deckA.eqLow`, `deckB.eqLow` | a deck's low band | −20..+20 dB |
+| `deckA.eqMid`, `deckB.eqMid` | the mid | −20..+20 dB |
+| `deckA.eqHigh`, `deckB.eqHigh` | the high | −20..+20 dB |
+| `deckA.filter`, `deckB.filter` | the sweep filter | −100..+100 |
+| `deckA.trim`, `deckB.trim` | input gain, at the head of the strip | −12..+12 dB |
+| `deckA.level`, `deckB.level` | the **channel fader** — not the crossfader | −60..+6 dB |
+| `deckA.echo`, `deckB.echo` | the echo, the only effect beyond the filter | 0..1 |
+| `deckA.cue`, `deckB.cue` | the deck in the headphones, before the crossfader | 0..1 |
+| `deckA.stemDrums`, `deckB.stemDrums` | the drums you REMOVE from the record | 0..1 |
+| `deckA.stemBass`, … | bass, other, vocals — one control each | 0..1 |
+| `transport` | play / stop | 0..1 |
+| `listen` | listen in this tab | 0..1 |
 
-Les quatre stems sont **offerts sans être exigés**, le cue aussi, et l'écho aussi
-([fx.md](fx.md)) — un pupitre qui n'en câble aucun est un pupitre complet.
+The four stems are **offered without being required**, and so are cue and echo
+([fx.md](fx.md)) — a desk that wires none of them is a complete desk. A track may never have been
+separated, and a machine may have only one output pair ([cue.md](cue.md)). Each stem names its OWN
+module (`cutBassA`), where the three EQ bands share theirs — a cut is a negative gain on the lane
+playing that stem. See [stems.md](stems.md).
 
-Le trim et le fader de voie, en revanche, sont **exigés** : sans eux le crossfader est la seule
-commande de niveau du pupitre, et c'est précisément l'état que `REQUIRED_CONTROLS` existe pour
-empêcher une surface de livrer. Voir [mix.md](mix.md). Ce sont les deux seuls endroits où le squelette du scaffold et
-`REQUIRED_CONTROLS` diffèrent, pour deux raisons voisines : un morceau peut n'avoir jamais été
-séparé, et une machine peut n'avoir qu'une paire de sortie ([cue.md](cue.md)). Chacun nomme son PROPRE module (`cutBassA`), là où les trois bandes d'EQ se partagent
-le leur — une coupe est un gain négatif sur la lane qui joue ce stem. Voir [stems.md](stems.md).
-| `transport` | lecture / arrêt | 0..1 |
-| `listen` | écouter dans cet onglet | 0..1 |
+Trim and channel fader, by contrast, are **required**: without them the crossfader is the desk's
+only level control, and that is precisely the state `REQUIRED_CONTROLS` exists to stop a surface
+shipping. See [mix.md](mix.md).
 
-Les trois bandes d'EQ sont en **décibels**, le filtre en pourcentage de course, et tous
-symétriques pour que le neutre tombe au milieu : voir [eq.md](eq.md) et [filter.md](filter.md).
+The three EQ bands are in **decibels**, the filter in percent of travel, and all are symmetric so
+that neutral falls in the middle: see [eq.md](eq.md) and [filter.md](filter.md).
 
-Les liaisons, elles, sont dans le **projet** : `views/mix.yaml`, décrit dans
+The bindings themselves are in the **project**: `views/mix.yaml`, described in
 [packages/song/docs/viewBindings.md](../../../packages/song/docs/viewBindings.md).
 
-## Pourquoi pas le `controller.yaml` du module
+## Why not the module's `controller.yaml`
 
-`controller.yaml` appartient à un **module** et est partagé par tous ses nœuds — c'est
-écrit dans sa propre doc. Or un set pose un module `tempo` sur **chaque** platine : une seule
-map pour les deux, donc une ligne ne peut pas dire « le fader de la platine A pilote
-l'étirement de la platine A ».
+`controller.yaml` belongs to a **module** and is shared by all its nodes. A set puts a `tempo`
+module on **each** deck: one map for both, so a line cannot say "deck A's fader drives deck A's
+stretch".
 
-Un CC est une propriété de l'appareil qu'on a branché ; quel fader de VOTRE pupitre bouge le
-crossfade de CE set est une propriété du set. Deux questions différentes, deux fichiers.
+A CC is a property of the device you plugged in; which fader on YOUR desk moves THIS set's
+crossfade is a property of the set. Two different questions, two files.
 
-C'est aussi pourquoi les ids sont **absolus** — `deckA.tempo` et non un `deck.tempo` relatif à
-résoudre : le fichier du projet nomme `tempoA` et `tempoB` sur des lignes séparées, donc il
-n'y a plus rien à résoudre.
+That is also why the ids are **absolute** — `deckA.tempo` rather than a relative `deck.tempo` to
+resolve: the project file names `tempoA` and `tempoB` on separate lines, so there is nothing left
+to resolve.
 
-## La plage, et pourquoi elle est déclarée ici
+## The range, and why it is declared here
 
-Une liaison doit transformer « où est ce contrôle » en « que vaut ce paramètre ». La seule
-façon de le faire sans inventer d'échelle est de **normaliser le contrôle en 0..1** et de
-laisser le `min`/`max` du widget cible le déployer — exactement le trajet que les 0..127 d'un
-CC font déjà dans `useMidiControl` de st0. Un contrôle qui ne déclarerait pas sa plage
-obligerait chaque consommateur à en deviner une.
+A binding has to turn "where this control is" into "what this parameter is worth". The only way to
+do that without inventing a scale is to **normalise the control into 0..1** and let the target
+widget's `min`/`max` unroll it — exactly the trip a CC's 0..127 already makes in st0's
+`useMidiControl`. A control that did not declare its range would force every consumer to guess
+one.
 
-C'est aussi pourquoi `deckA.tempo` porte la plage du **knob du module** (10..300) et pas une
-plage à lui : une liaison ne doit pas pouvoir demander un tempo que le panneau refuse de
-dessiner.
+It is also why `deckA.tempo` carries the **module knob's** range (10..300) and not one of its own:
+a binding must not be able to ask for a tempo the panel refuses to draw.
 
-### C'est `widgetDenorm` qui déploie, pas une interpolation écrite ici
+### `widgetDenorm` unrolls it, not an interpolation written here
 
-La seconde moitié du trajet appartient à `@studio/ui-chains/graph`. Écrite à la main —
-`min + unit × (max − min)` — elle n'est juste que pour un widget **linéaire sans `step`** : un
-paramètre `curve: log` bougé depuis le pupitre atterrirait ailleurs que le même paramètre bougé
-sur le graphe, dans la même app et sur le même plugin. st0 et le pupitre appellent donc tous
-deux la fonction partagée.
+The second half of the trip belongs to `@studio/ui-chains/graph`. Written by hand —
+`min + unit × (max − min)` — it is only correct for a **linear widget with no `step`**: a
+`curve: log` parameter moved from the desk would land somewhere other than the same parameter
+moved on the graph, in the same app and on the same plugin. So st0 and the desk both call the
+shared function.
 
-## Une ligne qui ne résout pas est DITE
+## A line that does not resolve is SAID
 
-Trois façons pour une liaison d'échouer, et les trois sont **rapportées** plutôt que jetées.
-C'est là que ce fichier se sépare de la jointure MIDI de st0 : là-bas une map voyage avec un
-module vers des projets qui le dessinent autrement, donc une liaison inapplicable est un état
-normal qu'on saute en silence. Ici le fichier appartient à CE set et nomme les nœuds de CE set —
-une ligne qui ne résout pas est une faute de frappe sur son propre projet, et le dire est la
-différence entre un fader mort et un fader réparable.
+Three ways for a binding to fail, and all three are **reported** rather than dropped. That is
+where this file parts from st0's MIDI join: there a map travels with a module into projects that
+draw it differently, so an inapplicable binding is a normal state to skip silently. Here the file
+belongs to THIS set and names THIS set's nodes — a line that does not resolve is a typo on its own
+project, and saying so is the difference between a dead fader and a fixable one.
 
-Le WIDGET manquant est le seul cas non fatal : sans lui il n'y a pas de `min`/`max`, donc rien à
-mettre à l'échelle — mais la cible existe, et la déclarer cassée serait faux. La liaison résout
-sans widget et l'appelant décide (le pupitre envoie les unités du contrôle).
+A missing WIDGET is the only non-fatal case: without it there is no `min`/`max`, so nothing to
+scale — but the target exists, and declaring it broken would be wrong. The binding resolves
+without a widget and the caller decides (the desk sends the control's own units).
 
-Un contrôle **nommé et non câblé** — ce dont un squelette de surface est fait — est sauté sans
-un mot ici : `unmappedControls` le rapporte une fois, en portail au-dessus de tout le pupitre.
-Le dire deux fois donnerait deux phrases pour une seule ligne à remplir.
+A control **named and not wired** — what a surface skeleton is made of — is skipped without a word
+here: `unmappedControls` reports it once, as a gate over the whole desk.
 
-## Les deux chemins
+## The two paths
 
-Le crossfader et les six potards d'EQ passent par leur liaison vers un PARAMÈTRE : le pupitre joue le
-document compilé (voir [mix.md](mix.md)), donc `deckA:crossfade` et `deckA:eqA` sont des
-plugins chargés par le moteur, et bouger la commande pose le paramètre dessus. Un message par
-mouvement, à chaque pixel. Voir [eq.md](eq.md).
+The crossfader and the six EQ knobs bind to a PARAMETER: the desk plays the compiled document (see
+[mix.md](mix.md)), so `deckA:crossfade` and `deckA:eqA` are plugins the engine has loaded, and
+moving the control sets the parameter on them. One message per movement, at every pixel. See
+[eq.md](eq.md).
 
-Le fader de tempo passe par sa liaison vers une PISTE. Le module `tempo` est `offline` : il
-n'a pas de plugin, il est rendu vrai hors du graphe — ici par l'étirement du clip, que
-Tracktion fait en direct. La liaison donne donc la piste dont le module traite la matière, et
-c'est ce clip-là qui est warpé.
+The tempo fader binds to a TRACK. The `tempo` module is `offline`: it has no plugin, it is made
+true outside the graph — here by the clip stretch Tracktion does live. So the binding gives the
+track whose material the module treats, and that clip is what gets warped.
 
-Les deux sont déclarés. Repointer `deckA.tempo` vers `tempoB` dans `views/mix.yaml` et c'est
-la platine B qui s'étire sous le fader de gauche — ce qui est exactement la différence entre
-un contrôle déclaré et un contrôle câblé.
+Both are declared. Repoint `deckA.tempo` at `tempoB` in `views/mix.yaml` and deck B stretches
+under the left fader — which is exactly the difference between a declared control and a wired one.
+The fader always belongs to a deck (its scale comes from the loaded track, a fact about what is
+playing rather than about the wiring); what it MOVES comes from the file.
 
-Le fader appartient toujours à une platine (son échelle vient du morceau chargé, un fait sur
-ce qui joue et non sur le câblage) ; ce qu'il DÉPLACE vient du fichier.
+### What decides the path — and why it is not the graph
 
-### Qui décide du chemin — et pourquoi ce n'est pas le graphe
+It is the COMPILED DOCUMENT, never the graph, and the distinction is finer than it looks.
 
-C'est le DOCUMENT COMPILÉ, jamais le graphe, et la nuance est plus fine qu'elle n'en a l'air.
+`buildGraphDoc` gives a `pluginId` to EVERY step of a chain: the `chain:module` address the step
+*would* have. Including steps the compiler emits no plugin for — it literally does
+`if (rawType === OFFLINE_TYPE) continue`. An `offline` module therefore comes out of the graph
+wearing `deckA:tempoA`, and the document has nothing of the sort.
 
-`buildGraphDoc` donne un `pluginId` à CHAQUE étape d'une chaîne : l'adresse
-`chaîne:module` que l'étape *aurait*. Y compris aux étapes dont le compilateur n'émet aucun
-plugin — il fait littéralement `if (rawType === OFFLINE_TYPE) continue`. Un module `offline`
-ressort donc du graphe avec `deckA:tempoA` sur le dos, et le document n'a rien de tel.
+Deciding "parameter or track" by looking at whether the step has a `pluginId` therefore files
+every tempo fader on the parameter side, and `set-plugin-param` leaves for an address the engine
+does not know. No error, no log: the fader moves and nothing happens.
 
-Décider « paramètre ou piste » en regardant si l'étape a un `pluginId` classe donc tous les
-faders de tempo du côté paramètre, et `set-plugin-param` part vers une adresse que le moteur
-ne connaît pas. Aucune erreur, aucun log : le fader bouge et rien ne se passe.
-
-`enginePluginIds(compiled)` collecte les identifiants que le moteur aura vraiment une fois le
-document envoyé, et `hasPlugin()` est la question à poser. Règle générale : le graphe décrit
-ce qu'on DESSINE, le document décrit ce qui JOUE — pour savoir quoi envoyer au moteur, on
-interroge le second.
+`enginePluginIds(compiled)` collects the identifiers the engine will really have once the document
+is sent, and `hasPlugin()` is the question to ask. General rule: the graph describes what is
+DRAWN, the document describes what PLAYS — to know what to send the engine, ask the second.

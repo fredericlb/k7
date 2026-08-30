@@ -1,110 +1,102 @@
-# Les effets du pupitre, au-delà du filtre
+# The desk's effects, beyond the filter
 
-Trois choses, et **une seule est un module**. C'est la remarque à retenir de cette page : sur une
-table de mixage, « effet » recouvre des mécanismes qui n'ont rien à voir entre eux, et les mettre
-tous dans le graphe aurait produit deux modules qui ne servent à rien.
+Three things, and **only one is a module**. That is the point of this page: on a mixer, "effect"
+covers mechanisms with nothing in common, and putting them all in the graph would produce two
+modules that serve no purpose.
 
-| | ce que c'est | où ça vit |
+| | what it is | where it lives |
 |---|---|---|
-| **écho** | un délai à réinjection | un module, `@st0/audio/time/echo`, lié par `deckA.echo` |
-| **echo-out** | couper la voie, laisser la queue sonner | **un geste** : deux contrôles du pupitre bougés ensemble |
-| **censor** | le disque part à l'envers tant qu'on tient | **un geste** : le `Rate` du plateau, comme un scratch |
+| **echo** | a delay with feedback | a module, `@st0/audio/time/echo`, bound by `deckA.echo` |
+| **echo-out** | cut the channel, let the tail ring | **a gesture**: two desk controls moved together |
+| **censor** | the record runs backwards while held | **a gesture**: the platter's `Rate`, like a scratch |
 
-## L'écho, et pourquoi il est APRÈS le fader de voie
+## The echo, and why it sits AFTER the channel fader
 
 ```
 deckA → tempoA → trimA → eqA → filterA ─┬→ levelA → echoA → fadeA → MIX
                                         └→ cueA → CUE
 ```
 
-`echoA` est posé **après** `levelA`, et ce n'est pas un détail de rangement : c'est ce qui rend
-l'echo-out possible. Baisser le fader de voie coupe alors **l'entrée** du délai, pas sa sortie —
-la ligne à retard continue de se vider et les répétitions sonnent seules. Câblé avant le fader,
-il serait coupé avec tout le reste, et l'effet le plus connu d'une table DJ n'existerait pas.
+`echoA` sits **after** `levelA`, and that is not tidiness: it is what makes echo-out possible.
+Dropping the channel fader then cuts the delay's **input**, not its output — the delay line keeps
+emptying and the repeats ring alone. Wired before the fader it would be cut with everything else,
+and the best-known effect on a DJ mixer would not exist. Same reasoning as the headphone send,
+tapped on `filterA` to stay **before** the fader ([cue.md](cue.md)): in both cases the place in the
+chain IS the feature, not a preference.
 
-C'est le même raisonnement que le départ casque, qui est branché sur `filterA` pour rester
-**avant** le fader ([cue.md](cue.md)) : dans les deux cas la place dans la chaîne EST la
-fonctionnalité, et pas une préférence.
+The module itself is `@studio/dsp`'s `echo()` function, written in a `jsdsp.ts` next to its
+`module.yaml` — a module is a FOLDER you copy, so it carries its source.
 
-Le module lui-même est la fonction `echo()` de `@studio/dsp`, écrite dans un `jsdsp.ts` à côté
-de son `module.yaml` — un module est un DOSSIER qu'on copie, donc il porte sa source.
+Three parameters, of which **one** is a gesture: `Mix` is what the desk knob moves; `Time` and
+`Feedback` are set once in `nodes/echoA.yaml` and left.
 
-Trois paramètres, dont **un seul** est un geste : `Mix` est ce que le potard du pupitre bouge,
-`Time` et `Feedback` se règlent une fois dans `nodes/echoA.yaml` et se laissent.
+### What it does not do: follow the tempo
 
-### Ce qu'il ne fait pas : suivre le tempo
+`Time` is in **milliseconds**, placed by hand, and the scaffold default is 375 ms — the dotted
+eighth at 120 BPM. The desk does know each deck's BPM: it measures it, publishes it, the tempo
+fader uses it. What is missing is a **binding** carrying that number to this parameter, not the
+information. A stated limit, not an impossibility — and worth stating, because a DJ echo believed
+to be locked to the track and is not sounds like a fault in the machine.
 
-`Time` est en **millisecondes**, posé à la main, et le défaut du scaffold est 375 ms — la croche
-pointée à 120 BPM. Le pupitre connaît pourtant le BPM de chaque platine : il le mesure, il le
-publie, le fader de tempo s'en sert. Ce qui manque est une **liaison** qui porterait ce nombre
-jusqu'à ce paramètre, pas une information.
+### It is OFFERED, never required
 
-C'est donc une limite énoncée et non une impossibilité. La dire ici est le point : un écho DJ
-qu'on croit calé sur le morceau et qui ne l'est pas s'entend comme un défaut de la machine.
+`deckA.echo` is not in `REQUIRED_CONTROLS` — same rule as cue and stems ([controls.md](controls.md)).
+A set that wires no effect is a complete set, and the gate must not demand a line whose absence is
+not a failure.
 
-### Il est OFFERT, jamais exigé
+On the strip the echo knob is therefore **absent** rather than greyed, which is the other half of
+the cue-point rule: greyed says "not yet", absent says "this set has none". A greyed knob would send
+someone hunting for a module to repair where nothing is broken. It is also why it costs a row of
+`stripHeight` **only** when a deck wires one ([deskLayout.md](deskLayout.md)).
 
-`deckA.echo` n'est pas dans `REQUIRED_CONTROLS` — même règle que le cue et les stems
-([controls.md](controls.md)). Un set qui ne câble aucun effet est un set complet, et le gate ne
-doit pas réclamer une ligne dont l'absence n'est pas une panne.
+## Echo-out: a gesture, not a binding
 
-Sur la tranche, le potard d'écho est donc **absent** plutôt que grisé, ce qui est l'autre moitié
-de la règle des repères : grisé dit « pas encore », absent dit « ce set n'en a pas ». Un potard
-grisé enverrait quelqu'un chercher un module à réparer là où il n'y a rien de cassé. C'est aussi
-pour ça qu'il coûte une rangée à `stripHeight` **seulement** quand une platine en câble un
-([deskLayout.md](deskLayout.md)).
-
-## L'echo-out : un geste, pas une liaison
-
-Tenir le bouton envoie l'écho à fond **et** ferme le fader de voie. Deux paramètres — et un
-contrôle du pupitre en pilote **au plus un**
+Holding the button sends the echo full **and** closes the channel fader. Two parameters — and one
+desk control drives **at most one**
 ([viewBindings.md](../../../packages/song/docs/viewBindings.md)).
 
-La sortie n'est pas d'assouplir cette règle : c'est de remarquer que l'echo-out n'a pas besoin
-d'être une liaison. Il **compose deux contrôles que le pupitre a déjà** — `deckA.echo` et
-`deckA.level` — exactement comme une main le ferait avec les deux commandes à l'écran. Rien de
-nouveau n'atteint le moteur : ce sont les deux mêmes `set-plugin-param` qu'un doigt aurait
-envoyés.
+The way out is not to loosen that rule: it is that echo-out need not be a binding at all. It
+**composes two controls the desk already has** — `deckA.echo` and `deckA.level` — exactly as a hand
+would with the two on-screen controls. Nothing new reaches the engine: the same two
+`set-plugin-param` a finger would have sent.
 
-Ce que ça donne gratuitement : le geste est **réversible sans état caché**. Au relâchement, le
-fader revient là où il ÉTAIT — `heldLevel` s'en souvient — et pas à son `home`. La nuance compte
-sur un set : rouvrir d'autorité une voie que quelqu'un avait délibérément laissée basse est
-exactement le genre de service qu'on ne rend pas en public.
+What that gives free: the gesture is **reversible with no hidden state**. On release the fader
+returns to where it WAS — `heldLevel` remembers — and not to its `home`. That matters on a set:
+reopening a channel someone had deliberately left low is exactly the kind of favour you do not do
+in public.
 
-Et il est **grisé sans écho câblé**, avec la raison : sans module à ouvrir, tenir le bouton ne
-ferait que couper la voie, ce qui n'est pas l'effet demandé mais ressemble à une panne.
+It is **greyed with no echo wired**, with the reason: with no module to open, holding the button
+would only cut the channel, which is not the effect asked for but looks like a fault.
 
-## Le censor : le plateau, et rien d'autre
+## The censor: the platter, and nothing else
 
-Aucun module, aucune liaison, aucun paramètre. Le disque **part à l'envers** tant que le bouton
-est tenu, et se remet à jouer normalement au relâchement.
+No module, no binding, no parameter. The record **runs backwards** while the button is held, and
+plays normally again on release.
 
-C'est possible parce qu'une platine est un **plateau** qui porte son propre transport
-(`engine/moteur/docs/turntable.md`) : son `Rate` est un nombre signé, donc −1 est déjà « en
-arrière à la vitesse du disque ». Le pupitre a même déjà le chemin — c'est `sendScratch`, celui
-qu'utilise la main sur le vinyle ([scratch.md](scratch.md)). Le censor est donc **un scratch que
-le pupitre exécute** au lieu de le suivre.
+That is possible because a deck is a **platter** carrying its own transport
+(`engine/moteur/docs/turntable.md`): its `Rate` is a signed number, so −1 already means "backwards
+at record speed". The desk even has the path — `sendScratch`, the one a hand on the vinyl uses
+([scratch.md](scratch.md)). The censor is therefore **a scratch the desk performs** instead of
+following.
 
-Deux conséquences qui tombent toutes seules et qu'on aurait dû écrire à la main autrement :
+Two consequences that fall out on their own and would otherwise be written by hand:
 
-- **la hauteur suit la vitesse**, parce que `platterKey` traite une main sur le disque comme un
-  varispeed. Un censor qui garderait la hauteur ne sonnerait pas comme un censor ;
-- **le relâchement rend le disque à ce qu'il faisait** — `rate === null` renvoie le plateau à la
-  vitesse que le document aurait envoyée, tempo étiré compris.
+- **pitch follows speed**, because `platterKey` treats a hand on the record as a varispeed. A
+  censor that held pitch would not sound like a censor;
+- **release hands the record back to what it was doing** — `rate === null` returns the platter to
+  the speed the document would have sent, stretched tempo included.
 
-Il n'a donc pas de contrôle dans `controls.ts`, et c'est cohérent avec le reste : le scratch non
-plus n'en a pas. Ce qui vit dans `views/mix.yaml` est ce qui **déplace un paramètre d'un
-module** ; un geste sur le plateau est réalisé par le pupitre lui-même.
+So it has no control in `controls.ts`, consistent with the rest: the scratch has none either. What
+lives in `views/mix.yaml` is what **moves a module's parameter**; a gesture on the platter is
+performed by the desk itself.
 
-Il est grisé sur une platine **vide** : un disque doit être là pour qu'« à l'envers » veuille
-dire quelque chose.
+It is greyed on an **empty** deck: a record has to be there for "backwards" to mean anything.
 
-### Les deux boutons sont MOMENTANÉS
+### Both buttons are MOMENTARY
 
-Ils écoutent `pointerdown` / `pointerup`, jamais `click`. Et `pointerleave` autant que
-`pointerup` : une pression qui se termine **en dehors** du bouton doit se terminer quand même,
-sinon une main qui glisse laisse le disque tourner à l'envers pour de bon. C'est le bug qu'on ne
-trouve qu'en public.
+They listen to `pointerdown` / `pointerup`, never `click`. And `pointerleave` as much as
+`pointerup`: a press ending **outside** the button must end anyway, otherwise a hand sliding off
+leaves the record spinning backwards for good. That is the bug you only find in public.
 
-Ils sont dans la **barre du bas**, aux côtés des SYNC et des casques, et pas sur la tranche : la
-tranche est la colonne des réglages qu'on POSE, la barre du bas celle des choses qu'on FAIT.
+They are in the **bottom bar**, beside the SYNCs and the headphones, not on the strip: the strip is
+the column of settings you SET, the bottom bar the one of things you DO.

@@ -1,73 +1,67 @@
-# Le disque, et ce qu'il montre
+# The record, and what it shows
 
-Le vinyle n'est pas qu'un décor qui tourne : il **remplit** à mesure que le morceau
-passe — vide à 0 %, plein à 100 % — et porte les repères sous forme de cercles.
+The vinyl is not just spinning décor: it **fills** as the track plays — empty at 0 %, full at
+100 % — and carries the cue points as circles.
 
-## Une couche qui ne tourne PAS
+## A layer that does NOT turn
 
-Le disque tourne — à 33⅓ tours/minute quand il joue à sa vitesse, et **à la vitesse à laquelle il
-joue vraiment** sinon ([bpm.md](bpm.md)) — donc la progression et les repères vivent dans un
-**second SVG**, frère du premier, immobile.
+The disc turns — at 33⅓ rpm when it plays at pitch, and **at whatever speed it really plays**
+otherwise ([bpm.md](bpm.md)) — so progress and cues live in a **second SVG**, sibling of the first,
+still. Drawn inside the turning disc they would ride with it: a rotating sector says nothing about
+progress, and a cue would sit somewhere different at every instant. Same reason the label holds
+still.
 
-Dessinés à l'intérieur du disque qui tourne, ils monteraient avec lui : un secteur qui tourne
-ne dit rien de l'avancement, et un repère serait à un endroit différent à chaque instant. C'est
-la même raison qui tient l'étiquette immobile.
+DOM order is the stack: disc, then progress and cues, then label. The layer is
+`pointer-events-none`, so clicks always reach the centre — a record is changed by its label.
 
-L'ordre dans le DOM est le calque : le disque, puis la progression et les repères, puis
-l'étiquette. La couche est `pointer-events-none`, donc le clic passe toujours au centre — un
-disque se change par son étiquette.
+## The sector, and its two traps
 
-## Le secteur, et ses deux pièges
+A sector starting at noon and turning clockwise, translucent: what it covers is the part of the
+track **already played**, and the grooves stay legible underneath. Noon and clockwise because that
+is where every clock and every DJ player puts the start.
 
-Un secteur qui part de midi et tourne dans le sens horaire, translucide : ce qu'il couvre est
-la part du morceau **déjà passée**, et les sillons restent lisibles dessous.
+Two details SVG geometry punishes silently, both pinned by a test:
 
-Deux détails que la géométrie SVG punit en silence, tous deux figés par un test :
+- **At 100 %, an arc whose ends coincide draws NOTHING.** A record that has just finished would
+  look like one not started. The full circle is a separate path.
+- **Past halfway, an arc takes the shortest way round** unless forbidden (`largeArcFlag`). A track
+  at 75 % would draw its own complement: nearly finished shown as barely begun.
 
-- **À 100 %, un arc dont les extrémités coïncident ne dessine RIEN.** Un disque qui vient de
-  finir aurait donc l'air d'un disque pas commencé. Le cercle plein est un chemin à part.
-- **Au-delà de la moitié, un arc prend le chemin le plus court** sauf si on le lui interdit
-  (`largeArcFlag`). Un morceau à 75 % dessinerait son propre complément : presque fini
-  affiché comme à peine commencé.
+## Redrawn per frame, never by React
 
-Midi et sens horaire parce que c'est là que toute horloge et tout lecteur DJ mettent le départ.
+Position is read from a **ref** inside a `requestAnimationFrame` and written straight into the
+path's `d` attribute. A prop would re-render the whole component — two decks, their labels, their
+cues — to move one edge, several times a second. Same arrangement the waveform uses, for the same
+reason.
 
-## Redessiné par frame, jamais par React
+It is also **extrapolated** between engine pushes (~20 per second): a 60 fps render off a value
+that jumps 20 times a second reads as stutter.
 
-La position est lue depuis une **ref** dans une `requestAnimationFrame`, et écrite directement
-dans l'attribut `d` du chemin. Une prop re-rendrait tout le composant — deux disques, leurs
-étiquettes, leurs repères — pour déplacer un bord, plusieurs fois par seconde. C'est
-l'arrangement que la waveform utilise déjà, pour la même raison.
+## The FILE's clock, on both sides
 
-Elle est aussi **extrapolée** entre les poussées du moteur (~20 par seconde), sinon un rendu à
-60 images par seconde depuis une valeur qui saute 20 fois s'affiche comme une saccade.
+Progress and cues are computed in seconds **inside the file**, not on the timeline. A stretched
+deck is no further into its record than an unstretched one at the same bar — and a dropped cue
+stays at the same point of the circle whatever the tempo fader does. `sourceAt` does the
+conversion, the same one the cues use ([cues.md](cues.md)).
 
-## L'horloge du FICHIER, des deux côtés
+With no known length — the seconds between load and the arrival of the analysis — the sector stays
+empty and the cues are not drawn. A circle turning at a speed inferred from an invented duration
+would mean nothing.
 
-L'avancement et les repères sont calculés en secondes **dans le fichier**, pas sur la timeline.
-Une platine étirée n'est pas plus avancée dans son disque qu'une platine non étirée à la même
-mesure — et un repère posé reste au même endroit du cercle quoi que fasse le fader de tempo.
-C'est `sourceAt` qui fait la conversion, la même que pour les repères ([cues.md](cues.md)).
+## Cues are RADII
 
-Sans longueur connue — les secondes entre le chargement et l'arrivée de l'analyse — le secteur
-reste vide et les repères ne sont pas dessinés. Un cercle qui tournerait à une vitesse déduite
-d'une durée inventée ne voudrait rien dire.
+Each cue is a line from **centre to rim**, at the angle of its moment, in **its button's colour** —
+3 is the same colour here, on the button, on both decks and on every track. That is what lets you
+see cue 3 coming without reading anything.
 
-## Les repères sont des RAYONS
+A radius rather than a dot on a ring, and that is not decorative: a dot has to be hunted for; a
+line crosses the whole face, so the sector's edge arriving on it shows without being watched. And
+two cues a second apart stay two lines instead of merging into a blob.
 
-Chaque repère est une ligne du **centre au bord**, à l'angle de son moment, dans **la couleur de
-son bouton** — le 3 est de la même couleur ici, sur le bouton, sur les deux platines et sur tous
-les morceaux. C'est ce qui permet de voir qu'on approche du repère 3 sans rien lire.
+The label covers the inner third, where a record keeps its own centre anyway.
 
-Un rayon plutôt qu'un point sur un anneau, et ce n'est pas décoratif : un point, il faut le
-chercher ; une ligne traverse toute la face, donc le bord du secteur qui arrive dessus se voit
-sans le guetter. Et deux repères à une seconde d'intervalle restent deux lignes au lieu de
-fusionner en une tache.
+## And it is taken by hand
 
-L'étiquette couvre le tiers intérieur, là où un disque garde son propre centre de toute façon.
-
-## Et il se prend à la main
-
-Les sillons acceptent un glissement : le disque suit le doigt et l'audio suit le disque. C'est
-[scratch.md](scratch.md), y compris ce qui l'offre et ce qui ne l'offre pas. L'étiquette garde son
-clic — les deux gestes ne se disputent aucun pixel.
+The grooves accept a drag: the disc follows the finger and the audio follows the disc. That is
+[scratch.md](scratch.md), including what it does and does not offer. The label keeps its click —
+the two gestures contest no pixel.

@@ -1,56 +1,45 @@
-# Les chemins de k7 : le préfixe `/k7`, et ce qui n'en a pas
+# k7's paths: the `/k7` prefix, and what has none
 
-k7 est servi **sous un préfixe**, dans une origine qu'il partage avec st0, pl8 et z0. Presque
-tout ce qu'il appelle porte donc `/k7` devant — et les trois exceptions sont la raison d'être
-de cette page, parce qu'elles se ressemblent assez pour qu'on les confonde.
+k7 is served under a prefix, on an origin it shares with st0, pl8 and z0. Almost everything it
+calls carries `/k7` in front; the exceptions are the reason this page exists.
 
-## Une seule origine, donc des chemins relatifs
+## No API origin to configure
 
-Le SPA est servi à `/k7` et son backend à `/k7/api`, sur le même hôte : nginx le route dans
-l'image, Vite le route en dev. Il n'y a donc **aucune origine d'API à configurer**, et tous
-les chemins restent relatifs.
+The SPA is served at `/k7` and its backend at `/k7/api`, on the same host — nginx routes it in
+the image, Vite in dev — so every path stays relative. `BASE` (`apps/k7/frontend/src/api.ts`) is
+**derived** from Vite's `base` rather than restated: the prefix is declared in
+`apps/k7/frontend/vite.config.ts` and nowhere else. `createApiClient` sets
+`credentials: "include"`, so every request carries the session cookie.
 
-`BASE` (dans `apps/k7/frontend/src/api.ts`) est le `base` de Vite, dont la barre oblique
-finale est retirée pour que chaque chemin plus bas puisse commencer par la sienne. Il est
-**dérivé** au lieu d'être réécrit : le préfixe est déclaré dans
-`apps/k7/frontend/vite.config.ts` et nulle part ailleurs.
+## `/auth` is not under the prefix
 
-Toutes les requêtes emportent le cookie de session — `createApiClient` met
-`credentials: "include"` par défaut.
+st0 owns `/auth/*` at the root of the origin for every service, so authentication calls go
+through a bare `fetch` rather than the API client.
 
-## L'API est sous le préfixe ; `/auth` ne l'est pas
+`loginUrl` is a **getter**, not a constant: it has to capture where you are at the moment of the
+click. The parameter must be `return_to`, the name the OIDC package reads — a `redirect` is
+ignored, and without it signing in falls back to `APP_ROOT`, the origin's root, which is not k7.
 
-L'origine est une, et **st0 possède `/auth/*` à sa racine** pour tous les services. Les appels
-d'authentification passent donc par un `fetch` nu plutôt que par le client d'API.
+Signing out returns to `/` rather than staying here: the session belongs to the whole origin,
+and an anonymous k7 bounces straight back into the login screen, which would make signing out
+impossible.
 
-`loginUrl` est un **getter**, pas une constante : il doit capturer l'endroit où l'on se trouve
-au moment du clic. Le paramètre s'appelle `return_to`, qui est le nom que lit le paquet OIDC —
-un `redirect` serait ignoré. Sans lui, la connexion retombe sur `APP_ROOT`, c'est-à-dire la
-racine de l'origine, qui n'est pas k7 : se connecter à k7 dépose l'utilisateur ailleurs.
+## The router takes a `basename`
 
-De la même façon, se déconnecter renvoie sur `/` plutôt que de rester ici : la session est
-celle de toute l'origine, et un k7 anonyme rebondirait aussitôt dans l'écran de connexion — ce
-qui rendrait la déconnexion impossible.
+`apps/k7/frontend/src/main.tsx` passes `BASE_URL`, as st0 and pl8 do. Without it every
+`navigate()` writes a bare `/sessions`, which does not belong to k7: the app works until the
+first reload, and that reload lands outside it. With it, `useLocation()` reports paths without
+the prefix, which is what lets `navForPath` and the route table be written as though k7 owned
+the origin.
 
-## Le routeur reçoit un `basename`
+## URLs handed to the browser spell `BASE` out
 
-`apps/k7/frontend/src/main.tsx` passe `BASE_URL` en `basename`, comme st0 et pl8. Sans lui,
-chaque `navigate()` écrit un `/sessions` nu, qui n'appartient pas à k7 : l'application
-fonctionne jusqu'au premier rechargement, et celui-ci atterrit hors d'elle.
+`api.ts`'s `…Url` helpers are the exception to `f()`: they go into an `<audio src>`, an
+`<img src>` or a download link, so the browser is what fetches and nothing is left to prefix the
+service. A bare `/api/…` is not k7's, and the media answers 404.
 
-Avec lui, `useLocation()` rapporte des chemins **sans** le préfixe — c'est ce qui permet à
-`navForPath` et à la table de routes de rester écrites comme si k7 possédait l'origine.
+## The signalling socket carries the prefix
 
-## Les URL données au navigateur doivent épeler `BASE`
-
-Les helpers `…Url` d'`api.ts` sont l'exception à la fonction `f()` : ils sont remis à un
-`<audio src>`, un `<img src>` ou un lien de téléchargement, donc **c'est le navigateur qui va
-chercher**, et plus rien n'est là pour préfixer le service. Chacun d'eux écrit donc `BASE` en
-toutes lettres. Un `/api/…` nu n'est pas celui de k7, et le média répond 404.
-
-## La socket de signalisation porte le préfixe elle aussi
-
-`apps/k7/frontend/src/rtc.ts` ouvre sa socket sur le même hôte que le backend, avec le préfixe
-de service comme n'importe quel autre appel. L'edge ne route que `/k7/rtc*` jusqu'ici et
-**retire le préfixe avant le serveur** — c'est pour cela que le gestionnaire de
-`apps/k7/backend/src/rtc.ts` continue de reconnaître un `/rtc` nu.
+`apps/k7/frontend/src/rtc.ts` opens on the same host with the service prefix. The edge routes
+only `/k7/rtc*` this far and strips the prefix before the server, which is why the handler in
+`apps/k7/backend/src/rtc.ts` recognises a bare `/rtc`.

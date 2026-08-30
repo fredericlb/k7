@@ -1,182 +1,159 @@
-# L'EQ d'une platine
+# A deck's EQ
 
-Trois potards par platine — grave, médium, aigu — commandant un module `eq3` posé sur cette
-platine dans le graphe. Comme tout le reste du pupitre, le lien est **déclaré** dans
-`views/mix.yaml` et non câblé dans le code ; voir [controls.md](controls.md).
+Three knobs per deck — low, mid, high — driving an `eq3` module placed on that deck in the graph.
+As with everything else on the desk the link is **declared** in `views/mix.yaml` and not wired in
+code; see [controls.md](controls.md).
 
-## Le module n'écrit aucune DSP
+## The module writes no DSP
 
-Le moteur héberge déjà l'égaliseur 4 bandes de Tracktion (`4bandEq`, enregistré sous le nom
-`Equaliser`), avec ses filtres en plateau et en cloche. `@st0/audio/filter/eq3` est un
-**nom et des défauts** par-dessus — exactement ce que `audio/utility/pitch-shift` est au Pitch
-Shifter. Écrire un EQ en `jsdsp` produirait une deuxième implémentation, moins bonne, à
-maintenir.
+The engine already hosts Tracktion's 4-band equaliser (`4bandEq`, registered as `Equaliser`), with
+its shelves and bells. `@st0/audio/filter/eq3` is a **name and a set of defaults** on top —
+exactly what `audio/utility/pitch-shift` is to the Pitch Shifter. Writing an EQ in `jsdsp` would
+produce a second, worse implementation to maintain.
 
-Ce que le module apporte, ce sont les **points de coupure**. Ceux de Tracktion sont ceux d'un
-EQ de mastering : 80 Hz, 3 kHz, 17 kHz. Un plateau haut à 17 kHz ne touche que l'air, donc un
-potard « aigu » posé dessus ne ferait presque rien. Le module pose ceux d'une tranche de
-table :
+What the module brings is the **crossover points**. Tracktion's are a mastering EQ's: 80 Hz, 3 kHz,
+17 kHz. A high shelf at 17 kHz touches only air, so a "high" knob sitting on it would do almost
+nothing. The module lays down a channel strip's:
 
-| bande | filtre | coupure | ce qu'elle prend |
+| band | filter | corner | what it takes |
 |---|---|---|---|
-| Grave | plateau bas | 200 Hz | le kick et la basse |
-| Médium | cloche | 1 kHz | la voix, la caisse claire |
-| Aigu | plateau haut | 6 kHz | les cymbales, l'attaque |
+| Low | low shelf | 200 Hz | the kick and the bass |
+| Mid | bell | 1 kHz | the voice, the snare |
+| High | high shelf | 6 kHz | the cymbals, the attack |
 
-Trois bandes sur les quatre. Le second médium reste à plat : une tranche DJ a trois potards, et
-en offrir un quatrième que le pupitre ne dessine pas ferait une commande accessible seulement
-par le fichier.
+Three bands of the four. The second mid stays flat: a DJ strip has three knobs, and offering a
+fourth the desk does not draw would make a control reachable only through the file.
 
-Les fréquences n'ont **pas** de widget. Ce sont elles qui définissent ce qu'EST une bande, donc
-les déplacer ferait un autre module plutôt qu'un autre réglage — et une table n'offre pas ce
-bouton.
+The frequencies have **no** widget. They are what a band IS, so moving them makes a different
+module rather than a different setting — and a mixer does not offer that knob.
 
-## ±20 dB, et le neutre au milieu
+## ±20 dB, with neutral at the centre
 
-La plage est celle du plugin, reprise telle quelle. Le neutre tombe ainsi exactement au centre
-de la course, ce qu'un potard d'EQ doit faire : un potard dont le 0 dB n'est pas au milieu se
-lit de travers à chaque coup d'œil. Une table coupe plus qu'elle ne remonte — par l'usage, pas
-parce que la commande le lui interdit.
+The range is the plugin's, taken as is. Neutral therefore falls exactly at the middle of the
+travel, which is what an EQ knob must do: a knob whose 0 dB is not at noon reads wrong at every
+glance. A mixer cuts more than it boosts — by use, not because the control forbids it.
 
-En **décibels**, jamais en 0..1. Même règle que le `Volume` d'une tranche : une surface qui
-enverrait 0,5 pour « moitié » aurait l'air de marcher et se tromperait de six décibels.
+In **decibels**, never 0..1. Same rule as a strip's `Volume`: a surface sending 0.5 for "half"
+would look like it worked and be six decibels wrong.
 
-## Ce qu'un potard montre : trois choses
+## What a knob shows: three things
 
-| dessiné | ce que ça dit |
+| drawn | what it says |
 |---|---|
-| le petit trait en haut | où est le **neutre** — la référence, toujours à midi |
-| l'**aiguille** | où le potard est *posé* |
-| l'**arc** de midi à l'aiguille | **de combien** on s'en écarte, et dans quel sens |
+| the small tick at the top | where **neutral** is — the reference, always at noon |
+| the **needle** | where the knob is *set* |
+| the **arc** from noon to the needle | **by how much** it departs, and in which direction |
 
-L'aiguille seule dit une position ; c'est l'arc qui dit une **quantité**. Sa longueur EST le
-réglage, ancré au neutre, donc un boost pousse l'arc vers la droite et une coupe vers la gauche,
-et deux potards se comparent d'un coup d'œil sans lire un chiffre.
+The needle alone says a position; the arc says a **quantity**. Its length IS the setting, anchored
+at neutral, so a boost pushes the arc right and a cut left, and two knobs compare at a glance
+without reading a number. That is why it exists: on a short strip (a desk in a pane) the **numeric
+values are dropped** for want of height — see [deskLayout.md](deskLayout.md) — and the arc costs
+not one pixel of height.
 
-Au repos l'arc est **vide** — pas un moignon. Un potard qu'on n'a pas touché montre un cadran
-nu, et une colonne de potards portant chacun une petite marque serait exactement le bruit qu'on
-cherchait à éviter en retirant les chiffres.
+At rest the arc is **empty**, not a stub, and the number shows **only away from rest**. A column of
+knobs each carrying a small mark, or six all reading "0.0", is exactly the noise dropping the
+numbers was meant to avoid; what a glance is looking for is which band somebody touched.
 
-Car c'est bien pour cela qu'il existe : sur une tranche courte (un pupitre en panneau), les
-**valeurs chiffrées sont retirées** faute de hauteur — voir [deskLayout.md](deskLayout.md). Le
-chiffre est un confort, l'arc est ce qui reste pour dire combien, et il ne coûte pas un pixel
-de hauteur.
+`arcPath` (`../src/views/ChannelStrip.tsx`) draws two paths — the whole travel, pale, then the arc
+over it, so the arc reads against what it could have been rather than against nothing. Both run
+**outside** the dial face, radius 18 against the circle's 15, so they never fight the needle for
+the same pixels; and the caps are `butt`, not `round`, or a small value becomes a two-pixel blob
+instead of a small mark.
 
-### Comment il est tracé
-
-Deux chemins, tous deux produits par `arcPath` dans `../src/views/ChannelStrip.tsx` : la
-**course entière**, pâle, puis l'arc par-dessus. L'arc se lit ainsi contre ce qu'il aurait pu
-être plutôt que contre rien.
-
-Les deux passent **en dehors** de la face du cadran — rayon 18 contre les 15 du cercle — pour ne
-jamais disputer les mêmes pixels à l'aiguille. Et les extrémités sont `butt` et non `round` :
-avec des bouts arrondis, une petite valeur devient une pastille de deux pixels au lieu d'une
-petite marque.
-
-Le chiffre, lui, ne s'affiche **que hors du repos** : une colonne de potards affichant tous
-« 0 » est du bruit, alors qu'un coup d'œil cherche lequel a été touché.
-
-## Après le tempo, avant le crossfade
+## After the tempo, before the crossfade
 
 ```
 deckA → tempoA → eqA → crossfade → OUT
 deckB → tempoB → eqB → crossfade#b
 ```
 
-L'ordre EST le chemin du signal. Une platine égalisée après le fondu verrait sa basse coupée en
-même temps que celle de l'autre : l'EQ est une propriété de la **tranche**, pas du mélange.
-C'est la place qu'une table lui donne.
+The order IS the signal path. A deck equalised after the fade would have its bass cut at the same
+time as the other's: the EQ is a property of the **strip**, not of the mix. That is the place a
+mixer gives it.
 
-Un nœud par platine, jamais partagé — couper la basse de CETTE platine est tout l'intérêt,
-et un paramètre appartient à un usage et non à un module.
+One node per deck, never shared — cutting THIS deck's bass is the whole point, and a parameter
+belongs to a use and not to a module.
 
-## Le chemin « paramètre », pas celui du warp
+## The "parameter" path, not the warp one
 
-Le pupitre a deux chemins, et l'EQ prend celui du crossfader :
+The desk has two paths, and the EQ takes the crossfader's:
 
 |  | EQ, crossfade | tempo |
 |---|---|---|
-| dans le document | un vrai plugin | **rien** (`offline`) |
-| ce qu'on envoie | `set-plugin-param` | le document entier |
-| cadence | à chaque pixel | cadencé à 120 ms |
+| in the document | a real plugin | **nothing** (`offline`) |
+| what is sent | `set-plugin-param` | the whole document |
+| rate | every pixel | throttled to 120 ms |
 
-Un module `offline` ne compile en aucun plugin, si sûr de lui que soit le graphe en lui
-distribuant une adresse. `hasPlugin()` est la question à poser, et c'est le **document
-compilé** qui répond — jamais le graphe. Un potard dont la cible n'est pas chargée est
-**refusé** au lieu d'être envoyé dans le vide : la bande se grise, et l'infobulle dit pourquoi.
+An `offline` module compiles into no plugin, however confidently the graph hands it an address.
+`hasPlugin()` is the question to ask, and it is the **compiled document** that answers — never the
+graph. A knob whose target is not loaded is **refused** rather than sent into the void: the band
+greys out and the tooltip says why.
 
-## Le potard est rotatif, et se glisse verticalement
+## The knob is rotary, and dragged vertically
 
-Poursuivre le pointeur le long d'un arc est la lecture évidente d'une commande ronde, et la
-mauvaise : le gain saute quand le pointeur traverse le centre, et c'est inutilisable sur un
-potard de cette taille. Haut c'est plus, bas c'est moins, sur une course fixe de 160 px —
-ce que fait tout séquenceur.
+Chasing the pointer along an arc is the obvious reading of a round control, and the wrong one: the
+gain jumps when the pointer crosses the centre, and it is unusable on a knob this size. Up is
+more, down is less, over a fixed 160 px travel — what every sequencer does.
 
-`setPointerCapture` est ce qui laisse la main sortir des 40 px du potard en cours de geste, les
-flèches le rendent atteignable sans pointeur du tout, et le double-clic revient à plat : la
-seule position qui mérite un raccourci, et celle qu'un glissement n'atteint jamais exactement.
+`setPointerCapture` is what lets the hand leave the knob's 40 px mid-gesture, the arrow keys make
+it reachable with no pointer at all, and double-click returns to flat: the only position worth a
+shortcut, and the one a drag never hits exactly.
 
-Le chiffre ne s'affiche **que** hors du plat. Six potards affichant tous « 0.0 » sont du bruit ;
-ce qu'un coup d'œil cherche, c'est quelle bande quelqu'un a touchée.
+## One truth, two pictures
 
-## Une seule vérité, deux images
+The desk and the graph draw the same plugins and read a **single** picture of them. Without
+`liveParams`, every graph widget would fall back on `n.params`, the number the project file
+**declares**: an EQ turned in Mix would stay at 0 dB in the graph, and a knob turned in the graph
+would do nothing at all, having no `setPluginParam` to call. The two halves are one wire.
 
-Le pupitre et le graphe dessinent les mêmes plugins et lisent **une seule** image d'eux. Sans
-`liveParams`, chaque widget du graphe retomberait sur `n.params`, le nombre que le fichier du
-projet **déclare** : un EQ tourné dans Mix resterait à 0 dB dans le graphe, et un potard tourné
-dans le graphe ne ferait rien du tout, faute de `setPluginParam` à appeler. Les deux moitiés
-sont le même fil.
+The link therefore lives in `Studio` and not in `MixView`, which Studio unmounts as soon as you
+switch to the graph: a `useEngine` inside would leave only one view connected at a time, so no
+shareable picture. `Deck.params` is the `PluginParamsStore` both read.
 
-Le lien vit donc dans `Studio` et non dans `MixView`, que Studio démonte dès qu'on passe sur
-Graphe : un `useEngine` à l'intérieur ne laisserait qu'une vue connectée à la fois, donc aucune
-image partageable. `Deck.params` est le `PluginParamsStore` que les deux lisent.
+The engine is the only thing that knows what a plugin is set to, and it reports it whichever
+surface set it — measured: subscribe (`watch-plugin-params`), another surface sets
+`Low-shelf gain: -12`, a `plugin-params-live` frame arrives with `-12`. Studio subscribes to every
+plugin the chains compile, and **asks** for their value on subscribing as well: without that, a
+plugin that never moves again would be drawn from the file for the rest of the session.
 
-Le moteur est la seule chose qui sache à quoi un plugin est réglé, et il le rapporte quelle que
-soit la surface qui l'a réglé — mesuré : on s'abonne (`watch-plugin-params`), une autre
-surface pose `Low-shelf gain: -12`, une trame `plugin-params-live` arrive avec `-12`. Studio
-s'abonne à tous les plugins que les chaînes compilent, et **demande** en plus leur valeur à
-l'abonnement : sans ça, un plugin qui ne bouge plus jamais serait dessiné depuis le fichier
-pour le reste de la session.
+A surface's local state is therefore an **optimistic** layer on top, never a replacement:
+`shownValue` takes precedence first, the engine second, and `engineAgrees` drops the optimism as
+soon as the engine has caught up. An override that never yields is a control that has stopped
+listening — the engine can clamp what it was sent, and the other picture can move the same
+parameter.
 
-L'état local d'une surface est donc une couche **optimiste** par-dessus, jamais un
-remplacement : `shownValue` prend la main d'abord, le moteur ensuite, et `engineAgrees` lâche
-l'optimisme dès que le moteur a rattrapé. Un override qui ne cède jamais est une commande qui a
-cessé d'écouter — le moteur peut borner ce qu'on lui a envoyé, et l'autre image peut bouger le
-même paramètre.
+That is also what makes a −12 dB scoop **still there** on returning from the graph, where a private
+copy would redraw the knob flat while the sound said otherwise.
 
-C'est aussi ce qui fait qu'un creux de −12 dB est **toujours là** au retour du graphe, là où une
-copie privée redessinerait le potard à plat pendant que le son dit le contraire.
+### And the tempo, which has no plugin at all
 
-### Et le tempo, qui n'a pas de plugin du tout
+The crossfade and the EQ are real plugins: the engine holds them, reports them, everything follows.
+The tempo is `offline` — the compiler emits **no** plugin — so there is nothing to watch and no
+address to watch it at. The parameter store can do nothing for it.
 
-Le crossfade et l'EQ sont de vrais plugins : le moteur les tient, il les rapporte, tout suit.
-Le tempo est `offline` — le compilateur n'en émet **aucun** plugin — donc il n'y a rien à
-surveiller et aucune adresse pour le faire. Le store de paramètres ne peut rien pour lui.
+Its value exists all the same: on the surface that REALISES it, the desk. The desk lends it through
+`Deck.moduleParams`, and the graph borrows it — `moduleParams` on the chains view, indexed by
+MODULE NAME since there is no plugin id. On the `Deck` and not in MixView, because MixView is
+unmounted exactly when the graph is on screen, the one moment the graph needs it.
 
-Sa valeur existe pourtant : sur la surface qui le RÉALISE, le pupitre, qui la transforme en
-warp de clip. Le pupitre la prête donc via `Deck.moduleParams`, et le graphe l'emprunte —
-`moduleParams` sur la vue chaînes, indexé par NOM DE MODULE puisqu'il n'y a pas d'id de
-plugin. Sur le `Deck` et non dans MixView, parce que MixView est démonté exactement quand le
-graphe est à l'écran, le seul moment où celui-ci en a besoin.
+And it is **turnable** from the graph, because the decks' state is not in MixView: `useDeckSet`
+lives in Studio and so outlives the tab. It is the same node answering for three things — a round
+trip through the graph keeps the songs loaded, leaves the crossfader where it is, and the tempo is
+settable from both sides. See [deckSet.md](deckSet.md).
 
-Et il est **tournable** depuis le graphe, parce que l'état des platines n'est pas dans MixView :
-`useDeckSet` vit dans Studio et survit donc à l'onglet. C'est le même nœud qui répond de trois
-choses — un aller-retour par le graphe garde les morceaux chargés, laisse le crossfader où il
-est, et le tempo se règle des deux côtés. Voir [deckSet.md](deckSet.md).
+The return path goes through the DECLARED binding, read backwards: the graph knows only a module
+and a parameter, and `controlDriving` finds the control driving them. Re-pointing a line of
+`views/mix.yaml` therefore moves this knob's effect too.
 
-Le retour se fait par la liaison DÉCLARÉE, lue à l'envers : le graphe ne connaît qu'un module et
-un paramètre, `controlDriving` retrouve le contrôle qui les pilote. Repointer une ligne de
-`views/mix.yaml` déplace donc aussi l'effet de ce potard.
+## What to know
 
-## Ce qu'il faut savoir
+A `params:` changed by hand in `nodes/eqA.yaml` does not move the knob until the project is
+reopened: what the knob shows is the **engine**'s state, and the file only reaches the engine at
+the next document send.
 
-Un `params:` changé à la main dans `nodes/eqA.yaml` ne bouge pas le potard tant que le
-projet n'est pas rouvert : ce que le potard montre est l'état du **moteur**, et le fichier
-n'atteint le moteur qu'au prochain envoi de document.
-
-Et `extends: "@engine/equaliser"` se résout contre le **scan de plugins de la machine**
-(`<state>/exts.json`, un chemin qu'aucune variable d'environnement ne déplace). Sur une
-machine qui n'a jamais scanné, la référence ne résout pas et le module devient un **stub** —
-silencieusement pour le compilateur, qui n'émet alors aucun plugin. Le graphe, lui, le dessine
-comme un stub. C'est ce qui rend un EQ « absent sans message », et c'est pour ça que le fixture
-du test de scaffold déclare le plugin en ligne au lieu de dépendre du scan.
+And `extends: "@engine/equaliser"` resolves against the **machine's plugin scan**
+(`<state>/exts.json`, a path no environment variable moves). On a machine that has never scanned,
+the reference does not resolve and the module becomes a **stub** — silently for the compiler, which
+then emits no plugin. The graph does draw it as a stub. That is what makes an EQ "absent with no
+message", and it is why the scaffold test's fixture declares the plugin inline instead of depending
+on the scan.

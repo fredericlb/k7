@@ -1,36 +1,36 @@
-# Le module `shaders` — du GLSL sur l'image, piloté par le son
+# The `shaders` module — GLSL over the picture, driven by sound
 
 ```yaml
 # graph.yaml
 modules:
-  drums:  [ MIX, glow#audio ]   # la piste alimente le mix ET l'entrée audio du shader
+  drums:  [ MIX, glow#audio ]   # the track feeds the mix AND the shader's audio input
   MIX:    [ OUT ]
-  main:   [ glow ]              # la piste vidéo traverse le shader…
-  glow:   [ RENDER ]            # …avant d'arriver au compositeur
+  main:   [ glow ]              # the video track crosses the shader…
+  glow:   [ RENDER ]            # …before reaching the compositor
   RENDER: [ VIDEO_OUT ]
 ```
 
-Un module de type `shaders` prend **une image**, rend **une image**, et accepte en plus une
-**entrée audio facultative** dont le niveau arrive au fragment sous le nom `uAudio`. C'est le seul
-module du dépôt dont les ports portent deux signaux différents, et c'est exactement ce à quoi il
-sert : une image qui **bouge avec le son**.
+A `shaders` module takes **one image**, renders **one image**, and additionally accepts an
+**optional audio input** whose level reaches the fragment as `uAudio`. It is the only module in the
+repo whose ports carry two different signals, and that is exactly what it is for: a picture that
+**moves with the sound**.
 
-| port | signal | obligatoire |
+| port | signal | required |
 |---|---|---|
-| `in` | vidéo | oui — c'est le flux de la chaîne |
-| `audio` | audio | **non** — un shader qui n'utilise que ses boutons est un effet vidéo ordinaire |
-| `out` | vidéo | une seule sortie |
+| `in` | video | yes — this is the chain's flow |
+| `audio` | audio | **no** — a shader using only its knobs is an ordinary video effect |
+| `out` | video | a single output |
 
-L'entrée audio n'est jamais le flux : c'est une **entrée latérale**, écrite `drums: [ glow#audio ]`,
-donc la vérification positionnelle des ports remplit `in` depuis le flux et celle-ci depuis les
-`in:` de l'étape — exactement comme la deuxième entrée d'un crossfade.
+The audio input is never the flow: it is a **side input**, written `drums: [ glow#audio ]`, so
+positional port checking fills `in` from the flow and this one from the step's `in:` — exactly like
+a crossfade's second input.
 
-## Le dossier d'un shader
+## A shader's folder
 
 ```
 modules/shaders/glow/
   module.yaml            type: shader, shader: pulse, params: P1..P4
-  ui.yaml                le menu déroulant + les quatre boutons
+  ui.yaml                the dropdown + the four knobs
   shaders/
     pulse/
       vertex.glsl
@@ -40,20 +40,18 @@ modules/shaders/glow/
       fragment.glsl
 ```
 
-Un shader est un **dossier**, pas un fichier, parce qu'un shader est une **paire** : changez le
-fragment en gardant le vertex et vous avez un autre effet sur la même géométrie. Nommer la paire
-d'après le dossier est ce qui permet au menu de proposer `ripple` au lieu de deux demi-choix qu'on
-peut dépareiller.
+A shader is a **folder**, not a file, because a shader is a **pair**: change the fragment while
+keeping the vertex and you have another effect over the same geometry. Naming the pair after the
+folder is what lets the menu offer `ripple` instead of two half-choices that can be mismatched.
 
-Un dossier auquel il manque une des deux étapes **n'est pas proposé**. Le proposer compilerait un
-programme sans étage de sommets, et l'échec parlerait de GL plutôt que d'un fichier que quelqu'un
-n'a pas fini d'écrire.
+A folder missing either stage **is not offered**: offering it compiles a program with no vertex
+stage, and the failure talks about GL rather than about a file someone has not finished writing.
 
-`shaders/` à côté du `module.yaml` et non dans `assets/`, sur le modèle de `base/` : `assets/` est
-une liste plate de fichiers qu'un paramètre NOMME, filtrée par extension (`assetExtFor`). Un shader
-est un répertoire — il aurait été la seule entrée de ce dossier à ne pas être un fichier.
+`shaders/` sits beside the `module.yaml` and not in `assets/`, on the model of `base/`: `assets/` is
+a flat list of files that a parameter NAMES, filtered by extension (`assetExtFor`). A shader is a
+directory — it would be the only entry there that is not a file.
 
-## Le menu déroulant est rempli par le DISQUE
+## The dropdown is filled by the DISK
 
 ```yaml
 # ui.yaml
@@ -61,165 +59,155 @@ widgets:
   pick: { type: dropdown, col: 0, row: 0, colSpan: 4, bind: "@shader" }
 ```
 
-Le panneau ne dit **rien** de ses entrées, et c'est tout le sujet : quels shaders existent change
-dès que quelqu'un dépose un dossier, et une liste écrite ici serait la copie d'un répertoire qui
-se périme entre deux sauvegardes. Le graphe la remplit depuis ce que le chargeur a trouvé
-(`moduleShaderChoices`) — le mécanisme exact de `@base`, sur un autre dossier.
+The panel says **nothing** about its entries: which shaders exist changes the moment someone drops
+in a folder, and a list written here would be a copy of a directory that goes stale between two
+saves. The graph fills it from what the loader found (`moduleShaderChoices`) — the mechanism of
+`@base`, over another folder.
 
-`@shader` est un **champ** et non un paramètre, la distinction que trace déjà `base` : les quatre
-boutons pilotent un programme qui tourne, celui-ci décide **quel programme est compilé**. Le rendu
-l'apprend en reconstruisant la passe, comme le moteur apprend une base en reconstruisant le plugin.
+`@shader` is a **field** and not a parameter, the distinction `base` already draws: the four knobs
+drive a running program, this one decides **which program is compiled**. The renderer learns it by
+rebuilding the pass.
 
-La liste est cherchée dans l'**ascendance** — le module lui-même puis tout ce qu'il `extends` — pour
-la même raison que `moduleAssetChoices` : un morceau pointe vers un module partagé à travers
-un module local mince, dont le dossier ne contient rien. Un shader local masque un shader hérité du
-même nom, et `readShader` cherche dans le même ordre : la liste où l'on choisit et la source que
-l'on obtient doivent être d'accord.
+The list is searched through the **ancestry** — the module then everything it `extends` — for the
+same reason as `moduleAssetChoices`: a song points at a shared module through a thin local module
+whose folder holds nothing. A local shader masks an inherited one of the same name, and `readShader`
+searches in the same order: the list you choose from and the source you get must agree.
 
-## Les uniformes — le contrat
+## The uniforms — the contract
 
-| uniforme | ce que c'est |
+| uniform | what it is |
 |---|---|
-| `uTex` | l'image qui entre : la trame de la piste pour la première passe, la sortie de la précédente ensuite |
-| `uAudio` | `float` 0..1 — le niveau vivant de la piste câblée sur le port audio, 0 s'il n'y en a pas |
-| `uTime` | `float` secondes — la position du **transport**, pas une horloge du moteur de rendu |
-| `uResolution` | `vec2` px — le viewport |
-| `uP1`..`uP4` | `float` 0..1 — les quatre boutons |
+| `uTex` | the incoming image: the track's frame for the first pass, the previous pass's output afterwards |
+| `uAudio` | `float` 0..1 — the live level of the track wired to the audio port, 0 if there is none |
+| `uTime` | `float` seconds — the **transport** position, not a render-engine clock |
+| `uResolution` | `vec2` px — the viewport |
+| `uP1`..`uP4` | `float` 0..1 — the four knobs |
 
-Écrit noir sur blanc parce que rien ne le dira à personne : GL renvoie une localisation nulle pour
-un uniforme inconnu **et** pour un uniforme simplement inutilisé, donc les deux sont
-indiscernables. Une faute de frappe dans un nom d'uniforme ne produit aucune erreur et aucun effet.
+Written down because nothing else will tell anyone: GL returns a null location for an unknown
+uniform **and** for a merely unused one, so the two are indistinguishable. A typo in a uniform name
+produces no error and no effect.
 
-### Pourquoi quatre boutons numérotés
+### Why four numbered knobs
 
-Le module ne peut pas savoir comment un shader appellera ses commandes, et l'auteur d'un shader ne
-peut pas renommer un bouton sur un panneau qu'il ne voit jamais. Quatre, c'est ce qui tient sur une
-ligne de la grille ; 0..1, c'est ce que veut un uniforme GLSL — aucun shader n'a à normaliser,
-aucun panneau n'a à demander les unités. Ce que chacun **signifie** est l'affaire du shader, et se
-lit dans les commentaires de son `fragment.glsl`.
+The module cannot know what a shader will call its controls, and a shader's author cannot rename a
+knob on a panel he never sees. Four is what fits on one row of the grid; 0..1 is what a GLSL uniform
+wants — no shader normalises, no panel asks for units. What each one **means** is the shader's
+business, and reads in its `fragment.glsl` comments.
 
-Les valeurs sont **bornées** à la compilation, parce qu'elles quittent TypeScript pour GLSL : un
-`P1: 4` écrit à la main atteint un shader qui a tout droit de supposer 0..1, et ce qui en sort n'est
-pas une image fausse mais une image méconnaissable.
+Values are **clamped** at compile time, because they leave TypeScript for GLSL: a hand-written
+`P1: 4` reaches a shader entitled to assume 0..1, and what comes out is not a wrong image but an
+unrecognisable one.
 
-## `uAudio` : d'un vumètre à un uniforme
+## `uAudio`: from a VU meter to a uniform
 
-Le moteur pousse `levels`, un **tableau** de dB par piste, ~20 fois par seconde — sans noms, indexé
-sur la liste des pistes compilées. Le chemin complet :
+The engine pushes `levels`, an **array** of dB per track, ~20 times a second — nameless, indexed on
+the list of compiled tracks.
 
 ```
-EngineState.levels[i]          le moteur, ~20 Hz
- -> levelsForPasses()          apps/st0/frontend/src/shaderAudio.ts — l'index vient de trackOrder
+EngineState.levels[i]          the engine, ~20 Hz
+ -> levelsForPasses()          apps/st0/frontend/src/shaderAudio.ts — the index comes from trackOrder
  -> levelToUnit()              -60..0 dB -> 0..1
- -> smoothLevels()             attaque rapide, retour lent
+ -> smoothLevels()             fast attack, slow release
  -> RealtimeDriver.setAudio()  @studio/ui-eyes
  -> uAudio
 ```
 
-Trois décisions valent d'être énoncées :
+Three decisions worth stating:
 
-- **Linéaire EN DÉCIBELS**, pas en amplitude. Un visuel qui suit l'amplitude reste collé à zéro
-  sauf sur les crêtes, parce que c'est ce que fait l'amplitude ; le décibel est déjà l'échelle
-  perceptive, et un vumètre à barre est linéaire en dB pour la même raison.
-- **Le plancher est −60 dB**, pas le −100 du moteur. Étaler toute la plage tasserait tous les
-  niveaux utiles dans le dernier dixième.
-- **Le lissage est asymétrique** — montée rapide, descente lente. C'est ce que fait toute
-  balistique de vumètre et tout release de compresseur : un lissage symétrique donne soit une
-  attaque molle, soit une descente qui clignote, et aucune constante n'évite les deux.
+- **Linear IN DECIBELS**, not in amplitude. A visual following amplitude stays pinned near zero
+  except on peaks, because that is what amplitude does; the decibel is already the perceptual scale,
+  and a bar VU meter is linear in dB for the same reason.
+- **The floor is −60 dB**, not the engine's −100. Spreading the whole range would pack every useful
+  level into the last tenth.
+- **Smoothing is asymmetric** — fast rise, slow fall. This is what every VU ballistic and every
+  compressor release does: symmetric smoothing gives either a soft attack or a flickering decay, and
+  no constant avoids both.
 
-Le document compilé porte le **nom de la piste** (`audioFrom`) et non un nombre : le nombre bouge,
-et le figer dans un document mis en cache serait le figer pour de bon.
+The compiled document carries the **track's name** (`audioFrom`) and not a number: the number moves,
+and freezing it into a cached document would freeze it for good.
 
-## Où une passe peut aller : les deux
+## Where a pass may go: both
 
 ```yaml
 modules:
-  main:   [ glow ]         # sur une PISTE — la couche est traitée avant d'être composée
+  main:   [ glow ]         # on a TRACK — the layer is processed before being composited
   glow:   [ RENDER ]
-  RENDER: [ grade ]        # sur l'IMAGE — la trame entière, une fois les couches composées
+  RENDER: [ grade ]        # on the IMAGE — the whole frame, once the layers are composited
   grade:  [ VIDEO_OUT ]
 ```
 
-Une seule implémentation, autorisée partout où va un câble vidéo. Aucune des deux n'est un cas
-particulier de l'autre et les deux sont des chaînes ordinaires ; seul l'endroit où le résultat est
-rangé diffère — `VideoTrackDoc.plugins` d'un côté, `VideoProjectDoc.framePlugins` de l'autre, ce
-dernier étant le `masterPlugins` de l'image ([videoOutputs.md](videoOutputs.md)).
+One implementation, allowed anywhere a video cable goes. Both are ordinary chains; only where the
+result is stored differs — `VideoTrackDoc.plugins` on one side, `VideoProjectDoc.framePlugins` on
+the other, the latter being the picture's `masterPlugins` ([videoOutputs.md](videoOutputs.md)).
 
-La chaîne d'une piste tourne à la taille du **viewport** puis est dessinée dans le rectangle de la
-piste, plutôt que de tourner à la taille du rectangle. C'est ce qui fait qu'un effet a le même
-caractère sur une incrustation que sur une piste plein cadre : un effet ne change pas de nature
-parce qu'on a rétréci la piste qui le porte.
+A track's chain runs at **viewport** size and is then drawn into the track's rectangle, rather than
+running at the rectangle's size. That is what makes an effect have the same character on an inset as
+on a full-frame track: an effect does not change nature because the track carrying it was shrunk.
 
-## Ce qui ne casse rien
+## What breaks nothing
 
-Trois états où l'on **perd l'effet et garde l'image**, et c'est délibéré dans les trois cas :
+Three states where the effect is **lost and the image kept**, deliberate in all three:
 
-- `shader:` absent — un nœud qu'on vient d'ajouter ;
-- `shader:` nommant un dossier qui n'est pas là — un morceau commité dont les fichiers n'ont pas
-  encore été synchronisés ;
-- du GLSL qui ne compile pas — un shader qu'on est **en train d'écrire**.
+- `shader:` absent — a node just added;
+- `shader:` naming a folder that is not there — a committed song whose files are not synced yet;
+- GLSL that does not compile — a shader being **written**.
 
-Dans les trois cas le nœud garde sa carte, ses boutons et son menu. Un fragment à moitié tapé ne
-doit pas emporter le viewport ; c'est la même posture que `presetFor` tient face à une base
-disparue. Le message d'erreur nomme le **nœud** (`glow`) et non le fichier, parce que le nœud est ce
-qui est à l'écran et ce sur quoi on cliquerait.
+In all three the node keeps its card, its knobs and its menu — a half-typed fragment must not take
+the viewport with it, the posture `presetFor` holds against a vanished base. The error names the
+**node** (`glow`) and not the file, because the node is what is on screen and what one would click.
 
-Le `graph.yaml` illisible est traité pareil : la compilation de l'image est *best-effort*, parce que
-le compilateur du morceau signale déjà l'erreur, dans l'éditeur, sur la ligne fautive. Perdre les
-effets se rattrape en lisant ce message ; perdre la trame est un écran noir sans explication.
+An unreadable `graph.yaml` is treated the same: compiling the picture is *best-effort*, because the
+song compiler already reports the error, in the editor, on the offending line. Losing the effects is
+recoverable by reading that message; losing the frame is a black screen with no explanation.
 
-## Ce que la compilation décide en silence
+## What compilation decides in silence
 
-`videoChains.ts` prend cinq décisions qui ne se lisent nulle part ailleurs :
+`videoChains.ts` takes five decisions that read nowhere else:
 
-- **Une étape dont le module est introuvable renvoie `null`, sans lever.** `validate()` signale déjà
-  la référence cassée, par son nom, sur la ligne qui la nomme ; découvrir un module manquant en
-  compilant l'image ferait tomber toute la trame pour une étape.
-- **Un module qui n'est pas un module d'image sur un fil vidéo n'est pas compilé et n'est pas
-  signalé ici non plus** : la vérification des ports refuse déjà l'image vers un module audio, et
-  elle en parle en termes de câble plutôt que de trame qui n'a pas su se dessiner.
-- **Les étapes contournées sont GARDÉES dans le run compilé.** Le rendu doit *dessiner* une passe
-  éteinte, et non recevoir une liste plus courte qu'il ne saurait distinguer d'une chaîne plus
-  courte. Un contournement de la chaîne ENTIÈRE (`enabled: false` sur le run) la supprime au
-  contraire : c'est le run qui a été retiré, et une pile de commandes désactivées dessinerait les
-  réglages de quelque chose qui n'est pas là.
-- **Seul le run qui PART vraiment vers le périphérique est la chaîne de la trame.** Un run qui sort
-  de la somme et finit ailleurs n'en est pas une, et le traiter comme telle appliquerait une passe
-  que l'image n'atteint jamais.
-- **Les paramètres d'un effet vidéo sont filtrés aux nombres** — `params:` peut porter une chaîne
-  qui nomme un fichier, ce qui ne veut rien dire pour un rendu. Le même tri que `nodeProject` fait
-  avant le fil audio. Pour un shader, un `P1..P4` que le module ne mentionne pas vaut **0** et non
-  « absent » : l'uniforme existe dans le programme quoi qu'en dise le fichier, et le laisser non
-  défini reviendrait à donner au shader ce que GL avait là avant.
+- **A step whose module is not found returns `null`, without throwing.** `validate()` already
+  reports the broken reference, by name, on its line; discovering a missing module while compiling
+  the picture would drop the whole frame over one step.
+- **A module that is not a picture module on a video wire is neither compiled nor reported here**:
+  port checking already refuses video into an audio module, and it speaks of a cable rather than of
+  a frame that failed to draw.
+- **Bypassed steps are KEPT in the compiled run.** The renderer must *draw* a disabled pass, not
+  receive a shorter list it could not tell from a shorter chain. Bypassing the WHOLE chain
+  (`enabled: false` on the run) removes it instead: the run itself was withdrawn, and a stack of
+  disabled commands would draw the settings of something that is not there.
+- **Only the run that actually LEAVES for the device is the frame's chain.** A run leaving the sum
+  and ending elsewhere is not one, and treating it as such would apply a pass the picture never
+  reaches.
+- **A video effect's parameters are filtered to numbers** — `params:` may carry a string naming a
+  file, which means nothing to a renderer. The same sort `nodeProject` does before the audio wire.
+  For a shader, a `P1..P4` the module does not mention is **0** and not "absent": the uniform exists
+  in the program whatever the file says, and leaving it undefined would hand the shader whatever GL
+  had there before.
 
-L'entrée audio d'un shader est une entrée latérale : elle arrive par les `in:` de l'étape, ce à quoi
-`gtr: [ glow#audio ]` se compile. Ce qui est retenu est le **nœud**, le port étant abandonné — le
-rendu a besoin d'un nom pour aller lire un niveau, et savoir sur quelle prise il a atterri est déjà
-tranché par le fait d'y être arrivé. La première source seulement : les sources d'une étape
-remplissent ses ports dans l'ordre et un shader déclare exactement un port audio, donc une seconde
-source est une erreur de câblage que la vérification des ports signale déjà.
+Of a step's `in:`, what is retained for `audioFrom` is the **node**, the port being dropped — the
+renderer needs a name to go read a level, and which socket it landed on is already settled by having
+landed. The first source only: a shader declares exactly one audio port, so a second source is a
+wiring error port checking already reports.
 
-## Les couches traversées
+## The layers crossed
 
 | | |
 |---|---|
-| écrit | `modules/shaders/<nom>/` + un run vidéo dans `graph.yaml` |
-| déclaré | `src/moduleTypes.ts` — `MODULE_TYPES.shaders`, `SHADER_PARAMS`, `SHADERS_DIR` |
-| lu | `src/shaders.ts` — `moduleShaderChoices` / `readShader`, l'ascendance comprise |
-| dérivé | `src/chainsGraph.ts` : une piste vidéo est une piste, donc `main: [ glow ]` est un run |
-| compilé | `src/videoChains.ts` -> `VideoPluginDoc`, le GLSL **en ligne** |
-| le fil | `@studio/web-protocol`'s `WebVideoPlugin` |
-| proposé | `packages/file-service/src/graphDoc.ts` — `shader` + `shaders` sur l'étape |
-| dessiné | le menu et les quatre boutons, `@studio/ui-chains`' `stepUI` |
-| écrit en retour | `@studio/commands`' intrinsèque `@shader` -> `setModuleShader` |
-| exécuté | `@studio/ui-eyes`' `src/passes.ts` + `src/compositor.ts` |
+| written | `modules/shaders/<name>/` + a video run in `graph.yaml` |
+| declared | `src/moduleTypes.ts` — `MODULE_TYPES.shaders`, `SHADER_PARAMS`, `SHADERS_DIR` |
+| read | `src/shaders.ts` — `moduleShaderChoices` / `readShader`, ancestry included |
+| derived | `src/chainsGraph.ts`: a video track is a track, so `main: [ glow ]` is a run |
+| compiled | `src/videoChains.ts` -> `VideoPluginDoc`, the GLSL **inline** |
+| the wire | `@studio/web-protocol`'s `WebVideoPlugin` |
+| offered | `packages/file-service/src/graphDoc.ts` — `shader` + `shaders` on the step |
+| drawn | the menu and the four knobs, `@studio/ui-chains`' `stepUI` |
+| written back | `@studio/commands`' intrinsic `@shader` -> `setModuleShader` |
+| executed | `@studio/ui-eyes`' `src/passes.ts` + `src/compositor.ts` |
 
-Le GLSL voyage **en ligne** dans le document plutôt que derrière une URL : un navigateur ne peut pas
-ouvrir un dossier, un shader tient dans une page de texte, le document image est déjà mis en cache
-par révision, et une route de plus voudrait dire que l'image peut se dessiner avant que ses
-programmes soient arrivés.
+The GLSL travels **inline** in the document rather than behind a URL: a browser cannot open a
+folder, a shader fits in a page of text, the picture document is already cached by revision, and one
+more route would mean the picture can draw before its programs have arrived.
 
-## Le vérifier
+## Checking it
 
 ```bash
 npx vitest run packages/song-video/src/shaders.test.ts packages/song-video/src/videoChains.test.ts
@@ -227,9 +215,8 @@ npx vitest run packages/ui-eyes/src/passes.test.ts
 npx vitest run apps/st0/frontend/src/shaderAudio.test.ts
 ```
 
-Ces suites prouvent le document, l'ordre des passes et la conversion du niveau. **Aucune ne prouve
-qu'un pixel a changé** — il n'y a pas de WebGL2 dans le runner, et `passes.test.ts` dit lui-même ce
-qu'un faux contexte peut et ne peut pas établir. La vérification qui reste est celle qu'on fait avec
-les yeux : ouvrir `demos/video-demo.st0`, lancer la lecture, et regarder l'image
-respirer avec la batterie. Changer le menu de `pulse` à `ripple` doit changer l'effet sans toucher
-au câblage.
+These prove the document, the pass order and the level conversion. **None proves a pixel changed** —
+there is no WebGL2 in the runner, and `passes.test.ts` states itself what a fake context can
+establish. The rest is done with the eyes: open `demos/video-demo.st0`, start playback, and watch
+the picture breathe with the drums. Switching the menu from `pulse` to `ripple` must change the
+effect without touching the wiring.

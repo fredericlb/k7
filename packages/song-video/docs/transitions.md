@@ -1,218 +1,212 @@
-# Les transitions — ce qu'un plan fait en arrivant et en partant
+# Transitions — what a shot does arriving and leaving
 
-Sœur de [shaders.md](shaders.md) : le même GLSL sur l'image, mais choisi par une **coupe** et non
-par un câble.
+Sister page to [shaders.md](shaders.md): the same GLSL over the picture, but chosen by a **cut**
+rather than by a cable.
 
 ```yaml
 # video_tracks/main.yaml
 events:
   - { ref: plan_a, start: 0,  length: 5 }
-  - { ref: plan_b, start: 4,  length: 5, fade_in: 1 }                        # 1 s de fondu enchaîné sur plan_a
+  - { ref: plan_b, start: 4,  length: 5, fade_in: 1 }                        # 1 s dissolve over plan_a
   - { ref: plan_c, start: 9,  length: 5, fade_in: { over: 1.5, with: wipe } }
-  - { ref: plan_d, start: 14, length: 5, fade_out: 2 }                       # part vers ce qu'il y a dessous
+  - { ref: plan_d, start: 14, length: 5, fade_out: 2 }                       # leaves towards whatever is below
 ```
 
-## Un nombre nu, ou une carte
+## A bare number, or a map
 
-`fade_in: 1` **est** `fade_in: { over: 1, with: dissolve }`. Le `dissolve` est intégré au rendu,
-donc un fondu ordinaire ne demande aucun fichier : un morceau qui n'a pas de dossier `modules/`
-peut fondre.
+`fade_in: 1` **is** `fade_in: { over: 1, with: dissolve }`. The `dissolve` is built into the
+renderer, so an ordinary fade needs no file: a song with no `modules/` folder can fade.
 
-Ce n'est **pas une union** mais un élargissement (`z.preprocess`), et la raison est mesurable :
-sur une union, une clé mal tapée ressort en `Invalid input` avec les vraies erreurs enterrées dans
-les branches, donc `validate.ts` ne retrouve pas la ligne. Élargi, `{ ovr: 1 }` répond
-`unrecognized_keys` sur `events.0.fade_in`, et l'éditeur souligne le bon endroit.
+It is **not a union** but a widening (`z.preprocess`), and the reason is measurable: on a union a
+mistyped key surfaces as `Invalid input` with the real errors buried in the branches, so
+`validate.ts` cannot find the line. Widened, `{ ovr: 1 }` answers `unrecognized_keys` on
+`events.0.fade_in`, and the editor underlines the right place.
 
-## C'est le plan qui ARRIVE qui porte la transition
+## The ARRIVING shot carries the transition
 
-Une transition, c'est **un programme et une progression**. Si le `fade_out` de A et le `fade_in`
-de B pouvaient tous deux régir le même recouvrement, deux programmes voudraient la même paire et
-rien ne trancherait.
+A transition is **one program and one progression**. If A's `fade_out` and B's `fade_in` could both
+govern the same overlap, two programs would want the same pair and nothing would decide.
 
-> Dans un recouvrement, le `fade_in` du plan entrant EST la transition.
+> In an overlap, the incoming shot's `fade_in` IS the transition.
 
-Un `fade_out` est donc exactement le cas où il n'y a pas de plan entrant : l'image s'en va vers
-rien, et ce qui apparaît est la **couche du dessous** (ou le fond du viewport pour la couche du
-bas). Fondu enchaîné et fondu au noir sont un seul chemin de code ; ce qui diffère est seulement
-qu'un second plan soit actif ou non.
+A `fade_out` is therefore exactly the case where there is no incoming shot: the picture leaves
+towards nothing, and what appears is the **layer below** (or the viewport's background for the
+bottom layer). Cross-dissolve and fade-to-black are one code path; all that differs is whether a
+second shot is active.
 
-Faire glisser un plan sur son voisin est ce qui crée le recouvrement. Le geste ne le crée pas :
-ce serait un montage en cascade, et aucun glissement ici n'en fait un.
+Dragging a shot over its neighbour is what creates the overlap. The gesture does not create the
+transition: that would be cascade editing, and no drag here does it.
 
-## `length: 0` — deux cas, dont un seul est refusé
+## `length: 0` — two cases, one of them refused
 
-`length: 0` veut dire « jusqu'au bout de la source », et
-[`activeAt`](../../ui-eyes/src/timeline.ts) le résout comme « jusqu'au `start` du plan suivant »,
-`Infinity` s'il n'y en a pas.
+`length: 0` means "to the end of the source", and
+[`activeAt`](../../ui-eyes/src/timeline.ts) resolves it as "to the next shot's `start`", `Infinity`
+if there is none.
 
-| forme | ce que fait `fade_out` |
+| shape | what `fade_out` does |
 |---|---|
-| `length: 0`, un autre événement suit | marche : la fin est le `start` du suivant |
-| `length: 0`, **dernier de la liste** | la fin est `Infinity` : **refusé**, sur la ligne |
+| `length: 0`, another event follows | works: the end is the next `start` |
+| `length: 0`, **last in the list** | the end is `Infinity`: **refused**, on the line |
 
-Le refus vit sur `VideoTrackSchema` et non sur le placement, parce qu'un placement seul ne peut pas
-savoir s'il est le dernier. « Le dernier plan va jusqu'au bout de sa source » et « le dernier plan
-fond en sortie » sont incompatibles ; donnez-lui une longueur et le second redevient possible.
+The refusal lives on `VideoTrackSchema` and not on the placement, because a placement alone cannot
+know whether it is last. "The last shot runs to the end of its source" and "the last shot fades
+out" are incompatible; give it a length and the second becomes possible again.
 
-Un `fade_in` n'a jamais ce problème : il est ancré sur `start`, qui est toujours connu.
+A `fade_in` never has this problem: it is anchored on `start`, which is always known.
 
-Corollaire moins visible : un plan en `length: 0` ne peut pas être la moitié **sortante** d'un
-fondu enchaîné, puisque sa fin est par construction le début du suivant — le recouvrement vaut
-zéro.
+A less visible corollary: a `length: 0` shot cannot be the **outgoing** half of a cross-dissolve,
+since its end is by construction the next shot's start — the overlap is zero.
 
-## Le dossier d'un module de transition
+## A transition module's folder
 
 ```
 modules/video_transitions/wipe/
   module.yaml          type: video_transition, params: P1..P4
   vertex.glsl
   fragment.glsl
-  ui.yaml              les quatre boutons, dessinés par le constructeur de modules
+  ui.yaml              the four knobs, drawn by the module builder
 ```
 
-Le GLSL est **à plat dans le dossier du module**, et non sous `shaders/<nom>/`. Le niveau
-supplémentaire qu'a `shaders` existe pour remplir un **menu déroulant sur une carte**
-([shaders.md](shaders.md)) ; une transition NOMMÉE n'a pas de carte. Un `shader:` sur un module de
-transition voudrait dire que le fichier écrit `with: wipe` et qu'on obtient `barn-door` — un second
-nommage pour un choix que le placement a déjà fait, sans rien pour le montrer. Un dossier de module
-est donc une transition, et une seule.
+The GLSL is **flat in the module's folder**, not under `shaders/<name>/`. The extra level `shaders`
+has exists to fill a **dropdown on a card** ([shaders.md](shaders.md)); a NAMED transition has no
+card. A `shader:` on a transition module would mean the file says `with: wipe` and you get
+`barn-door` — a second naming for a choice the placement has already made, with nothing to show it.
+A module folder is therefore one transition, and one only.
 
-Il manque une des deux étapes : ce n'est pas une transition. Même règle et même raison
-qu'`isShaderFolder` — la proposer compilerait un programme sans étage de sommets, et l'erreur
-parlerait de GL plutôt que d'un fichier que quelqu'un n'a pas fini.
+If one of the two stages is missing it is not a transition. Same rule and same reason as
+`isShaderFolder` — offering it would compile a program with no vertex stage, and the error would
+talk about GL rather than about a file somebody has not finished.
 
-`with:` nomme **toujours un module local** de `modules/video_transitions/`. Une transition partagée
-se rejoint par un module local mince qui l'`extends`, exactement comme un shader :
-[`ownerFolders`](../src/shaders.ts) remonte l'ascendance et le premier dossier qui porte les deux
-étapes gagne, donc un programme local masque un programme hérité du même nom.
+`with:` **always** names a local module of `modules/video_transitions/`. A shared transition is
+reached through a thin local module that `extends` it, exactly as a shader is:
+[`ownerFolders`](../src/shaders.ts) walks the ancestry and the first folder carrying both stages
+wins, so a local program masks an inherited one of the same name.
 
-## Les uniformes — le contrat
+## The uniforms — the contract
 
-Écrit noir sur blanc pour la raison qui vaut déjà pour `PASS_UNIFORMS` : GL renvoie une localisation
-nulle pour un uniforme **inconnu** et pour un uniforme simplement **inutilisé**, donc une faute de
-frappe ne produit ni erreur ni effet.
+Written out for the reason that already applies to `PASS_UNIFORMS`: GL returns a null location for
+an **unknown** uniform and for a merely **unused** one, so a typo produces neither an error nor an
+effect.
 
-| uniforme | ce que c'est |
+| uniform | what it is |
 |---|---|
-| `uFrom` | l'image qui S'EN VA — un texel transparent quand il n'y en a pas |
-| `uTo` | l'image qui ARRIVE — transparent pour un `fade_out` |
-| `uProgress` | `float` 0..1 — 0 c'est `uFrom` seul, 1 c'est `uTo` seul |
-| `uTime` | `float` secondes — la position du **transport** |
-| `uResolution` | `vec2` px — le viewport |
-| `uP1`..`uP4` | `float` 0..1 — les quatre boutons du module |
+| `uFrom` | the picture LEAVING — a transparent texel when there is none |
+| `uTo` | the picture ARRIVING — transparent for a `fade_out` |
+| `uProgress` | `float` 0..1 — 0 is `uFrom` alone, 1 is `uTo` alone |
+| `uTime` | `float` seconds — the **transport**'s position |
+| `uResolution` | `vec2` px — the viewport |
+| `uP1`..`uP4` | `float` 0..1 — the module's four knobs |
 
-`uFrom`/`uTo` plutôt que `uTex`/`uTex2` : ça se lit avec `uProgress`, et surtout ce n'est **pas**
-`uTex`, donc un fragment copié depuis un module `shaders` échoue à l'écriture au lieu
-d'échantillonner silencieusement du vide.
+`uFrom`/`uTo` rather than `uTex`/`uTex2`: it reads with `uProgress`, and above all it is **not**
+`uTex`, so a fragment copied from a `shaders` module fails at write time instead of silently
+sampling nothing.
 
-**`uAudio` est délibérément absent**, et son absence est l'argument de la section suivante : c'est
-le seul uniforme d'un shader qui exige un **câble**. Une transition n'a pas de nœud, donc pas
-d'entrée latérale `#audio`, donc aucune piste dont elle pourrait lire le niveau. Une image qui bouge
-avec le son est un shader sur la couche, pas une transition.
+**`uAudio` is deliberately absent**, and its absence is the next section's argument: it is the one
+shader uniform that requires a **cable**. A transition has no node, so no `#audio` side input, so
+no track whose level it could read. A picture moving with the sound is a shader on the layer, not a
+transition.
 
-## Nommée, pas câblée
+## Named, not cabled
 
-Une transition n'apparaît **jamais** dans `graph.yaml`. Elle est nommée par un placement, comme
-`clips/<ref>.yaml` l'est : de la matière, pas une station sur le trajet du signal. Trois raisons :
+A transition **never** appears in `graph.yaml`. It is named by a placement, as `clips/<ref>.yaml`
+is: material, not a station on the signal's route. Three reasons:
 
-- **Il n'y a pas de station.** Une chaîne va d'une source à un puits ; une transition se passe
-  *entre deux placements d'une même piste*, ce qui est un fait sur l'arrangement de la piste et non
-  sur l'endroit où sa sortie s'en va.
-- **Elle n'a pas de second câble à prendre.** `MODULE_TYPES.video_transitions` déclare **une** entrée
-  vidéo depuis que le type existe, et cette entrée unique est l'aveu : le type a été modelé avant
-  qu'on demande d'où venait la seconde image. Le
-  [crossfade](../../dsp/modules/audio/utility/crossfade/module.yaml) est là pour montrer qu'un effet
-  à deux fils doit déclarer ses propres ports — et une transition ne le pourrait toujours pas, parce
-  que la seconde image n'est pas sur un câble : c'est l'entrée suivante de `events:`.
-- **Le contrat des uniformes le dit** (`uAudio`, ci-dessus).
+- **There is no station.** A chain runs from a source to a sink; a transition happens *between two
+  placements on one track*, which is a fact about the track's arrangement and not about where its
+  output goes.
+- **It has no second cable to take.** `MODULE_TYPES.video_transitions` declares **one** video
+  input, and that single input is the admission: the type was modelled before anyone asked where
+  the second picture came from. The
+  [crossfade](../../dsp/modules/audio/utility/crossfade/module.yaml) is there to show that a
+  two-wire effect must declare its own ports — and a transition still could not, because the second
+  picture is not on a cable: it is the next entry in `events:`.
+- **The uniform contract says so** (`uAudio`, above).
 
-Les ports de `video_transitions` restent **déclarés** malgré tout, et ce n'est pas un oubli : les
-vider ne les interdirait pas, ça les rendrait *non contraints* — `normalizeInputs` traite une liste
-vide comme « pas de vérification ». Et la clé reste dans `MODULE_TYPES` parce que
-`moduleKeyFromPath` s'en sert pour reconnaître le dossier ; l'enlever ferait perdre
-`modules/video_transitions/` à l'éditeur et au constructeur de modules.
+`video_transitions`' ports stay **declared** all the same, and that is not an oversight: emptying
+them would not forbid them, it would make them *unconstrained* — `normalizeInputs` treats an empty
+list as "no check". And the key stays in `MODULE_TYPES` because `moduleKeyFromPath` uses it to
+recognise the folder; removing it would lose `modules/video_transitions/` for the editor and the
+module builder.
 
-## Ses boutons sont dessinés par le CONSTRUCTEUR de modules
+## Its knobs are drawn by the module BUILDER
 
-Une carte et ses paramètres appartiennent à une **étape de chaîne**, et un module nommé par un
-placement n'en a pas. Le `ui.yaml` posé à côté du module est donc rendu par
-`@studio/ui-module-builder` — le bouton **Builder** de la barre d'outils d'un `module.yaml` — qui
-dessine déjà boutons et menus depuis ce fichier.
+A card and its parameters belong to a **chain step**, and a module named by a placement has none.
+The `ui.yaml` sitting beside the module is therefore rendered by `@studio/ui-module-builder` — the
+**Builder** button on a `module.yaml`'s toolbar — which already draws knobs and menus from that
+file.
 
-## Ce qui ne casse rien
+## What breaks nothing
 
-Un `with:` qui ne nomme rien de connu **ne fait pas tomber la trame** : la transition est
-simplement absente du document et le rendu retombe sur le `dissolve` intégré. C'est une divergence
-assumée avec [shaders.md](shaders.md), dont la posture est « perdre l'effet, garder l'image » : ici
-garder l'image en supprimant la transition **déplacerait la coupe**, c'est-à-dire perdrait
-l'*arrangement*. Retomber sur un fondu garde la durée que l'auteur a écrite et ne perd que le
-caractère.
+A `with:` naming nothing known **does not bring the frame down**: the transition is simply absent
+from the document and the render falls back on the built-in `dissolve`. That is a deliberate
+divergence from [shaders.md](shaders.md), whose posture is "lose the effect, keep the picture":
+here keeping the picture by deleting the transition would **move the cut**, that is, lose the
+*arrangement*. Falling back on a fade keeps the duration the author wrote and loses only the
+character.
 
-Un `graph.yaml` illisible ne coûte aucune transition non plus : elles sont lues sur la **carte des
-refs** (`loadModuleRefs`) et non sur le graphe, hors du `try/catch` qui rend la compilation des
-chaînes best-effort.
+An unreadable `graph.yaml` costs no transition either: transitions are read off the **ref map**
+(`loadModuleRefs`) and not off the graph, outside the `try/catch` that makes chain compilation
+best-effort.
 
-## Le schéma d'une piste vidéo est enfin un garde
+## A video track's schema is a guard
 
-Avant ce lot, `loadVideoTracks` passait par un lecteur dont le commentaire disait « nothing
-validates here » : `ENTITY_SCHEMAS.video_tracks` était déclaré et mort sur le chemin de la
-compilation, et une clé mal tapée dans un `video_tracks/*.yaml` était **silencieusement ignorée**.
-Il passe maintenant par `readYamlEntities`, comme `clips/`, donc le refus ci-dessus existe pour de
-bon — et une piste qui portait une clé inconnue échoue désormais en le disant.
+`loadVideoTracks` goes through `readYamlEntities`, like `clips/`, so the refusal above exists for
+real and a track carrying an unknown key fails saying so. Without it `ENTITY_SCHEMAS.video_tracks`
+would be declared and dead on the compilation path, and a mistyped key in a `video_tracks/*.yaml`
+silently ignored.
 
-## Le rendu, en une fonction
+## The render, in one function
 
-Tout ce dont le compositeur, le pilote et l'export ont besoin tient dans `layerFrameAt`
-(`packages/ui-eyes/src/timeline.ts`) : pure, sans GL ni DOM, donc c'est **le seul endroit où la règle
-vit**, et le rendu temps réel et le rendu image par image ne peuvent pas en avoir deux lectures.
+Everything the compositor, the realtime driver and the export need fits in `layerFrameAt`
+(`packages/ui-eyes/src/timeline.ts`): pure, no GL and no DOM, so it is **the only place the rule
+lives** and realtime and frame-by-frame rendering cannot read it two ways.
 
-Elle rend au plus deux plans, et le **dernier dans l'ordre du fichier gagne**. C'est un changement
-de comportement pour un recouvrement qui existait déjà — avant, le premier gagnait — et sans lui un
-fondu enchaîné se terminerait puis **reviendrait brutalement** au plan sortant pour le reste du
-recouvrement. Le commentaire « une coupe appartient au plan SUIVANT » ne vaut donc plus que pour des
-plans jointifs ; sous recouvrement, la règle est « au plus deux, le dernier est l'entrant ».
+It returns at most two shots, and the **last in file order wins**. Without that a cross-dissolve
+would finish and then **snap back** to the outgoing shot for the rest of the overlap. So "a cut
+belongs to the FOLLOWING shot" holds only for abutting shots; under overlap the rule is "at most
+two, the last is the incoming one".
 
-Le reste est dans [compositor.md](../../ui-eyes/docs/compositor.md) (le prémultiplié et le texel
-transparent), [passes.md](../../ui-eyes/docs/passes.md) (le second contrat d'uniformes) et
-[realtime.md](../../ui-eyes/docs/realtime.md) (le second `<video>`, et pourquoi il n'existe que là
-où un `fade_in` le demande).
+The rest is in [compositor.md](../../ui-eyes/docs/compositor.md) (premultiplied alpha and the
+transparent texel), [passes.md](../../ui-eyes/docs/passes.md) (the second uniform contract) and
+[realtime.md](../../ui-eyes/docs/realtime.md) (the second `<video>`, and why it exists only where a
+`fade_in` asks for it).
 
-## Fondu au noir, et à quel noir
+## Fade to black, and to which black
 
-Le préview efface au jeton `--sh-background` et le **rendu au noir vrai**. L'asymétrie est
-délibérée : une trame vide montre déjà le fond de l'application, donc le préview reste cohérent avec
-lui-même, tandis qu'un fichier exporté qui aurait cuit le gris du chrome dans ses images serait
-faux pour tout le monde. Un `fade_out` sur une couche haute ne descend de toute façon pas vers le
-noir mais vers **la couche du dessous**.
+The preview clears to the `--sh-background` token and the **render to true black**. The asymmetry
+is deliberate: an empty frame already shows the application's background, so the preview stays
+consistent with itself, whereas an exported file that had baked the chrome's grey into its frames
+would be wrong for everybody. A `fade_out` on an upper layer does not descend to black anyway but
+to **the layer below**.
 
-## Ce qui n'est pas là
+## What is not there
 
-- **Trois plans qui se recouvrent.** Une piste a deux décodeurs ; trois plans simultanés ne sont pas
-  rendables, et les deux du dessus gagnent.
-- **Un `fade_out` qui révèle le plan d'en dessous sur la MÊME piste.** Une révélation appartient au
-  plan entrant, et son `fade_in` est à son propre `start`.
-- **Des paramètres par placement.** `P1..P4` appartiennent au module : deux sens de balayage sont
-  deux modules, dont l'un `extends` l'autre.
+- **Three overlapping shots.** A track has two decoders; three simultaneous shots are not
+  renderable, and the top two win.
+- **A `fade_out` revealing the shot below on the SAME track.** A reveal belongs to the incoming
+  shot, and its `fade_in` is at its own `start`.
+- **Per-placement parameters.** `P1..P4` belong to the module: two wipe directions are two modules,
+  one of which `extends` the other.
 
-## Les couches traversées
+## The layers crossed
 
 | | |
 |---|---|
-| écrit | `fade_in:` / `fade_out:` sur un événement de `video_tracks/<lane>.yaml`, et `modules/video_transitions/<nom>/` |
-| déclaré | `packages/song-schema/src/moduleTypes.ts` — `TRANSITION_CATEGORY`, `DISSOLVE` |
-| validé | `packages/song-schema/src/yaml/entitySchemas.ts` — l'élargissement, et le refus du `fade_out` sans fin |
-| gardé | `packages/song/src/loader.ts` — `loadVideoTracks` passe par le schéma |
-| lu | `src/videoTransitions.ts` — l'ascendance de `src/shaders.ts` |
-| compilé | `src/videoTracks.ts` -> `VideoClipDoc.fadeIn`, et `src/videoProject.ts` -> `VideoProjectDoc.transitions`, le GLSL **en ligne** |
-| le fil | `packages/web-protocol/types.ts` — `WebVideoFade`, `WebVideoTransition` |
-| servi | `packages/file-service/src/workspace.ts` — `toWebVideoTracks`, `videoProjectDoc` |
-| adapté | `apps/st0/frontend/src/scene.ts` -> `packages/ui-eyes/src/scene.ts` |
-| décidé | `packages/ui-eyes/src/timeline.ts` — `layerFrameAt`, la seule règle |
-| décodé | `packages/ui-eyes/src/realtime.ts` et `packages/ui-eyes/src/export.ts` |
-| dessiné | `packages/ui-eyes/src/compositor.ts` + `packages/ui-eyes/src/passes.ts`, le fondu intégré dans `packages/ui-eyes/src/transitions.ts` |
-| complété | `packages/song-schema/src/yaml/fields.ts` — les deux mots de la carte d'un fondu |
+| written | `fade_in:` / `fade_out:` on an event of `video_tracks/<lane>.yaml`, and `modules/video_transitions/<name>/` |
+| declared | `packages/song-schema/src/moduleTypes.ts` — `TRANSITION_CATEGORY`, `DISSOLVE` |
+| validated | `packages/song-schema/src/yaml/entitySchemas.ts` — the widening, and the refusal of an endless `fade_out` |
+| guarded | `packages/song/src/loader.ts` — `loadVideoTracks` goes through the schema |
+| read | `src/videoTransitions.ts` — the ancestry from `src/shaders.ts` |
+| compiled | `src/videoTracks.ts` -> `VideoClipDoc.fadeIn`, and `src/videoProject.ts` -> `VideoProjectDoc.transitions`, the GLSL **inline** |
+| on the wire | `packages/web-protocol/types.ts` — `WebVideoFade`, `WebVideoTransition` |
+| served | `packages/file-service/src/workspace.ts` — `toWebVideoTracks`, `videoProjectDoc` |
+| adapted | `apps/st0/frontend/src/scene.ts` -> `packages/ui-eyes/src/scene.ts` |
+| decided | `packages/ui-eyes/src/timeline.ts` — `layerFrameAt`, the only rule |
+| decoded | `packages/ui-eyes/src/realtime.ts` and `packages/ui-eyes/src/export.ts` |
+| drawn | `packages/ui-eyes/src/compositor.ts` + `packages/ui-eyes/src/passes.ts`, the built-in fade in `packages/ui-eyes/src/transitions.ts` |
+| completed | `packages/song-schema/src/yaml/fields.ts` — the two words of a fade's map |
 
-## Le vérifier
+## Checking it
 
 ```bash
 npx vitest run packages/song-video/src/videoTransitions.test.ts
@@ -220,12 +214,12 @@ npx vitest run packages/song-schema/src/yaml/videoTrackYaml.test.ts
 npx vitest run packages/ui-eyes/src/timeline.test.ts packages/ui-eyes/src/compositor.test.ts
 ```
 
-La première prouve la lecture du dossier, l'ascendance, les deux refus et le bornage des boutons ;
-la deuxième, les deux écritures d'un fondu, l'erreur **localisée** d'une clé mal tapée, et le refus
-du `fade_out` sans fin ; la troisième, la règle de trame et l'ordre des appels GL — quelle fonction
-de mélange est en vigueur pour quel tracé, quelle texture sur quelle unité, et ce qui est alloué.
+The first proves the folder read, the ancestry, the two refusals and the knob clamping; the second,
+the two spellings of a fade, the **located** error of a mistyped key, and the refusal of an endless
+`fade_out`; the third, the frame rule and the order of GL calls — which blend function is in force
+for which draw, which texture on which unit, and what is allocated.
 
-**Aucune ne prouve qu'un pixel a changé** : il n'y a pas de WebGL2 dans le runner, et
-`compositor.test.ts` le dit de lui-même. La vérification qui reste est celle qu'on fait avec les
-yeux — ouvrir `demos/video-demo.st0`, faire chevaucher les deux plans, donner un
-`fade_in` au second, et regarder la coupe devenir un fondu.
+**None of them proves a pixel changed**: there is no WebGL2 in the runner, and
+`compositor.test.ts` says so itself. The remaining check is done with the eyes — open
+`demos/video-demo.st0`, overlap two shots, give the second a `fade_in`, and watch the cut become a
+fade.

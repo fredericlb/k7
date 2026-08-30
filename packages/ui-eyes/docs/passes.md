@@ -1,173 +1,161 @@
-# Les passes — du GLSL entre la trame et l'écran
+# The passes — GLSL between the frame and the screen
 
-`compositor.ts` est la **mise en place** : quel quad va où — sa propre page est
-[compositor.md](compositor.md). `passes.ts` est la partie qui exécute le code de quelqu'un d'autre. Le vocabulaire (le module `shaders`, les uniformes, d'où vient
-`uAudio`) est dans `packages/song-video/docs/shaders.md` ; cette page-ci est ce que fait le moteur de
-rendu avec.
+`compositor.ts` is the **placement**, which quad goes where, and has its own page
+([compositor.md](compositor.md)). `passes.ts` is the part that runs somebody else's code. The
+vocabulary — the `shaders` module, the uniforms, where `uAudio` comes from — is
+`packages/song-video/docs/shaders.md`; this page is what the renderer does with it.
 
-Une `ScenePass` est du texte et des nombres. `@studio/ui-eyes` n'a aucune idée de ce qu'est un
-module, un dossier ou un moteur audio — c'est la même frontière que trace `scene.ts`, et c'est ce
-qui permet de tester la chose sans projet.
+A `ScenePass` is text and numbers. `@studio/ui-eyes` has no idea what a module, a folder or an
+audio engine is — the same boundary `scene.ts` draws, and what lets the thing be tested with no
+project.
 
-## Trois formes de trame, et la première est la plus courante
+## Three shapes of frame, and the first is the commonest
 
 ```
-aucune passe        chaque couche -> un quad -> le canvas
-passes sur couche   la trame -> sa chaîne (hors écran) -> le quad composé
-passes sur image    tout compose hors écran -> la chaîne -> un blit
+no passes           each layer -> one quad -> the canvas
+passes on a layer   the frame -> its chain (offscreen) -> the composed quad
+passes on the image everything composes offscreen -> the chain -> one blit
 ```
 
-Un morceau sans shader **n'alloue rien** : ni cible hors écran, ni programme, et `draw` écrit
-directement sur le canvas.
+A song with no shader **allocates nothing**: no offscreen target, no program, and `draw` writes
+straight to the canvas.
 
-## Deux ressources, deux durées de vie
+## Two resources, two lifetimes
 
-La distinction n'est pas cosmétique.
-
-| | ce que c'est | quand c'est effacé |
+| | what it is | when it is cleared |
 |---|---|---|
-| `RenderTarget` | là où les couches **s'accumulent**, quand l'image entière sera traitée | une fois par trame |
-| `PingPong` | le brouillon entre lequel une **chaîne** rebondit | à chaque passe |
+| `RenderTarget` | where layers **accumulate**, when the whole image will be treated | once per frame |
+| `PingPong` | the scratch a **chain** bounces between | at every pass |
 
-Partager la paire ferait effacer, par la chaîne d'une couche, la cible dans laquelle le composé
-s'accumule : **toutes les couches sauf la dernière disparaîtraient** dès qu'une seule reçoit un
-shader. Deux durées de vie, deux ressources.
+Sharing the pair would let one layer's chain clear the target the composite accumulates into:
+**every layer but the last would vanish** the moment a single one gets a shader. Two lifetimes,
+two resources. `RenderTarget.bind(clear)` takes a boolean for exactly that: `true` on the frame's
+first draw, `false` after. `passes.test.ts` pins it.
 
-`RenderTarget.bind(clear)` prend un booléen justement pour ça : `true` au premier dessin de la
-trame, `false` ensuite. C'est ce que `passes.test.ts` épingle.
+Both resources are created **only if something asks for them**, and they **survive a scene
+rebuild** as long as the viewport has not changed. That branch is worth writing: the document is
+recompiled on every keystroke in the editor, and reallocating full-frame textures on every
+keystroke is visible on screen — the picture stutters while you type.
 
-Les deux ressources ne sont créées **que si quelque chose les demande**, et elles **survivent à une
-reconstruction de scène** tant que le viewport n'a pas changé. Cette branche vaut d'être écrite :
-le document est recompilé à chaque frappe dans l'éditeur, et réallouer des textures pleine trame à
-chaque frappe se voit à l'écran — c'est l'image qui saccade pendant qu'on tape.
+`makeTarget` is shared by both classes so their filtering cannot diverge: otherwise an image
+shader would soften the picture where a layer shader would not.
 
-`makeTarget` est partagé par les deux classes pour que leur filtrage ne puisse pas diverger : sinon
-un shader d'image adoucirait l'image là où un shader de couche ne le ferait pas.
+## Why a pair and not one target
 
-## Pourquoi une paire et pas une cible
+A shader cannot sample the texture it writes — undefined in GL, and in practice it looks like an
+effect that works on one machine and shimmers on another. So pass N reads `a` and writes `b`, then
+they swap.
 
-Un shader ne peut pas échantillonner la texture qu'il écrit — c'est indéfini en GL, et en pratique
-ça ressemble à un effet qui marche sur une machine et scintille sur une autre. Donc la passe N lit
-`a` et écrit `b`, puis on échange.
+Targets are the size of the **viewport**, not of the layer's rect: a pass may sample beside the
+fragment it writes (any blur does), and a target cropped to the layer would hand it the crop's
+edge instead of the picture. That costs two full-frame RGBA textures per chain, once.
 
-Les cibles font la taille du **viewport**, pas celle du rectangle de la couche : une passe peut
-échantillonner à côté du fragment qu'elle écrit (tout flou le fait), et une cible recadrée sur la
-couche lui donnerait le bord du recadrage au lieu de l'image. Ça coûte deux textures RGBA pleine
-trame par chaîne, une fois.
+It is also what gives `uResolution` its meaning: a layer's chain runs at viewport size and is then
+drawn into the layer's rect, so an effect is worth the same on an inset as on a full-frame layer —
+it does not change character because the track was shrunk.
 
-C'est aussi ce qui donne son sens à `uResolution` : la chaîne d'une couche tourne à la taille du
-viewport puis est dessinée dans le rectangle de la couche, donc un effet vaut la même chose sur une
-incrustation que sur une couche plein cadre — il ne change pas de caractère parce que la piste a été
-rétrécie.
+`runPasses` leaves the RESULT in the front texture with the framebuffer unbound: both its callers —
+a layer about to be composed, and the finished image about to be blitted — then carry on the same
+way.
 
-`runPasses` laisse le RÉSULTAT en texture avant et le framebuffer délié : ses deux appelants — une
-couche qu'on va composer, et l'image finie qu'on va recopier — continuent alors de la même façon.
+`CLAMP_TO_EDGE` matters more here than on a video texture: without it a shader sampling past the
+edge brings back the other side of the picture, which reads as a bug in the **shader** rather than
+in its target.
 
-`CLAMP_TO_EDGE` compte plus ici que sur une texture vidéo : sans lui, un shader qui échantillonne
-au-delà du bord ramène l'autre côté de l'image, ce qui se lit comme un bug **du shader** plutôt que
-de sa cible.
+## Blending inside a chain is OFF
 
-## Le mélange, à l'intérieur d'une chaîne, est ÉTEINT
+A pass **replaces** the picture it was given. Leaving `over` on would compose each pass over the
+previous one instead of succeeding it — which looks like every effect applied by halves. It is
+turned back on for the composed quad, where blending is exactly what is wanted.
 
-Une passe **remplace** l'image qu'on lui a donnée. Laisser le `over` allumé composerait chaque
-passe par-dessus la précédente au lieu de lui succéder — ce qui ressemble à tous les effets
-appliqués à moitié. Il est rallumé pour le quad composé, où le mélange est justement ce qu'on veut.
+The scratch is cleared to **transparent black** and never to the scene's background: a layer's
+passes run **before** compositing, so anything the shader does not write has to stay see-through,
+or the layer hides everything beneath it. Same for the image target: the background is added at
+the final blit, or an image shader would treat the background as if it were picture.
 
-Le brouillon est effacé en **noir transparent** et jamais sur le fond de la scène : les passes
-d'une couche tournent **avant** la composition, donc tout ce que le shader n'écrit pas doit rester
-traversable, sinon la couche masque tout ce qui est dessous. Même chose pour la cible d'image : le
-fond est ajouté au blit final, sinon un shader d'image traiterait le fond comme s'il était de
-l'image.
+## The uniform contract
 
-## Le contrat des uniformes
+`PASS_UNIFORMS` is a **contract**, not a convenience. A shader is written against this list and
+nothing tells its author they got a name wrong: GL silently returns a null location for an unknown
+uniform — and for a merely UNUSED one too, so the two are indistinguishable from here. Writing the
+list down is the only place that difference can be recorded.
 
-`PASS_UNIFORMS` est un **contrat**, pas une commodité. Un shader est écrit contre cette liste et
-rien ne dit à son auteur qu'il s'est trompé de nom : GL renvoie silencieusement un emplacement nul
-pour un uniforme inconnu — et pour un uniforme simplement INUTILISÉ aussi, donc les deux sont
-indiscernables d'ici. Écrire la liste est le seul endroit où cette différence peut être notée.
+`uTex` is what the pass reads: the layer's frame for a chain's first pass, the previous pass's
+output after. That is all that makes them chain.
 
-`uTex` est ce que la passe lit : la trame de la couche pour la première passe d'une chaîne, la
-sortie de la passe précédente ensuite. C'est tout ce qui les fait s'enchaîner.
+A null location in a `PassProgram` is therefore **normal** — a shader ignoring `uP3` has no `uP3`,
+and writing to a null location is a no-op in WebGL, not an error.
 
-Un emplacement nul dans un `PassProgram` est donc **normal** — un shader qui ignore `uP3` n'a pas
-de `uP3`, et écrire dans un emplacement nul est un no-op en WebGL, pas une erreur.
+### `TRANSITION_UNIFORMS`, the second contract
 
-### `TRANSITION_UNIFORMS`, le second contrat
+A **transition** takes two pictures and a progress, which is a different shape: it has its own
+list, `uFrom` / `uTo` / `uProgress` beside `uTime`, `uResolution` and `uP1..uP4`
+([transitions.md](../../song-video/docs/transitions.md)). Two decisions worth writing down:
 
-Une **transition** prend deux images et une progression, ce qui est une autre forme : elle a donc sa
-propre liste, `uFrom` / `uTo` / `uProgress` à côté de `uTime`, `uResolution` et `uP1..uP4`
-([transitions.md](../../song-video/docs/transitions.md)). Deux décisions valent d'être écrites :
+- **`uTex` is not in it**, deliberately. A fragment copied from a `shaders` module fails at write
+  time instead of silently sampling nothing — which the rule above makes otherwise undetectable.
+- **Nor is `uAudio`**: it is the only uniform of a shader that demands a **cable**, and a
+  transition is named by a cut, so it has no node to read a level from.
 
-- **`uTex` n'y est pas**, délibérément. Un fragment copié depuis un module `shaders` échoue à
-  l'écriture au lieu d'échantillonner silencieusement du vide — ce que la règle ci-dessus rend
-  autrement indétectable.
-- **`uAudio` non plus** : c'est le seul uniforme d'un shader qui exige un **câble**, et une
-  transition est nommée par une coupe, donc elle n'a pas de nœud d'où lire un niveau.
+Both compilations go through one `linkProgram` — the same `bindAttribLocation` before the link,
+the same `finally` releasing the stages, the same fallback to `null` with a warning naming the
+node. A transition and a pass cannot diverge on how they are built, only on the list they ask for.
 
-Les deux compilations passent par un seul `linkProgram` — le même `bindAttribLocation` avant le
-lien, le même `finally` qui libère les étages, la même retombée sur `null` avec un avertissement qui
-nomme le nœud. Une transition et une passe ne peuvent donc pas diverger sur la façon dont elles sont
-construites, seulement sur la liste qu'elles demandent.
-
-## L'attribut est lié à l'emplacement 0 AVANT le lien
+## The attribute is bound to location 0 BEFORE the link
 
 ```ts
 gl.bindAttribLocation(prog, 0, PASS_ATTRIB);
 gl.linkProgram(prog);
 ```
 
-Toutes les passes partagent l'unique tampon de sommets que le compositeur a déjà installé. Sans
-cette ligne, un shader déclarant ses attributs dans un autre ordre lit le quad sur l'emplacement
-que l'éditeur de liens a choisi — donc ne dessine rien, sur certaines machines seulement.
+All passes share the single vertex buffer the compositor already set up. Without this line, a
+shader declaring its attributes in another order reads the quad from whatever location the linker
+chose — so draws nothing, on some machines only.
 
-## `setLive` est séparé de `setScene`
+## `setLive` is separate from `setScene`
 
-`uAudio` bouge au rythme des vumètres du moteur (~20 Hz), `uTime` à celui du transport, et une
-scène est reconstruite quand le **document** change. Les replier dans la scène voudrait dire
-recompiler chaque programme vingt fois par seconde.
+`uAudio` moves at the engine's meter rate (~20 Hz), `uTime` at the transport's, and a scene is
+rebuilt when the **document** changes. Folding them into the scene would mean recompiling every
+program twenty times a second.
 
-Les niveaux sont **poussés** par l'hôte, jamais tirés : c'est la frontière de ce paquet. Le pilote
-les garde entre deux rapports, et la plupart des trames en réutilisent un — cette réutilisation
-**est** le lissage, vu comme un maintien plutôt qu'un saut.
+Levels are **pushed** by the host, never pulled: that is this package's boundary. The driver keeps
+them between reports, and most frames reuse one — that reuse **is** the smoothing, seen as a hold
+rather than a jump.
 
-`uTime` est la position du **transport**, fournie par la boucle qui lit déjà l'horloge. Une horloge
-propre au moteur de rendu dériverait de la lecture en une mesure.
+`uTime` is the **transport**'s position, supplied by the loop that already reads the clock. A
+clock of the renderer's own would drift from playback within a bar.
 
-Les niveaux sont donnés par passe, **clés sur l'identifiant de la passe** — le `<owner>:<index>`
-compilé — parce que c'est ce qui survit au renommage de tout le reste. Une passe pour laquelle
-personne n'a fourni de niveau garde celui qu'elle avait, c'est-à-dire le 0 avec lequel elle a été
-compilée quand aucun audio n'est câblé.
+Levels are given per pass, **keyed on the pass's identifier** — the compiled `<owner>:<index>` —
+because that is what survives renaming everything else. A pass nobody supplied a level for keeps
+the one it had, i.e. the 0 it was compiled with when no audio is wired.
 
-## Un shader cassé n'emporte rien
+## A broken shader takes nothing with it
 
-`compilePass` renvoie `null` et une ligne dans la console. Une passe qui n'a pas compilé est
-simplement absente de la chaîne ; la couche se dessine comme si elle n'existait pas. Un shader est
-du source qu'on est **en train d'éditer**, et un fragment à moitié tapé ne doit pas éteindre le
-viewport. C'est la même posture que tout le chemin de l'image tient face à un dossier de shaders
-manquant : on perd l'effet, on garde la trame.
+`compilePass` returns `null` and one console line. A pass that did not compile is simply absent
+from the chain; the layer draws as though it did not exist. A shader is source someone is **in the
+middle of editing**, and a half-typed fragment must not black out the viewport. Same stance the
+whole picture path takes against a missing shaders folder: lose the effect, keep the frame.
 
-Le message nomme le **nœud** (`glow`), pas le fichier : le nœud est ce qui est à l'écran et ce sur
-quoi on cliquerait pour le corriger.
+The message names the **node** (`glow`), not the file: the node is what is on screen and what you
+would click to fix it.
 
-Les deux étages sont supprimés une fois attachés : le programme les garde en vie jusqu'à sa propre
-suppression, et sans ça une reconstruction de scène fuirait un objet shader par passe et par
-reconstruction.
+Both stages are deleted once attached: the program keeps them alive until its own deletion, and
+without that a scene rebuild would leak one shader object per pass per rebuild.
 
-## Le vérifier
+## Checking it
 
 ```bash
 npx vitest run packages/ui-eyes/src/passes.test.ts
 ```
 
-Contre un **faux** contexte GL, et le fichier dit lui-même pourquoi : il n'y a pas de WebGL2 dans
-ce runner, et ajouter un contexte natif serait une lourde dépendance pour une poignée
-d'assertions. Ce qu'un faux prouve quand même est la partie qui casse pour de bon — l'ORDRE
-des liaisons, des effacements et des dessins. Les deux bugs épinglés là (la chaîne d'une couche qui
-efface le composé, le mélange à l'intérieur d'une chaîne) sont du séquencement, et aucun des deux
-n'a besoin d'un pixel pour être attrapé.
+Against a **fake** GL context, and the file says why itself: there is no WebGL2 in this runner, and
+adding a native context would be a heavy dependency for a handful of assertions. What a fake does
+prove is the part that breaks for real — the ORDER of binds, clears and draws. The two bugs pinned
+there (a layer's chain clearing the composite, blending inside a chain) are sequencing, and neither
+needs a pixel to be caught.
 
-Ce qu'il ne prouve pas, c'est qu'un shader dessine la bonne image. Cette vérification-là se fait
-avec les yeux : ouvrir `demos/video-demo.st0` et regarder.
+What it does not prove is that a shader draws the right picture. That check is done with the eyes:
+open `demos/video-demo.st0` and look.
 
 ## What "can this export?" actually asks
 
@@ -178,13 +166,12 @@ frame 0, *after* the progress bar has drawn, with a `NotSupportedError` that nam
 
 So `exportSupport.ts` asks `VideoEncoder.isConfigSupported` at the scene's own size — H.264
 support is level-dependent, so 4K is a different question from 720p — and
-`AudioEncoder.isConfigSupported` for AAC-LC, which `export.ts` requests as `codec: "aac"`.
-The answer distinguishes three cases, because they need three different sentences: no
-WebCodecs at all, no H.264 (the mp4 would carry no video track), no AAC (it would come out
-silent).
+`AudioEncoder.isConfigSupported` for AAC-LC, which `export.ts` requests as `codec: "aac"`. The
+answer distinguishes three cases, because they need three different sentences: no WebCodecs at
+all, no H.264 (the mp4 would carry no video track), no AAC (it would come out silent).
 
-Any ONE of the H.264 profiles is enough. A false negative would hide an export that works,
-which is worse than the failure this exists to catch.
+Any ONE of the H.264 profiles is enough. A false negative would hide an export that works, which
+is worse than the failure this exists to catch.
 
-`ViewportTab` runs it once per viewport size, off the render path, and it gates the WORDS
-rather than the pane: realtime works either way.
+`ViewportTab` runs it once per viewport size, off the render path, and it gates the WORDS rather
+than the pane: realtime works either way.

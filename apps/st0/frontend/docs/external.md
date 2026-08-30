@@ -1,45 +1,44 @@
-# Une surface, sur un autre appareil
+# One surface, on another device
 
-Une surface est un écran que le projet déclare. Certaines sont des choses qu'on utilise **en
-s'éloignant de l'ordinateur** — un pupitre qu'on veut sur une tablette posée près des platines,
-pas sur le portable derrière. Chaque surface a donc une adresse à elle :
+A surface is a screen the project declares. Some are things you use **while walking away from the
+computer** — a desk you want on a tablet propped beside the decks, not on the laptop behind. So each
+surface has an address of its own:
 
 ```
-<projet>/@external/<nom_de_surface>
+<project>/@external/<surface>
 
 https://st0.priv.frediver.se/lemo_mante/mymix.st0/@external/desk
 ```
 
-Ouverte sur un autre appareil, elle donne **cette surface et rien d'autre**, pilotant le même
-moteur que l'onglet qui a le projet ouvert.
+Opened on another device, it gives **that surface and nothing else**, driving the same engine as the
+tab with the project open.
 
-## Sous le projet, ce qui ne coûte rien
+## Under the project, which costs nothing
 
-`parseLaunch` termine un projet au dernier segment qui porte le suffixe de l'app ; tout ce qui
-suit est déjà la route de l'app. Donc :
+`parseLaunch` ends a project at the last segment carrying the app's suffix; everything after it is
+already the app's route. So:
 
 | | |
 |---|---|
-| `parseLaunch` | inchangé — `{ repo, project }` comme toujours |
-| `projectBasename` | inchangé — le routeur monte au même endroit |
-| `routes.ts` | rien : `main.tsx` lit l'adresse avant le routeur |
+| `parseLaunch` | unchanged — `{ repo, project }` as ever |
+| `projectBasename` | unchanged — the router mounts in the same place |
+| `routes.ts` | nothing: `main.tsx` reads the address before the router |
 
-C'est le même choix de forme que `@shares/<token>.st0`, pour la raison inverse (un partage
-se glisse dans la place du PROJET, une surface externe dans celle de la ROUTE), et le même
-sentinelle `@` : il ne peut pas commencer un nom court de dépôt, et il ne peut pas non plus être
-un id de surface — `createSurfaceFile` n'accepte que lettres, chiffres, `_` et `-`. La collision
-est impossible des deux côtés.
+Same shape as `@shares/<token>.st0`, for the inverse reason (a share slips into the PROJECT's place,
+an external surface into the ROUTE's), and the same `@` sentinel: it cannot start a repository short
+name, and it cannot be a surface id either — `createSurfaceFile` accepts only letters, digits, `_`
+and `-`. Collision is impossible on both sides.
 
-`EXTERNAL_SEGMENT`, `externalUrl` et `parseExternal` vivent dans
-[`@studio/web-protocol/projects`](../../../../packages/web-protocol/projects.ts), à côté de
-`launchUrl` et `shareUrl`, parce que c'est un **contrat d'adresse** : un côté l'écrit, l'autre la
-relit, et une adresse qu'un seul des deux comprend est un 404 que personne ne peut attribuer.
+`EXTERNAL_SEGMENT`, `externalUrl` and `parseExternal` live in
+[`@studio/web-protocol/projects`](../../../../packages/web-protocol/projects.ts), beside `launchUrl`
+and `shareUrl`, because this is an **address contract**: one side writes it, the other reads it, and
+an address only one of them understands is a 404 nobody can attribute.
 
-## Les mêmes portes, un rendu différent
+## The same gates, a different render
 
-Une surface externe a besoin exactement de ce dont l'éditeur a besoin : le compte, un moteur, et
-le dépôt résolu en copie de travail sur la machine de ce moteur. Elle emprunte donc la même pile
-— `AuthGate → EngineGate → ProjectGate` — et ne change que ce qui est rendu au bout :
+An external surface needs exactly what the editor needs: the account, an engine, and the repository
+resolved into a working copy on that engine's machine. So it borrows the same stack —
+`AuthGate → EngineGate → ProjectGate` — and changes only what is rendered at the end:
 
 ```
 main.tsx   parseExternal(pathname)  ─┐
@@ -47,333 +46,317 @@ main.tsx   parseExternal(pathname)  ─┐
                                      │        └─ external ? <ExternalSurface/> : <App/>
 ```
 
-Ce n'est **pas** le shell avec des choses cachées. Le shell avec rien dedans resterait le shell :
-ses panneaux et sa barre appartiennent tous à un écran que cet appareil ne montre pas.
-`ExternalSurface` monte ce dont une surface a besoin — le lien moteur, le pupitre, le document
-vidéo, le lanceur de commandes — puis passe la main au composant que le type nomme.
+It is **not** the shell with things hidden. The shell with nothing in it is still the shell: its
+panels and its bar all belong to a screen this device does not show. `ExternalSurface` mounts what a
+surface needs — the engine link, the desk, the video document, the command runner — then hands over
+to the component the type names. No logic is duplicated: those hooks exist precisely so a host can
+wire a surface (`packages/ui-turntables/docs/hosting.md`).
 
-Pas de duplication de logique : ces hooks existent précisément pour qu'un hôte puisse câbler une
-surface (`packages/ui-turntables/docs/hosting.md`). Ce qui est répété, ce sont des appels.
+Three things are not the surface and are there anyway, at the head and the foot: the **transport**, a
+**command line**, and the **keyboard**. They do not come from the same reasoning as the panels —
+they are not screens, they are the three ways of commanding the one you are looking at.
 
-Trois choses ne sont pas la surface et sont quand même là, en pied et en tête : le **transport**,
-une **ligne de commande**, et le **clavier**. Elles ne viennent pas du même raisonnement que les
-panneaux — ce ne sont pas des écrans, ce sont les trois façons de commander celui qu'on regarde.
+## The transport, at the head
 
-## Le transport, en tête
+`MiniTransport` — the shell's, built to ride over a popin that hides the header, which is exactly
+this case. Play/pause and the clock, nothing else: stop, rewind, record and the metronome are
+decisions about a session you are looking at, and the keys do all of them anyway.
 
-`MiniTransport` — celui du shell, fait pour rouler par-dessus un popin qui masque l'en-tête, et
-c'est exactement ce cas-ci. Play/pause et l'horloge, rien d'autre : stop, rewind,
-record et le métronome sont des décisions sur une session qu'on regarde, et les touches les font
-toutes de toute façon.
+A tablet by the decks is where the hand is; walking back to the laptop to press play is what this
+screen exists to avoid.
 
-C'est ce dont un second appareil a le plus besoin. Une tablette près des platines est là où est la
-main ; retourner au portable pour appuyer sur play est précisément ce que cet écran existe pour
-ne pas avoir à faire.
+The clock subscribes to `playhead` by itself (`shellMeta.tsx`): at ~20 Hz, a subscription taken at
+this level would redraw the whole surface every frame.
 
-L'horloge s'abonne toute seule au `playhead` (`shellMeta.tsx`) : à ~20 Hz, un abonnement pris à ce
-niveau redessinerait la surface entière à chaque trame.
+## The keyboard, whole
 
-## Le clavier, entier
+`useCommandKeys` is the shell's listener, shared with it — same withdrawal rules (a field being typed
+in owns its keys, a focused button gives back Space and Escape), same ⌃C exception on a text
+selection, same **double-Shift**. One keyboard cannot become two.
 
-`useCommandKeys` est le listener du shell, partagé avec lui — mêmes règles de retrait (un champ
-qui tape possède ses touches, un bouton focalisé rend Space et Escape), même exception ⌃C sur une
-sélection de texte, même **double-Shift**. Un même clavier ne peut pas devenir deux.
+The keymap is the person's: `effectiveKeys(commandPrefs)`, with the preferences read from
+`engines.prefs()` as in the shell. A remapped play key has to work on the tablet too, or the two
+screens are two instruments.
 
-Le keymap est celui de la personne : `effectiveKeys(commandPrefs)`, avec les préférences lues chez
-`engines.prefs()` comme dans le shell. Une touche de lecture remappée doit marcher sur la tablette
-aussi, sinon les deux écrans sont deux instruments.
+Double-Shift opens the **command line** at the foot — what the gesture means here, as it focuses the
+anchored bar or opens the palette in the shell. The host supplies the gesture, the listener only
+recognises it.
 
-Le double-Shift ouvre la **ligne de commande** en pied — c'est ce que ce geste veut dire ici, comme
-il focalise la barre ancrée ou ouvre la palette dans le shell. L'hôte fournit le geste, le listener
-ne fait que le reconnaître.
+What the surface answers **itself**, before `/command`:
 
-Ce que la surface répond **elle-même**, avant `/command` :
-
-| lignes | pourquoi |
+| lines | why |
 |---|---|
-| `transport play` / `stop` / `toggle` / `rewind` | par la socket, comme le shell : le service de fichiers enverrait ce message-là après un aller-retour HTTP et un parcours du journal d'annulation |
-| `transport replay` | un seek au début du roulement courant, puis le verbe nu |
-| `transport locate`, `transport loop`, `ui select`, `ui zoom …`, `ui ruler`, `ui lanes` | le curseur et le zoom sont ceux du pane monté (`TimelineHandle`) ; aucun service ne peut les bouger. Sur une surface sans arrangement, la ligne le **dit** — la touche est liée, la commande existe, c'est l'appareil qui n'est pas le bon endroit |
-| tout autre `ui …` | nomme un pane, un panneau ou un écran que cet appareil n'a pas — refusé **en mots**, plutôt que posté à un service qui répondrait « unknown command » |
+| `transport play` / `stop` / `toggle` / `rewind` | over the socket, as in the shell: the file service would send that message after an HTTP round trip and a walk of the undo journal |
+| `transport replay` | a seek to the start of the current run, then the bare verb |
+| `transport locate`, `transport loop`, `ui select`, `ui zoom …`, `ui ruler`, `ui lanes` | the cursor and the zoom belong to the mounted pane (`TimelineHandle`); no service can move them. On a surface with no arrangement, the line **says so** — the key is bound, the command exists, it is the device that is the wrong place |
+| any other `ui …` | names a pane, a panel or a screen this device does not have — refused **in words**, rather than posted to a service that would answer "unknown command" |
 
-Les verbes de **disposition** (`ui close`, `ui global`, `ui focus next`, les deux fermetures) sont
-la seule exception à cette dernière ligne : ils se taisent. C'est ce à quoi Échap et Tab
-aboutissent quand il n'y a rien à fermer, et un écran qui répond à Échap par une phrase sur
-l'éditeur est un écran qui rouspète à chaque fois qu'on écarte quelque chose.
+The **layout** verbs (`ui close`, `ui global`, `ui focus next`, the two closes) are the one exception
+to that last line: they stay silent. That is what Escape and Tab come to when there is nothing to
+close, and a screen answering Escape with a sentence about the editor is a screen that grumbles
+every time you dismiss something.
 
-Les conditions (`caret_track`, `timeline_selection`, `timeline_zoomed`, `timeline_loop`) remontent
-de la surface montée. Le shell les tire de son propre état ; ici il y a une surface et elle les
-tient toutes. Sans elles, `m` et `s` enverraient une commande à argument vide au lieu de se taire.
+The conditions (`caret_track`, `timeline_selection`, `timeline_zoomed`, `timeline_loop`) come up from
+the mounted surface. The shell draws them from its own state; here there is one surface and it holds
+them all. Without them, `m` and `s` would send an empty-argument command instead of staying quiet.
 
-## Les quatre types se pilotent
+## All four types drive
 
-| type | dessiné par | ce que l'hôte lui donne |
+| type | drawn by | what the host gives it |
 |---|---|---|
-| `turntables` | `SurfaceTab` | le pupitre (`useTurntableDeck`) |
-| `mastering` | `MasteringTab` | le lien moteur : `setPluginParam`, `watchPluginParams`, le magasin de params |
-| `viewport` | `ViewportTab` | l'image compilée (`useVideoDoc`) |
-| `timeline` | `ExternalTimeline` | tout le reste — voir plus bas |
+| `turntables` | `SurfaceTab` | the desk (`useTurntableDeck`) |
+| `mastering` | `MasteringTab` | the engine link: `setPluginParam`, `watchPluginParams`, the param store |
+| `viewport` | `ViewportTab` | the compiled picture (`useVideoDoc`) |
+| `timeline` | `ExternalTimeline` | everything else — see below |
 
-Aucune des quatre ne demande le shell, et c'est ce qui fait qu'elles se pilotent toutes ici :
+None of the four asks for the shell, which is what makes them all drivable here:
 
-- Le `mastering` ne demande qu'**un lien moteur**, que cet écran a déjà.
-- Le `viewport` ne demande qu'un **document vidéo**, qui est un `GET /video-doc`.
-- La `timeline` en demande davantage, mais ce qu'elle en tire — le curseur, le zoom, la
-  sélection — n'appartient pas au shell : ça appartient au **pane**, et `TimelineTab` les tient
-  lui-même. Ce que le shell fournit vraiment, c'est l'écriture : les commandes, les menus, la
-  boucle. `ExternalTimeline` les recâble sans lui.
+- `mastering` asks only for **an engine link**, which this screen already has.
+- `viewport` asks only for a **video document**, which is a `GET /video-doc`.
+- `timeline` asks for more, but what it draws on — the cursor, the zoom, the selection — does not
+  belong to the shell: it belongs to the **pane**, and `TimelineTab` holds them itself. What the
+  shell really supplies is writing: the commands, the menus, the loop. `ExternalTimeline` rewires
+  those without it.
 
-Aucune surface n'a donc qu'une adresse, et il n'y a qu'un seul écran d'impasse : l'adresse ne
-nomme aucun fichier de `surfaces/`.
+So no surface has only an address, and there is one dead-end screen: the address names no file in
+`surfaces/`.
 
-### La timeline, sur une tablette
+### The timeline, on a tablet
 
-Le même `TimelineTab` que le pane du shell, avec les mêmes gestes d'écriture, chacun vers la même
-ligne de commande :
+The same `TimelineTab` as the shell's pane, with the same write gestures, each to the same command
+line:
 
-| geste | ligne |
+| gesture | line |
 |---|---|
-| déplacer un clip | `event move` |
-| tirer une poignée | `event resize` |
-| tirer un coin de fondu | `event fadein` / `event fadeout` |
-| le bouton du coin | `track new` |
-| couper / solo / armer | `track mute`, `track solo`, `transport arm` (`useTrackControls`) |
-| déplacer une image | une **écriture de fichier**, pas une commande — le CLI n'a pas de verbe pour un placement d'image (`useVideoEdits`, `picture.md`) |
+| move a clip | `event move` |
+| drag a handle | `event resize` |
+| drag a fade corner | `event fadein` / `event fadeout` |
+| the corner button | `track new` |
+| mute / solo / arm | `track mute`, `track solo`, `transport arm` (`useTrackControls`) |
+| move a picture | a **file write**, not a command — the CLI has no verb for placing a picture (`useVideoEdits`, `picture.md`) |
 
-Trois choses viennent d'ailleurs que du shell parce qu'il n'y en a pas :
+Three things come from somewhere other than the shell, because there is none:
 
-`useSurfaceCommands` est le lanceur — `/command`, une clé de rechargement, une ligne de statut, et
-un crochet pour ce que l'écran répond lui-même (le tableau plus haut). Il demande `want: []` à
-chaque fois : le graphe que le service sait construire au passage est pour le canevas des chaînes,
-et il n'y en a pas ici. Sa clé de rechargement suit le **jeton `/revision`** et pas seulement nos
-propres écritures — une tablette est un second écran sur un projet qu'on édite aussi sur le
-portable, donc l'essentiel de ce qu'elle doit suivre n'est pas d'elle.
+`useSurfaceCommands` is the runner — `/command`, a reload key, a status line, and a hook for what the
+screen answers itself (the table above). It asks `want: []` every time: the graph the service can
+build on the way is for the chains canvas, and there is none here. Its reload key follows the
+**`/revision` token** and not only our own writes — a tablet is a second screen on a project also
+being edited on the laptop, so most of what it must follow is not its own.
 
-Le **graphe** est refetché ici, sur ce même jeton, là où le shell le prend du pane des chaînes :
-sans lui la gouttière ne dessinerait ni le ⋮ des alternatives ni les courbes d'automation.
+The **graph** is refetched here, on that same token, where the shell takes it from the chains pane:
+without it the gutter would draw neither the alternatives ⋮ nor the automation curves.
 
-Le **menu contextuel** est celui du shell, `contextMenu.ts`, et le bubble ⋮ est `nodeMenu`,
-partagé avec lui : deux dérivations d'un même menu, c'est deux menus qui finissent par offrir
-des alternatives différentes sur le même nœud.
+The **context menu** is the shell's, `contextMenu.ts`, and the ⋮ bubble is `nodeMenu`, shared with it:
+two derivations of one menu are two menus that end up offering different alternatives on the same
+node.
 
-### Une ligne, et pas une barre de commandes
+### A line, and not a command bar
 
-Une entrée de menu est soit **complète** — le clic a rempli tous ses arguments, elle s'exécute —
-soit elle en doit encore un, et dans le shell celles-là partent dans la barre à moitié écrites.
-Il n'y a pas de barre ici. Les jeter aurait retiré « New alternative… » d'un menu dont c'est tout
-le sujet ; en construire une aurait reconstruit le shell.
+A menu entry is either **complete** — the click filled all its arguments, it runs — or it still owes
+one, and in the shell those go into the bar half-written. There is no bar here. Dropping them would
+have removed "New alternative…" from a menu that is entirely about that; building one would have
+rebuilt the shell.
 
-Le pied porte donc **une ligne**, remplie par ces entrées, ouverte par le double-Shift, et tapable
-en propre. Pas de complétion, pas de palette, pas de catalogue derrière : ce qui rend ces trois-là
-utiles, c'est un clavier — mais la ligne elle-même sert justement quand il y en a un, ou quand un
-menu vient d'y déposer une commande à finir.
+So the foot carries **one line**, filled by those entries, opened by double-Shift, and typable in its
+own right. No completion, no palette, no catalogue behind it: what makes those three useful is a
+keyboard — but the line itself is useful exactly when there is one, or when a menu has just dropped a
+command to finish into it.
 
-Elle est en pied de l'HÔTE et non de la timeline : le double-Shift doit répondre sur un pupitre
-comme sur un arrangement, et un menu ouvert sur n'importe quelle surface doit avoir où déposer sa
-ligne.
+It is at the foot of the HOST and not of the timeline: double-Shift has to answer on a desk as on an
+arrangement, and a menu opened on any surface needs somewhere to drop its line.
 
-### Ce qui n'est pas offert
+### What is not offered
 
-La capture **MIDI**. Elle se fait dans le navigateur qui tient le clavier, et celui-ci est à
-l'autre bout de la pièce ; `transport arm` marche, lui, parce que c'est l'armement du **moteur**.
-Et `trackIds` n'est pas passé au `viewport` : cette liste sert à indexer le tableau `levels` du
-moteur pour un shader à entrée audio, ce que presque aucun n'a — la donner voudrait dire compiler
-la chanson sur un appareil qui ne fait que montrer son image.
+**MIDI** capture. It happens in the browser holding the keyboard, and that one is across the room;
+`transport arm` does work, because that is arming the **engine**. And `trackIds` is not passed to the
+`viewport`: that list indexes the engine's `levels` array for a shader with an audio input, which
+almost none have — passing it would mean compiling the song on a device that only shows its picture.
 
-## Obtenir le lien
+## Getting the link
 
-Dans le **panneau Partager**, en bas : une ligne par surface, avec son type, et sous elles la
-phrase qui compte — *même moteur, même session*. Chaque ligne est un vrai lien qui s'ouvre dans un
-nouvel onglet, ce qui est la façon la plus courte de l'envoyer ailleurs : on l'ouvre, on prend la
-barre d'adresse. À côté, un bouton *Copier*.
+In the **Share panel**, at the bottom: one line per surface, with its type, and beneath them the
+sentence that matters — *same engine, same session*. Each line is a real link opening in a new tab,
+which is the shortest way to send it elsewhere: open it, take the address bar. Beside it, a *Copy*
+button.
 
-C'est ce panneau et pas un autre parce que c'est déjà là qu'on va chercher **toute adresse que le
-projet distribue** — le lien gelé, la release k7 — et parce que le geste est le même : on donne un
-lien à quelqu'un, ou à une tablette. Ce qui les sépare est dit plus bas.
+That panel and not another because it is already where you go for **any address the project hands
+out** — the frozen link, the k7 release — and because the gesture is the same: you give a link to
+someone, or to a tablet.
 
-Le panneau liste **toutes** les surfaces déclarées : les quatre types se dessinent, et un filtre
-ici cacherait une adresse qui marche.
+The panel lists **all** declared surfaces: all four types draw, and a filter here would hide a
+working address.
 
-Cette commande la **copie** dans le presse-papier et l'écrit dans la ligne d'état — donc lisible
-et recopiable même si le navigateur refuse l'écriture. Elle ne navigue pas : tout l'intérêt est de
-porter l'adresse sur un second appareil, et la suivre ici remplacerait l'éditeur devant lequel on
-est debout par l'écran de la tablette. Le lien du panneau navigue, lui, mais vers un `_blank` —
-c'est la même règle, pas une exception : l'onglet où l'on travaille ne bouge pas.
+The command **copies** it to the clipboard and writes it into the status line — so it is readable
+and retypable even if the browser refuses the write. It does not navigate: the point is to carry the
+address to a second device, and following it here would replace the editor you are standing in front
+of with the tablet's screen.
 
-Construite à partir de `window.location.href`, comme `shareUrl` et pour la même raison : une copie
-locale, le proxy du réseau et l'hôte public sont trois réponses différentes, et seul l'onglet sait
-laquelle il est en train de lire. La tablette est sur celle du réseau.
+It is built from `window.location.href`, like `shareUrl` and for the same reason: a local copy, the
+network's proxy and the public host are three different answers, and only the tab knows which one it
+is reading. The tablet is on the network's.
 
-## `/external` — le menu, et le point de départ d'une PWA
+## `/external` — the menu, and a PWA's starting point
 
-Un lien qu'il faut aller chercher dans l'éditeur ne sert qu'une fois : la tablette a besoin d'une
-page à elle, qu'on ouvre sans rien savoir, et sur laquelle une application installée démarre.
-C'est `/external` : **les surfaces du projet que le moteur tient**, une ligne par surface.
+A link you have to go and fetch from the editor only serves once: the tablet needs a page of its own,
+opened knowing nothing, on which an installed application starts. That is `/external`: **the
+surfaces of the project the engine is holding**, one line per surface.
+
+Opening it the first time is its own problem, and typing an address on a touch keyboard is not a way:
+a project row's popin on the home page has a *Surfaces* tab giving the **QR codes**, this one
+included (`apps/st0/frontend/src/projects/ProjectSurfaces.tsx`).
 
 ```
-GET /workspaces/surfaces        (service de fichiers)
+GET /workspaces/surfaces        (file service)
   → [{ workspace, repoName, uniqueName, path, app, active, surfaces: [{id, type}] }]
 GET /engine/served
   → { project: { workspace, path } | null }
 ```
 
-Deux requêtes, sur le même tick, en dehors de tout projet — comme `/workspaces/projects` juste à
-côté, et pour la même raison : un menu qui se remplit ligne par ligne n'est pas un menu. La
-première est mémoïsée cinq secondes, la fenêtre de la liste sur laquelle elle est construite, et
-elle est **séparée** de celle-là : la page d'accueil ne dessine aucune surface et n'a pas à payer
-un scan par projet.
+Two requests, on the same tick, outside any project — like `/workspaces/projects` next door, and for
+the same reason: a menu that fills line by line is not a menu. The first is memoised for five
+seconds, the window of the list it is built on, and it is **separate** from that one: the home page
+draws no surfaces and must not pay a scan per project.
 
-Le service ne dit pas ce qui vaut la peine d'être ouvert, il dit ce qui est **déclaré**, et ce que
-le moteur tient. Le croisement est celui de l'app.
+The service does not say what is worth opening, it says what is **declared**, and what the engine is
+holding. The crossing is the app's.
 
-### Seulement le projet chargé
+### Only the loaded project
 
-Ce menu ne liste pas la machine entière : une ligne d'un autre projet **déplacerait** le moteur,
-parce qu'un moteur tient un projet par session (`packages/engine-protocol/docs/sessions.md`).
-Suivre une ligne au hasard depuis une tablette serait un moyen de s'interrompre soi-même à travers
-la pièce, et noierait la seule ligne utile — celle du projet ouvert — dans les autres.
+This menu does not list the whole machine: a line from another project would **move** the engine,
+because an engine holds one project per session
+(`packages/engine-protocol/docs/sessions.md`). Following a random line from a tablet would be a way
+of interrupting yourself across the room, and would drown the one useful line — the open project's —
+among the others.
 
-Le filtre est `/engine/served`, et pas le drapeau `active` que porte chaque ligne. Les deux ne
-répondent pas à la même question : `active` est le marqueur `.studio-active` d'un **espace de
-travail**, un par espace, écrit par le dernier qui a ouvert — une machine avec trois marqueurs
-reste un moteur qui tient une chanson. `served`, c'est la note du service de fichiers sur ce qu'il
-a **envoyé**, une par session, donc un projet pour tout le compte
-(`packages/file-service/docs/activeProject.md`).
+The filter is `/engine/served`, not the `active` flag each line carries. The two answer different
+questions: `active` is a **workspace**'s `.studio-active` marker, one per workspace, written by
+whoever opened last — a machine with three markers is still one engine holding one song. `served` is
+the file service's note on what it has **sent**, one per session, so one project for the whole
+account (`packages/file-service/docs/activeProject.md`).
 
-C'est une croyance sur un autre processus, comme toutes les lectures de `served` : le moteur peut
-avoir redémarré. On ne lui pose pas la question ici — `prewarmEngineForActive` la pose déjà, avec
-son throttle, et un menu qui nomme une seconde de trop un projet que le moteur vient de lâcher se
-corrige au tick suivant.
+It is a belief about another process, like every read of `served`: the engine may have restarted.
+It is not asked here — `prewarmEngineForActive` already asks, with its throttle, and a menu naming a
+just-released project for one second too long corrects itself on the next tick.
 
-Le projet est donc le **titre** de la page, et « Surfaces » la ligne en dessous — dans ce sens-là,
-parce que c'est ce que la page est : un menu d'écrans DE QUELQUE CHOSE. Les lignes portent leur
-type au lieu de répéter le seul point commun qu'elles ont, et aucune ne porte de badge
-« ouvert » : toutes le seraient. Tant que le moteur ne nomme rien, le mot générique reprend le
-titre et il n'y a rien à mettre dessous.
+The project is the page's **title**, and "Surfaces" the line below it — that is what the page is: a
+menu of screens OF SOMETHING. Lines carry their type instead of repeating the only thing they have
+in common, and none carries an "open" badge: they all would.
 
-Deux vides, et ils ne disent pas la même chose. *Aucun projet ouvert sur le moteur* — le disque
-est peut-être plein de surfaces, mais aucune ne rejoindrait quoi que ce soit ; on ouvre un projet
-dans l'éditeur, là où la personne est. *Aucune surface dans ce projet* — celui qui est chargé n'en
-déclare pas.
+Two empties, and they do not say the same thing. *No project open on the engine* — the disk may be
+full of surfaces, but none would join anything; you open a project in the editor, where the person
+is. *No surface in this project* — the loaded one declares none.
 
-Cette page emprunte la pile de `Home` et non celle de l'éditeur : le compte, `engines.find()`, et
-surtout **jamais `hold()`**. Un bail est une revendication SUR UN PROJET ; la prendre depuis un
-menu délogerait celui qui joue. Suivre une ligne, en revanche, revendique — par les portes, qui
-sont l'endroit pour ça.
+This page borrows `Home`'s stack and not the editor's: the account, `engines.find()`, and above all
+**never `hold()`**. A lease is a claim ON A PROJECT; taking one from a menu would evict whoever is
+playing. Following a line does claim — through the gates, which are the place for it.
 
-Et cette revendication-là ne déloge pas l'éditeur. Un même compte sur un même moteur, c'est une
-seule session et un seul projet chargé : la règle « un moteur par projet » exempte ce cas, et sans
-cette exemption ouvrir une surface renverrait le portable sur *« ce projet a été ouvert
-ailleurs »*. Voir `packages/engine-registry/docs/claim.md`.
+And that claim does not evict the editor. One account on one engine is one session and one loaded
+project: the "one engine per project" rule exempts this case, and without that exemption opening a
+surface would send the laptop back to *"this project was opened elsewhere"*. See
+`packages/engine-registry/docs/claim.md`.
 
-### `external`, un nom court réservé
+### `external`, a reserved short name
 
-Un segment unique est une adresse de projet valide (`/<dépôt>` ouvre un clone mono-projet), donc
-prendre `external` là veut dire qu'un dépôt de ce nom exact n'est plus ouvrable **à sa racine**.
-Il rejoint la liste que l'origine tient déjà (`/pl8`, `/k7`, `/z0`, `/api`, `/auth`), avec le même
-remède : renommer, ou adresser un projet dedans — `/external/hiver.st0` se lit toujours comme le
-dépôt `external`. Le sentinelle `@external` aurait évité l'ombre ; le mot nu est l'adresse
-demandée, et un mot réservé se lit dans la barre d'adresse.
+A single segment is a valid project address (`/<dépôt>` opens a single-project clone), so taking
+`external` there means a repository of that exact name is no longer openable **at its root**. It
+joins the list the origin already holds (`/pl8`, `/k7`, `/z0`, `/api`, `/auth`), with the same
+remedy: rename, or address a project inside it — `/external/hiver.st0` still reads as the repository
+`external`. An `@external` sentinel would have avoided the shadow; the bare word is the address that
+was wanted, and a reserved word reads in the address bar.
 
-### Comment on y arrive
+### How you get there
 
-Le menu est joignable par son adresse tapée à la main, et par `ui external <surface>` depuis un
-projet ouvert — qui donne le lien d'UNE surface. Ni l'un ni l'autre ne se découvre depuis la
-tablette qu'on vient de poser sur l'ampli. L'en-tête de l'accueil porte donc un bouton
-**Surfaces**, à côté du lien pl8 (`projects/Home.tsx`).
+The menu is reachable by its hand-typed address, and by `ui external <surface>` from an open project
+— which gives ONE surface's link. Neither is discoverable from the tablet you have just set down on
+the amp. So the home page's header carries a **Surfaces** button, beside the pl8 link
+(`projects/Home.tsx`).
 
-Sur l'ACCUEIL et pas dans l'éditeur, pour la raison qui met déjà le lien pl8 là : ouvert sur un
-projet, st0 dessine l'en-tête de l'éditeur, où un lien qui vous ferait quitter la session n'a rien
-à faire. Et c'est la bonne page de toute façon — c'est celle qu'on a sous les yeux quand on
-installe l'appareil.
+On the HOME page and not in the editor, for the reason that already puts the pl8 link there: opened
+on a project, st0 draws the editor's header, where a link taking you out of the session has no place.
+And it is the right page anyway — it is the one in front of you while you set the device up.
 
-Un `<a>` et pas une route, et ça compte : `/external` est lu par `main.tsx` **avant** le routeur,
-donc y arriver par navigation cliente laisserait le document sur le manifeste de l'éditeur, et
-l'appareil s'installerait sur la mauvaise application. Une vraie navigation relit le document, et
-le `<link rel="manifest">` avec.
+An `<a>` and not a route, and that matters: `/external` is read by `main.tsx` **before** the router,
+so arriving by client navigation would leave the document on the editor's manifest, and the device
+would install on the wrong application. A real navigation re-reads the document, and the
+`<link rel="manifest">` with it.
 
-### Deux manifestes
+### Two manifests
 
-`start_url` se résout par rapport à l'adresse du **manifeste**, pas à celle du document : le `.`
-relatif de `manifest.webmanifest` vaut `/` d'où qu'on installe. Juste pour l'éditeur, faux ici —
-un appareil installé depuis ce menu reviendrait à la page d'accueil à chaque démarrage. D'où
-`manifest-external.webmanifest`, `start_url: "external"`, `scope: "."` (donc les surfaces sous un
-projet restent dedans), et `main.tsx` qui échange le `<link rel="manifest">` quand le document EST
-cette page — à côté de la décision de routage dont ça découle.
+`start_url` resolves against the **manifest**'s address, not the document's: `manifest.webmanifest`'s
+relative `.` is `/` wherever you install from. Right for the editor, wrong here — a device installed
+from this menu would return to the home page on every start. Hence
+`manifest-external.webmanifest`, `start_url: "external"`, `scope: "."` (so surfaces under a project
+stay inside), and `main.tsx` swapping the `<link rel="manifest">` when the document IS this page —
+beside the routing decision it follows from.
 
-### Aucun nouvel onglet
+### No new tabs
 
-Ni ici ni depuis une surface. Installée, cette application n'a ni onglet ni barre d'adresse : un
-`_blank` y ouvrirait une fenêtre dont on ne peut pas revenir. Les lignes naviguent sur place, et
-la surface porte en pied un lien **Surfaces** qui remonte — un `<a>` et pas une route, le routeur
-étant monté sous un basename qui s'arrête au projet. L'écran d'impasse — l'adresse ne nomme aucun
-fichier de `surfaces/` — le porte aussi, pour la même raison.
+Neither here nor from a surface. Installed, this application has no tab and no address bar: a
+`_blank` would open a window you cannot come back from. Lines navigate in place, and the surface
+carries a **Surfaces** link at its foot to go back up — an `<a>` and not a route, the router being
+mounted under a basename that stops at the project. The dead-end screen carries it too.
 
-Le panneau Partager, lui, garde son `target="_blank"` : il est dans l'éditeur, sur la machine
-où l'on travaille, et y naviguer sur place remplacerait précisément l'écran qu'on regarde.
+The Share panel keeps its `target="_blank"`: it is in the editor, on the machine you work on, and
+navigating in place there would replace exactly the screen you are looking at.
 
-### La même adresse des deux côtés
+### The same address on both sides
 
-`externalHref` passe par `projectHref`, donc un dépôt inscrit chez pl8 donne `/<dépôt>/…` et le
-reste tombe sur `@local`. Ce n'est pas de la cosmétique : le moteur identifie un projet par son
-adresse (`projectClaimKey`), et une tablette arrivée en `@local/…` pendant que l'éditeur tient
-`/<dépôt>/…` ferait **deux revendications sur un même morceau**, la seconde délogeant la première.
-C'est pour ça, et pour rien d'autre, que ce menu interroge le registre de pl8.
+`externalHref` goes through `projectHref`, so a repository registered with pl8 gives `/<dépôt>/…` and
+the rest falls back to `@local`. Not cosmetic: the engine identifies a project by its address
+(`projectClaimKey`), and a tablet arriving on `@local/…` while the editor holds `/<dépôt>/…` would
+make **two claims on one song**, the second evicting the first. That, and nothing else, is why this
+menu queries pl8's registry.
 
-Le drapeau `active` que porte chaque ligne — le marqueur `.studio-active` d'un espace de travail —
-n'est pas lu par cette page : il répond à une question voisine et pas à la sienne, voir
-*Seulement le projet chargé* plus haut.
+## Looking like an application without being able to be one
 
-## Ressembler à une application sans pouvoir en être une
+A PWA installs from a **secure** origin, and a tablet reaching the machine over the LAN in the clear
+has none (`apps/studio-desktop/docs/externals.md`). Installation is therefore out of reach exactly
+where it would help most. What can still be had is what an installed application gives *on screen* —
+and neither half requires a secure origin.
 
-Une PWA s'installe depuis une origine **sécurisée**, et une tablette qui joint la machine par le
-LAN en clair n'en a pas (`apps/studio-desktop/docs/externals.md`). L'installation est donc hors
-d'atteinte là où elle servirait le plus. Ce qu'on peut quand même avoir, c'est ce qu'une
-application installée donne *à l'écran* — et aucune des deux moitiés n'exige d'origine sécurisée.
+### Full screen
 
-### Le plein écran
+The Fullscreen API is conditioned only on a **gesture**, never on a secure context. A button at the
+foot of a surface (`useFullscreen`) is enough to make the address bar disappear, in the clear as over
+https. Two details that only show in use:
 
-L'API Fullscreen n'est conditionnée qu'à un **geste**, jamais à un contexte sécurisé. Un bouton en
-pied de surface (`useFullscreen`) suffit donc à faire disparaître la barre d'adresse, en clair
-comme en https. Deux détails qui ne se voient qu'à l'usage :
+- Safari has only ever had the prefixed spelling, hence two of each in the hook;
+- **Safari on iPhone has no API at all** (it exists only for `<video>`), so the button is not drawn
+  rather than drawn dead — `available` answers that and nothing else.
 
-- Safari n'a jamais eu que l'orthographe préfixée, d'où les deux de chaque dans le hook ;
-- **Safari iPhone n'a pas l'API du tout** (elle n'existe que pour `<video>`), alors le bouton
-  n'est pas dessiné plutôt que dessiné mort — `available` répond à ça et à rien d'autre.
+iOS makes up for it elsewhere, and the other way round from usual:
+`apple-mobile-web-app-capable` in `index.html` gives a real standalone launcher **with no service
+worker and no https**. On an iPad you therefore get the icon *and* full screen in the clear; on
+Android, where installability requires https, the button remains. Either way, every tablet can lose
+its address bar.
 
-iOS se rattrape ailleurs, et à l'envers de l'ordinaire : `apple-mobile-web-app-capable` dans
-`index.html` donne un vrai lanceur autonome **sans service worker et sans https**. Sur un iPad on
-a donc l'icône *et* le plein écran en clair ; sur Android, où l'installabilité exige https, il
-reste le bouton. Entre les deux, chaque tablette peut perdre sa barre d'adresse.
+The name the device shows comes from the meta and never from the manifest: `appMain.tsx` swaps the
+two together when the page is `/external`, or the icon would say "st0" for a menu of surfaces.
 
-Le nom que l'appareil affiche vient du meta et jamais du manifeste : `appMain.tsx` échange les
-deux ensemble quand la page est `/external`, sinon l'icône dirait « st0 » pour un menu de surfaces.
+### The screen staying on
 
-### L'écran qui reste allumé
+That one is a real loss, and the more expensive of the two: `navigator.wakeLock` **requires** a
+secure context, so on the tablet in the clear it does not exist. A surface watched without being
+touched goes dark after two minutes, which mid-session does not read as a power policy but as a
+crash.
 
-Celle-là est une vraie perte, et c'est la plus coûteuse des deux : `navigator.wakeLock` **exige**
-un contexte sécurisé, donc sur la tablette en clair il n'existe pas. Une surface qu'on regarde
-sans la toucher s'éteint au bout de deux minutes, ce qui, en pleine séance, ne se lit pas comme
-une politique d'économie d'énergie mais comme un plantage.
+`useStayAwake` therefore takes the lock when it is there, and otherwise plays a **muted 1×1 video**
+drawn from a canvas — the old trick, which phone browsers have never stopped honouring. None of it
+is verifiable from a script: it is best-effort by construction, and the failure signature is the
+screen dimming anyway.
 
-`useStayAwake` prend donc le verrou quand il est là, et sinon joue une **vidéo muette de 1×1**
-tirée d'un canvas — le vieux tour, celui que les navigateurs de téléphone n'ont jamais cessé
-d'honorer. Rien de tout ça ne se vérifie depuis un script : c'est du meilleur effort par
-construction, et la signature de l'échec est l'écran qui baisse quand même.
+The lock is released by the browser on every trip to the background, so it is **retaken** on return;
+without that it would hold only until the first notification.
 
-Le verrou est relâché par le navigateur à chaque passage en arrière-plan, donc il est **repris**
-au retour ; sans ça il ne tiendrait que jusqu'à la première notification.
+### The camera
 
-### La caméra
+Not lost either, for a reason unrelated to the two above: `RTCPeerConnection` is conditioned on
+nothing. The machine opens the lens, the tablet receives it — see
+`apps/studio-desktop/docs/camera.md`, which also says why it runs in that direction.
 
-Elle n'est pas perdue non plus, et pour une raison qui n'a rien à voir avec les deux ci-dessus :
-`RTCPeerConnection` n'est conditionné à rien. La machine ouvre l'objectif, la tablette le reçoit —
-voir `apps/studio-desktop/docs/camera.md`, qui dit aussi pourquoi c'est dans ce sens-là.
+## What this is not
 
-## Ce que ça n'est pas
-
-Ce n'est pas un partage. Un partage (`@shares/<token>.st0`) est un instantané **gelé**, sans
-compte, sans moteur et sans source — voir [shared.md](shared.md). Une surface externe est
-l'inverse sur les trois points : elle demande le compte, elle exige un moteur, et elle **écrit**
-— une platine qu'on charge depuis la tablette est chargée pour tout le monde, parce que c'est le
-même moteur et la même session.
+It is not a share. A share (`@shares/<token>.st0`) is a **frozen** snapshot, with no account, no
+engine and no source — see [shared.md](shared.md). An external surface is the opposite on all three
+counts: it demands the account, it requires an engine, and it **writes** — a deck loaded from the
+tablet is loaded for everyone, because it is the same engine and the same session.

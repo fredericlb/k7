@@ -216,7 +216,7 @@ export const engineMachine = {
     return project;
   },
 
-  /** One workspace's whole tree — `/workspace-tree` and not `/tree`, which is the OPEN PROJECT's files. */
+  /** One workspace's whole tree, asked of a workspace this page has not opened — `/tree` needs one. */
   workspaceTree: async (m: Machine, workspace: string): Promise<FileNode[]> =>
     json(
       await fetch(`${m.fileBase}/workspace-tree`, {

@@ -1,319 +1,291 @@
-# Les playlists — le seul écran qui tient les deux catalogues
+# Playlists — the one screen holding both catalogues
 
-Le format, et pourquoi une playlist vit dans le dépôt plutôt que sur le volume hébergé, sont
-dans [`packages/song/docs/playlists.md`](../../../../packages/song/docs/playlists.md). Cette
-page-ci est l'écran.
+The format, and why a playlist lives in the repository rather than on the hosted volume, are in
+[`packages/song/docs/playlists.md`](../../../../packages/song/docs/playlists.md). This page is the
+screen.
 
 ```
-                                        ┌─ panneau, à DROITE ──┐
-cog ▸ Playlists   (ou le bouton du set) │ ▾ été 2026     + ⤢ ✕ │  ← liste déroulante
-                                        ├──────────────────────┤     avec recherche
-                                        │ les morceaux,        │
-                                        │ résolus et jouables  │
-                                        └──────────────────────┘
-        ⤢ ─────────────────────────────▸ la PAGE : le texte YAML | les morceaux
+                                        ┌─ panel, on the RIGHT ─┐
+cog ▸ Playlists   (or the set's button) │ ▾ été 2026      + ⤢ ✕ │  ← searchable
+                                        ├───────────────────────┤     dropdown
+                                        │ the songs,            │
+                                        │ resolved and playable │
+                                        └───────────────────────┘
+        ⤢ ──────────────────────────────▸ the PAGE: YAML text | the songs
 ```
 
-## Un panneau ancré à droite, pas une page
+## A panel anchored right, not a page
 
-On ouvre une set list **pendant** qu'on travaille, et une page plein écran oblige à quitter le
-morceau pour aller la regarder. C'est donc un panneau **collé à droite**, dans la même rangée
-que les panes : il pousse les panes au lieu de les couvrir, et on peut le laisser ouvert.
+A set list is opened **while** you are working, and a full-screen page forces you to leave the song
+to look at it. So it is a panel **stuck to the right**, in the same row as the panes: it pushes them
+rather than covering them, and it can be left open.
 
-La playlist se choisit dans une **liste déroulante avec recherche** — le `TreePicker`, exactement
-celui du sélecteur de modules. Pour la même raison qu'ailleurs : la liste est aussi longue que le
-dépôt est vieux, et taper trois lettres est le geste que ce shell a partout. La recherche score
-le titre ET le chemin, parce qu'on cherche une set list par l'un ou par l'autre (`live/repet`).
+The playlist is chosen in a **searchable dropdown** — the `TreePicker`, the module picker's. Same
+reason as everywhere else: the list is as long as the repository is old, and typing three letters is
+this shell's gesture throughout. The search scores the title AND the path, because a set list is
+looked for by either (`live/repet`).
 
-Les morceaux sont **en dessous**, résolus contre la médiathèque et jouables — c'est
-`PlaylistPane`.
+The songs are **below**, resolved against the médiathèque and playable — that is `PlaylistPane`.
 
-## Le texte reste, à un clic
+## The text stays, one click away
 
-Le panneau fait 24rem : il n'y a pas la place pour le YAML à côté des morceaux. La page plein
-écran existe donc toujours, un cran plus loin : le bouton ⤢ l'ouvre sur la playlist courante.
+The panel is 24rem: there is no room for the YAML beside the songs. So the full-screen page is one
+notch further out, and the ⤢ button opens it on the current playlist.
 
-**Ce n'est plus la sortie de secours qu'elle était.** `PlaylistPane` a longtemps su *ajouter* et
-rien d'autre, si bien que retirer une ligne ou changer l'ordre voulait dire ouvrir le YAML — sur
-le seul écran dont le sujet EST l'ordre d'une soirée, et généralement peu avant. Chaque ligne
-porte maintenant ses trois boutons : ↑, ↓, ×. La page reste ce qu'elle est — le fichier en
-entier, ses commentaires, son titre — plutôt que le seul endroit où l'on peut agir.
+Every line carries its three buttons — ↑, ↓, × — because reordering is what this screen is ABOUT,
+usually shortly before a gig, and having to open the YAML to remove a line is the wrong shape for
+it. The page stays what it is: the whole file, its comments, its title.
 
-Ces boutons ne sont pas des écritures : ils remontent à `PlaylistEditor` exactement comme la
-recherche, et c'est le TAMPON qui change. Un panneau qui écrirait le fichier pendant que la
-moitié texte tient une version non enregistrée du même ferait deux vérités du même document.
-Les verbes `playlist song remove` et `playlist song move`, eux, écrivent bien le fichier : ils
-servent le CLI et la barre de commandes, où aucun tampon n'est ouvert
+Those buttons are not writes: they go up to `PlaylistEditor` exactly as the search does, and it is
+the BUFFER that changes. A panel writing the file while the text half holds an unsaved version of it
+would make two truths of one document. The verbs `playlist song remove` and `playlist song move` do
+write the file: they serve the CLI and the command bar, where no buffer is open
 (`packages/commands/docs/playlist.md`).
 
-Une forme que le texte ne sait pas réorganiser — un `items: [a, b]` en ligne — désactive les
-trois boutons avec la raison en infobulle, plutôt que de reformater le fichier de quelqu'un.
+A shape the text cannot reorder — an inline `items: [a, b]` — disables the three buttons with the
+reason in a tooltip, rather than reformatting somebody's file.
 
-C'est le même composant des deux côtés. `PlaylistEditor` prend un `panel`, qui retire son
-en-tête et la moitié YAML ; en dessous tout est identique — même chargement, même tampon, même
-autosave, même liste résolue. Deux composants auraient été deux documents à garder en phase,
-ce qui est précisément le bug contre lequel l'en-tête de ce fichier met en garde.
+It is the same component on both sides. `PlaylistEditor` takes a `panel` prop, which removes its
+header and the YAML half; below that everything is identical — same load, same buffer, same
+autosave, same resolved list. Two components would be two documents to keep in step.
 
-## Son propre panneau, pas un onglet des réglages, pas un pane
+## Its own panel, not a settings tab, not a pane
 
-Les panes de ce shell sont le **morceau ouvert** — l'éditeur, la timeline, le graphe, le
-viewport — et ce qu'ils dessinent, c'est ce que le projet DÉCLARE (`docs/shell.md`,
-`packages/song/docs/surfaces.md`). Une playlist n'est déclarée par aucun projet et n'appartient
-à aucun : elle est à la racine du dépôt et c'est la même quelle que soit la chanson qu'on
-travaille. Elle n'est donc pas un pane, même maintenant qu'elle a une colonne — et elle n'est
-pas non plus dans l'URL.
+This shell's panes are the **open song** — editor, timeline, graph, viewport — and what they draw is
+what the project DECLARES (`docs/shell.md`, `packages/song/docs/surfaces.md`). A playlist is
+declared by no project and belongs to none: it is at the root of the repository and it is the same
+whichever song you are working on. So it is not a pane, even now that it has a column — and it is
+not in the URL either.
 
-Ce n'est pas non plus un **onglet des réglages**, bien que le cog soit ce qui l'ouvre : ce serait
-la classer par l'endroit d'où on y arrive. Des réglages sont ce qu'on règle et qu'on laisse, une
-set list est ce à partir de quoi on travaille. Elle partage donc la colonne de droite avec les
-réglages et le partage (`rightPanel` dans `App`, `docs/shell.md`) sans être rangée dedans.
+Nor is it a **settings tab**, though the cog is what opens it: that would file it by where you
+arrive from. Settings are what you set and leave; a set list is what you work FROM. So it shares the
+right-hand column with settings and sharing (`rightPanel` in `App`, `docs/shell.md`) without being
+filed inside them.
 
-Comme tout le reste de ce shell, ce qui l'ouvre **dispatche une ligne de commande** —
-`ui playlists`, qui bascule le panneau — plutôt que d'appeler une fonction à elle : tout ce qui
-est sur cet écran est atteignable depuis la palette, et une implémentation unique est ce qui
-empêche les deux de diverger (`docs/shell.md`).
+Like everything else in this shell, what opens it **dispatches a command line** — `ui playlists`,
+which toggles the panel — rather than calling a function of its own: everything on this screen is
+reachable from the palette, and a single implementation is what stops the two diverging
+(`docs/shell.md`).
 
-## Un bouton dans la barre, sur un SET seulement
+## A button in the bar, on a SET only
 
-Un projet qui déclare une surface `turntables` porte un bouton **Playlists** dans la barre, à
-côté de Partager et de Réglages. Sur un pupitre la playlist EST la set list : c'est l'écran
-qu'on ouvre en plein set, et le chercher dans la palette est la mauvaise forme pour la seule
-chose qu'on cherche pendant la soirée.
+A project declaring a `turntables` surface carries a **Playlists** button in the bar, beside Share
+and Settings. On a desk the playlist IS the set list: it is the screen you open mid-set, and hunting
+for it in the palette is the wrong shape for the one thing you look for during the evening.
 
-Sur une chanson il n'y a pas de bouton — la barre est de la largeur, et les set lists ne sont
-pas ce pour quoi on est venu. `ui playlists` les ouvre quand même : c'est la même ligne, donc un
-seul comportement et une seule entrée dans le journal. Jamais sur un instantané partagé — un
-partage n'a pas de dépôt, donc pas de `_playlists/`.
+On a song there is no button — the bar is only so wide, and set lists are not what you came for.
+`ui playlists` still opens them: same line, so one behaviour and one journal entry. Never on a
+shared snapshot — a share has no repository, so no `_playlists/`.
 
-## Trois serveurs
+## Three servers
 
-C'est l'écran de st0 qui parle à **pl8** autrement que pour la session. Le tableau que
-`AGENTS.md` tient devient donc :
+This is st0's screen that talks to **pl8** for something other than the session. The table
+`AGENTS.md` holds therefore becomes:
 
-| | pour quoi | où |
+| | for what | where |
 |---|---|---|
-| backend st0 | la session, le registre des moteurs | même origine, **à la racine** |
-| service de fichiers | la playlist elle-même — `/playlists`, `/file`, `/file` (PUT) | machine du moteur, cross-origin |
-| **médiathèque pl8** | les morceaux que la playlist nomme | même origine, sous `/pl8` |
+| st0 backend | the session, the engine registry | same origin, **at the root** |
+| file service | the playlist itself — `/playlists`, `/file`, `PUT /file` | engine's machine, cross-origin |
+| **pl8 médiathèque** | the songs the playlist names | same origin, under `/pl8` |
 
-Ce dernier point est le piège, et il vaut la peine d'être écrit : c'est **st0** qui répond à la
-racine de l'origine, donc son `BASE` est la chaîne vide et un `/api/mediatek/*` écrit nu part
-chez son propre backend — qui n'a pas cette route. Les appels à la médiathèque passent par
-`serviceUrl(…, "pl8")`, jamais par `BASE` et jamais en dur : écrits nus, ils reviennent en 404
-et le catalogue vide se lit comme « vous n'avez aucun morceau ».
+That last one is the trap, and worth writing down: **st0** answers the origin root, so its `BASE` is
+the empty string and a bare `/api/mediatek/*` goes to its own backend, which has no such route.
+Calls to the médiathèque go through `serviceUrl(…, "pl8")`, never through `BASE` and never
+hard-coded: written bare they come back 404 and the empty catalogue reads as "you have no songs".
 
-Un préfixe écrit en dur serait juste tant que le service visé ne change pas de place, et faux
-sans changer de forme le jour où il en change : demander la table est ce qui ne se trompe pas.
-`/auth/*` en haut de `api.ts` est le cas qui ne bouge pas — il reste nu, parce que l'IdP ne
-connaît qu'un `redirect_uri` sans préfixe, donc c'est le service sans préfixe qui le sert.
+A hard-coded prefix would be right until the target service moves and wrong without changing shape
+the day it does: asking the table is what cannot be wrong. `/auth/*` at the top of `api.ts` is the
+case that does not move — it stays bare, because the IdP knows only a `redirect_uri` with no prefix,
+so the prefix-less service is the one that serves it.
 
-L'authentification est le cookie de session, ce qui est aussi ce qui fait marcher `songUrl` en
-`<audio src>` : un élément média ne sait pas poser d'en-tête, et n'a pas à le faire quand les
-octets sont sur la même origine.
+Authentication is the session cookie, which is also what makes `songUrl` work in an `<audio src>`: a
+media element cannot set a header, and does not have to when the bytes are same-origin.
 
-## Une seule route nouvelle
+## One new route
 
-`GET /playlists` liste ; **lire et écrire un fichier sont `/file` et `PUT /file`**, qui servent
-déjà n'importe quel chemin de l'espace de travail. Une seconde paire qui épellerait `_playlists`
-dans ses URL serait deux façons d'écrire un même fichier — et l'autosave sur lequel tourne cet
-écran est bâti sur celle qui existe déjà.
+`GET /playlists` lists; **reading and writing a file are `/file` and `PUT /file`**, which already
+serve any path in the workspace. A second pair spelling `_playlists` into its URLs would be two ways
+to write one file — and the autosave this screen runs on is built on the one that exists.
 
-Le listing est une route à part pour la raison que `/module-libraries` l'est : `/tree` est
-enraciné sur le projet actif, exprès, donc le dossier lui est invisible.
+The listing is a separate route for the reason `/module-libraries` is: `/tree` is rooted on the
+active project, deliberately, so the folder is invisible to it.
 
-Il n'y a **pas** de `POST /playlists` non plus, par le même raisonnement un cran plus loin : créer
-une playlist est une **commande** (ci-dessous), donc l'écriture passe par `/command` avec tout le
-reste. Ses règles — le gabarit plutôt qu'un fichier vide, l'extension ajoutée, une playlist déjà
-là refusée — sont celles du verbe, avec ses tests.
+There is **no** `POST /playlists` either, by the same reasoning one notch further: creating a
+playlist is a **command**, so the write goes through `/command` with everything else. Its rules —
+the template rather than an empty file, the extension added, an existing playlist refused — are the
+verb's, with its tests.
 
-## Créer et ajouter sont des verbes
+## Creating and adding are verbs
 
-| ce qu'on fait | la commande |
+| what you do | the command |
 |---|---|
-| « Nouvelle playlist » | `playlist new <nom>` — sous-dossiers compris (`live/repet`) |
-| ajouter un morceau, par son nom | `playlist song add <playlist> <morceau> [variante]` |
+| "New playlist" | `playlist new <nom>` — subfolders included (`live/repet`) |
+| add a song, by name | `playlist song add <playlist> <morceau> [variante]` |
 
-Les deux agissent sur le **dépôt** (`repoDir`) et non sur le projet : ce sont les seuls verbes du
-catalogue qui marchent sans projet ouvert, ce qui est exactement ce qu'est une playlist. Le morceau
-est **tout le reste de la ligne**, espaces compris, parce qu'une référence est un chemin dans les
-dossiers de la médiathèque (`AC-DC/Back in Black/Hells Bells`) ; **entre guillemets**, une variante
-peut le suivre. Une règle, et la seule qui distingue « un morceau avec des espaces » de « un
-morceau et une version ».
+Both act on the **repository** (`repoDir`) and not on the project: they are the only verbs in the
+catalogue that work with no project open, which is exactly what a playlist is. The song is **all the
+rest of the line**, spaces included, because a reference is a path through the médiathèque's folders
+(`AC-DC/Back in Black/Hells Bells`); **in quotes**, a variant may follow it. One rule, and the only
+one distinguishing "a song with spaces" from "a song and a version".
 
-**L'ajout par la recherche, dans le volet de droite, ne dispatche pas la seconde**, et c'est
-délibéré. Un clic écrit dans le **tampon ouvert** à côté — le YamlPane montre le fichier, et
-l'ajout est une modification comme une frappe, enregistrée par l'autosave quand le texte se lit
-comme une playlist. Une commande qui écrirait le FICHIER pendant qu'un tampon modifié le tient
-courrait contre cet enregistrement. Les deux chemins partagent la seule chose qui doit être
-partagée, `appendPlaylistItem` — même relation que le préréglage du gate de `event trim` avec
-`trimWindow` (`docs/shell.md`) : une implémentation, deux appelants, à deux niveaux différents.
+**Adding by search, in the right-hand pane, does not dispatch the second**, deliberately: a click
+writes into the **open buffer** beside it, for the reason above. The two paths share the one thing
+that must be shared, `appendPlaylistItem` — the same relation `event trim`'s gate preset has with
+`trimWindow` (`docs/shell.md`): one implementation, two callers, at two different levels.
 
-Le verbe est donc ce qu'on utilise **depuis la palette, une touche ou le CLI**, c'est-à-dire quand
-l'écran n'est pas ouvert — et c'est là qu'il rend le plus service : monter une setlist sans quitter
-la timeline.
+So the verb is what you use **from the palette, a key or the CLI**, when the screen is not open —
+and that is where it earns its keep: building a setlist without leaving the timeline.
 
-## Le volet de droite suit les touches, pas les enregistrements
+## The right-hand pane follows keystrokes, not saves
 
-`items` est recalculé à chaque frappe, mais n'est **remplacé que par quelque chose de lisible** :
-un YAML à moitié tapé ne parse pas à peu près une frappe sur deux — un crochet qu'on n'a pas
-encore fermé — et un panneau qui se viderait à chaque fois clignoterait sur toute la longueur de
-la ligne qu'on écrit. Le pied de page dit quand ce qui est affiché est en retard sur le texte.
+`items` is recomputed on every keystroke, but is **only replaced by something readable**: half-typed
+YAML fails to parse about every other keystroke — a bracket not yet closed — and a panel that
+emptied each time would flicker for the whole length of the line being written. The footer says when
+what is shown is behind the text.
 
-Il n'y a pas de bouton « Enregistrer » : le fichier est écrit dès que le tampon **se lit comme
-une playlist**. Une ligne à moitié tapée ailleurs dans le fichier retient donc aussi l'ajout —
-c'est le but, le fichier s'écrit entier ou pas du tout. Voir
+There is no Save button: the file is written as soon as the buffer **reads as a playlist**. A
+half-typed line elsewhere in the file therefore holds the addition back too — that is the point, the
+file is written whole or not at all. See
 [autosave.md](../../../../packages/ui-editor/docs/autosave.md).
 
-## Là où les deux catalogues se rencontrent
+## Where the two catalogues meet
 
-`parsePlaylist` garde ses renvois verbatim, parce que les résoudre demande la liste des
-morceaux. Cet écran est le seul de l'app qui tient les deux, et donc le seul où « ce morceau
-n'existe pas » est une question à laquelle on puisse répondre.
+`parsePlaylist` keeps its references verbatim, because resolving them needs the list of songs. This
+screen is the only one in the app holding both, and therefore the only one where "that song does not
+exist" is a question that can be answered.
 
-La résolution elle-même est pure et testée à part (`playlistItems.ts`) : le chemin d'abord, le
-nom ensuite. Une ligne peut donc s'écrire `AC-DC/Back in Black/Hells Bells` — ce qu'un clic
-écrit — ou juste `Hells Bells` — ce que quelqu'un tape.
+The resolution itself is pure and tested separately (`playlistItems.ts`): path first, name second. So
+a line can be written `AC-DC/Back in Black/Hells Bells` — what a click writes — or just
+`Hells Bells` — what someone types.
 
-Une ligne qui ne résout rien **reste à l'écran**, et c'est le point : le fichier s'édite à la
-main, juste à gauche. Une ligne qui disparaîtrait silencieusement serait une faute de frappe
-qu'on ne peut pas voir. Une rangée qui dit « introuvable » est une faute qu'on corrige.
+A line resolving to nothing **stays on screen**, and that is the point: the file is edited by hand,
+just to the left. A line that vanished silently would be a typo you cannot see. A row saying "not
+found" is a typo you fix.
 
-| ce qui est dit | ce qu'il faut faire |
+| what is said | what to do |
 |---|---|
-| `morceau introuvable` | la référence ne désigne aucun morceau — corriger la ligne |
-| `variante « x » introuvable` | le morceau est là, cette version-là n'y est pas |
-| `ce morceau n'a pas de master` | dossier catalogué sans audio — le scan l'autorise |
-| `introuvable` (sur la rangée) | le sidecar déclare un fichier que le dossier n'a pas |
+| `morceau introuvable` | the reference names no song — fix the line |
+| `variante « x » introuvable` | the song is there, that version is not |
+| `ce morceau n'a pas de master` | catalogued folder with no audio — the scan allows it |
+| `introuvable` (on the row) | the sidecar declares a file the folder does not have |
 
-## Deux boutons et un lien
+## Two buttons and a link
 
-**« Chercher un morceau »** ouvre un champ au-dessus de la liste — au-dessus et non par-dessus :
-ce qu'on remplit reste visible, et le voir s'allonger est la seule confirmation qu'il y ait. La
-recherche cherche dans le titre, l'artiste et le chemin (donc l'album), et **chaque mot doit
-tomber quelque part, pas au même endroit** : « nirvana lithium » trouve un morceau dont l'un est
-l'artiste et l'autre le titre. Entrée prend le premier résultat, Échap ferme. Le champ **reste
-ouvert** après un clic : monter une setlist, c'est ajouter huit morceaux à la suite.
+**"Chercher un morceau"** opens a field above the list — above and not over it: what you are filling
+stays visible, and watching it grow is the only confirmation there is. The search covers title,
+artist and path (so the album), and **every word must land somewhere, not in the same place**:
+"nirvana lithium" finds a song where one is the artist and the other the title. Enter takes the
+first result, Escape closes. The field **stays open** after a click: building a setlist means adding
+eight songs in a row.
 
-Une rangée ajoute le **master** ; les pastilles à côté ajoutent une **variante** — sans elles,
-mettre `instrumental` dans une setlist voudrait dire aller taper le mapping à la main, alors que
-le format existe précisément pour le porter.
+A row adds the **master**; the pills beside it add a **variant** — without them, putting
+`instrumental` in a setlist would mean hand-editing the mapping, when the format exists precisely to
+carry it.
 
-### « Ajouter de nouveaux morceaux » — un lien, pas un bouton
+### "Ajouter de nouveaux morceaux" — a link, not a button
 
-Au **pied de la liste**, et il mène à pl8. Cet écran-ci *nomme* des morceaux ; le volume qui les
-détient est ailleurs, et l'écran où l'on en dépose un est celui de la médiathèque, avec son
-dialogue à trois champs. C'est là qu'on *range* une bibliothèque : les tags y sont demandés
-plutôt que devinés, et un morceau déjà présent y est reconnu au lieu d'être rapporté en 409 à
-quelqu'un qui voulait juste monter une setlist.
+At the **foot of the list**, and it leads to pl8. This screen *names* songs; the volume that holds
+them is elsewhere, and the screen where one is deposited is the médiathèque's, with its three-field
+dialog. That is where a library is *filed*: tags are asked for rather than guessed, and a song
+already present is recognised instead of being reported as a 409 to someone who only wanted a
+setlist. One place a song arrives, so no second deduction of the folder to become a second spelling
+of the same song. The price is leaving the screen; the song list is repolled every few seconds
+anyway, so on return the deposited song is searchable here with nothing reloaded.
 
-Il y avait ici un troisième bouton, qui prenait un fichier du disque, le filait à la médiathèque
-et écrivait la ligne depuis le chemin qu'elle répondait. Il portait tout un ordre d'opérations —
-le fichier d'abord, la ligne ensuite, jamais depuis les tags envoyés — pour éviter qu'une
-seconde déduction du dossier devienne une seconde orthographe du même morceau. Le lien fait
-disparaître la question : il n'y a plus qu'un endroit où un morceau arrive.
+**The foot of the list, not the top bar**: the bar carries what you do *to this playlist*, and
+leaving for pl8 is not that. At the bottom, it is the natural continuation of a list you have just
+scanned without finding what you wanted.
 
-Ce qu'on perd est réel — il faut sortir de l'écran — et c'est le prix accepté : la liste des
-morceaux est repollée toutes les quelques secondes de toute façon, donc au retour le morceau
-déposé est cherchable ici sans rien recharger.
+### "Séparer les stems" — preparing the whole set list
 
-**Le pied de liste, et pas la barre du haut** : la barre porte ce qu'on fait *à cette playlist*,
-et partir chez pl8 n'en est pas. En bas, c'est la suite naturelle d'une liste qu'on vient de
-parcourir sans y trouver ce qu'on cherchait.
-
-### « Séparer les stems » — préparer toute la set list
-
-Le second bouton, et le seul qui coûte des heures. Chaque morceau est découpé en batterie /
-basse / reste / voix, pour qu'on puisse en **retirer** un sur le pupitre pendant le set
+The second button, and the only one that costs hours. Each song is split into drums / bass / other /
+vocals, so that one can be **removed** on the desk during the set
 ([ui-turntables/docs/stems.md](../../../../packages/ui-turntables/docs/stems.md)).
 
-C'est ici et pas sur le pupitre parce que c'est une question de **set list** et pas de disque : le
-pupitre rattrape le morceau qu'on vient de poser, cet écran-ci prépare les douze qu'on va poser.
+It is here and not on the desk because it is a question of **set list** and not of record: the desk
+catches up with the song you have just dropped, this screen prepares the twelve you are going to
+drop.
 
-Le bouton ouvre une barre au-dessus de la liste — au même endroit que la recherche, et pour la
-même raison : ce sur quoi elle travaille reste visible en dessous.
+The button opens a bar above the list — same place as the search, and for the same reason: what it
+works on stays visible below.
 
-- **La chaîne n'est pas demandée ici.** Elle est AFFICHÉE — la barre montre celle qui va tourner et
-  rien de plus. Quel module sépare et quel modèle il veut est une réponse unique pour la machine :
-  elle se donne une fois dans les réglages, sous I/O, et vit dans `<state>/preferences.yaml`
-  (`system stems`). Un sélecteur ici posait la même question à la même personne à chaque set list,
-  et trois écrans qui la posent, ce sont trois endroits où se tromper. La préférence est relue à
-  chaque ouverture de la barre, parce que les réglages sont à un clic.
-- **Un morceau à la fois.** Deux séparations en parallèle sur une machine, ce sont deux heures
-  d'arithmétique qui se disputent les mêmes cœurs et ne finissent pas plus tôt — la règle que
-  `runColdPasses` énonce déjà pour la commande.
-- **La barre compte deux choses.** Les morceaux finis PLUS l'avancement de celui en cours : une
-  barre qui ne compterait que les morceaux resterait immobile quatre minutes à chaque fois, et
-  une qui n'afficherait que le pourcentage du job reviendrait douze fois à zéro.
-- **Relancer ne coûte rien.** Un morceau déjà séparé est sauté — la route interroge le DOSSIER,
-  pas un drapeau — et l'identifiant du job hache le TRAVAIL, donc une passe interrompue rejoint le
-  calcul en vol au lieu d'en commencer un second.
-- **Fermer le panneau arrête la boucle, pas le calcul.** Une séparation est un job sur la machine
-  et va au bout ; ce que le bouton Arrêter interrompt, c'est l'enchaînement des morceaux suivants.
+- **The chain is not asked for here.** It is DISPLAYED — the bar shows the one that will run and no
+  more. Which module separates and which model it wants is a single answer for the machine: given
+  once in settings, under I/O, living in `<state>/preferences.yaml` (`system stems`). A picker here
+  would ask the same person the same question on every set list, and three screens that ask it are
+  three places to get it wrong. The preference is re-read every time the bar opens, because settings
+  are one click away.
+- **One song at a time.** Two separations in parallel on one machine are two hours of arithmetic
+  fighting over the same cores and finishing no sooner — the rule `runColdPasses` already states for
+  the command.
+- **The bar counts two things.** Songs finished PLUS the progress of the one in flight: a bar
+  counting only songs would sit still for four minutes at a time, and one showing only the job's
+  percentage would return to zero twelve times.
+- **Relaunching costs nothing.** An already-separated song is skipped — the route asks the FOLDER,
+  not a flag — and the job id hashes the WORK, so an interrupted pass rejoins the computation in
+  flight instead of starting a second one.
+- **Closing the panel stops the loop, not the computation.** A separation is a job on the machine
+  and runs to the end; what the Stop button interrupts is the chaining of the songs after it.
 
-#### Ce qui est déjà séparé se voit sur la rangée
+#### What is already separated shows on the row
 
-Une rangée dont le morceau porte des stems affiche l'**icône de séparation** à droite, à côté de
-l'artiste. Ce qu'elle lit est `meta.stems` du catalogue — un dossier `stems/` vu par le scan
-(`packages/mediatek/src/scan.ts`), donc pas un appel de plus par ligne : la liste des morceaux est
-déjà là et déjà repollée.
+A row whose song carries stems shows the **separation icon** on the right, beside the artist. What it
+reads is the catalogue's `meta.stems` — a `stems/` folder seen by the scan
+(`packages/mediatek/src/scan.ts`), so not one more call per line: the song list is already there and
+already repolled.
 
-C'est un **instantané et pas une vérité**, la même réserve que le pupitre s'écrit
-(`packages/ui-turntables/src/views/MixView.tsx`) : ce qui décide vraiment reste la route, qui
-interroge le dossier au moment de séparer. L'icône répond donc à « lesquels me restent à
-préparer ? » avant de lancer, et rien de ce que fait la boucle n'en dépend — elle sauterait ces
-lignes de toute façon, et les compte à part sous « déjà séparé(s) ».
+It is a **snapshot and not a truth**, the same caveat the desk writes for itself
+(`packages/ui-turntables/src/views/MixView.tsx`): what actually decides is the route, which asks the
+folder at the moment of separating. So the icon answers "which are left to prepare?" before
+launching, and nothing the loop does depends on it — it would skip those lines anyway, and counts
+them separately under "already separated".
 
-Elle apparaît **au poll suivant** la fin d'une séparation, pas à la seconde où le job rend la
-main : le catalogue est relu sur minuterie, et une invalidation à la ligne près serait un chemin
-d'écriture pour une icône.
+It appears at the **poll following** the end of a separation, not the second the job returns: the
+catalogue is re-read on a timer, and a per-line invalidation would be a write path for an icon.
 
-Deux natures d'échec, distinguées par le statut HTTP et traitées différemment :
+Two kinds of failure, told apart by HTTP status and treated differently:
 
-| ce qui échoue | statut | ce que fait la boucle |
+| what fails | status | what the loop does |
 |---|---|---|
-| le morceau — cette machine ne l'a pas tiré | 404 | une ligne rouge, et on passe au suivant |
-| la course — aucune chaîne réglée, la chaîne ne sépare pas, pas de modèle, pas de projet ouvert | 400 / 409 | tout s'arrête |
+| the song — this machine has not pulled it | 404 | one red line, and on to the next |
+| the run — no chain set, the chain does not separate, no model, no project open | 400 / 409 | everything stops |
 
-Le second est la même réponse pour les douze lignes : continuer serait douze refus identiques et
-aucun travail fait. Le bouton **Lancer** est d'ailleurs éteint tant qu'aucune chaîne n'est réglée,
-avec la phrase qui dit où aller et un raccourci vers les réglages — trouver ça au premier morceau
-serait le trouver trop tard.
+The second is the same answer for all twelve lines: continuing would be twelve identical refusals
+and no work done. The **Lancer** button is dark while no chain is set, with the sentence saying where
+to go and a shortcut into settings — finding that out at the first song would be finding it out too
+late.
 
-**Ce bouton ne dispatche pas `playlist stems`**, et c'est la même exception que l'ajout par la
-recherche, avec une raison à elle. Le verbe existe et fait le même travail — c'est lui qu'on
-utilise depuis la palette ou le CLI. Mais une commande rend ses lignes **quand elle a fini**, et
-finir, pour trente morceaux, c'est une heure d'écran vide. Le bouton fait donc un
-`POST /pl8/api/stems` par ligne et sonde le job entre les deux, ce qui est la seule forme qui ait
-une barre. Sur **pl8** : c'est lui qui détient les masters, donc c'est lui qui mène la découpe et
-qui garde les stems, en empruntant le modèle du moteur (`apps/pl8/docs/stems.md`). Ce que la
-règle exige reste vrai : l'ACTE est atteignable depuis la barre de commandes.
+**This button does not dispatch `playlist stems`**, and it is the same exception as adding by search,
+with a reason of its own. The verb exists and does the same work — it is what you use from the
+palette or the CLI. But a command returns its lines **when it has finished**, and finishing, for
+thirty songs, is an hour of blank screen. So the button does one `POST /pl8/api/stems` per line and
+polls the job in between, which is the only shape that has a bar. On **pl8**: it holds the masters,
+so it leads the split and keeps the stems, borrowing the engine's model (`apps/pl8/docs/stems.md`).
+What the rule demands stays true: the ACT is reachable from the command bar.
 
-## Le transport est à nous, et il est minuscule
+## The transport is ours, and it is tiny
 
-Un `<audio>`, une ligne à la fois, sur une URL de même origine.
+One `<audio>`, one line at a time, on a same-origin URL.
 
-Il **démarre sur une rangée** et nulle part ailleurs : il n'y a pas de « Tout jouer » dans la
-barre, parce que lire une setlist du début est ce que fait le pupitre, avec le moteur derrière.
-Ce qu'on écoute ici, c'est la ligne qu'on vient d'ajouter — et la suivante s'enchaîne, ce qui
-donne « à partir d'ici » sans qu'un bouton ait à le dire.
+It **starts on a row** and nowhere else: there is no "Play all" in the bar, because reading a setlist
+from the top is what the desk does, with the engine behind it. What you listen to here is the line
+you have just added — and the next one follows on, which gives "from here" without a button having
+to say so.
 
-pl8 a un `PlaybackProvider` partagé — un mini-lecteur qui survit à l'écran, avec une destination
-navigateur/moteur derrière. Rien de tout ça ici, délibérément : cette machinerie existe parce que
-pl8 est une application d'**écoute** dont la barre du bas vous suit de section en section, alors
-que ce shell-ci est un éditeur qui a déjà un transport à lui, pilotant le moteur sur un projet.
-Deux choses qui revendiquent le mot « en lecture » sur un même écran, ce sont deux transports. Ce
-dont une setlist a besoin pendant qu'on la monte, c'est d'entendre la ligne qu'on vient
-d'ajouter.
+pl8 has a shared `PlaybackProvider` — a mini player outliving the screen, with a browser/engine
+destination behind it. None of that here, deliberately: that machinery exists because pl8 is a
+**listening** application whose bottom bar follows you from section to section, whereas this shell is
+an editor that already has a transport of its own, driving the engine on a project. Two things
+claiming the word "playing" on one screen are two transports.
 
-Une ligne injouable est **sautée**, pas bloquante : une playlist qui s'arrêterait à sa troisième
-ligne à cause d'une faute de frappe serait une playlist qu'on ne peut pas écouter pendant qu'on
-la corrige. La rangée dit ce qui ne va pas ; elle n'arrête pas la soirée.
+An unplayable line is **skipped**, not blocking: a playlist that stopped at its third line over a
+typo would be a playlist you cannot listen to while you fix it. The row says what is wrong; it does
+not stop the evening.
 
-## Ce qu'une playlist sert, une fois écrite
+## What a playlist is for, once written
 
-Elle n'est pas seulement une liste qu'on relit : c'est le **paramètre d'une surface**. Une
-surface `turntables` — le pupitre DJ — porte une ligne `playlist:`, et c'est cette playlist-là
-que son navigateur de morceaux liste :
+It is not only a list to re-read: it is a **surface's parameter**. A `turntables` surface — the DJ
+desk — carries a `playlist:` line, and that is the playlist its song browser lists:
 
 ```yaml
 # <projet>.st0/surfaces/desk.yaml
@@ -322,24 +294,24 @@ layout: split
 playlist: ete-2026
 ```
 
-Deux conséquences, et la seconde est celle qui compte :
+Two consequences, and the second is the one that matters:
 
-- le pupitre fouille dans les douze morceaux du soir plutôt que dans les 279 du volume ;
-- la machine qui joue **tire ces morceaux sur son disque à l'avance** (`mediatekPull`), parce
-  que le moteur ouvre des chemins de fichiers et que la salle n'a pas de wifi.
+- the desk searches the evening's twelve songs rather than the volume's 279;
+- the machine that plays **pulls those songs onto its disk in advance** (`mediatekPull`), because
+  the engine opens file paths and the venue has no wifi.
 
-C'est aussi ce qui donne à cet écran-ci son enjeu : la playlist qu'on remplit ici est celle
-qu'on jouera. Voir `packages/ui-turntables/docs/setList.md`.
+That is also what gives this screen its stakes: the playlist filled in here is the one that gets
+played. See `packages/ui-turntables/docs/setList.md`.
 
-Une ligne qui nomme une **variante** vaut sur les deux écrans : le pupitre charge le fichier que
-la ligne demande, pas le master. C'est la même résolution des deux côtés — littéralement la même
-fonction, `@studio/mediatek/playlistItems` — parce que « le chemin d'abord, le nom ensuite » est
-une règle, et que deux copies auraient divergé au premier cas appris d'un seul côté.
+A line naming a **variant** holds on both screens: the desk loads the file the line asks for, not the
+master. It is the same resolution on both sides — literally the same function,
+`@studio/mediatek/playlistItems` — because "path first, name second" is a rule, and two copies would
+diverge at the first case learned on one side only.
 
-## Ce que pl8 ne peut pas faire de son côté
+## What pl8 cannot do from its side
 
-La chasse (« Trouver des morceaux ») ne peut pas **viser une playlist**, et ne le pourra pas — les
-playlists sont sur le disque du service de fichiers, et donner à pl8 les moyens d'y écrire ferait
-du service qui tient la session et l'unique clé de déploiement un écrivain dans le dépôt de
-chacun, ce que `apps/pl8/docs/projects.md` refuse explicitement. La chasse range donc le morceau
-dans la médiathèque, et l'ajouter à une setlist est un clic ici, sur ce même catalogue.
+The hunt ("Trouver des morceaux") cannot **target a playlist**, and will not — playlists are on the
+file service's disk, and giving pl8 the means to write there would make the service that holds the
+session and the single deploy key a writer into everyone's repository, which
+`apps/pl8/docs/projects.md` explicitly refuses. So the hunt files the song into the médiathèque, and
+adding it to a setlist is one click here, on exactly that catalogue.

@@ -1,100 +1,85 @@
-# Les platines comme document
+# The decks as document
 
-`useDeckSet` possède ce que les deux platines SONT — ce qui est chargé, à quel tempo, où sont
-le crossfader et les six potards d'EQ — et tous les gestes qui changent l'un ou l'autre. Il est
-appelé **une fois par hôte**, au-dessus de la vue qui dessine le pupitre.
+`useDeckSet` owns what the two decks ARE — what is loaded, at what tempo, where the crossfader
+and the six EQ knobs sit — and every gesture that changes one of them. It is called **once per
+host**, above the view that draws the desk.
 
-## Pourquoi pas dans la vue
+## Why not in the view
 
-Parce que l'hôte démonte cette vue dès qu'on regarde autre chose, et **un set ne cesse pas
-d'exister à ce moment-là**. Un état qui vit dans la vue coûte trois choses, et c'est le même
-nœud vu sous trois angles :
+Because the host unmounts that view the moment you look at something else, and **a set does not
+stop existing then**. State living in the view costs three things — one knot, three angles:
 
-- le graphe n'a aucun moteur à interroger, donc ses potards affichent le nombre que le fichier
-  déclare et rien d'autre ;
-- un aller-retour par le graphe ramène le crossfader au centre et les EQ à plat, pendant que
-  le son, lui, reste où on l'a mis ;
-- et le potard de tempo du graphe ne peut pas être tourné du tout : étirer un morceau demande
-  les morceaux chargés et le document compilé, partis avec la vue.
+- the graph has no engine to ask, so its knobs show the number the file declares and nothing
+  else;
+- a round trip through the graph brings the crossfader back to centre and the EQs flat, while
+  the sound stays where it was put;
+- and the graph's tempo knob cannot be turned at all: stretching a track needs the loaded tracks
+  and the compiled document, both gone with the view.
 
-MixView **dessine** les platines et n'en possède rien ; ce qui lui reste en propre est la liste
-du set, les enveloppes de waveform et le sélecteur de morceaux — des choses qui ne survivent
-pas à l'onglet parce qu'elles n'ont pas à le faire.
+MixView **draws** the decks and owns none of them; its own are the set list, the waveform
+envelopes and the track picker — things that do not survive the tab because they do not have to.
 
-Côté st0, `SurfaceTab` tient les deux moitiés séparées : les hooks au-dessus d'une ligne,
-l'écran en dessous, et le composant reste monté tant que le projet déclare la surface. La règle
-de `packages/song/docs/surfaces.md` sur les surfaces `view` (« dessinée seulement pendant
-qu'elle est ouverte ») ne parle donc que du DESSIN.
+On the st0 side, `SurfaceTab` keeps the halves apart: hooks above a line, screen below, and the
+component stays mounted as long as the project declares the surface. The rule in
+`packages/song/docs/surfaces.md` about `view` surfaces ("drawn only while it is open") therefore
+speaks about the DRAWING only.
 
-## Les deux chemins vers le moteur, toujours
+## The two routes to the engine, always
 
 | | crossfade, EQ | tempo |
 |---|---|---|
-| dans le document | un vrai plugin | **rien** (`offline`) |
-| envoi | `set-plugin-param`, à chaque pixel | le document entier, cadencé à 120 ms |
-| qui connaît la valeur | le **moteur** (`deck.params`) | ce hook (`deck.moduleParams`) |
+| in the document | a real plugin | **nothing** (`offline`) |
+| send | `set-plugin-param`, every pixel | the whole document, throttled to 120 ms |
+| who knows the value | the **engine** (`deck.params`) | this hook (`deck.moduleParams`) |
 
-C'est ce partage qui explique tout le reste. Le moteur rapporte ce qu'un plugin vaut, quelle
-que soit la surface qui l'a réglé — donc pupitre et graphe lisent la même chose. Pour un module
-`offline` il n'y a rien à interroger : la valeur n'existe que sur la surface qui le RÉALISE, et
-ce hook la prête au graphe.
+That split explains everything else. The engine reports what a plugin is worth whatever surface
+set it, so desk and graph read the same thing. For an `offline` module there is nothing to ask:
+the value exists only on the surface that REALISES it, and this hook lends it to the graph.
 
-## Tourner le tempo depuis le graphe
+## Turning the tempo from the graph
 
-Le graphe ne connaît qu'un module et un paramètre — c'est tout ce qu'un nœud porte. Il n'a
-aucune idée de ce qu'est une platine. `controlDriving` lit donc la liaison **à l'envers** :
-`views/mix.yaml` dit déjà quel contrôle pilote le `Target BPM` de `tempoA`, et relire la même
-ligne dans l'autre sens est ce qui empêche les deux surfaces de diverger. Repointez
-`deckA.tempo` vers `tempoB` et le potard du graphe sur `tempoB` devient celui de la platine A,
-sans que ni l'un ni l'autre n'ait été prévenu.
+The graph knows a module and a parameter — all a node carries — and has no idea what a deck is.
+`controlDriving` therefore reads the binding **backwards**: `views/mix.yaml` already says which
+control drives `tempoA`'s `Target BPM`, and re-reading that same line the other way is what stops
+the two surfaces diverging. Repoint `deckA.tempo` at `tempoB` and the graph's knob on `tempoB`
+becomes deck A's, without either being told.
 
-Seules les liaisons **sans plugin** répondent. Une liaison qui en a un possède sa propre prise
-— le graphe envoie `set-plugin-param` et ne pose jamais la question — et répondre lui donnerait
-deux routes vers le moteur, ce qui est la façon dont une valeur finit appliquée deux fois.
+Only bindings **without a plugin** answer. One that has a plugin owns its own handle — the graph
+sends `set-plugin-param` and never asks — and answering would give it two routes to the engine,
+which is how a value ends up applied twice.
 
-Le graphe n'annonce pas la fin d'un geste à son hôte, contrairement à un fader qui envoie un
-`pointerup`. Le commit final est donc **temporisé** (`GRAPH_SETTLE_MS`) : assez long pour ne pas
-tomber en plein glissement, assez court pour que la valeur exacte où le potard a été lâché
-arrive vite.
+The graph does not announce the end of a gesture to its host, unlike a fader sending a
+`pointerup`. The final commit is therefore **timed out** (`GRAPH_SETTLE_MS`): long enough not to
+fall mid-drag, short enough that the exact value the knob was released at arrives quickly.
 
-## Ce que l'HÔTE passe plutôt que ce que le hook lit
+## What the HOST passes rather than what the hook reads
 
-Deux paramètres optionnels, `mapping` et `playlist`, et la même raison pour les deux : la
-DÉCLARATION est dans le fichier de l'hôte, et seul l'hôte sait lequel. Une surface st0 porte ses
-liaisons dans `surfaces/<id>.yaml` et n'a aucun `views/mix.yaml` à trouver — le lire donnerait un
-404 à chaque rechargement. Un hôte qui n'en passe pas laisse le hook lire `views/mix.yaml`
-lui-même.
+Two optional parameters, `mapping` and `playlist`, same reason for both: the DECLARATION is in
+the host's file, and only the host knows which. An st0 surface carries its bindings in
+`surfaces/<id>.yaml` and has no `views/mix.yaml` to find — reading it would 404 on every reload.
+A host that passes neither lets the hook read `views/mix.yaml` itself.
 
-`mapping` doit avoir une **identité stable** : c'est une dépendance d'effet, donc un objet neuf à
-chaque rendu referait le compile à chaque rendu. Les deux appelants le tiennent en état, ce qui
-rend la chose gratuite ; un appelant qui en construirait un en ligne doit le `useMemo`.
+`mapping` must have a **stable identity**: it is an effect dependency, so a fresh object per
+render would redo the compile per render. Both callers hold it in state, which makes it free; a
+caller building one inline must `useMemo` it.
 
-`playlist` est un NOM, et une surface qui n'en nomme aucune passe `undefined` : rien n'est lu du
-tout — il n'y a pas de chemin à demander — et le sélecteur le dit, plutôt que de montrer une liste
-vide qui ressemble à une médiathèque vide.
+`playlist` is a NAME, and a surface naming none passes `undefined`: nothing is read at all —
+there is no path to ask for — and the picker says so, rather than showing an empty list that
+looks like an empty media library.
 
-## Poser un disque ne touche plus au transport
+## Putting a record on says nothing to the transport
 
-Il l'a fait, et la règle valait d'être écrite tant qu'une platine était un clip posé dix minutes
-plus loin sur la timeline : Play depuis zéro déroulait alors ces dix minutes en silence, donc
-`putOn` y sautait. Il fallait le demander au TRANSPORT et non à l'historique de l'onglet, parce
-qu'un rechargement de page rendait les platines vides pendant que le moteur tenait encore leurs
-clips.
+A platter owns its record and is not somewhere on the timeline, so `putOn` has no transport
+business and Play starts from zero as in any other project.
 
-Toute cette mécanique est partie avec la marge (étape 4 de `docs/platter-plan.md`). Un plateau
-possède son disque et n'est pas quelque part sur la timeline ; poser un disque n'a donc plus rien
-à dire au transport, et Play part de zéro comme dans n'importe quel projet.
+## What a STALE caller must still read correctly
 
-## Ce qu'un appelant PÉRIMÉ doit quand même lire juste
+The returned functions are captured by the views and called later. `measured` runs from the
+closure of the render that fired the envelope request, several renders earlier.
 
-Les fonctions rendues sont capturées par les vues et appelées plus tard. `measured` s'exécute
-depuis la closure du rendu qui a lancé la requête d'enveloppe, plusieurs rendus plus tôt.
-
-Lire `loads` sur cette closure renverrait le document **sans le morceau qu'on vient de poser** —
-une platine qui joue une seconde puis se tait. Idem pour les dérivés : le compile peut atterrir
-entre le clic et le retour de l'analyse, donc `measured` doit résoudre ses liaisons contre le
-projet tel qu'il est MAINTENANT.
-
-D'où les refs (`loadsRef`, `fadersRef`, `derived`) et le fait que tout envoi passe par
-`commitRef.current` : une ref est le même objet à chaque rendu, donc un appelant périmé lit ce
-qui est vrai à l'instant où il appelle.
+Reading `loads` on that closure returns the document **without the track just put on** — a deck
+that plays for a second then goes quiet. Same for the derivatives: the compile can land between
+the click and the analysis coming back, so `measured` must resolve its bindings against the
+project as it is NOW. Hence the refs (`loadsRef`, `fadersRef`, `derived`) and every send going
+through `commitRef.current`: a ref is the same object at every render, so a stale caller reads
+what is true at the instant it calls.

@@ -1,51 +1,41 @@
-# Les repères d'une platine
+# A deck's cue points
 
-Huit boutons sous chaque waveform, **sur toute sa largeur**. **Appui court** : la tête de
-lecture saute au repère. **Appui long** (1 s) : le repère est posé. Blanc tant qu'il est vide,
-sa couleur une fois assigné.
+Eight buttons under each waveform, **across its full width**. **Short press**: the playhead jumps
+to the cue. **Long press** (1 s): the cue is set. White while empty, its colour once assigned.
 
-Rien ne les flanque. Deux flèches « retenir / pousser » l'ont fait, qui poussaient le disque
-d'un centième de temps par appui ; elles ont été retirées et la rangée a pris leur place. Le
-même geste vit dans la **bande**, qu'on glisse ([waveform.md](waveform.md)), et huit cibles que
-la main doit apprendre par leur position valent mieux large qu'entourées.
+Nothing flanks them. Eight targets a hand has to learn by position are better wide than boxed in,
+and the nudge gesture lives in the **band** you drag ([waveform.md](waveform.md)).
 
-Les huit boutons sont là **même sans morceau**, simplement grisés. Un pupitre dont les
-commandes apparaissent et disparaissent avec ce qui est chargé est un pupitre qui bouge sous les
-mains : la rangée pousserait le titre vers le haut et la tranche vers le bas à l'instant où un
-morceau atterrit, et les huit positions qu'une main est en train d'apprendre ne seraient pas là
-pour être apprises. Grisé dit « pas encore » ; absent dit « cherche-le ».
+The eight buttons are there **even with no song loaded**, simply greyed. A desk whose controls
+appear and disappear with what is loaded is a desk that moves under the hands: the row would push
+the title up and the strip down the moment a song lands, and the eight positions a hand is
+learning would not be there to be learnt. Greyed says "not yet"; absent says "go and find it".
 
-## Le geste, et où il pose exactement
+## The gesture, and where it lands exactly
 
-Le repère est posé **à l'instant où le doigt s'est posé**, pas à l'instant où la seconde
-s'écoule. Un DJ appuie quand il entend ce qu'il veut marquer ; lui demander de tenir une
-seconde de plus placerait le repère une seconde trop tard, à chaque fois — soit un repère qu'il
-faut corriger plutôt qu'un repère utilisable.
+The cue is set **at the instant the finger went down**, not at the instant the second elapses. A
+DJ presses when they hear what they want to mark; asking them to hold a second longer would place
+the cue a second late, every time — a cue to fix rather than a cue to use.
 
-La position est donc capturée sur le `pointerdown` et n'est **utilisée** que si l'appui dure.
-Le minuteur décide lequel des deux gestes a eu lieu ; il ne décide jamais d'où.
+So the position is captured on `pointerdown` and only **used** if the press lasts. The timer
+decides which of the two gestures happened; it never decides where.
 
-La position lue est aussi **extrapolée** : le moteur pousse sa tête de lecture ~20 fois par
-seconde, donc le dernier nombre reçu peut avoir 50 ms de retard — ce qui, sur un temps fort,
-s'entend.
+The position read is also **extrapolated**: the engine pushes its playhead ~20 times a second, so
+the last number received can be 50 ms stale — which, on a downbeat, is audible.
 
-Un appui court sur un bouton **vide** ne fait rien, plutôt que de sauter à zéro.
+A short press on an **empty** button does nothing, rather than jumping to zero.
 
-## Ce qui est stocké : une position dans le FICHIER
+## What is stored: a position in the FILE
 
-Un repère est une place dans le morceau — où est le drop, un fait sur l'enregistrement. Stocker un
-nombre de timeline déplacerait **tous** les repères dès qu'on touche au fader de tempo, en silence.
+A cue is a place in the song — where the drop is, a fact about the recording. Storing a timeline
+number would move **every** cue the moment the tempo fader is touched, silently.
 
-**Il n'y a plus de conversion à faire.** Une platine est un plateau, son aiguille est déjà en
-secondes du fichier, et c'est ce nombre qu'un appui long écrit. `sourceAt` / `transportAt` étaient
-cette conversion, du temps où une platine jouait un clip sur une timeline.
+There is no conversion to make. A deck is a platter, its needle is already in seconds of the file,
+and that is the number a long press writes. The button reads **its own deck's** needle (`needle`),
+never the transport: no deck follows the transport, so a cue set from it would be a number
+unrelated to any point on the record — and jumping to it would work perfectly, to the wrong place.
 
-Ça a été un vrai défaut, un moment : le bouton lisait la position du TRANSPORT, que plus aucune
-platine ne suit depuis que le plateau est le défaut. Poser un repère écrivait donc un nombre sans
-rapport avec l'endroit du disque — et y sauter marchait parfaitement, vers le mauvais endroit. Le
-bouton lit maintenant l'aiguille de SA platine (`needle`), et le `playhead` a quitté la vue.
-
-## Dans mix.yaml, à côté du morceau
+## In mix.yaml, beside the song
 
 ```yaml
 cues:
@@ -54,63 +44,55 @@ cues:
     markers: [ 12.5, null, 48.25 ]
 ```
 
-**Et c'est tout ce que ce fichier fait.** Quels morceaux le set joue, c'est la playlist que la
-surface nomme qui le dit ([setList.md](setList.md)). Un cue reste ici parce qu'il appartient au
-PUPITRE qui joue le morceau et non à une liste que d'autres sets lisent : deux groupes qui
-reprennent le même titre ne posent pas l'aiguille au même endroit. Une entrée apparaît donc
-quand on pose un repère, pas quand on ajoute un morceau.
+**And that is all this file does.** Which songs the set plays is the playlist the surface names
+([setList.md](setList.md)). A cue stays here because it belongs to the DESK playing the song and
+not to a list other sets read: two bands covering the same title do not drop the needle in the
+same place. An entry therefore appears when a cue is set, not when a song is added.
 
-À ne pas confondre avec `views/mix.yaml`, qui est un autre fichier : les liaisons du pupitre,
-dans `views/`, celles qu'une surface désigne par son `mapping:`. Celui-ci est à la racine du
-projet.
+Not to be confused with `views/mix.yaml`, a different file: the desk's bindings, in `views/`, the
+ones a surface names through its `mapping:`. This one is at the project root.
 
-Une entrée est **soit** une référence nue **soit** une référence qui porte des réglages. Les
-deux, exprès : un morceau qui n'a rien à dire tient sur **une ligne**, c'est-à-dire tous les
-morceaux tant que personne n'y a posé de repère. Transformer `cues:` en table de références
-vers presque-rien donnerait à chaque entrée l'air qu'il lui manque quelque chose.
+An entry is **either** a bare reference **or** a reference carrying settings. Both, deliberately:
+a song with nothing to say fits on **one line**, which is every song until someone sets a cue on
+it. Turning `cues:` into a table of references to almost-nothing would make every entry look like
+it was missing something.
 
-`markers` est **positionnel** : l'index 0 est le bouton 1, et `null` est un emplacement vide.
-Le bouton 3 reste donc le bouton 3 quoi qu'il arrive aux boutons 1 et 2 — un repère est de la
-mémoire musculaire, et une liste qui refermerait ses trous renumérerait le set de quelqu'un en
-plein milieu. Seuls les vides **de fin** sont supprimés, d'où un seul nombre pour un repère sur
-le bouton 1 plutôt que huit.
+`markers` is **positional**: index 0 is button 1, and `null` is an empty slot. Button 3 stays
+button 3 whatever happens to buttons 1 and 2 — a cue is muscle memory, and a list that closed its
+gaps would renumber somebody's set mid-way. Only **trailing** empties are dropped, hence a single
+number for a cue on button 1 rather than eight.
 
-Un morceau dont on efface le dernier repère **redevient une référence nue** : une liste que
-personne n'a repérée n'est qu'une suite de références nues.
+A song whose last cue is cleared **becomes a bare reference again**: a list nobody has cued is
+just a run of bare references.
 
-## L'écriture préserve le fichier
+## Writing preserves the file
 
-Le texte est **édité**, jamais réimprimé depuis un arbre de parse. Les commentaires du scaffold
-sont le seul exemple travaillé qu'un lecteur d'un set obtienne, et un pupitre qui les
-mangerait au premier repère posé serait un pupitre qu'on ne pardonne pas. `withMarkers` passe
-par le `Document` du paquet `yaml`, ce pour quoi il existe.
+The text is **edited**, never reprinted from a parse tree. The scaffold's comments are the only
+worked example a reader of a set gets, and a desk that ate them on the first cue set is a desk
+you do not forgive. `withMarkers` goes through the `yaml` package's `Document`, which is what it
+exists for.
 
-Une référence que le fichier ne nomme pas est **ajoutée**. Ce n'est pas une politesse : une
-platine peut jouer un morceau que quelqu'un vient de retirer de la liste, et refuser le repère
-perdrait un geste déjà fait.
+A reference the file does not name is **added**. That is not politeness: a deck can be playing a
+song someone has just removed from the list, and refusing the cue would lose a gesture already
+made.
 
-L'échec d'écriture est **dit** : le bouton est déjà passé en couleur, donc un échec silencieux
-laisserait un repère présent jusqu'au rechargement et absent ensuite.
+A write failure is **said**: the button has already turned colour, so a silent failure would leave
+a cue present until reload and absent after it.
 
-## Une couleur par BOUTON, pas par repère
+## One colour per BUTTON, not per cue
 
-Le bouton 3 a la même couleur sur les deux platines et sur tous les morceaux. C'est ce qui
-permet à une main de le trouver sans lire — l'intérêt même d'un repère rapide. Les huit couleurs
-sont réparties sur la roue et tiennent à distance l'ambre dans lequel l'affichage de tempo
-avertit, pour qu'un repère ne se confonde pas avec une alerte.
+Button 3 has the same colour on both decks and on every song. That is what lets a hand find it
+without reading — the whole point of a quick cue. The eight colours are spread round the wheel and
+keep clear of the amber the tempo display warns in, so a cue is never mistaken for an alert.
 
-## Un repère ne déplace QUE sa platine
+## A cue moves ONLY its own deck
 
-Cette page a longtemps dit le contraire, et c'était une limite du `seek` plutôt que du problème.
+The engine still has one transport (see [mix.md](mix.md)), but jumping to a cue does not touch it:
+it is the **platter** that moves, through its `Seek`, and a platter belongs to a deck. Dropping the
+needle on deck B while A is playing does not move A.
 
-Le moteur n'a toujours qu'un transport (voir [mix.md](mix.md)), mais sauter à un repère n'y touche
-plus : c'est le **plateau** qui se déplace, par son `Seek`, et un plateau appartient à une platine.
-Poser l'aiguille sur la platine B pendant que la A passe ne bouge pas la A.
+A separated record is four platters, and `plattersOf` names all four: a cue reaches them together,
+otherwise the four parts would drift apart.
 
-Un disque séparé est quatre plateaux, et `plattersOf` les nomme tous les quatre : un repère les
-atteint ensemble, sinon les quatre parties se décalleraient entre elles.
-
-Il n'y a plus de borne à ce saut. Un repère est une **fraction du fichier**, donc il ne peut pas
-désigner un endroit qui n'existe pas — là où l'ancien mécanisme, qui déplaçait un clip, devait se
-retenir de le faire commencer avant le début de la timeline
-(`docs/platter-plan.md`, ce que l'étape 4 a supprimé).
+There is no bound on the jump. A cue is a **fraction of the file**, so it cannot designate a place
+that does not exist.

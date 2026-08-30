@@ -1,27 +1,25 @@
-# La barre du haut
+# The top bar
 
-`apps/k7/frontend/src/views/HeaderView.tsx` monte l'`AppHeader` commun. Trois choix y sont
-faits, et la page est là pour dire lesquels.
+`apps/k7/frontend/src/views/HeaderView.tsx` mounts the shared `AppHeader`. Three choices are
+made there, and this page exists to say which.
 
-## Ce sont des ENTRÉES, pas des commandes
+## They are ENTRIES, not controls
 
-C'est la ligne que trace `AppHeader`, et c'est la raison pour laquelle ce sont ces éléments-là
-qui passent derrière le hamburger sur un téléphone.
+That is the line `AppHeader` draws, and it is the reason those particular items are the ones
+that go behind the hamburger on a phone.
 
-Sous le point de rupture, la barre replie donc ses entrées dans un menu qui les **nomme**,
-plutôt que de les réduire à une rangée de glyphes : six glyphes anonymes sont une rangée que
-personne ne sait lire.
+Below the breakpoint the bar folds its entries into a menu that **names** them, rather than
+reducing them to a row of glyphs: six anonymous glyphs are a row nobody can read.
 
-Les icônes restent quand même, parce qu'une entrée nommée **et** dotée d'un glyphe se retrouve
-plus vite qu'une entrée seulement nommée.
+The icons stay all the same, because an entry that is named **and** carries a glyph is found
+faster than one that is only named.
 
-## Pas de `variant` : le `tint` est la maison
+## No `variant`: `tint` is the house look
 
-Le `tint` pose 20 % de l'accent de la page sur la barre, donc la barre appartient à la page au
-lieu de se poser dessus — c'est ce que veut une application dont la page porte la couleur.
+`tint` lays 20 % of the page's accent over the bar, so the bar belongs to the page instead of
+sitting on top of it — which is what an app whose page carries the colour wants.
 
-## Le z-index monte à 20
+## The z-index goes up to 20
 
-La barre partagée colle à `z-10`, ce qui la met sous les propres couches des pages de k7. Le
-`className="z-20"` posé ici est ce qui la garde au-dessus : le retirer la ferait passer
-dessous.
+The shared bar sticks at `z-10`, which puts it under k7's own page layers. The
+`className="z-20"` set here is what keeps it above them: remove it and it goes under.

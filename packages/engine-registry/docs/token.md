@@ -1,67 +1,64 @@
-# Le jeton par moteur : ce qu'il prouve, et ce qu'il ne protège pas
+# The per-engine token: what it proves, and what it does not protect
 
-**Le jeton par moteur ne reste pas côté serveur.** C'est la phrase à ne pas écrire à l'envers :
-une phrase de sécurité fausse est pire qu'une phrase absente, parce qu'on construit dessus.
+**The per-engine token does not stay server-side.** That sentence must not be written the other
+way round: a false security claim is worse than no claim, because people build on it.
 
-## Ce qui se passe réellement
+## What actually happens
 
-Le moteur répond à `whoami` — **sur n'importe quelle socket, sans authentification préalable** —
-par son id, son jeton et son timing audio :
+The engine answers `whoami` — **on any socket, with no prior authentication** — with its id, its
+token and its audio timing:
 
 ```
-// engine/moteur/server/main.cpp, la branche `whoami` / `hello`
+// engine/moteur/server/main.cpp, the `whoami` / `hello` branch
 ws.send(json{{"type", "whoami"}, {"id", engineId}, {"token", engineToken}, …}.dump());
 ```
 
-Et le navigateur le lit et le garde : `packages/engine-browser/src/probe.ts` le range dans
-`RankedEngine.token`, parce que c'est ce qu'il doit présenter au registre pour sélectionner ce
-moteur-là.
+The browser reads it and keeps it: `packages/engine-browser/src/probe.ts` stores it in
+`RankedEngine.token`, because that is what it must present to the registry to select that engine.
 
-Donc : quiconque peut ouvrir une WebSocket vers le port du moteur obtient le jeton. Et ce port
-n'est pas forcément local — le superviseur lance le moteur avec `STUDIO_ENGINE_HOST` à
-`0.0.0.0` (`packages/engine-client/src/engineDaemon.ts`), alors que le défaut du binaire est
-`127.0.0.1`. Sur un réseau de répétition ou un wifi de salle, le jeton est lisible par la salle.
+So anyone who can open a WebSocket to the engine's port has the token. And that port is not
+necessarily local — the supervisor starts the engine with `STUDIO_ENGINE_HOST` set to `0.0.0.0`
+(`packages/engine-client/src/engineDaemon.ts`), where the binary's own default is `127.0.0.1`. On
+a rehearsal network or a venue's wifi, the token is readable by the room.
 
-## Ce que le jeton prouve quand même
+## What the token does prove
 
-Il n'est pas inutile, et le supprimer serait une régression. Il répond à une question précise :
-**« ce moteur qui se présente sous cet id est-il celui qui s'est enregistré ? »**
+It is not useless, and removing it would be a regression. It answers one precise question:
+**"is this engine, presenting itself under this id, the one that registered?"**
 
-`verifyToken` empêche un sosie de se faire passer pour un moteur déjà connu — un second process
-qui annoncerait le même id ne peut pas produire le jeton que le premier a déposé au registre.
-C'est de l'anti-confusion, pas de l'anti-intrusion.
+`verifyToken` stops a look-alike from passing for an already-known engine — a second process
+announcing the same id cannot produce the token the first deposited with the registry. The token
+is an **unguessable identifier**, not a secret: anti-confusion, not anti-intrusion. It protects
+against collision and against mistake, not against somebody already on the network.
 
-Formulé autrement : le jeton est un **identifiant non devinable**, pas un secret. Il protège
-contre la collision et contre l'erreur, pas contre quelqu'un qui est déjà sur le réseau.
+## The real trust model
 
-## Le modèle de confiance réel
+What the audio axis assumes, stated plainly:
 
-Ce que l'axe audio suppose aujourd'hui, en clair :
+- **The musician's machine is trusted.** The engine, the supervisor and the file service run on
+  the machine of the person playing.
+- **The local network is trusted too**, by default, because of the `0.0.0.0`. That is what lets a
+  phone drive the transport from the stage, and it is the same hole.
+- **The real authentication is elsewhere**: the session cookie st0 mints, which pl8, k7 and z0
+  only verify.
 
-- **La machine du musicien est de confiance.** Le moteur, le superviseur et le service de
-  fichiers tournent chez la personne qui joue.
-- **Le réseau local l'est aussi**, par défaut, du fait du `0.0.0.0`. C'est ce qui permet à un
-  téléphone de piloter le transport depuis la scène, et c'est le même trou.
-- **L'authentification réelle est ailleurs** : le cookie de session que st0 frappe, et que pl8,
-  k7 et z0 se contentent de vérifier.
+None of that is absurd for a stage tool. What would be absurd is writing it backwards in the file
+somebody reads before adding a surface.
 
-Rien de tout cela n'est absurde pour un outil de scène. Ce qui le serait, c'est de l'écrire à
-l'envers dans le fichier que quelqu'un lira avant d'ajouter une surface.
+## What it would take for the token to become a real secret
 
-## Ce qu'il faudrait pour que le jeton devienne un vrai secret
+A design lot, not a fix — it is not taken:
 
-Un lot de conception, pas un correctif — il n'est pas pris :
+1. `whoami` returns the token only to an already-authenticated socket, or stops returning it and
+   the registry learns it by another channel (the supervisor knows it already: it is what
+   registers the engine).
+2. The browser presents a **ticket** issued by the registry rather than the token — the machinery
+   exists for the relay (`issueEngineTicket` / `verifyEngineTicket` in `proxy.ts`), and it is
+   exactly the right shape.
+3. `STUDIO_ENGINE_HOST` goes back to `127.0.0.1` by default, LAN exposure becoming an explicit
+   choice rather than a silent default.
 
-1. `whoami` ne rend le jeton qu'à une socket déjà authentifiée, ou ne le rend plus du tout et le
-   registre l'apprend par un autre canal (le superviseur le connaît déjà : c'est lui qui
-   enregistre le moteur).
-2. Le navigateur ne présente plus le jeton mais un **ticket** émis par le registre — la
-   mécanique existe déjà pour le relais (`issueEngineTicket` / `verifyEngineTicket` dans
-   `proxy.ts`), et c'est exactement la forme qui conviendrait.
-3. `STUDIO_ENGINE_HOST` revient à `127.0.0.1` par défaut, avec l'ouverture LAN en choix
-   explicite plutôt qu'en défaut silencieux.
+Point 2 is the closest: half the path is written, and no test covers it today (`proxy.test.ts`
+only exercises the relay's HTTP path).
 
-Le point 2 est le plus proche : la moitié du chemin est écrite, et elle n'est couverte par
-aucun test aujourd'hui (`proxy.test.ts` ne teste que le chemin HTTP du relais).
-
-Voir `docs/constat.md` pour la place de ce point dans l'ensemble.
+See `docs/constat.md` for where this sits in the whole.

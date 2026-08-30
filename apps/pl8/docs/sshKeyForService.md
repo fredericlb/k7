@@ -1,64 +1,60 @@
-# La clé privée, demandée par une machine pour quelqu'un
+# The private key, asked for by a machine on someone's behalf
 
-`GET /api/projects/ssh-key/private` rend la moitié privée de la clé de déploiement au service
-de fichiers de la machine du moteur, qui en a besoin pour cloner. Cette page dit **qui** peut
-la demander, et pour qui.
+`GET /api/projects/ssh-key/private` answers with the private half of the deploy key to the file
+service on the engine's machine, which needs it to clone. This page says who may ask, and for
+whom.
 
-## Pourquoi le sujet du token ne suffit pas
+## The token's subject cannot be the owner
 
-La règle évidente — le sujet du token EST le propriétaire de la clé, donc rien à nommer et rien
-à refuser — ne peut pas marcher ici. Le token qu'une machine détient est celui que
-`scripts/tokens.mjs` frappe, et son sujet est `service:st0` : une identité de **service**, qui
-n'a pas de clé. Cette règle répondrait `404 no SSH key yet` sur chaque machine, en envoyant
-régénérer une clé déjà présente.
+The token a machine holds is `scripts/tokens.mjs`'s, and its subject is `service:st0` — a
+**service** identity, which has no key. Taking the subject as the owner would answer
+`404 no SSH key yet` on every machine, sending people off to regenerate a key that is there.
 
-## La règle
+## The rule
 
-Un token de **service** doit nommer la personne : `?user=…`, et le nom donné est honoré. Un
-token de **compte** répond pour lui-même.
+A **service** token must name the person (`?user=…`), and the name it gives is honoured. An
+**account** token answers for itself.
 
-Le prix est réel et assumé : qui détient le token d'une machine peut demander la clé de
-n'importe qui. C'est ce que coûte **un credential par machine** plutôt qu'un par personne —
-l'autre sortie serait de frapper et coller un token de compte par machine, ce qui demande une
-interface qui n'existe pas et casse le test qui épingle `service:st0`.
+The price is accepted: whoever holds a machine's token can ask for anyone's key. That is what
+one credential per machine costs rather than one per person; the alternative is minting and
+pasting an account token per machine, which needs an interface that does not exist and breaks
+the test pinning `service:st0`.
 
-Ce qui tient encore, et qu'il ne faut pas relâcher :
+What must not be relaxed:
 
-- **bearer seulement**, jamais le cookie de session : aucune page d'aucun navigateur ne peut
-  être amenée à déclencher cette requête, et aucune forme de CSRF ne s'applique ;
-- un token de **compte** qui en nomme un autre est **refusé** (403), pas ignoré : rendre
-  sa propre clé à une requête qui en demandait une autre se lirait comme un succès ;
-- un token de service qui ne nomme personne est refusé (400) plutôt que rabattu sur son propre
-  sujet, qui n'a de toute façon pas de clé ;
-- `Cache-Control: no-store`, et la valeur n'est journalisée d'aucun côté.
+- **bearer only**, never the session cookie: no page in any browser can be led into making this
+  request, and no shape of CSRF applies;
+- an account token naming another is **refused** (403), not ignored — answering with its own key
+  would read as a success;
+- a service token naming nobody is refused (400) rather than falling back to its own subject;
+- `Cache-Control: no-store`, and the value is logged on neither side.
 
-## Le pont d'identité
+## The identity bridge
 
-Les deux moitiés épellent une personne différemment, et c'est délibéré de part et d'autre :
+The two halves spell a person differently, and neither can adopt the other's without moving
+directories that exist:
 
-| | ce qu'elle manipule | pourquoi |
+| | what it handles | why |
 |---|---|---|
-| le service de fichiers | l'**email** (`x-studio-user`) | c'est ce que le navigateur envoie, et toute son arborescence `<state>/workspace` en dépend |
-| pl8 | le **sujet OIDC** | `subOf` prend `sub` d'abord ; tout ici est classé sous `fileFor(sub)` |
+| the file service | the **email** (`x-studio-user`) | what the browser sends, and what its whole `<state>/workspace` tree depends on |
+| pl8 | the **OIDC subject** | `subOf` takes `sub` first; everything here is filed under `fileFor(sub)` |
 
-Aucune des deux ne peut adopter l'autre sans déplacer des dossiers existants. Donc pl8 tient
-l'annuaire : `projects/identities.ts` enregistre `email → sub` **au passage de n'importe quelle
-requête authentifiée de cette section** — le seul endroit où les deux orthographes sont en main
-en même temps, ce service ne minant pas de session mais en vérifiant une.
+So pl8 keeps the directory: `projects/identities.ts` records `email → sub` as any authenticated
+request of this section passes through — the one place both spellings are in hand at once, this
+service verifying a session rather than minting one. A person whose key is asked for has
+necessarily opened st0's home page to add the repository, so the directory knows them before a
+machine names them.
 
-`subFor()` retombe sur l'identifiant reçu quand l'annuaire ne dit rien. Ce n'est pas une
-supposition : là où l'IdP ne renvoie pas d'email, `subOf` utilise déjà le `sub` pour les deux,
-les deux orthographes sont une seule chaîne et l'annuaire est vide par construction.
+`subFor()` falls back to the identifier given when the directory says nothing, which is not a
+guess: where the IdP returns no email, `subOf` already uses the `sub` for both and the two
+spellings are one string.
 
-Une personne dont on demande la clé a nécessairement ouvert la page d'accueil de st0 pour y
-ajouter le dépôt, donc l'annuaire la connaît avant que la machine ne la nomme. L'écriture est au mieux-effort :
-un volume en lecture seule coûte le pont, jamais la requête qui passait par là. Elle est aussi
-mémoïsée en mémoire, parce que `/revision` est **sondée** et qu'un annuaire relu à chaque
-sondage serait une lecture de fichier par tick.
+The write is best-effort — a read-only volume costs the bridge, never the request passing
+through — and memoised in memory, because `/revision` is polled and a directory re-read per poll
+is one file read per tick.
 
-## Vérifié par
+## Verified by
 
-`src/routes/sshKey.test.ts` monte le routeur avec une session simulée et un schéma de tokens
-de test : la clé rendue à un service qui nomme, la casse de l'email, le sujet donné brut, le
-400 sans nom, le 403 d'un compte qui vise ailleurs, le 401 sans bearer, le 404 quand il n'y a
-pas de clé.
+`src/routes/sshKey.test.ts`: the key answered to a service that names, the email's casing, the
+subject taken raw, the 400 with no name, the 403 of an account aiming elsewhere, the 401 with no
+bearer, the 404 when there is no key.

@@ -1,97 +1,86 @@
-# Jouer sur les enceintes de la machine, sans le moteur
+# Playing on the machine's own speakers, without the engine
 
-Une troisième destination pour la médiathèque : la machine joue elle-même le fichier qu'elle
-cache déjà, par `mpv`, sur ses propres sorties. Le moteur n'est pas sollicité.
+A third destination for the médiathèque: the machine plays the file it already caches, through
+`mpv`, on its own outputs. The engine is not involved.
 
-## Pourquoi pas le moteur
+## Why not the engine
 
-Le moteur sait très bien jouer un fichier — mais il joue **un projet dans une session**, et
-cette session est partagée avec tout ce que pl8 auditionne. L'utiliser pour écouter de la
-musique, c'est prendre le transport à ce que st0 était en train d'y faire.
+The engine plays a file perfectly well — but it plays **a project in a session**, and that
+session is shared with everything pl8 auditions. Using it to listen to music takes the transport
+away from whatever st0 was doing with it. Nothing is asked of it here, so you can listen while
+the engine serves st0 — which is exactly the use of a machine that is a player and not an
+instrument.
 
-Ici on ne lui demande rien. Conséquence directe : on peut écouter pendant que le moteur sert
-st0, ce qui est exactement l'usage d'une machine qui est un lecteur et pas un instrument.
+**It must still be running.** The machine is discovered through the engine registry: the
+browser's probe opens a WebSocket to the engine, and `fileBase` — plus the token — is derived
+from the host that answers. With no reachable engine there is no file-service address to talk
+to. Hence `needsEngine: true` on a destination that asks it for nothing.
 
-**Mais il doit tourner.** La machine est découverte par le registre des moteurs : la sonde du
-navigateur ouvre un WebSocket vers le moteur, et c'est de l'hôte qui répond que `fileBase` est
-déduit — plus le jeton. Sans moteur joignable, il n'y a pas d'adresse de service de fichiers à
-qui parler. D'où `needsEngine: true` sur cette destination alors qu'elle ne lui demande rien.
+## Why nothing crosses the network
 
-## Pourquoi rien ne traverse le réseau
+The file **is already there**: the machine caches the médiathèque. It is sent "play this path",
+not bytes. That is what rules out a PulseAudio/PipeWire network sink, which would have the
+browser download, decode, and send raw PCM back to a machine holding the file on its own disk.
 
-Le fichier **est déjà là** : la machine cache la médiathèque. On lui envoie « joue ce
-chemin », pas des octets.
+## The path is RELATIVE, and that is the guard
 
-C'est ce qui écarte un sink réseau PulseAudio/PipeWire, qui aurait fait l'inverse — le
-navigateur télécharge, décode, et renvoie du PCM brut vers une machine qui a le fichier sur son
-disque.
+The client sends `songs/AC-DC/Back in Black/Hells Bells/original.flac`, never an absolute path,
+and the machine resolves it against **its own** médiathèque root. That is not convenience but
+the guarantee: a client can only name what this machine caches. A `..` is **refused** rather than
+normalised — it is an attempt, not a typo, and naming it beats silently correcting it.
+`machinePlayer.test.ts` checks three escape shapes plus the absolute path.
 
-## Le chemin est RELATIF, et c'est le garde-fou
+A pleasant side effect: this destination needs **no resolution** browser-side, unlike the engine
+which wants `cacheRoot` then `playablePath`. `NowPlaying.path` is already médiathèque-relative
+and goes as it is.
 
-Le client envoie `songs/AC-DC/Back in Black/Hells Bells/original.flac`, jamais un chemin
-absolu. La machine le résout contre **sa propre** racine médiathèque.
+The reported state carries the **requested** path, not the one mpv knows: mpv's is absolute, and
+returning it would expose the machine's directory layout to a client that has no use for it.
 
-Ce n'est pas de la commodité, c'est la garantie : un client ne peut nommer que ce que cette
-machine cache. Un `..` est **refusé** et non normalisé — c'est une tentative, pas une faute de
-frappe, et la nommer vaut mieux que la corriger en silence. `machinePlayer.test.ts` le vérifie
-sur trois formes d'échappement plus le chemin absolu.
+## `--ao=alsa`, and why it is the right default here
 
-Effet de bord agréable : cette destination ne demande **aucune résolution** côté navigateur,
-contrairement au moteur qui a besoin de `cacheRoot` puis `playablePath`. `NowPlaying.path` est
-déjà relatif à la médiathèque — il part tel quel.
+The target machine is **headless**, and PipeWire and PulseAudio are user-session services:
+without a graphical session they do not start on their own, and it would take
+`loginctl enable-linger` for the user systemd to come up at boot. On a dedicated player, doing
+without a sound server is simpler **and** more reliable. Hence `--ao=alsa`, overridable with
+`STUDIO_PLAYER_AO` on a machine with a working PipeWire.
 
-Et l'état rendu reporte le chemin **demandé**, pas celui que mpv connaît : le sien est absolu,
-et le rendre exposerait l'arborescence de la machine à un client qui n'en a pas besoin.
+The catch to know: raw ALSA is **exclusive**. If the engine already holds the card (JUCE opens it
+and keeps it), mpv will not open it. On a dedicated player that is harmless — the engine is there
+only to be discovered. On a machine that really plays from both sides you need a mixing PipeWire,
+so `STUDIO_PLAYER_AO=pipewire` and a lingering session.
 
-## `--ao=alsa`, et pourquoi c'est le bon défaut ici
+## One mpv per person, kept idle
 
-La machine visée est **headless**. Or PipeWire et PulseAudio sont des services de session
-utilisateur : sans session graphique ils ne démarrent pas tout seuls, et il faudrait
-`loginctl enable-linger` pour que le systemd utilisateur parte au boot.
+`--idle=yes` makes it wait for a `loadfile` instead of exiting: relaunching per song would cost a
+process start for nothing. `--no-config` too, because this process is an organ of this service
+and not somebody's mpv session — a `~/.config/mpv` full of scripts has no business here.
 
-Sur un lecteur dédié, se passer de serveur de son est plus simple **et** plus fiable. D'où
-`--ao=alsa` par défaut, remplaçable par `STUDIO_PLAYER_AO` pour une machine qui a un PipeWire
-en état de marche.
+Control goes over its [JSON IPC](https://mpv.io/manual/master/) on a unix socket, one line per
+message. That IPC has **neither authentication nor encryption**: acceptable because it is purely
+local and the file service's token gate sits in front of it.
 
-Le revers à connaître : ALSA brut est **exclusif**. Si le moteur tient déjà la carte (JUCE
-l'ouvre et la garde), mpv ne l'ouvrira pas. Sur un lecteur dédié c'est sans conséquence — le
-moteur n'est là que pour être découvert. Sur une machine qui joue vraiment des deux côtés, il
-faut un PipeWire qui mélange, donc `STUDIO_PLAYER_AO=pipewire` et la session persistante.
+State is **read on demand** rather than tracked from events, which avoids keeping it current on
+both sides of the socket. The four properties go together on one connection, so it is one round
+trip and not four.
 
-## Un mpv par personne, gardé en veille
+## What the browser sees
 
-`--idle=yes` le fait attendre un `loadfile` au lieu de sortir : le relancer à chaque morceau
-coûterait un démarrage de processus pour rien. `--no-config` aussi, parce que ce processus est
-un organe de ce service et non la session mpv de quelqu'un — un `~/.config/mpv` avec des
-scripts n'a rien à faire là.
+mpv is on another machine and has no way to push its position into the bottom bar, so it is
+**polled**, twice a second — enough that a progress bar does not stutter, little enough not to
+hammer a machine whose only job this is.
 
-Le pilotage passe par son [IPC JSON](https://mpv.io/manual/master/) sur un socket unix, une
-ligne par message. L'IPC de mpv **n'a ni authentification ni chiffrement** : c'est acceptable
-parce qu'il est purement local, et que le portier à jeton du service de fichiers est devant.
+The end of a song is clean, unlike the engine's which has to be inferred: mpv goes idle
+(`idle-active`). `weStopped` remains, for the reason it exists elsewhere — a requested stop looks
+like an ending.
 
-L'état est **lu à la demande** plutôt que suivi par les événements : ça évite de le tenir à
-jour des deux côtés du socket. Les quatre propriétés partent ensemble sur la même connexion,
-donc c'est un aller-retour et non quatre.
+Seeking is **optimistic**: the handle follows the finger and the next poll tells the truth.
+Waiting for the round trip would jump the cursor backwards under the mouse.
 
-## Ce que le navigateur voit
+Closing the bar **silences the machine**. Otherwise it carries on without us: it is a process
+over there, not an element of this page.
 
-mpv est sur une autre machine : il n'a aucun moyen de pousser sa position jusqu'à la barre du
-bas. Elle est donc **interrogée**, deux fois par seconde — assez pour qu'une barre de
-progression ne saccade pas, assez peu pour ne pas marteler une machine dont c'est le seul
-travail.
+## What the machine needs
 
-La fin d'un morceau est franche, contrairement au moteur dont il faut l'inférer : mpv passe en
-veille (`idle-active`). Reste `weStopped`, pour la même raison qu'ailleurs — un arrêt demandé
-ressemble à une fin.
-
-Le déplacement dans le morceau est **optimiste** : la poignée suit le doigt et le prochain tour
-d'interrogation dit la vérité. Attendre l'aller-retour ferait sauter le curseur en arrière sous
-la souris.
-
-Fermer la barre **fait taire la machine**. Sans ça elle continuerait sans nous : c'est un
-processus là-bas, pas un élément de cette page.
-
-## Ce qu'il faut sur la machine
-
-`mpv` sur le PATH — c'est tout, et il est sondé à la demande, comme yt-dlp l'est côté pl8. Sans
-lui, la route rend 503 avec la phrase, plutôt que d'échouer en silence.
+`mpv` on the PATH — that is all, and it is probed on demand, as yt-dlp is on pl8's side. Without
+it the route returns 503 with the sentence, rather than failing silently.

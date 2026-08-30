@@ -1,320 +1,294 @@
-# L'audio des séances — notes étendues
+# Session audio — extended notes
 
-## Grist garde les faits, la médiathèque garde les octets
+## Grist keeps the facts, the médiathèque keeps the bytes
 
-Une séance est une ligne Grist, et son audio vit dans la zone `RECORDINGS` de la
-médiathèque ; la ligne n'en garde que le chemin.
+A session is a Grist row, and its audio lives in the médiathèque's `RECORDINGS` family; the row
+keeps only the path.
 
-| | où ça vit |
+| | where it lives |
 |---|---|
-| durée, gain, enveloppe, tags, marqueurs | Grist |
-| une séance | `recordings/<jour>/<HH-MM-SS>.<ext>` |
-| un moment | `recordings/<jour>/moment-…` |
-| une version publiée | `songs/K7/…` |
-| ce que la ligne pointe | un chemin (`RecordingPath`, `ClipPath`, `AudioPath`) |
-| les partitions | pièce jointe `Songs.SheetFiles` — ce n'est pas de l'audio |
+| duration, gain, envelope, tags, markers | Grist |
+| a session | `recordings/<day>/<HH-MM-SS>.<ext>` |
+| a moment | `recordings/<day>/moment-…` |
+| a published version | `songs/K7/…` |
+| what the row points at | a path (`RecordingPath`, `ClipPath`, `AudioPath`) |
+| sheet music | `Songs.SheetFiles` attachment — not audio |
 
-Le cache local sert la lecture en Range, et il se remplit depuis la médiathèque. Une séance
-déjà en cache ne fait aucun aller-retour.
+Grist is a database, and hours of wav have no place in one. A médiathèque is made for it: a
+volume, paths, native Range, and a family whose whole role this is — see
+`packages/mediatek/docs/recordings.md`. The rest of the studio can read that family; a Grist
+attachment is readable by k7 alone. The local cache serves Range reads and fills from the
+médiathèque, so a cached session makes no round trip.
 
-## Pourquoi
+## The client is the package's
 
-Grist est une base de données, et des heures de wav n'y ont pas leur place. Une médiathèque
-est faite pour ça : un volume, des chemins, du Range natif, et une zone dont c'est exactement
-le rôle — voir `packages/mediatek/docs/recordings.md`. Le reste du studio sait lire cette
-zone ; une pièce jointe Grist n'est lisible que par k7.
+`@studio/mediatek/remote` carries `remoteLibrary` (stream a download), `remoteWriter` (write,
+delete) and `pushRecording`. k7 writes no second HTTP client: `src/mediatek.ts` is a thirty-line
+façade over that one.
 
-## Le client est celui du package
+`pushRecording` is deliberately separate from `remoteWriter`: a *writer* writes to the path it
+chose, whereas a recording sends bytes **and the instant**, leaving the library to derive the
+path.
 
-`@studio/mediatek/remote` porte `remoteLibrary` (télécharger en flux), `remoteWriter`
-(écrire, supprimer) et `pushRecording`. K7 n'écrit pas un deuxième client HTTP :
-`src/mediatek.ts` est une façade de trente lignes au-dessus de celui-là.
+## A session is ONE file
 
-`pushRecording` est délibérément séparé de `remoteWriter` : un *writer* écrit au chemin
-qu'il a choisi, tandis qu'un enregistrement envoie des octets **et l'instant**, à charge pour la
-bibliothèque d'en déduire le chemin.
+`storeBytes` covers all three entries — first save, re-record, extended session — with one rule:
+if the session already has a file **of the right format**, it is rewritten in place. Otherwise
+extending a session would push a second recording and the family would show two takes where
+there is one. It is the only place anything names a path in the family instead of receiving one:
+the file already exists and belongs to that session.
 
-## Une séance est UN fichier
+A format change is the exception: a spliced take is always webm, so a session started in ogg gets
+a new file and the old one goes — **after** the new bytes have landed, never before, so a failed
+upload leaves a playable file.
 
-`storeBytes` couvre les trois entrées — première sauvegarde, ré-enregistrement, séance
-prolongée — avec une règle unique : si la séance possède déjà un fichier **du bon format**,
-il est réécrit sur place.
+## Splicing a take onto a session
 
-Sans ça, prolonger une séance pousserait un second enregistrement, et la zone montrerait deux
-prises là où il n'y a qu'un enregistrement. C'est l'unique endroit où quelque chose nomme
-un chemin de la zone au lieu de le recevoir : le fichier existe déjà et appartient à cette
-séance-là.
+Extending a session does not concatenate bytes: WebM/Opus does not join end to end, so the two
+takes are re-muxed into one file by ffmpeg's `concat` filter, which re-encodes. That filter
+demands identical parameters from segment to segment, hence each input passing through a common
+format — two takes from two devices join anyway.
 
-Le changement de format est l'exception : la prise recollée est toujours du webm, donc une
-séance commencée en ogg reçoit un nouveau fichier et l'ancien part — **après** que les
-nouveaux octets ont atterri, jamais avant, pour qu'un envoi raté laisse le fichier jouable.
+Three consequences in cascade:
 
-## Recoller une prise sur une séance
+- **The envelope** of the new samples is appended to the old. Each take is normalised on its own
+  peak, so the two halves may differ slightly in vertical scale — acceptable for an overview of
+  level, which is what the envelope is.
+- **The gain** kept is the smaller of the two. It is `0.9 / truePeak`, so the smaller value
+  clears the louder of the two peaks and combined playback stays under clipping.
+- **The disk cache** is rewritten as `.webm` whatever the previous format, and the old cache file
+  — of another type — is deleted rather than left lying about.
 
-Prolonger une séance ne concatène pas des octets : du WebM/Opus ne se colle pas bout à bout,
-donc les deux prises sont re-muxées en un seul fichier par le filtre `concat` de ffmpeg, qui
-ré-encode. Ce filtre exige des paramètres identiques d'un segment à l'autre, d'où le passage
-de chaque entrée par un format commun : deux prises venues de deux appareils se joignent
-quand même.
+A session with no path has nothing to splice onto: the take becomes the first one rather than
+failing.
 
-Trois conséquences en cascade :
+## Deleting: the bytes first
 
-- **L'enveloppe** des nouveaux échantillons se pose à la suite de l'ancienne. Chaque prise est
-  normalisée sur son propre pic, donc les deux moitiés peuvent différer légèrement d'échelle
-  verticale — acceptable pour une vue d'ensemble de niveau, ce que l'enveloppe est.
-- **Le gain** retenu est le plus petit des deux. Il vaut `0.9 / truePeak` : la plus petite
-  valeur dégage donc le plus fort des deux pics, et la lecture combinée reste sous l'écrêtage.
-- **Le cache disque** est réécrit en `.webm` quel que soit le format d'avant, et l'ancien
-  fichier de cache — d'un autre type — est effacé au lieu d'être laissé à traîner.
+Deleting a session or a moment removes the bytes from the family **before** the Grist row,
+because the row is what carries the path: the other order leaves a take in the family that
+nothing names any more.
 
-Une séance sans chemin n'a rien à quoi recoller : la prise devient alors la première, plutôt
-que d'échouer.
+The removal is never fatal. If the library is unreachable the row goes anyway: an orphan in the
+family can be seen and deleted, a session that refuses to disappear cannot.
 
-## Effacer : les octets d'abord
+Moments **survive** the session they came from — they have their own extract and their own view;
+they only lose the link back. Markers, which exist only on a session's timeline, go with it.
 
-Supprimer une séance ou un moment retire les octets de la zone **avant** la ligne Grist, parce
-que c'est la ligne qui porte le chemin : l'inverse laisserait dans la zone une prise que plus
-rien ne désigne.
+## `mp4` becomes `.m4a`
 
-Le retrait n'est jamais fatal. Si la bibliothèque est injoignable, la ligne part quand même :
-un orphelin dans la zone se voit et se supprime, une séance qui refuse de disparaître non.
+Safari's `MediaRecorder` produces `audio/mp4`. The médiathèque files `.mp4` as **video**: the
+family would refuse the file, and the refusal would reach the user as "upload failed" and nothing
+else. An mp4 with no picture is an `.m4a` — same container, honest name, and an extension the
+family recognises. The disk cache keeps `mp4`: it is a local name nobody reads.
 
-Les moments, eux, **survivent** à la séance dont ils sont issus — ils ont leur propre extrait
-et leur propre vue ; ils y perdent seulement le lien de retour. Les marqueurs, qui n'existent
-que sur la timeline d'une séance, partent avec elle.
+## The time is the session's
 
-## `mp4` devient `.m4a`
+`RecordingPath` is derived from `Sessions.CreatedAt`, not from the upload time. A take saved
+after midnight belongs to the evening it was played in, and that is the date the family files it
+under.
 
-Le `MediaRecorder` de Safari produit de l'`audio/mp4`. La médiathèque classe `.mp4` en
-**vidéo** : la zone refuserait le fichier, et le refus arriverait à l'utilisateur comme
-« l'envoi a échoué » sans autre explication.
+## The path or nothing: no fallback
 
-Un mp4 sans image est un `.m4a` — même conteneur, nom honnête, et extension que la zone
-reconnaît. Le cache disque, lui, garde `mp4` : c'est un nom local, personne ne le lit.
+k7 reaches a session's audio only by its path in the médiathèque. There is no second recourse:
+the columns `Sessions.Recording`, `Comments.Clip`, `Versions.Audio` and `Versions.TrackFiles` are
+neither declared nor read, and nothing here knows how to open an audio attachment.
 
-## L'heure est celle de la séance
+Two visible consequences, both wanted:
 
-`RecordingPath` est déduit de `Sessions.CreatedAt`, pas de l'heure d'envoi. Une prise
-sauvegardée après minuit appartient à la soirée où elle a été jouée, et c'est la date sous
-laquelle la zone la range.
+- **`hasRecording` is derived from the PATH**, not from a `HasRecording` flag beside it. A session
+  announcing a recording it cannot play is worse than one admitting it has none.
+- **Extending a session with no path starts over** instead of failing: with no path there is
+  nothing to splice onto, so the take becomes the first.
 
-## Le chemin ou rien : aucun repli
+`migrateSchema` only adds what is missing, so an undeclared column stays present in the Grist
+document. Emptying it, or emptying the tables, is a manual and deliberate operation.
 
-k7 n'atteint l'audio d'une séance que par son chemin dans la médiathèque. Il n'y a pas de
-second recours : les colonnes `Sessions.Recording`, `Comments.Clip`, `Versions.Audio` et
-`Versions.TrackFiles` ne sont ni déclarées ni lues, et rien ici ne sait ouvrir une pièce
-jointe audio.
+**Sheet music** (`Songs.SheetFiles`) is a Grist attachment: not a recording, and
+`uploadAttachment` / `downloadAttachment` serve only that.
 
-Deux conséquences visibles, et voulues :
+## Moments go in the same family
 
-- **`hasRecording` se déduit du CHEMIN**, pas d'un drapeau `HasRecording` posé à côté. Une
-  séance qui annonce un enregistrement qu'elle ne peut pas jouer est pire qu'une séance qui
-  admet n'en avoir aucun.
-- **Une séance sans chemin qu'on prolonge recommence** au lieu d'échouer : sans chemin, il
-  n'y a rien à quoi recoller, donc la prise devient la première.
-
-`migrateSchema` ne fait qu'ajouter ce qui manque, donc une colonne non déclarée reste
-présente dans le document Grist. La vider, ou vider les tables, est une opération à faire à
-la main, sciemment.
-
-Les **partitions** (`Songs.SheetFiles`) sont des pièces jointes Grist : ce ne sont pas des
-enregistrements, et `uploadAttachment` / `downloadAttachment` ne servent qu'à elles.
-
-## Les moments vont dans la même zone
-
-Un moment est un extrait découpé dans une séance. Il se range dans le **dossier du jour de
-cette séance**, à côté d'elle, sous un nom qui porte les trois choses qu'il est :
+A moment is an extract cut out of a session. It is filed in **that session's day folder**, beside
+it, under a name carrying the three things it is:
 
 ```
-recordings/2026-08-03/21-00-00.webm                       ← la séance
-recordings/2026-08-03/moment-21-01-30--15--Le solo.webm   ← 90 s plus tard, 15 s, nommé
-recordings/2026-08-03/moment-21-01-30--15.webm            ← le même, sans nom
+recordings/2026-08-03/21-00-00.webm                       ← the session
+recordings/2026-08-03/moment-21-01-30--15--The solo.webm   ← 90 s later, 15 s, named
+recordings/2026-08-03/moment-21-01-30--15.webm            ← the same one, unnamed
 ```
 
-L'heure est celle où l'extrait a été **joué** — `Sessions.CreatedAt` plus `StartSec` — et
-non celle de l'annotation, qui peut arriver trois jours après. Le nom est le texte du
-moment quand il y en a un.
+The time is when the extract was **played** — `Sessions.CreatedAt` plus `StartSec` — not when it
+was annotated, which may be three days later. The name is the moment's text when there is one.
 
-Ré-extraire remplace : la borne ou le nom ont pu bouger, donc le nom de fichier déjà écrit
-est faux. `Comments.ClipPath` porte ce chemin.
+Re-extracting replaces: the bound or the name may have moved, so the file name already written is
+wrong. `Comments.ClipPath` carries the path.
 
-## Les versions publiées sont des morceaux
+## Published versions are songs
 
-Une version publiée n'est pas un enregistrement : c'est un mixdown que quelqu'un a décidé
-fini. Elle va donc dans les **MORCEAUX** (`songs/`), sous l'artiste `K7` :
+A published version is not a recording: it is a mixdown somebody decided was finished. So it goes
+into the **SONGS** (`songs/`), under the artist `K7`:
 
 ```
-songs/K7/<titre de la release>/<nom de la version>/
-    original.mp3        ← le mixdown
+songs/K7/<release title>/<version name>/
+    original.mp3        ← the mixdown
     song.yaml           ← title, artist: K7, album, source: k7
-    stems/guitare.wav   ← les pistes séparées, quand l'import en apporte
+    stems/guitare.wav   ← the separated tracks, when the import brings them
 ```
 
-Quatre décisions dedans :
+Four decisions in there:
 
-- **`recorded`, pas `imported`.** C'est le studio qui l'a produite ; cette distinction dit
-  ce qui peut être re-fabriqué et ce qui est le master de quelqu'un d'autre.
-- **La release est l'album, la version est le titre.** Trois niveaux pour trois niveaux, et
-  chaque version garde son propre dossier — ce qu'il lui faut, puisqu'elle a son propre
-  audio. L'artiste de la release, lui, survit dans ses métadonnées Grist.
-- **Les stems sont dans `stems/`, pas à côté du master.** Le scan prend le premier fichier
-  audio du dossier pour master et ne descend pas : une piste posée à côté pourrait être
-  jouée à la place du mixdown.
-- **Republier remplace.** Le 409 de la médiathèque protège une personne qui envoie deux
-  fois le même morceau, pas un service qui republie sciemment.
+- **`recorded`, not `imported`.** The studio produced it; the distinction says what can be
+  re-made and what is somebody else's master.
+- **The release is the album, the version is the title.** Three levels for three levels, and each
+  version keeps its own folder — which it needs, having its own audio. The release's artist
+  survives in its Grist metadata.
+- **Stems go in `stems/`, not beside the master.** The scan takes the folder's first audio file
+  as the master and does not descend: a track laid beside it could be played instead of the
+  mixdown.
+- **Republishing replaces.** The médiathèque's 409 protects a person sending the same song twice,
+  not a service republishing knowingly.
 
-Renommer une version **ne déplace pas le dossier** ; seul le sidecar est réécrit, pour cette
-raison : un chemin de dossier est l'identifiant d'une entrée et la clé d'un manifeste de
-cache, donc le faire bouger coûterait à chaque machine le re-téléchargement d'octets qui
-n'ont pas changé.
+Renaming a version **does not move the folder**; only the sidecar is rewritten, for this reason:
+a folder path is an entry's identifier and a cache manifest's key, so moving it would cost every
+machine a re-download of bytes that have not changed.
 
-`Versions.AudioPath` porte le chemin du mixdown, et `TrackMeta` porte
-`{id, path, name, mime}`.
+`Versions.AudioPath` carries the mixdown's path, and `TrackMeta` carries `{id, path, name, mime}`.
 
-## k7 POUSSE ; la médiathèque ne tire rien
+## k7 PUSHES; the médiathèque pulls nothing
 
-Au moment de la publication, k7 envoie lui-même les octets dans la zone : il n'y a rien à
-tirer de l'autre côté, aucune route de synchronisation, et la médiathèque ne dépend pas de
-Grist — `@frediverse/db-grist` n'est pas dans ses dépendances.
+At publication k7 sends the bytes into the family itself: there is nothing to pull from the other
+side, no sync route, and the médiathèque does not depend on Grist — `@frediverse/db-grist` is not
+among its dependencies.
 
-## Ce qui reste dans Grist
+## What stays in Grist
 
-Aucun audio : les séances, les moments et les versions sont tous dans la médiathèque.
-Grist garde les faits — qui, quand, combien de temps, quels tags, quel gain, quelle
-enveloppe — et les fichiers de partition (`Songs.SheetFiles`), qui ne sont pas de l'audio.
+No audio: sessions, moments and versions are all in the médiathèque. Grist keeps the facts — who,
+when, how long, which tags, what gain, what envelope — and the sheet-music files
+(`Songs.SheetFiles`), which are not audio.
 
-## Prendre une prise dans le navigateur
+## Taking a take in the browser
 
-Le hook `useRecorder` enregistre l'audio et construit son enveloppe de niveau (RMS) en même
-temps, par la Web Audio API. Il sait mettre en pause et reprendre, pour qu'on puisse s'arrêter
-d'écouter un moment et continuer la même prise ; le tableau `samples` vivant alimente la
-détection de moments au fil de l'eau.
+The `useRecorder` hook records the audio and builds its level envelope (RMS) at the same time,
+through the Web Audio API. It can pause and resume, so you can stop listening for a moment and
+carry on with the same take; the live `samples` array feeds moment detection as it goes.
 
-Cinq précautions, chacune payée par un bug :
+Five precautions, each paid for by a bug:
 
-- **Le contexte audio est repris à la main.** On démarre automatiquement après une navigation,
-  donc le contexte peut être créé hors d'un geste utilisateur direct, et il naît alors
-  `suspended` : l'analyseur ne lirait que du silence — vumètre mort, aucun moment détecté.
-- **C'est la piste micro BRUTE qui est enregistrée**, pas la sortie du graphe audio. Le
-  `MediaRecorder` est ainsi indépendant de l'état du contexte, et un contexte suspendu ne peut
-  pas produire un enregistrement vide. Le niveau d'entrée est laissé à l'`autoGainControl` de
-  `getUserMedia`.
-- **Le gain est déduit du pic observé** et appliqué uniformément à l'arrêt, pas pendant : c'est
-  ce qui garde l'enveloppe stockée cohérente d'un bout à l'autre. `TARGET_PEAK = 0.9` vise le
-  moment le plus fort juste sous la pleine échelle, ~ -1 dBFS.
-- **La durée est réécrite dans l'en-tête WebM.** `MediaRecorder` l'omet, ce qui rend le fichier
-  non-seekable : `duration` vaut `Infinity` et les affectations de `currentTime` sont ignorées.
-- **Le verrou d'écran est redemandé au retour au premier plan.** L'OS le révoque dès que
-  l'onglet passe en arrière-plan et ne le rend jamais tout seul ; sans ce rattrapage une longue
-  prise se fait couper par le verrouillage de l'appareil.
+- **The audio context is resumed by hand.** Recording starts automatically after a navigation, so
+  the context may be created outside a direct user gesture, and it is then born `suspended`: the
+  analyser would read nothing but silence — dead meter, no moment detected.
+- **It is the RAW mic track that is recorded**, not the audio graph's output. The `MediaRecorder`
+  is then independent of the context's state, and a suspended context cannot produce an empty
+  recording. Input level is left to `getUserMedia`'s `autoGainControl`.
+- **The gain is derived from the observed peak** and applied uniformly on stop, not during: that
+  is what keeps the stored envelope coherent end to end. `TARGET_PEAK = 0.9` aims the loudest
+  moment just under full scale, ~ −1 dBFS.
+- **The duration is rewritten into the WebM header.** `MediaRecorder` omits it, which makes the
+  file unseekable: `duration` is `Infinity` and assignments to `currentTime` are ignored.
+- **The screen lock is re-requested on return to the foreground.** The OS revokes it as soon as
+  the tab goes to the background and never gives it back; without this catch-up a long take gets
+  cut off by the device locking.
 
-Les contraintes de `getUserMedia` sont essayées non traitées d'abord, puis en repli : Safari
-en particulier refuse certaines combinaisons avec un `NotFoundError` (« The object can not be
-found here. ») alors même qu'un micro existe.
+`getUserMedia` constraints are tried unprocessed first, then in fallback: Safari in particular
+refuses some combinations with a `NotFoundError` ("The object can not be found here.") even
+though a microphone exists.
 
-L'arrêt demande un **appui maintenu** de deux secondes, bouton ou barre d'espace, pour qu'une
-touche effleurée ne termine pas une prise d'une heure. La barre d'espace est avalée à chaque
-`keydown` tant que la prise tourne — sinon la page défile — mais ne lance le maintien qu'au
-premier ; et elle est ignorée tant que le recorder est réduit, parce que le bouton d'arrêt
-n'est alors pas à l'écran.
+Stopping requires a **two-second hold**, button or space bar, so a brushed key does not end an
+hour-long take. The space bar is swallowed on every `keydown` while the take runs — otherwise the
+page scrolls — but only starts the hold on the first; and it is ignored while the recorder is
+minimised, since the stop button is then off screen.
 
-## Détecter les moments
+## Detecting moments
 
-Le même détecteur existe deux fois : `apps/k7/backend/src/detect.ts` sur l'enveloppe stockée,
-et `apps/k7/packages/recorder/src/detect.ts` côté client, pour faire apparaître les moments en
-direct pendant la prise.
+The same detector exists twice: `apps/k7/backend/src/detect.ts` over the stored envelope, and
+`apps/k7/packages/recorder/src/detect.ts` client-side, to surface moments live during a take.
 
-Le modèle tient en trois phrases, et la première est celle qu'on lit de travers :
+The model is three sentences, and the first is the one that gets misread:
 
-- `threshold` est le volume **minimum** dont l'algorithme se soucie : un plancher de silence,
-  pas une barre de « fort ».
-- Un **non**-moment est toute portion d'au moins `minSilenceSec` secondes passée
-  continûment sous ce plancher.
-- Tout le reste est un moment. Un creux plus court que `minSilenceSec` ne coupe donc pas le
-  moment qui l'entoure.
+- `threshold` is the **minimum** volume the algorithm cares about: a silence floor, not a
+  "loud" bar.
+- A **non**-moment is any stretch of at least `minSilenceSec` seconds spent continuously under
+  that floor.
+- Everything else is a moment. A dip shorter than `minSilenceSec` therefore does not cut the
+  moment around it.
 
-Après un recollage, la re-détection tourne sur l'enveloppe **stockée** — la timeline entière —
-et non sur le segment qui vient d'être envoyé.
+After a splice, re-detection runs on the **stored** envelope — the whole timeline — and not on
+the segment just uploaded.
 
-## Le dessin ne doit pas manger l'audio
+## Drawing must not eat the audio
 
-Le canvas de la forme d'onde est redessiné à chaque changement d'identité de l'enveloppe. Une
-enveloppe recréée à chaque rendu le faisait donc redessiner à chaque tic de tête de lecture,
-d'où la mémoïsation de l'objet.
+The waveform canvas is redrawn whenever the envelope's identity changes, hence the memoised
+object: an envelope recreated on every render redraws on every playhead tick.
 
-Le **playhead de lecture est un calque DOM**, pas un tracé sur le canvas, pour la même raison
-poussée plus loin : le suivre à 60 images par seconde forçait un redessin complet, dont les
-allocations provoquaient un hoquet audible par le ramasse-miettes.
+The **playback playhead is a DOM layer**, not a stroke on the canvas, for the same reason pushed
+further: following it at 60 fps forced a full redraw whose allocations caused an audible hiccup
+from the garbage collector.
 
-Quand on prolonge une séance, la forme d'onde montre l'ancienne prise **devant** la nouvelle :
-la timeline d'affichage est décalée de la longueur de l'enveloppe existante, pour que les deux
-tronçons se rejoignent bord à bord. La timeline propre au recorder — moments détectés, écoute,
-annotations en attente — reste, elle, relative à la nouvelle prise.
+When a session is extended the waveform shows the old take **in front of** the new: the display
+timeline is offset by the length of the existing envelope, so the two stretches meet edge to
+edge. The recorder's own timeline — detected moments, listening, pending annotations — stays
+relative to the new take.
 
-## Le micro distant : un pont Web Audio
+## The remote microphone: a Web Audio bridge
 
-Un second appareil peut servir de micro : la signalisation passe par une WebSocket vers le
-relais du backend, l'audio par un flux WebRTC direct entre les deux appareils. Le
-`MediaStream` obtenu est ensuite remis au recorder normal, donc tout ce qui suit est identique
-à un micro local.
+A second device can serve as the microphone: signalling goes over a WebSocket to the backend's
+relay, the audio over a direct WebRTC stream between the two devices. The resulting `MediaStream`
+is then handed to the normal recorder, so everything downstream is identical to a local mic.
 
-Un serveur STUN public suffit pour deux appareils sur le même réseau, et pour beaucoup de NAT ;
-un NAT symétrique demanderait un TURN, hors sujet ici.
+A public STUN server is enough for two devices on one network, and for many NATs; a symmetric NAT
+would want a TURN, out of scope here.
 
-Deux détours, tous deux mesurés :
+Two detours, both measured:
 
-- **Le `MediaRecorder` n'enregistre pas fiablement une piste WebRTC distante.** Il rend souvent
-  un fichier vide ou silencieux alors que le vumètre — un analyseur Web Audio sur la même
-  piste — montre du signal. L'audio distant est donc re-routé par l'`AudioContext` local vers
-  un `MediaStreamDestination` neuf, et c'est ce flux fabriqué localement qui est enregistré.
-- **Ce contexte-pont doit tourner**, sinon sa sortie est du silence. La politique d'autoplay ne
-  laisse le reprendre que depuis un geste utilisateur, et quand `ontrack` se déclenche le clic
-  est loin derrière : il est donc créé et repris tout de suite, en premier pas synchrone, tant
-  que le clic qui a appelé est encore le geste actif.
+- **`MediaRecorder` does not reliably record a remote WebRTC track.** It often yields an empty or
+  silent file while the meter — a Web Audio analyser on the same track — shows signal. The remote
+  audio is therefore re-routed through the local `AudioContext` into a fresh
+  `MediaStreamDestination`, and it is that locally made stream that is recorded.
+- **That bridge context must be running**, or its output is silence. Autoplay policy only allows
+  resuming it from a user gesture, and by the time `ontrack` fires the click is long past: it is
+  therefore created and resumed immediately, as the first synchronous step, while the click that
+  called is still the active gesture.
 
-### Changer d'entrée sans couper le flux
+### Changing input without cutting the stream
 
-L'appareil distant choisit son périphérique et, s'il en a plusieurs, son canal d'entrée — une
-seule entrée d'une interface audio, par exemple ; `"mix"` somme tous les canaux en mono. La
-capture demande le périphérique **brut**, sans traitement et avec beaucoup de canaux, pour que
-les canaux individuels survivent, et retombe progressivement sur des contraintes plus modestes
-pour les appareils ou navigateurs qui refusent les riches.
+The remote device chooses its device and, if it has several, its input channel — one input of an
+audio interface, say; `"mix"` sums every channel to mono. Capture asks for the **raw** device,
+unprocessed and with many channels, so individual channels survive, and falls back progressively
+to more modest constraints for devices or browsers that refuse rich ones.
 
-Changer de périphérique ou de canal **recâble le graphe en amont** d'un nœud de destination
-fixe : la queue gain → destination → analyseur ne bouge pas, donc la piste du `MediaStream` de
-sortie ne change jamais et l'émetteur WebRTC qui alimente le recorder continue sans coupure.
+Changing device or channel **rewires the graph upstream** of a fixed destination node: the
+gain → destination → analyser tail does not move, so the output `MediaStream`'s track never
+changes and the WebRTC sender feeding the recorder carries on uncut.
 
-Un élément `<audio>` muet reçoit en plus le flux distant : certaines versions de Chrome ne font
-tourner leur pipeline de réception qu'une fois la piste attachée à un élément média.
+A muted `<audio>` element also receives the remote stream: some Chrome versions only run their
+receive pipeline once the track is attached to a media element.
 
-Côté relais, il y a **une salle de signalisation par utilisateur**, avec au plus une socket par
-rôle : la règle « un seul appareil distant » tombe du seul emplacement `remote`. Un nouvel
-arrivant remplace celui qui occupait son rôle — typiquement l'appareil distant qui se
-reconnecte après un rafraîchissement : le plus récent gagne, et l'ancien est fermé pour qu'il
-cesse de se croire en ligne. Les charges utiles de signalisation (`offer`, `answer`, `ice`,
-`want`) sont relayées telles quelles, sans que le serveur les regarde.
+Relay-side there is **one signalling room per user**, with at most one socket per role: the "one
+remote device" rule falls out of the single `remote` slot. A newcomer replaces whoever occupied
+its role — typically the remote device reconnecting after a refresh: the most recent wins, and
+the old one is closed so it stops believing itself online. Signalling payloads (`offer`,
+`answer`, `ice`, `want`) are relayed as they are, without the server looking at them.
 
 ## Configuration
 
-**Rien ne se configure à la main.** `npm run tokens` écrit les deux lignes ; voir
-`docs/tokens.md` à la racine.
+**Nothing is configured by hand.** `npm run tokens` writes the two lines; see `docs/tokens.md` at
+the root.
 
-`MEDIATEK_URL` a pour défaut l'adresse **fixe** du service — pl8 répond sous `/pl8`, donc
-c'est `https://studio.frediver.se/pl8` :
-une origine, un chemin par service, donc un déploiement n'a rien à choisir. Un **checkout** est
-l'exception, et c'est le script qui l'écrit : le nom public sort jusqu'au proxy du LAN pour
-revenir aussitôt sur cette machine, et tombe dès que ce proxy est injoignable alors que les deux
-services vont bien — donc cet appel de serveur à serveur prend le port en loopback
-(`http://127.0.0.1:8795`). L'autre moitié de la raison est la CA privée du checkout, que le
-magasin de node ne connaît pas : mesuré, un `fetch` de `https://st0.priv.frediver.se` depuis
-node échoue en `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` alors que le navigateur d'à côté y arrive.
+`MEDIATEK_URL` defaults to the service's **fixed** address — pl8 answers under `/pl8`, so it is
+`https://studio.frediver.se/pl8`: one origin, one path per service, so a deployment has nothing
+to choose. A **checkout** is the exception, and the script writes it: the public name would go
+out to the LAN proxy only to come straight back to this machine, and falls over as soon as that
+proxy is unreachable while both services are fine — so this server-to-server call takes the
+loopback port (`http://127.0.0.1:8795`). The other half of the reason is the checkout's private
+CA, which node's store does not know: measured, a `fetch` of `https://st0.priv.frediver.se` from
+node fails with `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` while the browser next to it succeeds.
 
-`MEDIATEK_TOKEN` n'a pas de défaut, et sans lui la bibliothèque répond 401 : ses routes sont
-derrière une session ou un jeton, jamais ouvertes. Le script le frappe hors ligne, signé avec
-l'`API_TOKEN_SECRET` de la médiathèque, avec `sub: "service:k7"`.
+`MEDIATEK_TOKEN` has no default, and without it the library answers 401: its routes are behind a
+session or a token, never open. The script mints it offline, signed with the médiathèque's
+`API_TOKEN_SECRET`, with `sub: "service:k7"`.
 
-Une machine sans checkout — un portable qui synchronise la bibliothèque hébergée — n'a pas
-d'`env.yaml` et frappe donc le sien par la route prévue, connecté à la médiathèque :
+A machine with no checkout — a laptop syncing the hosted library — has no `env.yaml` and mints
+its own by the intended route, connected to the médiathèque:
 
 ```bash
 curl -X POST https://studio.frediver.se/pl8/api/token -b "studio.sid=<votre cookie>"

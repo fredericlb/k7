@@ -1,114 +1,107 @@
-# Le Wurlitzer : d'où viennent ses nombres, et ce qui manque pour l'entendre
+# The Wurlitzer: where its numbers come from, and what is missing to hear it
 
-`modules/instruments/synth/wurlitzer/` est un module Faust — `plugin: {type: faust}` et un `dsp.dsp`. Cette
-page est sa provenance : il n'y a **pas** de Wurlitzer en Faust dans la distribution
-officielle, donc il est porté d'ailleurs, et tout ce qui suit est vérifiable ligne à ligne
-contre la source d'origine.
+`modules/instruments/synth/wurlitzer/` is a Faust module — `plugin: {type: faust}` and a
+`dsp.dsp`. This page is its provenance: there is **no** Wurlitzer in Faust in the official
+distribution, so it is a port, and everything below is checkable line by line against the source
+it came from.
 
-## Un port, et non une transcription
+## A port, not a transcription
 
-Le dossier `examples/physicalModeling/faust-stk/` de la distribution Faust — le Faust-STK de
-Romain Michon, qui est l'endroit où un tel modèle vivrait s'il existait — contient vingt
-instruments et **aucun piano électrique** : `piano.dsp`, `piano1.dsp` et `harpsi.dsp` sont
-les seuls claviers. Rien non plus dans `synths.lib`, qui a bien une émulation DX7 mais pas
-de Wurlitzer.
+The Faust distribution's `examples/physicalModeling/faust-stk/` — Romain Michon's Faust-STK, where
+such a model would live if it existed — holds twenty instruments and **no electric piano**:
+`piano.dsp`, `piano1.dsp` and `harpsi.dsp` are the only keyboards. Nothing in `synths.lib` either,
+which has a DX7 emulation but no Wurlitzer.
 
-En revanche le **Synthesis ToolKit** de CCRMA a une classe `stk::Wurley`, en C++ : « deux
-paires FM simples sommées, aussi appelé algorithme 5 du TX81Z ». C'est de là que vient ce
-module. Ce n'est donc pas une transcription d'un modèle Faust existant, c'est un port — et
-ce qui suit dit exactement ce qui en est repris et ce qui ne l'est pas.
+The **Synthesis ToolKit** from CCRMA does have a `stk::Wurley` class, in C++: "two simple FM pairs
+summed, also known as TX81Z algorithm 5". That is where this module comes from.
 
-## La table de correspondance
+## The correspondence table
 
-Tout vient de `Wurley.cpp` (constructeur, `noteOn`, `tick`) et de `FM.cpp` pour la table de
-gains et le deux-zéros.
+Everything comes from `Wurley.cpp` (constructor, `noteOn`, `tick`) and from `FM.cpp` for the gain
+table and the two-zero.
 
-| STK | ici | valeur |
+| STK | here | value |
 |---|---|---|
-| `setRatio(0, 1.0)` | porteuse de la paire A | `freq` |
-| `setRatio(1, 4.0)` | modulateur de la paire A | `freq * 4` |
-| `setRatio(2, -510.0)` | porteuse de la paire B | **510 Hz fixes** |
-| `setRatio(3, -510.0)` | modulateur de la paire B | **510 Hz fixes** |
+| `setRatio(0, 1.0)` | pair A carrier | `freq` |
+| `setRatio(1, 4.0)` | pair A modulator | `freq * 4` |
+| `setRatio(2, -510.0)` | pair B carrier | **510 Hz fixed** |
+| `setRatio(3, -510.0)` | pair B modulator | **510 Hz fixed** |
 | `fmGains_[i]` | `fmGain(i)` | `0.933033 ^ (99 - i)` |
 | `adsr_[0..1]->setAllTimes` | `e0`, `e1` | `0.001, 1.50, 0.0, 0.04` |
 | `adsr_[2]->setAllTimes` | `e2` | `0.001, 0.25, 0.0, 0.04` |
 | `adsr_[3]->setAllTimes` | `e3` | `0.001, 0.15, 0.0, 0.04` |
 | `twozero_.setGain(2.0)`, `setB2(-1)` | `tz` | `2·(x − x[n−2])` |
 | `vibrato_.setFrequency(8.0)` | `vib` | 8 Hz |
-| `control1_`, `control2_` | `Index`, `Tine` | 1 au repos, plage 0–2 |
+| `control1_`, `control2_` | `Index`, `Tine` | 1 at rest, range 0–2 |
 | `lastFrame_[0] = temp * 2.0` | `out` | ×2 |
 
-Un rapport **négatif** chez STK ne veut pas dire « à l'envers » : il veut dire une fréquence
-absolue en Hz au lieu d'un multiple de la note. C'est ce qui fait que la paire B ne transpose
-pas, et c'est le cœur du son — le bruit du marteau sur la lame appartient au mécanisme, pas à
-la note qu'on joue. Un port qui lirait `-510` comme un rapport ferait un instrument qui sonne
-juste dans le grave et faux ailleurs, sans rien qui le signale.
+A **negative** ratio in STK does not mean "backwards": it means an absolute frequency in Hz
+instead of a multiple of the note. That is why pair B does not transpose, and it is the heart of
+the sound — the hammer noise on the reed belongs to the mechanism, not to the note played. A port
+reading `-510` as a ratio makes an instrument that sounds right in the bass and wrong everywhere
+else, with nothing to flag it.
 
-## `pm` est déjà pris, et rien ne le dit avant un compilateur
+## `pm` is taken, and nothing says so before a compiler does
 
-`pm` est l'alias de `physmodels.lib` dans `stdfaust.lib`, et Faust refuse une redéfinition :
+`pm` is the alias for `physmodels.lib` in `stdfaust.lib`, and Faust refuses a redefinition:
 
 ```
 stdfaust.lib:30 ERROR : redefinition of symbols are not allowed : pm
 ```
 
-Définir `phasemod` sous ce nom-là traverse donc l'écriture, la relecture, le commit, la poussée
-dans la bibliothèque du compte et l'affichage dans le constructeur **sans jamais compiler une
-fois**. C'est exactement ce que « le moteur n'a pas de compilateur » coûte. Les alias de
-`stdfaust.lib` occupent une trentaine de noms, tous de deux à trois lettres, donc un helper local
-doit être nommé plus longuement.
+Defining `phasemod` under that name therefore survives writing, review, commit, the push into the
+account's library and the display in the builder **without ever compiling once**. That is exactly
+what "the engine has no compiler" costs. The `stdfaust.lib` aliases occupy some thirty names, all
+two or three letters, so a local helper must be named longer.
 
-## Il dépasse 0 dBFS sur une note, et c'est STK
+## It exceeds 0 dBFS on one note, and that is STK
 
-Mesuré : une note à vélocité 100 sort à **1,027** de crête. Au-dessus de l'unité, donc écrêté
-si rien ne l'atténue avant la sortie — et à vélocité 127 ce sera davantage.
+Measured: a note at velocity 100 peaks at **1.027**. Above unity, so clipped unless something
+attenuates it before the output — and at velocity 127 it will be more.
 
-Ce n'est pas une erreur de port : `Wurley::tick` finit par `lastFrame_[0] = temp * 2.0`, et ce
-facteur 2 est repris tel quel. STK est une bibliothèque de recherche, pas une tranche de
-console ; le niveau y est l'affaire de qui l'emploie. Baisser le facteur ici ferait diverger le
-modèle de sa source pour une raison de mixage, ce qui est exactement ce que le mixeur du nœud
-est là pour faire.
+That is not a porting error: `Wurley::tick` ends on `lastFrame_[0] = temp * 2.0`, and that factor
+of two is carried over as is. STK is a research library, not a console strip; level there is the
+caller's business. Lowering the factor here would diverge the model from its source for a mixing
+reason, which is exactly what the node's mixer is for.
 
-## Les trois écarts, assumés
+## The three accepted departures
 
-1. **`waves_[3]` utilise `fwavblnk.raw` chez STK, une sinusoïde ici.** C'est une table
-   d'ondes livrée avec STK ; on ne peut pas l'embarquer dans un fichier source, et un module
-   est un dossier qu'on copie. L'attaque est donc un peu plus propre que l'originale.
-2. **`gains_[2]` vaut `fmGains_[92]` dans le constructeur et `fmGains_[82]` dans `noteOn`.**
-   `noteOn` tourne toujours, donc [82] est la valeur effective et c'est celle qui est ici. Le
-   [92] du constructeur n'est jamais entendu — ce n'est pas un choix, c'est une lecture.
-3. **Le vibrato est à zéro au repos.** `modDepth_` de STK vaut zéro tant qu'un contrôleur ne
-   l'ouvre pas, donc `Wurley` ne vibre pas non plus tant qu'on ne lui demande rien. Le potard
-   est là pour qu'on puisse, pas pour qu'il vibre par défaut.
+1. **`waves_[3]` uses `fwavblnk.raw` in STK, a sine here.** That is a wavetable shipped with STK;
+   it cannot be embedded in a source file, and a module is a folder you copy. The attack is
+   therefore slightly cleaner than the original's.
+2. **`gains_[2]` is `fmGains_[92]` in the constructor and `fmGains_[82]` in `noteOn`.** `noteOn`
+   always runs, so [82] is the effective value and it is the one here. The constructor's [92] is
+   never heard — that is a reading, not a choice.
+3. **The vibrato is at zero at rest.** STK's `modDepth_` is zero until a controller opens it, so
+   `Wurley` does not vibrate either until asked. The knob is there so that you can, not so that it
+   does.
 
-## Ce qui manque pour l'entendre — deux choses, pas une
+## What is missing to hear it — two things, not one
 
-**Le compilateur.** `FaustPlugin` reçoit la source et passe l'audio inchangé ;
-`engine/moteur/docs/faust.md` tient les trois façons de le remplir et ce que chacune coûte.
+**The compiler.** `FaustPlugin` receives the source and passes audio through unchanged;
+`engine/moteur/docs/faust.md` holds the three ways of filling it in and what each costs.
 
-**La couture INSTRUMENT**, qui n'existe pas du tout et que ce module est le premier à
-demander. La couture Faust posée jusqu'ici est celle d'un effet : audio en entrée, audio en
-sortie, et le greffon est inscrit au catalogue avec le rôle `audioEffect`. Un instrument
-demande trois choses de plus :
+**The INSTRUMENT seam**, which does not exist at all and which this module is the first to want.
+The Faust seam laid so far is an effect's: audio in, audio out, and the plugin is catalogued with
+the role `audioEffect`. An instrument wants three more things:
 
-- `takesMidiInput()` vrai, et la lecture du flux de notes dans `applyToBuffer` — le contexte
-  de rendu de Tracktion le porte déjà, aucun de nos greffons intégrés ne le lit ;
-- `producesAudioWhenNoAudioInput()` vrai, sans quoi rien ne tourne sur une piste sans entrée ;
-- un **répartiteur de voix**. C'est lui qui remplit `freq`, `gain` et `gate` — les trois noms
-  que `dsp.dsp` déclare et que le `params:` du module laisse volontairement de côté. Faust le
-  fournit (`mydsp_poly`), mais il vient avec le compilateur : sans compilateur, il n'y a pas
-  de voix à répartir.
+- `takesMidiInput()` true, and the note stream read in `applyToBuffer` — Tracktion's render
+  context carries it already, and none of our built-in plugins reads it;
+- `producesAudioWhenNoAudioInput()` true, without which nothing runs on a track with no input;
+- a **voice allocator**. It is what fills `freq`, `gain` and `gate` — the three names `dsp.dsp`
+  declares and that the module's `params:` deliberately leaves out. Faust provides one
+  (`mydsp_poly`), but it comes with the compiler: with no compiler there are no voices to
+  allocate.
 
-Le troisième est la raison pour laquelle rien de tout ça ne s'écrit d'avance : il ne se
-teste pas. On peut écrire du code MIDI spéculatif contre une classe qui ne compile rien, et
-il aura l'air juste jusqu'au jour où on l'exercera. Le module est donc écrit dans la
-convention que `mydsp_poly` attend — c'est la partie qui est décidable — et le reste attend
-le compilateur.
+The third is why none of this is written ahead: it cannot be tested. Speculative MIDI code against
+a class that compiles nothing will look right until the day it is exercised. So the module is
+written in the convention `mydsp_poly` expects — the decidable part — and the rest waits for the
+compiler.
 
 ## Sources
 
-- [stk::Wurley](https://ccrma.stanford.edu/software/stk/classstk_1_1Wurley.html) — la classe et son algorithme
-- [Wurley.cpp](https://github.com/thestk/stk/blob/master/src/Wurley.cpp) — les nombres de la table ci-dessus
-- [faust-stk](https://github.com/grame-cncm/faust/tree/master-dev/examples/physicalModeling/faust-stk) — le dossier où il n'est pas
-- [Faust-STK, Michon & Smith, DAFx-11](https://ccrma.stanford.edu/~rmichon/publications/doc/DAFx11-Faust-STK.pdf) — ce que cette collection couvre
-- [envelopes.lib](https://faustlibraries.grame.fr/libs/envelopes/) et [oscillators.lib](https://faustlibraries.grame.fr/libs/oscillators/) — les signatures utilisées
+- [stk::Wurley](https://ccrma.stanford.edu/software/stk/classstk_1_1Wurley.html) — the class and its algorithm
+- [Wurley.cpp](https://github.com/thestk/stk/blob/master/src/Wurley.cpp) — the numbers in the table above
+- [faust-stk](https://github.com/grame-cncm/faust/tree/master-dev/examples/physicalModeling/faust-stk) — the folder it is not in
+- [Faust-STK, Michon & Smith, DAFx-11](https://ccrma.stanford.edu/~rmichon/publications/doc/DAFx11-Faust-STK.pdf) — what that collection covers
+- [envelopes.lib](https://faustlibraries.grame.fr/libs/envelopes/) and [oscillators.lib](https://faustlibraries.grame.fr/libs/oscillators/) — the signatures used

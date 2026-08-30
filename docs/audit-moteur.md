@@ -1,207 +1,199 @@
-# Audit — les services et le moteur
+# Audit — the services and the engine
 
-État des lieux de tout ce qui relie une surface au `engine/moteur` : ce qui est mutualisé, ce
-qui est recopié, et où la fiabilité des connexions cède. Écrit pour être exécuté par lots — le
-plan est en fin de page.
+Everything that links a surface to `engine/moteur`: what is shared, what is copied, and where the
+reliability of the connections gives way. Written to be executed in batches — the plan is at the
+end of the page.
 
-> **L'autre moitié est ailleurs.** Cette page s'arrête à la socket. Ce qui se passe une fois
-> le message arrivé — les fils, le rappel audio, le coût d'un chargement de projet, et le gel
-> de la première lecture — est dans
+> **The other half is elsewhere.** This page stops at the socket. What happens once the message
+> has arrived — the threads, the audio callback, the cost of loading a project, and the first-play
+> freeze — is in
 > [engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md).
 
-## Périmètre
+## Scope
 
-Deux services parlent vraiment au moteur : **st0** et **pl8**, chacun par ses deux moitiés
-(navigateur + backend), plus le **superviseur** (`engine-host`) qui l'annonce aux registres. En
-marge : **z0** ne s'y relie qu'en un point, un rendu hors-ligne de 74 lignes
-(`apps/z0/backend/src/render.ts`) qui passe par le service de fichiers en HTTP et jamais par
-la socket ; **k7** n'y touche pas du tout.
+Two services really talk to the engine: **st0** and **pl8**, each by its two halves (browser +
+backend), plus the **supervisor** (`engine-host`), which announces it to the registries. At the
+margin: **z0** links to it at one point only, a 74-line offline render
+(`apps/z0/backend/src/render.ts`) that goes through the file service over HTTP and never the
+socket; **k7** does not touch it at all.
 
-Volumétrie : ~7 400 lignes de TypeScript dans les cinq paquets moteur (`engine-protocol` 959,
-`engine-client` 684, `engine-browser` 1 944, `engine-host` 3 029, `engine-registry` 793),
-52 fichiers C++, et 35 fichiers d'app qui importent `@studio/engine-*`. Les fichiers les plus
-remaniés sont `engine-host/src/supervisor.ts` et `engine-browser/src/engine.ts` — c'est là que
-la fiabilité se joue.
+Volume: ~7,400 lines of TypeScript in the five engine packages (`engine-protocol` 959,
+`engine-client` 684, `engine-browser` 1,944, `engine-host` 3,029, `engine-registry` 793), 52 C++
+files, and 35 app files that import `@studio/engine-*`. The most churned files are
+`engine-host/src/supervisor.ts` and `engine-browser/src/engine.ts` — reliability is decided there.
 
-## Ce qui marche, et qu'il ne faut pas défaire
+## What works, and must not be undone
 
-Trois choses sont réussies et servent de modèle au reste.
+**`engineAccess(base, json)`** is the single discovery path: every surface uses it, without
+exception. The package removes a whole class of bug — the `base` passed twice, the unguarded list
+that produces an eternal spinner.
 
-**`engineAccess(base, json)`** est la voie unique de découverte : toutes les surfaces
-l'utilisent, sans exception. Le paquet supprime une classe entière de bugs (le `base` passé
-deux fois, la liste non gardée qui produisait un spinner éternel).
+**`packages/project-shell`** is the repo's one clean decoupling: it does not depend on
+`engine-browser`, it declares `GateEngine { fileBase; token }` structurally, and the apps mount the
+same `ProjectGate`. This is the pattern to reproduce.
 
-**`packages/project-shell`** est le seul découplage propre du dépôt : il ne dépend pas de
-`engine-browser`, il déclare `GateEngine { fileBase; token }` structurellement, et les apps
-montent la même `ProjectGate`. C'est le patron à reproduire.
+**The C++ is hardened in depth**: `SessionRegistry` under mutex, non-inserting accessors, two verbs
+`broadcast`/`broadcastTo`, audio emitter on its own thread, orphan listener purge. Sixteen failure
+modes are documented and guarded there.
 
-**Le C++ est durci en profondeur** : `SessionRegistry` sous mutex, accesseurs non insérants,
-deux verbes `broadcast`/`broadcastTo`, émetteur audio sur son propre thread, purge des listeners
-orphelins. Seize modes de défaillance y sont documentés et gardés.
+Documentation is in fact the repo's strong point: most of the traps in this area are written down
+in black and white. The problem is not that the failure modes are unknown — it is that **a fix
+stays local to the surface that suffered** as long as no package carries it.
 
-La documentation est d'ailleurs le point fort du dépôt : la plupart des pièges de ce domaine
-sont écrits noir sur blanc. Le problème n'est pas qu'on ignore les modes de panne, c'est que
-**un correctif reste local à la surface qui a souffert** tant qu'un paquet ne le porte pas.
+## B. Security — to be decided, not mechanically corrected
 
-## B. Sécurité — à décider, pas à corriger mécaniquement
+**The engine token leaks by design.** `main.cpp:1094-1108`: `whoami` returns the token to any
+socket that asks for it, with no prior authentication. The browser picks it up there
+(`probe.ts:124`) and replays it towards the file service.
 
-**Le jeton moteur fuit par conception.** `main.cpp:1094-1108` : `whoami` renvoie le jeton à
-n'importe quelle socket qui le demande, sans authentification préalable. Le navigateur le
-récupère là (`probe.ts:124`) et le rejoue vers le service de fichiers.
+Consequences: anyone reaching `ws://<engine>:8765` — loopback, or the whole LAN when the supervisor
+binds `0.0.0.0` — obtains in one message enough to claim the lease, deregister the engine, and call
+**every** file service route on that machine. The token is the same for both surfaces, has no
+expiry, and revoking it means deleting `engine-id.json`, which also changes the `id` and breaks the
+remembered preference.
 
-Conséquences : quiconque atteint `ws://<moteur>:8765` — loopback, ou le LAN entier quand le
-superviseur bind `0.0.0.0` — obtient en un message de quoi réclamer le bail, désenregistrer le
-moteur, et appeler **toutes** les routes du service de fichiers de cette machine. Le jeton est
-le même pour les deux surfaces, n'a aucune expiration, et le révoquer suppose de supprimer
-`engine-id.json`, ce qui change aussi l'`id` et casse la préférence mémorisée.
+A blind spot makes it worse: the relay copies every incoming header, `origin` included
+(`proxy.ts:233`). The relayed request is not preflighted, so the CORS control `corsAndOrigins.md`
+describes as "the load-bearing control" is **entirely bypassed** — only the token is left. Visible
+side effect in dev: `pending-origins.json` fills with origins that work, and the tray notifies "A
+web UI was blocked" for each of them.
 
-Un angle mort aggrave le tableau : le relais recopie tous les en-têtes entrants, `origin`
-compris (`proxy.ts:233`). La requête relayée n'étant pas préflightée, le contrôle CORS que
-`corsAndOrigins.md` décrit comme « the load-bearing control » est **entièrement contourné** : il
-ne reste que le jeton. Effet de bord visible en dev : `pending-origins.json` se remplit
-d'origines qui fonctionnent, et le tray notifie « A web UI was blocked » pour chacune.
+This is not a bug to patch: it is a trust model to settle. The options run from "accept it and
+write it down" to "the engine no longer emits its token on `whoami`", which requires another proof
+of identity for the probe. What the token proves today is written in
+`packages/engine-registry/docs/token.md`.
 
-Ce n'est pas un bug à corriger d'un patch : c'est un modèle de confiance à trancher. Les
-options vont de « assumer et l'écrire » à « le moteur n'émet plus son jeton sur `whoami` », ce
-qui demande une autre preuve d'identité pour la sonde. Ce que le jeton prouve aujourd'hui est
-écrit dans `packages/engine-registry/docs/token.md`.
+## C. Duplication — what a package would save
 
-## C. Duplication — ce qu'un paquet économiserait
+### C2 — the engine pickers, three copies
 
-### C2 — les sélecteurs de moteur, trois copies
+The full-screen spinner, the "Connect" card, the engine row, and the `useRelook` effect duplicated
+word for word with its `biome-ignore` (26 lines for a `useEngineList(active)` of ~12). The gates
+share the `Phase` structure, `findEngine`, `pick`, the `auth.me` effect, the three render branches
+and the `ranked.map` loop; what distinguishes them is a comment banner, an import and a few
+strings.
 
-Le spinner plein écran, la carte « Se connecter », la rangée de moteur, et l'effet `useRelook`
-dupliqué mot pour mot avec son `biome-ignore` (26 lignes pour un `useEngineList(actif)` de ~12).
-Les gates partagent la structure `Phase`, `findEngine`, `pick`, l'effet `auth.me`, les trois
-branches de rendu et la boucle `ranked.map` ; ce qui les distingue est un bandeau de
-commentaire, un import et quelques chaînes de texte.
+A `@studio/engine-gate` carrying the phase machine, the parameterised relook effect,
+`<EngineRow>`, the spinner and the anon card would bring **~770 lines down to about 400**. Above
+all it would make the divergences below structurally impossible. The numbers are to be rechecked
+when the batch is taken.
 
-Un `@studio/engine-gate` portant la machine à phases, l'effet relook paramétré, `<EngineRow>`,
-le spinner et la carte anon ramènerait **~770 lignes à environ 400**. Surtout, il rendrait
-structurellement impossibles les divergences ci-dessous. Les nombres sont à revérifier au moment
-de faire le lot.
+### C3 — the accidental divergences that package would remove
 
-### C3 — les divergences accidentelles que ce paquet supprimerait
+1. **Four different predicates for "reachable"**, two of which ignore the token
+   (`z0/Gate.tsx:107`, `pl8/EnginePicker.tsx:49`). This is the bug `access.md:37` describes —
+   guarded in `choose.ts` but not in the pickers, which filter for themselves. An `isReachable()`
+   exists in the package and is **called nowhere**.
+2. **z0 has no `useRelook`** — the only permanent picker that can stay stuck on "out of reach"
+   until a reload, precisely what `relook.ts` exists to kill.
+3. **z0 never takes the lease**, where `lease.md:20-27` records two apps shipping that bug
+   independently. z0 drives no project, but it drives an engine, so the rule holds.
+4. **`assigned` ignored by 2 gates out of 3**: only st0 hides an engine already taken.
+5. **`select` before entering: st0 alone.** The other two enter on a token unverified server-side.
+6. **"Search again" destroys the list** in z0 (`setPhase({k:"looking"})`), not in st0 or pl8.
 
-1. **Quatre prédicats différents pour « joignable »**, dont deux qui ignorent le jeton
-   (`z0/Gate.tsx:107`, `pl8/EnginePicker.tsx:49`). C'est le bug que `access.md:37` décrit —
-   gardé dans `choose.ts` mais pas dans les sélecteurs, qui filtrent eux-mêmes. Un
-   `isReachable()` existe dans le paquet et **n'est appelé nulle part**.
-2. **z0 n'a pas de `useRelook`** — le seul sélecteur permanent qui peut rester bloqué sur
-   « hors de portée » jusqu'au rechargement, précisément ce que `relook.ts` existe pour tuer.
-3. **z0 ne prend jamais le bail**, alors que `lease.md:20-27` raconte que deux apps ont livré
-   ce bug indépendamment. z0 ne pilote pas de projet, mais il pilote un moteur, donc la ligne
-   tient.
-4. **`assigned` ignoré par 2 gates sur 3** : seul st0 cache un moteur déjà pris.
-5. **`select` avant d'entrer : st0 seul.** Les deux autres entrent sur un jeton non vérifié
-   côté serveur.
-6. **« Rechercher à nouveau » détruit la liste** dans z0 (`setPhase({k:"looking"})`), pas dans
-   st0 ni pl8.
+### C4 — the shapes of the wire, declared twice
 
-### C4 — les formes du fil, déclarées deux fois
+`EngineSessionInfo`, `EngineAudioDevice`, `EnginePluginInfo`, `EngineEditPlugin` exist in
+duplicate, in `engine-browser/src/engine.ts:44-75` and `engine-client/src/engineControl.ts:55-78`,
+with the same field-by-field coercions copied across. The comment at `engine.ts:41-43` acknowledges
+it and says what to do: "if a third copy ever appears, move them there instead" — into
+`engine-protocol`, which exists and carries only the erased types.
 
-`EngineSessionInfo`, `EngineAudioDevice`, `EnginePluginInfo`, `EngineEditPlugin` existent en
-double, dans `engine-browser/src/engine.ts:44-75` et `engine-client/src/engineControl.ts:55-78`,
-avec les mêmes coercitions champ par champ recopiées. Le commentaire de `engine.ts:41-43` le
-reconnaît et dit quoi faire : « if a third copy ever appears, move them there instead » — dans
-`engine-protocol`, qui existe et ne porte que les types effacés.
+Two divergences have already been born there: the browser reads `pitches`/`clarity` on
+`io-levels`, the Node client ignores them.
 
-Deux divergences y sont déjà nées : le navigateur lit `pitches`/`clarity` sur `io-levels`, le
-Node les ignore.
+Same for the address list, built twice from the same `EngineAddresses`: `probe.ts:161-165`
+(browser) and `proxy.ts:70-73` `hostsFor` (server), in two packages.
 
-Même chose pour la liste d'adresses, construite deux fois à partir du même `EngineAddresses` :
-`probe.ts:161-165` (navigateur) et `proxy.ts:70-73` `hostsFor` (serveur), dans deux paquets.
+And for the "latency or out of reach" formatting: 5 copies of a one-line function whose place is
+`web-protocol/quality.ts`, next to `formatLatency`.
 
-Et pour le formatage « latence ou hors de portée » : 5 copies d'une fonction d'une ligne, dont
-la place est dans `web-protocol/quality.ts` à côté de `formatLatency`.
+Same family: `ENGINE_PROXY_PATH` is exported by `engine-registry` and **nobody imports it** — the
+path is rewritten by hand on the browser side (`probe.ts:170`).
 
-À noter, de la même famille : `ENGINE_PROXY_PATH` est exporté par `engine-registry` et
-**personne ne l'importe** — le chemin est réécrit en dur côté navigateur (`probe.ts:170`).
-
-### C5 — code mort
+### C5 — dead code
 
 `probeLocalEngine()`, `isReachable()`, `EngineLookup.ambiguous`, `RELOOK_MS`,
-`StreamPlayer.snapshot()` : zéro appelant hors tests. `packages/player-web/src/moteurPlayer.ts`
-(~300 lignes, pilote le moteur via `EngineClient`) n'est instancié par personne — c'est un
-joint assumé, voir `docs/inventaire.md` §3. L'instrumentation de streaming décrite dans
-`streaming.md` (jitter, drift, `dropped`) n'est exposée par aucun écran.
+`StreamPlayer.snapshot()`: zero callers outside tests. `packages/player-web/src/moteurPlayer.ts`
+(~300 lines, drives the engine through `EngineClient`) is instantiated by nobody — a seam taken on
+purpose, see `docs/inventaire.md` §3. The streaming instrumentation described in `streaming.md`
+(jitter, drift, `dropped`) is exposed by no screen.
 
-Hors périmètre moteur mais même famille : `apps/z0/buzzer/src/lib/ws.ts` et
-`apps/z0/remote/src/lib/ws.ts` sont identiques à l'octet (74 lignes), `presenter` en est une
-troisième copie de 69 lignes. Aucun des trois ne reconnecte.
+Outside the engine scope but the same family: `apps/z0/buzzer/src/lib/ws.ts` and
+`apps/z0/remote/src/lib/ws.ts` are identical to the byte (74 lines), `presenter` is a third copy of
+69 lines. None of the three reconnects.
 
-## D. Le superviseur
+## D. The supervisor
 
-- **Aucun backoff sur registre injoignable** : `beat` relance N `fetch` toutes les 5 s, pour
-  toujours, sans journalisation ni espacement. Le contraste est net avec la surveillance de
-  crash du moteur, qui a bien un backoff 1 s → 30 s.
-- **`heartbeat()` est tout-ou-rien** : trois registres sains sur quatre affichent rouge, sans
-  dire lequel manque — alors que le snapshot joint pourtant les URL.
-- **`lastHeartbeatOk` confond trois choses** : moteur arrêté, registre injoignable, et un
-  écrasement hors cycle par `addRegistryUrl`.
-- **Le niveau 3 de `resolveRegistryUrls` est collant** : un backend tué par `SIGKILL` laisse
-  son fichier d'annonce, le superviseur bat éternellement vers un port mort, et combiné au
-  tout-ou-rien ci-dessus, éteint le voyant pour tous les autres.
-- **L'adoption par pidfile ne vérifie rien** : ni que le processus est un moteur, ni qu'il
-  porte le même jeton. Un moteur adopté avec une autre identité fait diverger ce que le
-  superviseur annonce de ce que le moteur répond à `whoami` — et la sonde, qui compare les
-  `id`, le déclare injoignable sans un mot.
+- **No backoff on an unreachable registry**: `beat` relaunches N `fetch` every 5 s, forever,
+  without logging or spacing. The contrast with the engine's crash watch, which does have a
+  1 s → 30 s backoff, is stark.
+- **`heartbeat()` is all-or-nothing**: three healthy registries out of four show red, without
+  saying which one is missing — where the attached snapshot does carry the URLs.
+- **`lastHeartbeatOk` conflates three things**: engine stopped, registry unreachable, and an
+  out-of-cycle overwrite by `addRegistryUrl`.
+- **Level 3 of `resolveRegistryUrls` is sticky**: a backend killed by `SIGKILL` leaves its
+  announcement file behind, the supervisor beats forever towards a dead port, and combined with the
+  all-or-nothing above it puts out the light for everyone else.
+- **Pidfile adoption verifies nothing**: neither that the process is an engine, nor that it carries
+  the same token. An engine adopted with another identity makes what the supervisor announces
+  diverge from what the engine answers to `whoami` — and the probe, which compares the `id`s,
+  declares it unreachable without a word.
 
-## E. Tests — l'asymétrie qui coûte
+## E. Tests — the asymmetry that costs
 
-Une centaine de cas couvrent bien **les fonctions pures et les politiques** : `chooseEngine`,
+A hundred or so cases cover **the pure functions and the policies** well: `chooseEngine`,
 `forSession`, `desiredSwitch`, `normaliseOrigin`, `resolveRegistryUrls`, `seqGap`,
-`decodeStreamFrame`. Ils ne couvrent **presque rien de ce qui concerne une socket dans le
-temps** : ouverture, fermeture, réouverture, file d'attente, replay, ticket.
+`decodeStreamFrame`. They cover **almost nothing of what concerns a socket over time**: opening,
+closing, reopening, queueing, replay, ticket. Yet the thirty-odd bugs recorded in the docs are, to
+three exceptions, **all** connection lifecycle bugs.
 
-Or les trente et quelques bugs recensés dans les docs sont, à trois exceptions près, **tous**
-des bugs de cycle de vie de connexion.
+The lease is the exception: `engine-registry/registry.test.ts` covers the grant, the renewal, the
+takeover, the loser's refusal, expiry without a goodbye, and release by secret. Covered by no test:
+reconnection (no client), subscription replay — the only resynchronisation that exists —, the
+`outbox`, the WebSocket half of the relay, `issueEngineTicket`/`verifyEngineTicket` (including
+non-replay across engines, a central security property), `holdEngine`, and the ~35 dispatch
+branches of the two clients.
 
-Le bail fait exception : `engine-registry/registry.test.ts` couvre l'octroi, le renouvellement,
-la reprise, le refus du perdant, l'expiration sans adieu et la libération par secret. Ne sont
-couverts par aucun test : la reconnexion (aucun client), le replay des souscriptions — la seule
-resynchronisation qui existe —, l'`outbox`, la moitié WebSocket du relais,
-`issueEngineTicket`/`verifyEngineTicket` (dont le non-rejeu inter-moteur, propriété de sécurité
-centrale), `holdEngine`, et les ~35 branches de dispatch des deux clients.
-
-Trois accords C++ ↔ TS ne sont vérifiés par rien : la trame binaire (« nothing checks that they
-do but a listener, and a disagreement plays as noise »), le choix `broadcast`/`broadcastTo`
-pour chaque réponse par session — dont le correctif est une convention de revue —, et
-`ProjectDoc` contre ses ~60 `j.value(...)`, où un champ renommé côté TS prend silencieusement
-son défaut côté C++. C'est exactement le mode de panne du stub `ClipMoved` : le changelog dit
-succès, l'audio ne bouge pas.
+Three C++ ↔ TS agreements are verified by nothing: the binary frame ("nothing checks that they do
+but a listener, and a disagreement plays as noise"), the `broadcast`/`broadcastTo` choice for each
+per-session reply — whose fix is a review convention —, and `ProjectDoc` against its ~60
+`j.value(...)`, where a field renamed on the TS side silently takes its default on the C++ side.
+That is exactly the failure mode of the `ClipMoved` stub: the changelog says success, the audio
+does not move.
 
 ## Plan
 
-Ordonné par rapport valeur/risque.
+Ordered by value/risk ratio.
 
-### Lot 3 — `@studio/engine-gate`
+### Batch 3 — `@studio/engine-gate`
 
-C2 et C3. Le plus gros lot (~770 lignes vers ~400), et celui qui supprime six divergences
-d'un coup. Le paquet doit naître avec la sémantique de reconnexion de
-`packages/engine-browser/docs/reliability.md` plutôt que de figer celle d'un sélecteur.
+C2 and C3. The biggest batch (~770 lines towards ~400), and the one that removes six divergences at
+a stroke. The package must be born with the reconnection semantics of
+`packages/engine-browser/docs/reliability.md` rather than freezing those of one picker.
 
-### Lot 4 — descendre les formes du fil dans `engine-protocol`
+### Batch 4 — move the wire shapes down into `engine-protocol`
 
-C4, plus le ménage de C5. Le commentaire du code dit déjà quoi faire.
+C4, plus the C5 cleanup. The comment in the code already says what to do.
 
-### Lot 5 — les tests de cycle de vie
+### Batch 5 — the lifecycle tests
 
-Un faux moteur et un faux registre en mémoire, puis couvrir : reconnexion, replay, `outbox`,
-ticket, relais WebSocket. Plus un test de contrat C++ ↔ TS sur la trame binaire et sur
-`PER_SESSION_REPLIES`. C'est le lot qui empêche les trente bugs déjà corrigés de revenir.
+A fake engine and a fake registry in memory, then cover: reconnection, replay, `outbox`, ticket,
+WebSocket relay. Plus a C++ ↔ TS contract test on the binary frame and on `PER_SESSION_REPLIES`.
+This is the batch that stops the thirty already-fixed bugs coming back.
 
-### Lot 6 — le modèle de confiance
+### Batch 6 — the trust model
 
-Section B. À trancher avant d'écrire quoi que ce soit.
+Section B. To be settled before anything is written.
 
-## Corrections de documentation à faire au passage
+## Documentation corrections to make along the way
 
-- `engine-browser/docs/access.md` : son tableau « où brancher `useRelook` » omet z0, seul cas
-  où la doc dit qu'il faut *toujours* le brancher, et le filtrage sans jeton y est présenté
-  comme réglé alors que deux surfaces le font encore.
-- `engine-browser/docs/lease.md` présente le bail comme un sujet clos ; z0 n'en prend aucun.
-- `engine-browser/docs/streaming.md` dit « quatre apps » pour `./stream` (une seule), et son
-  tableau de lecture des mesures décrit une instrumentation qu'aucun écran n'expose.
-- `engine-registry/docs/proxy.md:116-118` promet un 502 franc sur corps flué ; le code
-  (`proxy.ts:291`) réessaie sur un flux déjà partiellement consommé.
+- `engine-browser/docs/access.md`: its "where to wire `useRelook`" table omits z0, the one case
+  where the doc says it must *always* be wired, and token-less filtering is presented there as
+  settled while two surfaces still do it.
+- `engine-browser/docs/lease.md` presents the lease as a closed subject; z0 takes none.
+- `engine-browser/docs/streaming.md` says "four apps" for `./stream` (there is one), and its table
+  for reading the measurements describes instrumentation no screen exposes.
+- `engine-registry/docs/proxy.md` promises a clean 502 on a streamed body; the code
+  (`proxy.ts:291`) retries on a stream already partly consumed.

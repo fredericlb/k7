@@ -1,109 +1,71 @@
-# Qui a le droit d'entrer, et par quelle porte
+# Who may come in, and through which door
 
-z0 a **sa** connexion pour une moitié seulement : un joueur de blindtest est un **invité sans
-compte**, une espèce que la session studio ne modélise pas, et ce cookie-là est le sien.
-L'autre moitié ne lui appartient pas : **le login d'un compte appartient à st0**, et pas par
-goût de l'uniformité.
+z0 holds **its own** login for one half only: a blind-test player is a guest with no account, a
+species the studio session does not model, and `bt_session` is z0's. An account's login belongs
+to st0.
 
-## Pourquoi un service sous un chemin ne peut pas tenir son flux
+## A service under a path cannot hold its own flow
 
-`redirectUriFor` construit `<origine><X-Forwarded-Prefix>/auth/callback`. Un z0 qui poserait
-`X-Forwarded-Prefix: /z0` nommerait donc `https://st0.priv.frediver.se/z0/auth/callback` au
-lieu de la racine.
-
-Le client OAuth n'a qu'**une** redirect_uri enregistrée, celle sans préfixe. Demandez l'autre
-et l'IdP refuse avant d'afficher quoi que ce soit :
+`redirectUriFor` builds `<origin><X-Forwarded-Prefix>/auth/callback`. The OAuth client has one
+registered redirect_uri, the one with no prefix, so a z0 setting `X-Forwarded-Prefix: /z0` is
+refused by the IdP before anything is displayed:
 
 ```
 error_hint=The 'redirect_uri' parameter does not match any of the
            OAuth 2.0 Client's pre-registered 'redirect_uris'
 ```
 
-Toute connexion à un compte mourrait alors à l'`authorization endpoint` — l'éditeur, mais
-aussi le presenter, le monitor et la remote, qui empruntent tous le même bouton. Le contrôle
-qui le prouve : la même requête avec `https://st0.priv.frediver.se/auth/callback` passe la
-validation et échoue plus loin, sur la longueur du `state`.
+Every account login would die there — the editor, and the presenter, monitor and remote, which
+share the button. The rule is structural: only the service with no prefix can hold the flow, and
+that is st0. It is why pl8 and k7 mount no auth routes either, and why z0 sets no
+`X-Forwarded-Prefix`.
 
-La règle est structurelle : **un service monté sous un chemin ne peut pas tenir son propre
-flux sur ce client**. Seul celui qui n'a pas de préfixe le peut, et c'est st0. C'est
-exactement la raison pour laquelle pl8 et k7 ne montent aucune route d'auth non plus, et
-z0 ne pose pas d'en-tête `X-Forwarded-Prefix`.
+## Two cookies, one of them ours
 
-## Ce qui entre sur le backend
-
-Deux cookies arrivent, et **un seul est de nous** :
-
-| cookie | signé par | ce qu'il porte |
+| cookie | signed by | what it carries |
 |---|---|---|
-| `bt_session` | z0, `SESSION_SECRET` | les invités : `guest` (mot de passe de session, sur le buzzer) et `guest_online` |
-| `studio.sid` | st0, avec la même clé | le compte studio : celui de st0, de la médiathèque et de k7 |
+| `bt_session` | z0, `SESSION_SECRET` | the guests: `guest` (a session's password, on the buzzer) and `guest_online` |
+| `studio.sid` | st0, with the same key | the studio account, shared with st0, pl8 and k7 |
 
-`currentUser()` est le seul point de passage — le middleware, le gate admin et chaque
-route en dépendent — et il lit le compte d'abord, l'invité ensuite. **L'ordre est
-porteur** : `/auth/logout` ne sait expirer que le cookie de z0, donc un vieux cookie
-d'invité qui masquerait un compte serait indéconnectable depuis ici.
+`currentUser()` is the single point of passage, and it reads the account first, the guest
+second. **The order is load-bearing**: `/auth/logout` can only expire z0's cookie, so a guest
+cookie masking an account would be impossible to sign out of from here. The WebSocket upgrade
+repeats the read by hand (`ws.ts`), an `upgrade` being a raw http event cookie-session never
+runs on.
 
-L'upgrade WebSocket refait la même lecture à la main (`ws.ts`) : un `upgrade` est un
-événement http brut, cookie-session n'y tourne jamais.
+## One secret, `common`'s
 
-## Un seul secret, celui de `common`
+z0 declares no `SESSION_SECRET` of its own. A key that is not `common`'s produces no error: the
+cookie simply never verifies.
 
-Deux cookies, **une** clé — et c'est la même que celle de st0, pl8 et k7. z0 ne déclare pas de
-`SESSION_SECRET` à lui. Une clé qui n'est pas celle de `common` ne produit aucune erreur : le
-cookie ne se vérifie simplement jamais.
+A guest cannot rename their cookie to `studio.sid` and become an account. cookie-session signs
+`<name>=<value>`, so the name is inside the signature and resigning would need the key; the name
+is domain separation. Pinned by `backend/src/auth/session.test.ts`.
 
-L'objection naturelle, et elle mérite une réponse précise : avec une seule clé, un invité
-tient un cookie que ce backend a signé lui-même — ne peut-il pas le renommer `studio.sid`
-et devenir un compte, ici et dans toute la médiathèque ?
+**A mismatched key fails in a circle**, which is why the SPA is what reports it: `/auth/me`
+answers 401, the gate appears, the button goes to st0, which already knows you and sends you
+back, and the gate returns identical. The backend cannot tell that from a visitor with no cookie
+— `sessionFromCookieHeader` answers `null` for both — so the SPA remembers having asked, through
+a `sessionStorage` token set by `login()`, and shows the reason instead of the button again. The
+buzzer is spared: its door is a guest form.
 
-**Non.** cookie-session signe `<nom>=<valeur>`, donc le *nom du cookie est à l'intérieur de
-la signature*. Un `bt_session` présenté sous le nom `studio.sid` porte une signature
-calculée sur `bt_session=…`, qui ne vérifie plus. Le nom fait office de séparation de
-domaine, et il faudrait la clé pour resigner. `backend/src/auth/session.test.ts` le
-verrouille : « rejette un cookie invité renommé studio.sid, même clé comprise ».
+## `groups` must be in the scopes
 
-### La boucle, et pourquoi c'est la SPA qui la détecte
+z0's authorisation reads `groups` (`AUTH_ADMIN_GROUPS`). The shared package defaults to
+`openid profile email`, which gives every session an empty `groups` and answers 403 from the
+editor, presenter, monitor and remote with nothing to explain it.
+`apps/st0/backend/src/server.ts` passes `scopes` from `OIDC_SCOPES`, which carries `groups` in
+`common`.
 
-Une clé qui ne correspond pas produit une panne **muette et circulaire** : `/auth/me`
-répond 401, la gate s'affiche, le bouton part chez st0 — qui vous connaît déjà et vous
-renvoie aussitôt — et la gate revient, identique. Le compte *est* connecté ; z0 ne sait
-simplement pas le lire.
+## Signing out closes what the principal holds
 
-Le backend ne peut pas le diagnostiquer : une mauvaise clé et un visiteur sans cookie
-échouent exactement pareil, `sessionFromCookieHeader` renvoyant `null` dans les deux cas.
-C'est donc la SPA qui se souvient d'avoir demandé — un jeton dans `sessionStorage` posé par
-`login()` — et qui, si elle revient toujours anonyme, affiche la raison au lieu de
-reproposer le bouton. Le buzzer est volontairement épargné : sa porte est un formulaire
-d'invité, et un invité n'a pas de compte.
+A guest → `POST /z0/api/auth/logout`. An account → that **plus** `POST /auth/logout` at the
+root, since z0 does not sign `studio.sid` and cannot expire it. The rule lives in
+`shared/src/account.ts` rather than in six copies.
 
-## Le scope `groups`, qui passe facilement inaperçu
+## To check in a browser
 
-L'autorisation de z0 lit `groups` (`AUTH_ADMIN_GROUPS`). Le paquet partagé, laissé à
-lui-même, demande `openid profile email` : sans `groups`, chaque session porte un
-`groups: []` et l'éditeur, le presenter, le monitor et la remote répondent 403 sans rien qui
-l'explique.
-
-`apps/st0/backend/src/server.ts` passe donc `scopes` depuis `OIDC_SCOPES`, qui vaut
-`openid profile email groups` dans `common`. Une session qui ne porte pas `groups` se corrige
-en se reconnectant une fois.
-
-## Se déconnecter
-
-Le bouton ferme ce que le principal tient vraiment, et lui seul :
-
-- un invité → `POST /z0/api/auth/logout`, qui expire `bt_session` ;
-- un compte → cela **plus** `POST /auth/logout` sur la racine, car z0 ne signe pas
-  `studio.sid` et ne peut pas l'expirer.
-
-La règle vit dans `shared/src/account.ts`, pas en six exemplaires : c'est le genre de
-subtilité qui diverge silencieusement dans la cinquième copie.
-
-## À vérifier dans un navigateur
-
-- `/z0/editor` → « Se connecter » → on arrive chez l'IdP (pas une page d'erreur), puis on
-  revient **sur l'éditeur** et pas ailleurs sur l'origine ;
-- le badge affiche le nom du compte, et l'éditeur s'ouvre au lieu de 403 — c'est le test
-  de `groups` ;
-- le buzzer avec le mot de passe d'une session : toujours invité, aucun compte demandé ;
-- se déconnecter depuis le presenter, puis ouvrir la médiathèque → déconnecté là aussi
-  (c'est voulu : c'est un seul compte).
+- `/z0/editor` → "Sign in" → the IdP, then back **to the editor**;
+- the badge shows the account and the editor opens instead of 403 — the `groups` check;
+- the buzzer with a session's password: still a guest;
+- sign out from the presenter, then open the media library → signed out there too, intended.

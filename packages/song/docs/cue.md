@@ -1,162 +1,150 @@
-# `CUE` — le casque, et pourquoi c'est un nœud du graphe
+# `CUE` — the headphone bus, and why it is a graph node
 
-Un cinquième nœud intégré, à côté de `MIX`, `OUT`, `RENDER` et `VIDEO_OUT` :
+A fifth built-in node, beside `MIX`, `OUT`, `RENDER` and `VIDEO_OUT`:
 
-| nom | ce que c'est |
+| name | what it is |
 |---|---|
-| `CUE` | **une seconde paire de l'interface** — le casque. La seule sortie qui quitte vraiment la somme du mixeur |
+| `CUE` | **a second pair on the interface** — the headphones. The only output that really leaves the mixer's sum |
 
 ```yaml
 # graph.yaml
 modules:
-  filterA: [ fadeA, cueA ]   # DEUX destinations : la salle, et le casque
+  filterA: [ fadeA, cueA ]   # TWO destinations: the room, and the headphones
   fadeA:   [ MIX ]
   cueA:    [ CUE ]
 ```
 
-C'est ce qui manquait au pupitre pour être une table à deux platines : préécouter la platine B
-pendant que la A passe. Voir [ui-turntables/docs/cue.md](../../ui-turntables/docs/cue.md).
+This is what a two-deck desk needs to be one: cueing deck B while A is playing. See
+[ui-turntables/docs/cue.md](../../ui-turntables/docs/cue.md).
 
-## Ce que ça règle, et ce que ça ne règle PAS
+## What it settles, and what it does NOT
 
-Le moteur n'a **qu'un** transport, et ça ne change pas. Mais préécouter n'en demandait pas deux :
-les deux platines jouent déjà **en même temps** sur la timeline, et le crossfader décide de ce que
-la salle entend. Il ne manquait qu'une seconde sortie pour entendre l'autre.
+The engine has **one** transport, and cueing never asked for two: both decks already play **at the
+same time** on the timeline, and the crossfader decides what the room hears. Only a second output was
+missing. Out of reach with a single transport: starting a deck independently, and a cue point that
+moves only that deck. See [ui-turntables/docs/mix.md](../../ui-turntables/docs/mix.md).
 
-Ce qui reste hors de portée avec un transport unique : lancer une platine indépendamment, et un
-repère qui ne déplace qu'elle. Voir [ui-turntables/docs/mix.md](../../ui-turntables/docs/mix.md).
+## `OUT` is a notation; `CUE` is a real destination
 
-## `OUT` était une notation ; `CUE` est une vraie destination
+Routing a track to `OUT` short-circuits nothing, because **every** track feeds Tracktion's master bus
+— both names are a notation that makes the master chain expressible ([masterChain.md](masterChain.md)).
+`CUE` is the one name that designates something else: a track routed **off** the master bus, onto a
+separate output device.
 
-[masterChain.md](masterChain.md) le disait : router une piste sur `OUT` ne court-circuitait rien,
-parce que **toute** piste alimente le bus master de Tracktion. Les deux noms étaient une notation
-qui rendait la chaîne master exprimable.
+## Where the headphones come out: a question of MACHINE
 
-`CUE` est le premier nom qui désigne réellement autre chose, et c'est le mécanisme que cette page-là
-donnait pour manquant : une piste routée **hors** du bus master, sur un device de sortie séparé.
-`OUT` reste ce qu'il était.
-
-## Où sort le casque : une question de MACHINE
-
-Le projet dit `CUE`. Il ne dit pas quelle paire — une interface a une prise casque quel que soit le
-morceau ouvert, donc c'est un fait sur le rig, rangé avec les autres :
+The project says `CUE`. It does not say which pair — an interface has a headphone socket whatever
+song is open, so that is a fact about the rig, filed with the others:
 
 ```yaml
 # <state>/preferences.yaml
-cueOutput: [3, 4]      # ou "casque", un label de `channels.out`
+cueOutput: [3, 4]      # or "casque", a label from `channels.out`
 ```
 
 ```bash
-system cue 3+4          # ou : system cue casque
-system cue ""           # « cette machine n'envoie de cue nulle part »
+system cue 3+4          # or: system cue casque
+system cue ""           # "this machine sends cue nowhere"
 ```
 
-Exactement le trajet qu'un `input:` de piste fait déjà : les deux formes sont acceptées, le label est
-résolu **avant** le moteur, qui ne voit jamais que des nombres (`resolveCueOutput`).
+Exactly the path a track's `input:` already takes: both forms are accepted, the label is resolved
+**before** the engine, which only ever sees numbers (`resolveCueOutput`).
 
-## Le silence est le repli, jamais le master
+## Silence is the fallback, never the master
 
-La règle qui compte, et elle vaut trois fermetures indépendantes :
+The rule that counts, and it is worth three independent gates:
 
-> Un bus `CUE` que cette machine ne peut pas sortir joue **nulle part**.
+> A `CUE` bus this machine cannot output plays **nowhere**.
 
-Le replier sur la somme mettrait le retour casque dans la salle, au niveau plein, sans que rien ne
-le signale. C'est la panne qu'on ne veut pas découvrir en public. Les trois portes :
+Falling back to the sum would put the headphone feed into the room, at full level, with nothing to
+signal it. That is the failure you do not want to discover in public.
 
-| quand | où c'est fermé |
+| when | where it is closed |
 |---|---|
-| aucune `cueOutput` sur la machine | le compilateur sort le bus avec `mute: true` |
-| une paire nommée, absente à l'exécution | le moteur route vers un id qui ne correspond à rien — `canPlayAudio()` devient faux |
-| un rendu offline (mixdown, freeze) | `tracksOnTheMix()` exclut la piste du bounce |
+| no `cueOutput` on the machine | the compiler emits the bus with `mute: true` |
+| a named pair, absent at runtime | the engine routes to an id matching nothing — `canPlayAudio()` goes false |
+| an offline render (mixdown, freeze) | `tracksOnTheMix()` excludes the track from the bounce |
 
-La troisième n'est pas de la ceinture-bretelles : le routage de piste est une notion de **lecture**,
-et `tracksToDo` ne le consulte pas. Sans elle un mixdown livré contiendrait le casque.
-Voir [engine/moteur/docs/cueOutput.md](../../../engine/moteur/docs/cueOutput.md).
+The third is not belt-and-braces: track routing is a **playback** notion, and `tracksToDo` does not
+consult it. Without it a delivered mixdown contains the headphone feed. See
+[engine/moteur/docs/cueOutput.md](../../../engine/moteur/docs/cueOutput.md).
 
-## Le bouton CUE n'est pas un interrupteur
+## The CUE button is not a switch
 
-Il n'y a **aucune** commutation dans le moteur. `cueA` est un nœud du module `fade`, son `Mix` est
-combien de cette platine part au casque, et le bouton du pupitre est cette liaison-là passant de 0 à
-1 — la même mécanique que le crossfader et que les coupes de stems. Un chemin de moins.
+There is **no** switching in the engine. `cueA` is a node of the `fade` module, its `Mix` is how much
+of that deck leaves for the headphones, and the desk's button is that link going from 0 to 1 — the
+same mechanics as the crossfader and the stem cuts. One path fewer. At rest `Mix: 0`: a set starts
+with nothing in the ears.
 
-Au repos `Mix: 0` : un set commence avec rien dans les oreilles.
+## The tap point, and why it is there
 
-## Le point de tap, et pourquoi il est là
+`filterA`, so **after the EQ and the filter, before the fade**. That is what pre-fade listen means:
 
-`filterA`, donc **après l'EQ et le filtre, avant le fade**. C'est ce que veut dire pre-fade listen :
+- moving the crossfader away from a deck must not take it out of the ears — otherwise you cannot
+  prepare what is coming;
+- cutting its low end must be audible **before** it reaches the room.
 
-- éloigner le crossfader de cette platine ne doit pas la retirer des oreilles — sinon on ne peut pas
-  préparer ce qui va arriver ;
-- couper son grave doit s'entendre **avant** que ça touche la salle.
+The cascading consequence: `filterA` has two destinations, so the `eqA` chain no longer absorbs them,
+and both `fadeA` and `cueA` become separate buses. Which forces the **dry** path off the strip track
+— what `bus_only:` says, for a name-collision reason kept in [busOnly.md](busOnly.md).
 
-La conséquence en cascade : `filterA` a deux destinations, donc la chaîne `eqA` ne les absorbe plus,
-et `fadeA` comme `cueA` deviennent des bus à part. Ce qui oblige à retirer le chemin **à sec** de la
-piste de strip — et c'est ce que `bus_only:` dit, pour une raison de collision de noms qui est dans
-[busOnly.md](busOnly.md).
-
-## Migrer un set qui n'en a pas
+## Migrating a set that has none
 
 ```bash
-npx tsx packages/song/scripts/migrateSetCue.ts <projet.st0> [autres…]
-npx tsx packages/song/scripts/migrateSetCue.ts <projet.st0> --write
+npx tsx packages/song/scripts/migrateSetCue.ts <project.st0> [others…]
+npx tsx packages/song/scripts/migrateSetCue.ts <project.st0> --write
 ```
 
-À blanc par défaut, idempotent, et par l'API `Document` du paquet `yaml` — les commentaires du
-scaffold et l'ordre des clés reviennent à l'octet près.
+Dry by default, idempotent, and through the `yaml` package's `Document` API — the scaffold's comments
+and key order come back byte for byte.
 
-Par platine : une seconde destination sur son filtre, une ligne `cue<X>: [ CUE ]`, un fichier de
-nœud, une ligne de mapping, et son **strip** dans `bus_only:`. Ce dernier est le seul point non
-évident, et l'oublier ne casse rien de visible — ça fait juste sonner toutes les positions du
-crossfader pareil.
+Per deck: a second destination on its filter, a `cue<X>: [ CUE ]` line, a node file, a mapping line,
+and its **strip** in `bus_only:`. That last is the only non-obvious point, and forgetting it breaks
+nothing visible — it just makes every crossfader position sound the same.
 
-Tout est lu sur le projet plutôt que supposé : le point de tap vient de `<deck>.filter` et le strip
-de `<deck>.eqLow`. Une platine dont le mapping ne nomme ni l'un ni l'autre est **refusée nommément**
-plutôt qu'à moitié câblée — inventer un nom de nœud écrirait un départ que personne n'a demandé.
+Everything is read off the project rather than assumed: the tap point from `<deck>.filter`, the strip
+from `<deck>.eqLow`. A deck whose mapping names neither is **refused by name** rather than half-wired
+— inventing a node name would write a send nobody asked for. And `<state>` is untouched: the
+headphone pair belongs to a machine, so `system cue` stays to be done, once per machine.
 
-Il ne touche **pas** `<state>` : la paire du casque appartient à une machine, et un projet qui
-voyage ne doit pas en porter une. `system cue` reste à faire, une fois par machine.
+A test freezes the property that would rot in silence — a migrated set is **exactly** the set the
+scaffold writes today (`src/migrateSetCue.test.ts`), the "before" derived by stripping the cue out of
+a fresh scaffold, so the fixture cannot drift from the template.
 
-Un test fige la propriété qui pourrirait en silence — un set migré est **exactement** le set que le
-scaffold écrit aujourd'hui (`src/migrateSetCue.test.ts`), le « avant » étant dérivé en retirant le
-cue d'un scaffold neuf, pour que la fixture ne puisse pas dériver du gabarit.
-
-## Les couches traversées
+## The layers crossed
 
 | | |
 |---|---|
-| écrit | `graph.yaml` — une destination `CUE` |
-| le mot | `CUE_NODE` dans `@studio/song-schema`'s `moduleTypes.ts`, dans `BUILTIN_OUTPUTS` |
-| la machine | `cueOutput` dans `preferences.yaml`, écrit par `system cue`, lu par `resolveCueOutput` |
-| compilé | `nodeProject.ts` : la piste de bus porte `outputChannels`, ou `mute` s'il n'y a pas de paire |
-| le fil | `TrackDoc.outputChannels`, miroir exact d'`inputChannels` |
-| décodé | `docFromJson` dans `server/main.cpp` |
-| posé | `routeTrackOutput` — depuis `populateEdit` ET depuis le diff vivant |
-| diffé | `ChangeKind::TrackOutputChanged` — appliqué en place, aucune reconstruction |
-| exclu | `tracksOnTheMix()` dans `OfflineRender.cpp` |
-| mesuré | `engine/moteur/scripts/cue-bus.ts` |
+| written | `graph.yaml` — a `CUE` destination |
+| the word | `CUE_NODE` in `@studio/song-schema`'s `moduleTypes.ts`, in `BUILTIN_OUTPUTS` |
+| the machine | `cueOutput` in `preferences.yaml`, written by `system cue`, read by `resolveCueOutput` |
+| compiled | `nodeProject.ts`: the bus track carries `outputChannels`, or `mute` if there is no pair |
+| the wire | `TrackDoc.outputChannels`, an exact mirror of `inputChannels` |
+| decoded | `docFromJson` in `server/main.cpp` |
+| applied | `routeTrackOutput` — from `populateEdit` AND from the live diff |
+| diffed | `ChangeKind::TrackOutputChanged` — applied in place, no rebuild |
+| excluded | `tracksOnTheMix()` in `OfflineRender.cpp` |
+| measured | `engine/moteur/scripts/cue-bus.ts` |
 
-## Le vérifier
+## Checking it
 
 ```bash
 npx tsx engine/moteur/scripts/cue-bus.ts
 ```
 
-Deux sources, une sur le mix et une sur le cue, rendues en ne changeant que l'`outputChannels` du
-bus de cue :
+Two sources, one on the mix and one on the cue, rendered changing nothing but the cue bus's
+`outputChannels`:
 
-| rendu | crête |
+| render | peak |
 |---|---|
-| cue routé sur la paire 3+4 | **−7,5 dBFS** |
-| la source de cue RETIRÉE du document | **−7,5 dBFS** — identique |
-| le même bus laissé sur le mix | −1,7 dBFS |
+| cue routed to pair 3+4 | **−7.5 dBFS** |
+| the cue source REMOVED from the document | **−7.5 dBFS** — identical |
+| the same bus left on the mix | −1.7 dBFS |
 
-L'assertion est une **identité**, pas un « plus faible » : routé ailleurs doit être indiscernable de
-jamais avoir été là. Un seuil sur la crête de la somme mesurerait comment deux notes se recouvrent,
-ce qui n'est pas la question — et deux notes IDENTIQUES faisaient osciller ce chiffre de 7 dB d'une
-passe à l'autre, la phase de départ d'un 4osc n'étant pas fixée. D'où deux notes différentes.
+The assertion is an **identity**, not a "quieter": routed elsewhere must be indistinguishable from
+never having been there. Two IDENTICAL notes swing that figure by 7 dB from pass to pass, a 4osc's
+start phase not being fixed — hence two different notes. And a silent bus proves nothing, an empty
+mixdown being also what a broken render looks like — hence the source that stays on the mix in all
+three passes.
 
-Un bus laissé silencieux ne prouverait rien non plus : un mixdown vide, c'est aussi à quoi ressemble
-un rendu cassé. D'où la source qui reste sur le mix dans les trois passes.
-
-**Ce qui n'est pas vérifiable ici, c'est l'écoute.** Qu'un rendu ne contienne pas le cue se mesure ;
-que le casque sorte bien en 3/4 sur l'interface, non.
+**What is not verifiable here is the listening.** That a render does not contain the cue can be
+measured; that the headphones actually come out on 3/4 of the interface cannot.

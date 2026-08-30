@@ -1,7 +1,7 @@
 # workspaces.ts — the live set of workspaces, and the two listings over it
 
-One `Workspace` instance per (userSlug, workspace), memoized so a workspace's caches (compiled
-doc, waveforms) persist across requests, plus the listings st0's home page and `/external` draw.
+One `Workspace` instance per workspace, memoized so its caches (compiled doc, waveforms) persist
+across requests, plus the listings st0's home page and `/external` draw.
 
 ## Opening does NOT create
 

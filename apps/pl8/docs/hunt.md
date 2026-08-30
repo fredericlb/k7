@@ -1,55 +1,54 @@
-# Trouver des morceaux — de ce qu'on tape à un fichier rangé
+# Finding songs — from what you type to a filed file
 
-« Trouver des morceaux », à côté d'« Ajouter » dans la section Morceaux, mène à **sa propre
-page** (`/find`) : un champ de recherche en haut, et dessous l'historique de ce qu'on a déjà
-demandé. On tape « nirvana lithium », et la chaîne complète se déroule toute seule :
+"Trouver des morceaux", beside "Ajouter" in the Songs section, leads to **its own page** (`/find`):
+a search field at the top, and below it the history of what has already been asked for. You type
+"nirvana lithium", and the whole chain unrolls by itself:
 
 ```
-  ce qu'on tape
+  what you type
         │
         ▼
-  MusicBrainz  ──►  artiste / titre / album      (nommer AVANT de chercher)
+  MusicBrainz  ──►  artist / title / album      (NAME it before searching)
         │
         ▼
-  slskd (autre machine, REST)  ──►  « album titre », puis « titre » — jamais l'artiste
+  slskd (another machine, REST)  ──►  "album title", then "title" — never the artist
         │
         ▼
-  filtrage : même artiste, même titre, format que la médiathèque sait ranger
-  tri : qualité, puis qui enverra vraiment
+  filter: same artist, same title, a format the médiathèque can file
+  sort: quality, then who will actually send
         │
         ▼
-  file d'attente chez le meilleur pair — 60 s pour commencer, sinon le suivant
+  queue at the best peer — 60 s to start, otherwise the next
         │
         ▼
-  SFTP : pl8 va chercher les octets sur la machine slskd
+  SFTP: pl8 fetches the bytes from the slskd machine
         │
         ▼
   addSong  ──►  songs/<Artiste>/<Album>/<Titre>/original.<ext>
 ```
 
-## Nommer avant de chercher
+## Name it before searching
 
-MusicBrainz passe **en premier**, et ce n'est pas de la décoration. Le nom du dossier est
-déduit des tags (`songFolder`), donc les tags ne sont pas une étiquette : ce sont le chemin.
-Chercher d'abord sur Soulseek et lire les tags du fichier reçu reviendrait à laisser un inconnu
-nommer un dossier de la médiathèque — et la moitié des fichiers du réseau sont tagués
-`Track 05` ou pas tagués du tout.
+MusicBrainz goes **first**, and that is not decoration. The folder's name is derived from the tags
+(`songFolder`), so the tags are not a label: they are the path. Searching Soulseek first and reading
+the received file's tags would let a stranger name a folder of the médiathèque — and half the files
+on the network are tagged `Track 05` or not tagged at all.
 
-C'est aussi ce qui donne au filtrage un artiste et un titre **canoniques** à comparer, au lieu
-de la chaîne qu'on a tapée.
+It is also what gives the filter a **canonical** artist and title to compare against, instead of the
+string that was typed.
 
-### Deux choses mesurées, contre-intuitives toutes les deux
+### Two measured, counter-intuitive facts
 
-**Le `score` de MusicBrainz est ici anti-corrélé.** Pour « nirvana lithium », la vraie prise de
-Nirvana revient avec un score de **38**, tandis que des morceaux simplement *intitulés*
-`Lithium(nirvana)` scorent **100**. Ce score répond à « ce document colle-t-il à la requête
-Lucene », qui n'est pas la question posée. Il n'est donc **pas** utilisé comme filtre : n'importe
-quel seuil aurait jeté la bonne réponse. C'est vérifié, pas supposé — ne pas le « réparer ».
+**MusicBrainz's `score` is anti-correlated here.** For "nirvana lithium", Nirvana's actual recording
+comes back with a score of **38**, while recordings merely *titled* `Lithium(nirvana)` score **100**.
+That score answers "does this document match the Lucene query", which is not the question being
+asked. So it is **not** used as a filter: any threshold would throw away the right answer. This is
+verified, not assumed — do not "fix" it.
 
-**Une recherche plein texte ne suffit pas.** Pour « miles davis so what », les cent premières
-réponses ne contiennent **aucune** prise de Miles Davis de So What : le classement est emporté
-par des entrées dont le titre contient les quatre mots. On ne sait pas quels mots nomment
-l'artiste, alors `buildQuery` demande **toutes les coupures à la fois**, en une seule requête :
+**A full-text search is not enough.** For "miles davis so what", the first hundred answers contain
+**no** Miles Davis recording of So What: the ranking is carried off by entries whose title contains
+all four words. We do not know which words name the artist, so `buildQuery` asks for **every split
+at once**, in a single request:
 
 ```
 (artist:"miles" AND recording:"davis so what") OR
@@ -57,205 +56,190 @@ l'artiste, alors `buildQuery` demande **toutes les coupures à la fois**, en une
 (artist:"miles davis so" AND recording:"what")
 ```
 
-Lucene score la clause qui colle. Effet de bord utile : la requête est assemblée à partir de
-mots passés par `normalise`, donc seuls `a-z`, `0-9` et des espaces atteignent Lucene — un
-guillemet tapé dans le champ est un séparateur de mots, jamais un opérateur.
+Lucene scores whichever clause matches. Useful side effect: the query is assembled from words passed
+through `normalise`, so only `a-z`, `0-9` and spaces reach Lucene — a quote typed into the field is a
+word separator, never an operator.
 
-Si aucune coupure ne ramène rien, on retombe sur la recherche plein texte. Une seconde de plus
-coûte moins qu'une recherche morte.
+If no split returns anything, it falls back to full text. A second more costs less than a dead
+search.
 
-### Le piège du bootleg
+### The bootleg trap
 
-Une chanson connue revient sous forme de **cent prises différentes** — une par concert — chacune
-ne portant que la sortie sur laquelle elle est parue. Prise une par une, la réponse est le
-premier live venu, et *Lithium* se rangerait sous « 1991-10-21: Live in Austin, Texas ». Un
-dossier que personne ne retrouve.
+A well-known song comes back as **a hundred different recordings** — one per concert — each carrying
+only the release it appeared on. Taken one by one, the answer is the first live going, and *Lithium*
+would be filed under "1991-10-21: Live in Austin, Texas". A folder nobody finds again.
 
-`chooseTags` met donc en commun les sorties de **toutes** les prises à égalité, et `pickAlbum`
-choisit sur trois critères, dans cet ordre :
+So `chooseTags` pools the releases of **all** the tied recordings, and `pickAlbum` chooses on three
+criteria, in this order:
 
-| critère | ce qu'il écarte |
+| criterion | what it rules out |
 |---|---|
-| le **type** (`releaseScore`) | live, bootleg, compilation, remix — pénalisés, pas exclus |
-| la **récurrence** | une compilation de chutes est typée *exactement* comme un album studio ; ce qui les sépare, c'est que le vrai disque revient sur toutes les prises et la curiosité une seule fois |
-| la **date**, en dernier | elle ne peut pas être première : les lignes *Nevermind* que MusicBrainz renvoie pour Lithium sont toutes des rééditions 2021, donc « la plus ancienne » donnerait la compilation de 1996 |
+| the **type** (`releaseScore`) | live, bootleg, compilation, remix — penalised, not excluded |
+| **recurrence** | an outtakes compilation is typed *exactly* like a studio album; what separates them is that the real record comes back on every recording and the curiosity only once |
+| the **date**, last | it cannot be first: the *Nevermind* rows MusicBrainz returns for Lithium are all 2021 reissues, so "the oldest" would give the 1996 compilation |
 
-Pénaliser plutôt qu'exclure, parce qu'un morceau dont personne n'a catalogué l'album studio
-mérite mieux qu'« Album inconnu » : le live sur lequel il est vraiment paru.
+Penalise rather than exclude, because a song whose studio album nobody catalogued deserves better
+than "Album inconnu": the live it really appeared on.
 
-La sortie **retenue** dans le groupe gagnant est la plus ancienne, pour que la date affichée soit
-celle du disque et non d'une réédition.
+The release **kept** within the winning group is the oldest, so the date shown is the record's and
+not a reissue's.
 
-## Ce qu'on demande à slskd : l'album et le titre, jamais l'artiste
+## What slskd is asked: the album and the title, never the artist
 
-Deux tentatives, dans cet ordre (`searchTexts`) :
+Two attempts, in this order (`searchTexts`):
 
-| # | la requête | pourquoi |
+| # | the query | why |
 |---|---|---|
-| 1 | `Nevermind Lithium` | l'album est la moitié précise de la paire |
-| 2 | `Lithium` | ce qui reste quand personne ne range par album |
+| 1 | `Nevermind Lithium` | the album is the precise half of the pair |
+| 2 | `Lithium` | what is left when nobody files by album |
 
-**L'artiste n'y est jamais.** Une recherche Soulseek porte sur le chemin partagé en entier, et
-l'artiste y est presque toujours le dossier *au-dessus* de l'album : il ne restreint rien que
-l'album n'ait déjà restreint, et chaque terme ajouté est une façon de plus pour une copie
-légitime d'être manquée.
+**The artist is never in it.** A Soulseek search runs over the whole shared path, and the artist is
+almost always the folder *above* the album: it restricts nothing the album has not already
+restricted, and every added term is one more way for a legitimate copy to be missed.
 
-Il n'a pas disparu pour autant — il est le **filtre** sur ce qui revient. C'est toute la forme
-de cette étape : **demander largement, juger strictement.** Un terme dans la requête ne peut que
-perdre des résultats ; un terme dans le filtre s'applique à ce que les pairs ont réellement
-envoyé, et peut donc être exigeant sans rien coûter.
+It has not disappeared, though — it is the **filter** on what comes back. That is the whole shape of
+this step: **ask broadly, judge strictly.** A term in the query can only lose results; a term in the
+filter applies to what peers actually sent, and can therefore be demanding at no cost.
 
-Conséquence à connaître : quelqu'un qui partage `…/Nevermind/05 Lithium.flac` sans dossier
-d'artiste au-dessus sera trouvé par la recherche puis **écarté par le filtre**. C'est le prix
-assumé d'un filtre sur l'artiste ; le cas est minoritaire, les chemins Soulseek étant très
-majoritairement `Artiste/Album/Piste`.
+Accepted price: someone sharing `…/Nevermind/05 Lithium.flac` with no artist folder above is found
+by the search and then **dropped by the filter**. The case is a minority, Soulseek paths being
+overwhelmingly `Artist/Album/Track`.
 
-Sans album, une seule tentative : relancer le titre seul deux fois de suite ne ferait que
-dépenser un second tour de la patience de quelqu'un.
+With no album, there is a single attempt: firing the bare title twice would only spend a second
+round of somebody's patience. And the ten-peer budget is **global across both searches**, not ten
+per attempt — otherwise the fallback quietly doubles the worst case to twenty minutes. A peer
+already tried is skipped rather than requeued: the two searches overlap heavily, and giving another
+minute to the same motionless queue is what switching peers exists to avoid.
 
-Et le budget des dix pairs est **global aux deux recherches**, pas dix par tentative — sinon le
-repli doublerait discrètement le pire cas à vingt minutes d'attente, et les dix de la demande ne
-voudraient plus rien dire. Un pair déjà essayé est sauté plutôt que remis en file : les deux
-recherches se recouvrent beaucoup, et redonner une minute à la même file immobile est
-exactement ce que le changement de pair existe pour éviter.
+## Choosing a peer
 
-## Choisir un pair
+`rank.ts` is pure and tested, because it is what decides what enters the library.
 
-`rank.ts` est pur et testé, parce que c'est lui qui décide de ce qui entre dans la bibliothèque.
+**Filter.** Same artist (looked for anywhere in the path, where it is nearly always a parent folder)
+and same title (looked for in the **filename** only — the album folder names eleven other songs). By
+whole words and not by substring: `includes("air")` would give a search for *Air* every file by
+*Airbourne*.
 
-**Filtrer.** Même artiste (cherché dans tout le chemin, où il est presque toujours un dossier
-parent) et même titre (cherché dans le **nom de fichier** seulement — le dossier d'album nomme
-onze autres morceaux). Par mots entiers et non par sous-chaîne : `includes("air")` donnerait à
-une recherche sur *Air* tous les fichiers d'*Airbourne*. Une recherche qui ne trouve rien le
-dit ; une qui range le mauvais groupe, non.
+And above all: the format must pass `isAudio`, **the médiathèque's own gate**. `.ape` is everywhere
+on Soulseek and `masterName` refuses it — downloading it would be an hour of transfer for a file
+that cannot be filed. One rule, at both ends.
 
-Et surtout : le format doit passer `isAudio`, **la porte de la médiathèque elle-même**. Le `.ape`
-est partout sur Soulseek et `masterName` le refuse — le télécharger, ce serait une heure de
-transfert pour un fichier impossible à ranger. Une seule règle, aux deux bouts.
+**Sort.** Quality first, as asked: flac, then wav/aiff, then 320, 256, 192, below. When the peer does
+not state its bitrate — the field is optional in the protocol and many clients omit it — it is
+**measured** on the bytes, size over duration. A file nothing can be said about ranks *below* every
+known bitrate, or it would win by being silent.
 
-**Trier.** La qualité d'abord, comme demandé : flac, puis wav/aiff, puis 320, 256, 192, en
-dessous. Quand le pair ne dit pas son débit — le champ est optionnel dans le protocole et
-beaucoup de clients l'omettent — il est **mesuré** sur les octets, taille sur durée. Un fichier
-dont on ne peut rien dire passe *sous* tous les débits connus, sinon il gagnerait en étant muet.
+**Availability breaks ties at equal quality**, and that is not a refinement: a download is abandoned
+after sixty seconds, so a peer with three hundred people in its queue is worth nothing however good
+its copy. Two files at the same tier are the same file; all that is left to choose is who will send
+it.
 
-**La disponibilité départage à qualité égale**, et ce n'est pas un raffinement : un
-téléchargement est abandonné après soixante secondes, donc un pair avec trois cents personnes
-dans sa file ne vaut rien, si bonne que soit sa copie. Deux fichiers du même palier sont le même
-fichier ; il ne reste à choisir que qui l'enverra.
+**One entry per peer.** That is the list peer-switching operates on: a peer sharing a discography
+would otherwise fill the first ten places alone, and the ten switches would fall back on the same
+motionless queue.
 
-**Une entrée par pair.** C'est sur cette liste qu'opère le changement d'utilisateur : un pair
-partageant une discographie remplirait sinon les dix premières places à lui seul, et les dix
-changements retomberaient sur la même file immobile.
+At equal quality and availability, the **peer's name** breaks the tie, as a last resort. An unstable
+sort would make two identical searches differ, and so a failure impossible to reproduce.
 
-À qualité et disponibilité égales, c'est le **nom du pair** qui départage, en dernier recours.
-Un tri instable rendrait deux recherches identiques différentes, donc un échec impossible à
-reproduire.
+### Comparing two spellings of one name
 
-### Comparer deux orthographes du même nom
+A Soulseek path is what the sharer typed — `AC-DC`, `AC_DC`, `ac dc` — while MusicBrainz says
+`AC/DC`. `normalise` brings them all to `ac dc`: accents decomposed then dropped, lowercased, and
+anything neither `a-z` nor `0-9` turned into a space. That is the only level at which the two
+compare.
 
-Un chemin Soulseek est ce que la personne qui partage a tapé — `AC-DC`, `AC_DC`, `ac dc` —
-pendant que MusicBrainz dit `AC/DC`. `normalise` les ramène tous à `ac dc` : accents décomposés
-puis jetés, minuscules, et tout ce qui n'est ni `a-z` ni `0-9` devenu une espace. C'est le seul
-niveau auquel les deux se comparent.
+On top, `tokens` removes words carrying no identity (`the`, `a`, `le`, `los`…): half of Soulseek
+files the Beatles under `Beatles` and the other half under `The Beatles`. An artist made **entirely**
+of those words — "The The" — would leave nothing to test, and `every` on an empty list is true: that
+case falls back to a substring comparison, which accepts the band instead of accepting the whole
+network.
 
-Par-dessus, `tokens` retire les mots qui ne portent aucune identité (`the`, `a`, `le`, `los`…) :
-la moitié de Soulseek range les Beatles sous `Beatles` et l'autre moitié sous `The Beatles`. Un
-artiste **fait entièrement** de ces mots — « The The » — ne laisserait plus rien à tester, et
-`every` sur une liste vide est vrai : ce cas retombe donc sur une comparaison de sous-chaîne,
-qui accepte le groupe au lieu d'accepter le réseau entier.
+The accepted price of whole-word comparison: a run-together spelling (`acdc`) is missed. It is the
+cheaper of the two errors — a search that finds nothing says so, a search that files the wrong band
+does not, and the same trade is why the title filter is whole-word too.
 
-Le prix assumé de la comparaison par mots entiers : une orthographe collée (`acdc`) est manquée.
-C'est la moins chère des deux erreurs — une recherche qui ne trouve rien le dit, une recherche
-qui range le mauvais groupe non.
+### A transfer's state is a flag set, not a value
 
-### L'état d'un transfert est un jeu de drapeaux, pas une valeur
+What slskd puts on the wire is a comma-joined flags enum: `"Completed, Succeeded"`,
+`"Queued, Remotely"`. So `classify` looks for **substrings** and never equality: the exact spelling
+belongs to Soulseek.NET, and a `switch` on literals would silently class a renamed flag as "still
+queued" — sixty seconds of waiting for nothing.
 
-Ce que slskd met sur le fil est un enum de drapeaux joint par des virgules :
-`"Completed, Succeeded"`, `"Queued, Remotely"`. `classify` cherche donc des **sous-chaînes** et
-jamais l'égalité : l'orthographe exacte appartient à Soulseek.NET, et un `switch` sur des
-littéraux classerait en silence un drapeau renommé comme « toujours en file » — soixante secondes
-d'attente pour rien.
+`Initializing` counts as **started**: the peer has answered and the two are negotiating, which is
+exactly what the sixty-second rule is waiting to see.
 
-`Initializing` compte comme **commencé** : le pair a répondu et les deux négocient, ce qui est
-exactement ce que la règle des soixante secondes attend de voir.
+Same caution on SHAPE: slskd nests transfers under directories, and `flattenTransfers` walks what
+comes back looking for objects carrying a `filename` and a `state`, at any depth. A client that
+hard-coded a path into that nesting would answer "no transfers" the day it changes — which reads
+exactly like a download that never started, and would burn all ten peer switches.
 
-Même prudence sur la FORME : slskd imbrique les transferts sous des répertoires, et
-`flattenTransfers` parcourt ce qui revient en cherchant des objets qui portent un `filename` et un
-`state`, quelle que soit la profondeur. Un client qui aurait codé en dur un chemin dans cette
-imbrication répondrait « aucun transfert » le jour où elle change — ce qui se lit exactement comme
-un téléchargement qui n'a jamais démarré, et brûlerait les dix changements de pair.
+## Sixty seconds, ten peers
 
-## Soixante secondes, dix pairs
+Exact reading: the counter goes up one each time a peer is abandoned, and reaching ten stops the
+search — **ten peers tried**, the tenth abandonment being the failure.
 
-Lecture exacte : le compteur monte d'un cran chaque fois qu'un pair est abandonné, et atteindre
-dix arrête la recherche — **dix pairs essayés**, le dixième abandon étant l'échec.
+A peer that **refuses** (error, rejection, cancellation) does not wait out the minute: it has already
+answered. Likewise, a transfer that *disappears* from slskd's list after having been in it is an
+abandonment on its part, not a queue — treating it as "still waiting" would burn the minute on an
+answer already given.
 
-Un pair qui **refuse** (erreur, rejet, annulation) n'attend pas la minute : il a déjà répondu.
-De même, un transfert qui *disparaît* de la liste de slskd après y avoir figuré est un abandon
-de sa part, pas une file d'attente — le traiter comme « toujours en attente » brûlerait la
-minute pour une réponse déjà donnée.
+Once the transfer has **started**, it gets thirty minutes. That ceiling is not in the request, but a
+peer that sends two kilobytes and then sulks would otherwise leave a blue line spinning for ever.
 
-Une fois le transfert **commencé**, il a trente minutes. Ce plafond n'est pas dans la demande,
-mais un pair qui envoie deux kilo-octets puis boude laisserait sinon une ligne bleue tourner
-indéfiniment.
+### Releasing a search: stop before deleting
 
-### Lâcher la recherche : arrêter avant de supprimer
+A search **outlives the interest taken in it**: what has arrived is ranked after a few seconds, while
+Soulseek goes on answering for half a minute.
 
-Une recherche **survit à l'intérêt qu'on lui porte** : on classe ce qui est arrivé au bout de
-quelques secondes, pendant que Soulseek continue de répondre une demi-minute.
-
-Supprimer une recherche encore en cours fait donc lever une exception à slskd, qui met à jour
-la ligne de cette recherche au fil des réponses :
+Deleting a search still in flight therefore makes slskd throw, since it updates that search's row as
+answers come in:
 
 ```
 Failed to execute search for 'Lady Gaga Telephone':
 The database operation was expected to affect 1 row(s), but actually affected 0 row(s)
 ```
 
-L'`UPDATE` porte sur une ligne qu'on a effacée sous ses pieds. `releaseSearch` fait donc les
-choses dans l'ordre : `PUT /searches/{id}` **arrête** la recherche — c'est ce que ce verbe fait
-chez slskd —, puis le `DELETE` attend qu'elle ne soit plus en cours.
+The `UPDATE` targets a row deleted from under it. So `releaseSearch` does things in order:
+`PUT /searches/{id}` **stops** the search — that is what the verb does at slskd — then the `DELETE`
+waits until it is no longer running.
 
-Et si elle ne se termine jamais, **la ligne est laissée**. Une ligne de trop dans la liste de
-slskd ne coûte rien ; une trace de pile dans les journaux à chaque recherche coûte la confiance
-qu'on a dans l'outil. Pour la même raison la fonction ne lève jamais et n'est pas attendue :
-c'est du ménage, pas le résultat de la recherche.
+And if it never ends, **the row is left**. One extra row in slskd's list costs nothing; a stack trace
+in the logs on every search costs the trust placed in the tool. For the same reason the function
+never throws and is not awaited: it is tidying, not the search's result.
 
-## Les octets : slskd ne peut pas les servir
+## The bytes: slskd cannot serve them
 
-Point vérifié dans le source de slskd, et c'est lui qui décide de toute l'architecture : son
-`FilesController` expose du `GET` pour **lister** les répertoires de téléchargement et du
-`DELETE` pour supprimer — **aucune route ne rend le contenu d'un fichier**.
+Verified in slskd's source, and it is what decides the whole architecture: its `FilesController`
+exposes `GET` to **list** the download directories and `DELETE` to remove — **no route returns a
+file's content**.
 
-pl8 ne peut donc pas récupérer le fichier par l'API. Il va le chercher en **SFTP**, et c'est pl8
-qui tire plutôt que la machine slskd qui pousse. Conséquences voulues : aucun script à faire
-tourner là-bas (donc aucune donnée hostile passée à un shell distant), pl8 n'a pas besoin d'être
-joignable depuis cette machine, et il reste le seul demandeur — comme pour le plan de contrôle.
+So pl8 cannot retrieve the file through the API. It fetches it over **SFTP**, and it is pl8 pulling
+rather than the slskd machine pushing. Intended consequences: no script to run over there (so no
+hostile data handed to a remote shell), pl8 does not need to be reachable from that machine, and it
+remains the only requester — as on the control plane.
 
-Un **client** SFTP et non un montage : pas de FUSE, donc pas de `CAP_SYS_ADMIN` sur le conteneur
-qui détient les fichiers de tout le monde ; pas de montage à remonter après un redémarrage ; pas
-d'appel bloquant capable de geler la boucle d'événements ; et le même code en dev sous Windows
-qu'en production sous Linux. L'essentiel : un montage demanderait **deux** mécanismes à faire
-marcher au lieu d'un.
+A **client** and not a mount: no FUSE, so no `CAP_SYS_ADMIN` on the container holding everyone's
+files; no mount to re-establish after a restart; no blocking call able to freeze the event loop; and
+the same code in dev on Windows as in production on Linux. Above all: a mount would be **two**
+mechanisms to keep working instead of one.
 
-`localPathFor` reconstruit le rangement que slskd documente : `<downloads>/<dossier>/<fichier>`.
-Si le fichier n'y est pas — slskd est configurable — on le cherche par son nom sur trois niveaux,
-parce qu'un échec dû à *ça* serait indistinguable d'un morceau que personne ne partage. Trois
-niveaux et pas plus : au-delà, ce n'est plus un rattrapage, c'est un parcours de répertoires.
+`localPathFor` reconstructs the layout slskd documents: `<downloads>/<dossier>/<fichier>`. If the
+file is not there — slskd is configurable — it is looked for by name across three levels, because a
+failure due to *that* would be indistinguishable from a song nobody shares. Three levels and no
+more: beyond that it is not a recovery, it is a directory walk.
 
-`exists` **lève aussi volontiers qu'il répond `false`** — dossier absent, droits qui manquent —
-et les deux disent ici la même chose : pas à l'endroit attendu. Une connexion par récupération,
-jamais un pool : une chasse va chercher un fichier une fois, des minutes après la précédente, et
-la fermeture est dans un `finally` — sinon chaque chasse ratée laisserait une session ouverte
-sur l'autre machine jusqu'à son propre délai.
+`exists` **throws as readily as it answers `false`** — missing folder, missing permissions — and both
+say the same thing here: not where it was expected. One connection per fetch, never a pool: a hunt
+goes for a file once, minutes after the previous one, and the close is in a `finally` — otherwise
+every failed hunt would leave a session open on the other machine until its own timeout.
 
-Le plafond de 512 Mo est celui de la route d'envoi de la médiathèque elle-même : au-delà, ce
-serait une heure de transfert pour un fichier que `PUT /file` refuserait ensuite de ranger.
+The 512 MB ceiling is the médiathèque's own upload route's: beyond that it would be an hour of
+transfer for a file `PUT /file` would then refuse to file.
 
-### Cette étape se raconte dans les journaux
+### This step tells its story in the logs
 
-C'est ici que deux machines se rencontrent, donc c'est ici qu'on ne peut rien déduire après
-coup. Chaque récupération écrit ce qu'elle vise et ce qu'elle voit :
+This is where two machines meet, so this is where nothing can be deduced after the fact. Every fetch
+writes what it is aiming at and what it sees:
 
 ```
 ⇣ sftp → fred@slskd.lan:22 (clé)
@@ -270,228 +254,205 @@ coup. Chaque récupération écrit ce qu'elle vise et ce qu'elle voit :
 ⇣ sftp 40.1 Mo lus depuis /downloads/complete/Nevermind/05 Lithium.flac
 ```
 
-Ce que cette trace donne, et qu'aucun message d'erreur ne donnerait : **le nom du pair et le
-chemin déduit côte à côte**, donc un rangement inattendu de slskd se lit d'un coup d'œil ; et le
-**contenu réel** du dossier, donc « mauvais `SLSKD_DOWNLOADS_DIR` », « droits qui manquent à
-l'utilisateur SSH » et « slskd n'a rien écrit » cessent de se ressembler.
+What that trace gives, and no error message would: **the peer's name and the deduced path side by
+side**, so an unexpected slskd layout reads at a glance; and the folder's **actual contents**, so
+"wrong `SLSKD_DOWNLOADS_DIR`", "the SSH user lacks permissions" and "slskd wrote nothing" stop
+looking alike.
 
-La première ligne est écrite **avant** la connexion : si c'est elle qui échoue, ce sont ces
-valeurs-là qu'on veut relire, et l'exception de `connect` ne les porte pas. Elle dit qu'il y a une
-clé, jamais laquelle — un test le vérifie.
+The first line is written **before** connecting: if that is what fails, those are the values you
+want to re-read, and `connect`'s exception does not carry them. It says there is a key, never which
+one — a test checks that. Always written, not only on failure: a download takes minutes, so a dozen
+lines is not noise. Listings are cut at forty entries, a download folder holding thousands.
 
-Toujours écrites, pas seulement en cas d'échec : un téléchargement dure des minutes, donc une
-dizaine de lignes par téléchargement n'est pas du bruit. Les listes sont coupées à quarante
-entrées, un dossier de téléchargement pouvant en tenir des milliers.
+## What comes from the network is hostile
 
-## Ce qui vient du réseau est hostile
+slskd's own documentation says so: filenames come from the Soulseek network and can contain
+anything. They pass through two places here, and each has its defence:
 
-La documentation de slskd le dit elle-même : les noms de fichiers viennent du réseau Soulseek et
-peuvent contenir n'importe quoi. Ils traversent ici deux endroits, et chacun a sa défense :
+1. **The remote path** → `localPathFor` strips `.` and `..` segments before keeping the last two, so
+   the result is **always** under the download folder. A test checks it on three escape forms.
+2. **The filed file's name** → it only supplies the master's extension, via `masterName`, which
+   refuses anything the scan would not see as audio. The folder comes from the MusicBrainz tags
+   passed through `segment`, which drops anything unnameable and cuts at 80 characters. `putFile`
+   refuses a `..` on top of that, and `writablePath` a leading `.` segment.
 
-1. **Le chemin distant** → `localPathFor` retire les segments `.` et `..` avant de garder les
-   deux derniers, donc le résultat est **toujours** sous le dossier de téléchargement. Un test le
-   vérifie sur trois formes d'échappement.
-2. **Le nom du fichier rangé** → il ne sert qu'à donner son extension au master, via `masterName`
-   qui refuse tout ce que le scan ne verrait pas comme de l'audio. Le dossier, lui, vient des
-   tags MusicBrainz passés par `segment`, qui jette tout ce qui n'est pas nommable et coupe à 80
-   caractères. `putFile` refuse un `..` par-dessus, et `writablePath` un segment initial en `.`.
+Nothing a stranger typed becomes a path.
 
-Rien de ce qu'un inconnu a tapé ne devient donc un chemin.
+## The hunt does not target a playlist
 
-## La chasse ne vise pas une playlist
+A playlist lives in the workspace's repository (`packages/song/docs/playlists.md`), i.e. on the file
+service's disk — which this service does not touch. And it must not: `docs/projects.md` establishes
+that the service minting everyone's session and holding the single deploy key must not additionally
+be able to write into everyone's repository. A "just one line of YAML" costing that property is
+expensive.
 
-Une playlist vit dans le dépôt de l'espace de travail (`packages/song/docs/playlists.md`),
-c'est-à-dire sur le disque du service de fichiers — que ce service-ci ne touche pas. Et il ne faut
-pas qu'il le touche : `docs/projects.md` pose que celui qui mint la session de tout le monde et
-détient l'unique clé de déploiement ne doit pas en plus pouvoir écrire dans le dépôt de chacun.
-Un « juste une ligne de YAML » qui coûte cette propriété-là est cher.
+So the division is this: **the hunt files the song into the médiathèque**, and adding it to a setlist
+is one click in st0, on exactly that catalogue — its search queries
+`/api/mediatek/list?family=songs` (`apps/st0/frontend/docs/playlists.md`). Eight searches in a row
+therefore cost eight clicks, in a screen that shows the setlist while you fill it.
 
-Le partage est donc celui-ci : **la chasse range le morceau dans la médiathèque**, et
-l'ajouter à une setlist est un clic dans st0, sur exactement ce catalogue-là — sa recherche
-interroge `/api/mediatek/list?family=songs` (`apps/st0/frontend/docs/playlists.md`). Huit
-recherches d'affilée coûtent donc huit clics, dans un écran qui, lui, montre la setlist pendant
-qu'on la remplit.
+## The fallback: "DL sur YouTube"
 
-## Le secours : « DL sur YouTube »
+When Soulseek has been **asked and exhausted**, the row carries a **DL sur YouTube** button, which
+retries the song with `yt-dlp`.
 
-Quand Soulseek a été **interrogé et épuisé**, la ligne porte un bouton **DL sur YouTube**, qui
-reprend le morceau avec `yt-dlp`.
+### Exhausted, not merely red
 
-### Épuisé, pas simplement rouge
+The button does not appear on every red line, and the distinction is the heart of the matter. Only
+two failures say anything about the song's **availability**:
 
-Le bouton n'apparaît pas sur toute ligne rouge, et la distinction est le fond du sujet. Deux
-échecs seulement disent quelque chose sur la **disponibilité du morceau** :
-
-| l'échec | le bouton |
+| the failure | the button |
 |---|---|
-| personne ne partage ce morceau dans un format utilisable | **oui** |
-| des pairs l'avaient, aucun n'a commencé à envoyer | **oui** |
-| service redémarré, recherche annulée | non — Soulseek n'a rien dit |
-| slskd pas configuré, MusicBrainz n'a rien reconnu | non — on n'a même pas cherché |
-| téléchargé, mais introuvable en SFTP | non — et surtout pas |
+| nobody shares this song in a usable format | **yes** |
+| peers had it, none started sending | **yes** |
+| service restarted, search cancelled | no — Soulseek said nothing |
+| slskd not configured, MusicBrainz recognised nothing | no — we did not even search |
+| downloaded, but not findable over SFTP | no — and especially not |
 
-La dernière ligne est celle qui compte : le fichier **a bien été téléchargé**, c'est la
-récupération qui a échoué. Proposer YouTube là masquerait un défaut de configuration derrière un
-fichier de moins bonne qualité — le genre de secours qui empêche de réparer la vraie panne.
+That last row is the one that counts: the file **was** downloaded, it is the retrieval that failed.
+Offering YouTube there would hide a configuration fault behind a lower-quality file — the kind of
+fallback that stops the real fault being fixed.
 
-C'est porté par `exhausted` sur la ligne, posé par le coureur au seul endroit qui le sait, et
-d'après le **type** de l'erreur et non son texte : un `includes("aucun pair")` finirait par ne
-plus rien reconnaître après une reformulation, donc par ne plus jamais proposer le secours, sans
-que rien ne le signale.
+It is carried by `exhausted` on the row, set by the runner at the one place that knows, and from the
+error's **type** rather than its text: an `includes("aucun pair")` would eventually recognise nothing
+after a rewording, so would never offer the fallback again, with nothing to signal it.
 
-La règle vit dans le contrat partagé (`canFallBackToYoutube`), et **la route l'applique aussi** :
-un bouton visible que la route refuserait serait une impasse, et l'inverse une porte dérobée.
+The rule lives in the shared contract (`canFallBackToYoutube`), and **the route applies it too**: a
+visible button the route would refuse is a dead end, and the inverse is a back door.
 
-**Un bouton, jamais un repli automatique.** C'est un autre marché : un flux compressé tiré
-d'une vidéo au lieu du fichier de quelqu'un. Savoir quel morceau le mérite est un jugement sur
-le morceau — une reprise pour une playlist de répèt, oui ; une référence de mix, sûrement pas —
-et un serveur n'a pas à le faire à votre place.
+**A button, never an automatic fallback.** It is a different bargain: a compressed stream pulled from
+a video instead of somebody's file. Knowing which song deserves that is a judgement about the song —
+a cover for a rehearsal playlist, yes; a mix reference, certainly not — and a server has no business
+making it for you.
 
-C'est **la même ligne** qui repart, pas une nouvelle. Elle porte déjà les tags résolus par
-MusicBrainz, donc le morceau se range exactement où il serait allé ; et l'historique garde une
-ligne par morceau voulu plutôt qu'une par tentative, ce qui est la question qu'on se pose en
-relisant la liste. Le sidecar dit `source: youtube`, à côté de `slskd` et d'`upload` : une fois
-le dossier rangé, c'est la seule trace qu'on écoute la piste audio d'une vidéo et non un disque.
+It is **the same row** that restarts, not a new one. It already carries the tags MusicBrainz
+resolved, so the song files exactly where it would have gone; and the history keeps one row per song
+wanted rather than one per attempt, which is the question you ask rereading the list. The sidecar
+says `source: youtube`, beside `slskd` and `upload`: once the folder is filed, that is the only trace
+that you are listening to a video's audio track and not a record.
 
-### Ici l'artiste EST dans la requête
+### Here the artist IS in the query
 
-À l'inverse exact de slskd. Un titre de vidéo YouTube s'écrit « Artiste - Titre », donc
-l'artiste est dans le champ même qu'on interroge ; chez Soulseek il est le dossier au-dessus
-et ne restreint rien. Même information, deux endroits différents, deux décisions opposées.
+The exact opposite of slskd. A YouTube video title is written "Artist - Title", so the artist is in
+the very field being queried; at Soulseek it is the folder above and restricts nothing. Same
+information, two different places, two opposite decisions.
 
-`ytsearch1:` transforme la phrase en une vidéo sans qu'on ait à interroger YouTube nous-mêmes.
-Un seul résultat : le deuxième est déjà une reprise ou un live.
+`ytsearch1:` turns the phrase into a video without our querying YouTube ourselves. One result only:
+the second is already a cover or a live.
 
-### On ne ré-encode pas
+### Nothing is re-encoded
 
-`--audio-format best` ne convertit pas, il **conserve** : YouTube sert de l'Opus autour de
-130 kbps, et le passer en mp3 serait un transcodage lossy vers lossy — nettement pire que l'un
-ou l'autre, pour rien. Ce qui sort est donc du `.opus` ou du `.m4a`, que `AUDIO_EXT` accepte
-déjà. Si yt-dlp rend autre chose, on refuse en le disant plutôt que de ranger un fichier que
-`masterName` rejetterait de toute façon.
+`--audio-format best` does not convert, it **keeps**: YouTube serves Opus around 130 kbps, and putting
+that through mp3 would be a lossy-to-lossy transcode — distinctly worse than either, for nothing. So
+what comes out is `.opus` or `.m4a`, which `AUDIO_EXT` already accepts. If yt-dlp returns anything
+else, it is refused out loud rather than filing a file `masterName` would reject anyway.
 
-Le débit est inscrit dans la ligne comme pour un téléchargement Soulseek : un morceau à
-130 kbps qui s'annonce ne sera pas pris pour une référence six mois plus tard.
+### What is hostile here is the query
 
-### Ce qui est hostile, ici, c'est la requête
+It comes from what someone typed, and it goes into a process. `ytdlpArgs` returns an **array**, and
+`execFile` is called **with no shell**: a `;`, a `$(…)` or a quote in the search stays characters in a
+search. Same discipline as for the Soulseek filenames, at the other end of the chain.
 
-Elle vient de ce que quelqu'un a tapé, et elle part vers un processus. `ytdlpArgs` rend un
-**tableau**, et `execFile` est appelé **sans shell** : un `;`, un `$(…)` ou un guillemet dans la
-recherche reste des caractères dans une recherche. C'est la même discipline que pour les noms
-de fichiers venus de Soulseek, à l'autre bout de la chaîne.
+The work happens under `.hunts/tmp/<id>` — on the volume, so real space, and behind a dot, so
+invisible to scans. Erased whatever happens: a failed download would otherwise leave bytes nothing
+names.
 
-Le travail se fait sous `.hunts/tmp/<id>` — sur le volume, donc de la vraie place, et derrière
-un point, donc invisible aux scans. Effacé quoi qu'il arrive : un téléchargement raté laisserait
-sinon des octets que plus rien ne nomme.
+### What it asks of the image
 
-### Ce que ça demande à l'image
+`yt-dlp` **and** `ffmpeg`, both in the Dockerfile. ffmpeg is not an extra: yt-dlp does not embed one
+and cannot separate a stream from its container without it, so the two are one feature.
 
-`yt-dlp` **et** `ffmpeg`, tous deux dans le Dockerfile. ffmpeg n'est pas un supplément : yt-dlp
-n'en embarque pas et ne sait pas séparer un flux de son conteneur sans lui, donc les deux ne
-font qu'une fonctionnalité.
+And it has to be known: **yt-dlp is a moving target**. YouTube breaks it every few months, so the
+version frozen into an image ages and eventually fails; rebuilding is the fix. That is the cost of
+this way out, and the reason it is a way out rather than the main path.
 
-Et il faut le savoir : **yt-dlp est une cible mouvante**. YouTube le casse tous les quelques
-mois, donc la version figée dans une image vieillit et finit par échouer ; reconstruire est le
-correctif. C'est le coût de cette porte de sortie, et la raison pour laquelle elle est une porte
-de sortie et non le chemin principal.
+The screen asks the backend whether the binary is there (`GET /api/hunt` → `youtube`), probed once.
+Without it the button is greyed and says so, rather than failing on click.
 
-L'écran demande au backend si le binaire est là (`GET /api/hunt` → `youtube`), sondé une fois.
-Sans lui, le bouton est grisé et le dit, plutôt que d'échouer au clic.
+## A page, not a dialog
 
-## Une page, pas un dialogue
+`/find` is a **section** in `routes.ts`'s sense, like `engine`: no tab in the header, reached by a
+button from the section it belongs to, and drawn edge to edge.
 
-`/find` est une **section** au sens de `routes.ts`, comme `engine` : sans onglet dans l'en-tête,
-atteinte par un bouton depuis la section à laquelle elle appartient, et dessinée bord à bord.
+A dialog would have been the reflex — it is what "Ajouter" does right beside it — and it would have
+been the wrong choice: **the history grows**. A hundred rows in a window 85 % of the height is a
+screen scrolling inside a screen. And a page brings three things a modal cannot: an address you can
+reload and bookmark, a back button that returns to the songs, and the full available height.
 
-Un dialogue aurait été le réflexe — c'est ce que fait « Ajouter » juste à côté — et il aurait été
-le mauvais choix : **l'historique s'allonge**. Cent lignes dans une fenêtre de 85 % de hauteur,
-c'est un écran qui défile dans un écran. Et une page apporte trois choses qu'une boîte modale ne
-peut pas donner : une adresse qu'on recharge et qu'on met en signet, un bouton « précédent » qui
-ramène aux morceaux, et toute la hauteur disponible.
+The search field is at the top and **does not scroll**: building a library means one title after
+another, and a field you had to go looking for after thirty rows would be a round trip per song.
 
-Le champ de recherche est en haut et **ne défile pas** : monter une bibliothèque, c'est enchaîner
-les titres, et un champ qu'il faudrait aller rechercher après trente lignes serait un
-aller-retour par morceau.
+Two consequences in `Library.tsx`, both easy to miss:
 
-Deux conséquences dans `Library.tsx`, toutes deux faciles à manquer :
+- `find` must be **removed from `FamilyId`**, which is computed by subtraction on `SECTION_IDS`.
+  Without that the new section becomes a family, and the poll asks the server for a list of `find`.
+  That is the price of the subtraction: every section that is not a family has to be named there.
+- Refreshing the catalogue after a song is filed cannot be the general `refresh`, which invalidates
+  the **open** section's token — and that is `find`. What has just arrived is in `songs`: that is the
+  token to clear, or the song would only appear on the next section change.
 
-- `find` doit être **retiré de `FamilyId`**, qui se calcule par soustraction sur `SECTION_IDS`.
-  Sans ça la nouvelle section deviendrait une famille, et le poll irait demander au serveur une
-  liste de `find`. C'est le prix de la soustraction : chaque section qui n'est pas une famille
-  doit être nommée là.
-- Le rafraîchissement du catalogue après un morceau rangé ne peut pas être le `refresh` général,
-  qui invalide le jeton de la section **ouverte** — laquelle est `find`. Ce qui vient d'arriver
-  est dans `songs` : c'est ce jeton-là qu'il faut effacer, sinon le morceau n'apparaîtrait qu'au
-  prochain changement de section.
+## The history
 
-## L'historique
+One row per search, most recent first, in `.hunts/<slug>-<hash>.json` on the volume — a dot folder, so
+invisible to family scans and to the file API, exactly like `.prefs` and `.projects`. A hundred rows
+kept: it is a memory for recognising what has already been asked for, not an archive, and the file is
+read whole on every query.
 
-Une ligne par recherche, la plus récente en haut, dans `.hunts/<slug>-<hash>.json` sur le volume
-— un dot-dossier, donc invisible aux scans de familles et à l'API fichier, exactement comme
-`.prefs` et `.projects`. Cent lignes gardées : c'est une mémoire pour reconnaître ce qu'on a
-déjà demandé, pas une archive, et le fichier est lu en entier à chaque interrogation.
+Three colours for four states, because "searching" and "downloading" are both "in progress" to
+whoever is watching. The detail shown changes with the state: while downloading it is **who** is
+sending and which peer number, on failure it is **why**, once filed it is **where** — and the format
+obtained, said plainly, so a 128 kbps is not taken for a mix reference six months later.
 
-Trois couleurs pour quatre états, parce que « on cherche » et « ça télécharge » sont tous deux
-« en cours » pour qui regarde. Le détail affiché change avec l'état : au téléchargement c'est
-**qui** envoie et le combien-ième pair, à l'échec c'est **pourquoi**, une fois rangé c'est
-**où** — et le format obtenu, dit sans détour, pour qu'un 128 kbps ne soit pas pris pour une
-référence de mix six mois plus tard.
+A search lives in a process's memory. A redeploy loses it while its row still says "in progress" — a
+blue line spinning for ever. `reconcile` marks as failed anything in a live state that no runner
+claims, at the next read, which is also the first moment anyone could have noticed.
 
-Une recherche vit dans la mémoire d'un processus. Un redéploiement la perd alors que sa ligne dit
-encore « en cours » — une ligne bleue qui tournerait pour toujours. `reconcile` marque en échec
-tout ce qui est dans un état vivant sans qu'aucun coureur ne le revendique, à la première lecture
-suivante, qui est aussi le premier moment où quelqu'un aurait pu s'en apercevoir.
+The page **only polls while it is open**: the work is on the server, and a tab asking continuously
+for a closed screen would pay a round trip for nothing.
 
-La page **n'interroge que lorsqu'elle est ouverte** : le travail est sur le serveur, et un
-onglet qui demanderait en continu pour un écran fermé paierait un aller-retour pour rien.
+## Guard rails
 
-## Garde-fous
+Four simultaneous searches per person, maximum. A search occupies a slot in a peer's queue for ten
+minutes; forty at once would be a good way to get the account banned. MusicBrainz is limited to
+**one request per second**, queued rather than rejected — two people searching at once is normal.
 
-Quatre recherches simultanées par personne au maximum. Une recherche occupe une place dans la
-file d'un pair pendant dix minutes ; quarante d'un coup seraient un bon moyen de faire bannir le
-compte. MusicBrainz est limité à **une requête par seconde**, en file plutôt que rejetée — deux
-personnes qui cherchent en même temps, c'est normal.
+The route is **session-only**, unlike the médiathèque and the projects which accept a machine token:
+this one spends an account's bandwidth and reputation on a third-party network, which is not
+something a service token should be able to trigger.
 
-La route est en **session seule**, contrairement à la médiathèque et aux projets qui acceptent un
-jeton de machine : celle-ci dépense la bande passante et la réputation d'un compte sur un réseau
-tiers, ce qu'un jeton de service n'a pas à pouvoir déclencher.
+A song already in the médiathèque is recognised **before** the download. `addSong` would refuse it at
+the end anyway, and learning that after forty megabytes is a worse way to learn it.
 
-Un morceau déjà dans la médiathèque est reconnu **avant** le téléchargement. `addSong` le
-refuserait de toute façon à la fin, et l'apprendre après quarante mégaoctets est une plus
-mauvaise façon de l'apprendre.
-
-Le sidecar porte `source: slskd`, à côté d'`upload` et de `k7` — le champ existe précisément pour
-dire à qui lit le dossier d'où il vient.
+The sidecar carries `source: slskd`, beside `upload` and `k7` — the field exists precisely to tell
+whoever reads the folder where it came from.
 
 ## Configuration
 
-| variable | ce que c'est |
+| variable | what it is |
 |---|---|
-| `SLSKD_URL` | l'adresse de l'instance slskd, par exemple `https://slskd.lan:5031` |
-| `SLSKD_API_KEY` | sa clé d'API — à restreindre par CIDR côté slskd, la machine étant distante |
-| `SLSKD_SFTP_HOST` / `SLSKD_SFTP_PORT` | la même machine, en SSH (22 par défaut) |
-| `SLSKD_SFTP_USER` | l'utilisateur qui peut lire le dossier de téléchargement |
-| `SLSKD_SFTP_KEY` / `SLSKD_SFTP_PASSPHRASE` | la clé privée **elle-même**, pas un chemin — un conteneur reçoit ses secrets par l'environnement |
-| `SLSKD_SFTP_PASSWORD` | à défaut de clé |
-| `SLSKD_DOWNLOADS_DIR` | où slskd dépose, vu depuis cette machine |
-| `MUSICBRAINZ_USER_AGENT` | leurs conditions demandent un client qui se nomme et dit comment le joindre |
+| `SLSKD_URL` | the slskd instance's address, e.g. `https://slskd.lan:5031` |
+| `SLSKD_API_KEY` | its API key — restrict it by CIDR on the slskd side, the machine being remote |
+| `SLSKD_SFTP_HOST` / `SLSKD_SFTP_PORT` | the same machine, over SSH (22 by default) |
+| `SLSKD_SFTP_USER` | the user that can read the download folder |
+| `SLSKD_SFTP_KEY` / `SLSKD_SFTP_PASSPHRASE` | the private key **itself**, not a path — a container gets its secrets through the environment |
+| `SLSKD_SFTP_PASSWORD` | failing a key |
+| `SLSKD_DOWNLOADS_DIR` | where slskd deposits, as seen from that machine |
+| `MUSICBRAINZ_USER_AGENT` | their terms require a client that names itself and says how to reach it |
 
-Tant qu'il en manque, l'écran s'ouvre et **dit lesquelles** au lieu d'échouer à chaque frappe :
-un déploiement pas encore configuré est l'état normal d'un déploiement neuf.
+While any are missing, the screen opens and **says which**, instead of failing on every keystroke: a
+deployment not yet configured is the normal state of a new deployment.
 
-Une clé SSH **distincte** de celle des dépôts git : joindre un hébergeur git et ouvrir un shell
-sur la machine slskd sont deux confiances différentes.
+An SSH key **distinct** from the git repositories' one: reaching a git host and opening a shell on
+the slskd machine are two different trusts.
 
-## Ce qui n'est pas fait
+## What is not done
 
-- Le morceau est cherché **seul**. Prendre l'album entier demanderait de choisir entre des
-  éditions et des ordres de pistes, ce qui est un autre écran.
-- Aucune reprise après redémarrage : une recherche interrompue est marquée en échec et se
-  relance à la main. Reprendre supposerait de retrouver l'état d'un transfert chez un pair, ce
-  que slskd ne garantit pas après une coupure.
-- Rien n'est **partagé** en retour. Beaucoup de pairs bannissent automatiquement qui ne partage
-  rien, donc la moisson sera moins bonne qu'avec un client qui partage — c'est une décision à
-  prendre, pas un oubli.
-- Le secours YouTube ne **choisit pas** la vidéo : c'est la première réponse, point. Proposer
-  une liste serait un autre écran, et le premier résultat d'une requête « artiste titre » est
-  la bonne piste bien plus souvent qu'il ne l'est pour une recherche Soulseek.
+- The song is fetched **alone**. Taking the whole album would mean choosing between editions and
+  track orders, which is another screen.
+- No resume after a restart: an interrupted search is marked failed and relaunched by hand. Resuming
+  would mean recovering a transfer's state at a peer, which slskd does not guarantee after a break.
+- Nothing is **shared** back. Many peers automatically ban anyone who shares nothing, so the harvest
+  will be poorer than with a client that shares — a decision to be taken, not an oversight.
+- The YouTube fallback does not **choose** the video: it is the first answer, full stop. Offering a
+  list would be another screen, and the first result of an "artist title" query is the right track
+  far more often than it is for a Soulseek search.

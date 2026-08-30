@@ -1,117 +1,80 @@
-# `engineAccess` — un seul objet pour joindre un moteur
+# `engineAccess` — one object for reaching an engine
 
-Les briques de ce package existent séparément : `registry.ts` (les cinq routes),
-`probe.ts` (mesurer), `choose.ts` (la politique), `lease.ts` (le bail). `access.ts` ne les
-remplace pas — il les **lie au préfixe du service**, une fois.
+The pieces exist separately: `registry.ts` (the routes), `probe.ts` (measuring), `choose.ts`
+(the policy), `lease.ts` (the lease). `access.ts` binds them to the service's prefix, once.
 
-## Le préfixe, dit une seule fois
+## The prefix is given once, to the constructor
 
-`base` — `""` pour st0, `/pl8` — décide à la fois des routes du registre et de ce que la
-sonde compose. Passé deux fois, à deux fonctions différentes, ce serait deux endroits pour un
-seul fait :
-
-```ts
-export const engines = registryClient<PublicEngine>(BASE, json); // ici
-const ranked = await probeEngines(list, BASE);                   // et là
-```
-
-Rien n'obligerait une app à tenir les deux à jour, et la version qui compte le moins
-bruyamment — celle de la sonde — est celle qui décide si le **relais** est proposé. Un service
-peut alors lister ses moteurs correctement et n'en joindre aucun à distance, sans qu'aucun type
-ne s'en aperçoive.
-
-Passé au constructeur, il n'y a rien à garder en phase :
+`base` — `""` for st0, `/pl8` — decides both the registry's routes and what the probe composes.
+Passed separately to two functions it is two places for one fact, and nothing would force an app
+to keep them in step. The one that drifts most quietly is the probe's, and it is what decides
+whether the **relay** is offered: a service can then list its engines correctly and reach none of
+them remotely, with no type noticing.
 
 ```ts
 export const engines = engineAccess<PublicEngine>(BASE, json);
 ```
 
-## `find()` — la séquence, pas les morceaux
+## `find()` is the sequence, not the pieces
 
-Un gate fait toujours la même chose dans le même ordre : lister, lire la préférence, mesurer,
-appliquer la politique. Écrite par surface, cette séquence diverge — filtrer sur `wsUrl` seul
-offre un moteur ayant répondu sans jeton, qu'on ne peut ensuite pas sélectionner, et lève un
-sélecteur devant un unique moteur joignable.
+List, read the preference, measure, apply the policy. Written per surface that sequence
+diverges: filtering on `wsUrl` alone offers an engine that answered without a token and cannot
+then be selected, and raises a picker in front of a single reachable engine.
 
-```ts
-const { ranked, chosen, ambiguous, rememberedId } = await engines.find();
-```
+It answers `ranked` for the picker, `chosen` for starting, `ambiguous` for whether there is a
+question to ask, and `rememberedId` for ticking the chosen row — including when that choice did
+not answer, which a picker needs and a start does not.
 
-`ranked` sert au sélecteur, `chosen` à démarrer, `ambiguous` à savoir s'il y a une **question**
-à poser, `rememberedId` à cocher la ligne du choix — y compris quand ce choix n'a pas répondu,
-ce dont un sélecteur a besoin et un démarrage non.
+`preferId` takes precedence over the stored preference: the same value, but already current when
+somebody changes engine from a neighbouring header.
 
-`preferId` prend le pas sur la préférence stockée : c'est la même valeur, mais elle arrive
-déjà à jour quand quelqu'un change de moteur depuis un en-tête voisin, là où la requête
-répondrait encore ce qui a été enregistré il y a un instant.
+**A silent registry is not an error.** `find()` swallows both requests' failure and answers an
+empty list — the honest state, and a screen, where a rejected promise inside a gate's effect is
+an eternal spinner.
 
-## Un registre muet n'est pas une erreur
+## A probe is a snapshot, so it is re-run
 
-`find()` avale l'échec des deux requêtes et rend une liste vide. C'est l'état honnête — un
-service dont le registre est à terre ne peut effectivement pas être piloté — et c'est un
-**écran**, là où une promesse rejetée dans l'effet d'un gate est un spinner éternel. Garder la
-préférence sans garder la liste laisse exactement ce spinner.
+"Unreachable" is a state of its own — `probeEngines` answers `latency: null` when no candidate
+replied in time — so without re-measuring one unlucky race marks an engine unreachable until the
+page reloads.
 
-## Une sonde est un instantané — `useRelook`
+`relook.ts` answers a counter for the dependencies of the effect calling `find()`. It advances
+every 15 s, aligned on `REGISTRY_TTL_MS` — longer buys nothing, an engine that stopped beating
+having left the list; shorter probes faster than the information can change — and when the tab
+returns to the foreground, which is precisely when "unreachable" is read.
 
-`find()` mesure **une fois**. Or « injoignable » n'est pas une latence lente : `probeEngines`
-rend `latency: null`, un état à part, dès qu'aucune adresse candidate n'a répondu dans le
-délai. Sans re-mesure, une seule course malchanceuse marque donc le moteur injoignable
-**jusqu'au rechargement de la page** — le symptôme « parfois il est là, parfois non ».
+Where to wire it differs, and the difference is a choice:
 
-`relook.ts` rend un compteur à mettre dans les dépendances de l'effet qui appelle `find()`.
-Il avance sur deux déclencheurs, et le second compte autant que le premier :
-
-- **toutes les 15 s**, calé sur `REGISTRY_TTL_MS` : plus long ne servirait à rien, un moteur
-  qui a cessé de battre ayant déjà disparu de la liste ; plus court sonderait plus vite que
-  l'information ne peut changer ;
-- **au retour de l'onglet au premier plan**. Un onglet caché ne sonde pas — ouvrir des
-  WebSockets vers chaque adresse pour un écran que personne ne regarde coûte sans rien
-  apprendre — mais c'est précisément en y revenant qu'on lit « injoignable ».
-
-Où le brancher n'est pas la même réponse partout, et la différence est un choix :
-
-| surface | quand |
+| surface | when |
 |---|---|
-| pl8, `useEngineChoice` | **toujours** — c'est un sélecteur permanent dans l'en-tête |
-| st0 `EngineGate` | **seulement en `picking`** — c'est un gate, et re-mesurer après le choix ramènerait l'écran en arrière sous les doigts de quelqu'un qui travaille |
+| pl8, `useEngineChoice` | **always** — a permanent picker in the header |
+| st0 `EngineGate` | **only while `picking`** — re-measuring after the choice takes the screen backwards under someone working |
 
-Dans pl8, la re-mesure passe le choix courant à `find(preferId)`. Ce n'est pas un détail :
-`find` rend `preferId ?? prefs.engineId`, donc sans ça un `choose()` optimiste dont
-l'enregistrement n'a pas encore atterri serait écrasé par la valeur du serveur, et le sélecteur
-reviendrait tout seul sur l'ancien moteur.
+In pl8 the re-measure passes the current choice to `find(preferId)`, or an optimistic `choose()`
+whose save has not landed is overwritten by the server's value and the picker drifts back.
 
-Le délai de la sonde est de **3 s**. Les candidats sont mesurés en parallèle, donc un moteur
-réellement absent coûte UN délai et non un par adresse — l'allonger ne retarde rien dans le cas
-courant. Et sur toute machine autre que celle du moteur, la seule voie praticable est le
-relais : le juger au budget d'un aller-retour en loopback déclarerait injoignable ce qui n'est
-que plus long.
+The probe's timeout is **3 s**. Candidates are measured in parallel, so an absent engine costs
+one timeout rather than one per address; and on any machine but the engine's the only workable
+route is the relay, which a loopback round-trip's budget would declare unreachable for being
+merely longer.
 
-### Ce que la sonde propose, et ce qu'elle ne propose pas
+## The probe offers only what can succeed
 
-Une page HTTPS n'ouvre pas de `ws://` vers une adresse du LAN. Les lister quand même
-marcherait — le navigateur les écarte — mais chaque tentative écartée compte comme du **contenu
-mixte** et s'annonce dans le cadenas.
+An HTTPS page does not open `ws://` to a LAN address. Listing them anyway works — the browser
+discards them — but each discarded attempt counts as **mixed content**, and that is what makes a
+page non-installable. The surfaces menu could then not be added to a home screen, which is the
+device it exists for (`apps/st0/frontend/docs/external.md`).
 
-Sur le poste c'est invisible : le loopback répond en premier et personne ne lit le cadenas. Sur
-une tablette c'est toute l'histoire — « cette page inclut des ressources qui ne sont pas
-sécurisées » est aussi ce qui rend la page **non installable**, donc le menu des surfaces ne
-pourrait pas être ajouté à un écran d'accueil, alors que c'est précisément l'appareil pour lequel
-il existe (`apps/st0/frontend/docs/external.md`).
+`candidatesFor` therefore offers loopback — potentially trustworthy by definition, dialable from
+HTTPS — and the relay. LAN addresses stay listed over plain HTTP, where they work.
 
-`candidatesFor` ne propose donc que ce qui peut aboutir : le loopback — « potentiellement digne
-de confiance » par définition, donc dialable même depuis HTTPS — et le relais. Les adresses du
-LAN restent listées en HTTP nu, où elles fonctionnent : un serveur de dev visité directement sur
-son port.
+## Outside this object
 
-## Ce qui reste au dehors
-
-- **`EngineClient`** : ouvrir le socket, avec la session du service
-  (`sessionFor(SESSIONS.st0, …)`). Chaque app tient la sienne, et une seule d'entre elles doit
-  la tenir — voir `@studio/engine-protocol/docs/sessions.md`.
-- **Le service de fichiers** : `fileBase` sort de la sonde et va dans
-  `@studio/project-shell/fileApi`. Il **voyage avec l'adresse qui a répondu** : un socket
-  relayé à côté d'un `http://` direct rebâtirait le mur du contenu mixte sur l'autre moitié
-  (`@studio/engine-registry/docs/proxy.md`).
-- **La politique du sélecteur** : pl8 laisse un éditeur ouvert sans moteur, le gate de st0 non.
-  C'est une différence de produit, pas de plomberie.
+- **`EngineClient`**: opening the socket with the service's session
+  (`sessionFor(SESSIONS.st0, …)`), which each app holds and only one of them must —
+  `@studio/engine-protocol/docs/sessions.md`.
+- **The file service**: `fileBase` goes from the probe into `@studio/project-shell/fileApi`, and
+  **travels with the address that answered**. A relayed socket beside a direct `http://` rebuilds
+  the mixed-content wall on the other half (`@studio/engine-registry/docs/proxy.md`).
+- **The picker's policy**: pl8 leaves an editor open with no engine, st0's gate does not. A
+  product difference, not a plumbing one.

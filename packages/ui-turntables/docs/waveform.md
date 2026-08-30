@@ -1,233 +1,195 @@
-# La waveform des platines
+# The turntable waveform
 
-Sous chaque vinyle, une bande qui **défile sous la tête de lecture** : le morceau glisse, la
-tête reste au milieu. Ce n'est pas la waveform des autres surfaces du dépôt et ça ne doit pas
-le devenir — `@studio/ui-waveform` dessine un morceau **entier** dans une largeur donnée, avec
-la tête qui le traverse. Ici c'est l'inverse : une fenêtre de durée fixe, et c'est l'audio qui
-bouge. Les deux répondent à deux questions différentes — « à quoi ressemble ce morceau » contre
-« qu'est-ce qui arrive dans quatre secondes ».
+Under each record, a band that **scrolls beneath the playhead**: the track slides, the head
+stays in the middle. This is not the waveform the rest of the repo draws and must not become it —
+`@studio/ui-waveform` draws a **whole** track into a given width, head crossing it; here a window
+of fixed duration, and the audio moves. Two different questions — "what does this track look
+like" against "what arrives in four seconds".
 
 ```
-        passé  ←            │            →  à venir
+        past  ←            │            →  coming
    ▁▂▃▅▇▅▃▂▁▂▃▅▇▇▅▃▁▂▃▅▇▅▃▂│▁▂▃▅▇▅▃▂▁▂▃▅▇▇▅▃▁▂▃▅
-   │  ╎  │  ╎  │  ╎  │  ╎  │  ╎  │  ╎  │  ╎  │      │ jaune = beats
-                            ▲                        ╎ gris  = transitoires
-                       tête de lecture
+   │  ╎  │  ╎  │  ╎  │  ╎  │  ╎  │  ╎  │  ╎  │      │ yellow = beats
+                            ▲                        ╎ grey   = transients
+                         playhead
 ```
 
-## La fenêtre ne se recadre pas
+## The window does not reframe
 
-`window(at)` rend `[at - 4s, at + 4s]`, sans jamais borner aux limites du morceau. Au début,
-la moitié gauche est avant zéro et se dessine **vide** ; à la fin, la moitié droite dépasse.
-Ce vide est l'information : « on est au tout début », « le morceau va manquer ». Une fenêtre
-qui glisserait pour rester dans le fichier déplacerait la tête ailleurs qu'au centre, et
-casserait en silence la seule promesse de cette vue.
+`window(at)` yields `[at - 4s, at + 4s]`, never clamped to the track's bounds. At the start the
+left half is before zero and draws **empty**; at the end the right half overruns. That emptiness
+is the information: "we are at the very beginning", "the track is about to run out". A window
+sliding to stay inside the file would put the head somewhere other than the centre, breaking
+this view's only promise in silence.
 
-## Jaune = déduit, gris = mesuré
+## Yellow = inferred, grey = measured
 
-- **Les transitoires** sont ce que le moteur a réellement détecté, en secondes du fichier,
-  dans le sidecar `{fichier}.cache`. On les affiche telles quelles.
-- **Les beats** sont une **grille déduite** d'un tempo. Le sidecar donne un BPM ; il ne donne
-  pas de *phase*, et rien dans la médiathèque n'en porte — `song.yaml` a un `bpm` qu'on peut
-  corriger à la main, pas d'offset de premier temps.
+- **Transients** are what the engine actually detected, in file seconds, in the `{file}.cache`
+  sidecar. Drawn as they are.
+- **Beats** are a grid **inferred** from a tempo. The sidecar gives a BPM; it gives no *phase*,
+  and nothing in the media library carries one — `song.yaml` has a `bpm` that can be corrected by
+  hand, no first-beat offset.
 
-D'où l'ancrage : **la grille est calée sur la première transitoire**. Un morceau qui commence
-sur le temps tombe juste ; un morceau avec une intro floue tombera à côté, et c'est assumé.
-Une grille calée sur 0 serait fausse pour presque tout ce qui a une amorce. Le jour où un
-vrai offset arrive dans le sidecar, `anchor` est le seul argument à changer dans `beatsIn`.
+Hence the anchor: **the grid starts on the circular mean of every onset**, not on
+`transients[0]` ([beats.ts](../src/beats.ts)). One early transient — a cough, a lead-in note —
+would otherwise drag the whole grid with it, where an average over every onset is dominated by
+the beats that actually repeat. A Rayleigh test on the same onsets decides whether that phase is
+a measurement or a shrug, and that is what `confident` carries. The day a real offset reaches the
+sidecar, `anchor` is the only argument to change in `beatsIn`.
 
-Le gris est plus discret que le jaune bien que ce soit lui qui soit **mesuré** : le jaune est
-ce sur quoi on aligne, c'est-à-dire ce qu'on regarde.
+Grey is more discreet than yellow although grey is the one that is **measured**: yellow is what
+you align on, which is what you look at.
 
-**Pas de tempo, pas de grille.** `bpm: 0` est le « je n'ai rien trouvé » du moteur. Aucune
-ligne jaune, et la mention « tempo inconnu » dans le coin — parce qu'une grille tracée à 120
-au hasard serait un mensonge confiant, et que des lignes absentes sans explication se lisent
-comme un bug.
+**No tempo, no grid.** `bpm: 0` is the engine's "I found nothing". No yellow line, and "tempo
+unknown" in the corner — a grid drawn at a guessed 120 would be a confident lie, and absent lines
+with no explanation read as a bug.
 
-## D'où viennent les données
+## Where the data comes from
 
-`GET /mediatek/envelope?path=…` sur le service de fichiers de la machine choisie. C'est
-`ensureFileEnvelope` : le sidecar est déjà à côté de l'audio dans le cache, donc c'est une
-**lecture** tant que l'empreinte correspond. Sinon — un morceau arrivé sans avoir jamais été
-analysé — le moteur de cette machine le calcule, ce qui prend plusieurs secondes ; d'où
-« analyse du morceau… » plutôt qu'une bande vide, les deux étant indiscernables autrement.
+`GET /mediatek/envelope?path=…` on the chosen machine's file service — `ensureFileEnvelope`, a
+**read** as long as the fingerprint matches. Otherwise that machine's engine computes it, several
+seconds; hence "analysing track…" rather than an empty band, the two being indistinguishable
+otherwise.
 
-En JSON et pas les octets bruts du sidecar : c'est un format interne avec une version et une
-empreinte dedans, et un navigateur qui le parserait serait une deuxième implémentation de
-`readSidecar` qui attendrait de diverger. ~120 ko pour cinq minutes, 8192 seaux.
+JSON rather than the sidecar's raw bytes: that is an internal format with a version and a
+fingerprint inside it, and a browser parsing it would be a second implementation of `readSidecar`
+waiting to diverge. ~120 kB for five minutes, 8192 buckets.
 
-Un seau couvre une durée qui **dépend de la longueur du morceau** — 8192 seaux quel que soit
-le fichier. `bucketAt` en tient compte ; supposer un taux fixe dessinerait un morceau à la
-vitesse d'un autre.
+A bucket covers a duration that **depends on the track's length** — 8192 buckets whatever the
+file. `bucketAt` accounts for it; assuming a fixed rate draws one track at another's speed.
 
-## La tête de lecture ne passe pas par React
+## The playhead does not go through React
 
-Le moteur pousse `playhead` plusieurs fois par seconde. Le mettre dans un état React
-re-rendrait tout le pupitre — deux waveforms, la liste, les deux platines — pour bouger une
-ligne. `useEngine` l'écrit donc dans une **ref**, et le canvas la lit dans sa propre boucle
-`requestAnimationFrame`.
+The engine pushes `playhead` several times a second. In React state that would re-render the
+whole desk — two waveforms, the list, both decks — to move one line. `useEngine` writes it into a
+**ref**, and the canvas reads it in its own `requestAnimationFrame` loop.
 
-Entre deux pushes, la position est **extrapolée**, sinon un push à 20 Hz donnerait un
-défilement saccadé à 60 images par seconde. À l'arrêt, pas d'extrapolation : elle ferait
-glisser une waveform que personne ne joue.
+Between pushes the position is **extrapolated**, but not from the last frame: frames land with
+different delays — engine timer, socket, parsing — so re-anchoring on each one **copies that
+jitter** into the scroll, 60 frames a second of judder instead of 20. The canvas reads
+`Deck.drawNow` instead. The transport's rate being KNOWN — one second per second, pitch fader
+included, since that stretches the clip and not the transport — the clock predicts from local
+time and estimates only the OFFSET, keeping the least delayed frame of a recent window
+(`@studio/engine-browser/playhead-clock`). The drawn position is a straight line, and a real seek
+moves the window back. It decides on its own when things are stopped, which is why this file
+never tests `playing`: the two cannot be allowed to disagree on what "stopped" means.
 
-Mais extrapoler naïvement (`playhead + (now - at)`) ne suffit pas. Les frames n'arrivent pas sur
-un battement régulier — entre le timer du moteur, le socket et le parsing, chacune atterrit avec
-un délai différent — donc se ré-ancrer sur chacune **recopie cette gigue** dans le défilement :
-60 images par seconde de saccade au lieu de 20. Le canvas lit donc `Deck.drawNow`. Le débit du
-transport étant CONNU — une seconde par seconde, fader de pitch compris, puisque celui-ci étire
-le clip et non le transport — l'horloge prédit depuis le temps local et n'estime que l'OFFSET,
-en retenant la frame la moins retardée d'une fenêtre récente
-(`@studio/engine-browser/playhead-clock`). La position dessinée est donc une droite, et un vrai
-seek fait reculer la fenêtre. Elle décide aussi seule de l'arrêt, et c'est pourquoi ce fichier
-ne teste pas `playing` pour savoir s'il faut extrapoler : les deux ne peuvent pas être en
-désaccord sur ce que « à l'arrêt » veut dire.
+`drawNow` is for what you WATCH. What gets written down — a cue point, remembering where the
+finger fell — reads `Deck.playhead`, the raw anchor, because smoothing trades accuracy for
+continuity. See `apps/st0/frontend/docs/playhead.md`.
 
-`drawNow` est pour ce qu'on REGARDE. Ce qui s'écrit — un point de cue, qui mémorise où le doigt
-est tombé — lit `Deck.playhead`, l'ancre brute, parce que le lissage échange de la justesse
-contre de la continuité. Voir `apps/st0/frontend/docs/playhead.md`.
+## One playhead for both decks, but two clocks
 
-## La bande se GLISSE
+The engine has a single transport (see [mix.md](mix.md)), so the same ref serves both bands.
 
-Un drag horizontal pousse le disque, comme une main sur un plateau : la bande défile sous une tête
-fixe, donc tirer vers la gauche avance dans le morceau. Une platine seulement — c'est le plateau qui
-bouge, jamais le transport ([scratch.md](scratch.md)).
+The transport's position is **not** the position within each track, because the two clips do not
+both start at 0: a stretched deck runs at its own rate, a synced deck is delayed to meet the
+other, and each clip starts a margin into the timeline ([bpm.md](bpm.md)). Drawing the raw head
+against the envelope gives the wrong place in the track, silently, and only once someone has
+touched the deck. The band therefore converts, through the `sourceAt` the record and every marker
+already use. One head, two file clocks; the day the decks get independent transports, it is the
+shared ref that goes, not the conversion.
 
-Cadencé à 120 ms. Ce qui vaut d'être su avant de s'en
-servir : **pendant le glissement c'est approximatif, au relâchement c'est exact.** Le `pointerup`
-envoie la valeur exacte, qui est un déplacement unique et tombe donc juste — l'endroit où l'on lâche
-est le bon, même si le trajet ne l'était pas.
+## Bars, in thicker orange
 
-Les 120 ms viennent du temps où chaque pas **ré-insérait un clip** et coûtait 85 ms. Un `Seek` sur un
-plateau ne coûte pas ça, et la cadence n'a pas été remesurée depuis : elle est prudente plutôt que
-justifiée. Le geste, lui, a été mesuré sous sa forme actuelle ([scratch.md](scratch.md)).
+A line every four beats, wider than the yellows and in a **different hue**: at a glance you count
+bars rather than working out which yellow is which. Drawn AFTER the beats, so a downbeat is
+orange rather than a yellow line fringed with orange.
 
-Le drag n'est offert qu'avec un morceau chargé ET un tempo mesuré : sans rapport d'étirement, il n'y
-a pas de conversion entre un pixel et une seconde du fichier.
+**4/4 is assumed, not detected.** Nothing in the sidecar says where a bar begins, and the
+analysis measures a tempo, not a metre. The grid's first beat is taken for a downbeat, one in
+four after that. On the four-to-the-bar a deck plays most of the time this is right — or right to
+within a rotation, and a rotation still gives one line per bar to count by, which is what a bar
+line is FOR. On 3 or 7 it is decoration, and the code says so rather than pretending.
 
-## Une seule tête pour les deux platines, mais deux horloges
+`barsIn` and `beatsIn` share the same grid and the same anchor: a bar grid with its own anchor
+would drift against the yellow lines it is meant to underline. A test freezes it — every bar
+falls ON a beat, never between two.
 
-Le moteur n'a qu'un transport (voir [mix.md](mix.md)), donc la même ref sert les deux bandes.
+## The colour says what is INSIDE
 
-La position du transport n'est **pas** la position dans chaque morceau, parce que les deux clips
-ne commencent pas à 0 : une platine étirée court à son propre rythme, une platine synchronisée
-est retardée pour rejoindre l'autre, et chaque clip démarre une marge dans la timeline
-([bpm.md](bpm.md)). Dessiner la tête brute contre l'enveloppe donnerait le mauvais endroit du
-morceau, en silence et seulement une fois qu'on a touché à la platine.
+Red where the bass is, green in the voice, blue on the cymbals, and the blends between — a
+classic turntable's vocabulary. Not a drawing problem: `peak` and `rms` carry **no**
+per-frequency data, so the analysis is what must produce it. The engine splits the signal into
+three bands as it reads it and writes `low` / `mid` / `high` into the sidecar in the same bucket
+space as `peak` — a consumer indexes all four alike.
 
-La bande convertit donc, par le `sourceAt` que le disque et chaque repère utilisent déjà.
-Une seule tête, deux horloges de fichier. Le jour où les platines auront des transports
-indépendants, c'est la ref partagée qui saute, pas la conversion.
+### The split, engine side
 
-## Les mesures, en orange plus épais
-
-Une ligne tous les quatre temps, plus large que les jaunes et d'une **teinte différente** : d'un
-coup d'œil on compte des mesures, on ne lit pas quel jaune est lequel. Dessinées APRÈS les
-temps, donc un temps fort est orange plutôt qu'une ligne jaune bordée d'orange.
-
-**4/4 est supposé, pas détecté.** Rien dans le sidecar ne dit où commence une mesure, et
-l'analyse mesure un tempo et non une métrique. Le premier temps de la grille est donc pris pour
-un temps fort, et un sur quatre ensuite. Sur le quatre-à-la-mesure qu'une platine joue la
-plupart du temps, c'est juste — ou à une rotation près, et une rotation donne quand même une
-ligne par mesure pour compter, ce à quoi une barre de mesure SERT. Sur du 3 ou du 7, c'est de la
-décoration, et le code le dit plutôt que de faire semblant.
-
-`barsIn` et `beatsIn` passent par la même grille et le même ancrage : une grille de mesures avec
-son propre ancrage dériverait contre les lignes jaunes qu'elle est censée souligner. Un test le
-fige — chaque barre tombe SUR un temps, jamais entre deux.
-
-## La couleur dit ce qu'il y a DEDANS
-
-Rouge où est la basse, vert dans la voix, bleu sur les cymbales, et les mélanges entre —
-le vocabulaire d'une platine classique.
-
-Ce n'est pas une question de dessin : `peak` et `rms` ne portent **aucune** donnée par
-fréquence, donc c'est l'analyse qui doit en produire. Le moteur découpe le signal en trois
-bandes pendant qu'il le lit, et écrit `low` / `mid` / `high` dans le sidecar, dans le même
-espace de buckets que `peak` — un consommateur indexe les quatre pareil.
-
-### Le découpage, côté moteur
-
-Deux suiveurs à un pôle, à 200 Hz et 4 kHz, et les trois bandes sont leurs différences :
+Two one-pole followers, at 200 Hz and 4 kHz, and the three bands are their differences:
 
 ```
-lpLow  += aLow  * (v - lpLow)     // sous 200 Hz
-lpHigh += aHigh * (v - lpHigh)    // sous 4 kHz
+lpLow  += aLow  * (v - lpLow)     // under 200 Hz
+lpHigh += aHigh * (v - lpHigh)    // under 4 kHz
 low = lpLow        mid = lpHigh - lpLow        high = v - lpHigh
 ```
 
-Complémentaires **par construction** : `low + mid + high` redonne le signal exactement, donc la
-couleur d'une colonne ne peut pas inventer d'énergie qu'elle n'a pas. Un dessin n'a pas besoin
-de filtres raides — il a besoin que les trois se recomposent.
+Complementary **by construction**: `low + mid + high` gives the signal back exactly, so a
+column's colour cannot invent energy it does not have. A drawing needs no steep filters — it
+needs the three to recompose. 200 Hz keeps kick and bass on one side, 4 kHz cymbals and the top
+of a hi-hat on the other, and the middle is where voices and snare live.
 
-200 Hz garde le kick et la basse d'un côté ; 4 kHz met les cymbales et le haut d'un charley de
-l'autre ; ce qui reste au milieu est là où vivent les voix et la caisse claire.
+**Peaks** per bucket rather than RMS, for the reason that already holds for the main envelope: a
+kick is an attack, and averaging it over a bucket is precisely how you lose what you meant to
+show.
 
-Des **pics** par bucket et non des RMS, pour la raison qui vaut déjà pour l'enveloppe
-principale : un kick est une attaque, et le moyenner sur un bucket est précisément la façon de
-perdre ce qu'on voulait montrer.
+### The blend, drawing side
 
-### Le mélange, côté dessin
+**Additive**, and that is the whole trick. Bass red, mid green, top blue: blending them is
+ordinary light, so bass+mid gives orange-yellow, bass+top gives violet, all three give white.
+Exactly the palette described — out of arithmetic instead of a table of special cases someone has
+to maintain.
 
-**Additif**, et c'est tout le truc. Basse en rouge, médium en vert, aigu en bleu : les mélanger
-est de la lumière ordinaire, donc basse+médium donne jaune-orangé, basse+aigu donne violet, et
-les trois ensemble donnent blanc. Exactement la palette décrite — et elle sort de l'arithmétique
-au lieu d'être une table de cas particuliers que quelqu'un devrait tenir à jour.
+Each band is pulled towards its hue (bass towards orange, top towards violet) but keeps a
+**weak** contribution in the two channels it does not own. Too much green across red and blue and
+bass+top comes out nearly white instead of violet: what a band contributes to the channels that
+are not its own is what decides whether the blends land right.
 
-Chaque bande est tirée vers sa teinte (le grave vers l'orange, l'aigu vers le violet) mais garde
-un apport **faible** dans les deux canaux qu'elle ne possède pas. Trop de vert dans le rouge et
-le bleu réunis et basse+aigu ressort presque blanc au lieu du violet attendu : ce qu'une bande
-apporte aux canaux qui ne sont pas les siens décide si les mélanges tombent juste.
+Normalised by the **loudest** band, not by the sum. What a coloured waveform says is which band
+DOMINATES here, and that must read the same in a quiet passage and a loud one; with a sum, a
+column that is nothing but bass comes out at a third of its intensity and reads as muddy brown.
 
-Normalisé par la bande la **plus forte**, pas par la somme. Ce qu'une waveform colorée dit est
-quelle bande DOMINE ici, et ça doit se lire pareil dans un passage calme et dans un fort. Avec
-une somme, une colonne qui n'est que basse sortirait au tiers de son intensité et se lirait
-comme un brun boueux.
+### What it costs
 
-### Ce que ça coûte
+The sidecar is at **v4**, and the version gate carries the weight: a sidecar from an earlier
+version has a fingerprint that MATCHES — the audio has not changed — so without the version
+number every freshness check passes and the track never gets its bands. A track analysed under an
+earlier version is therefore re-analysed on demand. Until it is, it has no bands at all and its
+waveform stays grey — which reads as "not analysed that way" rather than as silence, and is why
+the three fields are optional end to end.
 
-Le sidecar est en **v4**, et la porte de version est chargée de sens : un sidecar d'une version
-antérieure a une empreinte qui CORRESPOND — l'audio n'a pas changé — donc sans le numéro de
-version chaque contrôle de fraîcheur passerait et le morceau n'obtiendrait jamais ses bandes.
-Conséquence directe : un morceau analysé sous une version antérieure est ré-analysé à la
-demande.
+## Dragging the band is a SHUTTLE, not a step
 
-Tant qu'il ne l'est pas, il n'a pas de bandes du tout et sa waveform reste grise — ce qui se lit
-comme « pas analysé comme ça » plutôt que comme du silence, et c'est pour ça que les trois
-champs sont optionnels de bout en bout.
-
-## Glisser sur la bande : une NAVETTE, pas un pas
-
-La bande se traîne pour déplacer le disque, et le geste est celui d'une molette de navette plutôt
-que d'un curseur : **la distance tenue est une vitesse**, pas un déplacement.
+The band is dragged to move the record, and the gesture is a shuttle wheel rather than a slider:
+**the distance held is a speed**, not a displacement. Offered only with a track loaded AND a
+tempo measured — without a stretch ratio there is no conversion between a pixel and a file
+second.
 
 | | |
 |---|---|
-| vers la **gauche** | ça **avance** |
-| vers la **droite** | ça **recule** |
-| plus loin | plus vite |
-| au relâchement | **un** seek, et un seul |
+| towards the **left** | it goes **forward** |
+| towards the **right** | it **rewinds** |
+| further out | faster |
+| on release | **one** seek, and one only |
 
-Le sens n'est pas une convention à retenir : l'audio glisse vers la gauche sous une tête fixe, donc
-tirer vers la gauche amène vers soi ce qui arrive. La main fait ce que fait l'audio.
+The direction is not a convention to memorise: the audio slides leftward under a fixed head, so
+pulling left brings what is coming towards you. The hand does what the audio does.
 
-`shuttleRate` est la fonction, et elle est **carrée** plutôt que proportionnelle. C'est tout
-l'intérêt d'une navette : un seul geste doit couvrir « pousse-le d'un cheveu » et « va au refrain »,
-ce qu'une droite ne sait pas faire — calibrée pour que le bord serve, les premiers pixels partent
-déjà en courant. Le tiers de la course vaut donc le **neuvième** de la vitesse, et les derniers
-tiers font le reste. Le maximum est atteint à la **moitié** de la bande, qui est la distance de la
-tête au bord : tirer sous la tête tout le futur visible, c'est le plus vite qu'on aille.
+`shuttleRate` is the function, and it is **squared** rather than proportional. That is the point
+of a shuttle: one gesture has to cover "nudge it by a hair" and "go to the chorus", which a
+straight line cannot do — calibrated so the edge is useful, the first few pixels already run. A
+third of the travel is a **ninth** of the speed, and the last thirds do the rest. The maximum is
+reached at **half** the band, the head's distance to the edge: pulling the whole visible future
+under the head is as fast as it gets. A dead zone of a few pixels keeps a shaky click still.
 
-Une zone morte de quelques pixels garde un clic tremblé immobile.
+### Nothing is seeked while the hand is down
 
-### Rien n'est seeké tant que la main est posée
+The offset is integrated **over the view's frames** — hand still, the record keeps running — and
+drawn by adding to the live `needle`. The engine hears nothing. That is what the gesture asks
+for: you search by watching, and decide only on letting go.
 
-L'offset est intégré **sur les frames de la vue** — main immobile, le disque continue de courir — et
-dessiné en ajoutant au `needle` vivant. Le moteur n'entend rien. C'est ce que demandait le geste :
-on cherche en regardant, et on ne décide qu'en lâchant.
-
-Au relâchement, un `onShove` part avec le total. Et la position atteinte est **tenue** le temps que
-l'aiguille y arrive (`HOLD_EPS`, ou `HOLD_MS` au pire) : sans ça la bande reviendrait là où le
-disque est encore, pendant un aller-retour, avant de sauter. Les deux valeurs sont des `ref`, comme
-le `needle` lui-même et pour la même raison — une navette à 60 images par seconde qui passerait par
-un état React redessinerait les deux platines, la liste et le graphe pour bouger une ligne.
+On release, one `onShove` leaves with the total, and the position reached is **held** until the
+needle arrives (`HOLD_EPS`, or `HOLD_MS` at worst): without that the band snaps back to where the
+record still is, for one round trip, before jumping. Both are `ref`s, like the `needle` itself
+and for the same reason — a shuttle at 60 frames a second going through React state redraws both
+decks, the list and the graph to move one line.

@@ -1,4 +1,4 @@
-# Supervisor policy — origins, logs, processes, audio, dev reload
+# Supervisor policy — origins, logs, processes, audio
 
 Background for the one-line headers in `engine-host/src`. Each section names its file.
 
@@ -11,45 +11,36 @@ interval is the whole of the design.
 | constant | why that pace |
 |---|---|
 | `WATCH_MS` (2 s) | both process watches. Fast enough that a crash is noticed before the user is, slow enough to be free — each tick is a pidfile stat or a socket connect. |
-| `DEVICES_POLL_MS` (10 s) | this is what notices an interface being plugged in or pulled out — and it is the one poll that TOUCHES A DRIVER, so it was slowed from 2 s. See below. |
+| `DEVICES_POLL_MS` (10 s) | this is what notices an interface being plugged in or pulled out — and it is the one poll that TOUCHES A DRIVER. See below. |
 | `SESSIONS_POLL_MS` (2 s) | an app connecting or a song loading is a human-speed event, and the submenu redraws only when the signature moves anyway. |
 | `EDIT_PLUGINS_POLL_MS` (3 s) | a user swaps songs at human speed, not interface-unplug speed. |
 | `PLUGINS_POLL_MS` (60 s) | the plugin scan is expensive and the answer barely moves. Until it lands we ask at `PLUGINS_POLL_FAST_MS` (2 s) instead, to keep the spinner honest — that poll reschedules itself rather than sitting on one interval. |
 | `BACKOFF_MAX_S` (30 s) | the relaunch backoff for a crashing engine, doubling from 1 s. One that dies on startup — a bad audio device, a missing DLL — would otherwise be relaunched forever at one per second, and the log would be nothing but that. |
 | `DEREGISTER_TIMEOUT_MS` (1.5 s) | a hung registry must not hold the quit open. The tray gives the supervisor about 3 s in total before it kills it. |
 
-### Pourquoi celui des interfaces est le seul à 30 s
+### Why the device poll is the slow one
 
-Les autres sondages coûtent un `stat`, une connexion de socket ou une lecture d'état. Celui-ci
-appelle `scanForDevices()` sur **chaque** type de périphérique, ASIO compris, dans le processus du
-moteur, pendant que le callback audio tourne. Mesuré sur la machine de référence : **50 ms par
-scan**, six fois sur six. À 2 s, ça fait 1800 contacts avec le pilote par heure, pour une réponse
-qui ne change que quand on branche quelque chose.
+The other polls cost a `stat`, a socket connect or a state read. This one calls `scanForDevices()`
+on **every** device type, ASIO included, inside the engine process, while the audio callback is
+running. Measured on the reference machine: **50 ms per scan**, six times out of six.
 
-Le callback n'en souffre pas — mesuré aussi : son maximum pendant une rafale de scans est de
-0,278 ms contre 0,356 sans, donc dans le bruit. Ce n'est pas un problème de temps réel. C'est que
-**c'est la seule chose que le moteur fasse qui atteigne vraiment le pilote**, et que deux écrans
-bleus `KMODE_EXCEPTION_NOT_HANDLED` ont eu lieu dans `FocusriteUsb.sys` avec `st0-engine` comme
-processus courant (`docs/constat.md`). Un pilote ASIO est mono-client ; le sonder sans arrêt
-pendant qu'il diffuse est le genre de sollicitation qui réveille une assertion.
+The callback does not suffer for it — also measured: its maximum during a burst of scans is
+0.278 ms against 0.356 without, so within the noise. It is not a realtime problem. It is that
+**this is the only thing the engine does that genuinely reaches the driver**, and an ASIO driver is
+single-client: polling it continuously while it streams is the kind of pressure that wakes an
+assertion in a vendor's kernel driver.
 
-**Ce n'est pas prouvé**, et le ralentissement est une expérience plutôt qu'un correctif : à coût
-nul, on retire la seule sollicitation répétée qu'on impose au pilote, et on regarde si les
-plantages cessent. Si le scan est innocent, on n'aura perdu que de la promptitude.
+**The setting is a slider, and 10 s is where it stopped.** At 2 s the driver takes 1800 scans an
+hour; at 10 s it takes 360, at 30 s it would take 120. The step from 1800 to 360 carries almost all
+of the reduction, while half a minute before a plugged-in interface is noticed is felt in use.
 
-**Le réglage est un curseur, et 10 s est où il s'est arrêté.** À 2 s le pilote recevait 1800 scans
-par heure ; à 10 s il en reçoit 360, à 30 s il en recevait 120. Trente secondes ont été essayées
-d'abord et rendues : une demi-minute avant qu'une interface branchée soit remarquée se sent à
-l'usage, alors que la marche de 1800 à 360 emporte déjà l'essentiel de la réduction.
+**What it costs anyway.** Plugging the interface in takes up to 10 s to be noticed, so does
+switching to the fallback, and the tray's submenu is that far out of date. That is the price, and
+it is paid on every plug.
 
-**Ce que ça coûte quand même.** Brancher l'interface met jusqu'à 10 s à être remarqué, la bascule
-vers le repli aussi, et le sous-menu du tray est périmé d'autant. C'est le prix, et il se paie à
-chaque branchement.
-
-**Le vrai correctif, si celui-ci tient.** JUCE expose un `AudioIODeviceType::Listener` que Windows
-alimente sur arrivée et retrait de matériel. Y passer donnerait les deux à la fois — réaction
-immédiate ET zéro scan périodique — mais c'est du travail dans le moteur, et il ne vaut d'être fait
-que si le sondage s'avère bien coupable.
+**The real fix.** JUCE exposes an `AudioIODeviceType::Listener` that Windows feeds on hardware
+arrival and removal. Moving to it would give both at once — immediate reaction AND zero periodic
+scan — but it is work inside the engine, worth doing only if polling proves to be the culprit.
 
 ### Signatures, not arrays
 
@@ -97,13 +88,13 @@ anything wins outright** — they are alternatives, not a union:
    which is why it sits above the environment variable;
 2. `$STUDIO_REGISTRY_URL`, comma-separated for more than one;
 3. what the local backends advertised — `<state>/web-endpoints/*.json`, one file per service,
-   plus the legacy single `web-endpoint.json` — so a local dev setup beats the hosted default;
+   plus the single `web-endpoint.json` — so a local dev setup beats the hosted default;
 4. the hosted studio.
 
 It answers a **list**, because each hosted service holds its own registry and an engine must be
 listed in st0 *and* in the médiathèque to be pickable in both. Deduped, since the same URL twice
-would mean two heartbeats a tick to one server for nothing. The legacy single file is still read
-because an older st0 backend writes only that one and an older tray reads only that one; the
+would mean two heartbeats a tick to one server for nothing. Both file shapes are read because an
+older st0 backend writes only the single one and an older tray reads only the single one; the
 union is what stops a version skew from silently costing an app its engine.
 
 The heartbeat is **all-or-nothing**: the tray shows one light, so "ok" has to mean every service
@@ -112,17 +103,17 @@ is correct — that service genuinely cannot be driven right now.
 
 The médiathèque this machine caches is **derived** from those URLs rather than configured: every
 service sits on one origin at a fixed path, so only the origin varies, and asking for the
-library's URL separately made a second hand-typed copy of a fact already on disk — which is how a
+library's URL separately makes a second hand-typed copy of a fact already on disk — which is how a
 machine ends up heartbeating to one studio and syncing from another. Only the origin is kept and
 the path comes back from the service table. The first resolvable registry wins, and an
 unparseable one yields nothing rather than an empty string the file service would read as
 configured.
 
-`addRegistryUrl` is an **add**, not a replace. Each hosted service holds its own
-registry, so "Add web UI…" for the médiathèque must not evict st0 — that would silently take the
-engine out of one picker to put it in another, and the two are not alternatives. It is idempotent
-beyond re-announcing, and it persists the result as the explicit list so the next boot takes it
-rather than the ambient environment variable.
+`addRegistryUrl` is an **add**, not a replace. Each hosted service holds its own registry, so "Add
+web UI…" for the médiathèque must not evict st0 — that would silently take the engine out of one
+picker to put it in another, and the two are not alternatives. It is idempotent beyond
+re-announcing, and it persists the result as the explicit list so the next boot takes it rather
+than the ambient environment variable.
 
 ### Shutdown order
 
@@ -132,186 +123,157 @@ engine: one left listening holds the audio device and both ports for whatever la
 
 ## `webOrigins.ts` — the web UIs this engine trusts
 
-A st0 web UI reached over a real hostname (`https://daw.test` behind the proxy, a
-hosted deployment) is neither loopback nor a private address, so the file service's
-deny-by-default CORS policy cannot admit it on its own (see
-`packages/file-service/src/cors.ts`). This list is how the user says "that one is mine":
-written here, read there, and read on EVERY request, so adding a web UI from the menu
-bar takes effect immediately with nothing restarted.
+A st0 web UI reached over a real hostname (`https://daw.test` behind the proxy, a hosted
+deployment) is neither loopback nor a private address, so the file service's deny-by-default CORS
+policy cannot admit it on its own (see `packages/file-service/src/cors.ts`). This list is how the
+user says "that one is mine": written here, read there, and read on EVERY request, so adding a web
+UI from the menu bar takes effect immediately with nothing restarted.
 
-`<state>/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the
-shared `<state>` contract, like `engine-id.json` and `web-endpoint.json`.
+`<state>/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the shared `<state>`
+contract, like `engine-id.json` and `web-endpoint.json`.
 
-Only ORIGINS are stored (`scheme://host[:port]`). A browser's `Origin` header is always
-bare, so a path or query the user pasted would simply never match; it's stripped at the
-door rather than stored as something that silently can't work.
+Only ORIGINS are stored (`scheme://host[:port]`). A browser's `Origin` header is always bare, so a
+path or query the user pasted would simply never match; it is stripped at the door rather than
+stored as something that silently cannot work.
 
-This module lives in engine-host rather than file-service because the SUPERVISOR is the
-writer, and the writer defines the format. file-service imports it to read. That
-direction stays acyclic: the host spawns the file service by PATH, not by import.
+This module lives in engine-host rather than file-service because the SUPERVISOR is the writer,
+and the writer defines the format. file-service imports it to read. That direction stays acyclic:
+the host spawns the file service by PATH, not by import.
 
 ## `logbus.ts` — the merged log
 
-The supervisor spawns both the engine and the file service; rather than two separate
-files the user has to cross-reference, their stdout/stderr are piped here and written to
-ONE file, each line tagged with its source and a timestamp. That single file is what the
-tray's "Show logs" opens and what the file service serves to the web UI's Logs panel.
+The supervisor spawns both the engine and the file service; rather than two separate files the
+user has to cross-reference, their stdout/stderr are piped here and written to ONE file, each line
+tagged with its source and a timestamp. That single file is what the tray's "Show logs" opens and
+what the file service serves to the web UI's Logs panel.
 
-The line format is `HH:MM:SS [tag] text` and must stay BYTE-IDENTICAL: the Logs panel seeds
-on a tail and then polls by byte offset, so a format change is not cosmetic.
+The line format is `HH:MM:SS [tag] text` and must stay BYTE-IDENTICAL: the Logs panel seeds on a
+tail and then polls by byte offset, so a format change is not cosmetic.
 
-**TRUNCATION IS NOT OURS.** We open in APPEND mode, always. The tray truncates the file
-once when it starts, because the tray's lifetime is what "a session" means — and this
-process can be relaunched mid-session after a crash, at which point truncating would
-wipe the log the user is reading to find out why it crashed. The tray also appends its
-own `[host]` lines to the same file; single writes in append mode are atomic on both
-platforms, so the two writers interleave whole lines rather than tearing.
+**TRUNCATION IS NOT OURS.** We open in APPEND mode, always. The tray truncates the file once when
+it starts, because the tray's lifetime is what "a session" means — and this process can be
+relaunched mid-session after a crash, at which point truncating would wipe the log the user is
+reading to find out why it crashed. The tray also appends its own `[host]` lines to the same file;
+single writes in append mode are atomic on both platforms, so the two writers interleave whole
+lines rather than tearing.
 
 ## `fileServiceProcess.ts` — the spawn rule
 
-The file service serves workspaces and every file operation to the browser (the C++
-engine stays file-free). It runs next to the engine and dials it locally, sharing the
-engine's identity so its light gate matches.
+The file service serves workspaces and every file operation to the browser (the C++ engine stays
+file-free). It runs next to the engine and dials it locally, sharing the engine's identity so its
+light gate matches.
 
 The spawn rule, which must not be simplified:
 
-1. **Something is already answering the file port → do nothing.** In a dev run that
-   something is `npm run dev` (tsx watch on 8770), which owns the service and reloads it
-   on edit. Spawning a second one would fight it for the port.
-2. **A bundled runtime resolves (a packaged app) → the vendored node runs the bundled
-   `.mjs`.**
-3. **Neither → FAILED.** That is what the red icon and the "Restart file service" menu
-   entry exist for; reporting green here would be a lie the user cannot act on.
+1. **Something is already answering the file port → do nothing.** In a dev run that something is
+   `npm run dev` (tsx watch on 8770), which owns the service and reloads it on edit. Spawning a
+   second one would fight it for the port.
+2. **A bundled runtime resolves (a packaged app) → the vendored node runs the bundled `.mjs`.**
+3. **Neither → FAILED.** That is what the red icon and the "Restart file service" menu entry exist
+   for; reporting green here would be a lie the user cannot act on.
 
-Branch 1 is the one that looks droppable and is not: without it the spawn races `npm run dev`
-for 8770.
+Branch 1 is the one that looks droppable and is not: without it the spawn races `npm run dev` for
+8770.
 
 ## `engineProcess.ts` — adopting, and what a pidfile is not
 
 A pidfile is what makes a supervisor crash survivable: the engine outlives us, and the next
 supervisor ADOPTS it rather than finding the port held by a process nobody owns.
 
-What it is not is an identity. `engineRunning()` asks the operating system whether that NUMBER
-is a live process — nothing more — and a pid is reused. Trusting it alone is silent in every
-direction: the engine dies, the OS hands its pid to an unrelated `node`, and the next
-supervisor reads the pidfile, finds the pid alive, logs *adopting the engine already on the
-pidfile* and spawns nothing. The crash watch asks the same question, so it never relaunches
-either; the heartbeat asks it too, so every registry goes on being told an engine is there, and
-every app lists a machine that answers nothing.
+What it is not is an identity. `engineRunning()` asks the operating system whether that NUMBER is a
+live process — nothing more — and a pid is reused. Trusting it alone is silent in every direction:
+the engine dies, the OS hands its pid to an unrelated `node`, and the next supervisor reads the
+pidfile, finds the pid alive, logs *adopting the engine already on the pidfile* and spawns nothing.
+The crash watch asks the same question, so it never relaunches either; the heartbeat asks it too,
+so every registry goes on being told an engine is there, and every app lists a machine that answers
+nothing.
 
 So the port is asked as well: adopt only if something is actually serving on it, and otherwise
-treat the pidfile as stale, clear it and start a fresh engine. The dead pid's process is left
-alone — it belongs to somebody else now.
+treat the pidfile as stale, clear it and start a fresh engine. The dead pid's process is left alone
+— it belongs to somebody else now.
 
 **Why here and not in the crash watch.** The same check there would be the complete fix, and it
-carries a risk this one does not: a probe that answers wrongly under load would relaunch an
-engine that is playing. `start()` runs before anything plays, so a wrong answer costs a spare
-engine instead of somebody's audio. Extending it to the crash watch is a real decision — it
-needs consecutive failures before acting — and it has not been taken.
+carries a risk this one does not: a probe that answers wrongly under load would relaunch an engine
+that is playing. `start()` runs before anything plays, so a wrong answer costs a spare engine
+instead of somebody's audio. Extending it to the crash watch is a real decision — it needs
+consecutive failures before acting — and it has not been taken.
 
 ## `hostLock.ts` — the same lesson, one file over
 
-One supervisor per machine, in `<state>/engine-host.pid`. It had the bug the section above
-warns about, in the form that section says is unrecoverable: it asked only whether the pid was
-**alive**.
+One supervisor per machine, in `<state>/engine-host.pid`. Asking only whether the pid is **alive**
+is unrecoverable here: a supervisor crashes, Windows hands its pid to an unrelated process — this
+app spawns plenty — and from then on every supervisor reads the pidfile, finds a live pid, and
+refuses. For ever. The check that exists to clear a stale lock (`rmSync` when the pid is dead) can
+never fire, because the pid is not dead; it just is not a supervisor. The app runs, supervises
+nothing, and says `an engine supervisor is already running (pid …)` on a loop.
 
-So a supervisor crashes, Windows hands its pid to an unrelated process — this app spawns plenty
-— and from then on every supervisor reads the pidfile, finds a live pid, and refuses. For ever.
-The check that exists to clear a stale lock (`rmSync` when the pid is dead) can never fire,
-because the pid is not dead; it just isn't a supervisor. The app runs, supervises nothing, and
-says `an engine supervisor is already running (pid …)` on a loop. Measured, on this machine.
+`engineProcess.ts` solves its half by asking the **port** as well. The supervisor listens on
+nothing, so there is no port to ask, and the analogue is the one `engine-registry` already uses for
+`assignedSeen`: **the holder keeps saying so.** `acquire()` starts a 2 s refresh of the file's
+mtime, and a lock nobody has refreshed for 15 s is stale whatever its pid claims. A recycled pid
+costs at most fifteen seconds.
 
-`engineProcess.ts` solves its half by asking the **port** as well — adopt only if something is
-actually serving. The supervisor listens on nothing, so there is no port to ask, and the
-analogue is the one `engine-registry` already uses for `assignedSeen`: **the holder keeps
-saying so.** `acquire()` starts a 2 s refresh of the file's mtime, and a lock nobody has
-refreshed for 15 s is stale whatever its pid claims. A recycled pid now costs at most fifteen
-seconds instead of a reinstall.
+Both tests are in `hostLock.test.ts`, and the pair is the point: a lock that is stale AND alive is
+taken, a lock that is being refreshed is refused. Staleness must not become a way to steal a live
+supervisor's lock — seven missed beats is the margin, and a main thread stalled that long is
+pathological rather than busy.
 
-Both tests are in `hostLock.test.ts`, and the pair is the point: a lock that is stale AND alive
-is taken, a lock that is being refreshed is refused. Staleness must not become a way to steal a
-live supervisor's lock — seven missed beats is the margin, and a main thread stalled that long
-is pathological rather than busy.
-
-The refresh also **reads before it writes**. A lock that has come to name somebody else was
-taken from us, which is the one thing this file exists to make impossible, so it is reported
-rather than silently overwritten.
+The refresh also **reads before it writes**. A lock that has come to name somebody else was taken
+from us, which is the one thing this file exists to make impossible, so it is reported rather than
+silently overwritten.
 
 ## `engineQueries.ts` — request/reply over one connection
 
-The polls run at 10 s / 2 s / 3 s, so a fresh WebSocket per call would be roughly one TCP
-handshake per second, forever, each connection then reading and discarding the engine's ~20 Hz
-`state` broadcasts until its own typed reply arrived. One connection whose firehose is simply
-not listened to costs nothing.
+The polls run at 10 s / 2 s / 3 s, so a fresh WebSocket per call would be roughly one TCP handshake
+per second, forever, each connection then reading and discarding the engine's ~20 Hz `state`
+broadcasts until its own typed reply arrived. One connection whose firehose is simply not listened
+to costs nothing.
 
-Three things a fresh connection per call would give for free, and that a shared one has to
-provide itself:
+Three things a fresh connection per call would give for free, and that a shared one has to provide
+itself:
 
-1. **REQUEST/REPLY.** Every `EngineControl` method is fire-and-forget; the reply comes
-   back as an event. Each function pairs a send with a one-shot listener and a per-call
-   deadline.
-2. **ONE AT A TIME.** `set-audio-device` is answered with an `audio-devices` frame — the
-   same type the devices poll waits for. On a shared connection a concurrent poll would
-   capture the other request's reply and both would be wrong. Every call goes through
-   `queue`, so exactly one is ever in flight.
-3. **NO STALE STATE.** A fresh socket each time has none; here a dropped connection has
-   to be noticed and redialled (see `connected`).
+1. **REQUEST/REPLY.** Every `EngineControl` method is fire-and-forget; the reply comes back as an
+   event. Each function pairs a send with a one-shot listener and a per-call deadline.
+2. **ONE AT A TIME.** `set-audio-device` is answered with an `audio-devices` frame — the same type
+   the devices poll waits for. On a shared connection a concurrent poll would capture the other
+   request's reply and both would be wrong. Every call goes through `queue`, so exactly one is ever
+   in flight.
+3. **NO STALE STATE.** A fresh socket each time has none; here a dropped connection has to be
+   noticed and redialled (see `connected`).
 
 ## `audioPolicy.ts` — which interface the engine should be on
 
-The engine picks *some* device at boot and, when one is pulled out from under it, falls
-to whatever the OS offers next. That's not a decision the user made. The policy that
-corrects it is **one ordered list**, `audioPriority`, best first:
+The engine picks *some* device at boot and, when one is pulled out from under it, falls to whatever
+the OS offers next. That is not a decision the user made. The policy that corrects it is **one
+ordered list**, `audioPriority`, best first:
 
-1. the highest-ranked interface that is actually plugged in — so replugging one is enough
-   to get it back, with nothing said twice;
-2. otherwise leave the engine alone, including when it is on something nobody ranked —
-   better a device we didn't choose than none.
+1. the highest-ranked interface that is actually plugged in — so replugging one is enough to get it
+   back, with nothing said twice;
+2. otherwise leave the engine alone, including when it is on something nobody ranked — better a
+   device we did not choose than none.
 
 ### Why a list, and not a pick plus a fallback
 
-It used to be two fields, `audioDevice` and `audioFallback`, and the rules around them were
-the tell: the fallback applied only when the pick was "genuinely missing or was never made",
-never over a device someone was deliberately on. That is a two-entry ranking with the
-precedence written out in prose instead of held in the order.
+A pick plus a fallback is a two-entry ranking with the precedence written out in prose instead of
+held in the order, and it cannot express the third choice: a musician with an interface, a USB
+headset and the built-in output has to leave two of the three to whichever one JUCE happens to
+enumerate. A list has no arity, so the question stops existing — and a `audioDevice` /
+`audioFallback` pair maps into it exactly as `[audioDevice, audioFallback]`, which is what
+`settings.ts`'s `priority()` does on read.
 
-What it could not say is the third choice. A musician with an interface, a USB headset and the
-built-in output had to leave two of the three to the OS, and the one it picked was whichever
-JUCE happened to enumerate. The list has no arity, so that question stops existing — and the
-old pair migrates into it exactly, `[audioDevice, audioFallback]`, which is what `settings.ts`'s
-`priority()` does on read.
+An order also cannot express a fallback ranked above nothing with no pick at all — a state a pair
+can reach and no screen can explain.
 
-It also removes a state the old pair could reach and the screen could not explain: a fallback
-ranked ABOVE nothing, with no pick, which the code answered by consulting the fallback only when
-no device was current. Order cannot express that, so it cannot happen.
+**An unranked device is never switched to.** Not the same as "an empty ranking means take the first
+thing you see": a fresh machine has an empty list and the engine keeps whatever it opened. Ranking
+is how the user says *this one matters*, and a list of devices the OS invented would not be one.
 
-**An unranked device is never switched to.** Not the same as "the ranking is empty means take
-the first thing you see": a fresh machine has an empty list and the engine keeps whatever it
-opened, exactly as before. Ranking is how the user says *this one matters*, and a list of
-devices the OS invented would not be one.
+`reorder()` lives here too, though only the screen calls it. A move is a rule about the list — what
+happens at either end, and what an unranked row becomes when it is moved — and it is tested beside
+`desiredSwitch` rather than in a component. `audio.priority` carries the WHOLE order in one command
+for the same reason: a reorder is one act, and two halves of it could be interleaved with a device
+poll.
 
-`reorder()` lives here too, though only the screen calls it. A move is a rule about the list —
-what happens at either end, and what an unranked row becomes when it is moved — and it is tested
-beside `desiredSwitch` rather than in a component. `audio.priority` carries the WHOLE order in
-one command for the same reason: a reorder is one act, and two halves of it could be interleaved
-with a device poll.
-
-Kept apart from the loop that calls it so the rules are readable and testable without a
-running engine. This is supervisor POLICY (which device this machine should be on), not
-a protocol capability — which is why it lives here and not in `@studio/engine-client`.
-
-## Reloading on a source change, in dev
-
-There was a `devReload.ts` here: on a source change the supervisor EXITED with a distinct code
-and the app's relaunch loop started a fresh one, the engine surviving because
-`<state>/engine.pid` let the new supervisor adopt it.
-
-Both halves of that are gone. The supervisor is in the app's process
-(`apps/studio-desktop/docs/supervisor.md`), so there is no relaunch loop to exit into, and a
-change to this package rebuilds the app's bundle — which `scripts/dev-native.mjs` already
-watches, stopping and restarting the whole thing. One watcher instead of two, and the engine no
-longer survives a supervisor reload because there is no longer such an event.
-
-What the old note got right and is worth keeping: a reload must never run the **shutdown**
-path, which deregisters and stops the engine. It does not — the app's restart kills the tree
-outright and starts over.
+Kept apart from the loop that calls it so the rules are readable and testable without a running
+engine. This is supervisor POLICY (which device this machine should be on), not a protocol
+capability — which is why it lives here and not in `@studio/engine-client`.

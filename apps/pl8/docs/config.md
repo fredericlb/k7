@@ -1,60 +1,50 @@
-# Où la médiathèque lit sa configuration
+# Where the media library reads its configuration
 
-Le backend lit `STUDIO_MEDIATEK` — le volume de la bibliothèque — et **refuse de démarrer
-sans elle**. Pas de défaut : `@studio/mediatek` retomberait sur `<state>/mediatek`, qui
-dans un conteneur est un répertoire vide que personne n'a monté. Le service démarrerait en
-bonne santé et servirait une bibliothèque vide, ce qui est la pire panne possible ici.
+## `STUDIO_MEDIATEK` is required, with no default
 
-## Pourquoi `Object.assign(process.env, …)` et pas une valeur
+The backend refuses to start without it. `@studio/mediatek` would otherwise fall back to
+`<state>/mediatek`, which in a container is an empty directory nobody mounted: the service would
+come up healthy and serve an empty library. That is the worst failure available here, so it is
+the one the guard exists for.
 
-`server.ts` charge sa section de l'`env.yaml` racine avec `loadServiceEnv` et l'**écrit
-dans `process.env`**, au lieu d'en garder le résultat dans une constante.
+## The loader writes into `process.env`
 
-C'est délibéré, et c'est la partie qu'il ne faut pas « nettoyer ». Le chemin de la
-bibliothèque n'est pas passé de main en main : chaque consommateur le résout lui-même en
-lisant l'environnement, à commencer par `mediatekRoot()`
-(`packages/song/src/mediatekRoot.ts`), sur lequel s'appuient `@studio/mediatek`,
-`@studio/song` et le service de fichiers.
+`server.ts` loads its section of the root `env.yaml` with `loadServiceEnv` and assigns the
+result into `process.env` rather than keeping it in a constant.
 
-Un chargeur qui se contenterait de *retourner* la valeur — ce que fait `defineEnv`, qui
-valide et rend un objet sans toucher à `process.env` — laisserait donc tous ces
-consommateurs sur le repli `<state>/mediatek`. Le backend, lui, verrait bien sa valeur et
-passerait son propre garde-fou. Résultat : un service qui démarre, se déclare sain, et sert
-le mauvais répertoire. Exactement la panne que le garde-fou existe pour empêcher.
+The path is not passed from hand to hand: every consumer resolves it itself by reading the
+environment, starting with `mediatekRoot()` (`packages/song/src/mediatekRoot.ts`), which
+`@studio/mediatek`, `@studio/song` and the file service all lean on. A loader that merely
+returned the value — `defineEnv`, which validates and answers an object without touching
+`process.env` — would leave every one of those on the `<state>/mediatek` fallback while the
+backend saw its own value and passed its own guard. The result is a service that starts,
+declares itself healthy, and serves the wrong directory.
 
-L'écriture dans `process.env` est sûre ici parce que rien dans le graphe d'imports ne lit
-`STUDIO_MEDIATEK` au moment de l'import : `mediatekRoot()` est une fonction, appelée à
-l'exécution. L'ordre des imports n'a donc pas d'importance — ce qui compte, car un
-formateur qui réordonne les imports casserait silencieusement une solution qui en
-dépendrait.
+Import order does not matter, and must not be made to: nothing in the import graph reads
+`STUDIO_MEDIATEK` at import time, `mediatekRoot()` being a function called at run time. A
+formatter reordering imports would otherwise break this silently.
 
-## Précédence
+## Precedence
 
-Le yaml gagne là où il déclare une clé, comme le documente `@frediverse/env` : c'est de la
-configuration de dev explicite et par service, et ça empêche une variable ambiante
-d'annexer un backend au passage.
+The yaml wins wherever it declares a key (`@frediverse/env`): explicit, per-service dev
+configuration, so an ambient variable cannot annex a backend in passing. In production there is
+no `env.yaml` — the images exclude it — and the Dockerfile sets `ENV STUDIO_MEDIATEK=/library`.
 
-En production il n'y a pas d'`env.yaml` — les images l'excluent — donc les variables du
-conteneur sont la seule source. Le Dockerfile pose `ENV STUDIO_MEDIATEK=/library`.
+## What is optional, and the line
 
-## Les variables facultatives
+`STUDIO_MEDIATEK` is the only variable whose absence stops the service.
 
-`STUDIO_MEDIATEK` est la seule dont l'absence arrête le service. Les autres décrivent des
-fonctions qui **se désactivent en le disant** plutôt que d'échouer à l'usage :
+- `SLSKD_*`, `MUSICBRAINZ_USER_AGENT` — "Find songs". Without them the screen opens and names
+  what is missing ([hunt.md](hunt.md)).
+- `STUDIO_PREFS_DIR`, `STUDIO_PROJECTS_DIR`, `STUDIO_HUNTS_DIR` — move three dot directories off
+  the volume. For tests; no deployment sets them.
 
-- `SLSKD_*`, `MUSICBRAINZ_USER_AGENT` — « Trouver des morceaux ». Sans elles, l'écran s'ouvre
-  et nomme ce qui manque. La liste et le pourquoi sont dans [hunt.md](hunt.md).
-- `STUDIO_PREFS_DIR`, `STUDIO_PROJECTS_DIR`, `STUDIO_HUNTS_DIR` — pour sortir ces trois
-  dot-dossiers du volume, ce qu'aucun déploiement ne fait ; ils existent pour les tests.
+The line is the same everywhere: what would produce a **lie** in its absence — an empty library
+that looks full — stops the start; what produces a visibly disabled feature does not.
 
-La ligne de partage est la même partout : ce dont l'absence produirait un **mensonge** — une
-bibliothèque vide qui a l'air pleine — arrête le démarrage ; ce dont l'absence produit une
-fonction visiblement éteinte ne l'arrête pas.
+## One side effect
 
-## Effet de bord à connaître
-
-`loadServiceEnv` fusionne la section `common` **avec** celle du service, par conception.
-Poser des `OIDC_*` réels dans `common` fait donc basculer la médiathèque en dev du stub
-« Dev User » vers un vrai fournisseur d'identité. C'est le comportement qu'ont déjà
-`k7-backend` et `z0-backend`, qui lisent le même fichier. Pour garder le stub en
-dev, il faut sortir ces clés de `common`.
+`loadServiceEnv` merges `common` with the service's section, by design. Real `OIDC_*` values in
+`common` therefore swing the media library in dev from the "Dev User" stub to a real identity
+provider, as they do for `k7-backend` and `z0-backend`. Keeping the stub means keeping those
+keys out of `common`.

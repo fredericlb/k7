@@ -1,64 +1,45 @@
-# Une promesse que personne n'attend
+# The process-level net
 
-Le filet de dernier recours des process de l'axe audio : `unhandledRejection` et
-`uncaughtException`, posés au démarrage. Sans eux, un sondage périodique qui échoue tue le
-process.
+Every process on the audio axis installs `unhandledRejection` and `uncaughtException` at
+startup.
 
-## Pourquoi `void f()` est un crash
+## Why it is needed
 
-`void` ne fait rien qu'annoncer à Biome qu'on ne compte pas attendre la promesse. Il ne
-l'attrape pas. Depuis Node 15, une promesse rejetée que personne n'attrape **termine le
-process** — comportement par défaut, `--unhandled-rejections=throw`.
+Node ends the process on a rejection nobody catches. `void f()` only tells Biome a promise is
+deliberately not awaited; it does not catch it. The supervisor runs seven timers that touch the
+network or the disk (`supervisor.ts`), and the file service has three sites of the same shape —
+two in a route, one in a watcher callback. Its route guard `wrap()`
+(`commons/packages/http/route.ts`) catches only what a handler **returns**, and `void` returns
+immediately, so the guard misses those by construction.
 
-Le superviseur y expose sept minuteurs (`supervisor.ts`, le bloc de démarrage) : `beat`,
-`pollPending`, `crashWatch`, `fileServiceWatch`, `pollDevices`, `pollEditPlugins`,
-`pollSessions`. Chacun touche le réseau ou le disque. `gatherAddresses` lit
-`networkInterfaces()` ; un registre injoignable rend une erreur ; il suffit d'un.
+The failure is quiet rather than loud: the supervisor dies, the engine stays alive behind it,
+the app relaunches it on its backoff and the new supervisor re-adopts the engine through its
+pidfile. It recovers, so it can go on indefinitely without being noticed.
 
-Et le mode de panne n'est pas « le superviseur s'arrête ». C'est : le superviseur meurt,
-**le moteur reste vivant derrière lui**, le capot le relance sur son repli (1 → 30 s), et le
-nouveau superviseur ré-adopte le moteur par son pidfile. Ça se rattrape, donc ça ne se
-remarque pas — et c'est exactement pourquoi ça peut durer sans que personne ne le voie.
-
-Le service de fichiers a la même exposition, dont deux sites dans une route et un dans un
-callback de watcher : `prewarmWaveforms` et `refreshPatterns`. Sa protection de route,
-`wrap()` (`commons/packages/http/route.ts`), n'attrape que ce que le handler **retourne** — et
-`void` retourne immédiatement, donc la garde passe à côté par construction.
-
-## Les deux moitiés sont volontairement asymétriques
+## The two halves are deliberately asymmetric
 
 | |  |
 |---|---|
-| **rejet non traité** | journalisé, le process vit. C'est un sondage qui a échoué : ce n'est pas une raison de mourir, et le sondage suivant arrive dans quelques secondes. |
-| **exception non attrapée** | journalisée **avec sa pile**, puis on sort. L'état du process n'est plus raisonnable ; le capot (pour le superviseur) et `fileServiceWatch` (pour le service) relancent. |
+| **unhandled rejection** | logged, the process lives. A poll that failed is not a reason to die, and the next one is seconds away. |
+| **uncaught exception** | logged **with its stack**, then exit. The app (for the supervisor) and `fileServiceWatch` (for the service) restart it. |
 
-La tentation est de survivre aux deux. C'est un piège : une exception non attrapée laisse des
-invariants cassés et un process qui continue à répondre *faux* est pire qu'un process absent.
-Ce que le filet ajoute n'est donc pas la survie — c'est **la ligne qui dit lequel des deux
-s'est produit**. Aujourd'hui les deux cas se ressemblent : un process qui a disparu.
+Surviving both is a trap: an uncaught exception leaves invariants broken, and a process that
+goes on answering *wrongly* is worse than one that is absent. What the net adds is not survival
+— it is the line that says which of the two happened.
 
-## Pourquoi deux copies plutôt qu'un paquet
+## Two copies rather than a package
 
-`packages/engine-host/src/background.ts` et `packages/file-service/src/background.ts` ont le
-même corps à la journalisation près. C'est assumé, et c'est le raisonnement déjà écrit dans
-`docs/inventaire.md` §4 pour `isMouseWheel` :
+`packages/engine-host/src/background.ts` and `packages/file-service/src/background.ts` share a
+body and differ only in the channel: the supervisor writes to `stderr`, where the app collects
+it for the merged log; the service writes through `console.error` with its neighbours' prefix.
 
-- aucun des deux paquets ne peut dépendre de l'autre — le superviseur *lance* le service ;
-- leur seule dépendance commune est `@studio/engine-client`, et « le client Node du moteur »
-  n'est pas le foyer d'un garde-fou de process : l'y mettre serait le genre de rangement
-  qu'un prochain inventaire signalerait ;
-- `commons/` est le socle partagé avec `phare`, et y toucher engage deux dépôts ;
-- créer un paquet pour dix lignes est une décision, pas un nettoyage.
+Neither package may depend on the other — the supervisor launches the service. Their only shared
+dependency is `@studio/engine-client`, and the engine's Node client is not the home of a
+process-level guard. `commons/` is shared with `phare`, so touching it commits two repositories.
+A package for ten lines is a decision, not a cleanup.
 
-Ce qui les distingue vraiment est le canal : le superviseur écrit sur `stderr`, où le capot
-le ramasse pour le journal fusionné ; le service écrit par `console.error` avec le préfixe
-`   ✗ ` de ses voisins. Deux journaux différents, un même
-corps — inscrit ici pour que la copie soit un état connu plutôt que de la pourriture.
+## Not covered
 
-## Ce que ça ne couvre pas
-
-Le troisième process. `engine/moteur` n'a **qu'un seul** `try`/`catch` dans toute sa
-bibliothèque (`NamPlugin.cpp`), sur 52 fichiers, ni `try` au niveau de `main()`, ni
-`std::set_terminate`. Toute exception levée depuis un lambda posté sur le thread message
-termine le process sans un mot. C'est un lot ouvert, pas une omission de cette page —
-voir `docs/constat.md`.
+`engine/moteur` has one `try`/`catch` in its whole library (`NamPlugin.cpp`), no `try` at
+`main()` level and no `std::set_terminate`. An exception thrown from a lambda posted on the
+message thread ends the process without a word. Open lot — `docs/constat.md`.

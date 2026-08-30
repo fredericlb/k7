@@ -1,209 +1,197 @@
-# Le mode partagé — st0 ouvert sur un instantané gelé
+# Shared mode — st0 opened on a frozen snapshot
 
-Une adresse en `/@shares/<token>.st0` ouvre **cette application**, sans compte, sans moteur et
-sans copie de travail. Ce qu'elle dessine est un instantané que pl8 détient : trois documents
-compilés et des rendus audio. Le paquet est fabriqué ailleurs — voir
-[`packages/commands/docs/shareBundle.md`](../../../../packages/commands/docs/shareBundle.md) pour
-ce qu'il contient, et [`apps/pl8/docs/shares.md`](../../../pl8/docs/shares.md) pour où il vit et
-comment on le retire.
+An address in `/@shares/<token>.st0` opens **this application**, with no account, no engine and no
+working copy. What it draws is a snapshot pl8 holds: three compiled documents and audio renders.
+The bundle is built elsewhere — see
+[`packages/commands/docs/shareBundle.md`](../../../../packages/commands/docs/shareBundle.md) for
+what it contains, and [`apps/pl8/docs/shares.md`](../../../pl8/docs/shares.md) for where it lives
+and how it is withdrawn.
 
-## Une branche, pas trois portes conditionnelles
+## One branch, not three conditional gates
 
-`main.tsx` lit l'adresse une fois — de la même manière que le `basename` du routeur, donc les deux
-ne peuvent pas être en désaccord sur le projet ouvert — et rend soit `SharedGate`, soit la pile
-habituelle `AuthGate → EngineGate → ProjectGate`.
+`main.tsx` reads the address once — the same way the router's `basename` does, so the two cannot
+disagree about which project is open — and renders either `SharedGate` or the usual
+`AuthGate → EngineGate → ProjectGate` stack.
 
-Un partage n'a ni compte, ni moteur, ni espace de travail. Ce n'est donc pas la même pile avec
-trois interrupteurs : c'est la **mauvaise pile**. Rendre les trois portes conditionnelles aurait
-mis trois `if` dans trois fichiers dont aucun n'a de raison de connaître les partages, et chacun
-aurait été un endroit où l'oublier.
+A share has no account, no engine and no workspace. It is not the same stack with three switches:
+it is the **wrong stack**. Making the three gates conditional would put three `if`s in three files
+none of which has any reason to know about shares, and each would be a place to forget it.
 
-## Ce qui EMPÊCHE d'écrire tient en une ligne
+## What PREVENTS writing is one line
 
-`fsend` refuse. C'est tout.
+`fsend` refuses. That is all.
 
 ```ts
 const frozen = cfg().frozen;
 if (frozen) throw new ReadOnlyDocument(frozen.why);
 ```
 
-Toute écriture de toute application montant ce shell passe par là — une bonne vingtaine d'appels
-rien que dans `project.ts`. Refuser **au transport** plutôt que fonctionnalité par fonctionnalité
-est la seule version de ce refus qui soit vraie : un bouton caché reste une raccourci clavier, une
-entrée de barre de commandes et un menu contextuel plus loin, et la vingt-sixième écriture serait
-découverte en production.
+Every write of every application mounting this shell goes through it — a good twenty calls in
+`project.ts` alone. Refusing **at the transport** rather than feature by feature is the only
+version of this refusal that is true: a hidden button is still one keyboard shortcut, one command
+bar entry and one context menu away, and the twenty-sixth write would be discovered in production.
 
-Ce que `snapshot` fait dans `App` est donc une question de ce qu'on **dessine**, jamais de ce
-qu'on empêche — mais il faut le faire, et jusqu'au bout : un clip qu'on peut encore traîner est un
-geste qui marche à l'écran et ne produit rien. **Un glissé qui se déroule puis revient en place
-est pire qu'un glissé qui ne démarre pas**, et une poignée de redimensionnement qui s'allume sous
-le curseur est une promesse. Donc :
+What `snapshot` does in `App` is therefore a question of what is **drawn**, never of what is
+prevented — but it has to be done, and done to the end: a clip you can still drag is a gesture that
+works on screen and produces nothing. **A drag that runs and then snaps back is worse than a drag
+that never starts**, and a resize handle lighting up under the cursor is a promise. So:
 
-- `TimelineTab` prend un `readOnly` qui rejoint la garde déjà là pour une piste générée et un
-  clip gelé (`if (readOnly || track.generated || c.frozen) return`) — troisième lecture de la
-  même phrase : il y a un clip à regarder et rien à écrire. La pression est toujours suivie,
-  parce qu'un CLIC est une demande de VOIR le clip et ne demande rien au disque ;
-- les poignées de bord ne sont pas inertes, elles sont **absentes** ;
-- les cinq rappels d'édition du graphe (`onConnect`, `onDisconnect`, `onReplug`, `onMoveNode`,
-  `onEdgeInsert`) et celui de l'image (`onVideoEdit`) sont **optionnels et déjà gardés par le
-  moteur de rendu** : un instantané n'en passe aucun, et les prises ne sont pas offertes. Aucun
-  drapeau supplémentaire n'est nécessaire de ce côté.
+- `TimelineTab` takes a `readOnly` that joins the guard already there for a generated track and a
+  frozen clip (`if (readOnly || track.generated || c.frozen) return`). Press is still tracked,
+  because a CLICK is a request to SEE the clip and asks nothing of the disk;
+- edge handles are not inert, they are **absent**;
+- the graph's five edit callbacks (`onConnect`, `onDisconnect`, `onReplug`, `onMoveNode`,
+  `onEdgeInsert`) and the picture's (`onVideoEdit`) are **optional and already guarded by the
+  renderer**: a snapshot passes none, and the sockets are not offered. No extra flag is needed on
+  that side.
 
-Les deux menus de l'en-tête disparaissent parce qu'ils n'ont pas de sens ici :
-Partager publie CE projet quelque part (il n'y a pas de projet, seulement une copie), et Réglages
-change de moteur, d'espace de travail et de préférences de compte — dont un visiteur n'a rien. Un
-menu grisé aurait été une invitation à se connecter, c'est-à-dire exactement ce que le partage
-existe pour éviter.
+Both header menus disappear because they make no sense here: Share publishes THIS project somewhere
+(there is no project, only a copy), and Settings changes engine, workspace and account preferences,
+none of which a visitor has. A greyed menu would be an invitation to log in — exactly what a share
+exists to avoid.
 
-## L'éditeur n'est pas un panneau en lecture seule, il n'est pas là
+## The editor is not a read-only pane, it is not there
 
-`viewPanes(view, timeline, viewport, frozen)` le retire de `fullscreen`. Un instantané n'a **pas
-de source** — ni `/tree`, ni `/file` — donc ce n'est pas un panneau dont le document se trouve
-être figé, c'est un panneau derrière lequel il n'y a rien.
+`viewPanes(view, timeline, viewport, frozen)` removes it from `fullscreen`. A snapshot has **no
+source** — no `/tree`, no `/file` — so it is not a pane whose document happens to be frozen, it is a
+pane with nothing behind it.
 
-Le retirer de cette liste-là, et pas d'un bouton, est le point : la même liste est lue par les
-touches numériques, le menu du téléphone, `ui editor` et **chaque adresse**. Une seule omission
-les ferme ensemble. `fromLocation` prend le même drapeau, sinon `/editor` collé dans la barre
-d'adresse ouvrirait un panneau que rien ne monte.
+Removing it from that list, rather than from a button, is the point: the same list is read by the
+number keys, the phone menu, `ui editor` and **every address**. One omission closes them all.
+`fromLocation` takes the same flag, or `/editor` pasted into the address bar would open a pane
+nothing mounts.
 
-## Le moteur : `() => null`, et rien d'autre à faire
+## The engine: `() => null`, and nothing else to do
 
-`EngineUrl` accepte une fonction, et `null` veut déjà dire « aucun moteur à joindre pour
-l'instant » : le client patiente et redemande, au lieu de traiter ça comme un échec de connexion.
-C'est la couture qui rend « st0 lui-même » possible sans second chemin de code — le shell se monte
-entier, son `EngineStore` reste au repos, `connected` est faux, et les verbes de transport partent
-dans un client qui n'a pas de socket.
+`EngineUrl` accepts a function, and `null` already means "no engine to reach right now": the client
+waits and asks again instead of treating it as a connection failure. That is the seam that makes
+"st0 itself" possible with no second code path — the shell mounts whole, its `EngineStore` stays
+idle, `connected` is false, and transport verbs go into a client with no socket.
 
-## Les routes en conserve
+## The canned routes
 
-Un partage est un dossier de JSON et de rendus. `/tree`, `/hints`, `/commands`, `/io-ports`,
-`/git/status` ne nomment **rien** — il n'y a pas de service de fichiers derrière. Laissées
-échouer, chaque accroche qui les demande afficherait une erreur disant qu'un service est en
-panne, ce qui est **faux** : il est absent par construction, et un visualiseur qui annonce un
-serveur cassé alors que tout fait ce qu'il doit est pire que muet.
+A share is a folder of JSON and renders. `/tree`, `/hints`, `/commands`, `/io-ports`,
+`/git/status` name **nothing** — there is no file service behind it. Left to fail, every hook asking
+for them would show an error saying a service is down, which is **false**: it is absent by
+construction, and a viewer announcing a broken server while everything does what it should is worse
+than a silent one.
 
-`FileCfg.frozen.canned` répond à leur place, avant la requête, en texte JSON que chaque appelant
-parse — la règle de `fget`, pour que plusieurs composants ne se partagent jamais un objet.
+`FileCfg.frozen.canned` answers in their place, before the request, in JSON text each caller parses
+— `fget`'s rule, so that several components never share one object.
 
-Deux détails qui comptent :
+Two details that matter:
 
-- **les valeurs sont typées**, pas transtypées. Écrire `Hints` en entier fait échouer la
-  compilation sur un champ oublié — `paramsByBase`, `paramMetaByBase`, `racks` — plutôt que de le
-  laisser arriver à un composant en `undefined`, sur le seul chemin de code que personne n'ouvre ;
-- `/revision` rend une **constante**. Plusieurs accroches interrogent ce jeton et rechargent
-  quand il bouge ; figé, le shell se stabilise après sa première passe et cesse de demander, ce
-  qui est l'énoncé vrai à propos d'un document qui ne peut pas changer.
+- **the values are typed**, not cast. Writing `Hints` out in full fails compilation on a forgotten
+  field — `paramsByBase`, `paramMetaByBase`, `racks` — rather than letting it reach a component as
+  `undefined`, on the one code path nobody opens;
+- `/revision` returns a **constant**. Several hooks poll that token and reload when it moves;
+  frozen, the shell settles after its first pass and stops asking, which is the true statement
+  about a document that cannot change.
 
-`/project-errors` rend « aucune erreur », et c'est une réponse et non un bouche-trou : un
-instantané est fabriqué à partir d'un projet qui compilait, par la machine qui l'a compilé.
+`/project-errors` returns "no errors", and that is an answer rather than a stopgap: a snapshot is
+made from a project that compiled, by the machine that compiled it.
 
-## L'adresse est un `base`, et c'est tout
+## The address is a `base`, and that is all
 
-`cfg().base` est une chaîne posée une fois. Rien n'exige que ce soit le service de fichiers qui
-réponde derrière, donc pl8 sert les mêmes formes GET depuis le paquet et st0 ne s'en aperçoit pas.
+`cfg().base` is a string set once. Nothing requires a file service to answer behind it, so pl8
+serves the same GET shapes from the bundle and st0 does not notice.
 
-La seule couture à ajuster est le NOM : `fget` demande `/project-doc` parce que c'est la route
-du service de fichiers, et l'instantané appelle les mêmes octets `project-doc.json` parce qu'un
-fichier a besoin d'un nom. La route publique accepte les deux orthographes — un `||` — plutôt que
-d'apprendre à l'un des deux côtés l'existence de l'autre.
+The one seam to adjust is the NAME: `fget` asks for `/project-doc` because that is the file
+service's route, and the snapshot calls the same bytes `project-doc.json` because a file needs a
+name. The public route accepts both spellings — a `||` — rather than teaching either side that the
+other exists.
 
-`mediaUrl` n'est pas traité et n'a pas besoin de l'être : il fabrique `<base>/media?…`, qui tombe
-sur le 404 terminal du routeur public. Une forme d'onde de clip n'a rien à lire ; elle n'en
-dessine pas.
+`mediaUrl` is not handled and does not need to be: it builds `<base>/media?…`, which lands on the
+public router's terminal 404. A clip waveform has nothing to read; it draws none.
 
-## La clé se calcule ici
+## The key is computed here
 
-`shareKey(token)` fait un `sha256` dans le navigateur, parce que pl8 range le HACHÉ et jamais le
-secret : un segment de chemin atteint chaque journal d'accès. Cela demande `crypto.subtle`, donc
-un **contexte sécurisé** — sur du http en clair, ailleurs que sur localhost, il n'y a pas de
-digest du tout. Le refus est levé avec une phrase plutôt que laissé remonter en
-`undefined is not a function` : c'est un déploiement, pas un bug, et le remède est de servir la
-page en https.
+`shareKey(token)` does a `sha256` in the browser, because pl8 files the HASH and never the secret:
+a path segment reaches every access log. That needs `crypto.subtle`, so a **secure context** — over
+plain http anywhere but localhost there is no digest at all. The refusal is raised with a sentence
+rather than left to surface as `undefined is not a function`: it is a deployment matter, not a bug,
+and the remedy is to serve the page over https.
 
-## La lecture : une horloge de navigateur qui remplit le même store
+## Playback: a browser clock filling the same store
 
-`useSnapshotPlayer` substitue **deux verbes** — `transport` et `seek` — juste après
-`useEngineLink`, et rien d'autre.
+`useSnapshotPlayer` substitutes **two verbs** — `transport` and `seek` — right after
+`useEngineLink`, and nothing else.
 
-Deux endroits attendraient quand même un moteur, et rendraient le transport inutilisable : ils
-portent donc le drapeau `frozen` en tête de leur condition.
+Two places would still wait for an engine and would make transport unusable, so they carry the
+`frozen` flag at the head of their condition:
 
-- `waitingForEngine` est `!frozen && !!ws?.activeProject && !engineReady`. La réponse en conserve
-  de `/workspace` dit `activeProject: "."`, et `engineReady` ne devient jamais vrai sans socket —
-  sans le premier terme, ce serait « waiting for engine… » pour toujours, et la barre grisée avec.
-  Sur un instantané il n'y a aucun moteur à attendre ;
-- les quatre verbes nus retombent sur le service de fichiers quand `connected` est faux
-  (`if (!frozen && (!connected || engineBusyRef.current)) return false`), ce qui est le bon
-  compromis quand il Y A un service derrière. Ici il n'y en a pas, et la barre d'espace ne ferait
-  rien : le chemin local est le seul qui puisse répondre, et il répond toujours.
+- `waitingForEngine` is `!frozen && !!ws?.activeProject && !engineReady`. The canned `/workspace`
+  says `activeProject: "."`, and `engineReady` never becomes true without a socket — without the
+  first term it would be "waiting for engine…" for ever, with the bar greyed out. On a snapshot
+  there is no engine to wait for;
+- the four bare verbs fall back to the file service when `connected` is false
+  (`if (!frozen && (!connected || engineBusyRef.current)) return false`), which is the right trade
+  when there IS a service behind. Here there is not, and the space bar would do nothing: the local
+  path is the only one that can answer, and it always does.
 
-Tout ce qui est en aval — la barre, les touches, `transport play`, la tête de lecture,
-`replayAtRef` — lit les mêmes trames de `store`, quel que soit le côté qui les remplit. Aucun de
-ces morceaux n'apprend qu'il n'y a pas de moteur.
+Everything downstream — the bar, the keys, `transport play`, the playhead, `replayAtRef` — reads the
+same frames from `store`, whichever side fills them. None of those pieces learns there is no engine.
 
-**Un `<audio>` par fichier, et non un tampon décodé.** Le nombre décide : douze stems de quatre
-minutes décodent en plus d'un gigaoctet de float32, ce qu'aucun téléphone n'a. Un élément média
-diffuse, fait ses requêtes Range — exactement ce que `streamFile` sert déjà — et porte le
-`currentTime` que ce hook publie comme tête de lecture.
+**One `<audio>` per file, not a decoded buffer.** The numbers decide: twelve four-minute stems
+decode to over a gigabyte of float32, which no phone has. A media element streams, makes its Range
+requests — exactly what `streamFile` already serves — and carries the `currentTime` this hook
+publishes as the playhead.
 
-### Ce que ça coûte, et les trois règles qui le paient
+### What that costs, and the three rules that pay for it
 
-Un élément média **ne se planifie pas**. `AudioBufferSourceNode.start(when)` est précis à
-l'échantillon, `el.play()` veut dire « bientôt » : plusieurs éléments lancés dans le même tick
-démarrent chacun quand il a fini de tamponner, à des centaines de millisecondes d'écart. Sur un
-jeu de stems ce n'est pas de la dérive, c'est une cacophonie.
+A media element **cannot be scheduled**. `AudioBufferSourceNode.start(when)` is sample-accurate,
+`el.play()` means "soon": several elements started in the same tick each begin when they have
+finished buffering, hundreds of milliseconds apart. On a set of stems that is not drift, it is
+cacophony.
 
-1. **On ne joue que le groupe qui SONNE.** Le mixdown, ou les stems, jamais les deux. Treize flux
-   simultanés pour quelqu'un qui ne coupe jamais rien, ce serait la bande passante de tout
-   l'instantané pour entendre un fichier.
-2. **Rien ne démarre avant que chaque voix du groupe puisse jouer**, depuis la même position. Un
-   stem lent retarde le groupe de son propre tamponnage au lieu d'arriver en retard pour toujours.
-   Un compteur de génération annule un démarrage dépassé par un stop, un seek ou la traversée.
-3. **La dérive se corrige au `playbackRate`, pas au `currentTime`.** Écrire `currentTime` sur un
-   élément qui joue le fait re-tamponner, donc il décroche davantage, donc la correction suivante
-   est plus grande : le bégaiement s'auto-entretient. Un coup de pouce à ±4 % est inaudible et
-   referme l'écart en une seconde ou deux. Le saut dur reste pour le seul cas qu'aucun taux
-   survivable ne rattrape : une demi-seconde d'écart, qui est perdu et non en retard.
+1. **Only the group that SOUNDS is played.** The mixdown, or the stems, never both. Thirteen
+   simultaneous streams for someone who never mutes anything would be the whole snapshot's
+   bandwidth to hear one file.
+2. **Nothing starts before every voice of the group can play**, from the same position. A slow stem
+   delays the group by its own buffering instead of arriving late for ever. A generation counter
+   cancels a start overtaken by a stop, a seek or the crossover.
+3. **Drift is corrected with `playbackRate`, not `currentTime`.** Writing `currentTime` on a
+   playing element makes it re-buffer, so it falls further behind, so the next correction is bigger:
+   the stutter feeds itself. A nudge of ±4 % is inaudible and closes the gap in a second or two. The
+   hard jump is kept for the one case no survivable rate catches up: half a second out, which is
+   lost rather than late.
 
-### Traverser vers les stems : contre le MIXDOWN, jamais contre le silence
+### Crossing to the stems: against the MIXDOWN, never against silence
 
-Le mixdown est rendu **à partir du document**. Une piste que le document coupe est donc déjà
-absente du fichier. Lire « cette piste est muette » comme « le visiteur l'a coupée » ferait passer
-aux stems tout projet qui coupe quoi que ce soit, **avant le moindre clic** — la façon la plus
-bruyante possible de se tromper, puisque le mixdown est le seul fichier dont le calage ne peut pas
-être faux : il est seul.
+The mixdown is rendered **from the document**. A track the document mutes is therefore already
+absent from the file. Reading "this track is muted" as "the visitor muted it" would switch to stems
+for any project that mutes anything, **before a single click** — the loudest possible way to be
+wrong, since the mixdown is the one file whose alignment cannot be wrong: it is alone.
 
-`matchesMixdown` est cette règle, pure et testée : `App` calcule `laneGains` **deux fois**, une
-fois sur les contrôles à l'écran et une fois sur le document, et seule une différence est le
-visiteur qui demande quelque chose que le rendu ne dit pas déjà.
+`matchesMixdown` is that rule, pure and tested: `App` computes `laneGains` **twice**, once on the
+on-screen controls and once on the document, and only a difference is the visitor asking for
+something the render does not already say.
 
-Le graphe audio se construit au **premier verbe de transport**, jamais au montage : un
-`AudioContext` fabriqué hors d'un geste utilisateur démarre suspendu, et des éléments en
-`preload="auto"` tireraient des mégaoctets pour quelqu'un qui lit le graphe et n'appuiera jamais
-sur lecture.
+The audio graph is built at the **first transport verb**, never at mount: an `AudioContext` made
+outside a user gesture starts suspended, and elements with `preload="auto"` would pull megabytes for
+someone who is reading the graph and will never press play.
 
-Par défaut on entend **le mixdown**. À la première coupure on passe aux **stems**, une fois et
-pour la session : revenir au mixdown quand toutes les pistes sont rallumées serait une seconde
-couture audible pour quelqu'un qui ne fait qu'explorer, et les stems somment la même chanson.
+By default you hear **the mixdown**. On the first mute it crosses to the **stems**, once and for the
+session: going back to the mixdown when every track is unmuted again would be a second audible seam
+for someone who is only exploring, and the stems sum to the same song.
 
-`levels` reste **vide** et non mis à zéro : un vumètre sans moteur derrière n'a pas de lecture, et
-une rangée de barres à -∞ serait une affirmation sur du silence que rien n'a mesuré.
+`levels` stays **empty** rather than zeroed: a meter with no engine behind it has no reading, and a
+row of bars at -∞ would be an assertion about silence nothing measured.
 
-### Couper et isoler deviennent ce qu'un auditeur veut dire par là
+### Mute and solo become what a listener means by them
 
-Normalement ce sont des ÉCRITURES : `m` réécrit le bypass de la piste dans `graph.yaml` et `s` la
-liste `soloed:` de `project.yaml`, parce qu'une coupure est une décision sur le morceau et pas un
-drapeau de session. Ici il n'y a rien où écrire, et `fsend` refuserait — alors `useTrackControls`
-prend un mode `local` où l'état optimiste EST la valeur : rien à lancer, rien à réconcilier.
+Normally they are WRITES: `m` rewrites the track's bypass in `graph.yaml` and `s` the `soloed:` list
+in `project.yaml`, because a mute is a decision about the song and not a session flag. Here there is
+nowhere to write and `fsend` would refuse — so `useTrackControls` takes a `local` mode where the
+optimistic state IS the value: nothing to dispatch, nothing to reconcile.
 
-`arm` n'est pas touché et reste une commande : rien ne s'arme sans moteur, et le refus qui le dit
-vaut mieux qu'un bouton qui fait semblant.
+`arm` is untouched and stays a command: nothing arms without an engine, and the refusal that says so
+beats a button that pretends.
 
-La résolution vers l'audio est `laneGains`, pure et testée — parce que **l'isolement est un fait
-sur l'ENSEMBLE** : une seule piste isolée fait taire toutes les autres, donc la réponse d'une
-piste ne se déduit pas de ses deux drapeaux à elle. C'est la règle que le moteur applique à
-`soloed:`, énoncée là où il n'y a pas de moteur pour l'appliquer.
+Resolving to audio is `laneGains`, pure and tested — because **solo is a fact about the WHOLE**: one
+soloed track silences every other, so a track's answer does not follow from its own two flags. That
+is the rule the engine applies to `soloed:`, stated where there is no engine to apply it.
 
-Un stem dont le rendu n'a correspondu à aucune piste (`track: ""`) est délibérément absent de la
-table : il sonne, et aucun bouton ne l'adresse — ce qui est honnête, là que l'accrocher à un
-identifiant inventé allumerait le bouton d'une autre piste.
+A stem whose render matched no track (`track: ""`) is deliberately absent from the table: it sounds,
+and no button addresses it — which is honest, where hanging it on an invented identifier would light
+up another track's button.

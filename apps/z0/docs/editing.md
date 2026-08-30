@@ -1,150 +1,137 @@
-# Éditer une session `.z0`
+# Editing a `.z0` session
 
-Ce que l'éditeur fait des fichiers, et pourquoi il s'y prend comme ça. La FORME des fichiers
-est décrite dans [projects.md](projects.md) ; cette page-ci parle de l'écran par-dessus. Ce
-qu'il ne fait **pas**, délibérément, est en bas de page — c'est la partie à lire avant de
-conclure qu'il manque quelque chose par accident.
+What the editor does with the files, and why it goes about it that way. The SHAPE of the files
+is in [projects.md](projects.md); this page is the screen on top. What it deliberately does
+**not** do is at the bottom — read that before concluding something is missing by accident.
 
-## Un fichier n'est pas un enregistrement
+## A file is not a record
 
-La source est un fichier YAML dans un dépôt git, écrit par un générateur *et* par des humains,
-commenté, et relu en diff au moment du commit — pas une ligne dans une base, qu'on relirait et
-réécrirait sans que la question du texte se pose.
+The source is a YAML file in a git repository, written by a generator *and* by humans, commented,
+and reviewed as a diff at commit time — not a row in a database that could be read back and
+rewritten without the question of text ever arising.
 
-D'où la règle qui commande tout le reste :
+Hence the rule that governs everything else:
 
-> On modifie le **document**, jamais les valeurs qu'on en a tirées.
+> Modify the **document**, never the values pulled out of it.
 
-`format.ts` garde donc un `yaml` **Document** par fichier et écrit dedans (`setIn`, `deleteIn`,
-un splice sur le nœud pour un déplacement). Le chemin naïf — `parse` → objet JS → `stringify` —
-produirait un fichier équivalent *pour un parseur* et méconnaissable pour une personne :
-commentaires perdus, guillemets normalisés, ordre des clés refait, et un diff de 400 lignes
-pour avoir bougé un `start`. Le test qui tient cette règle est
-« changes one scalar and nothing else », et il vérifie explicitement que le commentaire d'en-tête
-et les guillemets de `notice:` survivent.
+`format.ts` therefore keeps one `yaml` **Document** per file and writes into it (`setIn`,
+`deleteIn`, a splice on the node for a move). The naive path — `parse` → JS object → `stringify` —
+produces a file equivalent *to a parser* and unrecognisable to a person: comments lost, quotes
+normalised, key order redone, and a 400-line diff for having moved one `start`. The test holding
+this rule is "changes one scalar and nothing else", and it checks explicitly that the header
+comment and `notice:`'s quotes survive.
 
-Deux conséquences moins évidentes :
+Four less obvious consequences:
 
-- **Un `Document` doit survivre au rendu.** Le re-parser à chaque frappe rendrait la
-  préservation inutile, donc les documents vivent dans `store.ts`, pas dans un `useState`.
-- **Vider un champ le SUPPRIME.** `setTrackField(..., undefined)` fait `deleteIn`. Écrire
-  `end: 0` serait ajouter une ligne à chaque morceau simplement regardé, et `0` n'est pas ce
-  que veut dire une fin absente — c'est « jusqu'au bout ».
-- **`false` compte comme vide**, et c'est délibéré : `empty()` de `format.ts` traite
-  `undefined`, `""` et `false` pareil, parce que `liveOnly` est absent ou vrai dans tous les
-  fichiers migrés. Décocher la case doit donc retirer la ligne, pas écrire `liveOnly: false` —
-  même sens, et une orthographe qui n'existe nulle part ailleurs.
-- **Un `effects:` vide n'existe pas non plus.** `setSongEffect` fait apparaître la table avec
-  la première valeur et la fait partir avec la dernière : un `effects: {}` serait le seul de
-  tout le corpus, et ce n'est pas à quoi ressemble un morceau non traité.
+- **A `Document` must survive rendering.** Re-parsing on every keystroke would make the
+  preservation pointless, so the documents live in `store.ts`, not in a `useState`.
+- **Clearing a field DELETES it.** `setTrackField(..., undefined)` does `deleteIn`. Writing
+  `end: 0` would add a line to every song merely looked at, and `0` is not what an absent end
+  means — that is "to the end".
+- **`false` counts as empty**, deliberately: `format.ts`'s `empty()` treats `undefined`, `""` and
+  `false` alike, because `liveOnly` is absent or true in every file. Unticking the box must remove
+  the line, not write `liveOnly: false` — same meaning, and a spelling that exists nowhere else.
+- **An empty `effects:` does not exist either.** `setSongEffect` makes the table appear with the
+  first value and go with the last: an `effects: {}` would be the only one in the whole corpus,
+  and that is not what an untreated song looks like.
 
-## Un morceau a deux formes, et une seule adresse
+## A song has two shapes and one address
 
-Le format écrit un morceau à une piste **à plat** (`song:` sur le morceau lui-même) et un
-morceau à plusieurs pistes sous `tracks:`. Les deux clés sont exclusives.
+The format writes a single-track song **flat** (`song:` on the song itself) and a multi-track song
+under `tracks:`. The two keys are exclusive.
 
-`readCategory` normalise ça une fois : un morceau à plat devient un morceau à **une** piste, et
-`flat: true` se souvient de la forme réelle. Le reste de l'application ne branche donc jamais
-sur les deux formes ; seul `trackPath()` le fait, et c'est le seul endroit où c'est écrit.
+`readCategory` normalises that once: a flat song becomes a song with **one** track, and
+`flat: true` remembers the real shape. The rest of the application never branches on the two
+shapes; only `trackPath()` does, and that is the one place it is written.
 
-Ajouter une deuxième piste à un morceau à plat le **promeut** (`expandToTracks`) : les clés de
-piste descendent dans une liste, les clés du morceau (`label`, `status`, `speed`…) restent où
-elles sont. C'est la seule transformation de forme que l'éditeur fait, et elle est
-idempotente.
+Adding a second track to a flat song **promotes** it (`expandToTracks`): the track keys drop into
+a list, the song keys (`label`, `status`, `speed`…) stay where they are. It is the only shape
+transformation the editor makes, and it is idempotent.
 
-Retirer la piste d'un morceau **à plat** est refusé : il n'y a pas de nœud de piste à retirer,
-les clés sont celles du morceau, et « replier » supprimerait ses champs avec.
+Removing the track of a **flat** song is refused: there is no track node to remove, the keys are
+the song's, and "folding back" would delete its fields with it.
 
-Et dans l'autre sens : retirer la **dernière** piste d'un morceau sous `tracks:` laisse la
-liste vide plutôt que de replier le morceau à plat. Un morceau sans piste est une erreur
-visible qu'on va corriger ; un morceau silencieusement replié est un *autre* morceau que celui
-qu'on éditait.
+The other way round: removing the **last** track of a song under `tracks:` leaves the list empty
+rather than folding the song flat. A song with no track is a visible error you go and fix; a
+silently folded song is a *different* song from the one being edited.
 
-## Le début et la fin
+## The start and the end
 
-C'est la raison d'être de l'écran. Un blindtest joue un extrait, et le choisir se fait à
-l'oreille : `TrackPanel.tsx` décode l'audio, dessine une forme d'onde, joue tout ou seulement
-la fenêtre, et pose les bornes depuis l'endroit où on écoute (« Début ici » / « Fin ici »).
+That is the point of the screen. A blindtest plays an excerpt, and choosing it is done by ear:
+`TrackPanel.tsx` decodes the audio, draws a waveform, plays all of it or only the window, and sets
+the bounds from where you are listening ("Début ici" / "Fin ici").
 
-Un `.z0` ne stocke qu'un identifiant médiathèque, donc `mediatek.ts` résout l'adresse en
-fichier. La règle de résolution est **celle du chargeur du jeu**, pas une invention d'ici :
+A `.z0` stores only a médiathèque id, so `mediatek.ts` resolves the address to a file. The
+resolution rule is **the game loader's**, not an invention here:
 
-> la version demandée par la catégorie si elle existe, sinon le master.
+> the version the category asks for if it exists, otherwise the master.
 
-S'en écarter ferait écouter à l'auteur un fichier différent de celui que la partie jouera, ce
-qui est exactement le genre d'erreur qu'un éditeur d'extraits ne doit pas permettre. Les tests
-de `mediatek.test.ts` la tiennent, y compris le cas des reprises dont l'`original` **est** la
-reprise.
+Departing from it would have the author listening to a different file from the one the game will
+play, which is exactly the mistake an excerpt editor must not permit. `mediatek.test.ts` holds it,
+including the case of covers whose `original` **is** the cover.
 
-`mode: reversed` (la catégorie `a-l-envers`) lit à l'envers, et `speed` change la vitesse : ce
-sont les deux seuls traitements que le format porte encore, donc les deux seuls que l'aperçu
-applique.
+`mode: reversed` (the `a-l-envers` category) reads backwards, and `speed` changes the rate: those
+are the only two treatments the format still carries, so the only two the preview applies.
 
-## La médiathèque est facultative
+## The médiathèque is optional
 
-Le catalogue est chargé **après** les fichiers et jamais avant : il ne sert qu'aux libellés et
-à l'audio. Une médiathèque en panne doit laisser la session s'ouvrir et se modifier — un
-bandeau le dit, les morceaux s'affichent par leur adresse, l'aperçu est indisponible, et
-l'écriture marche.
+The catalogue is loaded **after** the files and never before: it serves labels and audio only. A
+broken médiathèque must still let the session open and be edited — a banner says so, songs show by
+their address, the preview is unavailable, and writing works.
 
-C'est aussi ce qui fait que le sélecteur de morceaux répond à la frappe sans requête : la liste
-est déjà en mémoire.
+That is also what makes the song picker answer keystrokes without a request: the list is already
+in memory.
 
-## L'enregistrement
+## Saving
 
-Débounce à 800 ms, puis un `PUT /file` par fichier modifié. `Ctrl+S` veut dire « maintenant »,
-pas « du tout » — la même règle que les éditeurs de st0
+Debounced at 800 ms, then one `PUT /file` per modified file. `Ctrl+S` means "now", not "at all" —
+the same rule as st0's editors
 ([autosave.md](../../../packages/ui-editor/docs/autosave.md)).
 
-Un échec **remet les fichiers dans la file** et l'affiche. Une modification perdue en silence
-est pire qu'une erreur visible, et l'onglet est la seule copie de ce qui n'est pas encore
-écrit.
+A failure **puts the files back in the queue** and shows it. A silently lost edit is worse than a
+visible error, and the tab is the only copy of what is not yet written.
 
-Le bouton **YAML** montre le document tel qu'il sera écrit, modifications non enregistrées
-comprises. Ce n'est pas une deuxième vue du même fichier : c'est le contrôle de ce que
-l'éditeur s'apprête à commettre dans le dépôt.
+The **YAML** button shows the document as it will be written, unsaved edits included. It is not a
+second view of the same file: it is the check on what the editor is about to commit.
 
-## Ce qu'il ne fait pas, délibérément
+## What it deliberately does not do
 
-- **Lister les sessions et en ouvrir une.** Cet éditeur est ouvert SUR un projet par son
-  adresse, et le choix se fait sur la page d'accueil de st0. Un deuxième sélecteur est
-  exactement ce que `packages/project-shell/docs/launch.md` refuse.
-- **Téléverser un audio** sur une piste. L'audio vit dans la médiathèque, et l'y déposer est
-  le travail de pl8. Une piste nomme une adresse ; elle ne porte pas d'octets.
-- **Réutiliser une catégorie.** Une catégorie est un fichier, et deux manches sur la même se
-  font avec `songs:` dans l'ordre. Le sélecteur (`SongPicker`) porte donc sur les MORCEAUX, sur
-  la médiathèque.
+- **List sessions and open one.** This editor is opened ON a project by its address, and the
+  choice happens on st0's home page. A second picker is exactly what
+  `packages/project-shell/docs/launch.md` refuses.
+- **Upload audio** onto a track. Audio lives in the médiathèque, and putting it there is pl8's
+  job. A track names an address; it carries no bytes.
+- **Reuse a category.** A category is a file, and two rounds on the same one are done with
+  `songs:` in order. The picker (`SongPicker`) is therefore over SONGS, over the médiathèque.
 
-Ce qu'il fait et qu'on cherche parfois ailleurs : les effets par morceau s'éditent sous
-`effects: { … }` — `categories/deformees.yaml` porte
-`effects: { bitreduction: 78, chorus: 100, … }` morceau par morceau — et une piste porte
-`youtube:`, `file:`, `artist:` et `title:` en plus de son adresse.
+What it does do and people look for elsewhere: per-song effects are edited under
+`effects: { … }` — `categories/deformees.yaml` carries
+`effects: { bitreduction: 78, chorus: 100, … }` song by song — and a track carries `youtube:`,
+`file:`, `artist:` and `title:` beside its address.
 
-## Deux formes que le format documente mal
+## Two shapes the format documents badly
 
-Les fichiers réels en portent deux que [projects.md](projects.md) mentionne à peine, et qu'un
-« setter » naïf abîme sans rien casser d'apparent :
+Real files carry two that [projects.md](projects.md) barely mentions, and that a naive setter
+damages without breaking anything visible:
 
-- **`answer:` est un bloc littéral** (`answer: |`) dans les trente cas de la session 2304 —
-  plusieurs orthographes acceptées, une par ligne. Écrire une valeur multi-lignes avec un
-  `setIn` ordinaire la replierait sur une ligne entre guillemets : même valeur, diff
-  méconnaissable. D'où le champ **textarea** et le `Scalar.BLOCK_LITERAL` de `format.ts`.
-- **`effects: { … }` existe bel et bien**, par morceau — l'exemple `multi` de
-  [projects.md](projects.md) en montre un, et `deformees.yaml` en porte un par morceau. Deux
-  mécanismes coexistent : une variante quand le traitement est *enregistré* dans la
-  médiathèque ([effects.md](effects.md)), `effects:` quand il est calculé à la lecture.
+- **`answer:` is a literal block** (`answer: |`) in all thirty cases of session 2304 — several
+  accepted spellings, one per line. Writing a multi-line value with an ordinary `setIn` would fold
+  it onto one quoted line: same value, unrecognisable diff. Hence the **textarea** field and
+  `format.ts`'s `Scalar.BLOCK_LITERAL`.
+- **`effects: { … }` does exist**, per song — the `multi` example in
+  [projects.md](projects.md) shows one, and `deformees.yaml` carries one per song. Two mechanisms
+  coexist: a variant when the treatment is *recorded* in the médiathèque
+  ([effects.md](effects.md)), `effects:` when it is computed at playback.
 
-Et un troisième détail, invisible jusqu'à ce qu'on écrive : une pause sans message est
-`- pause:`, alors que `yaml` écrit `null` par défaut. `serialize()` sort donc les documents
-avec `nullStr: ""`, faute de quoi une pause ajoutée ici s'écrirait `- pause: null` à côté de
-celles déjà sur le disque — même sens, deux orthographes, et un diff sur chaque fichier touché.
+And a third detail, invisible until you write: a pause with no message is `- pause:`, whereas
+`yaml` writes `null` by default. `serialize()` therefore emits documents with `nullStr: ""`,
+without which a pause added here would be written `- pause: null` next to those already on disk —
+same meaning, two spellings, and a diff on every file touched.
 
-## Ce qui manque encore
+## What is still missing
 
-- **Réordonner les pistes** d'un morceau à plusieurs pistes (on peut en ajouter et en retirer,
-  pas les permuter).
-- **Renommer le fichier** d'une catégorie : le slug est fixé à la création. Le nom affiché,
-  lui, se change librement — c'est `name:`, pas le nom du fichier.
-- **Aucune validation d'ensemble** : rien ne signale une catégorie qu'aucune manche ne joue, ni
-  un morceau dont l'adresse ne répond plus. La plage d'une manche est vérifiée contre sa
-  catégorie, et c'est tout.
+- **Reordering the tracks** of a multi-track song (they can be added and removed, not permuted).
+- **Renaming a category's file**: the slug is fixed at creation. The displayed name changes
+  freely — that is `name:`, not the filename.
+- **No whole-file validation**: nothing flags a category no round plays, nor a song whose address
+  no longer answers. A round's range is checked against its category, and that is all.

@@ -1,11 +1,11 @@
-# La vue Mix lit une playlist
+# The Mix view reads a playlist
 
-La liste des morceaux vient de la **playlist que la surface nomme** — une ligne `playlist:`
-dans `surfaces/<desk>.yaml` — et non de tout le cache de la médiathèque sur la machine
-choisie. C'est ce qui fait que cette vue parle du projet ouvert comme les autres, et que
-l'arbre du projet y reste : il montre un projet que l'écran concerne.
+The song list comes from the **playlist the surface names** — a `playlist:` line in
+`surfaces/<desk>.yaml` — and not from the whole médiathèque cache on the chosen machine. That is
+what makes this view speak about the open project like every other one, and why the project tree
+stays beside it.
 
-## C'est un PARAMÈTRE de la surface
+## It is a PARAMETER of the surface
 
 ```yaml
 # surfaces/desk.yaml
@@ -15,117 +15,107 @@ playlist: ete-2026        # → <espace>/_playlists/ete-2026.yaml
 mapping: { … }
 ```
 
-Un **nom** et pas un chemin, pour la raison qu'un ref de module en est un : le dossier est
-fixe, donc l'épeler dans chaque déclaration donnerait à un fichier le droit de se tromper sur
-un emplacement que personne ne choisit. `playlistPathOf` fait la conversion, et refuse ce qui
-sortirait du dossier.
+A **name** and not a path, for the reason a module ref is one: the folder is fixed, so spelling
+it in each declaration would give a file the right to be wrong about a location nobody chooses.
+`playlistPathOf` does the conversion and refuses anything that would leave the folder.
 
-Et un paramètre de la SURFACE, pas du projet : c'est l'écran qui a un navigateur de morceaux,
-donc c'est lui qui doit dire dans quoi il fouille. Une `timeline` qui porterait la même ligne
-la verrait ignorée — le schéma la refuse plutôt, pour la raison qu'il est `.strict()` : un
-champ accepté et sans effet envoie celui qui l'a écrit chercher ailleurs.
+And a parameter of the SURFACE, not of the project: the screen with a song browser is the one
+that must say what it rummages in. A `timeline` carrying the same line would have it ignored —
+so the schema refuses it instead, being `.strict()`: a field accepted and inert sends whoever
+wrote it looking elsewhere.
 
-## Les repères ne sont pas dans la playlist
+## The cue points are not in the playlist
 
-Une playlist dit **quels** morceaux le set joue, et c'est le bon document pour ça : il a un
-écran (le cog de st0 l'ouvre) et il se partage entre plusieurs sets.
+A playlist says **which** songs the set plays, and it is the right document for that: it has a
+screen (st0's cog opens it) and it is shared between sets. What it has nowhere to put are *this*
+set's **cue points**, eight per song. A cue belongs to the desk playing the song and not to a
+list others read — two bands covering one title do not drop the needle in the same place, and a
+playlist carrying one set's marks would hand them to the other. So the cues live in
+**`mix.yaml`**, at the project root, under `cues:` ([cues.md](cues.md)).
 
-Ce qu'il n'a pas où mettre, ce sont les **repères** de ce set-là, huit par morceau. Un cue
-appartient au pupitre qui joue le morceau et non à une liste que d'autres lisent — deux groupes
-qui reprennent le même titre ne posent pas l'aiguille au même endroit, et une playlist qui
-porterait les marques de l'un les donnerait à l'autre. Les repères vivent donc dans
-**`mix.yaml`**, à la racine du projet, sous la clé `cues:` ([cues.md](cues.md)).
+## Two sources, and the playlist decides
 
-## Deux sources, et c'est la playlist qui décide
-
-| source | ce qu'elle dit |
+| source | what it says |
 |---|---|
-| la playlist nommée par la surface | **quels** morceaux sont sous la main ce soir |
-| `/mediatek/list?family=songs` du service de fichiers | lesquels cette machine sait jouer |
+| the playlist the surface names | **which** songs are to hand tonight |
+| `/mediatek/list?family=songs` on the file service | which of them this machine can play |
 
-`resolveItems` croise les deux — **la même fonction que l'écran des playlists de st0**
-(`@studio/mediatek/playlistItems`), et c'est le point : « le chemin d'abord, le nom ensuite »
-est une règle, et deux copies divergeraient le jour où l'une apprendrait un cas.
+`resolveItems` crosses the two — **the same function st0's playlist screen uses**
+(`@studio/mediatek/playlistItems`), and that is the point: "path first, name second" is a rule,
+and two copies would diverge the day one of them learnt a case.
 
-D'où le fait qu'une ligne puisse nommer une **variante** : `SetEntry.file` porte le fichier
-que la ligne demande, master ou pas. Lire `meta.master` directement ne saurait jouer que
-l'original, donc une setlist qui dit `instrumental` mettrait le mauvais disque devant un
-public.
+Hence a line may name a **variant**: `SetEntry.file` carries the file the line asks for, master
+or not. Reading `meta.master` directly could only ever play the original, so a set list saying
+`instrumental` would put the wrong record in front of an audience.
 
-## Trois états quand il n'y a pas de liste
+## Three states when there is no list
 
-| ce qui est vrai | ce que le pupitre dit |
+| what is true | what the desk says |
 |---|---|
-| la surface ne nomme aucune playlist | « ajoutez une ligne `playlist:` dans `surfaces/…` » |
-| elle en nomme une, absente du disque | « la playlist nommée par cette surface est introuvable » |
-| elle en nomme une, vide | rien : une setlist qu'on est en train de remplir |
+| the surface names no playlist | "add a `playlist:` line in `surfaces/…`" |
+| it names one that is not on disk | "the playlist this surface names cannot be found" |
+| it names one that is empty | nothing: a set list being filled in |
 
-Trois phrases parce que le geste qui répare diffère à chaque fois. Un navigateur vide sans
-explication se lit comme une médiathèque vide, ce qui envoie chercher au mauvais endroit.
+Three sentences because the repairing gesture differs each time. An empty browser with no
+explanation reads as an empty médiathèque, which sends you looking in the wrong place.
 
-## Où la liste se lit
+## Where the list is read
 
-Pas au milieu du pupitre : le set se choisit **au disque lui-même** — un clic au centre d'un
-vinyle ouvre le sélecteur ([songBrowser.md](songBrowser.md)) — et c'est déjà la seule façon de
-charger une platine. Une colonne qui répéterait ce que le disque sait prendrait la largeur que
-les platines veulent.
-
-Le croisement, les trois états et leurs phrases sont ceux de ce sélecteur, qui lit le même
+Not in the middle of the desk: a record is chosen **at the record itself** — a click at the
+centre of a vinyl opens the picker ([songBrowser.md](songBrowser.md)), which is already the only
+way to load a deck. A column repeating what the record knows would take the width the decks
+want. The crossing, the three states and their sentences are that picker's, reading the same
 `SetList`.
 
-## Une ligne qui ne se joue pas reste à l'écran
+## A line that cannot play stays on screen
 
-Un morceau nommé par la playlist et absent du cache **reste dans la liste**, en gris, avec son
-icône de téléchargement. C'est un état ordinaire : la synchro tire ce que la playlist du projet
-ouvert nomme (`mediatekPull`), donc un morceau ajouté il y a une minute est en route. Le faire
-disparaître rendrait un set auquel il manque trois morceaux identique à un set qui ne les a
-jamais eus — sur l'écran précisément où cette différence compte.
+A song the playlist names and the cache lacks **stays in the list**, greyed, with its download
+icon. That is an ordinary state: the sync pulls what the open project names (`mediatekPull`), so
+a song added a minute ago is on its way. Dropping it would make a set missing three songs look
+identical to a set that never had them, on the one screen where that difference matters most.
 
-Les raisons pour lesquelles le bouton Jouer ne marche pas sont donc dites séparément : pas
-encore dans le cache, dossier catalogué sans audio, variante que le dossier n'a pas, aucun
-moteur sur cette machine.
+The reasons Play does not work are therefore said separately: not in the cache yet, catalogued
+folder with no audio, a variant the folder has not got, no engine on this machine.
 
-## Le doublon, lui, est retiré
+## A duplicate, though, is removed
 
-Une playlist peut légitimement nommer deux fois le même morceau — l'écran de st0 dessine les
-deux rangées, parce que là c'est un document qu'on édite. Ici c'est un **navigateur** : deux
-rangées identiques sont deux chances de charger le même disque sans savoir lequel on a eu.
+A playlist may legitimately name the same song twice — st0's screen draws both rows, because
+there it is a document being edited. Here it is a **browser**: two identical rows are two chances
+to load the same record without knowing which one you got.
 
-La variante fait partie de l'identité : le master d'un morceau et son instrumental sont deux
-disques, et les confondre en jetterait un des deux.
+The variant is part of the identity: a song's master and its instrumental are two records, and
+conflating them would throw one away.
 
-## Glisser une ligne sur une platine
+## Dragging a line onto a deck
 
-Le panneau **playlist de st0** — celui de la roue dentée, ancré à droite — peut rester ouvert
-pendant qu'une surface `turntables` est à l'écran. Ses rangées sont donc `draggable`, et chaque
-platine est une **zone de dépôt**, la tranche et les potards compris : viser l'étiquette du
-vinyle est un geste de souris posée, pas de main qui traverse l'écran.
+st0's **playlist panel** — the cog's, docked right — can stay open while a `turntables` surface
+is on screen. Its rows are therefore `draggable`, and each deck is a **drop zone**, strip and
+knobs included: aiming at the vinyl's label is a gesture for a settled mouse, not for a hand
+crossing the screen.
 
-**Ce qui voyage est la LIGNE, pas le morceau résolu.** `SongDrag` porte les deux champs qu'une
-ligne de playlist *est* — `song` et, quand elle en nomme une, `variant` — et le pupitre les
-résout contre sa propre set list, exactement comme il a résolu les autres. Faire voyager l'entrée
-de médiathèque déjà résolue reviendrait à laisser une autre moitié de l'application décider ce
-qui monte sur la platine, avec sa propre idée du fichier à jouer ; la ligne, elle, ne peut mentir
-que sur elle-même. C'est aussi ce qui fait que le doublon et la variante gardent ici le sens
-qu'ils ont plus haut : `entryKey` est la même identité des deux côtés.
+**What travels is the LINE, not the resolved song.** `SongDrag` carries the two fields a playlist
+line *is* — `song` and, when it names one, `variant` — and the desk resolves them against its own
+set list, exactly as it resolved the others. Sending the already-resolved médiathèque entry would
+let another half of the application decide what goes on the deck, with its own idea of the file
+to play; the line can only lie about itself. It is also what keeps duplicate and variant meaning
+here what they mean above: `entryKey` is the same identity on both sides.
 
-Le format est **notre propre MIME** (`application/x-studio-song`) plutôt que `text/plain` : un
-navigateur laisse tomber sur une page à peu près n'importe quoi — un fichier, une URL, un
-morceau de texte sélectionné — et une platine qui accepterait `text/plain` chargerait ce que
-l'utilisateur vient de copier ailleurs. `parseSongDrag` refuse en plus tout ce qui n'est pas la
-forme attendue : le contenu d'un transfert est écrit par la page d'où il vient.
+The format is **our own MIME** (`application/x-studio-song`) rather than `text/plain`: a browser
+will drop almost anything onto a page — a file, a URL, a piece of selected text — and a deck
+accepting `text/plain` would load whatever the user last copied elsewhere. `parseSongDrag`
+further refuses anything that is not the expected shape: the content of a transfer is written by
+the page it came from.
 
-**Un morceau que cette surface ne connaît pas est refusé par son nom.** Le panneau montre la
-playlist qu'on est en train d'éditer, qui n'est pas forcément celle que la surface nomme — et
-c'est un cas fréquent, pas une erreur de programmation. Le dépôt le dit dans la carte d'erreur
-de la vue plutôt que de ne rien faire, parce qu'un geste qui échoue en silence se relit comme
-un bug du glisser-déposer.
+**A song this surface does not know is refused by name.** The panel shows the playlist being
+edited, which is not necessarily the one the surface names — a frequent case, not a programming
+error. The drop says so in the view's error card rather than doing nothing, because a gesture
+that fails silently reads as a bug in drag-and-drop.
 
-## Ce qui joue, une fois la ligne choisie
+## What plays, once the line is chosen
 
-Le document **compilé** du projet, dans lequel `withDecks` pose les clips des deux platines —
-donc les vraies chaînes du set, crossfade compris. Un module `jsdsp` est un graphe cuit dans le
-document par le compilateur, qui exécute la source du module dans un processus fils : le
-navigateur ne peut pas en produire un, et `deckDoc` n'est que le tenant-lieu d'une piste par
-platine tant que la compilation n'est pas là. Voir [mix.md](mix.md) et
+The project's **compiled** document, into which `withDecks` places both decks' clips — so the
+set's real chains, crossfade included. A `jsdsp` module is a graph baked into the document by the
+compiler, which runs the module's source in a child process: the browser cannot produce one, and
+`deckDoc` is only a stand-in of one track per deck until the compile arrives. See
+[mix.md](mix.md) and
 [packages/song/docs/setProject.md](../../song/docs/setProject.md).

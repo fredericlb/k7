@@ -1,88 +1,85 @@
-# Le filtre DJ — un potard, deux filtres, et une résonance qui voyage
+# The DJ filter — one knob, two filters, and a travelling resonance
 
-`modules/audio/filter/sweep/` et `packages/dsp/src/sweep.ts` sont le même graphe écrit deux fois :
-un module est un **dossier qu'on copie**, donc il porte sa propre source plutôt qu'un renvoi vers
-la bibliothèque, et `packages/dsp/src/sweep.test.ts` tient les deux à la même forme.
+`modules/audio/filter/sweep/` and `packages/dsp/src/sweep.ts` are the same graph written twice: a
+module is a **folder you copy**, so it carries its own source rather than a pointer at the library,
+and `packages/dsp/src/sweep.test.ts` holds the two to the same shape.
 
-Un seul potard qui descend un coin **résonant** vers la gauche et le remonte vers la droite, muet au
-milieu. Cette page tient les nombres et les raisons ; le code n'en garde qu'une ligne chacun.
+One knob that walks a **resonant** corner down to the left and up to the right, silent in the
+middle. This page holds the numbers and the reasons; the code keeps one line of each.
 
-## Un potard, parce qu'un pupitre n'en donne qu'un
+## One knob, because a desk gives only one
 
-Une commande de pupitre pilote **au plus un paramètre**
-(`packages/song/docs/viewBindings.md`), donc « passe-bas ou passe-haut » ne peut pas être un second
-réglage. Les deux filtres sont donc toujours dans la chaîne et ce qui bouge est l'endroit où chacun
-se tient — ce qui est aussi la façon dont marche le matériel que ça imite. Le paramètre est signé,
-−100..+100, pour que la position neutre soit le **milieu de la course** et pas un bout.
+A desk control drives **at most one parameter**
+(`packages/song/docs/viewBindings.md`), so "low-pass or high-pass" cannot be a second setting. Both
+filters are therefore always in the chain and what moves is where each one stands — which is also
+how the hardware this imitates works. The parameter is signed, −100..+100, so the neutral position
+is the **middle of the travel** and not an end.
 
-## La résonance est toute la différence avec un correcteur de tonalité
+## The resonance is the whole difference from a tone control
 
-Un coin plat qui glisse sur un morceau ne fait que l'assourdir, progressivement et sans intérêt :
-« un filtre normal ». Le swoosh est un **pic qui voyage avec le coin**, et le pic est l'effet.
+A flat corner sliding across a track only dulls it, gradually and without interest: "a normal
+filter". The swoosh is a **peak travelling with the corner**, and the peak is the effect.
 
-| | valeur | pourquoi |
+| | value | why |
 |---|---|---|
-| `Q_REST` | `0.707` | Butterworth, maximalement plat : un filtre qui ne fait rien ne colore rien non plus |
-| `Q_MAX` | `6` | mesuré : à `Q = 4` il ne restait qu'environ +4 dB au coin une fois que l'étage plat au-dessous avait pris ses 3 dB — audible, mais ce n'est pas ce que quiconque appelle un balayage de filtre |
+| `Q_REST` | `0.707` | Butterworth, maximally flat: a filter doing nothing colours nothing either |
+| `Q_MAX` | `6` | measured: at `Q = 4` only about +4 dB was left at the corner once the flat stage below had taken its 3 dB — audible, but nobody calls that a filter sweep |
 
-À mi-course, `Q = 6` donne **+3,9 dB au coin et −21 dB une octave et demie plus haut**.
+At mid-travel, `Q = 6` gives **+3.9 dB at the corner and −21 dB an octave and a half above**.
 
-La rampe compte autant que la valeur : un filtre résonant en permanence sonne même garé hors du
-chemin, et un filtre plat en permanence est le « filtre normal » que celui-ci remplace.
+The ramp counts as much as the value: a permanently resonant filter rings even parked out of the
+way, and a permanently flat one is the "normal filter" this replaces.
 
-**Chaque moitié a sa propre résonance.** En partager une laisserait le passe-haut résonner à 20 Hz
-pendant que quelqu'un descend le passe-bas — un pic garé sur le grave, c'est-à-dire un boum que
-personne n'a demandé.
+**Each half has its own resonance.** Sharing one would leave the high-pass resonating at 20 Hz
+while someone walks the low-pass down — a peak parked on the bass, that is, a boom nobody asked
+for.
 
-## Les bornes du balayage
+## The sweep bounds
 
-| | ouvert | fermé |
+| | open | closed |
 |---|---|---|
-| `LOW_SWEEP` (passe-bas, moitié gauche) | 20 kHz | 30 Hz |
-| `HIGH_SWEEP` (passe-haut, moitié droite) | 20 Hz | 10 kHz |
+| `LOW_SWEEP` (low-pass, left half) | 20 kHz | 30 Hz |
+| `HIGH_SWEEP` (high-pass, right half) | 20 Hz | 10 kHz |
 
-Au repos les deux coins sont **hors de la matière** : 20 kHz est au-dessus de tout ce qu'il y a dans
-un morceau, 20 Hz au-dessous. L'effet est donc éteint parce qu'il est **inaudible**, pas parce qu'il
-est court-circuité — il n'y a pas de bypass dans ce vocabulaire, et un module qu'il faut retirer
-pour qu'il se taise est un module qu'une chaîne ne peut pas automater à partir de rien.
+At rest both corners are **outside the material**: 20 kHz is above anything in a track, 20 Hz
+below. The effect is off because it is **inaudible**, not because it is bypassed — there is no
+bypass in this vocabulary, and a module you have to remove to silence it is a module a chain cannot
+automate from nothing.
 
-Ça ferme **beaucoup plus loin** qu'un correcteur de tonalité. Un filtre qui s'arrêterait quelques
-centaines de hertz plus bas laisse un boum boueux ; un filtre DJ est censé emporter le morceau, et
-la dernière partie de la course — là où il ne reste que le pic à siffler — est celle qu'on utilise
-vraiment.
+It closes **far further** than a tone control. A filter stopping a few hundred hertz higher leaves
+a muddy boom; a DJ filter is meant to carry the track away, and the last part of the travel — where
+only the peak is left whistling — is the part actually used.
 
-## La paire est ASCENDANTE, et c'est le trajet qu'on inverse
+## The pair is ASCENDING, and it is the journey that is reversed
 
-Jamais `geolerp(20000, 30, down)`. Le moteur trie les bornes d'un `geolerp`, donc une paire
-descendante se lit comme son propre miroir : écrite de la façon évidente, elle pose ce filtre à
-30 Hz **au repos** et l'ouvre quand on balaie, c'est-à-dire le silence avec le potard au neutre —
-mesuré à −62 dBFS contre un témoin à −24 dBFS. Le constructeur refuse cette paire
-(`docs/builder.md`), et le test épingle en plus la forme écrite ici, parce qu'un graphe pourrait
-être réécrit de façon à passer la garde et à balayer quand même à l'envers.
+Never `geolerp(20000, 30, down)`. The engine sorts a `geolerp`'s bounds, so a descending pair reads
+as its own mirror: written the obvious way it parks this filter at 30 Hz **at rest** and opens it
+when you sweep — that is, silence with the knob neutral, measured at −62 dBFS against a −24 dBFS
+control. The builder refuses that pair ([builder.md](builder.md)), and the test additionally
+pins the form written here, because a graph could be rewritten so as to pass the guard and still
+sweep backwards.
 
-`glide` sur les deux coins : un biquad recalcule ses coefficients **par bloc**, et c'est un potard
-qu'on jette — un saut entre deux blocs est un clic, et un balayage de sauts est le bruit de
-fermeture éclair qui fait sonner un filtre comme cassé plutôt que rapide.
+`glide` on both corners: a biquad recomputes its coefficients **per block**, and this is a knob you
+throw — a jump between two blocks is a click, and a sweep of jumps is the zipper noise that makes a
+filter sound broken rather than fast.
 
-## Deux étages par côté, dont un seul résonne
+## Two stages per side, only one of them resonant
 
-24 dB/octave plutôt que 12 : une paire de pôles assourdit, deux sont le mur qu'un filtre DJ dresse,
-et c'est ce qui fait que le dernier tiers de la course sonne comme un retrait et non comme une
-couverture. Les deux étages d'un côté **partagent un coin** — deux étages à des fréquences
-différentes n'est pas une pente.
+24 dB/octave rather than 12: one pole pair dulls, two are the wall a DJ filter raises, and that is
+what makes the last third of the travel sound like a removal and not a blanket. The two stages of
+one side **share a corner** — two stages at different frequencies is not a slope.
 
-Le premier de chaque paire reste **plat** et seul le second résonne : deux étages résonants à une
-même fréquence multiplient leurs pics — Q² — ce qui donne un filtre qui hurle avant de balayer.
+The first of each pair stays **flat** and only the second resonates: two resonant stages at the
+same frequency multiply their peaks — Q² — giving a filter that screams before it sweeps.
 
-## Le trim, en dernier
+## The trim, last
 
-`SWEEP_TRIM = 0.7`, soit −3 dB aux extrêmes, et il vient **après** les étages pour reprendre une
-part de ce qu'ils viennent d'ajouter.
+`SWEEP_TRIM = 0.7`, i.e. −3 dB at the extremes, and it comes **after** the stages to take back part
+of what they just added.
 
-Mesuré, pas deviné, et l'excès est le piège. Une rampe jusqu'à −6 dB mange le pic exactement là où
-le pic est le sujet : du bruit blanc à mi-course ne montre alors plus que +1,2 dB au coin. Et il
-n'y a pas d'écrêtage contre quoi se protéger — à ce réglage le filtre enlève déjà 14 dB au signal
-entier.
+Measured, not guessed, and excess is the trap. A ramp down to −6 dB eats the peak exactly where the
+peak is the point: white noise at mid-travel then shows only +1.2 dB at the corner. And there is no
+clipping to guard against — at that setting the filter already takes 14 dB off the whole signal.
 
-Ce qui reste est assez pour qu'un `Q` de 6 assis sur un coup de grosse caisse à 30 Hz ne coûte pas
-son master à quelqu'un, et assez petit pour que le swoosh y survive.
+What is left is enough that a `Q` of 6 sitting on a 30 Hz kick does not cost someone their master,
+and small enough that the swoosh survives it.

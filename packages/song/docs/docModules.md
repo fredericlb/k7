@@ -6,8 +6,8 @@ A note is a module. One input, no output, one field:
 # nodes/notes-amp.yaml
 extends: "@studio/doc"
 content: |
-  Le NAM tire fort : -6 dB avant,
-  sinon ça écrête sur les attaques.
+  The NAM pulls hard: -6 dB before it,
+  or it clips on the attacks.
 ```
 
 …wired from whatever it is about, like anything else:

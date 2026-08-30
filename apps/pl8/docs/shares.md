@@ -1,217 +1,198 @@
-# Les partages — pl8 héberge une copie gelée d'un projet
+# Shares — pl8 hosts a frozen copy of a project
 
-## D'abord : mais [projects.md](projects.md) dit que pl8 ne stocke rien de lourd
+## A share is not a copy of a repository
 
-C'est vrai. La règle qu'il pose est *« pl8 ne fait aucune copie d'un dépôt »* : la copie qu'on
-édite, qu'on joue et qu'on committe vit sur la machine du moteur, et « qu'est-ce qu'il y a
-dedans » est une question qu'on pose à cette machine.
+[projects.md](projects.md) holds that *pl8 makes no copy of a repository*: the clone one edits,
+plays and commits lives on the engine's machine, and "what is in there" is a question asked of
+that machine. A share is a different object:
 
-Un partage n'est pas une copie d'un dépôt, et c'est toute la différence :
-
-|  | ce que pl8 tient d'un dépôt | un partage |
+|  | what pl8 holds of a repository | a share |
 |---|---|---|
-| ce que c'est | son NOM et son URI, une entrée de registre | **l'original**, et le seul |
-| qui peut le refaire | l'inscrire à nouveau coûte un collage | personne — le rendu a eu lieu une fois |
-| ce qu'on y écrit | rien | rien non plus : il est gelé à la seconde où il arrive |
-| quand ça part | quand on retire le dépôt de sa liste | quand son auteur le retire, et jamais avant |
+| what it is | its NAME and its URI, a registry entry | **the original**, and the only one |
+| who can remake it | re-registering costs a paste | nobody — the render happened once |
+| what is written to it | nothing | nothing either: frozen the second it lands |
+| when it goes | when the repository leaves its list | when its author removes it, and never before |
 
-Un partage est **du contenu publié**, exactement comme une release k7 ou un morceau de la
-médiathèque — deux choses que ce service héberge déjà et dont il est déjà la seule copie. Ce que
-`projects.md` refuse, c'est que pl8 devienne **écrivain des dépôts de tout le monde** : *« un
-changement de posture de sécurité, pas une fonctionnalité »*. Servir des octets figés que
-quelqu'un lui a envoyés ne touche à rien de ça — pl8 ne pousse toujours dans aucun dépôt, ne
-détient toujours aucune copie de travail, et un partage effacé ne fait perdre que lui-même : le
-projet, lui, est intact sur la machine qui l'a rendu.
+A share is **published content**, like a k7 release or a track in the media library — things this
+service already hosts and is already the only copy of. What `projects.md` refuses is pl8 becoming
+**the writer of everyone's repositories**, a change of security posture rather than a feature, and
+serving frozen bytes someone sent touches none of it: pl8 pushes into no repository, holds no
+working copy, and a deleted share loses only itself. The real price is not posture, it is
+**disk**, and it is measured below.
 
-Le prix réel n'est donc pas la posture, c'est **la place** — et il est mesuré plus bas.
+## What a share is
 
-## Ce qu'un partage est
+A **frozen** version of a project, with no engine behind it. Everything audible is rendered in
+advance: the mixdown, plus one file per audible track. The visitor opens st0 read-only, listens,
+looks at the chains and the module parameters, and can break nothing because no process is waiting
+behind to execute anything.
 
-Une version **gelée** d'un projet, sans moteur derrière. Tout ce qui s'entend a été rendu à
-l'avance : le mixdown, plus un fichier par piste audible. Le visiteur ouvre st0 en lecture seule,
-écoute, regarde les chaînes et les paramètres des modules, et ne peut rien casser parce qu'il n'y
-a rien à casser — aucun processus n'attend derrière pour exécuter quoi que ce soit.
+How the bundle is built and why it holds what it holds is opposite, in
+[`packages/commands/docs/shareBundle.md`](../../../packages/commands/docs/shareBundle.md). This
+page is only what pl8 does with it.
 
-Comment le paquet est fabriqué et pourquoi il contient ce qu'il contient est écrit en face, dans
-[`packages/commands/docs/shareBundle.md`](../../../packages/commands/docs/shareBundle.md). Cette
-page-ci ne parle que de ce que pl8 en fait.
-
-## Deux identifiants, et un seul touche un chemin
+## Two identifiers, and only one touches a path
 
 ```
-token = randomBytes(32).base64url     43 caractères, le secret dans le lien
-key   = sha256(token)                 64 caractères hexadécimaux, le nom du dossier
+token = randomBytes(32).base64url     43 characters, the secret in the link
+key   = sha256(token)                 64 hex characters, the folder name
 ```
 
-Le token n'est **jamais** un segment de chemin. Un segment de chemin finit dans chaque journal
-d'accès, chaque `Referer`, chaque message d'erreur d'un proxy — et le lien EST la totalité de la
-protection. La clé, elle, ne sert à rien à qui ne l'a pas obtenue en hachant un token qu'il
-possédait déjà.
+The token is **never** a path segment. A path segment ends up in every access log, every
+`Referer`, every proxy error message — and the link IS the whole of the protection. The key is
+useless to anyone who did not obtain it by hashing a token they already held.
 
-Le bénéfice secondaire est de la performance : un mauvais token nomme un dossier qui n'existe
-pas, donc la comparaison est un `ENOENT`, en O(1), sans index à charger. Ça compte parce que
-c'est le chemin de **chaque requête Range** qu'un `<audio>` émet en cherchant dans un morceau.
+The secondary benefit is speed: a bad token names a folder that does not exist, so the comparison
+is an `ENOENT`, O(1), with no index to load. That counts because it is the path of **every Range
+request** an `<audio>` emits while seeking through a track.
 
-`isKey` (`/^[0-9a-f]{64}$/`) est vérifié **avant** toute jonction. `safePath` reste le second mur
-et pas le premier : il confine à la racine de la médiathèque, donc `../../songs/private.wav`
-depuis `.shares/` le passerait sans broncher.
+`isKey` (`/^[0-9a-f]{64}$/`) is checked **before** any join. `safePath` stays the second wall and
+not the first: it confines to the media library root, so `../../songs/private.wav` from `.shares/`
+would pass it without a murmur.
 
-## Où ça vit
+## Where it lives
 
 ```
-<médiathèque>/.shares/
-  index/<sub>.json          la liste d'une personne — un fichier par sujet OIDC
+<media library>/.shares/
+  index/<sub>.json          one person's list — one file per OIDC subject
   blobs/<key>/
-    pending.json            présent = le brouillon n'est pas fini, donc rien ne répond
-    snapshot.json           le manifeste — présent = le lien est vivant
+    pending.json            present = the draft is unfinished, so nothing answers
+    snapshot.json           the manifest — present = the link is live
     project-doc.json  graph.json  surfaces.json
     audio/mix.wav  audio/s0.mp3 …
 ```
 
-Un **dossier en point**, gratuitement invisible : `writablePath` refuse tout segment commençant
-par `.` et `revision.ts` ne les parcourt pas, donc `.shares/` n'apparaît dans aucune API fichier
-et dans aucun balayage de famille. `.prefs`, `.projects`, `.hunts` et `.cache` vivent là pour la
-même raison.
+A **dot folder**, invisible for free: `writablePath` refuses any segment starting with `.` and
+`revision.ts` does not walk them, so `.shares/` appears in no file API and no family sweep.
+`.prefs`, `.projects`, `.hunts` and `.cache` live there for the same reason.
 
-L'index est un petit JSON par personne, nommé par `fileFor(sub)` — exactement l'arrangement des
-préférences et des dépôts, et pour les mêmes raisons : il n'y a pas de base de données ici, et
-il n'en faut pas une pour une liste que son propriétaire est seul à lire.
+The index is a small JSON per person, named by `fileFor(sub)` — the arrangement of the preferences
+and the repositories, and for the same reason: there is no database here, and a list its owner
+alone reads needs none.
 
-**Les écritures de l'index lèvent**, là où les lectures ne lèvent jamais. Une lecture qui échoue
-veut dire « aucun partage », qui est un état réel. Une écriture qui échoue en silence veut dire
-un lien que son auteur s'apprête à distribuer et que ce service ne saura **pas révoquer** : les
-octets sont publics et le seul registre qui les connaissait vient de ne pas s'écrire.
+**Index writes throw**, where reads never do. A read that fails means "no shares", a real state. A
+write that fails in silence means a link its author is about to hand out and that this service
+will **not** know how to revoke: the bytes are public and the only register that knew them just
+failed to write.
 
-## Les routes, et la barrière
+## The routes, and the barrier
 
-`apps/pl8/backend/src/server.ts` monte, à la ligne 115 :
+`apps/pl8/backend/src/server.ts` mounts, at line 115:
 
 ```ts
 app.use("/api", requireAuth, preferencesRouter(…));
 ```
 
-Tout ce qui est monté sous `/api` **après** cette ligne hérite de la garde, silencieusement.
-`packages/engine-registry/mount.ts` documente déjà exactement ce piège. Les deux routeurs des
-partages sont donc montés **avant**, et gardés chacun explicitement :
+Everything mounted under `/api` **after** that line inherits the guard, silently;
+`packages/engine-registry/mount.ts` documents exactly that trap. The two share routers are
+mounted **before** it, each guarded explicitly:
 
-| route | garde |
+| route | guard |
 |---|---|
-| `POST /api/shares` (brouillon), `PUT /:key/file`, `POST /:key/finish` | `bearerOrSession(requireAuth)` |
-| `GET /api/shares`, `GET /revision`, `DELETE /:key` | la même — session en pratique |
-| `GET /api/public/share/:key/*` | **aucune** |
+| `POST /api/shares` (draft), `PUT /:key/file`, `POST /:key/finish` | `bearerOrSession(requireAuth)` |
+| `GET /api/shares`, `GET /revision`, `DELETE /:key` | the same — session in practice |
+| `GET /api/public/share/:key/*` | **none** |
 
-Le sens de la panne est heureusement le bon : un partage mal monté devient *inaccessible*, pas
-*public*. C'est écrit et testé — `routes/shares.test.ts` monte les routeurs **comme `server.ts`
-les monte**, barrière comprise et à sa vraie place. C'est le seul test qui attrapera le jour où
-quelqu'un réordonnera les `app.use`.
+The direction of failure is the right one: a badly mounted share becomes *unreachable*, not
+*public*. `routes/shares.test.ts` mounts the routers **the way `server.ts` mounts them**, barrier
+included and in its real place — the only test that catches the day someone reorders the `app.use`
+calls. It also exercises the `isKey` guard **directly** on `..`, `../..`, `%2E%2E`…, because a
+conforming client cannot send those cases: `fetch` resolves them away before a byte leaves. The
+wall is real, a raw socket can still aim at it, and the direct call is the only place it can be
+exercised.
 
-Le mot `public` **dans le chemin** est un commentaire qui survit à un refactor, et qu'on ne
-confond pas avec `/api/shares` à un caractère près.
+The word `public` **in the path** is a comment that survives a refactor, and is not confused with
+`/api/shares` by one character.
 
-Et tout est sous `/api/` parce que nginx ne proxifie que `^/(api|auth)/` : le reste est
-`try_files $uri /index.html`. Il n'y a pas de « hors de `/api` » sans toucher au proxy. Cette
-`location` porte déjà `proxy_buffering off` et `client_max_body_size 512m` — **aucun changement
-nginx des deux côtés**.
+Everything sits under `/api/` because nginx only proxies `^/(api|auth)/`: the rest is
+`try_files $uri /index.html`. There is no "outside `/api`" without touching the proxy. That
+`location` already carries `proxy_buffering off` and `client_max_body_size 512m` — **no nginx
+change on either side**.
 
-### Les `..` nus se testent en unitaire, pas en HTTP
+### The public router ends in a terminal 404
 
-`routes/shares.test.ts` exerce le garde `isKey` **directement** sur `..`, `../..`, `%2E%2E`… et
-c'est à savoir plutôt qu'à redécouvrir : un client conforme ne peut pas envoyer ces cas. `fetch`
-résout `/api/public/share/../manifest` en `/api/public/manifest` avant qu'un octet ne parte, et
-fait la même chose de `%2E%2E` — undici décode l'échappement d'abord. Le mur est donc réel, une
-socket brute peut encore le viser, et l'appel direct est le seul endroit où on peut l'éprouver.
+Express falls through when nothing matches. Without that 404, an unknown key travels on to
+`requireAuth` and answers **401** — "it exists but not for you" about something that does not
+exist, which is both false and a leak.
 
-### Le routeur public finit par un 404 terminal
+The rest of its posture is headers: `X-Robots-Tag: noindex, nofollow` everywhere (a secret link
+has no business in an index), `Referrer-Policy: no-referrer` (the token is in the address, so it
+must not travel as a `Referer` towards whatever the page loads), `no-store` on the manifest —
+revocation must be felt at the next load — and `immutable` on the bytes, a snapshot being
+unchanging by definition.
 
-Express retombe sur la suite quand rien ne matche. Sans ce 404, une clé inconnue traverserait
-jusqu'à `requireAuth` et répondrait **401** — « ça existe mais pas pour vous » à propos de
-quelque chose qui n'existe pas, ce qui est à la fois faux et une fuite.
+The manifest is also the **allow-list**: `/doc/:name` and `/audio/:file` do not look for a file,
+they look for a name **in the manifest** and serve what it designates. No request ever reaches a
+path it composed itself.
 
-Le reste de sa posture tient en trois en-têtes : `X-Robots-Tag: noindex, nofollow` partout
-(un lien secret n'a rien à faire dans un index), `Referrer-Policy: no-referrer` (le token est
-dans l'adresse, donc il ne doit pas voyager en `Referer` vers ce que la page charge),
-`no-store` sur le manifeste — la révocation doit se sentir au chargement suivant — et
-`immutable` sur les octets, puisqu'un instantané ne change pas, par définition.
+The extension there is **optional**, and that is what lets the reader be st0 unchanged: `fget`
+asks for `/project-doc` because that is the file service's route, and the snapshot calls the same
+bytes `project-doc.json` because a file needs a name. Accepting both spellings costs one `||`;
+teaching either side about the other would put a special case in the one place — the transport —
+that must stay ignorant of who answers.
 
-Le manifeste est aussi la **liste blanche** : `/doc/:name` et `/audio/:file` ne cherchent pas un
-fichier, ils cherchent un nom **dans le manifeste** et servent ce qu'il désigne. Aucune requête
-n'atteint jamais un chemin qu'elle a composé.
+## The upload is in three steps
 
-L'extension y est **facultative**, et c'est ce qui permet au lecteur d'être st0 tel quel : `fget`
-demande `/project-doc` parce que c'est la route du service de fichiers, et l'instantané appelle les
-mêmes octets `project-doc.json` parce qu'un fichier a besoin d'un nom. Accepter les deux
-orthographes ici tient en un `||` ; apprendre à l'un des deux côtés l'existence de l'autre aurait
-été un cas particulier dans le seul endroit — le transport — qui doit rester ignorant de qui
-répond.
+pl8 does no multipart: `PUT /api/mediatek/file`, `POST /song`, `POST /recording` are all
+`express.raw({type:"*/*", limit:"512mb"})` — *a 400 MB master has no business inside a form
+parse* — and the global `express.json` is at 8 MB. Hence:
 
-## L'envoi est en trois temps
+1. **draft** — `POST /api/shares`, the manifest as JSON: mints the secret, creates the folder,
+   writes `pending.json` with the list of what is expected;
+2. **one raw `PUT` per file**, whose `?path=` is **matched** against that list, never sanitised:
+   the draft said what it would send, and everything else is not part of this snapshot;
+3. **`finish`** — writes `snapshot.json`, deletes `pending.json`, and **re-measures the sizes on
+   disk** instead of believing the draft. What the link serves is what arrived.
 
-pl8 ne fait pas de multipart : `PUT /api/mediatek/file`, `POST /song`, `POST /recording` sont
-tous `express.raw({type:"*/*", limit:"512mb"})` — *un master de 400 Mo n'a rien à faire dans un
-parse de formulaire* — et l'`express.json` global est à 8 Mo. D'où :
+`finish`, and it alone, makes the link live: an interrupted upload is never reachable, and a stray
+`pending.json` is housekeeping rather than a leak.
 
-1. **brouillon** — `POST /api/shares`, le manifeste en JSON. Frappe le jeton, mint le secret,
-   crée le dossier, écrit `pending.json` avec la liste de ce qui est attendu ;
-2. **un `PUT` brut par fichier**, dont le `?path=` est **apparié** à cette liste, jamais
-   assaini : le brouillon a dit ce qu'il enverrait, et tout le reste ne fait pas partie de cet
-   instantané ;
-3. **`finish`** — écrit `snapshot.json`, efface `pending.json`, et **remesure les tailles sur le
-   disque** au lieu de croire le brouillon. Ce que le lien sert est ce qui est arrivé.
+The token is the **machine's** (`service:st0`, the one `npm run tokens` already writes for library
+fetching). A service token has no person of its own, so **each** of the three calls names one with
+`?user=` — the bargain [`sshKeyForService.md`](sshKeyForService.md) documents: whoever holds a
+machine's token can act for anyone on it.
 
-C'est `finish`, et lui seul, qui rend le lien vivant : un envoi interrompu n'est donc jamais
-atteignable, et un `pending.json` qui traîne est du ménage, pas une fuite.
+## Revoking
 
-Le jeton est celui de la **machine** (`service:st0`, celui que `npm run tokens` écrit déjà pour la
-récupération des bibliothèques). Un jeton de service n'a pas de personne à lui, donc **chacun**
-des trois appels nomme la sienne avec `?user=` — c'est le même marché que
-[`sshKeyForService.md`](sshKeyForService.md) documente : qui détient le jeton d'une machine peut
-agir pour quiconque est dessus.
+In st0, on its home page, **on the row of the project it came from**: a "Shares" button opening
+that project's popin (`apps/st0/frontend/src/projects/ProjectShares.tsx`, the split being
+`sharesForProject.ts`). Both ends of a share are st0 — it renders the bundle and sends it here,
+and it takes it back.
 
-## Révoquer
+**The bytes go first, the index is marked after.** That order is everything: deleting the folder
+is what kills a leaked link, and it must depend on no write that follows. Idempotent, because a
+second click is not an error.
 
-Dans st0, sur sa page d'accueil, **à la rangée du projet dont il sort** : un bouton « Partages »
-qui ouvre la popin de ce projet-là (`apps/st0/frontend/src/projects/ProjectShares.tsx`, le
-découpage étant `sharesForProject.ts`). Les deux bouts d'un partage sont donc st0 : c'est lui
-qui rend le paquet et l'envoie ici, et lui qui le retire. Ce qui appartient à ce service est ce
-que cette page décrit — les octets, l'index, les routes.
+**The row survives, dated.** A share that vanished from the list would leave its author wondering
+whether it ever existed, and the sizes stay readable. The token is **erased from the register**: a
+revoked row cannot be copied back off the screen that still draws it.
 
-**Les octets partent d'abord, l'index est marqué ensuite.** Cet ordre est tout : effacer le
-dossier est ce qui tue un lien qui a fuité, et ça ne doit dépendre d'aucune écriture qui suit.
-Idempotent, parce qu'un second clic n'est pas une erreur.
+The confirmation names the two things that surprise: the bytes go at once and for good, and **a
+link already sent cannot be un-sent** — it answers "not found" to everyone holding it, which is
+the point, but republishing gives a *new* link. The address itself is drawn as a **link** and not
+a button, because opening it is the only way to check what the others see;
+`rel="noopener noreferrer"`, the page opposite being public.
 
-**La ligne survit, datée.** Un partage qui disparaîtrait de la liste laisserait son auteur se
-demander s'il a jamais existé — et les tailles restent lisibles. Le token, lui, est **effacé du
-registre** : une ligne révoquée ne peut pas être recopiée depuis l'écran où elle est encore
-dessinée.
+## The risk with no ceiling
 
-Ce que la confirmation dit nomme les deux choses qui surprennent : les octets s'en vont tout de
-suite et pour de bon, et **un lien déjà envoyé ne se dé-envoie pas** — il répondra « introuvable »
-à tous ceux qui l'ont, ce qui est le but, mais republier donnera un lien *nouveau*.
+A bundle built on a real song — twelve tracks, `01.danse.st0` — weighs **484 MB** in wav. With no
+expiry, on the volume that also carries everyone's media library. At that rate the failure is not
+"shares stop working": it is "the studio goes read-only".
 
-L'adresse est dessinée comme un **lien** et pas comme un bouton : c'est ce qu'on a envoyé aux
-autres, et la seule façon de vérifier ce qu'ils voient est de l'ouvrir. `rel="noopener
-noreferrer"`, la page d'en face étant publique.
+Settled by measurement: **the stems are mp3**, the mixdown stays wav because it is the only file
+one downloads. About thirty times smaller, and a phone stops pulling 37 MB back to unmute a track.
 
-## Le risque qui n'a pas de plafond
+Two defences are deliberately **not** taken:
 
-Un paquet construit sur un vrai morceau — douze pistes, `01.danse.st0` — pèse **484 Mo** en wav.
-Sans expiration, sur le volume qui porte aussi la médiathèque de tout le monde. La panne, à ce
-compte-là, n'est pas « le partage ne marche plus » : c'est « le studio passe en lecture seule ».
+- **the total is shown** at the head of the card — the cost is visible without anything being
+  forbidden, and it is the only thing that can make someone decide to remove one, since none will
+  leave on its own;
+- **there is no per-author quota.** It stays the defence to take if this overflows, and it belongs
+  to the **draft**: learning about a 507 at the 400th megabyte is the worst possible place to
+  learn it.
 
-Tranché par la mesure : **les stems sont en mp3**, le mixdown reste en wav parce que c'est le
-seul fichier qu'on télécharge. Environ trente fois plus petit, et un téléphone cesse de
-rapatrier 37 Mo pour démuter une piste.
+## What only a deployment measures
 
-Deux parades ne sont **pas** prises, et c'est délibéré :
-
-- **le total est affiché** en tête de la carte — le coût se voit sans que rien ne soit interdit,
-  et c'est la seule chose qui peut faire décider d'en retirer un, puisqu'aucun ne s'en ira seul ;
-- **il n'y a pas de quota par auteur.** Ça reste la parade à prendre si ça déborde, et elle
-  appartient au **brouillon** : apprendre un 507 au 400ᵉ mégaoctet est le pire endroit possible
-  pour l'apprendre.
-
-## Ce qui se mesure en déployant
-
-Le streaming public de vrais fichiers audio derrière le proxy. `proxy_buffering off` est posé
-pour la médiathèque, mais un lien partagé est le seul usage **non authentifié** de ce chemin, et
-ça ne se vérifie pas depuis une machine de développement.
+Public streaming of real audio files behind the proxy. `proxy_buffering off` is set for the media
+library, but a shared link is that path's only **unauthenticated** use, and that cannot be checked
+from a development machine.

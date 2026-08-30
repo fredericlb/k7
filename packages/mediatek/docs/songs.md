@@ -1,221 +1,205 @@
-# song.ts — notes étendues
+# song.ts — extended notes
 
-Vocabulaire : le **stockage** et le **code** sont en anglais (`songs/`, `song.yaml`,
-`addSong`), la **prose** et l'**interface** sont en français. Ce que `songs/` contient
-s'appelle un **morceau**, et l'onglet s'appelle « Morceaux » à l'écran.
+Vocabulary: **storage** and **code** are in English (`songs/`, `song.yaml`, `addSong`), **prose** and
+the **interface** are in French. What `songs/` holds is a **morceau**, and the tab reads
+« Morceaux » on screen.
 
-## `songs/` ne s'édite pas à la main
+## `songs/` is not hand-edited
 
-Les deux autres familles se laissent manipuler comme un dossier : l'arbre de la
-médiathèque y crée, renomme, déplace, supprime. `songs/` ne fait que **supprimer un
-morceau** et **en garnir un** — sa forme est une règle, pas une convention :
+The other two families behave like a folder: the mediatek tree creates, renames, moves and deletes
+in them. `songs/` only **deletes a song** and **fills one** — its shape is a rule, not a convention:
 
 ```
-songs/<artiste>/<album>/<titre>/original.<ext>
-                                song.yaml
+songs/<artist>/<album>/<title>/original.<ext>
+                               song.yaml
 ```
 
-Le scan part de la racine de la famille, s'arrête au premier dossier qui porte un
-`song.yaml` ou un fichier audio, et prend ce dossier pour une entrée. Un dossier créé à la
-main au mauvais niveau ne produit donc pas une entrée mal rangée : il produit une entrée
-invisible, ou pire, il avale les dossiers en dessous de lui.
+The scan starts at the family root, stops at the first folder carrying a `song.yaml` or an audio
+file, and takes that folder for an entry. A folder created by hand at the wrong level therefore does
+not produce a badly filed entry: it produces an invisible one, or worse, it swallows the folders
+below it.
 
-D'où le bouton, et d'où le fait qu'il soit la **seule** façon d'entrer dans cette
-famille : on envoie trois champs, la bibliothèque construit le chemin.
+Hence the button, and hence its being the **only** way into this family: you send three fields, the
+library builds the path.
 
-### Sortir, en revanche, se fait au clic droit
+### Leaving, though, is a right-click
 
-Ce qui est interdit à l'arbre, c'est de **poser** quelque chose là où les tags n'ont rien
-demandé : créer, renommer, déplacer. Retirer un morceau ne dit rien sur la forme — le
-dossier part en entier, avec son master et son sidecar, et il ne reste rien à mal ranger.
-Sans cette entrée, c'est la seule opération qui obligerait à quitter l'application pour aller
-sur le volume, ce qui est cher payé pour un import raté.
+What the tree is forbidden is **placing** something where the tags asked for nothing: create,
+rename, move. Removing a song says nothing about the shape — the folder goes whole, master and
+sidecar with it, and nothing is left to misfile. Without this entry it would be the one operation
+forcing you to leave the application for the volume, which is dear for a failed import.
 
-### …et ajouter une variante ne pose rien non plus
+### …and adding a variant places nothing either
 
-L'autre entrée du menu, « Ajouter une variante… », écrit **dans** un morceau qui existe
-déjà : un fichier audio à côté du master, et la ligne de `song.yaml` qui le déclare. Le
-même geste marche en déposant le fichier sur la ligne du morceau. Rien de tout cela ne
-choisit un chemin — le dossier est celui sur lequel on a cliqué, le nom du fichier est
-déduit de ce qui est envoyé — donc la règle du dessus tient toujours. Voir
+The other menu entry, « Ajouter une variante… », writes **inside** a song that already exists: an
+audio file beside the master, and the `song.yaml` line declaring it. The same gesture works by
+dropping the file on the song's row. None of it chooses a path — the folder is the one clicked, the
+file name is derived from what is sent — so the rule above still holds. See
 [variants.md](variants.md).
 
-### Ces deux entrées, et seulement sur la bonne ligne
+### Those two entries, and only on the right row
 
-Le menu contextuel de la famille n'a donc que ces deux entrées, et aucune n'apparaît
-ailleurs que sur la ligne qui **est** un morceau : au-dessus se trouvent l'artiste et
-l'album, qui sont des segments déduits des tags et non des dossiers que quelqu'un a faits —
-les supprimer emporterait tout ce qu'il y a dessous, et une variante d'un album ne veut
-rien dire. Sur ces lignes-là aucun menu ne s'ouvre du tout, le menu du navigateur reprend
-la main (voir `commons/packages/ui/docs/file-tree.md`).
+The family's context menu therefore has only these two, and neither appears anywhere but on the row
+that **is** a song: above it are the artist and the album, segments derived from tags rather than
+folders someone made — deleting them would take everything below, and a variant of an album means
+nothing. On those rows no menu opens at all and the browser's own takes over (see
+`commons/packages/ui/docs/file-tree.md`).
 
-Ce qui est verrouillé est l'**arborescence**, pas le contenu : `song.yaml` s'édite comme
-n'importe quel YAML, dans l'écran scindé que pl8 ouvre en cliquant un morceau (voir
-`apps/pl8/docs/songPlayer.md`). Le sidecar est la vérité — le titre affiché, le tempo, les
-variantes — et le dossier n'est qu'une adresse ; corriger l'un ne déplace donc rien.
+What is locked is the **tree**, not the content: `song.yaml` edits like any YAML, in the split
+screen pl8 opens on clicking a song (see `apps/pl8/docs/songPlayer.md`). The sidecar is the truth —
+the displayed title, the tempo, the variants — and the folder is only an address; correcting one
+therefore moves nothing.
 
-## Pas de niveau de provenance — trois segments, jamais quatre
+## No provenance level — three segments, never four
 
-L'arborescence ne porte pas de quatrième niveau tout en haut — `imported/` pour le master de
-quelqu'un d'autre, `recorded/` pour ce que le studio a produit. Deux raisons, dans cet ordre :
+The tree carries no fourth level at the top — `imported/` for someone else's master, `recorded/` for
+what the studio produced. Two reasons, in this order:
 
-1. **Il séparerait la mauvaise chose.** Ce qui mérite d'être à part, ce n'est pas « qui a
-   produit ce master » mais « est-ce que c'est catalogué ou est-ce que c'est de la matière
-   brute ». Et cette séparation-là existe déjà : `recordings/`, les enregistrements, est une zone à la racine,
-   avec son propre jeton de révision, hors de tous les manifestes
-   (voir [recordings.md](recordings.md)). Un niveau `imported|recorded` doublerait une
-   frontière déjà tracée ailleurs, en la traçant moins bien.
-2. **Presque rien ne le lirait.** Il arriverait dans `MediatekEntry.kind`, où la seule
-   surface capable de l'afficher est un badge dans la liste. En échange, il mettrait chaque
-   morceau un cran plus bas que son artiste, et obligerait chaque appelant capable d'écrire —
-   k7 qui publie, le bouton qui envoie — à choisir un mot pour décrire quelque chose que le
-   sidecar dit déjà mieux.
+1. **It would separate the wrong thing.** What deserves to be apart is not "who produced this
+   master" but "is this catalogued or is it raw material". And that separation already exists:
+   `recordings/` is a zone at the root, with its own revision token, outside every manifest (see
+   [recordings.md](recordings.md)). An `imported|recorded` level would double a boundary already
+   drawn elsewhere, and draw it worse.
+2. **Almost nothing would read it.** It would land in `MediatekEntry.kind`, where the only surface
+   able to show it is a badge in the list. In exchange it would put every song one notch below its
+   artist, and force every caller able to write — k7 publishing, the upload button — to choose a
+   word for something the sidecar already says better.
 
-Ce qui suffit, c'est `source:` dans `song.yaml` : `upload` pour le bouton
-de la médiathèque, `k7` pour une version publiée, `mirror` pour une copie rapatriée. Une
-ligne dans un fichier, pas un niveau dans un chemin — donc lisible sans lister le dossier
-parent, et modifiable sans déplacer des octets.
+What suffices is `source:` in `song.yaml`: `upload` for the mediatek's button, `k7` for a published
+version, `mirror` for a copy pulled back. A line in a file, not a level in a path — readable without
+listing the parent folder, and changeable without moving bytes.
 
-Conséquence directe : `songFolder()` rend toujours quatre segments (`songs` + les trois
-tags), et deux tests le vérifient **par le compte** plutôt que par l'égalité avec un
-chemin d'exemple — un cinquième niveau apparaîtrait en silence, sous la forme d'un dossier
-imbriqué qu'une comparaison de chaîne ne remarquerait pas.
+Direct consequence: `songFolder()` always returns four segments (`songs` + the three tags), and two
+tests check that **by the count** rather than against an example path — a fifth level would appear
+silently, as a nested folder a string comparison would not notice.
 
-L'autre conséquence est que `kind` vaut `""` pour cette famille. C'est volontairement une
-chaîne vide et non un mot d'emprunt : cette famille ne se divise pas, et une entrée qui le
-dit est honnête là où « imported » par défaut mentirait.
+The other consequence is that `kind` is `""` for this family. Deliberately an empty string and not a
+borrowed word: this family does not divide, and an entry that says so is honest where a default
+"imported" would lie.
 
-## Le client n'envoie jamais un chemin
+## The client never sends a path
 
-`POST /api/mediatek/song?artist=…&album=…&title=…` porte les octets et trois chaînes.
-Le chemin est construit côté serveur par `songFolder`, jamais reçu.
+`POST /api/mediatek/song?artist=…&album=…&title=…` carries the bytes and three strings. The path is
+built server-side by `songFolder`, never received.
 
-Ce n'est pas de la cosmétique. `PUT /file` accepte un chemin parce que ses deux appelants
-en ont un légitime (un éditeur qui sauve son YAML, une machine qui pousse une arborescence
-qu'elle possède déjà). Un upload n'en a pas : il a des tags, qui viennent d'un fichier
-téléchargé quelque part. Les laisser devenir un chemin, c'est laisser `AC/DC` ouvrir un
-dossier et `../..` en remonter deux — `safePath` attraperait le second, rien n'attraperait
-le premier.
+Not cosmetic. `PUT /file` accepts a path because both its callers legitimately have one (an editor
+saving its YAML, a machine pushing a tree it already owns). An upload has none: it has tags, which
+come from a file downloaded somewhere. Letting those become a path is letting `AC/DC` open a folder
+and `../..` climb two — `safePath` would catch the second, nothing would catch the first.
 
-`segment()` réduit donc chaque tag à un segment nommable : accents décomposés puis
-supprimés (« Café » → « Cafe », et non « Caf » comme le ferait un simple filtre `\w`),
-séparateurs et caractères interdits sur les trois systèmes remplacés par une espace, point
-ou espace final retiré parce que Windows refuse silencieusement un tel nom au moment du
-rename, 80 caractères au plus.
+`segment()` therefore reduces each tag to a nameable segment: accents decomposed then stripped
+("Café" → "Cafe", not "Caf" as a plain `\w` filter would give), separators and characters forbidden
+on any of the three systems replaced by a space, trailing dot or space removed because Windows
+silently refuses such a name at rename time, 80 characters at most.
 
-L'orthographe exacte, elle, survit dans `song.yaml` : c'est de là que le catalogue tire
-le nom affiché. Le dossier est une adresse, le sidecar est la vérité.
+The exact spelling survives in `song.yaml`: that is where the catalogue takes the displayed name
+from. The folder is an address, the sidecar is the truth.
 
-## Un champ vide nomme le trou
+## An empty field names the hole
 
-Un fichier sans tag d'album se range sous « Album inconnu ». Refuser l'envoi serait plus
-propre sur le papier et inutilisable en pratique : la moitié d'un disque téléchargé n'a
-pas de tag d'album, et un morceau rangé sous un nom qu'on peut lire est un morceau qu'on
-retrouve et qu'on renomme. Un morceau refusé n'est nulle part.
+A file with no album tag files under « Album inconnu ». Refusing the upload would be cleaner on
+paper and unusable in practice: half a downloaded record has no album tag, and a song filed under a
+readable name is a song you can find and rename. A refused song is nowhere.
 
-## Les tags sont lus dans le navigateur
+## Tags are read in the browser
 
-`music-metadata` tourne côté frontend, sur le `File` choisi, et remplit le dialogue. Trois
-conséquences voulues :
+`music-metadata` runs frontend-side, on the chosen `File`, and fills the dialog. Three intended
+consequences:
 
-- **on voit le chemin avant l'envoi.** Le dialogue affiche exactement ce que le serveur
-  construira, en appelant les mêmes fonctions de ce module — pas une deuxième version de
-  la règle, qui finirait par en diverger ;
-- **on corrige avant l'envoi**, ce qui vaut mieux que renommer trois dossiers après ;
-- **le backend n'a pas la dépendance.** Il reçoit trois chaînes et ne parse aucun
-  conteneur audio, donc un mp3 malformé ne peut pas le faire tomber : au pire il devient
-  un formulaire à remplir à la main, ce que le dialogue permet déjà.
+- **you see the path before sending.** The dialog shows exactly what the server will build, by
+  calling this module's own functions — not a second version of the rule, which would end up
+  diverging;
+- **you correct before sending**, which beats renaming three folders after;
+- **the backend does not have the dependency.** It receives three strings and parses no audio
+  container, so a malformed mp3 cannot bring it down: at worst it becomes a form to fill by hand,
+  which the dialog already allows.
 
-Un fichier illisible par la bibliothèque n'est pas une erreur non plus : le nom de fichier
-est alors la meilleure source disponible, et `tagsFromFilename` en tire « 01 - Artiste -
-Titre » quand la convention est respectée.
+A file the library cannot read is not an error either: the file name is then the best source
+available, and `tagsFromFilename` gets "01 - Artist - Title" out of it when the convention holds.
 
-## Rien n'est ré-encodé
+## Nothing is re-encoded
 
-Le master s'appelle `original.<ext>` — l'extension de ce qui a été envoyé. Un flac reste un
-flac. Nommer le fichier `original.mp3` quoi qu'il arrive supposerait un transcodage, donc
-`ffmpeg` dans l'image, une perte de qualité sur un master, et une attente à chaque envoi.
+The master is called `original.<ext>` — the extension of what was sent. A flac stays a flac. Naming
+the file `original.mp3` regardless would imply a transcode, so `ffmpeg` in the image, quality lost
+on a master, and a wait on every upload.
 
-Le radical est fixe pour la raison inverse : un consommateur qui tient le dossier trouve
-l'audio sans lister. `master()` du scan reste néanmoins ce qui fait autorité — c'est lui
-qui remplit `meta.master`, parce qu'un dossier peut aussi venir du miroir k7, où le
-fichier s'appelle `master.<ext>`.
+The stem is fixed for the opposite reason: a consumer holding the folder finds the audio without
+listing. The scan's `master()` remains authoritative all the same — it is what fills `meta.master`,
+because a folder can also come from the k7 mirror, where the file is called `master.<ext>`.
 
-## Déjà là est un 409, pas un écrasement
+## Already there is a 409, not an overwrite
 
-Deux envois qui déduisent le même dossier sont presque toujours le même morceau envoyé
-deux fois. Le second est refusé avec un 409 : l'écrasement silencieux est le seul résultat
-que la personne qui envoie ne peut pas défaire, et « c'est déjà là » est une information
-qu'elle veut.
+Two uploads deriving the same folder are almost always the same song sent twice. The second is
+refused with a 409: a silent overwrite is the one result the sender cannot undo, and "it is already
+there" is information they want.
 
-Le dialogue transforme ce 409 en question — remplacer, ou changer un des trois champs pour
-ranger ailleurs. Un remplacement dans un autre format supprime l'ancien master : deux
-`original.*` dans un dossier, et le scan joue celui que `readdir` rend en premier.
+The dialog turns that 409 into a question — replace, or change one of the three fields to file it
+elsewhere. A replacement in another format deletes the old master: two `original.*` in a folder, and
+the scan plays whichever `readdir` returns first.
 
-C'est la règle inverse de celle d'`ingest.md`, où un PUT remplace sans demander. La
-différence est l'appelant : pousser un workspace est un acte délibéré visant un dossier
-nommé, envoyer un fichier depuis un navigateur ne l'est pas.
+It is the inverse of `ingest.md`'s rule, where a PUT replaces without asking. The difference is the
+caller: pushing a workspace is a deliberate act aimed at a named folder, sending a file from a
+browser is not.
 
-## Le sidecar s'écrit en dernier
+## The sidecar is written last
 
-`addSong` pose le dossier, puis le master, puis `song.yaml` — dans cet ordre, comme le fait le
-miroir et pour la même raison : une panne au milieu laisse alors un dossier non catalogué, pas
-une entrée de catalogue qui pointe vers rien. Le scan sait lire le premier cas (un dossier avec
-de l'audio et sans sidecar est listé quand même) ; le second serait un morceau sans octets.
+`addSong` places the folder, then the master, then `song.yaml` — in that order, as the mirror does
+and for the same reason: a failure in the middle then leaves an uncatalogued folder, not a catalogue
+entry pointing at nothing. The scan can read the first case (a folder with audio and no sidecar is
+listed anyway); the second would be a song with no bytes.
 
-## `bpm:` est détecté une fois, puis édité
+## `bpm:` is detected once, then edited
 
-`setSongBpm` **n'écrase jamais**. `bpm` est un champ qu'une personne corrige, et la valeur
-détectée n'est qu'un point de départ : l'estimation du moteur descend d'une octave sur du
-matériel rapide (voir `packages/file-service/docs/waveformCache.md`). Ré-analyser un morceau ne
-doit pas défaire une correction, donc une clé déjà présente — quelle que soit sa valeur — gagne.
+`setSongBpm` **never overwrites**. `bpm` is a field a person corrects, and the detected value is only
+a starting point: the engine's estimate drops an octave on fast material (see
+`packages/file-service/docs/waveformCache.md`). Re-analysing a song must not undo a correction, so a
+key already present — whatever its value — wins.
 
-Un `bpm` de 0 est le « rien trouvé » du moteur et n'écrit rien : un zéro explicite dans le
-fichier se lirait comme une affirmation, alors que l'absence est l'état honnête.
+A `bpm` of 0 is the engine's "found nothing" and writes nothing: an explicit zero in the file would
+read as an assertion, where absence is the honest state.
 
-**`force` est la porte du correcteur.** La règle du non-écrasement existe pour protéger une
-correction d'une RÉ-ANALYSE, pas de la personne qui corrige : les boutons `÷2` / `×2` du pupitre
-envoient donc `force`, et remplacent. Sans ça une première détection fausse serait définitive.
+**`force` is the corrector's door.** The no-overwrite rule exists to protect a correction from a
+RE-ANALYSIS, not from the person correcting: the desk's `÷2` / `×2` buttons therefore send `force`,
+and replace. Without it a first wrong detection would be final.
 
-## `key:` est saisie, jamais détectée
+## `key:` is typed, never detected
 
-La tonalité vit ici pour la raison qui met le tempo ici : c'est un fait sur l'ENREGISTREMENT, et il
-ne change pas d'un set à l'autre. Do dièse mineur reste do dièse mineur dans tous les projets qui
-jouent le disque — d'où `song.yaml` et non le `mix.yaml` d'un set.
+The key lives here for the reason the tempo does: it is a fact about the RECORDING, and it does not
+change from one set to the next. C sharp minor stays C sharp minor in every project that plays the
+record — hence `song.yaml` and not a set's `mix.yaml`.
 
 ```yaml
 key: "C# minor"
 ```
 
-**Entre guillemets, et ce n'est pas cosmétique** : un `#` nu au milieu d'une valeur ouvre un
-commentaire YAML, donc `key: C# minor` se relit `C` et le mode disparaît sans un mot. `setSongKey`
-cite toujours, et un test le fige.
+**Quoted, and that is not cosmetic**: a bare `#` mid-value opens a YAML comment, so `key: C# minor`
+reads back as `C` and the mode disappears without a word. `setSongKey` always quotes, and a test
+pins it.
 
-C'est la TONALITÉ qui est rangée, pas son code Camelot : la roue est un rendu — `12A` — et garder le
-rendu perdrait le nom du mode. Le pupitre convertit à l'affichage.
+It is the KEY that is stored, not its Camelot code: the wheel is a rendering — `12A` — and keeping
+the rendering would lose the mode's name. The desk converts for display.
 
-Et elle est **saisie**. Un détecteur a été écrit et mesuré contre dix-sept morceaux étiquetés à la
-main : 53 % de tonalités exactes, ce qui suffit à mentir et pas à servir
-(`docs/key-detection-plan.md`). Une tonalité tapée est juste, et une playlist fait douze à trente
-morceaux — pas deux cent soixante-dix-neuf.
+And it is **typed**. A detector measured against seventeen hand-labelled songs gets 53 % of keys
+exactly right, which is enough to lie and not enough to serve
+(`docs/key-detection-plan.md`). A typed key is right, and a playlist is twelve to thirty songs — not
+two hundred and seventy-nine.
 
-## Les deux autres familles : on dépose un dossier
+## The other two families: you drop a folder
 
-`modules/` et `samples/` se manipulent comme une arborescence, et un **module est un
-dossier** — `module.yaml`, `ui.yaml`, `presets.yaml` (voir `@studio/song`'s
-`docs/uiLibrary.md`). « Ajouter un module » est donc un dépôt de dossier, pas de fichiers.
+`modules/` and `samples/` behave like a tree, and a **module is a folder** — `module.yaml`,
+`ui.yaml`, `presets.yaml` (see `@studio/song`'s `docs/uiLibrary.md`). "Add a module" is therefore a
+folder drop, not a file drop.
 
-Le navigateur ne le donne pas gratuitement : `dataTransfer.files` est une liste plate qui
-ne peut pas porter un répertoire, donc un dossier déposé n'arriverait **nulle part, sans
-erreur**. L'arbre partagé lit le dépôt par
-`webkitGetAsEntry` et rend chaque fichier avec le chemin qu'il occupait
-(`onDropTree` — les deux pièges sont dans `commons/packages/ui/docs/file-tree.md`).
+The browser does not give that free: `dataTransfer.files` is a flat list that cannot carry a
+directory, so a dropped folder would arrive **nowhere, with no error**. The shared tree reads the
+drop through `webkitGetAsEntry` and returns each file with the path it occupied (`onDropTree` — both
+traps are in `commons/packages/ui/docs/file-tree.md`).
 
-Côté ici, `uploadTree` fait un `PUT /file` par fichier sous `<dossier déposé>/<chemin>` :
-`putFile` crée les répertoires intermédiaires, et `writablePath` refuse ce qui sort de la
-racine. Un `..` est donc arrêté au même endroit que d'habitude, pas dans le client.
+On this side, `uploadTree` does one `PUT /file` per file under `<dropped folder>/<path>`: `putFile`
+creates the intermediate directories, and `writablePath` refuses anything leaving the root. A `..` is
+therefore stopped where it always is, not in the client.
 
-Et un **choix de dossier** dans le menu contextuel de l'arbre, à côté du glisser : un
-glisser-déposer qui échoue le fait en silence, ce qui en fait une mauvaise seule-entrée.
-C'est un second `<input type="file">` avec `webkitdirectory` — la propriété est celle de
-l'input, pas du clic, d'où deux champs cachés plutôt qu'un.
+And a **folder picker** in the tree's context menu, beside the drag: a drag-and-drop that fails does
+so silently, which makes it a bad sole entry. It is a second `<input type="file">` with
+`webkitdirectory` — the property belongs to the input, not the click, hence two hidden fields rather
+than one.

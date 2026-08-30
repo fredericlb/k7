@@ -1,187 +1,169 @@
-# Ouvrir un morceau — l'écran scindé
+# Opening a song — the split screen
 
-Un morceau s'ouvre comme un module et comme une chaîne : l'arbre reste à gauche, et le
-reste de la largeur se coupe en deux.
+A song opens like a module and like a chain: the tree stays on the left, and the rest of the width
+splits in two.
 
 ```
 ┌────────┬─────────────────────┬─────────────────────┐
-│ arbre  │ song.yaml           │ transport           │
+│ tree   │ song.yaml           │ transport           │
 │        │ (YamlPane)          │ Original · inst · … │
-│        │                     │ forme d'onde        │
+│        │                     │ waveform            │
 │        │                     ├─────────────────────┤
-│        │                     │ variantes (si le    │
-│        │                     │ sidecar en déclare) │
+│        │                     │ variants (if the    │
+│        │                     │ sidecar declares    │
+│        │                     │ any)                │
 └────────┴─────────────────────┴─────────────────────┘
 ```
 
-C'est la forme de `ChainEditor` — texte à gauche, ce que le texte décrit à droite — et
-volontairement : les deux familles posent la même question, et un troisième agencement
-n'ajouterait qu'une chose de plus à apprendre.
+That is `ChainEditor`'s shape — text on the left, what the text describes on the right — and
+deliberately so: the two families ask the same question, and a third layout would only add one more
+thing to learn.
 
-## Le navigateur ne décode pas l'audio
+## The browser does not decode audio
 
-La forme d'onde ne vient pas d'un `decodeAudioData` : elle vient du sidecar `.cache` que
-le moteur écrit **à côté** du master (`packages/file-service/src/routes/mediatek.ts`, et
-`packages/file-service/docs/waveformCache.md` pour ce qu'il contient). `songWaveform.ts`
-le lit par la route de fichiers ordinaire — pour ce service, un `.cache` est un fichier
-comme un autre — et n'en garde que trois champs :
+The waveform does not come from a `decodeAudioData`: it comes from the `.cache` sidecar the engine
+writes **beside** the master (`packages/file-service/src/routes/mediatek.ts`, and
+`packages/file-service/docs/waveformCache.md` for what it holds). `songWaveform.ts` reads it through
+the ordinary file route — to that service a `.cache` is a file like any other — and keeps three
+fields:
 
-| champ | ce qu'on en fait |
+| field | what it becomes |
 |---|---|
-| `rms[]` | les échantillons de `Envelope`, déjà linéaires 0..1 |
-| `seconds` | la durée, et donc `intervalMs = seconds × 1000 / rms.length` |
-| `transients`, `bpm` | deux nombres en pied de panneau |
+| `rms[]` | `Envelope`'s samples, already linear 0..1 |
+| `seconds` | the duration, hence `intervalMs = seconds × 1000 / rms.length` |
+| `transients`, `bpm` | two numbers at the foot of the panel |
 
-Trois raisons de ne pas décoder ici :
+Three reasons not to decode here:
 
-1. **Le master pèse ce qu'il pèse.** Un flac de quatre minutes est une trentaine de Mo à
-   télécharger *entièrement* avant de dessiner le premier pixel, sur une médiathèque qui
-   est hébergée ailleurs. Le `.cache`, lui, fait quelques ko.
-2. **Le moteur a déjà décodé.** Il le fait au moment de l'envoi, et il détecte les
-   onsets et le tempo pendant qu'il sous-échantillonne. Refaire la moitié du travail
-   dans le navigateur produirait une deuxième vérité, moins bonne.
-3. **C'est la règle de ce dépôt.** « Le service hébergé ne décode pas d'audio » n'est pas
-   une limite de ce panneau : c'est pourquoi `/mediatek/analyse` existe.
+1. **The master weighs what it weighs.** A four-minute flac is some thirty MB to download *entirely*
+   before drawing the first pixel, off a library hosted elsewhere. The `.cache` is a few kB.
+2. **The engine has already decoded.** It does so on upload, and it detects onsets and tempo while
+   downsampling. Redoing half the work in the browser would produce a second, worse truth.
+3. **It is this repository's rule.** "The hosted service does not decode audio" is not a limit of
+   this panel: it is why `/mediatek/analyse` exists.
 
-## L'analyse est demandée, pas attendue
+## The analysis is asked for, not waited for
 
-Un morceau peut n'avoir aucun `.cache` — déposé quand aucune machine n'était joignable,
-ou publié depuis k7. `AddSong` le dit en toutes lettres : « avec aucune machine
-joignable il ne se passe rien ici, et la première surface qui a besoin du cache le calcule
-alors ». Ce panneau **est** cette surface. Il appelle donc `engineMachine.analyse` lui-même
-et relit le sidecar, une seule fois, à l'ouverture.
+A song may have no `.cache` — dropped when no machine was reachable, or published from k7. `AddSong`
+says it outright: with no machine reachable nothing happens there, and the first surface that needs
+the cache computes it. This panel **is** that surface. So it calls `engineMachine.analyse` itself
+and re-reads the sidecar, once, on open.
 
-Sans moteur choisi, il le dit et s'arrête là. Le morceau se joue quand même : un `<audio>`
-sur `library.fileUrl(master)` n'a besoin de personne, et la route sert du Range, donc le
-déplacement dans le fichier marche aussi. Ce qui manque alors est le dessin, pas le son —
-ce qui est exactement l'ordre d'importance.
+With no engine chosen it says so and stops. The song plays anyway: an `<audio>` on
+`library.fileUrl(master)` needs nobody, and the route serves Range, so seeking works too. What is
+missing is the drawing, not the sound — exactly the right order of importance.
 
-C'est aussi pourquoi le moteur reste tenu quelle que soit la destination de lecture : c'est
-lui qui **analyse** le master, et la forme d'onde en a besoin même quand c'est ce navigateur
-qui joue.
+It is also why the engine stays held whatever the playback destination: it is what **analyses** the
+master, and the waveform needs that even when this browser is playing.
 
-## Ce panneau ne possède pas le transport
+## This panel does not own the transport
 
-La lecture vit **au-dessus des écrans** (`PlaybackProvider`), et ce qui est ici en est une *vue* :
-une barre en bas ne peut pas vivre avec un panneau qui tiendrait l'élément `<audio>`, puisque
-quitter l'écran couperait le son. Le morceau ouvert n'est d'ailleurs pas forcément celui qui
-joue. Voir [miniPlayer.md](miniPlayer.md).
+Playback lives **above the screens** (`PlaybackProvider`), and what is here is a *view* of it: a bar
+at the bottom cannot live with a panel holding the `<audio>` element, since leaving the screen would
+cut the sound. The song open is not necessarily the one playing. See [miniPlayer.md](miniPlayer.md).
 
-## Où le son sort n'est pas décidé ici
+Where the sound comes out is not decided here either. The destination is an account choice — this
+browser, or the chosen machine's engine — behind **one transport**: everything below the header
+reads `playing`/`current` and never asks which side of the wire is playing. See
+[playbackTarget.md](playbackTarget.md) for the menu, the fallback when the machine does not answer,
+and why a cache root is not a copy.
 
-La destination est un choix du compte — ce navigateur, ou le moteur de la machine choisie —
-derrière **un seul transport** : tout ce qui est sous le bandeau lit `playing`/`current` et ne
-demande jamais de quel côté du fil ça joue.
-Voir [playbackTarget.md](playbackTarget.md), qui explique le menu, le repli quand la machine
-ne répond pas, et pourquoi une racine de cache n'est pas une copie.
+### Once, and cancellable
 
-### Une fois, et annulable
+An analysis is minutes of someone else's machine: it downloads the master and runs the engine over
+it. Two guards, and they are not decorative:
 
-Une analyse, ce sont des minutes de la machine de quelqu'un d'autre : elle télécharge le
-master et fait tourner le moteur dessus. Deux garde-fous, donc, et ils ne sont pas
-décoratifs :
+- **`attempted`** remembers the file already asked for — the master, or the version open in the tab
+  strip. The engine choice arrives asynchronously, so `fileBase` and `engineToken` legitimately move
+  under the panel; without this lock every move restarts the work.
+- **an `AbortController`** cuts the request on changing version, changing song, or closing the
+  editor. It does not stop the work on the far machine — nothing propagates cancellation that far —
+  but it stops holding a request open for minutes for an answer nobody wants.
 
-- **`attempted`** retient le fichier déjà demandé — le master, ou la version ouverte dans la
-  bande d'onglets. Le choix du moteur arrive de façon asynchrone, donc `fileBase` et
-  `engineToken` bougent légitimement sous le panneau ; sans ce verrou, chaque mouvement
-  relançait le travail.
-- **un `AbortController`** coupe la requête quand on change de version, de morceau, ou qu'on ferme
-  l'éditeur. Cela n'arrête pas le travail sur la machine d'en face — rien ne propage
-  l'annulation jusque-là — mais cela cesse de tenir une requête ouverte pendant des minutes
-  pour une réponse dont personne ne veut plus.
+A failure therefore does **not** retry on its own: it shows an "Analyse" button. An analysis that
+restarts itself is a loop nobody asked for.
 
-Un échec ne réessaie donc **pas** tout seul : il affiche un bouton « Analyser ». Une analyse
-qui se relance d'elle-même est une boucle que personne n'a demandée.
+The trap is not here but in the relay: a ceiling on the upstream's thinking time kills every
+analysis, which takes minutes — see `packages/engine-registry/docs/proxy.md`, "1500 ms is not a
+connection timeout".
 
-Le piège n'est d'ailleurs pas ici mais dans le relais : un plafond sur le temps de réflexion de
-l'amont tue chaque analyse, qui dure des minutes — voir
-`packages/engine-registry/docs/proxy.md`, « 1500 ms n'est pas un délai de connexion ».
+### Reading a failure
 
-### Lire un échec
+The message shown here is **verbatim** the one the file service returned, itself the one from its
+own failure. The next link is therefore the master's download from the hosted library, and it names
+the address tried and the real cause — see `packages/mediatek/docs/sync.md`, "`terminated` says
+nothing". The same line is written in the log of the machine that tried, which is where you look
+when a browser three hops away says the analysis failed.
 
-Le message affiché ici est **verbatim** celui que le service de fichiers a renvoyé, qui est
-lui-même celui de son propre échec. Le maillon suivant est donc le téléchargement du master
-depuis la médiathèque hébergée, et il nomme l'adresse essayée et la cause réelle —
-voir `packages/mediatek/docs/sync.md`, « `terminated` ne dit rien ». La même ligne est écrite
-dans le journal de la machine qui a essayé, qui est l'endroit où l'on regarde quand un
-navigateur situé trois sauts plus loin dit que l'analyse a échoué.
+## The transport is ours, but it is not here
 
-## Le transport est à nous, mais il n'est pas ici
+No `controls`: the waveform **is** the scrub bar, and two scrub bars contradict each other the
+moment one is dragged. The header's button and clock stay this panel's only controls.
 
-Pas de `controls` : la forme d'onde **est** la barre de défilement, et deux barres de
-défilement se contredisent dès qu'on tire l'une des deux. Le bouton et l'horloge du
-bandeau restent donc les seuls contrôles de ce panneau.
+What they drive, though, does not belong to it. `playback.toggle()` and `playback.seek()` when the
+open version is the one playing; `playback.start()` otherwise, the only way to load one. The
+`<audio>` element, the `requestAnimationFrame` loop tracking the playhead — `timeupdate` fires four
+times a second and reads as a stutter — and the sharing between the two destinations live in
+`PlaybackProvider`: see [miniPlayer.md](miniPlayer.md).
 
-Ce qu'ils commandent, en revanche, ne lui appartient pas. `playback.toggle()` et
-`playback.seek()` quand la version ouverte est celle qui joue ; `playback.start()` sinon,
-qui est la seule façon d'en charger une. L'élément `<audio>`, la boucle
-`requestAnimationFrame` qui suit la tête de lecture — `timeupdate` tombe quatre fois par
-seconde et se lit comme un sursaut — et le partage entre les deux destinations vivent
-dans `PlaybackProvider` : voir [miniPlayer.md](miniPlayer.md).
+This panel keeps what only it knows: where the cursor is **before** this version is the one playing.
+You click in a stopped song's waveform, then press play, and it starts there — `cursor` is that
+point, and it is passed to `start`.
 
-Ce panneau garde ce que lui seul sait : où en est le curseur **avant** que cette version
-soit celle qui joue. On clique dans la forme d'onde d'un morceau à l'arrêt, puis on presse
-lecture, et ça part de là — `cursor` est ce point, et il est passé à `start`.
+### The version travels with it
 
-### La version voyage avec
+The engine holds one session, shared with everything else pl8 auditions. Three versions of a song
+sent under the song's name would be three indistinguishable lines. `NowPlaying.version` therefore
+carries the tab's name — absent for the master, whose document is the song — and the provider
+composes `"song · version"` from it. The bottom bar shows it for the same reason: it sits under a
+screen whose tab strip may point at something else entirely.
 
-Le moteur ne tient qu'une session, partagée avec tout ce que pl8 auditionne par ailleurs.
-Trois versions d'un morceau envoyées sous le nom du morceau y seraient trois lignes qu'on
-ne peut pas distinguer. `NowPlaying.version` porte donc le nom de l'onglet — absent pour
-le master, dont le document est le morceau — et le provider en compose
-`« morceau · version »`. La barre du bas l'affiche pour la même raison : elle est sous un
-écran dont la bande d'onglets peut désigner tout autre chose.
+## One tab per version
 
-## Un onglet par version
+Under the transport, a tab strip: **Original**, then each variant the sidecar declares, in the
+sidecar's order. The open tab decides *everything* below it — the file played, the waveform drawn,
+the analysis requested, the path sent to the engine — because it is one question asked one way:
+what does this version sound like.
 
-Sous le transport, une bande d'onglets : **Original**, puis chaque variante que le sidecar
-déclare, dans l'ordre du sidecar. L'onglet ouvert décide de *tout* ce qui est en dessous — le
-fichier joué, la forme d'onde dessinée, l'analyse demandée, le chemin envoyé au moteur — parce
-que c'est une seule question posée d'une seule façon : « à quoi ressemble cette version ».
+`@studio/mediatek/takes` holds the shape, outside the component and therefore testable: a version is
+a name, a kind and the file it is.
 
-`@studio/mediatek/takes` tient la forme, hors composant et donc testable : une version, c'est un nom, un
-genre et le fichier qu'elle est.
-
-| genre | son audio |
+| kind | its audio |
 |---|---|
-| `master` | `meta.master`, l'enregistrement du morceau lui-même |
-| `file` | `ref`, un fichier du dossier — c'est ce qui en fait une variante *fichier* |
-| `missing` | rien : le sidecar déclare un fichier que le dossier n'a pas |
+| `master` | `meta.master`, the recording of the song itself |
+| `file` | `ref`, a file from the folder — which is what makes it a *file* variant |
+| `missing` | nothing: the sidecar declares a file the folder does not have |
 
-`missing` est un genre à part entière plutôt qu'une absence, parce que l'onglet doit le dire.
-Un sidecar est écrit à la main et nomme volontiers un fichier qui n'est pas arrivé ; l'onglet
-s'ouvre alors sur la phrase qui le nomme, et pas sur un panneau vide.
+`missing` is a kind in its own right rather than an absence, because the tab has to say so. A
+sidecar is hand-written and readily names a file that never arrived; the tab then opens on the
+sentence naming it, not on an empty panel.
 
-Deux conséquences qui valent d'être dites :
+Two consequences worth stating:
 
-- **L'analyse est par fichier**, pas par morceau : `attempted` retient un chemin, donc chaque
-  version est analysée au plus une fois et revenir sur une version déjà dessinée ne coûte rien.
-- **Changer d'onglet n'arrête pas le son**, et c'est voulu. Le panneau ne possède pas le
-  transport : ce qui joue continue, et l'onglet ouvert redevient simplement un onglet qu'on
-  regarde. `isCurrent` compare `path` à ce que le provider tient, donc la bande passe au repos
-  et l'horloge repart du curseur — pendant que la barre du bas, elle, continue de nommer la
-  version qui joue.
+- **Analysis is per file**, not per song: `attempted` remembers a path, so each version is analysed
+  at most once and returning to an already-drawn version costs nothing.
+- **Changing tab does not stop the sound**, deliberately. The panel does not own the transport: what
+  is playing carries on, and the open tab simply becomes a tab you are looking at. `isCurrent`
+  compares `path` against what the provider holds, so the strip goes to rest and the clock restarts
+  from the cursor — while the bottom bar goes on naming the version that is playing.
 
-Un morceau sans variante n'a pas de bande du tout : un onglet unique est un contrôle qui ne
-sert à rien.
+A song with no variant has no strip at all: a single tab is a control that does nothing.
 
-## Les variantes sont sous le lecteur
+## The variants are under the player
 
-Dans la même moitié d'écran, pas dans une colonne à part : le master et ses autres versions
-sont une seule question, et une colonne qui ne s'afficherait que lorsque *rien* n'est ouvert
-serait inatteignable, puisque cliquer un morceau ouvre quelque chose.
+In the same half of the screen, not in a column of their own: the master and its other versions are
+one question, and a column that only showed when *nothing* is open would be unreachable, since
+clicking a song opens something.
 
-## Une adresse pour un morceau
+## An address for a song
 
-`/songs/<artiste>/<album>/<titre>/song.yaml` est une adresse, comme
-`/modules/audio/reverb/ui.yaml`. Voir [routing.md](routing.md) : `CARRIES` dit quelles sections
-portent un chemin de fichier après leur premier segment.
+`/songs/<artist>/<album>/<title>/song.yaml` is an address, like `/modules/audio/reverb/ui.yaml`. See
+[routing.md](routing.md): `CARRIES` says which sections carry a file path after their first segment.
 
-## Le sidecar peut ne pas exister
+## The sidecar may not exist
 
-Un dossier trouvé sur le disque sans `song.yaml` est listé quand même — `catalogued:
-false`, « un morceau que personne n'a rangé ». L'éditeur s'ouvre alors sur un gabarit
-(`# <chemin>` et `title:`) plutôt que sur une erreur, et le premier enregistrement crée le
-fichier par la route d'écriture ordinaire. C'est ce que fait déjà `library.moduleUi` pour
-un panneau absent, et pour la même raison : refuser d'ouvrir laisse la personne devant un
-écran qui ne propose rien.
+A folder found on disk with no `song.yaml` is listed anyway — `catalogued: false`, a song nobody
+filed. The editor then opens on a template (`# <path>` and `title:`) rather than an error, and the
+first save creates the file through the ordinary write route. That is what `library.moduleUi`
+already does for a missing panel, and for the same reason: refusing to open leaves the person in
+front of a screen that offers nothing.

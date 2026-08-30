@@ -1,186 +1,169 @@
-# Les stems sur le pupitre — retirer un instrument du disque
+# Stems on the desk — taking an instrument out of the record
 
-Quatre potards par platine, à **gauche** de la platine, au même format que l'EQ, disposés
-**deux par deux** : batterie et basse en haut, voix et reste en dessous. **Au centre** la partie sonne comme la séparation l'a écrite ; à fond à gauche elle disparaît,
-à droite elle monte jusqu'au double.
+Four knobs per deck, to the **left** of the record, in the EQ's format, laid out **two by two**:
+drums and bass on top, vocals and other below. **At centre** the part sounds as the separation
+wrote it; hard left it disappears, right it goes up to double.
 
-Ce que ça fait vraiment est une **somme** : un morceau séparé n'est plus joué par sa propre lane,
-il est joué par ses quatre parties, et chaque potard dose la sienne. C'est ce que font toutes les
-platines à stems du commerce. Le raisonnement, et les deux formes qui ont précédé celle-là, sont
-dans [`packages/song-schema/docs/stems.md`](../../song-schema/docs/stems.md) : la version qui **soustrayait**
-du disque était exacte au repos, bit à bit, et cessait de l'être dès qu'on touchait au tempo.
-Au repos, la sortie est maintenant le disque à **34 dB près** — le résidu de reconstruction du
-modèle, mesuré et stable.
+What it really does is a **sum**: a separated song is no longer played by its own lane, it is
+played by its four parts and each knob doses one. That is what every commercial stem deck does.
+The reasoning, and the two shapes that preceded this one, are in
+[`packages/song-schema/docs/stems.md`](../../song-schema/docs/stems.md). At rest the output is
+the record to within **34 dB** — the model's reconstruction residue, measured and stable.
 
-## Le bloc, et pourquoi il n'est pas en miroir
+## The block, and why it is not mirrored
 
-Les deux platines se font face — le tempo sur le bord extérieur, l'EQ sur l'intérieur — pour
-qu'une main sache sur laquelle elle est sans lever les yeux. **Les stems échappent à cette
-règle** : sur les deux platines, le bloc est **à gauche**. Ce que ces quatre potards dosent est une
-propriété du DISQUE et pas de la géométrie du pupitre, et chercher « la basse de la platine de
-droite » ne doit pas demander de savoir de quel côté le bloc est posé aujourd'hui.
+The two decks face each other — tempo on the outer edge, EQ on the inner — so a hand knows which
+one it is on without looking up. **The stems escape that rule**: on both decks the block is **on
+the left**. What those four knobs dose is a property of the RECORD and not of the desk's
+geometry, and looking for "the bass of the right-hand deck" must not require knowing which side
+the block is on today.
 
-**À côté du DISQUE, pas dans une colonne à lui.** Le bloc a d'abord été une colonne pleine hauteur du
-rang des platines ; il est maintenant dans la colonne de la platine, sur la même ligne que le
-vinyle et à sa gauche, au-dessus de la waveform. C'est la même main qui pose le disque et qui en
-retire la voix, donc les deux gestes sont au même endroit — et la waveform, elle, garde toute la
-largeur, parce qu'on la lit d'un bord à l'autre.
+**Beside the RECORD, not in a column of its own.** It sits in the deck's column, on the same row
+as the vinyl and to its left, above the waveform. The same hand puts the record on and takes the
+vocal out of it, so both gestures are in one place — and the waveform keeps the full width,
+because it is read edge to edge.
 
-Ça lui coûte zéro hauteur : le bloc est plus court que le plus petit vinyle qu'on dessine
-(`VINYL_MIN`, 176 px) à tous les crans de l'échelle, donc la ligne fait la taille du disque.
-`deskLayout.test` tient cette inégalité à chaque cran, parce que c'est elle que `deskLayout`
-suppose : un cran où le bloc serait plus grand agrandirait la ligne et pousserait la waveform hors
-de la colonne, sans que rien ne le dise.
+It costs zero height: the block is shorter than the smallest vinyl drawn (`VINYL_MIN`, 176 px) at
+every step of the scale, so the row is the size of the record. `deskLayout.test` holds that
+inequality at each step, because it is what `deskLayout` assumes: a step where the block were
+bigger would grow the row and push the waveform out of the column, with nothing to say so.
 
-Quand la colonne est trop courte pour un disque, le bloc n'a plus de voisin et prend une ligne à
-lui — là il coûte sa hauteur, et `deskLayout` la retire à la waveform. D'où son second argument :
-un pupitre qui ne câble aucune coupe ne doit pas payer pour un bloc qu'il ne dessine pas.
+When the column is too short for a record, the block has no neighbour and takes a row of its own
+— there it costs its height, and `deskLayout` takes that off the waveform. Hence its second
+argument: a desk wiring no cut must not pay for a block it does not draw.
 
-Même potard, même échelle de tailles, même centrage que la tranche d'à côté (`ChannelStrip`) —
-c'est le même geste sur la même sorte de chose, **et la même course** : le milieu est le neutre et
-il va des deux côtés, comme un potard d'EQ.
+Same knob, same size scale, same centring as the strip next door (`ChannelStrip`) — the same
+gesture on the same kind of thing, **and the same travel**: the middle is neutral and it goes
+both ways, like an EQ knob. A knob whose neutral is one end of its travel reads badly: the hand
+cannot find the rest position, and half the travel — reinforcing the instrument, which a remix
+asks for all the time — would not exist.
 
-**Deux par deux, et dans cet ordre-là.** `STEM_GRID` n'est pas `STEMS` : l'ordre du modèle est
-`drums, bass, other, vocals`, celui de la main est la section rythmique en haut et ce qui chante
-en dessous. Une colonne de quatre obligeait l'œil à descendre la liste ; un carré se vise. Le
-premier réflexe d'une soirée est la batterie, le second la basse — ils sont sur la même ligne. Un
-test tient les deux moitiés de la propriété : que le carré contienne les quatre stems exactement
-une fois, et que la première ligne soit bien la rythmique.
+**Two by two, and in that order.** `STEM_GRID` is not `STEMS`: the model's order is
+`drums, bass, other, vocals`, the hand's is the rhythm section on top and what sings below. A
+column of four makes the eye walk the list; a square is aimed at. The first reflex of an evening
+is the drums, the second the bass — they are on the same row. A test holds both halves of the
+property: that the square contains the four stems exactly once, and that the first row really is
+the rhythm section.
 
-Ça n'a pas toujours été le cas. La course allait de « rien retiré » vers « tout retiré », dans un
-seul sens. Un potard qui commence à une extrémité et dont le neutre est cette extrémité se lit
-mal : la main ne trouve pas le repos, et la moitié droite de sa course — renforcer l'instrument, ce
-qu'un remix demande tout le temps — n'existait pas. Le neutre est au milieu depuis, et il y est
-resté à travers les deux changements de forme du module : c'est la seule chose dont il n'y a jamais
-eu de doute.
-
-Le bloc **n'a pas d'échelle à lui** : il prend celle de la tranche, pour que les potards d'un même
-pupitre aient tous une taille. Ce n'est sûr que parce qu'il est plus COURT à chaque cran — deux
-rangées contre trois potards d'EQ plus le filtre, plus gros, et son filet. La marge était de sept
-pixels au cran le plus serré quand les quatre étaient empilés ; en deux rangées elle ne l'est plus,
-et c'est le seul bénéfice de hauteur du changement. `deskLayout.test` tient quand même la
-propriété à chaque cran, parce qu'elle est ce qui autorise l'emprunt — et elle se casserait comme
-le filtre disparaît quand la tranche ne rétrécit pas, en débordant une boîte centrée par les deux
-bouts ([deskLayout.md](deskLayout.md)).
-
-## Un glyphe par potard
-
-Chaque potard porte une icône sur la ligne de son étiquette : une batterie, une guitare, un micro,
-et une note pour le fourre-tout. Le fourre-tout garde la note générique **exprès** — `other` est ce
-que le modèle n'a pas su ranger ailleurs, donc y dessiner un piano ou un synthé nommerait un
-instrument qui n'y est pas forcément.
-
-L'icône est à côté du mot, pas à la place : à 9 px un glyphe seul se devine plutôt qu'il ne se lit,
-et la colonne a la largeur pour les deux. Elle est dimensionnée sur la LIGNE de l'étiquette
-(`h-[9px]`) et pas librement, parce que `knobBlock` compte cette ligne à 9 px : une icône plus haute
-grandirait chaque bloc de quelques pixels, ce que rien ne rattraperait
+The block **has no scale of its own**: it takes the strip's, so that every knob on one desk has
+one size. That is only safe because it is SHORTER at every step — two rows against three EQ knobs
+plus the filter, bigger, plus its rule. `deskLayout.test` holds the property at each step anyway,
+because it is what authorises the borrowing — and it would break the way the filter disappears
+when the strip does not shrink, by overflowing a box centred at both ends
 ([deskLayout.md](deskLayout.md)).
 
-Mesuré dans le banc `Desk/Knobs` : les quarante lignes d'étiquette — huit potards à cinq crans —
-font 9 px de haut, la plus large en fait 41 dans une colonne de 64.
+## One glyph per knob
 
-Un test tient l'autre moitié, celle qu'on ne voit pas : que chaque stem et chaque bande d'EQ ait une
-entrée dans sa table. Une entrée manquante ne dessine rien et ne dit rien — le potard affiche ce
-qu'on lui tend.
+Each knob carries an icon on its label line: a drum, a guitar, a microphone, and a note for the
+catch-all. The catch-all keeps the generic note **on purpose** — `other` is what the model could
+not file elsewhere, so drawing a piano or a synth there would name an instrument that may not be
+in it.
 
-## Quatre états, quatre lectures
+The icon is beside the word, not instead of it: at 9 px a glyph alone is guessed rather than
+read, and the column has the width for both. It is sized on the label's LINE (`h-[9px]`) and not
+freely, because `knobBlock` counts that line at 9 px: a taller icon would grow every block by a
+few pixels, which nothing would catch up ([deskLayout.md](deskLayout.md)).
 
-| état | ce qu'on voit | ce qu'on fait |
+Measured in the `Desk/Knobs` bench: the forty label lines — eight knobs at five steps — are 9 px
+tall, and the widest is 41 in a 64-wide column.
+
+A test holds the other half, the one you do not see: that every stem and every EQ band has an
+entry in its table. A missing entry draws nothing and says nothing — a knob shows what it is
+handed.
+
+## Four states, four readings
+
+| state | what you see | what you do |
 |---|---|---|
-| le set ne câble aucune coupe | **pas de bloc du tout** | rien : un pupitre sans stems est un pupitre complet |
-| câblé, disque non séparé, `stems:` absent | quatre potards gris, avec la raison au survol | `playlist stems <playlist>`, ou écrire `stems: true` |
-| câblé, disque non séparé, `stems: true` | quatre potards gris et **le pourcentage par-dessus** | attendre — ça se fait tout seul |
-| câblé et préparé | quatre potards vifs | monter celui qu'on veut faire partir |
+| the set wires no cut | **no block at all** | nothing: a desk without stems is a complete desk |
+| wired, record not separated, no `stems:` | four grey knobs, with the reason on hover | `playlist stems <playlist>`, or write `stems: true` |
+| wired, record not separated, `stems: true` | four grey knobs and **the percentage over them** | wait — it is happening |
+| wired and prepared | four live knobs | turn up the one you want gone |
 
-Le premier est délibéré : un set qui n'a pas ces lignes dans son `mapping:` n'a rien demandé,
-et quatre potards morts seraient pires que pas de potards. C'est aussi pourquoi les
-contrôles de stem sont **offerts sans être exigés** — `SURFACE_MAPPING_SKELETON` les propose,
-`REQUIRED_CONTROLS` ne les demande pas. « Ce qu'on peut câbler » et « ce qu'il faut avoir câblé
-pour que ça se dessine » sont deux listes, et les stems sont ce qui les sépare.
+The first is deliberate: a set without those lines in its `mapping:` asked for nothing, and four
+dead knobs would be worse than no knobs. It is also why stem controls are **offered without being
+required** — `SURFACE_MAPPING_SKELETON` proposes them, `REQUIRED_CONTROLS` does not demand them.
+"What can be wired" and "what must be wired for this to draw" are two lists, and the stems are
+what separates them.
 
-Le deuxième se lit sur le bloc parce que le scan le rapporte : `meta.stems` est vrai quand un
-dossier `stems/` est là, lu sur les entrées de dossier déjà en main — pas un syscall de plus par
-morceau, et la même question que la commande de préparation pose avant de sauter un morceau.
+The second reads off the block because the scan reports it: `meta.stems` is true when a `stems/`
+folder is there, read off directory entries already in hand — not one more syscall per song, and
+the same question the preparation command asks before skipping a song.
 
-## Le rattrapage : poser un disque que personne n'a préparé
+## Catching up: putting on a record nobody prepared
 
-C'est le troisième état, et il tient à une ligne du fichier de surface :
+That is the third state, and it hangs on one line of the surface file:
 
 ```yaml
 # surfaces/desk.yaml
 type: turntables
 layout: split
 playlist: ete-2026
-stems: true              # ce pupitre rattrape un disque non préparé
+stems: true              # this desk catches an unprepared record
 ```
 
-Elle transforme « ce morceau n'a pas de stems » d'une impasse en un travail : le disque part sur la
-platine **immédiatement** et la séparation démarre derrière, `POST /api/stems` sur **pl8** puis un
-sondage toutes les deux secondes. Sur pl8 et non sur le service de fichiers : c'est pl8 qui détient
-les masters, donc c'est lui qui mène la découpe, en empruntant le modèle du moteur nommé
-(`apps/pl8/docs/stems.md`). `library` est le second seam de ce paquet pour cette seule raison.
+It turns "this song has no stems" from a dead end into a job: the record goes onto the deck
+**immediately** and the separation starts behind it, `POST /api/stems` on **pl8** then a poll
+every two seconds. On pl8 and not on the file service: pl8 holds the masters, so pl8 leads the
+split, borrowing the named engine's model (`apps/pl8/docs/stems.md`). `library` is this package's
+second seam for that one reason.
 
-Le pourcentage s'affiche **par-dessus** les potards éteints — pas au-dessus : le bloc emprunte
-l'échelle de tailles de la tranche (`stemStripHeight`), et une ligne de texte en plus le ferait
-sortir de la hauteur qu'on lui a accordée, quelle que soit la marge du moment.
+The percentage is drawn **over** the dead knobs, not above them: the block borrows the strip's
+size scale (`stemStripHeight`), and one more line of text would take it outside the height it was
+granted, whatever the margin of the moment.
 
-**Un booléen, et pas une chaîne.** Nommer la chaîne dans ce fichier poserait au projet une
-question qui ne le regarde pas : quel module sépare et quel modèle il veut est
-une réponse unique pour la machine, écrite une fois par `system stems` dans
-`<state>/preferences.yaml`. Ce qu'un SET décide, c'est si une heure d'arithmétique a le droit de
-démarrer parce qu'on a posé un disque — et ça, ça se décide par set : une machine de répétition et
-une machine de scène ne répondent pas pareil.
+**A boolean, not a string.** Naming the chain in this file would ask the project a question that
+is none of its business: which module separates and which model it wants is one answer for the
+machine, written once by `system stems` into `<state>/preferences.yaml`. What a SET decides is
+whether an hour of arithmetic may start because a record was put on — and that is decided per
+set: a rehearsal machine and a stage machine do not answer alike.
 
-Quand les fichiers arrivent, le pupitre renvoie le document avec les quatre lanes remplies
-(`stemsArrived`). Le morceau ne s'arrête pas, le tempo ne bouge pas, le transport non plus : ce
-qui change est ce que `withDecks` trouve à poser.
+When the files arrive the desk resends the document with the four lanes filled (`stemsArrived`).
+The song does not stop, the tempo does not move, the transport does not either: what changes is
+what `withDecks` finds to place.
 
-Trois choses que ça ne fait pas, et chacune est une décision :
+Three things it does not do, each a decision:
 
-- **Rien ne démarre sans `stems: true`.** Une séparation est des minutes d'arithmétique ; elle a
-  lieu parce que le projet l'a DEMANDÉE, jamais par défaut. Et rien ne démarre non plus si la
-  machine n'a pas de chaîne : la route répond alors un 409 qui nomme `system stems`.
-- **Rien ne démarre deux fois.** L'identifiant du job hache le TRAVAIL (`separateJobs.ts`), donc
-  poser le même disque sur les deux platines, ou recharger l'onglet, rejoint le calcul en cours.
-- **Rien n'arrive sur le mauvais disque.** `stemsArrived` vérifie l'id du morceau, et chaque
-  chargement invalide la boucle de sondage précédente. Une séparation dure des minutes : le
-  disque qu'elle prépare a largement le temps d'être retiré.
+- **Nothing starts without `stems: true`.** A separation is minutes of arithmetic; it happens
+  because the project ASKED, never by default. And nothing starts either if the machine has no
+  chain: the route then answers a 409 naming `system stems`.
+- **Nothing starts twice.** The job id hashes the WORK (`separateJobs.ts`), so putting the same
+  record on both decks, or reloading the tab, joins the running computation.
+- **Nothing arrives on the wrong record.** `stemsArrived` checks the song id, and each load
+  invalidates the previous poll loop. A separation takes minutes: the record it is preparing has
+  ample time to be taken off.
 
-Le pupitre n'envoie **aucune chaîne** : la requête est le morceau, et rien d'autre. Quel module
-sépare et quel `.onnx` cette machine détient est une question que le navigateur ne peut pas poser,
-et à laquelle la machine a déjà répondu une fois — d'où une route à part, la seule des trois à être
-liée à un espace de travail, voir
-[stem-separation/docs/stemSplit.md](../../stem-separation/docs/stemSplit.md).
+The desk sends **no chain**: the request is the song and nothing else. Which module separates and
+which `.onnx` this machine holds is a question the browser cannot ask, and one the machine has
+already answered once — hence a separate route, the only one of the three tied to a workspace,
+see [stem-separation/docs/stemSplit.md](../../stem-separation/docs/stemSplit.md).
 
-Et l'ordre compte : la route interroge le DISQUE avant de lire la préférence et avant de résoudre
-la chaîne. Une machine à qui on n'a jamais dit comment séparer joue donc quand même, potards vifs,
-les morceaux qu'on a préparés à la commande.
+And the order matters: the route asks about the RECORD before reading the preference and before
+resolving the chain. A machine never told how to separate therefore still plays, knobs live, the
+songs prepared by command.
 
-## Ce qui doit rester vrai
+## What must stay true
 
-- **Les cinq clips d'une platine sont alignés à l'échantillon.** Même `start`, même warp, même
-  `slip` — `withDecks` les remplit en un seul endroit pour ça. Une dérive d'un échantillon ne
-  fait pas un instrument plus discret : elle fait un filtre en peigne, et rien à l'écran ne le
-  dirait.
-- **La lane du disque est VIDE quand le morceau est séparé.** Les quatre parties *sont* le disque ;
-  le jouer en plus le doublerait. C'est le même `withDecks` qui décide les deux, dans les deux sens.
-- **Un dossier `stems/` incomplet ne compte pas comme séparé.** `stemsComplete` demande les quatre :
-  trois parties sur quatre n'est pas une séparation à moitié réussie, c'est un morceau amputé d'un
-  instrument, et le poser sur une platine s'entendrait sans que rien ne le dise.
-- **Les quatre parties sont quatre PLATEAUX**, comme un disque non séparé en est un. Elles partagent
-  une position, un débit et un `Key` ; `plattersOf` les nomme, et un geste — repère, scrub, scratch —
-  les atteint toutes. C'est ce qui a fait disparaître le second modèle de position du pupitre, et ce
-  qui rend un disque séparé scratchable. Ce que ça coûte est mesuré :
-  `packages/ui-turntables/scripts/put-on.ts`, et 157 ms de plus pour poser un morceau de 4 minutes.
-- **Le tempo ne les gêne plus.** Une somme n'exige aucune annulation, donc chaque partie s'étire
-  dans son coin, keylock allumé ou pas ([bpm.md](bpm.md)).
-- **Un morceau non séparé laisse ses lanes VIDES**, et c'est sa propre lane qui le joue. Poser
-  quatre clips sur des fichiers absents ferait dépendre « mettre un disque » d'une heure de calcul
-  que personne n'a demandée.
-- **Le potard parle en proportion, pas en dB.** Ce qu'on demande est une part de l'instrument, et
-  la faire disparaître doit être une position sur la course — ce qu'un plancher à −60 dB n'est pas.
-- **Les stems s'écrivent en WAV 24 bits.** Pas en float, pas en FLAC : Tracktion lit un WAV
-  directement et décode tout le reste dans un proxy avant de jouer, ce qui se paierait au moment
-  précis où on pose un disque — cinq décodages, le mix et ses quatre stems. Le raisonnement
-  complet et le tableau des tailles sont dans
+- **A deck's five clips are sample-aligned.** Same `start`, same warp, same `slip` — `withDecks`
+  fills them in one place for that. A one-sample drift does not make a quieter instrument: it
+  makes a comb filter, and nothing on screen would say so.
+- **The record's lane is EMPTY when the song is separated.** The four parts *are* the record;
+  playing it as well would double it. The same `withDecks` decides both, both ways.
+- **An incomplete `stems/` folder does not count as separated.** `stemsComplete` demands all
+  four: three parts out of four is not a half-successful separation, it is a song missing an
+  instrument, and putting it on a deck would be audible with nothing to say so.
+- **The four parts are four PLATTERS**, as an unseparated record is one. They share a position, a
+  rate and a `Key`; `plattersOf` names them, and one gesture — cue, scrub, scratch — reaches them
+  all. That is what makes a separated record scratchable. The cost is measured:
+  `packages/ui-turntables/scripts/put-on.ts`, and 157 ms more to put on a 4-minute song.
+- **The tempo does not get in the way.** A sum requires no cancellation, so each part stretches on
+  its own, keylock on or off ([bpm.md](bpm.md)).
+- **An unseparated song leaves its lanes EMPTY**, and its own lane plays it. Placing four clips on
+  absent files would make "put a record on" depend on an hour of computation nobody asked for.
+- **The knob speaks in proportion, not in dB.** What is asked for is a share of the instrument,
+  and making it disappear has to be a position on the travel — which a −60 dB floor is not.
+- **Stems are written as 24-bit WAV.** Not float, not FLAC: Tracktion reads a WAV directly and
+  decodes everything else into a proxy before playing, which would be paid at the precise moment
+  a record is put on — five decodes, the mix and its four stems. The full reasoning and the size
+  table are in
   [stem-separation/docs/stemSplit.md](../../stem-separation/docs/stemSplit.md).

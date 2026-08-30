@@ -1,689 +1,610 @@
-# La page d'accueil — st0 ouvre un projet, et c'est ici qu'on le choisit
+# The home page — st0 opens a project, and this is where you choose it
 
-`/` sans rien après est un écran, et non une adresse à corriger : les dépôts git du compte,
-les projets qu'ils contiennent, le dépôt des bibliothèques et les partages publiés. C'est de là
-qu'on part, et c'est là qu'on revient en quittant un morceau.
+`/` with nothing after it is a screen, not an address to correct: the account's git repositories,
+the projects inside them, the libraries repository and the published shares. It is where you
+start, and where you come back to on leaving a song.
 
-La **clé de déploiement n'y est plus** : elle est passée dans l'onglet Sync des réglages
-(`/@settings`, `../../../studio-desktop/docs/settings.md`). Elle se colle une fois chez
-l'hébergeur git et ne se regarde plus jamais ; la garder en bas d'un écran qu'on ouvre à chaque
-morceau, c'était payer tous les jours pour un geste d'installation. Les deux phrases d'ici qui
-en parlent pointent dessus, parce que le jour où elle manque, c'est ici qu'on s'en aperçoit.
+The **deploy key is not here**: it is in the Sync tab of the settings (`/@settings`,
+`../../../studio-desktop/docs/settings.md`). It is pasted into the git host once and never looked
+at again, and keeping it at the foot of a screen opened for every song is paying every day for an
+installation gesture. The two sentences here that mention it point there, because the day it is
+missing, this is where you notice.
 
-## Qui dessine, qui détient
+## Who draws, who holds
 
-**st0 dessine, pl8 détient.** Les routes sont celles de pl8 : `/api/projects` et `/api/shares`
-ici, `/api/projects/ssh-key` depuis les réglages. Le volume est le sien, la clé aussi, et les
-octets d'un partage aussi —
-[apps/pl8/docs/projects.md](../../pl8/docs/projects.md) dit pourquoi ce service en est le bon
-dépositaire.
+**st0 draws, pl8 holds.** The routes are pl8's: `/api/projects` and `/api/shares` here,
+`/api/projects/ssh-key` from the settings. The volume is its, the key too, and a share's bytes
+too — [apps/pl8/docs/projects.md](../../pl8/docs/projects.md) says why that service is the right
+custodian.
 
-**La SOURCE de la liste, elle, est la machine.** Ce qui liste les projets est le service de
-fichiers, sur les espaces de travail clonés — pas un miroir tenu ailleurs. Un index séparé serait
-une deuxième copie de ce que la machine du moteur tient déjà, et une moins bonne : en retard d'un
-`git fetch`, et aveugle à un projet créé, committé, dont l'envoi n'est pas passé — le cas exact
-que `commitOutcome` traite comme rattrapable.
+**The SOURCE of the list is the machine.** What lists the projects is the file service, over the
+cloned workspaces. A separate index would be a second copy of what the engine's machine already
+holds, and a worse one: one `git fetch` behind, and blind to a project created and committed
+whose push did not go through — the exact case `commitOutcome` treats as recoverable.
 
-Deux raisons de fond, dans l'ordre où elles pèsent :
+Two underlying reasons, in the order they weigh:
 
-1. **Le niveau au-dessus d'un projet appartient à ce qui ouvre un projet.** La médiathèque est
-   ce dont un morceau *se sert* — des samples, des morceaux. « Quels dépôts
-   possède cette personne, et qu'y a-t-il dedans » n'est pas une question de catalogue ; c'est
-   la première question de l'éditeur, celle à laquelle il faut répondre avant qu'il y ait quoi
-   que ce soit à éditer. Les modules et les chaînes suivent la même règle : on les ÉCRIT, et on
-   écrit ici.
-2. **La machine est de ce côté-ci.** Créer, supprimer et LISTER un projet passent par le service
-   de fichiers du moteur, parce qu'un projet est un dossier chez lui. La médiathèque devrait
-   tendre le bras vers une machine dont elle ne fait rien d'autre ; st0 y est branché en
-   permanence — c'est là que le projet s'ouvre, se compile et se joue.
+1. **The level above a project belongs to what opens a project.** "Which repositories does this
+   person own, and what is in them" is not a catalogue question; it is the editor's first
+   question, the one that has to be answered before there is anything to edit. Modules and chains
+   follow the same rule: they are WRITTEN, and writing happens here.
+2. **The machine is on this side.** Creating, deleting and LISTING a project all go through the
+   engine's file service, because a project is a folder on it. The médiathèque would have to reach
+   for a machine it does nothing else with; st0 is wired to one permanently.
 
-Le corollaire est que la médiathèque a **Morceaux** comme section d'accueil, et une bande de trois
-onglets : exactement ce qu'on n'écrit pas dans un éditeur de texte — morceaux, samples, et la zone
-de captures. Les projets sont ici, les modules et les chaînes aussi, les playlists ensuite
-(`playlists.md`).
+The corollary is that the médiathèque has **Morceaux** as its landing section: exactly what you do
+not write in a text editor. Projects are here, modules and chains too, playlists next
+(`playlists.md`) — the last by a different argument, worth distinguishing: a playlist carries no
+bytes, only names of songs that stay in the catalogue, so the file belongs to the repository it
+was written for.
 
-## L'adresse suit
+## The address follows
 
-Cet écran est **la porte d'entrée elle-même**. st0 répond à la racine de l'origine
-(`st0.priv.frediver.se`, `studio.frediver.se`), et la médiathèque — **pl8** — est sous `/pl8`.
-C'est la conclusion de l'argument ci-dessus : si la première chose qu'on veut à une porte d'entrée
-est son propre travail, alors la page qui liste ce travail EST la porte d'entrée, et la laisser
-derrière un préfixe qu'il faut savoir taper serait la mettre au second rang.
+This screen is **the front door itself**. st0 answers at the origin root
+(`st0.priv.frediver.se`, `studio.frediver.se`), and the médiathèque — **pl8** — is under `/pl8`.
+If the first thing you want at a front door is your own work, then the page listing that work IS
+the front door, and putting it behind a prefix you have to know how to type would rank it second.
 
-**Le lien vers pl8 est dans l'en-tête de CETTE page, et seulement ici.** Ouvert sur un projet, st0
-dessine l'en-tête de l'éditeur, où un lien qui fait quitter la session n'a rien à faire ; sur
-l'accueil, rien ne tourne et le catalogue est précisément ce dont le prochain projet va se
-servir. Le bouton part dans le MÊME onglet, à l'inverse du lien qui vient d'en face
-(`apps/pl8/docs/otherApps.md`) : là-bas la médiathèque joue peut-être quelque chose et partir
-l'arrêterait, ici la page est une liste et le bouton « précédent » la rend telle quelle.
+**The link to pl8 is in THIS page's header, and only here.** Opened on a project, st0 draws the
+editor's header, where a link that leaves the session has no business. The button goes in the
+SAME tab, unlike the link coming the other way (`apps/pl8/docs/otherApps.md`): over there the
+médiathèque may be playing something and leaving would stop it, here the page is a list and the
+back button returns it as it was.
 
-`/auth/*` suit la racine : l'IdP ne connaît qu'un seul `redirect_uri`, sans préfixe, donc ces
-routes ne peuvent être servies que par le service qui n'a pas de préfixe — st0. Voir
-`packages/web-protocol/services.ts`, où le chemin de st0 est `""` exprès.
+`/auth/*` follows the root: the IdP knows only one `redirect_uri`, with no prefix, so those
+routes can only be served by the service that has no prefix — st0. See
+`packages/web-protocol/services.ts`, where st0's path is `""` on purpose.
 
-Les playlists tiennent par un autre argument, et il vaut d'être distingué : elles ne sont pas ici
-parce qu'on les ÉCRIT — bien qu'on les écrive — mais parce qu'elles ne portent aucun octet. Ce
-sont des noms de morceaux qui, eux, restent au catalogue. Le fichier appartient donc au dépôt,
-avec le travail pour lequel il a été écrit ; les morceaux restent au volume qu'on sauvegarde. Voir
-`playlists.md`.
-
-## Ce que l'adresse dit, et ce qu'elle ne dit pas
+## What the address says, and what it does not
 
 ```
-/                     la page d'accueil — st0 répond à la racine de l'origine
-/?ws=<espace>         …avec l'arborescence d'un espace de travail dépliée
-/band/leclip.st0      un projet, par son dépôt — la même adresse sur toute machine
-/@local/demos/x.st0   un projet dans un espace qui n'a pas de dépôt — voir plus bas
+/                     the home page — st0 answers the origin's root
+/?ws=<workspace>      …with one workspace's tree unfolded
+/band/leclip.st0      a project, by its repository — the same address on every machine
+/@local/demos/x.st0   a project in a workspace with no repository — see below
 ```
 
-**Le chemin appartient au lancement.** `parseLaunch` le lit avant que quoi que ce soit ne soit
-monté, et le PREMIER segment de l'adresse est le nom court d'un dépôt : il n'y a donc aucun
-segment qu'on puisse ajouter ici sans qu'il se lise comme un dépôt à ouvrir. C'est aussi ce qui
-rend inouvrable un dépôt qui s'appellerait `pl8`, `k7`, `z0`, `api` ou `auth` — l'origine
-revendique ces préfixes avant st0, et la requête n'arrive jamais jusqu'ici
-(`apps/studio/docker/nginx.conf`). Le dépôt déplié
-voyage dans la **query**, qui est exactement ce qu'un routeur de SPA possède — c'est l'argument
-de [packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md) pris
-dans l'autre sens. Et elle se met en signet, se recopie, et répond au bouton « précédent ».
+**The path belongs to the launch.** `parseLaunch` reads it before anything is mounted, and the
+FIRST segment is a repository's short name: there is no segment that can be added here without
+reading as a repository to open. That is also what makes a repository called `pl8`, `k7`, `z0`,
+`api` or `auth` unopenable — the origin claims those prefixes ahead of st0 and the request never
+reaches here (`apps/studio/docker/nginx.conf`). The unfolded workspace travels in the **query**,
+which is exactly what a SPA router owns — the argument of
+[packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md) taken
+the other way — and it bookmarks, copies, and answers the back button.
 
-`?ws=` est posé en `replace` : parcourir trois espaces pour voir ce qu'il y a dedans n'est pas
-une navigation dont on veut trois entrées dans l'historique. Ce qu'on déplie est un dossier sur la
-machine, et c'est son NOM qui le désigne, pas un identifiant de dépôt : lisible dans la barre
-d'adresse, et vrai sur la machine qui répond.
+`?ws=` is set with `replace`: browsing three workspaces to see what is in them is not a navigation
+you want three history entries for. What is unfolded is a folder on the machine, and its NAME
+designates it, not a repository id: readable in the address bar, and true on the machine that
+answers.
 
-### Le branchement se fait au montage, en trois
+`main.tsx` reads the address once and picks a stack, rather than mounting one with pieces
+switched off:
 
-`main.tsx` lit l'adresse une fois et choisit une pile, plutôt que d'en monter une seule avec des
-morceaux éteints :
-
-| l'adresse | ce qui est monté |
+| the address | what is mounted |
 |---|---|
-| `/@shares/<token>.st0` | `SharedGate` — ni compte, ni moteur, ni copie de travail |
-| `/` | `AuthGate` → `Home` — le compte, et rien d'autre |
-| `/<dépôt>/<projet>` | `AuthGate` → `EngineGate` → `ProjectGate` → l'éditeur |
+| `/@shares/<token>.st0` | `SharedGate` — no account, no engine, no working copy |
+| `/` | `AuthGate` → `Home` — the account, and nothing else |
+| `/<dépôt>/<projet>` | `AuthGate` → `EngineGate` → `ProjectGate` → the editor |
 
-Le `Profiler` reste sur la troisième seulement : il facture chaque commit du sous-arbre pour en
-retenir les rares longs, et cette page-ci n'a pas de rafales de commits à mesurer.
+The `Profiler` stays on the third only: it bills every commit of the subtree to keep the rare long
+ones, and this page has no bursts of commits to measure.
 
-### Le moteur est nécessaire pour la liste, et c'est le prix de tout le reste
+### The engine is required for the list, and that is the price of everything else
 
-Cette page réclame une machine pour **la liste des projets**, et pour l'ajout d'un dépôt (qui le
-clone) : les projets sont des dossiers sur cette machine, donc elle seule sait lesquels existent.
-Sans elle, la liste est remplacée par la phrase qui le dit, plutôt que par un écran vide qui
-ressemblerait à un compte neuf.
+This page needs a machine for **the list of projects**, and for adding a repository (which clones
+it): projects are folders on that machine, so only it knows which exist. Without it the list is
+replaced by the sentence that says so, rather than by an empty screen that would look like a new
+account. The header says which machine: "machine prête" or "aucune machine", with the address in a
+tooltip and a button to re-probe.
 
-Ce qui se lit et se règle **sans machine** est ce qui sauve le jour de l'installation : le dépôt
-des bibliothèques ici, et la clé de déploiement dans les réglages. On peut donc faire, moteur
-éteint, exactement ce qu'il faut faire avant d'en allumer un — une page qu'un sélecteur de moteur
-barrerait entièrement serait une page où l'on ne peut rien poser tant qu'il n'y a pas de moteur.
-Le déménagement de la clé ne coûte rien à cet argument, et c'est la condition qu'il a fallu tenir :
-l'onglet Sync ne demande que pl8, donc il s'affiche sans moteur — et sur le studio hébergé, où les
-trois autres onglets n'ont rien à montrer, il s'affiche seul.
+What can be read and set **without a machine** is what saves installation day: the libraries
+repository here, and the deploy key in the settings. A page an engine picker would strike out
+entirely would be a page where nothing can be set until there is an engine. The Sync tab needs
+only pl8, so it draws with no engine; on the hosted studio, where the other three tabs have
+nothing to show, it draws alone.
 
-Les partages, eux, sont derrière un bouton sur la rangée d'un projet, donc derrière une liste qui
-exige une machine (§ Les partages). Ça ne touche pas l'argument d'installation — un compte neuf
-n'a rien publié — mais il faut le dire, et c'est le prix noté là-bas.
+Shares are behind a button on a project's row, so behind a list that needs a machine (§ Shares).
+That does not touch the installation argument — a new account has published nothing — but it is
+the price noted there.
 
-L'en-tête dit quand même laquelle : « machine prête » ou « aucune machine », avec l'adresse en
-info-bulle et un bouton pour re-sonder. Découvrir au clic pourquoi un bouton ne fait rien est
-exactement ce qu'on évite ici.
+## The rule that holds everything
 
-## La règle qui tient tout
+**The folder's suffix names the application.** `mysong.st0` opens in st0, `partie.z0` in z0, and
+`packages/web-protocol/projects.ts` is the whole rule. A folder with no suffix is not a project,
+even if it contains a `project.yaml`.
 
-**Le suffixe du dossier nomme l'application.** `mysong.st0` s'ouvre dans st0, `partie.z0` dans
-z0 ; c'est tout, et `packages/web-protocol/projects.ts` est la règle entière. Un dossier sans
-suffixe n'est pas un projet, même s'il contient un `project.yaml`.
+Two suffixes, because two applications open a project — and that is why this page keeps
+`launchUrl` on each row rather than building its own addresses: a `.z0` in the same repository
+opens elsewhere, and the one line of the screen that would be entitled to guess does not.
 
-Deux suffixes, parce que deux applications ouvrent un projet — et c'est la raison pour laquelle
-cette page reste `launchUrl` sur chaque rangée plutôt que de fabriquer ses propres adresses :
-un `.z0` dans le même dépôt s'ouvre ailleurs, et la seule ligne de l'écran qui aurait le droit de
-deviner ne l'a pas.
+Everything an st0 project can BE is in the **surfaces** it declares inside the `.st0`, rather than
+in some kind of folder: a `viewport` and video lanes for picture
+(`packages/song-video/docs/picture.md`), a `turntables` surface and the playlist it names for a set
+(`packages/song/docs/setProject.md`). That is why the three archetypes in the creation menu are
+named after their surface.
 
-Tout ce qu'un projet st0 peut ÊTRE tient dans les **surfaces** qu'il déclare à l'intérieur de
-`.st0`, plutôt que dans une sorte de dossier : un `viewport` et des pistes vidéo pour l'image
-(`packages/song-video/docs/picture.md`), une surface `turntables` et la playlist qu'elle nomme pour un set
-(`packages/song/docs/setProject.md`). C'est pour ça que les trois archétypes du menu de création
-portent le nom de leur surface — plus bas.
+## This screen's command bar
 
-## La barre de commande de cet écran
+At the bottom, full width, exactly as in the editor and for the same reason: it is where you type,
+so it is always there, never summoned. `frontend/docs/commandBar.md` describes the component; what
+follows is what sets it apart here.
 
-Elle est en bas, sur toute la largeur, exactement comme dans l'éditeur — et pour la même raison :
-c'est là qu'on tape, donc elle est toujours là, jamais convoquée. Double-Shift lui donne le
-clavier, Échap le rend. `frontend/docs/commandBar.md` décrit le composant ; ce qui suit est ce
-qui le distingue ici.
+**Its vocabulary is its own** (`src/projects/homeCommands.ts`), and not `LOCAL_COMMANDS`. This
+screen has no open project, no engine session and no file: the editor's catalogue here would be a
+list of things you cannot do, and the half that comes from the file service would not even answer
+— `/complete` and `/command` want an active project. Eight verbs, and they are the page's buttons:
 
-**Son vocabulaire est le sien** (`src/projects/homeCommands.ts`), et pas `LOCAL_COMMANDS`. Cet
-écran n'a ni projet ouvert, ni session moteur, ni fichier : le catalogue de l'éditeur y serait une
-liste de choses qu'on ne peut pas faire, et la moitié qui vient du service de fichiers ne
-répondrait même pas — `/complete` et `/command` veulent un projet actif. Six verbes, et ce sont
-ceux des boutons de la page :
-
-| la ligne | ce qu'elle fait, et par où |
+| the line | what it does, and through what |
 |---|---|
-| `project new <type> <name>` | les trois archétypes, puis `projectFolderName` pose le `.st0` — échafaudage sur la machine, puis commit et push |
-| `project delete init <name>` | **désigne** le projet et dit ce que confirmer fera. N'écrit rien |
-| `project delete confirm <name>` | supprime celui-là, si c'est bien celui qui a été désigné |
-| `system repo add <repo_url>` | inscrit chez pl8 **puis** clone ici — les deux, dans cet ordre |
-| `system repo remove <repo_name>` | retire du registre. Les fichiers restent |
-| `system repo sync <repo_name>` | `project pull`, puis `project commit sync` dans cet espace |
+| `project new <type> <name>` | the three archetypes, then `projectFolderName` adds the `.st0` — scaffold on the machine, then commit and push |
+| `project delete init <name>` | **names** the project and says what confirming will do. Writes nothing |
+| `project delete confirm <name>` | deletes that one, if it is the one that was named |
+| `system workspace new <name>` | an empty workspace here, no repository behind it |
+| `system workspace publish <workspace> <repo_url>` | gives a local workspace its first repository, and pushes |
+| `system repo add <repo_url>` | registers at pl8 **then** clones here — both, in that order |
+| `system repo remove <repo_name>` | takes it out of the register. The files stay |
+| `system repo sync <repo_name>` | `project pull`, then `project commit sync` in that workspace |
 
-### Deux verbes pour supprimer, et c'est la confirmation
+**Deleting is two verbs, and that is the confirmation.** A palette can fire a destructive line on
+an Enter landing on a fuzzy match; the bar has no dialog to ask a second question with, so it asks
+a second verb. Naming the project twice is what makes the second keystroke a decision, and `init`
+is the only place you READ what deletion does — the folder recycled, the commit pushed, the
+content that stays in git history. The confirm demands the same name, or the second line would be
+a formality. The arming is **consumed by any command**, not only by its confirm — the rule the
+graph's pending insertion already follows (`docs/shell.md`) — so a destructive verb cannot stay
+armed behind three unrelated lines.
 
-Une palette peut lancer une ligne destructrice sur un Enter posé sur une correspondance floue.
-Le dialogue de la page pose une seconde question ; la barre n'a pas de dialogue, donc elle pose
-un **second verbe**. Nommer le projet deux fois est ce qui fait de la deuxième frappe une
-décision, et `init` est le seul endroit où l'on LIT ce que la suppression fera — le dossier
-recyclé sur la machine, le commit poussé, le contenu qui reste dans l'historique git.
+**Which repository a line lands in.** The `project …` verbs name no workspace: it is the one the
+address unfolded (`?ws=`), or failing that the only one there is. Between several, the line is
+**refused by naming them** rather than choosing one — creating a project in the wrong repository
+is a commit pushed where nobody was looking.
 
-Le confirm **exige le même nom** : autrement la seconde ligne serait une formalité, ce qu'elle ne
-doit surtout pas être. Et l'armement est **consommé par n'importe quelle commande**, pas seulement
-par son confirm — c'est la règle que suit déjà l'insertion en attente du graphe (`docs/shell.md`),
-et elle interdit ici qu'un verbe destructeur reste armé derrière trois lignes sans rapport.
+**Buttons and bar go through the same functions** — `createProjectOnMachine`,
+`deleteProjectOnMachine`, `ensureWorkspace`, pl8's register: one implementation, two doors, as the
+file tree's menu and the `fs …` verbs already have (`docs/shell.md`). What the bar adds is doing
+it without the mouse, and saying so in a status line above it: refusals in amber, because these
+verbs talk to two services and a silent "that did nothing" is avoided everywhere else. A line this
+screen does not know is refused **here**: there is no service behind to pass it to, unlike the
+editor's bar, whose lines end at `/command`.
 
-### Dans quel dépôt une ligne atterrit
+## The LIBRARIES repository, before everything else
 
-Les verbes `project …` ne nomment pas d'espace de travail : c'est **celui que l'adresse a
-déplié** (`?ws=`), et à défaut le seul qu'il y ait. Entre plusieurs, la ligne est **refusée en les
-nommant** plutôt que d'en choisir un — créer un projet dans le mauvais dépôt, c'est un commit
-poussé là où personne ne regardait. L'autre option aurait été un troisième argument sur chaque
-verbe, qui est le dépôt où l'on se tient déjà.
+An account declares **one**, at the top of the page, before the list of repositories and before
+the tree: the modules and chains all its projects inherit. Without it, st0 refuses to open
+anything — not on principle, but because no `@st0/…` reference would resolve, and a song opened
+with all its shared modules missing reads as a broken song rather than as an account somebody has
+not finished setting up. That is also why the card is **at the top and tinted when empty**: it is
+the only thing to do on this screen until it is done, and the refusal `ProjectGate` will meet a
+click later is the same fact, said too late.
 
-### Les boutons et la barre passent par les mêmes fonctions
+One, not a list: it is mounted at a fixed path in every workspace (`<espace>/_libraries`, see
+[packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)), and two
+repositories claiming that path is a question with no answer. A second library is a folder IN that
+repository.
 
-`createProjectOnMachine`, `deleteProjectOnMachine`, `ensureWorkspace`, le registre de pl8 : une
-seule implémentation, deux portes. C'est la relation qu'ont déjà le menu de l'arbre de fichiers et
-les verbes `fs …` (`docs/shell.md`) — les dialogues gardent leur progression pas à pas et leur
-confirmation, la barre a la sienne. Ce que la barre ajoute, c'est de pouvoir faire tout ça sans la
-souris, et de le dire dans une ligne d'état au-dessus d'elle : refus en ambre, parce que ces
-verbes-là parlent à deux services et qu'un « ça n'a rien fait » silencieux est ce qu'on évite
-partout ailleurs.
+**An empty repository gets one empty commit, once.** On the first project opened, the file service
+makes the missing root and pushes it (`initIfEmpty`). A gitlink has to point AT a commit, and a
+repository just created in a web interface has none — `git submodule add` on an unborn HEAD fails.
 
-Une ligne que cet écran ne connaît pas est refusée **ici** : il n'y a pas de service derrière à
-qui la passer, contrairement à la barre de l'éditeur, dont les lignes finissent chez `/command`.
+> **Nothing SEEDS modules into it, deliberately.** `initIfEmpty` lays the commit and nothing else:
+> the libraries repository is the reference, so a new library is **empty** and a scaffolded set's
+> `@st0/…` refs resolve to nothing until something is put there
+> (`packages/song/docs/sharedFolders.md`). Copying a catalogue in from elsewhere — pl8's volume, or
+> the build — would make that elsewhere a second source of truth about somebody else's modules.
 
-## Le dépôt des BIBLIOTHÈQUES, avant tout le reste
+### The debt is said at creation, not discovered at opening
 
-Un compte en déclare **un**, en haut de la page, avant la liste des dépôts et avant
-l'arborescence : les modules et les chaînes que tous ses projets héritent. Sans lui, st0 refuse
-d'ouvrir quoi que ce soit — pas par principe, mais parce qu'aucune référence `@st0/…` ne
-résoudrait, et qu'un morceau ouvert avec tous ses modules partagés manquants se lit comme un
-morceau cassé plutôt que comme un compte qu'on n'a pas fini d'installer.
+The card checks the DECLARATION of the repository, never its contents, so a `mix` scaffolded on a
+new account would otherwise open with **all** its shared modules missing — exactly the "broken
+song rather than unfinished account" reading the card exists to prevent.
 
-C'est aussi pourquoi la carte est **en tête et teintée quand elle est vide** : c'est la seule
-chose à faire sur cet écran tant qu'elle n'est pas faite, et le refus que `ProjectGate` opposera
-un clic plus tard est le même fait, dit trop tard.
+`createProjectIn` therefore answers a `missing[]` beside the `project`: the `@st0/…` refs the
+scaffold has just written and the workspace does not resolve
+(`packages/song/src/scaffoldNeeds.ts`). Three things worth noting:
 
-Un seul, pas une liste : il est monté à un chemin fixe dans chaque espace de travail
-(`<espace>/_libraries`, voir
-[packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)), et deux
-dépôts qui réclament ce chemin est une question sans réponse. Une deuxième bibliothèque est un
-dossier DANS ce dépôt, pas un deuxième dépôt.
+- **The list is read out of the text the scaffold writes**, not kept beside it. An archetype whose
+  nodes change module cannot make the list lie.
+- **Only `@st0/` counts.** `@project/` is the song's folder, `@workspace/` the workspace's
+  `_modules`, `@engine/` the plugin scan and `@studio/` the built-in modules: none of those four
+  waits on a repository. That is why `arrangement` and `video` owe nothing and `mix` is the only
+  one of the three that opens broken on a new account. The asymmetry is pinned by a test.
+- **The sentence promises no catalogue.** It names the modules owed and says you write them
+  yourself, so as not to suggest something is going to fetch them.
 
-**Un dépôt vide reçoit un commit vide, une fois.** À la première ouverture d'un projet, le
-service de fichiers fait la racine qui manque et la pousse (`initIfEmpty`). Ce n'est pas un
-détail de plomberie : un gitlink doit pointer SUR un commit, et un dépôt qu'on vient de créer
-dans une interface web n'en a aucun — `git submodule add` sur un HEAD non né échoue. Le dépôt
-est ensuite rempli par ici, à mesure qu'on y écrit des modules et des chaînes.
+**Changing it touches no machine.** Workspaces already cloned keep the old one: their submodule
+still points there, and the file service REFUSES to rewrite it rather than doing so silently.
 
-> **Rien n'y SÈME de modules, et c'est délibéré.** `initIfEmpty` pose le commit et rien d'autre :
-> le dépôt des bibliothèques est la référence, donc une bibliothèque neuve est **vide** et les
-> `@st0/…` d'un set échafaudé n'y résolvent rien tant qu'on n'y a rien mis
-> (`packages/song/docs/sharedFolders.md`). Recopier un catalogue depuis ailleurs — le volume de
-> pl8, ou le build — ferait de cet ailleurs une seconde source de vérité sur les modules de
-> quelqu'un d'autre.
+## A project opens in the SAME tab
 
-### …mais la dette est dite à la création, pas découverte à l'ouverture
+Both departures — the indented row under the workspace and the tree's button — are ordinary
+**anchors**. The way back is the app's name in the editor's header, a link to this page
+(`projectsUrl`, the same one both gates use when they send you back here). It is a whole-page
+navigation and not a `<Link>`: the project is the router's `basename`, so nothing under it can
+route outside (`packages/project-shell/docs/launch.md`). On a **share** there is no link at all:
+the visitor has no account, so no home page to go to (`shared.md`).
 
-Cette règle-là ne bouge pas ; ce qui bougeait, c'est le moment où on l'apprenait. Un `mix`
-échafaudé sur un compte neuf s'ouvrait avec **tous** ses modules partagés manquants — exactement
-la lecture « morceau cassé plutôt que compte pas fini » que la carte plus haut existe pour éviter,
-sauf que la carte ne vérifie que la DÉCLARATION du dépôt, jamais son contenu.
+`RepoList` and `RepoTree` receive a `projectHref`, not an `onOpenProject`. **An address and not an
+action** — the page computes where the row leads, the view makes it a link. That is what makes
+ctrl-click and middle-click open a new tab for whoever wants one, and what makes "copy link
+address" work: the choice stays with the browser. A `window.open` in an `onClick` would answer the
+same thing to all three.
 
-`createProjectIn` répond donc maintenant un `missing[]` à côté du `project` : les refs `@st0/…`
-que l'échafaudage vient d'écrire et que l'espace de travail ne résout pas
-(`packages/song/src/scaffoldNeeds.ts`). Trois choses valent d'être notées :
+## The tree is not the normal path
 
-- **La liste est lue dans le texte que l'échafaudage écrit**, pas tenue à côté de lui. Un
-  archétype dont les nœuds changent de module ne peut pas faire mentir la liste, puisqu'il n'y en
-  a pas d'autre que ses propres fichiers.
-- **Seul `@st0/` compte.** `@project/` est le dossier du morceau, `@workspace/` les `_modules` de
-  l'espace, `@engine/` le scan des greffons et `@studio/` les modules intégrés : aucun de ces
-  quatre n'attend qu'on installe un dépôt. C'est pourquoi `arrangement` et `video` ne doivent
-  rien — ils n'étendent que du `@project/` et du `@studio/` — et pourquoi `mix` est le seul des
-  trois qui s'ouvre cassé sur un compte neuf. L'asymétrie est fixée par un test.
-- **La phrase ne promet aucun catalogue.** Elle nomme les modules dus et dit qu'on les écrit
-  soi-même, précisément pour ne pas laisser croire que quelque chose va les chercher.
+What you come here for is a project, not a repository. `GET /workspaces/projects` returns, per
+workspace, the list of its projects, and the screen draws them **indented under their own**, each
+leading straight to its application. There is no `projectCount` field beside it: it is
+`projects.length`, and two sources for one number always diverge.
 
-**En changer ne touche aucune machine.** Les espaces de travail déjà clonés gardent l'ancien :
-leur sous-module y pointe toujours, et le service de fichiers REFUSE de le réécrire plutôt que
-de le faire en silence. La carte le dit au moment où on change.
+There is no `null` in that response, and that is the clearest gain: "not known yet" would be a
+third state to tell apart from "no projects", and a repository shown without projects when it has
+not been read yet is a lie that corrects itself ten seconds later, so one nobody reports.
 
-## Un projet s'ouvre dans le MÊME onglet, et le nom dans l'en-tête ramène ici
+Projects are found **at any depth**, `songs/hiver.st0` included, and a project inside a project is
+descended into and reported — a `.z0` filed inside a `.st0` folder is a real arrangement. That is
+`projectDirsUnder` in the file service, the same walker as the list the editor already polls. The
+tree keeps its button: it is for looking at what is inside, including folders that are not
+projects.
 
-Les deux départs — la rangée en retrait sous le dépôt et le bouton de l'arborescence — sont des
-**ancres** ordinaires : plus de `target="_blank"`, plus de `rel="noopener"`.
+### One row per WORKSPACE, not per repository
 
-Cette page a longtemps ouvert dans un nouvel onglet, et l'argument était que la liste devait
-rester derrière, dépliée : revenir redemanderait `/api/projects`, replierait l'arbre et
-re-sonderait les moteurs. Ce qui manquait pour trancher autrement, c'était **un chemin de retour**.
-Il existe maintenant — le nom de l'app dans l'en-tête de l'éditeur est un lien vers cette page
-(`projectsUrl`, celui-là même que les deux portes utilisent déjà quand elles renvoient ici) — et
-un onglet par projet ouvert n'est plus le prix à payer pour pouvoir revenir.
+The list shows what the machine holds, so its folders under `<state>/workspace/`. Two consequences,
+and both are needed:
 
-Ce qui ne change pas, et qui était la meilleure moitié de cette section : le type des props.
-`RepoList` et `RepoTree` reçoivent un `projectHref`, pas un `onOpenProject`. **Une adresse et non
-une action** — la page calcule où mène la rangée, la vue en fait un lien. C'est ce qui fait que
-**ctrl-clic et clic du milieu ouvrent toujours un nouvel onglet** pour qui en veut un, et que
-« copier l'adresse du lien » marche : le choix reste au navigateur, il a simplement cessé d'être
-imposé. Un `window.open` dans un `onClick` aurait répondu la même chose aux trois.
+**A repository registered at pl8 that this machine has not cloned has no row.** A second machine
+shows here only what is on this one. Its `/<dépôt>/<projet>` address keeps working — `ProjectGate`
+clones it on opening — and that is how to bring it over.
 
-Le lien de l'en-tête est une navigation de page entière, et pas un `<Link>` : le projet est le
-`basename` du routeur, donc rien en-dessous ne peut router vers l'extérieur
-(`packages/project-shell/docs/launch.md`). Sur un **partage** il n'y a pas de lien du tout : le
-visiteur n'a pas de compte, donc pas de page d'accueil où aller (`shared.md`).
+**A workspace with NO repository has one too.** `Examples`, seeded with the demos on first
+contact, is a clone of nothing — and it is what a new account has on the day it has nothing else.
+A list drawn from registered repositories would leave it invisible. So it needs an address, and
+that is `@local`.
 
-## L'arborescence n'est pas le chemin normal
-
-Ce qu'on vient chercher ici, c'est un projet — pas un dépôt. `GET /workspaces/projects` sur la
-machine renvoie donc, par espace de travail, la liste de ses projets, et l'écran les dessine **en
-retrait sous le leur**, chacun menant droit à son application. Il n'y a pas de champ
-`projectCount` à côté : c'est `projects.length`, et deux sources pour un même chiffre finissent
-toujours par diverger.
-
-Il n'y a pas de `null` dans cette réponse, et c'est le gain le plus net : « pas encore su » serait
-un troisième état à distinguer de « aucun projet », et un dépôt affiché sans projet alors qu'il
-n'a pas encore été lu est un mensonge qui se corrige tout seul dix secondes plus tard, donc que
-personne ne signale. Un `readdir` sur un disque qui est là ne connaît pas cet état : la réponse
-est la réponse.
-
-Les projets sont trouvés **à n'importe quelle profondeur**, `songs/hiver.st0` compris, et un projet
-dans un projet est descendu et rapporté — un `.z0` rangé dans un dossier `.st0` est une vraie
-disposition. C'est `projectDirsUnder` dans le service de fichiers, le même marcheur que la liste
-que l'éditeur poll déjà.
-
-L'arborescence garde son bouton : elle sert à regarder ce qu'il y a dedans, y compris les
-dossiers qui ne sont pas des projets.
-
-### Une rangée par ESPACE DE TRAVAIL, pas par dépôt
-
-La liste montre ce que la machine tient, donc ses dossiers sous `<state>/workspace/<vous>/`. Deux
-conséquences, et il faut les deux :
-
-**Un dépôt inscrit chez pl8 que cette machine n'a pas cloné n'a aucune rangée.** Une deuxième
-machine, ou un compte déjà rempli, ne montre ici que ce qui est sur celle-ci. Son adresse
-`/<dépôt>/<projet>` continue de marcher — `ProjectGate` le clonera à l'ouverture — et c'est la
-façon de le rapatrier.
-
-**Un espace de travail SANS dépôt en a une aussi.** `Examples`, semé avec les démos au premier
-contact, n'est le clone de rien — et c'est pourtant ce qu'un compte neuf a le jour où il n'a rien
-d'autre. Une liste qui viendrait des dépôts inscrits le laisserait invisible. Il lui faut donc une
-adresse, et c'est `@local`.
-
-## `@local` — un projet qui n'appartient à aucun dépôt
+## `@local` — a project that belongs to no repository
 
 ```
-/@local/Examples/synth-demo.st0     un projet dans l'espace « Examples »
-/@local/hiver.st0                   un espace de travail qui EST le projet
+/@local/Examples/synth-demo.st0     a project in the Examples workspace
+/@local/hiver.st0                   a workspace that IS the project
 ```
 
-La troisième sentinelle, après `@banc` et `@shares`, et exactement le même tour : `@` ne peut pas
-commencer un nom court git — c'est le dernier segment d'une URI SSH sans `.git` — donc ça ne peut
-jamais entrer en collision avec un vrai dépôt, et la porte le voit et saute toute la route qui
-transforme un nom en URI puis en clone. Il n'y a rien à cloner : le dossier est déjà là.
+The third sentinel, after `@banc` and `@shares`, and the same trick: `@` cannot start a git short
+name — it is the last segment of an SSH URI without `.git` — so it can never collide with a real
+repository, and the gate sees it and skips the whole route that turns a name into a URI and then
+into a clone. There is nothing to clone: the folder is already there.
 
-**`parseLaunch` n'a rien de spécial à faire.** `/@local/Examples/synth-demo.st0` se lit comme dépôt
-`@local`, projet `Examples/synth-demo.st0` — la part projet s'arrête au dernier segment qui
-revendique le suffixe de l'app, la règle ordinaire. `localTarget` détache l'espace de travail du
-début, et c'est la seule règle propre à `@local`. Un espace qui EST un projet n'a rien après son
-nom, et le projet est `"."` : la même réponse que pour un dépôt qui est le projet, donc rien en
-aval ne change.
+**`parseLaunch` has nothing special to do.** `/@local/Examples/synth-demo.st0` reads as repository
+`@local`, project `Examples/synth-demo.st0` — the project part stops at the last segment claiming
+the app's suffix, the ordinary rule. `localTarget` detaches the workspace from the front, and that
+is the only rule specific to `@local`. A workspace that IS a project has nothing after its name
+and the project is `"."`, so nothing downstream changes.
 
-**Le prix, écrit là où il se paie : cette adresse n'est pas portable.** L'adresse d'un dépôt ouvre
-la même chanson sur n'importe quelle machine — c'est par `<dépôt>/<projet>` que `projectClaimKey`
-identifie un projet, et c'est ce qu'un lien collé à quelqu'un doit être. `@local` nomme un dossier
-sur celle-ci et rien ailleurs. L'adresse portable gagne donc dès qu'elle existe, et `@local` est
-le repli.
+**The price, written where it is paid: this address is not portable.** A repository address opens
+the same song on any machine — `projectClaimKey` identifies a project by `<dépôt>/<projet>`, and
+that is what a link pasted to somebody has to be. `@local` names a folder on this one and nowhere
+else, so the portable address wins as soon as it exists.
 
-**Ce n'est plus seulement un repli, c'est le point de départ.** Un espace de travail se crée
-ICI — `git init`, aucun dépôt distant — et jusqu'au jour où on le publie, `@local` est la seule
-adresse qu'il ait. Ça n'est pas un état dégradé : c'est l'état d'un morceau qu'on commence, et
-tout marche dedans sauf pousser (`packages/file-service/docs/workspaces.md`). Publier lui donne
-son `origin` ET l'inscrit chez pl8, et l'adresse portable prend le relais au poll suivant sans
-que personne n'ait rien à faire.
+**It is also the starting point.** A workspace is created HERE — `git init`, no remote — and until
+the day it is published, `@local` is the only address it has. That is not a degraded state: it is
+the state of a song being started, and everything works in it except pushing
+(`packages/file-service/docs/workspaces.md`). Publishing gives it its `origin` AND registers it at
+pl8, and the portable address takes over at the next poll.
 
-Trois cas y tombent, et c'est la page qui tranche parce qu'elle est la seule à parler aux deux
-services :
+Three cases fall here, and this page decides because it is the only one talking to both services:
 
-| cas | qui le sait |
+| case | who knows |
 |---|---|
-| l'espace n'est pas un clone du tout | la machine : pas d'`origin` |
-| deux clones répondent au même nom court | la machine : `uniqueName: false` — pl8 répond 409 pour un tel nom plutôt que d'en choisir un |
-| le registre de pl8 ne connaît pas ce dépôt | pl8 : le nom court n'est pas dans sa liste |
+| the workspace is not a clone at all | the machine: no `origin` |
+| two clones answer to the same short name | the machine: `uniqueName: false` — pl8 answers 409 for such a name rather than choosing |
+| pl8's register does not know this repository | pl8: the short name is not in its list |
 
-Le troisième est celui qu'on oublie : un clone parfaitement nommé que le registre ignore a un nom
-court impeccable et se résout en 404 à la porte. C'est pour ça que cette page demande encore
-`GET /api/projects` — pas pour dessiner une liste, mais pour savoir laquelle des deux adresses
-écrire.
+The third is the one that gets forgotten: a perfectly named clone the register ignores has an
+impeccable short name and resolves to a 404 at the gate. That is why this page still asks
+`GET /api/projects` — not to draw a list, but to know which of the two addresses to write.
 
-**`@local` n'exige PAS de dépôt de bibliothèques**, et c'est le seul endroit où cette route est en
-désaccord avec les deux autres. Le refus `no-libraries` est posé avant tout le reste parce qu'une
-référence `@st0/…` non résolue fait lire une chanson comme cassée plutôt que comme un compte qu'on
-n'a pas fini d'installer. Mais un espace sans dépôt ne monte aucun sous-module, et c'est ce qu'un
-compte NEUF a : exiger une bibliothèque mettrait les démos derrière la seule chose qu'elles
-existent pour précéder. Une référence qui ne résout pas se signale déjà, sur son nœud.
+**`@local` does NOT require a libraries repository**, and it is the only place this route disagrees
+with the other two. The `no-libraries` refusal is raised first because an unresolved `@st0/…`
+reference makes a song read as broken rather than as an unfinished account. But a workspace with
+no repository mounts no submodule, and that is what a NEW account has: demanding a library would
+put the demos behind the one thing they exist to precede. A reference that does not resolve
+already reports itself, on its node.
 
-### Comment elle s'ouvre
+### How the tree opens
 
-Le **premier niveau est déplié** dès que la machine répond, et rien en dessous : un espace qui
-s'ouvre tout replié cache derrière un clic la seule chose qu'on vient y chercher, et tout
-déplier noierait un projet dans le `node_modules` du voisin.
+The **first level is unfolded** as soon as the machine answers, and nothing below: a workspace that
+opens fully folded hides behind a click the only thing you came for, and unfolding everything would
+drown a project in the neighbour's `node_modules`. That is done **once per workspace**, not on
+every tree received: after that the folds belong to the person.
 
-Ce dépliage est fait **une fois par espace**, pas à chaque arbre reçu : ensuite les plis
-appartiennent à la personne, y compris ceux qu'elle a refermés.
+Rows are sorted **alphabetically, at every level**, folders and files mixed. The comparator is
+`@studio/web-protocol/tree` — `Intl.Collator`: case and accents do not count, and `prise 2`
+precedes `prise 10`. It is in a package and not in an app because the médiathèque sorts its
+families with the same one, and two orders for two trees of the same studio read as a bug in one.
 
-Les lignes sont triées **alphabétiquement, à tous les niveaux**, dossiers et fichiers mêlés. Le
-comparateur est `@studio/web-protocol/tree` — `Intl.Collator` : la casse et les accents ne
-comptent pas, et `prise 2` précède `prise 10`. Il est dans un paquet et non dans une app parce
-que la médiathèque trie ses familles avec le même, et deux ordres pour deux arbres du même
-studio se lisent comme un bug dans l'un des deux.
+The tree comes from `GET /workspace-tree` — the home page's own route, asking it of a workspace it
+has not opened. It is `FileNode`, the same type as everywhere else, with the same
+`project?: boolean` flag on folders and `app` saying which application opens it. The drawing knows
+only that type, never the service that answered.
 
-L'arbre vient de `GET /workspace-tree` sur la machine, et **pas** de `/tree` : celui-là est
-enraciné sur le projet ACTIF, délibérément, parce que c'est la question de l'éditeur et pas
-celle-ci. Deux méthodes plutôt qu'un drapeau, pour cette raison exacte.
+## Getting a workspace: three gestures, and only one talks to a server
 
-C'est du `FileNode`, le même type que partout ailleurs, avec le même drapeau `project?: boolean`
-sur les dossiers et `app` qui dit laquelle des applications l'ouvre. Le dessin ne connaît donc que
-ce type, jamais le service qui a répondu : changer de source ne lui coûte pas une ligne.
+**Nouveau** talks to nobody: `POST /workspaces` creates the folder and initialises it with git,
+with no remote. No server, no key, no account — the one thing on this screen that works entirely
+offline, and the one you start with.
 
-## Le trajet complet
-
-1. Sur la page d'accueil, deux boutons, et c'est tout ce qu'il y a en haut de la liste.
-
-   **Nouveau** ne parle à personne : `POST /workspaces` crée le dossier et l'initialise avec git,
-   sans dépôt distant. Aucun serveur, aucune clé, aucun compte — c'est la seule chose de cet écran
-   qui marche entièrement hors ligne, et c'est celle par laquelle on commence.
-
-   **Et il est VIDE.** Pas de projet par défaut : l'archétype décide de ce que l'écran montre —
-   une timeline, deux platines, un rig sans surface — et c'est une question qu'on répond mal
-   depuis une popin sur une liste, avant d'avoir rien vu. La rangée d'un espace vide n'a donc
-   qu'un lien, « Créer le premier projet », qui ouvre l'espace ; l'éditeur y pose l'assistant
-   (`FirstProject.tsx`), et c'est là qu'on choisit. Un espace de travail qu'on vient de faire est
-   un dossier git vide, ce qui est exactement ce qu'il prétend être.
-
-   **Importer** est l'ancien champ d'URI, derrière un bouton : pl8 génère la clé de déploiement si
-   elle n'existe pas encore et inscrit le dépôt à son registre ; la page enchaîne aussitôt sur
-   `POST /workspaces/clone` et suit le job, **avec la progression de git à l'écran**. Le clone
-   n'est pas un extra : cette liste ne montre que ce que la machine tient, donc sans lui l'ajout
-   serait un formulaire qui ne change rien à l'écran.
-
-   C'est aussi le seul chemin vers cet espace tant qu'il est vide : les rangées lient des PROJETS,
-et il n'y en a pas. `workspaceHref` construit l'adresse de l'espace lui-même — `/@local/hiver` ou
-`/hiver` selon que le nom court résout —, et le projet y est `.`, que la machine résout
+**And it is EMPTY.** No default project: the archetype decides what the screen shows — a timeline,
+two decks, a rig with no surface — and that is a question badly answered from a popin on a list,
+before having seen anything. The row of an empty workspace has one link, "Créer le premier
+projet", which opens the workspace; the editor puts the assistant there (`FirstProject.tsx`). It
+is also the only way in while the workspace is empty, since rows link PROJECTS and there are none:
+`workspaceHref` builds the workspace's own address — `/@local/hiver` or `/hiver` depending on
+whether the short name resolves — and the project there is `.`, which the machine resolves
 (`packages/file-service/docs/workspaces.md`).
 
-Le troisième geste vit sur la rangée et pas en haut, parce qu'il agit sur UN espace :
-   **Publier**, offert seulement quand `origin` est nul. Il demande l'URI du dépôt — qui doit
-   exister et être vide —, la pose en `origin`, pousse, puis l'inscrit chez pl8. Les deux moitiés
-   ne sont pas de même nature et la popin le dit : le push est celui qui peut échouer bruyamment
-   (git parle lui-même — « Permission denied (publickey) »), l'inscription est celle qu'on peut
-   refaire plus tard. Si elle seule rate, on le dit et on ne referme pas : ce qui a été poussé
-   l'a été.
-2. La liste affiche chaque espace de travail avec **ses projets en retrait dessous** ; un clic sur
-   l'un d'eux part directement dans son application, **dans le même onglet**. Le nom de l'espace,
-   lui, déplie l'arborescence — ici même —, où les dossiers-projets sont marqués de la même façon.
-3. Dans les deux cas on arrive à `/<app>/<nom-du-dépôt>/<dossier>` — `/band/leclip.st0` pour
-   une chanson — une ADRESSE, et le dépôt par son **nom court**, pas par son URI : une barre
-   d'adresse se copie et se colle, et une URI SSH y traîne une machine, un port et un
-   utilisateur.
-4. L'application redemande à pl8 l'URI derrière ce nom (`GET /api/projects/by-name/:name`).
-   Deux dépôts qui répondent au même nom court font un 409 plutôt qu'un choix silencieux.
-5. Puis elle demande au file service `GET /workspaces/by-repo?uri=` : cette machine
-   connaît-elle ce dépôt ?
-6. Sinon, elle le clone, **avec la progression de git à l'écran**
-   ([cloneJobs.md](../../../../packages/file-service/docs/cloneJobs.md)), puis ouvre le projet.
+**Importer** takes a URI: pl8 generates the deploy key if it does not exist yet and registers the
+repository, then the page follows immediately with `POST /workspaces/clone` and follows the job,
+**with git's progress on screen**. The clone is not an extra: this list shows only what the machine
+holds, so without it adding would be a form that changes nothing on screen.
 
-Les étapes 4 à 6 sont `@studio/project-shell`, montée à l'identique par st0 et par l'éditeur de
-z0 : une divergence là serait un clone en double ou un 404. Voir
-[launch.md](../../../../packages/project-shell/docs/launch.md).
+**Publier** lives on the row and not at the top, because it acts on ONE workspace, and it is
+offered only when `origin` is null. It asks for a repository URI — which must exist and be empty —,
+sets it as `origin`, pushes, then registers it at pl8. The two halves are not of the same nature
+and the popin says so: the push is the one that can fail loudly (git speaks for itself,
+"Permission denied (publickey)"), the registration is the one that can be redone later. If only
+that fails, it is said and the popin does not close: what was pushed was pushed.
 
-**Une seule pile pour les deux applications, toujours.** z0 revient ici aussi en quittant un
-projet — cette liste tient les dossiers `.z0` autant que les `.st0`, et un deuxième sélecteur de
-son côté serait exactement la deuxième chose à tenir en phase que ce paquet existe pour éviter.
+Clicking a project goes straight into its application, in the same tab, at
+`/<nom-du-dépôt>/<dossier>` — an ADDRESS, and the repository by its **short name**, not by its
+URI: an address bar is copied and pasted, and an SSH URI drags a machine, a port and a user along
+with it. From there the app asks pl8 for the URI behind that name
+(`GET /api/projects/by-name/:name`, a 409 rather than a silent choice when two repositories
+answer to it), asks the file service `GET /workspaces/by-repo?uri=`, and clones if the answer is
+no, **with git's progress on screen**
+([cloneJobs.md](../../../../packages/file-service/docs/cloneJobs.md)). That whole tail is
+`@studio/project-shell`, mounted identically by st0 and by z0's editor — a divergence there would
+be a double clone or a 404 ([launch.md](../../../../packages/project-shell/docs/launch.md)). z0
+comes back here too on leaving a project: this list holds `.z0` folders as much as `.st0`, and a
+second picker on its side would be the second thing to keep in step that this package exists to
+avoid.
 
-## Créer et supprimer un projet — sur la machine, pas ici
+## Creating and deleting a project — on the machine, not here
 
-Le bloc de chaque dépôt porte un **« Nouveau projet »** (l'archétype, et un nom), et chaque
-projet un petit **« Supprimer »** avec confirmation. Ni l'un ni l'autre n'est fait par pl8.
+Each repository's block carries a **"Nouveau projet"** (the archetype, and a name), and each
+project a small **"Supprimer"** with confirmation. Neither is done by pl8: what this page calls is
+the file service the whole app uses as soon as a project is open, not a seam that would serve only
+here.
 
-L'écran et la machine sont du même côté : ce que cette page appelle est le service de fichiers que
-l'app entière utilise dès qu'un projet est ouvert, et pas une couture qui ne servirait qu'ici.
+They are **explicit calls**, with `fileBase` and the token on each one (`projects/api.ts`), and not
+the editor's global `configureFileApi`. That one is set ONCE, on the workspace of the single
+project a tab has opened; this page touches a different repository on every row.
 
-Ce sont **des appels explicites**, avec `fileBase` et le jeton
-sur chaque appel (`projects/api.ts`), et non le `configureFileApi` global de l'éditeur. Celui-là
-est posé UNE fois, sur l'espace de travail du seul projet qu'un onglet a ouvert ; cette page
-touche un dépôt différent à chaque rangée, et plusieurs avant que rien ne soit ouvert.
-
-### Ce que la machine sait déjà faire
-
-| pièce | où |
+| piece | where |
 |---|---|
-| échafaudage aux réglages par défaut | `POST <fileBase>/project/create` → `createProjectIn` |
-| suppression (le dossier est recyclé) | `POST <fileBase>/project/delete` |
-| indexer, committer, pousser | la commande `commit` → `packages/commands/src/git.ts` |
-| cloner le dépôt s'il n'y est pas | `POST /workspaces/clone` + les jobs à interroger |
+| scaffold at default settings | `POST <fileBase>/project/create` → `createProjectIn` |
+| deletion (the folder is recycled) | `POST <fileBase>/project/delete` |
+| index, commit, push | the `commit` command → `packages/commands/src/git.ts` |
+| clone the repository if it is not there | `POST /workspaces/clone` + the jobs to poll |
 
-### Le clonage est ce qui rend un dépôt vide utilisable
+`ensureWorkspace` clones if the machine does not know the repository yet. Without it you would
+have to have a project already in order to open one, and therefore to create one — a chicken and
+egg that would make the function useless on precisely the new repositories. The progress shown is
+git's, in its own words ("Receiving objects"), because a thirty-second wait that says nothing
+looks like a frozen screen.
 
-`ensureWorkspace` clone si la machine ne connaît pas encore le dépôt. Sans ça il faudrait déjà
-avoir un projet pour pouvoir en ouvrir un, donc pour pouvoir en créer un — un œuf sans poule,
-qui rendrait la fonction inutile précisément sur les dépôts neufs. La progression affichée est
-celle de git, dans ses mots (« Receiving objects »), parce qu'une attente de trente secondes qui
-ne dit rien ressemble à un écran figé.
+### The suffix decides, and the name is shown first
 
-### Le suffixe décide, et le nom est montré avant
+`projectName.ts` is pure and tested: it adds the suffix, removes an already-typed suffix —
+"hiver.z0" in a menu that writes st0 would give "hiver.z0.st0", which is neither — and refuses
+separators rather than replacing them silently. A suffix is read **only at the end**: "prise v1"
+is an ordinary folder name and nothing touches it. That is already `projectApp`'s rule, and
+`projectName.test.ts` pins it on both sides. The resulting folder is shown under the field
+**before** confirming: here the name decides everything.
 
-`projectName.ts` est pur et testé : c'est lui qui pose le suffixe, retire un suffixe déjà tapé —
-« hiver.z0 » dans un menu qui écrit du st0 donnerait « hiver.z0.st0 », qui ne serait ni l'un ni
-l'autre — et refuse les séparateurs plutôt que de les remplacer en silence.
+### The three archetypes, named after their surface
 
-Un suffixe ne se lit **qu'à la fin** : « prise v1 » est un nom de dossier parfaitement ordinaire,
-et rien n'y touche. C'est déjà la règle de `projectApp`, et `projectName.test.ts` la fixe des
-deux côtés. Le dossier obtenu est affiché sous le champ **avant** de valider : ici c'est le nom
-qui décide de tout.
-
-### Les trois archétypes, nommés d'après leur surface
-
-| archétype | surfaces | ce qu'il écrit |
+| archetype | surfaces | what it writes |
 |---|---|---|
-| `arrangement` | `timeline` | une piste, un synthé, un motif |
-| `mix` | `turntables` | deux platines, un crossfade, et un `playlist:` à remplir |
-| `video` | `timeline` + `viewport` | l'arrangement, plus une piste d'image |
+| `arrangement` | `timeline` | one track, one synth, one pattern |
+| `mix` | `turntables` | two decks, a crossfade, and a `playlist:` to fill in |
+| `video` | `timeline` + `viewport` | the arrangement, plus a picture lane |
 
-Tout est un dossier `.st0` ouvert par le même st0, donc « quelle sorte de projet » n'a pas de
-réponses à départager — ce qui diffère est la surface que le projet DÉCLARE
-(`packages/song/docs/surfaces.md`). Il n'y a pas d'archétype « le graphe seul, aucune surface » :
-une entrée dont la description entière serait « aucune des trois » n'est pas un choix qu'on fait
-exprès, et un rig écrit à la main s'ouvre de toute façon. Le MODE `live` est autre chose : c'est
-ce que `mix` déclare.
+Everything is a `.st0` folder opened by the same st0, so "what kind of project" has no answers to
+tell apart — what differs is the surface the project DECLARES
+(`packages/song/docs/surfaces.md`). There is no "the graph alone, no surface" archetype: an entry
+whose whole description would be "none of the three" is not a choice made on purpose, and a
+hand-written rig opens anyway. The `live` MODE is something else: it is what `mix` declares.
 
-`createProjectIn` les distingue dans un `Record<ProjectShape, …>` et non dans une suite de `if` :
-un quatrième archétype ajouté à `PROJECT_SHAPES` ne compilera plus tant que personne n'aura dit
-ce qu'il écrit. La même raison que `HAS_SCAFFOLD`, plus bas.
+`createProjectIn` tells them apart in a `Record<ProjectShape, …>` and not in a chain of `if`s: a
+fourth archetype added to `PROJECT_SHAPES` will not compile until somebody says what it writes.
+Same reason as `HAS_SCAFFOLD`.
 
-> **Le service de fichiers connaît ces noms, et une machine en retard le dit.** `shape` voyage
-> jusqu'à `POST /project/create`, dont le `z.enum` est `PROJECT_SHAPES`. Une machine dont le
-> service est plus ancien que ces trois-là répond 400 — l'échec est visible et nommé, ce qui vaut
-> mieux qu'un gabarit deviné à côté.
+> **The file service knows these names, and a machine behind says so.** `shape` travels to
+> `POST /project/create`, whose `z.enum` is `PROJECT_SHAPES`. A machine whose service is older
+> answers 400 — a failure that is visible and named, which beats a template guessed alongside.
 
-### Posséder un suffixe et pouvoir être créé sont deux questions
+### Owning a suffix and being creatable are two questions
 
-`ProjectApp` vaut `"st0" | "z0"` — k7 n'a pas de projets. Mais le menu ne reflète PAS ce type :
-il reflète `SCAFFOLDED_APPS`, et confondre les deux fabrique un dossier dont le suffixe dit une
-chose et le contenu une autre. Une seule application y figure, donc le menu offre les archétypes
-d'un projet st0 plutôt qu'une liste d'applications.
+`ProjectApp` is `"st0" | "z0"` — k7 has no projects. But the menu reflects `SCAFFOLDED_APPS`, not
+that type. Creating needs a **template** — a map of files the file service knows how to write
+(`createProjectIn`, and `@studio/song`'s `scaffold*` modules). z0 owns `.z0` folders and has none,
+so offering it would make a `.z0` folder containing an st0 song: the suffix saying one thing, the
+contents another, and nothing complaining until z0 tried to open it. `HAS_SCAFFOLD` answers app by
+app, in a `Record` and not a list — which is why the menu offers an st0 project's archetypes
+rather than a list of applications.
 
-Créer demande un **gabarit** — une carte de fichiers que le file-service sait écrire
-(`createProjectIn`, et les modules `scaffold*` de `@studio/song`). z0 possède bien les dossiers
-`.z0` et n'en a aucun. Le proposer fabriquerait donc un dossier `.z0` contenant une chanson st0 :
-le suffixe dirait une chose, le contenu une autre, et rien ne s'en plaindrait avant que z0 essaie
-de l'ouvrir. `HAS_SCAFFOLD` répond la question app par app, dans un `Record` et non une liste.
+### The verb is `project commit`, and a success has to be proven
 
-### Le verbe est `project commit`, et un succès doit se prouver
+Two traps hide each other here. **The verb**: `commands.yaml` declares `project commit`, not
+`commit`, and a line matching no command does not throw — `runCommand` answers "unknown command",
+so nothing is committed and nothing says so. **Reading the answer**: looking for known failure
+words and concluding success for everything else announces that all is well for a command that
+does not exist. `commitOutcome` demands **positive proof** — a `committed …` line — and returns
+the raw output for everything else, including what it does not recognise. That output is what will
+name the next drift between this code and `commands.yaml`. It is pure and in its own module, with
+not one import: that is what makes it loadable by a test, `machine.ts` touching `./api` — hence
+`window` — as soon as it loads.
 
-Deux pièges se cachent l'un l'autre ici, et ils méritent d'être écrits ensemble.
+**A failed push does not cancel the creation.** The folder is there and only the push failed; the
+dialog closes and the page shows "créé, mais : …". Deleting the project to be tidy would be
+throwing away somebody's work over a network fault, and throwing would invite starting over a
+creation that has happened. There is nothing to ask for afterwards: the machine answers the list,
+so the project appears at the next tick.
 
-**Le verbe.** `commands.yaml` déclare `project commit`, pas `commit`. Une ligne qui ne
-correspond à aucune commande **ne lève pas** : `runCommand` répond « unknown command ». Rien
-n'est donc committé, et rien ne le dit.
+## Shares, on the row of the project they came out of
 
-**La lecture de la réponse.** Chercher des mots d'échec connus et conclure au succès pour tout le
-reste est le mauvais défaut : ça annonce que tout va bien pour une commande qui n'existe pas.
-`commitOutcome` exige une **preuve positive** — une ligne `committed …` — et rend la sortie brute
-pour tout le reste, y compris ce qu'il ne reconnaît pas. C'est cette sortie qui nommera la
-prochaine dérive entre ce code et `commands.yaml`.
+A **"Partages"** button on each project row, beside "Supprimer", opens a popin listing the frozen
+snapshots **that project** has published, and it is the only place one is withdrawn. **Both ends
+are st0**: `project share link` makes the bundle here, on the machine that has an engine and can
+therefore render sound, and sends it to pl8 — which holds the only copy and serves it to people
+with no account. What the bundle contains is
+[packages/commands/docs/shareBundle.md](../../../../packages/commands/docs/shareBundle.md); what
+pl8 does with it, including why hosting that does not contradict "pl8 never makes a working copy",
+is [apps/pl8/docs/shares.md](../../pl8/docs/shares.md).
 
-Il est pur et dans son propre module, sans le moindre import : c'est ce qui le rend chargeable
-par un test, `machine.ts` touchant `./api` — donc `window` — dès son chargement.
+**On the row, and not in a card for the whole account.** A share COMES OUT of a project, and the
+question you ask is "what have I published of that song", never "give me the account's twenty
+links sorted by nothing". A single list would carry the project's name on every line, i.e. redraw
+by hand the grouping the project list already does.
 
-### Un envoi raté n'annule pas la création
+What the popin has to say, it says:
 
-Le commit vient après, et sa plainte est rapportée séparément : le dossier est là, sur la
-machine, et seul l'envoi a manqué — hors ligne, pas d'amont. Le dialogue se ferme, la page
-affiche « créé, mais : … ». Supprimer le projet pour faire propre serait jeter le travail de
-quelqu'un pour une panne de réseau, et lever inviterait à recommencer une création qui a eu lieu.
+- **the total in bytes**, at the top — a share never expires, so seeing what they cost together is
+  the only thing that can make you decide to withdraw one;
+- **the line survives revocation, dated**, and the token is erased from the register: a share that
+  vanished would leave its author wondering whether it ever existed, and a revoked line must not
+  be copyable from the screen where it is still drawn;
+- **the address is a link** and not a button: it is what was sent to other people, and the only way
+  to check what they see is to open it;
+- the confirmation names the two things that surprise — the bytes go immediately and for good, and
+  **a link already sent cannot be un-sent**.
 
-Il n'y a rien à redemander après coup. Le projet est un dossier que la machine vient de faire, et
-c'est elle qui répond la liste : il y apparaît au tick suivant, sans rafraîchissement à réclamer.
+The **count is on the button** ("Partages (2)"): otherwise you would open ten popins to find out
+which is not empty. The button is there even at zero, because a button that appears and disappears
+with state is not looked for in the right place.
 
-## Les partages, à la rangée du projet dont ils sortent
+### Attaching a share to a project is a join, and it is fallible
 
-Un bouton **« Partages »** sur chaque rangée de projet, à côté de « Supprimer », ouvre une popin
-qui liste les instantanés gelés que **ce projet-là** a publiés, et c'est le seul endroit où l'on
-en retire un. **Les deux bouts sont st0** : `project share link` fabrique le paquet ici, sur la
-machine qui a un moteur et peut donc rendre du son, et l'envoie à pl8 — qui en détient l'unique
-copie et le sert à des gens sans compte.
-
-Ce que le paquet contient et pourquoi est dans
-[packages/commands/docs/shareBundle.md](../../../../packages/commands/docs/shareBundle.md) ; ce que
-pl8 en fait, y compris pourquoi héberger ça ne contredit pas « pl8 ne fait jamais de copie de
-travail », est dans [apps/pl8/docs/shares.md](../../pl8/docs/shares.md).
-
-**À la rangée, et non dans une carte du compte entier.** Un partage SORT d'un projet, et la
-question qu'on se pose est « qu'est-ce que j'ai publié de ce morceau-là », jamais « donne-moi les
-vingt liens du compte triés par rien ». Une liste unique porterait le nom du projet sur chaque
-ligne, c'est-à-dire qu'elle redessinerait à la main le groupement que la liste des projets fait
-déjà. À la rangée, le regroupement est la disposition.
-
-Ce que la popin doit dire, elle le dit :
-
-- **le total en octets**, en tête — un partage n'expire jamais, donc voir ce qu'ils coûtent
-  ensemble est la seule chose qui peut faire décider d'en retirer un ;
-- **la ligne survit à la révocation, datée**, et le token est effacé du registre : un partage
-  qui disparaîtrait laisserait son auteur se demander s'il a jamais existé, et une ligne révoquée
-  ne doit pas pouvoir être recopiée depuis l'écran où elle est encore dessinée ;
-- **l'adresse est un lien** et pas un bouton : c'est ce qu'on a envoyé aux autres, et la seule
-  façon de vérifier ce qu'ils voient est de l'ouvrir ;
-- la confirmation nomme les deux choses qui surprennent — les octets s'en vont tout de suite et
-  pour de bon, et **un lien déjà envoyé ne se dé-envoie pas**.
-
-Le **compte est sur le bouton** (« Partages (2) ») plutôt que dans la popin seule : sinon il
-faudrait ouvrir dix popins pour savoir laquelle n'est pas vide, alors que c'est la chose qui doit
-se lire d'un coup d'œil. Le bouton est là même à zéro, parce qu'un bouton qui apparaît et
-disparaît selon l'état ne se cherche pas au bon endroit.
-
-### Rattacher un partage à un projet est une jointure, et elle est faillible
-
-`origin` est écrit par la machine, en deux basenames :
+`origin` is written by the machine, as two basenames:
 
 ```ts
 origin: { repo: basename(this.root), project: basename(dir) }   // file-service/src/workspace.ts
 ```
 
-Donc `origin.repo` est le nom de l'**espace de travail** — `MachineWorkspace.name`, et pas le nom
-court du dépôt chez pl8 — et `origin.project` est le **dernier segment avec son suffixe**, pas le
-chemin. `sharesForProject.ts` franchit cet écart, seul et testé, parce que c'est le genre de règle
-qu'on ne relit pas dans un JSX — nommé au long plutôt que « projectShares », qui se heurterait à
-`ProjectShares.tsx` sur un disque insensible à la casse. Deux conséquences à connaître :
+So `origin.repo` is the **workspace's** name — `MachineWorkspace.name`, not the repository's short
+name at pl8 — and `origin.project` is the **last segment with its suffix**, not the path.
+`sharesForProject.ts` crosses that gap, alone and tested, because it is the kind of rule nobody
+re-reads inside a JSX — named out in full rather than "projectShares", which would collide with
+`ProjectShares.tsx` on a case-insensitive disk. Two consequences:
 
-- un projet qui EST son espace de travail (`path: "."`) porte le nom de l'espace des deux côtés,
-  `dir` valant `root` là-bas ;
-- **deux projets du même nom dans deux dossiers d'un même espace sont indiscernables** et voient
-  donc les mêmes lignes. Élargir la comparaison demande que la machine écrive le chemin ; ça se
-  règle là-bas, et rien ici ne peut le deviner.
+- a project that IS its workspace (`path: "."`) carries the workspace's name on both sides;
+- **two projects of the same name in two folders of one workspace are indistinguishable** and see
+  the same lines. Widening the comparison requires the machine to write the path; nothing here can
+  guess it.
 
-### Le prix : un partage orphelin n'a pas d'écran
+**An orphaned share has no screen.** The share of a project since deleted, or published from
+another machine, has no row to hang on: its bytes stay on pl8's volume, with no button to take
+them back, and a share never expires — so that is permanent until somebody calls
+`DELETE /api/shares/:key` by hand. It is an accepted trade: covering the other case takes a second
+list showing what the first does not, which brings back the whole-account card that row grouping
+replaces. If it starts to bite, the answer is a "Partages sans projet" in the page header, empty
+and therefore invisible most of the time.
 
-Le partage d'un projet supprimé depuis, ou publié depuis une autre machine que celle-ci, n'a
-aucune rangée à quoi s'accrocher : ses octets restent sur le volume de pl8, sans bouton pour les
-reprendre. Le partage n'expire jamais, donc c'est définitif tant que personne n'appelle
-`DELETE /api/shares/:key` à la main.
+A second, quieter price: **this popin is behind the project list, which needs a machine.** Shares
+are not in the "settable with the engine off" column, where the libraries are.
 
-C'est un compromis assumé et non un oubli : le cas courant est « qu'ai-je publié de ce morceau »,
-et ce qu'il faudrait pour couvrir l'autre — une deuxième liste, quelque part, montrant ce que la
-première ne montre pas — ramène la carte du compte entier que le regroupement par rangée remplace.
-Si ça se met à mordre, la réponse est un « Partages sans projet » dans l'en-tête de la page, vide
-et donc invisible la plupart du temps.
+## Surfaces, in the same popin — and as QR codes
 
-Et il y a un second prix, plus discret : **cette popin est derrière la liste des projets, qui
-exige une machine.** Les partages ne sont donc pas dans la colonne « se règle moteur éteint », où
-sont les bibliothèques — et la clé, un écran plus loin.
+A project row's popin has **two tabs**. *Partages*, above. *Surfaces*: one thumbnail per screen
+this project can open on a second device, the whole project first, then each surface it declares.
+Scan from the tablet and you are in it.
 
-## Deux polls, parce qu'il y a deux services
+**Two tabs and not two lists in one body**, because the two look alike — "here is how this project
+gets out of here" — and are not the same thing at all. [external.md](external.md) holds the line,
+in these terms: *"It is not a share. A share is a frozen snapshot, with no account, no engine
+and no source. An external surface is the opposite on all three counts: it demands the account,
+it requires an engine, and it writes."* Mixed, somebody would send a "surface" to an
+audience believing they were sending a frozen copy. The sentence under the title changes with the
+tab to say which of the two you are looking at.
 
-La liste des projets est demandée à la **machine**, les partages et le registre à **pl8** : deux
-services, deux minuteurs, et ils ne peuvent pas partager de jeton.
+**A code, and nothing else.** No address written under the thumbnail, no copy button: scanning IS
+the gesture, and an address in full is what this screen replaces. A thumbnail carries the surface's
+name, its type, and the code. The price is real and accepted: a device that cannot scan — no
+camera, a lens that will not focus — has no fallback here.
 
-Celui de la machine n'en a d'ailleurs aucun devant lui — pas de `/revision` à interroger d'abord.
-Le service répond la liste elle-même, derrière une fenêtre de cinq secondes de son côté
-(`LISTING_RESCAN_MS`, la même que celle sous le scan de projets de `workspaceInfo`, et pour la
-même raison : sans plancher, chaque onglet ferait un `readdir` par dossier toutes les trois
-secondes). Demander d'abord si ça a bougé serait un aller-retour de plus pour économiser un scan
-déjà mémoïsé.
+### What the QR code must contain
 
-Une liste en retard de cinq secondes est une rangée qui n'est pas encore apparue, c'est-à-dire une
-attente. Le cache du document compilé refuse ce marché et doit le refuser — une compilation
-périmée se trompe avec assurance sur une chanson — et c'est la différence qui vaut d'être notée.
-Un clone ou un espace fait ici vide la fenêtre tout de suite (`forgetListing`), donc le seul retard
-possible vient d'une main extérieure au processus.
+This is the screen's one trap, and it is silent. Every address on this page is built on
+`window.location.origin` (`projects/api.ts`), and in the desktop window that origin is
+**`http://127.0.0.1:8780`**. Encoded as it is, the thumbnail scans perfectly, the phone opens the
+address — and lands on itself. The symptom is "the QR code does not work", which sends you looking
+at the camera or the code's size.
 
-### Le jeton dit « à jour », pas « en main »
+`projects/remoteUrl.ts` is that conversion, tested separately for that reason:
 
-`seen` retient la révision de ce qui a été chargé la dernière fois. Elle répond à « le service
-a-t-il bougé depuis ? » — et **pas** à « est-ce que l'écran tient encore cette liste ? ». Vider
-l'affichage en laissant le jeton intact fait donc que le poll ne recharge rien, donc que rien ne
-remplace le vide : un spinner qui ne s'arrête plus.
-Ici les deux vont ensemble — `onChanged` remet les deux jetons à `""`, ce qui force la relecture
-au tick suivant plutôt que d'attendre qu'une révision bouge après une écriture qu'on vient de
-faire.
+| the page's origin | what the thumbnail carries |
+|---|---|
+| loopback, and the app announces LAN addresses | the one chosen in `lanUrls` (`apps/studio-desktop/docs/externals.md`) |
+| loopback, and no LAN address | **nothing** — the thumbnail says there is nothing to reach |
+| a real origin (hosted studio, LAN proxy) | the address as it is: it is already reachable |
 
-## Ce qu'il faut vérifier dans un navigateur
+**When the machine has several addresses, it offers them instead of choosing one.** A development
+workstation commonly has three — Wi-Fi, Ethernet, and WSL's or a VPN's virtual adapter — and
+nothing in their order says which one the phone can reach. Guessing produces a thumbnail on
+`172.28.x.x` that never answers, with the same symptom as above. Beyond one address, a picker
+appears above the thumbnails.
 
-Les suites d'ici tournent dans node et ne montent rien : `commitOutcome`, `projectName`,
-`sharesForProject` et les six verbes de la barre (`homeCommands.test.ts` — le catalogue, la
-résolution du dépôt, l'armement du delete) sont couverts, l'écran ne l'est pas. Ce qu'un run vert
-ne dit pas :
+The list of surfaces comes from `/workspaces/surfaces`, the route `/external` already queries (see
+[external.md](external.md)), asked **when the tab mounts** and not when the page does: it is a
+per-project scan on the machine, and a home page does not pay for it for popins nobody will open.
+A surface's address is `externalOf(projectHref(…), id)`, the same one the `/external` menu gives —
+otherwise there would be two claims on one song, which `external.md` explains about
+`projectClaimKey`. A failure to draw the code **is said** instead of leaving a spinner running.
 
-- ouvrir `/` sans être connecté → l'écran de connexion, puis la page d'accueil ;
-- **sans machine moteur** : la liste des projets est remplacée par la phrase qui dit pourquoi,
-  le champ d'ajout et « Nouveau projet » sont gris, et les bibliothèques se règlent quand même —
-  c'est le contrôle qui tient tout le paragraphe sur le prix payé. Le lien « réglages » de cette
-  phrase mène à la clé, et elle s'y génère sans moteur elle aussi ;
-- **avec une machine et AUCUN dépôt de bibliothèques** : `Examples` est là, et une de ses démos
-  s'ouvre sur `/@local/Examples/<démo>.st0`. C'est le contrôle du jour de l'installation ;
-- déplier un espace, recharger la page → le même espace déplié, `?ws=` dans l'adresse ;
-- créer un projet → la rangée apparaît **sans rien rafraîchir**, en cinq secondes au pire. Une
-  rangée qui met plus longtemps est le signe que la liste ne vient plus de la machine ;
-- ouvrir un projet → l'app prend l'onglet ; le nom dans son en-tête ramène ici, et ctrl-clic ou
-  clic du milieu ouvrent toujours un onglet pour qui en veut un ;
-- quitter un projet depuis l'éditeur, et perdre son moteur au profit de quelqu'un d'autre → les
-  deux ramènent ici ;
-- créer un projet dans un dépôt **vide** que cette machine n'a jamais vu → le clone avec la
-  progression de git, puis le dossier, puis le commit ;
-- **« Partages » sur la rangée d'un projet qui en a** → le compte sur le bouton, la popin listant
-  les siens et pas ceux du voisin ; sur un projet qui n'en a pas → la popin le dit ;
-- le bouton ne doit **pas** ouvrir le projet : la rangée entière est un lien, et c'est le
-  `preventDefault` qui l'en empêche ;
-- révoquer un partage, puis ouvrir son lien → « introuvable » ;
-- **la barre** : double-Shift lui donne le clavier ; `project new` ouvre un champ à trois valeurs
-  puis demande le nom ; `project delete init` puis `confirm` supprime, et `confirm` seul refuse ;
-  une ligne inconnue est refusée sans partir nulle part.
+## Two polls, because there are two services
+
+The project list is asked of the **machine**, the shares and the register of **pl8**: two services,
+two timers, and they cannot share a token.
+
+The machine's has no token in front of it — no `/revision` to ask first. The service answers the
+list itself, behind a five-second window on its side (`LISTING_RESCAN_MS`, the same as the one
+under `workspaceInfo`'s project scan: without a floor, every tab on the home page does a `readdir`
+per folder every three seconds). Asking first whether anything moved would be one more round trip
+to save an already-memoised scan.
+
+A list five seconds behind is a row that has not appeared yet, i.e. a wait. The compiled document
+cache refuses that trade and has to — a stale compile is confidently wrong about a song — and that
+is the difference worth noting. A clone or a workspace made here empties the window immediately
+(`forgetListing`), so the only possible lag comes from a hand outside the process.
+
+`seen` remembers the revision of what was last loaded. It answers "has the service moved since?" —
+and **not** "does the screen still hold this list?". Emptying the display while leaving the token
+intact means the poll reloads nothing, so nothing replaces the emptiness: a spinner that never
+stops. Here the two go together — `onChanged` resets both tokens to `""`, forcing a re-read at the
+next tick rather than waiting for a revision to move after a write just made.
+
+## What to check in a browser
+
+The suites here run in node and mount nothing: `commitOutcome`, `projectName`, `sharesForProject`
+and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
+
+- open `/` while logged out → the login screen, then the home page;
+- **with no engine machine**: the project list is replaced by the sentence that says why, the add
+  field and "Nouveau projet" are greyed, and the libraries can still be set. The "réglages" link in
+  that sentence leads to the key, which also generates with no engine;
+- **with a machine and NO libraries repository**: `Examples` is there, and one of its demos opens
+  at `/@local/Examples/<démo>.st0` — the installation-day check;
+- unfold a workspace, reload → the same one unfolded, `?ws=` in the address;
+- create a project → the row appears **with no refresh**, in five seconds at worst. Longer means
+  the list no longer comes from the machine;
+- open a project → the app takes the tab; the name in its header comes back here, and ctrl-click or
+  middle-click still open a tab;
+- leave a project from the editor, and lose its engine to somebody else → both come back here;
+- create a project in an **empty** repository this machine has never seen → the clone with git's
+  progress, then the folder, then the commit;
+- **"Partages" on a project row that has some** → the count on the button, the popin listing its own
+  and not the neighbour's; on one that has none → the popin says so;
+- the button must **not** open the project: the whole row is a link, and `preventDefault` stops it;
+- revoke a share, then open its link → "introuvable";
+- **the bar**: double-Shift gives it the keyboard; `project new` opens a three-value field then asks
+  for the name; `project delete init` then `confirm` deletes, and `confirm` alone refuses; an
+  unknown line is refused without going anywhere.

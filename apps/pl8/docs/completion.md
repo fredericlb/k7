@@ -1,45 +1,39 @@
-# Ce que la médiathèque sait compléter
+# What the media library can complete
 
-Un seul écran de pl8 montre du YAML — le sidecar d'un morceau, dans `SongEditor` — et il utilise
-le `YamlPane` de `@studio/ui-module-builder`. Il ne complète **rien**. Le mécanisme de complétion
-lui-même est décrit dans
-[packages/ui-editor/docs/completion.md](../../../packages/ui-editor/docs/completion.md) ; ce qui
-suit est l'autre moitié, **d'où viendraient les noms ici**, parce que la réponse n'est pas celle
-de st0 et qu'elle ne peut pas l'être.
+One pl8 screen shows YAML — a song's sidecar, in `SongEditor`, through
+`@studio/ui-module-builder`'s `YamlPane` — and it completes nothing. The completion machinery is
+[packages/ui-editor/docs/completion.md](../../../packages/ui-editor/docs/completion.md); this
+page is the other half, where the names here would have to come from.
 
-## Le problème de fond : ce backend n'a pas de disque de moteur
+## This backend has no engine's disk
 
-st0 remplit ses `Hints` depuis la machine où tourne son backend : les modules du projet, les
-pistes, et le cache de scan (`<state>/exts.json`) que le moteur écrit à côté de lui.
+st0 fills its `Hints` from the machine its backend runs on: the project's modules, the tracks,
+and the scan cache (`<state>/exts.json`) the engine writes beside it. The media library is
+hosted. It serves a volume of files, has never seen a plugin scan, and will never see the one
+belonging to the machine in front of you. A `hints()` computed here answers an empty object.
 
-La médiathèque est **hébergée**. Son backend sert un volume de fichiers ; il n'a jamais vu de
-scan de greffons, et il ne verra jamais celui de la machine devant laquelle vous êtes. Un
-`hints()` calculé ici rend un objet vide, et un panneau qui s'en nourrit ne complète rien.
+A useful vocabulary has to be asked for elsewhere, and where depends on the word:
 
-Un vocabulaire utile devrait donc être demandé ailleurs, et l'endroit dépend du mot :
-
-| ce qu'on écrit | vocabulaire | qui seul peut répondre |
+| what is being written | vocabulary | who alone can answer |
 |---|---|---|
-| un ref `@engine/…` | les greffons scannés | le **moteur**, par son socket |
-| un ref `@st0/…` | les modules de la bibliothèque | le **catalogue**, par une route de listing |
-| une destination dans un graphe | les nœuds déclarés | **le fichier lui-même**, dans le tampon |
+| an `@engine/…` ref | the scanned plugins | the **engine**, over its socket |
+| an `@st0/…` ref | the library's modules | the **catalogue**, over a listing route |
+| a destination in a graph | the declared nodes | **the file itself**, in the buffer |
 
-La troisième ligne est celle qui vaut d'être retenue, parce qu'elle ne coûte rien : les clés de
-la section `modules:` **sont** la liste des nœuds, donc le vocabulaire se lit dans le texte à
-l'écran et ne se demande à personne. Un vocabulaire qui rend `null` quand le texte ne parse pas
-doit alors laisser l'écran garder le dernier jeu lisible — une liste qui se viderait à chaque
-frappe n'offrirait rien précisément pendant qu'on écrit la ligne qui en a besoin.
+The third row is the one that costs nothing: the keys of the `modules:` section **are** the list
+of nodes, so the vocabulary is read out of the text on screen. Such a vocabulary must let the
+screen keep its last readable set when the text does not parse — one that emptied on every
+keystroke would offer nothing precisely while the line that needs it is being written.
 
-## Le motif qui marche ici
+## The pattern that works here
 
-Un écran qui tient **déjà** une liste pour autre chose est le mieux placé pour en faire un
-vocabulaire, et n'a besoin de rien demander à personne. C'est ce que fait l'éditeur de playlists
-de st0, sur le listing qu'il interroge déjà pour résoudre ses lignes
-(`apps/st0/frontend/docs/playlists.md`) — et c'est **ce catalogue-ci** qui lui répond, par
-`/api/mediatek/list?family=songs`, à travers l'origine.
+A screen already holding a list for something else is best placed to make a vocabulary of it,
+and needs to ask nobody. st0's playlist editor does that over the listing it already queries
+(`apps/st0/frontend/docs/playlists.md`), and this catalogue is what answers it, through
+`/api/mediatek/list?family=songs`.
 
-## Ce qui n'est pas couvert
+## Not covered
 
-**Le sidecar d'un morceau** (`SongEditor`). Ses champs ne sont pas un `FileKind` de projet, donc
-`fileKindFor` rend `null` et rien ne se complète. Ce serait un vocabulaire de plus, sur le modèle
-ci-dessus — et c'est le seul écran YAML d'ici, donc le seul candidat.
+A song's sidecar. Its fields are not a project `FileKind`, so `fileKindFor` answers `null` and
+nothing completes. It would be one more vocabulary on the model above, and it is the only YAML
+screen here.

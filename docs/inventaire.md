@@ -1,344 +1,300 @@
-# Inventaire du code mort, dupliqué et construit d'avance
+# Inventory of dead, duplicated and built-ahead code
 
-Ce que le dépôt contient et que rien n'atteint. Chaque entrée porte de quoi trancher :
-*qui appelle* est la question, pas *est-ce que ça marche*.
+What the repo contains and nothing reaches. Every entry carries enough to decide: *who calls it* is
+the question, not *does it work*.
 
-> **Lisez le §0 avant de supprimer quoi que ce soit.** Plusieurs modules bien vivants sont
-> invisibles à un balayage des `import`. Le piège se reproduit à chaque relevé.
+> **Read §0 before deleting anything.** Several perfectly live modules are invisible to an `import`
+> sweep. The trap recurs at every survey.
 
-> **Relevé du 2026-08-26, sur `8f27aab1`** (précédent : 2026-08-21 sur `a4808e35`, 116 commits
-> plus tôt). `npm run lint:dead` (knip, `knip.json`) fait les passes 1, 2 et 4 ci-dessous en
-> trente secondes. Il est **non bloquant** — le calibrage se lit, il ne se subit pas — et sa
-> liste d'exceptions est le §0, traduit en configuration. Ce qu'il ne voit pas : le C++
-> (`biome.json` l'exclut aussi) et tout ce que le §0 décrit — knip croit ce qu'on lui déclare.
-> Son `ignoreWorkspaces` ne contient que `commons/`, parce que le sous-module porte ses propres
-> docs et sa propre vérité.
->
-> Sortie au jour du relevé : **1 fichier, 1 dépendance non déclarée, 2 binaires non déclarés,
-> 120 exports et 45 types** — 169 constats. Au relevé précédent : 81.
->
-> **Le compte a doublé et ce n'est pas seulement de la dérive.** Un symbole publié dans une carte
-> `exports` est invisible à knip, qui le tient pour consommé depuis l'extérieur ; le même symbole
-> devenu interne devient un « export inutilisé » bien visible. La carte de `ui-turntables` est
-> passée de 15 sous-chemins à 4 ce jour-là (§1), et onze constats ont ainsi migré de l'ombre vers
-> la liste. **Un compte qui monte peut donc mesurer un `package.json` qui ment moins.** Il ne se
-> lit jamais seul : il se lit contre les cartes `exports` du même jour.
+`npm run lint:dead` (knip, `knip.json`) does passes 1, 2 and 4 below in thirty seconds. It is
+**non-blocking** — a calibration is read, not suffered — and its exception list is §0 translated
+into configuration. What it does not see: the C++ (`biome.json` excludes it too) and everything §0
+describes — knip believes what it is told. Its `ignoreWorkspaces` holds only `commons/`, because the
+submodule carries its own docs and its own truth.
 
-## Comment ce relevé est fait
+Current output: **1 file, 1 undeclared dependency, 2 undeclared binaries, 120 exports and 45 types**
+— 169 findings.
 
-Quatre passes, toutes reproductibles :
+> **A rising count can measure a `package.json` that lies less.** A symbol published in an `exports`
+> map is invisible to knip, which takes it as consumed from outside; the same symbol turned internal
+> becomes a plainly visible "unused export". Shrinking a published surface therefore moves findings
+> out of the shadow and into the list. The count never reads alone: it reads against the `exports`
+> maps of the same day.
 
-1. **Surface publiée** — chaque sous-chemin des cartes `exports` des paquets, confronté aux
-   spécificateurs qui apparaissent réellement dans le source.
-2. **Accessibilité** — un parcours du graphe d'imports depuis les vraies portes d'entrée :
-   tout ce qui est hors de `packages/`, les fichiers atteints depuis un autre paquet par
-   spécificateur publié, les `bin`/`main`, les entrées esbuild du tray, et les tests.
-3. **Config** — dépendances importées sans être déclarées, scripts manquants, variables
-   d'environnement lues sans être documentées.
-4. **Symboles** — chaque nom `export`é, confronté à tous les identifiants qui apparaissent
-   dans les autres fichiers. Un nom que rien d'autre ne prononce, pas même son propre fichier,
-   n'a plus d'appelant possible. Grossier exprès : un homonyme sauve un mort, jamais l'inverse,
-   donc la liste est un plancher.
+## How this survey is made
 
-**Deux pièges de RELEVÉ**, qui portent sur la page plutôt que sur le code :
+Four passes, all reproducible:
 
-- **Un renommage de fichier périme un chemin sans périmer le constat.** Une entrée peut être
-  fausse deux fois : le symbole a bougé de fichier, et il a été ressuscité entre-temps. Vérifier
-  les deux, séparément.
-- **Un constat corrigé ne se retire pas tout seul.** Un commit qui met à jour la prose *autour*
-  d'une entrée sans revenir sur l'entrée elle-même laisse un réquisitoire contre un dépôt qui a
-  bougé. Rejouer les passes est la seule défense.
+1. **Published surface** — every subpath of every package's `exports` map, against the specifiers
+   that actually appear in the source.
+2. **Reachability** — a walk of the import graph from the real entry points: everything outside
+   `packages/`, files reached from another package by a published specifier, the `bin`/`main`, the
+   tray's esbuild entries, and the tests.
+3. **Config** — dependencies imported without being declared, missing scripts, environment variables
+   read without being documented.
+4. **Symbols** — every `export`ed name, against every identifier appearing in the other files. A name
+   nothing else pronounces, not even its own file, has no possible caller left. Deliberately crude: a
+   homonym saves a dead symbol, never the reverse, so the list is a floor.
 
-Corollaire : **`docs/audit-moteur.md` §C5 tient sa propre liste de code mort**, au périmètre
-qui chevauche celui-ci sans lui être identique. Les deux se lisent ensemble, ou une entrée
-périme des deux côtés sans que personne le voie.
+**Two SURVEY traps**, about the page rather than the code:
 
-**Trois pièges de méthode :**
+- **A file rename stales a path without staling the finding.** An entry can be wrong twice: the
+  symbol has moved file, and it has been resurrected meanwhile. Check both, separately.
+- **A corrected finding does not withdraw itself.** A commit updating the prose *around* an entry
+  without revisiting the entry leaves an indictment of a repo that has moved. Replaying the passes
+  is the only defence.
 
-- **Les extensions comptent.** `engine-host` écrit `from "./addresses.ts"`. Une recherche sur
-  `"…/addresses"` ne le voit pas et déclare morts cinq de ses six sous-chemins — ils sont tous
-  vivants.
-- **Un spécificateur ne tient pas sur deux lignes.** Une regex trop permissive attrape le mot
-  `from` en pleine prose et invente des dizaines de dépendances fantômes.
-- **Un octet NUL rend un fichier INVISIBLE.** ripgrep classe binaire tout fichier qui en
-  contient un, et le saute sans un mot : le fichier cesse d'exister pour toute la passe
-  d'accessibilité. Le cas se présente dès qu'on prend un NUL comme séparateur de clé composite —
-  l'échappement à six caractères donne la même chaîne à l'exécution et reste visible de tous les
-  outils. `npm run lint:bytes` (`scripts/check-source-bytes.mjs`) refuse le cas en CI, et ne sert
-  que si on le LANCE. Le piège coûte plus cher qu'il n'y paraît : knip lit le source comme
-  ripgrep, donc un fichier porteur d'un NUL est invisible au détecteur de code mort lui-même, qui
-  rendra un faux « tout va bien ». **Lancer `lint:bytes` AVANT `lint:dead`**, ou le second ment
-  sur le premier. (Cette page n'écrit pas l'octet littéralement : le recopier depuis le source
-  pour le décrire piège la page elle-même.)
+Corollary: **`docs/audit-moteur.md` §C5 keeps its own dead-code list**, over a perimeter overlapping
+this one without being identical. The two are read together, or an entry stales on both sides
+without anyone seeing it.
+
+**Three method traps:**
+
+- **Extensions count.** `engine-host` writes `from "./addresses.ts"`. A search on `"…/addresses"`
+  misses it and declares five of its six subpaths dead — all of them live.
+- **A specifier does not span two lines.** Too permissive a regex catches the word `from` in prose
+  and invents dozens of phantom dependencies.
+- **A NUL byte makes a file INVISIBLE.** ripgrep classes any file containing one as binary and skips
+  it without a word: the file stops existing for the whole reachability pass. The case arises as soon
+  as a NUL is taken as a composite-key separator — the six-character escape gives the same string at
+  runtime and stays visible to every tool. `npm run lint:bytes`
+  (`scripts/check-source-bytes.mjs`) refuses it in CI, and only helps if it is RUN. The trap costs
+  more than it looks: knip reads source the way ripgrep does, so a file carrying a NUL is invisible
+  to the dead-code detector itself, which will return a perfectly false "nothing to report". **Run
+  `lint:bytes` BEFORE `lint:dead`**, or the second lies about the first. (This page does not write
+  the byte literally: copying it from source to describe it traps the page itself.)
 
 ---
 
-## 0. Faux positifs connus — ne pas retuer
+## 0. Known false positives — do not re-kill
 
-### Ce qui est chargé par CHEMIN, jamais importé
+### Loaded by PATH, never imported
 
-| quoi | comment il vit |
+| what | how it lives |
 |---|---|
-| `packages/song/src/dspRunner.mjs` | lancé en **processus fils** par `nodeProject.ts`. Il fait `import { graph } from "@studio/dsp"`, et la dépendance `song → dsp` existe précisément pour que cet import se résolve : un dossier de morceau n'a pas de `node_modules`. |
-| `packages/dsp/modules/{normalize,sweep}/jsdsp.ts` | des DSP de MODULE. Le compilateur les trouve par nom de fichier (`JSDSP_FILE = "jsdsp.ts"`), jamais par import. |
-| `songs/**/jsdsp.ts` | même mécanisme : la DSP d'une chanson de démo est une donnée chargée au runtime. |
-| `packages/stem-separation/src/separateWorker.ts` | lancé par `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
-| `packages/engine-host/src/cli.ts`, `packages/file-service/src/server.ts` | **entrées esbuild** de `apps/studio-desktop/scripts/stage.mjs`, qui les bundle dans l'application. Zéro import n'est pas zéro appelant. |
-| `packages/ui-chains-react/src/DomChains.stories.tsx` | ramassé par le glob de `.storybook/main.ts`. |
-| `packages/dsp/src/emit.ts` | le script `build` du paquet (`tsx src/emit.ts`). Une passe qui ne regarde que `bin` et les entrées esbuild le déclare mort ; **un `scripts` de `package.json` est un appelant.** |
+| `packages/song/src/dspRunner.mjs` | launched as a **child process** by `nodeProject.ts`. It does `import { graph } from "@studio/dsp"`, and the `song → dsp` dependency exists precisely so that import resolves: a song folder has no `node_modules`. |
+| `packages/dsp/modules/{normalize,sweep}/jsdsp.ts` | MODULE DSPs. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import. |
+| `songs/**/jsdsp.ts` | same mechanism: a demo song's DSP is data loaded at runtime. |
+| `packages/stem-separation/src/separateWorker.ts` | launched by `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
+| `packages/engine-host/src/cli.ts`, `packages/file-service/src/server.ts` | **esbuild entries** of `apps/studio-desktop/scripts/stage.mjs`, which bundles them into the application. Zero imports is not zero callers. |
+| `packages/ui-chains-react/src/DomChains.stories.tsx` | picked up by `.storybook/main.ts`'s glob. |
+| `packages/dsp/src/emit.ts` | the package's `build` script (`tsx src/emit.ts`). A pass looking only at `bin` and esbuild entries declares it dead; **a `package.json` `scripts` entry is a caller.** |
 
-`@studio/dsp` est aussi l'API d'auteur publiée aux utilisateurs
-(`apps/st0/docs/25-syntax-instruments.md`), et le C++ colle son JSON généré
+`@studio/dsp` is also the author-facing API published to users
+(`apps/st0/docs/25-syntax-instruments.md`), and the C++ pastes its generated JSON
 (`engine/moteur/engine/GraphDspPlugin.cpp`).
 
-### `detectTransients` n'est appelé par personne, et doit le rester
+### `detectTransients` is called by nobody, and must stay that way
 
-`packages/audio-probe/src/waveform.ts` l'exporte, et aucun code de production ne l'appelle :
-la détection tourne dans le moteur, en C++ (`engine/moteur/engine/Waveform.cpp`), pendant qu'il
-sous-échantillonne déjà l'audio, et le résultat va dans le sidecar `{source}.cache`.
+`packages/audio-probe/src/waveform.ts` exports it, and no production code calls it: detection runs in
+the engine, in C++ (`engine/moteur/engine/Waveform.cpp`), while it is already downsampling the audio,
+and the result goes into the `{source}.cache` sidecar.
 
-La version TypeScript est la **spécification exécutable** que le C++ recopie, et
-`waveform.test.ts` est le contrat qui tient les deux ensemble — le même arrangement que
-`fileFingerprint` et son commentaire « MUST match ».
+The TypeScript version is the **executable specification** the C++ copies, and `waveform.test.ts` is
+the contract holding the two together — the same arrangement as `fileFingerprint` and its "MUST
+match" comment.
 
-### Deux imports profonds contournent les cartes `exports`
+### Two deep imports bypass the `exports` maps
 
-`engine/moteur/scripts/list-sessions.ts` → `packages/engine-host/src/engineQueries.ts`, et
-`engine/moteur/scripts/render-once.ts` → `packages/file-service/src/render.ts`. Ces deux
-fichiers paraissent inatteignables si on ne regarde que les `exports`.
+`engine/moteur/scripts/list-sessions.ts` → `packages/engine-host/src/engineQueries.ts`, and
+`engine/moteur/scripts/render-once.ts` → `packages/file-service/src/render.ts`. Both files look
+unreachable if you look only at `exports`.
 
-### `commons/` est un sous-module
+### `commons/` is a submodule
 
-`git ls-files` du dépôt parent ne le liste pas. `OIDC_ISSUER`, `GRIST_API_KEY`, `GRIST_DOC_ID`
-et `BACKEND_PORT` y sont lus : ils paraissent inutilisés vus d'ici, et ne le sont pas.
+The parent repo's `git ls-files` does not list it. `OIDC_ISSUER`, `GRIST_API_KEY`, `GRIST_DOC_ID` and
+`BACKEND_PORT` are read there: they look unused from here, and are not.
 
 ---
 
-## 1. Surface publiée sans consommateur externe
+## 1. Published surface with no external consumer
 
-**31 sous-chemins sur 232** n'ont aucun importateur hors de leur propre paquet (2026-08-26 ;
-c'était 41 sur 207 le 2026-08-21). C'est un constat sur la carte `exports`, pas sur le code : la
-quasi-totalité des 31 est **vivante à l'intérieur** de son paquet, atteinte par import relatif.
+**31 subpaths out of 232** have no importer outside their own package. That is a finding about the
+`exports` map, not about the code: nearly all 31 are **alive inside** their package, reached by
+relative import.
 
-Rétrécir la carte ne supprime donc presque rien : elle documente la vraie surface. Les paquets
-qui publient le plus large sont maintenant `engine-host` (5 sous-chemins sans consommateur
-externe, sur 6) et `song` (5), puis quatre à égalité à 3 — `engine-browser`, `player-web`,
-`ui-editor`, `ui-eyes`. Le réflexe « publier tout `src/` ».
+Shrinking the map therefore deletes almost nothing: it documents the real surface. The widest
+publishers are `engine-host` (5 subpaths with no external consumer, out of 6) and `song` (5), then
+four tied at 3 — `engine-browser`, `player-web`, `ui-editor`, `ui-eyes`. The "publish all of `src/`"
+reflex.
 
-> **`ui-turntables` : fait le 2026-08-26.** Le paquet publiait 15 sous-chemins dont 3 seulement
-> étaient importés par son unique hôte, st0. La carte est ramenée à **4** — `.`, `/surface`,
-> `/engine`, `/deck-set` — et les onze autres, de la plomberie interne exposée, restent joignables
-> par import relatif à l'intérieur du paquet. Un seul a emporté du code avec lui : `./chains`,
-> dont la cible `chains.tsx` n'était nommée par rien d'autre et a été supprimée (§6). La
-> dépendance `@studio/ui-chains-react`, qui n'existait que pour ce fichier, est partie avec.
->
-> Ce que ça a coûté ailleurs : knip signale onze constats de plus, sans qu'une ligne de code soit
-> devenue plus morte qu'avant. Voir l'encadré du relevé, en tête de page.
+`engine-host` is the case to look at: of its six subpaths, only `/webOrigins` has an external
+importer (`file-service`, twice). **Not to be confused with §0's trap**: that one is about internal
+imports written `from "./addresses.ts"`, extension included, and says those files are alive. They
+are — inside. The two findings coexist without contradiction.
 
-`engine-host` est le cas à regarder désormais : sur ses six sous-chemins, seul `/webOrigins` a un
-importateur externe (`file-service`, deux fois). **Ne pas confondre avec le piège du §0** : celui-ci
-porte sur les imports internes écrits `from "./addresses.ts"`, extension comprise, et dit que ces
-fichiers sont vivants. Ils le sont — à l'intérieur. Les deux constats coexistent sans se contredire.
+`ui-turntables` publishes **4** — `.`, `/surface`, `/engine`, `/deck-set`. Its other internal
+plumbing stays reachable by relative import inside the package.
 
-## 2. Vraiment orphelin — rien ne l'atteint
+## 2. Genuinely orphaned — nothing reaches it
 
-| quoi | où | note |
+| what | where | note |
 |---|---|---|
-| ~~`chains.tsx`~~ | `packages/ui-turntables/src/` | la vue « chaîne d'une platine ». **Supprimée le 2026-08-26** avec le sous-chemin `./chains` qui la publiait — voir §6 pour ce qui reste. |
-| `index.ts` | `packages/ui-eyes/src/` | le baril de commodité. Son propre en-tête dit que « les sous-chemins sont la vraie API », et c'est exactement ce que font les appelants. **Gardé** parce que le supprimer emporte `export.ts` et `FrameClock` avec lui — c'est le bloc WebCodecs, une décision produit. |
-| `export.ts` | `packages/ui-eyes/src/` | **atteignable seulement par le baril mort ci-dessus** : `exportScene` (l'export WebCodecs, image par image) n'est donc joignable par rien. Aucune surface ne monte de bouton pour lui. |
-| `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | le registre fait ce travail. Supprimer la sonde loopback que rien ne rejoue est à trancher, pas à laisser pourrir. |
-| type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, plus une seule référence dans tout le dépôt. |
-| `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | les deux extensions CodeMirror qui remplacent le `notes:` **sur place**, dans le texte. Le seul hôte des grilles (st0, `SeqGrid.tsx`) passe par `mountSeqGrid`, qui rend la même grille dans un conteneur à part. Elles gardent une propriété que `mountSeqGrid` n'a pas — l'enveloppe YAML reste visible autour de la grille. |
-| export `AuthUser` | `apps/pl8/frontend/src/api.ts` | utilisé dans son propre fichier, importé par personne : c'est l'`export` qui est de trop. **Et il y en a un second dans le même cas** : `apps/z0/editor/src/api.ts`. |
+| `index.ts` | `packages/ui-eyes/src/` | the convenience barrel. Its own header says "the subpaths are the real API", which is exactly what callers do. **Kept** because deleting it takes `export.ts` and `FrameClock` with it — that is the WebCodecs block, a product decision. |
+| `export.ts` | `packages/ui-eyes/src/` | **reachable only through the dead barrel above**: `exportScene` (the frame-by-frame WebCodecs export) is therefore reachable by nothing. No surface mounts a button for it. |
+| `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | the registry does this work. Deleting a loopback probe nothing replays is to be decided, not left to rot. |
+| type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, not one reference left in the whole repo. |
+| `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | the two CodeMirror extensions that replace `notes:` **in place**, in the text. The grids' only host (st0, `SeqGrid.tsx`) goes through `mountSeqGrid`, which renders the same grid in a separate container. They keep one property `mountSeqGrid` has not — the YAML envelope stays visible around the grid. |
+| export `AuthUser` | `apps/pl8/frontend/src/api.ts` | used in its own file, imported by nobody: it is the `export` that is surplus. **And there is a second in the same case**: `apps/z0/editor/src/api.ts`. |
 
-### Des SYMBOLES, pas des fichiers
+### SYMBOLS, not files
 
-Le fichier vit, la fonction non : personne ne prononce ce nom, nulle part, pas même le fichier
-qui le déclare. Relevé par la passe 4 ; les trois déjà décrits ailleurs sur cette page
-(`probeLocalEngine`/`isReachable`, `rollGridPlugin`/`trackerPlugin`, `ChainsPanel`) n'y sont pas
-répétés.
+The file lives, the function does not: nobody pronounces that name anywhere, not even the file
+declaring it. From pass 4; the three already described elsewhere on this page
+(`probeLocalEngine`/`isReachable`, `rollGridPlugin`/`trackerPlugin`, `ChainsPanel`) are not repeated.
 
-| symbole | où | note |
+| symbol | where | note |
 |---|---|---|
-| `FrameClock` | `packages/ui-eyes/src/clock.ts` | l'horloge que **l'exporteur** avance — et `export.ts` est déjà mort deux lignes plus haut. Le chemin WebCodecs est mort en entier : le baril, `exportScene`, et l'horloge qui le cadence. À trancher d'un bloc, comme §6. |
-| `isDocRef` | `packages/song-schema/src/moduleTypes.ts` | une garde de type que plus rien n'interroge. |
+| `FrameClock` | `packages/ui-eyes/src/clock.ts` | the clock the **exporter** advances — and `export.ts` is already dead two lines above. The WebCodecs path is dead whole: the barrel, `exportScene`, and the clock driving it. To be cut in one block. |
+| `isDocRef` | `packages/song-schema/src/moduleTypes.ts` | a type guard nothing interrogates any more. |
 | `listAll` | `packages/mediatek/src/catalogue.ts` | |
 | `PATH_SEP` | `packages/file-service/src/machinePlayer.ts` | |
 | `knownPrefs` | `apps/pl8/frontend/src/prefs.ts` | |
 | `requireDb`, `readRawAttachment`, `canRender` | `apps/z0/backend/src/{db,grist/load,render}.ts` | |
-| `drawButton`, `drawPlayerBox`, `drawSpinner`, `drawReloadIcon` | `apps/z0/presenter/src/canvas/drawHelpers.ts` | quatre primitives de dessin sur les six du fichier ; le présentateur ne dessine ni bouton ni boîte joueur. |
+| `drawButton`, `drawPlayerBox`, `drawSpinner`, `drawReloadIcon` | `apps/z0/presenter/src/canvas/drawHelpers.ts` | four of the file's six drawing primitives; the presenter draws neither button nor player box. |
 
-**232 symboles de plus ne sont prononcés que par leur propre test.** Ce n'est pas du code mort —
-c'est le choix, assumé partout ici, de tester une constante ou un pas de calcul plutôt que la
-seule fonction publique qui les enveloppe. Compté ici pour que le chiffre ne surprenne pas la
-prochaine passe : `ui-turntables/deck.ts` (10), `ui-chains/cableCanvas.ts` (9), `ui-chains/graph.ts` (9).
+**A further 232 symbols are pronounced only by their own test.** That is not dead code — it is the
+choice, taken everywhere here, of testing a constant or a computation step rather than the single
+public function wrapping them. Counted so the figure does not surprise the next pass:
+`ui-turntables/deck.ts` (10), `ui-chains/cableCanvas.ts` (9), `ui-chains/graph.ts` (9).
 
-**Outillage sans point d'entrée** — des programmes, pas du code mort, mais que rien ne câble :
+**Tooling with no entry point** — programs, not dead code, but nothing wires them:
 
-- `packages/song/scripts/` — aucun script npm ni tâche turbo. Huit migrations, et
-  `packages/song/src/moduleMigrate.ts` (350+ lignes) n'existe que pour `migrateModules.ts`. Le
-  dossier grossit d'une migration à chaque renommage, et rien ne les retire une fois jouées.
-- `packages/ui-turntables/scripts/put-on.ts` — celui-là est **documenté** et se lance à la main
-  (`packages/ui-turntables/docs/hosting.md`) ; il mesure un SON, ce qu'aucun test unitaire ne fait.
-  Ses trois voisins ont été supprimés avec le clip qu'ils mesuraient (`docs/platter-plan.md`).
+- `packages/song/scripts/` — no npm script and no turbo task. Eight migrations, and
+  `packages/song/src/moduleMigrate.ts` (350+ lines) exists only for `migrateModules.ts`. The folder
+  grows by one migration per rename, and nothing removes them once played.
+- `packages/ui-turntables/scripts/put-on.ts` — this one is **documented** and run by hand
+  (`packages/ui-turntables/docs/hosting.md`); it measures a SOUND, which no unit test does.
 
-## 3. Construit d'avance — à ne pas confondre avec un oubli
+## 3. Built ahead — not to be confused with an oversight
 
-`packages/player-web/src/moteurPlayer.ts` et `moteurEffects.ts` n'ont aucun importateur de
-production. Ce n'est **pas** un oubli : ils sont documentés délibérément
-(`packages/player-web/docs/moteurPlayer.md`) et `AGENTS.md` les présente comme le joint que
-`@studio/player-web` porte.
+`packages/player-web/src/moteurPlayer.ts` and `moteurEffects.ts` have no production importer. That is
+**not** an oversight: they are deliberately documented
+(`packages/player-web/docs/moteurPlayer.md`) and `AGENTS.md` presents them as the seam
+`@studio/player-web` carries.
 
-Si on les supprimait, `@studio/engine-browser` et `@studio/engine-protocol` sortiraient des
-dépendances de `player-web` avec eux — ils ne servent qu'à ces deux fichiers.
+Deleting them would take `@studio/engine-browser` and `@studio/engine-protocol` out of
+`player-web`'s dependencies with them — they serve only those two files.
 
-### Demander à un greffon ce qu'il a
+### Asking a plugin what it has
 
-La chaîne complète est vivante : `App.tsx` (`onScanParams={api.scanPluginParams}`) → `api.ts`
-(`GET /plugin-params`) → `file-service/src/server.ts` → `awaitPluginParams` → `listPluginParams`
-→ `list-plugin-params` → `pluginParamsOf` (`engine/moteur/engine/ParamDump.cpp`). Ce qui reste
-sans appelant est la **moitié navigateur** seulement : `listPluginParams`
-(`engine-browser/src/engine.ts`) et `onPluginParamList`.
+The full chain is alive: `App.tsx` (`onScanParams={api.scanPluginParams}`) → `api.ts`
+(`GET /plugin-params`) → `file-service/src/server.ts` → `awaitPluginParams` → `listPluginParams` →
+`list-plugin-params` → `pluginParamsOf` (`engine/moteur/engine/ParamDump.cpp`). What has no caller is
+the **browser half** only: `listPluginParams` (`engine-browser/src/engine.ts`) and
+`onPluginParamList`.
 
-Deux raisons de garder l'ensemble. C'est la **seule** façon d'apprendre les paramètres d'un
-greffon installé — un greffon les enregistre dans son constructeur, et le cache de scan n'en
-porte aucun. Et trois pannes réelles s'y lisent : le moteur reconstruisait un `te::Engine` par
-question et une quarantaine de questions d'affilée le tuaient (mesuré, deux fois) ; il demandait
-sa liste à un greffon avant que le chargement asynchrone ne l'ait construite ; et une liste vide
-confond « je n'arrive pas à charger ce greffon » avec « il se charge et n'en publie aucun ».
+Two reasons to keep the whole. It is the **only** way to learn an installed plugin's parameters — a
+plugin registers them in its constructor, and the scan cache carries none. And three real failures
+are legible in it: the engine rebuilt a `te::Engine` per question and forty questions in a row killed
+it (measured, twice); it asked a plugin for its list before the asynchronous load had built it; and an
+empty list confuses "I cannot load this plugin" with "it loads and publishes none".
 
-Ce dernier point vaut pour lui-même : **un greffon sans paramètre est presque toujours un greffon
-qui refuse de se charger** (`getLoadError` le dit, encore faut-il le lui demander). Répondre « ce
-synthé n'a aucun paramètre » énonce un fait sur le greffon là où c'est un fait sur la machine —
-une licence, une installation — et n'envoie personne au seul endroit où c'est réparable.
+That last point stands on its own: **a plugin with no parameter is almost always a plugin refusing to
+load** (`getLoadError` says so, if asked). Answering "this synth has no parameters" states a fact
+about the plugin where it is a fact about the machine — a licence, an installation — and sends nobody
+to the only place it is fixable.
 
-Un générateur de panneaux déduit d'une liste de paramètres ne sait produire que des boutons et
-des listes déroulantes — jamais un fader, un `meter`, un sélecteur de fichier ni une disposition.
-Qui rallumerait la moitié navigateur : un module builder qui propose la liste des paramètres d'un
-VST à lier.
+A panel generator derived from a parameter list can only produce buttons and dropdowns — never a
+fader, a `meter`, a file picker or a layout. What would relight the browser half: a module builder
+offering the list of a VST's parameters to bind.
 
 ## 4. Duplication
 
-### Le nom d'une note MIDI, six fois, en quatre orthographes
+### A MIDI note's name, six times, in four spellings
 
-La même table chromatique et la même arithmétique (`((k%12)+12)%12`, `Math.floor(k/12)-1`) :
+The same chromatic table and the same arithmetic (`((k%12)+12)%12`, `Math.floor(k/12)-1`):
 
-| où | constante |
+| where | constant |
 |---|---|
 | `packages/ui-editor/src/tracker/RollGrid.ts` | `NOTE_NAMES` |
-| `packages/ui-editor/src/tracker/TrackerGrid.ts` | `NAMES2` (deux caractères : `C-`) |
-| `apps/st0/frontend/src/components/PianoRoll.tsx` | `NAMES`, exporté en `noteName` |
+| `packages/ui-editor/src/tracker/TrackerGrid.ts` | `NAMES2` (two characters: `C-`) |
+| `apps/st0/frontend/src/components/PianoRoll.tsx` | `NAMES`, exported as `noteName` |
 | `apps/st0/frontend/src/components/IoPanel.tsx` | `NOTE_NAMES` |
 | `apps/k7/frontend/src/utils/pitch.ts` | `NOTE_NAMES` |
 | `apps/k7/packages/lyrics/src/chords.ts` | `SHARP` |
 
-Deux détails aggravants. Les deux premières sont dans **le même dossier du même paquet**. Et
-`PianoRoll.tsx` porte le commentaire « one spelling of a key, wherever it is read » — vrai dans
-st0, faux dès qu'on passe dans `@studio/ui-editor`, dont st0 dépend déjà et qui en a deux à lui.
-Le prédicat suit : `isBlack = [1,3,6,8,10].includes(...)`, à l'identique dans deux fichiers.
+Two aggravating details. The first two are in **the same folder of the same package**. And
+`PianoRoll.tsx` carries the comment "one spelling of a key, wherever it is read" — true within st0,
+false the moment you step into `@studio/ui-editor`, which st0 already depends on and which has two of
+its own. The predicate follows: `isBlack = [1,3,6,8,10].includes(...)`, identical in two files.
 
-Non traité : c'est une décision de **où poser la table**, pas un nettoyage.
+Not addressed: it is a decision about **where to put the table**, not a cleanup.
 
-### Des copies STRUCTURELLES — celles qu'un import ne peut pas résoudre
+### STRUCTURAL copies — the ones an import cannot resolve
 
-Trois duplications qu'on ne peut pas supprimer sans inverser une dépendance ou empoisonner un
-bundle. Écrites ici pour qu'on cesse de les prendre pour de la paresse.
+Three duplications that cannot be removed without inverting a dependency or poisoning a bundle.
+Written here so they stop being mistaken for laziness.
 
-| ce qui est doublé | pourquoi ça reste |
+| what is doubled | why it stays |
 |---|---|
-| Le plancher `-100 dBFS` : `PEAK_FLOOR_DB` (`commands/peakPass.ts`), `MIN_DB` (`commands/trimGate.ts`), `kFloorDb` (`FilePeak.cpp`), et trois fois dans `@studio/dsp` | `trimGate` est **sûr pour le navigateur** — le panneau de clip de st0 l'importe — et `peakPass` appelle `node:child_process`. Partager la constante ferait entrer un lanceur de processus dans le navigateur pour économiser un nombre. Essayé, annulé. Le C++ et le JSON généré ne peuvent pas importer du tout |
-| `FileEnvelope` (`commands/waveform.ts`) ≡ `Envelope` (`ui-turntables/waveform.ts`) | `ui-turntables` ne dépend pas de `@studio/commands`. Les deux dépendent de `web-protocol`, qui tient déjà `RegionWaveform` — c'est là que ça irait |
-| `isMouseWheel` : `ui-timeline/panZoom.ts` ≡ `ui-chains-react/camera.ts` | Reconnaître une molette d'une surface tactile — trois signaux (`deltaMode`, les 120 de `wheelDeltaY`, la forme du delta), identiques des deux côtés. Aucun des deux paquets ne peut dépendre de l'autre : `ui-timeline` n'a **aucune** dépendance `@studio/` et le graphe importerait un paquet nommé pour l'arrangement. Défendable ici parce que **les deux côtés sont testés**, cas par cas. Le foyer naturel serait un paquet de gestes DOM qui n'existe pas ; le créer pour une fonction de dix lignes est une décision, pas un nettoyage |
+| The `-100 dBFS` floor: `PEAK_FLOOR_DB` (`commands/peakPass.ts`), `MIN_DB` (`commands/trimGate.ts`), `kFloorDb` (`FilePeak.cpp`), and three times in `@studio/dsp` | `trimGate` is **browser-safe** — st0's clip panel imports it — and `peakPass` calls `node:child_process`. Sharing the constant would bring a process launcher into the browser to save one number. Tried, reverted. The C++ and the generated JSON cannot import at all |
+| `FileEnvelope` (`commands/waveform.ts`) ≡ `Envelope` (`ui-turntables/waveform.ts`) | `ui-turntables` does not depend on `@studio/commands`. Both depend on `web-protocol`, which already holds `RegionWaveform` — that is where it would go |
+| `isMouseWheel`: `ui-timeline/panZoom.ts` ≡ `ui-chains-react/camera.ts` | Telling a wheel from a trackpad — three signals (`deltaMode`, `wheelDeltaY`'s 120s, the shape of the delta), identical on both sides. Neither package can depend on the other: `ui-timeline` has **no** `@studio/` dependency and the graph would be importing a package named for the arrangement. Defensible here because **both sides are tested**, case by case. The natural home would be a DOM-gesture package that does not exist; creating one for a ten-line function is a decision, not a cleanup |
 
-Le détecteur de k7 (`apps/k7/backend/src/detect.ts`) n'a plus de jumeau, mais il n'est testé
-nulle part — c'est ce qui manque aux copies ci-dessus quand elles se défendent.
+k7's detector (`apps/k7/backend/src/detect.ts`) has no twin left, but it is tested nowhere — which is
+what the copies above have when they defend themselves.
 
-### Cosmétique, mais réelle
+### Cosmetic, but real
 
-- **Le glyphe `piano-16`**, corps SVG identique octet pour octet :
+- **The `piano-16` glyph**, SVG body identical byte for byte:
   `apps/st0/frontend/src/trackIcons.tsx` ≡ `packages/ui-chains-react/src/moduleIcons.tsx`.
-  (Le reste de la duplication des tables de glyphes est argumenté et assumé — voir
-  `moduleIcons.tsx`.)
-- **Le spinner plein écran**, cinq copies du même bloc :
+  (The rest of the glyph-table duplication is argued and accepted — see `moduleIcons.tsx`.)
+- **The full-screen spinner**, five copies of the same block:
   `apps/st0/frontend/src/components/{AuthGate,EngineGate}.tsx`,
-  `packages/project-shell/src/ProjectGate.tsx`, `apps/pl8/frontend/src/Gate.tsx` et
-  `apps/z0/editor/src/Gate.tsx`. Laissé tel quel : des blocs de présentation courts, sans risque
-  de dérive silencieuse — mais il en pousse une par gate, ce qui fait de ce compte une chose à
-  revérifier.
-- **Les quatre `turbo.json` d'app** (`apps/{k7,st0,pl8,z0}`) sont **identiques octet pour
-  octet**, et leur bloc `tasks.dev` reproduit celui de la racine dont ils héritent par
-  `"extends": ["//"]`. Ils ne surchargent rien.
+  `packages/project-shell/src/ProjectGate.tsx`, `apps/pl8/frontend/src/Gate.tsx` and
+  `apps/z0/editor/src/Gate.tsx`. Left as is: short presentation blocks, no risk of silent drift — but
+  one grows per gate, which makes this count a thing to re-check.
+- **The four app `turbo.json`s** (`apps/{k7,st0,pl8,z0}`) are **identical byte for byte**, and their
+  `tasks.dev` block reproduces the root one they inherit through `"extends": ["//"]`. They override
+  nothing.
 
-### Laissé exprès
+### Left on purpose
 
-`where()` (`apps/pl8/frontend/src/engine/EnginePicker.tsx`, `apps/z0/editor/src/Gate.tsx`) est
-deux lignes identiques dont le seul foyer naturel serait `packages/web-protocol/quality.ts`, à
-côté de `formatLatency` — mais ce paquet ne contient **aucune chaîne d'interface en français**,
-et « hors de portée » y ferait entrer la langue de l'UI dans un paquet de protocole. Deux lignes
-ne valent pas cette propriété-là. Même raisonnement pour `signedInAs` / `currentUser()`.
+`where()` (`apps/pl8/frontend/src/engine/EnginePicker.tsx`, `apps/z0/editor/src/Gate.tsx`) is two
+identical lines whose only natural home would be `packages/web-protocol/quality.ts`, beside
+`formatLatency` — but that package contains **no** French UI string, and "hors de portée" would bring
+the UI's language into a protocol package. Two lines are not worth that property. Same reasoning for
+`signedInAs` / `currentUser()`.
 
-`AuthUser` est déclarée cinq fois, et seule celle de st0 porte `email?: string | null` et
+`AuthUser` is declared five times, and only st0's carries `email?: string | null` and
 `groups?: string[]`.
 
 ## 5. Config
 
-| constat | où |
+| finding | where |
 |---|---|
-| Sans aucun fichier de test : `graph-model` et `ui-eyes`. | — |
-| Lues dans le code et absentes de **tout** fichier `.md`, en plus des quatorze ci-dessous : `STUDIO_BACKEND_URL`, `STUDIO_ENGINE_PORT`, `STUDIO_FILE_PORT`. | `apps/st0/frontend/vite.config.ts`, `packages/file-service/src/server.ts` |
-| Importé sans être déclaré, hors de l'axe audio : `ui-chains-react` + `k7-frontend` (`@storybook/react-vite`), `pl8-frontend` (`@studio/ui-editor`). | — |
-| `yaml` chez `st0-frontend` n'est pas que du test : `rackBuilder.ts` et `sliceSymbols.ts` l'importent en production. | `apps/st0/frontend` |
-| `packages/web-protocol` n'a aucun bloc `dependencies`, et c'est JUSTE — `types.ts` n'importe qu'un `type` de son propre `projects.ts`. C'est cette absence de dépendance runtime qui permet à `engine-client` de le prendre pour lire `ENGINE_OUTBOX_MAX` sans alourdir le bundle du superviseur. | `packages/web-protocol` |
-| Lues dans le code, absentes de `env.example.yaml` : `STUDIO_REGISTRY_URL` (9 lectures), `STUDIO_WEB_ORIGIN` (5), `STUDIO_DEMOS` (4), `STUDIO_MODELS` (3), `STUDIO_WEB_PORT` (3), `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `Z0_RENDER_ENGINE`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |
+| With no test file at all: `graph-model` and `ui-eyes`. | — |
+| Read in code and absent from **every** `.md`, in addition to the fourteen below: `STUDIO_BACKEND_URL`, `STUDIO_ENGINE_PORT`, `STUDIO_FILE_PORT`. | `apps/st0/frontend/vite.config.ts`, `packages/file-service/src/server.ts` |
+| Imported without being declared, outside the audio axis: `ui-chains-react` + `k7-frontend` (`@storybook/react-vite`), `pl8-frontend` (`@studio/ui-editor`). | — |
+| `yaml` in `st0-frontend` is not only test: `rackBuilder.ts` and `sliceSymbols.ts` import it in production. | `apps/st0/frontend` |
+| `packages/web-protocol` has no `dependencies` block, and that is RIGHT — `types.ts` imports only a `type` from its own `projects.ts`. That absence of a runtime dependency is what lets `engine-client` take it to read `ENGINE_OUTBOX_MAX` without weighing down the supervisor's bundle. | `packages/web-protocol` |
+| Read in code, absent from `env.example.yaml`: `STUDIO_REGISTRY_URL` (9 reads), `STUDIO_WEB_ORIGIN` (5), `STUDIO_DEMOS` (4), `STUDIO_MODELS` (3), `STUDIO_WEB_PORT` (3), `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `Z0_RENDER_ENGINE`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |
 
-## 6. La chaîne d'effets par platine — un bloc, à trancher en entier
+## 6. The per-deck effects chain — cut whole
 
-Mix est un pupitre : deux vinyles et un crossfader. La chaîne d'effets d'une platine n'y a pas
-de place, et le seul hôte du pupitre (la surface `turntables` de st0) ne dessine pas de graphe
-par platine. Trois symboles tiennent debout les uns par les autres et par rien d'autre :
-
-> **Tranché le 2026-08-26 : le composant est supprimé.** `chains.tsx` et son `M9_ICONS` sont
-> partis avec le sous-chemin `./chains` de la carte `exports` du paquet, qui était la seule chose
-> qui les nommait encore. Ce qui suit décrit donc ce qui RESTE, et pourquoi.
-
-| symbole | où | tenu vivant par |
-|---|---|---|
-| ~~`chains.tsx`~~, ~~`M9_ICONS`~~ | supprimés | — |
-| ~~`deckGraph`~~, ~~`categoryOf`~~, ~~`graph.ts`~~, ~~`graph.test.ts`~~ | supprimés | — |
-
-**Le fil est tiré en entier.** `deckGraph` construisait un `WebGraph` que seul `chains.tsx`
-dessinait ; une fois celui-ci parti, il ne restait que son propre test pour le prononcer, et
-`categoryOf` n'était qu'un ré-export de `@studio/ui-chains/modulePreview`. `graph.ts` ne gardait
-plus qu'une interface, `DeckModule`, dont `deck.ts` est le seul lecteur : elle a déménagé chez lui
-et le fichier a disparu.
-
-> **Ce que ce nettoyage a failli emporter, et le piège qu'il vaut la peine d'écrire.**
-> `graph.test.ts` comptait quinze tests. Onze appelaient `deckGraph` et sont morts avec lui — mais
-> **quatre n'ont jamais testé le graphe** : sous un `describe` intitulé « the graph and the
-> document agree », ils vérifiaient `deckDoc`, c'est-à-dire `deck.ts`, bien vivant. Ils portaient
-> l'ordre des modules (audible), la forme fil de `plugin:`, le bypass, et le module sans bloc
-> `plugin:`. Supprimer le fichier « parce qu'il teste du code mort » les aurait perdus en silence.
-> Ils sont dans `deck.test.ts`, sous « a deck's modules, in the document ».
->
-> La règle : **un fichier de test ne meurt pas avec son sujet, ses tests meurent un par un.** Un
-> fichier de test nommé d'après un module en couvre régulièrement un autre par un helper partagé.
-
-**Ce qui a décidé** : le composant n'avait aucun hôte et ne pouvait pas en avoir — la surface
-`turntables` de st0, seule à monter le pupitre, ne dessine pas de graphe par platine. Garder une
-option que rien ne peut monter coûtait 70 lignes et un sous-chemin publié qui mentait sur la
-surface du paquet. Voir
+Mix is a desk: two records and a crossfader. A deck's effects chain has no place on it, and the
+desk's only host (st0's `turntables` surface) draws no per-deck graph. The component had no host and
+could not have one, so it and everything held alive only by it are gone. Keeping an option nothing
+can mount cost 70 lines and a published subpath that lied about the package's surface. See
 [packages/ui-turntables/docs/mix.md](../packages/ui-turntables/docs/mix.md).
 
-Ce bloc n'a **aucun hôte** : la décision n'est pas « où vit son hôte » mais « garde-t-on une
-option que rien ne peut monter ». `M9_ICONS` porte le nom d'une application qui n'existe pas, et
-ce nom traîne encore dans `env.example.yaml`, `docs/tokens.md` (une ligne de la table des
-préfixes), `engine/moteur/AGENTS.md`, `apps/pl8/backend/src/server.ts`,
-`packages/web-protocol/types.ts`, `apps/z0/AGENTS.md` et les fixtures de
-`SessionRegistry_test.cpp` : à nettoyer avec le bloc ou avant lui.
+What still needs cleaning: `M9_ICONS` carried the name of an application that does not exist, and
+that name still lingers in `env.example.yaml`, `docs/tokens.md` (one row of the prefix table),
+`engine/moteur/AGENTS.md`, `apps/pl8/backend/src/server.ts`, `packages/web-protocol/types.ts`,
+`apps/z0/AGENTS.md` and the `SessionRegistry_test.cpp` fixtures.
 
-## 7. Généré, sans effet
+> **The trap that cleanup is worth writing down.** A test file named after a module regularly covers
+> another one through a shared helper: under a `describe` titled "the graph and the document agree"
+> sat four tests that checked `deckDoc` — that is, `deck.ts`, very much alive — the module order
+> (audible), the wire form of `plugin:`, the bypass, and the module with no `plugin:` block. Deleting
+> the file "because it tests dead code" would have lost them silently. They live in `deck.test.ts`,
+> under "a deck's modules, in the document".
+>
+> The rule: **a test file does not die with its subject, its tests die one by one.**
 
-`apps/studio-desktop/staging/{file-service,engine-host}.mjs` et les entrées
-`.turbo/cache/*-manifest.json` sont des artefacts de build : ils disparaissent au prochain
-`stage.mjs`. La vérité de source est `packages/engine-protocol/sessions.ts`.
+## 7. Generated, no effect
+
+`apps/studio-desktop/staging/{file-service,engine-host}.mjs` and the `.turbo/cache/*-manifest.json`
+entries are build artefacts: they disappear at the next `stage.mjs`. The source of truth is
+`packages/engine-protocol/sessions.ts`.

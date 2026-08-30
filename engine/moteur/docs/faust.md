@@ -1,139 +1,95 @@
-# FaustPlugin — le moteur compile le Faust d'un module
+# FaustPlugin — the engine compiles a module's Faust
 
-`FaustPlugin` est le greffon intégré qu'un module `plugin: {type: faust}` charge. Il reçoit la
-source sur la propriété `faust` de son `ValueTree`, **la compile** avec libfaust (backend
-interpréteur), déclare un paramètre par contrôle que le programme annonce, et la fait tourner.
+`FaustPlugin` is the built-in a `plugin: {type: faust}` module loads. It takes the source on the
+`faust` property of its `ValueTree`, **compiles it** with libfaust (interpreter backend), declares
+one parameter per control the program announces, and runs it.
 
-Le côté TypeScript est décrit dans `packages/song/docs/faustModules.md`.
+The TypeScript side is `packages/song/docs/faustModules.md`.
 
-## Le contrat structurel
+## The structural contract
 
-**Les paramètres sont créés dans le constructeur.** Tracktion crée ses `AutomatableParameter`
-là et jamais après, et un programme Faust déclare les siens (`hslider`, `nentry`, `checkbox`).
-La compilation se fait donc dans le constructeur, pas paresseusement dans `prepare()`. C'est le
-même contrat que `GraphDspPlugin`, et c'est pour ça que `EditBuilder::addPlugin` fabrique ces
-deux greffons-là depuis un `ValueTree` plutôt que depuis un nom de type.
+**Parameters are created in the constructor.** Tracktion creates its `AutomatableParameter`s there
+and never after, and a Faust program declares its own (`hslider`, `nentry`, `checkbox`). So the
+compile happens in the constructor, not lazily in `prepare()`. Same contract as `GraphDspPlugin`,
+and why `EditBuilder::addPlugin` builds those two plugins from a `ValueTree` rather than from a
+type name.
 
-Trois décisions qui vont avec :
+Three decisions that go with it:
 
-- **Les groupes Faust sont ignorés.** Un `hgroup`/`vgroup` imbrique le chemin complet d'un
-  contrôle. Le replier dans le nom du paramètre ferait dépendre ce nom de la façon dont
-  quelqu'un a groupé sa source, alors que `ui.yaml` est écrit à la main contre ces noms.
-- **Un `bargraph` n'est pas un paramètre** : c'est une sortie que le programme écrit pour un
-  vumètre. L'exposer laisserait un fader écrire là où seule la DSP doit.
-- **Le rendu n'est jamais en place.** Entrée et sortie sont deux tampons, alloués dans
-  `initialise` et jamais dans le rappel : un `.dsp` ne promet pas de ne pas relire une entrée
-  après avoir écrit une sortie.
+- **Faust groups are ignored.** An `hgroup`/`vgroup` nests a control's full path. Folding that into
+  the parameter name would make the name depend on how someone grouped their source, while
+  `ui.yaml` is written by hand against those names.
+- **A `bargraph` is not a parameter**: it is an output the program writes for a meter. Exposing it
+  would let a fader write where only the DSP should.
+- **Rendering is never in place.** Input and output are two buffers, allocated in `initialise` and
+  never in the callback: a `.dsp` does not promise it will not re-read an input after writing an
+  output.
 
-`takesAudioInput` et `producesAudioWhenNoAudioInput` sont répondus **d'après le programme
-compilé** (`getNumInputs`), ce qui distingue un effet d'un instrument sans que personne ait à
-le déclarer nulle part.
+`takesAudioInput` and `producesAudioWhenNoAudioInput` are answered **from the compiled program**
+(`getNumInputs`), which tells an effect from an instrument without anyone declaring it anywhere.
 
-## Les voix : `control: true`, `group: false`
+## The voices: `control: true`, `group: false`
 
-Un programme sans entrée audio est un **instrument**, et il reçoit seize voix — `mydsp_poly`
-prend possession de l'instance qu'on lui donne et la clone une fois par voix. Les deux drapeaux
-de ce constructeur ne sont pas des détails, et chacun a coûté un symptôme.
+A program with no audio input is an **instrument**, and it gets sixteen voices — `mydsp_poly` takes
+ownership of the instance it is given and clones it once per voice. Neither flag on that constructor
+is a detail.
 
-**`control: true` n'est pas optionnel**, et `false` est pourquoi l'instrument se taisait au bout de
-quelques secondes. La documentation de Faust : « whether voices will be dynamically allocated and
-controlled. If false ALL VOICES ARE ALWAYS RUNNING. » Avec `false`, `compute` prend une branche
-qui mélange les seize à chaque bloc et n'en rend jamais une au réservoir — donc seize voix FM
-calculées dès le premier échantillon que quelqu'un joue ou non, et chaque note après la seizième
-vole une voix qui n'a jamais été libérée. Avec `true`, seules les voix qui jouent sont calculées
-et une voix relâchée est libérée quand elle passe sous −90 dB (`VOICE_STOP_LEVEL`) — ce qui est
-aussi ce qui rend la chute audible au lieu de simplement permise.
+**`control: true` is not optional.** From Faust's own documentation: "whether voices will be
+dynamically allocated and controlled. If false ALL VOICES ARE ALWAYS RUNNING." With `false`,
+`compute` takes a branch that mixes all sixteen every block and never returns one to the pool — so
+sixteen FM voices computed from the first sample whether anyone plays or not, and every note past
+the sixteenth steals a voice that was never freed, which reads as an instrument going silent after
+a few seconds. With `true`, only playing voices are computed and a released voice is freed when it
+falls below −90 dB (`VOICE_STOP_LEVEL`) — which is also what makes the decay audible rather than
+merely permitted.
 
-**`group: false`** est l'autre moitié, et c'est ce qui fait marcher les potards. Avec `true`,
-l'enveloppe construit UN contrôle partagé par nom et le distribue sur les voix — « assuming
-`GUI::updateAllGuis()` is called », que personne ici n'appelle et que personne ne devrait : c'est
-un statique global qui parcourt une `std::list`, et le fil audio n'y a rien à faire. Les potards
-étaient donc écrits dans une zone de groupe qui n'atteignait aucune voix, et bouger Tine ne
-faisait rien du tout.
+**`group: false`** is the other half, and it is what makes the knobs work. With `true`, the
+envelope builds ONE control shared by name and distributes it over the voices — "assuming
+`GUI::updateAllGuis()` is called", which nobody here calls and nobody should: it is a global static
+walking a `std::list`, and the audio thread has no business in it. The knobs would then be written
+into a group zone that reaches no voice, and moving one does nothing at all.
 
-Avec `false`, chaque voix expose ses propres contrôles et la distribution est la nôtre : un
-paramètre par NOM, tenant la zone de chaque voix qui le déclare (`zones_`). Écrire seize flottants
-par potard et par bloc est tout le coût, et ce n'est rien.
+With `false`, each voice exposes its own controls and the distribution is ours: one parameter per
+NAME, holding the zone of every voice that declares it (`zones_`). Writing sixteen floats per knob
+per block is the whole cost, and it is nothing.
 
-Les trois noms que le répartiteur de voix PILOTE — `freq`, `gain`, `gate`, plus `key` et `bend` —
-sont filtrés de la liste de paramètres sur un instrument. Ce sont de vrais contrôles de la source,
-et ils doivent l'être ; mais sur un instrument polyphonique ils appartiennent à la voix qui joue.
-Exposés en paramètres automatisables, ce serait un fader se battant avec le répartiteur pour la
-même zone, et le fader gagnerait entre deux notes.
+The three names the voice allocator DRIVES — `freq`, `gain`, `gate`, plus `key` and `bend` — are
+filtered out of an instrument's parameter list. They are real controls of the source and must be;
+but on a polyphonic instrument they belong to the playing voice. Exposed as automatable
+parameters, they would be a fader fighting the allocator for the same zone, and the fader would
+win between two notes.
 
-Seize, et fixe : une voix est une copie entière du programme, donc c'est le coût du module qu'on
-joue un accord ou pas. Ce n'est pas dans `module.yaml` parce qu'un fichier de module décrit ce
-qu'un module EST, et combien on a de doigts n'est pas ça.
+Sixteen, and fixed: a voice is a whole copy of the program, so that is the module's cost whether
+you play a chord or not. It is not in `module.yaml` because a module file describes what a module
+IS, and how many fingers you have is not that.
 
-## Les notes tombent sur LEUR échantillon
+## Notes land on THEIR sample
 
-`renderWithNotes` découpe le bloc à chaque message : appliquer ce qui est dû, calculer jusqu'au
-prochain événement, recommencer. Faust accepte n'importe quelle longueur, donc un segment n'est
-qu'un `compute` plus court.
+`renderWithNotes` splits the block at each message: apply what is due, compute up to the next
+event, repeat. Faust accepts any length, so a segment is just a shorter `compute`.
 
-Tout poser au début du bloc coûte jusqu'à 5 ms : inaudible sur un jeu de clavier, faux sur un
-roulement programmé — deux frappes à 2 ms d'écart tombent ensemble, et un motif en triples
-croches perd son placement au profit de la grille des blocs.
+Putting everything at the top of the block costs up to 5 ms: inaudible on a keyboard part, wrong on
+a programmed roll — two hits 2 ms apart land together, and a semiquaver pattern loses its placement
+to the block grid.
 
-L'horodatage d'un message est absolu ; `midiBufferOffset` dit où ce bloc commence sur la même
-horloge. L'inverse exact de ce que fait `ExternalPlugin` en SORTIE. Rien n'alloue dans le
-rappel : les tableaux de pointeurs par segment sont dimensionnés dans `initialise`, et la
-marche consomme la liste dans l'ordre plutôt que d'en trier une copie.
+A message's timestamp is absolute; `midiBufferOffset` says where this block starts on the same
+clock. The exact inverse of what `ExternalPlugin` does on OUTPUT. Nothing allocates in the
+callback: the per-segment pointer arrays are sized in `initialise`, and the walk consumes the list
+in order rather than sorting a copy.
 
-Et `applyToBuffer` pose un `juce::ScopedNoDenormals` : un filtre résonant en fin de queue est
-le générateur canonique de dénormaux, et le symptôme est un moteur qui ralentit d'autant plus
-qu'il joue longtemps.
+And `applyToBuffer` sets a `juce::ScopedNoDenormals`: a resonant filter in the tail of its decay is
+the canonical denormal generator, and the symptom is an engine that slows down the longer it plays.
 
-## Ce que ça coûte, mesuré
+## What it costs, measured
 
-`st0-engine.exe` pèse **42,1 Mo**, contre 36,0 sans libfaust : six mégaoctets, le prix du
-backend interpréteur. Celui de LLVM serait d'un autre ordre.
+`st0-engine.exe` weighs **42.1 MB**, against 36.0 without libfaust: six megabytes, the price of the
+interpreter backend. LLVM's would be another order of magnitude.
 
-## Où `import("stdfaust.lib")` est résolu
+## Why the interpreter backend, and not LLVM
 
-À l'**exécution**, quand le moteur compile un module — pas à la construction. Le dossier doit
-donc voyager avec l'app : `stage.mjs` copie les 43 `.lib` du sous-module dans
-`resources/faust-libs/`, et `faustLibrariesDir()` sonde les quatre dispositions qu'un paquet
-Electron peut prendre, dans le même ordre et pour la même raison que `bundle.ts` le fait pour
-le service de fichiers.
-
-Le repli est le dossier que le CMake du moteur a récupéré. Il est dans un répertoire de
-construction et ne voyage pas : y arriver dans une app installée veut dire que la mise en
-ressource n'a pas eu lieu. C'est pour ça que le script échoue franchement s'il ne trouve rien à
-copier, plutôt que de produire un paquet qui a l'air construit.
-
-## Deux pièges qui n'apparaissent pas chez celui qui écrit
-
-- **Lier la CIBLE `staticlib`, jamais le chemin du `.lib`.** Les presets épinglent
-  `targets: ["st0-engine"]`, donc rien ne construit une bibliothèque dont personne ne
-  dépend. Nommer le fichier lie parfaitement sur un arbre où il existe déjà — et échoue avec
-  `LNK1104` sur un arbre neuf, au tout dernier pas d'une construction de vingt minutes.
-- **`ws2_32` est obligatoire** sur Windows : libfaust embarque un récupérateur HTTP de sources,
-  et sans Winsock le lien échoue sur huit symboles qui n'ont rien à voir avec ce qu'on appelle.
-
-## La couture INSTRUMENT, qui est posée
-
-Elle l'est, et par le programme lui-même plutôt que par une déclaration. `takesAudioInput` et
-`producesAudioWhenNoAudioInput` répondent d'après `getNumInputs()` du programme compilé, et
-`takesMidiInput()` répond « oui » exactement quand un `mydsp_poly` a été construit — c'est-à-dire
-quand le programme n'a pas d'entrée audio. Rien dans `module.yaml` ne dit lequel des deux c'est, et
-rien ne devrait : la source le dit déjà.
-
-`packages/dsp/modules/instruments/synth/wurlitzer` est le premier module à l'emprunter. Ce qu'il a
-demandé — le répartiteur de voix qui remplit les `freq`/`gain`/`gate` — arrive AVEC le compilateur :
-sans compilateur il n'y a pas de voix à répartir, et c'est pourquoi cette couture ne pouvait pas se
-poser d'avance.
-
-Ce qui reste ouvert est le **catalogue** : le rôle décide du dossier de type sous lequel un module
-est classé et de sa place dans une chaîne, donc il portera probablement deux entrées, un `Faust`
-effet et un `Faust Instrument`, une seule classe ne pouvant répondre les deux.
-
-## La route retenue : libfaust, backend INTERPRÉTEUR — mesurée, pas estimée
-
-**Il n'y a pas besoin de LLVM.** Le backend interpréteur est déjà dans la bibliothèque statique
-par défaut (`build/backends/interp.cmake` pose `INTERP_COMP_BACKEND STATIC DYNAMIC`), et
-`createInterpreterDSPFactoryFromString` compile une source à l'exécution comme la variante LLVM.
-Tout ce qui suit se construit et s'exécute ici, sur Faust 2.85.9 et MSVC :
+**LLVM is not needed.** The interpreter backend is already in the default static library
+(`build/backends/interp.cmake` sets `INTERP_COMP_BACKEND STATIC DYNAMIC`), and
+`createInterpreterDSPFactoryFromString` compiles a source at runtime just as the LLVM variant does:
 
 ```
 cmake -S faust/build -B out -C faust/build/backends/interp.cmake \
@@ -141,63 +97,82 @@ cmake -S faust/build -B out -C faust/build/backends/interp.cmake \
       -DINCLUDE_OSC=OFF -DINCLUDE_HTTP=OFF -DINCLUDE_EMCC=OFF -DINCLUDE_WASM_GLUE=OFF
 ```
 
-Les nombres relevés :
-
 | | |
 |---|---|
-| `libfaust.lib` (statique, non liée) | 108 Mo |
-| un exécutable qui la LIE et compile un module | **4,0 Mo** |
-| les bibliothèques standard (`libraries/`) | 47 fichiers, 2,0 Mo |
+| `libfaust.lib` (static, unlinked) | 108 MB |
+| an executable that LINKS it and compiles a module | **4.0 MB** |
+| the standard libraries (`libraries/`) | 47 files, 2.0 MB |
 
-**Les dizaines de Mo qu'on associe à libfaust sont celles de LLVM.** Par cette route le coût
-réel est de l'ordre de 4 Mo.
+**The tens of megabytes associated with libfaust are LLVM's.** By this route the real cost is about
+4 MB.
 
-Trois pièges :
+The alternative — `faust -lang cpp` at engine build time, generating a list the way
+`AirWindowsList.h` does — buys zero runtime dependency and native speed, and costs the whole point:
+you can no longer write a module from the app. The engine would have to be rebuilt, so Faust
+modules stop being files of a project and become engine code.
 
-- **`ws2_32` est obligatoire sur Windows.** libfaust embarque un récupérateur HTTP de sources
-  (`sourcefetcher.obj`) et l'édition de liens échoue sur huit symboles Winsock sans lui.
-- **`libraries/` est un SOUS-MODULE** de faust (`grame-cncm/faustlibraries`). Un clone qui ne
-  l'initialise pas donne un dossier vide, et `import("stdfaust.lib")` échoue à l'exécution —
-  pas à la construction.
-- **La signature réelle a cinq paramètres**, pas sept :
-  `createInterpreterDSPFactoryFromString(name, source, argc, argv, error)`. La documentation en
-  ligne décrit la variante LLVM ; c'est l'en-tête qui fait foi.
+`createInterpreterDSPFactoryFromString` really takes five parameters, not seven:
+`(name, source, argc, argv, error)`. The online documentation describes the LLVM variant; the header
+is what counts.
 
-### Et sa vitesse, mesurée en SÉRIE
+### Its speed, measured in SERIES
 
-Un module isolé ne dit rien : ce qui compte est ce qu'une tranche empile. `studio_faust_tests`
-enchaîne huit `moogladder` l'un derrière l'autre, sur des blocs de 256 à 48 kHz — le budget du
-moteur, 5,33 ms de calcul pour 5,33 ms d'audio :
+One module in isolation says nothing: what matters is what a strip stacks up. `studio_faust_tests`
+chains eight `moogladder` one behind the other, on 256-frame blocks at 48 kHz — the engine's budget,
+5.33 ms of compute for 5.33 ms of audio:
 
 ```
 8 moogladder in series: 19.9% of the block budget (1.06 ms per 256-frame block)
 -> one instance costs about 2.49%
 ```
 
-Environ **2,5 % du budget par instance**. Un interpréteur reste plus lent que du code machine,
-et ça se voit ; ce que ça dit, c'est qu'on peut en mettre une dizaine dans une chaîne sans y
-penser, ce qui est l'usage. Le plafond du test est volontairement large (50 %) : il est là pour
-attraper un ORDRE de grandeur — un interpréteur à 30 % l'instance rendrait la route fausse — et
-pas pour servir d'objectif de performance sur une machine qui construit en même temps.
+About **2.5 % of the budget per instance**. An interpreter is slower than machine code and it
+shows; what this says is that ten of them can go in a chain without thinking about it, which is the
+use. The test's ceiling is deliberately loose (50 %): it is there to catch an ORDER of magnitude —
+an interpreter at 30 % per instance would make the route wrong — not to serve as a performance
+target on a machine that is building at the same time.
 
-### `faust -lang cpp` à la compilation du moteur
+## Where `import("stdfaust.lib")` is resolved
 
-Un script dans `apps/studio-desktop/scripts/` qui passe les `.dsp` du dépôt par le compilateur et
-génère une liste, à la manière de `AirWindowsList.h`. Zéro dépendance à l'exécution, vitesse
-native, rien à lire côté licence.
+At **runtime**, when the engine compiles a module — not at build time. So the folder has to travel
+with the app: `stage.mjs` copies the submodule's 43 `.lib` files into `resources/faust-libs/`, and
+`faustLibrariesDir()` probes the four layouts an Electron package can take, in the same order and
+for the same reason `bundle.ts` does for the file service.
 
-Prix : on n'écrit plus un module depuis l'app. Il faut recompiler le moteur, donc les modules
-Faust cessent d'être des fichiers d'un projet et redeviennent du code de l'engin — ce qui
-défait la raison d'avoir fait tout ce chemin.
+The fallback is the folder the engine's CMake fetched. It lives in a build directory and does not
+travel: reaching it in an installed app means the resource staging did not happen. Which is why the
+script fails loudly when it finds nothing to copy, rather than producing a package that looks
+built.
 
-## La quatrième, qui ne demande rien
+`libraries/` is a **submodule** of faust (`grame-cncm/faustlibraries`). A clone that does not
+initialise it gets an empty folder, and `import("stdfaust.lib")` fails at runtime — not at build
+time.
 
-`faust2vst3` hors ligne, `st0-engine scan`, `module own <ref>`. Ça fonctionne sans une ligne
-de code, et c'est par là qu'il faut passer pour savoir si Faust s'installe dans
-les habitudes avant de payer l'une des trois ci-dessus. Ce qu'on y perd : un binaire par
-plateforme, et la source qui ne voyage pas avec le module.
+## Two link traps that do not show up on the author's machine
 
-## Vérifier ce qui est là
+- **Link the `staticlib` TARGET, never the path to the `.lib`.** The presets pin
+  `targets: ["st0-engine"]`, so nothing builds a library nobody depends on. Naming the file links
+  perfectly on a tree where it already exists — and fails with `LNK1104` on a fresh tree, at the
+  very last step of a twenty-minute build.
+- **`ws2_32` is required** on Windows: libfaust embeds an HTTP source fetcher
+  (`sourcefetcher.obj`), and without Winsock the link fails on eight symbols that have nothing to
+  do with anything being called.
+
+## The INSTRUMENT seam
+
+It is laid, and by the program itself rather than by a declaration. `takesAudioInput` and
+`producesAudioWhenNoAudioInput` answer from the compiled program's `getNumInputs()`, and
+`takesMidiInput()` answers yes exactly when a `mydsp_poly` was built — i.e. when the program has no
+audio input. Nothing in `module.yaml` says which of the two it is, and nothing should: the source
+already says.
+
+`packages/dsp/modules/instruments/synth/wurlitzer` is the first module to take it.
+
+What is still open is the **catalogue**: the role decides which type folder a module is filed under
+and its place in a chain, so it will probably carry two entries, a `Faust` effect and a
+`Faust Instrument`, one class being unable to answer both.
+
+## Verifying what is there
 
 ```
 cmake --build --preset windows-msvc
@@ -206,8 +181,7 @@ cmake --build build/windows-msvc --config RelWithDebInfo --target \
 ctest --test-dir build/windows-msvc -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 
-Le greffon apparaît dans `--dump-builtin-params` sous le nom `Faust`, **sans paramètre**, et ce
-n'est pas un défaut : ce vidage instancie chaque intégré depuis un nom de type, donc l'état ne
-porte aucune propriété `faust`, il n'y a aucune source à compiler et donc aucun contrôle à
-déclarer. Les paramètres d'un module Faust sont ceux de SON programme, et ils n'existent que là
-où ce programme existe.
+The plugin appears in `--dump-builtin-params` under the name `Faust`, **with no parameters**, and
+that is not a fault: that dump instantiates each built-in from a type name, so the state carries no
+`faust` property, there is no source to compile and therefore no control to declare. A Faust
+module's parameters are ITS program's, and they exist only where that program does.

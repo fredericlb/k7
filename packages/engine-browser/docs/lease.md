@@ -38,32 +38,32 @@ and the holder would read FREE in every picker while still driving it. The refus
 answers 200 — the caller is a page already leaving, so there is nobody left to read a status, and
 an unreleased lease simply expires, which is the behaviour it was built for.
 
-## Une expiration se rattrape, un vol non
+## An expiry recovers; a theft does not
 
-Les trois refus de renouvellement (`packages/engine-registry/docs/claim.md`) ne se valent pas,
-et la boucle n'en signale que deux.
+The three refusals to renew (`packages/engine-registry/docs/claim.md`) are not equivalent, and
+the loop reports only two of them.
 
-- `project` et `engine` — **quelqu'un** a pris le projet, ou la machine. Terminal : `onLost`
-  part, l'intervalle s'arrête, la surface cesse de piloter et le dit. Réessayer, ici, c'est
-  reprendre le projet des mains d'une personne qui travaille dessus, et cinq secondes plus tard
-  elle le reprend des nôtres.
-- `lapsed` — **personne** n'a rien pris. Le serveur ne répond ça que quand rien ne détient ce
-  projet *et* que rien d'autre ne détient ce moteur : le secret a simplement vieilli, le temps
-  d'une mise en veille ou d'une coupure. La boucle oublie le secret mort et le tick suivant
-  rouvre — un `select` sans secret, toujours accordé, qui ne prend rien à personne.
+- `project` and `engine` — **somebody** took the project, or the machine. Terminal: `onLost`
+  fires, the interval stops, the surface stops driving and says so. Retrying here means taking
+  the project out of the hands of a person working on it, and five seconds later they take it
+  back out of ours.
+- `lapsed` — **nobody** took anything. The server answers this only when nothing holds that
+  project *and* nothing else holds that engine: the secret simply aged, over a sleep or a
+  dropout. The loop forgets the dead secret and the next tick reopens — a `select` with no
+  secret, always granted, which takes nothing from anyone.
 
-Traiter `lapsed` comme les deux autres donne un écran mort : « cet onglet a lâché le projet »,
-un bouton vers l'accueil, et à l'utilisateur de rouvrir à la main ce qu'il n'a jamais fermé.
-La socket, elle, se reconnecte toute seule (`reliability.md`) et redéclare sa session ; la
-revendication doit en faire autant, pour que sortir de veille rende la main sans un geste.
+Treating `lapsed` like the other two gives a dead screen: "this tab let go of the project", a
+button back to the home page, and the user reopening by hand what they never closed. The socket
+reconnects by itself (`reliability.md`) and redeclares its session; the claim has to do the
+same, so that waking from sleep hands control back without a gesture.
 
-**Le tick suivant, pas tout de suite.** Un moteur qui a quitté le registre répond `lapsed` lui
-aussi : rouvrir dans la foulée du 409 tournerait aussi vite que le réseau le permet. Attendre
-`ENGINE_ASSIGN_RENEW_MS` borne la reprise à cinq secondes et le martèlement à rien du tout.
+**The next tick, not straight away.** An engine that has left the registry answers `lapsed` too:
+reopening on the heels of the 409 would spin as fast as the network allows. Waiting
+`ENGINE_ASSIGN_RENEW_MS` bounds recovery to five seconds and the hammering to nothing.
 
-Il reste une course d'un aller-retour : entre le 409 et notre réouverture, quelqu'un peut ouvrir
-le projet, et une ouverture gagne toujours. C'est la même fenêtre que celle d'un rechargement de
-page, et elle vaut mieux que l'écran mort qu'elle remplace.
+One round trip's race remains: between the 409 and our reopening, somebody can open the project,
+and an opening always wins. It is the same window as a page reload's, and it beats the dead
+screen it replaces.
 
 ## The StrictMode detail
 

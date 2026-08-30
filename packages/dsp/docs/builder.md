@@ -1,124 +1,117 @@
-# Le constructeur de graphes — pourquoi trois types, et ce qu'ils empêchent
+# The graph builder — why three types, and what they prevent
 
-`packages/dsp/src/index.ts` est toute la bibliothèque : un `GraphBuilder` dont chaque méthode
-ajoute un nœud, et un `graph(fn)` qui rend le JSON. Le JS tourne à la **construction** et ne
-s'approche jamais du fil audio ; ce qui joue est le C++ de `engine/moteur/engine/DspGraph.h`.
+`packages/dsp/src/index.ts` is the whole library: a `GraphBuilder` whose every method adds a node,
+and a `graph(fn)` that returns the JSON. The JS runs at **build** time and never goes near the
+audio thread; what plays is the C++ of `engine/moteur/engine/DspGraph.h`.
 
-Cette page tient les raisons que le code ne porte plus qu'en une ligne.
+This page holds the reasons the code carries in one line each.
 
-## Trois taux, trois types — et ce n'est pas de la décoration
+## Three rates, three types — and that is not decoration
 
-`Scalar` (contrôle), `Audio` (fil) et `Midi` (le flux de notes) sont des types **distincts**.
+`Scalar` (control), `Audio` (a wire) and `Midi` (the note stream) are **distinct** types.
 
-Un seul type `Signal` pour les trois rendrait silencieusement faux le premier graphe à rétroaction
-venu : `amul(fb, Feedback)` lirait le **paramètre** `Feedback` comme un fil audio — un fil que
-personne n'écrit, donc zéro, donc une boucle qui ne se ferme pas et un écho qui ne répète qu'une
-fois. Le moteur ne peut pas attraper ça : des deux côtés ce ne sont que des noms dans un fichier
-texte, et le rendu a l'air plausible.
+A single `Signal` type for all three silently breaks the first feedback graph that comes along:
+`amul(fb, Feedback)` reads the **parameter** `Feedback` as an audio wire — a wire nobody writes, so
+zero, so a loop that does not close and an echo that repeats once. The engine cannot catch it: on
+both sides these are only names in a text file, and the result sounds plausible.
 
-`Midi` est distinct pour exactement la même raison : sans lui, `transpose(dry, Semitones)` passerait
-le typage contre un fil audio et émettrait un nœud que le greffon MIDI ignore sans rien dire. Le
-flux de notes est le tampon que le greffon a passé, il n'y en a **qu'un** dans un graphe et chaque
-nœud MIDI le réécrit sur place — d'où un type qui ne porte aucun nom et qu'on ne peut ni bifurquer
-ni mélanger.
+`Midi` is distinct for exactly the same reason: without it, `transpose(dry, Semitones)` would type-
+check against an audio wire and emit a node the MIDI plugin ignores in silence. The note stream is
+the buffer the plugin handed over, there is **one** of it per graph and every MIDI node rewrites it
+in place — hence a type carrying no name, which can be neither forked nor mixed.
 
-Rendre les trois distincts déplace ces fautes vers une erreur de compilation, et c'est la seule
-raison d'avoir une bibliothèque plutôt que d'écrire le JSON à la main. Le reste de la valeur est ce
-qu'un langage donne : des noms au lieu de littéraux, des nombres vérifiés, des boucles pour les
-parties répétitives, et un `wah()` qu'on appelle deux fois au lieu d'un fichier qu'on recopie.
+Making the three distinct turns those faults into compile errors, and that is the only reason to
+have a library rather than writing the JSON by hand. The rest of the value is what any language
+gives: names instead of literals, checked numbers, loops for the repetitive parts, and a `wah()`
+called twice instead of a file copied.
 
-## Un constructeur, pas des fonctions libres
+## A builder, not free functions
 
-Chaque aide est une **méthode** parce qu'un nœud doit être *enregistré* autant que rendu : un
-graphe est une liste ordonnée, et son ordre est son ordre d'évaluation. `sr` est exporté au niveau
-module *et* porté par le constructeur, parce que la source d'un module n'importe rien à l'exécution
-— tout ce dont elle a besoin arrive par cet objet.
+Every helper is a **method** because a node has to be *registered* as much as returned: a graph is
+an ordered list, and its order is its evaluation order. `sr` is exported at module level *and*
+carried by the builder, because a module's source imports nothing at run time — everything it needs
+arrives through that object.
 
-## `geolerp` refuse une paire descendante
+## `geolerp` refuses a descending pair
 
-Le nœud du moteur **trie** ses deux bornes avant d'interpoler (`jmin`/`jmax`, pour qu'un graphe ne
-puisse jamais demander un rapport négatif). Le prix est qu'une paire descendante n'échoue pas : elle
-se lit silencieusement comme son propre miroir. `geolerp(20000, 200, t)` s'assied donc à 200 Hz
-quand `t` vaut 0 et **s'ouvre** quand `t` monte — l'exact contraire de ce que la ligne dit, sans
-rien à l'écran pour le suggérer.
+The engine node **sorts** its two bounds before interpolating (`jmin`/`jmax`, so a graph can never
+ask for a negative ratio). The price is that a descending pair does not fail: it silently reads as
+its own mirror. `geolerp(20000, 200, t)` therefore sits at 200 Hz when `t` is 0 and **opens** as `t`
+rises — the exact opposite of what the line says, with nothing on screen to suggest it.
 
-C'est refusé **ici**, là où l'auteur est, plutôt qu'absorbé là-bas. Pour balayer vers le bas, garder
-la paire ascendante et inverser le trajet : `geolerp(200, 20000, g.sub(1, t))`. Le message d'erreur
-porte cette forme-là, parce que « c'est faux » n'est pas actionnable quand c'est justement
-l'orthographe évidente qui est la mauvaise.
+It is refused **here**, where the author is, rather than absorbed over there. To sweep down, keep
+the ascending pair and reverse the journey: `geolerp(200, 20000, g.sub(1, t))`. The error message
+carries that spelling, because "this is wrong" is not actionable when the obvious spelling is the
+wrong one.
 
-Ce que la faute donne, faute de garde : un filtre DJ muet à sa position neutre — mesuré à −62 dBFS
-contre un témoin à −24 dBFS — et le module `lowpass` publié, dont le balayage part à l'envers
+What the fault gives without the guard: a DJ filter silent at its neutral position — measured at
+−62 dBFS against a −24 dBFS control — and the published `lowpass` module, whose sweep runs backwards
 (`docs/sweep.md`).
 
-La garde ne parle que de ce qu'elle **voit** : deux littéraux. Les bornes du auto-wah sont des
-potards (`packages/dsp/src/autowah.ts`), et laquelle est la plus grande regarde le musicien à
-l'exécution ; deviner là refuserait un graphe légitime.
+The guard speaks only about what it **sees**: two literals. The auto-wah's bounds are knobs
+(`packages/dsp/src/autowah.ts`), and which is larger is up to the musician at run time; guessing
+there would refuse a legitimate graph.
 
-## `input(port)` — un indice, pas un nom
+## `input(port)` — an index, not a name
 
-`port` indexe les ports d'entrée du module (`inputs:` de son `module.yaml`) : 0 est le flux de la
-chaîne, 1 la première entrée latérale — voir `packages/song/docs/ports.md`.
+`port` indexes the module's input ports (`inputs:` in its `module.yaml`): 0 is the chain's stream,
+1 the first side input — see `packages/song/docs/ports.md`.
 
-Un indice et pas un nom parce que le graphe et le fichier de module sont **deux documents** : le
-graphe est du JSON généré que le moteur lit sans aucun module en vue, et un nom devrait être
-rapproché par-dessus ce fossé par quelqu'un. La position est ce que la liste de ports est déjà (la
-validation vérifie ses sources positionnellement), donc l'indice est le seul fait que les deux côtés
-peuvent tenir seuls.
+An index and not a name because the graph and the module file are **two documents**: the graph is
+generated JSON the engine reads with no module in sight, and a name would have to be reconciled
+across that gap by someone. Position is what the port list already is (validation checks its
+sources positionally), so the index is the only fact both sides can hold alone.
 
-Le premier port n'émet **aucun champ** : un graphe qui n'a qu'une entrée est octet pour octet ce
-qu'il serait sans la couche de ports, ce qui compte parce que les `graphs/*.json` committés et la
-copie collée dans le moteur sont ce qui tourne vraiment.
+The first port emits **no field**: a graph with one input is byte for byte what it would be without
+the port layer, which matters because the committed `graphs/*.json` and the copy pasted into the
+engine are what actually run.
 
-Un port que personne n'alimente lit le silence au lieu d'échouer : `mandatory: false` dit que câbler
-un côté et laisser l'autre muet est un état légitime, et voilà ce que ça donne à entendre.
+A port nobody feeds reads silence instead of failing: `mandatory: false` says that wiring one side
+and leaving the other silent is a legitimate state, and this is what it sounds like.
 
-## La phase échantillon, et la rétroaction
+## Sample phase, and feedback
 
-Les nœuds `a*` portent de l'**audio**, pas des scalaires, et tournent dans une seule boucle par
-échantillon, dans l'ordre déclaré. Lire un fil écrit par un nœud **plus loin** dans la liste rend
-l'échantillon précédent — le retard unitaire sur lequel une boucle de rétroaction est bâtie — et
-c'est pourquoi `delay()` peut être nourri de quelque chose qui dépend de sa propre sortie.
+The `a*` nodes carry **audio**, not scalars, and run in one loop per sample, in declared order.
+Reading a wire written by a node **further down** the list yields the previous sample — the unit
+delay a feedback loop is built on — which is why `delay()` can be fed something depending on its own
+output.
 
-`wire(name)` ne réserve rien et ne vérifie rien : le nom **est** tout le mécanisme, et le lire avant
-son écrivain est exactement ce qui donne l'échantillon d'avant.
+`wire(name)` reserves nothing and checks nothing: the name **is** the whole mechanism, and reading
+it before its writer is exactly what gives the previous sample.
 
-Un nœud de phase échantillon range ses fils dans `in` et ses scalaires dans `k`. Cette séparation
-est toute la raison d'être des deux types.
+A sample-phase node puts its wires in `in` and its scalars in `k`. That separation is the whole
+point of the two types.
 
-`lfo()` tourne au taux **échantillon** et non contrôle, exprès : un scalaire ne change qu'une fois
-par bloc, et sur un temps de retard c'est un escalier de ~10 ms, audible comme une fermeture éclair
-sur exactement les effets pour lesquels la modulation existe.
+`lfo()` runs at **sample** rate and not control rate, deliberately: a scalar changes once per block,
+and on a delay time that is a ~10 ms staircase, audible as a zipper on exactly the effects
+modulation exists for.
 
-`delay()` alloue `maxMs` une fois au `prepare` : c'est un plafond, pas une suggestion. Le temps de
-lecture peut être un paramètre ou n'importe quel signal de contrôle, et la lecture est interpolée
-pour que le déplacer ne fasse pas de fermeture éclair.
+`delay()` allocates `maxMs` once at `prepare`: a ceiling, not a suggestion. The read time can be a
+parameter or any control signal, and the read is interpolated so that moving it does not zipper.
 
-## Ce que le vocabulaire refuse de faire pousser
+## What the vocabulary refuses to grow
 
-Il n'y a pas de `sqrt` parmi les primitives, et le crossfade
-(`packages/dsp/src/crossfade.ts`) en aurait voulu un : un crossfader DJ prend d'ordinaire la racine
-de chaque côté, pour que deux morceaux décorrélés gardent une sonie stable au passage du milieu. En
-inventer une pour un seul effet est exactement la façon dont un langage de graphe finit avec un nœud
-par effet (`engine/moteur/engine/DspGraph.h`). Le gain égal creuse donc d'environ 3 dB au centre pour
-de la matière décorrélée : c'est une forme connue, pas un défaut.
+There is no `sqrt` among the primitives, and the crossfade
+(`packages/dsp/src/crossfade.ts`) would have wanted one: a DJ crossfader usually takes the square
+root of each side, so that two uncorrelated tracks keep steady loudness through the middle.
+Inventing one for a single effect is exactly how a graph language ends up with one node per effect
+(`engine/moteur/engine/DspGraph.h`). Equal gain therefore dips about 3 dB at centre for uncorrelated
+material: a known shape, not a defect.
 
-Même raison pour l'absence de `max`, que le filtre DJ contourne par une somme parce qu'une seule de
-ses deux moitiés est jamais non nulle.
+Same reason for the absence of `max`, which the DJ filter works around with a sum because only one
+of its two halves is ever non-zero.
 
-## Les nœuds MIDI
+## The MIDI nodes
 
-Ils tournent une fois par bloc sur la liste de notes, avant toute phase audio. Ce sont des méthodes
-du **même** constructeur parce qu'un module MIDI déclare quand même des paramètres et les mappe
-quand même avec l'arithmétique de contrôle ci-dessus : un transpositeur piloté par un LFO, c'est le
-même `param` et le même `lerp`.
+They run once per block over the note list, before any audio phase. They are methods of the **same**
+builder because a MIDI module still declares parameters and still maps them with the control
+arithmetic above: a transposer driven by an LFO is the same `param` and the same `lerp`.
 
-Ils prennent des **scalaires et aucun fil** — le flux sur lequel ils agissent est le tampon du
-greffon, pas une valeur qu'ils lisent — donc pas de `out` : il n'y a rien à nommer. Et un littéral
-passe comme un **nombre**, pas comme son texte : le `ref()` du moteur donne à un nombre son propre
-registre préchargé et à une chaîne un registre nommé, donc `"2"` irait chercher un registre que
-personne n'écrit.
+They take **scalars and no wires** — the stream they act on is the plugin's buffer, not a value they
+read — hence no `out`: there is nothing to name. And a literal passes as a **number**, not as its
+text: the engine's `ref()` gives a number its own preloaded register and a string a named register,
+so `"2"` would fetch a register nobody writes.
 
-Une note poussée au-delà des bords du clavier par `transpose` est **écrêtée, pas jetée** : la jeter
-laisserait son note-off orphelin et la voix suspendue. `velocity` n'atteint jamais zéro, parce
-qu'une vélocité 0 est un note-off en MIDI.
+A note pushed past the edges of the keyboard by `transpose` is **clamped, not dropped**: dropping it
+would leave its note-off orphaned and the voice stuck. `velocity` never reaches zero, because
+velocity 0 is a note-off in MIDI.

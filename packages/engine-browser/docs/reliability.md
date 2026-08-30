@@ -1,134 +1,127 @@
-# Tenir un lien, pas seulement l'ouvrir
+# Holding a link, not just opening one
 
-Ce que `EngineClient` fait entre le moment où la socket s'ouvre et celui où elle se referme
-pour de bon. Presque tous les bugs de ce domaine sont des bugs de cycle de vie — jamais de
-protocole (`docs/audit-moteur.md`).
+What `EngineClient` does between the socket opening and it closing for good. Almost every bug in
+this area is a lifecycle bug — never a protocol one (`docs/audit-moteur.md`).
 
-## Le ticket périme, l'adresse pas
+## The ticket expires, the address does not
 
-L'URL n'est pas une chaîne figée au constructeur mais un `EngineUrl` : une fonction, rappelée
-**avant chaque tentative**.
+The URL is not a string frozen at construction but an `EngineUrl`: a function, called again
+**before every attempt**.
 
-C'est le mode de panne le plus coûteux du domaine. Depuis toute machine autre que celle du
-moteur, la seule voie praticable est le relais — une page HTTPS n'ouvre pas un `ws://` vers une
-adresse LAN — et l'URL relayée porte un ticket qui vit **une minute**
-(`engine-registry/proxy.ts`). Gelée à la construction, toute reconnexion survenant plus d'une
-minute après la mesure rejoue un ticket mort, reçoit un 401, et recommence. Indéfiniment, sans
-que rien ne redemande la liste. Le chemin nominal, donc, pas un cas limite.
+This is the area's most expensive failure mode. From any machine other than the engine's, the only
+workable route is the relay — an HTTPS page will not open a `ws://` to a LAN address — and the
+relayed URL carries a ticket that lives **one minute** (`engine-registry/proxy.ts`). Frozen at
+construction, any reconnection more than a minute after the probe replays a dead ticket, gets a
+401, and starts over. Indefinitely, with nothing ever asking for the list again. The nominal path,
+then, not an edge case.
 
-`engines.linkUrl(chosen)` est ce qu'on passe : il rend l'adresse **déjà mesurée** au premier
-appel — le gate vient de payer ce round-trip, le refaire serait gratuit en latence et cher en
-sockets — puis une adresse fraîche à chaque suivant. Une fonction, pour qu'aucune surface ne
-puisse en réussir seulement la moitié.
+`engines.linkUrl(chosen)` is what gets passed: it returns the **already-probed** address on the
+first call — the gate has just paid that round trip, and repeating it would be free in latency and
+expensive in sockets — then a fresh address on every one after. A function, so no surface can
+succeed at only half of it.
 
-Rendre `null` veut dire « aucun moteur à joindre pour l'instant » : le client patiente et
-redemande, au lieu de compter ça comme un échec de connexion.
+Returning `null` means "no engine to reach right now": the client waits and asks again, instead of
+counting that as a connection failure.
 
-## Une socket ouverte qui ne porte rien
+## An open socket carrying nothing
 
-Il n'y a de ping nulle part dans ce protocole, ni en dessous : le serveur du moteur embarque
-IXWebSocket avec `kPingIntervalSeconds(-1)` — heartbeat désactivé. Un relais figé, un NAT
-expiré, un portable qui sort de veille laissent donc une socket qui se déclare `OPEN` et ne
-transporte plus rien : `close` ne part jamais, la reconnexion ne se déclenche jamais, et
-`send()` écrit dans le vide. D'où un chien de garde côté navigateur.
+There is no ping anywhere in this protocol, nor underneath it: the engine's server embeds
+IXWebSocket with `kPingIntervalSeconds(-1)` — heartbeat disabled. A frozen relay, an expired NAT,
+a laptop coming out of sleep therefore leave a socket that declares itself `OPEN` and carries
+nothing: `close` never fires, the reconnection never triggers, and `send()` writes into the void.
+Hence a watchdog on the browser side.
 
-Le garde-fou est asymétrique, exprès :
+It is asymmetric on purpose:
 
-- **Tout ce qui arrive** compte comme preuve de vie. Le moteur pousse son état ~20 fois par
-  seconde, donc un client occupé ne sonde jamais — le coût est nul dans le cas courant.
-- **Rien pendant `ENGINE_IDLE_PING_MS`** et on envoie `whoami`. C'est le seul verbe que le
-  moteur répond quel que soit son état, et il est *engine-global* : il revient même à un client
-  qui ne pilote aucune session, ce qu'un chien de garde posé sur la trame d'état seule ne
-  couvrirait pas.
-- **Pas de réponse dans `ENGINE_PONG_TIMEOUT_MS`** et la socket est morte quoi qu'elle en dise.
-  On la ferme nous-mêmes plutôt que d'attendre un `close` qui ne viendra pas.
+- **Anything arriving** counts as proof of life. The engine pushes its state ~20 times a second,
+  so a busy client never probes — the cost is nil in the common case.
+- **Nothing for `ENGINE_IDLE_PING_MS`** and we send `whoami`. It is the only verb the engine
+  answers whatever its state, and it is *engine-global*: it comes back even to a client driving no
+  session, which a watchdog sitting on the state frame alone would not cover.
+- **No reply within `ENGINE_PONG_TIMEOUT_MS`** and the socket is dead whatever it claims. We close
+  it ourselves rather than wait for a `close` that will not come.
 
-## Le repli, et pourquoi il double
+## The backoff, and why it doubles
 
-Un repli fixe d'une seconde fait qu'un onglet oublié en arrière-plan sur une machine dont le
-moteur est éteint frappe le relais une fois par seconde tant que l'onglet vit — et chaque coup
-coûte au backend une composition **séquentielle** de toutes les adresses annoncées. C'est le
-même motif que `pruneIdleLinks` dans le service de fichiers.
+A fixed one-second backoff means a tab forgotten in the background, on a machine whose engine is
+off, hits the relay once a second for as long as the tab lives — and each hit costs the backend a
+**sequential** dial of every advertised address. Same pattern as `pruneIdleLinks` in the file
+service.
 
-D'où : doublement depuis `ENGINE_RECONNECT_MIN_MS`, plafonné à `ENGINE_RECONNECT_MAX_MS`,
-et **secoué** — la moitié de l'intervalle est tirée au hasard. Le jitter est pour l'autre
-moitié du problème : plusieurs onglets lâchés par un même redémarrage du relais reviendraient
-sinon en rang serré. Le compteur repart à zéro sur une socket qui s'est réellement ouverte.
+Hence: doubling from `ENGINE_RECONNECT_MIN_MS`, capped at `ENGINE_RECONNECT_MAX_MS`, and
+**jittered** — half the interval is drawn at random. The jitter is for the other half of the
+problem: several tabs dropped by one relay restart would otherwise come back in lockstep. The
+counter resets on a socket that actually opened.
 
-### La génération
+### The generation
 
-Chaque `connect()` incrémente un compteur, et les gestionnaires d'une socket ne font rien une
-fois qu'il a bougé. C'est ce qui rend le second avis inoffensif : le chien de garde et
-l'événement `close` peuvent parler de la même socket, et sans ce garde-fou le second
-programmerait une **deuxième** échelle de repli à côté de la première. Deux échelles qui
-doublent chacune, c'est ainsi qu'un réessai discret devient une inondation.
+Every `connect()` bumps a counter, and a socket's handlers do nothing once it has moved. That is
+what makes the second opinion harmless: the watchdog and the `close` event can both be talking
+about the same socket, and without this guard the second would schedule a **second** backoff
+ladder beside the first. Two ladders each doubling is how a discreet retry becomes a flood.
 
-## La file d'attente couvre un clignement, et rien de plus
+## The queue covers a blink, and nothing more
 
-Sans limite de taille ni d'âge, l'`outbox` accumulerait tout ce que la surface a envoyé pendant
-une coupure de dix minutes, et le tout partirait **d'un bloc** à la reconnexion, verbes de
-transport périmés compris.
+With no size or age limit, the `outbox` would accumulate everything the surface sent during a
+ten-minute outage and fire it **all at once** on reconnection, stale transport verbs included.
 
-Elle est donc bornée par `ENGINE_OUTBOX_MAX` (le plus ancien sort — la commande la plus
-récente est celle qui décrit encore ce que la personne veut) et par `ENGINE_OUTBOX_TTL_MS` au
-rejeu : une commande que plus personne n'attend ne vaut pas la peine d'être envoyée.
+So it is bounded by `ENGINE_OUTBOX_MAX` (oldest out — the most recent command is the one that
+still describes what the person wants) and by `ENGINE_OUTBOX_TTL_MS` on replay: a command nobody
+is waiting for is not worth sending.
 
-`sendNow()` est pour ce qui ne vaut que sur CETTE socket — le `whoami` du chien de garde, le
-document rejoué ci-dessous : les mettre en file n'aurait aucun sens.
+`sendNow()` is for what is only valid on THIS socket — the watchdog's `whoami`, the document
+replayed below: queueing those would make no sense.
 
-## Le document, rejoué
+## The document, replayed
 
-Les souscriptions (`watch-plugin-params`, `subscribe-waveform`, `broadcast`) vivent dans le
-moteur et sont rejouées à chaque ouverture. Le **document** aussi, et c'est la moitié facile à
-oublier.
+Subscriptions (`watch-plugin-params`, `subscribe-waveform`, `broadcast`) live in the engine and
+are replayed on every open. So is the **document**, and that is the half easily forgotten.
 
-Ça se voit mal et ça coûte cher : si le moteur redémarre, il revient vide, et la surface
-continue de le piloter. Le seul symptôme est « le moteur ignore Play », sans une ligne de
-journal pour le relier à une connexion qui a cligné.
+It shows badly and costs a lot: if the engine restarts, it comes back empty and the surface goes
+on driving it. The only symptom is "the engine ignores Play", without a log line tying it to a
+connection that blinked.
 
-`sendProject` retient donc son document, et l'ouverture le renvoie **en premier** — avant les
-souscriptions et avant la file, puisque les unes et l'autre parlent d'un document que le moteur
-n'a pas encore. C'est bon marché : `EngineHost::apply` diffe contre une baseline qui survit à
-la coupure, donc un renvoi rend un diff correct plutôt qu'un rechargement complet.
+`sendProject` therefore keeps its document, and the open resends it **first** — before the
+subscriptions and before the queue, since both talk about a document the engine does not have yet.
+It is cheap: `EngineHost::apply` diffs against a baseline that survives the outage, so a resend
+yields a correct diff rather than a full reload.
 
-Le `hello` qui précède tout ça porte `role: "driver"`, et c'est un champ plutôt qu'un verbe à
-part exprès : le moteur compte ses pilotes par session et libère un projet dont le dernier est
-parti, donc une reconnexion qui ne se redéclarerait pas ferait lâcher au moteur le document
-même que la ligne suivante s'apprête à rejouer. En faire un champ de `hello`, c'est le rendre
-impossible à oublier — toute connexion en envoie un.
+The `hello` preceding all that carries `role: "driver"`, and it is a field rather than a separate
+verb on purpose: the engine counts its drivers per session and releases a project whose last one
+has gone, so a reconnection that did not re-declare itself would make the engine drop the very
+document the next line is about to replay. Making it a field of `hello` makes it impossible to
+forget — every connection sends one.
 
-### Qui appelle `sendProject`, et ce qui n'est pas plié
+### Who calls `sendProject`, and what is not folded
 
-st0 ne l'appelle jamais : ses documents sont **compilés** depuis un dossier de YAML, ce que fait
-le service de fichiers, donc son navigateur ne pilote que le transport. Une app qui construit
-elle-même son document (un aperçu de module, une platine) n'a rien à compiler et aucune raison
-de passer par un second processus pour atteindre une socket qu'elle tient déjà.
+st0 never calls it: its documents are **compiled** from a folder of YAML, which the file service
+does, so its browser only drives transport. An app that builds its own document (a module preview,
+a deck) has nothing to compile and no reason to go through a second process to reach a socket it
+already holds.
 
-Le document part **tel quel**. Le client Node, lui, replie les groupes sur leurs membres et
-retire la vidéo avant d'envoyer ; un document issu de `@studio/engine-protocol/build` n'a ni
-l'un ni l'autre, donc les deux replis y sont l'identité. Repliez avant d'appeler si le vôtre
-peut en avoir.
+The document goes **as is**. The Node client folds groups onto their members and strips video
+before sending; a document from `@studio/engine-protocol/build` has neither, so both folds are the
+identity there. Fold before calling if yours can have either.
 
-## Le fil d'activité
+## The activity thread
 
-`BeginActivity` marque une tranche de travail et rend son callback de fin. Le moteur pousse son
-état à la cadence de l'image et les paramètres à 20 Hz : un gestionnaire devenu lent est donc
-invisible dans un profil pris après coup, et évident dans un rapport de blocage. Savoir si
-quelqu'un regarde est l'affaire de l'hôte, pas de ce client — d'où le défaut qui ne fait rien.
+`BeginActivity` marks a slice of work and returns its end callback. The engine pushes state at
+frame rate and parameters at 20 Hz: a handler gone slow is therefore invisible in a profile taken
+afterwards, and obvious in a hang report. Whether anyone is watching is the host's business, not
+this client's — hence the default that does nothing.
 
-## Un seul budget pour joindre un moteur
+## One budget for reaching an engine
 
-`ENGINE_REACH_BUDGET_MS` et `ENGINE_DIAL_TIMEOUT_MS` vivent dans `@studio/web-protocol` parce
-que les deux moitiés doivent s'accorder.
+`ENGINE_REACH_BUDGET_MS` and `ENGINE_DIAL_TIMEOUT_MS` live in `@studio/web-protocol` because both
+halves have to agree.
 
-Le navigateur mesure ses candidats **en parallèle** : il dépense le budget une fois. Le relais
-les compose **en séquence** ; le dépenser *par adresse* ferait qu'une machine annonçant deux
-interfaces mortes (un VPN, un pont Docker) demande trois fois la patience du navigateur et est
-déclarée injoignable pendant que le moteur répond tranquillement sur loopback. Les deux
-s'arrêtent donc au même mur, et une première adresse morte ne peut en manger
-qu'`ENGINE_DIAL_TIMEOUT_MS`.
+The browser probes its candidates **in parallel**: it spends the budget once. The relay dials them
+**in sequence**; spending it *per address* would mean a machine advertising two dead interfaces (a
+VPN, a Docker bridge) asks three times the browser's patience and is declared unreachable while
+the engine answers quietly on loopback. So both stop at the same wall, and a first dead address
+can eat at most `ENGINE_DIAL_TIMEOUT_MS`.
 
-L'autre bout du même problème est dans `engine-host/src/addresses.ts` : les interfaces
-fantômes — VPN, conteneurs, WSL, Hyper-V — ne sont pas annoncées du tout. Elles ne sont pas
-`internal`, donc un filtre sur ce seul critère les laisse passer, et elles portent des adresses
-privées parfaitement ordinaires ; seul leur **nom** les distingue.
+The other end of the same problem is in `engine-host/src/addresses.ts`: phantom interfaces — VPN,
+containers, WSL, Hyper-V — are not advertised at all. They are not `internal`, so a filter on that
+alone lets them through, and they carry perfectly ordinary private addresses; only their **name**
+tells them apart.

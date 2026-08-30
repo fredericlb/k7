@@ -1,257 +1,221 @@
-# Le tempo d'une platine, et le sync
+# A deck's tempo, and the sync
 
-Un fader vertical à côté de chaque vinyle, deux boutons SYNC aux extrémités de la barre du
-bas. Le bouton dit **qui mène** : appuyer à gauche met les deux disques sur le tempo du
-fader gauche, et le fader droit devient gris et bouge tout seul.
+A vertical fader beside each record, two SYNC buttons at the ends of the bottom bar. The button
+says **who leads**: pressing the left one puts both records on the left fader's tempo, and the
+right fader greys out and moves by itself.
 
-## Le fader est le paramètre d'un MODULE
+## The fader is a MODULE's parameter
 
-Ce n'est pas une commande que le pupitre s'invente : le projet le dit. `example.st0` pose sur chaque
-platine un nœud du module `@st0/audio/utility/tempo` de la médiathèque, et le
-fader est le `Target BPM` de ce nœud. Un nœud par platine, parce que chaque
-platine joue à son propre BPM et qu'un paramètre appartient à un **usage**, pas à un module.
+Not a control the desk invents: the project says so. `example.st0` puts on each deck a node of the
+médiathèque's `@st0/audio/utility/tempo` module, and the fader is that node's `Target BPM`. One
+node per deck, because each deck plays at its own BPM and a parameter belongs to a **use**, not to
+a module.
 
-Ce module est **froid**, et `plugin: {type: offline}` : il ne compile en aucun plugin du moteur.
-Ce qu'il apporte est la DÉCLARATION que cette platine a un tempo — ce qui permet à un contrôle du
-pupitre de le nommer. Voir `packages/song/docs/coldModules.md`.
+That module is **cold**, `plugin: {type: offline}`: it compiles into no engine plugin. What it
+brings is the DECLARATION that this deck has a tempo — which is what lets a desk control name it.
+See `packages/song/docs/coldModules.md`.
 
-Concrètement : la liaison ne donne pas un `pluginId` (il n'y en a pas) mais la **piste** dont
-le module traite la matière, et c'est le plateau de cette piste qui change de vitesse. Repointer
-`deckA.tempo` vers `tempoB` et c'est la platine B qui s'étire sous le fader de gauche.
+Concretely: the binding gives not a `pluginId` (there is none) but the **track** whose material the
+module treats, and it is that track's platter that changes speed. Re-point `deckA.tempo` at `tempoB`
+and it is deck B that stretches under the left-hand fader.
 
-## Comment un morceau change de tempo
+## How a song changes tempo
 
-Le document ne porte **qu'un** tempo, et il reste fixe (`DOC_TEMPO`, 120) — mais aucune platine
-ne le lit : chacune est un **plateau** qui possède son disque et le lit à sa propre vitesse.
+The document carries **one** tempo and it is fixed (`DOC_TEMPO`, 120) — but no deck reads it: each
+is a **platter** owning its record and reading it at its own speed.
 
 ```
-Rate = cible / naturel
+Rate = target / natural
 ```
 
-C'est tout. `platterRate` écrit ce nombre, le plugin en fait un pas d'échantillon par échantillon
-de sortie, et `Key` décide si un étireur tient la hauteur pendant ce temps
-(`engine/moteur/docs/turntable.md`).
+That is all. `platterRate` writes that number, the plugin turns it into a sample step per output
+sample, and `Key` decides whether a stretcher holds pitch meanwhile
+(`engine/moteur/docs/turntable.md`). A platter has nothing to place: it is where it is.
 
-Ce qui a disparu avec les clips, ce sont les marqueurs de warp — `[temps de la timeline, seconde
-du fichier]` — et l'arithmétique qui plaçait un fichier entre deux d'entre eux. Un plateau n'a rien
-à placer : il est là où il est.
+## KEY — pitch follows tempo unless stopped
 
-## KEY — la hauteur suit le tempo, sauf si on l'en empêche
+The button under the fader is a CDJ's **MASTER TEMPO**, the **Keylock** of Traktor, Serato and
+rekordbox. It is **off by default**, as on the hardware: a deck's pitch fader does what a Technics'
+belt did — the song goes faster AND rises in pitch. Holding the key is the extra gesture, not the
+other way round.
 
-Le bouton sous le fader est le **MASTER TEMPO** d'une CDJ, le **Keylock** de Traktor, de Serato et
-de rekordbox. Il est **éteint par défaut**, comme sur le matériel : le fader de pitch d'une platine
-fait ce que faisait la courroie d'une Technics, le morceau va plus vite ET monte en hauteur. Tenir
-la tonalité est le geste supplémentaire, pas l'inverse.
+KEY is **a plugin parameter**, `Key`, and nothing else changes: same platter, same position, same
+gestures. The engine puts its stretcher in the path or takes it out, internally, at the cost of one
+branch (`engine/moteur/docs/turntable.md`).
 
-KEY est **un paramètre du plugin**, `Key`, et rien d'autre ne change : même plateau, même position,
-mêmes gestes. Le moteur met son étireur dans le chemin ou l'en sort, en interne, ce qui coûte une
-branche (`engine/moteur/docs/turntable.md`). C'est ce qui a fait disparaître le second modèle de
-position du pupitre.
+A separated record is no exception: its four parts are four platters, each with its stretcher.
+Measured, the eight of a full desk cost **3 points of CPU** — the price is not there.
 
-Un disque séparé n'y échappe pas : ses quatre parties sont quatre plateaux, chacun avec son étireur.
-Mesuré, les huit d'un pupitre plein coûtent **3 points de cœur** — ce n'est pas là qu'est le prix.
+**The default is not just taste.** A constant-pitch stretcher is non-linear: it picks its frames
+from the signal, so four parts stretched separately no longer sum as the record would. That is what
+broke the subtracting version of `stemcut` (`packages/song-schema/docs/stems.md`), and it stays true
+of the sum, more discreetly: with keylock on, the four parts glue back together less well.
+Resampling is linear — the same combination of samples for all four files — and costs nothing on
+that side.
 
-**Le défaut n'est pas qu'une question de goût.** Un étireur à hauteur constante est non linéaire :
-il choisit ses trames en fonction du signal, donc quatre parties étirées séparément ne se somment
-plus comme le disque le ferait. C'est ce qui a cassé la version du `stemcut` qui soustrayait
-(`packages/song-schema/docs/stems.md`), et ça reste vrai de la somme, en plus discret : à keylock allumé
-les quatre parties se recollent moins bien. Le rééchantillonnage, lui, est linéaire — la même
-combinaison d'échantillons pour les quatre fichiers — et ne coûte rien de ce côté-là.
+Many DJs leave the button off for small offsets: at ±3 % the pitch shift is less audible than the
+stretching artefacts.
 
-Beaucoup de DJ laissent le bouton éteint pour les petits écarts : à ±3 % le décalage de hauteur
-s'entend moins que les artefacts de l'étirement.
+**It is a setting of the DECK, not of the record.** It survives the song you put on, where
+`clearTempo` wipes the tempo at every load — hence `withKeylock`, which merges it into the
+`DeckTempo` rather than storing it there. Changing it is a DOCUMENT change, so it re-sends the
+project, like a released fader.
 
-**C'est un réglage de la PLATINE, pas du disque.** Il survit au morceau qu'on pose, là où
-`clearTempo` efface le tempo à chaque chargement — d'où `withKeylock`, qui le fusionne dans les
-`DeckTempo` au lieu de l'y stocker. Le changer est un changement de DOCUMENT, donc il renvoie le
-projet, comme un coup de fader relâché.
+## The range is the module's knob's
 
-## La plage est celle du knob du module
+The module declares its panel: a **BPM knob from 10 to 300**, plus a display of the measured tempo,
+in `ui.yaml`. The Mix fader **is** that knob, so its range is that one. A surface offering less
+would silently refuse values the module accepts; one offering more would send values the panel
+cannot draw.
 
-Le module déclare son panneau : un **knob BPM de 10 à 300**, plus un afficheur du tempo
-mesuré, en `ui.yaml`. Le fader de Mix **est** ce knob, et sa plage est donc celle-là. Une
-surface qui offrirait moins refuserait en silence des valeurs que le module accepte ; une qui
-offrirait plus enverrait des valeurs que le panneau ne sait pas dessiner.
+That is wide — 290 BPM over a screen height, so a coarse drag. Three things catch it: the detent at
+the song's tempo, the 0.1 step, and the double-click that returns to it.
 
-C'est large — 290 BPM sur une hauteur d'écran, donc un glissement grossier. Trois choses le
-rattrapent : le cran au tempo du morceau, le pas de 0,1, et le double-clic qui y ramène.
+A real deck's **±16 %** survives only as a warning threshold: the percentage under the fader turns
+**amber** beyond it. That happens quickly — matching a 90 BPM song to a 123 BPM one is a **+37 %**
+stretch, legitimate and audible. Better seen than discovered in the speakers. And the sync bounds
+nothing: "synchronised" means the same tempo, and clamping would leave the two decks at different
+BPMs while the button claimed otherwise.
 
-Les **±16 %** d'une vraie platine survivent uniquement comme seuil d'alerte : le pourcentage
-sous le fader passe en **ambre** au-delà. Ça arrive vite — caler un morceau à 90 BPM sur un
-morceau à 123 est un étirement de **+37 %**, légitime et audible. Mieux vaut le voir que le
-découvrir dans les enceintes. Et le sync ne borne rien : « synchronisées » veut dire le même
-tempo, borner laisserait les deux platines à des BPM différents pendant que le bouton prétend
-le contraire.
+## Taking the fader back cancels the sync
 
-## Reprendre la main annule le sync
+The slave's fader is **greyed but grabbable**. Greying says "not yours right now", not "not
+allowed": on every machine with a SYNC button, grabbing the slaved deck's pitch is *the* way out. A
+knob that refused the hand would force a second trip back to the button.
 
-Le fader de l'esclave est **grisé mais saisissable**. Le griser dit « ce n'est pas à toi en ce
-moment », pas « tu n'as pas le droit » : sur toutes les machines qui ont un bouton SYNC,
-attraper le pitch de la platine asservie est *la* façon d'en sortir. Un knob qui refuserait la
-main obligerait à un second aller-retour jusqu'au bouton.
+So moving the slave fader sets `master` to `null` and that deck carries on from where the knob was
+— that is, from the **synchronised** value, not the one it had before. That is the detail that
+matters: clearing `master` first and reading the value after would jump the song to its old tempo
+on the first pixel.
 
-Donc bouger le fader esclave met `master` à `null` et cette platine repart de là où le knob
-était — c'est-à-dire de la valeur **synchronisée**, pas de celle qu'elle avait avant. C'est le
-détail qui compte : remettre `master` à `null` d'abord et lire la valeur ensuite ferait sauter
-le morceau à son ancien tempo au premier pixel.
+Moving the **master**'s fader breaks nothing: both follow, which is what leading means.
 
-Bouger le fader du **maître** ne casse rien : les deux suivent, c'est ce que mener veut dire.
+A deck with no detected tempo leads nothing and follows nothing — there is no number to
+synchronise to, and inventing one would be the confident lie avoided everywhere here. Both buttons
+are disabled until both decks have a tempo.
 
-Une platine sans tempo détecté ne mène rien et ne suit rien — il n'y a pas de nombre auquel
-se synchroniser, et en inventer un serait le mensonge confiant qu'on évite partout ici. Les
-deux boutons sont désactivés tant que les deux platines n'ont pas de tempo.
+## Moving the tempo does not move the MUSIC
 
-## Bouger le tempo ne bouge plus la MUSIQUE, et il n'y a plus rien à corriger
+That is what a deck does without thinking: you change the platter's speed, the needle stays in its
+groove. `TurntablePlugin` keeps its position in a field of its own and only touches it on `Seek`;
+`Rate` only changes the step. Writing a new tempo therefore cannot move the record — not because
+it is caught up, but because nothing pushes it.
 
-C'est ce qu'une platine fait sans y penser : on change la vitesse du plateau, l'aiguille reste
-dans son sillon. C'est désormais littéralement ce qui se passe. `TurntablePlugin` garde sa
-position dans un champ à lui et n'y touche que sur `Seek` ; `Rate` ne fait que changer le pas.
-Écrire un nouveau tempo ne peut donc pas déplacer le disque — non parce qu'on le rattrape, mais
-parce que rien ne le pousse.
+## During the drag, but not on every pixel
 
-### Ce que ça a coûté du temps des clips
+The crossfade moves on every pixel because it is a **plugin parameter**: `set-plugin-param`, one
+message. A tempo travels in the **document** — `platterRate` writes the `Rate` of the deck's
+platters, and a separated record has four.
 
-Ça vaut d'être gardé, parce que c'est ce qui a payé le plateau. Une platine était un clip sur une
-timeline et le transport une position sur cette timeline, donc ré-étirer le clip changeait
-**quelle seconde du fichier se trouvait sous la tête de lecture**. Mesuré sans correction, avec
-une source dont la fréquence encode sa propre position : **un seul pas d'un glissement de +8 %
-mangeait 980 ms du morceau**, un glissement complet une seconde pleine, en une secousse par pas.
+So the document goes out **throttled**: at most once per `LIVE_WARP_MS` (120 ms), always with the
+latest value. The tempo follows the hand instead of arriving at the end.
 
-La correction — `slipToPlace`, `slipAfter`, et la marge de dix minutes (`TIMELINE_BASE`) qui leur
-donnait de la place devant — ramenait ça à 19 ms. Ces 19 ms étaient le redémarrage de l'étireur à
-chaque ré-insertion de clip : un plancher du mécanisme, pas une dérive. Tout ce lot a été supprimé
-à l'étape 4 de `docs/platter-plan.md`, avec son banc (`tempo-drag.ts`) et sa page.
+And not only throttled: **thresholded in value** too. Below `LIVE_WARP_BPM` (0.05 BPM — four
+hundredths of a per cent at 120, less than one cent of pitch) nothing goes. What that catches is
+the end of a careful drag, when the hand advances by tenths and would otherwise ask for eight sends
+a second to say nothing. Release is exempt: the value you let go of must be true, however small the
+last movement was.
 
-Et la marge avec : PLAY démarre à zéro comme partout ailleurs, puisque plus aucune musique ne vit
-sur cette timeline. Il n'y reste que le clic (`metronome.md`).
+Those two numbers are **conservative rather than justified**: they have not been measured against a
+`Rate`, which is cheap.
 
-## Pendant le glissement, mais pas à chaque pixel
+It is a *throttle*, deliberately not a *debounce*: a debounce cancels its deadline on each new
+value, so a continuous drag would send nothing until the hand stopped — exactly what must not
+happen here. A deadline already set is therefore left alone and reads the current value when it
+fires. Release additionally sends the exact value: the last throttled tick can be 120 ms of gesture
+away from it.
 
-Le crossfade bouge à chaque pixel parce que c'est un **paramètre de plugin** :
-`set-plugin-param`, un message. Un tempo, lui, voyage dans le **document** — `platterRate` écrit
-le `Rate` des plateaux de la platine, et un disque séparé en a quatre.
+## What to know before trying it
 
-Donc le document part **cadencé** : au plus une fois par `LIVE_WARP_MS` (120 ms), et toujours
-avec la dernière valeur. Le tempo suit la main au lieu d'arriver à la fin.
+The tempo comes from the `{file}.cache` sidecar, that is from the **same analysis** as the
+waveform. On this machine, **4 songs out of 279** have one. For all the others, loading the song
+would trigger analysis by the engine — several seconds — during which the fader would read `—` and
+the sync would be disabled.
 
-Et pas seulement cadencé : **seuillé en valeur** aussi. En dessous de `LIVE_WARP_BPM`
-(0,05 BPM, soit quatre centièmes de pour cent à 120, moins d'un cent de hauteur) rien ne part.
-Ce que ça rattrape, c'est la fin d'un glissement soigneux, quand la main avance par dixièmes et
-demanderait sinon huit envois par seconde pour ne rien dire. Le relâchement est
-exempté : la valeur qu'on lâche doit être vraie, si petit qu'ait été le dernier mouvement.
+So the desk walks the playlist the surface names, one song at a time, as soon as it has its list.
+See [prewarm.md](prewarm.md). Analysing on load is fine at a desk and fatal on stage — the second
+you put a record on is the second you have not got five seconds.
 
-Ces deux nombres datent du temps où un pas de fader **reconstruisait un clip** et coûtait ~20 ms
-de bavure. Un `Rate` ne coûte pas ça, et ils n'ont pas été remesurés depuis : ils sont
-conservateurs, pas justifiés.
+And when the analysis is wrong, it is correctable: [grid.md](grid.md).
 
-C'est un *throttle*, délibérément pas un *debounce* : un debounce annule son échéance à chaque
-nouvelle valeur, donc un glissement continu n'enverrait rien tant que la main ne s'arrête pas
-— exactement ce qu'il ne faut pas ici. Une échéance déjà posée est donc laissée
-tranquille et lit la valeur courante quand elle se déclenche. Le relâchement envoie en plus la
-valeur exacte : le dernier tick cadencé peut s'en écarter de 120 ms de geste.
+## The node in the graph shows both numbers
 
-## Ce qu'il faut savoir avant de l'essayer
+The desk is not the only screen where this tempo is read: the module's **node** is right below, in
+the graph, with its `Target BPM` knob and its `Source BPM` display. Since the module is `offline`
+it compiles into no plugin — the engine has nothing to report and no address to report it at. The
+value exists only on the surface that **realises** it, and `useDeckSet` lends it to the graph
+through `deck.setModuleParam`.
 
-Le tempo vient du sidecar `{fichier}.cache`, c'est-à-dire de la **même analyse** que la
-waveform. Sur cette machine, **4 morceaux sur 279** en ont un. Pour tous les autres, charger
-le morceau déclencherait l'analyse par le moteur — plusieurs secondes — et d'ici là le fader
-afficherait `—` et le sync serait désactivé.
+Three things are needed for that, and without any one of them the node stays frozen on what
+`project.yaml` declares — which reads exactly as "the BPM does not update when a song is loaded":
 
-**C'est fait, et ça n'arrive plus** : le pupitre analyse la playlist que la surface nomme, un
-morceau à la fois, dès qu'il a sa liste. Voir [prewarm.md](prewarm.md). Normal à un bureau,
-rédhibitoire sur scène — la seconde où l'on pose un disque est celle où l'on n'a pas cinq secondes.
-
-Et quand l'analyse se trompe, elle se corrige : [grid.md](grid.md).
-
-## Le nœud dans le graphe montre les deux nombres
-
-Le pupitre n'est pas le seul écran où ce tempo se lit : le **nœud** du module est juste en
-dessous, dans le graphe, avec son knob `Target BPM` et son afficheur `Source BPM`. Comme le
-module est `offline`, il ne compile en aucun plugin — le moteur n'a rien à rapporter et aucune
-adresse sous laquelle le rapporter. La valeur n'existe que sur la surface qui la **réalise**,
-et c'est `useDeckSet` qui la prête au graphe, via `deck.setModuleParam`.
-
-Trois choses sont nécessaires pour ça, et sans l'une d'elles le nœud reste figé sur ce que
-`project.yaml` déclare — ce qui se lit exactement comme « le BPM ne se met pas à jour quand on
-charge un morceau » :
-
-| | ce qu'il faut |
+| | what is needed |
 |---|---|
-| l'hôte | st0 passe `moduleParams` **et** `onModuleParam` à `DomChains` : ce sont les deux qui **allument** ces widgets. Sans eux le graphe dessine `–`, inerte. |
-| `Source BPM` | `views/mix.yaml` lie un paramètre par contrôle, donc seul `Target BPM` y est nommé ; l'autre est mesuré et n'a aucun écrivain dans le fichier. C'est la publication ci-dessous qui l'écrit, sinon l'afficheur reste à 0 pour tous les morceaux. |
-| le trou | poser un disque **efface** le fader (`clearTempo`) et la mesure arrive un instant plus tard. Sauter la publication pendant ce trou laisse le nœud sur les nombres du morceau **sortant** — au moment précis où on le regarde pour voir ce qu'on vient de poser. |
+| the host | st0 passes `moduleParams` **and** `onModuleParam` to `DomChains`: those two are what **switch these widgets on**. Without them the graph draws `–`, inert. |
+| `Source BPM` | `views/mix.yaml` binds one parameter per control, so only `Target BPM` is named there; the other is measured and has no writer in the file. The publication below is what writes it, or the display stays at 0 for every song. |
+| the gap | putting a record on **clears** the fader (`clearTempo`) and the measurement arrives a moment later. Skipping the publication during that gap leaves the node on the **outgoing** song's numbers — at the exact moment you are looking at it to see what you have just put on. |
 
-Les deux dernières règles sont dans `offlinePublish` (`mixBindings.ts`), à côté des autres
-lectures du même fichier, pour qu'un test les tienne. Une platine sans tempo publie **0**, qui
-est le « ne touche à rien » du module lui-même — et non le silence.
+The last two rules live in `offlinePublish` (`mixBindings.ts`), beside the other reads of the same
+file, so a test holds them. A deck with no tempo publishes **0**, which is the module's own
+"change nothing" — and not silence.
 
-`offlinePublish` ne répond que pour les contrôles de **tempo** : sa liste est tirée des tempos
-et ne tient rien d'autre. Une règle plus large — « toute liaison sans plugin », publiant la
-cible de la platine — ferait lire à un module `offline` lié à autre chose, une coupure de stem,
-le BPM de sa platine comme sa propre valeur.
+`offlinePublish` answers only for **tempo** controls: its list is derived from the tempos and holds
+nothing else. A broader rule — "any binding with no plugin", publishing the deck's target — would
+make an `offline` module bound to something else, a stem cut, read its deck's BPM as its own value.
 
-Le widget reste **en lecture seule** dans le graphe : `moduleParams` allume l'affichage,
-`onModuleParam` seul rendrait le knob actionnable, et le chemin retour n'existe pas encore —
-`fromGraph`, ici, n'a aucun appelant. Lecture seule est honnête ; tournable-et-ignoré ne
-l'est pas.
+The widget stays **read-only** in the graph: `moduleParams` lights the display, `onModuleParam`
+alone would make the knob actionable, and the return path does not exist yet — `fromGraph`, here,
+has no caller. Read-only is honest; turnable-and-ignored is not.
 
-## Le sync aligne aussi les temps
+## The sync also aligns the beats
 
-Deux platines à 128 BPM dont les temps forts sont à 200 ms l'un de l'autre ne sont pas
-synchronisées, elles *flamment*. Le sync fait donc **deux** choses : donner son tempo à
-l'esclave, puis caler sa grille sur celle du maître.
+Two decks at 128 BPM whose downbeats are 200 ms apart are not synchronised, they *flam*. So the
+sync does **two** things: give the slave its tempo, then align its grid on the master's.
 
-Caler la phase ne demande pas un transport par platine : on ne décale jamais le **transport**. Ce
-qu'on décale est la **position** de l'esclave — `alignSeek`, qui lit où les deux sont vraiment.
-Un seul cas : tout joue par un plateau, disque séparé compris, et un disque séparé est quatre
-plateaux qu'un seul saut atteint.
+Aligning the phase needs no per-deck transport: the **transport** is never moved. What moves is the
+slave's **position** — `alignSeek`, which reads where both actually are. One case only: everything
+plays through a platter, separated record included, and a separated record is four platters one
+seek reaches.
 
-La différence avec ce qu'on faisait d'un clip n'était pas cosmétique. Deux clips partagent un début,
-donc leur écart se calculait sur leurs seules phases ; deux plateaux ne partagent rien, chacun est où
-il est, et la correction se lit sur leurs positions réelles. Un plateau se tire aussi bien en arrière
-qu'en avant, donc `alignSeek` prend **le plus court chemin** — jamais plus d'un demi-temps — là où le
-retard d'un clip n'était jamais négatif.
+A platter is pulled backwards as readily as forwards, so `alignSeek` takes **the shortest path** —
+never more than half a beat.
 
-Deux morceaux à savoir mesurer pour ça :
+Two things to know how to measure for that:
 
-- **Où commence la grille.** `beats.ts` en fait une **moyenne circulaire** : chaque transitoire
-  est replié sur une période de temps et devient un angle, et on moyenne les vecteurs
-  unitaires. Ce qui tombe sur le temps s'additionne, le reste s'annule. La longueur du
-  résultat dit à quel point les attaques sont d'accord, ce qui permet de refuser de
-  répondre plutôt que d'inventer une phase à partir de bruit. Et non `transients[0]` : une
-  seule attaque est une seule mesure, et un clic dans une intro calme déplacerait toute la
-  grille — y compris les lignes jaunes de la waveform, qui lisent le même nombre.
-- **Où elle est ENTENDUE.** Une seconde source `s` est jouée à `s · natural / target` : un
-  morceau à 90 BPM étiré à 120 arrive un tiers plus tôt. Prendre la phase du fichier au lieu
-  de celle de la platine décalerait le temps fort de 100 ms — un flam audible.
+- **Where the grid starts.** `beats.ts` takes a **circular mean** of it: every transient is folded
+  onto one beat period and becomes an angle, and the unit vectors are averaged. What lands on the
+  beat adds up, the rest cancels. The length of the result says how much the attacks agree, which
+  is what allows refusing to answer rather than inventing a phase out of noise. And not
+  `transients[0]`: one attack is one measurement, and a click in a quiet intro would move the whole
+  grid — including the waveform's yellow lines, which read the same number.
+- **Where it is HEARD.** A source second `s` is played at `s · natural / target`: a 90 BPM song
+  stretched to 120 arrives a third earlier. Taking the file's phase instead of the deck's would
+  shift the downbeat by 100 ms — an audible flam.
 
-Les deux platines sont au même `target` au moment où la question se pose (c'est ce que le sync
-a fait en premier), donc leurs périodes coïncident déjà et seuls les décalages diffèrent. La
-réponse est leur différence, repliée dans un demi-temps de part et d'autre — le plus court chemin,
-que le retard d'un clip ne savait pas exprimer.
+Both decks are at the same `target` by the time the question arises (that is what the sync did
+first), so their periods already coincide and only the offsets differ. The answer is their
+difference, folded into half a beat either side.
 
-### Savoir se taire, et le dire
+### Knowing when to keep quiet, and saying so
 
-C'est la décision la moins évidente du lot, et elle est mesurée. Une phase est publiée
-seulement si les attaques l'ont vraiment dite ; sinon la platine reçoit le **tempo** et aucun
-décalage. Égaler la vitesse vaut le coup toute seule, et une phase inventée déplacerait le
-disque pour rien.
+The least obvious decision of the lot, and it is measured. A phase is published only if the attacks
+really said one; otherwise the deck gets the **tempo** and no offset. Matching the speed is worth
+it on its own, and an invented phase would move the record for nothing.
 
-La force brute ne peut pas trancher toute seule, parce que ce qui compte comme « élevé »
-dépend du nombre d'attaques : en disperser `n` au hasard laisse quand même une résultante
-d'environ `0,886/√n` — 0,04 pour 400 attaques, 0,09 pour 100. Un seuil fixe classerait donc
-les morceaux par leur **longueur**. Le test de **Rayleigh** est cette comparaison faite
-proprement : `n·R²` contre 4,6, soit p ≈ 0,01 contre « les attaques sont réparties
-uniformément, il n'y a pas de grille ».
+Raw strength cannot decide alone, because what counts as "high" depends on the number of attacks:
+scattering `n` of them at random still leaves a resultant of about `0.886/√n` — 0.04 for 400
+attacks, 0.09 for 100. A fixed threshold would therefore classify songs by their **length**. The
+**Rayleigh** test is that comparison done properly: `n·R²` against 4.6, that is p ≈ 0.01 against
+"the attacks are uniformly spread, there is no grid".
 
-Sur les trois morceaux d'`example.st0`, ça sépare franchement au lieu de tergiverser :
+On the three songs of `example.st0` it separates cleanly rather than hedging:
 
-| morceau | bpm | attaques | force | `n·R²` | grille |
+| song | bpm | attacks | strength | `n·R²` | grid |
 |---|---|---|---|---|---|
-| Daft Punk — Around the world | 121,36 | 404 | 0,591 | **141** | oui |
-| Stromae x Pomme — Ma meilleure ennemie | 87,93 | 236 | 0,268 | **17** | oui |
-| Alain Bashung — La nuit je mens | 123,31 | 292 | 0,027 | **0,2** | non |
+| Daft Punk — Around the world | 121.36 | 404 | 0.591 | **141** | yes |
+| Stromae x Pomme — Ma meilleure ennemie | 87.93 | 236 | 0.268 | **17** | yes |
+| Alain Bashung — La nuit je mens | 123.31 | 292 | 0.027 | **0.2** | no |
 
-La dernière ligne est *sous* le niveau du hasard : le tempo détecté est simplement faux, et
-c'est exactement le cas qui ne doit pas déplacer un disque. Le bouton SYNC reste actif — la
-moitié du sync vaut le coup — et son infobulle dit laquelle il fera.
+The last row is *below* chance level: the detected tempo is simply wrong, and that is exactly the
+case that must not move a record. The SYNC button stays active — half the sync is worth having —
+and its tooltip says which half it will do.

@@ -1,39 +1,34 @@
-# Les neuf effets du blindtest, refaits pour le studio
+# The blindtest's nine effects, remade for the studio
 
-z0 déforme un extrait avec neuf effets, écrits en WebAudio dans
-`packages/player-web/src/audioEffects.ts` et stockés dans une session Grist comme neuf colonnes
-`fx_*`. Cette page dit à quoi chacun correspond côté studio, ce qui est fidèle et ce qui ne
-l'est pas.
+z0 deforms an excerpt with nine effects, written in WebAudio in
+`packages/player-web/src/audioEffects.ts` and stored in a Grist session as nine `fx_*` columns.
+This page says what each one corresponds to studio-side, what is faithful and what is not.
 
-La règle : **jsdsp quand le vocabulaire du graphe l'exprime, le moteur sinon.** Rien n'est
-ajouté au C++ — les deux effets qu'un graphe ne peut pas décrire sont des plugins internes.
+The rule: **jsdsp when the graph vocabulary can express it, the engine otherwise.** Nothing is
+added to the C++ — the two effects a graph cannot describe are internal plugins.
 
-| effet z0 | devient | forme |
+| z0 effect | becomes | form |
 |---|---|---|
-| `lowpass` | `@st0/audio/filter/lowpass` | jsdsp, fidèle |
-| `highpass` | `@st0/audio/filter/highpass` | jsdsp, fidèle |
-| `overdrive` | `@st0/audio/distortion/overdrive` | jsdsp, fidèle à la normalisation près |
-| `chorus` | `@st0/audio/modulation/chorus` | jsdsp, fidèle |
-| `pitchvar` | `@st0/audio/modulation/wobble` | jsdsp, autre mécanisme |
-| `phaser` | `@st0/audio/modulation/phaser` | jsdsp, **approximation assumée** |
-| `bitreduction` | `@st0/audio/distortion/bitcrush` | moteur — AirWindows De Rez |
-| `pitch` | `@st0/audio/utility/pitch-shift` | moteur — Tracktion Pitch Shifter |
-| `speed` | rien : ce n'est pas un traitement | reste `speed:` sur le morceau de la session |
+| `lowpass` | `@st0/audio/filter/lowpass` | jsdsp, faithful |
+| `highpass` | `@st0/audio/filter/highpass` | jsdsp, faithful |
+| `overdrive` | `@st0/audio/distortion/overdrive` | jsdsp, faithful but for the normalisation |
+| `chorus` | `@st0/audio/modulation/chorus` | jsdsp, faithful |
+| `pitchvar` | `@st0/audio/modulation/wobble` | jsdsp, different mechanism |
+| `phaser` | `@st0/audio/modulation/phaser` | jsdsp, **accepted approximation** |
+| `bitreduction` | `@st0/audio/distortion/bitcrush` | engine — AirWindows De Rez |
+| `pitch` | `@st0/audio/utility/pitch-shift` | engine — Tracktion Pitch Shifter |
+| `speed` | nothing: it is not a treatment | stays `speed:` on the session's song |
 
-Les six premiers portent un seul paramètre `Amount`, de 0 à 100, parce que c'est exactement ce
-qu'une question de blindtest écrit. Les courbes sont celles de z0 : le passe-bas descend de
-20 kHz à 200 Hz géométriquement, le chorus balaie 0,2 à 5 Hz sur 20 ms, l'overdrive pousse
-tanh de 1 à 50.
+The first six carry a single `Amount` parameter, 0 to 100, because that is exactly what a
+blindtest question writes. The curves are z0's: the lowpass descends 20 kHz → 200 Hz
+geometrically, the chorus sweeps 0.2 to 5 Hz over 20 ms, the overdrive pushes tanh from 1 to 50.
 
-## Comment une question porte ses effets
+## How a question carries its effects
 
-Pas dans le YAML. Une question déformée est **une version du morceau**, et la médiathèque sait
-déjà tenir les versions d'un morceau : son sidecar les liste sous `variants:`, et une valeur
-qui ne nomme pas un fichier à côté du master nomme une **chaîne**
-([variants.md](../../../packages/mediatek/docs/variants.md)). C'est exactement le cas ici :
-z0 traite un morceau avec une chaîne.
-
-Donc :
+Not in the YAML. A deformed question is **a version of the song**, and the médiathèque already
+knows how to hold a song's versions: its sidecar lists them under `variants:`, and a value that
+does not name a file beside the master names a **chain**
+([variants.md](../../../packages/mediatek/docs/variants.md)).
 
 ```
 chains/blindtest/deformees/blue-monday/
@@ -50,193 +45,177 @@ variants:
 ```
 
 ```yaml
-# la catégorie, dans la session
+# the category, in the session
 name: Déformées
 variant: deformees
 ```
 
-**Un nom sur la catégorie, une chaîne par morceau.** C'est ce qui rend la chose « templatée »
-au bon endroit : le YAML de session dit `deformees` une seule fois, et chaque sidecar résout
-ce mot vers ses propres valeurs — celles qu'une personne a réglées question par question, et
-qui sont l'identité de la question. Une chaîne partagée par tous les morceaux aurait été un
-modèle qui perd ce qu'il modélise. Deux morceaux aux réglages *identiques* partagent bien la
-même chaîne, en revanche : la déduplication se fait sur la carte d'effets, pas sur le nom.
+**One name on the category, one chain per song.** That is what makes it "templated" in the right
+place: the session YAML says `deformees` once, and each sidecar resolves that word to its own
+values — the ones a person set question by question, which are the question's identity. A single
+chain shared by every song would be a template that loses what it templates. Two songs with
+*identical* settings do share one chain: deduplication is on the effect map, not on the name.
 
-L'ordre des modules dans la chaîne est fixe — pitch, wobble, bitcrush, lowpass, highpass,
-phaser, chorus, overdrive — le pitch d'abord parce qu'il resynthétise, la saturation en
-dernier parce qu'elle vient après la mise en forme. Le lecteur WebAudio de z0, lui, n'a pas
-d'ordre du tout : il chaîne les effets dans l'ordre des colonnes Grist.
+The module order in a chain is fixed — pitch, wobble, bitcrush, lowpass, highpass, phaser, chorus,
+overdrive — pitch first because it resynthesises, saturation last because it comes after shaping.
+z0's own WebAudio player has no order at all: it chains effects in Grist column order.
 
-Ce que ça donne : **16 chaînes** pour 20 emplacements de variante sur 20 sidecars, sous
-3 catégories (`Déformées` deux fois, une par session, et `Assourdissant`). Les 15 morceaux de
-`Slooow` n'ont rien reçu : ils ne portent que `speed`.
+Which gives **16 chains** for 20 variant slots across 20 sidecars, under 3 categories (`Déformées`
+twice, one per session, and `Assourdissant`). The 15 songs of `Slooow` got none: they carry only
+`speed`.
 
-## Ce qui n'est pas fidèle, et pourquoi
+## What is not faithful, and why
 
-**Le phaser.** z0 empile quatre passe-tout balayés par un LFO. Le vocabulaire du graphe
-(`engine/moteur/engine/DspGraph.h`) ne peut ni l'un ni l'autre, et les deux raisons méritent
-d'être écrites une fois pour toutes :
+**The phaser.** z0 stacks four allpasses swept by an LFO. The graph vocabulary
+(`engine/moteur/engine/DspGraph.h`) can do neither, and both reasons are worth writing once:
 
-1. `biquad` connaît quatre modes — passe-bande, passe-bas, passe-haut, réjecteur — et **pas
-   passe-tout**.
-2. Un passe-tout du premier ordre a besoin de `y[n−1]`, et **aucun graphe ne peut le tenir**.
-   Le seul nœud qui écrit un fil *nommé* est `adelay`, dont la lecture est bornée à un
-   échantillon minimum ; lire ce fil avant son écrivain rend donc `y[n−2]`. Un échantillon de
-   retour, exactement, est la chose que la boucle ne sait pas exprimer.
+1. `biquad` knows four modes — bandpass, lowpass, highpass, notch — and **not allpass**.
+2. A first-order allpass needs `y[n−1]`, and **no graph can hold it**. The only node writing a
+   *named* wire is `adelay`, whose read is bounded to one sample minimum; reading that wire before
+   its writer therefore yields `y[n−2]`. Exactly one sample of feedback is the thing the loop
+   cannot express.
 
-Le module est donc un **peigne balayé** : sec moins une prise courte qui bouge. À l'oreille
-c'est le même geste, sur un tracé ce sont des creux harmoniques là où un vrai phaser en a
-d'irréguliers. Ajouter un mode passe-tout au `biquad`, ou un LFO au rythme du bloc pour en
-balayer un, rendrait la version exacte triviale — dix lignes de graphe. Le built-in
-`@engine/phaser` du moteur est un vrai phaser, mais ses trois réglages (Depth, Rate, Feedback)
-sont séparés : pas de bouton unique, donc pas la forme d'une question.
+So the module is a **swept comb**: dry minus a short moving tap. To the ear the same gesture; on a
+trace, harmonic notches where a real phaser has irregular ones. Adding an allpass mode to `biquad`,
+or a block-rate LFO to sweep one, would make the exact version trivial — ten lines of graph. The
+engine's built-in `@engine/phaser` is a real phaser, but its three controls (Depth, Rate, Feedback)
+are separate: no single knob, so not the shape of a question.
 
-**Le wobble.** z0 somme trois LFO sur le désaccord de la source. Rien ici ne réaccorde un
-tampon, alors la hauteur vient d'où elle vient sur une bande : une ligne à retard dont la
-longueur bouge. Les trois fréquences sont celles de z0 (0,23 / 0,71 / 1,37 Hz), mutuellement
-irrationnelles pour que le voilage ne se laisse jamais prévoir. Ce qui manque, c'est la dérive
-aléatoire que z0 injecte toutes les 800 ms : un graphe est une description, évaluée
-identiquement à chaque fois, et il n'y a pas de source de bruit dans ce vocabulaire.
+**The wobble.** z0 sums three LFOs onto the source's detune. Nothing here retunes a buffer, so the
+pitch comes from where it comes from on tape: a delay line whose length moves. The three
+frequencies are z0's (0.23 / 0.71 / 1.37 Hz), mutually irrational so the flutter is never
+predictable. What is missing is the random drift z0 injects every 800 ms: a graph is a description,
+evaluated identically every time, and there is no noise source in that vocabulary.
 
-**L'overdrive.** Même courbe `tanh(drive·x)`, drive de 1 à 50. La normalisation de z0 divise
-par `tanh(drive)`, et il n'y a pas de `tanh` au rythme du contrôle ; au-dessus de drive 4 ce
-diviseur vaut 1 à un demi-pour-cent près, donc une rampe à deux points couvre le bas du bouton.
+**The overdrive.** Same `tanh(drive·x)` curve, drive 1 to 50. z0's normalisation divides by
+`tanh(drive)`, and there is no control-rate `tanh`; above drive 4 that divisor is 1 to within half
+a per cent, so a two-point ramp covers the bottom of the knob.
 
-**Le bitcrush.** Le seul des neuf qu'un graphe ne peut pas décrire *du tout* : quantifier
-demande un arrondi, et ce vocabulaire n'a ni arrondi ni division. C'est donc De Rez, l'effet
-AirWindows que Tracktion embarque, avec ses deux réglages `Rez` (longueur du mot) et `Rate`
-(horloge). Il n'y a pas de bouton unique de 0 à 100 : le plugin n'a pas cette entrée.
+**The bitcrush.** The only one of the nine a graph cannot describe *at all*: quantising needs a
+round, and this vocabulary has neither round nor division. So it is De Rez, the AirWindows effect
+Tracktion ships, with its two controls `Rez` (word length) and `Rate` (clock). There is no single
+0-to-100 knob: the plugin has no such input.
 
-**Le pitch.** Décaler la hauteur sans bouger l'horloge demande un rééchantillonneur fenêtré,
-c'est-à-dire un algorithme et non un graphe de primitives. Le moteur en héberge déjà un. Et
-c'est le seul endroit où la version studio est **meilleure** que celle de z0 : z0 désaccorde
-la source, ce qui accélère aussi le morceau ; celle-ci ne touche pas à la durée.
+**The pitch.** Shifting pitch without moving the clock needs a windowed resampler, that is an
+algorithm and not a graph of primitives. The engine already hosts one. And it is the one place the
+studio version is **better** than z0's: z0 detunes the source, which speeds the song up too; this
+one does not touch duration.
 
-**La vitesse.** `speed` n'est pas un effet — c'est la vitesse de lecture, `playbackRate = v/10`
-sur la source WebAudio. Aucun module ne peut la changer : un module est un insert, il voit des
-échantillons et n'a pas d'horloge. Aucune chaîne non plus, donc `speed:` reste **un champ du
-morceau dans la session**, seul survivant des neuf colonnes `fx_*`. Sur un clip, le studio
-l'exprime avec deux repères `warp:` (`{ algorithm: elastique, markers: [[beat, secondes], …] }`,
-voir `packages/song/src/nodeProject.ts`) — qui étire le temps *sans* descendre la hauteur, là
-où z0 fait les deux d'un coup. Le duo « warp + Pitch Shift » reproduit le geste de z0.
+**The speed.** `speed` is not an effect — it is playback rate, `playbackRate = v/10` on the
+WebAudio source. No module can change it: a module is an insert, it sees samples and has no clock.
+No chain either, so `speed:` stays **a field on the song in the session**, the sole survivor of the
+nine `fx_*` columns. On a clip the studio expresses it with two `warp:` markers
+(`{ algorithm: elastique, markers: [[beat, seconds], …] }`, see
+`packages/song/src/nodeProject.ts`) — which stretches time *without* dropping pitch, where z0 does
+both at once. "warp + Pitch Shift" reproduces z0's gesture.
 
-## La phase appartient au backend
+## The phase belongs to the backend
 
-Une deuxième chose que la lecture du code laisse deviner trop tard : **la phase de la partie
-est décidée sur le serveur**, et `backend/src/game/phase.ts` est le seul endroit qui la change.
-`setServerPhase` est le point de passage unique — `flushBuzzes`, la dépêche des `remote_action`,
-`handleNext`, le verrou d'inscription y passent tous — et il fait trois choses d'un coup :
+**The game's phase is decided on the server**, and `backend/src/game/phase.ts` is the only place
+that changes it. `setServerPhase` is the single crossing point — `flushBuzzes`, `remote_action`
+dispatch, `handleNext`, the registration lock all go through it — and it does three things at once:
 
-1. il **dérive le verrou des buzzers** de la nouvelle phase. `phaseAcceptsBuzzes` est la seule
-   définition : `song` et `registration` sont ouverts, tout le reste est fermé. Personne ne
-   pose `buzzersLocked` à la main ;
-2. il **persiste** l'état ;
-3. il **diffuse** `phase_change` à tous les clients, écran principal et buzzers.
+1. it **derives the buzzer lock** from the new phase. `phaseAcceptsBuzzes` is the only definition:
+   `song` and `registration` are open, everything else closed. Nobody sets `buzzersLocked` by hand;
+2. it **persists** the state;
+3. it **broadcasts** `phase_change` to every client, main screen and buzzers.
 
-Faire autrement — laisser un écran poser sa phase et l'annoncer — casse dès qu'il y a deux
-télécommandes ou deux buzzers en course, ce qui est le cas normal.
+Doing otherwise — letting a screen set its phase and announce it — breaks as soon as there are two
+remotes or two buzzers racing, which is the normal case.
 
-Le déverrouillage n'est pas symétrique du verrouillage, et c'est voulu : rouvrir les buzzers
-**réémet un `locked: true` ciblé** aux appareils encore en pénitence, avec le temps qu'il leur
-reste. Sans ça, une mauvaise réponse punie d'un cooldown serait pardonnée par la question
-suivante.
+Unlocking is not symmetrical with locking, deliberately: reopening the buzzers **re-emits a
+targeted `locked: true`** to devices still in penalty, with the time they have left. Without that,
+a wrong answer punished with a cooldown would be pardoned by the next question.
 
-Enfin, un buzz n'est pas traité tout de suite : les buzz sont **collectés pendant 150 ms** et le
-plus ancien horodatage gagne. C'est ce qui rend la course jouable sur des téléphones dont la
-latence réseau varie ; c'est aussi pourquoi `flushBuzzes` est le seul endroit qui fait passer
-`song` → `answering`.
+And a buzz is not handled immediately: buzzes are **collected for 150 ms** and the oldest timestamp
+wins. That is what makes the race playable on phones with varying network latency; it is also why
+`flushBuzzes` is the only place that moves `song` → `answering`.
 
-## Qui joue le son, et qui le dessine
+## Who plays the sound, and who draws it
 
-Une seule des six SPA tient un `AudioContext` : **`monitor-web`**. `audioPlayback.ts` y possède
-le `SongPreloader` de `@studio/player-web` et le pilote depuis le WebSocket (`next`,
-`phase_change`, `audio_command`). Le presenter ne joue rien : il n'a que son bip de buzz et le
-tic des trois dernières secondes, deux `<audio>` ordinaires.
+Only one of the six SPAs holds an `AudioContext`: **`monitor-web`**. Its `audioPlayback.ts` owns
+`@studio/player-web`'s `SongPreloader` and drives it from the WebSocket (`next`, `phase_change`,
+`audio_command`). The presenter plays nothing: it has only its buzz beep and the last-three-seconds
+tick, two ordinary `<audio>` elements.
 
-C'est ce qui explique une demi-douzaine de bizarreries qui, lues une par une, passent pour des
-oublis :
+That explains half a dozen oddities that read one by one as omissions:
 
-- **Le presenter ne précharge pas.** `preloadCategory` lui est passé en no-op : `monitor-web`
-  réagit au *même* `next` et fait le préchargement pour de bon. Le presenter n'en voit que le
-  reflet, par les diffusions `preload_progress` / `preload_failed`, qui alimentent sa barre.
-- **Il n'a jamais besoin d'un geste utilisateur.** Un `AudioContext` ne démarre qu'après un
-  clic ; sans contexte, il n'y a rien à débloquer, donc l'écran reprend la partie tout seul au
-  chargement au lieu d'afficher un « cliquez pour commencer ».
-- **Son timecode reste à `0:00`.** L'heure de lecture est sur l'autre machine ; l'afficher
-  demanderait une diffusion par frame pour un chiffre décoratif.
-- **La machine à états score/reveal/multi est chez `monitor-web`.** Le presenter reçoit
-  `reveal_state` et `multi_state` et les dessine, un point c'est tout — d'où des champs comme
-  `multiRemovedTracks` qui ne sont écrits par aucune logique locale.
-- **Les intentions partent en `audio_command`** (`play`, `pause`, `stop`, `set_gain`,
-  `set_playback_rate`, `set_duck`, `mute_multi_track`…). C'est le seul vocabulaire par lequel
-  un écran demande quelque chose au son.
+- **The presenter does not preload.** `preloadCategory` is passed to it as a no-op: `monitor-web`
+  reacts to the *same* `next` and does the preloading for real. The presenter sees only the
+  reflection, through the `preload_progress` / `preload_failed` broadcasts that feed its bar.
+- **It never needs a user gesture.** An `AudioContext` only starts after a click; with no context
+  there is nothing to unlock, so the screen resumes the game by itself on load instead of showing
+  a "click to start".
+- **Its timecode stays at `0:00`.** Playback time is on the other machine; showing it would need a
+  broadcast per frame for a decorative number.
+- **The score/reveal/multi state machine is in `monitor-web`.** The presenter receives
+  `reveal_state` and `multi_state` and draws them, full stop — hence fields like
+  `multiRemovedTracks` that no local logic writes.
+- **Intentions go out as `audio_command`** (`play`, `pause`, `stop`, `set_gain`,
+  `set_playback_rate`, `set_duck`, `mute_multi_track`…). It is the only vocabulary by which a
+  screen asks anything of the sound.
 
-Et une conséquence sur l'ordre des messages : le backend diffuse `phase_change` **avant**
-`next`. L'écouteur de phase écrit donc en premier, et la phase de rendu propre au presenter
-(scoreboard, pause, mystery-question) que pose le gestionnaire de `next` gagne sur le même
-tick. Inverser les deux diffusions ferait clignoter la phase.
+And one consequence for message order: the backend broadcasts `phase_change` **before** `next`. The
+phase listener therefore writes first, and the presenter's own render phase (scoreboard, pause,
+mystery-question), set by the `next` handler, wins on the same tick. Swapping the two broadcasts
+would make the phase flicker.
 
-### Le mode playlist joue autrement
+### Playlist mode plays differently
 
-`online/src/lib/playlistPlayer.ts` n'est pas un `SongPreloader` : c'est **deux `<audio>` qui
-tournent**, l'un qui joue pendant que l'autre précharge la piste suivante. Le motif est la
-mémoire — un extrait de 30 s stéréo décodé coûte ~10 Mo de RAM, donc cinquante pistes
-dépasseraient le demi-gigaoctet. Le prix à payer est qu'**aucun effet WebAudio ne s'applique**,
-ce qui tombe bien : une playlist n'en porte aucun, et toutes ses catégories sont en mode `""`.
+`online/src/lib/playlistPlayer.ts` is not a `SongPreloader`: it is **two `<audio>` elements taking
+turns**, one playing while the other preloads the next track. The reason is memory — a decoded 30 s
+stereo excerpt costs ~10 MB of RAM, so fifty tracks would pass half a gigabyte. The price is that
+**no WebAudio effect applies**, which suits: a playlist carries none, and all its categories are in
+`""` mode.
 
-**Le tirage se fait ici, pas dans le backend.** `/playlists/:id/tracks` répond à la question
-« qu'y a-t-il dans cette playlist » ; un point d'entrée qui renverrait un ordre différent à
-chaque appel mentirait sur ce qu'il décrit. Dans quel ordre on est *interrogé* est une
-propriété de la partie, et `sessionFromPlaylist` est la couture où une playlist en devient une.
-Le tirage a lieu **une fois par sélection**, donc il tient toute la manche et ne change qu'en
-re-choisissant la playlist — et rien n'est perdu à le refaire, puisqu'une manche de playlist
-ne garde aucun point de reprise. Une session préparée, elle, garde son ordre écrit : celui-là
-est composé, et le `from`/`to` de `order` le découpe par index.
+**The draw happens here, not in the backend.** `/playlists/:id/tracks` answers "what is in this
+playlist"; an endpoint returning a different order on each call would lie about what it describes.
+The order you are *quizzed* in is a property of the game, and `sessionFromPlaylist` is the seam
+where a playlist becomes one. The draw happens **once per selection**, so it holds for the whole
+round and changes only by re-picking the playlist — and nothing is lost by redoing it, since a
+playlist round keeps no resume point. A prepared session keeps its written order: that one is
+composed, and `order`'s `from`/`to` slices it by index.
 
-Le `path` de chaque morceau vise la redirection du backend plutôt qu'une URL de CDN, pour la
-même raison que ci-dessus : une signature Deezer meurt au bout d'un quart d'heure, et une
-partie un peu longue calerait en son milieu.
+Each song's `path` targets the backend's redirect rather than a CDN URL, for the same reason: a
+Deezer signature dies after a quarter of an hour, and a slightly long game would stall mid-way.
 
-Deux conséquences dans ce fichier : le préchargement ne **rejette jamais** (il se résout sur
-`canplaythrough`, sur erreur, ou sur un délai de 15 s), parce que la porte d'entrée de la partie
-l'attend et qu'une piste morte ne doit pas figer le jeu ; et `resumeContext()` doit être appelé
-**synchroniquement** depuis le clic de démarrage, avant tout `await`, sinon le navigateur refuse
-le `play()` programmatique qui suit.
+Two consequences in that file: preloading **never rejects** (it resolves on `canplaythrough`, on
+error, or on a 15 s timeout), because the game's entry gate awaits it and a dead track must not
+freeze the game; and `resumeContext()` must be called **synchronously** from the start click,
+before any `await`, or the browser refuses the programmatic `play()` that follows.
 
-Enfin, `monitor-web` sait **reprendre après un rechargement** : le backend ne rediffuse pas le
-`next` courant à la connexion, alors la page va chercher `/api/game` elle-même et le rejoue,
-catégorie préchargée d'abord pour que l'évènement `song` trouve ses tampons en cache.
+Finally, `monitor-web` can **resume after a reload**: the backend does not rebroadcast the current
+`next` on connection, so the page fetches `/api/game` itself and replays it, preloaded category
+first so the `song` event finds its buffers cached.
 
-## Où vivent les sources
+## Where the sources live
 
-Sur le volume de la médiathèque, `modules/audio/<catégorie>/<nom>/`, qui est le seul catalogue
-éditable (voir `AGENTS.md` à la racine). Chaque module jsdsp y tient quatre fichiers :
-`module.yaml`, `jsdsp.ts` — la source, le fichier qu'on modifie —, `jsdsp.json` — la
-construction, régénérée dès que la source est plus récente — et `ui.yaml`, le panneau.
+On the médiathèque volume, `modules/audio/<category>/<name>/`, which is the only editable catalogue
+(see `AGENTS.md` at the root). Each jsdsp module holds four files: `module.yaml`, `jsdsp.ts` — the
+source, the file you edit —, `jsdsp.json` — the build, regenerated whenever the source is newer —
+and `ui.yaml`, the panel.
 
-Le `.json` n'est pas un cache qu'on peut ignorer : c'est ce qui part dans le document, parce
-que le moteur ne lit aucun fichier. `compileNodeProject` relance la source dans un processus
-enfant quand elle est plus neuve et réécrit le `.json` à côté.
+The `.json` is not a cache you may ignore: it is what goes into the document, because the engine
+reads no file. `compileNodeProject` re-runs the source in a child process when it is newer and
+rewrites the `.json` beside it.
 
-## Ce qui est vérifié
+## What is verified
 
-Sans jouer une seule note — un second moteur à côté de celui qui tourne bloquerait le pilote
-ASIO, ce que `engine/moteur/AGENTS.md` raconte en détail :
+Without playing a note — a second engine beside the running one would block the ASIO driver, which
+`engine/moteur/AGENTS.md` tells in detail:
 
-- les huit modules se résolvent par `loadModuleRefs`, avec **zéro anomalie** sur toute la
-  bibliothèque (`libraryModuleIssues`) ;
-- un projet qui en insère un se compile : les six jsdsp arrivent en `type: "DSP Graph"` avec
-  leur graphe inline, `bitcrush` en `"De Rez"` et `pitch-shift` en `"Pitch Shifter"` ;
-- les six graphes se construisent avec le vrai `GraphBuilder` et n'emploient que des types de
-  nœuds que `DspGraph::build` accepte ;
-- les **16 chaînes** passent par `chainSteps()` — la fonction même que le dessin et la lecture
-  d'une variante emploient — et rendent la suite d'étapes attendue ; chaque `nodes/*.yaml`
-  nomme un module qui existe, sans orphelin ni étape sans nœud ;
-- le scan de la médiathèque les liste toutes les 16 dans la famille `chains`, donc pl8 les
-  montre ;
-- côté sessions, chaque `variant:` de catégorie trouve, pour chaque morceau concerné, soit un
-  fichier à côté du master (28), soit une chaîne qui existe (20) ; 18 retombent sur le master,
-  ce qui est la règle.
+- the eight modules resolve through `loadModuleRefs`, with **zero anomalies** over the whole
+  library (`libraryModuleIssues`);
+- a project inserting one compiles: the six jsdsp arrive as `type: "DSP Graph"` with their inline
+  graph, `bitcrush` as `"De Rez"` and `pitch-shift` as `"Pitch Shifter"`;
+- the six graphs build with the real `GraphBuilder` and use only node types `DspGraph::build`
+  accepts;
+- the **16 chains** go through `chainSteps()` — the very function drawing and playing a variant use
+  — and return the expected step sequence; every `nodes/*.yaml` names an existing module, with no
+  orphan and no step without a node;
+- the médiathèque scan lists all 16 in the `chains` family, so pl8 shows them;
+- session-side, each category `variant:` finds, for every song concerned, either a file beside the
+  master (28) or a chain that exists (20); 18 fall back to the master, which is the rule.
 
-Ce qui n'est pas vérifié, et ne peut pas l'être ici : **le son**. Aucun de ces réglages n'est
-écouté.
+What is not verified, and cannot be here: **the sound**. None of these settings has been listened
+to.

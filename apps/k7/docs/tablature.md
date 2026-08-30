@@ -1,70 +1,54 @@
-# Le carnet de chants : tablature, accords, diagrammes
+# The songbook: tablature, chords, diagrams
 
-Trois analyseurs purs — sans framework, donc testables unitairement — transforment du texte
-brut en quelque chose qui se dessine. Les paroles restent **des chaînes en stockage** ;
-l'analyse n'a lieu qu'à l'affichage.
+Three pure parsers — no framework, so unit-testable — turn raw text into something drawable.
+Lyrics stay **strings in storage**; parsing happens only at display time.
 
-## Découper une tablature ASCII
+## Tablature: a system is a run of lines, not a run of labels
 
-`apps/k7/packages/tablature/src/tab.ts` lit le format ASCII courant
-(`e|--0--2--3--|`). Comme cette tablature est alignée en chasse fixe, l'index d'un caractère
-dans la ligne **est** sa position en x : il n'y a rien de plus à calculer.
+`apps/k7/packages/tablature/src/tab.ts` reads the common ASCII format. It is monospaced, so a
+character's index in the line **is** its x position and there is nothing more to compute.
 
-Une ligne est reconnue comme corde si, après une étiquette optionnelle, elle n'est faite que de
-caractères admis : tirets, barres de mesure, chiffres, espaces, et les lettres de technique
-usuelles — `h`/`p` (hammer, pull), `b`/`r` (bend, release), `s` (slide), `t` (tap), `v`
-(vibrato), `g` (grace, legato), `l`/`L` (let ring), `x` (note étouffée), `o` (harmonique), plus
-quelques symboles.
+A line counts as a string when, after an optional label, it holds only admitted characters:
+dashes, bar lines, digits, spaces, and the usual technique letters (hammer, pull, bend, release,
+slide, tap, vibrato, grace, let ring, muted, harmonic) plus a few symbols.
 
-L'étiquette de corde — `e`, `B`, `A#` — est retirée en tête, mais **le `|` qui la suit
-habituellement reste dans le corps**, pour qu'il se dessine comme une barre de début de mesure à
-la colonne 0. La colonne où commence le corps est prise en compte pour que toutes les cordes
-d'un même système s'alignent sur la même grille.
+The string label is stripped from the front, but **the `|` that usually follows it stays in the
+body**, so it draws as an opening bar line at column 0. The column where the body starts is
+carried through so every string of one system aligns on the same grid.
 
-### Un système est une suite de lignes, pas une suite d'étiquettes
+A system is a **maximal run of consecutive string lines**; a blank or non-tab line ends it.
+Splitting on labels is deliberately rejected: standard tuning names both the first and the sixth
+string `E`, so a "label already seen, new system" rule would cut the last string into a system of
+its own.
 
-Un système est une **suite maximale de lignes de corde consécutives** ; une ligne vide ou non
-tabulaire l'interrompt.
+The accepted cost: two systems with no blank line between them merge into one tall block. Tab
+exports separate them with a blank line.
 
-Découper sur les étiquettes est délibérément écarté : l'accordage standard nomme `E` la
-première **et** la sixième corde, donc une règle « étiquette déjà vue, nouveau système »
-couperait la dernière corde en système à elle seule.
+## Chords: a known vocabulary, not "any letters"
 
-Le compromis assumé : deux systèmes sans ligne vide entre eux fusionnent en un seul bloc haut.
-C'est rare — les exports de tablature les séparent par une ligne vide.
+`apps/k7/packages/lyrics/src/chords.ts` handles both grid styles — chords set above the lyrics
+in monospace, and chords bracketed inside the text.
 
-## Reconnaître un accord sans se tromper de mot
+A chord's body is built from a **known vocabulary** of qualities, extensions and alterations
+rather than accepting arbitrary letters. That is what stops ordinary words being read as chords.
 
-`apps/k7/packages/lyrics/src/chords.ts` gère les deux styles de grille : les accords posés
-au-dessus des paroles, alignés en chasse fixe, et les accords entre crochets ou parenthèses
-dans le texte (`[C]`, `(Am)`).
+Transposing moves only the root and any bass after the slash, independently, preserving quality
+and extension; what is not a chord is answered unchanged. Across a whole line the **exact
+spacing between tokens is kept**, to hold the chords' alignment over the lyrics as far as
+possible. A token that changes width can still drift its column — the price of not rewriting the
+line.
 
-Le corps d'un accord — sa qualité et ses extensions — est construit à partir d'un **vocabulaire
-connu** (`maj`, `min`, `sus`, `add`, `m`, `dim`, `aug`, extensions chiffrées, altérations)
-plutôt que d'accepter « n'importe quelles lettres ». C'est ce qui évite que des mots courants
-comme « Bad », « Cage » ou « Fed » soient pris pour des accords.
+## Diagrams: one module touches the database
 
-Transposer préserve la qualité et l'extension : seuls la fondamentale et l'éventuelle basse
-après le slash bougent, indépendamment l'une de l'autre. Ce qui n'est pas un accord est rendu
-tel quel.
+`apps/k7/frontend/src/utils/chordDiagram.ts` is the **only** module that touches
+`@tombatossals/chords-db`, so the rest of the app stays decoupled from its shape.
 
-Sur une ligne entière, **l'espacement exact entre les jetons est conservé**, pour garder autant
-que possible l'alignement des accords au-dessus des paroles. Une dérive de colonne reste
-possible quand un jeton change de largeur (`F` → `F#`) : c'est le prix de ne pas réécrire la
-ligne.
+Two frictions with it:
 
-## Les diagrammes viennent d'une base
+- `resolveJsonModule` infers a huge literal type whose `chords` object has no string index
+  signature; a cast to our own shape is what makes `chords[key]` typable.
+- Its property names are not note names — sharps are camelCase, some flats are kept as written,
+  and enharmonics are folded — hence the `ROOT_TO_DB` table.
 
-`apps/k7/frontend/src/utils/chordDiagram.ts` est le **seul** module qui touche
-`@tombatossals/chords-db` : le reste de l'application reste découplé de sa forme.
-
-Deux frictions avec cette base :
-
-- `resolveJsonModule` infère un type littéral énorme dont l'objet `chords` n'a pas de signature
-  d'index de chaîne ; un cast vers notre propre forme est ce qui rend `chords[clé]` typable.
-- Ses noms de propriétés ne sont pas des noms de notes : les dièses sont en camelCase
-  (`Csharp`), certains bémols sont gardés tels quels, et les enharmonies sont repliées. D'où la
-  table `ROOT_TO_DB`.
-
-La recherche essaie la qualité exacte, puis la forme slash, puis le triton nu, et rend `null`
-quand l'accord n'est pas dans la base plutôt que d'inventer un doigté.
+Lookup tries the exact quality, then the slash form, then the bare triad, and answers `null`
+when the chord is not in the database rather than inventing a fingering.

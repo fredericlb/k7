@@ -1,84 +1,82 @@
-# Lier une surface au graphe
+# Binding a surface to the graph
 
-Une surface « mappée » — le pupitre DJ, la tranche de mastering — porte un `mapping:` dans son
-fichier de `surfaces/`, keyé par CONTRÔLE :
+A "mapped" surface — the DJ desk, the mastering strip — carries a `mapping:` in its `surfaces/`
+file, keyed by CONTROL:
 
 ```yaml
 mapping:
   deckA.eqLow: { module: eqA, param: Low-shelf gain }
 ```
 
-Transformer ça en « pose ce paramètre sur ce plugin » demande de répondre à trois questions, et
-`bindings.ts` en tient **deux**. La troisième appartient à la surface, et c'est tout l'intérêt de
-cette page.
+Turning that into "put this parameter on this plugin" needs three questions answered, and
+`bindings.ts` holds **two**. The third belongs to the surface, which is the whole point of this
+page.
 
-| question | qui répond |
+| question | who answers |
 |---|---|
-| ce module est-il dans les chaînes de ce projet ? | **ici** (`stepsByModule`) |
-| quel widget dessine ce paramètre, et donc quelle est sa plage ? | **ici** (`widgetFor`) |
-| comment convertir « où est le contrôle » en « que vaut le paramètre » ? | **la surface** |
+| is this module in this project's chains? | **here** (`stepsByModule`) |
+| which widget draws this parameter, and so what is its range? | **here** (`widgetFor`) |
+| how do you turn "where the control is" into "what the parameter is worth"? | **the surface** |
 
-## Pourquoi dans ce paquet
+## Why in this package
 
-Parce que c'est la moitié **graphe** de la jointure, et que lire un graphe est le métier de ce
-paquet. `widgetDenorm` — l'autre moitié, celle qui déploie un 0..1 dans la plage d'un widget —
-est déjà dans `graph.ts`, à côté.
+Because it is the **graph** half of the join, and reading a graph is this package's job.
+`widgetDenorm` — the other half, which unrolls a 0..1 into a widget's range — is already in
+`graph.ts`, next door. Both consumers depend on it already, so nothing new enters a
+`package.json`.
 
-Les deux consommateurs en dépendent déjà, donc rien de nouveau n'entre dans un `package.json`.
-Et le type d'entrée est **structurel** (`SurfaceMapping`) plutôt qu'importé de
-`@studio/song-schema` : la FORME du fichier est validée là-bas, ce qu'elle veut dire contre un
-graphe se décide ici, et ce paquet garde ses deux dépendances.
+The input type is **structural** (`SurfaceMapping`) rather than imported from
+`@studio/song-schema`: the file's SHAPE is validated there, what it means against a graph is
+decided here, and this package keeps its two dependencies.
 
-## Ce qui n'est PAS ici, et ne doit pas y venir
+## What is NOT here, and must not come here
 
-L'échelle. Et ce n'est pas un oubli — les deux surfaces sont en désaccord, délibérément :
+Scaling. Not an oversight — the two surfaces disagree, deliberately:
 
-- **le pupitre** normalise le contrôle dans sa propre plage puis laisse le widget la déployer
-  (`valueFor` → `widgetDenorm`). Un fader de tempo n'a pas d'unité à lui : il est « quelque part
-  entre les deux bouts du knob du module » ;
-- **la tranche de mastering** refuse de normaliser. Ses nombres sont des dB, des Hz, des
-  millisecondes, et l'intérêt est justement de pouvoir les lire contre un vumètre. Sa plage EST
-  celle du widget, sans conversion.
+- **the desk** normalises the control into its own range and lets the widget unroll it
+  (`valueFor` → `widgetDenorm`). A tempo fader has no unit of its own: it is "somewhere between
+  the two ends of the module's knob";
+- **the mastering strip** refuses to normalise. Its numbers are dB, Hz, milliseconds, and the
+  point is precisely to read them against a meter. Its range IS the widget's, with no conversion.
 
-Faire descendre l'une des deux ici rendrait l'autre fausse. Voir
-[mastering.md](../../../apps/st0/frontend/docs/mastering.md) et
+Pushing either one down here would make the other wrong. See
+[mastering.md](../../../apps/st0/frontend/docs/mastering.md) and
 [controls.md](../../ui-turntables/docs/controls.md).
 
-## La politique « sans plugin »
+## The "no plugin" policy
 
-Le seul paramètre de comportement, et il vaut la peine d'être compris parce qu'il rate en
-silence.
+The one behavioural parameter, and worth understanding because it fails silently.
 
-`buildGraphDoc` donne un `pluginId` à **chaque** étape d'une chaîne — y compris à celles dont le
-compilateur n'émet aucun plugin, un module `offline` faisant littéralement
-`if (rawType === OFFLINE_TYPE) continue`. Une étape peut donc porter une adresse que le moteur
-ne connaît pas.
+`buildGraphDoc` gives a `pluginId` to **every** step of a chain — including steps the compiler
+emits no plugin for, an `offline` module being literally
+`if (rawType === OFFLINE_TYPE) continue`. A step can therefore carry an address the engine does
+not know.
 
-| politique | qui | ce qu'elle fait |
+| policy | who | what it does |
 |---|---|---|
-| `track` | le pupitre | une étape sans plugin se lie par la **piste** dont sa chaîne tire sa matière — c'est ainsi qu'un fader de tempo étire un clip |
-| `refuse` | le mastering | une étape sans plugin est **refusée** : cette surface est l'image d'UN plugin chargé, donc un potard sans plugin ne ferait rien |
+| `track` | the desk | a step with no plugin binds through the **track** its chain draws material from — that is how a tempo fader stretches a clip |
+| `refuse` | mastering | a step with no plugin is **refused**: this surface is the picture of ONE loaded plugin, so a knob with no plugin would do nothing |
 
-Les intervertir ne casse rien de visible : `set-plugin-param` part vers une adresse que le moteur
-n'a pas, aucune erreur, aucun log, et le potard bouge sans que rien ne se passe. C'est pour ça que
-c'est un type et non un booléen, et que le test le fige des deux côtés.
+Swapping them breaks nothing visible: `set-plugin-param` leaves for an address the engine does not
+have, no error, no log, and the knob moves with nothing happening. Which is why it is a type
+rather than a boolean, and why the test pins both sides.
 
-> À ne pas confondre avec `hasPlugin()`, qui pose une question voisine à un autre document : le
-> graphe décrit ce qu'on DESSINE, le document compilé ce qui JOUE. Voir
+> Not to be confused with `hasPlugin()`, which asks a neighbouring question of another document:
+> the graph describes what is DRAWN, the compiled document what PLAYS. See
 > [controls.md](../../ui-turntables/docs/controls.md).
 
-## Une ligne qui ne résout pas est DITE
+## A line that does not resolve is SAID
 
-Trois façons d'échouer, et les trois sont **rapportées** plutôt que jetées — un `mapping`
-appartient à CE projet et nomme les nœuds de CE projet, donc une ligne qui ne résout pas est une
-faute de frappe sur son propre fichier.
+Three ways to fail, and all three are **reported** rather than dropped — a `mapping` belongs to
+THIS project and names THIS project's nodes, so a line that does not resolve is a typo on its own
+file.
 
-Le WIDGET manquant est le seul cas non fatal : sans lui il n'y a pas de plage, mais la cible
-existe, et la déclarer cassée serait faux.
+A missing WIDGET is the only non-fatal case: without it there is no range, but the target exists,
+and declaring it broken would be wrong.
 
-Un contrôle **nommé et non câblé** (`null`, ce dont un squelette de surface est fait) est sauté
-**sans un mot**. `unmappedControls` le rapporte une fois, en portail au-dessus de toute la
-surface. Le dire deux fois donnerait deux phrases pour une seule ligne à remplir.
+A control **named and not wired** (`null`, which is what a surface skeleton is made of) is skipped
+**without a word**. `unmappedControls` reports it once, as a gate over the whole surface. Saying
+it twice would give two sentences for one line to fill in.
 
-Et les deux surfaces ne se nomment pas pareil dans « X n'est pas un contrôle … » — d'où le `noun`,
-qui est la seule chose que l'appelant a à dire de lui-même.
+The two surfaces do not name themselves alike in "X is not a control …" — hence `noun`, the only
+thing the caller has to say about itself.
