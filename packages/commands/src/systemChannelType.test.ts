@@ -3,7 +3,7 @@
 // preference is what survives a restart, the engine message is what makes it true now.
 //
 // `setInputPair` is mocked rather than exercised, and that is not laziness: `PREFS_PATH` is
-// `homedir()/.studio/preferences.yaml` read at module load, so a test of the real writer would
+// `<state>/preferences.yaml` read at module load, so a test of the real writer would
 // rewrite the rig of whoever runs the suite (@studio/song's preferences.ts says the same thing
 // about `normalizePreferences` being exported at all).
 

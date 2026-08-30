@@ -1,5 +1,5 @@
 // engineCatalogue.ts — the modules the ENGINE provides, READ from its plugin scan
-// (`~/.studio/exts.json`) rather than copied into files.
+// (`<state>/exts.json`) rather than copied into files.
 //
 // No wrapper file mirrors that scan, so `_modules` holds only what someone authored — a jsdsp
 // source, a rack's sample map.

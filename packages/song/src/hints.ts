@@ -68,7 +68,7 @@ export interface Hints {
     }
   >;
   keywords: string[]; // words YAML gives meaning to
-  // Scanned plugin names by format, filled by the file service from ~/.studio/exts.json.
+  // Scanned plugin names by format, filled by the file service from `<state>/exts.json`.
   pluginNames: Record<string, string[]>;
   // "kind:name" -> the project-relative file that defines the entity — see docs/hints.md.
   paths: Record<string, string>;

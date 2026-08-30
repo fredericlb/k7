@@ -74,7 +74,7 @@ export function projectFiles(name: string): Record<string, string> {
       `#\n` +
       `#     io: in\n` +
       `#     channel: [1]        # 1-2 1-based channels, or a label from\n` +
-      `#                         # ~/.studio/preferences.yaml (channels.in)\n` +
+      `#                         # the machine's preferences.yaml (channels.in)\n` +
       `#     monitor: "on"       # off | auto (audible when armed) | on — quoted,\n` +
       `#                         # because YAML would otherwise read it as true\n`,
 

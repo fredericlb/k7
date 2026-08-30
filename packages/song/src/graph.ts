@@ -1172,7 +1172,7 @@ function checkInputLabels(g: GraphDoc): string[] {
     if (!unknownLabel) continue;
     const known = prefs.channels.in.map((c) => c.label).join(", ");
     w.push(
-      `input '${name}': channel '${unknownLabel}' is not an input label in ~/.studio ` +
+      `input '${name}': channel '${unknownLabel}' is not an input label in preferences.yaml ` +
         `preferences — ${known ? `have: ${known}` : "none are defined"}`,
     );
   }

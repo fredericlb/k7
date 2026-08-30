@@ -514,7 +514,7 @@ function cueNode(letter: string, from = `filter${letter}`): string {
     `# not take it out of your ears, while cutting its bass must be audible before it hits the room.\n` +
     `#\n` +
     `# Where it comes OUT is not this file's business and not the project's: \`CUE\` is a pair of\n` +
-    `# the interface, named once per MACHINE in ~/.studio/preferences.yaml. A machine with no\n` +
+    `# the interface, named once per MACHINE in preferences.yaml. A machine with no\n` +
     `# second pair plays this bus nowhere at all — never into the room, which is measured in\n` +
     `# engine/moteur/scripts/cue-bus.ts. See packages/song/docs/cue.md.\n` +
     `extends: ${q(`${MEDIATEK_UTILITY}/fade`)}\n` +

@@ -25,25 +25,34 @@ const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const script = join(repo, "scripts", "tokens.mjs");
 
 let home: string;
+/** The scratch state dir — `<library>/st0` in real life, handed over so the test owns it. */
+let state: string;
 let envFile: string;
 
-/** The script with HOME pointed at a scratch dir, so it writes nothing of the developer's; both HOME and USERPROFILE, since `homedir()` reads either. */
+/**
+ * The script with its STATE DIR pointed at a scratch one, so it writes nothing of the
+ * developer's. `$STUDIO_HOME` and not `HOME`: the dir is `<library>/st0` now, and the library is
+ * `$XDG_CONFIG_HOME` / `$APPDATA` before it is the home — so a developer with either set would
+ * have had this script write into their real one. It is also the override a dev session uses
+ * (`scripts/dev.mjs`), so the road under test is the road that runs.
+ */
 function run(...args: string[]): string {
   return execFileSync(process.execPath, [script, "--env", envFile, ...args], {
     cwd: repo,
     encoding: "utf8",
-    env: { ...process.env, HOME: home, USERPROFILE: home },
+    env: { ...process.env, STUDIO_HOME: state },
   });
 }
 
 const tray = () =>
-  JSON.parse(readFileSync(join(home, ".studio", "engine-tray.json"), "utf8"));
+  JSON.parse(readFileSync(join(state, "engine-tray.json"), "utf8"));
 
 const secretIn = (file: string): string =>
   (parse(readFileSync(file, "utf8"))?.["pl8-backend"] ?? {}).API_TOKEN_SECRET;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "studio-tokens-"));
+  state = join(home, "st0");
   envFile = join(home, "env.yaml");
   copyFileSync(join(repo, "env.example.yaml"), envFile);
 });
@@ -124,9 +133,9 @@ describe("the tokens script", () => {
 
   it("keeps the rest of the tray settings", () => {
     // It is the supervisor's file, so rewriting it wholesale would cost a musician their interface choice to gain a token.
-    mkdirSync(join(home, ".studio"), { recursive: true });
+    mkdirSync(state, { recursive: true });
     writeFileSync(
-      join(home, ".studio", "engine-tray.json"),
+      join(state, "engine-tray.json"),
       JSON.stringify({ port: 9001, audioDevice: "Scarlett" }),
       "utf8",
     );

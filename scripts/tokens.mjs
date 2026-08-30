@@ -5,10 +5,10 @@
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
+import { stateDir } from "./stateDir.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -21,7 +21,7 @@ const flagValue = (name) => {
   return i >= 0 && args[i + 1] ? args[i + 1] : null;
 };
 const ENV_FILE = flagValue("env") ?? join(repo, "env.yaml");
-const TRAY_SETTINGS = join(homedir(), ".studio", "engine-tray.json");
+const TRAY_SETTINGS = join(stateDir(), "engine-tray.json");
 
 /** The loopback a checkout takes instead of going out to the LAN proxy and back (../docs/tokens.md). */
 const MEDIATEK_DEV_URL = "http://127.0.0.1:8795"; // SERVICE_PORTS.pl8

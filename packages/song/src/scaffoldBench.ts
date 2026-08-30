@@ -51,7 +51,7 @@ export function benchFiles(name: string): Record<string, string> {
       `#\n` +
       `#     io: in\n` +
       `#     channel: [1]        # 1-2 canaux 1-based, ou un libellé de\n` +
-      `#                         # ~/.studio/preferences.yaml (channels.in)\n` +
+      `#                         # the machine's preferences.yaml (channels.in)\n` +
       `#     monitor: "on"       # off | auto (audible si armée) | on — entre guillemets,\n` +
       `#                         # sinon YAML y lit un booléen\n` +
       `#\n` +

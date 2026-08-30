@@ -76,7 +76,7 @@ export function liveProjectFiles(name: string): Record<string, string> {
       `# that is not making a sound yet. Pick it on the node's card, or write it here:\n` +
       `#\n` +
       `#     channel: [1]        # 1-based; a PAIR for a stereo input, e.g. [1, 2]\n` +
-      `#     channel: "guitar"   # …or a label from ~/.studio/preferences.yaml (channels.in),\n` +
+      `#     channel: "guitar"   # …or a label from the machine's preferences.yaml (channels.in),\n` +
       `#                         # which is the spelling that survives another machine\n` +
       `#\n` +
       `# \`monitor: "on"\` is what makes it audible without arming anything, and it is QUOTED\n` +

@@ -1,13 +1,14 @@
-// preferences.ts — the user's GLOBAL preferences (~/.studio/preferences.yaml): machine and rig config that
+// preferences.ts — the user's GLOBAL preferences (`<state>/preferences.yaml`): machine and rig config that
 // spans every project, unlike the per-project song files. The default audio interface the engine opens, plus
 // human-readable labels for its channels — labels are for reading only, unrelated to track names.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { studioHome } from "./studioHome";
 
-export const PREFS_PATH = join(homedir(), ".studio", "preferences.yaml");
+/** Through `studioHome`, never hand-joined — engine-client/docs/paths.md, and the doc that names this file. */
+export const PREFS_PATH = join(studioHome(), "preferences.yaml");
 
 export type ChannelDir = "in" | "out";
 export interface ChannelLabel {
@@ -45,7 +46,7 @@ export const defaultPreferences = (): Preferences => ({
 });
 const empty = defaultPreferences;
 
-// Coerce a parse into a well-formed Preferences; exported so a test need not read the real ~/.studio.
+// Coerce a parse into a well-formed Preferences; exported so a test need not read the real state dir.
 export function normalizePreferences(v: any): Preferences {
   const p = empty();
   if (v && typeof v === "object") {
