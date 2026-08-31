@@ -207,12 +207,9 @@ servers. That it also rebuilds the tray is not a mis-filing: the engine is the r
 monitor exists — it is the half with no watch mode — and the desktop app is simply how the
 engine is run in dev, since the supervisor inside it is what spawns the binary.
 
-The engine is C++, so it has no watch mode that means anything: there is nothing to
-hot-reload, only a binary to relink and a process to restart. **The app is no longer in that
-position.** `apps/st0-desktop/dist/main.cjs` is an esbuild bundle, not a linked image, so a
-running app does not hold it open — its BUILD is an ordinary Tilt resource (`capot`, running
-`build-main.mjs --watch`), and only its LIFETIME stays here, because a running engine holds
-`st0-engine` open and nothing but stopping the app releases it.
+The engine is C++ and the tray is Rust, so neither has a watch mode that means anything:
+there is nothing to hot-reload, only a binary to relink and a process to restart. That is
+what the monitor does — watch the sources, rebuild, restart.
 
 | target | watched | rebuilt with |
 |---|---|---|
@@ -291,10 +288,10 @@ npm run tray:stop --workspace st0-desktop
 
 ## Where the steps live
 
-`apps/st0-desktop/scripts/appProcess.mjs` holds the tray's lifetime as functions — `running`,
+`engine/capot/scripts/trayProcess.mjs` holds the tray's lifetime as functions — `running`,
 `stopAll`, `buildDevApp`, `launch` — and `restart-app.mjs` is a thin CLI over it.
 The one difference from a script is that every step **throws** rather than calling
 `process.exit`: a one-shot command turns that into an exit code, and a watcher meant to
 outlive a bad build cannot afford either. See
-[apps/st0-desktop/scripts/docs/restartApp.md](../apps/st0-desktop/scripts/docs/restartApp.md) for
+[engine/capot/scripts/docs/restartTray.md](../engine/capot/scripts/docs/restartTray.md) for
 what those steps do and why the order is not negotiable.

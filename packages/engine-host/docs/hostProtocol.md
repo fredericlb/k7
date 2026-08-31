@@ -6,9 +6,8 @@ hand in Rust, until the app was ported to Electron — losing it is the largest 
 bought. `@studio/engine-protocol` still is mirrored by hand in the C++ engine, and still has
 to be.
 
-It was NDJSON on stdio until the desktop app embedded the supervisor
-(`apps/st0-desktop/docs/supervisor.md`). Nothing is serialised now — `HostTransport` is two
-function calls — which retires the rule that used to head this page, *stdout IS the protocol,
+It is NDJSON on stdio — one JSON object per line, host→tray on stdout, tray→host on stdin —
+and the rule that heads this page follows from that: *stdout IS the protocol,
 one stray line corrupts the frame stream*. The types did not change with it, and that is the
 point: what a frame MEANS never depended on how it travelled.
 

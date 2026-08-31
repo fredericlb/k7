@@ -264,7 +264,7 @@ that is `@local`.
 
 ## With no server, an import IS a local project
 
-The register is pl8's and a machine holds no copy of it (`apps/st0-desktop/docs/pl8Shim.md`). Where
+The register is pl8's and a machine holds no copy of it. Where
 no server is configured the shim answers the register with **`revision: "offline"`**, and that word
 is the point: it says there is no register, which is not the same as an empty one.
 
@@ -394,7 +394,7 @@ And the workspace really does go: a clone that failed leaves no workspace, by de
 with the reason somewhere in the middle.
 
 **And the register is the half that may be missing.** With no server configured the desktop's shim
-answers the register with a 503 (`apps/st0-desktop/src/server/pl8Shim.ts`) — correctly, since the
+answers the register with a 503 — correctly, since the
 register is pl8's and a local copy would be a second source of truth. But importing MEANS the
 clone, and the clone is the machine's: a 503 there is stepped over and the import goes on, landing
 the workspace on this disk where it opens by its `@local` address, which the row then says in

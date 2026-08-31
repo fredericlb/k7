@@ -310,7 +310,7 @@ menu queries pl8's registry.
 ## Looking like an application without being able to be one
 
 A PWA installs from a **secure** origin, and a tablet reaching the machine over the LAN in the clear
-has none (`apps/st0-desktop/docs/externals.md`). Installation is therefore out of reach exactly
+has none. Installation is therefore out of reach exactly
 where it would help most. What can still be had is what an installed application gives *on screen* —
 and neither half requires a secure origin.
 
@@ -352,7 +352,7 @@ without that it would hold only until the first notification.
 
 Not lost either, for a reason unrelated to the two above: `RTCPeerConnection` is conditioned on
 nothing. The machine opens the lens, the tablet receives it — see
-`apps/st0-desktop/docs/camera.md`, which also says why it runs in that direction.
+`packages/song/docs/camera.md`, which also says why it runs in that direction.
 
 ## What this is not
 

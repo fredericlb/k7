@@ -362,7 +362,7 @@ look at their audio.
 by a vendored Node with no `node_modules` beside it. `external` alone does not fix that —
 `fsevents` survives being external only because chokidar has a pure-JS fallback, and ORT has
 none. So it is external **and staged** into `resources/node_modules/`, where ordinary Node
-resolution finds it. See `apps/st0-desktop/scripts/docs/buildEngine.md`.
+resolution finds it. See `engine/capot/scripts/docs/buildEngine.md`.
 
 **macOS is not covered.** Nothing in this repo signs a third-party `.dylib`, so a notarised
 `.app` carrying `libonnxruntime.dylib` is unsolved. Windows and Linux bundles carry it.

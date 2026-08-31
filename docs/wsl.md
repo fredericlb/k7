@@ -67,12 +67,11 @@ What crosses, and what does not:
   unrelated process, and `stopAll` would kill it), and `tray.log` opens with a line naming the
   platform that wrote it.
 - **Skipped**: `node_modules` (the mirror keeps its own, installed once — the host runs
-  Electron and needs its runtime there), `.git`, `build`, `target`, `out`, `.turbo`, `.vite`,
+  esbuild and the Tauri CLI on the host), `.git`, `build`, `target`, `out`, `.turbo`, `.vite`,
   `.claude`.
-- **`dist` is NOT skipped**, and it is the one directory here whose name says output and whose
-  content has to travel: `apps/st0-desktop/dist/main.cjs` is the desktop app's main process,
-  esbuilt by the `capot` Tilt resource in the DISTRO, and the mirror is how it reaches the host
-  that runs it.
+- **`dist` is NOT skipped.** `engine/capot/dist/index.html` is tracked by git: it is the tray's
+  web assets, not build output, and Tauri stops with *"Unable to find your web assets"* without
+  it. It is the one directory here whose name says output and whose content is source.
 - **Each caller names the subtrees its loop covers.** A whole-tree pass every second would spend
   half of it walking directories. The native task watches `engine/` alone, since the TypeScript
   it would carry is bundled into the tray at startup rather than mid-session; the file service

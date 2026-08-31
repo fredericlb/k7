@@ -311,7 +311,7 @@ be looked at. Everything works in it but pushing; `Publier` is the day it gets a
 (`apps/pl8/docs/projects.md`) and the engine's machine holds every working copy. What this app
 owns is the SCREEN above a project, at `/` with nothing after it — the repositories, the
 projects inside them, the libraries repository and the published shares. The deploy key is NOT
-here any more — it is the Sync tab of `/@settings` (`apps/st0-desktop/docs/settings.md`),
+here any more — it is the Sync tab of `/@settings`,
 which the hosted origin draws too, since the key is the account's rather than the app's. The
 routes stay pl8's while the screen is here, and `frontend/docs/projects.md` is the page that says
 why.

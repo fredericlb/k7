@@ -1067,7 +1067,7 @@ The four screens that are not the home page are therefore `lazy()`: `App`, `Engi
 
 What stays eager is what the home page actually draws: the gates, `Home`, and the shared vendor chunks.
 `Booting` is the one thing on screen while a split-out screen arrives — the window is already painted in
-the app's own colour by then (`apps/st0-desktop/docs/window.md`), so it only has to say "coming".
+the browser's own by then, so it only has to say "coming".
 
 ## The `ui` namespace
 
@@ -1112,8 +1112,8 @@ cannot scan has no fallback there, and `ui external <surface>` is what remains f
 Every address in this app is built on `window.location.origin`, and in the desktop window that origin is
 **loopback**. Encoded straight into a code, it scans perfectly and the phone opens *itself* — a silent
 failure that reads as a broken camera. `src/remoteUrl.ts` is the conversion, and it is a tested pure
-function for that reason: a loopback origin is rebased onto the app's LAN address (`lanUrls`,
-`apps/st0-desktop/docs/externals.md`), a real origin is already reachable and left alone, and a machine
+function for that reason: a loopback origin is rebased onto a LAN address (`lanUrls`), a real
+origin is already reachable and left alone, and a machine
 with no network address gets **no code** and a tile that says so.
 
 ## Every action on screen is a command

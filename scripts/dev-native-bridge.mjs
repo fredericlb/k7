@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// dev-native-bridge.mjs — the native task when the sources live in WSL and the MSVC
+// dev-native-bridge.mjs — the native task when the sources live in WSL and the MSVC/cargo
 // toolchain does not. It mirrors the tree onto the host's NTFS and runs dev-native.mjs THERE,
 // unchanged, so the whole native half keeps the shape docs/dev.md describes. Nothing is built
 // across the share: MSBuild lowercases the dependency it tracks, which a case-sensitive
@@ -17,9 +17,7 @@ const ROBOCOPY = "/mnt/c/Windows/System32/Robocopy.exe";
 const CMD = "/mnt/c/Windows/System32/cmd.exe";
 
 // Everything derived stays on the host: the mirror keeps its OWN node_modules, and no build output travels back.
-// `dist` is NOT on this list: apps/st0-desktop/dist/main.cjs is the desktop app's main process,
-// esbuilt by the `st0-desktop` Tilt resource IN THE DISTRO, and the mirror is how it reaches the
-// host that actually runs Electron.
+// `dist` is NOT on this list — engine/capot/dist is the tray's web assets, tracked by git, and tauri stops without it.
 const SKIP = [
   "node_modules",
   ".git",
@@ -29,10 +27,6 @@ const SKIP = [
   ".turbo",
   ".vite",
   ".claude",
-  // Per-MACHINE derived state: a dev pidfile, the app's own stdout, and vendored node
-  // downloads for one platform. Mirroring it put the DISTRO's crash into the log the Windows
-  // side tails, so a failure there was diagnosed with a Linux dynamic-linker error.
-  ".cache",
 ];
 
 /** One mirror pass over `sub` (the whole tree when empty); true when something moved. */
@@ -72,12 +66,9 @@ const onHost = (line) =>
 export async function runBridge({
   name = "native",
   command = "node scripts\\dev-native.mjs",
-  // Two subtrees, and the second is not optional since the app left engine/: the C++ sources
-  // the host compiles, AND apps/st0-desktop, whose dist/main.cjs is esbuilt in the DISTRO
-  // and is the very thing the host runs. Watching engine/ alone would mirror a stale app
-  // forever, with every save appearing to do nothing.
-  watch = ["\\engine", "\\apps\\st0-desktop"],
-  stopCommand = "node apps\\st0-desktop\\scripts\\restart-app.mjs --stop",
+  // Only engine/ by default: the tray bundles its TS at startup, so nothing else need travel.
+  watch = ["\\engine"],
+  stopCommand = "node engine\\capot\\scripts\\restart-tray.mjs --stop",
   periodMs = PERIOD_MS,
   // Set when the host task has no watcher of its own worth trusting — see ../docs/wsl.md.
   restartOnChange = false,
@@ -121,7 +112,8 @@ export async function runBridge({
     // A replaced child's exit is a restart, not the task ending, so identity decides and not a flag.
     c.on("exit", (code) => {
       if (stopping || child !== c) return;
-      stop(code ?? 0);
+      stop();
+      resolveExit(code ?? 0);
     });
   };
 
@@ -150,15 +142,13 @@ export async function runBridge({
     }
   }, periodMs);
 
-  const stop = (code = 0) => {
+  const stop = () => {
     if (stopping) return;
     stopping = true;
     clearInterval(timer);
     child?.kill();
     log("stopping on the host…");
     endOnHost();
-    // The ONE place `exited` settles, or a signal leaves the top-level await pending (node exits 13).
-    resolveExit(code);
   };
   for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => stop());
 

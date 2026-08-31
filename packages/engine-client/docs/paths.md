@@ -36,8 +36,8 @@ non-alphanumeric character replaced by `_`. It is now `workspace/<workspace>`.
 level existed for a multi-user file service that a musician's laptop never is — and it cost
 more than it bought:
 
-- `apps/st0-desktop/src/server/identity.ts` existed to RENAME that directory when the
-  identity changed, because pairing a server turns a local identity into an account email, the
+- **Renaming that directory when the identity changes** is what pairing a server forces: it
+  turns a local identity into an account email, the
   slug changes with it, and every offline project stops being listed with no error anywhere to
   say so. There is nothing to rename now, and that whole hazard is gone.
 - The file service read the owner out of the PATH to build the engine session id. It is now
