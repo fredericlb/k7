@@ -430,7 +430,7 @@ private:
     // Nothing project-shaped is left here: `current_`, `baseDir_` and `recordEnabled_` describe a project, and there are N of those, so they moved INTO the session.
 };
 
-// --- Plugin discovery, out-of-process and cached in ~/.studio/exts.json; what each entry point does is in docs/engineHost.md ---
+// --- Plugin discovery, out-of-process and cached in `<state>/exts.json`; what each entry point does is in docs/engineHost.md ---
 std::vector<PluginInfo> loadPluginCache();
 std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan);
 int runPluginScanChild(const std::string& format, const std::string& identifier);

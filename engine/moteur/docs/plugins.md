@@ -168,6 +168,14 @@ child exits — and bounds the wait at 20 s, so a hung plugin is killed and the 
 `ChildProcess::start(StringArray)` is used rather than a command line so a `C:\Program Files\…`
 path reaches the child's argv intact.
 
+`<state>` is the ONE directory `@studio/song`'s `studioHome.ts` computes — `$STUDIO_HOME`, else
+`<library>/st0`: `%APPDATA%` on Windows, `~/Library/Application Support` on macOS, `~/.config`
+elsewhere, which is exactly juce's `userApplicationDataDirectory`. `extsCacheFile()` spelled it
+`~/.studio` and was left behind when the state directory moved, which cost a session: the engine
+went on reading its own cache and logging "N from cache" while everything TypeScript looked at the
+new path, found nothing, and drew every `@engine/…` module as unresolved. A wrong path here does
+not throw — it reads as an empty file, and the two halves diverge in silence.
+
 The cache is `<state>/exts.json`, keyed by identifier and carrying the file's mtime. An entry is
 reused only when the file is unchanged **and** it already holds a full `PluginDescription` as XML
 — older caches do not — so a plain rescan upgrades pre-description entries without needing

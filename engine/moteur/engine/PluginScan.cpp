@@ -1,4 +1,4 @@
-// Plugin discovery, out-of-process, cached in ~/.studio/exts.json — see
+// Plugin discovery, out-of-process, cached in `<state>/exts.json` — see
 // PluginScan.h and the CLI declarations in EngineHost.h. Each plugin is loaded in a
 // child process (runPluginScanChild), so a crashy plugin only kills its own child.
 
@@ -52,9 +52,13 @@ namespace {
 constexpr const char* kScanBegin = "STUDIO_SCAN_BEGIN";
 constexpr const char* kScanEnd = "STUDIO_SCAN_END";
 
-// The incremental scan cache lives at ~/.studio/exts.json.
+// `<state>` must be the one studioHome.ts computes, never a second spelling — docs/plugins.md.
 juce::File extsCacheFile() {
-    auto dir = juce::File::getSpecialLocation(juce::File::userHomeDirectory).getChildFile(".studio");
+    const auto env = juce::SystemStats::getEnvironmentVariable("STUDIO_HOME", {});
+    auto dir = env.isNotEmpty()
+        ? juce::File(env)
+        : juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+              .getChildFile("st0");
     dir.createDirectory();
     return dir.getChildFile("exts.json");
 }
