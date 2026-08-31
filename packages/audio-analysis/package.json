@@ -1,0 +1,31 @@
+{
+  "name": "@studio/audio-analysis",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Producing the `{file}.cache` sidecar without the engine: decode with ffmpeg, build the peak/RMS/three-band envelope, detect onsets, estimate tempo. The arithmetic mirrors engine/moteur's Waveform.cpp, which is the other producer of the same file. Node-only, unlike @studio/audio-probe, which only MEASURES already-decoded audio. Consumed as source.",
+  "exports": {
+    "./fingerprint": "./src/fingerprint.ts",
+    "./decode": "./src/decode.ts",
+    "./envelope": "./src/envelope.ts",
+    "./sidecar": "./src/sidecar.ts",
+    "./analyse": "./src/analyse.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@studio/audio-probe": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
