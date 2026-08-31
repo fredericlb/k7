@@ -46,15 +46,6 @@
         "scripts/*.{ts,mjs}"
       ]
     },
-    "apps/st0-desktop": {
-      "entry": [
-        "src/main.ts",
-        "scripts/*.mjs"
-      ],
-      "ignoreDependencies": [
-        "electron-builder"
-      ]
-    },
     "apps/st0/frontend": {
       "entry": [
         "src/docs/examples.ts"
@@ -122,6 +113,12 @@
         "scripts/*.ts"
       ]
     },
-    "packages/ui-chains-react": {}
+    "packages/ui-chains-react": {},
+    "engine/capot": {
+      "entry": [
+        "scripts/*.mjs",
+        "songs/**/jsdsp.ts"
+      ]
+    }
   }
 }

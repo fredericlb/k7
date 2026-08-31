@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Tray-only app; autostart is toggled from Rust. No webview calls these, but the plugin's capability checks want them declared.",
+  "windows": ["*"],
+  "permissions": [
+    "core:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
+  ]
+}
