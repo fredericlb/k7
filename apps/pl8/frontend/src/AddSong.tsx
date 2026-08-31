@@ -77,7 +77,7 @@ export function AddSong({
     setBusy(true);
     setError(null);
     try {
-      await library.addSong(
+      const added = await library.addSong(
         file,
         {
           artist: tags.artist ?? "",
@@ -88,6 +88,13 @@ export function AddSong({
       );
       close();
       onDone();
+      // Fired AFTER closing and never awaited, since the first surface that needs it computes it anyway.
+      void library
+        .analyse(added.master)
+        .then(onDone)
+        .catch(() => {
+          /* the song is filed either way; the cache is a derived thing */
+        });
     } catch (e) {
       if (e instanceof SongExists) setOccupied(true);
       else setError((e as Error).message);

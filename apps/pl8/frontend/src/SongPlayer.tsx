@@ -8,8 +8,17 @@ import { Button } from "@frediverse/ui/button";
 import { ORIGINAL, type Take, takesOf } from "@studio/mediatek/takes";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { Waveform } from "@studio/ui-waveform";
-import { AudioLines, Disc3, FileQuestion, Pause, Play } from "lucide-react";
+import {
+  AudioLines,
+  Disc3,
+  FileQuestion,
+  Loader2,
+  Pause,
+  Play,
+  RefreshCw,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { library } from "./api";
 import { usePlayback } from "./playback/PlaybackProvider";
 import { type PlaybackTarget, playbackTargetInfo } from "./playback/targets";
 import { readSongShape, type SongShape } from "./songWaveform";
@@ -56,7 +65,12 @@ export function SongPlayer({
   const path = file ? `${entry.path}/${file}` : null;
 
   const [shape, setShape] = useState<SongShape | null>(null);
+  // Told apart from "no shape yet": one is a wait, the other something that has to be asked for.
+  const [analysing, setAnalysing] = useState(false);
   const [status, setStatus] = useState("");
+  // The file already asked for — one attempt per file, so a re-render cannot start it twice.
+  const attempted = useRef<string | null>(null);
+  const [retry, setRetry] = useState(0);
 
   /** Whether the song on screen is the song PLAYING; `path` is the identity, since names repeat. */
   const isCurrent = !!path && playback.now?.path === path;
@@ -68,7 +82,8 @@ export function SongPlayer({
   // One destination, so what was ASKED for is what plays — see ../docs/playbackTarget.md.
   const actual = target;
 
-  /** The cached shape, read once per version and cancelled on leaving (../docs/songPlayer.md). */
+  /** The shape, and the analysis that makes one — once per tab, and cancelled on leaving (../docs/songPlayer.md). */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `retry` is the button's trigger, not a value read here
   useEffect(() => {
     // Cleared BEFORE the guard, or the previous version's tempo and onsets would read as this one's.
     setShape(null);
@@ -80,14 +95,29 @@ export function SongPlayer({
       const found = await readSongShape(path);
       if (!alive) return;
       if (found) return setShape(found);
-      // Reading a cached shape is all this app can do: MAKING one ran on the engine's machine.
-      setStatus("pas encore analysé");
+      if (attempted.current === path)
+        return setStatus("analyse déjà demandée pour ce fichier");
+      attempted.current = path;
+      setAnalysing(true);
+      try {
+        await library.analyse(path, stop.signal);
+        const made = await readSongShape(path);
+        if (!alive) return;
+        if (made) setShape(made);
+        else setStatus("analysé, mais le cache n'est pas revenu");
+      } catch (e) {
+        // Our own cancellation is not a failure and has nobody left to tell.
+        if (alive && !stop.signal.aborted)
+          setStatus(`analyse impossible : ${(e as Error).message}`);
+      } finally {
+        if (alive) setAnalysing(false);
+      }
     })();
     return () => {
       alive = false;
       stop.abort();
     };
-  }, [path]);
+  }, [path, retry]);
 
   // The two readings of one transport: identical while this version plays, at rest otherwise.
   const playing = isCurrent && playback.playing;
@@ -237,10 +267,32 @@ export function SongPlayer({
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
-            <span className="flex items-center gap-2">
-              <AudioLines className="h-4 w-4" />
-              {status || "chargement…"}
-            </span>
+            {analysing ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> analyse en cours —
+                ce fichier est en train d'être décodé, cela prend un moment
+              </span>
+            ) : (
+              <>
+                <span className="flex items-center gap-2">
+                  <AudioLines className="h-4 w-4" />
+                  {status || "chargement…"}
+                </span>
+                {/* One attempt happens by itself; a second is ASKED for (../docs/songPlayer.md). */}
+                {status ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      attempted.current = null;
+                      setRetry((n) => n + 1);
+                    }}
+                  >
+                    <RefreshCw className="mr-1 h-3.5 w-3.5" /> Analyser
+                  </Button>
+                ) : null}
+              </>
+            )}
           </div>
         )}
       </div>

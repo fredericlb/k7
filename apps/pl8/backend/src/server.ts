@@ -14,6 +14,8 @@ import {
   mountEngineRegistry,
 } from "@studio/engine-registry";
 import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
+import { configureMpv } from "@studio/mpv-player/player";
+import { createPlayerRouter } from "@studio/mpv-player/router";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
 import { isLoopbackReturn } from "@studio/web-protocol/pairing";
@@ -70,6 +72,22 @@ app.use("/api/hunt", requireAuth, huntRouter);
 
 // This service's OWN engine registry, mounted as st0 mounts one — see docs/engine.md.
 const engine = mountEngineRegistry(app, { service: "pl8", requireAuth });
+
+// Play on THIS host's outputs: the library is right here, so a path is all that crosses —
+// packages/mpv-player/docs/mpvPlayer.md. Under a dot-directory, like the prefs below, so no
+// family scan ever sees the sockets.
+configureMpv({
+  mediaRoot: mediatekDir,
+  socketDir: () => join(mediatekDir(), ".player"),
+});
+app.use(
+  "/api",
+  bearerOrSession(requireAuth),
+  createPlayerRouter((req) => {
+    const who = (req as { user?: { sub?: string; email?: string } }).user;
+    return who?.email ?? who?.sub ?? "";
+  }),
+);
 
 // Cutting a song into stems, done HERE: the bytes are here and so is the model, and no engine
 // is named — a hosted pl8 can reach none. A bearer too, unlike /api/hunt above — docs/stems.md.

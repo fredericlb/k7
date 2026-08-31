@@ -1,9 +1,10 @@
 # Where the médiathèque makes sound
 
-The library is hosted; the engines are not. So "play this" has more than one possible answer —
-this browser, the chosen machine's moteur, that machine's own speakers — and which one is a
-CHOICE, not something the app picks for you in silence: an icon button in the header, left of
-the cog, holding a menu of destinations.
+"Play this" has more than one possible answer — this browser, or the host that serves the files,
+on its own outputs — and which one is a CHOICE, not something the app picks for you in silence:
+an icon button in the header, left of the cog, holding a menu of destinations.
+
+Neither answer involves an engine. This app does not know they exist.
 
 ## Why a menu and not a switch
 
@@ -16,9 +17,8 @@ So `frontend/src/playback/targets.ts` is a list, and everything else reads it:
 
 | what | reads |
 |---|---|
-| the menu rows | `PLAYBACK_TARGETS` — label, hint, icon, `needsEngine` |
-| the button's glyph | `playbackTargetInfo(actual).icon` |
-| what actually plays | `effectiveTarget(chosen, engineReady)` |
+| the menu rows | `PLAYBACK_TARGETS` — label, hint, icon |
+| the button's glyph | `playbackTargetInfo(target).icon` |
 | what a stored id means | `asPlaybackTarget(value)` |
 
 Adding a destination is an entry in that list plus a branch in whatever plays. It is deliberately
@@ -30,22 +30,24 @@ destination nothing can play.
 
 ## Left of the cog, not inside it
 
-The cog holds what you set once: which engine auditions a module, signing out. Where sound comes
-out is changed *while listening* — you hear it on the wrong machine and reach for it — so it is
-one click, not two, and its icon answers the question without opening anything.
+The cog holds what you set once: signing out. Where sound comes out is changed *while listening*
+— you hear it in the wrong room and reach for it — so it is one click, not two, and its icon
+answers the question without opening anything.
 
-## The button is honest about the fallback
+## No fallback, because neither destination can be half-there
 
-A remembered "le moteur" pointing at a machine that is switched off must not mean silence. The
-bytes are on the hosted library either way, so `effectiveTarget` falls back to the browser, and
-both the trigger and the player's header say so (`(repli)`). The preference is **not** rewritten:
-the machine coming back should restore what was asked for, not require asking again.
+There were three destinations once, two of them reached through a machine found in the engine
+registry, and `effectiveTarget` existed to fall back to the browser when that machine was off.
+Both survivors are unconditional: the browser has the bytes from this origin, and the library
+host IS this origin. A destination that cannot be unreachable needs no repair.
 
-That is why the menu's engine row is not disabled when nothing answers. A row you cannot click is
-a row that cannot explain itself, and "that machine is off" is a different fact from "this is not
-possible".
+The one thing that can still be missing is `mpv` on the host, and that is answered where it
+happens — a 503 with the sentence, on the one route that needs it.
 
-## What the engine branch actually needs
+## History: what the engine branch needed
+
+> The sections below describe destinations that no longer exist. They are kept for the
+> reasoning, which the DJ desk and st0's own transport still run on.
 
 The trap this repo keeps coming back to: **two disks**. The médiathèque this browser talks to is
 hosted, while the moteur opens paths on *its own* machine. So the engine branch does not play what
@@ -157,34 +159,27 @@ back.
 the setting it reads. So the destination governs exactly one thing: a song's audio, master or
 variant.
 
-## The third: the machine's speakers
+## The second: the library's own speakers
 
-`machine` plays the file the machine already caches, through `mpv`, on its own outputs — **asking
-the engine for nothing**. So you can listen while st0 is using it. The why and the machine-side
-detail are in
+`library` plays through `mpv` on the host that serves the files, on its own outputs — for a box
+wired to an amp. The why and the host-side detail are in
 [packages/mpv-player/docs/mpvPlayer.md](../../../packages/mpv-player/docs/mpvPlayer.md).
 
-Two things follow from it being an entry in this list. `needsEngine: true` **although it asks the
-engine for nothing**: the machine is discovered through the engine registry — the probe opens a
-WebSocket to the moteur, and `fileBase` and the token are taken from the host that answers. With no
-reachable engine there is nobody to talk to. The flag says "this destination needs a reachable
-engine", not "it makes the engine play", and that is what is wanted here: `effectiveTarget` falls
-back to the browser.
+It needs **no resolution** browser-side: `NowPlaying.path` is already relative to the médiathèque,
+so it goes as it is and the host resolves it against its own root — which is also the guard, a
+client being able to name only what that root holds.
 
-And it needs **no resolution** browser-side, unlike the engine, which wants `cacheRoot` and then
-`playablePath`. `NowPlaying.path` is already relative to the médiathèque: it goes as is and the
-machine resolves it against its own root — which is also the guard, a client being able to name
-only what it caches.
+What it does need is a **poll**. A process over there cannot push its position into this bar, so
+`PlaybackProvider` asks twice a second while something is loaded, and the transport verbs are
+optimistic: the handle follows the finger and the next poll tells the truth.
 
 ## The preference, and the trap under it
 
-It lives on the account, beside the engine id, in the same per-user JSON
-(`packages/user-prefs/docs/store.md`).
+It lives on the account, in the per-user JSON (`packages/user-prefs/docs/store.md`).
 
 That store **replaces wholesale** — a merge would make a field impossible to clear — which means
 two settings that each PUT their own field erase each other. `frontend/src/prefs.ts` is the answer:
-one holder for the whole document, `patchPrefs` for a change, and nothing else calls `savePrefs` —
-`useEngineChoice` included.
+one holder for the whole document, `patchPrefs` for a change, and nothing else calls `savePrefs`.
 
 `RegistryClient` in `@studio/engine-browser` is generic in that shape (`P`), defaulted to
 `{engineId?}`. The schema belongs to the host, and a union of every service's fields would be a

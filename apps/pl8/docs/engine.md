@@ -1,8 +1,9 @@
 # The engine link — one socket, and what is left on it
 
-> **History.** pl8 no longer knows engines exist: the socket, the machine pick and the
-> screens over them were removed when the médiathèque became a browser-only player.
-> This page is kept for the reasoning, which the DJ desk and st0 still run on.
+> **History.** pl8 no longer knows engines exist. What plays is this browser or the host that
+> serves the files (`playbackTarget.md`), and what analyses a file is this service itself
+> (`packages/audio-analysis/docs/analysis.md`). This page is kept for the reasoning, which the
+> DJ desk and st0 still run on.
 
 The médiathèque is a hosted catalogue of files, and for most of what it holds that is all it has
 to be: a song, a sample and a capture are bytes, and listing them needs nothing but a directory

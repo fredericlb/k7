@@ -3,9 +3,11 @@
 // can ask either side the same questions. Writing too — by path for the two callers that
 // legitimately have one, and by TAGS for an upload, which does not. See docs/songs.md.
 
-import { statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { streamFile } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
+import { analyseFile } from "@studio/audio-analysis/analyse";
+import { NoFfmpegError } from "@studio/audio-analysis/decode";
 import {
   listFamily,
   parseQuery,
@@ -215,7 +217,57 @@ libraryRouter.post(
   }),
 );
 
-/** Seed a detected tempo, from the machine that has an engine — mediatek's docs/songs.md. */
+/**
+ * Measure one file HERE and write its `.cache` sidecar beside it. This service holds the bytes
+ * and has ffmpeg, so nothing is asked of an engine — see packages/audio-analysis/docs/analysis.md.
+ */
+libraryRouter.post(
+  "/analyse",
+  express.json(),
+  wrap(async (req, res) => {
+    const path = String(req.body?.path ?? "");
+    if (!path) return res.status(400).json({ error: "path required" });
+
+    let source: string;
+    try {
+      source = safePath(path);
+    } catch (e) {
+      if (e instanceof PathEscapesError)
+        return res.status(400).json({ error: e.message });
+      throw e;
+    }
+    if (!existsSync(source))
+      return res.status(404).json({ error: `${path} is not here` });
+
+    let env: Awaited<ReturnType<typeof analyseFile>>;
+    try {
+      env = await analyseFile(source);
+    } catch (e) {
+      // A missing decoder is this deployment's to fix, and it is not the caller's request that is wrong.
+      if (e instanceof NoFfmpegError)
+        return res.status(503).json({ error: e.message });
+      return res.status(422).json({ error: (e as Error).message });
+    }
+
+    // …and the tempo, best effort and reported: `set: false` is not a failure.
+    let bpmSet = false;
+    const folder = path.split("/").slice(0, -1).join("/");
+    if (env.bpm > 0 && folder)
+      try {
+        bpmSet = setSongBpm(folder, env.bpm);
+      } catch {
+        /* reported as `bpmSet: false` — the analysis itself stands */
+      }
+    res.json({
+      bpm: env.bpm,
+      bpmSet,
+      transients: env.transients.length,
+      seconds: env.seconds,
+    });
+  }),
+);
+
+/** Seed a detected tempo, from a caller that measured it elsewhere — mediatek's docs/songs.md. */
 libraryRouter.post(
   "/bpm",
   express.json(),

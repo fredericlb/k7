@@ -84,9 +84,11 @@ FROM ${BASE_IMAGE} AS runtime
 # there"; the machine's own clone answers that now, so no backend in this image shells out to
 # git at all. Dropped rather than kept "just in case" — an installed git is a tool an injected
 # argument can reach, and nothing here calls it.
-# yt-dlp: the médiathèque's imports. ffmpeg: k7's takes, z0's audio, pl8's
-# transcodes — one copy now serves all three.
-RUN apk add --no-cache openssh-client yt-dlp ffmpeg
+# yt-dlp: the médiathèque's imports. ffmpeg: k7's takes, z0's audio, pl8's transcodes and the
+# decode behind its analysis — one copy serves all four. mpv: pl8 plays on this host's own
+# outputs, for a box wired to an amp; without it that one route answers 503 and nothing else
+# notices (packages/mpv-player/docs/mpvPlayer.md).
+RUN apk add --no-cache openssh-client yt-dlp ffmpeg mpv
 WORKDIR /app
 COPY --from=backend-deps /app/node_modules ./node_modules
 COPY --from=pruner /repo/out-backend/full/ ./

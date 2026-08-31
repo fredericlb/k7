@@ -300,6 +300,9 @@ export function Library() {
       // Before the errors below: it clears the message, and what it clears must be the OLD one.
       refresh();
       if (refused.length) setError(refused.join(" · "));
+      // The waveform, the onsets and the tempo, never awaited and best effort — this service
+      // decodes them itself (packages/audio-analysis/docs/analysis.md).
+      for (const path of added) void library.analyse(path).catch(() => {});
     },
     [refresh],
   );

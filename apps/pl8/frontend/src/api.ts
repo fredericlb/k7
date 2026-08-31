@@ -5,14 +5,7 @@
 import { engineAccess } from "@studio/engine-browser/access";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
-import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
-import {
-  type CloneJob,
-  ENGINE_TOKEN_HEADER,
-  type PublicEngine,
-  USER_HEADER,
-  WORKSPACE_HEADER,
-} from "@studio/web-protocol";
+import type { PublicEngine } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
 // Type only, so the cycle with prefs.ts never reaches the bundle — see ../docs/api.md.
 import type { Pl8Prefs } from "./prefs";
@@ -89,287 +82,46 @@ export interface MachinePlayerState {
   idle: boolean;
 }
 
-/** What the file service's gate wants on every call: who is asking, and the machine's token. */
-const machineHeaders = (token: string): Record<string, string> => ({
-  [USER_HEADER]: currentUser(),
-  [ENGINE_TOKEN_HEADER]: token,
-});
+/**
+ * This service's own player: mpv on the HOST's outputs, same origin and on the session cookie.
+ * The library is right there, so a relative path is all that crosses — packages/mpv-player/docs/mpvPlayer.md.
+ */
+export const player = {
+  state: async (): Promise<MachinePlayerState> =>
+    json(await fetch(`${BASE}/api/player`), "lecteur"),
 
-/** The engine MACHINE's own file service, cross-origin and the only side that knows a disk (../docs/api.md). */
-export const engineMachine = {
-  /** Ask that machine to analyse a library file, and CANCEL when the tab moves on (../docs/api.md). */
-  analyse: async (
-    fileBase: string,
-    token: string,
-    path: string,
-    signal?: AbortSignal,
-  ): Promise<{ bpm: number; bpmSet: boolean; transients: number }> => {
-    const res = await fetch(`${fileBase}/mediatek/analyse`, {
-      method: "POST",
-      headers: {
-        [USER_HEADER]: currentUser(),
-        [ENGINE_TOKEN_HEADER]: token,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ path }),
-      signal,
-    });
-    return json(res, "analyse");
-  },
-
-  /** Wipe that machine's waveform cache — the tray's « Clear waveform cache ». Returns how many went. */
-  clearWaveforms: async (fileBase: string, token: string): Promise<number> => {
-    const res = await fetch(`${fileBase}/waveforms/clear`, {
-      method: "POST",
-      headers: {
-        [USER_HEADER]: currentUser(),
-        [ENGINE_TOKEN_HEADER]: token,
-      },
-    });
-    const { removed } = await json<{ removed: number }>(res, "waveforms");
-    return removed ?? 0;
-  },
-
-  /** Which interface that machine is REMEMBERING, with null for "(system default)" (../docs/api.md). */
-  audioDevicePref: async (
-    fileBase: string,
-    token: string,
-  ): Promise<string | null> => {
-    const res = await fetch(`${fileBase}/preferences`, {
-      headers: {
-        [USER_HEADER]: currentUser(),
-        [ENGINE_TOKEN_HEADER]: token,
-      },
-    });
-    const { audioDevice } = await json<{ audioDevice: string | null }>(
-      res,
-      "preferences",
-    );
-    return audioDevice ?? null;
-  },
-
-  setAudioDevice: async (
-    fileBase: string,
-    token: string,
-    name: string,
-    type?: string,
-  ): Promise<string | null> => {
-    const res = await fetch(`${fileBase}/preferences/audio-device`, {
-      method: "PUT",
-      headers: {
-        [USER_HEADER]: currentUser(),
-        [ENGINE_TOKEN_HEADER]: token,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ name, ...(type ? { type } : {}) }),
-    });
-    const { audioDevice } = await json<{ audioDevice: string | null }>(
-      res,
-      "audio-device",
-    );
-    return audioDevice ?? null;
-  },
-
-  /** The tail of that machine's merged log — what the tray's « Show logs » opens, minus the editor. */
-  logs: async (
-    fileBase: string,
-    token: string,
-    tail = 300,
-  ): Promise<string[]> => {
-    const res = await fetch(`${fileBase}/logs?tail=${tail}`, {
-      headers: {
-        [USER_HEADER]: currentUser(),
-        [ENGINE_TOKEN_HEADER]: token,
-      },
-    });
-    const { lines } = await json<{ lines: string[] }>(res, "logs");
-    return lines ?? [];
-  },
-
-  /** Which of this machine's workspaces already holds that repository, or `null` — pl8 names it by URI. */
-  workspaceForRepo: async (
-    fileBase: string,
-    token: string,
-    uri: string,
-  ): Promise<string | null> => {
-    const res = await fetch(
-      `${fileBase}/workspaces/by-repo?uri=${encodeURIComponent(uri)}`,
-      { headers: machineHeaders(token) },
-    );
-    const { workspace } = await json<{ workspace: string | null }>(
-      res,
-      "workspace",
-    );
-    return workspace ?? null;
-  },
-
-  /** Start the clone and return the job to poll: a real repository outlasts a request (../docs/api.md). */
-  startClone: async (
-    fileBase: string,
-    token: string,
-    uri: string,
-  ): Promise<CloneJob> =>
+  play: async (path: string, from = 0): Promise<MachinePlayerState> =>
     json(
-      await fetch(`${fileBase}/workspaces/clone`, {
+      await fetch(`${BASE}/api/player/play`, {
         method: "POST",
-        headers: {
-          ...machineHeaders(token),
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ uri }),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path, from }),
       }),
-      "clone",
+      "lecteur",
     ),
 
-  /** …and poll it. `null` for a job the machine has forgotten: nothing can wait on state nobody holds. */
-  cloneJob: async (
-    fileBase: string,
-    token: string,
-    id: string,
-  ): Promise<CloneJob | null> => {
-    const res = await fetch(
-      `${fileBase}/workspaces/clone/${encodeURIComponent(id)}`,
-      { headers: machineHeaders(token) },
-    );
-    if (res.status === 404) return null;
-    return json(res, "clone");
-  },
-
-  /** Create a project: `name` carries its suffix, and `shape` is a field of its own (../docs/api.md). */
-  createProject: async (
-    fileBase: string,
-    token: string,
-    workspace: string,
-    name: string,
-    shape: ProjectShape,
-  ): Promise<string> => {
-    const { project } = await json<{ project: string }>(
-      await fetch(`${fileBase}/project/create`, {
+  pause: async (paused: boolean): Promise<MachinePlayerState> =>
+    json(
+      await fetch(`${BASE}/api/player/pause`, {
         method: "POST",
-        headers: {
-          ...machineHeaders(token),
-          [WORKSPACE_HEADER]: workspace,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ shape, name }),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ paused }),
       }),
-      "création",
-    );
-    return project;
-  },
+      "lecteur",
+    ),
 
-  /** Unload the project and BIN its folder — the commit that follows is what removes it from the repository. */
-  deleteProject: async (
-    fileBase: string,
-    token: string,
-    workspace: string,
-    path: string,
-  ): Promise<void> => {
-    await json(
-      await fetch(`${fileBase}/project/delete`, {
+  seek: async (to: number): Promise<MachinePlayerState> =>
+    json(
+      await fetch(`${BASE}/api/player/seek`, {
         method: "POST",
-        headers: {
-          ...machineHeaders(token),
-          [WORKSPACE_HEADER]: workspace,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ path }),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ to }),
       }),
-      "suppression",
-    );
-  },
+      "lecteur",
+    ),
 
-  /** THIS machine's player: mpv on its own outputs, without the engine (packages/mpv-player/docs/mpvPlayer.md). */
-  player: {
-    state: async (
-      fileBase: string,
-      token: string,
-    ): Promise<MachinePlayerState> =>
-      json(
-        await fetch(`${fileBase}/player`, { headers: machineHeaders(token) }),
-        "lecteur",
-      ),
-
-    play: async (
-      fileBase: string,
-      token: string,
-      path: string,
-      from = 0,
-    ): Promise<MachinePlayerState> =>
-      json(
-        await fetch(`${fileBase}/player/play`, {
-          method: "POST",
-          headers: {
-            ...machineHeaders(token),
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({ path, from }),
-        }),
-        "lecteur",
-      ),
-
-    pause: async (
-      fileBase: string,
-      token: string,
-      paused: boolean,
-    ): Promise<MachinePlayerState> =>
-      json(
-        await fetch(`${fileBase}/player/pause`, {
-          method: "POST",
-          headers: {
-            ...machineHeaders(token),
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({ paused }),
-        }),
-        "lecteur",
-      ),
-
-    seek: async (
-      fileBase: string,
-      token: string,
-      to: number,
-    ): Promise<MachinePlayerState> =>
-      json(
-        await fetch(`${fileBase}/player/seek`, {
-          method: "POST",
-          headers: {
-            ...machineHeaders(token),
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({ to }),
-        }),
-        "lecteur",
-      ),
-
-    stop: async (fileBase: string, token: string): Promise<void> => {
-      await fetch(`${fileBase}/player/stop`, {
-        method: "POST",
-        headers: machineHeaders(token),
-      }).catch(() => {});
-    },
-  },
-
-  /** This machine's command line, for the one verb needed here: `commit`, which pushes with the deploy key. */
-  command: async (
-    fileBase: string,
-    token: string,
-    workspace: string,
-    line: string,
-  ): Promise<string[]> => {
-    const { output } = await json<{ output: string[] }>(
-      await fetch(`${fileBase}/command`, {
-        method: "POST",
-        headers: {
-          ...machineHeaders(token),
-          [WORKSPACE_HEADER]: workspace,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ line }),
-      }),
-      "commande",
-    );
-    return output ?? [];
+  stop: async (): Promise<void> => {
+    await fetch(`${BASE}/api/player/stop`, { method: "POST" }).catch(() => {});
   },
 };
 
@@ -500,6 +252,23 @@ export const library = {
       });
       if (!res.ok) throw await failed(res, `${file.name}:`);
     }
+  },
+
+  /**
+   * Measure a file and write its `.cache` sidecar, ON THIS SERVICE: it holds the bytes and has
+   * ffmpeg, so no machine is asked — packages/audio-analysis/docs/analysis.md.
+   */
+  analyse: async (
+    path: string,
+    signal?: AbortSignal,
+  ): Promise<{ bpm: number; bpmSet: boolean; transients: number }> => {
+    const res = await fetch(`${BASE}/api/mediatek/analyse`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path }),
+      signal,
+    });
+    return json(res, "analyse");
   },
 
   /** File one audio file as a song: the THREE TAGS go up and never a path (packages/mediatek/docs/songs.md). */

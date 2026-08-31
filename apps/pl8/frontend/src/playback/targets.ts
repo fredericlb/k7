@@ -1,13 +1,12 @@
 // targets.ts — WHERE the médiathèque makes sound. One list, so a destination is one entry here
-// and nothing else — which is what let the moteur's leave in one. `engine` played through its
-// outputs; `machine` drove an mpv and asked the moteur for nothing, but found that machine
-// through the engine registry. This service no longer knows engines exist.
+// and nothing else — which is what let the moteur's two leave in one. Neither survivor asks
+// anything of an engine: one plays in this tab, the other on the host that serves the files.
 // See ../../docs/playbackTarget.md.
 
-import { Laptop, type LucideIcon } from "lucide-react";
+import { Laptop, type LucideIcon, Speaker } from "lucide-react";
 
 /** A destination's id. It is what is stored on the account, so these strings are permanent. */
-export type PlaybackTarget = "browser";
+export type PlaybackTarget = "browser" | "library";
 
 export interface PlaybackTargetInfo {
   id: PlaybackTarget;
@@ -24,6 +23,12 @@ export const PLAYBACK_TARGETS: PlaybackTargetInfo[] = [
     label: "Cette machine",
     hint: "le fichier est téléchargé et joué par ce navigateur",
     icon: Laptop,
+  },
+  {
+    id: "library",
+    label: "La médiathèque",
+    hint: "le serveur qui tient les fichiers les joue sur ses propres sorties",
+    icon: Speaker,
   },
 ];
 

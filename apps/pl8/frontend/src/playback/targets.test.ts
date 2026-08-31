@@ -1,5 +1,6 @@
 // targets.test.ts — what the destination vocabulary promises: a stored id always narrows to
-// something playable. The fallback this also covered went with the moteur's destinations.
+// something playable. The fallback this also covered went with the moteur's destinations —
+// neither survivor can be unreachable in a way the other repairs.
 
 import { describe, expect, it } from "vitest";
 import {
@@ -31,6 +32,19 @@ describe("the default", () => {
     expect(playbackTargetInfo(DEFAULT_PLAYBACK_TARGET).id).toBe(
       DEFAULT_PLAYBACK_TARGET,
     );
+  });
+});
+
+describe("the two destinations", () => {
+  // Both are stored preferences, so neither spelling may drift.
+  it("narrows each of them to itself", () => {
+    expect(asPlaybackTarget("browser")).toBe("browser");
+    expect(asPlaybackTarget("library")).toBe("library");
+  });
+
+  it("keeps the browser first, since it is the one that needs nothing", () => {
+    expect(PLAYBACK_TARGETS[0].id).toBe("browser");
+    expect(DEFAULT_PLAYBACK_TARGET).toBe("browser");
   });
 });
 

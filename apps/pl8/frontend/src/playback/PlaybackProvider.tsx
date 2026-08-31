@@ -1,10 +1,7 @@
-// PlaybackProvider.tsx — the médiathèque's transport, and it makes its own sound: one <audio>
-// element this tab owns, playing the master this service already serves.
-//
-// It drove a moteur once, and an mpv on that moteur's machine — the first through the engine
-// protocol, the second through that machine's file service, found via the engine registry. Both
-// are gone with pl8's knowledge of engines: what plays is the file, here, in the browser.
-// See ../../docs/playback.md.
+// PlaybackProvider.tsx — the médiathèque's transport, over two destinations that share one
+// interface: an <audio> element this tab owns, or mpv on the host that serves the files. The
+// second is POLLED, since a process over there cannot push its position into this bar.
+// It drove a moteur once; nothing here knows engines exist. See ../../docs/playback.md.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 import {
@@ -16,7 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { library } from "../api";
+import { library, player } from "../api";
 import type { QueueItem } from "./queue";
 import type { PlaybackTarget } from "./targets";
 import type { PlayQueue } from "./usePlayQueue";
@@ -27,7 +24,7 @@ export interface NowPlaying {
   path: string;
   /** The version's own name when it is not the master. */
   version?: string;
-  /** Where it is playing. One destination today; the field stays, because a second is one entry away. */
+  /** Where it is playing — the two destinations are driven differently from here down. */
   target: PlaybackTarget;
 }
 
@@ -74,6 +71,8 @@ export function PlaybackProvider({
   children: ReactNode;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  // A stop we ASKED for looks exactly like a song ending, so it is remembered for one poll.
+  const weStopped = useRef(false);
   // What `start` asked for, applied once the element is ready — refs, since re-rendering shows nothing.
   const pendingSeek = useRef(0);
   const wantPlay = useRef(false);
@@ -84,9 +83,37 @@ export function PlaybackProvider({
   const [error, setError] = useState("");
   const [ended, setEnded] = useState(0);
 
+  const viaHost = now?.target === "library";
+
+  /** The host's transport, polled: enough that a bar does not stutter, little enough to be cheap. */
+  useEffect(() => {
+    if (!viaHost || !now) return;
+    let stop = false;
+    const tick = async () => {
+      try {
+        const s = await player.state();
+        if (stop) return;
+        setAt(s.position);
+        setDuration(s.duration);
+        setPlaying(s.playing);
+        // mpv goes idle at the end of a track, which is the clean signal the browser's onEnded is.
+        if (s.idle && !weStopped.current) setEnded((n) => n + 1);
+        weStopped.current = false;
+      } catch (e) {
+        if (!stop) setError((e as Error).message);
+      }
+    };
+    void tick();
+    const t = setInterval(() => void tick(), 500);
+    return () => {
+      stop = true;
+      clearInterval(t);
+    };
+  }, [viaHost, now]);
+
   // Follow the playhead smoothly: `timeupdate` fires ~4×/s, which reads as a stutter.
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || viaHost) return;
     let raf = 0;
     const loop = () => {
       if (audioRef.current) setAt(audioRef.current.currentTime);
@@ -94,7 +121,7 @@ export function PlaybackProvider({
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [playing]);
+  }, [playing, viaHost]);
 
   const start = useCallback((what: NowPlaying, from = 0) => {
     setError("");
@@ -104,30 +131,55 @@ export function PlaybackProvider({
     pendingSeek.current = from;
     wantPlay.current = true;
     setNow(what);
+    if (what.target !== "library") return;
+    // The path is médiathèque-relative already, which is exactly what the host will resolve.
+    weStopped.current = false;
+    void player
+      .play(what.path, from)
+      .then((s) => setPlaying(s.playing))
+      .catch((e: Error) => setError(e.message));
   }, []);
 
   const toggle = useCallback(() => {
+    if (viaHost) {
+      const next = !playing;
+      setPlaying(next); // optimistic, and the next poll is the truth
+      void player.pause(!next).catch((e: Error) => setError(e.message));
+      return;
+    }
     const el = audioRef.current;
     if (!el) return;
     if (el.paused) void el.play().catch(() => {});
     else el.pause();
-  }, []);
+  }, [viaHost, playing]);
 
-  const seek = useCallback((seconds: number) => {
-    const el = audioRef.current;
-    if (!el) return;
-    el.currentTime = seconds;
-    setAt(seconds);
-  }, []);
+  const seek = useCallback(
+    (seconds: number) => {
+      // Optimistic on both: waiting for a round trip jumps the cursor back under the mouse.
+      setAt(seconds);
+      if (viaHost) {
+        void player.seek(seconds).catch((e: Error) => setError(e.message));
+        return;
+      }
+      const el = audioRef.current;
+      if (el) el.currentTime = seconds;
+    },
+    [viaHost],
+  );
 
   const close = useCallback(() => {
+    // Otherwise the host carries on without us: it is a process over there, not part of this page.
+    if (viaHost) {
+      weStopped.current = true;
+      void player.stop();
+    }
     audioRef.current?.pause();
     setNow(null);
     setPlaying(false);
     setAt(0);
     setDuration(0);
     setError("");
-  }, []);
+  }, [viaHost]);
 
   return (
     <PlaybackContext.Provider
@@ -149,7 +201,7 @@ export function PlaybackProvider({
         takeNext: playQueue.takeNext,
       }}
     >
-      {now ? (
+      {now && !viaHost ? (
         // biome-ignore lint/a11y/useMediaCaption: a song master has no caption track
         <audio
           ref={audioRef}

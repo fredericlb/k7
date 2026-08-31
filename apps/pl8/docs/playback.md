@@ -1,8 +1,9 @@
 # Two records, and the trap between them
 
-> **History.** pl8 no longer knows engines exist: the socket, the machine pick and the
-> screens over them were removed when the médiathèque became a browser-only player.
-> This page is kept for the reasoning, which the DJ desk and st0 still run on.
+> **History.** pl8 no longer knows engines exist. What plays is this browser or the host that
+> serves the files (`playbackTarget.md`), and what analyses a file is this service itself
+> (`packages/audio-analysis/docs/analysis.md`). This page is kept for the reasoning, which the
+> DJ desk and st0 still run on.
 
 The médiathèque is **hosted**; the engine opens **paths on its own machine** and cannot fetch a
 URL. What plays is therefore never the bytes this screen lists: it is the copy in the chosen
