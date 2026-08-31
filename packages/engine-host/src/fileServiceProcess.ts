@@ -1,7 +1,8 @@
 // fileServiceProcess.ts — start, watch and stop the engine-side file service, which
 // serves workspaces and every file op to the browser (the C++ engine stays file-free).
-// Spawns only when nothing already answers the port and a runtime resolves; otherwise
-// reports FAILED rather than a green lie. Full rationale: docs/supervisorPolicy.md.
+// Spawns only when nothing already answers the port and a runtime resolves — packaged or
+// from the checkout; otherwise reports FAILED rather than a green lie. See
+// docs/supervisorPolicy.md.
 
 import { type ChildProcess, spawn } from "node:child_process";
 import { killTree } from "@studio/engine-client/processTree";
@@ -39,7 +40,7 @@ export async function ensure(
   const runtime = bundle.fileServiceRuntime();
   if (!runtime) return { kind: "unavailable" };
 
-  const child = spawn(runtime.node, [runtime.script], {
+  const child = spawn(runtime.node, runtime.args, {
     // Its own process group, so killTree can reach the helpers it forks.
     detached: true,
     // Piped, never inherited: our stdout is the tray protocol, and one stray child line would corrupt the frames.

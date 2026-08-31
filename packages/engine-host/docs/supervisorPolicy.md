@@ -169,11 +169,27 @@ The spawn rule, which must not be simplified:
    `npm run dev` (tsx watch on 8770), which owns the service and reloads it on edit. Spawning a
    second one would fight it for the port.
 2. **A bundled runtime resolves (a packaged app) → the vendored node runs the bundled `.mjs`.**
-3. **Neither → FAILED.** That is what the red icon and the "Restart file service" menu entry exist
-   for; reporting green here would be a lie the user cannot act on.
+3. **A checkout resolves and we are running FROM source → our own interpreter runs its
+   `server.ts`.**
+4. **None of them → FAILED.** That is what the red icon and the "Restart file service" menu entry
+   exist for; reporting green here would be a lie the user cannot act on.
 
 Branch 1 is the one that looks droppable and is not: without it the spawn races `npm run dev` for
-8770.
+8770. It is also what makes branch 3 safe — the checkout tier can only ever fire on a port the
+watcher has left free.
+
+Branch 3 is why `studio-engine` is a whole program in a checkout, with nothing built. Without it
+the only layout that resolves a file service is the one `apps/st0-desktop/scripts/stage.mjs`
+creates, so a CLI that depends on no Electron app would have needed the Electron app's build —
+and the engine binary has had a checkout tier all along (`engine-client`'s `findEngineBinary`),
+which is the asymmetry this closes.
+
+Its condition is `process.argv[1]` ending in `.ts`: our entry being TypeScript is the proof that
+this interpreter reads source, and the child inherits `process.execPath` and `process.execArgv`
+so it reads it the same way — tsx's loader flags when tsx launched us, nothing at all on a Node
+that strips types itself. Anything else — a bundled `.mjs`, an Electron main process whose
+`execPath` is not node — fails that test and falls to FAILED rather than spawning something that
+cannot run.
 
 ## `engineProcess.ts` — adopting, and what a pidfile is not
 
