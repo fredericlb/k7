@@ -83,7 +83,7 @@ repository.
 
 **The machine's player** is mpv on its own outputs, without the engine, and every path is RELATIVE
 to the médiathèque — mpv knows only absolutes, and returning one would expose the machine's tree.
-See `packages/file-service/docs/machinePlayer.md`.
+See `packages/mpv-player/docs/mpvPlayer.md`.
 
 ## The registry is this service's own
 

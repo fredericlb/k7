@@ -12,6 +12,9 @@ import {
   scannedPlugins,
 } from "@studio/engine-client/pluginCache";
 import { ensureLayout } from "@studio/mediatek/layout";
+import { configureMpv } from "@studio/mpv-player/player";
+import { createPlayerRouter } from "@studio/mpv-player/router";
+import { mediatekRoot } from "@studio/song/mediatekRoot";
 import type {
   MachineWorkspaceList,
   ServedProjectReply,
@@ -49,7 +52,6 @@ import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { resolvePlugin } from "./pluginRef.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
-import { playerRouter } from "./routes/player.ts";
 import { processRouter } from "./routes/process.ts";
 import { renderRouter } from "./routes/render.ts";
 import { separateRouter } from "./routes/separate.ts";
@@ -74,6 +76,9 @@ installProcessNet();
 
 const FILE_PORT = Number(process.env.STUDIO_FILE_PORT || 8770);
 const ENGINE_PORT = Number(process.env.STUDIO_ENGINE_PORT || 8765);
+
+// The media this host plays is its CACHE of the médiathèque; the sockets go beside the workspaces.
+configureMpv({ mediaRoot: mediatekRoot, socketDir: rootDir });
 
 const app = express();
 
@@ -352,8 +357,8 @@ app.get(
 // The media library is per MACHINE: the user for the gate, and no workspace.
 app.use(mediatekRouter);
 
-// Play a song on THIS machine's outputs, without the engine and without a project — docs/machinePlayer.md.
-app.use(playerRouter);
+// Play a song on THIS machine's outputs, without the engine and without a project — @studio/mpv-player.
+app.use(createPlayerRouter((req) => req.userEmail!));
 
 // An offline bounce for a hosted backend that cannot exec anything itself — docs/render.md.
 app.use(renderRouter);

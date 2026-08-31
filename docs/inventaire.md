@@ -148,7 +148,7 @@ declaring it. From pass 4; the three already described elsewhere on this page
 | `FrameClock` | `packages/ui-eyes/src/clock.ts` | the clock the **exporter** advances — and `export.ts` is already dead two lines above. The WebCodecs path is dead whole: the barrel, `exportScene`, and the clock driving it. To be cut in one block. |
 | `isDocRef` | `packages/song-schema/src/moduleTypes.ts` | a type guard nothing interrogates any more. |
 | `listAll` | `packages/mediatek/src/catalogue.ts` | |
-| `PATH_SEP` | `packages/file-service/src/machinePlayer.ts` | |
+| `PATH_SEP` | `packages/mpv-player/src/player.ts` | |
 | `knownPrefs` | `apps/pl8/frontend/src/prefs.ts` | |
 | `requireDb`, `readRawAttachment`, `canRender` | `apps/z0/backend/src/{db,grist/load,render}.ts` | |
 | `drawButton`, `drawPlayerBox`, `drawSpinner`, `drawReloadIcon` | `apps/z0/presenter/src/canvas/drawHelpers.ts` | four of the file's six drawing primitives; the presenter draws neither button nor player box. |

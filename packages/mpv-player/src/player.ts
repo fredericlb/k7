@@ -1,15 +1,38 @@
-// machinePlayer.ts — play a cached song through THIS machine's own outputs, without the
-// moteur: one mpv per person, driven over its JSON IPC socket. For a headless box that is a
-// player and not an instrument. See docs/machinePlayer.md.
+// player.ts — play a song through THIS HOST's own outputs, without any engine: one mpv per
+// person, driven over its JSON IPC socket. For a headless box that is a player and not an
+// instrument. Where the media is, and where the sockets go, are the host's to say — see
+// docs/mpvPlayer.md.
 
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { connect, type Socket } from "node:net";
 import { isAbsolute, join, normalize, relative, sep } from "node:path";
-import { mediatekRoot } from "@studio/song/mediatekRoot";
-import { rootDir, slugify } from "./slug.ts";
 
-/** `--ao=alsa` by default, since a headless session starts no sound server — see docs/machinePlayer.md. */
+/** What a host must tell this package before anything can play. */
+export interface MpvHost {
+  /** The one directory a relative path may name; nothing outside it is reachable. */
+  mediaRoot: () => string;
+  /** Where the per-person IPC sockets are created. */
+  socketDir: () => string;
+}
+
+let host: MpvHost | null = null;
+
+/** Called once at boot. Left unset, every entry point below throws rather than guessing a root. */
+export function configureMpv(h: MpvHost): void {
+  host = h;
+}
+
+function hosted(): MpvHost {
+  if (!host)
+    throw new Error("mpv player not configured — call configureMpv() at boot");
+  return host;
+}
+
+// Names a socket file and nothing else, so it need not agree with any other slug in the repo.
+const slugify = (email: string): string => email.replace(/[^a-zA-Z0-9]/g, "_");
+
+/** `--ao=alsa` by default, since a headless session starts no sound server — see docs/mpvPlayer.md. */
 const AO = process.env.STUDIO_PLAYER_AO || "alsa";
 
 const bin = (): string => process.env.MPV_BIN || "mpv";
@@ -40,7 +63,7 @@ const EMPTY: PlayerState = {
 /** The absolute path of a track here, from a RELATIVE one; a `..` is refused rather than normalised. */
 export function resolveInMediatek(rel: string): string {
   if (!rel || isAbsolute(rel)) throw new Error("chemin relatif attendu");
-  const root = mediatekRoot();
+  const root = hosted().mediaRoot();
   const abs = normalize(join(root, rel));
   const inside = relative(root, abs);
   if (inside.startsWith("..") || isAbsolute(inside))
@@ -62,7 +85,7 @@ interface Player {
 const players = new Map<string, Player>();
 
 const socketFor = (slug: string): string => {
-  const dir = join(rootDir(), "mpv");
+  const dir = join(hosted().socketDir(), "mpv");
   mkdirSync(dir, { recursive: true });
   return join(dir, `${slug}.sock`);
 };

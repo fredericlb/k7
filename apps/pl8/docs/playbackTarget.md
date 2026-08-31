@@ -162,7 +162,7 @@ variant.
 `machine` plays the file the machine already caches, through `mpv`, on its own outputs — **asking
 the engine for nothing**. So you can listen while st0 is using it. The why and the machine-side
 detail are in
-[packages/file-service/docs/machinePlayer.md](../../../packages/file-service/docs/machinePlayer.md).
+[packages/mpv-player/docs/mpvPlayer.md](../../../packages/mpv-player/docs/mpvPlayer.md).
 
 Two things follow from it being an entry in this list. `needsEngine: true` **although it asks the
 engine for nothing**: the machine is discovered through the engine registry — the probe opens a

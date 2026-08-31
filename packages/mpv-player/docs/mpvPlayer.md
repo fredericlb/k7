@@ -1,38 +1,43 @@
-# Playing on the machine's own speakers, without the engine
+# Playing on the host's own speakers, without any engine
 
-A third destination for the médiathèque: the machine plays the file it already caches, through
-`mpv`, on its own outputs. The engine is not involved.
+A destination that makes sound where the FILES are: the host plays one through `mpv`, on its own
+outputs. No engine is involved, and this package does not know that engines exist.
+
+## Two hosts, one driver
+
+The file service and pl8 both mount it, and they differ in exactly one thing — where the media
+is. The file service plays from its **cache** of the médiathèque; pl8 plays from the médiathèque
+**itself**, which it serves. So the root is injected (`configureMpv`) rather than read here, and
+so is the answer to "who is asking", which one host takes from a header and the other from a
+session.
+
+Nothing else varies, which is why the HTTP surface is in this package too rather than written
+twice.
 
 ## Why not the engine
 
 The engine plays a file perfectly well — but it plays **a project in a session**, and that
-session is shared with everything pl8 auditions. Using it to listen to music takes the transport
-away from whatever st0 was doing with it. Nothing is asked of it here, so you can listen while
-the engine serves st0 — which is exactly the use of a machine that is a player and not an
-instrument.
-
-**It must still be running.** The machine is discovered through the engine registry: the
-browser's probe opens a WebSocket to the engine, and `fileBase` — plus the token — is derived
-from the host that answers. With no reachable engine there is no file-service address to talk
-to. Hence `needsEngine: true` on a destination that asks it for nothing.
+session is shared with everything else auditioning. Using it to listen to music takes the
+transport away from whatever st0 was doing with it. Nothing is asked of it here, so one can
+listen while the engine serves st0 — which is exactly the use of a machine that is a player and
+not an instrument.
 
 ## Why nothing crosses the network
 
-The file **is already there**: the machine caches the médiathèque. It is sent "play this path",
-not bytes. That is what rules out a PulseAudio/PipeWire network sink, which would have the
-browser download, decode, and send raw PCM back to a machine holding the file on its own disk.
+The file **is already there**, on the host that will play it. It is sent "play this path", not
+bytes. That is what rules out a PulseAudio/PipeWire network sink, which would have the browser
+download, decode, and send raw PCM back to a machine holding the file on its own disk.
 
 ## The path is RELATIVE, and that is the guard
 
 The client sends `songs/AC-DC/Back in Black/Hells Bells/original.flac`, never an absolute path,
-and the machine resolves it against **its own** médiathèque root. That is not convenience but
-the guarantee: a client can only name what this machine caches. A `..` is **refused** rather than
+and the host resolves it against **its own** media root. That is not convenience but the
+guarantee: a client can only name what that root holds. A `..` is **refused** rather than
 normalised — it is an attempt, not a typo, and naming it beats silently correcting it.
-`machinePlayer.test.ts` checks three escape shapes plus the absolute path.
+`player.test.ts` checks three escape shapes plus the absolute path.
 
-A pleasant side effect: this destination needs **no resolution** browser-side, unlike the engine
-which wants `cacheRoot` then `playablePath`. `NowPlaying.path` is already médiathèque-relative
-and goes as it is.
+A pleasant side effect: this destination needs **no resolution** browser-side. `NowPlaying.path`
+is already médiathèque-relative and goes as it is.
 
 The reported state carries the **requested** path, not the one mpv knows: mpv's is absolute, and
 returning it would expose the machine's directory layout to a client that has no use for it.
@@ -58,7 +63,7 @@ and not somebody's mpv session — a `~/.config/mpv` full of scripts has no busi
 
 Control goes over its [JSON IPC](https://mpv.io/manual/master/) on a unix socket, one line per
 message. That IPC has **neither authentication nor encryption**: acceptable because it is purely
-local and the file service's token gate sits in front of it.
+local and the host's own auth gate sits in front of it.
 
 State is **read on demand** rather than tracked from events, which avoids keeping it current on
 both sides of the socket. The four properties go together on one connection, so it is one round
@@ -82,5 +87,6 @@ over there, not an element of this page.
 
 ## What the machine needs
 
-`mpv` on the PATH — that is all, and it is probed on demand, as yt-dlp is on pl8's side. Without
-it the route returns 503 with the sentence, rather than failing silently.
+`mpv` on the PATH — that is all, and it is probed on demand, as yt-dlp is. Without it the route
+returns 503 with the sentence, rather than failing silently. The hosted image installs it
+alongside ffmpeg and yt-dlp; a musician's machine may not have it, which is what the 503 is for.

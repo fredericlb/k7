@@ -279,7 +279,7 @@ export const engineMachine = {
     );
   },
 
-  /** THIS machine's player: mpv on its own outputs, without the engine (packages/file-service/docs/machinePlayer.md). */
+  /** THIS machine's player: mpv on its own outputs, without the engine (packages/mpv-player/docs/mpvPlayer.md). */
   player: {
     state: async (
       fileBase: string,

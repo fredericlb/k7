@@ -2,13 +2,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resolveInMediatek } from "./machinePlayer.ts";
+import { configureMpv, resolveInMediatek } from "./player.ts";
 
 let root: string;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "machine-player-"));
-  process.env.STUDIO_MEDIATEK = root;
+  configureMpv({ mediaRoot: () => root, socketDir: () => root });
   mkdirSync(join(root, "songs", "AC-DC", "Back in Black", "Hells Bells"), {
     recursive: true,
   });
