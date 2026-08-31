@@ -35,8 +35,8 @@ hour; at 10 s it takes 360, at 30 s it would take 120. The step from 1800 to 360
 of the reduction, while half a minute before a plugged-in interface is noticed is felt in use.
 
 **What it costs anyway.** Plugging the interface in takes up to 10 s to be noticed, so does
-switching to the fallback, and the tray's submenu is that far out of date. That is the price, and
-it is paid on every plug.
+falling to the next name in the order, and the tray's submenu is that far out of date. That is the
+price, and it is paid on every plug.
 
 **The real fix.** JUCE exposes an `AudioIODeviceType::Listener` that Windows feeds on hardware
 arrival and removal. Moving to it would give both at once — immediate reaction AND zero periodic

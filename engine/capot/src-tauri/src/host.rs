@@ -97,8 +97,9 @@ pub struct Snapshot {
     /// None means "the engine hasn't answered yet" — the spinner, not "none found".
     pub plugin_count: Option<usize>,
     pub audio_devices: Vec<AudioDevice>,
-    pub audio_preferred: Option<String>,
-    pub audio_fallback: Option<String>,
+    /// The interfaces the user RANKED, best first. The first one PRESENT is where the engine
+    /// goes; a name with nothing behind it is unplugged and keeps its rank, so replugging restores it.
+    pub audio_priority: Vec<String>,
     /// Changes exactly when the audio submenu's CONTENT would: the tray rebuilds on a difference, never recomputes.
     pub audio_menu_sig: String,
     pub edit_plugins: Vec<EditPlugin>,
@@ -132,8 +133,7 @@ impl Default for Snapshot {
             last_heartbeat_ok: false,
             plugin_count: None,
             audio_devices: Vec::new(),
-            audio_preferred: None,
-            audio_fallback: None,
+            audio_priority: Vec::new(),
             audio_menu_sig: String::new(),
             edit_plugins: Vec::new(),
             edit_plugins_sig: String::new(),

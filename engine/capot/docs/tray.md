@@ -62,6 +62,23 @@ the playhead moves 20 times a second, so a signature built from the whole snapsh
 the frame on the wire — and tear down a submenu the user has open — at frame rate. The
 signature is built from what the rows *show*.
 
+## "Audio ▸" — a click is a promotion, not a pick
+
+The supervisor keeps an ORDER, not a chosen device: the first name in it that is actually
+present is where the engine goes (`packages/engine-host/docs/supervisorPolicy.md`, *Why a list,
+and not a pick plus a fallback*). A menu cannot express a drag, so it expresses the one gesture
+people mean by clicking an interface — **put this one first** — and the rest of the order keeps
+its relative places. `audio.priority` carries the WHOLE ranking in one command, because a reorder
+is a single act and two halves of it could interleave with a poll.
+
+The rank is drawn beside each row. Without the number a row says only "you picked this once",
+which is exactly what the model this replaced could say and no more — and it is the number that
+explains why an interface that IS plugged in is not the one playing.
+
+**A ranked name with no device behind it keeps its row**, disabled and marked not connected.
+It is what holds the rank while the interface is unplugged, so replugging restores it; drop the
+row and the order silently reshuffles under a user who never asked it to.
+
 ## Safety rule: never kill someone else's engine
 
 Stop and Restart are enabled **only** when the supervisor OWNS the running engine. An

@@ -252,12 +252,14 @@ pub fn rebuild_edit_plugins_menu(app: &AppHandle) {
     }
     let _ = submenu.set_enabled(!openable.is_empty());
 }
+/// The interfaces, in the user's ORDER: a click promotes one to the top and the supervisor
+/// re-reads the whole ranking (`engine/capot/docs/tray.md`).
 ///
-/// Cleared wholesale rather than tracking what it added, like rebuild_weburi_menu: separators and nested
-/// submenus can't live in a typed Vec and would pile up per rebuild — and this runs every 2s.
+/// Cleared wholesale rather than tracking what it added, like rebuild_weburi_menu: a separator
+/// can't live in a typed Vec and would pile up one copy per rebuild — and this runs every 2s.
 pub fn rebuild_audio_menu(app: &AppHandle) {
     let shared = app.state::<SharedState>();
-    let (submenu, devices, preferred, fallback) = {
+    let (submenu, devices, priority) = {
         let s = shared.lock().unwrap();
         let Some(m) = s.menus.as_ref() else {
             return;
@@ -265,8 +267,7 @@ pub fn rebuild_audio_menu(app: &AppHandle) {
         (
             m.audio.clone(),
             s.snapshot.audio_devices.clone(),
-            s.snapshot.audio_preferred.clone(),
-            s.snapshot.audio_fallback.clone(),
+            s.snapshot.audio_priority.clone(),
         )
     };
     while matches!(submenu.remove_at(0), Ok(Some(_))) {}
@@ -277,9 +278,9 @@ pub fn rebuild_audio_menu(app: &AppHandle) {
         } else {
             format!("{} [{}]", d.name, d.device_type)
         };
-        // Mark the remembered pick when the engine ISN'T on it: that gap is what needs explaining.
-        if preferred.as_deref() == Some(d.name.as_str()) && !d.current {
-            label.push_str("   (preferred)");
+        // The number is what explains a plugged-in interface that is not the one playing.
+        if let Some(i) = priority.iter().position(|p| p == &d.name) {
+            label.push_str(&format!("   ({})", i + 1));
         }
         if let Ok(item) = CheckMenuItem::with_id(
             app,
@@ -293,71 +294,34 @@ pub fn rebuild_audio_menu(app: &AppHandle) {
         }
     }
 
-    // A remembered pick absent from the list still gets a row, or "why am I not on my interface?" has no answer.
-    if let Some(p) = preferred.as_deref() {
-        if !devices.iter().any(|d| d.name == p) {
-            if let Ok(item) = MenuItem::with_id(
-                app,
-                "dev_missing",
-                format!("{p}   (preferred — not connected)"),
-                false,
-                None::<&str>,
-            ) {
-                let _ = submenu.append(&item);
-            }
+    // The row is what holds the rank while the interface is unplugged — see docs/tray.md.
+    for (i, name) in priority.iter().enumerate() {
+        if devices.iter().any(|d| &d.name == name) {
+            continue;
         }
-    }
-
-    if let Ok(sep) = PredefinedMenuItem::separator(app) {
-        let _ = submenu.append(&sep);
-    }
-
-    // The fallback picker, nested: what to switch to when the pick above is gone.
-    let title = match fallback.as_deref() {
-        Some(f) => format!("Fallback: {f}"),
-        None => "Fallback: none".to_string(),
-    };
-    if let Ok(fb) = Submenu::with_id(app, "audio_fallback", title, true) {
-        if let Ok(none) = CheckMenuItem::with_id(
+        if let Ok(item) = MenuItem::with_id(
             app,
-            "fb:",
-            "None",
-            true,
-            fallback.is_none(),
+            format!("dev_missing:{name}"),
+            format!("{}   ({} — not connected)", name, i + 1),
+            false,
             None::<&str>,
         ) {
-            let _ = fb.append(&none);
+            let _ = submenu.append(&item);
         }
-        for d in &devices {
-            if let Ok(item) = CheckMenuItem::with_id(
-                app,
-                format!("fb:{}", d.name),
-                d.name.clone(),
-                true,
-                fallback.as_deref() == Some(d.name.as_str()),
-                None::<&str>,
-            ) {
-                let _ = fb.append(&item);
-            }
-        }
-        // Same courtesy: keep a configured-but-absent fallback visible, so it can be seen and cleared.
-        if let Some(f) = fallback.as_deref() {
-            if !devices.iter().any(|d| d.name == f) {
-                if let Ok(item) = MenuItem::with_id(
-                    app,
-                    "fb_missing",
-                    format!("{f}   (not connected)"),
-                    false,
-                    None::<&str>,
-                ) {
-                    let _ = fb.append(&item);
-                }
-            }
-        }
-        let _ = submenu.append(&fb);
     }
 
-    let _ = submenu.set_enabled(!devices.is_empty() || preferred.is_some());
+    if !priority.is_empty() {
+        if let Ok(sep) = PredefinedMenuItem::separator(app) {
+            let _ = submenu.append(&sep);
+        }
+        if let Ok(item) =
+            MenuItem::with_id(app, "audio_clear", "Forget this order", true, None::<&str>)
+        {
+            let _ = submenu.append(&item);
+        }
+    }
+
+    let _ = submenu.set_enabled(!devices.is_empty() || !priority.is_empty());
 }
 
 /// Rebuild the "Web UI" submenu: one row per allowed origin (clicking removes it), then "Add web UI…".
@@ -646,8 +610,8 @@ pub fn on_menu(app: &AppHandle, id: &str) {
             open_text_file(std::path::Path::new(&p));
         }
         "weburi_add" => add_web_ui(app),
-        _ if id.starts_with("dev:") => select_audio_device(app, &id["dev:".len()..]),
-        _ if id.starts_with("fb:") => select_audio_fallback(app, &id["fb:".len()..]),
+        _ if id.starts_with("dev:") => prefer_audio_device(app, &id["dev:".len()..]),
+        "audio_clear" => send_audio_priority(app, &[]),
         // Dropping a session throws away whatever the app driving it had loaded, so the row
         // IS the drop and its label says so — there is no other click on a session row that
         // this could be mistaken for.
@@ -771,17 +735,30 @@ fn applescript_string(s: &str) -> String {
     format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
-/// Record the fallback interface (empty id = none). Switches nothing now — it says where to go if the pick goes.
-fn select_audio_fallback(app: &AppHandle, name: &str) {
-    // The supervisor persists it, clears its retry guard so a new fallback gets a fresh attempt, and echoes it
-    // back in the next snapshot — which is what redraws the submenu.
-    host::send(app, "audio.fallback", Some(name));
+/// Send the WHOLE ranking, joined by U+001F to match hostProtocol.ts's PRIORITY_SEP. One command and
+/// not one per rank: a reorder is a single act, and two halves of it could interleave with a poll.
+fn send_audio_priority(app: &AppHandle, ranked: &[String]) {
+    host::send(app, "audio.priority", Some(&ranked.join("\u{1f}")));
 }
 
-/// Switch the engine to the clicked interface. The click is also REMEMBERED as the preferred device, which is
-/// what lets the reconcile loop restore it after an unplug — both halves happen in the supervisor.
-fn select_audio_device(app: &AppHandle, name: &str) {
-    host::send(app, "audio.select", Some(name));
+/// Clicking an interface puts it FIRST and leaves the rest of the order alone. That is the only
+/// ranking gesture a menu can express, and it is the one people mean by clicking a device. The
+/// engine moves because the supervisor re-reads the order, never because the tray asked it to.
+fn prefer_audio_device(app: &AppHandle, name: &str) {
+    let rest: Vec<String> = {
+        let shared = app.state::<SharedState>();
+        let s = shared.lock().unwrap();
+        s.snapshot
+            .audio_priority
+            .iter()
+            .filter(|p| p.as_str() != name)
+            .cloned()
+            .collect()
+    };
+    let mut ranked = Vec::with_capacity(rest.len() + 1);
+    ranked.push(name.to_string());
+    ranked.extend(rest);
+    send_audio_priority(app, &ranked);
 }
 
 /// Open a plugin's native editor from the submenu. The payload is "<session>\u{1f}<id>", built by
