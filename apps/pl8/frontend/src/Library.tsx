@@ -10,7 +10,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import {
@@ -29,7 +28,6 @@ import {
 } from "@studio/mediatek/types";
 import { sortNodes } from "@studio/web-protocol/tree";
 import {
-  Activity,
   AudioLines,
   Disc3,
   FileQuestion,
@@ -42,12 +40,8 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
 import { AddSong } from "./AddSong";
-import { auth, engineMachine, library } from "./api";
+import { auth, library } from "./api";
 import { folderAt } from "./assetTree";
-import { EngineStatusBar } from "./EngineStatusBar";
-import { EnginePage } from "./engine/EnginePage";
-import { EnginePicker } from "./engine/EnginePicker";
-import { useEngineChoice } from "./engine/useEngineChoice";
 import { FindSongs } from "./FindSongs";
 import { OtherApps } from "./OtherApps";
 import { MiniPlayer } from "./playback/MiniPlayer";
@@ -62,7 +56,7 @@ import { SongEditor } from "./SongEditor";
 import { useLibraryRoute } from "./useLibraryRoute";
 
 /** The five that ARE families, by subtraction — a section missing here becomes one silently (../docs/library.md). */
-type FamilyId = Exclude<SectionId, typeof RECORDINGS_DIR | "engine" | "find">;
+type FamilyId = Exclude<SectionId, typeof RECORDINGS_DIR | "find">;
 
 /** Poll interval for the revision map — cheap on the server, slow enough to cost an idle library nothing. */
 const POLL_MS = 3000;
@@ -188,12 +182,10 @@ export function Library() {
   );
   // The capture zone is a section with no family behind it: no `/list`, no entries, no module pane.
   const isZone = section === RECORDINGS_DIR;
-  // The cog's engine-status page: no tab, no tree, no library poll — see engine/EnginePage.tsx.
-  const isEngine = section === "engine";
   // « Trouver des morceaux » — a tabless section reached by a button, showing nothing on the volume (../docs/hunt.md).
   const isFind = section === "find";
   /** Is there a tree beside it? Derived here because the HEADER needs it: the drawer button is up there. */
-  const hasTree = !isEngine && !isFind;
+  const hasTree = !isFind;
   // The tree's drawer on a narrow screen. Closed to begin with: arriving, you want the content.
   const [treeOpen, setTreeOpen] = useState(false);
   // Two sections refuse the tree's writes, and each has a header button instead (../docs/library.md).
@@ -248,9 +240,7 @@ export function Library() {
   useEffect(() => {
     if (target) setRevealed(target);
   }, [target]);
-  // No socket of its own: PlaybackProvider holds the tab's one connection, and two hooks would be two clients.
-  const choice = useEngineChoice();
-  // Where sound comes out. Held here beside the engine pick because the editors below need it too.
+  // Where sound comes out. Held here because the editors below need it too.
   const playback = usePlaybackTarget();
   // Held HERE because this component RENDERS the provider — see playback/usePlayQueue.ts.
   const playQueue = usePlayQueue();
@@ -310,14 +300,8 @@ export function Library() {
       // Before the errors below: it clears the message, and what it clears must be the OLD one.
       refresh();
       if (refused.length) setError(refused.join(" · "));
-      // The waveform, the onsets and the tempo, never awaited and best effort (packages/mediatek/docs/variants.md).
-      if (choice.fileBase && choice.token)
-        for (const path of added)
-          void engineMachine
-            .analyse(choice.fileBase, choice.token, path)
-            .catch(() => {});
     },
-    [choice.fileBase, choice.token, refresh],
+    [refresh],
   );
 
   /** The right-click menu the SONGS family gets, and the only one it gets (../docs/library.md). */
@@ -418,7 +402,7 @@ export function Library() {
 
   // One poll drives every section OF THE LIBRARY, the capture zone included (../docs/library.md).
   useEffect(() => {
-    if (isEngine || isFind) return; // not on the volume — nothing of theirs to poll here
+    if (isFind) return; // not on the volume — nothing of its own to poll here
     let stop = false;
     const tick = async () => {
       try {
@@ -438,16 +422,11 @@ export function Library() {
       stop = true;
       clearInterval(t);
     };
-  }, [isEngine, isFind, isZone, load, loadZone, section]);
+  }, [isFind, isZone, load, loadZone, section]);
 
   return (
-    /* Wrapping the whole shell, and holding this tab's ONE engine socket (../docs/playback.md). */
-    <PlaybackProvider
-      engineId={choice.chosenId}
-      playQueue={playQueue}
-      // For the "machine's speakers" target: its file service is what drives its mpv.
-      machine={{ fileBase: choice.fileBase, token: choice.token }}
-    >
+    /* Wrapping the whole shell: what plays belongs to the TAB (../docs/miniPlayer.md). */
+    <PlaybackProvider playQueue={playQueue}>
       <div className="flex h-full flex-col bg-background text-foreground">
         {/* The families sit in the header, where st0 puts its views; the bar is @frediverse/ui's. */}
         <AppHeader
@@ -486,7 +465,7 @@ export function Library() {
                         Trouver des morceaux
                       </span>
                     </Button>
-                    <AddSong onDone={refresh} engine={choice} />
+                    <AddSong onDone={refresh} />
                   </>
                 ) : null}
                 {isZone ? (
@@ -502,10 +481,9 @@ export function Library() {
               {/* Where sound comes out, beside the cog: it is changed while listening — see ../docs/playbackTarget.md. */}
               <PlaybackPicker
                 target={playback.target}
-                engineReady={choice.ready}
                 onChoose={playback.choose}
               />
-              {/* One cog for the two things that belong to the person: which engine auditions, and signing out. */}
+              {/* One cog for what belongs to the person: signing out. */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" aria-label="Réglages">
@@ -513,24 +491,6 @@ export function Library() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72">
-                  <DropdownMenuLabel>Moteur</DropdownMenuLabel>
-                  <div className="px-2 pb-2">
-                    <EnginePicker
-                      ranked={choice.ranked}
-                      chosenId={choice.chosenId}
-                      onChoose={choice.choose}
-                      onRetry={choice.refresh}
-                    />
-                  </div>
-                  {/* The page behind the picker: the tray's engine options, in the browser. */}
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      setSection("engine");
-                    }}
-                  >
-                    <Activity className="mr-2 h-4 w-4" />
-                    État du moteur
-                  </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void auth.logout()}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Se déconnecter
@@ -541,13 +501,8 @@ export function Library() {
           }
         />
 
-        {/* The engine page draws edge to edge, because nothing it shows is on the volume. */}
-        {isEngine ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-            <EnginePage choice={choice} />
-          </div>
-        ) : /* The hunt page draws its own, for the same reason and because its history can be long. */
-        isFind ? (
+        {/* The hunt page draws its own scroller, because its history can be long. */}
+        {isFind ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <FindSongs
               onBack={() => setSection("songs")}
@@ -765,8 +720,6 @@ export function Library() {
                 <SongEditor
                   entry={editingSong}
                   vimMode={localStorage.getItem("pl8.vim") === "1"}
-                  fileBase={choice.fileBase}
-                  engineToken={choice.token}
                   playbackTarget={playback.target}
                   onBack={() => openFile(null)}
                   onSaved={refresh}
@@ -880,19 +833,9 @@ export function Library() {
         )}
 
         {/* What is playing belongs to the TAB rather than to any screen — see ../docs/miniPlayer.md. */}
-        {/* Draws nothing: it is the queue's advance, and it needs the machine and the destination alike. */}
-        <QueueAdvance
-          machine={{
-            fileBase: choice.fileBase,
-            token: choice.token,
-            ready: choice.ready,
-          }}
-          target={playback.target}
-        />
+        {/* Draws nothing: it is the queue's advance, and it needs the destination. */}
+        <QueueAdvance target={playback.target} />
         <MiniPlayer />
-
-        {/* The status bar, outside the row above so it spans the whole width: it is a property of the session. */}
-        <EngineStatusBar choice={choice} />
       </div>
     </PlaybackProvider>
   );

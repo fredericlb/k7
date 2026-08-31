@@ -50,7 +50,7 @@ const { requireAuth } = await setupAuth(app, {
 });
 
 // A bearer stands in for the session: the LOCAL service syncing a cache has no cookie jar.
-const { issueApiToken, verifyApiToken, bearerOrSession } = apiTokenAuth(
+const { issueApiToken, bearerOrSession } = apiTokenAuth(
   process.env.API_TOKEN_SECRET || `${process.env.SESSION_SECRET ?? ""}:pl8`,
 );
 

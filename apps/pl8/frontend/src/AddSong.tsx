@@ -22,7 +22,7 @@ import {
 } from "@studio/mediatek/song";
 import { Loader2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
-import { engineMachine, library, SongExists } from "./api";
+import { library, SongExists } from "./api";
 
 /** The file's tags, or a guess from its name: an unreadable file is a form to fill in, not an error. */
 async function readTags(file: File): Promise<SongTags> {
@@ -43,11 +43,9 @@ async function readTags(file: File): Promise<SongTags> {
 
 export function AddSong({
   onDone,
-  engine,
 }: {
   onDone: () => void;
   /** The chosen machine, for the analysis pass; null still uploads and simply defers it. */
-  engine: { fileBase: string | null; token: string | null };
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -79,7 +77,7 @@ export function AddSong({
     setBusy(true);
     setError(null);
     try {
-      const added = await library.addSong(
+      await library.addSong(
         file,
         {
           artist: tags.artist ?? "",
@@ -90,14 +88,6 @@ export function AddSong({
       );
       close();
       onDone();
-      // Fired AFTER closing and never awaited, since the first surface that needs it computes it anyway.
-      if (engine.fileBase && engine.token)
-        void engineMachine
-          .analyse(engine.fileBase, engine.token, added.master)
-          .then(onDone)
-          .catch(() => {
-            /* the song is filed either way; the cache is a derived thing */
-          });
     } catch (e) {
       if (e instanceof SongExists) setOccupied(true);
       else setError((e as Error).message);

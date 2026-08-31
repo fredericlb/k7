@@ -1,5 +1,9 @@
 # The engine link — one socket, and what is left on it
 
+> **History.** pl8 no longer knows engines exist: the socket, the machine pick and the
+> screens over them were removed when the médiathèque became a browser-only player.
+> This page is kept for the reasoning, which the DJ desk and st0 still run on.
+
 The médiathèque is a hosted catalogue of files, and for most of what it holds that is all it has
 to be: a song, a sample and a capture are bytes, and listing them needs nothing but a directory
 walk.
@@ -53,8 +57,8 @@ project that supplies both at once, which is why it gets a generated one — the
 
 ## Holding the socket
 
-`apps/pl8/frontend/src/engine/useModuleEngine.ts` is where the one socket lives. What follows is
-the reasoning behind it, so the file itself can keep one line per fact.
+`useModuleEngine.ts` is where the one socket lived, until it was deleted with the rest of this
+app's engine half. What follows is the reasoning it ran on.
 
 **The pick is handed DOWN, not read here.** The screen and the header's picker are on show at the
 same time, so the choice can move while a pane is open — and a socket left on the previous machine

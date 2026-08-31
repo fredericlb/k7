@@ -8,31 +8,11 @@ import { Button } from "@frediverse/ui/button";
 import { ORIGINAL, type Take, takesOf } from "@studio/mediatek/takes";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { Waveform } from "@studio/ui-waveform";
-import {
-  AudioLines,
-  Disc3,
-  FileQuestion,
-  Loader2,
-  Pause,
-  Play,
-  RefreshCw,
-} from "lucide-react";
+import { AudioLines, Disc3, FileQuestion, Pause, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { currentUser, engineMachine } from "./api";
-import { cachedOnMachine, cacheRoot, playablePath } from "./engine/songPreview";
-import { useEngine, usePlayback } from "./playback/PlaybackProvider";
-import {
-  effectiveTarget,
-  type PlaybackTarget,
-  playbackTargetInfo,
-} from "./playback/targets";
+import { usePlayback } from "./playback/PlaybackProvider";
+import { type PlaybackTarget, playbackTargetInfo } from "./playback/targets";
 import { readSongShape, type SongShape } from "./songWaveform";
-
-// The two ways the engine branch has nothing to open, kept apart because they are repaired differently.
-const ENGINE_NO_CACHE =
-  "cette machine ne tient pas de cache de la médiathèque — lecture ici, ou choisissez-en une autre";
-const ENGINE_NOT_HERE =
-  "cette machine n'a pas ce morceau en cache — l'analyse l'y rapatrie, sinon jouez ici";
 
 /** The glyph a version wears — the same three the tree draws, so a row and a tab read alike. */
 const takeIcon = (kind: Take["kind"]) =>
@@ -48,18 +28,13 @@ function clock(sec: number): string {
 
 export function SongPlayer({
   entry,
-  fileBase,
-  engineToken,
   target,
 }: {
   entry: MediatekEntry;
   /** The chosen machine's file service: its engine is the only thing here that decodes audio. */
-  fileBase?: string | null;
-  engineToken?: string | null;
   /** Where the account wants sound to come out. */
   target: PlaybackTarget;
 }) {
-  const engine = useEngine();
   const playback = usePlayback();
 
   // `meta` is loose, a listing being family-agnostic; absent means a sidecar with no audio.
@@ -81,12 +56,7 @@ export function SongPlayer({
   const path = file ? `${entry.path}/${file}` : null;
 
   const [shape, setShape] = useState<SongShape | null>(null);
-  // Told apart from "no shape yet": one is a wait, the other a machine that has to be turned on.
-  const [analysing, setAnalysing] = useState(false);
   const [status, setStatus] = useState("");
-  // The file already asked for — one attempt per file, so a moving engine choice cannot start it twice.
-  const attempted = useRef<string | null>(null);
-  const [retry, setRetry] = useState(0);
 
   /** Whether the song on screen is the song PLAYING; `path` is the identity, since names repeat. */
   const isCurrent = !!path && playback.now?.path === path;
@@ -95,13 +65,10 @@ export function SongPlayer({
   // biome-ignore lint/correctness/useExhaustiveDependencies: the trigger is the song changing
   useEffect(() => setCursor(0), [path]);
 
-  const engineReady = engine.phase.k === "ready";
-  const actual = effectiveTarget(target, engineReady);
-  const viaEngine = actual === "engine";
+  // One destination, so what was ASKED for is what plays — see ../docs/playbackTarget.md.
+  const actual = target;
 
-  /** The shape, and the analysis that makes one — once per tab, and cancelled on leaving (../docs/songPlayer.md). */
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `retry` is the button's trigger, not a value read here
+  /** The cached shape, read once per version and cancelled on leaving (../docs/songPlayer.md). */
   useEffect(() => {
     // Cleared BEFORE the guard, or the previous version's tempo and onsets would read as this one's.
     setShape(null);
@@ -113,70 +80,14 @@ export function SongPlayer({
       const found = await readSongShape(path);
       if (!alive) return;
       if (found) return setShape(found);
-      if (!fileBase || !engineToken)
-        return setStatus("pas encore analysé — aucun moteur joignable");
-      if (attempted.current === path)
-        return setStatus("analyse déjà demandée pour ce fichier");
-      attempted.current = path;
-      setStatus("");
-      setAnalysing(true);
-      try {
-        await engineMachine.analyse(fileBase, engineToken, path, stop.signal);
-        const made = await readSongShape(path);
-        if (!alive) return;
-        if (made) setShape(made);
-        else setStatus("analysé, mais le cache n'est pas revenu");
-      } catch (e) {
-        // Our own cancellation is not a failure and has nobody left to tell.
-        if (alive && !stop.signal.aborted)
-          setStatus(`analyse impossible : ${(e as Error).message}`);
-      } finally {
-        if (alive) setAnalysing(false);
-      }
+      // Reading a cached shape is all this app can do: MAKING one ran on the engine's machine.
+      setStatus("pas encore analysé");
     })();
     return () => {
       alive = false;
       stop.abort();
     };
-  }, [path, fileBase, engineToken, retry]);
-
-  /** The master's path on the ENGINE's machine — two disks, and `undefined` is not `null` (../docs/playback.md). */
-  const [root, setRoot] = useState<string | null | undefined>(undefined);
-  useEffect(() => {
-    if (!viaEngine || !engine.fileBase) return setRoot(undefined);
-    let alive = true;
-    void cacheRoot(engine.fileBase, currentUser(), engineToken).then((r) => {
-      if (alive) setRoot(r);
-    });
-    return () => {
-      alive = false;
-    };
-    // The token is in here too: it arrives with the probe, so the first run would settle on a 401's null.
-  }, [viaEngine, engine.fileBase, engineToken]);
-
-  // The TAB's own file on that machine, not the song's master: playing the wrong one is audible.
-  const enginePath = useMemo(
-    () => (root && file ? playablePath(root, entry, file) : null),
-    [root, entry, file],
-  );
-
-  /** …and whether that machine has the bytes, asked BEFORE the click: an unopenable clip is silence. */
-  const [cached, setCached] = useState<boolean | null>(null);
-  useEffect(() => {
-    if (!viaEngine || !engine.fileBase || !path) return setCached(null);
-    let alive = true;
-    void cachedOnMachine(
-      engine.fileBase,
-      currentUser(),
-      path,
-      engineToken,
-    ).then((ok) => {
-      if (alive) setCached(ok);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [viaEngine, engine.fileBase, engineToken, path]);
+  }, [path]);
 
   // The two readings of one transport: identical while this version plays, at rest otherwise.
   const playing = isCurrent && playback.playing;
@@ -186,21 +97,12 @@ export function SongPlayer({
   const toggle = useCallback(() => {
     if (!path) return;
     if (isCurrent) return playback.toggle();
-    if (viaEngine) {
-      // Still asking: said as a wait, since either refusal below would be a guess at this point.
-      if (root === undefined || cached === null)
-        return setStatus("on demande à cette machine si elle a ce morceau…");
-      if (!enginePath) return setStatus(ENGINE_NO_CACHE);
-      if (!cached) return setStatus(ENGINE_NOT_HERE);
-      setStatus(`envoyé au moteur : ${enginePath}`);
-    }
     // From the cursor, so pressing play starts where the eye already is.
     playback.start(
       {
         entry,
         path,
         target: actual,
-        enginePath: viaEngine ? enginePath : null,
         // The master's document is the song; every other tab names its version (../docs/songPlayer.md).
         version: take?.kind === "master" ? undefined : take?.name,
       },
@@ -212,10 +114,6 @@ export function SongPlayer({
     playback,
     entry,
     actual,
-    viaEngine,
-    enginePath,
-    root,
-    cached,
     cursor,
     take?.kind,
     take?.name,
@@ -253,22 +151,8 @@ export function SongPlayer({
   const total = shape?.duration || (isCurrent ? playback.duration : 0);
   const where = playbackTargetInfo(actual);
   const WhereIcon = where.icon;
-  const fellBack = actual !== target;
-  // Nothing on that machine to open, said on the BUTTON — and only once settled, since null is "still asking".
-  const engineBlocked = viaEngine && (root === null || cached === false);
-  const blockedWhy = !engineBlocked
-    ? ""
-    : root === null
-      ? ENGINE_NO_CACHE
-      : ENGINE_NOT_HERE;
-
-  /** What the footer says, most specific first: the engine's own complaint outranks everything. */
-  const engineSaid =
-    isCurrent && viaEngine && engine.warning
-      ? `le moteur : ${engine.warning.message}`
-      : "";
   // `status` only when there IS a shape, or it would be the pane's big message said twice.
-  const footer = engineSaid || blockedWhy || (shape ? status : "");
+  const footer = shape ? status : "";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -277,8 +161,8 @@ export function SongPlayer({
           size="sm"
           variant="secondary"
           onClick={toggle}
-          disabled={engineBlocked || !path}
-          title={blockedWhy || nothingToPlay}
+          disabled={!path}
+          title={nothingToPlay}
         >
           {playing ? (
             <Pause className="h-4 w-4" />
@@ -292,15 +176,10 @@ export function SongPlayer({
         {/* Where the sound is, beside the button that starts it — the header's picker changes it. */}
         <span
           className="flex items-center gap-1 text-xs text-muted-foreground"
-          title={
-            fellBack
-              ? `${playbackTargetInfo(target).label} ne répond pas — lecture ici`
-              : where.hint
-          }
+          title={where.hint}
         >
           <WhereIcon className="h-3.5 w-3.5" />
           {where.label}
-          {fellBack ? " (repli)" : ""}
         </span>
         {/* The file actually on screen, which is the master only on the first tab. */}
         <span className="ml-auto min-w-0 truncate font-mono text-xs text-muted-foreground">
@@ -358,32 +237,10 @@ export function SongPlayer({
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
-            {analysing ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> analyse en cours —
-                le moteur décode ce fichier, cela prend un moment
-              </span>
-            ) : (
-              <>
-                <span className="flex items-center gap-2">
-                  <AudioLines className="h-4 w-4" />
-                  {status || "chargement…"}
-                </span>
-                {/* One attempt happens by itself; a second is ASKED for (../docs/songPlayer.md). */}
-                {status && fileBase && engineToken ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      attempted.current = null;
-                      setRetry((n) => n + 1);
-                    }}
-                  >
-                    <RefreshCw className="mr-1 h-3.5 w-3.5" /> Analyser
-                  </Button>
-                ) : null}
-              </>
-            )}
+            <span className="flex items-center gap-2">
+              <AudioLines className="h-4 w-4" />
+              {status || "chargement…"}
+            </span>
           </div>
         )}
       </div>

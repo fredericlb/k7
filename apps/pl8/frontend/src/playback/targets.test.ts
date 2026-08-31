@@ -1,11 +1,10 @@
 // targets.test.ts — what the destination vocabulary promises: a stored id always narrows to
-// something playable, and a destination that needs a machine falls back rather than to silence.
+// something playable. The fallback this also covered went with the moteur's destinations.
 
 import { describe, expect, it } from "vitest";
 import {
   asPlaybackTarget,
   DEFAULT_PLAYBACK_TARGET,
-  effectiveTarget,
   PLAYBACK_TARGETS,
   playbackTargetInfo,
 } from "./targets";
@@ -28,24 +27,10 @@ describe("asPlaybackTarget", () => {
 
 describe("the default", () => {
   // A default that can fail to make a sound makes the app look broken to a first visitor.
-  it("needs no engine", () => {
-    expect(playbackTargetInfo(DEFAULT_PLAYBACK_TARGET).needsEngine).toBe(false);
-  });
-});
-
-describe("effectiveTarget", () => {
-  it("honours a choice whose machine answered", () => {
-    expect(effectiveTarget("engine", true)).toBe("engine");
-  });
-
-  // Not silence: the bytes are on the hosted library, so an engine that is off means "play it here".
-  it("falls back when the engine it needs is not there", () => {
-    expect(effectiveTarget("engine", false)).toBe(DEFAULT_PLAYBACK_TARGET);
-  });
-
-  it("leaves a destination that needs nothing alone, engine or no engine", () => {
-    expect(effectiveTarget("browser", false)).toBe("browser");
-    expect(effectiveTarget("browser", true)).toBe("browser");
+  it("is a destination the list declares", () => {
+    expect(playbackTargetInfo(DEFAULT_PLAYBACK_TARGET).id).toBe(
+      DEFAULT_PLAYBACK_TARGET,
+    );
   });
 });
 

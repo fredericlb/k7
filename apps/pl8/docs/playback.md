@@ -1,5 +1,9 @@
 # Two records, and the trap between them
 
+> **History.** pl8 no longer knows engines exist: the socket, the machine pick and the
+> screens over them were removed when the médiathèque became a browser-only player.
+> This page is kept for the reasoning, which the DJ desk and st0 still run on.
+
 The médiathèque is **hosted**; the engine opens **paths on its own machine** and cannot fetch a
 URL. What plays is therefore never the bytes this screen lists: it is the copy in the chosen
 machine's cache, reached through that machine's file service.
@@ -57,8 +61,8 @@ things at once is not something to organise, it is something to forbid.
 
 ## The two headers the machine demands
 
-`apps/pl8/frontend/src/engine/songPreview.ts` sends the user **and** the token on every call to a
-machine's file service. The token is not optional in practice: anything behind
+`songPreview.ts`, deleted with this app's engine half, sent the user **and** the token on every
+call to a machine's file service. The token is not optional in practice: anything behind
 `requireEngineToken` is refused without it as soon as a token is configured — which the supervisor
 always does on a real machine. A call sending only the user works on a bare dev run and answers
 401 everywhere else; `cacheRoot` swallows that 401 as `null`, which the screen words as "this

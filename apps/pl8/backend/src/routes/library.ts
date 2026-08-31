@@ -3,7 +3,7 @@
 // can ask either side the same questions. Writing too — by path for the two callers that
 // legitimately have one, and by TAGS for an upload, which does not. See docs/songs.md.
 
-import { existsSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { streamFile } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
 import {

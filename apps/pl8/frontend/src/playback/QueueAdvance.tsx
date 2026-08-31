@@ -5,13 +5,7 @@
 import type { PlaybackTarget } from "./targets";
 import { useQueueAdvance } from "./useQueueAdvance";
 
-export function QueueAdvance({
-  machine,
-  target,
-}: {
-  machine: { fileBase: string | null; token: string | null; ready: boolean };
-  target: PlaybackTarget;
-}) {
-  useQueueAdvance(machine, target);
+export function QueueAdvance({ target }: { target: PlaybackTarget }) {
+  useQueueAdvance(target);
   return null;
 }

@@ -22,8 +22,6 @@ const stub = (folder: string) =>
 export function SongEditor({
   entry,
   vimMode,
-  fileBase,
-  engineToken,
   playbackTarget,
   onBack,
   onSaved,
@@ -31,8 +29,6 @@ export function SongEditor({
   entry: MediatekEntry;
   vimMode: boolean;
   /** The chosen machine's file service, which the player needs to have the master analysed. */
-  fileBase?: string | null;
-  engineToken?: string | null;
   /** Where the account wants sound to come out. See ../docs/playbackTarget.md. */
   playbackTarget: PlaybackTarget;
   onBack: () => void;
@@ -124,12 +120,7 @@ export function SongEditor({
         {/* The player and the versions under it: one half of the screen, one question. */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1">
-            <SongPlayer
-              entry={entry}
-              fileBase={fileBase}
-              engineToken={engineToken}
-              target={playbackTarget}
-            />
+            <SongPlayer entry={entry} target={playbackTarget} />
           </div>
           {entry.variants?.length ? (
             <div className="max-h-[45%] shrink-0 overflow-auto border-t p-3">

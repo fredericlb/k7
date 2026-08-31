@@ -61,9 +61,8 @@ YAML. In a song, audio reaches the engine as a clip on a track, and making a fil
 to that is the piece still to write — deliberately not guessed at here, because the shape a song
 wants may differ.
 
-The **médiathèque** does not wait on it. `songPreviewDoc`
-(`apps/pl8/frontend/src/engine/songPreview.ts`) builds that document by hand — the song's master
-as the clip, the chain's steps as the track's plugins — which is what both auditioning a chain
-and bouncing a variant run on. See
+The **médiathèque** did not wait on it: `songPreviewDoc` built that document by hand — the song's
+master as the clip, the chain's steps as the track's plugins — which is what auditioning a chain
+and bouncing a variant ran on. It went with pl8's engine half, and no surface has replaced it. See
 `packages/mediatek/docs/variants.md`. What is missing is the *authored* path: a `modules/io/FILE`
 node in a project folder compiling to the same thing.

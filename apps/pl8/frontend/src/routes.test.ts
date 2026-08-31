@@ -103,9 +103,7 @@ describe("fromLocation", () => {
       st({ section: "recordings" }),
       songs({ file: "Miles/Kind-of-Blue/So-What/song.yaml" }),
       songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }),
-      // The cog's engine-status page: a section with no tab, and no file to carry.
-      st({ section: "engine" }),
-      // « Trouver des morceaux », the other tabless one — a PAGE, since its history grows.
+      // « Trouver des morceaux », the tabless one — a PAGE, since its history grows.
       st({ section: "find" }),
     ])
       expect(fromLocation(toPath(s))).toEqual(s);

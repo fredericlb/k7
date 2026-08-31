@@ -251,7 +251,7 @@ what the copies above have when they defend themselves.
 
 ### Left on purpose
 
-`where()` (`apps/pl8/frontend/src/engine/EnginePicker.tsx`, `apps/z0/editor/src/Gate.tsx`) is two
+`where()` (`apps/z0/editor/src/Gate.tsx`; pl8's copy went with its engine picker) is two
 identical lines whose only natural home would be `packages/web-protocol/quality.ts`, beside
 `formatLatency` — but that package contains **no** French UI string, and "hors de portée" would bring
 the UI's language into a protocol package. Two lines are not worth that property. Same reasoning for

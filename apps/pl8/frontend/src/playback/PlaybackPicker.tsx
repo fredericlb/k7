@@ -12,7 +12,6 @@ import {
 } from "@frediverse/ui/dropdown-menu";
 import { Check } from "lucide-react";
 import {
-  effectiveTarget,
   PLAYBACK_TARGETS,
   type PlaybackTarget,
   playbackTargetInfo,
@@ -20,18 +19,12 @@ import {
 
 export function PlaybackPicker({
   target,
-  engineReady,
   onChoose,
 }: {
   target: PlaybackTarget;
-  /** Whether the account's engine answered: "off" is a different fact from "not possible". */
-  engineReady: boolean;
   onChoose: (t: PlaybackTarget) => void;
 }) {
-  // The TRIGGER shows what will ACTUALLY play: it is all there is when the menu is shut.
-  const actual = effectiveTarget(target, engineReady);
-  const { icon: Icon, label } = playbackTargetInfo(actual);
-  const fellBack = actual !== target;
+  const { icon: Icon, label } = playbackTargetInfo(target);
 
   return (
     <DropdownMenu>
@@ -42,17 +35,13 @@ export function PlaybackPicker({
           aria-label={`Lecture : ${label}`}
           title={`Lecture : ${label}`}
         >
-          <Icon
-            className={`h-4 w-4 ${fellBack ? "text-muted-foreground" : ""}`}
-          />
+          <Icon className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuLabel>Lecture</DropdownMenuLabel>
         {PLAYBACK_TARGETS.map((t) => {
           const RowIcon = t.icon;
-          // Not disabled: the choice is remembered, and an unclickable row explains nothing.
-          const unreachable = t.needsEngine && !engineReady;
           return (
             <DropdownMenuItem
               key={t.id}
@@ -68,9 +57,7 @@ export function PlaybackPicker({
                   ) : null}
                 </span>
                 <span className="block text-xs text-muted-foreground">
-                  {unreachable
-                    ? "aucun moteur joignable — on jouera ici en attendant"
-                    : t.hint}
+                  {t.hint}
                 </span>
               </span>
             </DropdownMenuItem>
