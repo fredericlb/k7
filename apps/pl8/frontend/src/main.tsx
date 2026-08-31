@@ -5,7 +5,7 @@ import "./index.css";
 // The waveform's own rules: a plain stylesheet, so `@source` above cannot produce it.
 import "@studio/ui-waveform/styles.css";
 
-// No StrictMode: its double-mount would open the engine probe's WebSockets twice.
+// No StrictMode: it guarded the engine probe's sockets, and nothing has re-measured it since they went.
 
 // The router sits OUTSIDE the gate, on a `basename` that is BASE_URL (../docs/routing.md).
 ReactDOM.createRoot(document.getElementById("root")!).render(
