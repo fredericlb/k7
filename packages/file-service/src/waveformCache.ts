@@ -1,129 +1,33 @@
-// waveformCache.ts — the Node side of the on-disk waveform cache the ENGINE computes:
-// tell whether a `{source}.cache` sidecar is still valid (same fingerprint), spawn the
-// engine to rebuild a stale one, read the envelope back. Clip-region slicing and the
-// tempo grid stay in @studio/audio-probe/waveform. Full rationale: docs/waveformCache.md.
+// waveformCache.ts — spawning the ENGINE to build a `{source}.cache` sidecar, and the memo in
+// front of it. The sidecar's FORMAT — its fingerprint, its fields, reading one back — is
+// @studio/audio-analysis's, because pl8 writes the same file with no engine at all. Clip-region
+// slicing and the tempo grid stay in @studio/audio-probe/waveform. See docs/waveformCache.md.
 
 import { execFile, spawn } from "node:child_process";
-import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { promisify } from "node:util";
+import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
+import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
+import {
+  CACHE_EXT,
+  cachePath,
+  readSidecar,
+  storedSensitivity,
+} from "@studio/audio-analysis/sidecar";
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
 
 const execFileAsync = promisify(execFile);
 
-// `kick.wav` -> `kick.wav.cache`, kept beside the audio so it travels with the file.
-export const CACHE_EXT = ".cache";
-export const cachePath = (source: string): string => source + CACHE_EXT;
+// Re-exported so this module's importers keep resolving them; they are the sidecar's, not ours.
+export {
+  CACHE_EXT,
+  cachePath,
+  DEFAULT_TRANSIENT_SENSITIVITY,
+  fileFingerprint,
+  storedSensitivity,
+};
 
-// --- content fingerprint (MUST byte-for-byte match engine/engine/Waveform.cpp) -----
-
-// FNV-1a/64 over the file size + up to HEAD/TAIL bytes from each end — see docs/waveformCache.md.
-const HEAD = 65536;
-const TAIL = 65536;
-const FNV_OFFSET = 0xcbf29ce484222325n;
-const FNV_PRIME = 0x100000001b3n;
-const MASK64 = (1n << 64n) - 1n;
-
-export function fileFingerprint(source: string): string {
-  const size = statSync(source).size;
-  let h = FNV_OFFSET;
-  const step = (byte: number): void => {
-    h = ((h ^ BigInt(byte)) * FNV_PRIME) & MASK64;
-  };
-  // Size as 8 little-endian bytes.
-  let s = size;
-  for (let k = 0; k < 8; k++) {
-    step(s & 0xff);
-    s = Math.floor(s / 256);
-  }
-  const fd = openSync(source, "r");
-  try {
-    const buf = Buffer.allocUnsafe(Math.min(HEAD, Math.max(0, size)) || 1);
-    // Head: [0, min(size, HEAD)).
-    const headLen = Math.min(HEAD, size);
-    if (headLen > 0) {
-      const n = readSync(fd, buf, 0, headLen, 0);
-      for (let i = 0; i < n; i++) step(buf[i]);
-    }
-    // Tail: [max(0, size - TAIL), size).
-    const tailStart = size > TAIL ? size - TAIL : 0;
-    const tailLen = size - tailStart;
-    if (tailLen > 0) {
-      const tbuf = tailLen <= buf.length ? buf : Buffer.allocUnsafe(tailLen);
-      const n = readSync(fd, tbuf, 0, tailLen, tailStart);
-      for (let i = 0; i < n; i++) step(tbuf[i]);
-    }
-  } finally {
-    closeSync(fd);
-  }
-  return `${size}-${h.toString(16).padStart(16, "0")}`;
-}
-
-// --- sidecar read + (re)generation -------------------------------------------------
-
-interface CacheFile {
-  v?: number;
-  fingerprint?: string;
-  sampleRate?: number;
-  channels?: number;
-  frames?: number;
-  seconds?: number;
-  peak?: number[];
-  rms?: number[];
-  transients?: number[];
-  sensitivity?: number;
-  bpm?: number;
-  low?: number[];
-  mid?: number[];
-  high?: number[];
-}
-
-/** The default transient threshold — mirrors `kDefaultTransientSensitivity` in EngineHost.h. */
-export const DEFAULT_TRANSIENT_SENSITIVITY = 2;
-
-/** The oldest sidecar shape still usable; raise it with every field the engine adds (docs/waveformCache.md). */
-const MIN_CACHE_VERSION = 4;
-
-function readSidecar(source: string): FileEnvelope | null {
-  try {
-    const c = JSON.parse(readFileSync(cachePath(source), "utf8")) as CacheFile;
-    if (
-      (c.v ?? 1) >= MIN_CACHE_VERSION &&
-      typeof c.fingerprint === "string" &&
-      Array.isArray(c.peak) &&
-      Array.isArray(c.rms)
-    )
-      return {
-        fingerprint: c.fingerprint,
-        sampleRate: c.sampleRate ?? 48000,
-        channels: c.channels ?? 1,
-        frames: c.frames ?? 0,
-        seconds: c.seconds ?? 0,
-        peak: c.peak,
-        rms: c.rms,
-        transients: c.transients ?? [],
-        sensitivity: c.sensitivity ?? DEFAULT_TRANSIENT_SENSITIVITY,
-        // 0 is the engine's "no tempo found", and it stays 0 rather than becoming a guess.
-        bpm: c.bpm ?? 0,
-        // Absent rather than empty when the engine did not write them, since [] would read as silence.
-        ...(c.low ? { low: c.low } : {}),
-        ...(c.mid ? { mid: c.mid } : {}),
-        ...(c.high ? { high: c.high } : {}),
-      };
-  } catch {
-    /* missing / unreadable / malformed — treat as no cache */
-  }
-  return null;
-}
-
-/** The sensitivity a sidecar was last built with, read even when its fingerprint has gone STALE. */
-export function storedSensitivity(source: string): number | null {
-  try {
-    const c = JSON.parse(readFileSync(cachePath(source), "utf8")) as CacheFile;
-    return typeof c.sensitivity === "number" ? c.sensitivity : null;
-  } catch {
-    return null;
-  }
-}
+// --- (re)generation through the engine -------------------------------------------
 
 // So a burst for one source doesn't re-read the sidecar: mtime is the cheap gate, the fingerprint stays the truth.
 interface Memo {

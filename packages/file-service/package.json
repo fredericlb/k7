@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@frediverse/http": "*",
+    "@studio/audio-analysis": "*",
     "@studio/audio-passes": "*",
     "@studio/audio-probe": "*",
     "@studio/commands": "*",

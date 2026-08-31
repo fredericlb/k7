@@ -5,23 +5,30 @@ format JUCE reads — wav/aiff/flac/ogg/…), downsamples it to a placement-inde
 envelope, **detects its transient onsets**, and writes all of it next to the source as
 `{source}.cache` (JSON), stamped with a cheap content fingerprint.
 
-This module is the Node side: it computes the SAME fingerprint to tell whether a sidecar is still
-valid, spawns the engine to (re)build a missing or stale one, and reads the envelope back. Clip
-region slicing and the tempo grid stay in `@studio/audio-probe/waveform` — this only produces the
-`FileEnvelope` those consume.
+This module is the Node side, and it is now only HALF of one: what a sidecar IS — the fingerprint,
+the fields, reading one back — belongs to `@studio/audio-analysis`, because pl8 writes the same
+file with ffmpeg and no engine at all (`packages/audio-analysis/docs/analysis.md`). What stays
+here is the part that is genuinely this service's: spawning the engine, and the memo in front of
+it. Clip region slicing and the tempo grid stay in `@studio/audio-probe/waveform` — this only
+produces the `FileEnvelope` those consume.
+
+A machine with an engine keeps using it: it is faster than decoding through ffmpeg, and it is
+already loaded.
 
 Sidecars sit next to the audio rather than in a central store, so they travel with the file and the
 engine can write one during an offline decode. They are hidden from the file tree and gitignored.
 
 ## The content fingerprint
 
-**MUST match `engine/moteur/engine/Waveform.cpp` byte for byte.**
+**MUST match `engine/moteur/engine/Waveform.cpp` byte for byte**, and lives in
+`@studio/audio-analysis/fingerprint` so there is one TypeScript copy rather than one per service.
 
 FNV-1a/64 over the file SIZE (8 little-endian bytes), then up to `HEAD` bytes from the front and up
 to `TAIL` bytes from the end. String form: `"<size>-<hex16>"`.
 
 - At most `HEAD + TAIL` bytes are read whatever the file's length, so it stays fast on large audio.
-- It depends only on file CONTENT, not mtime, so C++ and Node compute the identical value.
+- It depends only on file CONTENT, not mtime, so C++ and Node compute the identical value — which
+  is what lets two producers of a sidecar tell whether the other's is still good.
 - For small files the head and tail ranges overlap — both sides read the same overlapping bytes, so
   the hash still agrees.
 
