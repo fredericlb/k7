@@ -68,6 +68,7 @@ lines produces a symptom that would otherwise be taken for a bug:
 |---|---|
 | a re-login | the session cookie changes name |
 | the workspace choice | localStorage key renamed |
+| the web-UI allowlist (`<state>/web-origins.json`) | it lives IN the state directory, so a moved `<state>` starts deny-by-default. It shows as a **403 on the OPTIONS preflight**, which reads as a broken app rather than a permission — the origin is in `pending-origins.json` and the tray's Web UI menu allows it with a click |
 | per-service preferences (`<state>/prefs/<service>/`) | directory renamed |
 | a blank `%APPDATA%/Studio/Settings.xml` | JUCE application name renamed — the supervisor switches back to the right device on the first poll cycle |
 | Tracktion's channel aliases and MIDI defaults | same cause; input labels come from `preferences.yaml` and are intact |
