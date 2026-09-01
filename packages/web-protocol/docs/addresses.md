@@ -135,8 +135,8 @@ sentinel and takes another road. Three use it.
 
 ### `@banc` — the bench
 
-Every other project resolves through pl8 (`GET /api/projects/by-name/:name` → a git URI → a clone
-on the machine); the bench has no repository and wants none. It is generated from the médiathèque's
+Every other project resolves against the MACHINE — a repository is a folder it holds, and
+`GET /workspaces/by-repo` is what answers; the bench has no repository and wants none. It is generated from the médiathèque's
 catalogue and regenerated whenever it is opened, so putting it under version control would version
 a cache. `ProjectGate` does no lookup, no clone, one call to the machine that makes the folder.
 

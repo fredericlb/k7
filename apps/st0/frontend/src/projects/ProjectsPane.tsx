@@ -10,12 +10,7 @@ import type {
   ShareSummary,
 } from "@studio/web-protocol";
 import { useCallback, useEffect, useState } from "react";
-import {
-  projects as api,
-  engineMachine,
-  projectHref,
-  workspaceHref,
-} from "./api";
+import { engineMachine, projectHref, workspaceHref } from "./api";
 import { LibrariesCard } from "./LibrariesCard";
 import {
   copyProjectOnMachine,
@@ -72,15 +67,8 @@ export function ProjectsPane({
     async (uri: string) => {
       setError(null);
       try {
-        // The register is pl8's, the CLONE is the machine's, and only the second is what
-        // importing means. With no server the first answers 503 and the import carries on:
-        // the workspace lands on this disk and opens by its `@local` address, which the row
-        // then says in words. Any other refusal is pl8's and stops us — ../../docs/projects.md.
-        await api.add(uri).catch((e: Error & { status?: number }) => {
-          if (e.status !== 503) throw e;
-          setAdding("aucun serveur pour le registre — import en dépôt local…");
-        });
-        onChanged();
+        // Importing IS the clone: the workspace lands on this disk and opens by its
+        // `@local` address, which the row then says in words — ../../docs/projects.md.
         await ensureWorkspace(chosen(), uri, (s) => setAdding(s));
       } finally {
         // The dialog reports its own failure and stays open; this only stops the row's narration.
@@ -116,15 +104,13 @@ export function ProjectsPane({
     [chosen, onChanged],
   );
 
-  /** …and its first repository. `api.add` is the register, passed in so the act stays one call. */
+  /** …and its first repository, which is the remote and the push on the machine. */
   const publish = useCallback(
     (w: MachineWorkspace, uri: string, onStep: (s: string) => void) => {
       setError(null);
-      return publishWorkspace(chosen(), w.name, uri, onStep, (u) =>
-        api.add(u).then(onChanged),
-      );
+      return publishWorkspace(chosen(), w.name, uri, onStep);
     },
-    [chosen, onChanged],
+    [chosen],
   );
 
   const create = useCallback(

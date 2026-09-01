@@ -16,7 +16,6 @@ import {
   type MachineWorkspaceList,
   type RepoProject,
   type RepoRef,
-  type RepoSummary,
   type ServedProject,
   type ServedProjectReply,
   type ShareComment,
@@ -63,38 +62,7 @@ async function json<T>(res: Response, what: string): Promise<T> {
 
 // ── pl8: what is left of it here ─────────────────────────────────────────────
 
-// `PL8_URL` and not a relative path: st0 is mounted at the origin ROOT, so a bare `/api/projects` would reach st0's own backend.
-
-const pget = async <T>(path: string, what: string): Promise<T> =>
-  json(await fetch(`${PL8_URL}/api/projects${path}`), what);
-
-const psend = async <T>(
-  method: string,
-  path: string,
-  body?: unknown,
-): Promise<T> =>
-  json(
-    await fetch(`${PL8_URL}/api/projects${path}`, {
-      method,
-      headers: body ? { "content-type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    }),
-    path,
-  );
-
-/** The account's REGISTER of git repositories — pl8 answers, and always will; what is INSIDE one is the machine's (../../docs/projects.md). */
-export const projects = {
-  list: () => pget<{ repos: RepoSummary[]; revision: string }>("", "projects"),
-  revision: () => pget<{ revision: string }>("/revision", "revision"),
-  add: (uri: string, label?: string) =>
-    psend<{ repo: RepoSummary }>("POST", "", { uri, label }),
-  remove: (id: string) => psend<{ ok: true }>("DELETE", `/${id}`),
-
-  sshKey: () => pget<SshKeyInfo>("/ssh-key", "ssh-key"),
-  generateSshKey: () => psend<SshKeyInfo>("POST", "/ssh-key", {}),
-
-  /** SET, not add — there is one. Doing it twice with the same URI is doing it once. */
-};
+// `PL8_URL` and not a relative path: st0 is mounted at the origin ROOT, so a bare `/api/shares` would reach st0's own backend.
 
 /** The three fields an address is chosen from — narrower than `MachineWorkspace` on purpose, the surfaces listing carrying the same identity flattened. */
 type Addressable = Pick<MachineWorkspace, "name" | "repoName" | "uniqueName">;
@@ -205,6 +173,23 @@ export const engineMachine = {
     );
     return libraries;
   },
+
+  /** The deploy key, MADE on this machine and never leaving it: one per machine, not one per account. */
+  sshKey: async (m: Machine): Promise<SshKeyInfo> =>
+    json(
+      await fetch(`${m.fileBase}/ssh-key`, { headers: machineHeaders(m) }),
+      "ssh-key",
+    ),
+
+  /** Make one, if there is none — idempotent, so a second press returns the first key. */
+  createSshKey: async (m: Machine): Promise<SshKeyInfo> =>
+    json(
+      await fetch(`${m.fileBase}/ssh-key`, {
+        method: "POST",
+        headers: machineHeaders(m),
+      }),
+      "ssh-key",
+    ),
 
   /** Every workspace on this machine, with the projects in it — the MACHINE answers, they being folders on its disk. */
   workspaces: async (m: Machine): Promise<MachineWorkspace[]> => {

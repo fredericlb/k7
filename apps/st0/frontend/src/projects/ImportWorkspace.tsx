@@ -1,4 +1,4 @@
-// ImportWorkspace.tsx — bringing a repository back: it is registered with pl8 and cloned onto
+// ImportWorkspace.tsx — bringing a repository back: it is cloned onto
 // the machine, which is what makes it APPEAR — this list only shows what the machine holds.
 // The URI is validated HERE with the servers' own rule, so a paste that git could never be
 // handed is refused before a round trip. See ../../docs/projects.md.

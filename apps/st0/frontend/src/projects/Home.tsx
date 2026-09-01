@@ -6,11 +6,7 @@
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import { AskHost } from "@studio/project-shell/ask";
-import type {
-  MachineWorkspace,
-  RepoSummary,
-  ShareSummary,
-} from "@studio/web-protocol";
+import type { MachineWorkspace, ShareSummary } from "@studio/web-protocol";
 import { EXTERNAL_INDEX, SETTINGS_REPO } from "@studio/web-protocol/projects";
 import {
   Library,
@@ -27,7 +23,7 @@ import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
 import { desktop } from "../desktop";
 import { useLocale } from "../i18n";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
-import { engineMachine, pl8Url, projects, shares as sharesApi } from "./api";
+import { engineMachine, pl8Url, shares as sharesApi } from "./api";
 import {
   type ArmedDelete,
   buildHomePalette,
@@ -60,8 +56,6 @@ export function Home() {
   }, []);
 
   const [workspaces, setWorkspaces] = useState<MachineWorkspace[]>([]);
-  // pl8's register — not a list to draw, but what decides whether a portable address resolves.
-  const [repos, setRepos] = useState<RepoSummary[]>([]);
   const [shares, setShares] = useState<ShareSummary[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,10 +89,7 @@ export function Home() {
   }, [probe]);
 
   // What was loaded last pass, per service. A token says "current", not "in hand" — hence it is set only after the list is.
-  const seen = useRef<{ repos: string; shares: string }>({
-    repos: "",
-    shares: "",
-  });
+  const seen = useRef<{ shares: string }>({ shares: "" });
 
   const loadShares = useCallback(async (rev: string) => {
     try {
@@ -110,19 +101,9 @@ export function Home() {
     }
   }, []);
 
-  const loadRepos = useCallback(async (rev: string) => {
-    try {
-      const { repos: list } = await projects.list();
-      seen.current.repos = rev;
-      setRepos(list);
-    } catch {
-      /* the register is not the screen's subject: its absence reads on the rows */
-    }
-  }, []);
-
   /** Reload everything next tick without waiting for a revision: a write from here already knows. */
   const changed = useCallback(() => {
-    seen.current = { repos: "", shares: "" };
+    seen.current = { shares: "" };
   }, []);
 
   /** The project list comes from the MACHINE and nowhere else; with none there is nothing to ask, which is the price of the move. */
@@ -157,17 +138,10 @@ export function Home() {
     };
   }, [machine, loadWorkspaces]);
 
-  /** What pl8 still holds: the REGISTER, which is what makes `/<dépôt>/<projet>` resolvable, and the shares, which are its own bytes. */
+  /** What pl8 still holds: the shares, which are its own bytes. A repository is a folder on a machine and is asked of that machine. */
   useEffect(() => {
     let stop = false;
     const tick = async () => {
-      try {
-        const { revision } = await projects.revision();
-        if (!stop && seen.current.repos !== revision) await loadRepos(revision);
-      } catch {
-        /* the row says so itself */
-      }
-      if (stop) return;
       try {
         const { revision } = await sharesApi.revision();
         if (!stop && seen.current.shares !== revision)
@@ -182,7 +156,7 @@ export function Home() {
       stop = true;
       clearInterval(t);
     };
-  }, [loadRepos, loadShares]);
+  }, [loadShares]);
 
   /** This screen's command bar and status line, with its own vocabulary (`homeCommands.ts`) rather than the editor's. */
   const cmdRef = useRef<CommandBarHandle>(null);
@@ -206,7 +180,6 @@ export function Home() {
       const known = await runHomeCommand(line, {
         machine: machine ?? null,
         workspaces,
-        repos,
         openWs,
         acts: HOME_ACTS,
         say: (text) => setSaid({ text, refused: false }),
@@ -221,7 +194,7 @@ export function Home() {
           refused: true,
         });
     },
-    [machine, workspaces, repos, openWs, reread],
+    [machine, workspaces, openWs, reread],
   );
 
   /** Two bare Shifts give it the keyboard, the editor's own gesture; the bar never takes focus itself, and `e.repeat` drops a held Shift. */
@@ -391,7 +364,6 @@ export function Home() {
               homeArgValues(command, prior.length, {
                 machine: machine ?? null,
                 workspaces,
-                repos,
                 openWs,
               })
             }

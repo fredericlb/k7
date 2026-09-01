@@ -118,28 +118,15 @@ export async function createLocalWorkspace(
   return { workspace: name };
 }
 
-/**
- * Its FIRST repository: the remote and the push in one call on the machine, then the register
- * on pl8 — which is what makes `/<dépôt>/<projet>` resolve. The push is the half that can
- * fail loudly; the register is the half that can be done later.
- */
+/** Its FIRST repository: the remote and the push in one call on the machine, which is the whole of publishing. */
 export async function publishWorkspace(
   m: Machine,
   workspace: string,
   uri: string,
   onStep: (s: string) => void,
-  register: (uri: string) => Promise<unknown>,
-): Promise<{ registered: boolean }> {
+): Promise<void> {
   onStep("envoi vers le dépôt…");
   await engineMachine.setRemote(m, workspace, uri);
-  onStep("inscription du dépôt…");
-  try {
-    await register(uri);
-    return { registered: true };
-  } catch {
-    // The push LANDED. Saying it failed would send someone to redo the one half that worked.
-    return { registered: false };
-  }
 }
 
 /** Create a project: clone if needed, scaffold, commit — and a failed commit does not undo the creation. */

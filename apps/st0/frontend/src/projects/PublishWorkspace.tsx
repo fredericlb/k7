@@ -1,7 +1,6 @@
 // PublishWorkspace.tsx — the first push of a workspace that has none: the repository URL is
-// asked for HERE, becomes `origin`, and is registered with pl8 so `/<dépôt>/<projet>` starts
-// resolving. Offered only on a workspace with no repository — a second one is a different act.
-// See ../../docs/projects.md.
+// asked for HERE and becomes `origin`. Offered only on a workspace with no repository — a
+// second one is a different act. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -24,17 +23,12 @@ export function PublishWorkspace({
 }: {
   workspace: string;
   blocked: string;
-  /** Resolves with whether pl8 took the register too; the push had already landed either way. */
-  onPublish: (
-    uri: string,
-    onStep: (s: string) => void,
-  ) => Promise<{ registered: boolean }>;
+  onPublish: (uri: string, onStep: (s: string) => void) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [uri, setUri] = useState("");
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
-  const [warn, setWarn] = useState("");
   const [error, setError] = useState("");
 
   const value = uri.trim();
@@ -47,18 +41,10 @@ export function PublishWorkspace({
     if (!value || bad || busy) return;
     setBusy(true);
     setError("");
-    setWarn("");
     void onPublish(value, setStep)
-      .then(({ registered }) => {
-        if (registered) {
-          setOpen(false);
-          setUri("");
-          return;
-        }
-        // The push LANDED. Closing on a success message would hide the half that did not.
-        setWarn(
-          "Poussé, mais le dépôt n'a pas pu être inscrit — l'adresse courte ne résoudra pas tant que ce n'est pas fait.",
-        );
+      .then(() => {
+        setOpen(false);
+        setUri("");
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => {
@@ -106,11 +92,6 @@ export function PublishWorkspace({
                 {step || "publication…"}
               </p>
             )}
-            {warn && (
-              <p className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-400 text-xs">
-                {warn}
-              </p>
-            )}
             {/* git's own words: "Permission denied (publickey)" is the whole answer, and ours would be worse. */}
             {error && (
               <code className="max-w-full overflow-x-auto whitespace-pre-wrap rounded bg-muted px-2 py-1 text-red-400 text-xs">
@@ -125,7 +106,7 @@ export function PublishWorkspace({
               disabled={busy}
               onClick={() => setOpen(false)}
             >
-              {warn ? "Fermer" : "Annuler"}
+              Annuler
             </Button>
             <Button disabled={busy || !value || Boolean(bad)} onClick={submit}>
               {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}

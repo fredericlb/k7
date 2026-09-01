@@ -5,13 +5,9 @@
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
-import type {
-  MachineWorkspace,
-  RepoProject,
-  RepoSummary,
-} from "@studio/web-protocol";
+import type { MachineWorkspace, RepoProject } from "@studio/web-protocol";
 import type { PaletteArg, PaletteCommand } from "../components/CommandBar";
-import { engineMachine, type Machine, projects as registry } from "./api";
+import { engineMachine, type Machine } from "./api";
 import {
   copyProjectOnMachine,
   createLocalWorkspace,
@@ -115,8 +111,8 @@ export const HOME_COMMANDS: {
   {
     canonical: "system repo add",
     readable: {
-      en: "Register a repository and clone it here",
-      fr: "Inscrire un dépôt et le cloner ici",
+      en: "Clone a repository onto this machine",
+      fr: "Cloner un dépôt sur cette machine",
     },
     args: [
       {
@@ -124,16 +120,6 @@ export const HOME_COMMANDS: {
         kind: "text",
         hint: "an SSH URI — git@host:user/repo.git",
       },
-    ],
-  },
-  {
-    canonical: "system repo remove",
-    readable: {
-      en: "Take a repository out of the register",
-      fr: "Retirer un dépôt du registre",
-    },
-    args: [
-      { name: "repo_name", kind: "choice", hint: "a registered repository" },
     ],
   },
   {
@@ -169,7 +155,6 @@ export function buildHomePalette(locale: string): PaletteCommand[] {
 export interface HomeContext {
   machine: Machine | null;
   workspaces: MachineWorkspace[];
-  repos: RepoSummary[];
   /** The workspace the address has unfolded (`?ws=`), or null. */
   openWs: string | null;
 }
@@ -240,9 +225,7 @@ export function homeArgValues(
   // Only the ones that HAVE none: offering the rest would offer an act that is refused by definition.
   if (canonical === "system workspace publish" && argIndex === 0)
     return ctx.workspaces.filter((w) => !w.origin).map((w) => w.name);
-  if (canonical === "system repo remove" && argIndex === 0)
-    return ctx.repos.map((r) => r.name);
-  // …and SYNC offers what the MACHINE holds rather than what pl8 registers: a clone added by hand is still one you can push.
+  // SYNC offers what the MACHINE holds: a clone added by hand is one you can push like any other.
   if (canonical === "system repo sync" && argIndex === 0)
     return ctx.workspaces.map((w) => w.repoName || w.name);
   return [];
@@ -262,8 +245,6 @@ export interface HomeActs {
   clone: typeof ensureWorkspace;
   newWorkspace: typeof createLocalWorkspace;
   publish: typeof publishWorkspace;
-  addRepo: (uri: string) => Promise<unknown>;
-  forgetRepo: (id: string) => Promise<unknown>;
   command: typeof engineMachine.command;
 }
 
@@ -274,8 +255,6 @@ export const HOME_ACTS: HomeActs = {
   clone: ensureWorkspace,
   newWorkspace: createLocalWorkspace,
   publish: publishWorkspace,
-  addRepo: (uri) => registry.add(uri),
-  forgetRepo: (id) => registry.remove(id),
   command: engineMachine.command,
 };
 
@@ -485,15 +464,9 @@ export async function runHomeCommand(
       const m = machineOf(d);
       if (!m) return true;
       try {
-        const { registered } = await d.acts.publish(m, name, uri, d.say, (u) =>
-          d.acts.addRepo(u),
-        );
+        await d.acts.publish(m, name, uri, d.say);
         d.changed();
-        d.say(
-          registered
-            ? `${name} publié — /${repoShortName(uri)}/… se résout maintenant`
-            : `${name} poussé, mais le dépôt n'a pas pu être inscrit — l'adresse courte ne se résout pas`,
-        );
+        d.say(`${name} publié — le dépôt est en place et l'espace poussé`);
       } catch (e) {
         d.refuse(`system workspace publish: ${(e as Error).message}`);
       }
@@ -506,38 +479,12 @@ export async function runHomeCommand(
       const m = machineOf(d);
       if (!m) return true;
       try {
-        // The REGISTER first, then the clone: pl8 is what makes `/<dépôt>/<projet>` resolve from any machine.
-        await d.acts.addRepo(uri);
-        d.changed();
         const ws = await d.acts.clone(m, uri, d.say);
         d.say(`+ ${ws}`);
       } catch (e) {
         d.refuse(`system repo add: ${(e as Error).message}`);
       } finally {
         d.changed();
-      }
-      return true;
-    }
-
-    case "system repo remove": {
-      if (!rest) return use(d.refuse, "usage: system repo remove <dépôt>");
-      const repo = d.repos.find((r) => r.name === rest || r.id === rest);
-      if (!repo)
-        return use(
-          d.refuse,
-          `aucun dépôt inscrit sous « ${rest} »${
-            d.repos.length ? ` — ${d.repos.map((r) => r.name).join(", ")}` : ""
-          }`,
-        );
-      try {
-        await d.acts.forgetRepo(repo.id);
-        d.changed();
-        // Said out loud, because the row does NOT go away: what changes is the address, not somebody's files.
-        d.say(
-          `${repo.name} retiré du registre — les fichiers restent, l'adresse /${repo.name}/… ne se résout plus`,
-        );
-      } catch (e) {
-        d.refuse(`system repo remove: ${(e as Error).message}`);
       }
       return true;
     }
@@ -580,10 +527,6 @@ const projectGripe = (ws: MachineWorkspace, name: string): string =>
   `aucun projet « ${name} » dans ${ws.name}${
     ws.projects.length ? ` — ${ws.projects.map((x) => x.path).join(", ")}` : ""
   }`;
-
-/** The last segment of an SSH URI without `.git` — what pl8 will file it under, and what the address carries. */
-const repoShortName = (uri: string): string =>
-  (uri.split("/").pop() ?? uri).replace(/\.git$/i, "");
 
 /** Say it and answer `true` — the branches above are one statement each because of it. */
 function use(to: (s: string) => void, text: string): boolean {

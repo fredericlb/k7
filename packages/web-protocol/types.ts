@@ -752,16 +752,6 @@ export interface RepoRef {
   uri: string;
 }
 
-/** One git repository a person REGISTERED with pl8 — the register and nothing inside it; see docs/machine.md. */
-export interface RepoSummary {
-  id: string;
-  uri: string;
-  /** The SHORT name, derived from `uri` so the two cannot drift — the half of an address a person reads. */
-  name: string;
-  label: string;
-  addedAt: string;
-}
-
 /** One frozen snapshot a person shared — the AUTHOR's view, which no public route serves; see docs/machine.md. */
 export interface ShareSummary {
   /** `sha256(token)` — the directory's name on the volume, and the `:key` in every route. */

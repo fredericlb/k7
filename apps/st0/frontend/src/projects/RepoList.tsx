@@ -75,22 +75,22 @@ export function RepoList({
   workspaces: MachineWorkspace[];
   busy: boolean;
   error: string | null;
-  /** Where the running clone is, in git's own words, or null — adding a repository CLONES it, or it would be registered and invisible here. */
+  /** Where the running clone is, in git's own words, or null. */
   adding: string | null;
   hasMachine: boolean;
-  /** Register a repository and clone it — the Import button's act. */
+  /** Clone a repository onto this machine — the Import button's act. */
   onImport: (uri: string) => Promise<void>;
   /** A workspace of one's own, git-initialised here with no repository behind it and nothing in it. */
   onCreateWorkspace: (
     workspace: string,
     onStep: (s: string) => void,
   ) => Promise<void>;
-  /** Its first repository: the remote, the push, and the register — offered on a local workspace only. */
+  /** Its first repository: the remote and the push — offered on a local workspace only. */
   onPublish: (
     ws: MachineWorkspace,
     uri: string,
     onStep: (s: string) => void,
-  ) => Promise<{ registered: boolean }>;
+  ) => Promise<void>;
   onOpen: (ws: MachineWorkspace) => void;
   /** Why create and delete are impossible, or "" — both go through the machine, which is also what READS this list (../../docs/projects.md). */
   blocked: string;
@@ -114,8 +114,6 @@ export function RepoList({
     folder: string,
     onStep: (s: string) => void,
   ) => Promise<void>;
-  /** The pl8-registered repository behind this workspace, or null — what makes the portable address resolvable, and what can be removed. */
-  /** Take the repository out of the register — the folder stays: removing a name from a list deletes nobody's files. */
   /** A project's address in ITS app — an address and not an action: the row is a link, opening in a new tab. */
   projectHref: (ws: MachineWorkspace, project: RepoProject) => string;
   /** …and where the WORKSPACE opens, for a row that has no project to link to yet. */

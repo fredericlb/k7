@@ -329,17 +329,6 @@ export function externalOf(projectUrl: string, surface: string): string {
   return `${projectUrl}/${EXTERNAL_SEGMENT}/${encodeSegment(surface)}`;
 }
 
-/**
- * The register's revision when there is NO register — the desktop's shim answers it where no
- * server is configured. It is not "the register is empty": there is nothing to be absent from,
- * so a screen must not offer to add anything to it. See apps/st0/frontend/docs/projects.md.
- */
-export const NO_REGISTER = "offline";
-
-/** Is there an account register at all behind this revision? */
-export const hasRegister = (revision: string): boolean =>
-  revision !== NO_REGISTER;
-
 /** The MENU of those addresses, `/external` — a RESERVED repository short name; see docs/addresses.md. */
 export const EXTERNAL_INDEX = "external";
 

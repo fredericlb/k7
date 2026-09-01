@@ -4,7 +4,7 @@
 // whose sentence is missing or too long to read — the same rules commandSpec.test.ts holds the
 // brain's to, said here for the half that never reaches it.
 
-import type { MachineWorkspace, RepoSummary } from "@studio/web-protocol";
+import type { MachineWorkspace } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import {
   buildHomePalette,
@@ -36,14 +36,6 @@ const ws = (
   projects: projects.map((path) => ({ path, app: "st0" })),
 });
 
-const repo = (name: string): RepoSummary => ({
-  id: `id-${name}`,
-  uri: `git@h:u/${name}.git`,
-  name,
-  label: name,
-  addedAt: "2026-01-01",
-});
-
 /** What each act was called with — the whole point of injecting them. */
 interface Seen {
   create: unknown[][];
@@ -52,15 +44,12 @@ interface Seen {
   clone: unknown[][];
   newWorkspace: unknown[][];
   publish: unknown[][];
-  addRepo: string[];
-  forgetRepo: string[];
   command: { workspace: string; line: string }[];
 }
 
 function harness(
   over: Partial<{
     workspaces: MachineWorkspace[];
-    repos: RepoSummary[];
     openWs: string | null;
     machine: Machine | null;
     gripe: string | null;
@@ -73,8 +62,6 @@ function harness(
     clone: [],
     newWorkspace: [],
     publish: [],
-    addRepo: [],
-    forgetRepo: [],
     command: [],
   };
   const said: string[] = [];
@@ -103,17 +90,8 @@ function harness(
       seen.newWorkspace.push([m, workspace]);
       return { workspace };
     },
-    publish: async (m, workspace, uri, _onStep, register) => {
+    publish: async (m, workspace, uri) => {
       seen.publish.push([m, workspace, uri]);
-      // The real one registers through pl8; the fake takes the same road so the call is seen.
-      await register(uri);
-      return { registered: true };
-    },
-    addRepo: async (uri: string) => {
-      seen.addRepo.push(uri);
-    },
-    forgetRepo: async (id: string) => {
-      seen.forgetRepo.push(id);
     },
     command: async (_m, workspace, line) => {
       seen.command.push({ workspace, line });
@@ -123,7 +101,6 @@ function harness(
   const deps = {
     machine: over.machine === undefined ? MACHINE : over.machine,
     workspaces: over.workspaces ?? [ws("songs", ["hiver.st0"])],
-    repos: over.repos ?? [repo("songs")],
     openWs: over.openWs ?? null,
     acts,
     say: (t: string) => said.push(t),
@@ -186,7 +163,6 @@ describe("which repository a project verb lands in", () => {
     const found = resolveWorkspace({
       machine: MACHINE,
       workspaces: [ws("a"), ws("b")],
-      repos: [],
       openWs: "b",
     });
     expect("ws" in found && found.ws.name).toBe("b");
@@ -196,7 +172,6 @@ describe("which repository a project verb lands in", () => {
     const found = resolveWorkspace({
       machine: MACHINE,
       workspaces: [ws("a")],
-      repos: [],
       openWs: null,
     });
     expect("ws" in found && found.ws.name).toBe("a");
@@ -206,7 +181,6 @@ describe("which repository a project verb lands in", () => {
     const found = resolveWorkspace({
       machine: MACHINE,
       workspaces: [ws("a"), ws("b")],
-      repos: [],
       openWs: null,
     });
     expect("error" in found && found.error).toMatch(/a, b/);
@@ -227,10 +201,9 @@ describe("what a field offers", () => {
   const ctx = {
     machine: MACHINE,
     workspaces: [ws("songs", ["hiver.st0"], "songs")],
-    repos: [repo("songs"), repo("band")],
     openWs: null,
   };
-  it("the five archetypes, the projects, the repositories", () => {
+  it("the five archetypes and the projects", () => {
     expect(homeArgValues("project new", 0, ctx)).toEqual([
       "arrangement",
       "mix",
@@ -240,14 +213,10 @@ describe("what a field offers", () => {
       "live-video",
     ]);
     expect(homeArgValues("project delete init", 0, ctx)).toEqual(["hiver.st0"]);
-    expect(homeArgValues("system repo remove", 0, ctx)).toEqual([
-      "songs",
-      "band",
-    ]);
   });
 
-  it("offers SYNC what the machine holds, not what pl8 registers", () => {
-    // A clone added by hand is still one you can commit and push; offering only registered names would hide the workspace it is about.
+  it("offers SYNC every workspace the machine holds", () => {
+    // A clone added by hand is still one you can commit and push, so the list is the machine's.
     const local = { ...ctx, workspaces: [ws("local-only", [], null)] };
     expect(homeArgValues("system repo sync", 0, local)).toEqual(["local-only"]);
   });
@@ -378,7 +347,6 @@ describe("project copy", () => {
     const ctx = {
       machine: MACHINE,
       workspaces: [ws("songs", ["hiver.st0"]), ws("band"), solo],
-      repos: [],
       openWs: "songs",
     };
     expect(homeArgValues("project copy", 1, ctx)).toEqual(["band"]);
@@ -432,25 +400,10 @@ describe("project delete, in two halves", () => {
 });
 
 describe("system repo", () => {
-  it("registers a repository, THEN clones it", async () => {
+  it("clones a repository onto the machine", async () => {
     const h = harness();
     await h.run("system repo add git@h:u/band.git");
-    expect(h.seen.addRepo).toEqual(["git@h:u/band.git"]);
     expect(h.seen.clone).toEqual([["git@h:u/band.git"]]);
-  });
-
-  it("forgets by NAME, and says the files stay", async () => {
-    const h = harness({ repos: [repo("songs"), repo("band")] });
-    await h.run("system repo remove band");
-    expect(h.seen.forgetRepo).toEqual(["id-band"]);
-    expect(h.said.join(" ")).toMatch(/les fichiers restent/);
-  });
-
-  it("refuses a repository nobody registered, and names the ones there are", async () => {
-    const h = harness({ repos: [repo("songs")] });
-    await h.run("system repo remove nope");
-    expect(h.refused.join(" ")).toMatch(/songs/);
-    expect(h.seen.forgetRepo).toEqual([]);
   });
 
   it("syncs by PULLING first, then committing and pushing", async () => {
@@ -495,13 +448,11 @@ describe("system workspace new", () => {
 });
 
 describe("system workspace publish", () => {
-  it("sets the remote and registers the repository, in that order", async () => {
+  it("sets the remote and pushes", async () => {
     const h = harness();
     await h.run("system workspace publish songs git@h:u/songs.git");
     expect(h.seen.publish).toEqual([[MACHINE, "songs", "git@h:u/songs.git"]]);
-    // The register is what makes the short address resolve, so it is part of publishing.
-    expect(h.seen.addRepo).toEqual(["git@h:u/songs.git"]);
-    expect(h.said.join(" ")).toMatch(/\/songs\//);
+    expect(h.said.join(" ")).toMatch(/publié/);
   });
 
   it("refuses a workspace that already has one rather than letting git say so later", async () => {
@@ -519,7 +470,6 @@ describe("system workspace publish", () => {
       homeArgValues("system workspace publish", 0, {
         machine: MACHINE,
         workspaces,
-        repos: [],
         openWs: null,
       }),
     ).toEqual(["local"]);
