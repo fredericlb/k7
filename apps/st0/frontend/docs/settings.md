@@ -1,7 +1,8 @@
 # The settings panel, and the line it draws
 
 The cog on the home page opens a panel **docked at the right**, beside the repositories rather
-than over them. `settings/HomeSettings.tsx`. It is the same shape the editor's own cog uses
+than over them. `settings/HomeSettings.tsx`, opening and closing through the same
+`components/RightPanel.tsx` the editor's column uses. It is the same shape the editor's own cog uses
 (`components/SettingsPanel.tsx`), and for the same reason: settings are set while you look at
 what they affect.
 

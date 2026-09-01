@@ -104,6 +104,7 @@ import { PaneSplitter } from "./components/PaneSplitter";
 import type { RollHandle } from "./components/PianoRoll";
 import { PlaylistsPanel } from "./components/PlaylistsPanel";
 import { RackBuilder } from "./components/RackBuilder";
+import { RightPanel } from "./components/RightPanel";
 import { SeqGridPane } from "./components/SeqGridPane";
 import {
   isSettingsTab,
@@ -3397,41 +3398,46 @@ export default function App({
             </div>
 
             {/* THE RIGHT COLUMN — one of three panels, docked beside the panes; none is a pane and `rightPanel` makes them exclusive (docs/shell.md). */}
-            {rightPanel === "settings" && (
-              <SettingsPanel
-                tab={settingsTab}
-                engine={engineRef.current ?? null}
-                vimMode={vimMode}
-                onRun={runCommand}
-                onClose={() => setRightPanel(null)}
-              />
-            )}
-            {rightPanel === "playlists" && (
-              <PlaylistsPanel
-                vimMode={vimMode}
-                onRun={runCommand}
-                onClose={() => setRightPanel(null)}
-              />
-            )}
-            {rightPanel === "comments" && snapshot && (
-              <CommentsPanel
-                base={snapshot.base}
-                store={store}
-                onSeek={seek}
-                onClose={() => setRightPanel(null)}
-              />
-            )}
-            {rightPanel === "share" && (
-              <SharePanel
-                gitStatus={gitStatus}
-                busy={share.busy}
-                externals={externals}
-                lanUrls={lanUrls}
-                hasPicture={!!videoDoc}
-                onRun={(c) => void runCommand(c)}
-                onClose={() => setRightPanel(null)}
-              />
-            )}
+            <RightPanel
+              open={rightPanel !== null}
+              width={rightPanel === "comments" ? "w-[22rem]" : "w-[24rem]"}
+            >
+              {rightPanel === "settings" && (
+                <SettingsPanel
+                  tab={settingsTab}
+                  engine={engineRef.current ?? null}
+                  vimMode={vimMode}
+                  onRun={runCommand}
+                  onClose={() => setRightPanel(null)}
+                />
+              )}
+              {rightPanel === "playlists" && (
+                <PlaylistsPanel
+                  vimMode={vimMode}
+                  onRun={runCommand}
+                  onClose={() => setRightPanel(null)}
+                />
+              )}
+              {rightPanel === "comments" && snapshot && (
+                <CommentsPanel
+                  base={snapshot.base}
+                  store={store}
+                  onSeek={seek}
+                  onClose={() => setRightPanel(null)}
+                />
+              )}
+              {rightPanel === "share" && (
+                <SharePanel
+                  gitStatus={gitStatus}
+                  busy={share.busy}
+                  externals={externals}
+                  lanUrls={lanUrls}
+                  hasPicture={!!videoDoc}
+                  onRun={(c) => void runCommand(c)}
+                  onClose={() => setRightPanel(null)}
+                />
+              )}
+            </RightPanel>
           </div>
 
           {/* bottom split panel — available on every tab, resizable divider */}

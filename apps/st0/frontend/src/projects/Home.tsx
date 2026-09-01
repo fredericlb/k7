@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, engines } from "../api";
 import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
+import { RightPanel } from "../components/RightPanel";
 import { desktop } from "../desktop";
 import { useLocale } from "../i18n";
 import { HomeSettings } from "../settings/HomeSettings";
@@ -347,9 +348,9 @@ export function Home() {
             onOpenSettings={() => setSettingsOpen(true)}
           />
         </div>
-        {settingsOpen && (
+        <RightPanel open={settingsOpen} width="w-[24rem]">
           <HomeSettings onClose={() => setSettingsOpen(false)} />
-        )}
+        </RightPanel>
       </div>
 
       {/* The bar, full width at the bottom on the editor's own terms, with what it said held above it in amber (../../docs/commandBar.md). */}

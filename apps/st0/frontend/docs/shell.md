@@ -550,6 +550,14 @@ The end of the bar holds three buttons, and each toggles a panel **docked at the
 `rightPanel` in `App` is one value and not three booleans, because there is **one column**: two panels
 open at once would be two columns, and the panes have already given up the width for one.
 
+**The column animates its WIDTH** (`components/RightPanel.tsx`), because the panels push the panes
+rather than cover them — a slide-over would promise the panes had not moved. There is one wrapper
+holding whichever panel is open, not one per panel: two wrappers mid-swap would be two columns for
+the length of an animation, squeezing the panes and releasing them for nothing. The panel inside
+keeps its own width and is clipped, so nothing reflows while the column travels, and the content
+being drawn on the way OUT is the last one open — by then the caller has stopped choosing a panel.
+`motion-reduce` skips the travel.
+
 Three panels rather than one set of tabs, because they are three different verbs — what you **set**, what
 you **play from**, what you **send**. Settings are things you set and leave, a set list is a thing you
 work from. Nor is the share a dropdown, which is the wrong shape for a surface that *reports* — a pull
