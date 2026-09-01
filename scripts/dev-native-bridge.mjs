@@ -46,13 +46,20 @@ function mirrorOnce(sub = "") {
       "/R:1",
       "/W:1",
     ],
-    { encoding: "utf8" },
+    // 64 MB: a PURGING pass prints a line per extra directory, and the 1 MB default bursts the
+    // moment a large tree leaves the source — which is exactly what renaming a directory does.
+    { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
   );
+  // A spawn that never ran has no status, and calling that "16" sends the reader to the share.
+  if (r.error) throw new Error(`robocopy did not run: ${r.error.message}`);
   // Robocopy answers a BITMASK: 0-7 is success, 8 and up is not. Only bit 1 means COPIED — bit 2
   // is "extras at the destination", which the skipped build output sets on every single pass.
   const code = r.status ?? 16;
+  // Its own last words, or the reason is only ever guessed at from the number.
   if (code >= 8)
-    throw new Error(`robocopy answered ${code} — is ${SOURCE} reachable?`);
+    throw new Error(
+      `robocopy answered ${code}\n${(r.stdout || "").trim().slice(-2000)}`,
+    );
   return (code & 1) !== 0;
 }
 
