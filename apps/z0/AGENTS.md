@@ -35,7 +35,7 @@ and is not a style choice.
 
 **The dev proxy's path table is not in this repo** — it is traefik on the LAN server. What
 stands here instead is the table in the root [docs/dev.md](../../docs/dev.md), which the other
-machine must mirror, and `apps/studio/docker/nginx.conf`, which is the same routing for
+machine must mirror, and `docker/nginx.conf`, which is the same routing for
 production. Every SPA here needs its own rule, ordered so the `/z0` catch-all comes last, or an
 address lands on the game.
 

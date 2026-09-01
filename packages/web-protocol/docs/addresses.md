@@ -93,7 +93,7 @@ st0 is mounted at the ORIGIN ROOT, so its `base` is `/` and the repository is th
 segment. Which makes every prefix the origin claims above st0 — `/pl8`, `/k7`, `/z0`, `/api`,
 `/auth`, and in dev `/dev`, `/console`, `/dev-status` — a repository short name that can never be
 opened: the request never reaches this app. Nothing in `parseLaunch` can detect that, and nothing
-should try; it is the edge's routing table, and `apps/studio/docker/nginx.conf` is where it is
+should try; it is the edge's routing table, and `docker/nginx.conf` is where it is
 written down. z0's editor keeps a prefix and is unaffected.
 
 **Where the project ends** is decided by the folder's own name, the same rule as `projectApp`: the

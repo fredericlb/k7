@@ -86,7 +86,7 @@ They are named `@studio/*` rather than `@st0/*` because st0 is only one of
 their consumers: `apps/pl8` drives them too, and z0's moteur-backed player sits
 behind the seam `@studio/player-web` provides.
 
-**In production the four apps above are ONE image**, `apps/studio/docker/` — st0 at the
+**In production the four apps above are ONE image**, `docker/` — st0 at the
 origin root, pl8, k7 and z0 under their prefixes, four backends beside one nginx that owns
 the path routing. Same shape as phare's monolith, and for the same reason: they share a
 hostname and a session cookie, so four images would only mean the edge holds a path table

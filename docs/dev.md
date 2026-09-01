@@ -14,7 +14,7 @@ npm run vscode                     # the browser editor at /dev, on its own
 `studio.frediver.se`, which is the point: the two differ by their origin and nothing else.
 
 > **The LAN proxy's path table lives on the other machine.** It is the one piece of this
-> topology not versioned here, and it must mirror `apps/studio/docker/nginx.conf`, which is
+> topology not versioned here, and it must mirror `docker/nginx.conf`, which is
 > versioned. What that file says, as ports:
 >
 > | path | goes to | |

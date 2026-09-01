@@ -68,7 +68,7 @@ jobs:
   - type: BuildImageStep
     name: build and push image
     buildPath: .
-    dockerfile: apps/studio/docker/Dockerfile
+    dockerfile: docker/Dockerfile
     output:
       type: RegistryOutput
       tags: dev.frediver.se/frediverse/studio/studio:latest dev.frediver.se/frediverse/studio/studio:@commit_hash@ dev.frediver.se/frediverse/studio/studio:@build_version@

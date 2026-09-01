@@ -9,7 +9,7 @@ on its own reads like an arbitrary choice.
 The proxy handles z0 in three blocks, and the order matters because the more specific rule
 has to win over the `/z0` catch-all. It is traefik on the LAN server — see the root
 [docs/dev.md](../../../docs/dev.md) for the table it must hold, and
-`apps/studio/docker/nginx.conf` for the production twin, where nginx's longest-prefix rule
+`docker/nginx.conf` for the production twin, where nginx's longest-prefix rule
 does the ordering instead.
 
 - `/z0/api/*` — prefix **stripped**. The backend keeps seeing `/api/...` exactly as it

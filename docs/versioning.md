@@ -10,7 +10,7 @@ the same string.
 
 ## ONE image, like phare's
 
-Every hosted app of this repo ships in a single container — `apps/studio/docker/` —
+Every hosted app of this repo ships in a single container — `docker/` —
 st0 at the origin root, pl8 and k7 under their prefixes, z0's six SPAs under `/z0`, four
 backends beside one nginx that owns the path routing.
 
@@ -26,7 +26,7 @@ phare keeps douane out of its monolith because it fronts Authelia and deploys on
 cadence. **Nothing here plays that part**, so the studio image holds everything —
 `engine/moteur` and `apps/st0-desktop` excepted, and those are not server software at all:
 they run on the musician's machine, beside the audio interface. The desktop app lives under
-`apps/` and is still not in the image — `turbo prune` in `apps/studio/docker/Dockerfile`
+`apps/` and is still not in the image — `turbo prune` in `docker/Dockerfile`
 names its packages one by one rather than globbing the directory, which is what keeps that
 true without anyone having to remember it.
 
@@ -69,7 +69,7 @@ Phare writes the variable as a command prefix on the `RUN` line. That works ther
 its monolith builds each SPA on its own `RUN`… and would not survive being written as a
 chain, which is exactly the shape studio needs.
 
-`apps/studio/docker/Dockerfile` builds **nine** SPAs in one `&&` chain. A shell
+`docker/Dockerfile` builds **nine** SPAs in one `&&` chain. A shell
 command-prefix assignment applies to the first command only, so
 `VITE_APP_VERSION=x npm run build -w a && npm run build -w b` stamps `a` and silently
 ships the other eight as `dev`. Nothing fails; you just get eight wrong SPAs in a

@@ -68,7 +68,7 @@ routes can only be served by the service that has no prefix — st0. See
 FIRST segment is a repository's short name: there is no segment that can be added here without
 reading as a repository to open. That is also what makes a repository called `pl8`, `k7`, `z0`,
 `api` or `auth` unopenable — the origin claims those prefixes ahead of st0 and the request never
-reaches here (`apps/studio/docker/nginx.conf`). The unfolded workspace travels in the **query**,
+reaches here (`docker/nginx.conf`). The unfolded workspace travels in the **query**,
 which is exactly what a SPA router owns — the argument of
 [packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md) taken
 the other way — and it bookmarks, copies, and answers the back button.

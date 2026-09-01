@@ -1268,7 +1268,7 @@ controls `/pl8`, `/k7`, `/z0`, `/api` and `/auth`, which no other app on this or
 mounted under a `base`, their workers reach nothing but their own prefix. The only thing keeping st0's
 honest is the `pwaDenylist` it passes to `defineAppConfig`: without it, a navigation to `/pl8` is answered
 with st0's `index.html` and the médiathèque becomes a white page with the editor's router refusing an
-address it cannot parse. That list is the same table as `apps/studio/docker/nginx.conf`'s locations — two
+address it cannot parse. That list is the same table as `docker/nginx.conf`'s locations — two
 copies of one fact, and this is the one a browser enforces. **Check it first if another app on this origin
 ever serves the editor's shell.**
 

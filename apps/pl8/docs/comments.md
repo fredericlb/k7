@@ -22,7 +22,7 @@ person who left a note and cannot find it will not write a second one.
 
 SQLite is `node:sqlite` — **no dependency at all**, and no native build in an image that has none
 to spare. It is still behind `--experimental-sqlite` on Node 22, which is the base image's runtime,
-so `apps/studio/docker/run-backends.sh` passes it to pl8's process alone; the flag is accepted as a
+so `docker/run-backends.sh` passes it to pl8's process alone; the flag is accepted as a
 no-op from Node 24, so the day the base image moves nothing here has to.
 
 The file is `<media library>/.shares/comments.db`, inside the dot-folder `writablePath` already

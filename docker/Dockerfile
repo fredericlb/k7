@@ -106,8 +106,8 @@ COPY --from=frontend-build /app/apps/z0/remote/dist /usr/share/nginx/html/z0/rem
 COPY --from=frontend-build /app/apps/z0/editor/dist /usr/share/nginx/html/z0/editor
 COPY --from=frontend-build /app/apps/z0/presenter/dist /usr/share/nginx/html/z0/presenter
 COPY --from=frontend-build /app/apps/z0/monitor-web/dist /usr/share/nginx/html/z0/monitor
-COPY apps/studio/docker/nginx.conf /etc/nginx/http.d/default.conf
-COPY apps/studio/docker/run-backends.sh /run-backends.sh
+COPY docker/nginx.conf /etc/nginx/http.d/default.conf
+COPY docker/run-backends.sh /run-backends.sh
 RUN chmod +x /run-backends.sh
 
 # Three volumes, three different things worth keeping, all on distinct paths:
