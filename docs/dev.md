@@ -88,6 +88,9 @@ read by the `Tiltfile`) instead of spelling out seventeen entries, so a new app 
 existing. It runs over every workspace package that has a `dev` script and drops three
 kinds, each for a reason:
 
+- **`st0-tray`**, whose `dev` is `tauri dev` — the tool for a human watching a terminal.
+  Here it would fight the native monitor for the same single-instance tray, and its
+  `predev` stages a sidecar the monitor has not built yet.
 - **the `apps/<x>` aggregators**, whose `dev` is itself `turbo run dev --filter=…` over
   their own children. Running the parent *and* the children would start every server
   twice.
