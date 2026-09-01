@@ -1,0 +1,204 @@
+# The desktop release — the half of the repo the hosted image never carries.
+#
+# `docker/` ships the four web apps; these two ship to a musician's machine, and they are
+# native: engine/st0-engine (C++, CMake) and engine/st0-tray (Rust, Tauri). One job per
+# desktop, each producing ONE archive — the engine binary beside the tray's installer.
+#
+# It is the only workflow here that compiles the C++ engine. st0.yml deliberately does not:
+# a cold configure fetches JUCE, Tracktion, Faust, Eigen and NAM, so this is tens of minutes
+# per platform and belongs on a release cadence, not on every push. Hence the `decide` gate
+# below — a master push that touched only apps/ or docs/ does not pay for three native builds.
+#
+# What it does NOT do is SIGN anything. The macOS .dmg is unsigned and unnotarised, the
+# Windows installer unsigned; both warn on first launch. See docs/desktop-release.md.
+
+name: desktop
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+# Three native builds are far too expensive to leave a superseded one running.
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # the release and its assets
+
+jobs:
+  decide:
+    name: what to build
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      publish: ${{ steps.plan.outputs.publish }}
+      channel: ${{ steps.plan.outputs.channel }}
+      tag: ${{ steps.plan.outputs.tag }}
+      stamp: ${{ steps.plan.outputs.stamp }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the push's `before` commit, to diff against
+
+      # A `paths:` filter would have done this, except that it is also applied to TAG pushes,
+      # where the push carries no commit list and therefore matches nothing — the release
+      # would silently never run. So the filter is a diff here, and tags skip it entirely.
+      - id: plan
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF" in
+            refs/tags/*)
+              channel=release; tag="${GITHUB_REF#refs/tags/}"; stamp="$tag" ;;
+            *)
+              channel=snapshot; tag=snapshot
+              stamp="snapshot-$(git rev-parse --short HEAD)" ;;
+          esac
+
+          build=yes
+          if [ "$channel" = snapshot ] && [ "$GITHUB_EVENT_NAME" = push ] \
+             && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            git diff --name-only "$BEFORE" HEAD > changed.txt
+            # packages/ in full: both bundled .mjs are esbuilt out of most of that tier.
+            grep -qE '^(engine/|packages/|package-lock\.json|\.github/workflows/desktop\.yml)' \
+              changed.txt || build=no
+          fi
+
+          # A dispatch on a side branch still builds, so it can be tested — it just publishes nothing.
+          publish=no
+          if [ "$build" = yes ] && { [ "$channel" = release ] || [ "$GITHUB_REF" = refs/heads/master ]; }; then
+            publish=yes
+          fi
+
+          printf '%s\n' "build=$build" "publish=$publish" "channel=$channel" \
+                        "tag=$tag" "stamp=$stamp" | tee -a "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.label }}
+    needs: decide
+    if: needs.decide.outputs.build == 'yes'
+    runs-on: ${{ matrix.os }}
+    # One platform's toolchain failing must not throw away the two archives that did build.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # windows-msvc-2022, not windows-msvc: the runner image carries Visual Studio 2022,
+          # and the VS 18 2026 generator the dev machine uses is not there to select.
+          - os: windows-latest
+            label: windows-x64
+            preset: windows-msvc-2022
+          # macos-latest is arm64. An Intel build is one more entry here (preset macos-clang,
+          # os macos-13); nobody has asked for one, and a macOS runner minute is the dearest.
+          - os: macos-latest
+            label: macos-arm64
+            preset: macos-clang
+          - os: ubuntu-latest
+            label: linux-x64
+            preset: release-gcc
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine/st0-tray/src-tauri
+          key: ${{ matrix.label }}
+
+      # Two sets in one: what Tauri needs to link a GTK tray app, and what JUCE needs for
+      # ALSA/JACK audio and X11. Both are absent from the runner image.
+      - name: linux build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf \
+            libayatana-appindicator3-dev libssl-dev \
+            libasound2-dev libjack-jackd2-dev libfreetype6-dev libfontconfig1-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev \
+            libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
+            libcurl4-openssl-dev
+
+      # The macos-clang preset generates Ninja; cmake may or may not be on the image already.
+      - name: macos build deps
+        if: runner.os == 'macOS'
+        run: |
+          for f in cmake ninja; do
+            brew list --formula "$f" >/dev/null 2>&1 || brew install "$f"
+          done
+
+      # The whole monorepo: the two bundled .mjs are esbuilt out of packages/, and the Tauri
+      # CLI is a workspace devDependency of the tray.
+      - run: npm ci
+
+      # The engine, the sidecars, the two Node bundles and the Tauri bundle, in one script —
+      # the same one a developer runs. See engine/st0-tray/scripts/docs/buildEngine.md.
+      - name: engine + tray
+        env:
+          STUDIO_ENGINE_PRESET: ${{ matrix.preset }}
+          # linuxdeploy cannot strip inside the AppImage staging tree on this image.
+          NO_STRIP: "true"
+        run: node engine/st0-tray/scripts/build-engine.mjs
+
+      - name: archive
+        run: >
+          node engine/st0-tray/scripts/package-release.mjs
+          --stamp ${{ needs.decide.outputs.stamp }}
+
+      # Uploaded whether or not this run publishes: a dispatch on a side branch is how a
+      # toolchain change gets tested, and the archive is the only thing worth looking at.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: st0-desktop-${{ matrix.label }}
+          path: |
+            engine/st0-tray/out/dist/*.zip
+            engine/st0-tray/out/dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: publish
+    needs: [decide, build]
+    if: needs.decide.outputs.publish == 'yes'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true # one flat directory, three archives
+
+      # `gh` rather than an action: no checkout is needed and nothing third-party signs off
+      # on what reaches the release page.
+      - name: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.decide.outputs.tag }}
+          STAMP: ${{ needs.decide.outputs.stamp }}
+        run: |
+          set -euo pipefail
+          ls -l dist
+          if [ '${{ needs.decide.outputs.channel }}' = snapshot ]; then
+            # Deleted and recreated rather than edited: `snapshot` is a MOVING tag, and an
+            # existing release keeps its own commit however its assets are replaced.
+            gh release delete "$TAG" --yes --cleanup-tag || true
+            gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
+              --title "snapshot $STAMP" \
+              --notes "Unsigned build of master ($GITHUB_SHA). Replaced by the next one." \
+              dist/*
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes dist/*
+          fi

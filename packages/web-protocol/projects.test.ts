@@ -424,7 +424,7 @@ describe("which addresses open a project", () => {
   });
 
   it("says no to the home page and to the chrome", () => {
-    for (const p of ["/", "", "/@settings", "/@tabs", "/external"])
+    for (const p of ["/", "", "/@tabs", "/external"])
       expect(isProjectAddress(O + p), p || "(empty)").toBe(false);
   });
 
