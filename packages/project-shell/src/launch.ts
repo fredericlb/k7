@@ -14,7 +14,6 @@ export {
   externalOf,
   externalUrl,
   isExternalIndex,
-  isSettings,
   isTabs,
   launchUrl,
   parseExternal,

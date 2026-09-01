@@ -32,8 +32,11 @@ export function ProjectsPane({
   machine,
   onOpen,
   onChanged,
+  onOpenSettings,
 }: {
   /** What the machine holds, projects included — the only source, a project being a folder there. */
+  /** Forwarded to RepoList, whose prose points at the deploy key. */
+  onOpenSettings: () => void;
   workspaces: MachineWorkspace[];
   /** Frozen snapshots published by `project share link` — the account's WHOLE list, cut up by the rows with `sharesOf`. */
   shares: ShareSummary[];
@@ -213,6 +216,7 @@ export function ProjectsPane({
         />
       ) : (
         <RepoList
+          onOpenSettings={onOpenSettings}
           workspaces={workspaces}
           busy={busy}
           error={error}

@@ -32,10 +32,11 @@ const CACHE = join(trayDir, ".cache"); // vendored downloads (gitignored)
 // The Node we vendor: pinned and downloaded, a Homebrew one being a shim (docs/buildEngine.md).
 const NODE_VERSION = "v22.23.1";
 
-// The CMake preset for this host. Linux has no packaged tray target yet, but the engine still builds.
+// The CMake preset for this host, overridable because a CI runner carries an older toolchain (docs/desktop-release.md).
 const PRESET =
-  { darwin: "macos-clang", win32: "windows-msvc" }[process.platform] ??
-  "release-gcc";
+  process.env.STUDIO_ENGINE_PRESET ||
+  ({ darwin: "macos-clang", win32: "windows-msvc" }[process.platform] ??
+    "release-gcc");
 
 function run(cmd, args, cwd, extraEnv, { allowFail = false } = {}) {
   console.log(`\n▸ ${cmd} ${args.join(" ")}\n  in ${cwd}`);
@@ -409,15 +410,15 @@ function buildDevApp() {
       bundle: { externalBin: [], resources: [], targets: ["app"] },
     }),
   );
-  // Windows has no "app" bundle format, so no bundle/ dir is produced — the debug exe IS the dev artifact.
-  const win = process.platform === "win32";
+  // Only macOS has an "app" bundle format, so elsewhere the debug executable IS the dev artifact.
+  const bundled = process.platform === "darwin";
   const status = run(
     tauri.cmd,
     [
       ...tauri.args,
       "build",
       "--debug",
-      ...(win ? ["--no-bundle"] : []),
+      ...(bundled ? [] : ["--no-bundle"]),
       "--config",
       cfgPath,
     ],
@@ -429,15 +430,17 @@ function buildDevApp() {
   mkdirSync(OUT_DEV, { recursive: true });
   const debugDir = join(trayDir, "src-tauri", "target", "debug");
   let got;
-  if (win) {
-    got = [];
-    const exe = join(debugDir, "st0-tray.exe");
-    if (existsSync(exe)) {
-      cpSync(exe, join(OUT_DEV, "st0-tray.exe"));
-      got.push("st0-tray.exe");
-    }
-  } else {
+  if (bundled) {
     got = collectBundles(join(debugDir, "bundle"), OUT_DEV);
+  } else {
+    got = [];
+    const name = process.platform === "win32" ? "st0-tray.exe" : "st0-tray";
+    const exe = join(debugDir, name);
+    if (existsSync(exe)) {
+      cpSync(exe, join(OUT_DEV, name));
+      chmodSync(join(OUT_DEV, name), 0o755);
+      got.push(name);
+    }
   }
   if (!got.length) {
     console.error("error: no dev app produced — check the build output above.");
@@ -454,20 +457,10 @@ function buildDevApp() {
 
 // ── 1. the C++ engine ──────────────────────────────────────────────────────────
 
-// Delegated to the moteur's own build:* npm scripts, and never run in dev (docs/buildEngine.md).
+// Delegated to the moteur's own build.mjs, and never run in dev (docs/buildEngine.md).
 if (!sidecarOnly && !devMode) {
-  const engineScript = {
-    win32: "build:win",
-    darwin: "build:mac",
-  }[process.platform];
-  if (engineScript) {
-    console.log(`\n=== engine (npm run ${engineScript}) ===`);
-    run("npm", ["run", engineScript], engineDir);
-  } else {
-    console.log(`\n=== engine (${PRESET}) ===`);
-    run("cmake", ["--preset", PRESET], engineDir);
-    run("cmake", ["--build", "--preset", PRESET], engineDir);
-  }
+  console.log(`\n=== engine (${PRESET}) ===`);
+  run("node", [join("scripts", "build.mjs"), PRESET], engineDir);
 }
 
 const engineBin = findEngineBinary();
@@ -551,9 +544,13 @@ console.log("\n=== tray (tauri release bundle) ===");
 const tauri = tauriCmd();
 // CI=true skips bundle_dmg.sh's Finder styling, and a dmg failure is non-fatal (docs/buildEngine.md).
 const trayArgs = [...tauri.args, "build"];
-if (process.platform === "win32") {
+// tauri.conf.json asks for "app", which is the macOS wrapper — the other two name their own.
+const releaseTargets = { win32: ["nsis"], linux: ["deb", "appimage"] }[
+  process.platform
+];
+if (releaseTargets) {
   const relCfg = join(tmpdir(), "studio-tray-release-config.json");
-  writeFileSync(relCfg, JSON.stringify({ bundle: { targets: ["nsis"] } }));
+  writeFileSync(relCfg, JSON.stringify({ bundle: { targets: releaseTargets } }));
   trayArgs.push("--config", relCfg);
 }
 const trayStatus = run(

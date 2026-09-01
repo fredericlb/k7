@@ -13,6 +13,7 @@
     "engine:build": "node scripts/build-engine.mjs",
     "engine:dev": "node scripts/build-engine.mjs --dev",
     "engine:sidecar": "node scripts/build-engine.mjs --sidecar-only",
+    "engine:package": "node scripts/package-release.mjs",
     "engine:start": "node scripts/start-engine.mjs",
     "engine:buildstart": "npm run engine:dev && npm run engine:start",
     "tray:restart": "node scripts/restart-tray.mjs",

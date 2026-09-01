@@ -237,27 +237,6 @@ export function localProjectUrl(
   );
 }
 
-/**
- * The settings screen — the desktop app's, mostly. A sentinel rather than a plain `/settings`, for the
- * reason every other one here is: a reserved path would make `settings` a repository name
- * that could never be opened, on the hosted origin too, for ever. `@` cannot begin a git
- * short name, so this costs nobody anything.
- *
- * The engine, the server and the machine's own rows answer only where the app serves st0
- * itself; the Sync tab, which is the account's deploy key, answers on the hosted origin too —
- * see apps/st0-desktop/docs/settings.md.
- */
-export const SETTINGS_REPO = "@settings";
-
-export function isSettings(repo: string): boolean {
-  return repo === SETTINGS_REPO;
-}
-
-/** Where the settings screen is, on whatever origin the app is serving from. */
-export function settingsUrl(origin: string): string {
-  return `${serviceUrl(origin, "st0")}/${SETTINGS_REPO}`;
-}
-
 /** The desktop app's TAB STRIP: a sentinel for the same reason `@settings` is one, and chrome rather than a screen — apps/st0-desktop/docs/tabs.md. */
 export const TABS_REPO = "@tabs";
 
@@ -356,9 +335,7 @@ export function isProjectAddress(url: string): boolean {
   } catch {
     return false; // not an address we can reason about
   }
-  return (
-    head !== "" && !isSettings(head) && !isTabs(head) && head !== EXTERNAL_INDEX
-  );
+  return head !== "" && !isTabs(head) && head !== EXTERNAL_INDEX;
 }
 
 /** …and the whole URL of it: a surface cannot use the router, its basename ending at the project. */

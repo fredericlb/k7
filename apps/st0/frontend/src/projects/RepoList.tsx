@@ -9,7 +9,7 @@ import type {
   RepoProject,
   ShareSummary,
 } from "@studio/web-protocol";
-import { projectLabel, settingsUrl } from "@studio/web-protocol/projects";
+import { projectLabel } from "@studio/web-protocol/projects";
 import {
   CornerDownRight,
   FolderGit2,
@@ -28,9 +28,6 @@ import { ProjectShares } from "./ProjectShares";
 import { PublishWorkspace } from "./PublishWorkspace";
 import { RemoveWorkspace } from "./RemoveWorkspace";
 import { sharesOf } from "./sharesForProject";
-
-// The one link out of this screen, since the key moved: computed rather than spelled, so a service that moves takes it with it.
-const SETTINGS_URL = settingsUrl(globalThis.location?.origin ?? "");
 
 /** The folder's name without its suffix, with the path that places it in the workspace beside it. */
 const nameOf = (p: RepoProject): string =>
@@ -71,7 +68,10 @@ export function RepoList({
   workspaceHref,
   shares,
   onChanged,
+  onOpenSettings,
 }: {
+  /** Opens the settings PANEL beside this list — the key is read there, not on a page. */
+  onOpenSettings: () => void;
   workspaces: MachineWorkspace[];
   busy: boolean;
   error: string | null;
@@ -150,9 +150,13 @@ export function RepoList({
           <span className="text-xs">
             Les bibliothèques et les partages se règlent sans elle, plus bas ;
             la clé de déploiement est dans les{" "}
-            <a href={SETTINGS_URL} className="underline">
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="underline"
+            >
               réglages
-            </a>
+            </button>
             .
           </span>
         </div>
@@ -167,9 +171,13 @@ export function RepoList({
               Rien sur cette machine. <strong>Nouveau</strong> en crée un ici,
               sans dépôt et sans rien à régler ; <strong>Importer</strong> en
               rapatrie un qui existe — et pour celui-là, pensez à ajouter la{" "}
-              <a href={SETTINGS_URL} className="underline">
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="underline"
+              >
                 clé de déploiement
-              </a>{" "}
+              </button>{" "}
               chez votre hébergeur git d'abord.
             </>
           )}

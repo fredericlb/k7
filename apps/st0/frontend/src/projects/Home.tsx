@@ -7,7 +7,7 @@ import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import { AskHost } from "@studio/project-shell/ask";
 import type { MachineWorkspace, ShareSummary } from "@studio/web-protocol";
-import { EXTERNAL_INDEX, SETTINGS_REPO } from "@studio/web-protocol/projects";
+import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
 import {
   Library,
   RefreshCw,
@@ -22,6 +22,7 @@ import { api, engines } from "../api";
 import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
 import { desktop } from "../desktop";
 import { useLocale } from "../i18n";
+import { HomeSettings } from "../settings/HomeSettings";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
 import { engineMachine, pl8Url, shares as sharesApi } from "./api";
 import {
@@ -47,6 +48,7 @@ export function Home() {
   // Asked once: a hosted origin will not grow the route mid-session (../desktop.ts). The
   // SERVER comes back with it, because the catalogue link needs it — see the pl8 button.
   const [isDesktop, setIsDesktop] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [server, setServer] = useState<string | null>(null);
   useEffect(() => {
     void desktop.state().then((d) => {
@@ -279,15 +281,16 @@ export function Home() {
                 hosted app, our origin serves only its offline shim, and `target="_blank"` is
                 what the app turns into `shell.openExternal`. Unpaired there is no catalogue to
                 open, so the button says so instead of linking at a 503. */}
-            {/* Settings — always, and on every build: what it holds is the account's, not the
-                machine's, so a browser reaching this page can reach it (../settings/Settings.tsx). */}
-            <Button variant="ghost" size="sm" asChild>
-              <a
-                href={`${import.meta.env.BASE_URL}${SETTINGS_REPO}`}
-                title="Réglages — la clé de déploiement"
-              >
-                <SlidersHorizontal className="h-4 w-4" /> Réglages
-              </a>
+            {/* Settings — a PANEL and not a page, so the list of what needs the key stays on
+                screen while it is pasted (../settings/HomeSettings.tsx). */}
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Réglages — la clé de déploiement"
+              aria-expanded={settingsOpen}
+              onClick={() => setSettingsOpen((v) => !v)}
+            >
+              <SlidersHorizontal className="h-4 w-4" /> Réglages
             </Button>
             {/* Surfaces — `/external`, and an `<a>` rather than a route, since a client navigation would keep the editor's manifest (../../docs/external.md). */}
             <Button variant="ghost" size="sm" asChild>
@@ -324,21 +327,30 @@ export function Home() {
         }
       />
 
-      {error && (
-        <code className="mx-6 mt-3 overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-red-400">
-          {error}
-        </code>
-      )}
+      {/* A ROW from here down: the settings panel docks beside the repositories, not over them. */}
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+          {error && (
+            <code className="mx-6 mt-3 overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-red-400">
+              {error}
+            </code>
+          )}
 
-      <ProjectsPane
-        workspaces={workspaces}
-        shares={shares}
-        busy={busy}
-        openWs={openWs}
-        machine={machine ?? null}
-        onOpen={open}
-        onChanged={changed}
-      />
+          <ProjectsPane
+            workspaces={workspaces}
+            shares={shares}
+            busy={busy}
+            openWs={openWs}
+            machine={machine ?? null}
+            onOpen={open}
+            onChanged={changed}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
+        </div>
+        {settingsOpen && (
+          <HomeSettings onClose={() => setSettingsOpen(false)} />
+        )}
+      </div>
 
       {/* The bar, full width at the bottom on the editor's own terms, with what it said held above it in amber (../../docs/commandBar.md). */}
       <div className="shrink-0 border-t border-border bg-popover">

@@ -4,7 +4,6 @@
 
 import {
   isExternalIndex,
-  isSettings,
   parseExternal,
   parseLaunch,
   projectBasename,
@@ -41,10 +40,6 @@ import { LocaleProvider } from "./i18n";
 import { PROFILING } from "./profiling";
 import { Home } from "./projects/Home";
 
-const Settings = lazy(() =>
-  import("./settings/Settings").then((m) => ({ default: m.Settings })),
-);
-
 import "./index.css";
 /** The waveform's own wrapper and marker rules — a plain stylesheet, so the `@source` scan cannot produce it and it has to be imported. */
 import "@studio/ui-waveform/styles.css";
@@ -62,9 +57,6 @@ const at = parseLaunch(
   import.meta.env.BASE_URL,
 );
 const sharedToken = at && isShare(at.repo) ? shareToken(at.project) : null;
-
-/** …and the DESKTOP app's settings, which the hosted build reaches but never offers a way to. */
-const settings = at !== null && isSettings(at.repo);
 
 /** …and the MENU of surfaces, `/external`, read BEFORE any of it: a single segment is a legal project address, so the word is reserved. */
 const externalIndex = isExternalIndex(
@@ -84,13 +76,10 @@ if (externalIndex) {
 }
 
 /**
- * …and every page says which one it is, because the desktop's strip labels a tab from
- * `document.title` (apps/st0-desktop/docs/tabs.md) and index.html's names the APP, which is
- * the one thing a tab beside three others need not repeat. Off the ADDRESS, so it is right
- * before anything has loaded; `App` refines it to the song's own name once it has one.
+ * …and every page says which one it is. Off the ADDRESS, so it is right before anything has
+ * loaded; `App` refines it to the song's own name once it has one.
  */
-if (settings) document.title = "settings";
-else if (at && !isShare(at.repo))
+if (at && !isShare(at.repo))
   document.title =
     at.project === "."
       ? at.repo
@@ -157,10 +146,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             {externalIndex ? (
               // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
               <ExternalIndex />
-            ) : settings ? (
-              // The desktop app's own screen. A sentinel repo, so it reserves no name that a
-              // real repository could have wanted — see @studio/web-protocol/projects.
-              <Settings />
             ) : !at ? (
               <Home />
             ) : profiling ? (
