@@ -74,7 +74,7 @@ No module, no binding, no parameter. The record **runs backwards** while the but
 plays normally again on release.
 
 That is possible because a deck is a **platter** carrying its own transport
-(`engine/moteur/docs/turntable.md`): its `Rate` is a signed number, so −1 already means "backwards
+(`engine/st0-engine/docs/turntable.md`): its `Rate` is a signed number, so −1 already means "backwards
 at record speed". The desk even has the path — `sendScratch`, the one a hand on the vinyl uses
 ([scratch.md](scratch.md)). The censor is therefore **a scratch the desk performs** instead of
 following.

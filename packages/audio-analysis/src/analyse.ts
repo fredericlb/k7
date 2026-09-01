@@ -1,6 +1,6 @@
 // analyse.ts — the one call a service makes: decode, measure, stamp, write the sidecar. The
 // fingerprint is taken from the file on disk, so a sidecar written here is accepted by every
-// reader that checks it, engine/moteur's included. See docs/analysis.md.
+// reader that checks it, engine/st0-engine's included. See docs/analysis.md.
 
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
 import { decodeMono } from "./decode.ts";

@@ -4,7 +4,7 @@
 # autres se posent.
 #
 # Les plages sont celles du PLUGIN, reprises telles quelles
-# (engine/moteur/engine/TurntablePlugin.cpp) : une liaison du pupitre ne doit pas pouvoir demander
+# (engine/st0-engine/engine/TurntablePlugin.cpp) : une liaison du pupitre ne doit pas pouvoir demander
 # une vitesse que ce panneau refuse de dessiner.
 #
 # `Rate` est SIGNÉ et son repos est 0, qui est l'ARRÊT. Le milieu de sa course n'est donc pas un

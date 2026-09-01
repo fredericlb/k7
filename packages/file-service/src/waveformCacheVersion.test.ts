@@ -87,7 +87,7 @@ describe("storedSensitivity", () => {
   });
 
   it("has a default that matches the engine's", () => {
-    // kDefaultTransientSensitivity in engine/moteur/engine/EngineHost.h.
+    // kDefaultTransientSensitivity in engine/st0-engine/engine/EngineHost.h.
     expect(DEFAULT_TRANSIENT_SENSITIVITY).toBe(2);
   });
 });

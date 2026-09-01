@@ -2,7 +2,7 @@
 
 `packages/dsp/src/index.ts` is the whole library: a `GraphBuilder` whose every method adds a node,
 and a `graph(fn)` that returns the JSON. The JS runs at **build** time and never goes near the
-audio thread; what plays is the C++ of `engine/moteur/engine/DspGraph.h`.
+audio thread; what plays is the C++ of `engine/st0-engine/engine/DspGraph.h`.
 
 This page holds the reasons the code carries in one line each.
 
@@ -95,7 +95,7 @@ There is no `sqrt` among the primitives, and the crossfade
 (`packages/dsp/src/crossfade.ts`) would have wanted one: a DJ crossfader usually takes the square
 root of each side, so that two uncorrelated tracks keep steady loudness through the middle.
 Inventing one for a single effect is exactly how a graph language ends up with one node per effect
-(`engine/moteur/engine/DspGraph.h`). Equal gain therefore dips about 3 dB at centre for uncorrelated
+(`engine/st0-engine/engine/DspGraph.h`). Equal gain therefore dips about 3 dB at centre for uncorrelated
 material: a known shape, not a defect.
 
 Same reason for the absence of `max`, which the DJ filter works around with a sum because only one

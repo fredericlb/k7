@@ -9,7 +9,7 @@
 # `studio_quickmaster`, sur le modèle de `Mixer`.
 #
 # Le pourquoi de chaque valeur ci-dessous — où coupent les bandes, ce que « quantité » veut dire,
-# ce que le plafond garantit vraiment — est dans engine/moteur/docs/quickMaster.md.
+# ce que le plafond garantit vraiment — est dans engine/st0-engine/docs/quickMaster.md.
 extends: "@engine/quick-master"
 params:
   # Le module est un NOM et des DÉFAUTS par-dessus le plugin, exactement comme `eq3` l'est sur

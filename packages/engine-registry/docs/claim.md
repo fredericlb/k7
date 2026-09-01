@@ -129,4 +129,4 @@ socket. Closing that would mean the engine verifying a claim per session, which 
 decision and belongs with the rest of them (`docs/audit-moteur.md`, section B).
 
 It also says nothing about a tab that goes away. That is the other half, and it is the engine's:
-see `engine/moteur/docs/sessions.md`.
+see `engine/st0-engine/docs/sessions.md`.

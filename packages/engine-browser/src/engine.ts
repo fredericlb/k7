@@ -254,7 +254,7 @@ export class EngineClient {
       this.lastInbound = Date.now();
       this.pingSentAt = 0;
       this.startKeepalive();
-      // Say we DRIVE this session first: the engine frees a project whose last driver left — see engine/moteur/docs/sessions.md.
+      // Say we DRIVE this session first: the engine frees a project whose last driver left — see engine/st0-engine/docs/sessions.md.
       this.sendNow({ type: "hello", role: "driver" });
       // The project FIRST: the subscriptions and the queue below are about a document a restarted engine does not have yet.
       if (this.lastProject)
@@ -483,7 +483,7 @@ export class EngineClient {
    * what makes this usable in a rig that never presses play. `on` omitted TOGGLES that node —
    * and that node only. `save` is not here: the engine's job ends at a wav on disk, and sending
    * it anywhere is the file service's, which runs on the machine the file is on.
-   * See engine/moteur/docs/recorder.md.
+   * See engine/st0-engine/docs/recorder.md.
    */
   recorder(node: string, action: "record" | "clear", on?: boolean): void {
     this.send({

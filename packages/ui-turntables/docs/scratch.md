@@ -46,7 +46,7 @@ Two details that carry:
   only leaves on the two transitions. A parameter is a level, so resending it would cost nothing
   wrong — but sixty useless messages a second would.
 - **The stretcher does not go backwards**, which is precisely half a scratch. The engine falls
-  back to resampling outside its range on its own (`engine/moteur/docs/turntable.md`), so the
+  back to resampling outside its range on its own (`engine/st0-engine/docs/turntable.md`), so the
   desk's rule and the plugin's say the same thing by two routes.
 
 ## The rate to the engine is throttled
@@ -103,12 +103,12 @@ varispeed:
 | fast gesture (±2, twice a second) | 0.188 × |
 
 The error **falls as the gesture slows**, which is the signature of the analysis window and not
-of a limit in the mechanism. Numbers and method are in `engine/moteur/docs/turntable.md`.
+of a limit in the mechanism. Numbers and method are in `engine/st0-engine/docs/turntable.md`.
 
 The delay between hand and audio is **a block boundary, nothing more**: median 2.2 ms for a block
 of 5.3, with a spread of exactly one block — the shape that says neither the socket, nor the
 engine's queue, nor the sliding adds anything. `turntable-latency.ts`, detail in
-`engine/moteur/docs/turntable.md`.
+`engine/st0-engine/docs/turntable.md`.
 
 **What stays unverified is the listening.** That the audio is where the hand put it is measured;
 that it sounds like a scratch is not, and cannot be here.

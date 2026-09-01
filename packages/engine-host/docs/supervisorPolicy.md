@@ -179,7 +179,7 @@ Branch 1 is the one that looks droppable and is not: without it the spawn races 
 watcher has left free.
 
 Branch 3 is why `studio-engine` is a whole program in a checkout, with nothing built. Without it
-the only layout that resolves a file service is the one `engine/capot/scripts/build-engine.mjs`
+the only layout that resolves a file service is the one `engine/st0-tray/scripts/build-engine.mjs`
 creates, so a CLI that depends on no Electron app would have needed the Electron app's build —
 and the engine binary has had a checkout tier all along (`engine-client`'s `findEngineBinary`),
 which is the asymmetry this closes.

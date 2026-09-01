@@ -46,7 +46,7 @@ const tasks = workspacePackages()
       name,
       // Tilt resource names allow only [A-Za-z0-9_-]; `moteur` is the native monitor.
       label:
-        name === "moteur"
+        name === "st0-engine"
           ? "native"
           : name.replace(/^@/, "").replace(/[^A-Za-z0-9_-]+/g, "-"),
       dir: rel,

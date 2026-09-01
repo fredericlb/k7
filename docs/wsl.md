@@ -1,6 +1,6 @@
 # Developing in WSL, with the engine and the tray on the host
 
-The audio half of this repo cannot leave Windows: `engine/moteur` wants WASAPI/ASIO and
+The audio half of this repo cannot leave Windows: `engine/st0-engine` wants WASAPI/ASIO and
 `apps/st0-desktop` hosts the machine's VSTs. Everything else is TypeScript and has no reason to
 stay. So the sources live in the distro, on ext4, and Windows keeps exactly two jobs:
 **compile C++, and run the binaries and the desktop app that come out.**
@@ -40,7 +40,7 @@ Note the case. MSBuild lowercases the dependency it tracks, ext4 is case-sensiti
 file it then looks for is not there — so nothing is ever up to date and every rebuild
 recompiles everything. Measured both ways on the same probe: source on the share, an untouched
 rebuild recompiles; source on NTFS, it does not. For an engine whose half-rebuilt state links
-fine and crashes later (`engine/moteur/AGENTS.md`), an unreliable up-to-date check is worse
+fine and crashes later (`engine/st0-engine/AGENTS.md`), an unreliable up-to-date check is worse
 than a slow one.
 
 So the sources are **copied** to NTFS and built there. It costs almost nothing: the whole tree
@@ -69,7 +69,7 @@ What crosses, and what does not:
 - **Skipped**: `node_modules` (the mirror keeps its own, installed once — the host runs
   esbuild and the Tauri CLI on the host), `.git`, `build`, `target`, `out`, `.turbo`, `.vite`,
   `.claude`.
-- **`dist` is NOT skipped.** `engine/capot/dist/index.html` is tracked by git: it is the tray's
+- **`dist` is NOT skipped.** `engine/st0-tray/dist/index.html` is tracked by git: it is the tray's
   web assets, not build output, and Tauri stops with *"Unable to find your web assets"* without
   it. It is the one directory here whose name says output and whose content is source.
 - **Each caller names the subtrees its loop covers.** A whole-tree pass every second would spend
@@ -170,7 +170,7 @@ cannot initialise the submodule, and a clone would drop the working tree's uncom
 ```bash
 mkdir -p ~/studio && cd /mnt/c/Users/<you>/Src/studio
 tar -cf - --exclude='*/node_modules' --exclude='*/.claude/worktrees' \
-          --exclude='*/engine/moteur/build' . \
+          --exclude='*/engine/st0-engine/build' . \
   | (cd ~/studio && tar -xf -)
 cd ~/studio && npm ci
 ```

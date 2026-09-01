@@ -122,7 +122,7 @@ as a rendering bug for ever.
 
 **A reload gets the whole picture**, because every frame also says WHERE its points start and the
 engine rewinds that to 0 for a socket that just connected
-([recorder.md](../../../engine/moteur/docs/recorder.md)). Nothing here has to ask for it: the
+([recorder.md](../../../engine/st0-engine/docs/recorder.md)). Nothing here has to ask for it: the
 offset is enough for the fold to tell a resend from an append, and the same arithmetic covers the
 overlap between them. The rest of the card needed no such thing — `recording`, `seconds` and
 `takes` are absolute in every frame, so the light and the two buttons come back on their own.
@@ -177,4 +177,4 @@ it, which is how the mixer's missing `ui.yaml` was found.
 - **It does not place a take on the timeline.** `recordTake` does that for transport takes and
   could be offered here later — a second destination for `save`, not a different feature.
 - **It records stereo.** `RecorderTap::CHANNELS` is fixed at 2, for the reason `BroadcastTap`'s
-  is ([recorder.md](../../../engine/moteur/docs/recorder.md)).
+  is ([recorder.md](../../../engine/st0-engine/docs/recorder.md)).

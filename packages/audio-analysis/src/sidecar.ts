@@ -1,6 +1,6 @@
 // sidecar.ts — the `{file}.cache` file itself: its JSON shape, and reading one back. Written by
 // hand rather than through JSON.stringify because the fixed precision is what bounds the size of
-// arrays thousands of floats long, and because engine/moteur writes the same bytes. A sidecar
+// arrays thousands of floats long, and because engine/st0-engine writes the same bytes. A sidecar
 // whose version is older than MIN_CACHE_VERSION is refused, or it reads as fresh for ever.
 // See docs/analysis.md.
 
@@ -36,7 +36,7 @@ interface CacheFile {
 const fixed = (xs: number[], places: number): string =>
   xs.map((v) => v.toFixed(places)).join(",");
 
-/** The sidecar's bytes, in engine/moteur's field order so the two writers stay diffable. */
+/** The sidecar's bytes, in engine/st0-engine's field order so the two writers stay diffable. */
 export function serialiseSidecar(env: FileEnvelope): string {
   return (
     `{"v":${CACHE_VERSION},"fingerprint":"${env.fingerprint}"` +

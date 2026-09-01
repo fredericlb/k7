@@ -6,7 +6,7 @@ origin.
 
 It is the odd one out in this repo, and knowing why saves you looking for things that are not
 here. z0 is a **game**, not a studio tool: it has its own login, its own session cookie,
-its own database, and it touches `engine/moteur` at exactly one point — an offline render.
+its own database, and it touches `engine/st0-engine` at exactly one point — an offline render.
 
 ## The six SPAs and the backend
 

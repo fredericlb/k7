@@ -19,7 +19,7 @@ Three had opted out by accident:
 |---|---|---|---|
 | `packages/ui-eyes` | 3 | 37 | no `test` script, no `vitest` devDependency |
 | `apps/z0/editor` | 2 | 49 | no `test` script |
-| `engine/moteur` | 6 (C++) | — | only `test:mac`; nothing ran on Windows or Linux |
+| `engine/st0-engine` | 6 (C++) | — | only `test:mac`; nothing ran on Windows or Linux |
 
 All three are fixed, and all three were green the moment they were wired in — tests that had been
 written, committed, and then protected nothing. `ui-eyes` is the one that stings: `compositor.test.ts`
@@ -41,14 +41,14 @@ done
 
 ## The C++ suite: two tiers, and a skip that says so
 
-`engine/moteur` now has `"test": "node scripts/run-tests.mjs"`, so `turbo run test` compiles and
+`engine/st0-engine` now has `"test": "node scripts/run-tests.mjs"`, so `turbo run test` compiles and
 runs it like any other workspace. Three things that script does, each because the obvious version
 is wrong:
 
 **It filters on `^studio_`.** `ctest -N` in this build tree lists **eight** tests, and two of them
 are not ours: Tracktion vendors its own `Benchmarks` and `TestRunner` examples, and CMake registers
 them into our project. They are not even built, so a bare `ctest` fails on a missing executable
-with exit 8. Exactly the same leak the root `vitest.config.ts` excludes `engine/moteur/build/**`
+with exit 8. Exactly the same leak the root `vitest.config.ts` excludes `engine/st0-engine/build/**`
 for — a vendored dependency's own tests turning up as ours.
 
 **It splits fast from slow on a ctest label.** Four of the six targets are JUCE-free by design —
@@ -68,7 +68,7 @@ the script, so a new test is fast unless it says otherwise, and the script's tar
 network. A tree with no `build/<preset>/CMakeCache.txt` therefore prints what to run and exits 0:
 
 ```
-  SKIPPED — engine/moteur has no build/dev-gcc.
+  SKIPPED — engine/st0-engine has no build/dev-gcc.
   The C++ tests need a configured tree; configuring fetches Tracktion and Faust.
 
     cmake --preset dev-gcc
@@ -164,7 +164,7 @@ list is load-bearing for packages that never read it.
 Running `vitest run` from the repository root is the obvious thing to do, and it used to walk
 into other people's code:
 
-- `engine/moteur/build/**` — CMake vendors Tracktion and JUCE there, and JUCE ships React demo
+- `engine/st0-engine/build/**` — CMake vendors Tracktion and JUCE there, and JUCE ships React demo
   apps whose `App.test.js` get collected as ours;
 - `.claude/worktrees/**` — every branch ever worked on is checked out here. A bare root run once
   reported 667 failures that belonged to other branches.

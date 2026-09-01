@@ -71,7 +71,7 @@ Two consequences that are the interface's and not ours:
 The grouping is remembered in `<state>/preferences.yaml` (`inputPairs`) and replayed to the
 engine on every connect, exactly as the audio device is. Tracktion persists a copy of its own
 and it is unreadable in practice — the only call that loads it also reopens the remembered
-interface, which `engine/moteur/AGENTS.md` forbids — so without this the pairing lasts until
+interface, which `engine/st0-engine/AGENTS.md` forbids — so without this the pairing lasts until
 the next engine restart and then silently reverts, taking the module's sound with it.
 
 ### Both halves are one COMMAND

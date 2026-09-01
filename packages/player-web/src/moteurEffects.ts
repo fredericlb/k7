@@ -19,7 +19,7 @@ export const EFFECT_PLUGINS: Record<string, Mapping> = {
   // AirWindows' filters sweep on a single 0..1 control, the same shape the slider has.
   lowpass: { type: "Lowpass", param: "Lowpass", at: (i) => 1 - i / 100 },
   highpass: { type: "Highpass", param: "Highpass", at: (i) => i / 100 },
-  // Tracktion built-ins, which publish no ranges — see engine/moteur/docs/builtinParams.md.
+  // Tracktion built-ins, which publish no ranges — see engine/st0-engine/docs/builtinParams.md.
   phaser: { type: "phaser", param: "depth", at: (i) => (i / 100) * 10 },
   chorus: { type: "chorus", param: "depthMs", at: (i) => (i / 100) * 20 },
   // Saturation rather than a waveshaper: Density is what AirWindows offers for "drive".

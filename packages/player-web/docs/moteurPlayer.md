@@ -1,7 +1,7 @@
 # The moteur-backed player
 
 The `player.ts` interface is the seam a third engine arrives through, and this is that
-engine: an implementation backed by `engine/moteur`. The interface accommodates it unchanged
+engine: an implementation backed by `engine/st0-engine`. The interface accommodates it unchanged
 — which is the point of a seam.
 
 ## What it is for, and what it is not
@@ -38,7 +38,7 @@ Seven of z0's nine sliders have an engine equivalent:
 The two built-ins take their `xmlTypeName`; the AirWindows ones take the display name
 Tracktion registers (`AirWindowsList.h`). Both vocabularies coexist on the wire — that is
 what `enginePlugin` is about. Their parameter ranges come from
-`engine/moteur/docs/builtinParams.md`, which exists because those plugins publish none.
+`engine/st0-engine/docs/builtinParams.md`, which exists because those plugins publish none.
 
 **`speed` and `pitch` do not map, and are refused.**
 

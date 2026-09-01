@@ -1,6 +1,6 @@
 // fingerprint.ts — the content fingerprint stamped into a `{file}.cache` sidecar and checked
 // on every read. FNV-1a/64 over the file size then the first and last 64 KB, and it MUST stay
-// byte-for-byte identical to `fileFingerprint` in engine/moteur/engine/Waveform.cpp: the two
+// byte-for-byte identical to `fileFingerprint` in engine/st0-engine/engine/Waveform.cpp: the two
 // producers of a sidecar have to agree on whether one is stale. See docs/analysis.md.
 
 import { closeSync, openSync, readSync, statSync } from "node:fs";

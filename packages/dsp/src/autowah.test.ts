@@ -26,7 +26,7 @@ function engineDefaultGraph(): GraphJson {
       "..",
       "..",
       "engine",
-      "moteur",
+      "st0-engine",
       "engine",
       "GraphDspPlugin.cpp",
     ),

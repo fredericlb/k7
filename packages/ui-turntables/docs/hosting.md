@@ -155,6 +155,6 @@ npx tsx packages/ui-turntables/scripts/put-on.ts [ws://127.0.0.1:8765]
 Three others lived here and went with the clip they measured (`tempo-drag.ts`, `metronome.ts`,
 `scratch-drag.ts`). What they established is kept where it belongs — `docs/bpm.md` for the fader,
 `docs/metronome.md` for the click, `docs/scratch.md` for the hand. The platter's own numbers are
-measured from the engine side now, in `engine/moteur/scripts/`.
+measured from the engine side now, in `engine/st0-engine/scripts/`.
 
 It lives here rather than in a host, beside the maths it exercises and the pages that explain it.

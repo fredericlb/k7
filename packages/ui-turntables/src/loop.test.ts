@@ -1,5 +1,5 @@
 // The desk's half of a loop: a length in beats becoming two edges the platter can be sent.
-// The engine's half — the wrap and the roll's shadow — is engine/moteur/tests/TurntableLoop_test.cpp.
+// The engine's half — the wrap and the roll's shadow — is engine/st0-engine/tests/TurntableLoop_test.cpp.
 //
 // What would be wrong silently here: a length measured against the FADER's tempo rather than the
 // record's, which sounds right on a deck at rest and drifts the moment somebody pitches it.

@@ -385,7 +385,7 @@ nowhere without them; a node with no surface is drawn perfectly well — its pan
 where every other module's is. The strip is a convenience, not a missing half.
 
 See `apps/st0/frontend/docs/mastering.md` for the screen, and
-`engine/moteur/docs/quickMaster.md` for what the node actually does to the sound.
+`engine/st0-engine/docs/quickMaster.md` for what the node actually does to the sound.
 
 ## `turntables`
 

@@ -8,7 +8,7 @@ missing button, it is a **measurement**, and it is in the C++.
 
 ## Where it would live
 
-`engine/moteur/engine/Waveform.cpp`, the `--waveform <file>` mode: one pass that decodes, builds
+`engine/st0-engine/engine/Waveform.cpp`, the `--waveform <file>` mode: one pass that decodes, builds
 the envelopes, detects the transients, estimates the tempo, and writes `{file}.cache`.
 
 Three things to have read before proposing anything:

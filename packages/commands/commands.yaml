@@ -927,7 +927,7 @@
 # --- channel labels (global user preferences) ---
 # Choosing the audio INTERFACE is not here on purpose: it's a one-off rig decision, not a
 # per-song edit, so it lives in the médiathèque's « État du moteur » — the one screen that
-# reaches both the engine and its machine, which a pick needs (engine/moteur/docs/audioDevice.md).
+# reaches both the engine and its machine, which a pick needs (engine/st0-engine/docs/audioDevice.md).
 # These labels just annotate that rig, so they stay on every surface.
 - command: "system channel list"
   sid: system.channel.list

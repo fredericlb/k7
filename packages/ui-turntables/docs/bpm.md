@@ -30,7 +30,7 @@ Rate = target / natural
 
 That is all. `platterRate` writes that number, the plugin turns it into a sample step per output
 sample, and `Key` decides whether a stretcher holds pitch meanwhile
-(`engine/moteur/docs/turntable.md`). A platter has nothing to place: it is where it is.
+(`engine/st0-engine/docs/turntable.md`). A platter has nothing to place: it is where it is.
 
 ## KEY — pitch follows tempo unless stopped
 
@@ -41,7 +41,7 @@ other way round.
 
 KEY is **a plugin parameter**, `Key`, and nothing else changes: same platter, same position, same
 gestures. The engine puts its stretcher in the path or takes it out, internally, at the cost of one
-branch (`engine/moteur/docs/turntable.md`).
+branch (`engine/st0-engine/docs/turntable.md`).
 
 A separated record is no exception: its four parts are four platters, each with its stretcher.
 Measured, the eight of a full desk cost **3 points of CPU** — the price is not there.

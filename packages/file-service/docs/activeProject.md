@@ -198,7 +198,7 @@ own outbox and its own reconnect, and the alternative is a shared queue where on
 delays another's transport.
 
 It is deliberately **not a driver**. The engine counts sockets that declare `role: "driver"` on hello
-and frees a project 45 s after the last one goes (`engine/moteur/docs/sessions.md`). This link is
+and frees a project 45 s after the last one goes (`engine/st0-engine/docs/sessions.md`). This link is
 held for as long as the machine is up, so counting it would mean no project ever looked abandoned —
 which is the whole point of the count. Saying nothing is what keeps it out; there is no flag to pass.
 

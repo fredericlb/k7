@@ -40,6 +40,6 @@ A package for ten lines is a decision, not a cleanup.
 
 ## Not covered
 
-`engine/moteur` has one `try`/`catch` in its whole library (`NamPlugin.cpp`), no `try` at
+`engine/st0-engine` has one `try`/`catch` in its whole library (`NamPlugin.cpp`), no `try` at
 `main()` level and no `std::set_terminate`. An exception thrown from a lambda posted on the
 message thread ends the process without a word. Open lot — `docs/constat.md`.

@@ -191,7 +191,7 @@ towards deck A does not remove it. Every setting sounds the same.
 
 It works because Tracktion's mute node **deliberately** lets clips through to sends and sidechains:
 the crossfade keeps its second signal, the master stops having a duplicate. See
-`engine/moteur/docs/sidechain.md`.
+`engine/st0-engine/docs/sidechain.md`.
 
 Measured on `example.st0`'s compiled document, two 20 s tracks, rendering deck A alone as the
 reference:
@@ -233,7 +233,7 @@ See [bpm.md](bpm.md).
 ## One transport, and no button left for it
 
 The engine has **one** transport, and **none of the music is on it**: each deck is a platter
-carrying its own position (`engine/moteur/docs/turntable.md`), and this timeline's only inhabitant
+carrying its own position (`engine/st0-engine/docs/turntable.md`), and this timeline's only inhabitant
 is the metronome clip ([metronome.md](metronome.md)).
 
 Hence: **the desk has no transport button.** Neither at the bottom nor in st0's header, which is

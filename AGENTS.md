@@ -26,11 +26,11 @@ The zone's `docs/` directory is where that justification belongs:
 | the médiathèque | `apps/pl8/docs/` |
 | the DJ desk | `packages/ui-turntables/docs/` |
 | the project shell | `packages/project-shell/docs/` |
-| the C++ engine | `engine/moteur/docs/` |
-| the menu-bar tray | `engine/capot/docs/` |
+| the C++ engine | `engine/st0-engine/docs/` |
+| the menu-bar tray | `engine/st0-tray/docs/` |
 | the rehearsal recorder | `apps/k7/docs/` |
 | the blind-test game | `apps/z0/docs/` |
-| the build scripts | `engine/capot/scripts/docs/` |
+| the build scripts | `engine/st0-tray/scripts/docs/` |
 | the git repositories | `packages/git-repos/docs/` |
 | CI and deployment, which belong to no single app | `docs/` |
 
@@ -50,14 +50,14 @@ a debt that predates the rule and shrinks as files are touched. New code has no 
 
 `studio` holds the music/stage apps. The audio side is **three processes**, which is why
 this overview lives at the root and not inside any one app. Two of them run on the
-musician's machine and never in the image — `engine/moteur` and `engine/capot`,
+musician's machine and never in the image — `engine/st0-engine` and `engine/st0-tray`,
 the latter sitting under `apps/` with the server apps but shipped to nobody's server:
 
 | dir | language | what it is |
 |---|---|---|
-| `engine/moteur` | C++ | The audio engine. Receives a compiled `ProjectDoc` over WebSocket, diffs it, plays audio, pushes transport and meter state back. **Never parses song files.** |
-| `engine/capot` | Rust (Tauri v2) | The menu-bar **view** over the supervisor. Spawns `@studio/engine-host` and drives it over NDJSON on stdio. Computes no policy of its own. |
-| `apps/st0` | TypeScript | The text-first DAW, and the only app that opens a project: `frontend` (React/Vite) + `backend` (Express — the engine registry only; it verifies pl8's session and mounts no auth routes). Owns the timeline; shares the chains view. **Modules and chains are authored here**, against a project where the plugin a module names is actually LOADED, and committed to the account's library repository (`packages/song/docs/sharedFolders.md`). A project is created from one of five **archetypes**: three named after the surface they open on — `arrangement` (a timeline), `mix` (two decks and a crossfade — `packages/song/docs/setProject.md`), `video` (a timeline and a viewport) — and the two `live` ones, named after what they ARE: a rig you play THROUGH, with nothing arranged and no lane of any kind — an input, a fader, the master run, and in `live-video` a webcam feeding RENDER plus the one viewport a picture cannot do without (`packages/song/docs/liveProject.md`) — and a song holds **sound and picture** alike: video lanes on the same timeline, whose ruler reads bars or seconds, and a `viewport` surface that composites them (`docs/picture.md`). What it draws beyond its panes, it draws because the project DECLARED it, in `surfaces/` (`docs/surfaces.md`). It opens the account's **playlists** as well — `_playlists/` at the workspace root, listing songs that live in pl8's catalogue, which this app searches and uploads into across the origin (`frontend/docs/playlists.md`). A `turntables` surface NAMES one, and that is what the DJ desk's browser lists and what the machine pre-fetches before a gig. It owns the level above a project too: its **home page** — the ORIGIN with no project in the address — lists the account's repositories, the projects inside them, the libraries repository and the published shares (`frontend/docs/projects.md`) — the deploy key moved off it, to the Sync tab of `/@settings`, which is the one tab of that screen the hosted origin still draws (`engine/capot/docs/tray.md`), and its header is the one link out to pl8. It is the **front door**: it has no path prefix, so it answers `st0.priv.frediver.se` / `studio.frediver.se` itself, and a project is addressed `/<dépôt>/<projet>` — which makes every prefix the origin claims (`/pl8`, `/k7`, `/z0`, `/api`, `/auth`) a repository name that can never be opened — plus `/external`, reserved by st0 itself for the menu of surfaces a second device drives (`frontend/docs/external.md`). Opened ON one WORKSPACE otherwise, by an address rather than a picker — see `packages/project-shell/docs/launch.md`. A workspace is one git repository holding SEVERAL projects: the editor's tree is the whole of it and a ▶ on a project row is what hands that one to the engine (`packages/file-service/docs/activeProject.md`). It need not have a repository at all — one is created locally, git-initialised with no remote, and gets an `origin` the day it is published (`packages/file-service/docs/workspaces.md`). |
+| `engine/st0-engine` | C++ | The audio engine. Receives a compiled `ProjectDoc` over WebSocket, diffs it, plays audio, pushes transport and meter state back. **Never parses song files.** |
+| `engine/st0-tray` | Rust (Tauri v2) | The menu-bar **view** over the supervisor. Spawns `@studio/engine-host` and drives it over NDJSON on stdio. Computes no policy of its own. |
+| `apps/st0` | TypeScript | The text-first DAW, and the only app that opens a project: `frontend` (React/Vite) + `backend` (Express — the engine registry only; it verifies pl8's session and mounts no auth routes). Owns the timeline; shares the chains view. **Modules and chains are authored here**, against a project where the plugin a module names is actually LOADED, and committed to the account's library repository (`packages/song/docs/sharedFolders.md`). A project is created from one of five **archetypes**: three named after the surface they open on — `arrangement` (a timeline), `mix` (two decks and a crossfade — `packages/song/docs/setProject.md`), `video` (a timeline and a viewport) — and the two `live` ones, named after what they ARE: a rig you play THROUGH, with nothing arranged and no lane of any kind — an input, a fader, the master run, and in `live-video` a webcam feeding RENDER plus the one viewport a picture cannot do without (`packages/song/docs/liveProject.md`) — and a song holds **sound and picture** alike: video lanes on the same timeline, whose ruler reads bars or seconds, and a `viewport` surface that composites them (`docs/picture.md`). What it draws beyond its panes, it draws because the project DECLARED it, in `surfaces/` (`docs/surfaces.md`). It opens the account's **playlists** as well — `_playlists/` at the workspace root, listing songs that live in pl8's catalogue, which this app searches and uploads into across the origin (`frontend/docs/playlists.md`). A `turntables` surface NAMES one, and that is what the DJ desk's browser lists and what the machine pre-fetches before a gig. It owns the level above a project too: its **home page** — the ORIGIN with no project in the address — lists the account's repositories, the projects inside them, the libraries repository and the published shares (`frontend/docs/projects.md`) — the deploy key moved off it, to the Sync tab of `/@settings`, which is the one tab of that screen the hosted origin still draws (`engine/st0-tray/docs/tray.md`), and its header is the one link out to pl8. It is the **front door**: it has no path prefix, so it answers `st0.priv.frediver.se` / `studio.frediver.se` itself, and a project is addressed `/<dépôt>/<projet>` — which makes every prefix the origin claims (`/pl8`, `/k7`, `/z0`, `/api`, `/auth`) a repository name that can never be opened — plus `/external`, reserved by st0 itself for the menu of surfaces a second device drives (`frontend/docs/external.md`). Opened ON one WORKSPACE otherwise, by an address rather than a picker — see `packages/project-shell/docs/launch.md`. A workspace is one git repository holding SEVERAL projects: the editor's tree is the whole of it and a ▶ on a project row is what hands that one to the engine (`packages/file-service/docs/activeProject.md`). It need not have a repository at all — one is created locally, git-initialised with no remote, and gets an `origin` the day it is published (`packages/file-service/docs/workspaces.md`). |
 | `apps/pl8` | TypeScript | The media library — songs, samples, recordings — hosted, with its own Express backend over a volume of files. It holds **no modules and no chains**: those are authored in st0, for the reason above. Nor any **playlists**: a playlist holds no bytes, only names of songs that stay right here, so it belongs in the repository it was written for rather than on this volume — `_playlists/` in the workspace, opened from st0's cog (`packages/song/docs/playlists.md`). st0 searches THIS catalogue and uploads into it. It answers under `/pl8`, one link from st0's home page. It mounts no auth routes and only VERIFIES the cookie st0 mints, the same as k7 and z0. It **registers** the account's git repositories, and stores the one deploy key and the published shares, serving `/api/projects` + `/api/shares` — a repository belongs to a person rather than to a machine, and this is the service that outlives every engine (`apps/pl8/docs/projects.md`). The REGISTER and nothing inside: it holds no copy of a repository, and the engine's machine answers "what projects are in there" from its working clone (`apps/st0/frontend/docs/projects.md`). It DRAWS none of that either: the screen is st0's home page, and this app's own front door is the catalogue. One reason for both — pl8 is what a project draws ON, so what is AUTHORED and what is CHOSEN belong to the editor. |
 | `apps/z0` | TypeScript | The blind-test game — six SPAs behind one origin. Five are the game; the sixth, `editor`, opens a `.z0` project out of a git repository and is where st0's home page sends a `.z0` row. |
 | `apps/k7` | TypeScript | The rehearsal recorder — sessions, takes, tablature, tuner. |
@@ -80,7 +80,7 @@ GESTURE against a running engine — `put-on.ts` is what costs a record its plac
 Two of these are **processes rather than libraries** and are bundled, not imported:
 `file-service` (`bin: studio-file-service`) and `engine-host` (`src/main.ts` under the desktop
 app, `bin: studio-engine` for a terminal — one supervisor, two front ends). Both are
-esbuilt into the desktop app by `engine/capot/scripts/build-engine.mjs`.
+esbuilt into the desktop app by `engine/st0-tray/scripts/build-engine.mjs`.
 
 They are named `@studio/*` rather than `@st0/*` because st0 is only one of
 their consumers: `apps/pl8` drives them too, and z0's moteur-backed player sits
@@ -90,7 +90,7 @@ behind the seam `@studio/player-web` provides.
 origin root, pl8, k7 and z0 under their prefixes, four backends beside one nginx that owns
 the path routing. Same shape as phare's monolith, and for the same reason: they share a
 hostname and a session cookie, so four images would only mean the edge holds a path table
-that belongs next to the apps. `engine/moteur` and `engine/capot` are not in it and never
+that belongs next to the apps. `engine/st0-engine` and `engine/st0-tray` are not in it and never
 will be — they run on the musician's machine.
 `docs/versioning.md` is the page, including what one container costs.
 
@@ -122,7 +122,7 @@ source file (ripgrep skips such a file whole, so it stops existing for every swe
 one exists because the method of this repo is that the WHY lives in the prose — a page pointing at
 a file two renames ago sends the reader into a wall.
 [audit-moteur.md](docs/audit-moteur.md) is the standing audit of everything that links a
-surface to `engine/moteur` — what is shared, what is copied, where the connections give way,
+surface to `engine/st0-engine` — what is shared, what is copied, where the connections give way,
 and the plan by lots. Read it before touching the registry, the relay or a gate.
 
 `commons/` is a **git submodule** — the shared base, also used by the `phare`
@@ -145,7 +145,7 @@ same world, run `npm run dev`, and none of the following applies.
 
 **The sources live in WSL**, on ext4, and so does every npm command: the tree is `~/studio` in
 the distro, and a `wsl` tab on `console.priv.frediver.se` is where `claude`, `npm run dev` and
-git run. Windows keeps two jobs and no more — compiling `engine/moteur` and `engine/capot`, and
+git run. Windows keeps two jobs and no more — compiling `engine/st0-engine` and `engine/st0-tray`, and
 running the binaries. It gets the sources through a one-way mirror onto NTFS, because MSBuild
 cannot track a dependency on a case-sensitive share and would recompile everything, every time.
 [docs/wsl.md](docs/wsl.md) is the page: the rule is that the share carries sources one way and

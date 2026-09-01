@@ -41,7 +41,7 @@
         "demos/**/jsdsp.ts"
       ]
     },
-    "engine/moteur": {
+    "engine/st0-engine": {
       "entry": [
         "scripts/*.{ts,mjs}"
       ]
@@ -114,7 +114,7 @@
       ]
     },
     "packages/ui-chains-react": {},
-    "engine/capot": {
+    "engine/st0-tray": {
       "entry": [
         "scripts/*.mjs",
         "songs/**/jsdsp.ts"

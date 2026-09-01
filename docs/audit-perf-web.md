@@ -1,6 +1,6 @@
 # Audit — speed on the web side
 
-The counterpart to [engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md)
+The counterpart to [engine/st0-engine/docs/audit-stabilite.md](../engine/st0-engine/docs/audit-stabilite.md)
 for everything that is not C++: the file service, the compiler, the surfaces — plus the WIRE, where
 the two meet. What belongs to C++ alone (the audio callback, `applyFull`, the compile flags) stays
 there.

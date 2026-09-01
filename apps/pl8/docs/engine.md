@@ -9,7 +9,7 @@ The médiathèque is a hosted catalogue of files, and for most of what it holds 
 to be: a song, a sample and a capture are bytes, and listing them needs nothing but a directory
 walk.
 
-It holds **one** socket to an `engine/moteur` all the same, and it is worth being precise about
+It holds **one** socket to an `engine/st0-engine` all the same, and it is worth being precise about
 what that socket is for.
 
 ## What it carries

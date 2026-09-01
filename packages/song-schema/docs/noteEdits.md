@@ -96,7 +96,7 @@ surface being out of date. The COMMAND is what refuses it by name.
   difference is that a paste is new material and a transpose is notes that exist: losing one
   silently would leave the rest moved and no way to say what went. The engine's own `transpose`
   node clamps for a harder reason still — a dropped note leaves its note-off behind and hangs the
-  voice (`engine/moteur/engine/DspGraph.cpp`).
+  voice (`engine/st0-engine/engine/DspGraph.cpp`).
 - **velocity is absolute, and 1 clears the field**, exactly as the singular verb does: a region set
   to full leaves a file that never mentions velocity, which is what an untouched sequence looks
   like. A relative factor would be a fifth verb, not a flag on this one.

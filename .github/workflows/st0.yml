@@ -1,7 +1,7 @@
 # st0 CI.
 #
 # Scoped to the st0 side of the repo deliberately — apps/st0 plus the two native
-# halves it owns, engine/moteur (C++) and engine/capot (the Tauri tray). `turbo run test`
+# halves it owns, engine/st0-engine (C++) and engine/st0-tray (the Tauri tray). `turbo run test`
 # across the whole repo is 62 tasks over eight apps; this is 14. A CI that is red on
 # arrival for reasons nobody on this change caused is a CI people learn to ignore — so
 # it starts narrow and green. Widening it is one filter per job.
@@ -32,8 +32,8 @@ on:
     branches: [master]
     paths:
       - "apps/st0/**"
-      - "engine/moteur/**"
-      - "engine/capot/**"
+      - "engine/st0-engine/**"
+      - "engine/st0-tray/**"
       - "packages/**"
       - "package-lock.json"
       - "turbo.json"
@@ -41,8 +41,8 @@ on:
   pull_request:
     paths:
       - "apps/st0/**"
-      - "engine/moteur/**"
-      - "engine/capot/**"
+      - "engine/st0-engine/**"
+      - "engine/st0-tray/**"
       - "packages/**"
       - "package-lock.json"
       - "turbo.json"
@@ -80,15 +80,15 @@ jobs:
 
       # capot is excluded from BOTH turbo steps: it is a workspace, but its
       # `build` is `tauri build` — a full release bundle needing the C++ engine and a
-      # vendored Node. The `rust` job below is what covers the tray. `engine/moteur`
+      # vendored Node. The `rust` job below is what covers the tray. `engine/st0-engine`
       # declares no `build`/`test` script at all, so turbo never tries to compile C++.
       - name: test
-        run: npx turbo run test --filter="./apps/st0/**" --filter="./packages/**" --filter="!./engine/capot"
+        run: npx turbo run test --filter="./apps/st0/**" --filter="./packages/**" --filter="!./engine/st0-tray"
 
       # `build` is `tsc --noEmit` for every package; for web/frontend it is a real
       # `vite build && tsc --noEmit`, which is a stronger gate and worth the minute.
       - name: typecheck + build
-        run: npx turbo run build --filter="./apps/st0/**" --filter="./packages/**" --filter="!./engine/capot"
+        run: npx turbo run build --filter="./apps/st0/**" --filter="./packages/**" --filter="!./engine/st0-tray"
 
       # the backend has only a `typecheck` script — no `build` — so turbo covers it in
       # neither step. Run it directly rather than adding a script to its package.json
@@ -112,7 +112,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: engine/capot/src-tauri
+          workspaces: engine/st0-tray/src-tauri
 
       # tauri_build refuses to build when an `externalBin` sidecar is missing, errors on a
       # `resources` glob that matches nothing, and requires `frontendDist` to exist. All
@@ -123,16 +123,16 @@ jobs:
       # `node scripts/build-engine.mjs --sidecar-only`, which is what a developer and the
       # release build run.
       #
-      # `engine/capot/dist/index.html` is the odd one out: a 4-line placeholder page (the
+      # `engine/st0-tray/dist/index.html` is the odd one out: a 4-line placeholder page (the
       # tray opens no windows). It IS tracked — force-un-ignored in .gitignore — so the
       # guard below is a no-op on a normal checkout and only covers a stripped one.
       - name: stub the sidecars, resources and frontendDist
         shell: bash
-        working-directory: engine/capot
+        working-directory: engine/st0-tray
         run: |
           set -euo pipefail
           mkdir -p src-tauri/binaries src-tauri/resources/songs dist
-          for name in studio-moteur node; do
+          for name in st0-engine node; do
             : > "src-tauri/binaries/${name}-x86_64-pc-windows-msvc.exe"
           done
           : > src-tauri/resources/engine-host.mjs
@@ -140,11 +140,11 @@ jobs:
           [ -f dist/index.html ] || printf '<!doctype html><html><head><title>studio-capot</title></head><body></body></html>\n' > dist/index.html
 
       - name: cargo check
-        working-directory: engine/capot/src-tauri
+        working-directory: engine/st0-tray/src-tauri
         run: cargo check --all-targets
 
       - name: cargo test
-        working-directory: engine/capot/src-tauri
+        working-directory: engine/st0-tray/src-tauri
         run: cargo test
 
   lint:
@@ -161,4 +161,4 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx biome check apps/st0 engine/capot packages
+      - run: npx biome check apps/st0 engine/st0-tray packages

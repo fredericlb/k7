@@ -17,7 +17,7 @@ const ROBOCOPY = "/mnt/c/Windows/System32/Robocopy.exe";
 const CMD = "/mnt/c/Windows/System32/cmd.exe";
 
 // Everything derived stays on the host: the mirror keeps its OWN node_modules, and no build output travels back.
-// `dist` is NOT on this list — engine/capot/dist is the tray's web assets, tracked by git, and tauri stops without it.
+// `dist` is NOT on this list — engine/st0-tray/dist is the tray's web assets, tracked by git, and tauri stops without it.
 const SKIP = [
   "node_modules",
   ".git",
@@ -68,7 +68,7 @@ export async function runBridge({
   command = "node scripts\\dev-native.mjs",
   // Only engine/ by default: the tray bundles its TS at startup, so nothing else need travel.
   watch = ["\\engine"],
-  stopCommand = "node engine\\capot\\scripts\\restart-tray.mjs --stop",
+  stopCommand = "node engine\\st0-tray\\scripts\\restart-tray.mjs --stop",
   periodMs = PERIOD_MS,
   // Set when the host task has no watcher of its own worth trusting — see ../docs/wsl.md.
   restartOnChange = false,

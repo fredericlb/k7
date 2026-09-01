@@ -1,4 +1,4 @@
-// envelope.ts — the arithmetic of a `{file}.cache` sidecar, ported from engine/moteur's
+// envelope.ts — the arithmetic of a `{file}.cache` sidecar, ported from engine/st0-engine's
 // Waveform.cpp so a machine with ffmpeg and no engine produces the same thing. Every constant
 // here is that file's; changing one alone makes two producers disagree about one sidecar.
 // Onset detection is @studio/audio-probe's, which the C++ already mirrors. See docs/analysis.md.

@@ -2,7 +2,7 @@
 // idle engine sending 20 a second. What is pinned here is the OPPOSITE: the frames that must get
 // through, and one family of them is invisible to every field the transport owns.
 //
-// A recorder node is free-running (engine/moteur/docs/recorder.md): a rig captures with the
+// A recorder node is free-running (engine/st0-engine/docs/recorder.md): a rig captures with the
 // transport stopped, no track armed and every meter at the floor. Every equality above the
 // recorders would call two such frames identical, and the take would never appear to grow.
 

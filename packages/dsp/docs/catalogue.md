@@ -19,7 +19,7 @@ which decides only where it sits in a picker. That is why the EQ is under `filte
 
 `quick-master` is the only one that **does not make its sound here**: no `jsdsp.ts`, no `dsp.dsp`,
 only an `extends: "@engine/quick-master"` and defaults over it, the way `eq3` sits on the engine's
-equaliser. What it names is a compiled built-in, and `engine/moteur/docs/quickMaster.md` says why
+equaliser. What it names is a compiled built-in, and `engine/st0-engine/docs/quickMaster.md` says why
 it could not be a graph: `DspGraph`'s primitives can neither split bands nor reach the difference
 between the two channels.
 
@@ -44,7 +44,7 @@ it through.
 The arithmetic is identical. What differs is what each shape demands of the engine, and that is
 where the second wins. A module's second port is wired as a **sidechain**, and a sidechain only
 reads a track if that track actually reaches an audible output — measured five times, in
-`engine/moteur/docs/sidechain.md`. A deck feeding only a crossfade is therefore heard **beside**
+`engine/st0-engine/docs/sidechain.md`. A deck feeding only a crossfade is therefore heard **beside**
 it, raw, and the fade can take nothing away from it. No mute, no unplugging, no routing to a sink
 undoes that: everything that removes it from the master removes it from the fade.
 
@@ -90,7 +90,7 @@ document, which looks exactly like a module that was bypassed.
 
 - **A source** for the DSP this package exposes: `crossfade.test.ts` compares the folder's
   compiled graph to `src/`'s function, both ways, so they cannot drift.
-- **A bench for the engine**: `engine/moteur/tests/Faust_test.cpp` compiles the `.dsp` files from
+- **A bench for the engine**: `engine/st0-engine/tests/Faust_test.cpp` compiles the `.dsp` files from
   here (`STUDIO_DSP_MODULES`), the wurlitzer first.
 - **A model to copy** into a library, by hand or from st0 — which is where a module is written,
   against a project where the plugin it names is actually loaded.

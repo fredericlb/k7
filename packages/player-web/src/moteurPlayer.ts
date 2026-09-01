@@ -1,5 +1,5 @@
 // moteurPlayer.ts — the third engine behind the Player seam: z0's playback driven by
-// engine/moteur instead of by Web Audio. The sound comes out of the ENGINE's interface, not
+// engine/st0-engine instead of by Web Audio. The sound comes out of the ENGINE's interface, not
 // the tab's; a browser that also wants to hear it subscribes to the étape-7 broadcast.
 // See docs/moteurPlayer.md for what it cannot do.
 

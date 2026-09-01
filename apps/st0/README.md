@@ -22,7 +22,7 @@ monorepo:
   folder to a flat `ProjectDoc`/`GraphDoc`, send it as JSON, watch files for live
   reload, and send transport commands. They have no UI of their own — the web
   backend and the CLI consume them as source.
-- **`engine/moteur`** (C++) is a headless audio server. It never parses project
+- **`engine/st0-engine`** (C++) is a headless audio server. It never parses project
   files — it receives a compiled project as JSON, keeps the smart
   `diff()`/`apply()` logic, plays audio, and pushes transport/meter state back.
 
@@ -40,7 +40,7 @@ TypeScript source and run via `tsx` — no build step. The engine is a native C+
 binary, built separately.
 
 ```
-engine/moteur/               the C++ project (st0-engine)             — native, not a workspace
+engine/st0-engine/               the C++ project (st0-engine)             — native, not a workspace
   CMakeLists.txt · CMakePresets.json · docs/design.md
   engine/    library studio::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
   server/    app st0-engine          (WebSocket audio server, main.cpp)
@@ -174,8 +174,8 @@ Native low-latency audio is built on Windows with MSVC (ASIO/WASAPI) or on macOS
 AppleClang (CoreAudio), from the repo root:
 
 ```sh
-npm run build:win --workspace moteur   # cmake --preset windows-msvc && cmake --build --preset windows-msvc
-npm run build:mac --workspace moteur   # cmake --preset macos-clang  && cmake --build --preset macos-clang
+npm run build:win --workspace st0-engine   # cmake --preset windows-msvc && cmake --build --preset windows-msvc
+npm run build:mac --workspace st0-engine   # cmake --preset macos-clang  && cmake --build --preset macos-clang
 ```
 
 The macOS build needs `brew install cmake ninja` (it uses the Ninja generator, not
@@ -186,7 +186,7 @@ Xcode — so the Command Line Tools are enough, no full Xcode.app). It targets m
 ./engine/build/macos-clang/st0-engine --list-audio-devices   # lists CoreAudio devices, then exits
 ```
 
-On Linux, build with a preset from `engine/moteur/CMakePresets.json` (`dev-gcc`,
+On Linux, build with a preset from `engine/st0-engine/CMakePresets.json` (`dev-gcc`,
 `dev-clang`, `asan`, `release-gcc`); the first configure fetches JUCE + Tracktion
 (hundreds of MB). Requires CMake ≥ 3.24, a C++20 toolchain, and the JUCE Linux
 dev deps (needed even headless):
@@ -239,7 +239,7 @@ JSON over `ws://127.0.0.1:8765` (default). A sample of the message types:
 
 ## Troubleshooting (C++ engine, Linux)
 
-Run from `engine/moteur/`, in the order you'll hit them.
+Run from `engine/st0-engine/`, in the order you'll hit them.
 
 **`git@github.com: Permission denied (publickey)` during the JUCE submodule
 clone** — Tracktion's `.gitmodules` hardcodes the JUCE submodule as an SSH URL.

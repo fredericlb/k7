@@ -1,7 +1,7 @@
 # The platter stretches for itself, and the hybrid is gone
 
 The decisions of the platter work, in one place. Current behaviour is described by the ordinary
-pages — `engine/moteur/docs/turntable.md`, `packages/ui-turntables/docs/scratch.md`.
+pages — `engine/st0-engine/docs/turntable.md`, `packages/ui-turntables/docs/scratch.md`.
 
 ## Everything plays through a platter
 
@@ -44,8 +44,8 @@ Facts worth keeping:
   edges.** A stretcher splices, so its output dips mid-burst and every dip is a false edge —
   reporting half the period and no dependence on rate.
 
-The measurements are `engine/moteur/scripts/keylock.ts`, the numbers in
-`engine/moteur/docs/turntable.md`: pitch holds at 1000 Hz while the period follows the rate;
+The measurements are `engine/st0-engine/scripts/keylock.ts`, the numbers in
+`engine/st0-engine/docs/turntable.md`: pitch holds at 1000 Hz while the period follows the rate;
 resampling moves both.
 
 ## The desk turns `Key` on, and off while a hand holds the record

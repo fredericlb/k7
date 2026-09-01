@@ -19,7 +19,7 @@ the desk's `withDecks` invents no plugin. What that buys:
 | | where | what it gives |
 |---|---|---|
 | `PluginDoc.deckFile` | `packages/engine-protocol/project.ts` | already a first-class field, commented "TURNTABLE modules only — the record the platter OWNS" |
-| loading the record | `engine/moteur/engine/EditBuilder.cpp` | `dynamic_cast<studio::TurntablePlugin*>` on whatever the plugin is — generic, like `namFile` and `irFile` just above |
+| loading the record | `engine/st0-engine/engine/EditBuilder.cpp` | `dynamic_cast<studio::TurntablePlugin*>` on whatever the plugin is — generic, like `namFile` and `irFile` just above |
 | naming a built-in | `packages/song/src/nodeProject.ts` | `plugin: { type: internal, name: … }` is already how `eq3` names Tracktion's equaliser |
 
 The engine does not ask where the plugin came from. It builds one from `p.type`, and if it happens
@@ -28,7 +28,7 @@ path as an injected one.
 
 ## Three things measured, and what they settled
 
-`engine/moteur/scripts/platter-node-probe.ts` replays the last two against a running engine; the
+`engine/st0-engine/scripts/platter-node-probe.ts` replays the last two against a running engine; the
 first is read in the source.
 
 **`role: ""` has no consequence.** `deck.ts` sets `role: "instrument"`; `nodeProject.ts`'s generic
@@ -154,7 +154,7 @@ so.
 A running engine, then:
 
 ```bash
-npx tsx engine/moteur/scripts/platter-node-probe.ts   # [ws://127.0.0.1:8765]
+npx tsx engine/st0-engine/scripts/platter-node-probe.ts   # [ws://127.0.0.1:8765]
 ```
 
 Its own session, `Rate: 0` everywhere: it makes no noise and does not touch the loaded project.

@@ -1,7 +1,7 @@
 # Analysing audio without the engine
 
 A `{file}.cache` sidecar carries a peak/RMS envelope, three colour bands, onsets and a tempo.
-`engine/moteur` writes one with `--waveform`, decoding through JUCE. This package writes the same
+`engine/st0-engine` writes one with `--waveform`, decoding through JUCE. This package writes the same
 file from Node, decoding through ffmpeg.
 
 ## Why a second producer at all
@@ -16,7 +16,7 @@ The engine keeps its own path where it exists: it is faster, and it is already l
 ## The arithmetic is a PORT, and that is a constraint
 
 Every constant in `envelope.ts` — 256 frames a bucket, 8192 buckets, the 200 Hz and 4 kHz corners,
-the 60–200 bpm range, Ellis's Gaussian prior at 120 — is `engine/moteur/engine/Waveform.cpp`'s.
+the 60–200 bpm range, Ellis's Gaussian prior at 120 — is `engine/st0-engine/engine/Waveform.cpp`'s.
 Changing one on this side alone makes two producers of one file disagree about it.
 
 Onset detection is **not** ported: `@studio/audio-probe`'s `detectTransients` is the reference

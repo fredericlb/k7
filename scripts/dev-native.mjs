@@ -12,7 +12,7 @@ import {
   buildDevApp,
   launch,
   stopAll,
-} from "../engine/capot/scripts/trayProcess.mjs";
+} from "../engine/st0-tray/scripts/trayProcess.mjs";
 
 // Under WSL the toolchain is on the host: mirror the tree and run THIS script there (../docs/wsl.md).
 if (process.env.STUDIO_NATIVE_MIRROR && process.platform !== "win32") {
@@ -21,7 +21,7 @@ if (process.env.STUDIO_NATIVE_MIRROR && process.platform !== "win32") {
 }
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
-const engineDir = join(repo, "engine", "moteur");
+const engineDir = join(repo, "engine", "st0-engine");
 
 // Long enough that a formatter's write burst is one rebuild, short enough to feel like a save.
 const DEBOUNCE_MS = 500;
@@ -35,7 +35,7 @@ const log = (msg) => console.log(`native | ${msg}`);
 const isCxx = (base) => /\.(cpp|h|hpp|mm)$/.test(base);
 
 const TARGETS = {
-  // The C++ that ends up in studio-moteur; tests/ is deliberately out (../docs/dev.md).
+  // The C++ that ends up in st0-engine; tests/ is deliberately out (../docs/dev.md).
   moteur: {
     dirs: [
       { path: join(engineDir, "engine"), recursive: true, match: isCxx },
@@ -53,12 +53,12 @@ const TARGETS = {
   capot: {
     dirs: [
       {
-        path: join(repo, "engine", "capot", "src-tauri", "src"),
+        path: join(repo, "engine", "st0-tray", "src-tauri", "src"),
         recursive: true,
         match: (base) => base.endsWith(".rs"),
       },
       {
-        path: join(repo, "engine", "capot", "src-tauri"),
+        path: join(repo, "engine", "st0-tray", "src-tauri"),
         recursive: false,
         match: (base) =>
           base === "Cargo.toml" ||
@@ -71,19 +71,19 @@ const TARGETS = {
 };
 
 // Rebuild order: the slow one first, so a broken C++ never costs a cargo run (../docs/dev.md).
-const ORDER = ["moteur", "capot"];
+const ORDER = ["st0-engine", "st0-tray"];
 
 /** Delegated to the moteur's own build:* scripts, so this holds no CMake knowledge. */
 function buildEngine() {
   const script = { win32: "build:win", darwin: "build:mac" }[process.platform];
   if (!script) {
     log(
-      "no engine build script for this platform — leaving engine/moteur/build as it is",
+      "no engine build script for this platform — leaving engine/st0-engine/build as it is",
     );
     return;
   }
-  console.log(`\n▸ npm run ${script} --workspace moteur\n`);
-  const r = spawnSync("npm", ["run", script, "--workspace", "moteur"], {
+  console.log(`\n▸ npm run ${script} --workspace st0-engine\n`);
+  const r = spawnSync("npm", ["run", script, "--workspace", "st0-engine"], {
     cwd: repo,
     stdio: "inherit",
     shell: process.platform === "win32", // npm is a .cmd shim here
@@ -93,7 +93,7 @@ function buildEngine() {
 
   // A build reporting SUCCESS without replacing the image is what this guards (../docs/dev.md).
   const after = engineBinary();
-  if (after && statSync(after).mtimeMs < newestSource("moteur"))
+  if (after && statSync(after).mtimeMs < newestSource("st0-engine"))
     throw new Error(
       `the engine build reported success but ${basename(after)} is still older than its ` +
         "sources — something is holding it open (a surviving engine? see stopAll)",
@@ -108,7 +108,7 @@ function buildEngine() {
 function engineBinary() {
   const build = join(engineDir, "build");
   if (!existsSync(build)) return null;
-  const names = ["studio-moteur.exe", "studio-moteur"];
+  const names = ["st0-engine.exe", "st0-engine"];
   const found = [];
   for (const preset of readdirSync(build))
     for (const cfg of ["", "Release", "RelWithDebInfo", "Debug"])
@@ -218,12 +218,12 @@ await stopAll(); // whatever a previous session or an installed bundle left behi
 const bin = engineBinary();
 if (!bin) {
   log("no engine binary yet — building it (this one is long)");
-  dirty.add("moteur");
-} else if (statSync(bin).mtimeMs < newestSource("moteur")) {
+  dirty.add("st0-engine");
+} else if (statSync(bin).mtimeMs < newestSource("st0-engine")) {
   log("the engine is older than its sources — rebuilding");
-  dirty.add("moteur");
+  dirty.add("st0-engine");
 }
-dirty.add("capot"); // always: a cargo no-op is seconds, and it is what guarantees out/dev matches src
+dirty.add("st0-tray"); // always: a cargo no-op is seconds, and it is what guarantees out/dev matches src
 
 await cycle();
 
@@ -241,5 +241,5 @@ for (const [target, { dirs }] of Object.entries(TARGETS))
     }
   }
 
-log("watching engine/moteur and engine/capot — save to rebuild and restart");
+log("watching engine/st0-engine and engine/st0-tray — save to rebuild and restart");
 setInterval(() => {}, 1 << 30); // the watchers are unref'd, so hold the process open ourselves

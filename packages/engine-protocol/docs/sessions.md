@@ -1,8 +1,8 @@
 # Sessions — which project on the engine a client is driving
 
-One engine process hosts several projects at once (`engine/moteur/docs/multiEdit.md`). A
+One engine process hosts several projects at once (`engine/st0-engine/docs/multiEdit.md`). A
 **session** is the name of one of them. The wire rule lives in
-`engine/moteur/docs/protocol.md`; this page is about the client side: who picks the name, and
+`engine/st0-engine/docs/protocol.md`; this page is about the client side: who picks the name, and
 the two ways it goes wrong.
 
 ## Why there is a name at all
@@ -71,7 +71,7 @@ only frames that arrive unstamped are genuinely the machine's. Against an engine
 sessions nothing is stamped, and that is the case pass-on-absence exists for — requiring the
 field would make a new client silently deaf rather than merely unsorted.
 
-So the correctness of one line here lives in `engine/moteur/server/main.cpp`, in its choice
+So the correctness of one line here lives in `engine/st0-engine/server/main.cpp`, in its choice
 between the `broadcast` and `broadcastTo` verbs. Stamp one reply too few and a pl8 module
 audition makes st0 flash `busy` and receive `applied`/`flushed`/`recorded` for a project it
 does not own.
@@ -98,4 +98,4 @@ process dies. A surface that is done with a project should say so.
 **A session is created by driving it, and asking about one never creates it.** That is the
 engine's rule rather than this package's, but it is what makes the supervisor's polling safe —
 it holds a `DEFAULT_SESSION` client and would otherwise have conjured `""` on every tick. See
-`engine/moteur/docs/sessions.md`, which also covers when an empty session is reaped.
+`engine/st0-engine/docs/sessions.md`, which also covers when an empty session is reaped.

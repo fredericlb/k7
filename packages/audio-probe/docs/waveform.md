@@ -21,7 +21,7 @@ degrade to a plain envelope rather than to a blank one.
 
 ## `detectTransients` is the written spec, not the code that runs
 
-It is mirrored byte-for-byte in `engine/moteur/engine/Waveform.cpp`, which is what actually runs:
+It is mirrored byte-for-byte in `engine/st0-engine/engine/Waveform.cpp`, which is what actually runs:
 the engine already has the decoded audio, so it detects while it is downsampling and writes the
 result into the sidecar. Nothing in production calls the TypeScript; it exists as the written spec,
 and `waveform.test.ts` is the contract both sides are held to — the same arrangement

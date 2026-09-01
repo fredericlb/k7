@@ -202,7 +202,7 @@ and does not carry, is [wsl.md](wsl.md).
 
 ## The native task — `scripts/dev-native.mjs`
 
-It is `engine/moteur`'s `dev` script, which is what gives it a pane in the TUI beside the
+It is `engine/st0-engine`'s `dev` script, which is what gives it a pane in the TUI beside the
 servers. That it also rebuilds the tray is not a mis-filing: the engine is the reason the
 monitor exists — it is the half with no watch mode — and the desktop app is simply how the
 engine is run in dev, since the supervisor inside it is what spawns the binary.
@@ -213,14 +213,14 @@ what the monitor does — watch the sources, rebuild, restart.
 
 | target | watched | rebuilt with |
 |---|---|---|
-| `moteur` | `engine/`, `server/`, `CMakeLists.txt`, `CMakePresets.json` | `npm run build:win` / `build:mac --workspace moteur` |
+| `moteur` | `engine/`, `server/`, `CMakeLists.txt`, `CMakePresets.json` | `npm run build:win` / `build:mac --workspace st0-engine` |
 | `capot` | `dist/main.cjs` — the OUTPUT, not the sources | nothing; the restart is the whole cycle |
 
 A failed app build therefore no longer leaves anything down: esbuild fails in its own Tilt
 pane, `dist/main.cjs` keeps its last good bytes, and the running app is untouched. Only a
 broken `.cpp` can still leave the session without an engine.
 
-`engine/moteur/tests/` is deliberately not watched: it links a binary of its own, and
+`engine/st0-engine/tests/` is deliberately not watched: it links a binary of its own, and
 rebuilding it would double the wait for something the tray never runs.
 
 ### Why one process owns both watches
@@ -252,7 +252,7 @@ a signal. Save again and it tries again. Only the ENGINE can fail this way now �
 build is the `capot` Tilt resource and never leaves anything stopped.
 
 At startup the monitor launches the app unconditionally, and rebuilds the engine only if
-there is no binary, or if the sources are newer than the one in `engine/moteur/build`. A
+there is no binary, or if the sources are newer than the one in `engine/st0-engine/build`. A
 session should not pay a cmake run to be told there is nothing to do, and should not
 silently run the engine you had before a `git pull`.
 
@@ -288,10 +288,10 @@ npm run tray:stop --workspace st0-desktop
 
 ## Where the steps live
 
-`engine/capot/scripts/trayProcess.mjs` holds the tray's lifetime as functions — `running`,
+`engine/st0-tray/scripts/trayProcess.mjs` holds the tray's lifetime as functions — `running`,
 `stopAll`, `buildDevApp`, `launch` — and `restart-app.mjs` is a thin CLI over it.
 The one difference from a script is that every step **throws** rather than calling
 `process.exit`: a one-shot command turns that into an exit code, and a watcher meant to
 outlive a bad build cannot afford either. See
-[engine/capot/scripts/docs/restartTray.md](../engine/capot/scripts/docs/restartTray.md) for
+[engine/st0-tray/scripts/docs/restartTray.md](../engine/st0-tray/scripts/docs/restartTray.md) for
 what those steps do and why the order is not negotiable.

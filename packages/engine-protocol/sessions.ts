@@ -1,7 +1,7 @@
 // sessions.ts — the session identifier: which project inside one engine a message is about.
 // A wire value, so it lives here: two PROCESSES have to spell it the same way or they drive
 // two different projects and each sees the other's engine as empty. See docs/sessions.md
-// here for the client rules, and engine/moteur/docs/protocol.md for the wire.
+// here for the client rules, and engine/st0-engine/docs/protocol.md for the wire.
 
 /** The default session; the engine reads an absent field as `""`, so do NOT give this a name — see docs/sessions.md. */
 export const DEFAULT_SESSION = "";

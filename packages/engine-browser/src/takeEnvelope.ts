@@ -1,5 +1,5 @@
 // takeEnvelope.ts — the take's picture, ACCUMULATED. The engine sends the points it made since
-// the last frame and nothing else (engine/moteur/docs/recorder.md), so somebody has to keep the
+// the last frame and nothing else (engine/st0-engine/docs/recorder.md), so somebody has to keep the
 // running total — and has to know when to throw it away.
 //
 // Pure, and its own file, because that second half is the whole difficulty: a rule that decides

@@ -1,13 +1,13 @@
 # Audit — the services and the engine
 
-Everything that links a surface to `engine/moteur`: what is shared, what is copied, and where the
+Everything that links a surface to `engine/st0-engine`: what is shared, what is copied, and where the
 reliability of the connections gives way. Written to be executed in batches — the plan is at the
 end of the page.
 
 > **The other half is elsewhere.** This page stops at the socket. What happens once the message
 > has arrived — the threads, the audio callback, the cost of loading a project, and the first-play
 > freeze — is in
-> [engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md).
+> [engine/st0-engine/docs/audit-stabilite.md](../engine/st0-engine/docs/audit-stabilite.md).
 
 ## Scope
 

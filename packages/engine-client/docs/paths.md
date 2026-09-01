@@ -17,8 +17,8 @@ that touches this gets a directory of its own.
 
 The per-platform location each OS prefers would be the tidier answer if one program owned this
 directory. Four do, in three languages: `packages/song/src/studioHome.ts`,
-`scripts/stateDir.mjs` for the plain-node scripts, `engine/capot/src-tauri/src/paths.rs`, and
-`engine/moteur/engine/PluginScan.cpp`.
+`scripts/stateDir.mjs` for the plain-node scripts, `engine/st0-tray/src-tauri/src/paths.rs`, and
+`engine/st0-engine/engine/PluginScan.cpp`.
 
 Each language's idea of "where application data goes" is subtly its own, and they do not line up:
 JUCE's `userApplicationDataDirectory` is `~/Library` on macOS where node's equivalent is

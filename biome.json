@@ -16,7 +16,7 @@
       "!**/out",
       "!**/*.min.js",
       "!**/*.css",
-      "!engine/moteur"
+      "!engine/st0-engine"
     ]
   },
   "linter": {

@@ -1,6 +1,6 @@
 // engineBinary.ts — locate the built st0-engine binary, in three tiers:
 // $STUDIO_ENGINE, the copy vendored beside the bundle (a packaged app), then the CMake
-// preset output dirs under engine/moteur/build, newest first but Debug last. The repo tier
+// preset output dirs under engine/st0-engine/build, newest first but Debug last. The repo tier
 // resolves relative to THIS file, so it works wherever linked — see docs/engineBinary.md.
 
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -52,7 +52,7 @@ export function findEngineBinary(
   const here = sourceDir();
   const root = repo ?? (here ? join(here, "..", "..", "..") : null);
   if (!root) return null;
-  const build = join(root, "engine", "moteur", "build");
+  const build = join(root, "engine", "st0-engine", "build");
   if (!existsSync(build)) return null;
 
   const names = ["st0-engine.exe", "st0-engine"];

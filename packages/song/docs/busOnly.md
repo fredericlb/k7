@@ -48,7 +48,7 @@ not feed its aux sends — it is silent everywhere, not only on the dry path.
 | two destinations, source muted, first routed | −1.6 dBFS |
 | two destinations, source unmuted | 0.0 dBFS — dry path included |
 
-`npx tsx engine/moteur/scripts/cue-bus.ts` replays all three.
+`npx tsx engine/st0-engine/scripts/cue-bus.ts` replays all three.
 
 It is also why a track can have only **one** destination without a dry path: it has one output. The
 others go through sends, post-plugin and post-fader on the source track — correct here, since fade

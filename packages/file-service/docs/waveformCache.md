@@ -20,7 +20,7 @@ engine can write one during an offline decode. They are hidden from the file tre
 
 ## The content fingerprint
 
-**MUST match `engine/moteur/engine/Waveform.cpp` byte for byte**, and lives in
+**MUST match `engine/st0-engine/engine/Waveform.cpp` byte for byte**, and lives in
 `@studio/audio-analysis/fingerprint` so there is one TypeScript copy rather than one per service.
 
 FNV-1a/64 over the file SIZE (8 little-endian bytes), then up to `HEAD` bytes from the front and up

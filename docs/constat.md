@@ -1,6 +1,6 @@
 # Overall findings — the audio axis
 
-Scope: `apps/st0`, `engine/moteur`, `apps/st0-desktop` and the packages they drive. Out of
+Scope: `apps/st0`, `engine/st0-engine`, `apps/st0-desktop` and the packages they drive. Out of
 scope: `apps/{z0,k7,pl8,studio}`.
 
 This page is **self-contained** — it carries its evidence rather than pointing at it — which means
@@ -12,7 +12,7 @@ The five specialised pages keep what only they hold:
 [audit-moteur.md](audit-moteur.md) (what links a surface to the engine),
 [inventaire.md](inventaire.md) (dead code),
 [tests.md](tests.md) (what the suite covers, and the two times it lied) and
-[engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md) (the C++).
+[engine/st0-engine/docs/audit-stabilite.md](../engine/st0-engine/docs/audit-stabilite.md) (the C++).
 
 ---
 
@@ -172,9 +172,9 @@ Three things to keep from it:
   a driver defect with no lever on this side. Under ASIO the driver CALLS us; there is no instruction
   queue towards the card. What can fault a driver is a late or blocking callback, and the control path
   never touches the audio thread. The real candidates are in
-  `engine/moteur/docs/audit-stabilite.md`, "Real-time safety".
+  `engine/st0-engine/docs/audit-stabilite.md`, "Real-time safety".
 
-Replay with `engine/moteur/scripts/param-cost.mjs` against an engine that has a project loaded —
+Replay with `engine/st0-engine/scripts/param-cost.mjs` against an engine that has a project loaded —
 without one, the `set` stops at the map miss and measures the control on both sides.
 
 ### The audio callback is at 5 % of its deadline, gesture included
@@ -292,13 +292,13 @@ code itself calls "the quietest failure in this repo": sending to an empty sessi
 ### The tool, and what it does not see
 
 Biome sees only intra-file — an `export` nobody imports is invisible to it **by construction** — and
-`biome.json` excludes `engine/moteur`. `npm run lint:dead` (knip, `knip.json`) does three of
+`biome.json` excludes `engine/st0-engine`. `npm run lint:dead` (knip, `knip.json`) does three of
 `inventaire.md`'s four passes in thirty seconds. **Non-blocking**: a false positive is read, it must
 not block a merge.
 
 Its exception list is the inventory's §0 translated into configuration, without which it kills live
 code: `dspRunner.mjs`, `separateWorker.ts`, the tray's esbuild entries, `emit.ts`, the `jsdsp.ts`
-files, the harnesses in `engine/moteur/scripts/`.
+files, the harnesses in `engine/st0-engine/scripts/`.
 
 Output: **1 file, 1 undeclared dependency, 2 undeclared binaries, 120 exports, 45 types** — 169
 findings, each to be examined. A rising count is not readable on its own: shrinking a published
@@ -360,10 +360,10 @@ To check this page's claims one by one:
 git grep -n "unhandledRejection\|uncaughtException\|set_terminate" -- . ':!commons'
 
 # the token goes out on any socket
-git grep -n "engineToken" -- engine/moteur/server/main.cpp
+git grep -n "engineToken" -- engine/st0-engine/server/main.cpp
 
 # one catch in the library, and main() is unguarded
-for f in $(git ls-files 'engine/moteur/engine/*.cpp' 'engine/moteur/engine/*.h'); do
+for f in $(git ls-files 'engine/st0-engine/engine/*.cpp' 'engine/st0-engine/engine/*.h'); do
   n=$(grep -cE 'catch\s*\(' "$f"); [ "$n" -gt 0 ] && echo "$n $f"
 done
 ```

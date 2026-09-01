@@ -14,7 +14,7 @@ widgets:
   wave: { type: waveform, col: 0, row: 0, colSpan: 3, rowSpan: 3, source: take }
   # Lit while rolling, off the state frame — never from the click, which would light on a refusal.
   rec: { type: button, col: 0, row: 3, label: "●", bind: "@rec:record" }
-  # Pops the LAST take, stopping it first when it is still rolling — engine/moteur/docs/recorder.md.
+  # Pops the LAST take, stopping it first when it is still rolling — engine/st0-engine/docs/recorder.md.
   clear: { type: button, col: 1, row: 3, label: clear, bind: "@rec:clear" }
   # …and sends that one to the médiathèque's recordings zone, then clears it (packages/mediatek/docs/recordings.md).
   save: { type: button, col: 2, row: 3, label: save, bind: "@rec:save" }

@@ -88,11 +88,11 @@ or the change is silent.
 
 ## Verifying it
 
-`engine/moteur/scripts/pad-effects.ts` is the proof, and it is a **render measured**, not a unit
+`engine/st0-engine/scripts/pad-effects.ts` is the proof, and it is a **render measured**, not a unit
 test — whether a ratchet happened is not something TypeScript can see.
 
 ```
-npx tsx engine/moteur/scripts/pad-effects.ts
+npx tsx engine/st0-engine/scripts/pad-effects.ts
 ```
 
 It renders a one-bar pattern of four pads over four passes and counts hits per pass:

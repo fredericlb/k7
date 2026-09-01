@@ -79,7 +79,7 @@ reason, which is exactly what the node's mixer is for.
 ## What is missing to hear it — two things, not one
 
 **The compiler.** `FaustPlugin` receives the source and passes audio through unchanged;
-`engine/moteur/docs/faust.md` holds the three ways of filling it in and what each costs.
+`engine/st0-engine/docs/faust.md` holds the three ways of filling it in and what each costs.
 
 **The INSTRUMENT seam**, which does not exist at all and which this module is the first to want.
 The Faust seam laid so far is an effect's: audio in, audio out, and the plugin is catalogued with

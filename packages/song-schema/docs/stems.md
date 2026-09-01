@@ -159,7 +159,7 @@ silently skips the steps between.
 - **They sum BEFORE the EQ**, because a deck's strip equalises what it sends to the fader, not each
   instrument apart.
 - **A new record resets the four gains.** `deckFile` is part of a plugin's identity
-  (`engine/moteur/docs/projectDiff.md`), so putting a song on re-creates the platter and its `Gain`
+  (`engine/st0-engine/docs/projectDiff.md`), so putting a song on re-creates the platter and its `Gain`
   goes back to the declared 1. The desk clears its own knobs in `putOn` to match — without that it
   would draw a cut that is not applied, and nothing would say so.
 - **The test that decides**: all four at unity, render, compare with the record — it must stay about

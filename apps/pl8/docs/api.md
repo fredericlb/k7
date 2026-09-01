@@ -63,7 +63,7 @@ throw away.
 **The audio device takes two calls, and both are needed.** The engine's own `set-audio-device`
 switches the running one; `setAudioDevice` here makes it survive a restart. They are separate
 because they are separate facts — a live engine and a file on a disk — and the engine holds no
-memory of its device by design (`engine/moteur/docs/audioDevice.md`). Sending only the first is how
+memory of its device by design (`engine/st0-engine/docs/audioDevice.md`). Sending only the first is how
 a machine ends up back on the Windows endpoint after every rebuild, monitoring at four times the
 latency, with nothing on screen saying so. `audioDevicePref` reads what is REMEMBERED, with null
 for "(system default)" — the state that leaves the engine on that endpoint.

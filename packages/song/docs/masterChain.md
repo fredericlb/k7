@@ -141,11 +141,11 @@ sound**. It brings the file back in line with what the words mean, before a real
 | derived | `chainsGraph.ts`: `MIX` starts a run, like `@in` and like a track |
 | compiled | `nodeProject.ts`: that run's owner is `@master`, and its steps become `masterPlugins` |
 | the wire | `@studio/engine-protocol`'s `ProjectDoc.masterPlugins` — always sent, empty by default |
-| decoded | `docFromJson` in `engine/moteur/server/main.cpp` (via `pluginFromJson`, shared with tracks) |
+| decoded | `docFromJson` in `engine/st0-engine/server/main.cpp` (via `pluginFromJson`, shared with tracks) |
 | placed | `populateMasterChain` in `EditBuilder.cpp`, at the head of the master list — followed by the output gain |
 | drawn | the graph's `MIX` and `OUT` cards (`MAIN_OUT_UI` in `@studio/ui-chains`), the second with its fader |
 | diffed | `ChangeKind::MasterChainChanged` — full rebuild |
-| measured | `engine/moteur/scripts/master-chain.ts` |
+| measured | `engine/st0-engine/scripts/master-chain.ts` |
 
 One nuance on the drawing side: **the graph draws no cable TO `MIX`**. Every track arrives there —
 that is what the mixer is — so those arrows would say nothing the shape does not already say, one
@@ -166,7 +166,7 @@ The TypeScript suites prove the document, the C++ suite proves the diff, and **n
 plugin landed on the bus**. That is what the harness measures:
 
 ```bash
-npx tsx engine/moteur/scripts/master-chain.ts
+npx tsx engine/st0-engine/scripts/master-chain.ts
 ```
 
 It renders the same note twice changing only `masterPlugins`, and compares the peaks. With a

@@ -22,7 +22,7 @@ opening one of its own.
 |---|---|---|
 | status line (running · id · port) | « Moteur » card | probe + socket state |
 | `Sessions ▸` + drop | « Sessions » card | `list-sessions` / `drop-session`, polled like the tray (2.5 s) |
-| `Audio interface ▸` select | « Interface audio » card | `list-audio-devices` / `set-audio-device`, **plus** `PUT <fileBase>/preferences/audio-device` — one pick is two facts, the running engine and what the next one opens (`engine/moteur/docs/audioDevice.md`) |
+| `Audio interface ▸` select | « Interface audio » card | `list-audio-devices` / `set-audio-device`, **plus** `PUT <fileBase>/preferences/audio-device` — one pick is two facts, the running engine and what the next one opens (`engine/st0-engine/docs/audioDevice.md`) |
 | `Plugins: n` + `Rescan plugins` | « Plugins » card | `list-plugins` / `rescan-plugins` — **incremental**: the full rescan deletes the engine machine's `exts.json` first, which only the supervisor can do |
 | `Native plugin UI ▸` | « UI native » card | `list-edit-plugins` / `show-native-plugin-ui` — the window opens on the engine machine's screen |
 | `Clear waveform cache` | « Maintenance » | `POST <fileBase>/waveforms/clear`, the same route the supervisor calls |

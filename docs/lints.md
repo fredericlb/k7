@@ -34,7 +34,7 @@ to the page, which is how a `../../packages/song/src/…` written inside a packa
 resolves. (Spelling a whole example path here would make this sentence a broken link itself.)
 
 **Two lists soften it, and both are meant to stay short.** `ALLOW` covers paths a page may
-legitimately name although this checkout has not got them: a page inside `engine/moteur` writes
+legitimately name although this checkout has not got them: a page inside `engine/st0-engine` writes
 `engine/EditBuilder.cpp` relative to its own app, and a page may name a file of `@frediverse/*`,
 which is the commons submodule and may not be checked out. A growing list there is the check going
 soft.

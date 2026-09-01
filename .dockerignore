@@ -23,10 +23,10 @@ env.yaml
 # workspace sources only. All are gitignored, so CI's fresh checkout never has
 # them; this is what stops a LOCAL image build from shipping ~30GB of CMake and
 # Cargo artifacts to the daemon as build context.
-engine/moteur/build
-engine/capot/out
-engine/capot/.cache
-engine/capot/src-tauri/target
-engine/capot/src-tauri/binaries
-engine/capot/src-tauri/resources
-engine/capot/src-tauri/gen
+engine/st0-engine/build
+engine/st0-tray/out
+engine/st0-tray/.cache
+engine/st0-tray/src-tauri/target
+engine/st0-tray/src-tauri/binaries
+engine/st0-tray/src-tauri/resources
+engine/st0-tray/src-tauri/gen

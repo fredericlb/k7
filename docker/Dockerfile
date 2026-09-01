@@ -6,7 +6,7 @@
 # phare's monolith (apps/phare/docker), with nothing left outside it: no studio
 # service plays douane's role of deploying on its own cadence.
 #
-# The engine (engine/moteur) and the tray (engine/capot) are not here and never
+# The engine (engine/st0-engine) and the tray (engine/st0-tray) are not here and never
 # will be: they run on the musician's own machine, beside the audio interface.
 #
 # The final stage starts from the repo-root base image (nginx + shared

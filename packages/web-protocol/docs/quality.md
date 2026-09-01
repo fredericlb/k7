@@ -54,7 +54,7 @@ unknown" instead of a band.
 
 ## The engine's half of it
 
-`whoami` carries `bufferSize` and `sampleRate` (`engine/moteur/server/main.cpp`), read off the
+`whoami` carries `bufferSize` and `sampleRate` (`engine/st0-engine/server/main.cpp`), read off the
 open device through `EngineHost::audioTiming()`. It is answered on the connection thread, not
 posted to the message thread: posting would put the probe behind whatever the engine is doing
 and turn the ping into a measure of its queue.

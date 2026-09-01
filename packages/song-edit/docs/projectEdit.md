@@ -61,7 +61,7 @@ something, which is why the caller reloads instead of patching.
 `channel` is one number for mono, two for a stereo pair, and the two-element form only ever
 means a pair the interface actually groups: `findWaveInput` matches a device on its exact
 channel list, so a set the rig does not offer resolves to nothing and plays as silence (see
-`engine/moteur/docs/audioDevice.md`). Whether such a pair exists is the ENGINE's business and
+`engine/st0-engine/docs/audioDevice.md`). Whether such a pair exists is the ENGINE's business and
 not checkable from here — the writer writes what it is told, and the surface offering the
 choice is the one that only offers real ones. `gain` is unclamped for the same reason:
 Tracktion does not clamp it either, and what is USEFUL (±24 dB, the range the builder's binds

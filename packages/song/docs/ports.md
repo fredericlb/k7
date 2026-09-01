@@ -184,7 +184,7 @@ only for a compressor's trigger. And `sidechainFrom` names a **track**:
 a step's `in` names nodes (a chain, or the track feeding one), and the engine routes from a lane,
 so the compiler resolves each down to the lane it compiles onto.
 
-`engine/moteur/docs/sidechain.md` is the engine end of this — the buffer layout, why the wiring
+`engine/st0-engine/docs/sidechain.md` is the engine end of this — the buffer layout, why the wiring
 gets a pass of its own, and why the source had to go into the plugin's diff identity.
 
 ### A deck feeding a port is still heard on its own

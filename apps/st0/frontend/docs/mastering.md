@@ -129,5 +129,5 @@ you flip to mid-take.
   A node with no surface is drawn perfectly well — its panel is on the graph, where every other
   module's is. This strip is a convenience, not a missing half.
 
-See `packages/song/docs/surfaces.md` for the format and `engine/moteur/docs/quickMaster.md` for
+See `packages/song/docs/surfaces.md` for the format and `engine/st0-engine/docs/quickMaster.md` for
 what the node actually does to the sound.

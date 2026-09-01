@@ -66,7 +66,7 @@ signal it. That is the failure you do not want to discover in public.
 
 The third is not belt-and-braces: track routing is a **playback** notion, and `tracksToDo` does not
 consult it. Without it a delivered mixdown contains the headphone feed. See
-[engine/moteur/docs/cueOutput.md](../../../engine/moteur/docs/cueOutput.md).
+[engine/st0-engine/docs/cueOutput.md](../../../engine/st0-engine/docs/cueOutput.md).
 
 ## The CUE button is not a switch
 
@@ -123,12 +123,12 @@ a fresh scaffold, so the fixture cannot drift from the template.
 | applied | `routeTrackOutput` — from `populateEdit` AND from the live diff |
 | diffed | `ChangeKind::TrackOutputChanged` — applied in place, no rebuild |
 | excluded | `tracksOnTheMix()` in `OfflineRender.cpp` |
-| measured | `engine/moteur/scripts/cue-bus.ts` |
+| measured | `engine/st0-engine/scripts/cue-bus.ts` |
 
 ## Checking it
 
 ```bash
-npx tsx engine/moteur/scripts/cue-bus.ts
+npx tsx engine/st0-engine/scripts/cue-bus.ts
 ```
 
 Two sources, one on the mix and one on the cue, rendered changing nothing but the cue bus's

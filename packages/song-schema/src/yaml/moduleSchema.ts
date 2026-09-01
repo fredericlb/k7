@@ -53,7 +53,7 @@ export const PortSchema = z
   .strict();
 
 /** What a waveform widget draws: the live signal either side of the module, or the recorder
- *  node's own TAKE — its whole picture, growing (engine/moteur/docs/recorder.md). */
+ *  node's own TAKE — its whole picture, growing (engine/st0-engine/docs/recorder.md). */
 export const WAVEFORM_SOURCES = ["input", "output", "take"] as const;
 
 /** Every `io:` a module may declare. Named for WAVEFORM_SOURCES' reason: `fields.ts` offers it. */

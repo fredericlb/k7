@@ -225,7 +225,7 @@ type WidgetTarget =
   | { kind: "offline"; module: string; name: string }
   // A RACK's pad — the one target that SETS nothing, docs/widgets.md.
   | { kind: "rack"; module: string; symbol: string }
-  // …and a RECORDER's button, the second of that family — engine/moteur/docs/recorder.md.
+  // …and a RECORDER's button, the second of that family — engine/st0-engine/docs/recorder.md.
   | { kind: "recorder"; module: string; verb: RecVerb; pluginId?: string }
   // …and a PROJECT setting: read off the card like a field, WRITTEN by a verb (docs/widgets.md).
   | { kind: "project"; field: string };
@@ -335,7 +335,7 @@ interface Channels {
   // …and for a RACK pad, which asks for a sound rather than a value: can this host make one?
   rackTriggerable: boolean;
   // …and whether one can drive a RECORDER: a card with no engine behind it draws inert buttons
-  // rather than buttons that do nothing — engine/moteur/docs/recorder.md.
+  // rather than buttons that do nothing — engine/st0-engine/docs/recorder.md.
   recorderWired: boolean;
   projectWritable: boolean;
   // Is this graph a REHEARSAL — there is nowhere to send a value and none is needed.
@@ -736,7 +736,7 @@ function WaveformWidget({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // A recorder node draws its TAKE, not a live tap: the whole of it, growing, off the state
-  // frame's `recorders` rather than `waveform` — see engine/moteur/docs/recorder.md.
+  // frame's `recorders` rather than `waveform` — see engine/st0-engine/docs/recorder.md.
   const isTake = w.source === "take";
   // Where to listen: this node's own plugin, or the tap it names — docs/waveformWidget.md.
   const tap = n.tap ?? (n.pluginId ? { id: n.pluginId, side: w.source } : null);
@@ -2387,7 +2387,7 @@ export function DomChains({
   onTriggerRack?: (module: string, symbol: string) => void;
   /** A RECORDER's button was pressed. `pluginId` is what the ENGINE keys a node by; `module` is
    *  what a VERB names. The host needs both — record and clear go down the socket, save is a
-   *  command. See engine/moteur/docs/recorder.md. */
+   *  command. See engine/st0-engine/docs/recorder.md. */
   /** Set a PROJECT setting — `project <field> <value>`. Absent means the dropdown reads only. */
   onProjectField?: (field: string, value: string) => void;
   onRecorder?: (

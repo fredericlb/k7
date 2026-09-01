@@ -9,7 +9,7 @@ choice the rest of this repo already made, and reversing it would cost more than
   precisely what the mediatek is not.
 - **sqlite would be a native dependency inside a package that gets esbuild-bundled into the
   desktop app.** The file service is bundled to a single `.mjs` run by a vendored Node
-  (`engine/capot/scripts/build-engine.mjs`). A `.node` binary in that closure is exactly the class of
+  (`engine/st0-tray/scripts/build-engine.mjs`). A `.node` binary in that closure is exactly the class of
   problem that packaging avoids.
 
   The packaging CAN carry a native module — `onnxruntime-node` is marked `external`, then

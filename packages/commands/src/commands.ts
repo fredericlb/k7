@@ -2775,7 +2775,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   /**
    * Transposing CLAMPS onto the keyboard rather than dropping what falls off it — the engine's own
    * `transpose` node does the same, and for the sharper reason: a dropped note leaves its note-off
-   * behind and hangs the voice (engine/moteur DspGraph.cpp). A paste, which is not an edit of notes
+   * behind and hangs the voice (engine/st0-engine DspGraph.cpp). A paste, which is not an edit of notes
    * that exist, drops instead and says so.
    */
   "sequence.notesTranspose": regionCommand(

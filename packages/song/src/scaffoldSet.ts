@@ -86,7 +86,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# while that track also reaches an audible output. A deck feeding nothing but a\n` +
       `# crossfade would therefore be heard BESIDE it, raw, with nothing able to take it back:\n` +
       `# not a mute, not a disconnect, not a routing — all four were measured, see\n` +
-      `# engine/moteur/docs/sidechain.md. One input each, and the blend at the mixer.\n` +
+      `# engine/st0-engine/docs/sidechain.md. One input each, and the blend at the mixer.\n` +
       `#\n` +
       `# Each fade's \`Mix\` IS its lane's gain, so its panel reads true on its own: 0 silent, 1\n` +
       `# full. The desk drives the two in MIRROR — one control, deck A inverted — which is said\n` +
@@ -476,7 +476,7 @@ function fadeNode(letter: string, invert: boolean): string {
     `# engine imposes: a module's second port is wired as a SIDECHAIN, and a sidechain reads a\n` +
     `# track only while that track also reaches an audible output. A deck feeding nothing but a\n` +
     `# crossfade would therefore be heard BESIDE it, raw, with no way to take it back — see\n` +
-    `# engine/moteur/docs/sidechain.md. One input each, and the blend happens at the mixer.\n` +
+    `# engine/st0-engine/docs/sidechain.md. One input each, and the blend happens at the mixer.\n` +
     `#\n` +
     `#\n` +
     `# \`Mix\` IS this lane's gain, so the panel reads true on its own: 0 silent, 1 full. The\n` +
@@ -516,7 +516,7 @@ function cueNode(letter: string, from = `filter${letter}`): string {
     `# Where it comes OUT is not this file's business and not the project's: \`CUE\` is a pair of\n` +
     `# the interface, named once per MACHINE in preferences.yaml. A machine with no\n` +
     `# second pair plays this bus nowhere at all — never into the room, which is measured in\n` +
-    `# engine/moteur/scripts/cue-bus.ts. See packages/song/docs/cue.md.\n` +
+    `# engine/st0-engine/scripts/cue-bus.ts. See packages/song/docs/cue.md.\n` +
     `extends: ${q(`${MEDIATEK_UTILITY}/fade`)}\n` +
     `params:\n` +
     `  # SILENT at rest: a set starts with nothing in the headphones, and the button is what opens it.\n` +

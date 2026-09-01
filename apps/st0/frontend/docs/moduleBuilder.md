@@ -7,7 +7,7 @@ only host. The reason there is only one is the reason this one works.
 
 A module file names a plugin. What that plugin's parameters are called, what they span, and
 what factory banks it ships are not in the file and cannot be — they belong to the binary, and
-they change when it is updated. The only thing that can answer is a running `engine/moteur`
+they change when it is updated. The only thing that can answer is a running `engine/st0-engine`
 with that plugin **instantiated**.
 
 A host with an engine but no project has to manufacture one — the smallest `ProjectDoc` that makes
@@ -60,7 +60,7 @@ the bind dropdown with them: 4OSC, 68 parameters, none of them offerable.
 
 The fourth source needs no project at all: the file names its plugin, and `@studio/song` says what
 that plugin has, out of a table **generated from a real instance of every built-in the engine can
-create** (`engine/moteur/docs/builtinParams.md`). Names and ranges both, which matters — a widget
+create** (`engine/st0-engine/docs/builtinParams.md`). Names and ranges both, which matters — a widget
 bound with no range is drawn 0..1, and on a `-36..+36` semitone knob that is not cosmetic: it
 writes the wrong number into the file.
 

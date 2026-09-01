@@ -6,7 +6,7 @@
 # play (packages/song/docs/liveProject.md).
 #
 # Its DSP is the engine's own, compiled in: `type: internal`, and the name is the built-in's.
-# See engine/moteur/docs/recorder.md for the ring, and what a `damaged` take means.
+# See engine/st0-engine/docs/recorder.md for the ring, and what a `damaged` take means.
 plugin:
   type: internal
   name: Recorder

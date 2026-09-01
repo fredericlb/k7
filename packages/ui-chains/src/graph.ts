@@ -650,7 +650,7 @@ export const rackBindSymbol = (bind: string | undefined): string | null =>
 
 /** The bind prefix a RECORDER's controls carry: `@rec:record` fires, it does not set. The second
  *  member of the rack pad's family, and named apart from `@record` deliberately — a bare `@field`
- *  is a module field the general case would try to WRITE. See engine/moteur/docs/recorder.md. */
+ *  is a module field the general case would try to WRITE. See engine/st0-engine/docs/recorder.md. */
 export const REC_BIND = "@rec:";
 
 /** What a recorder node can be told to do. `save` is the file service's; the other two the engine's. */

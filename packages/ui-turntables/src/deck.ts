@@ -167,7 +167,7 @@ function onPlatter(
     params: {
       ...held,
       Rate: platterRate(tempo, playing),
-      // KEY is a param of the platter, not a second way of playing — engine/moteur/docs/turntable.md.
+      // KEY is a param of the platter, not a second way of playing — engine/st0-engine/docs/turntable.md.
       // No hand here: a document is what the deck does when nobody is touching it.
       Key: platterKey(tempo, false),
     },

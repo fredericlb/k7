@@ -67,7 +67,7 @@ twice, one per session, and `Assourdissant`). The 15 songs of `Slooow` got none:
 ## What is not faithful, and why
 
 **The phaser.** z0 stacks four allpasses swept by an LFO. The graph vocabulary
-(`engine/moteur/engine/DspGraph.h`) can do neither, and both reasons are worth writing once:
+(`engine/st0-engine/engine/DspGraph.h`) can do neither, and both reasons are worth writing once:
 
 1. `biquad` knows four modes — bandpass, lowpass, highpass, notch — and **not allpass**.
 2. A first-order allpass needs `y[n−1]`, and **no graph can hold it**. The only node writing a
@@ -202,7 +202,7 @@ rewrites the `.json` beside it.
 ## What is verified
 
 Without playing a note — a second engine beside the running one would block the ASIO driver, which
-`engine/moteur/AGENTS.md` tells in detail:
+`engine/st0-engine/AGENTS.md` tells in detail:
 
 - the eight modules resolve through `loadModuleRefs`, with **zero anomalies** over the whole
   library (`libraryModuleIssues`);

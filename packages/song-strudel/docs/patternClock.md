@@ -93,7 +93,7 @@ would give the engine two tracks sharing one id.
 Everything but the strudel lanes is `base.tracks` verbatim, tick after tick — the same objects —
 so handing the engine the whole document to tell it about eight notes costs 137 KB against 3.7 on
 a real project, plus a parse and a diff that rebuilds four maps over every track, clip and plugin
-in it. So a tick sends `tracks` (`engine/moteur/docs/protocol.md`), which replaces those lanes in
+in it. So a tick sends `tracks` (`engine/st0-engine/docs/protocol.md`), which replaces those lanes in
 the document the engine already holds.
 
 The guard is the TRACK SET, not the content. A delta replaces by id and can neither add nor

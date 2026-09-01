@@ -488,7 +488,7 @@ describe("every deck plays a platter, and a separated one plays four", () => {
 
   it("STAYS on the platter when keylock comes on, and says so with a param", () => {
     // It used to hand the deck back to a stretched clip. The platter holds its own pitch now, so KEY
-    // is one parameter and not a second way of playing — engine/moteur/docs/turntable.md.
+    // is one parameter and not a second way of playing — engine/st0-engine/docs/turntable.md.
     const doc = withDecks(compiled(), loaded(), keyed());
     expect(platterOf(doc, "deckA")?.params.Key).toBe(1);
     expect(doc.tracks[0].clips).toEqual([]);

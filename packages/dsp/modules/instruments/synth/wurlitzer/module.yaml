@@ -6,7 +6,7 @@
 # IL NE SONNE PAS ENCORE, et pas parce qu'il serait faux : le moteur n'a pas de compilateur
 # Faust, et un INSTRUMENT demande en plus une couture que la couture Faust n'a pas — MIDI en
 # entrée, un répartiteur de voix, un greffon annoncé comme instrument. Les deux manques sont
-# écrits dans engine/moteur/docs/faust.md ; ce dossier est la source, relisible et complète,
+# écrits dans engine/st0-engine/docs/faust.md ; ce dossier est la source, relisible et complète,
 # qui sera jouée le jour où ils tombent. packages/dsp/docs/wurlitzer.md dit d'où viennent
 # les nombres.
 plugin:

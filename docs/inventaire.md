@@ -76,18 +76,18 @@ without anyone seeing it.
 | `packages/dsp/modules/{normalize,sweep}/jsdsp.ts` | MODULE DSPs. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import. |
 | `songs/**/jsdsp.ts` | same mechanism: a demo song's DSP is data loaded at runtime. |
 | `packages/stem-separation/src/separateWorker.ts` | launched by `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
-| `packages/engine-host/src/cli.ts`, `packages/file-service/src/server.ts` | **esbuild entries** of `engine/capot/scripts/build-engine.mjs`, which bundles them into the application. Zero imports is not zero callers. |
+| `packages/engine-host/src/cli.ts`, `packages/file-service/src/server.ts` | **esbuild entries** of `engine/st0-tray/scripts/build-engine.mjs`, which bundles them into the application. Zero imports is not zero callers. |
 | `packages/ui-chains-react/src/DomChains.stories.tsx` | picked up by `.storybook/main.ts`'s glob. |
 | `packages/dsp/src/emit.ts` | the package's `build` script (`tsx src/emit.ts`). A pass looking only at `bin` and esbuild entries declares it dead; **a `package.json` `scripts` entry is a caller.** |
 
 `@studio/dsp` is also the author-facing API published to users
 (`apps/st0/docs/25-syntax-instruments.md`), and the C++ pastes its generated JSON
-(`engine/moteur/engine/GraphDspPlugin.cpp`).
+(`engine/st0-engine/engine/GraphDspPlugin.cpp`).
 
 ### `detectTransients` is called by nobody, and must stay that way
 
 `packages/audio-probe/src/waveform.ts` exports it, and no production code calls it: detection runs in
-the engine, in C++ (`engine/moteur/engine/Waveform.cpp`), while it is already downsampling the audio,
+the engine, in C++ (`engine/st0-engine/engine/Waveform.cpp`), while it is already downsampling the audio,
 and the result goes into the `{source}.cache` sidecar.
 
 The TypeScript version is the **executable specification** the C++ copies, and `waveform.test.ts` is
@@ -96,8 +96,8 @@ match" comment.
 
 ### Two deep imports bypass the `exports` maps
 
-`engine/moteur/scripts/list-sessions.ts` → `packages/engine-host/src/engineQueries.ts`, and
-`engine/moteur/scripts/render-once.ts` → `packages/file-service/src/render.ts`. Both files look
+`engine/st0-engine/scripts/list-sessions.ts` → `packages/engine-host/src/engineQueries.ts`, and
+`engine/st0-engine/scripts/render-once.ts` → `packages/file-service/src/render.ts`. Both files look
 unreachable if you look only at `exports`.
 
 ### `commons/` is a submodule
@@ -180,7 +180,7 @@ Deleting them would take `@studio/engine-browser` and `@studio/engine-protocol` 
 
 The full chain is alive: `App.tsx` (`onScanParams={api.scanPluginParams}`) → `api.ts`
 (`GET /plugin-params`) → `file-service/src/server.ts` → `awaitPluginParams` → `listPluginParams` →
-`list-plugin-params` → `pluginParamsOf` (`engine/moteur/engine/ParamDump.cpp`). What has no caller is
+`list-plugin-params` → `pluginParamsOf` (`engine/st0-engine/engine/ParamDump.cpp`). What has no caller is
 the **browser half** only: `listPluginParams` (`engine-browser/src/engine.ts`) and
 `onPluginParamList`.
 
@@ -281,7 +281,7 @@ can mount cost 70 lines and a published subpath that lied about the package's su
 
 What still needs cleaning: `M9_ICONS` carried the name of an application that does not exist, and
 that name still lingers in `env.example.yaml`, `docs/tokens.md` (one row of the prefix table),
-`engine/moteur/AGENTS.md`, `apps/pl8/backend/src/server.ts`, `packages/web-protocol/types.ts`,
+`engine/st0-engine/AGENTS.md`, `apps/pl8/backend/src/server.ts`, `packages/web-protocol/types.ts`,
 `apps/z0/AGENTS.md` and the `SessionRegistry_test.cpp` fixtures.
 
 > **The trap that cleanup is worth writing down.** A test file named after a module regularly covers

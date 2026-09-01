@@ -160,7 +160,7 @@ only while that track also reaches an audible output. So a deck feeding nothing 
 is heard **beside** it, raw, at full level, with the fader unable to take it away — and every way
 of removing it from the master removes it from the crossfade too (five mechanisms, five
 measurements, one result:
-[engine/moteur/docs/sidechain.md](../../../engine/moteur/docs/sidechain.md)).
+[engine/st0-engine/docs/sidechain.md](../../../engine/st0-engine/docs/sidechain.md)).
 
 So each deck keeps its own fade, its own track and its own ordinary output, and the blend happens
 where sums belong — at the mixer. Nothing has to be hidden from the master, which is what makes
@@ -216,7 +216,7 @@ would add its inverted copy straight to the master.
 **What `bypassed:` means for such a lane is not a mute.** A muted track processes nothing at all,
 so lanes feeding their bus with silence give a set no sound. The engine reads "muted, and exactly
 one send" as **route the track's output to that bus** — off the master by having somewhere else
-to go, rather than by being silenced. The measurement is in `engine/moteur/docs/editBuilder.md`;
+to go, rather than by being silenced. The measurement is in `engine/st0-engine/docs/editBuilder.md`;
 the word in this file still says the right thing to a reader of the graph: this lane is heard
 through its bus only.
 
