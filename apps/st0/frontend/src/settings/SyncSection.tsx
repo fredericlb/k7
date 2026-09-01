@@ -1,7 +1,7 @@
 // SyncSection.tsx — the deploy key, which is what lets a repository be cloned and pushed at
 // all. It is MADE on the machine and never leaves it, so this screen needs a machine and there
 // is one key per machine rather than one per account.
-// See packages/git-repos/docs/keys.md and apps/st0-desktop/docs/settings.md.
+// See packages/git-repos/docs/keys.md and ../../docs/settings.md.
 
 import { useCallback, useEffect, useState } from "react";
 import { api, engines } from "../api";

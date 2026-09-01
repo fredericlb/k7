@@ -279,19 +279,16 @@ export function Home() {
                 hosted app, our origin serves only its offline shim, and `target="_blank"` is
                 what the app turns into `shell.openExternal`. Unpaired there is no catalogue to
                 open, so the button says so instead of linking at a 503. */}
-            {/* Settings — the DESKTOP app's own screen, and offered only where it exists: the
-                probe answers on the app's origin and 404s on the hosted one, so the same
-                bundle ships to both (../desktop.ts). */}
-            {isDesktop && (
-              <Button variant="ghost" size="sm" asChild>
-                <a
-                  href={`${import.meta.env.BASE_URL}${SETTINGS_REPO}`}
-                  title="Réglages — le moteur, l'audio, le serveur de cette machine"
-                >
-                  <SlidersHorizontal className="h-4 w-4" /> Réglages
-                </a>
-              </Button>
-            )}
+            {/* Settings — always, and on every build: what it holds is the account's, not the
+                machine's, so a browser reaching this page can reach it (../settings/Settings.tsx). */}
+            <Button variant="ghost" size="sm" asChild>
+              <a
+                href={`${import.meta.env.BASE_URL}${SETTINGS_REPO}`}
+                title="Réglages — la clé de déploiement"
+              >
+                <SlidersHorizontal className="h-4 w-4" /> Réglages
+              </a>
+            </Button>
             {/* Surfaces — `/external`, and an `<a>` rather than a route, since a client navigation would keep the editor's manifest (../../docs/external.md). */}
             <Button variant="ghost" size="sm" asChild>
               <a
