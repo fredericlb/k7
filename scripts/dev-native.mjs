@@ -36,7 +36,7 @@ const isCxx = (base) => /\.(cpp|h|hpp|mm)$/.test(base);
 
 const TARGETS = {
   // The C++ that ends up in st0-engine; tests/ is deliberately out (../docs/dev.md).
-  moteur: {
+  "st0-engine": {
     dirs: [
       { path: join(engineDir, "engine"), recursive: true, match: isCxx },
       { path: join(engineDir, "server"), recursive: true, match: isCxx },
@@ -50,7 +50,7 @@ const TARGETS = {
     build: buildEngine,
   },
   // The tray; build.rs and tauri.conf.json are in because cargo re-runs on both.
-  capot: {
+  "st0-tray": {
     dirs: [
       {
         path: join(repo, "engine", "st0-tray", "src-tauri", "src"),
@@ -241,5 +241,7 @@ for (const [target, { dirs }] of Object.entries(TARGETS))
     }
   }
 
-log("watching engine/st0-engine and engine/st0-tray — save to rebuild and restart");
+log(
+  "watching engine/st0-engine and engine/st0-tray — save to rebuild and restart",
+);
 setInterval(() => {}, 1 << 30); // the watchers are unref'd, so hold the process open ourselves

@@ -88,7 +88,7 @@ if (targets.length === 0) {
 }
 
 console.log(
-  `\n  moteur: ${targets.length} C++ test targets, preset ${PRESET}${all ? "" : " (--all adds the Tracktion-linked ones)"}\n`,
+  `\n  st0-engine: ${targets.length} C++ test targets, preset ${PRESET}${all ? "" : " (--all adds the Tracktion-linked ones)"}\n`,
 );
 
 const built = run("cmake", [
