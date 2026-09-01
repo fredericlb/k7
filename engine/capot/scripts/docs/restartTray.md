@@ -31,7 +31,7 @@ tray did not come up, and leaves the app running detached.
 
 ## Why not a plain `cargo build` either
 
-Because `target/debug/studio-capot.exe` is not the dev artifact — `out/dev/studio-capot.exe`
+Because `target/debug/st0-tray.exe` is not the dev artifact — `out/dev/st0-tray.exe`
 is, and the difference is not cosmetic. `--dev` builds with `externalBin` and `resources`
 emptied and then **copies the exe out of `target/debug`**, and that copy is what makes
 `hostcmd.rs` take its dev tier: `bundled()` looks for a `node` sibling of the exe, finds
@@ -51,7 +51,7 @@ fails against a live tray with a confusing linker error rather than a busy-file 
 `tauri-plugin-single-instance` is keyed on the app identifier, not the path: with a tray
 already up — the one `npm run engine:start` left, or an installed bundle — launching a
 second makes the *new* process the no-op, and it exits without a word. So the scan matches
-the image name `studio-capot.exe` and stops all of them, printing each path as it goes:
+the image name `st0-tray.exe` and stops all of them, printing each path as it goes:
 taking the menu bar from another build is worth saying out loud.
 
 **The kill is hard, and that is fine.** The tray is windowless: there is no close message
@@ -84,7 +84,7 @@ build a no-op.
 
 A tray that starts and supervises nothing looks exactly like a healthy one from the
 outside — the failure `hostcmd.rs` is written to shout about. So the script does not
-report success on "the process is still running". It watches `~/.studio/.studio.log`, the
+report success on "the process is still running". It watches `~/.st0/.studio.log`, the
 merged log `logbus::init` **truncates on every launch**, and waits for one of the lines
 `host.rs` writes there: `supervisor up (pid …)`, `supervisor not found`, or `could not
 start supervisor`. Only the first is success; the tail is printed either way.
@@ -94,6 +94,6 @@ records the time just before launching and ignores the file until its mtime move
 
 Before that file exists there is still a window — a Rust panic in `main` — which is why
 `start-engine.mjs` redirects the tray's own stdout to `.cache/dev/tray.log` rather than
-dropping it. That path is deliberately not under `~/.studio`: the layout there is a
+dropping it. That path is deliberately not under `~/.st0`: the layout there is a
 contract owned by `packages/engine-client/src/paths.ts`, and a dev script has no business
 adding to it.

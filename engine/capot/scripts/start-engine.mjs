@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // start-engine.mjs — `npm run engine:start`: launches the dev tray app `engine:dev` left in
-// out/dev — the .app on macOS, studio-capot.exe on Windows. Detached, so this returns
+// out/dev — the .app on macOS, st0-tray.exe on Windows. Detached, so this returns
 // immediately; quit it from its tray icon. Its stdout lands in .cache/dev/tray.log, which
 // is where a panic thrown before the merged log exists is the only trace left.
 
@@ -22,7 +22,7 @@ if (process.platform === "darwin") {
     existsSync(OUT_DEV) && readdirSync(OUT_DEV).find((n) => n.endsWith(".app"));
   if (app) target = join(OUT_DEV, app);
 } else if (process.platform === "win32") {
-  const exe = join(OUT_DEV, "studio-capot.exe");
+  const exe = join(OUT_DEV, "st0-tray.exe");
   if (existsSync(exe)) target = exe;
 } else {
   console.error(

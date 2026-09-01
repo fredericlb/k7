@@ -431,10 +431,10 @@ function buildDevApp() {
   let got;
   if (win) {
     got = [];
-    const exe = join(debugDir, "studio-capot.exe");
+    const exe = join(debugDir, "st0-tray.exe");
     if (existsSync(exe)) {
-      cpSync(exe, join(OUT_DEV, "studio-capot.exe"));
-      got.push("studio-capot.exe");
+      cpSync(exe, join(OUT_DEV, "st0-tray.exe"));
+      got.push("st0-tray.exe");
     }
   } else {
     got = collectBundles(join(debugDir, "bundle"), OUT_DEV);

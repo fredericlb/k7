@@ -1,5 +1,5 @@
 // engineDaemon.ts — start/stop the shared engine as a background daemon, tracked by
-// ~/.studio/engine.pid. One engine serves whichever project is active, and
+// ~/.st0/engine.pid. One engine serves whichever project is active, and
 // ensureEngineDaemon() is idempotent, so every surface can "ensure" it without racing. It
 // reports whether THIS call started it, so an owner stops only what it started.
 

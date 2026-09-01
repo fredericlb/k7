@@ -31,10 +31,8 @@ let envFile: string;
 
 /**
  * The script with its STATE DIR pointed at a scratch one, so it writes nothing of the
- * developer's. `$STUDIO_HOME` and not `HOME`: the dir is `<library>/st0` now, and the library is
- * `$XDG_CONFIG_HOME` / `$APPDATA` before it is the home — so a developer with either set would
- * have had this script write into their real one. It is also the override a dev session uses
- * (`scripts/dev.mjs`), so the road under test is the road that runs.
+ * developer's. `$STUDIO_HOME` and not `HOME`: it is the override a dev session and the WSL
+ * bridge already use (`scripts/dev.mjs`), so the road under test is the road that runs.
  */
 function run(...args: string[]): string {
   return execFileSync(process.execPath, [script, "--env", envFile, ...args], {

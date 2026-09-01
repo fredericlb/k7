@@ -57,8 +57,8 @@ juce::File extsCacheFile() {
     const auto env = juce::SystemStats::getEnvironmentVariable("STUDIO_HOME", {});
     auto dir = env.isNotEmpty()
         ? juce::File(env)
-        : juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-              .getChildFile("st0");
+        : juce::File::getSpecialLocation(juce::File::userHomeDirectory)
+              .getChildFile(".st0");
     dir.createDirectory();
     return dir.getChildFile("exts.json");
 }

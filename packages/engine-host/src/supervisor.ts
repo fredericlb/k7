@@ -1,4 +1,4 @@
-// supervisor.ts — the engine supervisor proper: owns the ~/.studio contract, keeps the
+// supervisor.ts — the engine supervisor proper: owns the ~/.st0 contract, keeps the
 // registry entry live, maintains the web-UI allowlist, and answers the tray's commands.
 // One mutable `state`, slow loops that mutate it, and publish() emitting a snapshot ONLY
 // when the bytes changed — which is what keeps an idle app quiet on the wire.

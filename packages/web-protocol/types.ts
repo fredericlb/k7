@@ -146,7 +146,7 @@ export interface Hints {
     }
   >;
   keywords: string[]; // words YAML gives meaning to (true/false/null, …)
-  // Scanned plugin names by format, lowercased key — from the engine's scan cache (~/.studio/exts.json).
+  // Scanned plugin names by format, lowercased key — from the engine's scan cache (~/.st0/exts.json).
   pluginNames: Record<string, string[]>;
   // "kind:name" -> the project-relative file defining it (module|base|sink|track|clip|sequence|chain).
   paths: Record<string, string>;
@@ -562,7 +562,7 @@ export interface ProjectErrors {
 
 /** The authenticated user's email — the file service slugifies it to pick the root. */
 export const USER_HEADER = "x-studio-user";
-/** The chosen workspace name under ~/.studio/root/<slug>/. */
+/** The chosen workspace name under ~/.st0/root/<slug>/. */
 export const WORKSPACE_HEADER = "x-studio-workspace";
 /** The engine's token (from the whoami probe) — the file service's light LAN gate. */
 export const ENGINE_TOKEN_HEADER = "x-studio-engine-token";
@@ -623,7 +623,7 @@ export interface EngineAddresses {
   filePort: number; // the engine-side file service's HTTP port (same host set)
 }
 
-/** A workspace under ~/.studio/root/<slug>/, as the picker lists them. */
+/** A workspace under ~/.st0/root/<slug>/, as the picker lists them. */
 export interface WorkspaceSummary {
   name: string; // the folder name (== the workspace name the user picks)
   projectCount: number; // project folders inside, at any depth (0 for empty)

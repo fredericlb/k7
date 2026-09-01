@@ -33,7 +33,7 @@ vi.setConfig({ testTimeout: 30_000 });
 let tmp: string;
 let origin: string;
 let lib: string;
-/** A scratch HOME, so `mediatekBase()` cannot fall back to the developer's own `~/.studio` endpoint. */
+/** A scratch HOME, so `mediatekBase()` cannot fall back to the developer's own `~/.st0` endpoint. */
 let realHome: { HOME?: string; USERPROFILE?: string };
 
 const git = (cwd: string, ...args: string[]): string =>

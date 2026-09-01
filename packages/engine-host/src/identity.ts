@@ -1,4 +1,4 @@
-// identity.ts — the engine's stable local identity (~/.studio/engine-id.json): a
+// identity.ts — the engine's stable local identity (~/.st0/engine-id.json): a
 // persistent id + a secret token, passed to the C++ engine and echoed on `whoami`, so a
 // lookalike listener can't produce the real token and the registry can reject it. A
 // per-engine secret, not a user credential — there are no accounts yet.

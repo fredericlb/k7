@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-// `$STUDIO_HOME` is the seam: where the state dir lives is the platform's business, and
-// mocking `homedir()` would miss `$APPDATA` / `$XDG_CONFIG_HOME` — packages/song/src/studioHome.ts.
+// `$STUDIO_HOME` is the seam, and the documented one: it is what a dev session and the WSL
+// bridge already use, so the road under test is the road that runs.
 const { DEFAULT_STUDIO_URL, mediatekUrlFor, resolveRegistryUrls } =
   await import("./registryClient.ts");
 

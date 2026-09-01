@@ -34,7 +34,7 @@ separateRouter.post(
       return res.status(503).json({
         error:
           `no model at ${model} — stem separation needs the .onnx on this machine ` +
-          `(~/.studio/models, or the module's own assets/)`,
+          `(~/.st0/models, or the module's own assets/)`,
       });
 
     res.json(

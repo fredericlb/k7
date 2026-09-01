@@ -435,7 +435,7 @@ export default function App({
       setRightPanel((cur) => (cur === which ? null : which)),
     [],
   );
-  // Vim mode is a global user preference (~/.studio/preferences.yaml). Starts ON to match the brain's default.
+  // Vim mode is a global user preference (~/.st0/preferences.yaml). Starts ON to match the brain's default.
   const [vimMode, setVimMode] = useState(true);
   useEffect(() => {
     void api

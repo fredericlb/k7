@@ -1,4 +1,4 @@
-// hostLock.ts — one supervisor per machine, held in ~/.studio/engine-host.pid. Two would
+// hostLock.ts — one supervisor per machine, held in ~/.st0/engine-host.pid. Two would
 // each ADOPT the one engine (ownsEngine:false), and shutdown deliberately does not spare an
 // adopted engine — so quitting the second would stop the first's engine, whose crash-watch
 // then restarts it 2s later. The only symptom is an unexplained audio dropout with a

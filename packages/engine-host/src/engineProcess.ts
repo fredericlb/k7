@@ -1,5 +1,5 @@
 // engineProcess.ts — start, adopt, and stop the C++ engine. One engine per machine, with
-// ~/.studio/engine.pid as the guard (shared with the CLI). That pidfile is what makes a
+// ~/.st0/engine.pid as the guard (shared with the CLI). That pidfile is what makes a
 // supervisor crash survivable: the engine outlives us and the next supervisor ADOPTS it,
 // rather than finding the port held by a process nobody owns.
 
@@ -52,7 +52,7 @@ export async function start(
     const started = ensureEngineDaemon(bin, {
       port,
       host: "0.0.0.0", // reachable on the LAN for Tier 2; loopback still works for Tier 1
-      // PIPED, not a log file: the Logs panel reads the merged log in ~/.studio, and a file in cwd is read by nothing.
+      // PIPED, not a log file: the Logs panel reads the merged log in ~/.st0, and a file in cwd is read by nothing.
       stdio: "pipe",
       env: {
         STUDIO_ENGINE_ID: identity.id,

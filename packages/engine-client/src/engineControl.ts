@@ -288,7 +288,7 @@ export class EngineControl extends EventEmitter {
     this.send({ type: "list-plugins", ...(filter ? { filter } : {}) });
   }
 
-  // Ask for an incremental scan and the fresh list; a genuinely forced rescan must DELETE the engine's own ~/.studio/exts.json first.
+  // Ask for an incremental scan and the fresh list; a genuinely forced rescan must DELETE the engine's own ~/.st0/exts.json first.
   rescanPlugins(force = false): void {
     this.send({ type: "rescan-plugins", ...(force ? { force: true } : {}) });
   }

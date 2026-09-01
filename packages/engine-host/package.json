@@ -6,7 +6,7 @@
   },
   "private": true,
   "type": "module",
-  "description": "st0's engine supervisor — owns the engine's identity, the ~/.studio contract, the registry heartbeat and the web-UI allowlist. Two front ends over one startSupervisor: the desktop app, which EMBEDS it in its main process, and src/cli.ts (`studio-engine`) for a terminal. Consumed as source.",
+  "description": "st0's engine supervisor — owns the engine's identity, the ~/.st0 contract, the registry heartbeat and the web-UI allowlist. Two front ends over one startSupervisor: the desktop app, which EMBEDS it in its main process, and src/cli.ts (`studio-engine`) for a terminal. Consumed as source.",
   "exports": {
     "./identity": "./src/identity.ts",
     "./addresses": "./src/addresses.ts",

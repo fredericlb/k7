@@ -1,33 +1,31 @@
 # The tray app
 
-## Names, and the three this rename did NOT touch
+## Names, and the ones a rename may not touch
 
-The binary and the displayed name are `studio-capot`; the engine it supervises is
+The binary and the displayed name are `st0-tray`; the engine it supervises is
 `studio-moteur`. That covers the Cargo package, Tauri's `productName`, the tray tooltip,
-the Quit item and the AppleScript dialog titles.
+the Quit item and the AppleScript dialog titles — all build artifacts, which the next build
+replaces, so they rename in one commit.
 
-Three names stayed, each for a reason worth more than consistency:
+**`org.parapluie.studio.engine-tray`, the bundle identifier, does not.** On macOS this is the
+app's *identity*: changing it makes the OS treat the build as a different application, dropping
+its microphone and automation (TCC) grants and its login item while leaving the old one
+registered. It is also what Tauri keys single-instance on, so a mid-flight change means two
+trays can run at once. It is frozen, and its own migration if it ever moves.
 
-* **`org.parapluie.studio.engine-tray`**, the bundle identifier. On macOS this is the app's
-  *identity*: changing it makes the OS treat the build as a different application, dropping
-  its microphone and automation (TCC) grants and its login item while leaving the old one
-  registered. It is also what Tauri keys single-instance on, so a mid-flight change means
-  two trays can run at once. Its own migration, not a side effect of a rename.
-* **`~/.studio/engine-tray.json`**, the supervisor's settings. Renaming the file discards
-  every existing user's audio-device pick and registry override. Read-old/write-new, or
-  not at all.
-* **`~/.studio/.studio-engine.log`**, and the `STUDIO_*` environment variables, and
-  `x-studio-engine-token`. All part of the `~/.studio` contract, which the plan keeps as a
-  separate change for the same reason: a partial landing destroys user data.
+Neither does anything the user's DISK remembers: `<state>` and what is under it, the `STUDIO_*`
+environment variables, and `x-studio-engine-token`. Renaming one of those without a migration
+discards a person's settings and reads as a first launch — see
+`packages/engine-client/docs/paths.md` and `docs/rename-test-plan.md`.
 
-The pattern: a *build artifact* can be renamed in one commit because the next build
-replaces it. A name the user's disk or the OS remembers cannot.
+The pattern: a *build artifact* can be renamed in one commit. A name the user's disk or the OS
+remembers cannot.
 
 ---
 
-`studio-capot` is a tray-only Tauri app with no window. It is the **VIEW** over the
+`st0-tray` is a tray-only Tauri app with no window. It is the **VIEW** over the
 supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
-stdio: the supervisor owns the `~/.studio` contract, the registry, and — stage by stage —
+stdio: the supervisor owns the `~/.st0` contract, the registry, and — stage by stage —
 the engine and the file service. The tray renders its snapshots and sends its clicks back.
 
 Nothing in `tray.rs` opens a socket, spawns a process or reads a state file. What to allow,
@@ -188,7 +186,7 @@ that because the pidfile lets the fresh supervisor re-adopt it.
 
 ## The merged log (`logbus.rs`)
 
-`~/.studio/.studio.log` is written by the supervisor, which owns the engine and the
+`~/.st0/.studio.log` is written by the supervisor, which owns the engine and the
 file service and pumps both into it. Two jobs are left on the tray side:
 
 1. **Truncate it once, at startup.** The tray's lifetime is what "a session" means, and it

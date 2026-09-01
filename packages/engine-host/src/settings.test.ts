@@ -16,8 +16,8 @@ import { loadSettings, saveSettings } from "./settings.ts";
 let state: string;
 
 beforeEach(() => {
-  // `$STUDIO_HOME` rather than a faked home: the state dir is `<library>/st0`, and faking the
-  // home misses `%APPDATA%` and `$XDG_CONFIG_HOME` entirely (engine-client/docs/paths.md).
+  // `$STUDIO_HOME` rather than a faked home: it is the documented override, so this test takes
+  // the same road a dev session does (engine-client/docs/paths.md).
   state = mkdtempSync(join(tmpdir(), "st0-settings-"));
   process.env.STUDIO_HOME = state;
 });

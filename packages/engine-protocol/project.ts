@@ -140,7 +140,7 @@ export interface TrackDoc {
   mute: boolean;
   solo: boolean;
   disabled: boolean;
-  inputChannels: number[]; // 1-based physical channels; a label is resolved against ~/.studio first, so the engine only ever sees numbers
+  inputChannels: number[]; // 1-based physical channels; a label is resolved against ~/.st0 first, so the engine only ever sees numbers
   // Where this track LEAVES by. Empty is the mixer's sum, which is every track but a CUE bus — packages/song/docs/cue.md.
   outputChannels: number[]; // 1-based physical channels, resolved the same way and for the same reason
   monitor: string; // Tracktion's "off" | "auto" (armed) | "on"; ignored when inputChannels is empty

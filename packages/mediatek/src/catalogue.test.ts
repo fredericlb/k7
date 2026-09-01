@@ -21,7 +21,7 @@ import { ensureLayout, exists, mediatekDir, schemaVersion } from "./layout.ts";
 import { familyRevision } from "./revision.ts";
 import { scanFamily, scanUnlisted } from "./scan.ts";
 
-// The root is env-driven ($STUDIO_MEDIATEK), so each test gets its own library, not ~/.studio.
+// The root is env-driven ($STUDIO_MEDIATEK), so each test gets its own library, not ~/.st0.
 let root: string;
 
 beforeEach(() => {

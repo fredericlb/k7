@@ -21,7 +21,7 @@ export interface Settings {
   filePort: number;
   /** The interfaces in the user's own order, best first: the first one PRESENT is where the engine goes. Absent names keep their rank, so replugging restores it. */
   audioPriority: string[];
-  /** The media library's root, null meaning `~/.studio/mediatek`; hand-edited like the ports, and passed down as $STUDIO_MEDIATEK. */
+  /** The media library's root, null meaning `~/.st0/mediatek`; hand-edited like the ports, and passed down as $STUDIO_MEDIATEK. */
   mediatekDir: string | null;
   /** The token this machine syncs its cache with, since a headless service has no cookie jar; the library's URL is derived, not stored. */
   mediatekToken: string | null;
@@ -35,7 +35,7 @@ export interface Settings {
   webPort: number;
   /**
    * Who this machine's workspaces belong to. Offline there is no OIDC to ask, and the file
-   * service keys `~/.studio/root/<slug>` on an email — so one is REMEMBERED rather than
+   * service keys `~/.st0/root/<slug>` on an email — so one is REMEMBERED rather than
    * derived afresh, or a project would move house whenever the answer changed.
    * See apps/st0-desktop/docs/identity.md.
    */

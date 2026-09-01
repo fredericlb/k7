@@ -56,7 +56,7 @@ export async function ensure(
       STUDIO_REGISTRY_URL: registryUrl,
       // A packaged app has no useful PATH: point the file service at the staged demo songs, or a new workspace opens empty.
       ...(bundle.demos() ? { STUDIO_DEMOS: bundle.demos() as string } : {}),
-      // Only when set: unset falls back to ~/.studio/mediatek, while an empty string would read as "the current directory".
+      // Only when set: unset falls back to ~/.st0/mediatek, while an empty string would read as "the current directory".
       ...(mediatekDir ? { STUDIO_MEDIATEK: mediatekDir } : {}),
       // Only when configured: with no URL the local folder is simply not a cache of anything, which is a working state.
       ...(mediatek.url ? { MEDIATEK_URL: mediatek.url } : {}),

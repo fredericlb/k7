@@ -7,25 +7,24 @@ is in it; `packages/song/src/studioHome.ts` is where it is.
 
 Throughout the docs it is written `<state>`.
 
-| platform | `<state>` |
-|---|---|
-| macOS | `~/Library/Application Support/st0` |
-| Windows | `%APPDATA%\st0` |
-| Linux | `$XDG_CONFIG_HOME/st0`, else `~/.config/st0` |
+`~/.st0`, on **all three platforms**.
 
-`$STUDIO_HOME` overrides all three, and that is not a debug hatch: it is how a process on one
-side of a WSL boundary shares the directory that lives on the other (`docs/wsl.md`), and how
-every test that touches this gets a directory of its own.
+`$STUDIO_HOME` overrides it, and that is not a debug hatch: it is how a process on one side of a
+WSL boundary shares the directory that lives on the other (`docs/wsl.md`), and how every test
+that touches this gets a directory of its own.
 
-## It was `<state>`, and nothing was migrated
+## One path, because THREE languages compute it
 
-A dotfile in the home directory is not where a desktop app's data belongs on any of the three
-platforms. The move was made **without a migration**, deliberately: the old `<state>` is left
-exactly where it is, and a machine that had one starts the new one empty. Repositories are
-re-cloned from the home page, which is a minute's work and cannot half-succeed — where moving a
-tree of git checkouts between directories can.
+The per-platform location each OS prefers would be the tidier answer if one program owned this
+directory. Four do, in three languages: `packages/song/src/studioHome.ts`,
+`scripts/stateDir.mjs` for the plain-node scripts, `engine/capot/src-tauri/src/paths.rs`, and
+`engine/moteur/engine/PluginScan.cpp`.
 
-If you are looking for songs that "disappeared", they are in `<state>/workspace/`.
+Each language's idea of "where application data goes" is subtly its own, and they do not line up:
+JUCE's `userApplicationDataDirectory` is `~/Library` on macOS where node's equivalent is
+`~/Library/Application Support`. Two of the four disagreeing is not a build error — it is an
+engine writing its plugin cache where nothing reads it, which surfaces as a médiathèque that is
+simply empty. A home dotfile is one rule, mirrorable in three languages by inspection.
 
 ## `workspace/`, with nobody underneath it
 

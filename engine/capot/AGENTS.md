@@ -4,7 +4,7 @@ The **menu-bar / system-tray view** for the engine supervisor — Tauri v2, nati
 no window.
 
 It is not itself a supervisor. It spawns **`@studio/engine-host`** (TypeScript) as a
-child and drives it over NDJSON on stdio: the supervisor owns the `~/.studio`
+child and drives it over NDJSON on stdio: the supervisor owns the `~/.st0`
 contract and the registry, and — stage by stage — the engine and the file service. The
 tray draws what the supervisor reports and sends clicks back.
 
@@ -74,7 +74,7 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
 - **`state.rs`** — the tray's state behind `Arc<Mutex<>>`. Two halves, and the split is the
   point: `snapshot` is what the SUPERVISOR reported and is never computed here, the rest is
   the little view state the tray genuinely owns.
-- **`paths.rs`** — the few `~/.studio/` paths the tray still touches itself. The layout
+- **`paths.rs`** — the few `~/.st0/` paths the tray still touches itself. The layout
   belongs to `packages/engine-client/src/paths.ts`; what is left here is subsystems not handed
   over yet.
 - **`trayicon.rs`** — the icon drawn in code rather than loaded from PNGs: four states, one

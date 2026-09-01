@@ -29,7 +29,7 @@ export interface EngineMount {
 export function mountEngineRegistry(
   app: Express,
   opts: {
-    /** The slug the supervisor heartbeats to, and the file name under ~/.studio/web-endpoints. */
+    /** The slug the supervisor heartbeats to, and the file name under ~/.st0/web-endpoints. */
     service: string;
     requireAuth: RequestHandler;
     alsoGuard?: string[];

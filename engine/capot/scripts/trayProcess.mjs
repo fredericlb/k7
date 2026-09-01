@@ -15,7 +15,7 @@ export const trayDir = dirname(here); //                engine/capot
 export const MERGED = join(homedir(), ".studio", ".studio.log"); // truncated by logbus::init on every launch
 export const TRAY_LOG = join(trayDir, ".cache", "dev", "tray.log"); // where start-engine.mjs puts its stdout
 export const EXE_NAME =
-  process.platform === "win32" ? "studio-capot.exe" : "studio-capot";
+  process.platform === "win32" ? "st0-tray.exe" : "st0-tray";
 /** The engine. Stopped here too — see stopAll for why the tray's job object is not enough. */
 export const ENGINE_EXE_NAME =
   process.platform === "win32" ? "studio-moteur.exe" : "studio-moteur";
@@ -165,7 +165,7 @@ export async function launch() {
 
   if (!text)
     throw new StepError(
-      `no ~/.studio/.studio.log activity after 20s — the tray is up but silent.`,
+      `no ~/.st0/.studio.log activity after 20s — the tray is up but silent.`,
     );
   const recent = text.trimEnd().split("\n").slice(-20).join("\n");
   if (!/supervisor up/.test(text))

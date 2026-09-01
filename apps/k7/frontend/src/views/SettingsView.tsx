@@ -57,7 +57,7 @@ export function SettingsView({ user, onLogout, onBack }: Props) {
         <div className="settings-title muted small">CLI access token</div>
         <p className="muted small">
           For the st0 <code>export</code> command. Add it to{" "}
-          <code>~/.studio/config.json</code> as <code>k7Token</code> (or set{" "}
+          <code>~/.st0/config.json</code> as <code>k7Token</code> (or set{" "}
           <code>K7_TOKEN</code>). Anyone with this token can upload releases as
           you — keep it secret.
         </p>

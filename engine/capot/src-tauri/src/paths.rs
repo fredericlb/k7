@@ -1,14 +1,20 @@
-// paths.rs — the few `~/.studio/` paths the tray still touches itself. The LAYOUT lives
-// in packages/engine-client/src/paths.ts, and the paths the tray opens for the user arrive in
-// the supervisor's snapshot. What is left belongs to subsystems not handed over yet.
+// paths.rs — the few `<state>` paths the tray still touches itself. The LAYOUT lives in
+// packages/engine-client/src/paths.ts, and the paths the tray opens for the user arrive in the
+// supervisor's snapshot. What is left belongs to subsystems not handed over yet.
+// Mirrors studioHome.ts BY HAND: two spellings of this directory is a tray writing a pidfile
+// the supervisor never reads. See packages/engine-client/docs/paths.md.
 
 use std::path::PathBuf;
 
-/// `~/.studio` — the shared state dir. Panics only if there is no home dir.
+/// `<state>` — the shared state dir, the same one the supervisor uses. `$STUDIO_HOME` first:
+/// that is how a process on one side of a WSL boundary shares the directory on the other.
 pub fn studio_dir() -> PathBuf {
-    dirs::home_dir()
-        .expect("no home directory")
-        .join(".studio")
+    match std::env::var("STUDIO_HOME") {
+        Ok(h) if !h.is_empty() => PathBuf::from(h),
+        // The home directory on every platform, because THREE languages compute this path and
+        // each one's idea of "application data" differs — see engine-client/docs/paths.md.
+        _ => dirs::home_dir().expect("no home directory").join(".st0"),
+    }
 }
 
 /// The running engine's pid: the one-engine-per-machine guard, and the backstop's way to reach an orphan.

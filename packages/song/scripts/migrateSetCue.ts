@@ -7,7 +7,7 @@
 // master unfaded and every crossfader position sounds the same. See packages/song/docs/cue.md.
 //
 // Idempotent, dry by default, and through the yaml Document API so comments and key order come back
-// byte-identical. It does NOT touch ~/.studio: which pair the headphones are on is a fact about a
+// byte-identical. It does NOT touch ~/.st0: which pair the headphones are on is a fact about a
 // MACHINE, set once with `system cue`, and a project that travels must not carry one.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

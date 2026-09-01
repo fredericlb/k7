@@ -1,5 +1,5 @@
 // main.ts — the supervisor's entry point. Spawned BY the menu-bar app and driven over
-// NDJSON on stdio: not a CLI, takes no arguments, reads what it needs from ~/.studio,
+// NDJSON on stdio: not a CLI, takes no arguments, reads what it needs from ~/.st0,
 // and has no standalone mode (a supervisor outliving the tray would be a ghost engine).
 // The import order matters — ipcStdio quarantines stdout as an import side effect.
 

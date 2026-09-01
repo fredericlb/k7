@@ -989,7 +989,7 @@
 #
 # It is a `system` verb rather than a project one because the answer does not vary by project:
 # which module separates and which model it wants is a fact about the library and about this
-# machine's ~/.studio/models. Every surface that could start a separation reads it — the playlist
+# machine's ~/.st0/models. Every surface that could start a separation reads it — the playlist
 # panel's button, a desk catching up on an unprepared record — which is precisely why none of them
 # asks for a chain. Naming one in three places would be three places to get it wrong.
 #

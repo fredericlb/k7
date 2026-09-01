@@ -15,7 +15,7 @@ import { allowedOrigin } from "./cors.ts";
 
 const ENV_KEYS = ["STUDIO_WEB_ORIGIN", "STUDIO_REGISTRY_URL"] as const;
 
-// These write the REAL `~/.studio/web-origins.json`, shared with the tray, and must put it back.
+// These write the REAL `~/.st0/web-origins.json`, shared with the tray, and must put it back.
 const ORIGINS_PATH = webOriginsPath();
 let saved: string | null = null;
 

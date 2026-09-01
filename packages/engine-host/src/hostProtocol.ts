@@ -1,5 +1,5 @@
 // hostProtocol.ts — the wire contract between the supervisor and the menu-bar view
-// (studio-capot): NDJSON on stdio, types only, mirrored by hand in Rust (host.rs).
+// (st0-tray): NDJSON on stdio, types only, mirrored by hand in Rust (host.rs).
 // Stdout IS the protocol, frames are snapshots not deltas, and the tray computes no
 // policy of its own. Full rationale: docs/hostProtocol.md.
 
@@ -52,7 +52,7 @@ export interface HostSession {
   listeners: number;
 }
 
-/** The paths the tray still opens directly, sent rather than recomputed so `~/.studio`'s layout has exactly one definition. */
+/** The paths the tray still opens directly, sent rather than recomputed so `~/.st0`'s layout has exactly one definition. */
 export interface HostPaths {
   root: string;
   mergedLog: string;

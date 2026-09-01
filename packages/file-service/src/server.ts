@@ -1,5 +1,5 @@
 import { isSshGitUri, repoName } from "@studio/git-repos/uri";
-// server.ts — the engine-side file service: owns ~/.studio/root/<user>/<workspace>
+// server.ts — the engine-side file service: owns ~/.st0/root/<user>/<workspace>
 // and serves every file op to the browser DIRECTLY (cross-origin, hence CORS). Dials
 // the LOCAL C++ engine to compile-and-send; the browser drives transport itself.
 // Spawned by the engine-host supervisor, run under tsx to import the brain's TS.
@@ -491,7 +491,7 @@ app.post(
 app.use(resolveWorkspace, filesRouter);
 
 app.listen(FILE_PORT, "0.0.0.0", () => {
-  mkdirSync(rootDir(), { recursive: true }); // ensure ~/.studio/root exists
+  mkdirSync(rootDir(), { recursive: true }); // ensure ~/.st0/root exists
   // Only a long-lived process may skip `@studio/song`'s module-stamp walk — see moduleWatch.ts.
   installModuleWatch();
   // Same for the media library, tolerated rather than required: its root may be an unmounted drive.

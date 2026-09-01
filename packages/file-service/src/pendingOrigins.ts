@@ -1,5 +1,5 @@
 // pendingOrigins.ts — record origins cors.ts just refused into
-// ~/.studio/pending-origins.json, so the tray can offer to allow them with a click.
+// ~/.st0/pending-origins.json, so the tray can offer to allow them with a click.
 // Records a QUESTION, never an answer; silent when an operator pinned the origin list;
 // bounded and self-expiring. Full rationale: docs/corsAndOrigins.md.
 

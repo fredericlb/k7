@@ -1,4 +1,4 @@
-// webOrigins.ts — the web UIs this engine trusts (~/.studio/web-origins.json), so a
+// webOrigins.ts — the web UIs this engine trusts (~/.st0/web-origins.json), so a
 // UI on a real hostname can pass the file service's deny-by-default CORS. Written here
 // because the SUPERVISOR is the writer; file-service imports it to read. Only bare
 // origins are stored. Full rationale: docs/supervisorPolicy.md.

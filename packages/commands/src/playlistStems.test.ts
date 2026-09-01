@@ -218,7 +218,7 @@ describe("playlist stems", () => {
   });
 });
 
-// Refusals only, and deliberately: succeeding writes the real `~/.studio/preferences.yaml`.
+// Refusals only, and deliberately: succeeding writes the real `~/.st0/preferences.yaml`.
 describe("system stems", () => {
   it("refuses a chain that does not separate, and says what it wants", async () => {
     await runCommand("system stems @st0/warm", host(), "cli");

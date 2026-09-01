@@ -90,7 +90,7 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
     )?;
     let open_log = MenuItem::with_id(app, "open_log", "Show logs", true, None::<&str>)?;
     let sep3 = PredefinedMenuItem::separator(app)?;
-    let quit = PredefinedMenuItem::quit(app, Some("Quit studio-capot"))?;
+    let quit = PredefinedMenuItem::quit(app, Some("Quit st0-tray"))?;
 
     let items: Vec<&dyn IsMenuItem<Wry>> = vec![
         &status, &registry, &plugins, &rescan, &sessions, &edit_plugins, &audio, &weburi, &sep1,
@@ -674,7 +674,7 @@ fn prompt_for_origin() -> Option<String> {
     use std::process::Command;
     // `with icon note` keeps it a normal dialog rather than an alarming alert, seeded with the scheme.
     let script = r#"try
-    set r to display dialog "Add a st0 web UI. Its address is allowed to reach this engine." with title "studio-capot" default answer "https://" with icon note buttons {"Cancel", "Add"} default button "Add"
+    set r to display dialog "Add a st0 web UI. Its address is allowed to reach this engine." with title "st0-tray" default answer "https://" with icon note buttons {"Cancel", "Add"} default button "Add"
     return text returned of r
 on error number -128
     return ""
@@ -715,7 +715,7 @@ pub fn notify_modal(title: &str, body: &str) {
     #[cfg(target_os = "macos")]
     {
         let script = format!(
-            "display dialog {} with title \"studio-capot\" buttons {{\"OK\"}} default button \"OK\" with icon caution",
+            "display dialog {} with title \"st0-tray\" buttons {{\"OK\"}} default button \"OK\" with icon caution",
             applescript_string(&format!("{title}\n\n{body}"))
         );
         let _ = std::process::Command::new("osascript")
