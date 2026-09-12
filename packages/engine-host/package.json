@@ -29,7 +29,9 @@
   },
   "dependencies": {
     "@studio/engine-client": "*",
-    "@studio/web-protocol": "*"
+    "@studio/web-protocol": "*",
+    "@studio/song": "*",
+    "@studio/song-schema": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

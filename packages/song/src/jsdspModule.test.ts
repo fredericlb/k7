@@ -6,7 +6,14 @@
 // dropped from the compiled doc. Silently: a step whose module contributes no plugin is exactly
 // how a bypass looks, so nothing warns and the module is simply not there. These pin the gate.
 
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,6 +43,32 @@ function asJsDsp(withGraph: boolean): void {
     );
 }
 
+/** A `transformers/` module whose DSP is its own jsdsp.ts, wired BEFORE the melody's instrument. */
+function midiGraphModule(): void {
+  const folder = join(dir, "modules", "transformers", "rpt");
+  mkdirSync(folder, { recursive: true });
+  writeFileSync(
+    join(folder, "module.yaml"),
+    "plugin:\n  type: jsdsp\n  name: Note Repeat\n",
+    "utf8",
+  );
+  writeFileSync(join(folder, "jsdsp.ts"), "// dsp\n", "utf8");
+  writeFileSync(
+    join(folder, "jsdsp.json"),
+    JSON.stringify({ params: [], nodes: [{ type: "mhold" }] }),
+    "utf8",
+  );
+  const graph = join(dir, "graph.yaml");
+  writeFileSync(
+    graph,
+    readFileSync(graph, "utf8").replace(
+      "melody: [ lead ]",
+      "melody: [ rpt ]\n  rpt: [ lead ]",
+    ),
+    "utf8",
+  );
+}
+
 const plugins = () =>
   compileNodeProject(dir).tracks.flatMap((t) => t.plugins ?? []);
 
@@ -50,6 +83,20 @@ describe("a jsdsp module", () => {
     // The whole point in one assertion: contributing nothing would make it a missing module.
     asJsDsp(false);
     expect(plugins().some((p) => p.id.endsWith(":lead"))).toBe(true);
+  });
+
+  it("arrives as the MIDI graph host when its TYPE FOLDER says notes", () => {
+    // One authored word, `jsdsp`, and two hosts: Tracktion routes an audio effect after the
+    // instrument and a MIDI one before it, so a plugin cannot be both — packages/song/docs/enginePlugin.md.
+    midiGraphModule();
+    const p = plugins().find((x) => x.id.endsWith(":rpt"));
+    expect(p?.type).toBe("MIDI Graph");
+    expect(p?.dspGraph).toContain("mhold");
+    // …and the audio one is unchanged, from the same authored word.
+    asJsDsp(false);
+    expect(plugins().find((x) => x.id.endsWith(":lead"))?.type).toBe(
+      "DSP Graph",
+    );
   });
 
   it("arrives as the engine's graph host, not as the word the author wrote", () => {

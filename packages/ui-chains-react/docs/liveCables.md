@@ -124,7 +124,7 @@ Three rules hold it honest:
 
 - **The interval rule is the compositor's**, not the graph's. st0 builds the spans with
   `@studio/ui-eyes`'s `activeAt` rule — a cut belongs to the later shot, a shot with no length
-  runs to the next one, a hidden lane shows nothing, a shape lane draws while unhidden — and
+  runs to the next one, a hidden lane shows nothing, a lane of shapes follows its activation spans — and
   `videoSpans.test.ts` asserts the two agree point by point rather than restating it. A cable
   rippling over a black viewport would be worse than one that never ripples.
 - **A lane is live only while the transport RUNS.** A paused frame is a held picture, and nothing

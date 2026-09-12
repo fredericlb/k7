@@ -127,6 +127,8 @@ export function readPluginBlock(
 export const JSDSP_TYPE = "jsdsp";
 /** …and the built-in the engine actually loads for one: a host for a graph it is handed. */
 export const DSP_GRAPH_PLUGIN = "DSP Graph";
+/** Its twin over the NOTE stream. Tracktion routes the two differently, so a plugin cannot be both. */
+export const MIDI_GRAPH_PLUGIN = "MIDI Graph";
 
 /** The DSP source a `jsdsp` module carries: a fixed NAME, so a module stays a folder you can copy without rewriting anything inside it. */
 export const JSDSP_FILE = "jsdsp.ts";
@@ -155,11 +157,18 @@ export const VOLUME_DB = { min: -60, max: 6, unity: 0 } as const;
 export function enginePlugin(
   plugin: { type?: unknown; name?: unknown } | undefined,
   fallback: string,
+  // What the module EMITS. A jsdsp graph has two hosts and this is what picks between them: the
+  // module's type folder already says which, so nothing new is authored — docs/enginePlugin.md.
+  emits?: string,
 ): { type: string; name: string } {
   const type = String(plugin?.type ?? "");
   const name = plugin?.name != null ? String(plugin.name) : "";
   // `jsdsp` is what the AUTHOR writes; the engine has no such plugin, so it loads the graph host and is handed the compiled graph.
-  if (type === JSDSP_TYPE) return { type: DSP_GRAPH_PLUGIN, name: fallback };
+  if (type === JSDSP_TYPE)
+    return {
+      type: emits === "midi" ? MIDI_GRAPH_PLUGIN : DSP_GRAPH_PLUGIN,
+      name: fallback,
+    };
   // …and its sibling, whose source the ENGINE compiles. Same shape of mapping, same reason.
   if (type === FAUST_TYPE) return { type: FAUST_PLUGIN, name: fallback };
   if (type === "internal") return { type: name, name: fallback };

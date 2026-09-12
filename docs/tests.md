@@ -45,13 +45,13 @@ done
 runs it like any other workspace. Three things that script does, each because the obvious version
 is wrong:
 
-**It filters on `^studio_`.** `ctest -N` in this build tree lists **eight** tests, and two of them
+**It filters on `^studio_`.** `ctest -N` in this build tree lists **ten** tests, and two of them
 are not ours: Tracktion vendors its own `Benchmarks` and `TestRunner` examples, and CMake registers
 them into our project. They are not even built, so a bare `ctest` fails on a missing executable
 with exit 8. Exactly the same leak the root `vitest.config.ts` excludes `engine/st0-engine/build/**`
 for — a vendored dependency's own tests turning up as ours.
 
-**It splits fast from slow on a ctest label.** Four of the six targets are JUCE-free by design —
+**It splits fast from slow on a ctest label.** Six of the eight targets are JUCE-free by design —
 `tests/CMakeLists.txt` keeps them that way deliberately, compiling the plain-data TUs straight into
 the test binary so they "build in seconds and run headless with no audio device". The other two,
 `studio_midigraph_tests` and `studio_dspgraph_tests`, include `DspGraph.h`, which reaches Tracktion,

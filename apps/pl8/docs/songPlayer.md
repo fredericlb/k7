@@ -42,6 +42,13 @@ Three reasons not to decode here:
 3. **It is this repository's rule.** "The hosted service does not decode audio" is not a limit of
    this panel: it is why `/mediatek/analyse` exists.
 
+## Most songs are measured before anyone opens them
+
+The backlog is swept in the background — `analysisSweep.ts`, [analysis.md](analysis.md) — so the
+path below is the exception rather than the rule: a song uploaded a moment ago, one the sweep has
+not reached yet, or one whose sidecar no longer matches its bytes, which the sweep deliberately
+leaves alone.
+
 ## The analysis is asked for, not waited for
 
 A song may have no `.cache` — dropped when no machine was reachable, or published from k7. `AddSong`

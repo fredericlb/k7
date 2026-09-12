@@ -79,14 +79,12 @@ export interface RawVideoPlacement {
 export interface RawVideoTrack {
   name?: unknown;
   color?: unknown;
-  kind?: unknown; // "video" (implied) | "shape"
   mute?: unknown;
   x?: unknown;
   y?: unknown;
   w?: unknown;
   h?: unknown;
-  events?: RawVideoPlacement[]; // "video" tracks
-  shapes?: unknown[]; // "shape" tracks
+  events?: RawVideoPlacement[]; // the shots this lane places
   [key: string]: unknown;
 }
 
@@ -127,6 +125,9 @@ export interface LoadedModule {
   cold?: boolean;
   // shaders only — which folder under the module's `shaders/` this node runs (song-video's docs/shaders.md).
   shader?: unknown;
+  // shapes only — which primitive it draws, and the family a `text` one is set in (song-video's docs/shapes.md).
+  shape?: unknown;
+  font?: unknown;
   ui?: unknown; // the widget grid — normalized downstream (effectiveUI)
   // The module's MIDI map from its folder's `controller.yaml`, stamped on beside `ui` and by the same rule.
   cc?: unknown;

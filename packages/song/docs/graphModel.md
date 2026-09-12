@@ -386,8 +386,7 @@ shared libraries, for the médiathèque, which files its catalogue that way, and
 `modules/`: **two walkers over one vocabulary have to agree.** One that skipped a folder with no
 `module.yaml` in it would make a nested module not an error but simply absent, and every symptom
 would then describe something else — a chain naming a module "this project doesn't have", a
-catalogue short a few rows, and, for the module bench whose `modules/` IS the catalogue, a builder
-answering 400 for a file sitting right in the tree.
+catalogue short a few rows, and a builder answering 400 for a file sitting right in the tree.
 
 A module file that will not READ is reported rather than dropped in silence, because the shape of
 that failure is the problem: the ref simply stops existing, so every symptom downstream describes

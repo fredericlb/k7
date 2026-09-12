@@ -22,10 +22,12 @@ beforeEach(() => {
   });
   vi.stubGlobal("fetch", (_url: string, init: RequestInit) => {
     bodies.push(JSON.parse(String(init.body)));
+    // `text` and not `json`: the transport reads the body as text so it can TIME the parse, which
+    // `res.json()` hides inside its await. A real Response offers both.
     return Promise.resolve({
       ok: true,
       status: 200,
-      json: () => Promise.resolve({ output: [] }),
+      text: () => Promise.resolve(JSON.stringify({ output: [] })),
     } as unknown as Response);
   });
 });

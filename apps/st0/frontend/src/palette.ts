@@ -17,7 +17,7 @@ import { MAX_RECENT } from "./recentCommands";
 import { ROLL_MODES } from "./rollMode";
 import { PANES } from "./shellMeta";
 import { TOOLS } from "./timelineTools";
-import type { CommandInfo } from "./types";
+import type { CommandInfo, MenuEntity } from "./types";
 import { WAVE_MODES } from "./waveMode";
 
 export const LOCAL_COMMANDS = [
@@ -66,13 +66,14 @@ export const LOCAL_COMMANDS = [
   "ui ruler", // the timeline's ruler: bars or seconds
   "ui lanes", // tall lanes, showing each clip's waveform or notes
   "ui logs clear",
-  // The three RIGHT-HAND panels and the settings tabs: all leave the project alone, and the bare lines toggle.
+  // The RIGHT-HAND panels and the settings tabs: all leave the project alone, and the bare lines toggle.
   "ui settings",
   "ui settings editor",
   "ui settings io",
   "ui settings account", // who you are, the engine, the workspace, the language
   "ui settings commands", // the one that is still a PAGE — see components/SettingsPanel.tsx
   "ui playlists", // the workspace's set lists — docs/playlists.md
+  "ui references", // the workspace's reference tracks — docs/references.md
   "ui share", // commit, pull, export, publish — docs/shell.md
   // The LINK to a surface, for another device to open it on (docs/external.md) — `ui`, since it copies an address and changes nothing.
   "ui external",
@@ -305,6 +306,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Open or close this repository's playlists",
     fr: "Ouvrir ou fermer les playlists de ce dépôt",
   },
+  "ui references": {
+    en: "Open or close this repository's reference tracks",
+    fr: "Ouvrir ou fermer les morceaux de référence de ce dépôt",
+  },
   "ui share": {
     en: "Open or close the share and export panel",
     fr: "Ouvrir ou fermer le panneau de partage",
@@ -441,7 +446,7 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   // Which HALF leaves first, then its format — and for a video, the sound married into it.
   "project export": [
     { name: "what", kind: "choice", hint: "audio · video" },
-    { name: "format", kind: "choice", hint: "wav · mp3 · mp4" },
+    { name: "format", kind: "choice", hint: "wav · mp3 · webm · mp4" },
     {
       name: "sound",
       kind: "choice",
@@ -524,6 +529,7 @@ export function buildPaletteCommands(
     canonical: string,
     args: PaletteArg[],
     readable?: { en: string; fr: string },
+    menu?: MenuEntity[],
   ): PaletteCommand => ({
     canonical,
     label: commandLabel(canonical),
@@ -532,8 +538,12 @@ export function buildPaletteCommands(
     // The whole table too, for the one screen that offers a field per language; everything else reads `readable` above.
     ...(readable ? { readableBy: { ...readable } } : {}),
     args,
+    // Where the CATALOGUE offers it on a right-click; the shell's own commands say nothing, so every menu their arguments fit may.
+    ...(menu ? { menu } : {}),
   });
-  const backend = backendCmds.map((c) => mk(c.command, c.args, c.readable));
+  const backend = backendCmds.map((c) =>
+    mk(c.command, c.args, c.readable, c.menu),
+  );
   const locals = LOCAL_COMMANDS.filter(
     (c) => !backendCmds.some((b) => b.command === c),
   ).map((c) => mk(c, LOCAL_ARGS[c] ?? [], LOCAL_READABLE[c]));

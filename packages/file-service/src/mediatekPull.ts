@@ -92,26 +92,6 @@ export async function pullOnce(): Promise<void> {
   }
 }
 
-/** Fetch a WHOLE family, ignoring the scope — what the module bench needs (docs/mediatekPull.md). */
-export async function syncMediatekFamily(family: Family): Promise<void> {
-  const base = mediatekBase();
-  if (!base) return;
-  try {
-    const source = remoteLibrary({ base, token: mediatekToken() ?? undefined });
-    const report = await syncFamily(source, family, () => true);
-    if (report.fetched.length || report.dropped.length) {
-      console.log(
-        `   mediatek ${family} (full): ${report.fetched.length} file(s) in, ${report.dropped.length} out`,
-      );
-      for (const ws of liveWorkspaces()) ws.invalidateProjectDoc();
-    }
-    // The scoped loop's memo records a SCOPE and this pass had none, so drop it and let it re-decide.
-    seen.delete(family);
-  } catch (e) {
-    console.warn(`   mediatek ${family} (full): ${(e as Error).message}`);
-  }
-}
-
 /** STOPPED: it downloaded each scoped file onto itself and zeroed three songs — docs/mediatekPull.md. */
 export function startMediatekPuller(): void {
   return;

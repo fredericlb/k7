@@ -55,6 +55,7 @@ import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipWindowBand, setClipWindowText } from "../clipWindowText";
 import { useDiskSync } from "../hooks/useDiskSync";
 import { moduleBehind } from "../moduleBehind";
+import { m } from "../paraglide/messages.js";
 import {
   fileStem,
   inActiveProject,
@@ -746,9 +747,12 @@ export function EditorTab({
   const deleteEntry = useCallback(
     async (path: string, isDir: boolean) => {
       const agreed = await askConfirm({
-        title: `Supprimer ${isDir ? "le dossier" : "le fichier"} « ${path} » ?`,
-        body: "Il part à la corbeille : rien n'est effacé tout de suite.",
-        confirmLabel: "Supprimer",
+        title: m["ed.deleteTitle"]({
+          kind: isDir ? m["ed.folderWord"]() : m["ed.fileWord"](),
+          path,
+        }),
+        body: m["ed.trashBody"](),
+        confirmLabel: m["project.delete"](),
         danger: true,
       });
       if (!agreed) return;
@@ -1202,14 +1206,14 @@ export function EditorTab({
               <input
                 value={opSearch}
                 onChange={(e) => setOpSearch(e.target.value)}
-                placeholder="chercher une chaîne…"
+                placeholder={m["clip.searchChain"]()}
                 // Not autofocused, as in the waveform panel: the menu takes the focus, and stealing it back breaks the arrow keys.
                 className="mb-1 w-full rounded border bg-transparent px-2 py-1 text-xs outline-none"
               />
               <div className="max-h-64 overflow-auto">
                 {clipOps.length === 0 ? (
                   <p className="px-2 py-1 text-xs text-muted-foreground">
-                    aucune chaîne
+                    {m["clip.noChain"]()}
                   </p>
                 ) : (
                   clipOps.map((c) => (

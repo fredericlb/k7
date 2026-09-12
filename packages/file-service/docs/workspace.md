@@ -326,38 +326,31 @@ own answer: none of them can be read out of that tree.
 
 ## The bench is not a repository
 
-`POST /workspaces/bench` makes, or refreshes, a bench on ONE library chain (`chains/<path>.st0`) and
-answers a workspace + project.
+`POST /workspaces/bench` makes the bench — one live rig — and answers a workspace + project.
 
-Its own route rather than a clone, because there is no repository: the bench is generated from the
-médiathèque's catalogue and regenerated every time it is opened, so putting it under version control
-would version a cache. `ProjectGate` calls this instead of the by-name → by-repo → clone sequence
-when the address names `@banc`. `benchChainPath` is the one place either end spells which chain the
-address named; anything else under `@banc` names nothing.
-
-The full sync of both médiathèque families it does first is the load-bearing line: `mediatekPull`
-fetches only what the OPEN projects name, and a bench that has not been made yet names nothing — so
-without it the folder about to be mirrored would be whatever happened to be cached for other songs.
+Its own route rather than a clone, because there is no repository: the folder is generated, and
+deleted and generated again every time it is opened, so putting it under version control would
+version something with a lifetime of one session. `ProjectGate` calls this instead of the
+by-name → by-repo → clone sequence when the address names `@banc`. `isBenchProject` is the one
+place either end spells which address the bench answers; anything else under `@banc` names nothing
+and is a 404 saying where a chain and a module are edited instead.
 
 The account's library repository is required and comes from the browser, the side that holds the
-session pl8 answers to. The bench's workspace mounts it like any other and the chain being opened is
-inside it; without one there is nothing to open. A chain that will not open is the USER's problem to
-read — no such chain, or a name that collides with the bench's own furniture — so it is a 409 and
-not a fault.
+session pl8 answers to. The bench's workspace mounts it like any other, and every module the rig
+can name is in it; without one there is nothing to try. A library that will not mount is the USER's
+problem to read, so it is a 409 and not a fault.
 
-### The bench writes back
+### The bench keeps nothing, and writes nothing back
 
-A chain bench is a view of one chain in the library submodule, so the two files that ARE the chain
-go back to it after the ordinary write rather than instead of it: `graph.yaml`, translated at the
-edges the way it was translated on the way in, and the flat `nodes/` beside it. Everything else in
-the folder — the project, the scaffold's furniture — is the bench's own and stays.
+The rig is scaffolded fresh on every open, so a write into the project folder survives exactly as
+long as the session: no translation, no promotion, no path out of it. What a bench session keeps is
+what was written into the LIBRARY — `_libraries/…`, which is an ordinary path here as it is in
+every other workspace (`apps/pl8/docs/banc.md`).
 
-The bench's LANE is in `nodes/` too, and is furniture: it is somewhere to put material while you
-listen, and has no business in a chain other projects load. It is kept back by NAME, which is the
-only thing that tells it apart — `chainToBench` puts `@in` under that name on the way in, and
-`chainFromBench` turns it back.
+That workspace holds the rig and the library mount, and nothing else: a `chains/` folder in it is
+swept on open, because a project folder that saves nowhere is worse than no folder at all.
 
-Both are a plain write into the submodule: the libraries are a git submodule inside the workspace,
+A library write is a plain write into the submodule: the libraries are a git submodule inside the workspace,
 so `_libraries/…` is an ORDINARY path and nothing is pushed anywhere by the write itself.
 What publishes it is `project commit`, which is somebody's decision rather than a side effect of
 typing. `_modules` is untouched by all of that and still forks: it is the WORKSPACE's own library,

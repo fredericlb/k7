@@ -10,12 +10,7 @@ import type {
   RawVideoTrack,
 } from "@studio/song/rawDoc";
 import { DISSOLVE } from "@studio/song-schema/moduleTypes";
-import type {
-  ShapeDoc,
-  VideoClipDoc,
-  VideoFadeDoc,
-  VideoTrackDoc,
-} from "./videoDoc";
+import type { VideoClipDoc, VideoFadeDoc, VideoTrackDoc } from "./videoDoc";
 
 /** A placement's fade in the ONE shape everything downstream copies — the scalar's sugar is undone HERE. */
 // Normalised at the first hop so the union never leaves song-schema and five later copies see one shape.
@@ -38,6 +33,16 @@ export function videoPlacementToClip(
   lane?: string,
 ): VideoClipDoc {
   const ref = String(p.ref ?? "");
+  // No ref is an ACTIVATION: a span with no picture in it, saying the lane is on — docs/shapes.md.
+  if (!ref)
+    return {
+      id: "",
+      name: "",
+      source: "",
+      start: Number(p.start ?? 0),
+      length: Number(p.length ?? 0),
+      sourceFrom: 0,
+    };
   if (!clipsMap[ref])
     warnings?.push(
       `${lane ? `${lane}: ` : ""}'${ref}' names no clip — add clips/${ref}.yaml, or this shot draws nothing`,
@@ -55,37 +60,6 @@ export function videoPlacementToClip(
     ...(fadeIn ? { fadeIn } : {}),
     ...(fadeOut ? { fadeOut } : {}),
   };
-}
-
-// One shape -> a ShapeDoc in viewport px; the fill reads `background_color` or `color`, each the other's fallback.
-export function compileShape(s: Record<string, unknown>): ShapeDoc {
-  const x = Number(s.x ?? 0);
-  const y = Number(s.y ?? 0);
-  const fill = String(s.background_color ?? s.color ?? "#ffffff");
-  switch (s.type) {
-    case "circle":
-      return { type: "circle", x, y, r: Number(s.r ?? 0), color: fill };
-    case "text":
-      return {
-        type: "text",
-        content: String(s.content ?? ""),
-        font: String(s.font ?? "sans-serif"),
-        fontSize: Number(s.font_size ?? s.fontSize ?? 24),
-        x,
-        y,
-        ...(s.w != null ? { w: Number(s.w) } : {}),
-        color: String(s.color ?? s.background_color ?? "#ffffff"),
-      };
-    default: // "square"
-      return {
-        type: "square",
-        x,
-        y,
-        w: Number(s.w ?? 0),
-        h: Number(s.h ?? 0),
-        color: fill,
-      };
-  }
 }
 
 /** `viewport:` as [w, h] plus the export fps, an optional third element defaulting to 30. */
@@ -140,32 +114,22 @@ export function compileVideoTracks(
   const solos = new Set(soloed.map(String));
   return layers.map((id: string) => {
     const t = videoTracksMap[id] ?? {};
-    const kind = t.kind === "shape" ? "shape" : "video";
     return {
       id,
       name: String(t.name ?? id),
       color: String(t.color ?? ""),
       mute: !!t.mute,
       solo: solos.has(id),
-      kind,
       x: Number(t.x ?? 0),
       y: Number(t.y ?? 0),
       // No rect written is the WHOLE frame, as it already is for a camera layer: 0 would be a lane that draws nothing.
       w: Number(t.w ?? viewport[0]),
       h: Number(t.h ?? viewport[1]),
-      // Only the matching field is read downstream, so the other stays empty.
-      clips:
-        kind === "video"
-          ? (Array.isArray(t.events) ? t.events : []).map((p) =>
-              videoPlacementToClip(dir, p, clipsMap, warnings, id),
-            )
-          : [],
-      shapes:
-        kind === "shape"
-          ? (Array.isArray(t.shapes) ? t.shapes : []).map((sh) =>
-              compileShape((sh ?? {}) as Record<string, unknown>),
-            )
-          : [],
+      clips: (Array.isArray(t.events) ? t.events : []).map((p) =>
+        videoPlacementToClip(dir, p, clipsMap, warnings, id),
+      ),
+      // What a lane draws INSTEAD of placements comes off graph.yaml, and is folded in there.
+      shapes: [],
     };
   });
 }

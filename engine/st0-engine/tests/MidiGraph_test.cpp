@@ -11,6 +11,7 @@
 #include "DspGraph.h"
 #include "test_harness.h"
 
+#include <cmath>
 #include <string>
 
 using namespace studio;
@@ -41,6 +42,30 @@ te::MidiMessageArray notePair(int note, float velocity = 1.0f) {
 }
 
 int noteAt(const te::MidiMessageArray& a, int i) { return a[i].getNoteNumber(); }
+
+// The note repeater, verbatim: hold the keys, strike them every `Count x Division` beats.
+const char* kRepeatGraph = R"({
+  "params": [ { "name": "Count", "min": 1, "max": 8, "default": 1 },
+              { "name": "Division", "min": 0.125, "max": 4, "default": 0.5 },
+              { "name": "Gate", "min": 0.05, "max": 1, "default": 0.5 } ],
+  "nodes":  [ { "type": "mhold" },
+              { "type": "mul", "in": ["Count", "Division"], "out": "step" },
+              { "type": "mstrike", "in": ["step", "Gate"] } ]
+})";
+
+/** One press, held: the note-off is what a repeater waits for, so a pair would stop it at once. */
+te::MidiMessageArray keyDown(int note, double at = 0.0) {
+    te::MidiMessageArray a;
+    a.addMidiMessage(juce::MidiMessage::noteOn(1, note, 1.0f), at, te::MidiMessageArray::notMPE);
+    return a;
+}
+
+int noteOns(const te::MidiMessageArray& a) {
+    int n = 0;
+    for (auto& m : a)
+        if (m.isNoteOn()) ++n;
+    return n;
+}
 
 void transposes_by_whole_semitones() {
     auto g = buildGraph(kTransposeGraph);
@@ -145,6 +170,97 @@ void a_graph_without_midi_nodes_leaves_the_buffer_alone() {
     CHECK(midi.size() == 2);
 }
 
+// --- the two nodes that give the phase a memory and a clock (../docs/midiGraph.md) -------------
+
+// Count 1, Division 0.5 (an eighth), Gate 0.5 — the module's own defaults.
+const float kRepeatDefaults[3] = {1.0f, 0.5f, 0.5f};
+
+void a_held_key_is_struck_again_on_the_step() {
+    auto g = buildGraph(kRepeatGraph);
+    if (!g) return;
+    g->prepare(48000.0, 512);
+    CHECK(g->hasMidi());
+
+    // At 120 BPM a beat is 0.5 s, so an eighth is 0.25 s: one block of 0.6 s holds three strikes.
+    auto midi = keyDown(60);
+    g->processMidi(midi, kRepeatDefaults, 3, 0.6, 0.5);
+    CHECK(noteOns(midi) == 3);
+    // The FIRST is where the finger fell, not on the next step: a key pressed is heard.
+    CHECK(midi[0].isNoteOn() && std::fabs(midi[0].getTimeStamp()) < 1e-9);
+}
+
+void the_step_is_in_BEATS_so_the_same_graph_follows_the_tempo() {
+    auto g = buildGraph(kRepeatGraph);
+    if (!g) return;
+    g->prepare(48000.0, 512);
+    auto fast = keyDown(60);
+    g->processMidi(fast, kRepeatDefaults, 3, 0.6, 0.25);  // 240 BPM
+    g->reset();
+    auto slow = keyDown(60);
+    g->processMidi(slow, kRepeatDefaults, 3, 0.6, 1.0);  // 60 BPM
+    // Twice the tempo, twice the strikes in the same wall-clock second. Nothing in the graph moved.
+    CHECK(noteOns(fast) > noteOns(slow));
+}
+
+void the_keys_are_EATEN_and_only_the_clock_writes_notes() {
+    auto g = buildGraph(R"({
+      "params": [],
+      "nodes":  [ { "type": "mhold" } ]
+    })");
+    if (!g) return;
+    g->prepare(48000.0, 512);
+    auto midi = notePair(60);
+    // `mhold` alone is a note swallower: the pair goes into the held set and nothing comes out.
+    g->processMidi(midi, nullptr, 0, 0.1, 0.5);
+    CHECK(midi.size() == 0);
+}
+
+void a_control_change_still_passes_through_a_repeater() {
+    auto g = buildGraph(kRepeatGraph);
+    if (!g) return;
+    g->prepare(48000.0, 512);
+    auto midi = keyDown(60);
+    midi.addMidiMessage(juce::MidiMessage::controllerEvent(1, 74, 100), 0.3,
+                        te::MidiMessageArray::notMPE);
+    g->processMidi(midi, kRepeatDefaults, 3, 0.6, 0.5);
+    bool sawCc = false;
+    for (auto& m : midi)
+        if (m.isController()) sawCc = true;
+    CHECK(sawCc);
+    // …and in its place: the list leaves in timestamp order or something downstream drops it.
+    for (int i = 1; i < midi.size(); ++i)
+        CHECK(midi[i].getTimeStamp() >= midi[i - 1].getTimeStamp());
+}
+
+void letting_the_key_go_stops_it_and_pays_the_note_off() {
+    auto g = buildGraph(kRepeatGraph);
+    if (!g) return;
+    g->prepare(48000.0, 512);
+    auto first = keyDown(60);
+    g->processMidi(first, kRepeatDefaults, 3, 0.1, 0.5);  // struck, still sounding
+    CHECK(noteOns(first) == 1);
+
+    te::MidiMessageArray up;
+    up.addMidiMessage(juce::MidiMessage::noteOff(1, 60), 0.0, te::MidiMessageArray::notMPE);
+    g->processMidi(up, kRepeatDefaults, 3, 0.6, 0.5);
+    // One message: the note-off it owed. Nothing struck after the finger left.
+    CHECK(up.size() == 1);
+    CHECK(!up[0].isNoteOn() && up[0].getNoteNumber() == 60);
+}
+
+void a_reset_lets_go_of_everything() {
+    auto g = buildGraph(kRepeatGraph);
+    if (!g) return;
+    g->prepare(48000.0, 512);
+    auto midi = keyDown(60);
+    g->processMidi(midi, kRepeatDefaults, 3, 0.1, 0.5);
+    g->reset();
+    auto after = te::MidiMessageArray{};
+    g->processMidi(after, kRepeatDefaults, 3, 0.6, 0.5);
+    // A stop leaves nothing playing: the host sends all-notes-off, and this must not fight it.
+    CHECK(after.size() == 0);
+}
+
 }  // namespace
 
 int main() {
@@ -154,5 +270,11 @@ int main() {
     RUN(leaves_non_note_messages_alone);
     RUN(velocity_scales_but_never_to_a_note_off);
     RUN(a_graph_without_midi_nodes_leaves_the_buffer_alone);
+    RUN(a_held_key_is_struck_again_on_the_step);
+    RUN(the_step_is_in_BEATS_so_the_same_graph_follows_the_tempo);
+    RUN(the_keys_are_EATEN_and_only_the_clock_writes_notes);
+    RUN(a_control_change_still_passes_through_a_repeater);
+    RUN(letting_the_key_go_stops_it_and_pays_the_note_off);
+    RUN(a_reset_lets_go_of_everything);
     TEST_MAIN_END();
 }

@@ -3,8 +3,13 @@
 // is the app's and is the same for everyone; this is the layer over it, and it is pure so the
 // settings page and every menu apply it the same way.
 
+import type { MenuEntity } from "./types";
+
 /** What a person calls a command, per language; a bare string is the legacy shape and stands for every locale until that command is next edited. */
 export type CommandLabel = string | Record<string, string>;
+
+/** Where a right-click may offer a command: a list of entities, `false` for nowhere at all. */
+export type MenuChoice = boolean | MenuEntity[];
 
 /** One command's overrides. Every field optional — an untouched command has no entry at all. */
 export interface CommandPref {
@@ -16,8 +21,8 @@ export interface CommandPref {
   order?: number;
   /** The key that runs it, or KEY_NONE to take a default away; absent ⇒ the app's own binding (`effectiveKeys` in keys.ts). */
   key?: string;
-  /** Whether a right-click may offer it. Absent ⇒ yes, and this is only ever a way to take one AWAY — the menu is DERIVED. */
-  menu?: boolean;
+  /** Which right-clicks may offer it, replacing the catalogue's own list; `false` is none. Absent ⇒ the catalogue's word. */
+  menu?: MenuChoice;
 }
 
 /** Keyed by the CANONICAL line and never by what is displayed — the one id BOTH halves of the catalogue have. */
@@ -91,9 +96,29 @@ export function labelOf(
   );
 }
 
-/** May a right-click offer `canonical`? Absent ⇒ yes; it takes the LINE, so the menu's hand-written entries obey too. */
-export function inMenu(canonical: string, prefs: CommandPrefs): boolean {
-  return prefs[canonical]?.menu !== false;
+/** Which entities a command is offered on as things stand — null meaning "wherever it fits", which is the default. */
+export function menuChoice(
+  pref: CommandPref | undefined,
+  catalogue: readonly MenuEntity[] | undefined,
+): readonly MenuEntity[] | null {
+  const own = pref?.menu;
+  if (own === false) return [];
+  if (Array.isArray(own)) return own;
+  // `true` is the person overriding a catalogue restriction back to "everywhere" — see CommandsSettings.
+  return own === true ? null : (catalogue ?? null);
+}
+
+/** May a right-click on `entity` offer `canonical`? It takes the LINE, so the menu's hand-written entries obey too. */
+export function inMenu(
+  canonical: string,
+  prefs: CommandPrefs,
+  entity?: MenuEntity,
+  catalogue?: readonly MenuEntity[],
+): boolean {
+  const allowed = menuChoice(prefs[canonical], catalogue);
+  if (!allowed) return true;
+  // No entity named — the caller is asking whether ANY menu offers it, which is the settings page's question.
+  return entity ? allowed.includes(entity) : allowed.length > 0;
 }
 
 /** The catalogue as this person has arranged it: placed commands first by `order`, the rest in catalogue order, stable within each group. */
@@ -145,6 +170,27 @@ export function setCommandPref(
   if (Object.keys(merged).length) next[canonical] = merged;
   else delete next[canonical];
   return next;
+}
+
+/** Say where a right-click may offer a command, in the SPELLING that says the least — docs/contextMenu.md. */
+export function setMenuEntities(
+  prefs: CommandPrefs,
+  canonical: string,
+  catalogue: readonly MenuEntity[] | undefined,
+  next: readonly MenuEntity[],
+  all: readonly MenuEntity[],
+): CommandPrefs {
+  const same = (a: readonly string[], b: readonly string[]) =>
+    a.length === b.length && a.every((x) => b.includes(x));
+  const menu: MenuChoice | undefined = !next.length
+    ? false
+    : same(next, catalogue ?? all)
+      ? undefined
+      : same(next, all)
+        ? true
+        : [...next];
+  // `undefined` would be DELETED by setCommandPref, which is exactly what "back to the catalogue's word" means.
+  return setCommandPref(prefs, canonical, { menu });
 }
 
 /** Name a command in ONE language, leaving the others: a legacy bare string is EXPANDED across `locales` first, or the rest would be dropped. */

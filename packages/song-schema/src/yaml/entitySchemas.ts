@@ -135,38 +135,6 @@ export const CurveSchema = z.discriminatedUnion("type", [
 
 const Px = z.number();
 
-export const SquareShapeSchema = z
-  .object({
-    type: z.literal("square"),
-    x: Px.optional(),
-    y: Px.optional(),
-    w: z.number().positive(),
-    h: z.number().positive(),
-    background_color: z.string().optional(),
-  })
-  .strict();
-
-export const CircleShapeSchema = z
-  .object({
-    type: z.literal("circle"),
-    x: Px.optional(),
-    y: Px.optional(),
-    r: z.number().positive(),
-    background_color: z.string().optional(),
-  })
-  .strict();
-
-export const TextShapeSchema = z.looseObject({
-  type: z.literal("text"),
-  content: z.string().min(1),
-});
-
-export const ShapeSchema = z.discriminatedUnion("type", [
-  SquareShapeSchema,
-  CircleShapeSchema,
-  TextShapeSchema,
-]);
-
 /** The map form of a transition; the bare seconds spelling is widened into it before parsing. */
 export const FadeSchema = z
   .object({
@@ -185,7 +153,9 @@ export const TransitionSchema = z.preprocess(
 
 export const VideoPlacementSchema = z
   .object({
-    ref: z.string().min(1),
+    // Absent is an ACTIVATION: a span saying the lane is ON, which is how a shape is put on
+    // screen and taken off again — see packages/song-video/docs/shapes.md.
+    ref: z.string().min(1).optional(),
     start: z.number().min(0).optional(), // seconds on the timeline
     length: z.number().min(0).optional(), // 0 == to the end of the source
     source_from: z.number().min(0).optional(),
@@ -193,20 +163,29 @@ export const VideoPlacementSchema = z
     fade_in: TransitionSchema.optional(),
     fade_out: TransitionSchema.optional(),
   })
-  .strict();
+  .strict()
+  // Three keys that need a source, on an event that has none: each would be read by nothing.
+  .superRefine((p, ctx) => {
+    if (p.ref) return;
+    for (const key of ["source_from", "fade_in", "fade_out"] as const)
+      if (p[key] != null)
+        ctx.addIssue({
+          code: "custom",
+          message: `an event with no \`ref\` is an ACTIVATION — it says WHEN this lane is on, and has no source to ${key === "source_from" ? "trim" : "fade"}`,
+          path: [key],
+        });
+  });
 
 export const VideoTrackSchema = z
   .object({
     name: z.string().optional(),
     color: z.string().optional(),
     mute: z.boolean().optional(), // "mute" == hidden; no sound on a video lane
-    kind: z.enum(["video", "shape"]).optional(),
     x: Px.optional(),
     y: Px.optional(),
     w: Px.optional(),
     h: Px.optional(),
-    events: z.array(VideoPlacementSchema).optional(), // "video" tracks only — see #Module's `events:`
-    shapes: z.array(ShapeSchema).optional(), // "shape" tracks only
+    events: z.array(VideoPlacementSchema).optional(), // the shots it places — see #Module's `events:`
   })
   .strict()
   // A fade_out is measured back from an END, and the LAST length-0 shot has none — the only case with no answer.

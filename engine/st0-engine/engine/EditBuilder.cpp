@@ -432,7 +432,8 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
     if (!p.rack.empty()) {
         if (auto* sampler = dynamic_cast<te::SamplerPlugin*>(plugin.get())) {
             for (const auto& e : p.rack)
-                addRackSound(edit, *sampler, e.clip, e.symbol, e.note, e.start, e.length);
+                addRackSound(edit, *sampler, e.clip, e.symbol, e.note, e.start, e.length,
+                             p.id);
         } else {
             warn("carries a rack but is not a sampler (" + p.type + ")", p.id);
         }
@@ -470,7 +471,8 @@ te::Plugin::Ptr masterGainOf(te::Edit& edit) {
 
 // Load one rack sound: the requested window clamped to the file, pinned to its note and open-ended so a short note plays the whole hit.
 bool addRackSound(te::Edit& edit, te::SamplerPlugin& sampler, const std::string& file,
-                  const std::string& name, int note, double start, double length) {
+                  const std::string& name, int note, double start, double length,
+                  const std::string& subject) {
     const juce::File f{juce::String(file)};
     double natural = 0.0;
     if (f.existsAsFile()) {
@@ -479,7 +481,7 @@ bool addRackSound(te::Edit& edit, te::SamplerPlugin& sampler, const std::string&
     }
     if (natural <= 0.0) {
         warn("rack sound '" + name + "' -> '" + file +
-             "' is missing or unreadable; skipped");
+             "' is missing or unreadable; skipped", subject);
         return false;
     }
     const double s = juce::jlimit(0.0, natural, start);
@@ -487,7 +489,7 @@ bool addRackSound(te::Edit& edit, te::SamplerPlugin& sampler, const std::string&
     const juce::String err =
         sampler.addSound(juce::String(file), juce::String(name), s, len, 0.0f);
     if (err.isNotEmpty()) {
-        warn("rack sound '" + name + "': " + err.toStdString());
+        warn("rack sound '" + name + "': " + err.toStdString(), subject);
         return false;
     }
     const int idx = sampler.getNumSounds() - 1;

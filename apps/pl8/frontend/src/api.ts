@@ -3,9 +3,10 @@
 // moteur plays from, and nothing on this screen reads it.
 
 import { engineAccess } from "@studio/engine-browser/access";
+import type { PlaylistSummary } from "@studio/mediatek/playlists";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
-import type { PublicEngine } from "@studio/web-protocol";
+import type { PublicEngine, SyncJob } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
 // Type only, so the cycle with prefs.ts never reaches the bundle — see ../docs/api.md.
 import type { Pl8Prefs } from "./prefs";
@@ -169,6 +170,42 @@ export const hunt = {
   },
 };
 
+/** One target as the machine offers it: the URI is already blanked, so this may be shown. */
+export interface SyncTargetRow {
+  name: string;
+  uri: string;
+  scheme: string | null;
+}
+
+/** Copying a set list onto a machine's target. The engine holds the URI; here it is a NAME. */
+export const sync = {
+  /** What that machine can copy to — its URIs already blanked of any password. */
+  targets: async (engineId: string) =>
+    json<{ targets: SyncTargetRow[] }>(
+      await fetch(
+        `${BASE}/api/sync/targets?engineId=${encodeURIComponent(engineId)}`,
+      ),
+      "targets",
+    ),
+
+  start: async (playlist: string, engineId: string, target: string) => {
+    const res = await fetch(`${BASE}/api/sync`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ playlist, engineId, target }),
+    });
+    return json<{ job: SyncJob; skipped: string[] }>(res, "sync");
+  },
+
+  status: async (id: string, engineId: string) =>
+    json<SyncJob>(
+      await fetch(
+        `${BASE}/api/sync/${encodeURIComponent(id)}?engineId=${encodeURIComponent(engineId)}`,
+      ),
+      "sync",
+    ),
+};
+
 export const library = {
   summary: () =>
     get<{ present: boolean; counts: Record<string, number> }>("", "mediatek"),
@@ -237,6 +274,21 @@ export const library = {
 
   /** The raw capture zone, day by day — its own call, since a capture enters no catalogue (packages/mediatek/docs/recordings.md). */
   recordings: () => get<{ days: RecordingDay[] }>("/recordings", "recordings"),
+
+  /** The set lists this volume holds — its own call too, no family scan reaching the zone. */
+  playlists: () =>
+    get<{ playlists: PlaylistSummary[] }>("/playlists", "playlists"),
+
+  /** Create one from the stub. Its text is then read and written with readFile/writeFile. */
+  newPlaylist: async (name: string): Promise<PlaylistSummary> => {
+    const res = await fetch(`${BASE}/api/mediatek/playlists`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw await failed(res, "playlist");
+    return ((await res.json()) as { playlist: PlaylistSummary }).playlist;
+  },
 
   /** Push captures in, one request each, so every file carries its OWN mtime (../docs/api.md). */
   addRecordings: async (files: File[]): Promise<void> => {

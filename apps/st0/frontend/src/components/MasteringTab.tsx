@@ -29,6 +29,7 @@ import {
   PART_LABEL,
   unmappedControls,
 } from "../mastering/controls";
+import { m } from "../paraglide/messages.js";
 
 export function MasteringTab({
   surface,
@@ -85,8 +86,8 @@ export function MasteringTab({
         <p className="text-muted-foreground">
           Cette surface est le portrait d'UN module quick-master, et{" "}
           {missing.length === 1
-            ? "un de ses composants n'est pas mappé"
-            : `${missing.length} de ses composants ne sont pas mappés`}{" "}
+            ? m["mst.oneUnmapped"]()
+            : m["mst.someUnmapped"]({ n: missing.length })}{" "}
           — voir <code className="font-mono">{surface.file}</code>.
         </p>
         <ul className="list-inside list-disc text-muted-foreground">
@@ -115,7 +116,7 @@ export function MasteringTab({
                 {m}
               </code>
             ))}
-            — un pupitre de mastering en décrit normalement un seul.
+            {m["mst.severalModules"]()}
           </>
         )}
       </p>
@@ -165,14 +166,14 @@ function Part({
   return (
     <section className="flex min-w-0 flex-col gap-2 rounded border border-border p-3">
       <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        {PART_LABEL[part]}
+        {PART_LABEL[part]()}
       </h3>
       {has ? (
         <div className="flex flex-col gap-2">{children}</div>
       ) : (
         // Every control is required, so this is only reachable while the graph has not arrived or will not compile.
         <p className="text-xs text-muted-foreground">
-          aucun de ses réglages ne se résout pour l'instant
+          {m["mst.noneResolve"]()}
         </p>
       )}
     </section>
@@ -205,7 +206,7 @@ function Knob({
 
   return (
     <label className="flex items-center gap-2 text-xs">
-      <span className="w-28 shrink-0 text-muted-foreground">{label}</span>
+      <span className="w-28 shrink-0 text-muted-foreground">{label()}</span>
       <input
         type="range"
         min={min}

@@ -1,14 +1,12 @@
-// migrateTrackMixer.ts — give every audio lane the channel strip it lacks: a `Mixer` module of its
-// own, wired at the end of its run, just before the mixer's sum.
+// migrateTrackMixer.ts — give every audio lane the channel strip it lacks: a node on the library's
+// mixer, wired at the end of its run, just before the mixer's sum.
 //
 //   npx tsx packages/song/scripts/migrateTrackMixer.ts <projet.st0> [more…] [--write]
 //
-// Before this, `track new` wrote a lane and nothing else, so a song's faders — the one on a lane's
-// timeline gutter, the one on its card, the whole Mixer view — had nowhere to write and did
-// nothing. See packages/song/docs/trackMixer.md.
-//
+// A lane with no strip has faders that write nowhere: the gutter's, the card's, the Mixer view's.
 // Idempotent (a lane whose run already ends on a mixer is skipped), dry by default, and through the
 // yaml Document API, so graph.yaml's comments and key order come back byte-identical.
+// See packages/song/docs/trackMixer.md.
 
 import { loadGraph } from "../src/graph.ts";
 import { applyTrackMixer, planTrackMixer } from "../src/trackMixerFile.ts";

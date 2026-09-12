@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { m } from "../paraglide/messages.js";
 
 function Row({
   node,
@@ -66,12 +67,15 @@ function Row({
           </span>
         </button>
         {/* The one way off this screen: a project opens in ITS app, named by the folder's suffix,
-            through an anchor — in this tab on the web, the header's name being the way back
-            (../../docs/projects.md). An ANCHOR and not a router link, which is also what lets the
-            desktop app open it beside a pinned home tab (apps/st0-desktop/docs/tabs.md). */}
+            in a NEW TAB, this screen being a list you come back to (../../docs/projects.md).
+            An ANCHOR and not a router link, which is what makes the new tab a real navigation. */}
         {node.app && (
           <Button size="sm" variant="secondary" asChild>
-            <a href={projectHref(node.path, node.app)}>
+            <a
+              href={projectHref(node.path, node.app)}
+              target="_blank"
+              rel="noopener"
+            >
               <ExternalLink className="h-3.5 w-3.5" /> Ouvrir dans {node.app}
             </a>
           </Button>
@@ -131,7 +135,7 @@ export function RepoTree({
         </Button>
         <span className="truncate font-medium">{workspace.name}</span>
         <span className="truncate text-xs text-muted-foreground">
-          {workspace.origin ?? "sur cette machine seulement"}
+          {workspace.origin ?? m["repos.hereOnly"]()}
         </span>
       </div>
 
@@ -139,11 +143,11 @@ export function RepoTree({
         {rows === null ? (
           <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Lecture de la machine…
+            {m["repos.readingMachine"]()}
           </div>
         ) : rows.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
-            Cet espace de travail est vide.
+            {m["repos.emptyWorkspace"]()}
           </div>
         ) : (
           rows.map((n) => (

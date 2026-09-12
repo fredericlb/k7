@@ -88,15 +88,14 @@ export function resolveTarget(
   target: SurfaceTarget,
   plugless: PluglessPolicy,
 ): ResolvedTarget | string {
-  if (!found)
-    return `aucun module « ${target.module} » dans les chaînes de ce projet`;
+  if (!found) return `no module “${target.module}” in this project's chains`;
   const { step, track } = found;
   if (!step.pluginId) {
     // Neither a plugin to tell nor material to change — named rather than skipped, so it is fixable.
     if (plugless === "refuse")
-      return `« ${target.module} » ne charge aucun plugin — rien à régler pendant que le son passe`;
+      return `“${target.module}” loads no plugin — nothing to set while the sound runs`;
     if (!track)
-      return `« ${target.module} » n'a ni plugin ni piste à faire bouger`;
+      return `“${target.module}” has neither a plugin nor a track to move`;
   }
   return {
     module: target.module,
@@ -127,7 +126,7 @@ export function resolveMapping<C>(
   opts: {
     /** Is this id a control of THIS surface? */
     control: (id: string) => C | undefined;
-    /** How the surface names itself in "« x » is not a control of …" — `du pupitre`, `de cette surface`. */
+    /** How the surface names itself in "“x” is not a control …" — `of the desk`, `of this surface`. */
     noun: string;
     plugless: PluglessPolicy;
   },
@@ -141,7 +140,7 @@ export function resolveMapping<C>(
     if (!control) {
       problems.push({
         control: id,
-        message: `« ${id} » n'est pas un contrôle ${opts.noun}`,
+        message: `“${id}” is not a control ${opts.noun}`,
       });
       continue;
     }

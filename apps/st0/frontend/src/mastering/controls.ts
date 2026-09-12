@@ -5,21 +5,22 @@
 
 import type { MixView } from "@studio/song-schema/yaml/mixViewSchema";
 import { unmappedControls as unmapped } from "@studio/ui-chains/bindings";
+import { m } from "../paraglide/messages.js";
 
 /** The three appliances inside one quick-master node, in the order the signal meets them. */
 export const MASTER_PARTS = ["comp", "spread", "limiter"] as const;
 export type MasterPart = (typeof MASTER_PARTS)[number];
 
-export const PART_LABEL: Record<MasterPart, string> = {
-  comp: "Compresseur 3 bandes",
-  spread: "Élargisseur",
-  limiter: "Limiteur",
+export const PART_LABEL: Record<MasterPart, () => string> = {
+  comp: () => m["master.partComp"](),
+  spread: () => m["master.partSpread"](),
+  limiter: () => m["master.partLimiter"](),
 };
 
 export interface MasterControl {
   /** The mapping key. Prefixed by its part, which is what groups the panel. */
   id: string;
-  label: string;
+  label: () => string;
   part: MasterPart;
   /** The fallback range, in the PARAM's own units — a fallback and not a scale: the module's own widget wins when it draws one. */
   range: [number, number];
@@ -36,104 +37,104 @@ export interface MasterControl {
 export const MASTER_CONTROLS: readonly MasterControl[] = [
   {
     id: "comp.low",
-    label: "Grave",
+    label: () => m["master.low"](),
     part: "comp",
     range: [0, 100],
     home: 0,
     step: 1,
     unit: "%",
-    wants: "le module quick-master — sa quantité de compression sur le grave",
+    wants: "the quick-master module — how much it compresses the lows",
   },
   {
     id: "comp.mid",
-    label: "Médium",
+    label: () => m["master.mid"](),
     part: "comp",
     range: [0, 100],
     home: 0,
     step: 1,
     unit: "%",
-    wants: "le MÊME module — sa quantité sur le médium",
+    wants: "the SAME module — how much on the mids",
   },
   {
     id: "comp.high",
-    label: "Aigu",
+    label: () => m["master.high"](),
     part: "comp",
     range: [0, 100],
     home: 0,
     step: 1,
     unit: "%",
-    wants: "le MÊME module — sa quantité sur l'aigu",
+    wants: "the SAME module — how much on the highs",
   },
   {
     id: "comp.lowFreq",
-    label: "Coupure grave",
+    label: () => m["master.lowCross"](),
     part: "comp",
     range: [40, 500],
     home: 180,
     step: 1,
     unit: "Hz",
-    wants: "le MÊME module — la coupure entre grave et médium",
+    wants: "the SAME module — the crossover between lows and mids",
   },
   {
     id: "comp.highFreq",
-    label: "Coupure aiguë",
+    label: () => m["master.highCross"](),
     part: "comp",
     range: [800, 8000],
     home: 3000,
     step: 10,
     unit: "Hz",
-    wants: "le MÊME module — la coupure entre médium et aigu",
+    wants: "the SAME module — the crossover between mids and highs",
   },
   {
     id: "spread.width",
-    label: "Largeur",
+    label: () => m["master.width"](),
     part: "spread",
     range: [0, 200],
     home: 100,
     step: 1,
     unit: "%",
-    wants: "le MÊME module — la largeur stéréo",
+    wants: "the SAME module — the stereo width",
   },
   {
     id: "spread.bassMono",
-    label: "Basses mono",
+    label: () => m["master.bassMono"](),
     part: "spread",
     range: [0, 300],
     home: 0,
     step: 1,
     unit: "Hz",
     wants:
-      "le MÊME module — la fréquence sous laquelle le grave est ramené au centre",
+      "the SAME module — the frequency below which the bass is brought to the centre",
   },
   {
     id: "limiter.drive",
-    label: "Drive",
+    label: () => m["master.drive"](),
     part: "limiter",
     range: [0, 12],
     home: 0,
     step: 0.1,
     unit: "dB",
-    wants: "le MÊME module — le gain d'entrée du limiteur",
+    wants: "the SAME module — the limiter's input gain",
   },
   {
     id: "limiter.ceiling",
-    label: "Plafond",
+    label: () => m["master.ceiling"](),
     part: "limiter",
     range: [-12, 0],
     home: 0,
     step: 0.1,
     unit: "dB",
-    wants: "le MÊME module — son plafond",
+    wants: "the SAME module — its ceiling",
   },
   {
     id: "limiter.release",
-    label: "Release",
+    label: () => m["master.release"](),
     part: "limiter",
     range: [10, 500],
     home: 120,
     step: 1,
     unit: "ms",
-    wants: "le MÊME module — son temps de retour",
+    wants: "the SAME module — its release time",
   },
 ];
 

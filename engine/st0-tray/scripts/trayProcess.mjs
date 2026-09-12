@@ -6,13 +6,15 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stateDir } from "../../../scripts/stateDir.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url)); // engine/st0-tray/scripts
 export const trayDir = dirname(here); //                engine/st0-tray
-export const MERGED = join(homedir(), ".studio", ".studio.log"); // truncated by logbus::init on every launch
+// `<state>/.studio.log`, mirroring paths.rs's merged_log_path — and through stateDir.mjs rather than
+// a hand-joined home, because $STUDIO_HOME is exactly what a WSL dev session sets.
+export const MERGED = join(stateDir(), ".studio.log"); // truncated by logbus::init on every launch
 export const TRAY_LOG = join(trayDir, ".cache", "dev", "tray.log"); // where start-engine.mjs puts its stdout
 export const EXE_NAME =
   process.platform === "win32" ? "st0-tray.exe" : "st0-tray";
@@ -38,32 +40,47 @@ function node(script, argv = []) {
   if (r.status !== 0) throw new StepError(`${script} failed`, r.status ?? 1);
 }
 
-function capture(cmd, argv) {
+/** stdout, or null when the command did not answer — "produced no output" is a different fact. */
+function capture(cmd, argv, okStatus = [0]) {
   const r = spawnSync(cmd, argv, { encoding: "utf8" });
-  return r.status === 0 && r.stdout ? r.stdout : "";
+  if (r.error || !okStatus.includes(r.status)) return null;
+  return r.stdout ?? "";
 }
 
-/** Every process with this image name, and where it was run from. */
-function processesNamed(exe) {
+/** One look at the process table, or null when the query itself failed. */
+function scan(exe) {
   if (process.platform === "win32") {
+    // Matched on the PATH as well as the name, and that is load-bearing: replacing out/dev/st0-tray.exe under a
+    // RUNNING tray leaves that process with a GARBLED image name, so a name-only query goes blind to the one
+    // survivor this whole script exists to stop. See docs/restartTray.md.
     // -EncodedCommand, not -Command: the query is full of quotes and would not survive two levels of escaping.
-    const q = `Get-CimInstance Win32_Process -Filter "Name='${exe}'" | ForEach-Object { "$($_.ProcessId)|$($_.ExecutablePath)" }`;
+    const q = `Get-CimInstance Win32_Process | Where-Object { $_.Name -eq '${exe}' -or $_.ExecutablePath -like '*\\${exe}' } | ForEach-Object { "$($_.ProcessId)|$($_.ExecutablePath)" }`;
     const encoded = Buffer.from(q, "utf16le").toString("base64");
     return capture("powershell", [
       "-NoProfile",
       "-NonInteractive",
       "-EncodedCommand",
       encoded,
-    ])
-      .split(/\r?\n/)
-      .flatMap((l) => {
-        const [pid, path] = l.trim().split("|");
-        return pid ? [{ pid: Number(pid), path: path || exe }] : [];
-      });
+    ]);
   }
-  return capture("pgrep", ["-x", exe]) // -x: the process NAME, so a shell tailing the log is not one
-    .split("\n")
-    .flatMap((l) => (l.trim() ? [{ pid: Number(l.trim()), path: exe }] : []));
+  // pgrep reports "nothing matched" as exit 1, which is an ANSWER; 2 and up are the failure.
+  return capture("pgrep", ["-x", exe], [0, 1]); // -x: the NAME, so a shell tailing the log is not one
+}
+
+/**
+ * Every process with this image name, and where it was run from. A query that does not answer is
+ * retried and then THROWS: "the probe broke" and "nothing is running" lead to opposite decisions,
+ * and reading the first as the second is how stopAll leaves a survivor holding the binary and
+ * launch pronounces a healthy tray dead. See docs/restartTray.md.
+ */
+function processesNamed(exe) {
+  let out = null;
+  for (let attempt = 0; attempt < 3 && out === null; attempt++) out = scan(exe);
+  if (out === null) throw new StepError(`could not list ${exe} processes`);
+  return out.split(/\r?\n/).flatMap((l) => {
+    const [pid, path] = l.trim().split("|");
+    return pid ? [{ pid: Number(pid), path: path || exe }] : [];
+  });
 }
 
 /** Every tray process and not just ours, since they share one identifier (docs/restartTray.md). */
@@ -165,7 +182,7 @@ export async function launch() {
 
   if (!text)
     throw new StepError(
-      `no ~/.st0/.studio.log activity after 20s — the tray is up but silent.`,
+      `no activity in ${MERGED} after 20s — the tray is up but silent.`,
     );
   const recent = text.trimEnd().split("\n").slice(-20).join("\n");
   if (!/supervisor up/.test(text))

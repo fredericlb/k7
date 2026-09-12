@@ -16,17 +16,16 @@ import {
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { Chain, GraphDoc } from "./graph";
 import { loadModules } from "./loader";
+import { SHARED_STRIP } from "./scaffoldLive";
 
-/** The strip's own file: the engine's internal five-control channel — volume, pan and three bands. */
-const mixerModule = (lane: string): string =>
-  `# ${lane}'s channel strip: volume, pan and three bands. Internal to the engine.\n` +
+/** The strip's own file: a NODE on the library's mixer, never a copy of it — see docs/trackMixer.md. */
+const mixerNode = (lane: string): string =>
+  `# ${lane}'s channel strip: volume, pan and three bands.\n` +
   `#\n` +
   `# This is where the lane's FADER writes — the one on its timeline gutter, the one on its card\n` +
-  `# in the graph, and the Mixer view, which are three drawings of this one module. A lane with\n` +
+  `# in the graph, and the Mixer view, which are three drawings of this one node. A lane with\n` +
   `# no strip plays at unity and has nowhere to put a level.\n` +
-  `plugin:\n` +
-  `  type: internal\n` +
-  `  name: ${MIXER_PLUGIN}\n`;
+  `extends: ${JSON.stringify(SHARED_STRIP)}\n`;
 
 /** What a lane needs to get its strip: the module to write, and the arrow to splice it into. */
 export interface MixerPlan {
@@ -54,12 +53,20 @@ export function mixerNameFor(
 const chainOf = (g: GraphDoc, lane: string): Chain | undefined =>
   Object.values(g.chains).find((c) => c.from === lane);
 
-/** Does this lane's run already end on a mixer? Then it has its strip, and everything below is a no-op. */
+/**
+ * Does this lane's run already end on a mixer? Then it has its strip, and everything below is a
+ * no-op. Two ways to be one, and BOTH are asked: a node extending the shared strip — what this
+ * file writes — and anything that RESOLVES to the Mixer plugin, which is every older strip and
+ * every hand-made one. The ref alone is not enough (a project may name the plugin directly); the
+ * resolved plugin alone is not either, since it needs the library mounted AND a plugin scan, and a
+ * machine with neither would give every `track new` a second strip.
+ */
 export function hasTrackMixer(g: GraphDoc, lane: string): boolean {
   const c = chainOf(g, lane);
-  return !!c?.use.some(
-    (s) => g.modules[s.module]?.plugin?.name === MIXER_PLUGIN,
-  );
+  return !!c?.use.some((s) => {
+    const m = g.modules[s.module];
+    return m?.plugin?.name === MIXER_PLUGIN || m?.extends === SHARED_STRIP;
+  });
 }
 
 /**
@@ -90,15 +97,10 @@ export function planTrackMixer(
   }
   const modules = loadModules(dir);
   const name = mixerNameFor(lane, (n) => n in modules || n in g.chains);
-  return {
-    lane,
-    name,
-    rel: `modules/audio/${name}/module.yaml`,
-    after: c ? prev : null,
-  };
+  return { lane, name, rel: `nodes/${name}.yaml`, after: c ? prev : null };
 }
 
-/** The two writes a plan implies: the module's file, and the one arrow in `graph.yaml`. */
+/** The two writes a plan implies: the node's file, and the one arrow in `graph.yaml`. */
 export function applyTrackMixer(dir: string, plan: MixerPlan): string[] {
   const graphPath = join(dir, GRAPH_FILE);
   const text = readFileSync(graphPath, "utf8");
@@ -108,8 +110,8 @@ export function applyTrackMixer(dir: string, plan: MixerPlan): string[] {
       mergeSegments(text, {
         modules: { [plan.lane]: [plan.name], [plan.name]: [MIX_NODE] },
       });
-  mkdirSync(join(dir, "modules", "audio", plan.name), { recursive: true });
-  writeFileSync(join(dir, plan.rel), mixerModule(plan.lane), "utf8");
+  mkdirSync(join(dir, "nodes"), { recursive: true });
+  writeFileSync(join(dir, plan.rel), mixerNode(plan.lane), "utf8");
   writeFileSync(graphPath, next, "utf8");
   return [plan.rel, GRAPH_FILE];
 }

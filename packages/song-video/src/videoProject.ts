@@ -78,12 +78,39 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
         cameraByLane: {},
         cameraMonitorByLane: {},
         cameras: [],
+        shapesByLane: {},
+        warnings: [],
       } satisfies VideoChainDocs;
     }
   })();
+  // A shape wired to no lane draws nothing, which is what this channel is for (docs/picture.md).
+  warnings.push(...chains.warnings);
 
   // Off the REF MAP and not the graph, so an unreadable `graph.yaml` cannot delete every wipe — docs/transitions.md.
   const transitions = collectTransitions(abs, tracks, loadModuleRefs(abs));
+
+  // The lanes with their run, their lens and their shapes folded on — done here, and not in the
+  // lane compile, because all three come off `graph.yaml` (docs/shapes.md).
+  const drawn = tracks.map((t) => {
+    const shapes = chains.shapesByLane[t.id];
+    // A shape takes the lane over, so a shot on the same lane is a shot nobody will ever see.
+    if (shapes && t.clips.some((c) => c.id))
+      warnings.push(
+        `${t.id}: shapes are wired to this lane, so its shots draw nothing — an event on a lane of shapes names no clip, it says WHEN the shapes are on`,
+      );
+    return {
+      ...t,
+      ...(chains.byLane[t.id] ? { plugins: chains.byLane[t.id] } : {}),
+      ...(shapes ? { shapes } : {}),
+      // A lane a camera is wired to draws the LENS rather than its placements — docs/camera.md.
+      ...(t.id in chains.cameraByLane
+        ? {
+            camera: chains.cameraByLane[t.id],
+            cameraMonitor: chains.cameraMonitorByLane[t.id],
+          }
+        : {}),
+    };
+  });
 
   return {
     ...(typeof proj.uuid === "string" ? { uuid: proj.uuid } : {}),
@@ -91,17 +118,7 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     viewport,
     fps,
     videoTracks: [
-      ...tracks.map((t) => ({
-        ...t,
-        ...(chains.byLane[t.id] ? { plugins: chains.byLane[t.id] } : {}),
-        // A lane a camera is wired to draws the LENS rather than its placements — docs/camera.md.
-        ...(t.id in chains.cameraByLane
-          ? {
-              camera: chains.cameraByLane[t.id],
-              cameraMonitor: chains.cameraMonitorByLane[t.id],
-            }
-          : {}),
-      })),
+      ...drawn,
       // …and the cameras that feed no lane, each a layer of its own, ON TOP of the authored ones
       // and in the order the graph declares them. Nothing in `layers:` names these: the document
       // authored no lane, which is the whole point of the shape (docs/camera.md).
@@ -113,7 +130,6 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
           mute: false,
           // A lens on no lane is in no `soloed:` list either — it has no lane id to be named by.
           solo: false,
-          kind: "video",
           camera: cam.label,
           // A lens on no lane has no arm, so `auto` cannot mean "while armed" for it — it shows.
           cameraMonitor: cam.monitor === "auto" ? "on" : cam.monitor,

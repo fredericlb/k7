@@ -18,7 +18,12 @@ import {
   summary,
 } from "./catalogue.ts";
 import { ensureLayout, exists, mediatekDir, schemaVersion } from "./layout.ts";
-import { familyRevision } from "./revision.ts";
+import {
+  bumped,
+  familyRevision,
+  refreshRevisions,
+  stopRevisionRefresh,
+} from "./revision.ts";
 import { scanFamily, scanUnlisted } from "./scan.ts";
 
 // The root is env-driven ($STUDIO_MEDIATEK), so each test gets its own library, not ~/.st0.
@@ -53,6 +58,7 @@ describe("the layout", () => {
         songs: 0,
         samples: 0,
         recordings: 0,
+        playlists: 0,
       },
     });
   });
@@ -186,6 +192,38 @@ describe("the revision token", () => {
     writeFileSync(join(root, "samples", ".cache", "x.json"), "{}");
     expect(familyRevision("samples")).toBe(before);
   });
+
+  it("ignores a waveform sidecar, for the same reason", () => {
+    // The sweep that fills them would otherwise invalidate the listing it is walking.
+    write("samples/audio/kicks/bd01.wav");
+    const before = familyRevision("samples");
+    write("samples/audio/kicks/bd01.wav.cache", "{}");
+    expect(familyRevision("samples")).toBe(before);
+  });
+});
+
+describe("the refreshed token", () => {
+  beforeEach(() => ensureLayout());
+  afterEach(() => stopRevisionRefresh());
+
+  it("answers from the last walk, and walks again when told", async () => {
+    write("samples/audio/kicks/bd01.wav");
+    await refreshRevisions();
+    const before = familyRevision("samples");
+    const f = write("samples/audio/kicks/sn01.wav");
+    utimesSync(f, new Date(), new Date());
+    // The point of the whole thing: a poll costs a map lookup, not a walk of the library.
+    expect(familyRevision("samples")).toBe(before);
+    await refreshRevisions();
+    expect(familyRevision("samples")).not.toBe(before);
+  });
+
+  it("still moves on our OWN write, before any walk confirms it", async () => {
+    await refreshRevisions();
+    const before = familyRevision("songs");
+    bumped("songs");
+    expect(familyRevision("songs")).not.toBe(before);
+  });
 });
 
 describe("listing and search", () => {
@@ -219,13 +257,14 @@ describe("listing and search", () => {
   });
 
   it("counts every family for the summary screen", () => {
-    // Plus the capture zone, which is no family but is a tab — see docs/recordings.md.
+    // Plus the two root zones, neither a family and both a tab — see docs/recordings.md.
     expect(summary()).toEqual({
       present: true,
       counts: {
         songs: 1,
         samples: 2,
         recordings: 0,
+        playlists: 0,
       },
     });
   });

@@ -1,18 +1,26 @@
 // exportArgs.ts — what `project export` was asked for. Pure, because the command has two shapes
 // now and the shell's handler is the wrong place to tell them apart.
 //
-//   project export audio wav|mp3        the mixdown, rendered by the engine
-//   project export video mp4 [wav|mp3]  the frame, rendered here — and the sound married into it
+//   project export audio wav|mp3             the mixdown, rendered by the engine
+//   project export video webm|mp4 [wav|mp3]  the frame, rendered here — and the sound married in
 //
 // See ../docs/picture.md.
+
+import type { ExportFormat } from "@studio/ui-eyes/export";
 
 /** The mixdown formats the file service will render. */
 export const MIX_FORMATS = ["wav", "mp3"] as const;
 export type MixFormat = (typeof MIX_FORMATS)[number];
 
-/** …and the container the picture leaves in. One so far: WebCodecs gives us H.264 in mp4. */
-export const VIDEO_FORMATS = ["mp4"] as const;
+/** …and the containers the picture leaves in, the default first (@studio/ui-eyes/docs/passes.md). */
+export const VIDEO_FORMATS = [
+  "webm",
+  "mp4",
+] as const satisfies readonly ExportFormat[];
 export type VideoFormat = (typeof VIDEO_FORMATS)[number];
+
+/** What the button and the viewport's strip mean when no line names a container. */
+export const DEFAULT_VIDEO_FORMAT: VideoFormat = "webm";
 
 /** What the audio track of an exported video is rendered from when the line names none. WAV: it
  *  is decoded and re-encoded into the container either way, so the lossy step buys nothing. */
@@ -20,7 +28,7 @@ export const DEFAULT_VIDEO_AUDIO: MixFormat = "wav";
 
 export type ExportAsk =
   | { kind: "audio"; format: MixFormat }
-  /** `audio` is absent only when the line asked for a silent film — `video mp4 none`. */
+  /** `audio` is absent only when the line asked for a silent film — `video webm none`. */
   | { kind: "video"; format: VideoFormat; audio: MixFormat | null };
 
 const isMix = (s: string): s is MixFormat =>
@@ -36,7 +44,7 @@ export const EXPORT_USAGE = `usage: project export audio <${MIX_FORMATS.join("|"
  *
  * The bare `project export wav` this replaced is deliberately NOT accepted: the word that follows
  * now says which half of the project leaves, and quietly reading an old line as audio would make
- * `project export mp4` mean the mixdown.
+ * `project export webm` mean the mixdown.
  */
 export function parseExportAsk(rest: string): ExportAsk | null {
   const parts = rest.trim().toLowerCase().split(/\s+/).filter(Boolean);

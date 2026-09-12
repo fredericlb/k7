@@ -9,7 +9,8 @@ import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
-import { beginActivity } from "../freezeWatchdog";
+import { beginActivity, tally } from "../freezeWatchdog";
+import { stopOrPanic } from "../transportPanic";
 
 export interface EngineLink {
   engineRef: React.RefObject<EngineClient | undefined>;
@@ -66,6 +67,7 @@ export function useEngineLink(
       engineUrl,
       beginActivity,
       sessionFor(SESSIONS.st0, userEmail),
+      tally,
     );
     engineRef.current = engine;
     // 'Ready' is a one-way latch, so it is set ONCE: React bails out on the identical value, but it still entered the scheduler 20 times a second.
@@ -133,11 +135,22 @@ export function useEngineLink(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // When the last stop was sent, so a second one can read as "that did not work" — transportPanic.ts.
+  const lastStopAt = useRef<number | null>(null);
   const transport = useCallback(
     (a: Parameters<EngineClient["transport"]>[0]) => {
       // Dropped, not queued: a Play sent while the engine is applying fires seconds later with every other click made meanwhile.
       if (engineBusyRef.current) return;
-      engineRef.current?.transport(a);
+      let action = a;
+      if (a === "stop") {
+        const now = Date.now();
+        action = stopOrPanic(now, lastStopAt.current);
+        lastStopAt.current = now;
+      } else if (a !== "panic") {
+        // Anything else in between ends the gesture: a stop, a play, then a stop is two stops.
+        lastStopAt.current = null;
+      }
+      engineRef.current?.transport(action);
     },
     [],
   );

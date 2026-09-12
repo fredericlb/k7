@@ -45,6 +45,10 @@ export type {
 export type BeginActivity = (name: string) => () => void;
 const noActivity: BeginActivity = () => () => {};
 
+/** Add up work by name, for a host that watches for stalls — see apps/st0/frontend/docs/shell.md. */
+export type Tally = (name: string, ms: number, bytes?: number) => void;
+const noTally: Tally = () => {};
+
 /** Where to connect, asked again before every attempt; null means "none right now" — see docs/reliability.md. */
 export type EngineUrl = string | (() => string | null | Promise<string | null>);
 
@@ -211,6 +215,7 @@ export class EngineClient {
     private readonly url: EngineUrl,
     private readonly beginActivity: BeginActivity = noActivity,
     private readonly session: SessionId = DEFAULT_SESSION,
+    private readonly tally: Tally = noTally,
   ) {}
 
   connect(): void {
@@ -290,10 +295,15 @@ export class EngineClient {
         for (const cb of this.streamCbs) cb(ev.data);
         return;
       }
+      // The clock starts BEFORE the parse: the type is not known until after it, so a span cannot
+      // open there — which left the parse of a large frame attributed to nothing at all.
+      const began = performance.now();
+      const text = String(ev.data);
       let m: EngineMessage;
       try {
-        m = JSON.parse(String(ev.data));
+        m = JSON.parse(text);
       } catch {
+        this.tally("ws <unparseable>", performance.now() - began, text.length);
         return;
       }
       // Breadcrumb by message type, for whatever the host uses to spot a stall. See BeginActivity.
@@ -303,6 +313,9 @@ export class EngineClient {
       } finally {
         doneDispatch();
       }
+      // Parse AND dispatch, added up per type: a thread saturated by short frames has no span long
+      // enough to name, and this is the line that names it anyway.
+      this.tally(`ws ${m.type ?? "?"}`, performance.now() - began, text.length);
     };
   }
 

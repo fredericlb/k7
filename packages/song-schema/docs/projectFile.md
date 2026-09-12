@@ -23,16 +23,6 @@ freeze together, and it travels in a share. A monitoring level that only changed
 this room would be a different field in a different file. Absent means UNITY, and unity is never
 written. See `packages/song/docs/masterVolume.md`.
 
-## `mediatekBench`
-
-This project is the MODULE BENCH, and a save aimed at a `@st0` module writes THROUGH to the
-catalogue instead of forking a copy into the project. Exactly one project carries it, and it is
-generated (`scaffoldBench.ts`) rather than authored. It lives in the settings tier because it is a
-fact about what this project IS, like `type` beside it — and it is in the SCHEMA rather than a stray
-key because the object is `.strict()`: an undeclared marker would make the bench a project that will
-not open. Everywhere else it is absent and a shared module forks, which is the rule
-(`packages/song/docs/moduleFork.md`).
-
 ## The fields that are DEAD and still accepted
 
 Refusing a key is not free: this object is `.strict()`, so dropping one would turn every project

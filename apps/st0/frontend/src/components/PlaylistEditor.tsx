@@ -18,6 +18,7 @@ import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { ArrowLeft, ListMusic, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, mediatek } from "../api";
+import { m } from "../paraglide/messages.js";
 import { playlistVocabulary } from "../playlistVocabulary";
 import { PlaylistPane } from "./PlaylistPane";
 
@@ -26,7 +27,7 @@ const playlistValidity = (text: string): Validity =>
   parsePlaylist(text) === null
     ? {
         ok: false,
-        issues: [{ path: "", message: "ne se lit pas comme une playlist" }],
+        issues: [{ path: "", message: m["pls.notAPlaylist"]() }],
         depth: "schema",
         malformed: false,
       }
@@ -115,16 +116,13 @@ export function PlaylistEditor({
         // An edit that could not be written outlived this screen — give it back, not disk.
         setContent(recallBuffer(path) ?? disk);
         setSaved(disk);
-        if (!f.content.trim())
-          setStatus(
-            "fichier vide — la première modification écrira ce gabarit",
-          );
+        if (!f.content.trim()) setStatus(m["pls.emptyFile"]());
       })
       .catch(() => {
         if (!alive) return;
         setContent(recallBuffer(path) ?? playlistStub(stem));
         setSaved(playlistStub(stem));
-        setStatus("pas encore de fichier — la première modification le créera");
+        setStatus(m["pls.noFileYet"]());
       });
     return () => {
       alive = false;
@@ -155,9 +153,9 @@ export function PlaylistEditor({
 
   /** Why the search cannot write a line right now — computed HERE, being a fact about the text the pane has never seen. */
   const addRefusal = useMemo(() => {
-    if (content == null) return "fichier pas encore chargé";
+    if (content == null) return m["pls.notLoaded"]();
     return appendPlaylistItem(content, { song: "x" }) === null
-      ? "l'écriture de `items:` dans ce fichier n'est pas une forme que l'ajout sait étendre — ajoutez la ligne à la main"
+      ? m["pls.addUnsupported"]()
       : "";
   }, [content]);
 
@@ -177,9 +175,9 @@ export function PlaylistEditor({
 
   /** Why those two would not work — a flow `items:` the text edit will not reflow (docs/playlists.md). */
   const editRefusal = useMemo(() => {
-    if (content == null) return "fichier pas encore chargé";
+    if (content == null) return m["pls.notLoaded"]();
     return removePlaylistItem(content, 0) === null && items.length
-      ? "l'écriture de `items:` dans ce fichier n'est pas une forme que la réorganisation sait modifier — changez la ligne à la main"
+      ? m["pls.moveUnsupported"]()
       : "";
   }, [content, items.length]);
 
@@ -188,7 +186,7 @@ export function PlaylistEditor({
     async (next: string) => {
       await api.write(path, next);
       setSaved(next);
-      setStatus(`enregistré ${path}`);
+      setStatus(m["pls.saved"]({ path }));
       onSaved();
     },
     [path, onSaved],
@@ -271,12 +269,12 @@ export function PlaylistEditor({
       <footer className="flex shrink-0 items-center gap-3 border-t px-3 py-1 text-xs text-muted-foreground">
         {/* Said here and not over the list: text stops parsing on nearly every keystroke, and a pane emptying itself each time would flicker. */}
         {broken ? (
-          <span className="text-destructive">
-            le YAML ne parse pas — la liste montre la dernière version lisible
-          </span>
+          <span className="text-destructive">{m["pls.brokenYaml"]()}</span>
         ) : null}
         {songsError ? (
-          <span className="text-destructive">médiathèque : {songsError}</span>
+          <span className="text-destructive">
+            {m["pls.library"]()} : {songsError}
+          </span>
         ) : null}
         <span className="min-w-0 flex-1 truncate text-right">{status}</span>
       </footer>

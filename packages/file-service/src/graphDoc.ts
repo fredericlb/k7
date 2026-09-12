@@ -28,7 +28,11 @@ import {
   MIXER_PLUGIN,
   OFFLINE_TYPE,
 } from "@studio/song/project";
-import { CAMERA_IO, SHADER_CATEGORY } from "@studio/song-schema/moduleTypes";
+import {
+  CAMERA_IO,
+  hostsPlugin,
+  SHADER_CATEGORY,
+} from "@studio/song-schema/moduleTypes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { moduleShaderChoices } from "@studio/song-video/shaders";
 
@@ -187,10 +191,13 @@ export function buildGraphDoc(
         const module = g.modules[s.module];
         const plugin = module?.plugin;
         const isPlugin = module?.kind === "plugin";
+        // …but a shader, a shape and a transition ARE their behaviour, so there is no plugin SLOT
+        // on one and an absent `plugin:` is not a hole — see docs/graphFlags.md.
+        const slot = isPlugin && hostsPlugin(module?.category);
         const type = module?.type ?? "plugin";
         const fmt = plugin?.type ? String(plugin.type).toLowerCase() : "";
         // A stub is a plugin slot with no plugin — not a rack, which legitimately carries a sampler instead.
-        const stub = isPlugin && type !== "rack" && !plugin;
+        const stub = slot && type !== "rack" && !plugin;
         // A plugin st0 can't load: "not_supported" (amber) or unknown to the engine (red). See docs/graphFlags.md.
         const known =
           fmt === "internal" ||
@@ -198,13 +205,13 @@ export function buildGraphDoc(
           fmt === FAUST_TYPE ||
           fmt === OFFLINE_TYPE ||
           EXTERNAL_PLUGIN_FORMATS.has(fmt);
-        const notSupported = isPlugin && fmt === "not_supported";
+        const notSupported = slot && fmt === "not_supported";
         const unscanned =
-          isPlugin &&
+          slot &&
           EXTERNAL_PLUGIN_FORMATS.has(fmt) &&
           !isPluginScanned(fmt, String(plugin?.name ?? ""));
         const unknownPlugin =
-          isPlugin && !!plugin && !notSupported && (!known || unscanned);
+          slot && !!plugin && !notSupported && (!known || unscanned);
         // Keep only automations whose curve exists; record each referenced curve's shape so the graph can label its node.
         const automations = (module?.automations ?? []).filter((a) => {
           const cv = allCurves[a.curve];
@@ -266,7 +273,7 @@ export function buildGraphDoc(
           unknownPlugin: unknownPlugin || undefined,
           // Only an instantiable plugin has a native editor window to open — distinct from `ui`, the moduleUI widget grid.
           hasNativePluginUI:
-            isPlugin &&
+            slot &&
             !!plugin &&
             !notSupported &&
             !unknownPlugin &&
@@ -282,7 +289,7 @@ export function buildGraphDoc(
           params: module?.params ?? {},
           // The engine's address, ONLY when the engine will really have one — see docs/graphFlags.md.
           pluginId:
-            isPlugin &&
+            slot &&
             !stub &&
             !notSupported &&
             !unknownPlugin &&

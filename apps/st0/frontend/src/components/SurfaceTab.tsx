@@ -16,6 +16,7 @@ import { Turntables } from "@studio/ui-turntables/surface";
 import { useEffect, useMemo, useState } from "react";
 import { api, PL8_API } from "../api";
 import { useRevision } from "../hooks/useRevision";
+import { m } from "../paraglide/messages.js";
 
 export function SurfaceTab({
   surface,
@@ -103,19 +104,19 @@ function drawn(
     case "timeline":
       return (
         <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-          Une surface « timeline » est dessinée par le shell, pas ici.
+          {m["srf.timelineElsewhere"]()}
         </div>
       );
     case "viewport":
       return (
         <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-          Une surface « viewport » est dessinée par le shell, pas ici.
+          {m["srf.viewportElsewhere"]()}
         </div>
       );
     case "mastering":
       return (
         <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-          Une surface « mastering » est dessinée par le shell, pas ici.
+          {m["srf.masteringElsewhere"]()}
         </div>
       );
   }

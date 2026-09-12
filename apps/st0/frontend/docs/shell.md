@@ -62,13 +62,84 @@ rather than to draw belongs behind it too.
 there and an empty ring reads exactly like a quiet thread; the Profiler being off by default empties the
 commit ring for a second, unrelated reason. Only `activity()` breadcrumbs really report — and a stall
 report concluding *"nothing on the main thread"* from that silence tells the reader to stop looking in
-the app. So the watchdog **asks whether it can see** (`PerformanceObserver.supportedEntryTypes`) and says
-so once at startup when it cannot: an empty ring then reads *"this browser measures no long task — so
-this says NOTHING about the app"*.
+the app. So the watchdog **asks whether it can see** (`PerformanceObserver.supportedEntryTypes`) and says so
+once at startup when it cannot.
+
+It has to be TOLD about the second one: an empty commit ring reads identically whether the Profiler
+is off or every commit was fast, and the browser cannot answer that — only the app knows. So
+`installFreezeWatchdog({ commits: PROFILING })`, and every report then names the instruments that
+were **blind** for it, whether or not it found anything: silence from a channel that was switched
+off is not evidence, and a tally line can otherwise look like a whole answer when half the report
+was never listening.
 
 Given a stall on Firefox: turn the Profiler on (`?profile=1`), since commits DO work there and will name
 one if React is the cause; if that stays quiet, reproduce in a Chromium browser, where the long-task
 observer attributes the block.
+
+### The fourth line, which speaks when the other three cannot: `tally()`
+
+The three rings above all answer *"what was in flight, and long"*, and that question goes blind two
+ways at once. A ring of 64 spans **rotates inside a three-second stall**, so the work that caused it
+can be gone by the time the report is written. And a thread saturated by four hundred short tasks has
+**no single span long enough to name** — the thresholds that keep the instrument cheap are exactly what
+hide it. Both produce the same empty report as a stall that had nothing to do with the app.
+
+`tally(name, ms, bytes?)` adds work up instead of timing it individually: one map lookup per call, read
+and **reset on every heartbeat** so a tally never outlives its window and starts measuring the session.
+It is always on — it needs neither the Profiler nor a long-task observer — so on Firefox it is the one
+line that reports at all.
+
+Two transports report into it, and between them they cover the JSON this thread parses: the file
+service (`setFileApiTally`, per VERB and ROUTE — a path carrying a file name would make every read
+its own line and the busiest route unfindable) and the engine socket. A stall naming neither is a
+stall that is not about data arriving, which is worth knowing in one line.
+
+`fget` is where the second one earns its keep: it collapses a burst of readers into ONE request and
+then parses **per caller**, deliberately, since two callers handed one object could corrupt each
+other's. The price is real — four readers of a large document parse it four times, on this thread —
+and `GET /hints x4` is what says so.
+
+### What NONE of it can see: the cycle collector
+
+Every instrument on this page measures **script**. The heartbeat is starved just as thoroughly by
+anything else the main thread does between tasks — so a stall from outside JS arrives as a large
+overshoot with every ring empty and every tally at zero. That is not a quiet thread; it is a thread
+busy doing something no JS instrument is holding a stopwatch on.
+
+**The measured case, and the one to suspect first when a stall is Firefox-only.** A 9 s profile of
+this app sitting on a timeline: 58 % of the main thread in GC/CC, **2 509 of 4 755 samples with the
+cycle collector on the stack**, and a single `CCSlice` of **3 804 ms** — the freeze, arriving after
+fifteen ~50 ms slices back to back. The self time is all CC graph building (`EntrySlot<PtrInfo*>`,
+`CCGraphBuilder::AddNode`, `EdgePool`, `TraversalTracer::onEdge`).
+
+**Chrome cannot reproduce it, and that is not reassurance.** The cycle collector is Gecko's, for
+reference cycles spanning XPCOM/DOM C++ and JS; Chrome has no equivalent pass. So "Chrome is fine"
+is evidence *for* this reading, and never evidence that the app allocates reasonably.
+
+What feeds it is churn — objects made and dropped, especially ones with both a C++ and a JS half.
+A DEV build multiplies it hard: `jsxDEV`, `runWithFiberInDEV` and `validatePropertiesInDevelopment`
+on the stack mean React's development build, and React DevTools attached adds a `performance.mark`
+per component on top. Measure a production build before reading anything into the app's own code.
+
+Graphics is the other thing none of it can see, and this app has been there twice:
+
+- `packages/ui-chains/docs/wobble.md` — 62 % of the content main thread in paint, because writing
+  `d` on an SVG path put the layer on WebRender's blob-image path and one moving cable
+  re-serialised, re-parsed and re-uploaded the whole group every frame. Fixed by drawing the
+  cables on a canvas.
+- [timeline.md](timeline.md) — 36 % in graphics at ~154 paints/s, from the timeline BODY subscribing to a
+  20 Hz engine frame and re-rendering an arrangement's worth of DOM to move one line. Fixed by the
+  rule that live state is drawn by leaves.
+
+The tool for all of this is the Firefox Profiler, and the rows to read are the ones outside JS.
+`~1 280 MozAfterPaint in 9 s` — 142 paints per second on an idle tab — is the number that says the
+graphics reading applies; a `CCSlice` in the marker table is the number that says this one does.
+
+`EngineClient` tallies every JSON frame by type, with its byte length. Two things that were invisible
+now are not: the `JSON.parse` runs **before** the message type is known, so no span could open around
+it and a slow parse was attributed to nothing at all; and a 20 Hz frame is far under every threshold
+here however much it costs in aggregate. `ws state x600 (4.2MB)` is a diagnosis; four blank rings are
+not.
 
 ## The layout (`App.tsx`)
 
@@ -83,15 +154,19 @@ layout; almost nothing else.
 | slot | what st0 puts there |
 |---|---|
 | `title` / `subtitle` | **nothing**, inside a project — see below |
-| `children` | the **master meter**, the project's name, its alternatives picker, the workspace warning, and the **transport** centred over them |
+| `children` | the project's name, its alternatives picker, the workspace warning, and the **transport** centred over them |
 | `items` | **empty** — see below |
-| `actions` | the pane row, Playlists (a SET only), Share, the cog — or, on a phone, the one menu they collapse into |
+| `actions` | the **master meter**, then the pane row, Playlists (a SET only), Share, the cog — or, on a phone, the one menu they collapse into |
 
-**No brand name and no build stamp: the master meter has the left of the bar.** The brand is what
+**No brand name and no build stamp: the project's name has the left of the bar.** The brand is what
 the home page says — repeating it over a song names the tool rather than the work — and a stamp
-would read `dev` in every build, `VITE_APP_VERSION` being set by nothing in this repo. What the
-left of a bar you look at while playing is worth is the one reading that moves, beside the
-transport it belongs to.
+would read `dev` in every build, `VITE_APP_VERSION` being set by nothing in this repo.
+
+**The master meter is at the RIGHT end, first in `actions`.** The bar and the fader under it are a
+control rather than a caption, so they belong on the side the bar keeps its controls; and the meter
+being the widest thing in the row, leaving it on the left made the transport's `mx-auto` centre it
+over what was left rather than over the pane. It stays ahead of the icon row because it is read
+while playing, not clicked, and the divider after it is what says so.
 
 The **way back to the home page** is the project's own name, the only name left in the bar. It is a
 whole-page navigation, and plain text on a frozen share (`docs/shared.md`).
@@ -108,11 +183,36 @@ it: `AppHeader` folds `items` into a hamburger of its own below 640 px and st0's
 collapse into one — two hamburgers side by side being two answers to "where do I go" — so anything
 put there must also be in st0's own menu.
 
-The other thing st0 asks the bar for is the padding: `px-5 py-3` by default, trimmed through the
-inner box. Every row of chrome is a row the panes don't get, and a phone in landscape is about
-400 px tall.
+### The bar is 30 px, and its height is a rule rather than a number
+
+Every row of chrome is a row the panes don't get, and a phone in landscape is about 400 px tall.
+So st0 trims the shared bar's own `px-5 py-3` through its inner box — `py-[3px]` on the desktop —
+and sizes the controls to match: `toolSize` is `icon-xs` (24 px) and every button in the bar takes
+it, the transport included. The three pixels are what keeps a pressed button's own background off
+the bar's edge: below that the row reads as a strip of buttons rather than as a bar.
+
+**A bar's height IS its tallest child**, which is the rule to keep: padding alone buys nothing while
+a 36-pixel button is still in the row, and one control left at the default puts the whole bar back
+where it was. Anything added here is 24 px or under — `AlternativePicker` and the share's download
+button are both `h-6` for that reason, and the badges are `text-xs py-0.5`.
+
+**A phone keeps `icon` and `py-1`.** The one button up there is the menu everything else collapses
+into, and a 24-pixel target under a thumb is a miss; the pixels are cheaper than the tap. That is
+the only reason `toolSize` reads the breakpoint instead of being a constant.
 
 #### The transport in the middle, and what a SET drops from it
+
+**Centred on the BAR, not between its neighbours.** The cluster is taken out of the flow —
+`absolute left-1/2 top-1/2` with the two translates — against the shared bar's inner box, which st0
+makes the containing block with `[&>div]:relative`. Centred as a flex item it would sit in the
+middle of whatever the project name on one side and the icon row on the other left over, so it
+moved every time a name got longer or a surface added a button: a control you reach for without
+looking must not be somewhere else on the next project.
+
+The price is that nothing reserves its width any more. The left group is bounded (`max-w-[10rem]`
+and `truncate` on the name) and the right one is a fixed count of 24-pixel buttons, so on a desktop
+window they clear it; squeeze the window far enough and the transport draws over them rather than
+pushing them aside.
 
 Play/pause, stop, the clock, then record — and each **drops focus on click** (`blurOnClick`). These
 are the buttons a mouse is most likely to land on right before reaching for Space, and a focused one
@@ -532,22 +632,23 @@ Three things deliberately do NOT take part. The **pickers** (module, asset — b
 **`AudioClipPanel`** keeps Escape for stopping a rolling take, which is neither a popin nor a slot but a
 transport action.
 
-The three **docked panels** are deliberately not in that list: a docked panel leaves the panes on
+The **docked panels** are deliberately not in that list: a docked panel leaves the panes on
 screen, so the keys that drive them have to keep working — Space while you watch a level on the I/O tab
 is the whole point of that tab not being a dialog over the thing it meters.
 
-## The right column: three panels, one at a time
+## The right column: four panels, one at a time
 
-The end of the bar holds three buttons, and each toggles a panel **docked at the right** of the pane row
+The end of the bar holds four buttons, and each toggles a panel **docked at the right** of the pane row
 — pushing the panes rather than covering them:
 
 | button | panel | what it is |
 |---|---|---|
 | ♪ (a SET only) | Playlists | the repository's set lists: a searchable dropdown, its songs under it |
+| ⌾ | Références | the repository's reference tracks — what you listen AGAINST ([references.md](references.md)) |
 | ⇪ | Partager | commit, pull, export, publish — and the badge saying how far behind the repo is |
 | ⚙ | Réglages | tabs: Éditeur, I/O, Compte |
 
-`rightPanel` in `App` is one value and not three booleans, because there is **one column**: two panels
+`rightPanel` in `App` is one value and not one boolean each, because there is **one column**: two panels
 open at once would be two columns, and the panes have already given up the width for one.
 
 **The column animates its WIDTH** (`components/RightPanel.tsx`), because the panels push the panes
@@ -558,9 +659,9 @@ keeps its own width and is clipped, so nothing reflows while the column travels,
 being drawn on the way OUT is the last one open — by then the caller has stopped choosing a panel.
 `motion-reduce` skips the travel.
 
-Three panels rather than one set of tabs, because they are three different verbs — what you **set**, what
-you **play from**, what you **send**. Settings are things you set and leave, a set list is a thing you
-work from. Nor is the share a dropdown, which is the wrong shape for a surface that *reports* — a pull
+Panels rather than one set of tabs, because they are different verbs — what you **set**, what you
+**play from**, what you **listen against**, what you **send**. Settings are things you set and leave, a
+set list is a thing you work from, and a reference is a thing you put on beside what you are doing. Nor is the share a dropdown, which is the wrong shape for a surface that *reports* — a pull
 says how far behind you were, an export takes a minute and says where the file went.
 
 None of them is a **pane**. A pane is what the project DECLARES ([shellRouting.md](shellRouting.md),
@@ -827,6 +928,31 @@ wrong edge is worse than no plug.
 the pane — otherwise the tallest card alone is the height of the view, and a ragged bottom reads as cards
 of different importance.
 
+**The LANE leads its own row** (`moduleRow`'s `track`). The signal starts there and its fader is the
+first thing in the path, so a row that began at the first plugin was a path with its head cut off — and
+the cable out of the lane, the one that says which lane this is, had nothing to leave from. It is the
+same card the graph draws, matched on the node's KIND rather than its name, since `trk:` exists precisely
+so a lane and a module may share one. Its **clip list is dropped**: that is the arrangement rather than
+the path, the timeline above already draws it, and it stands a hundred pixels taller than any plugin
+card — which, on a row that gives every card the tallest one's height and then fits that height to the
+pane, would shrink every module in the lane to make room for it. A lane that reaches no module leads
+nothing: the row stays empty and the pane says so, a single card with no cable not being a signal path.
+
+**A `+` on one of its cables works here too**, and asks the same "which module?" the graph asks. The one
+difference is that the pick gets **no position**: this row's coordinates are its own, so a point taken
+from it would pin the new node somewhere meaningless in the real graph. Handed none, `node insert` lets
+the layout decide.
+
+**A card drawn here is the graph's card, so it is handed the graph's callbacks** — the bypass, the ⋮
+menu, the waveform's subscription, the lane's fader and mute, and the browser a file-valued param's
+button opens. A control drawn from the same card definition and wired to nothing is the worst of the
+three possible states: a `<select>` that will not open reads as a broken app, where an absent control
+reads as a view that does not offer it. What this row deliberately does NOT hand them is the
+CANVAS-shaped half — dragging a card (`onMoveNode`, whose coordinates are the row's own and would be
+written into `graph.yaml` as pins), and the cable gestures, which have no bare canvas here to drop a
+loose end on. Rack pads are lit but not firing: auditioning one needs the host's own laid-out nodes to
+find the sound behind the symbol, which is `ChainsTab`'s `triggerRack` and has not been lifted out.
+
 ### One frame for everything that takes the slot
 
 `GraphSlotPane` is the shell, the title bar and the ✕. The occupants supply a body and what to call it, and
@@ -932,8 +1058,8 @@ leaf instead, the shape `TimelineTab` uses ([`timeline.md`](timeline.md)).
 
 ## The catalogue is the app's; the ARRANGEMENT is the person's
 
-`ui settings commands` opens a page where a command can be renamed, given an icon, and pulled up or down
-the order menus list them in. What the commands ARE stays the app's — this is a layer over the catalogue,
+`ui settings commands` opens a page where a command can be renamed, given an icon, told which right-clicks
+may offer it, and pulled up or down the order menus list them in. What the commands ARE stays the app's — this is a layer over the catalogue,
 kept in `commandPrefs.ts` and applied by `orderCommands` / `labelOf`.
 
 - **Keyed by the canonical LINE** (`event trim`, `ui help`), not by the sid. The sid is the more stable id
@@ -1026,6 +1152,22 @@ help legend (`shortcutsByCommand`) and the pane buttons' tooltips all read the s
 advertised wherever keys are shown. The focused-control rule follows the COMMANDS rather than the tokens:
 what comes back from a focused button is whatever runs a `transport …` command, wherever the person has
 put it.
+
+### …and the fifth is WHERE the right-click offers it
+
+A multi-select per row (`components/CommandMenuPicker.tsx`), listing the entities of `MENU_ENTITIES`: a
+track, an event, a bloc, a réglage, a repère… Several at once, because one verb genuinely belongs on two
+menus — `node param` is offered on a block and on the knob itself.
+
+It is **a layer over a catalogue that already has an answer**: `commands.yaml`'s own `menu:` says where a
+command belongs, and a command that says nothing is offered wherever its arguments fit
+([contextMenu.md](contextMenu.md)). So the cell shows the catalogue's list until somebody picks another,
+and `setMenuEntities` writes the shortest spelling that means the pick — nothing at all when it matches
+the catalogue, so a catalogue corrected tomorrow still moves the commands nobody arranged by hand.
+
+It replaced a checkbox, which could only take a command off every menu at once. That was the whole
+vocabulary available before commands said where they belonged, and it is still the `false` this field
+writes when nothing is ticked.
 
 ### Context menus draw those icons
 
@@ -1180,6 +1322,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | Ctrl+Z / Ctrl+Y | `project undo`, `project redo` | `@studio/project-shell/undo` |
 | the file tree's right-click menu | `fs file new`, `fs folder new`, `fs file rename`, `fs file move`, `fs file delete`, `fs file upload`, `ui pin`, `ui copy path` | `EditorHandle`, and `FileTreeHandle` under it |
 | the clip panel's *stop*, while a take rolls | `transport stop` | the engine |
+| the sequencer's and the roll's *×2* | `sequence double <séquence>` | `@studio/commands`, over `doubleSequence` — see [clipEditors.md](clipEditors.md) |
 | a `.dawproject` / `.als` clicked in the tree | `project import <path>` | `useProjectImport` |
 | a file dropped on a timeline lane | `event add`, `picture add` — the PLACING half; the upload and the `clips/<id>.yaml` go through routes | `hooks/useTimelineDrop.ts`, see [timeline.md](timeline.md) |
 | the master meter's *fix* | `project master fix` | `fixClipping` in `App`, over `MasterMeterHandle` |

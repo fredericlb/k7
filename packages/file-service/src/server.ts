@@ -21,12 +21,12 @@ import type {
   SurfacedProjectList,
   WorkspaceList,
 } from "@studio/web-protocol";
-import { benchChainPath } from "@studio/web-protocol/projects";
+import { isBenchProject } from "@studio/web-protocol/projects";
 import cors from "cors";
-import express from "express";
+import express, { type Response } from "express";
 import { z } from "zod";
 import { installProcessNet } from "./background.ts";
-import { ensureChainBench } from "./bench.ts";
+import { ensureBench, ensureBenchLibraries } from "./bench.ts";
 import { cloneJob, startClone } from "./cloneJobs.ts";
 import {
   engineTokenState,
@@ -46,7 +46,7 @@ import {
   unloadEngineIfServing,
 } from "./engineLink.ts";
 import { librariesUri, setLibrariesUri } from "./libraries.ts";
-import { startMediatekPuller, syncMediatekFamily } from "./mediatekPull.ts";
+import { startMediatekPuller } from "./mediatekPull.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { resolvePlugin } from "./pluginRef.ts";
@@ -55,6 +55,7 @@ import { mediatekRouter } from "./routes/mediatek.ts";
 import { processRouter } from "./routes/process.ts";
 import { renderRouter } from "./routes/render.ts";
 import { separateRouter } from "./routes/separate.ts";
+import { syncRouter } from "./routes/sync.ts";
 import { rootDir, workspaceRoot } from "./slug.ts";
 import { createKeyFor, publicKeyFor } from "./sshKeys.ts";
 import {
@@ -167,12 +168,26 @@ app.get(
     res.json(reply);
   }),
 );
+/**
+ * A workspace is not made or cloned before the account HAS a library. Everything in one resolves
+ * `@st0/…` through it, and a workspace made without one opens onto references that resolve to
+ * nothing — see docs/libraries.md. The URI is validated by CLONING when it is added, below.
+ */
+const NO_LIBRARIES =
+  "no libraries repository — add one on st0's home page, in the card above the list";
+const hasLibraries = (res: Response): boolean => {
+  if (librariesUri()) return true;
+  res.status(400).json({ error: NO_LIBRARIES });
+  return false;
+};
+
 const newWsBody = z.object({ name: z.string().min(1) });
 app.post(
   "/workspaces",
   validate(newWsBody),
   wrap(async (req, res) => {
     const { name } = req.body as z.infer<typeof newWsBody>;
+    if (!hasLibraries(res)) return;
     // The ONE place a workspace is created on request — getWorkspace deliberately refuses to (Examples aside).
     try {
       res.json({ created: await createWorkspace(req.userEmail!, name) });
@@ -295,28 +310,23 @@ app.get(
   }),
 );
 
-/** The BENCH on one library chain, made or refreshed — no repository, see docs/workspace.md. */
+/** The BENCH, made fresh — one live rig, no repository and nothing kept, see docs/workspace.md. */
 app.post(
   "/workspaces/bench",
   wrap(async (req, res) => {
-    // Which chain the address named — `benchChainPath` is the one place either end spells that rule.
-    const chain = benchChainPath(String(req.body?.project ?? ""));
-    if (!chain)
+    // `isBenchProject` is the one place either end spells which address the bench answers.
+    if (!isBenchProject(String(req.body?.project ?? "")))
       return res.status(404).json({
         error:
-          "@banc opens a library chain — `chains/<path>.st0`. A shared MODULE is edited from the Libraries tab of a project you already have open.",
+          "@banc opens one live rig, and nothing else. A shared MODULE or a CHAIN is edited from a project you already have open — its Libraries tab.",
       });
     // The account's library repository, from the browser — the side that holds pl8's session.
     const libraries = String(req.body?.libraries ?? "");
-    if (!libraries)
-      return res.status(400).json({
-        error:
-          "no libraries repository — add one on st0's home page, in the card above the list",
-      });
+    if (!libraries) return res.status(400).json({ error: NO_LIBRARIES });
     try {
-      res.json(await ensureChainBench(req.userEmail!, chain, libraries));
+      res.json(await ensureBench(req.userEmail!, libraries));
     } catch (e) {
-      // A chain that will not open is the USER's problem to read, so it is a 409 and not a fault.
+      // A library that will not mount is the USER's problem to read, so it is a 409 and not a fault.
       res.status(409).json({ error: (e as Error).message });
     }
   }),
@@ -333,6 +343,7 @@ app.post(
   validate(cloneBody),
   wrap((req, res) => {
     const { name, uri } = req.body as z.infer<typeof cloneBody>;
+    if (!hasLibraries(res)) return;
     try {
       assertSshGitUri(uri);
       const workspace = name || workspaceNameFor(uri);
@@ -368,6 +379,9 @@ app.use(separateRouter);
 
 // …and the same work for a caller that holds the audio and no cache path — docs/processChain.md.
 app.use(processRouter);
+
+// Copying a set list onto a stick or an FTP box: a target belongs to the MACHINE — docs/playlistSync.md.
+app.use(syncRouter);
 
 // What this machine's engine has SCANNED, in the two shapes both used — see docs/activeProject.md.
 app.get(
@@ -457,13 +471,22 @@ app.get(
 
 app.put(
   "/account/libraries",
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const uri = String((req.body as { uri?: unknown })?.uri ?? "").trim();
     // The servers' own rule, so a paste refused here is refused everywhere.
     if (!isSshGitUri(uri))
       return res
         .status(400)
         .json({ error: `not an SSH git URI: ${uri || "(empty)"}` });
+    // CLONED before it is written down: a URI nobody can clone is not a library, and the clone
+    // this leaves is the one the bench opens against — docs/libraries.md.
+    try {
+      await ensureBenchLibraries(req.userEmail!, uri);
+    } catch (e) {
+      return res
+        .status(400)
+        .json({ error: `could not clone ${uri} — ${(e as Error).message}` });
+    }
     setLibrariesUri(uri);
     res.json({ libraries: { uri, name: repoName(uri) } });
   }),

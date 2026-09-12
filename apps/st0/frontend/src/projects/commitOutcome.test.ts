@@ -59,7 +59,7 @@ describe("commitOutcome", () => {
   it("dit pourquoi quand git ne voit rien à committer", () => {
     // After creating a folder, 'nothing to commit' means it is ignored — a useful fact, not a success.
     expect(commitOutcome(["nothing to commit — the project is clean"])).toMatch(
-      /ignoré/,
+      /ignored/,
     );
   });
 });

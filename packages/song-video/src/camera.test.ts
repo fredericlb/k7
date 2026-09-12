@@ -30,7 +30,7 @@ function project(
     join(dir, "project.yaml"),
     'project:\n  name: "film"\n  viewport: [1280, 720, 30]\n  layers: [main]\n',
   );
-  writeFileSync(join(dir, "video_tracks", "main.yaml"), "kind: video\n");
+  writeFileSync(join(dir, "video_tracks", "main.yaml"), "events: []\n");
   writeFileSync(join(dir, "nodes", "cam.yaml"), camNode);
   writeFileSync(join(dir, "graph.yaml"), graph);
   return dir;
@@ -131,7 +131,7 @@ describe("a camera with no lane at all", () => {
     expect(ids).toContain("main");
   });
 
-  it("refuses a picture lane fed by something that is not a camera", () => {
+  it("refuses a picture lane fed by something that is neither a camera nor a shape", () => {
     // An ordinary module aimed at a lane draws nothing — the silence a lane's audio twin has too.
     const dir2 = project(
       "modules:\n  blur: [ main ]\n  RENDER: [ VIDEO_OUT ]\n",
@@ -141,7 +141,7 @@ describe("a camera with no lane at all", () => {
       "plugin: { type: jsdsp }\n",
     );
     expect(validate(loadGraph(dir2)).join(" ")).toContain(
-      "is a picture lane — only a camera's picture lands on one",
+      "is a picture lane — only a camera's or a shape's picture lands on one",
     );
   });
 });

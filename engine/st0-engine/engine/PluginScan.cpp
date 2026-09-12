@@ -5,6 +5,7 @@
 #include "EngineHost.h"
 
 #include "EngineTypes.h"    // Tracktion/JUCE + the te/tt/fs aliases
+#include "ArpeggiatorPlugin.h"
 #include "FaustPlugin.h"
 #include "GraphDspPlugin.h"
 #include "MasterGainPlugin.h"
@@ -222,6 +223,8 @@ std::vector<PluginInfo> builtInPlugins() {
         e("Faust", studio::FaustPlugin::xmlTypeName, "audioEffect", "utility"),
         // The same idea over the note stream; `midiEffect` is what files the module under transformers/ and puts it BEFORE the instrument.
         e("MIDI Graph", studio::MidiGraphPlugin::xmlTypeName, "midiEffect", "utility"),
+        // A chord held down and played one note at a time — a note SOURCE, which no graph node can be (docs/arpeggiator.md).
+        e("Arpeggiator", studio::ArpeggiatorPlugin::xmlTypeName, "midiEffect", "utility"),
         // The channel strip: level, pan and a tone stack. A track carries none itself, so this is where a mix is made, one per track.
         e("Mixer", studio::MixerPlugin::xmlTypeName, "audioEffect", "utility"),
         // A tape machine you drop in a chain: transparent, and it captures — docs/recorder.md.
@@ -252,6 +255,7 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::GraphDspPlugin>();
     pm.createBuiltInType<studio::FaustPlugin>();
     pm.createBuiltInType<studio::MidiGraphPlugin>();
+    pm.createBuiltInType<studio::ArpeggiatorPlugin>();
     pm.createBuiltInType<studio::MixerPlugin>();
     pm.createBuiltInType<studio::RecorderPlugin>();
     pm.createBuiltInType<studio::QuickMasterPlugin>();

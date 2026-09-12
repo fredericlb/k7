@@ -259,7 +259,6 @@ export function videoProjectFiles(name: string): Record<string, string> {
       `#\n` +
       `# \`length: 0\` runs to the end of the source; \`source_from\` trims the head. \`mute\`\n` +
       `# means HIDDEN — there is no sound on a lane.\n` +
-      `kind: video\n` +
       `# name: "A-roll"     # the lane's label; the FILENAME is still its id\n` +
       `x: 0\ny: 0\nw: 1280\nh: 720\n` +
       `events:\n  - { ref: sample, start: 0, length: 6, source_from: 0 }\n`,

@@ -91,16 +91,22 @@ user-editable, and `/samples/kicks/909.wav` names nothing this app can show. The
 
 ```
 songs      …/song.yaml      the sidecar, on the left of the split screen
+playlists  ete-2026.yaml    the set list, opened in the right-hand pane
 ```
 
-**One row, and it stays a list rather than a test**, because the shape is what the rest
-depends on: every row names a file INSIDE an entry's folder, which is why `folderOf` can
-always take the last segment off to find the entry. A section whose address named a file with
-no folder in front of it would break that, and is what the list is there to keep out.
+**Two rows, and it stays a list rather than a test**, because what each carries is not the same
+shape. A `songs` address names a file INSIDE an entry's folder, which is what lets `folderOf`
+take the last segment off and find the entry. A `playlists` address names the file and nothing
+else — the zone nests, so `live/repet.yaml` has a folder, but `ete-2026.yaml` has none and
+`folderOf` answers null for it.
+
+That asymmetry is the reason `editingSong` is derived from `entries` **and** the section, rather
+than from `folderOf(file)` alone: a set list's address resolves to no entry, and must not be
+looked for among them.
 
 An address under a section that is not in `SECTION_IDS` is not a 404 inside the app:
 `fromLocation` drops what it cannot read and lands on the default section, so a stale bookmark
-to `/playlists/ete-2026.yaml` opens Morceaux rather than nothing.
+to `/modules/x/ui.yaml` opens Morceaux rather than nothing.
 
 A section that opens something must be in `CARRIES`, and the failure if it is not is quiet:
 the editor pushes `/<section>/x/graph.yaml`, `fromLocation` reads that back as the bare
@@ -142,11 +148,11 @@ door for one's own work is st0's home page, which is a different address entirel
   repository. That is st0's job, not a hosted catalogue's.
 - **The level above a project** — the repositories, the libraries, the deploy key and the
   shares — belongs to the editor that opens one, so it is st0's home page.
-- **Playlists** are a different reason: a playlist holds no bytes. It is a list of names of
-  things that are still right here, so hosting it would buy nothing and keep a set list out of
-  the repository it was written for. It is `_playlists/` in the workspace, and st0's cog opens
-  it. The morceaux it names are here, which is the point: st0 searches THIS catalogue and
-  uploads into it.
+
+**Playlists**, on the other hand, ARE here — `playlists/` on the volume, its own section, beside
+the songs a line names ([playlists.md](playlists.md)). A workspace keeps its own under
+`_playlists/`, same format and a different job: those are versioned with the project and are what
+a `turntables` surface can name.
 
 The backend for all of it is still this service's. `/api/projects`, `/api/shares` and the whole
 of `/api/mediatek` are served here, and st0 calls them across the origin. An address under any

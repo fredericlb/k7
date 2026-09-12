@@ -45,6 +45,24 @@ target_include_directories(studio_recorder_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 add_test(NAME studio_recorder_tests COMMAND studio_recorder_tests)
 
+# --- Arpeggiator tests --------------------------------------------------------
+# A SIXTH fast binary, same reason as the three above: Arpeggiator.h is header-only and JUCE-free,
+# so the clock and the walk are tested without linking Tracktion. The PLUGIN around it needs a live
+# te::Edit no suite here builds — see ../docs/arpeggiator.md.
+add_executable(studio_arp_tests Arpeggiator_test.cpp)
+target_include_directories(studio_arp_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_arp_tests COMMAND studio_arp_tests)
+
+# --- Note clock tests ---------------------------------------------------------
+# A SEVENTH fast binary, for the reason the arpeggiator's gives: NoteClock.h is header-only and
+# JUCE-free, so the held set, the clock and the gate are tested without linking Tracktion. The
+# GRAPH nodes over it need a MidiMessageArray and are in studio_midigraph_tests — ../docs/midiGraph.md.
+add_executable(studio_noteclock_tests NoteClock_test.cpp)
+target_include_directories(studio_noteclock_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_noteclock_tests COMMAND studio_noteclock_tests)
+
 # --- MIDI graph tests ---------------------------------------------------------
 # A SECOND binary, because these need Tracktion's MidiMessageArray and so must link the engine — which is exactly
 # what the target above avoids. Keeping them apart preserves the fast tests' "builds in seconds, no audio device"
@@ -87,11 +105,10 @@ add_test(NAME studio_dspgraph_tests COMMAND studio_dspgraph_tests)
 set_tests_properties(studio_dspgraph_tests PROPERTIES LABELS slow)
 
 # --- Faust tests --------------------------------------------------------------
-# Compiles every `.dsp` this repo ships with the engine's own libfaust. JUCE-FREE, unlike the two
-# above: it links libfaust and nothing else, so it keeps the "builds in seconds, no audio device"
-# property — and it is the test that was missing when a module reached somebody's library without
-# ever having compiled. Both paths are baked in because the sources and the Faust libraries live
-# outside this tree.
+# Faust compiled by the engine's own libfaust. JUCE-FREE, unlike the two above: it links libfaust
+# and nothing else, so it keeps the "builds in seconds, no audio device" property. One case walks a
+# module LIBRARY, named at run time by `$STUDIO_MODULES` rather than baked in here: this repo ships
+# no modules, and a library is a per-account path no build could know.
 add_executable(studio_faust_tests Faust_test.cpp)
 target_link_libraries(studio_faust_tests PRIVATE staticlib)
 target_include_directories(studio_faust_tests PRIVATE
@@ -104,8 +121,7 @@ target_include_directories(studio_faust_tests PRIVATE
 target_compile_definitions(studio_faust_tests PRIVATE
     NOMINMAX
     WIN32_LEAN_AND_MEAN
-    STUDIO_FAUST_LIBS="${STUDIO_FAUST_LIBS}"
-    STUDIO_DSP_MODULES="${CMAKE_CURRENT_SOURCE_DIR}/../../../packages/dsp/modules")
+    STUDIO_FAUST_LIBS="${STUDIO_FAUST_LIBS}")
 if (WIN32)
     target_link_libraries(studio_faust_tests PRIVATE ws2_32)
 endif()

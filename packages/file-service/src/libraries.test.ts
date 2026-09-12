@@ -18,6 +18,7 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  clonedFrom,
   commitLibraries,
   excludeFromProjectRepo,
   registerSubmodule,
@@ -68,6 +69,19 @@ const pushed = (): string[] =>
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean);
+
+describe("what a mounted library was cloned from", () => {
+  it("answers the remote, which is what says a clone is still the account's", async () => {
+    // The URI is checked by CLONING when it is added, and a clone of ANOTHER repository is
+    // thrown away rather than found later — see docs/libraries.md.
+    expect(await clonedFrom(lib)).toBe(origin);
+  });
+
+  it("says it cannot tell, rather than throwing, for a folder that is no clone", async () => {
+    // A workspace's `_libraries` that was never mounted is an ordinary state, not a fault.
+    expect(await clonedFrom(join(tmp, "nothing-here"))).toBeNull();
+  });
+});
 
 describe("a brand-new library repository", () => {
   it("gets a commit, and pushes it", async () => {

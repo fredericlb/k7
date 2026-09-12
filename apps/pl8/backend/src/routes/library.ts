@@ -22,6 +22,11 @@ import {
 } from "@studio/mediatek/layout";
 import { manifest } from "@studio/mediatek/manifest";
 import { mimeFor } from "@studio/mediatek/media";
+import {
+  createPlaylist,
+  listPlaylists,
+  PlaylistExistsError,
+} from "@studio/mediatek/playlists";
 import { addRecording, listRecordings } from "@studio/mediatek/recordings";
 import { revisions } from "@studio/mediatek/revision";
 import {
@@ -42,6 +47,7 @@ import {
   setSongKey,
 } from "@studio/mediatek/write";
 import express, { Router } from "express";
+import { sweepState } from "../analysisSweep.ts";
 
 export const libraryRouter: Router = Router();
 
@@ -217,6 +223,14 @@ libraryRouter.post(
   }),
 );
 
+/** What the background sweep is doing — the backlog it found, and whether it has a decoder at all. */
+libraryRouter.get(
+  "/analysis",
+  wrap((_req, res) => {
+    res.json(sweepState());
+  }),
+);
+
 /**
  * Measure one file HERE and write its `.cache` sidecar beside it. This service holds the bytes
  * and has ffmpeg, so nothing is asked of an engine — see packages/audio-analysis/docs/analysis.md.
@@ -316,6 +330,35 @@ libraryRouter.get(
   "/recordings",
   wrap((_req, res) => {
     res.json({ days: listRecordings() });
+  }),
+);
+
+/** The set lists — its own listing too, and for the same reason: no family scan reaches the zone. */
+libraryRouter.get(
+  "/playlists",
+  wrap((_req, res) => {
+    res.json({ playlists: listPlaylists() });
+  }),
+);
+
+/** Create one, from the STUB — reading and writing it are `/file` and `PUT /file`; ../docs/playlists.md. */
+libraryRouter.post(
+  "/playlists",
+  express.json(),
+  wrap((req, res) => {
+    const name = String(req.body?.name ?? "");
+    if (!name) return res.status(400).json({ error: "name required" });
+    try {
+      res.json({ ok: true, playlist: createPlaylist(name) });
+    } catch (e) {
+      // A taken name is a 409: the caller asked for a NEW one, and this is not a retry.
+      if (e instanceof PlaylistExistsError)
+        return res.status(409).json({ error: e.message });
+      if (e instanceof RangeError)
+        return res.status(400).json({ error: e.message });
+      if (writeError(e, res)) return;
+      throw e;
+    }
   }),
 );
 

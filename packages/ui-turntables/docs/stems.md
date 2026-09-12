@@ -36,7 +36,8 @@ Same knob, same size scale, same centring as the strip next door (`ChannelStrip`
 gesture on the same kind of thing, **and the same travel**: the middle is neutral and it goes
 both ways, like an EQ knob. A knob whose neutral is one end of its travel reads badly: the hand
 cannot find the rest position, and half the travel — reinforcing the instrument, which a remix
-asks for all the time — would not exist.
+asks for all the time — would not exist. Neutral here is **1**, the record as it was cut, and that
+is where a double-click puts the knob back: mid-travel, not the silence at the bottom of it.
 
 **Two by two, and in that order.** `STEM_GRID` is not `STEMS`: the model's order is
 `drums, bass, other, vocals`, the hand's is the rhythm section on top and what sings below. A

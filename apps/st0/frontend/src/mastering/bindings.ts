@@ -41,7 +41,7 @@ export function resolveMasterBindings(
   // none is a knob that would do nothing. The desk answers the other way — docs/mastering.md.
   const { rows, problems } = resolveMapping(view, graph, {
     control: masterControl,
-    noun: "de cette surface",
+    noun: "of this surface",
     plugless: "refuse",
   });
   const bindings = rows.map(({ control, target }) => ({

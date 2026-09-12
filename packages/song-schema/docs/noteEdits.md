@@ -88,6 +88,38 @@ That is the one place this file departs from "throw on a miss", and the reason i
 is a rectangle rather than an address: a box holding nothing is a thing a person can draw, not a
 surface being out of date. The COMMAND is what refuses it by name.
 
+## Twice as long, playing twice
+
+`doubleSequence` is the ×2 in a note grid's header (`apps/st0/frontend/docs/clipEditors.md`), and
+almost all of it is one question: **what a sequence's LENGTH is**. It is the WINDOW, and a sequence
+states one in either of two ways — a `from`/`to` pair of timecodes, or nothing at all, in which
+case the length is the notes' extent **rounded up to the bar**. That second rule is the compiler's
+(`packages/song/src/nodeProject.ts`), and it is restated here rather than approximated: a doubling
+that read the last note's end as the length would move the copies by three beats where the sequence
+plays four, and every pass after the first would drift.
+
+Three decisions follow from it:
+
+- **A window the file does not state is left unstated.** The copies land one extent later, so the
+  new extent is exactly twice the old — the rounding makes that exact, since a bar-aligned window
+  plus a bar-aligned extent rounds to their sum. Writing a `to` would say what the file already
+  says, and give the same length two places to be right in.
+- **A stated `to` moves out by the window's length** and is spelled back as a timecode, because
+  that is what the field holds. `from` never moves: the sequence still starts where it started.
+- **The copies are the notes the window HOLDS**, by the same "in when it STARTS inside" rule the
+  rectangle follows above. A note sitting past `to` sounds in no pass, so copying it would double
+  something nobody can hear; it is left exactly where it is. `repeat` and `skip` ride along, or the
+  second half would be a different sound from the first (`@studio/song docs/padEffects.md`).
+
+A LOOPED placement of the sequence needs the other half of the act — the window doubled and the
+passes halved, or four bars of a one-bar pattern become eight. That is `halveSequenceLoops` in
+`trackFile.ts`, walked across the project by `@studio/song-edit`, and
+`packages/song-edit/docs/sequenceLoops.md` is where it is reasoned out.
+
+An empty sequence and a window holding nothing are both **refused by name**. Doubling nothing is a
+sequence that got longer with no more in it — the shape of a command that reports success and does
+nothing, which is the one failure this codebase says everywhere else it will not have.
+
 ### What the four verbs decided
 
 - **quantize moves the onset and keeps the length.** Moving the end too would be two edits under

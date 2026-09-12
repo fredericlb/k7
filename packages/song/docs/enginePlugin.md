@@ -27,6 +27,26 @@ mapping is:
 Both spellings are written on disk, which is what the third row is for: a module whose
 `type` is already an xmlTypeName compiles unchanged, and no song needs migrating.
 
+## `jsdsp` has TWO hosts, and the type FOLDER picks
+
+`jsdsp` is what the author writes; the engine has no plugin of that name, so it loads a host and is
+handed the compiled graph. Which host is not authored anywhere — it is what the module EMITS:
+
+| the module's type folder | the host |
+|---|---|
+| `audio`, `instruments` … | `DSP Graph` (`studio_dspgraph`) |
+| `transformers` (emits midi) | `MIDI Graph` (`studio_midigraph`) |
+
+Tracktion routes the two differently and says so through the type — an audio effect sits after the
+instrument, a MIDI one before it — so one plugin class cannot answer both, and something has to
+choose. The type folder already says which a module is; making the author say it again in
+`plugin:` would be a second answer, free to disagree with the first. `moduleEmits` is that one
+answer, and `nodeProject.ts` is where it is asked.
+
+The same holds for `faust`, whose host is `Faust` either way: a Faust program that takes MIDI is a
+polyphonic INSTRUMENT, not a note effect, and `engine/st0-engine/docs/faust.md` says how the
+program itself declares that.
+
 ## The scan cache — engineCatalogue.ts
 
 `<state>/exts.json` is a CONTRACT path: the C++ engine writes and reads the same file

@@ -3,12 +3,18 @@
 `build-engine.mjs` builds the native pieces and collects their artifacts into
 `engine/st0-tray/out/` — beside the script, not in st0: the tray is what ships them:
 
-1. the **C++ engine** — CMake, with the preset chosen from the host platform. Delegated to
-   the moteur's own `build:*` npm scripts so "how the engine builds" is defined once; Linux has
-   no such script yet and keeps its preset in this file.
-2. the **tray app** — a Tauri release bundle.
+1. the **C++ engine** — CMake, through `engine/st0-engine/scripts/build.mjs` so "how the engine
+   builds" is defined once. The preset comes from the host platform, or from
+   `STUDIO_ENGINE_PRESET` when the build machine's toolchain is not the dev machine's — which is
+   what a CI runner is (`docs/desktop-release.md`).
+2. the **tray app** — a Tauri release bundle: `nsis` on Windows, `deb` + `appimage` on Linux,
+   and on macOS the `app` wrapper `tauri.conf.json` names, which `makeDmg` then packages.
 
 `out/` is gitignored (the repo-root `out/` rule matches at any depth).
+
+`package-release.mjs` beside this script turns that directory into the ONE archive a platform
+ships — `npm run engine:package`. It is the release deliverable, and `docs/desktop-release.md`
+is its page.
 
 ## What the app carries
 
@@ -137,12 +143,12 @@ rather than when it happens to run.
 strips the JSON's double quotes and leaves Tauri parsing `{bundle:...}`. A file is
 quoting-proof everywhere.
 
-### Windows has no "app" bundle format
+### Only macOS has an "app" bundle format
 
-That is the macOS `.app` wrapper. Asking for it on Windows just builds the exe and produces
-no `bundle/` directory at all — the debug exe *is* the dev artifact there, so bundling is
-skipped and it is collected directly. For a release build the Windows deliverable is the
-NSIS installer.
+That is the `.app` wrapper. Asking for it on Windows or Linux just builds the executable and
+produces no `bundle/` directory at all — the debug executable *is* the dev artifact there, so
+`--dev` passes `--no-bundle` and collects it directly. A release build names its own targets
+instead: the NSIS installer on Windows, `.deb` + `.AppImage` on Linux.
 
 ### Windows: use System32's `bsdtar` by path
 

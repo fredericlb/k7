@@ -659,6 +659,69 @@ describe("a warp point", () => {
   });
 });
 
+/** `menu:` in commands.yaml — the one thing that NARROWS the derivation, naming what the click is ON. */
+describe("what the catalogue says a command's menu is", () => {
+  const ON_EVENTS = new Set([
+    "event remove",
+    "event move",
+    "selection consolidate",
+  ]);
+  const SAID: CommandInfo[] = CATALOGUE.map((c) =>
+    ON_EVENTS.has(c.command) ? { ...c, menu: ["event" as const] } : c,
+  );
+
+  it("keeps an event's verbs off the LANE that carries it", () => {
+    // A track answers their first argument, which is the whole reason they were being offered there.
+    expect(lines(contextMenu({ kind: "track", id: "gtr" }, SAID))).toEqual([
+      "track mute gtr",
+      "track gain gtr ",
+      "track pan gtr ",
+      "ui file gtr",
+    ]);
+  });
+
+  it("leaves them where the click IS one", () => {
+    const menu = contextMenu(
+      { kind: "clip", id: "riff", track: "gtr", tc: "1:1:1" },
+      SAID,
+    );
+    expect(lines(menu)).toContain("event remove gtr 1:1:1");
+  });
+
+  it("narrows and never invents: an entity named still has to answer the arguments", () => {
+    // `menu:` is a filter over the derivation, so naming a menu the arguments do not fit adds no row.
+    const WRONG: CommandInfo[] = CATALOGUE.map((c) =>
+      c.command === "track mute" ? { ...c, menu: ["note" as const] } : c,
+    );
+    expect(
+      lines(
+        contextMenu(
+          { kind: "note", sequence: "lead", note: 60, start: 0, end: 1 },
+          WRONG,
+        ),
+      ),
+    ).not.toContain("track mute");
+  });
+
+  it("gives way to the person's own list", () => {
+    const menu = contextMenu({ kind: "track", id: "gtr" }, SAID, {
+      "event remove": { menu: ["track"] },
+    });
+    expect(lines(menu)).toContain("event remove gtr ");
+  });
+
+  it("is still overruled by the plain off switch", () => {
+    const menu = contextMenu(
+      { kind: "clip", id: "riff", track: "gtr", tc: "1:1:1" },
+      SAID,
+      {
+        "event remove": { menu: false },
+      },
+    );
+    expect(lines(menu)).not.toContain("event remove gtr 1:1:1");
+  });
+});
+
 // The list is DERIVED, so the shortening is all or nothing — one clash and every row keeps its full name.
 describe("two rows that would read alike", () => {
   it("keeps every head rather than draw one name twice", () => {

@@ -49,7 +49,7 @@ export function metronomeTrack(
 ): TrackDoc {
   const bar = tempo && on ? clickBar(tempo) : null;
   return trackDoc(METRONOME_TRACK, {
-    name: "métronome",
+    name: "metronome",
     clips: bar ? [bar] : [],
     plugins: [
       pluginDoc({
@@ -69,7 +69,7 @@ export function metronomeTrack(
       pluginDoc({
         id: `${METRONOME_TRACK}:level`,
         type: MIXER_PLUGIN,
-        name: "métronome level",
+        name: "metronome level",
         params: { Volume: METRONOME_DB },
       }),
     ],

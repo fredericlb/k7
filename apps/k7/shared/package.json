@@ -5,6 +5,8 @@
   "type": "module",
   "types": "./types.ts",
   "exports": {
-    ".": "./types.ts"
+    ".": "./types.ts",
+    "./epub": "./epub.ts",
+    "./naming": "./naming.ts"
   }
 }

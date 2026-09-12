@@ -36,6 +36,8 @@ export function GraphPanel({
   onRecorder,
   onProjectField,
   onNodeMenu,
+  onAssetBrowse,
+  onWatchWaveform,
   engineWarnings,
   onContextMenu,
   pluginParamsStore,
@@ -82,6 +84,14 @@ export function GraphPanel({
       frozen?: "at" | "inside";
     },
     at: { x: number; y: number },
+  ) => void;
+  /** A file-valued param's browser: the same cards are drawn here, so the same button has to open. */
+  onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
+  /** …and the waveform widget's subscription, for the same reason — it draws nothing unwatched. */
+  onWatchWaveform?: (
+    pluginId: string,
+    side: "input" | "output",
+    on: boolean,
   ) => void;
   /** Engine load problems by plugin id, badged onto the module they concern. */
   engineWarnings?: Record<string, string>;
@@ -175,6 +185,8 @@ export function GraphPanel({
         onRecorder={onRecorder}
         onProjectField={onProjectField}
         onNodeMenu={onNodeMenu}
+        onAssetBrowse={onAssetBrowse}
+        onWatchWaveform={onWatchWaveform}
         engineWarnings={engineWarnings}
         pluginParamsStore={pluginParamsStore}
         setPluginParam={setPluginParam}

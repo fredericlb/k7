@@ -10,6 +10,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import chokidar from "chokidar";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  closeModuleWatch,
+  watchedProjects,
+  watchModuleFolders,
+} from "./moduleWatch.ts";
 import { Workspace } from "./workspace.ts";
 
 // Reproduces the Windows EPERM: a fire-and-forget watcher close, so the rename's retry is what recovers.
@@ -29,6 +34,35 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("Workspace.deleteProject", () => {
+  it("lets go of the module watch it holds, before the rename", async () => {
+    // The Windows EPERM this fixes: `fs.watch` holds the directory open, and the watch is dropped
+    // only when the session SWITCHES project — never on one that is being deleted.
+    const proj = join(root, "deltest.st0");
+    mkdirSync(join(proj, "modules"), { recursive: true });
+    mkdirSync(join(proj, "nodes"), { recursive: true });
+    watchModuleFolders(proj);
+    expect(watchedProjects()).toContain(proj);
+
+    await ws.deleteProject("deltest.st0");
+    // Without this the folder is still held, and Windows answers EPERM on the rename below.
+    expect(watchedProjects()).not.toContain(proj);
+    expect(existsSync(proj)).toBe(false);
+  });
+
+  it("leaves ANOTHER project's watch alone", async () => {
+    const proj = join(root, "deltest.st0");
+    const other = join(root, "keep.st0");
+    mkdirSync(join(other, "modules"), { recursive: true });
+    writeFileSync(join(other, "project.yaml"), "package st0\n");
+    watchModuleFolders(proj);
+    watchModuleFolders(other);
+
+    await ws.deleteProject("deltest.st0");
+    // Only what was under the folder that moved: the neighbour is still being watched.
+    expect(watchedProjects()).toEqual([other]);
+    closeModuleWatch(other);
+  });
+
   it("deletes a project whose folder a file watcher is holding open", async () => {
     const proj = join(root, "deltest.st0");
     const watcher = chokidar.watch(proj, { ignoreInitial: true });

@@ -50,9 +50,9 @@ export function Turntables({
         </ul>
         {/* The fix, not just the fault: a line somebody can copy, in the file it goes in. */}
         <p className="max-w-xl text-center text-xs text-muted-foreground">
-          Ajoutez-les sous <code>mapping:</code> dans <code>{file}</code> — une
-          ligne par composant, <code>{"{ module: …, param: … }"}</code>, où{" "}
-          <code>module</code> est le nom que <code>chains.yaml</code> lui donne.
+          Add them under <code>mapping:</code> in <code>{file}</code> — one line
+          per component, <code>{"{ module: …, param: … }"}</code>, where{" "}
+          <code>module</code> is the name <code>chains.yaml</code> gives it.
         </p>
       </div>
     );

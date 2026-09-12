@@ -5,7 +5,7 @@
 // what keeps the palette and the panel from drifting. COMMANDS stays a full page, reached by a
 // button here: a sixty-row catalogue does not fit 24rem.
 //
-// Why three panels rather than one set of tabs, and why none of them is a pane:
+// Why several panels rather than one set of tabs, and why none of them is a pane:
 // ../docs/shell.md, "The right column".
 
 import { Button } from "@frediverse/ui/button";
@@ -94,13 +94,18 @@ export function SettingsPanel({
         <Button
           size="icon"
           variant="ghost"
-          title="Commandes — renommer, réordonner, relier une touche"
-          aria-label="Commandes"
+          title={m["settings.commandsHint"]()}
+          aria-label={m["cmds.title"]()}
           onClick={() => void onRun("ui settings commands")}
         >
           <Command className="h-4 w-4" />
         </Button>
-        <Button size="icon" variant="ghost" title="Fermer" onClick={onClose}>
+        <Button
+          size="icon"
+          variant="ghost"
+          title={m["common.close"]()}
+          onClick={onClose}
+        >
           <X className="h-4 w-4" />
         </Button>
       </header>

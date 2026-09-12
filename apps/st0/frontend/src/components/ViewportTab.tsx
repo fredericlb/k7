@@ -7,6 +7,8 @@ import { type ExportSupport, probeExportSupport } from "@studio/ui-eyes/export";
 import type { LaneDebug } from "@studio/ui-eyes/realtime";
 import type { WebVideoProject } from "@studio/web-protocol";
 import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_VIDEO_FORMAT } from "../exportArgs";
+import { m } from "../paraglide/messages.js";
 import { PROFILING } from "../profiling";
 import { sceneOf } from "../scene";
 import { audioSources } from "../shaderAudio";
@@ -43,11 +45,13 @@ export function ViewportTab({
 
   // Asked once per viewport size, off the render path: isConfigSupported is async and the
   // answer only moves when the size does. Realtime works either way, so this gates the WORDS
-  // rather than the pane.
+  // rather than the pane — and it asks for the container the button sends, with its sound.
   const [vw, vh] = doc?.viewport ?? [1920, 1080];
   useEffect(() => {
     let live = true;
-    void probeExportSupport(vw, vh).then((s) => live && setCanExport(s));
+    void probeExportSupport(DEFAULT_VIDEO_FORMAT, vw, vh).then(
+      (s) => live && setCanExport(s),
+    );
     return () => {
       live = false;
     };
@@ -71,9 +75,10 @@ export function ViewportTab({
   if (!scene)
     return (
       <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
-        Ce projet n'a pas encore d'image. Ajoutez
-        <code className="mx-1">video_tracks/&lt;nom&gt;.yaml</code> et un
-        <code className="mx-1">viewport</code> dans project.yaml.
+        {m["vp.noPicture"]()}
+        <code className="mx-1">video_tracks/&lt;name&gt;.yaml</code>{" "}
+        {m["vp.andA"]()}
+        <code className="mx-1">viewport</code> {m["vp.inProjectYaml"]()}
       </div>
     );
 

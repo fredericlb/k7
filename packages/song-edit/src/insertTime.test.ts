@@ -53,8 +53,7 @@ shape: sine
 frequency: 1
 `,
   // Picture, in decimal seconds. At 120bpm one bar is 2s, so 8s is bar 5.
-  "video_tracks/cam.yaml": `kind: video
-events:
+  "video_tracks/cam.yaml": `events:
   - { ref: shot, start: 0, length: 4 }
   - { ref: shot, start: 8, length: 4 }
 `,

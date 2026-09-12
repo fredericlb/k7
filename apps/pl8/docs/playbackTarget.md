@@ -1,25 +1,23 @@
 # Where the médiathèque makes sound
 
-"Play this" has more than one possible answer — this browser, or the host that serves the files,
-on its own outputs — and which one is a CHOICE, not something the app picks for you in silence:
-an icon button in the header, left of the cog, holding a menu of destinations.
-
-Neither answer involves an engine. This app does not know they exist.
+"Play this" has more than one possible answer — this browser, the host that serves the files, or
+the engine on the musician's own machine — and which one is a CHOICE, not something the app picks
+for you in silence: an icon button in the header, left of the cog, holding a menu of destinations.
 
 ## Why a menu and not a switch
 
-Two destinations is where this starts, not where it stops. Streaming the engine's output back to
-this browser is already half-built (`@studio/engine-browser/stream`, unused here), and a machine
-that is neither this one nor the current engine is the obvious third. A boolean would have to be
-*replaced* the day any of those lands; a list entry does not.
+Destinations arrive one at a time and none of them replaces another. A boolean would have to be
+*replaced* the day a fourth lands — streaming the engine's output back to this browser is already
+half-built (`@studio/engine-browser/stream`, unused here) — where a list entry does not.
 
 So `frontend/src/playback/targets.ts` is a list, and everything else reads it:
 
 | what | reads |
 |---|---|
-| the menu rows | `PLAYBACK_TARGETS` — label, hint, icon |
+| the menu rows | `PLAYBACK_TARGETS` — label, hint, icon, `needsEngine` |
 | the button's glyph | `playbackTargetInfo(target).icon` |
 | what a stored id means | `asPlaybackTarget(value)` |
+| what will ACTUALLY play | `effectiveTarget(chosen, engineAvailable)` |
 
 Adding a destination is an entry in that list plus a branch in whatever plays. It is deliberately
 **not** a backend change: the preference is stored as a plain string (see `prefsSchema` in
@@ -34,130 +32,26 @@ The cog holds what you set once: signing out. Where sound comes out is changed *
 — you hear it in the wrong room and reach for it — so it is one click, not two, and its icon
 answers the question without opening anything.
 
-## No fallback, because neither destination can be half-there
+## One destination can be half-there, and only one
 
-There were three destinations once, two of them reached through a machine found in the engine
-registry, and `effectiveTarget` existed to fall back to the browser when that machine was off.
-Both survivors are unconditional: the browser has the bytes from this origin, and the library
-host IS this origin. A destination that cannot be unreachable needs no repair.
+The browser has the bytes from this origin, and the library host IS this origin; neither can be
+unreachable, so neither is ever repaired. The **moteur** can be: it is a machine somebody turns
+off. `needsEngine` is that one bit, `effectiveTarget` is the whole repair, and the fallback is the
+browser — the destination that needs nothing.
 
-The one thing that can still be missing is `mpv` on the host, and that is answered where it
+The row is still **listed** when no engine answers, with the hint saying so rather than the label:
+the choice is remembered either way, and a row that vanishes leaves "why can I not play on my
+machine" with no answer on screen. The trigger's glyph shows what will actually play, greyed, so a
+shut menu does not claim the moteur is doing it.
+
+`mpv` missing on the library host is the one remaining half-state, and it is answered where it
 happens — a 503 with the sentence, on the one route that needs it.
 
-## History: what the engine branch needed
+## The first: this browser
 
-> The sections below describe destinations that no longer exist. They are kept for the
-> reasoning, which the DJ desk and st0's own transport still run on.
-
-The trap this repo keeps coming back to: **two disks**. The médiathèque this browser talks to is
-hosted, while the moteur opens paths on *its own* machine. So the engine branch does not play what
-the browser plays — it plays the copy in that machine's cache, found the same way the DJ desk
-finds a deck:
-
-```
-GET {fileBase}/mediatek        → the cache's absolute root on that machine   (cacheRoot)
-join(root, entry.path, master) → a path the engine can open                  (playablePath)
-sendProject(doc); transport()  → the document FIRST, then the verb
-```
-
-The document is `songPreviewDoc(path, name)` — a master is the audio itself, so the chain is
-empty. That degenerate case is why there is no second document builder here.
-
-### A cache root is not a copy
-
-Only `modules` are pulled automatically (`packages/file-service/src/mediatekPull.ts`). A song is
-on a given machine because something *put* it there — a mirror, a k7 publish, an analysis — and on
-a fresh machine it simply is not.
-
-The engine would then open nothing and play silence, which is the one failure a transport cannot
-report: no error, just no sound. So the player asks **before** the click, with `cachedOnMachine` —
-a `Range: bytes=0-0` on that machine's file route, one request rather than one master — and the
-two ways it can fail are kept apart, because the answers differ:
-
-- the machine keeps no médiathèque cache at all;
-- it keeps one, and this song was never copied into it. The **Analyser** button beside the
-  waveform is the way out, since an analysis downloads the master into that cache on its way to
-  computing the sidecar.
-
-`root` is `string | null | undefined` for the same reason `choice.loaded` exists next door:
-`undefined` is "not looked yet" and `null` is "no cache". Merged into one nullable, the Play
-button greys out for the moment every song spends waiting, which reads as a fault rather than as a
-wait.
-
-### Say where to start, always
-
-`EngineHost::play` repositions the playhead only when the transport is **looping**; otherwise it
-resumes from wherever it was left. And a session outlives the documents put through it — it is
-keyed by service and person, not by what is loaded — so the playhead sitting there belongs to
-whatever this account last auditioned on that machine, very likely a longer song.
-
-Send a master and press play with no position, and the transport rolls from a point past the end
-of the clip. `playing` is true, the playhead advances, the meters move, and there is **no sound** —
-a failure whose only symptom is the absence of one.
-
-So `play(doc, fromSeconds)` takes the position, between the document and the verb: the position
-belongs to the document just applied, and asking for it after `play` would be heard as a jump. The
-player passes where the waveform was scrubbed to, which is `0` for a song not started yet.
-
-### A clean edit, because an apply is a diff
-
-An apply is a **diff**, and a diff can only remove what the engine's stored document says is
-there. An edit holding a plugin that document does not mention is therefore unreachable —
-`needsFullRebuild` never fires, nothing rebuilds, and the plugin stays for the life of the
-session, which means until the engine process exits.
-
-The symptom is silence while everything reports fine. Asking the running moteur reads
-`sessions` → the song's own project name, `playing: true`; `edit-plugins` → a plugin from some
-other audition still on the track; `state` → `levels: [-100]` while rolling. Sending a document
-with `plugins: []` does **not** remove it; `drop-session` does, and the identical document then
-plays at −25.8 dB.
-
-So a document this session has not held is preceded by `reset()` — `dropSession`, which throws the
-edit away so the next apply builds one from nothing. Only when the document CHANGES: a pause and a
-resume must not rebuild the edit under the transport.
-
-**What is not established**: how the edit comes to hold a plugin its document does not. On a fresh
-session the removal works correctly, so this is a state the engine can reach and cannot leave, by
-a path nobody has identified. `reset()` makes pl8 immune to it rather than fixing it, and the
-engine-side inconsistency is still worth hunting.
-
-### The playhead is only ours while our document is loaded
-
-For the same reason, the player does not read `engine.playhead` unconditionally. That session is
-shared with everything else pl8 auditions, so an unqualified read would draw another document's
-position on this song's waveform — and, worse, hand it back as the point to resume from, which is
-the bug above with extra steps. `loadedPath` is what makes "is this ours" a question with an
-answer.
-
-### What the engine says is kept
-
-`onWarning` is subscribed to, and it earns its keep exactly here: a document naming a file the
-engine cannot open raises `clip source not found/invalid: <path>` and then plays silence. It is
-the first thing the player's footer says, above every locally-derived message, because it is the
-only one that comes from the machine actually holding the file.
-
-Beside it, `sent` — a document went and nothing has rolled — covers the same failure seen from
-this side before the machine has said anything. Without it the screen is identical to a transport
-nobody asked to start.
-
-## One socket for the tab
-
-`PlaybackProvider` opens `useModuleEngine` **once** and hands it out through `useEngine()`. Two
-hooks would be two connections to one machine from one tab — the very thing `useEngineChoice`
-exists not to do — and a song that keeps playing across screens needs the socket to outlive any
-one of them. One engine, one session, one thing playing at a time.
-
-`useModuleEngine` carries two things for this — `onState` (so `playing` and the playhead come from
-the machine that is actually playing, never from a hopeful local flag) and `seek`. The seek is
-applied locally as well as sent, because the state frame is ~20 Hz and a playhead that only ever
-came back from the engine would lag a drag on the waveform enough to read as the cursor snapping
-back.
-
-## What the choice does not cover
-
-**Samples and recordings.** They have no play button, here or anywhere. When they get one, this is
-the setting it reads. So the destination governs exactly one thing: a song's audio, master or
-variant.
+An `<audio>` element on the bytes this origin already serves. It is also mounted, silent, for the
+**engine** destination, because it is what reports the DURATION: the engine's frames carry a
+playhead and no length, and a scrub bar with no end is not one.
 
 ## The second: the library's own speakers
 
@@ -173,6 +67,45 @@ What it does need is a **poll**. A process over there cannot push its position i
 `PlaybackProvider` asks twice a second while something is loaded, and the transport verbs are
 optimistic: the handle follows the finger and the next poll tells the truth.
 
+## The third: the moteur
+
+`engine` plays through `engine/st0-engine` on the machine the account chose — the same instrument
+st0 drives, on its own audio interface. It is the destination for somebody sitting at their rig:
+the sound comes out of the monitors, not out of a laptop speaker.
+
+### Looking costs no socket; playing holds one
+
+`useSongEngine(connected)` does two separate things, and the split is the point. It **looks**
+always — `engines.find()` on `relook`'s fifteen seconds — because the menu has to say whether the
+moteur is offerable before anybody has chosen it. It **connects** only while the moteur is the
+chosen destination: a catalogue tab left open on the browser destination must not hold a lease and
+a session on somebody's machine for nothing.
+
+The measured engine is kept in a REF and the socket effect keys on its **id**, so re-measuring
+every fifteen seconds does not tear the link down and build it again on the same machine.
+
+It claims the engine with **no project** (`engines.hold(found, { project: null })`), and that is
+deliberate: pl8 never opens one, so it must not compete for one. Claiming here would take a song
+away from the st0 tab next door. See
+[packages/engine-registry/docs/claim.md](../../../packages/engine-registry/docs/claim.md).
+
+The session is `sessionFor(SESSIONS.pl8, currentUser())` — per service AND per person. Per service
+so the médiathèque cannot tear down the song st0 has open on the same machine; per person because
+the médiathèque is hosted and two people can choose one machine.
+
+### The rest of it is one page down
+
+What the moteur actually plays — two disks and the trap between them, the preview document, the
+session, the reset an apply's diff makes necessary, and how the end of a track is inferred — is
+[playback.md](playback.md). It is one page because it is one subject, and every screen that starts
+a song would otherwise carry a copy of it.
+
+## What the choice does not cover
+
+**Samples and recordings.** They have no play button, here or anywhere. When they get one, this is
+the setting it reads. So the destination governs exactly one thing: a song's audio, master or
+variant.
+
 ## The preference, and the trap under it
 
 It lives on the account, in the per-user JSON (`packages/user-prefs/docs/store.md`).
@@ -180,6 +113,8 @@ It lives on the account, in the per-user JSON (`packages/user-prefs/docs/store.m
 That store **replaces wholesale** — a merge would make a field impossible to clear — which means
 two settings that each PUT their own field erase each other. `frontend/src/prefs.ts` is the answer:
 one holder for the whole document, `patchPrefs` for a change, and nothing else calls `savePrefs`.
+The destination and `engineId` sit side by side in it, which is exactly the pair that would
+destroy each other under a bare `savePrefs`.
 
 `RegistryClient` in `@studio/engine-browser` is generic in that shape (`P`), defaulted to
 `{engineId?}`. The schema belongs to the host, and a union of every service's fields would be a

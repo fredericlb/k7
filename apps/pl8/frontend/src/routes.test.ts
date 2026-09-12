@@ -89,8 +89,14 @@ describe("fromLocation", () => {
     expect(
       fromLocation("/songs/AC-DC/Back in Black/Hells Bells/song.yaml"),
     ).toEqual(songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }));
+    // A set list opens the same way, its name being the second half of the address.
+    expect(fromLocation("/playlists/ete-2026.yaml")).toEqual(
+      st({ section: "playlists", file: "ete-2026.yaml" }),
+    );
     // A section that carries nothing drops what follows it rather than 404ing inside the app.
-    expect(fromLocation("/playlists/ete-2026.yaml")).toEqual(st());
+    expect(fromLocation("/recordings/2026-01-01")).toEqual(
+      st({ section: "recordings" }),
+    );
     // A lone file name has no folder in front of it, which is the null `folderOf` answers.
     expect(folderOf("ete-2026.yaml")).toBeNull();
   });
@@ -103,6 +109,8 @@ describe("fromLocation", () => {
       st({ section: "recordings" }),
       songs({ file: "Miles/Kind-of-Blue/So-What/song.yaml" }),
       songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }),
+      st({ section: "playlists" }),
+      st({ section: "playlists", file: "live/repet.yaml" }),
       // « Trouver des morceaux », the tabless one — a PAGE, since its history grows.
       st({ section: "find" }),
     ])

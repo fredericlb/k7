@@ -38,23 +38,24 @@ import {
   libraryAssemblies,
 } from "@studio/song/assemblies";
 import { moduleBaseChoices } from "@studio/song/basePreset";
-import { CHAIN_FILE, chainFromBench } from "@studio/song/benchChain";
 import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
 import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
 import {
+  type BaseModuleRef,
   cloneModuleFile,
   createNode,
   type Diagnostic,
   deadProjectFields,
   freeNodeName,
   libraryModuleIssues,
-  listBaseModules,
+  listBaseModuleRefs,
   loadModuleRefs,
   moduleRefOf,
   notSupportedModules,
   withModuleStamp,
 } from "@studio/song/loader";
+import { SETTLE_MS } from "@studio/song/moduleCache";
 import {
   type CatalogueModule,
   moduleCatalogue,
@@ -81,7 +82,6 @@ import {
   loadProject,
   trackMixer,
 } from "@studio/song/project";
-import { BENCH_EDGES } from "@studio/song/scaffoldBench";
 import {
   isInSharedModules,
   librariesDirFor,
@@ -101,6 +101,12 @@ import {
   type ModuleNamespace,
 } from "@studio/song-schema/moduleTypes";
 import { PLAYLISTS_DIR, parsePlaylist } from "@studio/song-schema/playlist";
+import {
+  isReferenceFile,
+  REFERENCES_DIR,
+  type ReferenceTrack,
+  referenceName,
+} from "@studio/song-schema/reference";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type {
@@ -128,13 +134,12 @@ import type {
   WebWaveform,
   WorkspaceInfo,
 } from "@studio/web-protocol";
-import { PROJECT_SUFFIXES, projectApp } from "@studio/web-protocol/projects";
-import { guard } from "./background.ts";
 import {
-  benchChainOf,
-  isBenchProject,
-  writeChainToLibraries,
-} from "./bench.ts";
+  PROJECT_SUFFIXES,
+  type ProjectApp,
+  projectApp,
+} from "@studio/web-protocol/projects";
+import { guard } from "./background.ts";
 import {
   buildGraphDoc,
   type ClipExtents,
@@ -149,11 +154,13 @@ import {
   isHistoryDir,
   ProjectHistory,
 } from "./history.ts";
+import { walkLibraryChains } from "./libraryChains.ts";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
-import { moduleFoldersMoved } from "./moduleWatch.ts";
+import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
   copyProjectInto,
   createProjectIn,
+  importProjectBytes,
   importProjectInto,
 } from "./projectLifecycle.ts";
 // The four export acts, behind a host of six members — see shareOps.ts.
@@ -729,8 +736,11 @@ export class Workspace {
       );
 
     const wasActive = this.activeProject === abs;
-    // Release every handle inside the folder before renaming, or Windows answers EPERM.
+    // Release every handle inside the folder before renaming, or Windows answers EPERM. The module
+    // WATCH is one of them: `fs.watch` holds the directory, and it is only dropped on a switch to
+    // another project — never on a project that is going away (docs/moduleWatch.md).
     this.cancelPrewarm();
+    closeModuleWatchesUnder(abs);
     await beforeMove?.(abs);
 
     const bin = join(this.root, RECYCLE_DIR);
@@ -754,6 +764,57 @@ export class Workspace {
     return { recycled: this.toRel(dest) };
   }
 
+  /**
+   * Rename a project FOLDER in place, keeping the suffix that decides which app opens it.
+   * `beforeMove` STOPS the engine when it is serving this folder — a rename is a `renameEntry`
+   * the ACTIVE project is allowed, which is why it is not one. See docs/workspaces.md.
+   */
+  async renameProject(
+    rel: string,
+    newName: string,
+    beforeMove?: (projectAbs: string) => void | Promise<unknown>,
+  ): Promise<{ path: string }> {
+    const abs = this.safePath(rel);
+    if (abs === this.root) throw new Error("can't rename the workspace root");
+    this.guardShared(abs, "rename");
+    if (this.isRecycled(abs))
+      throw new Error(`'${this.toRel(abs)}' is already in the recycle bin`);
+    if (!isProjectDir(abs))
+      throw new Error(
+        `not a project (the folder must end in ${Object.values(PROJECT_SUFFIXES).join(", ")}): ${rel}`,
+      );
+    const clean = basename(newName).replace(/[\\/]/g, "").trim();
+    // The SUFFIX is the app: renaming a `.st0` into a `.z0` would hand the folder to another editor.
+    if (projectApp(clean) !== projectApp(basename(abs)))
+      throw new Error(
+        `a project keeps the suffix that says which app opens it — '${clean}' should end in '${PROJECT_SUFFIXES[projectApp(basename(abs)) as ProjectApp]}'`,
+      );
+    const destAbs = this.safePath(this.toRel(join(dirname(abs), clean)));
+    if (destAbs === abs) return { path: this.toRel(abs) }; // the name it has already
+    if (existsSync(destAbs)) {
+      const err = new Error(
+        `already exists: ${this.toRel(destAbs)}`,
+      ) as NodeJS.ErrnoException;
+      err.code = "EEXIST";
+      throw err;
+    }
+    const wasActive =
+      !!this.activeProject &&
+      (abs === this.activeProject || this.activeProject.startsWith(abs + sep));
+    // Release every handle inside the folder before renaming, or Windows answers EPERM.
+    this.cancelPrewarm();
+    await beforeMove?.(abs);
+    await renameWithRetry(abs, destAbs);
+    // The project did not END, it moved: the marker follows it rather than being cleared.
+    if (wasActive) {
+      this.activeProject = destAbs;
+      this.writeActiveMarker(destAbs);
+      this.invalidateProjectDoc();
+    }
+    this.forgetProjects();
+    return { path: this.toRel(destAbs) };
+  }
+
   // The path guards projectLifecycle.ts works through, without making safePath public API.
   private lifecycleHost() {
     return {
@@ -766,6 +827,17 @@ export class Workspace {
   /** Import a .dawproject or .als into a NEW project folder — see projectLifecycle.ts. */
   importProject(rel: string): { project: string; log: string[] } {
     const r = importProjectInto(this.lifecycleHost(), rel);
+    this.forgetProjects();
+    return r;
+  }
+
+  /** …and the same from bytes, into a folder the caller NAMED — a project dropped on the home page. */
+  importProjectFile(
+    file: string,
+    bytes: Uint8Array,
+    as: string,
+  ): { project: string; log: string[] } {
+    const r = importProjectBytes(this.lifecycleHost(), file, bytes, as);
     this.forgetProjects();
     return r;
   }
@@ -996,13 +1068,17 @@ export class Workspace {
     const out = new Map<string, string>();
     // Built fresh so a deleted file leaves the cache with it, rather than lingering for ever.
     const seen = new Map<string, { stamp: string; text: string }>();
+    const now = Date.now();
     for (const f of files) {
       if (f.binary) continue;
       const rel = this.toRel(f.abs);
       const stamp = `${f.size}:${f.mtimeMs}`;
+      // A file written in the last tick can be rewritten to the same size in the next one, so its
+      // stamp says nothing yet — and this image is what an undo diff is taken against.
+      const settled = now - f.mtimeMs > SETTLE_MS;
       const hit = this.textCache.get(rel);
       let text: string;
-      if (hit?.stamp === stamp) text = hit.text;
+      if (settled && hit?.stamp === stamp) text = hit.text;
       else
         try {
           text = readFileSync(f.abs, "utf8");
@@ -1010,7 +1086,8 @@ export class Workspace {
           continue; // unreadable — treated as absent, as it always was
         }
       out.set(rel, text);
-      seen.set(rel, { stamp, text });
+      // …and nothing young is KEPT either: the next call would find it under the same stamp.
+      if (settled) seen.set(rel, { stamp, text });
     }
     this.textCache = seen;
     return out;
@@ -1131,36 +1208,10 @@ export class Workspace {
 
   /** The CHAINS the account's library repository holds — see docs/workspace.md. */
   libraryChains(): { ref: string; path: string; nodes: string[] }[] {
-    const root = librariesDirFor(this.activeProject ?? this.root, "chains");
-    const out: { ref: string; path: string; nodes: string[] }[] = [];
-    // A chain's node files by NAME; a chain with no `nodes/` yet is a real state, so never a throw.
-    const nodesIn = (at: string): string[] => {
-      try {
-        return readdirSync(join(at, "nodes"), { withFileTypes: true })
-          .filter((e) => e.isFile() && /\.ya?ml$/i.test(e.name))
-          .map((e) => e.name)
-          .sort();
-      } catch {
-        return [];
-      }
-    };
-    const walk = (at: string, ref: string): void => {
-      let entries: Dirent[];
-      try {
-        entries = readdirSync(at, { withFileTypes: true });
-      } catch {
-        return;
-      }
-      if (entries.some((e) => e.isFile() && e.name === GRAPH_FILE)) {
-        if (ref) out.push({ ref, path: this.toRel(at), nodes: nodesIn(at) });
-        return;
-      }
-      for (const e of entries)
-        if (e.isDirectory())
-          walk(join(at, e.name), ref ? `${ref}/${e.name}` : e.name);
-    };
-    walk(root, "");
-    return out.sort((a, b) => a.ref.localeCompare(b.ref));
+    // The walk is shared with the ACCOUNT's own listing, which has no workspace to be relative to.
+    return walkLibraryChains(
+      librariesDirFor(this.activeProject ?? this.root, "chains"),
+    ).map((c) => ({ ref: c.ref, path: this.toRel(c.dir), nodes: c.nodes }));
   }
 
   /** The ASSEMBLY templates the library holds — what the builder lists and `assembly new` completes on.
@@ -1221,6 +1272,39 @@ export class Workspace {
       }
     };
     walk(root);
+    return out.sort((a, b) => a.path.localeCompare(b.path));
+  }
+
+  /** The reference tracks this workspace holds — `_references/` at any depth, see docs/workspace.md. */
+  references(): ReferenceTrack[] {
+    const out: ReferenceTrack[] = [];
+    const walk = (at: string): void => {
+      let entries: Dirent[];
+      try {
+        entries = readdirSync(at, { withFileTypes: true });
+      } catch {
+        return; // no folder yet: a workspace with nothing to listen against has none
+      }
+      for (const e of entries) {
+        const abs = join(at, e.name);
+        if (e.isDirectory()) {
+          walk(abs);
+          continue;
+        }
+        if (!e.isFile() || !isReferenceFile(e.name)) continue;
+        // The size is the one thing a listing can say without decoding; an unstattable file is 0.
+        let bytes = 0;
+        try {
+          bytes = statSync(abs).size;
+        } catch {}
+        out.push({
+          path: this.toRel(abs),
+          name: referenceName(e.name),
+          bytes,
+        });
+      }
+    };
+    walk(join(this.root, REFERENCES_DIR));
     return out.sort((a, b) => a.path.localeCompare(b.path));
   }
 
@@ -1321,9 +1405,6 @@ export class Workspace {
   ): { forked?: ForkedModule; pushed?: boolean } {
     const abs = this.safePath(rel);
 
-    // The active project ABSOLUTE, which is how it is held.
-    const active = this.activeProject;
-
     // `_libraries/…` is an ORDINARY path now; only `_modules` still forks — docs/workspace.md.
     if (isInSharedModules(this.toRel(abs)) && basename(abs) !== UI_FILE) {
       const dir = this.requireActive();
@@ -1338,20 +1419,6 @@ export class Workspace {
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, content, "utf8");
     this.invalidateProjectDoc();
-
-    // The CHAIN bench's write-through, after the ordinary write — see docs/workspace.md.
-    const chain = active && benchChainOf(this.root, this.toRel(active));
-    if (chain) {
-      const rel = relative(active, abs).split(sep).join("/");
-      const back =
-        rel === CHAIN_FILE
-          ? chainFromBench(content, BENCH_EDGES)
-          : rel.startsWith("nodes/") &&
-              rel !== `nodes/${BENCH_EDGES.track}.yaml`
-            ? content
-            : null;
-      if (back !== null) writeChainToLibraries(this.root, chain, rel, back);
-    }
     return {};
   }
 
@@ -1634,9 +1701,9 @@ export class Workspace {
     );
   }
 
-  /** Just the base-module refs — its own route so the graph's `+` picker never waits on `hints()`. */
-  baseModules(): string[] {
-    return this.onRevision("baseModules", (dir) => listBaseModules(dir), []);
+  /** Just the base modules, each with the name it calls itself — its own route so the graph's `+` picker never waits on `hints()`. */
+  baseModules(): BaseModuleRef[] {
+    return this.onRevision("baseModules", (dir) => listBaseModuleRefs(dir), []);
   }
 
   /** The editor's completion vocabulary, memoised on the revision like the graph — docs/workspace.md. */
@@ -1822,7 +1889,6 @@ export class Workspace {
       color: t.color,
       mute: t.mute,
       solo: t.solo,
-      kind: t.kind,
       // The LENS wired to this lane, when one is, and when it opens — packages/song/docs/camera.md.
       ...(t.camera === undefined
         ? {}
@@ -1843,7 +1909,7 @@ export class Workspace {
         ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
         ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
       })),
-      // Shapes carry no media path — each variant's fields pass straight through.
+      // Shapes carry no media path — each variant's fields, `id` included, pass straight through.
       shapes: t.shapes.map((s) => ({ ...s })),
       // …and this lane's own video run — a shader's GLSL travels INLINE, so there is no path here.
       ...(t.plugins?.length

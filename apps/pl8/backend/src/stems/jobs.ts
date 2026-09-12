@@ -1,7 +1,6 @@
-// jobs.ts — a cut is minutes, so it is started and then POLLED. The shape is `SeparateJob`,
-// the same one the file service answers with, so a browser reads a cut the same way wherever
-// it ran. This registry is the QUEUE's view of a job; queue.ts owns the waiting.
-// See ../../docs/stems.md.
+// jobs.ts — a cut is minutes, so it is started and then POLLED, and the shape it is polled in is
+// the ENGINE's `SeparateJob`. This service drives the work; the browser watching it should not be
+// able to tell which side runs it. See ../../docs/stems.md.
 
 import { createHash } from "node:crypto";
 import type { SeparateJob } from "@studio/web-protocol";
@@ -11,10 +10,10 @@ const MAX_LINES = 50;
 
 const jobs = new Map<string, SeparateJob & { at: number }>();
 
-/** Keyed by the WORK — who, and which song — so a retry joins the run already in flight. */
-export function jobIdFor(user: string, song: string): string {
+/** Keyed by the WORK, as the engine keys its own, so a retry joins the run already in flight. */
+export function jobIdFor(user: string, song: string, chain: string): string {
   return createHash("sha256")
-    .update(`${user}\0${song}`)
+    .update(`${user}\0${song}\0${chain}`)
     .digest("hex")
     .slice(0, 16);
 }
@@ -59,7 +58,7 @@ export function startJob(
   jobs.set(id, job);
   return {
     progress: (patch) => {
-      // `lines` ACCUMULATE where everything else is replaced: the worker sends only its tail.
+      // `lines` ACCUMULATE where everything else is replaced: the engine sends only its tail.
       const { lines, ...rest } = patch;
       Object.assign(job, rest);
       if (lines?.length) {

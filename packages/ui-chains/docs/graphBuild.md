@@ -918,7 +918,7 @@ Their cables need nothing done about them, since `cablePath` reads both ends off
 `moduleRow` is the standalone surface: the named modules side by side, dagre deliberately not used —
 there are no cables between channel strips to route, and the ORDER is the caller's (the song's track
 order), which a layout engine should not be allowed to choose. The cards come from `buildGraph`, so
-each is the same card the full graph draws, live values and all; only the position is ours. Four
+each is the same card the full graph draws, live values and all; only the position is ours. Five
 rules:
 
 - a name with no module in the graph is **skipped**, not drawn as a gap: the caller's list comes
@@ -934,6 +934,12 @@ rules:
   the longer cable it is. The edges are the graph's own, kept where both ends are in the row;
   nothing is invented between neighbours, because two cards side by side with no cable between them
   is the truth about a lane whose chains do not touch.
+- its `track` option puts that LANE's own card at the **head** of the row, which one lane's signal
+  path wants and a rank of channel strips has no use for. The lane is found by KIND and not by name
+  — `trk:` is prefixed precisely so a lane and a module may share one — and it arrives without its
+  clip LIST, which is the arrangement rather than the path and stands taller than any card beside
+  it. It leads nothing when the row has no module in it: one card and no cable is not a path, and
+  the caller has a better thing to say about a lane that reaches nothing.
 
 ### The -Infinity extent
 

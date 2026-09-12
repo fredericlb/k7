@@ -63,6 +63,23 @@ timeline, which it does not.
 Help (`/docs`) is a path of its own because it is an overlay over everything. `/help` is
 still accepted on the way in, so a link spelling it that way still resolves.
 
+### `panel` is the only parameter this router owns
+
+`toPath` rebuilds the address from the STATE, which is what makes the two directions agree — and it
+is also how a parameter gets eaten. Anything not rebuilt is gone the first time the screen changes,
+which on a project opening is immediately: `?profile=1` turns the instruments on
+([shell.md](shell.md)) and would survive about one render, and so would any parameter in a link
+somebody had pasted.
+
+So `toPath` takes the current search, **deletes `panel`, and puts back its own**. Deleting first is
+the half worth stating: carrying the search through naively appends, `?panel=graph&panel=logs` reads
+as the first of the two, and the panel would then be stuck on whatever it was when the address was
+last written.
+
+`sameRoute` compares `toPath` with no search on either side, deliberately: it asks whether two
+states describe the same SCREEN, and a parameter belonging to somebody else is not part of that
+question.
+
 ## Keeping them in step (`useViewRoute.ts`)
 
 The screen state lives in `App` and is written from a dozen places — menu clicks,

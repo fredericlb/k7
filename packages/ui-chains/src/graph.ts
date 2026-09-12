@@ -1634,9 +1634,11 @@ export function moduleRow(
     widthScale?: number;
     /** Carry the graph's own CABLES between these modules, and meet them on the sides. */
     links?: boolean;
+    /** The LANE this row belongs to: its own card LEADS it, the signal starting there. See docs/graphBuild.md. */
+    track?: string;
   } = {},
 ): LaidOutGraph {
-  const { widthScale = 1, links = false } = opts;
+  const { widthScale = 1, links = false, track } = opts;
   const { nodes, edges } = buildGraph(graph);
   const byModule = new Map<string, (typeof nodes)[number]>();
   for (const n of nodes)
@@ -1646,13 +1648,18 @@ export function moduleRow(
   const picked = modules
     .map((name) => byModule.get(name))
     .filter((n): n is (typeof nodes)[number] => !!n);
-  // One height for the whole row, the tallest card's, so the camera fits every card and not just it.
+  // One height for the whole row, the tallest MODULE card's — the lane's own is a clip list taller, and is dropped below.
   const tallest = picked.reduce((h, n) => Math.max(h, n.h), 0);
+  // Matched on the KIND and not on the name: `trk:` exists so a lane and a module may share one.
+  const lane =
+    track && picked.length
+      ? nodes.find((n) => n.kind === "track" && n.module === track)
+      : undefined;
 
   const out: GraphNode[] = [];
   const inRow = new Set<string>();
   let x = ROW_MARGIN;
-  for (const n of picked) {
+  for (const n of lane ? [lane, ...picked] : picked) {
     const w = Math.round(n.w * widthScale);
     inRow.add(n.id);
     out.push({
@@ -1663,6 +1670,8 @@ export function moduleRow(
       y: ROW_MARGIN,
       // Sockets are never PLATED here: the plates are CSS-pinned to edges this row does not use.
       jacks: undefined,
+      // A lane's mini timeline is the ARRANGEMENT, and it would set the height of every card beside it — docs/graphBuild.md.
+      ...(n === lane ? { clips: undefined, clipsMore: undefined } : {}),
       ...(links ? { flow: "across" as const } : {}),
     });
     x += w + STRIP_GAP;

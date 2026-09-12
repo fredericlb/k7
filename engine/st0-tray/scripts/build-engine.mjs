@@ -550,7 +550,10 @@ const releaseTargets = { win32: ["nsis"], linux: ["deb", "appimage"] }[
 ];
 if (releaseTargets) {
   const relCfg = join(tmpdir(), "studio-tray-release-config.json");
-  writeFileSync(relCfg, JSON.stringify({ bundle: { targets: releaseTargets } }));
+  writeFileSync(
+    relCfg,
+    JSON.stringify({ bundle: { targets: releaseTargets } }),
+  );
   trayArgs.push("--config", relCfg);
 }
 const trayStatus = run(

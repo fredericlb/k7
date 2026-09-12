@@ -930,7 +930,8 @@ function makeHost(
 }
 
 /** Verbs that need no active project — a copy of `commands.yaml` names, see docs/activeProject.md. */
-const GLOBAL_COMMAND = /^(system channel|playlist|project (commit|pull))\b/;
+const GLOBAL_COMMAND =
+  /^(system channel|playlist|project (commit|pull|libraries))\b/;
 
 /** The lines a command produced, plus whether it REFUSED — see docs/activeProject.md. */
 export type CommandOutput = string[] & { refused?: boolean };
@@ -993,6 +994,8 @@ export function webCommandList(): CommandInfo[] {
       command: c.command,
       help: c.help,
       readable: c.readable,
+      // Which right-clicks may offer it — absent, and every menu its arguments fit may.
+      menu: c.menu,
       // The trailing user args in order, each with its class and the PROVIDER it completes from.
       args:
         c.args?.map((a) => ({

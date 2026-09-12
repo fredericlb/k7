@@ -1,7 +1,8 @@
 // videoChains.ts — the path graph.yaml -> the renderer: a video lane's run becomes that lane's
-// plugins, and the RENDER -> VIDEO_OUT run becomes the whole frame's. Shaders
-// arrive with their GLSL already read, because the browser cannot open a folder.
-// Full rationale: docs/shaders.md, and docs/videoOutputs.md for the two sums.
+// plugins, the RENDER -> VIDEO_OUT run becomes the whole frame's, and what is wired INTO a lane
+// becomes what it draws — a lens or a shape. Shaders arrive with their GLSL already read,
+// because the browser cannot open a folder.
+// Full rationale: docs/shaders.md, docs/shapes.md, and docs/videoOutputs.md for the two sums.
 
 import type { Chain, GraphDoc, Module, Step } from "@studio/song/graph";
 import {
@@ -9,11 +10,12 @@ import {
   RENDER_NODE,
   SHADER_CATEGORY,
   SHADER_PARAMS,
+  SHAPE_CATEGORY,
   splitPort,
   VIDEO_OUT_NODE,
 } from "@studio/song-schema/moduleTypes";
 import { readShader } from "./shaders";
-import type { CameraMonitor, VideoPluginDoc } from "./videoDoc";
+import type { CameraMonitor, ShapeDoc, VideoPluginDoc } from "./videoDoc";
 
 /** Where a compiled video run lands: on the lane that starts it, or over the composited frame. */
 export interface VideoChainDocs {
@@ -29,6 +31,10 @@ export interface VideoChainDocs {
   /** …and the cameras that feed NO lane, which get a layer of their own: full frame unless the
    *  node says otherwise, in the order the graph declares them (docs/camera.md). */
   cameras: CameraLayer[];
+  /** The SHAPES each lane draws, by lane id and in graph order — a lane wired none is absent (docs/shapes.md). */
+  shapesByLane: Record<string, ShapeDoc[]>;
+  /** What compiled and will draw NOTHING — a shape aimed at no lane, say; the picture's own warnings. */
+  warnings: string[];
 }
 
 /** A camera drawn as its own layer — no `video_tracks/` file behind it, and none needed. */
@@ -47,6 +53,36 @@ export function readMonitor(raw: unknown): CameraMonitor {
   if (raw === false || raw === "off") return "off";
   if (raw === "auto") return "auto";
   return "on";
+}
+
+/** One shape MODULE -> the primitive it draws, in viewport px; its geometry is `params:`, docs/shapes.md. */
+function compileShape(node: string, module: Module): ShapeDoc {
+  const p = (name: string, dflt = 0): number => {
+    const raw = module.params?.[name];
+    return typeof raw === "number" && Number.isFinite(raw) ? raw : dflt;
+  };
+  const color = module.color || "#ffffff";
+  const x = p("x");
+  const y = p("y");
+  switch (module.shape) {
+    case "circle":
+      return { id: node, type: "circle", x, y, r: p("r"), color };
+    case "text":
+      return {
+        id: node,
+        type: "text",
+        content: module.content ?? "",
+        font: module.font || "sans-serif",
+        fontSize: p("font_size", 24),
+        x,
+        y,
+        // A width is a MAXIMUM the glyphs condense into, so 0 has to stay absent rather than mean it.
+        ...(p("w") > 0 ? { w: p("w") } : {}),
+        color,
+      };
+    default:
+      return { id: node, type: "square", x, y, w: p("w"), h: p("h"), color };
+  }
 }
 
 /** The four knobs, clamped to 0..1 because the value leaves TypeScript for GLSL — docs/shaders.md. */
@@ -125,12 +161,14 @@ const runDocs = (
     .map((s, i) => stepDoc(dir, g, owner, s, i))
     .filter((d): d is VideoPluginDoc => d !== null);
 
-/** Every video run in the project, compiled — two shapes and one loop, see docs/shaders.md. */
+/** Every video run in the project, compiled — two kinds of run and one loop, see docs/shaders.md. */
 export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
   const byLane: Record<string, VideoPluginDoc[]> = {};
   const cameraByLane: Record<string, string> = {};
   const cameraMonitorByLane: Record<string, CameraMonitor> = {};
   const cameras: CameraLayer[] = [];
+  const shapesByLane: Record<string, ShapeDoc[]> = {};
+  const warnings: string[] = [];
   let frame: VideoPluginDoc[] = [];
   // A CAMERA is a source rather than a pass: its run lands ON a picture lane, and what the lane
   // gets from it is which lens to open. The first one wins, and `validate()` reports the second.
@@ -163,6 +201,31 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
         ...(module?.frame ? { frame: module.frame } : {}),
       });
   }
+  // A SHAPE is the other picture source: it draws on the lane its run lands on, in graph order.
+  for (const [name, c] of Object.entries(g.chains)) {
+    if (c.enabled === false) continue;
+    const drawn = c.use.filter(
+      (st) =>
+        st.enabled !== false &&
+        g.modules[st.module]?.category === SHAPE_CATEGORY,
+    );
+    if (!drawn.length) continue;
+    const lanes = c.out
+      .map((o) => splitPort(o.to).node)
+      .filter((lane) => g.videoTracks[lane]);
+    if (!lanes.length) {
+      warnings.push(
+        `chain '${name}': ${drawn.map((st) => `'${st.module}'`).join(", ")} draws nothing — a shape is drawn by the picture lane it is wired to (\`${drawn[0].module}: [ <lane> ]\` in graph.yaml)`,
+      );
+      continue;
+    }
+    for (const lane of lanes) {
+      const on = shapesByLane[lane] ?? [];
+      shapesByLane[lane] = on;
+      for (const st of drawn)
+        on.push(compileShape(st.module, g.modules[st.module] as Module));
+    }
+  }
   for (const [name, c] of Object.entries(g.chains)) {
     if (c.enabled === false) continue;
     if (!c.from) continue;
@@ -176,5 +239,13 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
     const docs = runDocs(dir, g, c.from, c);
     if (docs.length) byLane[c.from] = docs;
   }
-  return { byLane, frame, cameraByLane, cameraMonitorByLane, cameras };
+  return {
+    byLane,
+    frame,
+    cameraByLane,
+    cameraMonitorByLane,
+    cameras,
+    shapesByLane,
+    warnings,
+  };
 }

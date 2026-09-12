@@ -8,7 +8,8 @@
     "start": "node --experimental-strip-types src/server.ts",
     "dev": "node --experimental-strip-types --watch src/server.ts",
     "migrate": "node --experimental-strip-types src/migrate.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@frediverse/db-grist": "*",
@@ -18,6 +19,7 @@
     "@k7/shared": "*",
     "@studio/mediatek": "*",
     "@studio/web-protocol": "*",
+    "epub-gen-memory": "^1.1.2",
     "express": "^4.19.2",
     "ws": "^8.18.0",
     "zod": "^4.4.3"
@@ -27,6 +29,7 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.12",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
   }
 }

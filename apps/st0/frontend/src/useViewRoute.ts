@@ -35,7 +35,8 @@ export function urlForState(
   if (sameRoute(state, prev)) return null;
   const url = fromLocation(pathname, search, declared);
   if (sameRoute(state, url)) return null;
-  return toPath(state);
+  // The current search goes IN so that what this router does not own comes back out.
+  return toPath(state, search);
 }
 
 /** Drive `state` from the URL and back — the caller owns the state; this only decides when each side should follow the other. */

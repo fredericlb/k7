@@ -44,64 +44,40 @@ export const SURFACE_MAPPING_SKELETON: Record<
   viewport: [],
   // Ten components naming the SAME module, in the SIGNAL's order rather than the panel's (docs/surfaceFiles.md).
   mastering: [
-    [
-      "comp.low",
-      "le module quick-master — sa quantité de compression sur le grave",
-    ],
-    ["comp.mid", "le MÊME module — sa quantité sur le médium"],
-    ["comp.high", "le MÊME module — sa quantité sur l'aigu"],
-    ["comp.lowFreq", "le MÊME module — la coupure entre grave et médium"],
-    ["comp.highFreq", "le MÊME module — la coupure entre médium et aigu"],
-    ["spread.width", "le MÊME module — la largeur stéréo"],
+    ["comp.low", "the quick-master module — how much it compresses the lows"],
+    ["comp.mid", "the SAME module — how much on the mids"],
+    ["comp.high", "the SAME module — how much on the highs"],
+    ["comp.lowFreq", "the SAME module — the crossover between lows and mids"],
+    ["comp.highFreq", "the SAME module — the crossover between mids and highs"],
+    ["spread.width", "the SAME module — the stereo width"],
     [
       "spread.bassMono",
-      "le MÊME module — la fréquence sous laquelle le grave est ramené au centre",
+      "the SAME module — the frequency below which the bass is brought to the centre",
     ],
-    ["limiter.drive", "le MÊME module — le gain d'entrée du limiteur"],
-    ["limiter.ceiling", "le MÊME module — son plafond"],
-    ["limiter.release", "le MÊME module — son temps de retour"],
+    ["limiter.drive", "the SAME module — the limiter's input gain"],
+    ["limiter.ceiling", "the SAME module — its ceiling"],
+    ["limiter.release", "the SAME module — its release time"],
   ],
   turntables: [
-    ["crossfade", "un module crossfade — son param de mélange"],
+    ["crossfade", "a crossfade module — its mix param"],
     ...["A", "B"].flatMap(
       (d) =>
         [
-          [
-            `deck${d}.tempo`,
-            `un module tempo — l'étirement de la platine ${d}`,
-          ],
+          [`deck${d}.tempo`, `a tempo module — deck ${d}'s stretch`],
           // In the SIGNAL's order: the trim heads the strip, so it comes before the bands it feeds.
-          [
-            `deck${d}.trim`,
-            `un module trim — le gain d'entrée de la platine ${d}`,
-          ],
-          [`deck${d}.eqLow`, `un module eq — le grave de la platine ${d}`],
-          [`deck${d}.eqMid`, "le MÊME module eq — son médium"],
-          [`deck${d}.eqHigh`, "le MÊME module eq — son aigu"],
-          [
-            `deck${d}.filter`,
-            `un module filter — le filtre de la platine ${d}`,
-          ],
-          [
-            `deck${d}.level`,
-            `un module level — le fader de voie de la platine ${d}`,
-          ],
+          [`deck${d}.trim`, `a trim module — deck ${d}'s input gain`],
+          [`deck${d}.eqLow`, `an eq module — deck ${d}'s lows`],
+          [`deck${d}.eqMid`, "the SAME eq module — its mids"],
+          [`deck${d}.eqHigh`, "the SAME eq module — its highs"],
+          [`deck${d}.filter`, `a filter module — deck ${d}'s filter`],
+          [`deck${d}.level`, `a level module — deck ${d}'s channel fader`],
           // OFFERED but not REQUIRED, like the stem cuts below: a desk with no effect is a desk.
-          [`deck${d}.echo`, `un module echo — l'écho de la platine ${d}`],
+          [`deck${d}.echo`, `an echo module — deck ${d}'s echo`],
           // The four stem cuts: OFFERED but not REQUIRED, the one place the two lists differ (docs/surfaceFiles.md).
-          [
-            `deck${d}.stemDrums`,
-            `un module stem — la batterie de la platine ${d}`,
-          ],
-          [`deck${d}.stemBass`, `un module stem — la basse de la platine ${d}`],
-          [
-            `deck${d}.stemOther`,
-            `un module stem — le reste de la platine ${d}`,
-          ],
-          [
-            `deck${d}.stemVocals`,
-            `un module stem — la voix de la platine ${d}`,
-          ],
+          [`deck${d}.stemDrums`, `a stem module — deck ${d}'s drums`],
+          [`deck${d}.stemBass`, `a stem module — deck ${d}'s bass`],
+          [`deck${d}.stemOther`, `a stem module — deck ${d}'s other`],
+          [`deck${d}.stemVocals`, `a stem module — deck ${d}'s vocals`],
         ] as const,
     ),
   ],

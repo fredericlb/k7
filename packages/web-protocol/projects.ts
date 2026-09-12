@@ -126,6 +126,18 @@ export function projectBasename(
   return `/${segments(pathname).slice(0, depth).join("/")}`;
 }
 
+/**
+ * The foreign project files a DROP may carry. A `.dawproject` is one self-contained file — the
+ * audio is inside it. A `.als` is not: it names its samples by path and reads them off the disk
+ * beside it, so a dropped one alone would import a project with no sound. That one is imported
+ * from the tree, where it sits with its folder. See packages/translator/docs/import.md.
+ */
+export const DROPPABLE_PROJECTS = [".dawproject"] as const;
+
+/** …asked of a file NAME, which is all either side has: the browser before it accepts, the service before it reads. */
+export const isDroppableProject = (name: string): boolean =>
+  DROPPABLE_PROJECTS.some((ext) => name.toLowerCase().endsWith(ext));
+
 /** The bench's reserved repository name, which resolves through no pl8 lookup at all — docs/addresses.md. */
 export const BENCH_REPO = "@banc";
 /** Whether an address names the bench rather than a repository. */
@@ -133,24 +145,14 @@ export function isBench(repo: string): boolean {
   return repo === BENCH_REPO;
 }
 
-/** The médiathèque's family folder for chains, so a bench chain's path always begins with it. */
-const CHAIN_FAMILY = "chains/";
 const ST0 = PROJECT_SUFFIXES.st0;
 
-/** Which médiathèque chain a bench project views, CHECKED not trusted since it is joined onto two roots. */
-export function benchChainPath(project: string): string | null {
-  if (!project.startsWith(CHAIN_FAMILY) || !project.endsWith(ST0)) return null;
-  const path = project.slice(0, -ST0.length);
-  if (path.length <= CHAIN_FAMILY.length) return null;
-  const segs = path.split("/");
-  if (segs.some((s) => !s || s === "." || s === ".." || s.includes("\\")))
-    return null;
-  return path;
-}
+/** The bench's ONE project — a live rig thrown away and rebuilt on every open, apps/pl8/docs/banc.md. */
+export const BENCH_PROJECT = `live${ST0}`;
 
-/** …and the address to open it on, from the catalogue path pl8 holds. */
-export function benchProjectForChain(chainPath: string): string {
-  return `${chainPath}${ST0}`;
+/** Whether the project half of a `@banc` address names that rig; nothing else under `@banc` names anything. */
+export function isBenchProject(project: string): boolean {
+  return project === BENCH_PROJECT;
 }
 
 /** A SHARED project, `/@shares/<token>.st0` — the `.st0` is what makes it parse ordinarily; docs/addresses.md. */

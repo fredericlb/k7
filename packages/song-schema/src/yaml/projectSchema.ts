@@ -23,8 +23,6 @@ export const ProjectSettingsSchema = z
       .optional(),
     // The song's OUTPUT level in dB, absent meaning UNITY — a fact about the MIX (docs/masterVolume.md).
     masterVolume: z.number().min(MASTER_MIN_DB).max(MASTER_MAX_DB).optional(),
-    // This project is the MODULE BENCH: a save aimed at a `@st0` module writes THROUGH (docs/moduleFork.md).
-    mediatekBench: z.boolean().optional(),
     // DEAD and still accepted, since `.strict()` would turn a refusal into a project that will not open.
     modules_from: z.array(z.string()).optional(),
     libraries_from: z.array(z.string()).optional(),

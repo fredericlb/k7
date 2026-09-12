@@ -5,6 +5,7 @@
 // mapping) — the shape a recorded sequence shares with a hand-entered one.
 
 import { isSeq, parseDocument } from "yaml";
+import { beatsToPosition, parsePosition } from "../timecode";
 
 export interface NoteIn {
   t: number;
@@ -167,9 +168,19 @@ function readNote(
   const d = Number(doc.getIn(["notes", i, "d"]) ?? Number.NaN);
   const k = Number(doc.getIn(["notes", i, "k"]) ?? Number.NaN);
   const v = doc.getIn(["notes", i, "v"]);
+  const repeat = doc.getIn(["notes", i, "repeat"]);
+  const skip = doc.getIn(["notes", i, "skip"]);
   if (!Number.isFinite(t) || !Number.isFinite(d) || !Number.isFinite(k))
     return null;
-  return { t, d, k, ...(typeof v === "number" ? { v } : {}) };
+  return {
+    t,
+    d,
+    k,
+    ...(typeof v === "number" ? { v } : {}),
+    // Carried so a note that is COPIED keeps its pad effects — @studio/song docs/padEffects.md.
+    ...(typeof repeat === "number" ? { repeat } : {}),
+    ...(typeof skip === "number" ? { skip } : {}),
+  };
 }
 
 /**
@@ -223,6 +234,54 @@ export function mapNotesInRegion(
   return changed
     ? { text: doc.toString({ lineWidth: 0 }), changed }
     : { text, changed: 0 };
+}
+
+/** A sequence's WINDOW in beats, as the compiler reads it — the rule is one, so it is stated once. */
+function windowOf(
+  doc: ReturnType<typeof parseDocument>,
+  notes: NoteIn[],
+  num: number,
+  den: number,
+): { from: number; to: number } {
+  const bar = (num * 4) / den;
+  // The notes' extent rounded UP TO THE BAR, which is what a sequence stating no `to` is long — packages/song/docs/graphModel.md.
+  const extent =
+    Math.ceil(notes.reduce((m, n) => Math.max(m, n.t + n.d), 0) / bar) * bar;
+  const raw = (key: string): number | null => {
+    const v = doc.get(key);
+    return v == null ? null : parsePosition(String(v), num, den);
+  };
+  const from = raw("from") ?? 0;
+  const stated = raw("to");
+  // A `to` at or before `from` falls back to the extent, the fallback nodeProject.ts applies.
+  const to = stated !== null && stated > from ? stated : Math.max(extent, from);
+  return { from, to };
+}
+
+/** Twice as long, playing twice: the window's notes copied one window later, a stated `to` moved out — docs/noteEdits.md. */
+export function doubleSequence(text: string, num: number, den: number): string {
+  const doc = parseDocument(text, OPTS);
+  const list = doc.getIn(["notes"]);
+  const notes: NoteIn[] = [];
+  if (isSeq(list))
+    for (let i = 0; i < list.items.length; i++) {
+      const n = readNote(doc, i);
+      if (n) notes.push(n);
+    }
+  if (!notes.length)
+    throw new Error("no notes to double — this sequence is empty");
+  const { from, to } = windowOf(doc, notes, num, den);
+  const win = to - from;
+  if (!(win > 0)) throw new Error("this sequence has no length to double");
+  // What the window holds, by the rule every bulk edit here follows: a note is in when it STARTS inside.
+  const copies = notes
+    .filter((n) => n.t >= from - EPS && n.t < to - EPS)
+    .map((n) => ({ ...n, t: n.t + win }));
+  if (!copies.length)
+    throw new Error("no notes inside the window — nothing to double");
+  if (doc.get("to") != null)
+    doc.set("to", beatsToPosition(from + 2 * win, num, den));
+  return appendNotes(doc.toString({ lineWidth: 0 }), copies);
 }
 
 /** The two effects a PAD can carry — see @studio/song docs/padEffects.md. */

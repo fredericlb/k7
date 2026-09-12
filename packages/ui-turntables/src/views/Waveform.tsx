@@ -237,14 +237,14 @@ export function Waveform({
       }
       title={
         onShove
-          ? "glisser à gauche pour avancer, à droite pour reculer — plus loin, plus vite"
+          ? "drag left to go forward, right to go back — further is faster"
           : undefined
       }
     >
       <canvas ref={canvas} className="h-full w-full" />
       {analysing ? (
         <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-          analyse du morceau…
+          analysing the song…
         </span>
       ) : null}
       {problem ? (

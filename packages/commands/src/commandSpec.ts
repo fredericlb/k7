@@ -61,6 +61,8 @@ export interface CommandSpec {
   // The palette's line, and what it fuzzy-matches on. See commands.yaml's header.
   readable?: ReadableDescription;
   surfaces: Surface[];
+  /** Which right-click menus may offer it. Absent ⇒ every one whose click answers its leading args. */
+  menu?: MenuEntity[];
   // No fixed leading args: a verb that is one setting of another is the ARG's job — docs/completions.md.
   args?: ArgSpec[]; // trailing user args (for completion)
 }
@@ -235,6 +237,19 @@ const PROVIDERS = {
   },
 } satisfies Record<string, (h: CommandHost) => string[]>;
 
+/** The `menu:` words of one entry, unknown ones reported and dropped — a typo would silence a menu. */
+function menuList(command: string, words: unknown[]): MenuEntity[] {
+  const kept: MenuEntity[] = [];
+  for (const w of words.map(String))
+    if (MENU_NAMES.has(w)) kept.push(w as MenuEntity);
+    else
+      console.error(
+        `commands.yaml: "${command}" menu: names an unknown entity "${w}" — ` +
+          `known: ${MENU_ENTITIES.join(", ")}`,
+      );
+  return kept;
+}
+
 // commands.yaml ships beside the package root; this module is src/commandSpec.ts.
 function commandsPath(): string {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -261,6 +276,10 @@ export function loadCommandSpecs(): CommandSpec[] {
         surfaces: Array.isArray(c.surfaces)
           ? (c.surfaces as Surface[])
           : ["cli"],
+        // …and one that names no menu is offered on every menu its arguments fit.
+        menu: Array.isArray(c.menu)
+          ? menuList(String(c.command), c.menu as unknown[])
+          : undefined,
         args: Array.isArray(c.args)
           ? c.args.map((a: any) => {
               // An unknown provider is a typo: reported and dropped, never thrown — a throw here would empty the WHOLE catalogue.
@@ -308,6 +327,26 @@ export const ARG_CLASSES = [
   "text",
 ] as const;
 export type ArgClass = (typeof ARG_CLASSES)[number];
+
+// Where a right-click may offer a command, mirrored on the wire — apps/st0/frontend/docs/contextMenu.md.
+export const MENU_ENTITIES = [
+  "track",
+  "group",
+  "node",
+  "event",
+  "param",
+  "take",
+  "curve",
+  "ruler",
+  "marker",
+  "assembly",
+  "warp",
+  "shot",
+  "pad",
+  "note",
+] as const;
+export type MenuEntity = (typeof MENU_ENTITIES)[number];
+const MENU_NAMES: ReadonlySet<string> = new Set(MENU_ENTITIES);
 
 // Which class each provider serves. Exhaustive over PROVIDERS, so a new one must say what it names to compile.
 const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {

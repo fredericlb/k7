@@ -84,6 +84,19 @@ function stampFor(dir: string): string {
   return fresh;
 }
 
+/**
+ * How old a file's mtime must be before it can be trusted as a cache key, anywhere in this repo.
+ * A write landing in the same file-time tick as the read before it REPRODUCES the stamp, so what
+ * was cached under it then serves the edit that has just been made. The window is wider than any
+ * clock or filesystem granularity (NTFS sub-ms, FAT 2 s, network mounts 1 s), and what it buys is
+ * measured in docs/moduleCache.md. `yamlCache` and the file service's text image key on it too.
+ */
+export const SETTLE_MS = 2_000;
+
+/** The newest mtime out of a stamp this file made — `<hash>:<entries>:<mtime>`. */
+const newestOf = (stamp: string): number =>
+  Number(stamp.slice(stamp.lastIndexOf(":") + 1)) || 0;
+
 /** One project's cached reads, all invalidated together by the one stamp they were built under. */
 interface Slot {
   stamp: string;
@@ -91,8 +104,16 @@ interface Slot {
 }
 const memo = new Map<string, Slot>();
 
-/** The stamp the enclosing `withModuleStamp` already paid for, computed on the first ask. */
-let scope: { dir: string; stamp?: string } | null = null;
+/**
+ * The stamp the enclosing `withModuleStamp` already paid for, computed on the first ask — plus
+ * what was built under it while it was too young to keep. Those values are consistent with each
+ * other and die with the derivation, which is the whole of what makes them safe.
+ */
+let scope: {
+  dir: string;
+  stamp?: string;
+  young?: Map<string, unknown>;
+} | null = null;
 
 /** Run `fn` with ONE stamp walk for `dir`, scoped EXPLICITLY — see docs/moduleCache.md. */
 export function withModuleStamp<T>(dir: string, fn: () => T): T {
@@ -121,6 +142,16 @@ export function cachedForModules<T>(
   } else {
     stamp = stampFor(dir);
   }
+  // Too young to key on: nothing built now may outlive the caller that asked for it, since the
+  // next write can still land under this same stamp. Inside a scope it is held for that scope.
+  if (Date.now() - newestOf(stamp) <= SETTLE_MS) {
+    memo.delete(dir); // and a slot already under it could have been built before that write
+    if (scope?.dir !== dir) return build();
+    const young = (scope.young ??= new Map());
+    if (!young.has(key)) young.set(key, build());
+    return young.get(key) as T;
+  }
+
   let slot = memo.get(dir);
   if (slot && slot.stamp !== stamp) slot = undefined; // changed on disk — drop the whole slot
   memo.delete(dir);

@@ -136,25 +136,17 @@ sentinel and takes another road. Three use it.
 ### `@banc` — the bench
 
 Every other project resolves against the MACHINE — a repository is a folder it holds, and
-`GET /workspaces/by-repo` is what answers; the bench has no repository and wants none. It is generated from the médiathèque's
-catalogue and regenerated whenever it is opened, so putting it under version control would version
-a cache. `ProjectGate` does no lookup, no clone, one call to the machine that makes the folder.
+`GET /workspaces/by-repo` is what answers; the bench has no repository and wants none. It is
+generated, and deleted and generated again whenever it is opened, so putting it under version
+control would version something with a lifetime of one session. `ProjectGate` does no lookup, no
+clone, one call to the machine that makes the folder.
 
-A CHAIN on the bench is `/@banc/chains/<path>.st0`, and the address's project part is what says
-which. The catalogue path IS the project path with `.st0` on the end, which is why there is no
-lookup table and no marker file: pl8 writes the link from the chain it is showing, the file service
-reads the chain back out of it, and neither can drift from the other. `chains/` is the family
-folder in the médiathèque, so a chain's path always begins with it and nothing else can be mistaken
-for one.
-
-`benchChainPath` checks rather than trusts: the path comes off an address anyone can type and is
-then joined onto two roots, the médiathèque and the workspace, so every segment must be an ordinary
-name — which is what stops `chains/../../…` from naming a folder outside either. Null, not an
-exception: it is the same answer as "this is not a chain".
-
-The CHAIN bench is the only one. A shared module is edited from the Libraries tab of whatever
-project you already have open (`apps/st0/frontend/docs/sharedModules.md`), so nothing needs the
-catalogue mirrored into a generated project of its own.
+It answers **one** address, `/@banc/live.st0`, and `isBenchProject` is the whole rule — spelled
+once, in this package, so the browser that builds the link and the service that reads it cannot
+drift. Anything else under `@banc` names nothing and is a 404 whose sentence says where a chain and
+a module are edited instead: from a project you already have open
+(`apps/st0/frontend/docs/sharedModules.md`). That is what makes the project part safe to join onto
+a root — it is a constant, never a path taken off an address.
 
 ### `@shares` — a frozen snapshot
 
@@ -166,7 +158,7 @@ which means `parseLaunch`, `projectBasename` and every route below them need no 
 token lands inside the router's basename, and a reload or a pasted link simply re-reads it. The
 three other shapes considered all cost a special case somewhere.
 
-`shareToken` is checked rather than trusted, exactly as `benchChainPath` is: one segment,
+`shareToken` is checked rather than trusted, and it is the one sentinel that must be: one segment,
 base64url and nothing else — which is what `randomBytes(32).toString("base64url")` produces and
 what a traversal is not.
 

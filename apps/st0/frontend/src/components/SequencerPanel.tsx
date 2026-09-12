@@ -32,6 +32,7 @@ import {
 } from "../gridCaret";
 import { useGridCaret } from "../hooks/useGridCaret";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
+import { m } from "../paraglide/messages.js";
 import {
   NUDGE_MAX,
   notesByCell,
@@ -46,6 +47,7 @@ import {
 } from "../stepGrid";
 import type { WebClip, WebNote, WebProject } from "../types";
 import { noteName } from "./PianoRoll";
+import { SeqDoubleButton } from "./SeqDoubleButton";
 
 // A cell's pixel height (h-14), needed as a NUMBER by the velocity line: 0 at the bottom edge, 1 at the top.
 const CELL_H = 56;
@@ -153,9 +155,7 @@ export function SequencerPanel({
     if (!active || !box) return;
     const steps = box.colHi - box.colLo + 1;
     const lanes = box.rowHi - box.rowLo + 1;
-    setStatus?.(
-      `selection: ${steps} pas × ${lanes} son${lanes > 1 ? "s" : ""} — ⇧L la boucle · v annule`,
-    );
+    setStatus?.(m["seq.selection"]({ steps, lanes, s: lanes > 1 ? "s" : "" }));
   }, [active, box, setStatus]);
 
   useImperativeHandle(
@@ -195,20 +195,21 @@ export function SequencerPanel({
       pasteLine: (c) => {
         if (c.kind !== "notes")
           return {
-            note: "le presse-papier tient des événements, pas des notes",
+            note: m["grid.clipboardHasEvents"](),
           };
         const topKey = rows[caret.row]?.note;
-        if (topKey === undefined)
-          return { note: "aucune ligne sous le curseur" };
+        if (topKey === undefined) return { note: m["grid.noRowUnderCaret"]() };
         const out = pasteNotes(c, topKey, cells[caret.col] ?? origin);
-        if (!out.length)
-          return { note: "rien à coller ici — tout tombe hors du clavier" };
+        if (!out.length) return { note: m["grid.nothingToPaste"]() };
         const dropped = droppedCount(out.length, c);
         return {
           line: `sequence note add ${seqId} ${JSON.stringify(out)}`,
           note:
-            `${out.length} note${out.length > 1 ? "s" : ""} collée${out.length > 1 ? "s" : ""}` +
-            (dropped ? ` — ${dropped} hors clavier, laissée(s)` : ""),
+            m["grid.pasted"]({
+              n: out.length,
+              s: out.length > 1 ? "s" : "",
+            }) +
+            (dropped ? ` — ${m["grid.pasteDropped"]({ n: dropped })}` : ""),
         };
       },
     }),
@@ -492,7 +493,7 @@ export function SequencerPanel({
       <div className="flex items-center gap-2 border-b border-border px-3 py-1 text-xs">
         <span className="font-semibold text-primary">⣿ {seqId}</span>
         <span className="text-muted-foreground">
-          {rack.length} sons · {cells.length} pas
+          {m["seq.counts"]({ sounds: rack.length, steps: cells.length })}
           {loop && (
             <span className="ml-2 text-violet-400">
               · loop {+loop.win.toFixed(3)}b
@@ -500,10 +501,7 @@ export function SequencerPanel({
             </span>
           )}
         </span>
-        <span className="text-muted-foreground/70">
-          cliquer pose/enlève · glisser règle la vélocité · ctrl+glisser déplace
-          · ⇧molette décale d'un centième de pas
-        </span>
+        <span className="text-muted-foreground/70">{m["seq.hint"]()}</span>
         {/* The precision, a closed set so the grid never lands on a musically meaningless step; session state, written nowhere. */}
         <span className="ml-auto flex items-center gap-1">
           {PRECISIONS.map((p) => (
@@ -512,7 +510,7 @@ export function SequencerPanel({
               type="button"
               onClick={() => setPrec(p)}
               aria-pressed={p.label === prec.label}
-              title={`pas de ${p.label}`}
+              title={m["seq.precision"]({ label: p.label })}
               className={cn(
                 "rounded px-1.5 py-0.5 tabular-nums hover:bg-accent hover:text-foreground",
                 p.label === prec.label
@@ -524,6 +522,8 @@ export function SequencerPanel({
             </button>
           ))}
         </span>
+        {/* …and the whole pattern again after itself: the one edit here that is about the sequence rather than a pad. */}
+        <SeqDoubleButton seqId={seqId} command={command} />
         {modes}
       </div>
 
@@ -541,11 +541,7 @@ export function SequencerPanel({
                     "font-semibold",
                     row.known ? "text-foreground" : "text-amber-400",
                   )}
-                  title={
-                    row.known
-                      ? undefined
-                      : "hors rack — aucun son ne répond à cette note"
-                  }
+                  title={row.known ? undefined : m["seq.offRack"]()}
                 >
                   {row.symbol}
                 </span>
@@ -623,7 +619,12 @@ export function SequencerPanel({
                       onContextMenu={(e) => onCellMenu(e, hit)}
                       title={
                         hit
-                          ? `${row.symbol} · beat ${+cellStart.toFixed(3)}${nudge ? ` +${nudge}/100` : ""} · vel ${+live.toFixed(2)} — glisser règle la vélocité, ⇧molette décale, ctrl+glisser déplace, cliquer enlève`
+                          ? m["seq.cellHit"]({
+                              symbol: row.symbol,
+                              beat: +cellStart.toFixed(3),
+                              nudge: nudge ? ` +${nudge}/100` : "",
+                              vel: +live.toFixed(2),
+                            })
                           : `${row.symbol} · beat ${+cellStart.toFixed(3)}`
                       }
                       className={cn(
@@ -684,12 +685,12 @@ export function SequencerPanel({
                       {hit && (hit.repeat || hit.skip) && (
                         <span className="pointer-events-none absolute bottom-0 left-0.5 flex gap-0.5 font-mono text-[9px] text-white leading-none tabular-nums">
                           {hit.repeat && (
-                            <span title={`répété ×${hit.repeat}`}>
+                            <span title={m["seq.repeated"]({ n: hit.repeat })}>
                               ⁝{hit.repeat}
                             </span>
                           )}
                           {hit.skip && (
-                            <span title={`muet une passe sur ${hit.skip}`}>
+                            <span title={m["seq.skipped"]({ n: hit.skip })}>
                               ⌇{hit.skip}
                             </span>
                           )}

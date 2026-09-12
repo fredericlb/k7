@@ -11,7 +11,7 @@
 import { describe, expect, it } from "vitest";
 import { hasMalformedUiFile, readUiFile, writeUiFile } from "./moduleUi";
 
-/** `packages/dsp/modules/tempo/ui.yaml`, verbatim — block mappings, a meter, quoted binds. */
+/** A library `tempo` panel, verbatim — block mappings, a meter, quoted binds. */
 const TEMPO = `# panel for @st0/audio/utility/tempo
 cols: 2
 rows: 2
@@ -32,7 +32,7 @@ widgets:
     { type: meter, col: 1, row: 0, rowSpan: 2, label: Source, bind: "Source BPM" }
 `;
 
-/** `packages/dsp/modules/eq3/ui.yaml` — one-line flow mappings and an accented label. */
+/** A library `eq3` panel — one-line flow mappings and an accented label. */
 const EQ3 = `# panel for audio/filter/eq3
 cols: 3
 rows: 1

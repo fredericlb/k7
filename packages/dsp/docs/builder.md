@@ -115,3 +115,19 @@ so `"2"` would fetch a register nobody writes.
 A note pushed past the edges of the keyboard by `transpose` is **clamped, not dropped**: dropping it
 would leave its note-off orphaned and the voice stuck. `velocity` never reaches zero, because
 velocity 0 is a note-off in MIDI.
+
+### `hold` and `strike` — the two with a memory
+
+`hold(m)` takes the keys OUT of the stream and into the graph's held set; `strike(m, stepBeats,
+gate)` plays that set back on a clock. `hold` before `strike` is the circuit, and the pair is a note
+repeater in three lines (`packages/dsp/src/noteRepeat.ts`).
+
+They break the rule the three above follow — that a MIDI node is a stateless rewrite — and that is
+the point: a note SOURCE needs a memory of what is held and a clock to strike on, and without those
+two nodes every rhythmic MIDI module is a compiled plugin. `engine/st0-engine/docs/midiGraph.md` is
+where that is argued, including why the state sits on the graph rather than on a node.
+
+`strike`'s step is in **beats**, so a graph follows the tempo without reading one: the plugin hands
+the block length and the length of a beat to `processMidi`, being the only side that can know
+either. A division is a parameter in beats — `0.5` is an eighth — because the graph has no array to
+index; the panel's dropdown writes the value it labels.

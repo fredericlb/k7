@@ -24,6 +24,19 @@ export interface FileCfg {
   };
 }
 
+/**
+ * Add up main-thread work by name, for a host that watches for stalls. Injected rather than
+ * imported: this package draws no screen and must not reach into an app's instruments. Defaults to
+ * doing nothing, so nobody has to set it — see apps/st0/frontend/docs/shell.md.
+ */
+export type Tally = (name: string, ms: number, bytes?: number) => void;
+let tally: Tally = () => {};
+
+/** Point the transport's reports at a host's tally. Off until somebody asks. */
+export function setFileApiTally(fn: Tally): void {
+  tally = fn;
+}
+
 let fileCfg: FileCfg | null = null;
 
 /** Point every file op at a chosen engine + workspace. Called by the gate, once. */
@@ -57,7 +70,8 @@ const inFlight = new Map<string, Promise<string>>();
 export function fget<T>(path: string): Promise<T> {
   // A canned answer short-circuits, and is parsed per caller exactly as a real body is.
   const stock = fileCfg?.frozen?.canned[path];
-  if (stock !== undefined) return Promise.resolve(JSON.parse(stock) as T);
+  if (stock !== undefined)
+    return Promise.resolve(parse<T>(`GET ${route(path)}`, stock));
   const key = `${epoch}\n${path}`;
   let body = inFlight.get(key);
   if (!body) {
@@ -66,7 +80,24 @@ export function fget<T>(path: string): Promise<T> {
     });
     inFlight.set(key, body);
   }
-  return body.then((t) => JSON.parse(t) as T);
+  return body.then((t) => parse<T>(`GET ${route(path)}`, t));
+}
+
+/**
+ * The one place a response becomes objects, and the only part of a GET that blocks: the fetch is
+ * awaited, the parse is not. Reported per ROUTE rather than per URL — a path carrying a file name
+ * would make every read its own line and the busiest route unfindable.
+ */
+function parse<T>(label: string, text: string): T {
+  const began = performance.now();
+  const value = JSON.parse(text) as T;
+  tally(label, performance.now() - began, text.length);
+  return value;
+}
+
+/** A path's first two segments, without the query: enough to name the route, short enough to group. */
+function route(path: string): string {
+  return path.split("?")[0].split("/").slice(0, 3).join("/");
 }
 
 async function getOnce(path: string): Promise<string> {
@@ -116,7 +147,8 @@ export async function fsend<T>(
     e.status = res.status;
     throw e;
   }
-  return res.json() as Promise<T>;
+  // Read as TEXT then parsed here, so the parse is timed: `res.json()` hides it inside the await.
+  return parse<T>(`${method} ${route(path)}`, await res.text());
 }
 
 /** Absolute URL for a media element: everything rides in the query, since a GET sends no headers. */

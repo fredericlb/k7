@@ -11,5 +11,7 @@ project:
   layers:
     - main
     - pip
-    - box
+    - box_layer
+    - dot_layer
+    - title_layer
 markers: {}

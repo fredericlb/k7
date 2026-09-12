@@ -99,9 +99,10 @@ Two details it costs:
 
 - Picture is **decimal seconds**. The conversion is `beats × 60 / tempo`, exact because there is
   one tempo and no tempo map — the one place that absence is a simplification rather than a limit.
-- `setVideoPlacementField` addresses **by ref**, which is right for a drag (you grabbed a
-  particular strip) and wrong here (a ref may appear twice on a lane, and both must move). So
-  `spliceVideoTime` addresses by index.
+- `setVideoPlacementField` addresses **by ref**, which is right for the editor's per-placement
+  readers (they found the placement by its source in the first place) and wrong here: a ref may
+  appear twice on a lane, and both must move. So `spliceVideoTime` addresses by index, as the
+  timeline's own drag does.
 
 ## Placing a point
 

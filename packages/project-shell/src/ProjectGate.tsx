@@ -307,14 +307,15 @@ export function ProjectGate({
             phase: strings.benchFetching ?? "",
             percent: null,
           });
-          // The project part goes with it: the same bench opens on the catalogue or on one chain.
+          // The project part goes with it: the machine is the side that says which address it answers.
           let bench: { workspace: string; project: string };
           try {
             bench = await projectApi.openBench(project, libraries.uri);
           } catch (e) {
             if (cancelled) return;
-            // 409: a chain this machine has not got, or one colliding with the bench's furniture.
-            if ((e as { status?: number }).status === 409) {
+            // 404 is an address under `@banc` that names nothing; 409 a library that will not mount.
+            const status = (e as { status?: number }).status;
+            if (status === 404 || status === 409) {
               setPhase({ k: "missing", message: (e as Error).message });
               return;
             }

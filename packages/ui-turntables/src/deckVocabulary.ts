@@ -97,7 +97,7 @@ export const CENSOR_RATE = -1;
 /** The three bands a deck's EQ strip draws, low to high — the order they sit in. */
 export const EQ_BANDS = [
   { id: "eqLow", label: "GRAVE" },
-  { id: "eqMid", label: "MÉDIUM" },
+  { id: "eqMid", label: "MID" },
   { id: "eqHigh", label: "AIGU" },
 ] as const;
 

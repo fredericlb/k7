@@ -32,7 +32,7 @@ export function EditSharedModuleDialog({
         <DialogHeader>
           <DialogTitle>Edit the shared module “{ref}”?</DialogTitle>
           <DialogDescription>
-            This module lives in the médiathèque, not in this project. Saving
+            This module lives in the media library, not in this project. Saving
             writes straight into the catalogue — there is no copy to fall back
             on — so every song that names it will sound different the next time
             it is opened.

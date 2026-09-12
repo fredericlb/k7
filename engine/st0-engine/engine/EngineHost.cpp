@@ -458,7 +458,20 @@ void EngineHost::applyMetronome(const std::string& session) {
     impl_->session(session).edit->setClickTrackVolume(
         (float) impl_->session(session).current.metronomeLevel);
 }
-void EngineHost::stop(const std::string& session) { if (auto* tc = impl_->transport(session)) tc->stop(false, false); }
+// Stopping the transport stops FEEDING the graph, which is not the same as ending the notes already
+// in it: a note-on delivered before the stop has no note-off coming, and the chord hangs. So every
+// stop lets go — the notes, and not the tails. See docs/panic.md.
+void EngineHost::stop(const std::string& session) {
+    if (auto* tc = impl_->transport(session)) tc->stop(false, false);
+    if (auto& s = impl_->session(session); s.edit) te::midiPanic(*s.edit, false);
+}
+
+// …and the one for a stop that did not work: the same, plus reset(), which is what kills a reverb
+// tail and re-seats a plugin whose own state is stuck. Two gestures, one flag apart (docs/panic.md).
+void EngineHost::panic(const std::string& session) {
+    if (auto* tc = impl_->transport(session)) tc->stop(false, false);
+    if (auto& s = impl_->session(session); s.edit) te::midiPanic(*s.edit, true);
+}
 void EngineHost::rewind(const std::string& session) { if (auto* tc = impl_->transport(session)) tc->setPosition(tt::TimePosition()); }
 
 // Set the loop region and enable or disable looping; `enabled` false keeps the range, so re-enabling reuses it.

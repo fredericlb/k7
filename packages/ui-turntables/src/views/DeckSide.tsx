@@ -50,10 +50,10 @@ function DeckPlay({
       disabled={!onToggle}
       title={
         !onToggle
-          ? `platine ${side} vide — rien à lancer`
+          ? `deck ${side} is empty — nothing to start`
           : running
-            ? `arrêter la platine ${side} — l'autre continue`
-            : `lancer la platine ${side} seule`
+            ? `stop deck ${side} — the other one carries on`
+            : `start deck ${side} on its own`
       }
       onClick={onToggle}
       aria-pressed={running}
@@ -364,7 +364,7 @@ export function DeckSide({
           {/* What is loaded, in words: it earns its line only where the record's label is absent. */}
           {layout.title ? (
             <div className="w-full truncate text-center text-xs text-muted-foreground">
-              {load ? load.title : "rien de chargé"}
+              {load ? load.title : "nothing loaded"}
             </div>
           ) : null}
         </div>

@@ -80,7 +80,7 @@ describe("resolving the desk's bindings", () => {
     );
     expect(bindings).toEqual([]);
     expect(problems[0].control).toBe("deckA.pitch");
-    expect(problems[0].message).toContain("pupitre");
+    expect(problems[0].message).toContain("of the desk");
   });
 
   it("names a module the chains do not have", () => {
@@ -108,7 +108,7 @@ describe("resolving the desk's bindings", () => {
     graph.chains.deckA.from = "";
     const { bindings, problems } = resolveBindings(VIEW, graph);
     expect(bindings).toEqual([]);
-    expect(problems[0].message).toContain("bouger");
+    expect(problems[0].message).toContain("to move");
   });
 
   it("resolves WITHOUT a widget rather than calling it broken", () => {

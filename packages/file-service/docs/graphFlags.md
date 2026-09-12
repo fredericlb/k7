@@ -9,6 +9,13 @@ A plugin slot with no plugin at all — typically a module that came in from an 
 with nothing matched. NOT a rack, which legitimately carries a sampler instead of a
 plugin.
 
+**And not a module with no slot to begin with.** A `shaders`, `shapes` or `video_transitions`
+module IS its behaviour — GLSL it carries, or params it draws from — so an empty `plugin:` on one
+is not a hole, and `hostsPlugin` (`@studio/song-schema/moduleTypes`) is what says so. Without that
+test every shader and every shape draws red, captioned "missing plugin", for having exactly what
+its type folder says it should have. The same test gates `pluginId`, and must: these run in the
+BROWSER, so an engine address for one would name a plugin no engine has.
+
 ## `notSupported` (amber)
 
 The module HAS a plugin, and its `plugin.type` is the deliberate marker

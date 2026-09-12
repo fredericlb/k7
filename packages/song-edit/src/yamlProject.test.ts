@@ -30,14 +30,7 @@ const here = dirname(
   new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"),
 );
 // Three, not four: `song-edit/src` → the package → `packages/` → the repo root.
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 const SYNTH = ["modules", "instruments", "synth"];
 
 let dir: string;

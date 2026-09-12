@@ -72,10 +72,27 @@ juce::ValueTree MidiGraphPlugin::create()
 
 void MidiGraphPlugin::initialise(const te::PluginInitialisationInfo& info)
 {
+    sampleRate_ = info.sampleRate > 0.0 ? info.sampleRate : 44100.0;
     if (graph_) graph_->prepare(info.sampleRate, info.blockSizeSamples);
 }
 
+double MidiGraphPlugin::secondsPerBeat()
+{
+    // Read on the audio thread, once a block: the edit carries ONE tempo, and it is a plain number.
+    // Nothing here follows a tempo sequence, because no ProjectDoc expresses one.
+    double bpm = 120.0;
+    if (auto* t = edit.tempoSequence.getTempo(0)) bpm = t->getBpm();
+    return 60.0 / juce::jmax(1.0, bpm);
+}
+
 void MidiGraphPlugin::deinitialise() {}
+
+void MidiGraphPlugin::midiPanic()
+{
+    // A graph with `mhold` in it is a note SOURCE holding keys of its own, so the panic has to reach
+    // HERE and not only the instrument it feeds — DspGraph::reset() drops the held set and the clock.
+    if (graph_) graph_->reset();
+}
 
 void MidiGraphPlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
 {
@@ -96,7 +113,9 @@ void MidiGraphPlugin::applyToBuffer(const te::PluginRenderContext& fc)
     for (size_t i = 0; i < params_.size(); ++i)
         scratch_[i] = params_[i]->getCurrentValue();
 
-    graph_->processMidi(*fc.bufferForMidiMessages, scratch_.data(), (int)scratch_.size());
+    const double seconds = sampleRate_ > 0.0 ? fc.bufferNumSamples / sampleRate_ : 0.0;
+    graph_->processMidi(*fc.bufferForMidiMessages, scratch_.data(), (int)scratch_.size(), seconds,
+                        secondsPerBeat());
 }
 
 }  // namespace studio

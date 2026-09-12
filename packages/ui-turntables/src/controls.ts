@@ -45,7 +45,7 @@ export interface MixControl {
 const perDeck = (deck: string, letter: string): MixControl[] => [
   {
     id: `${deck}.tempo`,
-    label: `Tempo platine ${letter}`,
+    label: `Deck ${letter} tempo`,
     kind: "fader",
     // The module's own knob, so a binding cannot offer a range the panel refuses to draw.
     range: BPM_RANGE,
@@ -55,7 +55,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
   },
   {
     id: `${deck}.sync`,
-    label: `Sync platine ${letter}`,
+    label: `Deck ${letter} sync`,
     kind: "button",
     range: [0, 1],
     home: 0,
@@ -64,12 +64,12 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
   ...(
     [
       ["eqLow", "Grave"],
-      ["eqMid", "Médium"],
+      ["eqMid", "Mid"],
       ["eqHigh", "Aigu"],
     ] as const
   ).map(([suffix, band]) => ({
     id: `${deck}.${suffix}`,
-    label: `${band} platine ${letter}`,
+    label: `Deck ${letter} ${band}`,
     kind: "fader" as const,
     range: EQ_DB,
     home: 0,
@@ -78,7 +78,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
   })),
   {
     id: `${deck}.cue`,
-    label: `Casque platine ${letter}`,
+    label: `Deck ${letter} headphones`,
     // A BUTTON, though what it drives is a gain: pre-fade listen is on or off, never dosed.
     kind: "button",
     range: [0, 1],
@@ -88,7 +88,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
   },
   {
     id: `${deck}.filter`,
-    label: `Filtre platine ${letter}`,
+    label: `Deck ${letter} filter`,
     kind: "fader",
     // The module's own knob, signed — so a control mid-travel is a filter doing nothing.
     range: FILTER_RANGE,
@@ -98,7 +98,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
   // The GAIN STAGING, in decibels at both ends: the trim in front of the strip, the fader after it.
   {
     id: `${deck}.trim`,
-    label: `Trim platine ${letter}`,
+    label: `Deck ${letter} trim`,
     kind: "fader",
     range: TRIM_DB,
     // Unity, and it is the CENTRE of the travel: a trim's rest is "what the record gives".
@@ -107,7 +107,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
   },
   {
     id: `${deck}.level`,
-    label: `Niveau platine ${letter}`,
+    label: `Deck ${letter} level`,
     kind: "fader",
     range: LEVEL_DB,
     // 0 dB = unity: a channel fader rests OPEN, the crossfader deciding what is heard.
@@ -116,7 +116,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
   },
   {
     id: `${deck}.echo`,
-    label: `Écho platine ${letter}`,
+    label: `Deck ${letter} echo`,
     kind: "fader",
     range: ECHO_RANGE,
     // DRY at rest — an effect must not be heard before somebody asks for it. See ../docs/fx.md.
@@ -126,7 +126,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
   // The STEMS: one knob per instrument, a PROPORTION, each naming its OWN node — see ../docs/stems.md.
   ...STEMS.map((stem) => ({
     id: stemControl(deck, stem),
-    label: `${STEM_LABELS[stem]} platine ${letter}`,
+    label: `Deck ${letter} ${STEM_LABELS[stem]}`,
     kind: "fader" as const,
     range: STEM_RANGE,
     // Unity is the part as it was cut, and it is the CENTRE of the travel: left removes, right adds.
@@ -148,14 +148,14 @@ export const MIX_CONTROLS: readonly MixControl[] = [
   ...DECKS.flatMap((d, i) => perDeck(d, String.fromCharCode(65 + i))),
   {
     id: "transport",
-    label: "Lecture / arrêt",
+    label: "Play / stop",
     kind: "button",
     range: [0, 1],
     home: 0,
   },
   {
     id: "listen",
-    label: "Écouter ici",
+    label: "Listen here",
     kind: "button",
     range: [0, 1],
     home: 0,

@@ -34,6 +34,29 @@ ui:
     expect(value?.type).toBe("plugin");
   });
 
+  it("leaves the type unstated when the file extends — the parent's is the answer", () => {
+    const { value, issues } = parseModule(
+      'extends: "@project/instruments/kit"\n',
+    );
+    expect(issues).toEqual([]);
+    // A node over a rack states nothing; a default here would beat the rack it inherits.
+    expect(value?.type).toBeUndefined();
+  });
+
+  it("takes a label — free text, and the module's own rather than an alternative's", () => {
+    const { value, issues } = parseModule(
+      'label: "Grande salle"\nplugin: { type: internal, name: Reverb }\n',
+    );
+    expect(issues).toEqual([]);
+    expect(value?.label).toBe("Grande salle");
+    // On the module and not in MODULE_FIELDS: an attribute set is a way of PLAYING it, not a second name.
+    const alt = parseModule(
+      'plugin: { name: Reverb }\nalternatives:\n  - label: "Petite salle"\n',
+    );
+    expect(alt.value).toBeNull();
+    expect(alt.issues[0].message).toMatch(/label/);
+  });
+
   it("catches the typo a closed struct is for, and says where", () => {
     // A closed struct is what makes the typo an error at all — an open one drops `paramz` silently.
     const { value, issues } = parseModule(

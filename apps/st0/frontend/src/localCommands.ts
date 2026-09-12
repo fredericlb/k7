@@ -26,10 +26,12 @@ export const UI_EXACT: readonly string[] = [
   // The timeline header's two toggles.
   "ruler",
   "lanes",
-  // The three RIGHT-HAND panels: each bare line TOGGLES its own, and one column means opening any closes the others.
+  // The RIGHT-HAND panels: each bare line TOGGLES its own, and one column means opening any closes the others.
   "settings",
   // The workspace's set lists — its own panel, since what it opens belongs to the REPOSITORY (docs/playlists.md).
   "playlists",
+  // …and what you listen AGAINST, which belongs to the repository the same way (docs/references.md).
+  "references",
   // Commit, pull, export, publish. `ui` because the PANEL is a view; every verb inside it is a `project` one and writes.
   "share",
   // …and the settings panel's tabs.
@@ -85,6 +87,9 @@ export const BARE_TRANSPORT: readonly string[] = [
   "transport stop",
   "transport toggle",
   "transport rewind",
+  // Panic goes the same way, and for a sharper reason: it is what you type when the sound will not
+  // stop, and the file service is the slow road exactly when something is wedged.
+  "transport panic",
 ];
 
 /** Does `line` name this command? Whole-word, so a bare `fs file new` from an unfilled form reaches the same branch as the full line. */

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace studio {
 
@@ -12,6 +13,13 @@ float coeffFor(float ms, double sampleRate) {
     const double t = juce::jmax(0.1, (double)ms) * 0.001;
     return (float)std::exp(-1.0 / (t * sampleRate));
 }
+
+// What one block of a strike node may write. Past it a STEP is skipped, and never a note-off.
+constexpr int maxNoteEvents = 256;
+
+// The slowest tempo a musical step is read at: at zero, one step would last forever.
+constexpr double minSecondsPerBeat = 60.0 / 300.0;
+constexpr double maxSecondsPerBeat = 60.0 / 20.0;
 
 }  // namespace
 
@@ -125,10 +133,13 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
         else if (type == "mix")      { node.kind = Kind::mix;      node.phase = Phase::audio;
                                        g->hasMix_ = true; }   // process() needs the dry snapshot
         // MIDI: block-rate rewrites of the message list, with scalar inputs and no `out` — the buffer IS the output.
-        else if (type == "transpose" || type == "velocity" || type == "mchannel") {
+        else if (type == "transpose" || type == "velocity" || type == "mchannel"
+                 || type == "mhold" || type == "mstrike") {
             node.kind = type == "transpose" ? Kind::transpose
                       : type == "velocity"  ? Kind::velocity
-                                            : Kind::mchannel;
+                      : type == "mchannel"  ? Kind::mchannel
+                      : type == "mhold"     ? Kind::mhold
+                                            : Kind::mstrike;
             node.phase = Phase::midi;
             g->hasMidiPhase_ = true;
         }
@@ -191,12 +202,19 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
     // The sample-phase nodes in DECLARED order, so the per-sample loop iterates only these (docs/dspGraph.md).
     for (size_t i = 0; i < g->nodes_.size(); ++i)
         if (g->nodes_[i].phase == Phase::sample) g->sampleNodes_.push_back((int)i);
+    // The event scratch, sized ONCE: a strike node writes at most a chord released and a chord
+    // taken per step, and processMidi stops between steps rather than inside one (docs/midiGraph.md).
+    g->noteEvents_.resize(maxNoteEvents);
     return g;
 }
 
 void DspGraph::prepare(double sampleRate, int maxBlockSize)
 {
     sampleRate_ = sampleRate;
+    notes_.reset();
+    // Reserved HERE for the reason a delay line is allocated here: a message list that grows on the
+    // audio thread allocates on it.
+    notePassThrough_.reserve(maxNoteEvents);
     dry_.setSize(2, juce::jmax(1, maxBlockSize), false, true, false);
     awires_.assign(aNames_.size(), {0.0f, 0.0f});
     // Allocated HERE and never in process(): a delay line is the one thing here big enough to be heard growing.
@@ -225,6 +243,9 @@ void DspGraph::reset()
             f.reset();
     }
     for (auto& w : awires_) w = {0.0f, 0.0f};
+    // A reset lets go of every key: nothing here has a buffer to put the owed note-offs in, and the
+    // host sends all-notes-off — the same answer the compiled arpeggiator gives.
+    notes_.reset();
     for (auto& line : delayLines_)
         for (auto& ch : line)
             std::fill(ch.begin(), ch.end(), 0.0f);
@@ -284,14 +305,69 @@ void DspGraph::runControl(const float* paramValues, int numParams)
     runControlNodes();
 }
 
-void DspGraph::processMidi(tracktion::engine::MidiMessageArray& midi, const float* paramValues, int numParams)
+void DspGraph::processMidi(tracktion::engine::MidiMessageArray& midi, const float* paramValues,
+                           int numParams, double blockSeconds, double secondsPerBeat)
 {
+    namespace te = tracktion::engine;
     runControl(paramValues, numParams);
+
+    // A step is written in BEATS, so a graph says "every eighth" and means it at any tempo; the
+    // plugin is the only side that can read a tempo, and hands it in — see docs/midiGraph.md.
+    const double perBeat = juce::jlimit(minSecondsPerBeat, maxSecondsPerBeat, secondsPerBeat);
 
     for (auto& n : nodes_) {
         if (n.phase != Phase::midi) continue;
         const float a = r(n.in[0]);
         switch (n.kind) {
+            case Kind::mhold: {
+                // The keys are EATEN: what is left is everything that is not a note, and a strike
+                // node downstream is what puts notes back. Alone, this is a note swallower.
+                notePassThrough_.clear();
+                for (auto& m : midi) {
+                    if (m.isNoteOn())
+                        notes_.noteOn(m.getNoteNumber(), m.getFloatVelocity(), m.getChannel(),
+                                      m.getTimeStamp());
+                    else if (m.isNoteOff())
+                        notes_.noteOff(m.getNoteNumber());
+                    else
+                        notePassThrough_.addMidiMessage(m, m.getTimeStamp(), te::MidiMessageArray::notMPE);
+                }
+                midi.clear();
+                midi.mergeFromAndClear(notePassThrough_);  // a swap, the destination being empty
+                break;
+            }
+            case Kind::mstrike: {
+                // `a` is the step in beats and `r(n.in[1])` the gate; both go through the clock's
+                // own clamps, which is where a nonsense value is answered (NoteClock.h).
+                const int count = notes_.advance(blockSeconds, (double)a * perBeat,
+                                                 (double)r(n.in[1]), noteEvents_.data(),
+                                                 (int)noteEvents_.size());
+                if (count <= 0) break;
+                // Merged by timestamp rather than appended: a list out of order is a list
+                // something downstream will drop.
+                notePassThrough_.clear();
+                notePassThrough_.mergeFromAndClear(midi);  // …and the same swap, the other way
+                int keep = 0;
+                const auto passUntil = [&](double at) {
+                    while (keep < notePassThrough_.size()
+                           && notePassThrough_[keep].getTimeStamp() <= at) {
+                        midi.addMidiMessage(notePassThrough_[keep],
+                                            notePassThrough_[keep].getTimeStamp(),
+                                            te::MidiMessageArray::notMPE);
+                        ++keep;
+                    }
+                };
+                for (int i = 0; i < count; ++i) {
+                    const auto& e = noteEvents_[(size_t)i];
+                    passUntil(e.at);
+                    const auto msg = e.velocity > 0.0f
+                                         ? juce::MidiMessage::noteOn(e.channel, e.note, e.velocity)
+                                         : juce::MidiMessage::noteOff(e.channel, e.note);
+                    midi.addMidiMessage(msg, e.at, te::MidiMessageArray::notMPE);
+                }
+                passUntil(std::numeric_limits<double>::max());
+                break;
+            }
             case Kind::transpose: {
                 // Whole semitones, rounded HERE rather than at the parameter, which stays continuous.
                 const int by = juce::roundToInt(a);

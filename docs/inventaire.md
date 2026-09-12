@@ -73,7 +73,7 @@ without anyone seeing it.
 | what | how it lives |
 |---|---|
 | `packages/song/src/dspRunner.mjs` | launched as a **child process** by `nodeProject.ts`. It does `import { graph } from "@studio/dsp"`, and the `song → dsp` dependency exists precisely so that import resolves: a song folder has no `node_modules`. |
-| `packages/dsp/modules/{normalize,sweep}/jsdsp.ts` | MODULE DSPs. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import. |
+| a library module's `jsdsp.ts` | MODULE DSPs, in the account's library repository rather than this tree. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import — so nothing here can see them and knip cannot either. |
 | `songs/**/jsdsp.ts` | same mechanism: a demo song's DSP is data loaded at runtime. |
 | `packages/stem-separation/src/separateWorker.ts` | launched by `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
 | `packages/engine-host/src/cli.ts`, `packages/file-service/src/server.ts` | **esbuild entries** of `engine/st0-tray/scripts/build-engine.mjs`, which bundles them into the application. Zero imports is not zero callers. |

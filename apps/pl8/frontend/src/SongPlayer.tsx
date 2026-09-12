@@ -20,7 +20,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { library } from "./api";
 import { usePlayback } from "./playback/PlaybackProvider";
-import { type PlaybackTarget, playbackTargetInfo } from "./playback/targets";
+import {
+  effectiveTarget,
+  type PlaybackTarget,
+  playbackTargetInfo,
+} from "./playback/targets";
 import { readSongShape, type SongShape } from "./songWaveform";
 
 /** The glyph a version wears — the same three the tree draws, so a row and a tab read alike. */
@@ -40,8 +44,7 @@ export function SongPlayer({
   target,
 }: {
   entry: MediatekEntry;
-  /** The chosen machine's file service: its engine is the only thing here that decodes audio. */
-  /** Where the account wants sound to come out. */
+  /** Where the account WANTS sound to come out; the provider decides what it falls back to. */
   target: PlaybackTarget;
 }) {
   const playback = usePlayback();
@@ -79,8 +82,8 @@ export function SongPlayer({
   // biome-ignore lint/correctness/useExhaustiveDependencies: the trigger is the song changing
   useEffect(() => setCursor(0), [path]);
 
-  // One destination, so what was ASKED for is what plays — see ../docs/playbackTarget.md.
-  const actual = target;
+  // What will actually play, the moteur's absence resolved once — see ../docs/playbackTarget.md.
+  const actual = effectiveTarget(target, playback.engineAvailable);
 
   /** The shape, and the analysis that makes one — once per tab, and cancelled on leaving (../docs/songPlayer.md). */
   // biome-ignore lint/correctness/useExhaustiveDependencies: `retry` is the button's trigger, not a value read here
@@ -181,8 +184,9 @@ export function SongPlayer({
   const total = shape?.duration || (isCurrent ? playback.duration : 0);
   const where = playbackTargetInfo(actual);
   const WhereIcon = where.icon;
-  // `status` only when there IS a shape, or it would be the pane's big message said twice.
-  const footer = shape ? status : "";
+  const fellBack = actual !== target;
+  // The transport's own complaint first, then `status` — and that one only when there IS a shape.
+  const footer = (isCurrent && playback.error) || (shape ? status : "");
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -206,10 +210,15 @@ export function SongPlayer({
         {/* Where the sound is, beside the button that starts it — the header's picker changes it. */}
         <span
           className="flex items-center gap-1 text-xs text-muted-foreground"
-          title={where.hint}
+          title={
+            fellBack
+              ? `${playbackTargetInfo(target).label} ne répond pas — lecture ici`
+              : where.hint
+          }
         >
           <WhereIcon className="h-3.5 w-3.5" />
           {where.label}
+          {fellBack ? " (repli)" : ""}
         </span>
         {/* The file actually on screen, which is the master only on the first tab. */}
         <span className="ml-auto min-w-0 truncate font-mono text-xs text-muted-foreground">

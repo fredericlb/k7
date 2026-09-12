@@ -3,9 +3,9 @@
 // and has no standalone mode (a supervisor outliving the tray would be a ghost engine).
 // The import order matters — ipcStdio quarantines stdout as an import side effect.
 
-import * as ipc from "./ipcStdio.ts";
 import { installProcessNet } from "./background.ts";
 import { armDevReload, RELOAD_EXIT_CODE } from "./devReload.ts";
+import * as ipc from "./ipcStdio.ts";
 import { startSupervisor } from "./supervisor.ts";
 
 // First, and only here: a rejected poll must not take the supervisor down with the engine behind it — see docs/background.md.

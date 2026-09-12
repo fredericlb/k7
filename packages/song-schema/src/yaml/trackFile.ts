@@ -410,6 +410,50 @@ export function everyEventList(
   return out;
 }
 
+/** A placement this lane places `ref` with, and why a loop halving passed it by — docs/laneEdits.md. */
+export interface KeptLoop {
+  start: string;
+  loop: number;
+  /** `odd`: it plays an odd number of times. `windowed`: it states a window of its own, which did not double. */
+  why: "odd" | "windowed";
+}
+
+/** Halve the `loop` of every placement of `ref` that takes the material's WHOLE window — docs/laneEdits.md. */
+export function halveSequenceLoops(
+  text: string,
+  ref: string,
+): { text: string; halved: number; kept: KeptLoop[] } {
+  const doc = parseDocument(text, OPTS);
+  const kept: KeptLoop[] = [];
+  let halved = 0;
+  for (const path of everyEventList(doc)) {
+    const seq = doc.getIn(path);
+    if (!isSeq(seq)) continue;
+    for (const item of seq.items) {
+      if (!isMap(item) || String(item.get("ref") ?? "") !== ref) continue;
+      const loop = Number(item.get("loop") ?? 1);
+      if (!Number.isInteger(loop) || loop < 2) continue;
+      const start = String(item.get("start") ?? "1:1:1");
+      // A window of its own did not grow with the material's, so halving would halve what plays.
+      if (item.get("from") != null || item.get("to") != null) {
+        kept.push({ start, loop, why: "windowed" });
+        continue;
+      }
+      if (loop % 2) {
+        kept.push({ start, loop, why: "odd" });
+        continue;
+      }
+      // Back to ONE pass is the default, and the default is written by not writing it.
+      if (loop === 2) item.delete("loop");
+      else item.set("loop", loop / 2);
+      halved++;
+    }
+  }
+  if (!halved) return { text, halved, kept };
+  quoteTimecodes(doc);
+  return { text: doc.toString(OUT), halved, kept };
+}
+
 /** What `spliceTime` did to one lane — for a caller reporting it, and for refusing a no-op. */
 export interface TimeSplice {
   moved: number;

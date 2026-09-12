@@ -17,6 +17,9 @@ describe("derived module fields", () => {
       "type",
       // Which GLSL program a shader node runs, out of its own `shaders/` — a FIELD, not a param.
       "shader",
+      // …and which primitive a shape module draws, and the family a `text` one is set in.
+      "shape",
+      "font",
       "params",
       "rack",
       // A COLD module works only on audio already on disk — see docs/coldModules.md.
@@ -51,6 +54,8 @@ describe("derived module fields", () => {
       "alternative",
       // …and how the COMPLETIONS should treat this module, outside MODULE_FIELDS so an alternative cannot restate it.
       "status",
+      // …and what they CALL it, which is the same kind of fact and sits in the same place (docs/moduleLabel.md).
+      "label",
     ]);
     // …and it cannot fall behind: the source is the schema.
     expect(fieldsAt("module", [])).toEqual(Object.keys(ModuleSchema.shape));

@@ -41,6 +41,6 @@ async function run(
 }
 
 export const runUndo = (deps: HistoryDeps): Promise<void> =>
-  run(projectApi.undo, "Annulé", deps);
+  run(projectApi.undo, "Undone", deps);
 export const runRedo = (deps: HistoryDeps): Promise<void> =>
-  run(projectApi.redo, "Rétabli", deps);
+  run(projectApi.redo, "Redone", deps);

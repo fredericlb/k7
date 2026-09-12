@@ -15,6 +15,7 @@ import {
 import { Input } from "@frediverse/ui/input";
 import { HardDrive, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { workspaceFolderName } from "./projectName";
 
 export function NewWorkspace({
@@ -55,27 +56,23 @@ export function NewWorkspace({
       <Button
         size="sm"
         disabled={Boolean(blocked)}
-        title={blocked || "Créer un espace de travail sur cette machine"}
+        title={blocked || m["ws.newHint"]()}
         onClick={() => setOpen(true)}
       >
-        <HardDrive className="mr-1 h-4 w-4" /> Nouveau
+        <HardDrive className="mr-1 h-4 w-4" /> {m["ws.new"]()}
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Nouvel espace de travail</DialogTitle>
-            <DialogDescription>
-              Créé sur la machine, versionné par git, et sans dépôt distant. Il
-              n'y a rien à configurer : le premier projet se choisit en
-              l'ouvrant, le dépôt se demande le jour où vous publiez.
-            </DialogDescription>
+            <DialogTitle>{m["ws.newTitle"]()}</DialogTitle>
+            <DialogDescription>{m["ws.newBody"]()}</DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
             <Input
               autoFocus
-              placeholder="nom — « hiver »"
+              placeholder={m["ws.namePlaceholder"]()}
               value={name}
               disabled={busy}
               onChange={(e) => setName(e.target.value)}
@@ -110,11 +107,11 @@ export function NewWorkspace({
               disabled={busy}
               onClick={() => setOpen(false)}
             >
-              Annuler
+              {m["common.cancel"]()}
             </Button>
             <Button disabled={busy || !folder} onClick={submit}>
               {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              Créer
+              {m["common.create"]()}
             </Button>
           </DialogFooter>
         </DialogContent>

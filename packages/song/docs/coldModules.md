@@ -76,9 +76,10 @@ Two defaults carry the safety:
 - The gain is **clamped to +30 dB**. Near silence measures -100 dBFS and would otherwise ask for
   +99 dB, turning hiss into a full-scale roar.
 
-A ready module folder is `packages/dsp/modules/normalize/` — `module.yaml` plus the `jsdsp.ts`
-that mirrors the library graph, the same arrangement the crossfade demo uses. Copy it into a
-médiathèque `modules/audio/`.
+A normaliser module is `module.yaml` plus the `jsdsp.ts` that mirrors `@studio/dsp`'s
+`normalize()` graph — the same arrangement the crossfade uses. It is authored into the account's
+library under `modules/audio/utility/`, this repo holding no modules to copy from
+([sharedFolders.md](sharedFolders.md)).
 
 ## Cold modules come in two shapes
 
@@ -96,7 +97,7 @@ full — which is why one word still covers them. What differs is what the pass 
 
 ### The tempo module is the second producing one
 
-`packages/dsp/modules/tempo/` changes a song's BPM, and it is `offline` for a reason worth
+The `tempo` module changes a song's BPM, and it is `offline` for a reason worth
 stating because it is not the stem splitter's: it does not fan out, it simply cannot be a
 plugin at all. **The engine hosts no time-stretch.** `PluginScan.cpp` registers a Pitch
 Shifter and nothing that moves the clock — Tracktion stretches a CLIP, through warp markers,

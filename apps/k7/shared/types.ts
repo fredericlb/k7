@@ -55,6 +55,12 @@ export interface SheetFile {
   mime: string; // e.g. "application/pdf", "image/png", "image/jpeg"
 }
 
+/** The one recording a song is played along to. The bytes are behind `/audio`. */
+export interface SongAudio {
+  name: string;
+  mime: string;
+}
+
 export interface Song {
   id: string;
   artist: string;
@@ -63,6 +69,8 @@ export interface Song {
   tablature: string;
   // Ordered list of sheet-music files (one PDF, several images, or a mix).
   sheets: SheetFile[];
+  // Null until one is uploaded; a song carries at most one.
+  audio: SongAudio | null;
   favorite: boolean;
   createdAt: string;
 }

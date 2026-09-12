@@ -10,7 +10,7 @@ import type { SeekingClock } from "./clock";
 import type { LayerBlend } from "./compositor";
 import { Compositor } from "./compositor";
 import type { VideoLayer, VideoScene } from "./scene";
-import { type Active, layerFrameAt } from "./timeline";
+import { type Active, layerFrameAt, shapesVisibleAt } from "./timeline";
 
 const HARD_SEEK = 0.25; // s of error that forces a seek rather than a nudge
 const SOFT_EPS = 0.008; // ≈ a quarter-frame at 30fps; below this, nudging chases quantization
@@ -233,10 +233,12 @@ export class RealtimeDriver {
         continue;
       }
 
-      // A shape layer draws while unhidden: nothing to decode or seek, so just mark it drawable.
+      // A shape layer has nothing to decode or seek: its own ACTIVATION spans say when it draws,
+      // and a layer stating none draws throughout — the rule is timeline.ts's (docs/shapes.md).
       if (!lane.els.length) {
-        visible.add(lane.layer.id);
-        this.debug.push({ id: lane.layer.id, active: true, errMs: 0, rate: 1 });
+        const on = shapesVisibleAt(lane.layer, t);
+        if (on) visible.add(lane.layer.id);
+        this.debug.push({ id: lane.layer.id, active: on, errMs: 0, rate: 1 });
         continue;
       }
 

@@ -689,7 +689,7 @@ export function useDeckSet(
       void writeMixText(project, text).catch((e: Error) =>
         // Said out loud: the button has already gone coloured, so a silent failure would lose the cue.
         setDeskError(
-          `le repère n'a pas pu être écrit dans ${MIX_FILE} : ${e.message}`,
+          `the cue could not be written into ${MIX_FILE}: ${e.message}`,
         ),
       );
     },
@@ -878,7 +878,7 @@ export function useDeckSet(
       if (!compiled) return pushCrossfade(deck.engine, value);
       // Compiled but bound to no loaded plugin — the stand-in's levels are not in THIS document.
       setDeskError(
-        `le crossfade n'est lié à aucun plugin chargé — vérifiez ${MIX_VIEW_FILE}`,
+        `the crossfade is bound to no loaded plugin — check ${MIX_VIEW_FILE}`,
       );
     },
     turnEq: (deckId, band, dB) => {

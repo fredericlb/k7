@@ -3,6 +3,7 @@
 // kind of file answers for itself, which a single flat table could not do.
 
 import type { z } from "zod";
+import { SHAPE_KINDS } from "../moduleTypes";
 import {
   AdsrCurveSchema,
   AudioClipSchema,
@@ -19,12 +20,12 @@ import {
 import { GraphFileSchema } from "./graphSchema";
 import {
   AlternativeSchema,
+  IO_KINDS,
   ModuleSchema,
   RackSchema,
   RackSoundSchema,
   TakeSchema,
   UISchema,
-  IO_KINDS,
   WAVEFORM_SOURCES,
   WIDGET_TYPES,
 } from "./moduleSchema";
@@ -204,6 +205,7 @@ export function valuesAt(
     if (path.length === 0 && field === "type")
       return ["plugin", "rack", "video_effect", "video_transition"];
     if (path.length === 0 && field === "io") return [...IO_KINDS];
+    if (path.length === 0 && field === "shape") return [...SHAPE_KINDS];
     if (path.length === 0 && field === "monitor") return ["off", "auto", "on"];
     if (path[0] === "ui" && field === "type") return [...WIDGET_TYPES];
     if (path[0] === "ui" && field === "curve") return ["lin", "log"];
@@ -220,11 +222,6 @@ export function valuesAt(
       return ["sine", "triangle", "saw", "square"];
     return [];
   }
-  if (kind === "video_track") {
-    if (path.length === 0 && field === "kind") return ["video", "shape"];
-    if (path[0] === "shapes" && field === "type")
-      return ["square", "circle", "text"];
-    return [];
-  }
+  if (kind === "video_track") return [];
   return [];
 }

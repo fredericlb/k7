@@ -1,9 +1,13 @@
-// git.ts — the version-control commands (commit + push, pull, status for the share
-// badge), all acting on the WHOLE repo the working dir belongs to: a workspace IS a
-// cloned repo. `gitEnv` is the host's transport config merged over the process env — the
-// web host pins GIT_SSH_COMMAND to the per-user deploy key, the CLI passes nothing.
+// git.ts — the version-control commands (commit + push, pull, status for the share badge),
+// acting on the WHOLE repo the working dir belongs to: a workspace IS a cloned repo. The one
+// exception is `updateLibraries`, whose subject is the `_libraries` submodule inside it.
+// `gitEnv` is the host's transport config merged over the process env — the web host pins
+// GIT_SSH_COMMAND to the per-user deploy key, the CLI passes nothing.
 
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { LIBRARIES_DIR, LIBRARIES_PATH } from "@studio/song/sharedFolders";
 
 // Extra env for the git process, merged over process.env: the web fills GIT_SSH_COMMAND and GIT_TERMINAL_PROMPT.
 export type GitEnv = Record<string, string> | undefined;
@@ -88,6 +92,97 @@ export function pull(dir: string, gitEnv?: GitEnv): PullOutcome {
       .filter(Boolean)
       .pop() ?? "pulled";
   return { upToDate, summary };
+}
+
+/** Where the account's LIBRARIES are mounted, and what moving them did — see docs/libraries.md. */
+export interface LibrariesOutcome {
+  upToDate: boolean;
+  from: string; // the library commit this workspace was on…
+  to: string; // …and the one it is on now
+  /** The workspace commit that recorded the move, absent when there is no superproject to record it in. */
+  recorded?: string;
+  /** The libraries moved but the version could not be written down — the pair `commitAndPush` also reports. */
+  recordError?: string;
+}
+
+/** The two paths the gitlink lives at, committed together: the pointer and what it points to. */
+const GITLINK = [".gitmodules", LIBRARIES_DIR];
+
+/** The workspace the libraries are mounted in — `dir` itself, or the one a project sits inside. */
+function librariesRoot(dir: string): string | null {
+  for (const at of [join(dir, LIBRARIES_DIR), resolve(dir, LIBRARIES_PATH)])
+    if (existsSync(at)) return dirname(at);
+  return null;
+}
+
+/** Is `_libraries` a SUBMODULE here? A workspace that is no repository mounts a plain clone instead. */
+function isSubmodule(root: string, gitEnv?: GitEnv): boolean {
+  try {
+    return !!git(
+      root,
+      ["config", "--file", ".gitmodules", `submodule.${LIBRARIES_DIR}.url`],
+      gitEnv,
+    );
+  } catch {
+    return false; // no .gitmodules, or no such submodule — both mean "not one"
+  }
+}
+
+/** Record the library's new commit in the workspace: path-limited, and never pushed. */
+function recordLibraries(root: string, to: string, gitEnv?: GitEnv): string {
+  git(root, ["add", "--", ...GITLINK], gitEnv);
+  const staged = git(
+    root,
+    ["diff", "--cached", "--name-only", "--", ...GITLINK],
+    gitEnv,
+  );
+  if (!staged) return ""; // the workspace already pointed at it
+  git(root, ["commit", "-m", `libraries: ${to}`, "--", ...GITLINK], gitEnv);
+  return git(root, ["rev-parse", "--short", "HEAD"], gitEnv);
+}
+
+/** Fetch the account's libraries and move this workspace onto them — see docs/libraries.md. */
+export function updateLibraries(
+  dir: string,
+  gitEnv?: GitEnv,
+): LibrariesOutcome {
+  const root = librariesRoot(dir);
+  if (!root)
+    throw new Error(
+      `no libraries are mounted here — there is no ${LIBRARIES_DIR}/ beside this workspace`,
+    );
+  const at = join(root, LIBRARIES_DIR);
+  // A submodule that was never initialised has no HEAD, and "" is the honest answer for one.
+  const head = (): string => {
+    try {
+      return git(at, ["rev-parse", "--short", "HEAD"], gitEnv);
+    } catch {
+      return "";
+    }
+  };
+  const from = head();
+  const sub = isSubmodule(root, gitEnv);
+  if (sub)
+    // `--remote` is the whole verb: without it this checks out the commit already recorded.
+    git(
+      root,
+      ["submodule", "update", "--init", "--remote", "--", LIBRARIES_DIR],
+      gitEnv,
+      60_000,
+    );
+  // No superproject to hold a gitlink, so the mount is a plain clone and moves like one.
+  else git(at, ["pull", "--ff-only"], gitEnv, 60_000);
+  const to = head();
+  if (to === from) return { upToDate: true, from, to };
+  // A plain clone has no gitlink, and there is nothing to record the version in.
+  if (!sub) return { upToDate: false, from, to };
+  try {
+    const recorded = recordLibraries(root, to, gitEnv);
+    return { upToDate: false, from, to, ...(recorded ? { recorded } : {}) };
+  } catch (e) {
+    // The files DID move: a failure to write the version down is not a failure to update.
+    return { upToDate: false, from, to, recordError: (e as Error).message };
+  }
 }
 
 export interface GitStatus {

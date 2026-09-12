@@ -48,12 +48,12 @@ export const projectApi = {
   startClone: (uri: string) =>
     fsend<CloneJob>("POST", "/workspaces/clone", { uri }),
   cloneStatus: (id: string) => fget<CloneJob>(`/workspaces/clone/${id}`),
-  /** The module bench, INSTEAD of the three calls above — see docs/fileApi.md. */
+  /** The BENCH, INSTEAD of the three calls above — see docs/fileApi.md. */
   openBench: (project: string | undefined, libraries: string) =>
     fsend<{ workspace: string; project: string }>("POST", "/workspaces/bench", {
-      // The account's library repository: the chain being opened is IN it, and its modules too.
+      // The account's library repository: every module the rig can name is in it.
       libraries,
-      // What the address named, verbatim: the machine holds the médiathèque, so the machine decides.
+      // What the address named, verbatim: the machine builds the bench, so the machine decides.
       project,
     }),
 
@@ -127,7 +127,8 @@ export const projectApi = {
 
   // --- Modules, as a project sees them ------------------------------------------
   hints: () => fget<Hints>("/hints"),
-  baseModules: () => fget<string[]>("/base-modules"),
+  /** The refs a node may be an instance of, each with the name it CALLS itself — packages/song/docs/moduleLabel.md. */
+  baseModules: () => fget<{ ref: string; label?: string }[]>("/base-modules"),
   ioPorts: () => fget<IoPort[]>("/io-ports"),
   moduleCatalogue: () => fget<CatalogueModule[]>("/module-catalogue"),
   moduleUi: (path: string) =>

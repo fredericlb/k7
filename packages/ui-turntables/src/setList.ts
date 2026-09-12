@@ -99,7 +99,7 @@ export function resolveSet(
     return {
       entries: [],
       absent: false,
-      issues: ["la playlist nommée par cette surface est introuvable"],
+      issues: ["the playlist this surface names cannot be found"],
     };
 
   const parsed = parsePlaylist(text);
@@ -107,7 +107,7 @@ export function resolveSet(
     return {
       entries: [],
       absent: false,
-      issues: ["ce fichier ne se lit pas comme une playlist"],
+      issues: ["this file does not read as a playlist"],
     };
 
   const seen = new Set<string>();

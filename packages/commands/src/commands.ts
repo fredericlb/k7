@@ -194,6 +194,7 @@ import {
   setQuotedKeyMap,
 } from "@studio/song/yaml/edit";
 import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
+import { halveLoopsOf } from "@studio/song-edit/sequenceLoops";
 import { ASPECTS, aspectSize } from "@studio/song-schema/aspect";
 import {
   removeWarpPoint,
@@ -213,6 +214,7 @@ import {
 } from "@studio/song-schema/yaml/projectSchema";
 import {
   appendNotes,
+  doubleSequence,
   isPlayableNote,
   mapNotesInRegion,
   moveNote,
@@ -242,6 +244,7 @@ import {
   newAlternative,
   pull,
   switchAlternative,
+  updateLibraries,
 } from "./git";
 // The verb groups that left this file; they import erased TYPES from here, so no runtime cycle — docs/verbs.md.
 import { PICTURE_VERBS } from "./verbs/picture.ts";
@@ -252,7 +255,7 @@ import { SYSTEM_VERBS } from "./verbs/system.ts";
 // Where a freeze render lands: one folder for the lot, at the project root — docs/verbs.md.
 const FROZEN_DIR = "renders";
 
-export type TransportAction = "play" | "stop" | "toggle" | "rewind";
+export type TransportAction = "play" | "stop" | "toggle" | "rewind" | "panic";
 
 // The environment a feature acts on; `project()` is a getter so the CLI can lazy-load what a command may not need.
 export interface CommandHost {
@@ -2768,6 +2771,55 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     await h.reload();
   },
 
+  /** sequence double … — twice as long, playing twice; the writer is `doubleSequence`, docs/verbs.md. */
+  "sequence.double": async (arg, h) => {
+    const seqId = arg.trim().split(/\s+/)[0];
+    if (!seqId) {
+      h.refuse(["usage: sequence double <sequence>"]);
+      return;
+    }
+    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
+    let text: string;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+      return;
+    }
+    // 4/4 when the doc states none: the bar is what a window rounds to, and every surface here reads it that way.
+    const p = h.project();
+    let next: string;
+    try {
+      next = doubleSequence(
+        text,
+        p.timeSigNumerator || 4,
+        p.timeSigDenominator || 4,
+      );
+    } catch (e) {
+      h.refuse([`sequence double: ${(e as Error).message}`]);
+      return;
+    }
+    h.snapshot?.(file);
+    writeFileSync(file, next, "utf8");
+    // …and half as many passes wherever it is LOOPED, so four bars of it stay four bars — docs/verbs.md.
+    const loops = halveLoopsOf(h.songPath, seqId, (f) => h.snapshot?.(f));
+    h.log([
+      `${seqId}: doubled — twice as long, its notes played twice`,
+      ...(loops.halved
+        ? [`${loops.halved} placement(s) now loop half as many times`]
+        : []),
+      // Named one by one: a placement that did NOT follow is one whose length just changed.
+      ...loops.kept.map(
+        (k) =>
+          `${k.lane} at ${k.start} still loops ${k.loop}× and is now twice as long — ` +
+          (k.why === "odd"
+            ? "an odd number of passes cannot be halved"
+            : "it states a window of its own, which did not grow"),
+      ),
+    ]);
+    await h.reload();
+  },
+
   "sequence.noteRepeat": padEffectCommand("repeat"),
   "sequence.noteSkip": padEffectCommand("skip"),
 
@@ -3910,6 +3962,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "transport.stop": (_a, h) => h.transport("stop"),
   "transport.toggle": (_a, h) => h.transport("toggle"),
   "transport.rewind": (_a, h) => h.transport("rewind"),
+  // Not a transport MOVE: it stops and then tells every plugin to let go — docs/panic.md.
+  "transport.panic": (_a, h) => h.transport("panic"),
   // Toggle the metronome: a PROJECT setting, so it rewrites settings.yaml and re-sends. The click is remembered.
   "transport.metronome": async (_a, h) => {
     const p = h.project();
@@ -4039,6 +4093,32 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       if (!r.upToDate && h.songPath) await h.reload();
     } catch (e) {
       h.refuse([`pull failed: ${(e as Error).message}`]);
+    }
+  },
+
+  // project libraries update — the SUBMODULE, not the workspace: the libraries are their own repo.
+  "project.libraries.update": async (_a, h) => {
+    const dir = h.repoDir ?? h.songPath;
+    if (!dir) {
+      h.refuse(["no repository"]);
+      return;
+    }
+    try {
+      const r = updateLibraries(dir, h.gitEnv);
+      const moved = `libraries ${r.from || "(none)"} → ${r.to}`;
+      h.log([
+        r.upToDate
+          ? `the libraries are already at ${r.to || "their first version"}`
+          : r.recorded
+            ? `${moved}, and this workspace now uses them (${r.recorded})`
+            : r.recordError
+              ? `${moved}, but the version could not be recorded: ${r.recordError}`
+              : moved,
+      ]);
+      // The modules a song resolves through `@st0/…` just moved, so what is open is out of date.
+      if (!r.upToDate && h.songPath) await h.reload();
+    } catch (e) {
+      h.refuse([`libraries update failed: ${(e as Error).message}`]);
     }
   },
 

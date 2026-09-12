@@ -58,6 +58,7 @@ import {
 import { freeSnap, snapTo } from "../snap";
 import type { WebClip, WebProject } from "../types";
 import { ArrangementRuler, Grid, RulerTicks, rulerScale } from "./Ruler";
+import { SeqDoubleButton } from "./SeqDoubleButton";
 
 const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const pc = (k: number) => ((k % 12) + 12) % 12;
@@ -368,35 +369,36 @@ export function PianoRoll({
       pasteLine: (c) => {
         if (c.kind !== "notes")
           return {
-            note: "le presse-papier tient des événements, pas des notes",
+            note: m["grid.clipboardHasEvents"](),
           };
         const out = pasteNotes(c, 127 - caret.row, beatOfCol(caret.col));
-        if (!out.length)
-          return { note: "rien à coller ici — tout tombe hors du clavier" };
+        if (!out.length) return { note: m["grid.nothingToPaste"]() };
         const dropped = droppedCount(out.length, c);
         return {
           line: `sequence note add ${seqId} ${JSON.stringify(out)}`,
           note:
-            `${out.length} note${out.length > 1 ? "s" : ""} collée${out.length > 1 ? "s" : ""}` +
-            (dropped ? ` — ${dropped} hors clavier, laissée(s)` : ""),
+            m["grid.pasted"]({
+              n: out.length,
+              s: out.length > 1 ? "s" : "",
+            }) +
+            (dropped ? ` — ${m["grid.pasteDropped"]({ n: dropped })}` : ""),
         };
       },
       /** `selection delete` — what the rectangle holds, or the caret's cell; one line, so N notes are one Ctrl+Z. */
       deleteLine: () => {
         const hit = caretNotes();
-        if (!hit.length)
-          return { note: "rien à supprimer — le caret n'est sur aucune note" };
+        if (!hit.length) return { note: m["grid.nothingToDelete"]() };
         // Painted here rather than through `commit`: the SHELL runs the line, so there is no promise to hold the ghost against.
         paint(hit.map((n) => [noteAddr(n.key, n.time), null]));
         if (hit.length === 1)
           return {
             line: `sequence note remove ${seqId} ${hit[0].key} ${hit[0].time}`,
-            note: `${noteName(hit[0].key)} supprimée`,
+            note: m["grid.noteDeleted"]({ note: noteName(hit[0].key) }),
           };
         const b = caretBox();
         return {
           line: `sequence notes remove ${seqId} ${127 - b.rowHi} ${127 - b.rowLo} ${beatOfCol(b.colLo)} ${beatOfCol(b.colHi + 1)}`,
-          note: `${hit.length} notes supprimées`,
+          note: m["grid.notesDeleted"]({ n: hit.length }),
         };
       },
     }),
@@ -425,7 +427,12 @@ export function PianoRoll({
     if (!active || !box) return;
     const steps = box.colHi - box.colLo + 1;
     setStatus?.(
-      `selection: ${steps} × ${gridUnit >= 1 ? `${gridUnit}b` : `1/${Math.round(1 / gridUnit)}`} · ${noteName(127 - box.rowHi)}–${noteName(127 - box.rowLo)} — ⇧L la boucle · v annule`,
+      m["roll.selection"]({
+        steps,
+        unit: gridUnit >= 1 ? `${gridUnit}b` : `1/${Math.round(1 / gridUnit)}`,
+        from: noteName(127 - box.rowHi),
+        to: noteName(127 - box.rowLo),
+      }),
     );
   }, [active, box, gridUnit, setStatus]);
 
@@ -739,7 +746,9 @@ export function PianoRoll({
           {visNotes.length} notes
           {/* What the cage hides, counted, so notes sitting before a file's `from` read as windowed rather than as data lost. */}
           {notes.length > visNotes.length &&
-            ` (+${notes.length - visNotes.length} hors fenêtre)`}{" "}
+            ` (${m["roll.outsideWindow"]({
+              n: notes.length - visNotes.length,
+            })})`}{" "}
           · {Math.round(placedEnd)} beats
           {/* What the marks add up to, said in words: ten passes of eight beats is not an 80-beat pattern, though the pane is as wide. */}
           {loop && (
@@ -755,15 +764,20 @@ export function PianoRoll({
             </span>
           )}
         </span>
-        {modes && <span className="ml-auto">{modes}</span>}
+        {/* The right end of the bar, whatever it holds: the ✕ then needs no margin rule of its own. */}
+        <span className="ml-auto flex items-center gap-1">
+          {/* Editable rolls only — `onCreateNote` is what says this one is (docs/clipEditors.md). */}
+          <SeqDoubleButton
+            seqId={seqId}
+            command={onCreateNote ? onCommand : undefined}
+          />
+          {modes}
+        </span>
         {onClose && (
           <button
             onClick={onClose}
             title={m["editor.closeHint"]()}
-            className={cn(
-              "rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground",
-              !modes && "ml-auto",
-            )}
+            className="rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             close ✕
           </button>
@@ -777,7 +791,7 @@ export function PianoRoll({
             modes={ROLL_MODES}
             current={mode}
             onPick={(m) => void onCommand?.(`ui roll ${m}`)}
-            title={(m) => `${m} — ${ROLL_PRESS[m]}`}
+            title={(mode) => `${mode} — ${ROLL_PRESS[mode]()}`}
           />
         )}
         <div

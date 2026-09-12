@@ -45,6 +45,8 @@ public:
 
     void initialise(const tracktion::engine::PluginInitialisationInfo&) override;
     void deinitialise() override;
+    /** Let go of whatever the graph is holding — `mhold`'s keys, `mstrike`'s clock (docs/panic.md). */
+    void midiPanic() override;
     void applyToBuffer(const tracktion::engine::PluginRenderContext&) override;
     void restorePluginStateFromValueTree(const juce::ValueTree&) override;
 
@@ -54,6 +56,10 @@ private:
     std::vector<std::unique_ptr<juce::CachedValue<float>>> values_;
     // Read once per block and handed over, so the graph never touches Tracktion's parameter objects.
     std::vector<float> scratch_;
+    // …and the same for the two things a node with a CLOCK needs and a graph cannot read: the block's
+    // length, and how long a beat is. See DspGraph::processMidi and docs/midiGraph.md.
+    double sampleRate_ = 44100.0;
+    double secondsPerBeat();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MidiGraphPlugin)
 };

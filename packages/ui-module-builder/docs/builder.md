@@ -279,6 +279,12 @@ inline and a document-wide setting would reflow every other list in the file.
 that says nothing (the rule `type:` follows), and a `status: listed` on every module in a library is
 a line of noise per file a reader has to learn to skip.
 
+`labelOf` / `setLabelIn` are the same pair for the name a picker draws
+(`packages/song/docs/moduleLabel.md`). The box sits beside the status dropdown, and its
+PLACEHOLDER is the module's own name — the fallback a picker uses, shown before anything is typed,
+so an empty box reads as "called after its ref" rather than as unset. Emptying it DELETES the
+field: a blank label and no label are the same state, and only one of them should be on disk.
+
 ## Smaller decisions worth not rediscovering
 
 - **`BuilderPane` is named for the BUILDER**, not just `Pane`: st0 has panes of its own and a

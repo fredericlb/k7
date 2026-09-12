@@ -6,31 +6,30 @@ import {
   PROJECT_SHAPES,
   type ProjectShape,
 } from "@studio/song-schema/yaml/projectSchema";
+import { m } from "../paraglide/messages.js";
 
-/** Un RECORD sur `ProjectShape` et pas une liste : un archétype ajouté à `PROJECT_SHAPES` et pas ici ne compile plus. */
-const WHAT: Record<ProjectShape, { label: string; what: string }> = {
-  arrangement: {
-    label: "arrangement",
-    what: "la timeline au-dessus du graphe — une piste, un synthé, un motif",
-  },
-  mix: {
-    label: "mix",
-    what: "deux platines, un crossfade, et une liste de morceaux vide",
-  },
-  video: {
-    label: "vidéo",
-    what: "la timeline et le viewport — l'arrangement, plus une piste d'image",
-  },
-  live: {
-    label: "live",
-    what: "aucune surface — une entrée, un fader, la sortie",
-  },
-  "live-video": {
-    label: "live vidéo",
-    what: "le même rig, plus une webcam et le viewport qu'elle remplit",
-  },
-};
+/** A RECORD over `ProjectShape` and not a list: an archetype added to `PROJECT_SHAPES` and not here stops compiling. */
+const WHAT: Record<ProjectShape, { label: () => string; what: () => string }> =
+  {
+    arrangement: {
+      label: () => m["shape.arrangement"](),
+      what: () => m["shape.arrangementWhat"](),
+    },
+    mix: { label: () => m["shape.mix"](), what: () => m["shape.mixWhat"]() },
+    video: {
+      label: () => m["shape.video"](),
+      what: () => m["shape.videoWhat"](),
+    },
+    live: { label: () => m["shape.live"](), what: () => m["shape.liveWhat"]() },
+    "live-video": {
+      label: () => m["shape.liveVideo"](),
+      what: () => m["shape.liveVideoWhat"](),
+    },
+  };
 
-/** …dans l'ordre où le vocabulaire les déclare, qui est l'ordre où on les propose. */
-export const SHAPES: { id: ProjectShape; label: string; what: string }[] =
-  PROJECT_SHAPES.map((id) => ({ id, ...WHAT[id] }));
+/** …in the order the vocabulary declares them, which is the order they are offered in. */
+export const SHAPES: {
+  id: ProjectShape;
+  label: () => string;
+  what: () => string;
+}[] = PROJECT_SHAPES.map((id) => ({ id, ...WHAT[id] }));

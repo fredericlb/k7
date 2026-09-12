@@ -18,6 +18,7 @@ import {
   subdivideBeats,
 } from "@studio/ui-waveform";
 import { memo, type RefObject, useEffect, useState } from "react";
+import { m } from "../paraglide/messages.js";
 
 /** What the ruler is READING IN — not what the song is placed in, which is always beats; a per-SESSION toggle (docs/picture.md). */
 export type RulerMode = "bars" | "seconds";
@@ -319,11 +320,7 @@ export function ArrangementRuler({
         className,
       )}
       style={{ height }}
-      title={
-        onSeek
-          ? "position dans le morceau — cliquer y place la tête de lecture"
-          : "position dans le morceau"
-      }
+      title={onSeek ? m["ruler.position"]() : m["ruler.positionShort"]()}
       onClick={
         onSeek
           ? (e) => {

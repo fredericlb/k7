@@ -13,6 +13,7 @@ import { type RefObject, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import type { MenuCtx } from "../contextMenu";
 import type { ClipGridHandle, OnGridSelection } from "../gridCaret";
+import { m } from "../paraglide/messages.js";
 import { fileStem } from "../projectPaths";
 import { rackFor } from "../rackFor";
 import type { RollMode } from "../rollMode";
@@ -346,7 +347,7 @@ export function ClipView({
       ) : clip?.type === "midi" ? (
         graph === undefined ? (
           <div className="p-3 text-sm text-muted-foreground">
-            lecture du graphe…
+            {m["clipv.readingGraph"]()}
           </div>
         ) : rack && view === "sequencer" ? (
           <SequencerPanel
@@ -379,8 +380,7 @@ export function ClipView({
               {hints && !seqPath ? (
                 // The clip names no sequence file of this project — said, rather than shown as an empty grid.
                 <div className="p-3 text-muted-foreground text-sm">
-                  pas de fichier de séquence pour « {seqId} » — le tracker édite
-                  un fichier, pas un événement
+                  {m["clipv.noSeqFile"]({ seq: seqId })}
                 </div>
               ) : seqPath ? (
                 <SeqGridFile
@@ -392,7 +392,7 @@ export function ClipView({
                 />
               ) : (
                 <div className="p-3 text-muted-foreground text-sm">
-                  lecture du projet…
+                  {m["clipv.readingProject"]()}
                 </div>
               )}
             </div>
@@ -403,7 +403,7 @@ export function ClipView({
             {graphError && (
               <div
                 className="shrink-0 whitespace-pre-wrap border-amber-500/40 border-b bg-amber-500/10 px-3 py-1 text-amber-300 text-xs"
-                title="le pas-à-pas a besoin du graphe pour connaître le rack en aval"
+                title={m["clipv.needsGraph"]()}
               >
                 pas de séquenceur : le graphe ne se construit pas — {graphError}
               </div>

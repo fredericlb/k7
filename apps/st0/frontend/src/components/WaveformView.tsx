@@ -181,8 +181,8 @@ export function WaveformView({
                   setAudition({ from: w.start, to, at: performance.now() });
               });
             }}
-            title="écouter — la fenêtre from/to du fichier, à son propre tempo"
-            aria-label="écouter"
+            title={m["wave.listenHint"]()}
+            aria-label={m["wave.listen"]()}
             className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <Play className="h-3.5 w-3.5" />
@@ -492,7 +492,7 @@ function AuditionPlayhead({
       className="pointer-events-none absolute inset-0 h-full w-full"
       preserveAspectRatio="none"
     >
-      <title>{`écoute — ${sec.toFixed(2)}s`}</title>
+      <title>{m["wave.listening"]({ sec: sec.toFixed(2) })}</title>
       <line
         x1={`${x}%`}
         y1="0"

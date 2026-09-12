@@ -11,7 +11,9 @@ engine opens, whether the engine is running, the web UIs it trusts, autostart �
 menu (`engine/st0-tray/docs/tray.md`), and not because moving it here would be hard: those
 settings need a process on that machine, and this page is served to any machine that asks.
 
-So the split is not desktop-versus-web. It is **whose disk answers**.
+So the split is not desktop-versus-web. It is **whose disk answers**. Two sections today, and they
+sit at the two ends of that line: the LANGUAGE, which no disk answers for and which lives in this
+browser alone, and the DEPLOY KEY, which only a machine can have made.
 
 ## Why a panel and not a page
 
@@ -24,7 +26,61 @@ The prose in `RepoList.tsx` that points at the key therefore OPENS the panel rat
 linking: with no address there is nothing to link to, and a reader is one click from the thing
 the sentence names.
 
-## One section today, and it is the deploy key
+## The language
+
+`LanguageSection.tsx`, and it is the one row here that asks no machine anything: the language is
+the BROWSER's. Paraglide keeps it under `PARAGLIDE_LOCALE` in `localStorage` — the strategy chain
+this app compiles with is `["localStorage", "baseLocale"]` — so it is per browser and per machine,
+travels with nothing, and survives no account. The same person on another laptop starts in English
+again, which is the honest consequence of storing it where it is stored rather than a gap to fill:
+what language you read in is a property of where you are sitting, not of who you are.
+
+**English unless you say otherwise.** The shared setup
+(`commons/packages/i18n/src/vite.ts`) puts `preferredLanguage` between the stored choice and the
+base locale, so a browser asking for French gets French; st0 drops that middle strategy in its own
+`vite.config.ts`. The reason is that this app is written in English — the commands, the file
+syntax, the module names — and half of it is deliberately not translated at all (`i18n.ts` lists
+which). A French browser landing on a French shell whose every verb is English reads as a broken
+translation, where an English shell with a French option in the panel reads as a choice. It is an
+app-level override and not a commons edit, which is the line that file already draws.
+
+Each locale is named in **its own language** — English, Français — because the list is what you
+read to find the one you want, and the one you are reading is the one you cannot pick: a button
+that changes nothing is a button that looks broken.
+
+The editor's own settings panel reaches the same value through `ui language <en|fr>`, and there is
+no second store behind it — both doors call the runtime's `setLocale`, which writes that one key.
+The panel is not itself a command, for the reason the deploy key's buttons are not: the home page
+has no command bar, the palette being the project shell's.
+
+### Where the words themselves live
+
+Every string this app draws is in `messages/en.json` and `messages/fr.json`, reached as
+`m["key"]()` — the compiled functions read the locale at call time, so a module outside React
+(a status line, a refusal, a formatter) calls them exactly as a component does. Three rules the
+sweep that moved them settled:
+
+- **A sentence with something CLICKABLE in it stays one message.** Cutting it in two and letting
+  each half keep English word order is the usual way this goes wrong, so the message keeps NAMED
+  HOLES and `src/i18nParts.tsx` fills them with nodes. Each hole carries its name through the
+  string, so a language that puts them in another order still gets the right node in each.
+- **A table of static labels becomes a table of FUNCTIONS** (`() => m["…"]()`), never a table
+  read once at module scope: the latter freezes whatever language was loaded first. `shapes.ts`,
+  `timelineTools.ts`, `rollMode.ts`, `mastering/controls.ts` and the clip view's modes all follow
+  it, and their consumers call `label()` rather than reading `label`.
+- **`messages.test.ts` is the guard**: the two catalogues must name the same keys and ask for the
+  same parameters. Nothing else in the build notices a key added to one and not the other — the
+  screen just falls back to printing the key.
+
+**A shared package under `packages/` has no catalogue and stays ENGLISH.** `ui-chains`,
+`ui-chains-react`, `ui-turntables`, `ui-module-builder`, `project-shell` and `ui-app-switch` draw
+inside this app and inside others, each with its own message set; a French string in one of them
+is a French string in every host. What crosses that line is a `noun`-shaped hint the host hands
+in, not a sentence. The same rule covers text a package writes into a FILE — the
+`SURFACE_MAPPING_SKELETON` notes that end up as comments in `surfaces/<id>.yaml` are English
+because the file is read where the code is.
+
+## The other section, and it is the deploy key
 
 `SyncSection.tsx`. The key is what lets a repository be cloned or pushed at all, and nothing on
 the home page works without it.

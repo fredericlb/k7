@@ -23,9 +23,9 @@ import {
   LIVE_INPUT,
   LIVE_RECORDER,
   LIVE_RECORDER_REF,
-  LIVE_STRIP,
   liveProjectFiles,
   liveVideoProjectFiles,
+  SHARED_STRIP,
   scaffoldLive,
   scaffoldLiveVideo,
 } from "./scaffoldLive";
@@ -165,7 +165,7 @@ describe("the graph it writes", () => {
         join(dir, "nodes", `${LIVE_FADER}.yaml`),
         "utf8",
       );
-      expect(node).toContain(`extends: "${LIVE_STRIP}"`);
+      expect(node).toContain(`extends: "${SHARED_STRIP}"`);
     }));
 
   it("declares that borrowing, so an empty library is said at CREATION", () => {
@@ -173,7 +173,7 @@ describe("the graph it writes", () => {
     // not warn — it refuses the whole project. `neededRefs` reads the ref off the scaffolded
     // text, which is how the new-project screen owes it before anything is written.
     expect(neededRefs(liveProjectFiles("rig")).sort()).toEqual(
-      [LIVE_STRIP, LIVE_RECORDER_REF].sort(),
+      [SHARED_STRIP, LIVE_RECORDER_REF].sort(),
     );
   });
 });

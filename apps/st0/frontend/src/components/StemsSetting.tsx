@@ -12,6 +12,8 @@ import { MEDIATEK_REF } from "@studio/song-schema/songRef";
 import { Split } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import { parts } from "../i18nParts";
+import { m } from "../paraglide/messages.js";
 
 export function StemsSetting({
   /** Dispatches `system stems <ref>` — the verb that writes the preference, so this control and the command bar are one road. */
@@ -54,7 +56,7 @@ export function StemsSetting({
     <div>
       <div className="flex items-center gap-1.5 px-2 pb-1 pt-3 text-[10px] uppercase tracking-wide text-muted-foreground">
         <Split className="h-3 w-3" />
-        séparation des stems
+        {m["stems.title"]()}
       </div>
       <div className="flex flex-col gap-1.5 px-2">
         <select
@@ -64,9 +66,9 @@ export function StemsSetting({
           // The shell binds bare keys; a control with a keyboard of its own must keep it.
           onKeyDown={(e) => e.stopPropagation()}
           className="w-full rounded border border-border bg-background px-2 py-1 text-sm"
-          aria-label="la chaîne qui sépare un morceau en stems"
+          aria-label={m["stems.selectLabel"]()}
         >
-          <option value="">— aucune : cette machine ne sépare rien —</option>
+          <option value="">{m["stems.none"]()}</option>
           {/* What is stored, even when the library no longer holds it: a renamed chain must not read as "nothing is set". */}
           {(chains.includes(chain ?? "") || !chain
             ? chains
@@ -77,18 +79,14 @@ export function StemsSetting({
             </option>
           ))}
         </select>
-        <p className="text-xs text-muted-foreground">
-          Ce que « Séparer les stems » et les potards d'une platine utilisent.
-          Une chaîne d'un seul pas hors ligne — le modèle qu'elle nomme doit
-          être sur cette machine.
-        </p>
+        <p className="text-xs text-muted-foreground">{m["stems.body"]()}</p>
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
         {/* An empty list is a real state — a library with no chain yet — and reads as a broken screen unless it says so. */}
         {chains.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            Votre dépôt de bibliothèques ne contient aucune chaîne. Écrivez-en
-            une sous <span className="font-mono">chains/</span> — un pas, le
-            module qui sépare.
+            {parts((h) => m["stems.noChains"](h), {
+              dir: <span className="font-mono">chains/</span>,
+            })}
           </p>
         ) : null}
       </div>

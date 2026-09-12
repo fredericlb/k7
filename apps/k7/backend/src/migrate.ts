@@ -97,8 +97,25 @@ const SCHEMA: TableSchema = {
     // SheetFiles holds the bytes; SheetMeta the parallel {id,name,mime}, in order.
     ["SheetFiles", "Attachments"],
     ["SheetMeta", "Text"],
+    // The reference track, in the médiathèque like every other byte — ../../docs/audio.md.
+    ["AudioPath", "Text"],
+    ["AudioMime", "Text"],
+    ["AudioName", "Text"],
     ["Favorite", "Bool"],
     ["CreatedAt", "Text"],
+  ],
+  SupernoteSync: [
+    ["OwnerId", "Text"],
+    ["Enabled", "Bool"],
+    ["BaseUrl", "Text"],
+    ["Account", "Text"],
+    // The password, sealed — ../../docs/supernote.md. Never leaves the backend.
+    ["Secret", "Text"],
+    ["LastSyncAt", "Text"],
+    ["LastStatus", "Text"],
+    ["LastCount", "Numeric"],
+    // song uid -> a hash of its text, so an unchanged song is not pushed every hour.
+    ["Pushed", "Text"],
   ],
 };
 

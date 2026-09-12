@@ -91,12 +91,11 @@ waveforms, video; z0's editor uses it as it stands.
   seen one (`packages/file-service/docs/cloneJobs.md`).
 - **`openBench`** replaces those three rather than sitting beside them: the bench has no
   repository, so there is no name to resolve and nothing to clone. `@banc` in the address routes
-  here. It is slow the first time — a full modules sync — which is why it takes over the clone's
-  progress screen rather than being asked for silently (`apps/pl8/docs/banc.md`). It is handed the
-  account's library repository, because the chain being opened is IN it and so are the modules that
-  chain names; and it is handed the project part of the address verbatim, because the MACHINE is
-  what holds the médiathèque and therefore what decides whether `chains/<path>.st0` names one chain
-  or the catalogue at large.
+  here. It can be slow the first time — a library that is not yet mounted — which is why it takes
+  over the clone's progress screen rather than being asked for silently
+  (`apps/pl8/docs/banc.md`). It is handed the account's library repository, because every module
+  the rig can name is in it; and it is handed the project part of the address verbatim, because
+  the MACHINE is what builds the bench and therefore what decides which address it answers.
 - **`open`** takes the library URI for the same reason: the BROWSER is the side that knows who is
   asking. It read the URI from pl8 a moment ago, on this person's session, where the file service
   holds a machine token and no session at all. The machine mounts it at `_libraries` if it is not

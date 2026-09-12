@@ -4,6 +4,7 @@
 // these numbers.
 
 import { stringify } from "yaml";
+import { m } from "./paraglide/messages.js";
 
 /** The grid's side. 4×4 today — sixteen pads, the drum-machine page. */
 export const GRID = 4;
@@ -34,7 +35,7 @@ export function defaultSymbol(fileName: string): string {
 
 export interface RackPad {
   symbol: string;
-  fileName: string; // as it will sit beside module.yaml
+  fileName: string; // as it will sit in the module's sources/
   note: number;
 }
 
@@ -45,29 +46,27 @@ export function rackIssues(
   taken: readonly string[] = [],
 ): string[] {
   const out: string[] = [];
-  if (!name) out.push("le rack n'a pas de nom");
-  else if (!/^[a-z0-9][a-z0-9_-]*$/i.test(name))
-    out.push("le nom devient un dossier : lettres, chiffres, _ et - seulement");
-  if (taken.includes(`instruments/${name}`))
-    out.push(`instruments/${name} existe déjà`);
-  if (!pads.length) out.push("aucun sample sur la grille");
+  if (!name) out.push(m["rb.noName"]());
+  else if (!/^[a-z0-9][a-z0-9_-]*$/i.test(name)) out.push(m["rb.nameShape"]());
+  if (taken.includes(`instruments/${name}`)) out.push(m["rb.exists"]({ name }));
+  if (!pads.length) out.push(m["rb.noSample"]());
   const seen = new Set<string>();
   for (const p of pads) {
     if (!/^[A-Za-z0-9_-]+$/.test(p.symbol))
       out.push(`symbole invalide : "${p.symbol}"`);
-    else if (seen.has(p.symbol)) out.push(`symbole en double : ${p.symbol}`);
+    else if (seen.has(p.symbol))
+      out.push(m["rb.dupSymbol"]({ symbol: p.symbol }));
     seen.add(p.symbol);
   }
   const files = new Set<string>();
   for (const p of pads) {
-    if (files.has(p.fileName))
-      out.push(`deux pads portent le même fichier : ${p.fileName}`);
+    if (files.has(p.fileName)) out.push(m["rb.samePad"]({ file: p.fileName }));
     files.add(p.fileName);
   }
   return out;
 }
 
-/** The module.yaml a samples rack is: `clip` is the bare file name, the file sitting BESIDE module.yaml, symbols in the order given. */
+/** The module.yaml a samples rack is: `clip` is the bare file name, the file sitting in the module's `sources/`, symbols in the order given. */
 export function buildRackModuleYaml(
   name: string,
   pads: readonly RackPad[],

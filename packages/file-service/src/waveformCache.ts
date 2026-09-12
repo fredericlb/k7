@@ -36,6 +36,14 @@ interface Memo {
 }
 const memo = new Map<string, Memo>();
 
+/**
+ * The decodes running right now, keyed by source AND the sensitivity asked for. Two asks for one
+ * file are ONE decode: a timeline drawing several lanes off the same take asks for it several times
+ * at once, and without this each ask spawned its own engine over the same 33 MB — see
+ * docs/waveformCache.md.
+ */
+const inFlight = new Map<string, Promise<FileEnvelope>>();
+
 /** A fresh envelope: the memo, a matching sidecar, else the engine decodes it — see docs/waveformCache.md. */
 export async function ensureFileEnvelope(
   source: string,
@@ -61,18 +69,33 @@ export async function ensureFileEnvelope(
     throw new Error(
       "engine binary not found — cannot compute the waveform cache",
     );
-  // The engine writes `{source}.cache` itself; we just read it back.
-  await execFileAsync(
-    engineBin,
-    wanted == null
-      ? ["--waveform", source]
-      : ["--waveform", source, String(wanted)],
-    { maxBuffer: 1 << 20 },
-  );
-  const fresh = readSidecar(source);
-  if (!fresh) throw new Error("engine did not produce a waveform cache");
-  memo.set(source, { mtimeMs, env: fresh });
-  return fresh;
+
+  // Joined rather than started again — the sidecar this leaves is the same one either way.
+  const key = `${source}\u0000${wanted ?? ""}`;
+  const running = inFlight.get(key);
+  if (running) return running;
+
+  const decode = (async (): Promise<FileEnvelope> => {
+    // The engine writes `{source}.cache` itself; we just read it back.
+    await execFileAsync(
+      engineBin,
+      wanted == null
+        ? ["--waveform", source]
+        : ["--waveform", source, String(wanted)],
+      { maxBuffer: 1 << 20 },
+    );
+    const fresh = readSidecar(source);
+    if (!fresh) throw new Error("engine did not produce a waveform cache");
+    memo.set(source, { mtimeMs, env: fresh });
+    return fresh;
+  })();
+  inFlight.set(key, decode);
+  try {
+    return await decode;
+  } finally {
+    // Cleared here rather than in a `.finally` on the promise: a failed decode must not be joined either.
+    inFlight.delete(key);
+  }
 }
 
 // Drop the memo for one source (or all) when it changed underneath us, so the next request re-checks the sidecar.

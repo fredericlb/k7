@@ -48,8 +48,8 @@ export function FxButtons({
         className="shrink-0 px-2 text-xs"
         title={
           censorable
-            ? `censurer la platine ${side} — le disque part à l'envers tant que le bouton est tenu`
-            : `platine ${side} vide — rien à censurer`
+            ? `censor deck ${side} — the record runs backwards while the button is held`
+            : `deck ${side} is empty — nothing to censor`
         }
         {...held(onCensor, censorable)}
       >
@@ -62,8 +62,8 @@ export function FxButtons({
         className="shrink-0 px-2 text-xs"
         title={
           echoLive
-            ? `echo-out sur la platine ${side} — coupe la voie et laisse l'écho sonner`
-            : `cette platine n'a pas d'écho câblé — reliez \`deck${side}.echo\` dans surfaces/`
+            ? `echo-out on deck ${side} — cuts the channel and lets the echo ring`
+            : `this deck has no echo wired — connect \`deck${side}.echo\` in surfaces/`
         }
         aria-pressed={echoingOut}
         {...held(onEchoOut, echoLive)}
@@ -99,12 +99,12 @@ export function CueButton({
       title={
         // The reason, not the rule — and WHICH of the two is missing, since the fixes are different.
         !wired
-          ? `cette platine n'a pas de départ casque — migrez le set (migrateSetCue) ou reliez \`deck${side}.cue\` dans surfaces/`
+          ? `this deck has no headphone send — migrate the set (migrateSetCue) or connect \`deck${side}.cue\` in surfaces/`
           : !live
-            ? "cette machine n'a pas de paire pour le casque — nommez-la avec `system cue 3+4`, sinon le cue ne joue nulle part"
+            ? "this machine has no headphone pair — name one with `system cue 3+4`, or the cue plays nowhere"
             : on
-              ? `la platine ${side} est dans le casque — cliquer pour l'enlever`
-              : `écouter la platine ${side} au casque, avant le crossfader`
+              ? `deck ${side} is in the headphones — click to take it out`
+              : `hear deck ${side} in the headphones, before the crossfader`
       }
       onClick={onClick}
       aria-pressed={on}
@@ -138,12 +138,12 @@ export function SyncButton({
       className="shrink-0"
       title={
         !enabled
-          ? "il faut un tempo sur les deux platines"
+          ? "both decks need a tempo"
           : !beats
-            ? `synchroniser sur la platine ${side} — tempo seulement : l'analyse n'a pas trouvé de grille fiable sur l'un des morceaux, les temps ne seront pas calés`
+            ? `sync onto deck ${side} — tempo only: the analysis found no reliable grid on one of the songs, so the beats will not line up`
             : on
-              ? `la platine ${side} mène — cliquer pour relâcher`
-              : `synchroniser sur la platine ${side}`
+              ? `deck ${side} leads — click to release`
+              : `sync onto deck ${side}`
       }
       onClick={onClick}
     >

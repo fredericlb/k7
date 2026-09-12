@@ -3,15 +3,16 @@
 // See ../docs/responsive.md.
 
 import type { AppHeaderItem } from "@frediverse/ui/app-header";
-import { RECORDINGS_DIR } from "@studio/mediatek/types";
-import { Disc3, type LucideIcon, Mic, Waves } from "lucide-react";
+import { PLAYLISTS_DIR, RECORDINGS_DIR } from "@studio/mediatek/types";
+import { Disc3, ListMusic, type LucideIcon, Mic, Waves } from "lucide-react";
 import type { SectionId } from "./routes";
 
-/** The three families plus the raw captures zone, which is not one (../docs/routing.md). */
+/** The two families plus the two root zones, which are not families (../docs/routing.md). */
 export const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: "songs", label: "Morceaux", icon: Disc3 },
   { id: "samples", label: "Samples", icon: Waves },
   { id: RECORDINGS_DIR, label: "Enregistrements", icon: Mic },
+  { id: PLAYLISTS_DIR, label: "Playlists", icon: ListMusic },
 ];
 
 /** The sections as the shared bar consumes them, count on `trailing` (../docs/responsive.md). */

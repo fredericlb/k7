@@ -65,6 +65,8 @@ export const MODULE_CATEGORIES = [
   "video_transitions",
   // A GLSL pass: its own category, being the one module whose behaviour is a FILE it carries.
   "shaders",
+  // A drawn primitive — a rectangle, a circle, a line of text — wired to the lane it draws on.
+  "shapes",
 ] as const;
 
 export type WebModuleCategory = (typeof MODULE_CATEGORIES)[number];

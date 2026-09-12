@@ -23,7 +23,7 @@ remembers cannot.
 
 ---
 
-`st0-tray` is a tray-only Tauri app with no window. It is the **VIEW** over the
+`st0-tray` is a tray Tauri app that starts with no window. It is the **VIEW** over the
 supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
 stdio: the supervisor owns the `~/.st0` contract, the registry, and — stage by stage —
 the engine and the file service. The tray renders its snapshots and sends its clicks back.
@@ -32,56 +32,157 @@ Nothing in `tray.rs` opens a socket, spawns a process or reads a state file. Wha
 which engine is running, what the ports are, where to heartbeat: all of it comes down in a
 snapshot (`host.rs`), and a click goes back up as a command.
 
-## "Sessions ▸" — what the status line could never say
+## What the machine must already have (`deps.rs`)
 
-One engine now holds several projects at once, one per app driving it. The status line
-reports the PROCESS (`● Running · id 3f2a91c4 · :8765`), and that read the same whether the
-engine held nothing, held st0' song, or held a song and a deck and a module preview
-together. The submenu is the only place the tray answers *what is my engine doing, and for
-whom*:
+`git` and `git-lfs` are probed once at startup, before any of the stack is spawned. A machine
+missing either gets a native dialog naming what to install and where, and then nothing else: the
+tray exits rather than bringing up a stack that cannot import a workspace.
 
-```
-Sessions ▸  st0 · ma-chanson · 4 tracks  ▶  ♫1   ✕
-            st0 · le-set · 1 track               ✕
-            pl8 · nothing loaded                 ✕
-```
+**Here rather than in the file service**, which is what actually shells out to them, for two
+reasons. The supervisor and the file service are this process's descendants and inherit its
+environment, so what the tray finds on PATH is exactly what they will find — the check and the
+use cannot disagree about which `git` is meant. And a Windows release build has no console, so a
+refusal that is not a native modal is a refusal nobody reads.
 
-`▶` means that session's transport is rolling; `♫n` means n sockets are subscribed to its
-audio — someone is listening over the network. Both are shown only when true: a column of
-`▶ no · 0 listening` would bury the one session that *is* playing among the ones that are
-not.
+**It refuses rather than degrades**, because otherwise every symptom arrives far from the cause.
+Without `git` a workspace is created but silently never versioned, publishing fails on a raw
+`spawn git ENOENT`, and the library never mounts — which surfaces later still as `extends unknown
+module '@st0/audio/utility/mixer'` on a project nobody touched. Without `git-lfs` a clone lands
+pointer text where audio should be, and the song plays silence with every track present, unmuted
+and looking correct (`packages/file-service/docs/workspaces.md`).
 
-Clicking a row **drops** that session — its edit, plugins, meters and broadcast tap. The row
-*is* the drop, and the `✕` says so; there is no other click on a session row it could be
-confused with. The app driving it is not told, and will simply find an empty project.
+`tauri-plugin-dialog` is the one crate here that does not draw the tray, and this is what it is
+for: the refusal has to be shown before the supervisor that would otherwise report it exists.
 
-Gated on `sessionsSig` like the audio and plugin submenus, and for a sharper reason here:
-the playhead moves 20 times a second, so a signature built from the whole snapshot would put
-the frame on the wire — and tear down a submenu the user has open — at frame rate. The
-signature is built from what the rows *show*.
+## The settings window
 
-## "Audio ▸" — a click is a promotion, not a pick
+One window, `src-tauri/src/settingswin.rs`, holding what a MACHINE is set to rather than what a
+project is. Five tabs, because they answer five different questions and only one of them is
+ever urgent:
+
+| tab | what it is |
+|---|---|
+| Audio | the interface ranking, as a list you drag |
+| Plugins | the installed catalogue, filtered, and the rescan that refills it |
+| Sessions | what this engine is holding, and the plugin editors it can open |
+| Sync | where a playlist may be copied to — a stick, a folder, an FTP box |
+| System | version, engine, registry, file service — and every button that acts on them |
+
+**The menu bar keeps one line and no buttons.** A status line is what a menu bar is for; a
+ranking, a catalogue of several hundred rows, a list of live sessions and a row of destructive
+buttons are not, and each was there only because there was nowhere else to put it. `Settings…`
+is the way in, and the only one — the tray no longer draws a device, a count, a session or a
+version anywhere. `Web UI ▸` is what is left, because approving an origin is a two-click answer
+to a banner rather than something you go looking for.
+
+It is hidden on close, never destroyed: Tauri asks an app to exit when its last window closes,
+and this app's exit stops the engine. `windows` in `tauri.conf.json` stays empty for the same
+reason it always was — nothing is opened until someone asks for it.
+
+The page is hand-written HTML, CSS and JS under `dist/`, served as-is. The tray has no frontend
+build and gains none for three tabs, which is what `withGlobalTauri` buys: a `<script>` tag
+reaches `invoke` with no bundler in front of it. The window draws only what a snapshot said and
+sends back only commands, so the rule that **the tray computes no policy** holds here too.
+
+On macOS the app stays an accessory — no Dock icon and no app-switcher entry — so the window
+comes forward on focus and leaves nothing behind when it hides.
+
+### Audio — the list IS the ranking
 
 The supervisor keeps an ORDER, not a chosen device: the first name in it that is actually
 present is where the engine goes (`packages/engine-host/docs/supervisorPolicy.md`, *Why a list,
-and not a pick plus a fallback*). A menu cannot express a drag, so it expresses the one gesture
-people mean by clicking an interface — **put this one first** — and the rest of the order keeps
-its relative places. `audio.priority` carries the WHOLE ranking in one command, because a reorder
-is a single act and two halves of it could interleave with a poll.
+and not a pick plus a fallback*). `audio.priority` carries the WHOLE ranking in one command,
+because a reorder is a single act and two halves of it could interleave with a poll. That
+command's argument is simply what is on screen: the ranking, then every other interface plugged
+in, and a drop commits all of it — which is how one move ranks a machine that had ranked nothing.
 
-The rank is drawn beside each row. Without the number a row says only "you picked this once",
-which is exactly what the model this replaced could say and no more — and it is the number that
-explains why an interface that IS plugged in is not the one playing.
+**A ranked name with no device behind it keeps its row, in red.** It is what holds the rank while
+the interface is unplugged, so replugging restores it; drop the row and the order silently
+reshuffles under a user who never asked it to. The colour is the answer to *why is my engine not
+on my interface* — the one question this list exists to answer — and that row is the only one
+carrying a **Forget** button, because dropping one name is the one thing dragging cannot say.
 
-**A ranked name with no device behind it keeps its row**, disabled and marked not connected.
-It is what holds the rank while the interface is unplugged, so replugging restores it; drop the
-row and the order silently reshuffles under a user who never asked it to.
+A snapshot arriving mid-drag is dropped rather than drawn: redrawing would pull the list out from
+under the pointer. The other two tabs redraw regardless — nothing there is under a finger.
+
+### Plugins — read-only, and rescanned from here
+
+The catalogue rides the snapshot like every other list, gated on `pluginsSig`
+(`packages/engine-host/docs/hostProtocol.md` weighs what that costs). What the engine answers is
+already the full list — the count was only ever `.length` of it — so nothing extra is asked of the
+engine to draw this.
+
+The list is read-only, deliberately: this is the INSTALLED catalogue, and everything you can do to
+a plugin you do to an instance of it in a project, which is st0's business rather than the tray's.
+The filter is there because a working machine has hundreds of rows.
+
+### Sync — the targets a playlist can be copied to
+
+A target is a name and a URI, `file://` or `ftp://`, and what a copy DOES with one is
+[packages/file-service/docs/playlistSync.md](../../../packages/file-service/docs/playlistSync.md).
+It is edited here for the reason the audio ranking is: it names something only this machine can
+reach. A hosted screen cannot know what `file:///media/usb` is, and pl8 offers the button but never
+learns the address behind it.
+
+The list is the **whole value**, sent in one `sync.targets` as a reorder sends one `audio.priority`:
+an edit is a single act, and two halves of it could interleave with a poll.
+
+**The URI is shown in full, password and all.** Everywhere else in this repo it is blanked — pl8's
+dropdown gets `ftp://dj:***@box.lan` — and here it is not, because this window runs on the machine
+that already holds the file: hiding it would only stop you checking what you typed, while protecting
+nothing. It is the one surface where showing it sends it nowhere.
+
+**The scheme is checked here to answer at once, and that check is not the gate.** The supervisor's
+normaliser is (`packages/song/src/preferences.ts`), and it drops a target it cannot copy to, so a
+window that let one through would simply see it absent from the next snapshot. What the local check
+buys is a sentence naming the mistake — `sftp:// cannot be copied to` — instead of a row that
+silently fails to appear. The tray still computes no policy: it refuses nothing the supervisor would
+have kept.
+
+Removing one is a button on its row rather than a drag, since dropping a target is the only thing
+this list does that reordering could not say — the same argument that gives an unplugged audio
+device its **Forget**.
+
+### Sessions — what the status line could never say
+
+One engine holds several projects at once, one per app driving it. The status line reports the
+PROCESS (`● Running · id 3f2a91c4 · :8765`), and that reads the same whether the engine holds
+nothing, holds one song, or holds a song and a deck and a module preview together. This tab is
+the only place that answers *what is my engine doing, and for whom*.
+
+`▶ playing` and `♫ n listening` appear only when true: a column of "not playing · 0 listening"
+would bury the one session that IS playing among the ones that are not. The default session has
+no name on the wire and is drawn as `(default)`, or the row reads as a session with no id rather
+than THE unnamed one.
+
+**Drop** throws that session's edit, plugins, meters and broadcast tap away. The app driving it
+is not told, and will simply find an empty project.
+
+Beneath each session sit its plugin instances whose OWN editor can open — the plugin's
+`nativePluginUI`, not a module's `moduleUI` (the widget grid built in the web editor, which is
+st0's business). A built-in has no window to show and gets no row. Nesting them under the session
+is what a menu could not do: the same module id in two projects is two rows, and a flat list had
+to spell the session out on every one of them.
+
+The two lists are polled apart, so a plugin can name a session the engine has not listed in that
+frame. Those rows are kept under a heading of their own rather than dropped — a plugin window
+that blinks out of existence for one poll is worse than a heading nobody reads.
+
+### System — the machine, and the buttons that act on it
+
+Version, engine, registry and file service as four facts, then Start / Stop / Restart, Restart
+file service, and Clear waveform cache. A page has room for the sentence a greyed-out menu row
+never had: an adopted engine says *why* its buttons are dead, rather than just being dead.
+
+`canAct` only GREYS those buttons. The rule that this app never stops an engine it did not spawn
+is the supervisor's to enforce, and it does — a view is the wrong place for it to live.
 
 ## Safety rule: never kill someone else's engine
 
-Stop and Restart are enabled **only** when the supervisor OWNS the running engine. An
-adopted (foreign) engine shows as Running with those items greyed out, so this app can
-never kill a process another owner manages — see `AppState::owns_running`.
+Stop and Restart are offered **only** when the supervisor OWNS the running engine. An adopted
+(foreign) engine shows as Running in the System tab with those buttons greyed out and the reason
+written beside them, so this app can never kill a process another owner manages — see
+`AppState::owns_running`.
 
 ## The Windows job object (`job.rs`)
 

@@ -280,16 +280,21 @@ Nothing a stranger typed becomes a path.
 
 ## The hunt does not target a playlist
 
-A playlist lives in the workspace's repository (`packages/song/docs/playlists.md`), i.e. on the file
-service's disk — which this service does not touch. And it must not: `docs/projects.md` establishes
-that the service minting everyone's session and holding the single deploy key must not additionally
-be able to write into everyone's repository. A "just one line of YAML" costing that property is
-expensive.
+Not even this volume's own, under `playlists/` ([playlists.md](playlists.md)). A hunt **files a song**
+and stops there, because what it produces is bytes and what a set list holds is a name — and the two
+are not one gesture: a download that also wrote into a document would decide, on your behalf and
+while you were not looking, which set list a song belongs to.
 
-So the division is this: **the hunt files the song into the médiathèque**, and adding it to a setlist
-is one click in st0, on exactly that catalogue — its search queries
-`/api/mediatek/list?family=songs` (`apps/st0/frontend/docs/playlists.md`). Eight searches in a row
-therefore cost eight clicks, in a screen that shows the setlist while you fill it.
+And it can never target a workspace's `_playlists/`, which is a stronger statement than a preference:
+those live on the file service's disk, and `docs/projects.md` establishes that the service minting
+everyone's session and holding the single deploy key must not additionally be able to write into
+everyone's repository. A "just one line of YAML" costing that property is expensive.
+
+So the division is this: **the hunt files the song into the médiathèque**, and adding it to a set list
+is one click afterwards — here on the Playlists tab, whose search reads the same catalogue the hunt
+just wrote into, or in st0, which queries it across the origin
+(`apps/st0/frontend/docs/playlists.md`). Eight searches in a row therefore cost eight clicks, in a
+screen that shows the set list while you fill it.
 
 ## The fallback: "DL sur YouTube"
 

@@ -1289,6 +1289,10 @@ function publicSong(rec) {
       name: s.name,
       mime: s.mime,
     })),
+    // The bytes are in the médiathèque; what a screen needs is that there ARE some.
+    audio: f.AudioPath
+      ? { name: f.AudioName || "", mime: f.AudioMime || "" }
+      : null,
     favorite: Boolean(f.Favorite),
     createdAt: f.CreatedAt || "",
   };
@@ -1415,6 +1419,59 @@ export async function deleteSheetFile(uid, fileId) {
   return getSong(uid);
 }
 
+// --- The reference track ------------------------------------------------------
+
+/** One song, one recording to play along to: uploading a second replaces the first. */
+export async function setSongAudio(uid, { buffer, mime, name }) {
+  const rec = await getSongRecord(uid);
+  if (!rec) return null;
+  const previous = rec.fields.AudioPath ? String(rec.fields.AudioPath) : "";
+  const previousMime = String(rec.fields.AudioMime || "");
+
+  // A path of its own, keyed by the song: a re-upload overwrites, and a delete is exact.
+  const target = `recordings/songbook/${uid}.${songAudioExt(mime, name)}`;
+  await mediatek.putFile(target, buffer);
+  await grist.patchRecord("Songs", rec.id, {
+    AudioPath: target,
+    AudioMime: mime,
+    AudioName: name,
+  });
+  // A different container leaves the old bytes behind, under a name nothing points at.
+  if (previous && previous !== target) await safeRemote(previous);
+  safeUnlink(songAudioCachePath(uid, previousMime, previous));
+  safeUnlink(songAudioCachePath(uid, mime, target));
+  invalidateSong(uid);
+  return getSong(uid);
+}
+
+export async function deleteSongAudio(uid) {
+  const rec = await getSongRecord(uid);
+  if (!rec) return null;
+  const previous = rec.fields.AudioPath ? String(rec.fields.AudioPath) : "";
+  if (previous) await safeRemote(previous);
+  safeUnlink(
+    songAudioCachePath(uid, String(rec.fields.AudioMime || ""), previous),
+  );
+  await grist.patchRecord("Songs", rec.id, {
+    AudioPath: "",
+    AudioMime: "",
+    AudioName: "",
+  });
+  invalidateSong(uid);
+  return getSong(uid);
+}
+
+/** The track on disk, so the route can answer Range requests and the player can seek. */
+export async function ensureSongAudioCached(uid) {
+  const rec = await getSongRecord(uid);
+  const remote = rec?.fields.AudioPath ? String(rec.fields.AudioPath) : "";
+  if (!remote) return null;
+  const mime = String(rec.fields.AudioMime || "audio/mpeg");
+  const filePath = songAudioCachePath(uid, mime, remote);
+  if (!fs.existsSync(filePath)) await mediatek.download(remote, filePath);
+  return { filePath, mime, name: String(rec.fields.AudioName || "") };
+}
+
 /** A sheet file on disk, fetched from Grist if need be, so it can be streamed. */
 export async function ensureSheetFileCached(uid, fileId) {
   const rec = await getSongRecord(uid);
@@ -1466,6 +1523,42 @@ function sheetExtFor(mime) {
   const m = /^image\/(png|jpeg|jpg|gif|webp|svg\+xml)$/.exec(mime || "");
   if (!m) return "bin";
   return m[1] === "svg+xml" ? "svg" : m[1] === "jpeg" ? "jpg" : m[1];
+}
+
+/** Common audio containers, then the uploaded name's own extension, then `bin`. */
+function songAudioExt(mime, name) {
+  const known = {
+    "audio/mpeg": "mp3",
+    "audio/mp3": "mp3",
+    "audio/mp4": "m4a",
+    "audio/x-m4a": "m4a",
+    "audio/aac": "m4a",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/flac": "flac",
+    "audio/ogg": "ogg",
+    "audio/opus": "opus",
+    "audio/webm": "webm",
+  };
+  if (known[mime]) return known[mime];
+  const fromName = /\.([a-z0-9]{1,5})$/i.exec(String(name || ""));
+  return fromName ? fromName[1].toLowerCase() : "bin";
+}
+
+// The track's cache path; the REMOTE name fixes the extension — ../../docs/audio.md.
+function songAudioCachePath(uid, mime, remote) {
+  const ext =
+    /\.([a-z0-9]+)$/i.exec(String(remote || ""))?.[1] ?? songAudioExt(mime, "");
+  return path.join(CACHE_DIR, `song-audio-${uid}.${ext}`);
+}
+
+/** The médiathèque may already have lost it; that is not a failure worth raising. */
+async function safeRemote(remote) {
+  try {
+    await mediatek.remove(remote);
+  } catch {
+    /* already gone, or unreachable — the row is what matters */
+  }
 }
 
 // One sheet file's cache path: keyed by attachment id, with a sniffable extension.

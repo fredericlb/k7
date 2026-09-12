@@ -204,9 +204,15 @@ export function SharedGate({
 /** The one thing a visitor may take away, as a plain link — a download is a navigation, and fetch would only buy a blob URL. */
 export function ShareDownload({ base }: { base: string }) {
   return (
-    <Button asChild variant="secondary" size="sm">
+    // 24 px like every other control in the bar: the header's height is whatever its tallest child is.
+    <Button
+      asChild
+      variant="secondary"
+      size="sm"
+      className="h-6 gap-1 px-2 text-xs"
+    >
       <a href={`${base}/download`} download>
-        <Download className="h-4 w-4" /> {m["share.download"]()}
+        <Download className="h-3.5 w-3.5" /> {m["share.download"]()}
       </a>
     </Button>
   );

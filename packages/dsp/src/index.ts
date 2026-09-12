@@ -274,6 +274,24 @@ export class GraphBuilder {
     return m;
   }
 
+  /** EAT the keys: note-ons and note-offs leave the stream and become the graph's held set. */
+  hold(m: Midi): Midi {
+    this.json.nodes.push({ type: "mhold" });
+    return m;
+  }
+
+  /** Strike the held set every `stepBeats`, each note lasting `gate` of that step — docs/builder.md. */
+  strike(m: Midi, stepBeats: Input, gate: Input): Midi {
+    this.json.nodes.push({
+      type: "mstrike",
+      in: [
+        typeof stepBeats === "number" ? stepBeats : stepBeats.name,
+        typeof gate === "number" ? gate : gate.name,
+      ],
+    });
+    return m;
+  }
+
   // A MIDI node takes SCALARS and no wires, hence no `out`: it acts on the plugin's buffer, not on a value.
   private mnode(type: string, k: Input): void {
     // A literal goes through as a NUMBER, not its text — ../docs/builder.md on the engine's ref().

@@ -65,6 +65,13 @@ const TARGETS = {
           base === "build.rs" ||
           base === "tauri.conf.json",
       },
+      // The settings window's page. `tauri build` EMBEDS it in the binary, so editing it is a
+      // relink like any .rs — there is no dev server serving it from disk.
+      {
+        path: join(repo, "engine", "st0-tray", "dist"),
+        recursive: false,
+        match: (base) => /\.(html|css|js)$/.test(base),
+      },
     ],
     build: buildDevApp,
   },

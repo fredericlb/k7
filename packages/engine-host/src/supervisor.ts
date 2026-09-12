@@ -10,6 +10,8 @@ import {
   rootDir,
   webOriginsPath,
 } from "@studio/engine-client/paths";
+import { loadPreferences, setSyncTargets } from "@studio/song/preferences";
+import type { SyncTarget } from "@studio/song-schema/syncTarget";
 import { gatherAddresses } from "./addresses.ts";
 import { desiredSwitch, menuSignature, signature } from "./audioPolicy.ts";
 import { guard } from "./background.ts";
@@ -24,6 +26,7 @@ import type {
   HostCommand,
   HostEditPlugin,
   HostOwnership,
+  HostPlugin,
   HostSession,
   HostSnapshot,
   HostTransport,
@@ -93,6 +96,8 @@ interface State {
   fileServiceFailed: boolean;
   lastHeartbeatOk: boolean;
   pluginCount: number | null;
+  plugins: HostPlugin[];
+  pluginsSig: string;
   audioDevices: HostAudioDevice[];
   audioMenuSig: string;
   editPlugins: HostEditPlugin[];
@@ -139,8 +144,13 @@ function snapshot(s: State): HostSnapshot {
     registryUrl: s.registryUrls.join(", "),
     lastHeartbeatOk: s.lastHeartbeatOk,
     pluginCount: s.pluginCount,
+    plugins: s.plugins,
+    pluginsSig: s.pluginsSig,
     audioDevices: s.audioDevices,
     audioPriority: s.settings.audioPriority,
+    // Read from `preferences.yaml` rather than held: the file service reads the same file, and
+    // one of the two caching it is how the window and the copy come to disagree.
+    syncTargets: loadPreferences().syncTargets ?? [],
     audioMenuSig: s.audioMenuSig,
     editPlugins: s.editPlugins,
     editPluginsSig: s.editPluginsSig,
@@ -190,6 +200,8 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     fileServiceFailed: false,
     lastHeartbeatOk: false,
     pluginCount: null,
+    plugins: [],
+    pluginsSig: "",
     audioDevices: [],
     audioMenuSig: "",
     editPlugins: [],
@@ -315,6 +327,8 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     // The file service went with it — clear the failure, so a stopped engine shows a plain red dot, not a "down".
     state.fileServiceFailed = false;
     state.pluginCount = null;
+    state.plugins = [];
+    state.pluginsSig = "";
     state.editPlugins = [];
     state.editPluginsSig = "";
     state.sessions = [];
@@ -404,10 +418,14 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
 
   const pollPlugins = async (): Promise<void> => {
     if (state.status !== "running") return;
-    const n = await engine.pluginCount();
-    if (n === null) return; // no answer yet — leave the spinner alone
-    if (n === state.pluginCount) return;
-    state.pluginCount = n;
+    const plugins = await engine.listPlugins();
+    if (plugins === null) return; // no answer yet — leave the spinner alone
+    const sig = plugins.map((p) => `${p.format}\u0000${p.name}`).join("\n");
+    // A rescan that found the same catalogue must still land: the count is null until it does, and that is the spinner.
+    if (sig === state.pluginsSig && state.pluginCount !== null) return;
+    state.plugins = plugins;
+    state.pluginsSig = sig;
+    state.pluginCount = plugins.length;
     publish();
   };
 
@@ -645,6 +663,24 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         await deregister(state.registryUrls, state.identity);
         reply(cmd.id, true);
         return;
+      case "sync.targets": {
+        // The WHOLE list in one command, as the ranking is: an edit is one act, and the
+        // normaliser is what refuses a URI nothing can copy to — packages/song/src/preferences.ts.
+        let want: SyncTarget[] = [];
+        try {
+          const raw = arg ? JSON.parse(arg) : [];
+          if (Array.isArray(raw)) want = raw as SyncTarget[];
+        } catch {
+          // A malformed frame is REFUSED rather than clearing somebody's targets.
+          reply(cmd.id, false, "sync.targets: not a list of targets");
+          return;
+        }
+        setSyncTargets(want);
+        publish();
+        reply(cmd.id, true);
+        return;
+      }
+
       case "audio.priority": {
         // The WHOLE ranking, in one command: a reorder is one act, and two halves of it could be interleaved with a poll.
         const ranked = arg ? arg.split(PRIORITY_SEP).filter(Boolean) : [];

@@ -16,6 +16,7 @@ import { Input } from "@frediverse/ui/input";
 import { isSshGitUri } from "@studio/git-repos/uri";
 import { Download, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 
 export function ImportWorkspace({
   blocked,
@@ -34,10 +35,7 @@ export function ImportWorkspace({
 
   const value = uri.trim();
   // Empty is not "wrong" — it is a field nobody has typed in yet, and it says nothing.
-  const bad =
-    value && !isSshGitUri(value)
-      ? "URI SSH uniquement — git@hôte:utilisateur/depot.git"
-      : "";
+  const bad = value && !isSshGitUri(value) ? m["ws.sshOnly"]() : "";
 
   const submit = () => {
     if (!value || bad || busy) return;
@@ -58,26 +56,23 @@ export function ImportWorkspace({
         variant="secondary"
         size="sm"
         disabled={Boolean(blocked)}
-        title={blocked || "Cloner un dépôt existant sur cette machine"}
+        title={blocked || m["ws.importHint"]()}
         onClick={() => setOpen(true)}
       >
-        <Download className="mr-1 h-4 w-4" /> Importer
+        <Download className="mr-1 h-4 w-4" /> {m["ws.import"]()}
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Importer un dépôt</DialogTitle>
-            <DialogDescription>
-              Le dépôt est inscrit puis cloné sur la machine du moteur. La clé
-              de déploiement doit déjà être chez votre hébergeur git.
-            </DialogDescription>
+            <DialogTitle>{m["ws.importTitle"]()}</DialogTitle>
+            <DialogDescription>{m["ws.importBody"]()}</DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
             <Input
               autoFocus
-              placeholder="git@hôte:utilisateur/depot.git"
+              placeholder={m["ws.uriPlaceholder"]()}
               value={uri}
               disabled={busy}
               onChange={(e) => setUri(e.target.value)}
@@ -87,7 +82,7 @@ export function ImportWorkspace({
             {busy && (
               <p className="text-xs text-muted-foreground">
                 <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
-                {step || "clonage…"}
+                {step || m["ws.cloning"]()}
               </p>
             )}
             {error && (
@@ -103,11 +98,11 @@ export function ImportWorkspace({
               disabled={busy}
               onClick={() => setOpen(false)}
             >
-              Annuler
+              {m["common.cancel"]()}
             </Button>
             <Button disabled={busy || !value || Boolean(bad)} onClick={submit}>
               {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              Importer
+              {m["ws.import"]()}
             </Button>
           </DialogFooter>
         </DialogContent>

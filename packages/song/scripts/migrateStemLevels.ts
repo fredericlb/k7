@@ -121,5 +121,5 @@ for (const dir of roots) {
 
 console.log(
   `${changed}/${seen} set(s) ${write ? "migrated" : "would change"}. ` +
-    "The `stemcut` module in the library must be the signed one — packages/dsp/modules/ is a place to copy FROM.",
+    "The `stemcut` module in the library must be the signed one (docs/sharedFolders.md).",
 );

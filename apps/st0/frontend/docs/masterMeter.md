@@ -1,8 +1,9 @@
 # The header meter, and the Fix button beside it
 
-The header carries the mix as it leaves for the interface: a bar, a clip light, and — only after a
-pass that clipped — a **fix** button that takes the whole mix down until that pass would have
-peaked at **-6 dB**.
+The header carries the mix as it leaves for the interface, at the right end of the bar: one lane
+holding the meter, the output fader's handle and the mark at unity, then a clip light, and — only
+after a pass that clipped — a **fix** button that takes the whole mix down until that pass would
+have peaked at **-6 dB**.
 
 `MasterMeter.tsx` is the component. It is a **leaf that subscribes to the engine store itself**,
 which is what the store is for: the frame arrives at 20 Hz, and reading the level in `App` would
@@ -32,8 +33,8 @@ silence. The pass's peak only exists where somebody kept it.
 
 ## What the button does
 
-**It lowers the OUT node's `Volume`** — the song's output level, and the very number the fader an
-inch below it shows. One write, on the node the whole mix ends at, which is the one edit that
+**It lowers the OUT node's `Volume`** — the song's output level, and the very number the handle on
+the bar beside it shows. One write, on the node the whole mix ends at, which is the one edit that
 cannot change a balance anywhere in the song.
 
 It writes `node param "OUT" Volume <dB>`, the same line the fader's own release commits, so the
@@ -119,35 +120,50 @@ That is the line for a pass this browser did not see. Without one, a pass that d
 refused rather than trimmed: `trimFor` floors the peak at full scale, so this verb has no no-op to
 fall back on and "nothing to fix" has to be said out loud.
 
-## The fader under it
+## The fader ON it
 
-The bar says how loud the mix IS; the fader under it says how loud it should be — the song's own
+The bar says how loud the mix IS; the handle riding on it says how loud it should be — the song's own
 output level (`@studio/song`'s [`docs/masterVolume.md`](../../../../packages/song/docs/masterVolume.md)).
-Two rows, one column, because they are the same subject read in two directions.
+**One lane, not two controls**: they are the same subject read in two directions, and the level the
+handle sets is half the reason the bar reads where it does. The meter IS the fader's track.
 
 A **native range input**, and that is a choice worth stating in a codebase that draws its knobs on
 canvas: those exist because a knob had to show something a range cannot — a bind, an automation
 lane, a value arriving from the engine. This is one linear number, and the platform already tells
 its keyboard story better than a canvas would (arrows, Home/End, a focus ring, a screen reader).
 
+It is laid over the bar with `absolute inset-0` and a **transparent track**: `appearance-none` takes
+the platform's track and thumb away, and only the thumb is put back — 4×10 px, in `foreground`, with
+a one-pixel ring in the background colour so it stays legible over the emerald fill and over the
+amber. That needs per-browser pseudo-element rules, and **both** must be written or Firefox draws no
+thumb at all. Nothing else may sit on top of it: an overlay would eat the drag.
+
 **`onChange` paints, the release commits.** The rule the mixer's knobs follow: a drag is dozens of
 values and each write recompiles the project. Between the two, a local `dragged` value is what the
 fader shows — cleared when a fresh document arrives, so an edit made anywhere else wins rather than
 being ignored by a fader holding its own opinion.
-
-**Its thumb is half the platform's** (~8px). A default thumb is drawn for a control that owns a
-row; this one shares a 24-pixel-wide lane with a meter bar, where at full size it reads as a blob on
-a hairline rather than as a fader. That needs per-browser pseudo-element rules — `appearance-none`
-takes the platform thumb away and each engine's own selector puts ours back — and **both** must be
-written or Firefox draws no thumb at all.
 
 **It runs to -60, where the field runs to -100.** Below -60 the curve is silence, and spending two
 thirds of a 96-pixel fader on the difference between inaudible and more inaudible would squeeze the
 useful range into the top third. `project master -80` still reaches it by name — a fader is for
 reaching, not for completeness.
 
-It is drawn only when the host passes both `master` and `onMaster`, so a share — no project to
-write to — gets the meter and no fader.
+### The unity mark
+
+A hairline at **0 dB**, drawn under the handle. Unity is the one point of the travel worth finding
+without reading the number — the level at which the song leaves as it was mixed — and on a
+96-pixel lane running -60…+12 it sits five sixths of the way along, nowhere a hand finds by feel.
+
+It is positioned as **the centre of a thumb at that value**, not as a fraction of the track:
+a range insets its thumb by half its width at each end, so a plain `left: 83.3%` would sit a couple
+of pixels to the right of where the handle actually stops — enough, on a hairline, to read as the
+fader being off unity when it is on it. `UNITY_LEFT` is that arithmetic, and `THUMB_PX` is why the
+handle's width is a constant in the module as well as a Tailwind class: **change one and change the
+other**, or the mark drifts.
+
+The handle and the mark are drawn only when the host passes both `master` and `onMaster`, so a
+share — no project to write to — gets the bar alone, which is why neither is part of the meter's own
+markup.
 
 **It is not the only fader on this number.** The chains graph draws an `OUT` card with the same
 param on it (`@studio/ui-chains`'s `MAIN_OUT_UI`), because the output is a node like any other and
@@ -159,9 +175,9 @@ are looking at.
 
 The **output level is upstream of it** (`@studio/song`'s
 [`docs/masterVolume.md`](../../../../packages/song/docs/masterVolume.md)). The bar, the clip light
-and the peak the Fix button spends all read the mix *with* the fader under them applied.
+and the peak the Fix button spends all read the mix *with* the handle's own level applied.
 
-That is what makes the two halves of this component one thing. The button writes the fader's own
+That is what makes the two halves of this component one control. The button writes the fader's own
 param, so if the meter could not see it, a Fix would leave the clip light lit, offer itself again
 on the next pass, and take another 6 dB every time — a button that appears to do nothing while
 quietly walking the mix to silence.

@@ -75,6 +75,16 @@ describe("the shared module catalogue", () => {
     expect(by("@workspace/io/IN")?.nodes).toBe(2);
   });
 
+  it("carries the name a module CALLS itself, and nothing when it says none", () => {
+    // The label is what a picker draws; the ref is still what names it — docs/moduleLabel.md.
+    write(
+      "audio/reverb/module.yaml",
+      'label: "Grande salle"\nplugin:\n  type: internal\n  name: reverb\n',
+    );
+    expect(by("@workspace/audio/reverb")?.label).toBe("Grande salle");
+    expect(by("@workspace/audio/amp/nam")).not.toHaveProperty("label");
+  });
+
   it("points at the file the builder opens", () => {
     expect(by("@workspace/audio/amp/nam")?.path).toBe(
       join(ws, "_modules", "audio", "amp", "nam", "module.yaml"),

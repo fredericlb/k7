@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { projectFolderName, workspaceFolderName } from "./projectName";
+import {
+  droppedStem,
+  projectFolderName,
+  workspaceFolderName,
+} from "./projectName";
 
 describe("projectFolderName", () => {
   it("pose le suffixe de l'application choisie", () => {
@@ -38,7 +42,7 @@ describe("projectFolderName", () => {
 
   it("refuse un nom qui commencerait par un point", () => {
     // The project would exist unseen, here and in the repository's tree alike.
-    expect(projectFolderName(".caché", "st0").error).toMatch(/point/);
+    expect(projectFolderName(".caché", "st0").error).toMatch(/dot/);
   });
 
   it("refuse le vide et l'espace seul", () => {
@@ -70,5 +74,26 @@ describe("workspaceFolderName", () => {
     expect(workspaceFolderName(".caché").error).toBeTruthy();
     expect(workspaceFolderName("   ").error).toBeTruthy();
     expect(workspaceFolderName(".st0").error).toBeTruthy();
+  });
+});
+
+// The name a DROPPED project starts on: the file's own, which is nearly always the right one.
+describe("droppedStem", () => {
+  it("drops the extension and keeps the rest, dots included", () => {
+    expect(droppedStem("Winter Sketch.dawproject")).toBe("Winter Sketch");
+    expect(droppedStem("v1.2 final.dawproject")).toBe("v1.2 final");
+  });
+
+  it("leaves a name with no extension alone", () => {
+    expect(droppedStem("winter")).toBe("winter");
+  });
+
+  // A dotfile is all extension and no stem, so the field starts EMPTY and the dialog asks — a
+  // name beginning with a dot would be a hidden folder, which `workspaceFolderName` refuses anyway.
+  it("leaves nothing of a name that is only an extension", () => {
+    expect(droppedStem(".dawproject")).toBe("");
+    expect(
+      projectFolderName(droppedStem(".dawproject"), "st0").error,
+    ).toBeTruthy();
   });
 });

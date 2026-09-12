@@ -109,6 +109,15 @@ the markers. It is exported for the other operation with the same reach: moving 
 down onto every placement of it (`packages/song-edit/src/windowDescend.ts`). A migration that missed a
 take would leave that take playing the whole file the day you swapped it back onto the lane.
 
+## Halving a placement's passes
+
+`halveSequenceLoops` is what `sequence double` calls on every lane: the material's window has just
+doubled, so a placement that plays it four times must play it twice, or the arrangement grows under
+an edit that was about the notes. It walks `everyEventList` for the reason `spliceTime` does — a
+placement in a take or an alternative is a placement — and deletes the key rather than writing
+`loop: 1`, one pass being the default. What it deliberately does not touch, and why, is
+`packages/song-edit/docs/sequenceLoops.md`.
+
 ## A placement's id
 
 `packages/song-schema/src/placementId.ts` holds it in two functions with no imports, so a BROWSER can

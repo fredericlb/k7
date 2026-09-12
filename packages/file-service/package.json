@@ -37,6 +37,7 @@
     "@studio/take-render": "*",
     "@studio/translator": "*",
     "@studio/web-protocol": "*",
+    "basic-ftp": "^6.2.1",
     "chokidar": "^3.6.0",
     "cors": "^2.8.5",
     "express": "^4.19.2",

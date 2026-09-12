@@ -217,16 +217,18 @@ describe("a lane's mute is its module's bypass", () => {
   });
 });
 
-describe("what a lane may not be called", () => {
-  it("refuses a name a module already has — one flat name space", () => {
-    // Said at load time rather than discovered as a self-loop in the chains.
+describe("what a lane may be called", () => {
+  it("takes a name a module already has — a lane and its instrument are not one thing", () => {
+    // What every import writes: the source DAW named the track after the instrument on it.
     const p = project([["amp", "@studio/track"]]);
     mkdirSync(join(p, "modules", "audio", "amp"), { recursive: true });
     writeFileSync(
       join(p, "modules", "audio", "amp", "module.yaml"),
       "plugin: { type: internal, name: Chorus }\n",
     );
-    expect(() => loadLanes(p, true)).toThrow(/already a module/);
+    const lanes = loadLanes(p, true);
+    // The bare name is the LANE's: it is the one a graph key names, and the module keeps its ref.
+    expect(Object.keys(lanes)).toContain("amp");
   });
 });
 

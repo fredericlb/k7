@@ -1,0 +1,92 @@
+<!doctype html>
+<!-- settings.html — the tray's one window: everything the tray used to hold in submenus and
+     could not draw properly. Five tabs, because they answer five different questions and only
+     one of them is ever urgent. See engine/st0-tray/docs/tray.md. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>st0 engine</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-panel="panel-audio" aria-selected="true">Audio</button>
+      <button role="tab" data-panel="panel-plugins" aria-selected="false">Plugins</button>
+      <button role="tab" data-panel="panel-sessions" aria-selected="false">Sessions</button>
+      <button role="tab" data-panel="panel-sync" aria-selected="false">Sync</button>
+      <button role="tab" data-panel="panel-system" aria-selected="false">System</button>
+    </nav>
+
+    <section id="panel-audio" role="tabpanel">
+      <p class="hint">
+        Best first. The engine takes the highest one that is plugged in — so a
+        rehearsal interface above the built-in output needs nothing said twice.
+        Drag to reorder, or move a selected row with ↑ and ↓. A row in red is
+        ranked but not connected: it holds its place until you say otherwise.
+      </p>
+      <ol id="audio"></ol>
+      <p id="audio-empty" class="empty" hidden></p>
+    </section>
+
+    <section id="panel-plugins" role="tabpanel" hidden>
+      <p class="hint">
+        What the engine found installed. Rescanning asks it to walk the plugin
+        folders again — it can take a while, and it happens inside the engine.
+      </p>
+      <div class="bar">
+        <input id="filter" type="search" placeholder="Filter by name, maker or format" />
+        <button id="rescan" type="button">Rescan</button>
+      </div>
+      <p id="plugin-count" class="empty"></p>
+      <ul id="plugins"></ul>
+    </section>
+
+    <section id="panel-sessions" role="tabpanel" hidden>
+      <p class="hint">
+        What this one engine is holding, and for whom — one row per app driving
+        it. <b>Drop</b> throws away whatever that app had loaded; it is not told,
+        and will simply find an empty project. Under each session are the plugins
+        whose own editor can be opened, on the engine's screen.
+      </p>
+      <ul id="sessions"></ul>
+      <p id="sessions-empty" class="empty" hidden></p>
+    </section>
+
+    <section id="panel-sync" role="tabpanel" hidden>
+      <p class="hint">
+        Where this machine can copy a playlist to, from the médiathèque's
+        Synchroniser button. <b>file://</b> for a stick or a folder,
+        <b>ftp://</b> for a box on the network — credentials go in the address
+        (<code>ftp://user:pass@box.lan/music</code>) and never leave this
+        machine. Songs are written as
+        <code>[artiste]/[album]/[titre]</code>; nothing is ever deleted.
+      </p>
+      <ul id="sync"></ul>
+      <p id="sync-empty" class="empty" hidden></p>
+      <div class="bar">
+        <input id="sync-name" type="text" placeholder="Name — Clé USB" />
+        <input id="sync-uri" type="text" placeholder="file:///media/usb/MUSIC" />
+        <button id="sync-add" type="button">Add</button>
+      </div>
+      <p id="sync-error" class="empty" hidden></p>
+    </section>
+
+    <section id="panel-system" role="tabpanel" hidden>
+      <ul id="system"></ul>
+      <p id="adopted" class="hint" hidden>
+        This engine was started by another supervisor. It can be neither stopped
+        nor restarted from here, and its file service is not ours to touch.
+      </p>
+      <div class="bar">
+        <button id="engine-start" type="button">Start engine</button>
+        <button id="engine-stop" type="button">Stop</button>
+        <button id="engine-restart" type="button">Restart</button>
+      </div>
+      <div class="bar">
+        <button id="file-restart" type="button">Restart file service</button>
+        <button id="waveforms-clear" type="button">Clear waveform cache</button>
+      </div>
+    </section>
+    <script src="settings.js"></script>
+  </body>
+</html>

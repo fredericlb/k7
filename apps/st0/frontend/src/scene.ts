@@ -57,8 +57,8 @@ export function sceneOf(
         ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
         ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
       })),
-      // A shape lane carries no media — the compositor rasterizes it, and a per-shape id is synthesised, the file naming none.
-      shapes: t.shapes.map((s, i) => ({ id: `${t.id}:${i}`, ...s })),
+      // A shape carries no media — the compositor rasterizes it, and its id is the module node that drew it.
+      shapes: t.shapes.map((s) => ({ ...s })),
       // …and this lane's own GLSL chain, run over the layer before it is composited.
       passes: passesOf(t.plugins),
     })),

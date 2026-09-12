@@ -1,14 +1,15 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  BENCH_PROJECT,
   BENCH_REPO,
-  benchChainPath,
-  benchProjectForChain,
   EXTERNAL_INDEX,
   EXTERNAL_SEGMENT,
   externalIndexUrl,
   externalUrl,
   HAS_SCAFFOLD,
+  isBenchProject,
+  isDroppableProject,
   isExternalIndex,
   isLocal,
   isProjectAddress,
@@ -237,24 +238,38 @@ describe("which apps can be CREATED", () => {
   });
 });
 
-describe("a chain opened on the bench", () => {
-  it("is the catalogue path, and comes back as one", () => {
-    const chain = "chains/blindtest/assourdissant/music";
-    expect(benchProjectForChain(chain)).toBe(`${chain}.st0`);
-    expect(benchChainPath(`${chain}.st0`)).toBe(chain);
+describe("what a DROP may carry", () => {
+  it("takes a self-contained project and nothing else", () => {
+    // Both tiers filter on this: the browser before it accepts, the file service before it reads.
+    expect(isDroppableProject("Winter Sketch.dawproject")).toBe(true);
+    expect(isDroppableProject("WINTER.DAWPROJECT")).toBe(true);
+    // A `.als` names its samples by path, so dropped alone it would import a silent project.
+    expect(isDroppableProject("winter.als")).toBe(false);
+    expect(isDroppableProject("winter.wav")).toBe(false);
+    expect(isDroppableProject("dawproject")).toBe(false);
+  });
+});
+
+describe("the bench's address", () => {
+  it("names one project, and it is not a chain of the library", () => {
+    expect(isBenchProject(BENCH_PROJECT)).toBe(true);
+    // Everything else under `@banc` names nothing: a chain is opened from a project, not here.
+    expect(isBenchProject("chains/bass/amp.st0")).toBe(false);
+    expect(isBenchProject("modules.st0")).toBe(false);
+    expect(isBenchProject("live")).toBe(false);
   });
 
-  it("is not the module bench, and the module bench is not one", () => {
-    expect(benchChainPath("modules.st0")).toBeNull();
-    expect(benchChainPath("chains.st0")).toBeNull(); // the family folder itself names no chain
-  });
-
-  it("refuses a path that would climb out of the médiathèque", () => {
-    // The machine joins this onto two roots, so a traversal accepted here would make a folder outside both.
-    expect(benchChainPath("chains/../../etc/passwd.st0")).toBeNull();
-    expect(benchChainPath("chains/./x.st0")).toBeNull();
-    expect(benchChainPath("chains//x.st0")).toBeNull();
-    expect(benchChainPath("chains/..\\x.st0")).toBeNull();
+  it("survives the round trip st0's home page makes it take", () => {
+    // The bench card builds an address; the file service takes it apart again — apps/pl8/docs/banc.md.
+    const url = launchUrl(
+      "https://studio.example",
+      BENCH_REPO,
+      BENCH_PROJECT,
+      "st0",
+    );
+    const at = parseLaunch(new URL(url).pathname, "st0", "/");
+    expect(at?.repo).toBe(BENCH_REPO);
+    expect(isBenchProject(at?.project ?? "")).toBe(true);
   });
 });
 
@@ -371,7 +386,7 @@ describe("a project in a workspace with no repository", () => {
   });
 
   it("refuses a workspace name that is not one", () => {
-    // Checked and not trusted, exactly as benchChainPath and shareToken are: it is joined onto the user's root.
+    // Checked and not trusted, exactly as shareToken is: it is joined onto the user's root.
     expect(localTarget("../elsewhere/x.st0")).toBe(null);
     expect(localTarget("./x.st0")).toBe(null);
     expect(localTarget("")).toBe(null);

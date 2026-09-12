@@ -91,7 +91,7 @@ export function MasterMeter() {
       className="flex shrink-0 items-center gap-1.5"
       title={
         `sortie ${db <= FLOOR_DB ? "silence" : `${db.toFixed(1)} dB`}` +
-        (clipped ? " — a saturé depuis le début de la lecture" : "")
+        (clipped ? " — it clipped since playback started" : "")
       }
     >
       <div className="relative h-1.5 w-20 overflow-hidden rounded-full bg-foreground/15">
@@ -104,7 +104,7 @@ export function MasterMeter() {
       </div>
       {/* Always drawn, dark when nothing clipped: a light only there when it is on cannot be checked. */}
       <span
-        aria-label={clipped ? "a saturé" : "pas de saturation"}
+        aria-label={clipped ? "it clipped" : "no clipping"}
         className={`h-1.5 w-1.5 shrink-0 rounded-full ${
           clipped
             ? "bg-red-500 shadow-[0_0_4px_1px] shadow-red-500/60"
@@ -145,11 +145,11 @@ function ChannelFader({
           step={0.5}
           value={level}
           disabled={!live}
-          aria-label={`niveau de la platine ${side}`}
+          aria-label={`deck ${side}'s level`}
           title={
             live
-              ? `niveau de la platine ${side} — ${level > 0 ? "+" : ""}${level.toFixed(1)} dB, double-clic pour revenir à l'unité`
-              : `cette platine n'a pas de fader de voie câblé — reliez \`deck${side}.level\` dans surfaces/`
+              ? `deck ${side}'s level — ${level > 0 ? "+" : ""}${level.toFixed(1)} dB, double-click to go back to unity`
+              : `this deck has no channel fader wired — connect \`deck${side}.level\` in surfaces/`
           }
           onChange={(e) => onChange(Number(e.target.value))}
           onDoubleClick={() => live && onChange(0)}
@@ -256,7 +256,7 @@ export function MixerColumn({
               onChange={(e) => onChange(Number(e.target.value))}
               disabled={!ready}
               className="min-w-0 flex-1 accent-foreground"
-              aria-label="crossfade entre la platine A et la platine B"
+              aria-label="crossfade between deck A and deck B"
             />
             <span className="w-3 shrink-0 text-center font-semibold text-xs">
               B
@@ -274,8 +274,8 @@ export function MixerColumn({
             onClick={onQuantise}
             title={
               quantise
-                ? "quantise : les boucles et les sauts tombent sur le temps"
-                : "quantise coupé : ils tombent où la main les met"
+                ? "quantise: the loops and the jumps land on the beat"
+                : "quantise off: they land where the hand puts them"
             }
             className={`h-6 w-8 rounded border font-mono text-[10px] ${
               quantise

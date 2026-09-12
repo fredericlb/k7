@@ -43,8 +43,10 @@ import {
 import { useSurfaces } from "../hooks/useSurfaces";
 import { useTurntableDeck } from "../hooks/useTurntableDeck";
 import { useVideoDoc } from "../hooks/useVideoDoc";
+import { parts } from "../i18nParts";
 import { type ConditionCtx, effectiveKeys } from "../keys";
 import { BARE_TRANSPORT, isUiLine } from "../localCommands";
+import { m } from "../paraglide/messages.js";
 import { MiniTransport } from "../shellMeta";
 import type { CommandInfo } from "../types";
 import { ExternalTimeline } from "./ExternalTimeline";
@@ -158,14 +160,14 @@ export function ExternalSurface({
       if (act) {
         const h = timelineRef.current;
         if (h) act(h);
-        else setStatus(`« ${line} » : cette surface n'a pas d'arrangement.`);
+        else setStatus(m["extsrf.noArrangement"]({ line }));
         return true;
       }
       if (ui === null) return false;
       // The LAYOUT verbs go quiet rather than complaining: they are what Esc and Tab resolve to once nothing is open.
       if (QUIET_UI.has(ui)) return true;
       if (isUiLine(ui)) {
-        setStatus(`« ${ui} » appartient à l'éditeur, pas à une surface.`);
+        setStatus(m["extsrf.editorOnly"]({ ui }));
         return true;
       }
       return false;
@@ -238,11 +240,12 @@ export function ExternalSurface({
       <Centre>
         <Unplug className="h-8 w-8" aria-hidden="true" />
         <p className="max-w-sm text-center text-sm">
-          Aucune surface « {name} » dans ce projet.
+          {m["extsrf.noSurface"]({ name })}
         </p>
         <p className="max-w-sm text-center text-xs opacity-70">
-          Les surfaces sont les fichiers de <code>surfaces/</code> ; l'adresse
-          en nomme une par son nom de fichier.
+          {parts((h) => m["extsrf.surfacesAre"](h), {
+            dir: <code>surfaces/</code>,
+          })}
         </p>
         <Back />
       </Centre>
@@ -318,7 +321,9 @@ export function ExternalSurface({
               type="button"
               onClick={fullscreen.toggle}
               title={
-                fullscreen.active ? "Quitter le plein écran" : "Plein écran"
+                fullscreen.active
+                  ? m["extsrf.exitFullscreen"]()
+                  : m["extsrf.fullscreen"]()
               }
               className="ml-auto flex shrink-0 items-center rounded px-1 py-0.5 text-muted-foreground hover:bg-accent"
             >
@@ -415,7 +420,7 @@ function Back() {
   return (
     <a
       href={externalIndexUrl(window.location.origin, "st0")}
-      title="Toutes les surfaces"
+      title={m["extsrf.allSurfaces"]()}
       className="flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent"
     >
       <ChevronLeft className="h-4 w-4" />

@@ -8,9 +8,11 @@
 import { Button } from "@frediverse/ui/button";
 import { cn } from "@frediverse/ui/lib/utils";
 import { showToast } from "@studio/project-shell/toast";
+import { MODULE_SOURCES_DIR } from "@studio/song-schema/moduleTypes";
 import { Loader2, Play, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { m } from "../paraglide/messages.js";
 import {
   buildRackModuleYaml,
   cellsInNoteOrder,
@@ -146,13 +148,15 @@ export function RackBuilder({
     const ap = (activeProject ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
     const prefix = ap && ap !== "." ? `${ap}/` : "";
     const dir = `${prefix}modules/instruments/${name.trim()}`;
+    // The samples go under `sources/`, where the loader looks first and the tree shows them.
+    const src = `${dir}/${MODULE_SOURCES_DIR}`;
     let done = 0;
     try {
       // The samples first, then the module that names them: a reload between the two finds files nothing reads, never a module with no clips.
       for (const p of rackPads) {
         setUp({ done, total: rackPads.length, name: p.fileName, frac: 0 });
         await api.uploadWithProgress(
-          dir,
+          src,
           p.fileName,
           await p.pad.file.arrayBuffer(),
           (loaded, total) =>
@@ -174,7 +178,7 @@ export function RackBuilder({
     } catch (e) {
       // Which file, and what the earlier ones left behind — the samples land before the module by design.
       const landed = done
-        ? ` — ${done} of ${rackPads.length} sample(s) are already in ${dir}`
+        ? ` — ${done} of ${rackPads.length} sample(s) are already in ${src}`
         : "";
       showToast({
         message: `rack : ${(e as Error).message}${landed}`,
@@ -190,23 +194,24 @@ export function RackBuilder({
       {/* The backdrop closes, like every popin's. */}
       <button
         type="button"
-        aria-label="fermer"
+        aria-label={m["common.closeLower"]()}
         className="absolute inset-0 bg-black/50"
         onClick={onClose}
       />
       <div className="relative flex max-h-[90vh] w-[min(34rem,92vw)] flex-col gap-3 overflow-auto rounded-lg border border-border bg-background p-4 shadow-xl">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-primary">⣿ nouveau rack</span>
+          <span className="font-semibold text-primary">
+            ⣿ {m["rb.title"]()}
+          </span>
           <span className="text-xs text-muted-foreground">
-            glisser des samples sur les pads · cliquer écoute · les noms
-            deviennent les symboles
+            {m["rb.hint"]()}
           </span>
           <Button
             size="icon-xs"
             variant="ghost"
             className="ml-auto"
             onClick={onClose}
-            aria-label="fermer"
+            aria-label={m["common.closeLower"]()}
           >
             <X className="h-3.5 w-3.5" />
           </Button>
@@ -251,7 +256,7 @@ export function RackBuilder({
                       <>
                         <button
                           type="button"
-                          title={`écouter ${pad.file.name}`}
+                          title={m["rb.listen"]({ name: pad.file.name })}
                           onClick={() => play(pad)}
                           className="ml-auto rounded p-0.5 hover:bg-accent hover:text-foreground"
                         >
@@ -260,7 +265,7 @@ export function RackBuilder({
                         {/* Emptying a pad, beside the button that plays it, red on hover only (docs/shell.md). */}
                         <button
                           type="button"
-                          title={`enlever ${pad.file.name} du pad`}
+                          title={m["rb.clearPad"]({ name: pad.file.name })}
                           aria-label="enlever ce sample"
                           onClick={() => clearPad(row, col)}
                           className="rounded p-0.5 hover:bg-destructive/20 hover:text-destructive"
@@ -285,7 +290,7 @@ export function RackBuilder({
                           })
                         }
                         className="mt-1 w-full rounded border border-transparent bg-transparent font-mono text-xs font-semibold focus:border-border"
-                        aria-label="symbole du pad"
+                        aria-label={m["rb.padSymbol"]()}
                       />
                       <span
                         className="mt-auto truncate text-[10px] text-muted-foreground"
@@ -296,7 +301,7 @@ export function RackBuilder({
                     </>
                   ) : (
                     <span className="m-auto text-[10px] text-muted-foreground/60">
-                      déposer un sample
+                      {m["rb.dropSample"]()}
                     </span>
                   )}
                 </div>
@@ -338,7 +343,7 @@ export function RackBuilder({
             {busy ? (
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
             ) : null}
-            créer
+            {m["rb.create"]()}
           </Button>
         </div>
       </div>

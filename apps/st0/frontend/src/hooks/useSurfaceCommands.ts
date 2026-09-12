@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { m } from "../paraglide/messages.js";
 import { useRevision } from "./useRevision";
 
 export interface SurfaceCommands {
@@ -43,7 +44,7 @@ export function useSurfaceCommands(
         const { output, refused } = await api.command(line, { want: [] });
         const said = output.length ? output.join("  ·  ") : `ran: ${line}`;
         // A refusal reads as a refusal even here: this screen has one line of chrome, so the word has to be in the sentence.
-        setStatus(refused ? `refusé — ${said}` : said);
+        setStatus(refused ? m["srf.refused"]({ said }) : said);
       } catch (e) {
         setStatus(`command error: ${(e as Error).message}`);
       } finally {

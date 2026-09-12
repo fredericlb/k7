@@ -1,0 +1,26 @@
+{
+  "name": "@studio/ui-app-switch",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The origin's app switch — one menu row per studio app, minus the one drawing it. st0's home page and pl8's header mount the same one. See docs/appSwitch.md.",
+  "types": "./src/AppSwitch.tsx",
+  "exports": {
+    ".": "./src/AppSwitch.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@frediverse/ui": "*",
+    "@studio/web-protocol": "*",
+    "lucide-react": "^1.24.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "react": "^19.2.7"
+  }
+}

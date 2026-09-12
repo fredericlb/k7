@@ -103,13 +103,13 @@ export function BpmFader({
               onCommit();
             }
           }}
-          aria-label="tempo de cette platine, en BPM"
+          aria-label="this deck's tempo, in BPM"
           title={
             !has
-              ? "le moteur n'a trouvé aucun tempo pour ce morceau"
+              ? "the engine found no tempo for this song"
               : driven
-                ? "piloté par l'autre platine — le bouger annule le sync"
-                : "tempo — double-clic pour revenir à celui du morceau"
+                ? "driven by the other deck — moving it cancels the sync"
+                : "tempo — double-click to go back to the song's own"
           }
         />
       </div>
@@ -123,7 +123,7 @@ export function BpmFader({
         }`}
         title={
           has && Math.abs(target - natural) > natural * PITCH_RANGE
-            ? "au-delà de la plage d'une platine — l'étirement s'entend"
+            ? "past a deck's range — the stretch is audible"
             : undefined
         }
       >
@@ -137,8 +137,8 @@ export function BpmFader({
       <div className="flex w-full shrink-0 gap-1">
         {(
           [
-            ["÷2", onHalve, "moitié : le tempo détecté est le double du vrai"],
-            ["×2", onDouble, "double : le tempo détecté est la moitié du vrai"],
+            ["÷2", onHalve, "half: the detected tempo is twice the real one"],
+            ["×2", onDouble, "double: the detected tempo is half the real one"],
           ] as const
         ).map(([label, act, why]) => (
           <button
@@ -151,7 +151,7 @@ export function BpmFader({
                 ? "bg-muted text-muted-foreground hover:bg-accent"
                 : "bg-muted/40 text-muted-foreground/40"
             }`}
-            title={act ? why : "aucun tempo mesuré sur cette platine"}
+            title={act ? why : "no tempo measured on this deck"}
           >
             {label}
           </button>
@@ -161,7 +161,7 @@ export function BpmFader({
       {corrected ? (
         <span
           className="shrink-0 font-mono text-[8px] text-primary leading-none"
-          title="la médiathèque porte un tempo corrigé pour ce morceau — il suit le disque dans tous les projets"
+          title="the media library carries a corrected tempo for this song — it follows the record into every project"
         >
           BPM ✎
         </span>
@@ -171,7 +171,7 @@ export function BpmFader({
       {songKey ? (
         <span
           className="shrink-0 font-mono text-[9px] text-muted-foreground leading-none"
-          title={`tonalité du morceau : ${songKey} — saisie dans la médiathèque, elle suit le disque`}
+          title={`the song's key: ${songKey} — typed into the media library, it follows the record`}
         >
           {camelotOf(songKey)}
         </span>
@@ -189,8 +189,8 @@ export function BpmFader({
         }`}
         title={
           keylock
-            ? "hauteur tenue : le morceau garde sa tonalité, mais les stems ne se somment plus proprement"
-            : "hauteur libre : le morceau monte avec le tempo, comme un vinyle"
+            ? "pitch held: the song keeps its key, but the stems no longer sum cleanly"
+            : "pitch free: the song rises with the tempo, like a record"
         }
       >
         KEY

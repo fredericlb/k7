@@ -160,8 +160,8 @@ export function Vinyl({
       >
         {/* One title, not two: it names the record AND says what the hand may do with it. */}
         <title>
-          {loaded ? `${artist ?? ""} ${title}` : `platine ${side}`}
-          {onScratch ? " — tourner le disque à la main" : ""}
+          {loaded ? `${artist ?? ""} ${title}` : `deck ${side}`}
+          {onScratch ? " — turn the record by hand" : ""}
         </title>
         <defs>
           {/* Not flat black: a record reads as one because the light moves across it. */}
@@ -228,11 +228,7 @@ export function Vinyl({
         <button
           type="button"
           onClick={onPick}
-          title={
-            loaded
-              ? "changer le morceau de cette platine"
-              : "choisir un morceau"
-          }
+          title={loaded ? "change this deck's song" : "choose a song"}
           className={`pointer-events-auto flex aspect-square w-[46%] cursor-pointer flex-col items-center justify-center rounded-full px-3 text-center transition-shadow hover:ring-2 hover:ring-foreground/30 ${
             loaded
               ? "bg-accent text-accent-foreground"

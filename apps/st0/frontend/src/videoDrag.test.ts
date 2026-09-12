@@ -24,7 +24,9 @@ const shot = (over: Partial<Parameters<typeof videoDragTo>[0]> = {}) => ({
 
 const full = (over: Parameters<typeof videoDragEdits>[0] | object = {}) => ({
   trackId: "main",
-  ref: "shot_a",
+  // The placement's ADDRESS is its index in `events:`, a ref being neither unique nor always there.
+  index: 2,
+  activation: false,
   x: 0,
   pxPerSec: 100,
   moved: true,
@@ -35,9 +37,7 @@ const full = (over: Parameters<typeof videoDragEdits>[0] | object = {}) => ({
 describe("moving a shot", () => {
   it("writes only its start", () => {
     const v = full({ ...shot(), start: 9 });
-    expect(videoDragEdits(v)).toEqual([
-      { ref: "shot_a", field: "start", value: 9 },
-    ]);
+    expect(videoDragEdits(v)).toEqual([{ index: 2, field: "start", value: 9 }]);
   });
 
   it("cannot be dragged before zero", () => {
@@ -64,9 +64,9 @@ describe("trimming the head", () => {
     // Or the frame under the new edge is not the frame that was there before the trim.
     const v = full({ ...head(), start: 6, length: 4 });
     expect(videoDragEdits(v)).toEqual([
-      { ref: "shot_a", field: "start", value: 6 },
-      { ref: "shot_a", field: "source_from", value: 4 }, // 2 + 2
-      { ref: "shot_a", field: "length", value: 4 },
+      { index: 2, field: "start", value: 6 },
+      { index: 2, field: "source_from", value: 4 }, // 2 + 2
+      { index: 2, field: "length", value: 4 },
     ]);
   });
 
@@ -75,7 +75,7 @@ describe("trimming the head", () => {
     expect(videoDragTo(head(), -10, free).start).toBe(2);
     const v = full({ ...head(), start: 2, length: 8 });
     expect(videoDragEdits(v).find((e) => e.field === "source_from")).toEqual({
-      ref: "shot_a",
+      index: 2,
       field: "source_from",
       value: 0,
     });
@@ -101,6 +101,22 @@ describe("trimming the head", () => {
   });
 });
 
+describe("an ACTIVATION, which names no source", () => {
+  it("moves its head without a source in-point to move with it", () => {
+    // The span shortens from the left and its end stays put — there is no frame under the edge.
+    const v = full({
+      ...shot({ mode: "in" as const }),
+      activation: true,
+      start: 6,
+      length: 4,
+    });
+    expect(videoDragEdits(v)).toEqual([
+      { index: 2, field: "start", value: 6 },
+      { index: 2, field: "length", value: 4 },
+    ]);
+  });
+});
+
 describe("setting the extent", () => {
   const tail = (over = {}) => shot({ mode: "out" as const, ...over });
 
@@ -108,7 +124,7 @@ describe("setting the extent", () => {
     const next = videoDragTo(tail(), 3, free);
     expect(next).toEqual({ start: 4, length: 9 });
     expect(videoDragEdits(full({ ...tail(), length: 9 }))).toEqual([
-      { ref: "shot_a", field: "length", value: 9 },
+      { index: 2, field: "length", value: 9 },
     ]);
   });
 

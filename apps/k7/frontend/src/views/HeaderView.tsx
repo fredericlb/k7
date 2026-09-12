@@ -81,9 +81,7 @@ export function HeaderView({
             src={`${import.meta.env.BASE_URL}icon-192.png`}
             alt=""
           />
-          <span className="brand-text">
-            f<span style={{ color: "var(--red)" }}>·</span>rec
-          </span>
+          <span className="brand-text">k7</span>
         </button>
       }
       subtitle={VERSION}

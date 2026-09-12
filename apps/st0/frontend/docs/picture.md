@@ -138,8 +138,8 @@ layer under the pointer is reachable without a layer list.
 
 ### Three limits, each deliberate
 
-- **A `shape` lane is not selectable.** Its rect is not what it draws by — its shapes each carry
-  their own — so a box around it would move a number nothing reads.
+- **A lane DRAWING shapes is not selectable.** Its rect is not what it draws by — each shape
+  module carries its own geometry — so a box around it would move a number nothing reads.
 - **Nothing is clamped to the frame.** A shot may legitimately hang off the edge; refusing that
   would make a pan impossible to author.
 - **`MIN_SIDE` is the floor** (16 px). A layer resized to nothing is unclickable, so it could not
@@ -207,20 +207,15 @@ refuses it without having to know why. `m` still hides the lane, which is what `
 picture.
 
 A surgical rewrite, never a re-serialisation: these files carry the comments that document the
-format. The drag's edit is keyed by `ref`, so a placement that moved in the file between render
-and drop is still the one that was grabbed.
+format. **The drag's edit is keyed by the placement's INDEX** in the lane's `events:`, which is
+the only address that is always unique and always there: one source may be placed twice on a
+lane, and an ACTIVATION on a lane of shapes names no source at all
+(`packages/song-video/docs/shapes.md`). `vt.clips[i]` IS `events[i]` — the compile maps them
+one to one and filters nothing — so the row the pointer is over knows the address.
 
-**One limit follows from that key**: a source placed *twice on the same lane* has one ref for two
-placements, and a drag on either writes the first. The format keys them the same way, so it is
-the format's limit and not the component's — the workaround is a second lane, or a second
-`clips/` entry naming the same file. Placing one source on several lanes is fine; that is what
-the scaffold's own picture-in-picture does.
-
-**The verbs do not have that limit**, because they address a shot by where it starts rather than
-by its ref, and `setVideoPlacementFieldAt` writes by index. So the way to separate two placements
-of one source is `picture move` on the second — after which the drag can tell them apart too.
-What the verbs cannot tell apart is two shots starting at the *same instant* on one lane, and
-they refuse that pair by name rather than picking.
+The verbs address a shot by **where it starts** instead, that being what somebody can type, and
+land on the same `setVideoPlacementFieldAt`. What they cannot tell apart is two shots starting at
+the *same instant* on one lane, and they refuse that pair by name rather than picking.
 
 ## The frame follows the engine
 
@@ -300,19 +295,24 @@ The two names are spelled twice — in `ASPECTS` and in `RENDER_UI` — because 
 does not see `@studio/song-schema`. The verb REFUSES a name it does not know, so a drift is a
 refusal rather than a wrong size written silently.
 
-## Exporting the picture — `project export video mp4`
+## Exporting the picture — `project export video`
 
 The command has two halves, and the first word says which one comes out:
 
 ```
-project export audio wav|mp3              the mix, rendered by the engine
-project export video mp4 [wav|mp3|none]   the picture, rendered here — the sound married into it
+project export audio wav|mp3                   the mix, rendered by the engine
+project export video webm|mp4 [wav|mp3|none]   the picture, rendered here — the sound married in
 ```
 
-`exportScene` (`@studio/ui-eyes`) renders the viewport frame by frame into an mp4: the same
-compositor as in real time, but frame *n* is second *n/fps* and every source frame is pulled
-EXACTLY, so a song always renders the same picture. WebCodecs, so Chrome in practice —
-`ViewportTab` already says so when `VideoEncoder` is missing.
+`exportScene` (`@studio/ui-eyes`) renders the viewport frame by frame into that container: the
+same compositor as in real time, but frame *n* is second *n/fps* and every source frame is pulled
+EXACTLY, so a song always renders the same picture.
+
+**WebM is the default**, VP9 and Opus — the one codec pair every browser encodes. `mp4` is the
+word to type when the file is going somewhere that wants an mp4, and it asks the build for an
+H.264 and an AAC encoder, which Firefox has only the first of.
+[passes.md](../../../../packages/ui-eyes/docs/passes.md) is where that choice is argued;
+`ViewportTab` says in the viewport's strip when this build cannot encode what the button sends.
 
 **The sound is married into the same container.** `ExportOptions.audio` takes an `AudioBuffer` —
 decoded, not the mixdown's bytes: the engine renders a wav or an mp3, the container wants neither,
@@ -325,9 +325,12 @@ Three things in order, and the order matters:
   already-rendered frames.
 - **the track is added before `output.start()`**: a container's tracks are declared once. Then the
   whole buffer is pushed in one go — the muxer interleaves it with the frames itself.
-- **the default has SOUND.** A silent film is asked for, `project export video mp4 none`; this is
+- **the default has SOUND.** A silent film is asked for, `project export video webm none`; this is
   a song's video, and silent would be the surprising answer.
 
+The file is named by the container itself — mediabunny owns both the extension and the MIME type,
+and `exportScene` returns them beside the bytes, so the name and the contents cannot drift.
+
 The bare line `project export wav` is REFUSED rather than read as audio: the following word now
-says which half comes out, and accepting it would make `project export mp4` a mixdown.
+says which half comes out, and accepting it would make `project export webm` a mixdown.
 [exportArgs.ts](../src/exportArgs.ts) is the reading, and its test is the list of shapes.

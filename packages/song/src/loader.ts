@@ -27,8 +27,10 @@ import {
   MODULE_TYPES,
   moduleEmits,
   moduleKey,
+  moduleLabelOf,
   moduleRefOf,
   NODE_SEP,
+  NOT_SUPPORTED_TYPE,
   type PortDef,
   slugifyPluginName,
   splitModuleKey,
@@ -49,7 +51,12 @@ import {
 } from "@studio/song-schema/yaml/projectSchema";
 import { parse as parseYaml } from "yaml";
 import type { ZodType } from "zod";
-import { MODULE_ASSETS_DIR, resolveModuleAssetIn } from "./assetPath";
+import {
+  MODULE_ASSETS_DIR,
+  MODULE_SOURCES_DIR,
+  resolveModuleAssetIn,
+  resolveModuleFileIn,
+} from "./assetPath";
 import { presetFor } from "./basePreset";
 import { loadControllerLibrary } from "./controller";
 import { studioModules } from "./docModule";
@@ -60,6 +67,7 @@ import {
   resolveModuleMap,
   resolveModuleRef,
 } from "./moduleResolve";
+import { notSupportedRefs } from "./notSupportedModule";
 import type {
   LoadedModule,
   RawProjectRoot,
@@ -140,12 +148,15 @@ export function resolveRackAudio(
   folderAbs: string,
 ): RawRack | undefined {
   if (!rack || typeof rack !== "object") return rack;
-  // `assets/` first when the file is there, so a rack's samples follow the `ir`/`nam` convention and an old layout still loads.
+  // `sources/` first, then `assets/`, then loose beside module.yaml — a rack files its audio under
+  // `sources/` (docs/moduleAssets.md) and every older layout still loads.
   const at = (f: unknown) =>
     typeof f === "string" && f
       ? isAbsolute(f)
         ? f
-        : (resolveModuleAsset(f, folderAbs) ?? join(folderAbs, f))
+        : (resolveModuleFileIn(f, [folderAbs], MODULE_SOURCES_DIR) ??
+          resolveModuleAsset(f, folderAbs) ??
+          join(folderAbs, f))
       : f;
   const symbols: NonNullable<RawRack["symbols"]> = {};
   for (const [sym, e] of Object.entries(rack.symbols ?? {}))
@@ -171,7 +182,7 @@ function portsOf(
 }
 
 /** Where a module keeps the files it loads: defined in assetPath.ts, re-exported here where every caller already looks. */
-export { MODULE_ASSETS_DIR };
+export { MODULE_ASSETS_DIR, MODULE_SOURCES_DIR };
 
 /** What an asset folder holds — one extension per file-valued param, see FILE_PARAMS. */
 const ASSET_EXT = [".nam", ".onnx"];
@@ -330,6 +341,12 @@ function readModuleTree(
 /** What one read of `modules/` + `nodes/` produced: the map, and the two things `validate` judges. */
 interface ModulesRead {
   out: Record<string, LoadedModule>;
+  /**
+   * The module FOLDERS alone, before any node took a name (docs/trackModules.md). A node wins the
+   * bare name; the module is still the thing every `@project/…` ref points at, so the ref map is
+   * built from here and not from a map a lane may have shadowed.
+   */
+  folders: Record<string, LoadedModule>;
   /** AS AUTHORED — what validatePlugins reads, kept so a cached read can still be validated. */
   raw: { rel: string; module: Record<string, unknown> }[];
   yamlIssues: string[];
@@ -415,9 +432,13 @@ function readModules(dir: string): ModulesRead {
       if (module) out[name] = decorate(module);
     }
   }
+  // Taken before the nodes go in, since that is the point of holding it at all.
+  const folders = { ...out };
   loadNodes(dir, out, raw, yamlIssues);
   applyUiLibrary(dir, out, (m) => moduleOwnRefs(m));
-  return { out, raw, yamlIssues };
+  // …and the same panels onto the unshadowed copies, which are what a ref resolves to.
+  applyUiLibrary(dir, folders, (m) => moduleOwnRefs(m));
+  return { out, folders, raw, yamlIssues };
 }
 
 // A fresh map of fresh modules, so a cached read never leaves this file — see docs/graphModel.md.
@@ -455,6 +476,15 @@ export function loadModules(
   return cloneModules(read.out);
 }
 
+/** The module FOLDERS this project holds, unshadowed by its nodes — what a `@project/…` ref means. */
+export function projectModuleFolders(
+  dir: string,
+): Record<string, LoadedModule> {
+  return cloneModules(
+    cachedForModules(dir, "modules", () => readModules(dir)).folders,
+  );
+}
+
 /** The project's uses of modules: `nodes/<name>.yaml`, flat, filename IS the name. */
 export const NODES_DIR = "nodes";
 
@@ -472,13 +502,8 @@ function loadNodes(
     yamlIssues.push(...read.issues);
     const value = read.value;
     if (!value || typeof value !== "object") continue;
-    // A module folder and a node file cannot both answer to one name, since letting one silently win plays the wrong thing.
-    if (node in out) {
-      yamlIssues.push(
-        `${file.rel}: '${node}' is already a module in this project — a node cannot take its name`,
-      );
-      continue;
-    }
+    // A node file WINS a name a module folder also has — a lane called after the instrument it
+    // feeds is what every DAW writes, and a module is named by its ref anyway (docs/trackModules.md).
     raw.push({ rel: file.rel, module: value });
     // A node picks its base like anything else it overrides, which is what makes the choice PER INSTANCE.
     const preset = presetFor(folder, node, node, value.base);
@@ -641,18 +666,25 @@ export function deadProjectFields(dir: string): Diagnostic[] {
 
 export function notSupportedModules(dir: string): Diagnostic[] {
   const out: Diagnostic[] = [];
-  if (!existsSync(join(dir, "modules"))) return out;
-  const modules = loadModules(dir); // authored, no validate
-  for (const [name, m] of Object.entries(modules)) {
+  const authored = loadModules(dir); // authored, no validate
+  // RESOLVED, because the marker is usually INHERITED: an import writes a node on `@studio/not-supported`
+  // and no module of its own, and the authored file then says nothing at all (docs/notSupported.md).
+  const resolved = resolveModuleMap(authored, loadModuleRefs(dir));
+  for (const [name, m] of Object.entries(resolved)) {
     const p = m?.plugin;
     if (!p || typeof p !== "object") continue;
-    if (String(p.type ?? "").toLowerCase() !== "not_supported") continue;
+    if (String(p.type ?? "").toLowerCase() !== NOT_SUPPORTED_TYPE) continue;
+    const own = authored[name];
     out.push({
-      file: `modules/${m.category}/${m.file}/${m.node ?? "module"}.yaml`, // the entry's OWN file, not the generic's
+      // The entry's OWN file, not the generic's — and a node's is flat, with no type folder in it.
+      file:
+        own?.home === "nodes"
+          ? `nodes/${own.file}.yaml`
+          : `modules/${m.category}/${m.file}/${m.node ?? "module"}.yaml`,
       line: 1,
       col: 1,
       severity: "warning",
-      message: `plugin "${p.name ?? name}" is not supported — it will be bypassed`,
+      message: `plugin "${moduleLabelOf(m) || p.name || name}" is not supported — it will be bypassed`,
     });
   }
   return out;
@@ -797,11 +829,13 @@ function readModuleRefs(
   const out: Record<string, LoadedModule> = {
     ...studioModules(),
     ...trackModules(),
+    ...notSupportedRefs(),
     ...catalogue,
   };
 
-  // Re-key by ref under TWO keys, bare and `@project/…`, skipping NODES — see docs/moduleNamespaces.md.
-  for (const m of Object.values(loadModules(dir))) {
+  // Re-key by ref under TWO keys, bare and `@project/…` — from the FOLDERS, so a lane that took a
+  // module's bare name leaves the ref it is inherited by alone (docs/trackModules.md).
+  for (const m of Object.values(projectModuleFolders(dir))) {
     if (m.node) continue;
     const ref =
       m.category === "io" ? String(m.file) : `${m.category}/${m.file}`;
@@ -846,6 +880,21 @@ export function listBaseModules(dir: string): string[] {
   return baseModuleRefs(projectModules(dir));
 }
 
+/** One base module as a PICKER draws it: the ref it is named by, and what it calls itself (docs/moduleLabel.md). */
+export interface BaseModuleRef {
+  ref: string;
+  label?: string;
+}
+
+/** …the same list with those labels, off ONE walk — what `/base-modules` answers. */
+export function listBaseModuleRefs(dir: string): BaseModuleRef[] {
+  const modules = projectModules(dir);
+  return baseModuleRefs(modules).map((ref) => {
+    const label = moduleLabelOf(modules[ref]);
+    return label ? { ref, label } : { ref };
+  });
+}
+
 // The modules a chain step may name: the project's own, plus only those SHARED refs the chains actually USE.
 export function withChainModuleRefs(
   modules: Record<string, LoadedModule>,
@@ -879,9 +928,9 @@ export function createTrackFile(dir: string, id: string): string[] {
   const rel = `nodes/${id}.yaml`;
   if (existsSync(join(dir, rel)))
     throw new Error(`track '${id}' already exists (${rel})`);
-  // One flat name space: a lane and a module cannot share a name (docs/trackModules.md).
-  if (id in loadModules(dir))
-    throw new Error(`'${id}' is already a module in this project`);
+  // A module of that name is NOT in the way: the lane takes the bare name and the module keeps its
+  // ref, which is the only way a node names one anyway (docs/trackModules.md). `freeNodeName`
+  // proposes past both, so nothing shadows anything by accident.
 
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
@@ -939,11 +988,7 @@ export function createVideoTrackFile(dir: string, id: string): string[] {
 
   mkdirSync(join(dir, "video_tracks"), { recursive: true });
   // No x/y/w/h: a lane stating no rect fills the frame, which is what a new one should do (song-video/docs/picture.md).
-  writeFileSync(
-    join(dir, rel),
-    ["kind: video", "events: []", ""].join("\n"),
-    "utf8",
-  );
+  writeFileSync(join(dir, rel), ["events: []", ""].join("\n"), "utf8");
   // Appended, so the new lane draws LAST — on top, where you can see what you just made.
   setFileValue(
     projectFile.path,
@@ -1056,9 +1101,8 @@ export function createNode(
       `module '${category}/${module}' is neither in this project nor one the engine offers — ` +
         `create it first, or name one of the engine's`,
     );
-  // The name is the KEY a chain writes, so it has to be free across the whole project rather than within a folder.
-  if (node in loadModules(dir))
-    throw new Error(`'${node}' already names a module or node in this project`);
+  // Free among the NODES, which is what the file check below asks. A module of that name is not in
+  // the way: the node takes the bare name and the module keeps its ref (docs/trackModules.md).
   const rel = `${NODES_DIR}/${node}.yaml`;
   if (existsSync(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);

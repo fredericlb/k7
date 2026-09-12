@@ -1,26 +1,57 @@
-// exportSupport.ts — can this build actually encode the mp4 `export.ts` asks for?
+// exportSupport.ts — can this build encode the container `export.ts` is about to write?
 //
 // `"VideoEncoder" in window` answers the wrong question. It is true in every Chromium, and in
 // ELECTRON it is always true — but WebCodecs having the class says nothing about the platform
-// encoder behind it. A build without H.264 fails at frame 0, after the progress bar has drawn,
-// with a NotSupportedError that names no cause. See docs/passes.md.
+// encoder behind it. A build without the codec fails at frame 0, after the progress bar has
+// drawn, with a NotSupportedError that names no cause. The answer carries the codec names the
+// encoder is then handed, so the probe and the encoder cannot disagree. See docs/passes.md.
 
-/** Why an export cannot run, in the words the user needs rather than the API's. */
+import type { AudioCodec, VideoCodec } from "mediabunny";
+
+/** The containers an export leaves in, the default first — see docs/passes.md. */
+export const EXPORT_FORMATS = ["webm", "mp4"] as const;
+export type ExportFormat = (typeof EXPORT_FORMATS)[number];
+
+/** Either the codecs to encode with, or why this build cannot — in the user's words, not the API's. */
 export type ExportSupport =
-  | { ok: true }
+  | { ok: true; video: VideoCodec; audio?: AudioCodec }
   | {
       ok: false;
-      reason: "no-webcodecs" | "no-h264" | "no-aac";
+      reason: "no-webcodecs" | "no-video-codec" | "no-audio-codec";
       detail: string;
     };
 
 /**
- * H.264 profiles to try, easiest first. Any ONE of them is enough: a false negative here would
- * hide an export that works, which is worse than the failure this file exists to catch.
+ * Per container: the encoder configs to try, easiest first, each carrying the name mediabunny is
+ * given when it passes. Any ONE video entry is enough — a false negative here would hide an
+ * export that works, which is worse than the failure this file exists to catch.
  */
-const H264 = ["avc1.42001f", "avc1.4d0028", "avc1.640028"];
-/** AAC-LC, which is what `export.ts` asks mediabunny for as `codec: "aac"`. */
-const AAC = "mp4a.40.2";
+const CONTAINERS: Record<
+  ExportFormat,
+  {
+    video: { codec: VideoCodec; config: string }[];
+    audio: { codec: AudioCodec; config: string };
+    names: { video: string; audio: string };
+  }
+> = {
+  webm: {
+    video: [
+      { codec: "vp9", config: "vp09.00.10.08" },
+      { codec: "vp8", config: "vp8" },
+    ],
+    audio: { codec: "opus", config: "opus" },
+    names: { video: "VP9 or VP8", audio: "Opus" },
+  },
+  mp4: {
+    video: [
+      { codec: "avc", config: "avc1.42001f" },
+      { codec: "avc", config: "avc1.4d0028" },
+      { codec: "avc", config: "avc1.640028" },
+    ],
+    audio: { codec: "aac", config: "mp4a.40.2" },
+    names: { video: "H.264", audio: "AAC" },
+  },
+};
 
 interface Encoders {
   video?: { isConfigSupported(c: unknown): Promise<{ supported?: boolean }> };
@@ -49,15 +80,17 @@ const supported = async (
 };
 
 /**
- * Ask the encoders, at the size the scene will use. `withAudio` is false for a silent film,
- * where AAC is not needed and its absence must not stop the export.
+ * Ask the encoders, for one container, at the size the scene will use. `withAudio` is false for a
+ * silent film, where the sound codec is not needed and its absence must not stop the export.
  */
 export async function probeExportSupport(
+  format: ExportFormat,
   width: number,
   height: number,
   withAudio = true,
   encoders: Encoders = globals(),
 ): Promise<ExportSupport> {
+  const { video, audio, names } = CONTAINERS[format];
   if (!encoders.video) {
     return {
       ok: false,
@@ -66,39 +99,47 @@ export async function probeExportSupport(
     };
   }
 
-  let anyH264 = false;
-  for (const codec of H264) {
+  let picture: VideoCodec | null = null;
+  for (const c of video) {
     if (
-      await supported(encoders.video, { codec, width, height, bitrate: 8e6 })
+      await supported(encoders.video, {
+        codec: c.config,
+        width,
+        height,
+        bitrate: 8e6,
+      })
     ) {
-      anyH264 = true;
+      picture = c.codec;
       break;
     }
   }
-  if (!anyH264) {
+  if (!picture) {
     return {
       ok: false,
-      reason: "no-h264",
-      detail:
-        "this build cannot encode H.264, so an mp4 export would produce no video track",
+      reason: "no-video-codec",
+      detail: `this build cannot encode ${names.video}, so it cannot render a ${format} export`,
     };
   }
 
-  if (withAudio && encoders.audio) {
+  // No AudioEncoder at all is the same answer as one that refuses the codec: the sound cannot go in.
+  if (withAudio) {
     const ok = await supported(encoders.audio, {
-      codec: AAC,
+      codec: audio.config,
       sampleRate: 48000,
       numberOfChannels: 2,
     });
     if (!ok) {
       return {
         ok: false,
-        reason: "no-aac",
-        detail:
-          "this build cannot encode AAC, so the export would come out silent",
+        reason: "no-audio-codec",
+        detail: `this build cannot encode ${names.audio}, so a ${format} export cannot carry the sound`,
       };
     }
   }
 
-  return { ok: true };
+  return {
+    ok: true,
+    video: picture,
+    ...(withAudio ? { audio: audio.codec } : {}),
+  };
 }

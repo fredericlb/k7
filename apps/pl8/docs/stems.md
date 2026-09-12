@@ -1,69 +1,36 @@
 # Cutting a song into stems — the job is this service's
 
 ```
-POST /api/stems   { song }   →   { ready: true, files: [...] }
+POST /api/stems   { song, engineId, chain? }   →   { ready: true, files: [...] }
 ```
 
 `song` is volume-relative (`songs/<artiste>/<album>/<titre>/original.mp3`, the string every other
 route here takes). The stems land in `stems/` under the song's own folder, on **this** volume.
 
-## Why pl8 does it, and no longer borrows an engine
+## Why pl8 drives it
 
 Because the bytes are here. Everything else follows from that one fact.
 
-It used to be borrowed: `cut.ts` posted the master at an engine's `POST /process`, polled, and
-collected the files back. The argument was that separation wants a 166 MB `.onnx` and minutes of
-CPU, which are properties of a *machine* rather than of a hosted container.
+The separation itself cannot happen here — it wants a 166 MB `.onnx`, minutes of CPU and, where
+there is one, a GPU, and those are properties of a *machine* rather than of a hosted container. So
+the work is borrowed: `cut.ts` posts the master to an engine's `POST /process`, polls, collects the
+files and writes them beside the song. The engine keeps nothing.
 
-**That arrangement could only ever work when pl8 and the engine were the same box.** An engine
-advertises a loopback address and its LAN addresses, and nothing else — those are the only ones it
-HAS. A hosted pl8 cannot reach either: not a musician's `192.168.x.x`, and certainly not their
-loopback. So the borrowing worked on a development machine, where the two are one box, and could
-not work in the deployment it was written for. The desktop app made it obvious rather than
-introducing it: there, the engine is on the musician's machine by definition.
+The other arrangement — mirroring this library onto the engine's machine and separating out of
+the mirror — is the one to keep refusing, for two reasons, one of them fatal:
 
-So the model runs **here**, in a worker thread, and the stems are written straight into the song's
-folder. `cut.ts` lost the upload, the poll over HTTP, the collection loop and the scratch cleanup;
-what is left is `startSeparate` and a loop redrawing its progress. `engineId` left the route
-contract with it.
+- A mirror must have exactly one writer, and on a dev machine where pl8's `STUDIO_MEDIATEK` is
+  the same directory the cache writes into, it has two. The sync downloads each file onto itself
+  and songs come back as pure zeros, 40 MB of `0x00`, with no other copy on the machine. The
+  diagnosis is written up in the file service's `mediatekPull.ts` and `docs/processChain.md`.
+- Even working, it copies whole albums onto a machine so that one song can be cut once.
 
-The cost is real and worth stating: `onnxruntime-node` — a native dependency — and the model are
-now in this service's closure, and a cut spends minutes of the container's CPU. The queue below is
-the answer to the second half.
+## One long request, not a job
 
-## Which model
-
-There is no chain to resolve one from. The chain machinery exists so a musician's machine can name
-one of its own modules, and this service has no libraries checkout and no per-user modules; a
-hosted container has one model, or none. `model.ts`:
-
-- `STUDIO_STEMS_MODEL` names one outright, and must be absolute — a relative path would resolve
-  against the server's working directory, which is not something an operator can see.
-- Otherwise `STUDIO_MODELS_DIR` (default `<volume>/.models`) must hold **exactly one** `.onnx`.
-
-Two is **refused rather than guessed at**, and that is the whole reason the rule is written this
-way: the wrong model separates a song into four files that are silently the wrong four, and nothing
-downstream — not the folder, not the scan, not the player — can tell. A server with no model at all
-answers **503 with the directory named in the sentence**, which is a fixable state rather than an
-error.
-
-The model is checked when the request arrives, not when the job runs, so a server without one says
-so immediately instead of queueing a cut that cannot start.
-
-## One cut at a time
-
-`queue.ts`. A separation is minutes of CPU with the model resident, and this process serves every
-other request in the image beside it — two at once make both slow and the catalogue slow with them.
-So one runs and the rest wait.
-
-The wait is drawn onto the job the poller **already** reads (`withWait`), so a queued cut and a
-running one are one shape and the browser needs no second concept: `phase` becomes `queued · next`
-or `queued · 2 ahead`. `percent` is cleared rather than left at zero, because a bar sitting at 0 %
-for ten minutes reads as a hang where the words read as what it is.
-
-The slot is freed in a `catch` **before** the `finally`, and that order is load-bearing: `finally`
-passes a rejection on, so without the catch a run that throws would free the slot and then bring
-the process down on an unhandled rejection. One bad song must not stop the queue.
+The engine's `/process` is start-then-poll, because there the waiter is a browser and a job is what
+lets it draw a progress bar. Here the waiter is this route, which is *already* sitting on that poll
+loop — a second job registry would be bookkeeping over bookkeeping. The caller sees a slow request,
+which is exactly what it is.
 
 ## Already cut is not work
 
@@ -72,9 +39,31 @@ Asked of the disk rather than of a record somewhere, for the reason every freshn
 this repo is asked that way — the files are the truth, and a record beside them is a second one
 that can disagree.
 
-The same rule catches a job the registry swept. A finished job is kept five minutes; a poller that
-misses that window asks the folder rather than reporting a failure, because a swept job is
-overwhelmingly one that landed.
+## Which engine, and how it is reached
+
+Named by the caller (`engineId`), because it is the engine that browser is already on: this service
+has no opinion about which machine is yours. The registry — pl8's own instance — turns the id into
+the addresses the engine advertised, and `fileServiceBases` tries loopback first and then each LAN
+address in turn. On the dev machine loopback is the only one that means anything, since pl8 and the
+engine are the same box.
+
+**Both of those addresses are private, and that bounds where a cut can happen.** An engine
+advertises its loopback and its LAN IPv4s and nothing else — they are the only addresses it has —
+so this service can only borrow one when it is on the same box or the same network. pl8 and the
+engine together on a musician's machine is the case this route is for; a pl8 that is not there
+reports that no address answered, and the remedy is to run the cut from a machine that can see the
+engine rather than to move the model into this container. What that would cost is a native
+dependency and a 166 MB model in the closure of the service that also serves the catalogue, and
+minutes of its CPU per song — the paragraph above is the reason it is not paid.
+
+Authentication is the engine's own token out of the registry plus `x-studio-user`: the same pair
+the file service gates every other machine-to-machine call on. A registry **miss** is a 409 rather
+than a 404 — the engine existed when the browser picked it, and what to do about it is "bring the
+machine back up", not "this URL is wrong".
+
+An engine that **refuses** the cut is reported verbatim rather than treated as an address that did
+not answer. A chain that is not there, a model nobody downloaded: those are sentences with a remedy
+in them, and retrying the next address would turn each one into "no engine responded".
 
 ## `stems/`, never beside the master
 
@@ -84,13 +73,20 @@ that rule for everyone, and `cut.ts` writes under `dirname(safePath(song))` — 
 slice on `"/"`, because `safePath` answers in the platform's own separators and a hand-rolled
 split would put `stems/` at the volume root on Windows.
 
-## The shape the browser reads
+## The bytes travel once, and come back streamed
 
-`SeparateJob`, the same one the file service answers with, so a browser reads a cut the same way
-wherever it ran — which is what let the engine be taken out from under it without touching the
-poller. Progress is forwarded from the worker verbatim: phase, percent, its own tail of lines.
+The master goes up **in the request body**: the engine holds no copy of this library, which is the
+whole point of driving the cut from here, so it travels once per job and is thrown away with the
+scratch directory afterwards. The stems come back one at a time, piped straight to disk — four
+stems of a long song are hundreds of megabytes, and this process is serving everybody else's
+requests while it happens. The final `DELETE` is best-effort: the files are here now, and an engine
+that never hears it sweeps on its own an hour later.
 
-The poll is twice a second, and in-process, so it is only how often the progress is redrawn rather
-than a network round trip. The hour-long cap lives in `@studio/stem-separation` with the worker it
-guards; this service no longer has a timeout of its own, because there is no longer anything
-between it and the work.
+Progress is forwarded **verbatim** — phase, percent, the worker's own lines — because this service
+is a pipe for the engine's progress rather than a second opinion. The one phase of its own is
+`collecting`, named because it is minutes for a long song over a LAN and an unlabelled gap at 100 %
+reads as a hang.
+
+The poll is every two seconds, which a job measured in minutes never feels. The 90-minute cap is
+past any honest run and exists only to catch an engine that stopped answering at all — the engine
+has its own, shorter one for a separation that merely takes too long.

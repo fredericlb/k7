@@ -28,6 +28,7 @@ import { emitFolder } from "@studio/translator/emit";
 import type { Translation } from "@studio/translator/model";
 import { resolvePluginParams } from "@studio/translator/params";
 import {
+  DROPPABLE_PROJECTS,
   PROJECT_SUFFIXES,
   projectApp,
   projectLabel,
@@ -43,6 +44,9 @@ export interface LifecycleHost {
 
 /** The foreign project formats this workspace can translate, by extension. */
 export const IMPORTABLE = [".dawproject", ".als"] as const;
+
+/** …and the subset a DROP may carry, which the BROWSER also filters on — see `DROPPABLE_PROJECTS`. */
+export const DROPPABLE = DROPPABLE_PROJECTS;
 
 /** Resolve one Live sample reference to bytes: only the project-RELATIVE path, only through `safePath`. */
 function makeSampleReader(
@@ -77,26 +81,81 @@ export function importProjectInto(
 ): { project: string; log: string[] } {
   const abs = host.safePath(rel);
   if (!existsSync(abs)) throw new Error(`no such file: ${rel}`);
-  const stem = basename(abs, extname(abs));
-  const ext = extname(abs).toLowerCase();
-  const bytes = new Uint8Array(readFileSync(abs));
-
   const outsideWorkspace = new Set<string>();
+  return translateInto(host, {
+    source: rel,
+    file: basename(abs),
+    bytes: new Uint8Array(readFileSync(abs)),
+    // Only a `.als` uses it, and only for the samples it names by path — see docs/import.md.
+    readSample: makeSampleReader(host, rel, outsideWorkspace),
+    outsideWorkspace,
+  });
+}
+
+/**
+ * …and the same from BYTES a caller holds, into a folder it NAMES: a project dropped onto a
+ * workspace on st0's home page, which never lands in the workspace as a file. Only the
+ * self-contained formats, for the reason `DROPPABLE` gives. See docs/import.md.
+ */
+export function importProjectBytes(
+  host: LifecycleHost,
+  file: string,
+  bytes: Uint8Array,
+  as: string,
+): { project: string; log: string[] } {
+  const ext = extname(file).toLowerCase();
+  if (!(DROPPABLE as readonly string[]).includes(ext))
+    throw new Error(
+      `cannot import "${file}": a dropped project must be one of ${DROPPABLE.join(", ")} — ` +
+        `a ${ext || "file"} names its samples by path and has to sit beside them, so drop it into the workspace and import it from the tree`,
+    );
+  return translateInto(host, { source: file, file, bytes, as });
+}
+
+/** One import, wherever the bytes came from: parse, emit into a fresh folder, and say what was lost. */
+function translateInto(
+  host: LifecycleHost,
+  opts: {
+    /** What the log calls the input — a workspace-relative path, or just a filename for a drop. */
+    source: string;
+    file: string;
+    bytes: Uint8Array;
+    /** The folder somebody TYPED; absent means the file's own name, uniquified. */
+    as?: string;
+    readSample?: (ref: SampleRef) => Uint8Array | null;
+    outsideWorkspace?: Set<string>;
+  },
+): { project: string; log: string[] } {
+  const { source, file, bytes, as, readSample } = opts;
+  const outsideWorkspace = opts.outsideWorkspace ?? new Set<string>();
+  const ext = extname(file).toLowerCase();
+  const stem = basename(file, extname(file));
+
   let translation: Translation;
   if (ext === ".als")
     translation = parseAls(bytes, stem, {
-      readSample: makeSampleReader(host, rel, outsideWorkspace),
+      readSample: readSample ?? (() => null),
     });
   else if (ext === ".dawproject") translation = parseDawproject(bytes, stem);
   else
     throw new Error(
-      `cannot import "${rel}": expected one of ${IMPORTABLE.join(", ")}`,
+      `cannot import "${source}": expected one of ${IMPORTABLE.join(", ")}`,
     );
   const { song, files, stats, warnings } = translation;
-  // A fresh top-level folder so it lists as its own project: sanitised, and uniquified so a re-import can't clobber.
-  const base = stem.replace(/[/\\]/g, "_").replace(/^\.+/, "") || "imported";
+  // A fresh top-level folder so it lists as its own project, sanitised the way `createProjectIn` sanitises.
+  const base =
+    (as ?? stem).replace(/[/\\]/g, "_").replace(/^\.+/, "") || "imported";
   let name = base;
-  for (let n = 2; existsSync(join(host.root, name)); n++) name = `${base}-${n}`;
+  if (as) {
+    // A name somebody typed is never quietly changed: an occupied one is refused, as `project new` refuses it.
+    const at = join(host.root, name);
+    if (existsSync(at) && readdirSync(at).length)
+      throw new Error(`"${name}" already exists and is not empty`);
+  } else {
+    // Nobody chose, so a re-import must not clobber the last one.
+    for (let n = 2; existsSync(join(host.root, name)); n++)
+      name = `${base}-${n}`;
+  }
   const outAbs = host.safePath(name);
   try {
     resolvePluginParams(song, files, findEngineBinary() ?? undefined);
@@ -106,7 +165,7 @@ export function importProjectInto(
   emitFolder(outAbs, song, files);
   const project = host.toRel(outAbs);
   const log = [
-    `read ${rel}`,
+    `read ${source}`,
     `project "${song.project.name}" — ${song.project.tempo} bpm, ${song.project.timeSignature}, ${song.project.sampleRate} Hz`,
     `${stats.tracks} tracks · ${stats.audioClips} audio clips · ${stats.midiClips} MIDI clips · ${stats.notes} notes · ${stats.assets} assets`,
     // Said apart from the per-sample warnings because this is the one with a FIX: Collect All and Save.

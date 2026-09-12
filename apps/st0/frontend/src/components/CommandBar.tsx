@@ -30,7 +30,7 @@ import {
 } from "../commandFill";
 import { rankCommands, rankValues } from "../palette";
 import { recentCommands } from "../recentCommands";
-import type { ArgClass } from "../types";
+import type { ArgClass, MenuEntity } from "../types";
 import { CommandParams } from "./CommandParams";
 
 // A command the palette can build: its canonical name, a joined display label, each translation, the sentence it is listed by, and its params.
@@ -43,6 +43,8 @@ export interface PaletteCommand {
   /** The same sentence in EVERY language the catalogue states it in — only the settings screen reads it, to grey each field's own words. */
   readableBy?: Record<string, string>;
   args: PaletteArg[];
+  /** Which right-clicks the CATALOGUE offers it on; absent ⇒ every one its arguments fit. Only the settings screen reads it. */
+  menu?: MenuEntity[];
 }
 
 // A param the form asks for: its name, the KIND of thing it names, and one line on what it accepts.

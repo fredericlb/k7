@@ -17,6 +17,7 @@ import {
   type ModuleKind,
   portRef,
   RENDER_NODE,
+  SHAPE_CATEGORY,
   splitPort,
   TRANSITION_CATEGORY,
 } from "@studio/song-schema/moduleTypes";
@@ -79,11 +80,10 @@ export interface Track {
   tracks: string[]; // group only: member lane names
   strudel?: string; // strudel only: project-relative path to its pattern file
 }
-// A video lane as the graph and the timeline need it; its geometry, placements and shapes stay in the compiled ProjectDoc.
+// A video lane as the graph and the timeline need it; its geometry and placements stay in the compiled ProjectDoc.
 export interface VideoTrack {
   name: string;
   color?: string;
-  kind: "video" | "shape"; // "shape" draws parametric fills, it links no picture
   mute: boolean; // "mute" == hidden, for a video lane
 }
 
@@ -189,6 +189,12 @@ export interface Module {
   base?: string;
   // Which SHADER a shader node runs, absent when nothing is chosen — see packages/song-video/docs/shaders.md.
   shader?: string;
+  // …and which PRIMITIVE a shape module draws, its geometry being `params:` — see song-video/docs/shapes.md.
+  shape?: string;
+  // What a shape is FILLED with, and on a lane module its colour in the timeline — one key, read by category.
+  color?: string;
+  // A `text` shape's CSS font family; its string is `content:`, the key a doc note already uses.
+  font?: string;
   ui?: ModuleUI;
   // What this module LOADS when it is a rack, `extends` already merged in; absent for a plugin.
   rack?: Rack;
@@ -483,6 +489,10 @@ export function buildGraph(
         : undefined,
     // Which SHADER a shader node runs, inherited like `plugin` — see packages/song-video/docs/shaders.md.
     shader: typeof b?.shader === "string" && b.shader ? b.shader : undefined,
+    // The shape a `shapes` module draws, and how it is painted — inherited like `plugin` (docs/shapes.md).
+    shape: typeof b?.shape === "string" && b.shape ? b.shape : undefined,
+    color: typeof b?.color === "string" && b.color ? b.color : undefined,
+    font: typeof b?.font === "string" && b.font ? b.font : undefined,
     ui: resolvedUI(b),
     // Stamped on by the loader; re-validated here because a map read off a cached doc has not been through the schema.
     cc: resolvedCc(b),
@@ -522,7 +532,6 @@ export function buildGraph(
     videoTracks[id] = {
       name: String(t?.name ?? id),
       color: t?.color ? String(t.color) : undefined,
-      kind: t?.kind === "shape" ? "shape" : "video",
       mute: !!t?.mute,
     };
 
@@ -648,6 +657,10 @@ export const isCameraModule = (b: Module): boolean =>
 /** …and the file source (io: "file"), which reads audio off disk. See docs/fileInput.md. */
 export const isFileInputModule = (b: Module): boolean =>
   b.kind === "io" && b.io === "file";
+
+/** A SHAPE: the other picture source, drawn rather than filmed — see song-video/docs/shapes.md. */
+export const isShapeModule = (b: Module): boolean =>
+  b.category === SHAPE_CATEGORY;
 // The " — did you mean …" tail when the last `/` should have been the node separator; see docs/graphModel.md.
 function nodeHint(g: GraphDoc, name: string): string {
   const cut = name.lastIndexOf("/");
@@ -681,6 +694,13 @@ export const carriesCamera = (g: GraphDoc, c: Chain): boolean =>
   c.use.some((s) => {
     const b = g.modules[s.module];
     return !!b && isCameraModule(b);
+  });
+
+/** …and does it carry a SHAPE, the other thing a picture lane may be fed by (docs/shapes.md)? */
+export const carriesShape = (g: GraphDoc, c: Chain): boolean =>
+  c.use.some((s) => {
+    const b = g.modules[s.module];
+    return !!b && isShapeModule(b);
   });
 
 /** Does this chain carry a live interface input? */
@@ -796,12 +816,12 @@ export function validate(g: GraphDoc): string[] {
         w.push(
           `chain '${name}': out '${o.to}' is a camera — picture comes FROM it, not to it`,
         );
-      // A PICTURE lane takes one thing: a camera. Everything else aimed at one is discarded silently,
-      // and a camera aimed anywhere else has nowhere to be drawn — see docs/camera.md.
+      // A PICTURE lane takes two things: a camera and a shape. Everything else aimed at one is
+      // discarded silently — see docs/camera.md and song-video/docs/shapes.md.
       else if (g.videoTracks[to]) {
-        if (!carriesCamera(g, c))
+        if (!carriesCamera(g, c) && !carriesShape(g, c))
           w.push(
-            `chain '${name}': out '${o.to}' is a picture lane — only a camera's picture lands on one`,
+            `chain '${name}': out '${o.to}' is a picture lane — only a camera's or a shape's picture lands on one`,
           );
       }
       // Only a live input's signal may land on a LANE; anything else aimed at one is silently discarded.

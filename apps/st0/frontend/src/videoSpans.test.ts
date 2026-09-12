@@ -3,7 +3,7 @@
 // than restated here. A shape lane is the one case activeAt cannot answer (it has no clips) and
 // is checked against the driver's own rule: it draws while unhidden.
 
-import { activeAt } from "@studio/ui-eyes/timeline";
+import { activeAt, shapesVisibleAt } from "@studio/ui-eyes/timeline";
 import type { WebVideoProject, WebVideoTrack } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import { videoSpans } from "./videoSpans";
@@ -23,7 +23,6 @@ const lane = (over: Partial<WebVideoTrack>): WebVideoTrack =>
     name: "cam",
     color: "#fff",
     mute: false,
-    kind: "video",
     x: 0,
     y: 0,
     w: 1920,
@@ -87,14 +86,38 @@ describe("videoSpans", () => {
     ).toEqual({});
   });
 
-  it("gives a shape lane one endless span — it draws while unhidden", () => {
+  it("follows a lane of shapes' ACTIVATION spans, as the compositor's own rule does", () => {
+    const t = lane({
+      id: "titles",
+      shapes: [
+        { id: "box", type: "square", x: 0, y: 0, w: 10, h: 10, color: "#fff" },
+      ] as WebVideoTrack["shapes"],
+      // No ref, no source: each is a span saying the lane is on (song-video/docs/shapes.md).
+      clips: [
+        { id: "", name: "", src: "", start: 2, length: 2, sourceFrom: 0 },
+      ] as WebVideoTrack["clips"],
+    });
+    const spans = videoSpans(doc([t]));
+    const l = layer(t);
+    for (let x = 0; x < 8; x += 0.25)
+      expect([x, live(spans, x)]).toEqual([x, shapesVisibleAt(l, x)]);
+  });
+
+  it("gives a lane DRAWING shapes one endless span — it draws while unhidden", () => {
     const spans = videoSpans(
       doc([
         lane({
           id: "titles",
-          kind: "shape",
           shapes: [
-            { type: "square", x: 0, y: 0, w: 10, h: 10, color: "#fff" },
+            {
+              id: "box",
+              type: "square",
+              x: 0,
+              y: 0,
+              w: 10,
+              h: 10,
+              color: "#fff",
+            },
           ] as WebVideoTrack["shapes"],
         }),
       ]),

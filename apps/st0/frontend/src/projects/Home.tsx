@@ -6,10 +6,10 @@
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import { AskHost } from "@studio/project-shell/ask";
+import { AppSwitch } from "@studio/ui-app-switch";
 import type { MachineWorkspace, ShareSummary } from "@studio/web-protocol";
 import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
 import {
-  Library,
   RefreshCw,
   Server,
   ServerOff,
@@ -23,9 +23,10 @@ import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
 import { RightPanel } from "../components/RightPanel";
 import { desktop } from "../desktop";
 import { useLocale } from "../i18n";
+import { m } from "../paraglide/messages.js";
 import { HomeSettings } from "../settings/HomeSettings";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
-import { engineMachine, pl8Url, shares as sharesApi } from "./api";
+import { engineMachine, shares as sharesApi } from "./api";
 import {
   type ArmedDelete,
   buildHomePalette,
@@ -47,7 +48,7 @@ export function Home() {
   const openWs = params.get(WS_PARAM);
 
   // Asked once: a hosted origin will not grow the route mid-session (../desktop.ts). The
-  // SERVER comes back with it, because the catalogue link needs it — see the pl8 button.
+  // SERVER comes back with it, because the app switch needs it — the other apps are ITS.
   const [isDesktop, setIsDesktop] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [server, setServer] = useState<string | null>(null);
@@ -193,7 +194,7 @@ export function Home() {
       // A line this screen does not know is refused HERE: no service behind it to pass it to.
       if (!known)
         setSaid({
-          text: `« ${line.trim()} » n'est pas une commande de cet écran`,
+          text: m["home.unknownCommand"]({ line: line.trim() }),
           refused: true,
         });
     },
@@ -241,7 +242,7 @@ export function Home() {
       <AskHost />
       <AppHeader
         title="st0"
-        subtitle="Projets"
+        subtitle={m["home.projects"]()}
         className="z-20"
         actions={
           <>
@@ -250,8 +251,8 @@ export function Home() {
               className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex"
               title={
                 machine
-                  ? `Les projets sont lus, créés et supprimés sur ${machine.fileBase}`
-                  : "Aucune machine moteur joignable — les projets sont ses dossiers, donc la liste attend qu’elle réponde"
+                  ? m["home.machineReadyHint"]({ machine: machine.fileBase })
+                  : m["home.noMachineHint"]()
               }
             >
               {machine ? (
@@ -262,13 +263,13 @@ export function Home() {
               {machine === undefined
                 ? "…"
                 : machine
-                  ? "machine prête"
-                  : "aucune machine"}
+                  ? m["home.machineReady"]()
+                  : m["home.noMachine"]()}
             </span>
             <Button
               variant="ghost"
               size="sm"
-              title="Re-sonder les moteurs"
+              title={m["home.reprobe"]()}
               disabled={probing}
               onClick={() => void probe()}
             >
@@ -276,54 +277,38 @@ export function Home() {
                 className={probing ? "h-4 w-4 animate-spin" : "h-4 w-4"}
               />
             </Button>
-            {/* pl8 — the catalogue a project USES, one link away and on the HOME page alone.
-                Hosted, it is the same origin and opens in the same tab (../../docs/projects.md).
-                On the DESKTOP it is the paired server's, opened in the system BROWSER: pl8 is a
-                hosted app, our origin serves only its offline shim, and `target="_blank"` is
-                what the app turns into `shell.openExternal`. Unpaired there is no catalogue to
-                open, so the button says so instead of linking at a 503. */}
             {/* Settings — a PANEL and not a page, so the list of what needs the key stays on
                 screen while it is pasted (../settings/HomeSettings.tsx). */}
             <Button
               variant="ghost"
               size="sm"
-              title="Réglages — la clé de déploiement"
+              title={m["home.settingsHint"]()}
               aria-expanded={settingsOpen}
               onClick={() => setSettingsOpen((v) => !v)}
             >
-              <SlidersHorizontal className="h-4 w-4" /> Réglages
+              <SlidersHorizontal className="h-4 w-4" /> {m["home.settings"]()}
             </Button>
             {/* Surfaces — `/external`, and an `<a>` rather than a route, since a client navigation would keep the editor's manifest (../../docs/external.md). */}
             <Button variant="ghost" size="sm" asChild>
               <a
                 href={`${import.meta.env.BASE_URL}${EXTERNAL_INDEX}`}
-                title="Surfaces — le menu qu'un second appareil ouvre, et installe"
+                title={m["home.surfacesHint"]()}
               >
-                <Tablet className="h-4 w-4" /> Surfaces
+                <Tablet className="h-4 w-4" /> {m["home.surfaces"]()}
               </a>
             </Button>
-            {isDesktop && !server ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled
-                title="pl8 — la médiathèque : associez un serveur dans les Réglages pour l'ouvrir"
-              >
-                <Library className="h-4 w-4" /> pl8
-              </Button>
-            ) : (
-              <Button variant="secondary" size="sm" asChild>
-                <a
-                  href={pl8Url(server)}
-                  {...(isDesktop
-                    ? { target: "_blank", rel: "noreferrer" }
-                    : {})}
-                  title="pl8 — la médiathèque : morceaux, samples, prises"
-                >
-                  <Library className="h-4 w-4" /> pl8
-                </a>
-              </Button>
-            )}
+            {/* The way out — pl8, k7, z0 — and on the HOME page alone: opened on a project, the
+                editor's header has no room for a link that leaves the session. On the DESKTOP
+                those apps answer on the paired SERVER, this origin serving only st0's own
+                bundle; unpaired there is nowhere to go, and the button says so rather than
+                linking at a 503 (@studio/ui-app-switch/docs/appSwitch.md). */}
+            <AppSwitch
+              self="st0"
+              origin={server}
+              unavailable={
+                isDesktop && !server ? m["home.appsUnavailable"]() : undefined
+              }
+            />
           </>
         }
       />

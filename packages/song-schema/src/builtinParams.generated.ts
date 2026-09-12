@@ -5,7 +5,7 @@
 // times there) and no static reading of the source can be trusted to keep up. Re-run the script
 // after bumping Tracktion or adding a built-in. See engine/st0-engine/docs/builtinParams.md.
 //
-// 215 plugins, 967 parameters.
+// 216 plugins, 970 parameters.
 
 import type { BuiltinPluginInfo } from "./builtinParams";
 
@@ -458,6 +458,52 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
     name: "MIDI Graph",
     role: "midiEffect",
     params: [{ name: "Semitones", min: -24, max: 24, def: 0 }],
+  },
+  studio_arpeggiator: {
+    name: "Arpeggiator",
+    role: "midiEffect",
+    params: [
+      {
+        name: "Rate",
+        min: 0,
+        max: 7,
+        def: 6,
+        states: [
+          { label: "1/1", value: 0 },
+          { label: "1/2", value: 1 },
+          { label: "1/4", value: 2 },
+          { label: "1/4T", value: 3 },
+          { label: "1/8", value: 4 },
+          { label: "1/8T", value: 5 },
+          { label: "1/16", value: 6 },
+          { label: "1/32", value: 7 },
+        ],
+      },
+      {
+        name: "Octaves",
+        min: 1,
+        max: 4,
+        def: 1,
+        states: [
+          { label: "1", value: 1 },
+          { label: "2", value: 2 },
+          { label: "3", value: 3 },
+          { label: "4", value: 4 },
+        ],
+      },
+      {
+        name: "Direction",
+        min: 0,
+        max: 3,
+        def: 0,
+        states: [
+          { label: "Up", value: 0 },
+          { label: "Down", value: 1 },
+          { label: "Up-down", value: 2 },
+          { label: "Random", value: 3 },
+        ],
+      },
+    ],
   },
   studio_mixer: {
     name: "Mixer",

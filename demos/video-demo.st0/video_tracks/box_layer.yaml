@@ -1,0 +1,8 @@
+# The lane the "box" shape module draws on — one shape per layer, so each can be hidden on its
+# own and take its own run of effects. No rect: a shape carries its own geometry, so this layer
+# covers the whole viewport.
+#
+# The events name no clip, and that is what they are for here: each is an ACTIVATION, saying WHEN
+# the shape is on screen. A lane stating none draws its shapes throughout.
+events:
+  - { start: 0, length: 4 }

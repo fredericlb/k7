@@ -46,7 +46,8 @@ describe("the crossfade graph", () => {
   });
 
   it("matches the demo song's module, which carries its own copy of the source", () => {
-    // A module is a FOLDER you can copy, so the crossfade exists twice on purpose — hence this check.
+    // A module is a FOLDER you can copy, so the crossfade exists twice on purpose — hence this
+    // check. The third copy is in somebody's library, where this side cannot reach (../docs/catalogue.md).
     const demo = JSON.parse(
       readFileSync(
         join(
@@ -65,24 +66,5 @@ describe("the crossfade graph", () => {
       ),
     ) as GraphJson;
     expect(g).toEqual(demo);
-  });
-
-  it("matches the copy in `modules/` — the authored article", () => {
-    // A third copy: the module as AUTHORED, which is what somebody copies — ../docs/catalogue.md.
-    const authored = JSON.parse(
-      readFileSync(
-        join(
-          here,
-          "..",
-          "modules",
-          "audio",
-          "utility",
-          "crossfade",
-          "jsdsp.json",
-        ),
-        "utf8",
-      ),
-    ) as GraphJson;
-    expect(g).toEqual(authored);
   });
 });

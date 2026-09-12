@@ -7,6 +7,8 @@ import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
 import type { MachineWorkspace, RepoProject } from "@studio/web-protocol";
 import type { PaletteArg, PaletteCommand } from "../components/CommandBar";
+// `m` is the MACHINE in these branches, so the catalogue comes in under its own name.
+import { m as msg } from "../paraglide/messages.js";
 import { engineMachine, type Machine } from "./api";
 import {
   copyProjectOnMachine,
@@ -15,6 +17,7 @@ import {
   deleteProjectOnMachine,
   ensureWorkspace,
   publishWorkspace,
+  renameProjectOnMachine,
 } from "./machine";
 import { projectFolderName, workspaceFolderName } from "./projectName";
 
@@ -57,6 +60,21 @@ export const HOME_COMMANDS: {
         kind: "text",
         hint: "the copy's name — the source's, left blank",
         optional: true,
+      },
+    ],
+  },
+  {
+    canonical: "project rename",
+    readable: {
+      en: "Rename a project, commit and push",
+      fr: "Renommer un projet, committer et pousser",
+    },
+    args: [
+      { name: "name", kind: "file", hint: "a project of the open repository" },
+      {
+        name: "new_name",
+        kind: "text",
+        hint: "its new name — the suffix is kept",
       },
     ],
   },
@@ -171,13 +189,12 @@ export function resolveWorkspace(
     return { ws: ctx.workspaces[0] as MachineWorkspace };
   if (!ctx.workspaces.length)
     return {
-      error:
-        "aucun espace de travail sur cette machine — commencez par : system repo add <uri>",
+      error: msg["hc.noWorkspaces"](),
     };
   return {
-    error: `quel dépôt ? ouvrez-en un d'abord (${ctx.workspaces
-      .map((w) => w.name)
-      .join(", ")})`,
+    error: msg["hc.whichRepo"]({
+      names: ctx.workspaces.map((w) => w.name).join(", "),
+    }),
   };
 }
 
@@ -205,6 +222,10 @@ export function homeArgValues(
 ): string[] {
   if (canonical === "project new" && argIndex === 0) return [...PROJECT_SHAPES];
   if (canonical.startsWith("project delete") && argIndex === 0) {
+    const found = resolveWorkspace(ctx);
+    return "ws" in found ? found.ws.projects.map((p) => p.path) : [];
+  }
+  if (canonical === "project rename" && argIndex === 0) {
     const found = resolveWorkspace(ctx);
     return "ws" in found ? found.ws.projects.map((p) => p.path) : [];
   }
@@ -241,6 +262,7 @@ export interface ArmedDelete {
 export interface HomeActs {
   create: typeof createProjectOnMachine;
   copy: typeof copyProjectOnMachine;
+  rename: typeof renameProjectOnMachine;
   remove: typeof deleteProjectOnMachine;
   clone: typeof ensureWorkspace;
   newWorkspace: typeof createLocalWorkspace;
@@ -251,6 +273,7 @@ export interface HomeActs {
 export const HOME_ACTS: HomeActs = {
   create: createProjectOnMachine,
   copy: copyProjectOnMachine,
+  rename: renameProjectOnMachine,
   remove: deleteProjectOnMachine,
   clone: ensureWorkspace,
   newWorkspace: createLocalWorkspace,
@@ -273,9 +296,7 @@ export interface HomeDeps extends HomeContext {
 /** The machine, or the sentence saying why there is nothing to act on. */
 const machineOf = (d: HomeDeps): Machine | null => {
   if (d.machine) return d.machine;
-  d.refuse(
-    "aucune machine moteur joignable — un projet est un dossier sur la machine",
-  );
+  d.refuse(msg["hc.noMachine"]());
   return null;
 };
 
@@ -301,11 +322,11 @@ export async function runHomeCommand(
       const [type, ...words] = rest.split(/\s+/).filter(Boolean);
       const name = words.join(" ");
       if (!type || !name)
-        return use(d.refuse, "usage: project new <type> <nom>");
+        return use(d.refuse, "usage: project new <type> <name>");
       if (!(PROJECT_SHAPES as readonly string[]).includes(type))
         return use(
           d.refuse,
-          `« ${type} » n'est pas un archétype — ${PROJECT_SHAPES.join(", ")}`,
+          msg["hc.notAShape"]({ type, shapes: PROJECT_SHAPES.join(", ") }),
         );
       const { folder, error } = projectFolderName(name, "st0");
       if (error) return use(d.refuse, error);
@@ -323,7 +344,8 @@ export async function runHomeCommand(
         );
         d.changed();
         // The folder EXISTS whatever the push did, so a failed push is said beside the success rather than instead of it.
-        if (gripe) d.refuse(`${project} créé, mais : ${gripe}`);
+        if (gripe)
+          d.refuse(msg["projects.createdBut"]({ folder: project, gripe }));
         else d.say(`+ ${found.ws.name}/${project}`);
       } catch (e) {
         d.refuse(`project new: ${(e as Error).message}`);
@@ -336,22 +358,19 @@ export async function runHomeCommand(
       if (!name || !to)
         return use(
           d.refuse,
-          "usage: project copy <projet> <espace> [nom de la copie]",
+          "usage: project copy <project> <workspace> [name of the copy]",
         );
       const found = resolveWorkspace(d);
       if ("error" in found) return use(d.refuse, found.error);
       const p = findProject(found.ws, name);
       if (!p) return use(d.refuse, projectGripe(found.ws, name));
       const dest = d.workspaces.find((w) => w.name === to);
-      if (!dest) return use(d.refuse, `aucun espace de travail « ${to} »`);
+      if (!dest) return use(d.refuse, msg["hc.noWorkspaceNamed"]({ name: to }));
       // Said rather than attempted: the machine refuses both too, and later.
       if (dest.name === found.ws.name)
-        return use(d.refuse, `${to} est déjà celui du projet`);
+        return use(d.refuse, msg["hc.copySameWs"]({ to }));
       if (dest.isSingleProject)
-        return use(
-          d.refuse,
-          `${to} est lui-même un projet — la copie n'y serait jamais listée`,
-        );
+        return use(d.refuse, msg["hc.copyIntoProject"]({ to }));
       // No name given is the source's own, suffix included, which `projectFolderName` puts back.
       const label = words.join(" ") || (p.path.split("/").pop() ?? p.path);
       const { folder, error } = projectFolderName(label, p.app);
@@ -370,7 +389,7 @@ export async function runHomeCommand(
         );
         d.changed();
         // The copy IS there whatever the push did, as with a creation.
-        if (gripe) d.refuse(`${folder} copié dans ${to}, mais : ${gripe}`);
+        if (gripe) d.refuse(msg["projects.copiedBut"]({ folder, to, gripe }));
         else d.say(`+ ${to}/${folder}`);
       } catch (e) {
         d.refuse(`project copy: ${(e as Error).message}`);
@@ -378,28 +397,58 @@ export async function runHomeCommand(
       return true;
     }
 
+    case "project rename": {
+      const [name, ...words] = rest.split(/\s+/).filter(Boolean);
+      const label = words.join(" ");
+      if (!name || !label)
+        return use(d.refuse, "usage: project rename <project> <new name>");
+      const found = resolveWorkspace(d);
+      if ("error" in found) return use(d.refuse, found.error);
+      const p = findProject(found.ws, name);
+      if (!p) return use(d.refuse, projectGripe(found.ws, name));
+      const { folder, error } = projectFolderName(label, p.app);
+      if (error) return use(d.refuse, error);
+      // Said rather than attempted: the machine would answer the same thing, one round trip later.
+      if (folder === p.path.split("/").pop())
+        return use(d.refuse, msg["hc.renameSame"]({ name: folder }));
+      const m = machineOf(d);
+      if (!m) return true;
+      try {
+        const { gripe } = await d.acts.rename(
+          m,
+          found.ws.name,
+          p.path,
+          folder,
+          d.say,
+          !found.ws.origin,
+        );
+        d.changed();
+        // Renamed whatever the push did, as with a creation and a copy.
+        if (gripe)
+          d.refuse(msg["projects.renamedBut"]({ path: p.path, folder, gripe }));
+        else d.say(`${p.path} → ${folder}`);
+      } catch (e) {
+        d.refuse(`project rename: ${(e as Error).message}`);
+      }
+      return true;
+    }
+
     case "project delete init": {
-      if (!rest) return use(d.refuse, "usage: project delete init <projet>");
+      if (!rest) return use(d.refuse, "usage: project delete init <project>");
       const found = resolveWorkspace(d);
       if ("error" in found) return use(d.refuse, found.error);
       const p = findProject(found.ws, rest);
       if (!p) return use(d.refuse, projectGripe(found.ws, rest));
       d.armed.current = { workspace: found.ws.name, path: p.path };
       // What the dialog's paragraph says, said here instead: 'are you sure?' on its own names nothing.
-      d.say(
-        `${p.path} — le dossier sera recyclé sur la machine et le commit poussé ; ` +
-          `le contenu reste dans l'historique git. Pour le faire : project delete confirm ${p.path}`,
-      );
+      d.say(msg["hc.deleteArmed"]({ path: p.path }));
       return true;
     }
 
     case "project delete confirm": {
-      if (!rest) return use(d.refuse, "usage: project delete confirm <projet>");
-      if (!armed)
-        return use(
-          d.refuse,
-          `rien n'a été désigné — project delete init ${rest} d'abord`,
-        );
+      if (!rest)
+        return use(d.refuse, "usage: project delete confirm <project>");
+      if (!armed) return use(d.refuse, msg["hc.nothingArmed"]({ name: rest }));
       const found = resolveWorkspace(d);
       if ("error" in found) return use(d.refuse, found.error);
       const p = findProject(found.ws, rest);
@@ -407,7 +456,9 @@ export async function runHomeCommand(
       if (!p || p.path !== armed.path || found.ws.name !== armed.workspace)
         return use(
           d.refuse,
-          `ce n'est pas ce qui a été désigné (${armed.workspace}/${armed.path}) — rien n'a été supprimé`,
+          msg["hc.notWhatWasArmed"]({
+            what: `${armed.workspace}/${armed.path}`,
+          }),
         );
       const m = machineOf(d);
       if (!m) return true;
@@ -419,7 +470,8 @@ export async function runHomeCommand(
           d.say,
         );
         d.changed();
-        if (gripe) d.refuse(`${p.path} supprimé, mais : ${gripe}`);
+        if (gripe)
+          d.refuse(msg["projects.deletedBut"]({ path: p.path, gripe }));
         else d.say(`− ${armed.workspace}/${p.path}`);
       } catch (e) {
         d.refuse(`project delete: ${(e as Error).message}`);
@@ -428,7 +480,7 @@ export async function runHomeCommand(
     }
 
     case "system workspace new": {
-      if (!rest) return use(d.refuse, "usage: system workspace new <nom>");
+      if (!rest) return use(d.refuse, "usage: system workspace new <name>");
       const { folder, error } = workspaceFolderName(rest);
       if (error) return use(d.refuse, error);
       const m = machineOf(d);
@@ -437,9 +489,7 @@ export async function runHomeCommand(
         const { workspace } = await d.acts.newWorkspace(m, folder, d.say);
         d.changed();
         // Said out loud: it holds nothing, and the editor is where the first project is chosen.
-        d.say(
-          `+ ${workspace} — vide et sans dépôt ; ouvrez-le pour y faire un projet`,
-        );
+        d.say(msg["hc.workspaceMade"]({ workspace }));
       } catch (e) {
         d.refuse(`system workspace new: ${(e as Error).message}`);
       }
@@ -451,22 +501,22 @@ export async function runHomeCommand(
       if (!name || !uri)
         return use(
           d.refuse,
-          "usage: system workspace publish <espace> <uri ssh>",
+          "usage: system workspace publish <workspace> <ssh uri>",
         );
       const ws = d.workspaces.find((w) => w.name === name);
-      if (!ws) return use(d.refuse, `aucun espace de travail « ${name} »`);
+      if (!ws) return use(d.refuse, msg["hc.noWorkspaceNamed"]({ name }));
       // Said rather than attempted: the machine would refuse it too, and later.
       if (ws.origin)
         return use(
           d.refuse,
-          `${name} a déjà un dépôt (${ws.origin}) — publier est pour un espace qui n'en a pas`,
+          msg["hc.alreadyPublished"]({ name, origin: ws.origin }),
         );
       const m = machineOf(d);
       if (!m) return true;
       try {
         await d.acts.publish(m, name, uri, d.say);
         d.changed();
-        d.say(`${name} publié — le dépôt est en place et l'espace poussé`);
+        d.say(msg["hc.published"]({ name }));
       } catch (e) {
         d.refuse(`system workspace publish: ${(e as Error).message}`);
       }
@@ -475,7 +525,7 @@ export async function runHomeCommand(
 
     case "system repo add": {
       const uri = rest;
-      if (!uri) return use(d.refuse, "usage: system repo add <uri ssh>");
+      if (!uri) return use(d.refuse, "usage: system repo add <ssh uri>");
       const m = machineOf(d);
       if (!m) return true;
       try {
@@ -490,18 +540,19 @@ export async function runHomeCommand(
     }
 
     case "system repo sync": {
-      if (!rest) return use(d.refuse, "usage: system repo sync <dépôt>");
+      if (!rest) return use(d.refuse, "usage: system repo sync <repository>");
       const ws = d.workspaces.find(
         (w) => w.repoName === rest || w.name === rest,
       );
       if (!ws)
         return use(
           d.refuse,
-          `aucun espace de travail « ${rest} » sur cette machine${
-            d.workspaces.length
+          msg["hc.noWorkspaceHere"]({
+            name: rest,
+            list: d.workspaces.length
               ? ` — ${d.workspaces.map((w) => w.name).join(", ")}`
-              : ""
-          }`,
+              : "",
+          }),
         );
       const m = machineOf(d);
       if (!m) return true;
@@ -524,9 +575,13 @@ export async function runHomeCommand(
 
 /** No such project, with the ones there are — a refusal that names nothing is a refusal you retype. */
 const projectGripe = (ws: MachineWorkspace, name: string): string =>
-  `aucun projet « ${name} » dans ${ws.name}${
-    ws.projects.length ? ` — ${ws.projects.map((x) => x.path).join(", ")}` : ""
-  }`;
+  msg["hc.noProject"]({
+    name,
+    workspace: ws.name,
+    list: ws.projects.length
+      ? ` — ${ws.projects.map((x) => x.path).join(", ")}`
+      : "",
+  });
 
 /** Say it and answer `true` — the branches above are one statement each because of it. */
 function use(to: (s: string) => void, text: string): boolean {

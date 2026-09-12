@@ -12,6 +12,42 @@ into it (`dawproject.ts`, `ableton.ts`); then `params.ts` enriches and `emit.ts`
 Only the mappers know a format. Everything downstream is format-blind, which is the whole
 reason a second format is one file rather than a second pipeline.
 
+## Two ways in, one translation
+
+The mappers are reached from `packages/file-service/src/projectLifecycle.ts`, by two entry points
+that differ only in where the bytes come from and who names the folder:
+
+| | reads | folder name | leaves behind |
+|---|---|---|---|
+| `importProjectInto` | a file already IN the workspace, clicked in st0's tree | the file's stem, uniquified | the source file, where it was |
+| `importProjectBytes` | bytes handed over — a file DROPPED on a workspace row on st0's home page | what the popin asked for, refused if taken | nothing but the project |
+
+The second exists because a drop has no file in the workspace to point at, and because the person
+doing it is looking at a list of projects: the folder is what they will look for afterwards, so it
+is asked for rather than derived. A name somebody typed is never quietly renamed — an occupied one
+is refused, the way `project new` refuses it. A name nobody typed still gets today's `-2` suffix,
+since there was no answer to change.
+
+**A drop takes `.dawproject` only** (`DROPPABLE_PROJECTS`, in `@studio/web-protocol` so the browser
+and the service filter on one list). A `.dawproject` is one self-contained file — the audio is
+inside the archive. A `.als` is not: it names its samples by path and `makeSampleReader` resolves
+them against its own location in the workspace, so a dropped one alone would import a project with
+no sound in it and nothing to say which files were meant. That one is imported from the tree, where
+it sits with its folder, and the refusal says so.
+
+## One file per RECORDING, not per clip
+
+A foreign project cuts several clips out of one take, and some exports write one file per clip
+regardless — byte for byte identical, under a dozen names. Written straight through, that is what
+lands on disk: one real import came out at 345 MB for 91 MB of audio, nineteen files where four
+would do, and the waveform pass then decodes every copy.
+
+So `emit.ts` keys the audio it writes by CONTENT (`audioFor`), because that is the half both cases
+share, and names each file after the source the archive called it rather than after any clip. Each
+clip keeps its own `clips/<id>.yaml` — the window, the fades and the warp markers are the clip's,
+and only the bytes are shared. Measured on a real Bitwig export: 54 clips, 51 recordings, 243 MB
+written instead of 258.
+
 ## `model.ts` — the neutral shape
 
 `Song`/`TrackOut`/`ClipOut`/`PluginOut`/`WarpOut`, plus the `Translation` a mapper returns.
@@ -35,6 +71,40 @@ The mapping is deliberately lossy where st0 can't yet represent something (warps
 time-stretch, plugin state, automation): those are dropped, while the structural
 essentials (tracks, params, audio clips, MIDI notes, plugin refs, sends) are carried so
 a later phase can wire them.
+
+### A container plays a WINDOW of its children
+
+A `<Clip>` holding `<Clips>` is a container: its children live in the container's own timeline, and
+the container's `time`/`duration`/`playStart` select the slice of them it plays. `collectClips`
+positions each child absolutely and clamps it to that slice.
+
+**A child clamped to nothing is dropped, not emitted at zero length.** The same material appears
+under several containers — that is what containers are for — and each one plays a different part of
+it, so every other container clamps it away. Emitted anyway, those became zero-length clips piled
+on the lane at the same beats, which reads as overlapping takes the source project never had: on
+one real export, 48 of 124 clips were that, and the arrangement looked doubled. There is nothing to
+warn about — a container not playing a child is the ordinary case, not a fault.
+
+### Content written once and placed several times
+
+A `<Clip>` may carry no content at all and name a `reference` instead: DAWproject writes one
+pattern once, under an `id`, and every placement points at it. A drum groove dropped at eight bars
+is eight empty clips and one `<Notes id="…">`. Bitwig does it for anything out of its library, and
+for repeated audio.
+
+`indexById` walks the parsed document once — a reference may point forwards, and every track may
+use the same id — and `withReferenced` reads the target in as if it had been written inside the
+clip. Only `Notes`, `Audio` and `Clips` are read that way: an id resolving to something else (a
+`Channel`, say) is not content, and the warning says which of the two happened rather than claiming
+the file does not define it.
+
+**What is shared is the CONTENT, never the placement.** `time`, `duration` and the loop points
+belong to the clip that named the reference, and the notes are copied into each placement — two
+placements of one groove are two clips, and editing one must not reach the other.
+
+Measured on a real Bitwig export (`LEMO - DANSE`): 42 → **49** audio clips, 28 → **35** MIDI clips,
+913 → **1069** notes, and the warnings drop from 10 to 1 — the one that is left is a clip which
+genuinely holds nothing and points nowhere.
 
 ## `ableton.ts` — the .als mapper
 
@@ -129,12 +199,62 @@ exposes to automation, but they are only ever a subset (384 of a plugin's 2276),
 `paramsComplete` is never set and `emit.ts` correctly prefers the preset over partials.
 Those params matter only for a plugin whose blob would not decode at all.
 
+## A sole insert is folded, unless the name is a chain's
+
+One use of a plugin needs no node file: the module IS the node, and the chain names it bare. The
+exception is the collision `graph.yaml`'s one name space makes: a lane wins a bare name there
+(`packages/song/docs/trackModules.md`), so a step folded onto a name a chain already has reads as
+the chain naming ITSELF. The step then disappears from the segment, and on an instrument track the
+lane's midi lands on the next module's audio input — "port 'in' expects audio but source is midi",
+about a chain whose instrument is nowhere to be seen.
+
+It is the default a DAW writes: a track called after the device on it. So the fold is skipped when
+`chains[mod.name]` exists, and the insert keeps its `<module>_<track>` node.
+
+## Every lane ends on a fader
+
+An st0 lane has a strip of its own, last in its run — a node on the library's mixer, and the
+gutter fader, the card and the Mixer view are three drawings of it
+(`packages/song/docs/trackMixer.md`). A lane without one plays at unity with nowhere to put a
+level, which is what an imported project used to be.
+
+So each emitted lane gets `nodes/mix-<lane>.yaml`, a last step naming it, and nothing else: the node
+extends **`@st0/audio/utility/mixer`** — `SHARED_STRIP`, the library module every mixer node in
+every project is a use of.
+
+**No project module is written for it**, and that is the point rather than a saving. A project-owned
+copy of a library module compiles to the same audio and draws **a card with no controls on it**: a
+card draws the `ui.yaml` beside the module it resolves to, and the library's `mixer/` is what
+carries one (`packages/song/docs/liveProject.md`). Writing the plugin inline here would also mean
+the import deciding what a strip IS, in a project whose library already says.
+
+A return bus and the master chain get none: neither is a lane, and a strip on them would be a
+second level in the path with nothing drawing it.
+
+The strip runs into **`MIX`**, and `MIX` into the master run — or straight to `OUT` when the source
+project's master track carries no plugins. That is the notation every st0 project uses
+(`packages/song/docs/masterChain.md`): not an audible difference, since every track feeds the
+master bus whatever it names, but the shape the rest of the app reads. A lane that ended at `OUT`
+is one `planTrackMixer` refuses to touch — "does not run into MIX, wire its strip by hand" — so an
+imported project could not be repaired by the tool that repairs every other one.
+
+## The surface, so the song can be looked at
+
+A project draws what it DECLARES (`packages/song/docs/surfaces.md`): no `surfaces/timeline.yaml`,
+no lanes on screen, no transport and no minimap — the song still compiles and still plays, which is
+what makes the absence read as a broken editor rather than as a missing file.
+
+Every import writes one. What a `.dawproject` or a `.als` carries IS an arrangement — tracks and
+clips against a ruler — so the project that comes out of one says so. It is the only surface an
+import declares: there is no picture in either format, and a desk is something you build rather
+than something a foreign project describes.
+
 ## `emit.ts` — the output layout
 
 ```
 <outDir>/
   project.yaml                  header
-  graph.yaml                   the graph: track -> modules -> OUT
+  graph.yaml                   the graph: track -> modules -> strip -> MIX -> OUT
   modules/io/OUT/module.yaml    the stereo-output sink (io module)
   modules/{instruments,audio,transformers}/<slug>/module.yaml
                                 self-contained modules, each its own folder filed by
@@ -197,9 +317,19 @@ opaque `.vstpreset` is kept and the partial params are skipped. The preset is wr
 file whose state it is: `nodes/<node>.vstpreset` for a node, and the module's own folder for the
 sole use that stayed in `module.yaml`.
 
-**A plugin the cache does not know is written as a stub** — no `type`, which is what makes it one:
-the brain skips instantiating it and the chain simply routes through. With no scan cache at all
-there is nothing to check against and the verification is skipped entirely.
+**A plugin the cache does not know gets NO module of its own.** Every use of it is written as a
+node on `@studio/not-supported`, the built-in placeholder, carrying the plugin's real name as
+`label:` and the params the export held. The chain routes through it and the graph draws it amber.
+`packages/song/docs/notSupported.md` argues the shape — chiefly why a stub MODULE per unloadable
+plugin was the wrong answer, and why the ref is `@studio` rather than `@st0`.
+
+The scan it checks against is read through `scannedPlugins()` and never by opening a path of its
+own. That is the whole of the rule, and the failure it prevents is silent: a hand-rolled read
+naming the wrong home finds no file, `verify` is false, and every plugin is taken as loadable —
+the import looks like it worked and the check simply did not run. `scannedPlugins()` is the file
+the engine itself writes and it honours `$STUDIO_HOME`, which the file service needs because it
+runs on the machine's own side of a WSL boundary. With no scan cache at all there is genuinely
+nothing to check against, and the verification is skipped.
 
 **Audio and no MIDI means a bounced track**, so its instrument and note FX are dropped (the frozen
 remains) and the audio FX kept.
@@ -314,7 +444,7 @@ then collapses them into one module.
 - each source track becomes a `nodes/` lane carrying its arrangement;
 - each plugin becomes a self-contained module (its plugin inline + params); the track's
   ordered plugin chain becomes chain `use` steps referencing those modules, instrument
-  first then audio FX, routed to OUT;
+  first then audio FX, then the lane's own strip, into MIX;
 - effect/return tracks become bus subbranch chains (no `from`), targeted by enabled
-  sends (a source's terminal fans out to OUT + its send buses);
-- the master track maps to OUT (or a master chain if it carries plugins).
+  sends (a source's terminal fans out to MIX + its send buses);
+- the master track's plugins become the run between MIX and OUT (`packages/song/docs/masterChain.md`); with none, the two are a single wire.

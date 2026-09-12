@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, engines } from "../api";
+import { m } from "../paraglide/messages.js";
 import { engineMachine, externalHref } from "../projects/api";
 import type { Machine } from "../projects/machine";
 import { PANE_META } from "../shellMeta";
@@ -127,7 +128,7 @@ export function ExternalIndex() {
         <Button
           size="icon"
           variant="ghost"
-          title="Rafraîchir"
+          title={m["ext.refresh"]()}
           onClick={refresh}
         >
           <RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
@@ -137,10 +138,9 @@ export function ExternalIndex() {
       <main className="min-h-0 flex-1 overflow-y-auto p-4">
         {machine === null ? (
           <Empty icon={<ServerOff className="h-8 w-8" />}>
-            <p className="text-sm">Aucun moteur joignable.</p>
+            <p className="text-sm">{m["ext.noEngine"]()}</p>
             <p className="max-w-xs text-center text-xs opacity-70">
-              Les surfaces vivent sur la machine qui tient les copies de travail
-              : sans moteur, il n'y a rien à commander.
+              {m["ext.noEngineBody"]()}
             </p>
           </Empty>
         ) : error ? (
@@ -172,7 +172,7 @@ export function ExternalIndex() {
           </ul>
         ) : busy ? null : served ? (
           <Empty icon={<Disc3 className="h-8 w-8" />}>
-            <p className="text-sm">Aucune surface dans ce projet.</p>
+            <p className="text-sm">{m["ext.noSurfaces"]()}</p>
             <p className="max-w-xs text-center text-xs opacity-70">
               Un projet déclare ses écrans dans son dossier{" "}
               <code>surfaces/</code>. Celui qui est ouvert n'en déclare aucun.
@@ -181,10 +181,9 @@ export function ExternalIndex() {
         ) : (
           /* The other empty, and a different fact: the disk may hold surfaces, but with nothing loaded each would START a project rather than join one. */
           <Empty icon={<Disc3 className="h-8 w-8" />}>
-            <p className="text-sm">Aucun projet ouvert sur le moteur.</p>
+            <p className="text-sm">{m["ext.noOpenProject"]()}</p>
             <p className="max-w-xs text-center text-xs opacity-70">
-              Une surface rejoint le projet que le moteur tient déjà. Ouvrez-en
-              un dans l'éditeur et cette liste se remplira.
+              {m["ext.noProject"]()}
             </p>
           </Empty>
         )}

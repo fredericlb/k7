@@ -2,6 +2,7 @@
 // tab strip needed an address on this origin without paying for any of it — main.tsx is now a
 // dispatcher that imports one of us, and this is the heavy branch. See apps/st0-desktop/docs/tabs.md.
 
+import { setFileApiTally } from "@studio/project-shell/fileApi";
 import {
   isExternalIndex,
   parseExternal,
@@ -35,7 +36,7 @@ const SharedGate = lazy(() =>
   import("./components/SharedGate").then((m) => ({ default: m.SharedGate })),
 );
 
-import { installFreezeWatchdog, reportCommit } from "./freezeWatchdog";
+import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
 import { PROFILING } from "./profiling";
 import { Home } from "./projects/Home";
@@ -45,7 +46,10 @@ import "./index.css";
 import "@studio/ui-waveform/styles.css";
 
 // Report main-thread stalls to the console, so a "random freeze" leaves evidence. Cheap, and console-only.
-installFreezeWatchdog();
+installFreezeWatchdog({ commits: PROFILING });
+// …and let the file transport report into the same tally: parsing a response is the other thing
+// that runs on this thread while a project opens, and the engine link was the only one instrumented.
+setFileApiTally(tally);
 
 /** The Profiler is here for the freeze watchdog, and OFF unless someone is looking: it bills every commit in a tree that commits per meter frame. */
 const profiling = PROFILING;

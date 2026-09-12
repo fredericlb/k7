@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { mediatekDir } from "@studio/engine-client/paths";
-import { type Family, RECORDINGS_DIR } from "./types.ts";
+import { type Family, PLAYLISTS_DIR, RECORDINGS_DIR } from "./types.ts";
 
 export { mediatekDir };
 
@@ -19,12 +19,13 @@ export const FAMILY_DIRS: Record<Family, string> = {
   samples: "samples",
 };
 
-// `playlists` was the third; an old volume's folder is left inert rather than deleted (docs/index.md).
+// `playlists/` is NOT in FAMILY_DIRS: a family is scanned for bytes, and a set list has none (docs/playlists.md).
 
 // No SONG_KINDS beside SAMPLE_KINDS below: `songs/` has no subdivision — see docs/songs.md.
 
 /** The raw capture zone, `recordings/<YYYY-MM-DD>/<HH-MM-SS>.<ext>` — a root zone, not a family; docs/recordings.md. */
-export { RECORDINGS_DIR };
+/** The set lists, `playlists/<name>.yaml` — a root zone too, holding no bytes; docs/playlists.md. */
+export { PLAYLISTS_DIR, RECORDINGS_DIR };
 
 /** Samples split by what plays them, which is also what can read them. */
 export const SAMPLE_KINDS = ["audio", "video"] as const;
@@ -41,6 +42,11 @@ export function libraryDir(): string {
 /** The raw capture zone — like `libraryDir`, a root folder that is not a family (docs/recordings.md). */
 export function recordingsDir(): string {
   return join(mediatekDir(), RECORDINGS_DIR);
+}
+
+/** The set lists — a root zone too, holding names of songs rather than bytes (docs/playlists.md). */
+export function playlistsDir(): string {
+  return join(mediatekDir(), PLAYLISTS_DIR);
 }
 
 /** Everything derived and deletable: the index, waveforms, thumbnails. Never a source. */
@@ -65,6 +71,7 @@ export function ensureLayout(): string {
     root,
     ...Object.values(FAMILY_DIRS).map((f) => join(root, f)),
     join(root, RECORDINGS_DIR),
+    join(root, PLAYLISTS_DIR),
     ...SAMPLE_KINDS.map((k) => join(root, FAMILY_DIRS.samples, k)),
     libraryDir(),
     join(libraryDir(), "ir"),

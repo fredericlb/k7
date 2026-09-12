@@ -102,6 +102,29 @@ and clicking the clip again.
 | `roll` | the piano roll — off-grid timing, precise lengths, keys the rack does not name | the same commands |
 | `tracker` | the sequence FILE as a text grid — arrows move, keys type notes | straight to the file (`SeqGridFile`) |
 
+### ×2, beside the switch
+
+`SeqDoubleButton.tsx`, in the sequencer's header and the roll's: the sequence twice as long, its
+notes played twice. One component in two headers rather than the same twelve lines in each,
+because a button drawn in both has to mean the same thing in both — and it is a `sequence double`
+command like every other edit here, so it is one Ctrl+Z and reachable from the bar.
+
+On a clip that LOOPS, it halves the passes as it doubles the window: four passes of one beat
+become two of two, so the same span plays and the two halves can now differ — which is the whole
+reason to press it on a loop. A placement it cannot follow (an odd number of passes, or a window
+of its own) is left alone and NAMED in the status line, because that one just got twice as long.
+`packages/song-edit/docs/sequenceLoops.md` is the page.
+
+It is **the one edit in these headers that is about the sequence** rather than about a note or a
+pad, which is why it sits with the view switch rather than among the precisions. What a "length"
+is — the stated window, else the notes' extent rounded up to the bar — is decided in the writer,
+and `packages/song-schema/docs/noteEdits.md` is where that reasoning lives.
+
+The roll draws it only when the roll can be EDITED (`onCreateNote`, the same signal its "drag to
+draw" hint follows): a frozen share draws the notes and takes none, and a ×2 there would be a
+button that reports a refusal. The tracker has no ×2 — it writes the file directly rather than
+through commands, so the button would be the one control in that header that goes the other way.
+
 Two rules decide what you get:
 
 - **The sequencer is offered only when there is a rack.** `rackFor.ts` answers that, and with no

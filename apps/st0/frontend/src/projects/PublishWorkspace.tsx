@@ -15,6 +15,7 @@ import { Input } from "@frediverse/ui/input";
 import { isSshGitUri } from "@studio/git-repos/uri";
 import { Loader2, Upload } from "lucide-react";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 
 export function PublishWorkspace({
   workspace,
@@ -32,10 +33,7 @@ export function PublishWorkspace({
   const [error, setError] = useState("");
 
   const value = uri.trim();
-  const bad =
-    value && !isSshGitUri(value)
-      ? "URI SSH uniquement — git@hôte:utilisateur/depot.git"
-      : "";
+  const bad = value && !isSshGitUri(value) ? m["ws.sshOnly"]() : "";
 
   const submit = () => {
     if (!value || bad || busy) return;
@@ -59,7 +57,7 @@ export function PublishWorkspace({
         variant="ghost"
         size="sm"
         disabled={Boolean(blocked)}
-        title={blocked || "Publier cet espace de travail dans un dépôt git"}
+        title={blocked || m["ws.publishHint"]()}
         onClick={() => setOpen(true)}
       >
         <Upload className="h-4 w-4" />
@@ -68,18 +66,14 @@ export function PublishWorkspace({
       <Dialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Publier « {workspace} »</DialogTitle>
-            <DialogDescription>
-              Le dépôt doit exister et être VIDE. Il devient le dépôt distant de
-              cet espace de travail, une fois pour toutes, et tout ce qui est
-              committé y est envoyé.
-            </DialogDescription>
+            <DialogTitle>{m["ws.publishTitle"]({ workspace })}</DialogTitle>
+            <DialogDescription>{m["ws.publishBody"]()}</DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
             <Input
               autoFocus
-              placeholder="git@hôte:utilisateur/depot.git"
+              placeholder={m["ws.uriPlaceholder"]()}
               value={uri}
               disabled={busy}
               onChange={(e) => setUri(e.target.value)}
@@ -89,7 +83,7 @@ export function PublishWorkspace({
             {busy && (
               <p className="text-xs text-muted-foreground">
                 <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
-                {step || "publication…"}
+                {step || m["ws.publishing"]()}
               </p>
             )}
             {/* git's own words: "Permission denied (publickey)" is the whole answer, and ours would be worse. */}
@@ -106,11 +100,11 @@ export function PublishWorkspace({
               disabled={busy}
               onClick={() => setOpen(false)}
             >
-              Annuler
+              {m["common.cancel"]()}
             </Button>
             <Button disabled={busy || !value || Boolean(bad)} onClick={submit}>
               {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              Publier
+              {m["ws.publish"]()}
             </Button>
           </DialogFooter>
         </DialogContent>

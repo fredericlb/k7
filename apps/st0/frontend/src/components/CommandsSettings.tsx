@@ -1,6 +1,6 @@
 // CommandsSettings.tsx — the "Commandes" settings screen: rename a command, give it an icon,
-// bind it a keyboard shortcut, and arrange the order menus list them in. Filtered by the ENTITY
-// a command acts on. The catalogue itself is the app's; everything edited here is the person's
+// bind it a keyboard shortcut, say which right-clicks offer it, and arrange the order menus list
+// them in. Filtered by the ENTITY a command acts on. The catalogue itself is the app's; everything edited here is the person's
 // own layer over it (commandPrefs.ts + keys.ts's effectiveKeys) and travels with their account.
 // It edits a DRAFT and saves on a button — docs/shell.md says why this page is the exception.
 
@@ -37,6 +37,7 @@ import {
   orderCommands,
   setCommandLabel,
   setCommandPref,
+  setMenuEntities,
 } from "../commandPrefs";
 import { useLocale } from "../i18n";
 import {
@@ -47,7 +48,10 @@ import {
   keyToken,
 } from "../keys";
 import { type IconSet, useIcons } from "../lucideIcons";
+import { m } from "../paraglide/messages.js";
+import { MENU_ENTITIES, type MenuEntity } from "../types";
 import type { PaletteCommand } from "./CommandBar";
+import { MenuEntityPicker } from "./CommandMenuPicker";
 
 // The whole lucide set is ~1500 components, so it is LAZY: that cost is paid when this screen opens (see IconPicker's header).
 const IconPicker = lazy(() => import("./IconPicker"));
@@ -104,6 +108,17 @@ export function CommandsSettings({
     (canonical: string, by: -1 | 1) =>
       setDraft((d) => moveCommand(commands, d, canonical, by)),
     [commands],
+  );
+  const menu = useCallback(
+    (
+      canonical: string,
+      catalogue: readonly MenuEntity[] | undefined,
+      next: readonly MenuEntity[],
+    ) =>
+      setDraft((d) =>
+        setMenuEntities(d, canonical, catalogue, next, MENU_ENTITIES),
+      ),
+    [],
   );
 
   // Ordered FIRST, then filtered — so the arrows move a command against the whole arrangement, not against what the filter shows.
@@ -176,9 +191,9 @@ export function CommandsSettings({
   const leave = async () => {
     if (!dirty) return onBack();
     const agreed = await askConfirm({
-      title: "Abandonner les modifications ?",
-      body: "Les raccourcis, noms et icônes changés ici ne seront pas enregistrés.",
-      confirmLabel: "Abandonner",
+      title: m["cmds.discardTitle"](),
+      body: m["cmds.discardBody"](),
+      confirmLabel: m["cmds.discard"](),
       danger: true,
     });
     if (agreed) onBack();
@@ -188,17 +203,16 @@ export function CommandsSettings({
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2">
         <Button size="sm" variant="ghost" onClick={() => void leave()}>
-          ← retour
+          ← {m["common.back"]()}
         </Button>
-        <h2 className="text-sm font-medium">Commandes</h2>
+        <h2 className="text-sm font-medium">{m["cmds.title"]()}</h2>
         <span className="text-xs text-muted-foreground">
-          leur nom, leur icône, leur raccourci et l'ordre des menus — pour vous,
-          sur tous vos navigateurs
+          {m["cmds.subtitle"]()}
         </span>
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="filtrer…"
+          placeholder={m["common.filter"]()}
           className="ml-auto h-7 w-48 text-xs"
         />
         {/* The button, and beside it what it would write: a shortcut assigned here does not run until it is saved. */}
@@ -208,7 +222,7 @@ export function CommandsSettings({
             dirty ? "text-amber-500" : "text-muted-foreground",
           )}
         >
-          {dirty ? "non enregistré" : "à jour"}
+          {dirty ? m["cmds.unsaved"]() : m["cmds.upToDate"]()}
         </span>
         <Button
           size="sm"
@@ -216,10 +230,10 @@ export function CommandsSettings({
           disabled={!dirty}
           onClick={() => setDraft(prefs)}
         >
-          annuler
+          {m["common.cancelLower"]()}
         </Button>
         <Button size="sm" disabled={!dirty} onClick={() => onSave(draft)}>
-          Enregistrer
+          {m["common.save"]()}
         </Button>
       </header>
 
@@ -237,7 +251,7 @@ export function CommandsSettings({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {e || "tout"}
+            {e || m["cmds.all"]()}
           </button>
         ))}
         <span className="ml-auto text-xs text-muted-foreground">
@@ -261,11 +275,12 @@ export function CommandsSettings({
             onPatch={patch}
             onRename={rename}
             onMove={move}
+            onMenu={menu}
           />
         ))}
         {shown.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            aucune commande ne correspond
+            {m["cmds.noMatch"]()}
           </p>
         )}
       </div>
@@ -287,6 +302,7 @@ const CommandRow = memo(function CommandRow({
   onPatch,
   onRename,
   onMove,
+  onMenu,
 }: {
   c: PaletteCommand;
   pref: CommandPref | undefined;
@@ -301,6 +317,12 @@ const CommandRow = memo(function CommandRow({
   onPatch: (canonical: string, patch: Patch) => void;
   onRename: (canonical: string, locale: string, text: string) => void;
   onMove: (canonical: string, by: -1 | 1) => void;
+  /** The whole list at once — a pick is "these ones", never a diff. */
+  onMenu: (
+    canonical: string,
+    catalogue: readonly MenuEntity[] | undefined,
+    next: readonly MenuEntity[],
+  ) => void;
 }) {
   const name = pref?.icon;
   const Icon = name ? icons?.[name] : undefined;
@@ -312,7 +334,7 @@ const CommandRow = memo(function CommandRow({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            title="choisir une icône"
+            title={m["cmds.pickIcon"]()}
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground"
           >
             {Icon ? <Icon className="h-4 w-4" /> : "—"}
@@ -339,7 +361,7 @@ const CommandRow = memo(function CommandRow({
         <label
           key={l}
           className="flex min-w-0 flex-1 items-center gap-1"
-          title={`nom en ${l}`}
+          title={m["cmds.nameIn"]({ locale: l })}
         >
           <span
             className={cn(
@@ -362,33 +384,20 @@ const CommandRow = memo(function CommandRow({
         {plural && (
           <Layers
             className="h-3 w-3 shrink-0 text-primary/70"
-            aria-label="agit sur plusieurs à la fois"
+            aria-label={m["cmds.plural"]()}
           />
         )}
         <span className="truncate">{c.canonical}</span>
       </code>
 
-      {/* On the right-click, or not — only ever a way to take one AWAY, the menu being DERIVED from what you clicked. */}
-      <label
-        className="flex w-7 shrink-0 items-center justify-center"
-        title="proposer cette commande au clic droit"
-      >
-        <input
-          type="checkbox"
-          checked={pref?.menu !== false}
-          onChange={(e) =>
-            // `undefined` rather than `true`, so an untouched command keeps no entry at all — the rule the label and the icon follow.
-            onPatch(c.canonical, { menu: e.target.checked ? undefined : false })
-          }
-          aria-label="au clic droit"
-        />
-      </label>
+      {/* WHICH right-clicks offer it — the catalogue's own list until you touch it. */}
+      <MenuEntityPicker c={c} pref={pref} onMenu={onMenu} />
 
       {/* The shortcut: click, press a key, and a stolen one goes blank in the row that held it, both reading one effective map. */}
       <Button
         size="sm"
         variant={capturing ? "default" : "outline"}
-        title="cliquer puis presser une touche — Échap annule, ⌫ retire (⇧ passe, ⌘/⌃/⌥ restent au navigateur)"
+        title={m["cmds.keyHint"]()}
         className="h-7 w-16 shrink-0 justify-center font-mono text-[11px]"
         onClick={() => onCapture(capturing ? null : c.canonical)}
       >
@@ -398,7 +407,7 @@ const CommandRow = memo(function CommandRow({
       <Button
         size="icon-xs"
         variant="ghost"
-        title="monter"
+        title={m["cmds.up"]()}
         onClick={() => onMove(c.canonical, -1)}
       >
         <ArrowUp className="h-3.5 w-3.5" />
@@ -406,7 +415,7 @@ const CommandRow = memo(function CommandRow({
       <Button
         size="icon-xs"
         variant="ghost"
-        title="descendre"
+        title={m["cmds.down"]()}
         onClick={() => onMove(c.canonical, 1)}
       >
         <ArrowDown className="h-3.5 w-3.5" />
@@ -415,7 +424,7 @@ const CommandRow = memo(function CommandRow({
         size="icon-xs"
         variant="ghost"
         disabled={!touched}
-        title="rendre à l'app"
+        title={m["cmds.giveBack"]()}
         onClick={() =>
           onPatch(c.canonical, {
             label: undefined,

@@ -35,6 +35,19 @@ function workspace(name: string, project?: string): string {
   return root;
 }
 
+/** The same, with a `turntables` surface naming a playlist that lives at the workspace ROOT. */
+function deckWorkspace(): string {
+  const root = workspace("songs", "winter.st0");
+  mkdirSync(join(root, "winter.st0", "surfaces"), { recursive: true });
+  writeFileSync(
+    join(root, "winter.st0", "surfaces", "decks.yaml"),
+    "type: turntables\nlayout: split\nplaylist: Fred\n",
+  );
+  mkdirSync(join(root, "_playlists"), { recursive: true });
+  writeFileSync(join(root, "_playlists", "Fred.yaml"), "items:\n  - song: a\n");
+  return root;
+}
+
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "fs-copy-"));
   process.env.USERPROFILE = home;
@@ -66,6 +79,51 @@ describe("copyProjectBetween", () => {
     expect(existsSync(join(at, "node_modules"))).toBe(false);
     // The source is untouched — a copy is not a move.
     expect(existsSync(join(rootDir(), "songs", "winter.st0"))).toBe(true);
+  });
+
+  it("carries the playlist a surface names, which lives at the workspace root", async () => {
+    const src = deckWorkspace();
+    const dest = workspace("albums");
+
+    const r = await copyProjectBetween(
+      USER,
+      "songs",
+      "winter.st0",
+      "albums",
+      "winter.st0",
+    );
+
+    expect(r.playlists).toEqual(["_playlists/Fred.yaml"]);
+    expect(
+      readFileSync(join(dest, "_playlists", "Fred.yaml"), "utf8"),
+    ).toContain("song: a");
+    // The source keeps its own, untouched.
+    expect(
+      readFileSync(join(src, "_playlists", "Fred.yaml"), "utf8"),
+    ).toContain("song: a");
+  });
+
+  it("leaves a playlist the destination already has alone — its own set list wins", async () => {
+    deckWorkspace();
+    const dest = workspace("albums");
+    mkdirSync(join(dest, "_playlists"), { recursive: true });
+    writeFileSync(
+      join(dest, "_playlists", "Fred.yaml"),
+      "items:\n  - song: b\n",
+    );
+
+    const r = await copyProjectBetween(
+      USER,
+      "songs",
+      "winter.st0",
+      "albums",
+      "winter.st0",
+    );
+
+    expect(r.playlists).toBeUndefined();
+    expect(
+      readFileSync(join(dest, "_playlists", "Fred.yaml"), "utf8"),
+    ).toContain("song: b");
   });
 
   it("renames the copy, keeping the suffix that decides which app opens it", async () => {

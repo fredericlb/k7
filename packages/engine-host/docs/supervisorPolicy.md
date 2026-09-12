@@ -51,6 +51,10 @@ compare is a **signature** rather than the data.
   nothing.
 - The edit-plugin signature is built from the OPENABLE ids and is **session-qualified**: the same
   module id in two projects is two rows, and the signature has to change when one of them goes.
+- The plugin signature is `format` + `name` over the whole catalogue, and the list is sorted
+  before it is built: the engine answers in scan order, and a reordered scan is not a changed
+  catalogue. A rescan that found exactly the same plugins still publishes, because `pluginCount`
+  is null until it lands and that null IS the spinner.
 - The session signature includes `playing` and `listeners` because those are on the label — they
   are the two facts that answer "who is using my interface right now". The **playhead is not in
   it**, and that is the point of having a signature at all: it moves 20 times a second and would

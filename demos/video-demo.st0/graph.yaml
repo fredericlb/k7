@@ -21,9 +21,17 @@
 # `glow#audio` is the SIDE input: the drums lane feeds the shader's audio port as well as the
 # mix, and `uAudio` is that lane's live level. The picture moves with the kit.
 
+# The three shape modules are here too, each wired to the lane that draws it: a shape is a
+# picture SOURCE, so it goes INTO a lane the way a camera does. See song-video/docs/shapes.md.
+# One lane each, so any of the three can be hidden or run through a shader on its own — and the
+# lane is `box_layer` rather than `box` because a lane and a module share one name space.
+
 modules:
   drums: [ MIX, glow#audio ]
   MIX: [ OUT ]
   main: [ glow ]
   glow: [ RENDER ]
+  box: [ box_layer ]
+  dot: [ dot_layer ]
+  title: [ title_layer ]
   RENDER: [ VIDEO_OUT ]

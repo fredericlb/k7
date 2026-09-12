@@ -24,14 +24,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setModuleAsset } from "./projectEdit";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 
 let ws: string;
 let dir: string;

@@ -13,6 +13,7 @@ import {
 import { cn } from "@frediverse/ui/lib/utils";
 import { Check, ChevronDown, Grid3x3, LayoutGrid, Piano } from "lucide-react";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
 
 /** Which view of one clip's notes. `roll` and `tracker` are the two `SeqView`s plus the grid. */
@@ -20,26 +21,26 @@ export type ClipViewMode = "sequencer" | "roll" | "tracker";
 
 const MODES: {
   id: ClipViewMode;
-  label: string;
-  hint: string;
+  label: () => string;
+  hint: () => string;
   Icon: typeof Piano;
 }[] = [
   {
     id: "sequencer",
-    label: "séquenceur",
-    hint: "un pas par cellule, une ligne par son du rack en aval",
+    label: () => m["mode.sequencer"](),
+    hint: () => m["mode.sequencerHint"](),
     Icon: LayoutGrid,
   },
   {
     id: "roll",
-    label: "piano roll",
-    hint: "pour ce qu'une grille ne sait pas dire — vélocités, hors grille, notes que le rack ne nomme pas",
+    label: () => m["mode.roll"](),
+    hint: () => m["mode.rollHint"](),
     Icon: Piano,
   },
   {
     id: "tracker",
-    label: "tracker",
-    hint: "les notes du fichier en texte — les flèches déplacent, les touches saisissent",
+    label: () => m["mode.tracker"](),
+    hint: () => m["mode.trackerHint"](),
     Icon: Grid3x3,
   },
 ];
@@ -65,11 +66,11 @@ export function ClipViewModes({
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         className="flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-        title="changer de vue sur ces notes"
+        title={m["mode.switchHint"]()}
         aria-label="vue"
       >
         <current.Icon className="h-3.5 w-3.5 shrink-0" />
-        <span>{current.label}</span>
+        <span>{current.label()}</span>
         <ChevronDown className="h-3 w-3 shrink-0" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
@@ -87,9 +88,9 @@ export function ClipViewModes({
             />
             <mode.Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1">
-              <span className="block text-foreground">{mode.label}</span>
+              <span className="block text-foreground">{mode.label()}</span>
               <span className="block text-[10px] text-muted-foreground">
-                {mode.hint}
+                {mode.hint()}
               </span>
             </span>
           </DropdownMenuItem>

@@ -79,9 +79,15 @@ export function parseModule(text: string): ParsedModule {
     }
     return { value: null, issues };
   }
-  // The default — applied on the way OUT, never into the file.
+  // The default — applied on the way OUT, never into the file, and never over an INHERITED type:
+  // a node extending a rack states nothing, and a default here would beat the parent (docs/moduleFile.md).
   const value = result.data;
-  if (value.type === undefined && value.io === undefined) value.type = "plugin";
+  if (
+    value.type === undefined &&
+    value.io === undefined &&
+    value.extends === undefined
+  )
+    value.type = "plugin";
   return { value, issues: [] };
 }
 

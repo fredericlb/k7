@@ -166,7 +166,7 @@ It is laid, and by the program itself rather than by a declaration. `takesAudioI
 audio input. Nothing in `module.yaml` says which of the two it is, and nothing should: the source
 already says.
 
-`packages/dsp/modules/instruments/synth/wurlitzer` is the first module to take it.
+The `instruments/synth/wurlitzer` module is the first to take it.
 
 What is still open is the **catalogue**: the role decides which type folder a module is filed under
 and its place in a chain, so it will probably carry two entries, a `Faust` effect and a

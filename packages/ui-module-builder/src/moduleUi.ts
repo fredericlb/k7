@@ -9,6 +9,7 @@ import {
   ENGINE_NS,
   IO_MODULES,
   type ModuleStatus,
+  moduleLabelOf,
   moduleStatusOf,
 } from "@studio/song-schema/moduleTypes";
 import {
@@ -287,6 +288,20 @@ export function setStatusIn(fileText: string, status: ModuleStatus): string {
   const doc = parseDocument(fileText, OPTS);
   if (status === DEFAULT_MODULE_STATUS) doc.delete("status");
   else doc.setIn(["status"], status);
+  return doc.toString({ lineWidth: 0 });
+}
+
+/** The name this module CALLS itself, read off the TEXT so an unsaved edit shows — packages/song/docs/moduleLabel.md. */
+export function labelOf(fileText: string): string {
+  return moduleLabelOf(docOf(fileText)?.toJS?.());
+}
+
+/** Set it, or CLEAR it: an empty box means the module has no label, not that it has an empty one. */
+export function setLabelIn(fileText: string, label: string): string {
+  const doc = parseDocument(fileText, OPTS);
+  const trimmed = label.trim();
+  if (!trimmed) doc.delete("label");
+  else doc.setIn(["label"], trimmed);
   return doc.toString({ lineWidth: 0 });
 }
 

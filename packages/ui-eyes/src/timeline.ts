@@ -58,6 +58,13 @@ export function activeAt(layer: VideoLayer, t: number): Active | null {
   return all.length ? all[all.length - 1] : null;
 }
 
+/** Is a layer of SHAPES on at `t`? Its clips carry no picture: each is a span saying the lane is
+ *  on, and a layer stating none is on throughout — see song-video/docs/shapes.md. Here beside
+ *  `activesAt` because it IS that rule, and realtime and export must not each keep their own. */
+export function shapesVisibleAt(layer: VideoLayer, t: number): boolean {
+  return !layer.clips.length || !!activeAt(layer, t);
+}
+
 /** The whole frame rule for one layer — which two pictures, and how far between them. */
 export function layerFrameAt(layer: VideoLayer, t: number): LayerFrame {
   const all = activesAt(layer, t);

@@ -511,9 +511,7 @@ export async function processWithChain(
   const engine = findEngineBinary();
   if (!engine)
     return {
-      lines: [
-        `${verb} failed: st0-engine binary not found (build the engine)`,
-      ],
+      lines: [`${verb} failed: st0-engine binary not found (build the engine)`],
       changed: false,
     };
 

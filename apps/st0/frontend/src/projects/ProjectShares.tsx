@@ -14,6 +14,8 @@ import { askConfirm } from "@studio/project-shell/ask";
 import type { ShareSummary } from "@studio/web-protocol";
 import { Check, Copy, Loader2, MessageSquare, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { parts } from "../i18nParts";
+import { m } from "../paraglide/messages.js";
 import { shares as api } from "./api";
 import { ShareComments } from "./ShareComments";
 import { liveCount } from "./sharesForProject";
@@ -64,19 +66,16 @@ export function ProjectShares({
         setTimeout(() => setCopied(null), 1500);
       },
       // A refused clipboard must not lose the link: it is written beside it, on the row, and stays selectable by hand.
-      () => setError("le presse-papiers a refusé — le lien est sur la ligne"),
+      () => setError(m["shares.clipboardRefused"]()),
     );
   };
 
   const revoke = async (s: ShareSummary) => {
     // The sentence names what goes and what stays, because both surprise: the bytes vanish at once, and a link sent cannot be unsent.
     const agreed = await askConfirm({
-      title: `Retirer « ${s.name || label} » ?`,
-      body:
-        `Le son et le graphe sont effacés du serveur : le lien répondra « introuvable » à ` +
-        `tous ceux qui l'ont, tout de suite et définitivement. La ligne reste ici, datée.\n\n` +
-        `Republier le projet donnera un NOUVEAU lien — celui-ci ne revient pas.`,
-      confirmLabel: "Retirer",
+      title: m["shares.revokeTitle"]({ name: s.name || label }),
+      body: m["shares.revokeBody"](),
+      confirmLabel: m["common.remove"](),
       danger: true,
     });
     if (!agreed) return;
@@ -98,8 +97,12 @@ export function ProjectShares({
         className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
         title={
           live > 0
-            ? `${live} lien${live > 1 ? "s" : ""} publié${live > 1 ? "s" : ""} · ${bytes(total)}`
-            : `Aucun partage publié pour ${label}`
+            ? m["shares.publishedCount"]({
+                n: live,
+                s: live > 1 ? "s" : "",
+                size: bytes(total),
+              })
+            : m["shares.noneFor"]({ label })
         }
         onClick={(e) => {
           // The whole row is a link to the project: without this, the button would open it.
@@ -108,32 +111,37 @@ export function ProjectShares({
           setOpen(true);
         }}
       >
-        Partages{live > 0 ? ` (${live})` : ""}
+        {m["shares.button"]()}
+        {live > 0 ? ` (${live})` : ""}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-baseline gap-2">
-              <span className="truncate">Partages de « {label} »</span>
+              <span className="truncate">{m["shares.title"]({ label })}</span>
               {live > 0 && (
                 <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground tabular-nums">
-                  {live} lien{live > 1 ? "s" : ""} · {bytes(total)}
+                  {m["shares.linkCount"]({
+                    n: live,
+                    s: live > 1 ? "s" : "",
+                    size: bytes(total),
+                  })}
                 </span>
               )}
             </DialogTitle>
             <DialogDescription>
-              Des copies <b>gelées</b> de ce projet, publiées depuis st0 par{" "}
-              <code>project share link</code>. Elles s'écoutent et se regardent
-              sans compte et sans moteur, et ne s'éditent pas. Un partage{" "}
-              <b>n'expire pas</b> : il vit sur le serveur jusqu'à ce que vous le
-              retiriez.
+              {parts((h) => m["shares.body"](h), {
+                frozen: <b>{m["shares.frozenWord"]()}</b>,
+                cmd: <code>project share link</code>,
+                noexpiry: <b>{m["shares.noExpiryWord"]()}</b>,
+              })}
             </DialogDescription>
           </DialogHeader>
 
           {shares.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              Aucun partage. Le lien se crée dans st0, sur le projet ouvert.
+              {m["shares.none"]()}
             </p>
           ) : (
             <ul className="flex max-h-[50vh] flex-col divide-y divide-border/60 overflow-y-auto">
@@ -165,7 +173,7 @@ export function ProjectShares({
                         </a>
                       ) : (
                         <span className="text-xs text-muted-foreground">
-                          le lien a été effacé avec les fichiers
+                          {m["shares.linkGone"]()}
                         </span>
                       )}
                     </div>
@@ -179,11 +187,13 @@ export function ProjectShares({
                       variant="ghost"
                       size="xs"
                       className="shrink-0 text-muted-foreground text-xs hover:text-foreground"
-                      title={`Ce que les visiteurs ont écrit sur « ${s.name || label} »`}
+                      title={m["shares.commentsHint"]({
+                        name: s.name || label,
+                      })}
                       onClick={() => setReading(s)}
                     >
                       <MessageSquare className="h-3.5 w-3.5" />
-                      Commentaires
+                      {m["shares.comments"]()}
                       {s.comments && s.comments.active > 0 ? (
                         <span className="tabular-nums">
                           ({s.comments.active})

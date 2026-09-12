@@ -56,20 +56,20 @@ describe("rackIssues", () => {
     expect(rackIssues("a b", [pad("BD")]).length).toBeGreaterThan(0);
     expect(
       rackIssues("drums", [pad("BD")], ["instruments/drums"]).join(" "),
-    ).toContain("existe déjà");
+    ).toContain("exists already");
   });
 
   it("refuses duplicate symbols and duplicate files — both are addresses", () => {
     expect(
       rackIssues("d", [pad("BD"), pad("BD", "bd2.wav", 37)]).join(" "),
-    ).toContain("double");
+    ).toContain("duplicate symbol");
     expect(
       rackIssues("d", [pad("BD", "x.wav"), pad("SN", "x.wav", 37)]).join(" "),
-    ).toContain("même fichier");
+    ).toContain("same file");
   });
 
   it("refuses an empty grid", () => {
-    expect(rackIssues("d", []).join(" ")).toContain("aucun sample");
+    expect(rackIssues("d", []).join(" ")).toContain("no sample");
   });
 });
 

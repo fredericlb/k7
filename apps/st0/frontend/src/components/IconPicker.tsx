@@ -9,6 +9,7 @@
 import { Input } from "@frediverse/ui/input";
 import { useMemo, useState } from "react";
 import { useIcons } from "../lucideIcons";
+import { m } from "../paraglide/messages.js";
 
 export default function IconPicker({
   value,
@@ -37,14 +38,14 @@ export default function IconPicker({
         autoFocus
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="chercher une icône…"
+        placeholder={m["icons.search"]()}
         className="mb-2 h-7 text-xs"
       />
       <div className="grid max-h-56 grid-cols-8 gap-1 overflow-y-auto">
         {/* "none" first, so taking an icon back is as easy as choosing one. */}
         <button
           type="button"
-          title="aucune"
+          title={m["icons.none"]()}
           onClick={() => onPick(undefined)}
           className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent"
         >
@@ -68,7 +69,7 @@ export default function IconPicker({
       </div>
       {shown.length === 0 && (
         <p className="py-2 text-center text-xs text-muted-foreground">
-          aucune icône de ce nom
+          {m["icons.noMatch"]()}
         </p>
       )}
     </div>

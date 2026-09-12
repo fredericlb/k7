@@ -6,6 +6,8 @@
 import { Button } from "@frediverse/ui/button";
 import { Settings, X } from "lucide-react";
 import { useEffect } from "react";
+import { m } from "../paraglide/messages.js";
+import { LanguageSection } from "./LanguageSection";
 import { SyncSection } from "./SyncSection";
 
 export function HomeSettings({ onClose }: { onClose: () => void }) {
@@ -23,19 +25,23 @@ export function HomeSettings({ onClose }: { onClose: () => void }) {
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
         <Settings className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-medium text-sm">
-          Réglages
+          {m["settings.title"]()}
         </span>
-        <Button size="icon" variant="ghost" title="Fermer" onClick={onClose}>
+        <Button
+          size="icon"
+          variant="ghost"
+          title={m["common.close"]()}
+          onClick={onClose}
+        >
           <X className="h-4 w-4" />
         </Button>
       </header>
 
       <div className="flex flex-col gap-4 p-3">
         <p className="text-muted-foreground text-xs">
-          Le moteur, l'interface audio et les réglages de cette machine sont
-          dans le menu du plateau : ils demandent un processus sur elle. Ici, ce
-          qu'un navigateur peut changer.
+          {m["settings.trayHint"]()}
         </p>
+        <LanguageSection />
         <SyncSection />
       </div>
     </aside>

@@ -8,6 +8,7 @@ import { ChordPopin } from "../components/ChordPopin";
 import { ChordsPanel } from "../components/ChordsPanel";
 import { MetronomeWidget } from "../components/MetronomeWidget";
 import { SheetPanel } from "../components/SheetPanel";
+import { SongPlayer } from "../components/SongPlayer";
 import { fmtDate } from "../format";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import type { Song, SongTab } from "../types";
@@ -29,6 +30,9 @@ interface Props {
   onUploadSheets: (files: File[]) => Promise<void>;
   onDeleteSheet: (fileId: string) => Promise<void>;
   sheetUrl: (fileId: string) => string;
+  onUploadAudio: (file: File) => Promise<void>;
+  onDeleteAudio: () => Promise<void>;
+  audioUrl: string;
   onToggleFavorite: () => Promise<void>;
   onDelete: () => Promise<void>;
 }
@@ -40,6 +44,9 @@ export function SongDetailView({
   onUploadSheets,
   onDeleteSheet,
   sheetUrl,
+  onUploadAudio,
+  onDeleteAudio,
+  audioUrl,
   onToggleFavorite,
   onDelete,
 }: Props) {
@@ -113,6 +120,14 @@ export function SongDetailView({
         </button>
       </div>
       <p className="muted">{song.artist}</p>
+
+      {/* Above the tabs on purpose: you play along to it whichever one you are reading. */}
+      <SongPlayer
+        song={song}
+        audioUrl={audioUrl}
+        onUpload={onUploadAudio}
+        onDelete={onDeleteAudio}
+      />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as SongTab)}>
         <TabsList className="mb-3.5">

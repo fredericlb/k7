@@ -106,9 +106,8 @@ cards (`insertFor`, `packages/ui-chains/docs/graphBuild.md`), and the click writ
 as soon as something reaches the sum — and the verb writes it before inserting, so the `+` keeps
 its promise of a single command.
 
-The four scaffolds write it (`scaffold.ts`, `scaffoldSet.ts`, `scaffoldBench.ts`, and
-`chainToBench` for a chain opened on the bench — which strips it on the way back, since it is the
-PROJECT's furniture and not the edited chain's).
+The scaffolds write it — `scaffold.ts`, `scaffoldSet.ts` and `scaffoldLive.ts`, the last of which
+is also what the bench opens on (`apps/pl8/docs/banc.md`).
 
 One detail `validate()` has to carry: `from: MIX` is accepted. The sum is neither a track nor a
 chain, it is where all of them arrive, and refusing it warns **every** project at once about the

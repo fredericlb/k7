@@ -107,14 +107,16 @@ export function LoopRow({
       />
       <Key
         label="IN"
-        title="poser le début de la boucle ici"
+        title="put the loop's start here"
         on={pending}
         disabled={disabled}
         onClick={onIn}
       />
       <Key
         label="OUT"
-        title={pending ? "fermer la boucle ici" : "il faut poser un IN d'abord"}
+        title={
+          pending ? "close the loop here" : "an IN has to be put down first"
+        }
         disabled={disabled || !pending}
         onClick={onOut}
       />
@@ -122,7 +124,7 @@ export function LoopRow({
         <Key
           key={n}
           label={String(n)}
-          title={`boucler ${n} temps — le même bouton la referme`}
+          title={`loop ${n} beats — the same button closes it`}
           // A ROLL lights nothing here: it is held, and its button is the one that says so.
           on={!rolling && beats === n}
           disabled={disabled}
@@ -131,7 +133,7 @@ export function LoopRow({
       ))}
       <Key
         label="÷2"
-        title="moitié moins longue"
+        title="half as long"
         disabled={disabled || beats === null}
         onClick={() => onResize(0.5)}
       />
@@ -140,7 +142,7 @@ export function LoopRow({
         title={
           beats === null
             ? `prochaine longueur : ${jump} temps`
-            : `boucle de ${lengthLabel(beats)} temps`
+            : `a ${lengthLabel(beats)}-beat loop`
         }
         className={`flex h-6 min-w-0 flex-1 items-center justify-center rounded font-mono text-[10px] tabular-nums ${
           beats === null
@@ -152,13 +154,13 @@ export function LoopRow({
       </span>
       <Key
         label="×2"
-        title="deux fois plus longue"
+        title="twice as long"
         disabled={disabled || beats === null}
         onClick={() => onResize(2)}
       />
       <Key
         label="⟲"
-        title={`roulement de ${jump} temps — maintenir ; le disque reprend où il en serait`}
+        title={`a ${jump}-beat roll — hold it; the record picks up where it would be`}
         on={rolling}
         disabled={disabled}
         onHold={onRoll}

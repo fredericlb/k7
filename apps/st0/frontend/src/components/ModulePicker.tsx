@@ -1,16 +1,23 @@
 // ModulePicker.tsx — "which module?", asked by the `+` on a graph arrow before the
 // command bar sees anything. Browses namespace -> type -> category -> module (the
 // catalogue's own shape), with a search field at the root for when you can already name
-// it. Only BASE modules, and nothing is run — it pre-writes. See docs/commandBar.md.
+// it. Only BASE modules and never `@engine`, and nothing is run — it pre-writes. See
+// docs/commandBar.md.
 
+import {
+  isEngineRef,
+  moduleDisplayName,
+} from "@studio/song-schema/moduleTypes";
 import { fuzzyScore } from "../fuzzy";
 import { type TreeNode, TreePicker } from "./TreePicker";
 
-/** What the picker BROWSES: a module's ref plus its type folder — the category is CARRIED, engine refs being flat (`@engine/adt`). */
+/** What the picker BROWSES: a module's ref plus its type folder — CARRIED, since a flat ref (`@ns/adt`) spells no folder. */
 export interface PickerModule {
   ref: string;
   /** Its type folder — the level the tree groups by. */
   category?: string;
+  /** What the module CALLS itself, when it says: shown instead of the ref's last segment (packages/song/docs/moduleLabel.md). */
+  label?: string;
 }
 
 /** What the picker hands back. */
@@ -65,9 +72,19 @@ const CURVE_BRANCH: TreeNode<ModulePick> = {
   ],
 };
 
-export function buildTree(
+/** The `@engine` catalogue is not offered HERE: a built-in is what a module extends, not a node to drop — docs/commandBar.md. */
+function offered(
   baseModules: (PickerModule | string)[],
+): (PickerModule | string)[] {
+  return baseModules.filter(
+    (m) => !isEngineRef(typeof m === "string" ? m : m.ref),
+  );
+}
+
+export function buildTree(
+  modules: (PickerModule | string)[],
 ): TreeNode<ModulePick>[] {
+  const baseModules = offered(modules);
   // namespace -> type -> category -> leaves. A Map keeps insertion order and the source is already sorted.
   const byNs = new Map<
     string | null,
@@ -83,7 +100,11 @@ export function buildTree(
     if (!type) continue;
     const leaf: TreeNode<ModulePick> = {
       key: `b:${ref}`,
-      label: name,
+      // The label is a DISPLAY name; `hint` keeps the ref, so what a row picks is still readable.
+      label: moduleDisplayName(
+        typeof m === "string" ? "" : (m.label ?? ""),
+        name,
+      ),
       hint: ref,
       entry: { ref, namespace, type, name },
     };
@@ -152,9 +173,11 @@ function pathScore(q: string, ref: string): number {
 
 /** Every module matching `query`, best first: scored against the NAME and the whole ref, a LITERAL substring outranking any fuzzy hit. */
 export function searchModules(
-  baseModules: (PickerModule | string)[],
+  modules: (PickerModule | string)[],
   query: string,
 ): TreeNode<ModulePick>[] {
+  // Filtered here too, and not only in buildTree: a search reaching what the tree refuses is the same leak.
+  const baseModules = offered(modules);
   const q = query.trim();
   if (!q) return [];
   const NAME_BONUS = 4;
@@ -170,17 +193,22 @@ export function searchModules(
       const { namespace, name } = parsed;
       const type =
         parsed.type ?? (typeof m === "string" ? undefined : m.category);
+      const label = typeof m === "string" ? "" : (m.label ?? "");
       const byName = fuzzyScore(q, name);
       const byRef = fuzzyScore(q, ref);
       const byPath = pathScore(q, ref);
+      // A label is what somebody CALLS it, so it is searched like the name and never instead of it.
+      const byLabel = label ? fuzzyScore(q, label) : -1;
       const score = Math.max(
         byRef < 0 ? -1 : byRef + contains(ref),
         byName < 0 ? -1 : byName + NAME_BONUS + contains(name),
+        byLabel < 0 ? -1 : byLabel + NAME_BONUS + contains(label),
         byPath < 0 ? -1 : byPath + PATH_BONUS,
       );
       // Did the query appear as written, or only as a scattered subsequence? See below.
-      const literal = byPath >= 0 || !!contains(ref) || !!contains(name);
-      return { ref, namespace, type, name, score, literal };
+      const literal =
+        byPath >= 0 || !!contains(ref) || !!contains(name) || !!contains(label);
+      return { ref, namespace, type, name, label, score, literal };
     })
     // A ref shape the parser doesn't recognise has no type to instantiate under, the same reason buildTree drops it.
     .filter((m) => m.score >= 0 && m.type);
@@ -193,7 +221,7 @@ export function searchModules(
     .slice(0, SEARCH_LIMIT)
     .map((m) => ({
       key: `s:${m.ref}`,
-      label: m.name,
+      label: moduleDisplayName(m.label, m.name),
       hint: m.ref,
       entry: {
         ref: m.ref,

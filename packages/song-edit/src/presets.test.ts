@@ -20,14 +20,7 @@ import {
 import { setModuleParam } from "./projectEdit";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 const REF = "instruments/synth"; // the synth module's own ref
 
 // A preset is a NAME and the values it sets; the whole shelf is one file in the module's folder.

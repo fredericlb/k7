@@ -8,6 +8,7 @@ import { useAutosave } from "@studio/ui-editor/autosave";
 import type { FileContent, Hints } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { m } from "../paraglide/messages.js";
 import { rackKeyOf } from "../projectPaths";
 import { rackSliceRanges, setSliceWindow } from "../sliceSymbols";
 import type { PreviewReq, WebClip, WebProject } from "../types";
@@ -140,7 +141,7 @@ export function ModuleSidePane({
     <div className="flex min-w-0 flex-1 flex-col border-l border-border">
       <div
         className="flex items-center gap-2 border-b border-border px-3 py-1 text-xs"
-        title="le fichier du module — un enregistrement vaut pour toutes ses instances"
+        title={m["mod.fileHint"]()}
       >
         <span className="font-semibold text-primary">module</span>
         <span className="truncate text-foreground">{refName}</span>

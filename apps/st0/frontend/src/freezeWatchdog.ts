@@ -21,6 +21,29 @@ interface Span {
   end: number; // still open == Number.POSITIVE_INFINITY
 }
 
+/**
+ * Work the app REPORTS doing, added up since the last heartbeat. The span rings answer "what was in
+ * flight", which goes blind two ways at once: a ring of 64 rotates inside a three-second stall, and
+ * a thread saturated by four hundred short tasks has no single span long enough to name. A tally
+ * survives both, and costs one map lookup per call. See docs/shell.md.
+ */
+interface Tally {
+  n: number;
+  ms: number;
+  bytes: number;
+}
+const tallies = new Map<string, Tally>();
+
+/** Add one piece of work to this heartbeat's tally. `bytes` is optional and only some callers have it. */
+export function tally(name: string, ms: number, bytes = 0): void {
+  const t = tallies.get(name);
+  if (t) {
+    t.n++;
+    t.ms += ms;
+    t.bytes += bytes;
+  } else tallies.set(name, { n: 1, ms, bytes });
+}
+
 const longTasks: Span[] = [];
 const commits: Span[] = [];
 const activities: Span[] = [];
@@ -31,6 +54,8 @@ let longTaskObs: PerformanceObserver | null = null;
 const seesLongTasks =
   typeof PerformanceObserver !== "undefined" &&
   (PerformanceObserver.supportedEntryTypes ?? []).includes("longtask");
+/** …and whether the Profiler is on, which is the app's answer rather than the browser's. */
+let seesCommits = false;
 
 function push(ring: Span[], s: Span): void {
   ring.push(s);
@@ -84,9 +109,15 @@ export function reportCommit(
   push(commits, { name: `${id} ${phase}`, start: startTime, end: commitTime });
 }
 
-export function installFreezeWatchdog(): void {
+/**
+ * `commits` says whether the React Profiler is feeding `reportCommit`. It has to be TOLD: an empty
+ * commit ring reads identically whether the Profiler is off or every commit was fast, and a report
+ * that stays quiet about which sends the reader looking in the wrong half of the app.
+ */
+export function installFreezeWatchdog(sees: { commits?: boolean } = {}): void {
   if (installed || typeof window === "undefined") return;
   installed = true;
+  seesCommits = sees.commits ?? false;
 
   // Heartbeat: setInterval doesn't fire while the thread is busy, so a 4s freeze shows as a ~4s gap on the next tick.
   const PERIOD = 1000;
@@ -96,6 +127,10 @@ export function installFreezeWatchdog(): void {
     const overshoot = now - last - PERIOD;
     const from = last + PERIOD;
     last = now;
+    // Read and reset on EVERY tick, stall or not: a tally that outlives its window stops being a
+    // measure of the window and becomes one of the session.
+    const busy = [...tallies.entries()].sort((a, b) => b[1].ms - a[1].ms);
+    tallies.clear();
     if (overshoot <= STALL_MS) return;
 
     // A hidden page is not a frozen one: throttled timers produce the same gap, so the visibility record is what tells the two apart.
@@ -120,6 +155,12 @@ export function installFreezeWatchdog(): void {
     add("longtask", longTasks);
     add("commit  ", commits);
     add("activity", activities);
+    // …and the aggregate, which is the line that speaks when the three above cannot.
+    for (const [name, t] of busy.slice(0, 4))
+      lines.push(
+        `    tally     ${Math.round(t.ms)}ms  ${name} x${t.n}` +
+          (t.bytes ? ` (${(t.bytes / 1048576).toFixed(1)}MB)` : ""),
+      );
     // Heap size when the browser offers it: a stall with no task behind it is often a major GC, which the heap is the way to tell.
     const mem = (
       performance as Performance & {
@@ -131,14 +172,24 @@ export function installFreezeWatchdog(): void {
         `    heap      ${(mem.usedJSHeapSize / 1048576).toFixed(0)}MB of ` +
           `${(mem.jsHeapSizeLimit / 1048576).toFixed(0)}MB`,
       );
-    // An empty ring means one of two OPPOSITE things, and saying the wrong one sends the reader away for good.
-    const quiet = seesLongTasks
-      ? "\n    (nothing on the main thread — not ours to fix in JS)"
-      : "\n    (this browser measures no long task — so this says NOTHING about the app)";
+    // Which instruments were BLIND for this report, so silence is never read as an answer.
+    const blind: string[] = [];
+    if (!seesLongTasks) blind.push("long tasks (this browser measures none)");
+    if (!seesCommits)
+      blind.push("React commits (the Profiler is off — `studio.profile`)");
+    // An empty report means one of two OPPOSITE things, and saying the wrong one sends the reader away for good.
+    const quiet = blind.length
+      ? `\n    (blind to ${blind.join(", and ")} — so this says nothing about them)`
+      : "\n    (nothing on the main thread — not ours to fix in JS)";
+    // …and the same caveat when there ARE lines, since a tally can look like a whole answer.
+    const caveat =
+      lines.length && blind.length
+        ? `\n    (blind to ${blind.join(", and ")})`
+        : "";
     console.warn(
       `⏱️ [freeze] main thread blocked ~${Math.round(overshoot)}ms ` +
         `(at ${new Date().toLocaleTimeString()})` +
-        (lines.length ? `\n${lines.join("\n")}` : quiet),
+        (lines.length ? `\n${lines.join("\n")}${caveat}` : quiet),
     );
   }, PERIOD);
 

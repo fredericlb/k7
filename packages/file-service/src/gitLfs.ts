@@ -1,9 +1,17 @@
-// gitLfs.ts — the LFS half of a workspace's repository: what it tracks, and the repo-local
-// filter without which git would not know about LFS at all here. A song IS its audio, and
-// plain git keeps a whole new copy of every wav on every edit — see docs/workspaces.md.
+// gitLfs.ts — the LFS half of a workspace's repository: what it tracks, the repo-local filter
+// without which git would not know about LFS at all here, and the proof that the media actually
+// ARRIVED. A song IS its audio, and plain git keeps a whole new copy of every wav on every
+// edit — see docs/workspaces.md.
 
 import { execFile, spawn } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  openSync,
+  readSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { AUDIO_EXT, VIDEO_EXT } from "@studio/mediatek/media";
@@ -89,6 +97,74 @@ async function usesLfs(root: string, env: NodeJS.ProcessEnv): Promise<boolean> {
   }
 }
 
+/** The first line of every LFS pointer, from git-lfs's own spec — see docs/workspaces.md for why nothing else tells. */
+const POINTER_MAGIC = "version https://git-lfs.github.com/spec/v1";
+
+/** How long the verification may take. Longer than QUICK_MS: `ls-files` walks the whole of HEAD. */
+const VERIFY_MS = 60_000;
+
+/** Set while the media is owed, so a fetch that never returns at all is still known about later. */
+const pendingPath = (root: string) => join(root, ".git", "studio-lfs-pending");
+
+/** Is this file still the pointer text git checked out, rather than the bytes it stands for? */
+export function isPointer(file: string): boolean {
+  let fd: number | undefined;
+  try {
+    fd = openSync(file, "r");
+    const buf = Buffer.alloc(POINTER_MAGIC.length);
+    const read = readSync(fd, buf, 0, buf.length, 0);
+    return read === buf.length && buf.toString("utf8") === POINTER_MAGIC;
+  } catch {
+    return false; // gone or unreadable — a real problem, but not the one this asks about
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
+/** Which of the repository's LFS paths are STILL pointers — the question git itself cannot answer. */
+async function pointersLeft(
+  root: string,
+  env: NodeJS.ProcessEnv,
+): Promise<string[]> {
+  const { stdout } = await run("git", ["lfs", "ls-files", "--name-only"], {
+    cwd: root,
+    env,
+    timeout: VERIFY_MS,
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  return stdout
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .filter((p) => isPointer(join(root, p)));
+}
+
+/**
+ * Does this workspace still owe its media? Cheap when it does not — one `existsSync` — and it
+ * CLEARS a marker whose media has since arrived, so fetching by hand is a supported way out.
+ */
+export async function lfsPending(
+  root: string,
+  env: NodeJS.ProcessEnv,
+): Promise<boolean> {
+  if (!existsSync(pendingPath(root))) return false;
+  if (!(await lfsAvailable())) return true;
+  if ((await pointersLeft(root, env)).length) return true;
+  rmSync(pendingPath(root), { force: true });
+  return false;
+}
+
+/** Thrown when the fetch ended and the media is still pointer text — see docs/workspaces.md. */
+export class IncompleteLfsError extends Error {
+  constructor(root: string, left: number) {
+    super(
+      `${left} of this workspace's media files are still git LFS pointers rather than audio: ` +
+        `the fetch did not finish. Run \`git lfs pull\` in ${root} to resume it.`,
+    );
+    this.name = "IncompleteLfsError";
+  }
+}
+
 /** Thrown when a clone's media can only arrive as pointer text — the sentence names the fix. */
 export class NoLfsError extends Error {
   constructor(uri: string) {
@@ -108,12 +184,20 @@ export async function pullLfs(
   onLine?: (line: string) => void,
 ): Promise<void> {
   if (!(await lfsAvailable())) {
-    if (await usesLfs(root, env)) throw new NoLfsError(uri);
-    return;
+    if (!(await usesLfs(root, env))) return;
+    // Marked as well as thrown: the workspace stands, and what it is missing outlives this call.
+    writeFileSync(pendingPath(root), "", "utf8");
+    throw new NoLfsError(uri);
   }
   await installLfs(root, env);
+  // BEFORE the fetch, so a pull that is killed rather than failed still leaves the state written down.
+  writeFileSync(pendingPath(root), "", "utf8");
   onLine?.("LFS: fetching media");
   await lfsPull(root, env, onLine);
+  // git exiting 0 is not the proof: a pointer left in the tree matches HEAD, so git calls it clean.
+  const left = await pointersLeft(root, env);
+  if (left.length) throw new IncompleteLfsError(root, left.length);
+  rmSync(pendingPath(root), { force: true });
 }
 
 /**

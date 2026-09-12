@@ -39,10 +39,16 @@ and the host emits one only when its **serialisation** differs from the last. Th
 re-serialised on every emit, so a field that flapped at loop cadence would put the whole snapshot
 on the wire several times a second to redraw nothing.
 
-That is why `sessionsSig`, `audioMenuSig` and `editPluginsSig` exist beside the data they
-summarise: they change exactly when the corresponding submenu's content would, and the tray
-compares them against what it last drew. The playhead, which moves 20 times a second, is in the
-sessions data and out of the signature.
+That is why `sessionsSig`, `audioMenuSig`, `editPluginsSig` and `pluginsSig` exist beside the
+data they summarise: they change exactly when the corresponding surface's content would, and the
+tray compares them against what it last drew. The playhead, which moves 20 times a second, is in
+the sessions data and out of the signature.
+
+`plugins` is the heaviest thing on this wire — a few hundred rows on a working machine, where
+every other array is a handful. It rides the snapshot anyway, because the alternative is a
+request/response channel for one list that changes only on a rescan, and `pluginsSig` already
+keeps it off the wire between scans. What it costs is a fatter frame on the emits some OTHER
+field triggers; those are seconds apart, not frames apart.
 
 ## Why stdio and not a localhost socket
 

@@ -54,16 +54,14 @@ describe("Workspace.createNode", () => {
 
   it("reports a name that's taken or invalid rather than overwriting", () => {
     ws.createNode(MODULE_DIR, "lead");
-    expect(() => ws.createNode(MODULE_DIR, "lead")).toThrow(
-      /already names a module or node/,
-    );
+    // The NODES are what a name has to be free among; a module of that name is not in the way.
+    expect(() => ws.createNode(MODULE_DIR, "lead")).toThrow(/already exists/);
     expect(() => ws.createNode(MODULE_DIR, "with space")).toThrow(
       /invalid node name/,
     );
-    // The name is a project-wide key now, so a MODULE's name is what it may not take.
-    expect(() => ws.createNode(MODULE_DIR, "synth")).toThrow(
-      /already names a module or node/,
-    );
+    // …and a MODULE's name is free to take: the node wins the bare name, the module keeps its ref
+    // (packages/song/docs/trackModules.md).
+    expect(ws.createNode(MODULE_DIR, "synth").path).toBe("nodes/synth.yaml");
   });
 
   it("refuses a folder that isn't a module", () => {

@@ -5,6 +5,7 @@ import {
   entitiesOf,
   entityGroup,
   entityOf,
+  inMenu,
   isPluralCommand,
   labelIn,
   labelOf,
@@ -12,7 +13,9 @@ import {
   orderCommands,
   setCommandLabel,
   setCommandPref,
+  setMenuEntities,
 } from "./commandPrefs";
+import { MENU_ENTITIES } from "./types";
 
 // What a person has made of the command catalogue: pure, because the settings page and every menu have to apply it identically.
 
@@ -250,5 +253,57 @@ describe("setting a field", () => {
       icon: "Scissors",
     });
     expect(a["ui help"]).toEqual({ order: 3 });
+  });
+});
+
+// WHERE a right-click offers a command: the catalogue says it, and a person may say otherwise.
+describe("which right-clicks offer a command", () => {
+  const ALL = MENU_ENTITIES;
+
+  it("is the catalogue's word when nobody has touched it", () => {
+    expect(inMenu("event remove", {}, "track", ["event"])).toBe(false);
+    expect(inMenu("event remove", {}, "event", ["event"])).toBe(true);
+  });
+
+  it("is every menu when the catalogue narrows nothing", () => {
+    // The derivation, which is the rule: a command written today lands on the menus its arguments fit.
+    expect(inMenu("track mute", {}, "track")).toBe(true);
+    expect(inMenu("track mute", {}, "note")).toBe(true);
+  });
+
+  it("lets a person put one back where the catalogue took it away", () => {
+    const prefs: CommandPrefs = { "event remove": { menu: ["track"] } };
+    expect(inMenu("event remove", prefs, "track", ["event"])).toBe(true);
+    expect(inMenu("event remove", prefs, "event", ["event"])).toBe(false);
+  });
+
+  it("still reads the plain off switch a person saved before there were entities", () => {
+    expect(
+      inMenu("track mute", { "track mute": { menu: false } }, "track"),
+    ).toBe(false);
+  });
+
+  it("says the SHORTEST thing that means it", () => {
+    // Nothing to say ⇒ no entry at all, which is the rule the label, the icon and the key all follow.
+    expect(
+      setMenuEntities({}, "event remove", ["event"], ["event"], ALL),
+    ).toEqual({});
+    expect(setMenuEntities({}, "track mute", undefined, ALL, ALL)).toEqual({});
+    // …and the two ends: nowhere, and everywhere against a catalogue that narrows.
+    expect(setMenuEntities({}, "event remove", ["event"], [], ALL)).toEqual({
+      "event remove": { menu: false },
+    });
+    expect(setMenuEntities({}, "event remove", ["event"], ALL, ALL)).toEqual({
+      "event remove": { menu: true },
+    });
+  });
+
+  it("keeps the command's other overrides", () => {
+    const a = setCommandPref({}, "event remove", { icon: "Scissors" });
+    expect(
+      setMenuEntities(a, "event remove", ["event"], ["track"], ALL)[
+        "event remove"
+      ],
+    ).toEqual({ icon: "Scissors", menu: ["track"] });
   });
 });

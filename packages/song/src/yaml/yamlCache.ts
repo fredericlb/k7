@@ -5,12 +5,12 @@
 
 import { readFileSync, statSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
+// How old an mtime must be to be trusted as a key — this cache's whole correctness, and not only
+// this one's, which is why the window has one spelling. See docs/moduleCache.md.
+import { SETTLE_MS } from "../moduleCache";
 
 /** How many parsed files to hold. A song is ~200 of them, and one service drives a handful. */
 const MAX_FILES = 4000;
-
-/** How old an mtime must be to be trusted as a key — the cache's whole correctness, docs/moduleCache.md. */
-const SETTLE_MS = 2_000;
 
 interface Entry {
   mtimeMs: number;

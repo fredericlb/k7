@@ -79,7 +79,7 @@ const isPane = (s: string): s is Pane => (PANES as string[]).includes(s);
 const isPanel = (s: string): s is Panel => (PANELS as string[]).includes(s);
 
 /** The path + search for a screen — with one layout there is nothing to name but a fullscreened pane, the chain builder and the docs. */
-export function toPath(s: RouteState): string {
+export function toPath(s: RouteState, search = ""): string {
   // Help wins, then the chain builder, then a fullscreened pane: the order is the stacking order on screen.
   const path = s.help
     ? "/docs"
@@ -90,7 +90,14 @@ export function toPath(s: RouteState): string {
       : s.full
         ? `/${s.full}`
         : "/";
-  return s.panel ? `${path}?panel=${s.panel}` : path;
+  // `panel` is the ONE parameter this router owns; every other one belongs to somebody else — an
+  // instrument's `?profile=1`, a link someone pasted — and rebuilding the address from the state
+  // alone silently ate them all. See docs/shellRouting.md.
+  const q = new URLSearchParams(search);
+  q.delete("panel");
+  if (s.panel) q.set("panel", s.panel);
+  const rest = q.toString();
+  return rest ? `${path}?${rest}` : path;
 }
 
 /** Read a location back into state — an unknown path, or one naming a pane the project has not got, falls through to the layout. */

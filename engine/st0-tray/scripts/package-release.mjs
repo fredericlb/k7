@@ -52,7 +52,8 @@ if (!platform) fail(`no desktop archive for ${process.platform}.`);
 const arch = process.arch === "arm64" ? "arm64" : "x64";
 const name = `st0-desktop_${stamp}_${platform}-${arch}`;
 
-if (!existsSync(OUT)) fail(`nothing at ${OUT} — run \`npm run engine:build\` first.`);
+if (!existsSync(OUT))
+  fail(`nothing at ${OUT} — run \`npm run engine:build\` first.`);
 // out/dev is the throwaway app of the dev loop and never ships; out/dist is our own output.
 const entries = readdirSync(OUT).filter((n) => n !== "dev" && n !== "dist");
 // The .app travels INSIDE the .dmg, so shipping both doubles the archive for nothing.

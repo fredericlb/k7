@@ -41,6 +41,12 @@ npm run vscode                     # the browser editor at /dev, on its own
 > other are routed by whichever rule is listed, and the wrong dev server answers with vite's own
 > message about its `base` — which reads like a bad link when the address was correct.
 >
+> **A prefix is written with or without its trailing slash**, `/pl8` as readily as `/pl8/`, and
+> both reach the médiathèque: the bare form redirects to the slashed one, which stays canonical
+> because that is what each vite `base` says. `docker/nginx.conf` does it in the image and
+> `defineAppConfig` does it on the dev server — `commons/dev/vite-config/docs/base.md`. The rows
+> above are raw prefixes, so they already match the bare form on the way in.
+>
 > **`/auth/*` follows the root**, so it is on 8789 with everything else. The registered
 > `redirect_uri` is `<origin>/auth/callback` and has no prefix, so the flow belongs to whichever
 > service answers the root, which is st0.
@@ -105,6 +111,18 @@ would fight it for the port. If the app comes up before the session does, the su
 file-service watch notices within two seconds and the settings page goes green on its own —
 no ordering to get right. Under WSL that row runs on the **host** rather than in the distro,
 which is `scripts/dev-file-service.mjs` and is measured in [wsl.md](wsl.md).
+
+## `claude-rc` — Claude Code's Remote Control, inside the session
+
+`claude rc` (`claude remote-control`) is a `local_resource` in the `tools` label, run at the
+repo root: it serves the sessions that claude.ai/code and the phone app drive, in THIS tree.
+It is not derived from `tilt-tasks.mjs` — it belongs to no workspace package — so the
+`Tiltfile` spells it out beside the loop.
+
+Inside the session rather than a logon task, unlike the editor and the shell: what it drives
+is a working tree being edited, so it is worth no more than the session that edits it, and a
+row with a restart button is what a re-auth or a dropped socket needs. Losing it costs a door
+that was never the way in — `console.priv.frediver.se` still answers.
 
 ## The browser editor — outside the session, on purpose
 
@@ -217,11 +235,15 @@ what the monitor does — watch the sources, rebuild, restart.
 | target | watched | rebuilt with |
 |---|---|---|
 | `moteur` | `engine/`, `server/`, `CMakeLists.txt`, `CMakePresets.json` | `npm run build:win` / `build:mac --workspace st0-engine` |
-| `capot` | `dist/main.cjs` — the OUTPUT, not the sources | nothing; the restart is the whole cycle |
+| `capot` | `src-tauri/src/**.rs`, `Cargo.toml`, `build.rs`, `tauri.conf.json`, `dist/*.{html,css,js}` | `buildDevApp` — `tauri build --debug --no-bundle` into `out/dev` |
 
-A failed app build therefore no longer leaves anything down: esbuild fails in its own Tilt
-pane, `dist/main.cjs` keeps its last good bytes, and the running app is untouched. Only a
-broken `.cpp` can still leave the session without an engine.
+The tray's `dist/` is in that list because `tauri build` **embeds** the settings window's page
+in the binary: nothing serves it from disk, so editing it is a relink like editing a `.rs`.
+
+A failed build of either half leaves the tray down, and says so — `✖ … the tray is stopped, fix
+and save again`. The cycle stops the tray BEFORE building, since a running image cannot be
+relinked, and relaunches only once every dirty target has built. The target that failed stays
+dirty, so the next save retries it instead of looping on it.
 
 `engine/st0-engine/tests/` is deliberately not watched: it links a binary of its own, and
 rebuilding it would double the wait for something the tray never runs.
@@ -231,7 +253,7 @@ rebuilding it would double the wait for something the tray never runs.
 **A running image cannot be relinked.** On Windows the file is held open for write, so
 a relink against a live binary fails with a confusing linker error, and the engine's
 does the same while the supervisor has `st0-engine.exe` running. The order is
-therefore stop → build → start, exactly as `restart-app.mjs` does it.
+therefore stop → build → start, exactly as `restart-tray.mjs` does it.
 
 And the thing that must be stopped is *the same tray* for both targets: killing it takes
 the supervisor, the engine and the file service down with it through the job object. Two
@@ -292,7 +314,7 @@ npm run tray:stop --workspace st0-desktop
 ## Where the steps live
 
 `engine/st0-tray/scripts/trayProcess.mjs` holds the tray's lifetime as functions — `running`,
-`stopAll`, `buildDevApp`, `launch` — and `restart-app.mjs` is a thin CLI over it.
+`stopAll`, `buildDevApp`, `launch` — and `restart-tray.mjs` is a thin CLI over it.
 The one difference from a script is that every step **throws** rather than calling
 `process.exit`: a one-shot command turns that into an exit code, and a watcher meant to
 outlive a bad build cannot afford either. See

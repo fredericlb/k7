@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { SceneClip, SceneFade, VideoLayer } from "./scene";
-import { activeAt, activesAt, layerFrameAt } from "./timeline";
+import { activeAt, activesAt, layerFrameAt, shapesVisibleAt } from "./timeline";
 
 const clip = (
   start: number,
@@ -156,5 +156,45 @@ describe("layerFrameAt", () => {
       to: null,
       blend: null,
     });
+  });
+});
+
+describe("a layer of SHAPES, whose clips are ACTIVATION spans", () => {
+  // An activation carries no picture, so it has no src and no in-point — only when the lane is on.
+  const on = (start: number, length: number): SceneClip => ({
+    id: "",
+    src: "",
+    start,
+    length,
+    sourceFrom: 0,
+  });
+
+  it("is on throughout when it states no span at all", () => {
+    const l = { ...layer([]), shapes: [] };
+    for (const t of [0, 5, 1e6]) expect(shapesVisibleAt(l, t)).toBe(true);
+  });
+
+  it("is on only inside the spans it states, by the interval rule the clips use", () => {
+    const l = layer([on(2, 2), on(6, 2)]);
+    expect([0, 1.9, 4, 5.9, 8, 99].map((t) => shapesVisibleAt(l, t))).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect([2, 3.9, 6, 7.9].map((t) => shapesVisibleAt(l, t))).toEqual([
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  it("runs a length-0 span to the next one, and the LAST one forever", () => {
+    const l = layer([on(0, 0), on(4, 0)]);
+    expect(shapesVisibleAt(l, 3.9)).toBe(true);
+    expect(shapesVisibleAt(l, 1e6)).toBe(true);
   });
 });

@@ -41,7 +41,7 @@ export function resolveBindings(
   // it by the track its chain draws from. That policy is the desk's — see docs/controls.md.
   const { rows, problems } = resolveMapping(view, graph, {
     control: mixControl,
-    noun: "du pupitre",
+    noun: "of the desk",
     plugless: "track",
   });
 
@@ -59,7 +59,7 @@ export function resolveBindings(
       if (typeof second === "string")
         problems.push({
           control: control.id,
-          message: `le second module « ${binding.also.module} » n'a ni plugin ni piste à faire bouger`,
+          message: `the second module “${binding.also.module}” has neither a plugin nor a track to move`,
         });
       else also = second;
     }

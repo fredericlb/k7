@@ -232,6 +232,21 @@ moved by direct DOM writes on pointermove (no re-render per frame), its near end
 place the renderer converts screen to world (the camera's inverse), and only while a cable
 is in hand does the host div listen to pointermove at all.
 
+**A host that draws the same cards owes them the same callbacks.** Nothing here can enforce it: a
+control whose callback is missing draws anyway — greyed where the widget knows (`actuable`), inert
+where it does not (a `filepicker`'s button is enabled whenever the node has a module, since what it
+opens is the host's popup and only the host knows whether it has one). st0 draws a graph in three
+places — the chains pane, the editor column's panel and a lane's own row — and each one is a separate
+prop list; a callback added to one and not the others is a card that works in one view and not in the
+next, which reads as a broken app rather than as a view that offers less. `apps/st0/frontend/docs/shell.md`
+lists what a lane's row deliberately leaves out, and why those are not the same kind of omission.
+
+`onEdgeInsert` follows the same rule as the sockets below it: **no handler, no `+`**. The
+eligibility of an arrow is one thing (`insertFor` — at least one end a module) and whether anything
+can answer the click is another, and drawing the affordance on the first alone put a hover target
+with a `+` in it on every cable of a read-only snapshot and of a lane's own row. A `+` that does
+nothing does not read as "not offered here": it reads as a click that missed.
+
 `onConnect` and `onDisconnect` are optional, and the jacks are clickable only when they are
 given: pl8's read-only views and the desk pass nothing and keep their inert sockets, the way they
 pass no command bar. LIFTING in particular needs BOTH `onDisconnect` and `onReplug` — the jacks

@@ -89,7 +89,6 @@ true first.
 
 ```yaml
 # video_tracks/main.yaml
-kind: video
 x: 0, y: 0, w: 1280, h: 720    # where in the viewport; omit for the full frame
 events:
   - { ref: shot_a, start: 0, length: 4 }
@@ -111,7 +110,8 @@ size", because a lane with no size looks exactly like a lane. `videoProject.test
 halves, the default and a rect that IS stated.
 
 `length: 0` runs to the end of the source — a duration the compiler cannot know without opening
-the file, so it uses the same convention a length-0 audio clip does. `source_from` trims the
+the file, so it uses the same convention a length-0 audio clip does. On an ACTIVATION, which has
+no source, the renderer's own rule is the whole of it: to the next event, or forever. `source_from` trims the
 head *of the source*, leaving `start` to say where on the timeline the shot sits: the same
 separation between MATERIAL and ARRANGEMENT that a song's `from`/`to` versus `start` makes.
 
@@ -130,9 +130,14 @@ it may, the two being different entities — solos both with one word. That is t
 the folder already has, and the two lanes were already indistinguishable in every list that names
 one by id.
 
-A `kind: shape` lane draws rectangles, circles and text instead, in viewport px, and holds no
-placements at all — which is why the timeline hatches it rather than drawing an empty row that
-looks like a lane you forgot to fill.
+A lane has no `kind:`. What it draws is decided by what is wired to it: its own placements, a
+lens ([camera.md](../../song/docs/camera.md)), or the shape MODULES aimed at it
+([shapes.md](shapes.md)).
+
+**An event without a `ref` is an ACTIVATION** — a span saying the lane is ON, with no picture in
+it. That is what puts a shape on screen and takes it off again, and it is why a lane of shapes is
+drawn like any other rather than hatched: it has events, they simply carry no material. A lane
+stating none is on throughout.
 
 ## `markers:` is shared, and the dialect decides
 
@@ -141,7 +146,7 @@ One `markers:` schema serves both readings, so the key form is a superset: a son
 unsayable — `1:30:00` would be indistinguishable from a musical `bar:beat:tick` — so a
 three-hour cut writes `10800`.
 
-## A lane can be fed by a LENS instead
+## A lane can be fed by a LENS or by SHAPES instead
 
 `kind: video` says a lane draws its placements. Wire an `io: camera` node to it in `graph.yaml` and
 it draws a live picture instead — the same lane, the same rect, the same `mute`, the same passes
@@ -150,6 +155,10 @@ than out of `video_tracks/`, and it is why it costs no new road: everything a li
 lane already had. See [packages/song/docs/camera.md](../../song/docs/camera.md).
 
 An export leaves such a layer out: a lens has no frame at *t*, and a render walks a timeline.
+
+The other one is a **shape** — a rectangle, a circle, a line of text — which is a module too, and
+lands on a lane the same way. Everything it draws is in its `params:`, which is what lets a curve
+move it. [shapes.md](shapes.md) is the page.
 
 ## What is not there
 

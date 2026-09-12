@@ -20,23 +20,25 @@ items:
     variant: sans-voix
 ```
 
-## Here, and not in the médiathèque
+## Here, and ALSO in the médiathèque — two homes, one format
 
-**A playlist carries no bytes.** It is pure reference — names of things that stay exactly where
-they are. Three consequences, and the third is the deciding one:
+The médiathèque holds set lists of its own, under `playlists/` on its volume
+(`apps/pl8/docs/playlists.md`). Same schema, same parser, same text edits: a file copied either way
+is read by both. What differs is the job.
 
-- hosting reference redeems nothing the volume is good at. A master is 40 MB you back up; a
-  setlist is three hundred bytes written by hand;
-- a playlist is **read back** and **corrected** like a text, which puts it on the side of
-  documents you edit rather than bytes you deposit — the line the médiathèque holds
-  (`packages/mediatek/src/types.ts`);
-- and above all: it is the **account's** document, written for one specific job, and the volume
-  cannot version it with that job. A gig's setlist belongs to the repository holding the songs
-  played at it. Under `_playlists/` it commits, branches and clones with them.
+**A playlist here is the account's document, written for one specific piece of work.** A gig's
+setlist belongs to the repository holding the songs played at it — under `_playlists/` it commits,
+branches and clones with them, which is something a volume cannot do for it. That is also what lets
+a `turntables` surface NAME one: the desk resolves `playlist:` in the workspace, and the machine
+pre-fetches what it finds there.
 
-**The songs themselves stay put.** That is the point of the split and not a half-measure: the file
-that names is ours, the bytes named remain pl8's. st0 searches that catalogue and deposits into it
-— see `apps/st0/frontend/docs/playlists.md`.
+**A playlist on the volume is one that sits beside the catalogue it points into**: reachable from
+any browser with the session, with no machine up and no repository, and not versioned with anything.
+It is the one you build while listening.
+
+**The songs themselves stay put either way.** That is the point of the split and not a half-measure:
+the file that names may be ours, the bytes named remain pl8's. st0 searches that catalogue and
+deposits into it — see `apps/st0/frontend/docs/playlists.md`.
 
 ## `_playlists`, beside `_modules` and `_libraries`
 
@@ -84,10 +86,11 @@ and because a file holding both spellings would have neither.
 and this file opens nothing — not even `node:fs`: that is what lets the file service and the
 browser go by exactly the same rules.
 
-So it is the job of whoever holds both lists, and there is only one: st0's screen
-(`apps/st0/frontend/docs/playlists.md`), which has the playlist on one side and the médiathèque on
-the other, and is therefore the only place where "that song does not exist" is a question with an
-answer.
+So it is the job of whoever holds both lists — st0's screen
+(`apps/st0/frontend/docs/playlists.md`) and pl8's tab (`apps/pl8/docs/playlists.md`), each with the
+playlist on one side and the médiathèque on the other. They share the resolution itself rather than
+each having a copy: `@studio/mediatek/playlistItems`, where "path first, name second" is written
+once, since two copies would diverge at the first case learned on one side only.
 
 ## What the listing reads anyway
 

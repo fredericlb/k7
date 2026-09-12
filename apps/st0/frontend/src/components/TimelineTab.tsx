@@ -69,7 +69,8 @@ import type { PasteResult } from "../gridCaret";
 import { useDocument } from "../hooks/useDocument";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { blurOnClick } from "../keys";
-import { cursorOf, ModeStrip } from "../modeIcons";
+import { cursorOf, ModeStrip, stripButton } from "../modeIcons";
+import { m } from "../paraglide/messages.js";
 import {
   dropLaneOf,
   findRow,
@@ -90,7 +91,6 @@ import {
 import { dragOffset, freeSnap, snapTo } from "../snap";
 import { recordingFrom } from "../takeCounter";
 import type { DropLane, DropUpload, TimelineDropEvent } from "../timelineDrop";
-import { legendRows } from "../timelineLegend";
 import { type TimelineMode, timelineMode } from "../timelineMode";
 import { TOOL_LABEL, TOOLS, type Tool, toolLine } from "../timelineTools";
 import { TrackIcon, trackIcon } from "../trackIcons";
@@ -134,6 +134,8 @@ const NEW_TRACK_BTN =
   "flex h-5 items-center gap-1 rounded px-1 text-[10px] text-muted-foreground uppercase tracking-wider hover:bg-accent hover:text-foreground";
 // How wide a pass must be before its loop mark also gets the glyph: the 8px icon needs its own width plus air.
 const MIN_LOOP_GLYPH_PX = 18;
+// No tool line to dispatch ⇒ no tools, and a stable array so the strip is not handed a new one per render.
+const NO_TOOLS: readonly Tool[] = [];
 const VU_MIN_DB = -60; // name-header VU meter: dB mapped to an empty header fill
 const VU_MAX_DB = 6; // dB mapped to a full-width header fill
 
@@ -201,7 +203,7 @@ function RecordingClip({
       ref={ref}
       className="pointer-events-none absolute inset-y-1 z-10 rounded border border-red-400/70 bg-red-500/25"
       style={{ visibility: "hidden" }}
-      title="prise en cours"
+      title={m["clip.takeRolling"]()}
     />
   );
 }
@@ -337,8 +339,10 @@ interface Caret {
 }
 
 /** One field of a picture placement, in seconds — what a finished drag asks the shell to write. */
+// By INDEX in the lane's `events:`, which is the only address that is unique: one source may be
+// placed twice, and an ACTIVATION names no source at all (song-video/docs/shapes.md).
 export interface VideoEdit {
-  ref: string;
+  index: number;
   field: "start" | "source_from" | "length";
   value: number;
 }
@@ -351,7 +355,9 @@ const V_NATURAL = 4;
 /** A picture placement in hand, in seconds throughout; `pxPerSec` and the ticks are captured at the GRAB, so a zoom mid-drag cannot slide the shot. */
 interface VDrag {
   trackId: string;
-  ref: string;
+  index: number; // its place in the lane's `events:` — see VideoEdit
+  // An event with no `ref`: a span saying the lane is ON, with no source to trim (docs/shapes.md).
+  activation: boolean;
   // Where the press landed: the body moves the shot, an edge trims it. See docs/picture.md.
   mode: "move" | "in" | "out";
   origStart: number;
@@ -399,17 +405,21 @@ export function videoDragTo(
 /** The fields a finished picture drag writes, in SECONDS — the left edge writes three, and each is load-bearing (docs/picture.md). */
 export function videoDragEdits(v: VDrag): VideoEdit[] {
   if (v.mode === "out")
-    return [{ ref: v.ref, field: "length", value: v.length }];
-  const edits: VideoEdit[] = [{ ref: v.ref, field: "start", value: v.start }];
+    return [{ index: v.index, field: "length", value: v.length }];
+  const edits: VideoEdit[] = [
+    { index: v.index, field: "start", value: v.start },
+  ];
   if (v.mode === "in") {
     const delta = v.start - v.origStart;
+    // An ACTIVATION has no source: its left edge moves the start and leaves the end where it was.
+    if (!v.activation)
+      edits.push({
+        index: v.index,
+        field: "source_from",
+        value: Math.max(0, v.origFrom + delta),
+      });
     edits.push({
-      ref: v.ref,
-      field: "source_from",
-      value: Math.max(0, v.origFrom + delta),
-    });
-    edits.push({
-      ref: v.ref,
+      index: v.index,
       field: "length",
       value: Math.max(V_MIN, v.length),
     });
@@ -500,7 +510,6 @@ export function TimelineTab({
   onSetLoop,
   onMoveEvent,
   onToolLine,
-  shortcuts,
   onResizeEvent,
   onFadeEvent,
   feedMove,
@@ -611,8 +620,6 @@ export function TimelineTab({
   ) => void;
   /** A TOOL's press as the command LINE it produced, alone among this pane's writes; absent ⇒ no tools (docs/timeline.md). */
   onToolLine?: (line: string) => void;
-  /** Which key binds which command, the PERSON's prefs applied — the header's legend is drawn from it, never from a literal. */
-  shortcuts?: Record<string, string>;
   // Present only while the command bar is filling `event move`: the drag then ANSWERS the bar instead of committing (docs/timeline.md).
   feedMove?: (
     trackId: string,
@@ -686,11 +693,6 @@ export function TimelineTab({
   toolRef.current = tool;
   // The tool's icon as the pointer — undefined for the arrow, whose picture the system already draws (modeIcons.tsx).
   const toolCursor = tool === "pointer" ? undefined : cursorOf(tool);
-  /** What the header advertises, for THIS mode and only for keys that bind — the shell hands the table down (timelineLegend.ts). */
-  const legend = useMemo(
-    () => legendRows(mode, shortcuts ?? {}, tool !== "pointer"),
-    [mode, shortcuts, tool],
-  );
   // Read by the pointer-drag callbacks, which are defined above both — a drop uses the same commit enter does.
   const projRef = useRef<WebProject | null>(null);
   projRef.current = proj;
@@ -705,7 +707,6 @@ export function TimelineTab({
   }, [proj]);
 
   const barBeats = Math.max(1, proj?.timeSigNumerator || 4);
-  const nTracks = proj?.tracks.length ?? 0;
   // The song's tracks plus any live pattern lanes, and the rows they draw as (groups with members nested under).
   const allTracks = useMemo(
     () =>
@@ -1289,6 +1290,7 @@ export function TimelineTab({
       e: React.PointerEvent,
       track: WebVideoTrack,
       c: WebVideoTrack["clips"][0],
+      index: number,
       mode: VDrag["mode"],
     ) => {
       if (e.button !== 0 || !onVideoEditRef.current) return;
@@ -1296,7 +1298,9 @@ export function TimelineTab({
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
       setVDrag({
         trackId: track.id,
-        ref: c.id,
+        index,
+        // The compile leaves an activation's id empty, having no ref to put there.
+        activation: !c.id,
         mode,
         origStart: c.start,
         origLength: c.length,
@@ -1820,7 +1824,7 @@ export function TimelineTab({
     if (!active) return;
     // A TOOL in hand outranks everything below: a press is about to do something other than what this pane usually does.
     if (tool !== "pointer") {
-      setStatus(`${tool} — click an event · esc or a rend la flèche`);
+      setStatus(m["tl.toolPicked"]({ tool }));
       return;
     }
     // Move mode owns the status line: where the clip started, where it sits now, and how to finish.
@@ -1969,11 +1973,11 @@ export function TimelineTab({
 
   // --- dropping OS files on a lane (docs/timeline.md) -------------------------------
 
-  /** The lanes a drop may walk down, in drawing order — a generated lane holds no file, a shape lane no placement. */
+  /** The lanes a drop may walk down, in drawing order — a generated lane holds no file, a lane drawing shapes no placement. */
   const dropTargets = visRows.flatMap((r): DropLane[] =>
     r.kind === "track" && !r.track.generated
       ? [{ id: r.track.id, kind: "audio" }]
-      : r.kind === "video" && r.track.kind !== "shape"
+      : r.kind === "video" && !r.track.shapes.length
         ? [{ id: r.track.id, kind: "video" }]
         : [],
   );
@@ -2031,75 +2035,49 @@ export function TimelineTab({
   return (
     // min-w-0: without it the fixed-width lane sets this flex child's min width and the fit-to-pane scale ratchets.
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
-        {/* The legend is DERIVED from what binds, per mode — a hand-written one lies as soon as a key is rebound (timelineLegend.ts). */}
-        <div className="min-w-0 flex-1 truncate">
-          {proj.name} · {Math.round(proj.tempo)} bpm · {proj.timeSigNumerator}/
-          {proj.timeSigDenominator} · {nTracks} tracks
-          {legend.map((r) => (
-            <span key={r.what}>
-              {" · "}
-              <span className="text-foreground">{r.key}</span> {r.what}
-            </span>
-          ))}
-        </div>
-        {/* The hovered marker's name: the header is where a marker labels itself, so it reads however zoomed the ruler is. */}
-        {hoverMarker && (
-          <span
-            className="shrink-0 truncate font-semibold"
-            style={{ color: MARKER_COLOR, maxWidth: "18rem" }}
-            title={hoverMarker}
-          >
-            ◆ {hoverMarker}
-          </span>
-        )}
-        {/* The ruler's unit, beside Expand because it is the same kind of control: what this surface SHOWS, changing nothing on disk. */}
-        <button
-          type="button"
-          onClick={() =>
-            setRulerMode((m) => (m === "bars" ? "seconds" : "bars"))
-          }
-          aria-pressed={rulerMode === "seconds"}
-          title={
-            rulerMode === "seconds"
-              ? "règle en secondes — cliquer pour revenir aux mesures"
-              : "règle en mesures — cliquer pour lire en secondes (l'image se coupe à l'horloge)"
-          }
-          className={cn(
-            "flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground",
-            rulerMode === "seconds" && "bg-accent text-foreground",
-          )}
-        >
-          <Clock className="h-3.5 w-3.5" />
-        </button>
-        {/* Expand: taller lanes that reveal each clip's waveform / notes. */}
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-pressed={expanded}
-          title={
-            expanded
-              ? "collapse lanes"
-              : "expand lanes to show clip contents (waveforms / notes)"
-          }
-          className={cn(
-            "flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground",
-            expanded && "bg-accent text-foreground",
-          )}
-        >
-          <StretchVertical className="h-3.5 w-3.5" />
-        </button>
-      </div>
       <div className="flex min-h-0 flex-1">
         {/* The tools as a 32px column — the third way to one, beside the keys and the bar, and the only one a finger has. */}
-        {onToolLine && (
-          <ModeStrip
-            modes={TOOLS}
-            current={tool}
-            onPick={(t) => onToolLine(`ui tool ${t}`)}
-            title={(t) => TOOL_LABEL[t]}
-          />
-        )}
+        <ModeStrip
+          // A second device dispatches no tool line, and the column is still drawn: the two view toggles under it are the pane's own.
+          modes={onToolLine ? TOOLS : NO_TOOLS}
+          current={tool}
+          onPick={(t) => onToolLine?.(`ui tool ${t}`)}
+          title={(t) => TOOL_LABEL[t]()}
+          footer={
+            <>
+              {/* The ruler's unit, beside Expand because it is the same kind of control: what this surface SHOWS, changing nothing on disk. */}
+              <button
+                type="button"
+                onClick={() =>
+                  setRulerMode((m) => (m === "bars" ? "seconds" : "bars"))
+                }
+                aria-pressed={rulerMode === "seconds"}
+                title={
+                  rulerMode === "seconds"
+                    ? m["tl.rulerSeconds"]()
+                    : m["tl.rulerBars"]()
+                }
+                className={stripButton(rulerMode === "seconds")}
+              >
+                <Clock className="h-4 w-4" />
+              </button>
+              {/* Expand: taller lanes that reveal each clip's waveform / notes. */}
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                aria-pressed={expanded}
+                title={
+                  expanded
+                    ? "collapse lanes"
+                    : "expand lanes to show clip contents (waveforms / notes)"
+                }
+                className={stripButton(expanded)}
+              >
+                <StretchVertical className="h-4 w-4" />
+              </button>
+            </>
+          }
+        />
         {/* `isolate` — load-bearing: it keeps this pane's four z-indices private from the shell's (docs/timeline.md). */}
         <div
           ref={scrollRef}
@@ -2180,11 +2158,11 @@ export function TimelineTab({
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          title="nouvelle piste — audio ou vidéo"
+                          title={m["tl.newLane"]()}
                           className={NEW_TRACK_BTN}
                         >
                           <Plus className="h-3 w-3" />
-                          piste
+                          {m["tl.lane"]()}
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
@@ -2193,7 +2171,7 @@ export function TimelineTab({
                           onSelect={onNewTrack}
                         >
                           <Music className="h-3.5 w-3.5 opacity-70" />
-                          piste audio
+                          {m["tl.audioLane"]()}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="gap-2 text-xs"
@@ -2205,7 +2183,7 @@ export function TimelineTab({
                             video
                             className="h-3.5 w-3.5 opacity-70"
                           />
-                          piste vidéo
+                          {m["tl.videoLane"]()}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -2213,11 +2191,11 @@ export function TimelineTab({
                     <button
                       type="button"
                       onClick={onNewTrack}
-                      title="nouvelle piste (track new)"
+                      title={m["tl.newLaneOnly"]()}
                       className={NEW_TRACK_BTN}
                     >
                       <Plus className="h-3 w-3" />
-                      piste
+                      {m["tl.lane"]()}
                     </button>
                   ))}
               </div>
@@ -2484,7 +2462,7 @@ export function TimelineTab({
                       />
                       <span
                         className="flex-1 truncate"
-                        title={`${vt.name} — a ${vt.kind === "shape" ? "shape" : "video"} lane; cut in seconds, composited on the viewport`}
+                        title={`${vt.name} — a ${vt.shapes.length ? "shape" : "video"} lane; cut in seconds, composited on the viewport`}
                       >
                         {trackLabel(vt.name)}
                       </span>
@@ -2527,8 +2505,8 @@ export function TimelineTab({
                           ))}
                         </div>
                       )}
-                      {/* ARM: a picture lane records its camera in the BROWSER, so a shape lane — which has no input — gets no button. */}
-                      {onVideoArm && vt.kind !== "shape" && (
+                      {/* ARM: a picture lane records its camera in the BROWSER, so a lane DRAWING shapes — which has no input — gets no button. */}
+                      {onVideoArm && !vt.shapes.length && (
                         <button
                           type="button"
                           title={`arm ${vt.name} — record + play captures its camera`}
@@ -2557,32 +2535,30 @@ export function TimelineTab({
                       )}
                     </div>
                     <div
-                      // Hit-tested by a file drop, as data-lane-track is: a shape lane holds no placements, so it takes none.
-                      data-lane-video={vt.kind === "shape" ? undefined : vt.id}
+                      // Hit-tested by a file drop, as data-lane-track is: a lane drawing shapes holds no placements, so it takes none.
+                      data-lane-video={vt.shapes.length ? undefined : vt.id}
                       className={cn(
                         "relative overflow-hidden",
                         dropAt?.lane === vt.id && DROP_LANE,
                         // Armed red, the whole lane, exactly as an armed audio lane reads.
                         videoArmed === vt.id && "bg-red-600/30",
                       )}
-                      style={{
-                        width: laneW,
-                        // A shape lane holds no placements at all, so it is hatched rather than drawn as an empty row.
-                        ...(vt.kind === "shape"
-                          ? { backgroundImage: HATCH }
-                          : null),
-                      }}
+                      style={{ width: laneW }}
                     >
                       {vt.clips.map((c, i) => {
                         // The one being dragged draws where the pointer says — the ghost the commit then makes true.
                         const live =
-                          vdrag && vdrag.trackId === vt.id && vdrag.ref === c.id
+                          vdrag && vdrag.trackId === vt.id && vdrag.index === i
                             ? vdrag
                             : null;
                         const start = live ? live.start : c.start;
                         const length = live ? live.length : c.length;
+                        // An ACTIVATION says WHEN this lane is on and names no source (docs/shapes.md).
+                        const activation = !c.id;
                         // A length-0 placement runs to the end of a source nothing has measured, so it draws provisional: dashed and amber.
                         const provisional = length <= 0;
+                        // …except on an activation, whose length 0 needs no source opened: it runs to the next one.
+                        const label = activation ? "on" : c.name || c.id;
                         const w = Math.max(
                           ppb,
                           toBeats(provisional ? V_NATURAL : length) * ppb,
@@ -2592,7 +2568,7 @@ export function TimelineTab({
                             // By placement, not by ref: one source may be placed twice, and the file keys its placements by ref too (videoTrackFile.ts).
                             key={`${c.id}:${i}`}
                             onPointerDown={(e) =>
-                              beginVideoDrag(e, vt, c, "move")
+                              beginVideoDrag(e, vt, c, i, "move")
                             }
                             onPointerMove={onVideoDragMove}
                             onPointerUp={commitVideoDrag}
@@ -2606,7 +2582,7 @@ export function TimelineTab({
                                   kind: "picture-shot",
                                   lane: vt.id,
                                   at: String(c.start),
-                                  name: c.name || c.id,
+                                  name: label,
                                 },
                                 e.clientX,
                                 e.clientY,
@@ -2621,30 +2597,34 @@ export function TimelineTab({
                               live?.pending && "opacity-60",
                             )}
                             style={{ left: x(toBeats(start)), width: w }}
-                            title={`${c.name || c.id} — ${
-                              provisional
-                                ? "to the end of the source"
-                                : `${length}s`
-                            } at ${start}s, from ${c.sourceFrom}s into the source`}
+                            title={
+                              activation
+                                ? `${label} — ${provisional ? "until the next one" : `${length}s`} at ${start}s`
+                                : `${label} — ${
+                                    provisional
+                                      ? "to the end of the source"
+                                      : `${length}s`
+                                  } at ${start}s, from ${c.sourceFrom}s into the source`
+                            }
                           >
                             <TrackIcon
                               name={c.name}
                               video
                               className="h-2.5 w-2.5 shrink-0 opacity-80"
                             />
-                            <span className="truncate">{c.name || c.id}</span>
+                            <span className="truncate">{label}</span>
                             {/* The two trim handles, wider than they look: a 6px target is a miss, and a miss lands on the body's own drag. */}
                             {onVideoEdit && (
                               <>
                                 <span
                                   onPointerDown={(e) =>
-                                    beginVideoDrag(e, vt, c, "in")
+                                    beginVideoDrag(e, vt, c, i, "in")
                                   }
                                   className="absolute inset-y-0 left-0 w-2 cursor-ew-resize"
                                 />
                                 <span
                                   onPointerDown={(e) =>
-                                    beginVideoDrag(e, vt, c, "out")
+                                    beginVideoDrag(e, vt, c, i, "out")
                                   }
                                   className="absolute inset-y-0 right-0 w-2 cursor-ew-resize"
                                 />

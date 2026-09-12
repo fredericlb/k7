@@ -53,7 +53,7 @@ export function SongBrowser({
         <Input
           autoFocus
           value={query}
-          placeholder="Chercher un artiste, un titre…"
+          placeholder="Search for an artist, a title…"
           onChange={(e) => setQuery(e.target.value)}
           // Type, Enter, done — and the first PLAYABLE row, so a syncing song cannot be loaded by mistake.
           onKeyDown={(e) => {
@@ -67,8 +67,8 @@ export function SongBrowser({
           {!shown.length ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               {songs.length
-                ? "Aucun morceau ne correspond."
-                : "Le set est vide — ajoutez des morceaux dans songs.yaml."}
+                ? "No song matches."
+                : "The set is empty — add songs to songs.yaml."}
             </p>
           ) : (
             <ul className="flex flex-col">
@@ -80,10 +80,10 @@ export function SongBrowser({
                     onClick={() => pick(s)}
                     title={
                       playable(s)
-                        ? `charger sur la platine ${side}`
+                        ? `load onto deck ${side}`
                         : s.entry
-                          ? "ce dossier ne porte aucun audio"
-                          : "pas encore dans le cache de cette machine"
+                          ? "this folder carries no audio"
+                          : "not in this machine's cache yet"
                     }
                     className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left hover:bg-accent/40 disabled:opacity-50 disabled:hover:bg-transparent"
                   >

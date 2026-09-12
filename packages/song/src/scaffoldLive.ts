@@ -16,8 +16,12 @@ const q = (s: string) => JSON.stringify(s);
 export const LIVE_INPUT = "IN";
 export const LIVE_FADER = "fader";
 
-/** The shared strip the fader is a use of — the same one every mixer node in every project names. */
-export const LIVE_STRIP = "@st0/audio/utility/mixer";
+/**
+ * The shared strip a fader is a use of — the same one every mixer node in every project names: this
+ * scaffold's, and every lane an import writes (`packages/translator/docs/import.md`). Named without
+ * `LIVE_` because it is nobody's archetype in particular.
+ */
+export const SHARED_STRIP = "@st0/audio/utility/mixer";
 
 /** …and the RECORDER on the master run, which is what makes a rig something you KEEP. */
 export const LIVE_RECORDER = "rec";
@@ -93,7 +97,7 @@ export function liveProjectFiles(name: string): Record<string, string> {
       `#\n` +
       `# A node is where a param belongs, so a second input later gets its own fader without\n` +
       `# either touching the other's level.\n` +
-      `extends: ${q(LIVE_STRIP)}\n` +
+      `extends: ${q(SHARED_STRIP)}\n` +
       `params:\n` +
       `  # Unity, in DECIBELS: -60 is silence and +6 the top. Never 0..1, which would look like\n` +
       `  # it worked and send half a dB for half a fader.\n` +

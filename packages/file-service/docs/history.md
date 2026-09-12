@@ -26,6 +26,14 @@ render backup (blob), undone atomically.
 The `snapshot` callback — not size/mtime — is the authority for overwrites, so a
 same-size re-bounce still registers even on a coarse-mtime filesystem.
 
+The TEXT side has the same hazard and answers it differently, because there is no callback to be
+the authority: the two images come from `textOf`, which keeps each file's content against its
+`(size, mtime)`. A same-size rewrite inside one file-time tick — `v1` → `v2`, a knob from `0.5` to
+`0.7` — reproduces that key, and the "after" image would then be the "before" one: the two diff to
+nothing and the edit is journalled nowhere. So a file whose mtime has not SETTLED is re-read and
+never kept, the rule `@studio/song`'s caches follow and the window they share
+(`packages/song/docs/moduleCache.md`).
+
 It answers a `Recorded<T>` rather than the mutation's own value: whatever `mutate` returned, plus
 the **revision token either side**. That is not the journal's business and it is nonetheless the
 right place for it — `recordChange` is the one thing that brackets a write, and it has to cross

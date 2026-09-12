@@ -42,16 +42,28 @@ const module_ = (name: string, plugin: string): void => {
 };
 const graphText = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 
+let ws: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-strip-"));
+  // A project in a WORKSPACE, because a strip is a use of the LIBRARY's mixer and that is where
+  // the library is mounted — see docs/trackMixer.md.
+  ws = mkdtempSync(join(tmpdir(), "td-strip-"));
+  dir = join(ws, "song.st0");
+  mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n",
     "utf8",
   );
-  mkdirSync(join(dir, "nodes"), { recursive: true });
+  const mixer = join(ws, "_libraries", "modules", "audio", "utility", "mixer");
+  mkdirSync(mixer, { recursive: true });
+  // The plugin inline in the FIXTURE's library, so nothing here waits on an engine scan.
+  writeFileSync(
+    join(mixer, "module.yaml"),
+    "plugin: { type: internal, name: Mixer }\n",
+    "utf8",
+  );
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 describe("mixerNameFor", () => {
   it("names the lane, and steps aside for a name already taken", () => {
@@ -106,14 +118,18 @@ describe("planTrackMixer", () => {
 });
 
 describe("addTrackMixer", () => {
-  it("writes the module and one arrow, and the lane then HAS a mixer when compiled", () => {
+  it("writes the node and one arrow, and the lane then HAS a mixer when compiled", () => {
     lane("pad");
     module_("synth-pad", "4osc");
     graph(
       "# the graph\nmodules:\n  pad: [ synth-pad ]\n  synth-pad: [ MIX ]\n  MIX: [ OUT ]\n",
     );
     const files = addTrackMixer(dir, "pad", loadGraph(dir));
-    expect(files).toEqual(["modules/audio/mix-pad/module.yaml", "graph.yaml"]);
+    // A NODE on the library's mixer, not a project copy of it (docs/trackMixer.md).
+    expect(files).toEqual(["nodes/mix-pad.yaml", "graph.yaml"]);
+    expect(readFileSync(join(dir, "nodes/mix-pad.yaml"), "utf8")).toContain(
+      'extends: "@st0/audio/utility/mixer"',
+    );
     // The splice, not an append: the synth now feeds the strip and the strip feeds the sum.
     expect(graphText()).toContain("synth-pad: [ mix-pad ]");
     expect(graphText()).toContain("mix-pad: [ MIX ]");

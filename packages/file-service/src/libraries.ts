@@ -328,6 +328,23 @@ export async function commitLibraries(
 /** Where the libraries are mounted in this workspace, whether or not anything is there. */
 export const librariesDir = (root: string): string => join(root, LIBRARIES_DIR);
 
+/** What a mounted library was cloned FROM, or null when there is no clone and no remote — docs/libraries.md. */
+export async function clonedFrom(
+  at: string,
+  userEmail = "",
+): Promise<string | null> {
+  try {
+    const { stdout } = await git(
+      at,
+      ["remote", "get-url", "origin"],
+      envFor(userEmail),
+    );
+    return stdout.trim() || null;
+  } catch {
+    return null; // not a clone, or a clone with no origin — both are "cannot say"
+  }
+}
+
 // ── the account's library repository, which this machine now holds ────────────
 
 /** Where the pointer lives. One line of JSON beside the workspaces, not in any of them. */

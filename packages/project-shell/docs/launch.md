@@ -89,7 +89,7 @@ sequence below, because in each there is no repository to resolve.
 | address | what it opens | what it skips |
 |---|---|---|
 | `/@shares/<token>.st0` | a frozen snapshot pl8 holds | everything: no account, no engine, no working copy |
-| `/@banc/chains/<path>.st0` | one médiathèque chain on the generated bench | the lookup and the clone — the bench is regenerated on every open |
+| `/@banc/live.st0` | the bench: one live rig, generated | the lookup and the clone — the rig is written again on every open |
 | `/@local/<espace>/<projet>` | a project in a workspace with no repository | the lookup, the clone, **and the libraries check** |
 
 `@local` is the one that disagrees with step 0 below, and deliberately: a workspace with no
@@ -100,15 +100,15 @@ piece of setup they exist to precede. See `apps/st0/frontend/docs/projects.md`.
 The bench is the one the gate matches on the **app** as well as the name. It is a `.st0` project,
 so `/z0/editor/@banc/…` names nothing at all and must fall through to the ordinary road, where pl8
 answers "no such repository" — which is exactly what it is. Its wait is reported as `cloning` because from
-here it is the same thing: a visible wait while a machine fetches a catalogue, and the first one is
-the slow one. The project part of the address rides along with it, since the same bench opens on the
-whole catalogue or on one médiathèque chain.
+here it is the same thing: a visible wait while a machine mounts a library, and the first one is
+the slow one. The project part of the address rides along with it, since the machine is the side
+that says which address the bench answers.
 
 **`parseLaunch` knows about none of them.** All three are ordinary addresses whose repository part
 happens to start with `@`: the project part still ends at the last segment claiming the app's
 suffix, which is why `@shares` spells its token `<token>.st0` and why `@local` puts the workspace
-name in front of an ordinary project path. The only rule any of them adds is a splitter —
-`shareToken`, `benchChainPath`, `localTarget` — and all three live in
+name in front of an ordinary project path. The only rule any of them adds is a reader —
+`shareToken`, `isBenchProject`, `localTarget` — and all three live in
 `packages/web-protocol/projects.ts`, beside the address they read.
 
 ## What the gate does with an ordinary one

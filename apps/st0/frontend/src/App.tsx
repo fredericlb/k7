@@ -39,6 +39,7 @@ import { showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the loader in.
 import { moduleKeyFromPath } from "@studio/song-schema/moduleTypes";
+import type { ReferenceTrack } from "@studio/song-schema/reference";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { AssemblyBuilder } from "@studio/ui-module-builder/assembly";
@@ -49,6 +50,7 @@ import {
 } from "@studio/web-protocol/quality";
 import {
   Circle,
+  Headphones,
   ListMusic,
   Loader2,
   Lock,
@@ -104,6 +106,8 @@ import { PaneSplitter } from "./components/PaneSplitter";
 import type { RollHandle } from "./components/PianoRoll";
 import { PlaylistsPanel } from "./components/PlaylistsPanel";
 import { RackBuilder } from "./components/RackBuilder";
+import { ReferenceBar } from "./components/ReferenceBar";
+import { ReferencesPanel } from "./components/ReferencesPanel";
 import { RightPanel } from "./components/RightPanel";
 import { SeqGridPane } from "./components/SeqGridPane";
 import {
@@ -162,7 +166,6 @@ import {
   type ConditionCtx,
   effectiveKeys,
   keyForCommand,
-  shortcutsByCommand,
 } from "./keys";
 import { laneGains } from "./laneGains";
 import { isLibraryPath, libraryModuleRef } from "./libraryTree";
@@ -424,15 +427,17 @@ export default function App({
   });
   /** Which panel has the RIGHT COLUMN, or null — one state because there is one column (docs/shell.md). */
   const [rightPanel, setRightPanel] = useState<
-    "settings" | "playlists" | "share" | "comments" | null
+    "settings" | "playlists" | "references" | "share" | "comments" | null
   >(null);
+  /** The reference track the bar has loaded, or null for no bar — it outlives every tab, being nothing this project owns (docs/references.md). */
+  const [reference, setReference] = useState<ReferenceTrack | null>(null);
   /** Which tab the settings panel shows, kept while closed so the cog reopens where you left it. */
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(SETTINGS_TABS[0]);
   /** The command catalogue, the one settings screen still drawn as a full PAGE. */
   const [commandsPage, setCommandsPage] = useState(false);
   /** Open `which`, or close it when it is already the one showing — every panel button toggles. */
   const toggleRight = useCallback(
-    (which: "settings" | "playlists" | "share" | "comments") =>
+    (which: "settings" | "playlists" | "references" | "share" | "comments") =>
       setRightPanel((cur) => (cur === which ? null : which)),
     [],
   );
@@ -578,11 +583,6 @@ export default function App({
   }, []);
   // The keymap as this person has it, computed once per prefs change — the key listener reads it on every press.
   const effKeys = useMemo(() => effectiveKeys(commandPrefs), [commandPrefs]);
-  // …and the same table read the other way, for a legend that can only ever advertise a key that binds (keys.ts).
-  const shortcuts = useMemo(
-    () => shortcutsByCommand(commandPrefs),
-    [commandPrefs],
-  );
   const lastActive = useRef<string | null>(null);
   const pendingPrewrite = useRef<string | null>(null);
 
@@ -721,7 +721,7 @@ export default function App({
     return [
       {
         id: projectLabel(at.project),
-        type: "projet",
+        type: m["shell.projectKind"](),
         url: launchUrl(window.location.origin, at.repo, at.project, "st0"),
       },
       ...surfaces.map((s) => ({
@@ -955,6 +955,10 @@ export default function App({
     onMidiSeqs: (seqs) =>
       setMidiArmed((cur) => (cur && !seqs[cur] ? null : cur)),
   });
+  /** The metronome, optimistically: the click flips the icon, the command follows, and the DOC decides — the mute/solo rule (hooks/useTrackControls.ts). */
+  const [optMetronome, setOptMetronome] = useState<boolean | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the doc's IDENTITY is the signal — a fresh one takes the override back, whatever it says.
+  useEffect(() => setOptMetronome(null), [projectDoc]);
 
   // Mixer / graph edits run the same backend commands but must NOT bump reloadKey, and ask for no graph (`want: []`) — docs/shell.md.
   const quietCommand = useCallback(
@@ -1046,13 +1050,17 @@ export default function App({
       const now = projectDoc?.masterVolume ?? 0;
       const db = fixedMaster(now, peakDb);
       if (db === now) {
-        setStatus("rien à baisser — la sortie est déjà au plancher");
+        setStatus(m["master.alreadyFloor"]());
         return;
       }
       await quietCommand(`node param "OUT" Volume ${db.toFixed(1)}`);
       bumpReload();
       setStatus(
-        `sortie à ${db > 0 ? "+" : ""}${db.toFixed(1)} dB (${trimFor(peakDb).toFixed(1)} dB) — pic visé ${TARGET_DB} dB`,
+        m["master.fixed"]({
+          db: `${db > 0 ? "+" : ""}${db.toFixed(1)}`,
+          trim: trimFor(peakDb).toFixed(1),
+          target: TARGET_DB,
+        }),
       );
     },
     [projectDoc?.masterVolume, quietCommand, bumpReload],
@@ -1364,7 +1372,7 @@ export default function App({
           return true;
         }
         rollRef.current.setMode(want);
-        setStatus(`${want} — ${ROLL_PRESS[want]}`);
+        setStatus(`${want} — ${ROLL_PRESS[want]()}`);
         return true;
       }
       /** `ui wave <mode>` — the waveform's picture and its gestures are ONE thing, so one verb sets both (waveMode.ts). */
@@ -1629,7 +1637,7 @@ export default function App({
         return true;
       }
 
-      // --- the three right-hand panels, and the one page left --------------------
+      // --- the right-hand panels, and the one page left --------------------
 
       // The bare lines TOGGLE, as their buttons do; naming a settings TAB always opens, never closes.
       if (line === "settings") {
@@ -1638,6 +1646,10 @@ export default function App({
       }
       if (line === "playlists") {
         toggleRight("playlists");
+        return true;
+      }
+      if (line === "references") {
+        toggleRight("references");
         return true;
       }
       if (line === "share") {
@@ -1788,16 +1800,12 @@ export default function App({
         const arg = s.slice("project master fix".length).trim();
         const given = arg ? Number(arg) : null;
         if (given !== null && !Number.isFinite(given)) {
-          setStatus(`"${arg}" n'est pas un niveau en dB`);
+          setStatus(m["master.notADb"]({ arg }));
           return true;
         }
         const pass = masterMeterRef.current?.pass();
         if (given === null && !pass?.offered) {
-          setStatus(
-            pass
-              ? "rien à rattraper — le dernier passage n'a pas saturé (donnez un niveau en dB pour forcer)"
-              : "pas de vumètre sur cet écran — donnez un niveau en dB",
-          );
+          setStatus(pass ? m["master.nothingToFix"]() : m["master.noMeter"]());
           return true;
         }
         masterMeterRef.current?.take();
@@ -1812,6 +1820,7 @@ export default function App({
         else
           void share.exportVideo(
             videoDoc ? sceneOf(videoDoc) : null,
+            ask.format,
             ask.audio,
             projectDoc?.name ?? "video",
           );
@@ -2180,8 +2189,12 @@ export default function App({
         // The project's OWN modules come from the ref list: the picker needs them to know one already exists to instantiate.
         const known = new Set(cat.map((m) => m.ref));
         setBaseModules([
-          ...cat.map((m) => ({ ref: m.ref, category: m.category })),
-          ...refs.filter((r) => !known.has(r)).map((ref) => ({ ref })),
+          ...cat.map((m) => ({
+            ref: m.ref,
+            category: m.category,
+            label: m.label,
+          })),
+          ...refs.filter((r) => !known.has(r.ref)),
         ]);
       })
       .catch(() => {}); // the picker falls back to pre-writing the command
@@ -2456,15 +2469,19 @@ export default function App({
 
   // Whatever key reaches each panel, for the tooltips below — undefined when nothing is bound, and the tooltip then says only what the button does.
   const playlistKey = keyForCommand("ui playlists", commandPrefs);
+  const referencesKey = keyForCommand("ui references", commandPrefs);
   const shareKey = keyForCommand("ui share", commandPrefs);
   const settingsKey = keyForCommand("ui settings", commandPrefs);
   const { behind, conflicted, badge } = shareBadge(gitStatus);
+
+  /** The bar's height IS its tallest control (docs/shell.md), so the desktop one is 24 px; a phone keeps a thumb-sized button. */
+  const toolSize = isMobile ? "icon" : "icon-xs";
 
   const headerTools = snapshot ? (
     <>
       {/* The one thing a visitor may WRITE, and it is a panel rather than a pane: it is not part of the song. */}
       <Button
-        size="icon"
+        size={toolSize}
         variant={rightPanel === "comments" ? "default" : "ghost"}
         aria-pressed={rightPanel === "comments"}
         title={m["share.comments"]()}
@@ -2480,7 +2497,7 @@ export default function App({
       {/* The PLAYLIST, for a SET only — every project's are reachable from the palette instead (docs/playlists.md). */}
       {hasTurntables && (
         <Button
-          size="icon"
+          size={toolSize}
           variant={rightPanel === "playlists" ? "default" : "ghost"}
           aria-pressed={rightPanel === "playlists"}
           title={`Playlists${playlistKey ? ` (${playlistKey})` : ""}`}
@@ -2491,21 +2508,36 @@ export default function App({
           <ListMusic className="h-4 w-4" />
         </Button>
       )}
+      {/* What you listen AGAINST — always offered, a reference belonging to the repository and not to a surface (docs/references.md). */}
+      <Button
+        size={toolSize}
+        variant={rightPanel === "references" ? "default" : "ghost"}
+        aria-pressed={rightPanel === "references"}
+        title={`${m["refs.title"]()}${referencesKey ? ` (${referencesKey})` : ""}`}
+        aria-label={m["refs.title"]()}
+        aria-keyshortcuts={referencesKey}
+        onClick={() => void runCommand("ui references")}
+      >
+        <Headphones className="h-4 w-4" />
+      </Button>
       {/* SHARE. The badge stays on the button: it says the repository is behind BEFORE you open anything. */}
       <Button
-        size="icon"
+        size={toolSize}
         variant={rightPanel === "share" ? "default" : "ghost"}
         className="relative"
         aria-pressed={rightPanel === "share"}
         disabled={share.busy}
         title={
           conflicted
-            ? "Partager / exporter — le dépôt a divergé, un pull demande une fusion"
+            ? m["share.conflicted"]()
             : behind > 0
-              ? `Partager / exporter — ${behind} commit${behind === 1 ? "" : "s"} à tirer`
-              : `Partager / exporter${shareKey ? ` (${shareKey})` : ""}`
+              ? m["share.behind"]({
+                  n: behind,
+                  s: behind === 1 ? "" : "s",
+                })
+              : `${m["share.button"]()}${shareKey ? ` (${shareKey})` : ""}`
         }
-        aria-label="Partager / exporter"
+        aria-label={m["share.button"]()}
         aria-keyshortcuts={shareKey}
         onClick={() => void runCommand("ui share")}
       >
@@ -2522,7 +2554,7 @@ export default function App({
       </Button>
       {/* The COG opens the settings panel — one surface with a tab per entry, where a dropdown used to be. */}
       <Button
-        size="icon"
+        size={toolSize}
         variant={rightPanel === "settings" ? "default" : "ghost"}
         aria-pressed={rightPanel === "settings"}
         title={`${m["settings.menu"]()}${settingsKey ? ` (${settingsKey})` : ""}`}
@@ -2537,6 +2569,21 @@ export default function App({
 
   const headerActions = (
     <div className="flex min-w-0 items-center gap-1">
+      {/* The mix leaving for the interface, at the right end of the bar; no phone fits it and a snapshot has no engine. */}
+      {!isMobile && !snapshot && (
+        <>
+          <MasterMeter
+            className="shrink-0"
+            ref={masterMeterRef}
+            // The button dispatches the command rather than calling the handler, like every other button in this shell.
+            onFix={() => void runCommand("project master fix")}
+            // The song's own level, off the compiled doc — what the FILE says, so the fader reads right before a note has played.
+            master={projectDoc?.masterVolume}
+            onMaster={setMaster}
+          />
+          <div className="mx-1 h-5 w-px bg-border" />
+        </>
+      )}
       {/* On a phone ONE button holds everywhere there is to go, and a pane is a destination — always `ui <pane>` (docs/shell.md). */}
       {isMobile ? (
         <MobileMenu open={mobileMenu} onOpenChange={setMobileMenu}>
@@ -2576,7 +2623,7 @@ export default function App({
               return (
                 <Button
                   key={p}
-                  size="icon"
+                  size={toolSize}
                   variant={full === p ? "default" : "ghost"}
                   aria-pressed={full === p}
                   onClick={() =>
@@ -2609,29 +2656,19 @@ export default function App({
         <AppHeader
           // No `variant`: the house look, the accent tinted over the page (@frediverse/ui's docs/app-header.md).
           className={cn(
-            "z-20",
+            // `relative` on the INNER box is what the transport centres against — the bar's own middle, not the gap between its neighbours.
+            "z-20 [&>div]:relative",
             isMobile
               ? "[&>div]:gap-2 [&>div]:px-3 [&>div]:py-1"
-              : "[&>div]:px-3 [&>div]:py-2",
+              : "[&>div]:px-3 [&>div]:py-[3px]",
           )}
-          // No name and no build stamp inside a project — the left of this bar is the meter's (docs/shell.md).
+          // No name and no build stamp inside a project — the project's own name is the only one left (docs/shell.md).
           title={null}
           items={[]}
           actions={headerActions}
         >
-          {/* Between the two: what you are looking AT, and the transport centred over it with `mx-auto`, the bar owning the outer layout. */}
+          {/* Between the two: what you are looking AT, and the transport ABSOLUTELY centred over the bar (docs/shell.md). */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            {/* The mix leaving for the interface, where the title was; no phone fits it and a snapshot has no engine. */}
-            {!isMobile && !snapshot && (
-              <MasterMeter
-                ref={masterMeterRef}
-                // The button dispatches the command rather than calling the handler, like every other button in this shell.
-                onFix={() => void runCommand("project master fix")}
-                // The song's own level, off the compiled doc — what the FILE says, so the fader reads right before a note has played.
-                master={projectDoc?.masterVolume}
-                onMaster={setMaster}
-              />
-            )}
             {/* The way back, whole-page since the project is the router's BASENAME; a share has none (docs/shared.md). */}
             {snapshot ? (
               <span className="max-w-[10rem] truncate text-muted-foreground text-sm">
@@ -2669,9 +2706,9 @@ export default function App({
 
             {/* centre: transport — play/pause, stop, the clock, then record, each dropping focus on click (docs/shell.md). */}
             {(!noArrangement || hasTurntables) && !deskOnly && (
-              <div className="mx-auto flex shrink-0 items-center gap-1">
+              <div className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex items-center gap-1">
                 <Button
-                  size="icon"
+                  size={toolSize}
                   variant={playing ? "default" : "secondary"}
                   // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
                   disabled={transportWaiting}
@@ -2704,7 +2741,7 @@ export default function App({
                   )}
                 </Button>
                 <Button
-                  size="icon"
+                  size={toolSize}
                   variant="secondary"
                   onClick={(e) => {
                     transport("stop");
@@ -2724,7 +2761,7 @@ export default function App({
                       beatsPerBar={recInfo.beatsPerBar}
                     />
                     <Button
-                      size="icon"
+                      size={toolSize}
                       variant={recordEnabled ? "default" : "secondary"}
                       aria-pressed={recordEnabled}
                       onClick={(e) => {
@@ -2761,7 +2798,7 @@ export default function App({
                 onClose={() => setRackBuilder(false)}
                 onCreated={(ref) => {
                   setRackBuilder(false);
-                  setStatus(`rack ${ref} créé — branchez-le depuis le graphe`);
+                  setStatus(m["rack.created"]({ ref }));
                   bumpReload();
                 }}
               />
@@ -2785,7 +2822,7 @@ export default function App({
                 <button
                   type="button"
                   className="absolute right-2 top-2 z-10 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  title="Fermer"
+                  title={m["common.close"]()}
                   onClick={() => setEditorPopin(false)}
                 >
                   <X className="h-4 w-4" />
@@ -2964,7 +3001,6 @@ export default function App({
                       }
                       // A tool's press, already spelled by the module that is tested for it — journalled like anything else.
                       onToolLine={(l) => void runCommand(l)}
-                      shortcuts={shortcuts}
                       onResizeEvent={(trackId, fromTc, startTc, endTc) =>
                         void runCommand(
                           `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
@@ -3350,6 +3386,15 @@ export default function App({
                       moduleParams={offlineParams}
                       trackControls={trackControls}
                       onContextMenu={openContextMenu}
+                      onBypassModule={(mod) =>
+                        void runCommand(`node bypass ${mod}`)
+                      }
+                      onNodeMenu={openNodeMenu}
+                      onAssetBrowse={browseAssets}
+                      onWatchWaveform={watchWaveform}
+                      onTrackToggle={onLaneToggle}
+                      onTrackSet={onTrackSet}
+                      onEdgeInsert={frozen ? undefined : insertIntoChain}
                       engineWarnings={engineWarnings}
                       onClose={() => setGraphSlot(null)}
                     />
@@ -3397,7 +3442,7 @@ export default function App({
               </div>
             </div>
 
-            {/* THE RIGHT COLUMN — one of three panels, docked beside the panes; none is a pane and `rightPanel` makes them exclusive (docs/shell.md). */}
+            {/* THE RIGHT COLUMN — one panel at a time, docked beside the panes; none is a pane and `rightPanel` makes them exclusive (docs/shell.md). */}
             <RightPanel
               open={rightPanel !== null}
               width={rightPanel === "comments" ? "w-[22rem]" : "w-[24rem]"}
@@ -3415,6 +3460,13 @@ export default function App({
                 <PlaylistsPanel
                   vimMode={vimMode}
                   onRun={runCommand}
+                  onClose={() => setRightPanel(null)}
+                />
+              )}
+              {rightPanel === "references" && (
+                <ReferencesPanel
+                  playing={reference?.path ?? null}
+                  onPlay={setReference}
                   onClose={() => setRightPanel(null)}
                 />
               )}
@@ -3470,6 +3522,8 @@ export default function App({
                     onRecorder={onRecorder}
                     onProjectField={onProjectField}
                     onNodeMenu={openNodeMenu}
+                    onAssetBrowse={browseAssets}
+                    onWatchWaveform={watchWaveform}
                     engineWarnings={engineWarnings}
                     onContextMenu={openContextMenu}
                     pluginParamsStore={pluginParamsStore}
@@ -3492,6 +3546,11 @@ export default function App({
         </div>
 
         {/* The take once it has stopped: the FILE, its onsets and its level — the editing step beside the live pane (docs/shell.md). */}
+
+        {/* What you are listening AGAINST — above the status line and below every pane, since it belongs to no tab (docs/references.md). */}
+        {reference && (
+          <ReferenceBar track={reference} onClose={() => setReference(null)} />
+        )}
 
         <footer
           className={cn(
@@ -3617,9 +3676,12 @@ export default function App({
             </span>
             {/* Left click toggles the click, right click opens its level; both are project settings, so both are command lines. */}
             <MetronomeButton
-              on={metronomeOn}
+              on={optMetronome ?? metronomeOn}
               level={metronomeLevel}
-              onToggle={() => void runCommand("transport metronome")}
+              onToggle={() => {
+                setOptMetronome((cur) => !(cur ?? metronomeOn));
+                void runCommand("transport metronome");
+              }}
               onLevel={(v) =>
                 void runCommand(`transport metronome volume ${v}`)
               }
@@ -3964,10 +4026,12 @@ export default function App({
         >
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Annuler le process ?</DialogTitle>
+              <DialogTitle>{m["undo.processTitle"]()}</DialogTitle>
               <DialogDescription>
                 {undoConfirm
-                  ? `${undoConfirm.files.join(", ") || undoConfirm.label} — le fichier bouncé sera restauré à son état précédent.`
+                  ? m["undo.processBody"]({
+                      files: undoConfirm.files.join(", ") || undoConfirm.label,
+                    })
                   : ""}
               </DialogDescription>
             </DialogHeader>
@@ -3979,7 +4043,7 @@ export default function App({
                   setUndoConfirm(null);
                 }}
               >
-                Annuler
+                {m["common.cancel"]()}
               </Button>
               <Button
                 onClick={() => {
@@ -3987,7 +4051,7 @@ export default function App({
                   setUndoConfirm(null);
                 }}
               >
-                Confirmer
+                {m["common.confirm"]()}
               </Button>
             </DialogFooter>
           </DialogContent>

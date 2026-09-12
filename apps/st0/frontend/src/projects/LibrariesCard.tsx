@@ -1,17 +1,28 @@
 // LibrariesCard.tsx — the libraries repository: the modules and chains EVERY project on the
 // account inherits, mounted in each workspace as a git submodule. At the head of the section
-// because without it st0 refuses to open anything.
-// Voir packages/song/docs/sharedFolders.md et packages/project-shell/docs/launch.md.
+// because nothing below it works first: no project opens without one, and no workspace is made
+// or imported either. Adding one CLONES it, which is what says the URI is a repository — so the
+// button waits, and what it leaves is the clone the bench opens against.
+// See packages/song/docs/sharedFolders.md and packages/file-service/docs/libraries.md.
 
 import { Button } from "@frediverse/ui/button";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { RepoRef } from "@studio/web-protocol";
 import { LibraryBig, Loader2, Pencil, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
+import { parts } from "../i18nParts";
+import { m } from "../paraglide/messages.js";
 import { engineMachine } from "./api";
 import type { Machine } from "./machine";
 
-export function LibrariesCard({ machine }: { machine: Machine | null }) {
+export function LibrariesCard({
+  machine,
+  onRepo,
+}: {
+  machine: Machine | null;
+  /** Reported UP because it decides more than this card: with no library, no workspace may be made either. */
+  onRepo?: (repo: RepoRef | null) => void;
+}) {
   // `undefined` = not read yet, `null` = read and there is none: a new account must read 'you need one', not a loading blank.
   const [repo, setRepo] = useState<RepoRef | null | undefined>(undefined);
   const [uri, setUri] = useState("");
@@ -31,13 +42,18 @@ export function LibrariesCard({ machine }: { machine: Machine | null }) {
       });
   }, [machine]);
 
+  // Announced UP from the state and not from each setter: what this card holds is the one answer,
+  // and it decides more than this card — with no library, no workspace may be made either.
+  useEffect(() => {
+    if (repo !== undefined) onRepo?.(repo);
+  }, [repo, onRepo]);
+
   const save = () => {
     const v = uri.trim();
     if (!v) return;
     setBusy(true);
     setError(null);
-    if (!machine)
-      return setError("aucune machine joignable pour l'enregistrer");
+    if (!machine) return setError(m["libs.noMachine"]());
     void engineMachine
       .setLibraries(machine, v)
       .then((r) => {
@@ -52,8 +68,7 @@ export function LibrariesCard({ machine }: { machine: Machine | null }) {
   if (repo === undefined)
     return (
       <div className="flex items-center gap-2 border-b px-6 py-4 text-xs text-muted-foreground">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Lecture du dépôt des
-        bibliothèques…
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> {m["libs.reading"]()}
       </div>
     );
 
@@ -74,7 +89,7 @@ export function LibrariesCard({ machine }: { machine: Machine | null }) {
         ) : (
           <LibraryBig className="h-4 w-4" />
         )}
-        Bibliothèques
+        {m["libs.title"]()}
         {!missing && !editing && (
           <Button
             variant="ghost"
@@ -85,42 +100,38 @@ export function LibrariesCard({ machine }: { machine: Machine | null }) {
               setEditing(true);
             }}
           >
-            <Pencil className="h-3.5 w-3.5" /> Changer
+            <Pencil className="h-3.5 w-3.5" /> {m["libs.change"]()}
           </Button>
         )}
       </div>
 
       <p className="text-xs text-muted-foreground">
-        {missing ? (
-          <>
-            Les modules et les chaînes partagés vivent dans un dépôt git, monté
-            dans chaque espace de travail en sous-module. <b>Il en faut un</b> :
-            sans lui, st0 refuse d'ouvrir un projet, parce qu'aucune référence{" "}
-            <code>@st0/…</code> ne résoudrait. Un dépôt <b>vide</b> convient —
-            le catalogue déjà là y sera recopié à la première ouverture d'un
-            projet.
-          </>
-        ) : (
-          <>
-            Les modules et les chaînes que tous vos projets héritent. Montées
-            dans chaque espace de travail en sous-module — ce que vous y
-            committez suit le dépôt, pas le morceau.
-          </>
-        )}
+        {missing
+          ? parts((h) => m["libs.missingBody"](h), {
+              need: <b>{m["libs.needOne"]()}</b>,
+              ref: <code>@st0/…</code>,
+              empty: <b>{m["libs.emptyWord"]()}</b>,
+            })
+          : m["libs.haveBody"]()}
       </p>
 
       {form ? (
         <div className="flex items-center gap-2">
           <input
             className="flex-1 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm outline-none focus:border-primary"
-            placeholder="git@hôte:utilisateur/bibliotheques.git — URI SSH uniquement"
+            placeholder={m["libs.placeholder"]()}
             value={uri}
             onChange={(e) => setUri(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && save()}
           />
           <Button size="sm" onClick={save} disabled={busy || !uri.trim()}>
             {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            {missing ? "Ajouter" : "Remplacer"}
+            {/* The wait is a CLONE, so the button says so rather than looking stuck on 'Add'. */}
+            {busy
+              ? m["libs.cloning"]()
+              : missing
+                ? m["libs.add"]()
+                : m["libs.replace"]()}
           </Button>
           {editing && (
             <Button
@@ -131,7 +142,7 @@ export function LibrariesCard({ machine }: { machine: Machine | null }) {
                 setUri("");
               }}
             >
-              Annuler
+              {m["common.cancel"]()}
             </Button>
           )}
         </div>
@@ -143,11 +154,7 @@ export function LibrariesCard({ machine }: { machine: Machine | null }) {
 
       {/* Changing the repository touches NO machine: a submodule already cloned into a workspace still points at the old one. */}
       {editing && !missing && (
-        <p className="text-xs text-amber-500">
-          Les espaces de travail déjà présents sur une machine gardent l'ancien
-          dépôt : leur sous-module y pointe toujours, et il faudra l'y changer à
-          la main.
-        </p>
+        <p className="text-xs text-amber-500">{m["libs.changeWarning"]()}</p>
       )}
 
       {error && (

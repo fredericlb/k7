@@ -54,10 +54,12 @@ against a project where the plugin the module names is actually loaded, and comm
 account's **library repository** — a git repository somebody owns, not a folder on this volume.
 See `packages/song/docs/sharedFolders.md`.
 
-**Playlists** hold no **bytes**. A playlist is pure reference — names of songs filed elsewhere —
-so hosting one buys nothing, while costing the account a document it could not version alongside
-the work it was written for. A set list lives in the workspace's `_playlists/`, and st0 is the
-app that opens one (`packages/song/docs/playlists.md`).
+A **playlist** is neither: this volume holds one, under `playlists/`, as a root zone rather than a
+family — it names songs and carries no bytes of its own, so nothing here scans it
+(`docs/playlists.md`). A workspace keeps set lists too, under `_playlists/`, in the same format and
+for a different job: one is versioned with the songs it was written for and can be named by a
+`turntables` surface, the other sits beside the catalogue it points into
+(`packages/song/docs/playlists.md`).
 
 ## The words a browser needs live in `types.ts`
 
@@ -135,14 +137,47 @@ the walk covers everything else — a file dropped in by hand, a `git pull`, ano
 A content hash is rejected for the same reason `workspace.ts` rejects it: reading every
 file to decide whether to read every file costs more than the thing it guards.
 
-## When the walk gets slow
+## The walk is the library's size, so a service takes it off the request
 
-A full walk of a few thousand entries is milliseconds, and it only happens when the family
-actually changed. If a library ever grows past that, the next step is a watcher
-maintaining the in-memory listing with `index.json` as the warm start — not a database.
+The token is cheap next to a scan and it is **not free**: it is a `readdir` per folder and a
+`stat` per file, so it costs whatever the library is. Measured on a 620-file songs family
+sitting on a Windows volume through WSL, one `familyRevision("songs")` is **2.5 seconds**, and it
+is paid by every reader — a listing that is already cached still walks the disk to learn that it
+is still valid. A surface polling that token every three seconds therefore keeps a synchronous
+walk permanently in front of every other request the process has to answer.
 
-That escape hatch is written down here so the decision is a decision, not an assumption
-nobody revisited.
+So `revision.ts` holds the last walk per key, and a service opts in with
+**`startRevisionRefresh()`**: a timer walks every key ASYNCHRONOUSLY — `fs/promises`, thirty-two
+directories or stats in flight — and `familyRevision`, `recordingsRevision` and `revisions` answer
+from that. A poll costs a map lookup. Nothing else changes shape: same token, same callers.
+
+Two properties make the staleness affordable, and they are the reason this is a refresher rather
+than a cache with an expiry:
+
+- **Our own writes are never stale.** The mutation counter is read when the token is BUILT, not
+  when the walk ran, so `bumped()` moves the token in the same tick — upload a song, poll, see it.
+- **Everything else is late by at most one interval** (ten seconds by default): a file dropped on
+  the volume by hand, a `git pull`, another tool. That is the same class of change the walk was
+  always the only way to notice.
+
+A reader that never starts the refresher — every test in this package, and any consumer that
+wants the exact answer — walks per call exactly as before. The refresher is opt-in, and being
+opt-in is what keeps the tests honest about what a walk sees.
+
+A **watcher** is the next step if ten seconds ever stops being good enough, with `index.json` as
+the warm start — not a database. That escape hatch is written down here so the decision is a
+decision, not an assumption nobody revisited.
+
+## A derived sidecar does not move the token
+
+`skip()` drops dot-names, `node_modules`, **and any `{file}.cache`** — the waveform sidecar
+`@studio/audio-analysis` writes beside an audio file. It is derived from a file the walk already
+counts, so counting it too says the library changed when only its measurements did.
+
+That rule is load-bearing rather than tidy. pl8 sweeps the library in the background writing the
+sidecars nobody has asked for yet (`apps/pl8/docs/analysis.md`), one every quarter second. Were a
+sidecar to move the token, each of those writes would invalidate the listing the sweep is walking:
+a full rescan per file, for hours, over a library nobody touched.
 
 ## The index is versioned, because the token cannot see a code change
 

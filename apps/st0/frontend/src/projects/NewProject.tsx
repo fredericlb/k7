@@ -15,6 +15,7 @@ import { Input } from "@frediverse/ui/input";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { FolderPlus, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { projectFolderName } from "./projectName";
 import { SHAPES } from "./shapes";
 
@@ -64,7 +65,7 @@ export function NewProject({
         variant="secondary"
         size="xs"
         disabled={Boolean(blocked)}
-        title={blocked || "Créer un projet dans ce dépôt"}
+        title={blocked || m["project.newHint"]()}
         onClick={() => setOpen(true)}
       >
         <FolderPlus className="mr-1 h-3.5 w-3.5" /> Nouveau projet
@@ -73,12 +74,8 @@ export function NewProject({
       <Dialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Nouveau projet</DialogTitle>
-            <DialogDescription>
-              Le projet est créé sur la machine choisie, avec les réglages par
-              défaut, puis committé — et poussé si l'espace de travail a un
-              dépôt.
-            </DialogDescription>
+            <DialogTitle>{m["project.newTitle"]()}</DialogTitle>
+            <DialogDescription>{m["project.newBody"]()}</DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
@@ -93,17 +90,17 @@ export function NewProject({
                   disabled={busy}
                   onClick={() => setShape(sh.id)}
                 >
-                  {sh.label}
+                  {sh.label()}
                 </Button>
               ))}
             </div>
             <span className="text-xs text-muted-foreground">
-              {SHAPES.find((sh) => sh.id === shape)?.what}
+              {SHAPES.find((sh) => sh.id === shape)?.what()}
             </span>
 
             <Input
               autoFocus
-              placeholder="nom du projet — « hiver »"
+              placeholder={m["project.namePlaceholder"]()}
               value={name}
               disabled={busy}
               onChange={(e) => setName(e.target.value)}
@@ -140,11 +137,11 @@ export function NewProject({
               disabled={busy}
               onClick={() => setOpen(false)}
             >
-              Annuler
+              {m["common.cancel"]()}
             </Button>
             <Button disabled={busy || !folder} onClick={submit}>
               {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              Créer
+              {m["common.create"]()}
             </Button>
           </DialogFooter>
         </DialogContent>

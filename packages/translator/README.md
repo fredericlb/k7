@@ -39,15 +39,16 @@ Produces a self-contained folder:
 ```
 outDir/
   project.yaml               header (name/tempo/sampleRate/timeSignature)
-  graph.yaml                the graph: track → module nodes → OUT
+  graph.yaml                the graph: track → module nodes → strip → MIX → OUT
   modules/io/OUT/module.yaml            the stereo-output sink (io module)
   modules/{instruments,audio,transformers}/<name>/module.yaml
                                         self-contained modules: the plugin inline +
                                         concrete params (deduped by plugin+params),
                                         with <name>.vstpreset beside them
   nodes/<name>.yaml          a LANE: `extends` a track module, plus its placements
-  clips/<id>.yaml (+.wav)    raw audio material (source only; placement is on the lane)
+  clips/<id>.yaml            one per clip; the WAV beside them is one per recording, shared
   sequences/<id>.yaml        raw MIDI material (inline {t,d,k,v} note structs)
+  surfaces/timeline.yaml     what makes the lanes visible — an import IS an arrangement
 ```
 
 No schema ships with it: a project is validated in process against the loader's own
@@ -61,11 +62,11 @@ schemas (`packages/song/src/yaml/`).
 - audio clips with their **warp markers**, carried all the way into the C++ engine
 - MIDI clips as sequences — notes inline at full fidelity (exact onset/duration/key/velocity)
 - **plugin chains → chain-node graphs**: a track's ordered inserts (instrument first, then
-  audio FX) become `track → p0 → p1 → … → OUT`, each step `use`-ing a self-contained
+  audio FX) become `track → p0 → p1 → … → mix-<lane> → MIX`, each step `use`-ing a self-contained
   **module** (a deduped plugin + its params) carrying its `.vstpreset`
 - DAWproject only: **sends → bus subbranches**; effect/return tracks become `from`-less
-  chains ending at OUT, and an enabled send makes a track's terminal fan out to OUT + the bus
-- master track → OUT (or a master chain if it carries plugins)
+  chains ending at MIX, and an enabled send makes a track's terminal fan out to MIX + the bus
+- master track → the run between MIX and OUT (a master chain), or nothing when it has no plugins
 
 ## What it drops
 

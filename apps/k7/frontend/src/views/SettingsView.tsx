@@ -2,6 +2,7 @@ import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { useState } from "react";
 import { api } from "../api";
+import { SupernoteSettings } from "../components/SupernoteSettings";
 import type { User } from "../types";
 
 interface Props {
@@ -51,6 +52,10 @@ export function SettingsView({ user, onLogout, onBack }: Props) {
         <Button variant="outline" className="mt-4" onClick={onLogout}>
           Sign out
         </Button>
+      </Card>
+
+      <Card className="mt-4">
+        <SupernoteSettings />
       </Card>
 
       <Card className="mt-4">

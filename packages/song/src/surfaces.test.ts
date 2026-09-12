@@ -234,7 +234,7 @@ describe("a song with video lanes and no viewport", () => {
   function withPicture(name: string, body: string): string {
     const dir = withSurface(name, body);
     mkdirSync(join(dir, "video_tracks"), { recursive: true });
-    writeFileSync(join(dir, "video_tracks", "main.yaml"), "kind: video\n");
+    writeFileSync(join(dir, "video_tracks", "main.yaml"), "events: []\n");
     return dir;
   }
 

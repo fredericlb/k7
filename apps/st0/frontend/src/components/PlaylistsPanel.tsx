@@ -21,6 +21,8 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { fuzzyScore } from "../fuzzy";
+import { parts } from "../i18nParts";
+import { m } from "../paraglide/messages.js";
 import type { PlaylistInfo } from "../types";
 import { PlaylistEditor } from "./PlaylistEditor";
 import { type TreeNode, TreePicker } from "./TreePicker";
@@ -156,12 +158,12 @@ export function PlaylistsPanel({
             if (r) setMenu({ x: r.left, y: r.bottom + 4 });
           }}
           className="flex min-w-0 flex-1 items-center gap-1 rounded px-1.5 py-1 text-left text-sm hover:bg-accent disabled:opacity-50"
-          title={current?.path ?? "aucune playlist"}
+          title={current?.path ?? m["pls.none"]()}
         >
           <span className="min-w-0 flex-1 truncate">
             {rows === null
-              ? "chargement…"
-              : (current?.title ?? current?.name ?? "aucune playlist")}
+              ? m["pls.loading"]()
+              : (current?.title ?? current?.name ?? m["pls.none"]())}
           </span>
           <span className="shrink-0 text-muted-foreground">▾</span>
         </button>
@@ -169,8 +171,8 @@ export function PlaylistsPanel({
         <Button
           size="icon"
           variant={creating ? "default" : "ghost"}
-          title="Nouvelle playlist"
-          aria-label="Nouvelle playlist"
+          title={m["pls.new"]()}
+          aria-label={m["pls.new"]()}
           onClick={() => setCreating((c) => !c)}
         >
           <Plus className="h-4 w-4" />
@@ -180,13 +182,18 @@ export function PlaylistsPanel({
           size="icon"
           variant="ghost"
           disabled={!open}
-          title="Éditer le fichier (texte + morceaux)"
-          aria-label="Éditer le fichier"
+          title={m["pls.editFile"]()}
+          aria-label={m["pls.editFileShort"]()}
           onClick={() => setExpanded(true)}
         >
           <Maximize2 className="h-4 w-4" />
         </Button>
-        <Button size="icon" variant="ghost" title="Fermer" onClick={onClose}>
+        <Button
+          size="icon"
+          variant="ghost"
+          title={m["common.close"]()}
+          onClick={onClose}
+        >
           <X className="h-4 w-4" />
         </Button>
       </header>
@@ -203,11 +210,11 @@ export function PlaylistsPanel({
               if (e.key === "Escape") setCreating(false);
               if (e.key === "Enter") create();
             }}
-            placeholder="nom — l'extension est ajoutée"
+            placeholder={m["pls.namePlaceholder"]()}
             className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <Button size="sm" onClick={create} disabled={!name.trim()}>
-            Créer
+            {m["common.create"]()}
           </Button>
         </div>
       ) : null}
@@ -220,8 +227,7 @@ export function PlaylistsPanel({
 
       {current && !current.ok ? (
         <p className="flex shrink-0 items-center gap-1 border-b bg-muted/30 px-2 py-1.5 text-xs text-destructive">
-          <TriangleAlert className="h-3 w-3 shrink-0" /> ce fichier ne parse pas
-          — ouvrez le texte pour le réparer
+          <TriangleAlert className="h-3 w-3 shrink-0" /> {m["pls.brokenFile"]()}
         </p>
       ) : null}
 
@@ -229,14 +235,13 @@ export function PlaylistsPanel({
       <div className="min-h-0 flex-1">
         {rows === null ? (
           <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> chargement…
+            <Loader2 className="h-4 w-4 animate-spin" /> {m["pls.loading"]()}
           </div>
         ) : rows.length === 0 ? (
           <p className="p-3 text-sm text-muted-foreground">
-            Ce dépôt ne contient encore aucune playlist. Elles vivent dans{" "}
-            <span className="font-mono">_playlists/</span>, à la racine de
-            l'espace de travail — donc versionnées avec vos morceaux, et les
-            mêmes quel que soit le projet ouvert.
+            {parts((h) => m["pls.emptyRepo"](h), {
+              dir: <span className="font-mono">_playlists/</span>,
+            })}
           </p>
         ) : open ? (
           <PlaylistEditor
@@ -258,8 +263,8 @@ export function PlaylistsPanel({
           tree={tree}
           search={(q) => searchPlaylists(rows, q)}
           searchLimit={SEARCH_LIMIT}
-          placeholder="chercher une playlist"
-          emptyLabel="aucune playlist"
+          placeholder={m["pls.search"]()}
+          emptyLabel={m["pls.none"]()}
           onPick={(p) => setOpen(p.path)}
           onClose={() => setMenu(null)}
         />

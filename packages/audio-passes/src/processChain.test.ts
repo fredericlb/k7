@@ -256,7 +256,7 @@ describe("a chain that separates", () => {
     stemChain({ model: false });
     expect(() =>
       resolveChain(dir, loadProject(dir), "@st0/tools/stems"),
-    ).toThrow(/not on this machine.*~\/\.studio\/models/s);
+    ).toThrow(/not on this machine.*~\/\.st0\/models/s);
     put(
       library,
       "modules/audio/stemsplit/module.yaml",

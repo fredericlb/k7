@@ -78,6 +78,11 @@ const HOME_ROUTES: { path: string; tab: HomeTab }[] = [
   { path: "songs", tab: "songbook" },
 ];
 
+// One song's own page: the songbook list and the creation form are not it.
+function isSongPage(pathname: string): boolean {
+  return /^\/songs\/(?!new$)[^/]+$/.test(pathname);
+}
+
 // Derive which nav item is highlighted from the current pathname.
 function navForPath(pathname: string): NavKey {
   const seg = pathname.split("/")[1] ?? "";
@@ -245,7 +250,7 @@ export default function App() {
     setSourceOpen(true);
   };
 
-  // Create the session once we have a stream and jump into the recorder.
+  // Create the session once we have a stream, and open the recorder unless a song holds the page.
   const beginSession = async (
     stream: MediaStream,
     rtc?: { close: () => void },
@@ -255,7 +260,8 @@ export default function App() {
     await refresh();
     setRecording({ session: s, stream, rtc });
     setSourceOpen(false);
-    navigate("/record");
+    // A take started on a song stays there, collapsed to the bar — ../../docs/audio.md.
+    if (!isSongPage(location.pathname)) navigate("/record");
   };
 
   const startLocalSession = async () => {

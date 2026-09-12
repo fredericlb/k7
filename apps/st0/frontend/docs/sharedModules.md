@@ -246,14 +246,15 @@ Nothing to commit is not a failure either — two saves with no edit between the
 
 ## What the bench is for
 
-`@banc` opens **one library chain** — `/@banc/chains/<path>.st0`, from the chain's screen in
-pl8. A chain is a routing you hear, and editing one against nothing is half the job; it has no
-second home the way a module has this tab. The `@in`/`@out` edge translation is
-`packages/song/src/benchChain.ts`, and `apps/pl8/docs/banc.md` is its page.
+`@banc` opens **one live rig** — `/@banc/live.st0`, a place to HEAR a library module when no song
+you have open happens to name it. Nothing in it is kept: what a bench session produces is an edit
+to the library module itself, made from this tab, which is why the bench needs no second home for
+one. `apps/pl8/docs/banc.md` is its page.
 
-There is no bench for a MODULE: `@banc/modules.st0` answers 404 with a sentence pointing here.
-The bench's workspace mounts the library like any other, so `@st0/…` resolves there the way it
-does in a song.
+Neither a MODULE nor a CHAIN is edited there: both are authored from a project that is already
+open, and every other address under `@banc` answers 404 with a sentence pointing here. The bench's
+workspace mounts the library like any other, so `@st0/…` resolves there the way it does in a
+song.
 
 ## What to check in a browser
 
@@ -299,3 +300,4 @@ The suites here mount nothing, so none of this is covered by a green run:
 - change the libraries repository in pl8, then reopen a workspace that already has the old one →
   it is left alone, and the refusal names both URIs rather than rewriting the submodule;
 - open `/@banc/modules.st0` → a refusal that says where a module is edited.
+- open `/@banc/live.st0` → the rig, with `@st0/…` resolved out of this workspace's library.

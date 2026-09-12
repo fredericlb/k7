@@ -66,7 +66,7 @@ what the graph draws on the next read.
   Making a new chain from nothing has no verb yet.
 - **Committing.** The library is a git repository (`pl8-libraries`) and an edit leaves it dirty.
   Nothing in this screen publishes.
-- **The engine.** A chain edited here is not heard. That is what the bench is for
-  (`apps/pl8/docs/banc.md`) — a real project whose `graph.yaml` is the chain, with the catalogue
-  mirrored beside it so a plugin actually loads. The two are complementary: this edits the
-  topology in place, the bench auditions it.
+- **The engine.** A chain edited here is not heard. It is heard by being named in a project that
+  is open — this song, or the bench's live rig when no song names it (`apps/pl8/docs/banc.md`):
+  the library is mounted in both, so a plugin actually loads. This screen edits the topology in
+  place; something playing is what auditions it.

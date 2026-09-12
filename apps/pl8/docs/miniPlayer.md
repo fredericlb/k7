@@ -6,9 +6,8 @@ an editor that stops the engine on its way out: leaving the screen would stop th
 
 ```
 PlaybackProvider ── the <audio> element, what is loaded, the one engine socket
-   ├── the screens (catalogue, song editor, module editor, engine page)
-   ├── MiniPlayer        ← the view that outlives all of them
-   └── EngineStatusBar
+   ├── the screens (catalogue, song editor, module editor)
+   └── MiniPlayer        ← the view that outlives all of them
 ```
 
 ## One transport, two readings
@@ -32,12 +31,17 @@ engine it is not — the engine resumes from where its playhead was left, and ne
 unless it is looping — so the position past the end is turned back into 0 explicitly. See
 [playbackTarget.md](playbackTarget.md), "say where to start".
 
-## The progress bar is an `<input type="range">`
+## The ROW belongs to `@studio/ui-mini-player`
 
-Not a div with a click handler. Dragging, the keyboard and the accessible name all come with
-it, and a progress bar that cannot be scrubbed is one people try to scrub anyway. It is
-`disabled` until a duration exists, since a range with no maximum is a control that lies about
-where you are.
+The bar's layout — play/pause, the title line, the scrubber between two clocks, the close top
+right — is the shared component st0 mounts for its reference tracks
+(`packages/ui-mini-player/docs/miniPlayer.md`). It owns no transport, which is what makes it
+shareable: this app plays over three destinations and st0 plays a file in the browser beside a
+running engine, and neither of those fits in a bar.
+
+What stays here is what the médiathèque has to say: the version badge, the artist and album,
+"terminé" against an error, the destination indicator and the queue button. The strings too —
+they are props, so this app writes its French in place.
 
 The duration comes from the `<audio>` element, which is mounted for whatever is loaded **even
 when the engine is what plays it**: the engine's state frame carries a playhead and no length,
@@ -45,7 +49,7 @@ and a metadata request is cheaper than a second source of truth.
 
 ## One socket
 
-`useModuleEngine` is opened once, by the provider, and handed out through `useEngine()`. One
+`useSongEngine` is opened once, by the provider, and by nothing else. One
 per screen would be safe only while screens replace one another, and a song that keeps playing
 breaks exactly that: its transport has to outlive the screen that started it, and a second
 socket is a second client on the same session, driving the same project.
@@ -69,13 +73,17 @@ The two words look alike; the two things have nothing to do with each other:
 | | the queue | a playlist |
 |---|---|---|
 | what it is | **what you are listening to now** | **a document** |
-| where it lives | in the tab, in memory | a YAML file under `_playlists/`, in the repository |
-| who sees it | this tab | everyone, and the editor on the left |
+| where it lives | in the tab, in memory | a YAML file — `playlists/` here, or a workspace's `_playlists/` |
+| who sees it | this tab | everyone with the volume, or the repository |
 | survives | navigating between screens | everything |
 
-So it never goes to the server, and it disappears on reload — like any player's queue. What you
-want to keep goes into a playlist, written in st0 over this same catalogue
-(`packages/song/docs/playlists.md`).
+So it never goes to the server, and it disappears on reload — like any player's queue. What you want
+to keep goes into a playlist — the Playlists tab writes one on this volume ([playlists.md](playlists.md)),
+st0 writes one into a workspace (`packages/song/docs/playlists.md`).
+
+The two meet in one direction only: **« Tout écouter » fills the queue from a playlist**, never the
+reverse. A queue is an order you are trying out; promoting it to a document would file every
+half-finished sequence of clicks as a set list.
 
 ### The Library holds it, not the provider
 
@@ -89,7 +97,11 @@ itself.
 
 This queue is the sole claimant: it listens for `ended` and starts the next. So there is no
 arbitration, and none is needed — arbitration with one claimant arbitrates nothing and would
-make a reader believe there are two. Playlists open in st0, with a transport of their own.
+make a reader believe there are two.
+
+The Playlists tab does **not** become a second one: its ▶ calls `start()`, which replaces what is
+playing and chains nothing, and its « Tout écouter » hands the songs to THIS queue rather than
+keeping a list of its own. One thing advances, still.
 
 The shape of the bug to avoid the day a second thing can chain here: two independent subscribers
 to the same event, each starting a song, neither knowing the other exists — last write wins, at
@@ -123,6 +135,7 @@ seem dead. Both are tested in `playback/queue.test.ts`.
 
 ## Where a failure is said
 
-The engine's own complaints stay on `useEngine().warning`, read by the song's pane. The bar
-carries the one failure that belongs to it: a master the browser could not load, which is
-silence with nothing else on screen left to say so once the song's pane has been left behind.
+One field, `error`, carries every account of silence: a master the browser could not load, mpv
+refusing, and the moteur's own complaint about a clip it could not open. They are one field
+because the bar has one line for them and a reader has one question — why is there no sound —
+and the song's pane draws the same string for the song it has on screen.

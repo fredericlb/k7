@@ -92,6 +92,7 @@ function Knob({
   icon: Icon,
   value,
   range,
+  neutral = 0,
   step,
   size,
   readout,
@@ -104,6 +105,8 @@ function Knob({
   icon?: LucideIcon;
   value: number;
   range: readonly [number, number];
+  /** Where the knob comes back to on a double-click, and what it reads as at rest. */
+  neutral?: number;
   step: number;
   /** The dial's diameter in px — a NUMBER, since `deskLayout` computes it and Tailwind cannot spell it. */
   size: number;
@@ -137,7 +140,7 @@ function Knob({
   };
 
   const angle = angleOf(value, range);
-  const rest = Math.abs(value) < step / 2;
+  const rest = Math.abs(value - neutral) < step / 2;
   return (
     <div className="flex flex-col items-center gap-0.5">
       {/* A dial, so role + value pair rather than <input type=range>, which cannot be drawn as one. */}
@@ -153,7 +156,7 @@ function Knob({
           disabled ? "opacity-40" : "cursor-ns-resize"
         }`}
         onPointerDown={drag}
-        onDoubleClick={() => !disabled && onChange(0)}
+        onDoubleClick={() => !disabled && onChange(neutral)}
         onKeyDown={(e) => {
           if (disabled) return;
           const by = (hi - lo) / 80;
@@ -161,14 +164,14 @@ function Knob({
             onChange(round(value + by));
           else if (e.key === "ArrowDown" || e.key === "ArrowLeft")
             onChange(round(value - by));
-          else if (e.key === "Home") onChange(0);
+          else if (e.key === "Home") onChange(neutral);
           else return;
           e.preventDefault();
         }}
         title={
           disabled
-            ? "cette platine n'a pas ce module chargé"
-            : `${label} — glisser pour régler, double-clic pour revenir au neutre`
+            ? "this deck has not got that module loaded"
+            : `${label} — drag to set, double-click to go back to neutral`
         }
       >
         <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true">
@@ -227,7 +230,7 @@ function Knob({
         <span className="h-3 font-mono text-[9px] tabular-nums leading-none">
           {rest
             ? ""
-            : `${value > 0 ? "+" : ""}${value.toFixed(step < 1 ? 1 : 0)}${unit}`}
+            : `${value > neutral ? "+" : ""}${value.toFixed(step < 1 ? 1 : 0)}${unit}`}
         </span>
       ) : null}
     </div>
@@ -327,7 +330,7 @@ export function ChannelStrip({
         <>
           <div className="h-px w-8 shrink-0 bg-border" />
           <Knob
-            label="ÉCHO"
+            label="ECHO"
             icon={Repeat}
             value={echo ?? 0}
             range={ECHO_RANGE}
@@ -377,6 +380,8 @@ export function StemStrip({
           icon={STEM_ICONS[s]}
           value={stems[s] ?? STEM_NEUTRAL}
           range={STEM_RANGE}
+          // The record as it was cut sits mid-travel, so that is what a double-click comes back to.
+          neutral={STEM_NEUTRAL}
           // Percent under the hand, −1..1 on the wire — nobody reads a level as "0.4".
           step={0.01}
           size={layout.knob}
@@ -415,13 +420,13 @@ export type StemPrep =
 
 /** The one sentence the column says on hover, and it is different in all four states. */
 function titleFor(ready: boolean, prep: StemPrep | undefined): string {
-  if (prep?.k === "failed") return `La séparation a échoué : ${prep.why}`;
+  if (prep?.k === "failed") return `The separation failed: ${prep.why}`;
   if (prep)
-    return `Séparation en cours (${prep.phase}) — les potards s'allumeront à la fin`;
-  if (ready) return "Retirer un instrument du morceau";
+    return `Separating (${prep.phase}) — the knobs light up when it is done`;
+  if (ready) return "Take an instrument out of the song";
   // Nothing on this column fixes it, so the sentence names the two commands that do.
   return (
-    "Ce morceau n'a pas été séparé — préparez la playlist (playlist stems), " +
-    "ou nommez une chaîne dans le `stems:` de la surface pour que le pupitre le fasse lui-même"
+    "This song has not been separated — prepare the playlist (playlist stems), " +
+    "or name a chain in the surface's `stems:` so the desk does it itself"
   );
 }

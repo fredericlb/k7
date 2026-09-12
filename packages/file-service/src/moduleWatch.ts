@@ -4,7 +4,7 @@
 // docs/moduleWatch.md.
 
 import { type FSWatcher, watch } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { setFoldersStill } from "@studio/song/moduleCache";
 import { modulePanelRoots } from "@studio/song/sharedFolders";
 
@@ -62,6 +62,22 @@ export function closeModuleWatch(dir?: string): void {
       }
       watches.delete(at);
     }
+}
+
+/**
+ * Close every watch on `abs` and on anything under it. A watched directory cannot be RENAMED on
+ * Windows — the handle answers EPERM — so deleting a project or a workspace has to let go first.
+ * `closeModuleWatch` alone is not enough: the caller holds a folder, not the project paths in it.
+ */
+export function closeModuleWatchesUnder(abs: string): void {
+  const under = `${abs}${sep}`;
+  for (const dir of [...watches.keys()])
+    if (dir === abs || dir.startsWith(under)) closeModuleWatch(dir);
+}
+
+/** Which projects are watched right now — for a test that has to see the handles go. */
+export function watchedProjects(): string[] {
+  return [...watches.keys()].sort();
 }
 
 /** THIS process wrote something, so treat every watch as moved — see docs/moduleWatch.md. */

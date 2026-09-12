@@ -20,7 +20,7 @@ beforeEach(() => {
   mkdirSync(join(dir, "video_tracks"), { recursive: true });
   writeFileSync(
     join(dir, "video_tracks", "main.yaml"),
-    "kind: video\nx: 0\ny: 0\nw: 640\nh: 360\nevents: []\n",
+    "x: 0\ny: 0\nw: 640\nh: 360\nevents: []\n",
   );
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));

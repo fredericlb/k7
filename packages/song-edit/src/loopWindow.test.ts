@@ -11,14 +11,7 @@ import { materialWindow } from "./materialWindow";
 // The model these exercise: the MATERIAL owns its window, the PLACEMENT its `start` and `loop`.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(
-  here,
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
 
 let dir: string;
 // synth-demo is 120bpm 4/4 and places sequences/melody.yaml (8 notes, one per beat) at bar 1.

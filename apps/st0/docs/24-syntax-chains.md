@@ -95,9 +95,10 @@ modules:
 
 A module named once is ONE plugin. Pointing two lanes at the same name does not give each its own
 copy — it makes that module a bus fed by both, which is right for a shared reverb and wrong for an
-instrument. When each lane needs its own, give the module a node per lane. Name them for the
-lane they serve rather than after it: one flat name space means a lane and its synth cannot share
-a name.
+instrument. When each lane needs its own, give the module a node per lane. Naming them for the
+lane they serve reads best — `synth-melody` says whose it is. A node MAY take the name a module
+already has (a lane called `polysynth` beside the module `polysynth` is what an import writes): the
+node wins the bare name and the module stays reachable through its ref.
 
 ```yaml schema=GraphFile
 modules:

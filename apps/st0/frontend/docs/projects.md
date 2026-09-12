@@ -45,11 +45,11 @@ This screen is **the front door itself**. st0 answers at the origin root
 If the first thing you want at a front door is your own work, then the page listing that work IS
 the front door, and putting it behind a prefix you have to know how to type would rank it second.
 
-**The link to pl8 is in THIS page's header, and only here.** Opened on a project, st0 draws the
-editor's header, where a link that leaves the session has no business. The button goes in the
-SAME tab, unlike the link coming the other way (`apps/pl8/docs/otherApps.md`): over there the
-médiathèque may be playing something and leaving would stop it, here the page is a list and the
-back button returns it as it was.
+**The way out to pl8, k7 and z0 is in THIS page's header, and only here.** Opened on a project,
+st0 draws the editor's header, where a link that leaves the session has no business. It is the
+switch every app of the origin carries — `@studio/ui-app-switch`, the one pl8's header mounts
+too, rather than a link this app spells its own way — so a row opens a NEW tab and the desktop
+app can hand it to the system browser (`packages/ui-app-switch/docs/appSwitch.md`).
 
 `/auth/*` follows the root: the IdP knows only one `redirect_uri`, with no prefix, so those
 routes can only be served by the service that has no prefix — st0. See
@@ -216,20 +216,82 @@ scaffold has just written and the workspace does not resolve
 **Changing it touches no machine.** Workspaces already cloned keep the old one: their submodule
 still points there, and the file service REFUSES to rewrite it rather than doing so silently.
 
-## A project opens in the SAME tab
+### Adding one CLONES it, and nothing is made before it is there
+
+The card's button waits, and says *Cloning…* while it does: a paste that looks like an SSH URI is
+not yet a repository this machine's key can read, and a clone is the only thing that answers that
+question. A refusal names what git said and stores nothing. Where that clone LANDS, and why it is
+the bench's workspace rather than a place invented for it, is
+[packages/file-service/docs/libraries.md](../../../../packages/file-service/docs/libraries.md).
+
+**Nouveau** and **Importer** are greyed until the card is filled, saying so on the button rather
+than on the click, and the file service refuses the same two calls on its own side. A workspace
+made before the library exists is a folder whose every `@st0/…` resolves to nothing — the same
+half-set-up account the card exists to prevent, one level down and harder to read, since by then
+there is a workspace and a project in it to blame instead.
+
+## Dropping a foreign project on a workspace
+
+A `.dawproject` dragged onto a workspace's row is imported into it. The row lights up while the
+drag is over it — one row at a time, so what is about to happen is never ambiguous — and the drop
+opens a popin that asks **what to call it** before anything is uploaded. It defaults to the file's
+own name, shows the folder that will be created under it (the same `projectFolderName` rule
+`Nouveau projet` uses, suffix included), and refuses the names that dialog refuses.
+
+The bytes are POSTed to `/import-upload`, which translates them and writes the project. **The
+dropped file is not kept**: a `.dawproject` is a zip carrying its own audio, and keeping it beside
+the project it produced would put every sample in the repository twice.
+
+What comes back is the **import log** — what was read, and every warning the mapper raised — shown
+in the popin before anything opens, because a translation is lossy and finding that out inside the
+song is finding it out too late (`packages/translator/docs/import.md`). Then a button opens the
+project, in a new tab like every other project link here.
+
+Only `.dawproject` is taken, and the file service refuses anything else on its own side. A `.als`
+resolves its samples against its own folder, so one dropped alone would import a silent project;
+it is imported from the file tree of an open workspace instead.
+
+The row lights up for **any** file drag, because a `dragover` carries each item's kind and MIME
+type and never its name — and a `.dawproject` has no MIME type. So the judgement happens on the
+DROP, where the name is finally readable, and a file this cannot take is refused in a sentence
+rather than by a highlight that never appeared.
+
+## The BENCH, under the card whose repository it needs
+
+A module is something you HEAR: what it does cannot be read in its file, and its parameters only
+exist inside a project with the plugin loaded. The bench is that project — `/@banc/live.st0`, a
+live rig written again on every open and saved nowhere
+([apps/pl8/docs/banc.md](../../../pl8/docs/banc.md)).
+
+Its card is one button, because the bench names nothing: no chain, no project, no machine in the
+address. It sits here, under the libraries card, because the library is what it needs — every
+module the rig can reach is in the account's clone. With no library declared the card draws nothing
+at all — a second empty box beside the one that says what to do would only dilute it.
+
+Neither a MODULE nor a CHAIN is edited on it: both are authored from a project that is already
+open, against an engine already playing a song that very probably names them
+(`sharedModules.md`), and every other address under `@banc` answers a 404 that says so.
+
+## A project opens in a NEW tab
 
 Both departures — the indented row under the workspace and the tree's button — are ordinary
-**anchors**. The way back is the app's name in the editor's header, a link to this page
-(`projectsUrl`, the same one both gates use when they send you back here). It is a whole-page
-navigation and not a `<Link>`: the project is the router's `basename`, so nothing under it can
-route outside (`packages/project-shell/docs/launch.md`). On a **share** there is no link at all:
-the visitor has no account, so no home page to go to (`shared.md`).
+**anchors**, carrying `target="_blank"` (and `rel="noopener"`, since the opened tab has no business
+with the opener). This screen is a LIST, and a list is something you come back to: opening a
+second project means going back and clicking again, and the page it went back to had re-polled every
+machine on the way. The workspace link on an empty repository is the same anchor and behaves the
+same way — what it opens is the first-project wizard, which is a project surface like any other.
+
+It is a whole-page navigation and not a `<Link>`: the project is the router's `basename`, so
+nothing under it can route outside (`packages/project-shell/docs/launch.md`). The way back is still
+there for anyone who wants it — the app's name in the editor's header links to this page
+(`projectsUrl`, the same one both gates use when they send you back here). On a **share** there is
+no link at all: the visitor has no account, so no home page to go to (`shared.md`).
 
 `RepoList` and `RepoTree` receive a `projectHref`, not an `onOpenProject`. **An address and not an
-action** — the page computes where the row leads, the view makes it a link. That is what makes
-ctrl-click and middle-click open a new tab for whoever wants one, and what makes "copy link
-address" work: the choice stays with the browser. A `window.open` in an `onClick` would answer the
-same thing to all three.
+action** — the page computes where the row leads, the view makes it a link. That is what keeps
+shift-click (a window), ctrl-click and "copy link address" working: the choice of WHERE stays with
+the browser, `target` only saying what a plain click defaults to. A `window.open` in an `onClick`
+would answer the same thing to all of them.
 
 ## The tree is not the normal path
 
@@ -414,7 +476,7 @@ and the popin says so: the push is the one that can fail loudly (git speaks for 
 "Permission denied (publickey)"), the registration is the one that can be redone later. If only
 that fails, it is said and the popin does not close: what was pushed was pushed.
 
-Clicking a project goes straight into its application, in the same tab, at
+Clicking a project goes straight into its application, in a new tab, at
 `/<nom-du-dépôt>/<dossier>` — an ADDRESS, and the repository by its **short name**, not by its
 URI: an address bar is copied and pasted, and an SSH URI drags a machine, a port and a user along
 with it. From there the app asks pl8 for the URI behind that name
@@ -430,10 +492,20 @@ avoid.
 
 ## Creating, copying and deleting a project — on the machine, not here
 
-Each repository's block carries a **"Nouveau projet"** (the archetype, and a name), and each
-project a small **"Copier"** and a small **"Supprimer"**, both with a dialog. Neither is done by pl8: what this page calls is
-the file service the whole app uses as soon as a project is open, not a seam that would serve only
-here.
+Each repository's block carries a **"New project"** (the archetype, and a name), and each project
+a **⋮** holding the three acts on one: copy, rename, delete. Neither is done by pl8: what this page
+calls is the file service the whole app uses as soon as a project is open, not a seam that would
+serve only here.
+
+**The three sit behind one button** (`ProjectMenu.tsx`) because the row is first of all a LINK —
+clicking it opens the project, which is what somebody came for — and three text buttons beside
+that link compete with it while being wanted far less often. Shares keeps a button of its own: it
+carries a COUNT, which is a thing to read rather than an act to pick, and reading what you
+published comes before the act that takes it away.
+
+The dialogs are mounted **outside** the menu, by the menu's own component, with the menu holding
+only which of the three is asking. A Radix menu unmounts its content on select, and a dialog
+inside one goes down with it the instant it is chosen.
 
 They are **explicit calls**, with `fileBase` and the token on each one (`projects/api.ts`), and not
 the editor's global `configureFileApi`. That one is set ONCE, on the workspace of the single
@@ -444,6 +516,7 @@ project a tab has opened; this page touches a different repository on every row.
 | scaffold at default settings | `POST <fileBase>/project/create` → `createProjectIn` |
 | deletion (the folder is recycled) | `POST <fileBase>/project/delete` |
 | a copy into another workspace | `POST <fileBase>/workspaces/copy-project` |
+| a rename in place | `POST <fileBase>/project/rename` |
 | index, commit, push | the `commit` command → `packages/commands/src/git.ts` |
 | clone the repository if it is not there | `POST /workspaces/clone` + the jobs to poll |
 
@@ -530,9 +603,41 @@ project, where nothing under the root is listed and the copy would exist without
 edge: retrying would hit a name that is now taken, so the page says "copié dans …, mais : …" and
 leaves the fix to be a push rather than a second copy.
 
+### Renaming a project — the SAME workspace commits
+
+`project rename <project> <new name>`, and the ⋮'s "Rename". The folder moves on the machine
+(`RenameProject.tsx` → `machine.ts`'s `renameProjectOnMachine`), and the commit runs in the
+workspace it is already in — a rename is a delete and an add to git, so it is that repository's
+history that gains it, and the push follows the same `origin`-or-not rule creating and copying do.
+
+Three things it does not do, each for its own reason:
+
+- **It does not change the SUFFIX.** The suffix is what says which app opens the folder
+  (`projectApp`), so renaming a `.st0` into a `.z0` would hand the project to another editor.
+  `projectFolderName` puts the source's own back whatever is typed, and the file service refuses
+  the mismatch by name rather than trusting the caller.
+- **It STOPS the engine when that machine is playing the project**, exactly as a deletion does,
+  rather than refusing with "stop it first". That is why it is not `renameEntry`, whose
+  `guardMutable` refuses the active project outright: a rename needs the handles released for the
+  same reason a delete does, and asking somebody to go and stop the transport in another tab
+  before they may rename a folder is a refusal that teaches nothing. The dialog says it before the
+  click. What the project's marker does after is the one place the two acts differ — below.
+- **It does not chase the address.** A link to the old one stops answering, and the dialog says so
+  before the click rather than after. That is the honest cost of a name being an address
+  (`packages/project-shell/docs/launch.md`), and the alternative — a redirect table on the machine
+  — would be a second place where a project's name lives.
+
+**The active project FOLLOWS the rename.** A delete clears the marker, because the project has
+ended; a rename leaves the same project under another folder, so `.studio-active` is re-pointed at
+it and reopening the workspace lands where it was. The engine is stopped either way, and starting
+it again is opening the project — the gesture that starts one anywhere else.
+
+**A failed push does not undo the rename**, as with the other three: the folder IS renamed, and
+the page says so rather than throwing, since a retry would find the old name gone.
+
 ## Shares, on the row of the project they came out of
 
-A **"Partages"** button on each project row, beside "Supprimer", opens a popin listing the frozen
+A **"Shares"** button on each project row, beside the ⋮, opens a popin listing the frozen
 snapshots **that project** has published, and it is the only place one is withdrawn. **Both ends
 are st0**: `project share link` makes the bundle here, on the machine that has an engine and can
 therefore render sound, and sends it to pl8 — which holds the only copy and serves it to people
@@ -646,12 +751,25 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
   field and "Nouveau projet" are greyed, and the libraries can still be set. The "réglages" link in
   that sentence leads to the key, which also generates with no engine;
 - **with a machine and NO libraries repository**: `Examples` is there, and one of its demos opens
-  at `/@local/Examples/<démo>.st0` — the installation-day check;
+  at `/@local/Examples/<démo>.st0` — the installation-day check. **Nouveau** and **Importer** are
+  greyed, and hovering one says to add the repository first; the bench card is not drawn at all;
+- **add a libraries repository**: the button says *Clonage…* and waits — a clone, not a spelling
+  check. Give it a URI whose host is wrong → the refusal carries git's own words, the card still
+  reads as empty, and the two workspace buttons are still greyed. Give it a real one → the card
+  fills, both buttons come back, and `<state>/workspace/Banc/_libraries` is on disk;
+- **the bench card**, once there is a library: one button, which opens `/@banc/live.st0` on a rig
+  you can play. Wire something into it, reopen it → the rig is the scaffold again;
+- **drag a `.dawproject` onto a workspace row**: that row alone lights up, the popin opens on the
+  file's name, and the folder under the field follows what you type. Import → the log, with its
+  warnings in amber, then **L'ouvrir** opens the project in a new tab and the row's project count
+  has already gone up. Drop the same file twice under the same name → refused by name, and the
+  first import is untouched. Drag a `.wav` onto a row → it lights up like any file drag (a
+  dragover cannot read a name) and the drop is refused in a sentence saying what it takes;
 - unfold a workspace, reload → the same one unfolded, `?ws=` in the address;
 - create a project → the row appears **with no refresh**, in five seconds at worst. Longer means
   the list no longer comes from the machine;
-- open a project → the app takes the tab; the name in its header comes back here, and ctrl-click or
-  middle-click still open a tab;
+- open a project → it opens in a NEW tab and this one stays on the list; the name in the app's
+  header comes back here, and shift-click still opens a window;
 - leave a project from the editor, and lose its engine to somebody else → both come back here;
 - create a project in an **empty** repository this machine has never seen → the clone with git's
   progress, then the folder, then the commit;

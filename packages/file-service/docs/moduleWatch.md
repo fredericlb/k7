@@ -6,6 +6,22 @@ and that stamp is a directory walk: 329 `readdir` and 419 `stat`, about 19 ms
 paid per derivation, and a reload asks six routes. This file makes it paid per ten seconds
 instead.
 
+## Letting go before a folder moves
+
+`fs.watch` holds the directory it watches. On Windows that is not advisory: renaming a watched
+folder answers **EPERM**, half-way through whatever was moving it. So every path that MOVES a
+project or a workspace closes the watches under it first — `closeModuleWatchesUnder`, called by
+`Workspace.deleteProject` and by `removeWorkspace`.
+
+`closeModuleWatch(project)` alone was not enough, and the reason is the shape of the two: the
+watch is keyed by PROJECT, and the caller holds a folder — a workspace root, or a project it knows
+by a workspace-relative path. Closing "everything under this folder" is the question those callers
+can actually ask.
+
+The watch was dropped when a session SWITCHED project (`forgetModuleWatch`), and on nothing else —
+so a project deleted while it was the one being served kept four directory handles, and the
+delete failed on the rename with the project still on disk.
+
 ## What it answers
 
 One bit: **have this project's module folders moved since the last walk?** Nothing else. The

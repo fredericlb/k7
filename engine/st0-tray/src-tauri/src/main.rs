@@ -1,15 +1,18 @@
-// main.rs — the st0 tray app: a windowless Tauri tray that is the VIEW over the
-// supervisor (@studio/engine-host), spawned as a child and driven over NDJSON on stdio.
+// main.rs — the st0 tray app: a Tauri tray that is the VIEW over the supervisor
+// (@studio/engine-host), spawned as a child and driven over NDJSON on stdio. It starts
+// with no window and opens exactly one on demand, the settings window (settingswin.rs).
 // The Windows job object is created HERE, before anything is spawned, so a force-killed
 // tray takes the whole stack with it. See docs/tray.md.
 #![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 
+mod deps;
 mod host;
 mod hostcmd;
 mod job;
 mod logbus;
 mod paths;
 mod pidkill;
+mod settingswin;
 mod state;
 mod supervisor;
 mod tray;
@@ -19,14 +22,31 @@ use std::sync::{Arc, Mutex};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Manager, RunEvent};
 use tauri_plugin_autostart::{ManagerExt, MacosLauncher};
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 use state::{AppState, Menus, SharedState};
 
 fn main() {
     tauri::Builder::default()
-        // single-instance FIRST — a second launch is a no-op (there's no window to focus).
+        // The settings window's calls; nothing else in this app has a webview to make one.
+        .invoke_handler(tauri::generate_handler![
+            settingswin::settings_view,
+            settingswin::audio_rank,
+            settingswin::sync_targets,
+            settingswin::plugins_rescan,
+            settingswin::session_drop,
+            settingswin::plugin_show_ui,
+            settingswin::engine_start,
+            settingswin::engine_stop,
+            settingswin::engine_restart,
+            settingswin::file_service_restart,
+            settingswin::waveforms_clear,
+            settingswin::settings_close
+        ])
+        // single-instance FIRST — a second launch is a no-op: the tray icon is the way in.
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             None,
@@ -37,6 +57,18 @@ fn main() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let handle = app.handle().clone();
+
+            // The CLIs the file service shells out to, before ANY of the stack exists: without them a
+            // workspace cannot be imported, and every symptom of that lands far from this cause.
+            if let Some(message) = deps::missing() {
+                handle
+                    .dialog()
+                    .message(message)
+                    .title("st0")
+                    .kind(MessageDialogKind::Error)
+                    .blocking_show();
+                std::process::exit(1); // nothing is running yet, so there is nothing for cleanup() to do
+            }
 
             // Create the kill-on-close job BEFORE spawning anything: membership is inherited, so the whole stack dies with
             // the tray even on a force-kill. A no-op off Windows, where the closing stdin pipe plays the same role.
@@ -59,18 +91,7 @@ fn main() {
 
             let menus = Menus {
                 status: mb.status,
-                registry: mb.registry,
-                plugins: mb.plugins,
-                rescan: mb.rescan,
-                sessions: mb.sessions,
-                edit_plugins: mb.edit_plugins,
-                audio: mb.audio,
                 weburi: mb.weburi,
-                start: mb.start,
-                stop: mb.stop,
-                restart: mb.restart,
-                restart_file: mb.restart_file,
-                clear_waveform_cache: mb.clear_waveform_cache,
                 autostart: mb.autostart,
                 tray,
             };
@@ -80,9 +101,6 @@ fn main() {
                 host_error: None,
                 spinner: 0,
                 dark_menubar: dark,
-                drawn_audio_sig: String::new(),
-                drawn_edit_sig: String::new(),
-                drawn_sessions_sig: String::new(),
                 menus: Some(menus),
             }));
             app.manage(shared);

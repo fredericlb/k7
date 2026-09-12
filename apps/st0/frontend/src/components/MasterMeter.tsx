@@ -1,5 +1,6 @@
-// MasterMeter — the mix as it leaves for the interface, in the header: one bar, and a red light
-// that stays on if anything clipped during the last playback.
+// MasterMeter — the mix as it leaves for the interface, in the header: ONE lane holding the
+// meter, the output fader's handle and the unity mark, plus a red light that stays on if
+// anything clipped during the last playback.
 //
 // A LEAF that subscribes to the engine store itself, which is what the store exists for: the frame
 // arrives at 20 Hz, and a value read in App would re-render the whole tree twenty times a second
@@ -25,9 +26,17 @@ import {
   useState,
 } from "react";
 import { TARGET_DB } from "../gainTrim";
+import { m } from "../paraglide/messages.js";
 
 /** The bottom of the FADER, which is not the bottom of the field: below -60 dB a fader spends its travel on inaudible (docs/masterMeter.md). */
 const FADER_MIN_DB = -60;
+/** The handle's width in pixels, which the unity mark has to know: a range insets its thumb by half of it at each end. */
+const THUMB_PX = 4;
+/** Where 0 dB sits on the travel, as the CENTRE of a thumb at that value rather than as a plain fraction of the track. */
+const UNITY_LEFT = (() => {
+  const f = (0 - FADER_MIN_DB) / (MASTER_MAX_DB - FADER_MIN_DB);
+  return `calc(${(f * 100).toFixed(3)}% + ${((0.5 - f) * THUMB_PX).toFixed(2)}px)`;
+})();
 
 /** What the Fix button knows and nothing else does — a handle, the peak being folded during render at 20 Hz; `take` marks the offer spent. */
 export interface MasterMeterHandle {
@@ -90,17 +99,18 @@ export function MasterMeter({
   const level = dragged ?? master ?? 0;
 
   const w = meterFill(db);
+  /** Whether there is a fader at all: a share has no project to write to, and then the lane is a meter alone. */
+  const fader = master !== undefined && onMaster !== undefined;
+  // The number, for anyone who wants it exactly — a bar answers "how loud", never "how much".
+  const reading =
+    `sortie ${db <= FLOOR_DB ? "silence" : `${db.toFixed(1)} dB`}` +
+    (clipped ? m["meter.clipped"]() : "");
+
   return (
-    <div className={cn("flex flex-col gap-1", className)}>
-      <div
-        className={cn("flex items-center gap-1.5")}
-        // The number, for anyone who wants it exactly — a bar answers "how loud", never "how much".
-        title={
-          `sortie ${db <= FLOOR_DB ? "silence" : `${db.toFixed(1)} dB`}` +
-          (clipped ? " — a saturé pendant la dernière lecture" : "")
-        }
-      >
-        <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-foreground/15">
+    <div className={cn("flex items-center gap-1.5", className)}>
+      {/* ONE lane: the meter is the fader's track, and the handle rides on the reading it sets (docs/masterMeter.md). */}
+      <div className="relative h-1.5 w-24" title={reading}>
+        <div className="absolute inset-0 overflow-hidden rounded-full bg-foreground/15">
           <div
             className={cn(
               "absolute inset-y-0 left-0 rounded-full transition-[width] duration-75",
@@ -109,58 +119,71 @@ export function MasterMeter({
             style={{ width: `${w * 100}%` }}
           />
         </div>
-        {/* Always drawn, dark when nothing clipped: a light only there when it is on cannot be looked at to check. */}
-        <span
-          aria-label={clipped ? "a saturé" : "pas de saturation"}
-          className={cn(
-            "h-1.5 w-1.5 shrink-0 rounded-full",
-            clipped
-              ? "bg-red-500 shadow-[0_0_4px_1px] shadow-red-500/60"
-              : "bg-foreground/20",
-          )}
-        />
-        {/* …and unlike the light this one comes and goes: it is an offer to act, not a reading to be checked (docs/masterMeter.md). */}
-        {clipped && !fixed && onFix && (
-          <button
-            type="button"
-            onClick={() => {
-              setFixed(true);
-              onFix();
-            }}
-            title={`baisser la sortie du morceau, pour un pic à ${TARGET_DB} dB`}
-            className="shrink-0 rounded border border-red-500/40 px-1 py-px font-medium text-[10px] text-red-500 leading-none hover:bg-red-500/10"
-          >
-            fix
-          </button>
+        {/* UNITY — the one point of the travel worth finding without reading the number, and the handle covers it when it is there. */}
+        {fader && (
+          <span
+            aria-hidden="true"
+            className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 h-2.5 w-px bg-foreground/40"
+            style={{ left: UNITY_LEFT }}
+          />
         )}
-      </div>
-      {/* THE FADER — a native range input, `onChange` painting and the release committing, floored at -60 (docs/masterMeter.md). */}
-      {master !== undefined && onMaster && (
-        <div className="flex items-center gap-1.5">
+        {/* THE FADER — a native range over the bar, transparent track, `onChange` painting and the release committing (docs/masterMeter.md). */}
+        {fader && (
           <input
             type="range"
             min={FADER_MIN_DB}
             max={MASTER_MAX_DB}
             step={0.5}
             value={level}
-            aria-label="niveau de sortie du morceau"
-            title={`niveau de sortie — ${level > 0 ? "+" : ""}${level.toFixed(1)} dB (0 = unité, +${MASTER_MAX_DB} le haut du fader)`}
+            aria-label={m["meter.outputLabel"]()}
+            title={m["meter.hint"]({
+              reading,
+              level: `${level > 0 ? "+" : ""}${level.toFixed(1)}`,
+              max: MASTER_MAX_DB,
+            })}
             onChange={(e) => setDragged(Number(e.target.value))}
-            onPointerUp={() => dragged !== null && onMaster(dragged)}
-            onKeyUp={() => dragged !== null && onMaster(dragged)}
-            // HALF the platform's thumb, through per-browser pseudo-elements since there is no standard one — both written, or Firefox draws none.
+            onPointerUp={() => dragged !== null && onMaster?.(dragged)}
+            onKeyUp={() => dragged !== null && onMaster?.(dragged)}
+            // A HANDLE and no track of its own, through per-browser pseudo-elements since there is no standard one — both written, or Firefox draws none.
             className={cn(
-              "h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-foreground/15",
-              "[&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground/60",
-              "[&::-moz-range-thumb]:h-2 [&::-moz-range-thumb]:w-2 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground/60",
+              "absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-full bg-transparent",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "[&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-1 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-[1px] [&::-webkit-slider-thumb]:bg-foreground [&::-webkit-slider-thumb]:shadow-[0_0_0_1px] [&::-webkit-slider-thumb]:shadow-background",
+              "[&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-1 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-[1px] [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground [&::-moz-range-thumb]:shadow-[0_0_0_1px] [&::-moz-range-thumb]:shadow-background",
             )}
           />
-          {/* The number, tabular so the row does not shuffle as the digits change under a drag. */}
-          <span className="w-8 shrink-0 text-right font-mono text-[10px] text-muted-foreground tabular-nums">
-            {level > 0 ? "+" : ""}
-            {level.toFixed(1)}
-          </span>
-        </div>
+        )}
+      </div>
+      {/* Always drawn, dark when nothing clipped: a light only there when it is on cannot be looked at to check. */}
+      <span
+        aria-label={clipped ? m["meter.didClip"]() : m["meter.noClip"]()}
+        className={cn(
+          "h-1.5 w-1.5 shrink-0 rounded-full",
+          clipped
+            ? "bg-red-500 shadow-[0_0_4px_1px] shadow-red-500/60"
+            : "bg-foreground/20",
+        )}
+      />
+      {/* …and unlike the light this one comes and goes: it is an offer to act, not a reading to be checked (docs/masterMeter.md). */}
+      {clipped && !fixed && onFix && (
+        <button
+          type="button"
+          onClick={() => {
+            setFixed(true);
+            onFix();
+          }}
+          title={m["meter.fixHint"]({ target: TARGET_DB })}
+          className="shrink-0 rounded border border-red-500/40 px-1 py-px font-medium text-[10px] text-red-500 leading-none hover:bg-red-500/10"
+        >
+          fix
+        </button>
+      )}
+      {/* The number, tabular so the row does not shuffle as the digits change under a drag. */}
+      {fader && (
+        <span className="w-8 shrink-0 text-right font-mono text-[10px] text-muted-foreground tabular-nums">
+          {level > 0 ? "+" : ""}
+          {level.toFixed(1)}
+        </span>
       )}
     </div>
   );

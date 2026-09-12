@@ -3,7 +3,7 @@
 // the one way that could lie.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { configureFileApi, fget, fsend } from "./fileApi.ts";
+import { configureFileApi, fget, fsend, setFileApiTally } from "./fileApi.ts";
 
 let served: string[] = [];
 let release: (() => void)[] = [];
@@ -18,7 +18,7 @@ function heldFetch(): void {
           ok: true,
           status: 200,
           text: () => Promise.resolve(JSON.stringify({ url: String(url) })),
-          json: () => Promise.resolve({ url: String(url) }), // fsend still reads it this way
+          json: () => Promise.resolve({ url: String(url) }), // an error body is still read this way
         } as unknown as Response),
       );
     });
@@ -100,5 +100,36 @@ describe("fget", () => {
     releaseAll();
     await Promise.allSettled([stale, wrote, fresh]);
     expect(served.filter((u) => u.endsWith("/graph"))).toHaveLength(2);
+  });
+});
+
+describe("what the transport reports to a stall watcher", () => {
+  let seen: { name: string; ms: number; bytes: number }[] = [];
+  beforeEach(() => {
+    seen = [];
+    setFileApiTally((name, ms, bytes = 0) => seen.push({ name, ms, bytes }));
+  });
+  afterEach(() => setFileApiTally(() => {}));
+
+  it("names the ROUTE and the bytes, not the whole path", () => {
+    // A path carrying a file name would make every read its own line, and the busiest route
+    // unfindable — which is the one thing the report exists to point at.
+    const p = fget("/file?path=nodes/lead.yaml");
+    releaseAll();
+    return p.then(() => {
+      expect(seen.map((s) => s.name)).toEqual(["GET /file"]);
+      expect(seen[0].bytes).toBeGreaterThan(0);
+    });
+  });
+
+  it("counts ONE fetch and one parse PER CALLER, which is what the sharing costs", async () => {
+    // `fget` collapses the burst into one request and then parses per caller, deliberately: two
+    // callers handed one object could corrupt each other's. The price is real and this is where
+    // it shows — four readers of a large document parse it four times, on this thread.
+    const all = Promise.all([fget("/hints"), fget("/hints"), fget("/hints")]);
+    releaseAll();
+    await all;
+    expect(served).toEqual(["http://x/hints"]); // one request…
+    expect(seen).toHaveLength(3); // …and three parses
   });
 });

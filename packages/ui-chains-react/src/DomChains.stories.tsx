@@ -82,7 +82,7 @@ function Bench() {
   return (
     <div style={{ height: 380, background: "#0d0d0f" }}>
       <pre data-testid="wrote" style={{ color: "#9ca3af", margin: 0 }}>
-        {wrote.join("\n") || "— rien écrit —"}
+        {wrote.join("\n") || "— nothing written —"}
       </pre>
       <DomChains
         icons={icons}

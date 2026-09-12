@@ -57,7 +57,8 @@ const commandPrefSchema = z.object({
   icon: z.string().optional(),
   order: z.number().optional(),
   key: z.string().optional(),
-  menu: z.boolean().optional(),
+  // Which right-clicks may offer it: a list of entities, or `false` for none — see the frontend's commandPrefs.ts.
+  menu: z.union([z.boolean(), z.array(z.string())]).optional(),
 });
 
 /** What this service remembers about a person — and it is the GATE, not a description: see ../../AGENTS.md. */

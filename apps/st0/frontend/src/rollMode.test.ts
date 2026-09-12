@@ -26,8 +26,10 @@ describe("the roll's vocabulary", () => {
   });
 
   it("says what a press does in every one of them", () => {
-    for (const m of ROLL_MODES) expect(ROLL_PRESS[m]).toBeTruthy();
-    expect(new Set(Object.values(ROLL_PRESS)).size).toBe(ROLL_MODES.length);
+    for (const m of ROLL_MODES) expect(ROLL_PRESS[m]()).toBeTruthy();
+    expect(new Set(ROLL_MODES.map((m) => ROLL_PRESS[m]())).size).toBe(
+      ROLL_MODES.length,
+    );
   });
 });
 

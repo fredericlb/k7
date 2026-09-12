@@ -13,18 +13,22 @@ import {
 import type { CommentState, ShareComment } from "@studio/web-protocol";
 import { Check, EyeOff, Loader2, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { parts } from "../i18nParts";
+import { m } from "../paraglide/messages.js";
+import { getLocale } from "../paraglide/runtime.js";
 import { formatAt, inState } from "../shareComments";
 import { shares as api } from "./api";
 
 /** The three tabs, in the order a comment travels: it lands in the first and leaves for one of the others. */
-const TABS: readonly { state: CommentState; label: string }[] = [
-  { state: "active", label: "Actifs" },
-  { state: "resolved", label: "Résolus" },
-  { state: "ignored", label: "Ignorés" },
+const TABS: readonly { state: CommentState; label: () => string }[] = [
+  { state: "active", label: () => m["comments.active"]() },
+  { state: "resolved", label: () => m["comments.resolved"]() },
+  { state: "ignored", label: () => m["comments.ignored"]() },
 ];
 
 const stamp = (iso: string): string =>
-  new Date(iso).toLocaleString("fr-FR", {
+  // The reader's own locale, not a fixed one: a date is read in the language the screen is in.
+  new Date(iso).toLocaleString(getLocale(), {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -92,14 +96,13 @@ export function ShareComments({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="truncate">
-            Commentaires de « {label} »
+            {m["comments.title"]({ label })}
           </DialogTitle>
           <DialogDescription>
-            Écrits par les personnes à qui vous avez donné le lien. Elles les
-            voient toutes, avec l'état que vous leur donnez ici ; elles ne
-            peuvent rien y changer. Rien ne s'efface : <b>résolu</b> et{" "}
-            <b>ignoré</b> sont deux façons de sortir un commentaire de la liste
-            des actifs.
+            {parts((h) => m["comments.body"](h), {
+              resolved: <b>{m["comments.resolvedWord"]()}</b>,
+              ignored: <b>{m["comments.ignoredWord"]()}</b>,
+            })}
           </DialogDescription>
         </DialogHeader>
 
@@ -117,7 +120,7 @@ export function ShareComments({
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {t.label}
+                {t.label()}
                 {n > 0 ? (
                   <span className="ml-1.5 text-xs tabular-nums">{n}</span>
                 ) : null}
@@ -128,13 +131,13 @@ export function ShareComments({
 
         {comments === null ? (
           <div className="flex items-center gap-2 py-6 text-muted-foreground text-xs">
-            <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
+            <Loader2 className="h-4 w-4 animate-spin" /> {m["common.loading"]()}
           </div>
         ) : shown.length === 0 ? (
           <p className="py-6 text-muted-foreground text-xs">
             {tab === "active"
-              ? "Rien à lire. Les commentaires arrivent ici dès qu'une personne en écrit un."
-              : "Aucun commentaire dans cet onglet."}
+              ? m["comments.emptyActive"]()
+              : m["comments.emptyTab"]()}
           </p>
         ) : (
           <ul className="flex max-h-[50vh] flex-col divide-y divide-border/60 overflow-y-auto">
@@ -148,7 +151,7 @@ export function ShareComments({
                     </span>
                   )}
                   <span className="min-w-0 flex-1 truncate text-sm">
-                    {c.author || "anonyme"}
+                    {c.author || m["comments.anonymous"]()}
                   </span>
                   <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
                     {stamp(c.createdAt)}
@@ -166,7 +169,8 @@ export function ShareComments({
                         disabled={busy === c.id}
                         onClick={() => move(c, "resolved")}
                       >
-                        <Check className="h-3.5 w-3.5" /> Résoudre
+                        <Check className="h-3.5 w-3.5" />{" "}
+                        {m["comments.resolve"]()}
                       </Button>
                       <Button
                         variant="ghost"
@@ -175,7 +179,8 @@ export function ShareComments({
                         disabled={busy === c.id}
                         onClick={() => move(c, "ignored")}
                       >
-                        <EyeOff className="h-3.5 w-3.5" /> Ignorer
+                        <EyeOff className="h-3.5 w-3.5" />{" "}
+                        {m["comments.ignore"]()}
                       </Button>
                     </>
                   ) : (
@@ -186,7 +191,8 @@ export function ShareComments({
                       disabled={busy === c.id}
                       onClick={() => move(c, "active")}
                     >
-                      <RotateCcw className="h-3.5 w-3.5" /> Réactiver
+                      <RotateCcw className="h-3.5 w-3.5" />{" "}
+                      {m["comments.reactivate"]()}
                     </Button>
                   )}
                 </div>

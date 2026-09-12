@@ -154,6 +154,28 @@ machine a re-download of bytes that have not changed.
 
 `Versions.AudioPath` carries the mixdown's path, and `TrackMeta` carries `{id, path, name, mime}`.
 
+## A songbook song's reference track
+
+A song in the songbook carries at most one recording — the take you play along to while
+reading its chords. It lives at `recordings/songbook/<song uid>.<ext>`, and the row keeps
+`AudioPath` / `AudioMime` / `AudioName` the way a session keeps its own.
+
+Two places it deliberately is NOT:
+
+- **Not a Grist attachment**, unlike the sheet files. The rule above holds: metadata in
+  Grist, bytes in the médiathèque. A sheet is a page; this is a whole track.
+- **Not in the `songs/` family**, which is what it most looks like — it has an artist and a
+  title. Filing it there would mean writing into the catalogue under the REAL artist, where
+  a song of that name may already exist, and replacing it. A reference track is the
+  songbook's, not the library's, and no upload here may overwrite a catalogued song.
+
+Its own path, keyed by the song, is what makes a re-upload an overwrite and a delete exact.
+A track uploaded in a different container leaves the previous file behind under a name
+nothing points at, so that one is removed explicitly.
+
+The route serves it through `streamFile`, which answers Range — without that the player's
+progress bar would draw but not seek.
+
 ## k7 PUSHES; the médiathèque pulls nothing
 
 At publication k7 sends the bytes into the family itself: there is nothing to pull from the other
@@ -197,6 +219,16 @@ Stopping requires a **two-second hold**, button or space bar, so a brushed key d
 hour-long take. The space bar is swallowed on every `keydown` while the take runs — otherwise the
 page scrolls — but only starts the hold on the first; and it is ignored while the recorder is
 minimised, since the stop button is then off screen.
+
+## Where a new take opens
+
+The recorder is mounted once, outside the router, so a take survives every navigation and the
+route only decides whether it is drawn full or collapsed to the bottom bar. Which is why the
+route a take STARTS on is a choice rather than a mechanism: `/record` everywhere, except on one
+song's page, where the take begins collapsed and the page stays put. You record against a song
+in order to READ it while you play — sending the tablature away the instant the tape rolls is
+the one thing that use has no answer to. The bar is a button back to `/record` for the controls
+the collapsed form cannot carry.
 
 ## Detecting moments
 

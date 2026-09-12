@@ -58,6 +58,10 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   DspGraph.{h,cpp}          the DSP graph model @studio/dsp emits
   GraphDspPlugin.{h,cpp}     that graph as an audio plugin
   MidiGraphPlugin.{h,cpp}    the MIDI-side counterpart
+  ArpeggiatorPlugin.{h,cpp} a chord held down, played one note at a time — the one note effect that
+                            no graph can be, since it INVENTS notes rather than editing them
+  Arpeggiator.h             …and its clock and walk: JUCE-free and header-only, so tests/ has it in
+                            the FAST binary, like TurntableLoop.h (docs/arpeggiator.md)
   FaustPlugin.{h,cpp}       the same seam for a module written in Faust: it COMPILES the source
                             with the Faust interpreter and runs it (docs/faust.md)
   AirWindowsList.h          generated effect list (docs/airWindowsList.md)

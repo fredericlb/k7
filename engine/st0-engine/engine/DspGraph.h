@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include "NoteClock.h"
+
 #include <tracktion_engine/tracktion_engine.h>
 
 #include <array>
@@ -41,9 +43,14 @@ public:
     void process(juce::AudioBuffer<float>& buffer, int startSample, int numSamples,
                  const float* paramValues, int numParams);
 
-    /** Run one block over MIDI: the control phase then the MIDI phase, no wire, delay line or filter. */
+    /**
+     * Run one block over MIDI: the control phase then the MIDI phase, no wire, delay line or filter.
+     * `blockSeconds` and `secondsPerBeat` are what a node with a CLOCK needs, and the plugin is the
+     * only side that can know either — see docs/midiGraph.md.
+     */
     void processMidi(tracktion::engine::MidiMessageArray& midi,
-                     const float* paramValues, int numParams);
+                     const float* paramValues, int numParams,
+                     double blockSeconds = 0.0, double secondsPerBeat = 0.5);
 
     /** Whether the description declares any MIDI node — what decides if a module is a transformer at all. */
     bool hasMidi() const { return hasMidiPhase_; }
@@ -64,6 +71,8 @@ private:
         ain, aout, adelay, amul, aadd, atanh, alfo,
         // midi — block rate, rewriting the message list in place; their inputs are SCALARS, never wires
         transpose, velocity, mchannel,
+        // …and the two that give the phase a MEMORY and a clock: what a note SOURCE needs (docs/midiGraph.md)
+        mhold, mstrike,
     };
 
     static constexpr int MAX_IN = 4;
@@ -98,6 +107,12 @@ private:
     // One circular buffer per delay node, [channel][sample], sized at prepare() from its declared maximum.
     std::vector<std::array<std::vector<float>, 2>> delayLines_;
     std::vector<int> delayWrite_;
+    // What the MIDI phase remembers between blocks: the keys down, the copies sounding, the step
+    // clock. ONE per graph, like the note stream itself — see docs/midiGraph.md.
+    NoteClock notes_;
+    // …and the events one block of it produces, sized once at build() so no block allocates.
+    std::vector<NoteEvent> noteEvents_;
+    tracktion::engine::MidiMessageArray notePassThrough_;
     bool hasSamplePhase_ = false;
     bool hasMidiPhase_ = false;
     // Whether any node is a `mix`, i.e. whether the dry snapshot is needed — fixed at build(), not asked per block.

@@ -126,6 +126,14 @@ filesRouter.get(
 
 // No route makes a playlist: that is the `playlist new` command — see docs/fileRoutes.md.
 
+/** The LISTING of `_references/`; a track is uploaded with `/upload` and played over `/media`. */
+filesRouter.get(
+  "/references",
+  wrap((req, res) => {
+    res.json({ references: req.ws!.references() });
+  }),
+);
+
 /** Make an empty module: `<root>/<type>/<name>/module.yaml` — see docs/fileRoutes.md for `root`'s rule. */
 const moduleBody = z.object({
   root: z.string().min(1),
@@ -204,6 +212,28 @@ filesRouter.post(
         unloadEngineIfServing(abs),
       );
       res.json({ recycled });
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+// Rename a project folder in place, suffix kept; the engine STOPS when it is serving that folder.
+const renameProjectBody = z.object({
+  path: z.string().min(1),
+  name: z.string().min(1),
+});
+filesRouter.post(
+  "/project/rename",
+  validate(renameProjectBody),
+  wrap(async (req, res) => {
+    const { path, name } = req.body as z.infer<typeof renameProjectBody>;
+    try {
+      res.json(
+        await req.ws!.renameProject(path, name, (abs) =>
+          unloadEngineIfServing(abs),
+        ),
+      );
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
@@ -326,6 +356,28 @@ filesRouter.post(
     try {
       res.json(req.ws!.importProject(path));
     } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+// A project DROPPED on a workspace: raw body, the file's name and the chosen folder in the query.
+// Nothing is left behind — the bytes are translated, never written into the workspace (docs/import.md).
+filesRouter.post(
+  "/import-upload",
+  express.raw({ type: () => true, limit: "512mb" }),
+  wrap((req, res) => {
+    const file = String(req.query.file ?? "");
+    const name = String(req.query.name ?? "");
+    if (!file || !name)
+      return res.status(400).json({ error: "file and name required" });
+    const bytes = req.body;
+    if (!Buffer.isBuffer(bytes) || !bytes.length)
+      return res.status(400).json({ error: "empty upload" });
+    try {
+      res.json(req.ws!.importProjectFile(file, new Uint8Array(bytes), name));
+    } catch (e) {
+      // A refused extension, an occupied name and a file the mapper could not read are all the caller's to fix.
       res.status(400).json({ error: (e as Error).message });
     }
   }),

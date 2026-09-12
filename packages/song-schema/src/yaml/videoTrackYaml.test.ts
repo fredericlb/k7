@@ -4,9 +4,12 @@
 
 import { describe, expect, it } from "vitest";
 import { VideoTrackSchema } from "./entitySchemas";
+import {
+  listVideoPlacements,
+  setVideoPlacementFieldAt,
+} from "./videoTrackFile";
 
-const lane = (events: unknown[]) =>
-  VideoTrackSchema.safeParse({ kind: "video", events });
+const lane = (events: unknown[]) => VideoTrackSchema.safeParse({ events });
 
 const issuesOf = (r: ReturnType<typeof lane>) =>
   r.success ? [] : r.error.issues;
@@ -65,5 +68,29 @@ describe("fade_out needs an end", () => {
 
   it("leaves a fade_in on a length-0 shot alone — it is anchored to `start`", () => {
     expect(lane([{ ref: "a", start: 4, fade_in: 1 }]).success).toBe(true);
+  });
+});
+
+describe("an event with no `ref` — an ACTIVATION", () => {
+  it("is accepted: it says WHEN its lane is on, and carries no material", () => {
+    expect(lane([{ start: 2, length: 3 }, { start: 8 }]).success).toBe(true);
+  });
+
+  it("refuses the three keys that need a source, AT the key", () => {
+    for (const key of ["source_from", "fade_in", "fade_out"]) {
+      const bad = issuesOf(lane([{ start: 0, length: 2, [key]: 1 }]));
+      expect(bad.map((i) => i.path)).toEqual([["events", 0, key]]);
+      expect(bad[0].message).toContain("ACTIVATION");
+    }
+  });
+
+  it("is still LISTED, so an index addresses the same line in the file", () => {
+    const text =
+      "events:\n  - { start: 0, length: 2 }\n  - { ref: a, start: 4 }\n";
+    expect(listVideoPlacements(text).map((p) => p.ref)).toEqual(["", "a"]);
+    // Index 1 is the shot, whatever precedes it — the verbs and the drag both write this way.
+    expect(setVideoPlacementFieldAt(text, 1, "start", 6)).toContain(
+      "{ ref: a, start: 6 }",
+    );
   });
 });

@@ -1,7 +1,8 @@
-# The repository's verbs — commit, pull, status, and "alternatives"
+# The repository's verbs — commit, pull, status, the libraries, and "alternatives"
 
 Everything in `src/git.ts` acts on the WHOLE repository the working directory belongs to, because
-a workspace IS one clone. `gitEnv` is the host's transport config merged over the process env: the
+a workspace IS one clone. The one exception is `updateLibraries`, whose subject is the `_libraries`
+submodule inside it — the section below says what that costs. `gitEnv` is the host's transport config merged over the process env: the
 web host pins `GIT_SSH_COMMAND` to the per-user deploy key, and the CLI passes nothing. An
 `undefined` env inherits `process.env`; a map overrides only the keys it names.
 
@@ -23,6 +24,28 @@ clock along with the request. When the bound is hit, git is killed and the call 
   and bounded, keeping the last known counts when the remote is slow, and reports `tracked: false`
   when there is no repository or no upstream to compare against. `conflicted` is behind AND ahead —
   `pull --ff-only` cannot run, so the badge flags it instead of showing a count.
+
+## `project libraries update` — the one verb whose subject is a SUBMODULE
+
+The account's libraries are their own repository, mounted at `_libraries`
+([file-service/docs/libraries.md](../../file-service/docs/libraries.md)). Publishing a module you
+edited is the builder's Save; this verb is the other direction, and it is two steps, in this order:
+
+1. **`submodule update --init --remote`.** `--remote` is the whole verb — without it, git checks
+   out the commit this workspace already records, which is the opposite of updating.
+2. **One path-limited commit** over `.gitmodules` and `_libraries`, saying which version the
+   workspace now uses. Never pushed: which library version a song is built against is a fact about
+   this workspace until somebody commits the rest of it.
+
+Two mounts exist, because `ensureLibraries` makes two. A workspace that is a git repository gets a
+**submodule**; one that is not gets a **plain clone** in the same place, which has no gitlink and
+so is moved with `pull --ff-only` and recorded nowhere. `isSubmodule` reads `.gitmodules` to tell
+them apart rather than guessing from the folder.
+
+**A failure to record is not a failure to update.** The files have already moved by then, so it
+comes back as `recordError` beside the new sha — the shape `commitAndPush` uses for a push that
+failed after the commit landed. Reporting it as a refusal would send someone looking for an update
+that already happened.
 
 ## An alternative is a branch, with the branch you left remembered
 

@@ -3,6 +3,8 @@
 // `ensureWorkspace` is what clones, and also serves ADDING one. See ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
+// `m` is the MACHINE in every function here, so the catalogue comes in under its own name.
+import { m as msg } from "../paraglide/messages.js";
 import { engineMachine, type Machine } from "./api";
 import { commitOutcome } from "./commitOutcome";
 
@@ -29,8 +31,9 @@ export function gitReason(text: string): string {
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
-  if (lines.length <= 2) return lines.join(" — ") || "clonage échoué";
-  return `${lines.slice(-2).join(" — ")} (le reste est dans la console)`;
+  if (lines.length <= 2)
+    return lines.join(" — ") || msg["machine.cloneFailed"]();
+  return msg["machine.cloneTail"]({ lines: lines.slice(-2).join(" — ") });
 }
 
 export async function ensureWorkspace(
@@ -41,7 +44,7 @@ export async function ensureWorkspace(
   const already = await engineMachine.workspaceForRepo(m, uri);
   if (already) return already;
 
-  onStep("clonage du dépôt sur la machine…");
+  onStep(msg["machine.cloning"]());
   let job = await engineMachine.startClone(m, uri);
   const until = Date.now() + CLONE_CAP_MS;
   // Git's own words go to the CONSOLE and not to the screen: they are a log, and a log flickering
@@ -53,14 +56,11 @@ export async function ensureWorkspace(
     if (Date.now() > until)
       // The MACHINE is still cloning: only this page gave up, and the workspace appears by
       // itself when git is done — nothing is removed for taking long (docs/projects.md).
-      throw new Error(
-        "le clonage dure plus de dix minutes — il continue sur la machine, " +
-          "et l'espace de travail apparaîtra tout seul quand il aura fini",
-      );
+      throw new Error(msg["machine.cloneSlow"]());
     await sleep(CLONE_POLL_MS);
     const next = await engineMachine.cloneJob(m, job.id);
     // Forgotten by the machine: claiming it succeeded would be worse than failing here.
-    if (!next) throw new Error("la machine a oublié ce clonage — réessayez");
+    if (!next) throw new Error(msg["machine.cloneForgotten"]());
     job = next;
     const missed = job.emitted - logged - job.lines.length;
     if (missed > 0)
@@ -74,7 +74,8 @@ export async function ensureWorkspace(
     onStep(job.percent === null ? "clonage…" : `${job.phase} ${job.percent}%`);
   }
   if (job.failed) {
-    const said = job.error || job.lines.slice(-1)[0] || "clonage échoué";
+    const said =
+      job.error || job.lines.slice(-1)[0] || msg["machine.cloneFailed"]();
     // The WHOLE of it in the console; a failed clone can carry two hundred lines of git.
     console.debug("git:", said);
     throw new Error(gitReason(said));
@@ -113,7 +114,7 @@ export async function createLocalWorkspace(
   name: string,
   onStep: (s: string) => void,
 ): Promise<{ workspace: string }> {
-  onStep(`création de ${name}…`);
+  onStep(msg["machine.creating"]({ name }));
   await engineMachine.createWorkspace(m, name);
   return { workspace: name };
 }
@@ -125,7 +126,7 @@ export async function publishWorkspace(
   uri: string,
   onStep: (s: string) => void,
 ): Promise<void> {
-  onStep("envoi vers le dépôt…");
+  onStep(msg["machine.pushing"]());
   await engineMachine.setRemote(m, workspace, uri);
 }
 
@@ -141,14 +142,16 @@ export async function createProjectOnMachine(
   /** The workspace has no repository yet, so the push cannot land and must not be reported. */
   noRemote = false,
 ): Promise<{ project: string; gripe: string | null }> {
-  onStep(`création de ${folder}…`);
+  onStep(msg["machine.creating"]({ name: folder }));
   const project = await engineMachine.createProject(
     m,
     workspace,
     folder,
     shape,
   );
-  onStep(noRemote ? "commit…" : "commit et envoi…");
+  onStep(
+    noRemote ? msg["machine.committing"]() : msg["machine.committingPushing"](),
+  );
   return {
     project,
     gripe: await commitAndPush(m, workspace, `new project ${folder}`, noRemote),
@@ -169,12 +172,42 @@ export async function copyProjectOnMachine(
   onStep: (s: string) => void,
   noRemote = false,
 ): Promise<{ project: string; gripe: string | null }> {
-  onStep(`copie de ${path} vers ${to}…`);
+  onStep(msg["machine.copying"]({ path, to }));
   const project = await engineMachine.copyProject(m, from, path, to, name);
-  onStep(noRemote ? "commit…" : "commit et envoi…");
+  onStep(
+    noRemote ? msg["machine.committing"]() : msg["machine.committingPushing"](),
+  );
   return {
     project,
     gripe: await commitAndPush(m, to, `copy project ${project}`, noRemote),
+  };
+}
+
+/**
+ * …and rename one: the folder moves on the machine, then the workspace commits — a rename is a
+ * DELETE and an ADD to git, so what carries it off this disk is the push, exactly as a copy's is.
+ */
+export async function renameProjectOnMachine(
+  m: Machine,
+  workspace: string,
+  path: string,
+  name: string,
+  onStep: (s: string) => void,
+  noRemote = false,
+): Promise<{ project: string; gripe: string | null }> {
+  onStep(msg["machine.renaming"]({ path, name }));
+  const project = await engineMachine.renameProject(m, workspace, path, name);
+  onStep(
+    noRemote ? msg["machine.committing"]() : msg["machine.committingPushing"](),
+  );
+  return {
+    project,
+    gripe: await commitAndPush(
+      m,
+      workspace,
+      `rename project ${path} -> ${project}`,
+      noRemote,
+    ),
   };
 }
 
@@ -186,9 +219,11 @@ export async function deleteProjectOnMachine(
   onStep: (s: string) => void,
   noRemote = false,
 ): Promise<{ gripe: string | null }> {
-  onStep(`suppression de ${path}…`);
+  onStep(msg["machine.deleting"]({ path }));
   await engineMachine.deleteProject(m, workspace, path);
-  onStep(noRemote ? "commit…" : "commit et envoi…");
+  onStep(
+    noRemote ? msg["machine.committing"]() : msg["machine.committingPushing"](),
+  );
   return {
     gripe: await commitAndPush(
       m,

@@ -1739,7 +1739,7 @@ function NodeInner({
             <button
               type="button"
               className={`dgx-tin${trackInput === "aucune" ? " unknown" : ""}`}
-              title={`Entrée de l'interface : ${trackInput} — cliquer pour changer`}
+              title={`Interface input: ${trackInput} — click to change`}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -2005,10 +2005,8 @@ function NodeInner({
                 sinkPlay.onToggle();
               }}
               // Says WHY it is dead rather than looking broken — no engine, or nothing to play.
-              title={
-                sinkPlay.title ?? (sinkPlay.playing ? "Arrêter" : "Écouter")
-              }
-              aria-label={sinkPlay.playing ? "Arrêter" : "Écouter"}
+              title={sinkPlay.title ?? (sinkPlay.playing ? "Stop" : "Listen")}
+              aria-label={sinkPlay.playing ? "Stop" : "Listen"}
             >
               {sinkPlay.playing ? "■" : "▶"}
             </button>
@@ -2129,7 +2127,7 @@ function CablesInner({
   hovered: string | null;
   setHovered: (id: string | null) => void;
   // The pointer position travels with it: the `+` opens a picker, which must land where you clicked.
-  onInsert: (
+  onInsert?: (
     info: EdgeInsert,
     x: number,
     y: number,
@@ -2184,7 +2182,8 @@ function CablesInner({
 
       {/* insert affordance — a transparent hit path per eligible arrow, recoloured with a `+` on hover. */}
       {signal.map((g) => {
-        if (!g.insert) return null;
+        // No host to answer it, no `+`: an affordance that does nothing reads as a click that was missed.
+        if (!g.insert || !onInsert) return null;
         const d = smoothPath(g.base);
         const on = hovered === g.id;
         const mid = midByArc(g);
@@ -2197,7 +2196,7 @@ function CablesInner({
               onMouseLeave={() => setHovered(null)}
               onClick={(e) => {
                 e.stopPropagation();
-                onInsert(g.insert!, e.clientX, e.clientY, mid);
+                onInsert?.(g.insert!, e.clientX, e.clientY, mid);
               }}
             />
             {on && (
@@ -2208,7 +2207,7 @@ function CablesInner({
                   onMouseEnter={() => setHovered(g.id)}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onInsert(g.insert!, e.clientX, e.clientY, mid);
+                    onInsert?.(g.insert!, e.clientX, e.clientY, mid);
                   }}
                 >
                   <circle cx={mid.x} cy={mid.y} r={9} />
@@ -4070,7 +4069,7 @@ export function DomChains({
                 showLabels={showLabels}
                 hovered={hovered}
                 setHovered={setHovered}
-                onInsert={insert}
+                onInsert={onEdgeInsert ? insert : undefined}
               />
               {/* The cable in hand, moved by movePatch off-React, in the world SVG so jackPoint's coordinates hold. */}
               {patch && (

@@ -180,5 +180,5 @@ for (const dir of roots) {
 console.log(
   `${changed}/${seen} set(s) ${write ? "migrated" : "would change"}. ` +
     "`@st0/audio/utility/fade` must be in the library the project reads — " +
-    "packages/dsp/modules/ is a place to copy FROM (docs/sharedFolders.md).",
+    "add it there if it is missing (docs/sharedFolders.md).",
 );

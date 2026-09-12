@@ -168,7 +168,7 @@ below its material (`docs/peakPass.md`).
 ## What a cold module gets
 
 A **cold** module — one that has to know the whole of its input before it can produce any of it,
-like the normaliser in `packages/dsp/modules/normalize/` — is legal here: the input is a file,
+like a normaliser on `@studio/dsp`'s `normalize()` graph — is legal here: the input is a file,
 which is the condition `coldPlacementError` enforces.
 
 The pass that measures that file and feeds the value back is `peakPass.ts`, inside the per-source
@@ -212,9 +212,8 @@ plugin at all (`@studio/song`'s [coldModules.md](../../song/docs/coldModules.md)
 
 **Nothing puts either of these in your library.** The account's libraries repository is the
 reference and nothing seeds it, so `stemsplit` the MODULE and a chain naming it are both things to
-put there. The module as it is authored is
-`packages/dsp/modules/audio/separation/stemsplit/` (`@studio/dsp`'s `docs/catalogue.md`), and the
-chain is two files:
+author there; what the module has to say is in `@studio/dsp`'s `docs/catalogue.md`. The chain is
+two files:
 
 ```yaml
 # _libraries/chains/stems/graph.yaml

@@ -36,7 +36,6 @@ const group = (id: string): WebGroup => ({
 const videoTrack = (id: string): WebVideoTrack => ({
   id,
   name: id,
-  kind: "video",
   color: "",
   mute: false,
   solo: false,

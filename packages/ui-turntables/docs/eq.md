@@ -96,8 +96,10 @@ gain jumps when the pointer crosses the centre, and it is unusable on a knob thi
 more, down is less, over a fixed 160 px travel — what every sequencer does.
 
 `setPointerCapture` is what lets the hand leave the knob's 40 px mid-gesture, the arrow keys make
-it reachable with no pointer at all, and double-click returns to flat: the only position worth a
-shortcut, and the one a drag never hits exactly.
+it reachable with no pointer at all, and double-click returns to the knob's **neutral**: the only
+position worth a shortcut, and the one a drag never hits exactly. Neutral is a property of the
+knob rather than the number zero — flat on an EQ band, the record as it was cut on a stem — so the
+control is handed it, and the readout that goes quiet at rest reads it too.
 
 ## One truth, two pictures
 

@@ -18,12 +18,15 @@ const CMD = "/mnt/c/Windows/System32/cmd.exe";
 
 // Everything derived stays on the host: the mirror keeps its OWN node_modules, and no build output travels back.
 // `dist` is NOT on this list — engine/st0-tray/dist is the tray's web assets, tracked by git, and tauri stops without it.
+// `.cache` IS, and load-bearingly: `/MIR` purges whatever the source lacks, and that directory holds the tray's own
+// stdout — the only trace of a panic thrown before the merged log exists — plus the vendored node download.
 const SKIP = [
   "node_modules",
   ".git",
   "build",
   "target",
   "out",
+  ".cache",
   ".turbo",
   ".vite",
   ".claude",

@@ -6,7 +6,7 @@
 
 import { localizeCommand, localizeCommandLine } from "./commandI18n";
 import { type CommandPrefs, inMenu } from "./commandPrefs";
-import type { ArgClass, ArgProvider, CommandInfo } from "./types";
+import type { ArgClass, ArgProvider, CommandInfo, MenuEntity } from "./types";
 
 // What the cursor was over. `id` is the entity as commands name it: a track/module id, a clip's ref, a chain name.
 export type MenuCtx =
@@ -155,6 +155,27 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   note: "sequence note",
 };
 
+/** Which ENTITY each context IS, as `commands.yaml`'s `menu:` names it — `chain` and `sink` open none. */
+const CTX_ENTITY: Record<MenuCtx["kind"], MenuEntity | undefined> = {
+  track: "track",
+  group: "group",
+  // A block is the NODE, the same word `CLICKED_HEAD` drops off its rows.
+  module: "node",
+  clip: "event",
+  param: "param",
+  take: "take",
+  "curve-point": "curve",
+  chain: undefined,
+  sink: undefined,
+  assembly: "assembly",
+  "marker-add": "ruler",
+  marker: "marker",
+  "warp-point": "warp",
+  "picture-shot": "shot",
+  pad: "pad",
+  note: "note",
+};
+
 const shortName = (name: string, head: string): string =>
   head && name.startsWith(`${head} `) ? name.slice(head.length + 1) : name;
 
@@ -167,8 +188,17 @@ const build = (
   head = "",
   /** Which language the DESCRIPTION is read in. The names stay the CLI's — see commandI18n.ts. */
   locale = "en",
+  /** What was clicked, for the catalogue's `menu:` — undefined asks nothing of it. */
+  entity?: MenuEntity,
 ): MenuItem[] => {
-  const kept = entries.filter((e) => inMenu(e.verb, prefs));
+  const kept = entries.filter((e) =>
+    inMenu(
+      e.verb,
+      prefs,
+      entity,
+      commands.find((c) => c.command === e.verb)?.menu,
+    ),
+  );
   const full = kept.map((e) => e.name ?? localizeCommand(e.verb));
   const short = full.map((n, i) => (kept[i].name ? n : shortName(n, head)));
   // All or nothing: the list is DERIVED, so when shortening would make a pair indistinguishable nothing is dropped.
@@ -274,7 +304,14 @@ export function contextMenu(
   const from = (slots: Slot[]): Entry[] => fromCatalogue(commands, slots);
   // Bound once, so no `case` below can forget the prefs or the head — which would ignore what someone turned off, in one context out of nine.
   const offer = (entries: Entry[]): MenuItem[] =>
-    build(commands, entries, prefs, CLICKED_HEAD[ctx.kind], locale);
+    build(
+      commands,
+      entries,
+      prefs,
+      CLICKED_HEAD[ctx.kind],
+      locale,
+      CTX_ENTITY[ctx.kind],
+    );
   switch (ctx.kind) {
     case "track":
       return offer([

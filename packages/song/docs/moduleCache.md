@@ -154,6 +154,31 @@ test that depends on it proves nothing. It goes red with `SETTLE_MS` at -1.
 What is left is what this codebase already states wherever it caches on an mtime
 (`waveformCache`, `Workspace.revision()`): a clock stepped backwards past the window.
 
+### …and the same rule holds the STAMP, and the file service's text image
+
+The module stamp is an mtime too — the newest among the files that define a module — so it has the
+identical hazard, one level up: a module written in the same tick as the walk before it leaves the
+stamp untouched, and the whole vocabulary is then served from before that write. Measured the way
+the section above was, over the sequence the module builder actually runs (read the module map to
+find the file, write it, read it back): **18 of 30** reads came back pre-write.
+
+So `cachedForModules` applies the rule the parse cache does: a stamp whose newest mtime has not
+settled is not stored, and nothing already held under it is served. What it costs is the walk plus
+the reads for two seconds after an edit — and only the file that changed is re-parsed, since the
+layer below is still keyed per file. What it would have cost otherwise is the edit you just made
+not existing.
+
+Inside a `withModuleStamp` scope those young reads are held **for the scope**: values built under
+one stamp are consistent with each other, and the danger is only in letting them outlive the
+derivation that asked. That is what keeps a compile from reading the médiathèque three times in the
+two seconds after a save.
+
+`Workspace.textOf` (`packages/file-service`) keys its per-file text image on `(size, mtime)` and
+therefore follows the same rule — which matters more there than anywhere: that image is what an
+undo entry is diffed against, so a same-size rewrite inside one tick (`v1` → `v2`, a knob from
+`0.5` to `0.7`) was journalling nothing at all. `SETTLE_MS` is exported from `moduleCache.ts` and
+imported by both, because three windows that could drift is three chances to be wrong.
+
 ### Reading is the syscall, not the byte
 
 Worth knowing before optimising the next one. On this machine `readFileSync` costs ~0.36 ms per

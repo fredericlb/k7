@@ -11,6 +11,7 @@ import {
   type TreeTarget,
 } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
+import { MODULE_SOURCES_DIR } from "@studio/song-schema/moduleTypes";
 import type { ModuleLibrary } from "@studio/web-protocol";
 import {
   Boxes,
@@ -87,9 +88,15 @@ function foldModules(nodes: FileNode[]): {
       const file = moduleFileIn(n);
       if (file) {
         modules.set(n.path, file);
+        // A rack's audio is CONTENT rather than definition, so `sources/` survives the fold as the row's one child.
+        const sources = n.children?.find(
+          (c) => c.dir && c.name === MODULE_SOURCES_DIR,
+        );
         // `dir` and `children` both dropped: the shared tree decides 'leaf' from those alone.
         const { dir: _dir, children: _children, ...leaf } = n;
-        return leaf as FileNode;
+        return sources
+          ? ({ ...leaf, dir: true, children: [sources] } as FileNode)
+          : (leaf as FileNode);
       }
       return n.children ? { ...n, children: walk(n.children) } : n;
     });
@@ -313,9 +320,12 @@ export function FileTree({
   }, [levels, frozen, onCreateFolder, onCreateModule]);
 
   const menuEnabled = !!onRename && !!onDelete;
-  // `t.dir` is false on a module row, so the folded set answers instead.
+  // A module row is a leaf, EXCEPT a rack, which kept its `sources/`; the folded set answers for both.
   const isModuleTarget = (t: TreeTarget<FileNode>) =>
     !t.root && isModule(t.path);
+  // A plain folder: a rack's row is one to the shared tree, and must not offer a folder's actions —
+  // its contents are the module's, and `sources/` is the row that takes a drop.
+  const isPlainDir = (t: TreeTarget<FileNode>) => t.dir && !isModule(t.path);
   // Both resolve the module inside the ACTIVE PROJECT, so neither reaches a shared one (see moduleFork.ts).
   const isLocalModuleTarget = (t: TreeTarget<FileNode>) =>
     isModuleTarget(t) && !isShared(t.path);
@@ -324,20 +334,20 @@ export function FileTree({
     {
       key: "upload",
       label: "Upload files…",
-      when: (t) => t.dir && !isShared(t.path),
+      when: (t) => isPlainDir(t) && !isShared(t.path),
       run: (t) => pickFiles(t.path),
     },
     {
       key: "upload-folder",
       label: "Upload a folder…",
-      when: (t) => t.dir && !isShared(t.path),
+      when: (t) => isPlainDir(t) && !isShared(t.path),
       run: (t) => pickFolder(t.path),
     },
     {
       key: "new-file",
       label: "New file…",
       when: (t) =>
-        t.dir && !t.root && !isShared(t.path) && !!onCreateProjectFile,
+        isPlainDir(t) && !t.root && !isShared(t.path) && !!onCreateProjectFile,
       prompt: {
         placeholder: "filename.yaml",
         initial: () => "untitled.yaml",
@@ -349,7 +359,8 @@ export function FileTree({
       key: "new-folder",
       label: "New folder…",
       // Same reach as 'New file…': inside a folder, never at the root, where a loose entry would sit among the projects.
-      when: (t) => t.dir && !t.root && !isShared(t.path) && !!onCreateFolder,
+      when: (t) =>
+        isPlainDir(t) && !t.root && !isShared(t.path) && !!onCreateFolder,
       prompt: {
         placeholder: "folder-name",
         submit: "Create",
@@ -525,7 +536,10 @@ export function FileTree({
               if (file) onOpenLibraryModule?.(`${node.path}/${file}`);
             }}
             // A chain FOLDER opens on its name while its chevron still folds — see docs/chainsBuilder.md.
-            opensOnName={(n) => chainByPath.has(n.path)}
+            // So does a rack, which kept its `sources/` and is therefore a folder row too.
+            opensOnName={(n) =>
+              chainByPath.has(n.path) || lib.modules.has(n.path)
+            }
             icon={(node, open) =>
               // A chain wears the builder's own glyph, so the row and the screen it opens are recognisably one thing.
               chainByPath.get(node.path)?.node === undefined &&
@@ -558,6 +572,8 @@ export function FileTree({
             if (file) onOpenModule?.(`${node.path}/${file}`);
             else onOpen(node.path);
           }}
+          // A rack keeps its `sources/`, so its row is a folder: the chevron folds, the name opens the builder.
+          opensOnName={(n) => isModule(n.path)}
           onDropTree={onUpload}
           onMove={onMove}
           icon={(node, open) =>

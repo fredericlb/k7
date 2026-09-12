@@ -4,7 +4,7 @@
 // TS (graph.ts validate(), nodeProject's ref pass) instead.
 
 import { z } from "zod";
-import { MODULE_STATUSES } from "../moduleTypes";
+import { MODULE_STATUSES, SHAPE_KINDS } from "../moduleTypes";
 import { PlacementSchema } from "./placementSchema";
 
 /** An interface input: a preferences label, or one/two physical channel numbers. */
@@ -222,7 +222,14 @@ const MODULE_FIELDS = {
   inputs: z.array(PortSchema).optional(),
   outputs: z.array(PortSchema).optional(),
   type: z
-    .enum(["plugin", "rack", "video_effect", "video_transition", "shader"])
+    .enum([
+      "plugin",
+      "rack",
+      "video_effect",
+      "video_transition",
+      "shader",
+      "shape",
+    ])
     .optional(), // NOT .default() — the loader applies it (moduleFile.ts) so the file stays as terse as authored
   // Which SHADER this node runs — a bare folder name under the module's `shaders/`, see docs/moduleFile.md.
   shader: z
@@ -233,6 +240,10 @@ const MODULE_FIELDS = {
       "a shader is a folder name in the module's shaders/ — letters, digits, '_' and '-'",
     )
     .optional(),
+  // What a SHAPE module draws, its geometry being `params:` so a curve can drive it — see song-video/docs/shapes.md.
+  shape: z.enum(SHAPE_KINDS).optional(),
+  // …and, on a `text` shape, the CSS family its glyphs are set in; its string is `content:`, a doc note's key.
+  font: z.string().optional(),
   // A param is a NUMBER, except the few the plugin steers with a file it loads — see docs/moduleAssets.md.
   params: z.record(z.string(), z.union([z.number(), z.string()])).optional(),
   rack: RackSchema.optional(),
@@ -246,9 +257,7 @@ const MODULE_FIELDS = {
   // …and WHERE in the viewport it draws, [x, y, w, h] in px. Absent is the whole frame. One key
   // rather than four, so it cannot be confused with graph.yaml's `positions:` — which is where a
   // node's CARD sits, a different fact about the same node (docs/camera.md).
-  frame: z
-    .tuple([z.number(), z.number(), z.number(), z.number()])
-    .optional(),
+  frame: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
   // An io "file" module's audio FILE, project-relative, and ABSENT on a chain template — see docs/fileInput.md.
   source: z.string().optional(),
   // Whether you hear the input while it plays; the three-state spelling stays because "auto" is neither.
@@ -301,6 +310,8 @@ export const ModuleSchema = z
       .optional(),
     // How the COMPLETIONS should treat this module — one fact about it, said once (docs/moduleStatus.md).
     status: z.enum(MODULE_STATUSES).optional(),
+    // …and what they CALL it: free text, the name a person reads in a picker (packages/song/docs/moduleLabel.md).
+    label: z.string().optional(),
   })
   .strict(); // an unknown key is a typo — silently ignoring `paramz:` is worse than saying so
 

@@ -3,7 +3,7 @@
 // what the tray consumes. It is spawned into the kill-on-close job and relaunched with
 // backoff if it crashes; the engine survives that via its pidfile. See docs/tray.md.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -32,6 +32,29 @@ pub struct AudioDevice {
     pub name: String,
     pub device_type: String,
     pub current: bool,
+}
+
+/// One place this machine may COPY a set list to, as `preferences.yaml` declares it. Serialize as
+/// well as Deserialize: the window draws these rows verbatim — packages/file-service/docs/playlistSync.md.
+#[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SyncTarget {
+    pub name: String,
+    /// `file:///…` or `ftp://…`, shown in full. This window runs ON the machine that holds the
+    /// file, so it is the one surface where a password in it is not being sent anywhere.
+    pub uri: String,
+}
+
+/// One INSTALLED plugin, for the settings window's list. The catalogue, not the instances `EditPlugin` names.
+/// Serialize as well as Deserialize: the window draws these rows verbatim, so a second struct would only drift.
+#[derive(Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Plugin {
+    pub name: String,
+    pub format: String,
+    pub manufacturer: String,
+    /// "instrument" | "audioEffect" | "midiEffect", verbatim from the engine.
+    pub role: String,
 }
 
 /// One plugin instance in one of the engine's projects, for the "Native plugin UI ▸" submenu.
@@ -96,6 +119,10 @@ pub struct Snapshot {
     pub last_heartbeat_ok: bool,
     /// None means "the engine hasn't answered yet" — the spinner, not "none found".
     pub plugin_count: Option<usize>,
+    /// The installed catalogue, name-sorted, drawn only by the settings window.
+    pub plugins: Vec<Plugin>,
+    /// Changes exactly when that catalogue does, so only a rescan redraws the list.
+    pub plugins_sig: String,
     pub audio_devices: Vec<AudioDevice>,
     /// The interfaces the user RANKED, best first. The first one PRESENT is where the engine
     /// goes; a name with nothing behind it is unplugged and keeps its rank, so replugging restores it.
@@ -109,6 +136,8 @@ pub struct Snapshot {
     /// The same trick again for "Sessions": what the rows SHOW, so a moving playhead does
     /// not tear down a submenu the user has open.
     pub sessions_sig: String,
+    /// Where this machine may copy a set list — the Sync tab's whole content.
+    pub sync_targets: Vec<SyncTarget>,
     pub web_origins: Vec<String>,
     pub web_pending: Vec<String>,
     pub attention: bool,
@@ -132,6 +161,8 @@ impl Default for Snapshot {
             registry_url: String::new(),
             last_heartbeat_ok: false,
             plugin_count: None,
+            plugins: Vec::new(),
+            plugins_sig: String::new(),
             audio_devices: Vec::new(),
             audio_priority: Vec::new(),
             audio_menu_sig: String::new(),
@@ -139,6 +170,7 @@ impl Default for Snapshot {
             edit_plugins_sig: String::new(),
             sessions: Vec::new(),
             sessions_sig: String::new(),
+            sync_targets: Vec::new(),
             web_origins: Vec::new(),
             web_pending: Vec::new(),
             attention: false,

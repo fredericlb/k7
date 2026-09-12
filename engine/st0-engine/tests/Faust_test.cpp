@@ -1,10 +1,12 @@
-// Every `.dsp` this repo ships, compiled by the engine's own libfaust against the engine's own
-// copy of the Faust libraries.
+// Faust, compiled by the engine's own libfaust against the engine's own copy of the Faust
+// libraries: seven cases on inline source, and one that walks a MODULE LIBRARY named by
+// `$STUDIO_MODULES` — this repo ships no modules to walk.
 //
-// This is the test that was missing when the Wurlitzer was written, reviewed, committed, pushed
-// into an account's library and opened in the builder — without ever compiling once. It failed on
-// `redefinition of symbols are not allowed : pm`, because `pm` is stdfaust's alias for
-// physmodels.lib. Nothing short of a real compiler could have said so.
+// That last case is the check that was missing when the Wurlitzer was written, reviewed, committed,
+// pushed into an account's library and opened in the builder — without ever compiling once. It
+// failed on `redefinition of symbols are not allowed : pm`, because `pm` is stdfaust's alias for
+// physmodels.lib. Nothing short of a real compiler could have said so. Run it against your library
+// before pushing one.
 //
 // JUCE-free on purpose, like ProjectDiff_test: it links libfaust and nothing else, so it builds
 // and runs in seconds and needs no audio device.
@@ -16,6 +18,7 @@
 #include "test_harness.h"
 
 #include <chrono>
+#include <cstdlib>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -62,8 +65,36 @@ std::string readAll(const fs::path& p)
     return ss.str();
 }
 
-/** The modules written in this repo: a place to copy FROM, not a seed (packages/dsp/docs/catalogue.md). */
-fs::path catalogueDir() { return fs::path{STUDIO_DSP_MODULES}; }
+/**
+ * A module library to compile, named at RUN time by `$STUDIO_MODULES`. There is no corpus in this
+ * repo to point at: modules live in the account's library repository and nowhere else
+ * (packages/song/docs/sharedFolders.md), so the only honest default is "none given".
+ */
+fs::path catalogueDir()
+{
+    const char* env = std::getenv("STUDIO_MODULES");
+    return env != nullptr ? fs::path{env} : fs::path{};
+}
+
+/**
+ * One module's source out of that library, or EMPTY when none was given. The cases below measure
+ * named modules — the wurlitzer's release, its modulation index — so a synthetic stand-in would
+ * quietly change what they claim. They skip instead, and say so.
+ */
+fs::path libraryDsp(const char* rel)
+{
+    const auto root = catalogueDir();
+    if (root.empty()) return {};
+    const auto p = root / fs::path(rel);
+    return fs::is_regular_file(p) ? p : fs::path{};
+}
+
+/** The skip, spelled once: a suite that measures nothing must never read as a suite that passed. */
+bool announceNoLibrary(const char* what)
+{
+    std::printf("    no library given — set STUDIO_MODULES to measure %s\n", what);
+    return true;
+}
 
 /** Compile one file the way FaustPlugin does, and answer what happened. */
 struct Result {
@@ -106,13 +137,20 @@ Result compileOne(const fs::path& file)
 
 }  // namespace
 
-static void every_shipped_dsp_compiles()
+static void every_dsp_in_the_library_compiles()
 {
+    const auto root = catalogueDir();
+    if (root.empty() || !fs::is_directory(root)) {
+        // Not a failure: a build machine has no library. This case is for the person who HAS one,
+        // and it is the only thing standing between a `.dsp` and somebody else's project.
+        std::printf("    no library given — set STUDIO_MODULES=<...>/_libraries/modules to check one\n");
+        return;
+    }
     int seen = 0;
-    for (const auto& e : fs::recursive_directory_iterator(catalogueDir())) {
+    for (const auto& e : fs::recursive_directory_iterator(root)) {
         if (!e.is_regular_file() || e.path().extension() != ".dsp") continue;
         ++seen;
-        const auto rel = fs::relative(e.path(), catalogueDir()).generic_string();
+        const auto rel = fs::relative(e.path(), root).generic_string();
         const Result r = compileOne(e.path());
         if (!r.ok) {
             std::printf("    %s\n      %s\n", rel.c_str(), r.error.c_str());
@@ -124,8 +162,8 @@ static void every_shipped_dsp_compiles()
         // A program with no outputs is not a module: whatever it is, nothing downstream can hear it.
         CHECK(r.outputs > 0);
     }
-    // A catalogue holding no `.dsp` would make every check above vacuous; there are two today.
-    CHECK(seen >= 2);
+    // A library pointed at deliberately and holding no `.dsp` is a path typo, not an empty library.
+    CHECK(seen >= 1);
 }
 
 /** The loudest sample in a block — what "did anything come out" means, measurably. */
@@ -140,9 +178,8 @@ static float peakOf(const std::vector<std::vector<float>>& out, int n)
 static void an_instrument_sounds_when_a_note_is_played()
 {
     // The polyphony seam as one measurement: an instrument whose `gate` nothing opens is silent.
-    const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
-    CHECK(fs::is_regular_file(file));
-    if (!fs::is_regular_file(file)) return;
+    const auto file = libraryDsp("instruments/synth/wurlitzer/dsp.dsp");
+    if (file.empty() && announceNoLibrary("the wurlitzer")) return;
 
     const std::string libs = fs::path{STUDIO_FAUST_LIBS}.string();
     const char* argv[] = {"-I", libs.c_str()};
@@ -189,8 +226,8 @@ static void an_instrument_sounds_when_a_note_is_played()
 static void it_still_sounds_after_more_notes_than_there_are_voices()
 {
     // THE regression: playing sixteen notes passed on the broken build, so this plays well past that.
-    const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
-    if (!fs::is_regular_file(file)) { CHECK(false); return; }
+    const auto file = libraryDsp("instruments/synth/wurlitzer/dsp.dsp");
+    if (file.empty() && announceNoLibrary("the wurlitzer")) return;
 
     const std::string libs = fs::path{STUDIO_FAUST_LIBS}.string();
     const char* argv[] = {"-I", libs.c_str()};
@@ -238,8 +275,8 @@ static int crossingsOf(const std::vector<std::vector<float>>& out, int n)
 static void velocity_changes_the_timbre_and_not_only_the_level()
 {
     // A MODULATOR's gain IS its modulation index, so velocity has to scale all four operators.
-    const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
-    if (!fs::is_regular_file(file)) { CHECK(false); return; }
+    const auto file = libraryDsp("instruments/synth/wurlitzer/dsp.dsp");
+    if (file.empty() && announceNoLibrary("the wurlitzer")) return;
 
     const std::string libs = fs::path{STUDIO_FAUST_LIBS}.string();
     const char* argv[] = {"-I", libs.c_str()};
@@ -298,8 +335,8 @@ struct ZonesByName : public UI {
 static void a_knob_reaches_every_voice()
 {
     // Reported as "the knobs do nothing", uncaught because no test had ever TURNED one (docs/faust.md).
-    const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
-    if (!fs::is_regular_file(file)) { CHECK(false); return; }
+    const auto file = libraryDsp("instruments/synth/wurlitzer/dsp.dsp");
+    if (file.empty() && announceNoLibrary("the wurlitzer")) return;
 
     const std::string libs = fs::path{STUDIO_FAUST_LIBS}.string();
     const char* argv[] = {"-I", libs.c_str()};
@@ -349,9 +386,8 @@ static void a_knob_reaches_every_voice()
 static void the_interpreter_is_fast_enough_to_put_in_series()
 {
     // What a STRIP costs against the engine's budget: 256 frames at 48 kHz is 5.33 ms for 5.33 ms of audio.
-    const auto file = catalogueDir() / "audio" / "filter" / "moogladder" / "dsp.dsp";
-    CHECK(fs::is_regular_file(file));
-    if (!fs::is_regular_file(file)) return;
+    const auto file = libraryDsp("audio/filter/moogladder/dsp.dsp");
+    if (file.empty() && announceNoLibrary("the moog ladder")) return;
 
     const std::string libs = fs::path{STUDIO_FAUST_LIBS}.string();
     const char* argv[] = {"-I", libs.c_str()};
@@ -424,7 +460,7 @@ static void the_faust_libraries_are_where_the_build_says()
 
 int main()
 {
-    RUN(every_shipped_dsp_compiles);
+    RUN(every_dsp_in_the_library_compiles);
     RUN(an_instrument_sounds_when_a_note_is_played);
     RUN(it_still_sounds_after_more_notes_than_there_are_voices);
     RUN(velocity_changes_the_timbre_and_not_only_the_level);

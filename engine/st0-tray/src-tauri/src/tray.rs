@@ -16,62 +16,20 @@ use crate::trayicon::{self, IconState};
 pub struct MenuBuild {
     pub menu: Menu<Wry>,
     pub status: MenuItem<Wry>,
-    pub registry: MenuItem<Wry>,
-    pub plugins: MenuItem<Wry>,
-    pub rescan: MenuItem<Wry>,
-    pub sessions: Submenu<Wry>,
-    pub edit_plugins: Submenu<Wry>,
-    pub audio: Submenu<Wry>,
     pub weburi: Submenu<Wry>,
-    pub start: MenuItem<Wry>,
-    pub stop: MenuItem<Wry>,
-    pub restart: MenuItem<Wry>,
-    pub restart_file: MenuItem<Wry>,
-    pub clear_waveform_cache: MenuItem<Wry>,
     pub autostart: CheckMenuItem<Wry>,
 }
 
 pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuild> {
+    // The one line of state the menu bar keeps. Everything else about the machine — the version, the
+    // registry, the ports, and every button that acts — is a tab of the settings window.
     let status = MenuItem::with_id(app, "status", "○ Stopped", false, None::<&str>)?;
-    let registry = MenuItem::with_id(app, "registry", "registry —", false, None::<&str>)?;
-    let plugins = MenuItem::with_id(app, "plugins", "Plugins: —", false, None::<&str>)?;
-    // Trigger a full plugin rescan; enabled only with the engine running. Clears the count, so the spinner shows.
-    let rescan = MenuItem::with_id(app, "rescan", "Rescan plugins", false, None::<&str>)?;
-    // The loaded project's external plugin instances; a row opens the plugin's own nativePluginUI window, which is
-    // not the module's moduleUI (the widget grid built in the web editor, never seen here).
-    let edit_plugins = Submenu::with_id(app, "edit_plugins", "Native plugin UI", false)?;
-    // The projects this ONE engine is holding. Empty + disabled until it reports any; a row
-    // per session, clicking it forgets that session (rebuilt by rebuild_sessions_menu).
-    let sessions = Submenu::with_id(app, "sessions", "Sessions", false)?;
-    // Stamped at compile time by build.rs (YYYYMMDD.HHMM, or "dev" for a bare cargo build).
-    let build = MenuItem::with_id(
-        app,
-        "build",
-        format!("build {}", env!("STUDIO_BUILD")),
-        false,
-        None::<&str>,
-    )?;
-    // Empty + disabled until the engine reports devices (rebuilt by rebuild_audio_menu).
-    let audio = Submenu::with_id(app, "audio", "Audio interface", false)?;
     // The web UIs allowed to reach this engine. Always enabled: it holds "Add…" even when empty, which is when
     // you need it most.
     let weburi = Submenu::with_id(app, "weburi", "Web UI", true)?;
     let sep1 = PredefinedMenuItem::separator(app)?;
-    let start = MenuItem::with_id(app, "start", "Start engine", true, None::<&str>)?;
-    let stop = MenuItem::with_id(app, "stop", "Stop engine", false, None::<&str>)?;
-    let restart = MenuItem::with_id(app, "restart", "Restart engine", false, None::<&str>)?;
-    // Restart just the file service, which can die on its own and leave the engine fine but the web UI fileless.
-    // Enabled only when we own a running engine, since only then is there a file service of ours.
-    let restart_file =
-        MenuItem::with_id(app, "restart_file", "Restart file service", false, None::<&str>)?;
-    // Clear the waveform cache (memo + .cache sidecars); enabled only when we can reach our own file service.
-    let clear_waveform_cache = MenuItem::with_id(
-        app,
-        "clear_waveform_cache",
-        "Clear waveform cache",
-        false,
-        None::<&str>,
-    )?;
+    // The way to everything this menu no longer holds.
+    let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
     let autostart = CheckMenuItem::with_id(
         app,
@@ -93,235 +51,17 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
     let quit = PredefinedMenuItem::quit(app, Some("Quit st0-tray"))?;
 
     let items: Vec<&dyn IsMenuItem<Wry>> = vec![
-        &status, &registry, &plugins, &rescan, &sessions, &edit_plugins, &audio, &weburi, &sep1,
-        &start, &stop, &restart, &restart_file, &clear_waveform_cache, &sep2, &autostart, &open_root, &open_log,
-        &sep3, &build, &quit,
+        &status, &weburi, &sep1, &settings, &sep2, &autostart, &open_root, &open_log, &sep3,
+        &quit,
     ];
     let menu = Menu::with_items(app, &items)?;
 
     Ok(MenuBuild {
         menu,
         status,
-        registry,
-        plugins,
-        rescan,
-        sessions,
-        edit_plugins,
-        audio,
         weburi,
-        start,
-        stop,
-        restart,
-        restart_file,
-        clear_waveform_cache,
         autostart,
     })
-}
-
-/// Rebuild "Sessions ▸" — one row per project this engine is holding, each row dropping that
-/// session. Cleared wholesale like the others; gated on `sessions_sig` so a moving playhead
-/// never tears down a submenu the user has open.
-///
-/// The label is the whole point of the feature: "st0 · ma-chanson · 4 st0 ▶ · 1 écoute"
-/// is what the status line could never say. Before sessions there was one project and the
-/// tray had nothing to list; now the answer to "what is my engine doing, and for whom" lives
-/// here.
-pub fn rebuild_sessions_menu(app: &AppHandle) {
-    let shared = app.state::<SharedState>();
-    let (submenu, sessions) = {
-        let s = shared.lock().unwrap();
-        let Some(m) = s.menus.as_ref() else {
-            return;
-        };
-        (m.sessions.clone(), s.snapshot.sessions.clone())
-    };
-    while matches!(submenu.remove_at(0), Ok(Some(_))) {}
-
-    if sessions.is_empty() {
-        // Disabled placeholder rather than an empty submenu, for the same reason the plugin
-        // one has it: an empty menu reads as broken, a sentence reads as a fact.
-        if let Ok(item) = MenuItem::with_id(
-            app,
-            "sessions_none",
-            "No app is driving this engine",
-            false,
-            None::<&str>,
-        ) {
-            let _ = submenu.append(&item);
-        }
-    } else {
-        for s in &sessions {
-            // The default session has no name on the wire; it has to have one here, or the
-            // row would read as a session with no id rather than THE unnamed one.
-            let who = if s.id.is_empty() {
-                "(default)".to_string()
-            } else {
-                s.id.clone()
-            };
-            let what = if !s.loaded {
-                " · nothing loaded".to_string()
-            } else {
-                format!(
-                    " · {} · {} track{}",
-                    if s.project.is_empty() { "untitled" } else { &s.project },
-                    s.tracks,
-                    if s.tracks == 1 { "" } else { "s" }
-                )
-            };
-            // Two live facts, and only when true: a row full of "▶ no · 0 listening" would
-            // bury the one session that IS playing among the ones that are not.
-            let live = format!(
-                "{}{}",
-                if s.playing { "  ▶" } else { "" },
-                match s.listeners {
-                    0 => String::new(),
-                    1 => "  ♫1".to_string(),
-                    n => format!("  ♫{n}"),
-                }
-            );
-            if let Ok(item) = MenuItem::with_id(
-                app,
-                format!("session_drop:{}", s.id),
-                format!("{who}{what}{live}   ✕"),
-                true,
-                None::<&str>,
-            ) {
-                let _ = submenu.append(&item);
-            }
-        }
-    }
-    let _ = submenu.set_enabled(true);
-}
-
-/// Rebuild "Native plugin UI ▸" from the project's plugin instances — externals only, built-ins having no
-/// native editor — and disable it when there is nothing to open. Cleared wholesale, like rebuild_audio_menu:
-/// separators would otherwise pile up one copy per rebuild, and this runs every few seconds.
-pub fn rebuild_edit_plugins_menu(app: &AppHandle) {
-    let shared = app.state::<SharedState>();
-    let (submenu, plugins) = {
-        let s = shared.lock().unwrap();
-        let Some(m) = s.menus.as_ref() else {
-            return;
-        };
-        (m.edit_plugins.clone(), s.snapshot.edit_plugins.clone())
-    };
-    while matches!(submenu.remove_at(0), Ok(Some(_))) {}
-
-    // Only plugins whose native editor can open. A built-ins-only project shows a disabled "No plugins with a
-    // native UI", so the submenu doesn't read as "not loaded".
-    let openable: Vec<&crate::host::EditPlugin> =
-        plugins.iter().filter(|p| p.has_native_plugin_ui).collect();
-    if openable.is_empty() {
-        if let Ok(item) = MenuItem::with_id(
-            app,
-            "edit_plugins_none",
-            "No plugins with a native UI",
-            false,
-            None::<&str>,
-        ) {
-            let _ = submenu.append(&item);
-        }
-    } else {
-        // Which project a row is in only matters when there is more than one to confuse it with.
-        let many = openable
-            .iter()
-            .any(|p| p.session != openable[0].session);
-        for p in &openable {
-            // The label carries the module name — what the user authored; the full id is only the click payload.
-            let name = if p.name.is_empty() {
-                p.id.clone()
-            } else {
-                p.name.clone()
-            };
-            let label = if many && !p.session.is_empty() {
-                format!("{} · {}", p.session, name)
-            } else {
-                name
-            };
-            if let Ok(item) = MenuItem::with_id(
-                app,
-                // U+001F between the two halves, matching hostProtocol.ts's SHOW_UI_SEP.
-                format!("plugin_open:{}\u{1f}{}", p.session, p.id),
-                label,
-                true,
-                None::<&str>,
-            ) {
-                let _ = submenu.append(&item);
-            }
-        }
-    }
-    let _ = submenu.set_enabled(!openable.is_empty());
-}
-/// The interfaces, in the user's ORDER: a click promotes one to the top and the supervisor
-/// re-reads the whole ranking (`engine/st0-tray/docs/tray.md`).
-///
-/// Cleared wholesale rather than tracking what it added, like rebuild_weburi_menu: a separator
-/// can't live in a typed Vec and would pile up one copy per rebuild — and this runs every 2s.
-pub fn rebuild_audio_menu(app: &AppHandle) {
-    let shared = app.state::<SharedState>();
-    let (submenu, devices, priority) = {
-        let s = shared.lock().unwrap();
-        let Some(m) = s.menus.as_ref() else {
-            return;
-        };
-        (
-            m.audio.clone(),
-            s.snapshot.audio_devices.clone(),
-            s.snapshot.audio_priority.clone(),
-        )
-    };
-    while matches!(submenu.remove_at(0), Ok(Some(_))) {}
-
-    for d in &devices {
-        let mut label = if d.device_type.is_empty() {
-            d.name.clone()
-        } else {
-            format!("{} [{}]", d.name, d.device_type)
-        };
-        // The number is what explains a plugged-in interface that is not the one playing.
-        if let Some(i) = priority.iter().position(|p| p == &d.name) {
-            label.push_str(&format!("   ({})", i + 1));
-        }
-        if let Ok(item) = CheckMenuItem::with_id(
-            app,
-            format!("dev:{}", d.name),
-            label,
-            true,
-            d.current,
-            None::<&str>,
-        ) {
-            let _ = submenu.append(&item);
-        }
-    }
-
-    // The row is what holds the rank while the interface is unplugged — see docs/tray.md.
-    for (i, name) in priority.iter().enumerate() {
-        if devices.iter().any(|d| &d.name == name) {
-            continue;
-        }
-        if let Ok(item) = MenuItem::with_id(
-            app,
-            format!("dev_missing:{name}"),
-            format!("{}   ({} — not connected)", name, i + 1),
-            false,
-            None::<&str>,
-        ) {
-            let _ = submenu.append(&item);
-        }
-    }
-
-    if !priority.is_empty() {
-        if let Ok(sep) = PredefinedMenuItem::separator(app) {
-            let _ = submenu.append(&sep);
-        }
-        if let Ok(item) =
-            MenuItem::with_id(app, "audio_clear", "Forget this order", true, None::<&str>)
-        {
-            let _ = submenu.append(&item);
-        }
-    }
-
-    let _ = submenu.set_enabled(!devices.is_empty() || !priority.is_empty());
 }
 
 /// Rebuild the "Web UI" submenu: one row per allowed origin (clicking removes it), then "Add web UI…".
@@ -419,20 +159,8 @@ fn short(id: &str) -> &str {
     id.get(..8).unwrap_or(id)
 }
 
-const SPINNER_FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-
-/// The "Plugins" line. The count arrives only after the scan, so while the engine is up but silent we animate
-/// a spinner rather than show a bare "—", which reads like "none found".
-fn plugins_label(running: bool, count: Option<usize>, spinner: usize) -> String {
-    match (count, running) {
-        (Some(n), _) => format!("Plugins: {n}"),
-        (None, true) => format!("Plugins: {}", SPINNER_FRAMES[spinner % SPINNER_FRAMES.len()]),
-        (None, false) => "Plugins: —".to_string(),
-    }
-}
-
-/// Which badge the icon wears. `Running` alone isn't enough: an engine still scanning isn't usable yet, so it
-/// gets the spinner — the same condition that animates the "Plugins" line.
+/// Which badge the icon wears. `Running` alone isn't enough: an engine still scanning isn't usable yet,
+/// so it gets the spinner.
 fn icon_state(s: &crate::state::AppState) -> IconState {
     // No supervisor, no stack: whatever the engine half believes, an unsupervised app must not wear a green dot.
     if s.host_error.is_some() {
@@ -453,42 +181,40 @@ fn icon_state(s: &crate::state::AppState) -> IconState {
     }
 }
 
-/// Advance the spinner and repaint ONLY the plugins line and the icon: this ticks several times a second, and
-/// nothing else can have changed between frames.
+/// Advance the spinner and repaint the ICON: this ticks several times a second, and nothing else
+/// can have changed between frames. The scan's own progress is drawn by the settings window.
 pub fn tick_spinner(app: &AppHandle) {
     let shared = app.state::<SharedState>();
-    let (item, text, tray, icon) = {
+    let (tray, icon) = {
         let mut s = shared.lock().unwrap();
         let Some(m) = s.menus.as_ref() else {
             return;
         };
-        let (item, tray) = (m.plugins.clone(), m.tray.clone());
+        let tray = m.tray.clone();
         s.spinner = s.spinner.wrapping_add(1);
-        let running = s.running();
-        let icon = trayicon::render_with(icon_state(&s), s.dark_menubar, s.snapshot.attention);
-        (item, plugins_label(running, s.snapshot.plugin_count, s.spinner), tray, icon)
+        (
+            tray,
+            trayicon::render_with(icon_state(&s), s.dark_menubar, s.snapshot.attention),
+        )
     };
-    let _ = item.set_text(text);
     let _ = tray.set_icon(Some(icon));
 }
 
-/// Recompute labels, enabled-state and the icon. Locks the state only to snapshot it (cloning the menu handles
-/// out), then makes the Tauri calls with the lock released.
+/// Repaint the status line, the icon and the tooltip — all the menu bar still says on its own.
+/// Locks the state only to snapshot it (cloning the handles out), then calls Tauri with the lock released.
 pub fn refresh(app: &AppHandle) {
     let shared = app.state::<SharedState>();
-    let snapshot = {
+    let (status_text, item, tray, icon, tip) = {
         let s = shared.lock().unwrap();
         let Some(m) = s.menus.as_ref() else {
             return;
         };
         let running = s.running();
-        // The safety rule in one place: only an engine the SUPERVISOR spawned may be stopped or restarted from here.
-        let owns = s.owns_running();
         let is_error = s.snapshot.status == "error";
         let status_text = if running {
             format!(
                 "● Running{} · id {} · :{}",
-                if owns { "" } else { " (adopted)" },
+                if s.owns_running() { "" } else { " (adopted)" },
                 short(&s.snapshot.engine_id),
                 s.snapshot.engine_port
             )
@@ -503,106 +229,39 @@ pub fn refresh(app: &AppHandle) {
             Some(e) => format!("⚠ {e}"),
             None => status_text,
         };
-        // A dead file service shows on the status line too, not just the icon — the menu is where "red" is explained.
+        // A dead file service shows on the status line too, not just the icon — this line is where "red" is explained.
         let file_failed = s.snapshot.file_service_failed;
         let status_text = if file_failed && s.host_error.is_none() {
             format!("{status_text} · ⚠ file service down")
         } else {
             status_text
         };
-        let registry_text = if running {
-            format!(
-                "registry {} · {}",
-                s.snapshot.registry_url,
-                if s.snapshot.last_heartbeat_ok {
-                    "ok"
-                } else {
-                    "unreachable"
-                }
-            )
+        let tip = if file_failed {
+            "st0-engine — file service stopped"
+        } else if running {
+            "st0-engine — running"
+        } else if is_error {
+            "st0-engine — error"
         } else {
-            format!("registry {}", s.snapshot.registry_url)
+            "st0-engine — stopped"
         };
-        let plugins_text = plugins_label(running, s.snapshot.plugin_count, s.spinner);
         (
             status_text,
-            registry_text,
-            plugins_text,
-            running,
-            owns,
             m.status.clone(),
-            m.registry.clone(),
-            m.plugins.clone(),
-            m.start.clone(),
-            m.stop.clone(),
-            m.restart.clone(),
-            m.restart_file.clone(),
-            m.clear_waveform_cache.clone(),
-            m.rescan.clone(),
             m.tray.clone(),
-            is_error,
-            file_failed,
             trayicon::render_with(icon_state(&s), s.dark_menubar, s.snapshot.attention),
+            tip,
         )
     };
-    let (
-        status_text,
-        registry_text,
-        plugins_text,
-        running,
-        owns,
-        status_item,
-        registry_item,
-        plugins_item,
-        start_item,
-        stop_item,
-        restart_item,
-        restart_file_item,
-        clear_waveform_item,
-        rescan_item,
-        tray,
-        is_error,
-        file_failed,
-        icon,
-    ) = snapshot;
-
-    let _ = status_item.set_text(status_text);
-    let _ = registry_item.set_text(registry_text);
-    let _ = plugins_item.set_text(plugins_text);
-    let _ = start_item.set_enabled(!running);
-    let _ = stop_item.set_enabled(owns);
-    let _ = restart_item.set_enabled(owns);
-    // Only offer "Restart file service" when there is one of ours to restart — i.e. we own a running engine.
-    let _ = restart_file_item.set_enabled(owns);
-    // Same condition: clearing the cache is an HTTP call to OUR file service.
-    let _ = clear_waveform_item.set_enabled(owns);
-    // "Rescan plugins" needs the engine running — it sends a WebSocket command.
-    let _ = rescan_item.set_enabled(running);
-
+    let _ = item.set_text(status_text);
     let _ = tray.set_icon(Some(icon));
-    let tip = if file_failed {
-        "st0-engine — file service stopped"
-    } else if running {
-        "st0-engine — running"
-    } else if is_error {
-        "st0-engine — error"
-    } else {
-        "st0-engine — stopped"
-    };
     let _ = tray.set_tooltip(Some(tip));
 }
 
 /// Handle a tray menu click. `quit` is a predefined item and is not routed here.
 pub fn on_menu(app: &AppHandle, id: &str) {
     match id {
-        "start" => start_engine(app),
-        // One command, not stop-then-start: the supervisor sequences it, so no crash-watch tick sees the gap and
-        // "recovers" mid-restart.
-        "restart" => restart_engine(app),
-        "stop" => stop_engine(app),
-        "restart_file" => restart_file_service(app),
-        "clear_waveform_cache" => clear_waveform_cache(app),
-        "rescan" => rescan_plugins(app),
+        "settings" => crate::settingswin::open(app),
         "autostart" => toggle_autostart(app),
         "open_root" => open_root(app),
         "open_log" => {
@@ -610,17 +269,6 @@ pub fn on_menu(app: &AppHandle, id: &str) {
             open_text_file(std::path::Path::new(&p));
         }
         "weburi_add" => add_web_ui(app),
-        _ if id.starts_with("dev:") => prefer_audio_device(app, &id["dev:".len()..]),
-        "audio_clear" => send_audio_priority(app, &[]),
-        // Dropping a session throws away whatever the app driving it had loaded, so the row
-        // IS the drop and its label says so — there is no other click on a session row that
-        // this could be mistaken for.
-        _ if id.starts_with("session_drop:") => {
-            host::send(app, "session.drop", Some(&id["session_drop:".len()..]));
-        }
-        _ if id.starts_with("plugin_open:") => {
-            open_native_plugin_ui(app, &id["plugin_open:".len()..])
-        }
         // The three weburi rows are pure command sends; the menu redraws on the next snapshot, not on the click.
         _ if id.starts_with("weburi_allow:") => {
             host::send(app, "weburi.allow", Some(&id["weburi_allow:".len()..]));
@@ -737,67 +385,21 @@ fn applescript_string(s: &str) -> String {
 
 /// Send the WHOLE ranking, joined by U+001F to match hostProtocol.ts's PRIORITY_SEP. One command and
 /// not one per rank: a reorder is a single act, and two halves of it could interleave with a poll.
-fn send_audio_priority(app: &AppHandle, ranked: &[String]) {
+pub fn send_audio_priority(app: &AppHandle, ranked: &[String]) {
     host::send(app, "audio.priority", Some(&ranked.join("\u{1f}")));
 }
 
-/// Clicking an interface puts it FIRST and leaves the rest of the order alone. That is the only
-/// ranking gesture a menu can express, and it is the one people mean by clicking a device. The
-/// engine moves because the supervisor re-reads the order, never because the tray asked it to.
-fn prefer_audio_device(app: &AppHandle, name: &str) {
-    let rest: Vec<String> = {
-        let shared = app.state::<SharedState>();
-        let s = shared.lock().unwrap();
-        s.snapshot
-            .audio_priority
-            .iter()
-            .filter(|p| p.as_str() != name)
-            .cloned()
-            .collect()
-    };
-    let mut ranked = Vec::with_capacity(rest.len() + 1);
-    ranked.push(name.to_string());
-    ranked.extend(rest);
-    send_audio_priority(app, &ranked);
-}
 
-/// Open a plugin's native editor from the submenu. The payload is "<session>\u{1f}<id>", built by
-/// rebuild_edit_plugins_menu and forwarded verbatim — the supervisor splits it.
-fn open_native_plugin_ui(app: &AppHandle, payload: &str) {
-    host::send(app, "plugin.showUI", Some(payload));
-}
 
 // Every one of these used to spawn, kill and watch processes here; they are single lines on the pipe now.
 // The supervisor owns the engine and file service, so the tray can't get out of step with it — and a click
 // never blocks the menu thread on a kill, a port probe or an HTTP round-trip.
 
-fn start_engine(app: &AppHandle) {
-    host::send(app, "engine.start", None);
-}
-
-fn stop_engine(app: &AppHandle) {
-    host::send(app, "engine.stop", None);
-}
-
-fn restart_engine(app: &AppHandle) {
-    host::send(app, "engine.restart", None);
-}
-
-fn restart_file_service(app: &AppHandle) {
-    host::send(app, "fileService.restart", None);
-}
-
-/// Clear the waveform cache, memo and .cache sidecars alike. Destructive: the next request re-decodes.
-fn clear_waveform_cache(app: &AppHandle) {
-    host::send(app, "waveforms.clear", None);
-}
 
 
-/// Ask the engine to re-scan installed plugins. The supervisor clears the count first, so the spinner appears
-/// in the very next snapshot, and deletes the on-disk scan cache — without which a rescan returns the stale list.
-fn rescan_plugins(app: &AppHandle) {
-    host::send(app, "plugins.rescan", None);
-}
+
+
+
 
 fn toggle_autostart(app: &AppHandle) {
     let mgr = app.autolaunch();
@@ -826,38 +428,22 @@ fn open_root(app: &AppHandle) {
 /// supervisor that crashed and relaunched resyncs us in one message with nothing to replay. Submenus are
 /// rebuilt only when what they display actually moved, since this runs on every reported change.
 pub fn apply_snapshot(app: &AppHandle, snapshot: crate::host::Snapshot) {
-    let (weburi_changed, audio_changed, edit_changed, sessions_changed) = {
+    let (weburi_changed, settings_changed) = {
         let shared = app.state::<SharedState>();
         let mut s = shared.lock().unwrap();
         let weburi_changed = s.snapshot.web_origins != snapshot.web_origins
             || s.snapshot.web_pending != snapshot.web_pending;
         // The rebuilt submenus are gated on the SUPERVISOR's signatures, not on comparing arrays: tearing down and
         // re-adding every row of a submenu the user may have open, because a heartbeat flipped, is visible churn.
-        let audio_changed = s.drawn_audio_sig != snapshot.audio_menu_sig;
-        let edit_changed = s.drawn_edit_sig != snapshot.edit_plugins_sig;
-        if audio_changed {
-            s.drawn_audio_sig = snapshot.audio_menu_sig.clone();
-        }
-        if edit_changed {
-            s.drawn_edit_sig = snapshot.edit_plugins_sig.clone();
-        }
-        let sessions_changed = s.drawn_sessions_sig != snapshot.sessions_sig;
-        if sessions_changed {
-            s.drawn_sessions_sig = snapshot.sessions_sig.clone();
-        }
+        // Field by field, and only the fields the WINDOW draws — see settingswin::differs.
+        let settings_changed = crate::settingswin::differs(&s.snapshot, &snapshot);
         s.snapshot = snapshot;
         // A snapshot arriving IS the supervisor working, so whatever we last complained about is over.
         s.host_error = None;
-        (weburi_changed, audio_changed, edit_changed, sessions_changed)
+        (weburi_changed, settings_changed)
     };
-    if audio_changed {
-        rebuild_audio_menu(app);
-    }
-    if edit_changed {
-        rebuild_edit_plugins_menu(app);
-    }
-    if sessions_changed {
-        rebuild_sessions_menu(app);
+    if settings_changed {
+        crate::settingswin::push(app);
     }
     if weburi_changed {
         rebuild_weburi_menu(app); // ends in refresh()
@@ -873,6 +459,8 @@ pub fn set_host_error(app: &AppHandle, error: Option<String>) {
         shared.lock().unwrap().host_error = error;
     }
     refresh(app);
+    // The System tab leads with this too: a missing supervisor replaces the engine's own story.
+    crate::settingswin::push(app);
 }
 
 fn open_path(path: &std::path::Path) {

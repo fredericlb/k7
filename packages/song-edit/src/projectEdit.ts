@@ -5,6 +5,7 @@
 
 import {
   existsSync,
+  mkdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -460,6 +461,26 @@ export function laneOfNode(dir: string, node: string): string | null {
   }
 }
 
+/**
+ * Is `name` on the graph without a file of its own — a MODULE used directly as a node? st0 writes
+ * that shape itself (a lane's `mix-<lane>` strip), and an import writes it for a plugin used once,
+ * so the node verbs have to know it rather than answering "no such node". See docs/projectEdit.md.
+ */
+function moduleUsedAsNode(dir: string, name: string): boolean {
+  if (entityFileFor(join(dir, "nodes"), "nodes", name)) return false;
+  try {
+    const text = readFileSync(graphFileOf(dir).path, "utf8");
+    const g = parseGraph(text).value;
+    const modules = g?.modules ?? {};
+    return (
+      name in modules ||
+      Object.values(modules).some((dests) => (dests ?? []).includes(name))
+    );
+  } catch {
+    return false; // no graph, or one that will not read — nothing says this name is on it
+  }
+}
+
 /** Rename a node: its file, its preset, and every trace of it in the chains — the order is load-bearing, docs/projectEdit.md. */
 export function renameChainNode(
   dir: string,
@@ -467,7 +488,16 @@ export function renameChainNode(
   to: string,
 ): { moved: string[]; rewired: string[] } {
   const found = entityFileFor(join(dir, "nodes"), "nodes", from);
-  if (!found) throw new Error(`no node '${from}' in this project`);
+  if (!found) {
+    // A module used directly has no instance to rename: the name on the graph IS the module's, and
+    // renaming it here would leave the graph naming something no folder answers to.
+    if (moduleUsedAsNode(dir, from))
+      throw new Error(
+        `'${from}' is a module used directly on the graph, not a node of one — rename the module, ` +
+          `or give it a node first (\`node new\`) and rename that`,
+      );
+    throw new Error(`no node '${from}' in this project`);
+  }
   const ext = extname(found.path);
   const destAbs = join(dir, "nodes", `${to}${ext}`);
   if (existsSync(destAbs))
@@ -492,7 +522,18 @@ export function deleteChainNode(
   node: string,
 ): { rewired: string[]; removed: string[] } {
   const found = entityFileFor(join(dir, "nodes"), "nodes", node);
-  if (!found) throw new Error(`no node '${node}' in this project`);
+  if (!found) {
+    // A module used directly: there is no file to delete, and the MODULE stays — it is a
+    // definition, and other chains may name it. What goes is its place in the graph.
+    if (moduleUsedAsNode(dir, node)) {
+      const { path } = graphFileOf(dir);
+      const text = readFileSync(path, "utf8");
+      const r = removeNode(text, node);
+      if (r.text !== text) writeFileSync(path, r.text, "utf8");
+      return { rewired: r.rewired, removed: [] };
+    }
+    throw new Error(`no node '${node}' in this project`);
+  }
   const removed = [found.rel];
   rmSync(found.path, { force: true });
   // Its own preset, when it has one — `nodes/<node>.vstpreset` (see loader's ancestry fold).

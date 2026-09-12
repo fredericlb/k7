@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { listFamily } from "./catalogue.ts";
 import { ensureLayout } from "./layout.ts";
+import { bumped } from "./revision.ts";
 import { setSongBpm, setSongKey } from "./write.ts";
 
 let root: string;
@@ -22,6 +23,10 @@ const FOLDER = "songs/Miles/Kind of Blue/So What";
 const sidecar = (body: string) => {
   const abs = join(root, ...FOLDER.split("/"));
   writeFileSync(join(abs, "song.yaml"), body, "utf8");
+  // Said out loud, as `write.ts` says it for its own writes: the listing memo is keyed on a walk,
+  // and a rewrite landing in the same file-time tick with the same file count reproduces its token.
+  // Every test here gets a fresh root, so without this one of them is served the last one's answer.
+  bumped("songs");
 };
 const read = () =>
   readFileSync(join(root, ...FOLDER.split("/"), "song.yaml"), "utf8");

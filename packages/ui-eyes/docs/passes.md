@@ -157,21 +157,40 @@ needs a pixel to be caught.
 What it does not prove is that a shader draws the right picture. That check is done with the eyes:
 open `demos/video-demo.st0` and look.
 
+## What the export is written in
+
+**WebM — VP9 for the picture, Opus for the sound.** It is the one pair every build that runs this
+app can encode: Chromium ships VP9 and Opus in the open-source tree, and so does Firefox, which
+has H.264 through the platform encoder and has never had an AAC encoder at all. An mp4 default
+makes the sound the first thing to fail, on a browser where everything else works.
+
+`project export video mp4` still writes an mp4, and that is what the option is for: the rest of
+the world takes an mp4 and does not always take a WebM. The cost is that it needs an H.264 *and*
+an AAC encoder, which a browser may perfectly well have neither, one, or both of. The cost of the
+default is the other way round: VP9 is encoded in software where H.264 is often the GPU's, so a
+long export is slower.
+
 ## What "can this export?" actually asks
 
 `"VideoEncoder" in window` answers the wrong question. It is true in every Chromium — and in
 **Electron it is always true** — while saying nothing about the platform encoder behind it
-(Media Foundation, VideoToolbox, OpenH264). A build with WebCodecs and no H.264 fails at
-frame 0, *after* the progress bar has drawn, with a `NotSupportedError` that names no cause.
+(Media Foundation, VideoToolbox, OpenH264, libvpx). A build with WebCodecs and no encoder for the
+codec asked fails at frame 0, *after* the progress bar has drawn, with a `NotSupportedError` that
+names no cause.
 
-So `exportSupport.ts` asks `VideoEncoder.isConfigSupported` at the scene's own size — H.264
+So `exportSupport.ts` asks `VideoEncoder.isConfigSupported` at the scene's own size — codec
 support is level-dependent, so 4K is a different question from 720p — and
-`AudioEncoder.isConfigSupported` for AAC-LC, which `export.ts` requests as `codec: "aac"`. The
-answer distinguishes three cases, because they need three different sentences: no WebCodecs at
-all, no H.264 (the mp4 would carry no video track), no AAC (it would come out silent).
+`AudioEncoder.isConfigSupported` for the container's sound codec. The answer distinguishes three
+cases, because they need three different sentences: no WebCodecs at all, no video codec (nothing
+can be rendered), no audio codec (the file cannot carry the sound).
 
-Any ONE of the H.264 profiles is enough. A false negative would hide an export that works, which
-is worse than the failure this exists to catch.
+**The answer NAMES the codecs**, and `export.ts` hands mediabunny exactly those. Any ONE video
+entry is enough — VP9 else VP8, any H.264 profile — and a probe that blessed one codec while the
+encoder was given another would be a `NotSupportedError` at frame 0 again, which is the failure
+this file exists to catch. A false negative would hide an export that works, which is worse still.
 
-`ViewportTab` runs it once per viewport size, off the render path, and it gates the WORDS rather
-than the pane: realtime works either way.
+An absent `AudioEncoder` is the same answer as one that refuses the codec: the sound cannot go in,
+and saying so beats a muxer throwing halfway through.
+
+`ViewportTab` runs it once per viewport size, off the render path, for the container and the sound
+its own button would ask for. It gates the WORDS rather than the pane: realtime works either way.

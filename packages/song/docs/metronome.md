@@ -55,7 +55,21 @@ clicks at the engine's own default rather than at some number this package picke
 ## The control
 
 The footer's metronome button carries both questions: a **left click toggles**, a **right click
-opens the level**. The slider commits on RELEASE, not on every frame — the command rewrites
+opens the level**. One click each: the button anchors a Radix dropdown, whose trigger opens on
+POINTERDOWN — left it alone, a left click toggles the metronome AND opens the panel, so the toggle
+takes a second click to put the panel away. So the button cancels its own `pointerdown` (which
+skips the trigger's handler and leaves the `click` untouched), and answers Enter and Space itself
+for the same reason. `ArrowDown` still opens the panel, which is the way to the level with no mouse.
+
+**The icon flips before the command has run**, and that is the same rule a lane's mute follows: the
+verb rewrites `settings.yaml`, so the button's own state comes back through a file write, a
+re-send of the whole document and a project COMPILE — long enough to read as a control that did not
+take. So the shell holds an optimistic value beside the doc's, and drops it the moment the next
+compiled doc lands, whatever that one says. Dropped on the doc's IDENTITY rather than its value: a
+toggle that ends up changing nothing has to take the override back too, or the button keeps
+showing what was asked for rather than what is.
+
+The slider commits on RELEASE, not on every frame — the command rewrites
 `settings.yaml` and re-sends the whole document, so a live commit would be forty writes and forty
 journal entries for one gesture. Same rule as the clip panel's velocity drag and the sequencer's
 nudge.

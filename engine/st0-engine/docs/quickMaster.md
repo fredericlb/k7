@@ -11,7 +11,7 @@ input → │  split → 3 detectors │ → │  M/S, width │ → │ lookahe
 ```
 
 Ten parameters, no routing, **neutral at its defaults**: the three amounts at zero, width at
-100 %, drive at zero. `packages/dsp/modules/`'s `audio/dynamics/quick-master` is a NAME and
+100 %, drive at zero. A library's `audio/dynamics/quick-master` is a NAME and
 DEFAULTS on top, exactly as `eq3` is on the 4-band equaliser — it is that module, not this plugin,
 that settles a master.
 

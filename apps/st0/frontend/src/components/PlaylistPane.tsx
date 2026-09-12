@@ -16,6 +16,7 @@ import {
   songRef,
 } from "@studio/mediatek/playlistItems";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import { cfg } from "@studio/project-shell/fileApi";
 import type { PlaylistItem } from "@studio/song-schema/playlist";
 import {
   AudioLines,
@@ -36,6 +37,8 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, mediatek } from "../api";
 import { desktop } from "../desktop";
+import { parts } from "../i18nParts";
+import { m } from "../paraglide/messages.js";
 import { pl8Url } from "../projects/api";
 
 /** How many search hits are drawn at once: three hundred morceaux in one scrolling box is not a list you read, so the field is the way through. */
@@ -119,7 +122,7 @@ export function PlaylistPane({
         return;
       }
       setCurrent(null);
-      if (from === 0) setNotice("aucune ligne de cette playlist n'a d'audio");
+      if (from === 0) setNotice(m["pl.noAudioRow"]());
     },
     [rows, fileOf],
   );
@@ -173,7 +176,7 @@ export function PlaylistPane({
   );
 
   const cannotAdd =
-    addRefusal || (songs === null ? "morceaux pas encore chargés" : "");
+    addRefusal || (songs === null ? m["pl.songsNotLoaded"]() : "");
 
   // --- separating the whole set list --------------------------------------------------
 
@@ -227,7 +230,7 @@ export function PlaylistPane({
       if (stopRef.current) break;
       say(t.label, null);
       try {
-        const first = await mediatek.prepareStems(t.path);
+        const first = await mediatek.prepareStems(t.path, cfg().engineId);
         if (first.ready) {
           skipped += 1;
           done += 1;
@@ -242,12 +245,13 @@ export function PlaylistPane({
             job = await mediatek.separation(job.id);
           } catch {
             // The registry sweeps a finished job after five minutes, so a poll that 404s is usually a run that landed.
-            const again = await mediatek.prepareStems(t.path);
+            const again = await mediatek.prepareStems(t.path, cfg().engineId);
             if (again.ready) break;
             job = again.job;
           }
         }
-        if (job?.failed) notes.push(`${t.label} : ${job.error ?? "échec"}`);
+        if (job?.failed)
+          notes.push(`${t.label} : ${job.error ?? m["pl.jobFailed"]()}`);
         done += 1;
       } catch (e) {
         const err = e as Error & { status?: number };
@@ -270,7 +274,7 @@ export function PlaylistPane({
         onPause={() => setPlaying(false)}
         // The next line begins where this one ended; only ours can end, this element being this pane's alone.
         onEnded={() => current !== null && startAt(current + 1)}
-        onError={() => setNotice("ce fichier ne se lit pas dans ce navigateur")}
+        onError={() => setNotice(m["pl.wontPlay"]())}
       >
         <track kind="captions" />
       </audio>
@@ -291,17 +295,20 @@ export function PlaylistPane({
           variant={separating ? "default" : "secondary"}
           disabled={!playable}
           title={
-            playable
-              ? "Séparer chaque morceau en batterie / basse / reste / voix, pour pouvoir en retirer un sur le pupitre"
-              : "aucune ligne de cette playlist n'a d'audio à séparer"
+            playable ? m["pl.separateHint"]() : m["pl.nothingToSeparate"]()
           }
           onClick={() => setSeparating((s) => !s)}
         >
-          <Split className="mr-1 h-4 w-4" /> Séparer les stems
+          <Split className="mr-1 h-4 w-4" /> {m["pl.separate"]()}
         </Button>
         <span className="text-xs text-muted-foreground">
-          {rows.length} ligne{rows.length > 1 ? "s" : ""}
-          {playable === rows.length ? "" : ` · ${playable} jouable(s)`}
+          {m["pl.rowCount"]({
+            n: rows.length,
+            s: rows.length > 1 ? "s" : "",
+          })}
+          {playable === rows.length
+            ? ""
+            : ` · ${m["pl.playableCount"]({ n: playable })}`}
         </span>
       </header>
 
@@ -336,7 +343,7 @@ export function PlaylistPane({
                 if (e.key === "Escape") return setSearching(false);
                 if (e.key === "Enter" && hits[0]) add(hits[0] as MediatekEntry);
               }}
-              placeholder="titre, artiste, album…"
+              placeholder={m["pl.searchPlaceholder"]()}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
@@ -346,7 +353,7 @@ export function PlaylistPane({
               size="icon"
               variant="ghost"
               className="h-7 w-7 shrink-0"
-              aria-label="Fermer la recherche"
+              aria-label={m["pl.closeSearch"]()}
               onClick={() => setSearching(false)}
             >
               <X className="h-3.5 w-3.5" />
@@ -355,7 +362,7 @@ export function PlaylistPane({
           <ul className="min-h-0 flex-1 overflow-auto px-2 pb-2">
             {hits.length === 0 ? (
               <li className="px-2 py-3 text-sm text-muted-foreground">
-                Aucun morceau ne répond à ça.
+                {m["pl.noHit"]()}
               </li>
             ) : (
               hits.slice(0, MAX_HITS).map((s) => (
@@ -382,7 +389,7 @@ export function PlaylistPane({
                     <button
                       key={v.name}
                       type="button"
-                      title={`ajouter la variante « ${v.name} »`}
+                      title={m["pl.addVariant"]({ name: v.name })}
                       className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                       onClick={() => add(s, v.name)}
                     >
@@ -396,7 +403,7 @@ export function PlaylistPane({
             {/* Never a silent cap: a search that quietly hid the song you wanted is worse than one that says to type another word. */}
             {hits.length > MAX_HITS ? (
               <li className="px-2 py-1.5 text-xs text-muted-foreground">
-                …et {hits.length - MAX_HITS} autres — précisez la recherche
+                {m["pl.moreHits"]({ n: hits.length - MAX_HITS })}
               </li>
             ) : null}
           </ul>
@@ -407,10 +414,9 @@ export function PlaylistPane({
         {rows.length === 0 ? (
           <div className="flex flex-col items-start gap-3 p-4">
             <p className="text-sm text-muted-foreground">
-              Cette playlist ne nomme aucun morceau. Cherchez-en un dans la
-              médiathèque, ou écrivez les lignes sous{" "}
-              <span className="font-mono">items:</span> à gauche — c'est le même
-              fichier.
+              {parts((h) => m["pl.emptyBody"](h), {
+                items: <span className="font-mono">items:</span>,
+              })}
             </p>
             {/* The empty state is where the header's button is most needed and least findable, so it is offered again here. */}
             {searching ? null : (
@@ -463,7 +469,7 @@ export function PlaylistPane({
                     variant="ghost"
                     className="h-7 w-7 shrink-0"
                     disabled={!!problem || missing}
-                    title={problem || (missing ? "fichier introuvable" : "")}
+                    title={problem || (missing ? m["pl.fileMissing"]() : "")}
                     onClick={() => toggleRow(i)}
                   >
                     {playingHere ? (
@@ -491,7 +497,7 @@ export function PlaylistPane({
                   {r.song?.meta?.stems ? (
                     <span
                       className="shrink-0 text-muted-foreground"
-                      title="déjà séparé en stems — la préparation le sautera"
+                      title={m["pl.alreadySplit"]()}
                     >
                       <Split className="h-3.5 w-3.5" />
                     </span>
@@ -504,9 +510,9 @@ export function PlaylistPane({
                   ) : missing ? (
                     <span
                       className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-destructive"
-                      title="le sidecar déclare ce fichier et le dossier ne l'a pas"
+                      title={m["pl.sidecarMissing"]()}
                     >
-                      introuvable
+                      {m["pl.missing"]()}
                     </span>
                   ) : null}
                   {/* The running order and what is on it: the two acts that used to mean opening the YAML. */}
@@ -519,7 +525,7 @@ export function PlaylistPane({
                             variant="ghost"
                             className="h-7 w-7"
                             disabled={i === 0 || !!editRefusal}
-                            title={editRefusal || "monter"}
+                            title={editRefusal || m["pl.moveUp"]()}
                             onClick={() => onMove(i, i - 1)}
                           >
                             <ChevronUp className="h-3.5 w-3.5" />
@@ -529,7 +535,7 @@ export function PlaylistPane({
                             variant="ghost"
                             className="h-7 w-7"
                             disabled={i === rows.length - 1 || !!editRefusal}
-                            title={editRefusal || "descendre"}
+                            title={editRefusal || m["pl.moveDown"]()}
                             onClick={() => onMove(i, i + 1)}
                           >
                             <ChevronDown className="h-3.5 w-3.5" />
@@ -542,7 +548,7 @@ export function PlaylistPane({
                           variant="ghost"
                           className="h-7 w-7 hover:text-destructive"
                           disabled={!!editRefusal}
-                          title={editRefusal || "retirer de la playlist"}
+                          title={editRefusal || m["pl.removeRow"]()}
                           onClick={() => {
                             // The row playing IS this one: silence it before the line under the transport goes.
                             if (current === i) {
@@ -572,15 +578,15 @@ export function PlaylistPane({
               ? { target: "_blank", rel: "noreferrer" }
               : {})}
             className="mt-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/30 hover:text-foreground"
-            title="pl8 — la médiathèque : c'est là qu'on dépose un morceau"
+            title={m["pl.catalogueHint"]()}
           >
             <Library className="h-3.5 w-3.5 shrink-0" />
-            Ajouter de nouveaux morceaux
+            {m["pl.addSongs"]()}
           </a>
         ) : (
           <p className="mt-2 flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
             <Library className="h-3.5 w-3.5 shrink-0" />
-            Associez un serveur dans les Réglages pour déposer un morceau
+            {m["pl.pairServer"]()}
           </p>
         )}
       </div>
@@ -590,8 +596,10 @@ export function PlaylistPane({
         <span className="min-w-0 flex-1 truncate">
           {notice ||
             (current !== null && rows[current]
-              ? `en cours : ${itemLabel(rows[current] as ResolvedItem)}`
-              : "les lignes se jouent d'affilée ; les morceaux sont ceux de la médiathèque")}
+              ? m["pl.playing"]({
+                  label: itemLabel(rows[current] as ResolvedItem),
+                })
+              : m["pl.footerHint"]())}
         </span>
       </footer>
     </section>
@@ -631,22 +639,22 @@ function StemsBar({
         <Split className="h-4 w-4 shrink-0 text-muted-foreground" />
         {/* WHICH chain separates is one answer for the machine, set once by `system stems` and only shown here (docs/playlists.md). */}
         <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
-          {chain === undefined ? "…" : (chain ?? "aucune chaîne")}
+          {chain === undefined ? "…" : (chain ?? m["clip.noChain"]())}
         </span>
         {busy ? (
           <Button size="sm" variant="secondary" onClick={onStop}>
-            <Square className="mr-1 h-3.5 w-3.5" /> Arrêter
+            <Square className="mr-1 h-3.5 w-3.5" /> {m["pl.stop"]()}
           </Button>
         ) : (
           <Button size="sm" disabled={!chain || !playable} onClick={onStart}>
-            Lancer ({playable})
+            {m["pl.start"]({ n: playable })}
           </Button>
         )}
         <Button
           size="icon"
           variant="ghost"
           className="h-7 w-7 shrink-0"
-          aria-label="Fermer"
+          aria-label={m["common.close"]()}
           onClick={onClose}
         >
           <X className="h-3.5 w-3.5" />
@@ -656,9 +664,9 @@ function StemsBar({
       {/* Told nothing yet: the one sentence that unblocks it, and the way there — not a picker, the machine being asked once. */}
       {chain === null ? (
         <p className="text-xs text-muted-foreground">
-          Cette machine ne sait pas encore séparer. Choisissez la chaîne une
-          fois dans les réglages, sous I/O — ou{" "}
-          <span className="font-mono">system stems @st0/stems</span>.
+          {parts((h) => m["pl.noChainYet"](h), {
+            cmd: <span className="font-mono">system stems @st0/stems</span>,
+          })}
           {onSettings ? (
             <Button
               size="sm"
@@ -666,7 +674,7 @@ function StemsBar({
               className="ml-2 h-6"
               onClick={onSettings}
             >
-              Réglages
+              {m["settings.title"]()}
             </Button>
           ) : null}
         </p>
@@ -675,9 +683,7 @@ function StemsBar({
       {/* Before anything has been asked for: what this costs, said up front rather than found out by watching twelve songs run. */}
       {run || chain === null ? null : (
         <p className="text-xs text-muted-foreground">
-          Chaque morceau prend plusieurs minutes, un à la fois. Ceux qui sont
-          déjà séparés sont sautés, et une séparation interrompue reprend là où
-          elle en était — relancer ne coûte rien.
+          {m["pl.separateCost"]()}
         </p>
       )}
 
@@ -698,8 +704,10 @@ function StemsBar({
           </div>
           <p className="truncate text-xs text-muted-foreground">
             {run.over
-              ? `terminé : ${run.done}/${run.total}` +
-                (run.skipped ? ` · ${run.skipped} déjà séparé(s)` : "")
+              ? m["pl.runDone"]({ done: run.done, total: run.total }) +
+                (run.skipped
+                  ? ` · ${m["pl.runSkipped"]({ n: run.skipped })}`
+                  : "")
               : `${run.done + 1}/${run.total} · ${run.label}` +
                 (run.percent == null ? " …" : ` · ${run.percent}%`)}
           </p>

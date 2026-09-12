@@ -1,31 +1,62 @@
-# `modules/` — the modules written here, and what the folder is for
+# The modules written with this library, and why each is what it is
 
-`packages/dsp/modules/` holds modules **written in this repo**: their `module.yaml`, their panel,
-and the `jsdsp.ts` or `dsp.dsp` that makes the sound.
+**This repo ships no modules.** A module is `module.yaml`, a panel, and the `jsdsp.ts` or `dsp.dsp`
+that makes the sound, and all of that is authored straight into the account's **library
+repository** — `@studio/song`'s `docs/sharedFolders.md` gives the reason: the library is the
+reference, and a copy in a build would be a second source of truth quietly disagreeing with it.
 
-```
-packages/dsp/modules/
-  audio/filter/{eq3,sweep,moogladder}/
-  audio/utility/{crossfade,fade,tempo,normalize}/
-  audio/separation/stemsplit/
-  audio/dynamics/quick-master/
-  instruments/synth/wurlitzer/
-```
+What is here instead is the *reasoning*, for the modules that were designed against this library
+and whose numbers are argued rather than picked. The graphs themselves live in `../src` as
+functions — `echo()`, `autoWah()`, `tremolo()`, `noteRepeat()`, `normalize()`, `crossfade()`,
+`fade()`, `sweep()` — each with a test holding it to the shape a module's copy of it must have.
+That is what makes a module in somebody's library checkable at all from this side.
 
-The first segment is the **type folder**, which decides what a module IS (`audio`, `instruments`,
-`transformers`, `io`… — see `@studio/song`'s `docs/loader.md`). The second is its **category**,
-which decides only where it sits in a picker. That is why the EQ is under `filter` and not under
-`utility`, though both are audio modules.
+A module's path in a library is `<type folder>/<category>/<name>`. The first segment decides what
+the module IS (`audio`, `instruments`, `transformers`, `io`… — see `@studio/song`'s
+`docs/loader.md`); the second decides only where it sits in a picker, which is why an EQ is filed
+under `filter` and not under `utility` though both are audio.
 
-`quick-master` is the only one that **does not make its sound here**: no `jsdsp.ts`, no `dsp.dsp`,
-only an `extends: "@engine/quick-master"` and defaults over it, the way `eq3` sits on the engine's
+The modules discussed below: `eq3`, `sweep`, `moogladder`, `crossfade`, `fade`, `tempo`,
+`normalize`, `tremolo`, `stemsplit`, `quick-master`, `wurlitzer`, `arpeggiator`, `note-repeat`.
+
+`quick-master` makes no sound of its own: no `jsdsp.ts`, no `dsp.dsp`, only an
+`extends: "@engine/quick-master"` and defaults over it, the way `eq3` sits on the engine's
 equaliser. What it names is a compiled built-in, and `engine/st0-engine/docs/quickMaster.md` says why
 it could not be a graph: `DspGraph`'s primitives can neither split bands nor reach the difference
 between the two channels.
 
-`separation/` holds one module, `stemsplit`, which separates offline into four files. It keeps a
-category of its own rather than a place among the utilities because that is where the libraries
-repository already files it, and that repository is the reference. There is no per-stem gain
+`tremolo` is the plainest graph of the lot: an LFO, an offset, a multiplication. It is argued here
+because it is the one effect whose obvious cheap
+implementation is wrong — a gain stepped once per block is a ~10 ms staircase, which on a tremolo
+is not a smoothed version of the effect but a different one, heard as a stutter. `lfo()` runs at
+sample rate for that reason (`docs/builder.md`), and this module is what that decision is for.
+Its `Depth` at 0 is exact unity, so it can be left in a chain switched off.
+
+`transformers/notes/` holds the two note modules, and the pair is worth reading together because
+they answer the same question differently.
+
+`note-repeat` is a **graph**, three lines of this library: it is a note SOURCE with a clock, which
+is exactly the thing a MIDI graph was long said not to be able to be. The MIDI phase has two nodes
+with state — `mhold` takes the keys, `mstrike` plays them on a clock — and they are what a rhythmic
+MIDI module is made of. `engine/st0-engine/docs/midiGraph.md` argues the whole of it. Its rate is a
+PAIR, `Count` divisions rather than one, and `Division` is written in BEATS rather than as an
+index: the panel's dropdown writes the value it labels, so the eight divisions are named in exactly
+one place.
+
+`arpeggiator` is still compiled — `extends: "@engine/arpeggiator"` and three defaults over a
+built-in, the second after `quick-master` that makes no sound of its own.
+What it needs that the two nodes do not give is the WALK: an arpeggiator strikes one slot per step,
+chosen by a direction and a number of octaves, where `mstrike` takes the whole held set. That is a
+third node and not a mode flag, and `engine/st0-engine/docs/arpeggiator.md` says where it goes. Its
+panel is three dropdowns rather than three knobs: a cadence has nothing between 1/8 and 1/8T.
+
+The two stay separate modules rather than becoming one with a `Pattern: chord|walk` parameter,
+because they do opposite things with a chord — one egrenes it, the other re-strikes it whole — and
+a word in a dropdown would hide that.
+
+`stemsplit` separates offline into four files. It is filed under a `separation` category of its own
+rather than among the utilities because that is where the libraries repository files it, and that
+repository is the reference. There is no per-stem gain
 module beside it: that compiles to `gain(Level)`, a multiplication, straight behind a platter node
 that already has a linear `Gain` of the same range and rest. What the subtraction it replaced cost
 to learn, measured, is in `packages/song-schema/docs/stems.md`.
@@ -86,14 +117,17 @@ including the four a scaffolded SET writes for its decks. And an unresolved refe
 compile error** (`@studio/song`'s `docs/sharedFolders.md`): the module is simply absent from the
 document, which looks exactly like a module that was bypassed.
 
-## What the folder is for
+## So what holds a module to any of this?
 
-- **A source** for the DSP this package exposes: `crossfade.test.ts` compares the folder's
-  compiled graph to `src/`'s function, both ways, so they cannot drift.
-- **A bench for the engine**: `engine/st0-engine/tests/Faust_test.cpp` compiles the `.dsp` files from
-  here (`STUDIO_DSP_MODULES`), the wurlitzer first.
-- **A model to copy** into a library, by hand or from st0 — which is where a module is written,
-  against a project where the plugin it names is actually loaded.
+Nothing in this repo can open your library, which is the price of the library being the only source
+of truth. Two things narrow the gap, and neither is a copy of a module:
 
-There is nothing to regenerate and nothing to commit twice: adding a module here gives it to
-nobody, and that is the point.
+- **The graphs are here as functions**, in `../src`, each with a test. A module's `jsdsp.ts` is that
+  function written out — `crossfade.test.ts` compares the two shapes, both ways, so a module copied
+  from one cannot silently drift from what is argued here.
+- **The Faust compiler will walk a library**: `engine/st0-engine/tests/Faust_test.cpp` compiles every
+  `.dsp` under `$STUDIO_MODULES`. Point it at yours before pushing one — that check is what was
+  missing the day the wurlitzer reached an account's library without ever having compiled.
+
+A module is written in st0, against a project where the plugin it names is actually LOADED, and
+committed to the library. That is the only path in, and there is deliberately no second one.

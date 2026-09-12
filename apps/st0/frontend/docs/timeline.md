@@ -92,19 +92,29 @@ about what a click will do. Three things that fall out of doing it that way:
 The pointer tool has a drawing for the strip and deliberately no cursor: the system already draws
 that one, and replacing an arrow with a picture of an arrow only makes it worse.
 
+### The two view toggles, at the FOOT of the strip
+
+The pane has **no header of its own**: the surface starts at the ruler. A song's name, tempo and
+time signature are the shell's to say and the transport already says them, and a printed list of
+keys is the one thing on screen that cannot be trusted — it is stale the moment a key is rebound,
+and `/help` answers the same question from the keymap itself.
+
+What the header did carry that nothing else does is the two **view** toggles, and they now hang
+under the tool column, below a rule: the ruler's unit (bars ↔ seconds) and Expand. They sit there
+because a control that changes what this surface SHOWS and writes nothing to disk is exactly what
+the strip already holds — the tools are the same kind of thing — and `ModeStrip`'s `footer` is the
+slot, `mt-auto` putting it at the bottom rather than at the end of the modes. `stripButton` is the
+look, shared so a footer control is the same object as a mode rather than a copy of it.
+
+The column is drawn **even where there are no tools**: a second device dispatches no tool line
+(`ExternalTimeline`), and these two are the pane's own either way.
+
+A hovered marker names itself in its own tooltip and glows its line; that is the whole of it now.
+
 ### Saying which state you are in
 
-Two surfaces used to lie about this, and both are now derived:
-
-- **The header legend** was a hand-written string of fourteen keys. It was already wrong for
-  anyone who had rebound one, and would have been plainly wrong per mode. `timelineLegend.ts`
-  answers rows for the current mode, resolved against `shortcutsByCommand` — **a row naming a
-  command nothing binds is dropped**, which is how a legend stops being able to advertise a key
-  that does not exist. Its test caught one on the first run: `selection consolidate` has no
-  binding, so that row would never have drawn.
-- **The status line** was already a hand-rolled mode line — a priority chain that renders the
-  state as prose and names the way out of it every time. It keeps that convention and takes the
-  tool, then the mode, as its first branches.
+**The status line** is a hand-rolled mode line — a priority chain that renders the state as prose
+and names the way out of it every time. It takes the tool, then the mode, as its first branches.
 
 And the footer carries a **badge**: the line beside it is a message and passes, a state does not.
 A state nobody can see is a state you leave by surprise.

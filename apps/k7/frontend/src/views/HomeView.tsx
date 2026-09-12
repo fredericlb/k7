@@ -3,6 +3,7 @@ import { Button } from "@frediverse/ui/button";
 import { Calendar } from "@frediverse/ui/calendar";
 import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
 import { useState } from "react";
+import { SongbookExport } from "../components/SongbookExport";
 import { dayKey, dayKeyToDate, fmtDay, fmtTime } from "../format";
 import type {
   HomeTab,
@@ -347,9 +348,12 @@ export function HomeView({
 
       {tab === "songbook" && (
         <div className="moments-pane">
-          <Button variant="outline" onClick={onNewSong}>
-            ＋ New song
-          </Button>
+          <div className="songbook-actions">
+            <Button variant="outline" onClick={onNewSong}>
+              ＋ New song
+            </Button>
+            <SongbookExport songs={songs} />
+          </div>
           <ul className="session-list home-list">
             {songs.length === 0 && (
               <li className="home-list-empty muted small">No songs yet.</li>

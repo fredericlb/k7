@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { emptyDoc, trackDoc } from "@studio/engine-protocol/build";
 import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 import {
   ARG_CLASSES,
   ARG_KIND_NAMES,
@@ -11,6 +12,7 @@ import {
   argHint,
   completions,
   loadCommandSpecs,
+  MENU_ENTITIES,
   PROVIDER_NAMES,
   validateArgs,
 } from "./commandSpec";
@@ -234,6 +236,42 @@ describe("commands.yaml is well-formed against the providers", () => {
     ).toBeTruthy();
     const onWire = [...union!.matchAll(/"([A-Za-z]+)"/g)].map((m) => m[1]);
     expect(onWire.slice().sort()).toEqual([...PROVIDER_NAMES].sort());
+  });
+
+  it("names every right-click menu on the wire too, and knows every word the catalogue uses", () => {
+    // An unknown `menu:` word is dropped at load, silently as far as a menu is concerned — so it is checked here.
+    const raw = parseYaml(
+      readFileSync(
+        join(dirname(fileURLToPath(import.meta.url)), "../commands.yaml"),
+        "utf8",
+      ),
+    ) as { command?: string; menu?: unknown }[];
+    const unknown = raw.flatMap((c) =>
+      (Array.isArray(c.menu) ? c.menu : [])
+        .map(String)
+        .filter((w) => !MENU_ENTITIES.includes(w as never))
+        .map((w) => `${c.command}: ${w}`),
+    );
+    expect(unknown).toEqual([]);
+
+    // st0's right-click reads the same list off the wire — an entity added here and not there can name no menu.
+    const contract = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "../../web-protocol/types.ts",
+      ),
+      "utf8",
+    );
+    const list = contract.match(
+      /export const MENU_ENTITIES = \[([\s\S]*?)\] as const;/,
+    )?.[1];
+    expect(
+      list,
+      "MENU_ENTITIES not found in web-protocol/types.ts",
+    ).toBeTruthy();
+    expect([...list!.matchAll(/"([a-z-]+)"/g)].map((m) => m[1])).toEqual([
+      ...MENU_ENTITIES,
+    ]);
   });
 
   it("tells you what every argument accepts", () => {

@@ -15,3 +15,15 @@ export type HomeTab =
 
 // The header's destinations: the home tabs, plus sections no HomeView tab backs.
 export type NavKey = HomeTab | "exercices";
+
+/** The Supernote sync's state, as the settings screen sees it — never the password. */
+export interface SupernoteSync {
+  enabled: boolean;
+  baseUrl: string;
+  account: string;
+  activated: boolean;
+  lastSyncAt: string;
+  lastStatus: string;
+  lastCount: number;
+  syncing: boolean;
+}

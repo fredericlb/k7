@@ -28,11 +28,13 @@ setting can be added after a workspace already exists.
 fails. So the first machine to mount one commits and pushes, which is all `registerSubmodule`
 needs. That is the whole of `initIfEmpty`.
 
-**Nothing is put IN it.** The repository is the reference: what is in it is what its projects
-inherit, and nothing anywhere else has an opinion about what a library ought to contain. A build
-shipping its own copy of somebody's modules would be a second source of truth — the modules in
-`packages/dsp/modules/` are a place to copy FROM, not a seed
-([packages/dsp/docs/catalogue.md](../../dsp/docs/catalogue.md)).
+**Nothing is put IN it, and this repo ships no modules to put.** The repository is the reference:
+what is in it is what its projects inherit, and nothing anywhere else has an opinion about what a
+library ought to contain. A build shipping its own copy of somebody's modules would be a second
+source of truth — so there is no copy to ship. Modules written with `@studio/dsp` are authored
+straight into a library; what the library gains is argued in
+[packages/dsp/docs/catalogue.md](../../dsp/docs/catalogue.md), which describes decisions rather
+than holding files.
 
 **What that costs, and it is deliberate:** a new library is empty, so every `@st0/…` ref resolves
 to nothing until modules are put there — including the four a scaffolded set writes for its decks

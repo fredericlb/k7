@@ -23,6 +23,25 @@ describe("toPath", () => {
     expect(toPath(st({ help: true }))).toBe("/docs");
   });
 
+  it("keeps a query parameter it does not own", () => {
+    // The address is rebuilt from the STATE, so anything not rebuilt is lost — and this router
+    // owns exactly one parameter. `?profile=1` turns the instruments on and used to survive about
+    // one screen change; so would any parameter in a link somebody pasted.
+    expect(toPath(st({ full: "timeline" }), "?profile=1")).toBe(
+      "/timeline?profile=1",
+    );
+    expect(toPath(st({ full: "timeline", panel: "logs" }), "?profile=1")).toBe(
+      "/timeline?profile=1&panel=logs",
+    );
+  });
+
+  it("REPLACES the panel it finds rather than adding a second one", () => {
+    // Carrying the search through naively appends, and `?panel=graph&panel=logs` reads as the first.
+    expect(toPath(st({ panel: "logs" }), "?panel=graph")).toBe("/?panel=logs");
+    // …and a panel that closed takes its parameter with it, leaving the stranger's behind.
+    expect(toPath(st(), "?panel=graph&profile=1")).toBe("/?profile=1");
+  });
+
   it("drops the layout once a pane is fullscreened", () => {
     // You are looking at the timeline, not at the layout behind it.
     expect(toPath(st({ full: "timeline" }))).toBe("/timeline");

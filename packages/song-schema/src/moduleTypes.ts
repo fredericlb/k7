@@ -55,7 +55,11 @@ export const MODULE_EMITS: Record<
   video_effects: "video",
   video_transitions: "video",
   shaders: "video", // a shader takes picture and gives picture; its audio input is a side input
+  shapes: "video", // …and a shape gives picture without taking any: it is a SOURCE, like a lens
 };
+
+/** Where a RACK keeps the audio its symbols name, inside its own folder — see docs/moduleFile.md. */
+export const MODULE_SOURCES_DIR = "sources";
 
 /** A shader module's own vocabulary — a shader is a PAIR of files, so it is a folder, see docs/moduleTypes.md. */
 export const SHADERS_DIR = "shaders";
@@ -67,6 +71,24 @@ export const SHADER_CATEGORY = "shaders";
 
 /** The TYPE FOLDER a transition module lives in; unlike a shader's, one is NAMED by a placement and never wired. */
 export const TRANSITION_CATEGORY = "video_transitions";
+
+/** The TYPE FOLDER a SHAPE module lives in — a drawn primitive, wired to a picture lane like a lens. */
+export const SHAPE_CATEGORY = "shapes";
+
+/** What a shape module DRAWS, named by its `shape:` field — see packages/song-video/docs/shapes.md. */
+export const SHAPE_KINDS = ["square", "circle", "text"] as const;
+
+/** The type folders whose modules ARE their behaviour — a shader's and a transition's GLSL, a
+ *  shape's params. None of them hosts a plugin, so an empty `plugin:` is not a hole in one. */
+export const PLUGINLESS_CATEGORIES = [
+  SHADER_CATEGORY,
+  SHAPE_CATEGORY,
+  TRANSITION_CATEGORY,
+] as const;
+
+/** …asked the way every consumer wants it: does a module of this type folder hold a PLUGIN at all? */
+export const hostsPlugin = (category: string | undefined): boolean =>
+  !(PLUGINLESS_CATEGORIES as readonly string[]).includes(category ?? "");
 
 /** The kind a bare `fade_in: 1` means — resolved by the renderer, so a plain fade needs no module on disk. */
 export const DISSOLVE = "dissolve";
@@ -159,6 +181,13 @@ export const MODULE_TYPES: Record<
     ],
     outputs: [{ name: "out", type: "video" }],
   },
+  // A SHAPE: no input, one picture out. It is a picture SOURCE and lands on a lane the way a lens
+  // does — `inputs: []` reads as unconstrained here, and validate() is what refuses a cable into one.
+  shapes: {
+    kind: "plugin",
+    inputs: [],
+    outputs: [{ name: "out", type: "video" }],
+  },
   midi: {
     kind: "plugin",
     inputs: [{ name: "midi", type: "midi" }],
@@ -219,6 +248,16 @@ export function completionOrder<T>(
   return [...favorite, ...listed];
 }
 
+/** The human name a module gives itself, or "" — never an identity, and never a second ref (docs/moduleLabel.md). */
+export const moduleLabelOf = (m: unknown): string => {
+  const l = (m as { label?: unknown } | null | undefined)?.label;
+  return typeof l === "string" ? l.trim() : "";
+};
+
+/** …and what to SHOW, which is the label when there is one and the name the ref already carries when there is not. */
+export const moduleDisplayName = (label: string, name: string): string =>
+  label.trim() || name;
+
 /** The io kind a live PICTURE source is — spelled once, since three tiers test for it. */
 export const CAMERA_IO = "camera";
 
@@ -272,6 +311,9 @@ export const isFileParam = (name: string): name is FileParam =>
 /** `plugin: { type: offline }` — no engine plugin, its outputs produced onto disk by a pass first (docs/coldModules.md). */
 export const OFFLINE_TYPE = "offline";
 
+/** `plugin: { type: not_supported }` — the DELIBERATE marker: st0 knows this plugin and knows it cannot load it. */
+export const NOT_SUPPORTED_TYPE = "not_supported";
+
 // --- the doc module (see docs/docModules.md) -------------------------------------
 
 /** `@studio/doc` — the module every note on the graph is a NODE of, and it names no folder (docs/moduleTypes.md). */
@@ -281,6 +323,18 @@ export const DOC_REF = `${STUDIO_NS}/doc`;
 
 /** Is this what a note extends? The one spelling of the ref, so a typo cannot half-work. */
 export const isDocRef = (ref: unknown): boolean => ref === DOC_REF;
+
+// --- the not-supported module (see packages/song/docs/notSupported.md) -----------
+
+/** `@studio/not-supported` — what a node stands on when the plugin it WAS is one st0 cannot load. */
+export const NOT_SUPPORTED_REF = `${STUDIO_NS}/not-supported`;
+
+/** Its category: not a type folder, so nothing can be authored under it — the module has no folder. */
+export const NOT_SUPPORTED_CATEGORY = "misc";
+
+/** Is this what an unsupported plugin's node extends? One spelling, so a typo cannot half-work. */
+export const isNotSupportedRef = (ref: unknown): boolean =>
+  ref === NOT_SUPPORTED_REF;
 
 // --- the track modules (see docs/trackModules.md) --------------------------------
 

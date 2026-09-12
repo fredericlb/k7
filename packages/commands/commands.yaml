@@ -17,6 +17,13 @@
 #   surfaces  where the command appears (see commandSpec.ts). Only `cli` exists —
 #             the web backend dispatches under it too, so every command runs on both;
 #             the field is there for when a surface needs its own subset.
+#   menu      which right-click menus may offer it, as MENU_ENTITIES in commandSpec.ts names
+#             them. This is the entity under the POINTER, not the one the command acts on:
+#             `event add` names a track and belongs on a TRACK's menu, while `event remove`
+#             belongs on the event's. Absent = every menu whose click answers the command's
+#             leading arguments, which is the derivation st0's right-click is built on — so
+#             write one only to NARROW it. An unknown word is reported at load and dropped.
+#             See apps/st0/frontend/docs/contextMenu.md.
 #   args      trailing user args. Each may carry EITHER `complete:` — a named provider
 #             in commandSpec.ts PROVIDERS, whose values come from the live project —
 #             OR `values: [...]`, a closed set fixed by the command itself. An unknown
@@ -63,6 +70,7 @@
     fr: "Déplacer une piste à une autre position"
   help: "put a track at a position (e.g. track order gtr 2) — 1 is the top, past the end is the bottom"
   surfaces: [cli, timeline]
+  menu: [track]
   args:
     [
       { name: track, complete: tracks },
@@ -121,6 +129,7 @@
     fr: "Poser un point sur une courbe"
   help: "place (or set) a point on a drawn curve (e.g. curve point add sweep 5:1:1 0.8)"
   surfaces: [cli]
+  menu: [curve]
   args:
     [
       { name: curve, complete: curves },
@@ -134,6 +143,7 @@
     fr: "Déplacer un point sur une courbe"
   help: "move one point, keeping its value unless you give a new one (e.g. curve point move sweep 5:1:1 7:1:1)"
   surfaces: [cli]
+  menu: [curve]
   args:
     [
       { name: curve, complete: curves },
@@ -153,6 +163,7 @@
     fr: "Retirer un point d'une courbe"
   help: "remove one point from a drawn curve (e.g. curve point remove sweep 5:1:1)"
   surfaces: [cli]
+  menu: [curve]
   args:
     [
       { name: curve, complete: curves },
@@ -166,6 +177,7 @@
     fr: "Insérer du temps dans le morceau"
   help: "insert a span of time, pushing everything after it (e.g. project add 5:1:1 1:0)"
   surfaces: [cli]
+  menu: [ruler]
   args:
     [
       { name: at, type: timecode },
@@ -182,6 +194,7 @@
     fr: "Retirer du temps du morceau"
   help: "delete a span of time, pulling everything after it back (e.g. project remove 5:1:1 1:0)"
   surfaces: [cli]
+  menu: [ruler]
   args:
     [
       { name: at, type: timecode },
@@ -228,6 +241,17 @@
   readable:
     en: "Pull the latest changes"
     fr: "Récupérer les dernières modifications"
+# The account's libraries are their own repository, mounted at `_libraries` as a submodule:
+# this fetches the latest of them and records, in one path-limited commit, the version this
+# workspace now uses. The other direction — publishing a module you edited — is the builder's
+# Save. See packages/file-service/docs/libraries.md.
+- command: "project libraries update"
+  sid: project.libraries.update
+  help: "update the shared libraries to their latest version"
+  surfaces: [cli]
+  readable:
+    en: "Update the shared libraries"
+    fr: "Mettre à jour les bibliothèques partagées"
 
 # --- alternatives (try a direction, keep it or drop it) ---
 # An alternative is a git branch you try a version of the song on, with the branch you
@@ -286,6 +310,7 @@
     fr: "Couper ou rétablir le son d'une piste"
   help: "toggle a track's (or group's) mute"
   surfaces: [cli]
+  menu: [track, group]
   args: [{ name: track, complete: tracks }]
 - command: "track solo"
   sid: track.solo
@@ -294,6 +319,7 @@
     fr: "Mettre une piste en solo"
   help: "toggle a track's (or group's) solo (soloed tracks silence the rest)"
   surfaces: [cli]
+  menu: [track, group]
   args: [{ name: track, complete: tracks }]
 # A lane's alternatives and its freeze are addressed as a module's: `node alternative *` and
 # `node freeze`, since a lane IS a module. See packages/song/docs/trackModules.md.
@@ -310,6 +336,7 @@
     fr: "Déplacer vers la piste"
   help: "move a take onto the track (e.g. track take select gtr 2) — what was playing becomes that take"
   surfaces: [cli]
+  menu: [take]
   args:
     [
       { name: track, complete: tracks },
@@ -322,6 +349,7 @@
     fr: "Garder cette prise, supprimer les autres"
   help: "keep what the track is playing and delete every take of it (e.g. track take keep gtr)"
   surfaces: [cli]
+  menu: [track]
   args: [{ name: track, complete: tracks }]
 - command: "track take delete"
   sid: track.take.delete
@@ -330,6 +358,7 @@
     fr: "Supprimer la prise"
   help: "delete this take, and the events it held (e.g. track take delete gtr 2)"
   surfaces: [cli]
+  menu: [take]
   args:
     [
       { name: track, complete: tracks },
@@ -359,6 +388,7 @@
     fr: "Automatiser un paramètre de cette piste"
   help: "draw a curve against one of a track's parameters (e.g. track automation add gtr Filter Freq)"
   surfaces: [cli]
+  menu: [track]
   args:
     [
       { name: track, complete: tracks },
@@ -371,6 +401,7 @@
     fr: "Cesser d'automatiser un paramètre"
   help: "unbind a track's automation, leaving the curve file (e.g. track automation remove gtr Filter Freq)"
   surfaces: [cli]
+  menu: [track]
   args:
     [
       { name: track, complete: tracks },
@@ -391,6 +422,7 @@
     fr: "Traiter une piste dans une chaîne, définitivement"
   help: "bounce every file a track's clips play through a chain and keep the result (e.g. track process gtr @st0/amp-room)"
   surfaces: [cli]
+  menu: [track]
   args: [{ name: track, complete: tracks }, { name: chain, complete: chains }]
 - command: "clip process"
   sid: clip.process
@@ -431,6 +463,7 @@
     fr: "Couper le silence aux deux bouts d'un evenement"
   help: "trim one event's head and tail at a gate (e.g. event trim vox 24:1 -40)"
   surfaces: [cli]
+  menu: [event]
   args:
     [
       { name: track, complete: tracks },
@@ -470,6 +503,7 @@
     fr: "Retirer un point de tirage d'un clip"
   help: "drop one stretch point (e.g. clip warp remove break 1.94)"
   surfaces: [cli]
+  menu: [warp]
   args:
     [
       { name: clip, complete: clipTargets },
@@ -577,6 +611,7 @@
     fr: "Répéter un pad dans son propre pas"
   help: "retrigger one pad n times inside its step (e.g. sequence note repeat drums C1 4 2)"
   surfaces: [cli]
+  menu: [pad]
   args:
     [
       { name: sequence, complete: sequenceFiles },
@@ -592,6 +627,7 @@
     fr: "Rendre un pad muet une passe sur n"
   help: "silence one pad every nth pass of the pattern (e.g. sequence note skip drums C1 4 2)"
   surfaces: [cli]
+  menu: [pad]
   args:
     [
       { name: sequence, complete: sequenceFiles },
@@ -653,6 +689,7 @@
     fr: "Couper une note en deux"
   help: "cut one note in two (e.g. sequence note split melody C4 4 5)"
   surfaces: [cli]
+  menu: [note]
   args:
     [
       { name: sequence, complete: sequenceFiles },
@@ -663,6 +700,19 @@
 
 # Remove one note, addressed the way every note edit addresses one: by key and by where it
 # starts. The step sequencer's button-off runs this; the roll has no delete gesture yet.
+# Twice as long, playing twice. What a length IS here is the window: `from`/`to` when the file
+# states them, else the notes' extent rounded up to the bar — so an unwindowed sequence is left
+# unwindowed, its extent doubling on its own once the copies are in. The notes the window HOLDS
+# are copied one window later, which is the same "in when it STARTS inside" rule every bulk edit
+# in this family follows. See packages/song-schema/docs/noteEdits.md.
+- command: "sequence double"
+  sid: sequence.double
+  readable:
+    en: "Double a sequence's length, playing it twice"
+    fr: "Doubler la longueur d'une séquence, jouée deux fois"
+  help: "double a sequence: its window twice as long, its notes played twice (e.g. sequence double drums)"
+  surfaces: [cli]
+  args: [{ name: sequence, complete: sequenceFiles }]
 - command: "sequence note remove"
   sid: sequence.removeNote
   readable:
@@ -670,6 +720,7 @@
     fr: "Retirer une note d'une séquence"
   help: "remove one note (e.g. sequence note remove drums C1 4)"
   surfaces: [cli]
+  menu: [note]
   args:
     [
       { name: sequence, complete: sequenceFiles },
@@ -707,6 +758,7 @@
     fr: "Supprimer les notes d'une région"
   help: "remove every note in a region (e.g. sequence notes remove melody C4 C5 0 4)"
   surfaces: [cli]
+  menu: [note]
   args:
     [
       { name: sequence, complete: sequenceFiles },
@@ -726,6 +778,7 @@
     fr: "Transposer les notes d'une région"
   help: "shift every note in a region by n semitones (e.g. sequence notes transpose melody C4 C5 0 4 12)"
   surfaces: [cli]
+  menu: [note]
   args:
     [
       { name: sequence, complete: sequenceFiles },
@@ -745,6 +798,7 @@
     fr: "Aligner les notes d'une région sur une grille"
   help: "snap every note's start in a region to a grid, in beats (e.g. sequence notes quantize melody C4 C5 0 4 0.25)"
   surfaces: [cli]
+  menu: [note]
   args:
     [
       { name: sequence, complete: sequenceFiles },
@@ -764,6 +818,7 @@
     fr: "Régler la vélocité des notes d'une région"
   help: "set every note's velocity in a region, 0..1 (e.g. sequence notes velocity melody C4 C5 0 4 0.7)"
   surfaces: [cli]
+  menu: [note]
   args:
     [
       { name: sequence, complete: sequenceFiles },
@@ -822,6 +877,7 @@
     fr: "Piloter un paramètre de module avec une courbe"
   help: "bind a curve to a param (e.g. node automate osc 'Filter Freq' sweep)"
   surfaces: [cli]
+  menu: [node, param]
   args:
     [
       { name: module, complete: modules },
@@ -871,6 +927,7 @@
     fr: "Ajouter un repère sur la timeline"
   help: "add a named timeline marker (e.g. project marker new 5:1:1 Chorus)"
   surfaces: [cli]
+  menu: [ruler]
   args:
     [
       { name: timecode, type: timecode },
@@ -883,6 +940,7 @@
     fr: "Supprimer un repère"
   help: "remove a marker by name (e.g. project marker delete Chorus)"
   surfaces: [cli]
+  menu: [marker]
   args: [{ name: name, complete: markerNames }]
 
 # --- the machine's plugins ---
@@ -922,6 +980,7 @@
     fr: "Ouvrir la fenêtre native d'une instance"
   help: "open the plugin's own UI window for one instance"
   surfaces: [cli]
+  menu: [node]
   args: [{ name: module, complete: modules }]
 
 # --- channel labels (global user preferences) ---
@@ -1227,6 +1286,7 @@
     fr: "Déplacer un plan sur sa piste"
   help: "move a shot (e.g. picture move main 12.5 20) — writes `start`, the body drag's field"
   surfaces: [cli, timeline]
+  menu: [shot]
   args:
     [
       { name: lane, complete: pictureLanes },
@@ -1240,6 +1300,7 @@
     fr: "Régler la durée d'un plan"
   help: "set a shot's extent (e.g. picture length main 12.5 4) — 0 runs to the end of the source"
   surfaces: [cli, timeline]
+  menu: [shot]
   args:
     [
       { name: lane, complete: pictureLanes },
@@ -1253,6 +1314,7 @@
     fr: "Rogner le début d'un plan sans bouger sa fin"
   help: "trim the head (e.g. picture head main 12.5 14) — moves start, source_from and length together, so the tail stays put"
   surfaces: [cli, timeline]
+  menu: [shot]
   args:
     [
       { name: lane, complete: pictureLanes },
@@ -1266,6 +1328,7 @@
     fr: "Retirer un plan de sa piste"
   help: "drop a placement (e.g. picture delete main 12.5) — the clip it names stays, a lane holding only placements"
   surfaces: [cli, timeline]
+  menu: [shot]
   args:
     [
       { name: lane, complete: pictureLanes },
@@ -1354,6 +1417,7 @@
     fr: "Supprimer un nœud, fichiers compris"
   help: "delete a node: its file, its preset and its place in the graph (e.g. node delete lead)"
   surfaces: [cli]
+  menu: [node]
   args: [{ name: "node", complete: modules }]
 # A templated set of nodes, drawn as one box. Instancing copies the template's node files into
 # the project and its wiring into graph.yaml, so what lands on disk is an ordinary graph plus one
@@ -1378,6 +1442,7 @@
     fr: "Supprimer une boîte et ses nœuds"
   help: "delete an assembly: the record, and every node it holds (e.g. assembly delete turntableA)"
   surfaces: [cli]
+  menu: [assembly]
   args: [{ name: "name", complete: assemblies }]
 # Drops the RECORD and nothing else. The nodes stay on the graph exactly as they were, wired as
 # they were — this is "stop drawing these as one thing", not "get rid of them".
@@ -1388,6 +1453,7 @@
     fr: "Ne plus dessiner la boîte, garder ses nœuds"
   help: "drop an assembly's record, leaving every node on the graph untouched (e.g. assembly dissolve turntableA)"
   surfaces: [cli]
+  menu: [assembly]
   args: [{ name: "name", complete: assemblies }]
 - command: "graph unlink"
   sid: graph.unlink
@@ -1396,6 +1462,7 @@
     fr: "Retirer un nœud de sa chaîne"
   help: "take a node out of its chain, rejoining what fed it to what it fed (e.g. graph unlink lead)"
   surfaces: [cli]
+  menu: [node]
   args: [{ name: "node", complete: modules }]
 # Gives a module the ENGINE reports a folder in this project. A scanned plugin has no files
 # anywhere — a chain can name `@engine/nam` and nothing is on disk — and that is fine until
@@ -1409,6 +1476,7 @@
     fr: "Donner un dossier à un module du moteur"
   help: "give an engine module a folder in this project, so it can carry a panel and presets (e.g. module own @engine/nam)"
   surfaces: [cli]
+  menu: [node]
   args: [{ name: "ref", complete: baseModules }]
 # Points a node at ANOTHER module: one edit, to its `extends:` line. Not delete-then-add and
 # not a new folder either — the name stays, so every chain step keeps its place and nothing is
@@ -1421,6 +1489,7 @@
     fr: "Pointer un nœud vers un autre module"
   help: "replace what a node is, keeping its place — and its name, unless the name was auto-made, in which case it follows the new module (e.g. node replace echo @engine/audio/filter/auto-wah)"
   surfaces: [cli]
+  menu: [node]
   args:
     [
       { name: node, complete: nodes },
@@ -1433,6 +1502,7 @@
     fr: "Cloner un module"
   help: "clone a module folder (e.g. module clone instruments/bass bass2)"
   surfaces: [cli]
+  menu: [node]
   args:
     [
       { name: "category/name", complete: modules },
@@ -1483,6 +1553,7 @@
     fr: "Contourner un nœud"
   help: "bypass a node so it passes sound through untouched (bare: toggles)"
   surfaces: [cli]
+  menu: [node]
   args: [{ name: node, complete: nodes }, { name: state, values: [on, off] }]
 # --- a module's ALTERNATIVES (its other attribute sets) ---
 # NOT `project alternative`, which is a git branch, and not a PRESET, which is a starting point
@@ -1500,6 +1571,7 @@
     fr: "Créer une alternative vide pour un nœud"
   help: "add an empty alternative to a node and switch to it (e.g. node alternative create ampli crunch)"
   surfaces: [cli]
+  menu: [node]
   args:
     [
       { name: node, complete: nodes },
@@ -1514,6 +1586,7 @@
     fr: "Copier les réglages dans une nouvelle alternative"
   help: "add an alternative holding a copy of the one that is on, and switch to it"
   surfaces: [cli]
+  menu: [node]
   args:
     [
       { name: node, complete: nodes },
@@ -1529,6 +1602,7 @@
     fr: "Basculer un nœud sur une autre alternative"
   help: "switch a node to another of its alternatives (e.g. node alternative select ampli crunch)"
   surfaces: [cli]
+  menu: [node]
   args:
     [
       { name: node, complete: nodes },
@@ -1549,6 +1623,7 @@
     fr: "Geler un nœud et tout ce qui est en amont"
   help: "bake everything upstream of a node, itself included, into one render (again: unfreeze)"
   surfaces: [cli]
+  menu: [node]
   args: [{ name: node, complete: nodes }]
 # A FILE-VALUED param takes no verb of its own either: it lands in `params:` like the numbers
 # do, and is set by `node param <node> nam <file>`. One verb per param cannot work — the asset
@@ -1577,6 +1652,7 @@
     fr: "Régler un contrôle d'un nœud"
   help: "set a node's plugin param, an @intrinsic, or a file it carries (e.g. node param synth \"Filter Freq\" 69)"
   surfaces: [cli]
+  menu: [node, param]
   args:
     [
       { name: node, complete: nodes },
@@ -1599,6 +1675,7 @@
     fr: "Associer un contrôle MIDI à un paramètre"
   help: "bind a MIDI CC to a module's param, or `none` to unbind (e.g. module cc synth Cutoff 1 74)"
   surfaces: [cli]
+  menu: [node, param]
   args:
     [
       { name: module, complete: modules },
@@ -1632,6 +1709,7 @@
     fr: "Poser un clip sur une piste à une position"
   help: "put an existing clip/sequence on a track (e.g. event add gtr gtr_3.1_260814T143012 3:1)"
   surfaces: [cli]
+  menu: [track]
   args:
     [
       { name: track, complete: tracks },
@@ -1672,6 +1750,7 @@
     fr: "Déplacer un clip à une autre position ou piste"
   help: "move a clip/sequence to a new timecode, optionally onto another track of the same type"
   surfaces: [cli]
+  menu: [event]
   args:
     [
       { name: track, complete: tracks },
@@ -1695,6 +1774,7 @@
     fr: "Déplacer tous les événements d'une plage"
   help: "move every event in a range (e.g. events move drums,bass 2:1 4:4 +1:0)"
   surfaces: [cli]
+  menu: [event]
   args:
     [
       { name: tracks, complete: tracks, hint: "track ids, comma-joined — or 'all'" },
@@ -1727,6 +1807,7 @@
     fr: "Rendre un clip muet sans le supprimer"
   help: "silence one event without removing it (e.g. event status mute drums 2:1:1)"
   surfaces: [cli]
+  menu: [event]
   args:
     [
       { name: track, complete: tracks },
@@ -1745,6 +1826,7 @@
     fr: "Si un clip suit sa carte d'étirement"
   help: "whether one event plays the clip's stretch map — off plays it at its own rate (e.g. event status warp drums 2:1:1 off)"
   surfaces: [cli]
+  menu: [event]
   args:
     [
       { name: track, complete: tracks },
@@ -1770,6 +1852,7 @@
     fr: "Choisir la part de sa matiere qu'un evenement joue"
   help: "which slice of the file an event plays, in SECONDS (e.g. event window vox 24:1 52.36 69.82)"
   surfaces: [cli]
+  menu: [event]
   args:
     [
       { name: track, complete: tracks },
@@ -1787,6 +1870,7 @@
     fr: "Ouvrir un fondu d'entrée sur un événement"
   help: "fade one event in over a length (e.g. event fadein gtr 2:1:1 0:1) — 0 removes it"
   surfaces: [cli]
+  menu: [event]
   args:
     [
       { name: track, complete: tracks },
@@ -1804,6 +1888,7 @@
     fr: "Fermer un fondu de sortie sur un événement"
   help: "fade one event out over a length (e.g. event fadeout gtr 2:1:1 0:2) — 0 removes it"
   surfaces: [cli]
+  menu: [event]
   args:
     [
       { name: track, complete: tracks },
@@ -1827,6 +1912,7 @@
     fr: "Redéfinir le début et la fin d'un clip"
   help: "re-time an event (e.g. event resize drums 2:1:1 2:1:1 4:1:1)"
   surfaces: [cli]
+  menu: [event]
   args:
     [
       { name: track, complete: tracks },
@@ -1855,6 +1941,7 @@
     fr: "Couper un clip en deux"
   help: "cut one event in two, writing two new files (e.g. event split drums 2:1:1 3:1:1)"
   surfaces: [cli]
+  menu: [event]
   args:
     [
       { name: track, complete: tracks },
@@ -1887,6 +1974,7 @@
     fr: "Consolider une plage en un seul clip"
   help: "write one new clip over a range (e.g. selection consolidate drums 2:1 6:1)"
   surfaces: [cli]
+  menu: [event]
   args:
     [
       { name: tracks, complete: tracks, hint: "one track — a rectangle over several cannot be consolidated" },
@@ -1900,6 +1988,7 @@
     fr: "Retirer un clip d'une piste"
   help: "remove a clip/sequence placement from a track (e.g. event remove drums 2:1:1)"
   surfaces: [cli]
+  menu: [event]
   args: [{ name: track, complete: tracks }, { name: timecode, type: timecode }]
 # Inserts a node (block) into a chain's `use` list, between two adjacent steps in its
 # signal flow — the two ends of one arrow in the Chains graph, a source/module/sink name
@@ -1915,6 +2004,7 @@
     fr: "Insérer un nœud dans une chaîne"
   help: "splice a node into an arrow, between the two ends of it (e.g. node insert melody OUT wah)"
   surfaces: [cli]
+  menu: [node]
   args:
     [
       {
@@ -1981,6 +2071,7 @@
     fr: "Épingler la position d'un nœud sur le graphe"
   help: "move a node on the graph, world px (e.g. graph move reverb 420 180) — `auto` hands it back to the layout"
   surfaces: [cli]
+  menu: [node]
   args:
     [
       { name: node, complete: nodes },
@@ -2071,6 +2162,15 @@
   readable:
     en: "Rewind to the start"
     fr: "Revenir au début"
+# The stop that stopping did not do: every plugin is told to let go of its notes AND reset,
+# which is what kills a tail as well as a held chord. Pressing stop twice sends it.
+- command: "transport panic"
+  sid: transport.panic
+  help: "silence every note and reset every plugin"
+  surfaces: [cli]
+  readable:
+    en: "Silence everything (MIDI panic)"
+    fr: "Tout faire taire (panique MIDI)"
 # The click plays during playback: same sound each beat, emphasised on the first beat
 # of every bar.
 - command: "transport metronome"
@@ -2106,5 +2206,6 @@
     fr: "Armer une piste pour l'enregistrement"
   help: "toggle a track's record arm (armed tracks record on play)"
   surfaces: [cli]
+  menu: [track]
   args: [{ name: track, complete: tracks }]
 

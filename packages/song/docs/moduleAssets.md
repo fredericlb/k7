@@ -15,9 +15,10 @@ modules/audio/amp/
 That is the only place they are looked for: there is no shared asset library (see "No shared
 asset library" below).
 
-`assets/` is one of three reserved subfolders a module may have — the other two are `nodes/`
-(one file per placement) and `base/` (named `.vstpreset` blobs, `docs/userPresets.md`). Nothing
-else in a module folder is a folder with a meaning: a name not on that list is just a name.
+`assets/` is one of four reserved subfolders a module may have — the others are `nodes/`
+(one file per placement), `base/` (named `.vstpreset` blobs, `docs/userPresets.md`) and `sources/`
+(a rack's audio, below). Nothing else in a module folder is a folder with a meaning: a name not on
+that list is just a name.
 
 A module INHERITS its ancestors' assets: pointing a song at a shared amp means a thin local
 module that `extends` it, and the files are in the shared folder. `moduleAssetChoices` is the one
@@ -116,10 +117,21 @@ sound at all, and silence with no explanation is the failure mode worth spending
 
 ## A rack's samples
 
-A rack's audio is resolved against the module folder already, so `assets/bd.wav` is a spelling
-that stands on its own. A **bare** name is looked for in `assets/` first and falls back to the
-folder itself — so a shelf with its `.wav` beside `module.yaml` keeps loading, and a sample
-dropped onto a module in the médiathèque is found without rewriting the yaml.
+A rack keeps its audio in **`sources/`**, its own reserved subfolder (`MODULE_SOURCES_DIR`, in
+song-schema so a browser knows the word too). It is not `assets/` because the two are chosen by
+different hands: an asset is a file a PARAM names and the asset picker offers, a source is a file a
+SYMBOL names and the rack builder writes. Keeping them apart also keeps the picker's list free of
+sixteen drum hits nobody will ever pick from it.
+
+`sources/` is the one part of a module the editor's file tree still shows: the fold that turns a
+module folder into a single row keeps this child, so the samples can be seen, renamed and dropped
+onto. The row stays openable on its name (`opensOnName`), so the chevron folds while the name still
+opens the builder.
+
+A **bare** clip name is looked for in `sources/`, then `assets/`, then the module folder itself — so
+a shelf with its `.wav` beside `module.yaml` keeps loading, and a sample dropped onto a module in
+the médiathèque is found without rewriting the yaml. `assets/bd.wav` is still a spelling that
+stands on its own, resolved against the module folder like any other ref.
 
 ## No shared asset library
 

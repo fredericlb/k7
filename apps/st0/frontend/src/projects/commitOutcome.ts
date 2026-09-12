@@ -2,6 +2,8 @@
 // exactly the logic that announced a success for a commit that never happened, and a module
 // importing nothing is a module a test can load. See ./machine.ts.
 
+import { m } from "../paraglide/messages.js";
+
 /**
  * What the command answered, read as an OUTCOME — POSITIVE proof of success is required, or a
  * wrong verb reads as a success. `noRemote` is for a workspace that has never been published:
@@ -17,7 +19,7 @@ export function commitOutcome(
       ? null
       : (out.find((l) => l.startsWith("push failed")) ?? null);
   if (out.some((l) => l.startsWith("nothing to commit")))
-    return "rien à committer — le dossier est-il ignoré par git ?";
+    return m["commit.nothing"]();
   // Everything else is a failure, unrecognised output included: the raw output beats silence, and it will name the next drift.
-  return out.join(" · ").trim() || "la commande n'a rien répondu";
+  return out.join(" · ").trim() || m["commit.silent"]();
 }

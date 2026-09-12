@@ -57,8 +57,8 @@ export function ViewportOverlay({
   // Where the press landed, in viewport px — every frame of the drag is measured from it.
   const down = useRef({ x: 0, y: 0 });
 
-  // A shape lane's rect is not what it draws by (its shapes carry their own), so it is not there to grab.
-  const pickable = tracks.filter((t) => t.kind !== "shape");
+  // A lane DRAWING shapes has no rect worth grabbing — each shape carries its own geometry.
+  const pickable = tracks.filter((t) => !t.shapes.length);
   const scale = box && viewport[0] ? box.w / viewport[0] : 0;
   const sel = pickable.find((t) => t.id === selected) ?? null;
   // The selected lane's rect: the drag's while one runs, so the box follows the pointer rather than the file.

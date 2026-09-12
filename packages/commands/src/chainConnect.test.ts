@@ -61,11 +61,7 @@ function song(): string {
   }
   // A PICTURE lane, which is a card on the graph and takes a cable from a lens (packages/song/docs/camera.md).
   mkdirSync(join(d, "video_tracks"), { recursive: true });
-  writeFileSync(
-    join(d, "video_tracks", "main.yaml"),
-    "kind: video\nevents: []\n",
-    "utf8",
-  );
+  writeFileSync(join(d, "video_tracks", "main.yaml"), "events: []\n", "utf8");
   return d;
 }
 

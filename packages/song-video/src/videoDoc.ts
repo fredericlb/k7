@@ -31,9 +31,11 @@ export interface VideoTransitionDoc {
   params: Record<string, number>; // P1..P4, clamped 0..1 at compile
 }
 
-// A shape drawn straight onto the viewport, in px. A square/text x,y is its top-left, a circle's its CENTRE.
+// A shape drawn straight onto the viewport, in px, off the MODULE wired to the lane — docs/shapes.md.
+// A square/text x,y is its top-left, a circle's its CENTRE; `id` is the module NODE's name.
 export type ShapeDoc =
   | {
+      id: string;
       type: "square";
       x: number;
       y: number;
@@ -41,8 +43,16 @@ export type ShapeDoc =
       h: number;
       color: string;
     }
-  | { type: "circle"; x: number; y: number; r: number; color: string }
   | {
+      id: string;
+      type: "circle";
+      x: number;
+      y: number;
+      r: number;
+      color: string;
+    }
+  | {
+      id: string;
       type: "text";
       content: string;
       font: string;
@@ -74,7 +84,8 @@ export interface VideoPluginDoc {
   audioFrom?: string;
 }
 
-// A lane: "video" places picture at (x,y,w,h), "shape" draws parametric shapes, in layer draw order.
+// A lane: it places picture at (x,y,w,h), in layer draw order, and what fills it is its placements,
+// a lens, or the SHAPES wired to it — one of the three, never a mix (docs/shapes.md).
 export interface VideoTrackDoc {
   id: string;
   name: string;
@@ -82,13 +93,13 @@ export interface VideoTrackDoc {
   mute: boolean; // hidden
   /** Soloed, from `project.yaml`'s `soloed:` — the same list audio uses, resolved within picture (docs/picture.md). */
   solo: boolean;
-  kind: "video" | "shape";
   x: number;
   y: number;
   w: number;
   h: number;
-  clips: VideoClipDoc[]; // "video" tracks only
-  shapes: ShapeDoc[]; // "shape" tracks only
+  clips: VideoClipDoc[];
+  /** The shape MODULES wired to this lane, in the order the graph declares them; empty on an ordinary lane. */
+  shapes: ShapeDoc[];
   // This lane's own video run, applied to the layer BEFORE it is composited; absent when it has none.
   plugins?: VideoPluginDoc[];
   /** A live CAMERA feeds this lane instead of its placements — the LABEL a node wired to it names,

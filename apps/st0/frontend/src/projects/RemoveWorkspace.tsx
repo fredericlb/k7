@@ -9,6 +9,7 @@ import { Button } from "@frediverse/ui/button";
 import { askConfirm } from "@studio/project-shell/ask";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 
 export function RemoveWorkspace({
   workspace,
@@ -26,14 +27,11 @@ export function RemoveWorkspace({
 
   const ask = async () => {
     const agreed = await askConfirm({
-      title: `Retirer « ${workspace} » de cette machine ?`,
+      title: m["ws.removeTitle"]({ workspace }),
       body: origin
-        ? `Le dossier et tout ce qu'il contient sont supprimés. Le dépôt reste chez son ` +
-          `hébergeur (${origin}) : ce qui a été poussé se récupère en l'important à nouveau, ` +
-          `ce qui ne l'a pas été s'en va avec le dossier.`
-        : `Le dossier et tout ce qu'il contient sont supprimés. Cet espace de travail n'a ` +
-          `AUCUN dépôt derrière lui : il n'existe que sur cette machine, et rien ne le ramènera.`,
-      confirmLabel: "Retirer",
+        ? m["ws.removeBodyRepo"]({ origin })
+        : m["ws.removeBodyLocal"](),
+      confirmLabel: m["common.remove"](),
       danger: true,
     });
     if (!agreed) return;
@@ -51,7 +49,7 @@ export function RemoveWorkspace({
       size="xs"
       className="shrink-0 text-xs text-muted-foreground hover:text-destructive"
       disabled={busy || Boolean(blocked)}
-      title={blocked || `Retirer ${workspace} de cette machine`}
+      title={blocked || m["ws.removeHint"]({ workspace })}
       onClick={() => void ask()}
     >
       <Trash2 className="h-4 w-4" />

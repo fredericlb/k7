@@ -26,9 +26,15 @@ function download(blob: Blob, filename: string): void {
 }
 
 // One vocabulary for the formats, shared with the line that names them — ../exportArgs.ts.
-export { MIX_FORMATS, type MixFormat } from "../exportArgs";
+export {
+  MIX_FORMATS,
+  type MixFormat,
+  VIDEO_FORMATS,
+  type VideoFormat,
+} from "../exportArgs";
 
-import type { MixFormat } from "../exportArgs";
+import type { MixFormat, VideoFormat } from "../exportArgs";
+import { m } from "../paraglide/messages.js";
 
 export interface Share {
   /** A render is running: the menu greys itself out rather than starting a second one. */
@@ -38,6 +44,7 @@ export interface Share {
    *  unless `audio` is null. The scene is the caller's: only the viewport's host has one. */
   exportVideo: (
     scene: VideoScene | null,
+    format: VideoFormat,
     audio: MixFormat | null,
     name: string,
   ) => Promise<void>;
@@ -66,7 +73,12 @@ export function useShare(onStatus: (s: string) => void): Share {
   );
 
   const exportVideo = useCallback(
-    async (scene: VideoScene | null, audio: MixFormat | null, name: string) => {
+    async (
+      scene: VideoScene | null,
+      format: VideoFormat,
+      audio: MixFormat | null,
+      name: string,
+    ) => {
       if (!scene) {
         onStatus("this project draws no picture — nothing to render");
         return;
@@ -88,16 +100,17 @@ export function useShare(onStatus: (s: string) => void): Share {
         }
         const total = Math.max(1, Math.round(scene.durationSec * scene.fps));
         onStatus(`rendering ${total} frames…`);
-        const mp4 = await exportScene(
+        const file = await exportScene(
           scene,
-          track ? { audio: track } : {},
+          { format, ...(track ? { audio: track } : {}) },
           // A frame count, not a percentage: a viewport export is slow and "1200 / 4500" is the
           // only progress that says how slow.
           (p) => onStatus(`rendering ${p.frame} / ${p.total} frames…`),
         );
+        // Named by the container itself: mediabunny owns both strings, so the two cannot drift.
         download(
-          new Blob([mp4], { type: "video/mp4" }),
-          `${name || "video"}.mp4`,
+          new Blob([file.buffer], { type: file.mimeType }),
+          `${name || "video"}${file.extension}`,
         );
         onStatus(`exported ${total} frames`);
       } catch (e) {
@@ -118,11 +131,11 @@ export function useShare(onStatus: (s: string) => void): Share {
       if (res.needsMeta) {
         const artist = (
           await askText({
-            title: "Nouvelle sortie k7",
-            body: "k7 ne connaît pas encore ce morceau : il lui faut un artiste et un titre.",
-            placeholder: "l'artiste",
-            confirmLabel: "Continuer",
-            validate: (v) => (v.trim() ? "" : "une sortie nomme son artiste"),
+            title: m["k7.newReleaseTitle"](),
+            body: m["k7.newReleaseBody"](),
+            placeholder: m["k7.artistPlaceholder"](),
+            confirmLabel: m["common.continue"](),
+            validate: (v) => (v.trim() ? "" : m["k7.artistRequired"]()),
           })
         )?.trim();
         if (!artist) {
@@ -130,10 +143,10 @@ export function useShare(onStatus: (s: string) => void): Share {
           return;
         }
         const asked = await askText({
-          title: "Titre",
+          title: m["k7.titleTitle"](),
           initial: res.defaultTitle || "",
-          placeholder: "le titre",
-          confirmLabel: "Publier",
+          placeholder: m["k7.titlePlaceholder"](),
+          confirmLabel: m["k7.publish"](),
         });
         // Cancelling the SECOND question abandons too: the first one already started nothing.
         if (asked === null) {
@@ -160,30 +173,26 @@ export function useShare(onStatus: (s: string) => void): Share {
   /** Freeze this project and put its link on the clipboard — it ASKS first, naming what leaves, and the address is built in the browser. */
   const shareLink = useCallback(async () => {
     const agreed = await askConfirm({
-      title: "Partager une version gelée de ce projet ?",
-      body:
-        "Toute personne ayant le lien pourra l'écouter et voir les pistes, les chaînes et " +
-        "les paramètres des modules — sans compte. Le nom des pistes, des repères, des " +
-        "modules et le texte des notes en font partie.\n\n" +
-        "Le lien reste valable jusqu'à ce que vous le révoquiez, dans Projets sur pl8.",
-      confirmLabel: "Publier le lien",
+      title: m["share.confirmTitle"](),
+      body: m["share.confirmBody"](),
+      confirmLabel: m["share.publishLink"](),
     });
     if (!agreed) return;
     setBusy(true);
-    onStatus("rendu du partage… (le morceau entier, ça prend un moment)");
+    onStatus(m["share.rendering"]());
     try {
       const { token, bytes } = await api.shareLink();
       const url = shareUrl(window.location.origin, token);
       const mb = Math.round(bytes / 1048576);
       try {
         await navigator.clipboard.writeText(url);
-        onStatus(`lien copié — ${mb} Mo partagés : ${url}`);
+        onStatus(m["share.copied"]({ mb, url }));
       } catch {
         // A refused clipboard must not lose the link: it is the whole point of the command, and it exists exactly once.
-        onStatus(`partagé (${mb} Mo) — ${url}`);
+        onStatus(m["share.done"]({ mb, url }));
       }
     } catch (e) {
-      onStatus(`partage impossible : ${(e as Error).message}`);
+      onStatus(m["share.failed"]({ error: (e as Error).message }));
     } finally {
       setBusy(false);
     }

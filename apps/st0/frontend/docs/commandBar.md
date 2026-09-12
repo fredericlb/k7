@@ -307,8 +307,22 @@ falls back to the bar, since there is no module to derive a name from either.
 The first level is where a module COMES FROM:
 
 - `current` — base modules this project already defines
-- `@engine` — the plugin catalogue, brought in by default
-- `@…` — any other level a module is inherited from (`@st0`, `@workspace`)
+- `@…` — any level a module is inherited from (`@st0`, `@workspace`)
+
+**`@engine` is not among them.** That namespace is the machine's plugin scan, so its size is a
+fact about the rig rather than about the song, and a built-in is what a module `extends:` — not
+a node to drop on a graph. It is browsed in the file tree's Libraries tab and offered by the
+module builder, which is the screen that authors an `extends:`. The command bar draws the same
+line for the same reason, and states it once:
+`packages/commands/docs/completions.md`. A chain step naming one stays legal; it is simply not
+suggested here.
+
+`offered()` is where that line is drawn, and BOTH halves of the picker go through it — the tree
+and the search — because a search reaching what the tree refuses is the same leak. The shape to
+test it against is `@engine/<slug>`, flat, with a category carried beside it: a three-segment
+`@engine/audio/delay/adt` never arrives, `moduleCatalogue` dropping a namespaced ref that has no
+library root, while `@engine/serum` and `@engine/OUT` come through it every time the rig has been
+scanned.
 
 Below that it is the catalogue's own shape: type → category → module. That nesting is not
 a taxonomy invented here — `scanModules` files each plugin at `<type>/<category>/<slug>`
@@ -320,6 +334,12 @@ never asked for.
 Only BASE modules appear, never nodes — `loadModuleRefs` keys by module folder, so a
 node is never a ref of its own. That is the right set here, because picking one leads
 to instantiating it.
+
+**A row is named by the module's `label:` when it has one**, and by the ref's last segment when it
+has not (`packages/song/docs/moduleLabel.md`). The ref stays on the row as its hint either way,
+because the ref is what a pick WRITES: a row showing only a human name would hide what lands in the
+file. The search reads both, so the reverb you called *Grande salle* answers to "grande" and to
+"reverb".
 
 The nesting is a good way to BROWSE and a bad way to find one module you can already name
 — a 250-plugin catalogue is four hovers deep. So the root level also carries a search

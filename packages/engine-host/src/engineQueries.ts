@@ -17,6 +17,7 @@ import { extsCachePath } from "@studio/engine-client/paths";
 import type {
   HostAudioDevice,
   HostEditPlugin,
+  HostPlugin,
   HostSession,
 } from "./hostProtocol.ts";
 import { line } from "./logbus.ts";
@@ -133,8 +134,12 @@ export class EngineQueries {
     });
   }
 
-  /** How many plugins the engine knows about, from the ENGINE and not a cache file; null means "hasn't answered yet", which is the spinner. */
-  pluginCount(): Promise<number | null> {
+  /**
+   * The installed catalogue, from the ENGINE and not a cache file; null means "hasn't answered
+   * yet", which is the spinner. Sorted here so the supervisor's signature is stable: the engine
+   * returns them in scan order, and a reordered scan is not a changed catalogue.
+   */
+  listPlugins(): Promise<HostPlugin[] | null> {
     return this.run(async (client) => {
       const p = EngineQueries.reply<PluginInfo[]>(
         client,
@@ -142,7 +147,18 @@ export class EngineQueries {
         PLUGINS_MS,
       );
       client.listPlugins();
-      return (await p).length;
+      return (await p)
+        .map((i) => ({
+          name: i.name ?? "",
+          format: i.format ?? "",
+          manufacturer: i.manufacturer ?? "",
+          role: i.role ?? "",
+        }))
+        .sort(
+          (a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) ||
+            a.format.localeCompare(b.format),
+        );
     });
   }
 

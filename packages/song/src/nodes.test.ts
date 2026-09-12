@@ -71,6 +71,27 @@ describe("module nodes", () => {
     expect(resolved.lead.inputs).toEqual([{ name: "midi", type: "midi" }]);
   });
 
+  it("stays a RACK over a rack module — the type is inherited, not defaulted", () => {
+    // The node states no type; anything filled in for it here would beat the rack and the
+    // node would compile as an empty plugin slot, "missing plugin" and silent.
+    writeModule(dir, "instruments", "kit", {
+      type: "rack",
+      rack: {
+        rack_type: "samples",
+        symbols: { KICK: { note: 36, clip: "k" } },
+      },
+    });
+    writeNode(dir, "kit-1", { extends: "@project/instruments/kit" });
+    const resolved = resolveModuleMap(
+      loadModules(dir),
+      loadModuleRefs(dir, {}),
+    );
+    expect(resolved["kit-1"].type).toBe("rack");
+    expect(Object.keys(resolved["kit-1"].rack?.symbols ?? {})).toEqual([
+      "KICK",
+    ]);
+  });
+
   it("lets a node override the module while leaving it untouched", () => {
     const modules = loadModules(dir);
     const refs = loadModuleRefs(dir, {});
@@ -181,26 +202,25 @@ describe("module nodes", () => {
     expect(freeNodeName(dir, "eq", "vo")).toBe("vo_eq_2");
   });
 
-  it("refuses a name already taken, project-wide", () => {
+  it("refuses a name another NODE already has, and nothing else", () => {
     expect(() => createNode(dir, "instruments", "synth", "lead")).toThrow(
-      /already names a module or node/,
-    );
-    // One flat key, so a MODULE's name is taken too: "synth" must not mean two things.
-    expect(() => createNode(dir, "instruments", "synth", "synth")).toThrow(
-      /already names a module or node/,
+      /already exists/,
     );
     expect(() => createNode(dir, "instruments", "nope", "x")).toThrow(
       /neither in this project nor one the engine offers/,
     );
   });
 
-  it("refuses to shadow a module with a node of the same name", () => {
-    // Written by hand rather than through createNode, which refuses it earlier.
-    writeNode(dir, "synth", { params: { Level: -3 } });
-    // Reported rather than silently replaced: a chain would otherwise play whichever loaded last.
-    expect(() => loadModules(dir, true)).toThrow(
-      /'synth' is already a module in this project/,
+  it("takes a MODULE's name when asked: the two are not the same thing", () => {
+    // A node named after the module it uses is what an import writes, the source DAW having
+    // called the track after its instrument — see docs/trackModules.md.
+    expect(createNode(dir, "instruments", "synth", "synth")).toBe(
+      "nodes/synth.yaml",
     );
+    const mods = loadModules(dir, true);
+    // The bare name is the NODE's, and the module is where it always was: behind its ref.
+    expect(mods.synth?.node).toBe("synth");
+    expect(loadModuleRefs(dir, {})["@project/instruments/synth"]).toBeTruthy();
   });
 
   // --- a node is an ordinary extender -------------------------------

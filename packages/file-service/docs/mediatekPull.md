@@ -81,19 +81,6 @@ the top of the repository rather than inside the project
 Nothing open naming the library means no fetch AND no token recorded — otherwise the first song
 that did name one would be told everything was already in step.
 
-## `syncMediatekFamily` — a WHOLE family, ignoring the scope
-
-What the module bench needs and nothing else does. `pullOnce` fetches only what the open projects
-name, which is the right default and the reason this cache stays small. The bench names nothing:
-its whole content is the catalogue, so the scoped pull would leave it holding whatever happened
-to be cached for other songs.
-
-It deliberately does NOT record a revision — `markSynced`'s claim is "this cache is in step with
-the owner", and that is not true for the songs the scoped loop pulls. It drops the scoped loop's
-memo entry instead, because that memo records a SCOPE alongside the revision and this pass had
-none; dropping it makes the next tick re-decide rather than skip. Never throws, same as
-`pullOnce`: an unreachable library must cost the refresh, not the open.
-
 ## The loop is STOPPED, and why
 
 `startMediatekPuller` returns immediately. The guard is a stopgap rather than the design: the

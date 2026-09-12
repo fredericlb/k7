@@ -92,6 +92,32 @@ superproject to hold a gitlink, so the same folder is a plain clone instead. The
 identical, which is all `@studio/song` looks at; what is lost is the pinned commit, and a
 workspace that is not versioned had nowhere to pin it anyway.
 
+## The URI is validated by CLONING it, and nothing is made before there is one
+
+`PUT /account/libraries` does not merely check the spelling. `isSshGitUri` says the paste LOOKS
+like an SSH URI; only a clone says it is a repository this machine's deploy key can read, and
+that is the question being asked. So the route clones before it writes the pointer down, and a
+failure answers with git's own words and stores nothing — a URI kept after a refused clone is a
+setting that reads as done and breaks at the next thing that needs it.
+
+The clone lands in the BENCH's workspace (`bench.ts`, `ensureBenchLibraries`), which is not an
+extra place to keep one: the bench is a workspace like any other and mounts the library like any
+other, so validating the URI is the same work as preparing the bench, done once instead of twice.
+A clone of a DIFFERENT repository there is deleted rather than left: that folder is what the
+answer rests on, and `clonedFrom` is what asks it.
+
+The request is held for the length of the clone, unlike a workspace's (`cloneJobs.md`). It is a
+one-time setup gesture on a card that draws a spinner and says *Cloning…*, git's own 120 s timeout
+bounds it, and the answer a caller needs is a sentence rather than progress — a job registry would
+buy a progress bar for a repository of text.
+
+**Nothing is created or imported before the account has one.** `POST /workspaces` and
+`POST /workspaces/clone` refuse with the same sentence the bench route uses, because everything in
+a workspace resolves `@st0/…` through the library: a workspace made without one is a folder whose
+chains and modules point at nothing, and the refusal has to come before the folder exists rather
+than at the first open. `Examples` and the bench's own workspace are not user gestures and are not
+gated — the second one IS the library's clone.
+
 ## `bumpGitlink` — writing down which library version a song uses
 
 Without it the working copy is already on the new module (the submodule is checked out at it)
@@ -128,6 +154,19 @@ not leave its own identity in it.
 A push refused after a successful commit is reported rather than swallowed: the work is safe and
 the next Save pushes both commits, but saying "saved" and nothing else would be the lie, since
 everyone else still has the old module.
+
+## Coming back the other way — `project libraries update`
+
+Everything above is the mount and the PUBLISH. Moving a workspace onto what somebody else
+published is the verb `project libraries update`, and it lives in `@studio/commands`'s `git.ts`
+beside `pull` and `commit` rather than here: a command's subject is the workspace, and the
+dependency runs file-service → commands, never back.
+
+That is why the path-limited gitlink commit is written twice — `bumpGitlink` here, `recordLibraries`
+there. They are not quite the same act: this one is a side effect of a Save and carries the editing
+person's identity by `-c`, since a machine must not leave its own in the account's library; that one
+is what the person just asked for, and commits as whoever git says they are.
+[commands/docs/git.md](../../commands/docs/git.md) is that half.
 
 ## The environment every git call here carries
 

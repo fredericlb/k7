@@ -117,7 +117,7 @@ is: material, not a station on the signal's route. Three reasons:
 - **It has no second cable to take.** `MODULE_TYPES.video_transitions` declares **one** video
   input, and that single input is the admission: the type was modelled before anyone asked where
   the second picture came from. The
-  [crossfade](../../dsp/modules/audio/utility/crossfade/module.yaml) is there to show that a
+  [crossfade](../../dsp/src/crossfade.ts) is there to show that a
   two-wire effect must declare its own ports — and a transition still could not, because the second
   picture is not on a cable: it is the next entry in `events:`.
 - **The uniform contract says so** (`uAudio`, above).

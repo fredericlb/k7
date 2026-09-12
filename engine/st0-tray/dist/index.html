@@ -1,6 +1,5 @@
 <!doctype html>
-<!-- The tray app opens no windows (tauri.conf.json has "windows": []), but Tauri
-     refuses to build unless frontendDist exists. This stub is never rendered.
-     It is committed on purpose: the blanket `dist/` ignore rule used to swallow
-     it, so a fresh clone could not build the tray at all. -->
+<!-- The tray opens no window at startup, but Tauri refuses to build unless
+     frontendDist exists and has an entry point. This stub is never rendered:
+     the one page this app serves is audio.html, opened from the menu. -->
 <html><head><title>studio engine tray</title></head><body></body></html>

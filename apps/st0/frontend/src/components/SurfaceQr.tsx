@@ -6,6 +6,7 @@
 import { Loader2 } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { remoteUrl } from "../remoteUrl";
 
 /** Two fit across the panel's 24rem with room for the border and the gap. */
@@ -54,11 +55,11 @@ export function SurfaceQr({
       >
         {reachable === null ? (
           <span className="text-center text-xs text-muted-foreground">
-            cette machine n'a pas d'adresse réseau
+            {m["qr.noAddress"]()}
           </span>
         ) : failed ? (
           <span className="text-center text-xs text-destructive">
-            le code n'a pas pu être dessiné
+            {m["qr.notDrawn"]()}
           </span>
         ) : png ? (
           <img src={png} width={QR_PX} height={QR_PX} alt={`QR code — ${id}`} />

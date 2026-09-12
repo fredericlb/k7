@@ -1,5 +1,4 @@
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -9,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parseSurface } from "@studio/song-schema/yaml/surfaceFile";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -36,36 +35,58 @@ beforeEach(() => {
   // A set NAMES the médiathèque's modules, so a test writes `_libraries/` in the workspace itself.
   mediatek = join(ws, "_libraries");
 
-  // The REAL shipped folders, at their catalogue path, so a module the loader rejects fails here.
-  const catalogue = join(import.meta.dirname, "..", "..", "dsp", "modules");
-  for (const at of [
-    "audio/utility/tempo",
-    "audio/utility/fade",
-    "audio/filter/sweep",
-    // The gain staging and the one effect — real folders, so a broken jsdsp fails HERE.
-    "audio/utility/trim",
-    "audio/utility/gain",
-    "audio/time/echo",
-    // …and the SOURCE: one platter per lane that plays a file — docs/platter-node-plan.md.
-    "audio/io/turntable",
-  ]) {
+  // Every module a set NAMES, written INLINE — this repo ships none to copy, they live in an
+  // account's library (packages/dsp/docs/catalogue.md). What is pinned here is that the scaffold
+  // names a ref that RESOLVES; whether the module behind it is any good is that library's question.
+  // `eq3` was already inline for a narrower reason: the authored file extends `@engine/equaliser`,
+  // which resolves against a plugin scan this test has not got and would silently stub out.
+  const library = (at: string, body: string, panel?: string): void => {
     const to = join(mediatek, "modules", ...at.split("/"));
-    mkdirSync(dirname(to), { recursive: true });
-    cpSync(join(catalogue, ...at.split("/")), to, { recursive: true });
-  }
-
-  const utility = join(mediatek, "modules", "audio", "utility");
-  const filter = join(mediatek, "modules", "audio", "filter");
-  // Stated INLINE: the shipped file extends `@engine/equaliser`, which would silently stub out.
-  mkdirSync(join(filter, "eq3"), { recursive: true });
-  writeFileSync(
-    join(filter, "eq3", "module.yaml"),
+    mkdirSync(to, { recursive: true });
+    writeFileSync(join(to, "module.yaml"), body, "utf8");
+    // A panel only where a test reads one back: a widget's range is INHERITED, and that is the
+    // one thing a node cannot state for itself.
+    if (panel) writeFileSync(join(to, "ui.yaml"), panel, "utf8");
+  };
+  library(
+    "audio/utility/tempo",
+    "cold: true\nplugin: { type: offline, name: Tempo }\nparams:\n  Source BPM: 0\n  Target BPM: 0\n",
+    "cols: 2\nrows: 2\nwidgets:\n" +
+      '  target: { type: knob, col: 0, row: 0, rowSpan: 2, label: BPM, bind: "Target BPM", min: 10, max: 300, step: 0.1 }\n' +
+      '  source: { type: meter, col: 1, row: 0, rowSpan: 2, label: Source, bind: "Source BPM" }\n',
+  );
+  library(
+    "audio/utility/fade",
+    "plugin: { type: jsdsp, name: Fade }\nparams:\n  Mix: 1\n",
+  );
+  library(
+    "audio/filter/sweep",
+    "plugin: { type: jsdsp, name: Sweep Filter }\nparams:\n  Sweep: 0\n",
+  );
+  library(
+    "audio/utility/trim",
+    "plugin: { type: jsdsp, name: Trim }\nparams:\n  Trim: 0\n",
+  );
+  library(
+    "audio/utility/gain",
+    "plugin: { type: jsdsp, name: Gain }\nparams:\n  Gain: 0\n",
+  );
+  library(
+    "audio/time/echo",
+    "plugin: { type: jsdsp, name: Echo }\nparams:\n  Time: 375\n  Feedback: 0.45\n  Mix: 0\n",
+  );
+  // The SOURCE: one platter per lane that plays a file — docs/platter-node-plan.md.
+  library(
+    "audio/io/turntable",
+    "plugin:\n  type: internal\n  name: studio_turntable\nparams:\n  Rate: 0\n  Seek: 0\n  Gain: 1\n  Key: 0\n",
+  );
+  library(
+    "audio/filter/eq3",
     "plugin: { type: internal, name: Equaliser }\n" +
       "params:\n" +
       "  Low-shelf gain: 0\n  Mid gain 1: 0\n  High-shelf gain: 0\n" +
       "  Low-shelf freq: 200\n  Mid freq 1: 1000\n  High-shelf freq: 6000\n" +
       "  Mid gain 2: 0\n",
-    "utf8",
   );
 });
 

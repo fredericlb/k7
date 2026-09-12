@@ -19,7 +19,6 @@
     "@studio/mediatek": "*",
     "@studio/mpv-player": "*",
     "@studio/song-schema": "*",
-    "@studio/stem-separation": "*",
     "@studio/user-prefs": "*",
     "@studio/web-protocol": "*",
     "express": "^4.21.2",

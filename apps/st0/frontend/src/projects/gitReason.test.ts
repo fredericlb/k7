@@ -13,7 +13,7 @@ describe("git's reason out of its output", () => {
       "fatal: Could not read from remote repository.",
     ].join("\n");
     expect(gitReason(out)).toBe(
-      "git@host: Permission denied (publickey). — fatal: Could not read from remote repository. (le reste est dans la console)",
+      "git@host: Permission denied (publickey). — fatal: Could not read from remote repository. (the rest is in the console)",
     );
   });
 
@@ -27,7 +27,7 @@ describe("git's reason out of its output", () => {
   });
 
   it("answers something for output that is empty or only blank lines", () => {
-    expect(gitReason("")).toBe("clonage échoué");
-    expect(gitReason("\n  \n\n")).toBe("clonage échoué");
+    expect(gitReason("")).toBe("clone failed");
+    expect(gitReason("\n  \n\n")).toBe("clone failed");
   });
 });

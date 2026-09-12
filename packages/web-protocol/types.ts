@@ -171,6 +171,7 @@ export interface IoPort {
 export interface CatalogueModule {
   ref: string; // how a chain names it ("@engine/audio/delay/tape-delay")
   name: string; // the part worth showing, namespace dropped
+  label?: string; // …and what it CALLS itself, when it says (packages/song/docs/moduleLabel.md)
   namespace: string;
   category: string; // its type folder (audio, io, instruments…)
   kind: string; // what it IS, as the type folder decides
@@ -370,9 +371,11 @@ export interface WebVideoTransition {
   fragment: string;
   params: Record<string, number>;
 }
-// A shape module (mirrors ShapeDoc): a fill or text on the viewport, geometry in px, `color` any CSS colour.
+// A shape module (mirrors ShapeDoc): a fill or text on the viewport, geometry in px, `color` any CSS
+// colour. `id` is the module NODE that draws it — see packages/song-video/docs/shapes.md.
 export type WebShape =
   | {
+      id: string;
       type: "square";
       x: number;
       y: number;
@@ -380,8 +383,16 @@ export type WebShape =
       h: number;
       color: string;
     }
-  | { type: "circle"; x: number; y: number; r: number; color: string }
   | {
+      id: string;
+      type: "circle";
+      x: number;
+      y: number;
+      r: number;
+      color: string;
+    }
+  | {
+      id: string;
       type: "text";
       content: string;
       font: string;
@@ -402,7 +413,8 @@ export interface WebVideoPlugin {
   shader?: { name: string; vertex: string; fragment: string };
   audioFrom?: string;
 }
-// A video-mode lane (mirrors VideoTrackDoc): places picture, or draws `shapes`. In draw order (bottom first).
+// A video-mode lane (mirrors VideoTrackDoc): places picture, shows a lens, or draws the `shapes`
+// wired to it. In draw order (bottom first).
 export interface WebVideoTrack {
   id: string;
   name: string;
@@ -410,7 +422,6 @@ export interface WebVideoTrack {
   mute: boolean;
   /** Soloed, off `project.yaml`'s `soloed:` — the same list audio reads (packages/song-video/docs/picture.md). */
   solo: boolean;
-  kind: "video" | "shape";
   x: number;
   y: number;
   w: number;
@@ -473,12 +484,37 @@ export interface CommandArg {
   // TRAILING args only: the line runs without it, so a form knows when it has collected enough.
   optional?: boolean;
 }
+// What a right-click can be ON, as commands.yaml `menu:` names it — mirrors MENU_ENTITIES in packages/commands/src/commandSpec.ts.
+export const MENU_ENTITIES = [
+  "track",
+  "group",
+  // A block in the graph or on a lane's strip: the USE of a module, which is what the `node …` verbs address.
+  "node",
+  // A PLACEMENT on a lane, plus the rectangle a drag left around it.
+  "event",
+  "param",
+  "take",
+  "curve",
+  // The timeline RULER, where nothing is yet — what a click there could put one.
+  "ruler",
+  "marker",
+  "assembly",
+  // A stretch point in a clip's warp view.
+  "warp",
+  // A shot on a picture lane.
+  "shot",
+  "pad",
+  "note",
+] as const;
+export type MenuEntity = (typeof MENU_ENTITIES)[number];
 export interface CommandInfo {
   command: string;
   help?: string;
   // One sentence per language on what the command DOES; the NAME is never translated — see docs/document.md.
   readable?: { en: string; fr: string };
   args: CommandArg[];
+  // Where a right-click may offer it. Absent ⇒ wherever its leading arguments fit — st0's frontend/docs/contextMenu.md.
+  menu?: MenuEntity[];
 }
 
 // A named timeline marker: `beat` is its position, `tc` the timecode it is stored under (the delete key).
@@ -720,6 +756,30 @@ export interface SeparateJob {
   percent: number | null; // null while doing something with no measurable end
   lines: string[]; // notes worth reading — which execution provider won, and why a run failed
   files: string[]; // the stems written, absolute. Empty until `done`.
+}
+
+/** Copying a set list onto one of a machine's targets — packages/file-service/docs/playlistSync.md. */
+export interface SyncJob {
+  id: string;
+  /** The target's NAME on that machine; the URI never leaves it un-blanked. */
+  target: string;
+  /** That target's URI with any password replaced — what a screen and a log may show. */
+  uri: string;
+  playlist: string;
+  done: boolean;
+  failed: boolean;
+  error: string | null;
+  phase: string;
+  /** 0–100 over the TRACKS, so a bar moves once per file rather than once per byte. */
+  percent: number;
+  total: number;
+  copied: number;
+  /** Already there at the same size — the reason a second sync is nearly free. */
+  skipped: number;
+  /** A track that could not be copied does not stop the run; each one says why here. */
+  lines: string[];
+  /** Where the m3u landed, or null when the target has no `playlists/` folder. */
+  m3u: string | null;
 }
 
 /** What `POST /stems` answers: `ready` is the disk, `job` only when there was work — see docs/machine.md. */

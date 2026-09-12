@@ -85,6 +85,28 @@ filter lives in a config the clone does not have yet. `pullLfs` installs it into
 checkout and pulls, reporting an `LFS` phase so the wait in `cloneJobs.md`'s progress bar has a
 name.
 
+## The fetch is not believed, it is CHECKED
+
+git-lfs having exited 0 is not proof the media arrived, and neither is anything git will tell you
+afterwards: a pointer left in the working tree matches HEAD exactly, so `git status` is clean,
+`git lfs status` says nothing and `git lfs fsck` says OK. The repository is in perfect health and
+every wav in it is 130 bytes of text. That is the state this section exists to refuse — a workspace
+that opens, draws its tracks, and plays silence.
+
+So `pullLfs` finishes by reading the files. `git lfs ls-files` gives the paths, and each one's
+first bytes are compared against the pointer spec line, which is the only tell there is. Anything
+still a pointer means the fetch did not finish, and `IncompleteLfsError` says so rather than
+letting the import claim a success it did not verify. **The check is on the bytes, not on the
+exit code**, because every layer that reports on the fetch reports it went fine.
+
+**A marker carries that across a death.** `.git/studio-lfs-pending` is written BEFORE the fetch
+and removed only after the files verify, so the one failure no `catch` can see — the process
+killed mid-pull, which strands partial objects in `.git/lfs/incomplete` and leaves the tree full
+of pointers — is still known about the next time someone asks. `lfsPending` is that question. It
+costs one `existsSync` when nothing is owed, and when the marker stands it re-reads the files and
+clears it if the media has since arrived: fetching by hand is a supported way out, and a marker
+that lied about a workspace someone already repaired would be worse than none.
+
 ## Its FIRST repository, later
 
 `setWorkspaceRemote` is that day: `git remote add origin` and `git push -u origin HEAD`, both in
@@ -144,8 +166,39 @@ use: caches (`*.cache`), `node_modules`, the undo journal, the recycle bin. A do
 project is invisible to every one of those already, so the copy loses nothing anything can see,
 and gains none of the machine-local weight.
 
+**The playlists the copy NAMES come with it.** A `turntables` surface names a set list by name and
+the file lives at the WORKSPACE root, one level above everything the copy carries — so the project
+alone lands beside no `_playlists/` and opens on "the playlist this surface names cannot be found".
+`carryPlaylists` copies each one the surfaces name, and skips any the destination already has: a
+workspace's own set list is the one its other projects are already reading, and a copy is no reason
+to overwrite it. Nothing else is chased across — a module named from `_modules` resolves against the
+destination's library by design, which is what a shared library IS.
+
 The COMMIT is not here. A copy changes the workspace that receives it, and committing that is
 st0's call in one place — see `apps/st0/frontend/docs/projects.md`.
+
+## Renaming one in place
+
+`renameProject` guards what every writer here guards — the root, the shared library, the recycle
+bin, the no-clobber, the Windows handle retry — plus the one thing a PROJECT folder has that an
+ordinary one has not: **a suffix that names the application**. It is checked with `projectApp` on
+both names rather than by string surgery, so `winter.st0` → `spring.z0` and `winter.st0` →
+`spring` are both refused by name, and the caller cannot hand a project to another editor by
+typing.
+
+**It is deliberately not `renameEntry`**, whose `guardMutable` refuses the ACTIVE project outright.
+A rename takes `beforeMove` instead, exactly as `deleteProject` does, and the route hands it
+`unloadEngineIfServing`: the engine is asked to let the folder go, and the rename proceeds. The
+alternative — "stop it first" — is a refusal that asks somebody to go and find the transport in
+another tab before they may rename a folder, and the handles are released the same way either way.
+
+**The marker FOLLOWS it**, which is where the two acts part. A delete clears `.studio-active`,
+having ended the project; a rename re-points it at the new folder, the project being the same one.
+The compiled-doc cache is invalidated with it, and the project CACHE dropped
+(`forgetProjects`) as a delete and an import do — the listing is memoised, and a renamed project
+would otherwise be listed under a folder that is gone.
+
+The COMMIT is not here either, for the reason the copy's is not.
 
 ## `listMachineWorkspaces` — what st0's home page draws
 

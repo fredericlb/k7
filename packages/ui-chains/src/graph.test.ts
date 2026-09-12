@@ -1709,6 +1709,80 @@ describe("moduleRow with links", () => {
   });
 });
 
+/** The lane's own card at the head of its row — what a double-click on a track header draws. */
+describe("moduleRow led by its lane", () => {
+  const lane = graph(
+    {
+      vox: {
+        from: "vox",
+        use: [{ module: "comp" }, { module: "eq" }],
+        out: [{ to: "OUT", gain: 1 }],
+      },
+    },
+    ["vox"],
+  );
+
+  it("puts the lane FIRST — the signal starts there", () => {
+    const row = moduleRow(lane, ["comp", "eq"], { links: true, track: "vox" });
+    expect(row.nodes.map((n) => n.id)).toEqual([
+      "trk:vox",
+      "mod:comp",
+      "mod:eq",
+    ]);
+  });
+
+  it("carries the cable OUT of the lane, which the row could not draw without it", () => {
+    const row = moduleRow(lane, ["comp", "eq"], { links: true, track: "vox" });
+    expect(row.edges).toContainEqual(
+      expect.objectContaining({ source: "trk:vox", target: "mod:comp" }),
+    );
+  });
+
+  it("drops the lane's clip LIST, which would set the height of every card beside it", () => {
+    const withClips: WebGraph = {
+      ...lane,
+      trackClips: {
+        vox: [{ ref: "riff", start: 0, tc: "1:1:1", len: 4, kind: "audio" }],
+      },
+    };
+    const row = moduleRow(withClips, ["comp", "eq"], {
+      links: true,
+      track: "vox",
+    });
+    expect(row.nodes[0].clips).toBeUndefined();
+    // …and the row is as tall as its tallest MODULE, which is what the clip list would have grown past.
+    expect(new Set(row.nodes.map((n) => n.h)).size).toBe(1);
+  });
+
+  it("names the lane by KIND, so a module of the same name is not mistaken for it", () => {
+    const clash = graph(
+      {
+        vox: {
+          from: "vox",
+          use: [{ module: "vox" }],
+          out: [{ to: "OUT", gain: 1 }],
+        },
+      },
+      ["vox"],
+    );
+    const row = moduleRow(clash, ["vox"], { links: true, track: "vox" });
+    expect(row.nodes.map((n) => n.id)).toEqual(["trk:vox", "mod:vox"]);
+  });
+
+  it("draws no lone lane: a row with no module is not a signal path", () => {
+    // The pane says 'this lane reaches no module' instead, which is the honest answer to a double-click.
+    expect(moduleRow(lane, [], { links: true, track: "vox" }).nodes).toEqual(
+      [],
+    );
+  });
+
+  it("leaves the row alone when no lane is named", () => {
+    expect(
+      moduleRow(lane, ["comp", "eq"], { links: true }).nodes.map((n) => n.id),
+    ).toEqual(["mod:comp", "mod:eq"]);
+  });
+});
+
 describe("moduleRow width scale", () => {
   const one = graph(
     {

@@ -1,5 +1,5 @@
 // PlaybackPicker.tsx — the header's second icon button: where the médiathèque makes sound.
-// A menu of destinations, drawn from PLAYBACK_TARGETS, so a third one is an entry in that
+// A menu of destinations, drawn from PLAYBACK_TARGETS, so a fourth one is an entry in that
 // list and no change here. See ../../docs/playbackTarget.md.
 
 import { Button } from "@frediverse/ui/button";
@@ -11,7 +11,9 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { Check } from "lucide-react";
+import { usePlayback } from "./PlaybackProvider";
 import {
+  effectiveTarget,
   PLAYBACK_TARGETS,
   type PlaybackTarget,
   playbackTargetInfo,
@@ -24,7 +26,12 @@ export function PlaybackPicker({
   target: PlaybackTarget;
   onChoose: (t: PlaybackTarget) => void;
 }) {
-  const { icon: Icon, label } = playbackTargetInfo(target);
+  // Read here rather than threaded down: the header sits INSIDE the provider that measures it.
+  const { engineAvailable } = usePlayback();
+  // The TRIGGER shows what will ACTUALLY play: it is all there is when the menu is shut.
+  const actual = effectiveTarget(target, engineAvailable);
+  const { icon: Icon, label } = playbackTargetInfo(actual);
+  const fellBack = actual !== target;
 
   return (
     <DropdownMenu>
@@ -35,13 +42,17 @@ export function PlaybackPicker({
           aria-label={`Lecture : ${label}`}
           title={`Lecture : ${label}`}
         >
-          <Icon className="h-4 w-4" />
+          <Icon
+            className={`h-4 w-4 ${fellBack ? "text-muted-foreground" : ""}`}
+          />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuLabel>Lecture</DropdownMenuLabel>
         {PLAYBACK_TARGETS.map((t) => {
           const RowIcon = t.icon;
+          // Not disabled: the choice is remembered, and an unclickable row explains nothing.
+          const unreachable = t.needsEngine && !engineAvailable;
           return (
             <DropdownMenuItem
               key={t.id}
@@ -57,7 +68,9 @@ export function PlaybackPicker({
                   ) : null}
                 </span>
                 <span className="block text-xs text-muted-foreground">
-                  {t.hint}
+                  {unreachable
+                    ? "aucun moteur ne répond — lecture ici"
+                    : t.hint}
                 </span>
               </span>
             </DropdownMenuItem>

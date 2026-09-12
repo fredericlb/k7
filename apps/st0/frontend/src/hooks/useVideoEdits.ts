@@ -2,12 +2,12 @@
 // timeline pane and by a timeline surface alone on a second device, which drag the same clips.
 // See ../../docs/picture.md.
 
-import { setVideoPlacementField } from "@studio/song-schema/yaml/videoTrackFile";
+import { setVideoPlacementFieldAt } from "@studio/song-schema/yaml/videoTrackFile";
 import { useCallback } from "react";
 import { api } from "../api";
 import type { VideoEdit } from "../components/TimelineTab";
 
-/** Apply a finished picture drag to the lane's own file: a SURGICAL text rewrite by REF, one buffer written once, and not a COMMAND. */
+/** Apply a finished picture drag to the lane's own file: a SURGICAL text rewrite by INDEX, one buffer written once, and not a COMMAND. */
 export function useVideoEdits(
   project: string,
   bumpReload: () => void,
@@ -20,7 +20,7 @@ export function useVideoEdits(
         const { content } = await api.read(path);
         let next = content;
         for (const e of edits)
-          next = setVideoPlacementField(next, e.ref, e.field, e.value);
+          next = setVideoPlacementFieldAt(next, e.index, e.field, e.value);
         if (next === content) return; // no such placement — nothing to write, nothing to say
         await api.write(path, next);
         bumpReload();

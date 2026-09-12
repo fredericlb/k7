@@ -118,7 +118,7 @@ export function MixView({
     // An engine answering on its own port but not the file one: said, since an empty list misleads.
     if (!link)
       return setError(
-        "le service de fichiers de cette machine ne répond pas — la médiathèque est injoignable",
+        "this machine's file service is not answering — the media library is unreachable",
       );
     void refresh(link);
   }, [link, refresh]);
@@ -158,7 +158,7 @@ export function MixView({
       .then(() => decks.correctTempo(deckId, bpm))
       .catch((e: Error) =>
         setError(
-          `le tempo n'a pas pu être corrigé dans la médiathèque : ${e.message}`,
+          `the tempo could not be corrected in the media library: ${e.message}`,
         ),
       );
   };
@@ -230,7 +230,7 @@ export function MixView({
     // A panel may show another playlist than the one the surface names; saying so beats a dead drop.
     if (!row)
       return setError(
-        `${drag.song} : ce morceau n'est pas dans la playlist de cette surface`,
+        `${drag.song}: that song is not in this surface's playlist`,
       );
     load(deckId, row);
   };
@@ -244,7 +244,7 @@ export function MixView({
     // Said out loud: a catalogued folder with no audio is a real state, and a dead button explains nothing.
     if (!path)
       return setError(
-        `${s.name} : le dossier est catalogué mais ne porte aucun audio`,
+        `${s.name}: the folder is catalogued but carries no audio`,
       );
     setError(null);
     decks.putOn(deckId, {
@@ -350,10 +350,10 @@ export function MixView({
           {/* Not an error but a desk pointed at no set list, said with the one line that fixes it. */}
           {set?.absent ? (
             <Card className="p-3 text-sm text-muted-foreground">
-              Cette surface ne nomme aucune playlist. Ajoutez une ligne{" "}
-              <span className="font-mono">playlist: &lt;nom&gt;</span> dans{" "}
-              <span className="font-mono">{file}</span> — les playlists du dépôt
-              s'écrivent dans st0, sous la roue dentée.
+              This surface names no playlist. Add a{" "}
+              <span className="font-mono">playlist: &lt;name&gt;</span> line to{" "}
+              <span className="font-mono">{file}</span> — the repository's
+              playlists are written in st0, under the cog.
             </Card>
           ) : null}
           {/* A binding naming something the project has not got, reported by CONTROL: that is what looks broken. */}
@@ -560,7 +560,7 @@ export function MixView({
         {deck.setListening && (
           <label
             className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground"
-            title="Le son sort déjà de l'interface de cette machine. Cochez pour l'entendre aussi dans cet onglet."
+            title="The sound already leaves this machine's interface. Tick this to hear it in this tab as well."
           >
             <input
               type="checkbox"
@@ -569,7 +569,7 @@ export function MixView({
             />
             {/* A laptop, not headphones: the CUE buttons own that icon, and this one is about THIS TAB. */}
             <Laptop className="h-4 w-4" />
-            Écouter ici
+            Listen here
           </label>
         )}
 
@@ -599,11 +599,11 @@ export function MixView({
           disabled={!ready || !decks.clickDeck}
           title={
             !ready
-              ? "aucun moteur sur cette machine"
+              ? "no engine on this machine"
               : decks.clickDeck
-                ? `métronome sur le temps de la platine ${decks.clickDeck === "deckA" ? "A" : "B"}`
+                ? `metronome on deck ${decks.clickDeck === "deckA" ? "A" : "B"}'s beat`
                 : // The rule, said as the reason it is off rather than as a rule.
-                  "le métronome demande un seul temps : une seule platine chargée, ou les deux synchronisées — et un temps mesuré sur celle qui mène"
+                  "the metronome asks for one beat: one deck loaded, or both synced — and a beat measured on the one that leads"
           }
           onClick={decks.toggleMetronome}
           aria-pressed={decks.clicking}
@@ -616,9 +616,9 @@ export function MixView({
           <span
             className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums"
             title={
-              `analyse de la playlist : ${warm.done}/${warm.total} morceaux` +
-              (warm.failed ? ` (${warm.failed} illisible(s))` : "") +
-              " — un morceau analysé pose son tempo et allume SYNC tout de suite"
+              `analysing the playlist: ${warm.done}/${warm.total} songs` +
+              (warm.failed ? ` (${warm.failed} unreadable)` : "") +
+              " — an analysed song lays down its tempo and lights SYNC at once"
             }
           >
             ♪ {warm.done}/{warm.total}
@@ -629,7 +629,7 @@ export function MixView({
           size="sm"
           variant="ghost"
           className="shrink-0 text-xs"
-          title="Relire le cache de la médiathèque"
+          title="Re-read the media library's cache"
           onClick={() => link && void refresh(link)}
         >
           <RefreshCw className="h-3.5 w-3.5" />

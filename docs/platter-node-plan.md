@@ -72,7 +72,7 @@ The metronome stays too: a whole track built in code, and another subject.
 
 ## The nodes
 
-`packages/dsp/modules/audio/io/turntable/` — `module.yaml` and `ui.yaml`, no jsdsp: the engine
+The `audio/io/turntable` module in the library — `module.yaml` and `ui.yaml`, no jsdsp: the engine
 already hosts the platter, and `type: internal` names it the way `eq3` names the equaliser. The
 ranges come from `TurntablePlugin.cpp`:
 

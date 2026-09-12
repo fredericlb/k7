@@ -28,6 +28,7 @@ import { projectApp } from "@studio/web-protocol/projects";
 import { EXAMPLES_WORKSPACE, mirrorDemos } from "./demos.ts";
 import { pullLfs, setUpLfs } from "./gitLfs.ts";
 import { ensureLibraries, librariesUri } from "./libraries.ts";
+import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
 import {
@@ -365,6 +366,9 @@ export async function removeWorkspace(
 ): Promise<void> {
   const root = workspaceRoot(workspace); // validates the name
   if (!existsSync(root)) throw new Error(`no such workspace: ${workspace}`);
+  // Every module watch inside it first: `fs.watch` holds a directory, and on Windows that is an
+  // EPERM half-way through a removal — the same reason `deleteProject` lets go (docs/moduleWatch.md).
+  closeModuleWatchesUnder(root);
   await unload?.(root);
   rmSync(root, { recursive: true, force: true });
   const slug = slugify(userEmail);

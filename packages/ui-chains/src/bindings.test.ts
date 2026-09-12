@@ -134,7 +134,7 @@ describe("the plugless policy", () => {
     );
     // The two surfaces disagree deliberately; this is the line that keeps them able to.
     expect(typeof t).toBe("string");
-    expect(t).toContain("ne charge aucun plugin");
+    expect(t).toContain("loads no plugin");
   });
 
   it("refuses a module with neither a plugin nor a track, under either policy", () => {
@@ -146,7 +146,7 @@ describe("the plugless policy", () => {
 
   it("names a module the graph has not got at all", () => {
     const t = resolveTarget(undefined, { module: "nope", param: "x" }, "track");
-    expect(t).toContain("aucun module");
+    expect(t).toContain("no module");
     expect(t).toContain("nope");
   });
 });

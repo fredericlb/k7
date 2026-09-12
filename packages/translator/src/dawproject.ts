@@ -99,6 +99,10 @@ export function parseDawproject(
     if (chId) channelToTrack.set(chId, String(t["@_id"]));
   }
 
+  // Walked once for the whole document: a reference may point forwards, and every track may use it.
+  const byId = new Map<string, Referenced>();
+  indexById(project, byId, "Project");
+
   let sampleRate = 0;
   const audioClipsByTrack = new Map<string, ClipOut[]>();
   const warnings: string[] = [];
@@ -120,6 +124,7 @@ export function parseDawproject(
           if (sr && !sampleRate) sampleRate = sr;
         },
         warn: (msg) => warnings.push(msg),
+        byId,
       };
       collectClips(asArray<any>(laneGroup.Clips?.Clip), 0, 0, null, out, ctx);
       for (const c of out) {
@@ -207,10 +212,59 @@ function mapDevices(devices: any): PluginOut[] {
   return out;
 }
 
+/** One element the document defines under an id, and the tag it was written as. */
+interface Referenced {
+  tag: string;
+  node: any;
+}
+
+/**
+ * Every element carrying an `id`, by that id. DAWproject writes one clip's content ONCE and places
+ * it several times — a drum groove dropped at eight bars is eight `<Clip reference="idN"/>` and one
+ * `<Notes id="idN">`. Without this index those clips carry nothing and are dropped; the notes are
+ * in the file, we simply did not follow the pointer. See docs/import.md.
+ */
+function indexById(
+  node: unknown,
+  out: Map<string, Referenced>,
+  tag = "",
+): void {
+  if (Array.isArray(node)) {
+    for (const v of node) indexById(v, out, tag);
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+  const o = node as Record<string, unknown>;
+  const id = str(o["@_id"]);
+  // First writer wins: an id is unique in the document, and a duplicate is not ours to resolve.
+  if (id && tag && !out.has(id)) out.set(id, { tag, node: o });
+  for (const [k, v] of Object.entries(o))
+    if (!k.startsWith("@_")) indexById(v, out, k);
+}
+
+/** The three tags a clip's content can be — anything else referenced is not content, and says so. */
+const CONTENT_TAGS = new Set(["Notes", "Audio", "Clips"]);
+
+/**
+ * A clip with its referenced content read in, or the clip itself. The placement's own attributes
+ * are untouched: `time`, `duration` and the loop are THIS placement's, and only the content is
+ * shared — which is why the notes are copied per clip rather than pointed at.
+ */
+function withReferenced(clip: any, ctx: CollectCtx): any {
+  if (clip.Notes || clip.Clips || findAudio(clip)) return clip;
+  const ref = str(clip["@_reference"]);
+  if (!ref) return clip;
+  const target = ctx.byId.get(ref);
+  if (!target || !CONTENT_TAGS.has(target.tag)) return clip;
+  return { ...clip, [target.tag]: target.node };
+}
+
 interface CollectCtx {
   trackId: string;
   onSampleRate: (sr: number | undefined) => void;
   warn: (msg: string) => void;
+  /** What the document defines under each id — see `indexById`. */
+  byId: Map<string, Referenced>;
 }
 
 // Flatten a clip list into absolute-positioned leaves, clamped to their container — see docs/import.md.
@@ -222,7 +276,9 @@ function collectClips(
   out: ClipOut[],
   ctx: CollectCtx,
 ): void {
-  for (const clip of clips) {
+  for (const raw of clips) {
+    // Content written elsewhere and pointed at is read in here, so the branches below see one shape.
+    const clip = withReferenced(raw, ctx);
     const time = num(clip["@_time"]);
     let start = baseStart + (time - basePlayStart);
     const duration = num(clip["@_duration"]);
@@ -232,6 +288,10 @@ function collectClips(
       end = Math.min(end, bounds.end);
     }
     const length = round(Math.max(0, end - start));
+    // Clamped to nothing: this clip lies outside the window its container plays, so this placement
+    // does not play it. Emitting it anyway put a pile of zero-length clips on the lane, reading as
+    // overlaps the source project never had — 48 of 124 on one real export. See docs/import.md.
+    if (length <= 0) continue;
 
     const notesArr = asArray<any>(clip.Notes?.Note);
     const audio = findAudio(clip);
@@ -285,9 +345,17 @@ function collectClips(
       // Nothing we recognise: report it with its child tags, so an unhandled clip shape surfaces rather than vanishes.
       const kids = Object.keys(clip).filter((k) => !k.startsWith("@_"));
       const label = str(clip["@_name"]) ?? "(unnamed)";
+      const ref = str(clip["@_reference"]);
+      const target = ref ? ctx.byId.get(ref) : undefined;
+      // Three different faults, and only the last is ours: a dangling id, an id that is not
+      // content, and a clip that genuinely holds nothing.
+      const why = !ref
+        ? `no audio/notes/nested clips (children: ${kids.length ? kids.join(", ") : "none"})`
+        : target
+          ? `its content points at id "${ref}", which is a <${target.tag}> and not clip content`
+          : `its content points at id "${ref}", which this file does not define`;
       ctx.warn(
-        `track ${ctx.trackId}: dropped clip "${label}" @beat ${round(start)} — ` +
-          `no audio/notes/nested clips (children: ${kids.length ? kids.join(", ") : "none"})`,
+        `track ${ctx.trackId}: dropped clip "${label}" @beat ${round(start)} — ${why}`,
       );
     }
   }

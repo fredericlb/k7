@@ -40,8 +40,10 @@ void populateMasterChain(te::Edit& edit, const ProjectDoc& doc,
 te::Plugin::Ptr masterGainOf(te::Edit& edit);
 
 // Load one rack sound: the window [start, start+length) of `file`, pinned to `note` and open-ended; length <= 0 means its natural length.
+// `subject` is the PluginDoc id a failure belongs to, so a surface can badge the node; empty for a sound that is on no node, like a preview.
 bool addRackSound(te::Edit& edit, te::SamplerPlugin& sampler, const std::string& file,
-                  const std::string& name, int note, double start, double length);
+                  const std::string& name, int note, double start, double length,
+                  const std::string& subject = {});
 
 // Write a plugin's state to a Steinberg .vstpreset container (no-op for built-ins).
 bool saveVstPreset(te::Plugin& plugin, const juce::File& file);

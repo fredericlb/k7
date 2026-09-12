@@ -13,6 +13,7 @@ import { FAUST_FILE, JSDSP_FILE } from "@studio/engine-protocol/build";
 import type { FamilyListing, MediatekEntry } from "@studio/mediatek/types";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
+import type { ReferenceTrack } from "@studio/song-schema/reference";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import type { SeparateJob, StemsReply } from "@studio/web-protocol";
 import { serviceUrl } from "@studio/web-protocol/services";
@@ -64,6 +65,8 @@ export {
   mediaUrl,
 } from "@studio/project-shell/fileApi";
 
+import { m } from "./paraglide/messages.js";
+
 /** The current session's user, or null if unauthenticated (the shared OIDC /auth/me). */
 export interface AuthUser {
   sub?: string;
@@ -106,6 +109,11 @@ export const api = {
 
   // Only the LISTING is its own route: `read`/`write` above already serve any workspace path, and `playlist new` is a command.
   playlists: () => fget<{ playlists: PlaylistInfo[] }>("/playlists"),
+
+  // --- The workspace's reference tracks (`_references/`, see @studio/song-schema/docs/references.md) ---
+
+  // The LISTING only: a track goes up with `upload` and is played over `mediaUrl`, both of which already take any workspace path.
+  references: () => fget<{ references: ReferenceTrack[] }>("/references"),
   // Only st0 has a timeline, so only st0 asks for the tracks a Strudel pattern drives; `createProject` and `deleteProject` are pl8's.
   strudelTracks: () => fget<WebTrack[]>("/strudel-tracks"),
   // Upload raw bytes (octet-stream, not fsend). A 409 rides through with `.status` so a skip can be reported.
@@ -288,7 +296,7 @@ export const mediatek = {
   /** The whole songs family, in one call and no paging: a few hundred entries, searched in the browser. */
   listSongs: async (): Promise<MediatekEntry[]> => {
     const res = await fetch(`${PL8}/api/mediatek/list?family=songs`);
-    if (!res.ok) throw new Error(`médiathèque ${res.status}`);
+    if (!res.ok) throw new Error(m["api.library"]({ status: res.status }));
     return ((await res.json()) as FamilyListing).entries;
   },
 
@@ -296,13 +304,13 @@ export const mediatek = {
   songUrl: (path: string) =>
     `${PL8}/api/mediatek/file?path=${encodeURIComponent(path)}`,
 
-  /** Separate one song of the library — pl8's from end to end, since it holds the master AND the model (apps/pl8/docs/stems.md). */
-  prepareStems: async (song: string): Promise<StemsReply> => {
+  /** Separate one song of the library — pl8's, since it holds the master (apps/pl8/docs/stems.md); `engineId` names whose model is borrowed. */
+  prepareStems: async (song: string, engineId: string): Promise<StemsReply> => {
     const res = await fetch(`${PL8}/api/stems`, {
       method: "POST",
       credentials: "include",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ song }),
+      body: JSON.stringify({ song, engineId }),
     });
     if (!res.ok) {
       const said = (await res.json().catch(() => ({}))) as { error?: string };

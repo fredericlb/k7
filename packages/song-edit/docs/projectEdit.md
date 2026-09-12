@@ -146,6 +146,25 @@ is therefore about to start lying about the module under it (`renameChainNode`, 
 `renamedInstance` for the judgement). That is a second act on purpose: this one cannot fail
 halfway, and a rename touches a file, a preset and every chain step that spells the name.
 
+### A graph node need not have a file
+
+Two shapes answer to a name on the graph: a NODE — `nodes/<name>.yaml`, one use of a module — and a
+MODULE used directly, whose `module.yaml` is the only file there is. The second is not an import's
+oddity: st0 writes it itself for every lane's strip (`mix-<lane>`,
+`packages/song/docs/trackMixer.md`), and the importer writes it for a plugin used once. So the
+verbs have to know it, rather than answering "no node 'x'" about something plainly on the graph.
+
+- **delete** takes it off the graph and leaves the MODULE where it is. The module is a definition
+  and another chain may name it; what the person asked to delete is the node.
+- **rename** refuses, and says which of the two it is looking at. The name on the graph IS the
+  module's, so renaming it here would leave the graph naming a folder that no longer exists —
+  rename the module, or give it a node first.
+- **replace** repoints the MODULE, which is the paragraph above and stays right: that shape means
+  the module is used once — collapsing an insert is what produces it — so repointing it is
+  repointing the node, and its position, panel and alternatives survive. A module two chains DO
+  name is one plugin shared on purpose (`apps/st0/docs/24-syntax-chains.md`), and changing it
+  changes the thing they share.
+
 `unlinkChainNode` takes a node out of the SIGNAL PATH, joining what fed it to what it fed, and
 leaves it in the graph wired to nothing. Its files are untouched and so is its place on the
 canvas: unlinking is "take it out of the run", not "get rid of it". Putting it back is `node

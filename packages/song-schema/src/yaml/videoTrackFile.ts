@@ -3,12 +3,14 @@
 // other file editor here (trackFile.ts, sequenceFile.ts): these files carry the comments that
 // document the format, and a round trip through the serialiser would delete every one of them.
 // Browser-safe, because the editor's readers strip edits a buffer that has not been saved yet.
-// Two ways in: by REF, which the drag uses, and by INDEX — packages/song-video/docs/picture.md.
+// Two ways in: by INDEX, which the drag and the verbs use, and by REF for the editor's readers.
 
 import { isSeq, parseDocument } from "yaml";
 
 export interface VideoPlacement {
-  ref: string; // the `ref:` value — a clips/ id whose source is a video file
+  /** The `ref:` value — a clips/ id whose source is a video file. EMPTY on an ACTIVATION, an
+   *  event that names none and says only WHEN its lane is on (song-video/docs/shapes.md). */
+  ref: string;
   start: number;
   length: number;
   sourceFrom: number;
@@ -32,11 +34,12 @@ export function listVideoPlacements(text: string): VideoPlacement[] {
   const clips = doc.getIn(["events"]);
   if (!isSeq(clips)) return [];
   const out: VideoPlacement[] = [];
+  // Every entry, INCLUDING the ref-less ones: the list's indices are `events:`'s, and a caller
+  // that writes by index (the verbs, the timeline's drag) would address the wrong line otherwise.
   clips.items.forEach((_item, i) => {
     const ref = doc.getIn(["events", i, "ref"]);
-    if (typeof ref !== "string" || !ref) return; // not a placement
     out.push({
-      ref,
+      ref: typeof ref === "string" ? ref : "",
       start: num(doc.getIn(["events", i, "start"])),
       length: num(doc.getIn(["events", i, "length"])),
       sourceFrom: num(doc.getIn(["events", i, "source_from"])),
@@ -134,7 +137,7 @@ export function removeVideoPlacementAt(text: string, index: number): string {
   return doc.toString({ lineWidth: 0 });
 }
 
-/** Append a placement, creating `events:` when the lane has none — a shape a `kind: shape` lane never gets. */
+/** Append a placement, creating `events:` when the lane has none. */
 export function addVideoPlacement(
   text: string,
   p: VideoPlacement,

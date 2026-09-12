@@ -4,25 +4,41 @@
 
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve, sep } from "node:path";
+import { MODULE_SOURCES_DIR } from "@studio/song-schema/moduleTypes";
 import { modelsRoot } from "./modelCache";
 
 /** Where a module keeps the files it loads, inside its own folder. */
 export const MODULE_ASSETS_DIR = "assets";
 
-/** `<folder>/assets/<ref>` for the first folder holding it, CONFINED to each — docs/moduleAssets.md. */
-export function resolveModuleAssetIn(
+/** A rack's audio folder, defined in song-schema so a browser knows the word too. */
+export { MODULE_SOURCES_DIR };
+
+/** `<folder>/<sub>/<ref>` for the first folder holding it, CONFINED to each — docs/moduleAssets.md. */
+export function resolveModuleFileIn(
   ref: unknown,
   folders: readonly (string | undefined)[],
+  sub: string,
 ): string | undefined {
   if (typeof ref !== "string" || !ref || isAbsolute(ref)) return undefined;
   for (const folder of folders) {
     if (!folder) continue;
-    const root = resolve(folder, MODULE_ASSETS_DIR);
+    const root = resolve(folder, sub);
     const abs = resolve(root, ref);
     // Escaping is a property of the REF, so one refusal ends it — trying the next folder lets `../` through.
     if (!(abs === root || abs.startsWith(root + sep))) return undefined;
     if (existsSync(abs)) return abs;
   }
+  return undefined;
+}
+
+/** The same, for `assets/`, falling back to the shared model cache — docs/moduleAssets.md. */
+export function resolveModuleAssetIn(
+  ref: unknown,
+  folders: readonly (string | undefined)[],
+): string | undefined {
+  const own = resolveModuleFileIn(ref, folders, MODULE_ASSETS_DIR);
+  if (own) return own;
+  if (typeof ref !== "string" || !ref || isAbsolute(ref)) return undefined;
   const cacheRoot = modelsRoot();
   const cached = resolve(cacheRoot, ref);
   const inCache = cached === cacheRoot || cached.startsWith(cacheRoot + sep);

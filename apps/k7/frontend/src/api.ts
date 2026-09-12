@@ -9,6 +9,7 @@ import type {
   Release,
   Session,
   Song,
+  SupernoteSync,
   User,
 } from "./types";
 
@@ -327,6 +328,27 @@ export const api = {
       body: JSON.stringify(patch),
     }).then(json),
 
+  // --- Supernote sync (the private cloud is the user's own) ---
+
+  supernoteStatus: (): Promise<SupernoteSync> => f("/api/supernote").then(json),
+
+  activateSupernote: (input: {
+    baseUrl: string;
+    account: string;
+    password: string;
+  }): Promise<SupernoteSync> =>
+    f("/api/supernote", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }).then(json),
+
+  disableSupernote: (): Promise<SupernoteSync> =>
+    f("/api/supernote", { method: "DELETE" }).then(json),
+
+  syncSupernote: (): Promise<SupernoteSync> =>
+    f("/api/supernote/sync", { method: "POST" }).then(json),
+
   // --- Remote microphone signaling ---
 
   // A short-lived ticket to open the /rtc signaling socket with.
@@ -348,6 +370,21 @@ export const api = {
   deleteSheetFile: (id: string, fileId: string): Promise<Song> =>
     f(`/api/songs/${id}/sheets/${fileId}`, { method: "DELETE" }).then(json),
 
-  sheetFileUrl: (id: string, fileId: string) =>
-    `${BASE}/api/songs/${id}/sheets/${fileId}`,
+  // The reference track: one per song, multipart under the field "audio".
+  uploadSongAudio: (id: string, file: File): Promise<Song> => {
+    const body = new FormData();
+    body.append("audio", file);
+    return f(`/api/songs/${id}/audio`, { method: "POST", body }).then(json);
+  },
+
+  deleteSongAudio: (id: string): Promise<Song> =>
+    f(`/api/songs/${id}/audio`, { method: "DELETE" }).then(json),
+
+  songAudioUrl: (id: string) => `${BASE}/api/songs/${id}/audio`,
+
+  // `name` is decoration the EPUB export needs: the media type is read off the extension.
+  sheetFileUrl: (id: string, fileId: string, name?: string) =>
+    `${BASE}/api/songs/${id}/sheets/${fileId}${
+      name ? `/${encodeURIComponent(name)}` : ""
+    }`,
 };

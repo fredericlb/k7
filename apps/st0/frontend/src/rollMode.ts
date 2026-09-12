@@ -4,6 +4,8 @@
 // default HERE, where drawing used to be — a bare drag now frames notes rather than laying one down.
 // See apps/st0/frontend/docs/clipEditors.md.
 
+import { m } from "./paraglide/messages.js";
+
 /** Where a press goes. Each stands on one verb, so a gesture stays one command and one Ctrl+Z. */
 export const ROLL_MODES = ["select", "create", "remove"] as const;
 export type RollMode = (typeof ROLL_MODES)[number];
@@ -15,11 +17,10 @@ export const isRollMode = (s: string): s is RollMode =>
 export const rollCondition = (m: RollMode): string => `roll_${m}`;
 
 /** What each mode does, for the strip's tooltip and the status line — a mode you cannot see is one you edit in by accident. */
-export const ROLL_PRESS: Record<RollMode, string> = {
-  select: "glisser encadre · une note se déplace, s'étire, se règle",
-  create:
-    "glisser trace une note — sa hauteur au départ, sa longueur à l'arrivée",
-  remove: "cliquer une note la retire",
+export const ROLL_PRESS: Record<RollMode, () => string> = {
+  select: () => m["roll.select"](),
+  create: () => m["roll.create"](),
+  remove: () => m["roll.remove"](),
 };
 
 /**

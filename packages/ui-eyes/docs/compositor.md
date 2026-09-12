@@ -71,9 +71,11 @@ The conventions, declared in `scene.ts`:
 | `x, y` of a circle | its **centre** |
 | `w` of text | a **maximum** width: the canvas condenses glyphs to fit, it does not wrap (single-line text) |
 
-Each shape carries its own geometry, so the layer's rect is ignored: a shape layer covers the
-whole viewport. Shapes carry no time, so they do not extend `durationSec` — a song of nothing but
-shapes has no natural end to render.
+Each shape carries its own geometry, so the layer's rect is ignored: a layer of shapes covers the
+whole viewport. A shape carries no time of its own; its layer's ACTIVATION spans do
+(`song-video/docs/shapes.md`), and those are ordinary clips, so they extend `durationSec` like
+any other. A lane of shapes stating no span is on throughout and adds nothing to it — a song of
+nothing but those has no natural end to render.
 
 ## What is drawn and what is not
 

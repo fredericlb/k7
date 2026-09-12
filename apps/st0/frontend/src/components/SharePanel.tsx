@@ -21,6 +21,8 @@ import {
   Share2,
   X,
 } from "lucide-react";
+import { DEFAULT_VIDEO_FORMAT } from "../exportArgs";
+import { m } from "../paraglide/messages.js";
 import type { GitStatus } from "../types";
 import { SurfaceQr } from "./SurfaceQr";
 
@@ -58,7 +60,7 @@ export function SharePanel({
   externals: readonly SurfaceLink[];
   /** Where a second device reaches this app; empty leaves each code saying there is nowhere to send it. */
   lanUrls: readonly string[];
-  /** Does this project draw a picture? The MP4 row is absent when it does not — a project with
+  /** Does this project draw a picture? The video row is absent when it does not — a project with
    *  no video document has nothing to render, and a greyed row would not say why. */
   hasPicture?: boolean;
   onRun: (command: string) => void;
@@ -73,16 +75,16 @@ export function SharePanel({
   // `project commit` takes the message as the rest of its line, so this asks first — an empty answer is a cancelled commit.
   const commit = () => {
     void askText({
-      title: "Message de commit",
-      body: "Indexe et pousse tout le dépôt.",
-      placeholder: "ce que ce commit change",
-      confirmLabel: "Commiter",
+      title: m["commit.title"](),
+      body: m["commit.body"](),
+      placeholder: m["commit.placeholder"](),
+      confirmLabel: m["commit.confirm"](),
       // The message is the REST of the verb's line, so it stays one line — see packages/commands/docs/verbs.md.
       validate: (v) =>
         !v.trim()
-          ? "un commit dit ce qu'il change"
+          ? m["commit.needsMessage"]()
           : /[\n\r]/.test(v)
-            ? "une seule ligne : le verbe prend la fin de la sienne"
+            ? m["commit.oneLine"]()
             : "",
     }).then((message) => {
       if (message?.trim()) onRun(`project commit ${message.trim()}`);
@@ -99,10 +101,15 @@ export function SharePanel({
         {busy ? (
           <Loader2
             className="h-4 w-4 shrink-0 animate-spin text-muted-foreground"
-            aria-label="rendu en cours"
+            aria-label={m["share.rendering2"]()}
           />
         ) : null}
-        <Button size="icon" variant="ghost" title="Fermer" onClick={onClose}>
+        <Button
+          size="icon"
+          variant="ghost"
+          title={m["common.close"]()}
+          onClick={onClose}
+        >
           <X className="h-4 w-4" />
         </Button>
       </header>
@@ -132,7 +139,7 @@ export function SharePanel({
         {/* Said in the panel and not only in a tooltip: a branch that cannot fast-forward needs a merge by hand, which is a sentence. */}
         {conflicted ? (
           <p className="px-2 py-1 text-xs text-amber-500">
-            le dépôt a divergé — un pull demande une fusion à la main
+            {m["share.diverged"]()}
           </p>
         ) : null}
 
@@ -158,22 +165,24 @@ export function SharePanel({
         </button>
 
         {/* …and the PICTURE, on a project that draws one. The sound is married in: a video of a
-            song is a video of its sound, so the silent one is `project export video mp4 none`. */}
+            song is a video of its sound, so the silent one is `… video <container> none`. */}
         {hasPicture ? (
           <button
             type="button"
             className={row}
             disabled={busy}
-            onClick={() => onRun("project export video mp4")}
+            onClick={() =>
+              onRun(`project export video ${DEFAULT_VIDEO_FORMAT}`)
+            }
           >
             <Download className="h-4 w-4 text-muted-foreground" />
-            Export MP4
+            Export {DEFAULT_VIDEO_FORMAT.toUpperCase()}
           </button>
         ) : null}
 
         <div className="my-1 border-t border-border" />
         {/* The two that PUBLISH different things: k7 gets a release, a link gets a frozen copy (packages/commands/docs/shareBundle.md). */}
-        <div className={head}>Publier</div>
+        <div className={head}>{m["share.publishHead"]()}</div>
         <button
           type="button"
           className={row}
@@ -181,7 +190,7 @@ export function SharePanel({
           onClick={() => onRun("project share link")}
         >
           <Link2 className="h-4 w-4 text-muted-foreground" />
-          Partager un lien
+          {m["share.shareLink"]()}
         </button>
         <button
           type="button"
@@ -198,7 +207,7 @@ export function SharePanel({
         {externals.length ? (
           <>
             <div className="my-1 border-t border-border" />
-            <div className={head}>Sur un autre appareil</div>
+            <div className={head}>{m["share.otherDevice"]()}</div>
             <ul className="grid grid-cols-2 gap-2 px-2 py-1">
               {externals.map((x) => (
                 <SurfaceQr
@@ -211,7 +220,7 @@ export function SharePanel({
               ))}
             </ul>
             <p className="px-2 py-1 text-xs text-muted-foreground">
-              même moteur, même session : ce qui est fait là-bas est fait ici.
+              {m["share.sameSession"]()}
             </p>
           </>
         ) : null}

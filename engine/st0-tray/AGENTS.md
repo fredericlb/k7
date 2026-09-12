@@ -1,7 +1,9 @@
 # AGENTS.md — capot
 
-The **menu-bar / system-tray view** for the engine supervisor — Tauri v2, native Rust,
-no window.
+The **menu-bar / system-tray view** for the engine supervisor — Tauri v2, native Rust.
+It starts with no window and opens exactly one on demand: the settings window, in five tabs —
+the audio ranking dragged into order, the plugin catalogue, the sessions this engine holds, where
+this machine may copy a set list, and the machine itself. The menu bar keeps one status line, `Web UI ▸` and the way in.
 
 It is not itself a supervisor. It spawns **`@studio/engine-host`** (TypeScript) as a
 child and drives it over NDJSON on stdio: the supervisor owns the `~/.st0`
@@ -61,8 +63,14 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
   vendored `node` + `engine-host.mjs` from resources, else the repo's tsx on the TS
   source. A miss must be LOUD (`⚠ supervisor not found`) — a tray supervising nothing
   looks identical to a healthy one.
-- **`tray.rs`** — the icon and menu. Quit stops the engine **only if THIS app owns it**;
-  it won't kill an engine another supervisor started.
+- **`tray.rs`** — the icon and menu, which is now one status line, `Web UI ▸` and `Settings…`.
+  Quit stops the engine **only if THIS app owns it**; it won't kill an engine another supervisor
+  started.
+- **`settingswin.rs`** — the one window, opened from `Settings…`: audio ranking, plugin catalogue,
+  sessions with the plugin editors they can open, the playlist sync targets, and System (version,
+  engine, registry, file service, and the buttons). It draws the snapshot and sends commands back, like every other click
+  here. Closing HIDES it — a destroyed last window makes Tauri ask the app to exit. See
+  `docs/tray.md`.
 - **`supervisor.rs`** — the loops the tray still runs: the spinner and the menu-bar
   appearance re-read (view work that stays), plus crash-watch, the file-service watch and
   the engine query polls (not yet migrated). Rule: snapshot state under the std `Mutex`

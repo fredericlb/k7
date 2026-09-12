@@ -10,6 +10,7 @@ import { projectApi } from "@studio/project-shell/project";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { FolderPlus, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { projectFolderName } from "./projectName";
 import { SHAPES } from "./shapes";
 
@@ -35,7 +36,7 @@ export function FirstProject({
     setBusy(true);
     setError("");
     void (async () => {
-      setStep(`création de ${folder}…`);
+      setStep(m["project.creating"]({ folder }));
       await projectApi.createProject(shape, folder);
       setStep("premier commit…");
       // `/git/commit` and not `project commit`: it acts on the whole repo and needs no active
@@ -58,12 +59,11 @@ export function FirstProject({
       <div className="flex w-full max-w-lg flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="flex items-center gap-2 font-semibold text-lg">
-            <FolderPlus className="h-5 w-5" /> Premier projet de « {workspace} »
+            <FolderPlus className="h-5 w-5" />{" "}
+            {m["project.firstTitle"]({ workspace })}
           </h1>
           <p className="text-muted-foreground text-sm">
-            Cet espace de travail est vide. Un projet est un dossier dedans, et
-            l'archétype décide de ce qui s'ouvre — vous pourrez en ajouter
-            d'autres à côté, et choisir lequel le moteur joue.
+            {m["project.firstBody"]()}
           </p>
         </div>
 
@@ -77,17 +77,17 @@ export function FirstProject({
               disabled={busy}
               onClick={() => setShape(sh.id)}
             >
-              {sh.label}
+              {sh.label()}
             </Button>
           ))}
         </div>
         <span className="text-muted-foreground text-xs">
-          {SHAPES.find((sh) => sh.id === shape)?.what}
+          {SHAPES.find((sh) => sh.id === shape)?.what()}
         </span>
 
         <Input
           autoFocus
-          placeholder="nom du projet — « hiver »"
+          placeholder={m["project.namePlaceholder"]()}
           value={name}
           disabled={busy}
           onChange={(e) => setName(e.target.value)}
@@ -118,7 +118,7 @@ export function FirstProject({
         <div className="flex justify-end">
           <Button disabled={busy || !folder} onClick={submit}>
             {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            Créer
+            {m["common.create"]()}
           </Button>
         </div>
       </div>

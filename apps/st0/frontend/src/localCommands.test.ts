@@ -72,9 +72,10 @@ describe("the bare transport verbs", () => {
     for (const line of BARE_TRANSPORT) expect(isUiLine(line)).toBe(false);
   });
 
-  it("holds only the four that write nothing", () => {
-    // The four that are not here have branches or files of their own; a verb added without one would silently stop being journalled.
+  it("holds only the five that write nothing", () => {
+    // The ones that are not here have branches or files of their own; a verb added without one would silently stop being journalled.
     expect([...BARE_TRANSPORT].sort()).toEqual([
+      "transport panic",
       "transport play",
       "transport rewind",
       "transport stop",

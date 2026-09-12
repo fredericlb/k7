@@ -90,7 +90,7 @@ describe("picture lane order", () => {
     mkdirSync(join(song, "video_tracks"), { recursive: true });
     writeFileSync(
       join(song, "video_tracks", `${id}.yaml`),
-      "kind: video\nevents: []\n",
+      "events: []\n",
       "utf8",
     );
   };

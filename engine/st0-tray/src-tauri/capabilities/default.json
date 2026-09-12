@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Tray-only app; autostart is toggled from Rust. No webview calls these, but the plugin's capability checks want them declared.",
+  "description": "The audio window is the only webview, and it calls core:event to receive a redraw; its own three commands are the app's, so no permission names them. Autostart is toggled from Rust, but the plugin's capability checks want it declared.",
   "windows": ["*"],
   "permissions": [
     "core:default",

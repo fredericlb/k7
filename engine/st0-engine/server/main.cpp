@@ -809,6 +809,7 @@ int main(int argc, char** argv) {
                     else if (action == "stop") host.stop(session);
                     else if (action == "toggle") host.isPlaying(session) ? host.stop(session) : host.play(session);
                     else if (action == "rewind") host.rewind(session);
+                    else if (action == "panic") host.panic(session);
                     else if (action == "seek") host.seek(session, position);
                     else if (action == "loop") host.setLoop(session, loopStart, loopEnd, loopOn);
                 });

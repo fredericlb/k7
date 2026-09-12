@@ -16,6 +16,9 @@ export const FAMILY_ERROR = `family must be one of: ${FAMILIES.join(", ")}`;
 /** The raw capture zone — one word for its folder, its revision key, its count and its tab; see docs/recordings.md. */
 export const RECORDINGS_DIR = "recordings";
 
+/** The set lists this volume holds, `playlists/<name>.yaml` — a root zone, not a family; see docs/playlists.md. */
+export const PLAYLISTS_DIR = "playlists";
+
 /** The file that makes a folder a CHAIN — the same name a st0 project uses at its root, see docs/index.md. */
 export const CHAINS_FILE = "graph.yaml";
 

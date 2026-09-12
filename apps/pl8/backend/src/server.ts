@@ -14,6 +14,7 @@ import {
   mountEngineRegistry,
 } from "@studio/engine-registry";
 import { ensureLayout, mediatekDir } from "@studio/mediatek/layout";
+import { startRevisionRefresh } from "@studio/mediatek/revision";
 import { configureMpv } from "@studio/mpv-player/player";
 import { createPlayerRouter } from "@studio/mpv-player/router";
 import { prefsStore } from "@studio/user-prefs";
@@ -21,11 +22,13 @@ import { preferencesRouter } from "@studio/user-prefs/router";
 import { isLoopbackReturn } from "@studio/web-protocol/pairing";
 import express from "express";
 import { z } from "zod";
+import { startAnalysisSweep } from "./analysisSweep.ts";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
 import { publicShareRouter } from "./routes/publicShare.ts";
 import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
+import { syncRouter } from "./routes/sync.ts";
 
 // Dev config layered INTO process.env, never read into a value — ../docs/config.md.
 Object.assign(process.env, loadServiceEnv("pl8-backend"));
@@ -89,9 +92,11 @@ app.use(
   }),
 );
 
-// Cutting a song into stems, done HERE: the bytes are here and so is the model, and no engine
-// is named — a hosted pl8 can reach none. A bearer too, unlike /api/hunt above — docs/stems.md.
-app.use("/api/stems", bearerOrSession(requireAuth), stemsRouter());
+// Cutting a song into stems, driven from HERE because the bytes are here; a bearer too, unlike /api/hunt above — docs/stems.md.
+app.use("/api/stems", bearerOrSession(requireAuth), stemsRouter(engine));
+
+// Copying a set list onto a machine's stick or FTP box — same division as the cut, docs/sync.md.
+app.use("/api/sync", bearerOrSession(requireAuth), syncRouter(engine));
 
 // `engineId` is this app's own choice, `playbackTarget` a plain string — docs/playbackTarget.md.
 const prefsSchema = z.object({
@@ -147,6 +152,10 @@ const server = app.listen(PORT, () => {
   try {
     console.log(`📚 pl8 backend on ${url}  (library + origin-wide auth)`);
     console.log(`   library: ${ensureLayout()}`);
+    // A poll costs a map lookup from here on, and the walk that fills it runs off the loop.
+    startRevisionRefresh();
+    // …and the waveforms nobody has asked for yet, one at a time — apps/pl8/docs/analysis.md.
+    startAnalysisSweep();
   } catch (e) {
     console.error(
       `   library UNAVAILABLE at ${mediatekDir()}: ${(e as Error).message}`,

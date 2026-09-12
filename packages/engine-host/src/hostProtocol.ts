@@ -3,6 +3,8 @@
 // Stdout IS the protocol, frames are snapshots not deltas, and the tray computes no
 // policy of its own. Full rationale: docs/hostProtocol.md.
 
+import type { SyncTarget } from "@studio/song-schema/syncTarget";
+
 /** Which of the STAGED subsystems the host owns yet — see docs/hostProtocol.md. */
 export interface HostOwnership {
   /** Spawning, adopting, stopping and crash-watching the C++ engine. */
@@ -38,6 +40,16 @@ export interface HostEditPlugin {
   id: string;
   name: string;
   hasNativePluginUI: boolean;
+}
+
+/** One INSTALLED plugin, as the settings window lists them — the catalogue, not the instances `HostEditPlugin` names. */
+export interface HostPlugin {
+  name: string;
+  /** "VST3", "AU", "builtin"… — what the row is badged with, and the only word most users search by. */
+  format: string;
+  manufacturer: string;
+  /** "instrument" | "audioEffect" | "midiEffect", verbatim from the engine. */
+  role: string;
 }
 
 /** One project the engine is holding, for the "Sessions ▸" submenu — what makes ONE engine serving several apps legible from outside. */
@@ -97,6 +109,10 @@ export interface HostSnapshot {
 
   /** null means "the engine hasn't answered yet" — the spinner, not "none found". */
   pluginCount: number | null;
+  /** The installed catalogue, name-sorted. It rides the snapshot like every other list — see docs/supervisorPolicy.md. */
+  plugins: HostPlugin[];
+  /** Changes exactly when the catalogue does, so only a rescan redraws the window's list. */
+  pluginsSig: string;
   audioDevices: HostAudioDevice[];
   /** The interfaces the user RANKED, best first. The first one present is where the engine goes; a name with nothing behind it is one that is unplugged, and keeps its rank. */
   audioPriority: string[];
@@ -105,6 +121,9 @@ export interface HostSnapshot {
   editPlugins: HostEditPlugin[];
   /** The same trick for "Native plugin UI ▸": the ids of the openable plugins. */
   editPluginsSig: string;
+
+  /** Where this machine may COPY a set list, as `preferences.yaml` declares them — packages/file-service/docs/playlistSync.md. */
+  syncTargets: SyncTarget[];
 
   // --- web UI allowlist -----------------------------------------------------
   webOrigins: string[];
@@ -133,6 +152,7 @@ export type HostCommandName =
   | "fileService.restart"
   | "plugins.rescan"
   | "audio.priority"
+  | "sync.targets"
   | "plugin.showUI"
   | "session.drop"
   | "weburi.add"
@@ -149,7 +169,7 @@ export interface HostCommand {
   /** Correlates the `result`. The tray allocates these; the host only echoes them. */
   id: number;
   cmd: HostCommandName;
-  /** The command's single argument, when it takes one; an empty string is meaningful for `audio.priority`, where it means "rank nothing". */
+  /** The command's single argument, when it takes one; an empty string is meaningful for `audio.priority`, where it means "rank nothing", and for `sync.targets`, where it means "none". */
   arg?: string;
 }
 

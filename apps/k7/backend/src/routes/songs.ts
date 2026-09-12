@@ -93,15 +93,62 @@ songsRouter.post(
   }),
 );
 
-songsRouter.get(
-  "/:sid/sheets/:fid",
+const sendSheet = wrap(async (req, res) => {
+  const info = await store.ensureSheetFileCached(
+    req.params.sid,
+    req.params.fid,
+  );
+  if (!info) return res.status(404).json({ error: "not found" });
+  streamFile(req, res, info.filePath, info.mime);
+});
+
+songsRouter.get("/:sid/sheets/:fid", sendSheet);
+// The same bytes under a name-bearing address, which is what an EPUB reads a media type off — ../../../docs/export.md.
+songsRouter.get("/:sid/sheets/:fid/:name", sendSheet);
+
+// --- The reference track (one per song) ------------------------------------
+
+// Whatever a browser can play, which is wider than what it can record.
+const AUDIO_MIME = /^audio\//;
+
+songsRouter.post(
+  "/:sid/audio",
+  upload.single("audio"),
   wrap(async (req, res) => {
-    const info = await store.ensureSheetFileCached(
-      req.params.sid,
-      req.params.fid,
-    );
-    if (!info) return res.status(404).json({ error: "not found" });
+    const file = req.file as Express.Multer.File | undefined;
+    if (!file?.buffer?.length)
+      return res.status(400).json({ error: "no audio file" });
+    if (!AUDIO_MIME.test(file.mimetype))
+      return res
+        .status(400)
+        .json({ error: `not an audio file: ${file.mimetype}` });
+
+    const song = await store.setSongAudio(req.params.sid, {
+      buffer: file.buffer,
+      mime: file.mimetype,
+      name: file.originalname,
+    });
+    if (!song) return res.status(404).json({ error: "not found" });
+    res.status(201).json(song);
+  }),
+);
+
+songsRouter.get(
+  "/:sid/audio",
+  wrap(async (req, res) => {
+    const info = await store.ensureSongAudioCached(req.params.sid);
+    if (!info) return res.status(404).json({ error: "no audio" });
+    // streamFile answers Range, which is what lets the player's bar seek.
     streamFile(req, res, info.filePath, info.mime);
+  }),
+);
+
+songsRouter.delete(
+  "/:sid/audio",
+  wrap(async (req, res) => {
+    const song = await store.deleteSongAudio(req.params.sid);
+    if (!song) return res.status(404).json({ error: "not found" });
+    res.json(song);
   }),
 );
 

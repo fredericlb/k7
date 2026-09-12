@@ -72,6 +72,11 @@ against its scan cache.
 authored. `status:` is not one either, for the same reason — the loader applies `listed`, so a file
 that has nothing to say about it stays a file that says nothing.
 
+A file that `extends` gets NO type filled in, because a merge cannot tell a default from a
+decision: a node over a rack states nothing, and a `plugin` written in for it would beat the
+parent's `rack`. The node would then draw "missing plugin" and compile as an empty slot — a drum
+rack that plays nothing. The type of a chain is the type of its ROOT unless a link overrides it.
+
 There is no `jsdsp:` field. A module whose DSP is its own source says so with
 `plugin: {type: jsdsp}`, and the file is `jsdsp.ts` beside the module file — one statement rather
 than a field and a type that have to agree (`loader.ts`'s `jsDspFileFor`).
@@ -295,3 +300,7 @@ first — which is why a project that never uses this keeps exactly the file it 
 attribute sets are ways of playing the same block, and "this way of playing it is hidden from the
 palette" is not a thing anybody means. It is one fact about the module, said once
 (`packages/song/docs/moduleStatus.md`).
+
+`label:` sits beside it for the same reason, and is the same kind of field: free text, the name a
+person reads in a picker, resolving nothing and reaching no engine. An alternative already carries
+`name:` for the one distinction it needs (`packages/song/docs/moduleLabel.md`).

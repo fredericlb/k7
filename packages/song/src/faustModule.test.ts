@@ -70,17 +70,27 @@ describe("a faust module", () => {
     expect(p?.dspGraph).toBeUndefined(); // never both — one module, one plugin, one property
   });
 
-  /** Copy a SHIPPED module in: `at` is its library path, `into` where it can sit in this project. */
-  const ship = (at: string, into = at): void => {
-    const to = join(dir, "modules", ...into.split("/"));
-    mkdirSync(dirname(to), { recursive: true });
-    cpSync(join(here, "..", "..", "dsp", "modules", ...at.split("/")), to, {
-      recursive: true,
-    });
+  /**
+   * A Faust module written into this project. FIXTURES rather than a copy of a real module: those
+   * live in an account's library and nowhere in this tree (packages/dsp/docs/catalogue.md), and
+   * whether a real one COMPILES is the Faust binary's question, not this one's.
+   */
+  const faustModule = (at: string, source: string): void => {
+    const folder = join(dir, "modules", ...at.split("/"));
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(
+      join(folder, "module.yaml"),
+      "plugin:\n  type: faust\n  name: Fixture\n",
+      "utf8",
+    );
+    writeFileSync(join(folder, "dsp.dsp"), source, "utf8");
   };
 
-  it("ships wurlitzer, which fits where an instrument is played", () => {
-    ship("instruments/synth/wurlitzer", "instruments/wurlitzer");
+  it("fits where an INSTRUMENT is played — no audio in, two out", () => {
+    faustModule(
+      "instruments/wurlitzer",
+      'import("stdfaust.lib");\nprocess = par(i, 2, os.osc(440) * 0.1);\n',
+    );
     writeFileSync(
       join(dir, "nodes", "lead.yaml"),
       "extends: instruments/wurlitzer\n",
@@ -91,9 +101,12 @@ describe("a faust module", () => {
     expect(p?.faustDsp).toContain("process =");
   });
 
-  it("ships moogladder, which fits after one", () => {
+  it("fits AFTER one, on a slot of its own", () => {
     // Between the instrument and the output: on `lead`'s slot the typed-input check refuses it.
-    ship("audio/filter/moogladder");
+    faustModule(
+      "audio/filter/moogladder",
+      'import("stdfaust.lib");\nprocess = par(i, 2, ve.moog_vcf(0.7, 2000));\n',
+    );
     writeFileSync(
       join(dir, "nodes", "moog.yaml"),
       "extends: audio/filter/moogladder\n",

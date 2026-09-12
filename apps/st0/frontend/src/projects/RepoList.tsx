@@ -3,6 +3,7 @@
 // Presentational — the section holds the async and this file draws. See ../../docs/projects.md.
 
 import { Badge } from "@frediverse/ui/badge";
+import { cn } from "@frediverse/ui/lib/utils";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type {
   MachineWorkspace,
@@ -19,11 +20,13 @@ import {
   ServerOff,
   TriangleAlert,
 } from "lucide-react";
-import { CopyProject } from "./CopyProject";
-import { DeleteProject } from "./DeleteProject";
+import { type DragEvent, useState } from "react";
+import { parts } from "../i18nParts";
+import { m } from "../paraglide/messages.js";
 import { ImportWorkspace } from "./ImportWorkspace";
 import { NewProject } from "./NewProject";
 import { NewWorkspace } from "./NewWorkspace";
+import { ProjectMenu } from "./ProjectMenu";
 import { ProjectShares } from "./ProjectShares";
 import { PublishWorkspace } from "./PublishWorkspace";
 import { RemoveWorkspace } from "./RemoveWorkspace";
@@ -49,6 +52,18 @@ const parentOf = (p: RepoProject): string | null => {
   return cut > 0 ? p.path.slice(0, cut) : null;
 };
 
+/**
+ * Is this drag carrying files at all? A dragover knows each item's KIND and its MIME type, never
+ * its name — and a `.dawproject` has no MIME type — so every file drag lights the row up and the
+ * DROP is where it is judged. What it does with something it cannot take is `onDropProject`'s.
+ */
+function carriesFiles(e: DragEvent): boolean {
+  const items = Array.from(e.dataTransfer.items ?? []);
+  return items.length
+    ? items.some((i) => i.kind === "file")
+    : e.dataTransfer.files.length > 0;
+}
+
 export function RepoList({
   workspaces,
   busy,
@@ -60,10 +75,13 @@ export function RepoList({
   onPublish,
   onOpen,
   blocked,
+  blockedWorkspace,
+  onDropProject,
   onCreate,
   onDelete,
   onRemoveWorkspace,
   onCopy,
+  onRename,
   projectHref,
   workspaceHref,
   shares,
@@ -94,6 +112,11 @@ export function RepoList({
   onOpen: (ws: MachineWorkspace) => void;
   /** Why create and delete are impossible, or "" — both go through the machine, which is also what READS this list (../../docs/projects.md). */
   blocked: string;
+  /** What stops a workspace being MADE or IMPORTED, on top of `blocked` — the account's library, which everything in one resolves through. */
+  blockedWorkspace: string;
+  /** Files dropped ON a row: everything dropped, since which one is importable — and what to say
+   *  when none is — belongs with the state that can report it (packages/translator/docs/import.md). */
+  onDropProject: (ws: MachineWorkspace, files: File[]) => void;
   onCreate: (
     ws: MachineWorkspace,
     folder: string,
@@ -104,6 +127,13 @@ export function RepoList({
   onDelete: (
     ws: MachineWorkspace,
     project: RepoProject,
+    onStep: (s: string) => void,
+  ) => Promise<void>;
+  /** Rename a project's folder in place — the SAME workspace commits, and pushes if it has a repository. */
+  onRename: (
+    ws: MachineWorkspace,
+    project: RepoProject,
+    folder: string,
     onStep: (s: string) => void,
   ) => Promise<void>;
   /** Copy a project into ANOTHER workspace on this machine — the destination commits, and pushes if it has a repository. */
@@ -125,12 +155,18 @@ export function RepoList({
   /** After a revocation, so the page re-reads without waiting for the poll. */
   onChanged: () => void;
 }) {
+  // Which row the pointer is over, so exactly one lights up — a boolean would light them all.
+  const [over, setOver] = useState<string | null>(null);
   return (
     <div className="flex flex-col gap-4 p-6">
       {/* The two ways one appears, side by side: made here, or brought back from a repository. */}
       <div className="flex items-center gap-2">
-        <NewWorkspace blocked={blocked} onCreate={onCreateWorkspace} />
-        <ImportWorkspace blocked={blocked} step={adding} onImport={onImport} />
+        <NewWorkspace blocked={blockedWorkspace} onCreate={onCreateWorkspace} />
+        <ImportWorkspace
+          blocked={blockedWorkspace}
+          step={adding}
+          onImport={onImport}
+        />
       </div>
 
       {error && (
@@ -143,43 +179,42 @@ export function RepoList({
         // The price of the move, said where it is paid: with no machine there is no list, and an empty one would read as a new account.
         <div className="flex flex-col items-center gap-2 rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
           <ServerOff className="h-5 w-5 text-amber-500" />
-          <span>
-            Aucune machine moteur joignable. Vos projets sont des dossiers sur
-            cette machine, c'est donc elle qui dit lesquels existent.
-          </span>
+          <span>{m["repos.noMachineTitle"]()}</span>
           <span className="text-xs">
-            Les bibliothèques et les partages se règlent sans elle, plus bas ;
-            la clé de déploiement est dans les{" "}
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="underline"
-            >
-              réglages
-            </button>
-            .
+            {parts((h) => m["repos.noMachineAside"](h), {
+              settings: (
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  className="underline"
+                >
+                  {m["repos.settingsWord"]()}
+                </button>
+              ),
+            })}
           </span>
         </div>
       ) : workspaces.length === 0 ? (
         <div className="rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
           {busy ? (
             <span className="inline-flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
+              <Loader2 className="h-4 w-4 animate-spin" />{" "}
+              {m["common.loading"]()}
             </span>
           ) : (
-            <>
-              Rien sur cette machine. <strong>Nouveau</strong> en crée un ici,
-              sans dépôt et sans rien à régler ; <strong>Importer</strong> en
-              rapatrie un qui existe — et pour celui-là, pensez à ajouter la{" "}
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                className="underline"
-              >
-                clé de déploiement
-              </button>{" "}
-              chez votre hébergeur git d'abord.
-            </>
+            parts((h) => m["repos.emptyMachine"](h), {
+              new: <strong>{m["repos.newWord"]()}</strong>,
+              import: <strong>{m["repos.importWord"]()}</strong>,
+              key: (
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  className="underline"
+                >
+                  {m["repos.deployKeyWord"]()}
+                </button>
+              ),
+            })
           )}
         </div>
       ) : (
@@ -187,7 +222,30 @@ export function RepoList({
           {workspaces.map((w) => (
             <li
               key={w.name}
-              className="flex flex-col rounded-md border border-border p-3"
+              className={cn(
+                "flex flex-col rounded-md border border-border p-3",
+                // The row lights up only for something it can actually take — see `DROPPABLE`.
+                over === w.name && "border-primary bg-primary/5",
+              )}
+              onDragOver={(e) => {
+                if (!carriesFiles(e)) return;
+                // Both, or the browser opens the file instead — the default for a dropped file is navigation.
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+                setOver(w.name);
+              }}
+              onDragLeave={(e) => {
+                // Leaving for a CHILD is not leaving: the row's own dragover would set it straight back, flickering.
+                if (e.currentTarget.contains(e.relatedTarget as Node | null))
+                  return;
+                setOver((o) => (o === w.name ? null : o));
+              }}
+              onDrop={(e) => {
+                if (!carriesFiles(e)) return;
+                e.preventDefault();
+                setOver(null);
+                onDropProject(w, Array.from(e.dataTransfer.files));
+              }}
             >
               <div className="flex items-center justify-between gap-3">
                 <button
@@ -205,12 +263,14 @@ export function RepoList({
                     <span className="flex items-center gap-2">
                       <span className="truncate font-medium">{w.name}</span>
                       <Badge variant={w.projects.length ? "tag" : "default"}>
-                        {w.projects.length} projet
-                        {w.projects.length === 1 ? "" : "s"}
+                        {m["repos.projectCount"]({
+                          n: w.projects.length,
+                          s: w.projects.length === 1 ? "" : "s",
+                        })}
                       </Badge>
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {w.origin ?? "sur cette machine seulement"}
+                      {w.origin ?? m["repos.hereOnly"]()}
                     </span>
                   </span>
                 </button>
@@ -247,15 +307,18 @@ export function RepoList({
                 <a
                   className="mt-2 ml-2 flex w-fit items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent/50"
                   href={workspaceHref(w)}
-                  title={`Ouvrir ${w.name} et y créer un projet`}
+                  target="_blank"
+                  rel="noopener"
+                  title={m["repos.openAndCreate"]({ name: w.name })}
                 >
                   <FolderPlus className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span>Créer le premier projet</span>
+                  <span>{m["repos.createFirst"]()}</span>
                 </a>
               )}
 
               {/* The projects, indented under their workspace: a click goes straight into the app
-                  that opens one, in THIS tab — the header's name is the way back. */}
+                  that opens one, in a NEW TAB — this screen is a list you come back to
+                  (../../docs/projects.md). */}
               {w.projects.length > 0 && (
                 <ul className="mt-2 ml-2 flex flex-col border-l border-border pl-3">
                   {w.projects.map((p) => (
@@ -263,8 +326,13 @@ export function RepoList({
                     <li key={p.path} className="flex items-center gap-1">
                       <a
                         className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent/50"
-                        title={`Ouvrir ${p.path} dans ${p.app}`}
+                        title={m["repos.openProject"]({
+                          path: p.path,
+                          app: p.app,
+                        })}
                         href={projectHref(w, p)}
+                        target="_blank"
+                        rel="noopener"
                       >
                         <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span className="truncate">
@@ -283,8 +351,8 @@ export function RepoList({
                         shares={sharesOf(shares, w.name, p.path)}
                         onChanged={onChanged}
                       />
-                      {/* Between reading and destroying: a copy adds, so it sits ahead of the one act that takes away. */}
-                      <CopyProject
+                      {/* …and the three ACTS behind one ⋮: the row is a link first, and these are rare. */}
+                      <ProjectMenu
                         path={p.path}
                         label={p.path === "." ? w.name : nameOf(p)}
                         app={p.app}
@@ -293,11 +361,9 @@ export function RepoList({
                         onCopy={(to, folder, onStep) =>
                           onCopy(w, p, to, folder, onStep)
                         }
-                      />
-                      <DeleteProject
-                        path={p.path}
-                        label={p.path === "." ? w.name : nameOf(p)}
-                        blocked={blocked}
+                        onRename={(folder, onStep) =>
+                          onRename(w, p, folder, onStep)
+                        }
                         onDelete={(onStep) => onDelete(w, p, onStep)}
                       />
                     </li>
@@ -310,8 +376,7 @@ export function RepoList({
                 <span className="mt-2 flex items-start gap-1 text-xs text-amber-500">
                   <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
                   <span>
-                    deux copies répondent au nom « {w.repoName} » — ces projets
-                    s'ouvrent par une adresse propre à cette machine
+                    {m["repos.nameClash"]({ name: w.repoName ?? w.name })}
                   </span>
                 </span>
               )}

@@ -163,9 +163,9 @@ document, in the graph, drawn on screen, and refuses to record.
 
 ## Getting one
 
-The module is in `packages/dsp/modules/audio/utility/recorder/` — a place to COPY FROM, never a
-seed ([sharedFolders.md](sharedFolders.md)). Copy it into the account's library repository, as
-the turntable assembly is copied, and a project names it `@st0/audio/utility/recorder`.
+The module lives in the account's library repository and nowhere else — nothing seeds one
+([sharedFolders.md](sharedFolders.md)). Author it under `modules/audio/utility/recorder/`, as the
+turntable assembly is, and a project names it `@st0/audio/utility/recorder`.
 
 Its `ui.yaml` comes with it, and that matters: a module with no face draws a card with nothing on
 it, which is how the mixer's missing `ui.yaml` was found.

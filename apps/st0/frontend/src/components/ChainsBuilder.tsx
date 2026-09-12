@@ -13,6 +13,7 @@ import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { Loader2, Workflow, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { STUDIO_ICONS } from "../chainsIcons";
+import { m } from "../paraglide/messages.js";
 import { needsAttention, saveLabel } from "../saveLabel";
 import type { WebGraph } from "../types";
 
@@ -183,7 +184,7 @@ export function ChainsBuilder({
           onClick={onClose}
           className="text-xs text-muted-foreground hover:underline"
         >
-          fermer
+          {m["common.closeLower"]()}
         </button>
       </header>
 
@@ -210,18 +211,18 @@ export function ChainsBuilder({
               // `node new` writes into the chain's own `nodes/`, the verb resolving that folder from the graph file it was pointed at.
               onClick={() => {
                 void askText({
-                  title: "Nouveau nœud",
-                  body: "Le module, puis le nom du nœud — par exemple audio/reverb hall.",
+                  title: m["cb.newNodeTitle"](),
+                  body: m["cb.newNodeBody"](),
                   placeholder: "<type>/<module> <nom>",
-                  confirmLabel: "Créer",
+                  confirmLabel: m["common.create"](),
                   // The line becomes `node new <this>`, so a quote here would become extra arguments there.
                   validate: (v) =>
                     !v.trim()
-                      ? "un nœud nomme un module"
+                      ? m["cb.nodeNamesModule"]()
                       : /["']/.test(v)
-                        ? "sans guillemets : ils compteraient comme des arguments"
+                        ? m["cb.noQuotes"]()
                         : !/^\S+\/\S+/.test(v.trim())
-                          ? "le module s'écrit <type>/<module>"
+                          ? m["cb.moduleShape"]()
                           : "",
                 }).then((name) => {
                   if (name?.trim()) void command(`node new ${name.trim()}`);
@@ -268,8 +269,8 @@ export function ChainsBuilder({
             <button
               type="button"
               onClick={() => setError(null)}
-              aria-label="fermer"
-              title="fermer"
+              aria-label={m["common.closeLower"]()}
+              title={m["common.closeLower"]()}
               className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
             >
               <X className="size-3.5" />
@@ -278,7 +279,7 @@ export function ChainsBuilder({
         )}
         {!open ? (
           <p className="grid h-full place-items-center text-sm text-muted-foreground">
-            Choisissez une chaîne.
+            {m["cb.pickChain"]()}
           </p>
         ) : !drawn ? (
           <div className="grid h-full place-items-center">

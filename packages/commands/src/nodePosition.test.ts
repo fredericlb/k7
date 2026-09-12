@@ -65,11 +65,7 @@ function song(): string {
   );
   // …and a PICTURE lane, which is a card on the graph and is no key of `modules:` either.
   mkdirSync(join(d, "video_tracks"), { recursive: true });
-  writeFileSync(
-    join(d, "video_tracks", "main.yaml"),
-    "kind: video\nevents: []\n",
-    "utf8",
-  );
+  writeFileSync(join(d, "video_tracks", "main.yaml"), "events: []\n", "utf8");
   return d;
 }
 

@@ -76,12 +76,14 @@ import {
   hasMalformedPresets,
   hasMalformedUiFile,
   ioOf,
+  labelOf,
   type ModuleUI,
   readParams,
   readPlugin,
   readPresetsFile,
   readUiFile,
   setChannelIn,
+  setLabelIn,
   setStatusIn,
   statusOf,
   writeUiFile,
@@ -222,6 +224,8 @@ export function ModuleBuilder({
   const [content, setContent] = useState<string | null>(null);
   /** The module's `status:` off the BUFFER, so the dropdown shows the edit you just made — docs/builder.md. */
   const moduleStatus = useMemo(() => statusOf(content ?? ""), [content]);
+  /** …and its `label:`, off the same buffer and for the same reason (packages/song/docs/moduleLabel.md). */
+  const moduleLabel = useMemo(() => labelOf(content ?? ""), [content]);
   const [ui, setUi] = useState<ModuleUI | null>(null);
   const [parsable, setParsable] = useState(true);
   const [hints, setHints] = useState<Hints | null>(null);
@@ -530,8 +534,8 @@ export function ModuleBuilder({
   const leave = useCallback(async () => {
     if (!anyDirty) return onBack();
     const agreed = await askConfirm({
-      title: "Quitter sans enregistrer ?",
-      body: "Quatre fichiers sont modifiés ici, et Enregistrer les écrit ensemble.",
+      title: "Leave without saving?",
+      body: "Four files are changed here, and Save writes them together.",
       confirmLabel: "Quitter",
       danger: true,
     });
@@ -589,13 +593,13 @@ export function ModuleBuilder({
         setScanned(found);
         setScanNote(
           !found
-            ? "cette machine n'arrive pas à charger ce greffon — le journal du moteur dit lequel des deux : introuvable, ou création refusée. C'est une licence ou une installation, pas le greffon."
+            ? "this machine cannot load that plugin — the engine's log says which of the two it is: not found, or refused to instantiate. That is a licence or an installation, not the plugin."
             : found.names.length
-              ? `${found.names.length} paramètres lus dans le greffon`
-              : "le greffon se charge et ne publie aucun paramètre à son hôte",
+              ? `${found.names.length} parameters read from the plugin`
+              : "the plugin loads and publishes no parameter to its host",
         );
       })
-      .catch((e: Error) => setScanNote(`lecture impossible : ${e.message}`))
+      .catch((e: Error) => setScanNote(`cannot read: ${e.message}`))
       .finally(() => setScanning(false));
   }, [onScanParams, scanning, scanBase]);
 
@@ -611,10 +615,10 @@ export function ModuleBuilder({
       .then(() =>
         // Said once the ENGINE has drawn one, and said EVERY time — see docs/builder.md.
         setScanNote(
-          "fenêtre du greffon ouverte sur la machine du moteur — c'est une instance à part, rien de ce qu'on y touche n'est enregistré",
+          "the plugin's window is open on the engine's machine — that is a separate instance, and nothing touched there is saved",
         ),
       )
-      .catch((e: Error) => setScanNote(`ouverture impossible : ${e.message}`))
+      .catch((e: Error) => setScanNote(`cannot open: ${e.message}`))
       .finally(() => setOpeningUi(false));
   }, [onShowNativeUI, openingUi, nativeUiBase]);
 
@@ -637,16 +641,16 @@ export function ModuleBuilder({
   const snapBase = useCallback(async () => {
     if (!store.snapshotBase || snapping || !nativeUiBase) return;
     const name = await askText({
-      title: "Garder l'état actuel du greffon",
-      body: "Il est écrit dans base/, où un paramètre peut ensuite s'y lier.",
-      placeholder: "le nom de la base",
+      title: "Keep the plugin's current state",
+      body: "It is written into base/, where a parameter can then bind to it.",
+      placeholder: "the base's name",
       confirmLabel: "Garder",
       // It becomes a FILE name, so the characters a path cannot hold are refused here rather than by the write.
       validate: (v) =>
         !v.trim()
-          ? "une base porte un nom"
+          ? "a base carries a name"
           : /[/\\:*?"<>|]/.test(v)
-            ? "sans / \\ : * ? \" < > | — c'est un nom de fichier"
+            ? 'no / \\ : * ? " < > | — it is a file name'
             : "",
     });
     if (!name?.trim()) return;
@@ -655,7 +659,7 @@ export function ModuleBuilder({
     void store
       .snapshotBase(path, name.trim(), nativeUiBase)
       .then((w) => {
-        setScanNote(`base gardée : ${w.path}`);
+        setScanNote(`base kept: ${w.path}`);
         setBasesKey((k) => k + 1); // it is bindable now, so the row has to know about it
       })
       // The message is the HOST's: only the side that asked the engine knows what failed.
@@ -821,6 +825,24 @@ export function ModuleBuilder({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {/* What a person calls it, beside how the completions treat it: both are one fact about the module. */}
+          {readOnly
+            ? moduleLabel && (
+                <span className="truncate text-xs text-muted-foreground">
+                  {moduleLabel}
+                </span>
+              )
+            : !!content && (
+                <input
+                  className="w-44 rounded-md border border-border bg-secondary px-2 py-1 text-xs outline-none focus:border-primary"
+                  value={moduleLabel}
+                  placeholder={moduleName}
+                  title="the name a picker shows for this module — the ref is what names it"
+                  onChange={(e) =>
+                    setContent((c) => setLabelIn(c ?? "", e.target.value))
+                  }
+                />
+              )}
           {/* How the COMPLETIONS treat this module, in the header beside its name — ../docs/builder.md. */}
           {readOnly ? (
             moduleStatus !== "listed" && (

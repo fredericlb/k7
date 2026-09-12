@@ -70,6 +70,7 @@ matches before changing it:
 |---|---|
 | `projects.md` | the HOME page — `/` with no project in it: the repositories, the libraries, the shares, the key |
 | `playlists.md` | the cog's Playlists screen — `_playlists/` in the repository, over pl8's song catalogue |
+| `references.md` | `_references/` — what you listen against, played by the browser beside whatever the engine is doing |
 | `shell.md` | `App.tsx`/`main.tsx`, the gate stack, the palette |
 | `shellRouting.md` | `routes.ts` + `useViewRoute.ts` — view / full / panel against the URL |
 | `chainsGraph.md` | the chains renderer and its camera rules |
@@ -231,8 +232,8 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   gitlink — nothing forks, because that library is the only copy. One store and one path
   space: the libraries are a git submodule inside the workspace
   (`packages/song/docs/sharedFolders.md`), so the file service already serves them.
-  `frontend/docs/sharedModules.md` is the page to read; `@banc` opens a library CHAIN and
-  nothing else.
+  `frontend/docs/sharedModules.md` is the page to read; `@banc` opens one live RIG,
+  kept nowhere, and nothing else.
 
   **st0 will not open a project without a libraries repository.** The account declares one on
   this app's own home page — the card above everything else — and `ProjectGate` refuses before it

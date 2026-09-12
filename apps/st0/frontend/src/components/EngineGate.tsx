@@ -153,7 +153,7 @@ export function EngineGate({
         body={(heldBy) =>
           phase.why === "engine"
             ? m["project.engineTakenBody"]({
-                project: phase.tookFor ?? "un autre projet",
+                project: phase.tookFor ?? m["project.anotherProject"](),
               })
             : heldBy
               ? m["project.takenBody"]({ heldBy })

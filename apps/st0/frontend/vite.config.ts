@@ -28,8 +28,10 @@ export default defineAppConfig({
   // The one thing about the shared service worker that is st0's: see OTHER_APPS above.
   pwaDenylist: [OTHER_APPS],
   extend: {
-    // Compiles messages/<locale>.json into src/paraglide/.
-    plugins: [frediverseParaglide()],
+    // Compiled into src/paraglide/; no `preferredLanguage`, this app defaulting to ENGLISH — docs/settings.md.
+    plugins: [
+      frediverseParaglide({ strategy: ["localStorage", "baseLocale"] }),
+    ],
     // The old name still reaches these servers — see scripts/dev-hosts.mjs.
     server: { allowedHosts: LEGACY_DEV_HOSTS },
     // The three @studio UI packages are consumed as raw .ts, and esbuild's dep scanner chokes on the extension in their exports maps.

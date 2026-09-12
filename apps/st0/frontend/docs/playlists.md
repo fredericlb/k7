@@ -310,8 +310,14 @@ diverge at the first case learned on one side only.
 
 ## What pl8 cannot do from its side
 
-The hunt ("Trouver des morceaux") cannot **target a playlist**, and will not — playlists are on the
-file service's disk, and giving pl8 the means to write there would make the service that holds the
-session and the single deploy key a writer into everyone's repository, which
-`apps/pl8/docs/projects.md` explicitly refuses. So the hunt files the song into the médiathèque, and
-adding it to a setlist is one click here, on exactly that catalogue.
+pl8 has set lists of its own, under `playlists/` on its volume (`apps/pl8/docs/playlists.md`), in
+this same format. What it cannot do is write into **this** one: the workspace's `_playlists/` is on
+the file service's disk, and giving pl8 the means to write there would make the service that holds
+the session and the single deploy key a writer into everyone's repository, which
+`apps/pl8/docs/projects.md` explicitly refuses.
+
+Its hunt therefore targets no playlist at all — it files the song into the médiathèque, and adding
+it to a setlist is one click, here or on its own tab, on exactly that catalogue.
+
+The one that matters for a gig is **this** one: a `turntables` surface resolves `playlist:` in the
+workspace, so the desk's browser and the pre-fetch read `_playlists/` and never the volume's folder.

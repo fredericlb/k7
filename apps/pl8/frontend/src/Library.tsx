@@ -22,10 +22,12 @@ import type { RecordingDay } from "@studio/mediatek/recordings";
 import { takesOf } from "@studio/mediatek/takes";
 import {
   type MediatekEntry,
+  type PLAYLISTS_DIR,
   RECORDINGS_DIR,
   SONG_FILE,
   type SongVariant,
 } from "@studio/mediatek/types";
+import { AppSwitch } from "@studio/ui-app-switch";
 import { sortNodes } from "@studio/web-protocol/tree";
 import {
   AudioLines,
@@ -43,7 +45,7 @@ import { AddSong } from "./AddSong";
 import { auth, library } from "./api";
 import { folderAt } from "./assetTree";
 import { FindSongs } from "./FindSongs";
-import { OtherApps } from "./OtherApps";
+import { Playlists } from "./Playlists";
 import { MiniPlayer } from "./playback/MiniPlayer";
 import { PlaybackPicker } from "./playback/PlaybackPicker";
 import { PlaybackProvider } from "./playback/PlaybackProvider";
@@ -55,8 +57,11 @@ import { sectionItems, sectionLabel } from "./SectionNav";
 import { SongEditor } from "./SongEditor";
 import { useLibraryRoute } from "./useLibraryRoute";
 
-/** The five that ARE families, by subtraction — a section missing here becomes one silently (../docs/library.md). */
-type FamilyId = Exclude<SectionId, typeof RECORDINGS_DIR | "find">;
+/** The ones that ARE families, by subtraction — a section missing here becomes one silently (../docs/library.md). */
+type FamilyId = Exclude<
+  SectionId,
+  typeof RECORDINGS_DIR | typeof PLAYLISTS_DIR | "find"
+>;
 
 /** Poll interval for the revision map — cheap on the server, slow enough to cost an idle library nothing. */
 const POLL_MS = 3000;
@@ -184,8 +189,10 @@ export function Library() {
   const isZone = section === RECORDINGS_DIR;
   // « Trouver des morceaux » — a tabless section reached by a button, showing nothing on the volume (../docs/hunt.md).
   const isFind = section === "find";
+  // The set lists: a root zone with no family behind it either, and its own two-column screen.
+  const isPlaylists = section === "playlists";
   /** Is there a tree beside it? Derived here because the HEADER needs it: the drawer button is up there. */
-  const hasTree = !isFind;
+  const hasTree = !isFind && !isPlaylists;
   // The tree's drawer on a narrow screen. Closed to begin with: arriving, you want the content.
   const [treeOpen, setTreeOpen] = useState(false);
   // Two sections refuse the tree's writes, and each has a header button instead (../docs/library.md).
@@ -217,10 +224,12 @@ export function Library() {
   );
   // DERIVED from the route rather than held beside it, so a deep link needs no replay — see ../docs/routing.md.
   const editingSong = useMemo(() => {
+    // The SECTION too: a set list's address carries a file that belongs to no entry (../docs/routing.md).
+    if (section !== "songs") return null;
     const dir = folderOf(file);
     const entry = dir ? entryAt(entries, dir) : null;
     return entry && isSong(entry) ? entry : null;
-  }, [entries, file]);
+  }, [entries, file, section]);
   /** What is open: what the tree marks active, opens down to, and what the middle of the screen shows. */
   const opened = editingSong;
   /** Where a drop lands, family-relative: the section, plus the folder the drop resolved to. */
@@ -429,7 +438,7 @@ export function Library() {
 
   return (
     /* Wrapping the whole shell: what plays belongs to the TAB (../docs/miniPlayer.md). */
-    <PlaybackProvider playQueue={playQueue}>
+    <PlaybackProvider target={playback.target} playQueue={playQueue}>
       <div className="flex h-full flex-col bg-background text-foreground">
         {/* The families sit in the header, where st0 puts its views; the bar is @frediverse/ui's. */}
         <AppHeader
@@ -480,7 +489,7 @@ export function Library() {
                 </span>
               </div>
               {/* The way out to the studio's other apps — first of the three because it is the only one that LEAVES. */}
-              <OtherApps />
+              <AppSwitch self="pl8" />
               {/* Where sound comes out, beside the cog: it is changed while listening — see ../docs/playbackTarget.md. */}
               <PlaybackPicker
                 target={playback.target}
@@ -512,6 +521,14 @@ export function Library() {
               onFiled={refreshSongs}
             />
           </div>
+        ) : isPlaylists ? (
+          /* Its own two columns — the set lists, then the open one (../docs/playlists.md). */
+          <Playlists
+            file={file}
+            vimMode={localStorage.getItem("pl8.vim") === "1"}
+            target={playback.target}
+            onOpen={openFile}
+          />
         ) : (
           <div className="relative flex min-h-0 flex-1">
             {/* An engine gate stood here over the Modules section; the section itself is gone (../docs/library.md). */}

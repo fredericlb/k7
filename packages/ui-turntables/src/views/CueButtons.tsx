@@ -81,10 +81,10 @@ function Cue({
       onContextMenu={(e) => e.preventDefault()}
       title={
         disabled
-          ? `repère ${slot + 1} — il faut un morceau sur cette platine`
+          ? `cue ${slot + 1} — this deck needs a song`
           : at === null
-            ? `repère ${slot + 1} — appui long pour le poser ici`
-            : `repère ${slot + 1} à ${mmss(at)} — appui court pour y aller, long pour le redéfinir`
+            ? `cue ${slot + 1} — press and hold to put it here`
+            : `cue ${slot + 1} at ${mmss(at)} — tap to go there, hold to set it again`
       }
     >
       {slot + 1}

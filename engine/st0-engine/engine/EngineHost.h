@@ -76,6 +76,8 @@ public:
     // Transport controls (message-thread only).
     void play(const std::string& session);
     void stop(const std::string& session);
+    /** Stop, then tell every plugin to let go AND reset — what a stop that did not work asks for. */
+    void panic(const std::string& session);
     void rewind(const std::string& session); // move the playhead back to the start (beat 0)
     // Forget every session holding nothing and quiet for `ttlMs`, returning how many went; called by the state timer. See docs/sessions.md.
     size_t reapEmptySessions(double ttlMs);

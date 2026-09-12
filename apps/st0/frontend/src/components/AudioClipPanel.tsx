@@ -34,6 +34,7 @@ import { warpLine } from "../clipWarp";
 import type { MenuCtx } from "../contextMenu";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { cursorOf, ModeStrip } from "../modeIcons";
+import { m } from "../paraglide/messages.js";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { TakeOption } from "../takeReview";
 import type { WebWaveform } from "../types";
@@ -441,7 +442,7 @@ export function AudioClipPanel({
     /** `w-full min-w-0 flex-1` and not only `h-full`: this panel takes the GRAPH's place, which is a flex ROW, and the canvas sizes itself to its parent. */
     <section
       className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-1 bg-card/40 px-3 py-2"
-      aria-label={rolling ? "prise en cours" : `clip ${clip ?? ""}`}
+      aria-label={rolling ? m["clip.takeRolling"]() : `clip ${clip ?? ""}`}
     >
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         {rolling ? (
@@ -450,7 +451,7 @@ export function AudioClipPanel({
             {count.phase === "count-in" ? (
               <>
                 <span className="text-sm uppercase tracking-wider text-muted-foreground">
-                  Décompte
+                  {m["clip.countIn"]()}
                 </span>
                 <span className="font-mono text-2xl tabular-nums text-red-400">
                   {count.beats}
@@ -459,7 +460,7 @@ export function AudioClipPanel({
             ) : (
               <>
                 <span className="text-sm uppercase tracking-wider text-red-400">
-                  Enregistrement
+                  {m["clip.recording"]()}
                 </span>
                 <span className="font-mono text-2xl tabular-nums">
                   {at.bar}:{at.beat}
@@ -469,7 +470,7 @@ export function AudioClipPanel({
             <span className="truncate">
               {armedNames.length
                 ? armedNames.join(", ")
-                : "aucune piste armée — armez-en une avec A / r"}
+                : m["clip.noArmedTrack"]()}
             </span>
             <span className="font-mono tabular-nums">
               {seconds.toFixed(1)} s
@@ -479,7 +480,7 @@ export function AudioClipPanel({
               variant="secondary"
               className="ml-auto"
               onClick={onStop}
-              title="Arrêter la prise (Échap)"
+              title={m["clip.stopTake"]()}
             >
               <Square className="mr-1 h-3 w-3" /> Stop
             </Button>
@@ -488,31 +489,32 @@ export function AudioClipPanel({
           <>
             <span className="font-medium text-foreground">{clip}</span>
             {/* A clip nothing places has no lane to name, and works the same: waveform, onsets and level belong to the FILE. */}
-            {track ? <span>sur {track}</span> : <span>hors piste</span>}
+            {track ? (
+              <span>{m["clip.onTrack"]({ track })}</span>
+            ) : (
+              <span>{m["clip.offTrack"]()}</span>
+            )}
             {editingOnsets && (
               <span className="text-muted-foreground/70">
-                cliquer ajoute un onset · glisser un repère le déplace · cliquer
-                l'enlève
+                {m["clip.onsetHint"]()}
               </span>
             )}
             {editingWarp && (
               <span className="text-muted-foreground/70">
-                double-clic pose un point d'étirement · glisser sa poignée bleue
-                dit sur quel temps il tombe · clic droit dessus pour l'enlever ·
-                les traits gris sont les onsets, en repère
+                {m["clip.warpHint"]()}
               </span>
             )}
             {/* What is on screen and the two ways out: a window showing only some bars without saying so reads as a clip that was cut. */}
             {wf && win.allBars > 1 && (
               <span className="whitespace-nowrap tabular-nums">
-                {Math.round(win.shown)}/{win.allBars} mes.
+                {Math.round(win.shown)}/{win.allBars} {m["clip.bars"]()}
                 {win.shown < win.allBars && (
                   <button
                     type="button"
                     className="ml-1 underline hover:text-foreground"
                     onClick={() => setAsked({ bars: win.allBars, start: 0 })}
                   >
-                    tout
+                    {m["clip.allBars"]()}
                   </button>
                 )}
                 {framed && (
@@ -520,9 +522,12 @@ export function AudioClipPanel({
                     type="button"
                     className="ml-1 underline hover:text-foreground"
                     onClick={frameOnEvent}
-                    title={`revenir sur l'événement — ${act.from.toFixed(2)}s → ${act.to.toFixed(2)}s`}
+                    title={m["clip.backToEvent"]({
+                      from: act.from.toFixed(2),
+                      to: act.to.toFixed(2),
+                    })}
                   >
-                    l'événement
+                    {m["clip.theEvent"]()}
                   </button>
                 )}
               </span>
@@ -530,12 +535,12 @@ export function AudioClipPanel({
 
             {/* What the picture is for — and the select DISPATCHES the command rather than doubling it (docs/shell.md). */}
             <label className="ml-auto flex items-center gap-1.5 whitespace-nowrap">
-              vue
+              {m["clip.view"]()}
               <select
                 className="rounded border border-input bg-background px-1 py-0.5"
                 value={view}
                 onChange={(e) => void command(`ui wave ${e.target.value}`)}
-                aria-label="type de vue"
+                aria-label={m["clip.viewLabel"]()}
               >
                 {WAVE_MODES.map((v) => (
                   <option key={v} value={v}>
@@ -547,7 +552,7 @@ export function AudioClipPanel({
             {/* The threshold belongs to the onset editor alone: under a stretch job a slider rewriting the sidecar would be a trap. */}
             {editingOnsets && (
               <label className="flex items-center gap-2">
-                seuil
+                {m["clip.threshold"]()}
                 <input
                   type="range"
                   min={SENS_MIN}
@@ -556,7 +561,7 @@ export function AudioClipPanel({
                   value={sensitivity ?? 2}
                   onChange={(e) => setSensitivity(Number(e.target.value))}
                   className="w-32"
-                  aria-label="sensibilité de détection des onsets"
+                  aria-label={m["clip.sensitivityLabel"]()}
                 />
                 <span className="w-8 tabular-nums">
                   {(sensitivity ?? 2).toFixed(2)}
@@ -574,13 +579,13 @@ export function AudioClipPanel({
                   {busy === "trim" ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    "rogner"
+                    m["clip.trim"]()
                   )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72 p-3">
                 <div className="flex items-center gap-2 text-xs">
-                  seuil
+                  {m["clip.threshold"]()}
                   <input
                     type="range"
                     min={GATE_MIN}
@@ -589,14 +594,17 @@ export function AudioClipPanel({
                     value={gate}
                     onChange={(e) => setGate(Number(e.target.value))}
                     className="flex-1"
-                    aria-label="seuil de rognage en dBFS"
+                    aria-label={m["clip.gateLabel"]()}
                   />
                   <span className="w-12 tabular-nums">{gate} dB</span>
                 </div>
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {keep
-                    ? `garde ${keep.from.toFixed(2)}s → ${keep.to.toFixed(2)}s`
-                    : "rien au-dessus de ce seuil"}
+                    ? m["clip.keeps"]({
+                        from: keep.from.toFixed(2),
+                        to: keep.to.toFixed(2),
+                      })
+                    : m["clip.nothingAbove"]()}
                 </p>
                 {/* No warning needed: a trim writes this EVENT's window, not the material (song/docs/materialCut.md). */}
                 <Button
@@ -613,9 +621,9 @@ export function AudioClipPanel({
                         "trim",
                       );
                   }}
-                  title="déplace la fenêtre de l'événement — l'audio n'est pas touché"
+                  title={m["clip.trimHint"]()}
                 >
-                  rogner
+                  {m["clip.trim"]()}
                 </Button>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -634,14 +642,14 @@ export function AudioClipPanel({
                 <input
                   value={opSearch}
                   onChange={(e) => setOpSearch(e.target.value)}
-                  placeholder="chercher une chaîne…"
+                  placeholder={m["clip.searchChain"]()}
                   // Not autofocused: the menu takes the focus itself, and stealing it back breaks the arrow keys.
                   className="mb-1 w-full rounded border bg-transparent px-2 py-1 text-xs outline-none"
                 />
                 <div className="max-h-64 overflow-auto">
                   {ops.length === 0 ? (
                     <p className="px-2 py-1 text-xs text-muted-foreground">
-                      {chains === null ? "…" : "aucune chaîne"}
+                      {chains === null ? "…" : m["clip.noChain"]()}
                     </p>
                   ) : (
                     ops.map((c) => (
@@ -660,7 +668,7 @@ export function AudioClipPanel({
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="sm" onClick={onClose} title="terminé">
+            <Button size="sm" onClick={onClose} title={m["clip.done"]()}>
               <Check className="h-3.5 w-3.5" />
             </Button>
           </>
@@ -669,7 +677,7 @@ export function AudioClipPanel({
           size="icon-xs"
           variant="ghost"
           onClick={onClose}
-          aria-label="fermer"
+          aria-label={m["common.close"]()}
         >
           <X className="h-3.5 w-3.5" />
         </Button>
@@ -691,21 +699,21 @@ export function AudioClipPanel({
           /** Every version of this lane, oldest slot first, with what it is PLAYING last — clicking one is a `track take select`. */
           <aside
             className="flex w-44 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border pr-2 text-xs"
-            aria-label="prises"
+            aria-label={m["clip.takes"]()}
           >
             <div className="flex items-center justify-between text-muted-foreground">
-              <span className="uppercase tracking-wider">prises</span>
+              <span className="uppercase tracking-wider">
+                {m["clip.takes"]()}
+              </span>
               {onPlay && (
                 <Button
                   size="icon-xs"
                   variant="ghost"
                   onClick={onPlay}
                   title={
-                    playing
-                      ? "arrêter"
-                      : "écouter à partir du début de cette prise"
+                    playing ? m["clip.stop"]() : m["clip.listenFromTake"]()
                   }
-                  aria-label={playing ? "arrêter" : "écouter"}
+                  aria-label={playing ? m["clip.stop"]() : m["clip.listen"]()}
                 >
                   {playing ? (
                     <Square className="h-3 w-3" />
@@ -742,8 +750,8 @@ export function AudioClipPanel({
                   )}
                   title={
                     here
-                      ? `sur la piste — mesure ${at.bar}`
-                      : `écouter la prise ${t.n} — elle passe sur la piste, l'actuelle devient la prise ${t.n}`
+                      ? m["clip.onTrackBar"]({ bar: at.bar })
+                      : m["clip.hearTake"]({ n: t.n ?? 0 })
                   }
                 >
                   <span
@@ -752,15 +760,18 @@ export function AudioClipPanel({
                       here ? "text-foreground" : "text-muted-foreground",
                     )}
                   >
-                    {t.name ?? (here ? "sur la piste" : `prise ${t.n}`)}
+                    {t.name ??
+                      (here
+                        ? m["clip.onTheTrack"]()
+                        : m["clip.takeN"]({ n: t.n ?? 0 }))}
                   </span>
                   <span className="w-full truncate text-[10px] text-muted-foreground">
                     {t.events === 0
-                      ? "vide"
+                      ? m["clip.empty"]()
                       : `${t.clip}${t.events > 1 ? ` +${t.events - 1}` : ""}`}
                   </span>
                   <span className="text-[10px] tabular-nums text-muted-foreground/70">
-                    mes. {at.bar}:{at.beat}
+                    {m["clip.bar"]()} {at.bar}:{at.beat}
                   </span>
                 </button>
               );
@@ -773,9 +784,9 @@ export function AudioClipPanel({
                 className="mt-1 shrink-0"
                 disabled={picking !== null}
                 onClick={onKeepTake}
-                title="garder la prise qui est sur la piste et supprimer toutes les autres"
+                title={m["clip.keepThisHint"]()}
               >
-                garder celle-ci
+                {m["clip.keepThis"]()}
               </Button>
             )}
           </aside>
@@ -826,7 +837,7 @@ export function AudioClipPanel({
             {counting ? (
               // Nothing is being recorded yet, so there is nothing to draw — the header is already counting the pre-roll down.
               <p className="py-6 text-center text-sm text-muted-foreground">
-                décompte — la prise commence après
+                {m["clip.countingIn"]()}
               </p>
             ) : rolling ? (
               <Waveform
@@ -839,11 +850,11 @@ export function AudioClipPanel({
               <p className="py-6 text-center text-sm text-red-500">{error}</p>
             ) : !clip ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                aucune prise — lancez le transport avec l'enregistrement armé
+                {m["clip.noTake"]()}
               </p>
             ) : !wf ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                lecture de la prise…
+                {m["clip.readingTake"]()}
               </p>
             ) : (
               <LiveWaveform

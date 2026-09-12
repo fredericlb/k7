@@ -7,9 +7,40 @@ typed, the arguments it fills are the command's own, and a gesture you learn in 
 gesture you can type next time.
 
 **The list is DERIVED, not chosen.** The clicked thing says what TYPE it is; every command in
-the catalogue whose leading arguments are exactly that is offered. Right-clicking a track
-offers the sixteen commands that take a track, and the seventeenth appears the day it is
-written in `commands.yaml`.
+the catalogue whose leading arguments are exactly that is offered, and the one written tomorrow
+appears the day it is written in `commands.yaml`.
+
+## `menu:` — the one thing that narrows it
+
+Deriving on the arguments alone offers a command wherever its FIRST argument fits, and that is
+sometimes a lie about what you clicked. A track answers `<track>`, so a track's menu drew eleven
+`event …` rows: every verb that addresses a placement takes the lane it sits on, and none of them
+is about the lane. The click had answered one argument of a command that was not about the thing
+under it.
+
+So a command may say where it belongs: `menu:` in `commands.yaml`, a list of the entities in
+`MENU_ENTITIES` (`packages/commands/src/commandSpec.ts`, mirrored on the wire). It names **what
+is under the pointer, not what the verb acts on** — `event add` takes a track and belongs on a
+TRACK's menu, `event remove` takes the same track and belongs on the event's.
+
+It only ever **narrows**. Absent, nothing changes: the derivation stands, which is why the
+hundred commands that reach no menu need no line. It cannot ADD a row either — an entity named
+by a command whose arguments the click does not answer is still not offered, because `menu:` is a
+filter over `fromCatalogue` and never a second source of entries. So the two rules above survive
+it: every entry is still a line you could type, and no row was chosen by hand.
+
+`contextMenu.ts`'s `CTX_ENTITY` is the other half — which entity each `MenuCtx` kind IS. Two
+contexts fold onto one word (`marker-add` is the **ruler**, a place with nothing in it yet;
+`marker` is a marker), and `chain`/`sink` have none, opening no menu at all.
+
+### And the person's own list
+
+`commandPrefs.ts` holds it: `menu` on a command's entry is `false` for nowhere, or the list of
+entities that person wants it on, replacing the catalogue's. The Commandes settings page draws it
+as a multi-select per row (`components/CommandMenuPicker.tsx`), which is also where a command the
+catalogue narrowed is put back somewhere else. The document says the least it can — nothing at all
+when the pick matches the catalogue, `true` for the whole vocabulary, `false` for none — so a
+catalogue that changes tomorrow still moves the commands nobody has arranged by hand.
 
 ## Run it, or ask for the rest
 
@@ -141,7 +172,8 @@ than the command name.
 
 ## What is still written by hand, and why
 
-Five things the catalogue genuinely cannot say. They are worth listing, because each is a
+Five things the catalogue genuinely cannot say. Each is a row the derivation does not produce, and
+`menu:` is no help with any of them: it can only take rows AWAY. They are worth listing, because each is a
 question about a HANDLER, and the catalogue only describes arguments.
 
 - **The shell's own commands.** `ui file`, `ui midi learn` and the `module cc … none` unbind
@@ -176,5 +208,5 @@ the clip is.)
 
 ## The menu can be long
 
-Sixteen rows for a track. It is capped at 70% of the viewport and scrolls, because a menu that
-runs off the bottom of the screen hides its own tail.
+Ten rows for a track, sixteen for a node. It is capped at 70% of the viewport and scrolls, because
+a menu that runs off the bottom of the screen hides its own tail.

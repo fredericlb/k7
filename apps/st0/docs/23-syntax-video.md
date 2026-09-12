@@ -32,8 +32,8 @@ the source, while `start` says where on the timeline the shot sits. `mute` here 
 — there is no sound on a lane.
 
 ```yaml schema=VideoTrack
-kind: video
 # name: "A-roll"     # the lane's label; the FILENAME is still its id
+# color: "#c8a97e"   # …and its colour in the timeline
 events:
   - { ref: shot_a, start: 0, length: 4 }
   - { ref: shot_b, start: 4, length: 0, source_from: 2.5 }
@@ -46,15 +46,45 @@ Drag a shot's **body** to move it, its **left edge** to trim the head (which mov
 or its **right edge** to set its extent. Opening a lane file in the editor also gives you a
 reader per placement, with Set From / Set To.
 
-## video_tracks/&lt;id&gt;.yaml — shapes
+## Shapes and texts are MODULES
 
-A generated lane instead of footage: rectangles, circles and text composited over the picture.
-Sizes are viewport pixels. Such a lane holds no placements, so the timeline hatches it.
+A rectangle, a circle or a line of text is a module in `modules/shapes/`, wired in `graph.yaml`
+to the lane that draws it. Sizes are viewport pixels, and the geometry is `params:` — which is
+what a curve drives, so a title can move.
+
+```yaml schema=Module
+# modules/shapes/title/module.yaml
+type: shape
+shape: text            # square | circle | text
+content: "LEMO"        # text only — the words
+font: sans-serif       # …and the family they are set in
+color: "#c8a97e"       # the fill, any CSS colour
+params:
+  x: 40
+  y: 200
+  font_size: 72        # text only; a circle takes `r`, a square `w` and `h`
+```
+
+```yaml schema=GraphFile
+modules:
+  title: [ titles ]    # the shape draws on the picture lane it is wired to
+  titles: [ RENDER ]
+```
+
+A shape wired to nothing is reported rather than drawn, since a blank lane cannot say why it is
+blank.
+
+### When a shape is on screen
+
+The lane says so, with the same `events:` a lane of footage uses — **an event with no `ref` is an
+activation**: a span with no picture in it, saying the lane is on. `length: 0` runs to the next
+one, and the last one runs on to the end.
 
 ```yaml schema=VideoTrack
-kind: shape
-shapes:
-  - { type: square, x: 40, y: 40, w: 200, h: 120, background_color: "#c8a97e" }
-  - { type: circle, x: 300, y: 100, r: 60 }
-  - { type: text, content: "LEMO", x: 40, y: 200 }
+# video_tracks/titles.yaml
+events:
+  - { start: 4, length: 4 }
 ```
+
+A lane stating no event at all shows its shapes throughout. `source_from` and the two fades are
+refused here — there is no source to trim and no picture to cross into.

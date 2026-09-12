@@ -286,9 +286,9 @@ export function WidgetGridEditor({
     if (disabled || !params?.length) return;
     if (Object.keys(ui.widgets).length) {
       const agreed = await askConfirm({
-        title: "Réorganiser le panneau ?",
-        body: "Il est remplacé par une disposition tirée de la liste des paramètres ; ce qui est dessiné ici est perdu. Ctrl+Z dans le code le ramène.",
-        confirmLabel: "Réorganiser",
+        title: "Rearrange the panel?",
+        body: "It is replaced by a layout taken from the parameter list; what is drawn here is lost. Ctrl+Z in the code brings it back.",
+        confirmLabel: "Rearrange",
         danger: true,
       });
       if (!agreed) return;

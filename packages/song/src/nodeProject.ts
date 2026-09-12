@@ -12,6 +12,7 @@ import {
   isBuiltinOutput,
   MASTER_OWNER,
   MIX_NODE,
+  moduleEmits,
   OUT_NODE,
 } from "@studio/song-schema/moduleTypes";
 import { materialRefOf, placementId } from "@studio/song-schema/placementId";
@@ -605,7 +606,16 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
         !EXTERNAL_PLUGIN_FORMATS.has(rawType)
       )
         continue;
-      const { type, name: pluginName } = enginePlugin(plugin, step.module);
+      // The type FOLDER is what picks a jsdsp graph's host — a transformer's runs over the notes.
+      const { type, name: pluginName } = enginePlugin(
+        plugin,
+        step.module,
+        moduleEmits(
+          module.category,
+          module.io as string | undefined,
+          module.outputs,
+        ),
+      );
       if (!type) continue; // internal missing its name
       // Named by what this step IS, so a node saves beside its own file; a flat node carries its own folder (`home`).
       const presetSave = module.home

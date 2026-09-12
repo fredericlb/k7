@@ -27,7 +27,10 @@ import {
   WORKSPACE_HEADER,
 } from "@studio/web-protocol";
 import {
+  BENCH_PROJECT,
+  BENCH_REPO,
   externalOf,
+  launchUrl,
   localProjectUrl,
   shareUrl,
 } from "@studio/web-protocol/projects";
@@ -80,6 +83,11 @@ export function projectHref(ws: Addressable, p: RepoProject): string {
  */
 export function workspaceHref(ws: Addressable): string {
   return localProjectUrl(window.location.origin, ws.name, ".", "st0");
+}
+
+/** Where the BENCH opens: `/@banc/live.st0`, the one address it answers — see apps/pl8/docs/banc.md. */
+export function benchHref(): string {
+  return launchUrl(window.location.origin, BENCH_REPO, BENCH_PROJECT, "st0");
 }
 
 /** Where ONE SURFACE of that project opens, on its own — through `projectHref`, so the tablet and the laptop claim the same song. */
@@ -161,7 +169,7 @@ export const engineMachine = {
     return libraries;
   },
 
-  /** SET it — the same URI twice is the same as once. */
+  /** SET it — the same URI twice is the same as once, and the far side CLONES before it writes it down. */
   setLibraries: async (m: Machine, uri: string): Promise<RepoRef> => {
     const { libraries } = await json<{ libraries: RepoRef }>(
       await fetch(`${m.fileBase}/account/libraries`, {
@@ -230,7 +238,7 @@ export const engineMachine = {
       await fetch(`${m.fileBase}/workspace-tree`, {
         headers: { ...machineHeaders(m), [WORKSPACE_HEADER]: workspace },
       }),
-      "arborescence",
+      "tree",
     ),
 
   /** Does this machine already hold this repository? A NORMALISED comparison on the far side (packages/git-repos/src/uri.ts). */
@@ -253,7 +261,7 @@ export const engineMachine = {
         headers: { ...machineHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ name }),
       }),
-      "espace de travail",
+      "workspace",
     );
   },
 
@@ -269,7 +277,7 @@ export const engineMachine = {
         headers: { ...machineHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ name: workspace, uri }),
       }),
-      "publication",
+      "publish",
     );
   },
 
@@ -311,9 +319,34 @@ export const engineMachine = {
         },
         body: JSON.stringify({ shape, name }),
       }),
-      "création",
+      "create",
     );
     return project;
+  },
+
+  /**
+   * A foreign project DROPPED on a workspace row: the bytes go up, the folder name comes from the
+   * popin, and nothing is left in the workspace but the project — packages/translator/docs/import.md.
+   */
+  importProjectFile: async (
+    m: Machine,
+    workspace: string,
+    file: File,
+    folder: string,
+  ): Promise<{ project: string; log: string[] }> => {
+    const q = `file=${encodeURIComponent(file.name)}&name=${encodeURIComponent(folder)}`;
+    return json(
+      await fetch(`${m.fileBase}/import-upload?${q}`, {
+        method: "POST",
+        headers: {
+          ...machineHeaders(m),
+          [WORKSPACE_HEADER]: workspace,
+          "content-type": "application/octet-stream",
+        },
+        body: await file.arrayBuffer(),
+      }),
+      "import",
+    );
   },
 
   /** Copy a project into another workspace on this machine. No workspace HEADER: the body names both. */
@@ -330,9 +363,31 @@ export const engineMachine = {
         headers: { ...machineHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ from, path, to, name }),
       }),
-      "copie",
+      "copy",
     );
     return project;
+  },
+
+  /** Rename a project's FOLDER in place; the suffix stays, and the commit that follows carries it off this disk. */
+  renameProject: async (
+    m: Machine,
+    workspace: string,
+    path: string,
+    name: string,
+  ): Promise<string> => {
+    const { path: renamed } = await json<{ path: string }>(
+      await fetch(`${m.fileBase}/project/rename`, {
+        method: "POST",
+        headers: {
+          ...machineHeaders(m),
+          [WORKSPACE_HEADER]: workspace,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ path, name }),
+      }),
+      "rename",
+    );
+    return renamed;
   },
 
   /** Unload the project and recycle its folder — the commit that follows is what takes it out of the repository. */
@@ -344,7 +399,7 @@ export const engineMachine = {
         headers: { ...machineHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ name: workspace }),
       }),
-      "suppression",
+      "delete",
     );
   },
 
@@ -363,7 +418,7 @@ export const engineMachine = {
         },
         body: JSON.stringify({ path }),
       }),
-      "suppression",
+      "delete",
     );
   },
 
@@ -383,7 +438,7 @@ export const engineMachine = {
         },
         body: JSON.stringify({ line }),
       }),
-      "commande",
+      "command",
     );
     return output ?? [];
   },

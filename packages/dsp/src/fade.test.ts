@@ -46,15 +46,4 @@ describe("the fade graph", () => {
     ) as GraphJson;
     expect(g).toEqual(committed);
   });
-
-  it("matches the copy in `modules/` — the authored article", () => {
-    // A module is a FOLDER you can copy, so the fade exists twice on purpose — ../docs/catalogue.md.
-    const authored = JSON.parse(
-      readFileSync(
-        join(here, "..", "modules", "audio", "utility", "fade", "jsdsp.json"),
-        "utf8",
-      ),
-    ) as GraphJson;
-    expect(g).toEqual(authored);
-  });
 });

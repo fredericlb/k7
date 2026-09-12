@@ -3,7 +3,14 @@
 // restart doesn't re-walk the disk. No database anywhere. See docs/index.md.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { cacheDir, exists, indexPath, RECORDINGS_DIR } from "./layout.ts";
+import {
+  cacheDir,
+  exists,
+  indexPath,
+  PLAYLISTS_DIR,
+  RECORDINGS_DIR,
+} from "./layout.ts";
+import { listPlaylists } from "./playlists.ts";
 import { countRecordings } from "./recordings.ts";
 import { familyRevision } from "./revision.ts";
 import { scanFamily, scanUnlisted } from "./scan.ts";
@@ -144,6 +151,7 @@ export function summary(): {
       counts: {
         ...Object.fromEntries(FAMILIES.map((f) => [f, 0])),
         [RECORDINGS_DIR]: 0,
+        [PLAYLISTS_DIR]: 0,
       },
     };
   const counts = Object.fromEntries(
@@ -151,7 +159,11 @@ export function summary(): {
   ) as Record<string, number>;
   return {
     present: true,
-    counts: { ...counts, [RECORDINGS_DIR]: countRecordings() },
+    counts: {
+      ...counts,
+      [RECORDINGS_DIR]: countRecordings(),
+      [PLAYLISTS_DIR]: listPlaylists().length,
+    },
   };
 }
 

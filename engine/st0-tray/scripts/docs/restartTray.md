@@ -50,9 +50,9 @@ fails against a live tray with a confusing linker error rather than a busy-file 
 **Stop every tray, not only the one we are about to build.**
 `tauri-plugin-single-instance` is keyed on the app identifier, not the path: with a tray
 already up — the one `npm run engine:start` left, or an installed bundle — launching a
-second makes the *new* process the no-op, and it exits without a word. So the scan matches
-the image name `st0-tray.exe` and stops all of them, printing each path as it goes:
-taking the menu bar from another build is worth saying out loud.
+second makes the *new* process the no-op, and it exits without a word. So the scan takes every
+process whose image name OR path is the tray's and stops all of them, printing each path as it
+goes: taking the menu bar from another build is worth saying out loud.
 
 **The kill is hard, and that is fine.** The tray is windowless: there is no close message
 to send it, and on Windows `process.kill` is `TerminateProcess`, so `cleanup()` in
@@ -80,11 +80,39 @@ replace the image — silently, which is what makes it expensive. Every engine i
 started it, for the same reason every tray is: a survivor wins, and here it wins by making your
 build a no-op.
 
+### The survivor's image name is not its name any more
+
+The scan matches the executable **path** as well as the image name, and that is not belt and
+braces. `--dev` deletes and rewrites `out/dev/st0-tray.exe`; doing that under a tray that is
+still running leaves that process with a GARBLED image name in the process table — a random
+hex string where `st0-tray.exe` used to be. A name-only query then reports no trays while
+several are up.
+
+Every consequence of that is silent. `stopAll` stops nothing, so the survivor keeps the
+single-instance token and every tray launched after it exits(0) without a word; its supervisor
+keeps the `<state>` lock, so every supervisor after it exits(1) with *"an engine supervisor is
+already running"*; and `launch` reports *"the tray exited as soon as it started"*, which is
+true, and says nothing about why. They accumulate one per rebuild.
+
+### A probe that does not answer is not an answer
+
+Each look at the process table is one `Get-CimInstance` — or `pgrep` off Windows — and it can
+fail for reasons that have nothing to do with what is running: a spawn refused under the load of
+the build that just finished, a shell that would not start. Reporting that as an empty list makes
+both halves of this script lie in opposite directions. `stopAll` concludes there is nothing to
+stop and leaves a survivor holding the binary; `launch` concludes the tray it just started has
+died, and says so about a tray that is up and playing.
+
+So a query that does not answer is retried, and then **throws**. The one case that needs saying:
+`pgrep` reports "nothing matched" with exit 1, which is an answer and not a failure.
+
 ## How it knows the tray is alive
 
 A tray that starts and supervises nothing looks exactly like a healthy one from the
 outside — the failure `hostcmd.rs` is written to shout about. So the script does not
-report success on "the process is still running". It watches `~/.st0/.studio.log`, the
+report success on "the process is still running". It watches `<state>/.studio.log` — where
+`<state>` is `$STUDIO_HOME` or `~/.st0`, resolved through `scripts/stateDir.mjs` rather than
+spelled out here, because a WSL dev session is exactly the case where those two differ — the
 merged log `logbus::init` **truncates on every launch**, and waits for one of the lines
 `host.rs` writes there: `supervisor up (pid …)`, `supervisor not found`, or `could not
 start supervisor`. Only the first is success; the tail is printed either way.

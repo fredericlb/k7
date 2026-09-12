@@ -1,39 +1,59 @@
-# The engine link — one socket, and what is left on it
-
-> **History.** pl8 no longer knows engines exist. What plays is this browser or the host that
-> serves the files (`playbackTarget.md`), and what analyses a file is this service itself
-> (`packages/audio-analysis/docs/analysis.md`). This page is kept for the reasoning, which the
-> DJ desk and st0 still run on.
+# The engine link — one socket, and what is on it
 
 The médiathèque is a hosted catalogue of files, and for most of what it holds that is all it has
 to be: a song, a sample and a capture are bytes, and listing them needs nothing but a directory
 walk.
 
-It holds **one** socket to an `engine/st0-engine` all the same, and it is worth being precise about
-what that socket is for.
+It reaches an `engine/st0-engine` all the same, and it is worth being precise about what for.
 
-## What it carries
+## What it carries: playback, and nothing else
 
-Playback. A song, one of its variants — anything the médiathèque hands to a machine to
-be heard. The moteur opens file PATHS and cannot fetch a URL, so what plays is the cache on
-that machine's disk, reached through its file service. See
-[playbackTarget.md](playbackTarget.md) and [miniPlayer.md](miniPlayer.md).
+A song, one of its variants — anything somebody chose to hear on their own rig rather than in
+this tab. The moteur opens file PATHS and cannot fetch a URL, so what plays is the cache on that
+machine's disk, reached through its file service. See [playbackTarget.md](playbackTarget.md) for
+the choice and [playback.md](playback.md) for what crosses.
 
-`PlaybackProvider` opens that socket and hands it out through `useEngine()`. **It is the tab's
-only one**, and that rule is enforced in one place rather than remembered in several:
-`useEngineChoice` reads the engine list and the remembered id WITHOUT connecting, so drawing
-the header's picker cannot open a second.
+`frontend/src/engine/useSongEngine.ts` is the whole of this app's engine half, and it does two
+things that are deliberately not one:
 
-The session is `sessionFor(SESSIONS.pl8, currentUser())` — per service and per person. Per
-service so the médiathèque cannot tear down the song st0 has open on the same machine; per
-person because the médiathèque is hosted and two people can choose one machine.
+- **Looking** — `engines.find()` on `relook`'s fifteen seconds, always, with no socket. The
+  destinations menu has to say whether the moteur is offerable before anybody has chosen it, and
+  drawing a menu must not open a connection to somebody's machine.
+- **Connecting** — only while the moteur is the chosen destination. A catalogue tab left on the
+  browser destination holds no lease and no session on a machine it is not using.
 
-It claims the engine with **no project** (`engines.hold(found, { project: null })`), and that
-is deliberate: pl8 never opens one, so it must not compete for one. Claiming here would take a
-song away from the st0 tab next door every time somebody glanced at the catalogue. See
+The measured engine is kept in a REF and the socket effect keys on its **id**, so re-measuring
+does not tear the link down and rebuild it on the same machine every fifteen seconds.
+
+`PlaybackProvider` mounts it, once, and it is the tab's **only** socket: a song that keeps playing
+across screens needs the connection to outlive any one of them, and a second client on the same
+session would be two things driving one document.
+
+It claims the engine with **no project** (`engines.hold(found, { project: null })`), and that is
+deliberate: pl8 never opens one, so it must not compete for one. Claiming here would take a song
+away from the st0 tab next door every time somebody glanced at the catalogue. See
 [packages/engine-registry/docs/claim.md](../../../packages/engine-registry/docs/claim.md).
 
-## What it does not carry: a module builder
+The session is `sessionFor(SESSIONS.pl8, currentUser())` — per service and per person. Per service
+so the médiathèque cannot tear down the song st0 has open on the same machine; per person because
+the médiathèque is hosted and two people can choose one machine.
+
+The lease is held in a **ref**, because it is taken inside an async body, long after the effect
+returned its cleanup. A miss is not fatal: it marks the engine in use, it does not grant the
+connection, which the browser makes itself. And there is no unsubscribe of our own — `dispose()`
+drops the client and its callbacks together, and this hook owns the client outright.
+
+## What it does NOT carry: an analysis
+
+A `{file}.cache` sidecar is written by **this service**, out of its own ffmpeg, because this
+service holds the bytes (`packages/audio-analysis/docs/analysis.md` and [analysis.md](analysis.md)).
+Asking a machine for it would mean downloading the master to that machine first and posting the
+sidecar back, to compute something the host already has everything for.
+
+That is also why the socket may be absent without anything on screen degrading except the one
+menu row: nothing but playback depends on it.
+
+## What it does not carry either: a module builder
 
 A **module** is different from a song and a sample. A module file names a plugin, and the only
 thing that knows what that plugin's parameters are called, what they span and what presets it
@@ -52,126 +72,5 @@ actually making the sound. The reasoning is in
 [apps/st0/frontend/docs/sharedModules.md](../../st0/frontend/docs/sharedModules.md).
 
 The rule underneath is that a builder needs **two** things which live in different places: an
-editable catalogue, and a loaded plugin, which is only ever in a project. A **chain** has no
-project that supplies both at once, which is why it gets a generated one — the bench,
-[banc.md](banc.md).
-
-## Holding the socket
-
-`useModuleEngine.ts` is where the one socket lived, until it was deleted with the rest of this
-app's engine half. What follows is the reasoning it ran on.
-
-**The pick is handed DOWN, not read here.** The screen and the header's picker are on show at the
-same time, so the choice can move while a pane is open — and a socket left on the previous machine
-would answer for a plugin loaded somewhere else. The caller's pick wins over the stored one: it is
-the same value, but it arrives already updated, whereas a fetch inside the hook would still be
-answering with what was saved a moment ago. Omitted, it falls back to the stored preference.
-
-**An absent engine is a normal state.** The editor edits text either way; it just cannot offer a
-parameter list. The policy of which engine to take lives in `chooseEngine`, where it can be tested.
-
-**The lease is held in a ref**, because it is taken inside an async body, long after the effect
-returned its cleanup. A miss is not fatal: it marks the engine in use, it does not grant the
-connection, which the browser makes itself.
-
-**The link URL is re-measured before every reconnect.** The relayed URL's ticket outlives nothing,
-and a pane stays open far longer than a minute.
-
-**There is no unsubscribe of our own.** `dispose()` drops the client and its callbacks together,
-and this hook owns the client outright — nobody else holds a reference to it.
-
-### Two flags that look like one
-
-`phase: ready` says a client was made and told to connect; `connected` says the socket is OPEN. A
-screen that queries on connect needs the difference. `client` itself is exposed rather than wrapped
-verb by verb, because `EnginePage` asks a dozen questions about the MACHINE — the device list, the
-session list, the installed catalogue — and drives no document; what it must not do is open a
-second connection, which is why it borrows this one.
-
-### Everything about the transport comes from the engine
-
-`playing`, `playhead` and `outputLevel` all come off the engine's own state push, never off a
-hopeful local flag set on click: the transport is on another machine, so "did it start", "where is
-it" and "how loud" are answers only that machine has. The subscription is permanent rather than
-only-while-playing, because a session can already be running when this tab connects — the same
-person left it playing in another one — and a pane that assumed silence would draw a Play button
-over a song that is audible. The level is the FIRST of the list, since the médiathèque plays one
-track at a time, and -100 dB is the engine's "nothing".
-
-A seek moves the playhead LOCALLY as well as sending it: the state frame is ~20 Hz, so a playhead
-that only ever came back from the engine would lag a drag on the waveform by up to 50 ms — long
-enough to read as the cursor snapping back before it catches up. It is its own verb rather than a
-re-send of the document, because the engine keeps playing across a seek and a document would
-restart it.
-
-### The warning channel is the only account of silence
-
-A document naming a file the engine cannot open — absent, or in a format that build has no reader
-for — raises `clip source not found/invalid: <path>` and then plays SILENCE. Silence is the one
-failure a transport cannot report by itself, so this channel is the only account of it, and
-dropping it is expensive. It is cleared when a new document is SENT rather than on stop, so a
-complaint raised by that send survives to be read.
-
-### The order of a play, and why `fromSeconds` matters
-
-The document goes first, THEN the verb. A transport verb sent first plays whatever the engine still
-had loaded, which is a second of the wrong sound before the right one. The seek goes BETWEEN the
-two: the position belongs to the document just applied, and asking for it after `play` would be
-heard as a jump.
-
-Leaving `fromSeconds` out is almost always wrong. `EngineHost::play` repositions the playhead only
-when the transport is LOOPING; otherwise it resumes from wherever it was. A session outlives the
-documents put through it — it is keyed by service and person, not by what is loaded — so the
-playhead can sit well past the end of the clip just sent, and the transport then rolls in silence
-with `playing` perfectly true. That is a failure with no symptom other than no sound.
-
-### Why `reset` exists
-
-An apply is a DIFF, and a diff can only remove what the engine's STORED document says is there. An
-edit can hold a plugin that document does not mention — a state the engine can reach, measured on
-this machine — and then no document will ever remove it: the diff sees no change, so nothing
-rebuilds. What plays afterwards runs through a module nobody asked for, which for a `crossfade` is
--100 dB. Silence, from a transport reporting that it is rolling. The session comes back on the next
-apply, since it is created by a client driving it.
-
-### Choosing one without connecting
-
-`useEngineChoice` is the other half: it reads the engine list and the remembered id **without
-opening a socket**, so drawing the header's picker cannot make a second connection. That is the
-whole reason it exists.
-
-Four things it reports, and the distinctions matter:
-
-- **`settled`** — the list and the remembered choice have both come back at least once. Distinct
-  from "nothing is chosen": a gate that cannot tell those two apart flashes in everybody's face on
-  load.
-- **`chosen`** — the remembered engine, *reachable from this browser*. A choice pointing at a
-  machine that is off is not one.
-- **`fileBase`** — that engine's file service, `http://<host>:<filePort>`, or null when there is no
-  reachable choice. Every per-MACHINE fact lives behind it: what it has scanned, what it can render.
-- **`quality`** — what the link MEASURED, which is the status bar's Q badge. It comes from the probe
-  this hook already ran, so the bar costs no socket and no lease of its own.
-
-The list, the preference and the measurement arrive in one call. The POLICY that call also applies
-is ignored here on purpose: this hook draws a picker, so it shows what the account remembered even
-when that engine did not answer — `ready` is what says whether it can be driven. The CURRENT choice
-is passed back in as the preference, which is what makes re-measuring safe: `find` returns
-`preferId ?? prefs.engineId`, so an optimistic `choose()` whose save has not landed yet is not
-overwritten by the server's value. That choice is held in a REF rather than in the effect's
-dependencies, so re-measuring reads it without choosing an engine triggering a full measurement.
-
-`relook` brings the hook back every fifteen seconds and when the tab returns: a probe is a
-snapshot, and without it one missed race marks the engine unreachable until the page is reloaded
-(`packages/engine-browser/src/relook.ts`).
-
-Choosing is **optimistic, then persisted** — the tick moves under the cursor rather than after a
-round trip. A failed save is not surfaced (`packages/user-prefs/docs/store.md` says why that
-failure is deliberately quiet) and the choice still holds for the session. It goes through
-`patchPrefs` and never `savePrefs`: the route REPLACES the document, so a PUT of `{engineId}` alone
-would clear the playback destination beside it.
-
-### The session name, again
-
-`sessionFor(SESSIONS.pl8, currentUser())` — per service AND per person. The médiathèque is hosted,
-so two people can choose the same machine, and on a bare `pl8` one of them starting a song would
-tear down the other's mid-listen. It also keeps this out of the slot st0 has a song in.
+editable catalogue, and a loaded plugin, which is only ever in a project. When no project you have
+open names the module, the generated one supplies both — the bench, [banc.md](banc.md).

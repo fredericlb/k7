@@ -139,6 +139,15 @@ analysed being analysed once more. `waveformCacheVersion.test.ts` pins it.
    anyway. The fingerprint still DECIDES.
 3. **The sidecars** — the durable cache.
 
+Between the memo and the sidecar sits the thing neither of them is: **the decodes running right
+now**. The memo answers a burst that arrives after one finished; a burst that arrives DURING one
+missed it, and each ask spawned its own engine over the same audio. That is the ordinary shape of a
+first look at an imported project — several lanes cut from one take, drawn at once, none of them
+with a sidecar yet — and on a 33 MB file each copy is seconds of decode competing with the others.
+So `ensureFileEnvelope` keeps an in-flight map keyed by source AND sensitivity: two asks for one
+file are one decode, and both callers get its answer. A failed one is dropped rather than joined —
+the next ask should reach for the engine again, not inherit the first one's error.
+
 `ensureFileEnvelope` throws when the engine binary is unavailable: this is engine-only, there is no
 JS decoder fallback. `runWaveformBatch` computes every stale sidecar in ONE engine process
 (`--waveform-batch`), paying JUCE's startup cost once instead of per file.

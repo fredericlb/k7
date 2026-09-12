@@ -52,3 +52,17 @@ Two frictions with it:
 
 Lookup tries the exact quality, then the slash form, then the bare triad, and answers `null`
 when the chord is not in the database rather than inventing a fingering.
+
+## The diagram renderer brings its own React, and must not
+
+`@tombatossals/react-chords` declares `react` and `react-dom` as **dependencies** rather than
+peers, and pins them to `^16`. Left alone, npm nests a second React under it, the `Chord`
+component builds its elements with that copy, and the song page dies on render: *"A React
+Element from an older version of React was rendered."* React 19 refuses an element minted by
+React 16, so the failure is total rather than cosmetic, and it strikes only the one screen that
+draws a diagram.
+
+The root `package.json` therefore carries an `overrides` entry pinning that package's `react`
+and `react-dom` to the version the apps use. The library itself is `React.createElement` over
+SVG and needs nothing from React 16; only the resolution was wrong. `propTypes`, which it also
+declares, is inert under React 19 and harmless.
