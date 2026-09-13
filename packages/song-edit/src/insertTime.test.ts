@@ -25,21 +25,15 @@ markers:
   "1:1:1": start
   "5:1:1": chorus
 `,
-  // A lane with all three lists: what it plays, a take of it, and an alternative's own two.
+  // A lane with what it plays and an alternative's own list.
   "nodes/gtr.yaml": `extends: "@studio/track"
 events:
   - { ref: riff, start: "1:1:1" }
   - { ref: riff, start: "5:1:1", fadeIn: "0:1" }
-takes:
-  - events:
-      - { ref: riff, start: "5:1:1" }
 alternatives:
   - name: b
     events:
       - { ref: riff, start: "5:1:1" }
-    takes:
-      - events:
-          - { ref: riff, start: "9:1:1" }
 `,
   // A drawn curve: absolute song timecodes.
   "curves/sweep.yaml": `type: custom
@@ -77,12 +71,10 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 describe("inserting time", () => {
   it("moves EVERYTHING positioned in song time, in one pass", () => {
     const r = spliceProjectTime(dir, BAR, BAR, "insert"); // one bar, at bar 2
-    // The lane's three lists, all of them.
     const lane = read("nodes/gtr.yaml");
     // Canonical short form: `beatsToPosition` drops a trailing zero tick, so bar 6 is "6:1".
     expect(lane).toContain('start: "1:1:1"'); // before the point: stays, verbatim
-    expect(lane.match(/start: "6:1"/g)).toHaveLength(3); // playing, take, alternative
-    expect(lane).toContain('start: "10:1"'); // the alternative's own take
+    expect(lane.match(/start: "6:1"/g)).toHaveLength(2); // playing, alternative
     // A marker.
     expect(read("project.yaml")).toContain("6:1");
     // A drawn curve's point.
@@ -139,7 +131,7 @@ describe("the round trip", () => {
   });
 
   it("round-trips at a point with material exactly on it", () => {
-    // Bar 5 holds three of the fixture's placements, so both directions' edges meet real data.
+    // Bar 5 holds two of the fixture's placements, so both directions' edges meet real data.
     const before = settled();
     spliceProjectTime(dir, BAR * 4, BAR * 2, "insert");
     spliceProjectTime(dir, BAR * 4, BAR * 2, "delete");

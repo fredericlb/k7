@@ -17,7 +17,7 @@ import { m } from "../paraglide/messages.js";
 import { fileStem } from "../projectPaths";
 import { rackFor } from "../rackFor";
 import type { RollMode } from "../rollMode";
-import { trackPlacing } from "../takeReview";
+import { trackPlacing } from "../rows";
 import type { Hints, WebClip, WebNote, WebProject } from "../types";
 import type { WaveMode } from "../waveMode";
 import { type AudioClipHandle, AudioClipPanel } from "./AudioClipPanel";

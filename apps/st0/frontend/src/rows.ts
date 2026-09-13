@@ -10,7 +10,6 @@ import type {
   WebAutomationLane,
   WebGroup,
   WebProject,
-  WebTake,
   WebTrack,
   WebVideoTrack,
 } from "./types";
@@ -25,8 +24,6 @@ export type Row =
   | { kind: "group"; group: WebGroup }
   // `index` is the track's position in the ORIGINAL array: clustering reorders the display, not the engine's levels.
   | { kind: "track"; track: WebTrack; index: number; grouped: boolean }
-  // A TAKE of the lane above it, drawn indented and playing nothing until moved back; `n` is 1-based, as the two commands name it.
-  | { kind: "take"; track: WebTrack; take: WebTake; n: number }
   // A VIDEO lane has no engine index — picture is the renderer's — and is drawn after the audio rows, FRONT layer first.
   | { kind: "video"; track: WebVideoTrack }
   // An AUTOMATION lane of the track above: one knob against song time, holding no material but addressing its TRACK.
@@ -51,27 +48,22 @@ export function projectRows(
 
   const rows: Row[] = [];
   const done = new Set<string>();
-  // A lane's takes follow it immediately, oldest first, indented one step further when the lane is grouped.
-  const withTakes = (track: WebTrack, index: number, grouped: boolean) => {
+  const withAutomation = (track: WebTrack, index: number, grouped: boolean) => {
     rows.push({ kind: "track", track, index, grouped });
-    // Automation before the takes: a curve is part of what the lane is PLAYING, while a take is what it was.
     for (const lane of automation[track.id] ?? [])
       rows.push({ kind: "automation", track, lane });
-    (track.takes ?? []).forEach((take, i) =>
-      rows.push({ kind: "take", track, take, n: i + 1 }),
-    );
   };
   tracks.forEach((track, index) => {
     const group = byId.get(track.group);
     if (!group) {
-      withTakes(track, index, false);
+      withAutomation(track, index, false);
       return;
     }
     if (done.has(group.id)) return; // already emitted with its header
     done.add(group.id);
     rows.push({ kind: "group", group });
     for (const m of members.get(group.id) ?? [])
-      withTakes(m.track, m.index, true);
+      withAutomation(m.track, m.index, true);
   });
 
   // Video lanes last, and REVERSED: `layers:` is bottom-first, and a row above another means IN FRONT of it (docs/picture.md).
@@ -82,22 +74,18 @@ export function projectRows(
 }
 
 // A row's identity, never its index, and PREFIXED by kind: a song may name an audio lane and a video lane the same thing.
-export type RowKey = string; // "track:<id>" | "group:<id>" | "video:<id>" | "take:<id>:<n>" | "auto:<id>:<param>"
+export type RowKey = string; // "track:<id>" | "group:<id>" | "video:<id>" | "auto:<id>:<param>"
 
 export const rowKey = (r: Row): RowKey =>
   r.kind === "group"
     ? `group:${r.group.id}`
     : r.kind === "video"
       ? `video:${r.track.id}`
-      : r.kind === "take"
-        ? // By NUMBER, not by contents: a take has no id, and its number is what the commands
-          // name it by. Selecting one renumbers nothing — the swap keeps every take in place.
-          `take:${r.track.id}:${r.n}`
-        : r.kind === "automation"
-          ? // By PARAM, which is what the binding is keyed by — one knob, one curve, so a lane
-            // and its param name the row uniquely and `track automation remove` names it back.
-            `auto:${r.track.id}:${r.lane.param}`
-          : `track:${r.track.id}`;
+      : r.kind === "automation"
+        ? // By PARAM, which is what the binding is keyed by — one knob, one curve, so a lane
+          // and its param name the row uniquely and `track automation remove` names it back.
+          `auto:${r.track.id}:${r.lane.param}`
+        : `track:${r.track.id}`;
 
 /** The picture lane a row key names, or null — the ONE place `video:` is taken apart again. */
 export const pictureRowId = (key: RowKey | null | undefined): string | null =>
@@ -120,10 +108,8 @@ export type RowTarget = { kind: "track" | "group" | "video"; id: string };
 export function rowTarget(r: Row): RowTarget | null {
   if (r.kind === "group") return { kind: "group", id: r.group.id };
   if (r.kind === "video") return { kind: "video", id: r.track.id };
-  // An automation row DOES answer with its track, unlike a take: the knob it draws is part of that lane's sound.
+  // An automation row DOES answer with its track: the knob it draws is part of that lane's sound.
   if (r.kind === "automation") return { kind: "track", id: r.track.id };
-  // A TAKE points at nothing: it is not playing, and answering with its lane would mute the LANE from a take's own header.
-  if (r.kind === "take") return null;
   if (r.track.generated)
     return r.track.group ? { kind: "group", id: r.track.group } : null;
   return { kind: "track", id: r.track.id };
@@ -157,7 +143,7 @@ export function orderableLane(
   return null;
 }
 
-/** …and the lane a row is a DROP on: a take or an automation row answers with the lane it belongs to. */
+/** …and the lane a row is a DROP on: an automation row answers with the lane it belongs to. */
 export function dropLaneOf(
   rows: Row[],
   key: RowKey | null | undefined,
@@ -170,4 +156,26 @@ export function dropLaneOf(
   if (row.kind === "group" || row.kind === "video") return null;
   // Refused as a target for the reason it cannot be dragged: it may be a live lane, which no list holds.
   return row.track.generated ? null : laneOf(row.track.id);
+}
+
+/** The id of the lane placing `clip`, or "" when nothing does — the first lane wins, a placement being a reference. */
+export function trackPlacing(
+  project: WebProject | null | undefined,
+  clip: string,
+): string {
+  if (!project || !clip) return "";
+  for (const t of project.tracks)
+    if (t.clips?.some((c) => c.id === clip)) return t.id;
+  return "";
+}
+
+/** The beat `clip` is placed at on lane `track`, or null. */
+export function placedBeat(
+  project: WebProject | null | undefined,
+  track: string,
+  clip: string,
+): number | null {
+  const lane = project?.tracks.find((t) => t.id === track);
+  const at = lane?.clips.find((c) => c.id === clip);
+  return at ? at.start : null;
 }

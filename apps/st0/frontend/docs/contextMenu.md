@@ -186,10 +186,6 @@ question about a HANDLER, and the catalogue only describes arguments.
   handlers write, which no argument declares. `node replace` is not a third: it repoints an
   `extends:`, and a dangling name has no file to repoint, so offering it would be offering a
   certain failure. What is left for one is to take it out, or to write the file it names.
-- **A take.** Its two verbs take a track and a number — and so do `track gain`, `track pan` and
-  the three tone bands. Nothing in the argument types tells those apart, so deriving would offer
-  to set a take's level. This is the same seam `node param` / `module clone` sit on, and the
-  sharpest instance of it. See `packages/song/docs/takes.md`.
 - **A chain.** No command takes a chain as its FIRST argument — `track process` and
   `clip process` take one second, and a line cannot be pre-written with a hole in the middle.
   So the only offer is about the track the chain carries, which is a different entity.

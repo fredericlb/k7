@@ -585,8 +585,8 @@ export function TimelineTab({
   onNewTrack?: () => void;
   /** …and a PICTURE lane, which turns that button into a menu; absent ⇒ the project declares no viewport and there is nothing to choose between. */
   onNewVideoTrack?: () => void;
-  /** A header was dragged onto another's row: `takes` is the lane whose place it should have (docs/timeline.md). */
-  onReorder?: (family: LaneFamily, lane: string, takes: string) => void;
+  /** A header was dragged onto another's row: `target` is the lane whose place it should have (docs/timeline.md). */
+  onReorder?: (family: LaneFamily, lane: string, target: string) => void;
   /** The PICTURE lane armed to record its camera, and whether one is rolling — the browser's, not the engine's (hooks/useVideoRecording.ts). */
   videoArmed?: string | null;
   videoRecording?: boolean;
@@ -1875,10 +1875,6 @@ export function TimelineTab({
       setStatus(
         `selected: video ${caretRow.track.name} — picture, cut in seconds; drag its shots, m hides the lane`,
       );
-    else if (caretRow.kind === "take")
-      setStatus(
-        `selected: take ${caretRow.n} of ${caretRow.track.name} — not playing; right-click to move it onto the track`,
-      );
     else if (caretRow.track.generated)
       setStatus(
         caretTrackId
@@ -2023,12 +2019,10 @@ export function TimelineTab({
   const contentH =
     ROW_H +
     visRows.reduce(
-      // A take is a short row like a group header: a record of what a lane held, not a lane.
+      // A group header and an automation row are short; a lane row is not.
       (h, r) =>
         h +
-        (r.kind === "group" || r.kind === "take" || r.kind === "automation"
-          ? ROW_H
-          : rowH),
+        (r.kind === "group" || r.kind === "automation" ? ROW_H : rowH),
       0,
     );
 
@@ -2640,72 +2634,6 @@ export function TimelineTab({
                 );
               }
 
-              /** A TAKE of the lane above — read-only, deliberately: the one thing you do to a take is move it back, and that is a command (packages/song/docs/takes.md). */
-              if (row.kind === "take") {
-                const tk = row.track;
-                return (
-                  <div
-                    key={`take:${tk.id}:${row.n}`}
-                    data-sel-row={rowKey(row)}
-                    className="flex border-b border-border/40 opacity-70"
-                    style={{ height: ROW_H }}
-                    // The take's own two verbs. Its lane's menu must not also fire.
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onContextMenu?.(
-                        { kind: "take", track: tk.id, n: row.n },
-                        e.clientX,
-                        e.clientY,
-                      );
-                    }}
-                  >
-                    <div
-                      style={{ width: GUTTER }}
-                      {...gutterProps(row)}
-                      className={cn(
-                        "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/30 px-2 text-muted-foreground",
-                        GUTTER_STICKY,
-                        // Indented past its lane — and past the lane's own indent when that lane is in a group.
-                        "pl-5",
-                        inSel && "bg-primary/20",
-                        labelled && LABEL_SELECTED,
-                      )}
-                    >
-                      <span
-                        className="truncate italic"
-                        title={`take ${row.n} of ${tk.name} — not playing; right-click to move it onto the track`}
-                      >
-                        {row.take.name || `take ${row.n}`}
-                      </span>
-                    </div>
-                    <div
-                      className="relative overflow-hidden bg-muted/20"
-                      style={{ width: laneW }}
-                    >
-                      {row.take.clips.map((c, i) => (
-                        <div
-                          // Same key rule as a lane's events: one ref may be placed twice.
-                          key={`${c.id}-${i}`}
-                          title={`${c.name} — take ${row.n}, at beat ${c.start + 1}`}
-                          className="pointer-events-none absolute inset-y-1 overflow-hidden rounded-sm border border-dashed border-muted-foreground/50 bg-muted-foreground/20 px-1 text-[10px] leading-4"
-                          style={{
-                            left: x(c.start),
-                            width: Math.max(
-                              ppb,
-                              (c.length > 0 ? c.length : NATURAL) * ppb,
-                            ),
-                          }}
-                        >
-                          <span className="truncate">{c.name}</span>
-                        </div>
-                      ))}
-                      {inSel && selBox && selSlice(selBox)}
-                    </div>
-                  </div>
-                );
-              }
-
               /** An AUTOMATION row: one knob of the lane above against song time — only a `custom` curve has a shape, and its header addresses the TRACK. */
               if (row.kind === "automation") {
                 const lane = row.lane;
@@ -2765,7 +2693,7 @@ export function TimelineTab({
                       className={cn(
                         "flex shrink-0 cursor-pointer select-none items-center gap-1 truncate border-r border-border bg-muted/30 px-2 text-[10px] text-muted-foreground",
                         GUTTER_STICKY,
-                        // Indented past its lane, like a take's row: the knob belongs to the lane above.
+                        // Indented past its lane: the knob belongs to the lane above.
                         "pl-5",
                       )}
                       title={`${lane.module} · ${lane.param} ← ${lane.curve}`}

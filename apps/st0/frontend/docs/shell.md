@@ -214,10 +214,25 @@ and `truncate` on the name) and the right one is a fixed count of 24-pixel butto
 window they clear it; squeeze the window far enough and the transport draws over them rather than
 pushing them aside.
 
-Play/pause, stop, the clock, then record — and each **drops focus on click** (`blurOnClick`). These
-are the buttons a mouse is most likely to land on right before reaching for Space, and a focused one
-eats the keypress. On play/pause the theft is invisible, because the button does what Space would;
-on stop and record it is not.
+Play/pause, stop, the clock, then two record buttons — audio, then MIDI — and each **drops focus on
+click** (`blurOnClick`). These are the buttons a mouse is most likely to land on right before
+reaching for Space, and a focused one eats the keypress. On play/pause the theft is invisible,
+because the button does what Space would; on stop and on both records it is not.
+
+The two records own the two halves a take can be. The filled circle is the **ENGINE's** record: it
+flips the session's record state, and play records every lane armed there (`transport arm`). The
+second is the **BROWSER's** (`midiRecord` in App, the capture in `useMidiRecording.ts`): the engine
+never hears a controller, so the notes are timed here — in playhead beats, interpolated between
+frames ([playhead.md](playhead.md)) — and committed into the armed track's sequence when the take
+ends. Which track is armed for which half is the LANE's arm button (`rec <track>` reaches the same
+split): `useTrackControls.ts` resolves it by what the track holds, an instrument track arming for
+MIDI here and an audio track arming in the engine, and one red lane reads both.
+
+The picker in the bar's right end — LEFT of the output meter — chooses **which input** feeds the
+take. The recorder listens to every input the browser exposes until one is picked — right for the
+one-keyboard rig, wrong the day a pad grid shares the desk and its notes land in the same sequence.
+The list re-offers itself when a device is plugged in mid-session, and the browser's permission
+prompt rides the first press of whichever control needs the access.
 
 The cluster is absent where there is nothing here to address, and there are two such cases.
 
@@ -410,35 +425,6 @@ The live x axis is nominal: `LIVE_FRAME_MS` (50) per frame, because the engine's
 not a clock. A growing take is read for its SHAPE; the moment timings matter, the file is there and
 its own waveform has replaced this one.
 
-#### Several passes: the sidebar of takes
-
-When the lane holds **takes** (`packages/song/docs/takes.md`) the panel grows a column on its left:
-each take in slot order, then what the lane is playing, marked. `takeOptions` in `takeReview.ts`
-derives it from the project doc and answers empty for a lane with no takes, which keeps the ordinary
-single-take panel free of a column with nothing to list.
-
-**Clicking a row is `track take select`.** Not a preview: the take goes ONTO the lane, because the point
-is to hear the pass in the song — with the rest of the band — and only what a lane plays reaches the
-engine. The swap loses nothing and is its own undo, so an audition costs a command and no material. Only
-the clips the take lands on are exchanged, so the rest of the part still plays under the pass.
-
-Two consequences: **the row you are looking at is the row you would hear** — there is no "selected but
-not playing" take for the panel to disagree with the engine about — and **the numbers do not move while
-you listen**, because a select exchanges two lists rather than reordering them.
-
-**Garder celle-ci** is `track take keep <track>`: it keeps whatever is on the lane and deletes the
-rest. The button names the decision rather than a number, because the choice was already made by
-clicking.
-
-The **other host does not pass takes**: `ClipView` mounts the same component with no sidebar,
-deliberately. There the clip you clicked is the subject, and a select would move it off the lane under
-its own view. Reaching a take from the timeline is what the indented take rows and their right-click
-menu are for (`docs/timeline.md`).
-
-`placedAt` comes from the DOCUMENT (`placedBeat`), not from the beat the transport rolled at: that is
-right for the take that just landed and wrong for one picked out of the sidebar, since a take plays
-where it was recorded and not where the last one was.
-
 #### The take's start is the SHELL's, and the counter measures THIS take
 
 `takeStart` lives in `App`, taken off the store on the `rolling` **edge**. One source, because two
@@ -492,7 +478,7 @@ nothing, what the panel then does (`clip process`, `event trim`, `clip onset …
 named clip outranks the automatic one, without the rolling guard: asking for a clip by name is a
 deliberate act.
 
-The lane is looked up rather than asked for (`takeReview.ts`), and a clip nothing places opens just
+The lane is looked up rather than asked for (`trackPlacing` in `rows.ts`), and a clip nothing places opens just
 the same, labelled **hors piste**. That is the case it exists for: the waveform, the onsets and the
 level are properties of the FILE, and none of them needs a placement. `event add <track> <clip>
 <timecode>` is the verb that puts such a take back on a lane.

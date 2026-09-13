@@ -6,11 +6,13 @@
 import {
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type {
@@ -47,6 +49,7 @@ import {
   createTrackFile,
   freeNodeName,
   isFileParam,
+  isVideoSource,
   loadChains,
   loadModuleRefs,
   loadModules,
@@ -124,13 +127,6 @@ import {
   setTrackPlacementWarp,
   setTrackPlacementWindow,
 } from "@studio/song-edit/trackMix";
-import {
-  keepTrackTake,
-  removeTrackTake,
-  selectTrackTake,
-  splitUnder,
-  trackTakes,
-} from "@studio/song-edit/trackTakes";
 import { builtinParamsFor } from "@studio/song-schema/builtinParams";
 import { renamedInstance } from "@studio/song-schema/instanceName";
 import {
@@ -161,6 +157,13 @@ import {
   type Placement,
   PlacementSchema,
 } from "@studio/song-schema/yaml/placementSchema";
+import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
+import { parse as parseYaml } from "yaml";
+import {
+  extractAudio,
+  srtOf,
+  transcribeAudio,
+} from "./transcribe";
 
 /** Everything a placement may say beyond WHERE it goes, listed rather than spread — docs/verbs.md. */
 const EVENT_FIELDS = [
@@ -251,6 +254,7 @@ import { PICTURE_VERBS } from "./verbs/picture.ts";
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
 import { splitWords } from "./verbs/shared.ts";
 import { SYSTEM_VERBS } from "./verbs/system.ts";
+import { TRACK_VERBS } from "./verbs/track.ts";
 
 // Where a freeze render lands: one folder for the lot, at the project root — docs/verbs.md.
 const FROZEN_DIR = "renders";
@@ -693,6 +697,106 @@ async function orderTrack(arg: string, h: CommandHost): Promise<void> {
   await h.reload();
 }
 
+// `track transcribe <track_in> <track_out>` — whisper listens to the video the picture lane
+// places, and the transcript lands as the NEW lane's `content:` (docs/verbs.md). The order of
+// the acts is the failure order that matters: everything is checked and the take RUNS before a
+// line is written, so a refused transcription costs no track, and a track that already existed
+// gets its content REPLACED (the journal brackets the command, so Ctrl+Z has it either way).
+async function transcribeTrack(arg: string, h: CommandHost): Promise<void> {
+  const parts = arg.trim().split(/\s+/).filter(Boolean);
+  if (parts.length !== 2) {
+    h.refuse([
+      "usage: track transcribe <track_in> <track_out>  (e.g. track transcribe cam lyrics)",
+    ]);
+    return;
+  }
+  const [trackIn, trackOut] = parts;
+  // <track_in> is a PICTURE lane: video_tracks/<id>.yaml, the id being the stem, so the name is
+  // checked before it reaches a path (docs/picture.md).
+  if (!/^[A-Za-z0-9_.-]+$/.test(trackIn)) {
+    h.refuse([`'${trackIn}' is not a lane name — letters, digits, '.', '_' and '-' only`]);
+    return;
+  }
+  const laneFile = join(h.songPath, "video_tracks", `${trackIn}.yaml`);
+  if (!existsSync(laneFile)) {
+    h.refuse([`no picture lane "${trackIn}" (video_tracks/${trackIn}.yaml)`]);
+    return;
+  }
+  // The FIRST shot decides what is listened to: one video, timed in its own seconds. A lane that
+  // cuts between sources would need the segments re-timed onto the timeline to say anything.
+  const shot = listVideoPlacements(readFileSync(laneFile, "utf8")).find(
+    (p) => p.ref,
+  );
+  if (!shot?.ref) {
+    h.refuse([`'${trackIn}' places no shot — there is no video to transcribe`]);
+    return;
+  }
+  if (/[/\\]|\.\./.test(shot.ref)) {
+    h.refuse([`'${shot.ref}' is not a clip id — the stem of a file in clips/`]);
+    return;
+  }
+  const clipFile = join(h.songPath, "clips", `${shot.ref}.yaml`);
+  let source = "";
+  if (existsSync(clipFile)) {
+    const doc = parseYaml(readFileSync(clipFile, "utf8")) as {
+      source?: unknown;
+    };
+    source = typeof doc.source === "string" ? doc.source : "";
+  }
+  if (!source) {
+    h.refuse([`clip '${shot.ref}' says no source (clips/${shot.ref}.yaml)`]);
+    return;
+  }
+  if (!isVideoSource(source)) {
+    h.refuse([
+      `clip '${shot.ref}' is not a video (${source}) — transcribe listens to picture, whose sound is the speech`,
+    ]);
+    return;
+  }
+  const videoPath = resolve(h.songPath, source);
+  if (!existsSync(videoPath)) {
+    h.refuse([`the video is not on this machine: ${source}`]);
+    return;
+  }
+  // <track_out>: created when new, its content REPLACED when not — the one field a rerun updates.
+  if (!/^[A-Za-z0-9_.-]+$/.test(trackOut)) {
+    h.refuse([
+      `'${trackOut}' is not a track name — letters, digits, '.', '_' and '-' only`,
+    ]);
+    return;
+  }
+  const nodeFile = join(h.songPath, "nodes", `${trackOut}.yaml`);
+  const existed = existsSync(nodeFile);
+  if (!existed) {
+    try {
+      createTrackFile(h.songPath, trackOut);
+    } catch (e) {
+      h.refuse([`track transcribe: ${(e as Error).message}`]);
+      return;
+    }
+  }
+  h.log([`whisper is listening to ${source} — this can take a few minutes`]);
+  const tmp = mkdtempSync(join(tmpdir(), "st0-transcribe-"));
+  try {
+    extractAudio(videoPath, join(tmp, "audio.wav"));
+    const segments = await transcribeAudio(join(tmp, "audio.wav"), tmp);
+    if (segments.length === 0) {
+      h.refuse(["whisper heard no speech in this video"]);
+      return;
+    }
+    setFileValue(nodeFile, ["content"], srtOf(segments));
+    await h.reload();
+    h.log([
+      `${segments.length} segments into ${trackOut} (content:) — timed in the source's own seconds`,
+      ...(existed
+        ? ["the track already existed, so its content was replaced"]
+        : []),
+    ]);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 /** `sequence note repeat|skip <sequence> <note> <start> <n|off>` — a PAD's two effects, one factory; docs/verbs.md. */
 function padEffectCommand(effect: PadEffect): SidHandler {
   return async (arg, h) => {
@@ -889,40 +993,6 @@ async function moduleAltAdd(
   } catch (e) {
     h.refuse([`node alternative ${verb}: ${(e as Error).message}`]);
   }
-}
-
-/** Resolve `<track> <n>` for the two take verbs, counting off the FILE rather than the compiled project. */
-function takeTarget(
-  a: string,
-  h: CommandHost,
-  verb: string,
-): { track: TrackDoc; n: number } | null {
-  const [idArg, nArg] = a.trim().split(/\s+/).filter(Boolean);
-  if (!idArg || nArg === undefined) {
-    h.refuse([`usage: track take ${verb} <track> <n>`]);
-    return null;
-  }
-  const p = h.project();
-  const track = p.tracks.find((t) => t.id === idArg || t.name === idArg);
-  if (!track) {
-    h.refuse([`no track "${idArg}"`]);
-    return null;
-  }
-  const n = Number(nArg);
-  if (!Number.isInteger(n) || n < 1) {
-    h.refuse([`take numbers count from 1 — "${nArg}" is not one`]);
-    return null;
-  }
-  const have = trackTakes(h.songPath, track.id).length;
-  if (n > have) {
-    h.refuse([
-      have
-        ? `${track.id} has ${have} take${have > 1 ? "s" : ""} — no take ${n}`
-        : `${track.id} has no takes`,
-    ]);
-    return null;
-  }
-  return { track, n };
 }
 
 /** Resolve a `track mute`/`track solo` argument to a lane or a group, or report why not. */
@@ -1662,6 +1732,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // A track IS its file: write it, then reload, so what plays is what is on disk — docs/verbs.md.
   "track.new": async (a, h) => newTrack(a, h),
   "track.order": async (a, h) => orderTrack(a, h),
+  "track.transcribe": async (a, h) => transcribeTrack(a, h),
   "sequence.new": async (a, h) => newSequence(a, h),
 
   // Bounce material through a chain and keep the result — `scope` is all that differs; docs/processChain.md.
@@ -1859,65 +1930,6 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       `${t.id}: solo ${on ? "on" : "off"}` +
         (next.length ? ` — soloed: ${next.join(", ")}` : ""),
     ]);
-  },
-  /** Swap take `n` onto the track — an EXCHANGE and not a load, so nothing is lost; packages/song/docs/takes.md. */
-  "track.take.select": async (a, h) => {
-    const t = takeTarget(a, h, "select");
-    if (!t) return;
-    const p = h.project();
-    // Only what take `n` lands ON is exchanged; the rest of the lane keeps playing.
-    const held = t.track.takes?.[t.n - 1]?.clips ?? [];
-    // An empty take covers nothing, so it takes the whole lane — docs/takes.md.
-    const kept = held.length ? splitUnder(t.track.clips ?? [], held).clear : [];
-    try {
-      selectTrackTake(h.songPath, t.track.id, t.n, {
-        beats: kept,
-        num: p.timeSigNumerator,
-        den: p.timeSigDenominator,
-      });
-      h.log([
-        `${t.track.id}: playing take ${t.n} — what it lands on is now take ${t.n}` +
-          (kept.length ? `, ${kept.length} clip(s) kept beside it` : ""),
-      ]);
-      await h.reload();
-    } catch (e) {
-      h.refuse([`track take select failed: ${(e as Error).message}`]);
-    }
-  },
-  /** Keep what the track is playing and delete every take of it — named for the decision; docs/verbs.md. */
-  "track.take.keep": async (a, h) => {
-    const id = a.trim().split(/\s+/).filter(Boolean)[0];
-    if (!id) {
-      h.refuse(["usage: track take keep <track>"]);
-      return;
-    }
-    const track = h.project().tracks.find((t) => t.id === id || t.name === id);
-    if (!track) {
-      h.refuse([`no track "${id}"`]);
-      return;
-    }
-    try {
-      const gone = keepTrackTake(h.songPath, track.id);
-      if (!gone) return h.refuse([`${track.id} has no takes`]);
-      h.log([
-        `${track.id}: kept what it plays, deleted ${gone} take${gone > 1 ? "s" : ""}`,
-      ]);
-      await h.reload();
-    } catch (e) {
-      h.refuse([`track take keep failed: ${(e as Error).message}`]);
-    }
-  },
-  /** Delete take `n`, and the events it held — a take is where they live. */
-  "track.take.delete": async (a, h) => {
-    const t = takeTarget(a, h, "delete");
-    if (!t) return;
-    try {
-      removeTrackTake(h.songPath, t.track.id, t.n);
-      h.log([`${t.track.id}: take ${t.n} deleted`]);
-      await h.reload();
-    } catch (e) {
-      h.refuse([`track take delete failed: ${(e as Error).message}`]);
-    }
   },
   // A lane's level, alternatives and freeze are `node` verbs — a lane IS a module; docs/verbs.md.
 
@@ -3041,6 +3053,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   ...PLAYLIST_VERBS,
   // …and the song's PICTURE, which had a mouse and no verbs at all — docs/picture.md.
   ...PICTURE_VERBS,
+  // …and the lane's DUPLICATE verbs, which copy a chain where `track new` makes one from scratch.
+  ...TRACK_VERBS,
 
   // The external UI of ONE INSTANCE — the argument names a node, since a module with no instance has no window.
   "node.externalUi": async (a, h) => {

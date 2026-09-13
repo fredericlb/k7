@@ -41,8 +41,7 @@ you already know:
 - **`params` merge per entry.** A set that touches `Gain` leaves `Tone` alone, which is what
   makes an alternative worth writing: it states only what it CHANGES.
 - **A list is a scalar to the merge**, so a set restating `events:` replaces the arrangement
-  outright. That is exactly what a lane's takes need, and it is the same rule that lets a
-  node empty an inherited `automations:` with `[]`.
+  outright. It is the same rule that lets a node empty an inherited `automations:` with `[]`.
 - **Any field may differ** — the plugin, the panel, the colour. An alternative is a module
   partial: `AlternativeSchema` is `ModuleSchema` minus `extends` and minus the alternatives
   themselves, spread from one shared `MODULE_FIELDS`, so a field added to a module is a field an
@@ -129,8 +128,8 @@ it twice, because reading and writing do not agree:
   on the first write.
 
 That copy-on-write is the whole of it. Writing `["clips"]` flat whichever set is on would make a
-drag taken on take 2 rewrite take 1 — the arrangement you are not looking at — and the two takes
-would never be separate documents at all.
+drag on alternative 2 rewrite alternative 1 — the arrangement you are not looking at — and the two
+alternatives would never be separate documents at all.
 
 Two details worth keeping:
 

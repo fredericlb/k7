@@ -55,9 +55,9 @@ a listing:
 
 Neither was asked to change anything, so neither declined.
 
-Two calls are SPLIT rather than classified, because one ternary would carry both channels:
-`track take keep` on a track with no takes, and `module new` on a module that is already there.
-Folded into one line, either reports a zero as though it were a result.
+One call is SPLIT rather than classified, because one ternary would carry both channels:
+`module new` on a module that is already there. Folded into one line, it reports a zero as
+though it were a result.
 
 ## The rule is pinned in the source
 

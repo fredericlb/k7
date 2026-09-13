@@ -317,7 +317,7 @@ Three rules, each paying for itself:
 - **The height is computed before layout** (`clipsOf`, added to `nodeSize`'s), because dagre is told
   the size and reserves the space. The **width is untouched**: a card is as wide as its mixer grid,
   and a long clip name is ellipsed rather than allowed to push a whole rank sideways.
-- **Past `CLIP_LIST_MAX` (6) the rest is counted, not listed** (`+4`). A lane with sixty takes would
+- **Past `CLIP_LIST_MAX` (6) the rest is counted, not listed** (`+4`). A lane with sixty clips would
   otherwise be a node taller than the window, and this is a picture of the ROUTING.
 
 A **missing** clip is drawn red. It is the state this list is best at catching: on a routing

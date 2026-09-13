@@ -87,144 +87,6 @@ function flowPlacements(
     if (p && typeof p === "object") (p as { flow?: boolean }).flow = true;
 }
 
-// --- takes: the OTHER lists of placements this lane keeps, MOVED never rebuilt (docs/laneEdits.md) ---
-
-/** The module's own takes — set "1"'s, and where a lane with no alternatives keeps them. */
-const OWN_TAKES: (string | number)[] = ["takes"];
-
-/** Where this file's takes are, on `eventsToEdit`'s rule: the SELECTED set's, created empty on first use. */
-function takesToEdit(
-  doc: ReturnType<typeof parseDocument>,
-): (string | number)[] {
-  const at = selectedSet(doc);
-  const path = at === 0 ? OWN_TAKES : ["alternatives", at - 1, "takes"];
-  if (!isSeq(doc.getIn(path))) doc.setIn(path, doc.createNode([]));
-  return path;
-}
-
-/** The takes this file holds, as plain values — for a caller counting them or naming one. */
-export function takeValues(
-  text: string,
-): { name?: string; events: unknown[] }[] {
-  const doc = parseDocument(text, OPTS);
-  const takes = doc.getIn(takesPathFor(doc));
-  if (!isSeq(takes)) return [];
-  return takes.items.map((t) => {
-    const v = (t as { toJSON?: () => unknown })?.toJSON?.() ?? t;
-    const o = (v ?? {}) as { name?: string; events?: unknown[] };
-    return { ...(o.name ? { name: o.name } : {}), events: o.events ?? [] };
-  });
-}
-
-/** Where the takes to READ are: the selected set's when it has any, else the module's own. */
-function takesPathFor(
-  doc: ReturnType<typeof parseDocument>,
-): (string | number)[] {
-  const at = selectedSet(doc);
-  if (at === 0) return OWN_TAKES;
-  const mine = ["alternatives", at - 1, "takes"];
-  return isSeq(doc.getIn(mine)) ? mine : OWN_TAKES;
-}
-
-/** The seq at `path`, made empty and BLOCK when there is none — so a push does not fold it onto one row. */
-function seqAt(
-  doc: ReturnType<typeof parseDocument>,
-  path: (string | number)[],
-) {
-  const found = doc.getIn(path);
-  if (isSeq(found)) return found;
-  doc.setIn(path, doc.createNode([]));
-  const made = doc.getIn(path);
-  if (!isSeq(made)) return null;
-  made.flow = false;
-  return made;
-}
-
-/** `only` read against a list of `count` placements — deduped, in range and ascending, docs/laneEdits.md. */
-function inRange(count: number, only: number[]): number[] {
-  return [...new Set(only)]
-    .filter((i) => Number.isInteger(i) && i >= 0 && i < count)
-    .sort((a, b) => a - b);
-}
-
-/** Move the placements at `only` — all of them when absent — into a NEW take; see docs/laneEdits.md. */
-export function pushEventsToTake(
-  text: string,
-  name?: string,
-  only?: number[],
-): string {
-  const doc = parseDocument(text, OPTS);
-  const eventsPath = eventsToEdit(doc);
-  const events = doc.getIn(eventsPath);
-  if (!isSeq(events) || !events.items.length) return text;
-  const picked = only
-    ? inRange(events.items.length, only)
-    : events.items.map((_, i) => i);
-  if (!picked.length) return text;
-  const takesPath = takesToEdit(doc);
-  const takes = doc.getIn(takesPath);
-  if (!isSeq(takes)) return text;
-  const entry = doc.createNode({ ...(name ? { name } : {}), events: [] });
-  entry.flow = false;
-  takes.items.push(entry);
-  const held = seqAt(doc, [...takesPath, takes.items.length - 1, "events"]);
-  if (!held) return text;
-  // The NODES move, so a placement is set aside spelled the way it was played.
-  held.items.push(...picked.map((i) => events.items[i]));
-  // Descending, so removing one does not shift the address of the next.
-  for (const i of [...picked].reverse()) events.items.splice(i, 1);
-  // Absent items would print as a block seq of nothing; `events: []` is how an empty lane reads.
-  if (!events.items.length) doc.setIn(eventsPath, doc.createNode([]));
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
-}
-
-/** Swap take `n` (1-based) onto the lane, the placements at `keep` staying beside it — docs/laneEdits.md. */
-export function selectTake(text: string, n: number, keep?: number[]): string {
-  const doc = parseDocument(text, OPTS);
-  const takesPath = takesToEdit(doc);
-  const takes = doc.getIn(takesPath);
-  if (!isSeq(takes) || n < 1 || n > takes.items.length)
-    throw new Error(`no take ${n} on this lane`);
-  const playing = seqAt(doc, eventsToEdit(doc));
-  const held = seqAt(doc, [...takesPath, n - 1, "events"]);
-  if (!playing || !held) return text;
-  const staying = new Set(inRange(playing.items.length, keep ?? []));
-  const displaced = playing.items.filter((_, i) => !staying.has(i));
-  // What stays keeps its place in the file; the take's own placements land after it.
-  playing.items = [
-    ...playing.items.filter((_, i) => staying.has(i)),
-    ...held.items,
-  ];
-  held.items = displaced;
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
-}
-
-/** Remove take `n` (1-based). The events it held go with it — a take is where they live. */
-export function removeTake(text: string, n: number): string {
-  const doc = parseDocument(text, OPTS);
-  const takesPath = takesToEdit(doc);
-  const takes = doc.getIn(takesPath);
-  if (!isSeq(takes) || n < 1 || n > takes.items.length)
-    throw new Error(`no take ${n} on this lane`);
-  takes.items.splice(n - 1, 1);
-  // The last one leaves no empty list behind: absent is how a lane with no takes reads.
-  if (!takes.items.length) doc.deleteIn(takesPath);
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
-}
-
-/** Drop every take, keeping what the lane is playing — one act rather than a loop (docs/laneEdits.md). */
-export function removeAllTakes(text: string): string {
-  const doc = parseDocument(text, OPTS);
-  const path = takesPathFor(doc);
-  if (!isSeq(doc.getIn(path))) return text;
-  doc.deleteIn(path);
-  quoteTimecodes(doc);
-  return doc.toString(OUT);
-}
-
 /** The index of the placement starting at `start`, or -1 — read off the DOCUMENT, see docs/laneEdits.md. */
 export function findPlacement(text: string, start: string): number {
   const doc = parseDocument(text, OPTS);
@@ -398,15 +260,9 @@ export function everyEventList(
   const push = (path: (string | number)[]): void => {
     if (isSeq(doc.getIn(path))) out.push(path);
   };
-  const withTakes = (base: (string | number)[]): void => {
-    push([...base, "events"]);
-    const takes = doc.getIn([...base, "takes"]);
-    if (isSeq(takes))
-      takes.items.forEach((_, i) => push([...base, "takes", i, "events"]));
-  };
-  withTakes([]);
+  push(["events"]);
   const alts = doc.getIn(["alternatives"]);
-  if (isSeq(alts)) alts.items.forEach((_, i) => withTakes(["alternatives", i]));
+  if (isSeq(alts)) alts.items.forEach((_, i) => push(["alternatives", i, "events"]));
   return out;
 }
 

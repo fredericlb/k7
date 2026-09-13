@@ -76,6 +76,45 @@
       { name: track, complete: tracks },
       { name: position, hint: "1-based, counting lanes from the top" },
     ]
+# whisper listens to the video the picture lane places, and the transcript lands as the new lane's
+# `content:` — the text the graph's docs view reads. The SOURCE's own seconds, as SRT. The machine
+# needs a whisper CLI (`whisper` from openai-whisper, or `whisper-cli` from whisper.cpp with
+# STUDIO_WHISPER_MODEL naming a ggml model), and ffmpeg, which a machine that renders has.
+- command: "track transcribe"
+  sid: track.transcribe
+  readable:
+    en: "Transcribe a video lane with whisper"
+    fr: "Transcrire une piste vidéo avec whisper"
+  help: "whisper the video <track_in> places into <track_out>'s text (e.g. track transcribe cam lyrics)"
+  surfaces: [cli, timeline]
+  menu: [track]
+  args:
+    [
+      { name: track_in, complete: pictureLanes },
+      {
+        name: track_out,
+        hint: "the new lane carrying the transcript — its content: is replaced if it exists",
+      },
+    ]
+# Two ways to make one lane into two, both copying its chain; the difference is the events.
+- command: "track duplicate"
+  sid: track.duplicate
+  readable:
+    en: "Duplicate a track with its chain and events"
+    fr: "Dupliquer une piste avec sa chaîne et ses événements"
+  help: "duplicate a track: same chain and same events (e.g. track duplicate gtr)"
+  surfaces: [cli]
+  menu: [track]
+  args: [{ name: track, complete: tracks }]
+- command: "track duplicate empty"
+  sid: track.duplicate.empty
+  readable:
+    en: "Duplicate a track with its chain but no events"
+    fr: "Dupliquer une piste avec sa chaîne sans événements"
+  help: "duplicate a track with its chain, leaving the events empty (e.g. track duplicate empty gtr)"
+  surfaces: [cli]
+  menu: [track]
+  args: [{ name: track, complete: tracks }]
 - command: "sequence new"
   sid: sequence.new
   readable:
@@ -323,47 +362,6 @@
   args: [{ name: track, complete: tracks }]
 # A lane's alternatives and its freeze are addressed as a module's: `node alternative *` and
 # `node freeze`, since a lane IS a module. See packages/song/docs/trackModules.md.
-
-# --- takes ---
-# A TAKE is what a lane WAS playing, set aside — recording over an event, or round a loop, moves
-# the events that were there into one rather than throwing them away. Both verbs name the track,
-# as every other command here does; the timeline's menu on a take's header sends them filled in.
-# Takes belong to the alternative they were played in. See packages/song/docs/takes.md.
-- command: "track take select"
-  sid: track.take.select
-  readable:
-    en: "Move a take onto the track"
-    fr: "Déplacer vers la piste"
-  help: "move a take onto the track (e.g. track take select gtr 2) — what was playing becomes that take"
-  surfaces: [cli]
-  menu: [take]
-  args:
-    [
-      { name: track, complete: tracks },
-      { name: n, type: number, hint: "which take, counting from 1" },
-    ]
-- command: "track take keep"
-  sid: track.take.keep
-  readable:
-    en: "Keep this take, and delete the others"
-    fr: "Garder cette prise, supprimer les autres"
-  help: "keep what the track is playing and delete every take of it (e.g. track take keep gtr)"
-  surfaces: [cli]
-  menu: [track]
-  args: [{ name: track, complete: tracks }]
-- command: "track take delete"
-  sid: track.take.delete
-  readable:
-    en: "Delete a take"
-    fr: "Supprimer la prise"
-  help: "delete this take, and the events it held (e.g. track take delete gtr 2)"
-  surfaces: [cli]
-  menu: [take]
-  args:
-    [
-      { name: track, complete: tracks },
-      { name: n, type: number, hint: "which take, counting from 1" },
-    ]
 
 # The AUTOMATION of a track's sound, addressed from the LANE rather than from the module.
 #

@@ -22,7 +22,9 @@ import { instanceName } from "@studio/song-schema/instanceName";
 import {
   categoryForRole,
   FILE_PARAMS,
+  IO_MODULES,
   isFileParam,
+  isIoSource,
   MODULE_EMITS,
   MODULE_TYPES,
   moduleEmits,
@@ -1028,6 +1030,15 @@ export function createModuleFile(
     throw new Error(
       `unknown module category '${category}' — use one of: ${Object.keys(MODULE_TYPES).join(", ")}`,
     );
+  // io is not a free category: the role the loader READS is spelled by a name in the vocabulary.
+  if (category === "io") {
+    if (extendsRef)
+      throw new Error(`an io module extends nothing — '${module}' declares its io role itself`);
+    if (!IO_MODULES[module])
+      throw new Error(
+        `unknown io module '${module}' — the engine provides: ${Object.keys(IO_MODULES).join(", ")}`,
+      );
+  }
   if (!/^[A-Za-z0-9_-]+$/.test(module))
     throw new Error(
       `invalid module name '${module}' — letters, digits, '_' and '-' only`,
@@ -1049,12 +1060,78 @@ export function createModuleFile(
   if (existsSync(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
   mkdirSync(join(dir, "modules", category, module), { recursive: true });
-  const body = extendsRef // a flat mapping, no `name:` — the folder names it
-    ? `# ${module}: extends module "${extendsRef}".\n` +
-      `extends: ${JSON.stringify(extendsRef)}\n`
-    : `# ${module}: a bare module. Give it a plugin inline, or extend another module, e.g.\n` +
-      `#   extends: instruments/fourosc\n`;
+  const body =
+    category === "io"
+      ? ioModuleBody(module, IO_MODULES[module].io)
+      : extendsRef // a flat mapping, no `name:` — the folder names it
+        ? `# ${module}: extends module "${extendsRef}".\n` +
+          `extends: ${JSON.stringify(extendsRef)}\n`
+        : `# ${module}: a bare module. Give it a plugin inline, or extend another module, e.g.\n` +
+          `#   extends: instruments/fourosc\n`;
   writeFileSync(join(dir, rel), body, "utf8");
+  return rel;
+}
+
+/** What an io module's `module.yaml` SAYS — the role line is what the loader reads; the rest is prose for the reader (docs/moduleTypes.md). */
+function ioModuleBody(
+  module: string,
+  role: "in" | "out" | "file" | "camera",
+): string {
+  if (role === "in")
+    return (
+      `# ${module}: this machine's audio input, the live rig's IN.\n` +
+      `#\n` +
+      `# \`monitor: "on"\` is what makes it audible without arming anything, and it is QUOTED\n` +
+      `# because YAML 1.1 would otherwise read the word as \`true\`.\n` +
+      `io: in\n` +
+      `monitor: "on"\n` +
+      `# …and a trim in dB, applied at the interface ahead of everything: 0 is unity.\n` +
+      `gain: 0\n`
+    );
+  if (role === "camera")
+    return (
+      `# ${module}: a live picture — the one io source whose signal is video, not audio (docs/camera.md).\n` +
+      `#\n` +
+      `# It names NO lens: which camera you are on is a fact about your rig. Empty means whichever\n` +
+      `# one this machine calls default, so it draws a picture before you have chosen anything.\n` +
+      `# Pick it on the node's card, or write the LABEL here — never a deviceId, which is salted\n` +
+      `# per browser and rotates:\n` +
+      `#\n` +
+      `#     camera: "Logitech BRIO"\n` +
+      `io: camera\n`
+    );
+  if (role === "file")
+    return (
+      `# ${module}: audio off disk rather than off an interface (docs/fileInput.md).\n` +
+      `#\n` +
+      `# \`source\` is optional and absent is the useful case — pick the file on the node's\n` +
+      `# card, or name it here, project-relative:\n` +
+      `#\n` +
+      `#     source: "clips/original.wav"\n` +
+      `io: file\n`
+    );
+  return (
+    `# ${module}: an output sink — OUT the interface, CUE the headphone bus. A module\n` +
+    `# reaches it by naming it as a destination in the graph.\n` +
+    `io: out\n`
+  );
+}
+
+/** Create an io module — the ROLE is the vocabulary's, the NAME is the graph node's; the node IS this module, so there is no `nodes/` file (docs/moduleTypes.md). */
+export function createIoModuleFile(
+  dir: string,
+  name: string,
+  role: "in" | "out" | "file" | "camera",
+): string {
+  if (!/^[A-Za-z0-9_-]+$/.test(name))
+    throw new Error(
+      `invalid io module name '${name}' — letters, digits, '_' and '-' only`,
+    );
+  const rel = `modules/io/${name}/module.yaml`;
+  if (existsSync(join(dir, rel)))
+    throw new Error(`${rel} already exists — refusing to overwrite`);
+  mkdirSync(join(dir, "modules", "io", name), { recursive: true });
+  writeFileSync(join(dir, rel), ioModuleBody(name, role), "utf8");
   return rel;
 }
 
@@ -1090,6 +1167,23 @@ export function createNode(
     throw new Error(
       `invalid node name '${node}' — letters, digits, '_' and '-' only`,
     );
+  // io — the node IS the module: one bare name in graph.modules, and NO nodes/ file, since
+  // an io module is nothing but its role (docs/moduleTypes.md). `module` names the role
+  // (canonical: IN, CAM, FILE); `node` names the thing — so a second input is `node new io/IN IN2`.
+  if (category === "io") {
+    const role = IO_MODULES[module]?.io;
+    if (!role)
+      throw new Error(
+        `unknown io module '${module}' — the engine provides: ${Object.keys(IO_MODULES).join(", ")}`,
+      );
+    if (!isIoSource(role))
+      throw new Error(
+        `'${module}' is an OUTPUT — MIX, OUT, CUE, RENDER and VIDEO_OUT are built into every graph and take no node`,
+      );
+    if (node in loadModules(dir))
+      throw new Error(`the name '${node}' is already a module or node in this project`);
+    return createIoModuleFile(dir, node, role);
+  }
   const local = moduleFileFor(
     join(dir, "modules", category, module),
     `modules/${category}/${module}`,

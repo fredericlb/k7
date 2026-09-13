@@ -170,15 +170,6 @@ gives a `clips:` list whose entries are not clips, next to a `clips/` folder who
 surface says "event" in its prose (`event resize`, `event remove`, the timeline's own menus), and
 the file says it too.
 
-`takes:` are kept beside them: each is another list of placements this lane could be playing.
-Recording over what a lane holds does not throw it away — the events the pass LANDED ON move into
-a take, and the new recording joins `events:`. `track take select <n>` swaps them back, so the
-arrangement on the lane and the takes under it are the same kind of thing looked at from either
-side. A take is unnamed in the ordinary case, known by its number the way an alternative is; a name
-is there for the day one is worth keeping by name. Both `events:` and `takes:` are in `MODULE_FIELDS`,
-which is what gives an ALTERNATIVE its own takes: two sets of settings are two ways of playing the
-part, and a take of one is not a take of the other (`packages/song/docs/takes.md`).
-
 `disabled:` excludes the lane from the render entirely, chains and all — distinct from bypassing it,
 which silences the lane while leaving it in the project's shape.
 

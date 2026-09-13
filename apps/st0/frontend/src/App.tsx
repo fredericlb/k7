@@ -15,6 +15,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@frediverse/ui/dropdown-menu";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { EngineUrl } from "@studio/engine-browser";
@@ -49,12 +56,15 @@ import {
   formatLatency,
 } from "@studio/web-protocol/quality";
 import {
+  Check,
+  ChevronDown,
   Circle,
   Headphones,
   ListMusic,
   Loader2,
   Lock,
   MessageSquare,
+  Music2,
   Pause,
   Play,
   Settings,
@@ -194,7 +204,13 @@ import {
   rollCondition,
 } from "./rollMode";
 import { type Pane, type Panel, viewPanes } from "./routes";
-import { pictureRowId, type RowKey, type RowTarget } from "./rows";
+import {
+  pictureRowId,
+  placedBeat,
+  trackPlacing,
+  type RowKey,
+  type RowTarget,
+} from "./rows";
 import { sceneOf } from "./scene";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
@@ -205,12 +221,6 @@ import {
   PANES,
   TransportClock,
 } from "./shellMeta";
-import {
-  placedBeat,
-  type TakeOption,
-  takeOptions,
-  trackPlacing,
-} from "./takeReview";
 import { modeCondition, type TimelineMode } from "./timelineMode";
 import { isTool, TOOLS, type Tool } from "./timelineTools";
 import type {
@@ -408,6 +418,8 @@ export default function App({
   );
   // MIDI recording is browser-side (the engine records audio only), one track at a time, landing in its sequence.
   const [midiArmed, setMidiArmed] = useState<string | null>(null);
+  // …and the MIDI record enable — the BROWSER's own record, beside the engine's audio record.
+  const [midiRecord, setMidiRecord] = useState(false);
   /** …and the PICTURE lane armed, which records its camera in the browser (hooks/useVideoRecording.ts). */
   const [videoArmed, setVideoArmed] = useState<string | null>(null);
   const [tlView, setTlView] = useState<{
@@ -1100,16 +1112,18 @@ export default function App({
     );
   }, [frozen, trackControls, docTracks, setLaneGains]);
 
-  // Web MIDI capture, driven by record+play+midiArmed.
-  useMidiRecording({
-    store,
-    tempo: recInfo.tempo,
-    recordEnabled,
-    playing,
-    midiArmed,
-    midiSeqRef,
-    quietCommand,
-  });
+  // Web MIDI capture, driven by the MIDI record + play + a MIDI-armed track; it also holds
+  // the device picker's data, which the transport's dropdown beside the MIDI record reads.
+  const { midiInputs, midiInputId, selectMidiInput, openMidiInputs } =
+    useMidiRecording({
+      store,
+      tempo: recInfo.tempo,
+      midiRecordEnabled: midiRecord,
+      playing,
+      midiArmed,
+      midiSeqRef,
+      quietCommand,
+    });
 
   // Background polls: the git badge, the strudel lanes, the project errors, the waveform prewarm.
   const { gitStatus, refreshGitStatus } = useGitStatus();
@@ -2251,8 +2265,13 @@ export default function App({
         return;
       }
       /** TWO lines, and the split is the vocabulary's: a module made or noded, then that node WIRED — see `chainRefFromCreate`. */
-      pendingWire.current = { at: info, spawn: at ?? null };
-      pendingInsert.current = info; // the ghost on the arrow, while the commands run
+      // An io SOURCE has no input port to receive the arrow's signal, so it is PLACED, never
+      // spliced: born wired to nothing, and the person draws its cable from there.
+      const placed = pick.type === "io";
+      pendingWire.current = placed
+        ? { at: null, spawn: at ?? null }
+        : { at: info, spawn: at ?? null };
+      pendingInsert.current = placed ? null : info; // the ghost on the arrow, while the commands run
       const ref = pick.namespace === null ? undefined : pick.ref;
       // A catalogue pick has no local folder, so its `module new` runs ahead of the line below.
       pendingModule.current = ensureModuleCommand(pick.type, pick.name, ref);
@@ -2415,28 +2434,6 @@ export default function App({
       ? ws.lastTake
       : null);
 
-  /** The takes the reviewed lane holds — recomputed off the project doc, so it follows every swap. */
-  const reviewTakes = useMemo(
-    () => takeOptions(projectDoc, reviewTake?.track ?? ""),
-    [projectDoc, reviewTake?.track],
-  );
-  /** Listen to another take: it goes ON the track — a swap rather than a preview, one Ctrl+Z away (packages/song/docs/takes.md). */
-  const pickTake = useCallback(
-    async (t: TakeOption) => {
-      const track = reviewTake?.track;
-      if (!track || t.n === null) return;
-      await runCommand(`track take select ${track} ${t.n}`);
-      if (t.clip) setReviewOn({ clip: t.clip, track });
-      seek((t.startBeat * 60) / recInfo.tempo);
-    },
-    [reviewTake?.track, runCommand, seek, recInfo.tempo],
-  );
-  // …and the decision: keep whatever is on the track, delete the rest.
-  const keepTake = useCallback(() => {
-    const track = reviewTake?.track;
-    if (track) void runCommand(`track take keep ${track}`);
-  }, [reviewTake?.track, runCommand]);
-
   // Everything that makes the transport unable to answer, as one flag: to whoever is reaching for Play the two causes are one fact.
   const transportWaiting = engineBusy || waitingForEngine;
 
@@ -2569,6 +2566,57 @@ export default function App({
 
   const headerActions = (
     <div className="flex min-w-0 items-center gap-1">
+      {/* The MIDI-input picker, LEFT of the meter and there whatever the pane: it chooses what the
+          MIDI record captures (hooks/useMidiRecording.ts) — one device, or every one the browser exposes. */}
+      {!isMobile && !snapshot && !noArrangement && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void openMidiInputs()}
+              title={m["transport.midiDevice"]()}
+              aria-label={m["transport.midiDevice"]()}
+              className="gap-1 px-2 font-normal"
+            >
+              {/* The control is named in the open, like the panes' tooltips — the arrow beside it, not instead of it. */}
+              <span className="text-muted-foreground">
+                {m["transport.midiDeviceLabel"]()}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-w-64">
+            <DropdownMenuLabel>{m["transport.midiDevice"]()}</DropdownMenuLabel>
+            {midiInputs.length === 0 ? (
+              <DropdownMenuLabel className="font-normal">
+                {m["transport.midiNone"]()}
+              </DropdownMenuLabel>
+            ) : (
+              <>
+                <DropdownMenuItem onSelect={() => selectMidiInput(null)}>
+                  <Check
+                    className={`h-4 w-4 ${midiInputId === null ? "" : "opacity-0"}`}
+                  />
+                  {m["transport.midiAll"]()}
+                </DropdownMenuItem>
+                {midiInputs.map((d) => (
+                  <DropdownMenuItem
+                    key={d.id}
+                    onSelect={() => selectMidiInput(d.id)}
+                    title={d.name}
+                  >
+                    <Check
+                      className={`h-4 w-4 ${midiInputId === d.id ? "" : "opacity-0"}`}
+                    />
+                    <span className="truncate">{d.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
       {/* The mix leaving for the interface, at the right end of the bar; no phone fits it and a snapshot has no engine. */}
       {!isMobile && !snapshot && (
         <>
@@ -2774,6 +2822,33 @@ export default function App({
                       <Circle
                         className={`h-4 w-4 ${recordEnabled ? "fill-red-500 text-red-500" : ""}`}
                       />
+                    </Button>
+                    {/* The SECOND record, the BROWSER's: notes land in the armed track's sequence
+                        (hooks/useMidiRecording.ts). The note marks it MIDI; WHICH input it captures
+                        is picked by the header control standing left of the output meter. */}
+                    <Button
+                      size={toolSize}
+                      variant={midiRecord ? "default" : "secondary"}
+                      aria-pressed={midiRecord}
+                      onClick={(e) => {
+                        if (!midiRecord)
+                          void openMidiInputs().then((ok) => {
+                            // The press is the gesture the request rides; failing it is said here.
+                            if (!ok) setStatus(m["transport.midiNone"]());
+                          });
+                        setMidiRecord(!midiRecord);
+                        blurOnClick(e);
+                      }}
+                      title={m["transport.recordMidi"]()}
+                      aria-label={m["transport.recordMidi"]()}
+                    >
+                      {/* The record's circle with a note tucked at its bottom right — one glyph, two records. */}
+                      <span className="relative inline-flex h-4 w-4">
+                        <Circle
+                          className={`h-4 w-4 ${midiRecord ? "fill-red-500 text-red-500" : ""}`}
+                        />
+                        <Music2 className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5" />
+                      </span>
                     </Button>
                   </>
                 )}
@@ -3069,11 +3144,11 @@ export default function App({
                       onReorder={
                         frozen
                           ? undefined
-                          : (family, lane, takes) =>
+                          : (family, lane, target) =>
                               void runCommand(
                                 family === "video"
-                                  ? `picture lane order ${lane} ${takes}`
-                                  : `track order ${lane} ${takes}`,
+                                  ? `picture lane order ${lane} ${target}`
+                                  : `track order ${lane} ${target}`,
                               )
                       }
                       trackControls={trackControls}
@@ -3409,7 +3484,7 @@ export default function App({
                       beatsPerBar={recInfo.beatsPerBar}
                       countIn={recInfo.countIn}
                       startBeat={takeStart}
-                      // Where the clip on screen actually SITS on its lane, asked of the document: a take from the sidebar sits where it was recorded.
+                      // Where the clip on screen actually SITS on its lane, asked of the document.
                       placedAt={
                         (reviewTake &&
                           placedBeat(
@@ -3419,10 +3494,6 @@ export default function App({
                           )) ??
                         takeStart
                       }
-                      takes={reviewTakes}
-                      onPickTake={pickTake}
-                      onKeepTake={keepTake}
-                      onPlay={() => void runCommand("transport toggle")}
                       onSeek={seek}
                       trackOrder={trackOrder}
                       trackNames={recInfo.names}

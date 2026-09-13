@@ -282,7 +282,7 @@ modules:
 ## ALTERNATIVES — a module's other sets of settings
 
 A module can hold several sets of attributes and run one of them. A clean amp and a crunchy one,
-the mix you had yesterday and the one you are trying, two takes of a lane's arrangement — they
+the mix you had yesterday and the one you are trying, two arrangements of a lane's clips — they
 live side by side in the same file, and switching between them is one line.
 
 **The module's own fields are the first set.** The others go under `alternatives:`, and
@@ -309,10 +309,10 @@ beside the track icon carries the name of the set that is playing, amber while i
 own. Click it and you get that lane's menu — switch to another set, or start one. It appears only on
 a lane that has a choice, so a lane with a single set carries no badge at all.
 
-A lane's sets are its **takes**, and they behave the way takes should. A new one starts **empty**
-(`events: []`), not holding the previous take's placements. Editing clips while a take is on changes
-**that take** — the first edit copies in whatever it was playing, so the take you came from keeps
-what it had. A lane's colour and its `disabled` flag stay the lane's, shared by every take.
+A new set starts **empty** (`events: []`), not holding the previous set's placements. Editing
+clips while a set is on changes **that set** — the first edit copies in whatever it was playing, so
+the set you came from keeps what it had. A lane's colour and its `disabled` flag stay the lane's,
+shared by every set.
 
 This is not a **preset**. A preset (`presets.yaml`) is a starting point you stamp into the
 module's params — numeric, shared by every use, and gone as a thing once applied. An alternative

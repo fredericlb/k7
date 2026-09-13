@@ -126,26 +126,6 @@ export function Minimap({
           >
             <div className="absolute inset-x-0 top-1/2 h-px bg-[#a889b5]/60" />
           </div>
-        ) : row.kind === "take" ? (
-          // A take, as pale marks: it is not playing, and drawing the LANE's clips again would read as material that is there twice.
-          <div
-            key={`take:${row.track.id}:${row.n}`}
-            title={`${row.track.name} — take ${row.n}`}
-            className="absolute inset-x-0"
-            style={{ top: ri * rowH, height: rowH }}
-          >
-            {row.take.clips.map((c, i) => (
-              <div
-                key={`${c.id}-${i}`}
-                className={`absolute rounded-[1px] bg-muted-foreground/40 ${rowH >= 4 ? "bottom-px top-px" : "inset-y-0"}`}
-                style={{
-                  left: pct(c.start),
-                  width: `${((c.length > 0 ? c.length : NATURAL) / totalBeats) * 100}%`,
-                  minWidth: 2,
-                }}
-              />
-            ))}
-          </div>
         ) : row.track.generated ? (
           // A generated lane is hatched like the timeline's: its look-ahead clips would flicker as playback runs.
           <div

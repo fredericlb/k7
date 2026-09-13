@@ -7,7 +7,6 @@ import { existsSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
 import { editTrackStruct } from "@studio/song-edit/trackMix";
-import { pushTrackClipsToTake, splitUnder } from "@studio/song-edit/trackTakes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { addPlacement } from "@studio/song-schema/yaml/trackFile";
 
@@ -46,18 +45,6 @@ function writeClipDecl(
   return path;
 }
 
-/** Where the clips this take records OVER start, in beats — what the new take holds; docs/rendering.md. */
-function displaced(
-  doc: ProjectDoc,
-  take: RecordedTake,
-  beats: (s: number) => number,
-): number[] {
-  const track = doc.tracks.find((t) => t.id === take.track);
-  if (!track) return [];
-  const span = { start: beats(take.start), length: beats(take.length) };
-  return splitUnder(track.clips, [span]).under;
-}
-
 /** Declare a finished take and place it on its track; throws if its file is not where it says. */
 export function addTakeToTrack(
   dir: string,
@@ -83,18 +70,10 @@ export function addTakeToTrack(
   const dest = join(dirname(take.file), wavName);
   if (dest !== take.file) renameSync(take.file, dest);
 
+  // Declare the clip BEFORE placing it: a placement naming no clip fails the compile.
   writeClipDecl(dir, id, wavName, window);
 
-  // Recording OVER something sets THAT aside rather than stacking — see docs/rendering.md.
-  const under = displaced(doc, take, beats);
-  if (under.length)
-    pushTrackClipsToTake(dir, take.track, undefined, {
-      beats: under,
-      num: doc.timeSigNumerator,
-      den: doc.timeSigDenominator,
-    });
-
-  // Declare the clip BEFORE placing it: a placement naming no clip fails the compile, so the order keeps it loadable.
+  // The engine mutes the armed track for the roll, so here is only the placement (docs/rendering.md).
   editTrackStruct(
     dir,
     take.track,

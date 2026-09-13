@@ -34,40 +34,6 @@ forking copies it in order, so it still points at the same placement.
 `TrackFields` is `color` and `disabled`, which describe the lane rather than the take. A set may
 still override either by hand; nothing here writes one there.
 
-## Takes
-
-A take is the same thing `events:` is — a list of placements — put aside. So all three writers are
-moves between two seqs, never a rebuild: a placement carries its own comments and its own spelling,
-and it should read the same after being set aside as it did before
-(`packages/song/docs/takes.md`). `takesToEdit` follows `eventsToEdit`'s rule, so an alternative's
-takes are its own.
-
-`pushEventsToTake` is what recording over an event does before the new one is placed. The events are
-MOVED — the same nodes, appended to `takes:` — so a take reads exactly like the arrangement it was.
-A lane holding nothing makes no take: an empty one would be a row that says nothing.
-
-`selectTake` is one exchange, both ways at once: the lane's arrangement becomes take `n` and take `n`
-becomes the arrangement, which is what makes it reversible by running it again — nothing is lost by
-looking at another take. An `n` nothing answers to throws rather than writing, so a stale menu cannot
-empty a lane.
-
-Both take a list of INDICES into what the lane is playing — the placements to set aside, and the
-ones to leave alone — because a take holds what a pass DISPLACED and not the whole lane. Neither
-decides that list: overlap needs how long a placement sounds, which is its material's window times
-`loop`, and nothing in this file may open a material. The caller reads it off the compiled document
-(`packages/song/docs/takes.md`). Absent, `pushEventsToTake` moves everything and `selectTake` keeps
-nothing, which is the whole-lane exchange both did before.
-
-An index out of range is dropped rather than refused: the list is a reading of a document compiled a
-moment ago, and a stale entry should cost that one placement, not the edit. `pushEventsToTake`
-answers the text unchanged when every index was stale — the same answer it gives for an empty lane,
-and it means the same thing.
-
-`removeTake` takes the events it held with it, a take being where they live, and the last one leaves
-no empty list behind: absent is how a lane with no takes reads. `removeAllTakes` is deliberately one
-act rather than a loop of `removeTake` at the call site — "keep this one" is a decision about the
-whole list, and half of it applied is a state nobody asked for.
-
 ## Plain values, not document nodes
 
 `placementAt` returns `toJSON()` and not the document node, and the difference is not cosmetic: its

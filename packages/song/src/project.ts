@@ -105,15 +105,6 @@ export function withGroupMix(doc: ProjectDoc): ProjectDoc {
   };
 }
 
-/** Drop every lane's takes on the way to the engine — where the two readers part, see docs/takes.md. */
-export function withoutTakes(doc: ProjectDoc): ProjectDoc {
-  if (!doc.tracks.some((t) => t.takes?.length)) return doc;
-  return {
-    ...doc,
-    tracks: doc.tracks.map(({ takes, ...t }) => t),
-  };
-}
-
 // A ProjectDoc carries no picture: that is its own document (packages/song-video/docs/picture.md).
 
 // Read a single-file source into the { project, tracks } shape — folder projects never reach here.

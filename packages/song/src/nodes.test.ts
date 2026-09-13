@@ -1,11 +1,9 @@
 import {
   cpSync,
+  existsSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
   rmSync,
-  unlinkSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -221,6 +219,60 @@ describe("module nodes", () => {
     // The bare name is the NODE's, and the module is where it always was: behind its ref.
     expect(mods.synth?.node).toBe("synth");
     expect(loadModuleRefs(dir, {})["@project/instruments/synth"]).toBeTruthy();
+  });
+
+  // --- io: the node IS the module (docs/moduleTypes.md) -------------
+  it("makes an io node the module itself — no nodes/ file, a bare name in the graph", () => {
+    const rel = createNode(dir, "io", "IN", "IN");
+    expect(rel).toBe("modules/io/IN/module.yaml");
+    expect(existsSync(join(dir, "nodes", "IN.yaml"))).toBe(false);
+    // The role is what the loader reads, and what makes the graph treat it as a SOURCE.
+    const body = readFileSync(join(dir, rel), "utf8");
+    expect(body).toMatch(/^io: in$/m);
+    expect(loadModules(dir).IN).toMatchObject({ io: "in", kind: "io" });
+  });
+
+  it("scaffolds each source with its own role, and a second input keeps the first", () => {
+    createNode(dir, "io", "IN", "IN");
+    // A second input is another io module with the same role, under its own name.
+    expect(createNode(dir, "io", "IN", "IN2")).toMatch(
+      /modules\/io\/IN2\/module\.yaml/,
+    );
+    expect(
+      readFileSync(join(dir, "modules/io/IN2/module.yaml"), "utf8"),
+    ).toMatch(/^io: in$/m);
+    expect(createNode(dir, "io", "CAM", "CAM2")).toMatch(
+      /modules\/io\/CAM2\/module\.yaml/,
+    );
+    expect(
+      readFileSync(join(dir, "modules/io/CAM2/module.yaml"), "utf8"),
+    ).toMatch(/^io: camera$/m);
+    expect(createNode(dir, "io", "FILE", "tape")).toMatch(
+      /modules\/io\/tape\/module\.yaml/,
+    );
+    expect(
+      readFileSync(join(dir, "modules/io/tape/module.yaml"), "utf8"),
+    ).toMatch(/^io: file$/m);
+    // …and the first input is untouched by any of it.
+    expect(loadModules(dir).IN).toMatchObject({ io: "in" });
+  });
+
+  it("refuses an output, an unknown io name, and a name the project already holds", () => {
+    // The sinks are built into every graph — MIX, OUT, CUE, RENDER, VIDEO_OUT — and take no node.
+    expect(() => createNode(dir, "io", "OUT", "OUT")).toThrow(/is an OUTPUT/);
+    expect(() => createNode(dir, "io", "CUE", "CUE")).toThrow(/is an OUTPUT/);
+    expect(() => createNode(dir, "io", "NOPE", "x")).toThrow(
+      /unknown io module/,
+    );
+    // A name a module or node already holds is spoken for, in either namespace.
+    expect(() => createNode(dir, "io", "IN", "synth")).toThrow(
+      /already a module or node/,
+    );
+    createNode(dir, "io", "IN", "IN");
+    // …and so is one this very verb just made: the module IS the node, so it is spoken for at once.
+    expect(() => createNode(dir, "io", "IN", "IN")).toThrow(
+      /already a module or node/,
+    );
   });
 
   // --- a node is an ordinary extender -------------------------------

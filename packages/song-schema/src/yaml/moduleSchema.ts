@@ -198,15 +198,6 @@ export const AutomationSchema = z
   })
   .strict();
 
-/** One TAKE: another list of placements this lane could be playing. See docs/takes.md. */
-export const TakeSchema = z
-  .object({
-    // Unnamed is the ordinary case — a take is known by its number, the way an alternative is.
-    name: z.string().min(1).optional(),
-    events: z.array(PlacementSchema),
-  })
-  .strict();
-
 /** Everything a module says about ITSELF, spread into both schemas below so an alternative gets it too — docs/moduleFile.md. */
 const MODULE_FIELDS = {
   // Deliberately open — a plugin's shape is the ENGINE's business, matched as strings against its scan cache.
@@ -275,8 +266,6 @@ const MODULE_FIELDS = {
 
   // The placements on this lane: what plays, where, and how many times — `events:`, not `clips:` (docs/moduleFile.md).
   events: z.array(PlacementSchema).optional(),
-  // The TAKES kept beside them, each another list of placements this lane could play — see docs/takes.md.
-  takes: z.array(TakeSchema).optional(),
   // The lane's colour, and its icon's in the timeline.
   color: z.string().optional(),
   // Excluded from the render entirely, chains and all — distinct from bypassing it (docs/moduleFile.md).

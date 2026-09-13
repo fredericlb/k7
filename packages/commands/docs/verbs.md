@@ -128,14 +128,36 @@ a lane too — one that carries no signal — and both are silenced the same way
 `graph.yaml`'s `bypassed:`. Solo is not a set of mutes but project state (`soloed:` in
 `project.yaml`). The doc is mutated and pushed rather than reloaded, so a mixer move stays snappy.
 
+## `track duplicate` copies the chain, never shares it
+
+A duplicated lane gets its own effect nodes for the run it owns, so editing one lane's effect never
+touches the other's. The two commands differ only in events: `track duplicate` copies the lane's
+playing placements, `track duplicate empty` writes `events: []`. A node with more than one feeder is
+a meeting point and stays shared — it is a bus, not part of one lane's chain.
+
+## `track transcribe` — whisper writes the lane's text
+
+`track transcribe <track_in> <track_out>` listens to the video the PICTURE lane `<track_in>` places
+and writes what is said as `<track_out>`'s **`content:`** — the field a lane's note is read from
+(`packages/song/docs/docModules.md`), so the transcript is on the graph rather than in a panel
+nobody opens. The text is **valid SRT, timed in the SOURCE video's own seconds**, because that is
+the only clock the recording has: a lane cutting between sources would need the segments re-timed
+onto the timeline to mean anything, which is a decision for the day somebody asks for it. The first
+shot decides what is listened to.
+
+The machine needs a whisper CLI — `whisper` (openai-whisper) or `whisper-cli` (whisper.cpp, which
+additionally wants `STUDIO_WHISPER_MODEL` to name a ggml model) — and ffmpeg for the audio, which a
+machine that renders has. A missing binary is said as the install it wants; one that RAN and failed
+is quoted as it failed, because retrying with the other dialect would double a model download
+nobody asked for. `<track_out>` is created when new and its `content:` REPLACED when not — a rerun
+after a failed take updates rather than refuses — and every line is written only after whisper has
+answered, so a refused transcription costs no track.
+
 ## `node alternative` reads the FILE
 
 The names are read off the module's own file rather than off the compiled doc: an alternative may
 change any field, so the doc carries the chosen one collapsed in and has nothing left to say about
 the others. See `packages/song/docs/alternatives.md`.
-
-The take verbs read the file for a related reason: the count comes off the file rather than off
-the compiled project, so a take can still be deleted on a lane the compiler is currently refusing.
 
 ## `module new` writes a module and stops
 
@@ -333,12 +355,6 @@ default.
 
 Soloing a MUTED lane lifts its mute: asking to hear a lane is one act. The doc is mutated and
 pushed rather than reloaded, so the mixer stays snappy, with the same fold the compiler applies.
-
-## `track take keep`
-
-Named for the decision rather than for what it removes: you have listened round the takes (each
-listen is a `select`, which leaves the one you liked ON the track), and this is the button that
-says that one. Nothing names a take, because the choice was already made by whichever is playing.
 
 ## A lane's level, its alternatives and its freeze are `node` verbs
 
@@ -569,6 +585,13 @@ graph, and `modules: { x: [] }` is what says so. Unnamed, it gets `<module>_<n>`
 — a node born here is wired to nothing, so there is no run for it to be named after yet. The `+` on
 an arrow DOES know one and spells the name out (the frontend's `nodeInsert.ts`); this is the bare
 form, for a line somebody typed.
+
+**io is the one category where the node IS the module.** `node new io/IN <name> [x,y]` writes
+`modules/io/<name>/module.yaml` — no `nodes/` file, the graph naming the module bare — with the role
+the canonical arg spells: `IN` the interface input, `CAM` the camera, `FILE` the file source. A
+second input is `node new io/IN IN2`: the NAME is the node's, the ROLE the arg's. OUT and CUE are
+refused — MIX, OUT, CUE, RENDER and VIDEO_OUT are built into every graph and take no node — and so
+is any name outside the vocabulary, `module new io/…` held to the same rule.
 
 **Where it lands is answered here too, never left to the layout.** With the trailing `x,y` — the
 click, which the graph's create flows carry through unclamped — it is pinned there. Without one it

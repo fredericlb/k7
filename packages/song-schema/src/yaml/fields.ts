@@ -24,7 +24,6 @@ import {
   ModuleSchema,
   RackSchema,
   RackSoundSchema,
-  TakeSchema,
   UISchema,
   WAVEFORM_SOURCES,
   WIDGET_TYPES,
@@ -157,11 +156,6 @@ function moduleFields(path: string[]): string[] {
   const [head, ...rest] = path;
   // A lane's placements: `events:` is a module field, so no track vocabulary of its own (docs/fields.md).
   if (head === "events") return keys(PlacementSchema);
-  // A lane's TAKES are a list of lists, so the offer depends on how deep the path is.
-  if (head === "takes") {
-    if (!rest.length) return [];
-    return rest.includes("events") ? keys(PlacementSchema) : keys(TakeSchema);
-  }
   // One of the module's other attribute SETS: the same fields it has itself, plus a name (docs/alternatives.md).
   if (head === "alternatives")
     return rest.length ? keys(AlternativeSchema) : [];

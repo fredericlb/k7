@@ -32,9 +32,9 @@ is exactly what ×2 means when nothing repeats.
 
 ## Every list, and the default is written by not writing it
 
-The walk is `everyEventList` — the lane's own events, every TAKE's, and every ALTERNATIVE's — for
-the reason `spliceTime` uses it: a placement in a take is a placement, and one missed there is a
-lane that plays differently the day it is selected.
+The walk is `everyEventList` — the lane's own events and every ALTERNATIVE's — for the reason
+`spliceTime` uses it: a placement in an alternative is a placement, and one missed there is a lane
+that plays differently the day it is selected.
 
 Halving 2 to 1 **deletes the key** rather than writing `loop: 1`. One pass is the default, and
 every writer in this codebase deletes rather than writes a default, so a file that never mentioned

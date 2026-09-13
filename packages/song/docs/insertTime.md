@@ -15,8 +15,7 @@ column is a field that silently drifts out of step with the rest of the song.
 | moves | where | unit |
 |---|---|---|
 | a lane's events | `nodes/<id>.yaml` `events[].start` | timecode |
-| …its takes | `takes[].events[].start` | timecode |
-| …and every alternative's own two lists | `alternatives[].events`, `alternatives[].takes` | timecode |
+| …and every alternative's own events | `alternatives[].events[].start` | timecode |
 | markers | `project.yaml` `markers` **keys** | timecode |
 | a drawn curve's points | `curves/<id>.yaml` `points[].time` | timecode |
 | picture | `video_tracks/<id>.yaml` `events[].start` | **seconds** |
@@ -34,17 +33,15 @@ An **LFO survives untouched**, and that is right — it is periodic, not placed.
 its phase relative to everything after the cut. That is a fact about music rather than a bug, and
 there is nothing to write.
 
-## Takes and alternatives need their own writer
+## Alternatives need their own writer
 
 Every placement writer in the repo goes through `eventsToEdit`, which answers "where does an edit
-to what is PLAYING go" — the selected alternative's list, and nothing else. It addresses
-`takes[n].events[i].start` not at all.
+to what is PLAYING go" — the selected alternative's list, and nothing else.
 
 That is correct for an edit and wrong for this. Inserting time is not a change to the arrangement,
-it is a change to the song's **clock**: a take you bring back next month, or an alternative you
-switch to, has to still line up with the markers. So `spliceTime` walks `everyEventList` — the
-playing events, every take of them, and every alternative's own events and takes — rather than
-asking where one edit belongs.
+it is a change to the song's **clock**: an alternative you switch to has to still line up with the
+markers. So `spliceTime` walks `everyEventList` — the playing events and every alternative's own
+events — rather than asking where one edit belongs.
 
 ## A straddling event is decided by its START
 

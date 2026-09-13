@@ -348,24 +348,6 @@ generated lane has no file and no chain of its own, so it names its **group**.
 A header selection survives playback, as every caret position does — see "The caret and the
 playhead are independent" above.
 
-## A lane's takes
-
-A lane's **takes** — what it was playing before something was recorded over it — are rows of
-their own, indented under the lane, short as a group header and drawn faintly. `projectRows`
-emits them right after their lane, so a take of a grouped lane nests at both levels.
-
-They are **read-only**, and that is the whole rule for this row. Nothing on it is playing, so
-there is no level to draw, no arm to toggle and nothing a drag could mean. Two things follow:
-
-- `rowTarget` answers **null** for a take. Everything downstream of it asks the engine
-  something, and answering with the lane would mute the LANE from a take's own header.
-- the one gesture is the right-click menu — **Move a take onto the track** and **Delete a
-  take** — which is a pair of ordinary commands, so it is typeable like everything else.
-
-Its events are drawn where they SIT, at the lane's own scale and with the same widths, because
-the reason to keep a take is to compare it with what replaced it. See
-`packages/song/docs/takes.md`.
-
 ## A lane's alternatives
 
 A lane can hold several sets of attributes and play one, and its gutter says **which**:
@@ -547,10 +529,8 @@ brightness, no more. It answers "where else does this play" while the eye is on 
 picked, so anything louder would compete with the thing being pointed at. Selecting here is the
 caret: parking on a block is what selects it, so a click already does it.
 
-Three things are deliberately NOT counted, and the exclusions are the judgement:
+Two things are deliberately NOT counted, and the exclusions are the judgement:
 
-- **Takes.** A take holds what its lane was playing, which is the same material by construction.
-  Counting them would ghost every event on every lane that has ever been recorded over.
 - **Generated lanes.** Their clips are the scheduler's look-ahead rather than placements anybody
   wrote — a pattern streaming one bar sixteen times would ghost the real placement above it.
 - **Video lanes.** A material space of their own, with their own renderer.
@@ -799,8 +779,8 @@ Three rows are deliberately not draggable and not droppable:
 - **across the two families**. A song's lanes and its picture's are two lists in two files, so a
   drop from one onto the other resolves to nothing rather than to a guess.
 
-A take's row and an automation row DO answer, with the lane they belong to: they are drawn as part
-of it, and a drop that landed on one plainly meant it.
+An automation row DOES answer, with the lane it belongs to: it is drawn as part of it, and a drop
+that landed on it plainly meant it.
 
 **Groups are the honest limit.** The order written is the compiled list's; the view re-clusters it
 by group afterwards. So dragging within a group does what it looks like, and dragging a lane into

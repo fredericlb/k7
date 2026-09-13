@@ -23,7 +23,6 @@ const ENTITY_LABEL: Record<MenuEntity, () => string> = {
   node: () => m["menuEntity.node"](),
   event: () => m["menuEntity.event"](),
   param: () => m["menuEntity.param"](),
-  take: () => m["menuEntity.take"](),
   curve: () => m["menuEntity.curve"](),
   ruler: () => m["menuEntity.ruler"](),
   marker: () => m["menuEntity.marker"](),

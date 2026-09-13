@@ -330,15 +330,8 @@ export interface WebTrack {
   solo: boolean;
   disabled?: boolean; // true ⇒ track is ignored (filtered by the brain); absent when false
   clips: WebClip[];
-  // The lane's TAKES, drawn as indented rows and silent until one is selected — packages/song/docs/takes.md.
-  takes?: WebTake[];
   plugins: WebPlugin[];
   // `docs`/`todos`, `frozen`, `alternatives` and `alternative` all left this type — see docs/document.md.
-}
-// A TAKE (mirrors TakeDoc): an arrangement the lane WAS playing, compiled exactly as its own clips are.
-export interface WebTake {
-  name?: string;
-  clips: WebClip[];
 }
 // A group track (mirrors GroupDoc): clipless, drawn as a header with its member tracks indented under it.
 export interface WebGroup {
@@ -493,7 +486,6 @@ export const MENU_ENTITIES = [
   // A PLACEMENT on a lane, plus the rectangle a drag left around it.
   "event",
   "param",
-  "take",
   "curve",
   // The timeline RULER, where nothing is yet — what a click there could put one.
   "ruler",

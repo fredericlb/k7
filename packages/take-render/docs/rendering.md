@@ -53,17 +53,12 @@ The engine writes a temporary name and the brain owns the final one,
 `{trackId}_{bar.beat}_{stamp}`. Colons never leave `addTakeToTrack` (they are not
 filesystem-safe), and the clip id IS the basename, so the rename covers both.
 
-Recording OVER something sets it aside rather than stacking on top of it
-(`packages/song/docs/takes.md`). The overlap is read off the COMPILED document, so what counts is
-what the lane actually plays — windows and loops folded in — and the caller recompiles between
-takes, which is what makes a loop record one take per pass: pass 2 finds pass 1's clip and puts
-it away in its turn.
-
-`displaced` names the clips the pass landed on, by their start in beats, and the take holds THOSE
-and nothing else. The rest of the lane plays on beside the new clip: a pass at bars 3–7 says
-nothing about bar 9, and setting the whole lane aside made every take a copy of the arrangement
-with one bar different. It is one call to `splitUnder`, which `track take select` uses from the
-other side to decide what stays.
+Recording over something silences what it covers, and the engine owns that silence: once the
+punch-in arrives — after the count-in, so the old material stays audible while it clicks — it
+mutes the armed track, so the already-recorded clips go silent under the pass. The mute is
+session state — it dies with the roll and never reaches a file — so this writer only places the
+new clip and does no overlap arithmetic; a stop restores the track's mute and the old material
+returns beside the take.
 
 The clip is declared BEFORE it is placed: a placement naming no clip fails the compile, so the
 order keeps the project loadable at every instant. `addTakeToTrack` throws when the take's file is

@@ -416,15 +416,6 @@ export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
     mute: t.mute,
     solo: t.solo,
     clips: t.clips.map((c) => toWebClip(c, natural)),
-    // The takes, through the same mapping — packages/song/docs/takes.md.
-    ...(t.takes?.length
-      ? {
-          takes: t.takes.map((k) => ({
-            ...(k.name ? { name: k.name } : {}),
-            clips: k.clips.map((c) => toWebClip(c, natural)),
-          })),
-        }
-      : {}),
     plugins: t.plugins.map((pl) => ({
       id: pl.id,
       type: pl.type,

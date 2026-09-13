@@ -418,6 +418,14 @@ brain's to read and the engine would only be converting back.
 devices at the record directory, called from `play()` the moment before the transport rolls
 so the timestamp is the take's start.
 
+A take records OVER the lane's own material, so the armed track is muted once the punch-in
+arrives — not at the top of the roll: the count-in plays the already-recorded clips, then
+they go silent under the pass while the input is captured. `RecordListener::recordingStarted`
+computes the count-in duration from the punch-in `SyncPoint` and mutes at the end of it, so
+the mute is session state applied at capture and restored by `stop()` through `applySoloMute`;
+it never reaches a file — the brain's writer places only the new clip and does no overlap
+arithmetic (`packages/take-render/docs/rendering.md`).
+
 Track inputs are pointed at their live interface input by a step that needs an allocated
 playback context — the input instances live on it — so it runs **after**
 `ensureContextAllocated()`, never inside `populateEdit()`.

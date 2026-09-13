@@ -15,7 +15,7 @@ import { useEngineState } from "@studio/engine-browser/store";
 import { projectApi } from "@studio/project-shell/project";
 import { wheelFactor } from "@studio/ui-timeline/panZoom";
 import { Waveform } from "@studio/ui-waveform";
-import { Check, Loader2, Play, Square, X } from "lucide-react";
+import { Check, Loader2, Square, X } from "lucide-react";
 import {
   type ComponentProps,
   type RefObject,
@@ -36,7 +36,6 @@ import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { cursorOf, ModeStrip } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
 import { barBeat, takeCounter } from "../takeCounter";
-import type { TakeOption } from "../takeReview";
 import type { WebWaveform } from "../types";
 import { WAVE_MODES, WAVE_PRESS, type WaveMode } from "../waveMode";
 import { ArrangementRuler } from "./Ruler";
@@ -56,7 +55,6 @@ const DEFAULT_BARS = 12;
 // Stable empty defaults: a fresh `[]` per render is a new identity, and one of these feeds a memo.
 const NO_TRACKS: string[] = [];
 const NO_NAMES: Record<string, string> = {};
-const NO_TAKES: TakeOption[] = [];
 // The chain token, the filter and the command line live in ../clipOps.ts — two surfaces, one spelling.
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
@@ -80,10 +78,6 @@ export function AudioClipPanel({
   placedAt = null,
   eventAt = null,
   eventWindow = null,
-  takes = NO_TAKES,
-  onPickTake,
-  onKeepTake,
-  onPlay,
   onSeek,
   command,
   quietCommand,
@@ -117,14 +111,6 @@ export function AudioClipPanel({
   eventAt?: string | null;
   /** The window THIS EVENT plays, in seconds of the file, already intersected by the compiler (nodeProject.ts); null outside any placement. */
   eventWindow?: { from?: number; to?: number } | null;
-  /** Every version of this lane there is to listen to — empty for a lane with no takes, which draws no sidebar (takeReview.ts). */
-  takes?: TakeOption[];
-  /** Put a take on the track and review it. A SWAP, so what was playing becomes that take. */
-  onPickTake?: (take: TakeOption) => void | Promise<void>;
-  /** Keep what the track is playing and delete every take — the end of choosing. */
-  onKeepTake?: () => void;
-  /** Start or stop the transport, so a take can be auditioned without leaving the panel. */
-  onPlay?: () => void;
   /** Seek the transport, in SONG seconds — what a click on that ruler does. */
   onSeek?: (seconds: number) => void;
   /** Runs a command line through the shell, which journals it — so every edit here is one Ctrl+Z. */
@@ -223,11 +209,6 @@ export function AudioClipPanel({
   }, [onStop, rolling]);
   const armed = useEngineState((s) => s.armed);
   const armedNames = armed.map((id) => trackNames[id] ?? id);
-  const playing = useEngineState((s) => s.playing);
-  // A pick is a command and a reload, so the list is held while one is in flight: two clicks racing would swap twice.
-  const [picking, setPicking] = useState<number | null>(null);
-  // The list is only worth drawing once there is a CHOICE, which is what more than one recorded pass means.
-  const sidebar = !rolling && takes.length > 0;
 
   // The transport's position in beats, re-rendering on whole beats only: one that followed every 20 Hz frame would redraw the waveform beside it.
   const curBeat = useEngineState((s) =>
@@ -694,102 +675,6 @@ export function AudioClipPanel({
             title={(m) => `${m} — ${WAVE_PRESS[m]}`}
             className="-my-2 -ml-2"
           />
-        )}
-        {sidebar && (
-          /** Every version of this lane, oldest slot first, with what it is PLAYING last — clicking one is a `track take select`. */
-          <aside
-            className="flex w-44 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border pr-2 text-xs"
-            aria-label={m["clip.takes"]()}
-          >
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="uppercase tracking-wider">
-                {m["clip.takes"]()}
-              </span>
-              {onPlay && (
-                <Button
-                  size="icon-xs"
-                  variant="ghost"
-                  onClick={onPlay}
-                  title={
-                    playing ? m["clip.stop"]() : m["clip.listenFromTake"]()
-                  }
-                  aria-label={playing ? m["clip.stop"]() : m["clip.listen"]()}
-                >
-                  {playing ? (
-                    <Square className="h-3 w-3" />
-                  ) : (
-                    <Play className="h-3 w-3" />
-                  )}
-                </Button>
-              )}
-            </div>
-            {takes.map((t) => {
-              const here = t.n === null;
-              const at = barBeat(t.startBeat, beatsPerBar);
-              return (
-                <button
-                  key={t.n ?? "playing"}
-                  type="button"
-                  disabled={picking !== null}
-                  onClick={() => {
-                    // The playing one is already where it needs to be: the click just puts the playhead at its start.
-                    if (here || !onPickTake) {
-                      onSeek?.((t.startBeat * 60) / tempo);
-                      return;
-                    }
-                    setPicking(t.n);
-                    void Promise.resolve(onPickTake(t)).finally(() =>
-                      setPicking(null),
-                    );
-                  }}
-                  className={cn(
-                    "flex flex-col items-start rounded px-2 py-1 text-left hover:bg-accent",
-                    here &&
-                      "bg-primary/15 outline outline-1 outline-primary/50",
-                    picking !== null && "opacity-60",
-                  )}
-                  title={
-                    here
-                      ? m["clip.onTrackBar"]({ bar: at.bar })
-                      : m["clip.hearTake"]({ n: t.n ?? 0 })
-                  }
-                >
-                  <span
-                    className={cn(
-                      "font-medium",
-                      here ? "text-foreground" : "text-muted-foreground",
-                    )}
-                  >
-                    {t.name ??
-                      (here
-                        ? m["clip.onTheTrack"]()
-                        : m["clip.takeN"]({ n: t.n ?? 0 }))}
-                  </span>
-                  <span className="w-full truncate text-[10px] text-muted-foreground">
-                    {t.events === 0
-                      ? m["clip.empty"]()
-                      : `${t.clip}${t.events > 1 ? ` +${t.events - 1}` : ""}`}
-                  </span>
-                  <span className="text-[10px] tabular-nums text-muted-foreground/70">
-                    {m["clip.bar"]()} {at.bar}:{at.beat}
-                  </span>
-                </button>
-              );
-            })}
-            {/* The decision keeps whatever is ON the track — the take you last clicked — so the button names the choice, not a number. */}
-            {onKeepTake && (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="mt-1 shrink-0"
-                disabled={picking !== null}
-                onClick={onKeepTake}
-                title={m["clip.keepThisHint"]()}
-              >
-                {m["clip.keepThis"]()}
-              </Button>
-            )}
-          </aside>
         )}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1">
           {/* The SONG's ruler over the wave (Ruler.tsx), the placement's grid rather than the warp — see docs/clipEditors.md. */}

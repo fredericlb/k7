@@ -118,15 +118,9 @@ const LANE = `extends: "@studio/track"
 events:
   - { ref: kick, start: "1:1" }
   - { ref: snare, start: "2:1" }
-takes:
-  - events:
-      - { ref: kick, start: "1:1" }
 alternatives:
   - events:
       - { ref: kick, start: "5:1" }
-    takes:
-      - events:
-          - { ref: snare, start: "9:1" }
 `;
 
 const WINDOWS: Record<string, MaterialWindow> = {
@@ -137,11 +131,11 @@ describe("the descent, over a whole lane file", () => {
   const run = (text = LANE, w = WINDOWS) =>
     descendWindows(text, (r) => w[r], G);
 
-  it("reaches the playing events, the takes, and every alternative's own", () => {
-    // Three placements of `kick`, in three different lists. Missing one is the failure found last.
+  it("reaches the playing events and every alternative's own", () => {
+    // Two placements of `kick`, in two different lists. Missing one is the failure found last.
     const out = run();
-    expect(out.wrote).toBe(3);
-    expect(out.text.match(/from: 1\.32/g)).toHaveLength(3);
+    expect(out.wrote).toBe(2);
+    expect(out.text.match(/from: 1\.32/g)).toHaveLength(2);
   });
 
   it("leaves a placement whose material states nothing untouched", () => {
@@ -196,7 +190,7 @@ describe("the descent, over a whole lane file", () => {
       (r) => (r === "snare" ? seq({ from: "1:1", to: "5:1" }) : undefined),
       G,
     );
-    expect(out.wrote).toBe(2); // the playing event and the alternative's take
+    expect(out.wrote).toBe(1); // the playing event
     expect(out.text).toContain('from: "1:1"');
     expect(out.text).toContain('to: "5:1"');
   });

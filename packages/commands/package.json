@@ -8,7 +8,8 @@
     "./commands": "./src/commands.ts",
     "./commandSpec": "./src/commandSpec.ts",
     "./git": "./src/git.ts",
-    "./share-bundle": "./src/shareBundle.ts"
+    "./share-bundle": "./src/shareBundle.ts",
+    "./transcribe": "./src/transcribe.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

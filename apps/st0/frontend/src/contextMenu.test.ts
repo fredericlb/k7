@@ -375,41 +375,6 @@ describe("a group", () => {
   });
 });
 
-describe("a take", () => {
-  const TAKES: CommandInfo[] = [
-    ...CATALOGUE,
-    {
-      command: "track take select",
-      help: "move a take onto the track (e.g. track take select gtr 2) — what was playing becomes that take",
-      args: [a("track", "track", "tracks"), a("n", "number")],
-    },
-    {
-      command: "track take delete",
-      help: "delete this take, and the events it held (e.g. track take delete gtr 2)",
-      args: [a("track", "track", "tracks"), a("n", "number")],
-    },
-  ];
-
-  it("offers its two verbs, both already filled in", () => {
-    const items = contextMenu({ kind: "take", track: "gtr", n: 2 }, TAKES);
-    expect(lines(items)).toEqual([
-      "track take select gtr 2",
-      "track take delete gtr 2",
-    ]);
-    // A click that answered every argument leaves nothing for the bar to collect: both run.
-    expect(items.every((i) => i.complete)).toBe(true);
-    // The take is a row UNDER a track, so "track" is the word you already know.
-    expect(labels(items)).toEqual(["take select", "take delete"]);
-  });
-
-  it("is NOT derived — `<track> <number>` is also a gain", () => {
-    // The reason this one is written out by hand: `track gain` and `track pan` have exactly that shape.
-    expect(
-      lines(contextMenu({ kind: "take", track: "gtr", n: 1 }, TAKES)),
-    ).not.toContain("track gain gtr 1");
-  });
-});
-
 describe("a module node", () => {
   it("offers what takes a module, and not what takes a CATEGORY", () => {
     // Both are class `module` on the wire — matching on that instead of the provider would offer `module new` on every module.

@@ -149,7 +149,6 @@ export interface LoadedModule {
   frozen?: unknown;
   // -- lanes only (a track module; see docs/trackModules.md) ---------------------
   events?: unknown; // the placements on this lane — where its material goes, and how many times
-  takes?: unknown; // the arrangements set aside, each another list of placements (docs/takes.md)
   color?: unknown; // the lane's colour, and its icon's in the timeline
   disabled?: unknown; // excluded from the render entirely, chains and all
   tracks?: unknown; // a GROUP lane's member names

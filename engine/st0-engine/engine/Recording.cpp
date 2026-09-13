@@ -13,6 +13,7 @@
 #include "Warnings.h"          // warn() — a refused arm has to reach the client, not just stderr
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <map>
 #include <optional>
@@ -25,6 +26,29 @@ namespace studio {
 struct RecordListener : public te::TransportControl::Listener {
     // Bound to ONE session: with N projects there is no "the" edit a finished take could be looked up in.
     RecordListener(EngineHost& h, std::string s) : host(h), session(std::move(s)) {}
+
+    // Mute the armed track at the punch-in, not the top of the roll, so the count-in still plays the old clips (docs/engineHost.md).
+    void recordingStarted(tt::SyncPoint start, std::optional<tt::TimeRange>) override {
+        auto* tc = host.impl_->transport(session);
+        if (tc == nullptr) return;
+
+        // Capture host's address, not `this`: a rebuild may drop this listener before the timer fires.
+        EngineHost* hp = &host;
+        const std::string sid = session;
+        const auto mute = [hp, sid] {
+            auto* s = hp->impl_->find(sid);
+            if (s == nullptr || !s->edit) return;
+            for (const auto& id : hp->armedTracks(sid))
+                if (auto* track = trackById(*s->edit, id, hp->current(sid)))
+                    track->setMute(true);
+        };
+
+        const double delay = (start.time - tc->getPosition()).inSeconds();
+        if (delay <= 0.0)
+            mute();
+        else
+            juce::Timer::callAfterDelay(static_cast<int>(std::ceil(delay * 1000.0)), mute);
+    }
 
     void recordingFinished(te::InputDeviceInstance&, te::EditItemID targetID,
                            const juce::ReferenceCountedArray<te::Clip>& clips) override {

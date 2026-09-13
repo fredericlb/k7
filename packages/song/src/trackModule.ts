@@ -71,8 +71,6 @@ export interface Lane {
   color?: string;
   /** As AUTHORED — timecodes still strings. Empty for a group and for a generated lane. */
   events: RawPlacement[];
-  /** The lane's TAKES, read beside `events` so one belongs to its alternative (docs/takes.md). */
-  takes: { name?: string; events: RawPlacement[] }[];
   /** A group's members, by node name. Empty for every other kind. */
   tracks: string[];
   /** A generated lane's pattern file, project-relative. */
@@ -93,13 +91,6 @@ export function laneOf(m: LoadedModule | undefined | null): Lane | null {
       group || strudel || !Array.isArray(m.events)
         ? []
         : (m.events as RawPlacement[]),
-    takes:
-      group || strudel || !Array.isArray(m.takes)
-        ? []
-        : (m.takes as { name?: string; events: RawPlacement[] }[]).map((t) => ({
-            ...(t?.name ? { name: t.name } : {}),
-            events: Array.isArray(t?.events) ? t.events : [],
-          })),
     tracks: group && Array.isArray(m.tracks) ? m.tracks.map(String) : [],
     strudel:
       strudel && typeof m.strudel === "string" && m.strudel

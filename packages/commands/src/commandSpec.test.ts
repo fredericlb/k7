@@ -81,9 +81,10 @@ describe("the palette's one-field view of completions()", () => {
 
   it("offers an argument's values as soon as its field opens (empty partial)", () => {
     // The line has to keep the empty partial so it ends with a SPACE — docs/completions.md.
-    expect(
-      completeArg("track take select", [], "", ["melody", "bass"]),
-    ).toEqual(["melody", "bass"]);
+    expect(completeArg("track order", [], "", ["melody", "bass"])).toEqual([
+      "melody",
+      "bass",
+    ]);
   });
 
   it("works for a MULTI-WORD command name", () => {
@@ -100,9 +101,9 @@ describe("the palette's one-field view of completions()", () => {
   });
 
   it("offers nothing for an argument with no vocabulary", () => {
-    expect(
-      completeArg("track take select", ["melody"], "", ["melody"]),
-    ).toEqual([]); // the take number
+    expect(completeArg("track order", ["melody"], "", ["melody"])).toEqual(
+      [],
+    ); // the position
     expect(completeArg("node new", ["instruments/synth"], "")).toEqual([]); // the node name
   });
 });

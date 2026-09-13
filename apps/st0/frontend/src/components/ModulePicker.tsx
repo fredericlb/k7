@@ -58,7 +58,7 @@ export function parseBaseRef(ref: string): {
 /** The first level's label for a namespace: local base modules group under 'current', everything else keeps its `@ns`. */
 const CURRENT = "current";
 
-/** The picker's one non-module branch: a curve that already exists is already ON the graph, so the only useful offer is a new one. */
+/** The picker's non-module branch for curves: a curve that already exists is already ON the graph, so the only useful offer is a new one. */
 const CURVE_BRANCH: TreeNode<ModulePick> = {
   key: "curves",
   label: "curves",
@@ -68,6 +68,33 @@ const CURVE_BRANCH: TreeNode<ModulePick> = {
       label: "new curve…",
       hint: "an LFO, a drawn shape, or an envelope fired by note-ons",
       entry: { newCurve: true, ref: "", namespace: null, type: "", name: "" },
+    },
+  ],
+};
+
+/** The io SOURCES — the inputs a graph can start from. A sink takes no node: MIX, OUT, CUE, RENDER
+ * and VIDEO_OUT are built into every project, which is why they are not on this menu (docs/moduleTypes.md). */
+const INPUT_BRANCH: TreeNode<ModulePick> = {
+  key: "inputs",
+  label: "inputs",
+  children: [
+    {
+      key: "inputs/in",
+      label: "audio input",
+      hint: "io: in — this machine's input, the live rig's IN",
+      entry: { ref: "io/IN", namespace: null, type: "io", name: "IN" },
+    },
+    {
+      key: "inputs/cam",
+      label: "camera",
+      hint: "io: camera — a live picture; the video input",
+      entry: { ref: "io/CAM", namespace: null, type: "io", name: "CAM" },
+    },
+    {
+      key: "inputs/file",
+      label: "file source",
+      hint: "io: file — audio off disk; the node carries which file",
+      entry: { ref: "io/FILE", namespace: null, type: "io", name: "FILE" },
     },
   ],
 };
@@ -250,7 +277,7 @@ export function ModulePicker({
     <TreePicker<ModulePick>
       x={x}
       y={y}
-      tree={[...buildTree(baseModules), CURVE_BRANCH]}
+      tree={[...buildTree(baseModules), INPUT_BRANCH, CURVE_BRANCH]}
       search={(q) => searchModules(baseModules, q)}
       searchLimit={SEARCH_LIMIT}
       placeholder="search modules…"

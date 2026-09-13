@@ -16,6 +16,12 @@ export interface CapturedNote {
   v: number; // velocity 0..1
 }
 
+// One input the browser exposes, as the transport's device picker offers it.
+export interface MidiInputInfo {
+  id: string; // the Web MIDI port id, stable while the page lives
+  name: string; // the device's own name, or the id when it has none
+}
+
 // The shortest note we keep, so an instantaneous off still satisfies `#Note`'s `d > 0`.
 const MIN_DURATION = 1 / 32;
 
@@ -23,16 +29,22 @@ export class MidiRecorder {
   private access?: MIDIAccess;
   private beatNow: () => number;
   private recording = false;
+  // The input being captured, or null for EVERY one — the transport's picker sets it.
+  private selectedId: string | null = null;
+  // Told when the plugged-in list changes, so the picker re-offers what is there.
+  private onInputsChanged?: () => void;
   // Open notes keyed by `${channel}:${key}` → their onset beat + velocity.
   private open = new Map<string, { start: number; v: number }>();
   private notes: CapturedNote[] = [];
 
-  constructor(beatNow: () => number) {
+  constructor(beatNow: () => number, opts?: { onInputsChanged?: () => void }) {
     this.beatNow = beatNow;
+    this.onInputsChanged = opts?.onInputsChanged;
   }
 
-  // Ask for MIDI access and attach to every input; false when there is none, and the caller records no MIDI.
+  // Ask for MIDI access and attach; false when there is none, and the caller records no MIDI.
   async init(): Promise<boolean> {
+    if (this.access) return true;
     const nav = navigator as MidiNavigator;
     if (!nav.requestMIDIAccess) return false;
     try {
@@ -42,14 +54,40 @@ export class MidiRecorder {
     }
     this.attach();
     // Inputs can appear/disappear (a keyboard plugged in mid-session); re-attach on change.
-    this.access.onstatechange = () => this.attach();
+    this.access.onstatechange = () => {
+      this.attach();
+      this.onInputsChanged?.();
+    };
     return true;
+  }
+
+  // The inputs available right now; empty until init() granted the access.
+  listInputs(): MidiInputInfo[] {
+    if (!this.access) return [];
+    const out: MidiInputInfo[] = [];
+    for (const input of this.access.inputs.values())
+      out.push({ id: input.id, name: input.name || input.id });
+    return out;
+  }
+
+  // The input being captured, or null for all of them.
+  get selectedInput(): string | null {
+    return this.selectedId;
+  }
+
+  // Pick the input to capture, or null for every one. Re-attaches, so switching mid-take is legal.
+  selectInput(id: string | null): void {
+    this.selectedId = id;
+    this.attach();
   }
 
   private attach(): void {
     if (!this.access) return;
     for (const input of this.access.inputs.values())
-      input.onmidimessage = (e) => this.onMessage(e);
+      input.onmidimessage =
+        this.selectedId === null || input.id === this.selectedId
+          ? (e) => this.onMessage(e)
+          : null;
   }
 
   // Begin a take: clear any carry-over and start pairing events.

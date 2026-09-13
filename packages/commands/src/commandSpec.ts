@@ -335,7 +335,6 @@ export const MENU_ENTITIES = [
   "node",
   "event",
   "param",
-  "take",
   "curve",
   "ruler",
   "marker",

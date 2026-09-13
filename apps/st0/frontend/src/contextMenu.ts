@@ -30,8 +30,6 @@ export type MenuCtx =
       label: string;
       cc?: { ch: number; cc: number };
     }
-  // A TAKE row under a lane: the track it belongs to, and which take it is (1-based).
-  | { kind: "take"; track: string; n: number }
   // Right-click on an AUTOMATION row: the curve the verbs address, and the moment a point would go at.
   | { kind: "curve-point"; curve: string; param: string; tc: string }
   // A pass-through node — a chain with no modules; nothing is offered on it now, so the id is all it needs to say.
@@ -136,7 +134,6 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   clip: "event",
   // Nothing: a param's three verbs name three different subjects, and none of them is the control you clicked.
   param: "",
-  take: "track",
   // 'curve': the row IS the curve, so its three read 'point add', 'point move', 'point remove'.
   "curve-point": "curve",
   chain: "",
@@ -163,7 +160,6 @@ const CTX_ENTITY: Record<MenuCtx["kind"], MenuEntity | undefined> = {
   module: "node",
   clip: "event",
   param: "param",
-  take: "take",
   "curve-point": "curve",
   chain: undefined,
   sink: undefined,
@@ -413,12 +409,6 @@ export function contextMenu(
           : []),
       ]);
     }
-    case "take":
-      // Written out rather than derived: `<track> <number>` was also `track normalize`'s shape, and the next such command would join silently.
-      return offer([
-        { verb: "track take select", arg: `${ctx.track} ${ctx.n}` },
-        { verb: "track take delete", arg: `${ctx.track} ${ctx.n}` },
-      ]);
     case "curve-point":
       /** An automation row's three verbs, written out for the reason a take's two are — `add` is left needing its value. */
       return offer([

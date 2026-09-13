@@ -148,61 +148,6 @@ describe("a song that carries picture", () => {
   });
 });
 
-// A lane's TAKES: rows of their own, under the lane they came off. See packages/song/docs/takes.md.
-describe("takes", () => {
-  const withTakes = (id: string, n: number, over: Partial<WebTrack> = {}) =>
-    track({
-      id,
-      ...over,
-      takes: Array.from({ length: n }, () => ({ clips: [] })),
-    });
-
-  it("follows its lane immediately, oldest first", () => {
-    const rows = projectRows({ groups: [] }, [
-      withTakes("gtr", 2),
-      track({ id: "bass" }),
-    ]);
-    expect(rows.map(rowKey)).toEqual([
-      "track:gtr",
-      "take:gtr:1",
-      "take:gtr:2",
-      "track:bass",
-    ]);
-  });
-
-  it("stays inside its group, under the member it belongs to", () => {
-    const rows = projectRows({ groups: [group("drums")] }, [
-      withTakes("kick", 1, { group: "drums" }),
-      track({ id: "snare", group: "drums" }),
-    ]);
-    expect(rows.map(rowKey)).toEqual([
-      "group:drums",
-      "track:kick",
-      "take:kick:1",
-      "track:snare",
-    ]);
-  });
-
-  it("numbers from 1 — the number the two `track take …` commands name it by", () => {
-    const rows = projectRows({ groups: [] }, [withTakes("gtr", 3)]);
-    expect(rows.filter((r) => r.kind === "take").map((r) => r.n)).toEqual([
-      1, 2, 3,
-    ]);
-  });
-
-  it("ADDRESSES nothing — it is not a lane and cannot answer a lane's commands", () => {
-    // Everything downstream of rowTarget asks the engine something, and answering with the lane would mute it from a take's header.
-    const rows = projectRows({ groups: [] }, [withTakes("gtr", 1)]);
-    expect(rowTarget(rows[1] as Row)).toBeNull();
-  });
-
-  it("adds no rows to a lane with none", () => {
-    expect(
-      projectRows({ groups: [] }, [track({ id: "gtr" })]).map(rowKey),
-    ).toEqual(["track:gtr"]);
-  });
-});
-
 describe("an automation row", () => {
   const lane = (param: string) => ({
     track: "gtr",
@@ -212,21 +157,13 @@ describe("an automation row", () => {
     points: [{ time: "1:1:1", value: 0.5 }],
   });
 
-  it("sits under its lane and BEFORE its takes", () => {
-    // A curve is part of what the lane is playing; a take is what it was. Reading down a lane you meet its sound before its history.
-    const gtr = track({
-      id: "gtr",
-      takes: [{ clips: [] }, { clips: [] }],
-    });
+  it("sits under its lane", () => {
+    // A curve is part of what the lane is playing; reading down a lane you meet its sound before its history.
+    const gtr = track({ id: "gtr" });
     const rows = projectRows({ groups: [] }, [gtr], [], {
       gtr: [lane("Level")],
     });
-    expect(rows.map(rowKey)).toEqual([
-      "track:gtr",
-      "auto:gtr:Level",
-      "take:gtr:1",
-      "take:gtr:2",
-    ]);
+    expect(rows.map(rowKey)).toEqual(["track:gtr", "auto:gtr:Level"]);
   });
 
   it("is keyed by PARAM — one knob, one curve, so that names it uniquely", () => {
@@ -240,7 +177,7 @@ describe("an automation row", () => {
     ]);
   });
 
-  it("ADDRESSES its track, unlike a take", () => {
+  it("ADDRESSES its track", () => {
     // The knob it draws is part of that lane's sound, so muting or opening from its header means the lane.
     const rows = projectRows({ groups: [] }, [track({ id: "gtr" })], [], {
       gtr: [lane("Level")],

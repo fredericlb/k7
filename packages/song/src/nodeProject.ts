@@ -817,17 +817,6 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
               events.map((p) =>
                 placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
               ),
-        // The lane's TAKES, through the SAME compiler its events go through — see docs/takes.md.
-        ...(t.takes.length
-          ? {
-              takes: t.takes.map((tk) => ({
-                ...(tk.name ? { name: tk.name } : {}),
-                clips: eventsFor(tk.events, half).map((p) =>
-                  placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
-                ),
-              })),
-            }
-          : {}),
         plugins: trackPlugins[id] ?? [],
         sends: trackSends[id] ?? [],
         automation: [],

@@ -41,8 +41,6 @@ describe("derived module fields", () => {
       "content",
       // …and a LANE's own fields, a lane being a module rather than a second entity (docs/trackModules.md).
       "events",
-      // …and the arrangements a take holds, beside `events:` because it is the same thing set aside.
-      "takes",
       "color",
       "disabled",
       "tracks",
@@ -59,14 +57,6 @@ describe("derived module fields", () => {
     ]);
     // …and it cannot fall behind: the source is the schema.
     expect(fieldsAt("module", [])).toEqual(Object.keys(ModuleSchema.shape));
-  });
-
-  it("answers inside a take, at both of its levels", () => {
-    // A take is a list of lists, and the editor completes both levels — see docs/fields.md.
-    expect(fieldsAt("module", ["takes", "0"])).toEqual(["name", "events"]);
-    expect(fieldsAt("module", ["takes", "0", "events", "0"])).toEqual(
-      fieldsAt("module", ["events"]),
-    );
   });
 
   it("answers for a nested struct, which the CUE version could not", () => {

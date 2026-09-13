@@ -89,13 +89,4 @@ describe("what a clip carries to the browser", () => {
     expect(w.fadeIn).toBeUndefined();
     expect(w.fadeOut).toBeUndefined();
   });
-
-  it("takes go through the SAME mapping as the arrangement", () => {
-    // A take draws identically to the arrangement it was, which is why `toWebClip` is not inlined twice.
-    const t = track([clip()]);
-    t.takes = [{ name: "take 1", clips: [clip({ sourceFrom: 2 })] }];
-    const web = toWebTracks([t])[0];
-    expect(web.takes?.[0].clips[0].sourceFrom).toBe(2);
-    expect(web.takes?.[0].clips[0].sourceName).toBe("riff.wav");
-  });
 });

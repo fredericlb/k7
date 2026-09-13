@@ -426,6 +426,7 @@ void EngineHost::play(const std::string& session) {
     if (impl_->session(session).recordEnabled && prepareTakes(session)) {
         // Count-in applies to the record roll only, so a plain play clears it and an earlier record's count cannot linger onto ordinary playback.
         setCountIn(countInModeFor(impl_->session(session).current.countIn));
+        // The armed track is muted at the punch-in by RecordListener::recordingStarted, not here: the old clips stay audible through the count-in (docs/engineHost.md).
         tc->record(false);
     } else {
         setCountIn(te::Edit::CountIn::none);
@@ -463,7 +464,11 @@ void EngineHost::applyMetronome(const std::string& session) {
 // stop lets go — the notes, and not the tails. See docs/panic.md.
 void EngineHost::stop(const std::string& session) {
     if (auto* tc = impl_->transport(session)) tc->stop(false, false);
-    if (auto& s = impl_->session(session); s.edit) te::midiPanic(*s.edit, false);
+    if (auto& s = impl_->session(session); s.edit) {
+        te::midiPanic(*s.edit, false);
+        // A stop ends the take, so restore the mute the record roll applied at the punch-in (docs/engineHost.md).
+        applySoloMute(*s.edit, s.current);
+    }
 }
 
 // …and the one for a stop that did not work: the same, plus reset(), which is what kills a reverb

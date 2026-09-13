@@ -44,10 +44,7 @@ offered. A video shape is the same case one level down. The widget fields are on
 the per-type narrowing is a refinement rather than a union, so they come off the base object it
 wraps.
 
-## Takes, alternatives and placements
-
-A take is a list of lists: `takes[0]` is a take, `takes[0].events[0]` is a placement. The editor
-completes both, so setting one aside by hand is as writable as the lane itself.
+## Alternatives and placements
 
 An alternative is a module partial, so what it may say is what a module may say — plus a name, and
 minus `extends` and the alternatives themselves. Derived, so the two cannot drift. The
