@@ -54,7 +54,9 @@ export function levelsForPasses(
   levels: readonly number[],
 ): Record<string, number> {
   const byTrack = new Map<string, number>();
-  trackIds.forEach((id, i) => byTrack.set(id, levels[i] ?? AUDIO_FLOOR_DB));
+  trackIds.forEach((id, i) => {
+    byTrack.set(id, levels[i] ?? AUDIO_FLOOR_DB);
+  });
   const out: Record<string, number> = {};
   for (const [passId, lane] of Object.entries(sources))
     out[passId] = levelToUnit(byTrack.get(lane) ?? AUDIO_FLOOR_DB);

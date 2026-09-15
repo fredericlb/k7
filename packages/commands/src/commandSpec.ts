@@ -19,13 +19,15 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import { PLAYLISTS_DIR } from "@studio/song-schema/playlist";
 import { parsePosition } from "@studio/song-schema/timecode";
-import { SURFACE_TYPES } from "@studio/song-schema/yaml/surfaceSchema";
+import { allSurfaceTypes } from "@studio/song-schema/yaml/surfaceRegistry";
 import { parse as parseYaml } from "yaml";
 import {
   type CommandHost,
   collectPluginModules,
   parseMidiNote,
+  registerCommand,
   SID_HANDLERS,
+  type SidHandler,
 } from "./commands";
 import { alternatives } from "./git";
 
@@ -189,8 +191,9 @@ const PROVIDERS = {
       return []; // a broken curve file costs the completion, not the command
     }
   },
-  // The kinds of surface, from the schema's own enum rather than retyped — docs/completions.md.
-  surfaceTypes: () => [...SURFACE_TYPES],
+  // The kinds of surface, from the OPEN registry rather than the schema's frozen enum — a
+  // plugin's contribution completes like a builtin's. See packages/st0-sdk/docs/sdk.md.
+  surfaceTypes: () => [...allSurfaceTypes()],
   // Sequence FILE ids, read off disk: a file id can differ from the midi-clip name it reports.
   sequenceFiles: (h) => {
     try {
@@ -258,7 +261,9 @@ function commandsPath(): string {
 
 let cached: CommandSpec[] | null = null;
 export function loadCommandSpecs(): CommandSpec[] {
-  if (cached) return cached;
+  // Both arms merge the registered specs: the early return is the HOT one (every dispatch, every
+  // completion), so a plugin verb that vanished once the yaml was cached would be the quiet kind.
+  if (cached) return [...cached, ...registeredSpecs];
   try {
     const raw = parseYaml(readFileSync(commandsPath(), "utf8"));
     cached = (Array.isArray(raw) ? raw : [])
@@ -308,7 +313,32 @@ export function loadCommandSpecs(): CommandSpec[] {
   } catch {
     cached = [];
   }
-  return cached;
+  // The yaml is the BUILTINS' declarative home; a plugin's specs are registered in code, so both
+  // merge here — every reader of the catalogue (the palette, the menus, the dispatch) sees them.
+  return [...cached, ...registeredSpecs];
+}
+
+/** The catalogue a plugin added, merged at every read — see registerCommandSpec. */
+const registeredSpecs: CommandSpec[] = [];
+
+/** Add a plugin's verb to the catalogue: same shape as a yaml row, same treatment everywhere.
+ *  A command word that is already spoken for is refused, not renamed — one word, one verb. */
+export function registerCommandSpec(spec: CommandSpec): void {
+  if (loadCommandSpecs().some((c) => c.command === spec.command))
+    throw new Error(`command '${spec.command}' is already in the catalogue`);
+  registeredSpecs.push(spec);
+}
+
+/** The ONE installer a plugin calls: the catalogue half AND the behaviour half, in one move —
+ *  a spec whose SID dispatches is the whole verb, so contributing either alone would leave a
+ *  half verb that reads but never runs (or runs and never reads). Both halves refuse an already
+ *  spoken-for word, so a partially installed verb fails loudly at install, never at use. */
+export function registerVerb(
+  spec: CommandSpec,
+  handler: SidHandler,
+): void {
+  registerCommandSpec(spec);
+  registerCommand({ sid: spec.sid, handler });
 }
 
 // The provider names as a TYPE, so the vocabulary follows and a stale reference stops compiling.

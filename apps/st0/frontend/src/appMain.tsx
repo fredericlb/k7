@@ -38,7 +38,7 @@ const SharedGate = lazy(() =>
 
 import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
-import { PROFILING } from "./profiling";
+import { PROFILING } from "@studio/project-shell/profiling";
 import { Home } from "./projects/Home";
 
 import "./index.css";

@@ -1542,7 +1542,7 @@ function NodeInner({
       <InputMeterBar trackId={n.label} order={trackOrder} />
     ) : null;
 
-  // The module on its way: a spinner and nothing else, since anything else would be invented.
+  // The module on its way: a spinner, and the sockets its host wired it by — none are interactive.
   if (n.pending)
     return (
       <div
@@ -1559,6 +1559,19 @@ function NodeInner({
         aria-label="creating a module"
       >
         <i className="dgx-spin" />
+        {(["in", "out"] as const).map((side) =>
+          (n.jacks?.[side] ?? []).map((p, i, all) => (
+            <span
+              key={`${side}:${i}`}
+              className={`dgx-port ${side}`}
+              style={{
+                ["--jc" as string]: cableColorFor(p.type),
+                // The same spread as a real card's sockets, so the cables `jackPoint` aims meet them.
+                left: `${((i + 1) / (all.length + 1)) * 100}%`,
+              }}
+            />
+          )),
+        )}
       </div>
     );
 

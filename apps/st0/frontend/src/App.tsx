@@ -75,7 +75,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, engines, moduleStore } from "./api";
+import { api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
 import type { MaybeClipboard } from "./clipboard";
 import { canonicalizeCommand } from "./commandI18n";
@@ -131,7 +131,7 @@ import { SharePanel, shareBadge } from "./components/SharePanel";
 import { SurfaceTab } from "./components/SurfaceTab";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { TrackModulesPane } from "./components/TrackModulesPane";
-import { ViewportTab } from "./components/ViewportTab";
+import { ViewportTab, sceneOf as videoSceneOf } from "@studio/st0-plugins/video";
 import {
   contextMenu,
   type MenuCtx,
@@ -160,7 +160,7 @@ import {
 } from "./hooks/usePolls";
 import { useProjectImport } from "./hooks/useProjectDialogs";
 import { useProjectDoc } from "./hooks/useProjectDoc";
-import { noteRevision } from "./hooks/useRevision";
+import { noteRevision, useRevision } from "./hooks/useRevision";
 import { useShare } from "./hooks/useShare";
 import { useSnapshotPlayer } from "./hooks/useSnapshotPlayer";
 import { useSurfaces } from "./hooks/useSurfaces";
@@ -189,9 +189,13 @@ import {
   wireCommand,
 } from "./nodeInsert";
 import { noteSpans } from "./noteSpans";
+import { type PendingNode, spawnBox } from "./pendingNode";
 import { resolveEditorFile } from "./openInEditor";
 import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { m } from "./paraglide/messages.js";
+// The shell's BROWSER composition point: st0's builtin plugins register their pane drawers
+// here, before the shell renders any surface — see packages/st0-sdk/docs/sdk.md.
+import "./plugins";
 import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
 import { rememberCommand } from "./recentCommands";
@@ -211,7 +215,6 @@ import {
   type RowKey,
   type RowTarget,
 } from "./rows";
-import { sceneOf } from "./scene";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
   MiniTransport,
@@ -391,6 +394,9 @@ export default function App({
   const armed = useStoreState(store, (s) => s.armed, arrayEq);
   // Global record enable — ENGINE session state, so it comes straight off the frame; play then records the armed.
   const recordEnabled = useStoreState(store, (s) => s.recordEnabled);
+  // The project's change token, read here so the whole tree shares the ONE refcounted poll —
+  // the desk's drawer takes it as a prop and refetches its graph when it moves (docs/plugins.md).
+  const rev = useRevision();
   const [statusLine, setStatusLine] = useState<{
     text: string;
     refused: boolean;
@@ -1833,7 +1839,7 @@ export default function App({
         else if (ask.kind === "audio") void share.exportMix(ask.format);
         else
           void share.exportVideo(
-            videoDoc ? sceneOf(videoDoc) : null,
+            videoDoc ? videoSceneOf(videoDoc) : null,
             ask.format,
             ask.audio,
             projectDoc?.name ?? "video",
@@ -1900,7 +1906,7 @@ export default function App({
   );
 
   // The arrow a module is being created on while the command RUNS — the narrower window the canvas draws a placeholder for.
-  const [insertingAt, setInsertingAt] = useState<PendingInsert | null>(null);
+  const [insertingAt, setInsertingAt] = useState<PendingNode | null>(null);
   // The graph a writing command handed back, drawn instead of fetched; it carries an id the consumer takes ONCE (ChainsTab's `seedGraph`).
   const seedId = useRef(0);
   const [seedGraph, setSeedGraph] = useState<{
@@ -2102,7 +2108,7 @@ export default function App({
     [],
   );
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.
-  const pendingInsert = useRef<PendingInsert | null>(null);
+  const pendingInsert = useRef<PendingNode | null>(null);
   // Where the node a CREATING line is about to make should be wired: an arrow or nowhere, plus the world point clicked (see onModulePick).
   const pendingWire = useRef<{
     at: PendingInsert | null;
@@ -2207,6 +2213,7 @@ export default function App({
             ref: m.ref,
             category: m.category,
             label: m.label,
+            panel: m.panel,
           })),
           ...refs.filter((r) => !known.has(r.ref)),
         ]);
@@ -2268,18 +2275,19 @@ export default function App({
       // An io SOURCE has no input port to receive the arrow's signal, so it is PLACED, never
       // spliced: born wired to nothing, and the person draws its cable from there.
       const placed = pick.type === "io";
-      pendingWire.current = placed
-        ? { at: null, spawn: at ?? null }
-        : { at: info, spawn: at ?? null };
-      pendingInsert.current = placed ? null : info; // the ghost on the arrow, while the commands run
+      const node = nameFor(pick.name);
+      // A splice is CENTRED on the `+`, and a pin is a top-left, so the verb is sent the card's corner (docs/chainsGraph.md).
+      const box = !placed && info && at ? spawnBox(at, pick.panel) : null;
+      const born = box ?? at ?? null;
+      pendingWire.current = { at: placed ? null : info, spawn: born };
+      // The placeholder on the arrow, while the commands run — the node itself, at the box it will be pinned to.
+      pendingInsert.current = box && info ? { ...info, node, ...box } : null;
       const ref = pick.namespace === null ? undefined : pick.ref;
       // A catalogue pick has no local folder, so its `module new` runs ahead of the line below.
       pendingModule.current = ensureModuleCommand(pick.type, pick.name, ref);
-      const spawn = at ? ` ${Math.round(at.x)},${Math.round(at.y)}` : "";
+      const spawn = born ? ` ${Math.round(born.x)},${Math.round(born.y)}` : "";
       void runCommandRef.current(
-        createForGraphCommand(pick.type, pick.name) +
-          nameFor(pick.name) +
-          spawn,
+        createForGraphCommand(pick.type, pick.name) + node + spawn,
       );
     },
     [modulePicker, prewriteCommand, offerSpawnAt],
@@ -3196,6 +3204,13 @@ export default function App({
                       surface={turntablesSurface}
                       deck={turntableDeck}
                       project={ws?.activeProject ?? "."}
+                      libraryBase={PL8_API}
+                      rev={rev}
+                      videoDoc={videoDoc}
+                      videoError={videoError}
+                      trackIds={trackOrder}
+                      readOnly={frozen}
+                      videoArmed={videoArmed}
                     />
                   </div>
                 )}

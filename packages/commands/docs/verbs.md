@@ -137,6 +137,9 @@ a meeting point and stays shared — it is a bus, not part of one lane's chain.
 
 ## `track transcribe` — whisper writes the lane's text
 
+The verb is the transcription plugin's (`packages/st0-plugins/src/transcription`) — this section
+says what it does, not who ships it; the plugin folder is where its machine lives.
+
 `track transcribe <track_in> <track_out>` listens to the video the PICTURE lane `<track_in>` places
 and writes what is said as `<track_out>`'s **`content:`** — the field a lane's note is read from
 (`packages/song/docs/docModules.md`), so the transcript is on the graph rather than in a panel

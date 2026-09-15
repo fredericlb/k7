@@ -6,7 +6,7 @@
 // listed is exactly what a chain can name. Rationale: docs/moduleCatalogue.md.
 
 import { moduleLabelOf } from "@studio/song-schema/moduleTypes";
-import { loadModuleRefs, splitModuleKey } from "./loader";
+import { loadModuleRefs, panelOf, splitModuleKey } from "./loader";
 import { sharedRoots } from "./moduleFork";
 import type { LoadedModule } from "./rawDoc";
 import { moduleFileFor } from "./yaml/moduleIO";
@@ -34,6 +34,8 @@ export interface CatalogueModule {
   nodes: number;
   /** It already has a `ui.yaml` beside it. */
   hasUi: boolean;
+  /** Its panel grid, when it draws one — what the picker sizes a card by, docs/moduleCatalogue.md. */
+  panel?: { cols: number; rows: number };
 }
 
 /** Every generic module the project inherits, in ref order; an unopenable one is dropped, docs/moduleCatalogue.md. */
@@ -69,6 +71,7 @@ export function moduleCatalogue(dir: string): CatalogueModule[] {
       continue; // namespaced, no library root, and not an engine ref — nothing to show
     }
     const label = moduleLabelOf(m);
+    const panel = panelOf(m);
     out.push({
       ref,
       name: rest.join("/"),
@@ -84,6 +87,7 @@ export function moduleCatalogue(dir: string): CatalogueModule[] {
       path,
       nodes: nodes.get(ref) ?? 0,
       hasUi: !!m.ui,
+      ...(panel ? { panel } : {}),
     });
   }
   return out.sort((a, b) => a.ref.localeCompare(b.ref));

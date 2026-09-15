@@ -307,6 +307,9 @@ public:
     CallbackCost callbackCost() const;
     void resetCallbackCost();
 
+    // Once a second: when the OPEN device has stopped calling back, reopen that same device and re-wire the inputs. MESSAGE THREAD ONLY. docs/audioDevice.md.
+    void checkAudioCallback();
+
     // Enumerate the interfaces (ASIO first) and open one for input and output, false when not found; an empty `type` is "any backend". See docs/engineHost.md.
     std::vector<AudioDeviceInfo> listAudioDevices();
     bool setAudioDevice(const std::string& name, const std::string& type = {});

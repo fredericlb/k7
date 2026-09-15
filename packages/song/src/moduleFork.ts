@@ -13,7 +13,6 @@ import {
 import {
   basename,
   dirname,
-  isAbsolute,
   join,
   relative,
   resolve,
@@ -24,7 +23,7 @@ import { parseGraph, renameNode } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
 import { deriveChains } from "./chainsGraph";
 import { engineModules } from "./engineCatalogue";
-import { loadProjectRoot, MODULE_TYPES, moduleRefOf } from "./loader";
+import { MODULE_TYPES, moduleRefOf } from "./loader";
 import type { LoadedModule } from "./rawDoc";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";

@@ -6,7 +6,7 @@
 
 import { type Lens, localLens } from "@studio/ui-eyes/camera";
 import { tabBridge } from "../tabs/bridge";
-import { type Frame, ICE, readFrame, relayUrl, sendFrame } from "./relay";
+import { type Frame, ICE, readFrame, relayUrl, sendFrame } from "@studio/st0-plugins/video/camera/relay";
 
 /** Reconnect delay after the socket drops, doubling to this — the app restarting is the usual cause. */
 const RETRY_MS = 1000;

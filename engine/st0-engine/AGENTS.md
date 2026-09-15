@@ -33,7 +33,10 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   PluginParams.{h,cpp}     plugin parameters as text
   PluginScan.{h,cpp}       discovery + cache
   AudioInputs.{h,cpp}      live-input device mapping
-  AudioDevices.cpp          device enumerate/select + --list-audio-devices CLI
+  AudioDevices.cpp          device enumerate/select + --list-audio-devices CLI, and the reopen of a
+                            device whose callback stopped
+  CallbackWatchdog.h        WHEN that reopen happens, and when it gives up: JUCE-free and header-only,
+                            so tests/ has it in a FAST binary (docs/audioDevice.md)
   OfflineRender.cpp         --render (offline bounce) + watchdogStack()
   ParamDump.cpp             --dump-params / --dump-params-ext / --dump-builtin-params
   PluginEditor.cpp          native plugin editor windows + PluginEditorController

@@ -3,8 +3,8 @@
 // path: a song has graph.yaml, and its lanes are module nodes (docs/trackModules.md), which
 // compileNodeProject reads instead.
 
-import { existsSync, statSync } from "node:fs";
-import { basename, join } from "node:path";
+import { statSync } from "node:fs";
+import { basename } from "node:path";
 import {
   exportSub,
   loadProjectRoot,
@@ -99,7 +99,7 @@ export function buildDoc(
 }
 
 function resolveClip(
-  dir: string,
+  _dir: string,
   cid: string,
   clipsMap: Record<string, RawClip>,
   seqMap: Record<string, RawSequence>,

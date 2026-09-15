@@ -19,11 +19,11 @@ import {
   SURFACES_DIR,
 } from "@studio/song-schema/yaml/surfaceFile";
 import {
-  SURFACE_LAYOUTS_BY_TYPE,
-  SURFACE_MAPPING_SKELETON,
-  SURFACE_TYPES,
-  type SurfaceType,
-} from "@studio/song-schema/yaml/surfaceSchema";
+  allSurfaceTypes,
+  type SurfaceTypeContribution,
+  surfaceTypeOf,
+} from "@studio/song-schema/yaml/surfaceRegistry";
+import type { SurfaceType } from "@studio/song-schema/yaml/surfaceSchema";
 import type { Diagnostic } from "./loader";
 import { ensureVideoRun } from "./videoOutputs";
 import { entityFiles } from "./yaml/moduleIO";
@@ -73,17 +73,18 @@ export function createSurfaceFile(
   type: SurfaceType,
   id: string = type,
 ): string {
-  // Kept although the type says so: a command line hands this a string until `isSurfaceType` looks at it.
-  if (!(SURFACE_TYPES as readonly string[]).includes(type))
+  // Kept although the type says so: a command line hands this a string until the registry looks at it.
+  const known = surfaceTypeOf(type);
+  if (!known)
     throw new Error(
-      `unknown surface type '${type}' — ${SURFACE_TYPES.join(", ")}`,
+      `unknown surface type '${type}' — ${allSurfaceTypes().join(", ")}`,
     );
   // The filename IS the id, exactly as it is for a curve and every other flat entity folder.
   if (!/^[A-Za-z0-9_-]+$/.test(id))
     throw new Error(
       `invalid surface name '${id}' — letters, digits, '_' and '-' only`,
     );
-  const layout = SURFACE_LAYOUTS_BY_TYPE[type][0];
+  const layout = known.layouts[0];
   const rel = `${SURFACES_DIR}/${id}.yaml`;
   if (existsSync(join(dir, rel)))
     throw new Error(`surface '${id}' already exists (${rel})`);
@@ -99,7 +100,7 @@ export function createSurfaceFile(
   mkdirSync(join(dir, SURFACES_DIR), { recursive: true });
   writeFileSync(
     join(dir, rel),
-    `type: ${type}\nlayout: ${layout}\n${mappingSkeleton(type)}`,
+    `type: ${type}\nlayout: ${layout}\n${mappingSkeleton(known)}`,
     "utf8",
   );
   // A viewport brings the picture's two outputs with it, in the same breath — docs/videoOutputs.md.
@@ -108,10 +109,9 @@ export function createSurfaceFile(
 }
 
 /** Every component of a type listed with a `null` and a note — not a comment, see docs/surfaces.md. */
-function mappingSkeleton(type: SurfaceType): string {
-  const rows = SURFACE_MAPPING_SKELETON[type];
-  if (!rows.length) return "";
-  return `mapping:\n${rows
+function mappingSkeleton(known: SurfaceTypeContribution): string {
+  if (!known.mappingSkeleton.length) return "";
+  return `mapping:\n${known.mappingSkeleton
     .map(([id, wants]) => `  ${id}: null # ${wants}\n`)
     .join("")}`;
 }

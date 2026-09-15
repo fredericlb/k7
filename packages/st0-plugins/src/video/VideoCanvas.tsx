@@ -10,8 +10,8 @@ import { EngineClock } from "@studio/ui-eyes/clock";
 import { type LaneDebug, RealtimeDriver } from "@studio/ui-eyes/realtime";
 import type { VideoScene } from "@studio/ui-eyes/scene";
 import { useEffect, useRef } from "react";
-import { canAskForLens, remoteLens } from "../camera/remoteLens";
-import { levelsForPasses, smoothLevels } from "../shaderAudio";
+import { canAskForLens, remoteLens } from "./camera/remoteLens";
+import { levelsForPasses, smoothLevels } from "./shaderAudio";
 
 /** Whose camera a live lane draws: this browser's, or the machine's over a peer connection when
  *  this device may not open one — which is every device reaching the app over the LAN.
@@ -22,7 +22,7 @@ const lensOpener = () =>
     : remoteLens;
 
 // Letterbox the viewport's aspect in the host: the backing store keeps its pixel size, only CSS size changes.
-function fit(
+function letterbox(
   driver: RealtimeDriver,
   host: HTMLElement,
   scene: VideoScene,
@@ -87,7 +87,7 @@ export function VideoCanvas({
       return;
     }
     driverRef.current = driver;
-    onFitRef.current?.(fit(driver, host, scene));
+    onFitRef.current?.(letterbox(driver, host, scene));
     // Where the transport is RIGHT NOW: a fresh clock knows nothing, and with the transport stopped the next frame can be 250 ms away.
     const now = store.getSnapshot();
     clock.feed(now.playing, now.playhead);
@@ -128,7 +128,7 @@ export function VideoCanvas({
     if (!host) return;
     const ro = new ResizeObserver(() => {
       const d = driverRef.current;
-      if (d) onFitRef.current?.(fit(d, host, scene));
+      if (d) onFitRef.current?.(letterbox(d, host, scene));
     });
     ro.observe(host);
     return () => ro.disconnect();

@@ -886,6 +886,18 @@ export function listBaseModules(dir: string): string[] {
 export interface BaseModuleRef {
   ref: string;
   label?: string;
+  /** Its panel grid, when it draws one — what a picker sizes a card by before the node exists. */
+  panel?: { cols: number; rows: number };
+}
+
+/** A module's panel grid size, or undefined for a module that draws no panel. */
+export function panelOf(
+  m: LoadedModule | undefined,
+): { cols: number; rows: number } | undefined {
+  const ui = m?.ui as { cols?: unknown; rows?: unknown } | undefined;
+  const cols = Number(ui?.cols);
+  const rows = Number(ui?.rows);
+  return cols > 0 && rows > 0 ? { cols, rows } : undefined;
 }
 
 /** …the same list with those labels, off ONE walk — what `/base-modules` answers. */
@@ -893,7 +905,8 @@ export function listBaseModuleRefs(dir: string): BaseModuleRef[] {
   const modules = projectModules(dir);
   return baseModuleRefs(modules).map((ref) => {
     const label = moduleLabelOf(modules[ref]);
-    return label ? { ref, label } : { ref };
+    const panel = panelOf(modules[ref]);
+    return { ref, ...(label ? { label } : {}), ...(panel ? { panel } : {}) };
   });
 }
 

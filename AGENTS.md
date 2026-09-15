@@ -32,6 +32,8 @@ The zone's `docs/` directory is where that justification belongs:
 | the blind-test game | `apps/z0/docs/` |
 | the build scripts | `engine/st0-tray/scripts/docs/` |
 | the git repositories | `packages/git-repos/docs/` |
+| the plugin contract | `packages/st0-sdk/docs/` |
+| st0's builtin plugins | `packages/st0-plugins/docs/` |
 | CI and deployment, which belong to no single app | `docs/` |
 
 (Those are notes for developers. `apps/st0/docs/` is the exception: it is the
@@ -75,6 +77,7 @@ as **raw TypeScript source**: no build step, imported through `package.json`
 `docs/autosave.md`), `ui-eyes` (WebGL video — st0's `viewport` surface), `ui-timeline` (what an arrangement surface needs whatever its unit is: wheel zoom, middle-drag pan, a ruler's tick chooser, the lane geometry — st0's ruler reads bars OR seconds, since one grid draws a song and its picture), `ui-waveform`, `ui-module-builder` (st0 and pl8), `ui-app-switch` (the way OUT of an app and into the others of the origin — st0's home page and pl8's header mount the same menu), `ui-mini-player` (the transport BAR at the bottom of an app — play/pause, a scrubber, a close, and no transport of its own: pl8's médiathèque and st0's reference tracks mount the same row, `docs/miniPlayer.md`), `ui-turntables` (the DJ desk — st0's `turntables` surface; its one seam is the engine, `docs/hosting.md`, and `docs/` holds the desk's whole rationale, and `scripts/` the harnesses that measure a SOUND or a
 GESTURE against a running engine — `put-on.ts` is what costs a record its place on a deck) |
 | the types | `web-protocol`, `graph-model` (split out so drawing a graph doesn't drag in auth) |
+| the sdk | `st0-sdk` (the `St0Plugin` contract and the installers — a plugin is a set of commands, a surface, a set of modules, `docs/sdk.md`), `st0-plugins` (st0's builtin plugins and the two composition lists: the file-service installs the server half at boot, the shell registers the browser half into its pane ring) |
 | z0 | `player-web` — the blind-test player, with a moteur-backed seam behind it |
 
 Two of these are **processes rather than libraries** and are bundled, not imported:

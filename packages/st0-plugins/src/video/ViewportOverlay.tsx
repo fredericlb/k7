@@ -20,7 +20,7 @@ import {
   type PickLayer,
   type Rect,
   sameRect,
-} from "../viewportRect";
+} from "./viewportRect";
 
 const rectOf = (t: WebVideoTrack): Rect => ({ x: t.x, y: t.y, w: t.w, h: t.h });
 

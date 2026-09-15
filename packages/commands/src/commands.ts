@@ -6,14 +6,11 @@
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
-  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
-import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type {
   AudioDeviceInfo,
@@ -49,29 +46,16 @@ import {
   createTrackFile,
   freeNodeName,
   isFileParam,
-  isVideoSource,
   loadChains,
   loadModuleRefs,
   loadModules,
   loadProjectRoot,
-  moduleRefOf,
   nodeNameTaken,
   setLaneOrder,
 } from "@studio/song/loader";
 import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
-import {
-  clearChannelLabel,
-  formatAudioDevice,
-  formatChannels,
-  loadPreferences,
-  parseChannels,
-  setChannelLabel,
-  setInputPair,
-  setStemsChain,
-} from "@studio/song/preferences";
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
-import { loadAudioClipDoc, trackMixer } from "@studio/song/project";
 import { createSurfaceFile, surfacesNaming } from "@studio/song/surfaces";
 import { addTrackMixer } from "@studio/song/trackMixerFile";
 import { spliceProjectTime } from "@studio/song-edit/insertTime";
@@ -139,14 +123,6 @@ import {
   VIDEO_OUT_NODE,
 } from "@studio/song-schema/moduleTypes";
 import {
-  appendPlaylistItem,
-  PLAYLISTS_DIR,
-  type PlaylistItem,
-  parsePlaylist,
-  playlistPathOf,
-  playlistStub,
-} from "@studio/song-schema/playlist";
-import {
   beatsToDuration,
   beatsToPosition,
   parseDuration,
@@ -157,13 +133,6 @@ import {
   type Placement,
   PlacementSchema,
 } from "@studio/song-schema/yaml/placementSchema";
-import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
-import { parse as parseYaml } from "yaml";
-import {
-  extractAudio,
-  srtOf,
-  transcribeAudio,
-} from "./transcribe";
 
 /** Everything a placement may say beyond WHERE it goes, listed rather than spread — docs/verbs.md. */
 const EVENT_FIELDS = [
@@ -176,21 +145,12 @@ const EVENT_FIELDS = [
   "warp",
 ] as const;
 
-import {
-  coldOutDir,
-  type RunColdStep,
-  runColdPasses,
-} from "@studio/audio-passes/coldPass";
+import type { RunColdStep } from "@studio/audio-passes/coldPass";
 import {
   processWithChain,
-  type ResolvedChain,
-  resolveChain,
   type Scope,
 } from "@studio/audio-passes/processChain";
 import { DEFAULT_TRIM_DB, trimWindow } from "@studio/audio-probe/trim-gate";
-// The MACHINE's copy of the médiathèque: a deck opens file paths, so this disk and not the hosted volume.
-import { familyDir } from "@studio/mediatek/layout";
-import { isAudio } from "@studio/mediatek/media";
 import {
   deleteFileValue,
   setFileValue,
@@ -229,10 +189,8 @@ import {
   setNoteVelocity,
   splitNote,
 } from "@studio/song-schema/yaml/sequenceFile";
-import {
-  isSurfaceType,
-  SURFACE_TYPES,
-} from "@studio/song-schema/yaml/surfaceSchema";
+import { allSurfaceTypes } from "@studio/song-schema/yaml/surfaceRegistry";
+import { isSurfaceType } from "@studio/song-schema/yaml/surfaceSchema";
 import {
   consolidateAudioMaterial,
   splitAudioMaterial,
@@ -695,106 +653,6 @@ async function orderTrack(arg: string, h: CommandHost): Promise<void> {
     return;
   }
   await h.reload();
-}
-
-// `track transcribe <track_in> <track_out>` — whisper listens to the video the picture lane
-// places, and the transcript lands as the NEW lane's `content:` (docs/verbs.md). The order of
-// the acts is the failure order that matters: everything is checked and the take RUNS before a
-// line is written, so a refused transcription costs no track, and a track that already existed
-// gets its content REPLACED (the journal brackets the command, so Ctrl+Z has it either way).
-async function transcribeTrack(arg: string, h: CommandHost): Promise<void> {
-  const parts = arg.trim().split(/\s+/).filter(Boolean);
-  if (parts.length !== 2) {
-    h.refuse([
-      "usage: track transcribe <track_in> <track_out>  (e.g. track transcribe cam lyrics)",
-    ]);
-    return;
-  }
-  const [trackIn, trackOut] = parts;
-  // <track_in> is a PICTURE lane: video_tracks/<id>.yaml, the id being the stem, so the name is
-  // checked before it reaches a path (docs/picture.md).
-  if (!/^[A-Za-z0-9_.-]+$/.test(trackIn)) {
-    h.refuse([`'${trackIn}' is not a lane name — letters, digits, '.', '_' and '-' only`]);
-    return;
-  }
-  const laneFile = join(h.songPath, "video_tracks", `${trackIn}.yaml`);
-  if (!existsSync(laneFile)) {
-    h.refuse([`no picture lane "${trackIn}" (video_tracks/${trackIn}.yaml)`]);
-    return;
-  }
-  // The FIRST shot decides what is listened to: one video, timed in its own seconds. A lane that
-  // cuts between sources would need the segments re-timed onto the timeline to say anything.
-  const shot = listVideoPlacements(readFileSync(laneFile, "utf8")).find(
-    (p) => p.ref,
-  );
-  if (!shot?.ref) {
-    h.refuse([`'${trackIn}' places no shot — there is no video to transcribe`]);
-    return;
-  }
-  if (/[/\\]|\.\./.test(shot.ref)) {
-    h.refuse([`'${shot.ref}' is not a clip id — the stem of a file in clips/`]);
-    return;
-  }
-  const clipFile = join(h.songPath, "clips", `${shot.ref}.yaml`);
-  let source = "";
-  if (existsSync(clipFile)) {
-    const doc = parseYaml(readFileSync(clipFile, "utf8")) as {
-      source?: unknown;
-    };
-    source = typeof doc.source === "string" ? doc.source : "";
-  }
-  if (!source) {
-    h.refuse([`clip '${shot.ref}' says no source (clips/${shot.ref}.yaml)`]);
-    return;
-  }
-  if (!isVideoSource(source)) {
-    h.refuse([
-      `clip '${shot.ref}' is not a video (${source}) — transcribe listens to picture, whose sound is the speech`,
-    ]);
-    return;
-  }
-  const videoPath = resolve(h.songPath, source);
-  if (!existsSync(videoPath)) {
-    h.refuse([`the video is not on this machine: ${source}`]);
-    return;
-  }
-  // <track_out>: created when new, its content REPLACED when not — the one field a rerun updates.
-  if (!/^[A-Za-z0-9_.-]+$/.test(trackOut)) {
-    h.refuse([
-      `'${trackOut}' is not a track name — letters, digits, '.', '_' and '-' only`,
-    ]);
-    return;
-  }
-  const nodeFile = join(h.songPath, "nodes", `${trackOut}.yaml`);
-  const existed = existsSync(nodeFile);
-  if (!existed) {
-    try {
-      createTrackFile(h.songPath, trackOut);
-    } catch (e) {
-      h.refuse([`track transcribe: ${(e as Error).message}`]);
-      return;
-    }
-  }
-  h.log([`whisper is listening to ${source} — this can take a few minutes`]);
-  const tmp = mkdtempSync(join(tmpdir(), "st0-transcribe-"));
-  try {
-    extractAudio(videoPath, join(tmp, "audio.wav"));
-    const segments = await transcribeAudio(join(tmp, "audio.wav"), tmp);
-    if (segments.length === 0) {
-      h.refuse(["whisper heard no speech in this video"]);
-      return;
-    }
-    setFileValue(nodeFile, ["content"], srtOf(segments));
-    await h.reload();
-    h.log([
-      `${segments.length} segments into ${trackOut} (content:) — timed in the source's own seconds`,
-      ...(existed
-        ? ["the track already existed, so its content was replaced"]
-        : []),
-    ]);
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
 }
 
 /** `sequence note repeat|skip <sequence> <note> <start> <n|off>` — a PAD's two effects, one factory; docs/verbs.md. */
@@ -1732,7 +1590,6 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // A track IS its file: write it, then reload, so what plays is what is on disk — docs/verbs.md.
   "track.new": async (a, h) => newTrack(a, h),
   "track.order": async (a, h) => orderTrack(a, h),
-  "track.transcribe": async (a, h) => transcribeTrack(a, h),
   "sequence.new": async (a, h) => newSequence(a, h),
 
   // Bounce material through a chain and keep the result — `scope` is all that differs; docs/processChain.md.
@@ -3430,8 +3287,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
   /** project surface new <type> [id] — declare a special view; no layout argument, docs/verbs.md. */
   "project.surface.create": async (a, h) => {
-    // Spelled from the enum, not by hand: a usage string that omits the word you wanted is worse than none.
-    const usage = `usage: project surface new <${SURFACE_TYPES.join("|")}> [id]  (e.g. project surface new turntables desk)`;
+    // Spelled from the OPEN registry, not by hand: a usage string that omits the word you wanted
+    // is worse than none, and a plugin's type completes like a builtin's.
+    const usage = `usage: project surface new <${allSurfaceTypes().join("|")}> [id]  (e.g. project surface new turntables desk)`;
     const [type, id] = a.trim().split(/\s+/);
     // Narrowed rather than cast, so the list in the message cannot drift from the list the parser accepts.
     if (!type || !isSurfaceType(type)) {
@@ -3466,7 +3324,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([`module new failed: ${made.error}`, usage]);
       return;
     }
-    const { ref, rel } = made;
+    const { rel } = made;
     // A chain names a NODE, never this — say so, since the next act is always the same one.
     const next = `use it with \`node new ${target} <node-name>\``;
     if (!rel) return h.refuse([`${target} is already here`, next]);
@@ -4196,3 +4054,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 };
+
+/** Add a plugin's verb: the SID it dispatches under and the behaviour that runs. The catalogue
+ *  half is `registerCommandSpec`'s (commandSpec.ts) — a plugin contributes BOTH, through
+ *  `@studio/st0-sdk`'s installer, which calls the two in one move. A SID that is already spoken
+ *  for is refused, never shadowed: one SID, one behaviour. */
+export function registerCommand(c: { sid: string; handler: SidHandler }): void {
+  if (SID_HANDLERS[c.sid])
+    throw new Error(`command '${c.sid}' already has a handler`);
+  SID_HANDLERS[c.sid] = c.handler;
+}

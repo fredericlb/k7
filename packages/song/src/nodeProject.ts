@@ -36,7 +36,6 @@ import {
   loadModules,
   loadProjectRoot,
   loadSettings,
-  loadVideoTracks,
   readYamlEntities,
   withChainModuleRefs,
 } from "./loader";
@@ -65,7 +64,6 @@ import {
   enginePlugin,
   FAUST_TYPE,
   JSDSP_TYPE,
-  MIXER_PLUGIN,
   OFFLINE_TYPE,
   parseMarkers,
   parseSettings,
@@ -360,7 +358,6 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
   const clipsRead = readYamlEntities(dir, "clips");
   const clipsMap = clipsRead.values as Record<string, RawClip>;
   const seqMap = exportSub(dir, "sequences");
-  const videoTracksMap = loadVideoTracks(dir, true);
   // Plus the shared modules the chains name by ref, resolved ONCE so the compile loop below reads plain fields.
   const modulesMap = resolveModuleMap(
     withChainModuleRefs(localModules, moduleRefs, chains),
@@ -369,7 +366,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
 
   // Unresolved references fail loudly rather than being silently dropped — see docs/nodeProject.md.
   const refErrs: string[] = [];
-  for (const [chainName, c] of Object.entries(chains))
+  for (const [, c] of Object.entries(chains))
     for (const step of c.use) {
       const moduleName = String(step?.module ?? "");
       const module = modulesMap[moduleName];

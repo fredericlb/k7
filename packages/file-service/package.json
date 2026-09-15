@@ -34,6 +34,7 @@
     "@studio/song-strudel": "*",
     "@studio/song-video": "*",
     "@studio/stem-separation": "*",
+    "@studio/st0-plugins": "*",
     "@studio/take-render": "*",
     "@studio/translator": "*",
     "@studio/web-protocol": "*",

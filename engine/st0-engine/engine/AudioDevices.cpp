@@ -234,6 +234,53 @@ void EngineHost::resetCallbackCost() {
     impl_->engine.getDeviceManager().restCPUStatistics();
 }
 
+// Reopen the OPEN device when its callback has stopped: the same device, never the remembered one — docs/audioDevice.md.
+void EngineHost::checkAudioCallback() {
+    auto& dm = impl_->engine.getDeviceManager();
+    auto& jdm = dm.deviceManager;
+    auto& watchdog = impl_->callbackWatchdog;
+    auto* dev = jdm.getCurrentAudioDevice();
+    const std::string name = dev != nullptr ? dev->getName().toStdString() : std::string{};
+
+    switch (watchdog.check(dev != nullptr, callbackCost().runs)) {
+        case CallbackWatchdog::Action::none:
+            return;
+        case CallbackWatchdog::Action::resumed:
+            std::cerr << "[device] '" << name << "' is calling back again\n";
+            return;
+        case CallbackWatchdog::Action::giveUp:
+            warn("audio interface '" + name + "' stopped processing audio and did not recover after " +
+                 std::to_string(CallbackWatchdog::kMaxReopens) +
+                 " reopens — make sure no other application holds it, then restart the engine");
+            return;
+        case CallbackWatchdog::Action::reopen:
+            break;
+    }
+
+    warn("audio interface '" + name + "' stopped processing audio — reopening it (attempt " +
+         std::to_string(watchdog.reopens()) + " of " + std::to_string(CallbackWatchdog::kMaxReopens) + ")");
+
+    // What was armed, BEFORE the close: afterwards there is only the reopened device's empty arm flags to read.
+    std::map<std::string, std::vector<std::string>> armedBefore;
+    for (const auto& sid : impl_->ids())
+        if (auto armed = armedTracks(sid); !armed.empty()) armedBefore[sid] = std::move(armed);
+
+    jdm.closeAudioDevice();
+    jdm.restartLastAudioDevice();   // from the setup JUCE holds, so nothing is re-chosen and nothing persisted
+    dm.rescanWaveDeviceList();
+    applyPreferredBufferSize(jdm);
+    publishAudioTiming();
+    reconnectTrackInputs(armedBefore);
+    watchdog.reopened(callbackCost().runs);
+
+    if (auto* now = jdm.getCurrentAudioDevice())
+        std::cerr << "[device] '" << now->getName() << "' reopened: "
+                  << now->getActiveInputChannels().countNumberOfSetBits() << " in, "
+                  << now->getActiveOutputChannels().countNumberOfSetBits() << " out\n";
+    else
+        warn("audio interface '" + name + "' could not be reopened");
+}
+
 std::string EngineHost::outputDeviceName() const {
     auto* dev = impl_->engine.getDeviceManager().deviceManager.getCurrentAudioDevice();
     if (dev == nullptr) return {};

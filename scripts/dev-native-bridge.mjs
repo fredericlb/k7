@@ -6,6 +6,14 @@
 // filesystem then fails to find, and every rebuild recompiles everything. See docs/wsl.md.
 
 import { spawn, spawnSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  symlinkSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
 
 // biome-ignore-start lint/suspicious/noUndeclaredEnvVars: this bridge never runs under turbo
 const MIRROR = process.env.STUDIO_NATIVE_MIRROR;
@@ -72,6 +80,53 @@ const onHost = (line) =>
     stdio: ["ignore", "pipe", "pipe"],
   });
 
+// The mirror as THIS side sees it — C:\studio-native → /mnt/c/studio-native — which is where a
+// link into it points: the host's node_modules holds WSL symlinks with /mnt/c targets, written
+// by the npm ci that was run from the distro (docs/wsl.md).
+const mirrorWsl = `/mnt/${MIRROR[0].toLowerCase()}${MIRROR.slice(2).replace(/\\/g, "/")}`;
+
+/** Create the node_modules link a NEW workspace package lacks. The host's node_modules is
+ *  installed once and skipped by the mirror, so a package added to the workspaces since has no
+ *  link there, and the first native import of it dies with ERR_MODULE_NOT_FOUND — this bridge
+ *  is the only thing that runs between the two, so the heal lives here. One link per
+ *  package.json the mirror holds, named by that manifest, pointing at the mirrored folder —
+ *  the same shape npm's own links have. Existing links are never touched, and npm is never
+ *  run: this covers new PACKAGES; new third-party deps are still npm ci's job (docs/wsl.md). */
+function ensureWorkspaceLinks(log) {
+  let created = 0;
+  for (const root of ["packages", "commons/packages"]) {
+    let dirs;
+    try {
+      dirs = readdirSync(join(mirrorWsl, root), { withFileTypes: true });
+    } catch {
+      continue; // a root the mirror has not got yet — a later pass may
+    }
+    for (const d of dirs) {
+      if (!d.isDirectory()) continue;
+      let name;
+      try {
+        name = JSON.parse(
+          readFileSync(join(mirrorWsl, root, d.name, "package.json"), "utf8"),
+        ).name;
+      } catch {
+        continue; // half-written or not a workspace package
+      }
+      if (typeof name !== "string" || !name) continue;
+      const link = join(mirrorWsl, "node_modules", name);
+      if (existsSync(link)) continue;
+      try {
+        mkdirSync(dirname(link), { recursive: true });
+        symlinkSync(join(mirrorWsl, root, d.name), link, "dir");
+        created += 1;
+        log(`linked ${name} into the host's node_modules`);
+      } catch (e) {
+        log(`✖ could not link ${name}: ${e.message}`);
+      }
+    }
+  }
+  return created;
+}
+
 /** One task on the host: what to run there, which subtrees stay in step, and how to end it. */
 export async function runBridge({
   name = "native",
@@ -91,6 +146,7 @@ export async function runBridge({
 
   log(`mirroring ${SOURCE} → ${MIRROR}`);
   mirrorOnce();
+  ensureWorkspaceLinks(log);
 
   let stopping = false;
   let child = null;
@@ -146,6 +202,7 @@ export async function runBridge({
         log(`✖ ${err.message}`);
       }
     }
+    ensureWorkspaceLinks(log);
     if (moved && restartOnChange) {
       log("sources changed, restarting on the host…");
       restart();

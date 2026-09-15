@@ -275,6 +275,14 @@ Two rules, each of which reads as "the spinner is wrong" when it is broken:
   picked and `runCommand` clears it as it takes it. Left armed, every later
   command draws a placeholder on that same stale arrow, so the spinner belongs to the
   transport key you pressed afterwards, not to the module you added.
+- **The placeholder IS the node it announces.** `src/pendingNode.ts` gives it the size the
+  module's panel will give the card (the catalogue's `panel`, through `nodeSize`), the id
+  `buildGraph` will give the node, and the two cables of the splice. The `+` sends the box's
+  TOP-LEFT as the spawn point, centred on the click, because a pin is a top-left: sending the
+  click itself puts the real card's corner where the spinner's centre was. The pick runs two
+  commands, and the first lands the node unwired; sharing the id is what keeps that card in
+  the placeholder's place, with the splice still drawn, instead of fading one out beside the
+  other.
 - **The seed is taken once.** The graph from a command carries an id, and the canvas records
   the highest it has drawn. A reload from anywhere else — a poll, another tab, the undo
   journal — must re-fetch rather than redraw a graph already on screen. Pairing it with the

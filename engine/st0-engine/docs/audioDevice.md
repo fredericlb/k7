@@ -258,6 +258,31 @@ the row a musician needs to pick. The running device's `current` flag is carried
 even when the engine is on a collapsed variant, so the picker still ticks the right interface.
 Channel counts are known only for the OPEN device; answering for the rest would mean opening them.
 
+## A device that stops calling back is reopened
+
+An ASIO driver can stop calling back and stay OPEN: no error anywhere, the device still listed as
+current, every meter at -100, every transport frozen. It shows up as a playhead bug before it
+reads as an audio one. Tracktion moves a play head only inside the callback, and while stopped it
+copies the play head back into the transport 200 ms after a seek (`lastUserDragTime` in
+`TransportControl`), so every seek lands, then snaps back to where the dead play head sits. JUCE's
+own recovery does not cover it: a driver's reset request closes, reopens and restarts the device,
+and nothing checks that the callbacks resumed.
+
+So the state timer reads the callback counter once a second — `callbackCost().runs`, the number
+`audio-cost` answers with — and `CallbackWatchdog.h` decides. Two checks without a single callback,
+with a device open, is a stall; the answer is to close and reopen THAT device
+(`restartLastAudioDevice`, from the setup JUCE already holds) and re-wire the armed inputs the way
+a switch does. A counter that moves at all is progress, downwards included: a reopen resets it.
+
+It reopens the device already open and never the remembered one, so the rule in AGENTS.md holds.
+Each reopen is a `warn()`, since a stall is something the musician needs to know happened; after
+three it stops and says so once, because a single-client driver held by another application
+refuses every reopen and retrying it for ever is noise. The log says which way it went:
+`[device] … calling back again`, or the give-up warning.
+
+To check by hand: `audio-cost` twice, a second apart. A `runs` that does not move while a device is
+open is exactly the stall this watches for.
+
 ## What is still missing
 
 The device's true input and output latency is not on the wire. Until it is, the quality

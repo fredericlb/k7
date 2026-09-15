@@ -867,7 +867,7 @@ export function validate(g: GraphDoc): string[] {
 
   // Live-input modules, walked over the CHAINS because an input is wired by the run it sits in (docs/graphModel.md).
   const fedBy = new Map<string, string>();
-  for (const [chainName, c] of Object.entries(g.chains)) {
+  for (const [_chainName, c] of Object.entries(g.chains)) {
     if (isParked(c)) continue; // an input dropped in but not wired yet lands nowhere, by design
     for (const s of c.use) {
       const b = g.modules[s.module];

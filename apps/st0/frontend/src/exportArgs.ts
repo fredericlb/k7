@@ -6,21 +6,19 @@
 //
 // See ../docs/picture.md.
 
-import type { ExportFormat } from "@studio/ui-eyes/export";
+import { VIDEO_FORMATS, type VideoFormat } from "@studio/ui-eyes/export";
 
 /** The mixdown formats the file service will render. */
 export const MIX_FORMATS = ["wav", "mp3"] as const;
 export type MixFormat = (typeof MIX_FORMATS)[number];
 
-/** …and the containers the picture leaves in, the default first (@studio/ui-eyes/docs/passes.md). */
-export const VIDEO_FORMATS = [
-  "webm",
-  "mp4",
-] as const satisfies readonly ExportFormat[];
-export type VideoFormat = (typeof VIDEO_FORMATS)[number];
-
-/** What the button and the viewport's strip mean when no line names a container. */
-export const DEFAULT_VIDEO_FORMAT: VideoFormat = "webm";
+// The picture's containers live beside the probe that blesses them (@studio/ui-eyes/export);
+// re-exported so the export command's vocabulary stays spelled in one place.
+export {
+  DEFAULT_VIDEO_FORMAT,
+  VIDEO_FORMATS,
+  type VideoFormat,
+} from "@studio/ui-eyes/export";
 
 /** What the audio track of an exported video is rendered from when the line names none. WAV: it
  *  is decoded and re-encoded into the container either way, so the lossy step buys nothing. */

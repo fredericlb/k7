@@ -3,27 +3,22 @@
 // the project is open — a GL context and one <video> per layer are exactly the state that must
 // not be rebuilt every time you look elsewhere. See packages/song/docs/surfaces.md.
 
-import { type ExportSupport, probeExportSupport } from "@studio/ui-eyes/export";
+import { PROFILING } from "@studio/project-shell/profiling";
+import {
+  DEFAULT_VIDEO_FORMAT,
+  type ExportSupport,
+  probeExportSupport,
+} from "@studio/ui-eyes/export";
 import type { LaneDebug } from "@studio/ui-eyes/realtime";
 import type { WebVideoProject } from "@studio/web-protocol";
 import { useEffect, useMemo, useState } from "react";
-import { DEFAULT_VIDEO_FORMAT } from "../exportArgs";
-import { m } from "../paraglide/messages.js";
-import { PROFILING } from "../profiling";
-import { sceneOf } from "../scene";
-import { audioSources } from "../shaderAudio";
-import type { Rect } from "../viewportRect";
+import { sceneOf } from "./scene";
+import { audioSources } from "./shaderAudio";
 import { VideoCanvas } from "./VideoCanvas";
 import { ViewportOverlay } from "./ViewportOverlay";
+import type { Rect } from "./viewportRect";
 
-export function ViewportTab({
-  doc,
-  error,
-  trackIds,
-  onRect,
-  readOnly,
-  armed,
-}: {
+export interface ViewportTabProps {
   /** The compiled picture, or null when this song carries none — see hooks/useVideoDoc.ts. */
   doc: WebVideoProject | null;
   error: string | null;
@@ -34,7 +29,16 @@ export function ViewportTab({
   readOnly?: boolean;
   /** The armed picture lane — what `monitor: auto` opens a lens for (../pictureMix.ts). */
   armed?: string | null;
-}) {
+}
+
+export function ViewportTab({
+  doc,
+  error,
+  trackIds,
+  onRect,
+  readOnly,
+  armed,
+}: ViewportTabProps) {
   // NOTHING of the engine's state is read here: `VideoCanvas` takes the frames off a raw subscription, so this pane commits on a document change.
   const [debug, setDebug] = useState<LaneDebug[]>([]);
   /** Which layer the frame has selected, and the canvas's letterboxed size the overlay must match. */
@@ -75,10 +79,11 @@ export function ViewportTab({
   if (!scene)
     return (
       <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
-        {m["vp.noPicture"]()}
-        <code className="mx-1">video_tracks/&lt;name&gt;.yaml</code>{" "}
-        {m["vp.andA"]()}
-        <code className="mx-1">viewport</code> {m["vp.inProjectYaml"]()}
+        {/* English in the package, the same rule @studio/ui-turntables' views follow —
+            the app's paraglide layer is for the app's own chrome. */}
+        This project has no picture yet. Add
+        <code className="mx-1">video_tracks/&lt;name&gt;.yaml</code> and a
+        <code className="mx-1">viewport</code> in project.yaml.
       </div>
     );
 

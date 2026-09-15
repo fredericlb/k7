@@ -226,7 +226,7 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
         on.push(compileShape(st.module, g.modules[st.module] as Module));
     }
   }
-  for (const [name, c] of Object.entries(g.chains)) {
+  for (const [, c] of Object.entries(g.chains)) {
     if (c.enabled === false) continue;
     if (!c.from) continue;
     if (c.from === RENDER_NODE) {

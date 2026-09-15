@@ -76,26 +76,8 @@
       { name: track, complete: tracks },
       { name: position, hint: "1-based, counting lanes from the top" },
     ]
-# whisper listens to the video the picture lane places, and the transcript lands as the new lane's
-# `content:` — the text the graph's docs view reads. The SOURCE's own seconds, as SRT. The machine
-# needs a whisper CLI (`whisper` from openai-whisper, or `whisper-cli` from whisper.cpp with
-# STUDIO_WHISPER_MODEL naming a ggml model), and ffmpeg, which a machine that renders has.
-- command: "track transcribe"
-  sid: track.transcribe
-  readable:
-    en: "Transcribe a video lane with whisper"
-    fr: "Transcrire une piste vidéo avec whisper"
-  help: "whisper the video <track_in> places into <track_out>'s text (e.g. track transcribe cam lyrics)"
-  surfaces: [cli, timeline]
-  menu: [track]
-  args:
-    [
-      { name: track_in, complete: pictureLanes },
-      {
-        name: track_out,
-        hint: "the new lane carrying the transcript — its content: is replaced if it exists",
-      },
-    ]
+# `track transcribe` moved to the transcription plugin (@studio/st0-plugins) —
+# its catalogue row is the plugin's declaration now (packages/st0-plugins/src/transcription).
 # Two ways to make one lane into two, both copying its chain; the difference is the events.
 - command: "track duplicate"
   sid: track.duplicate

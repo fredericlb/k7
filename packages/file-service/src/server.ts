@@ -72,6 +72,12 @@ import {
   workspaceNameFor,
 } from "./workspaces.ts";
 
+// st0's plugin contributions — commands and surface types — before anything reads a catalogue
+// or compiles a song. The LIST is the plugins package's; this process only calls the install.
+import { installBuiltinPlugins } from "@studio/st0-plugins/server";
+
+installBuiltinPlugins();
+
 // First and only here: one process holds the socket, the clock and the watcher — see background.ts.
 installProcessNet();
 

@@ -17,14 +17,12 @@ import {
 import type { Placement } from "@studio/song-schema/yaml/placementSchema";
 import {
   addPlacement,
-  copyPlacementAt,
   findPlacementAt,
   movePlacementAt,
   placementAt,
   placementValues,
   removePlacementAt,
   setPlacementField,
-  setTrackField,
 } from "@studio/song-schema/yaml/trackFile";
 import { type MaterialKind, resizeToWindow } from "./clipResize";
 

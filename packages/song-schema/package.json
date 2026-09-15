@@ -38,6 +38,7 @@
     "./yaml/sequenceFile": "./src/yaml/sequenceFile.ts",
     "./yaml/surfaceFile": "./src/yaml/surfaceFile.ts",
     "./yaml/surfaceSchema": "./src/yaml/surfaceSchema.ts",
+    "./yaml/surfaceRegistry": "./src/yaml/surfaceRegistry.ts",
     "./yaml/trackFile": "./src/yaml/trackFile.ts",
     "./yaml/uiFile": "./src/yaml/uiFile.ts",
     "./yaml/validate": "./src/yaml/validate.ts",

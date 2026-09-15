@@ -29,12 +29,14 @@ import {
   Unplug,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, engines } from "../api";
+import { api, engines, PL8_API } from "../api";
 import type { CommandPrefs } from "../commandPrefs";
+import type { TimelineHandle } from "../components/TimelineTab";
 import { useCommandKeys } from "../hooks/useCommandKeys";
 import { useEngineLink } from "../hooks/useEngineLink";
 import { useFullscreen } from "../hooks/useFullscreen";
 import { useProjectDoc } from "../hooks/useProjectDoc";
+import { useRevision } from "../hooks/useRevision";
 import { useStayAwake } from "../hooks/useStayAwake";
 import {
   type SurfaceCommands,
@@ -48,12 +50,8 @@ import { type ConditionCtx, effectiveKeys } from "../keys";
 import { BARE_TRANSPORT, isUiLine } from "../localCommands";
 import { m } from "../paraglide/messages.js";
 import { MiniTransport } from "../shellMeta";
+import { deviceSurfaceDrawer } from "../surfacePanes";
 import type { CommandInfo } from "../types";
-import { ExternalTimeline } from "./ExternalTimeline";
-import { MasteringTab } from "./MasteringTab";
-import { SurfaceTab } from "./SurfaceTab";
-import type { TimelineHandle } from "./TimelineTab";
-import { ViewportTab } from "./ViewportTab";
 
 /** No caret and no rectangle until a surface says otherwise — a frozen identity, the key listener taking it as a dependency. */
 const NO_CONDITIONS: ConditionCtx = {};
@@ -108,6 +106,8 @@ export function ExternalSurface({
     setStatus,
     pushLog,
   );
+
+  const rev = useRevision();
 
   const deck = useTurntableDeck({
     store,
@@ -266,6 +266,8 @@ export function ExternalSurface({
           <Drawn
             surface={surface}
             project={project}
+            libraryBase={PL8_API}
+            rev={rev}
             store={store}
             engineRef={engineRef}
             seek={seek}
@@ -344,6 +346,8 @@ export function ExternalSurface({
 function Drawn({
   surface,
   project,
+  libraryBase,
+  rev,
   store,
   engineRef,
   seek,
@@ -363,6 +367,8 @@ function Drawn({
 }: {
   surface: ProjectSurface;
   project: string;
+  libraryBase: string;
+  rev: string | null;
   store: EngineStore;
   engineRef: React.RefObject<EngineClient | undefined>;
   seek: (seconds: number) => void;
@@ -380,39 +386,37 @@ function Drawn({
   onConditions: React.Dispatch<React.SetStateAction<ConditionCtx>>;
   timelineRef: React.RefObject<TimelineHandle | null>;
 }) {
-  switch (surface.surface.type) {
-    case "turntables":
-      return <SurfaceTab surface={surface} deck={deck} project={project} />;
-    case "mastering":
-      return (
-        <MasteringTab
-          surface={surface}
-          paramsStore={paramsStore}
-          setPluginParam={setPluginParam}
-          watchPluginParams={watchPluginParams}
-        />
-      );
-    case "viewport":
-      // No `trackIds`: that list is for a shader's audio input, and building it would mean compiling the song on a device only showing its picture.
-      return <ViewportTab doc={videoDoc} error={videoError} />;
-    case "timeline":
-      return (
-        <ExternalTimeline
-          ref={timelineRef}
-          project={project}
-          store={store}
-          engineRef={engineRef}
-          seek={seek}
-          commands={commands}
-          setStatus={setStatus}
-          videoDoc={videoDoc}
-          prefs={prefs}
-          catalogue={catalogue}
-          prewrite={prewrite}
-          onConditions={onConditions}
-        />
-      );
-  }
+  // The DEVICE registry answers which component draws this type out here; a type with no
+  // device drawer draws in st0's window, and the card says so (packages/st0-sdk/docs/sdk.md).
+  const drawer = deviceSurfaceDrawer(surface.surface.type);
+  if (!drawer)
+    return (
+      <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+        {m["srf.drawnByShell"]({ type: surface.surface.type })}
+      </div>
+    );
+  return drawer({
+    surface,
+    project,
+    libraryBase,
+    rev,
+    store,
+    engineRef,
+    seek,
+    commands,
+    setStatus,
+    deck,
+    paramsStore,
+    setPluginParam,
+    watchPluginParams,
+    videoDoc,
+    videoError,
+    prefs,
+    catalogue,
+    prewrite,
+    onConditions,
+    timelineRef,
+  });
 }
 
 /** Back to `/external`, as a plain link: this app's basename ends at the PROJECT, so there is no route from here to there. */

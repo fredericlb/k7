@@ -762,6 +762,11 @@ public:
                 else
                     ++it;
             }
+        // The audio callback's pulse, once a second: a stalled driver otherwise freezes every transport with no error (docs/audioDevice.md).
+        if (++pulseTicks_ >= kTicksPerPulse) {
+            pulseTicks_ = 0;
+            host_.checkAudioCallback();
+        }
         // Ride this timer rather than add one: both sweeps are cheap.
         if (++ticks_ >= kTicksPerRelease) {
             ticks_ = 0;
@@ -784,6 +789,9 @@ private:
     static constexpr int kReleasesPerReap = 12;   // …and the empty-session sweep once a minute
     /** How many ticks an IDLE session skips before sending one anyway: five is 4 Hz, slow enough to leave a profile and quick enough to feel live. docs/protocol.md. */
     static constexpr int kIdleDivisor = 5;
+    // Twenty ticks is one second: the callback watchdog's cadence (docs/audioDevice.md).
+    static constexpr int kTicksPerPulse = 20;
+    int pulseTicks_ = 0;
     // The floor under which a track reads as silent — the same −60 dB the surfaces call silence.
     static constexpr double kSilenceDb = -60.0;
     int ticks_ = 0;

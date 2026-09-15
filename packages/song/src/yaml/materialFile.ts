@@ -6,7 +6,6 @@ import { readFileSync } from "node:fs";
 import { parseDocument } from "yaml";
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
-const OUT = { lineWidth: 0 };
 
 /** A window edge as the file spells it: seconds into a source (a number), or a position in a sequence. */
 export type WindowValue = number | string;

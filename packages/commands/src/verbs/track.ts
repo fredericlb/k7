@@ -12,11 +12,14 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
-import { loadGraph, type GraphDoc } from "@studio/song/graph";
+import { type GraphDoc, loadGraph } from "@studio/song/graph";
 import { createTrackFile, loadModules } from "@studio/song/loader";
 import { SHARED_STRIP } from "@studio/song/scaffoldLive";
 import { mixerNameFor } from "@studio/song/trackMixerFile";
-import { editTrackStruct, addTrackPlacements } from "@studio/song-edit/trackMix";
+import {
+  addTrackPlacements,
+  editTrackStruct,
+} from "@studio/song-edit/trackMix";
 import { instanceName } from "@studio/song-schema/instanceName";
 import {
   isBuiltinOutput,
@@ -24,10 +27,7 @@ import {
   portRef,
   splitPort,
 } from "@studio/song-schema/moduleTypes";
-import {
-  mergeSegments,
-  parseGraph,
-} from "@studio/song-schema/yaml/graphFile";
+import { mergeSegments, parseGraph } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { Placement } from "@studio/song-schema/yaml/placementSchema";
 import {
@@ -75,7 +75,10 @@ function materialiseNode(
 /** The strip file's first line names the lane it belongs to; a copy has to be re-labelled. */
 function relabelStrip(abs: string, lane: string): void {
   const text = readFileSync(abs, "utf8");
-  const next = text.replace(/^# .*?'s channel strip/, `# ${lane}'s channel strip`);
+  const next = text.replace(
+    /^# .*?'s channel strip/,
+    `# ${lane}'s channel strip`,
+  );
   if (next !== text) writeFileSync(abs, next, "utf8");
 }
 
@@ -85,7 +88,6 @@ function duplicateChain(
   lane: string,
   newLane: string,
   g: GraphDoc,
-  modules: Record<string, string[]>,
   taken: (name: string) => boolean,
   claim: (name: string) => string,
 ): string[] {
@@ -118,7 +120,9 @@ function duplicateChain(
 
   const isStrip = (node: string): boolean => {
     const m = g.modules[node];
-    return !!m && (m.plugin?.name === MIXER_PLUGIN || m.extends === SHARED_STRIP);
+    return (
+      !!m && (m.plugin?.name === MIXER_PLUGIN || m.extends === SHARED_STRIP)
+    );
   };
 
   const clones = new Map<string, string>();
@@ -127,7 +131,7 @@ function duplicateChain(
     if (isStrip(node)) return claim(mixerNameFor(newLane, taken));
     const m = g.modules[node];
     const leaf = m?.extends
-      ? String(m.extends).split("/").pop() ?? node
+      ? (String(m.extends).split("/").pop() ?? node)
       : node;
     return claim(instanceName(leaf, newLane, taken));
   };
@@ -173,7 +177,11 @@ function duplicateChain(
     written.push(`nodes/${to}.yaml`);
   }
 
-  if (Object.keys(additions).length || addBypassed.length || addBusOnly.length) {
+  if (
+    Object.keys(additions).length ||
+    addBypassed.length ||
+    addBusOnly.length
+  ) {
     const next = mergeSegments(text, {
       modules: additions,
       ...(addBypassed.length ? { bypassed: addBypassed } : {}),
@@ -205,10 +213,9 @@ async function duplicateTrack(
   }
   try {
     const srcText = readFileSync(srcAbs, "utf8");
-    const srcValue = parseDocument(srcText, { version: "1.2" }).toJS() as Record<
-      string,
-      unknown
-    >;
+    const srcValue = parseDocument(srcText, {
+      version: "1.2",
+    }).toJS() as Record<string, unknown>;
     if (Array.isArray(srcValue.tracks)) {
       h.refuse([`"${lane}" is a group — a group has no events to duplicate`]);
       return;
@@ -267,7 +274,6 @@ async function duplicateTrack(
       lane,
       newLane,
       g,
-      modules,
       taken,
       claim,
     );

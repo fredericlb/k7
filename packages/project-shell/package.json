@@ -7,6 +7,7 @@
   "types": "./src/launch.ts",
   "exports": {
     "./launch": "./src/launch.ts",
+    "./profiling": "./src/profiling.ts",
     "./fileApi": "./src/fileApi.ts",
     "./project": "./src/project.ts",
     "./gate": "./src/ProjectGate.tsx",

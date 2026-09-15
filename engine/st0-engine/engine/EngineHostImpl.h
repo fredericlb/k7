@@ -9,6 +9,7 @@
 #include "EngineHost.h"
 #include "EngineTypes.h"
 #include "BroadcastTap.h"
+#include "CallbackWatchdog.h"
 #include "RecorderNode.h"
 #include "InputTuner.h"
 #include "SessionRegistry.h"
@@ -131,6 +132,9 @@ struct EngineHost::Impl {
     // What the open device costs, PUBLISHED by the message thread on every open or change; atomic because `whoami` answers on the socket's own thread (publishAudioTiming).
     std::atomic<int> audioBufferFrames{0};
     std::atomic<double> audioSampleRate{0.0};
+
+    // Whether the open device still calls back, checked once a second by the state timer — message thread only (docs/audioDevice.md).
+    CallbackWatchdog callbackWatchdog;
 
     // The count-in mode last written to Tracktion's ENGINE-GLOBAL property storage, -1 = never (EngineHost::play says why it is shadowed once per process).
     int countInApplied = -1;

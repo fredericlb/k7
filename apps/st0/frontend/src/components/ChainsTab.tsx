@@ -45,6 +45,7 @@ import {
   useMidiControl,
 } from "../hooks/useMidiControl";
 import { nodeNameFor } from "../nodeInsert";
+import { type PendingNode, withPendingNode } from "../pendingNode";
 import { useLiveRackLit } from "../rackLit";
 import type { PreviewReq, WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
@@ -153,8 +154,8 @@ export function ChainsTab({
     side: "input" | "output",
     on: boolean,
   ) => void;
-  /** The arrow a module is being created on right now, or null. Drawn as a placeholder until real data lands. */
-  pendingInsert?: { before: string; after: string } | null;
+  /** The node being created on an arrow right now, or null. Drawn as a placeholder until real data lands. */
+  pendingInsert?: PendingNode | null;
   /** The graph a writing command already came back with, and its id — taken once, so a reload from anywhere else re-fetches. */
   seedGraph?: { id: number; graph: WebGraph } | null;
   /** Whether to DRAW the project's notes: off by default, and filtered here rather than in the renderer, being a question about this graph. */
@@ -494,41 +495,14 @@ export function ChainsTab({
     };
   }, [laid, pendingBypass]);
 
-  // A node for the module being created, sitting where it will land: what is drawn is the WAIT, adding one costing ~700 ms of recompiling.
-  const withPending = useMemo(() => {
-    if (!laidShown || !pendingInsert) return laidShown;
-    const find = (name: string) =>
-      laidShown.nodes.find((n) => n.module === name || n.label === name);
-    const a = find(pendingInsert.before);
-    const b = find(pendingInsert.after);
-    if (!a && !b) return laidShown;
-    const at = a ?? b!;
-    const to = b ?? a!;
-    const w = 120;
-    const h = 56;
-    return {
-      ...laidShown,
-      nodes: [
-        ...laidShown.nodes,
-        {
-          id: "__pending__",
-          label: "…",
-          kind: "module" as const,
-          dim: false,
-          missing: false,
-          stub: false,
-          notSupported: false,
-          unknownPlugin: false,
-          hasNativePluginUI: false,
-          pending: true,
-          w,
-          h,
-          x: (at.x + at.w / 2 + (to.x + to.w / 2)) / 2 - w / 2,
-          y: (at.y + at.h / 2 + (to.y + to.h / 2)) / 2 - h / 2,
-        },
-      ],
-    };
-  }, [laidShown, pendingInsert]);
+  // The node being created, standing where it will land and wired in: what is drawn is the WAIT, adding one costing ~700 ms of recompiling.
+  const withPending = useMemo(
+    () =>
+      laidShown && pendingInsert
+        ? withPendingNode(laidShown, pendingInsert)
+        : laidShown,
+    [laidShown, pendingInsert],
+  );
 
   // Read by bypassModule without making it depend on the layout, which would rebind it on every refetch.
   const laidRef = useRef(laid);

@@ -9,6 +9,7 @@ import {
   moduleDisplayName,
 } from "@studio/song-schema/moduleTypes";
 import { fuzzyScore } from "../fuzzy";
+import type { PanelSize } from "../pendingNode";
 import { type TreeNode, TreePicker } from "./TreePicker";
 
 /** What the picker BROWSES: a module's ref plus its type folder — CARRIED, since a flat ref (`@ns/adt`) spells no folder. */
@@ -18,6 +19,8 @@ export interface PickerModule {
   category?: string;
   /** What the module CALLS itself, when it says: shown instead of the ref's last segment (packages/song/docs/moduleLabel.md). */
   label?: string;
+  /** Its panel grid, when it draws one — what the card is sized by before the node exists. */
+  panel?: PanelSize;
 }
 
 /** What the picker hands back. */
@@ -29,6 +32,8 @@ export interface ModulePick {
   namespace: string | null;
   type: string; // "audio" — the module type folder
   name: string; // "adt" — the module's own name
+  /** Its panel grid, when the listing said — the placeholder card's size. */
+  panel?: PanelSize;
 }
 
 /** Split a base ref into its levels — anything that does not fit keeps a null type and lands in a flat fallback group. */
@@ -133,7 +138,13 @@ export function buildTree(
         name,
       ),
       hint: ref,
-      entry: { ref, namespace, type, name },
+      entry: {
+        ref,
+        namespace,
+        type,
+        name,
+        ...(typeof m !== "string" && m.panel ? { panel: m.panel } : {}),
+      },
     };
     if (!byNs.has(namespace)) byNs.set(namespace, new Map());
     const types = byNs.get(namespace) as Map<

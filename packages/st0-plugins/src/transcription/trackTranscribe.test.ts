@@ -9,9 +9,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runCommand } from "@studio/commands/commandSpec";
 import { loadModules } from "@studio/song/loader";
+import { installServerSide } from "@studio/st0-sdk/install";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runCommand } from "./commandSpec";
+import { transcriptionPlugin } from "./index";
 
 // The whole walk, on a real folder: a picture lane holding a shot, the clip naming a REAL video
 // (ffmpeg makes one — the same binary the verb decodes with), and a FAKE whisper on PATH that
@@ -77,6 +79,10 @@ const stage = (): void => {
   );
   makeVideo(join(song, "clips", "intro.mp4"));
 };
+
+// The plugin's verb exists only once its plugin is installed — the same act the
+// file-service boot performs, so the tests exercise the real path rather than a static map.
+installServerSide(transcriptionPlugin);
 
 beforeEach(() => {
   logs.length = 0;

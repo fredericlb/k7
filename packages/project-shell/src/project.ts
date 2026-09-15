@@ -128,7 +128,10 @@ export const projectApi = {
   // --- Modules, as a project sees them ------------------------------------------
   hints: () => fget<Hints>("/hints"),
   /** The refs a node may be an instance of, each with the name it CALLS itself — packages/song/docs/moduleLabel.md. */
-  baseModules: () => fget<{ ref: string; label?: string }[]>("/base-modules"),
+  baseModules: () =>
+    fget<
+      { ref: string; label?: string; panel?: { cols: number; rows: number } }[]
+    >("/base-modules"),
   ioPorts: () => fget<IoPort[]>("/io-ports"),
   moduleCatalogue: () => fget<CatalogueModule[]>("/module-catalogue"),
   moduleUi: (path: string) =>

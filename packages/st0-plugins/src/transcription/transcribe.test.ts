@@ -50,9 +50,7 @@ kept
 3
 00:00:04,000 --> 00:00:05,000
 `;
-    expect(parseSrt(noisy)).toEqual([
-      { start: 2, end: 3, text: "kept" },
-    ]);
+    expect(parseSrt(noisy)).toEqual([{ start: 2, end: 3, text: "kept" }]);
   });
 
   it("parses back what srtOf wrote — the round trip is the contract", () => {

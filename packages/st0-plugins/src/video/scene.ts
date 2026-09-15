@@ -2,13 +2,13 @@
 // HERE and not in eyes, which is the whole reason eyes runs in a browser at all: it imports none
 // of the brain's packages, so whoever holds a document adapts into its structural type.
 
+import { mediaUrl } from "@studio/project-shell/fileApi";
 import {
   buildScene,
   type ScenePass,
   type VideoScene,
 } from "@studio/ui-eyes/scene";
 import type { WebVideoPlugin, WebVideoProject } from "@studio/web-protocol";
-import { mediaUrl } from "./api";
 import { laneHidden, lensOpen } from "./pictureMix";
 
 /** A compiled video plugin → the pass eyes runs, or null — two ordinary ways to be null, and `audio` is replaced per frame by the driver. */

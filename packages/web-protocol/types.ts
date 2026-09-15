@@ -181,6 +181,7 @@ export interface CatalogueModule {
   path?: string;
   nodes: number; // how many nodes sit beside it
   hasUi: boolean; // it already has a `ui.yaml` beside it
+  panel?: { cols: number; rows: number }; // its panel grid, what the picker sizes a card by
 }
 
 // User preferences, formatted for display. `vim` is the only one the web writes back; the rest mirror rig config.

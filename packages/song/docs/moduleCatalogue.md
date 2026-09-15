@@ -21,6 +21,10 @@ opened as shared and says so (`apps/st0/frontend/docs/sharedModules.md`).
 
 `moduleCatalogue(dir)` returns the **generic** modules of every shared root the project inherits, in ref order.
 
+Each row carries `panel`, the grid size of the module's panel when it has one, and so does
+`listBaseModuleRefs`: the picker draws the card of a node being created before that node exists,
+and a card is as big as its grid (`apps/st0/frontend/docs/chainsGraph.md`).
+
 Generics only. A node (`IN:in-2`, a channel; a preset variant) has no face of its own — `loadModules`
 takes a widget grid whole from the generic, so a `ui:` written on a node is ignored — and a builder aimed
 at one would edit nothing. Nodes are a count on their generic's row instead.

@@ -8,8 +8,7 @@
     "./commands": "./src/commands.ts",
     "./commandSpec": "./src/commandSpec.ts",
     "./git": "./src/git.ts",
-    "./share-bundle": "./src/shareBundle.ts",
-    "./transcribe": "./src/transcribe.ts"
+    "./share-bundle": "./src/shareBundle.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -24,13 +23,13 @@
     "@studio/audio-passes": "*",
     "@studio/audio-probe": "*",
     "@studio/engine-client": "*",
-    "@studio/take-render": "*",
     "@studio/engine-protocol": "*",
     "@studio/mediatek": "*",
     "@studio/song": "*",
     "@studio/song-edit": "*",
     "@studio/song-schema": "*",
     "@studio/song-video": "*",
+    "@studio/take-render": "*",
     "yaml": "^2.5.0"
   },
   "devDependencies": {

@@ -416,9 +416,11 @@ modules, and it is what `IN:in-2: [ ge.rythm ]` says. Checked before `isChain`, 
 the same name — a track-fed chain is called after its track. Only inputs reach there; every other
 destination is a bus (named after the module it starts at) or a sink.
 
-The **pending** node — the module being created, drawn where it will land — gets no sockets at all,
-because it is not built by `buildGraph`. That is the right answer rather than an oversight: it is
-dashed and spinning because it does not exist yet, and a socket would claim otherwise.
+The **pending** node — the module being created, drawn where it will land — is not built by
+`buildGraph`: the host adds it, with its `jacks` and the two cables of the splice already decided
+(st0's `apps/st0/frontend/src/pendingNode.ts`). The renderer draws those sockets and nothing that
+answers a hand: it is dashed and spinning because it does not exist yet, but where its cables run
+is exactly what the wait is for.
 
 `DomChains.stories.tsx` in the react package draws each of these cases; it is the only way to look
 at them without starting the engine, the tray, the file service and the editor.

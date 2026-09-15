@@ -179,7 +179,12 @@ Then, once, on the Windows side: `npm ci` in the mirror (`C:\studio-native` by d
 file service finds tsx and everything it imports, that install being its `node_modules` too —
 followed by `npm run app:setup --workspace st0-desktop`, because `electron` declares no scripts and
 `npm ci` alone never fetches its runtime. Redo both whenever a dependency changes: the mirror
-carries sources one way and never `node_modules`, so nothing else will. After that,
+carries sources one way and never `node_modules`, so nothing else will. One class the bridge
+heals by itself: a **new workspace package** (a plugin, a shared tier addition) has no link in
+the host's `node_modules`, and the first native import of it dies with `ERR_MODULE_NOT_FOUND` —
+after every mirror pass the bridge links any `packages/*` or `commons/packages/*` folder the
+mirror holds but the host's `node_modules` does not name, as a junction-shaped link beside npm's
+own. New **third-party** deps are still `npm ci`'s job on both sides. After that,
 `npm run dev` from the distro is the
 whole story — `scripts/dev.mjs` derives `STUDIO_NATIVE_SOURCE`, `STUDIO_NATIVE_MIRROR`,
 `STUDIO_ENGINE_PATH_STYLE` and `STUDIO_HOME` from `$WSL_DISTRO_NAME` and `wslpath`, rather than
