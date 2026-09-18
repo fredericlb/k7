@@ -3,12 +3,15 @@ import type {
   Annotation,
   Envelope,
   EventsResult,
+  LrcCandidate,
   Marker,
   Moment,
   Page,
   Release,
   Session,
+  SingingExercise,
   Song,
+  SongEnvelope,
   SupernoteSync,
   User,
 } from "./types";
@@ -304,6 +307,34 @@ export const api = {
   deletePage: (id: string): Promise<null> =>
     f(`/api/pages/${id}`, { method: "DELETE" }).then(json),
 
+  // --- Singing exercises (a personal practice book) ---
+  listSingingExercises: (): Promise<SingingExercise[]> =>
+    f("/api/singing").then(json),
+
+  createSingingExercise: (data: {
+    title: string;
+    description: string;
+    videoUrl: string;
+  }): Promise<SingingExercise> =>
+    f("/api/singing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }).then(json),
+
+  updateSingingExercise: (
+    id: string,
+    patch: { title?: string; description?: string; videoUrl?: string },
+  ): Promise<SingingExercise> =>
+    f(`/api/singing/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).then(json),
+
+  deleteSingingExercise: (id: string): Promise<null> =>
+    f(`/api/singing/${id}`, { method: "DELETE" }).then(json),
+
   // --- Songs (songbook) ---
   listSongs: (): Promise<Song[]> => f("/api/songs").then(json),
 
@@ -319,13 +350,45 @@ export const api = {
   updateSong: (
     id: string,
     patch: Partial<
-      Pick<Song, "artist" | "title" | "lyrics" | "tablature" | "favorite">
+      Pick<Song, "artist" | "title" | "lyrics" | "tablature" | "lyricTimings">
     >,
   ): Promise<Song> =>
     f(`/api/songs/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
+    }).then(json),
+
+  // Timed lyrics for a song on LRCLIB, asked through the backend; the track's length ranks them.
+  searchLrclib: (id: string, duration?: number): Promise<LrcCandidate[]> =>
+    f(
+      `/api/songs/${id}/lrclib${duration ? `?duration=${Math.round(duration)}` : ""}`,
+    ).then(json),
+
+  // "Fetch song": a library master copied in as the track, and an instrumental mixed from its stems.
+  copyLibraryTrack: (id: string, path: string): Promise<Song> =>
+    f(`/api/songs/${id}/audio/from-library`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    }).then(json),
+
+  mixInstrumental: (id: string, folder: string): Promise<Song> =>
+    f(`/api/songs/${id}/instrumental/from-library`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder }),
+    }).then(json),
+
+  songInstrumentalUrl: (id: string): string =>
+    `${BASE}/api/songs/${id}/instrumental`,
+
+  // A star is the connected user's own, so it has its own route rather than a song field.
+  setSongFavorite: (id: string, favorite: boolean): Promise<Song> =>
+    f(`/api/songs/${id}/favorite`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ favorite }),
     }).then(json),
 
   // --- Supernote sync (the private cloud is the user's own) ---
@@ -379,6 +442,10 @@ export const api = {
 
   deleteSongAudio: (id: string): Promise<Song> =>
     f(`/api/songs/${id}/audio`, { method: "DELETE" }).then(json),
+
+  /** The track's shape; the backend measures it the first time and keeps it. */
+  getSongEnvelope: (id: string): Promise<SongEnvelope> =>
+    f(`/api/songs/${id}/envelope`).then(json),
 
   songAudioUrl: (id: string) => `${BASE}/api/songs/${id}/audio`,
 

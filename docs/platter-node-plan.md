@@ -10,7 +10,7 @@ the desk's `withDecks` invents no plugin. What that buys:
   visible thing is the tempo, and nothing draws what makes the sound;
 - **the censor can become a binding.** It is `Rate = −1` on a plugin — exactly the shape of a
   binding — and you cannot bind a parameter of a plugin the project does not declare
-  ([fx.md](../packages/ui-turntables/docs/fx.md));
+  ([fx.md](../packages/st0-plugins/docs/turntables/fx.md));
 - **`deckDoc` loses a reason to exist.** It is a second set of tracks built in code, with no trim,
   no level, no echo, no cue and no stems.
 
@@ -63,7 +63,7 @@ and C++ for 1 % of the gesture: no.
 ## What it does not solve
 
 **Five platters per deck.** A separated record plays through its four parts, which share a
-position, a `Rate` and a `Key` ([stems.md](../packages/ui-turntables/docs/stems.md)). That is **ten
+position, a `Rate` and a `Key` ([stems.md](../packages/st0-plugins/docs/turntables/stems.md)). That is **ten
 nodes** for a two-deck set, and a desk control drives **at most one** parameter, so "deck A's five
 platters" is not expressible as a binding. `plattersOf()` — the code deriving the five identifiers
 — stays.

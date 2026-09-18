@@ -200,7 +200,7 @@ to **the layer below**.
 | compiled | `src/videoTracks.ts` -> `VideoClipDoc.fadeIn`, and `src/videoProject.ts` -> `VideoProjectDoc.transitions`, the GLSL **inline** |
 | on the wire | `packages/web-protocol/types.ts` — `WebVideoFade`, `WebVideoTransition` |
 | served | `packages/file-service/src/workspace.ts` — `toWebVideoTracks`, `videoProjectDoc` |
-| adapted | `apps/st0/frontend/src/scene.ts` -> `packages/ui-eyes/src/scene.ts` |
+| adapted | `packages/st0-plugins/src/video/scene.ts` -> `packages/ui-eyes/src/scene.ts` |
 | decided | `packages/ui-eyes/src/timeline.ts` — `layerFrameAt`, the only rule |
 | decoded | `packages/ui-eyes/src/realtime.ts` and `packages/ui-eyes/src/export.ts` |
 | drawn | `packages/ui-eyes/src/compositor.ts` + `packages/ui-eyes/src/passes.ts`, the built-in fade in `packages/ui-eyes/src/transitions.ts` |

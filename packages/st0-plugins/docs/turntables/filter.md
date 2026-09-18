@@ -7,7 +7,7 @@ the graph, and like everything else on the desk the link is **declared** in `vie
 ## One parameter, and that constraint is what shapes the module
 
 A desk control drives **at most one** parameter
-([viewBindings.md](../../../packages/song/docs/viewBindings.md)). So "low-pass or high-pass" cannot
+([viewBindings.md](../../../../packages/song/docs/viewBindings.md)). So "low-pass or high-pass" cannot
 be a second setting you toggle: the direction of the sweep has to be legible in the single number
 sent.
 

@@ -1,3 +1,20 @@
 {
-  "$schema": "https://inlang.com/schema/inlang-message-format"
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "sheet.uploading": "Envoi…",
+  "sheet.remove": "Supprimer « {name} » ?",
+  "sheet.removeFile": "Supprimer ce fichier",
+  "score.loading": "Chargement de la partition…",
+  "score.error": "Impossible de lire cette partition : {message}",
+  "score.play": "Lecture",
+  "score.pause": "Pause",
+  "score.stop": "Stop",
+  "score.transpose": "Transposer",
+  "score.transposeDown": "Descendre d'un demi-ton",
+  "score.transposeUp": "Monter d'un demi-ton",
+  "score.transposeReset": "Revenir à la tonalité d'origine",
+  "score.zoomOut": "Dézoomer",
+  "score.zoomIn": "Zoomer",
+  "score.fitWidth": "Ajuster à la largeur",
+  "score.fullscreen": "⛶ Plein écran",
+  "score.exitFullscreen": "Quitter le plein écran"
 }

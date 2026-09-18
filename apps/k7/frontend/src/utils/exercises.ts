@@ -57,3 +57,13 @@ export function randomChord(avoid?: string): ChordPrompt {
   const q = pick(EXERCISE_QUALITIES);
   return { symbol: root + q.suffix, quality: q.label };
 }
+
+/** `size` DIFFERENT items of `pool`, in random order — fewer when the pool holds fewer. */
+export function pickWorkout<T>(pool: readonly T[], size = 3): T[] {
+  const rest = [...pool];
+  const out: T[] = [];
+  // Drawn without replacement: the same exercise twice is not a workout, it is a repeat.
+  while (out.length < size && rest.length)
+    out.push(...rest.splice(Math.floor(Math.random() * rest.length), 1));
+  return out;
+}

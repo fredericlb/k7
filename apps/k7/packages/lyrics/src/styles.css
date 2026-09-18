@@ -91,3 +91,17 @@
 .cs-chord-btn:hover {
   background: var(--accent-soft);
 }
+
+/* A line with a timecode: it seeks the track, and the one being sung is highlighted. */
+.cs-timed[role="button"] {
+  cursor: pointer;
+  border-radius: 4px;
+}
+.cs-timed[role="button"]:hover {
+  background: var(--accent-soft);
+}
+.cs-active {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+  border-radius: 4px;
+}

@@ -10,7 +10,12 @@ import { pipeline } from "node:stream/promises";
 import type { EngineEntry } from "@studio/engine-registry";
 import { safePath } from "@studio/mediatek/layout";
 import { isAudio } from "@studio/mediatek/media";
-import { STEMS_DIR, stemsComplete } from "@studio/song-schema/stems";
+import {
+  INSTRUMENTAL,
+  outputFile,
+  STEMS_DIR,
+  stemsComplete,
+} from "@studio/song-schema/stems";
 import {
   ENGINE_TOKEN_HEADER,
   type SeparateJob,
@@ -38,6 +43,17 @@ export function heldStems(song: string): string[] {
   return existsSync(outDir) ? readdirSync(outDir).filter(isAudio) : [];
 }
 
+/** What a cut can be asked for: the four parts a deck plays, or the record without its voice. */
+export type CutWant = "stems" | typeof INSTRUMENTAL;
+
+/** Is this song already cut THE WAY THIS CALLER MEANS? An instrumental is not three stems of four. */
+export function heldFor(song: string, want: CutWant): boolean {
+  const held = heldStems(song);
+  return want === INSTRUMENTAL
+    ? held.includes(outputFile(INSTRUMENTAL))
+    : stemsComplete(held);
+}
+
 /** The headers the file service gates on: the engine's own token, and who is asking. */
 function headersFor(
   engine: EngineEntry,
@@ -55,17 +71,19 @@ export async function cutStems(opts: {
   userEmail: string;
   song: string;
   chain: string;
+  /** What to bring back — the four stems unless the caller says otherwise. */
+  want?: CutWant;
   onProgress?: (job: SeparateJob) => void;
 }): Promise<{ ready: true; files: string[] }> {
   const { engine, userEmail, song, chain } = opts;
+  const want = opts.want ?? "stems";
   const source = safePath(song);
   if (!existsSync(source)) throw new CutError(`${song} is not on this volume`);
 
   // `dirname`, not a slice on "/": `safePath` answers in the platform's own separators.
   const outDir = join(dirname(source), STEMS_DIR);
-  const held = heldStems(song);
   // COMPLETE, not merely present: a folder from before the aligned master cannot cancel — docs/stemSplit.md.
-  if (stemsComplete(held)) return { ready: true, files: held };
+  if (heldFor(song, want)) return { ready: true, files: heldStems(song) };
 
   const bases = fileServiceBases(engine);
   if (!bases.length)
@@ -81,7 +99,7 @@ export async function cutStems(opts: {
   for (const candidate of bases) {
     try {
       const res = await fetch(
-        `${candidate}/process?chain=${encodeURIComponent(chain)}&name=${encodeURIComponent(name)}`,
+        `${candidate}/process?chain=${encodeURIComponent(chain)}&want=${want}&name=${encodeURIComponent(name)}`,
         {
           method: "POST",
           headers: {

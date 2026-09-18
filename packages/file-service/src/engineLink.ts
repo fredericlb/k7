@@ -879,12 +879,17 @@ function makeHost(
     get stemsChain(): string | undefined {
       return loadPreferences().stemsChain;
     },
+    // …and the one that gives it without its voice, read the same way.
+    get instrumentalChain(): string | undefined {
+      return loadPreferences().instrumentalChain;
+    },
     // `clip process` over a chain that SEPARATES, through the job registry — see docs/activeProject.md.
     runColdStep: async ({ step, source, outDir }) => {
       const started = startSeparate({
         userEmail: userEmail ?? "unknown",
         source,
         model: step.model,
+        outputs: step.outputs,
         outDir,
       });
       for (;;) {

@@ -191,6 +191,7 @@ export interface WebPreferences {
   vim: boolean; // the editor's vim mode
   /** The chain that separates a record into stems, null when this machine separates nothing — so no surface asks for one. */
   stemsChain: string | null;
+  instrumentalChain: string | null;
 }
 
 // The project the backend is serving (name + absolute path) — for the header.

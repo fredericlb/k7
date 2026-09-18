@@ -7,6 +7,14 @@
   "exports": {
     ".": "./types.ts",
     "./epub": "./epub.ts",
-    "./naming": "./naming.ts"
+    "./naming": "./naming.ts",
+    "./sheetKind": "./sheetKind.ts",
+    "./youtube": "./youtube.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
   }
 }

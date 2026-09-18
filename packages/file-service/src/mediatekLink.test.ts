@@ -8,6 +8,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 
+/** The package-wide pin from vitest.config.ts, put back after each test rather than deleted. */
+const PINNED_HOME = process.env.STUDIO_HOME;
 let home: string;
 let real: { HOME?: string; USERPROFILE?: string; URL?: string; TOK?: string };
 
@@ -39,7 +41,7 @@ afterEach(() => {
   ] as const)
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
-  delete process.env.STUDIO_HOME;
+  process.env.STUDIO_HOME = PINNED_HOME;
   rmSync(home, { recursive: true, force: true });
 });
 

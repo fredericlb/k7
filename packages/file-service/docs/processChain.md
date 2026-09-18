@@ -45,6 +45,18 @@ model it wants is one answer per machine — settled once by `system stems`, and
 every use is asking the same person the same question. A caller that does have an opinion should
 be able to say so, so the machine's answer is the default rather than the rule.
 
+**`?want=` says WHICH of those answers to fall back to**, `stems` or `instrumental`, and there are
+two because they are two chains: the same model, and a module declaring `instrumental` as its
+single output instead of the four stems. `system instrumental` holds the second one. A caller
+asking for the instrumental over a chain that writes four stems is refused by name rather than
+handed four files — collecting those and calling one of them the instrumental is the mistake the
+refusal exists for.
+
+**A pass writes what the chain's module DECLARES.** `instrumental` is the one output name that is
+not a stem: it means every stem the voice is not, summed while the parts are still in memory. The
+alternative — write four files, ship three of them somewhere and add them up — moves hundreds of
+megabytes across a network to throw them away.
+
 ## What it does not do yet
 
 A chain either **separates** or **bounces**; `resolveChain` refuses one that does both, because a

@@ -31,7 +31,7 @@
    here, so a knob drew an SVG with no fill and no stroke: present, positioned, and invisible.
    That is what "the filter knob is gone" was, and why resizing the strip did not bring it
    back. See ChannelStrip.tsx. */
-@source "../../../../packages/ui-turntables/src";
+@source "../../../../packages/st0-plugins/src/turntables";
 /* The GATE and the toasts. Every screen you see before the shell — cloning a repository, a
    workspace that will not open — is drawn from here, which is the worst place to be unstyled:
    it is what somebody sees when something has already gone wrong. Same omission, found by

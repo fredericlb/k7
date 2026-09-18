@@ -173,8 +173,146 @@ Its own path, keyed by the song, is what makes a re-upload an overwrite and a de
 A track uploaded in a different container leaves the previous file behind under a name
 nothing points at, so that one is removed explicitly.
 
-The route serves it through `streamFile`, which answers Range — without that the player's
-progress bar would draw but not seek.
+The route serves it through `streamFile`, which answers Range — without that the waveform could
+draw but not seek.
+
+### A waveform, not the browser's transport
+
+The panel draws the track's **shape**, and a click on it seeks there and plays — seeking and
+starting are one gesture, the same one a tapped lyric line already makes (`lyricsTiming.md`).
+Under it sits a full-width play/pause button, and that is the whole of the transport: no counter,
+no scrubber of its own. The button exists because a click on the shape can say every *where* and
+no *stop* — pausing had no gesture at all. The native `<audio controls>` bar is gone; the element
+itself stays, hidden, because it IS the transport and the timed lyrics follow it.
+
+**The shape is measured once, on the server, and kept in Grist** (`Songs.Envelope`, written by
+`apps/k7/backend/src/songEnvelope.ts`): ffmpeg decodes the track to 8 kHz mono — a level curve
+needs no bandwidth — and the samples are bucketed into RMS. Measured lazily, the first time a page
+asks for it, rather than in a migration that would decode every song in the songbook at once.
+
+**The bucket follows the song's LENGTH, capped at 800 of them, and the values are rounded to three
+decimals.** A fixed 100 ms bucket measured 3113 values for a five-minute track — 61 kB of JSON in a
+cell of a metadata store that the songbook listing reads whole, for a panel 272 px wide where that
+is eleven buckets per pixel. The cap is what keeps a stored shape a few kilobytes; the precision
+dropped is below one pixel.
+
+The alternative was decoding in the browser on each visit. A rehearsal laptop opening a song page
+should not spend seconds and a hundred megabytes of memory rebuilding a picture that never changes;
+the track only changes when k7 itself replaces it, which is exactly when the stored envelope is
+cleared.
+
+**The instrumental wears the track's shape.** It is the same performance at the same timing, so the
+picture is right where it matters — where you are in the song — and a second envelope would be a
+second decode for a difference of a few decibels in the mid-band.
+
+### The player is a panel of the page's right rail
+
+On a desktop the player and its Original / Instrumental switch sit in the same floating rail as
+the chord diagrams, collapsible by their own toggle. Above the tabs is where it used to be, and it
+cost the page its first screenful: a track you keep for a whole rehearsal pushed the words you are
+actually reading down. In the margin it stays reachable without displacing anything.
+
+**The panel PLAYS; it does not change the file.** Replacing the track and removing it are in the
+song's ⋮ menu, beside every other thing the song can be given or lose — a panel you keep open for
+an hour should not hold a button that deletes what it is playing, and the menu is where you
+already go to add a track in the first place.
+
+**One rail, mounted once, holding the panels stacked.** Two independently fixed panels would
+overlap the moment a song had chords and a track, and deciding which one covers the other is not
+a decision worth having. They share the chrome (`.rail-panel`) and nothing else. The order reads
+from what you are doing: **Options** first — transposition, which changes what you READ — then the
+player, the chord diagrams, and the metronome. The metronome had a floating button of its own,
+which is exactly the thing a rail exists to stop: two conventions for "a control that hovers over
+the song".
+
+**Folded, they are all 200 px wide.** A folded panel is a tab, and tabs of three different widths
+down one edge read as breakage rather than as a stack. The word is clipped rather than wrapped.
+
+**They all open folded.** The page is the song; a margin of three open drawers is not, and on a
+laptop the chords panel alone took a quarter of the width before anyone asked it to. Folding costs
+one click and is remembered for as long as the page is open. The player folded is still playing:
+its panel hides the element rather than unmounting it (below).
+
+**Collapsing hides the body; it never unmounts it.** Unmounting would take the `<audio>` element
+with it — the music stops, and the timed lyrics lose the very element they follow and seek
+(`lyricsTiming.md`). A collapsed panel is a track still playing behind a closed drawer.
+
+**On a narrow screen the rail lies down**: the same panels become a bar of icons at the foot of the
+screen, and an opened one rises above that bar. It is the same DOM and the same state — only the
+layout changes, at one breakpoint — so nothing about a panel has two implementations to keep in
+step. The glyph each toggle already carried becomes its label there, the word being what only the
+desktop has room for.
+
+A tapped chord still opens over the sheet as a popin. That is a different gesture from opening the
+Chords panel — one asks "what is THIS chord", the other "what chords are in this song" — and they
+answer in different places on purpose.
+
+### Transposing moves the track, not just the sheet
+
+The Options panel's Transpose changes the chord sheet AND what you play along to: the reference
+track is pitch-shifted as it plays, in the browser, by **signalsmith-stretch** (MIT, WASM in an
+AudioWorklet). The node runs in its LIVE INPUT mode, where the playback rate is ignored by
+construction — so the pitch moves and the tempo cannot, which is the whole requirement. A rate
+change would have been the cheap way (`preservesPitch = false`) and it is precisely the wrong one:
+the song would slow down as it dropped.
+
+Real time in the browser, rather than a render per semitone on the server. ffmpeg's `rubberband`
+filter would sound better, but it means a wait the first time each key is asked for, a file per
+semitone for both the track and its instrumental, and an invalidation every time the track
+changes — against a gesture that is meant to be a nudge of − / + while you read. The library was
+picked over `soundtouchjs` on licence as much as on quality: LGPL-2.1 in a bundled frontend is a
+complication, MIT is not.
+
+**At zero it is bypassed entirely**: no audio context, no worklet, no latency, no CPU. A song
+nobody transposes pays nothing at all for this, and the graph is built the first time a semitone
+is actually asked for.
+
+The cost, while transposed: the sound trails the element's own clock by the node's latency, so a
+highlighted lyric line runs slightly ahead of what you hear. It is constant and small, and the
+alternative — delaying the lyrics to match — would make a seek feel late.
+
+## Fetching a song: from pl8, into the songbook
+
+Two entries of the song's ⋮ menu, and they are two because their costs are not the same.
+**"Fetch song"** finds the song
+in pl8's library, hunts it on Soulseek when it is not there (pl8 files what it downloads) and copies
+the master in as the reference track. **"Make instrumental"** takes the song already in the library
+and has pl8 run an engine's instrumental chain over it — one file, the record without its voice.
+
+Separating stems borrows a musician's machine for a minute or so per song and is wanted far less
+often than a track to play along to, so it is asked for rather than ridden along with.
+
+- **The hunt and the stems are asked from the page, as the user**
+  (`apps/k7/frontend/src/fetchSong/pl8.ts`). pl8 refuses k7's service token on `/api/hunt` on purpose —
+  a service must not spend somebody's Soulseek account — so the search runs under the person's own
+  session, lands in their pl8 history and counts against their own limit.
+- **Only the copy and the mix are k7's backend** (`apps/k7/backend/src/songFetch.ts`), with its token:
+  reading library files is what that token is for, and ffmpeg is in k7's image.
+- **A copy, not a reference.** The track lands at `recordings/songbook/<uid>.<ext>` like an upload, and
+  the instrumental at `recordings/songbook/<uid>-instrumental.flac`. The songbook song then no longer
+  depends on the library song staying where it is, and removing k7's track can never delete a song
+  of the catalogue.
+- **Any engine online makes it.** Separation needs a machine running an engine that pl8 can reach;
+  the hosted image carries neither the model nor its runtime. When none is online, "Make instrumental"
+  says so and changes nothing, so pressing it again once one is up is the whole retry.
+- **"Make instrumental" never hunts.** It works on the song pl8 already holds: a song missing from the
+  library is a "Fetch song" away, and spending a Soulseek search on a button about stems would be a
+  surprise.
+- **The sum happens where the parts are.** The engine's chain writes `instrumental.wav` beside the
+  song, having added the stems while they were still in memory; k7 fetches that one file and keeps it
+  as FLAC, because a WAV of a whole song is twice the size for nothing heard. A song separated before
+  such a chain existed has stems and no instrumental, and for it `songFetch.ts` still sums drums, bass
+  and other here — without normalising, since the stems add back up to the mix at their own levels and
+  scaling them would make the instrumental quieter than the original it is switched against.
+- **Which chain does it is the engine machine's answer**, `system instrumental <chaîne>` (the cog,
+  I/O), exactly as `system stems` answers for the four parts. k7 names no chain: it asks for an
+  instrumental and the machine that can make one says how.
+- **Every step checks what is already done**, so pressing again resumes: pl8 goes on hunting and
+  separating if the page is closed, and a second press finds the song filed and the stems held.
+
+A new or removed track drops the instrumental with it: an instrumental of the previous track would
+play under the wrong song. The player offers Original / Instrumental on one element, keeping the
+position, so timed lyrics follow whichever plays.
 
 ## k7 PUSHES; the médiathèque pulls nothing
 

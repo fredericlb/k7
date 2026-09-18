@@ -1,5 +1,5 @@
 // HeaderView.tsx — k7's app bar, hosted in the shared @frediverse/ui AppHeader: the mark and the
-// build stamp on the left, the six sections as entries, and the controls that must stay reachable
+// build stamp on the left, the sections as entries, and the controls that must stay reachable
 // on the right. The bar, the sm breakpoint and the hamburger are the shared component's; what is
 // in them is this app's.
 
@@ -29,10 +29,8 @@ const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
 /** The sections, and they are ENTRIES rather than controls — ../../../docs/header.md. */
 const NAV_ITEMS: { key: NavKey; label: string; icon: string }[] = [
-  { key: "sessions", label: "Sessions", icon: "🎙" },
-  { key: "moments", label: "Moments", icon: "◆" },
-  { key: "releases", label: "Releases", icon: "💿" },
-  { key: "pages", label: "Pages", icon: "📄" },
+  { key: "recordings", label: "Recordings", icon: "🎙" },
+  { key: "publications", label: "Publications", icon: "💿" },
   { key: "songbook", label: "Songbook", icon: "📖" },
   { key: "exercices", label: "Exercices", icon: "🎯" },
 ];
@@ -134,16 +132,17 @@ export function HeaderView({
           {/* The one thing this bar DOES rather than opens, so its error hangs off the button that failed. */}
           <div className="topbar-new-wrap">
             <Button
-              className="topbar-new"
+              size="icon-sm"
               disabled={creating}
               onClick={create}
-              title="New session"
+              title={creating ? "Starting…" : "New session"}
               aria-label="New session"
             >
-              <span className="nav-icon">＋</span>
-              <span className="nav-label">
-                {creating ? "Starting…" : "New session"}
-              </span>
+              {/* A recorder's red dot, pulsing while the session starts. */}
+              <span
+                aria-hidden="true"
+                className={`size-3.5 rounded-full bg-destructive${creating ? " animate-pulse" : ""}`}
+              />
             </Button>
             {sessionError && (
               <p className="error topbar-error">🎤 {sessionError}</p>

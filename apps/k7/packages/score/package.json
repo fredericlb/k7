@@ -1,0 +1,23 @@
+{
+  "name": "@k7/score",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ScoreView": "./src/ScoreView.tsx"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@coderline/alphatab": "^1.8.4"
+  },
+  "peerDependencies": {
+    "react": "^19.2.7"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

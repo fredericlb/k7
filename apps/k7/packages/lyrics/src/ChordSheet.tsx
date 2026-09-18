@@ -14,7 +14,16 @@ interface Props {
   transpose?: number;
   /** When set, chords render as buttons that report the displayed symbol. */
   onChordClick?: (symbol: string) => void;
+  /** Seconds each sung line starts at, by line index — ../../../docs/lyricsTiming.md. */
+  timings?: ReadonlyMap<number, number>;
+  /** The line being sung now, highlighted. */
+  activeLine?: number | null;
+  /** When set, a timed line is a control that seeks there. */
+  onLineClick?: (seconds: number) => void;
 }
+
+const clock = (seconds: number) =>
+  `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 
 // A single chord token — a button when clickable, otherwise a plain span.
 function ChordToken({
@@ -68,13 +77,39 @@ function LyricLine({
   line,
   transpose,
   onChordClick,
+  time,
+  active,
+  onSeek,
 }: {
   line: Extract<ParsedLine, { type: "lyrics" }>;
   transpose: number;
   onChordClick?: (s: string) => void;
+  time?: number;
+  active?: boolean;
+  onSeek?: (seconds: number) => void;
 }) {
+  const seekable = time !== undefined && onSeek !== undefined;
+  const className = `cs-line${time !== undefined ? " cs-timed" : ""}${active ? " cs-active" : ""}`;
+  // A timed line seeks the track from a click or the keyboard; the chords inside keep their own clicks.
+  const seek = seekable
+    ? {
+        role: "button" as const,
+        tabIndex: 0,
+        title: clock(time),
+        onClick: (e: React.MouseEvent) => {
+          if ((e.target as HTMLElement).closest(".cs-chord-btn")) return;
+          onSeek(time);
+        },
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSeek(time);
+          }
+        },
+      }
+    : {};
   return (
-    <div className="cs-line">
+    <div className={className} {...seek}>
       {line.segments.map((seg, i) =>
         seg.chord ? (
           <span key={i} className="cs-inline">
@@ -94,7 +129,14 @@ function LyricLine({
   );
 }
 
-export function ChordSheet({ text, transpose = 0, onChordClick }: Props) {
+export function ChordSheet({
+  text,
+  transpose = 0,
+  onChordClick,
+  timings,
+  activeLine,
+  onLineClick,
+}: Props) {
   const lines = useMemo(() => parseChordSheet(text), [text]);
   return (
     <div className="cs-sheet">
@@ -124,6 +166,9 @@ export function ChordSheet({ text, transpose = 0, onChordClick }: Props) {
                 line={line}
                 transpose={transpose}
                 onChordClick={onChordClick}
+                time={timings?.get(i)}
+                active={activeLine === i}
+                onSeek={onLineClick}
               />
             );
         }

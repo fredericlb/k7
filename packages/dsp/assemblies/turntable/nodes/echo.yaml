@@ -1,5 +1,5 @@
 # The one effect past the filter, AFTER the fader so a cut leaves its tail ringing — an echo-out
-# cuts a delay's input and not its output. See packages/ui-turntables/docs/fx.md.
+# cuts a delay's input and not its output. See packages/st0-plugins/docs/turntables/fx.md.
 extends: "@st0/audio/time/echo"
 params:
   # A dotted eighth at 120 BPM — the dub delay that displaces rather than doubles.

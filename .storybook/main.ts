@@ -18,8 +18,12 @@ const config: StorybookConfig = {
     "@storybook/addon-mcp",
   ],
   framework: "@storybook/react-vite",
-  // Serve k7's public assets (icons, etc.) some stories reference.
-  staticDirs: ["../apps/k7/frontend/public"],
+  // Serve k7's public assets (icons, etc.) some stories reference, and alphaTab's font and soundfont where ScoreView asks for them.
+  staticDirs: [
+    "../apps/k7/frontend/public",
+    { from: "../node_modules/@coderline/alphatab/dist/font", to: "/font" },
+    { from: "../node_modules/@coderline/alphatab/dist/soundfont", to: "/soundfont" },
+  ],
   // A standalone root Vite pipeline, so Tailwind v4 is added here or no token compiles.
   viteFinal: async (viteConfig) => {
     viteConfig.plugins = viteConfig.plugins ?? [];

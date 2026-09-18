@@ -163,8 +163,8 @@ public function wrapping them. Counted so the figure does not surprise the next 
 - `packages/song/scripts/` — no npm script and no turbo task. Eight migrations, and
   `packages/song/src/moduleMigrate.ts` (350+ lines) exists only for `migrateModules.ts`. The folder
   grows by one migration per rename, and nothing removes them once played.
-- `packages/ui-turntables/scripts/put-on.ts` — this one is **documented** and run by hand
-  (`packages/ui-turntables/docs/hosting.md`); it measures a SOUND, which no unit test does.
+- `packages/st0-plugins/scripts/turntables/put-on.ts` — this one is **documented** and run by hand
+  (`../packages/st0-plugins/docs/turntables/hosting.md`); it measures a SOUND, which no unit test does.
 
 ## 3. Built ahead — not to be confused with an oversight
 
@@ -277,7 +277,7 @@ Mix is a desk: two records and a crossfader. A deck's effects chain has no place
 desk's only host (st0's `turntables` surface) draws no per-deck graph. The component had no host and
 could not have one, so it and everything held alive only by it are gone. Keeping an option nothing
 can mount cost 70 lines and a published subpath that lied about the package's surface. See
-[packages/ui-turntables/docs/mix.md](../packages/ui-turntables/docs/mix.md).
+[../packages/st0-plugins/docs/turntables/mix.md](../packages/st0-plugins/docs/turntables/mix.md).
 
 What still needs cleaning: `M9_ICONS` carried the name of an application that does not exist, and
 that name still lingers in `env.example.yaml`, `docs/tokens.md` (one row of the prefix table),

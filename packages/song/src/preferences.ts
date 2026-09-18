@@ -36,6 +36,8 @@ export interface Preferences {
   editor: EditorPref;
   /** The chain that SEPARATES a record into stems — one answer for the whole machine, asked once. */
   stemsChain?: string;
+  /** …and the one that gives the record WITHOUT ITS VOICE, asked the same way — see packages/file-service/docs/processChain.md. */
+  instrumentalChain?: string;
   /** Which output pair the `CUE` bus leaves by — a label from `channels.out`, or the numbers. See docs/cue.md. */
   cueOutput?: string | number[];
   /** The ONNX execution providers this machine SEPARATES on, in order — packages/stem-separation/docs/stemSplit.md. */
@@ -93,6 +95,8 @@ export function normalizePreferences(v: any): Preferences {
     // Trimmed: it is typed by hand, and a trailing space resolves to nothing with no hint why.
     if (typeof v.stemsChain === "string" && v.stemsChain.trim())
       p.stemsChain = v.stemsChain.trim();
+    if (typeof v.instrumentalChain === "string" && v.instrumentalChain.trim())
+      p.instrumentalChain = v.instrumentalChain.trim();
     // Either form, like a track's `input`: the numbers, or a label this file's `channels.out` names.
     if (Array.isArray(v.cueOutput)) {
       const ch = v.cueOutput
@@ -197,6 +201,15 @@ export function setStemsChain(ref: string): Preferences {
   const p = loadPreferences();
   const want = ref.trim();
   p.stemsChain = want || undefined;
+  savePreferences(p);
+  return p;
+}
+
+/** Remember which chain gives the instrumental. An empty ref clears it, like `setStemsChain`. */
+export function setInstrumentalChain(ref: string): Preferences {
+  const p = loadPreferences();
+  const want = ref.trim();
+  p.instrumentalChain = want || undefined;
   savePreferences(p);
   return p;
 }

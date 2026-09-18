@@ -146,8 +146,8 @@ the desk writes only the record and the two live numbers onto each. See
 sets that predate them.
 
 Three of the others are the **channel strip** rather than the crossfade, and they have their own
-page in the desk that draws them: [mix.md](../../ui-turntables/docs/mix.md) for the trim and the
-channel fader, [fx.md](../../ui-turntables/docs/fx.md) for the echo. The two rules worth knowing
+page in the desk that draws them: [mix.md](../../../packages/st0-plugins/docs/turntables/mix.md) for the trim and the
+channel fader, [fx.md](../../../packages/st0-plugins/docs/turntables/fx.md) for the echo. The two rules worth knowing
 here are that the trim is FIRST because a deck is five lanes and only the bus head reaches all of
 them, and that the echo is LAST because an echo-out cuts a delay's input and not its output.
 
@@ -229,7 +229,7 @@ heard only there.
 
 The four files come from `playlist stems` (`@studio/commands`) — or, for a record put on
 unprepared, from the desk itself, which is what `surfaces/desk.yaml`'s `stems:` line is for. What
-the desk does with them either way is `packages/ui-turntables/docs/stems.md`.
+the desk does with them either way is `packages/st0-plugins/docs/turntables/stems.md`.
 
 **A set with one lane a deck** draws no stem column at all — the designed answer to an unwired
 mapping, not a fault. `scripts/migrateSetStems.ts` gives it the eight lanes, the sixteen nodes,

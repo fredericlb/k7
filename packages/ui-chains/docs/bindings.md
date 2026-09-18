@@ -41,7 +41,7 @@ Scaling. Not an oversight — the two surfaces disagree, deliberately:
 
 Pushing either one down here would make the other wrong. See
 [mastering.md](../../../apps/st0/frontend/docs/mastering.md) and
-[controls.md](../../ui-turntables/docs/controls.md).
+[controls.md](../../../packages/st0-plugins/docs/turntables/controls.md).
 
 ## The "no plugin" policy
 
@@ -63,7 +63,7 @@ rather than a boolean, and why the test pins both sides.
 
 > Not to be confused with `hasPlugin()`, which asks a neighbouring question of another document:
 > the graph describes what is DRAWN, the compiled document what PLAYS. See
-> [controls.md](../../ui-turntables/docs/controls.md).
+> [controls.md](../../../packages/st0-plugins/docs/turntables/controls.md).
 
 ## A line that does not resolve is SAID
 

@@ -14,6 +14,11 @@ const EXERCISES = [
     title: "Guitar tuner",
     desc: "Tune your guitar by ear-free feedback: play a string and the app shows the note, how many cents off you are, and the nearest string.",
   },
+  {
+    id: "singing",
+    title: "Singing exercices",
+    desc: "Your own warm-ups and drills: add what to sing and how it goes, and keep them to hand.",
+  },
 ];
 
 export function ExercisesView({ onOpen }: Props) {

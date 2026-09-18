@@ -87,22 +87,44 @@ const SCHEMA: TableSchema = {
     ["ReleaseUids", "Text"],
     ["CreatedAt", "Text"],
   ],
+  // A personal practice book: what to sing, and how — ../../docs/ownership.md.
+  SingingExercises: [
+    ["Uid", "Text"],
+    ["OwnerId", "Text"],
+    ["Title", "Text"],
+    ["Description", "Text"],
+    // A YouTube link showing the exercise done — checked against @k7/shared's youtube.ts.
+    ["VideoUrl", "Text"],
+    ["CreatedAt", "Text"],
+  ],
   Songs: [
     ["Uid", "Text"],
     ["OwnerId", "Text"],
     ["Artist", "Text"],
     ["Title", "Text"],
     ["Lyrics", "Text"],
+    // A JSON array of {line, text, t}: when each lyric line is sung — ../../docs/lyricsTiming.md.
+    ["LyricTimings", "Text"],
     ["Tablature", "Text"],
     // SheetFiles holds the bytes; SheetMeta the parallel {id,name,mime}, in order.
     ["SheetFiles", "Attachments"],
     ["SheetMeta", "Text"],
+    // The track's shape, measured once so the waveform draws without decoding it — ../../docs/audio.md.
+    ["Envelope", "Text"],
     // The reference track, in the médiathèque like every other byte — ../../docs/audio.md.
     ["AudioPath", "Text"],
     ["AudioMime", "Text"],
     ["AudioName", "Text"],
-    ["Favorite", "Bool"],
+    // The track without the voice, mixed from pl8's stems and kept beside it — ../../docs/audio.md.
+    ["InstrumentalPath", "Text"],
+    ["InstrumentalMime", "Text"],
+    ["InstrumentalName", "Text"],
     ["CreatedAt", "Text"],
+  ],
+  // One row per star: the songbook is shared, a favourite is a person's — ../../docs/ownership.md.
+  SongFavorites: [
+    ["SongUid", "Text"],
+    ["OwnerId", "Text"],
   ],
   SupernoteSync: [
     ["OwnerId", "Text"],
@@ -148,6 +170,31 @@ async function migrate(): Promise<void> {
   if (missing.length) {
     console.log(
       `✓ Comments: backfilled OwnerId on ${missing.length} moment(s)`,
+    );
+  }
+
+  // A song's old per-song star becomes its creator's own favourite, once.
+  const songs = await listRecords("Songs");
+  const favorites = await listRecords("SongFavorites");
+  const starred = new Set(
+    favorites.map((r) => `${r.fields.OwnerId}|${r.fields.SongUid}`),
+  );
+  const toStar = songs.filter(
+    (s) =>
+      s.fields.Favorite === true &&
+      s.fields.OwnerId &&
+      !starred.has(`${s.fields.OwnerId}|${s.fields.Uid}`),
+  );
+  if (toStar.length) {
+    await grist.addRecords(
+      "SongFavorites",
+      toStar.map((s) => ({
+        SongUid: s.fields.Uid as string,
+        OwnerId: s.fields.OwnerId as string,
+      })),
+    );
+    console.log(
+      `✓ SongFavorites: carried ${toStar.length} star(s) over to their creators`,
     );
   }
 

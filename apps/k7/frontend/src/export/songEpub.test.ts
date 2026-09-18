@@ -13,10 +13,13 @@ const song = (over: Partial<Song> = {}): Song => ({
   artist: "Nina Simone",
   title: "Sinnerman",
   lyrics: "Oh sinnerman",
+  lyricTimings: [],
   tablature: "e|---0---|",
   sheets: [],
   audio: null,
+  instrumental: null,
   favorite: false,
+  mine: false,
   createdAt: "2026-09-07T10:00:00Z",
   ...over,
 });
@@ -54,7 +57,7 @@ describe("epubInput", () => {
     expect(chapters[0].content).toBe("<pre>a &lt; b &amp; c</pre>");
   });
 
-  it("points an image chapter at the name-bearing address, and drops PDF sheets", () => {
+  it("points an image chapter at the name-bearing address, and drops PDF and score sheets", () => {
     const { chapters } = epubInput(
       song({
         lyrics: "",
@@ -62,6 +65,11 @@ describe("epubInput", () => {
         sheets: [
           { id: "f1", name: "score.pdf", mime: "application/pdf" },
           { id: "f2", name: "page 1.png", mime: "image/png" },
+          {
+            id: "f3",
+            name: "part.mxl",
+            mime: "application/vnd.recordare.musicxml",
+          },
         ],
       }),
       sheetUrl,
@@ -70,6 +78,18 @@ describe("epubInput", () => {
     expect(chapters[0].title).toBe("Sheet");
     expect(chapters[0].content).toContain("/sheets/f2/page%201.png");
     expect(chapters[0].content).not.toContain("score.pdf");
+    expect(chapters[0].content).not.toContain("part.mxl");
+  });
+
+  it("makes no sheet chapter for a song whose only sheet is a score", () => {
+    const { chapters } = epubInput(
+      song({
+        tablature: "",
+        sheets: [{ id: "f3", name: "part.musicxml", mime: "text/xml" }],
+      }),
+      sheetUrl,
+    );
+    expect(chapters.map((c: EpubChapter) => c.title)).toEqual(["Lyrics"]);
   });
 });
 

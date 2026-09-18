@@ -105,7 +105,7 @@ the list of compiled tracks.
 
 ```
 EngineState.levels[i]          the engine, ~20 Hz
- -> levelsForPasses()          apps/st0/frontend/src/shaderAudio.ts — the index comes from trackOrder
+ -> levelsForPasses()          packages/st0-plugins/src/video/shaderAudio.ts — the index comes from trackOrder
  -> levelToUnit()              -60..0 dB -> 0..1
  -> smoothLevels()             fast attack, slow release
  -> RealtimeDriver.setAudio()  @studio/ui-eyes
@@ -212,7 +212,7 @@ more route would mean the picture can draw before its programs have arrived.
 ```bash
 npx vitest run packages/song-video/src/shaders.test.ts packages/song-video/src/videoChains.test.ts
 npx vitest run packages/ui-eyes/src/passes.test.ts
-npx vitest run apps/st0/frontend/src/shaderAudio.test.ts
+npx vitest run packages/st0-plugins/src/video/shaderAudio.test.ts
 ```
 
 These prove the document, the pass order and the level conversion. **None proves a pixel changed** —

@@ -180,7 +180,7 @@ decks' `docs/hosting.md` holds the same paragraph, where `CueButtons` raises the
 question.
 
 **The decks are on it too**, which is why the clock lives in
-`@studio/engine-browser/playhead-clock`: both st0 and `@studio/ui-turntables` depend on that
+`@studio/engine-browser/playhead-clock`: both st0 and the turntables plugin (`@studio/st0-plugins`) depend on that
 package, and it is where the frames arrive.
 
 The clock takes no RATE, and a turntable's pitch fader is not an argument for one: the fader sets a

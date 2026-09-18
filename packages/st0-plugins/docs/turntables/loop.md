@@ -11,7 +11,7 @@ clip `clickBar` loops is the **metronome**'s ([metronome.md](metronome.md)).
 
 So the loop is **in the platter**, in C++: two parameters `LoopStart` / `LoopEnd`, as a fraction
 of the record like `Seek`, with the wrap in both render paths
-([turntable.md](../../../engine/st0-engine/docs/turntable.md)). That costs more C++ and **less of
+([turntable.md](../../../../engine/st0-engine/docs/turntable.md)). That costs more C++ and **less of
 everything else**: a loop is a platter gesture like `censor`, `place` and `scratch`, none of
 which is in `MIX_CONTROLS`. No module, no binding in `mix.yaml`, no surface migration.
 

@@ -41,6 +41,7 @@ import { RandomChordsExercise } from "./views/RandomChordsExercise";
 import { ReleaseFormView } from "./views/ReleaseFormView";
 import { RemoteMicView } from "./views/RemoteMicView";
 import { SettingsView } from "./views/SettingsView";
+import { SingingExercisesView } from "./views/SingingExercisesView";
 import { SongFormView } from "./views/SongFormView";
 
 // The in-progress recording, independent of the route so the app stays browsable while it runs.
@@ -55,12 +56,10 @@ interface RecordingCtx {
   rtc?: { close: () => void };
 }
 
-// The `songbook` tab lives at `/songs`; every other nav key maps to its own name.
+// The `songbook` tab lives at `/songs`, and a grouped entry opens on its first tab; the rest map to their own name.
 const TAB_TO_PATH: Record<NavKey, string> = {
-  sessions: "sessions",
-  moments: "moments",
-  releases: "releases",
-  pages: "pages",
+  recordings: "sessions",
+  publications: "releases",
   songbook: "songs",
   exercices: "exercices",
 };
@@ -86,13 +85,12 @@ function isSongPage(pathname: string): boolean {
 // Derive which nav item is highlighted from the current pathname.
 function navForPath(pathname: string): NavKey {
   const seg = pathname.split("/")[1] ?? "";
-  if (seg === "releases") return "releases";
-  if (seg === "pages") return "pages";
+  // Releases and pages are the two tabs of one entry, detail screens included.
+  if (seg === "releases" || seg === "pages") return "publications";
   if (seg === "songs") return "songbook";
-  if (seg === "moments") return "moments";
   if (seg === "exercices") return "exercices";
-  // sessions, record, settings, and everything else fall back to Sessions.
-  return "sessions";
+  // sessions, moments, record, settings, and everything else fall back to Recordings.
+  return "recordings";
 }
 
 // --- Route wrappers -------------------------------------------------------
@@ -394,7 +392,7 @@ export default function App() {
     navigate(`/songs/${s.id}${tab ? `?tab=${tab}` : ""}`);
 
   const handleToggleSongFavorite = async (s: Song) => {
-    await api.updateSong(s.id, { favorite: !s.favorite });
+    await api.setSongFavorite(s.id, !s.favorite);
     refreshSongs();
   };
 
@@ -445,6 +443,7 @@ export default function App() {
                     songs={songs}
                     moments={moments}
                     tab={tab}
+                    onTab={(t) => navigate(`/${t}`)}
                     onOpen={(s) => navigate(`/sessions/${s.id}`)}
                     onOpenMoment={(m) => navigate(`/moments/${m.id}`)}
                     onDeleteSession={handleDeleteSession}
@@ -585,6 +584,13 @@ export default function App() {
               path="/exercices"
               element={
                 <ExercisesView onOpen={(id) => navigate(`/exercices/${id}`)} />
+              }
+            />
+
+            <Route
+              path="/exercices/singing"
+              element={
+                <SingingExercisesView onBack={() => navigate("/exercices")} />
               }
             />
 

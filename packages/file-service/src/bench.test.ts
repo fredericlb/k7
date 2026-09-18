@@ -23,6 +23,8 @@ const EMAIL = "someone@example.test";
 /** Never fetched: the mount is pre-populated, so `ensureLibraries` returns without touching git. */
 const LIBRARIES_URI = "git@example.test:studio/libraries.git";
 
+/** The package-wide pin from vitest.config.ts, put back after each test rather than deleted. */
+const PINNED_HOME = process.env.STUDIO_HOME;
 let home: string;
 
 /** The bench's workspace, which is where the library submodule is mounted. */
@@ -46,7 +48,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  delete process.env.STUDIO_HOME;
+  process.env.STUDIO_HOME = PINNED_HOME;
   rmSync(home, { recursive: true, force: true });
 });
 

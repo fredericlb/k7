@@ -6,7 +6,7 @@
 // one learned a case. The import direction settled the side: everything but the `PlaylistItem`
 // type is already this package's.
 //
-// See @studio/song/docs/playlists.md and @studio/ui-turntables/docs/songBrowser.md.
+// See @studio/song/docs/playlists.md and packages/st0-plugins/docs/turntables/songBrowser.md.
 
 import type { PlaylistItem } from "@studio/song-schema/playlist";
 import { type Take, takesOf } from "./takes.ts";
@@ -38,7 +38,7 @@ export function songMatches(entry: MediatekEntry, query: string): boolean {
   return words.every((w) => hay.includes(w));
 }
 
-// --- dragging a line onto a deck: the vocabulary BOTH listings speak (ui-turntables/docs/setList.md) ---
+// --- dragging a line onto a deck: the vocabulary BOTH listings speak (packages/st0-plugins/docs/turntables/setList.md) ---
 
 /** Our own MIME, so a deck accepts a playlist row and refuses every other thing a browser can drop. */
 export const SONG_DRAG_TYPE = "application/x-studio-song";

@@ -243,7 +243,7 @@ the graph. See [packages/song/docs/surfaces.md](../../../../packages/song/docs/s
 …and the **DESK alone on screen** (`deskOnly`), the ordinary state of a set. Each deck is a platter
 carrying its own position, so the transport there drives nothing but the metronome's click — and
 each deck has its own PLAY, at the foot of its tempo column
-([packages/ui-turntables/docs/mix.md](../../../../packages/ui-turntables/docs/mix.md)). Buttons that
+([../../../../packages/st0-plugins/docs/turntables/mix.md](../../../../packages/st0-plugins/docs/turntables/mix.md)). Buttons that
 look like they start the music without starting it are worse than none. The test is the SCREEN and
 not the project: a project that declares a desk *and* a timeline keeps its transport the moment
 either the timeline or the viewport is showing, because there it moves something you can see.
@@ -296,7 +296,7 @@ and a screen covering the graph makes "which module is this one on" a round trip
 desk gets the whole window when you do want it whole. What it holds is a DOCUMENT — the loaded songs,
 the crossfader, the six EQ knobs — and a set does not stop existing because you went to look at the
 graph. See
-[packages/ui-turntables/docs/deckSet.md](../../../../packages/ui-turntables/docs/deckSet.md).
+[../../../../packages/st0-plugins/docs/turntables/deckSet.md](../../../../packages/st0-plugins/docs/turntables/deckSet.md).
 
 The editor is not in the default layout. Giving it the left half means every song opens with half the
 screen showing a YAML file you had not asked for, while the two views that are *about the song* —

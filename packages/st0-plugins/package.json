@@ -8,7 +8,8 @@
     "./server": "./src/server.ts",
     "./browser": "./src/browser.ts",
     "./video": "./src/video/index.ts",
-    "./video/camera/relay": "./src/video/camera/relay.ts"
+    "./video/camera/relay": "./src/video/camera/relay.ts",
+    "./turntables/engine": "./src/turntables/engine.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -20,23 +21,29 @@
   },
   "dependencies": {
     "@frediverse/ui": "*",
+    "@studio/audio-probe": "*",
     "@studio/commands": "*",
     "@studio/engine-browser": "*",
+    "@studio/engine-protocol": "*",
     "@studio/graph-model": "*",
+    "@studio/mediatek": "*",
     "@studio/project-shell": "*",
     "@studio/song": "*",
     "@studio/song-schema": "*",
     "@studio/song-video": "*",
     "@studio/st0-sdk": "*",
+    "@studio/ui-chains": "*",
     "@studio/ui-eyes": "*",
-    "@studio/ui-turntables": "*",
     "@studio/web-protocol": "*",
+    "lucide-react": "^1.24.0",
     "yaml": "^2.5.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.17",
+    "@types/ws": "^8.5.13",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "ws": "^8.18.0"
   }
 }

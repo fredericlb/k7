@@ -15,14 +15,14 @@ modules:
 ```
 
 This is what a two-deck desk needs to be one: cueing deck B while A is playing. See
-[ui-turntables/docs/cue.md](../../ui-turntables/docs/cue.md).
+[packages/st0-plugins/docs/turntables/cue.md](../../../packages/st0-plugins/docs/turntables/cue.md).
 
 ## What it settles, and what it does NOT
 
 The engine has **one** transport, and cueing never asked for two: both decks already play **at the
 same time** on the timeline, and the crossfader decides what the room hears. Only a second output was
 missing. Out of reach with a single transport: starting a deck independently, and a cue point that
-moves only that deck. See [ui-turntables/docs/mix.md](../../ui-turntables/docs/mix.md).
+moves only that deck. See [packages/st0-plugins/docs/turntables/mix.md](../../../packages/st0-plugins/docs/turntables/mix.md).
 
 ## `OUT` is a notation; `CUE` is a real destination
 

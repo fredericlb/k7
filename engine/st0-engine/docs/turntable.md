@@ -5,7 +5,7 @@ decoded record and reads it at a rate the desk drives, forwards, backwards or st
 
 It exists because the other answer was measured and refused. A deck is normally a clip on a
 timeline, and moving one costs a re-insertion; driven at gesture rates that came out as a third of
-a beat of error, worse the faster it was driven (`packages/ui-turntables/docs/scratch.md`).
+a beat of error, worse the faster it was driven (`packages/st0-plugins/docs/turntables/scratch.md`).
 
 ## Rate, not position
 
@@ -201,7 +201,7 @@ rate change or a scratch mid-roll — which arithmetic on the desk's side would 
 Whether a loop is a roll is **latched when it engages** and never read at release. `Roll` is a
 param, so it arrives on its own message; reading it at the release would mean a `Roll = 0` landing
 one block early turns a roll into a plain loop and the record never comes back. The desk's ordering
-rules are the other half of the same seam — `packages/ui-turntables/docs/loop.md`.
+rules are the other half of the same seam — `packages/st0-plugins/docs/turntables/loop.md`.
 
 Two consequences worth naming rather than discovering:
 
@@ -275,18 +275,18 @@ anything is packed. It is scaled DOWN only, so a quiet record keeps its level, a
 the gain at playback — one multiply for both.
 
 **A stem is NOT one of those.** `wavPcm24` and ffmpeg's `pcm_s24le` both write 24-bit integer
-(`packages/ui-turntables/docs/stems.md`), so the four parts take the direct read like any other
+(`packages/st0-plugins/docs/turntables/stems.md`), so the four parts take the direct read like any other
 record. It is worth saying because it is worth 89 ms: a bench that wrote the stems as float measured
 192 ms to put a separated record on, against 102 for the same thing in 24-bit.
 
 What 16 bits costs is 96 dB of range on a signal that is played, not delivered. The stems' own
-summing sits at −34 dB (`packages/ui-turntables/docs/stems.md`), nowhere near it.
+summing sits at −34 dB (`packages/st0-plugins/docs/turntables/stems.md`), nowhere near it.
 
 ### A separated deck is FOUR platters, and what that costs
 
 It used to stay on clips, decided on a number that was read wrong: 441 ms against 267 was an apply
 **cold, on an empty engine** — the page loading, once. The gesture that matters is putting a record
-on a deck that already holds one, and `packages/ui-turntables/scripts/put-on.ts` measures exactly
+on a deck that already holds one, and `packages/st0-plugins/scripts/turntables/put-on.ts` measures exactly
 that, by timing the `applied` reply to the document `withDecks` produces:
 
 | record | one platter | four platters | difference |
@@ -339,7 +339,7 @@ Three things follow from a deck carrying its own position, and they are all the 
 
 - **Each deck starts alone.** `Rate` is per deck, so deck B rolls while deck A is stopped — the thing
   a single transport forbade. Only an EMPTY deck has no button: there is nothing to start.
-- **Any record can be scratched**, separated or not. `packages/ui-turntables/docs/scratch.md`.
+- **Any record can be scratched**, separated or not. `packages/st0-plugins/docs/turntables/scratch.md`.
 - **The transport is no longer a deck's clock**, and no longer anything's: `needle(deck)` is, and it
   is the only position reader there is.
 
@@ -353,7 +353,7 @@ The plugin, the wire, the loading, the diff identity, the desk driving it, the p
 the scratch, KEY and the separated record are done: **the clip path is gone**. What is not:
 
 - **The metronome is still a clip on the transport**, which no deck follows any longer. It was
-  already so before any of this, and it is a separate question — `packages/ui-turntables/docs/metronome.md`.
+  already so before any of this, and it is a separate question — `packages/st0-plugins/docs/turntables/metronome.md`.
   Step 4 of `docs/platter-plan.md` deleted the dead clip code around it and left the click with its
   SPACING and no phase, which is what it had already, said out loud.
 - **Nothing has LISTENED.** Everything above says the audio is where and when it was asked for.

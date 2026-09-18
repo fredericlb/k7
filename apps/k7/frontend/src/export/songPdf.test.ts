@@ -10,7 +10,10 @@ const song = (over: Partial<Song> = {}): Song => ({
   tablature: "e|---0---|",
   sheets: [],
   audio: null,
+  instrumental: null,
+  lyricTimings: [],
   favorite: false,
+  mine: false,
   createdAt: "2026-09-07T10:00:00Z",
   ...over,
 });

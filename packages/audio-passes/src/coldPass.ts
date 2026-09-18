@@ -7,7 +7,12 @@
 import { dirname, join } from "node:path";
 import type { loadModuleRefs } from "@studio/song/loader";
 import { OFFLINE_TYPE } from "@studio/song/project";
-import { STEMS_DIR } from "@studio/song-schema/stems";
+import {
+  isSeparationOutput,
+  type SeparationOutput,
+  STEMS,
+  STEMS_DIR,
+} from "@studio/song-schema/stems";
 
 // Spelled the way processChain.ts spells it — the resolved module as the loader hands it over.
 type LoadedModule = ReturnType<typeof loadModuleRefs>[string];
@@ -19,6 +24,8 @@ export { STEMS_DIR } from "@studio/song-schema/stems";
 export interface ColdStep {
   step: string; // the node name, for messages
   model: string; // the resolved model file, absolute
+  /** What the module DECLARES it writes — the four stems, or the instrumental; docs/processChain.md. */
+  outputs: SeparationOutput[];
 }
 
 /** Run one cold step over one source — the SEAM, a function rather than an import; docs/processChain.md. */
@@ -45,7 +52,22 @@ export function coldStepOf(step: string, m: LoadedModule): ColdStep {
       `step '${step}' wants the model '${authored}', which is not on this machine — put it in ` +
         `~/.st0/models (or the module's own assets/)`,
     );
-  return { step, model: String(m.onnx) };
+  return { step, model: String(m.onnx), outputs: outputsOf(step, m) };
+}
+
+/** What the pass writes: the outputs the module NAMES, the four stems when it names none of them. */
+function outputsOf(step: string, m: LoadedModule): SeparationOutput[] {
+  const named = (m.outputs ?? []).map((o) => String(o.name));
+  const known = named.filter(isSeparationOutput);
+  // A module that names none of them inherited its port from its type, and separates the four.
+  if (!known.length) return [...STEMS];
+  const strangers = named.filter((name) => !isSeparationOutput(name));
+  if (strangers.length)
+    throw new Error(
+      `step '${step}' names outputs a separation can write and ones it cannot ` +
+        `(${strangers.join(", ")}) — an output is one of the stems, or the instrumental`,
+    );
+  return known;
 }
 
 /** Where a source's cold outputs land: `stems/` beside it, never next to it. */

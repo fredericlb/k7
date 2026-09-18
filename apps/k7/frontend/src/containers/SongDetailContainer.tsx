@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
-import type { Song, SongTab } from "../types";
+import type { LyricTiming, Song, SongTab } from "../types";
 import { SongDetailView } from "../views/SongDetailView";
 
 interface Props {
@@ -58,8 +58,32 @@ export function SongDetailContainer({
 
   const handleToggleFavorite = async () => {
     if (!song) return;
-    const updated = await api.updateSong(songId, { favorite: !song.favorite });
+    const updated = await api.setSongFavorite(songId, !song.favorite);
     setSong(updated);
+    onChange();
+  };
+
+  // An LRC's outcome in one write: the lyrics when it brought them, and the line timecodes.
+  const handleLrc = async (
+    lyrics: string | null,
+    lyricTimings: LyricTiming[],
+  ) => {
+    const updated = await api.updateSong(
+      songId,
+      lyrics === null ? { lyricTimings } : { lyrics, lyricTimings },
+    );
+    setSong(updated);
+    onChange();
+  };
+
+  // "Fetch song" writes in two steps; each lands in the page as soon as it is done.
+  const handleCopyTrack = async (path: string) => {
+    setSong(await api.copyLibraryTrack(songId, path));
+    onChange();
+  };
+
+  const handleMixInstrumental = async (folder: string) => {
+    setSong(await api.mixInstrumental(songId, folder));
     onChange();
   };
 
@@ -82,6 +106,11 @@ export function SongDetailContainer({
       onDeleteAudio={handleDeleteAudio}
       audioUrl={api.songAudioUrl(songId)}
       onToggleFavorite={handleToggleFavorite}
+      onLrc={handleLrc}
+      onFindLrc={(duration) => api.searchLrclib(songId, duration)}
+      onCopyTrack={handleCopyTrack}
+      onMixInstrumental={handleMixInstrumental}
+      instrumentalUrl={api.songInstrumentalUrl(songId)}
       onDelete={handleDelete}
     />
   );

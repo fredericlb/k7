@@ -122,7 +122,7 @@ the alternative is a second word for the one gesture every lane in every app has
 Each compile filters it to its own lanes, so soloing a shot silences nothing and soloing a guitar
 hides nothing; any picture solo hides every un-soloed picture lane, which is the mixer-wide rule
 audio already keeps. The fold is the browser's, since the browser is what composites
-(`apps/st0/frontend/src/pictureMix.ts`) — the engine resolves the audio half and is told about no
+(`packages/st0-plugins/src/video/pictureMix.ts`) — the engine resolves the audio half and is told about no
 lane of picture at all.
 
 One list means one collision: a project that names an audio lane and a picture lane alike — which

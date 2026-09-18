@@ -39,7 +39,7 @@ The three EQ bands are in **decibels**, the filter in percent of travel, and all
 that neutral falls in the middle: see [eq.md](eq.md) and [filter.md](filter.md).
 
 The bindings themselves are in the **project**: `views/mix.yaml`, described in
-[packages/song/docs/viewBindings.md](../../../packages/song/docs/viewBindings.md).
+[packages/song/docs/viewBindings.md](../../../../packages/song/docs/viewBindings.md).
 
 ## Why not the module's `controller.yaml`
 

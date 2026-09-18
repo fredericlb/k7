@@ -24,10 +24,11 @@ name** rather than guessing.
 `@studio/file-service`, which depends on this package. `coldPass.ts` in `@studio/audio-passes`
 declares the type; nothing here reaches for the implementation.
 
-`stemsChain` is handed in for a different reason. The file is one import away and other `system`
+`stemsChain` — and `instrumentalChain` beside it, the same answer for the record without its voice
+— are handed in for a different reason. The file is one import away and other `system`
 verbs do read `<state>/preferences.yaml` directly — but a suite exercising "no chain named"
-would otherwise pass or fail by whether whoever runs it has set one. The verb that WRITES it
-still writes it directly: that is its whole job.
+would otherwise pass or fail by whether whoever runs it has set one. The verbs that WRITE them
+still write directly: that is their whole job.
 
 `snapshot` backs up a file about to be overwritten, so undo can restore it. The web host wires it
 to its edit journal; the CLI leaves it undefined and simply overwrites.

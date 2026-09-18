@@ -1,6 +1,6 @@
 // put-on.ts — ce que coûte POSER un disque sur une platine qui en tient déjà un.
 //
-//   npx tsx packages/ui-turntables/scripts/put-on.ts [ws://127.0.0.1:8765] [--minutes=2] [--runs=6]
+//   npx tsx packages/st0-plugins/scripts/turntables/put-on.ts [ws://127.0.0.1:8765] [--minutes=2] [--runs=6]
 //
 // C'est le geste le plus fréquent du pupitre, et depuis que les stems jouent sur des plateaux il en
 // charge quatre au lieu d'un. Le chiffre qui avait servi à décider — 441 ms contre 267 — était un

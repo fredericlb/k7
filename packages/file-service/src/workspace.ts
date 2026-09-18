@@ -431,6 +431,7 @@ export function preferences(): {
   channels: { in: string; out: string };
   vim: boolean;
   stemsChain: string | null;
+  instrumentalChain: string | null;
 } {
   const p = loadPreferences();
   return {
@@ -438,6 +439,7 @@ export function preferences(): {
     channels: formatChannels(p),
     vim: p.editor.vim,
     stemsChain: p.stemsChain ?? null,
+    instrumentalChain: p.instrumentalChain ?? null,
   };
 }
 

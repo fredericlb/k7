@@ -8,7 +8,7 @@ interface Props {
   onToggle: () => void;
 }
 
-/** A desktop-only panel on the right margin, listing every chord with its diagrams. */
+/** A panel of the page's right rail, listing every chord with its diagrams. Desktop only. */
 export function ChordsPanel({ chords, selected, open, onToggle }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -23,14 +23,15 @@ export function ChordsPanel({ chords, selected, open, onToggle }: Props) {
 
   return (
     <aside
-      className={`chords-panel${open ? "" : " collapsed"}${chords.length > 6 ? " three-col" : ""}`}
+      className={`rail-panel chords-panel${open ? "" : " collapsed"}${chords.length > 6 ? " three-col" : ""}`}
     >
       <button
-        className="chords-panel-toggle"
+        type="button"
+        className="rail-panel-toggle"
         onClick={onToggle}
         aria-expanded={open}
       >
-        🎸 Chords{open ? " ›" : " ‹"}
+        🎸 <span className="rail-panel-word">Chords</span>
       </button>
       {open && (
         <div className="chords-panel-list" ref={listRef}>

@@ -1051,6 +1051,31 @@
       },
     ]
 
+# …AND WHICH CHAIN gives a record WITHOUT ITS VOICE, asked once and kept beside the answer above.
+#
+# A second chain rather than a flag on the first, because it is a different chain: the same model,
+# a module declaring `instrumental` as its single output, so the pass sums what it separated
+# instead of writing four files. What a caller wants back is what decides which one is read.
+#
+# The check here is stricter than `system stems`'. A chain that separates but declares no
+# `instrumental` output is refused, since collecting four stems and calling one of them the
+# instrumental is exactly the mistake this verb exists to prevent.
+- command: "system instrumental"
+  sid: system.instrumental
+  readable:
+    en: "Set the chain that gives a record without its voice"
+    fr: "Choisir la chaîne qui donne un morceau sans sa voix"
+  help: "remember which chain makes the instrumental (e.g. system instrumental @st0/instrumental) — an empty ref clears it"
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: chain,
+        complete: chains,
+        hint: "a chain whose offline step declares an `instrumental` output",
+      },
+    ]
+
 # WHAT THIS MACHINE SEPARATES ON — the ONNX execution providers, in the order they are tried.
 #
 # The default is `cpu` alone, and that is a decision rather than timidity: asking for `dml` first

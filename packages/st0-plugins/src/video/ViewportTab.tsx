@@ -79,7 +79,7 @@ export function ViewportTab({
   if (!scene)
     return (
       <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
-        {/* English in the package, the same rule @studio/ui-turntables' views follow —
+        {/* English in the package, the same rule the desk's views follow —
             the app's paraglide layer is for the app's own chrome. */}
         This project has no picture yet. Add
         <code className="mx-1">video_tracks/&lt;name&gt;.yaml</code> and a

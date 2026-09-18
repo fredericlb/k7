@@ -1,3 +1,20 @@
 {
-  "$schema": "https://inlang.com/schema/inlang-message-format"
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "sheet.uploading": "Uploading…",
+  "sheet.remove": "Remove \"{name}\"?",
+  "sheet.removeFile": "Remove this file",
+  "score.loading": "Loading the score…",
+  "score.error": "This score could not be read: {message}",
+  "score.play": "Play",
+  "score.pause": "Pause",
+  "score.stop": "Stop",
+  "score.transpose": "Transpose",
+  "score.transposeDown": "Down a semitone",
+  "score.transposeUp": "Up a semitone",
+  "score.transposeReset": "Reset to the original key",
+  "score.zoomOut": "Zoom out",
+  "score.zoomIn": "Zoom in",
+  "score.fitWidth": "Fit width",
+  "score.fullscreen": "⛶ Full screen",
+  "score.exitFullscreen": "Exit full screen"
 }

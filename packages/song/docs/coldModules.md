@@ -125,7 +125,13 @@ acts on exactly that — `nodeProject` skips emitting a plugin, and nothing more
 | module | realised by |
 |---|---|
 | `stemsplit` | a pass writing four files before the render |
+| `instrumental` | the same pass, summing what it separated into one file |
 | `tempo` | the PLAYER time-stretching the clip it feeds |
+
+What a producing module WRITES is what it declares as outputs: the four stems, or `instrumental`
+— the one output name that is not a stem, meaning every stem the voice is not. So asking for a
+record without its voice is a module and a chain rather than a flag, and the two chains differ by
+that single line.
 
 The tempo's is not a stand-in for a pass that ought to exist. A pass would render a stretched
 file to disk, which is exactly what a deck must not do: you cannot re-render four minutes of

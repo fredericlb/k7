@@ -65,7 +65,7 @@ covers — the adaptation happens by *reading* the target, not by rescaling into
 ## Where the value comes from
 
 The order is `held ?? live ?? home`, and it is the same rule the desk follows
-(`packages/ui-turntables/docs/deckSet.md`):
+(`../../../../packages/st0-plugins/docs/turntables/deckSet.md`):
 
 - **held** — the hand's value while a gesture is in flight. Optimistic, and dropped as soon as
   `engineAgrees`. An override that never yields is a control that has stopped listening: the

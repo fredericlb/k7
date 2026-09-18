@@ -13,8 +13,8 @@ export type HomeTab =
   | "pages"
   | "songbook";
 
-// The header's destinations: the home tabs, plus sections no HomeView tab backs.
-export type NavKey = HomeTab | "exercices";
+// The header's destinations: one entry per section, sessions and moments sharing Recordings, releases and pages Publications.
+export type NavKey = "recordings" | "publications" | "songbook" | "exercices";
 
 /** The Supernote sync's state, as the settings screen sees it — never the password. */
 export interface SupernoteSync {

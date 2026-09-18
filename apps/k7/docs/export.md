@@ -1,7 +1,8 @@
 # Exporting the songbook
 
-Two buttons on the songbook tab, one per format. Each makes **one file per song**, puts them
-all in a zip and hands that to the browser. The zip is the deliverable because a songbook is
+Two buttons on the songbook tab, one per format. Each makes **one file per song** of the
+user's **favourites**, puts them all in a zip and hands that to the browser. The songbook is
+shared by everyone ([ownership.md](ownership.md)); the favourites are what one person carries. The zip is the deliverable because a songbook is
 read one song at a time: a single 200-page file is not what you carry to a rehearsal.
 
 ## It runs in the browser
@@ -57,6 +58,10 @@ no format. A plain download gets a real filename out of the same route.
 **A PDF sheet is not in the EPUB.** There is no page an EPUB can make of one. Images are, and
 anything the browser can display but pdf-lib cannot embed — GIF, WebP, SVG — is redrawn as JPEG
 on the way into the PDF.
+
+**A score sheet is in neither.** A MusicXML or Guitar Pro file is notation, not a page, and
+drawing one to paper is a job this export does not take on — so it is not even downloaded
+([score.md](score.md)).
 
 ## What a failure costs
 

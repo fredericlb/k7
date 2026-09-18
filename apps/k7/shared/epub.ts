@@ -6,6 +6,7 @@
 // nobody could see. How a sheet resolves to an address is the caller's, and the only
 // difference between the two: ../docs/export.md.
 
+import { sheetKind } from "./sheetKind.ts";
 import type { SheetFile, Song } from "./types.ts";
 
 /**
@@ -43,9 +44,9 @@ function textChapter(title: string, text: string): EpubChapter[] {
   return [{ title, content: `<pre>${escapeHtml(text)}</pre>` }];
 }
 
-/** The sheet images, in order. A PDF cannot be a page of an EPUB, so it is not one. */
+/** The sheet images, in order. A PDF or a score cannot be a page of an EPUB, so neither is one. */
 function sheetChapter(song: Song, sheetUrl: SheetUrl): EpubChapter[] {
-  const images = song.sheets.filter((s) => s.mime !== "application/pdf");
+  const images = song.sheets.filter((s) => sheetKind(s.name, s.mime) === "image");
   if (images.length === 0) return [];
   const content = images
     .map(

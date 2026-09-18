@@ -27,7 +27,7 @@ relative to the zone a page is talking about: the root `AGENTS.md` says `docs/pi
 st0's, and moteur's `protocol.md` says `scripts/two-sessions.ts` meaning its own. A check anchored
 on them would report a hundred sentences that are perfectly clear to a reader.
 
-The pattern's lookbehind is what keeps `[stems.md](../../ui-turntables/docs/stems.md)` from being
+The pattern's lookbehind is what keeps `[stems.md](../packages/st0-plugins/docs/turntables/stems.md)` from being
 read as a reference to `docs/stems.md`: a match may open on `../`, never in the middle of a path. A
 reference is resolved from the repo root first — how nearly every page writes one — then relative
 to the page, which is how a `../../packages/song/src/…` written inside a package's own `docs/`

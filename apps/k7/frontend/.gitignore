@@ -1,5 +1,8 @@
 node_modules/
 dist/
+# Copied from @coderline/alphatab by its Vite plugin on every start and build — ../docs/score.md.
+public/font/
+public/soundfont/
 
 *storybook.log
 storybook-static

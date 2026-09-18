@@ -445,7 +445,7 @@ export function PlaylistPane({
 
                   // biome-ignore lint/suspicious/noArrayIndexKey: see above
                   key={i}
-                  // Draggable onto a DECK — the line travels, not the song, see ui-turntables/docs/setList.md.
+                  // Draggable onto a DECK — the line travels, not the song, see packages/st0-plugins/docs/turntables/setList.md.
                   draggable={!problem && !missing}
                   onDragStart={(e) => {
                     e.dataTransfer.setData(

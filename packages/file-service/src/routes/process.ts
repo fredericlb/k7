@@ -16,6 +16,7 @@ import { wrap } from "@frediverse/http/route";
 import { resolveChain } from "@studio/audio-passes/processChain";
 import { emptyDoc } from "@studio/engine-protocol/build";
 import { loadPreferences } from "@studio/song/preferences";
+import { INSTRUMENTAL } from "@studio/song-schema/stems";
 import {
   separateJob,
   startSeparate,
@@ -48,15 +49,26 @@ processRouter.post(
   "/process",
   wrap(async (req, res) => {
     sweep();
+    // Which of the two things a separation can hand back — each has its own standing answer.
+    const want = String(req.query.want ?? "stems")
+      .trim()
+      .toLowerCase();
+    if (want !== "stems" && want !== INSTRUMENTAL)
+      return res
+        .status(400)
+        .json({ error: `want must be 'stems' or '${INSTRUMENTAL}'` });
+    const wantsMix = want === INSTRUMENTAL;
+    const verb = wantsMix ? "system instrumental" : "system stems";
+    const prefs = loadPreferences();
     // Named by the caller, or — absent — the one answer this MACHINE holds (docs/processChain.md).
     const ref =
       String(req.query.chain ?? "").trim() ||
-      (loadPreferences().stemsChain ?? "");
+      ((wantsMix ? prefs.instrumentalChain : prefs.stemsChain) ?? "");
     if (!ref)
       return res.status(409).json({
         error:
-          "no chain named, and this machine separates nothing yet — pass ?chain=, or set one " +
-          "once with `system stems <chaîne>` (the cog, I/O)",
+          `no chain named, and this machine ${wantsMix ? "makes no instrumental" : "separates nothing"} yet — ` +
+          `pass ?chain=, or set one once with \`${verb} <chaîne>\` (the cog, I/O)`,
       });
     // The extension is what ffmpeg reads the container from; a basename, so no path can escape.
     const name = basename(String(req.query.name ?? "source.wav")).trim();
@@ -85,6 +97,14 @@ processRouter.post(
           `'${ref}' does not separate — it puts the signal through ${plugins.length} module(s). ` +
           "/process runs a chain whose step is an offline module.",
       });
+    const outputs = cold[0].outputs;
+    // Refused here rather than collected: four stems, one of them called the instrumental, is the mistake.
+    if (wantsMix && !outputs.includes(INSTRUMENTAL))
+      return res.status(400).json({
+        error:
+          `'${ref}' writes ${outputs.join(", ")} and no instrumental — name a chain whose ` +
+          "offline step declares an `instrumental` output",
+      });
 
     // The mix, onto this machine's disk, streamed: a master must never be held whole in memory.
     const dir = mkdtempSync(join(tmpdir(), "studio-process-"));
@@ -109,6 +129,7 @@ processRouter.post(
       userEmail: req.userEmail!,
       source,
       model: cold[0].model,
+      outputs,
       outDir: join(dir, "out"),
     });
     // A run already in flight for this exact work keeps ITS directory; this one's is dropped.

@@ -12,9 +12,11 @@ import {
   setChannelLabel,
   setCueOutput,
   setInputPair,
+  setInstrumentalChain,
   setOnnxProviders,
   setStemsChain,
 } from "@studio/song/preferences";
+import { INSTRUMENTAL } from "@studio/song-schema/stems";
 import type { SidHandler } from "../commands.ts";
 import { splitWords } from "./shared.ts";
 
@@ -120,6 +122,43 @@ export const SYSTEM_VERBS: Record<string, SidHandler> = {
     }
     setStemsChain(ref);
     h.log([`stems are separated with ${ref}${checked}`]);
+  },
+
+  /** Which chain gives the record WITHOUT ITS VOICE — the same standing answer, see docs/playlist.md. */
+  "system.instrumental": (a, h) => {
+    const ref = a.trim();
+    if (!ref)
+      return h.refuse([
+        "usage: system instrumental <chaîne>   e.g. system instrumental @st0/instrumental",
+        h.instrumentalChain
+          ? `currently: ${h.instrumentalChain} — pass "" to clear it`
+          : "nothing is set, so nothing on this machine will make an instrumental",
+      ]);
+    if (ref === '""' || ref === "''") {
+      setInstrumentalChain("");
+      return h.log(["the instrumental chain is cleared"]);
+    }
+
+    let checked = "";
+    if (h.songPath) {
+      try {
+        const chain = resolveChain(h.songPath, h.project(), ref);
+        const step = chain.cold.find((c) => c.outputs.includes(INSTRUMENTAL));
+        // Stricter than `system stems`: four stems with one renamed is the mistake this prevents.
+        if (!step)
+          return h.refuse([
+            `'${ref}' writes no instrumental — this wants a chain whose offline step declares ` +
+              "an `instrumental` output",
+          ]);
+        checked = ` — written by ${step.step}`;
+      } catch (e) {
+        return h.refuse([`system instrumental: ${(e as Error).message}`]);
+      }
+    } else {
+      checked = " — not checked: no project is open to resolve it against";
+    }
+    setInstrumentalChain(ref);
+    h.log([`the instrumental comes from ${ref}${checked}`]);
   },
 
   /** What this machine SEPARATES on — packages/stem-separation/docs/stemSplit.md. */

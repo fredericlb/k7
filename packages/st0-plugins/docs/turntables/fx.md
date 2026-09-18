@@ -53,7 +53,7 @@ someone hunting for a module to repair where nothing is broken. It is also why i
 
 Holding the button sends the echo full **and** closes the channel fader. Two parameters — and one
 desk control drives **at most one**
-([viewBindings.md](../../../packages/song/docs/viewBindings.md)).
+([viewBindings.md](../../../../packages/song/docs/viewBindings.md)).
 
 The way out is not to loosen that rule: it is that echo-out need not be a binding at all. It
 **composes two controls the desk already has** — `deckA.echo` and `deckA.level` — exactly as a hand

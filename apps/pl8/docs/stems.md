@@ -1,8 +1,13 @@
 # Cutting a song into stems — the job is this service's
 
 ```
-POST /api/stems   { song, engineId, chain? }   →   { ready: true, files: [...] }
+POST /api/stems   { song, engineId, chain?, want? }   →   { ready: true, files: [...] }
 ```
+
+`want` is `stems` (the default) or `instrumental` — the four parts a deck plays, or the record
+without its voice, which is one file the engine's chain sums rather than three this service would
+have to add up. Both land in the same `stems/` folder, and each engine holds its own standing
+answer for which chain does it.
 
 `song` is volume-relative (`songs/<artiste>/<album>/<titre>/original.mp3`, the string every other
 route here takes). The stems land in `stems/` under the song's own folder, on **this** volume.
@@ -34,7 +39,9 @@ which is exactly what it is.
 
 ## Already cut is not work
 
-`cutStems` asks the **folder**: audio in `stems/` means it is done, and the answer is immediate.
+`cutStems` asks the **folder**, and it asks for what THIS caller wants: the four stems complete, or
+`instrumental.wav` there. One question for both would answer "done" to a request for the
+instrumental because somebody once cut the stems, and hand back four files that are not it.
 Asked of the disk rather than of a record somewhere, for the reason every freshness question in
 this repo is asked that way — the files are the truth, and a record beside them is a second one
 that can disagree.

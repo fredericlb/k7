@@ -2,7 +2,7 @@
 
 The rationale behind `packages/song-schema/src/stems.ts`. How a separation is RUN is
 `packages/stem-separation/docs/stemSplit.md`; what the desk draws is
-`packages/ui-turntables/docs/stems.md`.
+`packages/st0-plugins/docs/turntables/stems.md`.
 
 ## The order is the knowledge
 
@@ -14,7 +14,7 @@ reads as a broken separator rather than a wrong list.
 It lives in this package, which everything else depends on, because it is needed in three places
 that cannot import each other: the inference writes the files (`@studio/file-service`), a set's graph
 declares a lane per stem (`scaffoldSet`), and the desk loads one clip per lane
-(`@studio/ui-turntables`).
+(the turntables plugin's `src/turntables/`).
 
 ## Where the files go
 

@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
+import { type SeparationOutput, STEMS } from "@studio/song-schema/stems";
 import type { SeparateJob } from "@studio/web-protocol";
 
 const KEEP_MS = 5 * 60 * 1000;
@@ -18,10 +19,15 @@ const jobs = new Map<string, SeparateJob & { at: number; worker?: Worker }>();
 /** A provider that lost its device once, for this service's lifetime — see docs/stemSplit.md. */
 let lost: string | null = null;
 
-/** Keyed by the WORK — who, which file, which model — and not by a workspace; docs/stemSplit.md. */
-function idFor(userEmail: string, source: string, model: string): string {
+/** Keyed by the WORK — who, which file, which model, which outputs — and not by a workspace; docs/stemSplit.md. */
+function idFor(
+  userEmail: string,
+  source: string,
+  model: string,
+  outputs: readonly string[],
+): string {
   return createHash("sha256")
-    .update(`${userEmail}\0${source}\0${model}`)
+    .update(`${userEmail}\0${source}\0${model}\0${outputs.join(",")}`)
     .digest("hex")
     .slice(0, 16);
 }
@@ -36,13 +42,16 @@ export interface StartSeparate {
   source: string; // absolute path to the mix
   model: string; // absolute path to the .onnx
   outDir: string; // where the stems land — <song folder>/stems
+  /** What to write: the four stems when absent — see docs/stemSplit.md. */
+  outputs?: readonly SeparationOutput[];
 }
 
 /** Start a separation, or return the one already running for exactly this work. */
 export function startSeparate(opts: StartSeparate): SeparateJob {
   sweep();
   const { userEmail, source, model, outDir } = opts;
-  const id = idFor(userEmail, source, model);
+  const outputs = opts.outputs?.length ? [...opts.outputs] : [...STEMS];
+  const id = idFor(userEmail, source, model, outputs);
   const running = jobs.get(id);
   if (running && !running.done) return snapshot(running);
 
@@ -76,6 +85,7 @@ export function startSeparate(opts: StartSeparate): SeparateJob {
         source,
         model,
         outDir,
+        outputs,
         providers: lost ? ["cpu"] : undefined,
       },
     },

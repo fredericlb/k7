@@ -1,7 +1,7 @@
 # The platter stretches for itself, and the hybrid is gone
 
 The decisions of the platter work, in one place. Current behaviour is described by the ordinary
-pages — `engine/st0-engine/docs/turntable.md`, `packages/ui-turntables/docs/scratch.md`.
+pages — `../engine/st0-engine/docs/turntable.md`, `../packages/st0-plugins/docs/turntables/scratch.md`.
 
 ## Everything plays through a platter
 
@@ -45,7 +45,7 @@ Facts worth keeping:
   reporting half the period and no dependence on rate.
 
 The measurements are `engine/st0-engine/scripts/keylock.ts`, the numbers in
-`engine/st0-engine/docs/turntable.md`: pitch holds at 1000 Hz while the period follows the rate;
+`../engine/st0-engine/docs/turntable.md`: pitch holds at 1000 Hz while the period follows the rate;
 resampling moves both.
 
 ## The desk turns `Key` on, and off while a hand holds the record
@@ -65,7 +65,7 @@ pitch fader running backwards.
 The four parts share a position, a rate and a `Key`; `plattersOf(deck, load)` names them, and
 `place`, `scratch` and the needle all go through that list.
 
-The cost is loading, measured by `packages/ui-turntables/scripts/put-on.ts`, which times the
+The cost is loading, measured by `packages/st0-plugins/scripts/turntables/put-on.ts`, which times the
 `applied` response:
 
 | putting a record on a deck that already holds one | plain | separated | overhead |
@@ -108,6 +108,6 @@ scratch-by-clip, which is what paid for the platter.
 
 The **metronome**. Its clip is the transport's last inhabitant; it has the right spacing between
 beats and an arbitrary offset against the music. It starts at zero, and
-`packages/ui-turntables/docs/metronome.md` says the phase is missing rather than simulating it.
+`../packages/st0-plugins/docs/turntables/metronome.md` says the phase is missing rather than simulating it.
 The two candidate remedies — one more platter, or an anchor computed off the needle — are written
 there; neither is decided and neither has been listened to.

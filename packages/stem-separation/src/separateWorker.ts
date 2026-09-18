@@ -9,6 +9,12 @@ import { join } from "node:path";
 import { parentPort, workerData } from "node:worker_threads";
 // The `preferences` subpath only — node builtins plus `yaml`, not the compiler behind the rest of it.
 import { loadPreferences } from "@studio/song/preferences";
+import {
+  INSTRUMENTAL,
+  INSTRUMENTAL_STEMS,
+  outputFile,
+  type SeparationOutput,
+} from "@studio/song-schema/stems";
 import { chooseDmlAdapter } from "./dmlAdapters";
 import {
   CHANNELS,
@@ -25,8 +31,24 @@ import {
 export interface SeparateInput {
   source: string; // absolute path to the mix
   model: string; // absolute path to the .onnx
-  outDir: string; // where the four stems are written
+  outDir: string; // where the outputs are written
+  /** What to write: the four stems when absent, or the instrumental — docs/stemSplit.md. */
+  outputs?: SeparationOutput[];
   providers?: string[]; // execution providers to try, in order; the platform's own when absent
+}
+
+/** One output's signal: a stem as the model gives it, or every stem but the voice summed. */
+function channelsOf(oa: OverlapAdd, name: SeparationOutput): Float32Array[] {
+  if (name !== INSTRUMENTAL) return oa.finish(STEMS.indexOf(name));
+  const [first, ...rest] = INSTRUMENTAL_STEMS;
+  const sum = oa.finish(STEMS.indexOf(first));
+  // Added one at a time rather than held four deep: a five-minute stem is 105 MB of floats.
+  for (const stem of rest) {
+    const part = oa.finish(STEMS.indexOf(stem));
+    for (let c = 0; c < sum.length; c++)
+      for (let i = 0; i < sum[c].length; i++) sum[c][i] += part[c][i];
+  }
+  return sum;
 }
 
 export interface WorkerProgress {
@@ -266,6 +288,7 @@ export async function separate({
   source,
   model,
   outDir,
+  outputs,
   providers,
 }: SeparateInput): Promise<string[]> {
   say({ phase: "decoding", percent: null });
@@ -333,9 +356,10 @@ export async function separate({
       line: `writing at ${rate} Hz, the record's own — the model works at ${SAMPLE_RATE}`,
     });
   const out: string[] = [];
-  for (const [s, name] of STEMS.entries()) {
-    const path = join(outDir, `${name}.wav`);
-    const chans = oa.finish(s);
+  // What the CHAIN's module declared, which is the four stems unless it said otherwise.
+  for (const name of outputs?.length ? outputs : [...STEMS]) {
+    const path = join(outDir, outputFile(name));
+    const chans = channelsOf(oa, name);
     // An overshoot is CLAMPED and SAID: the other way to find out is a click (docs/stemSplit.md).
     const peak = peakOf(chans);
     if (peak > 1)

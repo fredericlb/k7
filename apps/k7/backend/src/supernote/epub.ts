@@ -5,6 +5,7 @@
 // reads them off the disk, and their extension is what tells it the media type.
 
 import { epubInput } from "@k7/shared/epub";
+import { sheetKind } from "@k7/shared/sheetKind";
 import { ensureSheetFileCached } from "../store.ts";
 
 /** A CommonJS default export is the whole `module.exports`; the generator is inside it. */
@@ -18,7 +19,8 @@ export async function buildSongEpub(song): Promise<Uint8Array> {
   // Resolved up front: the input builder is synchronous, and reaching Grist is not.
   const paths = new Map<string, string>();
   for (const sheet of song.sheets) {
-    if (sheet.mime === "application/pdf") continue;
+    // Only images become pages; a PDF or a score is not fetched for a book it will not be in.
+    if (sheetKind(sheet.name, sheet.mime) !== "image") continue;
     const cached = await ensureSheetFileCached(song.id, sheet.id);
     if (cached) paths.set(sheet.id, `file://${cached.filePath}`);
   }

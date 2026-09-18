@@ -4,6 +4,7 @@
 // pdf-lib embeds JPEG and PNG and nothing else, so every other image the songbook
 // accepts (GIF, WebP, SVG) is decoded by the browser and re-encoded as JPEG first.
 
+import { isScore } from "@k7/shared/sheetKind";
 import { api } from "../api";
 import type { Song } from "../types";
 import type { LoadedSheet } from "./songPdf";
@@ -15,6 +16,8 @@ const EMBEDDABLE = /^(application\/pdf|image\/(png|jpeg))$/;
 export async function loadSheets(song: Song): Promise<LoadedSheet[]> {
   const out: LoadedSheet[] = [];
   for (const sheet of song.sheets) {
+    // A score has no page to embed, so it is not downloaded — ../../../docs/score.md.
+    if (isScore(sheet)) continue;
     try {
       const res = await fetch(api.sheetFileUrl(song.id, sheet.id, sheet.name), {
         credentials: "include",

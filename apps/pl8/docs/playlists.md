@@ -130,5 +130,5 @@ What differs is **where it is filed and what that costs**:
 
 The consequence worth knowing before you build one: a set list a **`turntables` surface** names is
 resolved in the workspace, so a DJ desk's browser and the pre-fetch that fills the machine's disk
-read `_playlists/`, not this folder ([packages/ui-turntables/docs/setList.md](../../../packages/ui-turntables/docs/setList.md)).
+read `_playlists/`, not this folder ([../../../packages/st0-plugins/docs/turntables/setList.md](../../../packages/st0-plugins/docs/turntables/setList.md)).
 A set list built here is one you read, sort and listen to on this volume.

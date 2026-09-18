@@ -50,7 +50,7 @@ It is **not** the shell with things hidden. The shell with nothing in it is stil
 panels and its bar all belong to a screen this device does not show. `ExternalSurface` mounts what a
 surface needs — the engine link, the desk, the video document, the command runner — then hands over
 to the component the type names. No logic is duplicated: those hooks exist precisely so a host can
-wire a surface (`packages/ui-turntables/docs/hosting.md`).
+wire a surface (`../../../../packages/st0-plugins/docs/turntables/hosting.md`).
 
 Three things are not the surface and are there anyway, at the head and the foot: the **transport**, a
 **command line**, and the **keyboard**. They do not come from the same reasoning as the panels —

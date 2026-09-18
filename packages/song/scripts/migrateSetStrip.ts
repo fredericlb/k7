@@ -4,7 +4,7 @@
 //   npx tsx packages/song/scripts/migrateSetStrip.ts <projet.st0> [more…] [--write]
 //
 // Before this, a deck's only level control was the crossfader, there was no gain staging at all,
-// and nothing past the filter. See packages/ui-turntables/docs/mix.md and docs/fx.md.
+// and nothing past the filter. See packages/st0-plugins/docs/turntables/mix.md and docs/fx.md.
 //
 // The one edit that is not an addition: the strip's HEAD moves from the EQ to the trim, because
 // all five of a deck's lanes must meet in front of the trim for it to reach a separated record.
@@ -292,5 +292,5 @@ for (const dir of roots) {
 console.log(
   `${changed}/${seen} set(s) ${write ? "migrated" : "would change"}. ` +
     "The trim and the fader rest at unity, so nothing sounds different until you move one — " +
-    "see packages/ui-turntables/docs/mix.md.",
+    "see packages/st0-plugins/docs/turntables/mix.md.",
 );

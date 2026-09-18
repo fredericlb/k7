@@ -156,7 +156,7 @@ JS decoder fallback. `runWaveformBatch` computes every stale sidecar in ONE engi
 
 The sidecar carries `low` / `mid` / `high` beside `peak` and `rms`: the same envelope split at
 200 Hz and 4 kHz, in the same bucket space, hence a waveform coloured by what is in it
-(`packages/ui-turntables/docs/waveform.md`).
+(`packages/st0-plugins/docs/turntables/waveform.md`).
 
 The three fields stay **optional** in `FileEnvelope`. The version gate means an up-to-date service
 only serves sidecars that carry them — but a surface reading them must degrade to a plain envelope

@@ -250,6 +250,8 @@ export interface CommandHost {
   runColdStep?: RunColdStep;
   /** The chain this MACHINE separates with, as `system stems` wrote it; handed in, docs/verbs.md. */
   stemsChain?: string;
+  /** …and the one it makes an instrumental with, as `system instrumental` wrote it. */
+  instrumentalChain?: string;
   // Transport config for git, merged over the env: the web host pins GIT_SSH_COMMAND to the deploy key.
   gitEnv?: GitEnv;
   // Where the whole-repo git commands run — the workspace ROOT on the web, since a workspace is one cloned repo.

@@ -1,6 +1,7 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Calendar } from "@frediverse/ui/calendar";
+import { Tabs, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
 import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
 import { useState } from "react";
 import { SongbookExport } from "../components/SongbookExport";
@@ -15,6 +16,18 @@ import type {
   SongTab,
 } from "../types";
 
+// The home tabs that share one header entry, each group drawn as a tab bar over its lists.
+const TAB_GROUPS: { key: HomeTab; label: string }[][] = [
+  [
+    { key: "sessions", label: "Sessions" },
+    { key: "moments", label: "Moments" },
+  ],
+  [
+    { key: "releases", label: "Releases" },
+    { key: "pages", label: "Pages" },
+  ],
+];
+
 interface Props {
   sessions: Session[];
   releases: Release[];
@@ -22,6 +35,8 @@ interface Props {
   songs: Song[];
   moments: Moment[];
   tab: HomeTab;
+  /** Switch to another home tab — the tab bar of a grouped header entry. */
+  onTab: (tab: HomeTab) => void;
   onOpen: (s: Session) => void;
   onDeleteSession: (id: string) => Promise<void>;
   onCleanSessions: (ids: string[]) => Promise<void>;
@@ -42,6 +57,7 @@ export function HomeView({
   songs,
   moments,
   tab,
+  onTab,
   onOpen,
   onDeleteSession,
   onCleanSessions,
@@ -54,6 +70,7 @@ export function HomeView({
   onOpenMoment,
   onToggleSongFavorite,
 }: Props) {
+  const group = TAB_GROUPS.find((g) => g.some(({ key }) => key === tab));
   const [activeTag, setActiveTag] = useState<string | null>(null);
   // Which calendar day the Sessions tab is showing (null → newest day so far).
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -126,6 +143,19 @@ export function HomeView({
 
   return (
     <div>
+      {/* A grouped header entry draws its tabs first; the address still says which, so each keeps its link. */}
+      {group && (
+        <Tabs value={tab} onValueChange={(v) => onTab(v as HomeTab)}>
+          <TabsList className="mb-3.5">
+            {group.map(({ key, label }) => (
+              <TabsTrigger key={key} value={key}>
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
+
       {tab === "sessions" && (
         <>
           {sessions.length > 0 && (
@@ -352,7 +382,8 @@ export function HomeView({
             <Button variant="outline" onClick={onNewSong}>
               ＋ New song
             </Button>
-            <SongbookExport songs={songs} />
+            {/* The songbook is shared; what a person exports is their own favourites — ../../../docs/export.md. */}
+            <SongbookExport songs={songs.filter((s) => s.favorite)} />
           </div>
           <ul className="session-list home-list">
             {songs.length === 0 && (

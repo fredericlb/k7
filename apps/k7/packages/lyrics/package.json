@@ -16,5 +16,8 @@
   },
   "devDependencies": {
     "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "fastest-levenshtein": "^1.0.16"
   }
 }

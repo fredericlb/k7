@@ -156,7 +156,7 @@ songs prepared by command.
 - **The four parts are four PLATTERS**, as an unseparated record is one. They share a position, a
   rate and a `Key`; `plattersOf` names them, and one gesture — cue, scrub, scratch — reaches them
   all. That is what makes a separated record scratchable. The cost is measured:
-  `packages/ui-turntables/scripts/put-on.ts`, and 157 ms more to put on a 4-minute song.
+  `packages/st0-plugins/scripts/turntables/put-on.ts`, and 157 ms more to put on a 4-minute song.
 - **The tempo does not get in the way.** A sum requires no cancellation, so each part stretches on
   its own, keylock on or off ([bpm.md](bpm.md)).
 - **An unseparated song leaves its lanes EMPTY**, and its own lane plays it. Placing four clips on

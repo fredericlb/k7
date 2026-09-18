@@ -101,7 +101,18 @@ unchecked and says so, because a `@st0/…` ref has nothing to resolve against w
 failure, since `system` verbs are meant to work from a shell that has opened nothing. `""` on the
 line, quotes and all, is how you say "separate nothing" without a second verb.
 
-It is resolved against the **open project's** module vocabulary, like every other cold step: that is
+### `system instrumental <chaîne>` is the same answer for a different question
+
+A record without its voice is a second chain, not an option on the first: the same model, and a
+module declaring `instrumental` as its single output instead of the four stems. What a caller
+wants back is what decides which one is read, so each has its own standing answer and neither
+surface has to hold a picker.
+
+Its check is stricter. A chain that separates but declares no `instrumental` output is refused
+here, because the failure it prevents is silent: four stems collected, one of them filed as the
+instrumental, and a song that plays with its voice still in it.
+
+`system stems` is resolved against the **open project's** module vocabulary, like every other cold step: that is
 where a `@st0/…` ref becomes a module and a model becomes a path on this machine
 (`packages/audio-passes/docs/processChain.md`). This is the one playlist verb that needs a project,
 and it says so rather than throwing.

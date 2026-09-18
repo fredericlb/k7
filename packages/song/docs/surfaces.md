@@ -229,7 +229,7 @@ A surface's DOCUMENT is not its screen. A desk holds the loaded songs, the cross
 knobs and a compiled project; a set does not stop existing because you went to look at the graph.
 Hold the document in the screen and a round trip re-centres the crossfader and flattens the EQ while
 the sound stays where you put it. See
-[../../ui-turntables/docs/deckSet.md](../../ui-turntables/docs/deckSet.md).
+[../../../packages/st0-plugins/docs/turntables/deckSet.md](../../../packages/st0-plugins/docs/turntables/deckSet.md).
 
 A `split` surface does not raise the question: **a pane is mounted once and never unmounted**,
 `hidden` takes it off screen, and that one invariant covers it. The timeline holds a caret and a
@@ -261,7 +261,7 @@ different people.
 
 The check is a **gate** rather than a per-knob badge: the components required are the ones that make
 a desk a desk — a crossfade, three EQ bands and a filter per deck. A desk missing its crossfade is
-not a desk with one feature off. `unmappedControls` in `packages/ui-turntables/src/mapping.ts` owns
+not a desk with one feature off. `unmappedControls` in `packages/st0-plugins/src/turntables/mapping.ts` owns
 the list, because which components a type needs is the surface's own business and `@studio/song`
 does not know what a `crossfade` is. It is internal to the desk — the package publishes four
 subpaths, and this is not one of them.
@@ -391,7 +391,7 @@ See `apps/st0/frontend/docs/mastering.md` for the screen, and
 
 The DJ desk, drawn by `@studio/ui-turntables`. Its one seam is the engine (`./engine`), which st0
 satisfies from the link its shell already holds; see that package's
-[docs/hosting.md](../../ui-turntables/docs/hosting.md).
+[docs/hosting.md](../../../packages/st0-plugins/docs/turntables/hosting.md).
 
 A turntables surface plays a **set**, and it says which one: `playlist:`, a name under the
 workspace's `_playlists/` ([playlists.md](playlists.md)). That is what the desk's song browser lists
@@ -415,7 +415,7 @@ It is a BOOLEAN. Which module separates and which model it wants is one answer f
 `system stems`, kept in `<state>/preferences.yaml` — and asking a project for it would make three
 surfaces spell the same thing. What a set decides is whether an hour of arithmetic may start because
 somebody put a record on, which is worth deciding per set: a rehearsal rig and a stage rig answer it
-differently. See [ui-turntables/docs/stems.md](../../ui-turntables/docs/stems.md).
+differently. See [packages/st0-plugins/docs/turntables/stems.md](../../../packages/st0-plugins/docs/turntables/stems.md).
 
 A playlist is not desk-specific and is not the project's either — it is a document in the
 repository, shared by every project in the workspace and written in st0 under the cog. So an `.st0`

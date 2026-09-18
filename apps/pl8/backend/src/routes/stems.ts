@@ -5,11 +5,11 @@
 import { validate, wrap } from "@frediverse/http/route";
 import type { EngineMount } from "@studio/engine-registry";
 import { PathEscapesError } from "@studio/mediatek/layout";
-import { stemsComplete } from "@studio/song-schema/stems";
+import { INSTRUMENTAL } from "@studio/song-schema/stems";
 import type { SeparateJob, StemsReply } from "@studio/web-protocol";
 import { type Request, Router } from "express";
 import { z } from "zod";
-import { cutStems, heldStems } from "../stems/cut.ts";
+import { cutStems, heldFor } from "../stems/cut.ts";
 import { jobIdFor, runningJob, startJob, stemsJob } from "../stems/jobs.ts";
 
 /** pl8 has no express type augmentation, so the user is read this way, as in `routes/projects.ts`. */
@@ -24,6 +24,8 @@ const body = z.object({
   engineId: z.string().min(1),
   /** Optional: absent, the engine's own `system stems` answers, one per machine. */
   chain: z.string().optional(),
+  /** What to bring back: the four stems, or the record without its voice. */
+  want: z.enum(["stems", INSTRUMENTAL]).optional(),
 });
 
 export function stemsRouter(engines: EngineMount): Router {
@@ -34,19 +36,20 @@ export function stemsRouter(engines: EngineMount): Router {
     "/",
     validate(body),
     wrap(async (req, res) => {
-      const { song, engineId, chain } = req.body as z.infer<typeof body>;
+      const { song, engineId, chain, want } = req.body as z.infer<typeof body>;
       const userEmail = emailOf(req) ?? "unknown";
+      const asked = want ?? "stems";
 
-      let held: string[];
+      let done: boolean;
       try {
-        held = heldStems(song);
+        // Asked of what THIS caller wants: an instrumental is not one of the four parts.
+        done = heldFor(song, asked);
       } catch (e) {
         if (e instanceof PathEscapesError)
           return res.status(400).json({ error: e.message });
         throw e;
       }
-      if (held.length)
-        return res.json({ ready: true, job: null } as StemsReply);
+      if (done) return res.json({ ready: true, job: null } as StemsReply);
 
       const engine = engines.registry.get(engineId);
       // A registry miss is a 409, not a 404: the engine existed when the browser picked it.
@@ -55,7 +58,7 @@ export function stemsRouter(engines: EngineMount): Router {
           error: `no engine '${engineId}' is registered — is its machine running?`,
         });
 
-      const id = jobIdFor(userEmail, song, chain ?? "");
+      const id = jobIdFor(userEmail, song, `${chain ?? ""}\0${asked}`);
       const already = runningJob(id);
       if (already)
         return res.json({ ready: false, job: already } as StemsReply);
@@ -67,6 +70,7 @@ export function stemsRouter(engines: EngineMount): Router {
         userEmail,
         song,
         chain: chain ?? "",
+        want: asked,
         onProgress: (j: SeparateJob) =>
           progress({
             phase: j.phase,
@@ -91,10 +95,10 @@ export function stemsRouter(engines: EngineMount): Router {
     wrap((req, res) => {
       const song = String(req.query.song ?? "");
       if (!song) return res.status(400).json({ error: "song is required" });
+      const asked = req.query.want === INSTRUMENTAL ? INSTRUMENTAL : "stems";
       try {
-        const held = heldStems(song);
         // The same `ready` word the POST answers with, so one caller reads both the same way.
-        res.json({ ready: stemsComplete(held), job: null } as StemsReply);
+        res.json({ ready: heldFor(song, asked), job: null } as StemsReply);
       } catch (e) {
         if (e instanceof PathEscapesError)
           return res.status(400).json({ error: e.message });

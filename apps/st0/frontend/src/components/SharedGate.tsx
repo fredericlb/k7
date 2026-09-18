@@ -94,6 +94,7 @@ function cannedFor(manifest: ShareManifest): Record<string, unknown> {
     vim: false,
     // A snapshot has no machine behind it, so nothing here could separate anything.
     stemsChain: null,
+    instrumentalChain: null,
   };
   return {
     "/project": project,

@@ -10,8 +10,26 @@ export type Stem = (typeof STEMS)[number];
 /** Where a separation's outputs go: `stems/` beside the file, never next to it (docs/stems.md). */
 export const STEMS_DIR = "stems";
 
+/** The one output a separation can name that is not a stem: the record without the voice (docs/stems.md). */
+export const INSTRUMENTAL = "instrumental";
+
+/** What it sums — every stem the voice is not, in the model's own order. */
+export const INSTRUMENTAL_STEMS: readonly Stem[] = STEMS.filter(
+  (s) => s !== "vocals",
+);
+
+/** What a separating module may declare as an output, and therefore what a pass may be asked to write. */
+export type SeparationOutput = Stem | typeof INSTRUMENTAL;
+
+export function isSeparationOutput(name: string): name is SeparationOutput {
+  return name === INSTRUMENTAL || (STEMS as readonly string[]).includes(name);
+}
+
+/** One output's file name, as the pass writes it — a WAV, since neither a stem nor an instrumental is a deliverable. */
+export const outputFile = (name: SeparationOutput): string => `${name}.wav`;
+
 /** One stem's file name, as the pass writes it — a float WAV, since a stem is not a deliverable. */
-export const stemFile = (stem: Stem): string => `${stem}.wav`;
+export const stemFile = (stem: Stem): string => outputFile(stem);
 
 /** All four, since a deck PLAYS them in place of the record — three of four is a song missing a part. */
 export function stemsComplete(names: readonly string[]): boolean {

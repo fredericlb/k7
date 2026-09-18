@@ -13,10 +13,18 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Annotation, Envelope, Marker, Release } from "@k7/shared";
+import type {
+  Annotation,
+  Envelope,
+  Marker,
+  Release,
+  SongEnvelope,
+} from "@k7/shared";
+import { sheetExt } from "@k7/shared/sheetKind";
 import { segment, sidecarFor } from "@studio/mediatek/song";
 import * as grist from "./grist.ts";
 import * as mediatek from "./mediatek.ts";
+import { envelopeOf } from "./songEnvelope.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = path.join(__dirname, "..", "data", "cache");
@@ -445,9 +453,12 @@ export async function updateAnnotation(uid, annId, patch) {
 
 export async function deleteAnnotation(uid, annId) {
   const recs = await grist.listRecords("Comments", { SessionUid: [uid] });
-  await forgetClip(recs.find((r) => r.id === Number(annId)));
-  await grist.deleteRecords("Comments", [Number(annId)]);
-  safeUnlink(clipCachePath(annId));
+  // Only a moment of THIS session: the row id alone would reach anyone's — ../../docs/ownership.md.
+  const rec = recs.find((r) => r.id === Number(annId));
+  if (!rec) return false;
+  await forgetClip(rec);
+  await grist.deleteRecords("Comments", [rec.id]);
+  safeUnlink(clipCachePath(rec.id));
   return true;
 }
 
@@ -473,17 +484,22 @@ export async function addMarker(uid, { atSec, comment }, ownerId) {
 }
 
 export async function updateMarker(uid, markerId, patch) {
+  // Found in THIS session before anything is written, or a row id would edit anyone's marker.
+  const recs = await grist.listRecords("Markers", { SessionUid: [uid] });
+  const rec = recs.find((r) => r.id === Number(markerId));
+  if (!rec) return null;
   const fields: Record<string, unknown> = {};
   if (patch.atSec !== undefined) fields.AtSec = Number(patch.atSec);
   if (patch.comment !== undefined) fields.Comment = String(patch.comment);
-  await grist.patchRecord("Markers", Number(markerId), fields);
-  const recs = await grist.listRecords("Markers", { SessionUid: [uid] });
-  const rec = recs.find((r) => r.id === Number(markerId));
-  return rec ? mapMarker(rec) : null;
+  await grist.patchRecord("Markers", rec.id, fields);
+  return mapMarker({ id: rec.id, fields: { ...rec.fields, ...fields } });
 }
 
-export async function deleteMarker(_uid, markerId) {
-  await grist.deleteRecords("Markers", [Number(markerId)]);
+export async function deleteMarker(uid, markerId) {
+  const recs = await grist.listRecords("Markers", { SessionUid: [uid] });
+  const rec = recs.find((r) => r.id === Number(markerId));
+  if (!rec) return false;
+  await grist.deleteRecords("Markers", [rec.id]);
   return true;
 }
 
@@ -562,11 +578,12 @@ async function forgetClip(rec) {
 
 /** Ensure a moment's clip is cached, looked up by owner + moment id alone. */
 export async function ensureMomentClipCached(ownerId, momentId) {
-  const filePath = clipCachePath(momentId);
-  if (fs.existsSync(filePath)) return { filePath, mime: "audio/webm" };
+  // The owner is checked BEFORE the cache: a cached file must not answer for someone else's moment.
   const recs = await grist.listRecords("Comments", { OwnerId: [ownerId] });
   const rec = recs.find((r) => r.id === Number(momentId));
   if (!rec?.fields.ClipPath) return null;
+  const filePath = clipCachePath(rec.id);
+  if (fs.existsSync(filePath)) return { filePath, mime: "audio/webm" };
   await mediatek.download(String(rec.fields.ClipPath), filePath);
   return { filePath, mime: "audio/webm" };
 }
@@ -696,13 +713,14 @@ export async function validateMoment(sessionUid, momentId) {
 
 /** Ensure a validated moment's clip is on disk; returns { filePath, mime }. */
 export async function ensureClipCached(sessionUid, momentId) {
-  const filePath = clipCachePath(momentId);
-  if (fs.existsSync(filePath)) return { filePath, mime: "audio/webm" };
+  // The moment must be THIS session's before the cache answers: a cached file has no owner of its own.
   const moments = await grist.listRecords("Comments", {
     SessionUid: [sessionUid],
   });
   const rec = moments.find((m) => m.id === Number(momentId));
   if (!rec?.fields.ClipPath) return null;
+  const filePath = clipCachePath(rec.id);
+  if (fs.existsSync(filePath)) return { filePath, mime: "audio/webm" };
   await mediatek.download(String(rec.fields.ClipPath), filePath);
   return { filePath, mime: "audio/webm" };
 }
@@ -1248,6 +1266,80 @@ export async function deletePage(uid) {
   return true;
 }
 
+// --- Singing exercises (a personal practice book: what to sing, and how) ----
+
+function publicSinging(rec, viewer = "") {
+  const f = rec.fields;
+  return {
+    id: f.Uid,
+    ownerId: f.OwnerId,
+    title: f.Title || "",
+    description: f.Description || "",
+    videoUrl: f.VideoUrl || "",
+    // The asking user wrote it, which is what lets them delete it — ../../docs/ownership.md.
+    mine: Boolean(viewer) && f.OwnerId === viewer,
+    createdAt: f.CreatedAt || "",
+  };
+}
+
+async function getSingingRecord(uid) {
+  const recs = await grist.listRecords("SingingExercises", { Uid: [uid] });
+  return recs[0] || null;
+}
+
+export async function getSingingExerciseOwner(uid) {
+  const rec = await getSingingRecord(uid);
+  return rec ? rec.fields.OwnerId : null;
+}
+
+export async function listSingingExercises(viewer = "") {
+  // Everyone's, not the viewer's: the practice book is common ground, like the songbook.
+  const recs = await grist.listRecords("SingingExercises");
+  return recs
+    .map((rec) => publicSinging(rec, viewer))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+export async function createSingingExercise(
+  ownerId,
+  { title, description, videoUrl },
+) {
+  const uid = randomUUID();
+  await grist.addRecords("SingingExercises", [
+    {
+      Uid: uid,
+      OwnerId: ownerId,
+      Title: title,
+      Description: description || "",
+      VideoUrl: videoUrl || "",
+      CreatedAt: new Date().toISOString(),
+    },
+  ]);
+  const rec = await getSingingRecord(uid);
+  return rec ? publicSinging(rec) : null;
+}
+
+export async function updateSingingExercise(uid, patch, viewer = "") {
+  const rec = await getSingingRecord(uid);
+  if (!rec) return null;
+  // Typed, or an empty literal infers `{}` and refuses every key put in it.
+  const fields: Record<string, string> = {};
+  if (patch.title !== undefined) fields.Title = patch.title;
+  if (patch.description !== undefined) fields.Description = patch.description;
+  if (patch.videoUrl !== undefined) fields.VideoUrl = patch.videoUrl;
+  if (Object.keys(fields).length)
+    await grist.patchRecord("SingingExercises", rec.id, fields);
+  const after = await getSingingRecord(uid);
+  return after ? publicSinging(after, viewer) : null;
+}
+
+export async function deleteSingingExercise(uid) {
+  const rec = await getSingingRecord(uid);
+  if (!rec) return false;
+  await grist.deleteRecords("SingingExercises", [rec.id]);
+  return true;
+}
+
 // --- Songs (songbook: lyrics / tablature / sheet, all free text) ------------
 
 const songCache = new Map();
@@ -1275,14 +1367,34 @@ function sheetsOf(rec) {
   }
 }
 
-function publicSong(rec) {
+/** The stored lyric timecodes, or none when the column is empty or unreadable — ../../docs/lyricsTiming.md. */
+function timingsOf(rec) {
+  try {
+    const parsed = JSON.parse(rec.fields.LyricTimings || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The song uids `ownerId` starred: a favourite is a person's, not the song's — ../../docs/ownership.md. */
+async function favoritesOf(ownerId): Promise<Set<string>> {
+  if (!ownerId) return new Set();
+  const recs = await grist.listRecords("SongFavorites", { OwnerId: [ownerId] });
+  return new Set(recs.map((r) => String(r.fields.SongUid)));
+}
+
+/** A song as `viewer` sees it: everyone reads the same song, the star and `mine` are theirs. */
+function publicSong(rec, viewer = "", favorites: Set<string> = new Set()) {
   const f = rec.fields;
   return {
     id: f.Uid,
     ownerId: f.OwnerId,
+    mine: Boolean(viewer) && f.OwnerId === viewer,
     artist: f.Artist || "",
     title: f.Title || "",
     lyrics: f.Lyrics || "",
+    lyricTimings: timingsOf(rec),
     tablature: f.Tablature || "",
     sheets: sheetsOf(rec).map((s) => ({
       id: s.id,
@@ -1293,7 +1405,11 @@ function publicSong(rec) {
     audio: f.AudioPath
       ? { name: f.AudioName || "", mime: f.AudioMime || "" }
       : null,
-    favorite: Boolean(f.Favorite),
+    // The same track without the voice, when one was mixed from pl8's stems — ../../docs/audio.md.
+    instrumental: f.InstrumentalPath
+      ? { name: f.InstrumentalName || "", mime: f.InstrumentalMime || "" }
+      : null,
+    favorite: favorites.has(f.Uid),
     createdAt: f.CreatedAt || "",
   };
 }
@@ -1303,20 +1419,46 @@ export async function getSongOwner(uid) {
   return rec ? rec.fields.OwnerId : null;
 }
 
-export async function listSongs(ownerId) {
-  const recs = await grist.listRecords("Songs", { OwnerId: [ownerId] });
-  return recs.map(publicSong).sort(
-    (a, b) =>
-      // Favorites float to the top, then alphabetical by artist / title.
-      Number(b.favorite) - Number(a.favorite) ||
-      a.artist.localeCompare(b.artist) ||
-      a.title.localeCompare(b.title),
-  );
+/** Every song — the songbook is shared — with `viewer`'s favourites floated to the top. */
+export async function listSongs(viewer = "") {
+  const [recs, favorites] = await Promise.all([
+    grist.listRecords("Songs"),
+    favoritesOf(viewer),
+  ]);
+  return recs
+    .map((rec) => publicSong(rec, viewer, favorites))
+    .sort(
+      (a, b) =>
+        Number(b.favorite) - Number(a.favorite) ||
+        a.artist.localeCompare(b.artist) ||
+        a.title.localeCompare(b.title),
+    );
 }
 
-export async function getSong(uid) {
+export async function getSong(uid, viewer = "") {
   const rec = await getSongRecord(uid);
-  return rec ? publicSong(rec) : null;
+  if (!rec) return null;
+  return publicSong(rec, viewer, await favoritesOf(viewer));
+}
+
+/** Star or unstar a song for `viewer` alone; null when there is no such song. */
+export async function setSongFavorite(uid, viewer, favorite: boolean) {
+  const rec = await getSongRecord(uid);
+  if (!rec) return null;
+  const mine = await grist.listRecords("SongFavorites", {
+    OwnerId: [viewer],
+    SongUid: [uid],
+  });
+  if (favorite && mine.length === 0)
+    await grist.addRecords("SongFavorites", [
+      { SongUid: uid, OwnerId: viewer },
+    ]);
+  if (!favorite && mine.length > 0)
+    await grist.deleteRecords(
+      "SongFavorites",
+      mine.map((r) => r.id),
+    );
+  return getSong(uid, viewer);
 }
 
 export async function createSong(ownerId, { artist, title }) {
@@ -1346,7 +1488,8 @@ export async function updateSong(uid, patch) {
   if (patch.title !== undefined) fields.Title = String(patch.title);
   if (patch.lyrics !== undefined) fields.Lyrics = String(patch.lyrics);
   if (patch.tablature !== undefined) fields.Tablature = String(patch.tablature);
-  if (patch.favorite !== undefined) fields.Favorite = Boolean(patch.favorite);
+  if (patch.lyricTimings !== undefined)
+    fields.LyricTimings = JSON.stringify(patch.lyricTimings);
   await grist.patchRecord("Songs", rec.id, fields);
   invalidateSong(uid);
   return getSong(uid);
@@ -1435,9 +1578,13 @@ export async function setSongAudio(uid, { buffer, mime, name }) {
     AudioPath: target,
     AudioMime: mime,
     AudioName: name,
+    // Another track has another shape; the next reader measures this one.
+    Envelope: "",
   });
   // A different container leaves the old bytes behind, under a name nothing points at.
   if (previous && previous !== target) await safeRemote(previous);
+  // An instrumental made from the old track is not this track's.
+  await clearInstrumental(uid, rec);
   safeUnlink(songAudioCachePath(uid, previousMime, previous));
   safeUnlink(songAudioCachePath(uid, mime, target));
   invalidateSong(uid);
@@ -1456,9 +1603,72 @@ export async function deleteSongAudio(uid) {
     AudioPath: "",
     AudioMime: "",
     AudioName: "",
+    Envelope: "",
   });
+  await clearInstrumental(uid, rec);
   invalidateSong(uid);
   return getSong(uid);
+}
+
+// --- The instrumental: drums + bass + other from pl8's stems, kept like the track --------------
+
+const instrumentalTarget = (uid) =>
+  `recordings/songbook/${uid}-instrumental.flac`;
+const instrumentalCachePath = (uid) =>
+  path.join(CACHE_DIR, `song-instrumental-${uid}.flac`);
+
+/** Forget a song's instrumental, bytes first, row after — also what a new or removed track calls. */
+async function clearInstrumental(uid, rec) {
+  const previous = rec.fields.InstrumentalPath
+    ? String(rec.fields.InstrumentalPath)
+    : "";
+  if (!previous) return;
+  await safeRemote(previous);
+  safeUnlink(instrumentalCachePath(uid));
+  await grist.patchRecord("Songs", rec.id, {
+    InstrumentalPath: "",
+    InstrumentalMime: "",
+    InstrumentalName: "",
+  });
+}
+
+export async function setSongInstrumental(uid, { buffer, mime, name }) {
+  const rec = await getSongRecord(uid);
+  if (!rec) return null;
+  const target = instrumentalTarget(uid);
+  await mediatek.putFile(target, buffer);
+  await grist.patchRecord("Songs", rec.id, {
+    InstrumentalPath: target,
+    InstrumentalMime: mime,
+    InstrumentalName: name,
+  });
+  safeUnlink(instrumentalCachePath(uid));
+  invalidateSong(uid);
+  return getSong(uid);
+}
+
+export async function deleteSongInstrumental(uid) {
+  const rec = await getSongRecord(uid);
+  if (!rec) return null;
+  await clearInstrumental(uid, rec);
+  invalidateSong(uid);
+  return getSong(uid);
+}
+
+/** The instrumental on disk, so its route answers Range like the track's. */
+export async function ensureSongInstrumentalCached(uid) {
+  const rec = await getSongRecord(uid);
+  const remote = rec?.fields.InstrumentalPath
+    ? String(rec.fields.InstrumentalPath)
+    : "";
+  if (!remote) return null;
+  const filePath = instrumentalCachePath(uid);
+  if (!fs.existsSync(filePath)) await mediatek.download(remote, filePath);
+  return {
+    filePath,
+    mime: String(rec.fields.InstrumentalMime || "audio/flac"),
+    name: String(rec.fields.InstrumentalName || ""),
+  };
 }
 
 /** The track on disk, so the route can answer Range requests and the player can seek. */
@@ -1470,6 +1680,29 @@ export async function ensureSongAudioCached(uid) {
   const filePath = songAudioCachePath(uid, mime, remote);
   if (!fs.existsSync(filePath)) await mediatek.download(remote, filePath);
   return { filePath, mime, name: String(rec.fields.AudioName || "") };
+}
+
+/** The track's shape, measured on first ask and kept: decoding is seconds, drawing must not be. */
+export async function songEnvelope(uid) {
+  const rec = await getSongRecord(uid);
+  if (!rec?.fields.AudioPath) return null;
+  const stored = String(rec.fields.Envelope || "");
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored) as SongEnvelope;
+      if (parsed?.samples?.length) return parsed;
+    } catch {
+      // Unreadable is the same as absent: measure it again rather than refuse to draw.
+    }
+  }
+  const audio = await ensureSongAudioCached(uid);
+  if (!audio) return null;
+  const measured = await envelopeOf(audio.filePath);
+  await grist.patchRecord("Songs", rec.id, {
+    Envelope: JSON.stringify(measured),
+  });
+  invalidateSong(uid);
+  return measured;
 }
 
 /** A sheet file on disk, fetched from Grist if need be, so it can be streamed. */
@@ -1518,13 +1751,6 @@ function cachePathFor(rec) {
   );
 }
 
-function sheetExtFor(mime) {
-  if (mime === "application/pdf") return "pdf";
-  const m = /^image\/(png|jpeg|jpg|gif|webp|svg\+xml)$/.exec(mime || "");
-  if (!m) return "bin";
-  return m[1] === "svg+xml" ? "svg" : m[1] === "jpeg" ? "jpg" : m[1];
-}
-
 /** Common audio containers, then the uploaded name's own extension, then `bin`. */
 function songAudioExt(mime, name) {
   const known = {
@@ -1565,7 +1791,7 @@ async function safeRemote(remote) {
 function sheetCachePath(uid, entry) {
   return path.join(
     CACHE_DIR,
-    `sheet-${uid}-${entry.attachmentId}.${sheetExtFor(entry.mime)}`,
+    `sheet-${uid}-${entry.attachmentId}.${sheetExt(entry.name ?? "", entry.mime)}`,
   );
 }
 

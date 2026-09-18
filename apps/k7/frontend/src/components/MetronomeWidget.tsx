@@ -1,3 +1,7 @@
+// The metronome, as a panel of the song page's rail: the recorder's own drift-free click track.
+// It draws no floating button of its own any more — the rail owns where panels live, and a click
+// track is a setting of the song you are reading like the others. See ../../docs/audio.md.
+
 import { Button } from "@frediverse/ui/button";
 import { useMetronome } from "@k7/recorder";
 import { useEffect, useRef, useState } from "react";
@@ -6,15 +10,19 @@ const MIN = 40;
 const MAX = 240;
 const clamp = (v: number) => Math.min(MAX, Math.max(MIN, Math.round(v)));
 
-// A floating metronome on the recorder's own drift-free click track.
-export function MetronomeWidget() {
+interface Props {
+  open: boolean;
+  onToggle: () => void;
+}
+
+export function MetronomeWidget({ open, onToggle }: Props) {
   const { metronome, start, stop } = useMetronome();
   const [bpm, setBpm] = useState(120);
-  const [open, setOpen] = useState(false);
   const running = metronome != null;
 
   // A live tempo change restarts the click a beat later, so a slider drag spares the context.
   const first = useRef(true);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the TEMPO is the trigger; re-running on `start` would restart the click on every render.
   useEffect(() => {
     if (first.current) {
       first.current = false;
@@ -23,82 +31,68 @@ export function MetronomeWidget() {
     if (!metronome) return; // only re-apply while running
     const id = window.setTimeout(() => start(bpm, 0), 120);
     return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bpm]);
 
   const toggle = () => (running ? stop() : start(bpm, 0));
 
-  if (!open) {
-    return (
-      <button
-        className={`metro-fab${running ? " on" : ""}`}
-        title="Metronome"
-        aria-label="Open metronome"
-        onClick={() => setOpen(true)}
-      >
-        <span className="metro-fab-note">♩</span>
-        {running && <span className="metro-fab-bpm">{bpm}</span>}
-      </button>
-    );
-  }
-
   return (
-    <div className="metro-widget" role="group" aria-label="Metronome">
-      <div className="metro-head">
-        <span className="metro-title">
-          <span
-            className={`metro-dot${running ? " beating" : ""}`}
-            style={{ animationDuration: `${60 / bpm}s` }}
-            aria-hidden
+    <aside className={`rail-panel${open ? "" : " collapsed"}`}>
+      <button
+        type="button"
+        className="rail-panel-toggle"
+        onClick={onToggle}
+        aria-expanded={open}
+      >
+        ♩
+        {/* The dot beats in the toggle, so a FOLDED panel still says the click is running. */}
+        <span
+          className={`metro-dot${running ? " beating" : ""}`}
+          style={{ animationDuration: `${60 / bpm}s` }}
+          aria-hidden
+        />
+        <span className="rail-panel-word">Metronome</span>
+      </button>
+
+      {open && (
+        <div className="rail-panel-body">
+          <div className="metro-bpm-row">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBpm((b) => clamp(b - 1))}
+              aria-label="Slower"
+            >
+              −
+            </Button>
+            <div className="metro-bpm">
+              <span className="metro-bpm-val">{bpm}</span>
+              <span className="metro-bpm-unit">BPM</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBpm((b) => clamp(b + 1))}
+              aria-label="Faster"
+            >
+              +
+            </Button>
+          </div>
+
+          <input
+            className="metro-slider"
+            type="range"
+            min={MIN}
+            max={MAX}
+            value={bpm}
+            onChange={(e) => setBpm(clamp(Number(e.target.value)))}
+            aria-label="Tempo"
           />
-          Metronome
-        </span>
-        <button
-          className="metro-close"
-          onClick={() => setOpen(false)}
-          title="Hide"
-          aria-label="Hide metronome"
-        >
-          ×
-        </button>
-      </div>
 
-      <div className="metro-bpm-row">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setBpm((b) => clamp(b - 1))}
-          aria-label="Slower"
-        >
-          −
-        </Button>
-        <div className="metro-bpm">
-          <span className="metro-bpm-val">{bpm}</span>
-          <span className="metro-bpm-unit">BPM</span>
+          <Button className="metro-toggle" onClick={toggle}>
+            {running ? "⏹ Stop" : "▶ Start"}
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setBpm((b) => clamp(b + 1))}
-          aria-label="Faster"
-        >
-          +
-        </Button>
-      </div>
-
-      <input
-        className="metro-slider"
-        type="range"
-        min={MIN}
-        max={MAX}
-        value={bpm}
-        onChange={(e) => setBpm(clamp(Number(e.target.value)))}
-        aria-label="Tempo"
-      />
-
-      <Button className="metro-toggle" onClick={toggle}>
-        {running ? "⏹ Stop" : "▶ Start"}
-      </Button>
-    </div>
+      )}
+    </aside>
   );
 }

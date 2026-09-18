@@ -60,7 +60,41 @@ describe("what it refuses, before anything is rendered", () => {
     expect(coldStepOf("sep", mod())).toEqual({
       step: "sep",
       model: "/models/htdemucs.onnx",
+      outputs: ["drums", "bass", "other", "vocals"],
     });
+  });
+});
+
+describe("what a step says it writes", () => {
+  it("is the four stems when the module names none of them", () => {
+    // `out` is the port its TYPE gives it — a module that never spoke about stems.
+    expect(
+      coldStepOf("sep", mod({ outputs: [{ name: "out", type: "audio" }] }))
+        .outputs,
+    ).toEqual(["drums", "bass", "other", "vocals"]);
+  });
+
+  it("is the instrumental when that is what the module declares", () => {
+    expect(
+      coldStepOf(
+        "sep",
+        mod({ outputs: [{ name: "instrumental", type: "audio" }] }),
+      ).outputs,
+    ).toEqual(["instrumental"]);
+  });
+
+  it("refuses a module naming a stem and something no pass can write", () => {
+    expect(() =>
+      coldStepOf(
+        "sep",
+        mod({
+          outputs: [
+            { name: "vocals", type: "audio" },
+            { name: "guitar", type: "audio" },
+          ],
+        }),
+      ),
+    ).toThrow(/guitar/);
   });
 });
 
@@ -78,7 +112,7 @@ describe("running them", () => {
     const seen: string[] = [];
     const out = await runColdPasses(
       ["/a.wav", "/b.wav"],
-      [{ step: "sep", model: "/m.onnx" }],
+      [{ step: "sep", model: "/m.onnx", outputs: ["vocals"] }],
       async ({ source, outDir }) => {
         seen.push(source);
         return [join(outDir, "vocals.wav")];
@@ -94,7 +128,7 @@ describe("running them", () => {
     await expect(
       runColdPasses(
         ["/a.wav", "/b.wav"],
-        [{ step: "sep", model: "/m.onnx" }],
+        [{ step: "sep", model: "/m.onnx", outputs: ["vocals"] }],
         async ({ source }) => {
           seen.push(source);
           throw new Error("no execution provider");

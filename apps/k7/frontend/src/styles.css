@@ -157,6 +157,9 @@ h3 {
 .topbar-new-wrap {
   position: relative;
   flex: none;
+  /* A flex box, or the button sits on a text line and drops below the entries beside it. */
+  display: flex;
+  align-items: center;
 }
 .topbar-new {
   display: inline-flex;
@@ -232,7 +235,9 @@ h3 {
 
 /* ---- Buttons ------------------------------------------------------------- */
 
-button {
+/* The app bar is the design system's AppHeader, so this legacy look stays out of it. */
+/* A design-system SWITCH is a <button> too, and this padding crushed its thumb to a sliver. */
+button:not(header button):not([data-slot="switch"]) {
   border: none;
   border-radius: 8px;
   padding: 9px 14px;
@@ -243,7 +248,8 @@ button {
   background: var(--surface-2);
   transition: background 0.12s, border-color 0.12s, filter 0.12s;
 }
-button:hover:not(:disabled) {
+/* Excluded here too, or hovering the switch would grey out the track it colours itself. */
+button:not(header button):not([data-slot="switch"]):hover:not(:disabled) {
   background: #2c2d36;
 }
 button:disabled {
@@ -477,8 +483,15 @@ button.calendar-cell.selected:hover:not(:disabled) {
 .song-detail-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+}
+/* The artist eats the slack, which is what keeps the star and the ⋮ together at the end. */
+.song-detail-artist {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .song-detail-head h2 {
   margin: 0;
@@ -565,20 +578,31 @@ button.calendar-cell.selected:hover:not(:disabled) {
 .song-player {
   margin: 10px 0 14px;
 }
+/* In the rail the player IS the panel's body, so the page margin would be a gap inside a box. */
+.rail-panel .song-player {
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+}
 .song-player-audio {
   width: 100%;
+}
+/* Full width under the shape: the one control a click on the waveform cannot express. */
+.song-player-play {
+  width: 100%;
+  margin-top: 6px;
+}
+/* The version toggle: the switch and the word it turns on, kept on one line. */
+.song-player-version {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .song-player-row {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 6px;
-}
-.song-player-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* The Supernote panel: its title and its switch on one line, then a plain field stack. */
@@ -795,82 +819,15 @@ select {
   width: 100%;
 }
 
-/* ---- Metronome floating widget (song view) ------------------------------ */
+/* ---- Metronome (a panel of the song page's rail) ------------------------- */
 
-.metro-fab,
-.metro-widget {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 50;
-}
-
-.metro-fab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 48px;
-  min-width: 48px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
-}
-.metro-fab:hover {
-  border-color: var(--accent);
-}
-.metro-fab.on {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.metro-fab-note {
-  font-size: 20px;
-  line-height: 1;
-}
-.metro-fab-bpm {
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.metro-widget {
-  width: 220px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32);
-}
-.metro-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-.metro-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-}
-.metro-close {
-  border: 0;
-  background: none;
-  color: var(--muted, #888);
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-}
-.metro-close:hover {
-  color: var(--text);
-}
+/* inline-block, or width and height would not apply at all: it sits in a line of text. */
 .metro-dot {
+  display: inline-block;
+  vertical-align: middle;
   width: 9px;
   height: 9px;
+  margin: 0 6px 0 4px;
   border-radius: 50%;
   background: var(--border);
 }
@@ -921,6 +878,39 @@ select {
 }
 .metro-toggle {
   width: 100%;
+}
+
+/* ---- Singing exercises (the shared practice book) ------------------------ */
+
+/* The form lives in a popin now, which supplies its own spacing. */
+.singing-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* A drawn workout: numbered, because the order is part of what was drawn. */
+.workout-list {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* The title and the ＋ that opens that popin, on one line. */
+.singing-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.singing-head h2 {
+  margin: 0;
+}
+.singing-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 /* ---- Sheet panel (PDF / image files) ------------------------------------ */
@@ -1011,6 +1001,119 @@ select {
   height: auto;
 }
 
+/* The ⋮ beside a song's title, and what it is doing — floating, so the page does not jump. */
+.song-menu {
+  position: relative;
+  flex: none;
+}
+.song-menu-status {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  max-width: min(80vw, 420px);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+}
+
+/* Timed lyrics: the song's lines beside the file's, paired by clicking one then the other. */
+.lrc-match {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  max-height: 55vh;
+  overflow: auto;
+}
+.lrc-column {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.lrc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lrc-row:hover {
+  background: var(--surface-2);
+}
+.lrc-row.paired {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+.lrc-row.picked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.lrc-row-time {
+  flex: none;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+.lrc-row-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* LRCLIB's versions of a song, offered as one wrapping row under the add links. */
+.lrc-candidates {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* A score scrolls inside its own box: alphaTab follows the cursor by scrolling this element. */
+.score-viewport {
+  position: relative;
+  max-height: 75vh;
+  overflow: auto;
+  background: #fff;
+}
+.score-toolbar {
+  flex-wrap: wrap;
+  margin: 0 0 8px;
+}
+
+/* Full screen: the toolbar on top, the score one continuous column filling the rest of the screen. */
+.score-sheet.is-fullscreen {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  padding: 8px 12px 0;
+  background: var(--background, #fff);
+  overflow: hidden;
+}
+.score-sheet.is-fullscreen .score-toolbar {
+  flex: none;
+}
+.score-sheet.is-fullscreen .score-viewport {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
 /* ---- Chord sheet (formatted lyrics) -------------------------------------- */
 
 /* The ChordSheet renderer and its .cs-* styles now live in the @k7/lyrics
@@ -1034,14 +1137,28 @@ select {
 
 /* ---- Chords widget (diagrams) -------------------------------------------- */
 
-/* Desktop floating panel docked to the right margin. */
-.chords-panel {
+/* The right rail: the song page's floating panels, STACKED so two of them never overlap. */
+.side-rail {
   position: fixed;
   top: 72px;
   right: 0;
   z-index: 25;
-  width: 272px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
   max-height: calc(100vh - 96px);
+  /* The gap between two panels is page, not rail: a click there must reach what is behind. */
+  pointer-events: none;
+}
+.side-rail > * {
+  pointer-events: auto;
+  min-height: 0;
+}
+
+/* One panel of that rail: the chrome every rail panel shares, whatever it holds. */
+.rail-panel {
+  width: 272px;
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -1050,8 +1167,24 @@ select {
   border-radius: 10px 0 0 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
-.chords-panel.collapsed {
-  width: auto;
+/* Folded panels share ONE width, so the rail reads as a stack of tabs rather than a ragged edge. */
+.rail-panel.collapsed {
+  width: 200px;
+}
+.rail-panel-toggle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* What a panel puts its content in, when that content is not a list of its own. */
+.rail-panel-body {
+  overflow: auto;
+  padding: 8px;
+}
+/* In a panel the row IS the content, so the margin that spaces it from a chord sheet is a gap. */
+.rail-panel .cs-transpose {
+  margin-top: 0;
+  flex-wrap: wrap;
 }
 /* Wide screens with many chords: widen to fit a third diagram per row. */
 @media (min-width: 1360px) {
@@ -1059,7 +1192,7 @@ select {
     width: 396px;
   }
 }
-.chords-panel-toggle {
+.rail-panel-toggle {
   flex: 0 0 auto;
   background: var(--surface-2);
   border: 0;
@@ -1317,7 +1450,54 @@ select {
     font-size: 17px;
   }
   .main {
-    padding: 20px 20px 60px;
+    /* Room for the panel bar, which is fixed over the foot of the page. */
+    padding: 20px 20px 96px;
+  }
+
+  /* The rail becomes a BAR at the foot of the screen: one icon per panel, its body above it. */
+  .side-rail {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    max-height: none;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-around;
+    gap: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    pointer-events: auto;
+  }
+  .rail-panel,
+  .rail-panel.collapsed {
+    width: auto;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .rail-panel-toggle {
+    padding: 11px 16px;
+    border-radius: 0;
+    background: none;
+    font-size: 17px;
+  }
+  /* On a bar the glyph IS the label; the word is what the desktop rail has room for. */
+  .rail-panel-word {
+    display: none;
+  }
+  /* An opened panel rises ABOVE the bar rather than pushing it off the screen. */
+  .rail-panel-body,
+  .chords-panel-list,
+  .rail-panel .song-player {
+    position: fixed;
+    right: 0;
+    bottom: 45px;
+    left: 0;
+    max-height: 52vh;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
   }
 }
 

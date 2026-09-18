@@ -1,7 +1,7 @@
 // useTurntableDeck.ts — st0's engine link, seen as the desk's `Deck`. The one thing
-// @studio/ui-turntables asks of a host, and the one place a host's own arrangements show:
+// the turntables plugin (@studio/st0-plugins) asks of a host, and the one place a host's own arrangements show:
 // obtaining an engine is the app's business, and st0 already has one by the time a surface can
-// exist. See packages/ui-turntables/docs/hosting.md.
+// exist. See packages/st0-plugins/docs/turntables/hosting.md.
 
 import type { EngineClient } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
@@ -12,7 +12,7 @@ import {
   playheadAt,
 } from "@studio/engine-browser/playhead-clock";
 import { type EngineStore, useStoreState } from "@studio/engine-browser/store";
-import type { Deck, Playhead } from "@studio/ui-turntables/engine";
+import type { Deck, Playhead } from "@studio/st0-plugins/turntables/engine";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import type { EngineLink } from "./useEngineLink";

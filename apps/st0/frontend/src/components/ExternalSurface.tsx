@@ -18,7 +18,7 @@ import {
 import type { TransportAction } from "@studio/engine-protocol";
 import { externalIndexUrl } from "@studio/project-shell/launch";
 import type { ProjectSurface } from "@studio/song-schema/yaml/surfaceFile";
-import type { Deck } from "@studio/ui-turntables/engine";
+import type { Deck } from "@studio/st0-plugins/turntables/engine";
 import type { WebVideoProject } from "@studio/web-protocol";
 import {
   ChevronLeft,

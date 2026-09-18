@@ -149,7 +149,7 @@ record on a deck that already holds one — the one gesture whose cost is paid i
 audience (`docs/platter-plan.md`).
 
 ```
-npx tsx packages/ui-turntables/scripts/put-on.ts [ws://127.0.0.1:8765]
+npx tsx packages/st0-plugins/scripts/turntables/put-on.ts [ws://127.0.0.1:8765]
 ```
 
 Three others lived here and went with the clip they measured (`tempo-drag.ts`, `metronome.ts`,

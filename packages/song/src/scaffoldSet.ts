@@ -201,7 +201,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# \`param\` is spelled as the module's ui.yaml binds it, so this file, the panel and a MIDI\n` +
       `# map line up key for key.\n` +
       `#\n` +
-      `# The control ids: see packages/ui-turntables/docs/controls.md for the list.\n` +
+      `# The control ids: see packages/st0-plugins/docs/turntables/controls.md for the list.\n` +
       `#\n` +
       `# \`playlist\` is what the song browser lists — the twelve songs to hand tonight rather\n` +
       `# than the two hundred and seventy-nine on the volume. A NAME under \`_playlists/\` at the\n` +
@@ -616,7 +616,7 @@ function echoNode(letter: string): string {
     `# must not be heard before somebody asks for it.\n` +
     `#\n` +
     `# \`Time\` is in MILLISECONDS and follows nothing: the desk knows each deck's BPM, but no\n` +
-    `# binding carries it here yet. See packages/ui-turntables/docs/fx.md.\n` +
+    `# binding carries it here yet. See packages/st0-plugins/docs/turntables/fx.md.\n` +
     `extends: ${q(`${MEDIATEK_TIME}/echo`)}\n` +
     `params:\n` +
     `  # A dotted eighth at 120 BPM — the dub delay that displaces rather than doubles.\n` +

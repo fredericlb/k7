@@ -1,11 +1,19 @@
 /* Songbook: each song carries free-text lyrics / tablature, plus a sheet made of
-   uploaded PDF / image files (not text).
+   uploaded PDF / image / score files (not text). Shared by everyone logged in; the star
+   is each person's, and only a song's creator deletes it — ../../docs/ownership.md.
 */
 
-import { ownerGuard, streamFile, sub, validate, wrap } from "@frediverse/http";
+import { streamFile, sub, validate, wrap } from "@frediverse/http";
 import { upload } from "@frediverse/http/upload";
+import { canonicalSheetMime } from "@k7/shared/sheetKind";
 import { Router } from "express";
 import { z } from "zod";
+import { searchLrclib } from "../lrclib.ts";
+import {
+  copyLibraryTrack,
+  LibraryPathError,
+  mixLibraryInstrumental,
+} from "../songFetch.ts";
 import * as store from "../store.ts";
 
 const required = "artist and title are required";
@@ -19,16 +27,38 @@ const patchSchema = z.object({
   title: z.string().optional(),
   lyrics: z.string().optional(),
   tablature: z.string().optional(),
-  favorite: z.boolean().optional(),
+  // When each lyric line is sung, from an LRC file — ../../docs/lyricsTiming.md.
+  lyricTimings: z
+    .array(
+      z.object({
+        line: z.number().int().nonnegative(),
+        text: z.string(),
+        t: z.number().nonnegative(),
+      }),
+    )
+    .optional(),
 });
 
-// Sheets accept PDFs and common raster/vector image types.
-const SHEET_MIME =
-  /^(application\/pdf|image\/(png|jpeg|jpg|gif|webp|svg\+xml))$/;
+const favoriteSchema = z.object({ favorite: z.boolean() });
 
 export const songsRouter = Router();
 
-songsRouter.param("sid", ownerGuard(store.getSongOwner));
+// No owner guard: any logged-in user reaches any song; the param only answers 404 for one that is not there.
+songsRouter.param("sid", (req, res, next, sid) => {
+  store
+    .getSongOwner(sid)
+    .then((owner) =>
+      owner === null ? res.status(404).json({ error: "not found" }) : next(),
+    )
+    .catch(next);
+});
+
+/** The song again, as the asking user sees it — their star, and whether they created it. */
+const sendSong = async (req, res, status = 200) => {
+  const song = await store.getSong(req.params.sid, sub(req));
+  if (!song) return res.status(404).json({ error: "not found" });
+  res.status(status).json(song);
+};
 
 songsRouter.get(
   "/",
@@ -42,26 +72,54 @@ songsRouter.post(
   validate(createSchema),
   wrap(async (req, res) => {
     const song = await store.createSong(sub(req), req.body);
-    res.status(201).json(song);
+    if (!song) return res.status(500).json({ error: "song was not created" });
+    res.status(201).json(await store.getSong(song.id, sub(req)));
   }),
 );
 
 songsRouter.get(
   "/:sid",
-  wrap(async (req, res) => {
-    const song = await store.getSong(req.params.sid);
-    if (!song) return res.status(404).json({ error: "not found" });
-    res.json(song);
-  }),
+  wrap((req, res) => sendSong(req, res)),
 );
 
 songsRouter.patch(
   "/:sid",
   validate(patchSchema),
   wrap(async (req, res) => {
-    const song = await store.updateSong(req.params.sid, req.body);
+    if (!(await store.updateSong(req.params.sid, req.body)))
+      return res.status(404).json({ error: "not found" });
+    await sendSong(req, res);
+  }),
+);
+
+songsRouter.put(
+  "/:sid/favorite",
+  validate(favoriteSchema),
+  wrap(async (req, res) => {
+    const song = await store.setSongFavorite(
+      req.params.sid,
+      sub(req),
+      req.body.favorite,
+    );
     if (!song) return res.status(404).json({ error: "not found" });
     res.json(song);
+  }),
+);
+
+// Timed lyrics for this song on LRCLIB, nearest the track's length first; the pick is imported by the page.
+songsRouter.get(
+  "/:sid/lrclib",
+  wrap(async (req, res) => {
+    const song = await store.getSong(req.params.sid, sub(req));
+    if (!song) return res.status(404).json({ error: "not found" });
+    const duration = Number(req.query.duration) || undefined;
+    try {
+      res.json(await searchLrclib(song.artist, song.title, duration));
+    } catch (err) {
+      res.status(502).json({
+        error: `LRCLIB could not be reached: ${(err as Error).message}`,
+      });
+    }
   }),
 );
 
@@ -74,22 +132,24 @@ songsRouter.post(
     const uploaded = (req.files as Express.Multer.File[] | undefined) || [];
     if (!uploaded.length)
       return res.status(400).json({ error: "no files uploaded" });
-    const bad = uploaded.find((f) => !SHEET_MIME.test(f.mimetype));
+    const bad = uploaded.find(
+      (f) => canonicalSheetMime(f.originalname, f.mimetype) === null,
+    );
     if (bad)
-      return res
-        .status(400)
-        .json({ error: `unsupported file type: ${bad.mimetype}` });
+      return res.status(400).json({
+        error: `unsupported file type: ${bad.originalname} (${bad.mimetype})`,
+      });
 
     const song = await store.addSheetFiles(
       req.params.sid,
       uploaded.map((f) => ({
         buffer: f.buffer,
-        mime: f.mimetype,
+        mime: canonicalSheetMime(f.originalname, f.mimetype) as string,
         name: f.originalname,
       })),
     );
     if (!song) return res.status(404).json({ error: "not found" });
-    res.status(201).json(song);
+    await sendSong(req, res, 201);
   }),
 );
 
@@ -129,7 +189,7 @@ songsRouter.post(
       name: file.originalname,
     });
     if (!song) return res.status(404).json({ error: "not found" });
-    res.status(201).json(song);
+    await sendSong(req, res, 201);
   }),
 );
 
@@ -148,7 +208,74 @@ songsRouter.delete(
   wrap(async (req, res) => {
     const song = await store.deleteSongAudio(req.params.sid);
     if (!song) return res.status(404).json({ error: "not found" });
-    res.json(song);
+    await sendSong(req, res);
+  }),
+);
+
+// --- Fetched from pl8's library: the track, and an instrumental out of its stems — ../../docs/audio.md.
+
+const libraryFileBody = z.object({ path: z.string().min(1) });
+const libraryFolderBody = z.object({ folder: z.string().min(1) });
+
+/** A refused path is the caller's mistake; anything else is the library or ffmpeg failing. */
+const fetchFailure = (res, err: Error) =>
+  err instanceof LibraryPathError
+    ? res.status(400).json({ error: err.message })
+    : res.status(502).json({ error: err.message });
+
+songsRouter.post(
+  "/:sid/audio/from-library",
+  validate(libraryFileBody),
+  wrap(async (req, res) => {
+    try {
+      if (!(await copyLibraryTrack(req.params.sid, req.body.path)))
+        return res.status(404).json({ error: "not found" });
+    } catch (err) {
+      return fetchFailure(res, err as Error);
+    }
+    await sendSong(req, res, 201);
+  }),
+);
+
+songsRouter.post(
+  "/:sid/instrumental/from-library",
+  validate(libraryFolderBody),
+  wrap(async (req, res) => {
+    try {
+      if (!(await mixLibraryInstrumental(req.params.sid, req.body.folder)))
+        return res.status(404).json({ error: "not found" });
+    } catch (err) {
+      return fetchFailure(res, err as Error);
+    }
+    await sendSong(req, res, 201);
+  }),
+);
+
+/** The track's shape, for the waveform that replaces the native transport — ../../docs/audio.md. */
+songsRouter.get(
+  "/:sid/envelope",
+  wrap(async (req, res) => {
+    const envelope = await store.songEnvelope(req.params.sid);
+    if (!envelope) return res.status(404).json({ error: "no track" });
+    res.json(envelope);
+  }),
+);
+
+songsRouter.get(
+  "/:sid/instrumental",
+  wrap(async (req, res) => {
+    const info = await store.ensureSongInstrumentalCached(req.params.sid);
+    if (!info) return res.status(404).json({ error: "no instrumental" });
+    streamFile(req, res, info.filePath, info.mime);
+  }),
+);
+
+songsRouter.delete(
+  "/:sid/instrumental",
+  wrap(async (req, res) => {
+    if (!(await store.deleteSongInstrumental(req.params.sid)))
+      return res.status(404).json({ error: "not found" });
+    await sendSong(req, res);
   }),
 );
 
@@ -157,13 +284,18 @@ songsRouter.delete(
   wrap(async (req, res) => {
     const song = await store.deleteSheetFile(req.params.sid, req.params.fid);
     if (!song) return res.status(404).json({ error: "not found" });
-    res.json(song);
+    await sendSong(req, res);
   }),
 );
 
 songsRouter.delete(
   "/:sid",
   wrap(async (req, res) => {
+    // Anyone edits a song; deleting it is its creator's alone.
+    if ((await store.getSongOwner(req.params.sid)) !== sub(req))
+      return res
+        .status(403)
+        .json({ error: "only the song's creator can delete it" });
     const ok = await store.deleteSong(req.params.sid);
     if (!ok) return res.status(404).json({ error: "not found" });
     res.status(204).end();

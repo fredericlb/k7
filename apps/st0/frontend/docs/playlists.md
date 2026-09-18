@@ -200,7 +200,7 @@ scanned without finding what you wanted.
 
 The second button, and the only one that costs hours. Each song is split into drums / bass / other /
 vocals, so that one can be **removed** on the desk during the set
-([ui-turntables/docs/stems.md](../../../../packages/ui-turntables/docs/stems.md)).
+([../../../../packages/st0-plugins/docs/turntables/stems.md](../../../../packages/st0-plugins/docs/turntables/stems.md)).
 
 It is here and not on the desk because it is a question of **set list** and not of record: the desk
 catches up with the song you have just dropped, this screen prepares the twelve you are going to
@@ -211,7 +211,9 @@ works on stays visible below.
 
 - **The chain is not asked for here.** It is DISPLAYED — the bar shows the one that will run and no
   more. Which module separates and which model it wants is a single answer for the machine: given
-  once in settings, under I/O, living in `<state>/preferences.yaml` (`system stems`). A picker here
+  once in settings, under I/O, living in `<state>/preferences.yaml` (`system stems`). That tab holds
+  two such answers — the second is the chain that gives a record WITHOUT its voice, `system
+  instrumental`, which k7 asks for and which no screen here starts. A picker here
   would ask the same person the same question on every set list, and three screens that ask it are
   three places to get it wrong. The preference is re-read every time the bar opens, because settings
   are one click away.
@@ -235,7 +237,7 @@ reads is the catalogue's `meta.stems` — a `stems/` folder seen by the scan
 already repolled.
 
 It is a **snapshot and not a truth**, the same caveat the desk writes for itself
-(`packages/ui-turntables/src/views/MixView.tsx`): what actually decides is the route, which asks the
+(`../../../../packages/st0-plugins/src/turntables/views/MixView.tsx`): what actually decides is the route, which asks the
 folder at the moment of separating. So the icon answers "which are left to prepare?" before
 launching, and nothing the loop does depends on it — it would skip those lines anyway, and counts
 them separately under "already separated".
@@ -301,7 +303,7 @@ Two consequences, and the second is the one that matters:
   the engine opens file paths and the venue has no wifi.
 
 That is also what gives this screen its stakes: the playlist filled in here is the one that gets
-played. See `packages/ui-turntables/docs/setList.md`.
+played. See `../../../../packages/st0-plugins/docs/turntables/setList.md`.
 
 A line naming a **variant** holds on both screens: the desk loads the file the line asks for, not the
 master. It is the same resolution on both sides — literally the same function,

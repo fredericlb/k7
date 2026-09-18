@@ -54,7 +54,7 @@ progress worth reporting.
 
 The format is decided by the **consumer**, and the consumer is a PLATTER: the desk's four
 knobs make a stem something a deck opens
-([ui-turntables/docs/stems.md](../../ui-turntables/docs/stems.md)). Were another chain the only
+([packages/st0-plugins/docs/turntables/stems.md](../../../packages/st0-plugins/docs/turntables/stems.md)). Were another chain the only
 destination, float32 would be the obvious answer — nothing downstream is ever worse than the
 model's own output, so rounding on the way out is a loss taken for nobody. A deck loads the file
 itself, and that decides it.
@@ -162,7 +162,9 @@ drives the cut; nothing on this side resolves a song by name. The worker, the re
 below are the same either way — only where the bytes come from and who is waiting differ.
 
 **The chain is the machine's answer.** `<state>/preferences.yaml`'s `stemsChain`, written
-once by `system stems <chaîne>`, is what `/process` falls back to when the caller names none. That
+once by `system stems <chaîne>` — or `instrumentalChain`, written by `system instrumental` and
+read when the caller asks for `?want=instrumental` — is what `/process` falls back to when the
+caller names none. That
 is the shape rather than a shortcut: which module separates and which model it wants does not vary
 by set list, by project or by record, so a caller made to name one would be asked the same question
 at every use. A caller MAY name one all the same, because pl8 knows which song and this machine
@@ -195,6 +197,17 @@ accept another length, which is why `separateAudio.ts` is entirely about reachin
 it. The output is `[1, 4, 2, 343980]`, and the stem order is `[drums, bass, other, vocals]`.
 Nothing in the tensor says so; `STEMS` is that knowledge, and getting it wrong silently
 swaps two stems.
+
+**What is written is what the chain's module declared**, which is those four unless it names
+others. One name is not a stem: `instrumental`, the sum of every stem the voice is not, added
+here rather than downstream because the parts are already in memory and a summed file is one
+file instead of three to carry.
+
+That sum **grazes full scale and is clamped there**, and it is left that way on purpose. Measured
+on one record (The Antlers, *Kettering*): 145 samples of 27 million reach 0 dBFS, against 2 in the
+master, at a mean level 1.2 dB below it. Attenuating the file to clear those would make it quieter
+than the very recording it is switched against — k7's player swaps one for the other on a single
+element — so the overshoot is clamped and SAID in the job's lines rather than mixed away.
 
 **Where it lives** is the one place this departs from
 [moduleAssets.md](../../song/docs/moduleAssets.md). That page argues a module carries its

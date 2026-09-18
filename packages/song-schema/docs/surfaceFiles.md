@@ -119,7 +119,7 @@ would be asking it a question that has nothing to do with it. What a SET decides
 of arithmetic may start because somebody put a record on — and that is
 worth deciding per set, because a rehearsal rig and a stage rig answer it differently. Absent is
 false, and false is a state rather than a fault: the desk draws, plays, and says on its greyed knobs
-that this record was never separated (`packages/ui-turntables/docs/stems.md`).
+that this record was never separated (`packages/st0-plugins/docs/turntables/stems.md`).
 
 ## What the pair refinements refuse
 

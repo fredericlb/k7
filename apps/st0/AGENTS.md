@@ -149,7 +149,7 @@ which is the ordinary pane invariant (`hidden`, never unmounted). A desk's docum
 songs, the crossfader, the six EQ knobs — is not its screen, and a set does not stop existing
 because you went to look at the graph. Being a pane is what spares `SurfaceTab` a split of its
 own between the hooks and the screen. Get it wrong and the crossfader re-centres on every round
-trip while the sound stays where you put it — see `packages/ui-turntables/docs/deckSet.md`.
+trip while the sound stays where you put it — see `packages/st0-plugins/docs/turntables/deckSet.md`.
 
 A component with no mapping is reported on the surface itself, not by refusing the project.
 Read `packages/song/docs/surfaces.md`.
