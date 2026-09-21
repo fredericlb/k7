@@ -18,7 +18,7 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        apk add --no-cache python3 make g++ git
+        apk add --no-cache python3 make g++ git ffmpeg
         npm ci
         npm run lint
         npm run lint:bytes
