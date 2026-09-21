@@ -143,28 +143,20 @@ One list at the root rather than a derived set of bypasses. Derived, solo cannot
 rewrites N files to say one fact, and reads in `graph.yaml` as a wall of mutes nobody asked for.
 Mute stays the lane's own bypass, untouched by anyone's solo.
 
-## One name space, and who wins a name in it
+## One name space, held by nodes alone
 
-A lane and a module share one set of names, because they are the same kind of thing to a chain: a
-name there is an identity (the routing target, the bus's track, the prefix of every plugin id under
-it). Two maps could not answer it.
+A lane is a node — `nodes/<name>.yaml` like any other use — so a lane and an insert share one flat
+folder rather than two maps that could disagree. A DAW names the track after the instrument on it,
+so an import can arrive with a lane `polysynth` and an insert that plays a `polysynth` plugin; the
+filesystem itself is what keeps them apart, since the insert is filed under a name of its own
+(`polysynth-inst`, or whatever `freeNodeName` proposes) rather than the lane's.
 
-**A node file wins a name a module folder also has.** Not a refusal, because the collision is what
-every import writes: a DAW names the track after the instrument on it, so a project arrives holding
-a lane `polysynth` and a module `polysynth`, and refusing it means refusing to open the song. The
-lane is what `graph.yaml`'s key names, and the module is where it always was — behind its ref.
-
-That is what makes the precedence safe rather than arbitrary: **a module is named by its ref
-anyway**. `extends:` resolves through the ref map (`moduleResolve.ts` folds against `byRef`), which
-`readModuleRefs` builds from the module FOLDERS and not from the name map a lane may have shadowed.
-An insert node written by the importer says `extends: "@project/instruments/polysynth"` and gets its
-plugin, whatever the lane beside it is called.
-
-What is given up is narrow and worth naming: a chain step can no longer name the shadowed module by
-its bare name — `use: polysynth` is the lane. It has to go through a node that extends it, which is
-what a node IS, and what every import already writes. `freeNodeName` still proposes past both, so
-nothing shadows anything by accident; taking the name is a thing you do on purpose or a thing an
-import does because the source DAW did.
+**A module is named by its ref, never by a bare name a lane could take.** A module lives at
+`@workspace` or `@st0` now, and `extends:` always spells the level: an insert node written by the
+importer says `extends: "@workspace/instruments/polysynth"`, whatever the lane beside it is called.
+So there is nothing left to shadow — the old collision, between a lane's bare name and a project's
+own module answering to that same bare name, cannot arise when a module has no bare spelling at
+all.
 
 ## Every lane is a node of a built-in
 

@@ -149,8 +149,8 @@ exports[`golden compile: rack-demo > compiles to a stable ProjectDoc (run \`vite
       "plugins": [
         {
           "enabled": true,
-          "id": "beat:kit",
-          "name": "kit",
+          "id": "beat:@workspace/instruments/kit",
+          "name": "@workspace/instruments/kit",
           "params": {},
           "path": "",
           "presetSave": "",

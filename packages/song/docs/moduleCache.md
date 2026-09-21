@@ -53,8 +53,9 @@ module objects. Both rules it protects are real, and both are properties of the 
   filed under). Sharing the objects would let whichever ran last decide what the other's caller
   sees.
 
-Aliases survive the clone: a module filed under both `audio/reverb` and `@project/audio/reverb`
-stays one object, which is how `loadModuleRefs` keys those two.
+`cloneModules` still has to hold this rule generally, whether or not any one read happens to alias
+a module under two keys: a fresh map of fresh objects is the property `ioPorts` and
+`applyUiLibrary` rely on, not a fact about how many keys a module answers to today.
 
 **An injected catalogue is never cached.** `loadModuleRefs(dir, {})` is a test naming its own
 vocabulary, and the catalogue is the one input the stamp cannot see.

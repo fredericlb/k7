@@ -19,22 +19,28 @@ import {
 } from "@studio/song/loader";
 import { resolveModuleMap } from "@studio/song/moduleResolve";
 import { compileNodeProject } from "@studio/song/nodeProject";
-import { insertChainStepAfter, writeModule } from "@studio/song/testSupport";
+import { insertChainStepAfter } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setModuleAsset } from "./projectEdit";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMO_MODULES = join(here, "..", "..", "..", "demos", "_modules");
 
 let ws: string;
 let dir: string;
 
-/** A file at `rel` under the project, folders created. */
+/** A file at `rel` under the WORKSPACE (`_modules/...`) or the project, folders created. */
 function file(rel: string, body = "x"): string {
   const abs = join(dir, rel);
   mkdirSync(join(abs, ".."), { recursive: true });
   writeFileSync(abs, body, "utf8");
   return abs;
+}
+
+/** A module written directly into the workspace's `_modules` — a module lives at `@workspace` now. */
+function module_(rel: string, body: string): string {
+  return file(join("..", "_modules", rel), body);
 }
 
 beforeEach(() => {
@@ -49,36 +55,36 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
-const amp = () => loadModules(dir)["amp"];
+const amp = () => loadModuleRefs(dir)["@workspace/audio/amp"];
 
 describe("a file-valued param", () => {
   it("resolves out of the module's own assets folder", () => {
-    file(
-      "modules/audio/amp/module.yaml",
+    module_(
+      "audio/amp/module.yaml",
       'plugin: {type: internal}\nparams:\n  nam: "jcm800.nam"\n',
     );
-    const at = file("modules/audio/amp/assets/jcm800.nam");
+    const at = module_("audio/amp/assets/jcm800.nam", "x");
     expect(amp()?.nam).toBe(at);
     // The short name survives: it is what the module editor shows as the current choice.
     expect(amp()?.assets).toEqual({ nam: "jcm800.nam" });
   });
 
   it("keeps its nesting, since a NAM pack is a folder per amp", () => {
-    file(
-      "modules/audio/amp/module.yaml",
+    module_(
+      "audio/amp/module.yaml",
       'plugin: {type: internal}\nparams:\n  nam: "Two-Rock/Clean.nam"\n',
     );
-    const at = file("modules/audio/amp/assets/Two-Rock/Clean.nam");
+    const at = module_("audio/amp/assets/Two-Rock/Clean.nam", "x");
     expect(amp()?.nam).toBe(at);
   });
 
   it("refuses a ref that climbs out of the assets folder", () => {
     // A reference resolves INSIDE the module or not at all, or it reads any file the service can.
-    file(
-      "modules/audio/amp/module.yaml",
+    module_(
+      "audio/amp/module.yaml",
       'plugin: {type: internal}\nparams:\n  nam: "../../secret.nam"\n',
     );
-    file("modules/secret.nam");
+    module_("secret.nam", "x");
     expect(amp()?.nam).toBeUndefined();
   });
 
@@ -86,26 +92,31 @@ describe("a file-valued param", () => {
     // `params` on the wire is a float map mirrored in C++, so the model leaves as `namFile`.
     const proj = join(ws, "demo");
     cpSync(SONG, proj, { recursive: true });
-    writeModule(proj, "audio", "amp", {
-      plugin: { type: "internal", name: "Neural Amp Modeler" },
-      params: { nam: "jcm800.nam", Input: -5 },
-    });
-    mkdirSync(join(proj, "modules", "audio", "amp", "assets"), {
+    cpSync(DEMO_MODULES, join(ws, "_modules"), { recursive: true });
+    mkdirSync(join(ws, "_modules", "audio", "amp", "assets"), {
       recursive: true,
     });
     writeFileSync(
-      join(proj, "modules", "audio", "amp", "assets", "jcm800.nam"),
+      join(ws, "_modules", "audio", "amp", "module.yaml"),
+      "plugin:\n  type: internal\n  name: Neural Amp Modeler\n" +
+        'params:\n  nam: "jcm800.nam"\n  Input: -5\n',
+      "utf8",
+    );
+    writeFileSync(
+      join(ws, "_modules", "audio", "amp", "assets", "jcm800.nam"),
       "{}",
       "utf8",
     );
-    insertChainStepAfter(proj, "lead", { module: "amp" });
+    insertChainStepAfter(proj, "lead", { module: "@workspace/audio/amp" });
 
     const melody = compileNodeProject(proj).tracks.find(
       (t) => t.id === "melody",
     );
-    const plugin = melody?.plugins.find((p) => p.id.endsWith(":amp"));
+    const plugin = melody?.plugins.find((p) =>
+      p.id.endsWith(":@workspace/audio/amp"),
+    );
     expect(plugin?.namFile).toBe(
-      join(proj, "modules", "audio", "amp", "assets", "jcm800.nam"),
+      join(ws, "_modules", "audio", "amp", "assets", "jcm800.nam"),
     );
     // The numeric param travels; the file-valued one does not appear in `params` at all.
     expect(plugin?.params).toEqual({ Input: -5 });
@@ -115,88 +126,96 @@ describe("a file-valued param", () => {
     // An amp whose model did not load passes no sound at all, silently.
     const proj = join(ws, "demo");
     cpSync(SONG, proj, { recursive: true });
-    writeModule(proj, "audio", "amp", {
-      plugin: { type: "internal", name: "Neural Amp Modeler" },
-      params: { nam: "does-not-exist.nam" },
-    });
-    insertChainStepAfter(proj, "lead", { module: "amp" });
+    cpSync(DEMO_MODULES, join(ws, "_modules"), { recursive: true });
+    mkdirSync(join(ws, "_modules", "audio", "amp"), { recursive: true });
+    writeFileSync(
+      join(ws, "_modules", "audio", "amp", "module.yaml"),
+      "plugin:\n  type: internal\n  name: Neural Amp Modeler\n" +
+        'params:\n  nam: "does-not-exist.nam"\n',
+      "utf8",
+    );
+    insertChainStepAfter(proj, "lead", { module: "@workspace/audio/amp" });
     const w = loadGraph(proj).warnings;
     expect(w.some((m) => m.includes("does-not-exist.nam"))).toBe(true);
   });
 
   it("lets a node carry its own model, out of its OWN assets folder", () => {
     // Two amps sharing one module: the override merges per key, out of the node's own `assets/`.
-    file(
-      "modules/audio/amp/module.yaml",
+    module_(
+      "audio/amp/module.yaml",
       'plugin: {type: internal}\nparams:\n  nam: "jcm800.nam"\n  Input: -5\n',
     );
-    file("modules/audio/amp/assets/jcm800.nam");
+    module_("audio/amp/assets/jcm800.nam", "x");
     file(
       "nodes/clean.yaml",
-      'extends: "@project/audio/amp"\nparams:\n  nam: "twin.nam"\n',
+      'extends: "@workspace/audio/amp"\nparams:\n  nam: "twin.nam"\n',
     );
     file("nodes/assets/twin.nam");
     const mods = loadModules(dir);
-    expect(mods.amp.assets?.nam).toBe("jcm800.nam");
+    const refs = loadModuleRefs(dir, {});
+    expect(refs["@workspace/audio/amp"]?.assets?.nam).toBe("jcm800.nam");
     expect(mods.clean.assets?.nam).toBe("twin.nam");
     // …and what it did NOT restate comes down through extends.
-    const resolved = resolveModuleMap(mods, loadModuleRefs(dir, {}));
+    const resolved = resolveModuleMap(mods, refs);
     expect(resolved.clean.params?.Input).toBe(-5);
   });
 
   it("writes a pick into the module's own file, and clears it again", () => {
-    file("modules/audio/amp/module.yaml", "plugin: {type: internal}\n");
-    file("modules/audio/amp/assets/jcm800.nam");
-    file("modules/audio/amp/assets/twin.nam");
-    const path = join(dir, "modules", "audio", "amp", "module.yaml");
+    module_("audio/amp/module.yaml", "plugin: {type: internal}\n");
+    module_("audio/amp/assets/jcm800.nam", "x");
+    module_("audio/amp/assets/twin.nam", "x");
+    const path = join(ws, "_modules", "audio", "amp", "module.yaml");
 
-    setModuleAsset(dir, "amp", "nam", "jcm800.nam");
+    setModuleAsset(dir, "@workspace/audio/amp", "nam", "jcm800.nam");
     expect(readFileSync(path, "utf8")).toContain("jcm800.nam");
-    expect(loadModules(dir).amp.assets?.nam).toBe("jcm800.nam");
+    expect(loadModuleRefs(dir)["@workspace/audio/amp"].assets?.nam).toBe(
+      "jcm800.nam",
+    );
 
     // Choosing another replaces it rather than adding a second key.
-    setModuleAsset(dir, "amp", "nam", "twin.nam");
+    setModuleAsset(dir, "@workspace/audio/amp", "nam", "twin.nam");
     const swapped = readFileSync(path, "utf8");
     expect(swapped).toContain("twin.nam");
     expect(swapped).not.toContain("jcm800");
 
     // Clearing takes the key away: `nam: ""` would be a value that means nothing.
-    setModuleAsset(dir, "amp", "nam", null);
-    expect(loadModules(dir).amp.assets).toBeUndefined();
+    setModuleAsset(dir, "@workspace/audio/amp", "nam", null);
+    expect(loadModuleRefs(dir)["@workspace/audio/amp"].assets).toBeUndefined();
   });
 });
 
 describe("what the dropdown offers", () => {
   it("lists the module's own assets, and only the files a param can load", () => {
     // A .wav is not a model; offering it would just be a way to pick something that can't load.
-    file("modules/audio/amp/module.yaml", "plugin: {type: internal}\n");
-    file("modules/audio/amp/assets/jcm800.nam");
-    file("modules/audio/amp/assets/Two-Rock/Clean.nam");
-    file("modules/audio/amp/assets/notes.wav");
-    expect(listModuleAssets(join(dir, "modules", "audio", "amp"))).toEqual([
-      "Two-Rock/Clean.nam",
-      "jcm800.nam",
-    ]);
+    module_("audio/amp/module.yaml", "plugin: {type: internal}\n");
+    module_("audio/amp/assets/jcm800.nam", "x");
+    module_("audio/amp/assets/Two-Rock/Clean.nam", "x");
+    module_("audio/amp/assets/notes.wav", "x");
+    expect(
+      listModuleAssets(join(ws, "_modules", "audio", "amp")),
+    ).toEqual(["Two-Rock/Clean.nam", "jcm800.nam"]);
   });
 
   it("is empty for a module that carries nothing", () => {
-    file("modules/audio/amp/module.yaml", "plugin: {type: internal}\n");
-    expect(listModuleAssets(join(dir, "modules", "audio", "amp"))).toEqual([]);
+    module_("audio/amp/module.yaml", "plugin: {type: internal}\n");
+    expect(
+      listModuleAssets(join(ws, "_modules", "audio", "amp")),
+    ).toEqual([]);
   });
 });
 
 describe("a rack's samples", () => {
   it("come from assets/ too, without dropping the old layout", () => {
     // `assets/` is where a dropped sample lands, and a shelf laid out the old way must still load.
-    file(
-      "modules/instruments/kit/module.yaml",
+    module_(
+      "instruments/kit/module.yaml",
       "type: rack\nrack:\n  rack_type: samples\n  symbols:\n" +
         '    bd: { note: 36, clip: "bd.wav" }\n' +
         '    sd: { note: 38, clip: "sd.wav" }\n',
     );
-    const inAssets = file("modules/instruments/kit/assets/bd.wav");
-    const beside = file("modules/instruments/kit/sd.wav");
-    const rack = loadModules(dir)["kit"]?.rack;
+    const inAssets = module_("instruments/kit/assets/bd.wav", "x");
+    const beside = module_("instruments/kit/sd.wav", "x");
+    const rack = loadModuleRefs(dir)["@workspace/instruments/kit"]?.rack;
     expect(rack?.symbols?.bd?.clip).toBe(inAssets);
     expect(rack?.symbols?.sd?.clip).toBe(beside);
   });
@@ -215,29 +234,31 @@ describe("a model too big to carry", () => {
     rmSync(models, { recursive: true, force: true });
   });
 
-  const amp = () =>
-    file(
-      "modules/audio/sep/module.yaml",
+  const sep = () =>
+    module_(
+      "audio/sep/module.yaml",
       "cold: true\nplugin: {type: offline, name: Stem Split}\n" +
         "params: {onnx: htdemucs.onnx}\n",
     );
 
   it("falls back to the machine's cache when the module carries none", () => {
-    amp();
+    sep();
     writeFileSync(join(models, "htdemucs.onnx"), "weights", "utf8");
-    expect(loadModules(dir)["sep"]?.onnx).toBe(join(models, "htdemucs.onnx"));
+    expect(loadModuleRefs(dir)["@workspace/audio/sep"]?.onnx).toBe(
+      join(models, "htdemucs.onnx"),
+    );
   });
 
   it("prefers the module's own copy when there is one", () => {
-    amp();
-    const own = file("modules/audio/sep/assets/htdemucs.onnx");
+    sep();
+    const own = module_("audio/sep/assets/htdemucs.onnx", "x");
     writeFileSync(join(models, "htdemucs.onnx"), "weights", "utf8");
-    expect(loadModules(dir)["sep"]?.onnx).toBe(own);
+    expect(loadModuleRefs(dir)["@workspace/audio/sep"]?.onnx).toBe(own);
   });
 
   it("resolves to nothing when neither has it, and keeps the authored name", () => {
-    amp();
-    const m = loadModules(dir)["sep"];
+    sep();
+    const m = loadModuleRefs(dir)["@workspace/audio/sep"];
     // The disagreement between the two is how validate() reports a dangling ref.
     expect(m?.onnx).toBeUndefined();
     expect(m?.assets?.onnx).toBe("htdemucs.onnx");
@@ -245,11 +266,13 @@ describe("a model too big to carry", () => {
 
   it("refuses a ref that climbs out, rather than redirecting it to the cache", () => {
     // The containment check comes FIRST and refuses; it does not fall through to the cache.
-    file(
-      "modules/audio/sep/module.yaml",
+    module_(
+      "audio/sep/module.yaml",
       "plugin: {type: offline}\nparams: {onnx: ../../../secret.onnx}\n",
     );
     writeFileSync(join(models, "secret.onnx"), "weights", "utf8");
-    expect(loadModules(dir)["sep"]?.onnx).toBeUndefined();
+    expect(
+      loadModuleRefs(dir)["@workspace/audio/sep"]?.onnx,
+    ).toBeUndefined();
   });
 });

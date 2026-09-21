@@ -23,7 +23,6 @@ import {
 import { instanceName } from "@studio/song-schema/instanceName";
 import {
   isBuiltinOutput,
-  moduleRefOf,
   portRef,
   splitPort,
 } from "@studio/song-schema/moduleTypes";
@@ -53,21 +52,11 @@ function copyNode(dir: string, from: string, to: string): void {
 }
 
 /** A module used directly as a node has no file to copy; give the copy a node that extends it. */
-function materialiseNode(
-  dir: string,
-  from: string,
-  to: string,
-  m: GraphDoc["modules"][string] | undefined,
-): void {
-  const ref = from.startsWith("@")
-    ? from
-    : m?.category
-      ? `@project/${moduleRefOf(m.category, from)}`
-      : from;
+function materialiseNode(dir: string, from: string, to: string): void {
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "nodes", `${to}.yaml`),
-    `extends: ${JSON.stringify(ref)}\n`,
+    `extends: ${JSON.stringify(from)}\n`,
     "utf8",
   );
 }
@@ -130,9 +119,13 @@ function duplicateChain(
   const cloneName = (node: string): string => {
     if (isStrip(node)) return claim(mixerNameFor(newLane, taken));
     const m = g.modules[node];
+    // A step naming a SHARED module directly is the qualified ref itself (`@workspace/audio/amp`);
+    // the instance is named after its last segment, same as inheriting one through `extends`.
     const leaf = m?.extends
       ? (String(m.extends).split("/").pop() ?? node)
-      : node;
+      : node.startsWith("@")
+        ? (node.split("/").pop() ?? node)
+        : node;
     return claim(instanceName(leaf, newLane, taken));
   };
   const shouldClone = (node: string): boolean =>
@@ -172,7 +165,7 @@ function duplicateChain(
   for (const from of order) {
     const to = clones.get(from) as string;
     if (existsSync(join(dir, "nodes", `${from}.yaml`))) copyNode(dir, from, to);
-    else materialiseNode(dir, from, to, g.modules[from]);
+    else materialiseNode(dir, from, to);
     if (isStrip(from)) relabelStrip(join(dir, "nodes", `${to}.yaml`), newLane);
     written.push(`nodes/${to}.yaml`);
   }

@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
+let root: string;
 let dir: string;
 const logs: string[] = [];
 let reloads = 0;
@@ -31,8 +32,10 @@ const host = () =>
 
 const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 
-function song(): string {
-  const d = mkdtempSync(join(tmpdir(), "td-connect-"));
+function song(): { root: string; dir: string } {
+  const r = mkdtempSync(join(tmpdir(), "td-connect-"));
+  const d = join(r, "song.st0");
+  mkdirSync(d, { recursive: true });
   writeFileSync(
     join(d, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n",
@@ -50,27 +53,34 @@ function song(): string {
     'extends: "@studio/track"\nevents: []\n',
     "utf8",
   );
+  // Each is a workspace module, USED through a node of the same bare name — a module lives at
+  // `@workspace` now, and a chain still names the node, not the module, directly.
   for (const m of ["amp", "reverb"]) {
-    const md = join(d, "modules", "audio", m);
+    const md = join(r, "_modules", "audio", m);
     mkdirSync(md, { recursive: true });
     writeFileSync(
       join(md, "module.yaml"),
       "plugin:\n  type: internal\n  name: Chorus\n",
       "utf8",
     );
+    writeFileSync(
+      join(d, "nodes", `${m}.yaml`),
+      `extends: "@workspace/audio/${m}"\n`,
+      "utf8",
+    );
   }
   // A PICTURE lane, which is a card on the graph and takes a cable from a lens (packages/song/docs/camera.md).
   mkdirSync(join(d, "video_tracks"), { recursive: true });
   writeFileSync(join(d, "video_tracks", "main.yaml"), "events: []\n", "utf8");
-  return d;
+  return { root: r, dir: d };
 }
 
 beforeEach(() => {
-  dir = song();
+  ({ root, dir } = song());
   logs.length = 0;
   reloads = 0;
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("graph chain connect", () => {
   it("draws a new arrow without touching what the source already feeds", async () => {
@@ -120,9 +130,8 @@ describe("graph chain connect", () => {
 
   it("LETS a live input feed a lane — which is what recording onto one is", async () => {
     // The one exception the model makes; refusing every track left an `IN` node with nowhere to go.
-    const io = join(dir, "modules", "io", "mic");
-    mkdirSync(io, { recursive: true });
-    writeFileSync(join(io, "module.yaml"), "io: in\n", "utf8");
+    // io is a plain NODE now, never a shared module.
+    writeFileSync(join(dir, "nodes", "mic.yaml"), "io: in\n", "utf8");
     writeFileSync(
       join(dir, "graph.yaml"),
       "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  mic: []\n",
@@ -135,9 +144,7 @@ describe("graph chain connect", () => {
 
   it("…and still when the input is UPSTREAM, not the node the cable leaves", async () => {
     // What decides is the run REACHING the source, not the source itself — `runCarriesInput`.
-    const io = join(dir, "modules", "io", "mic");
-    mkdirSync(io, { recursive: true });
-    writeFileSync(join(io, "module.yaml"), "io: in\n", "utf8");
+    writeFileSync(join(dir, "nodes", "mic.yaml"), "io: in\n", "utf8");
     writeFileSync(
       join(dir, "graph.yaml"),
       "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  mic: [ reverb ]\n  reverb: []\n",

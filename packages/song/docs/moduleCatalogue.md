@@ -6,10 +6,10 @@ It feeds no builder.
 A module is a **workspace** thing. It lives once, in `_modules`, and the same file backs every project beside
 it (see `sharedFolders.md`). So the builder is not reached from the chains graph — a small "edit module"
 button on a step, opening that module's file — for two reasons. Opening it from inside one song would look
-like a per-project edit and never be one: the only thing making it behave like one is that saving forks a copy
-(`moduleFork.md`), which is a workaround for an entry point rather than a design. And for a module the project
-inherits it would not work at all, since resolution through `hints.paths` by construction only holds the
-project's **own** modules, so a shared one comes back "couldn't resolve".
+like a per-project edit and never be one: it writes the same shared file whichever song you opened it from, so
+an entry point that frames it as "this song's step" is the wrong door for an edit that changes every song's
+sound. And for a module the project inherits it would not work at all, since resolution through `hints.paths`
+by construction only holds a project's own NODES, so a shared one comes back "couldn't resolve".
 
 st0 is the builder's only host, because a parameter list is a fact about a LOADED plugin and only
 a project loads one (`apps/st0/frontend/docs/moduleBuilder.md`). What answers the "a module is a
@@ -36,16 +36,13 @@ listed — the builder's one job is to open it, and a row that only ever reports
 
 ## Saving
 
-Nothing here saves. A workspace's `_modules` is read-only without exception — `Workspace.write` carries no
-escape hatch. A save aimed at a shared module forks (`moduleFork.md`), for everybody, which is what read-only
-does here instead of refusing.
+Nothing here saves — `moduleCatalogue` only lists. A `@workspace` module is written directly through the
+builder, the same as any other file st0 saves, no lock and no confirmation: it is already yours, one git
+repository with no publish step.
 
-Edits to a MÉDIATHÈQUE module happen against pl8's own service, from st0's Libraries tab — a
-second store over the same builder, and the confirmation in front of it is there because that
-library has no fork to fall back on. A workspace's `_modules` has no such tab and no such route:
-it is read-only, and a save aimed at it forks. The panel is the one thing that still saves in place:
-it is the `ui.yaml` inside the module's folder (`uiLibrary.md`), and `Workspace.write` lets that one file through
-because drawing a knob must not fork the module.
+`@st0` is the one level that still gates a save behind a confirmation, because it commits and pushes a
+repository other songs read (`apps/st0/frontend/docs/sharedModules.md`) — a decision worth a click, unlike a
+workspace save which costs nobody else anything they did not already agree to by sharing the workspace.
 
 An ENGINE module has no folder, so it has no panel and cannot be given one — `writeUiFile` refuses rather than
 filing it somewhere arbitrary. `hasUi` is false for every one of those rows.

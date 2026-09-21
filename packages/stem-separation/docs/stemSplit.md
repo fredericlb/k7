@@ -211,12 +211,12 @@ element — so the overshoot is clamped and SAID in the job's lines rather than 
 
 **Where it lives** is the one place this departs from
 [moduleAssets.md](../../song/docs/moduleAssets.md). That page argues a module carries its
-material so it survives a fork, an upload and a sync — and the argument inverts past a few
-hundred megabytes, where `forkSharedModule`'s recursive copy would duplicate the file per
-fork, per médiathèque upload and per machine. So the module **declares** the model as an
-ordinary file-valued param (`onnx:`, exactly as an amp names `nam:`) and `<state>/models`
-holds the bytes. `resolveModuleAsset` tries the module's own `assets/` first and falls back
-to the cache; a ref that climbs out of `assets/` is still **refused**, never redirected.
+material — and the argument inverts past a few hundred megabytes, where the file would be
+committed into a shared module's git repository and cloned whole by every machine that opens
+it. So the module **declares** the model as an ordinary file-valued param (`onnx:`, exactly as
+an amp names `nam:`) and `<state>/models` holds the bytes. `resolveModuleAsset` tries the
+module's own `assets/` first and falls back to the cache; a ref that climbs out of `assets/`
+is still **refused**, never redirected.
 
 ## Execution providers
 

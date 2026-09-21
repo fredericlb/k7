@@ -17,19 +17,24 @@ import { insertChainStepAfter, replaceChainStep } from "./testSupport";
 // A dangling step is not FATAL: it is a skipped step, a `?` node and a warning.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMOS = join(here, "..", "..", "..", "demos");
+const SONG = join(DEMOS, "synth-demo.st0");
 
 // Point the instrument step at a module that does not exist, and change nothing else.
 const useGhostStep = (dir: string): void =>
   replaceChainStep(dir, "lead", { module: "ghost" });
 
 describe("a chain step naming a missing module", () => {
+  let ws: string;
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "td-ghost-"));
+    ws = mkdtempSync(join(tmpdir(), "td-ghost-"));
+    dir = join(ws, "synth-demo.st0");
     cpSync(SONG, dir, { recursive: true });
+    // The Examples workspace's own shared library, beside every demo project.
+    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
   });
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
   it("compiles, contributing no plugin — like a bypassed step", () => {
     useGhostStep(dir);

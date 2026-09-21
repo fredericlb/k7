@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
-import { writeLane, writeModule } from "./testSupport";
+import { writeLane, writeNode } from "./testSupport";
 
 let dir: string;
 
@@ -20,13 +20,13 @@ function project(graph: string): void {
     "project:\n  name: t\n  tempo: 120\n",
     "utf8",
   );
-  writeModule(dir, "audio", "amp", {
+  writeNode(dir, "amp", {
     plugin: { type: "internal", name: "Chorus" },
   });
-  writeModule(dir, "audio", "squeeze", {
+  writeNode(dir, "squeeze", {
     plugin: { type: "internal", name: "Compressor" },
   });
-  writeModule(dir, "audio", "shelf", {
+  writeNode(dir, "shelf", {
     plugin: { type: "internal", name: "EqualiserPlugin" },
   });
   writeLane(dir, "gtr");

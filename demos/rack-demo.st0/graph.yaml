@@ -10,6 +10,6 @@
 # CHAIN, and `OUT` carries the song's output level as its `Volume`.
 
 modules:
-  beat: [ kit ]
-  kit: [ MIX ]
+  beat: [ "@workspace/instruments/kit" ]
+  "@workspace/instruments/kit": [ MIX ]
   MIX: [ OUT ]

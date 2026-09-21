@@ -381,9 +381,9 @@ caller that WRITES nothing: a stale stamp would serve a module under a name nobo
 ## Reading the module folders
 
 `readModuleTree` allows ONE level of filing under a type — `audio/reverb` and
-`audio/amps/neural-amp-modeler` both, the second keyed `amps/neural-amp-modeler`. It holds for the
-shared libraries, for the médiathèque, which files its catalogue that way, and for a project's own
-`modules/`: **two walkers over one vocabulary have to agree.** One that skipped a folder with no
+`audio/amps/neural-amp-modeler` both, the second keyed `amps/neural-amp-modeler`. It holds for
+both shared roots — the workspace's `_modules` and the médiathèque, which files its catalogue that
+way too: **two walkers over one vocabulary have to agree.** One that skipped a folder with no
 `module.yaml` in it would make a nested module not an error but simply absent, and every symptom
 would then describe something else — a chain naming a module "this project doesn't have", a
 catalogue short a few rows, and a builder answering 400 for a file sitting right in the tree.
@@ -403,10 +403,11 @@ and both loaders STAMP panels onto what they hand back — `applyUiLibrary` writ
 place, by two different rules — so sharing either would let one caller's overlay decide what the
 next one sees. Aliases survive: a module filed under two refs stays one object.
 
-The ref map keys a project's own module TWICE, bare (`audio/reverb`) and under its explicit level
-(`@project/audio/reverb`). The bare form is what most `graph.yaml` files say; the explicit one is
-what new files are written in. Both resolve, so neither spelling needs migrating. NODES
-are skipped when re-keying, since one would silently replace its own generic's key.
+The ref map keys a module ONCE, under its explicit level (`@workspace/audio/reverb`,
+`@st0/audio/reverb`) — there is no bare spelling to key alongside it: a module lives at
+`@workspace` or `@st0` now, and a ref always carries the `@` that says which. NODES never enter
+this map at all; they are a project's own uses, read separately, and a node's `extends:` is
+resolved against this map rather than added to it.
 
 The built-ins are seeded before the catalogue so anything on disk overrides both: a project or a
 library may define `@engine/x`, and the thing you can edit should win over the thing you cannot.
@@ -415,10 +416,10 @@ the catalogue argument because they are not the engine's, so callers that pass t
 (tests, scripts) still get them, which is what "built-in" has to mean for a ref every project may
 name.
 
-The refs a local module's own FILES may be filed under are, best first, its own and then the module
-it DERIVES from: a folder of nodes is one use of something the engine or a library provides, and a
-panel is drawn for the thing rather than for each use of it. Without the fallback, a project off
-the generated catalogue orphans every panel drawn for a shared module.
+The refs a NODE's own panel may be filed under are, best first, its own and then the module it
+DERIVES from: a node is one use of something the engine or a library provides, and a panel is
+drawn for the thing rather than for each use of it. Without the fallback, a node extending a
+shared module orphans the panel drawn for it.
 
 ## The DSP source of a module
 

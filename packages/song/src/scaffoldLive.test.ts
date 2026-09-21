@@ -150,13 +150,19 @@ describe("the graph it writes", () => {
       expect(text).toContain(`${LIVE_RECORDER}: [ OUT ]`);
     }));
 
-  it("authors NO track file — its two nodes are the fader and the recorder", () =>
+  it("authors NO track file — its nodes are the input, the fader and the recorder", () =>
     on((dir) => {
       expect(
         tree(dir)
           .filter((f) => f.startsWith("nodes/"))
           .sort(),
-      ).toEqual([`nodes/${LIVE_FADER}.yaml`, `nodes/${LIVE_RECORDER}.yaml`]);
+      ).toEqual(
+        [
+          `nodes/${LIVE_INPUT}.yaml`,
+          `nodes/${LIVE_FADER}.yaml`,
+          `nodes/${LIVE_RECORDER}.yaml`,
+        ].sort(),
+      );
     }));
 
   it("borrows the SHARED strip, which is what carries the face", () =>
@@ -191,7 +197,7 @@ describe("and it PLAYS", () => {
 
   it("says nothing at all once a channel is chosen", () =>
     on((dir) => {
-      const io = join(dir, "modules", "io", "IN", "module.yaml");
+      const io = join(dir, "nodes", `${LIVE_INPUT}.yaml`);
       writeFileSync(io, `${readFileSync(io, "utf8")}channel: [1]\n`);
       expect(validate(loadGraph(dir))).toEqual([]);
     }));
@@ -244,7 +250,7 @@ describe("and it PLAYS", () => {
 
   it("carries the chosen channel onto that track", () =>
     on((dir) => {
-      const io = join(dir, "modules", "io", "IN", "module.yaml");
+      const io = join(dir, "nodes", `${LIVE_INPUT}.yaml`);
       writeFileSync(io, `${readFileSync(io, "utf8")}channel: [1, 2]\n`);
       expect(compileNodeProject(dir).tracks[0].inputChannels).toEqual([1, 2]);
     }));
@@ -257,7 +263,7 @@ describe("the live-video archetype", () => {
     const audio = Object.keys(liveProjectFiles("rig"));
     const both = Object.keys(liveVideoProjectFiles("rig"));
     expect(both.filter((f) => !audio.includes(f)).sort()).toEqual([
-      `modules/io/${LIVE_CAMERA}/module.yaml`,
+      `nodes/${LIVE_CAMERA}.yaml`,
       "surfaces/viewport.yaml",
     ]);
   });
@@ -267,10 +273,14 @@ describe("the live-video archetype", () => {
       const t = tree(dir);
       for (const gone of ["video_tracks", "clips", "sequences"])
         expect(t).not.toContain(gone);
-      expect(t.filter((f) => f.startsWith("nodes/")).sort()).toEqual([
-        `nodes/${LIVE_FADER}.yaml`,
-        `nodes/${LIVE_RECORDER}.yaml`,
-      ]);
+      expect(t.filter((f) => f.startsWith("nodes/")).sort()).toEqual(
+        [
+          `nodes/${LIVE_INPUT}.yaml`,
+          `nodes/${LIVE_FADER}.yaml`,
+          `nodes/${LIVE_RECORDER}.yaml`,
+          `nodes/${LIVE_CAMERA}.yaml`,
+        ].sort(),
+      );
     }));
 
   it("wires the lens to RENDER, as the fader lands on the sum", () =>

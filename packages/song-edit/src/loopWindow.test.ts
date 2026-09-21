@@ -12,7 +12,9 @@ import { materialWindow } from "./materialWindow";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMO_MODULES = join(here, "..", "..", "..", "demos", "_modules");
 
+let root: string;
 let dir: string;
 // synth-demo is 120bpm 4/4 and places sequences/melody.yaml (8 notes, one per beat) at bar 1.
 const seq = (body: Record<string, unknown>) =>
@@ -31,10 +33,12 @@ const melody = () =>
     .find((c) => c.name === "melody")!;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-loop-"));
+  root = mkdtempSync(join(tmpdir(), "td-loop-"));
+  dir = join(root, "synth-demo.st0");
   cpSync(SONG, dir, { recursive: true });
+  cpSync(DEMO_MODULES, join(root, "_modules"), { recursive: true });
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("a sequence's window into its own notes", () => {
   it("is the notes themselves when the file says nothing", () => {

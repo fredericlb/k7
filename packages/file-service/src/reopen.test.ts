@@ -1,4 +1,10 @@
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,7 +14,8 @@ import { Workspace } from "./workspace.ts";
 // The Workspace CACHES the compiled project, keyed on `revision()` and not on its own writes — docs/workspace.md.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/file-service/src
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMOS = join(here, "..", "..", "..", "demos");
+const SONG = join(DEMOS, "synth-demo.st0");
 
 let root: string;
 let proj: string;
@@ -18,21 +25,14 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-reopen-"));
   proj = join(root, "song.st0");
   cpSync(SONG, proj, { recursive: true });
+  // The demo's own modules live at `@workspace`, its sibling in the Examples workspace.
+  const demoModules = join(DEMOS, "_modules");
+  if (existsSync(demoModules))
+    cpSync(demoModules, join(root, "_modules"), { recursive: true });
   ws = new Workspace(root);
   ws.setActiveProject("song.st0");
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
-
-/** Add a module the project didn't have, without telling the Workspace. */
-function addModuleOutOfBand(name: string): void {
-  const folder = join(proj, "modules", "instruments", name);
-  mkdirSync(folder, { recursive: true });
-  writeFileSync(
-    join(folder, "module.yaml"),
-    "extends: instruments/fourosc\n",
-    "utf8",
-  );
-}
 
 describe("a project changed underneath the Workspace", () => {
   // Recolouring a track lands in the COMPILED doc directly, which is the thing that is cached.

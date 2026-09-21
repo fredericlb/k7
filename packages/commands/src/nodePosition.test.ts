@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
+let root: string;
 let dir: string;
 const logs: string[] = [];
 let reloads = 0;
@@ -31,8 +32,10 @@ const host = () =>
 
 const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 
-function song(): string {
-  const d = mkdtempSync(join(tmpdir(), "td-modpos-"));
+function song(): { root: string; dir: string } {
+  const r = mkdtempSync(join(tmpdir(), "td-modpos-"));
+  const d = join(r, "song.st0");
+  mkdirSync(d, { recursive: true });
   writeFileSync(
     join(d, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n",
@@ -49,11 +52,17 @@ function song(): string {
     'extends: "@studio/track"\nevents: []\n',
     "utf8",
   );
-  const md = join(d, "modules", "audio", "amp");
+  // A module lives at `@workspace` now, used through a node of the same bare name.
+  const md = join(r, "_modules", "audio", "amp");
   mkdirSync(md, { recursive: true });
   writeFileSync(
     join(md, "module.yaml"),
     "plugin:\n  type: internal\n  name: Chorus\n",
+    "utf8",
+  );
+  writeFileSync(
+    join(d, "nodes", "amp.yaml"),
+    'extends: "@workspace/audio/amp"\n',
     "utf8",
   );
   // A curve, so the CURVE node case has something to pin — it is not a chains node.
@@ -66,15 +75,15 @@ function song(): string {
   // …and a PICTURE lane, which is a card on the graph and is no key of `modules:` either.
   mkdirSync(join(d, "video_tracks"), { recursive: true });
   writeFileSync(join(d, "video_tracks", "main.yaml"), "events: []\n", "utf8");
-  return d;
+  return { root: r, dir: d };
 }
 
 beforeEach(() => {
-  dir = song();
+  ({ root, dir } = song());
   logs.length = 0;
   reloads = 0;
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("graph move", () => {
   it("pins the node, rounded — and ABOVE the origin, which is a place like any other", async () => {

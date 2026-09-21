@@ -9,7 +9,7 @@
 # chains.yaml names "lead" and "pad". They live in the project's flat nodes/ folder
 # rather than beside this file, and reach it through `extends`; whatever you change here
 # reaches both.
-extends: instruments/fourosc
+extends: "@workspace/instruments/fourosc"
 # The lead 4OSC. Two saws detuned a few cents, a slow filter sweep on the way in.
 #
 # TODO: automate the filter cutoff instead of leaving it static; try a sub-oscillator an

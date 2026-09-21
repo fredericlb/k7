@@ -33,9 +33,8 @@ const lane = (id: string): void =>
     "utf8",
   );
 const module_ = (name: string, plugin: string): void => {
-  mkdirSync(join(dir, "modules", "audio", name), { recursive: true });
   writeFileSync(
-    join(dir, "modules", "audio", name, "module.yaml"),
+    join(dir, "nodes", `${name}.yaml`),
     `plugin:\n  type: internal\n  name: ${plugin}\n`,
     "utf8",
   );

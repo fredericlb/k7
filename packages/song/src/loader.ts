@@ -11,7 +11,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, isAbsolute, join } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 import {
   FAUST_FILE,
   FAUST_TYPE,
@@ -76,13 +76,18 @@ import type {
   RawRack,
   RawVideoTrack,
 } from "./rawDoc";
-import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
+import {
+  moduleLibraryDirs,
+  moduleNamespaceOf,
+  SHARED_MODULES_PATH,
+} from "./sharedFolders";
 import { type Lane, lanesOf, trackModules } from "./trackModule";
 import { loadUiLibrary } from "./uiLibrary";
 import { setFileValue } from "./yaml/edit";
 import {
   entityFileFor,
   entityFiles,
+  isProjectFolder,
   moduleFileFor,
   nodeFiles,
   readModuleFile,
@@ -340,107 +345,23 @@ function readModuleTree(
   }
 }
 
-/** What one read of `modules/` + `nodes/` produced: the map, and the two things `validate` judges. */
+/** What one read of `nodes/` produced: the map, and the two things `validate` judges. */
 interface ModulesRead {
   out: Record<string, LoadedModule>;
-  /**
-   * The module FOLDERS alone, before any node took a name (docs/trackModules.md). A node wins the
-   * bare name; the module is still the thing every `@project/…` ref points at, so the ref map is
-   * built from here and not from a map a lane may have shadowed.
-   */
-  folders: Record<string, LoadedModule>;
   /** AS AUTHORED — what validatePlugins reads, kept so a cached read can still be validated. */
   raw: { rel: string; module: Record<string, unknown> }[];
   yamlIssues: string[];
 }
 
-// Read a project's modules into a { name: module } map, generic + nodes both keyed in (see docs/loader.md).
+// Read a project's own USES into a { name: module } map — see docs/loader.md. A module itself lives
+// at `@workspace` or `@st0` now; a project keeps only its `nodes/`, one use of some base per file.
 function readModules(dir: string): ModulesRead {
   const out: Record<string, LoadedModule> = {};
   const raw: { rel: string; module: Record<string, unknown> }[] = []; // AS AUTHORED, for validatePlugins below
   const yamlIssues: string[] = []; // held rather than thrown at once, so a load reports every bad file
-  const bdir = join(dir, "modules");
-  for (const [type, meta] of Object.entries(MODULE_TYPES)) {
-    const abs = join(bdir, type);
-    if (!existsSync(abs) || !statSync(abs).isDirectory()) continue;
-    // The module folders under one type, ONE level of filing allowed — see docs/graphModel.md.
-    const folders: { name: string; folder: string }[] = [];
-    for (const entry of readdirSync(abs)) {
-      const folder = join(abs, entry);
-      if (!statSync(folder).isDirectory()) continue;
-      if (moduleFileFor(folder, `modules/${type}/${entry}`, "module")) {
-        folders.push({ name: entry, folder });
-        continue;
-      }
-      // No module file: a FILING folder, one level only. Its own leaves are the modules.
-      for (const leaf of readdirSync(folder)) {
-        const leafFolder = join(folder, leaf);
-        if (!statSync(leafFolder).isDirectory()) continue;
-        if (
-          !moduleFileFor(
-            leafFolder,
-            `modules/${type}/${entry}/${leaf}`,
-            "module",
-          )
-        )
-          continue;
-        folders.push({ name: `${entry}/${leaf}`, folder: leafFolder });
-      }
-    }
-    for (const { name, folder } of folders) {
-      const relDir = `modules/${type}/${name}`;
-      // A module folder is its `module.yaml` and nothing else; uses live in the flat `nodes/` (docs/nodes.md).
-      const generic = moduleFileFor(folder, relDir, "module");
-      let module: Record<string, unknown> | null = null;
-      if (generic) {
-        const read = readModuleFile(generic);
-        yamlIssues.push(...read.issues);
-        const value = read.value;
-        if (!value || typeof value !== "object") continue;
-        module = value;
-        raw.push({ rel: generic.rel, module });
-      }
-      // Adds the LOADER's fields to the generic or a merged node (see docs/loader.md).
-      const decorate = (
-        value: Record<string, unknown>,
-        node?: string,
-      ): LoadedModule => {
-        // The module's OWN folder name, the last segment of `name`, since its preset sits beside its module.yaml.
-        const leaf = name.slice(name.lastIndexOf("/") + 1);
-        // The chosen `base:` first, then this node's own, then the generic, so a UI edit never touches a sibling's.
-        const preset = presetFor(folder, leaf, node, value.base);
-        // Seam cast: `value` passed the module schema (or a merge of two structs that did).
-        return {
-          ...value,
-          name: moduleKey(name, node), // the FOLDER (+ file) names it — not a field
-          rack: value.rack // resolved on this copy, not `raw`, so validation sees the authored filename
-            ? resolveRackAudio(value.rack as RawRack, folder)
-            : undefined,
-          category: type, // the module's type folder (io|instruments|audio|transformers|midi)
-          file: name, // the module's folder name (modules/<category>/<file>/)
-          node, // undefined for the generic; the <node>.yaml basename otherwise
-          kind: meta.kind, // derived from the type folder, like a base module others `extends`
-          ...portsOf(value, meta),
-          preset,
-          // The module's own DSP source, resolved against its FOLDER — see dspSourceFor.
-          ...dspSourceFor(value, folder),
-          // Resolved on this copy, same reason as `rack` above; `folder` is what makes its own assets reachable.
-          ...resolveAssets(value, folder),
-          // Its own folder, so the ancestry fold can resolve a file this module inherits.
-          folderAbs: folder,
-        } as LoadedModule;
-      };
-
-      if (module) out[name] = decorate(module);
-    }
-  }
-  // Taken before the nodes go in, since that is the point of holding it at all.
-  const folders = { ...out };
   loadNodes(dir, out, raw, yamlIssues);
   applyUiLibrary(dir, out, (m) => moduleOwnRefs(m));
-  // …and the same panels onto the unshadowed copies, which are what a ref resolves to.
-  applyUiLibrary(dir, folders, (m) => moduleOwnRefs(m));
-  return { out, folders, raw, yamlIssues };
+  return { out, raw, yamlIssues };
 }
 
 // A fresh map of fresh modules, so a cached read never leaves this file — see docs/graphModel.md.
@@ -478,15 +399,6 @@ export function loadModules(
   return cloneModules(read.out);
 }
 
-/** The module FOLDERS this project holds, unshadowed by its nodes — what a `@project/…` ref means. */
-export function projectModuleFolders(
-  dir: string,
-): Record<string, LoadedModule> {
-  return cloneModules(
-    cachedForModules(dir, "modules", () => readModules(dir)).folders,
-  );
-}
-
 /** The project's uses of modules: `nodes/<name>.yaml`, flat, filename IS the name. */
 export const NODES_DIR = "nodes";
 
@@ -516,6 +428,16 @@ function loadNodes(
       node,
       file: node,
       home: NODES_DIR, // where its .vstpreset is saved — see nodeProject's presetSave
+      // `kind` has no folder to derive it from here, and it is OWN-ONLY — never inherited — so a
+      // SELF-CONTAINED node (no `extends`, nothing ancestry can hand it one from) states it
+      // directly: an io node by its `io:` field, and everything else defaults to "plugin", the
+      // same default `resolvedType` already applies (a rack included — see docs/moduleTypes.md).
+      // A node that DOES `extends` gets its `kind` from what it inherits, so this never overrides that.
+      ...(typeof value.io === "string"
+        ? { kind: "io" }
+        : typeof value.extends !== "string"
+          ? { kind: "plugin" }
+          : {}),
       rack: value.rack
         ? resolveRackAudio(value.rack as RawRack, folder)
         : undefined,
@@ -531,19 +453,10 @@ function loadNodes(
 // The refs a local module's OWN FILES may be filed under, best first — its own, then what it derives from (docs/graphModel.md).
 export function moduleOwnRefs(m: LoadedModule): string[] {
   const from = typeof m.extends === "string" ? m.extends : "";
-  // A project's own module answers to two refs, bare and "@project/…", so both are tried and a panel drawn once is found.
-  const spellings = from
-    ? from.startsWith("@project/")
-      ? [from, from.slice("@project/".length)]
-      : [from, `@project/${from}`]
-    : [];
   // A node has no type folder and so no ref of its own: its panel is the panel of what it uses.
-  if (!m.category)
-    return spellings.length ? spellings : [engineRef(String(m.file))];
+  if (!m.category) return from ? [from] : [engineRef(String(m.file))];
   const own = moduleRefOf(String(m.category), String(m.file));
-  return spellings.length
-    ? [own, ...spellings]
-    : [own, engineRef(String(m.file))];
+  return from ? [own, from] : [own, engineRef(String(m.file))];
 }
 
 // Overlay the panels found beside the modules onto a module map, by ref, replacing a module's own `ui:` WHOLE (docs/uiLibrary.md).
@@ -835,16 +748,6 @@ function readModuleRefs(
     ...catalogue,
   };
 
-  // Re-key by ref under TWO keys, bare and `@project/…` — from the FOLDERS, so a lane that took a
-  // module's bare name leaves the ref it is inherited by alone (docs/trackModules.md).
-  for (const m of Object.values(projectModuleFolders(dir))) {
-    if (m.node) continue;
-    const ref =
-      m.category === "io" ? String(m.file) : `${m.category}/${m.file}`;
-    out[ref] = m;
-    out[`@project/${ref}`] = m;
-  }
-
   // The shared roots, found by LOCATION rather than declared, so a missing folder is simply not a root (docs/sharedFolders.md).
   for (const root of moduleLibraryDirs(dir)) {
     // The level comes from WHERE the root is, not from anything it declares — see moduleNamespaceOf.
@@ -863,7 +766,7 @@ function readModuleRefs(
   return out;
 }
 
-/** The ref map for a project — its own modules plus every shared root it inherits; a thin alias, no root being declared. */
+/** The ref map for a project — every shared root it inherits; a thin alias, no root being declared. */
 export const projectModules = (dir: string): Record<string, LoadedModule> =>
   loadModuleRefs(dir);
 
@@ -1043,15 +946,11 @@ export function createModuleFile(
     throw new Error(
       `unknown module category '${category}' — use one of: ${Object.keys(MODULE_TYPES).join(", ")}`,
     );
-  // io is not a free category: the role the loader READS is spelled by a name in the vocabulary.
-  if (category === "io") {
-    if (extendsRef)
-      throw new Error(`an io module extends nothing — '${module}' declares its io role itself`);
-    if (!IO_MODULES[module])
-      throw new Error(
-        `unknown io module '${module}' — the engine provides: ${Object.keys(IO_MODULES).join(", ")}`,
-      );
-  }
+  // io has no template to scaffold ahead of its instance — the role IS the node, made by `node new` alone.
+  if (category === "io")
+    throw new Error(
+      `an io module is made with its instance — \`node new io/<${Object.keys(IO_MODULES).join("|")}> <name>\``,
+    );
   if (!/^[A-Za-z0-9_-]+$/.test(module))
     throw new Error(
       `invalid module name '${module}' — letters, digits, '_' and '-' only`,
@@ -1066,22 +965,27 @@ export function createModuleFile(
       );
     }
   }
-  // Explicit name, so a clash is reported, not silently renamed around.
-  if (module in loadModules(dir))
-    throw new Error(`module '${module}' already exists in this project`);
-  const rel = `modules/${category}/${module}/module.yaml`; // the folder is named by the module; the file inside is always module.yaml
-  if (existsSync(join(dir, rel)))
-    throw new Error(`${rel} already exists — refusing to overwrite`);
-  mkdirSync(join(dir, "modules", category, module), { recursive: true });
-  const body =
-    category === "io"
-      ? ioModuleBody(module, IO_MODULES[module].io)
-      : extendsRef // a flat mapping, no `name:` — the folder names it
-        ? `# ${module}: extends module "${extendsRef}".\n` +
-          `extends: ${JSON.stringify(extendsRef)}\n`
-        : `# ${module}: a bare module. Give it a plugin inline, or extend another module, e.g.\n` +
-          `#   extends: instruments/fourosc\n`;
-  writeFileSync(join(dir, rel), body, "utf8");
+  // A PROJECT writes into the WORKSPACE's shared library — a module lives at `@workspace` or `@st0`
+  // now, never in a project. A template being edited with `at` (no project.yaml) keeps bundling its
+  // own `modules/`, a different, older mechanism this change does not touch.
+  const isProject = isProjectFolder(dir);
+  const moduleDir = isProject
+    ? resolve(dir, SHARED_MODULES_PATH, category, module)
+    : join(dir, "modules", category, module);
+  const rel = isProject
+    ? `${SHARED_MODULES_PATH}/${category}/${module}/module.yaml`
+    : `modules/${category}/${module}/module.yaml`;
+  if (existsSync(moduleDir))
+    throw new Error(
+      `${category}/${module} already exists ${isProject ? "in the workspace's _modules" : "here"}`,
+    );
+  mkdirSync(moduleDir, { recursive: true });
+  const body = extendsRef // a flat mapping, no `name:` — the folder names it
+    ? `# ${module}: extends module "${extendsRef}".\n` +
+      `extends: ${JSON.stringify(extendsRef)}\n`
+    : `# ${module}: a bare module. Give it a plugin inline, or extend another module, e.g.\n` +
+      `#   extends: "@st0/instruments/fourosc"\n`;
+  writeFileSync(join(moduleDir, "module.yaml"), body, "utf8");
   return rel;
 }
 
@@ -1130,7 +1034,7 @@ function ioModuleBody(
   );
 }
 
-/** Create an io module — the ROLE is the vocabulary's, the NAME is the graph node's; the node IS this module, so there is no `nodes/` file (docs/moduleTypes.md). */
+/** Create an io NODE directly — the ROLE is the vocabulary's, the NAME is the graph node's; the wiring is this song's own, so it is `nodes/`, never a shared module (docs/moduleTypes.md). */
 export function createIoModuleFile(
   dir: string,
   name: string,
@@ -1140,10 +1044,10 @@ export function createIoModuleFile(
     throw new Error(
       `invalid io module name '${name}' — letters, digits, '_' and '-' only`,
     );
-  const rel = `modules/io/${name}/module.yaml`;
+  const rel = `${NODES_DIR}/${name}.yaml`;
   if (existsSync(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
-  mkdirSync(join(dir, "modules", "io", name), { recursive: true });
+  mkdirSync(join(dir, NODES_DIR), { recursive: true });
   writeFileSync(join(dir, rel), ioModuleBody(name, role), "utf8");
   return rel;
 }
@@ -1180,9 +1084,9 @@ export function createNode(
     throw new Error(
       `invalid node name '${node}' — letters, digits, '_' and '-' only`,
     );
-  // io — the node IS the module: one bare name in graph.modules, and NO nodes/ file, since
-  // an io module is nothing but its role (docs/moduleTypes.md). `module` names the role
-  // (canonical: IN, CAM, FILE); `node` names the thing — so a second input is `node new io/IN IN2`.
+  // io — the node IS the whole of it, made directly in `nodes/`, since an io module is nothing
+  // but its role (docs/moduleTypes.md). `module` names the role (canonical: IN, CAM, FILE);
+  // `node` names the thing — so a second input is `node new io/IN IN2`.
   if (category === "io") {
     const role = IO_MODULES[module]?.io;
     if (!role)
@@ -1197,15 +1101,22 @@ export function createNode(
       throw new Error(`the name '${node}' is already a module or node in this project`);
     return createIoModuleFile(dir, node, role);
   }
+  // A PROJECT looks at the workspace beside it; a template being edited with `at` (no project.yaml
+  // of its own — the chain/assembly builder's "+" runs here) still bundles its own `modules/`,
+  // which is a different, older mechanism this change does not touch.
+  const isProject = isProjectFolder(dir);
+  const localRel = isProject
+    ? `${SHARED_MODULES_PATH}/${category}/${module}`
+    : `modules/${category}/${module}`;
   const local = moduleFileFor(
-    join(dir, "modules", category, module),
-    `modules/${category}/${module}`,
+    isProject ? resolve(dir, SHARED_MODULES_PATH, category, module) : join(dir, "modules", category, module),
+    localRel,
     "module",
   );
   const fromEngine = local ? undefined : catalogue[engineRef(module)];
   if (!local && !fromEngine)
     throw new Error(
-      `module '${category}/${module}' is neither in this project nor one the engine offers — ` +
+      `module '${category}/${module}' is neither in ${isProject ? "the workspace" : "this template"} nor one the engine offers — ` +
         `create it first, or name one of the engine's`,
     );
   // Free among the NODES, which is what the file check below asks. A module of that name is not in
@@ -1215,7 +1126,9 @@ export function createNode(
     throw new Error(`${rel} already exists — refusing to overwrite`);
   const plugin = fromEngine?.plugin;
   // The explicit level, which is the form new files are written in — see loadModuleRefs.
-  const ref = `@project/${moduleRefOf(category, module)}`;
+  const ref = isProject
+    ? `@workspace/${moduleRefOf(category, module)}`
+    : `@project/${moduleRefOf(category, module)}`;
   const body = local
     ? `# ${node}: one use of module "${category}/${module}".\n` +
       `# It inherits everything that module says — state only what THIS use changes, e.g.\n` +
@@ -1254,17 +1167,22 @@ export function cloneModuleFile(
     );
   if (name === newName)
     throw new Error("source and destination names are the same");
-  const srcDir = join(dir, "modules", category, name);
+  // A PROJECT clones within the WORKSPACE's `_modules`; a template being edited with `at` (no
+  // project.yaml) keeps bundling its own `modules/`, a different, older mechanism this leaves alone.
+  const isProject = isProjectFolder(dir);
+  const localDir = (n: string) =>
+    isProject
+      ? resolve(dir, SHARED_MODULES_PATH, category, n)
+      : join(dir, "modules", category, n);
+  const srcDir = localDir(name);
   if (!existsSync(srcDir) || !existsSync(join(srcDir, "module.yaml")))
     throw new Error(`module '${category}/${name}' not found`);
-  if (newName in loadModules(dir))
-    // destination must not already exist
-    throw new Error(
-      `module '${category}/${newName}' already exists in this project`,
-    );
-  const destDir = join(dir, "modules", category, newName);
+  const destDir = localDir(newName);
+  const destRel = isProject
+    ? `${SHARED_MODULES_PATH}/${category}/${newName}`
+    : `modules/${category}/${newName}`;
   if (existsSync(destDir))
-    throw new Error(`folder modules/${category}/${newName}/ already exists`);
+    throw new Error(`folder ${destRel}/ already exists`);
   cpSync(srcDir, destDir, { recursive: true });
   const modPath = join(destDir, "module.yaml"); // rewritten below if it has a `name:` field
   try {
@@ -1277,5 +1195,5 @@ export function cloneModuleFile(
   } catch {
     /* read-only or missing — leave as-is */
   }
-  return `modules/${category}/${newName}/module.yaml`;
+  return `${destRel}/module.yaml`;
 }

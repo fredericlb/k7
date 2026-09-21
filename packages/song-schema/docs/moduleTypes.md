@@ -251,12 +251,12 @@ one it means instead of leaving a reader to guess. There is no migration code, d
 same call `packages/song/docs/nodes.md` and
 `packages/song/docs/trackModules.md` already made.
 
-## The four levels
+## The three levels
 
-A ref carries the level as its `@` prefix — `@engine/audio/nam`, `@st0/…`, `@workspace/…`,
-`@project/…` — and a BARE ref (`audio/reverb`) is the project level written the short way. `engine`
-is the odd one: it names no folder at all, since a scanned plugin is synthesised by
-`engineCatalogue` from the machine's scan cache, so it is a level without a root.
+A ref carries the level as its `@` prefix — `@engine/audio/nam`, `@st0/…`, `@workspace/…` — and
+there is no bare form: every ref names its level explicitly. `engine` is the odd one: it names no
+folder at all, since a scanned plugin is synthesised by `engineCatalogue` from the machine's scan
+cache, so it is a level without a root.
 
 The list lives here and not beside `moduleNamespaceOf`, which decides a level from a folder on disk:
 this is the vocabulary, and a browser has to spell it too — st0's Libraries tab writes `@st0` on a

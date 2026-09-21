@@ -247,10 +247,18 @@ describe("a mixed lane wired bare", () => {
     );
     mkdirSync(join(p, "clips"), { recursive: true });
     mkdirSync(join(p, "sequences"), { recursive: true });
-    mkdirSync(join(p, "modules", "instruments", "synth"), { recursive: true });
+    // A real type folder, so its default ports say it takes midi — a bare node has none of its own.
+    mkdirSync(join(dir, "_modules", "instruments", "synth"), {
+      recursive: true,
+    });
     writeFileSync(
-      join(p, "modules", "instruments", "synth", "module.yaml"),
+      join(dir, "_modules", "instruments", "synth", "module.yaml"),
       "plugin: { type: internal, name: 4osc }\n",
+    );
+    mkdirSync(join(p, "nodes"), { recursive: true });
+    writeFileSync(
+      join(p, "nodes", "synth.yaml"),
+      'extends: "@workspace/instruments/synth"\n',
     );
     writeFileSync(
       join(p, "clips", "riff.yaml"),

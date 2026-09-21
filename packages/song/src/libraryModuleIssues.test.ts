@@ -19,14 +19,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { libraryModuleIssues, loadModuleRefs } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 
-const SONG = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "..",
-  "demos",
-  "synth-demo.st0",
-);
+const DEMOS = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "demos");
+const SONG = join(DEMOS, "synth-demo.st0");
 
 let ws: string;
 let dir: string;
@@ -96,6 +90,8 @@ describe("…and when a module DOES name it", () => {
     // "unknown module" sends you looking for a file that is there with wrong CONTENT.
     const song = join(ws, "demo");
     cpSync(SONG, song, { recursive: true });
+    // The Examples workspace's own shared library, beside every demo project.
+    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
     writeFileSync(
       join(song, "project.yaml"),
       // Filled rather than added: a second key would fail to parse for an unrelated reason.

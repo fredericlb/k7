@@ -205,10 +205,11 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   Ctrl+S mean "now", not "at all" — they flush the timer and cannot overrule the rule.
 - **Modules** — `@studio/ui-module-builder`, the same component pl8 runs, as a full-screen
   overlay over the shell. It is reached by the **Builder** button on a module file's editor
-  toolbar, not by opening the file: `module.yaml` must still open its text, because that is the
-  path a shared module forks through. `src/api.ts`'s `moduleStore` is the seam — see that
-  package's `docs/store.md`, in particular why a save can come back saying it landed somewhere
-  else.
+  toolbar, not by opening the file directly: a click in the file tree opens `module.yaml` as
+  text like any other file, and the button is the door from there into the builder.
+  `src/api.ts`'s `moduleStore` is the seam — see that package's `docs/store.md`, in particular
+  why a save can come back saying it landed somewhere else — an `@engine` ref materialising into
+  its first folder, the one case that still redirects.
 
   **The builder is one of the two screens here with a Save button**, and the exception is
   deliberate: a module is four files describing one thing, and on a shared one a save is a
@@ -221,11 +222,11 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   re-render of the whole shell per keystroke (`frontend/docs/shell.md`).
 
   The file tree has a **second tab, Libraries**, listing every level a module can live at —
-  `@project`, `@workspace`, `@st0`, `@engine` — nearest first, which is precedence. They come
+  `@workspace`, `@st0`, `@engine` — nearest first, which is precedence. They come
   from `GET /module-libraries`, NOT from `/tree`: that one is rooted at the active project and
-  excludes the shared folders on purpose. `@engine` is read-only and has no folder at all (it is
-  the plugin scan, synthesised); the others offer **New folder…** and **New module…**. The
-  Project tab drops the song's own `modules/`, which is `@project` here. Only an `@st0` module
+  excludes the shared folders on purpose — a project keeps no `modules/` of its own to exclude.
+  `@engine` is read-only and has no folder at all (it is the plugin scan, synthesised); the
+  other two offer **New folder…** and **New module…**. Only an `@st0` module
   opens the same builder **read-only**, with an Edit button
   behind a confirmation; Save then writes into `_libraries/…`, commits and pushes that
   repository, and records the new version in the song with one path-limited commit moving the

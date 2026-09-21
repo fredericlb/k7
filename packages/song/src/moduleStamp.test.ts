@@ -15,9 +15,9 @@ let root = "";
 let dir = "";
 
 const module_ = (at: string, name: string): void => {
-  mkdirSync(join(at, "modules", "audio", name), { recursive: true });
+  mkdirSync(join(at, "nodes"), { recursive: true });
   writeFileSync(
-    join(at, "modules", "audio", name, "module.yaml"),
+    join(at, "nodes", `${name}.yaml`),
     `# ${name}\nplugin:\n  type: internal\n  name: Mixer\n`,
     "utf8",
   );

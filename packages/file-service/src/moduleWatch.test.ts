@@ -5,7 +5,11 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadModules, withModuleStamp } from "@studio/song/loader";
+import {
+  loadModuleRefs,
+  loadModules,
+  withModuleStamp,
+} from "@studio/song/loader";
 import { setFoldersStill } from "@studio/song/moduleCache";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -19,23 +23,36 @@ import {
 let root = "";
 let dir = "";
 
+// A module now lives at `@workspace` — beside the project, in `_modules` — never inside it.
 const module_ = (name: string): void => {
-  mkdirSync(join(dir, "modules", "audio", name), { recursive: true });
+  mkdirSync(join(root, "_modules", "audio", name), { recursive: true });
   writeFileSync(
-    join(dir, "modules", "audio", name, "module.yaml"),
+    join(root, "_modules", "audio", name, "module.yaml"),
     `# ${name}\nplugin:\n  type: internal\n  name: Mixer\n`,
     "utf8",
   );
 };
 
-// fs.watch delivers on its own schedule; a fixed sleep is what a real event needs.
-const settle = (ms = 250): Promise<void> =>
+// A node stays project-local, which is what "keeps two projects apart" below exercises.
+const node_ = (dirAt: string, name: string): void => {
+  mkdirSync(join(dirAt, "nodes"), { recursive: true });
+  writeFileSync(
+    join(dirAt, "nodes", `${name}.yaml`),
+    `plugin:\n  type: internal\n  name: Mixer\n`,
+    "utf8",
+  );
+};
+
+// fs.watch delivers on its own schedule; a fixed sleep is what a real event needs, and a longer
+// one is cheaper than a flake when the whole suite's watchers are contending for the same OS queue.
+const settle = (ms = 500): Promise<void> =>
   new Promise((r) => setTimeout(r, ms));
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "module-watch-"));
   dir = join(root, "song.st0");
-  mkdirSync(dir, { recursive: true });
+  // `nodes/` must exist before the watch attaches, or that root is silently uncovered.
+  mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(join(dir, "project.yaml"), "project:\n  name: t\n", "utf8");
   module_("reverb");
 });
@@ -73,7 +90,7 @@ describe("moduleFoldersStill", () => {
     moduleFoldersStill(dir);
     expect(moduleFoldersStill(dir)).toBe(true);
     writeFileSync(
-      join(dir, "modules", "audio", "reverb", "module.yaml"),
+      join(root, "_modules", "audio", "reverb", "module.yaml"),
       "# reverb\nplugin:\n  type: internal\n  name: Mixer\nparams:\n  Volume: 3\n",
       "utf8",
     );
@@ -89,15 +106,12 @@ describe("moduleFoldersStill", () => {
     expect(moduleFoldersStill(dir)).toBe(false);
   });
 
-  // One watch per PROJECT, so a change to one does not cost the other session its answer.
+  // One watch per PROJECT, so a change to one does not cost the other session its answer —
+  // exercised on `nodes/`, the one root that stays project-local (a module now lives at
+  // `@workspace`, shared by both).
   it("keeps two projects apart", async () => {
     const other = join(root, "other.st0");
-    mkdirSync(join(other, "modules", "audio", "chorus"), { recursive: true });
-    writeFileSync(
-      join(other, "modules", "audio", "chorus", "module.yaml"),
-      "# chorus\nplugin:\n  type: internal\n  name: Mixer\n",
-      "utf8",
-    );
+    node_(other, "chorus");
     watchModuleFolders(dir);
     watchModuleFolders(other);
     moduleFoldersStill(dir);
@@ -105,7 +119,7 @@ describe("moduleFoldersStill", () => {
     expect(moduleFoldersStill(dir)).toBe(true);
     expect(moduleFoldersStill(other)).toBe(true);
 
-    module_("delay"); // …only the first one moves
+    node_(dir, "delay"); // …only the first one moves
     await settle();
     expect(moduleFoldersStill(dir)).toBe(false);
     expect(moduleFoldersStill(other)).toBe(true);
@@ -123,26 +137,33 @@ describe("moduleFoldersStill", () => {
   });
 });
 
+// The `@workspace` refs this project resolves, stripped of the type folder — what the oracle governs.
+const workspaceAudioRefs = (d: string): string[] =>
+  Object.keys(loadModuleRefs(d))
+    .filter((r) => r.startsWith("@workspace/audio/"))
+    .map((r) => r.slice("@workspace/audio/".length))
+    .sort();
+
 // A held stamp must not outlive a change to the folders, whatever the watcher's opinion.
 describe("the vocabulary the oracle governs", () => {
   it("still sees a module added while it is installed", async () => {
     watchModuleFolders(dir);
     setFoldersStill(moduleFoldersStill);
-    expect(Object.keys(loadModules(dir))).toEqual(["reverb"]);
+    expect(workspaceAudioRefs(dir)).toEqual(["reverb"]);
     module_("delay");
     await settle();
-    expect(Object.keys(loadModules(dir)).sort()).toEqual(["delay", "reverb"]);
+    expect(workspaceAudioRefs(dir)).toEqual(["delay", "reverb"]);
   });
 
   /** The case a watcher gets WRONG on its own, and why `moduleFoldersMoved` exists — docs/moduleWatch.md. */
   it("sees a module this process just wrote, before any event arrives", () => {
     watchModuleFolders(dir);
     setFoldersStill(moduleFoldersStill);
-    expect(Object.keys(loadModules(dir))).toEqual(["reverb"]);
+    expect(workspaceAudioRefs(dir)).toEqual(["reverb"]);
     moduleFoldersStill(dir); // settle: from here it would claim nothing moved
     module_("delay");
     moduleFoldersMoved();
-    expect(Object.keys(loadModules(dir)).sort()).toEqual(["delay", "reverb"]);
+    expect(workspaceAudioRefs(dir)).toEqual(["delay", "reverb"]);
   });
 
   // …and the scope still wins inside itself: a derivation is a still frame either way.
@@ -151,9 +172,9 @@ describe("the vocabulary the oracle governs", () => {
     setFoldersStill(moduleFoldersStill);
     loadModules(dir);
     const seen = withModuleStamp(dir, () => {
-      const before = Object.keys(loadModules(dir));
+      const before = workspaceAudioRefs(dir);
       module_("delay");
-      return { before, after: Object.keys(loadModules(dir)) };
+      return { before, after: workspaceAudioRefs(dir) };
     });
     expect(seen.after).toEqual(seen.before);
   });

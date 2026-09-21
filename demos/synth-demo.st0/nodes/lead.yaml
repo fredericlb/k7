@@ -6,8 +6,8 @@
 # is the only place the relationship is written down.
 #
 # So state only what THIS voice changes — the 4OSC plugin, the UI and the two automation
-# curves all come from the synth module (which in turn extends instruments/fourosc). The
-# merge order is: instruments/fourosc -> instruments/synth -> this file, each winning per key.
-extends: "@project/instruments/synth"
+# curves all come from the synth module (which in turn extends @workspace/instruments/fourosc).
+# The merge order is: fourosc -> synth -> this file, each winning per key.
+extends: "@workspace/instruments/synth"
 params:
   Filter Freq: 90 # brighter than the shared default — this one has to cut through

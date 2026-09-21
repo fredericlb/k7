@@ -148,7 +148,7 @@ describe("against `extends`", () => {
 
 describe("the file the app writes", () => {
   const AUTHORED = `# the amp
-extends: "@project/audio/amp"
+extends: "@workspace/audio/amp"
 params: { Gain: 3, Tone: 5 }
 alternatives:
   - name: crunch
@@ -206,12 +206,10 @@ describe("through the real loader", () => {
   const project = (node: string): string => {
     const p = join(dir, "song.st0");
     mkdirSync(join(p, "nodes"), { recursive: true });
-    mkdirSync(join(p, "modules", "audio", "amp"), { recursive: true });
-    mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });
+    mkdirSync(join(dir, "_modules", "audio", "amp"), { recursive: true });
     writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
-    writeFileSync(join(p, "modules", "io", "OUT", "module.yaml"), "io: out\n");
     writeFileSync(
-      join(p, "modules", "audio", "amp", "module.yaml"),
+      join(dir, "_modules", "audio", "amp", "module.yaml"),
       "plugin: { type: internal, name: Chorus }\nparams: { Gain: 1, Tone: 5 }\n",
     );
     writeFileSync(join(p, "nodes", "ampli.yaml"), node);
@@ -228,7 +226,7 @@ describe("through the real loader", () => {
 
   it("reaches the graph as the chosen set, with the list beside it", () => {
     const p = project(
-      'extends: "@project/audio/amp"\nparams: { Gain: 3 }\n' +
+      'extends: "@workspace/audio/amp"\nparams: { Gain: 3 }\n' +
         "alternative: crunch\nalternatives:\n  - name: crunch\n    params: { Gain: 9 }\n",
     );
     const g = loadGraph(p);
@@ -241,14 +239,14 @@ describe("through the real loader", () => {
 
   it("says nothing about alternatives on a module that has none", () => {
     // No menu on a node with one set: a list of one is not a choice.
-    const g = loadGraph(project('extends: "@project/audio/amp"\n'));
+    const g = loadGraph(project('extends: "@workspace/audio/amp"\n'));
     expect(g.modules.ampli.alternatives).toBeUndefined();
     expect(g.modules.ampli.alternative).toBeUndefined();
   });
 
   it("round-trips a switch written by the app", () => {
     const p = project(
-      'extends: "@project/audio/amp"\nparams: { Gain: 3 }\n' +
+      'extends: "@workspace/audio/amp"\nparams: { Gain: 3 }\n' +
         "alternatives:\n  - name: crunch\n    params: { Gain: 9 }\n",
     );
     const file = join(p, "nodes", "ampli.yaml");

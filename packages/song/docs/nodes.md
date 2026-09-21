@@ -8,9 +8,9 @@ Nodes live in a **flat `nodes/` folder at the project root**, and the FILE names
 the node:
 
 ```
-modules/instruments/synth/module.yaml   ->  "synth"   the module
-nodes/lead.yaml                         ->  "lead"    one use of it
-nodes/pad.yaml                          ->  "pad"     another
+_modules/instruments/synth/module.yaml   ->  "@workspace/instruments/synth"   the module
+nodes/lead.yaml                          ->  "lead"                           one use of it
+nodes/pad.yaml                           ->  "pad"                            another
 ```
 
 A chain names a node by that filename and nothing else:
@@ -52,7 +52,7 @@ So they come from **what the node extends**:
 
 ```yaml
 # nodes/lead.yaml
-extends: "@project/instruments/synth"
+extends: "@workspace/instruments/synth"
 params:
   Filter Freq: 90
 ```
@@ -189,7 +189,7 @@ Four things it declines to do, each for its own reason:
 |---|---|
 | a name with no counter, or one that is not digits | not a name this convention made |
 | a name built from a DIFFERENT module | it says nothing about what the node should be called now |
-| the module's leaf does not change (`@st0/audio/reverb` → `@project/audio/reverb`) | a different module, the same word — nothing to follow |
+| the module's leaf does not change (`@st0/audio/reverb` → `@workspace/audio/reverb`) | a different module, the same word — nothing to follow |
 | a name a `surfaces/` **mapping** points at | see below |
 
 The mapping is the only place outside `graph.yaml` where a node's name is a REFERENCE, and

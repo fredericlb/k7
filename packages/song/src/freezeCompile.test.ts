@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 import type { ProjectDoc, TrackDoc } from "./project";
-import { setYaml, writeLane, writeModule, writeYaml } from "./testSupport";
+import { setYaml, writeLane, writeNode, writeYaml } from "./testSupport";
 
 let dir = "";
 
@@ -16,9 +16,9 @@ let dir = "";
 function project(name: string): string {
   const p = join(dir, `${name}.st0`);
   writeYaml(join(p, "project.yaml"), { project: { name } });
-  writeModule(p, "io", "OUT", { io: "out" });
+  // OUT needs no file at all — a built-in sink name (docs/moduleTypes.md).
   for (const m of ["amp", "cab", "verb", "plate"])
-    writeModule(p, "audio", m, { plugin: { type: "vst3", name: m } });
+    writeNode(p, m, { plugin: { type: "vst3", name: m } });
   writeLane(p, "gtr", "track", {
     events: [{ ref: "riff", start: "1:1:1" }],
   });
@@ -61,7 +61,7 @@ describe("a freeze inside one lane's run", () => {
   it("plays the render on that lane, and stops building what it contains", () => {
     const p = project("inside");
     setYaml(
-      join(p, "modules", "audio", "amp", "module.yaml"),
+      join(p, "nodes", "amp.yaml"),
       ["frozen"],
       "renders/r.wav",
     );
@@ -81,7 +81,7 @@ describe("a freeze inside one lane's run", () => {
     // A project cloned without its renders is not a broken project — see activeFreezePlans.
     const p = project("missing");
     setYaml(
-      join(p, "modules", "audio", "amp", "module.yaml"),
+      join(p, "nodes", "amp.yaml"),
       ["frozen"],
       "renders/gone.wav",
     );
@@ -95,7 +95,7 @@ describe("a freeze at a bus", () => {
   it("silences every lane that met there and plays the render on the return track", () => {
     const p = project("bus");
     setYaml(
-      join(p, "modules", "audio", "verb", "module.yaml"),
+      join(p, "nodes", "verb.yaml"),
       ["frozen"],
       "renders/r.wav",
     );

@@ -1,15 +1,9 @@
-// moduleFork.ts — taking ownership of a module that isn't yours. Two ways in: a `_modules` library is shared
-// by every project beside it, so a save aimed at one copies the whole module folder into the project and
-// repoints every chain step that named it; and a module the ENGINE merely reports has no folder at all, so
-// wanting a face or presets for one materialises it here. Rationale: docs/moduleFork.md.
+// moduleFork.ts — taking ownership of a module the ENGINE merely reports: it has no folder at
+// all, so wanting a face or presets for one materialises it into the workspace's `_modules` here.
+// A `@workspace` or `@st0` module that already HAS a folder is simply edited in place — there is
+// no project-local copy to fork into instead. Rationale: docs/moduleFork.md.
 
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import {
   basename,
   dirname,
@@ -18,16 +12,20 @@ import {
   resolve,
   sep,
 } from "node:path";
-import { instanceName, namePart } from "@studio/song-schema/instanceName";
+import { namePart } from "@studio/song-schema/instanceName";
 import { parseGraph, renameNode } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
 import { deriveChains } from "./chainsGraph";
 import { engineModules } from "./engineCatalogue";
 import { MODULE_TYPES, moduleRefOf } from "./loader";
 import type { LoadedModule } from "./rawDoc";
-import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
+import {
+  moduleLibraryDirs,
+  moduleNamespaceOf,
+  SHARED_MODULES_PATH,
+} from "./sharedFolders";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
-import { entityFileFor, moduleFileFor } from "./yaml/moduleIO";
+import { entityFileFor } from "./yaml/moduleIO";
 
 export type ForkedModule = {
   /** The shared ref that was edited, e.g. "@engine/audio/delay/tape-delay". */
@@ -87,66 +85,7 @@ export function chainsUsing(text: string, module: string): string[] {
     .map(([name]) => name);
 }
 
-/** Copy a shared module in with `content` as its module file, and repoint the chains — docs/moduleFork.md. */
-export function forkSharedModule(
-  dir: string,
-  file: string,
-  content: string,
-): ForkedModule {
-  const found = sharedModuleRef(dir, file);
-  if (!found)
-    throw new Error(
-      `${basename(file)}: the shared module library is read-only, and this file is not a module that can be copied into the project`,
-    );
-  const { ref, folder, leaf, type } = found;
-  if (basename(file).replace(/\.[^.]+$/, "") !== "module")
-    throw new Error(
-      `${basename(file)}: the shared module library is read-only — edit ${leaf}'s module file to get a project copy of it`,
-    );
-
-  // Named after the chain that plays it; one the project doesn't play yet still forks, or the edit is lost.
-  const graphFile = entityFileFor(dir, "", GRAPH_BASE);
-  const graphText = graphFile ? readFileSync(graphFile.path, "utf8") : "";
-  const track = graphText ? (chainsUsing(graphText, ref)[0] ?? null) : null;
-  const typeDir = join(dir, "modules", type);
-  // The same `<owner>_<what>_<n>` a node is named by — one rule, in instanceName.ts.
-  const module = instanceName(leaf, track, (n) => existsSync(join(typeDir, n)));
-  const dest = join(typeDir, module);
-
-  mkdirSync(typeDir, { recursive: true });
-  cpSync(folder, dest, { recursive: true }); // sidecars included — a module is its folder
-  const generic = moduleFileFor(dest, "", "module");
-  writeFileSync(generic?.path ?? join(dest, "module.yaml"), content, "utf8");
-
-  // The folder copy brought the panel; rewritten anyway so its header names the copy — docs/moduleFork.md.
-  const panel = loadUiLibrary(dir).byRef[ref];
-  const localRef = moduleRefOf(type, module); // the ref the LOADER will key the copy by, not the folder name
-  if (panel)
-    writeUiFile(
-      dir,
-      localRef,
-      panel.ui,
-      `panel for ${localRef} (copied from ${ref})`,
-    );
-
-  // Repointed AFTER the files exist: a chain naming a module with no file is what the compiler refuses to load.
-  let chains: string[] = [];
-  if (graphFile) {
-    const r = renameNode(graphText, ref, module);
-    if (r.text !== graphText) writeFileSync(graphFile.path, r.text, "utf8");
-    // The chains as they NOW stand, so the report names what the copy plays in.
-    chains = chainsUsing(r.text, module);
-  }
-
-  return {
-    ref,
-    module,
-    path: `modules/${type}/${module}/${basename(generic?.path ?? "module.yaml")}`,
-    chains,
-  };
-}
-
-/** Give a module the ENGINE merely reports a folder of its own — the same shape as a fork, docs/moduleFork.md. */
+/** Give a module the ENGINE merely reports a folder of its own — docs/moduleFork.md. */
 export function materialiseEngineModule(
   dir: string,
   ref: string,
@@ -163,7 +102,9 @@ export function materialiseEngineModule(
 
   // Named after the ref's own slug, bare — not `instanceName`, see docs/moduleFork.md.
   const stem = namePart(String(found.file ?? ref.split("/").pop() ?? "module"));
-  const typeDir = join(dir, "modules", type);
+  // Same workspace-level home a fork gets — an engine module given a folder is an ordinary
+  // `@workspace` module from that point on, docs/moduleFork.md.
+  const typeDir = resolve(dir, SHARED_MODULES_PATH, type);
   let module = stem;
   for (let n = 2; existsSync(join(typeDir, module)); n++)
     module = `${stem}_${n}`;
@@ -182,7 +123,7 @@ export function materialiseEngineModule(
 
   // The panel follows, if the engine module had one drawn under its ref somewhere readable.
   const panel = loadUiLibrary(dir).byRef[ref];
-  const localRef = moduleRefOf(type, module);
+  const localRef = `@workspace/${moduleRefOf(type, module)}`;
   if (panel)
     writeUiFile(dir, localRef, panel.ui, `panel for ${localRef} (was ${ref})`);
 
@@ -191,15 +132,15 @@ export function materialiseEngineModule(
   let chains: string[] = [];
   if (graphFile) {
     const text = readFileSync(graphFile.path, "utf8");
-    const r = renameNode(text, ref, module);
+    const r = renameNode(text, ref, localRef);
     if (r.text !== text) writeFileSync(graphFile.path, r.text, "utf8");
-    chains = chainsUsing(r.text, module);
+    chains = chainsUsing(r.text, localRef);
   }
 
   return {
     ref,
     module,
-    path: `modules/${type}/${module}/module.yaml`,
+    path: `${SHARED_MODULES_PATH}/${type}/${module}/module.yaml`,
     chains,
   };
 }

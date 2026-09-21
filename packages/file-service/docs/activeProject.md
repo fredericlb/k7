@@ -32,9 +32,9 @@ What the wider tree costs, and how each is paid:
   `inActiveProject()` is the predicate that stops it, and st0's editor gates its minimap item
   and its clip/sequence panel on it. Opening such a file gives you its TEXT, which is right: it
   is a file in this repository and you may read and edit it.
-- **The shared `_modules` library is now visible.** It is still not editable — `guardShared`
-  refuses every write and a UI edit forks a project-local copy — and what a project needs of it
-  still arrives through `/module-catalogue`, `/module-ui` and `/hints`.
+- **The shared `_modules` library is now visible**, and ordinarily editable — a write there
+  changes what every project in the workspace sees, which is the point of it being shared. What
+  a project needs of it still arrives through `/module-catalogue`, `/module-ui` and `/hints`.
 - **A `.dawproject` outside a project folder is now on the tree**, and can therefore be clicked
   to import. That is a gain rather than a cost: importing lands a new project at the workspace
   root, which is exactly where the tree now looks.

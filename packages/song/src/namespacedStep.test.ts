@@ -18,7 +18,8 @@ import { insertChainStepAfter, replaceChainStep } from "./testSupport";
 // A step may name an INHERITED module by its ref, with no local module standing in for it.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMOS = join(here, "..", "..", "..", "demos");
+const SONG = join(DEMOS, "synth-demo.st0");
 const REF = "@workspace/audio/shared-delay";
 
 describe("a chain step naming an inherited module by ref", () => {
@@ -28,6 +29,8 @@ describe("a chain step naming an inherited module by ref", () => {
     ws = mkdtempSync(join(tmpdir(), "td-nsstep-"));
     dir = join(ws, "song");
     cpSync(SONG, dir, { recursive: true });
+    // The Examples workspace's own shared library, beside every demo project.
+    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
     // The workspace's shared catalogue: a namespace, and one module in it.
     mkdirSync(join(ws, "_modules", "audio", "shared-delay"), {
       recursive: true,

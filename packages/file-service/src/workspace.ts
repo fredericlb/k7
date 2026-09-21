@@ -62,7 +62,6 @@ import {
 } from "@studio/song/moduleCatalogue";
 import {
   type ForkedModule,
-  forkSharedModule,
   materialiseEngineModule,
   sharedModuleRef,
 } from "@studio/song/moduleFork";
@@ -1177,14 +1176,12 @@ export class Workspace {
   /** The module libraries this project can reach, in precedence order — see docs/workspace.md. */
   moduleLibraries(): ModuleLibrary[] {
     const dir = this.activeProject ?? this.root;
-    const own = join(dir, "modules");
-    const roots: { ns: ModuleNamespace; abs: string }[] = [
-      { ns: "project", abs: own },
-      ...moduleLibraryDirs(dir).map((abs) => ({
-        ns: moduleNamespaceOf(abs),
-        abs,
-      })),
-    ];
+    const roots: { ns: ModuleNamespace; abs: string }[] = moduleLibraryDirs(
+      dir,
+    ).map((abs) => ({
+      ns: moduleNamespaceOf(abs),
+      abs,
+    }));
     const out: ModuleLibrary[] = roots.map(({ ns, abs }) => {
       const exists = existsSync(abs);
       return {
@@ -1392,22 +1389,11 @@ export class Workspace {
   }
 
   /** Save a file, forking a `_modules` one instead of refusing it — see docs/workspace.md. */
-  write(
-    rel: string,
-    content: string,
-  ): { forked?: ForkedModule; pushed?: boolean } {
+  // `_modules` and `_libraries/…` are both ORDINARY paths now — a module lives at `@workspace` or
+  // `@st0` and is edited in place, there being no project-local copy left to fork into instead
+  // (docs/workspace.md). Renaming or deleting either is still refused, by guardShared elsewhere.
+  write(rel: string, content: string): { forked?: ForkedModule; pushed?: boolean } {
     const abs = this.safePath(rel);
-
-    // `_libraries/…` is an ORDINARY path now; only `_modules` still forks — docs/workspace.md.
-    if (isInSharedModules(this.toRel(abs)) && basename(abs) !== UI_FILE) {
-      const dir = this.requireActive();
-      const forked = forkSharedModule(dir, abs, content);
-      this.invalidateProjectDoc();
-      // Re-rooted to the workspace, because that is the only path space the editor and the file tree speak.
-      return {
-        forked: { ...forked, path: this.toRel(join(dir, forked.path)) },
-      };
-    }
     if (isBinary(basename(abs))) throw new Error("cannot edit a binary file");
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, content, "utf8");
@@ -1461,12 +1447,12 @@ export class Workspace {
     return { path: this.toRel(abs) };
   }
 
-  /** The shared module library is read-only to every route — see docs/workspace.md. */
+  /** `_modules`'s own STRUCTURE is fixed to every route — its files are edited in place, never renamed, moved or deleted this way — see docs/workspace.md. */
   private guardShared(abs: string, verb: string): void {
     if (isInSharedModules(this.toRel(abs)))
       throw new Error(
-        `can't ${verb} '${this.toRel(abs)}': the shared module library is read-only — ` +
-          `edit it from a project to get your own copy, or run 'module populate' to rebuild it`,
+        `can't ${verb} '${this.toRel(abs)}': a shared module is edited in place — ` +
+          `change its files directly, or run 'module populate' to rebuild it`,
       );
   }
 
@@ -1565,7 +1551,8 @@ export class Workspace {
     const dir = this.requireActive();
     const newPath = cloneModuleFile(dir, category, name, newName);
     this.invalidateProjectDoc();
-    return { path: newPath };
+    // Re-rooted to the workspace: a clone now lands in `_modules`, beside the project rather than under it.
+    return { path: this.toRel(join(dir, newPath)) };
   }
 
   /** Add one USE of a module; the file lands in the project's flat `nodes/`, NOT under `rel`. */
