@@ -1,4 +1,3 @@
-/// <reference types="vitest/config" />
 import { alphaTab } from "@coderline/alphatab-vite";
 import { frediverseParaglide } from "@frediverse/i18n/vite";
 import { defineAppConfig } from "@frediverse/vite-config";
@@ -34,7 +33,5 @@ export default defineAppConfig({
     plugins: [frediverseParaglide(), alphaTab(), alphaTabWorkerEnv],
     // The extra host names these servers answer to — see scripts/dev-hosts.mjs.
     server: { allowedHosts: LEGACY_DEV_HOSTS },
-    // Plain node unit tests; component stories live in the single root Storybook.
-    test: { environment: "node", include: ["src/**/*.test.ts"] },
   },
 });
