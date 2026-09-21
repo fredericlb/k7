@@ -1,7 +1,7 @@
 # "kit" extends the drumrack, adding the snare and hi-hat to its default kick.
 # A module file is a flat struct with no `package` clause. A rack module's `symbols`
 # map merges OVER the base's, per symbol.
-extends: instruments/drumrack
+extends: "@workspace/instruments/drumrack"
 type: rack
 rack:
   rack_type: samples

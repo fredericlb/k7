@@ -31,21 +31,31 @@ const here = dirname(
 );
 // Three, not four: `song-edit/src` → the package → `packages/` → the repo root.
 const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
-const SYNTH = ["modules", "instruments", "synth"];
+const DEMO_MODULES = join(here, "..", "..", "..", "demos", "_modules");
+// A module lives at `@workspace` now, in `_modules` BESIDE the project — not `dir` itself.
+const SYNTH = ["..", "_modules", "instruments", "synth"];
 
+let root: string;
 let dir: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-yaml-"));
+  root = mkdtempSync(join(tmpdir(), "td-yaml-"));
+  dir = join(root, "synth-demo.st0");
   cpSync(SONG, dir, { recursive: true });
+  cpSync(DEMO_MODULES, join(root, "_modules"), { recursive: true });
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("loading", () => {
   it("reports a bad module with its file and the offending key", () => {
-    // Closed: a module silently ignoring `paramz:` would be a knob that does nothing.
-    writeFileSync(join(dir, ...SYNTH, "module.yaml"), "paramz: {}\n", "utf8");
+    // Closed: a module silently ignoring `paramz:` would be a knob that does nothing. A NODE is
+    // what `loadModules` reads now — the shared module it extends is a different loader's business.
+    writeFileSync(
+      join(dir, "nodes", "lead.yaml"),
+      'extends: "@workspace/instruments/synth"\nparamz: {}\n',
+      "utf8",
+    );
     expect(() => loadModules(dir, true)).toThrow(/invalid module\(s\)/);
-    expect(() => loadModules(dir, true)).toThrow(/module\.yaml/);
+    expect(() => loadModules(dir, true)).toThrow(/lead\.yaml/);
     expect(() => loadModules(dir, true)).toThrow(/paramz/);
   });
 
@@ -78,7 +88,7 @@ describe("the writers", () => {
       "# the lead\nplugin:\n  type: internal\n  name: 4osc\nparams:\n  Mix: 1\n";
     writeFileSync(file, authored, "utf8");
 
-    setModuleParam(dir, "synth", "Mix", 0.5);
+    setModuleParam(dir, "@workspace/instruments/synth", "Mix", 0.5);
     const after = readFileSync(file, "utf8");
     // The comment survives and exactly one line differs, so a knob drag is a one-line diff.
     expect(after).toContain("# the lead");
@@ -89,7 +99,7 @@ describe("the writers", () => {
   });
 
   it("sets and clears a library asset", () => {
-    const folder = join(dir, "modules", "audio", "cab");
+    const folder = join(root, "_modules", "audio", "cab");
     mkdirSync(folder, { recursive: true });
     writeFileSync(
       join(folder, "module.yaml"),
@@ -97,12 +107,12 @@ describe("the writers", () => {
       "utf8",
     );
 
-    setModuleAsset(dir, "cab", "ir", "ir/marshall.wav");
+    setModuleAsset(dir, "@workspace/audio/cab", "ir", "ir/marshall.wav");
     expect(readFileSync(join(folder, "module.yaml"), "utf8")).toContain(
       "ir: ir/marshall.wav",
     );
     // Cleared, not emptied: `ir: ""` would be a value that means nothing.
-    setModuleAsset(dir, "cab", "ir", null);
+    setModuleAsset(dir, "@workspace/audio/cab", "ir", null);
     expect(readFileSync(join(folder, "module.yaml"), "utf8")).not.toContain(
       "ir:",
     );

@@ -1,21 +1,22 @@
 # Instruments
 
-## modules/<type>/<name>/module.yaml
+## _modules/<type>/<name>/module.yaml
 
-A module — its own folder named for the module (the folder IS the name; there's no `name:`), holding module.yaml: a flat struct with no `package` clause. Its kind + input port come from the type folder (io / instruments / audio / transformers). It carries a plugin (or io, or a rack) inline; the control grid it draws on the graph is a separate file in the same folder, ui.yaml (below). A <name>.vstpreset in the folder overrides state.
+A module — its own folder named for the module (the folder IS the name; there's no `name:`), holding module.yaml: a flat struct with no `package` clause. Its kind + input port come from the type folder (instruments / audio / transformers). It carries a plugin (or a rack) inline; the control grid it draws on the graph is a separate file in the same folder, ui.yaml (below). A <name>.vstpreset in the folder overrides state.
 
 ```yaml schema=Module
-# modules/instruments/synth/module.yaml — a midi→audio instrument
+# _modules/instruments/synth/module.yaml — a midi→audio instrument
 plugin:
   type: internal
   name: 4osc
 # params:
 #   Filter Freq: 69
 #   nam: "jcm800.nam"      # a file the module carries, in its own assets/ folder
-
-# modules/io/OUT/module.yaml — the stereo-output sink
-io: out
 ```
+
+`OUT` is the interface — a built-in name, not a module: list it as a destination and it is
+there, no file anywhere. `MIX`, `CUE`, and on a project with a viewport `RENDER` and
+`VIDEO_OUT`, are the same.
 
 ### A note on the graph
 
@@ -49,14 +50,19 @@ you are trying to read.
 > one: a file carrying either does not open. Move the prose into a `#` comment, or into a note
 > if it is about the signal.
 
-An `io: in` module is a live interface input instead. It carries `channel:` — a channel number, a pair for a stereo input, or one of the labels from your preferences — plus two optional settings for what the input does before anything else sees it. It names no track: an input lands on the track at the head of the run it sits in, so one module can be shared by every project in a workspace. See [Chains](#syntax-chains).
+A live interface input is a NODE, not a module — this song's own wiring, never shared with
+another project (`node new io/IN <name>` makes one). It carries `io: in` and `channel:` — a
+channel number, a pair for a stereo input, or one of the labels from your preferences — plus two
+optional settings for what the input does before anything else sees it. It names no track: an
+input lands on the track at the head of the run it sits in. See [Chains](#syntax-chains).
 
 `monitor:` says whether you hear it. Write `true` or `false` for the everyday answer; the three-state spelling (`off` / `auto` / `on`) is there because **auto** — the default — is neither: it means audible only once the track is armed.
 
 `gain:` is an input trim in dB, `0` being unity. A guitar into a line input usually wants some; a hot synth wants less. It is applied at the interface, so it lands ahead of every module in the chain — and, like the monitor mode, it belongs to the physical input: two tracks on one input share it.
 
 ```yaml schema=Module
-# _modules/io/IN/in-1.yaml — a node of the IN module: one physical input
+# nodes/in-1.yaml — one physical input, this song's own
+io: in
 channel: [1]
 monitor: true    # hear it whether or not the track is armed
 gain: 6          # …and trim it 6 dB on the way in
@@ -79,12 +85,12 @@ frame: [40, 40, 320, 180] # …and leave THIS out to fill the frame
 
 > An export leaves a camera out. A render walks the timeline frame by frame, and a live picture has no frame at a given moment — what it would record is whatever the lens happened to be showing while the encoder ran.
 
-## modules/<type>/<name>/module.yaml — a NAM amp and its level
+## _modules/<type>/<name>/module.yaml — a NAM amp and its level
 
 A `.nam` profile is trained at whatever level its author played at, and it records that level in the file. Nothing makes two profiles agree, so a model can play back several dB below what went in — which sounds like the amp doing nothing at all. The Neural Amp Modeler module carries three parameters for this. `Normalize` (off/on, **on** by default) levels the profile to a fixed reference using its declared loudness, so swapping one amp for another stops being a volume change; `Input` and `Output` are ±20 dB trims around it. `Input` is a tone control as much as a level one — how hard you hit a modelled amp is half of what it sounds like. A profile that declares no loudness gives `Normalize` nothing to work from, and the module shows a warning saying so.
 
 ```yaml schema=Module
-# modules/audio/amp/module.yaml — a Neural Amp Modeler with its levels set
+# _modules/audio/amp/module.yaml — a Neural Amp Modeler with its levels set
 plugin:
   type: internal
   name: Neural Amp Modeler
@@ -95,14 +101,14 @@ params:
   Output: -1.5
 ```
 
-## modules/<type>/<name>/module.yaml — jsdsp: a module whose DSP is written in JS
+## _modules/<type>/<name>/module.yaml — jsdsp: a module whose DSP is written in JS
 
 A module of type `jsdsp` gets its audio from a **description** rather than from code compiled into the engine. There is nothing to name: the type says the DSP is in **`jsdsp.ts`, in the module's own folder**, and that is the whole rule. A module is a directory you can copy, clone or share, and the source travels with it.
 
 The file default-exports a function taking a graph builder. It imports nothing at runtime — the builder arrives as the argument — so a song folder needs no `node_modules`:
 
 ```ts
-// modules/audio/wah/jsdsp.ts
+// _modules/audio/wah/jsdsp.ts
 import type { GraphBuilder } from "@studio/dsp";
 
 export default (g: GraphBuilder) => {
@@ -116,7 +122,7 @@ export default (g: GraphBuilder) => {
 ```
 
 ```yaml schema=Module
-# modules/audio/wah/module.yaml — beside jsdsp.ts
+# _modules/audio/wah/module.yaml — beside jsdsp.ts
 plugin:
   type: jsdsp
 params:
@@ -129,14 +135,14 @@ The source is **run**, in a child process, and the result cached as a sibling `.
 
 Nodes run in four phases per block: `envelope` follows the input per sample; `todb`/`lerp`/`linmap`/`geolerp`/`clamp`/`select`/arithmetic/`glide` are once-per-block scalar maths; `biquad`/`gain`/`mix` transform the audio a block at a time; and `ain`/`aout`/`adelay`/`alfo`/`amul`/`aadd`/`atanh` run in a per-sample loop, where reading a wire written later in the list yields the previous sample — the unit delay a feedback loop is built on.
 
-## modules/<type>/<name>/module.yaml — more than one input
+## _modules/<type>/<name>/module.yaml — more than one input
 
 The type folder gives a module its ports: one audio in for `audio/`, one midi in for `instruments/`. That makes the folder decide how many cables a module takes, which is not what a folder is for — a crossfade is an audio effect like any other and needs **two** audio inputs. A module can name its own instead, with `inputs:` and `outputs:`. Declare neither and the folder's defaults apply, which is every module written so far; the two lists are independent, so you can name your inputs and inherit your outputs.
 
 `mandatory` is an input's business — an output is offered, never required — and defaults to true, so a port you bothered to name has to be fed unless you say otherwise. A crossfade's second input is exactly the case for `mandatory: false`: wiring one side and leaving the other silent is a legitimate state, not a half-built chain.
 
 ```yaml schema=Module
-# modules/audio/crossfade/module.yaml — two audio inputs, one output
+# _modules/audio/crossfade/module.yaml — two audio inputs, one output
 plugin: { type: jsdsp }
 inputs:
   - { name: a, type: audio }
@@ -151,14 +157,14 @@ A chain carries one signal, so the second input has to arrive from somewhere els
 
 On the graph each port is a socket on the node's edge. Mandatory ones are drawn from the start; past those, one free socket appears beyond the last one you have wired, so a module offers its next input without presenting a row of empty holes.
 
-## modules/shaders/<name>/module.yaml — GLSL over the picture
+## _modules/shaders/<name>/module.yaml — GLSL over the picture
 
 A module in `shaders/` takes an **image**, gives back an image, and accepts an **optional audio input** whose live level reaches the shader as `uAudio`. It is the only module whose ports carry two different signals, and that is what it is for: a picture that moves with the sound.
 
 What it *does* is GLSL, in a `shaders/` folder beside the module file — one folder per shader, each holding a `vertex.glsl` and a `fragment.glsl`. `shader:` picks which one runs. A shader is a folder rather than a file because it is a **pair**: swap the fragment and keep the vertex and you have a different effect on the same geometry. A folder missing one of the two is not offered at all.
 
 ```
-modules/shaders/glow/
+_modules/shaders/glow/
   module.yaml
   ui.yaml
   shaders/pulse/{vertex,fragment}.glsl
@@ -168,7 +174,7 @@ modules/shaders/glow/
 Every shader gets the same uniforms: `uTex` (the picture coming in), `uAudio` (0..1, the wired lane's level over −60..0 dB, and 0 with nothing wired), `uTime` (the transport's position in seconds), `uResolution`, and `uP1`..`uP4` — the four knobs, each 0..1. They are numbered rather than named because the module cannot know what a shader will call its controls; what each one means is written in that shader's `fragment.glsl`.
 
 ```yaml schema=Module
-# modules/shaders/glow/module.yaml
+# _modules/shaders/glow/module.yaml
 type: shader
 shader: pulse        # a folder under this module's shaders/ — the dropdown writes it
 params:
@@ -179,7 +185,7 @@ params:
 Its panel's dropdown binds `@shader` and lists **nothing**: which shaders exist is a fact about the folder, so the graph fills the entries from what it finds. Drop a folder in and it is offered, with no file to edit.
 
 ```yaml schema=UiFile
-# modules/shaders/glow/ui.yaml
+# _modules/shaders/glow/ui.yaml
 cols: 4
 rows: 2
 widgets:
@@ -200,14 +206,14 @@ modules:
 
 A node with no shader picked, one naming a folder that is not there, and one whose GLSL will not compile all do the same thing: the picture passes through untouched and the node keeps its card, its knobs and its dropdown. A shader you are halfway through writing does not take the viewport down.
 
-## modules/<type>/<name>/module.yaml — a COLD module
+## _modules/<type>/<name>/module.yaml — a COLD module
 
 `cold: true` says the module only works on audio **already on disk**. Not "expensive": a cold module run live would not be slow, it would be *wrong*, because the answer does not exist yet. Normalisation is the plain case — the gain depends on the loudest sample, and the loudest sample may be the last one, so nothing can be produced until the whole input has been read.
 
 Adding one to a chain whose signal does not come from a file input (`io: file`) is refused, with a message saying so, before anything is written. That is why they belong in the médiathèque's chain templates, which run over a song's master file, rather than in a live project chain.
 
 ```yaml schema=Module
-# modules/audio/normalize/module.yaml — bring the peak to Target
+# _modules/audio/normalize/module.yaml — bring the peak to Target
 cold: true
 plugin: { type: jsdsp, name: Normalize }
 params:
@@ -215,7 +221,7 @@ params:
   Peak: 0      # measured by the cold pass; 0 until it has run, so the module only attenuates
 ```
 
-## modules/<type>/<name>/module.yaml — keeping the palette readable
+## _modules/<type>/<name>/module.yaml — keeping the palette readable
 
 `status:` says how the **completions** should treat this module, and nothing else. It changes no
 sound and no wiring: a `hidden` module still loads, still plays, and can still be named by hand —
@@ -233,7 +239,7 @@ This is what separates them. Set it from the module builder's header, where `fav
 "first" — what the setting does is put the module at the top of the list.
 
 ```yaml schema=Module
-# modules/audio/scratch-comp/module.yaml — kept, but out of the way
+# _modules/audio/scratch-comp/module.yaml — kept, but out of the way
 status: hidden
 plugin: { type: jsdsp, name: Compressor }
 ```
@@ -241,13 +247,16 @@ plugin: { type: jsdsp, name: Compressor }
 Returning a module to `listed` removes the line rather than writing it, so a file that has
 nothing to say about this stays a file that says nothing.
 
-## modules/<type>/<name>/module.yaml — extends another module
+## _modules/<type>/<name>/module.yaml — extends another module
 
-A module can inherit from another with `extends: "type/name"` (or "@ns/type/name" for one it inherits — from the médiathèque, or the workspace's `_modules`). It gets the base's plugin/params/ui/rack, overriding per key. Several modules can extend one base.
+A module can inherit from another with `extends: "@ns/type/name"` — `@workspace` for one beside
+it in `_modules`, `@st0` for one in the médiathèque, `@engine` for a scanned plugin with no file
+of its own. It gets the base's plugin/params/ui/rack, overriding per key. Several modules can
+extend one base.
 
 ```yaml schema=Module
-# modules/instruments/synth/module.yaml extends a shared base
-extends: instruments/fourosc
+# _modules/instruments/synth/module.yaml extends a shared base
+extends: "@st0/instruments/fourosc"
 params:
   Filter Freq: 69   # override just this one
 ```
@@ -260,18 +269,18 @@ The folder is flat on purpose — a node does not mirror the folders of the thin
 
 ```yaml exempt="shows several files at once (two nodes and the chain that uses them) - not one document"
 # nodes/lead.yaml — state only what this use changes
-extends: "@project/instruments/synth"
+extends: "@workspace/instruments/synth"
 params:
   Filter Freq: 90
 
 # nodes/pad.yaml
-extends: "@project/instruments/synth"
+extends: "@workspace/instruments/synth"
 params:
   Filter Freq: 40
 
 # graph.yaml — the module and both uses are separate nodes. Pointing both
-# lanes at the bare `synth` would NOT give each its own: a module is named once,
-# so one name is one plugin, and the two lanes would sum into it.
+# lanes at the module's own ref directly would NOT give each its own: a module
+# is named once, so one name is one plugin, and the two lanes would sum into it.
 modules:
   melody: [ lead ]
   pad: [ synth-pad ]
@@ -320,7 +329,7 @@ is a state you switch between: both survive, one is on, and it belongs to the on
 holds it.
 
 ```yaml schema=Module
-extends: "@project/audio/amp"
+extends: "@workspace/audio/amp"
 params: { Gain: 3, Tone: 5 }
 alternative: crunch          # absent = the fields above
 alternatives:
@@ -352,24 +361,24 @@ The render is a generated file (`renders/<module>.wav`). Delete it and the song 
 again, which is what makes a project safe to clone without it.
 
 ```yaml schema=Module
-extends: "@project/audio/amp"
+extends: "@workspace/audio/amp"
 params: { Gain: 3 }
 frozen: renders/amp.wav      # written by `node freeze amp`; delete it and it plays live
 ```
 
-## modules/instruments/<name>/module.yaml — rack (drum kit)
+## _modules/instruments/<name>/module.yaml — rack (drum kit)
 
 A rack instrument (type: "rack") — a note→audio sampler, not a plugin. Two kinds. samples: each symbol names its OWN clip; a base can ship defaults and a module that extends it merges its symbols OVER them per symbol. slice: one shared source cut into [from, to) windows in seconds. Audio sits in the module's folder.
 
 ```yaml exempt="shows both rack kinds side by side - not one document"
-# samples base — modules/instruments/drumrack/module.yaml
+# samples base — _modules/instruments/drumrack/module.yaml
 type: rack
 rack:
   symbols:
     BD: { note: 36, clip: kick.wav }   # the base's default sound
 
-# a module extends + overrides — modules/instruments/kit/module.yaml (the folder names it)
-extends: instruments/drumrack
+# a module extends + overrides — _modules/instruments/kit/module.yaml (the folder names it)
+extends: "@workspace/instruments/drumrack"
 type: rack
 rack:
   symbols:
@@ -386,7 +395,7 @@ rack:
     HI: { note: 62, from: 0.5, to: 1.0 }
 ```
 
-## modules/<type>/<name>/ui.yaml — a module's panel
+## _modules/<type>/<name>/ui.yaml — a module's panel
 
 The control grid a module draws on its graph node, in a file of its own **beside module.yaml**, in the module's own folder. It says nothing about which module it draws, because the folder already does: move the module and its face moves, copy it and the face is copied. A module folder's other .yaml files are its nodes — ui.yaml is the one name that is neither the generic nor a node.
 
@@ -397,7 +406,7 @@ cols/rows is the layout; each widget sits on a cell and binds a plugin parameter
 `fader` is the mixer strip's control: vertical, with the value read out above it, and it fills whatever height its `rowSpan` gives it — so its throw is something you author rather than a fixed bar. Give it the rows to be worth using (the editor starts it at 3); one cell tall it is only a worse slider. Its drag sweeps the range over its own height, so the cap stays under the pointer. On a track's chain it also carries that track's VU beside the throw — the same signal, span and colours as the Mix panel's meter, because it is the same strip. A chain that is not a track (a bus, a disabled lane) has no one level to show, and the fader simply has no meter.
 
 ```yaml schema=UiFile
-# modules/instruments/mini/ui.yaml
+# _modules/instruments/mini/ui.yaml
 cols: 4
 rows: 2
 widgets:
@@ -410,7 +419,7 @@ widgets:
 
 A panel is a file of its own rather than a `ui:` block inside `module.yaml`, so that a rebuilt `_modules/` never takes hand-drawn work with it and a plugin every song reaches for is drawn once: a panel is saved where its module is, shared library included, and that is the one edit a shared module accepts without being forked. A plugin the engine merely reports has no folder anywhere, so it has no panel until somebody makes it a module. An inline `ui:` block is still read, and a ui.yaml replaces it whole; `ui migrate` moves the inline ones out into their file.
 
-## modules/<type>/<name>/module.yaml — automations:
+## _modules/<type>/<name>/module.yaml — automations:
 
 Bind a curve to a parameter. `curve` names a curves/<id>.yaml; `param` is the parameter's display name — the same name a widget binds and `node param` addresses. A curve's polarity decides whether it sweeps the parameter's whole range or rides ± around where the knob sits.
 

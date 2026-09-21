@@ -8,17 +8,20 @@ import { writeNode } from "./testSupport";
 
 // The flat `nodes/` folder has no type path, so `kind`, `inputs` and `category` come from `extends`.
 
+let ws: string;
 let dir: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-instfold-"));
+  ws = mkdtempSync(join(tmpdir(), "td-instfold-"));
+  dir = join(ws, "song");
+  mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n",
     "utf8",
   );
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 describe("the nodes folder", () => {
   it("loads each file as one use, keyed by its filename", () => {
@@ -48,13 +51,15 @@ describe("the nodes folder", () => {
 
   it("takes kind, inputs and category from what it EXTENDS", () => {
     // The replacement for the type folder, and why a node need not sit under its module.
-    mkdirSync(join(dir, "modules", "instruments", "mini"), { recursive: true });
+    mkdirSync(join(ws, "_modules", "instruments", "mini"), {
+      recursive: true,
+    });
     writeFileSync(
-      join(dir, "modules", "instruments", "mini", "module.yaml"),
+      join(ws, "_modules", "instruments", "mini", "module.yaml"),
       "plugin:\n  type: vst3\n  name: Mini V3\n",
       "utf8",
     );
-    writeNode(dir, "solo", { extends: "@project/instruments/mini" });
+    writeNode(dir, "solo", { extends: "@workspace/instruments/mini" });
     const resolved = resolveModuleMap(
       loadModules(dir),
       loadModuleRefs(dir, {}),
@@ -78,8 +83,7 @@ describe("the nodes folder", () => {
     expect(loadModules(dir)).toEqual({});
   });
 
-  it("no longer reads a node filed beside a module.yaml", () => {
-    // The old layout is not read at all, so a project carrying one is silently short a step.
+  it("no longer reads a project's own modules/ at all — a module lives at @workspace or @st0 now", () => {
     mkdirSync(join(dir, "modules", "audio", "amp"), { recursive: true });
     writeFileSync(
       join(dir, "modules", "audio", "amp", "module.yaml"),
@@ -91,10 +95,7 @@ describe("the nodes folder", () => {
       "params:\n  Input: -5\n",
       "utf8",
     );
-    const m = loadModules(dir);
-    expect(Object.keys(m)).toEqual(["amp"]); // the module, and only the module
-    expect(m["amp:lead"]).toBeUndefined();
-    expect(m.lead).toBeUndefined();
+    expect(loadModules(dir)).toEqual({});
   });
 });
 
@@ -122,6 +123,6 @@ describe("creating one", () => {
   it("refuses a name neither the project nor the engine has", () => {
     expect(() =>
       createNode(dir, "audio", "no-such-plugin", "x", CATALOGUE),
-    ).toThrow(/neither in this project nor one the engine offers/);
+    ).toThrow(/neither in the workspace nor one the engine offers/);
   });
 });

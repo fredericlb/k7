@@ -17,15 +17,12 @@ let dir: string;
 function project(content = "watch the gain here"): string {
   const p = join(dir, "song.st0");
   mkdirSync(join(p, "nodes"), { recursive: true });
-  mkdirSync(join(p, "nodes"), { recursive: true });
-  mkdirSync(join(p, "modules", "audio", "amp"), { recursive: true });
-  mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });
   writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
   writeFileSync(
-    join(p, "modules", "audio", "amp", "module.yaml"),
+    join(p, "nodes", "amp.yaml"),
     "plugin: { type: internal, name: Chorus }\n",
   );
-  writeFileSync(join(p, "modules", "io", "OUT", "module.yaml"), "io: out\n");
+  // OUT needs no file at all — a built-in sink name (docs/moduleTypes.md).
   writeFileSync(
     join(p, "nodes", "notes.yaml"),
     `extends: "${DOC_REF}"\ncontent: |\n  ${content.split("\n").join("\n  ")}\n`,

@@ -61,14 +61,9 @@ describe("the file input", () => {
   });
 
   it("carries the file it reads, and a chain may leave it unnamed", () => {
-    // `source:` and not `file:`, which the loader overwrites with the module's FOLDER name.
-    file("modules/io/FILE/module.yaml", "io: file\n");
-    file(
-      "nodes/take.yaml",
-      'extends: "@project/FILE"\nsource: "clips/original.wav"\n',
-    );
+    // An io node carries its role directly — no separate module, no `extends` (docs/moduleTypes.md).
+    file("nodes/take.yaml", 'io: file\nsource: "clips/original.wav"\n');
     const g = loadGraph(dir);
-    expect(g.modules.FILE?.source).toBeUndefined();
     expect(g.modules.take?.source).toBe("clips/original.wav");
   });
 

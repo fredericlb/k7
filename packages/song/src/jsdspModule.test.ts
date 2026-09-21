@@ -21,13 +21,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMOS = join(here, "..", "..", "..", "demos");
+const SONG = join(DEMOS, "synth-demo.st0");
 
+let ws: string;
 let dir: string;
 
 /** Rewrite the fixture's instrument as a jsdsp module, source and compiled graph beside it. */
 function asJsDsp(withGraph: boolean): void {
-  const folder = join(dir, "modules", "instruments", "synth");
+  const folder = join(ws, "_modules", "instruments", "synth");
   mkdirSync(folder, { recursive: true });
   writeFileSync(
     join(folder, "module.yaml"),
@@ -43,9 +45,11 @@ function asJsDsp(withGraph: boolean): void {
     );
 }
 
-/** A `transformers/` module whose DSP is its own jsdsp.ts, wired BEFORE the melody's instrument. */
+/** A `transformers/` module whose DSP is its own jsdsp.ts, wired BEFORE the melody's instrument.
+ *  A jsdsp source needs its OWN folder (the file has one fixed name), so this lives at
+ *  `@workspace`, referenced directly by ref since no node instantiates it. */
 function midiGraphModule(): void {
-  const folder = join(dir, "modules", "transformers", "rpt");
+  const folder = join(ws, "_modules", "transformers", "rpt");
   mkdirSync(folder, { recursive: true });
   writeFileSync(
     join(folder, "module.yaml"),
@@ -63,7 +67,7 @@ function midiGraphModule(): void {
     graph,
     readFileSync(graph, "utf8").replace(
       "melody: [ lead ]",
-      "melody: [ rpt ]\n  rpt: [ lead ]",
+      'melody: [ "@workspace/transformers/rpt" ]\n  "@workspace/transformers/rpt": [ lead ]',
     ),
     "utf8",
   );
@@ -73,10 +77,13 @@ const plugins = () =>
   compileNodeProject(dir).tracks.flatMap((t) => t.plugins ?? []);
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-jsdsp-"));
+  ws = mkdtempSync(join(tmpdir(), "td-jsdsp-"));
+  dir = join(ws, "synth-demo.st0");
   cpSync(SONG, dir, { recursive: true });
+  // The Examples workspace's own shared library, beside every demo project.
+  cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 describe("a jsdsp module", () => {
   it("reaches the engine at all", () => {
@@ -89,7 +96,7 @@ describe("a jsdsp module", () => {
     // One authored word, `jsdsp`, and two hosts: Tracktion routes an audio effect after the
     // instrument and a MIDI one before it, so a plugin cannot be both — packages/song/docs/enginePlugin.md.
     midiGraphModule();
-    const p = plugins().find((x) => x.id.endsWith(":rpt"));
+    const p = plugins().find((x) => x.id.endsWith("transformers/rpt"));
     expect(p?.type).toBe("MIDI Graph");
     expect(p?.dspGraph).toContain("mhold");
     // …and the audio one is unchanged, from the same authored word.

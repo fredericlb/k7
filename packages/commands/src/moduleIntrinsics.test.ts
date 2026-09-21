@@ -35,9 +35,9 @@ const host = () =>
 
 const IN = "@workspace/io/IN:in-2";
 const sharedFile = () => join(root, "_modules", "io", "IN", "in-2.yaml");
-const localFile = () => join(dir, "modules", "io", "desk", "module.yaml");
-const spacedFile = () =>
-  join(dir, "modules", "io", "front desk", "module.yaml");
+// io is a plain NODE at the project level — never a shared-style module folder.
+const localFile = () => join(dir, "nodes", "desk.yaml");
+const spacedFile = () => join(dir, "nodes", "front desk.yaml");
 const shared = () => readFileSync(sharedFile(), "utf8");
 const sharedDoc = () => parse(shared(), { version: "1.2" });
 
@@ -60,11 +60,9 @@ beforeEach(() => {
     'extends: "@studio/track"\nevents: []\n',
     "utf8",
   );
-  // A local io module too, so the shared path is shown to be a BRANCH and not the only one.
-  mkdirSync(join(dir, "modules", "io", "desk"), { recursive: true });
+  // A local io NODE too, so the shared path is shown to be a BRANCH and not the only one.
   writeFileSync(localFile(), "io: in\nchannel: [1]\n", "utf8");
   // …and one whose NAME carries a space, which is the whole reason a ref may be quoted.
-  mkdirSync(join(dir, "modules", "io", "front desk"), { recursive: true });
   writeFileSync(spacedFile(), "io: in\nchannel: [3]\n", "utf8");
 
   mkdirSync(join(root, "_modules", "io", "IN"), { recursive: true });

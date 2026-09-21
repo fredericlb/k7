@@ -8,12 +8,11 @@ What it puts there is a **node** on `@studio/not-supported`, and no module of it
 
 ## Why not a module per plugin
 
-The obvious shape is a project module carrying `plugin: { name: "Kontakt 7" }` and no `type` — a
-stub, routing only. It was that, and it is worth writing down why it is not any more: **a module
-that adds nothing to what it stands for should not exist**. Sixteen unloadable plugins meant
-sixteen folders under `modules/`, each holding one line, each in the picker, each a thing to
-delete by hand when the plugin is finally installed. The same argument as `liveProject.md`'s
-against a project-local copy of a library module.
+The obvious shape is a module of its own carrying `plugin: { name: "Kontakt 7" }` and no `type` —
+a stub, routing only. **A module that adds nothing to what it stands for should not exist.**
+Sixteen unloadable plugins would mean sixteen folders under `_modules/`, each holding one line,
+each in the picker, each a thing to delete by hand when the plugin is finally installed — and
+shared workspace-wide, so every song's unrelated import clutters the same list.
 
 The node carries what is actually specific: the plugin's real name as `label:`, and the parameter
 values the export carried. Nothing is lost, and the project has one file per USE rather than one

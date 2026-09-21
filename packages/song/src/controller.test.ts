@@ -1,5 +1,6 @@
 import {
   cpSync,
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -8,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadModules } from "@studio/song/loader";
+import { loadModuleRefs, loadModules } from "@studio/song/loader";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   loadControllerLibrary,
@@ -21,8 +22,9 @@ import { bindModuleCc } from "./controllerBind";
 import { loadGraph } from "./graph";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
-const REF = "instruments/synth";
+const DEMOS = join(here, "..", "..", "..", "demos");
+const SONG = join(DEMOS, "synth-demo.st0");
+const REF = "@workspace/instruments/synth";
 
 // A module's MIDI map is the fourth sibling in its folder, and must never read as a node of it.
 
@@ -56,12 +58,17 @@ describe("parseController", () => {
 });
 
 describe("a module's MIDI map (synth-demo)", () => {
+  let ws: string;
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "td-controller-"));
+    ws = mkdtempSync(join(tmpdir(), "td-controller-"));
+    dir = join(ws, "synth-demo.st0");
     cpSync(SONG, dir, { recursive: true });
+    // The Examples workspace's own shared library, beside every demo project.
+    const shared = join(DEMOS, "_modules");
+    if (existsSync(shared)) cpSync(shared, join(ws, "_modules"), { recursive: true });
   });
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
   const mapText = () =>
     readFileSync(moduleControllerFile(dir, REF) as string, "utf8");
@@ -69,7 +76,7 @@ describe("a module's MIDI map (synth-demo)", () => {
   it("binds, reads back, and unbinds", () => {
     const rel = setCcBinding(dir, REF, "Filter Freq", { ch: 1, cc: 74 });
     expect(rel).toBe(
-      join("modules", "instruments", "synth", "controller.yaml"),
+      join("..", "_modules", "instruments", "synth", "controller.yaml"),
     );
     expect(readModuleController(dir, REF)).toEqual({
       "Filter Freq": { ch: 1, cc: 74 },
@@ -101,7 +108,7 @@ describe("a module's MIDI map (synth-demo)", () => {
     setCcBinding(dir, REF, "Filter Freq", { ch: 1, cc: 74 });
     setCcBinding(dir, REF, "Resonance", { ch: 1, cc: 71 });
     const lines = mapText().trim().split("\n");
-    expect(lines[0]).toMatch(/^# MIDI map for instruments\/synth/);
+    expect(lines[0]).toMatch(/^# MIDI map for @workspace\/instruments\/synth/);
     // A space needs no quotes as a YAML key, and quoting would add noise to every line.
     expect(lines[1]).toBe("Filter Freq: { ch: 1, cc: 74 }");
     expect(lines[2]).toBe("Resonance: { ch: 1, cc: 71 }");
@@ -115,14 +122,15 @@ describe("a module's MIDI map (synth-demo)", () => {
 
   it("reaches the module the loader hands on", () => {
     setCcBinding(dir, REF, "Filter Freq", { ch: 1, cc: 74 });
-    const mods = loadModules(dir) as Record<string, { cc?: unknown }>;
-    expect(mods.synth.cc).toEqual({ "Filter Freq": { ch: 1, cc: 74 } });
+    const refs = loadModuleRefs(dir, {}) as Record<string, { cc?: unknown }>;
+    expect(refs[REF].cc).toEqual({ "Filter Freq": { ch: 1, cc: 74 } });
   });
 
   it("reaches the GRAPH's module, which is what the panel is drawn from", () => {
+    // "lead" is one of the demo's nodes extending REF, so it inherits the binding.
     setCcBinding(dir, REF, "Filter Freq", { ch: 1, cc: 74 });
     const g = loadGraph(dir) as { modules?: Record<string, { cc?: unknown }> };
-    expect(g.modules?.synth?.cc).toEqual({ "Filter Freq": { ch: 1, cc: 74 } });
+    expect(g.modules?.lead?.cc).toEqual({ "Filter Freq": { ch: 1, cc: 74 } });
   });
 
   it("ignores a map the schema refuses rather than losing the module", () => {
@@ -132,19 +140,19 @@ describe("a module's MIDI map (synth-demo)", () => {
     expect(lib.byRef[REF]).toBeUndefined();
     expect(lib.issues.join(" ")).toMatch(/controller\.yaml/);
     // …and the module still loads, with no map.
-    const mods = loadModules(dir) as Record<string, { cc?: unknown }>;
-    expect(mods.synth).toBeTruthy();
-    expect(mods.synth.cc).toBeUndefined();
+    const refs = loadModuleRefs(dir, {}) as Record<string, { cc?: unknown }>;
+    expect(refs[REF]).toBeTruthy();
+    expect(refs[REF].cc).toBeUndefined();
   });
 
   it("binds through the name a CHAIN uses, not just a ref", () => {
-    const { rel, ref } = bindModuleCc(dir, "synth", "Filter Freq", {
+    const { rel, ref } = bindModuleCc(dir, "lead", "Filter Freq", {
       ch: 3,
       cc: 12,
     });
     expect(ref).toBe(REF);
     expect(rel).toBe(
-      join("modules", "instruments", "synth", "controller.yaml"),
+      join("..", "_modules", "instruments", "synth", "controller.yaml"),
     );
     expect(readModuleController(dir, REF)["Filter Freq"]).toEqual({
       ch: 3,

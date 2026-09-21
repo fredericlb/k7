@@ -36,7 +36,7 @@ ui:
 
   it("leaves the type unstated when the file extends — the parent's is the answer", () => {
     const { value, issues } = parseModule(
-      'extends: "@project/instruments/kit"\n',
+      'extends: "@workspace/instruments/kit"\n',
     );
     expect(issues).toEqual([]);
     // A node over a rack states nothing; a default here would beat the rack it inherits.

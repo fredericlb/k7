@@ -99,11 +99,8 @@ describe("the declared I/O", () => {
   it("still lists a project's OWN io when nothing is inherited", () => {
     const solo = mkdtempSync(join(tmpdir(), "td-io-solo-"));
     cpSync(SONG, solo, { recursive: true });
-    mkdirSync(join(solo, "modules", "io", "OUT"), { recursive: true });
-    writeFileSync(
-      join(solo, "modules", "io", "OUT", "module.yaml"),
-      "io: out\n",
-    );
+    mkdirSync(join(solo, "nodes"), { recursive: true });
+    writeFileSync(join(solo, "nodes", "OUT.yaml"), "io: out\n");
     expect(ioPorts(solo, PREFS).map((p) => p.ref)).toContain("OUT");
     rmSync(solo, { recursive: true, force: true });
   });

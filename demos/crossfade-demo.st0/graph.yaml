@@ -17,9 +17,9 @@
 # line and it processes the blend rather than either deck.
 
 modules:
-  deckA: [ crossfade ]
-  deckB: [ crossfade#b ]
-  crossfade: [ MIX ]
+  deckA: [ "@workspace/audio/crossfade" ]
+  deckB: [ "@workspace/audio/crossfade#b" ]
+  "@workspace/audio/crossfade": [ MIX ]
   MIX: [ OUT ]
 
 # deckB's mute. See nodes/deckB.yaml for why it is not optional.

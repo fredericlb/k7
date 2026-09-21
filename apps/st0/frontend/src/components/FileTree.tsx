@@ -39,21 +39,6 @@ import { isVideoTrackFile } from "../projectPaths";
 import { TrackIcon } from "../trackIcons";
 import type { FileNode } from "../types";
 
-/** The active project's own `modules/`, which the Libraries tab draws as `@project`. */
-const ownModulesOf = (project: string | null): string[] => [
-  project && project !== "." ? `${project}/modules` : "modules",
-];
-
-/** The tree with those folders removed, at whatever depth they sit. */
-function withoutPaths(nodes: FileNode[], paths: string[]): FileNode[] {
-  const drop = new Set(paths);
-  const walk = (ns: FileNode[]): FileNode[] =>
-    ns
-      .filter((n) => !drop.has(n.path))
-      .map((n) => (n.children ? { ...n, children: walk(n.children) } : n));
-  return walk(nodes);
-}
-
 /** The two actions that live nowhere else — the pins are this component's localStorage, the OS pickers its two hidden inputs. */
 export interface FileTreeHandle {
   /** Pin a path to the top of the tree, or unpin it if it is already there. Answers the new state. */
@@ -251,11 +236,8 @@ export function FileTree({
     input.value = ""; // so the same pick can be repeated
   };
 
-  // Folded before anything reads it, and the project's own `modules/` dropped from THIS tab: it is `@project` on the other one.
-  const { tree: folded, modules } = useMemo(
-    () => foldModules(withoutPaths(tree, ownModulesOf(activeProject))),
-    [tree, activeProject],
-  );
+  // Folded before anything reads it — a module lives at `@workspace` or `@st0` now, never here.
+  const { tree: folded, modules } = useMemo(() => foldModules(tree), [tree]);
   const isModule = (path: string) => modules.has(path);
 
   // The same fold over the LIBRARIES, so a shared module is one row that opens the builder (see libraryTree.ts).
@@ -511,7 +493,7 @@ export function FileTree({
       {/* The LIBRARIES: read-only rows with no actions at all, since nothing here is this project's to rename or delete (docs/sharedModules.md). */}
       {tab === "libraries" ? (
         !lib ? (
-          // Only reachable before the first answer has arrived: `@project` and `@workspace` are always offered once it has.
+          // Only reachable before the first answer has arrived: `@workspace` and `@engine` are always offered once it has.
           <p className="p-2 text-xs text-muted-foreground">
             reading the module libraries…
           </p>

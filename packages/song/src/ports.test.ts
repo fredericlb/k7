@@ -12,7 +12,7 @@ import { portRef, splitPort } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { deriveChains } from "./chainsGraph";
 import { loadGraph } from "./graph";
-import { loadModules } from "./loader";
+import { loadModuleRefs, loadModules } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 
 let dir: string;
@@ -69,7 +69,7 @@ describe("a port ref", () => {
 
 describe("a module's own ports", () => {
   it("override the type folder's defaults", () => {
-    file("modules/audio/crossfade/module.yaml", CROSSFADE);
+    file("nodes/crossfade.yaml", CROSSFADE);
     const m = loadModules(dir).crossfade;
     expect(m.inputs).toEqual([
       { name: "a", type: "audio" },
@@ -79,14 +79,32 @@ describe("a module's own ports", () => {
   });
 
   it("leave a module that declares none with its type's", () => {
-    // The overwhelming case — a module declaring no ports at all — which must not move.
-    file(
-      "modules/audio/amp/module.yaml",
-      "plugin: {type: internal, name: Chorus}\n",
-    );
-    const m = loadModules(dir).amp;
-    expect(m.inputs).toEqual([{ name: "in", type: "audio" }]);
-    expect(m.outputs).toEqual([{ name: "out", type: "audio" }]);
+    // The overwhelming case — a module declaring no ports at all — which must not move. A type
+    // folder's defaults are read at `@workspace`/`@st0` now, so this one lives there.
+    const ws = mkdtempSync(join(tmpdir(), "td-ports-type-"));
+    try {
+      const song = join(ws, "song");
+      mkdirSync(join(ws, "_modules", "audio", "amp"), { recursive: true });
+      writeFileSync(
+        join(ws, "_modules", "audio", "amp", "module.yaml"),
+        "plugin: {type: internal, name: Chorus}\n",
+      );
+      mkdirSync(join(song, "nodes"), { recursive: true });
+      writeFileSync(
+        join(song, "project.yaml"),
+        "project:\n  name: song\n  tempo: 120\n",
+        "utf8",
+      );
+      writeFileSync(
+        join(song, "nodes", "amp.yaml"),
+        'extends: "@workspace/audio/amp"\n',
+      );
+      const m = loadModuleRefs(song)["@workspace/audio/amp"];
+      expect(m.inputs).toEqual([{ name: "in", type: "audio" }]);
+      expect(m.outputs).toEqual([{ name: "out", type: "audio" }]);
+    } finally {
+      rmSync(ws, { recursive: true, force: true });
+    }
   });
 });
 
@@ -159,7 +177,7 @@ describe("wiring a named port", () => {
 
 describe("what validate says", () => {
   const wire = (yaml: string) => {
-    file("modules/audio/crossfade/module.yaml", CROSSFADE);
+    file("nodes/crossfade.yaml", CROSSFADE);
     file("nodes/a.yaml", 'extends: "@studio/track"\nevents: []\n');
     file("nodes/b.yaml", 'extends: "@studio/track"\nevents: []\n');
     writeFileSync(join(dir, "graph.yaml"), yaml, "utf8");

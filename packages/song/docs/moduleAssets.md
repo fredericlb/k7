@@ -4,7 +4,7 @@ A module holds the material it plays — an amp profile, the samples on a shelf 
 **`assets/` folder inside the module itself**:
 
 ```
-modules/audio/amp/
+_modules/audio/amp/    ← @workspace, beside the project; @st0's _libraries/modules/ the same shape
   module.yaml        ← what the module IS
   ui.yaml
   assets/            ← what it LOADS
@@ -20,28 +20,27 @@ asset library" below).
 (a rack's audio, below). Nothing else in a module folder is a folder with a meaning: a name not on
 that list is just a name.
 
-A module INHERITS its ancestors' assets: pointing a song at a shared amp means a thin local
-module that `extends` it, and the files are in the shared folder. `moduleAssetChoices` is the one
-answer to "what may this param be set to" — the panel's picker, the graph and the CLI completion
-all ask it. See [filePicker.md](filePicker.md), which is also where the widget that offers them
-is described.
+A module INHERITS its ancestors' assets: a NODE pointing a song at a shared amp is a `nodes/<x>.yaml`
+that `extends` it, and the files stay in the shared folder — a node has no `assets/` of its own
+except one it genuinely carries (`docs/moduleAssets.md`'s "lets a node carry its own model" case).
+`moduleAssetChoices` is the one answer to "what may this param be set to" — the panel's picker, the
+graph and the CLI completion all ask it. See [filePicker.md](filePicker.md), which is also where the
+widget that offers them is described.
 
 ### Why the walk is up the ANCESTRY
 
 `moduleAssetChoices` returns every asset a module can name, nearest owner first, walking what it
-`extends`. Looking at `<project>/modules/<category>/<file>/assets` and nowhere else is right only
-for a module this project both owns and stores the files in, and wrong for the two shapes that
-actually carry material:
+`extends`. Looking at the entity's OWN folder and nowhere else is right only for a module that both
+owns the assets and stores them itself, and wrong for the two shapes that actually carry material:
 
-- a module living in a shared library — the médiathèque's `audio/amps/guitar` has the fourteen NAM
-  profiles, and the project's `modules/audio/guitar` has none;
-- a thin local module that exists only to override a param of one, which is what `extends` produces
-  and is the normal way to point a song at a shared amp.
+- the shared module itself — `@workspace/audio/guitar` (or `@st0/…`) has the fourteen NAM profiles;
+- a NODE that exists only to override one param of it, which is what `extends` on a `nodes/<x>.yaml`
+  produces and is the normal way a song points at a shared amp.
 
-Both would list nothing, and the panel's picker would open empty on the one module in the
-médiathèque built to be picked from. A nearer module's assets come first and a duplicate path is
-dropped, so a local file shadows an inherited one of the same name — the same precedence
-`resolveModuleAsset` gives the folders.
+Both would list nothing, and the panel's picker would open empty on the one module built to be
+picked from. A nearer owner's assets come first and a duplicate path is dropped, so a node's own
+file shadows an inherited one of the same name — the same precedence `resolveModuleAsset` gives
+the folders.
 
 The FOLDERS are not looked up during that walk: the loader stamps `folderAbs` on every module it
 reads, so the ref map a caller has loaded anyway answers "where does this one live" for free.
@@ -93,10 +92,10 @@ a picker unusable.
 
 ## …except for a file too big to travel
 
-"A module carries its material so it survives a fork" is an argument about **cost**, and it
-inverts somewhere north of a few hundred megabytes. `forkSharedModule` copies a module's folder
-recursively; a 166 MB neural model would be duplicated per fork, per médiathèque upload, and
-per machine synced to.
+"A module carries its material" is an argument about **cost**, and it inverts somewhere north
+of a few hundred megabytes. A shared module lives in a git repository — the workspace's own, or
+the account's library, cloned by every machine that opens it — so a 166 MB neural model bundled
+into one would be committed, pushed and cloned whole, again on every machine synced to.
 
 So a model is named exactly like an amp profile (`onnx:` in `params:`, one of `FILE_PARAMS`)
 and `resolveModuleAsset` looks in two places: the module's own `assets/` first, then the
@@ -138,10 +137,10 @@ stands on its own, resolved against the module folder like any other ref.
 There is no `_library/` beside the projects with one folder per kind, and no module field naming
 a file by its path *inside* one. The reasoning is the one that governs `.vstpreset` and jsdsp
 source: **the folder is the module**. A module that carries its material is self-contained, so it
-survives a fork (`docs/moduleFork.md` copies the whole folder), an upload to the médiathèque, and
-a sync onto a machine that has none of the original song's files — it sounds the same in all four
-places, because the bytes go with it. A module whose sound depended on a folder two levels up
-would not.
+survives being materialised (`docs/moduleFork.md` writes a fresh folder for an engine ref that
+had none), an upload to the médiathèque, and a sync onto a machine that has none of the original
+song's files — it sounds the same in all three places, because the bytes go with it. A module
+whose sound depended on a folder two levels up would not.
 
 There is no `ir:` either, in `params:` or anywhere else. It would be a whole mechanism — a plugin
 branch in `EditBuilder`, a field, a command, a completion source — for a case that never arrives:

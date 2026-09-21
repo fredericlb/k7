@@ -23,11 +23,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 import { splitWords } from "./commands";
 
+let root: string;
 let dir: string;
 
 /** A song with one lane through one instrument, and one curve to bind. */
-function song(): string {
-  const d = mkdtempSync(join(tmpdir(), "td-automate-"));
+function song(): { root: string; dir: string } {
+  const r = mkdtempSync(join(tmpdir(), "td-automate-"));
+  const d = join(r, "song.st0");
+  mkdirSync(d, { recursive: true });
   writeFileSync(
     join(d, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
@@ -44,11 +47,17 @@ function song(): string {
     'extends: "@studio/track"\nevents: []\n',
     "utf8",
   );
-  const md = join(d, "modules", "instruments", "osc");
+  // A module lives at `@workspace` now, used through a node of the same bare name.
+  const md = join(r, "_modules", "instruments", "osc");
   mkdirSync(md, { recursive: true });
   writeFileSync(
     join(md, "module.yaml"),
     "plugin:\n  type: internal\n  name: 4osc\n",
+    "utf8",
+  );
+  writeFileSync(
+    join(d, "nodes", "osc.yaml"),
+    'extends: "@workspace/instruments/osc"\n',
     "utf8",
   );
   mkdirSync(join(d, "curves"), { recursive: true });
@@ -57,7 +66,7 @@ function song(): string {
     "type: lfo\nshape: sine\nfrequency: 1\n",
     "utf8",
   );
-  return d;
+  return { root: r, dir: d };
 }
 
 const logs: string[] = [];
@@ -75,18 +84,15 @@ const host = () =>
     showNativePluginUI: () => {},
   }) as never;
 
-/** The module file's text, which is the only thing that counts. */
+/** The node file's text, which is the only thing that counts. */
 const moduleText = (): string =>
-  readFileSync(
-    join(dir, "modules", "instruments", "osc", "module.yaml"),
-    "utf8",
-  );
+  readFileSync(join(dir, "nodes", "osc.yaml"), "utf8");
 
 beforeEach(() => {
-  dir = song();
+  ({ root, dir } = song());
   logs.length = 0;
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("splitWords", () => {
   it("splits on whitespace, not on the letter s", () => {

@@ -28,6 +28,19 @@ const mkModule = (dir: string, yaml: string, assets: string[] = []) => {
   }
 };
 
+// A project's own USE of a shared module — a node, since a project holds no modules of its own.
+// Every node shares ONE folder (`nodes/`), so `assets` here lands beside every node, not just this one.
+const mkNode = (name: string, yaml: string, assets: string[] = []) => {
+  const at = join(project, "nodes");
+  mkdirSync(at, { recursive: true });
+  writeFileSync(join(at, `${name}.yaml`), yaml, "utf8");
+  for (const a of assets) {
+    const abs = join(at, "assets", a);
+    mkdirSync(join(abs, ".."), { recursive: true });
+    writeFileSync(abs, "x", "utf8");
+  }
+};
+
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "assets-"));
   project = join(root, "ws", "song.st0");
@@ -58,10 +71,7 @@ describe("moduleAssetChoices", () => {
       "plugin: { type: internal, name: NAM }\n",
       ["roland/bright.nam", "fender/clean.nam"],
     );
-    mkModule(
-      join(project, "modules", "audio", "guitar"),
-      'extends: "@st0/audio/amps/guitar"\n',
-    );
+    mkNode("guitar", 'extends: "@st0/audio/amps/guitar"\n');
     // Through the real loaders, since they stamp the FOLDER each module lives in.
     const refs = loadModuleRefs(project, {}, []);
     const mod = loadModules(project).guitar;
@@ -81,10 +91,7 @@ describe("moduleAssetChoices", () => {
       'extends: "@st0/audio/amps/base"\n',
       ["mid.nam"],
     );
-    mkModule(
-      join(project, "modules", "audio", "top"),
-      'extends: "@st0/audio/amps/mid"\n',
-    );
+    mkNode("top", 'extends: "@st0/audio/amps/mid"\n');
     const refs = loadModuleRefs(project, {}, []);
     const choices = moduleAssetChoices(project, loadModules(project).top, refs);
     // Nearest first: `mid`'s own, then what IT inherits, two links up.
@@ -143,13 +150,13 @@ describe("a file the module INHERITS", () => {
       "plugin: { type: internal, name: NAM }\n",
       ["roland/bright.nam", "fender/clean.nam"],
     );
-    mkModule(
-      join(project, "modules", "audio", "guitar"),
+    mkNode(
+      "guitar",
       'extends: "@st0/audio/amps/guitar"\nparams:\n  nam: roland/bright.nam\n',
     );
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);
-    const g = resolved["audio/guitar"] ?? resolved.guitar;
+    const g = resolved.guitar;
     expect(g?.assets).toEqual({ nam: "roland/bright.nam" });
     expect(g?.nam).toContain(join("amps", "guitar", "assets", "roland"));
   });
@@ -160,15 +167,15 @@ describe("a file the module INHERITS", () => {
       "plugin: { type: internal, name: NAM }\n",
       ["clean.nam"],
     );
-    mkModule(
-      join(project, "modules", "audio", "local"),
+    mkNode(
+      "local",
       'extends: "@st0/audio/amps/shared"\nparams:\n  nam: clean.nam\n',
       ["clean.nam"],
     );
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);
-    const m = resolved["audio/local"] ?? resolved.local;
-    expect(m?.nam).toContain(join("modules", "audio", "local"));
+    const m = resolved.local;
+    expect(m?.nam).toContain(join("nodes", "assets"));
   });
 
   it("still refuses a ref that climbs out, rather than trying the next folder up", () => {
@@ -178,13 +185,13 @@ describe("a file the module INHERITS", () => {
       "plugin: { type: internal, name: NAM }\n",
       ["clean.nam"],
     );
-    mkModule(
-      join(project, "modules", "audio", "sneaky"),
+    mkNode(
+      "sneaky",
       'extends: "@st0/audio/amps/shared"\nparams:\n  nam: ../../../../secret.nam\n',
     );
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);
-    const m = resolved["audio/sneaky"] ?? resolved.sneaky;
+    const m = resolved.sneaky;
     expect(m?.nam).toBeUndefined();
   });
 });

@@ -78,10 +78,9 @@ export function writeUiFile(
 
 /** The library that holds `ref`, throwing rather than guessing — `@engine` has no answer, docs/uiLibrary.md. */
 function moduleRootFor(dir: string, ref: string): string {
-  if (!ref.startsWith("@")) return join(dir, "modules");
+  if (!ref.startsWith("@"))
+    throw new Error(`${ref}: a module ref is always namespaced now — bare names resolve nothing`);
   const ns = ref.slice(1).split("/")[0];
-  // `@project/audio/reverb` is the bare `audio/reverb` spelled out; it names no library to match.
-  if (ns === "project") return join(dir, "modules");
   for (const root of moduleLibraryDirs(dir))
     if (moduleNamespaceOf(root) === ns) return root;
   throw new Error(

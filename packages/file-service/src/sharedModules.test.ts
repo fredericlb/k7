@@ -1,11 +1,11 @@
-// The workspace's `_modules` library is READ-ONLY through this API. One library backs every project beside it,
-// so a rename or a delete made while mixing one song would break the others, with no author and no way back;
+// The workspace's `_modules` library is FIXED in STRUCTURE through this API — nothing renames, moves,
+// deletes or adds a file THERE by hand. One library backs every project beside it, so a rename or a
+// delete made while mixing one song would break the others, with no author and no way back;
 // `module populate` rebuilds the folder and writes with plain `fs`, which is what leaves it the only writer.
 //
-// Saving a module in it is the one thing that isn't refused: it forks into the project (see moduleFork.ts) —
-// unless the caller is the module BUILDER, whose subject is the library itself and which writes it in place.
-// These tests cover the boundary: that every other route stops, that the fork answer reaches the caller, and
-// that the builder's opt-out is the only thing that gets through.
+// Its CONTENT is ordinary, though: a module lives at `@workspace` now, and is edited in place — there is
+// no project-local copy left to fork a write into instead (see moduleFork.md). These tests cover the
+// boundary: that structural routes stop, and that a plain content write goes straight through.
 
 import {
   existsSync,
@@ -46,23 +46,27 @@ beforeEach(() => {
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-describe("the shared module library is read-only", () => {
+describe("the shared module library's structure is fixed", () => {
   it("refuses to rename, move, delete, or add to it", async () => {
     await expect(ws.renameEntry(SHARED, "other.yaml")).rejects.toThrow(
-      /read-only/,
+      /edited in place/,
     );
-    await expect(ws.moveEntry(SHARED, "song.st0")).rejects.toThrow(/read-only/);
-    await expect(ws.deleteEntry("_modules/audio")).rejects.toThrow(/read-only/);
+    await expect(ws.moveEntry(SHARED, "song.st0")).rejects.toThrow(
+      /edited in place/,
+    );
+    await expect(ws.deleteEntry("_modules/audio")).rejects.toThrow(
+      /edited in place/,
+    );
     expect(() => ws.createFolder("_modules/audio", "mine")).toThrow(
-      /read-only/,
+      /edited in place/,
     );
     expect(() =>
       ws.uploadFile("_modules/audio", "ir.wav", Buffer.from("x")),
-    ).toThrow(/read-only/);
-    // …and refuses to move something INTO it, which is a write to the library just the same.
+    ).toThrow(/edited in place/);
+    // …and refuses to move something INTO it, which is a structural change to the library just the same.
     await expect(
       ws.moveEntry("song.st0/graph.yaml", "_modules"),
-    ).rejects.toThrow(/read-only/);
+    ).rejects.toThrow(/edited in place/);
   });
 
   it("says which folder and what to do instead", async () => {
@@ -104,52 +108,31 @@ describe("a module library OUTSIDE the workspace", () => {
   });
 });
 
-describe("saving a shared module forks it into the project", () => {
+describe("saving a shared module writes it in place", () => {
   const EDIT =
     "plugin:\n  name: Tape Delay\n  type: vst3\nparams:\n  Mix: 0.8\n";
 
-  it("writes the copy, not the library, and says where it went", () => {
-    const before = readFileSync(join(root, SHARED), "utf8");
+  it("changes the library file itself, with no fork and nothing extra in the answer", () => {
     const { forked } = ws.write(SHARED, EDIT);
-    expect(readFileSync(join(root, SHARED), "utf8")).toBe(before);
-    expect(forked?.module).toBe("bs_lead_tape-delay_1");
-    expect(forked?.chains).toEqual(["bs.lead"]);
-    // Workspace-relative, because that is the path space the editor and the file tree speak.
-    expect(forked?.path).toBe(
-      "song.st0/modules/audio/bs_lead_tape-delay_1/module.yaml",
-    );
-    expect(readFileSync(join(root, forked!.path), "utf8")).toBe(EDIT);
+    expect(forked).toBeUndefined();
+    expect(readFileSync(join(root, SHARED), "utf8")).toBe(EDIT);
   });
 
-  it("still refuses a file in there that isn't a module", () => {
+  it("writes a non-module file in there just as ordinarily", () => {
     writeFileSync(
       join(root, "_modules", "config.yaml"),
       "namespace: engine\n",
       "utf8",
     );
-    expect(() =>
-      ws.write("_modules/config.yaml", "namespace: other\n"),
-    ).toThrow(/read-only/);
+    ws.write("_modules/config.yaml", "namespace: other\n");
     expect(readFileSync(join(root, "_modules", "config.yaml"), "utf8")).toBe(
-      "namespace: engine\n",
+      "namespace: other\n",
     );
   });
 
   it("answers nothing extra for an ordinary save", () => {
     expect(ws.write("song.st0/notes.md", "hello")).toEqual({});
     expect(existsSync(join(root, "song.st0", "notes.md"))).toBe(true);
-  });
-});
-
-// The builder's in-place flag is gone: a workspace's copy is read-only for everyone, without exception.
-describe("nothing edits the workspace library in place", () => {
-  const EDIT =
-    "plugin:\n  name: Tape Delay\n  type: vst3\nparams:\n  Mix: 0.9\n";
-
-  it("forks even a save aimed straight at the shared file", () => {
-    const before = readFileSync(join(root, SHARED), "utf8");
-    expect(ws.write(SHARED, EDIT).forked).toBeDefined();
-    expect(readFileSync(join(root, SHARED), "utf8")).toBe(before);
   });
 });
 

@@ -151,7 +151,7 @@ describe("creating an alternative", () => {
   });
 
   it("does NOT blank anything on a module that is not a lane", () => {
-    const amp = `extends: "@project/audio/amp"
+    const amp = `extends: "@workspace/audio/amp"
 params: { Gain: 3 }
 `;
     const { text } = addAlternative(amp);
@@ -182,21 +182,25 @@ params: { Gain: 3 }
 
 // The layer deciding `blankEvents`: whether a module is a LANE is a question only the loader answers.
 describe("newModuleAlternative, through the real loader", () => {
+  let root: string;
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "td-lane-alt-"));
-    mkdirSync(join(dir, "modules", "audio", "amp"), { recursive: true });
+    root = mkdtempSync(join(tmpdir(), "td-lane-alt-"));
+    dir = join(root, "song.st0");
+    mkdirSync(dir, { recursive: true });
+    // A module lives at `@workspace` now, beside the project.
+    mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
     writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
     writeFileSync(
-      join(dir, "modules", "audio", "amp", "module.yaml"),
+      join(root, "_modules", "audio", "amp", "module.yaml"),
       "plugin: { type: internal, name: Chorus }\nparams: { Gain: 1 }\n",
     );
     writeLane(dir, "gtr", "track", {
       events: [{ ref: "take1_a", start: "1:1" }],
     });
-    writeNode(dir, "ampli", { extends: "@project/audio/amp", params: {} });
+    writeNode(dir, "ampli", { extends: "@workspace/audio/amp", params: {} });
   });
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   const read = (node: string) =>
     parse(readFileSync(join(dir, "nodes", `${node}.yaml`), "utf8"), {

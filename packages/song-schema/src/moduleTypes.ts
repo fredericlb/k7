@@ -373,13 +373,8 @@ export const isTrackRef = (ref: unknown): boolean =>
 // The port vocabulary lives in @studio/graph-model, the one tier both the compiler and the renderer reach (docs/moduleTypes.md).
 export { PORT_SEP, portRef, splitPort } from "@studio/graph-model";
 
-/** The four levels a module can live at, outermost first — and `@st0` names the MÉDIATHÈQUE, not the app: docs/moduleTypes.md. */
-export const MODULE_NAMESPACES = [
-  "engine",
-  "st0",
-  "workspace",
-  "project",
-] as const;
+/** The three levels a module can live at, outermost first — and `@st0` names the MÉDIATHÈQUE, not the app: docs/moduleTypes.md. */
+export const MODULE_NAMESPACES = ["engine", "st0", "workspace"] as const;
 export type ModuleNamespace = (typeof MODULE_NAMESPACES)[number];
 
 /** The other name this level answers to on disk — a NAME and not an accepted spelling, since nothing resolves it (docs/moduleTypes.md). */
@@ -401,7 +396,7 @@ export const NODE_SEP = ":";
 export const moduleKey = (module: string, node?: string): string =>
   node ? `${module}${NODE_SEP}${node}` : module;
 
-// The ref a PROJECT-LOCAL module answers to; an io module carries no type folder in its (docs/moduleTypes.md).
+// The bare form of a module's ref; an io module carries no type folder in its (docs/moduleTypes.md).
 export const moduleRefOf = (type: string, name: string): string =>
   MODULE_TYPES[type]?.kind === "io" ? name : `${type}/${name}`;
 

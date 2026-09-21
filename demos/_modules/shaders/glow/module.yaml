@@ -1,6 +1,6 @@
 # "glow" — a SHADER: picture in, picture out, and an optional audio input that drives it.
 #
-# The folder it sits in (`modules/shaders/`) is what says so; nothing here names a plugin,
+# The folder it sits in (`_modules/shaders/`) is what says so; nothing here names a plugin,
 # because there is none. What this module DOES is the GLSL under `shaders/`, one folder per
 # shader, and `shader:` below picks which of them runs.
 #

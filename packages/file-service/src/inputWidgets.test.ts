@@ -8,7 +8,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeModule, writeYaml } from "@studio/song/testSupport";
+import { writeNode, writeYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildGraphDoc } from "./graphDoc";
 
@@ -39,9 +39,13 @@ beforeEach(() => {
     'extends: "@studio/track"\nevents: []\n',
     "utf8",
   );
-  writeModule(proj, "audio", "amp", {
-    plugin: { type: "internal", name: "Chorus" },
-  });
+  // A module lives at `@workspace` now; "amp" stays the bare NODE name the graph uses.
+  mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
+  writeFileSync(
+    join(root, "_modules", "audio", "amp", "module.yaml"),
+    "plugin:\n  type: internal\n  name: Chorus\n",
+  );
+  writeNode(proj, "amp", { extends: "@workspace/audio/amp" });
   // The shared catalogue as `module populate` leaves it: a generic IN, one node per channel.
   mkdirSync(join(root, "_modules", "io", "IN"), { recursive: true });
   writeFileSync(join(root, "_modules", "io", "IN", "module.yaml"), "io: in\n");

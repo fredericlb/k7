@@ -1,4 +1,4 @@
-# moduleNamespaces — the four levels a module lives at
+# moduleNamespaces — the three levels a module lives at
 
 A module ref carries its level as an `@` prefix:
 
@@ -7,7 +7,6 @@ A module ref carries its level as an `@` prefix:
 | `@engine/nam` | **nowhere** — a scanned plugin, synthesised from the machine's scan cache | nobody; it has no file |
 | `@st0/audio/delay/tape-delay` | the account's library repository, mounted at `<workspace>/_libraries/modules` | st0's Libraries tab |
 | `@workspace/audio/reverb` | the workspace's `_modules/`, shared by every project beside it | the médiathèque |
-| `@project/audio/reverb` | the project's own `modules/` | st0 |
 
 ## `@st0` is a git submodule in the workspace
 
@@ -36,20 +35,10 @@ it.
 
 ### `@mediatek/…` resolves to nothing
 
-`@mediatek/…` resolves to nothing. That is deliberate, and it is the opposite of the choice
-made for [the bare ref](#the-bare-ref) below — worth putting side by side, because the two look
-alike and are not:
-
-| | `audio/reverb` vs `@project/audio/reverb` | `@mediatek/…` vs `@st0/…` |
-|---|---|---|
-| what they are | two spellings of **one** level, both current | a word a file may carry, and the level it means |
-| resolution | keyed twice, both work, forever | one key; the other names nothing |
-| why | every `graph.yaml` ever written says the bare form | aliasing it would mean two words for one library, permanently |
-
-So this one is migrated rather than aliased, and the failure is meant to be seen: a chain step
-naming an unknown module draws its name with a `?` on the graph, and an `extends:` that resolves
-to nothing is reported by `libraryModuleIssues`. Neither is silent — which is the bar a rename
-in this repo has to clear (`docs/rename-test-plan.md`).
+`@mediatek/…` resolves to nothing, deliberately: a chain step naming an unknown module draws
+its name with a `?` on the graph, and an `extends:` that resolves to nothing is reported by
+`libraryModuleIssues`. Neither is silent — which is the bar a rename in this repo has to clear
+(`docs/rename-test-plan.md`).
 
 ```bash
 # a project, a workspace, or the médiathèque itself — dry by default
@@ -87,15 +76,14 @@ Every root is at a fixed place, so nothing in `project.yaml` names one:
 | `@engine` | nowhere — synthesised from the machine's plugin scan |
 | `@st0` | `../_libraries/modules`, the account's library submodule |
 | `@workspace` | `../_modules`, beside the project |
-| `@project` | the project's own `modules/` |
 
 `moduleLibraryDirs()` states that once (sharedFolders.ts) and everything reads it: the modules,
 their panels (`modulePanelRoots`), the fork path (`sharedRoots`) and the builder's catalogue —
-which is what keeps the four from disagreeing about what a project can reach.
+which is what keeps the three from disagreeing about what a project can reach.
 
-Nothing in `project.yaml` declares one. A `modules_from` naming the middle two, or a
-`libraries_from` doing the same for assets, could only ever name those fixed places: it would
-decide nothing while leaving three ways to be wrong about them — docs/sharedFolders.md lists
+Nothing in `project.yaml` declares one. A `modules_from` naming the middle one, or a
+`libraries_from` doing the same for assets, could only ever name a fixed place: it would
+decide nothing while leaving three ways to be wrong about it — docs/sharedFolders.md lists
 the three, each of which costs a real afternoon.
 
 What this does NOT do is put the bytes there. The library is hosted; the local folder is a
@@ -107,26 +95,19 @@ plugin is a module the engine merely reports (`engineCatalogue.ts`), which is fi
 you want to draw it a panel or give it presets, because both are FILES in a module's
 folder.
 
-## The bare ref
+## Every ref is namespaced. There is no bare form
 
-`audio/reverb` and `@project/audio/reverb` are the same module. Every `graph.yaml` already
-written names project modules bare, so `loadModuleRefs` keys each one **twice** and both
-resolve; `@project/` is simply the explicit spelling, and nothing has to be migrated.
-
-Two places have to know that the bare form is the project level, and each says so itself
-rather than reading it off `moduleNamespaceOf`:
-
-- `loadUiLibrary` passes `null` for the project's own `modules/`, which is what makes
-  `panelsIn` key its panels bare and skip the category-folder depth a shared library has.
-- `moduleRootFor` maps `@project/…` back to `<project>/modules`, or a panel written for
-  the explicit spelling would be refused for naming no library.
+`extends: "@workspace/audio/reverb"` is the only way to name it — there is no shorter spelling,
+and nothing keys a module a second time under a bare `audio/reverb`. A project has no modules of
+its own to make a bare name unambiguous about, so a ref that carried no `@` prefix would have
+nothing to mean.
 
 ## Going deeper means inheriting, not copying
 
 To change a module you do not own, you make one at YOUR level that `extends` it:
 
 ```yaml
-# modules/audio/my-nam/module.yaml   (@project)
+# _modules/audio/my-nam/module.yaml   (@workspace)
 extends: "@st0/audio/amp/nam"
 params:
   Gain: 0.7
@@ -150,9 +131,9 @@ The answer is a `@st0` module that extends it and holds the panel. The médiath�
 is the editable catalogue, so the face is drawn once, there, for every song that reaches
 for the plugin — rather than copied into each project that plays it.
 
-Contrast that with [moduleFork.md](moduleFork.md), which copies a whole folder into the
-project — what a save into a read-only `_modules` does. Inheritance is the answer that
-leaves a single copy of the module and a single place to fix it.
+Contrast that with [moduleFork.md](moduleFork.md)'s `module own <ref>`, which gives an `@engine`
+ref a folder of its OWN rather than a `@st0` module that extends it — the right answer when what
+you want is a panel and presets FOR YOU, not a face the whole account reads.
 
 ## Giving the WHOLE scan a face
 

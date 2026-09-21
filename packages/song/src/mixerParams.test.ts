@@ -16,12 +16,14 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { projectHints } from "./hints";
 import { MIXER_PARAMS, MIXER_PLUGIN } from "./project";
-import { writeModule, writeNode, writeYaml } from "./testSupport";
+import { writeNode, writeYaml } from "./testSupport";
 
+let ws: string;
 let dir: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-mixer-hints-"));
+  ws = mkdtempSync(join(tmpdir(), "td-mixer-hints-"));
+  dir = join(ws, "song");
   writeYaml(join(dir, "project.yaml"), {
     project: { name: "t", tempo: 120, sampleRate: 48000 },
   });
@@ -30,23 +32,25 @@ beforeEach(() => {
     "modules:\n  vox: [ mixer:vox ]\n  mixer:vox: [ OUT ]\n",
     "utf8",
   );
-  writeModule(dir, "io", "OUT", { io: "out" });
-  writeModule(dir, "audio", "mixer", {
+  // OUT needs no file at all — a built-in sink name (docs/moduleTypes.md).
+  writeYaml(join(ws, "_modules", "audio", "mixer", "module.yaml"), {
     plugin: { type: "internal", name: MIXER_PLUGIN },
   });
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(ws, { recursive: true, force: true }));
+
+const MIXER = "@workspace/audio/mixer";
 
 describe("a built-in's params are known without a project having authored one", () => {
   it("lists every mixer param on a strip nobody has touched", () => {
     // No node file at all: the plugin is the only thing that can say what it has.
     const h = projectHints(dir);
-    expect(h.paramsByBase["audio/mixer"]).toEqual([...MIXER_PARAMS].sort());
+    expect(h.paramsByBase[MIXER]).toEqual([...MIXER_PARAMS].sort());
   });
 
   it("carries the RANGES, which no learned name ever has", () => {
     // A widget bound without a range is drawn 0..1, so a -60..+6 dB fader writes the wrong number.
-    const meta = projectHints(dir).paramMetaByBase["audio/mixer"];
+    const meta = projectHints(dir).paramMetaByBase[MIXER];
     expect(meta.Volume).toEqual({ min: -60, max: 6, def: 0 });
     expect(meta.Pan).toEqual({ min: -1, max: 1, def: 0 });
     for (const band of ["Low", "Mid", "High"])
@@ -233,9 +237,9 @@ describe("a node counts as much as an extender", () => {
   it("picks up a param authored only on one strip", () => {
     // A node IS an extender, and leaving nodes out hid every param of every strip in a real song.
     writeNode(dir, "vox", {
-      extends: "@project/audio/mixer",
+      extends: MIXER,
       params: { Drive: 3 },
     });
-    expect(projectHints(dir).paramsByBase["audio/mixer"]).toContain("Drive");
+    expect(projectHints(dir).paramsByBase[MIXER]).toContain("Drive");
   });
 });

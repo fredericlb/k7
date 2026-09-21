@@ -4,7 +4,7 @@ A module can hold several sets of attributes and run one of them:
 
 ```yaml
 # nodes/ampli.yaml
-extends: "@project/audio/amp"
+extends: "@workspace/audio/amp"
 params: { Gain: 3, Tone: 5 }
 alternative: crunch
 alternatives:

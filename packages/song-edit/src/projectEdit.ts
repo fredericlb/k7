@@ -69,33 +69,23 @@ export function editModuleFile(
   return path;
 }
 
-// Where a module's file is — `module.yaml`, or a node's own file in the flat `nodes/`.
+// Where a module's file is — a node's own file in the flat `nodes/`, or a shared one at `@workspace`/`@st0`.
 function moduleFileOf(
   dir: string,
   module: string,
 ): { folder: string; path: string } {
-  const modules = loadModules(dir) as Record<
-    string,
-    { category?: string; file?: string; node?: string; home?: string }
-  >;
+  const modules = loadModules(dir) as Record<string, { home?: string }>;
   const b = modules[module];
-  // A node carries its own folder, and has no category to rebuild one from.
+  // A node carries its own folder — the only shape a project's own `loadModules` returns now.
   if (b?.home) {
     const folder = join(dir, b.home);
     const found = moduleFileFor(folder, b.home, module);
     if (!found) throw new Error(`module "${module}" has no file in ${b.home}`);
     return { folder, path: found.path };
   }
-  if (!b?.category || !b?.file) {
-    const shared = sharedModuleFileOf(dir, module);
-    if (shared) return shared;
-    throw new Error(`no module "${module}" in this project`);
-  }
-  const folder = join(dir, "modules", b.category, b.file); // module.* for the generic, <node>.* beside it
-  const relDir = `modules/${b.category}/${b.file}`;
-  const found = moduleFileFor(folder, relDir, b.node ?? "module");
-  if (!found) throw new Error(`module "${module}" has no file in ${relDir}`);
-  return { folder, path: found.path };
+  const shared = sharedModuleFileOf(dir, module);
+  if (shared) return shared;
+  throw new Error(`no module "${module}" in this project`);
 }
 
 /** The same for a SHARED catalogue module, whose file lives in the workspace's `_modules` — see docs/projectEdit.md. */

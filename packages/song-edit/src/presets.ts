@@ -4,7 +4,8 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { loadModules, MODULE_TYPES } from "@studio/song/loader";
+import { moduleFolderForRef } from "@studio/song/controller";
+import { loadModuleRefs } from "@studio/song/loader";
 import { moduleFileFor, PRESETS_BASE } from "@studio/song/yaml/moduleIO";
 import {
   type PresetsFile,
@@ -24,17 +25,16 @@ export interface UserPreset {
 
 const VALID_NAME = /^[A-Za-z0-9 _-]+$/;
 
-/** The `presets.yaml` for a module ref, or null — only a LOCAL plugin module has a folder to hold one. */
+/** The `presets.yaml` for a module ref, or null — only a WORKSPACE plugin module has a folder to hold one. */
 export function modulePresetsFile(
   dir: string,
   moduleRef: string,
 ): string | null {
-  if (!moduleRef || moduleRef.startsWith("@")) return null;
-  const segs = moduleRef.split("/");
-  if (segs.length !== 2) return null;
-  const [type, name] = segs;
-  if (!name || MODULE_TYPES[type]?.kind !== "plugin") return null;
-  return join(dir, "modules", type, name, `${PRESETS_BASE}.yaml`);
+  if (!moduleRef.startsWith("@workspace/")) return null;
+  const refs = loadModuleRefs(dir) as Record<string, { kind?: string }>;
+  if (refs[moduleRef]?.kind !== "plugin") return null;
+  const folder = moduleFolderForRef(dir, moduleRef);
+  return folder ? join(folder, `${PRESETS_BASE}.yaml`) : null;
 }
 
 /** Every preset the file declares; a file the schema refuses reads as EMPTY rather than throwing. */
@@ -64,7 +64,7 @@ export function listModulePresets(
 /** Snapshot a module's authored params as a new named preset; a taken name throws, since overwriting is a decision. */
 export function saveModuleAsPreset(
   dir: string,
-  module: string,
+  moduleRef: string,
   presetName: string,
 ): string {
   const name = presetName.trim();
@@ -72,18 +72,17 @@ export function saveModuleAsPreset(
     throw new Error(
       `invalid preset name '${presetName}' — letters, digits, space, '_' and '-' only`,
     );
-  const modules = loadModules(dir) as Record<
+  // Keyed by the module's OWN ref — every node that extends it shares one shelf, a file in its folder.
+  const refs = loadModuleRefs(dir) as Record<
     string,
-    { category?: string; file?: string; params?: Record<string, unknown> }
+    { params?: Record<string, unknown> }
   >;
-  const m = modules[module];
-  if (!m) throw new Error(`no module "${module}" in this project`);
-  // Keyed by the GENERIC's ref — every node shares one shelf, because the shelf is a file in the folder.
-  const ref = m.category && m.file ? `${m.category}/${m.file}` : "";
-  const path = modulePresetsFile(dir, ref);
+  const m = refs[moduleRef];
+  if (!m) throw new Error(`no module "${moduleRef}" in this workspace`);
+  const path = modulePresetsFile(dir, moduleRef);
   if (!path)
     throw new Error(
-      `module '${module}' can't hold presets — only local plugin modules can`,
+      `module '${moduleRef}' can't hold presets — only a workspace plugin module can`,
     );
 
   const params = (m.params ?? {}) as Record<string, unknown>;
@@ -92,7 +91,7 @@ export function saveModuleAsPreset(
   ) as Record<string, number>;
   if (!Object.keys(values).length)
     throw new Error(
-      `module '${module}' has no params to snapshot — set some params first`,
+      `module '${moduleRef}' has no params to snapshot — set some params first`,
     );
 
   const existing = readPresets(path);
@@ -100,30 +99,25 @@ export function saveModuleAsPreset(
     throw new Error(`preset '${name}' already exists — refusing to overwrite`);
 
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, presetsFileText(ref, { ...existing, [name]: values }));
+  writeFileSync(
+    path,
+    presetsFileText(moduleRef, { ...existing, [name]: values }),
+  );
   return relative(dir, path);
 }
 
 /** Apply a preset BY NAME, stamping its values onto the module. The caller reloads. */
 export function applyPresetToModule(
   dir: string,
-  module: string,
+  moduleRef: string,
   presetName: string,
 ): void {
-  const modules = loadModules(dir) as Record<
-    string,
-    { category?: string; file?: string }
-  >;
-  const m = modules[module];
-  if (!m?.category || !m?.file)
-    throw new Error(`no module "${module}" in this project`);
-  const ref = `${m.category}/${m.file}`;
-  const values = readPresets(modulePresetsFile(dir, ref))[presetName];
+  const values = readPresets(modulePresetsFile(dir, moduleRef))[presetName];
   if (!values)
-    throw new Error(`module '${module}' has no preset '${presetName}'`);
-  // Through setModuleParam — one writer, one dispatch — so a node takes it and leaves its generic alone.
+    throw new Error(`module '${moduleRef}' has no preset '${presetName}'`);
+  // Through setModuleParam — one writer, one dispatch — straight onto the workspace module's own file.
   for (const [k, v] of Object.entries(values))
-    setModuleParam(dir, module, k, v);
+    setModuleParam(dir, moduleRef, k, v);
 }
 
 // A key as YAML, quoted only when it has to be — the same rule the panel writer applies, for the same reason.

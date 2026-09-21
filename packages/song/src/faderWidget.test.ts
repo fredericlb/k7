@@ -4,19 +4,18 @@
 // to hold is that `rowSpan` survives the round trip through the schema and the writer, and that a fader carries a
 // range like the other continuous controls (a strip bound to Volume spans -60..+6 dB, never 0..1).
 
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { UISchema, WIDGET_TYPES } from "@studio/song-schema/yaml/moduleSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModules } from "./loader";
-import { scaffold } from "./scaffold";
-import { writeModule } from "./testSupport";
+import { writeNode } from "./testSupport";
 
 let dir: string;
 
 const strip = (extra: Record<string, unknown> = {}) =>
-  writeModule(dir, "audio", "mixer", {
+  writeNode(dir, "mixer", {
     plugin: { type: "internal", name: "Mixer" },
     ui: {
       cols: 2,
@@ -42,7 +41,11 @@ const widget = () =>
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-fader-"));
-  scaffold(dir, "song");
+  writeFileSync(
+    join(dir, "project.yaml"),
+    "project:\n  name: song\n  tempo: 120\n",
+    "utf8",
+  );
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 

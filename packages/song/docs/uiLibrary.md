@@ -24,9 +24,9 @@ balance is the wrong way round.
 - **Two sources of truth.** The `ref:` is the key and the path is filing, so the two can disagree. A folder
   copied by hand keeps the original's `ref:` and its panel silently lands on the module it was copied from.
 - **Two places to look.** "Where is this module's face" has no answer you can reach by looking at the module.
-- **Write-one, read-many.** A panel edited for a shared module has to be copied into the project's own tree,
-  because `_modules/` is read-only through the web. So a thing meant to be authored once per plugin is in
-  practice authored once per project — the opposite of the point.
+- **Two writers for one save.** A module's four files are edited together and saved together
+  (`apps/st0/frontend/docs/sharedModules.md`); a parallel tree would split that write across two
+  roots, and a crash between them leaves a panel that answers to nothing, or a module with none.
 
 Beside the module, the **folder is the key**. Nothing inside `ui.yaml` says which module it draws, because
 nothing has to. Moving a module moves its face; copying one copies it; deleting one takes it along.
@@ -54,23 +54,22 @@ file sits.
 
 ## Which libraries are read
 
-`modulePanelRoots` (sharedFolders.ts): the project's own `modules/` first, then every shared root it inherits —
-the workspace's `_modules`, then the library repository. **Nearest wins**, so a project that forked a shared
-module draws its own face rather than the one it was copied from. There is no separate list to declare: point a
-project at a library and the faces come along with the modules, because they are in the same folders.
+`modulePanelRoots` (sharedFolders.ts): every shared root the project inherits, nearest first — the workspace's
+`_modules`, then the library repository. There is no separate list to declare: point a project at a library and
+the faces come along with the modules, because they are in the same folders.
 
 ## Writing
 
-`writeUiFile` resolves the ref back to a library — the project's own for a bare ref, otherwise the root whose
-`moduleNamespaceOf` matches — and writes `ui.yaml` into the module's folder. It throws on a namespace no
-visible library answers to, rather than guessing at a root: a panel filed under a module that isn't there is a
-save that reports success and draws nothing.
+`writeUiFile` resolves the ref back to a library — the root whose `moduleNamespaceOf` matches — and writes
+`ui.yaml` into the module's folder. It throws on a namespace no visible library answers to, rather than
+guessing at a root: a panel filed under a module that isn't there is a save that reports success and draws
+nothing.
 
-**This writes into shared libraries, and that is the intent.** A workspace's `_modules/` is otherwise read-only
-through the file service ([moduleFork](moduleFork.md)) — a save aimed at one forks the module into the project.
-`ui.yaml` is the single exception, carved in `Workspace.write`. Drawing a knob for a plugin every song reaches
-for must not fork the module: that copy is the thing this arrangement exists to avoid. What a module *is* stays
-read-only; only its face is shared and editable.
+**This writes into shared libraries, and that is the intent.** A `@workspace` module takes the write directly,
+the same as any other file st0 saves; drawing a knob for a plugin every song in the workspace reaches for
+changes the panel every one of them sees, which is exactly "authored once for the plugin" rather than a
+mistake to guard against. `@st0` is the one level still gated — behind the Edit-then-publish confirmation in
+the builder (`apps/st0/frontend/docs/sharedModules.md`), not by anything in this file.
 
 The consequence is real and worth stating: editing a panel from one project changes what every project sees.
 That is the same trade `module populate` makes, and it is what "authored once for the plugin" means.
@@ -78,7 +77,7 @@ That is the same trade `module populate` makes, and it is what "authored once fo
 ### The path, and the two refs that are special
 
 `uiPathFor` drops the namespace, because it names the LIBRARY the caller has already picked:
-`@engine/audio/delay/tape-delay` and a project's own `audio/reverb` each land beside their module file. An io
+`@engine/audio/delay/tape-delay` and `@workspace/audio/reverb` each land beside their module file. An io
 module's ref carries no type folder (`desk`), so it gets one back — without that rescue the panel would land at
 the library root instead of in `io/desk/`. The rescue is about the REF's shape rather than about where the file
 lives.
@@ -86,8 +85,8 @@ lives.
 `moduleRootFor` throws rather than guessing, since a panel written under the wrong root draws a module that
 isn't there. Two refs need saying:
 
-- `@project/audio/reverb` is the same module as the bare `audio/reverb` — the explicit spelling of the level
-  the project owns. It names no library, so it would match no root and be refused.
+- A BARE ref (`audio/reverb`, no `@`) names no library at all — a module lives at `@workspace` or `@st0` now,
+  always spelt with the level, so a bare ref would match no root and is refused before it is even split.
 - `@engine/<slug>` deliberately has NO answer: an engine module is a scanned plugin with no folder in any
   library, and a panel needs a folder to sit in. Better a refusal that says so than a file written under `io/`,
   which is where the io rescue would put it.

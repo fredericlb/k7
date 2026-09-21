@@ -245,10 +245,12 @@ document, which on a turntables surface is the live desk — a save during a set
 the decks (`useTurntableDeck.ts`). This one only flushes when the project CHANGES, which a save
 never does.
 
-`forked` is set when the target was a shared module: the save landed on a project-local copy,
-and the editor has to follow it — the file it had open is unchanged and still read-only. The
-reply is `r.value` because a journalled mutation answers with the tokens either side of it too,
-and the editor asks `/revision` like everything else.
+`forked` is set when the target was an `@engine` ref materialising into its first folder: the
+save landed on a freshly made module, and the editor has to follow it — there was no file open
+before, only a synthesised ref. An ordinary `@workspace` or `@st0` save writes the file it had
+open and answers with no `forked` at all. The reply is `r.value` because a journalled mutation
+answers with the tokens either side of it too, and the editor asks `/revision` like everything
+else.
 
 ## The waveform routes
 

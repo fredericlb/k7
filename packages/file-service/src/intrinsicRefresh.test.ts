@@ -6,7 +6,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeModule, writeYaml } from "@studio/song/testSupport";
+import { writeYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runWebCommand } from "./engineLink.ts";
 import { Workspace } from "./workspace.ts";
@@ -25,11 +25,17 @@ beforeEach(() => {
     "modules:\n  IN: [ amp ]\n  amp: [ MIX ]\n  MIX: [ OUT ]\n",
     "utf8",
   );
-  writeModule(proj, "io", "IN", { io: "in", monitor: "off", channel: [1] });
-  writeModule(proj, "io", "OUT", { io: "out" });
-  writeModule(proj, "audio", "amp", {
-    plugin: { type: "internal", name: "Chorus" },
-  });
+  // io is a plain node now, made directly — OUT needs no file, it's a built-in sink name.
+  writeFileSync(
+    join(proj, "nodes", "IN.yaml"),
+    'io: in\nmonitor: "off"\nchannel: [1]\n',
+    "utf8",
+  );
+  writeFileSync(
+    join(proj, "nodes", "amp.yaml"),
+    "plugin:\n  type: internal\n  name: Chorus\n",
+    "utf8",
+  );
   ws = new Workspace(root);
   ws.setActiveProject("rig.st0");
 });

@@ -1,40 +1,35 @@
-import {
-  cpSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createModuleFile } from "@studio/song/loader";
 import { ModuleSchema } from "@studio/song-schema/yaml/moduleSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 import {
   insertChainStepAfter,
   replaceChainStep,
-  writeModule,
+  writeNode,
 } from "./testSupport";
 
 // A module needn't extend anything, so the schema, the ref-check and the build loop must all allow it.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMOS = join(here, "..", "..", "..", "demos");
+const SONG = join(DEMOS, "synth-demo.st0");
 
 // Found by the PREFIX "synth", since the song names a NODE there, and a miss throws loudly.
 
 describe("bare (extends-less) modules", () => {
+  let ws: string;
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "td-bare-"));
+    ws = mkdtempSync(join(tmpdir(), "td-bare-"));
+    dir = join(ws, "synth-demo.st0");
     cpSync(SONG, dir, { recursive: true });
+    // The Examples workspace's own shared library, beside every demo project.
+    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
   });
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
   it("makes extends optional, and has no `name` field at all", () => {
     // A bare module has to VALIDATE, and `name` must not exist since the FOLDER names it.
@@ -46,7 +41,7 @@ describe("bare (extends-less) modules", () => {
   });
 
   it("compiles a chain that uses a bare (extends-less) module — routing only, no plugin", () => {
-    createModuleFile(dir, "instruments", "bare"); // just a name, no extends
+    writeNode(dir, "bare", {}); // just a node, no extends
     insertChainStepAfter(dir, "lead", { module: "bare" });
     const doc = compileNodeProject(dir); // must not throw: an empty base is not a lookup
     const melody = doc.tracks.find((t) => t.id === "melody");
@@ -58,7 +53,7 @@ describe("bare (extends-less) modules", () => {
 
   it("compiles a self-contained rack module (inline rack, no extends) to a sampler", () => {
     // Called `drumkit` and not `kit`, since the fixture's `kit` is a LANE in the same name space.
-    writeModule(dir, "instruments", "drumkit", {
+    writeNode(dir, "drumkit", {
       type: "rack",
       rack: { symbols: { BD: { note: 36, clip: "kick.wav" } } },
     });
