@@ -23,7 +23,7 @@ modules:
   synth-pad:    [ OUT ]
 ```
 
-`melody` and `pad` are nodes too — a LANE is a node of a `@studio/…-track` module
+`melody` and `pad` are nodes too — a LANE is a node of a `@meta/…-track` module
 ([trackModules.md](trackModules.md)), which is why the file has one map and why the synths are
 named for the lanes they serve rather than after them.
 

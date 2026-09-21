@@ -215,7 +215,7 @@ describe("through the real loader", () => {
     writeFileSync(join(p, "nodes", "ampli.yaml"), node);
     writeFileSync(
       join(p, "nodes", "gtr.yaml"),
-      'extends: "@studio/track"\nevents: []\n',
+      'extends: "@meta/track"\nevents: []\n',
     );
     writeFileSync(
       join(p, "graph.yaml"),

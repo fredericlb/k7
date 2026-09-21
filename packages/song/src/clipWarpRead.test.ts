@@ -39,7 +39,7 @@ beforeEach(() => {
   writeFileSync(join(dir, "clips", "bass.wav"), "RIFF");
   writeFileSync(
     join(dir, "nodes", "bass.yaml"),
-    'extends: "@studio/track"\nevents:\n  - { ref: bass, start: "1:1:1" }\n',
+    'extends: "@meta/track"\nevents:\n  - { ref: bass, start: "1:1:1" }\n',
     "utf8",
   );
 });

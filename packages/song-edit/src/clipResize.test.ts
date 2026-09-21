@@ -35,13 +35,13 @@ function song(
 }
 // The `extends` is spelled out so the file stays schema-valid: several of these assert it LOADS.
 const clipSong = (clips: string, body = "source: clips/kick.wav\n") =>
-  song(`extends: "@studio/track"\n${clips}`, {
+  song(`extends: "@meta/track"\n${clips}`, {
     dir: "clips",
     name: "kick",
     body,
   });
 const seqSong = (clips: string, body = "notes:\n  - { t: 0, d: 1, k: 36 }\n") =>
-  song(`extends: "@studio/track"\n${clips}`, {
+  song(`extends: "@meta/track"\n${clips}`, {
     dir: "sequences",
     name: "kick",
     body,

@@ -50,7 +50,7 @@ function song(): { root: string; dir: string } {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
   // Each is a workspace module, USED through a node of the same bare name — a module lives at

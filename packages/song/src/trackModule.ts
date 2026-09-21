@@ -1,4 +1,4 @@
-// trackModule.ts — the three modules a LANE is a node of. Like `@studio/doc` none of them has a
+// trackModule.ts — the three modules a LANE is a node of. Like `@meta/doc` none of them has a
 // file anywhere, so a lane costs exactly its own node and nothing else. A lane is NOT typed by
 // the signal it carries: it offers an `audio` and a `midi` output, and each event leaves by the
 // one its own material fits. Rationale: docs/trackModules.md.

@@ -20,12 +20,14 @@ import { scaffoldSet } from "./scaffoldSet";
 
 const SCRIPT = join(import.meta.dirname, "..", "scripts", "migrateSetStrip.ts");
 
+let ws = "";
 let dir = "";
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "strip-mig-"));
+  ws = mkdtempSync(join(tmpdir(), "strip-mig-"));
+  dir = join(ws, "set.st0");
 });
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(ws, { recursive: true, force: true });
 });
 
 /** Undo the strip, turning a fresh scaffold back into the set this migration exists to upgrade. */

@@ -22,7 +22,7 @@ describe("neededRefs", () => {
     expect(
       neededRefs({
         workspace: 'extends: "@workspace/instruments/synth"\n',
-        builtin: 'extends: "@studio/track"\n',
+        builtin: 'extends: "@meta/track"\n',
         engine: 'extends: "@engine/audio/delay/adt"\n',
         library: 'extends: "@st0/audio/utility/crossfade"\n',
       }),
@@ -45,7 +45,7 @@ describe("neededRefs", () => {
 
   /** THE asymmetry this whole module is about: two archetypes open on a fresh account, and one does not. */
   it("owes nothing for the two archetypes that own their modules", () => {
-    // Their nodes extend `@workspace/…` and the `@studio/…` built-ins, neither of which is a repository.
+    // Their nodes extend `@workspace/…` and the `@meta/…` built-ins, neither of which is a repository.
     expect(neededRefs(projectFiles("song"))).toEqual([]);
     expect(neededRefs(videoProjectFiles("clip"))).toEqual([]);
   });

@@ -107,29 +107,29 @@ export function projectFiles(name: string): Record<string, string> {
 
     // One 2-bar sequence on a lane — a NODE of a built-in track module, see docs/trackModules.md.
     "nodes/melody.yaml":
-      `# The melody lane. \`@studio/track\` holds events written down here — each one naming a\n` +
+      `# The melody lane. \`@meta/track\` holds events written down here — each one naming a\n` +
       `# sequence or a clip, and leaving by the lane's midi or audio output accordingly.\n` +
-      `extends: "@studio/track"\n` +
+      `extends: "@meta/track"\n` +
       `events:\n  - { ref: melody, start: "1:1:1" }\n`,
 
     // A group: no material of its own, just members — nests the two lanes below so "melody" stays top-level.
     "nodes/live.yaml":
       `# A group lane: no material and no signal of its own, just members.\n` +
-      `extends: "@studio/group-track"\n` +
+      `extends: "@meta/group-track"\n` +
       `tracks: [pad, kit]\n`,
 
     // Two pattern lanes — the lane's NAME picks the part, matched to the pattern's `.label(...)`.
     "nodes/pad.yaml":
       `# A GENERATED lane: its clips are streamed from the pattern while the transport rolls,\n` +
       `# which is why it says \`strudel:\` where an authored lane says \`events:\`.\n` +
-      `extends: "@studio/strudel-track"\n` +
+      `extends: "@meta/strudel-track"\n` +
       `strudel: algo/pattern.strudel\n`,
 
     // The pattern's "Kit" part: the SAME module on the same file, sample or note decided per event.
     "nodes/kit.yaml":
       `# The other half of the same pattern. Nothing here says "audio": an event whose sound\n` +
       `# resolves to a sample plays as one, every other event plays as a note.\n` +
-      `extends: "@studio/strudel-track"\n` +
+      `extends: "@meta/strudel-track"\n` +
       `strudel: algo/pattern.strudel\n`,
 
     // Raw MIDI material: notes live inline as compact {t,d,k,v} maps; the FILENAME names the sequence.

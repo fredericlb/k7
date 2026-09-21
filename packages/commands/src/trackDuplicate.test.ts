@@ -34,7 +34,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 const lane = (id: string, events: string): void =>
   writeFileSync(
     join(dir, "nodes", `${id}.yaml`),
-    `extends: "@studio/track"\ncolor: "#ff0000"\nevents:\n  - { ref: riff, start: "${events}" }\n`,
+    `extends: "@meta/track"\ncolor: "#ff0000"\nevents:\n  - { ref: riff, start: "${events}" }\n`,
     "utf8",
   );
 // A module lives at `@workspace` now — beside the project, in the workspace's own `_modules`.
@@ -134,12 +134,12 @@ describe("track duplicate", () => {
   it("refuses a group and a strudel lane, which hold no events list", async () => {
     writeFileSync(
       join(dir, "nodes", "drums.yaml"),
-      'extends: "@studio/group-track"\ntracks: [gtr]\n',
+      'extends: "@meta/group-track"\ntracks: [gtr]\n',
       "utf8",
     );
     writeFileSync(
       join(dir, "nodes", "algo.yaml"),
-      'extends: "@studio/strudel-track"\nstrudel: algo/beat.strudel\n',
+      'extends: "@meta/strudel-track"\nstrudel: algo/beat.strudel\n',
       "utf8",
     );
     graph("modules:\n  MIX: [ OUT ]\n");

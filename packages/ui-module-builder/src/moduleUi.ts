@@ -6,8 +6,8 @@
 
 import {
   DEFAULT_MODULE_STATUS,
-  ENGINE_NS,
   IO_MODULES,
+  META_NS,
   type ModuleStatus,
   moduleLabelOf,
   moduleStatusOf,
@@ -244,8 +244,8 @@ export function ioOf(fileText: string, path?: string): string | null {
   if (typeof io === "string" && io) return io;
 
   const base = extendsRefOf(fileText);
-  const engine = base?.startsWith(`${ENGINE_NS}/`)
-    ? IO_MODULES[base.slice(ENGINE_NS.length + 1)]
+  const engine = base?.startsWith(`${META_NS}/`)
+    ? IO_MODULES[base.slice(META_NS.length + 1)]
     : undefined;
   if (engine) return engine.io;
 

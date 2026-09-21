@@ -178,8 +178,8 @@ describe("wiring a named port", () => {
 describe("what validate says", () => {
   const wire = (yaml: string) => {
     file("nodes/crossfade.yaml", CROSSFADE);
-    file("nodes/a.yaml", 'extends: "@studio/track"\nevents: []\n');
-    file("nodes/b.yaml", 'extends: "@studio/track"\nevents: []\n');
+    file("nodes/a.yaml", 'extends: "@meta/track"\nevents: []\n');
+    file("nodes/b.yaml", 'extends: "@meta/track"\nevents: []\n');
     writeFileSync(join(dir, "graph.yaml"), yaml, "utf8");
     return loadGraph(dir);
   };
@@ -228,7 +228,7 @@ describe("what validate says", () => {
 
   it("refuses more sources than the module has ports", () => {
     // Arity THROWS rather than warns: the compiler cannot lay out a port that is not there.
-    file("nodes/c.yaml", 'extends: "@studio/track"\nevents: []\n');
+    file("nodes/c.yaml", 'extends: "@meta/track"\nevents: []\n');
     expect(() =>
       wire(
         "modules:\n  a: [ crossfade ]\n  b: [ crossfade#b ]\n  c: [ crossfade#b ]\n  crossfade: [ OUT ]\n",

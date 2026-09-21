@@ -37,7 +37,7 @@ const trackDir = (body: string): string => {
 const laneText = (dir: string) =>
   readFileSync(join(dir, "nodes", "drums.yaml"), "utf8");
 
-const LANE = `extends: "@studio/track"
+const LANE = `extends: "@meta/track"
 events:
   - { ref: kick, start: "1:1" }
   - { ref: break, start: "2:1", loop: 2 }

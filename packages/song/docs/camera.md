@@ -21,7 +21,7 @@ lanes the project does author, in the order the graph declares the cameras.
 
 ```yaml
 # nodes/cam.yaml
-extends: "@engine/CAM"
+extends: "@meta/CAM"
 camera: "Logitech BRIO"
 frame: [40, 40, 320, 180]   # …and leave THIS out to fill the frame
 ```
@@ -66,7 +66,7 @@ is the second reason not to refuse.
 | the node says | the layer gets | what it means |
 |---|---|---|
 | it is not a camera at all | no `camera` field | an ordinary lane, drawing its placements |
-| `extends: "@engine/CAM"` with no `camera:` | `camera: ""` | a lens, whichever this machine calls default |
+| `extends: "@meta/CAM"` with no `camera:` | `camera: ""` | a lens, whichever this machine calls default |
 | `camera: "Logitech BRIO"` | `camera: "Logitech BRIO"` | that lens, matched by name |
 
 The empty string is what makes a camera node usable before anybody has chosen anything, and the

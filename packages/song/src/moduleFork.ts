@@ -16,7 +16,7 @@ import { namePart } from "@studio/song-schema/instanceName";
 import { parseGraph, renameNode } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
 import { deriveChains } from "./chainsGraph";
-import { engineModules } from "./engineCatalogue";
+import { engineModules, ioModules } from "./engineCatalogue";
 import { MODULE_TYPES, moduleRefOf } from "./loader";
 import type { LoadedModule } from "./rawDoc";
 import {
@@ -85,11 +85,11 @@ export function chainsUsing(text: string, module: string): string[] {
     .map(([name]) => name);
 }
 
-/** Give a module the ENGINE merely reports a folder of its own — docs/moduleFork.md. */
+/** Give a module the ENGINE (or an io role) merely reports a folder of its own — docs/moduleFork.md. */
 export function materialiseEngineModule(
   dir: string,
   ref: string,
-  catalogue: Record<string, LoadedModule> = engineModules(),
+  catalogue: Record<string, LoadedModule> = { ...engineModules(), ...ioModules() },
 ): ForkedModule {
   const found = catalogue[ref];
   if (!found)
@@ -116,7 +116,7 @@ export function materialiseEngineModule(
       `plugin:\n` +
       `  type: ${JSON.stringify(String(plugin.type ?? ""))}\n` +
       `  name: ${JSON.stringify(String(plugin.name ?? ""))}\n`
-    : // An io module the engine provides (IN / OUT) has no plugin — its `io:` IS its substance.
+    : // An io module (IN / OUT / …) has no plugin — its `io:` IS its substance.
       `# ${module}: ${ref}, given a folder so it can carry a panel and presets.\n` +
       `io: ${JSON.stringify(String(found.io ?? ""))}\n`;
   writeFileSync(join(typeDir, module, "module.yaml"), body, "utf8");

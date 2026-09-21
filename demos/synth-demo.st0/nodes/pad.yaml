@@ -5,5 +5,5 @@
 # Nothing here says what it carries — a lane is not typed, and each event leaves by the output
 # its own material fits. What makes these notes is that the pattern names no sample and that
 # graph.yaml wires `pad#midi:` to the instrument.
-extends: "@studio/strudel-track"
+extends: "@meta/strudel-track"
 strudel: algo/pattern.strudel

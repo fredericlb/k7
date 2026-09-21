@@ -9,6 +9,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CUE_NODE,
+  curveIdFromRef,
   isBuiltinOutput,
   MASTER_OWNER,
   MIX_NODE,
@@ -544,7 +545,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
             owner,
             pluginId: `${name}:${step.module}`,
             param: String(a.param),
-            curve: String(a.curve),
+            curve: curveIdFromRef(String(a.curve)),
             trigger: String(a.trigger ?? step.module),
           });
       if (!module) continue; // dangling module ref — already reported by the ref-check loop

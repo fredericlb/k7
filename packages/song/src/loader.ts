@@ -28,6 +28,7 @@ import {
   MODULE_EMITS,
   MODULE_TYPES,
   moduleEmits,
+  metaRef,
   moduleKey,
   moduleLabelOf,
   moduleRefOf,
@@ -61,8 +62,8 @@ import {
 } from "./assetPath";
 import { presetFor } from "./basePreset";
 import { loadControllerLibrary } from "./controller";
-import { studioModules } from "./docModule";
-import { engineModules, engineRef } from "./engineCatalogue";
+import { docModules } from "./docModule";
+import { engineModules, engineRef, ioModules } from "./engineCatalogue";
 import { cachedForModules, withModuleStamp } from "./moduleCache";
 import {
   mergeAuthored,
@@ -453,10 +454,12 @@ function loadNodes(
 // The refs a local module's OWN FILES may be filed under, best first — its own, then what it derives from (docs/graphModel.md).
 export function moduleOwnRefs(m: LoadedModule): string[] {
   const from = typeof m.extends === "string" ? m.extends : "";
+  // An io role is a built-in, not a scanned plugin — its panel (if any) is filed under `@meta`.
+  const ambientRef = m.kind === "io" ? metaRef(String(m.file)) : engineRef(String(m.file));
   // A node has no type folder and so no ref of its own: its panel is the panel of what it uses.
-  if (!m.category) return from ? [from] : [engineRef(String(m.file))];
+  if (!m.category) return from ? [from] : [ambientRef];
   const own = moduleRefOf(String(m.category), String(m.file));
-  return from ? [own, from] : [own, engineRef(String(m.file))];
+  return from ? [own, from] : [own, ambientRef];
 }
 
 // Overlay the panels found beside the modules onto a module map, by ref, replacing a module's own `ui:` WHOLE (docs/uiLibrary.md).
@@ -582,7 +585,7 @@ export function deadProjectFields(dir: string): Diagnostic[] {
 export function notSupportedModules(dir: string): Diagnostic[] {
   const out: Diagnostic[] = [];
   const authored = loadModules(dir); // authored, no validate
-  // RESOLVED, because the marker is usually INHERITED: an import writes a node on `@studio/not-supported`
+  // RESOLVED, because the marker is usually INHERITED: an import writes a node on `@meta/not-supported`
   // and no module of its own, and the authored file then says nothing at all (docs/notSupported.md).
   const resolved = resolveModuleMap(authored, loadModuleRefs(dir));
   for (const [name, m] of Object.entries(resolved)) {
@@ -742,9 +745,10 @@ function readModuleRefs(
 ): Record<string, LoadedModule> {
   // The built-ins first, then the catalogue, so anything on disk overrides both — see docs/graphModel.md.
   const out: Record<string, LoadedModule> = {
-    ...studioModules(),
+    ...docModules(),
     ...trackModules(),
     ...notSupportedRefs(),
+    ...ioModules(),
     ...catalogue,
   };
 
@@ -1091,7 +1095,7 @@ export function createNode(
     const role = IO_MODULES[module]?.io;
     if (!role)
       throw new Error(
-        `unknown io module '${module}' — the engine provides: ${Object.keys(IO_MODULES).join(", ")}`,
+        `unknown io module '${module}' — the app provides: ${Object.keys(IO_MODULES).join(", ")}`,
       );
     if (!isIoSource(role))
       throw new Error(

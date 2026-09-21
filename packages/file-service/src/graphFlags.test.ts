@@ -69,7 +69,7 @@ describe("a module that IS its behaviour", () => {
     // Fed by a live input, an `audio` module's flow port being mandatory — the amp is the subject.
     writeFileSync(
       join(dir, "nodes", "gtr.yaml"),
-      'extends: "@engine/IN"\nchannel: [1]\n',
+      'extends: "@meta/IN"\nchannel: [1]\n',
     );
     writeFileSync(
       join(dir, "graph.yaml"),

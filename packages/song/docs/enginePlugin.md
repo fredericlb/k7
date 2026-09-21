@@ -84,6 +84,6 @@ browser applies to the scan reported over the socket: one rule, so the two canno
 plugin differently. That vocabulary lives in the leaf with no filesystem so a BROWSER can name an
 engine module without pulling `node:fs` in behind it, and it is re-exported from
 `engineCatalogue.ts` because that is where every caller already looks. `IO_MODULES` sits there for
-the same reason plus one more: the BUILDER has to recognise `extends: "@engine/IN"` to know it is
+the same reason plus one more: the BUILDER has to recognise `extends: "@meta/IN"` to know it is
 editing an input, and it runs in a browser
 ([inputChannels.md](../../ui-module-builder/docs/inputChannels.md)).

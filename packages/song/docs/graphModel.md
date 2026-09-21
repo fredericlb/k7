@@ -9,7 +9,7 @@ than carrying inline.
 
 ## A lane is a projection, not an entity
 
-`Track` is a node of one of the five `@studio/…-track` modules (`trackModules.md`) seen as
+`Track` is a node of one of the five `@meta/…-track` modules (`trackModules.md`) seen as
 an arrangement rather than as a node. The shape is kept deliberately: the compiler, the wire
 and the engine all speak it, and the engine's lanes are a compilation target rather than the
 authoring model — exactly as the `Mixer` module's fader is.
@@ -411,7 +411,7 @@ resolved against this map rather than added to it.
 
 The built-ins are seeded before the catalogue so anything on disk overrides both: a project or a
 library may define `@engine/x`, and the thing you can edit should win over the thing you cannot.
-The six `@studio/…` modules — the note and the five lanes — are seeded HERE rather than folded into
+The six `@meta/…` modules — the note and the five lanes — are seeded HERE rather than folded into
 the catalogue argument because they are not the engine's, so callers that pass their own catalogue
 (tests, scripts) still get them, which is what "built-in" has to mean for a ref every project may
 name.

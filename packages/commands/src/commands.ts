@@ -116,6 +116,7 @@ import { builtinParamsFor } from "@studio/song-schema/builtinParams";
 import { renamedInstance } from "@studio/song-schema/instanceName";
 import {
   CUE_NODE,
+  curveRef,
   isBuiltinOutput,
   MIX_NODE,
   OUT_NODE,
@@ -1105,7 +1106,7 @@ async function addTrackAutomation(
     value,
     beatsToPosition(last, p.timeSigNumerator, p.timeSigDenominator),
   );
-  const path = setModuleAutomationBinding(h.songPath, module, param, id);
+  const path = setModuleAutomationBinding(h.songPath, module, param, curveRef(id));
   await h.reload();
   h.log([
     `${track.id}: ${param} <- ${id} (${rel}), flat at ${Math.round(value * 100)}% (${path})`,
@@ -3275,7 +3276,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         h.songPath,
         module,
         param,
-        curve === "none" ? null : curve,
+        curve === "none" ? null : curveRef(curve),
         trigger,
       );
       await h.reload();

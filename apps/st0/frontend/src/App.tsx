@@ -1247,7 +1247,7 @@ export default function App({
   const toggleDocs = useCallback(() => {
     if (docCount === 0)
       return setStatus(
-        "no notes in this project — a note is a node of @studio/doc, wired from what it is about",
+        "no notes in this project — a note is a node of @meta/doc, wired from what it is about",
       );
     setShowDocs((on) => !on);
   }, [docCount]);
@@ -3793,7 +3793,7 @@ export default function App({
                 onClick={() => void runCommand("ui notes")}
                 title={
                   docCount === 0
-                    ? "No notes in this project: a note is a node of @studio/doc, wired from what it is about"
+                    ? "No notes in this project: a note is a node of @meta/doc, wired from what it is about"
                     : showDocs
                       ? `Hide the ${docCount} note(s) on the graph`
                       : `Show the ${docCount} note(s) on the graph`

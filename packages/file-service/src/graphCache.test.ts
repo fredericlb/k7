@@ -30,7 +30,7 @@ beforeEach(() => {
   writeFileSync(join(proj, "graph.yaml"), chains("amp"), "utf8");
   writeFileSync(
     join(proj, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
   // The modules live at `@workspace` now; "amp"/"cab" stay the bare NODE names the graph uses.
@@ -73,9 +73,9 @@ describe("the graph memo", () => {
   it("notices a project file appearing, not just changing", async () => {
     const before = ws.graphDoc();
     await new Promise((r) => setTimeout(r, 12));
-    // A NOTE, a node of the built-in `@studio/doc` — a file that APPEARS must invalidate the memo.
+    // A NOTE, a node of the built-in `@meta/doc` — a file that APPEARS must invalidate the memo.
     writeNode(proj, "fuzz", {
-      extends: "@studio/doc",
+      extends: "@meta/doc",
       content: "watch the gain here",
     });
     expect(ws.graphDoc()).not.toBe(before);

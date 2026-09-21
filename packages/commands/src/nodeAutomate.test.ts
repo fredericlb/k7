@@ -44,7 +44,7 @@ function song(): { root: string; dir: string } {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
   // A module lives at `@workspace` now, used through a node of the same bare name.
@@ -120,7 +120,7 @@ describe("node automate", () => {
     const text = moduleText();
     expect(text).toContain("automations:");
     expect(text).toContain("param: Level");
-    expect(text).toContain("curve: sweep");
+    expect(text).toContain('curve: "@meta/curves/sweep"');
   });
 
   it("binds a param whose name has SPACES — the case the old split mangled", async () => {
@@ -128,7 +128,7 @@ describe("node automate", () => {
     await runCommand("node automate osc Filter Freq sweep", host(), "cli");
     const text = moduleText();
     expect(text).toContain("param: Filter Freq");
-    expect(text).toContain("curve: sweep");
+    expect(text).toContain('curve: "@meta/curves/sweep"');
     // `not.toContain("weep")` would be the obvious assertion and is useless: "sweep" contains it.
     expect(text).not.toContain("curve: weep");
     expect(text).not.toContain("param: c Filter Freq");
@@ -143,8 +143,8 @@ describe("node automate", () => {
     await runCommand("node automate osc Level sweep", host(), "cli");
     await runCommand("node automate osc Level other", host(), "cli");
     const text = moduleText();
-    expect(text).toContain("curve: other");
-    expect(text).not.toContain("curve: sweep");
+    expect(text).toContain('curve: "@meta/curves/other"');
+    expect(text).not.toContain("@meta/curves/sweep");
   });
 
   it("`none` unbinds, and takes the whole `automations:` key with the last one", async () => {

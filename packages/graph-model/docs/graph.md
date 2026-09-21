@@ -196,7 +196,7 @@ project has no freeze in force; a `frozen:` whose render is not on disk is not o
 `modules` carries the note text of doc modules only, so it is empty for almost every project. It
 is optional because the layout-only subgraphs feeding dagre carry geometry, not notes. It was
 `{docs, todos}` on every module, for a bottom panel that listed everybody's notes in one place; a
-note is its own node now — a node of `@studio/doc`, wired from what it is about — so the text is
+note is its own node now — a node of `@meta/doc`, wired from what it is about — so the text is
 read where you are already looking. See `packages/song/docs/docModules.md`.
 
 ## `WebTrackClip`: a trim, deliberately

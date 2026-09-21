@@ -253,11 +253,11 @@ one would mean resolving a ref this component cannot resolve. That case still ha
 sources and the live engine's report; this is for the one they all miss.
 
 `ioOf` needs three sources, because a module rarely SAYS it: a real song's `ge_rythm-in.yaml` is
-two lines, `extends: "@engine/IN"` and `channel: [ 2 ]`. Reading only the file's own key called that
+two lines, `extends: "@meta/IN"` and `channel: [ 2 ]`. Reading only the file's own key called that
 a plugin, which cost it both its io binds and its channel picker.
 
 1. its own `io:` — a file that states it is right about itself;
-2. `extends: "@engine/IN"` — the engine's io modules are a fixed table, not files (`IO_MODULES`);
+2. `extends: "@meta/IN"` — the engine's io modules are a fixed table, not files (`IO_MODULES`);
 3. failing both, the PATH: a file under `io/IN/` is one of that folder's inputs. Location is how
    the loader decides this too — `in-2.yaml` beside `module.yaml` carries a channel and nothing
    else. The path is matched on the two-segment shape rather than borrowing `moduleKeyFromPath`,

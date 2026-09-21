@@ -54,7 +54,7 @@ export function writeLane(
   extend: "track" | "strudel-track" | "group-track" = "track",
   value: Record<string, unknown> = {},
 ): string {
-  return writeNode(dir, name, { extends: `@studio/${extend}`, ...value });
+  return writeNode(dir, name, { extends: `@meta/${extend}`, ...value });
 }
 
 /** Write one USE of a module, flat at `nodes/<name>.yaml`; what it uses is `extends`, in `value`. */

@@ -241,7 +241,7 @@ function trackText(t: TrackOut, placements: Record<string, unknown>[]): string {
   // No `name` field, and the mute is the module's bypass rather than anything here — see docs/import.md.
   const value: Record<string, unknown> = {};
   if (t.color) value.color = t.color;
-  value.extends = "@studio/track";
+  value.extends = "@meta/track";
   // The lane file's own key is `events:`, not `clips:`: these are placements of the material.
   value.events = placements;
   return yamlText(value, [["events"]]);

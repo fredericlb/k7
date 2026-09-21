@@ -1,4 +1,4 @@
-extends: "@studio/track"
+extends: "@meta/track"
 events:
   - { ref: kick, start: "1:1:1" }
   - { ref: snare, start: "3:1:1" }

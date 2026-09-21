@@ -42,7 +42,7 @@ describe("which kind of file a path is", () => {
   it("recognises sequences, clips, tracks and video tracks", () => {
     expect(isSeqFile("sequences/lead.yaml")).toBe(true);
     expect(isClipFile("clips/kick.yaml")).toBe(true);
-    // A lane lives in `nodes/` — it is a node of a `@studio/…-track` module.
+    // A lane lives in `nodes/` — it is a node of a `@meta/…-track` module.
     expect(isTrackFile("nodes/melody.yaml")).toBe(true);
     expect(isTrackFile("tracks/melody.yaml")).toBe(false);
     expect(isVideoTrackFile("video_tracks/cam.yaml")).toBe(true);

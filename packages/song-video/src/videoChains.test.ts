@@ -10,9 +10,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileVideoChains } from "./videoChains";
 import { loadVideoProject } from "./videoProject";
 
+let root: string;
 let dir: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "video-chains-"));
+  root = mkdtempSync(join(tmpdir(), "video-chains-"));
+  dir = join(root, "film.st0");
+  mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n  viewport: [640, 360, 30]\n  layers: [main]\n",
@@ -23,11 +26,11 @@ beforeEach(() => {
     "x: 0\ny: 0\nw: 640\nh: 360\nevents: []\n",
   );
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-/** A shader module in the project, with one shader folder and whatever fields it needs. */
+/** A shader module at the WORKSPACE level, with one shader folder and whatever fields it needs, used through a node of the same name. */
 function shaderModule(name: string, body: string, shaders = ["pulse"]): void {
-  const abs = join(dir, "modules", "shaders", name);
+  const abs = join(root, "_modules", "shaders", name);
   mkdirSync(abs, { recursive: true });
   writeFileSync(join(abs, "module.yaml"), body);
   for (const s of shaders) {
@@ -35,6 +38,11 @@ function shaderModule(name: string, body: string, shaders = ["pulse"]): void {
     writeFileSync(join(abs, "shaders", s, "vertex.glsl"), `// ${s} vert\n`);
     writeFileSync(join(abs, "shaders", s, "fragment.glsl"), `// ${s} frag\n`);
   }
+  mkdirSync(join(dir, "nodes"), { recursive: true });
+  writeFileSync(
+    join(dir, "nodes", `${name}.yaml`),
+    `extends: "@workspace/shaders/${name}"\n`,
+  );
 }
 
 const graph = (text: string) =>
@@ -118,7 +126,7 @@ describe("the audio side input", () => {
     mkdirSync(join(dir, "nodes"), { recursive: true });
     writeFileSync(
       join(dir, "nodes", "gtr.yaml"),
-      'extends: "@studio/track"\nevents: []\n',
+      'extends: "@meta/track"\nevents: []\n',
     );
     graph(
       "modules:\n  gtr: [ MIX, glow#audio ]\n  MIX: [ OUT ]\n" +

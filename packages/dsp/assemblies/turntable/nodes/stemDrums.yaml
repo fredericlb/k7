@@ -1,3 +1,3 @@
 # The lane the "drums" part of a separated record plays on. A stem you can fade on its own has to
 # be a track of its own — see packages/song-schema/docs/stems.md.
-extends: "@studio/track"
+extends: "@meta/track"

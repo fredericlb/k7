@@ -21,7 +21,7 @@ const clip = (body: Record<string, unknown>) =>
 const place = (fields: string) =>
   writeFileSync(
     join(dir, "nodes", "drums.yaml"),
-    `extends: "@studio/track"\nevents:\n  - { ref: kick, start: "1:1:1"${fields} }\n  - { ref: snare, start: "2:1:1" }\n`,
+    `extends: "@meta/track"\nevents:\n  - { ref: kick, start: "1:1:1"${fields} }\n  - { ref: snare, start: "2:1:1" }\n`,
     "utf8",
   );
 const kick = () =>

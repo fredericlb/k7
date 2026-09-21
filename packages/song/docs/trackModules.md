@@ -5,7 +5,7 @@ what it `extends` says what kind of lane it is:
 
 ```yaml
 # nodes/melody.yaml
-extends: "@studio/track"
+extends: "@meta/track"
 color: "#c8a97e"
 events:
   - { ref: melody, start: "1:1:1" }
@@ -25,10 +25,10 @@ There is no `tracks/` folder, and no `tracks:` half of `graph.yaml`.
 ## Three, and none of them says what it carries
 
 ```
-  events written down     @studio/track
-  events streamed         @studio/strudel-track
+  events written down     @meta/track
+  events streamed         @meta/strudel-track
 
-  neither                 @studio/group-track
+  neither                 @meta/group-track
 ```
 
 There is no second axis for `audio` against `notes`, because **a lane does not carry a signal —
@@ -161,10 +161,10 @@ all.
 ## Every lane is a node of a built-in
 
 None of the three has a file anywhere, which makes them the third such set in the repo after the
-synthesised `@engine/…` plugins ([moduleNamespaces.md](moduleNamespaces.md)) and `@studio/doc`
+synthesised `@engine/…` plugins ([moduleNamespaces.md](moduleNamespaces.md)) and `@meta/doc`
 ([docModules.md](docModules.md)). A lane costs exactly one file — its own.
 
-The alternative is what settles it, and it is the argument `@studio/doc` makes too: a
+The alternative is what settles it, and it is the argument `@meta/doc` makes too: a
 project-local `modules/tracks/track/module.yaml` would be a file every project must scaffold
 before its first lane.
 
@@ -225,14 +225,14 @@ this repo keeps choosing (see [nodes.md](nodes.md), which makes the same call).
 
 | a file may hold | write instead |
 |---|---|
-| `extends: "@studio/audio-track"` | `extends: "@studio/track"` |
-| `extends: "@studio/sequence-track"` | `extends: "@studio/track"` |
-| `extends: "@studio/audio-strudel-track"` | `extends: "@studio/strudel-track"` |
-| `extends: "@studio/sequence-strudel-track"` | `extends: "@studio/strudel-track"` |
-| `extends: "@studio/group-track"` | unchanged |
+| `extends: "@meta/audio-track"` | `extends: "@meta/track"` |
+| `extends: "@meta/sequence-track"` | `extends: "@meta/track"` |
+| `extends: "@meta/audio-strudel-track"` | `extends: "@meta/strudel-track"` |
+| `extends: "@meta/sequence-strudel-track"` | `extends: "@meta/strudel-track"` |
+| `extends: "@meta/group-track"` | unchanged |
 | two lanes, one audio and one sequences, for one part | one lane, and `#audio:` / `#midi:` in `graph.yaml` if the two need different chains |
 
-A lane that streams (`@studio/strudel-track`) is the one case where the wiring has to say what the
+A lane that streams (`@meta/strudel-track`) is the one case where the wiring has to say what the
 file cannot: it holds nothing until the transport rolls, so `pad#midi: [ synth ]` is the only
 place "these events are notes for the synth" is written down. An authored lane says it by holding
 events.
@@ -260,7 +260,7 @@ And for a project whose lanes are still files in `tracks/`:
 |---|---|
 | `type: single` \| `strudel` | `extends:` one of the two above |
 | `contentType:` | nothing — the events say it |
-| `type: group` | `extends: "@studio/group-track"` |
+| `type: group` | `extends: "@meta/group-track"` |
 | `events:`, `color:`, `disabled:`, `tracks:`, `strudel:` | unchanged, on the node |
 | `mute: true` | the name in `graph.yaml`'s `bypassed:` |
 | `solo: true` | the name in project.yaml's root `soloed:` list |

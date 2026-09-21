@@ -1,10 +1,10 @@
-# `@studio/not-supported` — the node an unloadable plugin leaves behind
+# `@meta/not-supported` — the node an unloadable plugin leaves behind
 
 A DAWproject carries plugin names this machine may have nothing to load: a VST3 nobody installed,
 an Ableton device, a plugin that exists only on the other musician's laptop. The import has to put
 *something* where each one was, because a chain with a hole in it is a chain that routes wrong.
 
-What it puts there is a **node** on `@studio/not-supported`, and no module of its own.
+What it puts there is a **node** on `@meta/not-supported`, and no module of its own.
 
 ## Why not a module per plugin
 
@@ -18,14 +18,14 @@ The node carries what is actually specific: the plugin's real name as `label:`, 
 values the export carried. Nothing is lost, and the project has one file per USE rather than one
 folder per plugin plus one file per use.
 
-## Why `@studio` and not `@st0`
+## Why `@meta` and not `@st0`
 
 `@st0` is the **médiathèque** — the account's library, which lives on a volume this machine may
 not have mounted and which a fresh clone certainly does not. A ref there is one an import can
 write and then fail to resolve, and an unresolvable `extends` is a project that will not open at
 all: a worse failure than the one this is fixing.
 
-`@studio` is the built-in namespace with no folder — `@studio/doc`, `@studio/track` — seeded into
+`@meta` is the built-in namespace with no folder — `@meta/doc`, `@meta/track` — seeded into
 the ref map by `loader.ts` on every load. It resolves everywhere, always, with nothing installed.
 That is the whole reason.
 

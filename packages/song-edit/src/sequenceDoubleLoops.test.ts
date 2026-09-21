@@ -31,7 +31,7 @@ const seq = (body: Record<string, unknown>) =>
   });
 const place = (p: Record<string, unknown>) =>
   writeYaml(join(dir, "nodes", "melody.yaml"), {
-    extends: "@studio/track",
+    extends: "@meta/track",
     events: [{ ref: "melody", start: "1:1:1", ...p }],
   });
 const melody = () =>
@@ -108,7 +108,7 @@ describe("×2 on a looped placement", () => {
     seq({ to: "1:2" });
     place({ loop: 4 });
     writeYaml(join(dir, "nodes", "second.yaml"), {
-      extends: "@studio/track",
+      extends: "@meta/track",
       events: [{ ref: "melody", start: "2:1:1", loop: 8 }],
     });
     expect(double()).toMatchObject({ halved: 2 });

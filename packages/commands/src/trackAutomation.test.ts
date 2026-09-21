@@ -40,7 +40,7 @@ function song(): { root: string; dir: string } {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
   // A module lives at `@workspace` now, used through a node of the same bare name.
@@ -105,7 +105,7 @@ describe("track automation add", () => {
     const text = moduleText();
     expect(text).toContain("automations:");
     expect(text).toContain("param: Filter Freq");
-    expect(text).toContain("curve: gtr-Filter-Freq");
+    expect(text).toContain('curve: "@meta/curves/gtr-Filter-Freq"');
   });
 
   it("creates a FLAT curve at wherever the knob currently sits", async () => {

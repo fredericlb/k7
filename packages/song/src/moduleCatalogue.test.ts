@@ -104,11 +104,11 @@ describe("the shared module catalogue", () => {
     const solo = join(alone, "song");
     cpSync(SONG, solo, { recursive: true });
     const refs = moduleCatalogue(solo).map((m) => m.ref);
-    expect(refs).toContain("@engine/IN");
-    expect(refs).toContain("@engine/OUT");
-    // …and only the levels with NO folder behind them: `@engine`'s scan and `@studio`'s doc.
+    expect(refs).toContain("@meta/IN");
+    expect(refs).toContain("@meta/OUT");
+    // …and only the levels with NO folder behind them: `@engine`'s scan and `@meta`'s built-ins.
     expect(
-      refs.every((r) => r.startsWith("@engine/") || r.startsWith("@studio/")),
+      refs.every((r) => r.startsWith("@engine/") || r.startsWith("@meta/")),
     ).toBe(true);
     rmSync(alone, { recursive: true, force: true });
   });

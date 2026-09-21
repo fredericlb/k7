@@ -49,7 +49,7 @@ beforeEach(() => {
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
   // A module lives at `@workspace` now — beside the project, in the workspace's own `_modules`.

@@ -207,7 +207,7 @@ scaffold has just written and the workspace does not resolve
 - **The list is read out of the text the scaffold writes**, not kept beside it. An archetype whose
   nodes change module cannot make the list lie.
 - **Only `@st0/` counts.** `@workspace/` is the workspace's `_modules`, `@engine/` the plugin scan
-  and `@studio/` the built-in modules: none of those three waits on a repository. That is why
+  and `@meta/` the built-in modules: none of those three waits on a repository. That is why
   `arrangement` and `video` owe nothing and `mix` is the only one of the three that opens broken
   on a new account. The asymmetry is pinned by a test.
 - **The sentence promises no catalogue.** It names the modules owed and says you write them

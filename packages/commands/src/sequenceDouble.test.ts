@@ -44,7 +44,7 @@ function song(seq = SEQ, place = ""): string {
 }
 
 /** A lane placing the sequence — the half of the act that lives outside the sequence file. */
-const LANE = `extends: "@studio/track"
+const LANE = `extends: "@meta/track"
 events:
   - { ref: melody, start: "1:1:1", loop: 4 }
 `;

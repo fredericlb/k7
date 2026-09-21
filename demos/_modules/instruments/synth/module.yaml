@@ -16,13 +16,13 @@ extends: "@workspace/instruments/fourosc"
 # octave down.
 #
 # Was `docs:`/`todos:`, read by the Docs panel. To say this ON THE GRAPH instead, add a
-# node of `@studio/doc` with a `content:` and wire this module into it.
+# node of `@meta/doc` with a `content:` and wire this module into it.
 # Automation. The hand-drawn `sweep` curve rides the filter cutoff — "Filter Freq"
 # has a widget in the graph, so the curve's arrow lands on it. The bipolar `wobble`
 # LFO detunes osc 1; "Osc1 Tune" has no widget, so its arrow points at the module
 # with the param named instead.
 automations:
   - param: Filter Freq
-    curve: sweep
+    curve: "@meta/curves/sweep"
   - param: Osc1 Tune
-    curve: wobble
+    curve: "@meta/curves/wobble"

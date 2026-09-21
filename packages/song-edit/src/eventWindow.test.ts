@@ -20,7 +20,7 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-const LANE = `extends: "@studio/track"
+const LANE = `extends: "@meta/track"
 events:
   - { ref: vox, start: "24:1" }
   - { ref: other, start: "40:1" }

@@ -290,7 +290,7 @@ times that window is played. A window starting at the material's own beginning s
 omission, which is how a hand would write it.
 
 **A lane file has no `name:` field.** The FILE names the lane and the track's name drives the
-slug, so the display name is that slug. A lane is a NODE of `@studio/track` and is not typed, so
+slug, so the display name is that slug. A lane is a NODE of `@meta/track` and is not typed, so
 an imported track's clips carry their own kind, and one track holding both audio and MIDI is the
 ordinary case rather than a shape with nowhere to go. Its mute is its module's bypass and goes to
 `graph.yaml`. The lane file's own key is `events:`, not `clips:`:
@@ -318,10 +318,10 @@ file whose state it is: `nodes/<node>.vstpreset` for a node, and the module's ow
 sole use that stayed in `module.yaml`.
 
 **A plugin the cache does not know gets NO module of its own.** Every use of it is written as a
-node on `@studio/not-supported`, the built-in placeholder, carrying the plugin's real name as
+node on `@meta/not-supported`, the built-in placeholder, carrying the plugin's real name as
 `label:` and the params the export held. The chain routes through it and the graph draws it amber.
 `packages/song/docs/notSupported.md` argues the shape — chiefly why a stub MODULE per unloadable
-plugin was the wrong answer, and why the ref is `@studio` rather than `@st0`.
+plugin was the wrong answer, and why the ref is `@meta` rather than `@st0`.
 
 The scan it checks against is read through `scannedPlugins()` and never by opening a path of its
 own. That is the whole of the rule, and the failure it prevents is silent: a hand-rolled read

@@ -158,7 +158,7 @@ describe("the catalogue the builder lists", () => {
     w.setActiveProject("song.st0");
     const cat = w.moduleCatalogue();
     expect(cat.every((m) => m.path === undefined)).toBe(true);
-    expect(cat.map((m) => m.ref)).toContain("@engine/OUT");
+    expect(cat.map((m) => m.ref)).toContain("@meta/OUT");
     rmSync(solo, { recursive: true, force: true });
   });
 });

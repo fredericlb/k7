@@ -70,7 +70,7 @@ beforeEach(async () => {
   );
   writeFileSync(
     join(proj, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
   writeModule(proj, "audio", "amp", {
@@ -110,7 +110,7 @@ it("pushes the project when a source write changes it", async () => {
   const before = sentCount();
   await write(
     "song.st0/nodes/gtr.yaml",
-    'extends: "@studio/track"\nevents: []\n# edited\n',
+    'extends: "@meta/track"\nevents: []\n# edited\n',
   );
   expect(sentCount()).toBeGreaterThan(before);
 });
@@ -118,12 +118,12 @@ it("pushes the project when a source write changes it", async () => {
 it("pushes again for a second, different edit", async () => {
   await write(
     "song.st0/nodes/gtr.yaml",
-    'extends: "@studio/track"\nevents: []\n# one\n',
+    'extends: "@meta/track"\nevents: []\n# one\n',
   );
   const after1 = sentCount();
   await write(
     "song.st0/nodes/gtr.yaml",
-    'extends: "@studio/track"\nevents: []\n# two\n',
+    'extends: "@meta/track"\nevents: []\n# two\n',
   );
   expect(sentCount()).toBeGreaterThan(after1);
 });
@@ -137,7 +137,7 @@ it("does NOT push for a write OUTSIDE the active project", async () => {
 
 it("pushes a same-bytes rewrite too, because the token counts the mtime", async () => {
   // Stated rather than fixed: `POST /command` gates on the very same comparison (docs/fileRoutes.md).
-  const text = 'extends: "@studio/track"\nevents: []\n# same\n';
+  const text = 'extends: "@meta/track"\nevents: []\n# same\n';
   await write("song.st0/nodes/gtr.yaml", text);
   const settled = sentCount();
   await write("song.st0/nodes/gtr.yaml", text);

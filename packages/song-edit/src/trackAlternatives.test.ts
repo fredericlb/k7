@@ -25,7 +25,7 @@ import { parse } from "yaml";
 import { newModuleAlternative } from "./projectEdit";
 
 /** A lane on its SECOND set, which states nothing — so it plays the module's own arrangement. */
-const INHERITING = `extends: "@studio/track"
+const INHERITING = `extends: "@meta/track"
 events:
   - { ref: take1_a, start: "1:1" }
   - { ref: take1_b, start: "5:1" }
@@ -35,7 +35,7 @@ alternative: "2"
 `;
 
 /** The same lane on a second set that states an arrangement of its OWN. */
-const OWN = `extends: "@studio/track"
+const OWN = `extends: "@meta/track"
 events:
   - { ref: take1_a, start: "1:1" }
 alternatives:
@@ -121,7 +121,7 @@ describe("a lane playing an alternative", () => {
 
   it("still edits the module's own list when the FIRST set is on", () => {
     // The ordinary case, and the one that must not move: no `alternative:` key at all.
-    const plain = `extends: "@studio/track"
+    const plain = `extends: "@meta/track"
 events:
   - { ref: a, start: "1:1" }
 `;
@@ -132,7 +132,7 @@ events:
 });
 
 /** A lane on its own, no sets yet — what `create` is asked about most. */
-const PLAIN = `extends: "@studio/track"
+const PLAIN = `extends: "@meta/track"
 events:
   - { ref: take1_a, start: "1:1" }
   - { ref: take1_b, start: "5:1" }

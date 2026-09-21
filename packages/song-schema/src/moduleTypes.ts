@@ -222,6 +222,14 @@ export const engineRef = (slug: string): string => `${ENGINE_NS}/${slug}`;
 export const isEngineRef = (ref: string): boolean =>
   ref === ENGINE_NS || ref.startsWith(`${ENGINE_NS}/`);
 
+/** How a chain names a BUILT-IN — `@meta/track`, `@meta/IN` — the app's own vocabulary, never a scanned plugin (docs/moduleTypes.md). */
+export const META_NS = "@meta";
+export const metaRef = (slug: string): string => `${META_NS}/${slug}`;
+
+/** Is this ref one of the built-ins? Asked wherever a ref's own namespace decides how it resolves. */
+export const isMetaRef = (ref: string): boolean =>
+  ref === META_NS || ref.startsWith(`${META_NS}/`);
+
 /** How a module asks to be TREATED BY THE COMPLETIONS and nothing else — full rationale: docs/moduleStatus.md. */
 export const MODULE_STATUSES = ["listed", "favorite", "hidden"] as const;
 export type ModuleStatus = (typeof MODULE_STATUSES)[number];
@@ -261,10 +269,10 @@ export const moduleDisplayName = (label: string, name: string): string =>
 /** The io kind a live PICTURE source is — spelled once, since three tiers test for it. */
 export const CAMERA_IO = "camera";
 
-/** The node a camera is: `@engine/io/CAM`, the picture's answer to `IN`. See docs/camera.md. */
+/** The node a camera is: `@meta/CAM`, the picture's answer to `IN`. See docs/camera.md. */
 export const CAMERA_NODE = "CAM";
 
-/** The io modules the engine provides — one IN and one OUT for the whole app, and a node carries the wiring: docs/moduleTypes.md. */
+/** The io roles the app itself provides — one IN and one OUT for the whole app, and a node carries the wiring: docs/moduleTypes.md. */
 export const IO_MODULES: Record<
   string,
   { io: "in" | "out" | "file" | "camera" }
@@ -278,6 +286,19 @@ export const IO_MODULES: Record<
   // The file source: audio off disk rather than off an interface, and a node carries WHICH file (docs/fileInput.md).
   FILE: { io: "file" },
 };
+
+// --- curve refs (see packages/song/docs/curves.md) -------------------------------
+
+/** The type folder a curve ref names — the file still lives at `curves/<id>.yaml`, per-project; this is REF-CONSISTENCY only. */
+export const CURVES_CATEGORY = "curves";
+const CURVE_REF_PREFIX = `${META_NS}/${CURVES_CATEGORY}/`;
+
+/** How an automation binding names a curve: `@meta/curves/sweep` — docs/curves.md. */
+export const curveRef = (id: string): string => `${CURVE_REF_PREFIX}${id}`;
+
+/** The bare curve id an authored `curve:` field names, whichever form it was written in — docs/curves.md. */
+export const curveIdFromRef = (ref: string): string =>
+  ref.startsWith(CURVE_REF_PREFIX) ? ref.slice(CURVE_REF_PREFIX.length) : ref;
 
 /** How a scanned plugin becomes a module, null when the name leaves no slug — ONE rule for two tiers, docs/moduleTypes.md. */
 export function engineModuleOf(p: {
@@ -316,18 +337,17 @@ export const NOT_SUPPORTED_TYPE = "not_supported";
 
 // --- the doc module (see docs/docModules.md) -------------------------------------
 
-/** `@studio/doc` — the module every note on the graph is a NODE of, and it names no folder (docs/moduleTypes.md). */
-export const STUDIO_NS = "@studio";
+/** `@meta/doc` — the module every note on the graph is a NODE of, and it names no folder (docs/moduleTypes.md). */
 export const DOC_CATEGORY = "docs";
-export const DOC_REF = `${STUDIO_NS}/doc`;
+export const DOC_REF = `${META_NS}/doc`;
 
 /** Is this what a note extends? The one spelling of the ref, so a typo cannot half-work. */
 export const isDocRef = (ref: unknown): boolean => ref === DOC_REF;
 
 // --- the not-supported module (see packages/song/docs/notSupported.md) -----------
 
-/** `@studio/not-supported` — what a node stands on when the plugin it WAS is one st0 cannot load. */
-export const NOT_SUPPORTED_REF = `${STUDIO_NS}/not-supported`;
+/** `@meta/not-supported` — what a node stands on when the plugin it WAS is one st0 cannot load. */
+export const NOT_SUPPORTED_REF = `${META_NS}/not-supported`;
 
 /** Its category: not a type folder, so nothing can be authored under it — the module has no folder. */
 export const NOT_SUPPORTED_CATEGORY = "misc";
@@ -339,9 +359,9 @@ export const isNotSupportedRef = (ref: unknown): boolean =>
 // --- the track modules (see docs/trackModules.md) --------------------------------
 
 /** The three modules a LANE is a node of — three and not five, since a lane is not typed by its signal (docs/trackModules.md). */
-export const TRACK_REF = `${STUDIO_NS}/track`;
-export const STRUDEL_TRACK_REF = `${STUDIO_NS}/strudel-track`;
-export const GROUP_TRACK_REF = `${STUDIO_NS}/group-track`;
+export const TRACK_REF = `${META_NS}/track`;
+export const STRUDEL_TRACK_REF = `${META_NS}/strudel-track`;
+export const GROUP_TRACK_REF = `${META_NS}/group-track`;
 
 export const TRACK_REFS = [
   TRACK_REF,
@@ -358,10 +378,10 @@ export {
 
 /** The signal-typed lane refs a project on disk may carry, for the DIAGNOSTIC alone — nothing resolves these (docs/moduleTypes.md). */
 export const LEGACY_TRACK_REFS: Record<string, string> = {
-  [`${STUDIO_NS}/audio-track`]: TRACK_REF,
-  [`${STUDIO_NS}/sequence-track`]: TRACK_REF,
-  [`${STUDIO_NS}/audio-strudel-track`]: STRUDEL_TRACK_REF,
-  [`${STUDIO_NS}/sequence-strudel-track`]: STRUDEL_TRACK_REF,
+  [`${META_NS}/audio-track`]: TRACK_REF,
+  [`${META_NS}/sequence-track`]: TRACK_REF,
+  [`${META_NS}/audio-strudel-track`]: STRUDEL_TRACK_REF,
+  [`${META_NS}/sequence-strudel-track`]: STRUDEL_TRACK_REF,
 };
 
 /** Is this what a lane extends? Asked of an authored `extends:`, before anything is resolved. */
@@ -379,6 +399,9 @@ export type ModuleNamespace = (typeof MODULE_NAMESPACES)[number];
 
 /** The other name this level answers to on disk — a NAME and not an accepted spelling, since nothing resolves it (docs/moduleTypes.md). */
 export const LEGACY_MEDIATEK_NS = "mediatek";
+
+/** `@meta`'s old spelling — a NAME for the migration script alone, since nothing resolves it (docs/moduleTypes.md). */
+export const LEGACY_META_NS = "studio";
 
 /** Where the account's LIBRARY REPOSITORY is mounted at the workspace root — fixed, never declared (docs/sharedFolders.md). */
 export const LIBRARIES_DIR = "_libraries";

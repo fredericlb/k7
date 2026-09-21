@@ -36,7 +36,7 @@ beforeEach(() => {
   });
   writeFileSync(
     join(proj, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
   // A module lives at `@workspace` now; "amp" stays the bare NODE name the graph uses.

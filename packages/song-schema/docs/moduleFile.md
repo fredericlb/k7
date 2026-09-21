@@ -151,14 +151,14 @@ silently moves a param somebody set (`packages/song/docs/userPresets.md`).
 
 Multiline free text, shown as it is written on the node itself. A note is a THING IN THE GRAPH,
 wired from what it is about, and read where you are already looking rather than in a panel you have
-to go to. It belongs to a NODE in practice — every note is a node of `@studio/doc` — but it is
+to go to. It belongs to a NODE in practice — every note is a node of `@meta/doc` — but it is
 declared on the module like any other setting, because that is what makes a node able to override it
 (`packages/song/docs/docModules.md`). There is no `docs:` and no `todos:`, here or on a lane, and
 `.strict()` refuses a file that still carries either.
 
 ## A lane's own fields
 
-They are accepted on any module and meaningful only on one that extends a `@studio/…-track`. The
+They are accepted on any module and meaningful only on one that extends a `@meta/…-track`. The
 schema deliberately does not police that: it validates ONE file, and which module a name extends is
 a question about the whole project. `graph.ts`'s `validate()` reports an `events:` on a reverb,
 exactly as it reports a `channel:` on something that is not an input — same rule, same place

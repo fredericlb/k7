@@ -4,12 +4,12 @@ An io module is where signal enters or leaves a song. Three roles: `in`, a live 
 channel; `out`, a sink; and `file`, whose audio comes off disk:
 
 ```yaml
-# modules/io/FILE/take.yaml — one use of the engine's FILE input
+# nodes/take.yaml — one use of the app's FILE input
 io: file
 source: "clips/original.wav"
 ```
 
-The engine offers it as `@engine/FILE`, beside `@engine/IN` and `@engine/OUT`. One module for
+The app offers it as `@meta/FILE`, beside `@meta/IN` and `@meta/OUT`. One role for
 the app; a node carries which file, exactly as an `IN` node carries which channel.
 
 ## Why a role and not a flag

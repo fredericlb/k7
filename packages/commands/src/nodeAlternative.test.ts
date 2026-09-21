@@ -38,7 +38,7 @@ function song(node: string): { root: string; dir: string } {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
   writeFileSync(join(d, "nodes", "ampli.yaml"), node, "utf8");

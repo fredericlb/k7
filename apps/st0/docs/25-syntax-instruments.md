@@ -24,12 +24,12 @@ A **doc module** is a note: one input, no output, and one field — `content`, f
 drawn on the node exactly as you write it. Wire it from whatever it is about, and it says so
 where you are already looking.
 
-Every note is a **node of `@studio/doc`**, which is built in: there is no module file to
+Every note is a **node of `@meta/doc`**, which is built in: there is no module file to
 create, so a note costs one file — its node.
 
 ```yaml schema=Module
 # nodes/notes-amp.yaml — one note
-extends: "@studio/doc"
+extends: "@meta/doc"
 content: |
   The NAM pulls hard: -6 dB before it,
   or it clips on the attacks.
@@ -78,7 +78,7 @@ A camera needs **no picture lane at all**. On its own it draws a layer of its ow
 
 ```yaml schema=Module
 # nodes/cam.yaml — a webcam. Put it in graph.yaml and it draws itself.
-extends: "@engine/CAM"
+extends: "@meta/CAM"
 camera: "Logitech BRIO"   # leave it out for whichever is default
 frame: [40, 40, 320, 180] # …and leave THIS out to fill the frame
 ```
@@ -421,12 +421,12 @@ A panel is a file of its own rather than a `ui:` block inside `module.yaml`, so 
 
 ## _modules/<type>/<name>/module.yaml — automations:
 
-Bind a curve to a parameter. `curve` names a curves/<id>.yaml; `param` is the parameter's display name — the same name a widget binds and `node param` addresses. A curve's polarity decides whether it sweeps the parameter's whole range or rides ± around where the knob sits.
+Bind a curve to a parameter. `curve` is a `@meta/curves/<id>` ref naming a curves/<id>.yaml beside the project; `param` is the parameter's display name — the same name a widget binds and `node param` addresses. A curve's polarity decides whether it sweeps the parameter's whole range or rides ± around where the knob sits.
 
 ```yaml schema=Module
 automations:
-  - { param: "Filter Freq", curve: sweep }
-  - { param: Level, curve: wobble }
+  - { param: "Filter Freq", curve: "@meta/curves/sweep" }
+  - { param: Level, curve: "@meta/curves/wobble" }
 ```
 
 ## _modules/config.yaml

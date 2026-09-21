@@ -762,7 +762,7 @@ file becomes a project copy, and the pane moves onto it.
 
 The resolution is `moduleBehind.ts` — the same answer a ctrl-click on the extends value gives (`base:`
 then `module:` in `hints.paths`) — read from the BUFFER, so retyping the extends line swaps the pane. A
-base with no file to edit (`@engine/…`, the `@studio/…` track bases) resolves to nothing and the popin
+base with no file to edit (`@engine/…`, the `@meta/…` track bases) resolves to nothing and the popin
 stays one pane. Popin only: the full-screen editor has the tree, and a second file there is one click
 away rather than a question.
 

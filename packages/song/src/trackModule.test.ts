@@ -42,7 +42,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 describe("the three built-in track modules", () => {
   it("resolve with no file anywhere", () => {
     // A lane must cost ONE file, its own node, so there is nothing an old project can be missing.
-    const refs = loadModuleRefs(project([["gtr", "@studio/track"]]));
+    const refs = loadModuleRefs(project([["gtr", "@meta/track"]]));
     for (const ref of TRACK_REFS) {
       expect(refs[ref], ref).toBeDefined();
       expect(isTrack(refs[ref]), ref).toBe(true);
@@ -52,18 +52,18 @@ describe("the three built-in track modules", () => {
   it("offer BOTH outputs — a lane is not typed by what it carries", () => {
     // Detyping in one assertion: drop either port and a lane holds one kind of material again.
     const m = trackModules();
-    for (const ref of ["@studio/track", "@studio/strudel-track"])
+    for (const ref of ["@meta/track", "@meta/strudel-track"])
       expect(m[ref].outputs, ref).toEqual([
         { name: "audio", type: "audio" },
         { name: "midi", type: "midi" },
       ]);
 
     // The one axis left: where the events come from.
-    expect(m["@studio/track"].generated).toBeUndefined();
-    expect(m["@studio/strudel-track"].generated).toBe(true);
+    expect(m["@meta/track"].generated).toBeUndefined();
+    expect(m["@meta/strudel-track"].generated).toBe(true);
 
     // And the one that is neither: a group carries no signal, so it offers no output.
-    expect(m["@studio/group-track"].outputs).toEqual([]);
+    expect(m["@meta/group-track"].outputs).toEqual([]);
   });
 
   it("take NO input — what arrives on a lane is its clips", () => {
@@ -80,7 +80,7 @@ describe("a lane, read off what it extends", () => {
       [
         [
           "gtr",
-          "@studio/track",
+          "@meta/track",
           'events:\n  - { ref: riff, start: "1:1:1" }\n  - { ref: line, start: "3:1:1" }\n',
         ],
       ],
@@ -111,7 +111,7 @@ describe("a lane, read off what it extends", () => {
       [
         [
           "gtr",
-          "@studio/track",
+          "@meta/track",
           'events:\n  - { ref: riff, start: "1:1:1" }\n  - { ref: line, start: "3:1:1" }\n',
         ],
       ],
@@ -147,7 +147,7 @@ describe("a lane, read off what it extends", () => {
       [
         [
           "gtr",
-          "@studio/track",
+          "@meta/track",
           'events:\n  - { ref: riff, start: "1:1:1" }\n',
         ],
       ],
@@ -164,9 +164,9 @@ describe("a lane, read off what it extends", () => {
 
   it("says where its clips come from — there is no `type` either", () => {
     const p = project([
-      ["gtr", "@studio/track"],
-      ["kit", "@studio/strudel-track", "strudel: algo/p.strudel\n"],
-      ["live", "@studio/group-track", "tracks: [gtr, kit]\n"],
+      ["gtr", "@meta/track"],
+      ["kit", "@meta/strudel-track", "strudel: algo/p.strudel\n"],
+      ["live", "@meta/group-track", "tracks: [gtr, kit]\n"],
     ]);
     const lanes = loadLanes(p);
     expect(lanes.gtr.type).toBe("single");
@@ -177,7 +177,7 @@ describe("a lane, read off what it extends", () => {
 
   it("is a chain's SOURCE, not a step in it", () => {
     // `from` says the lane STARTS the run; read wrong, it compiles as a plugin on another track.
-    const g = loadGraph(project([["gtr", "@studio/track"]]));
+    const g = loadGraph(project([["gtr", "@meta/track"]]));
     expect(g.chains.gtr.from).toBe("gtr");
     expect(g.chains.gtr.use).toEqual([]);
     expect(g.warnings).toEqual([]);
@@ -185,7 +185,7 @@ describe("a lane, read off what it extends", () => {
 
   it("carries its clips through to the compiled doc", () => {
     const p = project([
-      ["gtr", "@studio/track", 'events:\n  - { ref: riff, start: "2:1:1" }\n'],
+      ["gtr", "@meta/track", 'events:\n  - { ref: riff, start: "2:1:1" }\n'],
     ]);
     mkdirSync(join(p, "clips"), { recursive: true });
     writeFileSync(
@@ -204,8 +204,8 @@ describe("a lane's mute is its module's bypass", () => {
   it("comes off `bypassed:`, not off the lane's file", () => {
     const p = project(
       [
-        ["gtr", "@studio/track"],
-        ["bass", "@studio/track"],
+        ["gtr", "@meta/track"],
+        ["bass", "@meta/track"],
       ],
       "modules:\n  gtr: [ OUT ]\n  bass: [ OUT ]\nbypassed: [ bass ]\n",
     );
@@ -220,7 +220,7 @@ describe("a lane's mute is its module's bypass", () => {
 describe("what a lane may be called", () => {
   it("takes a name a module already has — a lane and its instrument are not one thing", () => {
     // What every import writes: the source DAW named the track after the instrument on it.
-    const p = project([["amp", "@studio/track"]]);
+    const p = project([["amp", "@meta/track"]]);
     mkdirSync(join(p, "modules", "audio", "amp"), { recursive: true });
     writeFileSync(
       join(p, "modules", "audio", "amp", "module.yaml"),
@@ -239,7 +239,7 @@ describe("a mixed lane wired bare", () => {
       [
         [
           "gtr",
-          "@studio/track",
+          "@meta/track",
           'events:\n  - { ref: riff, start: "1:1:1" }\n  - { ref: line, start: "3:1:1" }\n',
         ],
       ],

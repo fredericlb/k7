@@ -777,7 +777,7 @@ export const CAMERA_BIND = "@camera";
 
 /** The UI a CAMERA node carries: one dropdown, the lenses this machine has — see docs/camera.md.
  *
- * Synthesised for the reason `inputUI` is, and for its harder second one too: `@engine/CAM` has no
+ * Synthesised for the reason `inputUI` is, and for its harder second one too: `@meta/CAM` has no
  * folder, so it can carry no `ui.yaml`, and without this every camera in every project draws a card
  * reading "No Options" that no amount of authoring could fix.
  *

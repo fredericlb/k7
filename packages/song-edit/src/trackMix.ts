@@ -67,7 +67,7 @@ export function editTrackStruct(
   transform: (text: string) => string,
   what: string,
 ): string {
-  // `nodes/`, because a lane IS a node of a `@studio/…-track` module and lives there.
+  // `nodes/`, because a lane IS a node of a `@meta/…-track` module and lives there.
   const found = entityFileFor(join(dir, "nodes"), "nodes", id);
   if (!found)
     throw new Error(`track "${id}" has no file in nodes/ — cannot ${what}`);

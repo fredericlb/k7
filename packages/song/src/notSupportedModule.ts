@@ -1,4 +1,4 @@
-// notSupportedModule.ts — `@studio/not-supported`, what a node stands on when the plugin it was
+// notSupportedModule.ts — `@meta/not-supported`, what a node stands on when the plugin it was
 // is one st0 cannot load. It has no file anywhere: one placeholder for the whole studio, so an
 // import writes a node and no module of its own. Full rationale: docs/notSupported.md.
 

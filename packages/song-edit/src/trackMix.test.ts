@@ -76,7 +76,7 @@ describe("removeTrackPlacement", () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   const THREE = `# the drum lane
-extends: "@studio/track"
+extends: "@meta/track"
 events:
   - { ref: kick, start: "1:1:1", length: "1:0:0" }
   - { ref: snare, start: "2:1:1", length: "1:0:0" }
@@ -105,7 +105,7 @@ events:
 
   it("empties the list cleanly when it was the only placement", () => {
     const read = track(
-      'extends: "@studio/track"\nevents:\n  - { ref: kick, start: "1:1:1" }\n',
+      'extends: "@meta/track"\nevents:\n  - { ref: kick, start: "1:1:1" }\n',
     );
     expect(removeTrackPlacement(dir, "drums", 0, 4, 4)).toBe(true);
     expect(read()).not.toContain("kick");
@@ -129,12 +129,12 @@ describe("moving a placement onto another lane", () => {
     mkdirSync(join(dir, "nodes"), { recursive: true });
     writeFileSync(
       join(dir, "nodes", "bs.yaml"),
-      'extends: "@studio/track"\nevents:\n  - { ref: bass_0, start: "25:1", loop: 2 }\n',
+      'extends: "@meta/track"\nevents:\n  - { ref: bass_0, start: "25:1", loop: 2 }\n',
       "utf8",
     );
     writeFileSync(
       join(dir, "nodes", "gtr.yaml"),
-      'extends: "@studio/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
+      'extends: "@meta/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
       "utf8",
     );
   });

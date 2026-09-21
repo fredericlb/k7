@@ -19,7 +19,7 @@ Each of these already exists under a name close enough to confuse, and none of t
 
 | existing | what it is | why not |
 |---|---|---|
-| a group LANE (`@studio/group-track`, `ProjectDoc.groups`, [mixFolding.md](mixFolding.md)) | a mixer relationship over lanes | members must be **lanes**. It holds `deckA` and the stem lanes; it cannot hold `trimA`, `platterA` or `fadeA`, which are modules. And it carries mute/solo, not topology |
+| a group LANE (`@meta/group-track`, `ProjectDoc.groups`, [mixFolding.md](mixFolding.md)) | a mixer relationship over lanes | members must be **lanes**. It holds `deckA` and the stem lanes; it cannot hold `trimA`, `platterA` or `fadeA`, which are modules. And it carries mute/solo, not topology |
 | a chain TEMPLATE (`_libraries/chains/<ref>/`) | a reusable graph with `@in`/`@out` ends | nothing inlines one into a host graph. It is edited standalone from the project that uses it, or bounced offline (`processChain.ts`). Its ends are unnamed and it has one of each |
 | `frozen: "inside"` ([freeze.md](freeze.md)) | one card standing for everything upstream | a **render**, not a document node. It cannot be opened, and it refuses when the region leaks |
 

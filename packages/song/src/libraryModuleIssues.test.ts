@@ -70,8 +70,8 @@ describe("a library module that will not read", () => {
     sharedModule("audio/broken", BAD);
     sharedModule("audio/fine", GOOD);
     const refs = loadModuleRefs(dir, {});
-    // `@studio/…` is dropped like the catalogue: this asks what the FILES define.
-    expect(Object.keys(refs).filter((r) => !r.startsWith("@studio/"))).toEqual([
+    // `@meta/…` is dropped like the catalogue: this asks what the FILES define.
+    expect(Object.keys(refs).filter((r) => !r.startsWith("@meta/"))).toEqual([
       "@workspace/audio/fine",
     ]);
     expect(libraryModuleIssues(dir)).toHaveLength(1);

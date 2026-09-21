@@ -30,6 +30,7 @@ import {
 } from "@studio/song/project";
 import {
   CAMERA_IO,
+  curveIdFromRef,
   hostsPlugin,
   SHADER_CATEGORY,
 } from "@studio/song-schema/moduleTypes";
@@ -213,17 +214,20 @@ export function buildGraphDoc(
         const unknownPlugin =
           slot && !!plugin && !notSupported && (!known || unscanned);
         // Keep only automations whose curve exists; record each referenced curve's shape so the graph can label its node.
-        const automations = (module?.automations ?? []).filter((a) => {
-          const cv = allCurves[a.curve];
-          if (!cv) return false;
-          usedCurves[a.curve] = {
-            type: cv.type,
-            shape: cv.type === "lfo" ? cv.shape : undefined,
-            // A drawn curve's points travel; a parameterised one's do not. See WebCurve.points.
-            points: cv.type === "custom" ? cv.points : undefined,
-          };
-          return true;
-        });
+        // The authored `curve:` is a `@meta/curves/<id>` ref — bare id from here on, same as `allCurves`'s own keys.
+        const automations = (module?.automations ?? [])
+          .map((a) => ({ ...a, curve: curveIdFromRef(a.curve) }))
+          .filter((a) => {
+            const cv = allCurves[a.curve];
+            if (!cv) return false;
+            usedCurves[a.curve] = {
+              type: cv.type,
+              shape: cv.type === "lfo" ? cv.shape : undefined,
+              // A drawn curve's points travel; a parameterised one's do not. See WebCurve.points.
+              points: cv.type === "custom" ? cv.points : undefined,
+            };
+            return true;
+          });
         return {
           module: s.module,
           // …and WHICH module it is a use of — the authored `extends`, see docs/graphFlags.md.

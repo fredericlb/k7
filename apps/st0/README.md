@@ -85,8 +85,8 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
 ```
 
 - **A track is a MODULE.** It lives in `nodes/<name>.yaml` and what it `extends` says
-  what kind of lane it is: `@studio/track`, `@studio/strudel-track` or
-  `@studio/group-track`. There is no `tracks/` folder, no `type:` and no `contentType:` —
+  what kind of lane it is: `@meta/track`, `@meta/strudel-track` or
+  `@meta/group-track`. There is no `tracks/` folder, no `type:` and no `contentType:` —
   a lane is not typed by what it carries. It offers an `audio` and a `midi` output, holds
   events naming clips and events naming sequences in one list, and each leaves by the one
   its own material fits (`gtr#audio:` / `gtr#midi:` in `graph.yaml` when the two need

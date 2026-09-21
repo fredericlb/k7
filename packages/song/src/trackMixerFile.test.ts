@@ -29,7 +29,7 @@ const graph = (body: string): void =>
 const lane = (id: string): void =>
   writeFileSync(
     join(dir, "nodes", `${id}.yaml`),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
 const module_ = (name: string, plugin: string): void => {

@@ -4,7 +4,7 @@ Mixer and placement mutations: rewrite a lane's own file in place so the change 
 same way for every surface that reloads it (TUI watcher, web refetch). A surgical edit, never a
 re-serialization.
 
-A lane lives in `nodes/`, because a lane IS a node of a `@studio/…-track` module, and the file
+A lane lives in `nodes/`, because a lane IS a node of a `@meta/…-track` module, and the file
 is named after it.
 
 ## What a lane's own file carries

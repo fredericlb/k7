@@ -36,7 +36,7 @@ const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
 const lane = (name: string) =>
   writeFileSync(
     join(dir, "nodes", `${name}.yaml`),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
 

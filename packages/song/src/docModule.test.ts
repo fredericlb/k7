@@ -1,4 +1,4 @@
-// A NOTE on the graph: a node of the built-in `@studio/doc`, carrying its own `content`.
+// A NOTE on the graph: a node of the built-in `@meta/doc`, carrying its own `content`.
 // What is pinned here is the shape that makes it a note rather than a device — one input, no
 // output, no plugin — and that its text survives the compile. See docs/docModules.md.
 
@@ -29,7 +29,7 @@ function project(content = "watch the gain here"): string {
   );
   writeFileSync(
     join(p, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
   );
   writeFileSync(
     join(p, "graph.yaml"),

@@ -38,8 +38,14 @@ That column decides almost everything downstream, and it is the one thing to hol
 ```yaml
 # modules/instruments/synth/module.yaml
 automations:
-  - { param: "Filter Freq", curve: sweep }
+  - { param: "Filter Freq", curve: "@meta/curves/sweep" }
 ```
+
+`curve` is a **namespaced ref**, `@meta/curves/<id>`, even though the file it names is a plain
+`curves/<id>.yaml` beside the project — every module ref is namespaced, and a curve binding is no
+exception. The `curve` commands (`curve new`, `curve point add|move|remove`) and `node automate`'s
+own `<curve>` argument still take the **bare id**; only the value written into `automations:` carries
+the `@meta/curves/` prefix, added when the binding is written and stripped back off when it is read.
 
 **Keyed by param** — one knob, one curve. Binding a second replaces the first rather than stacking
 lanes, which is what `setModuleAutomation` implements and what makes `param` a usable address.
