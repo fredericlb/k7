@@ -127,6 +127,35 @@ for 8770. If a save ever stops taking effect, look for those first:
 Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "*server.ts*" }
 ```
 
+## A restart must not overtake the start before it
+
+The bridge ends the previous host task with `stop-host-port`, which kills by PORT: it asks netstat
+who is LISTENING, kills that tree, and waits until the port is bindable again. That is honest about
+what it can see, and blind to one state — a task that is still STARTING holds no socket yet, so it
+is found by nobody, survives the stop, and binds the port a moment later, behind the replacement
+that was launched in the meantime. The loser dies on `EADDRINUSE`, and the log's giveaway is a
+`8770 is free` with no `killing pid` line above it.
+
+Two things answer it. The bridge **never launches while the current task is starting**: a change
+that arrives during a boot is queued and applied once the task is up, as one restart rather than a
+second instance. Up is observable rather than assumed — `readyPort` is polled from the distro, WSL
+reaching the host's ports through localhost forwarding — and the task says `up on <port>` when it
+answers, because a guard that only speaks when it fails cannot be seen working.
+
+That covers the restarts of one bridge SESSION, and not the bridge's own restart: a `tilt trigger`
+that lands mid-boot leaves an orphan the next session knows nothing about, and it was the failure
+actually seen. So the host task is started through **`run-tagged`**, which writes its PID before
+the command it runs, and `stop-host-port <port> <tag>` kills that tree first — a PID is true from
+the task's first instant, where a port is only true once something binds it. The pid file lives
+under `.cache`, which the mirror skips: it is host-local state and means nothing on the other side.
+A pid is recycled, so the kill is refused unless the process is still a `node.exe`; missing a
+victim is better than shooting a stranger.
+
+It matters exactly when the boot is slow: a warm `tsx` restarts the file service in about half a
+second, well inside one mirror period, and nothing can overlap. A cold cache — after an install, or
+any change that makes the service re-read what it imports — takes long enough for the next mirror
+pass to land in the middle of it. That is the case this guard is for.
+
 ## The two things the code had to learn
 
 **One spelling of `<state>`.** It had three — `studioDir()` in

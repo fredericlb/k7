@@ -199,9 +199,9 @@ both ≤ 0 and both 0 for a graph nobody dragged), and the fit frames that box.
 **A new node is born under the cursor.** The graph's create flows carry the click's world
 point into the verb itself — an optional trailing `x,y` on `node new` and `node insert` — and the
 handler pins the node there in the same undo step. On the bare canvas that is the whole of it:
-`node new` both creates and places, so the shell has nothing to run after it unless the pick
-carried a point, in which case it sends one `graph move`. The comma spelling is what makes the
-token unmistakable for a ref or a node name, and the point is passed through UNCLAMPED — the
+`node new` both creates and places, so the shell has nothing to run after it. An arrow adds one
+`node insert`, which splices and re-pins at the same point; the comma spelling is what makes the
+x,y token unmistakable for a ref or a node name, and the point is passed through UNCLAMPED — the
 paragraph above is the reason, and a `Math.max(0, …)` on the way out of the shell was quietly
 undoing it for every click above the first lane.
 

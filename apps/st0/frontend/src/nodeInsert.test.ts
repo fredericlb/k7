@@ -1,10 +1,10 @@
 // What the graph's `+` runs, and what the shell runs after it.
 //
-// TWO lines, for a vocabulary reason rather than a plumbing one: a `node …` verb acts on a node,
-// so the gesture is "make it" then "wire it" and neither verb creates a module.
+// ONE creating line (`node new`, which now scaffolds a catalogue pick's folder from its ref),
+// then the WIRED half on an arrow: a `node …` verb acts on a node, and wiring is a verb of its own.
 //
 // Neither reaches the command bar — the name is derived from the arrow clicked. The trailing
-// space `createForGraphCommand` leaves is load-bearing: it joins the two halves, and the bar
+// space `createForGraphCommand` leaves is load-bearing: it is where the name lands, and the bar
 // opens on it when there is no catalogue to pick from. See packages/song/docs/nodes.md.
 
 import type { WebGraph } from "@studio/graph-model";
@@ -12,9 +12,9 @@ import { describe, expect, it } from "vitest";
 import {
   chainRefFromCreate,
   createForGraphCommand,
-  ensureModuleCommand,
   laneOfArrow,
   nodeNameFor,
+  nodeNewRefArg,
   type PendingInsert,
   wireCommand,
 } from "./nodeInsert";
@@ -37,17 +37,26 @@ describe("the line the + builds", () => {
   });
 });
 
-describe("the line that has to run BEFORE it", () => {
-  it("writes the local folder for a CATALOGUE pick, inheriting the ref", () => {
-    // `node new` instances a module that exists; a catalogue pick has no folder here yet.
-    expect(ensureModuleCommand("audio", "adt", "@engine/audio/delay/adt")).toBe(
-      "module new audio/adt @engine/audio/delay/adt",
-    );
+describe("the catalogue ref that rides ON it", () => {
+  it("goes between the name and the spawn token, so the verb scaffolds the folder itself", () => {
+    expect(
+      createForGraphCommand("audio", "adt") +
+        "a1" +
+        nodeNewRefArg("@engine/audio/delay/adt") +
+        " 120,80",
+    ).toBe("node new audio/adt a1 @engine/audio/delay/adt 120,80");
   });
 
   it("is nothing for a module this project already has", () => {
-    // The common case, and it stays ONE command.
-    expect(ensureModuleCommand("audio", "echo")).toBeNull();
+    // The common case, and the line is untouched.
+    expect(nodeNewRefArg(undefined)).toBe("");
+  });
+
+  it("leaves the node name readable through the ref", () => {
+    // `chainRefFromCreate` skips slash-bearing tokens — a node name never carries one.
+    expect(
+      chainRefFromCreate("node new audio/adt a1 @engine/audio/delay/adt"),
+    ).toBe("a1");
   });
 });
 

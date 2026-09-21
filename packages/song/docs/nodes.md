@@ -137,10 +137,11 @@ There is no verb for "put this node on the canvas", because `node new` places wh
 would be one act told apart only by whether a file had to be produced first, which is a
 distinction a verb should not have to carry.
 
-So the graph's `+` runs `node new <type>/<name> <node>`. For a pick from a CATALOGUE the shell
-runs a `module new` ahead of it, because `node new` instances a module that exists and a
-catalogue pick has no local folder yet; for a module this project already has, that step is
-absent and the gesture is one line. See `nodeInsert.ts` in st0's frontend.
+So the graph's `+` runs `node new <type>/<name> <node> [<extends-ref>]`. For a pick from a
+CATALOGUE the ref rides on that one line and the verb scaffolds the folder itself on the way in —
+a catalogue pick has no local folder yet, and the whole gesture is one command; for a module this
+project already has, the ref is absent and the line is the same minus it. See `nodeInsert.ts` in
+st0's frontend.
 
 ## A node names itself
 

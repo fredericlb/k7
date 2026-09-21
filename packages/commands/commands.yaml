@@ -1388,7 +1388,7 @@
   readable:
     en: "Create a node of a module, in the graph"
     fr: "Créer un nœud d'un module, dans le graphe"
-  help: "create a node of a module and put it in the graph, wired to nothing — named <module>_<n> unless you say otherwise (e.g. node new instruments/synth, or node new instruments/synth lead)"
+  help: "create a node of a module and put it in the graph, wired to nothing — named <module>_<n> unless you say otherwise (e.g. node new instruments/synth, or node new instruments/synth lead); the optional extends-ref scaffolds the module folder first when the pick comes from a catalogue, so one line does what `module new` + `node new` used to"
   surfaces: [cli]
   args:
     [
@@ -1397,6 +1397,12 @@
         name: "node-name",
         optional: true,
         hint: "optional — the name a chain writes; without one it is <module>_<n>, and the graph's + adds the lane it lands on",
+      },
+      {
+        name: "extends-ref",
+        optional: true,
+        complete: baseModules,
+        hint: "optional — a catalogue pick has no local folder yet: this ref is what the folder inherits, created here if absent",
       },
       {
         name: at,

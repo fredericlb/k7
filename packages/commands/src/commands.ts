@@ -3337,31 +3337,54 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     await h.reload();
   },
 
-  /** node new <category>/<name> <node-name> [x,y] — one USE of a module, AND its place in the graph; docs/verbs.md. */
+  /** node new <category>/<name> [<node-name>] [<extends-ref>] [x,y] — one USE of a module, AND its place in the graph; docs/verbs.md. */
   "node.new": async (a, h) => {
-    const usage = "usage: node new <category>/<name> [<node-name>] [x,y]";
+    const usage =
+      "usage: node new <category>/<name> [<node-name>] [<extends-ref>] [x,y]";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     // Born where the cursor was — the web sends the click, so a new node never asks the layout.
     const at = takeSpawnAt(parts);
-    if (parts.length < 1 || parts.length > 2) {
+    if (parts.length < 1 || parts.length > 3) {
       h.refuse([usage]);
       return;
     }
-    const [target, named] = parts;
+    const [target, ...rest] = parts;
     const segs = target.split("/");
     if (segs.length !== 2 || !segs[0] || !segs[1]) {
       h.refuse([`'${target}' is not <category>/<name>`, usage]);
       return;
     }
     const [category, module] = segs;
+    // Refs carry a slash, node names never do ([A-Za-z0-9_-]+): that is the whole distinction,
+    // and it makes the ref's POSITION free — `… @engine/… name` and `… name @engine/…` both parse.
+    const ref = rest.find((p) => p.includes("/"));
+    const named = rest.find((p) => !p.includes("/"));
+    if (rest.length > (ref && named ? 2 : 1)) {
+      h.refuse([usage]);
+      return;
+    }
     // Nobody said what to call it: `<module>_<n>`, and no lane prefix — docs/verbs.md.
     const node = named ?? freeNodeName(h.songPath, module);
     try {
+      // A CATALOGUE pick has no local folder yet: the ref scaffolds it on the way in, so the
+      // gesture stays ONE command instead of a `module new` run ahead of it. A module already
+      // there is not an error — the ordinary second pick of the same thing (docs/verbs.md).
+      if (ref) {
+        const made = makeModule(h.songPath, target, ref);
+        if ("error" in made) {
+          h.refuse([`node new failed: ${made.error}`, usage]);
+          return;
+        }
+      }
       const rel = createNode(h.songPath, category, module, node);
       placeChainNode(h.songPath, node);
       // No cursor behind the line: a fresh layout would drop something wired to nothing anywhere, so this verb answers instead.
       setChainNodePosition(h.songPath, node, at ?? ORPHAN_AT);
-      h.log([`created ${rel} — in the graph, wired to nothing yet`]);
+      h.log([
+        ref
+          ? `created ${rel} on module ${category}/${module} from ${ref} — in the graph, wired to nothing yet`
+          : `created ${rel} — in the graph, wired to nothing yet`,
+      ]);
       await h.reload();
     } catch (e) {
       h.refuse([`node new failed: ${(e as Error).message}`]);

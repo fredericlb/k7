@@ -184,7 +184,7 @@ import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
 import {
   chainRefFromCreate,
   createForGraphCommand,
-  ensureModuleCommand,
+  nodeNewRefArg,
   type PendingInsert,
   wireCommand,
 } from "./nodeInsert";
@@ -1932,15 +1932,7 @@ export default function App({
       const wire = pendingWire.current;
       pendingWire.current = null;
       const madeRef = wire ? chainRefFromCreate(s) : null;
-      // …and the module that line's node needs, ahead of it rather than after, since `node new` refuses a module that is not there.
-      const ensure = madeRef ? pendingModule.current : null;
-      pendingModule.current = null;
       try {
-        // Logged like anything else that RUNS, and asking for no graph: it is the picker's FIRST half.
-        if (ensure) {
-          pushLog("cmd", `› ${ensure}`);
-          await api.command(ensure, { want: [] });
-        }
         // This one DOES want the graph, unconditionally: ChainsTab stays mounted when hidden and would refetch it anyway.
         const { output, refused, graph, rev, changed } = await api.command(s, {
           want: ["graph"],
@@ -2114,8 +2106,6 @@ export default function App({
     at: PendingInsert | null;
     spawn: { x: number; y: number } | null;
   } | null>(null);
-  // …and the `module new` that has to run BEFORE that line — null for a module of this project, which stays one command.
-  const pendingModule = useRef<string | null>(null);
   // 'Which file?' — a filepicker widget's asset browser, rendered by the shell because the popup is viewport-positioned.
   const [assetPicker, setAssetPicker] = useState<{
     module: string;
@@ -2271,7 +2261,7 @@ export default function App({
         offerSpawnAt(at);
         return;
       }
-      /** TWO lines, and the split is the vocabulary's: a module made or noded, then that node WIRED — see `chainRefFromCreate`. */
+      /** ONE creating line, then the WIRED half when the pick was on an arrow — see `chainRefFromCreate`. */
       // An io SOURCE has no input port to receive the arrow's signal, so it is PLACED, never
       // spliced: born wired to nothing, and the person draws its cable from there.
       const placed = pick.type === "io";
@@ -2279,15 +2269,18 @@ export default function App({
       // A splice is CENTRED on the `+`, and a pin is a top-left, so the verb is sent the card's corner (docs/chainsGraph.md).
       const box = !placed && info && at ? spawnBox(at, pick.panel) : null;
       const born = box ?? at ?? null;
-      pendingWire.current = { at: placed ? null : info, spawn: born };
-      // The placeholder on the arrow, while the commands run — the node itself, at the box it will be pinned to.
+      // A bare-canvas pick is fully placed by `node new`'s own spawn pin, so there is no second
+      // command to queue: the wire half exists only for an arrow, and never for an io SOURCE.
+      pendingWire.current = placed || !info ? null : { at: info, spawn: born };
+      // The placeholder on the arrow, while the command runs — the node itself, at the box it will be pinned to.
       pendingInsert.current = box && info ? { ...info, node, ...box } : null;
       const ref = pick.namespace === null ? undefined : pick.ref;
-      // A catalogue pick has no local folder, so its `module new` runs ahead of the line below.
-      pendingModule.current = ensureModuleCommand(pick.type, pick.name, ref);
       const spawn = born ? ` ${Math.round(born.x)},${Math.round(born.y)}` : "";
       void runCommandRef.current(
-        createForGraphCommand(pick.type, pick.name) + node + spawn,
+        createForGraphCommand(pick.type, pick.name) +
+          node +
+          nodeNewRefArg(ref) +
+          spawn,
       );
     },
     [modulePicker, prewriteCommand, offerSpawnAt],

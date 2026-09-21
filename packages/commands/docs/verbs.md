@@ -590,6 +590,13 @@ graph, and `modules: { x: [] }` is what says so. Unnamed, it gets `<module>_<n>`
 an arrow DOES know one and spells the name out (the frontend's `nodeInsert.ts`); this is the bare
 form, for a line somebody typed.
 
+An optional `extends-ref` — any token carrying a slash beyond the target, so its position next to
+the node name is free — scaffolds the module folder first, the same semantics `module new` has:
+created when absent, left alone when there, refused only when what it extends disagrees. This is
+what the graph's `+` sends for a CATALOGUE pick, which has no local folder yet: the whole gesture
+is one command, one round trip, one compile and one engine push. `module new` keeps the bare form,
+for a line somebody types.
+
 **io is the one category where the node IS the module.** `node new io/IN <name> [x,y]` writes
 `modules/io/<name>/module.yaml` — no `nodes/` file, the graph naming the module bare — with the role
 the canonical arg spells: `IN` the interface input, `CAM` the camera, `FILE` the file source. A

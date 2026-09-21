@@ -13,6 +13,7 @@ import {
   readFileSync,
   symlinkSync,
 } from "node:fs";
+import { connect } from "node:net";
 import { dirname, join } from "node:path";
 
 // biome-ignore-start lint/suspicious/noUndeclaredEnvVars: this bridge never runs under turbo
@@ -137,6 +138,9 @@ export async function runBridge({
   periodMs = PERIOD_MS,
   // Set when the host task has no watcher of its own worth trusting — see ../docs/wsl.md.
   restartOnChange = false,
+  // The port the host task listens on, which is the only way from here to know it has STARTED.
+  // Without one a restart cannot be serialised, and the race in ../docs/wsl.md is open.
+  readyPort = 0,
 } = {}) {
   if (!MIRROR || !SOURCE)
     throw new Error(
@@ -148,7 +152,39 @@ export async function runBridge({
   mirrorOnce();
   ensureWorkspaceLinks(log);
 
+  /** Resolve when `port` answers, or when the child gives up first — WSL reaches the host's
+   *  ports through localhost forwarding, so this works from the distro. */
+  const awaitReady = (port, c) =>
+    new Promise((resolve) => {
+      let done = false;
+      const finish = (how) => {
+        if (!done) {
+          done = true;
+          resolve(how);
+        }
+      };
+      c.once("exit", () => finish("exited"));
+      const until = Date.now() + 90_000;
+      const probe = () => {
+        if (done) return;
+        if (Date.now() > until) return finish("timeout");
+        const socket = connect({ port, host: "127.0.0.1" });
+        socket.once("connect", () => {
+          socket.destroy();
+          finish("listening");
+        });
+        socket.once("error", () => {
+          socket.destroy();
+          setTimeout(probe, 200);
+        });
+      };
+      probe();
+    });
+
   let stopping = false;
+  // A restart asked for while the task is still STARTING is queued, never launched — docs/wsl.md.
+  let starting = false;
+  let pending = false;
   let child = null;
   let resolveExit;
   const exited = new Promise((r) => {
@@ -181,9 +217,34 @@ export async function runBridge({
       stop();
       resolveExit(code ?? 0);
     });
+
+    if (!readyPort) return;
+    starting = true;
+    void awaitReady(readyPort, c).then((how) => {
+      if (stopping || child !== c) return;
+      starting = false;
+      // Said out loud: a guard that only speaks when it fails cannot be seen working.
+      if (how === "listening") log(`up on ${readyPort}`);
+      if (how === "timeout")
+        log(
+          `✖ nothing answered on ${readyPort} after 90s — restarting anyway from here`,
+        );
+      if (!pending) return;
+      pending = false;
+      log("applying the changes that arrived while it was starting…");
+      restart();
+    });
   };
 
   const restart = () => {
+    // The one that is STARTING holds no port yet, so the stopper cannot see it: launching a second
+    // one now leaves both alive and the loser dies on EADDRINUSE — ../docs/wsl.md.
+    if (starting) {
+      if (!pending)
+        log("still starting — this change will be applied once it is up");
+      pending = true;
+      return;
+    }
     const old = child;
     child = null;
     old?.kill();

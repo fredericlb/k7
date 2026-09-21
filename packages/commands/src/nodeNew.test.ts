@@ -97,4 +97,65 @@ describe("node new", () => {
       .filter((l) => /^\s{2}\w/.test(l));
     expect(lines.some((l) => l.trim().startsWith("hall:"))).toBe(true);
   });
+
+  it("scaffolds a CATALOGUE pick's folder from the ref, then creates the node — one command", async () => {
+    // A local module to inherit, so the ref is one this project can answer — the engine's own
+    // catalogue is ambient and a test must not depend on it (createNode's same rule).
+    mkdirSync(join(dir, "modules", "audio", "fuzz"), { recursive: true });
+    writeFileSync(
+      join(dir, "modules", "audio", "fuzz", "module.yaml"),
+      "plugin:\n  type: internal\n  name: Chorus\n",
+      "utf8",
+    );
+    await runCommand("node new audio/echo e1 audio/fuzz", host(), "cli");
+    // The folder is there, inheriting the ref, and the node extends the FOLDER.
+    const made = readFileSync(
+      join(dir, "modules", "audio", "echo", "module.yaml"),
+      "utf8",
+    );
+    expect(made).toContain('extends: "audio/fuzz"');
+    expect(readFileSync(join(dir, "nodes", "e1.yaml"), "utf8")).toContain(
+      'extends: "@project/audio/echo"',
+    );
+    expect(chains()).toMatch(/^\s*e1:/m);
+  });
+
+  it("takes the ref with the name left out, in either order", async () => {
+    mkdirSync(join(dir, "modules", "audio", "fuzz"), { recursive: true });
+    writeFileSync(
+      join(dir, "modules", "audio", "fuzz", "module.yaml"),
+      "plugin:\n  type: internal\n  name: Chorus\n",
+      "utf8",
+    );
+    await runCommand("node new audio/echo audio/fuzz", host(), "cli");
+    expect(readFileSync(join(dir, "nodes", "echo_1.yaml"), "utf8")).toContain(
+      'extends: "@project/audio/echo"',
+    );
+    await runCommand("node new audio/wah audio/fuzz wah1", host(), "cli");
+    expect(readFileSync(join(dir, "nodes", "wah1.yaml"), "utf8")).toContain(
+      'extends: "@project/audio/wah"',
+    );
+    await runCommand("node new audio/verb verb1 audio/fuzz", host(), "cli");
+    expect(readFileSync(join(dir, "nodes", "verb1.yaml"), "utf8")).toContain(
+      'extends: "@project/audio/verb"',
+    );
+  });
+
+  it("refuses a ref that disagrees with what the module already extends, changing nothing", async () => {
+    mkdirSync(join(dir, "modules", "audio", "fuzz"), { recursive: true });
+    writeFileSync(
+      join(dir, "modules", "audio", "fuzz", "module.yaml"),
+      "plugin:\n  type: internal\n  name: Chorus\n",
+      "utf8",
+    );
+    mkdirSync(join(dir, "modules", "audio", "echo"), { recursive: true });
+    writeFileSync(
+      join(dir, "modules", "audio", "echo", "module.yaml"),
+      'extends: "audio/amp"\n',
+      "utf8",
+    );
+    await runCommand("node new audio/echo e1 audio/fuzz", host(), "cli");
+    expect(logs.join("\n")).toContain("extends 'audio/amp', not 'audio/fuzz'");
+    expect(existsSync(join(dir, "nodes", "e1.yaml"))).toBe(false);
+  });
 });

@@ -1,10 +1,11 @@
 // nodeInsert.ts — what the graph's `+` types into the command bar.
 //
-// One command, one round trip, one reload: `node insert` creates the node AND splices it, picking the name
-// itself, so the frontend never has to learn a name before it can put it in a chain.
+// One command, one round trip, one reload: `node new` creates the node AND splices the wiring AND
+// scaffolds a catalogue pick's module folder from its ref, picking the name itself, so the frontend
+// never has to learn a name before it can put it in a chain.
 //
-// The arrow goes FIRST in the line so the node name lands last, where a person types it. That is the
-// whole reason for the argument order.
+// The arrow goes FIRST in the line so the node name lands last, where a person types it. That is
+// the whole reason for the argument order.
 
 import type { WebGraph } from "@studio/graph-model";
 import { instanceName } from "@studio/song-schema/instanceName";
@@ -60,12 +61,16 @@ export function chainRefFromCreate(line: string): string | null {
   // "<type>/<name>" — the module's own folder. Anything else is a line the command rejects.
   const segs = (args[0] ?? "").split("/");
   if (segs.length !== 2 || !segs[0] || !segs[1]) return null;
-  return args[1] ?? null;
+  // A catalogue pick's ref rides on the line; a node name never carries a slash, so that is the filter.
+  return args.slice(1).find((p) => !p.includes("/")) ?? null;
 }
 
 /** The line the `+` pre-writes: `node new`, which puts the node in the graph itself — not `module new`, which stopped making nodes. */
 export const createForGraphCommand = (type: string, name: string): string =>
   `node new ${type}/${name} `;
+
+/** The catalogue ref that rides ON the line: `node new` scaffolds the folder itself now, so no `module new` runs ahead of it. The ref goes before the spawn token, which the verb reads off the END. */
+export const nodeNewRefArg = (ref?: string): string => (ref ? ` ${ref}` : "");
 
 /** …and the line that has to run BEFORE it, or null: a catalogue pick has no local folder yet, where a project's module stays one command. */
 export const ensureModuleCommand = (
