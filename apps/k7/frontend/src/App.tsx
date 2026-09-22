@@ -115,7 +115,7 @@ function SessionRoute(props: {
   );
 }
 
-function ReleaseRoute(props: { onDeleted: () => void }) {
+function ReleaseRoute(props: { onDeleted: () => void; onChange: () => void }) {
   const { id } = useParams();
   return <ReleaseDetailContainer key={id} releaseId={id!} {...props} />;
 }
@@ -498,6 +498,7 @@ export default function App() {
                     refreshReleases();
                     navigate("/releases");
                   }}
+                  onChange={refreshReleases}
                 />
               }
             />

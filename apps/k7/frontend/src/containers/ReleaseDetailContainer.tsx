@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
-import type { Release } from "../types";
+import type { Release, ReleasePatch } from "../types";
 import { ReleaseDetailView } from "../views/ReleaseDetailView";
 
 interface Props {
   releaseId: string;
   onDeleted: () => void;
+  /** The home list shows title and artist, so an edit refreshes it. */
+  onChange: () => void;
 }
 
-export function ReleaseDetailContainer({ releaseId, onDeleted }: Props) {
+export function ReleaseDetailContainer({
+  releaseId,
+  onDeleted,
+  onChange,
+}: Props) {
   const [release, setRelease] = useState<Release | null>(null);
 
   const load = useCallback(async () => {
@@ -18,6 +24,11 @@ export function ReleaseDetailContainer({ releaseId, onDeleted }: Props) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleUpdate = async (patch: ReleasePatch) => {
+    setRelease(await api.updateRelease(releaseId, patch));
+    onChange();
+  };
 
   const handleAddVersion = async (data: {
     name: string;
@@ -57,6 +68,7 @@ export function ReleaseDetailContainer({ releaseId, onDeleted }: Props) {
   return (
     <ReleaseDetailView
       release={release}
+      onUpdate={handleUpdate}
       onAddVersion={handleAddVersion}
       onReplaceVersionAudio={handleReplaceVersionAudio}
       onSetDefaultVersion={handleSetDefaultVersion}

@@ -42,6 +42,14 @@ export interface Release {
   defaultVersionId?: string | null;
 }
 
+/** What the release page can edit; the versions are edited one by one. */
+export type ReleasePatch = Partial<
+  Pick<
+    Release,
+    "title" | "artist" | "releaseDate" | "description" | "canDownload"
+  >
+>;
+
 export interface Page {
   id: string;
   nametag: string;
