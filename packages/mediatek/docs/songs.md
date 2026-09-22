@@ -69,6 +69,11 @@ What suffices is `source:` in `song.yaml`: `upload` for the mediatek's button, `
 version, `mirror` for a copy pulled back. A line in a file, not a level in a path — readable without
 listing the parent folder, and changeable without moving bytes.
 
+Anything other than `upload` is filed but not BROWSED: `scanSongs` leaves it out of the family's
+listing entirely, so a published k7 release never shows up beside what the button filed by hand. It
+still lives under `songs/`, at the path its tags built, and a caller that already knows that path —
+k7 fetching its own `AudioPath` — reads it directly, never through the catalogue.
+
 Direct consequence: `songFolder()` always returns four segments (`songs` + the three tags), and two
 tests check that **by the count** rather than against an example path — a fifth level would appear
 silently, as a nested folder a string comparison would not notice.

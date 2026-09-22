@@ -94,6 +94,19 @@ describe("scanning songs", () => {
     expect(e.bytes).toBe(4);
   });
 
+  it("leaves out a folder filed by a machine rather than the upload button", () => {
+    write(
+      "songs/K7/2026/take-one/song.yaml",
+      "title: Sous la pluie\nartist: K7\nsource: k7\n",
+    );
+    write("songs/K7/2026/take-one/original.wav", "RIFF");
+    write("songs/dropped/song.yaml", "title: T\nsource: upload\n");
+    write("songs/dropped/original.wav", "RIFF");
+    const entries = scanFamily("songs");
+    expect(entries).toHaveLength(1);
+    expect(entries[0].name).toBe("T");
+  });
+
   it("still lists a folder dropped in by hand, flagged as not filed", () => {
     // The whole point is seeing what you own — an uncatalogued file must not be invisible.
     write("songs/loose/whatever.mp3", "ID3");

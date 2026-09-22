@@ -145,9 +145,8 @@ describe("filing an upload", () => {
     const sidecar = readFileSync(join(root, r.path, "song.yaml"), "utf8");
     expect(sidecar).toContain('artist: "K7"');
     expect(sidecar).toContain("source: k7");
-    // …and it is a song like any other: the scan lists it.
-    const [e] = scanFamily("songs");
-    expect(e.meta?.artist).toBe("K7");
+    // Filed like any other song, but not BROWSED — see docs/songs.md.
+    expect(scanFamily("songs")).toEqual([]);
   });
 
   it("lands as one catalogued entry the scan can play", () => {

@@ -129,6 +129,10 @@ function scanSongs(): MediatekEntry[] {
     const master = entries.find((e) => e.isFile() && isAudio(e.name));
     if (hasSidecar || master) {
       const meta = hasSidecar ? readSong(abs) : {};
+      // Filed by a machine rather than dropped by hand — k7's releases, and any future
+      // mirror — stays out of the browse/catalogue listing. See docs/songs.md.
+      const source = str(meta.source);
+      if (source && source !== "upload") return;
       const title = str(meta.title);
       const artist = str(meta.artist);
       const variants = readVariants(meta, entries);
