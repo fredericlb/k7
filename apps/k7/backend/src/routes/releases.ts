@@ -12,6 +12,14 @@ const versionPatch = z.object({
   hidden: z.boolean().optional(),
 });
 
+const releasePatch = z.object({
+  title: z.string().trim().min(1).optional(),
+  artist: z.string().trim().min(1).optional(),
+  releaseDate: z.string().nullable().optional(),
+  description: z.string().optional(),
+  canDownload: z.boolean().optional(),
+});
+
 const AUDIO_MIME = /^audio\//;
 
 export const releasesRouter = Router();
@@ -142,6 +150,16 @@ releasesRouter.get(
   "/:rid",
   wrap(async (req, res) => {
     const release = await store.getRelease(req.params.rid);
+    if (!release) return res.status(404).json({ error: "not found" });
+    res.json(release);
+  }),
+);
+
+releasesRouter.patch(
+  "/:rid",
+  validate(releasePatch),
+  wrap(async (req, res) => {
+    const release = await store.updateRelease(req.params.rid, req.body);
     if (!release) return res.status(404).json({ error: "not found" });
     res.json(release);
   }),

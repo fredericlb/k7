@@ -3,13 +3,15 @@ import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { Input } from "@frediverse/ui/input";
 import { useRef, useState } from "react";
+import { ReleaseEditForm } from "../components/ReleaseEditForm";
 import { SwitchField } from "../components/SwitchField";
 import { VersionCard } from "../components/VersionCard";
 import { fmtDate } from "../format";
-import type { Release, SongEnvelope } from "../types";
+import type { Release, ReleasePatch, SongEnvelope } from "../types";
 
 interface Props {
   release: Release;
+  onUpdate: (patch: ReleasePatch) => Promise<void>;
   onAddVersion: (data: {
     name: string;
     isDefault: boolean;
@@ -28,6 +30,7 @@ interface Props {
 
 export function ReleaseDetailView({
   release,
+  onUpdate,
   onAddVersion,
   onReplaceVersionAudio,
   onSetDefaultVersion,
@@ -38,6 +41,7 @@ export function ReleaseDetailView({
   versionEnvelope,
   versionTrackUrl,
 }: Props) {
+  const [editing, setEditing] = useState(false);
   const [vName, setVName] = useState("");
   const [vDefault, setVDefault] = useState(true);
   const [vFile, setVFile] = useState<File | null>(null);
@@ -105,26 +109,46 @@ export function ReleaseDetailView({
 
   return (
     <div className="release-detail">
-      <h2>{release.title}</h2>
-      <p className="muted">
-        {release.artist}
-        {release.releaseDate ? ` · ${release.releaseDate}` : ""}
-      </p>
+      {editing ? (
+        <ReleaseEditForm
+          release={release}
+          onSave={async (patch) => {
+            await onUpdate(patch);
+            setEditing(false);
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <>
+          <h2>{release.title}</h2>
+          <p className="muted">
+            {release.artist}
+            {release.releaseDate ? ` · ${release.releaseDate}` : ""}
+          </p>
 
-      {release.description && (
-        <p style={{ whiteSpace: "pre-wrap" }}>{release.description}</p>
+          {release.description && (
+            <p style={{ whiteSpace: "pre-wrap" }}>{release.description}</p>
+          )}
+
+          <div className="row" style={{ marginTop: 8 }}>
+            <Badge variant={release.canDownload ? "amber" : "default"}>
+              {release.canDownload
+                ? "⬇ downloadable by users"
+                : "download disabled"}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditing(true)}
+            >
+              ✎ Edit
+            </Button>
+            <Button variant="outline" size="sm" onClick={remove}>
+              🗑 Delete release
+            </Button>
+          </div>
+        </>
       )}
-
-      <div className="row" style={{ marginTop: 8 }}>
-        <Badge variant={release.canDownload ? "amber" : "default"}>
-          {release.canDownload
-            ? "⬇ downloadable by users"
-            : "download disabled"}
-        </Badge>
-        <Button variant="outline" size="sm" onClick={remove}>
-          🗑 Delete release
-        </Button>
-      </div>
 
       <h3>Versions</h3>
       {versions.length === 0 && <p className="muted">No versions yet.</p>}

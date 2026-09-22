@@ -9,6 +9,7 @@ import type {
   Moment,
   Page,
   Release,
+  ReleasePatch,
   Session,
   SingingExercise,
   Song,
@@ -232,6 +233,13 @@ export const api = {
 
   getRelease: (id: string): Promise<Release> =>
     f(`/api/releases/${id}`).then(json),
+
+  updateRelease: (id: string, patch: ReleasePatch): Promise<Release> =>
+    f(`/api/releases/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).then(json),
 
   createRelease: (data: {
     title: string;

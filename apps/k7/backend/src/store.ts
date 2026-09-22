@@ -929,6 +929,42 @@ export async function createRelease(ownerId, fields, firstVersion) {
   return getRelease(uid);
 }
 
+/** Edit a release's own fields; a new title is also the album in every version's sidecar. */
+export async function updateRelease(uid, patch) {
+  const rec = await getReleaseRecord(uid);
+  if (!rec) return null;
+  const fields: Record<string, unknown> = {};
+  if (patch.title !== undefined) fields.Title = patch.title;
+  if (patch.artist !== undefined) fields.Artist = patch.artist;
+  if (patch.releaseDate !== undefined)
+    fields.ReleaseDate = patch.releaseDate || "";
+  if (patch.description !== undefined) fields.Description = patch.description;
+  if (patch.canDownload !== undefined)
+    fields.CanDownload = Boolean(patch.canDownload);
+  await db.patchRecord("Releases", rec.id, fields);
+  invalidateRelease(uid);
+  if (patch.title !== undefined && patch.title !== rec.fields.Title) {
+    // Folders keep their names and only the sidecars are rewritten — ../../docs/audio.md.
+    for (const v of await getVersionRecords(uid)) {
+      if (!v.fields.AudioPath) continue;
+      await mediatek
+        .putFile(
+          `${dirOf(v.fields.AudioPath)}/song.yaml`,
+          sidecarFor({
+            title: String(v.fields.Name || "Version"),
+            artist: mediatek.ARTIST,
+            album: patch.title,
+            source: "k7",
+          }),
+        )
+        .catch(() => {
+          // A stale album in the library is worth less than an edit that fails.
+        });
+    }
+  }
+  return getRelease(uid);
+}
+
 // The release for a st0 song id, owner-scoped so two users' ids cannot collide.
 export async function getReleaseBySongUuid(ownerId, songUuid) {
   if (!songUuid) return null;
@@ -1171,9 +1207,8 @@ export async function versionEnvelope(releaseUid, versionUid) {
       // Unreadable is the same as absent: measure it again rather than refuse to draw.
     }
   }
-  const audio = await ensureVersionAudioCached(releaseUid, versionUid);
-  if (!audio) return null;
-  const measured = await envelopeOf(audio.filePath);
+  // pl8 measures its own copy, so it is asked by library path — never by our local cache file.
+  const measured = await envelopeOf(String(rec.fields.AudioPath));
   await db.patchRecord("Versions", rec.id, {
     Envelope: JSON.stringify(measured),
   });
