@@ -63,6 +63,7 @@ export function PageDetailContainer({
       onChooseVersion={handleChooseVersion}
       onDelete={handleDelete}
       versionAudioUrl={api.versionAudioUrl}
+      versionDownloadUrl={api.versionDownloadUrl}
       versionEnvelope={api.getVersionEnvelope}
     />
   );

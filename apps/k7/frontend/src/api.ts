@@ -324,6 +324,10 @@ export const api = {
   versionAudioUrl: (id: string, versionId: string) =>
     `${BASE}/api/releases/${id}/versions/${versionId}/audio`,
 
+  // The audio as an attachment, named after the release and the version.
+  versionDownloadUrl: (id: string, versionId: string) =>
+    `${BASE}/api/releases/${id}/versions/${versionId}/download`,
+
   // One stem of a multitrack version (download / stream).
   versionTrackUrl: (id: string, versionId: string, trackId: string) =>
     `${BASE}/api/releases/${id}/versions/${versionId}/tracks/${trackId}`,
@@ -377,6 +381,14 @@ export const api = {
     versionId: string,
   ) =>
     `${BASE}/api/public/pages/${nametag}/releases/${releaseId}/versions/${versionId}/audio`,
+
+  // Answers 404 unless the release allows downloads.
+  publicVersionDownloadUrl: (
+    nametag: string,
+    releaseId: string,
+    versionId: string,
+  ) =>
+    `${BASE}/api/public/pages/${nametag}/releases/${releaseId}/versions/${versionId}/download`,
 
   getPublicVersionEnvelope: (
     nametag: string,
