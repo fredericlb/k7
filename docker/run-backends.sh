@@ -7,8 +7,9 @@
 # Per-process env is fixed HERE, not passed in, because one container has one
 # environment and `PORT` would collide across three of the four. Everything
 # else comes from the container environment and is shared by design: one
-# SESSION_SECRET (pl8 mints the cookie the others verify), one STUDIO_MEDIATEK,
-# one STUDIO_PREFS_DIR — distinct names, so they stay in the Dockerfile.
+# SESSION_SECRET and one COOKIE_DOMAIN (st0 mints the cookie the others
+# verify), one STUDIO_MEDIATEK, one STUDIO_PREFS_DIR — distinct names, so they
+# stay in the Dockerfile.
 #
 # Two backends run under `tsx` and two under Node's own type stripping, and
 # that is not an inconsistency to tidy up: st0 and pl8 import @studio/* as raw

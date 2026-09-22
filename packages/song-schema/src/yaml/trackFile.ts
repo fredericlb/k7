@@ -262,7 +262,8 @@ export function everyEventList(
   };
   push(["events"]);
   const alts = doc.getIn(["alternatives"]);
-  if (isSeq(alts)) alts.items.forEach((_, i) => push(["alternatives", i, "events"]));
+  if (isSeq(alts))
+    alts.items.forEach((_, i) => push(["alternatives", i, "events"]));
   return out;
 }
 

@@ -263,7 +263,11 @@ export function writeProjectFiles(
 // beside the first reuses it rather than getting a second copy, since `@workspace` is shared by
 // every project beside it (docs/scaffold.md). Never overwrites — a workspace's own edit to it wins.
 function ensureWorkspaceSynth(dir: string): void {
-  const path = resolve(dir, SHARED_MODULES_PATH, "instruments/synth/module.yaml");
+  const path = resolve(
+    dir,
+    SHARED_MODULES_PATH,
+    "instruments/synth/module.yaml",
+  );
   if (existsSync(path)) return;
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(

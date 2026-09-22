@@ -74,9 +74,7 @@ describe("track duplicate", () => {
     await run("track duplicate gtr");
 
     expect(existsSync(join(dir, "nodes", "gtr-copy.yaml"))).toBe(true);
-    expect(read("nodes/gtr-copy.yaml")).toContain(
-      'ref: riff',
-    );
+    expect(read("nodes/gtr-copy.yaml")).toContain("ref: riff");
     // The chain is COPIED: the new lane feeds a fresh amp, never the original's.
     expect(existsSync(join(dir, "nodes", "gtr-copy_amp_1.yaml"))).toBe(true);
     expect(graphValue().modules).toMatchObject({

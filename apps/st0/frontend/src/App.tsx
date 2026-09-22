@@ -47,6 +47,10 @@ import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the loader in.
 import { moduleKeyFromPath } from "@studio/song-schema/moduleTypes";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
+import {
+  ViewportTab,
+  sceneOf as videoSceneOf,
+} from "@studio/st0-plugins/video";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { AssemblyBuilder } from "@studio/ui-module-builder/assembly";
@@ -131,7 +135,6 @@ import { SharePanel, shareBadge } from "./components/SharePanel";
 import { SurfaceTab } from "./components/SurfaceTab";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { TrackModulesPane } from "./components/TrackModulesPane";
-import { ViewportTab, sceneOf as videoSceneOf } from "@studio/st0-plugins/video";
 import {
   contextMenu,
   type MenuCtx,
@@ -189,10 +192,10 @@ import {
   wireCommand,
 } from "./nodeInsert";
 import { noteSpans } from "./noteSpans";
-import { type PendingNode, spawnBox } from "./pendingNode";
 import { resolveEditorFile } from "./openInEditor";
 import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { m } from "./paraglide/messages.js";
+import { type PendingNode, spawnBox } from "./pendingNode";
 // The shell's BROWSER composition point: st0's builtin plugins register their pane drawers
 // here, before the shell renders any surface — see packages/st0-sdk/docs/sdk.md.
 import "./plugins";
@@ -211,9 +214,9 @@ import { type Pane, type Panel, viewPanes } from "./routes";
 import {
   pictureRowId,
   placedBeat,
-  trackPlacing,
   type RowKey,
   type RowTarget,
+  trackPlacing,
 } from "./rows";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {

@@ -24,7 +24,7 @@ import {
   surfaceTypeOf,
 } from "@studio/song-schema/yaml/surfaceRegistry";
 import type { SurfaceType } from "@studio/song-schema/yaml/surfaceSchema";
-import { NODES_DIR, type Diagnostic } from "./loader";
+import { type Diagnostic, NODES_DIR } from "./loader";
 import { ensureVideoRun } from "./videoOutputs";
 import { entityFiles } from "./yaml/moduleIO";
 

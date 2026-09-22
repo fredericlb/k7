@@ -1,10 +1,11 @@
 # syntax=docker/dockerfile:1
 #
-# studio — every HOSTED app of this repo in ONE single-origin container: st0 at
-# the root, pl8 and k7 under their prefixes, z0's six SPAs under /z0 — four
-# backends beside one nginx that owns the origin's path routing. Same shape as
-# phare's monolith (apps/phare/docker), with nothing left outside it: no studio
-# service plays douane's role of deploying on its own cadence.
+# studio — every HOSTED app of this repo in ONE container: st0 (root) and z0's
+# six SPAs (under /z0) share st0's own hostname, while pl8 and k7 each answer
+# their OWN subdomain — four backends beside one nginx that owns the routing,
+# by server_name now rather than by path alone. Same shape as phare's monolith
+# (apps/phare/docker), with nothing left outside it: no studio service plays
+# douane's role of deploying on its own cadence.
 #
 # The engine (engine/st0-engine) and the tray (engine/st0-tray) are not here and never
 # will be: they run on the musician's own machine, beside the audio interface.
@@ -42,9 +43,10 @@ RUN apk add --no-cache python3 make g++ \
  && npm ci
 
 # ---- frontend builds -------------------------------------------------------
-# Each vite config declares its own public prefix — none for st0 (it IS the
-# origin root), `/pl8/`, `/k7/`, `/z0/` and `/z0/<app>/` — so nothing is passed
-# in but the stamp, and the folders below mirror those prefixes exactly.
+# st0, pl8 and k7 each build with no `base` — every one of them answers the
+# root of its OWN hostname now; only z0's six SPAs still declare one (`/z0/`,
+# `/z0/<app>/`), being the one app that hasn't moved off st0's origin. Nothing
+# is passed in but the stamp.
 FROM deps AS frontend-build
 WORKDIR /app
 COPY --from=pruner /repo/out/full/ ./
@@ -96,10 +98,9 @@ WORKDIR /app
 COPY --from=backend-deps /app/node_modules ./node_modules
 COPY --from=pruner /repo/out-backend/full/ ./
 
-# One folder per app, matching the PUBLIC prefixes: the edge sends this
-# container the whole origin UNSTRIPPED and the nginx.conf beside this file
-# does the path routing itself. st0 lands at the root — its index.html and
-# assets/ beside the other apps' folders — because it answers the origin.
+# One folder per app — a plain directory name now, not a URL path: nginx.conf picks the
+# right one by server_name and roots that app's block there. st0's own folder IS the
+# server root because it, and z0 nested under it, still share one hostname.
 COPY --from=frontend-build /app/apps/st0/frontend/dist /usr/share/nginx/html/
 COPY --from=frontend-build /app/apps/pl8/frontend/dist /usr/share/nginx/html/pl8
 COPY --from=frontend-build /app/apps/k7/frontend/dist /usr/share/nginx/html/k7

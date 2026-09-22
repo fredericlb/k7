@@ -17,11 +17,10 @@ Its Vite plugin is the separate `@coderline/alphatab-vite` package: the copy ins
 `@coderline/alphatab` 1.8 re-exports a file the package does not ship.
 
 That plugin, in 1.8.4, writes its workers' environment import with the app's base
-(`import "/k7/@vite/env"`), and the dev server's import analysis only resolves the unprefixed
-`/@vite/env` — the form Vite writes for its own module workers, prefixing it on the way out. Under
-a non-root base the score cannot load in dev. `apps/k7/frontend/vite.config.ts` rewrites that one
-import back, in dev only; a build is unaffected. Drop the rewrite when a release of the plugin
-stops prefixing.
+(`import "/@vite/env"` for an app served at the root, which k7 is), matching the unprefixed form
+the dev server's import analysis resolves — the form Vite writes for its own module workers.
+Were k7 ever based under a path again, that import would need the base stripped back off in dev;
+`apps/k7/frontend/vite.config.ts` has no such rewrite today because there is no base to strip.
 
 ## On the Sheet tab, not a tab of its own
 

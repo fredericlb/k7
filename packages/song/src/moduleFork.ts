@@ -4,14 +4,7 @@
 // no project-local copy to fork into instead. Rationale: docs/moduleFork.md.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import {
-  basename,
-  dirname,
-  join,
-  relative,
-  resolve,
-  sep,
-} from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { namePart } from "@studio/song-schema/instanceName";
 import { parseGraph, renameNode } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
@@ -89,7 +82,10 @@ export function chainsUsing(text: string, module: string): string[] {
 export function materialiseEngineModule(
   dir: string,
   ref: string,
-  catalogue: Record<string, LoadedModule> = { ...engineModules(), ...ioModules() },
+  catalogue: Record<string, LoadedModule> = {
+    ...engineModules(),
+    ...ioModules(),
+  },
 ): ForkedModule {
   const found = catalogue[ref];
   if (!found)

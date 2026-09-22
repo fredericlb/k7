@@ -230,9 +230,7 @@ describe("an io module's direction", () => {
   });
 
   it("lets the file's own `io:` win over both", () => {
-    expect(ioOf('io: out\nextends: "@meta/IN"\n', "io/IN/x.yaml")).toBe(
-      "out",
-    );
+    expect(ioOf('io: out\nextends: "@meta/IN"\n', "io/IN/x.yaml")).toBe("out");
   });
 });
 

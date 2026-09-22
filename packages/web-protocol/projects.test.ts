@@ -344,14 +344,14 @@ describe("a shared snapshot's address", () => {
     expect(await shareKey(`${TOKEN}x`)).not.toBe(key);
   });
 
-  it("addresses pl8 under its own prefix, on the one unauthenticated route", async () => {
-    // The page is st0's at the root, the route is pl8's under `/pl8`: the prefix comes back from SERVICE_PATHS.
+  it("addresses pl8 on its OWN subdomain, on the one unauthenticated route", async () => {
+    // The page is st0's, the route is pl8's own origin: serviceUrl resolves the sibling host.
     const key = await shareKey(TOKEN);
-    expect(shareApiBase(`https://studio.frediver.se/@shares/x.st0`, key)).toBe(
-      `https://studio.frediver.se/pl8/api/public/share/${key}`,
+    expect(shareApiBase(`https://st0.app/@shares/x.st0`, key)).toBe(
+      `https://play.st0.app/api/public/share/${key}`,
     );
-    expect(shareApiBase("https://st0.priv.frediver.se", key)).toBe(
-      `https://st0.priv.frediver.se/pl8/api/public/share/${key}`,
+    expect(shareApiBase("https://priv.st0.app", key)).toBe(
+      `https://play.priv.st0.app/api/public/share/${key}`,
     );
   });
 });

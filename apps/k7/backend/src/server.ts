@@ -6,6 +6,7 @@ import { env } from "./env.ts";
 import { isConfigured as gristConfigured } from "./grist.ts";
 import { momentsRouter } from "./routes/moments.ts";
 import { pagesRouter } from "./routes/pages.ts";
+import { publicPagesRouter } from "./routes/publicPages.ts";
 import { releasesRouter } from "./routes/releases.ts";
 import { rtcRouter } from "./routes/rtc.ts";
 import { sessionsRouter } from "./routes/sessions.ts";
@@ -32,6 +33,8 @@ app.use("/api/sessions", requireAuth, sessionsRouter);
 app.use("/api/moments", requireAuth, momentsRouter);
 app.use("/api/releases", bearerOrSession(requireAuth), releasesRouter);
 app.use("/api/pages", requireAuth, pagesRouter);
+// No requireAuth: the nametag itself is the address — apps/k7/docs/ownership.md.
+app.use("/api/public/pages", publicPagesRouter);
 app.use("/api/songs", requireAuth, songsRouter);
 app.use("/api/singing", requireAuth, singingRouter);
 app.use("/api/rtc", requireAuth, rtcRouter);

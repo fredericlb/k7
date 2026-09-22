@@ -3,9 +3,11 @@
 // once and indexed, which is both what makes the song list readable and what the preview plays.
 // See apps/z0/docs/editing.md.
 
-import { SERVICE_PATHS } from "@studio/web-protocol/services";
+import { serviceUrl } from "@studio/web-protocol/services";
 
-const PL8 = SERVICE_PATHS.pl8;
+// A function, not a module-scope constant: this file is imported by node-environment
+// tests that never touch `window`, and a top-level `window.location` read would crash them.
+const pl8 = () => serviceUrl(window.location.origin, "pl8");
 
 /** One variant declared in a song's sidecar — `kind: "missing"` when the file is not there. */
 interface Variant {
@@ -38,7 +40,7 @@ export type Catalogue = Map<string, SongInfo>;
 
 /** Every song by id, in ONE metadata request: per-song lookups would be hundreds of round trips. */
 export async function loadCatalogue(): Promise<Catalogue> {
-  const res = await fetch(`${PL8}/api/mediatek/list?family=songs`, {
+  const res = await fetch(`${pl8()}/api/mediatek/list?family=songs`, {
     credentials: "include",
   });
   if (!res.ok) throw new Error(`médiathèque ${res.status}`);
@@ -83,7 +85,7 @@ export function audioPath(
 
 /** Where those bytes are served. Range-capable, so the preview can seek without pulling it all. */
 export function audioUrl(path: string): string {
-  return `${PL8}/api/mediatek/file?path=${encodeURIComponent(path)}`;
+  return `${pl8()}/api/mediatek/file?path=${encodeURIComponent(path)}`;
 }
 
 /** Lowercase AND strip accents, so a typed "edith" finds "Édith Piaf". */

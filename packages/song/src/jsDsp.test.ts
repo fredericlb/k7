@@ -52,9 +52,9 @@ describe("a module whose DSP is its own source", () => {
 
   it("takes the inline spelling too", () => {
     writeModule("inline", "plugin: { type: jsdsp, name: Inline }\n");
-    expect(
-      loadModuleRefs(dir, {})["@workspace/audio/inline"]?.jsdsp,
-    ).toContain("jsdsp.ts");
+    expect(loadModuleRefs(dir, {})["@workspace/audio/inline"]?.jsdsp).toContain(
+      "jsdsp.ts",
+    );
   });
 
   it("gives an ordinary module none", () => {

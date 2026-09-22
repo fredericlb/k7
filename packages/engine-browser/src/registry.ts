@@ -69,12 +69,17 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
   json: ReadJson,
 ): RegistryClient<E, P> {
   return {
-    list: async () => json<E[]>(await fetch(`${base}/api/engines`), "engines"),
+    list: async () =>
+      json<E[]>(
+        await fetch(`${base}/api/engines`, { credentials: "include" }),
+        "engines",
+      ),
 
     /** Take or RENEW the claim, token-checked server-side; the holder re-POSTs every ENGINE_ASSIGN_RENEW_MS, since "in use" expires. */
     async select(id, token, latencyMs, project, secret) {
       const res = await fetch(`${base}/api/engine/select`, {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id, token, latencyMs, project, secret }),
       });
@@ -105,12 +110,16 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
       ),
 
     prefs: async () =>
-      json<P>(await fetch(`${base}/api/preferences`), "preferences"),
+      json<P>(
+        await fetch(`${base}/api/preferences`, { credentials: "include" }),
+        "preferences",
+      ),
 
     savePrefs: async (p) =>
       json<{ ok: true }>(
         await fetch(`${base}/api/preferences`, {
           method: "PUT",
+          credentials: "include",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(p),
         }),

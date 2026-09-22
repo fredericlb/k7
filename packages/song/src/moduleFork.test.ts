@@ -105,9 +105,9 @@ describe("giving an engine module a folder", () => {
     expect(r.path).toBe("../_modules/audio/nam/module.yaml");
     const text = readFileSync(join(dir, r.path), "utf8");
     expect(text).toContain("Neural Amp Modeler");
-    expect(loadModuleRefs(dir)["@workspace/audio/nam"]?.plugin).toMatchObject(
-      { name: "Neural Amp Modeler" },
-    );
+    expect(loadModuleRefs(dir)["@workspace/audio/nam"]?.plugin).toMatchObject({
+      name: "Neural Amp Modeler",
+    });
   });
 
   it("repoints the chains, so nothing still names the ref with no folder", () => {
@@ -125,9 +125,9 @@ describe("giving an engine module a folder", () => {
       rows: 1,
       widgets: { g: { type: "knob", col: 0, row: 0, bind: "Gain" } },
     });
-    expect(
-      existsSync(join(root, "_modules", "audio", "nam", "ui.yaml")),
-    ).toBe(true);
+    expect(existsSync(join(root, "_modules", "audio", "nam", "ui.yaml"))).toBe(
+      true,
+    );
     expect(loadModuleRefs(dir)["@workspace/audio/nam"].ui).toBeTruthy();
   });
 

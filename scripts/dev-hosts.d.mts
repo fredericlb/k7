@@ -3,5 +3,7 @@
 // rather than on anything real — so the pair lives here rather than in twelve tsconfigs.
 
 export declare const DEV_HOST: string;
+export declare const PL8_DEV_HOST: string;
+export declare const K7_DEV_HOST: string;
 export declare const LEGACY_DEV_HOSTS: string[];
 export declare const AUTH_BACKEND_PORT: number;

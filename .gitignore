@@ -49,6 +49,9 @@ env.yaml*
 # worktrees. Local to each machine and regenerated on demand — never committed.
 .claude/
 
+# Per-machine Tilt overrides (e.g. CLAUDE_CONFIG_DIR) — a personal path, not shared config.
+tilt.local.yaml
+
 # design-sync tooling artifacts (bundles + captured previews). Generated, large,
 # and not imported by any app code.
 .design-sync/

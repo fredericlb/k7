@@ -36,9 +36,9 @@ const SharedGate = lazy(() =>
   import("./components/SharedGate").then((m) => ({ default: m.SharedGate })),
 );
 
+import { PROFILING } from "@studio/project-shell/profiling";
 import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
-import { PROFILING } from "@studio/project-shell/profiling";
 import { Home } from "./projects/Home";
 
 import "./index.css";

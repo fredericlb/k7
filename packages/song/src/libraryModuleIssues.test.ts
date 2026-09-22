@@ -19,7 +19,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { libraryModuleIssues, loadModuleRefs } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 
-const DEMOS = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "demos");
+const DEMOS = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "demos",
+);
 const SONG = join(DEMOS, "synth-demo.st0");
 
 let ws: string;

@@ -793,6 +793,9 @@ export function cameraUI(
     { label: "default", value: 0, arg: "default" },
     ...cameras.map((name, i) => ({ label: name, value: i + 1, arg: name })),
   ];
+  // `current` is read by the RENDERER off the step, not here: a dropdown shows what the file says
+  // through `widgetValue`, and inventing a selected index here would be a second answer to that.
+  void current;
   return {
     cols: 2,
     rows: 2,
@@ -822,9 +825,6 @@ export function cameraUI(
       },
     },
   };
-  // `current` is read by the RENDERER off the step, not here: a dropdown shows what the file says
-  // through `widgetValue`, and inventing a selected index here would be a second answer to that.
-  void current;
 }
 
 /** The panel a step actually draws — one function, so the node's SIZE and its `ui` cannot disagree. */

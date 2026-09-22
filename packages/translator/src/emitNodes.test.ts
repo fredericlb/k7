@@ -522,9 +522,7 @@ describe("what comes out is the arrangement that went in", () => {
         {},
         scan("Pro-Q 3"),
       );
-      expect(readWs("audio/pro_q_3/module.yaml")).toContain(
-        "name: Pro-Q 3",
-      );
+      expect(readWs("audio/pro_q_3/module.yaml")).toContain("name: Pro-Q 3");
       expect(existsSync(join(dir, "nodes", "pro_q_3.yaml"))).toBe(false);
     });
   });

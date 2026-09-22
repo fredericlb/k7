@@ -1,14 +1,15 @@
-# The hosted half only: st0/pl8/k7/z0 behind one nginx, one origin — see
+# The hosted half only: st0/pl8/k7/z0 behind one nginx, three hostnames — see
 # docker/Dockerfile. No engine, no file-service, no tray: those run on the
 # musician's own machine (the desktop app bundles them), never in this image,
 # and this stack talks to them over the network the same way a browser would.
 #
 # Traefik fronts this SAME single container on three hostnames — the root
-# domain for st0, k7.<domain> and play.<domain> — because that is the
-# topology env.yaml's COOKIE_DOMAIN/TRUSTED_ORIGINS document. Plain Host()
-# routing, all three to the one nginx port: nginx itself now knows these
-# hostnames (docker/nginx.conf's $subdomain_root map) and internally serves
-# k7's/pl8's own SPA at their subdomain's root — no path rewrite needed here.
+# domain for st0 (z0 riding along under it, unmoved), k7.<domain> and
+# play.<domain> for pl8/k7 at their OWN root — because that is the topology
+# env.yaml's COOKIE_DOMAIN/TRUSTED_ORIGINS document. Plain Host() routing,
+# all three to the one nginx port: nginx itself now knows these hostnames
+# (docker/nginx.conf's three server{} blocks, one per server_name) and roots
+# each app's block at that app's own `dist` — no path rewrite needed here.
 #
 # The shared login this enables — one "studio.sid" good on all three hosts,
 # and pl8 answering CORS for the other two — comes from cookieDomain/

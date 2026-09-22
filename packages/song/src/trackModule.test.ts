@@ -144,13 +144,7 @@ describe("a lane, read off what it extends", () => {
   it("refuses an event whose output is not wired, and says which key to add", () => {
     // Dropping the clip silently is what must be refused: the graph looks right and it is not heard.
     const p = project(
-      [
-        [
-          "gtr",
-          "@meta/track",
-          'events:\n  - { ref: riff, start: "1:1:1" }\n',
-        ],
-      ],
+      [["gtr", "@meta/track", 'events:\n  - { ref: riff, start: "1:1:1" }\n']],
       "modules:\n  gtr#midi: [ OUT ]\n",
     );
     mkdirSync(join(p, "clips"), { recursive: true });

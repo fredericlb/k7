@@ -27,8 +27,8 @@ import {
   isIoSource,
   MODULE_EMITS,
   MODULE_TYPES,
-  moduleEmits,
   metaRef,
+  moduleEmits,
   moduleKey,
   moduleLabelOf,
   moduleRefOf,
@@ -455,7 +455,8 @@ function loadNodes(
 export function moduleOwnRefs(m: LoadedModule): string[] {
   const from = typeof m.extends === "string" ? m.extends : "";
   // An io role is a built-in, not a scanned plugin — its panel (if any) is filed under `@meta`.
-  const ambientRef = m.kind === "io" ? metaRef(String(m.file)) : engineRef(String(m.file));
+  const ambientRef =
+    m.kind === "io" ? metaRef(String(m.file)) : engineRef(String(m.file));
   // A node has no type folder and so no ref of its own: its panel is the panel of what it uses.
   if (!m.category) return from ? [from] : [ambientRef];
   const own = moduleRefOf(String(m.category), String(m.file));
@@ -1102,7 +1103,9 @@ export function createNode(
         `'${module}' is an OUTPUT — MIX, OUT, CUE, RENDER and VIDEO_OUT are built into every graph and take no node`,
       );
     if (node in loadModules(dir))
-      throw new Error(`the name '${node}' is already a module or node in this project`);
+      throw new Error(
+        `the name '${node}' is already a module or node in this project`,
+      );
     return createIoModuleFile(dir, node, role);
   }
   // A PROJECT looks at the workspace beside it; a template being edited with `at` (no project.yaml
@@ -1113,7 +1116,9 @@ export function createNode(
     ? `${SHARED_MODULES_PATH}/${category}/${module}`
     : `modules/${category}/${module}`;
   const local = moduleFileFor(
-    isProject ? resolve(dir, SHARED_MODULES_PATH, category, module) : join(dir, "modules", category, module),
+    isProject
+      ? resolve(dir, SHARED_MODULES_PATH, category, module)
+      : join(dir, "modules", category, module),
     localRel,
     "module",
   );
@@ -1185,8 +1190,7 @@ export function cloneModuleFile(
   const destRel = isProject
     ? `${SHARED_MODULES_PATH}/${category}/${newName}`
     : `modules/${category}/${newName}`;
-  if (existsSync(destDir))
-    throw new Error(`folder ${destRel}/ already exists`);
+  if (existsSync(destDir)) throw new Error(`folder ${destRel}/ already exists`);
   cpSync(srcDir, destDir, { recursive: true });
   const modPath = join(destDir, "module.yaml"); // rewritten below if it has a `name:` field
   try {

@@ -4,12 +4,7 @@
 // process against the loader's own schemas. Layout + mapping: docs/import.md.
 
 import { createHash } from "node:crypto";
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { scannedPlugins } from "@studio/song/engineCatalogue";
 import { SHARED_STRIP } from "@studio/song/scaffoldLive";

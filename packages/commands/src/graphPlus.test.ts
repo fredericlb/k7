@@ -132,11 +132,7 @@ describe("node new — in the graph, wired to nothing", () => {
 describe("node insert", () => {
   it("splices an existing node into the arrow", async () => {
     await make("audio/gate", "g1");
-    await runCommand(
-      "node insert gtr @workspace/audio/amp g1",
-      host(),
-      "cli",
-    );
+    await runCommand("node insert gtr @workspace/audio/amp g1", host(), "cli");
     expect(chains()).toContain("gtr: [ g1 ]");
     expect(chains()).toContain('g1: [ "@workspace/audio/amp" ]');
     expect(chains()).toContain('"@workspace/audio/amp": [ OUT ]');
@@ -169,22 +165,14 @@ describe("node insert", () => {
       "utf8",
     );
     await make("audio/gate", "g1");
-    await runCommand(
-      "node insert gtr @workspace/audio/amp g1",
-      host(),
-      "cli",
-    );
+    await runCommand("node insert gtr @workspace/audio/amp g1", host(), "cli");
     expect(chains()).toContain("g1: { x: 300, y: 90 }");
   });
 
   it("keeps the pin it was born with when the two ends have none", async () => {
     // Nothing to be halfway BETWEEN — a graph.yaml no drawing has ever pinned, which is a CLI-only project.
     await make("audio/gate", "g1");
-    await runCommand(
-      "node insert gtr @workspace/audio/amp g1",
-      host(),
-      "cli",
-    );
+    await runCommand("node insert gtr @workspace/audio/amp g1", host(), "cli");
     expect(chains()).toContain("g1: { x: 0, y: -30 }");
   });
 });
@@ -245,11 +233,7 @@ describe("a cold node", () => {
   it("is refused over a chain with no file input, and the graph is untouched", async () => {
     await cold();
     const before = chains();
-    await runCommand(
-      "node insert gtr @workspace/audio/amp s1",
-      host(),
-      "cli",
-    );
+    await runCommand("node insert gtr @workspace/audio/amp s1", host(), "cli");
     expect(logs.join(" ")).toContain("COLD");
     expect(chains()).toBe(before);
   });
@@ -267,11 +251,7 @@ describe("a cold node", () => {
       'modules:\n  gtr: [ take ]\n  take: [ "@workspace/audio/amp" ]\n  "@workspace/audio/amp": [ OUT ]\n',
       "utf8",
     );
-    await runCommand(
-      "node insert take @workspace/audio/amp s1",
-      host(),
-      "cli",
-    );
+    await runCommand("node insert take @workspace/audio/amp s1", host(), "cli");
     expect(logs.join(" ")).not.toContain("COLD");
     expect(chains()).toContain("s1");
   });

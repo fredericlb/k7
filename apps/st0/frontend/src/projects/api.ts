@@ -103,7 +103,10 @@ export function externalHref(row: SurfacedProject, surface: string): string {
 // ── pl8: the shares ─────────────────────────────────────────────────────────────
 
 const sget = async <T>(path: string, what: string): Promise<T> =>
-  json(await fetch(`${PL8_URL}/api/shares${path}`), what);
+  json(
+    await fetch(`${PL8_URL}/api/shares${path}`, { credentials: "include" }),
+    what,
+  );
 
 /** The frozen snapshots this person has published, and taking one back — both ends st0's (../../docs/projects.md). */
 export const shares = {
@@ -114,6 +117,7 @@ export const shares = {
   revoke: async (key: string): Promise<void> => {
     const res = await fetch(`${PL8_URL}/api/shares/${key}`, {
       method: "DELETE",
+      credentials: "include",
     });
     if (!res.ok) throw await failed(res, "revoke");
   },
@@ -130,6 +134,7 @@ export const shares = {
   ): Promise<void> => {
     const res = await fetch(`${PL8_URL}/api/shares/${key}/comments/${id}`, {
       method: "PATCH",
+      credentials: "include",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ state }),
     });

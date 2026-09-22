@@ -41,9 +41,7 @@ describe("putting a clip on a lane", () => {
   });
 
   it("keeps the placements already there", () => {
-    lane(
-      'extends: "@meta/track"\nevents: [ { ref: first, start: "1:1" } ]\n',
-    );
+    lane('extends: "@meta/track"\nevents: [ { ref: first, start: "1:1" } ]\n');
     addTrackPlacement(dir, "gtr", "second", "5:1");
     expect(laneText()).toContain("ref: first");
     expect(laneText()).toContain("ref: second");
@@ -83,9 +81,7 @@ describe("putting a clip on a lane", () => {
 // The bulk form a PASTE lands through: one rewrite of the lane's file, so it is atomic.
 describe("putting several on a lane at once", () => {
   it("writes every one, keeping what was there", () => {
-    lane(
-      'extends: "@meta/track"\nevents: [ { ref: first, start: "1:1" } ]\n',
-    );
+    lane('extends: "@meta/track"\nevents: [ { ref: first, start: "1:1" } ]\n');
     addTrackPlacements(dir, "gtr", [
       { ref: "riff", start: "3:1" },
       { ref: "riff", start: "5:1" },

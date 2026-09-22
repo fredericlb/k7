@@ -295,7 +295,9 @@ export const PL8_API = `${PL8}/api`;
 export const mediatek = {
   /** The whole songs family, in one call and no paging: a few hundred entries, searched in the browser. */
   listSongs: async (): Promise<MediatekEntry[]> => {
-    const res = await fetch(`${PL8}/api/mediatek/list?family=songs`);
+    const res = await fetch(`${PL8}/api/mediatek/list?family=songs`, {
+      credentials: "include",
+    });
     if (!res.ok) throw new Error(m["api.library"]({ status: res.status }));
     return ((await res.json()) as FamilyListing).entries;
   },
@@ -338,6 +340,7 @@ export const mediatek = {
     if (opts.replace) q.set("replace", "1");
     const res = await fetch(`${PL8}/api/mediatek/song?${q}`, {
       method: "POST",
+      credentials: "include",
       headers: { "content-type": "application/octet-stream" },
       body: file,
     });

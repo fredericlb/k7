@@ -32,7 +32,10 @@ function song(automation: string, curve: string): void {
     // Two notes, one at the clip's start and one a beat later.
     "notes:\n  - { k: 60, t: 0, d: 0.5 }\n  - { k: 64, t: 1, d: 0.5 }\n",
   );
-  put("nodes/osc.yaml", `plugin:\n  type: internal\n  name: 4OSC\n${automation}`);
+  put(
+    "nodes/osc.yaml",
+    `plugin:\n  type: internal\n  name: 4OSC\n${automation}`,
+  );
   put("curves/env1.yaml", curve);
 }
 

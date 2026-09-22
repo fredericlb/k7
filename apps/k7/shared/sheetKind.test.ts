@@ -63,7 +63,9 @@ describe("the picker and the predicate", () => {
   });
 
   it("tells a score from a sheet image", () => {
-    expect(isScore({ name: "p.mxl", mime: "application/octet-stream" })).toBe(true);
+    expect(isScore({ name: "p.mxl", mime: "application/octet-stream" })).toBe(
+      true,
+    );
     expect(isScore({ name: "p.png", mime: "image/png" })).toBe(false);
   });
 });

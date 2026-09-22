@@ -191,16 +191,15 @@ describe("what the dropdown offers", () => {
     module_("audio/amp/assets/jcm800.nam", "x");
     module_("audio/amp/assets/Two-Rock/Clean.nam", "x");
     module_("audio/amp/assets/notes.wav", "x");
-    expect(
-      listModuleAssets(join(ws, "_modules", "audio", "amp")),
-    ).toEqual(["Two-Rock/Clean.nam", "jcm800.nam"]);
+    expect(listModuleAssets(join(ws, "_modules", "audio", "amp"))).toEqual([
+      "Two-Rock/Clean.nam",
+      "jcm800.nam",
+    ]);
   });
 
   it("is empty for a module that carries nothing", () => {
     module_("audio/amp/module.yaml", "plugin: {type: internal}\n");
-    expect(
-      listModuleAssets(join(ws, "_modules", "audio", "amp")),
-    ).toEqual([]);
+    expect(listModuleAssets(join(ws, "_modules", "audio", "amp"))).toEqual([]);
   });
 });
 
@@ -271,8 +270,6 @@ describe("a model too big to carry", () => {
       "plugin: {type: offline}\nparams: {onnx: ../../../secret.onnx}\n",
     );
     writeFileSync(join(models, "secret.onnx"), "weights", "utf8");
-    expect(
-      loadModuleRefs(dir)["@workspace/audio/sep"]?.onnx,
-    ).toBeUndefined();
+    expect(loadModuleRefs(dir)["@workspace/audio/sep"]?.onnx).toBeUndefined();
   });
 });

@@ -127,9 +127,7 @@ describe("adding one to a chain", () => {
     project(FROM_TRACK);
     track("gtr");
     const g = loadGraph(dir);
-    expect(
-      coldPlacementError(g, g.moduleRefs.amp, "amp", "amp"),
-    ).toBeNull();
+    expect(coldPlacementError(g, g.moduleRefs.amp, "amp", "amp")).toBeNull();
   });
 
   it("allows placing one wired to NOTHING", () => {

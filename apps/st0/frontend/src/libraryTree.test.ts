@@ -81,9 +81,7 @@ describe("libraryTree", () => {
 
   it("draws an EMPTY level too — it is not the same as an absent one", () => {
     expect(
-      libraryTree([lib("workspace", "_modules", true, [])]).map(
-        (n) => n.name,
-      ),
+      libraryTree([lib("workspace", "_modules", true, [])]).map((n) => n.name),
     ).toEqual(["@workspace"]);
   });
 
@@ -194,9 +192,7 @@ describe("libraryModuleRef", () => {
 
   it("answers nothing for a path in neither shared level", () => {
     // A project's own files are never a module ref — a module lives at `@workspace` or `@st0` now.
-    expect(
-      libraryModuleRef("song.st0/nodes/lead.yaml"),
-    ).toBeNull();
+    expect(libraryModuleRef("song.st0/nodes/lead.yaml")).toBeNull();
   });
 
   it("answers nothing for the library's chains", () => {

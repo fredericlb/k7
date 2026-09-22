@@ -1106,7 +1106,12 @@ async function addTrackAutomation(
     value,
     beatsToPosition(last, p.timeSigNumerator, p.timeSigDenominator),
   );
-  const path = setModuleAutomationBinding(h.songPath, module, param, curveRef(id));
+  const path = setModuleAutomationBinding(
+    h.songPath,
+    module,
+    param,
+    curveRef(id),
+  );
   await h.reload();
   h.log([
     `${track.id}: ${param} <- ${id} (${rel}), flat at ${Math.round(value * 100)}% (${path})`,

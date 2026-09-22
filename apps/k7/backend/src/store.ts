@@ -1214,6 +1214,12 @@ export async function nametagExists(nametag, exceptUid?) {
   return recs.some((r) => r.fields.Uid !== exceptUid);
 }
 
+// The nametag is the whole address of a public page — see routes/publicPages.ts.
+export async function getPageByNametag(nametag) {
+  const recs = await grist.listRecords("Pages", { Nametag: [nametag] });
+  return recs[0] ? getPage(recs[0].fields.Uid) : null;
+}
+
 export async function listPages(ownerId) {
   const recs = await grist.listRecords("Pages", { OwnerId: [ownerId] });
   return recs

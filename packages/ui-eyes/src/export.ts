@@ -31,7 +31,6 @@ export {
 import type { VideoScene } from "./scene";
 import { type Active, layerFrameAt, shapesVisibleAt } from "./timeline";
 
-
 /** The containers the picture leaves in, the default first — the ones `exportSupport` blessed,
  *  here beside the probe so a container cannot be listed without being supported (docs/passes.md). */
 export const VIDEO_FORMATS = [

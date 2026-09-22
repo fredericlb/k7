@@ -118,9 +118,7 @@ describe("where a panel files itself", () => {
       cols: 3,
     });
     expect(again).toBe(first);
-    expect(loadUiLibrary(dir).byRef["@workspace/audio/reverb"].ui.cols).toBe(
-      3,
-    );
+    expect(loadUiLibrary(dir).byRef["@workspace/audio/reverb"].ui.cols).toBe(3);
   });
 
   it("reports an unreadable panel rather than hiding the rest of the library", () => {
@@ -182,8 +180,8 @@ describe("the loader overlays the panels", () => {
       ].join("\n"),
     );
     writeUiFile(dir, "@workspace/audio/reverb", PANEL);
-    const ui = loadModuleRefs(dir)["@workspace/audio/reverb"].ui as
-      typeof PANEL;
+    const ui = loadModuleRefs(dir)["@workspace/audio/reverb"]
+      .ui as typeof PANEL;
     expect(ui.cols).toBe(2);
     expect(Object.keys(ui.widgets)).toEqual(["mix"]); // no trace of the module's own grid
   });
@@ -203,9 +201,7 @@ describe("the loader overlays the panels", () => {
 
   it("leaves modules alone when nothing has been drawn", () => {
     writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\n");
-    expect(
-      loadModuleRefs(dir)["@workspace/audio/reverb"].ui,
-    ).toBeUndefined();
+    expect(loadModuleRefs(dir)["@workspace/audio/reverb"].ui).toBeUndefined();
   });
 });
 
@@ -257,7 +253,9 @@ describe("migrating the panels that are still inline", () => {
   });
 
   it("reports a ui it cannot move rather than dropping it", () => {
-    writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\nui:\n  cols: 2\n");
+    writeSharedModule(
+      "plugin:\n  name: Reverb\n  type: vst3\nui:\n  cols: 2\n",
+    );
     const r = migrateModuleUis(dir);
     expect(r.moved).toEqual([]);
     expect(r.errors.join()).toMatch(/not a panel this can move/);

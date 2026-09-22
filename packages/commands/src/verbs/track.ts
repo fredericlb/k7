@@ -262,14 +262,7 @@ async function duplicateTrack(
       if (placements.length) addTrackPlacements(dir, newLane, placements);
     }
 
-    const chainFiles = duplicateChain(
-      dir,
-      lane,
-      newLane,
-      g,
-      taken,
-      claim,
-    );
+    const chainFiles = duplicateChain(dir, lane, newLane, g, taken, claim);
     await h.reload();
     h.log([`+ track ${newLane} (${[...made, ...chainFiles].join(", ")})`]);
   } catch (e) {

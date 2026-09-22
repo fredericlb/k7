@@ -1,21 +1,20 @@
 import { defineAppConfig } from "@frediverse/vite-config";
 import {
   AUTH_BACKEND_PORT,
-  DEV_HOST,
   LEGACY_DEV_HOSTS,
+  PL8_DEV_HOST,
 } from "../../../scripts/dev-hosts.mjs";
 
-// Served under /pl8 against its OWN backend, except `/auth`, which is st0's (../docs/routing.md).
+// Served at the ROOT of its own subdomain, against its OWN backend, except `/auth`,
+// which is st0's — ../docs/routing.md.
 export default defineAppConfig({
   dir: import.meta.url,
   // 5223 is st0; the next free one in that block.
   port: 5224,
   backendPort: 8795,
-  // The public prefix: with a base set, `defineAppConfig` proxies each backend path twice.
-  base: "/pl8/",
   // The engine relay: only a declared wsPath gets `ws: true` (packages/engine-registry/docs/proxy.md).
   wsPaths: ["/api/engine"],
-  host: DEV_HOST,
+  host: PL8_DEV_HOST,
   extend: {
     server: {
       // The alternate names reach these servers too — see scripts/dev-hosts.mjs.

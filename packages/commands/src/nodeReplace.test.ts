@@ -261,11 +261,7 @@ describe("node replace — the name following the module", () => {
     await runCommand("node insert gtr gtr_amp_1 lead", host(), "cli");
     const before = chains();
     logs.length = 0;
-    await runCommand(
-      "node replace lead @workspace/audio/cab",
-      host(),
-      "cli",
-    );
+    await runCommand("node replace lead @workspace/audio/cab", host(), "cli");
     expect(chains()).toBe(before);
     expect(nodes()).toContain("lead.yaml");
     expect(logs.join(" ")).not.toContain("→");

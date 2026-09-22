@@ -15,8 +15,8 @@ import {
   engineRef,
   IO_MODULES,
   META_NS,
-  metaRef,
   MODULE_TYPES,
+  metaRef,
   slugifyPluginName,
 } from "@studio/song-schema/moduleTypes";
 import type { LoadedModule } from "./rawDoc";

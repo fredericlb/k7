@@ -66,7 +66,8 @@ describe("a module's MIDI map (synth-demo)", () => {
     cpSync(SONG, dir, { recursive: true });
     // The Examples workspace's own shared library, beside every demo project.
     const shared = join(DEMOS, "_modules");
-    if (existsSync(shared)) cpSync(shared, join(ws, "_modules"), { recursive: true });
+    if (existsSync(shared))
+      cpSync(shared, join(ws, "_modules"), { recursive: true });
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
 

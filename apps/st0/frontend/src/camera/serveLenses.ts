@@ -4,9 +4,15 @@
 // One peer connection per viewer, one stream per LABEL: two tablets on one lens open it once.
 // See apps/st0-desktop/docs/camera.md.
 
+import {
+  type Frame,
+  ICE,
+  readFrame,
+  relayUrl,
+  sendFrame,
+} from "@studio/st0-plugins/video/camera/relay";
 import { type Lens, localLens } from "@studio/ui-eyes/camera";
 import { tabBridge } from "../tabs/bridge";
-import { type Frame, ICE, readFrame, relayUrl, sendFrame } from "@studio/st0-plugins/video/camera/relay";
 
 /** Reconnect delay after the socket drops, doubling to this — the app restarting is the usual cause. */
 const RETRY_MS = 1000;

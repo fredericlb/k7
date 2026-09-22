@@ -60,11 +60,7 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }));
 describe("a freeze inside one lane's run", () => {
   it("plays the render on that lane, and stops building what it contains", () => {
     const p = project("inside");
-    setYaml(
-      join(p, "nodes", "amp.yaml"),
-      ["frozen"],
-      "renders/r.wav",
-    );
+    setYaml(join(p, "nodes", "amp.yaml"), ["frozen"], "renders/r.wav");
     const doc = compileNodeProject(p);
     const gtr = trackOf(doc, "gtr");
     // ONE clip, and it is the render — the lane's own material is inside it.
@@ -80,11 +76,7 @@ describe("a freeze inside one lane's run", () => {
   it("plays live again the moment the render is not on disk", () => {
     // A project cloned without its renders is not a broken project — see activeFreezePlans.
     const p = project("missing");
-    setYaml(
-      join(p, "nodes", "amp.yaml"),
-      ["frozen"],
-      "renders/gone.wav",
-    );
+    setYaml(join(p, "nodes", "amp.yaml"), ["frozen"], "renders/gone.wav");
     const doc = compileNodeProject(p);
     expect(trackOf(doc, "gtr")?.clips.map((c) => c.name)).toEqual(["riff"]);
     expect(pluginModules(trackOf(doc, "gtr"))).toEqual(["amp", "cab"]);
@@ -94,11 +86,7 @@ describe("a freeze inside one lane's run", () => {
 describe("a freeze at a bus", () => {
   it("silences every lane that met there and plays the render on the return track", () => {
     const p = project("bus");
-    setYaml(
-      join(p, "nodes", "verb.yaml"),
-      ["frozen"],
-      "renders/r.wav",
-    );
+    setYaml(join(p, "nodes", "verb.yaml"), ["frozen"], "renders/r.wav");
     const doc = compileNodeProject(p);
     // Both lanes are inside the render, so playing them again would be the take twice.
     expect(trackOf(doc, "gtr")?.clips).toEqual([]);

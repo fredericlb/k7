@@ -320,6 +320,21 @@ export const api = {
   deletePage: (id: string): Promise<null> =>
     f(`/api/pages/${id}`, { method: "DELETE" }).then(json),
 
+  // The address handed to someone else, so it must carry the origin, not just BASE.
+  pagePublicUrl: (nametag: string): string =>
+    `${window.location.origin}${BASE}/@${nametag}`,
+
+  // No session on this one: the nametag is the whole address — ../../docs/ownership.md.
+  getPublicPage: (nametag: string): Promise<Page> =>
+    fetch(`${BASE}/api/public/pages/${nametag}`).then(json),
+
+  publicVersionAudioUrl: (
+    nametag: string,
+    releaseId: string,
+    versionId: string,
+  ) =>
+    `${BASE}/api/public/pages/${nametag}/releases/${releaseId}/versions/${versionId}/audio`,
+
   // --- Singing exercises (a personal practice book) ---
   listSingingExercises: (): Promise<SingingExercise[]> =>
     f("/api/singing").then(json),

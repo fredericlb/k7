@@ -1392,7 +1392,10 @@ export class Workspace {
   // `_modules` and `_libraries/…` are both ORDINARY paths now — a module lives at `@workspace` or
   // `@st0` and is edited in place, there being no project-local copy left to fork into instead
   // (docs/workspace.md). Renaming or deleting either is still refused, by guardShared elsewhere.
-  write(rel: string, content: string): { forked?: ForkedModule; pushed?: boolean } {
+  write(
+    rel: string,
+    content: string,
+  ): { forked?: ForkedModule; pushed?: boolean } {
     const abs = this.safePath(rel);
     if (isBinary(basename(abs))) throw new Error("cannot edit a binary file");
     mkdirSync(dirname(abs), { recursive: true });

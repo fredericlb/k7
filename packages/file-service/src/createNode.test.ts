@@ -38,9 +38,7 @@ describe("Workspace.createNode", () => {
     expect(path).toBe("nodes/lead.yaml");
     expect(existsSync(join(root, "song.st0", path))).toBe(true);
     // The module is untouched — the node names it, it doesn't rewrite it.
-    expect(
-      existsSync(join(root, MODULE_DIR, "module.yaml")),
-    ).toBe(true);
+    expect(existsSync(join(root, MODULE_DIR, "module.yaml"))).toBe(true);
   });
 
   it("resolves the module from a file inside the folder, not just the folder", () => {

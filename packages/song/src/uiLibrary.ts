@@ -79,7 +79,9 @@ export function writeUiFile(
 /** The library that holds `ref`, throwing rather than guessing — `@engine` has no answer, docs/uiLibrary.md. */
 function moduleRootFor(dir: string, ref: string): string {
   if (!ref.startsWith("@"))
-    throw new Error(`${ref}: a module ref is always namespaced now — bare names resolve nothing`);
+    throw new Error(
+      `${ref}: a module ref is always namespaced now — bare names resolve nothing`,
+    );
   const ns = ref.slice(1).split("/")[0];
   for (const root of moduleLibraryDirs(dir))
     if (moduleNamespaceOf(root) === ns) return root;
