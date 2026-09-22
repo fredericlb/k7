@@ -28,7 +28,8 @@
     "build": "tsc --noEmit",
     "dev": "tsc --noEmit --watch --preserveWatchOutput",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "upload-library": "node --experimental-strip-types scripts/uploadLibrary.ts"
   },
   "dependencies": {
     "@studio/engine-client": "*",
