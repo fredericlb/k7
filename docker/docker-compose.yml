@@ -76,6 +76,10 @@ services:
       # Only needed if PL8_DOMAIN below is not play.st0.app — the default in code
       # points at that fixed host regardless of what PL8_DOMAIN is set to.
       MEDIATEK_URL: ${MEDIATEK_URL:-}
+      # The pocketbase service above, reached over the container network.
+      POCKETBASE_URL: ${POCKETBASE_URL:-http://pocketbase:8090}
+      POCKETBASE_EMAIL: ${POCKETBASE_EMAIL:?set POCKETBASE_EMAIL — see .env.example}
+      POCKETBASE_PASSWORD: ${POCKETBASE_PASSWORD:?set POCKETBASE_PASSWORD — see .env.example}
     volumes:
       - k7-data:/app/apps/k7/backend/data
     networks:
@@ -86,6 +90,26 @@ services:
       - traefik.http.routers.k7.entrypoints=websecure
       - traefik.http.routers.k7.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
       - traefik.http.services.k7.loadbalancer.server.port=8787
+
+  # k7's data + song-sheet store — apps/k7/docs/pocketbase.md. k7 itself reaches it
+  # over the container network, by service name; not routed through Traefik.
+  # Community image (no official one is published); pin a version for prod rather
+  # than trusting `latest`. First boot has no superuser — create one with
+  # `docker compose exec pocketbase /pb/pocketbase superuser create <email> <password>`
+  # and put those same values in POCKETBASE_EMAIL / POCKETBASE_PASSWORD for k7.
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    restart: unless-stopped
+    volumes:
+      - pocketbase-data:/pb_data
+    networks:
+      - traefik
+    ports:
+      # One port for both: the admin web UI is at /_/, the REST API at /api/*.
+      # Published straight on the host, not through Traefik — there is no
+      # auth in front of this beyond PocketBase's own login, so bind it to a
+      # trusted interface/VPN or firewall it off in a real deployment.
+      - "${POCKETBASE_PORT:-8090}:8090"
 
   z0:
     image: dev.frediver.se/frediverse/studio/z0:${APP_VERSION:-latest}
@@ -118,3 +142,4 @@ volumes:
   library:
   data:
   k7-data:
+  pocketbase-data:

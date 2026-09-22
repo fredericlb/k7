@@ -1,5 +1,5 @@
 // mediatek.ts — where a session's bytes live: the médiathèque's RECORDINGS zone, over HTTP.
-// Grist keeps the metadata (duration, envelope, gain, moments) and carries no audio at all.
+// PocketBase keeps the metadata (duration, envelope, gain, moments) and carries no audio at all.
 // The client is the package's, not a second one written here. See docs/audio.md.
 
 import {

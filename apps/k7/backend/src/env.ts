@@ -7,9 +7,13 @@ const raw = defineEnv(
     SESSION_SECRET: z.string().default("dev-insecure-secret-change-me"),
     API_TOKEN_SECRET: z.string().optional(),
     SUPERNOTE_SECRET: z.string().optional(),
+    // Only needed to run migratePocketbaseData.ts once, copying the old Grist doc over.
     GRIST_API_URL: z.string().optional(),
     GRIST_DOC_ID: z.string().optional(),
     GRIST_API_KEY: z.string().optional(),
+    POCKETBASE_URL: z.string().optional(),
+    POCKETBASE_EMAIL: z.string().optional(),
+    POCKETBASE_PASSWORD: z.string().optional(),
     // Where a session's audio lives; a CHECKOUT is the exception — ../../docs/audio.md.
     MEDIATEK_URL: z.string().default(serviceUrl(STUDIO_ORIGIN, "pl8")),
     // Written by `npm run tokens`; without it the library refuses the push, never being open.
@@ -28,6 +32,11 @@ export const env = {
     apiUrl: raw.GRIST_API_URL,
     docId: raw.GRIST_DOC_ID,
     apiKey: raw.GRIST_API_KEY,
+  },
+  pocketbase: {
+    url: raw.POCKETBASE_URL,
+    email: raw.POCKETBASE_EMAIL,
+    password: raw.POCKETBASE_PASSWORD,
   },
   mediatek: {
     base: raw.MEDIATEK_URL,
