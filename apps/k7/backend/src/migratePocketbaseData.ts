@@ -1,16 +1,13 @@
-// One-off copy of every row from the old Grist doc into PocketBase, and every
-// song sheet into the médiathèque. Run once, during the cutover maintenance
-// window, after `npm run migrate` has created the PocketBase collections:
+// One-off copy of every row (and song sheet) from the old Grist doc into
+// PocketBase. Run once, during the cutover maintenance window, after
+// `npm run migrate` has created the PocketBase collections:
 //
 //   node --experimental-strip-types src/migratePocketbaseData.ts
 //
-// Needs GRIST_*, POCKETBASE_* and MEDIATEK_* env vars set. Refuses to run if
-// any target collection already has rows, so it can't double-insert on a re-run.
+// Needs both GRIST_* and POCKETBASE_* env vars set. Refuses to run if any
+// target collection already has rows, so it can't double-insert on a re-run.
 
-import { randomUUID } from "node:crypto";
-import { sheetExt } from "@k7/shared/sheetKind";
 import * as grist from "./grist.ts";
-import * as mediatek from "./mediatek.ts";
 import {
   pocketbase,
   isConfigured as pocketbaseConfigured,
@@ -56,13 +53,17 @@ async function copyTable(table: string): Promise<Map<number, string>> {
   return idMap;
 }
 
-/** A Songs row's sheet attachments: download each from Grist, re-upload into the médiathèque. */
+/** A Songs row's sheet attachments: download each from Grist, re-upload into song_sheets. */
 async function copySheets(
-  songUid: string,
   sheetMeta: unknown,
   newSongId: string,
 ): Promise<void> {
-  let sheets: { attachmentId: string; name: string; mime: string }[];
+  let sheets: {
+    id: string;
+    attachmentId: string;
+    name: string;
+    mime: string;
+  }[];
   try {
     sheets = JSON.parse(String(sheetMeta || "[]"));
   } catch {
@@ -70,13 +71,26 @@ async function copySheets(
   }
   if (!sheets.length) return;
 
-  const migrated: { id: string; path: string; name: string; mime: string }[] = [];
+  const migrated: {
+    id: string;
+    attachmentId: string;
+    name: string;
+    mime: string;
+  }[] = [];
   for (const sheet of sheets) {
     const buffer = await grist.downloadAttachment(Number(sheet.attachmentId));
-    const id = randomUUID();
-    const remotePath = `recordings/songbook/${songUid}-sheet-${id}.${sheetExt(sheet.name, sheet.mime)}`;
-    await mediatek.putFile(remotePath, buffer);
-    migrated.push({ id, path: remotePath, name: sheet.name, mime: sheet.mime });
+    const newId = await pocketbase.uploadAttachment(
+      buffer,
+      sheet.mime,
+      sheet.name,
+      newSongId,
+    );
+    migrated.push({
+      id: newId,
+      attachmentId: newId,
+      name: sheet.name,
+      mime: sheet.mime,
+    });
   }
   await pocketbase.patchRecord("Songs", newSongId, {
     SheetMeta: JSON.stringify(migrated),
@@ -104,8 +118,7 @@ async function run(): Promise<void> {
   const songRows = await grist.listRecords("Songs");
   for (const row of songRows) {
     const newSongId = idMaps.Songs.get(row.id);
-    if (newSongId)
-      await copySheets(String(row.fields.Uid), row.fields.SheetMeta, newSongId);
+    if (newSongId) await copySheets(row.fields.SheetMeta, newSongId);
   }
 
   console.log(

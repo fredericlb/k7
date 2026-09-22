@@ -1513,9 +1513,9 @@ export async function deleteSong(uid) {
   return true;
 }
 
-// --- Song sheets (PDF / image files, in the médiathèque like every other byte) ----
+// --- Song sheets (PDF / image / MusicXML files — not audio, so PocketBase holds them) -------
 
-// SheetMeta is the order, name, type and médiathèque path of each sheet.
+// SheetMeta is the order, name and type; the bytes live in the song_sheets collection.
 async function writeSheets(rec, sheets) {
   await db.patchRecord("Songs", rec.id, {
     SheetMeta: JSON.stringify(sheets),
@@ -1529,16 +1529,24 @@ export async function addSheetFiles(uid, files) {
   const existing = sheetsOf(rec);
   const added: {
     id: string;
-    path: string;
+    attachmentId: string;
     name: string;
     mime: string;
   }[] = [];
   for (const file of files) {
     const name = file.name || "sheet";
-    const id = randomUUID();
-    const remotePath = `recordings/songbook/${uid}-sheet-${id}.${sheetExt(name, file.mime)}`;
-    await mediatek.putFile(remotePath, file.buffer);
-    const entry = { id, path: remotePath, name, mime: file.mime };
+    const attachmentId = await db.uploadAttachment(
+      file.buffer,
+      file.mime,
+      name,
+      rec.id,
+    );
+    const entry = {
+      id: attachmentId,
+      attachmentId,
+      name,
+      mime: file.mime,
+    };
     added.push(entry);
     // Prime the disk cache so the first view streams straight away.
     fs.writeFileSync(sheetCachePath(uid, entry), file.buffer);
@@ -1559,7 +1567,7 @@ export async function deleteSheetFile(uid, fileId) {
     rec,
     existing.filter((s) => s.id !== fileId),
   );
-  await mediatek.remove(gone.path).catch(() => {
+  await db.deleteAttachment(gone.attachmentId).catch(() => {
     // The metadata row is what the songbook reads; a stray blob left behind is not fatal.
   });
   safeUnlink(sheetCachePath(uid, gone));
@@ -1726,7 +1734,10 @@ export async function ensureSheetFileCached(uid, fileId) {
   const entry = sheetsOf(rec).find((s) => s.id === fileId);
   if (!entry) return null;
   const filePath = sheetCachePath(uid, entry);
-  if (!fs.existsSync(filePath)) await mediatek.download(entry.path, filePath);
+  if (!fs.existsSync(filePath)) {
+    const buffer = await db.downloadAttachment(entry.attachmentId);
+    fs.writeFileSync(filePath, buffer);
+  }
   return { filePath, mime: entry.mime, name: entry.name };
 }
 

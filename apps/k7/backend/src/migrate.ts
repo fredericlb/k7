@@ -39,6 +39,22 @@ async function migrate(): Promise<void> {
     await reconcile(name, fields);
   }
 
+  // song_sheets needs Songs' PocketBase collection id, so it's created last.
+  const songs = await pocketbase.getCollection("Songs");
+  if (!songs) throw new Error("Songs collection missing after migration");
+  await reconcile("song_sheets", [
+    {
+      name: "song",
+      type: "relation",
+      required: true,
+      collectionId: songs.id,
+      cascadeDelete: true,
+    },
+    { name: "name", type: "text" },
+    { name: "mime", type: "text" },
+    { name: "file", type: "file", required: true },
+  ]);
+
   console.log("Migration complete.");
 }
 
