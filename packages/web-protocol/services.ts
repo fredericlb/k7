@@ -41,3 +41,31 @@ export function studioOrigin(url: string): string {
     return "";
   }
 }
+
+/** A subdomain label answering for a service that shares st0's account flow — see authOrigin. */
+const AUTH_SUBDOMAIN_LABELS = ["k7", "play"] as const;
+
+/**
+ * Where `/auth/*` actually lives, given the origin a page is CURRENTLY running
+ * on. Same-origin deployments (today's path-based one, and st0 itself) just
+ * echo it back. pl8/k7 also answer on their OWN subdomain (k7.st0.app,
+ * play.st0.app), but the OIDC provider has exactly ONE registered
+ * redirect_uri — at the family root, e.g. "https://st0.app" — so a page on
+ * one of those subdomains must send the browser there instead of to its own,
+ * same-looking-but-wrong `/auth/login`. "" for a string that is not a URL.
+ */
+export function authOrigin(currentOrigin: string): string {
+  let url: URL;
+  try {
+    url = new URL(currentOrigin);
+  } catch {
+    return "";
+  }
+  for (const label of AUTH_SUBDOMAIN_LABELS) {
+    const prefix = `${label}.`;
+    if (url.hostname.startsWith(prefix)) {
+      return `${url.protocol}//${url.hostname.slice(prefix.length)}`;
+    }
+  }
+  return url.origin;
+}

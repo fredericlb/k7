@@ -1,0 +1,77 @@
+# The hosted half only: st0/pl8/k7/z0 behind one nginx, one origin — see
+# docker/Dockerfile. No engine, no file-service, no tray: those run on the
+# musician's own machine (the desktop app bundles them), never in this image,
+# and this stack talks to them over the network the same way a browser would.
+#
+# Traefik fronts this SAME single container on three hostnames — the root
+# domain for st0, k7.<domain> and play.<domain> — because that is the
+# topology env.yaml's COOKIE_DOMAIN/TRUSTED_ORIGINS document. Plain Host()
+# routing, all three to the one nginx port: nginx itself now knows these
+# hostnames (docker/nginx.conf's $subdomain_root map) and internally serves
+# k7's/pl8's own SPA at their subdomain's root — no path rewrite needed here.
+#
+# The shared login this enables — one "studio.sid" good on all three hosts,
+# and pl8 answering CORS for the other two — comes from cookieDomain/
+# trustedOrigins now being resolved by every setupAuth() call
+# (commons/packages/oidc) straight from COOKIE_DOMAIN/TRUSTED_ORIGINS below,
+# and pl8's CORS middleware (apps/pl8/backend/src/cors.ts) being mounted.
+
+services:
+  studio:
+    image: dev.frediver.se/frediverse/studio/studio:${APP_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET — see .env.example}
+      # Shared session cookie across the three hosts below, once threaded
+      # into setupAuth()'s cookieDomain option — see .env.example.
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      # pl8's CORS allowlist for calls from the other two origins — see
+      # .env.example.
+      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-}
+      # z0's backend only; unset is none — e.g. "--latest".
+      EXTRA_FLAGS: ${EXTRA_FLAGS:-}
+    volumes:
+      # pl8's médiathèque — pl8 IS this volume, see docker/Dockerfile.
+      - library:/library
+      # st0's per-person preferences.
+      - data:/data
+      # k7's sessions and takes.
+      - k7-data:/app/apps/k7/backend/data
+    networks:
+      # External: shared with wherever the Traefik instance itself runs.
+      - traefik
+    labels:
+      - traefik.enable=true
+
+      # Three hostnames, ONE container/port — nginx (docker/nginx.conf) tells
+      # them apart by Host itself now, so every router below is a plain
+      # Host() rule pointed at the same service, nothing more.
+      - traefik.http.routers.st0.rule=Host(`${ST0_DOMAIN:-st0.app}`)
+      - traefik.http.routers.st0.entrypoints=websecure
+      - traefik.http.routers.st0.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.routers.st0.service=studio
+
+      - traefik.http.routers.k7.rule=Host(`${K7_DOMAIN:-k7.st0.app}`)
+      - traefik.http.routers.k7.entrypoints=websecure
+      - traefik.http.routers.k7.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.routers.k7.service=studio
+
+      - traefik.http.routers.pl8.rule=Host(`${PL8_DOMAIN:-play.st0.app}`)
+      - traefik.http.routers.pl8.entrypoints=websecure
+      - traefik.http.routers.pl8.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.routers.pl8.service=studio
+
+      - traefik.http.services.studio.loadbalancer.server.port=80
+
+networks:
+  traefik:
+    external: true
+
+volumes:
+  library:
+  data:
+  k7-data:

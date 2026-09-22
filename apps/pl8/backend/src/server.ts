@@ -23,6 +23,7 @@ import { isLoopbackReturn } from "@studio/web-protocol/pairing";
 import express from "express";
 import { z } from "zod";
 import { startAnalysisSweep } from "./analysisSweep.ts";
+import { createTrustedOriginCors } from "./cors.ts";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
 import { publicShareRouter } from "./routes/publicShare.ts";
@@ -35,17 +36,13 @@ Object.assign(process.env, loadServiceEnv("pl8-backend"));
 
 const PORT = Number(process.env.PORT || 8795);
 
-// The volume, required rather than defaulted: the fallback is healthy AND empty, ../docs/config.md.
-if (!process.env.STUDIO_MEDIATEK) {
-  console.error(
-    "error: STUDIO_MEDIATEK is not set — it must point at the mounted library volume.",
-  );
-  process.exit(1);
-}
-
 const app = express();
 // The relay pipes bodies to an engine's file service, so the limit is that service's opinion.
 app.use(express.json({ limit: ENGINE_BODY_LIMIT }));
+// st0 and k7, now on their own subdomains, call this API directly — allow
+// them (and answer their preflight) before anything else runs. See cors.ts;
+// TRUSTED_ORIGINS is populated by the Object.assign above, not read here.
+app.use(createTrustedOriginCors());
 
 const { requireAuth } = await setupAuth(app, {
   // VERIFIES the cookie and mounts nothing, as k7 and z0 do — the flow is st0's, ../docs/gate.md.

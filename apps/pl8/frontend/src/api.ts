@@ -8,6 +8,7 @@ import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
 import type { PublicEngine, SyncJob } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
+import { authOrigin } from "@studio/web-protocol/services";
 // Type only, so the cycle with prefs.ts never reaches the bundle — see ../docs/api.md.
 import type { Pl8Prefs } from "./prefs";
 
@@ -51,14 +52,25 @@ export const currentUser = (): string => signedInAs;
 
 export const auth = {
   // A GETTER and not a constant, and `return_to` is the name the OIDC package reads (../docs/api.md).
+  // Absolute, both the login URL and return_to: on pl8's own subdomain, the
+  // account flow lives at the family root (authOrigin), a DIFFERENT origin —
+  // and return_to has to survive that round trip back to THIS one.
   get loginUrl(): string {
-    const here = window.location.pathname + window.location.search;
-    return `/auth/login?return_to=${encodeURIComponent(here)}`;
+    const origin = window.location.origin;
+    const here = origin + window.location.pathname + window.location.search;
+    return `${authOrigin(origin)}/auth/login?return_to=${encodeURIComponent(here)}`;
   },
 
-  /** The session's user, or null when anonymous. */
+  /**
+   * The session's user, or null when anonymous. Absolute + credentials:
+   * "include" — same reason as loginUrl: /auth/* only exists at the family
+   * root, a DIFFERENT origin from pl8's own subdomain, and a cross-origin
+   * fetch doesn't send cookies at all without this.
+   */
   me: async (): Promise<AuthUser | null> => {
-    const res = await fetch("/auth/me");
+    const res = await fetch(`${authOrigin(window.location.origin)}/auth/me`, {
+      credentials: "include",
+    });
     if (res.status === 401) return null;
     const user = (await json<{ user: AuthUser }>(res, "auth/me")).user;
     // The one place this is learned, so the one place it is recorded.
@@ -68,7 +80,10 @@ export const auth = {
 
   /** Ends the session for the WHOLE origin — studio.sid is shared. See apps/st0/AGENTS.md. */
   logout: async (): Promise<void> => {
-    await fetch("/auth/logout", { method: "POST" });
+    await fetch(`${authOrigin(window.location.origin)}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
     window.location.reload();
   },
 };

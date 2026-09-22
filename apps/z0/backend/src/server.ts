@@ -121,6 +121,11 @@ await setupAuth(app, {
   cookieName: SESSION_COOKIE_NAME,
   service: "z0-backend",
   mountRoutes: [],
+  // This app stays single-origin (../../docs/auth.md, config.test.ts) even
+  // though env.yaml's common.COOKIE_DOMAIN now shares "studio.sid" across
+  // st0/pl8/k7's subdomains — "" opts THIS cookie (a different name, the
+  // guest session) out of that, rather than silently broadening it too.
+  cookieDomain: "",
 });
 app.use(authMiddleware);
 app.use(express.json({ limit: "32mb" })); // editor attachment uploads are big
