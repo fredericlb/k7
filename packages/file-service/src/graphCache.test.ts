@@ -8,7 +8,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeModule, writeYaml } from "@studio/song/testSupport";
+import { writeLibrary, writeNode, writeYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
@@ -30,13 +30,16 @@ beforeEach(() => {
   writeFileSync(join(proj, "graph.yaml"), chains("amp"), "utf8");
   writeFileSync(
     join(proj, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
-  for (const m of ["amp", "cab"])
-    writeModule(proj, "audio", m, {
-      plugin: { type: "internal", name: "Chorus" },
-    });
+  // The modules live at `@workspace` now; "amp"/"cab" stay the bare NODE names the graph uses.
+  writeLibrary(root, {
+    "audio/amp": { plugin: { type: "internal", name: "Chorus" } },
+    "audio/cab": { plugin: { type: "internal", name: "Chorus" } },
+  });
+  writeNode(proj, "amp", { extends: "@workspace/audio/amp" });
+  writeNode(proj, "cab", { extends: "@workspace/audio/cab" });
   ws = new Workspace(root);
   ws.setActiveProject("song.st0");
 });
@@ -70,8 +73,11 @@ describe("the graph memo", () => {
   it("notices a project file appearing, not just changing", async () => {
     const before = ws.graphDoc();
     await new Promise((r) => setTimeout(r, 12));
-    // A NOTE, because `graphDoc().modules` is keyed by doc modules — a file that APPEARS must invalidate the memo.
-    writeModule(proj, "docs", "fuzz", { content: "watch the gain here" });
+    // A NOTE, a node of the built-in `@meta/doc` — a file that APPEARS must invalidate the memo.
+    writeNode(proj, "fuzz", {
+      extends: "@meta/doc",
+      content: "watch the gain here",
+    });
     expect(ws.graphDoc()).not.toBe(before);
     expect(ws.graphDoc().modules).toHaveProperty("fuzz");
   });

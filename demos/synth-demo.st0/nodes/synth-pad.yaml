@@ -7,7 +7,7 @@
 # params are merged independently over the module, and each saves its own opaque plugin
 # blob (synth-pad.vstpreset here, lead.vstpreset next door), so tweaking one never touches
 # the other or the module they share.
-extends: "@project/instruments/synth"
+extends: "@workspace/instruments/synth"
 params:
   Filter Freq: 40 # darker than the lead…
   Level: -12 # …and sitting further back

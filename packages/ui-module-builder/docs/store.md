@@ -130,16 +130,17 @@ song you are in, which is more than a library could say about itself.
 
 ## Why `write` has a return type
 
-Only one host needs it. st0 redirects a save aimed at `_modules` onto a project-local copy
-and repoints the chains at it (`@studio/song`'s `docs/moduleFork.md`), so **the file being
-edited moves out from under the editor**. The builder is told, and tells its host through
-`onRelocated`; it does not follow the path itself, because the host also owns the title, the
-engine link and whatever else was pointing at the module that was not edited.
+Only one host needs it. `module own <ref>` gives an `@engine` module — one with no file anywhere
+— a folder of its own in `_modules` and repoints the chains at it (`@studio/song`'s
+`docs/moduleFork.md`), so **the module being edited moves out from under the editor**: it opened
+on a synthesised ref with no path, and a materialise makes one exist. The builder is told, and
+tells its host through `onRelocated`; it does not follow the path itself, because the host also
+owns the title, the engine link and whatever else was pointing at the module that was not there
+before.
 
-A `ui.yaml` never comes back redirected. A panel saves in place wherever it is, shared library
-included — that is the exception `Workspace.write` carves, and the reason the whole `_ui/` tree
-could be deleted (`@studio/song`'s `docs/uiLibrary.md`). Nothing from the LIBRARY store is ever
-redirected either: a library is one place, and nothing there forks.
+An ordinary `@workspace` or `@st0` save never comes back redirected: both write the folder they
+were opened on, directly, in place. Nothing else in this store forks — materialising an engine
+ref is the one act that turns "no file" into a file.
 
 ## What stayed in the apps
 

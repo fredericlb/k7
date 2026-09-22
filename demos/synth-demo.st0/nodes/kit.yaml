@@ -1,5 +1,5 @@
 # The pattern's "Kit" part — the SAME module and the same file as pad.yaml beside it. What
 # makes these events sample one-shots rather than notes is that their sounds resolve to samples,
 # which is a fact about the events and not about the lane.
-extends: "@studio/strudel-track"
+extends: "@meta/strudel-track"
 strudel: algo/pattern.strudel

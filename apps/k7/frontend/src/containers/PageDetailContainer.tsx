@@ -49,6 +49,7 @@ export function PageDetailContainer({
     <PageDetailView
       page={page}
       allReleases={allReleases}
+      publicUrl={api.pagePublicUrl(page.nametag)}
       onRemoveRelease={handleRemoveRelease}
       onAddRelease={handleAddRelease}
       onDelete={handleDelete}

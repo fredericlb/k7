@@ -75,7 +75,7 @@ A module name is one of three things:
 - `lead` — one USE of a module, by the name of its file in `nodes/`. A node is
   `nodes/lead.yaml`, and it says which module it uses with `extends:` — the folder is
   flat, so where the file sits tells you nothing and does not have to. **A lane is one of
-  these**, extending a `@studio/…-track` module.
+  these**, extending a `@meta/…-track` module.
 - `"@engine/audio/amp/nam"` — an INHERITED module, by its ref: the level it lives at (`@engine`,
   `@st0`, `@workspace`), then the path to it inside that level. Nothing declares those levels
   — they are the machine's plugin scan, the médiathèque, and the `_modules` beside the song. It

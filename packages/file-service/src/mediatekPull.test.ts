@@ -192,4 +192,11 @@ describe("pulling the médiathèque", () => {
     await pullOnce();
     expect(manifests).toBe(0);
   });
+
+  it("never pulls a loopback base — it would write into what it reads from", async () => {
+    process.env.MEDIATEK_URL = "http://127.0.0.1:8795";
+    await pullOnce();
+    expect(manifests).toBe(0);
+    expect(cached("songs/lemo/mante/danse/song.yaml")).toBe(false);
+  });
 });

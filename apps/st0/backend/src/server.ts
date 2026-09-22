@@ -1,7 +1,8 @@
 // server.ts — st0/web backend: the engine registry, and serving the frontend. Every file
 // operation belongs to the engine-side file service, which the browser reaches directly — so
 // this hosted piece knows WHO you are and WHICH engines exist, never what is on any engine's
-// disk. It MINTS the session every studio service verifies, being the one with no path prefix.
+// disk. It MINTS the session every studio app verifies. This same process also serves the
+// built SPA (docker/ ships no nginx) — see the static block near the bottom.
 // Runs under tsx to import the brain's TS.
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -77,6 +78,16 @@ app.use(
     prefsSchema,
   ),
 );
+
+// The built SPA — this process's own frontend/dist, since there is no nginx in this image.
+// Static files first (an asset request that matches a real file wins outright), then a
+// catch-all SPA fallback for everything else EXCEPT /api and /auth, which answer their own
+// 404 rather than being swallowed into the shell.
+const FRONTEND_DIST = join(import.meta.dirname, "../../frontend/dist");
+app.use(express.static(FRONTEND_DIST));
+app.get(/^(?!\/api|\/auth)/, (_req, res) => {
+  res.sendFile(join(FRONTEND_DIST, "index.html"));
+});
 
 // Mounted LAST: a body that stops arriving throws inside the parser, where no route can see it.
 app.use(engineErrorHandler);

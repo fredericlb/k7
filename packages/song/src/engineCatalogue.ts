@@ -14,7 +14,9 @@ import {
   engineModuleOf,
   engineRef,
   IO_MODULES,
+  META_NS,
   MODULE_TYPES,
+  metaRef,
   slugifyPluginName,
 } from "@studio/song-schema/moduleTypes";
 import type { LoadedModule } from "./rawDoc";
@@ -106,19 +108,25 @@ export function scannedPluginNames(file = EXTS_PATH): Record<string, string[]> {
 }
 
 // The ref vocabulary lives in moduleTypes.ts so a BROWSER can name an engine module — docs/enginePlugin.md.
-export { ENGINE_NS, engineRef, IO_MODULES };
+export { ENGINE_NS, engineRef, IO_MODULES, META_NS, metaRef };
 
-/** Every module the engine offers, keyed by ref — the scanned plugins plus IN and OUT. */
-export function engineModules(file = EXTS_PATH): Record<string, LoadedModule> {
+/** The io roles the app provides — no scan behind them, so they need no machine to answer, unlike engineModules(). */
+export function ioModules(): Record<string, LoadedModule> {
   const out: Record<string, LoadedModule> = {};
   for (const [name, { io }] of Object.entries(IO_MODULES))
-    out[engineRef(name)] = {
+    out[metaRef(name)] = {
       io,
       kind: MODULE_TYPES.io.kind,
       inputs: MODULE_TYPES.io.inputs,
       category: "io",
       file: name,
     };
+  return out;
+}
+
+/** Every module the engine's SCAN offers, keyed by ref — real plugins only; the io roles are ioModules(). */
+export function engineModules(file = EXTS_PATH): Record<string, LoadedModule> {
+  const out: Record<string, LoadedModule> = {};
   for (const p of scannedPlugins(file)) {
     // The ref and the plugin block come from moduleTypes, the one rule the browser applies too.
     const named = engineModuleOf(p);

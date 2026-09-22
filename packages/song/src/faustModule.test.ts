@@ -18,13 +18,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMOS = join(here, "..", "..", "..", "demos");
+const SONG = join(DEMOS, "synth-demo.st0");
 
+let ws: string;
 let dir: string;
 
 /** Rewrite the fixture's instrument as a Faust module, with or without its source beside it. */
 function asFaust(withSource: boolean): void {
-  const folder = join(dir, "modules", "instruments", "synth");
+  const folder = join(ws, "_modules", "instruments", "synth");
   mkdirSync(folder, { recursive: true });
   writeFileSync(
     join(folder, "module.yaml"),
@@ -43,10 +45,13 @@ const plugins = () =>
   compileNodeProject(dir).tracks.flatMap((t) => t.plugins ?? []);
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-faust-"));
+  ws = mkdtempSync(join(tmpdir(), "td-faust-"));
+  dir = join(ws, "synth-demo.st0");
   cpSync(SONG, dir, { recursive: true });
+  // The Examples workspace's own shared library, beside every demo project.
+  cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 describe("a faust module", () => {
   it("reaches the engine at all", () => {
@@ -76,7 +81,7 @@ describe("a faust module", () => {
    * whether a real one COMPILES is the Faust binary's question, not this one's.
    */
   const faustModule = (at: string, source: string): void => {
-    const folder = join(dir, "modules", ...at.split("/"));
+    const folder = join(ws, "_modules", ...at.split("/"));
     mkdirSync(folder, { recursive: true });
     writeFileSync(
       join(folder, "module.yaml"),
@@ -93,7 +98,7 @@ describe("a faust module", () => {
     );
     writeFileSync(
       join(dir, "nodes", "lead.yaml"),
-      "extends: instruments/wurlitzer\n",
+      'extends: "@workspace/instruments/wurlitzer"\n',
       "utf8",
     );
     const p = plugins().find((x) => x.id.endsWith(":lead"));
@@ -109,7 +114,7 @@ describe("a faust module", () => {
     );
     writeFileSync(
       join(dir, "nodes", "moog.yaml"),
-      "extends: audio/filter/moogladder\n",
+      'extends: "@workspace/audio/filter/moogladder"\n',
       "utf8",
     );
     writeFileSync(

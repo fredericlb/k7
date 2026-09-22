@@ -46,7 +46,9 @@ function textChapter(title: string, text: string): EpubChapter[] {
 
 /** The sheet images, in order. A PDF or a score cannot be a page of an EPUB, so neither is one. */
 function sheetChapter(song: Song, sheetUrl: SheetUrl): EpubChapter[] {
-  const images = song.sheets.filter((s) => sheetKind(s.name, s.mime) === "image");
+  const images = song.sheets.filter(
+    (s) => sheetKind(s.name, s.mime) === "image",
+  );
   if (images.length === 0) return [];
   const content = images
     .map(

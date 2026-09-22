@@ -26,7 +26,7 @@ markers:
   "5:1:1": chorus
 `,
   // A lane with what it plays and an alternative's own list.
-  "nodes/gtr.yaml": `extends: "@studio/track"
+  "nodes/gtr.yaml": `extends: "@meta/track"
 events:
   - { ref: riff, start: "1:1:1" }
   - { ref: riff, start: "5:1:1", fadeIn: "0:1" }

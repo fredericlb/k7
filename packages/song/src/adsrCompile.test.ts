@@ -25,7 +25,7 @@ function song(automation: string, curve: string): void {
   put("graph.yaml", "modules:\n  synth: [ osc ]\n  osc: [ OUT ]\n");
   put(
     "nodes/synth.yaml",
-    'extends: "@studio/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
+    'extends: "@meta/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
   );
   put(
     "sequences/riff.yaml",
@@ -33,7 +33,7 @@ function song(automation: string, curve: string): void {
     "notes:\n  - { k: 60, t: 0, d: 0.5 }\n  - { k: 64, t: 1, d: 0.5 }\n",
   );
   put(
-    "modules/instruments/osc/module.yaml",
+    "nodes/osc.yaml",
     `plugin:\n  type: internal\n  name: 4OSC\n${automation}`,
   );
   put("curves/env1.yaml", curve);

@@ -6,7 +6,7 @@
 import { existsSync, statSync } from "node:fs";
 import { streamFile } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
-import { analyseFile } from "@studio/audio-analysis/analyse";
+import { analyseFile, ensureAnalysed } from "@studio/audio-analysis/analyse";
 import { NoFfmpegError } from "@studio/audio-analysis/decode";
 import {
   listFamily,
@@ -21,7 +21,7 @@ import {
   safePath,
 } from "@studio/mediatek/layout";
 import { manifest } from "@studio/mediatek/manifest";
-import { mimeFor } from "@studio/mediatek/media";
+import { extOf, mimeFor } from "@studio/mediatek/media";
 import {
   createPlaylist,
   listPlaylists,
@@ -48,6 +48,10 @@ import {
 } from "@studio/mediatek/write";
 import express, { Router } from "express";
 import { sweepState } from "../analysisSweep.ts";
+import {
+  ensureStreamable,
+  NoFfmpegError as NoTranscoderError,
+} from "../transcode.ts";
 
 export const libraryRouter: Router = Router();
 
@@ -121,6 +125,44 @@ libraryRouter.get(
       return res.status(404).json({ error: "not found" });
     }
     streamFile(req, res, abs, mimeFor(abs));
+  }),
+);
+
+/**
+ * Like `/file`, except a FLAC is served as its transcoded MP3 — made once, cached under
+ * `.cache/stream/`, and reused after. Any other format passes straight through. See
+ * docs/streaming.md.
+ */
+libraryRouter.get(
+  "/stream",
+  wrap(async (req, res) => {
+    const rel = String(req.query.path ?? "");
+    if (!rel) return res.status(400).json({ error: "path required" });
+    let abs: string;
+    try {
+      abs = safePath(rel);
+    } catch (e) {
+      if (e instanceof PathEscapesError)
+        return res.status(400).json({ error: e.message });
+      throw e;
+    }
+    try {
+      if (!statSync(abs).isFile())
+        return res.status(404).json({ error: "not a file" });
+    } catch {
+      return res.status(404).json({ error: "not found" });
+    }
+    if (extOf(abs) !== ".flac") return streamFile(req, res, abs, mimeFor(abs));
+
+    let mp3: string;
+    try {
+      mp3 = await ensureStreamable(rel, abs);
+    } catch (e) {
+      if (e instanceof NoTranscoderError)
+        return res.status(503).json({ error: e.message });
+      throw e;
+    }
+    streamFile(req, res, mp3, "audio/mpeg");
   }),
 );
 
@@ -278,6 +320,43 @@ libraryRouter.post(
       transients: env.transients.length,
       seconds: env.seconds,
     });
+  }),
+);
+
+/**
+ * A file's measured shape for a caller drawing a waveform — the cached sidecar when the file
+ * has not moved, a fresh analysis otherwise, never both work twice. See docs/analysis.md.
+ */
+libraryRouter.get(
+  "/envelope",
+  wrap(async (req, res) => {
+    const path = String(req.query.path ?? "");
+    if (!path) return res.status(400).json({ error: "path required" });
+
+    let source: string;
+    try {
+      source = safePath(path);
+    } catch (e) {
+      if (e instanceof PathEscapesError)
+        return res.status(400).json({ error: e.message });
+      throw e;
+    }
+    if (!existsSync(source))
+      return res.status(404).json({ error: `${path} is not here` });
+
+    try {
+      const env = await ensureAnalysed(source);
+      res.json({
+        sampleRate: env.sampleRate,
+        seconds: env.seconds,
+        rms: env.rms,
+        transients: env.transients,
+      });
+    } catch (e) {
+      if (e instanceof NoFfmpegError)
+        return res.status(503).json({ error: e.message });
+      res.status(422).json({ error: (e as Error).message });
+    }
   }),
 );
 

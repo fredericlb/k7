@@ -66,9 +66,10 @@ routes can only be served by the service that has no prefix — st0. See
 
 **The path belongs to the launch.** `parseLaunch` reads it before anything is mounted, and the
 FIRST segment is a repository's short name: there is no segment that can be added here without
-reading as a repository to open. That is also what makes a repository called `pl8`, `k7`, `z0`,
-`api` or `auth` unopenable — the origin claims those prefixes ahead of st0 and the request never
-reaches here (`docker/nginx.conf`). The unfolded workspace travels in the **query**,
+reading as a repository to open. That is also what makes a repository called `z0`, `api` or
+`auth` unopenable — the origin claims those prefixes ahead of st0 and the request never
+reaches here (`apps/z0/docker/nginx.conf` for `/z0`). `pl8` and `k7` are free to use now: they
+answer their own subdomain, not a path here. The unfolded workspace travels in the **query**,
 which is exactly what a SPA router owns — the argument of
 [packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md) taken
 the other way — and it bookmarks, copies, and answers the back button.
@@ -206,10 +207,10 @@ scaffold has just written and the workspace does not resolve
 
 - **The list is read out of the text the scaffold writes**, not kept beside it. An archetype whose
   nodes change module cannot make the list lie.
-- **Only `@st0/` counts.** `@project/` is the song's folder, `@workspace/` the workspace's
-  `_modules`, `@engine/` the plugin scan and `@studio/` the built-in modules: none of those four
-  waits on a repository. That is why `arrangement` and `video` owe nothing and `mix` is the only
-  one of the three that opens broken on a new account. The asymmetry is pinned by a test.
+- **Only `@st0/` counts.** `@workspace/` is the workspace's `_modules`, `@engine/` the plugin scan
+  and `@meta/` the built-in modules: none of those three waits on a repository. That is why
+  `arrangement` and `video` owe nothing and `mix` is the only one of the three that opens broken
+  on a new account. The asymmetry is pinned by a test.
 - **The sentence promises no catalogue.** It names the modules owed and says you write them
   yourself, so as not to suggest something is going to fetch them.
 

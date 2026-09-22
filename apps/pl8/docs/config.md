@@ -1,11 +1,15 @@
 # Where the media library reads its configuration
 
-## `STUDIO_MEDIATEK` is required, with no default
+## `STUDIO_MEDIATEK` is optional, same as everywhere else
 
-The backend refuses to start without it. `@studio/mediatek` would otherwise fall back to
-`<state>/mediatek`, which in a container is an empty directory nobody mounted: the service would
-come up healthy and serve an empty library. That is the worst failure available here, so it is
-the one the guard exists for.
+The backend used to refuse to start without it, guarding against `<state>/mediatek` silently
+resolving to an empty, unmounted directory in a container. That guard only ever protected a
+misconfigured PRODUCTION deployment — the Dockerfile always sets `ENV STUDIO_MEDIATEK=/library`
+explicitly there — while in local dev it just added friction: the fallback (`~/.st0/mediatek`,
+`mediatekRoot()` in `packages/song/src/mediatekRoot.ts`) is already the right answer. Dropped in
+favour of matching every other backend: absence just means the default, and `ensureLayout()`'s
+own try/catch at startup (server.ts) still surfaces a library that's genuinely unavailable
+without hard-exiting the process.
 
 ## The loader writes into `process.env`
 
@@ -30,17 +34,16 @@ The yaml wins wherever it declares a key (`@frediverse/env`): explicit, per-serv
 configuration, so an ambient variable cannot annex a backend in passing. In production there is
 no `env.yaml` — the images exclude it — and the Dockerfile sets `ENV STUDIO_MEDIATEK=/library`.
 
-## What is optional, and the line
+## What is optional
 
-`STUDIO_MEDIATEK` is the only variable whose absence stops the service.
+Nothing stops the service from starting anymore — every variable here just changes behavior:
 
+- `STUDIO_MEDIATEK` — the library root; absence means `~/.st0/mediatek` (or `$STUDIO_HOME`'s
+  equivalent), same default every other backend gets.
 - `SLSKD_*`, `MUSICBRAINZ_USER_AGENT` — "Find songs". Without them the screen opens and names
   what is missing ([hunt.md](hunt.md)).
 - `STUDIO_PREFS_DIR`, `STUDIO_PROJECTS_DIR`, `STUDIO_HUNTS_DIR` — move three dot directories off
   the volume. For tests; no deployment sets them.
-
-The line is the same everywhere: what would produce a **lie** in its absence — an empty library
-that looks full — stops the start; what produces a visibly disabled feature does not.
 
 ## One side effect
 

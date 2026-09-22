@@ -180,14 +180,12 @@ function projectHintsIn(dir: string): Hints {
   const paramsByBase: Record<string, string[]> = {};
   const paramMetaByBase: Record<string, Record<string, ParamRange>> = {};
   // What each base ref's EXTENDERS have written on it, indexed once in one pass — see docs/hints.md.
-  const PROJECT_NS = "@project/";
   const byExtends = new Map<string, Set<string>>();
   for (const b of Object.values<any>(modules)) {
     const ext = b?.extends;
     if (typeof ext !== "string" || !ext) continue;
-    const ref = ext.startsWith(PROJECT_NS) ? ext.slice(PROJECT_NS.length) : ext;
-    let keys = byExtends.get(ref);
-    if (!keys) byExtends.set(ref, (keys = new Set<string>()));
+    let keys = byExtends.get(ext);
+    if (!keys) byExtends.set(ext, (keys = new Set<string>()));
     for (const k of Object.keys(b?.params ?? {})) keys.add(k);
   }
   for (const ref of baseRefs) {
@@ -202,11 +200,7 @@ function projectHintsIn(dir: string): Hints {
       }
       paramMetaByBase[ref] = meta;
     }
-    // The ref is normalised on the way IN too, or the `@project/` spelling reads an empty bucket.
-    const bucket = ref.startsWith(PROJECT_NS)
-      ? ref.slice(PROJECT_NS.length)
-      : ref;
-    for (const k of byExtends.get(bucket) ?? []) keys.add(k);
+    for (const k of byExtends.get(ref) ?? []) keys.add(k);
     if (keys.size) paramsByBase[ref] = [...keys].sort();
   }
 
@@ -222,28 +216,9 @@ function projectHintsIn(dir: string): Hints {
       }
     }
   };
-  // "module:" keys by the chain `use` ref and "base:" by "type/name" — see docs/hints.md.
+  // "module:" keys by the chain `use` ref — a node's own file, see docs/hints.md.
   for (const [key, b] of Object.entries<any>(modules))
     if (b?.home) addPath("module", key, `${b.home}/${key}`);
-    else if (b?.category)
-      addPath("module", key, `modules/${b.category}/${b.file ?? key}/module`);
-  for (const ref of baseRefs)
-    if (!ref.startsWith("@")) {
-      // The FIRST segment is the type and the rest is the name, filing included — see docs/hints.md.
-      const cut = ref.indexOf("/");
-      if (cut > 0) {
-        addPath(
-          "base",
-          ref,
-          `modules/${ref.slice(0, cut)}/${ref.slice(cut + 1)}/module`,
-        );
-        // The `@project/` spelling is the SAME module, and without this alias a ctrl-click goes blind.
-        const rel = paths[`base:${ref}`];
-        if (rel) paths[`base:@project/${ref}`] = rel;
-      }
-    }
-  for (const s of [...ioSinks, ...ioSources])
-    if (!s.startsWith("@")) addPath("sink", s, `modules/io/${s}/module`);
   for (const id of Object.keys(tracks ?? {}))
     addPath("track", id, `tracks/${id}`);
   for (const id of Object.keys(clips ?? {})) addPath("clip", id, `clips/${id}`);
@@ -274,7 +249,7 @@ function projectHintsIn(dir: string): Hints {
   // One walk for every module, not one per module — see assetLookup.
   const assets = assetLookup(dir);
   for (const [name, m] of Object.entries<any>(modules ?? {})) {
-    if (!m?.category || !m?.file) continue;
+    if (!m?.folderAbs) continue;
     // Its own assets AND its ancestors', or a thin module extending a shared amp opens the picker empty.
     const files = safe(
       () => moduleAssetChoices(dir, m, moduleRefs ?? {}, assets),

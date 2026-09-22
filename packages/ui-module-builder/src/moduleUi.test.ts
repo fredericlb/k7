@@ -211,11 +211,11 @@ describe("an io module's direction", () => {
   });
 
   // THE bug the picker shipped with: `nodes/ge_rythm-in.yaml` states no `io:` and read as a plugin.
-  it("follows `extends` to the engine's io modules", () => {
-    const node = 'extends: "@engine/IN"\nchannel: [ 2 ]\n';
+  it("follows `extends` to the built-in io roles", () => {
+    const node = 'extends: "@meta/IN"\nchannel: [ 2 ]\n';
     expect(ioOf(node)).toBe("in");
-    expect(ioOf('extends: "@engine/OUT"\n')).toBe("out");
-    expect(ioOf('extends: "@engine/FILE"\n')).toBe("file");
+    expect(ioOf('extends: "@meta/OUT"\n')).toBe("out");
+    expect(ioOf('extends: "@meta/FILE"\n')).toBe("file");
   });
 
   it("does not mistake an ordinary engine plugin for an io module", () => {
@@ -230,9 +230,7 @@ describe("an io module's direction", () => {
   });
 
   it("lets the file's own `io:` win over both", () => {
-    expect(ioOf('io: out\nextends: "@engine/IN"\n', "io/IN/x.yaml")).toBe(
-      "out",
-    );
+    expect(ioOf('io: out\nextends: "@meta/IN"\n', "io/IN/x.yaml")).toBe("out");
   });
 });
 

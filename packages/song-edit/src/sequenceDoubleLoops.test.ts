@@ -19,7 +19,9 @@ import { halveLoopsOf } from "./sequenceLoops";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMO_MODULES = join(here, "..", "..", "..", "demos", "_modules");
 
+let root: string;
 let dir: string;
 // synth-demo is 120bpm 4/4; its melody sequence gets one note per beat, windowed to the first.
 const seq = (body: Record<string, unknown>) =>
@@ -29,7 +31,7 @@ const seq = (body: Record<string, unknown>) =>
   });
 const place = (p: Record<string, unknown>) =>
   writeYaml(join(dir, "nodes", "melody.yaml"), {
-    extends: "@studio/track",
+    extends: "@meta/track",
     events: [{ ref: "melody", start: "1:1:1", ...p }],
   });
 const melody = () =>
@@ -46,10 +48,12 @@ const double = () => {
 const laneText = () => readFileSync(join(dir, "nodes", "melody.yaml"), "utf8");
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-seqx2-"));
+  root = mkdtempSync(join(tmpdir(), "td-seqx2-"));
+  dir = join(root, "synth-demo.st0");
   cpSync(SONG, dir, { recursive: true });
+  cpSync(DEMO_MODULES, join(root, "_modules"), { recursive: true });
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("×2 on a looped placement", () => {
   it("turns four passes of one beat into two of two, playing the same span", () => {
@@ -104,7 +108,7 @@ describe("×2 on a looped placement", () => {
     seq({ to: "1:2" });
     place({ loop: 4 });
     writeYaml(join(dir, "nodes", "second.yaml"), {
-      extends: "@studio/track",
+      extends: "@meta/track",
       events: [{ ref: "melody", start: "2:1:1", loop: 8 }],
     });
     expect(double()).toMatchObject({ halved: 2 });

@@ -48,7 +48,7 @@ code as every track and cannot drift from it. `@` cannot begin a lane name — w
 
 ## `TRACK_CATEGORY`
 
-Up with the rest of the vocabulary rather than beside the `@studio/…` refs at the foot of the file,
+Up with the rest of the vocabulary rather than beside the `@meta/…` refs at the foot of the file,
 because `moduleEmits` has to ask about it: the five track modules share one category and do NOT
 share one signal, which is the one place the folder stops being the answer
 (`packages/song/docs/trackModules.md`).
@@ -161,7 +161,7 @@ compiled document never loads — silence, with a panel drawn over it. It takes 
 never the role: a role of "instrument" says nothing about whether the plugin is a VST3 or internal,
 and reading it as one mislabels every VST3 instrument on the machine.
 
-## The io modules the engine provides
+## The io modules the app provides
 
 One IN and one OUT for the whole app — a project makes nodes of them, and those carry the channel,
 the monitoring and the trim. The nodes belong to the song that records through them: a folder plus a
@@ -171,7 +171,7 @@ carries WHICH file, or carries none in a chain template where the audio belongs 
 template is applied to (`packages/song/docs/fileInput.md`).
 
 They are in this leaf rather than in `engineCatalogue.ts` because a node saying
-`extends: "@engine/IN"` declares no `io:` of its own, so ANYTHING asking what kind of module it is
+`extends: "@meta/IN"` declares no `io:` of its own, so ANYTHING asking what kind of module it is
 has to consult this table — including an editor in a browser, which cannot pay a `node:fs` import to
 find out.
 
@@ -216,7 +216,7 @@ there is nothing for the engine to load. That is also why it must be a WORD: the
 drops any type it does not know, silently, and a module dropped for being unknown is
 indistinguishable from one dropped for being offline (`packages/song/docs/coldModules.md`).
 
-## `@studio/doc`
+## `@meta/doc`
 
 It names no folder, exactly as `@engine/nam` names none
 (`packages/song/docs/moduleNamespaces.md`): there is one doc module for the whole studio and nothing
@@ -224,12 +224,12 @@ to scaffold, so a note costs one file — its node — and nothing else. It is t
 repo that exists without a file, and the first that exists without an engine behind it either. A
 note is a node because that is what a node IS here: one USE of a module with its own settings. Two
 notes are two nodes of one module for the same reason two 4OSCs are; their setting happens to be
-text (`content`) rather than a number. `@studio` is its own level and not `@engine`, deliberately:
+text (`content`) rather than a number. `@meta` is its own level and not `@engine`, deliberately:
 the engine never hears of this.
 
 ## The track modules
 
-Like `@studio/doc`, none of them has a file anywhere: there is one set for the whole studio, so a
+Like `@meta/doc`, none of them has a file anywhere: there is one set for the whole studio, so a
 lane costs exactly its own node. Three and not five, because a lane is NOT typed by the signal it
 carries: it holds events, each of which names a clip or a sequence and is therefore audio or notes
 on its own, so the lane offers BOTH outputs and every event leaves by the one its material fits.
@@ -246,17 +246,17 @@ graph renderer can reach, and `ui-chains` draws ported edges while deliberately 
 this package (`packages/song/docs/ports.md`).
 
 `LEGACY_TRACK_REFS` is kept as NAMES the way `LEGACY_MEDIATEK_NS` is: a file saying
-`@studio/sequence-track` names a module that does not exist, and the loader is entitled to say which
+`@meta/sequence-track` names a module that does not exist, and the loader is entitled to say which
 one it means instead of leaving a reader to guess. There is no migration code, deliberately — the
 same call `packages/song/docs/nodes.md` and
 `packages/song/docs/trackModules.md` already made.
 
-## The four levels
+## The three levels
 
-A ref carries the level as its `@` prefix — `@engine/audio/nam`, `@st0/…`, `@workspace/…`,
-`@project/…` — and a BARE ref (`audio/reverb`) is the project level written the short way. `engine`
-is the odd one: it names no folder at all, since a scanned plugin is synthesised by
-`engineCatalogue` from the machine's scan cache, so it is a level without a root.
+A ref carries the level as its `@` prefix — `@engine/audio/nam`, `@st0/…`, `@workspace/…` — and
+there is no bare form: every ref names its level explicitly. `engine` is the odd one: it names no
+folder at all, since a scanned plugin is synthesised by `engineCatalogue` from the machine's scan
+cache, so it is a level without a root.
 
 The list lives here and not beside `moduleNamespaceOf`, which decides a level from a folder on disk:
 this is the vocabulary, and a browser has to spell it too — st0's Libraries tab writes `@st0` on a

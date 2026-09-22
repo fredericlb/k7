@@ -790,7 +790,7 @@ export interface RepoProject {
 
 /** One module LIBRARY a project can reach, nearest first; `exists: false` is a state, not an absence — docs/machine.md. */
 export interface ModuleLibrary {
-  /** The `@`-prefixed level a chain writes: `project`, `workspace`, `st0`, `engine`. */
+  /** The `@`-prefixed level a chain writes: `workspace`, `st0`, `engine`. */
   ns: string;
   /** Workspace-relative, so every other route takes it as-is; EMPTY for `@engine`, which has no folder. */
   path: string;

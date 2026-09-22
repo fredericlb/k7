@@ -37,11 +37,8 @@ const lib = (
   nodes: FileNode[] = [],
 ): ModuleLibrary => ({ ns, path, exists, nodes });
 
-/** What the file service answers for a project with all three levels present. */
+/** What the file service answers for a project with both levels present. */
 const all = (): ModuleLibrary[] => [
-  lib("project", "01.danse.st0/modules", true, [
-    audio("01.danse.st0/modules", "wobble"),
-  ]),
   lib("workspace", "_modules", true, [audio("_modules", "tape-delay")]),
   lib("st0", "_libraries/modules", true, [
     audio("_libraries/modules", "reverb"),
@@ -52,15 +49,13 @@ describe("libraryTree", () => {
   it("draws a row per level, in the order it was given", () => {
     // The service answers nearest-first and this does not re-sort it: two places deciding precedence is how they come to disagree.
     expect(libraryTree(all()).map((n) => n.name)).toEqual([
-      "@project",
       "@workspace",
       "@st0",
     ]);
   });
 
   it("points each row at the real folder", () => {
-    const [project, ws, pl8] = libraryTree(all());
-    expect(project.path).toBe("01.danse.st0/modules");
+    const [ws, pl8] = libraryTree(all());
     expect(ws.path).toBe("_modules");
     expect(pl8.path).toBe("_libraries/modules");
   });
@@ -71,38 +66,32 @@ describe("libraryTree", () => {
   });
 
   it("keeps a module's own path, so a click can read and write it", () => {
-    const [project] = libraryTree(all());
-    expect(project.children?.[0].children?.[0].path).toBe(
-      "01.danse.st0/modules/audio/wobble",
+    const [ws] = libraryTree(all());
+    expect(ws.children?.[0].children?.[0].path).toBe(
+      "_modules/audio/tape-delay",
     );
   });
 
-  it("draws @project and @workspace even with no folder yet", () => {
+  it("draws @workspace even with no folder yet", () => {
     // The placeholder: a level you can put a module in is a real answer, and hiding it would leave nowhere to start on a new project.
-    const fresh = [
-      lib("project", "01.danse.st0/modules", false),
-      lib("workspace", "_modules", false),
-    ];
-    expect(libraryTree(fresh).map((n) => n.name)).toEqual([
-      "@project",
-      "@workspace",
-    ]);
+    const fresh = [lib("workspace", "_modules", false)];
+    expect(libraryTree(fresh).map((n) => n.name)).toEqual(["@workspace"]);
     expect(libraryTree(fresh)[0].children).toEqual([]);
   });
 
   it("draws an EMPTY level too — it is not the same as an absent one", () => {
     expect(
-      libraryTree([lib("project", "p/modules", true, [])]).map((n) => n.name),
-    ).toEqual(["@project"]);
+      libraryTree([lib("workspace", "_modules", true, [])]).map((n) => n.name),
+    ).toEqual(["@workspace"]);
   });
 
   it("hides @st0 when it is not mounted", () => {
     // The one level that is not a folder to fill in: it is a submodule somebody has to mount, so an empty row would be a false offer.
     const noSub = [
-      lib("project", "p/modules", true, [audio("p/modules", "a")]),
+      lib("workspace", "_modules", true, [audio("_modules", "a")]),
       lib("st0", "_libraries/modules", false),
     ];
-    expect(libraryTree(noSub).map((n) => n.name)).toEqual(["@project"]);
+    expect(libraryTree(noSub).map((n) => n.name)).toEqual(["@workspace"]);
   });
 
   it("draws @st0 when it IS mounted but still empty", () => {
@@ -150,7 +139,7 @@ describe("@engine", () => {
     expect(frozen.has("@engine/nam")).toBe(true);
     // …and nothing of a writable level.
     expect(frozen.has("_modules")).toBe(false);
-    expect(frozen.has("01.danse.st0/modules")).toBe(false);
+    expect(frozen.has("_libraries/modules")).toBe(false);
   });
 });
 
@@ -168,7 +157,7 @@ describe("rootOf — what a create resolves against", () => {
   });
 
   it("refuses a path in no level at all", () => {
-    expect(rootOf(all(), "01.danse.st0/clips")).toBeNull();
+    expect(rootOf(all(), "song.st0/clips")).toBeNull();
   });
 
   it("matches whole segments, never a prefix", () => {
@@ -201,11 +190,9 @@ describe("libraryModuleRef", () => {
     ).toBe("@st0/audio/tape.delay");
   });
 
-  it("answers nothing for a project's own module", () => {
-    // That one is `moduleKeyFromPath`'s: a bare `audio/reverb` is what a chain writes for it.
-    expect(
-      libraryModuleRef("01.danse.st0/modules/audio/reverb/module.yaml"),
-    ).toBeNull();
+  it("answers nothing for a path in neither shared level", () => {
+    // A project's own files are never a module ref — a module lives at `@workspace` or `@st0` now.
+    expect(libraryModuleRef("song.st0/nodes/lead.yaml")).toBeNull();
   });
 
   it("answers nothing for the library's chains", () => {
@@ -217,14 +204,12 @@ describe("libraryModuleRef", () => {
 
 describe("isLibraryPath", () => {
   it("is true only for the ACCOUNT's library", () => {
-    // `_modules` is shared too, but a save aimed at it forks into the project: it has a way back already and needs no gate.
+    // `_modules` is shared too, but a save aimed at it forks into the workspace: it has a way back already and needs no gate.
     expect(isLibraryPath("_libraries/modules/audio/reverb/module.yaml")).toBe(
       true,
     );
     expect(isLibraryPath("_modules/audio/reverb/module.yaml")).toBe(false);
-    expect(isLibraryPath("01.danse.st0/modules/audio/reverb/module.yaml")).toBe(
-      false,
-    );
+    expect(isLibraryPath("song.st0/nodes/lead.yaml")).toBe(false);
   });
 
   it("matches a whole segment, never a prefix", () => {

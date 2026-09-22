@@ -11,8 +11,8 @@ So a shared module is edited from inside a project, against the engine already p
 
 | tab | what it lists |
 |---|---|
-| **Project** | the workspace, minus every module folder the other tab owns |
-| **Libraries** | one row per LEVEL — `@project`, `@workspace`, `@st0`, `@engine` — and the modules under it |
+| **Project** | the song's own files — a project has no modules of its own to hold back |
+| **Libraries** | one row per LEVEL — `@workspace`, `@st0`, `@engine` — and the modules under it |
 
 **They are two different answers, and the difference is worth writing down.** Looking for
 `_libraries` and `_modules` *inside the file tree* finds nothing, because `/tree` is deliberately
@@ -22,11 +22,10 @@ so). The two shared levels sit BESIDE the project, so no amount of searching the
 can find them.
 
 So they have a route of their own, `GET /module-libraries`, whose roots come from
-`@studio/song` — the project's own `modules/`, then `moduleLibraryDirs`. It therefore lists what
-the LOADER resolves against and cannot drift from it, which searching a tree cannot guarantee.
+`@studio/song`'s `moduleLibraryDirs`. It therefore lists what the LOADER resolves against and
+cannot drift from it, which searching a tree cannot guarantee.
 
 ```
-@project      01.danse.st0/modules/       the song's own
 @workspace    _modules/                  shared by every project beside it
 @st0          _libraries/modules/        the account's library repository (a submodule)
 @engine       — no folder —              this machine's plugin scan, READ-ONLY
@@ -39,8 +38,8 @@ to disagree.
 
 **A level with no folder yet is still drawn, empty.** It is a place you can put a module — the
 row's menu offers exactly that, and creating through it is what brings the folder into being —
-so hiding it would leave nowhere to start on a project whose `modules/` does not exist yet,
-which is every new project. `exists: false` and "empty" are kept apart in the answer for the
+so hiding it would leave nowhere to start on a workspace whose `_modules` does not exist yet,
+which is every fresh one. `exists: false` and "empty" are kept apart in the answer for the
 same reason: only one of them is fixed by adding a module.
 
 `@st0` is the one level that disappears when absent. It is a git submodule somebody has to
@@ -48,7 +47,7 @@ mount, not a folder to fill in, so an empty row would be an offer nothing here c
 
 ## `@engine`, which is not a folder
 
-The fourth level is here too, last, and it is **read-only** — the one level that is not files at
+The third level is here too, last, and it is **read-only** — the one level that is not files at
 all. `engineCatalogue` synthesises it from this machine's plugin scan (`<state>/exts.json`),
 so there is no path, nothing to open and nothing to write. Its rows are a **vocabulary a chain
 can name**, and they are greyed for exactly that reason: the same treatment a `.wav` gets, and
@@ -93,7 +92,7 @@ IS the level's folder:
 | **New module…** | `<type>/<name>/module.yaml`, and opens the builder on it |
 
 A module is named by its path **under the row you clicked**, so the entry reads the same
-everywhere: `audio/reverb` on `@project`, `reverb` inside `audio`. The hint spells the resulting
+everywhere: `audio/reverb` on `@workspace`, `reverb` inside `audio`. The hint spells the resulting
 file out, so what is about to be written is never a guess, and the service refuses anything with
 no type folder — `audio/reverb` is the shortest thing the loader will key.
 
@@ -105,11 +104,10 @@ Note the two shapes: a workspace library holds its type folders **directly**, wh
 account's repository holds two FAMILIES and `modules` is one of them. That difference is why the
 rows are found from a list rather than a pattern.
 
-**The Project tab drops the project's own `modules/`**, which is `@project` on this one. Shown
-twice it would be two ways into one module, one that opens the builder and one that browses its
-files; and which folder a module lives in is the loader's business rather than somewhere to drop
-files by hand. The two SHARED levels need no dropping — the file tree is the song's own files and
-they are not in it.
+**The Project tab has no `modules/` to drop.** A module lives at `@workspace` or `@st0` now,
+never inside the song, so there is nothing under the Project tab that the Libraries tab also
+owns — the two tabs are already disjoint, by where the files sit rather than by anything drawn
+here choosing to leave one out.
 
 The Libraries root rows are **namespaces** — the `@` prefix a chain writes in a ref — and under
 each, the catalogue exactly as a ref spells it:
@@ -126,16 +124,22 @@ folder holds `module.yaml`, so the tree folds it and clicking it opens the build
 a file.
 
 The listing is fetched the first time somebody looks at the tab, not on mount — it is a walk of
-its own over four levels, and most sessions never open it. It is not re-polled: nothing st0 does
+its own over three levels, and most sessions never open it. It is not re-polled: nothing st0 does
 from here adds or removes a module.
 
-## Read-only, then a decision
+## Read-only, then a decision — `@st0` only
 
-A shared module opens in the builder **locked**. Everything works — the four files are shown,
-the params list is populated, the live plugin's knobs move — and nothing is written: the code
-panes refuse keystrokes, the widget grid takes no drags, no autosave is armed, and the shelf
-presets (which are edits) are not offered. The header says `read-only` where the save badge
-normally is.
+`@workspace` opens straight into the builder, writable, exactly as st0 writes everywhere else:
+no lock, no Edit button, each file written as soon as it reads as a document. It has no publish
+step — the workspace is one git repository, already yours, and a save is just a save.
+
+`@st0` is the one level this gate is for. It opens in the builder **locked**. Everything works —
+the four files are shown, the params list is populated, the live plugin's knobs move — and
+nothing is written: the code panes refuse keystrokes, the widget grid takes no drags, no autosave
+is armed, and the shelf presets (which are edits) are not offered — a `@st0` module cannot hold
+presets at all, in fact, for the same reason: they would be an edit to the one copy every song
+in the account reads (`packages/song/docs/userPresets.md`). The header says `read-only`
+where the save badge normally is.
 
 Beside it, an **Edit** button, and behind that a dialog that says what saving here means: the
 library's copy is the only copy, nothing forks, and every song that names this module will
@@ -143,15 +147,11 @@ sound different next time it is opened. Confirm and the same screen becomes writ
 st0's ordinary rule, which is that there is no Save button and each file is written as soon as it
 reads as a document.
 
-Two things make that gate worth the click rather than ceremony:
-
-* **There is no fork here.** A save aimed at a workspace's `_modules` is redirected onto a
-  project-local copy and the chains are repointed (`packages/song/docs/moduleFork.md`). That is
-  the safety net everywhere else, and the library has none — its whole point is being the
-  one editable catalogue.
-* **There is no Save button to hesitate over.** Autosave writes as soon as the buffer parses, so
-  "start editing and decide later" is not a state this screen has. The decision has to happen
-  before the first keystroke, which is exactly where the dialog is.
+That gate is worth the click rather than ceremony because **there is no Save button to hesitate
+over once it opens.** Autosave writes as soon as the buffer parses, so "start editing and decide
+later" is not a state this screen has. The decision has to happen before the first keystroke,
+which is exactly where the dialog is. `@workspace` needs no such gate: it is already yours, one
+git repository with no publish step, so nothing here waits for a click before it writes.
 
 ## The loaded plugin comes free
 
@@ -159,11 +159,11 @@ Editing a module needs two things at once: an editable catalogue, and a loaded p
 has both without inventing anything. You are already in a project, with a real engine and a real
 song playing; the shared module you want to change is very likely one that song already names.
 So the builder's live-plugin lookup is the ordinary one — read the compiled graph, find a chain
-step whose `module` matches — with one spelling difference:
+step whose `module` matches the ref the module's own folder spells out:
 
 ```
-a project module   modules/audio/reverb/module.yaml            →  reverb
-a shared module    modules/audio/delay/tape-delay/module.yaml  →  @st0/audio/delay/tape-delay
+_modules/audio/delay/tape-delay/module.yaml            →  @workspace/audio/delay/tape-delay
+_libraries/modules/audio/delay/tape-delay/module.yaml  →  @st0/audio/delay/tape-delay
 ```
 
 `libraryModuleRef` is that spelling (`src/libraryTree.ts`), and getting it wrong is what would
@@ -176,8 +176,8 @@ To hear a module no project uses, wire it into the song you have open.
 ## One path space, one store
 
 ```
-the project's own    modules/audio/reverb/module.yaml
-the library's        _libraries/modules/audio/reverb/module.yaml
+the workspace's own   _modules/audio/reverb/module.yaml
+the library's          _libraries/modules/audio/reverb/module.yaml
 ```
 
 Both are workspace paths, both served by the file service, both written by the same route. The
@@ -268,20 +268,19 @@ The suites here mount nothing, so none of this is covered by a green run:
   your git host: `modules/` and `chains/` are in it;
 - open a project in a SECOND workspace → the library clones with its content and is not seeded
   again;
-- switch the tree to **Libraries** → four rows, `@project` / `@workspace` / `@st0` / `@engine`,
-  in that order, each holding its own modules. The Project tab does not show the song's
-  `modules/`;
-- open a project whose `modules/` does not exist → `@project` is still there, empty. Right-click
-  it → **New module…** → type `audio/test` → the folder is made, the builder opens on it;
-- open a workspace with no `_modules` → `@workspace` is there and empty, and creating through it
-  makes the folder;
+- switch the tree to **Libraries** → three rows, `@workspace` / `@st0` / `@engine`, in that
+  order, each holding its own modules;
+- open a workspace with no `_modules` → `@workspace` is there and empty. Right-click it →
+  **New module…** → type `audio/test` → the folder is made, the builder opens on it, writable
+  with no lock;
 - unmount the library submodule → `@st0` disappears rather than offering an empty row;
 - `@engine` is last, greyed, and grouped by type; clicking a row opens nothing and right-clicking
   offers no menu. On this machine it holds 254 scanned plugins;
-- right-click a type folder inside `@project` → **New folder…** and **New module…**, the second
+- right-click a type folder inside `@workspace` → **New folder…** and **New module…**, the second
   taking just a name there and `<type>/<name>` on the level's own row;
-- click a module → the builder opens read-only, with `read-only` in the header and an Edit
-  button beside it; typing in the code pane does nothing;
+- click an `@st0` module → the builder opens read-only, with `read-only` in the header and an
+  Edit button beside it; typing in the code pane does nothing. Click an `@workspace` one instead
+  → it opens straight into writable, no lock and no Edit button;
 - click **Edit**, confirm → the same screen takes edits, and typing writes NOTHING: the Save
   button lights up instead;
 - edit two of the four files, press **Save** once → both land, and one commit appears in the

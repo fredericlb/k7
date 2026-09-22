@@ -7,12 +7,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  engineRef,
   isIoSource,
+  metaRef,
   moduleEmits,
 } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { engineModules } from "./engineCatalogue";
+import { ioModules } from "./engineCatalogue";
 import { isFileInputModule, isInputModule, loadGraph } from "./graph";
 
 let dir: string;
@@ -48,9 +48,9 @@ describe("the file input", () => {
     expect(moduleEmits("io", "out")).toBeUndefined();
   });
 
-  it("is offered by the engine, with no scan behind it", () => {
-    const m = engineModules(join(dir, "nope.json"));
-    expect(m[engineRef("FILE")]).toMatchObject({ io: "file", kind: "io" });
+  it("is built into the app, with no scan behind it", () => {
+    const m = ioModules();
+    expect(m[metaRef("FILE")]).toMatchObject({ io: "file", kind: "io" });
   });
 
   it("is NOT a live interface input", () => {
@@ -61,14 +61,9 @@ describe("the file input", () => {
   });
 
   it("carries the file it reads, and a chain may leave it unnamed", () => {
-    // `source:` and not `file:`, which the loader overwrites with the module's FOLDER name.
-    file("modules/io/FILE/module.yaml", "io: file\n");
-    file(
-      "nodes/take.yaml",
-      'extends: "@project/FILE"\nsource: "clips/original.wav"\n',
-    );
+    // An io node carries its role directly — no separate module, no `extends` (docs/moduleTypes.md).
+    file("nodes/take.yaml", 'io: file\nsource: "clips/original.wav"\n');
     const g = loadGraph(dir);
-    expect(g.modules.FILE?.source).toBeUndefined();
     expect(g.modules.take?.source).toBe("clips/original.wav");
   });
 
@@ -79,7 +74,7 @@ describe("the file input", () => {
       "modules/audio/amp/module.yaml",
       "plugin: {type: internal, name: Chorus}\n",
     );
-    file("nodes/t.yaml", 'extends: "@studio/track"\nevents: []\n');
+    file("nodes/t.yaml", 'extends: "@meta/track"\nevents: []\n');
     writeFileSync(
       join(dir, "graph.yaml"),
       "modules:\n  t: [ amp ]\n  amp: [ FILE ]\n",

@@ -110,32 +110,18 @@ allocations of the same array, most of the 55 ms `/hints` costs, paid after ever
 app.
 
 A node needs no case of its own: it names what it uses with `extends`, like any other extender.
-Both spellings of a LOCAL ref land in the same bucket — a project's own module answers to the bare
-`<category>/<file>` and to `@project/<category>/<file>`, and new files write the second (see
-`loadModuleRefs`). A namespaced ref (`@st0/…`) has no second spelling and is kept whole.
-
-The ref is normalised on the way IN too. `loadModuleRefs` registers a local module under both
-spellings, so `baseRefs` holds `audio/amp` AND `@project/audio/amp`; folding only the module side
-leaves the second one reading an empty bucket — 238 entries where there are 239, which is exactly
-the kind of off-by-one this shape is exposed to.
+Every ref is namespaced — `@workspace/…`, `@st0/…`, `@engine/…` — and each keeps exactly one
+spelling, so `byExtends` is keyed by the ref as written, with nothing to normalise on the way in.
 
 ## `paths` — turning a reference into a link
 
 `"kind:name"` → the project-relative file that defines the entity, so the editor can turn a known
-reference into a link. `kind ∈ module|base|sink|track|clip|sequence|chain` (chains all live in
-`graph.yaml`). Derived by the folder conventions (`modules/<type>/`, `tracks/`, …) and only kept
-when the file actually exists, so external `@ns/…` modules are skipped. Both `.yaml` and `.yml`
-are tried and the one on disk wins.
+reference into a link. `kind ∈ module|sink|track|clip|sequence|chain` (chains all live in
+`graph.yaml`). Only kept when the file actually exists and sits INSIDE the project, so an external
+`@ns/…` module is skipped — a ref pointing at `@workspace/…` or `@st0/…` names a file the project's
+own tree does not contain, and this map answers only in project-relative terms.
 
-`"module:"` keys by the chain `use` ref and points at the file that IS that thing: a module is
-`modules/<type>/<name>/module.yaml`, a node is `nodes/<name>.yaml`. A node carries its own folder
-in `home` precisely because it does not sit under the module it uses. `"base:"` keys by
-`"type/name"` — an `extends` ref, always a module.
-
-For a base, the FIRST segment is the type and the rest is the name, filing included: a module may
-sit at `modules/audio/amps/neural-amp-modeler/`, so destructuring two segments would send "go to
-this module" at the category folder — a path with no `module.yaml` in it.
-
-The `@project/` spelling is aliased to the same entry. It is the SAME module — `loadModuleRefs`
-registers both, and a real file's `extends` may use either — and without the alias a ctrl-click
-and the popin's module pane go blind on exactly the files written the explicit way.
+`"module:"` keys by the chain `use` ref and points at the file that IS that thing — which is
+always a NODE now, `nodes/<name>.yaml`, kept in `home` precisely because a node does not sit under
+the module it uses. There is no `"base:"` any more: an `extends` ref is always namespaced, and a
+namespaced module is exactly the external case this map already excludes by its own rule above.

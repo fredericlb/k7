@@ -343,8 +343,8 @@ npm run lint:bytes                         # BEFORE lint:dead, or the second lie
 npm run lint:dead                          # knip — read the OUTPUT, not the exit code
 npm run bench --workspace @studio/song     # sequentially: two benches in parallel
 npm run bench --workspace @studio/file-service   #   compete and the figure lies
-npx turbo run test --force                 # --force: a cached green is identical to a real green
-npx turbo run typecheck --force
+npm run test                               # no cache anywhere in this chain — always a real run
+npm run typecheck
 ```
 
 **Stop the dev session before the benches.** Tilt and a live `st0-engine.exe` are enough to take the
@@ -356,7 +356,7 @@ To check this page's claims one by one:
 
 ```bash
 # the net — must find both background.ts, and NOTHING in C++
-# git grep, NOT grep -rn: the latter sweeps dist/ and .turbo/ and returns 700 KB of minified bundles
+# git grep, NOT grep -rn: the latter sweeps dist/ and returns 700 KB of minified bundles
 git grep -n "unhandledRejection\|uncaughtException\|set_terminate" -- . ':!commons'
 
 # the token goes out on any socket

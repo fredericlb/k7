@@ -18,26 +18,31 @@ import {
 } from "./graph";
 import { loadModuleRefs, loadModules } from "./loader";
 import { resolveModuleMap } from "./moduleResolve";
-import { writeModule, writeNode } from "./testSupport";
+import { writeNode, writeYaml } from "./testSupport";
 
+let ws: string;
 let dir: string;
 
-/** A project with one cold module (`squash`) and a chain over `chains`. */
+const SQUASH = "@workspace/audio/squash";
+
+/** A project with one cold module (`squash`, at `@workspace`) and a chain over `chains`. */
 function project(chains: string): void {
   writeFileSync(
     join(dir, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n",
     "utf8",
   );
-  writeModule(dir, "audio", "squash", {
+  // A cold module is a genuine reusable base — a WORKSPACE module, extendable by nodes.
+  writeYaml(join(ws, "_modules", "audio", "squash", "module.yaml"), {
     cold: true,
     plugin: { type: "jsdsp", name: "Normalize" },
     params: { Target: -1, Peak: 0 },
   });
-  writeModule(dir, "audio", "amp", {
+  // "amp" is used once, plain — a NODE, bare in the graph exactly as a project module once was.
+  writeNode(dir, "amp", {
     plugin: { type: "internal", name: "Chorus" },
   });
-  writeModule(dir, "io", "OUT", { io: "out" });
+  // OUT needs no file at all — a built-in sink name (docs/moduleTypes.md).
   writeFileSync(join(dir, "graph.yaml"), chains, "utf8");
 }
 
@@ -46,23 +51,25 @@ function track(id: string): void {
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "nodes", `${id}.yaml`),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
 }
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-cold-"));
+  ws = mkdtempSync(join(tmpdir(), "td-cold-"));
+  dir = join(ws, "song");
+  mkdirSync(dir, { recursive: true });
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 describe("the cold flag", () => {
   it("is read off the module file", () => {
     project("modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n");
     track("gtr");
     const g = loadGraph(dir);
-    expect(isColdModule(g.moduleRefs["audio/squash"])).toBe(true);
-    expect(isColdModule(g.moduleRefs["audio/amp"])).toBe(false);
+    expect(isColdModule(g.moduleRefs[SQUASH])).toBe(true);
+    expect(isColdModule(g.moduleRefs.amp)).toBe(false);
   });
 
   it("is INHERITED, so a use of a cold module is cold", () => {
@@ -70,7 +77,7 @@ describe("the cold flag", () => {
     project("modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n");
     track("gtr");
     writeNode(dir, "master", {
-      extends: "@project/audio/squash",
+      extends: SQUASH,
       params: { Target: -3 },
     });
     const resolved = resolveModuleMap(
@@ -92,23 +99,15 @@ describe("adding one to a chain", () => {
   const withFileInput = (): void => {
     project(FROM_FILE);
     track("gtr");
-    writeModule(dir, "io", "FILE", { io: "file" });
-    writeNode(dir, "take", {
-      extends: "@project/FILE",
-      source: "clips/original.wav",
-    });
+    // io is a plain node directly — see docs/moduleTypes.md.
+    writeNode(dir, "take", { io: "file", source: "clips/original.wav" });
   };
 
   it("refuses it over a chain with no file input, naming why", () => {
     project(FROM_TRACK);
     track("gtr");
     const g = loadGraph(dir);
-    const err = coldPlacementError(
-      g,
-      g.moduleRefs["audio/squash"],
-      "squash",
-      "amp",
-    );
+    const err = coldPlacementError(g, g.moduleRefs[SQUASH], "squash", "amp");
     expect(err).toBeTruthy();
     expect(err).toContain("COLD");
     // The message has to say what to do, not only that it refused.
@@ -120,7 +119,7 @@ describe("adding one to a chain", () => {
     const g = loadGraph(dir);
     expect(carriesFileInput(g, g.chains.gtr)).toBe(true);
     expect(
-      coldPlacementError(g, g.moduleRefs["audio/squash"], "squash", "amp"),
+      coldPlacementError(g, g.moduleRefs[SQUASH], "squash", "amp"),
     ).toBeNull();
   });
 
@@ -128,9 +127,7 @@ describe("adding one to a chain", () => {
     project(FROM_TRACK);
     track("gtr");
     const g = loadGraph(dir);
-    expect(
-      coldPlacementError(g, g.moduleRefs["audio/amp"], "amp", "amp"),
-    ).toBeNull();
+    expect(coldPlacementError(g, g.moduleRefs.amp, "amp", "amp")).toBeNull();
   });
 
   it("allows placing one wired to NOTHING", () => {
@@ -139,7 +136,7 @@ describe("adding one to a chain", () => {
     track("gtr");
     const g = loadGraph(dir);
     expect(
-      coldPlacementError(g, g.moduleRefs["audio/squash"], "squash", undefined),
+      coldPlacementError(g, g.moduleRefs[SQUASH], "squash", undefined),
     ).toBeNull();
   });
 
@@ -149,7 +146,7 @@ describe("adding one to a chain", () => {
     const g = loadGraph(dir);
     const err = coldPlacementError(
       g,
-      g.moduleRefs["audio/squash"],
+      g.moduleRefs[SQUASH],
       "squash",
       "nowhere",
     );

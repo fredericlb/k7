@@ -82,11 +82,7 @@ export function moduleNamespaceOf(root: string): ModuleNamespace {
 
 /** Every module library this project can see, nearest first — panels included, docs/sharedFolders.md. */
 export function modulePanelRoots(dir: string): string[] {
-  const own = join(dir, "modules");
-  const out = existsSync(own) ? [own] : [];
-  for (const lib of moduleLibraryDirs(dir))
-    if (!out.includes(lib)) out.push(lib);
-  return out;
+  return moduleLibraryDirs(dir);
 }
 
 // There is no shared ASSET library: a module carries the files it loads (docs/moduleAssets.md).

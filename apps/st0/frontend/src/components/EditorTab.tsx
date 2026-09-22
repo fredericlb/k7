@@ -1042,7 +1042,7 @@ export function EditorTab({
     [fileDiagnostics, autosave.issues],
   );
 
-  // Is the open file an INPUT? Read off the buffer, so a node just pointed at `@engine/IN` grows its channel strip as you type.
+  // Is the open file an INPUT? Read off the buffer, so a node just pointed at `@meta/IN` grows its channel strip as you type.
   const inputIo = useMemo(
     () => (!file || file.binary ? null : ioOf(file.content ?? "", file.path)),
     [file],

@@ -21,12 +21,14 @@ import { scaffoldSet } from "./scaffoldSet";
 
 const SCRIPT = join(import.meta.dirname, "..", "scripts", "migrateSetCue.ts");
 
+let ws = "";
 let dir = "";
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "cue-mig-"));
+  ws = mkdtempSync(join(tmpdir(), "cue-mig-"));
+  dir = join(ws, "set.st0");
 });
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(ws, { recursive: true, force: true });
 });
 
 /** Undo the cue, turning a fresh scaffold back into the set this migration exists to upgrade. */

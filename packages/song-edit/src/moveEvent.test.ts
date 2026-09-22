@@ -28,7 +28,7 @@ const read = (dir: string) =>
 describe("moveTrackPlacement", () => {
   it("rewrites ONLY the matching placement, leaving every other line identical", () => {
     const before = `# the drum lane
-extends: "@studio/track"
+extends: "@meta/track"
 events:
   - { ref: kick, start: "1:1:1", fadeIn: "0:1" }
   - { ref: snare, start: "2:1:1", fadeIn: "0:1", loop: 2, disabled: true }
@@ -109,7 +109,7 @@ events:
 describe("moveTrackPlacementsInRange", () => {
   it("moves every placement starting in the range, and only those, one line each", () => {
     const before = `# the drum lane
-extends: "@studio/track"
+extends: "@meta/track"
 events:
   - { ref: intro, start: "1:1:1" }
   - { ref: kick, start: "2:1:1", fadeIn: "0:1" }

@@ -13,7 +13,7 @@ import { join, relative, sep } from "node:path";
 import { setModuleValue } from "@studio/song-schema/yaml/moduleFile";
 import { type ModuleUI, UISchema } from "@studio/song-schema/yaml/moduleSchema";
 import { parse as parseYaml } from "yaml";
-import { MODULE_TYPES, moduleRefOf } from "./loader";
+import { MODULE_TYPES } from "./loader";
 import { moduleNamespaceOf } from "./sharedFolders";
 import { writeUiFile } from "./uiLibrary";
 import { moduleFileFor } from "./yaml/moduleIO";
@@ -36,7 +36,7 @@ interface Candidate {
 /** Every module file under `root` that could hold a panel — two tree shapes, and NODES left out. */
 function candidatesIn(
   base: string,
-  ns: string | null,
+  ns: string,
   rel: (p: string) => string,
 ): Candidate[] {
   const out: Candidate[] = [];
@@ -48,12 +48,11 @@ function candidatesIn(
       if (file) {
         out.push({
           path: file.path,
-          ref: ns ? `@${ns}/${type}/${sub}` : moduleRefOf(type, sub),
+          ref: `@${ns}/${type}/${sub}`,
           label: rel(file.path),
         });
         return; // a module folder, not a category — no nesting below it
       }
-      if (ns === null) return; // a project files modules one level deep only
       for (const leaf of readdirSync(folder)) {
         const at = join(folder, leaf);
         if (statSync(at).isDirectory()) visit(at, `${sub}/${leaf}`);
@@ -71,9 +70,7 @@ function candidatesIn(
 export function migrateModuleUis(dir: string): UiMigration {
   const out: UiMigration = { moved: [], skipped: [], errors: [] };
 
-  const roots: { base: string; ns: string | null; label: string }[] = [
-    { base: join(dir, "modules"), ns: null, label: "modules" },
-  ];
+  const roots: { base: string; ns: string; label: string }[] = [];
   // Nothing left to declare, so the folder existing is the whole condition (docs/sharedFolders.md).
   const shared = join(dir, "..", "_modules");
   if (existsSync(shared))

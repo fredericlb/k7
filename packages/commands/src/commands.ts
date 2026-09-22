@@ -10,7 +10,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type {
   AudioDeviceInfo,
@@ -56,6 +56,7 @@ import {
 import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
+import { SHARED_MODULES_PATH } from "@studio/song/sharedFolders";
 import { createSurfaceFile, surfacesNaming } from "@studio/song/surfaces";
 import { addTrackMixer } from "@studio/song/trackMixerFile";
 import { spliceProjectTime } from "@studio/song-edit/insertTime";
@@ -115,6 +116,7 @@ import { builtinParamsFor } from "@studio/song-schema/builtinParams";
 import { renamedInstance } from "@studio/song-schema/instanceName";
 import {
   CUE_NODE,
+  curveRef,
   isBuiltinOutput,
   MIX_NODE,
   OUT_NODE,
@@ -156,7 +158,11 @@ import {
   setFileValue,
   setQuotedKeyMap,
 } from "@studio/song/yaml/edit";
-import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
+import {
+  isProjectFolder,
+  moduleFileFor,
+  readModuleFile,
+} from "@studio/song/yaml/moduleIO";
 import { halveLoopsOf } from "@studio/song-edit/sequenceLoops";
 import { ASPECTS, aspectSize } from "@studio/song-schema/aspect";
 import {
@@ -470,13 +476,25 @@ function midOfArrow(
 
 // `playlistFile` lives in verbs/shared.ts, so the split-out verb files import no cycle — docs/verbs.md.
 
+/** Where a `module new`/`node new` target's OWN files would live — the workspace for a real
+ *  project, or the folder itself for a template being edited with `at` (no project.yaml). */
+function localModuleFolder(
+  songPath: string,
+  category: string,
+  name: string,
+): string {
+  return isProjectFolder(songPath)
+    ? resolve(songPath, SHARED_MODULES_PATH, category, name)
+    : join(songPath, "modules", category, name);
+}
+
 /** What a module already on disk extends, or "" — read from its own file, not through the loaders. */
 function existingExtends(
   songPath: string,
   category: string,
   name: string,
 ): string {
-  const folder = join(songPath, "modules", category, name);
+  const folder = localModuleFolder(songPath, category, name);
   const file = moduleFileFor(folder, `${category}/${name}`, "module");
   if (!file) return "";
   try {
@@ -497,7 +515,7 @@ function makeModule(
   if (segs.length !== 2 || !segs[0] || !segs[1])
     return { error: `'${target}' is not <category>/<name>` };
   const [category, name] = segs;
-  const exists = existsSync(join(songPath, "modules", category, name));
+  const exists = existsSync(localModuleFolder(songPath, category, name));
   // Already there AND told to inherit something else is a real disagreement: a module cannot be re-parented.
   if (exists && extendsRef) {
     const inherits = existingExtends(songPath, category, name);
@@ -1088,7 +1106,12 @@ async function addTrackAutomation(
     value,
     beatsToPosition(last, p.timeSigNumerator, p.timeSigDenominator),
   );
-  const path = setModuleAutomationBinding(h.songPath, module, param, id);
+  const path = setModuleAutomationBinding(
+    h.songPath,
+    module,
+    param,
+    curveRef(id),
+  );
   await h.reload();
   h.log([
     `${track.id}: ${param} <- ${id} (${rel}), flat at ${Math.round(value * 100)}% (${path})`,
@@ -3258,7 +3281,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         h.songPath,
         module,
         param,
-        curve === "none" ? null : curve,
+        curve === "none" ? null : curveRef(curve),
         trigger,
       );
       await h.reload();

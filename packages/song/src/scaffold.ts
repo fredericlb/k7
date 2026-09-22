@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { DEFAULT_COUNT_IN } from "./project";
+import { SHARED_MODULES_PATH } from "./sharedFolders";
 import { addVideoRun } from "./videoOutputs";
 
 /** The archetypes THIS module writes: the two with a TIMELINE. `Extract`, so a rename breaks it and
@@ -64,38 +65,18 @@ export function projectFiles(name: string): Record<string, string> {
     // Project settings, in their own file — count_in is bars before an armed track starts (0 = immediately).
     "settings.yaml": `metronome: false\ncount_in: ${DEFAULT_COUNT_IN}\n`,
 
-    // The stereo-output sink, the io module every run ends at; its comment covers the live-input edge.
-    "modules/io/OUT/module.yaml":
-      `# The stereo-output sink. A module reaches it by listing OUT as a destination.\n` +
-      `io: out\n` +
-      `\n` +
-      `# The other io edge is a live input off the audio interface — its own module\n` +
-      `# folder under modules/io/, e.g. modules/io/guitar/module.yaml:\n` +
-      `#\n` +
-      `#     io: in\n` +
-      `#     channel: [1]        # 1-2 1-based channels, or a label from\n` +
-      `#                         # the machine's preferences.yaml (channels.in)\n` +
-      `#     monitor: "on"       # off | auto (audible when armed) | on — quoted,\n` +
-      `#                         # because YAML would otherwise read it as true\n`,
-
-    // Tracktion's 4OSC, a midi→audio plugin, self-contained rather than extending a base. The FOLDER names it.
-    "modules/instruments/synth/module.yaml":
-      `# "synth": Tracktion's built-in 4OSC. plugin.type is the FORMAT — "internal" for a\n` +
-      `# built-in, its xmlTypeName in \`name\` (an external plugin uses type: vst3 etc. and\n` +
-      `# name: its real name). Add params to tweak it.\n` +
-      `plugin:\n` +
-      `  type: internal\n` +
-      `  name: 4osc\n`,
-
-    // Two USES of "synth", one per lane, in the FLAT nodes/ folder — a node overrides, it doesn't restate.
+    // Two USES of the workspace's "synth" module, one per lane — a node overrides, it doesn't
+    // restate. The module itself is scaffolded once per WORKSPACE, by `scaffold()` below: `OUT`
+    // needs no module at all (a built-in name — see docs/moduleTypes.md), and a live input off
+    // the audio interface is a NODE, made with `node new io/IN guitar` (docs/scaffold.md).
     "nodes/synth-melody.yaml":
       `# "synth-melody" — the melody lane's own 4OSC. Add \`params:\` to change this one\n` +
       `# alone; everything else comes from the module it extends.\n` +
-      `extends: "@project/instruments/synth"\n`,
+      `extends: "@workspace/instruments/synth"\n`,
     "nodes/synth-pad.yaml":
       `# "synth-pad" — the pattern's Pad lane gets its own 4OSC, so tweaking one lane's\n` +
       `# sound leaves the other's alone.\n` +
-      `extends: "@project/instruments/synth"\n`,
+      `extends: "@workspace/instruments/synth"\n`,
 
     // The graph: both lanes run their own synth into MIX, which leaves by OUT (the master chain's place).
     [GRAPH_FILE]:
@@ -126,29 +107,29 @@ export function projectFiles(name: string): Record<string, string> {
 
     // One 2-bar sequence on a lane — a NODE of a built-in track module, see docs/trackModules.md.
     "nodes/melody.yaml":
-      `# The melody lane. \`@studio/track\` holds events written down here — each one naming a\n` +
+      `# The melody lane. \`@meta/track\` holds events written down here — each one naming a\n` +
       `# sequence or a clip, and leaving by the lane's midi or audio output accordingly.\n` +
-      `extends: "@studio/track"\n` +
+      `extends: "@meta/track"\n` +
       `events:\n  - { ref: melody, start: "1:1:1" }\n`,
 
     // A group: no material of its own, just members — nests the two lanes below so "melody" stays top-level.
     "nodes/live.yaml":
       `# A group lane: no material and no signal of its own, just members.\n` +
-      `extends: "@studio/group-track"\n` +
+      `extends: "@meta/group-track"\n` +
       `tracks: [pad, kit]\n`,
 
     // Two pattern lanes — the lane's NAME picks the part, matched to the pattern's `.label(...)`.
     "nodes/pad.yaml":
       `# A GENERATED lane: its clips are streamed from the pattern while the transport rolls,\n` +
       `# which is why it says \`strudel:\` where an authored lane says \`events:\`.\n` +
-      `extends: "@studio/strudel-track"\n` +
+      `extends: "@meta/strudel-track"\n` +
       `strudel: algo/pattern.strudel\n`,
 
     // The pattern's "Kit" part: the SAME module on the same file, sample or note decided per event.
     "nodes/kit.yaml":
       `# The other half of the same pattern. Nothing here says "audio": an event whose sound\n` +
       `# resolves to a sample plays as one, every other event plays as a note.\n` +
-      `extends: "@studio/strudel-track"\n` +
+      `extends: "@meta/strudel-track"\n` +
       `strudel: algo/pattern.strudel\n`,
 
     // Raw MIDI material: notes live inline as compact {t,d,k,v} maps; the FILENAME names the sequence.
@@ -278,6 +259,29 @@ export function writeProjectFiles(
   return Object.keys(files);
 }
 
+// The 4OSC every scaffolded lane extends, written ONCE per WORKSPACE: a second project scaffolded
+// beside the first reuses it rather than getting a second copy, since `@workspace` is shared by
+// every project beside it (docs/scaffold.md). Never overwrites — a workspace's own edit to it wins.
+function ensureWorkspaceSynth(dir: string): void {
+  const path = resolve(
+    dir,
+    SHARED_MODULES_PATH,
+    "instruments/synth/module.yaml",
+  );
+  if (existsSync(path)) return;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(
+    path,
+    `# "synth": Tracktion's built-in 4OSC. plugin.type is the FORMAT — "internal" for a\n` +
+      `# built-in, its xmlTypeName in \`name\` (an external plugin uses type: vst3 etc. and\n` +
+      `# name: its real name). Add params to tweak it.\n` +
+      `plugin:\n` +
+      `  type: internal\n` +
+      `  name: 4osc\n`,
+    "utf8",
+  );
+}
+
 /** Write a new st0 project; `video` also gets the bundled sample COPIED in — see docs/scaffold.md. */
 export function scaffold(
   dir: string,
@@ -287,6 +291,7 @@ export function scaffold(
   const picture = shape === "video";
   const files = picture ? videoProjectFiles(name) : projectFiles(name);
   writeProjectFiles(dir, files);
+  ensureWorkspaceSynth(dir);
 
   if (picture) {
     if (!existsSync(SAMPLE_VIDEO))

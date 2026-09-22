@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build && tsc --noEmit",
     "preview": "vite preview",
+    "pretypecheck": "paraglide-js compile --emit-ts-declarations --silent",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -23,6 +24,7 @@
     "@studio/engine-browser": "*",
     "@studio/engine-host": "*",
     "@studio/engine-protocol": "*",
+    "@studio/git-repos": "*",
     "@studio/graph-model": "*",
     "@studio/mediatek": "*",
     "@studio/project-shell": "*",

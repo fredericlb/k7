@@ -11,18 +11,27 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileVideoChains } from "./videoChains";
 import { loadVideoProject } from "./videoProject";
 
+let root = "";
 let dir = "";
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "shape-"));
+  root = mkdtempSync(join(tmpdir(), "shape-"));
+  dir = join(root, "film.st0");
+  mkdirSync(dir, { recursive: true });
 });
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(root, { recursive: true, force: true });
 });
 
-/** One shape module, in the type folder that is what says it draws. */
+/** One shape module, at the WORKSPACE level (a sibling of the project), used through a node of the same name. */
 function module(name: string, body: string) {
-  mkdirSync(join(dir, "modules", "shapes", name), { recursive: true });
-  writeFileSync(join(dir, "modules", "shapes", name, "module.yaml"), body);
+  const md = join(root, "_modules", "shapes", name);
+  mkdirSync(md, { recursive: true });
+  writeFileSync(join(md, "module.yaml"), body);
+  mkdirSync(join(dir, "nodes"), { recursive: true });
+  writeFileSync(
+    join(dir, "nodes", `${name}.yaml`),
+    `extends: "@workspace/shapes/${name}"\n`,
+  );
 }
 
 const BOX =

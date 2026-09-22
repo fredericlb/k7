@@ -11,6 +11,7 @@ import {
 } from "@studio/song-schema/alternatives";
 import {
   CAMERA_IO,
+  curveIdFromRef,
   isBuiltinOutput,
   isIoSource,
   MIX_NODE,
@@ -441,7 +442,7 @@ function normAutomations(v: unknown): Automation[] | undefined {
   const out: Automation[] = [];
   for (const a of v as { param?: unknown; curve?: unknown }[]) {
     const param = typeof a?.param === "string" ? a.param : "";
-    const curve = typeof a?.curve === "string" ? a.curve : "";
+    const curve = typeof a?.curve === "string" ? curveIdFromRef(a.curve) : "";
     if (param && curve) out.push({ param, curve });
   }
   return out.length ? out : undefined;

@@ -17,7 +17,8 @@ import { compileNodeProject } from "./nodeProject";
 // An input's track is named by the CHAIN, not by a field: a shared io/IN node cannot name one.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMOS = join(here, "..", "..", "..", "demos");
+const SONG = join(DEMOS, "synth-demo.st0");
 const IN = "@workspace/io/IN:in-1";
 
 describe("a live input, wired by its chain", () => {
@@ -40,6 +41,8 @@ describe("a live input, wired by its chain", () => {
     ws = mkdtempSync(join(tmpdir(), "td-livein-"));
     dir = join(ws, "song");
     cpSync(SONG, dir, { recursive: true });
+    // The Examples workspace's own shared library, beside every demo project.
+    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
     // The shared catalogue as `module populate` leaves it: a generic IN and one node per input.
     mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
     writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
@@ -56,7 +59,7 @@ describe("a live input, wired by its chain", () => {
       ),
     );
     // An audio lane of its own, called `mic`: the fixture already has a group called `live`.
-    writeFileSync(join(dir, "nodes", "mic.yaml"), 'extends: "@studio/track"\n');
+    writeFileSync(join(dir, "nodes", "mic.yaml"), 'extends: "@meta/track"\n');
     wire({ modules: { mic: [IN], [IN]: ["OUT"] } });
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
@@ -131,7 +134,7 @@ describe("a live input, wired by its chain", () => {
     writeFileSync(
       join(dir, "nodes", "mic.yaml"),
       [
-        'extends: "@studio/track"',
+        'extends: "@meta/track"',
         "events:",
         '  - { ref: melody, start: "1:1:1" }',
         "",
@@ -181,6 +184,8 @@ describe("an input's monitoring and gain", () => {
     ws = mkdtempSync(join(tmpdir(), "td-ingain-"));
     dir = join(ws, "song");
     cpSync(SONG, dir, { recursive: true });
+    // The Examples workspace's own shared library, beside every demo project.
+    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
     mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
     writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
     writeFileSync(
@@ -195,7 +200,7 @@ describe("an input's monitoring and gain", () => {
         "modules_from: [ ../_modules ]",
       ),
     );
-    writeFileSync(join(dir, "nodes", "mic.yaml"), 'extends: "@studio/track"\n');
+    writeFileSync(join(dir, "nodes", "mic.yaml"), 'extends: "@meta/track"\n');
     const c = join(dir, "graph.yaml");
     const cur = parseGraph(readFileSync(c, "utf8")).value ?? {};
     writeFileSync(

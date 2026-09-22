@@ -5,6 +5,7 @@ import { engineModuleOf } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   engineModules,
+  ioModules,
   isPluginScanned,
   scannedPluginNames,
   scannedPlugins,
@@ -131,28 +132,32 @@ describe("the catalogue of modules", () => {
   });
 
   it("offers the io modules even with no scan at all", () => {
-    // The engine provides them, and an unscanned project still has to reach its output.
-    const m = engineModules(join(dir, "nope.json"));
+    // Built into the app, not scanned, so an unscanned project still has to reach its output.
+    const m = ioModules();
     expect(Object.keys(m)).toEqual([
-      "@engine/IN",
-      "@engine/OUT",
+      "@meta/IN",
+      "@meta/OUT",
       // The lens, which the BROWSER opens rather than the engine — packages/song/docs/camera.md.
-      "@engine/CAM",
-      "@engine/CUE",
-      "@engine/FILE",
+      "@meta/CAM",
+      "@meta/CUE",
+      "@meta/FILE",
     ]);
-    expect(m["@engine/IN"]).toMatchObject({
+    expect(m["@meta/IN"]).toMatchObject({
       io: "in",
       kind: "io",
       category: "io",
     });
-    expect(m["@engine/OUT"]).toMatchObject({ io: "out", kind: "io" });
+    expect(m["@meta/OUT"]).toMatchObject({ io: "out", kind: "io" });
     // The file source: audio off disk, and a SOURCE like IN rather than a sink.
-    expect(m["@engine/FILE"]).toMatchObject({
+    expect(m["@meta/FILE"]).toMatchObject({
       io: "file",
       kind: "io",
       category: "io",
     });
+  });
+
+  it("engineModules() itself offers only the scan — no io roles", () => {
+    expect(engineModules(join(dir, "nope.json"))).toEqual({});
   });
 
   it("collapses two scans of one plugin into one module", () => {

@@ -48,7 +48,7 @@ beforeEach(() => {
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\n',
+    'extends: "@meta/track"\n',
     "utf8",
   );
 });

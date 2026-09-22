@@ -19,11 +19,14 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
+let root: string;
 let dir: string;
 
 /** A song with one lane through a 4OSC. Only the FILES matter; the project is faked below. */
-function song(): string {
-  const d = mkdtempSync(join(tmpdir(), "td-trkauto-"));
+function song(): { root: string; dir: string } {
+  const r = mkdtempSync(join(tmpdir(), "td-trkauto-"));
+  const d = join(r, "song.st0");
+  mkdirSync(d, { recursive: true });
   writeFileSync(
     join(d, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
@@ -37,17 +40,23 @@ function song(): string {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
-  const md = join(d, "modules", "instruments", "osc");
+  // A module lives at `@workspace` now, used through a node of the same bare name.
+  const md = join(r, "_modules", "instruments", "osc");
   mkdirSync(md, { recursive: true });
   writeFileSync(
     join(md, "module.yaml"),
     "plugin:\n  type: internal\n  name: 4osc\n",
     "utf8",
   );
-  return d;
+  writeFileSync(
+    join(d, "nodes", "osc.yaml"),
+    'extends: "@workspace/instruments/osc"\n',
+    "utf8",
+  );
+  return { root: r, dir: d };
 }
 
 const logs: string[] = [];
@@ -76,18 +85,15 @@ const host = (params: Record<string, number> = { "Filter Freq": 50 }) =>
   }) as never;
 
 const moduleText = (): string =>
-  readFileSync(
-    join(dir, "modules", "instruments", "osc", "module.yaml"),
-    "utf8",
-  );
+  readFileSync(join(dir, "nodes", "osc.yaml"), "utf8");
 const curveText = (id: string): string =>
   readFileSync(join(dir, "curves", `${id}.yaml`), "utf8");
 
 beforeEach(() => {
-  dir = song();
+  ({ root, dir } = song());
   logs.length = 0;
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("track automation add", () => {
   it("writes the binding on the MODULE, not on the track", async () => {
@@ -99,7 +105,7 @@ describe("track automation add", () => {
     const text = moduleText();
     expect(text).toContain("automations:");
     expect(text).toContain("param: Filter Freq");
-    expect(text).toContain("curve: gtr-Filter-Freq");
+    expect(text).toContain('curve: "@meta/curves/gtr-Filter-Freq"');
   });
 
   it("creates a FLAT curve at wherever the knob currently sits", async () => {

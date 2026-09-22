@@ -9,11 +9,14 @@ import { projectFiles, scaffold, videoProjectFiles } from "./scaffold";
 
 // The only project st0 writes from scratch, so "does it load and play" is the whole contract.
 
+// A workspace, since `scaffold()` now also seeds the WORKSPACE's shared synth module beside it.
+let ws: string;
 let dir: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-scaffold-"));
+  ws = mkdtempSync(join(tmpdir(), "td-scaffold-"));
+  dir = join(ws, "song.st0");
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 /** Every file under `dir`, project-relative, forward-slashed. */
 const tree = (): string[] =>

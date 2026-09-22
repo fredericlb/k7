@@ -7,6 +7,7 @@ import type { Page, Release, SongEnvelope } from "../types";
 interface Props {
   page: Page;
   allReleases: Release[];
+  publicUrl: string;
   onRemoveRelease: (id: string) => Promise<void>;
   onAddRelease: (id: string) => Promise<void>;
   onDelete: () => Promise<void>;
@@ -20,6 +21,7 @@ interface Props {
 export function PageDetailView({
   page,
   allReleases,
+  publicUrl,
   onRemoveRelease,
   onAddRelease,
   onDelete,
@@ -27,10 +29,17 @@ export function PageDetailView({
   versionEnvelope,
 }: Props) {
   const [adding, setAdding] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const remove = async () => {
     if (!confirm("Delete this page? (releases are not deleted)")) return;
     await onDelete();
+  };
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(publicUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   };
 
   const releases = page.releases ?? [];
@@ -42,6 +51,15 @@ export function PageDetailView({
       <p className="muted">
         {releases.length} release{releases.length === 1 ? "" : "s"}
       </p>
+
+      <div className="row" style={{ marginBottom: 12 }}>
+        <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+          {publicUrl}
+        </a>
+        <Button variant="outline" size="sm" onClick={copyLink}>
+          {copied ? "✓ Copied" : "📋 Copy link"}
+        </Button>
+      </div>
 
       <div className="row" style={{ marginBottom: 12 }}>
         <Button variant="outline" size="sm" onClick={remove}>

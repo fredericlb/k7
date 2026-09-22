@@ -1,4 +1,5 @@
 import { createApiClient } from "@frediverse/api-client";
+import { authOrigin } from "@studio/web-protocol/services";
 import type {
   Annotation,
   Envelope,
@@ -33,20 +34,32 @@ export const api = {
   // --- Auth ---
 
   // A GETTER, and `return_to` is the name the OIDC package reads — ../../docs/routing.md.
+  // Absolute, both the login URL and return_to: on k7's own subdomain, the
+  // account flow lives at the family root (authOrigin), a DIFFERENT origin —
+  // and return_to has to survive that round trip back to THIS one.
   get loginUrl(): string {
-    const here = window.location.pathname + window.location.search;
-    return `/auth/login?return_to=${encodeURIComponent(here)}`;
+    const origin = window.location.origin;
+    const here = origin + window.location.pathname + window.location.search;
+    return `${authOrigin(origin)}/auth/login?return_to=${encodeURIComponent(here)}`;
   },
 
+  // Absolute + credentials: "include" — same reason as loginUrl: /auth/*
+  // only exists at the family root, a DIFFERENT origin from k7's own
+  // subdomain, and a cross-origin fetch doesn't send cookies without this.
   getMe: async (): Promise<User | null> => {
-    const res = await fetch("/auth/me");
+    const res = await fetch(`${authOrigin(window.location.origin)}/auth/me`, {
+      credentials: "include",
+    });
     if (res.status === 401) return null;
     if (!res.ok) throw new Error(`${res.status}`);
     return (await res.json()).user;
   },
 
   logout: (): Promise<unknown> =>
-    fetch("/auth/logout", { method: "POST" }).then(json),
+    fetch(`${authOrigin(window.location.origin)}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    }).then(json),
 
   // --- Sessions ---
   listSessions: (): Promise<Session[]> => f("/api/sessions").then(json),
@@ -324,6 +337,21 @@ export const api = {
 
   deletePage: (id: string): Promise<null> =>
     f(`/api/pages/${id}`, { method: "DELETE" }).then(json),
+
+  // The address handed to someone else, so it must carry the origin, not just BASE.
+  pagePublicUrl: (nametag: string): string =>
+    `${window.location.origin}${BASE}/@${nametag}`,
+
+  // No session on this one: the nametag is the whole address — ../../docs/ownership.md.
+  getPublicPage: (nametag: string): Promise<Page> =>
+    fetch(`${BASE}/api/public/pages/${nametag}`).then(json),
+
+  publicVersionAudioUrl: (
+    nametag: string,
+    releaseId: string,
+    versionId: string,
+  ) =>
+    `${BASE}/api/public/pages/${nametag}/releases/${releaseId}/versions/${versionId}/audio`,
 
   // --- Singing exercises (a personal practice book) ---
   listSingingExercises: (): Promise<SingingExercise[]> =>

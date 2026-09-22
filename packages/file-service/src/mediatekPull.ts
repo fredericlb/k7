@@ -43,10 +43,23 @@ function scope(): Record<(typeof PULLED)[number], string[]> {
   return { songs: [...songs].sort() };
 }
 
+/**
+ * True for a base this same machine also answers on. Pulling there would write into the exact
+ * directory it reads from — the bug that zeroed three songs — so a loopback base is skipped
+ * rather than guarded some costlier way. See docs/mediatekPull.md.
+ */
+function isLoopback(url: string): boolean {
+  try {
+    return ["127.0.0.1", "localhost", "::1"].includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** One pass: ask what the library is at, and fetch what moved within the scope. Never throws. */
 export async function pullOnce(): Promise<void> {
   const base = mediatekBase();
-  if (!base || running) return;
+  if (!base || running || isLoopback(base)) return;
   const prefixes = scope();
   // Nothing open names the library: no fetch, and no token recorded either (docs/mediatekPull.md).
   if (!PULLED.some((f) => prefixes[f].length)) return;
@@ -92,9 +105,12 @@ export async function pullOnce(): Promise<void> {
   }
 }
 
-/** STOPPED: it downloaded each scoped file onto itself and zeroed three songs — docs/mediatekPull.md. */
+/** Runs pullOnce on a timer, unref'd so it never keeps the process alive on its own. */
 export function startMediatekPuller(): void {
-  return;
+  if (timer || !mediatekBase()) return;
+  setTimeout(() => void pullOnce(), FIRST_MS).unref();
+  timer = setInterval(() => void pullOnce(), EVERY_MS);
+  timer.unref();
 }
 
 /** Stop the loop and forget what was seen — for tests, which must not share state. */

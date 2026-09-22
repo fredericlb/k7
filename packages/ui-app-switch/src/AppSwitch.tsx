@@ -1,7 +1,8 @@
-// AppSwitch.tsx — the way out of one studio app and into the others: one row per app on the
-// origin, minus the one drawing the menu. Every service answers at a fixed path, so a row is a
-// plain link; `origin` is what makes those links point at the paired SERVER instead of at this
-// origin, which is the desktop app's case. See ../docs/appSwitch.md.
+// AppSwitch.tsx — the way out of one studio app and into the others: one row per app,
+// minus the one drawing the menu. `serviceUrl` resolves each one's address — st0's own origin,
+// z0's path under it, or pl8/k7's own subdomain; `origin` is what makes those links resolve
+// against the paired SERVER instead of this tab's origin, which is the desktop app's case.
+// See ../docs/appSwitch.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -11,11 +12,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
-import {
-  SERVICE_PATHS,
-  type StudioService,
-  studioOrigin,
-} from "@studio/web-protocol/services";
+import { type StudioService, serviceUrl } from "@studio/web-protocol/services";
 import {
   FolderGit2,
   Gamepad2,
@@ -32,7 +29,7 @@ const APPS: {
   hint: string;
   icon: LucideIcon;
 }[] = [
-  // st0 FIRST, and it IS the origin — `SERVICE_PATHS.st0` is empty (../docs/appSwitch.md).
+  // st0 FIRST, and it IS the reference origin every other row resolves from (../docs/appSwitch.md).
   {
     id: "st0",
     label: "st0",
@@ -69,8 +66,9 @@ export interface AppSwitchProps {
 }
 
 export function AppSwitch({ self, origin, unavailable }: AppSwitchProps) {
-  // Only the origin of what was handed in: a paired server is stored as a URL, not as a host.
-  const base = origin ? studioOrigin(origin) : "";
+  // The origin every link resolves siblings FROM — the paired server if one was handed in,
+  // else this tab's own, since a hosted app is no longer this menu's own origin for every row.
+  const ref = origin || window.location.origin;
   if (unavailable)
     return (
       <Button
@@ -100,7 +98,7 @@ export function AppSwitch({ self, origin, unavailable }: AppSwitchProps) {
         {APPS.filter((app) => app.id !== self).map((app) => {
           const Icon = app.icon;
           // The trailing slash lands on the app's mount rather than on a redirect to it.
-          const href = `${base}${SERVICE_PATHS[app.id]}/`;
+          const href = `${serviceUrl(ref, app.id)}/`;
           return (
             // asChild so the row IS the anchor, and ctrl-click and middle-click mean what they say.
             <DropdownMenuItem

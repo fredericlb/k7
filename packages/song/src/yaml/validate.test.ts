@@ -50,13 +50,13 @@ describe("validateFile", () => {
     expect(
       validateFile(
         "nodes/lead.yaml",
-        'extends: "@studio/track"\ndisabled: soon\n',
+        'extends: "@meta/track"\ndisabled: soon\n',
       ).ok,
     ).toBe(false);
     expect(
       validateFile(
         "nodes/lead.yaml",
-        'extends: "@studio/track"\ndisabled: true\n',
+        'extends: "@meta/track"\ndisabled: true\n',
       ).ok,
     ).toBe(true);
     expect(validateFile("graph.yaml", "modules:\n  lead: [cab]\n").ok).toBe(

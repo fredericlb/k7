@@ -1,10 +1,4 @@
-import {
-  cpSync,
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-} from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,12 +13,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { projectHints } from "./hints";
 import { resolveModuleMap } from "./moduleResolve";
 import { compileNodeProject } from "./nodeProject";
-import { writeModule, writeNode } from "./testSupport";
+import { writeNode, writeYaml } from "./testSupport";
 
 // A node is one USE of a module, filed FLAT in `nodes/`, naming what it uses by `extends` alone.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMOS = join(here, "..", "..", "..", "demos");
+const SONG = join(DEMOS, "synth-demo.st0");
 
 describe("splitModuleKey", () => {
   it("splits a ref on its first separator", () => {
@@ -37,16 +32,21 @@ describe("splitModuleKey", () => {
 });
 
 describe("module nodes", () => {
+  let ws: string;
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "td-inst-"));
+    ws = mkdtempSync(join(tmpdir(), "td-inst-"));
+    dir = join(ws, "synth-demo.st0");
     cpSync(SONG, dir, { recursive: true });
+    // The Examples workspace's own shared library, beside every demo project.
+    const shared = join(DEMOS, "_modules");
+    if (existsSync(shared))
+      cpSync(shared, join(ws, "_modules"), { recursive: true });
   });
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
   it("loads nodes/<name>.yaml keyed by the BARE name", () => {
     const modules = loadModules(dir);
-    expect(Object.keys(modules)).toContain("synth"); // the module is still there
     const lead = modules.lead;
     expect(lead).toBeTruthy();
     expect(lead.node).toBe("lead");
@@ -54,7 +54,7 @@ describe("module nodes", () => {
     // No "synth:lead" anywhere: the module it uses is not part of its name.
     expect(modules["synth:lead"]).toBeUndefined();
     // Which module it uses is what it EXTENDS, and that is the only place it is written.
-    expect(lead.extends).toBe("@project/instruments/synth");
+    expect(lead.extends).toBe("@workspace/instruments/synth");
     expect(lead.params?.["Filter Freq"]).toBe(90);
   });
 
@@ -72,14 +72,14 @@ describe("module nodes", () => {
   it("stays a RACK over a rack module — the type is inherited, not defaulted", () => {
     // The node states no type; anything filled in for it here would beat the rack and the
     // node would compile as an empty plugin slot, "missing plugin" and silent.
-    writeModule(dir, "instruments", "kit", {
+    writeYaml(join(ws, "_modules", "instruments", "kit", "module.yaml"), {
       type: "rack",
       rack: {
         rack_type: "samples",
         symbols: { KICK: { note: 36, clip: "k" } },
       },
     });
-    writeNode(dir, "kit-1", { extends: "@project/instruments/kit" });
+    writeNode(dir, "kit-1", { extends: "@workspace/instruments/kit" });
     const resolved = resolveModuleMap(
       loadModules(dir),
       loadModuleRefs(dir, {}),
@@ -103,8 +103,9 @@ describe("module nodes", () => {
     // Its sibling and the module are untouched — the merge only ever runs downhill.
     expect(resolved.lead.params?.["Filter Freq"]).toBe(90);
     expect((resolved.lead.automations as unknown[]).length).toBe(2);
-    expect(modules.synth.params).toBeUndefined();
-    expect((modules.synth.automations as unknown[]).length).toBe(2);
+    const synth = refs["@workspace/instruments/synth"];
+    expect(synth.params).toBeUndefined();
+    expect((synth.automations as unknown[]).length).toBe(2);
   });
 
   it("keeps nodes out of the `extends` vocabulary, which names MODULES", () => {
@@ -112,11 +113,16 @@ describe("module nodes", () => {
     const refs = loadModuleRefs(dir, {});
     // Offering a USE as an `extends` target would make a second use inherit its overrides.
     expect(Object.keys(refs)).not.toContain("lead");
-    expect(refs["instruments/synth"].node).toBeUndefined();
-    expect(refs["instruments/synth"].params?.["Filter Freq"]).toBeUndefined();
+    expect(refs["@workspace/instruments/synth"].node).toBeUndefined();
+    expect(
+      refs["@workspace/instruments/synth"].params?.["Filter Freq"],
+    ).toBeUndefined();
     const base = projectHints(dir).baseModules;
     expect(base).toEqual(
-      expect.arrayContaining(["instruments/fourosc", "instruments/synth"]),
+      expect.arrayContaining([
+        "@workspace/instruments/fourosc",
+        "@workspace/instruments/synth",
+      ]),
     );
     expect(base).not.toContain("lead");
   });
@@ -149,12 +155,8 @@ describe("module nodes", () => {
 
   it("offers nodes to the editor, each linked to its own file", () => {
     const h = projectHints(dir);
-    expect(h.modules).toContain("synth"); // the module
-    expect(h.modules).toContain("lead"); // and the use of it
+    expect(h.modules).toContain("lead"); // the use of the shared module
     expect(h.paths["module:lead"]).toBe("nodes/lead.yaml");
-    expect(h.paths["module:synth"]).toBe(
-      "modules/instruments/synth/module.yaml",
-    );
   });
 
   it("scaffolds a new node into nodes/, naming what it uses", () => {
@@ -162,7 +164,7 @@ describe("module nodes", () => {
     expect(rel).toBe("nodes/solo.yaml");
     // The relationship is written down exactly once, and this is it.
     expect(readFileSync(join(dir, rel), "utf8")).toMatch(
-      /^extends: "@project\/instruments\/synth"$/m,
+      /^extends: "@workspace\/instruments\/synth"$/m,
     );
     const solo = loadModules(dir).solo;
     expect(solo.node).toBe("solo");
@@ -191,21 +193,12 @@ describe("module nodes", () => {
     expect(freeNodeName(dir, "synth")).toBe("synth_2");
   });
 
-  it("steps over a name a MODULE holds, not just a node", () => {
-    // One flat key, so a proposal has to dodge the module space as well as the `nodes/` folder.
-    expect(freeNodeName(dir, "eq", "vo")).toBe("vo_eq_1");
-    writeModule(dir, "audio", "vo_eq_1", {
-      plugin: { type: "internal", name: "EQ" },
-    });
-    expect(freeNodeName(dir, "eq", "vo")).toBe("vo_eq_2");
-  });
-
   it("refuses a name another NODE already has, and nothing else", () => {
     expect(() => createNode(dir, "instruments", "synth", "lead")).toThrow(
       /already exists/,
     );
     expect(() => createNode(dir, "instruments", "nope", "x")).toThrow(
-      /neither in this project nor one the engine offers/,
+      /neither in the workspace nor one the engine offers/,
     );
   });
 
@@ -218,14 +211,16 @@ describe("module nodes", () => {
     const mods = loadModules(dir, true);
     // The bare name is the NODE's, and the module is where it always was: behind its ref.
     expect(mods.synth?.node).toBe("synth");
-    expect(loadModuleRefs(dir, {})["@project/instruments/synth"]).toBeTruthy();
+    expect(
+      loadModuleRefs(dir, {})["@workspace/instruments/synth"],
+    ).toBeTruthy();
   });
 
-  // --- io: the node IS the module (docs/moduleTypes.md) -------------
-  it("makes an io node the module itself — no nodes/ file, a bare name in the graph", () => {
+  // --- io: made directly as a NODE now, never a module folder (docs/moduleTypes.md) ---
+  it("makes an io node directly in nodes/, bare in the graph", () => {
     const rel = createNode(dir, "io", "IN", "IN");
-    expect(rel).toBe("modules/io/IN/module.yaml");
-    expect(existsSync(join(dir, "nodes", "IN.yaml"))).toBe(false);
+    expect(rel).toBe("nodes/IN.yaml");
+    expect(existsSync(join(dir, "modules", "io", "IN"))).toBe(false);
     // The role is what the loader reads, and what makes the graph treat it as a SOURCE.
     const body = readFileSync(join(dir, rel), "utf8");
     expect(body).toMatch(/^io: in$/m);
@@ -234,25 +229,19 @@ describe("module nodes", () => {
 
   it("scaffolds each source with its own role, and a second input keeps the first", () => {
     createNode(dir, "io", "IN", "IN");
-    // A second input is another io module with the same role, under its own name.
-    expect(createNode(dir, "io", "IN", "IN2")).toMatch(
-      /modules\/io\/IN2\/module\.yaml/,
+    // A second input is another io node with the same role, under its own name.
+    expect(createNode(dir, "io", "IN", "IN2")).toBe("nodes/IN2.yaml");
+    expect(readFileSync(join(dir, "nodes", "IN2.yaml"), "utf8")).toMatch(
+      /^io: in$/m,
     );
-    expect(
-      readFileSync(join(dir, "modules/io/IN2/module.yaml"), "utf8"),
-    ).toMatch(/^io: in$/m);
-    expect(createNode(dir, "io", "CAM", "CAM2")).toMatch(
-      /modules\/io\/CAM2\/module\.yaml/,
+    expect(createNode(dir, "io", "CAM", "CAM2")).toBe("nodes/CAM2.yaml");
+    expect(readFileSync(join(dir, "nodes", "CAM2.yaml"), "utf8")).toMatch(
+      /^io: camera$/m,
     );
-    expect(
-      readFileSync(join(dir, "modules/io/CAM2/module.yaml"), "utf8"),
-    ).toMatch(/^io: camera$/m);
-    expect(createNode(dir, "io", "FILE", "tape")).toMatch(
-      /modules\/io\/tape\/module\.yaml/,
+    expect(createNode(dir, "io", "FILE", "tape")).toBe("nodes/tape.yaml");
+    expect(readFileSync(join(dir, "nodes", "tape.yaml"), "utf8")).toMatch(
+      /^io: file$/m,
     );
-    expect(
-      readFileSync(join(dir, "modules/io/tape/module.yaml"), "utf8"),
-    ).toMatch(/^io: file$/m);
     // …and the first input is untouched by any of it.
     expect(loadModules(dir).IN).toMatchObject({ io: "in" });
   });
@@ -264,12 +253,12 @@ describe("module nodes", () => {
     expect(() => createNode(dir, "io", "NOPE", "x")).toThrow(
       /unknown io module/,
     );
-    // A name a module or node already holds is spoken for, in either namespace.
-    expect(() => createNode(dir, "io", "IN", "synth")).toThrow(
+    // A name a node already holds is spoken for — "lead" is one of the demo's own nodes.
+    expect(() => createNode(dir, "io", "IN", "lead")).toThrow(
       /already a module or node/,
     );
     createNode(dir, "io", "IN", "IN");
-    // …and so is one this very verb just made: the module IS the node, so it is spoken for at once.
+    // …and so is one this very verb just made.
     expect(() => createNode(dir, "io", "IN", "IN")).toThrow(
       /already a module or node/,
     );
@@ -281,12 +270,12 @@ describe("module nodes", () => {
     const knob = (col: number, row: number, label: string) => ({
       a: { type: "knob", col, row, bind: "Level", label },
     });
-    writeModule(dir, "instruments", "synth", {
-      extends: "instruments/fourosc",
+    writeYaml(join(ws, "_modules", "instruments", "synth", "module.yaml"), {
+      extends: "@engine/4osc",
       ui: { cols: 1, rows: 1, widgets: knob(0, 0, "SHARED") },
     });
     writeNode(dir, "lead", {
-      extends: "@project/instruments/synth",
+      extends: "@workspace/instruments/synth",
       ui: { cols: 2, rows: 2, widgets: knob(1, 1, "MINE") },
     });
     const resolved = resolveModuleMap(
@@ -303,7 +292,7 @@ describe("module nodes", () => {
 
   it("still lets a node override everything else", () => {
     writeNode(dir, "lead", {
-      extends: "@project/instruments/synth",
+      extends: "@workspace/instruments/synth",
       params: { "Filter Freq": 90 },
       content: "the lead voice",
     });

@@ -79,18 +79,21 @@ function song(): string {
   put(
     d,
     "nodes/gtr.yaml",
-    'extends: "@studio/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
+    'extends: "@meta/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
   );
+  // Workspace-level modules (a sibling of the project), used through a node of the same name.
   put(
-    d,
-    "modules/audio/amp/module.yaml",
+    ws,
+    "_modules/audio/amp/module.yaml",
     "plugin:\n  type: internal\n  name: Chorus\nparams:\n  Depth: 3\n",
   );
+  put(d, "nodes/amp.yaml", 'extends: "@workspace/audio/amp"\n');
   put(
-    d,
-    "modules/audio/strip/module.yaml",
+    ws,
+    "_modules/audio/strip/module.yaml",
     "plugin:\n  type: internal\n  name: Mixer\nparams:\n  Volume: -6\n",
   );
+  put(d, "nodes/strip.yaml", 'extends: "@workspace/audio/strip"\n');
   return d;
 }
 
@@ -344,7 +347,7 @@ describe("what a target names", () => {
   });
 
   it("refuses a track with nothing to process", () => {
-    put(dir, "nodes/empty.yaml", 'extends: "@studio/track"\n');
+    put(dir, "nodes/empty.yaml", 'extends: "@meta/track"\n');
     expect(() =>
       resolveTargets(dir, loadProject(dir), "empty", "track"),
     ).toThrow(/no audio clips/);

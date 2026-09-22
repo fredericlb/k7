@@ -90,11 +90,13 @@ name, no overlap. See `apps/z0/docs/editor.md`.
 ## Parsing one back
 
 st0 is mounted at the ORIGIN ROOT, so its `base` is `/` and the repository is the FIRST path
-segment. Which makes every prefix the origin claims above st0 — `/pl8`, `/k7`, `/z0`, `/api`,
-`/auth`, and in dev `/dev`, `/console`, `/dev-status` — a repository short name that can never be
-opened: the request never reaches this app. Nothing in `parseLaunch` can detect that, and nothing
-should try; it is the edge's routing table, and `docker/nginx.conf` is where it is
-written down. z0's editor keeps a prefix and is unaffected.
+segment. pl8 and k7 answer their OWN subdomain now, not a path under st0's, so they no longer
+claim a prefix here at all — a repository CAN be named either. What still does is `/z0`
+(unmoved), `/api`, `/auth`, and in dev `/dev`, `/console`, `/dev-status`: a repository short
+name that can never be opened, since the request never reaches this app. Nothing in
+`parseLaunch` can detect that, and nothing should try; it is the edge's routing table, and
+`apps/z0/docker/nginx.conf` (for `/z0`) is where the one that remains is written down. z0's
+editor keeps a prefix and is unaffected.
 
 **Where the project ends** is decided by the folder's own name, the same rule as `projectApp`: the
 project is everything up to and including the LAST segment claiming THIS app. That is what lets a

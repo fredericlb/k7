@@ -24,7 +24,7 @@ import {
   surfaceTypeOf,
 } from "@studio/song-schema/yaml/surfaceRegistry";
 import type { SurfaceType } from "@studio/song-schema/yaml/surfaceSchema";
-import type { Diagnostic } from "./loader";
+import { type Diagnostic, NODES_DIR } from "./loader";
 import { ensureVideoRun } from "./videoOutputs";
 import { entityFiles } from "./yaml/moduleIO";
 
@@ -127,22 +127,20 @@ const CAMERA_FIELD = new RegExp(
   "m",
 );
 
-/** Whether `dir` declares a LENS, which needs no lane — the same probe, one folder along. */
+/** Whether `dir` declares a LENS, which needs no lane — a camera is a plain node (docs/moduleTypes.md). */
 function namesCamera(dir: string): boolean {
-  const io = join(resolve(dir), "modules", "io");
+  const nodes = join(resolve(dir), NODES_DIR);
   let found: string[];
   try {
-    found = readdirSync(io);
+    found = readdirSync(nodes);
   } catch {
-    return false; // no `modules/io/` — as good as no camera
+    return false; // no `nodes/` — as good as no camera
   }
   return found.some((name) => {
     try {
-      return CAMERA_FIELD.test(
-        readFileSync(join(io, name, "module.yaml"), "utf8"),
-      );
+      return CAMERA_FIELD.test(readFileSync(join(nodes, name), "utf8"));
     } catch {
-      return false; // not a module folder, or unreadable
+      return false; // not a file, or unreadable
     }
   });
 }

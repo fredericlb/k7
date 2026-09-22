@@ -11,13 +11,6 @@ import { mediatekPathPrefix, mediatekRefs } from "./mediatekRefs";
 let ws: string;
 let dir: string;
 
-/** A module file in the project's own `modules/`. */
-function projectModule(rel: string, body: string): void {
-  const at = join(dir, "modules", rel);
-  mkdirSync(at, { recursive: true });
-  writeFileSync(join(at, "module.yaml"), body, "utf8");
-}
-
 /** One USE of a module, in the project's flat `nodes/`. */
 function projectNode(name: string, body: string): void {
   mkdirSync(join(dir, "nodes"), { recursive: true });
@@ -39,11 +32,6 @@ afterEach(() => {
 });
 
 describe("the médiathèque modules a project names", () => {
-  it("finds the ones its own modules extend", () => {
-    projectModule("audio/wah", 'extends: "@st0/audio/filter/auto-wah"\n');
-    expect(mediatekRefs(dir)).toEqual(["@st0/audio/filter/auto-wah"]);
-  });
-
   it("finds the ones a NODE extends — the ordinary way to use one", () => {
     // A node reaches the library through `extends`, and missing it leaves the module uncached.
     projectNode("gtr", 'extends: "@st0/audio/filter/auto-wah"\n');
@@ -61,10 +49,10 @@ describe("the médiathèque modules a project names", () => {
   });
 
   it("ignores every other level", () => {
-    // `@workspace` and `@project` are folders this machine already has, so nothing is fetched.
-    projectModule("audio/a", 'extends: "@workspace/audio/thing"\n');
-    projectModule("audio/b", 'extends: "@engine/serum"\n');
-    projectModule("audio/c", "plugin: {type: internal}\n");
+    // `@workspace` and `@engine` are folders this machine already has, so nothing is fetched.
+    projectNode("a", 'extends: "@workspace/audio/thing"\n');
+    projectNode("b", 'extends: "@engine/serum"\n');
+    projectNode("c", "plugin: {type: internal}\n");
     expect(mediatekRefs(dir)).toEqual([]);
   });
 
@@ -77,7 +65,7 @@ describe("the médiathèque modules a project names", () => {
       'extends: "@st0/audio/amp/base"\n',
       "utf8",
     );
-    projectModule("audio/mine", 'extends: "@st0/audio/amp/child"\n');
+    projectNode("mine", 'extends: "@st0/audio/amp/child"\n');
     expect(mediatekRefs(dir)).toEqual([
       "@st0/audio/amp/base",
       "@st0/audio/amp/child",

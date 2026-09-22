@@ -6,6 +6,7 @@
 import { execFileSync } from "node:child_process";
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -25,12 +26,15 @@ const SCRIPT = join(
   "migrateSetAssemblies.ts",
 );
 
+let ws = "";
 let dir = "";
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "asm-mig-"));
+  ws = mkdtempSync(join(tmpdir(), "asm-mig-"));
+  dir = join(ws, "set.st0");
+  mkdirSync(dir, { recursive: true });
 });
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(ws, { recursive: true, force: true });
 });
 
 /** A fresh set with its boxes taken away — the set this migration exists to upgrade. */

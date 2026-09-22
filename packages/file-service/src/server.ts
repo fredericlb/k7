@@ -15,6 +15,9 @@ import { ensureLayout } from "@studio/mediatek/layout";
 import { configureMpv } from "@studio/mpv-player/player";
 import { createPlayerRouter } from "@studio/mpv-player/router";
 import { mediatekRoot } from "@studio/song/mediatekRoot";
+// st0's plugin contributions — commands and surface types — before anything reads a catalogue
+// or compiles a song. The LIST is the plugins package's; this process only calls the install.
+import { installBuiltinPlugins } from "@studio/st0-plugins/server";
 import type {
   MachineWorkspaceList,
   ServedProjectReply,
@@ -71,10 +74,6 @@ import {
   workspaceForRepo,
   workspaceNameFor,
 } from "./workspaces.ts";
-
-// st0's plugin contributions — commands and surface types — before anything reads a catalogue
-// or compiles a song. The LIST is the plugins package's; this process only calls the install.
-import { installBuiltinPlugins } from "@studio/st0-plugins/server";
 
 installBuiltinPlugins();
 

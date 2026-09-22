@@ -23,7 +23,7 @@ let dir: string;
 const logs: string[] = [];
 
 /** One lane, one event on beat 1 — addressed as `1:1:1`. */
-const LANE = `extends: "@studio/track"
+const LANE = `extends: "@meta/track"
 events:
   - { ref: kick, start: "1:1:1" }
 `;

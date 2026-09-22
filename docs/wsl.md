@@ -67,7 +67,7 @@ What crosses, and what does not:
   unrelated process, and `stopAll` would kill it), and `tray.log` opens with a line naming the
   platform that wrote it.
 - **Skipped**: `node_modules` (the mirror keeps its own, installed once — the host runs
-  esbuild and the Tauri CLI on the host), `.git`, `build`, `target`, `out`, `.turbo`, `.vite`,
+  esbuild and the Tauri CLI on the host), `.git`, `build`, `target`, `out`, `.vite`,
   `.claude`.
 - **`dist` is NOT skipped.** `engine/st0-tray/dist/index.html` is tracked by git: it is the tray's
   web assets, not build output, and Tauri stops with *"Unable to find your web assets"* without

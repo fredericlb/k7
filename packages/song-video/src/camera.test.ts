@@ -22,7 +22,7 @@ afterEach(() => {
 /** A project with one picture lane, and whatever graph the case is about. */
 function project(
   graph: string,
-  camNode = 'extends: "@engine/CAM"\ncamera: "Logitech BRIO"\n',
+  camNode = 'extends: "@meta/CAM"\ncamera: "Logitech BRIO"\n',
 ) {
   mkdirSync(join(dir, "video_tracks"), { recursive: true });
   mkdirSync(join(dir, "nodes"), { recursive: true });
@@ -54,7 +54,7 @@ describe("a camera wired to a picture lane", () => {
   });
 
   it("says the DEFAULT camera when the node names none", () => {
-    const g = loadGraph(project(WIRED, 'extends: "@engine/CAM"\n'));
+    const g = loadGraph(project(WIRED, 'extends: "@meta/CAM"\n'));
     // "" and absent are two different answers: one lane has a lens, the other has none.
     expect(compileVideoChains(dir, g).cameraByLane).toEqual({ main: "" });
   });
@@ -117,7 +117,7 @@ describe("a camera with no lane at all", () => {
   it("takes the rectangle its node names", () => {
     const dir2 = project(
       "modules:\n  cam: []\n  RENDER: [ VIDEO_OUT ]\n",
-      'extends: "@engine/CAM"\nframe: [40, 40, 320, 180]\n',
+      'extends: "@meta/CAM"\nframe: [40, 40, 320, 180]\n',
     );
     const lens = loadVideoProject(dir2).videoTracks.find((t) => t.id === "cam");
     expect([lens?.x, lens?.y, lens?.w, lens?.h]).toEqual([40, 40, 320, 180]);

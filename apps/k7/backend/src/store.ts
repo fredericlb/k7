@@ -1,12 +1,12 @@
-// Data access for sessions, highlights and comments — backed by Grist.
+// Data access for sessions, highlights and comments — backed by PocketBase.
 //
 // - Session metadata, the loudness envelope (JSON), highlights and comments
-//   live in Grist tables (see migrate.ts for the schema).
-// - The recording's BYTES live in the médiathèque's RECORDINGS zone; Grist keeps
-//   only the path to them. Cached on local disk so it can be streamed with HTTP
-//   Range for fast seeking. See docs/audio.md.
+//   live in PocketBase collections (see migrate.ts for the schema).
+// - The recording's BYTES live in the médiathèque's RECORDINGS zone; PocketBase
+//   keeps only the path to them. Cached on local disk so it can be streamed with
+//   HTTP Range for fast seeking. See docs/audio.md.
 // - A short in-memory cache of session rows keeps range requests / ownership
-//   checks from hitting Grist on every call.
+//   checks from hitting PocketBase on every call.
 
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -22,8 +22,8 @@ import type {
 } from "@k7/shared";
 import { sheetExt } from "@k7/shared/sheetKind";
 import { segment, sidecarFor } from "@studio/mediatek/song";
-import * as grist from "./grist.ts";
 import * as mediatek from "./mediatek.ts";
+import * as db from "./pocketbase.ts";
 import { envelopeOf } from "./songEnvelope.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -40,7 +40,7 @@ const sessionCache = new Map();
 async function getSessionRecord(uid) {
   const hit = sessionCache.get(uid);
   if (hit && hit.exp > Date.now()) return hit.rec;
-  const recs = await grist.listRecords("Sessions", { Uid: [uid] });
+  const recs = await db.listRecords("Sessions", { Uid: [uid] });
   const rec = recs[0] || null;
   sessionCache.set(uid, { rec, exp: Date.now() + SESSION_TTL_MS });
   return rec;
@@ -55,7 +55,7 @@ const releaseCache = new Map();
 async function getReleaseRecord(uid) {
   const hit = releaseCache.get(uid);
   if (hit && hit.exp > Date.now()) return hit.rec;
-  const recs = await grist.listRecords("Releases", { Uid: [uid] });
+  const recs = await db.listRecords("Releases", { Uid: [uid] });
   const rec = recs[0] || null;
   releaseCache.set(uid, { rec, exp: Date.now() + SESSION_TTL_MS });
   return rec;
@@ -118,13 +118,13 @@ export async function getOwner(uid) {
 // --- Sessions ---------------------------------------------------------------
 
 export async function listSessions(ownerId) {
-  const recs = await grist.listRecords("Sessions", { OwnerId: [ownerId] });
+  const recs = await db.listRecords("Sessions", { OwnerId: [ownerId] });
   const uids = recs.map((r) => r.fields.Uid);
   const comments = uids.length
-    ? await grist.listRecords("Comments", { SessionUid: uids })
+    ? await db.listRecords("Comments", { SessionUid: uids })
     : [];
   const markers = uids.length
-    ? await grist.listRecords("Markers", { SessionUid: uids })
+    ? await db.listRecords("Markers", { SessionUid: uids })
     : [];
   const byUid = new Map();
   for (const c of comments) {
@@ -156,11 +156,11 @@ export async function getSession(uid) {
   const rec = await getSessionRecord(uid);
   if (!rec) return null;
   const s = publicSession(rec);
-  const comments = await grist.listRecords("Comments", { SessionUid: [uid] });
+  const comments = await db.listRecords("Comments", { SessionUid: [uid] });
   s.annotations = comments
     .map(mapComment)
     .sort((a, b) => a.startSec - b.startSec);
-  const markers = await grist.listRecords("Markers", { SessionUid: [uid] });
+  const markers = await db.listRecords("Markers", { SessionUid: [uid] });
   s.markers = markers.map(mapMarker).sort((a, b) => a.atSec - b.atSec);
   return s;
 }
@@ -168,7 +168,7 @@ export async function getSession(uid) {
 export async function createSession(ownerId) {
   const uid = randomUUID();
   const createdAt = new Date().toISOString();
-  await grist.addRecords("Sessions", [
+  await db.addRecords("Sessions", [
     {
       Uid: uid,
       OwnerId: ownerId,
@@ -192,16 +192,16 @@ export async function createSession(ownerId) {
 
 export async function deleteSession(uid) {
   const rec = await getSessionRecord(uid);
-  const highlights = await grist.listRecords("Highlights", {
+  const highlights = await db.listRecords("Highlights", {
     SessionUid: [uid],
   });
-  await grist.deleteRecords(
+  await db.deleteRecords(
     "Highlights",
     highlights.map((h) => h.id),
   );
   // Markers are session-scoped (unlike moments) — remove them with the session.
-  const markers = await grist.listRecords("Markers", { SessionUid: [uid] });
-  await grist.deleteRecords(
+  const markers = await db.listRecords("Markers", { SessionUid: [uid] });
+  await db.deleteRecords(
     "Markers",
     markers.map((m) => m.id),
   );
@@ -212,7 +212,7 @@ export async function deleteSession(uid) {
     await mediatek.remove(rec.fields.RecordingPath).catch(() => {
       // A library that is down must not block a deletion; the orphan stays visible.
     });
-  if (rec) await grist.deleteRecords("Sessions", [rec.id]);
+  if (rec) await db.deleteRecords("Sessions", [rec.id]);
   invalidate(uid);
   safeUnlink(cachePathFor(rec));
   return Boolean(rec);
@@ -251,7 +251,7 @@ export async function saveRecording(
   if (!rec) return null;
 
   const recordingPath = await storeBytes(rec, buffer, ext);
-  await grist.patchRecord("Sessions", rec.id, {
+  await db.patchRecord("Sessions", rec.id, {
     RecordingPath: recordingPath,
     HasRecording: true,
     RecordingMime: mime,
@@ -316,7 +316,7 @@ export async function appendRecording(
 
   const recordingPath = await storeBytes(rec, combined, "webm");
   const oldCache = cachePathFor(rec);
-  await grist.patchRecord("Sessions", rec.id, {
+  await db.patchRecord("Sessions", rec.id, {
     RecordingPath: recordingPath,
     HasRecording: true,
     RecordingMime: combinedMime,
@@ -360,13 +360,13 @@ export async function getEnvelope(uid) {
 // --- Highlights -------------------------------------------------------------
 
 export async function replaceHighlights(uid, events) {
-  const existing = await grist.listRecords("Highlights", { SessionUid: [uid] });
-  await grist.deleteRecords(
+  const existing = await db.listRecords("Highlights", { SessionUid: [uid] });
+  await db.deleteRecords(
     "Highlights",
     existing.map((h) => h.id),
   );
   if (events.length) {
-    await grist.addRecords(
+    await db.addRecords(
       "Highlights",
       events.map((e) => ({
         SessionUid: uid,
@@ -396,7 +396,7 @@ export async function addAnnotation(
   };
   // OwnerId sits on the moment itself so it stays addressable after its session goes.
   const owner = ownerId || (await getOwner(uid));
-  const [{ id }] = await grist.addRecords("Comments", [
+  const [{ id }] = await db.addRecords("Comments", [
     {
       SessionUid: uid,
       OwnerId: owner,
@@ -419,9 +419,9 @@ export async function addAnnotation(
 }
 
 export async function updateAnnotation(uid, annId, patch) {
-  const before = (
-    await grist.listRecords("Comments", { SessionUid: [uid] })
-  ).find((r) => r.id === Number(annId));
+  const before = (await db.listRecords("Comments", { SessionUid: [uid] })).find(
+    (r) => r.id === annId,
+  );
   if (!before) return null;
 
   const fields: Record<string, unknown> = {};
@@ -430,7 +430,7 @@ export async function updateAnnotation(uid, annId, patch) {
   if (patch.text !== undefined) fields.Text = String(patch.text);
   if (patch.tags !== undefined)
     fields.Tags = normalizeTags(patch.tags).join(",");
-  await grist.patchRecord("Comments", Number(annId), fields);
+  await db.patchRecord("Comments", annId, fields);
 
   // A moved timespan makes the extracted clip wrong — drop it and re-extract.
   const rangeChanged =
@@ -439,25 +439,25 @@ export async function updateAnnotation(uid, annId, patch) {
     (fields.EndSec !== undefined &&
       fields.EndSec !== Number(before.fields.EndSec));
   if (rangeChanged) {
-    safeUnlink(clipCachePath(Number(annId)));
+    safeUnlink(clipCachePath(annId));
     await extractMomentClip(uid, {
-      id: Number(annId),
+      id: annId,
       fields: { ...before.fields, ...fields },
     }).catch((e) => console.error("moment auto re-extract failed:", e.message));
   }
 
-  const recs = await grist.listRecords("Comments", { SessionUid: [uid] });
-  const rec = recs.find((r) => r.id === Number(annId));
+  const recs = await db.listRecords("Comments", { SessionUid: [uid] });
+  const rec = recs.find((r) => r.id === annId);
   return rec ? mapComment(rec) : null;
 }
 
 export async function deleteAnnotation(uid, annId) {
-  const recs = await grist.listRecords("Comments", { SessionUid: [uid] });
+  const recs = await db.listRecords("Comments", { SessionUid: [uid] });
   // Only a moment of THIS session: the row id alone would reach anyone's — ../../docs/ownership.md.
-  const rec = recs.find((r) => r.id === Number(annId));
+  const rec = recs.find((r) => r.id === annId);
   if (!rec) return false;
   await forgetClip(rec);
-  await grist.deleteRecords("Comments", [rec.id]);
+  await db.deleteRecords("Comments", [rec.id]);
   safeUnlink(clipCachePath(rec.id));
   return true;
 }
@@ -471,7 +471,7 @@ export async function addMarker(uid, { atSec, comment }, ownerId) {
     createdAt: new Date().toISOString(),
   };
   const owner = ownerId || (await getOwner(uid));
-  const [{ id }] = await grist.addRecords("Markers", [
+  const [{ id }] = await db.addRecords("Markers", [
     {
       SessionUid: uid,
       OwnerId: owner,
@@ -485,21 +485,21 @@ export async function addMarker(uid, { atSec, comment }, ownerId) {
 
 export async function updateMarker(uid, markerId, patch) {
   // Found in THIS session before anything is written, or a row id would edit anyone's marker.
-  const recs = await grist.listRecords("Markers", { SessionUid: [uid] });
-  const rec = recs.find((r) => r.id === Number(markerId));
+  const recs = await db.listRecords("Markers", { SessionUid: [uid] });
+  const rec = recs.find((r) => r.id === markerId);
   if (!rec) return null;
   const fields: Record<string, unknown> = {};
   if (patch.atSec !== undefined) fields.AtSec = Number(patch.atSec);
   if (patch.comment !== undefined) fields.Comment = String(patch.comment);
-  await grist.patchRecord("Markers", rec.id, fields);
+  await db.patchRecord("Markers", rec.id, fields);
   return mapMarker({ id: rec.id, fields: { ...rec.fields, ...fields } });
 }
 
 export async function deleteMarker(uid, markerId) {
-  const recs = await grist.listRecords("Markers", { SessionUid: [uid] });
-  const rec = recs.find((r) => r.id === Number(markerId));
+  const recs = await db.listRecords("Markers", { SessionUid: [uid] });
+  const rec = recs.find((r) => r.id === markerId);
   if (!rec) return false;
-  await grist.deleteRecords("Markers", [rec.id]);
+  await db.deleteRecords("Markers", [rec.id]);
   return true;
 }
 
@@ -517,12 +517,12 @@ function publicMoment(rec, createdAtByUid) {
 }
 
 async function ownerSessionCreatedAt(ownerId) {
-  const sessions = await grist.listRecords("Sessions", { OwnerId: [ownerId] });
+  const sessions = await db.listRecords("Sessions", { OwnerId: [ownerId] });
   return new Map(sessions.map((s) => [s.fields.Uid, s.fields.CreatedAt || ""]));
 }
 
 export async function listMoments(ownerId) {
-  const recs = await grist.listRecords("Comments", { OwnerId: [ownerId] });
+  const recs = await db.listRecords("Comments", { OwnerId: [ownerId] });
   const createdAtByUid = await ownerSessionCreatedAt(ownerId);
   return recs
     .map((r) => publicMoment(r, createdAtByUid))
@@ -535,8 +535,8 @@ export async function listMoments(ownerId) {
 
 /** A moment by its own id, owner-scoped, with the envelope and markers its player needs. */
 export async function getMoment(ownerId, momentId) {
-  const recs = await grist.listRecords("Comments", { OwnerId: [ownerId] });
-  const rec = recs.find((r) => r.id === Number(momentId));
+  const recs = await db.listRecords("Comments", { OwnerId: [ownerId] });
+  const rec = recs.find((r) => r.id === momentId);
   if (!rec) return null;
   const createdAtByUid = await ownerSessionCreatedAt(ownerId);
   const base = publicMoment(rec, createdAtByUid);
@@ -561,11 +561,11 @@ export async function getMoment(ownerId, momentId) {
 }
 
 export async function deleteMoment(ownerId, momentId) {
-  const recs = await grist.listRecords("Comments", { OwnerId: [ownerId] });
-  const rec = recs.find((r) => r.id === Number(momentId));
+  const recs = await db.listRecords("Comments", { OwnerId: [ownerId] });
+  const rec = recs.find((r) => r.id === momentId);
   if (!rec) return false;
   await forgetClip(rec);
-  await grist.deleteRecords("Comments", [rec.id]);
+  await db.deleteRecords("Comments", [rec.id]);
   safeUnlink(clipCachePath(rec.id));
   return true;
 }
@@ -579,8 +579,8 @@ async function forgetClip(rec) {
 /** Ensure a moment's clip is cached, looked up by owner + moment id alone. */
 export async function ensureMomentClipCached(ownerId, momentId) {
   // The owner is checked BEFORE the cache: a cached file must not answer for someone else's moment.
-  const recs = await grist.listRecords("Comments", { OwnerId: [ownerId] });
-  const rec = recs.find((r) => r.id === Number(momentId));
+  const recs = await db.listRecords("Comments", { OwnerId: [ownerId] });
+  const rec = recs.find((r) => r.id === momentId);
   if (!rec?.fields.ClipPath) return null;
   const filePath = clipCachePath(rec.id);
   if (fs.existsSync(filePath)) return { filePath, mime: "audio/webm" };
@@ -592,7 +592,7 @@ export async function ensureMomentClipCached(ownerId, momentId) {
 
 // Pins on a moment's clip timeline: the shared Markers table, keyed by MomentId not SessionUid.
 export async function listMomentMarkers(ownerId, momentId) {
-  const recs = await grist.listRecords("Markers", {
+  const recs = await db.listRecords("Markers", {
     MomentId: [String(momentId)],
   });
   return recs
@@ -607,7 +607,7 @@ export async function addMomentMarker(ownerId, momentId, { atSec, comment }) {
     comment: String(comment ?? ""),
     createdAt: new Date().toISOString(),
   };
-  const [{ id }] = await grist.addRecords("Markers", [
+  const [{ id }] = await db.addRecords("Markers", [
     {
       MomentId: String(momentId),
       OwnerId: ownerId,
@@ -620,29 +620,29 @@ export async function addMomentMarker(ownerId, momentId, { atSec, comment }) {
 }
 
 export async function updateMomentMarker(ownerId, momentId, markerId, patch) {
-  const recs = await grist.listRecords("Markers", {
+  const recs = await db.listRecords("Markers", {
     MomentId: [String(momentId)],
   });
   const rec = recs.find(
-    (r) => r.id === Number(markerId) && r.fields.OwnerId === ownerId,
+    (r) => r.id === markerId && r.fields.OwnerId === ownerId,
   );
   if (!rec) return null;
   const fields: Record<string, unknown> = {};
   if (patch.atSec !== undefined) fields.AtSec = Number(patch.atSec);
   if (patch.comment !== undefined) fields.Comment = String(patch.comment);
-  await grist.patchRecord("Markers", rec.id, fields);
+  await db.patchRecord("Markers", rec.id, fields);
   return mapMarker({ id: rec.id, fields: { ...rec.fields, ...fields } });
 }
 
 export async function deleteMomentMarker(ownerId, momentId, markerId) {
-  const recs = await grist.listRecords("Markers", {
+  const recs = await db.listRecords("Markers", {
     MomentId: [String(momentId)],
   });
   const rec = recs.find(
-    (r) => r.id === Number(markerId) && r.fields.OwnerId === ownerId,
+    (r) => r.id === markerId && r.fields.OwnerId === ownerId,
   );
   if (!rec) return false;
-  await grist.deleteRecords("Markers", [rec.id]);
+  await db.deleteRecords("Markers", [rec.id]);
   return true;
 }
 
@@ -670,7 +670,7 @@ async function extractMomentClip(sessionUid, rec) {
   });
   if (previous && previous !== clipPath) await mediatek.remove(previous);
 
-  await grist.patchRecord("Comments", rec.id, {
+  await db.patchRecord("Comments", rec.id, {
     Validated: true,
     ClipPath: clipPath,
     Envelope: sliced ? JSON.stringify(sliced) : "",
@@ -701,10 +701,10 @@ function sliceEnvelope(env, startSec, endSec) {
 
 // Manual re-extract, for a moment whose automatic one could not run.
 export async function validateMoment(sessionUid, momentId) {
-  const moments = await grist.listRecords("Comments", {
+  const moments = await db.listRecords("Comments", {
     SessionUid: [sessionUid],
   });
-  const rec = moments.find((m) => m.id === Number(momentId));
+  const rec = moments.find((m) => m.id === momentId);
   if (!rec) return null;
   const ok = await extractMomentClip(sessionUid, rec);
   if (!ok) throw new Error("session has no recording to clip");
@@ -714,10 +714,10 @@ export async function validateMoment(sessionUid, momentId) {
 /** Ensure a validated moment's clip is on disk; returns { filePath, mime }. */
 export async function ensureClipCached(sessionUid, momentId) {
   // The moment must be THIS session's before the cache answers: a cached file has no owner of its own.
-  const moments = await grist.listRecords("Comments", {
+  const moments = await db.listRecords("Comments", {
     SessionUid: [sessionUid],
   });
-  const rec = moments.find((m) => m.id === Number(momentId));
+  const rec = moments.find((m) => m.id === momentId);
   if (!rec?.fields.ClipPath) return null;
   const filePath = clipCachePath(rec.id);
   if (fs.existsSync(filePath)) return { filePath, mime: "audio/webm" };
@@ -882,7 +882,7 @@ export async function getReleaseOwner(uid) {
 }
 
 export async function listReleases(ownerId) {
-  const recs = await grist.listRecords("Releases", { OwnerId: [ownerId] });
+  const recs = await db.listRecords("Releases", { OwnerId: [ownerId] });
   return recs
     .map(publicRelease)
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -905,7 +905,7 @@ export async function getRelease(uid) {
 export async function createRelease(ownerId, fields, firstVersion) {
   const uid = randomUUID();
   const createdAt = new Date().toISOString();
-  await grist.addRecords("Releases", [
+  await db.addRecords("Releases", [
     {
       Uid: uid,
       OwnerId: ownerId,
@@ -931,7 +931,7 @@ export async function createRelease(ownerId, fields, firstVersion) {
 // The release for a st0 song id, owner-scoped so two users' ids cannot collide.
 export async function getReleaseBySongUuid(ownerId, songUuid) {
   if (!songUuid) return null;
-  const recs = await grist.listRecords("Releases", {
+  const recs = await db.listRecords("Releases", {
     SongUuid: [songUuid],
     OwnerId: [ownerId],
   });
@@ -943,7 +943,7 @@ export async function deleteRelease(uid) {
   if (!rec) return false;
   const versions = await getVersionRecords(uid);
   for (const v of versions) await forgetVersionFolder(v);
-  await grist.deleteRecords(
+  await db.deleteRecords(
     "Versions",
     versions.map((v) => v.id),
   );
@@ -953,7 +953,7 @@ export async function deleteRelease(uid) {
       safeUnlink(versionTrackCachePath(v.fields.Uid, t)),
     );
   });
-  await grist.deleteRecords("Releases", [rec.id]);
+  await db.deleteRecords("Releases", [rec.id]);
   invalidateRelease(uid);
   invalidateVersions(uid);
   return true;
@@ -966,7 +966,7 @@ const versionsCache = new Map();
 async function getVersionRecords(releaseUid) {
   const hit = versionsCache.get(releaseUid);
   if (hit && hit.exp > Date.now()) return hit.recs;
-  const recs = await grist.listRecords("Versions", {
+  const recs = await db.listRecords("Versions", {
     ReleaseUid: [releaseUid],
   });
   versionsCache.set(releaseUid, { recs, exp: Date.now() + SESSION_TTL_MS });
@@ -1019,7 +1019,7 @@ export async function addVersion(
     fs.writeFileSync(versionTrackCachePath(uid, entry), t.buffer);
   }
 
-  await grist.addRecords("Versions", [
+  await db.addRecords("Versions", [
     {
       Uid: uid,
       ReleaseUid: releaseUid,
@@ -1072,7 +1072,7 @@ export async function replaceVersionAudio(releaseUid, versionUid, mixdown) {
       title: String(rec.fields.Name || "Version"),
     },
   );
-  await grist.patchRecord("Versions", rec.id, {
+  await db.patchRecord("Versions", rec.id, {
     AudioPath: master,
     AudioMime: mixdown.mime,
     // Another file has another shape; the next reader measures this one.
@@ -1093,7 +1093,7 @@ export async function setDefaultVersion(releaseUid, versionUid) {
   for (const v of versions) {
     const shouldBe = v.fields.Uid === versionUid;
     if (Boolean(v.fields.IsDefault) !== shouldBe) {
-      await grist.patchRecord("Versions", v.id, { IsDefault: shouldBe });
+      await db.patchRecord("Versions", v.id, { IsDefault: shouldBe });
     }
   }
   invalidateVersions(releaseUid);
@@ -1104,7 +1104,7 @@ export async function renameVersion(releaseUid, versionUid, name) {
   const versions = await getVersionRecords(releaseUid);
   const v = versions.find((x) => x.fields.Uid === versionUid);
   if (!v) return null;
-  await grist.patchRecord("Versions", v.id, { Name: String(name) });
+  await db.patchRecord("Versions", v.id, { Name: String(name) });
   // The folder keeps its name and only the sidecar is rewritten — ../../docs/audio.md.
   if (v.fields.AudioPath) {
     const release = await getReleaseRecord(releaseUid);
@@ -1131,7 +1131,7 @@ export async function deleteVersion(releaseUid, versionUid) {
   const v = versions.find((x) => x.fields.Uid === versionUid);
   if (!v) return false;
   await forgetVersionFolder(v);
-  await grist.deleteRecords("Versions", [v.id]);
+  await db.deleteRecords("Versions", [v.id]);
   safeUnlink(versionCachePath(versionUid));
   tracksOf(v).forEach((t) => safeUnlink(versionTrackCachePath(versionUid, t)));
   invalidateVersions(releaseUid);
@@ -1163,7 +1163,7 @@ export async function versionEnvelope(releaseUid, versionUid) {
   const audio = await ensureVersionAudioCached(releaseUid, versionUid);
   if (!audio) return null;
   const measured = await envelopeOf(audio.filePath);
-  await grist.patchRecord("Versions", rec.id, {
+  await db.patchRecord("Versions", rec.id, {
     Envelope: JSON.stringify(measured),
   });
   invalidateVersions(releaseUid);
@@ -1174,10 +1174,14 @@ export async function ensureVersionAudioCached(releaseUid, versionUid) {
   const versions = await getVersionRecords(releaseUid);
   const rec = versions.find((v) => v.fields.Uid === versionUid);
   if (!rec?.fields.AudioPath) return null;
-  const mime = rec.fields.AudioMime || "audio/mpeg";
+  const remote = String(rec.fields.AudioPath);
+  const mime = mediatek.streamedMime(
+    remote,
+    rec.fields.AudioMime || "audio/mpeg",
+  );
   const filePath = versionCachePath(versionUid);
   if (!fs.existsSync(filePath))
-    await mediatek.download(String(rec.fields.AudioPath), filePath);
+    await mediatek.downloadStreamable(remote, filePath);
   return { filePath, mime };
 }
 
@@ -1233,9 +1237,11 @@ export async function ensureVersionTrackCached(
   if (!rec) return null;
   const entry = tracksOf(rec).find((t) => t.id === trackId);
   if (!entry?.path) return null;
-  const filePath = versionTrackCachePath(versionUid, entry);
-  if (!fs.existsSync(filePath)) await mediatek.download(entry.path, filePath);
-  return { filePath, mime: entry.mime, name: entry.name };
+  const mime = mediatek.streamedMime(entry.path, entry.mime);
+  const filePath = versionTrackCachePath(versionUid, { ...entry, mime });
+  if (!fs.existsSync(filePath))
+    await mediatek.downloadStreamable(entry.path, filePath);
+  return { filePath, mime, name: entry.name };
 }
 
 // --- Pages (a named collection of releases) ---------------------------------
@@ -1255,7 +1261,7 @@ function publicPage(rec) {
 }
 
 async function getPageRecord(uid) {
-  const recs = await grist.listRecords("Pages", { Uid: [uid] });
+  const recs = await db.listRecords("Pages", { Uid: [uid] });
   return recs[0] || null;
 }
 
@@ -1265,12 +1271,18 @@ export async function getPageOwner(uid) {
 }
 
 export async function nametagExists(nametag, exceptUid?) {
-  const recs = await grist.listRecords("Pages", { Nametag: [nametag] });
+  const recs = await db.listRecords("Pages", { Nametag: [nametag] });
   return recs.some((r) => r.fields.Uid !== exceptUid);
 }
 
+// The nametag is the whole address of a public page — see routes/publicPages.ts.
+export async function getPageByNametag(nametag) {
+  const recs = await db.listRecords("Pages", { Nametag: [nametag] });
+  return recs[0] ? getPage(recs[0].fields.Uid) : null;
+}
+
 export async function listPages(ownerId) {
-  const recs = await grist.listRecords("Pages", { OwnerId: [ownerId] });
+  const recs = await db.listRecords("Pages", { OwnerId: [ownerId] });
   return recs
     .map(publicPage)
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -1291,7 +1303,7 @@ export async function getPage(uid) {
 export async function createPage(ownerId, { nametag, releaseIds }) {
   const uid = randomUUID();
   const createdAt = new Date().toISOString();
-  await grist.addRecords("Pages", [
+  await db.addRecords("Pages", [
     {
       Uid: uid,
       OwnerId: ownerId,
@@ -1310,14 +1322,14 @@ export async function updatePage(uid, patch) {
   if (patch.nametag !== undefined) fields.Nametag = patch.nametag;
   if (patch.releaseIds !== undefined)
     fields.ReleaseUids = patch.releaseIds.join(",");
-  await grist.patchRecord("Pages", rec.id, fields);
+  await db.patchRecord("Pages", rec.id, fields);
   return getPage(uid);
 }
 
 export async function deletePage(uid) {
   const rec = await getPageRecord(uid);
   if (!rec) return false;
-  await grist.deleteRecords("Pages", [rec.id]);
+  await db.deleteRecords("Pages", [rec.id]);
   return true;
 }
 
@@ -1338,7 +1350,7 @@ function publicSinging(rec, viewer = "") {
 }
 
 async function getSingingRecord(uid) {
-  const recs = await grist.listRecords("SingingExercises", { Uid: [uid] });
+  const recs = await db.listRecords("SingingExercises", { Uid: [uid] });
   return recs[0] || null;
 }
 
@@ -1349,7 +1361,7 @@ export async function getSingingExerciseOwner(uid) {
 
 export async function listSingingExercises(viewer = "") {
   // Everyone's, not the viewer's: the practice book is common ground, like the songbook.
-  const recs = await grist.listRecords("SingingExercises");
+  const recs = await db.listRecords("SingingExercises");
   return recs
     .map((rec) => publicSinging(rec, viewer))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -1360,7 +1372,7 @@ export async function createSingingExercise(
   { title, description, videoUrl },
 ) {
   const uid = randomUUID();
-  await grist.addRecords("SingingExercises", [
+  await db.addRecords("SingingExercises", [
     {
       Uid: uid,
       OwnerId: ownerId,
@@ -1383,7 +1395,7 @@ export async function updateSingingExercise(uid, patch, viewer = "") {
   if (patch.description !== undefined) fields.Description = patch.description;
   if (patch.videoUrl !== undefined) fields.VideoUrl = patch.videoUrl;
   if (Object.keys(fields).length)
-    await grist.patchRecord("SingingExercises", rec.id, fields);
+    await db.patchRecord("SingingExercises", rec.id, fields);
   const after = await getSingingRecord(uid);
   return after ? publicSinging(after, viewer) : null;
 }
@@ -1391,7 +1403,7 @@ export async function updateSingingExercise(uid, patch, viewer = "") {
 export async function deleteSingingExercise(uid) {
   const rec = await getSingingRecord(uid);
   if (!rec) return false;
-  await grist.deleteRecords("SingingExercises", [rec.id]);
+  await db.deleteRecords("SingingExercises", [rec.id]);
   return true;
 }
 
@@ -1402,7 +1414,7 @@ const songCache = new Map();
 async function getSongRecord(uid) {
   const hit = songCache.get(uid);
   if (hit && hit.exp > Date.now()) return hit.rec;
-  const recs = await grist.listRecords("Songs", { Uid: [uid] });
+  const recs = await db.listRecords("Songs", { Uid: [uid] });
   const rec = recs[0] || null;
   songCache.set(uid, { rec, exp: Date.now() + SESSION_TTL_MS });
   return rec;
@@ -1435,7 +1447,7 @@ function timingsOf(rec) {
 /** The song uids `ownerId` starred: a favourite is a person's, not the song's — ../../docs/ownership.md. */
 async function favoritesOf(ownerId): Promise<Set<string>> {
   if (!ownerId) return new Set();
-  const recs = await grist.listRecords("SongFavorites", { OwnerId: [ownerId] });
+  const recs = await db.listRecords("SongFavorites", { OwnerId: [ownerId] });
   return new Set(recs.map((r) => String(r.fields.SongUid)));
 }
 
@@ -1477,7 +1489,7 @@ export async function getSongOwner(uid) {
 /** Every song — the songbook is shared — with `viewer`'s favourites floated to the top. */
 export async function listSongs(viewer = "") {
   const [recs, favorites] = await Promise.all([
-    grist.listRecords("Songs"),
+    db.listRecords("Songs"),
     favoritesOf(viewer),
   ]);
   return recs
@@ -1500,16 +1512,14 @@ export async function getSong(uid, viewer = "") {
 export async function setSongFavorite(uid, viewer, favorite: boolean) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
-  const mine = await grist.listRecords("SongFavorites", {
+  const mine = await db.listRecords("SongFavorites", {
     OwnerId: [viewer],
     SongUid: [uid],
   });
   if (favorite && mine.length === 0)
-    await grist.addRecords("SongFavorites", [
-      { SongUid: uid, OwnerId: viewer },
-    ]);
+    await db.addRecords("SongFavorites", [{ SongUid: uid, OwnerId: viewer }]);
   if (!favorite && mine.length > 0)
-    await grist.deleteRecords(
+    await db.deleteRecords(
       "SongFavorites",
       mine.map((r) => r.id),
     );
@@ -1519,7 +1529,7 @@ export async function setSongFavorite(uid, viewer, favorite: boolean) {
 export async function createSong(ownerId, { artist, title }) {
   const uid = randomUUID();
   const createdAt = new Date().toISOString();
-  await grist.addRecords("Songs", [
+  await db.addRecords("Songs", [
     {
       Uid: uid,
       OwnerId: ownerId,
@@ -1545,7 +1555,7 @@ export async function updateSong(uid, patch) {
   if (patch.tablature !== undefined) fields.Tablature = String(patch.tablature);
   if (patch.lyricTimings !== undefined)
     fields.LyricTimings = JSON.stringify(patch.lyricTimings);
-  await grist.patchRecord("Songs", rec.id, fields);
+  await db.patchRecord("Songs", rec.id, fields);
   invalidateSong(uid);
   return getSong(uid);
 }
@@ -1553,17 +1563,16 @@ export async function updateSong(uid, patch) {
 export async function deleteSong(uid) {
   const rec = await getSongRecord(uid);
   if (!rec) return false;
-  await grist.deleteRecords("Songs", [rec.id]);
+  await db.deleteRecords("Songs", [rec.id]);
   invalidateSong(uid);
   return true;
 }
 
-// --- Song sheets (PDF / image attachments) ----------------------------------
+// --- Song sheets (PDF / image / MusicXML files — not audio, so PocketBase holds them) -------
 
-// SheetFiles keeps the raw ids, for Grist's own UI; SheetMeta the order, name and type.
+// SheetMeta is the order, name and type; the bytes live in the song_sheets collection.
 async function writeSheets(rec, sheets) {
-  await grist.patchRecord("Songs", rec.id, {
-    SheetFiles: ["L", ...sheets.map((s) => Number(s.attachmentId))],
+  await db.patchRecord("Songs", rec.id, {
     SheetMeta: JSON.stringify(sheets),
   });
 }
@@ -1575,19 +1584,20 @@ export async function addSheetFiles(uid, files) {
   const existing = sheetsOf(rec);
   const added: {
     id: string;
-    attachmentId: number;
+    attachmentId: string;
     name: string;
     mime: string;
   }[] = [];
   for (const file of files) {
     const name = file.name || "sheet";
-    const attachmentId = await grist.uploadAttachment(
+    const attachmentId = await db.uploadAttachment(
       file.buffer,
       file.mime,
       name,
+      rec.id,
     );
     const entry = {
-      id: String(attachmentId),
+      id: attachmentId,
       attachmentId,
       name,
       mime: file.mime,
@@ -1612,6 +1622,9 @@ export async function deleteSheetFile(uid, fileId) {
     rec,
     existing.filter((s) => s.id !== fileId),
   );
+  await db.deleteAttachment(gone.attachmentId).catch(() => {
+    // The metadata row is what the songbook reads; a stray blob left behind is not fatal.
+  });
   safeUnlink(sheetCachePath(uid, gone));
   invalidateSong(uid);
   return getSong(uid);
@@ -1629,7 +1642,7 @@ export async function setSongAudio(uid, { buffer, mime, name }) {
   // A path of its own, keyed by the song: a re-upload overwrites, and a delete is exact.
   const target = `recordings/songbook/${uid}.${songAudioExt(mime, name)}`;
   await mediatek.putFile(target, buffer);
-  await grist.patchRecord("Songs", rec.id, {
+  await db.patchRecord("Songs", rec.id, {
     AudioPath: target,
     AudioMime: mime,
     AudioName: name,
@@ -1654,7 +1667,7 @@ export async function deleteSongAudio(uid) {
   safeUnlink(
     songAudioCachePath(uid, String(rec.fields.AudioMime || ""), previous),
   );
-  await grist.patchRecord("Songs", rec.id, {
+  await db.patchRecord("Songs", rec.id, {
     AudioPath: "",
     AudioMime: "",
     AudioName: "",
@@ -1669,8 +1682,9 @@ export async function deleteSongAudio(uid) {
 
 const instrumentalTarget = (uid) =>
   `recordings/songbook/${uid}-instrumental.flac`;
+// The upload is always FLAC (instrumentalTarget above), so /stream always transcodes it: mp3 on disk.
 const instrumentalCachePath = (uid) =>
-  path.join(CACHE_DIR, `song-instrumental-${uid}.flac`);
+  path.join(CACHE_DIR, `song-instrumental-${uid}.mp3`);
 
 /** Forget a song's instrumental, bytes first, row after — also what a new or removed track calls. */
 async function clearInstrumental(uid, rec) {
@@ -1680,7 +1694,7 @@ async function clearInstrumental(uid, rec) {
   if (!previous) return;
   await safeRemote(previous);
   safeUnlink(instrumentalCachePath(uid));
-  await grist.patchRecord("Songs", rec.id, {
+  await db.patchRecord("Songs", rec.id, {
     InstrumentalPath: "",
     InstrumentalMime: "",
     InstrumentalName: "",
@@ -1692,7 +1706,7 @@ export async function setSongInstrumental(uid, { buffer, mime, name }) {
   if (!rec) return null;
   const target = instrumentalTarget(uid);
   await mediatek.putFile(target, buffer);
-  await grist.patchRecord("Songs", rec.id, {
+  await db.patchRecord("Songs", rec.id, {
     InstrumentalPath: target,
     InstrumentalMime: mime,
     InstrumentalName: name,
@@ -1717,11 +1731,16 @@ export async function ensureSongInstrumentalCached(uid) {
     ? String(rec.fields.InstrumentalPath)
     : "";
   if (!remote) return null;
+  const mime = mediatek.streamedMime(
+    remote,
+    String(rec.fields.InstrumentalMime || "audio/flac"),
+  );
   const filePath = instrumentalCachePath(uid);
-  if (!fs.existsSync(filePath)) await mediatek.download(remote, filePath);
+  if (!fs.existsSync(filePath))
+    await mediatek.downloadStreamable(remote, filePath);
   return {
     filePath,
-    mime: String(rec.fields.InstrumentalMime || "audio/flac"),
+    mime,
     name: String(rec.fields.InstrumentalName || ""),
   };
 }
@@ -1731,9 +1750,13 @@ export async function ensureSongAudioCached(uid) {
   const rec = await getSongRecord(uid);
   const remote = rec?.fields.AudioPath ? String(rec.fields.AudioPath) : "";
   if (!remote) return null;
-  const mime = String(rec.fields.AudioMime || "audio/mpeg");
+  const mime = mediatek.streamedMime(
+    remote,
+    String(rec.fields.AudioMime || "audio/mpeg"),
+  );
   const filePath = songAudioCachePath(uid, mime, remote);
-  if (!fs.existsSync(filePath)) await mediatek.download(remote, filePath);
+  if (!fs.existsSync(filePath))
+    await mediatek.downloadStreamable(remote, filePath);
   return { filePath, mime, name: String(rec.fields.AudioName || "") };
 }
 
@@ -1750,17 +1773,16 @@ export async function songEnvelope(uid) {
       // Unreadable is the same as absent: measure it again rather than refuse to draw.
     }
   }
-  const audio = await ensureSongAudioCached(uid);
-  if (!audio) return null;
-  const measured = await envelopeOf(audio.filePath);
-  await grist.patchRecord("Songs", rec.id, {
+  // pl8 already holds the bytes and has ffmpeg — no local download needed to measure them.
+  const measured = await envelopeOf(String(rec.fields.AudioPath));
+  await db.patchRecord("Songs", rec.id, {
     Envelope: JSON.stringify(measured),
   });
   invalidateSong(uid);
   return measured;
 }
 
-/** A sheet file on disk, fetched from Grist if need be, so it can be streamed. */
+/** A sheet file on disk, fetched from PocketBase if need be, so it can be streamed. */
 export async function ensureSheetFileCached(uid, fileId) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
@@ -1768,7 +1790,7 @@ export async function ensureSheetFileCached(uid, fileId) {
   if (!entry) return null;
   const filePath = sheetCachePath(uid, entry);
   if (!fs.existsSync(filePath)) {
-    const buffer = await grist.downloadAttachment(Number(entry.attachmentId));
+    const buffer = await db.downloadAttachment(entry.attachmentId);
     fs.writeFileSync(filePath, buffer);
   }
   return { filePath, mime: entry.mime, name: entry.name };
@@ -1842,11 +1864,11 @@ async function safeRemote(remote) {
   }
 }
 
-// One sheet file's cache path: keyed by attachment id, with a sniffable extension.
+// One sheet file's cache path: keyed by its own id, with a sniffable extension.
 function sheetCachePath(uid, entry) {
   return path.join(
     CACHE_DIR,
-    `sheet-${uid}-${entry.attachmentId}.${sheetExt(entry.name ?? "", entry.mime)}`,
+    `sheet-${uid}-${entry.id}.${sheetExt(entry.name ?? "", entry.mime)}`,
   );
 }
 

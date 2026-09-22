@@ -47,10 +47,10 @@ describe("shared module folder: category level", () => {
   it("keys a categorised module with the category in its ref", () => {
     // No engine catalogue: the machine's scanned plugins would drown a vocabulary of three.
     const refs = loadModuleRefs(project, {});
-    // Minus `@studio/…`: the built-in doc module answers whatever is on disk.
+    // Minus `@meta/…`: the built-in doc module answers whatever is on disk.
     expect(
       Object.keys(refs)
-        .filter((r) => !r.startsWith("@studio/"))
+        .filter((r) => !r.startsWith("@meta/"))
         .sort(),
     ).toEqual([
       "@workspace/audio/delay/adt",

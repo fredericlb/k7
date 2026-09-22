@@ -35,7 +35,7 @@ function workspacePackages() {
   });
 }
 
-const isAggregator = (dev) => dev.trimStart().startsWith("turbo run");
+const isAggregator = (dev) => dev.trimStart().startsWith("concurrently");
 const isTypecheck = (dev) => /\btsc\b/.test(dev) && dev.includes("--watch");
 
 const tasks = workspacePackages()

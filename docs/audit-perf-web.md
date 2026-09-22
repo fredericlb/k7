@@ -166,8 +166,8 @@ watcher-backed cache: both sources must be wired, not one or the other.
    counting frames, `getWatched()` returning what chokidar holds. An integer does not fluctuate.
    What does NOT work: replacing `fs.readdirSync` from a script, because named imports of a `node:`
    module are frozen at binding — the counter stays at zero without a word.
-3. `npx turbo run test --continue` stays the net: an optimisation that changes an answer is a
-   regression, not an optimisation.
+3. `npm run test` stays the net — it runs every workspace regardless of an earlier one failing,
+   by default: an optimisation that changes an answer is a regression, not an optimisation.
 4. For C++, additionally: `cmake --build --preset windows-msvc`, the **four** named test targets then
    `ctest -R studio_`, and a `--list-audio-devices`. Dev-workstation trap: the dev session rebuilds
    on its own, but `Copy-Item` PRESERVES the source file's date — a `main.cpp` restored from a copy

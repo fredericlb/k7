@@ -101,9 +101,7 @@ describe("the palette's one-field view of completions()", () => {
   });
 
   it("offers nothing for an argument with no vocabulary", () => {
-    expect(completeArg("track order", ["melody"], "", ["melody"])).toEqual(
-      [],
-    ); // the position
+    expect(completeArg("track order", ["melody"], "", ["melody"])).toEqual([]); // the position
     expect(completeArg("node new", ["instruments/synth"], "")).toEqual([]); // the node name
   });
 });

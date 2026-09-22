@@ -42,7 +42,11 @@ analysed by the surface that made it.
 
 `GET /api/mediatek/analysis` reports the state: what it is on, how many are left, what failed, and
 whether there is a decoder. That route exists because a sweep with no readout is indistinguishable
-from a sweep that died.
+from a sweep that died. A different question — one FILE's own measurement, not the sweep's
+progress — is `GET /api/mediatek/envelope`: `ensureAnalysed` under the same fingerprint check, its
+`rms`/`transients`/`sampleRate`/`seconds` returned as JSON. k7's `songEnvelope.ts` is its first
+caller, for the songbook's reference track — a path outside `songs/`, so the sweep never reaches
+it, and the route measures it on request instead.
 
 ## Why a sidecar does not disturb the catalogue
 

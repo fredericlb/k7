@@ -1,7 +1,7 @@
 // api.ts — two destinations, and NEITHER is z0's backend. What this editor opens is a git
 // repository the médiathèque owns, on the machine the account works from: so which engines
-// exist comes from pl8 (under `/pl8`), who you are comes from st0's `/auth/*` at the origin root,
-// and the project's files come from that machine's file service, cross-origin, through
+// exist comes from pl8, on its own subdomain, who you are comes from st0's `/auth/*`, and
+// the project's files come from that machine's file service, cross-origin, through
 // @studio/project-shell.
 //
 // z0's own backend holds the game — its guest sessions, its Grist state, its one render
@@ -11,10 +11,15 @@
 import { engineAccess } from "@studio/engine-browser/access";
 import { projectApi } from "@studio/project-shell/project";
 import type { PublicEngine } from "@studio/web-protocol";
-import { SERVICE_PATHS } from "@studio/web-protocol/services";
+import { serviceUrl } from "@studio/web-protocol/services";
 
-/** Where pl8 answers; read from the table, which is the one place a prefix is spelled. */
-const PL8 = SERVICE_PATHS.pl8;
+/** Where pl8 answers — its OWN subdomain now, resolved from this tab's own origin. Guarded
+ * for `window`, not just written as a browser-only assumption: a node-environment test
+ * importing this file (even for something else in it) would otherwise crash on import. */
+const PL8 =
+  typeof window === "undefined"
+    ? ""
+    : serviceUrl(window.location.origin, "pl8");
 
 async function json<T>(res: Response, what: string): Promise<T> {
   if (!res.ok) throw new Error(`${what} ${res.status}`);

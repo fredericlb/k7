@@ -6,7 +6,14 @@
 // is the address the panel asks the engine for a parameter value by. A module you can plainly
 // hear then draws as one that failed to load, with empty knobs.
 
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,14 +21,21 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildGraphDoc } from "./graphDoc";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMOS = join(here, "..", "..", "..", "demos");
+const SONG = join(DEMOS, "synth-demo.st0");
 
+let root: string;
 let dir: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "fs-jsdsp-"));
+  root = mkdtempSync(join(tmpdir(), "fs-jsdsp-"));
+  dir = join(root, "synth-demo.st0");
   cpSync(SONG, dir, { recursive: true });
-  const folder = join(dir, "modules", "instruments", "synth");
+  // The demo's own "synth" lives at `@workspace`, its sibling in the Examples workspace.
+  const demoModules = join(DEMOS, "_modules");
+  if (existsSync(demoModules))
+    cpSync(demoModules, join(root, "_modules"), { recursive: true });
+  const folder = join(root, "_modules", "instruments", "synth");
   mkdirSync(folder, { recursive: true });
   writeFileSync(
     join(folder, "module.yaml"),
@@ -30,7 +44,7 @@ beforeEach(() => {
   );
   writeFileSync(join(folder, "jsdsp.ts"), "// dsp\n", "utf8");
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 const lead = () =>
   buildGraphDoc(dir).chains.melody?.use.find((s) => s.module === "lead");

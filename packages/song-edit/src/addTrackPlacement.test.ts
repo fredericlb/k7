@@ -26,7 +26,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("putting a clip on a lane", () => {
   it("writes the reference and the position, and nothing else", () => {
-    lane('extends: "@studio/track"\n');
+    lane('extends: "@meta/track"\n');
     addTrackPlacement(dir, "gtr", "riff", "3:1");
     expect(laneText()).toContain("ref: riff");
     expect(laneText()).toContain('start: "3:1"');
@@ -35,15 +35,13 @@ describe("putting a clip on a lane", () => {
   });
 
   it("creates the clips list on a lane that had none", () => {
-    lane('extends: "@studio/track"\n');
+    lane('extends: "@meta/track"\n');
     addTrackPlacement(dir, "gtr", "riff", "1:1");
     expect(laneText()).toContain("events:");
   });
 
   it("keeps the placements already there", () => {
-    lane(
-      'extends: "@studio/track"\nevents: [ { ref: first, start: "1:1" } ]\n',
-    );
+    lane('extends: "@meta/track"\nevents: [ { ref: first, start: "1:1" } ]\n');
     addTrackPlacement(dir, "gtr", "second", "5:1");
     expect(laneText()).toContain("ref: first");
     expect(laneText()).toContain("ref: second");
@@ -51,7 +49,7 @@ describe("putting a clip on a lane", () => {
 
   it("lands on the set the lane is PLAYING, not the first one", () => {
     lane(
-      'extends: "@studio/track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
+      'extends: "@meta/track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );
     addTrackPlacement(dir, "gtr", "riff", "2:1");
     // The running set gets it; the file's top-level list stays empty.
@@ -71,7 +69,7 @@ describe("putting a clip on a lane", () => {
   });
 
   it("does not touch the clip itself — a placement is a reference", () => {
-    lane('extends: "@studio/track"\n');
+    lane('extends: "@meta/track"\n');
     mkdirSync(join(dir, "clips"), { recursive: true });
     const clip = join(dir, "clips", "riff.yaml");
     writeFileSync(clip, "source: clips/riff.wav\n", "utf8");
@@ -83,9 +81,7 @@ describe("putting a clip on a lane", () => {
 // The bulk form a PASTE lands through: one rewrite of the lane's file, so it is atomic.
 describe("putting several on a lane at once", () => {
   it("writes every one, keeping what was there", () => {
-    lane(
-      'extends: "@studio/track"\nevents: [ { ref: first, start: "1:1" } ]\n',
-    );
+    lane('extends: "@meta/track"\nevents: [ { ref: first, start: "1:1" } ]\n');
     addTrackPlacements(dir, "gtr", [
       { ref: "riff", start: "3:1" },
       { ref: "riff", start: "5:1" },
@@ -98,7 +94,7 @@ describe("putting several on a lane at once", () => {
   });
 
   it("keeps a loop count when one is given, and writes none otherwise", () => {
-    lane('extends: "@studio/track"\n');
+    lane('extends: "@meta/track"\n');
     addTrackPlacements(dir, "gtr", [
       { ref: "riff", start: "1:1", loop: 4 },
       { ref: "solo", start: "9:1" },
@@ -110,7 +106,7 @@ describe("putting several on a lane at once", () => {
 
   /** The WHOLE placement: a trimmed, faded event pasted as an untrimmed one is the bug this pins. */
   it("writes the window, the fades and the flags a paste hands it", () => {
-    lane('extends: "@studio/track"\n');
+    lane('extends: "@meta/track"\n');
     addTrackPlacements(dir, "gtr", [
       {
         ref: "riff",
@@ -134,7 +130,7 @@ describe("putting several on a lane at once", () => {
 
   /** A timecode window comes out QUOTED: bare, `from: 2:1` reads back as 121 on a file that still loads. */
   it("quotes a window spelled as a timecode", () => {
-    lane('extends: "@studio/track"\n');
+    lane('extends: "@meta/track"\n');
     addTrackPlacements(dir, "gtr", [
       { ref: "seq", start: "1:1", from: "2:1", to: "4:1" },
     ]);
@@ -145,7 +141,7 @@ describe("putting several on a lane at once", () => {
 
   it("is ONE rewrite, so the same material may repeat at several positions", () => {
     // Folding the transforms means one read and one write whatever the count.
-    lane('extends: "@studio/track"\n');
+    lane('extends: "@meta/track"\n');
     addTrackPlacements(
       dir,
       "gtr",
@@ -156,7 +152,7 @@ describe("putting several on a lane at once", () => {
 
   it("lands on the set the lane is PLAYING, like the singular", () => {
     lane(
-      'extends: "@studio/track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
+      'extends: "@meta/track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );
     addTrackPlacements(dir, "gtr", [{ ref: "riff", start: "2:1" }]);
     const text = laneText();

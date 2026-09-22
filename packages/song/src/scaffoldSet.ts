@@ -362,7 +362,7 @@ function stemLaneNode(deck: string, stem: Stem): string {
     `#\n` +
     `# Muted in graph.yaml, like every source lane here: it is heard through the bus only, where\n` +
     `# it is summed with the three beside it — an unmuted lane would reach the master twice.\n` +
-    `extends: "@studio/track"\n`
+    `extends: "@meta/track"\n`
   );
 }
 
@@ -676,7 +676,7 @@ function deckTrack(letter: string, wiring: string): string {
     `# file IS its arrangement; on a deck the material is whichever song the browser put on\n` +
     `# ten seconds ago, so what is committed is the deck's SETTINGS and its place in\n` +
     `# the graph. ${wiring}\n` +
-    `extends: "@studio/track"\n`
+    `extends: "@meta/track"\n`
   );
 }
 

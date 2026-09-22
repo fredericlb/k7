@@ -114,7 +114,7 @@ describe("the intersection, resolved once", () => {
   });
 });
 
-const LANE = `extends: "@studio/track"
+const LANE = `extends: "@meta/track"
 events:
   - { ref: kick, start: "1:1" }
   - { ref: snare, start: "2:1" }

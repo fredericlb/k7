@@ -22,7 +22,10 @@ const config: StorybookConfig = {
   staticDirs: [
     "../apps/k7/frontend/public",
     { from: "../node_modules/@coderline/alphatab/dist/font", to: "/font" },
-    { from: "../node_modules/@coderline/alphatab/dist/soundfont", to: "/soundfont" },
+    {
+      from: "../node_modules/@coderline/alphatab/dist/soundfont",
+      to: "/soundfont",
+    },
   ],
   // A standalone root Vite pipeline, so Tailwind v4 is added here or no token compiles.
   viteFinal: async (viteConfig) => {

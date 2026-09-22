@@ -29,13 +29,12 @@ const graph = (body: string): void =>
 const lane = (id: string): void =>
   writeFileSync(
     join(dir, "nodes", `${id}.yaml`),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
 const module_ = (name: string, plugin: string): void => {
-  mkdirSync(join(dir, "modules", "audio", name), { recursive: true });
   writeFileSync(
-    join(dir, "modules", "audio", name, "module.yaml"),
+    join(dir, "nodes", `${name}.yaml`),
     `plugin:\n  type: internal\n  name: ${plugin}\n`,
     "utf8",
   );

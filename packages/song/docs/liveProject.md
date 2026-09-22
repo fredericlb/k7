@@ -9,11 +9,10 @@ rig.st0/
   project.yaml            no layers — a name, a tempo, a rate (+ a viewport in live-video)
   settings.yaml           metronome off
   graph.yaml              four lines, six in live-video
-  modules/io/IN/          the live input
-  modules/io/OUT/         the sink
+  nodes/IN.yaml           the live input — OUT is a built-in sink, no file needed
   nodes/fader.yaml        the fader — a use of the library's shared strip
   nodes/rec.yaml          the recorder, on the master run — a rig is something you keep
-  modules/io/CAM/         live-video ONLY: the webcam
+  nodes/CAM.yaml          live-video ONLY: the webcam
   surfaces/viewport.yaml  live-video ONLY: the frame it fills
 ```
 
@@ -151,7 +150,7 @@ The picture's half is the sound's half again, sentence for sentence, and that is
 | | sound | picture |
 |---|---|---|
 | the source | `IN` — an interface channel | `CAM` — a webcam |
-| owned as | `modules/io/IN/module.yaml` | `modules/io/CAM/module.yaml` |
+| owned as | `nodes/IN.yaml` | `nodes/CAM.yaml` |
 | chosen by | `channel:`, blank until you pick | `camera:`, blank meaning the machine's own |
 | lands on | `MIX`, the mixer's sum | `RENDER`, where lanes composite |
 | its strip | a track it materialises | a layer it synthesises |

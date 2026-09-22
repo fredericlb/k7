@@ -20,6 +20,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
+let root: string;
 let dir: string;
 const logs: string[] = [];
 const host = () =>
@@ -40,7 +41,9 @@ const make = async (target: string, node: string) => {
 };
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-place-"));
+  root = mkdtempSync(join(tmpdir(), "td-place-"));
+  dir = join(root, "song.st0");
+  mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n",
@@ -48,31 +51,32 @@ beforeEach(() => {
   );
   writeFileSync(
     join(dir, "graph.yaml"),
-    "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
+    'modules:\n  gtr: [ "@workspace/audio/amp" ]\n  "@workspace/audio/amp": [ OUT ]\n',
     "utf8",
   );
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(
     join(dir, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
-  mkdirSync(join(dir, "modules", "audio", "amp"), { recursive: true });
+  // A module lives at `@workspace` now — beside the project, in the workspace's own `_modules`.
+  mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
   writeFileSync(
-    join(dir, "modules", "audio", "amp", "module.yaml"),
+    join(root, "_modules", "audio", "amp", "module.yaml"),
     "plugin:\n  type: internal\n  name: Chorus\n",
     "utf8",
   );
   logs.length = 0;
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("module new — the creating half", () => {
   it("writes the MODULE and nothing else — no node, no chain", async () => {
     const before = chains();
     await runCommand("module new audio/wah", host(), "cli");
     expect(
-      existsSync(join(dir, "modules", "audio", "wah", "module.yaml")),
+      existsSync(join(root, "_modules", "audio", "wah", "module.yaml")),
     ).toBe(true);
     // A module is not a use of one. `node new` makes those, and it is what a chain names.
     expect(existsSync(join(dir, "nodes", "wah.yaml"))).toBe(false);
@@ -109,8 +113,8 @@ describe("node new — in the graph, wired to nothing", () => {
     await make("audio/wah", "w1");
     expect(chains()).toContain("w1: []");
     // …and it touched nothing that was already wired.
-    expect(chains()).toContain("gtr: [ amp ]");
-    expect(chains()).toContain("amp: [ OUT ]");
+    expect(chains()).toContain('gtr: [ "@workspace/audio/amp" ]');
+    expect(chains()).toContain('"@workspace/audio/amp": [ OUT ]');
   });
 
   it("puts one nobody placed above the origin rather than wherever the layout would", async () => {
@@ -128,10 +132,10 @@ describe("node new — in the graph, wired to nothing", () => {
 describe("node insert", () => {
   it("splices an existing node into the arrow", async () => {
     await make("audio/gate", "g1");
-    await runCommand("node insert gtr amp g1", host(), "cli");
+    await runCommand("node insert gtr @workspace/audio/amp g1", host(), "cli");
     expect(chains()).toContain("gtr: [ g1 ]");
-    expect(chains()).toContain("g1: [ amp ]");
-    expect(chains()).toContain("amp: [ OUT ]");
+    expect(chains()).toContain('g1: [ "@workspace/audio/amp" ]');
+    expect(chains()).toContain('"@workspace/audio/amp": [ OUT ]');
   });
 
   it("refuses when the two ends aren't an arrow, and writes nothing", async () => {
@@ -144,7 +148,11 @@ describe("node insert", () => {
 
   it("refuses a node nothing answers to", async () => {
     const before = chains();
-    await runCommand("node insert gtr amp nope", host(), "cli");
+    await runCommand(
+      "node insert gtr @workspace/audio/amp nope",
+      host(),
+      "cli",
+    );
     expect(logs.join(" ")).toMatch(/no node "nope"/);
     expect(chains()).toBe(before);
   });
@@ -153,18 +161,18 @@ describe("node insert", () => {
     // The drawing writes its own pins down (`graph pin`), so by the time anything is spliced the two ends have them.
     writeFileSync(
       join(dir, "graph.yaml"),
-      "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\npositions:\n  gtr: { x: 100, y: 40 }\n  amp: { x: 500, y: 140 }\n",
+      'modules:\n  gtr: [ "@workspace/audio/amp" ]\n  "@workspace/audio/amp": [ OUT ]\npositions:\n  gtr: { x: 100, y: 40 }\n  "@workspace/audio/amp": { x: 500, y: 140 }\n',
       "utf8",
     );
     await make("audio/gate", "g1");
-    await runCommand("node insert gtr amp g1", host(), "cli");
+    await runCommand("node insert gtr @workspace/audio/amp g1", host(), "cli");
     expect(chains()).toContain("g1: { x: 300, y: 90 }");
   });
 
   it("keeps the pin it was born with when the two ends have none", async () => {
     // Nothing to be halfway BETWEEN — a graph.yaml no drawing has ever pinned, which is a CLI-only project.
     await make("audio/gate", "g1");
-    await runCommand("node insert gtr amp g1", host(), "cli");
+    await runCommand("node insert gtr @workspace/audio/amp g1", host(), "cli");
     expect(chains()).toContain("g1: { x: 0, y: -30 }");
   });
 });
@@ -199,7 +207,7 @@ describe("node insert, onto the master run", () => {
   it("refuses when the sum already runs somewhere else, rather than splitting it", async () => {
     writeFileSync(
       join(dir, "graph.yaml"),
-      "modules:\n  gtr: [ MIX ]\n  MIX: [ amp ]\n  amp: [ OUT ]\n",
+      'modules:\n  gtr: [ MIX ]\n  MIX: [ "@workspace/audio/amp" ]\n  "@workspace/audio/amp": [ OUT ]\n',
       "utf8",
     );
     await make("audio/comp", "m1");
@@ -213,9 +221,9 @@ describe("node insert, onto the master run", () => {
 // A COLD module works on audio already on disk, so the refusal belongs to the WIRING verb.
 describe("a cold node", () => {
   const cold = async () => {
-    mkdirSync(join(dir, "modules", "audio", "squash"), { recursive: true });
+    mkdirSync(join(root, "_modules", "audio", "squash"), { recursive: true });
     writeFileSync(
-      join(dir, "modules", "audio", "squash", "module.yaml"),
+      join(root, "_modules", "audio", "squash", "module.yaml"),
       "cold: true\nplugin:\n  type: jsdsp\n  name: Normalize\n",
       "utf8",
     );
@@ -225,30 +233,25 @@ describe("a cold node", () => {
   it("is refused over a chain with no file input, and the graph is untouched", async () => {
     await cold();
     const before = chains();
-    await runCommand("node insert gtr amp s1", host(), "cli");
+    await runCommand("node insert gtr @workspace/audio/amp s1", host(), "cli");
     expect(logs.join(" ")).toContain("COLD");
     expect(chains()).toBe(before);
   });
 
   it("goes in once the chain draws from a file", async () => {
     await cold();
-    mkdirSync(join(dir, "modules", "io", "FILE"), { recursive: true });
-    writeFileSync(
-      join(dir, "modules", "io", "FILE", "module.yaml"),
-      "io: file\n",
-      "utf8",
-    );
+    // io is a plain NODE now, never a shared module — one file carries the whole of it.
     writeFileSync(
       join(dir, "nodes", "take.yaml"),
-      'extends: "@project/FILE"\nsource: "clips/x.wav"\n',
+      'io: file\nsource: "clips/x.wav"\n',
       "utf8",
     );
     writeFileSync(
       join(dir, "graph.yaml"),
-      "modules:\n  gtr: [ take ]\n  take: [ amp ]\n  amp: [ OUT ]\n",
+      'modules:\n  gtr: [ take ]\n  take: [ "@workspace/audio/amp" ]\n  "@workspace/audio/amp": [ OUT ]\n',
       "utf8",
     );
-    await runCommand("node insert take amp s1", host(), "cli");
+    await runCommand("node insert take @workspace/audio/amp s1", host(), "cli");
     expect(logs.join(" ")).not.toContain("COLD");
     expect(chains()).toContain("s1");
   });

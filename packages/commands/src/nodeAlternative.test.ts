@@ -15,13 +15,16 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
+let root: string;
 let dir: string;
 const logs: string[] = [];
 let reloaded = 0;
 
 /** One lane through one amp node, the amp carrying a second set of settings. */
-function song(node: string): string {
-  const d = mkdtempSync(join(tmpdir(), "td-modalt-"));
+function song(node: string): { root: string; dir: string } {
+  const r = mkdtempSync(join(tmpdir(), "td-modalt-"));
+  const d = join(r, "song.st0");
+  mkdirSync(d, { recursive: true });
   writeFileSync(
     join(d, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
@@ -35,26 +38,22 @@ function song(node: string): string {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
   writeFileSync(join(d, "nodes", "ampli.yaml"), node, "utf8");
-  for (const [type, name, body] of [
-    ["io", "OUT", "io: out\n"],
-    [
-      "audio",
-      "amp",
-      "plugin: { type: internal, name: Chorus }\nparams: { Gain: 1, Tone: 5 }\n",
-    ],
-  ] as const) {
-    mkdirSync(join(d, "modules", type, name), { recursive: true });
-    writeFileSync(join(d, "modules", type, name, "module.yaml"), body, "utf8");
-  }
-  return d;
+  // A module lives at `@workspace` now, beside the project.
+  mkdirSync(join(r, "_modules", "audio", "amp"), { recursive: true });
+  writeFileSync(
+    join(r, "_modules", "audio", "amp", "module.yaml"),
+    "plugin: { type: internal, name: Chorus }\nparams: { Gain: 1, Tone: 5 }\n",
+    "utf8",
+  );
+  return { root: r, dir: d };
 }
 
 const WITH_CRUNCH =
-  'extends: "@project/audio/amp"\nparams: { Gain: 3 }\n' +
+  'extends: "@workspace/audio/amp"\nparams: { Gain: 3 }\n' +
   "alternatives:\n  - name: crunch\n    params: { Gain: 9 }\n";
 
 const host = () =>
@@ -75,11 +74,11 @@ beforeEach(() => {
   logs.length = 0;
   reloaded = 0;
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("node alternative select", () => {
   it("writes the selection and re-reads the project", async () => {
-    dir = song(WITH_CRUNCH);
+    ({ root, dir } = song(WITH_CRUNCH));
     await runCommand("node alternative select ampli crunch", host(), "cli");
     expect(file()).toContain("alternative: crunch");
     // A set may change any field — the plugin, the panel — so there is nothing cheap to diff.
@@ -87,7 +86,7 @@ describe("node alternative select", () => {
   });
 
   it("LISTS them, marking the one that is on, when no name is given", async () => {
-    dir = song(WITH_CRUNCH);
+    ({ root, dir } = song(WITH_CRUNCH));
     await runCommand("node alternative select ampli", host(), "cli");
     expect(logs.join(" ")).toContain("[1]");
     expect(logs.join(" ")).toContain("crunch");
@@ -95,13 +94,13 @@ describe("node alternative select", () => {
   });
 
   it("says so when the module has only its own settings", async () => {
-    dir = song('extends: "@project/audio/amp"\n');
+    ({ root, dir } = song('extends: "@workspace/audio/amp"\n'));
     await runCommand("node alternative select ampli", host(), "cli");
     expect(logs.join(" ")).toContain("has one set of settings");
   });
 
   it("refuses a name the module does not have, and writes nothing", async () => {
-    dir = song(WITH_CRUNCH);
+    ({ root, dir } = song(WITH_CRUNCH));
     await runCommand("node alternative select ampli ghost", host(), "cli");
     expect(logs.join(" ")).toContain("no alternative");
     expect(file()).toBe(WITH_CRUNCH);
@@ -111,7 +110,7 @@ describe("node alternative select", () => {
 
 describe("node alternative create / copy", () => {
   it("adds an empty one and switches to it", async () => {
-    dir = song(WITH_CRUNCH);
+    ({ root, dir } = song(WITH_CRUNCH));
     await runCommand("node alternative create ampli clean", host(), "cli");
     expect(file()).toContain("- name: clean");
     expect(file()).toContain("alternative: clean");
@@ -119,7 +118,7 @@ describe("node alternative create / copy", () => {
   });
 
   it("copies what the CURRENT set states, not the module's own", async () => {
-    dir = song(WITH_CRUNCH);
+    ({ root, dir } = song(WITH_CRUNCH));
     await runCommand("node alternative select ampli crunch", host(), "cli");
     await runCommand("node alternative copy ampli crunchier", host(), "cli");
     const after = file();
@@ -129,14 +128,14 @@ describe("node alternative create / copy", () => {
   });
 
   it("refuses a name already taken", async () => {
-    dir = song(WITH_CRUNCH);
+    ({ root, dir } = song(WITH_CRUNCH));
     await runCommand("node alternative create ampli crunch", host(), "cli");
     expect(logs.join(" ")).toContain("already has");
     expect(file()).toBe(WITH_CRUNCH);
   });
 
   it("names an unnamed one by its position, counting the module's own as 1", async () => {
-    dir = song(WITH_CRUNCH);
+    ({ root, dir } = song(WITH_CRUNCH));
     await runCommand("node alternative create ampli", host(), "cli");
     expect(logs.join(" ")).toContain("'3'");
   });

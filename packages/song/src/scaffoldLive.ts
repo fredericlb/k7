@@ -67,11 +67,9 @@ export function liveProjectFiles(name: string): Record<string, string> {
       `metronome: false\n` +
       `count_in: ${DEFAULT_COUNT_IN}\n`,
 
-    "modules/io/OUT/module.yaml":
-      `# The stereo-output sink. A module reaches it by listing OUT as a destination.\n` +
-      `io: out\n`,
+    // OUT needs no file at all — a built-in sink name (docs/moduleTypes.md).
 
-    [`modules/io/${LIVE_INPUT}/module.yaml`]:
+    [`nodes/${LIVE_INPUT}.yaml`]:
       `# The live input off the audio interface — what this project exists to hear.\n` +
       `#\n` +
       `# It names NO channel, and that is deliberate: which socket you are plugged into is a fact\n` +
@@ -180,7 +178,7 @@ export function liveVideoProjectFiles(name: string): Record<string, string> {
 
     "project.yaml": liveProjectYaml(name, true),
 
-    [`modules/io/${LIVE_CAMERA}/module.yaml`]:
+    [`nodes/${LIVE_CAMERA}.yaml`]:
       `# The webcam — what this project exists to SHOW, beside the input it exists to hear.\n` +
       `#\n` +
       `# It names NO lens, for the reason the input names no channel: which camera you are on is\n` +

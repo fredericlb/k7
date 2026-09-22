@@ -4,10 +4,11 @@
 // process against the loader's own schemas. Layout + mapping: docs/import.md.
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { basename, dirname, extname, join } from "node:path";
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { scannedPlugins } from "@studio/song/engineCatalogue";
 import { SHARED_STRIP } from "@studio/song/scaffoldLive";
+import { SHARED_MODULES_PATH } from "@studio/song/sharedFolders";
 import { materialWindow } from "@studio/song-edit/materialWindow";
 import {
   MIX_NODE,
@@ -235,7 +236,7 @@ function trackText(t: TrackOut, placements: Record<string, unknown>[]): string {
   // No `name` field, and the mute is the module's bypass rather than anything here — see docs/import.md.
   const value: Record<string, unknown> = {};
   if (t.color) value.color = t.color;
-  value.extends = "@studio/track";
+  value.extends = "@meta/track";
   // The lane file's own key is `events:`, not `clips:`: these are placements of the material.
   value.events = placements;
   return yamlText(value, [["events"]]);
@@ -265,11 +266,7 @@ export function emitFolder(
   extsFile?: string,
 ): EmitStats {
   mkdirSync(outDir, { recursive: true });
-  // The stereo-output sink is a module like any other; module files are evaluated on their own, so no package clause.
-  writeFile(
-    join(outDir, "modules/io/OUT/module.yaml"),
-    yamlText({ io: "out" }),
-  );
+  // OUT needs no module of its own — a built-in sink name, docs/moduleTypes.md ("The five built-in outputs").
 
   // Plugin state rides as a .vstpreset beside whichever file owns it — see docs/import.md.
 
@@ -290,8 +287,19 @@ export function emitFolder(
         ? "transformers"
         : "audio";
 
-  // Modules keyed by the PLUGIN and not its settings, so nodes are only paid for where they differ.
+  // Modules keyed by the PLUGIN and not its settings, so nodes are only paid for where they differ —
+  // seeded with what the WORKSPACE's `_modules` already holds, since that is where a module now
+  // lands: an import must not silently reuse or shadow another song's module of the same name.
   const usedModuleNames = new Set<string>();
+  const workspaceModulesDir = resolve(outDir, SHARED_MODULES_PATH);
+  for (const type of ["audio", "instruments", "transformers"]) {
+    try {
+      for (const name of readdirSync(join(workspaceModulesDir, type)))
+        usedModuleNames.add(name.toLowerCase());
+    } catch {
+      /* no such type folder yet — nothing to avoid */
+    }
+  }
   const moduleOf = new Map<string, ModuleDef>();
   const modules: ModuleDef[] = [];
   // `owner` is the slug of the chain this insert sits on — the node's name.
@@ -640,7 +648,8 @@ export function emitFolder(
   let moduleNodes = 0;
   let nodeFiles = 0;
   for (const b of liveModules) {
-    const dir = `modules/${b.folder}/${b.name}`;
+    // A module now lives at `@workspace`, beside the project rather than inside it.
+    const dir = join(workspaceModulesDir, b.folder, b.name);
     const known = !verify || cachedNames.has(b.pluginName.toLowerCase());
     // A sole insert's state belongs in module.yaml (node === "").
     const sole = b.inserts.length === 1 && b.inserts[0].node === "";
@@ -683,7 +692,7 @@ export function emitFolder(
       : `${b.pluginName} — used ${b.inserts.length} times in this song, so each use is a\n` +
         `NODE in nodes/ that extends this module. The plugin is declared once here;\n` +
         `each node carries only its own settings.`;
-    writeFile(join(outDir, `${dir}/module.yaml`), yamlText(value, [], note));
+    writeFile(join(dir, "module.yaml"), yamlText(value, [], note));
     moduleNodes++;
 
     for (const ins of b.inserts) {
@@ -694,7 +703,7 @@ export function emitFolder(
           join(outDir, `nodes/${ins.node}.yaml`),
           yamlText(
             {
-              extends: `@project/${b.folder}/${b.name}`,
+              extends: `@workspace/${b.folder}/${b.name}`,
               ...(params ? { params } : {}),
             },
             [],
@@ -704,11 +713,12 @@ export function emitFolder(
         nodeFiles++;
       }
       if (ins.preset && assets[ins.preset]) {
-        // Beside the file whose state it is — the node's, or the module's folder for a sole use.
+        // Beside the file whose state it is — the node's (in the project), or the module's folder
+        // (in the workspace) for a sole use — `dir` is already absolute, `nodes/` is not.
         const at = ins.node
-          ? `nodes/${ins.node}.vstpreset`
-          : `${dir}/${b.name}.vstpreset`;
-        writeFile(join(outDir, at), assets[ins.preset]);
+          ? join(outDir, `nodes/${ins.node}.vstpreset`)
+          : join(dir, `${b.name}.vstpreset`);
+        writeFile(at, assets[ins.preset]);
         modulePresetFiles++;
       }
     }

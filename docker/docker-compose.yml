@@ -1,0 +1,148 @@
+# The hosted half only: st0, pl8 and k7 each their OWN image and container now — no nginx
+# in any of the three, see apps/<app>/docker/Dockerfile. z0 is still one image sharing
+# nginx internally (apps/z0/docker/), since it hasn't moved off st0's own hostname. No
+# engine, no file-service, no tray: those run on the musician's own machine (the desktop
+# app bundles them), never in these images, and this stack talks to them over the network
+# the same way a browser would.
+#
+# Traefik fronts FOUR containers now instead of one: Host() routing st0/pl8/k7 straight to
+# each one's own backend port (no nginx to hand off to), and z0 by a PathPrefix(`/z0`) rule
+# layered on st0's own hostname — st0 still answers everything else there. That's the
+# topology env.yaml's COOKIE_DOMAIN/TRUSTED_ORIGINS document.
+#
+# The shared login this enables — one "studio.sid" good on all three hosts, and pl8
+# answering CORS for the other two — comes from cookieDomain/trustedOrigins being resolved
+# by every setupAuth() call (commons/packages/oidc) straight from the SAME
+# COOKIE_DOMAIN/TRUSTED_ORIGINS/SESSION_SECRET below, repeated on all four services because
+# each is now its own process with its own environment — there is no shared container to
+# inherit them from anymore.
+
+x-shared-auth: &shared-auth
+  SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET — see .env.example}
+  COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+  TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OIDC_SCOPES: ${OIDC_SCOPES:-}
+
+services:
+  st0:
+    image: dev.frediver.se/frediverse/studio/st0:${APP_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *shared-auth
+    volumes:
+      - data:/data
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.st0.rule=Host(`${ST0_DOMAIN:-st0.app}`)
+      - traefik.http.routers.st0.entrypoints=websecure
+      - traefik.http.routers.st0.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.services.st0.loadbalancer.server.port=8789
+
+  pl8:
+    image: dev.frediver.se/frediverse/studio/pl8:${APP_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *shared-auth
+      # Signs the bearer token k7 pushes recordings with — see docs/tokens.md.
+      # Unset falls back to a value derived from SESSION_SECRET, which works but
+      # ties token validity to the login secret's rotation; set it explicitly.
+      API_TOKEN_SECRET: ${API_TOKEN_SECRET:-}
+      # Without this, @studio/mediatek defaults to a per-machine state dir
+      # (~/.st0/mediatek) instead of the volume below, and the library is empty.
+      STUDIO_MEDIATEK: /library
+    volumes:
+      # pl8 IS this volume — apps/pl8/docker/Dockerfile.
+      - library:/library
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.pl8.rule=Host(`${PL8_DOMAIN:-play.st0.app}`)
+      - traefik.http.routers.pl8.entrypoints=websecure
+      - traefik.http.routers.pl8.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.services.pl8.loadbalancer.server.port=8795
+
+  k7:
+    image: dev.frediver.se/frediverse/studio/k7:${APP_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *shared-auth
+      # Signed with pl8's API_TOKEN_SECRET above (sub "service:k7") — without it
+      # a rehearsal recording has nowhere to push to. `npm run tokens` mints one
+      # from a checkout; here it must be minted and set by hand.
+      MEDIATEK_TOKEN: ${MEDIATEK_TOKEN:-}
+      # Only needed if PL8_DOMAIN below is not play.st0.app — the default in code
+      # points at that fixed host regardless of what PL8_DOMAIN is set to.
+      MEDIATEK_URL: ${MEDIATEK_URL:-}
+      # The pocketbase service above, reached over the container network.
+      POCKETBASE_URL: ${POCKETBASE_URL:-http://pocketbase:8090}
+      POCKETBASE_EMAIL: ${POCKETBASE_EMAIL:?set POCKETBASE_EMAIL — see .env.example}
+      POCKETBASE_PASSWORD: ${POCKETBASE_PASSWORD:?set POCKETBASE_PASSWORD — see .env.example}
+    volumes:
+      - k7-data:/app/apps/k7/backend/data
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.k7.rule=Host(`${K7_DOMAIN:-k7.st0.app}`)
+      - traefik.http.routers.k7.entrypoints=websecure
+      - traefik.http.routers.k7.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.services.k7.loadbalancer.server.port=8787
+
+  # k7's data + song-sheet store — apps/k7/docs/pocketbase.md. k7 itself reaches it
+  # over the container network, by service name; not routed through Traefik.
+  # Community image (no official one is published); pin a version for prod rather
+  # than trusting `latest`. First boot has no superuser — create one with
+  # `docker compose exec pocketbase /pb/pocketbase superuser create <email> <password>`
+  # and put those same values in POCKETBASE_EMAIL / POCKETBASE_PASSWORD for k7.
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    restart: unless-stopped
+    volumes:
+      - pocketbase-data:/pb_data
+    networks:
+      - traefik
+    ports:
+      # One port for both: the admin web UI is at /_/, the REST API at /api/*.
+      # Published straight on the host, not through Traefik — there is no
+      # auth in front of this beyond PocketBase's own login, so bind it to a
+      # trusted interface/VPN or firewall it off in a real deployment.
+      - "${POCKETBASE_PORT:-8090}:8090"
+
+  z0:
+    image: dev.frediver.se/frediverse/studio/z0:${APP_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *shared-auth
+      # z0's backend only; unset is none — e.g. "--latest".
+      EXTRA_FLAGS: ${EXTRA_FLAGS:-}
+      # Without this, nobody's group membership admits them to the editor,
+      # presenter, monitor or remote — the game plays but stays unrunnable.
+      AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      # More specific than st0's bare Host() rule, so it wins for /z0 on the same
+      # hostname — an explicit priority, not left to rule-length inference, since a
+      # mistake here means the game silently loses its own container to st0's.
+      - traefik.http.routers.z0.rule=Host(`${ST0_DOMAIN:-st0.app}`) && PathPrefix(`/z0`)
+      - traefik.http.routers.z0.priority=10
+      - traefik.http.routers.z0.entrypoints=websecure
+      - traefik.http.routers.z0.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.services.z0.loadbalancer.server.port=80
+
+networks:
+  traefik:
+    external: true
+
+volumes:
+  library:
+  data:
+  k7-data:
+  pocketbase-data:

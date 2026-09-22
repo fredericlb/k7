@@ -25,7 +25,7 @@ import { parse } from "yaml";
 import { newModuleAlternative } from "./projectEdit";
 
 /** A lane on its SECOND set, which states nothing — so it plays the module's own arrangement. */
-const INHERITING = `extends: "@studio/track"
+const INHERITING = `extends: "@meta/track"
 events:
   - { ref: take1_a, start: "1:1" }
   - { ref: take1_b, start: "5:1" }
@@ -35,7 +35,7 @@ alternative: "2"
 `;
 
 /** The same lane on a second set that states an arrangement of its OWN. */
-const OWN = `extends: "@studio/track"
+const OWN = `extends: "@meta/track"
 events:
   - { ref: take1_a, start: "1:1" }
 alternatives:
@@ -121,7 +121,7 @@ describe("a lane playing an alternative", () => {
 
   it("still edits the module's own list when the FIRST set is on", () => {
     // The ordinary case, and the one that must not move: no `alternative:` key at all.
-    const plain = `extends: "@studio/track"
+    const plain = `extends: "@meta/track"
 events:
   - { ref: a, start: "1:1" }
 `;
@@ -132,7 +132,7 @@ events:
 });
 
 /** A lane on its own, no sets yet — what `create` is asked about most. */
-const PLAIN = `extends: "@studio/track"
+const PLAIN = `extends: "@meta/track"
 events:
   - { ref: take1_a, start: "1:1" }
   - { ref: take1_b, start: "5:1" }
@@ -151,7 +151,7 @@ describe("creating an alternative", () => {
   });
 
   it("does NOT blank anything on a module that is not a lane", () => {
-    const amp = `extends: "@project/audio/amp"
+    const amp = `extends: "@workspace/audio/amp"
 params: { Gain: 3 }
 `;
     const { text } = addAlternative(amp);
@@ -182,21 +182,25 @@ params: { Gain: 3 }
 
 // The layer deciding `blankEvents`: whether a module is a LANE is a question only the loader answers.
 describe("newModuleAlternative, through the real loader", () => {
+  let root: string;
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "td-lane-alt-"));
-    mkdirSync(join(dir, "modules", "audio", "amp"), { recursive: true });
+    root = mkdtempSync(join(tmpdir(), "td-lane-alt-"));
+    dir = join(root, "song.st0");
+    mkdirSync(dir, { recursive: true });
+    // A module lives at `@workspace` now, beside the project.
+    mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
     writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
     writeFileSync(
-      join(dir, "modules", "audio", "amp", "module.yaml"),
+      join(root, "_modules", "audio", "amp", "module.yaml"),
       "plugin: { type: internal, name: Chorus }\nparams: { Gain: 1 }\n",
     );
     writeLane(dir, "gtr", "track", {
       events: [{ ref: "take1_a", start: "1:1" }],
     });
-    writeNode(dir, "ampli", { extends: "@project/audio/amp", params: {} });
+    writeNode(dir, "ampli", { extends: "@workspace/audio/amp", params: {} });
   });
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   const read = (node: string) =>
     parse(readFileSync(join(dir, "nodes", `${node}.yaml`), "utf8"), {

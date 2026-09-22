@@ -8,9 +8,11 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildGraphDoc } from "./graphDoc";
 
+let root = "";
 let dir = "";
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "flags-"));
+  root = mkdtempSync(join(tmpdir(), "flags-"));
+  dir = join(root, "song.st0");
   mkdirSync(join(dir, "video_tracks"), { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
@@ -18,7 +20,7 @@ beforeEach(() => {
   );
   writeFileSync(join(dir, "video_tracks", "main.yaml"), "events: []\n");
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 /** One module in the type folder that decides what it IS. */
 function module(category: string, name: string, body: string) {
@@ -53,12 +55,21 @@ describe("a module that IS its behaviour", () => {
   });
 
   it("leaves a real plugin slot with no plugin flagged, which is what the flag is for", () => {
-    module("audio", "amp", "params:\n  gain: 1\n");
-    // Fed by a live input, an `audio` module's flow port being mandatory — the amp is the subject.
+    // A module lives at `@workspace` now; "amp" stays the bare NODE name the graph uses.
+    mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
+    writeFileSync(
+      join(root, "_modules", "audio", "amp", "module.yaml"),
+      "params:\n  gain: 1\n",
+    );
     mkdirSync(join(dir, "nodes"), { recursive: true });
     writeFileSync(
+      join(dir, "nodes", "amp.yaml"),
+      'extends: "@workspace/audio/amp"\n',
+    );
+    // Fed by a live input, an `audio` module's flow port being mandatory — the amp is the subject.
+    writeFileSync(
       join(dir, "nodes", "gtr.yaml"),
-      'extends: "@engine/IN"\nchannel: [1]\n',
+      'extends: "@meta/IN"\nchannel: [1]\n',
     );
     writeFileSync(
       join(dir, "graph.yaml"),

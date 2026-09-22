@@ -1,4 +1,4 @@
-// docModule.ts — `@studio/doc`, the module every note on the graph is a node of. It has
+// docModule.ts — `@meta/doc`, the module every note on the graph is a node of. It has
 // no file anywhere: one doc module for the whole studio, so a note costs its node and
 // nothing else. Full rationale: docs/docModules.md.
 
@@ -24,7 +24,7 @@ export function docModule(): LoadedModule {
 }
 
 /** The built-in refs this file owns; the LANES are the other set (trackModule.ts), seeded alongside. */
-export const studioModules = (): Record<string, LoadedModule> => ({
+export const docModules = (): Record<string, LoadedModule> => ({
   [DOC_REF]: docModule(),
 });
 

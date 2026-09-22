@@ -4,7 +4,7 @@ A note is a module. One input, no output, one field:
 
 ```yaml
 # nodes/notes-amp.yaml
-extends: "@studio/doc"
+extends: "@meta/doc"
 content: |
   The NAM pulls hard: -6 dB before it,
   or it clips on the attacks.
@@ -41,7 +41,7 @@ would be documentation feeding audio. `isSink` therefore answers yes for a doc m
 routed to one terminates there, exactly as it does at `OUT` — which is a fact about its SHAPE
 rather than about an io role, and is why it is asked separately from the io test.
 
-## Every note is a node of `@studio/doc`
+## Every note is a node of `@meta/doc`
 
 There is one doc module for the whole studio and it has **no file anywhere**. That makes it the
 second such module in the repo, after the synthesised `@engine/…` plugins
@@ -55,7 +55,7 @@ child win per key, so each note's `content` is its own, and `OWN_ONLY` needs no 
 The alternative costs more: a project-local `modules/docs/doc/module.yaml` would be a file every
 project must scaffold before its first note. Built in, a note costs exactly one file — its node.
 
-`@studio` is its own namespace and not `@engine`, deliberately: the engine never hears of this.
+`@meta` is its own namespace and not `@engine`, deliberately: the engine never hears of this.
 
 ## `doc` is a `ModuleKind` of its own
 

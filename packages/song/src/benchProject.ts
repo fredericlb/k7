@@ -31,9 +31,6 @@ export function benchProjectFiles(size: BenchSize): Record<string, string> {
       "project:\n  name: bench\n  tempo: 120\n  sampleRate: 48000\n" +
       '  timeSignature: "4/4"\n',
     "settings.yaml": "metronome: false\ncount_in: 0\n",
-    "modules/io/OUT/module.yaml": "io: out\n",
-    "modules/instruments/synth/module.yaml":
-      "plugin:\n  type: internal\n  name: 4osc\n",
   };
 
   const notes = Array.from(
@@ -41,11 +38,13 @@ export function benchProjectFiles(size: BenchSize): Record<string, string> {
     (_, n) => `  - { t: ${n * 0.5}, d: 0.25, k: ${36 + (n % 24)} }`,
   ).join("\n");
 
+  // Its own isolated `mkdtemp`, with no workspace beside it — so each synth is inline rather
+  // than a shared module the bench would have nowhere to put.
   const segments: string[] = [];
   for (let i = 0; i < size.lanes; i++) {
     files[`nodes/lane${i}.yaml`] =
-      `extends: "@studio/track"\nevents:\n  - { ref: seq${i}, start: "1:1:1" }\n`;
-    files[`nodes/synth${i}.yaml`] = `extends: "@project/instruments/synth"\n`;
+      `extends: "@meta/track"\nevents:\n  - { ref: seq${i}, start: "1:1:1" }\n`;
+    files[`nodes/synth${i}.yaml`] = "plugin:\n  type: internal\n  name: 4osc\n";
     files[`sequences/seq${i}.yaml`] = `notes:\n${notes}\n`;
     segments.push(`  lane${i}: [ synth${i} ]`, `  synth${i}: [ OUT ]`);
   }

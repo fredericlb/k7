@@ -321,7 +321,7 @@ suggested here.
 and the search — because a search reaching what the tree refuses is the same leak. The shape to
 test it against is `@engine/<slug>`, flat, with a category carried beside it: a three-segment
 `@engine/audio/delay/adt` never arrives, `moduleCatalogue` dropping a namespaced ref that has no
-library root, while `@engine/serum` and `@engine/OUT` come through it every time the rig has been
+library root, while `@engine/serum` and `@meta/OUT` come through it every time the rig has been
 scanned.
 
 Below that it is the catalogue's own shape: type → category → module. That nesting is not

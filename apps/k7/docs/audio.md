@@ -1,23 +1,23 @@
 # Session audio — extended notes
 
-## Grist keeps the facts, the médiathèque keeps the bytes
+## PocketBase keeps the facts, the médiathèque keeps the bytes
 
-A session is a Grist row, and its audio lives in the médiathèque's `RECORDINGS` family; the row
-keeps only the path.
+A session is a PocketBase row, and its audio lives in the médiathèque's `RECORDINGS` family; the
+row keeps only the path.
 
 | | where it lives |
 |---|---|
-| duration, gain, envelope, tags, markers | Grist |
+| duration, gain, envelope, tags, markers | PocketBase |
 | a session | `recordings/<day>/<HH-MM-SS>.<ext>` |
 | a moment | `recordings/<day>/moment-…` |
 | a published version | `songs/K7/…` |
 | what the row points at | a path (`RecordingPath`, `ClipPath`, `AudioPath`) |
-| sheet music | `Songs.SheetFiles` attachment — not audio |
+| sheet music | a `song_sheets` record — not audio |
 
-Grist is a database, and hours of wav have no place in one. A médiathèque is made for it: a
+PocketBase is a database, and hours of wav have no place in one. A médiathèque is made for it: a
 volume, paths, native Range, and a family whose whole role this is — see
-`packages/mediatek/docs/recordings.md`. The rest of the studio can read that family; a Grist
-attachment is readable by k7 alone. The local cache serves Range reads and fills from the
+`packages/mediatek/docs/recordings.md`. The rest of the studio can read that family; a
+`song_sheets` file is readable by k7 alone. The local cache serves Range reads and fills from the
 médiathèque, so a cached session makes no round trip.
 
 ## The client is the package's
@@ -64,7 +64,7 @@ failing.
 
 ## Deleting: the bytes first
 
-Deleting a session or a moment removes the bytes from the family **before** the Grist row,
+Deleting a session or a moment removes the bytes from the family **before** the PocketBase row,
 because the row is what carries the path: the other order leaves a take in the family that
 nothing names any more.
 
@@ -100,10 +100,10 @@ Two visible consequences, both wanted:
 - **Extending a session with no path starts over** instead of failing: with no path there is
   nothing to splice onto, so the take becomes the first.
 
-`migrateSchema` only adds what is missing, so an undeclared column stays present in the Grist
-document. Emptying it, or emptying the tables, is a manual and deliberate operation.
+`migrateSchema` only adds what is missing, so an undeclared field stays present in the PocketBase
+collection. Emptying it, or emptying the collections, is a manual and deliberate operation.
 
-**Sheet music** (`Songs.SheetFiles`) is a Grist attachment: not a recording, and
+**Sheet music** is a `song_sheets` record, linked to its song: not a recording, and
 `uploadAttachment` / `downloadAttachment` serve only that.
 
 ## Moments go in the same family
@@ -141,7 +141,7 @@ Four decisions in there:
   re-made and what is somebody else's master.
 - **The release is the album, the version is the title.** Three levels for three levels, and each
   version keeps its own folder — which it needs, having its own audio. The release's artist
-  survives in its Grist metadata.
+  survives in its PocketBase metadata.
 - **Stems go in `stems/`, not beside the master.** The scan takes the folder's first audio file
   as the master and does not descend: a track laid beside it could be played instead of the
   mixdown.
@@ -176,8 +176,8 @@ reading its chords. It lives at `recordings/songbook/<song uid>.<ext>`, and the 
 
 Two places it deliberately is NOT:
 
-- **Not a Grist attachment**, unlike the sheet files. The rule above holds: metadata in
-  Grist, bytes in the médiathèque. A sheet is a page; this is a whole track.
+- **Not a `song_sheets` record**, unlike the sheet files. The rule above holds: metadata in
+  PocketBase, bytes in the médiathèque. A sheet is a page; this is a whole track.
 - **Not in the `songs/` family**, which is what it most looks like — it has an artist and a
   title. Filing it there would mean writing into the catalogue under the REAL artist, where
   a song of that name may already exist, and replacing it. A reference track is the
@@ -199,16 +199,23 @@ no scrubber of its own. The button exists because a click on the shape can say e
 no *stop* — pausing had no gesture at all. The native `<audio controls>` bar is gone; the element
 itself stays, hidden, because it IS the transport and the timed lyrics follow it.
 
-**The shape is measured once, on the server, and kept in Grist** (`Songs.Envelope`, written by
-`apps/k7/backend/src/songEnvelope.ts`): ffmpeg decodes the track to 8 kHz mono — a level curve
-needs no bandwidth — and the samples are bucketed into RMS. Measured lazily, the first time a page
-asks for it, rather than in a migration that would decode every song in the songbook at once.
+**The shape is measured once, by pl8, and kept in PocketBase** (`Songs.Envelope`, written by
+`apps/k7/backend/src/songEnvelope.ts`): pl8 already holds the reference track's bytes and already
+has ffmpeg, via `@studio/audio-analysis` — the same measurement its own catalogue sweep computes
+for every song, reached here over `GET /api/mediatek/envelope` instead of k7 decoding anything
+itself. Measured lazily, the first time a page asks for it, rather than in a migration that would
+decode every song in the songbook at once.
 
-**The bucket follows the song's LENGTH, capped at 800 of them, and the values are rounded to three
-decimals.** A fixed 100 ms bucket measured 3113 values for a five-minute track — 61 kB of JSON in a
-cell of a metadata store that the songbook listing reads whole, for a panel 272 px wide where that
-is eleven buckets per pixel. The cap is what keeps a stored shape a few kilobytes; the precision
-dropped is below one pixel.
+**pl8's own bucketing is far finer than a waveform panel needs, so `songEnvelope.ts` downsamples
+it — RMS-of-RMS, not a second decode — to at most 800 buckets, rounded to three decimals.** A
+fixed 100 ms bucket measured 3113 values for a five-minute track — 61 kB of JSON in a cell of a
+metadata store that the songbook listing reads whole, for a panel 272 px wide where that is eleven
+buckets per pixel. The cap is what keeps a stored shape a few kilobytes; storing pl8's own
+resolution untouched could run two orders of magnitude past that.
+
+**Onsets ride along for free.** pl8's analysis also detects transients; `songEnvelope.ts` passes
+them through as `SongEnvelope.onsets`, and the panel forwards them to `ui-waveform`'s own
+`onsets` prop — a slot the component already had, unused until now.
 
 The alternative was decoding in the browser on each visit. A rehearsal laptop opening a song page
 should not spend seconds and a hundred megabytes of memory rebuilding a picture that never changes;
@@ -331,14 +338,14 @@ position, so timed lyrics follow whichever plays.
 ## k7 PUSHES; the médiathèque pulls nothing
 
 At publication k7 sends the bytes into the family itself: there is nothing to pull from the other
-side, no sync route, and the médiathèque does not depend on Grist — `@frediverse/db-grist` is not
+side, no sync route, and the médiathèque does not depend on PocketBase — no PocketBase client is
 among its dependencies.
 
-## What stays in Grist
+## What stays in PocketBase
 
-No audio: sessions, moments and versions are all in the médiathèque. Grist keeps the facts — who,
-when, how long, which tags, what gain, what envelope — and the sheet-music files
-(`Songs.SheetFiles`), which are not audio.
+No audio: sessions, moments and versions are all in the médiathèque. PocketBase keeps the facts —
+who, when, how long, which tags, what gain, what envelope — and the sheet-music files (in
+`song_sheets`), which are not audio.
 
 ## Taking a take in the browser
 

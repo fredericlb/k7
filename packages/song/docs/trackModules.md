@@ -5,7 +5,7 @@ what it `extends` says what kind of lane it is:
 
 ```yaml
 # nodes/melody.yaml
-extends: "@studio/track"
+extends: "@meta/track"
 color: "#c8a97e"
 events:
   - { ref: melody, start: "1:1:1" }
@@ -25,10 +25,10 @@ There is no `tracks/` folder, and no `tracks:` half of `graph.yaml`.
 ## Three, and none of them says what it carries
 
 ```
-  events written down     @studio/track
-  events streamed         @studio/strudel-track
+  events written down     @meta/track
+  events streamed         @meta/strudel-track
 
-  neither                 @studio/group-track
+  neither                 @meta/group-track
 ```
 
 There is no second axis for `audio` against `notes`, because **a lane does not carry a signal —
@@ -143,36 +143,28 @@ One list at the root rather than a derived set of bypasses. Derived, solo cannot
 rewrites N files to say one fact, and reads in `graph.yaml` as a wall of mutes nobody asked for.
 Mute stays the lane's own bypass, untouched by anyone's solo.
 
-## One name space, and who wins a name in it
+## One name space, held by nodes alone
 
-A lane and a module share one set of names, because they are the same kind of thing to a chain: a
-name there is an identity (the routing target, the bus's track, the prefix of every plugin id under
-it). Two maps could not answer it.
+A lane is a node — `nodes/<name>.yaml` like any other use — so a lane and an insert share one flat
+folder rather than two maps that could disagree. A DAW names the track after the instrument on it,
+so an import can arrive with a lane `polysynth` and an insert that plays a `polysynth` plugin; the
+filesystem itself is what keeps them apart, since the insert is filed under a name of its own
+(`polysynth-inst`, or whatever `freeNodeName` proposes) rather than the lane's.
 
-**A node file wins a name a module folder also has.** Not a refusal, because the collision is what
-every import writes: a DAW names the track after the instrument on it, so a project arrives holding
-a lane `polysynth` and a module `polysynth`, and refusing it means refusing to open the song. The
-lane is what `graph.yaml`'s key names, and the module is where it always was — behind its ref.
-
-That is what makes the precedence safe rather than arbitrary: **a module is named by its ref
-anyway**. `extends:` resolves through the ref map (`moduleResolve.ts` folds against `byRef`), which
-`readModuleRefs` builds from the module FOLDERS and not from the name map a lane may have shadowed.
-An insert node written by the importer says `extends: "@project/instruments/polysynth"` and gets its
-plugin, whatever the lane beside it is called.
-
-What is given up is narrow and worth naming: a chain step can no longer name the shadowed module by
-its bare name — `use: polysynth` is the lane. It has to go through a node that extends it, which is
-what a node IS, and what every import already writes. `freeNodeName` still proposes past both, so
-nothing shadows anything by accident; taking the name is a thing you do on purpose or a thing an
-import does because the source DAW did.
+**A module is named by its ref, never by a bare name a lane could take.** A module lives at
+`@workspace` or `@st0` now, and `extends:` always spells the level: an insert node written by the
+importer says `extends: "@workspace/instruments/polysynth"`, whatever the lane beside it is called.
+So there is nothing left to shadow — the old collision, between a lane's bare name and a project's
+own module answering to that same bare name, cannot arise when a module has no bare spelling at
+all.
 
 ## Every lane is a node of a built-in
 
 None of the three has a file anywhere, which makes them the third such set in the repo after the
-synthesised `@engine/…` plugins ([moduleNamespaces.md](moduleNamespaces.md)) and `@studio/doc`
+synthesised `@engine/…` plugins ([moduleNamespaces.md](moduleNamespaces.md)) and `@meta/doc`
 ([docModules.md](docModules.md)). A lane costs exactly one file — its own.
 
-The alternative is what settles it, and it is the argument `@studio/doc` makes too: a
+The alternative is what settles it, and it is the argument `@meta/doc` makes too: a
 project-local `modules/tracks/track/module.yaml` would be a file every project must scaffold
 before its first lane.
 
@@ -233,14 +225,14 @@ this repo keeps choosing (see [nodes.md](nodes.md), which makes the same call).
 
 | a file may hold | write instead |
 |---|---|
-| `extends: "@studio/audio-track"` | `extends: "@studio/track"` |
-| `extends: "@studio/sequence-track"` | `extends: "@studio/track"` |
-| `extends: "@studio/audio-strudel-track"` | `extends: "@studio/strudel-track"` |
-| `extends: "@studio/sequence-strudel-track"` | `extends: "@studio/strudel-track"` |
-| `extends: "@studio/group-track"` | unchanged |
+| `extends: "@meta/audio-track"` | `extends: "@meta/track"` |
+| `extends: "@meta/sequence-track"` | `extends: "@meta/track"` |
+| `extends: "@meta/audio-strudel-track"` | `extends: "@meta/strudel-track"` |
+| `extends: "@meta/sequence-strudel-track"` | `extends: "@meta/strudel-track"` |
+| `extends: "@meta/group-track"` | unchanged |
 | two lanes, one audio and one sequences, for one part | one lane, and `#audio:` / `#midi:` in `graph.yaml` if the two need different chains |
 
-A lane that streams (`@studio/strudel-track`) is the one case where the wiring has to say what the
+A lane that streams (`@meta/strudel-track`) is the one case where the wiring has to say what the
 file cannot: it holds nothing until the transport rolls, so `pad#midi: [ synth ]` is the only
 place "these events are notes for the synth" is written down. An authored lane says it by holding
 events.
@@ -268,7 +260,7 @@ And for a project whose lanes are still files in `tracks/`:
 |---|---|
 | `type: single` \| `strudel` | `extends:` one of the two above |
 | `contentType:` | nothing — the events say it |
-| `type: group` | `extends: "@studio/group-track"` |
+| `type: group` | `extends: "@meta/group-track"` |
 | `events:`, `color:`, `disabled:`, `tracks:`, `strudel:` | unchanged, on the node |
 | `mute: true` | the name in `graph.yaml`'s `bypassed:` |
 | `solo: true` | the name in project.yaml's root `soloed:` list |

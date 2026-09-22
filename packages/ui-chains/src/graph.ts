@@ -777,7 +777,7 @@ export const CAMERA_BIND = "@camera";
 
 /** The UI a CAMERA node carries: one dropdown, the lenses this machine has — see docs/camera.md.
  *
- * Synthesised for the reason `inputUI` is, and for its harder second one too: `@engine/CAM` has no
+ * Synthesised for the reason `inputUI` is, and for its harder second one too: `@meta/CAM` has no
  * folder, so it can carry no `ui.yaml`, and without this every camera in every project draws a card
  * reading "No Options" that no amount of authoring could fix.
  *
@@ -793,6 +793,9 @@ export function cameraUI(
     { label: "default", value: 0, arg: "default" },
     ...cameras.map((name, i) => ({ label: name, value: i + 1, arg: name })),
   ];
+  // `current` is read by the RENDERER off the step, not here: a dropdown shows what the file says
+  // through `widgetValue`, and inventing a selected index here would be a second answer to that.
+  void current;
   return {
     cols: 2,
     rows: 2,
@@ -822,9 +825,6 @@ export function cameraUI(
       },
     },
   };
-  // `current` is read by the RENDERER off the step, not here: a dropdown shows what the file says
-  // through `widgetValue`, and inventing a selected index here would be a second answer to that.
-  void current;
 }
 
 /** The panel a step actually draws — one function, so the node's SIZE and its `ui` cannot disagree. */

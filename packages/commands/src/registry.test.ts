@@ -57,7 +57,11 @@ describe("registerVerb (a plugin's installer)", () => {
   it("refuses a second registration of the same word — one word, one verb", () => {
     const word = `plugin test twice ${Date.now()}`;
     registerVerb(
-      { command: word, sid: `plugin.test.twice.a.${Date.now()}`, surfaces: ["cli"] },
+      {
+        command: word,
+        sid: `plugin.test.twice.a.${Date.now()}`,
+        surfaces: ["cli"],
+      },
       () => {},
     );
     expect(() =>
@@ -72,4 +76,3 @@ describe("registerVerb (a plugin's installer)", () => {
     ).toThrow(/already in the catalogue/);
   });
 });
-

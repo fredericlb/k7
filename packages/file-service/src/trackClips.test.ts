@@ -24,7 +24,7 @@ function project(clips: string, sig = "4/4"): string {
   writeFileSync(join(p, "graph.yaml"), "modules:\n  gtr: [ OUT ]\n");
   writeFileSync(
     join(p, "nodes", "gtr.yaml"),
-    `extends: "@studio/track"\nevents:\n${clips}`,
+    `extends: "@meta/track"\nevents:\n${clips}`,
   );
   // Two clips the lane can name. `source` is what makes one audio rather than missing.
   for (const id of ["verse", "chorus"])

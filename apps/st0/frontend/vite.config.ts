@@ -2,8 +2,8 @@ import { frediverseParaglide } from "@frediverse/i18n/vite";
 import { defineAppConfig } from "@frediverse/vite-config";
 import { DEV_HOST, LEGACY_DEV_HOSTS } from "../../../scripts/dev-hosts.mjs";
 
-/** The paths on this origin that are NOT st0: the worker's scope is `/`, so only this list keeps a navigation to `/pl8` off st0's shell. */
-const OTHER_APPS = /^\/(pl8|k7|z0|api|auth)(\/|$)/;
+/** The paths on this origin that are NOT st0: the worker's scope is `/`, so only this list keeps a navigation to `/z0` off st0's shell. pl8 and k7 answer their own subdomains now, so they no longer need naming here. */
+const OTHER_APPS = /^\/(z0|api|auth)(\/|$)/;
 
 // Unlike the other apps, st0's dev server has no fixed port: the backend URL it proxies to is env-driven, and always localhost.
 const port = Number(process.env.STUDIO_WEB_PORT) || 5223;

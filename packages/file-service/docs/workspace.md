@@ -207,12 +207,13 @@ every write to a new file. So it realpaths the nearest ancestor that exists and 
 rest: a component that does not exist yet cannot be a symlink, so nothing is lost by not resolving
 it. An unreadable ancestor falls back to the lexical answer, which has already passed.
 
-`guardShared` sits on top for writes: `_modules` is shared by every project in the workspace, so a
-save made while mixing one song would silently change the others. `module populate` rebuilds it
-from the plugin scan and writes it directly, not through here — which is what makes it the only
-writer. It is enforced here rather than in the UI because the routes are reachable without one.
-`guardMutable` adds the root, the recycle bin and the active project's own folder; anything INSIDE
-that folder is fair game.
+`guardShared` sits on top for STRUCTURE: `_modules` is shared by every project in the workspace,
+so its files are edited in place and never renamed, moved or deleted through the routes that do
+that elsewhere in the tree — a module's identity is its folder, and a rename or a move would
+silently repoint every ref naming it. Content writes are ordinary; `module populate` rebuilds the
+catalogue from the plugin scan the same way any other writer would. It is enforced here rather
+than in the UI because the routes are reachable without one. `guardMutable` adds the root, the
+recycle bin and the active project's own folder; anything INSIDE that folder is fair game.
 
 ## What the browser is handed
 

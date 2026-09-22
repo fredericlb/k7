@@ -8,9 +8,9 @@ lane costs exactly one file, its own:
 
 | extends | its events come from |
 |---|---|
-| `@studio/track` | `events:`, written down here |
-| `@studio/strudel-track` | `strudel:`, streamed while the transport rolls |
-| `@studio/group-track` | nothing — it is a relationship |
+| `@meta/track` | `events:`, written down here |
+| `@meta/strudel-track` | `strudel:`, streamed while the transport rolls |
+| `@meta/group-track` | nothing — it is a relationship |
 
 **A track is not audio or MIDI.** It holds events, and each one names a clip or a sequence, so
 each one is audio or notes on its own. One lane can hold both: two bars of a sampled riff and a
@@ -76,7 +76,7 @@ exactly as it was.
 ## nodes/<name>.yaml — clips
 
 ```yaml schema=Module
-extends: "@studio/track"
+extends: "@meta/track"
 # color: "#c8a97e"   # the lane's colour, and its icon's in the timeline
 # disabled: true     # excluded from the render entirely, chains and all
 events:
@@ -108,7 +108,7 @@ The same file. Nothing here says "MIDI": these events name `sequences/…`, so t
 they leave by the lane's `midi` output.
 
 ```yaml schema=Module
-extends: "@studio/track"
+extends: "@meta/track"
 events:
   - { ref: melody, start: "1:1:1" }
   - { ref: melody, start: "5:1:1", loop: 8 }   # the same sequence, eight times over
@@ -119,7 +119,7 @@ events:
 Also the same file — one lane holding both kinds at once:
 
 ```yaml schema=Module
-extends: "@studio/track"
+extends: "@meta/track"
 events:
   - { ref: riff, start: "1:1:1" }     # a clip  — leaves by `audio`
   - { ref: melody, start: "3:1:1" }   # a sequence — leaves by `midi`
@@ -138,7 +138,7 @@ timeline and simply never heard.
 No material and no signal of its own — only the member lane names it nests.
 
 ```yaml schema=Module
-extends: "@studio/group-track"
+extends: "@meta/group-track"
 tracks: [pad, kit]
 ```
 
@@ -154,7 +154,7 @@ has to say what the file cannot: `pad#midi: [ synth ]` is where "these events ar
 synth" is written down.
 
 ```yaml schema=Module
-extends: "@studio/strudel-track"
+extends: "@meta/strudel-track"
 strudel: algo/pattern.strudel
 ```
 
@@ -195,10 +195,10 @@ becomes:
 
 | a file saying | write |
 |---|---|
-| `@studio/audio-track` | `@studio/track` |
-| `@studio/sequence-track` | `@studio/track` |
-| `@studio/audio-strudel-track` | `@studio/strudel-track` |
-| `@studio/sequence-strudel-track` | `@studio/strudel-track` |
+| `@meta/audio-track` | `@meta/track` |
+| `@meta/sequence-track` | `@meta/track` |
+| `@meta/audio-strudel-track` | `@meta/strudel-track` |
+| `@meta/sequence-strudel-track` | `@meta/strudel-track` |
 
 An audio lane and a sequence lane kept side by side for one part are one lane — and if the two
 halves need different chains, that is what `#audio:` / `#midi:` is for.

@@ -118,7 +118,7 @@ level, which is a thing to say rather than a dead fader to draw.
 Three other groups left `WebTrack` outright and did not come back:
 
 - `docs` / `todos`, for the Docs panel, gone with it — a note is a doc module on the graph now
-  (`@studio/doc`); see `packages/song/docs/docModules.md`.
+  (`@meta/doc`); see `packages/song/docs/docModules.md`.
 - `frozen`, `alternatives` and `alternative`, for the lane header, gone with the fields they came
   from; see `packages/song/docs/trackModules.md`.
 

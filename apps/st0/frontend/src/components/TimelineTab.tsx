@@ -2021,8 +2021,7 @@ export function TimelineTab({
     visRows.reduce(
       // A group header and an automation row are short; a lane row is not.
       (h, r) =>
-        h +
-        (r.kind === "group" || r.kind === "automation" ? ROW_H : rowH),
+        h + (r.kind === "group" || r.kind === "automation" ? ROW_H : rowH),
       0,
     );
 

@@ -22,7 +22,7 @@ one of them — the parameter list is a tab, so it is not the thing to hang the 
 `nodes/ge_rythm-in.yaml`, from a real song, is two lines:
 
 ```yaml
-extends: "@engine/IN"
+extends: "@meta/IN"
 channel: [ 2 ]
 ```
 

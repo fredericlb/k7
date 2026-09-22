@@ -11,19 +11,21 @@ This page holds the reasoning behind the functions.
 
 ## Where a module's file is
 
-Three cases, and `moduleFileOf` picks between them:
+Two cases, and `moduleFileOf` picks between them:
 
-- a **node** carries its own `home` folder and has no category to rebuild a path from;
-- a **module** is `modules/<category>/<file>/` — `module.*` for the generic, `<node>.*` beside it;
-- a **shared** one, `"@engine/io/IN:in-2"`, whose file lives in the workspace's `_modules` and
-  not in this project at all.
+- a **node** carries its own `home` folder and has no category to rebuild a path from — the
+  only shape `loadModules` returns now, a project keeping no modules of its own any more;
+  reached FIRST, since a node needs no lookup elsewhere to answer for itself;
+- a **shared** one, `"@engine/io/IN:in-2"`, whose file lives in the workspace's `_modules` (or
+  the médiathèque's `_libraries/modules`) and not in this project at all.
 
-That third case is `sharedModuleFileOf`, and it returns null for anything that is not a
+That second case is `sharedModuleFileOf`, and it returns null for anything that is not a
 namespaced ref. Writing there changes the module for every project beside it, which is right
 for what lives on ONE desk rather than in one song — an input's `channel:` describes the rig,
-and so does whether that input is audible. It is not a general licence to edit the library:
-`forkSharedModule` still owns the case where an edit belongs to one song, and the file service
-still refuses the library outright. Only a caller that has already decided otherwise gets here.
+and so does whether that input is audible. `@st0` is the one exception the file service still
+gates behind an explicit Edit confirmation before it takes a write at all
+(`apps/st0/frontend/docs/sharedModules.md`); `@workspace` takes this write directly, the same
+as any other file.
 
 ## Attribute sets (alternatives)
 
@@ -187,9 +189,9 @@ deleting the last use is not a statement about the thing being used — other pr
 same module.
 
 `laneOfNode` answers which lane's chain plays a node, which is what an instance name is built
-from (`instanceName.ts`). The answer is `chainsUsing`, and it is `moduleFork`'s: naming a fork
-after its track and naming a node after its lane are the same question. It takes the FIRST when
-several chains reach it, the same arbitrary-but-stable choice a fork makes.
+from (`instanceName.ts`) — the same question `moduleFork.md`'s `chainsUsing` answers when it
+reports which chains now play a freshly materialised module. It takes the FIRST when several
+chains reach it, the same arbitrary-but-stable choice either makes.
 
 `replugChainNodes` moves ONE end of an existing arrow in one read and one write, so however the
 two halves are spelt the file changes atomically: a crash between "pulled" and "plugged" cannot

@@ -12,7 +12,9 @@ import { materialWindow } from "./materialWindow";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SONG = join(here, "..", "..", "..", "demos", "synth-demo.st0");
+const DEMO_MODULES = join(here, "..", "..", "..", "demos", "_modules");
 
+let root: string;
 let dir: string;
 // synth-demo is 120bpm 4/4 and places sequences/melody.yaml (8 notes, one per beat) at bar 1.
 const seq = (body: Record<string, unknown>) =>
@@ -22,7 +24,7 @@ const seq = (body: Record<string, unknown>) =>
   });
 const place = (p: Record<string, unknown>) =>
   writeYaml(join(dir, "nodes", "melody.yaml"), {
-    extends: "@studio/track",
+    extends: "@meta/track",
     events: [{ ref: "melody", start: "1:1:1", ...p }],
   });
 const melody = () =>
@@ -31,10 +33,12 @@ const melody = () =>
     .find((c) => c.name === "melody")!;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-loop-"));
+  root = mkdtempSync(join(tmpdir(), "td-loop-"));
+  dir = join(root, "synth-demo.st0");
   cpSync(SONG, dir, { recursive: true });
+  cpSync(DEMO_MODULES, join(root, "_modules"), { recursive: true });
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("a sequence's window into its own notes", () => {
   it("is the notes themselves when the file says nothing", () => {
@@ -132,7 +136,7 @@ describe("`loop` counts passes of that window", () => {
   it("is refused on an audio clip whose window has no end", () => {
     writeYaml(join(dir, "clips", "riff.yaml"), { source: "clips/riff.wav" });
     writeYaml(join(dir, "nodes", "riff.yaml"), {
-      extends: "@studio/track",
+      extends: "@meta/track",
       events: [{ ref: "riff", start: "1:1:1", loop: 2 }],
     });
     let msg = "";

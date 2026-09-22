@@ -13,8 +13,14 @@ export const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 
 /** The next zoom step in a direction, staying on the ladder even from a value off it. */
 export function stepZoom(current: number, dir: 1 | -1): number {
-  if (dir > 0) return ZOOM_STEPS.find((s) => s > current + 1e-9) ?? ZOOM_STEPS[ZOOM_STEPS.length - 1];
-  return [...ZOOM_STEPS].reverse().find((s) => s < current - 1e-9) ?? ZOOM_STEPS[0];
+  if (dir > 0)
+    return (
+      ZOOM_STEPS.find((s) => s > current + 1e-9) ??
+      ZOOM_STEPS[ZOOM_STEPS.length - 1]
+    );
+  return (
+    [...ZOOM_STEPS].reverse().find((s) => s < current - 1e-9) ?? ZOOM_STEPS[0]
+  );
 }
 
 /** A shift as a musician reads it: `0`, `♯2`, `♭3`. */

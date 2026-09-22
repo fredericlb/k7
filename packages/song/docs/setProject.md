@@ -112,7 +112,7 @@ things:
 - the deck's **settings** need somewhere to live. Trim, cue, key-lock, which deck holds the
   master tempo: none of those are the song, all of them are the deck.
 
-A deck's file is an ordinary node — `extends: "@studio/track"` and its own settings — a node
+A deck's file is an ordinary node — `extends: "@meta/track"` and its own settings — a node
 being exactly "one use of a module, with its own settings".
 
 ## Two decks meeting at a crossfade

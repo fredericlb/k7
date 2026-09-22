@@ -25,12 +25,14 @@ const SCRIPT = join(
   "migrateSetPlatter.ts",
 );
 
+let ws = "";
 let dir = "";
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "platter-mig-"));
+  ws = mkdtempSync(join(tmpdir(), "platter-mig-"));
+  dir = join(ws, "set.st0");
 });
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(ws, { recursive: true, force: true });
 });
 
 /** Undo the platters, turning a fresh scaffold back into the set this migration exists to upgrade. */

@@ -13,7 +13,7 @@ import {
 
 // A lane as the app leaves it: one placement per line as a flow map, every timecode quoted.
 const AUTHORED = `color: "#739814"
-extends: "@studio/track"
+extends: "@meta/track"
 disabled: false
 events:
   - { ref: bass_3_0, start: "25:1", fadeIn: "8:0:3:0:0:1:1:2" }
@@ -24,7 +24,7 @@ describe("the timecode trap", () => {
   it("reads a quoted timecode as the string it is", () => {
     const { value, issues } = parseModule(AUTHORED);
     expect(issues).toEqual([]);
-    expect(value?.extends).toBe("@studio/track");
+    expect(value?.extends).toBe("@meta/track");
     expect(value?.events?.[0]).toEqual({
       ref: "bass_3_0",
       start: "25:1",
@@ -71,7 +71,7 @@ describe("the timecode trap", () => {
 
   it("rejects something that isn't a timecode", () => {
     const { value, issues } = parseModule(
-      'extends: "@studio/track"\nevents:\n  - { ref: b, start: "bar 25" }\n',
+      'extends: "@meta/track"\nevents:\n  - { ref: b, start: "bar 25" }\n',
     );
     expect(value).toBeNull();
     expect(issues[0].path).toBe("events.0.start");
@@ -128,7 +128,7 @@ describe("the edits the app makes most", () => {
   it("keeps the colour, the extends and every other field byte-identical", () => {
     const after = setTrackField(AUTHORED, "disabled", true);
     expect(after).toContain('color: "#739814"');
-    expect(after).toContain('extends: "@studio/track"');
+    expect(after).toContain('extends: "@meta/track"');
   });
 });
 
@@ -136,18 +136,18 @@ describe("the fields a lane carries", () => {
   it("takes a group's members and a strudel lane's pattern", () => {
     // Both are ordinary module fields; WHICH a lane may write is graph.ts's question (docs/moduleFile.md).
     expect(
-      parseModule('extends: "@studio/group-track"\ntracks: [a, b]\n').issues,
+      parseModule('extends: "@meta/group-track"\ntracks: [a, b]\n').issues,
     ).toEqual([]);
     expect(
       parseModule(
-        'extends: "@studio/strudel-track"\nstrudel: algo/beat.strudel\n',
+        'extends: "@meta/strudel-track"\nstrudel: algo/beat.strudel\n',
       ).issues,
     ).toEqual([]);
   });
 
   it("pins a strudel lane's pattern path", () => {
     const bad = parseModule(
-      'extends: "@studio/strudel-track"\nstrudel: beat.txt\n',
+      'extends: "@meta/strudel-track"\nstrudel: beat.txt\n',
     );
     expect(bad.value).toBeNull();
     expect(bad.issues[0].message).toMatch(/algo\//);
@@ -156,7 +156,7 @@ describe("the fields a lane carries", () => {
   it("still refuses a key no module has", () => {
     // `.strict()`, so an unknown key is named by line rather than read and dropped.
     const { value, issues } = parseModule(
-      'extends: "@studio/track"\ncontentType: audio\n',
+      'extends: "@meta/track"\ncontentType: audio\n',
     );
     expect(value).toBeNull();
     expect(issues.some((i) => i.path.includes("contentType"))).toBe(true);

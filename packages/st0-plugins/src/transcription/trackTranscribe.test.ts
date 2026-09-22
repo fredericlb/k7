@@ -136,7 +136,7 @@ describe("track transcribe", () => {
       mkdirSync(join(song, "nodes"), { recursive: true });
       writeFileSync(
         join(song, "nodes", "lyrics.yaml"),
-        'extends: "@studio/doc"\ncontent: |\n  the old note\n',
+        'extends: "@meta/doc"\ncontent: |\n  the old note\n',
         "utf8",
       );
       await runCommand("track transcribe cam lyrics", host(), "cli");

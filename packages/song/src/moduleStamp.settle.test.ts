@@ -19,12 +19,11 @@ import { loadModules, withModuleStamp } from "./loader";
 
 let dir: string;
 
-const modulePath = (name: string): string =>
-  join(dir, "modules", "audio", name, "module.yaml");
+const modulePath = (name: string): string => join(dir, "nodes", `${name}.yaml`);
 
-/** Write a module, whatever it already said. */
+/** Write a node, whatever it already said. */
 const module_ = (name: string, body: string): void => {
-  mkdirSync(join(dir, "modules", "audio", name), { recursive: true });
+  mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(modulePath(name), body, "utf8");
 };
 

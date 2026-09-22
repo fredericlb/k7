@@ -35,7 +35,7 @@ and is not a style choice.
 
 **The dev proxy's path table is not in this repo** — it is traefik on the LAN server. What
 stands here instead is the table in the root [docs/dev.md](../../docs/dev.md), which the other
-machine must mirror, and `docker/nginx.conf`, which is the same routing for
+machine must mirror, and `apps/z0/docker/nginx.conf`, which is the same routing for
 production. Every SPA here needs its own rule, ordered so the `/z0` catch-all comes last, or an
 address lands on the game.
 
@@ -73,7 +73,7 @@ moteur-backed implementation exists behind that package's seam but the game does
 
 ## Verify
 
-`npm run dev --workspace z0` runs all six by turbo. There are ~11 vitest suites under
+`npm run dev --workspace z0` runs all six concurrently. There are ~11 vitest suites under
 `backend/src/`, covering the game rules, config and middleware — `npm run test` from a
 workspace, and they are the cheapest proof for anything rule-shaped. The frontends have no
 component tests; exercise them in the browser.

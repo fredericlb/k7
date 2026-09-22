@@ -23,6 +23,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
+let root: string;
 let dir: string;
 const logs: string[] = [];
 const host = () =>
@@ -36,10 +37,13 @@ const host = () =>
   }) as never;
 
 const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
-const modDir = (name: string) => join(dir, "modules", "audio", name);
+// A module lives at `@workspace` now — beside the project, in the workspace's own `_modules`.
+const modDir = (name: string) => join(root, "_modules", "audio", name);
 
-function song(): string {
-  const d = mkdtempSync(join(tmpdir(), "td-moddel-"));
+function song(): { root: string; dir: string } {
+  const r = mkdtempSync(join(tmpdir(), "td-moddel-"));
+  const d = join(r, "song.st0");
+  mkdirSync(d, { recursive: true });
   writeFileSync(
     join(d, "project.yaml"),
     "project:\n  name: t\n  tempo: 120\n",
@@ -47,19 +51,21 @@ function song(): string {
   );
   writeFileSync(
     join(d, "graph.yaml"),
-    // Two tracks meeting at `cab`: deleting it has to rejoin BOTH of them to what it fed.
-    "modules:\n  gtr: [ amp ]\n  bass: [ cab ]\n  amp: [ cab ]\n  cab: [ OUT ]\n",
+    // Two tracks meeting at `cab`: deleting it has to rejoin BOTH of them to what it fed. Both
+    // `amp` and `cab` are named DIRECTLY (no node file), so `node replace` has a module folder
+    // to repoint, not just a node.
+    'modules:\n  gtr: [ "@workspace/audio/amp" ]\n  bass: [ "@workspace/audio/cab" ]\n  "@workspace/audio/amp": [ "@workspace/audio/cab" ]\n  "@workspace/audio/cab": [ OUT ]\n',
     "utf8",
   );
   mkdirSync(join(d, "nodes"), { recursive: true });
   for (const t of ["gtr", "bass"])
     writeFileSync(
       join(d, "nodes", `${t}.yaml`),
-      'extends: "@studio/track"\nevents: []\n',
+      'extends: "@meta/track"\nevents: []\n',
       "utf8",
     );
   for (const m of ["amp", "cab"]) {
-    const md = join(d, "modules", "audio", m);
+    const md = join(r, "_modules", "audio", m);
     mkdirSync(md, { recursive: true });
     writeFileSync(
       join(md, "module.yaml"),
@@ -71,17 +77,17 @@ function song(): string {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "lead.yaml"),
-    'extends: "@project/audio/amp"\nparams:\n  Depth: 3\n',
+    'extends: "@workspace/audio/amp"\nparams:\n  Depth: 3\n',
     "utf8",
   );
-  return d;
+  return { root: r, dir: d };
 }
 
 beforeEach(() => {
-  dir = song();
+  ({ root, dir } = song());
   logs.length = 0;
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 // `node replace` changes ONE line, its `extends:` — so these assert what does NOT move.
 describe("node replace", () => {
@@ -92,35 +98,39 @@ describe("node replace", () => {
 
   it("repoints the node and leaves every chain alone", async () => {
     const before = chains();
-    await runCommand("node replace lead audio/cab", host(), "cli");
-    expect(nodeExtends()).toBe("audio/cab");
+    await runCommand("node replace lead @workspace/audio/cab", host(), "cli");
+    expect(nodeExtends()).toBe("@workspace/audio/cab");
     // The whole point: the name is untouched, so nothing needed rewiring.
     expect(chains()).toBe(before);
     expect(existsSync(join(dir, "nodes", "lead.yaml"))).toBe(true);
   });
 
   it("writes an @-namespaced ref so it reads back — `@` starts no plain scalar", () => {
-    // Emitted bare, `extends: @project/audio/cab` is not YAML at all and the project stops loading.
+    // Emitted bare, `extends: @workspace/audio/cab` is not YAML at all and the project stops loading.
     return runCommand(
-      "node replace lead @project/audio/cab",
+      "node replace lead @workspace/audio/cab",
       host(),
       "cli",
     ).then(() => {
-      expect(nodeExtends()).toBe("@project/audio/cab");
+      expect(nodeExtends()).toBe("@workspace/audio/cab");
     });
   });
 
   it("drops what described the old thing, and says which", async () => {
     // `params:` addressed the old module's knobs, and an own `plugin:` would OUTRANK the new extends.
-    await runCommand("node replace lead audio/cab", host(), "cli");
+    await runCommand("node replace lead @workspace/audio/cab", host(), "cli");
     expect(nodeFile()).not.toContain("Depth");
     expect(logs.join(" ")).toContain("params");
   });
 
   it("repoints a MODULE folder too, not just a node", async () => {
-    await runCommand("node replace amp audio/cab", host(), "cli");
+    await runCommand(
+      "node replace @workspace/audio/amp @workspace/audio/cab",
+      host(),
+      "cli",
+    );
     const amp = readFileSync(join(modDir("amp"), "module.yaml"), "utf8");
-    expect(amp).toContain("extends: audio/cab");
+    expect(amp).toContain('extends: "@workspace/audio/cab"');
     // Its own inline plugin went: an inherited one could never have won against it.
     expect(amp).not.toContain("Chorus");
     expect(existsSync(modDir("amp"))).toBe(true);
@@ -135,7 +145,11 @@ describe("node replace", () => {
 
   it("refuses to point a module at itself — an extends cycle resolves to nothing", async () => {
     const before = readFileSync(join(modDir("amp"), "module.yaml"), "utf8");
-    await runCommand("node replace amp amp", host(), "cli");
+    await runCommand(
+      "node replace @workspace/audio/amp @workspace/audio/amp",
+      host(),
+      "cli",
+    );
     expect(logs.join(" ")).toMatch(/itself/);
     expect(readFileSync(join(modDir("amp"), "module.yaml"), "utf8")).toBe(
       before,
@@ -154,21 +168,25 @@ describe("node replace", () => {
 describe("graph unlink", () => {
   it("closes the gap over the node and leaves its files alone", async () => {
     // `cab` is fed by `amp` on one path and by `bass` on another, so BOTH must be rejoined.
-    await runCommand("graph unlink cab", host(), "cli");
+    await runCommand("graph unlink @workspace/audio/cab", host(), "cli");
     // Its cables go; its entry stays, so the node is still on the canvas.
-    expect(chains()).toMatch(/cab:\s*\[\s*\]/);
-    expect(chains()).toContain("amp: [ OUT ]");
+    expect(chains()).toMatch(/"@workspace\/audio\/cab":\s*\[\s*\]/);
+    expect(chains()).toContain('"@workspace/audio/amp": [ OUT ]');
     expect(chains()).toContain("bass: [ OUT ]");
     // The point of the verb: the module is still there, with its settings.
     expect(existsSync(modDir("cab"))).toBe(true);
   });
 
   it("unlinks a NODE without touching the module it uses", async () => {
-    await runCommand("node insert gtr amp lead", host(), "cli");
+    await runCommand(
+      "node insert gtr @workspace/audio/amp lead",
+      host(),
+      "cli",
+    );
     expect(chains()).toContain("lead");
     await runCommand("graph unlink lead", host(), "cli");
     expect(chains()).toMatch(/lead:\s*\[\s*\]/);
-    expect(chains()).toContain("gtr: [ amp ]");
+    expect(chains()).toContain('gtr: [ "@workspace/audio/amp" ]');
     expect(existsSync(join(dir, "nodes", "lead.yaml"))).toBe(true);
     expect(existsSync(modDir("amp"))).toBe(true);
   });
@@ -195,12 +213,12 @@ describe("node replace — the name following the module", () => {
   beforeEach(() => {
     writeFileSync(
       join(dir, "graph.yaml"),
-      "modules:\n  gtr: [ gtr_amp_1 ]\n  gtr_amp_1: [ cab ]\n  bass: [ cab ]\n  cab: [ OUT ]\n",
+      'modules:\n  gtr: [ gtr_amp_1 ]\n  gtr_amp_1: [ "@workspace/audio/cab" ]\n  bass: [ "@workspace/audio/cab" ]\n  "@workspace/audio/cab": [ OUT ]\n',
       "utf8",
     );
     writeFileSync(
       join(dir, "nodes", "gtr_amp_1.yaml"),
-      '# the one somebody wrote by hand\nextends: "@project/audio/amp"\nmonitor: true\n',
+      '# the one somebody wrote by hand\nextends: "@workspace/audio/amp"\nmonitor: true\n',
       "utf8",
     );
   });
@@ -208,12 +226,16 @@ describe("node replace — the name following the module", () => {
   const nodes = () => readdirSync(join(dir, "nodes")).sort();
 
   it("renames the node, and the chains follow it", async () => {
-    await runCommand("node replace gtr_amp_1 audio/cab", host(), "cli");
+    await runCommand(
+      "node replace gtr_amp_1 @workspace/audio/cab",
+      host(),
+      "cli",
+    );
     expect(nodes()).toContain("gtr_cab_1.yaml");
     expect(nodes()).not.toContain("gtr_amp_1.yaml");
     // Every mention: the key, what feeds it, and what it feeds.
     expect(chains()).toContain("gtr: [ gtr_cab_1 ]");
-    expect(chains()).toContain("gtr_cab_1: [ cab ]");
+    expect(chains()).toContain('gtr_cab_1: [ "@workspace/audio/cab" ]');
     expect(chains()).not.toContain("gtr_amp_1");
     // The FILE moved: a comment nobody could regenerate proves it was not rewritten from scratch.
     const moved = readFileSync(join(dir, "nodes", "gtr_cab_1.yaml"), "utf8");
@@ -225,7 +247,11 @@ describe("node replace — the name following the module", () => {
   it("takes the node's preset with it", async () => {
     // `nodes/<node>.vstpreset` is keyed by the name, and nothing else can rebuild that state.
     writeFileSync(join(dir, "nodes", "gtr_amp_1.vstpreset"), "x", "utf8");
-    await runCommand("node replace gtr_amp_1 audio/cab", host(), "cli");
+    await runCommand(
+      "node replace gtr_amp_1 @workspace/audio/cab",
+      host(),
+      "cli",
+    );
     expect(nodes()).toContain("gtr_cab_1.vstpreset");
     expect(nodes()).not.toContain("gtr_amp_1.vstpreset");
   });
@@ -235,7 +261,7 @@ describe("node replace — the name following the module", () => {
     await runCommand("node insert gtr gtr_amp_1 lead", host(), "cli");
     const before = chains();
     logs.length = 0;
-    await runCommand("node replace lead audio/cab", host(), "cli");
+    await runCommand("node replace lead @workspace/audio/cab", host(), "cli");
     expect(chains()).toBe(before);
     expect(nodes()).toContain("lead.yaml");
     expect(logs.join(" ")).not.toContain("→");
@@ -245,7 +271,7 @@ describe("node replace — the name following the module", () => {
     // A different ref for the same word — nothing to follow, and the counter must not walk up.
     const before = chains();
     await runCommand(
-      "node replace gtr_amp_1 @project/audio/amp",
+      "node replace gtr_amp_1 @workspace/audio/amp",
       host(),
       "cli",
     );
@@ -261,12 +287,16 @@ describe("node replace — the name following the module", () => {
       "type: turntables\nlayout: split\nmapping:\n  crossfade: { module: gtr_amp_1, param: Mix }\n",
       "utf8",
     );
-    await runCommand("node replace gtr_amp_1 audio/cab", host(), "cli");
+    await runCommand(
+      "node replace gtr_amp_1 @workspace/audio/cab",
+      host(),
+      "cli",
+    );
     expect(nodes()).toContain("gtr_amp_1.yaml"); // not moved
     expect(logs.join(" ")).toContain("surface desk");
     // …and the replacement still stands. A stale name plays correctly; a half-done rename does not.
     expect(
       readFileSync(join(dir, "nodes", "gtr_amp_1.yaml"), "utf8"),
-    ).toContain("audio/cab");
+    ).toContain("@workspace/audio/cab");
   });
 });

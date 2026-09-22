@@ -63,6 +63,9 @@ beforeEach(() => {
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 const read = (rel: string) => readFileSync(join(dir, rel), "utf8");
+// A module now lands in the WORKSPACE's `_modules`, beside the project rather than inside it.
+const readWs = (rel: string) => readFileSync(join(ws, "_modules", rel), "utf8");
+const existsWs = (rel: string) => existsSync(join(ws, "_modules", rel));
 
 describe("import: a track named after the device on it", () => {
   const inst = (name: string): PluginOut => ({
@@ -93,7 +96,7 @@ describe("import: a track named after the device on it", () => {
     expect(chains).toContain("polysynth_polysynth: [ distortion ]");
     // …and the node is a real one, naming the module it is a use of.
     expect(read("nodes/polysynth_polysynth.yaml")).toContain(
-      'extends: "@project/instruments/polysynth"',
+      'extends: "@workspace/instruments/polysynth"',
     );
   });
 
@@ -122,7 +125,7 @@ describe("import: every lane ends on a fader", () => {
       'extends: "@st0/audio/utility/mixer"',
     );
     expect(read("nodes/mix-drums.yaml")).toContain("@st0/audio/utility/mixer");
-    expect(existsSync(join(dir, "modules/audio/mix-vox"))).toBe(false);
+    expect(existsWs("audio/mix-vox")).toBe(false);
   });
 
   it("is the strip the app looks for, in the compiled document", () => {
@@ -291,13 +294,13 @@ describe("import: one module per plugin, one node per use", () => {
     expect(stats.nodeFiles).toBe(2); // …used twice
 
     // module.yaml declares the plugin and nothing else; each node holds its settings.
-    const mod = read("modules/audio/reverb/module.yaml");
+    const mod = readWs("audio/reverb/module.yaml");
     expect(mod).toContain("name: Reverb");
     expect(mod).not.toContain("mix");
     // Flat in `nodes/`, each naming what it extends — see packages/song/docs/nodes.md.
     expect(read("nodes/reverb_vox.yaml")).toContain("mix:");
     expect(read("nodes/reverb_vox.yaml")).toContain(
-      'extends: "@project/audio/reverb"',
+      'extends: "@workspace/audio/reverb"',
     );
     expect(read("nodes/reverb_drums.yaml")).toContain("mix:");
 
@@ -314,7 +317,7 @@ describe("import: one module per plugin, one node per use", () => {
       {},
     );
     expect(stats.nodeFiles).toBe(0);
-    expect(read("modules/audio/reverb/module.yaml")).toContain("mix:");
+    expect(readWs("audio/reverb/module.yaml")).toContain("mix:");
     expect(existsSync(join(dir, "nodes/reverb_vox.yaml"))).toBe(false);
     expect(read("graph.yaml")).toContain("vox: [ reverb ]");
   });
@@ -341,12 +344,8 @@ describe("import: one module per plugin, one node per use", () => {
       { type: "vst3", name: "Synth", role: "instrument", enabled: true },
     ]);
     emitFolder(dir, song([bounced, live]), {});
-    expect(existsSync(join(dir, "modules/instruments/synth/module.yaml"))).toBe(
-      true,
-    );
-    expect(existsSync(join(dir, "modules/instruments/synth/keys.yaml"))).toBe(
-      false,
-    );
+    expect(existsWs("instruments/synth/module.yaml")).toBe(true);
+    expect(existsWs("instruments/synth/keys.yaml")).toBe(false);
     expect(read("graph.yaml")).toContain("keys: [ synth ]");
   });
 });
@@ -523,9 +522,7 @@ describe("what comes out is the arrangement that went in", () => {
         {},
         scan("Pro-Q 3"),
       );
-      expect(read("modules/audio/pro_q_3/module.yaml")).toContain(
-        "name: Pro-Q 3",
-      );
+      expect(readWs("audio/pro_q_3/module.yaml")).toContain("name: Pro-Q 3");
       expect(existsSync(join(dir, "nodes", "pro_q_3.yaml"))).toBe(false);
     });
   });

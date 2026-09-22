@@ -15,7 +15,7 @@ One field, on the module the freeze was taken at:
 
 ```yaml
 # nodes/amp.yaml
-extends: "@project/audio/amp"
+extends: "@workspace/audio/amp"
 params: { Gain: 3 }
 frozen: renders/amp.wav
 ```

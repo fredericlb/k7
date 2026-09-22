@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeModule, writeYaml } from "@studio/song/testSupport";
+import { writeYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
@@ -15,14 +15,15 @@ import { Workspace } from "./workspace.ts";
 
 let root: string;
 let ws: Workspace;
-const MODULE_DIR = "song.st0/modules/instruments/synth";
+// A module lives at `@workspace` now — beside the project, never under it.
+const MODULE_DIR = "_modules/instruments/synth";
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-inst-"));
   const proj = join(root, "song.st0");
   mkdirSync(proj, { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
-  writeModule(proj, "instruments", "synth", {
+  writeYaml(join(root, MODULE_DIR, "module.yaml"), {
     plugin: { type: "internal", name: "4osc" },
   });
   ws = new Workspace(root);
@@ -37,11 +38,7 @@ describe("Workspace.createNode", () => {
     expect(path).toBe("nodes/lead.yaml");
     expect(existsSync(join(root, "song.st0", path))).toBe(true);
     // The module is untouched — the node names it, it doesn't rewrite it.
-    expect(
-      existsSync(
-        join(root, "song.st0", "modules/instruments/synth/module.yaml"),
-      ),
-    ).toBe(true);
+    expect(existsSync(join(root, MODULE_DIR, "module.yaml"))).toBe(true);
   });
 
   it("resolves the module from a file inside the folder, not just the folder", () => {

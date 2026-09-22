@@ -14,7 +14,7 @@ npm run vscode                     # the browser editor at /dev, on its own
 `studio.frediver.se`, which is the point: the two differ by their origin and nothing else.
 
 > **The LAN proxy's path table lives on the other machine.** It is the one piece of this
-> topology not versioned here, and it must mirror `docker/nginx.conf`, which is
+> topology not versioned here, and it must mirror `apps/z0/docker/nginx.conf`, which is
 > versioned. What that file says, as ports:
 >
 > | path | goes to | |
@@ -43,7 +43,7 @@ npm run vscode                     # the browser editor at /dev, on its own
 >
 > **A prefix is written with or without its trailing slash**, `/pl8` as readily as `/pl8/`, and
 > both reach the médiathèque: the bare form redirects to the slashed one, which stays canonical
-> because that is what each vite `base` says. `docker/nginx.conf` does it in the image and
+> because that is what each vite `base` says. `apps/z0/docker/nginx.conf` does it in the image and
 > `defineAppConfig` does it on the dev server — `commons/dev/vite-config/docs/base.md`. The rows
 > above are raw prefixes, so they already match the bare form on the way in.
 >
@@ -97,13 +97,13 @@ kinds, each for a reason:
 - **`st0-tray`**, whose `dev` is `tauri dev` — the tool for a human watching a terminal.
   Here it would fight the native monitor for the same single-instance tray, and its
   `predev` stages a sidecar the monitor has not built yet.
-- **the `apps/<x>` aggregators**, whose `dev` is itself `turbo run dev --filter=…` over
+- **the `apps/<x>` aggregators**, whose `dev` is itself a `concurrently` command over
   their own children. Running the parent *and* the children would start every server
   twice.
 - **`tsc --noEmit --watch`**, the packages' typecheck watchers. Six more rows for
   feedback each app's own `npm run dev` still gives you.
 
-turbo keeps `build` and `test` — Tilt only owns the dev session.
+The root `build` and `test` scripts stay outside this list — Tilt only owns the dev session.
 
 The **file service** is in the list deliberately. In dev the supervisor does not spawn one
 (`fileServiceProcess.ts`), because the session's own already owns port 8770 and a second

@@ -762,7 +762,7 @@ file becomes a project copy, and the pane moves onto it.
 
 The resolution is `moduleBehind.ts` — the same answer a ctrl-click on the extends value gives (`base:`
 then `module:` in `hints.paths`) — read from the BUFFER, so retyping the extends line swaps the pane. A
-base with no file to edit (`@engine/…`, the `@studio/…` track bases) resolves to nothing and the popin
+base with no file to edit (`@engine/…`, the `@meta/…` track bases) resolves to nothing and the popin
 stays one pane. Popin only: the full-screen editor has the tree, and a second file there is one click
 away rather than a question.
 
@@ -1401,13 +1401,13 @@ already draws.
 
 **The scope is `/`, the whole origin, and it cannot be narrower — this is the part st0 owns alone.** A
 worker's scope is a prefix and st0's own routes ARE the root, `/<dépôt>/<projet>`. So this worker also
-controls `/pl8`, `/k7`, `/z0`, `/api` and `/auth`, which no other app on this origin has to think about:
-mounted under a `base`, their workers reach nothing but their own prefix. The only thing keeping st0's
-honest is the `pwaDenylist` it passes to `defineAppConfig`: without it, a navigation to `/pl8` is answered
-with st0's `index.html` and the médiathèque becomes a white page with the editor's router refusing an
-address it cannot parse. That list is the same table as `docker/nginx.conf`'s locations — two
-copies of one fact, and this is the one a browser enforces. **Check it first if another app on this origin
-ever serves the editor's shell.**
+controls `/z0`, `/api` and `/auth`, which no other app on this origin has to think about: pl8 and k7
+answer their own subdomain now, not a path here, so they're off this list entirely. The only thing
+keeping st0's honest is the `pwaDenylist` it passes to `defineAppConfig`: without it, a navigation
+to `/z0` is answered with st0's `index.html` and the game becomes a white page with the editor's
+router refusing an address it cannot parse. That list is the same table as
+`apps/z0/docker/nginx.conf`'s locations — two copies of one fact, and this is the one a browser
+enforces. **Check it first if z0 ever serves the editor's shell instead of the game.**
 
 **Mixed content is what makes an install fail.** A page over HTTPS that loads one resource in the clear is
 flagged "includes resources that are not secure", and that alone makes it uninstallable — the certificate

@@ -333,10 +333,7 @@ export function registerCommandSpec(spec: CommandSpec): void {
  *  a spec whose SID dispatches is the whole verb, so contributing either alone would leave a
  *  half verb that reads but never runs (or runs and never reads). Both halves refuse an already
  *  spoken-for word, so a partially installed verb fails loudly at install, never at use. */
-export function registerVerb(
-  spec: CommandSpec,
-  handler: SidHandler,
-): void {
+export function registerVerb(spec: CommandSpec, handler: SidHandler): void {
   registerCommandSpec(spec);
   registerCommand({ sid: spec.sid, handler });
 }

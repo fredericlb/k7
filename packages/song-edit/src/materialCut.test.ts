@@ -39,7 +39,7 @@ const seq = (name: string, notes: string, head = "") =>
 const lane = (events: string) =>
   writeFileSync(
     join(dir, "nodes", "drums.yaml"),
-    `extends: "@studio/track"\nevents:\n${events}`,
+    `extends: "@meta/track"\nevents:\n${events}`,
     "utf8",
   );
 

@@ -23,6 +23,7 @@ import { isLoopbackReturn } from "@studio/web-protocol/pairing";
 import express from "express";
 import { z } from "zod";
 import { startAnalysisSweep } from "./analysisSweep.ts";
+import { createTrustedOriginCors } from "./cors.ts";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
 import { publicShareRouter } from "./routes/publicShare.ts";
@@ -35,17 +36,13 @@ Object.assign(process.env, loadServiceEnv("pl8-backend"));
 
 const PORT = Number(process.env.PORT || 8795);
 
-// The volume, required rather than defaulted: the fallback is healthy AND empty, ../docs/config.md.
-if (!process.env.STUDIO_MEDIATEK) {
-  console.error(
-    "error: STUDIO_MEDIATEK is not set — it must point at the mounted library volume.",
-  );
-  process.exit(1);
-}
-
 const app = express();
 // The relay pipes bodies to an engine's file service, so the limit is that service's opinion.
 app.use(express.json({ limit: ENGINE_BODY_LIMIT }));
+// st0 and k7, now on their own subdomains, call this API directly — allow
+// them (and answer their preflight) before anything else runs. See cors.ts;
+// TRUSTED_ORIGINS is populated by the Object.assign above, not read here.
+app.use(createTrustedOriginCors());
 
 const { requireAuth } = await setupAuth(app, {
   // VERIFIES the cookie and mounts nothing, as k7 and z0 do — the flow is st0's, ../docs/gate.md.
@@ -141,6 +138,19 @@ app.post("/api/token", requireAuth, (req, res) => {
   const id = sub?.sub ?? sub?.email;
   if (!id) return res.status(401).json({ error: "no user on the session" });
   res.json({ token: issueApiToken(id) });
+});
+
+// The built SPA — this process's own frontend/dist, since there is no nginx in this image.
+// Static files first (an asset request that matches a real file wins outright), then a
+// catch-all SPA fallback for everything else EXCEPT /api and /auth, which answer their own
+// 404 rather than being swallowed into the shell — this backend mounts neither (mountRoutes:
+// [] for auth, and an unmatched /api/* is a real 404), and the frontend never asks it to
+// answer either (see api.ts), but a 200-with-HTML is a worse failure than a clean 404 for
+// anything that does.
+const FRONTEND_DIST = join(import.meta.dirname, "../../frontend/dist");
+app.use(express.static(FRONTEND_DIST));
+app.get(/^(?!\/api|\/auth)/, (_req, res) => {
+  res.sendFile(join(FRONTEND_DIST, "index.html"));
 });
 
 // Mounted LAST: three routes read a 512 MB body, so a caller hanging up is an everyday event.

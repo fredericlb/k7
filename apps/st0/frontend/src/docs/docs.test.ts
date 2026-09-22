@@ -30,7 +30,7 @@ const SCHEMAS: Record<string, z.ZodType> = {
   ProjectFile: ProjectFileSchema,
   Settings: SettingsSchema,
   Surface: SurfaceSchema,
-  // No `Track`: a lane is a NODE of a `@studio/…-track` module, so its examples declare `schema=Module` like every other node.
+  // No `Track`: a lane is a NODE of a `@meta/…-track` module, so its examples declare `schema=Module` like every other node.
   Clip: ClipSchema,
   Sequence: SequenceSchema,
   Curve: CurveSchema,

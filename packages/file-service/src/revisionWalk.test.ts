@@ -26,7 +26,7 @@ beforeEach(() => {
   writeFileSync(join(proj, "graph.yaml"), "modules:\n  gtr: [ OUT ]\n", "utf8");
   writeFileSync(
     join(proj, "nodes", "gtr.yaml"),
-    'extends: "@studio/track"\nevents: []\n',
+    'extends: "@meta/track"\nevents: []\n',
     "utf8",
   );
   writeModule(proj, "audio", "amp", {

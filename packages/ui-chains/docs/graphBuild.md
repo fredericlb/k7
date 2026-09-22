@@ -135,7 +135,7 @@ its node to show, and a grid of pads bolted underneath would be the app overruli
 
 `inputUI` gives an `io: in` node three dropdowns — its socket, its width, and its monitoring.
 Synthesised for the reason `TRACK_UI` and `rackUI` are (these are not the module's opinion but what
-it IS), and for a second, harder one: **`@engine/IN` cannot have a `ui.yaml` at all.** A `ui.yaml`
+it IS), and for a second, harder one: **`@meta/IN` cannot have a `ui.yaml` at all.** A `ui.yaml`
 is keyed by a library ref, and there is no `@engine` library — an engine module is a built-in with
 no folder anywhere (`@studio/song`'s `uiLibrary.ts` says so outright and `moduleRootFor` throws for
 it). Without `inputUI`, every live input in every project draws a card reading **"No Options"**, and
