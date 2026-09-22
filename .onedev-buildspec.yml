@@ -14,10 +14,9 @@ jobs:
   - type: SetupCacheStep
     name: set up npm cache
     key: npm-cache
-    checksumFiles: package-lock.json
-    entries:
-    - path: /root/.npm
-    uploadStrategy: UPLOAD_IF_NOT_EXACT_MATCH
+    paths:
+    - /root/.npm
+    uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
@@ -183,10 +182,9 @@ jobs:
   - type: SetupCacheStep
     name: set up npm cache
     key: npm-cache
-    checksumFiles: package-lock.json
-    entries:
-    - path: /root/.npm
-    uploadStrategy: UPLOAD_IF_NOT_EXACT_MATCH
+    paths:
+    - /root/.npm
+    uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
