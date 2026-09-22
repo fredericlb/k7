@@ -880,6 +880,13 @@ select {
   width: 100%;
 }
 
+/* ---- The drawn player (releases, pages) ---------------------------------- */
+
+.waveform-player-play {
+  width: 100%;
+  margin-top: 6px;
+}
+
 /* ---- Singing exercises (the shared practice book) ------------------------ */
 
 /* The form lives in a popin now, which supplies its own spacing. */

@@ -257,6 +257,24 @@ export const api = {
     }).then(json);
   },
 
+  /** A version's shape, measured by the backend the first time and kept. */
+  getVersionEnvelope: (id: string, versionId: string): Promise<SongEnvelope> =>
+    f(`/api/releases/${id}/versions/${versionId}/envelope`).then(json),
+
+  /** Swap a version's file, keeping its name, its stems and its place in the release. */
+  replaceVersionAudio: (
+    id: string,
+    versionId: string,
+    audio: File,
+  ): Promise<unknown> => {
+    const form = new FormData();
+    form.append("audio", audio, audio.name);
+    return f(`/api/releases/${id}/versions/${versionId}/audio`, {
+      method: "PUT",
+      body: form,
+    }).then(json);
+  },
+
   setDefaultVersion: (id: string, versionId: string): Promise<Release> =>
     f(`/api/releases/${id}/versions/${versionId}`, {
       method: "PATCH",

@@ -3,9 +3,10 @@ import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { Checkbox } from "@frediverse/ui/checkbox";
 import { Input } from "@frediverse/ui/input";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { WaveformPlayer } from "../components/WaveformPlayer";
 import { fmtDate } from "../format";
-import type { Release } from "../types";
+import type { Release, SongEnvelope } from "../types";
 
 interface Props {
   release: Release;
@@ -14,26 +15,55 @@ interface Props {
     isDefault: boolean;
     audio: File;
   }) => Promise<void>;
+  /** Swap one version's file; its name, its stems and its place are kept. */
+  onReplaceVersionAudio: (versionId: string, audio: File) => Promise<void>;
   onSetDefaultVersion: (versionId: string) => Promise<void>;
   onDeleteVersion: (versionId: string) => Promise<void>;
   onDelete: () => Promise<void>;
   versionAudioUrl: (versionId: string) => string;
+  versionEnvelope: (versionId: string) => Promise<SongEnvelope>;
   versionTrackUrl: (versionId: string, trackId: string) => string;
 }
 
 export function ReleaseDetailView({
   release,
   onAddVersion,
+  onReplaceVersionAudio,
   onSetDefaultVersion,
   onDeleteVersion,
   onDelete,
   versionAudioUrl,
+  versionEnvelope,
   versionTrackUrl,
 }: Props) {
   const [vName, setVName] = useState("");
   const [vDefault, setVDefault] = useState(true);
   const [vFile, setVFile] = useState<File | null>(null);
   const [adding, setAdding] = useState(false);
+  // One input for the whole list; this remembers which version asked for it.
+  const replaceInput = useRef<HTMLInputElement>(null);
+  const [replacing, setReplacing] = useState<string | null>(null);
+  const [swapping, setSwapping] = useState(false);
+  // The URL of a version's audio never changes, so a replaced file would play from the cache.
+  const [bust, setBust] = useState(0);
+
+  const askForFile = (versionId: string) => {
+    setReplacing(versionId);
+    replaceInput.current?.click();
+  };
+
+  const replacePicked = async (file: File | undefined) => {
+    const versionId = replacing;
+    setReplacing(null);
+    if (!file || !versionId) return;
+    setSwapping(true);
+    try {
+      await onReplaceVersionAudio(versionId, file);
+      setBust((b) => b + 1);
+    } finally {
+      setSwapping(false);
+    }
+  };
 
   const addVersion = async () => {
     if (!vFile) return;
@@ -89,11 +119,9 @@ export function ReleaseDetailView({
       {def ? (
         <Card style={{ marginTop: 12 }}>
           <div className="muted small">Now playing · {def.name}</div>
-          <audio
-            controls
-            crossOrigin="use-credentials"
-            src={versionAudioUrl(def.id)}
-            style={{ width: "100%", marginTop: 8 }}
+          <WaveformPlayer
+            src={`${versionAudioUrl(def.id)}?v=${bust}`}
+            shapeOf={() => versionEnvelope(def.id)}
           />
           {def.tracks.length > 0 && (
             <div className="stems">
@@ -175,6 +203,15 @@ export function ReleaseDetailView({
             <Button
               variant="outline"
               size="sm"
+              disabled={swapping}
+              title="Replace this version's file"
+              onClick={() => askForFile(v.id)}
+            >
+              ⇄
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => onDeleteVersion(v.id)}
             >
               🗑
@@ -182,6 +219,17 @@ export function ReleaseDetailView({
           </li>
         ))}
       </ul>
+      <input
+        ref={replaceInput}
+        type="file"
+        accept="audio/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          void replacePicked(file);
+        }}
+      />
 
       <Card>
         <h3 style={{ marginTop: 0 }}>Add a version</h3>

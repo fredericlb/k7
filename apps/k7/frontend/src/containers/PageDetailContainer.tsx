@@ -53,6 +53,7 @@ export function PageDetailContainer({
       onAddRelease={handleAddRelease}
       onDelete={handleDelete}
       versionAudioUrl={api.versionAudioUrl}
+      versionEnvelope={api.getVersionEnvelope}
     />
   );
 }

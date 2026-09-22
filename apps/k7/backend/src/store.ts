@@ -1055,6 +1055,37 @@ async function forgetVersionFolder(v) {
   await mediatek.removeTree(dirOf(v.fields.AudioPath)).catch(() => {});
 }
 
+/** Swap a version's mixdown for another file, keeping its name, its stems and its place. */
+export async function replaceVersionAudio(releaseUid, versionUid, mixdown) {
+  const versions = await getVersionRecords(releaseUid);
+  const rec = versions.find((v) => v.fields.Uid === versionUid);
+  if (!rec) return null;
+  const release = await getReleaseRecord(releaseUid);
+  const previous = String(rec.fields.AudioPath || "");
+
+  // The same album and title, so the bytes land in the folder this version already owns.
+  const master = await mediatek.pushVersion(
+    mixdown.buffer,
+    versionExt(mixdown.mime),
+    {
+      album: release?.fields.Title || "",
+      title: String(rec.fields.Name || "Version"),
+    },
+  );
+  await grist.patchRecord("Versions", rec.id, {
+    AudioPath: master,
+    AudioMime: mixdown.mime,
+    // Another file has another shape; the next reader measures this one.
+    Envelope: "",
+  });
+  // Another container leaves the old master beside the new one, and the scan takes the FIRST.
+  if (previous && previous !== master) await safeRemote(previous);
+
+  fs.writeFileSync(versionCachePath(versionUid), mixdown.buffer);
+  invalidateVersions(releaseUid);
+  return getRelease(releaseUid);
+}
+
 export async function setDefaultVersion(releaseUid, versionUid) {
   const versions = await getVersionRecords(releaseUid);
   const target = versions.find((v) => v.fields.Uid === versionUid);
@@ -1113,6 +1144,30 @@ export async function deleteVersion(releaseUid, versionUid) {
       await setDefaultVersion(releaseUid, remaining[0].fields.Uid);
   }
   return true;
+}
+
+/** A version's shape, measured on first ask and kept: decoding is seconds, drawing must not be. */
+export async function versionEnvelope(releaseUid, versionUid) {
+  const versions = await getVersionRecords(releaseUid);
+  const rec = versions.find((v) => v.fields.Uid === versionUid);
+  if (!rec?.fields.AudioPath) return null;
+  const stored = String(rec.fields.Envelope || "");
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored) as SongEnvelope;
+      if (parsed?.samples?.length) return parsed;
+    } catch {
+      // Unreadable is the same as absent: measure it again rather than refuse to draw.
+    }
+  }
+  const audio = await ensureVersionAudioCached(releaseUid, versionUid);
+  if (!audio) return null;
+  const measured = await envelopeOf(audio.filePath);
+  await grist.patchRecord("Versions", rec.id, {
+    Envelope: JSON.stringify(measured),
+  });
+  invalidateVersions(releaseUid);
+  return measured;
 }
 
 export async function ensureVersionAudioCached(releaseUid, versionUid) {

@@ -76,6 +76,8 @@ const SCHEMA: TableSchema = {
     // AudioPath is the master of a song in the médiathèque — see ../../docs/audio.md.
     ["AudioPath", "Text"],
     ["AudioMime", "Text"],
+    // Its shape, measured once so the waveform draws without decoding it — ../../docs/audio.md.
+    ["Envelope", "Text"],
     ["TrackMeta", "Text"],
     ["IsDefault", "Bool"],
     ["CreatedAt", "Text"],

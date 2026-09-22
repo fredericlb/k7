@@ -1,7 +1,8 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { useState } from "react";
-import type { Page, Release } from "../types";
+import { WaveformPlayer } from "../components/WaveformPlayer";
+import type { Page, Release, SongEnvelope } from "../types";
 
 interface Props {
   page: Page;
@@ -10,6 +11,10 @@ interface Props {
   onAddRelease: (id: string) => Promise<void>;
   onDelete: () => Promise<void>;
   versionAudioUrl: (releaseId: string, versionId: string) => string;
+  versionEnvelope: (
+    releaseId: string,
+    versionId: string,
+  ) => Promise<SongEnvelope>;
 }
 
 export function PageDetailView({
@@ -19,6 +24,7 @@ export function PageDetailView({
   onAddRelease,
   onDelete,
   versionAudioUrl,
+  versionEnvelope,
 }: Props) {
   const [adding, setAdding] = useState(false);
 
@@ -65,11 +71,9 @@ export function PageDetailView({
               </Button>
             </div>
             {def && (
-              <audio
-                controls
-                crossOrigin="use-credentials"
+              <WaveformPlayer
                 src={versionAudioUrl(r.id, def.id)}
-                style={{ width: "100%", marginTop: 8 }}
+                shapeOf={() => versionEnvelope(r.id, def.id)}
               />
             )}
           </Card>

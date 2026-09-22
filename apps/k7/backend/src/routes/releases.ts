@@ -188,6 +188,36 @@ releasesRouter.patch(
   }),
 );
 
+/** A version's shape, for the waveform that replaced the native transport — ../../docs/audio.md. */
+releasesRouter.get(
+  "/:rid/versions/:vid/envelope",
+  wrap(async (req, res) => {
+    const envelope = await store.versionEnvelope(
+      req.params.rid,
+      req.params.vid,
+    );
+    if (!envelope) return res.status(404).json({ error: "no audio" });
+    res.json(envelope);
+  }),
+);
+
+/** The file itself, swapped: PUT beside the GET that serves it — ../../docs/audio.md. */
+releasesRouter.put(
+  "/:rid/versions/:vid/audio",
+  upload.single("audio"),
+  wrap(async (req, res) => {
+    if (!req.file?.buffer?.length)
+      return res.status(400).json({ error: "missing audio file" });
+    const release = await store.replaceVersionAudio(
+      req.params.rid,
+      req.params.vid,
+      { buffer: req.file.buffer, mime: req.file.mimetype || "audio/mpeg" },
+    );
+    if (!release) return res.status(404).json({ error: "not found" });
+    res.json(release);
+  }),
+);
+
 releasesRouter.delete(
   "/:rid/versions/:vid",
   wrap(async (req, res) => {

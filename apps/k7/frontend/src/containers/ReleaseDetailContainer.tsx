@@ -28,6 +28,11 @@ export function ReleaseDetailContainer({ releaseId, onDeleted }: Props) {
     await load();
   };
 
+  const handleReplaceVersionAudio = async (versionId: string, audio: File) => {
+    await api.replaceVersionAudio(releaseId, versionId, audio);
+    await load();
+  };
+
   const handleSetDefaultVersion = async (versionId: string) => {
     await api.setDefaultVersion(releaseId, versionId);
     await load();
@@ -49,10 +54,14 @@ export function ReleaseDetailContainer({ releaseId, onDeleted }: Props) {
     <ReleaseDetailView
       release={release}
       onAddVersion={handleAddVersion}
+      onReplaceVersionAudio={handleReplaceVersionAudio}
       onSetDefaultVersion={handleSetDefaultVersion}
       onDeleteVersion={handleDeleteVersion}
       onDelete={handleDelete}
       versionAudioUrl={(versionId) => api.versionAudioUrl(releaseId, versionId)}
+      versionEnvelope={(versionId) =>
+        api.getVersionEnvelope(releaseId, versionId)
+      }
       versionTrackUrl={(versionId, trackId) =>
         api.versionTrackUrl(releaseId, versionId, trackId)
       }

@@ -152,6 +152,20 @@ Renaming a version **does not move the folder**; only the sidecar is rewritten, 
 a folder path is an entry's identifier and a cache manifest's key, so moving it would cost every
 machine a re-download of bytes that have not changed.
 
+**Replacing a version's file** writes into that same folder — the push is keyed by the release's
+album and the version's name, which have not changed — and keeps the name, the stems and the place
+in the release. What it must not leave behind is the previous master under another extension: the
+scan takes a folder's FIRST audio file as the master, so an `original.mp3` sitting beside a new
+`original.flac` is a version that plays the file nobody chose. The old path is removed whenever it
+differs from the new one.
+
+**A release and a page draw their audio, like the songbook does.** Same rule, same measurement —
+ffmpeg on the server, capped buckets, kept in `Versions.Envelope` and cleared when the file is
+replaced — and the same one component (`WaveformPlayer`), because "a shape that seeks, and a button
+that stops" is one idea and not three. The song page keeps a player of its own: it carries the
+Original / Instrumental switch, shares its element with the timed lyrics and is transposed with
+them, which is a different job wearing the same clothes.
+
 `Versions.AudioPath` carries the mixdown's path, and `TrackMeta` carries `{id, path, name, mime}`.
 
 ## A songbook song's reference track
