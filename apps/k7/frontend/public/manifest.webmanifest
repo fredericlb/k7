@@ -2,22 +2,21 @@
   "name": "k7",
   "short_name": "k7",
   "description": "Record long sessions, auto-detect the loud moments, tag the good bits.",
-  "start_url": "/k7/",
-  "scope": "/k7/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#101114",
   "theme_color": "#101114",
   "icons": [
-    { "src": "/k7/icon-192.png", "type": "image/png", "sizes": "192x192" },
-    { "src": "/k7/icon-512.png", "type": "image/png", "sizes": "512x512" },
+    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512" },
     {
-      "src": "/k7/icon-192-maskable.png",
+      "src": "icon-192-maskable.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "maskable"
     },
     {
-      "src": "/k7/icon-512-maskable.png",
+      "src": "icon-512-maskable.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"
