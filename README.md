@@ -35,7 +35,7 @@ The studio answers at **https://st0.priv.frediver.se** — one origin, one path 
 Nothing here terminates TLS: the name resolves to the LAN server, which reverse-proxies to
 the dev servers. See [docs/dev.md](docs/dev.md).
 
-`npm run dev` runs the whole studio as one turbo session — every app's frontend and
+`npm run dev` runs the whole studio as one Tilt session — every app's frontend and
 backend, plus a task that builds the C++ engine and launches the desktop app,
 and rebuilds+restarts both on save. One app on its own is still `npm run dev` inside its
 directory. See [docs/dev.md](docs/dev.md).
@@ -62,9 +62,10 @@ fetch. To pull a commons change made from phare: `npm run commons:sync`.
 
 `engine/st0-engine` is a CMake/JUCE/Tracktion C++ project; `apps/st0-desktop` is an Electron
 app around it. Neither is in the deployed image — the desktop app sits under `apps/` with the
-server apps, and stays out of the image because `turbo prune` names its packages rather than
-globbing the directory. The moteur deliberately declares no `build` script at all, so turbo can
-never try to compile C++. They have their own commands:
+server apps, and each `docker/Dockerfile` names the workspaces it installs rather than globbing
+the directory. The moteur deliberately declares no `build` script at all, so
+`npm run build --workspaces --if-present` can never try to compile C++. They have their own
+commands:
 
 ```bash
 npm run build:win --workspace st0-engine     # or build:mac

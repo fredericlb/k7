@@ -8,53 +8,39 @@
 #
 # Build from the repo root: docker build -f apps/st0/docker/Dockerfile .
 
-# ---- prune: cut the monorepo down to what this app needs -------------------
-FROM node:22-alpine AS pruner
-WORKDIR /repo
-RUN npm install -g turbo@2
-COPY . .
-RUN turbo prune st0-frontend st0-backend --docker
-# A SECOND prune, backend-only, is what the runtime stage ships: no frontend
-# source, no frontend-only deps. node_modules/@studio/* are symlinks into the
-# workspace, so a package missing from the image is a dangling link and a
-# crash on first import — these packages are consumed as raw TYPESCRIPT
-# SOURCE rather than as build output.
-RUN turbo prune st0-backend --docker --out-dir=out-backend
-
-# ---- deps: install from the pruned lockfile --------------------------------
+# ---- deps: install this app's own workspace dependencies --------------------
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY --from=pruner /repo/out/json/ ./
+COPY . .
 # node-pty (a root devDependency, pulled in even though this app doesn't use it) has no musl
 # prebuild and falls back to node-gyp, which alpine ships neither python3 nor a C toolchain for.
 RUN apk add --no-cache python3 make g++ \
- && npm ci
+ && npm ci --workspace st0-frontend --workspace st0-backend --include-workspace-root
 
 # ---- frontend build ----------------------------------------------------------
 FROM deps AS frontend-build
-WORKDIR /app
-COPY --from=pruner /repo/out/full/ ./
-# The vite configs import the repo-root scripts/dev-hosts.mjs, which turbo prune
-# does not carry (it only keeps workspace directories).
-COPY scripts ./scripts
 # The build stamp shown in the SPA's chrome — docs/versioning.md.
 ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=$APP_VERSION
 RUN npm run build --workspace st0-frontend
 
 # ---- backend prod deps -------------------------------------------------------
+# A SEPARATE install, scoped to just st0-backend and its @studio/* dependency closure, is
+# what the runtime stage ships: no frontend-only deps, no devDependencies. node_modules/@studio/*
+# are symlinks into the workspace, so a package missing from the image is a dangling link and a
+# crash on first import — these packages are consumed as raw TYPESCRIPT SOURCE rather than as
+# build output, which is why the runtime stage below copies the whole repo rather than just
+# node_modules.
 FROM node:22-alpine AS backend-deps
 WORKDIR /app
-COPY --from=pruner /repo/out-backend/json/ ./
+COPY . .
 RUN apk add --no-cache python3 make g++ \
- && npm ci \
- && npm prune --omit=dev
+ && npm ci --workspace st0-backend --omit=dev
 
 # ---- final image --------------------------------------------------------------
 FROM node:22-alpine AS runtime
 WORKDIR /app
-COPY --from=backend-deps /app/node_modules ./node_modules
-COPY --from=pruner /repo/out-backend/full/ ./
+COPY --from=backend-deps /app ./
 # The built SPA — apps/st0/backend/src/server.ts serves this directly.
 COPY --from=frontend-build /app/apps/st0/frontend/dist ./apps/st0/frontend/dist
 

@@ -85,12 +85,16 @@ The relay's HTTP half — `/api/engine/<id>/files` — needs no location of its 
 ordinary request under `/api`. What it does need is that **nothing consumes the body before
 it**; see `packages/engine-registry/docs/proxy.md`.
 
-## The prune closure, checked rather than assumed
+## The install closure, checked rather than assumed
 
-`turbo prune pl8-frontend pl8-backend --docker` computes the workspace subset, so the
-Dockerfile hand-lists nothing. A second, backend-only prune is what the runtime stage
-ships: `node_modules/@studio/*` are symlinks into the workspace, so a package missing from
-the image is a dangling link and a crash on first import.
+`npm ci --workspace pl8-frontend --workspace pl8-backend --include-workspace-root` in the
+Dockerfile's `deps` stage computes the dependency closure from each workspace's own
+`package.json` — the same graph turbo prune used to walk, minus turbo. `--include-workspace-root`
+is the one manual knob: drop it and a root-level devDependency a package only reaches through
+peer-dependency hoisting (`@inlang/paraglide-js` via `@frediverse/i18n`, for one) goes missing at
+build time. A second, backend-only install (`--workspace pl8-backend --omit=dev`) is what the
+runtime stage ships: `node_modules/@studio/*` are symlinks into the workspace, so a package
+missing from the image is a dangling link and a crash on first import.
 
 Both closures are worth inspecting when either changes. The full one pulls in
 `commons/packages/ui` — which matters more than it looks, because `index.css` `@source`s

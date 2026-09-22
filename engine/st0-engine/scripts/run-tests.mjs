@@ -1,5 +1,5 @@
-// run-tests.mjs — the C++ suite, as a turbo task. Builds the `studio_*` ctest targets in whichever
-// preset this platform uses, then runs them.
+// run-tests.mjs — the C++ suite, as this workspace's `test` script. Builds the `studio_*` ctest
+// targets in whichever preset this platform uses, then runs them.
 //
 // Two things it refuses to do: guess a preset (the name comes from the platform, or
 // $STUDIO_MOTEUR_PRESET), and configure one. Configuring fetches Tracktion, JUCE and Faust — minutes

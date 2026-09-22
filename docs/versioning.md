@@ -89,21 +89,9 @@ Both produce a working build that ships the wrong stamp — no error, no warning
    `define` block anywhere; the mechanism is Vite's default `envPrefix`. A
    `BUILD_VERSION` would simply not be inlined.
 
-### Turbo is *not* a hazard here, though it looks like one
-
-`turbo.json` declares no `globalEnv` and no `env`, and turbo 2 defaults to strict env
-mode — which reads like `VITE_APP_VERSION` should be filtered out of task environments
-and left out of the cache key. It is not, because turbo infers the framework from each
-workspace and adds Vite's `VITE_*` to the env key automatically.
-
-Measured on turbo 2.10.8: `turbo run build --filter=pl8` with two different values
-produced two different task hashes (`d459578664edb92f` / `04f869a3a312cc63`) and a fresh
-bundle each time, correctly stamped. So the variable both reaches the build and busts
-the cache.
-
-The Dockerfiles call `npm run build --workspace <x>` directly, which is about build *scope*,
-not about this variable. If you ever add a build-time variable **without** a
-framework-recognised prefix, that one really would need a `globalEnv` entry.
+Neither the Dockerfiles' `npm run build --workspace <x>` nor the root `npm run build`
+(`npm run build --workspaces --if-present`) caches anything, so there is no cache key to
+strip the variable from and no stale bundle to worry about: every build reads it fresh.
 
 ## The fallback is `dev`, twice
 

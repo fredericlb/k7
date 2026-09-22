@@ -70,7 +70,8 @@ broken engine build is a red row with readable logs instead of a dead session.
 The `Tiltfile` derives the resource list by running `scripts/tilt-tasks.mjs` (a
 package joins by having a `dev` script; the tray, the aggregators and the tsc
 watchers are dropped — docs/dev.md's "The task list" says why), so a new app still
-joins by existing. turbo keeps `build` and `test`: Tilt only owns the dev *session*.
+joins by existing. The root `build` and `test` scripts stay outside that list: Tilt only
+owns the dev *session*.
 
 The UI cannot live under a path prefix (its SPA loads `/static/*` absolute and `tilt up`
 has no base-path flag), so it gets a **port** rather than a path, and `/dev-status`

@@ -5,6 +5,6 @@
   "license": "ISC",
   "author": "",
   "scripts": {
-    "dev": "turbo run dev --filter=st0-frontend --filter=st0-backend --filter=@studio/file-service --filter=@studio/engine-host"
+    "dev": "concurrently -n frontend,backend,file-service,engine-host -c auto \"npm run dev --workspace=st0-frontend\" \"npm run dev --workspace=st0-backend\" \"npm run dev --workspace=@studio/file-service\" \"npm run dev --workspace=@studio/engine-host\""
   }
 }

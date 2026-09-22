@@ -7,41 +7,30 @@
 #
 # Build from the repo root: docker build -f apps/pl8/docker/Dockerfile .
 
-# ---- prune: cut the monorepo down to what this app needs -------------------
-FROM node:22-alpine AS pruner
-WORKDIR /repo
-RUN npm install -g turbo@2
-COPY . .
-RUN turbo prune pl8-frontend pl8-backend --docker
-# A SECOND prune, backend-only, is what the runtime stage ships — see
-# apps/st0/Dockerfile's comment for why this matters here.
-RUN turbo prune pl8-backend --docker --out-dir=out-backend
-
-# ---- deps: install from the pruned lockfile --------------------------------
+# ---- deps: install this app's own workspace dependencies --------------------
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY --from=pruner /repo/out/json/ ./
+COPY . .
 # node-pty (a root devDependency, pulled in even though this app doesn't use it) has no musl
 # prebuild and falls back to node-gyp, which alpine ships neither python3 nor a C toolchain for.
 RUN apk add --no-cache python3 make g++ \
- && npm ci
+ && npm ci --workspace pl8-frontend --workspace pl8-backend --include-workspace-root
 
 # ---- frontend build ----------------------------------------------------------
 FROM deps AS frontend-build
-WORKDIR /app
-COPY --from=pruner /repo/out/full/ ./
-COPY scripts ./scripts
 ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=$APP_VERSION
 RUN npm run build --workspace pl8-frontend
 
 # ---- backend prod deps -------------------------------------------------------
+# A SEPARATE install, scoped to just pl8-backend and its @studio/* dependency closure, is
+# what the runtime stage ships — see apps/st0/docker/Dockerfile's comment for why this
+# matters here.
 FROM node:22-alpine AS backend-deps
 WORKDIR /app
-COPY --from=pruner /repo/out-backend/json/ ./
+COPY . .
 RUN apk add --no-cache python3 make g++ \
- && npm ci \
- && npm prune --omit=dev
+ && npm ci --workspace pl8-backend --omit=dev
 
 # ---- final image --------------------------------------------------------------
 FROM node:22-alpine AS runtime
@@ -50,8 +39,9 @@ FROM node:22-alpine AS runtime
 # answers 503 and nothing else notices.
 RUN apk add --no-cache yt-dlp ffmpeg mpv
 WORKDIR /app
-COPY --from=backend-deps /app/node_modules ./node_modules
-COPY --from=pruner /repo/out-backend/full/ ./
+# The whole repo, but with node_modules pruned to pl8-backend's own runtime dependency
+# closure only — no frontend-only deps, no devDependencies.
+COPY --from=backend-deps /app ./
 # The built SPA — apps/pl8/backend/src/server.ts serves this directly.
 COPY --from=frontend-build /app/apps/pl8/frontend/dist ./apps/pl8/frontend/dist
 

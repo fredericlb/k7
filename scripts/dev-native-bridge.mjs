@@ -36,7 +36,6 @@ const SKIP = [
   "target",
   "out",
   ".cache",
-  ".turbo",
   ".vite",
   ".claude",
 ];

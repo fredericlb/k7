@@ -97,13 +97,13 @@ kinds, each for a reason:
 - **`st0-tray`**, whose `dev` is `tauri dev` — the tool for a human watching a terminal.
   Here it would fight the native monitor for the same single-instance tray, and its
   `predev` stages a sidecar the monitor has not built yet.
-- **the `apps/<x>` aggregators**, whose `dev` is itself `turbo run dev --filter=…` over
+- **the `apps/<x>` aggregators**, whose `dev` is itself a `concurrently` command over
   their own children. Running the parent *and* the children would start every server
   twice.
 - **`tsc --noEmit --watch`**, the packages' typecheck watchers. Six more rows for
   feedback each app's own `npm run dev` still gives you.
 
-turbo keeps `build` and `test` — Tilt only owns the dev session.
+The root `build` and `test` scripts stay outside this list — Tilt only owns the dev session.
 
 The **file service** is in the list deliberately. In dev the supervisor does not spawn one
 (`fileServiceProcess.ts`), because the session's own already owns port 8770 and a second
