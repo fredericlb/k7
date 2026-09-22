@@ -1,9 +1,9 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { Checkbox } from "@frediverse/ui/checkbox";
 import { Field } from "@frediverse/ui/field";
 import { Input } from "@frediverse/ui/input";
 import { useState } from "react";
+import { SwitchField } from "../components/SwitchField";
 import type { Page, Release } from "../types";
 
 interface Props {
@@ -63,15 +63,13 @@ export function PageFormView({ releases, onSave, onCancel }: Props) {
         <ul className="check-list">
           {releases.map((r) => (
             <li key={r.id}>
-              <label className="my-1 flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={selected.has(r.id)}
-                  onCheckedChange={() => toggle(r.id)}
-                />
-                <span>
-                  {r.title} <span className="muted">· {r.artist}</span>
-                </span>
-              </label>
+              <SwitchField
+                checked={selected.has(r.id)}
+                onCheckedChange={() => toggle(r.id)}
+                className="my-1"
+              >
+                {r.title} <span className="muted">· {r.artist}</span>
+              </SwitchField>
             </li>
           ))}
         </ul>

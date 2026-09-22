@@ -885,6 +885,54 @@ select {
 .waveform-player-play {
   width: 100%;
   margin-top: 6px;
+  gap: 6px;
+}
+/* The waveform's own height, so the list does not jump when the shape arrives. */
+.waveform-player-pending {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 64px;
+}
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinner-turn 0.8s linear infinite;
+  opacity: 0.7;
+}
+@keyframes spinner-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Versions of a release, and the page's pick of one ------------------- */
+
+.version-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.version-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.version-hidden {
+  opacity: 0.6;
+}
+.switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
 }
 
 /* ---- Singing exercises (the shared practice book) ------------------------ */

@@ -8,6 +8,7 @@
     ".": "./types.ts",
     "./epub": "./epub.ts",
     "./naming": "./naming.ts",
+    "./pageVersion": "./pageVersion.ts",
     "./sheetKind": "./sheetKind.ts",
     "./youtube": "./youtube.ts"
   },

@@ -1,10 +1,10 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { Checkbox } from "@frediverse/ui/checkbox";
 import { Field } from "@frediverse/ui/field";
 import { Input } from "@frediverse/ui/input";
 import { Textarea } from "@frediverse/ui/textarea";
 import { useState } from "react";
+import { SwitchField } from "../components/SwitchField";
 import type { Release } from "../types";
 
 interface SaveData {
@@ -99,13 +99,13 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
         />
       </Field>
 
-      <label className="mb-4 mt-2 flex items-center gap-2 text-sm">
-        <Checkbox
-          checked={canDownload}
-          onCheckedChange={(v) => setCanDownload(v === true)}
-        />
-        <span>Allow users to download this release</span>
-      </label>
+      <SwitchField
+        checked={canDownload}
+        onCheckedChange={setCanDownload}
+        className="mb-4 mt-2"
+      >
+        Allow users to download this release
+      </SwitchField>
 
       {error && <p className="error">{error}</p>}
 

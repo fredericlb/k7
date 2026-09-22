@@ -1,10 +1,10 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { Checkbox } from "@frediverse/ui/checkbox";
 import { Input } from "@frediverse/ui/input";
 import { useRef, useState } from "react";
-import { WaveformPlayer } from "../components/WaveformPlayer";
+import { SwitchField } from "../components/SwitchField";
+import { VersionCard } from "../components/VersionCard";
 import { fmtDate } from "../format";
 import type { Release, SongEnvelope } from "../types";
 
@@ -18,6 +18,7 @@ interface Props {
   /** Swap one version's file; its name, its stems and its place are kept. */
   onReplaceVersionAudio: (versionId: string, audio: File) => Promise<void>;
   onSetDefaultVersion: (versionId: string) => Promise<void>;
+  onSetVersionHidden: (versionId: string, hidden: boolean) => Promise<void>;
   onDeleteVersion: (versionId: string) => Promise<void>;
   onDelete: () => Promise<void>;
   versionAudioUrl: (versionId: string) => string;
@@ -30,6 +31,7 @@ export function ReleaseDetailView({
   onAddVersion,
   onReplaceVersionAudio,
   onSetDefaultVersion,
+  onSetVersionHidden,
   onDeleteVersion,
   onDelete,
   versionAudioUrl,
@@ -45,7 +47,7 @@ export function ReleaseDetailView({
   const [replacing, setReplacing] = useState<string | null>(null);
   const [swapping, setSwapping] = useState(false);
   // The URL of a version's audio never changes, so a replaced file would play from the cache.
-  const [bust, setBust] = useState(0);
+  const [bust, setBust] = useState<Record<string, number>>({});
 
   const askForFile = (versionId: string) => {
     setReplacing(versionId);
@@ -59,7 +61,7 @@ export function ReleaseDetailView({
     setSwapping(true);
     try {
       await onReplaceVersionAudio(versionId, file);
-      setBust((b) => b + 1);
+      setBust((b) => ({ ...b, [versionId]: (b[versionId] ?? 0) + 1 }));
     } finally {
       setSwapping(false);
     }
@@ -82,19 +84,16 @@ export function ReleaseDetailView({
     }
   };
 
-  const downloadUrl = async (url: string, label: string) => {
+  const download = async (url: string, fileName: string) => {
     const res = await fetch(url, { credentials: "include" });
     const blob = await res.blob();
     const objUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = objUrl;
-    a.download = label;
+    a.download = fileName;
     a.click();
     URL.revokeObjectURL(objUrl);
   };
-
-  const download = (versionId: string, label: string) =>
-    downloadUrl(versionAudioUrl(versionId), label);
 
   const remove = async () => {
     if (!confirm("Delete this release and all its versions?")) return;
@@ -102,7 +101,7 @@ export function ReleaseDetailView({
   };
 
   const versions = release.versions ?? [];
-  const def = versions.find((v) => v.id === release.defaultVersionId) || null;
+  const label = `${release.artist} - ${release.title}`;
 
   return (
     <div className="release-detail">
@@ -114,47 +113,6 @@ export function ReleaseDetailView({
 
       {release.description && (
         <p style={{ whiteSpace: "pre-wrap" }}>{release.description}</p>
-      )}
-
-      {def ? (
-        <Card style={{ marginTop: 12 }}>
-          <div className="muted small">Now playing · {def.name}</div>
-          <WaveformPlayer
-            src={`${versionAudioUrl(def.id)}?v=${bust}`}
-            shapeOf={() => versionEnvelope(def.id)}
-          />
-          {def.tracks.length > 0 && (
-            <div className="stems">
-              <div className="muted small" style={{ marginTop: 10 }}>
-                Stems ({def.tracks.length})
-              </div>
-              <ul className="stem-list">
-                {def.tracks.map((t) => (
-                  <li key={t.id} className="stem-row">
-                    <span className="stem-name" title={t.name}>
-                      {t.name}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      title={`Download ${t.name}`}
-                      onClick={() =>
-                        downloadUrl(
-                          versionTrackUrl(def.id, t.id),
-                          `${release.artist} - ${release.title} - ${t.name}`,
-                        )
-                      }
-                    >
-                      ⬇
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </Card>
-      ) : (
-        <p className="muted">No versions yet.</p>
       )}
 
       <div className="row" style={{ marginTop: 8 }}>
@@ -169,56 +127,23 @@ export function ReleaseDetailView({
       </div>
 
       <h3>Versions</h3>
-      <ul className="annotation-list">
-        {versions.map((v) => (
-          <li
-            key={v.id}
-            className={`annotation-item${v.isDefault ? " validated" : ""}`}
-          >
-            <span className="annotation-text">
-              {v.isDefault ? "★ " : ""}
-              {v.name}
-            </span>
-            {!v.isDefault && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onSetDefaultVersion(v.id)}
-              >
-                Set default
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                download(
-                  v.id,
-                  `${release.artist} - ${release.title} (${v.name})`,
-                )
-              }
-            >
-              ⬇
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={swapping}
-              title="Replace this version's file"
-              onClick={() => askForFile(v.id)}
-            >
-              ⇄
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onDeleteVersion(v.id)}
-            >
-              🗑
-            </Button>
-          </li>
-        ))}
-      </ul>
+      {versions.length === 0 && <p className="muted">No versions yet.</p>}
+      {versions.map((v) => (
+        <VersionCard
+          key={v.id}
+          version={v}
+          label={label}
+          audioUrl={`${versionAudioUrl(v.id)}?v=${bust[v.id] ?? 0}`}
+          shapeOf={() => versionEnvelope(v.id)}
+          trackUrl={(trackId) => versionTrackUrl(v.id, trackId)}
+          download={download}
+          swapping={swapping}
+          onSetDefault={() => onSetDefaultVersion(v.id)}
+          onReplace={() => askForFile(v.id)}
+          onDelete={() => onDeleteVersion(v.id)}
+          onHiddenChange={(hidden) => onSetVersionHidden(v.id, hidden)}
+        />
+      ))}
       <input
         ref={replaceInput}
         type="file"
@@ -245,16 +170,18 @@ export function ReleaseDetailView({
             onChange={(e) => setVFile(e.target.files?.[0] ?? null)}
           />
         </div>
-        <label className="mb-4 mt-2 flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={vDefault}
-            onCheckedChange={(v) => setVDefault(v === true)}
-          />
-          <span>Make this the default version</span>
-        </label>
-        <Button disabled={!vFile || adding} onClick={addVersion}>
-          {adding ? "Uploading…" : "Add version"}
-        </Button>
+        <SwitchField
+          checked={vDefault}
+          onCheckedChange={setVDefault}
+          className="mb-4 mt-2"
+        >
+          Make this the default version
+        </SwitchField>
+        <div>
+          <Button disabled={!vFile || adding} onClick={addVersion}>
+            {adding ? "Uploading…" : "Add version"}
+          </Button>
+        </div>
       </Card>
 
       <p className="muted small">Added {fmtDate(release.createdAt)}</p>

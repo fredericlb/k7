@@ -19,6 +19,8 @@ export interface ReleaseVersion {
   id: string;
   name: string;
   isDefault: boolean;
+  // Left out of a page's version dropdown; the release page still lists it.
+  hidden: boolean;
   audioMime: string | null; // the mixdown's mime (the playable file)
   // Per-track stems (empty for web-created, single-file versions).
   tracks: ReleaseTrack[];
@@ -44,6 +46,8 @@ export interface Page {
   id: string;
   nametag: string;
   releaseIds: string[];
+  // The version each release plays on this page; a release absent here plays its default.
+  versionIds: Record<string, string>;
   createdAt: string;
   releases?: Release[]; // resolved on the detail endpoint
 }
