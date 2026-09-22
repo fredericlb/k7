@@ -56,6 +56,8 @@ function run(source: string, dest: string): Promise<void> {
       "libmp3lame",
       "-q:a",
       "2", // ~190 kbps VBR — transparent for streaming, a third the size of the FLAC
+      "-f",
+      "mp3", // the ".part" suffix on dest hides the real extension ffmpeg would otherwise infer it from
       dest,
     ]);
     let err = "";

@@ -21,9 +21,10 @@ re-transcode cannot rebuild.
 
 ## Who calls this instead of `/file`
 
-Nobody yet. `remoteLibrary`'s `download()` (`packages/mediatek/src/remote.ts`) — what
-file-service's médiathèque cache and any archival copy use — deliberately keeps hitting `/file`:
-that mirror has to hold the master byte-for-byte, not a lossy stand-in. A client whose job is
-*playing* the file, not holding a faithful copy of it, is the one that should ask `/stream`
-instead — nothing does yet, so today this route exists and works but nothing on either end
-(k7, st0) has been pointed at it.
+k7's own `mediatek.ts` — `downloadStreamable`, used everywhere it caches a file for a browser
+to *play* (the songbook track and instrumental, a release's mixdown and stems). `download()`
+(`remoteLibrary`, `packages/mediatek/src/remote.ts`) is untouched and still hits `/file`: what
+file-service's médiathèque cache and any archival copy use, because that mirror has to hold the
+master byte-for-byte, not a lossy stand-in. A session's own recordings and a moment's clip stay
+on `/file` too — the browser records them as WebM/Opus itself, so nothing there is ever a FLAC
+`/stream` would touch. st0 has not been pointed at it.
