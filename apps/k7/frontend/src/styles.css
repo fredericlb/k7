@@ -1030,6 +1030,47 @@ select {
   box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
 }
 
+/* Under the title: download/upload when there is no track, else the pipeline's own status. */
+.song-fetch-insert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 10px;
+}
+.song-fetch-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 10px;
+}
+.song-fetch-bar {
+  height: 4px;
+  width: 100%;
+  max-width: 280px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--border);
+}
+.song-fetch-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+/* No percent to show (searching, downloading, matching lyrics): a sliding block instead of a stall. */
+.song-fetch-bar.indeterminate .song-fetch-bar-fill {
+  width: 40%;
+  animation: song-fetch-slide 1.2s ease-in-out infinite;
+}
+@keyframes song-fetch-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
 /* Timed lyrics: the song's lines beside the file's, paired by clicking one then the other. */
 .lrc-match {
   display: grid;

@@ -30,6 +30,21 @@ export function findLibrarySong(
   );
 }
 
+/** Is `candidateArtist`/`candidateTitle` this song, once normalised? The same exact bar
+ * `findLibrarySong` tries first — no loose fallback, since a wrong auto-applied lyric is
+ * worse than asking (see fetchSong/run.ts's runPipeline). */
+export function matches(
+  artist: string,
+  title: string,
+  candidateArtist: string,
+  candidateTitle: string,
+): boolean {
+  return (
+    normalize(candidateArtist) === normalize(artist) &&
+    normalize(candidateTitle) === normalize(title)
+  );
+}
+
 /** The library song a path lands in — a hunt answers with the folder or with the master inside it. */
 export function songAtPath(
   entries: readonly MediatekEntry[],

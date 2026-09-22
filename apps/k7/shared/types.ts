@@ -94,11 +94,32 @@ export interface Song {
   audio: SongAudio | null;
   // The same track without the voice, mixed from pl8's stems; null until "Fetch song" makes one.
   instrumental: SongAudio | null;
+  // The auto-fetch pipeline's own state, so a reload finds it where it left off.
+  fetchStatus: FetchStatus;
+  // "" (not attempted), "matched" (applied automatically) or "unmatched" (needs the fixer).
+  lyricsMatch: "" | "matched" | "unmatched";
   // The asking user's own star: the songbook is shared, a favourite is not.
   favorite: boolean;
   // The asking user created it, which is what lets them delete it.
   mine: boolean;
   createdAt: string;
+}
+
+/** Where the auto-fetch pipeline stands — see apps/k7/frontend/src/fetchSong/run.ts's runPipeline. */
+export interface FetchStatus {
+  phase:
+    | ""
+    | "searching"
+    | "downloading"
+    | "stemming"
+    | "matching-lyrics"
+    | "failed";
+  // Percent, meaningful during "stemming" only.
+  progress: number | null;
+  error: string;
+  // pl8 ids, kept so a reload can resume polling instead of starting over.
+  huntId: string;
+  jobId: string;
 }
 
 export type SongTab = "lyrics" | "tablature" | "sheet";

@@ -101,6 +101,15 @@ export const SCHEMA: CollectionSchema = {
     { name: "InstrumentalPath", type: "text" },
     { name: "InstrumentalMime", type: "text" },
     { name: "InstrumentalName", type: "text" },
+    // The auto-fetch pipeline's own state, so a reload finds it where it left off — see
+    // fetchSong/run.ts's runPipeline. Phase is "" once nothing is running (done or never started).
+    { name: "FetchPhase", type: "text" },
+    { name: "FetchProgress", type: "number" },
+    { name: "FetchError", type: "text" },
+    { name: "FetchHuntId", type: "text" },
+    { name: "FetchJobId", type: "text" },
+    // "" (not attempted), "matched" (applied automatically) or "unmatched" (needs the fixer).
+    { name: "LyricsMatch", type: "text" },
     { name: "CreatedAt", type: "text" },
   ],
   SongFavorites: [

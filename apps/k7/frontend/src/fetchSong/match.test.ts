@@ -2,7 +2,7 @@
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
-import { findLibrarySong, masterPath, songAtPath } from "./match";
+import { findLibrarySong, masterPath, matches, songAtPath } from "./match";
 
 const song = (
   path: string,
@@ -47,6 +47,26 @@ describe("findLibrarySong", () => {
   it("skips a song with no master and answers nothing when nothing fits", () => {
     expect(findLibrarySong(library, "Empty", "No Master")).toBeUndefined();
     expect(findLibrarySong(library, "Nobody", "Nothing")).toBeUndefined();
+  });
+});
+
+describe("matches", () => {
+  it("accepts artist and title equal once normalised, same as the library's exact bar", () => {
+    expect(
+      matches("Nina Simone", "Sinnerman", "nina simone", "SINNERMAN!"),
+    ).toBe(true);
+  });
+
+  it("refuses a loose word-overlap hit — a wrong auto-applied lyric is worse than asking", () => {
+    expect(matches("Other", "Sinnerman", "Other", "Sinnerman (Remix)")).toBe(
+      false,
+    );
+  });
+
+  it("refuses a different song entirely", () => {
+    expect(matches("Nina Simone", "Sinnerman", "Beyoncé", "Hold Up")).toBe(
+      false,
+    );
   });
 });
 

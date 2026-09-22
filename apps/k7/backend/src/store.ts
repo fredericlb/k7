@@ -1476,6 +1476,15 @@ function publicSong(rec, viewer = "", favorites: Set<string> = new Set()) {
     instrumental: f.InstrumentalPath
       ? { name: f.InstrumentalName || "", mime: f.InstrumentalMime || "" }
       : null,
+    // The auto-fetch pipeline's own state — fetchSong/run.ts's runPipeline reads and writes it.
+    fetchStatus: {
+      phase: f.FetchPhase || "",
+      progress: f.FetchProgress ? Number(f.FetchProgress) : null,
+      error: f.FetchError || "",
+      huntId: f.FetchHuntId || "",
+      jobId: f.FetchJobId || "",
+    },
+    lyricsMatch: f.LyricsMatch || "",
     favorite: favorites.has(f.Uid),
     createdAt: f.CreatedAt || "",
   };
@@ -1555,6 +1564,16 @@ export async function updateSong(uid, patch) {
   if (patch.tablature !== undefined) fields.Tablature = String(patch.tablature);
   if (patch.lyricTimings !== undefined)
     fields.LyricTimings = JSON.stringify(patch.lyricTimings);
+  if (patch.fetchStatus !== undefined) {
+    const s = patch.fetchStatus;
+    if (s.phase !== undefined) fields.FetchPhase = String(s.phase);
+    if (s.progress !== undefined) fields.FetchProgress = s.progress ?? 0;
+    if (s.error !== undefined) fields.FetchError = String(s.error);
+    if (s.huntId !== undefined) fields.FetchHuntId = String(s.huntId);
+    if (s.jobId !== undefined) fields.FetchJobId = String(s.jobId);
+  }
+  if (patch.lyricsMatch !== undefined)
+    fields.LyricsMatch = String(patch.lyricsMatch);
   await db.patchRecord("Songs", rec.id, fields);
   invalidateSong(uid);
   return getSong(uid);

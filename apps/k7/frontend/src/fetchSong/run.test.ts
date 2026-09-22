@@ -5,7 +5,7 @@ import type { HuntRecord } from "@studio/web-protocol/hunt";
 import { describe, expect, it, vi } from "vitest";
 import type { Song } from "../types";
 import type { Pl8Client } from "./pl8";
-import { fetchSong, makeInstrumental } from "./run";
+import { fetchSong, makeInstrumental, runPipeline } from "./run";
 
 const entry = (artist: string, title: string): MediatekEntry =>
   ({
@@ -23,8 +23,17 @@ const song = (over: Partial<Song> = {}): Song =>
     id: "s1",
     artist: "Nina Simone",
     title: "Sinnerman",
+    lyrics: "",
     audio: null,
     instrumental: null,
+    fetchStatus: {
+      phase: "",
+      progress: null,
+      error: "",
+      huntId: "",
+      jobId: "",
+    },
+    lyricsMatch: "",
     ...over,
   }) as Song;
 
@@ -63,7 +72,7 @@ const steps = (pl8: Pl8Client, extra: Record<string, unknown> = {}) => ({
 
 describe("fetchSong", () => {
   it("copies the master of the song it finds, without hunting", async () => {
-    const copyTrack = vi.fn(async () => {});
+    const copyTrack = vi.fn(async () => song());
     const pl8 = fakePl8({
       listSongs: async () => [entry("Nina Simone", "Sinnerman")],
     });
@@ -74,7 +83,7 @@ describe("fetchSong", () => {
   });
 
   it("hunts a song the library does not have, then copies what was filed", async () => {
-    const copyTrack = vi.fn(async () => {});
+    const copyTrack = vi.fn(async () => song());
     let filed = false;
     const pl8 = fakePl8({
       listSongs: async () => (filed ? [entry("Nina Simone", "Sinnerman")] : []),
@@ -96,12 +105,12 @@ describe("fetchSong", () => {
       startHunt: async () => hunt({ status: "failed", error: "aucun morceau" }),
     });
     await expect(
-      fetchSong(song(), steps(pl8, { copyTrack: async () => {} }) as never),
+      fetchSong(song(), steps(pl8, { copyTrack: async () => song() }) as never),
     ).rejects.toThrow("aucun morceau");
   });
 
   it("copies nothing when the song already has its track", async () => {
-    const copyTrack = vi.fn(async () => {});
+    const copyTrack = vi.fn(async () => song());
     const pl8 = fakePl8({
       listSongs: async () => [entry("Nina Simone", "Sinnerman")],
     });
@@ -110,6 +119,24 @@ describe("fetchSong", () => {
       steps(pl8, { copyTrack }) as never,
     );
     expect(copyTrack).not.toHaveBeenCalled();
+  });
+
+  it("resumes an already-running hunt instead of starting a new one", async () => {
+    const copyTrack = vi.fn(async () => song());
+    const pl8 = fakePl8({
+      listSongs: async () => [entry("Nina Simone", "Sinnerman")],
+      hunts: async () => [
+        hunt({
+          id: "h1",
+          status: "done",
+          artist: "Nina Simone",
+          title: "Sinnerman",
+        }),
+      ],
+      // startHunt is left at fakePl8's default (throws) — resuming must never call it.
+    });
+    await fetchSong(song(), steps(pl8, { copyTrack }) as never, "h1");
+    expect(copyTrack).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -123,14 +150,14 @@ describe("makeInstrumental", () => {
       makeInstrumental(
         song(),
         steps(fakePl8(), {
-          mixInstrumental: async () => {},
+          mixInstrumental: async () => song(),
         }) as never,
       ),
     ).rejects.toThrow(/not in pl8's library/);
   });
 
   it("says so when no engine is online, and mixes nothing", async () => {
-    const mixInstrumental = vi.fn(async () => {});
+    const mixInstrumental = vi.fn(async () => song());
     const outcome = await makeInstrumental(
       song(),
       steps(found, { mixInstrumental }) as never,
@@ -141,7 +168,7 @@ describe("makeInstrumental", () => {
   });
 
   it("mixes the folder once pl8 holds the stems", async () => {
-    const mixInstrumental = vi.fn(async () => {});
+    const mixInstrumental = vi.fn(async () => song());
     const pl8 = fakePl8({
       listSongs: found.listSongs,
       engines: async () => [{ id: "e1" } as never],
@@ -155,6 +182,22 @@ describe("makeInstrumental", () => {
     expect(mixInstrumental).toHaveBeenCalledWith(
       "songs/Nina Simone/Album/Sinnerman",
     );
+  });
+
+  it("resumes an already-running separation instead of starting a new one", async () => {
+    const mixInstrumental = vi.fn(async () => song());
+    const pl8 = fakePl8({
+      listSongs: found.listSongs,
+      separation: async () => ({ failed: false, done: true }) as never,
+      // prepareStems is left at fakePl8's default (throws) — resuming must never call it.
+    });
+    const outcome = await makeInstrumental(
+      song(),
+      steps(pl8, { mixInstrumental }) as never,
+      "j1",
+    );
+    expect(outcome.instrumental).toBe(true);
+    expect(mixInstrumental).toHaveBeenCalledTimes(1);
   });
 
   it("waits for a running separation, and passes its failure on", async () => {
@@ -172,9 +215,77 @@ describe("makeInstrumental", () => {
       makeInstrumental(
         song(),
         steps(pl8, {
-          mixInstrumental: async () => {},
+          mixInstrumental: async () => song(),
         }) as never,
       ),
     ).rejects.toThrow("model missing");
+  });
+});
+
+describe("runPipeline", () => {
+  // Instrumental already made, so the pipeline has nothing left but lyrics to try.
+  const withTrack = song({
+    audio: { name: "t.flac", mime: "audio/flac" },
+    instrumental: { name: "i.flac", mime: "audio/flac" },
+  });
+
+  it("auto-applies a confident lyrics match once a track exists", async () => {
+    const onLrc = vi.fn(async () => withTrack);
+    const pl8 = fakePl8({ listSongs: async () => [] });
+    const found = await runPipeline(
+      withTrack,
+      "continue",
+      steps(pl8, {
+        mixInstrumental: async () => withTrack,
+        findLrc: async () => [
+          {
+            id: 1,
+            trackName: "Sinnerman",
+            artistName: "Nina Simone",
+            albumName: "",
+            duration: 0,
+            syncedLyrics: "[00:00.00]la la la",
+          },
+        ],
+        onLrc,
+      }) as never,
+    );
+    expect(onLrc).toHaveBeenCalledWith("la la la", [
+      { line: 0, text: "la la la", t: 0 },
+    ]);
+    expect(found).toBe(withTrack);
+  });
+
+  it("leaves lyrics unmatched rather than guess, and does not call onLrc", async () => {
+    const onLrc = vi.fn(async () => withTrack);
+    const onStatus = vi.fn();
+    const pl8 = fakePl8({ listSongs: async () => [] });
+    await runPipeline(
+      withTrack,
+      "continue",
+      steps(pl8, {
+        mixInstrumental: async () => withTrack,
+        findLrc: async () => [],
+        onLrc,
+        onStatus,
+      }) as never,
+    );
+    expect(onLrc).not.toHaveBeenCalled();
+    expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "unmatched" });
+  });
+
+  it("never touches lyrics a person already wrote", async () => {
+    const findLrc = vi.fn(async () => []);
+    const pl8 = fakePl8({ listSongs: async () => [] });
+    await runPipeline(
+      song({ ...withTrack, lyrics: "already here" }),
+      "continue",
+      steps(pl8, {
+        mixInstrumental: async () => withTrack,
+        findLrc,
+        onLrc: async () => withTrack,
+      }) as never,
+    );
+    expect(findLrc).not.toHaveBeenCalled();
   });
 });

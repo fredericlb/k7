@@ -15,8 +15,10 @@ import { ChordsPanel } from "../components/ChordsPanel";
 import { MetronomeWidget } from "../components/MetronomeWidget";
 import { OptionsPanel } from "../components/OptionsPanel";
 import { SheetPanel } from "../components/SheetPanel";
+import { SongFetchInsert } from "../components/SongFetchInsert";
 import { SongMenu } from "../components/SongMenu";
 import { SongPlayer } from "../components/SongPlayer";
+import { TimedLyricsDialog } from "../components/TimedLyricsDialog";
 import { fmtDate } from "../format";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { hasContent, SONG_TABS, visibleTabs } from "../songTabs";
@@ -29,6 +31,7 @@ interface Props {
   onUploadSheets: (files: File[]) => Promise<void>;
   onDeleteSheet: (fileId: string) => Promise<void>;
   sheetUrl: (fileId: string) => string;
+  /** "Replace the track…" in the ⋮ menu — the insert's own upload goes through onUpload instead. */
   onUploadAudio: (file: File) => Promise<void>;
   onDeleteAudio: () => Promise<void>;
   audioUrl: string;
@@ -38,10 +41,12 @@ interface Props {
   onLrc: (lyrics: string | null, timings: LyricTiming[]) => Promise<void>;
   /** Timed lyrics for this song on LRCLIB, ranked by the track's length when it is known. */
   onFindLrc: (duration?: number) => Promise<LrcCandidate[]>;
-  /** "Fetch song": copy a library master in as the track, and mix the instrumental from its stems. */
-  onCopyTrack: (path: string) => Promise<void>;
-  onMixInstrumental: (folder: string) => Promise<void>;
+  /** Retries the instrumental once no engine was online. */
+  onMixInstrumental: (folder: string) => Promise<Song>;
   instrumentalUrl: string;
+  /** The auto-fetch insert under the title: start a Soulseek hunt, or hand it an uploaded file. */
+  onDownload: () => void;
+  onUpload: (file: File) => void;
 }
 
 export function SongDetailView({
@@ -58,10 +63,13 @@ export function SongDetailView({
   onDelete,
   onLrc,
   onFindLrc,
-  onCopyTrack,
   onMixInstrumental,
   instrumentalUrl,
+  onDownload,
+  onUpload,
 }: Props) {
+  // Shared by the ⋮ menu's "Add timed lyrics…" and the insert's "Fix the lyrics" — one dialog.
+  const [timedOpen, setTimedOpen] = useState(false);
   // A tab asked for by the address but still empty is one being added: it opens on its editor.
   const [adding, setAdding] = useState<SongTab | null>(() =>
     initialTab && initialTab !== "sheet" && !hasContent(song, initialTab)
@@ -195,17 +203,29 @@ export function SongDetailView({
           }}
           onUploadAudio={onUploadAudio}
           onDeleteAudio={onDeleteAudio}
-          onLrc={async (lyrics, timings) => {
-            await onLrc(lyrics, timings);
-            setChosen("lyrics");
-          }}
-          onFindLrc={onFindLrc}
-          trackSeconds={() => audio.current?.duration || undefined}
-          onCopyTrack={onCopyTrack}
+          onOpenTimedLyrics={() => setTimedOpen(true)}
           onMixInstrumental={onMixInstrumental}
           onDelete={remove}
         />
       </div>
+
+      <SongFetchInsert
+        song={song}
+        onDownload={onDownload}
+        onUpload={onUpload}
+        onFixLyrics={() => setTimedOpen(true)}
+      />
+      <TimedLyricsDialog
+        open={timedOpen}
+        onOpenChange={setTimedOpen}
+        lyrics={song.lyrics}
+        onFindLrc={onFindLrc}
+        trackSeconds={() => audio.current?.duration || undefined}
+        onSave={async (lyrics, timings) => {
+          await onLrc(lyrics, timings);
+          setChosen("lyrics");
+        }}
+      />
 
       {tabs.length > 1 && tab !== null && (
         <Tabs value={tab} onValueChange={(v) => setChosen(v as SongTab)}>

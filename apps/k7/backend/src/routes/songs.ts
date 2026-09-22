@@ -37,6 +37,26 @@ const patchSchema = z.object({
       }),
     )
     .optional(),
+  // The auto-fetch pipeline's own state, written as it goes — fetchSong/run.ts's runPipeline.
+  fetchStatus: z
+    .object({
+      phase: z
+        .enum([
+          "",
+          "searching",
+          "downloading",
+          "stemming",
+          "matching-lyrics",
+          "failed",
+        ])
+        .optional(),
+      progress: z.number().nullable().optional(),
+      error: z.string().optional(),
+      huntId: z.string().optional(),
+      jobId: z.string().optional(),
+    })
+    .optional(),
+  lyricsMatch: z.enum(["", "matched", "unmatched"]).optional(),
 });
 
 const favoriteSchema = z.object({ favorite: z.boolean() });

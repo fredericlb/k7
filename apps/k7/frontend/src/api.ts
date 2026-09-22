@@ -4,6 +4,7 @@ import type {
   Annotation,
   Envelope,
   EventsResult,
+  FetchStatus,
   LrcCandidate,
   Marker,
   Moment,
@@ -396,8 +397,16 @@ export const api = {
   updateSong: (
     id: string,
     patch: Partial<
-      Pick<Song, "artist" | "title" | "lyrics" | "tablature" | "lyricTimings">
-    >,
+      Pick<
+        Song,
+        | "artist"
+        | "title"
+        | "lyrics"
+        | "tablature"
+        | "lyricTimings"
+        | "lyricsMatch"
+      >
+    > & { fetchStatus?: Partial<FetchStatus> },
   ): Promise<Song> =>
     f(`/api/songs/${id}`, {
       method: "PATCH",

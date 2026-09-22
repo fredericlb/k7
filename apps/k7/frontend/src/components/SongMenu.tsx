@@ -13,10 +13,9 @@ import {
 import { SHEET_ACCEPT } from "@k7/shared/sheetKind";
 import { useRef, useState } from "react";
 import { pl8 } from "../fetchSong/pl8";
-import { fetchSong, makeInstrumental } from "../fetchSong/run";
+import { makeInstrumental } from "../fetchSong/run";
 import { m } from "../paraglide/messages.js";
-import type { LrcCandidate, LyricTiming, Song, SongTab } from "../types";
-import { TimedLyricsDialog } from "./TimedLyricsDialog";
+import type { Song, SongTab } from "../types";
 
 interface Props {
   song: Song;
@@ -26,13 +25,10 @@ interface Props {
   onUploadAudio: (file: File) => Promise<void>;
   /** Take the reference track away — the player only PLAYS it. */
   onDeleteAudio: () => Promise<void>;
-  /** Save what the timed-lyrics popin settled: the lyrics when the file brought them, and the timecodes. */
-  onLrc: (lyrics: string | null, timings: LyricTiming[]) => Promise<void>;
-  onFindLrc: (duration?: number) => Promise<LrcCandidate[]>;
-  /** The reference track's length, for ranking what LRCLIB offers. */
-  trackSeconds: () => number | undefined;
-  onCopyTrack: (path: string) => Promise<void>;
-  onMixInstrumental: (folder: string) => Promise<void>;
+  /** The timed-lyrics popin is owned by the page, so both this menu and the fetch insert share one. */
+  onOpenTimedLyrics: () => void;
+  /** Retries the instrumental once no engine was online — the auto-fetch insert covers the rest. */
+  onMixInstrumental: (folder: string) => Promise<Song>;
   onDelete: () => Promise<void>;
   /** Which tabs the song already has, so the menu offers the ones it has not. */
   has: (tab: SongTab) => boolean;
@@ -44,10 +40,7 @@ export function SongMenu({
   onUploadSheets,
   onUploadAudio,
   onDeleteAudio,
-  onLrc,
-  onFindLrc,
-  trackSeconds,
-  onCopyTrack,
+  onOpenTimedLyrics,
   onMixInstrumental,
   onDelete,
   has,
@@ -57,8 +50,6 @@ export function SongMenu({
   const [phase, setPhase] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  // The timed-lyrics popin owns getting an LRC and pairing it; this only opens it.
-  const [timedOpen, setTimedOpen] = useState(false);
 
   /** Every entry runs through here: one thing at a time, and its failure under the button. */
   const run = async (what: string, act: () => Promise<string | void>) => {
@@ -115,16 +106,18 @@ export function SongMenu({
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem onSelect={() => setTimedOpen(true)}>
+          <DropdownMenuItem onSelect={onOpenTimedLyrics}>
             Add timed lyrics…
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
-          {/* One entry, two words: there is no track to replace until there is one. */}
-          <DropdownMenuItem onSelect={() => track.current?.click()}>
-            {song.audio ? "Replace the track…" : "Add a track…"}
-          </DropdownMenuItem>
+          {/* No track yet is the auto-fetch insert's job, under the title. */}
+          {song.audio && (
+            <DropdownMenuItem onSelect={() => track.current?.click()}>
+              Replace the track…
+            </DropdownMenuItem>
+          )}
           {song.audio && (
             <DropdownMenuItem
               className="text-destructive"
@@ -134,21 +127,6 @@ export function SongMenu({
               }}
             >
               Remove the track
-            </DropdownMenuItem>
-          )}
-          {!song.audio && (
-            <DropdownMenuItem
-              onSelect={() =>
-                run("Fetching the song…", () =>
-                  fetchSong(song, {
-                    pl8,
-                    copyTrack: onCopyTrack,
-                    onPhase: setPhase,
-                  }),
-                )
-              }
-            >
-              Fetch song
             </DropdownMenuItem>
           )}
           {song.audio && !song.instrumental && (
@@ -206,15 +184,6 @@ export function SongMenu({
           )
         }
       />
-      <TimedLyricsDialog
-        open={timedOpen}
-        onOpenChange={setTimedOpen}
-        lyrics={song.lyrics}
-        onFindLrc={onFindLrc}
-        trackSeconds={trackSeconds}
-        onSave={onLrc}
-      />
-
       {(phase || error || note) && (
         <div className="song-menu-status">
           {phase && <span className="muted small">{phase}</span>}

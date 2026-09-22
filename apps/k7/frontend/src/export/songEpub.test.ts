@@ -18,6 +18,8 @@ const song = (over: Partial<Song> = {}): Song => ({
   sheets: [],
   audio: null,
   instrumental: null,
+  fetchStatus: { phase: "", progress: null, error: "", huntId: "", jobId: "" },
+  lyricsMatch: "",
   favorite: false,
   mine: false,
   createdAt: "2026-09-07T10:00:00Z",
