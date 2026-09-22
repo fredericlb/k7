@@ -9,57 +9,41 @@ npm run vscode                     # the browser editor at /dev, on its own
 
 ## Where it answers
 
-**`https://st0.priv.frediver.se`** — one origin, one path per service (`/pl8`,
-`/k7`, `/z0`), with **st0** answering the root. The same shape production has under
-`studio.frediver.se`, which is the point: the two differ by their origin and nothing else.
+**Three hosts, one per service that has its own** — `priv.st0.app` (st0, and z0 as a path
+under it, unmoved), `play.priv.st0.app` (pl8), `k7.priv.st0.app` (k7) — `scripts/dev-hosts.mjs`
+names all three. The same shape production has under `st0.app` / `play.st0.app` /
+`k7.st0.app`, which is the point: the two differ by their domain and nothing else.
 
-> **The LAN proxy's path table lives on the other machine.** It is the one piece of this
-> topology not versioned here, and it must mirror `apps/z0/docker/nginx.conf`, which is
-> versioned. What that file says, as ports:
+> **The LAN proxy's host table lives on the other machine.** It is the one piece of this
+> topology not versioned here. What it needs to hold, as ports:
 >
-> | path | goes to | |
+> | host | goes to | |
 > |---|---|---|
-> | `/` | **5223** | st0's dev server |
-> | `/pl8` | **5224** | pl8's dev server |
-> | `/api/*` | **8789** | st0's backend — the engine registry |
-> | `/auth/*` | **8789** | st0's backend — the origin's OIDC flow |
-> | `/pl8/api/*` | 8795 | pl8's backend |
-> | `/k7` | 5173 | k7's dev server |
-> | `/k7/api/*`, `/k7/rtc*` | 8787 | k7's backend — prefix STRIPPED |
-> | `/z0/api/*`, `/z0/auth/*`, `/z0/audio/*`, `/z0/ws*` | 8080 | z0's backend — prefix STRIPPED |
-> | `/z0/presenter` | 3001 | |
-> | `/z0/monitor` | 3002 | |
-> | `/z0/buzzer` | 3004 | |
-> | `/z0/remote` | 3005 | |
-> | `/z0/editor` | 3006 | the `.z0` project editor |
-> | `/z0` | 3003 | `z0-online`, the apex — must come LAST of the z0 rules |
+> | `priv.st0.app` | **5223** | st0's dev server |
+> | `priv.st0.app/z0/*` (six SPAs) | 3001–3006 | z0's own dev servers, prefix kept — see `apps/z0/AGENTS.md` |
+> | `priv.st0.app/z0/api/*`, `/z0/auth/*`, `/z0/audio/*`, `/z0/ws*` | 8080 | z0's backend — prefix STRIPPED |
+> | `play.priv.st0.app` | **5224** | pl8's dev server |
+> | `k7.priv.st0.app` | **5173** | k7's dev server |
 >
-> The SPA rows are **not** stripped: each vite `base` is the full public path, so the dev
-> server has to see it. Only the API rows strip. The table lists every SPA rather than stopping
-> at pl8, because a missing row on the other machine is how an address reaches the wrong dev
-> server: the proxy matches raw string prefixes, so two SPA paths where one is a prefix of the
-> other are routed by whichever rule is listed, and the wrong dev server answers with vite's own
-> message about its `base` — which reads like a bad link when the address was correct.
+> That is the WHOLE table for pl8 and k7: each app's own vite dev server already proxies
+> `/api`, `/auth` and (k7's) `/rtc` to its own backend port internally
+> (`commons/dev/vite-config/src/index.ts`'s `defineAppConfig` — `backendPort` +
+> `proxyPaths`/`wsPaths`), so the LAN proxy only has to get a request to the right HOST. z0 is
+> the one exception still living as a path under st0's origin rather than its own subdomain, so
+> it still needs the old per-path rules.
 >
-> **A prefix is written with or without its trailing slash**, `/pl8` as readily as `/pl8/`, and
-> both reach the médiathèque: the bare form redirects to the slashed one, which stays canonical
-> because that is what each vite `base` says. `apps/z0/docker/nginx.conf` does it in the image and
-> `defineAppConfig` does it on the dev server — `commons/dev/vite-config/docs/base.md`. The rows
-> above are raw prefixes, so they already match the bare form on the way in.
->
-> **`/auth/*` follows the root**, so it is on 8789 with everything else. The registered
-> `redirect_uri` is `<origin>/auth/callback` and has no prefix, so the flow belongs to whichever
-> service answers the root, which is st0.
+> **`/auth/*` follows st0**, wherever the request lands: the registered `redirect_uri` is
+> `<origin>/auth/callback` with no prefix, so the flow belongs to whichever service answers a
+> bare origin root — st0. pl8's and k7's own vite configs proxy `/auth` to `AUTH_BACKEND_PORT`
+> (8789, `scripts/dev-hosts.mjs`) rather than to their own backend, which is what makes each
+> dev server usable when reached directly on its own port too, same as production.
 >
 > Sending `/auth` to a backend that mounts no auth routes fails silently, and it is worth
 > knowing what that looks like: Express answers its own **404, `Cannot GET /auth/login`**, which
 > reads like a broken login rather than a misrouted one. Nothing else fails and the SPA still
-> loads; only signing in is impossible.
->
-> Routing `/auth` to **5223** instead of 8789 also works: st0's vite config proxies `/auth` to
-> its own backend, which is what makes the dev server usable when visited directly on its port.
-> 8789 is preferred here, because it is what the production edge does and the two are meant to
-> differ by their origin and nothing else.
+> loads; only signing in is impossible. A **404 on every route**, `/auth` included, instead
+> means the LAN proxy has no rule for the host at all — check that table above before the
+> backend.
 
 Nothing on this workstation terminates TLS. The name resolves to the **LAN server**,
 which reverse-proxies to the dev servers here. So there is no edge to start, no `npm run

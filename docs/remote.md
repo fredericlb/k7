@@ -123,11 +123,12 @@ with node-pty and xterm.js, the bricks VS Code itself is made of.
 
 ## The name, and the one accepted beside it
 
-`scripts/dev-hosts.mjs` holds both. `st0.priv.frediver.se` is one origin with one path per service
-— `/pl8`, `/k7`, `/z0` — and st0 at the root, exactly as production is under
-`studio.frediver.se`. It resolves to the LAN server, which reverse-proxies to the dev servers on
-the workstation. A hostname lives in a router and in everyone's bookmarks rather than in this
-repo, so it does not follow the apps.
+`scripts/dev-hosts.mjs` holds all three. `priv.st0.app` is st0's own origin, with z0 still a
+path under it (`/z0`, unmoved); `play.priv.st0.app` and `k7.priv.st0.app` are pl8's and k7's
+own subdomains, exactly as production is under `st0.app` / `play.st0.app` / `k7.st0.app`. Each
+resolves to the LAN server, which reverse-proxies to the matching dev server on the
+workstation — see `docs/dev.md`'s table. A hostname lives in a router and in everyone's
+bookmarks rather than in this repo, so it does not follow the apps.
 
 `studio.test` stays in `EXTRA_HOSTS` for two reasons: a local Caddy may be running and answering
 it on 127.0.0.1, and the reverse proxy may forward with `Host: studio.test` rather than the public
