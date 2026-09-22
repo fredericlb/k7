@@ -21,7 +21,7 @@ import {
   safePath,
 } from "@studio/mediatek/layout";
 import { manifest } from "@studio/mediatek/manifest";
-import { mimeFor } from "@studio/mediatek/media";
+import { extOf, mimeFor } from "@studio/mediatek/media";
 import {
   createPlaylist,
   listPlaylists,
@@ -48,6 +48,10 @@ import {
 } from "@studio/mediatek/write";
 import express, { Router } from "express";
 import { sweepState } from "../analysisSweep.ts";
+import {
+  ensureStreamable,
+  NoFfmpegError as NoTranscoderError,
+} from "../transcode.ts";
 
 export const libraryRouter: Router = Router();
 
@@ -121,6 +125,44 @@ libraryRouter.get(
       return res.status(404).json({ error: "not found" });
     }
     streamFile(req, res, abs, mimeFor(abs));
+  }),
+);
+
+/**
+ * Like `/file`, except a FLAC is served as its transcoded MP3 — made once, cached under
+ * `.cache/stream/`, and reused after. Any other format passes straight through. See
+ * docs/streaming.md.
+ */
+libraryRouter.get(
+  "/stream",
+  wrap(async (req, res) => {
+    const rel = String(req.query.path ?? "");
+    if (!rel) return res.status(400).json({ error: "path required" });
+    let abs: string;
+    try {
+      abs = safePath(rel);
+    } catch (e) {
+      if (e instanceof PathEscapesError)
+        return res.status(400).json({ error: e.message });
+      throw e;
+    }
+    try {
+      if (!statSync(abs).isFile())
+        return res.status(404).json({ error: "not a file" });
+    } catch {
+      return res.status(404).json({ error: "not found" });
+    }
+    if (extOf(abs) !== ".flac") return streamFile(req, res, abs, mimeFor(abs));
+
+    let mp3: string;
+    try {
+      mp3 = await ensureStreamable(rel, abs);
+    } catch (e) {
+      if (e instanceof NoTranscoderError)
+        return res.status(503).json({ error: e.message });
+      throw e;
+    }
+    streamFile(req, res, mp3, "audio/mpeg");
   }),
 );
 

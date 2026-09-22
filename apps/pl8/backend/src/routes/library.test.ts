@@ -253,6 +253,38 @@ describe("GET /file", () => {
   });
 });
 
+describe("GET /stream", () => {
+  // The FLAC branch shells out to ffmpeg, which decode.test.ts's own convention avoids in a
+  // unit test (absent from a dev machine, present in the image) — covered here only for the
+  // passthrough case, which needs no decoder at all.
+  const put = (rel: string, body: string) => {
+    const abs = join(root, rel);
+    mkdirSync(join(abs, ".."), { recursive: true });
+    writeFileSync(abs, body);
+    return abs;
+  };
+
+  it("passes a non-FLAC straight through, same bytes", async () => {
+    put("songs/a/b/c/master.mp3", "not really mp3 bytes");
+    const r = await fetch(
+      `${base}/api/mediatek/stream?path=songs/a/b/c/master.mp3`,
+    );
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toBe("audio/mpeg");
+    expect(await r.text()).toBe("not really mp3 bytes");
+  });
+
+  it("answers 404 for a path that is not there, same as /file", async () => {
+    const r = await fetch(`${base}/api/mediatek/stream?path=songs/nope.mp3`);
+    expect(r.status).toBe(404);
+  });
+
+  it("answers 400 for a path that escapes the root, never 500", async () => {
+    const r = await fetch(`${base}/api/mediatek/stream?path=../../secret`);
+    expect(r.status).toBe(400);
+  });
+});
+
 describe("GET /search and /list", () => {
   it("clamps a greedy limit rather than refusing it", async () => {
     const r = await fetch(`${base}/api/mediatek/search?limit=99999`);
