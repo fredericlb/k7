@@ -8,6 +8,7 @@
     "start": "node --experimental-strip-types src/server.ts",
     "dev": "node --experimental-strip-types --watch src/server.ts",
     "migrate": "node --experimental-strip-types src/migrate.ts",
+    "migrate:data": "node --experimental-strip-types src/migratePocketbaseData.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

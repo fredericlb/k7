@@ -4,7 +4,7 @@ import { setupAuth } from "@frediverse/oidc";
 import express from "express";
 import { bearerOrSession } from "./apitoken.ts";
 import { env } from "./env.ts";
-import { isConfigured as gristConfigured } from "./grist.ts";
+import { isConfigured as pocketbaseConfigured } from "./pocketbase.ts";
 import { momentsRouter } from "./routes/moments.ts";
 import { pagesRouter } from "./routes/pages.ts";
 import { publicPagesRouter } from "./routes/publicPages.ts";
@@ -62,8 +62,8 @@ startSupernoteSchedule();
 server.listen(PORT, () => {
   console.log(`🎙  k7 backend listening on http://localhost:${PORT}`);
   console.log(
-    gristConfigured()
-      ? `   Grist store configured (doc ${env.grist.docId})`
-      : "   ⚠️  Grist NOT configured — set GRIST_* env vars and run `npm run migrate`",
+    pocketbaseConfigured()
+      ? `   PocketBase store configured (${env.pocketbase.url})`
+      : "   ⚠️  PocketBase NOT configured — set POCKETBASE_* env vars and run `npm run migrate`",
   );
 });

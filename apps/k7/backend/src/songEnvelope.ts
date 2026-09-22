@@ -1,6 +1,6 @@
 // songEnvelope.ts — the shape of a reference track: ffmpeg decodes it to raw mono floats and this
 // buckets them into per-interval RMS, which is what the waveform canvas draws.
-// Measured ONCE and kept in Grist — a rehearsal laptop must not decode forty megabytes to open a
+// Measured ONCE and kept in PocketBase — a rehearsal laptop must not decode forty megabytes to open a
 // song page. See ../../docs/audio.md.
 
 import { spawn } from "node:child_process";
