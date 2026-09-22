@@ -1119,10 +1119,14 @@ export async function ensureVersionAudioCached(releaseUid, versionUid) {
   const versions = await getVersionRecords(releaseUid);
   const rec = versions.find((v) => v.fields.Uid === versionUid);
   if (!rec?.fields.AudioPath) return null;
-  const mime = rec.fields.AudioMime || "audio/mpeg";
+  const remote = String(rec.fields.AudioPath);
+  const mime = mediatek.streamedMime(
+    remote,
+    rec.fields.AudioMime || "audio/mpeg",
+  );
   const filePath = versionCachePath(versionUid);
   if (!fs.existsSync(filePath))
-    await mediatek.download(String(rec.fields.AudioPath), filePath);
+    await mediatek.downloadStreamable(remote, filePath);
   return { filePath, mime };
 }
 
@@ -1178,9 +1182,11 @@ export async function ensureVersionTrackCached(
   if (!rec) return null;
   const entry = tracksOf(rec).find((t) => t.id === trackId);
   if (!entry?.path) return null;
-  const filePath = versionTrackCachePath(versionUid, entry);
-  if (!fs.existsSync(filePath)) await mediatek.download(entry.path, filePath);
-  return { filePath, mime: entry.mime, name: entry.name };
+  const mime = mediatek.streamedMime(entry.path, entry.mime);
+  const filePath = versionTrackCachePath(versionUid, { ...entry, mime });
+  if (!fs.existsSync(filePath))
+    await mediatek.downloadStreamable(entry.path, filePath);
+  return { filePath, mime, name: entry.name };
 }
 
 // --- Pages (a named collection of releases) ---------------------------------
@@ -1507,7 +1513,7 @@ export async function deleteSong(uid) {
   return true;
 }
 
-// --- Song sheets (PDF / image attachments) ----------------------------------
+// --- Song sheets (PDF / image / MusicXML files — not audio, so PocketBase holds them) -------
 
 // SheetMeta is the order, name and type; the bytes live in the song_sheets collection.
 async function writeSheets(rec, sheets) {
@@ -1621,8 +1627,9 @@ export async function deleteSongAudio(uid) {
 
 const instrumentalTarget = (uid) =>
   `recordings/songbook/${uid}-instrumental.flac`;
+// The upload is always FLAC (instrumentalTarget above), so /stream always transcodes it: mp3 on disk.
 const instrumentalCachePath = (uid) =>
-  path.join(CACHE_DIR, `song-instrumental-${uid}.flac`);
+  path.join(CACHE_DIR, `song-instrumental-${uid}.mp3`);
 
 /** Forget a song's instrumental, bytes first, row after — also what a new or removed track calls. */
 async function clearInstrumental(uid, rec) {
@@ -1669,11 +1676,16 @@ export async function ensureSongInstrumentalCached(uid) {
     ? String(rec.fields.InstrumentalPath)
     : "";
   if (!remote) return null;
+  const mime = mediatek.streamedMime(
+    remote,
+    String(rec.fields.InstrumentalMime || "audio/flac"),
+  );
   const filePath = instrumentalCachePath(uid);
-  if (!fs.existsSync(filePath)) await mediatek.download(remote, filePath);
+  if (!fs.existsSync(filePath))
+    await mediatek.downloadStreamable(remote, filePath);
   return {
     filePath,
-    mime: String(rec.fields.InstrumentalMime || "audio/flac"),
+    mime,
     name: String(rec.fields.InstrumentalName || ""),
   };
 }
@@ -1683,9 +1695,13 @@ export async function ensureSongAudioCached(uid) {
   const rec = await getSongRecord(uid);
   const remote = rec?.fields.AudioPath ? String(rec.fields.AudioPath) : "";
   if (!remote) return null;
-  const mime = String(rec.fields.AudioMime || "audio/mpeg");
+  const mime = mediatek.streamedMime(
+    remote,
+    String(rec.fields.AudioMime || "audio/mpeg"),
+  );
   const filePath = songAudioCachePath(uid, mime, remote);
-  if (!fs.existsSync(filePath)) await mediatek.download(remote, filePath);
+  if (!fs.existsSync(filePath))
+    await mediatek.downloadStreamable(remote, filePath);
   return { filePath, mime, name: String(rec.fields.AudioName || "") };
 }
 
@@ -1702,9 +1718,8 @@ export async function songEnvelope(uid) {
       // Unreadable is the same as absent: measure it again rather than refuse to draw.
     }
   }
-  const audio = await ensureSongAudioCached(uid);
-  if (!audio) return null;
-  const measured = await envelopeOf(audio.filePath);
+  // pl8 already holds the bytes and has ffmpeg — no local download needed to measure them.
+  const measured = await envelopeOf(String(rec.fields.AudioPath));
   await db.patchRecord("Songs", rec.id, {
     Envelope: JSON.stringify(measured),
   });
@@ -1794,11 +1809,11 @@ async function safeRemote(remote) {
   }
 }
 
-// One sheet file's cache path: keyed by attachment id, with a sniffable extension.
+// One sheet file's cache path: keyed by its own id, with a sniffable extension.
 function sheetCachePath(uid, entry) {
   return path.join(
     CACHE_DIR,
-    `sheet-${uid}-${entry.attachmentId}.${sheetExt(entry.name ?? "", entry.mime)}`,
+    `sheet-${uid}-${entry.id}.${sheetExt(entry.name ?? "", entry.mime)}`,
   );
 }
 

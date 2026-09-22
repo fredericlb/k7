@@ -52,6 +52,9 @@ services:
       # Unset falls back to a value derived from SESSION_SECRET, which works but
       # ties token validity to the login secret's rotation; set it explicitly.
       API_TOKEN_SECRET: ${API_TOKEN_SECRET:-}
+      # Without this, @studio/mediatek defaults to a per-machine state dir
+      # (~/.st0/mediatek) instead of the volume below, and the library is empty.
+      STUDIO_MEDIATEK: /library
     volumes:
       # pl8 IS this volume — apps/pl8/docker/Dockerfile.
       - library:/library

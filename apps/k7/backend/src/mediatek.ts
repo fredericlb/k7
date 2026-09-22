@@ -2,6 +2,10 @@
 // PocketBase keeps the metadata (duration, envelope, gain, moments) and carries no audio at all.
 // The client is the package's, not a second one written here. See docs/audio.md.
 
+import { createWriteStream, mkdirSync, renameSync, rmSync } from "node:fs";
+import { dirname } from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import {
   pushRecording,
   pushSong,
@@ -99,4 +103,57 @@ export async function remove(path: string): Promise<void> {
 /** Fetch the bytes into the disk cache, which is what serves Range requests. */
 export async function download(path: string, dest: string): Promise<void> {
   await remoteLibrary(cfg()).download(path, dest);
+}
+
+/**
+ * Like `download`, but through pl8's `/stream` — a FLAC source lands on disk as its MP3
+ * transcode, anything else unchanged. For a path a browser will PLAY, never one this app
+ * re-uploads or re-processes: `download` still owns that case, byte-exact.
+ */
+export async function downloadStreamable(
+  path: string,
+  dest: string,
+): Promise<void> {
+  const { base, token } = cfg();
+  const res = await fetch(
+    `${base.replace(/\/+$/, "")}/api/mediatek/stream?path=${encodeURIComponent(path)}`,
+    { headers: token ? { authorization: `Bearer ${token}` } : {} },
+  );
+  if (!res.ok || !res.body)
+    throw new Error(`mediatek stream ${path}: ${res.status} ${res.statusText}`);
+  mkdirSync(dirname(dest), { recursive: true });
+  const tmp = `${dest}.part`;
+  try {
+    await pipeline(Readable.fromWeb(res.body as never), createWriteStream(tmp));
+    renameSync(tmp, dest);
+  } catch (e) {
+    rmSync(tmp, { force: true });
+    throw e;
+  }
+}
+
+/** What a médiathèque path will actually stream as — pl8 transcodes only a FLAC source. */
+export function streamedMime(remotePath: string, storedMime: string): string {
+  return remotePath.toLowerCase().endsWith(".flac") ? "audio/mpeg" : storedMime;
+}
+
+export interface RemoteEnvelope {
+  sampleRate: number;
+  seconds: number;
+  rms: number[];
+  transients: number[];
+}
+
+/** pl8's own measurement of a médiathèque path — computed once there, kept in its cache. */
+export async function getFileEnvelope(path: string): Promise<RemoteEnvelope> {
+  const { base, token } = cfg();
+  const res = await fetch(
+    `${base.replace(/\/+$/, "")}/api/mediatek/envelope?path=${encodeURIComponent(path)}`,
+    { headers: token ? { authorization: `Bearer ${token}` } : {} },
+  );
+  if (!res.ok)
+    throw new Error(
+      `mediatek envelope ${path}: ${res.status} ${res.statusText}`,
+    );
+  return res.json() as Promise<RemoteEnvelope>;
 }

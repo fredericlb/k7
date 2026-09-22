@@ -244,12 +244,18 @@ export function createPocketbase({
 
   const getCollection = async (
     name: string,
-  ): Promise<{ id: string; fields: { id: string; name: string }[] } | null> => {
+  ): Promise<{
+    id: string;
+    fields: ({ id: string; name: string } & Record<string, unknown>)[];
+  } | null> => {
     const res = await pbFetch(
       `/api/collections?perPage=200&filter=${encodeURIComponent(`name = "${name}"`)}`,
     );
     const data = (await res.json()) as {
-      items: { id: string; fields: { id: string; name: string }[] }[];
+      items: {
+        id: string;
+        fields: ({ id: string; name: string } & Record<string, unknown>)[];
+      }[];
     };
     return data.items[0] || null;
   };
@@ -273,6 +279,18 @@ export function createPocketbase({
         maxSelect: 1,
       };
     }
+    // A JSON envelope for an hours-long session can run past 100 KB, and
+    // max: 0 turned out to still enforce PocketBase's 5000-character default
+    // rather than lifting it — so every text field gets an explicit, generous
+    // ceiling instead (5 MB: far past any real envelope, but not "no limit").
+    if (f.type === "text") {
+      return {
+        name: f.name,
+        type: "text",
+        required: Boolean(f.required),
+        max: 5_000_000,
+      };
+    }
     return { name: f.name, type: f.type, required: Boolean(f.required) };
   };
 
@@ -285,10 +303,10 @@ export function createPocketbase({
       body: JSON.stringify({
         name,
         type: "base",
-        fields: [
-          { name: "id", type: "text", primaryKey: true },
-          ...fields.map(asPbField),
-        ],
+        // No "id" field here: PocketBase provisions its own primary key.
+        // Declaring one ourselves turns it into a required, caller-supplied
+        // field instead — every insert then 400s with "id: Cannot be blank".
+        fields: fields.map(asPbField),
       }),
     });
   };
@@ -312,6 +330,19 @@ export function createPocketbase({
     });
   };
 
+  // Escape hatch: replaces a collection's whole fields array as given, no
+  // mapping through FieldSpec. For fixing a field's raw shape by hand —
+  // addMissingFields can only append, never correct one already there.
+  const setFields = async (
+    collectionId: string,
+    fields: Record<string, unknown>[],
+  ): Promise<void> => {
+    await pbFetch(`/api/collections/${collectionId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ fields }),
+    });
+  };
+
   return {
     isConfigured,
     listRecords,
@@ -325,6 +356,7 @@ export function createPocketbase({
     getCollection,
     createCollection,
     addMissingFields,
+    setFields,
   };
 }
 

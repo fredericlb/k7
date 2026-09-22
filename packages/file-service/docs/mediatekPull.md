@@ -61,8 +61,9 @@ down would otherwise write a line a minute for as long as it is down. A partial 
 stale deliberately — `lastRevision` is only recorded when nothing failed, so the files that
 did not land are retried on the next tick.
 
-With no `MEDIATEK_URL` the loop never starts. The local folder is then simply not a cache of
-anything, which is a working state: `@st0/…` still resolves against whatever is in it.
+With no configured base (`mediatekLink.ts`) the loop never starts. The local folder is then
+simply not a cache of anything, which is a working state: `@st0/…` still resolves against
+whatever is in it.
 
 ## The vocabulary `scope()` reads
 
@@ -81,17 +82,18 @@ the top of the repository rather than inside the project
 Nothing open naming the library means no fetch AND no token recorded — otherwise the first song
 that did name one would be told everything was already in step.
 
-## The loop is STOPPED, and why
+## A loopback base is never pulled
 
-`startMediatekPuller` returns immediately. The guard is a stopgap rather than the design: the
-médiathèque cache is on its way out (the stem cut moves to pl8, which already holds the bytes),
-and until it goes this loop must not run.
+Where pl8 answers on the SAME machine this cache would write to — `STUDIO_MEDIATEK` for pl8's
+own backend resolving to `<state>/mediatek`, the very directory this cache writes into — a pull
+downloads each scoped file ONTO ITSELF and renames the copy over the original while the server
+is still serving it. Songs come back as pure zeros, 3.4 MB and 37 MB of `0x00`, with no other
+copy of them on the machine. It cannot settle either: `syncFamily` records the manifest entry's
+mtime, and its own rename gives the file a NEW one, so the next diff always mismatches — nine
+files rewritten every sixty seconds, indefinitely.
 
-What it does when it runs: where `STUDIO_MEDIATEK` for pl8's backend is `<state>/mediatek` —
-the very directory this cache writes into (`env.yaml`) — every tick downloads each scoped file
-ONTO ITSELF and renames the copy over the original while the server is still serving it. Songs
-come back as pure zeros, 3.4 MB and 37 MB of `0x00`, with no other copy of them on the machine.
-
-It cannot settle, either: `syncFamily` records the manifest entry's mtime, and its own rename
-gives the file a NEW one, so the next diff always mismatches. Nine files rewritten every sixty
-seconds, indefinitely.
+That topology — file-service and pl8 on one machine — is also the one where the cache buys
+nothing: the "hosted" library is already sitting at the same path the cache would fetch it to.
+So `isLoopback()` skips a pull whenever the configured base resolves to `127.0.0.1`,
+`localhost` or `::1`, rather than guarding the write some costlier way. A real deployment —
+pl8 hosted, this machine elsewhere — never trips it.

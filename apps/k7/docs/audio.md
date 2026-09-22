@@ -185,16 +185,23 @@ no scrubber of its own. The button exists because a click on the shape can say e
 no *stop* — pausing had no gesture at all. The native `<audio controls>` bar is gone; the element
 itself stays, hidden, because it IS the transport and the timed lyrics follow it.
 
-**The shape is measured once, on the server, and kept in PocketBase** (`Songs.Envelope`, written by
-`apps/k7/backend/src/songEnvelope.ts`): ffmpeg decodes the track to 8 kHz mono — a level curve
-needs no bandwidth — and the samples are bucketed into RMS. Measured lazily, the first time a page
-asks for it, rather than in a migration that would decode every song in the songbook at once.
+**The shape is measured once, by pl8, and kept in PocketBase** (`Songs.Envelope`, written by
+`apps/k7/backend/src/songEnvelope.ts`): pl8 already holds the reference track's bytes and already
+has ffmpeg, via `@studio/audio-analysis` — the same measurement its own catalogue sweep computes
+for every song, reached here over `GET /api/mediatek/envelope` instead of k7 decoding anything
+itself. Measured lazily, the first time a page asks for it, rather than in a migration that would
+decode every song in the songbook at once.
 
-**The bucket follows the song's LENGTH, capped at 800 of them, and the values are rounded to three
-decimals.** A fixed 100 ms bucket measured 3113 values for a five-minute track — 61 kB of JSON in a
-cell of a metadata store that the songbook listing reads whole, for a panel 272 px wide where that
-is eleven buckets per pixel. The cap is what keeps a stored shape a few kilobytes; the precision
-dropped is below one pixel.
+**pl8's own bucketing is far finer than a waveform panel needs, so `songEnvelope.ts` downsamples
+it — RMS-of-RMS, not a second decode — to at most 800 buckets, rounded to three decimals.** A
+fixed 100 ms bucket measured 3113 values for a five-minute track — 61 kB of JSON in a cell of a
+metadata store that the songbook listing reads whole, for a panel 272 px wide where that is eleven
+buckets per pixel. The cap is what keeps a stored shape a few kilobytes; storing pl8's own
+resolution untouched could run two orders of magnitude past that.
+
+**Onsets ride along for free.** pl8's analysis also detects transients; `songEnvelope.ts` passes
+them through as `SongEnvelope.onsets`, and the panel forwards them to `ui-waveform`'s own
+`onsets` prop — a slot the component already had, unused until now.
 
 The alternative was decoding in the browser on each visit. A rehearsal laptop opening a song page
 should not spend seconds and a hundred megabytes of memory rebuilding a picture that never changes;
