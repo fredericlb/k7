@@ -36,7 +36,10 @@ RUN turbo prune pl8-backend st0-backend k7-backend z0-backend \
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY --from=pruner /repo/out/json/ ./
-RUN npm ci
+# node-pty (a root devDependency, pulled in even though these apps don't use it) has no musl
+# prebuild and falls back to node-gyp, which alpine ships neither python3 nor a C toolchain for.
+RUN apk add --no-cache python3 make g++ \
+ && npm ci
 
 # ---- frontend builds -------------------------------------------------------
 # Each vite config declares its own public prefix — none for st0 (it IS the

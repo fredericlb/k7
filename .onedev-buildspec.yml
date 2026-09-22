@@ -18,12 +18,13 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
+        apk add --no-cache python3 make g++ git ffmpeg
         npm ci
         npm run lint
         npm run lint:bytes
         npm run typecheck
         npx turbo run test
-    runAs: 1000:1000
+    runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
     optional: false
