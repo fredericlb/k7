@@ -1507,9 +1507,9 @@ export async function deleteSong(uid) {
   return true;
 }
 
-// --- Song sheets (PDF / image attachments) ----------------------------------
+// --- Song sheets (PDF / image files, in the médiathèque like every other byte) ----
 
-// SheetMeta is the order, name and type; the bytes live in the song_sheets collection.
+// SheetMeta is the order, name, type and médiathèque path of each sheet.
 async function writeSheets(rec, sheets) {
   await db.patchRecord("Songs", rec.id, {
     SheetMeta: JSON.stringify(sheets),
@@ -1523,24 +1523,16 @@ export async function addSheetFiles(uid, files) {
   const existing = sheetsOf(rec);
   const added: {
     id: string;
-    attachmentId: string;
+    path: string;
     name: string;
     mime: string;
   }[] = [];
   for (const file of files) {
     const name = file.name || "sheet";
-    const attachmentId = await db.uploadAttachment(
-      file.buffer,
-      file.mime,
-      name,
-      rec.id,
-    );
-    const entry = {
-      id: attachmentId,
-      attachmentId,
-      name,
-      mime: file.mime,
-    };
+    const id = randomUUID();
+    const remotePath = `recordings/songbook/${uid}-sheet-${id}.${sheetExt(name, file.mime)}`;
+    await mediatek.putFile(remotePath, file.buffer);
+    const entry = { id, path: remotePath, name, mime: file.mime };
     added.push(entry);
     // Prime the disk cache so the first view streams straight away.
     fs.writeFileSync(sheetCachePath(uid, entry), file.buffer);
@@ -1561,7 +1553,7 @@ export async function deleteSheetFile(uid, fileId) {
     rec,
     existing.filter((s) => s.id !== fileId),
   );
-  await db.deleteAttachment(gone.attachmentId).catch(() => {
+  await mediatek.remove(gone.path).catch(() => {
     // The metadata row is what the songbook reads; a stray blob left behind is not fatal.
   });
   safeUnlink(sheetCachePath(uid, gone));
@@ -1719,10 +1711,7 @@ export async function ensureSheetFileCached(uid, fileId) {
   const entry = sheetsOf(rec).find((s) => s.id === fileId);
   if (!entry) return null;
   const filePath = sheetCachePath(uid, entry);
-  if (!fs.existsSync(filePath)) {
-    const buffer = await db.downloadAttachment(entry.attachmentId);
-    fs.writeFileSync(filePath, buffer);
-  }
+  if (!fs.existsSync(filePath)) await mediatek.download(entry.path, filePath);
   return { filePath, mime: entry.mime, name: entry.name };
 }
 
@@ -1794,11 +1783,11 @@ async function safeRemote(remote) {
   }
 }
 
-// One sheet file's cache path: keyed by attachment id, with a sniffable extension.
+// One sheet file's cache path: keyed by its own id, with a sniffable extension.
 function sheetCachePath(uid, entry) {
   return path.join(
     CACHE_DIR,
-    `sheet-${uid}-${entry.attachmentId}.${sheetExt(entry.name ?? "", entry.mime)}`,
+    `sheet-${uid}-${entry.id}.${sheetExt(entry.name ?? "", entry.mime)}`,
   );
 }
 

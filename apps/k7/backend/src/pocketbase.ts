@@ -21,11 +21,8 @@ export interface PbRecord<T = Record<string, unknown>> {
 
 export interface FieldSpec {
   name: string;
-  type: "text" | "number" | "bool" | "relation" | "file";
+  type: "text" | "number" | "bool";
   required?: boolean;
-  // Relation target collection id, for type "relation".
-  collectionId?: string;
-  cascadeDelete?: boolean;
 }
 
 export type CollectionSchema = Record<string, FieldSpec[]>;
@@ -200,40 +197,6 @@ export function createPocketbase({
     }
   };
 
-  // --- Attachments (a dedicated song_sheets collection) -----------------------
-
-  const uploadAttachment = async (
-    buffer: Buffer,
-    mime: string,
-    filename: string,
-    songId: string,
-  ): Promise<string> => {
-    const form = new FormData();
-    form.append("song", songId);
-    form.append("name", filename);
-    form.append("mime", mime);
-    form.append("file", new Blob([buffer], { type: mime }), filename);
-    const res = await pbFetch(`/api/collections/song_sheets/records`, {
-      method: "POST",
-      body: form,
-    });
-    return ((await res.json()) as { id: string }).id;
-  };
-
-  const downloadAttachment = async (attachmentId: string): Promise<Buffer> => {
-    const rec = await pbFetch(
-      `/api/collections/song_sheets/records/${attachmentId}`,
-    );
-    const { file } = (await rec.json()) as { file: string };
-    const res = await pbFetch(
-      `/api/files/song_sheets/${attachmentId}/${encodeURIComponent(file)}`,
-    );
-    return Buffer.from(await res.arrayBuffer());
-  };
-
-  const deleteAttachment = (attachmentId: string): Promise<void> =>
-    deleteRecords("song_sheets", [attachmentId]);
-
   // --- Schema (what the migration runner drives) ------------------------------
 
   const listCollectionNames = async (): Promise<string[]> => {
@@ -261,24 +224,6 @@ export function createPocketbase({
   };
 
   const asPbField = (f: FieldSpec): Record<string, unknown> => {
-    if (f.type === "relation") {
-      return {
-        name: f.name,
-        type: "relation",
-        required: Boolean(f.required),
-        collectionId: f.collectionId,
-        cascadeDelete: Boolean(f.cascadeDelete),
-        maxSelect: 1,
-      };
-    }
-    if (f.type === "file") {
-      return {
-        name: f.name,
-        type: "file",
-        required: Boolean(f.required),
-        maxSelect: 1,
-      };
-    }
     // A JSON envelope for an hours-long session can run past 100 KB, and
     // max: 0 turned out to still enforce PocketBase's 5000-character default
     // rather than lifting it — so every text field gets an explicit, generous
@@ -349,9 +294,6 @@ export function createPocketbase({
     addRecords,
     patchRecord,
     deleteRecords,
-    uploadAttachment,
-    downloadAttachment,
-    deleteAttachment,
     listCollectionNames,
     getCollection,
     createCollection,
@@ -362,13 +304,5 @@ export function createPocketbase({
 
 export const pocketbase = createPocketbase(env.pocketbase);
 
-export const {
-  isConfigured,
-  listRecords,
-  addRecords,
-  patchRecord,
-  deleteRecords,
-  uploadAttachment,
-  downloadAttachment,
-  deleteAttachment,
-} = pocketbase;
+export const { isConfigured, listRecords, addRecords, patchRecord, deleteRecords } =
+  pocketbase;
