@@ -140,6 +140,19 @@ app.post("/api/token", requireAuth, (req, res) => {
   res.json({ token: issueApiToken(id) });
 });
 
+// The built SPA — this process's own frontend/dist, since there is no nginx in this image.
+// Static files first (an asset request that matches a real file wins outright), then a
+// catch-all SPA fallback for everything else EXCEPT /api and /auth, which answer their own
+// 404 rather than being swallowed into the shell — this backend mounts neither (mountRoutes:
+// [] for auth, and an unmatched /api/* is a real 404), and the frontend never asks it to
+// answer either (see api.ts), but a 200-with-HTML is a worse failure than a clean 404 for
+// anything that does.
+const FRONTEND_DIST = join(import.meta.dirname, "../../frontend/dist");
+app.use(express.static(FRONTEND_DIST));
+app.get(/^(?!\/api|\/auth)/, (_req, res) => {
+  res.sendFile(join(FRONTEND_DIST, "index.html"));
+});
+
 // Mounted LAST: three routes read a 512 MB body, so a caller hanging up is an everyday event.
 app.use(engineErrorHandler);
 

@@ -66,9 +66,10 @@ routes can only be served by the service that has no prefix — st0. See
 
 **The path belongs to the launch.** `parseLaunch` reads it before anything is mounted, and the
 FIRST segment is a repository's short name: there is no segment that can be added here without
-reading as a repository to open. That is also what makes a repository called `pl8`, `k7`, `z0`,
-`api` or `auth` unopenable — the origin claims those prefixes ahead of st0 and the request never
-reaches here (`docker/nginx.conf`). The unfolded workspace travels in the **query**,
+reading as a repository to open. That is also what makes a repository called `z0`, `api` or
+`auth` unopenable — the origin claims those prefixes ahead of st0 and the request never
+reaches here (`apps/z0/docker/nginx.conf` for `/z0`). `pl8` and `k7` are free to use now: they
+answer their own subdomain, not a path here. The unfolded workspace travels in the **query**,
 which is exactly what a SPA router owns — the argument of
 [packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md) taken
 the other way — and it bookmarks, copies, and answers the back button.

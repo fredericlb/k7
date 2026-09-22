@@ -24,6 +24,7 @@
     "@studio/engine-browser": "*",
     "@studio/engine-host": "*",
     "@studio/engine-protocol": "*",
+    "@studio/git-repos": "*",
     "@studio/graph-model": "*",
     "@studio/mediatek": "*",
     "@studio/project-shell": "*",

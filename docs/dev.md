@@ -14,7 +14,7 @@ npm run vscode                     # the browser editor at /dev, on its own
 `studio.frediver.se`, which is the point: the two differ by their origin and nothing else.
 
 > **The LAN proxy's path table lives on the other machine.** It is the one piece of this
-> topology not versioned here, and it must mirror `docker/nginx.conf`, which is
+> topology not versioned here, and it must mirror `apps/z0/docker/nginx.conf`, which is
 > versioned. What that file says, as ports:
 >
 > | path | goes to | |
@@ -43,7 +43,7 @@ npm run vscode                     # the browser editor at /dev, on its own
 >
 > **A prefix is written with or without its trailing slash**, `/pl8` as readily as `/pl8/`, and
 > both reach the médiathèque: the bare form redirects to the slashed one, which stays canonical
-> because that is what each vite `base` says. `docker/nginx.conf` does it in the image and
+> because that is what each vite `base` says. `apps/z0/docker/nginx.conf` does it in the image and
 > `defineAppConfig` does it on the dev server — `commons/dev/vite-config/docs/base.md`. The rows
 > above are raw prefixes, so they already match the bare form on the way in.
 >

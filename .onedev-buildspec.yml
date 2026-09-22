@@ -36,7 +36,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
-- name: build and publish studio image
+- name: build and publish studio images
   steps:
   - type: CheckoutStep
     name: checkout
@@ -66,13 +66,46 @@ jobs:
     buildVersion: '@file:build_version@'
     condition: SUCCESSFUL
     optional: false
+  # Four images now, not one: st0/pl8/k7 each their own (no nginx, no BASE_IMAGE — see
+  # apps/<app>/docker/Dockerfile), z0 still built on the shared base image since it hasn't
+  # moved off st0's own hostname and still needs nginx internally.
   - type: BuildImageStep
-    name: build and push image
+    name: build and push st0 image
     buildPath: .
-    dockerfile: docker/Dockerfile
+    dockerfile: apps/st0/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/studio:latest dev.frediver.se/frediverse/studio/studio:@commit_hash@ dev.frediver.se/frediverse/studio/studio:@build_version@
+      tags: dev.frediver.se/frediverse/studio/st0:latest dev.frediver.se/frediverse/studio/st0:@commit_hash@ dev.frediver.se/frediverse/studio/st0:@build_version@
+    moreOptions: --build-arg APP_VERSION=@build_version@
+    condition: SUCCESSFUL
+    optional: false
+  - type: BuildImageStep
+    name: build and push pl8 image
+    buildPath: .
+    dockerfile: apps/pl8/docker/Dockerfile
+    output:
+      type: RegistryOutput
+      tags: dev.frediver.se/frediverse/studio/pl8:latest dev.frediver.se/frediverse/studio/pl8:@commit_hash@ dev.frediver.se/frediverse/studio/pl8:@build_version@
+    moreOptions: --build-arg APP_VERSION=@build_version@
+    condition: SUCCESSFUL
+    optional: false
+  - type: BuildImageStep
+    name: build and push k7 image
+    buildPath: .
+    dockerfile: apps/k7/docker/Dockerfile
+    output:
+      type: RegistryOutput
+      tags: dev.frediver.se/frediverse/studio/k7:latest dev.frediver.se/frediverse/studio/k7:@commit_hash@ dev.frediver.se/frediverse/studio/k7:@build_version@
+    moreOptions: --build-arg APP_VERSION=@build_version@
+    condition: SUCCESSFUL
+    optional: false
+  - type: BuildImageStep
+    name: build and push z0 image
+    buildPath: .
+    dockerfile: apps/z0/docker/Dockerfile
+    output:
+      type: RegistryOutput
+      tags: dev.frediver.se/frediverse/studio/z0:latest dev.frediver.se/frediverse/studio/z0:@commit_hash@ dev.frediver.se/frediverse/studio/z0:@build_version@
     moreOptions: --build-arg BASE_IMAGE=dev.frediver.se/frediverse/base:latest --build-arg APP_VERSION=@build_version@
     condition: SUCCESSFUL
     optional: false

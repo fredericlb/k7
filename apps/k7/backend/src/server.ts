@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { join } from "node:path";
 import { setupAuth } from "@frediverse/oidc";
 import express from "express";
 import { bearerOrSession } from "./apitoken.ts";
@@ -40,6 +41,19 @@ app.use("/api/singing", requireAuth, singingRouter);
 app.use("/api/rtc", requireAuth, rtcRouter);
 app.use("/api/token", requireAuth, tokenRouter);
 app.use("/api/supernote", requireAuth, supernoteRouter);
+
+// The built SPA — this process's own frontend/dist, since there is no nginx in this image.
+// Static files first (an asset request that matches a real file wins outright), then a
+// catch-all SPA fallback for everything else EXCEPT /api and /auth, which answer their own
+// 404 rather than being swallowed into the shell — this also covers `/@:nametag`, a public
+// page's client-routed address, so a direct visit still gets the shell that renders it. This
+// backend mounts neither (mountRoutes: [] for auth), and the frontend never asks it to
+// answer either, but a 200-with-HTML is a worse failure than a clean 404 for anything that does.
+const FRONTEND_DIST = join(import.meta.dirname, "../../frontend/dist");
+app.use(express.static(FRONTEND_DIST));
+app.get(/^(?!\/api|\/auth)/, (_req, res) => {
+  res.sendFile(join(FRONTEND_DIST, "index.html"));
+});
 
 const server = createServer(app);
 attachRtc(server);
