@@ -91,8 +91,8 @@ services:
       - traefik.http.routers.k7.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
       - traefik.http.services.k7.loadbalancer.server.port=8787
 
-  # k7's data + song-sheet store — apps/k7/docs/pocketbase.md. Not routed through
-  # Traefik: only k7 talks to it, over the container network, by service name.
+  # k7's data + song-sheet store — apps/k7/docs/pocketbase.md. k7 itself reaches it
+  # over the container network, by service name; not routed through Traefik.
   # Community image (no official one is published); pin a version for prod rather
   # than trusting `latest`. First boot has no superuser — create one with
   # `docker compose exec pocketbase /pb/pocketbase superuser create <email> <password>`
@@ -104,6 +104,12 @@ services:
       - pocketbase-data:/pb_data
     networks:
       - traefik
+    ports:
+      # One port for both: the admin web UI is at /_/, the REST API at /api/*.
+      # Published straight on the host, not through Traefik — there is no
+      # auth in front of this beyond PocketBase's own login, so bind it to a
+      # trusted interface/VPN or firewall it off in a real deployment.
+      - "${POCKETBASE_PORT:-8090}:8090"
 
   z0:
     image: dev.frediver.se/frediverse/studio/z0:${APP_VERSION:-latest}
