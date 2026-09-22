@@ -11,6 +11,15 @@ jobs:
     withSubmodules: true
     condition: SUCCESSFUL
     optional: false
+  - type: SetupCacheStep
+    name: set up npm cache
+    key: npm-cache
+    checksumFiles: package-lock.json
+    entries:
+    - path: /root/.npm
+    uploadStrategy: UPLOAD_IF_NOT_EXACT_MATCH
+    condition: SUCCESSFUL
+    optional: false
   - type: CommandStep
     name: lint and test
     runInContainer: true
@@ -19,6 +28,10 @@ jobs:
       type: DefaultInterpreter
       commands: |
         apk add --no-cache python3 make g++ git ffmpeg
+        # No GPU in this job — the CUDA execution-provider binaries onnxruntime-node's
+        # postinstall otherwise fetches from NuGet are a real desktop feature
+        # (packages/stem-separation/docs/stemSplit.md), not something lint/test touches.
+        export ONNXRUNTIME_NODE_INSTALL=skip
         npm ci
         npm run lint
         npm run lint:bytes
@@ -165,6 +178,15 @@ jobs:
       accessTokenSecret: submodule-token
     withLfs: false
     withSubmodules: true
+    condition: SUCCESSFUL
+    optional: false
+  - type: SetupCacheStep
+    name: set up npm cache
+    key: npm-cache
+    checksumFiles: package-lock.json
+    entries:
+    - path: /root/.npm
+    uploadStrategy: UPLOAD_IF_NOT_EXACT_MATCH
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep

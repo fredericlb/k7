@@ -7,11 +7,17 @@ import { loadVideoProject, parseWallClock } from "./videoProject";
 
 // The SAME folder read as PICTURE — a song's second compile, in the cases a wrong answer hides in.
 
+// A workspace, not the bare tmpdir itself: `scaffold()` seeds a WORKSPACE-level `_modules`
+// beside the project (one level up), and a `dir` with no workspace of its own sends that
+// straight into the shared OS tmp root instead of this test's own cleaned-up folder.
+let ws: string;
 let dir: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-pic-"));
+  ws = mkdtempSync(join(tmpdir(), "td-pic-"));
+  dir = join(ws, "song.st0");
+  mkdirSync(dir, { recursive: true });
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
 /** Write project.yaml with the given `project:` body and optional root lines. */
 function project(body: string, root = ""): void {
