@@ -100,3 +100,24 @@ export async function remove(path: string): Promise<void> {
 export async function download(path: string, dest: string): Promise<void> {
   await remoteLibrary(cfg()).download(path, dest);
 }
+
+export interface RemoteEnvelope {
+  sampleRate: number;
+  seconds: number;
+  rms: number[];
+  transients: number[];
+}
+
+/** pl8's own measurement of a médiathèque path — computed once there, kept in its cache. */
+export async function getFileEnvelope(path: string): Promise<RemoteEnvelope> {
+  const { base, token } = cfg();
+  const res = await fetch(
+    `${base.replace(/\/+$/, "")}/api/mediatek/envelope?path=${encodeURIComponent(path)}`,
+    { headers: token ? { authorization: `Bearer ${token}` } : {} },
+  );
+  if (!res.ok)
+    throw new Error(
+      `mediatek envelope ${path}: ${res.status} ${res.statusText}`,
+    );
+  return res.json() as Promise<RemoteEnvelope>;
+}

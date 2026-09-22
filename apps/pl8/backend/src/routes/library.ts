@@ -6,7 +6,7 @@
 import { existsSync, statSync } from "node:fs";
 import { streamFile } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
-import { analyseFile } from "@studio/audio-analysis/analyse";
+import { analyseFile, ensureAnalysed } from "@studio/audio-analysis/analyse";
 import { NoFfmpegError } from "@studio/audio-analysis/decode";
 import {
   listFamily,
@@ -320,6 +320,43 @@ libraryRouter.post(
       transients: env.transients.length,
       seconds: env.seconds,
     });
+  }),
+);
+
+/**
+ * A file's measured shape for a caller drawing a waveform — the cached sidecar when the file
+ * has not moved, a fresh analysis otherwise, never both work twice. See docs/analysis.md.
+ */
+libraryRouter.get(
+  "/envelope",
+  wrap(async (req, res) => {
+    const path = String(req.query.path ?? "");
+    if (!path) return res.status(400).json({ error: "path required" });
+
+    let source: string;
+    try {
+      source = safePath(path);
+    } catch (e) {
+      if (e instanceof PathEscapesError)
+        return res.status(400).json({ error: e.message });
+      throw e;
+    }
+    if (!existsSync(source))
+      return res.status(404).json({ error: `${path} is not here` });
+
+    try {
+      const env = await ensureAnalysed(source);
+      res.json({
+        sampleRate: env.sampleRate,
+        seconds: env.seconds,
+        rms: env.rms,
+        transients: env.transients,
+      });
+    } catch (e) {
+      if (e instanceof NoFfmpegError)
+        return res.status(503).json({ error: e.message });
+      res.status(422).json({ error: (e as Error).message });
+    }
   }),
 );
 

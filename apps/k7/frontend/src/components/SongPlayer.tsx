@@ -151,6 +151,7 @@ export function SongPlayer({
           currentTime={time}
           height={64}
           onSeek={seek}
+          onsets={shape.onsets}
         />
       )}
 

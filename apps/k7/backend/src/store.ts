@@ -1694,9 +1694,8 @@ export async function songEnvelope(uid) {
       // Unreadable is the same as absent: measure it again rather than refuse to draw.
     }
   }
-  const audio = await ensureSongAudioCached(uid);
-  if (!audio) return null;
-  const measured = await envelopeOf(audio.filePath);
+  // pl8 already holds the bytes and has ffmpeg — no local download needed to measure them.
+  const measured = await envelopeOf(String(rec.fields.AudioPath));
   await db.patchRecord("Songs", rec.id, {
     Envelope: JSON.stringify(measured),
   });
