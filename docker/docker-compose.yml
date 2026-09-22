@@ -48,6 +48,10 @@ services:
     restart: unless-stopped
     environment:
       <<: *shared-auth
+      # Signs the bearer token k7 pushes recordings with — see docs/tokens.md.
+      # Unset falls back to a value derived from SESSION_SECRET, which works but
+      # ties token validity to the login secret's rotation; set it explicitly.
+      API_TOKEN_SECRET: ${API_TOKEN_SECRET:-}
     volumes:
       # pl8 IS this volume — apps/pl8/docker/Dockerfile.
       - library:/library
@@ -65,6 +69,13 @@ services:
     restart: unless-stopped
     environment:
       <<: *shared-auth
+      # Signed with pl8's API_TOKEN_SECRET above (sub "service:k7") — without it
+      # a rehearsal recording has nowhere to push to. `npm run tokens` mints one
+      # from a checkout; here it must be minted and set by hand.
+      MEDIATEK_TOKEN: ${MEDIATEK_TOKEN:-}
+      # Only needed if PL8_DOMAIN below is not play.st0.app — the default in code
+      # points at that fixed host regardless of what PL8_DOMAIN is set to.
+      MEDIATEK_URL: ${MEDIATEK_URL:-}
     volumes:
       - k7-data:/app/apps/k7/backend/data
     networks:
@@ -83,6 +94,9 @@ services:
       <<: *shared-auth
       # z0's backend only; unset is none — e.g. "--latest".
       EXTRA_FLAGS: ${EXTRA_FLAGS:-}
+      # Without this, nobody's group membership admits them to the editor,
+      # presenter, monitor or remote — the game plays but stays unrunnable.
+      AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
     networks:
       - traefik
     labels:

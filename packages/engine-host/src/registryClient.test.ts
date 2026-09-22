@@ -86,13 +86,13 @@ describe("where an engine announces itself", () => {
 });
 
 describe("which médiathèque this machine caches", () => {
-  it("is the registry's origin, plus pl8's own prefix", () => {
-    // Never configured; the registry URL's own path is DROPPED and pl8's put back on, whichever of the two shapes it arrived in.
+  it("is pl8's own subdomain, off the registry's origin", () => {
+    // Never configured; the registry URL's own path is DROPPED and pl8's label put on instead, whichever of the two shapes it arrived in.
     expect(mediatekUrlFor(["https://studio.frediver.se"])).toBe(
-      "https://studio.frediver.se/pl8",
+      "https://play.studio.frediver.se",
     );
     expect(mediatekUrlFor(["https://st0.priv.frediver.se/pl8"])).toBe(
-      "https://st0.priv.frediver.se/pl8",
+      "https://play.st0.priv.frediver.se",
     );
   });
 
@@ -104,7 +104,7 @@ describe("which médiathèque this machine caches", () => {
         "https://b.example/m9",
         "https://c.example",
       ]),
-    ).toBe("https://b.example/pl8");
+    ).toBe("https://play.b.example");
   });
 
   it("answers nothing when nothing resolves, rather than guessing", () => {
