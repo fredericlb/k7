@@ -10,8 +10,8 @@ over the same protocol, on the same binary, and it cannot tell them apart: it on
 a compiled `ProjectDoc`. They stay out of each other's way by naming a **session**; see
 `docs/protocol.md` and `packages/engine-protocol/docs/sessions.md`.
 
-This workspace declares **no `build` or `test` script**, so `turbo run build` can never
-try to compile C++. Use the `build:*` / `test:*` scripts below.
+This workspace declares **no `build` script**, so `npm run build --workspaces --if-present`
+can never try to compile C++. Use the `build:*` / `test:*` scripts below.
 
 It does declare `dev`, and that one is not a build: it is `scripts/dev-native.mjs`, the
 repo dev session's native task — watch the sources, rebuild, restart. It restarts the

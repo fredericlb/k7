@@ -2,8 +2,8 @@
   "name": "k7",
   "private": true,
   "version": "1.0.0",
-  "description": "The k7 app. A workspace package so the app owns its own turbo config (turbo.json); its services live in the sibling sub-packages.",
+  "description": "The k7 app. A workspace package so the app owns its own dev script; its services live in the sibling sub-packages.",
   "scripts": {
-    "dev": "turbo run dev --filter=./*"
+    "dev": "concurrently -n frontend,backend -c auto \"npm run dev --workspace=k7-frontend\" \"npm run dev --workspace=k7-backend\""
   }
 }

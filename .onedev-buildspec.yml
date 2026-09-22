@@ -35,7 +35,7 @@ jobs:
         npm run lint
         npm run lint:bytes
         npm run typecheck
-        npx turbo run test
+        npm run test
     runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL

@@ -1,17 +1,18 @@
 # The test suite — how it runs, and the two ways it lied
 
-`npm run test` is `turbo run test`: one `vitest run` per workspace, thirty at a time
-(`turbo.json`, `"concurrency": "30"`). That shape is fine. What was not fine is that a suite can
-be **green because it never ran** and **red because the machine was busy** — and both happened
-here, at the same time.
+`npm run test` is `npm run test --workspaces --if-present`: one `vitest run` per workspace,
+sequentially — no concurrency knob, no cache. A suite can still be **green because it never
+ran**, which is the hazard below; it can no longer go **red because the machine was busy**
+from thirty workspaces racing for CPU, since nothing here runs workspaces in parallel any
+more. The generous timeouts later in this page are cheap insurance kept regardless.
 
 This page is the reason the numbers in `vitest.config.ts` are what they are.
 
-## Turbo walks package scripts, so a package without one is invisible
+## `--if-present` walks package scripts, so a package without one is invisible
 
-`turbo run test` asks each workspace for its `test` script. A package that has none is not
-reported as skipped — it is not reported at all. The run says *42 successful* and means
-*42 of the packages that opted in*.
+`npm run test --workspaces --if-present` asks each workspace for its `test` script. A package
+that has none is not reported as skipped — it is not reported at all. The run says *42
+successful* and means *42 of the packages that opted in*.
 
 Three had opted out by accident:
 
@@ -41,9 +42,9 @@ done
 
 ## The C++ suite: two tiers, and a skip that says so
 
-`engine/st0-engine` now has `"test": "node scripts/run-tests.mjs"`, so `turbo run test` compiles and
-runs it like any other workspace. Three things that script does, each because the obvious version
-is wrong:
+`engine/st0-engine` now has `"test": "node scripts/run-tests.mjs"`, so
+`npm run test --workspaces --if-present` compiles and runs it like any other workspace. Three
+things that script does, each because the obvious version is wrong:
 
 **It filters on `^studio_`.** `ctest -N` in this build tree lists **ten** tests, and two of them
 are not ours: Tracktion vendors its own `Benchmarks` and `TestRunner` examples, and CMake registers
@@ -58,9 +59,8 @@ the test binary so they "build in seconds and run headless with no audio device"
 so they link the engine. Building those can recompile Tracktion — measured here at **over four
 minutes**, and the CMakeLists already called them "opt-in the same way".
 
-So those two carry `LABELS slow`, and the script runs `-LE slow`. The default is the fast tier:
-**13 s through turbo from a forced, uncached run**, build included. `npm run test:all --workspace
-moteur` adds the slow two. The label lives in `tests/CMakeLists.txt` rather than in a list inside
+So those two carry `LABELS slow`, and the script runs `-LE slow`. The default is the fast tier,
+build included. `npm run test:all --workspace moteur` adds the slow two. The label lives in `tests/CMakeLists.txt` rather than in a list inside
 the script, so a new test is fast unless it says otherwise, and the script's target list comes from
 `ctest -N` rather than being spelled out twice.
 
@@ -84,8 +84,7 @@ A genuine failure still fails: ctest exits 8 on a failing test and the script fo
 
 ### The one C++ test that is load-sensitive — OPEN
 
-`studio_faust_tests` carries a perf assertion, `Faust_test.cpp:400`, that fails under a full
-`turbo run test`:
+`studio_faust_tests` carries a perf assertion, `Faust_test.cpp:400`:
 
 ```
 FAIL [the_interpreter_is_fast_enough_to_put_in_series]
@@ -93,8 +92,10 @@ FAIL [the_interpreter_is_fast_enough_to_put_in_series]
 ```
 
 Measured on this machine: **19,7 %** of the block budget quiet (eight `moogladder` in series,
-1,05 ms per 256-frame block), against a ceiling of **50**. It passes alone, every time, and fails
-when 47 turbo tasks share the CPU.
+1,05 ms per 256-frame block), against a ceiling of **50**. It passes alone, every time, and used
+to fail when 47 turbo tasks shared the CPU. `npm run test --workspaces --if-present` runs one
+workspace at a time now, so nothing else contends with `ctest` for CPU during this run — whether
+the margin still holds under some other kind of machine load is unverified.
 
 Its own comment says *"a generous ceiling on purpose: it catches an ORDER of magnitude, not a
 performance target"* — but 50 against 19,7 is **2,5×**, not an order of magnitude. The comment and

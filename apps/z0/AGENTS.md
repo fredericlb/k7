@@ -73,7 +73,7 @@ moteur-backed implementation exists behind that package's seam but the game does
 
 ## Verify
 
-`npm run dev --workspace z0` runs all six by turbo. There are ~11 vitest suites under
+`npm run dev --workspace z0` runs all six concurrently. There are ~11 vitest suites under
 `backend/src/`, covering the game rules, config and middleware — `npm run test` from a
 workspace, and they are the cheapest proof for anything rule-shaped. The frontends have no
 component tests; exercise them in the browser.

@@ -160,7 +160,7 @@ public function wrapping them. Counted so the figure does not surprise the next 
 
 **Tooling with no entry point** — programs, not dead code, but nothing wires them:
 
-- `packages/song/scripts/` — no npm script and no turbo task. Eight migrations, and
+- `packages/song/scripts/` — no npm script wires it in. Eight migrations, and
   `packages/song/src/moduleMigrate.ts` (350+ lines) exists only for `migrateModules.ts`. The folder
   grows by one migration per rename, and nothing removes them once played.
 - `packages/st0-plugins/scripts/turntables/put-on.ts` — this one is **documented** and run by hand
@@ -245,9 +245,6 @@ what the copies above have when they defend themselves.
   `packages/project-shell/src/ProjectGate.tsx`, `apps/pl8/frontend/src/Gate.tsx` and
   `apps/z0/editor/src/Gate.tsx`. Left as is: short presentation blocks, no risk of silent drift — but
   one grows per gate, which makes this count a thing to re-check.
-- **The four app `turbo.json`s** (`apps/{k7,st0,pl8,z0}`) are **identical byte for byte**, and their
-  `tasks.dev` block reproduces the root one they inherit through `"extends": ["//"]`. They override
-  nothing.
 
 ### Left on purpose
 
@@ -295,6 +292,5 @@ that name still lingers in `env.example.yaml`, `docs/tokens.md` (one row of the 
 
 ## 7. Generated, no effect
 
-`apps/st0-desktop/staging/{file-service,engine-host}.mjs` and the `.turbo/cache/*-manifest.json`
-entries are build artefacts: they disappear at the next `stage.mjs`. The source of truth is
-`packages/engine-protocol/sessions.ts`.
+`apps/st0-desktop/staging/{file-service,engine-host}.mjs` is a build artefact: it disappears
+at the next `stage.mjs`. The source of truth is `packages/engine-protocol/sessions.ts`.
