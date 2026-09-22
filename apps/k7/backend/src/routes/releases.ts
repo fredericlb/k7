@@ -264,6 +264,23 @@ releasesRouter.get(
   }),
 );
 
+// The same bytes as /audio, saved under the release's own name rather than played.
+releasesRouter.get(
+  "/:rid/versions/:vid/download",
+  wrap(async (req, res) => {
+    const release = await store.getRelease(req.params.rid);
+    const version = release?.versions?.find((v) => v.id === req.params.vid);
+    const info = await store.ensureVersionAudioCached(
+      req.params.rid,
+      req.params.vid,
+    );
+    if (!release || !version || !info)
+      return res.status(404).json({ error: "no audio" });
+    res.attachment(store.versionFileName(release, version, info.mime));
+    streamFile(req, res, info.filePath, info.mime);
+  }),
+);
+
 // Stream/download one stem of a multitrack version.
 releasesRouter.get(
   "/:rid/versions/:vid/tracks/:tid",

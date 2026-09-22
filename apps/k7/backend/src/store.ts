@@ -1241,6 +1241,11 @@ function versionExt(mime) {
   return ext === "bin" ? "mp3" : ext;
 }
 
+/** "Artist - Title (Version).ext": what a downloaded version is saved as. */
+export function versionFileName(release, version, mime) {
+  return `${release.artist} - ${release.title} (${version.name}).${versionExt(mime)}`;
+}
+
 /** A stem's file name under `stems/`: its own name, made nameable, plus its extension. */
 function stemName(track, i) {
   const stem = segment(track.name || "", `stem-${i + 1}`);

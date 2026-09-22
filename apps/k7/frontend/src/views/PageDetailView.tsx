@@ -15,6 +15,7 @@ interface Props {
   onChooseVersion: (releaseId: string, versionId: string) => Promise<void>;
   onDelete: () => Promise<void>;
   versionAudioUrl: (releaseId: string, versionId: string) => string;
+  versionDownloadUrl: (releaseId: string, versionId: string) => string;
   versionEnvelope: (
     releaseId: string,
     versionId: string,
@@ -30,6 +31,7 @@ export function PageDetailView({
   onChooseVersion,
   onDelete,
   versionAudioUrl,
+  versionDownloadUrl,
   versionEnvelope,
 }: Props) {
   const [adding, setAdding] = useState(false);
@@ -101,6 +103,16 @@ export function PageDetailView({
                     </option>
                   ))}
               </select>
+              {r.canDownload && played && (
+                <a
+                  className="download-link"
+                  href={versionDownloadUrl(r.id, played.id)}
+                  download
+                  title={`Download ${played.name}`}
+                >
+                  ⬇ Download
+                </a>
+              )}
               <Button
                 variant="outline"
                 size="sm"

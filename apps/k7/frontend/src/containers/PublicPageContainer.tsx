@@ -30,6 +30,9 @@ export function PublicPageContainer({ nametag }: Props) {
       audioUrl={(releaseId, versionId) =>
         api.publicVersionAudioUrl(nametag, releaseId, versionId)
       }
+      downloadUrl={(releaseId, versionId) =>
+        api.publicVersionDownloadUrl(nametag, releaseId, versionId)
+      }
       envelope={(releaseId, versionId) =>
         api.getPublicVersionEnvelope(nametag, releaseId, versionId)
       }

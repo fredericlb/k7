@@ -18,12 +18,18 @@ page falls back to the default, and the owner never has to go back and fix it.
 `shared/pageVersion.ts` makes this rule, and it is the only thing that does: the editor shows
 its answer, and the public route serves it.
 
-## The public route gives out only what it plays
+## The public route gives out only what the page offers
 
-`/api/public/pages/:nametag` sends each release with **one** version, the one the page plays,
-and without the owner's id. The audio and envelope routes under it answer for that version only,
-and send a 404 for any other. The owner hid a version to keep it from the audience, and a
-guessed URL must not get around that.
+`/api/public/pages/:nametag` sends each release with the versions a visitor may pick
+(`pageChoices`): every version that is not hidden, plus the one the page plays even if it is.
+The page's pick comes first, as `defaultVersionId`, and it sends no owner id. A visitor can switch
+versions, but the choice stays in their browser and is never saved. The audio, envelope and
+download routes answer for those versions only, and send a 404 for any other. The owner hid a
+version to keep it from the audience, and a guessed URL must not get around that.
+
+**Downloading needs the release's own switch** (`canDownload`). The public download route checks
+it on the server rather than trusting the missing button. It sends the same bytes as `/audio`,
+as an attachment named `Artist - Title (Version).ext`.
 
 ## `/@<nametag>` is matched by hand
 

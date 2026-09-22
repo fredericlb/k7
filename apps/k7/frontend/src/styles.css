@@ -927,6 +927,21 @@ select {
 .version-hidden {
   opacity: 0.6;
 }
+/* A link dressed as a small outline button: a plain <a download> needs no fetch and no blob. */
+.download-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  text-decoration: none;
+  color: inherit;
+  white-space: nowrap;
+}
+.download-link:hover {
+  background: var(--surface-2);
+}
 .switch-label {
   display: inline-flex;
   align-items: center;
