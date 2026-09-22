@@ -9,6 +9,7 @@ import * as store from "../store.ts";
 const versionPatch = z.object({
   isDefault: z.boolean().optional(),
   name: z.string().optional(),
+  hidden: z.boolean().optional(),
 });
 
 const AUDIO_MIME = /^audio\//;
@@ -184,6 +185,12 @@ releasesRouter.patch(
       await store.setDefaultVersion(req.params.rid, req.params.vid);
     if (typeof req.body.name === "string")
       await store.renameVersion(req.params.rid, req.params.vid, req.body.name);
+    if (typeof req.body.hidden === "boolean")
+      await store.setVersionHidden(
+        req.params.rid,
+        req.params.vid,
+        req.body.hidden,
+      );
     res.json(await store.getRelease(req.params.rid));
   }),
 );

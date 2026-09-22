@@ -66,6 +66,8 @@ export const SCHEMA: CollectionSchema = {
     { name: "Envelope", type: "text" },
     { name: "TrackMeta", type: "text" },
     { name: "IsDefault", type: "bool" },
+    // Left out of a page's version dropdown — ../../docs/pages.md.
+    { name: "Hidden", type: "bool" },
     { name: "CreatedAt", type: "text" },
   ],
   Pages: [
@@ -73,6 +75,8 @@ export const SCHEMA: CollectionSchema = {
     { name: "OwnerId", type: "text", required: true },
     { name: "Nametag", type: "text" },
     { name: "ReleaseUids", type: "text" },
+    // JSON { releaseUid: versionUid }: the version a page plays instead of the default.
+    { name: "VersionChoices", type: "text" },
     { name: "CreatedAt", type: "text" },
   ],
   SingingExercises: [

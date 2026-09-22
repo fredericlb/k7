@@ -19,6 +19,7 @@ const createSchema = z.object({
 const patchSchema = z.object({
   nametag: nametag.optional(),
   releaseIds: z.array(z.string()).optional(),
+  versionIds: z.record(z.string(), z.string()).optional(),
 });
 
 export const pagesRouter = Router();
@@ -56,7 +57,7 @@ pagesRouter.patch(
   "/:pid",
   validate(patchSchema),
   wrap(async (req, res) => {
-    const { nametag, releaseIds } = req.body;
+    const { nametag, releaseIds, versionIds } = req.body;
     if (
       nametag !== undefined &&
       (await store.nametagExists(nametag, req.params.pid))
@@ -65,6 +66,7 @@ pagesRouter.patch(
     const page = await store.updatePage(req.params.pid, {
       nametag,
       releaseIds,
+      versionIds,
     });
     if (!page) return res.status(404).json({ error: "not found" });
     res.json(page);

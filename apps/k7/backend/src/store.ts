@@ -866,6 +866,7 @@ function mapVersion(rec) {
     id: f.Uid,
     name: f.Name || "Version",
     isDefault: Boolean(f.IsDefault),
+    hidden: Boolean(f.Hidden),
     audioMime: f.AudioMime || null,
     tracks: tracksOf(rec).map((t) => ({
       id: t.id,
@@ -1100,6 +1101,16 @@ export async function setDefaultVersion(releaseUid, versionUid) {
   return true;
 }
 
+/** Hidden keeps a version out of a page's dropdown, and a page that chose it falls back to the default. */
+export async function setVersionHidden(releaseUid, versionUid, hidden) {
+  const versions = await getVersionRecords(releaseUid);
+  const v = versions.find((x) => x.fields.Uid === versionUid);
+  if (!v) return null;
+  await db.patchRecord("Versions", v.id, { Hidden: Boolean(hidden) });
+  invalidateVersions(releaseUid);
+  return true;
+}
+
 export async function renameVersion(releaseUid, versionUid, name) {
   const versions = await getVersionRecords(releaseUid);
   const v = versions.find((x) => x.fields.Uid === versionUid);
@@ -1256,8 +1267,21 @@ function publicPage(rec) {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean),
+    versionIds: versionChoicesOf(rec),
     createdAt: f.CreatedAt || "",
   };
+}
+
+// VersionChoices is a JSON object { releaseUid: versionUid }; anything else reads as "no choice".
+function versionChoicesOf(rec): Record<string, string> {
+  try {
+    const parsed = JSON.parse(rec.fields.VersionChoices || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 async function getPageRecord(uid) {
@@ -1322,6 +1346,8 @@ export async function updatePage(uid, patch) {
   if (patch.nametag !== undefined) fields.Nametag = patch.nametag;
   if (patch.releaseIds !== undefined)
     fields.ReleaseUids = patch.releaseIds.join(",");
+  if (patch.versionIds !== undefined)
+    fields.VersionChoices = JSON.stringify(patch.versionIds);
   await db.patchRecord("Pages", rec.id, fields);
   return getPage(uid);
 }

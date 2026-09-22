@@ -1,13 +1,15 @@
 import { Card } from "@frediverse/ui/card";
-import type { Page } from "../types";
+import { WaveformPlayer } from "../components/WaveformPlayer";
+import type { Page, SongEnvelope } from "../types";
 
 interface Props {
   page: Page | null;
   nametag: string;
   audioUrl: (releaseId: string, versionId: string) => string;
+  envelope: (releaseId: string, versionId: string) => Promise<SongEnvelope>;
 }
 
-export function PublicPageView({ page, nametag, audioUrl }: Props) {
+export function PublicPageView({ page, nametag, audioUrl, envelope }: Props) {
   if (!page) {
     return (
       <div className="login-screen">
@@ -30,18 +32,18 @@ export function PublicPageView({ page, nametag, audioUrl }: Props) {
             {releases.length} release{releases.length === 1 ? "" : "s"}
           </p>
           {releases.map((r) => {
-            const def =
+            // The server sends each release with the one version this page plays.
+            const played =
               r.versions?.find((v) => v.id === r.defaultVersionId) || null;
             return (
               <Card key={r.id}>
                 <b>
                   {r.title} <span className="muted">· {r.artist}</span>
                 </b>
-                {def && (
-                  <audio
-                    controls
-                    src={audioUrl(r.id, def.id)}
-                    style={{ width: "100%", marginTop: 8 }}
+                {played && (
+                  <WaveformPlayer
+                    src={audioUrl(r.id, played.id)}
+                    shapeOf={() => envelope(r.id, played.id)}
                   />
                 )}
               </Card>

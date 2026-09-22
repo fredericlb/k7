@@ -296,6 +296,18 @@ export const api = {
       body: JSON.stringify({ isDefault: true }),
     }).then(json),
 
+  /** A hidden version stays in the release and leaves every page's dropdown. */
+  setVersionHidden: (
+    id: string,
+    versionId: string,
+    hidden: boolean,
+  ): Promise<Release> =>
+    f(`/api/releases/${id}/versions/${versionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hidden }),
+    }).then(json),
+
   deleteVersion: (id: string, versionId: string): Promise<null> =>
     f(`/api/releases/${id}/versions/${versionId}`, {
       method: "DELETE",
@@ -328,7 +340,11 @@ export const api = {
 
   updatePage: (
     id: string,
-    patch: { nametag?: string; releaseIds?: string[] },
+    patch: {
+      nametag?: string;
+      releaseIds?: string[];
+      versionIds?: Record<string, string>;
+    },
   ): Promise<Page> =>
     f(`/api/pages/${id}`, {
       method: "PATCH",
@@ -353,6 +369,15 @@ export const api = {
     versionId: string,
   ) =>
     `${BASE}/api/public/pages/${nametag}/releases/${releaseId}/versions/${versionId}/audio`,
+
+  getPublicVersionEnvelope: (
+    nametag: string,
+    releaseId: string,
+    versionId: string,
+  ): Promise<SongEnvelope> =>
+    fetch(
+      `${BASE}/api/public/pages/${nametag}/releases/${releaseId}/versions/${versionId}/envelope`,
+    ).then(json),
 
   // --- Singing exercises (a personal practice book) ---
   listSingingExercises: (): Promise<SingingExercise[]> =>

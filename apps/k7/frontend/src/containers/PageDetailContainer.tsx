@@ -38,6 +38,14 @@ export function PageDetailContainer({
   const handleAddRelease = (id: string) =>
     setReleaseIds([...(page?.releaseIds ?? []), id]);
 
+  const handleChooseVersion = async (releaseId: string, versionId: string) => {
+    const { [releaseId]: _, ...others } = page?.versionIds ?? {};
+    const versionIds = versionId
+      ? { ...others, [releaseId]: versionId }
+      : others;
+    setPage(await api.updatePage(pageId, { versionIds }));
+  };
+
   const handleDelete = async () => {
     await api.deletePage(pageId);
     onDeleted();
@@ -52,6 +60,7 @@ export function PageDetailContainer({
       publicUrl={api.pagePublicUrl(page.nametag)}
       onRemoveRelease={handleRemoveRelease}
       onAddRelease={handleAddRelease}
+      onChooseVersion={handleChooseVersion}
       onDelete={handleDelete}
       versionAudioUrl={api.versionAudioUrl}
       versionEnvelope={api.getVersionEnvelope}

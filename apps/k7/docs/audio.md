@@ -166,6 +166,12 @@ that stops" is one idea and not three. The song page keeps a player of its own: 
 Original / Instrumental switch, shares its element with the timed lyrics and is transposed with
 them, which is a different job wearing the same clothes.
 
+**Every version and every page entry gets its own player**, so a list mounts many of them. Each
+one loads its audio only on the first play (`preload="none"`): a page of ten releases must not
+pull ten masters before anyone presses play. The shape still loads on mount, and a spinner
+stands where the shape will be, then on the button while the audio buffers. **One track plays
+at a time**: starting one pauses the one before, because two masters at once is never the point.
+
 `Versions.AudioPath` carries the mixdown's path, and `TrackMeta` carries `{id, path, name, mime}`.
 
 ## A songbook song's reference track
