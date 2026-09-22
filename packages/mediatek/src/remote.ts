@@ -2,6 +2,7 @@
 // the PORT the sync is written against: `LibrarySource` is what a cache needs, so a test
 // supplies one without a server and the sync never knows the difference.
 
+import { randomUUID } from "node:crypto";
 import { createWriteStream, mkdirSync, renameSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { Readable } from "node:stream";
@@ -81,7 +82,10 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
       const res = await get(`/file?path=${encodeURIComponent(path)}`);
       if (!res.body) throw new RemoteError(`mediatek ${path}: empty response`);
       mkdirSync(dirname(dest), { recursive: true });
-      const part = `${dest}.part`;
+      // A random suffix, not just `.part`: two callers racing a cache miss for the SAME dest
+      // must never share one temp file — the first to rename would delete it out from under
+      // the second, which then fails the rename with an ENOENT that names no real cause.
+      const part = `${dest}.${randomUUID()}.part`;
       try {
         // Streamed to disk: a video must never be held whole in memory on the way through.
         await pipeline(Readable.fromWeb(res.body), createWriteStream(part));

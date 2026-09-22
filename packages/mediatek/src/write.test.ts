@@ -1,6 +1,12 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ensureLayout, NotWritableError, PathEscapesError } from "./layout.ts";
 import { familyRevision } from "./revision.ts";
@@ -17,6 +23,11 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
+/** Any `.part` leftover in a folder — the temp name carries a random suffix, so a literal
+ * `<file>.part` check would pass vacuously even if a stray temp file were left behind. */
+const partFiles = (inDir: string): string[] =>
+  readdirSync(inDir).filter((f) => f.endsWith(".part"));
+
 describe("putting a file in", () => {
   it("writes it, making its folder", () => {
     putFile("samples/audio/reverb/module.yaml", "plugin: {}\n");
@@ -27,8 +38,9 @@ describe("putting a file in", () => {
 
   it("leaves no .part behind", () => {
     // Written beside and renamed, because the moteur may be reading this tree (docs/index.md).
+    const abs = join(root, "samples/a/module.yaml");
     putFile("samples/a/module.yaml", "a\n");
-    expect(existsSync(join(root, "samples/a/module.yaml.part"))).toBe(false);
+    expect(partFiles(dirname(abs))).toEqual([]);
   });
 
   it("moves the family's token, which the walk alone could not see", () => {

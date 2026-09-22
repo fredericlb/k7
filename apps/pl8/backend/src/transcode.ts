@@ -3,6 +3,7 @@
 // streams as it is. See docs/streaming.md.
 
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdirSync, renameSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { cacheDir } from "@studio/mediatek/layout";
@@ -37,7 +38,9 @@ export async function ensureStreamable(
     // no cached copy yet, or the source moved — fall through to (re)transcode
   }
   mkdirSync(dirname(dest), { recursive: true });
-  const tmp = `${dest}.part`;
+  // A random suffix, not just `.part`: two Range requests racing the same not-yet-cached
+  // FLAC must never point ffmpeg at the same output file.
+  const tmp = `${dest}.${randomUUID()}.part`;
   await run(abs, tmp);
   renameSync(tmp, dest);
   return dest;

@@ -2,6 +2,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -20,6 +21,11 @@ import { ensureLayout } from "./layout.ts";
 import type { Manifest } from "./manifest.ts";
 import type { LibrarySource } from "./remote.ts";
 import type { Family } from "./types.ts";
+
+/** Any `.part` leftover in a folder — the temp name carries a random suffix, so a literal
+ * `<file>.part` check would pass vacuously even if a stray temp file were left behind. */
+const partFiles = (inDir: string): string[] =>
+  readdirSync(inDir).filter((f) => f.endsWith(".part"));
 
 // A library source with no server, which is what `LibrarySource` being a port is for.
 function fakeOwner(
@@ -156,7 +162,7 @@ describe("syncing a family", () => {
     expect(r.fetched).toEqual(["samples/ok.yaml"]);
     expect(r.failed.map((f) => f.path)).toEqual(["samples/bad.yaml"]);
     expect(existsSync(join(root, "samples/bad.yaml"))).toBe(false);
-    expect(existsSync(join(root, "samples/bad.yaml.part"))).toBe(false);
+    expect(partFiles(join(root, "samples"))).toEqual([]);
   });
 
   it("remembers only what actually landed, so a failure is retried", async () => {

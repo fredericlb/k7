@@ -2,6 +2,7 @@
 // it. Bumps the family's mutation counter, because a write the walk cannot see (same file
 // count, same tick) is exactly the case the counter exists for. See docs/index.md.
 
+import { randomUUID } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -45,7 +46,9 @@ export function putFile(rel: string, body: Uint8Array | string): string {
   ensureLayout();
   const abs = writablePath(rel);
   mkdirSync(dirname(abs), { recursive: true });
-  const tmp = `${abs}.part`;
+  // A random suffix: two writers targeting the same path (separate processes sharing this
+  // volume) must never share one temp name.
+  const tmp = `${abs}.${randomUUID()}.part`;
   writeFileSync(tmp, body);
   renameSync(tmp, abs);
   bump(abs);

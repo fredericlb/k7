@@ -2,11 +2,17 @@
 // guards is the FAILURE: a download that breaks halfway must say why, and must not leave its
 // bytes where a whole file is expected.
 
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RemoteError, remoteLibrary } from "./remote.ts";
 
@@ -17,6 +23,11 @@ let dir: string;
 let mode: "whole" | "cut" = "whole";
 
 const BODY = "x".repeat(2048);
+
+/** Any `.part` leftover in a folder — the temp name now carries a random suffix, so a literal
+ * `${dest}.part` check would pass vacuously even if a stray temp file were left behind. */
+const partFiles = (inDir: string): string[] =>
+  readdirSync(inDir).filter((f) => f.endsWith(".part"));
 
 /** The error a promise rejected with — a helper, because `.catch(e => e)` widens to `void | Error`. */
 const caught = (p: Promise<unknown>): Promise<Error> =>
@@ -52,7 +63,19 @@ describe("remoteLibrary.download", () => {
     const dest = join(dir, "songs", "a", "original.wav");
     await remoteLibrary({ base }).download("songs/a/original.wav", dest);
     expect(readFileSync(dest, "utf8")).toBe(BODY);
-    expect(existsSync(`${dest}.part`)).toBe(false);
+    expect(partFiles(dirname(dest))).toEqual([]);
+  });
+
+  it("survives two callers racing the same cache miss", async () => {
+    // Both start before either finishes — the old fixed `.part` name let the first rename
+    // delete the second's temp file out from under it, an ENOENT with no useful cause.
+    const dest = join(dir, "songs", "a", "original.wav");
+    await Promise.all([
+      remoteLibrary({ base }).download("songs/a/original.wav", dest),
+      remoteLibrary({ base }).download("songs/a/original.wav", dest),
+    ]);
+    expect(readFileSync(dest, "utf8")).toBe(BODY);
+    expect(partFiles(dirname(dest))).toEqual([]);
   });
 
   it("leaves nothing at all when the body stops halfway", async () => {
@@ -63,7 +86,7 @@ describe("remoteLibrary.download", () => {
     ).rejects.toThrow(RemoteError);
     // The point of the temporary name: half a master in the cache plays until it stops.
     expect(existsSync(dest)).toBe(false);
-    expect(existsSync(`${dest}.part`)).toBe(false);
+    expect(partFiles(dirname(dest))).toEqual([]);
   });
 
   it("says WHY, not just that the body ended", async () => {

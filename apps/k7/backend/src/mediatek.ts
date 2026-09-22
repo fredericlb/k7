@@ -2,6 +2,7 @@
 // PocketBase keeps the metadata (duration, envelope, gain, moments) and carries no audio at all.
 // The client is the package's, not a second one written here. See docs/audio.md.
 
+import { randomUUID } from "node:crypto";
 import { createWriteStream, mkdirSync, renameSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { Readable } from "node:stream";
@@ -122,7 +123,9 @@ export async function downloadStreamable(
   if (!res.ok || !res.body)
     throw new Error(`mediatek stream ${path}: ${res.status} ${res.statusText}`);
   mkdirSync(dirname(dest), { recursive: true });
-  const tmp = `${dest}.part`;
+  // A random suffix, not just `.part`: two requests racing a cache miss for the SAME dest
+  // (two Range requests on one <audio> element, say) must never share one temp file.
+  const tmp = `${dest}.${randomUUID()}.part`;
   try {
     await pipeline(Readable.fromWeb(res.body as never), createWriteStream(tmp));
     renameSync(tmp, dest);

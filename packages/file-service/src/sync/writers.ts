@@ -3,6 +3,7 @@
 // there, and is there a folder by that name. The sync itself knows no protocol.
 // See ../../docs/playlistSync.md.
 
+import { randomUUID } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import { mkdir, stat } from "node:fs/promises";
 import { dirname, join, sep } from "node:path";
@@ -42,8 +43,9 @@ class FileWriter implements TargetWriter {
   async put(path: string, body: Readable): Promise<void> {
     const abs = this.abs(path);
     await mkdir(dirname(abs), { recursive: true });
-    // Through a `.part`, so an interrupted copy is never mistaken for a complete file next run.
-    const part = `${abs}.part`;
+    // Through a `.part`, so an interrupted copy is never mistaken for a complete file next
+    // run — a random suffix too, so two syncs racing the same path never share this name.
+    const part = `${abs}.${randomUUID()}.part`;
     await pipeline(body, createWriteStream(part));
     const { rename } = await import("node:fs/promises");
     await rename(part, abs);

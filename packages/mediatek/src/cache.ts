@@ -2,6 +2,7 @@
 // what it should fetch, and the manifest it remembers to tell the two apart. Exists because
 // the moteur plays from file paths and cannot open a URL. See docs/sync.md.
 
+import { randomUUID } from "node:crypto";
 import {
   mkdirSync,
   readFileSync,
@@ -73,7 +74,9 @@ export async function syncFamily(
 
   for (const entry of todo) {
     const dest = safePath(entry.path);
-    const tmp = `${dest}.part`;
+    // A random suffix, not just `.part`: a second sync racing the same entry must never
+    // share this temp name — the first to rename would delete the second's out from under it.
+    const tmp = `${dest}.${randomUUID()}.part`;
     try {
       await source.download(entry.path, tmp);
       renameSync(tmp, dest);
