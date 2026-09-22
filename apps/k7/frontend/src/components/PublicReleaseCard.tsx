@@ -24,7 +24,7 @@ export function PublicReleaseCard({
   const played = versions.find((v) => v.id === picked) ?? null;
 
   return (
-    <Card>
+    <Card className="page-release">
       <div className="version-head">
         <b className="version-name">
           {r.title} <span className="muted">· {r.artist}</span>

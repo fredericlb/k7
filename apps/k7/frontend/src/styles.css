@@ -927,6 +927,10 @@ select {
 .version-hidden {
   opacity: 0.6;
 }
+/* On a page, the release's title row stands apart from its waveform. */
+.page-release .version-head {
+  margin-bottom: 20px;
+}
 /* A link dressed as a small outline button: a plain <a download> needs no fetch and no blob. */
 .download-link {
   display: inline-flex;

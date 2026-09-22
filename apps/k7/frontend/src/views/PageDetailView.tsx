@@ -84,7 +84,7 @@ export function PageDetailView({
         // A choice that fell back (hidden or deleted) shows as the default it now plays.
         const chosen = played && played.id !== def?.id ? played.id : "";
         return (
-          <Card key={r.id}>
+          <Card key={r.id} className="page-release">
             <div className="version-head">
               <b className="version-name">
                 {r.title} <span className="muted">· {r.artist}</span>
