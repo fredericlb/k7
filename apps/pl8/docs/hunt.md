@@ -138,6 +138,14 @@ And above all: the format must pass `isAudio`, **the médiathèque's own gate**.
 on Soulseek and `masterName` refuses it — downloading it would be an hour of transfer for a file
 that cannot be filed. One rule, at both ends.
 
+**A live or bootleg copy is excluded outright**, not scored down: `isLiveOrBootleg` tests the
+whole path for "live" or "bootleg" as a whole word, so a `…/Live/05 Lithium.flac` folder or a
+`Lithium (Live at Reading).mp3` file name never reaches the quality sort even when it is the only
+answer a search gets. Filed under the wrong tags this is a naming mistake `pickAlbum` fixes on the
+next search; filed as the wrong RECORDING it is forty megabytes nobody asked for, sitting in the
+médiathèque under a studio song's name — the costlier error, so it is excluded rather than merely
+outranked.
+
 **Sort.** Quality first, as asked: flac, then wav/aiff, then 320, 256, 192, below. When the peer does
 not state its bitrate — the field is optional in the protocol and many clients omit it — it is
 **measured** on the bytes, size over duration. A file nothing can be said about ranks *below* every

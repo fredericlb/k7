@@ -1,6 +1,6 @@
 // rank.ts — which answer to a slskd search is worth downloading: the same artist, the best
-// format first, and a peer that will actually serve it. Pure and tested, because this is the
-// code that decides what ends up in the library. See ../../docs/hunt.md.
+// format first, never a live or bootleg copy, and a peer that will actually serve it. Pure and
+// tested, because this is the code that decides what ends up in the library. See ../../docs/hunt.md.
 
 import { extOf, isAudio } from "@studio/mediatek/media";
 
@@ -96,6 +96,11 @@ export function titleMatches(title: string, filename: string): boolean {
   return hasAllWords(want, stem);
 }
 
+/** "live" or "bootleg" as a WORD anywhere in the path — excluded, not scored: ../../docs/hunt.md. */
+export function isLiveOrBootleg(filename: string): boolean {
+  return /\b(live|bootleg)\b/i.test(filename.replace(/[\\/]/g, " "));
+}
+
 /** Kbps — the peer's figure, or size over duration when the optional field is left out. */
 export function bitrateOf(f: SlskdFile): number | null {
   if (f.bitRate && f.bitRate > 0) return f.bitRate;
@@ -136,6 +141,7 @@ export function rankCandidates(
       if (file.isLocked) continue;
       if (!artistMatches(want.artist, file.filename)) continue;
       if (!titleMatches(want.title, file.filename)) continue;
+      if (isLiveOrBootleg(file.filename)) continue;
       const c: Candidate = {
         username: r.username,
         file,

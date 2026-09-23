@@ -3,6 +3,7 @@ import {
   artistMatches,
   bitrateOf,
   classify,
+  isLiveOrBootleg,
   normalise,
   qualityOf,
   rankCandidates,
@@ -88,6 +89,22 @@ describe("titleMatches", () => {
   });
 });
 
+describe("isLiveOrBootleg", () => {
+  it("catches a live folder or a bootleg tag, as WHOLE words", () => {
+    expect(isLiveOrBootleg("@ann\\Nirvana\\Live\\05 Lithium.flac")).toBe(true);
+    expect(
+      isLiveOrBootleg("@bob\\Nirvana\\Lithium (Live at Reading).mp3"),
+    ).toBe(true);
+    expect(isLiveOrBootleg("@cat\\Nirvana\\[Bootleg] Lithium.mp3")).toBe(true);
+  });
+
+  it("leaves a studio copy alone", () => {
+    expect(isLiveOrBootleg("@ann\\Nirvana\\Nevermind\\05 Lithium.flac")).toBe(
+      false,
+    );
+  });
+});
+
 describe("bitrateOf", () => {
   it("takes the peer's figure when there is one", () => {
     expect(bitrateOf(file("a.mp3", { bitRate: 320 }))).toBe(320);
@@ -161,6 +178,22 @@ describe("rankCandidates", () => {
         files: [
           file("@bob\\Nirvana\\Nevermind\\05 Lithium.mp3", { bitRate: 128 }),
         ],
+      },
+    ];
+    expect(rankCandidates(responses, want).map((c) => c.username)).toEqual([
+      "bob",
+    ]);
+  });
+
+  it("skips a live or bootleg copy, even when it is all that is on offer", () => {
+    const responses: SlskdResponse[] = [
+      {
+        username: "ann",
+        files: [file("@ann\\Nirvana\\Live\\05 Lithium.flac")],
+      },
+      {
+        username: "bob",
+        files: [file("@bob\\Nirvana\\Nevermind\\05 Lithium.flac")],
       },
     ];
     expect(rankCandidates(responses, want).map((c) => c.username)).toEqual([
