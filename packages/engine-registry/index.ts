@@ -1,5 +1,5 @@
-// index.ts — the engine registry as a mountable pair: a store and the routes over it.
-// Shared because st0 is not its only consumer — pl8 offers the same pick. See docs/shared.md.
+// index.ts — the engine registry as a mountable pair: a store and the routes over it. Mounted
+// by pl8 alone, and consulted by st0 and z0 across the origin. See docs/shared.md.
 
 export {
   ENGINE_BODY_LIMIT,

@@ -102,15 +102,17 @@ killed backend leaves its file behind, to things that had stopped running. Under
 Neither tier moves while the supervisor runs, so the list is resolved at boot and on an add or a
 remove, never per heartbeat.
 
-It answers a **list**, because each hosted service holds its own registry and an engine must be
-listed in st0 *and* in the médiathèque to be pickable in both. Deduped, since the same URL twice
-would mean two heartbeats a tick to one server for nothing. Both file shapes are read because an
-older st0 backend writes only the single one and an older tray reads only the single one; the
-union is what stops a version skew from silently costing an app its engine.
+Every URL, whichever tier it came from, is read as its family's **one registry, pl8's**
+(`engineRegistryUrl` in `packages/web-protocol/services.ts`): `https://st0.app` and
+`https://play.st0.app` both mean `https://play.st0.app`, and `http://localhost:8789` means
+`http://localhost:8795`. st0 holds no registry — it lists engines from pl8
+(`packages/engine-registry/docs/shared.md`) — so a st0 URL an older settings file pinned is
+migrated in the reader rather than heartbeated at a route that no longer exists. The answer is
+still a **list**, one per studio this engine is connected to, deduped.
 
-The heartbeat is **all-or-nothing**: the tray shows one light, so "ok" has to mean every service
-can offer this engine. A registry that is down is simply absent from that service's picker, which
-is correct — that service genuinely cannot be driven right now.
+The heartbeat is **all-or-nothing**: the tray shows one light, so "ok" has to mean every studio
+can offer this engine. A registry that is down is simply absent from that studio's picker, which
+is correct — it genuinely cannot be driven right now.
 
 The médiathèque this machine caches is **derived** from those URLs rather than configured: every
 service sits on one origin at a fixed path, so only the origin varies, and asking for the
@@ -120,9 +122,9 @@ the path comes back from the service table. The first resolvable registry wins, 
 unparseable one yields nothing rather than an empty string the file service would read as
 configured.
 
-The tray's **st0 instances** tab draws `instances`, one row per origin: the union of the
-registries and `web-origins.json`, because to the user the two are one instance — heartbeated to,
-and let through. `weburi.remove` therefore disconnects **both halves**: the origin leaves the
+The tray's **st0 instances** tab draws `instances`, one row per studio FAMILY (`studioFamily`:
+st0's origin, or the bare host on loopback): the union of the registries and `web-origins.json`,
+because to the user st0, pl8's registry and both services' pages are one instance. `weburi.remove` therefore disconnects **the whole family**: every origin of it leaves the
 allowlist, the matching pinned registry leaves the settings, and that registry is deregistered at
 once so the engine drops out of its picker rather than aging out. A registry from `$STUDIO_REGISTRY_URL` is
 marked not removable — the environment is not the supervisor's to edit. Removing the last pinned one
@@ -130,11 +132,15 @@ falls back to the ambient tiers, exactly as a fresh boot would. The file service
 still the one captured at its spawn, so a removed registry's origin keeps reaching it until the file
 service next restarts — the same limit an add already has in the other direction.
 
-`addRegistryUrl` is an **add**, not a replace. Each hosted service holds its own registry, so "Add
-web UI…" for the médiathèque must not evict st0 — that would silently take the engine out of one
-picker to put it in another, and the two are not alternatives. It is idempotent beyond
-re-announcing, and it persists the result as the explicit list so the next boot takes it rather
-than the ambient environment variable.
+`addRegistryUrl` is an **add**, not a replace: connecting a second studio must not disconnect
+the first. It takes any URL of the family and stores pl8's, is idempotent beyond re-announcing,
+and persists the result as the explicit list so the next boot takes it rather than the ambient
+environment variable.
+
+Adding an instance (`weburi.add`) also allows BOTH services' pages — st0's origin, which z0 lives
+under, and pl8's — since each drives the engine's file service. On a loopback host nothing is
+added: the file service admits any private `http` origin already. The file service's own
+`$STUDIO_REGISTRY_URL` list admits each registry's st0 origin alongside it, for the same reason.
 
 ### Shutdown order
 

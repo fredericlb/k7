@@ -85,12 +85,12 @@ repository.
 to the médiathèque — mpv knows only absolutes, and returning one would expose the machine's tree.
 See `packages/mpv-player/docs/mpvPlayer.md`.
 
-## The registry is this service's own
+## The registry is THE registry
 
 `engines` is `engineAccess` bound to this service's prefix, which `BASE` derives from vite's `base`
-rather than spelling. Each hosted service holds its OWN registry
-(`packages/engine-registry/docs/shared.md`), so an engine appears here only once it has been pointed
-at the médiathèque too. It is typed on `Pl8Prefs` because this service remembers more than an engine
+rather than spelling. This registry is the only one (`packages/engine-registry/docs/shared.md`):
+st0 and z0 list their engines from it too, so an engine connected to a studio in the tray appears
+here and there alike. It is typed on `Pl8Prefs` because this service remembers more than an engine
 id, and the preference document is the host's rather than the registry's — nothing should call
 `savePrefs` directly, since the route replaces wholesale and `prefs.ts` owns the merge. The
 `Pl8Prefs` import is type-only so the cycle with `prefs.ts` never reaches the bundle.

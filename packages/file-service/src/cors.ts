@@ -6,6 +6,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { webOriginsPath } from "@studio/engine-client/paths";
 import { normaliseBrowserOrigin } from "@studio/engine-host/webOrigins";
+import { serviceUrl } from "@studio/web-protocol/services";
 
 /** Loopback + RFC1918 IPv4, and the loopback names. */
 const PRIVATE_HOST =
@@ -63,7 +64,9 @@ function registryOrigins(): string[] {
   const out: string[] = [];
   for (const url of raw.split(",")) {
     try {
-      out.push(new URL(url.trim()).origin);
+      const origin = new URL(url.trim()).origin;
+      // The registry is pl8's, but st0's pages drive the engine too — its family's st0 origin comes with it.
+      out.push(origin, serviceUrl(origin, "st0"));
     } catch {
       /* one bad URL must not cost the others their origin */
     }

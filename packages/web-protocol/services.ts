@@ -65,6 +65,48 @@ export function serviceUrl(origin: string, service: StudioService): string {
   return `${parsed.protocol}//${SUBDOMAIN[service]}.${base}`;
 }
 
+/** A host where services are told apart by PORT rather than subdomain — a bare dev run. */
+const LOOPBACK = /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/;
+
+/** Whether `hostname` (a URL's, brackets and all for IPv6) is one where services are ports rather than subdomains. */
+export const isLoopbackHost = (hostname: string): boolean =>
+  LOOPBACK.test(hostname);
+
+/**
+ * Which studio family a URL belongs to, as one key: st0's origin, whichever service was named —
+ * or, on a loopback host where every service is a port of the same host, that host alone.
+ * "" for a string that is not a URL.
+ */
+export function studioFamily(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return "";
+  }
+  if (isLoopbackHost(parsed.hostname))
+    return `${parsed.protocol}//${parsed.hostname}`;
+  return serviceUrl(parsed.origin, "st0");
+}
+
+/**
+ * The ONE engine registry — pl8's — for any URL of a studio family, st0's or pl8's alike: an
+ * engine heartbeats there, and st0 lists its engines from there. On a loopback host a service
+ * is its port, so pl8's dev port stands in for the subdomain. "" for a string that is not a URL.
+ */
+export function engineRegistryUrl(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return "";
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+  if (isLoopbackHost(parsed.hostname))
+    return `${parsed.protocol}//${parsed.hostname}:${SERVICE_PORTS.pl8}`;
+  return serviceUrl(parsed.origin, "pl8");
+}
+
 /**
  * Where `/auth/*` actually lives, given the origin a page is CURRENTLY running on — the
  * family root. pl8/k7 answer on their OWN subdomain, but the OIDC provider has exactly ONE

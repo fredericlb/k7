@@ -1,8 +1,8 @@
 // api.ts — the typed client. Three destinations now:
-//   • the hosted backend (same-origin at the ROOT, cookie): the engine registry AND the
-//     origin's OIDC flow at /auth/* — st0 is the service with no prefix, so both are its.
+//   • the hosted backend (same-origin at the ROOT, cookie): the origin's OIDC flow at
+//     /auth/* — st0 is the service with no prefix — and this app's own preferences.
 //   • the engine-side file service (cross-origin, header-auth): all file/workspace ops.
-//   • pl8's médiathèque (same-origin under /pl8, cookie): the songs a playlist names.
+//   • pl8 (its own subdomain, cookie): the ONE engine registry, and the songs a playlist names.
 // The file service base + the identity/workspace/engine-token headers are set by
 // configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
 
@@ -32,9 +32,12 @@ import type {
 // The app is mounted at the ORIGIN ROOT, so BASE is the empty string — kept as a derived constant, this app's mount being the one that can still change.
 export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-// ── The hosted backend (same-origin): auth + registry ───────────────────────────
+/** pl8 — its OWN subdomain, reached across the origin and never through `BASE`, which is the empty string. It holds the médiathèque AND the one engine registry. */
+const PL8 = serviceUrl(globalThis.location?.origin ?? "", "pl8");
 
-// The registry's own five routes are `engines` below and auth is three bare fetches, so there is no `get`/`send` helper here.
+// ── The hosted backend (same-origin): auth + preferences ────────────────────────
+
+// The registry's five routes are `engines` below — pl8's — and auth is three bare fetches, so there is no `get`/`send` helper here.
 
 /** The reader `@studio/engine-browser` wants: it owns the routes, this app owns the errors. */
 async function json<T>(res: Response, what: string): Promise<T> {
@@ -50,7 +53,10 @@ async function json<T>(res: Response, what: string): Promise<T> {
 export interface St0Prefs extends EnginePrefs {
   commands?: CommandPrefs;
 }
-export const engines = engineAccess<PublicEngine, St0Prefs>(BASE, json);
+/** The registry, the probe and the relay are pl8's — st0 holds no registry of its own — while the preferences, the remembered engine among them, stay st0's. */
+export const engines = engineAccess<PublicEngine, St0Prefs>(PL8, json, {
+  prefsBase: BASE,
+});
 
 // ── The engine-side file service (cross-origin, header-auth) ─────────────────────
 
@@ -286,10 +292,7 @@ export const api = {
     ),
 };
 
-/** The MÉDIATHÈQUE — pl8's hosted catalogue, reached across the origin through `PL8` and never `BASE`, which is now the empty string. */
-const PL8 = serviceUrl(globalThis.location?.origin ?? "", "pl8");
-
-/** …and pl8's API root, for the one caller outside this file: the DESK, a package with three hosts, which takes its base as a prop. */
+/** The MÉDIATHÈQUE — pl8's hosted catalogue, reached through `PL8` (declared at the top) — and pl8's API root, for the one caller outside this file: the DESK, a package with three hosts, which takes its base as a prop. */
 export const PL8_API = `${PL8}/api`;
 
 export const mediatek = {

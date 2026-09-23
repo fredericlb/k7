@@ -11,7 +11,7 @@ rather than inside it, because they serve every audio app in the repo — the re
 | Package | Role |
 |---|---|
 | `frontend` (`st0-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph. |
-| `backend` (`st0-backend`) | Express — **the engine registry, and the origin's OIDC flow**: it MINTS the `studio.sid` every studio service verifies, being the service with no path prefix. It has no file routes. It knows *who you are* and *which engines exist*, never what is on any disk. |
+| `backend` (`st0-backend`) | Express — **the origin's OIDC flow and st0's preferences**: it MINTS the `studio.sid` every studio service verifies, being the service with no path prefix. It has no file routes and no engine registry — that is pl8's. It knows *who you are*, never which engines exist or what is on any disk. |
 
 Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://st0.priv.frediver.se`
 by the LAN reverse proxy.
@@ -21,7 +21,7 @@ by the LAN reverse proxy.
 | | `backend` | `@studio/file-service` | `engine/st0-engine` |
 |---|---|---|---|
 | runs on | the hosted machine | the **engine's** machine | the engine's machine |
-| owns | the engine registry, and `/auth/*` for the whole origin | `<state>/workspace/<user>/<workspace>` — every file op | audio playback |
+| owns | `/auth/*` for the whole origin, and st0's preferences | `<state>/workspace/<user>/<workspace>` — every file op | audio playback |
 | reached | same-origin (`/api`, `/auth` via the Vite proxy) | **cross-origin and direct (CORS-gated) when the browser may, else relayed through this origin** | **WebSocket — direct when the browser may, else relayed through this origin** |
 | auth | session cookie (`studio.sid`) | `x-studio-{user,workspace,engine-token}` headers | engine token echoed on `whoami` |
 
@@ -92,9 +92,9 @@ matches before changing it:
 ### Three data paths (`src/api.ts`)
 
 1. **Backend** (same-origin `/api/*` and `/auth/*`, both at the origin root since st0 answers
-   it) — the engine registry and the OIDC flow — through
-   `api.ts`'s `engines` (`@studio/engine-browser/access`, which also owns the probe, the
-   policy and the lease). Don't spell those routes here again.
+   it) — the OIDC flow and st0's preferences. The engine registry is pl8's, reached across
+   the origin through `api.ts`'s `engines` (`@studio/engine-browser/access`, which also owns
+   the probe, the policy and the lease). Don't spell those routes here again.
 2. **File service** (absolute URL) — everything file-shaped (`/tree`, `/file`, `/hints`,
    `/command`, the compiled `/project-doc` and `/graph`). Bare paths, no `/api` prefix. The
    base comes from the PROBE and is set once by `ProjectGate`: direct to the machine when
@@ -259,14 +259,10 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
 ## The backend in detail
 
-**Two source files**: `server.ts` and `types/express.d.ts`. That is the whole thing — the
-registry itself is `@studio/engine-registry`, shared with pl8 and the decks because each
-service holds its own copy of it (that package's `docs/shared.md` says why). Don't look for
-a `registry.ts` here.
-
-- Browser-facing registry routes (`/api/engines`, `/api/engine/*`) require a session.
-- Engine-facing routes (`/api/registry/{heartbeat,deregister}`) stay open — that is the
-  supervisor, authenticated by its own token.
+**Two source files**: `server.ts` and `types/express.d.ts`. That is the whole thing. There is
+no engine registry here at all: the one registry is pl8's (`@studio/engine-registry`, whose
+`docs/shared.md` says why), and the frontend's `engines` lists from it across the origin — the
+relay included — while keeping its preferences here (`prefsBase`).
 - The Vite dev server proxies BOTH `/api` and `/auth` to this backend (`proxyPaths`), which is
   what makes the dev server usable when visited directly on its port. Every other SPA on the
   origin has to point its own `/auth` proxy back here — `AUTH_BACKEND_PORT` in

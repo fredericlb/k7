@@ -17,8 +17,6 @@ export default defineAppConfig({
   // Dedicated port, and it has to stay unique: `strictPort` makes a clash a hard failure, and this was 5203, which frediprofile owns.
   port,
   backendPort,
-  // The engine relay: only a declared wsPath gets `ws: true`, and without it an `upgrade` dies here (packages/engine-registry/docs/proxy.md).
-  wsPaths: ["/api/engine"],
   // `/auth` alongside the default `/api`, both to THIS app's backend: :8789 runs the origin's OIDC flow, being the service with no prefix.
   proxyPaths: ["/auth"],
   // The public dev host, which also pins HMR to :443 — declared ONLY for the fixed-port case, a free port being visited over plain http.

@@ -49,7 +49,7 @@ const releaseBody = z.object({
   secret: z.string().min(1),
 });
 
-/** The routes over one registry. Each service holds its own — see docs/shared.md. */
+/** The routes over the one registry, pl8's — see docs/shared.md. */
 export function engineRegistryRouter(reg: EngineRegistry): Router {
   const router = Router();
 

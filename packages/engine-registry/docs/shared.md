@@ -1,43 +1,43 @@
-# Why every service holds its own registry
+# One registry, and it is pl8's
 
-An engine heartbeats to a **list** of registries, and each hosted service keeps its own
-in-memory copy. That is deliberate; the two obvious alternatives are both worse.
+An engine heartbeats to **one** registry per studio family: pl8's, on its own subdomain
+(`play.<st0 host>`, or `:8795` on a loopback dev host — `engineRegistryUrl` in
+`packages/web-protocol/services.ts`). st0 holds none. Its browser lists engines from pl8
+directly, as z0's always has, so an engine registered with `play.st0.app` is registered with
+`st0.app` as well. k7 does not drive an engine and consults nothing.
 
 ## The problem it solves
 
-The registry answers one question: *which engines can this browser reach?* Every service that
-drives an engine asks it — st0 for a song, pl8 for a module preview — so a service without one
-has nothing to consult and can only hardcode `127.0.0.1:8765` (`probeLocalEngine`).
+The registry answers one question: *which engines can this browser reach?* Every app that drives
+an engine asks it — st0 for a song, pl8 for a module preview, z0 for a repository — so an app
+without one to consult could only hardcode `127.0.0.1:8765` (`probeLocalEngine`).
 
-Hardcoding loopback is defensible while a preview *has* to play on the machine the module
-lives on. It stops being defensible the moment the user is asked to **choose** an engine per
-service, which is the point of the whole arrangement.
+## Why pl8's, and why the BROWSER asks it
 
-## Why not one central registry the others query
+It used to be one registry per service, and an engine had to be pointed at each of them to be
+pickable in each: adding st0 to the tray left pl8's picker empty, and the heartbeat count grew with
+every service. One registry makes "this engine is connected to that studio" one fact.
 
-Because then st0-backend is a dependency of pl8-backend, at request time, for the
-list a user sees on first load. A st0 deploy would take pl8's engine picker down with
-it, and the two are deployed separately on purpose. The registry is 120 lines of `Map` — the
-coupling would cost far more than the duplication.
-
-## Why not one registry per *machine*
-
-The registry is consulted by a **browser**, over the public internet, before it knows any
-engine. It has to live where the browser already is: same origin, behind the same session.
+The case against a central registry was that st0-backend would become a request-time dependency
+of pl8-backend. That coupling does not arise here: no BACKEND asks another. st0's page calls pl8's
+routes across the origin (pl8 answers every origin's credentialed request — `apps/pl8/docs/cors.md`),
+the relay included, exactly as it already calls pl8 for the médiathèque.
 
 ## What this costs
 
-The engine sends N heartbeats every 5 s instead of one. Each is a small POST with a 1500 ms
-bound and no retry, and a registry that is down is simply absent from that service's picker
-— which is exactly right, because that service genuinely cannot be driven right now.
+st0's engine picker is now down whenever pl8 is. A registry that is down is absent from the picker,
+which is right: the engines cannot be listed. The file service keeps working for an engine already
+chosen, since the browser reaches it directly.
 
-An engine is therefore listed in several services at once, and **that is the intended
-state**: one machine, one audio interface, several apps driving it through separate sessions
+The remembered engine stays each APP's: st0 passes `prefsBase` to `engineAccess`, so its preference
+document — the engine id and its command prefs — is still its own backend's, not pl8's.
+
+An engine is still listed once and driven by several apps at once, through separate sessions
 (`packages/engine-protocol/docs/sessions.md`).
 
-## One registry per service, but a single mounting
+## One mounting
 
-Every service holds its registry; none has a reason to hold its own **mounting**.
+The registry is mounted in ONE place, pl8, and still through one call rather than by hand.
 `mountEngineRegistry(app, { service, requireAuth })` installs the guard, the registry and the
 routes, and answers a `serve(server, url)` that attaches the relay after `listen` — the relay
 needs the `http.Server`, which Express does not have before then.

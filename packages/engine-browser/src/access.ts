@@ -40,12 +40,21 @@ export interface EngineAccess<
   linkUrl(chosen: RankedEngine<E>): () => string | Promise<string | null>;
 }
 
-/** Everything one service's browser needs, bound to that service's origin prefix ONCE — see docs/access.md. */
+/** Where an app keeps its preferences, when that is not where the registry is — st0, whose registry is pl8's. */
+export interface EngineAccessOptions {
+  prefsBase?: string;
+}
+
+/** Everything one app's browser needs, bound to the registry's origin (and the app's own, for its preferences) ONCE — see docs/access.md. */
 export function engineAccess<
   E extends ProbeTarget,
   P extends EnginePrefs = EnginePrefs,
->(base: string, json: ReadJson): EngineAccess<E, P> {
-  const reg = registryClient<E, P>(base, json);
+>(
+  base: string,
+  json: ReadJson,
+  opts: EngineAccessOptions = {},
+): EngineAccess<E, P> {
+  const reg = registryClient<E, P>(base, json, opts.prefsBase ?? base);
   const probe = (engines: E[]) => probeEngines(engines, base);
 
   return {
