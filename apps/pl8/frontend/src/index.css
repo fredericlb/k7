@@ -36,6 +36,13 @@
   --border: var(--sh-border);
 }
 
+/* The file trees' panel (Library, Playlists) — one value for both, so they cannot drift apart. A
+   purple well below violet-950 (#2e1065): deep enough to sit back from the tree it holds, still
+   purple against the #101114 page. `bg-tree-panel`. */
+@theme {
+  --color-tree-panel: #170a2e;
+}
+
 @layer base {
   html,
   body,

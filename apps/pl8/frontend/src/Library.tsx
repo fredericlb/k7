@@ -519,7 +519,7 @@ export function Library() {
             {/* A column when there is room and a DRAWER when there is not, same markup — see ../docs/responsive.md. */}
             <aside
               // No translate (breaks FileTree's popup, ../docs/responsive.md) — a column, so the tree scrolls and the foot does not.
-              className={`flex shrink-0 flex-col overflow-hidden rounded-xl bg-violet-950 p-3 md:static md:z-auto md:m-3 md:flex md:w-[290px] ${
+              className={`flex shrink-0 flex-col overflow-hidden rounded-xl bg-tree-panel p-3 md:static md:z-auto md:m-3 md:flex md:w-[290px] ${
                 treeOpen
                   ? "fixed inset-y-0 left-0 z-40 w-72 shadow-xl"
                   : "hidden"

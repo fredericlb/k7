@@ -229,7 +229,7 @@ export function Playlists({
   return (
     <div className="flex min-h-0 flex-1">
       {/* The set lists on this volume, as a tree: a playlist is a FILE, and one can nest another. */}
-      <aside className="flex w-[290px] shrink-0 flex-col overflow-hidden rounded-xl bg-violet-950 p-3 md:m-3">
+      <aside className="flex w-[290px] shrink-0 flex-col overflow-hidden rounded-xl bg-tree-panel p-3 md:m-3">
         <div className="min-h-0 flex-1 overflow-auto">
           {list && !list.length ? (
             <p className="p-2 text-sm text-white/70">Aucune playlist ici.</p>
