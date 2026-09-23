@@ -275,6 +275,37 @@ describe("runPipeline", () => {
     expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "unmatched" });
   });
 
+  it("flags lyrics a person wrote but never timed, rather than finishing in silence", async () => {
+    // A chord sheet typed in by hand: never overwritten, never guessed at — but the page must offer « Fix lyrics ».
+    const findLrc = vi.fn(async () => []);
+    const onLrc = vi.fn(async () => withTrack);
+    const onStatus = vi.fn();
+    await runPipeline(
+      song({ ...withTrack, lyrics: "[Verse]\n  C\nI could go off" }),
+      "continue",
+      steps(fakePl8(), { findLrc, onLrc, onStatus }) as never,
+    );
+    expect(findLrc).not.toHaveBeenCalled();
+    expect(onLrc).not.toHaveBeenCalled();
+    expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "unmatched" });
+  });
+
+  it("says nothing about lyrics that are already timed", async () => {
+    const onStatus = vi.fn();
+    await runPipeline(
+      song({
+        ...withTrack,
+        lyrics: "la la la",
+        lyricTimings: [{ line: 0, text: "la la la", t: 0 }],
+      }),
+      "continue",
+      steps(fakePl8(), { findLrc: vi.fn(), onStatus }) as never,
+    );
+    expect(onStatus).not.toHaveBeenCalledWith(
+      expect.objectContaining({ lyricsMatch: expect.anything() }),
+    );
+  });
+
   it("reports no engine online as a stored failure, after still trying lyrics", async () => {
     const onStatus = vi.fn();
     const findLrc = vi.fn(async () => []);

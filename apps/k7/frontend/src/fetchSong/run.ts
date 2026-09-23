@@ -254,6 +254,16 @@ export async function runPipeline(
     } else {
       steps.onStatus?.({ lyricsMatch: "unmatched" });
     }
+  } else if (
+    current.audio &&
+    current.lyricsMatch === "" &&
+    !(current.lyricTimings?.length ?? 0)
+  ) {
+    // …and lyrics a person wrote but never TIMED are the same step, left to that same dialog: the
+    // pipeline still does not guess, but it must not end in silence either — the stepper gone and
+    // nothing said, with a re-run that skips it again. "unmatched" is what puts « Fix lyrics » on
+    // the page, and the dialog pairs an LRC with the song's own lines.
+    steps.onStatus?.({ lyricsMatch: "unmatched" });
   }
 
   steps.onStatus?.({

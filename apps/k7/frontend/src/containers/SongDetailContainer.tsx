@@ -177,13 +177,19 @@ export function SongDetailContainer({
   };
 
   // An LRC's outcome in one write: the lyrics when it brought them, and the line timecodes.
+  // Timed now, so no longer « unmatched »: the insert's « Fix lyrics » would otherwise stay for good.
   const handleLrc = async (
     lyrics: string | null,
     lyricTimings: LyricTiming[],
   ) => {
+    const matched = lyricTimings.length
+      ? { lyricsMatch: "matched" as const }
+      : {};
     const updated = await api.updateSong(
       songId,
-      lyrics === null ? { lyricTimings } : { lyrics, lyricTimings },
+      lyrics === null
+        ? { lyricTimings, ...matched }
+        : { lyrics, lyricTimings, ...matched },
     );
     setSong(updated);
     onChange();
