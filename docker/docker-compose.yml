@@ -10,12 +10,12 @@
 # layered on st0's own hostname — st0 still answers everything else there. That's the
 # topology env.yaml's COOKIE_DOMAIN/TRUSTED_ORIGINS document.
 #
-# The shared login this enables — one "studio.sid" good on all three hosts, and pl8
-# answering CORS for the other two — comes from cookieDomain/trustedOrigins being resolved
-# by every setupAuth() call (commons/packages/oidc) straight from the SAME
-# COOKIE_DOMAIN/TRUSTED_ORIGINS/SESSION_SECRET below, repeated on all four services because
-# each is now its own process with its own environment — there is no shared container to
-# inherit them from anymore.
+# The shared login this enables — one "studio.sid" good on all three hosts — comes from
+# cookieDomain/trustedOrigins being resolved by every setupAuth() call (commons/packages/oidc)
+# straight from the SAME COOKIE_DOMAIN/TRUSTED_ORIGINS/SESSION_SECRET below, repeated on all
+# four services because each is now its own process with its own environment — there is no
+# shared container to inherit them from anymore. pl8's own API CORS is separate and open to
+# every origin regardless — apps/pl8/docs/cors.md.
 
 x-shared-auth: &shared-auth
   SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET — see .env.example}
