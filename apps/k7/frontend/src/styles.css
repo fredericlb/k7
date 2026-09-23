@@ -305,6 +305,18 @@ input[type="range"] {
   gap: 20px;
   align-items: flex-start;
 }
+/* The calendar's column, its tag filters wrapping under it at its width. */
+.calendar-col {
+  flex: none;
+  width: 244px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* 25% under the 14px the base button rule sets; the column prefix is what outranks that rule. */
+.calendar-col .tag-chips button {
+  font-size: 10.5px;
+}
 .day-timeline-wrap {
   flex: 1;
   min-width: 260px;
