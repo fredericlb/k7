@@ -63,12 +63,6 @@ function tone(): string {
   return file;
 }
 
-/** The same file, named the way the ENGINE will have to open it. Identity everywhere but WSL. */
-function asEngineSees(path: string): string {
-  const m = /^\/mnt\/([a-z])\/(.*)$/.exec(path);
-  return m ? `${m[1].toUpperCase()}:\\${m[2].replace(/\//g, "\\")}` : path;
-}
-
 /** Zero crossings give the frequency of a pure tone far more cheaply than an FFT, and per BLOCK. */
 function hzOf(x: Float32Array, from: number, n: number): number {
   let crossings = 0;
@@ -121,7 +115,7 @@ const doc = () => ({
           type: "studio_turntable",
           name: "platter",
           path: "",
-          deckFile: asEngineSees(source),
+          deckFile: source,
           presetSave: "",
           role: "instrument",
           enabled: true,

@@ -42,7 +42,7 @@ beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "fs-repo-"));
   process.env.USERPROFILE = home;
   process.env.HOME = home;
-  // `$STUDIO_HOME` wins over HOME, and a WSL dev shell points it at the host's real workspaces.
+  // `$STUDIO_HOME` wins over HOME, so it must be pinned too.
   process.env.STUDIO_HOME = join(home, ".st0");
   USER = `someone-${process.pid}-${n++}@example.com`;
 });

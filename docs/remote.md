@@ -96,13 +96,11 @@ runaway “+” should not fork-bomb the machine. **Clicking the tab one is alre
 renames it** — a mouse reads that as a double-click, a phone gets the same gesture
 without a long-press; the name (24 chars, blank restores `id·shell`) lives with the
 session, so it survives a *Relancer* and every viewer sees it. Each new tab picks
-its flavor from the shells the server detected at startup — PowerShell, Git Bash, and **`wsl`
-when a distro answers, which is the default because that is where the tree and every npm
-command live** ([wsl.md](wsl.md)) —
+its flavor from the shells the server detected at startup — PowerShell, Git Bash —
 via the selector beside “+”, on the right of the bar just before the transport
 buttons (hidden when there is only one); all of them start in the **user's home**.
-**The distro is the default** when there is one, Git Bash next;
-the native builds stay on the Windows side either way, reached by the bridge.
+**Git Bash is the default** when present; builds stay on the Windows side under
+Tilt either way.
 `STUDIO_CONSOLE_CMD` overrides the default (tests use this).
 
 One consequence of *shared* worth knowing: a tab has one size, and the last device

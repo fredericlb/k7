@@ -7,7 +7,7 @@
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-/** `~/.st0`, or `$STUDIO_HOME` — which is what lets a WSL process share the host's. */
+/** `~/.st0`, or `$STUDIO_HOME` — which moves it (tests, a second dev home). */
 export function stateDir() {
   return resolve(process.env.STUDIO_HOME || join(homedir(), ".st0"));
 }
