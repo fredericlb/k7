@@ -1,7 +1,7 @@
 # Timed lyrics from an LRC file
 
 An LRC brings the song's lyrics TIMES, and nothing else. Its lines are matched against the sheet's
-own, and each match gets its time written into the sheet as `{{MM:SS}}`, at the end of the line. Not
+own, and each match gets the time it STARTS written into the sheet as `{{MM:SS.cc}}`, in front of the line. Not
 a word of the sheet changes: its spelling, its chords, its sections and its tablature stay exactly
 as typed. With a reference track, the line being sung is then highlighted as the track plays, and a
 tap on a timed line seeks there.
@@ -11,30 +11,28 @@ There is no screen of its own: the timecodes are text, so they are seen, typed, 
 the lyrics editor like any other word — which is what replaced the timed-lyrics popin, a second
 editor for one part of the same text.
 
-## In the text, as `{{MM:SS}}`
+## In the text, as `{{MM:SS.cc}}`
 
 The timecodes live IN the lyrics, where the person who writes them can see, move and fix them by
 hand like any other word — rather than in a field beside the text that nothing on screen shows. The
 lyrics editor shows them as they are, with a line under it saying what they do; the sheet, once
 saved, shows none of them and lights the lines they time.
-`{{MM:SS}}` because a sheet's own syntax already owns the other brackets: `[C]` is an inline chord
+Double braces because a sheet's own syntax already owns the other brackets: `[C]` is an inline chord
 and `[Chorus]` a section, and an LRC's native `[01:23.45]` would read as one or the other. Double
-braces mean nothing else in a sheet. Seconds are rounded down; minutes take a third digit past 99.
+braces mean nothing else in a sheet. The hundredths are the LRC stamp's own: a line is a couple of
+seconds long, so a code rounded to the second can seek into its first words. A hand may leave them
+out (`{{MM:SS}}`); minutes take a third digit past 99.
 
 A timecode is not text. The parser takes it off before it reads a line (`stripTimecodes`,
-`packages/lyrics/src/chords.ts`), so it never shows on the sheet, never turns a lyric into a chord
+`apps/k7/packages/lyrics/src/chords.ts`), so it never shows on the sheet, never turns a lyric into a chord
 line, and never counts as a word when lines are compared. The player reads each line's time off it
 (`timecodesByLine`); a code anywhere on the line counts, and the first one wins.
 
-It goes at the **end** of the line, not the start, because a chord line above a lyric places each
-chord by its column: a code in front of the words would push every word out from under its chord in
-the editor.
-
-A code marks when its line is sung **out**, not in. That is what LRCLIB's stamps turned out to be on
-k7's tracks: seeking to one lands at the end of its line. So the player reads each line's start off
-the timed line before it (`lineStarts`, `packages/lyrics/src/lrc.ts`), and the first timed line
-starts one typical line (the median gap between codes) before its own code. A tap on a line plays it
-from there, and the highlight moves to a line as it begins.
+It goes at the **start** of the line because that is the moment it names: LRCLIB stamps the instant
+a line begins, and a tap on the line plays it from there. The cost is in the raw editor only: a chord
+line above places each chord by its column, and the code pushes the words under it one code to the
+right. The sheet is unaffected — the parser takes a code off together with the one space after it,
+so the words sit in the columns they were typed in.
 
 Songs timed before this kept their times in a field beside the text (`LyricTimings`). They still
 play: with no `{{MM:SS}}` in the text, the player falls back to it. Timing such a song again writes
@@ -59,7 +57,7 @@ applies, the insert under the title says so, and how to time a line by hand.
 
 ## Which line gets which time
 
-`timeLyrics` (`packages/lyrics/src/lrc.ts`):
+`timeLyrics` (`apps/k7/packages/lyrics/src/lrc.ts`):
 
 - **Only sung lines are candidates.** Chord lines (a hand-typed `C**` included), tablature, section
   labels and blanks are never timed, and inline chords are taken off a line before it is compared.

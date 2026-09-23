@@ -251,8 +251,8 @@ describe("runPipeline", () => {
         onLrc,
       }) as never,
     );
-    // No lyrics yet: the fetched line becomes them, its time written in as `{{MM:SS}}`.
-    expect(onLrc).toHaveBeenCalledWith("la la la {{00:00}}");
+    // No lyrics yet: the fetched line becomes them, its time written in as `{{MM:SS.cc}}`.
+    expect(onLrc).toHaveBeenCalledWith("{{00:00.00}} la la la");
     expect(found).toBe(withTrack);
   });
 
@@ -296,7 +296,7 @@ describe("runPipeline", () => {
         onStatus,
       }) as never,
     );
-    expect(onLrc).toHaveBeenCalledWith("[Verse]\nC\nOh sinerman {{00:12}}");
+    expect(onLrc).toHaveBeenCalledWith("[Verse]\nC\n{{00:12.50}} Oh sinerman");
     expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "matched" });
   });
 

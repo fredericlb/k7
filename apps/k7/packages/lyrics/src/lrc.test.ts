@@ -1,11 +1,10 @@
-// LRC lines, and their timecodes written into a chord sheet as `{{MM:SS}}` — the text otherwise untouched.
+// LRC lines, and their timecodes written into a chord sheet as `{{MM:SS.cc}}` — the text otherwise untouched.
 
 import { describe, expect, it } from "vitest";
 import {
   alignLines,
   hasTimecodes,
   lineAt,
-  lineStarts,
   lyricLines,
   normalizeLine,
   parseLrc,
@@ -85,7 +84,7 @@ describe("timeLyrics", () => {
     return r;
   };
 
-  it("adds {{MM:SS}} to the sheet's lines and changes nothing else", () => {
+  it("puts {{MM:SS.cc}} in front of the sheet's lines and changes nothing else", () => {
     const sheet = [
       "[Verse]",
       "      C              G",
@@ -98,13 +97,13 @@ describe("timeLyrics", () => {
     expect(r.lyrics.split("\n")).toEqual([
       "[Verse]",
       "      C              G",
-      "Oh sinnerman where you gonna run to {{00:12}}",
-      "Where you gona run to {{00:18}}",
+      "{{00:12.50}} Oh sinnerman where you gonna run to",
+      "{{00:18.00}} Where you gona run to",
       "",
-      "All on that day {{00:24}}",
+      "{{00:24.25}} All on that day",
     ]);
     // With the codes taken off, the sheet is exactly what it was.
-    expect(r.lyrics.replace(/ \{\{\d+:\d+\}\}/g, "")).toBe(sheet);
+    expect(r.lyrics.replace(/\{\{[\d:.]+\}\} /g, "")).toBe(sheet);
     expect([r.placed, r.total]).toEqual([3, 3]);
   });
 
@@ -121,7 +120,7 @@ describe("timeLyrics", () => {
       "C**",
       "e|---0---2---|",
     ]);
-    expect(out[3]).toBe("Oh sinnerman where you gonna run to {{00:12}}");
+    expect(out[3]).toBe("{{00:12.50}} Oh sinnerman where you gonna run to");
   });
 
   it("keeps the order: a later fetched line never lands above an earlier one's", () => {
@@ -130,8 +129,8 @@ describe("timeLyrics", () => {
       "All on that day\nOh sinnerman where you gonna run to\nWhere you gonna run to";
     const out = timed(sheet).lyrics.split("\n");
     expect(out[0]).toBe("All on that day");
-    expect(out[1]).toMatch(/\{\{00:12\}\}$/);
-    expect(out[2]).toMatch(/\{\{00:18\}\}$/);
+    expect(out[1]).toMatch(/^\{\{00:12\.50\}\} /);
+    expect(out[2]).toMatch(/^\{\{00:18\.00\}\} /);
   });
 
   it("times a sheet line the LRC sings as two with the FIRST one's time", () => {
@@ -142,7 +141,7 @@ describe("timeLyrics", () => {
       lrc,
     );
     expect(r.lyrics).toBe(
-      "But I've got an angry heart, filled with cancers and poppy tarts. {{00:12}}",
+      "{{00:12.00}} But I've got an angry heart, filled with cancers and poppy tarts.",
     );
     expect(r.placed).toBe(2);
   });
@@ -153,7 +152,7 @@ describe("timeLyrics", () => {
     const sheet =
       "If we could just get the braves to get out of\n              C**\nbed in the morning.";
     expect(timed(sheet, lrc).lyrics.split("\n")).toEqual([
-      "If we could just get the braves to get out of {{01:10}}",
+      "{{01:10.00}} If we could just get the braves to get out of",
       "              C**",
       "bed in the morning.",
     ]);
@@ -169,14 +168,14 @@ describe("timeLyrics", () => {
   it("replaces the codes a sheet already has, rather than piling up", () => {
     const once = timed("Oh sinnerman where you gonna run to").lyrics;
     expect(timed(once).lyrics).toBe(once);
-    expect(timed("Oh sinnerman where you gonna run to {{03:33}}").lyrics).toBe(
+    expect(timed("{{03:33}} Oh sinnerman where you gonna run to").lyrics).toBe(
       once,
     );
   });
 
   it("writes the fetched lines themselves, timed, when there were no lyrics", () => {
     expect(timed("").lyrics).toBe(
-      "Oh sinnerman, where you gonna run to? {{00:12}}\nWhere you gonna run to? {{00:18}}\nAll on that day {{00:24}}",
+      "{{00:12.50}} Oh sinnerman, where you gonna run to?\n{{00:18.00}} Where you gonna run to?\n{{00:24.25}} All on that day",
     );
   });
 
@@ -189,11 +188,11 @@ describe("timeLyrics", () => {
 });
 
 describe("timecodesByLine", () => {
-  it("reads each line's {{MM:SS}}, by line index, and the text needs nothing else", () => {
+  it("reads each line's {{MM:SS.cc}}, by line index, and the text needs nothing else", () => {
     const text =
-      "[Verse]\nC\nOh sinnerman {{00:12}}\nWhere you gonna run to {{01:05}}";
+      "[Verse]\nC\n{{00:12.50}} Oh sinnerman\nWhere you gonna run to {{01:05}}";
     expect([...timecodesByLine(text)]).toEqual([
-      [2, 12],
+      [2, 12.5],
       [3, 65],
     ]);
     expect(hasTimecodes(text)).toBe(true);
@@ -202,40 +201,9 @@ describe("timecodesByLine", () => {
 
   it("does not let a timecode make a line into something else", () => {
     // Matched and highlighted as the lyric it is; the code is not a word of it.
-    expect(lyricLines("Oh sinnerman {{00:12}}")).toEqual([
+    expect(lyricLines("{{00:12.50}} Oh sinnerman")).toEqual([
       { line: 0, text: "oh sinnerman" },
     ]);
-  });
-});
-
-describe("lineStarts", () => {
-  it("starts each line where the timed line before it was sung out", () => {
-    // Codes close their lines: 25, 32, 40 → the 2nd line from 25, the 3rd from 32.
-    const starts = lineStarts(
-      new Map([
-        [2, 25],
-        [3, 32],
-        [5, 40],
-      ]),
-    );
-    expect(starts.get(3)).toBe(25);
-    expect(starts.get(5)).toBe(32);
-    // The first one, a typical line (the median gap) before its code.
-    expect(starts.get(2)).toBe(17);
-    // Mid-way through the 2nd line is the 2nd line, not the 1st.
-    expect(lineAt(starts, 28)).toBe(3);
-  });
-
-  it("never starts before 0, nor after its own code when codes go backwards", () => {
-    const starts = lineStarts(
-      new Map([
-        [0, 3],
-        [1, 30],
-        [2, 20],
-      ]),
-    );
-    expect(starts.get(0)).toBe(0);
-    expect(starts.get(2)).toBe(20);
   });
 });
 

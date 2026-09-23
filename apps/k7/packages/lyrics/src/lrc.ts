@@ -234,7 +234,7 @@ export function alignSpans(
 export type LrcTimecoding =
   | {
       ok: true;
-      /** The sheet with `{{MM:SS}}` at the end of each line a fetched line found — nothing else changed. */
+      /** The sheet with `{{MM:SS.cc}}` at the start of each line a fetched line found — nothing else changed. */
       lyrics: string;
       /** Fetched lines that found a sheet line, out of all of them. */
       placed: number;
@@ -245,8 +245,8 @@ export type LrcTimecoding =
 /**
  * What an LRC does to a song: it TIMES the lyrics, and nothing more. Each fetched line finds the sheet
  * line closest to it — chords, tablature, sections and blanks never — in order on both sides, so the
- * third fetched line can never land above the second's; its time goes at the end of that line as
- * `{{MM:SS}}`, where it shifts no chord off the word it is over. Line breaks may differ (`alignSpans`):
+ * third fetched line can never land above the second's; its time, when the line STARTS, goes in front
+ * of that line as `{{MM:SS.cc}}`. Line breaks may differ (`alignSpans`):
  * a sheet line the LRC sings as two gets the first one's time, two sheet lines it sings as one give
  * it to the first. Codes already there are replaced. A song with no lyrics gets the fetched lines
  * themselves, each with its code.
@@ -258,7 +258,7 @@ export function timeLyrics(lyrics: string, source: string): LrcTimecoding {
   if (lyrics.trim() === "")
     return {
       ok: true,
-      lyrics: lrc.map((l) => `${l.text} ${formatTimecode(l.t)}`).join("\n"),
+      lyrics: lrc.map((l) => `${formatTimecode(l.t)} ${l.text}`).join("\n"),
       placed: lrc.length,
       total: lrc.length,
     };
@@ -285,7 +285,10 @@ export function timeLyrics(lyrics: string, source: string): LrcTimecoding {
   );
   for (const sp of spans) {
     const at = lines[sp.i].line;
-    raw[at] = `${raw[at].replace(/\s+$/, "")} ${formatTimecode(lrc[sp.j].t)}`;
+    raw[at] = raw[at].replace(
+      /^\s*/,
+      (indent) => `${indent}${formatTimecode(lrc[sp.j].t)} `,
+    );
   }
   return {
     ok: true,
@@ -295,7 +298,7 @@ export function timeLyrics(lyrics: string, source: string): LrcTimecoding {
   };
 }
 
-/** Each timed line's `{{MM:SS}}`, by line index — the moment its line is sung OUT: see `lineStarts`. */
+/** Each timed line's start, by line index, read off the `{{MM:SS.cc}}` in the text — what the player follows. */
 export function timecodesByLine(lyrics: string): Map<number, number> {
   const out = new Map<number, number>();
   lyrics.split(/\r?\n/).forEach((line, i) => {
@@ -303,29 +306,6 @@ export function timecodesByLine(lyrics: string): Map<number, number> {
     if (t !== null) out.set(i, t);
   });
   return out;
-}
-
-/**
- * When each timed line is sung IN, from the `{{MM:SS}}` that close them: a line starts where the
- * timed line before it ended, and the first one a typical line (the median gap between codes)
- * before its own code. What a click seeks to and what the highlight follows.
- */
-export function lineStarts(
-  ends: ReadonlyMap<number, number>,
-): Map<number, number> {
-  const timed = [...ends].sort((a, b) => a[0] - b[0]);
-  const gaps = timed
-    .slice(1)
-    .map(([, t], k) => t - timed[k][1])
-    .filter((g) => g > 0)
-    .sort((a, b) => a - b);
-  const typical = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0;
-  return new Map(
-    timed.map(([line, t], k) => [
-      line,
-      k === 0 ? Math.max(0, t - typical) : Math.min(t, timed[k - 1][1]),
-    ]),
-  );
 }
 
 /** Whether the text carries any timecode at all. */

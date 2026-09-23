@@ -7,7 +7,6 @@ import {
   collectChords,
   hasTimecodes,
   lineAt,
-  lineStarts,
   timecodesByLine,
   timingsByLine,
   transposeChord,
@@ -120,11 +119,10 @@ export function SongDetailView({
     };
   }, [song.audio?.name]);
   const lineTimes = useMemo(
-    // Where each line is sung IN: the `{{MM:SS}}` in the text close their lines, so a line starts at the
-    // code before it. A song timed before those were written keeps its side-by-side timings (starts).
+    // The `{{MM:SS.cc}}` in the text; a song timed before those were written keeps its side-by-side timings.
     () =>
       hasTimecodes(song.lyrics)
-        ? lineStarts(timecodesByLine(song.lyrics))
+        ? timecodesByLine(song.lyrics)
         : timingsByLine(song.lyrics, song.lyricTimings ?? []),
     [song.lyrics, song.lyricTimings],
   );

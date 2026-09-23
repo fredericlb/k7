@@ -342,7 +342,7 @@ often than a track to play along to, so it is asked for rather than ridden along
   though the chain still goes on to the lyrics.
 - **The lyrics step only TIMES the lyrics.** A song whose lyrics are not timed yet gets LRCLIB's best
   version of THIS song (its artist and title), and its times are written into the sheet as
-  `{{MM:SS}}` at the end of the closest lines — not a word of the sheet changes (`lyricsTiming.md`). A
+  `{{MM:SS.cc}}` in front of the closest lines — not a word of the sheet changes (`lyricsTiming.md`). A
   song with no lyrics gets the fetched lines themselves, timed. No version of this song, or one that
   times nothing, leaves the sheet as it was, marked « unmatched », which the insert under the title
   says — with how to type the times in by hand. Lyrics already timed are left alone.

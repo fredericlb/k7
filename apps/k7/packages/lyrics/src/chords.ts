@@ -106,12 +106,15 @@ export function splitChord(
 
 // ---- Timecodes ------------------------------------------------------------
 
-/** A line's time, written in the text as `{{MM:SS}}` — by the LRC import, or by hand. See ../../../docs/lyricsTiming.md. */
-export const TIMECODE = /\{\{\s*(\d{1,3}):([0-5]\d)\s*\}\}/g;
+/** When a line starts, written in it as `{{MM:SS.cc}}` (or `{{MM:SS}}` by hand). See ../../../docs/lyricsTiming.md. */
+export const TIMECODE = /\{\{\s*(\d{1,3}):([0-5]\d(?:\.\d{1,3})?)\s*\}\}/g;
+
+// A code and the one space that sets it apart from the words, so a code at the start leaves the line as typed.
+const TIMECODE_SPACED = new RegExp(`${TIMECODE.source} ?`, "g");
 
 /** The line without its timecodes — what every reader but the player sees. */
 export function stripTimecodes(line: string): string {
-  return line.replace(TIMECODE, "").replace(/\s+$/, "");
+  return line.replace(TIMECODE_SPACED, "").replace(/\s+$/, "");
 }
 
 /** The first timecode on a line, in seconds, or null. */
@@ -122,10 +125,12 @@ export function timecodeOf(line: string): number | null {
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 }
 
-/** `{{MM:SS}}` for a time in seconds, the seconds rounded down. */
+/** `{{MM:SS.cc}}` for a time in seconds, to the hundredth an LRC stamp carries, rounded down. */
 export function formatTimecode(seconds: number): string {
-  const s = Math.max(0, Math.floor(seconds));
-  return `{{${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}}}`;
+  const cs = Math.max(0, Math.floor(seconds * 100 + 1e-6));
+  const s = Math.floor(cs / 100);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `{{${pad(Math.floor(s / 60))}:${pad(s % 60)}.${pad(cs % 100)}}}`;
 }
 
 // ---- Tablature, and chords as a hand types them ----------------------------
