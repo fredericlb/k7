@@ -64,6 +64,18 @@ export interface HostSession {
   listeners: number;
 }
 
+/** One st0 instance this engine is connected to, for the tray's "st0 instances" tab: the union of the registries it heartbeats to and the web origins it lets through. */
+export interface HostInstance {
+  /** The origin, or the registry URL as configured when it is not a bare origin. */
+  url: string;
+  /** This engine heartbeats here, so it shows in that instance's picker. */
+  registry: boolean;
+  /** In `web-origins.json`: that instance's pages may reach the file service. */
+  allowed: boolean;
+  /** False for a registry that came from the environment or a local backend's advertisement rather than from the user — nothing here can un-set it. */
+  removable: boolean;
+}
+
 /** The paths the tray still opens directly, sent rather than recomputed so `~/.st0`'s layout has exactly one definition. */
 export interface HostPaths {
   root: string;
@@ -126,6 +138,8 @@ export interface HostSnapshot {
   syncTargets: SyncTarget[];
 
   // --- web UI allowlist -----------------------------------------------------
+  /** The st0 instances this engine is connected to — empty on a fresh machine, which assumes none. */
+  instances: HostInstance[];
   webOrigins: string[];
   /** Origins the file service refused, offered for one-click approval. */
   webPending: string[];

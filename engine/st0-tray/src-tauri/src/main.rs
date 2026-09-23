@@ -33,6 +33,10 @@ fn main() {
             settingswin::settings_view,
             settingswin::audio_rank,
             settingswin::sync_targets,
+            settingswin::instance_add,
+            settingswin::instance_remove,
+            settingswin::instance_allow,
+            settingswin::instance_deny,
             settingswin::plugins_rescan,
             settingswin::session_drop,
             settingswin::plugin_show_ui,
@@ -91,7 +95,6 @@ fn main() {
 
             let menus = Menus {
                 status: mb.status,
-                weburi: mb.weburi,
                 autostart: mb.autostart,
                 tray,
             };

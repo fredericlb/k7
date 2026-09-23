@@ -80,20 +80,25 @@ than a failure record: restart `npm run dev` and the icon should go green again 
 
 The ambient tiers can move under the supervisor. Under `npm run dev` the tray and the backends
 start together, so a supervisor that wins the race resolves before any of them has advertised —
-and would then announce to the hosted studio forever while three local registries sat empty.
+and would then announce to nobody forever while three local registries sat empty.
 
 So each tick re-derives the list, unless the user pinned one: an explicit choice must not be
 re-derived. It is cheap, a readdir of four small files (`registryClient.ts`).
 
-`resolveRegistryUrls` reads four tiers, most explicit first, and the **first tier that yields
+`resolveRegistryUrls` reads three tiers, most explicit first, and the **first tier that yields
 anything wins outright** — they are alternatives, not a union:
 
-1. what the user pinned with "Add web UI…" — a deliberate, persisted choice beats an ambient one,
-   which is why it sits above the environment variable;
+1. what the user added in the tray's **st0 instances** tab — a deliberate, persisted choice beats
+   an ambient one, which is why it sits above the environment variable;
 2. `$STUDIO_REGISTRY_URL`, comma-separated for more than one;
 3. what the local backends advertised — `<state>/web-endpoints/*.json`, one file per service,
-   plus the single `web-endpoint.json` — so a local dev setup beats the hosted default;
-4. the hosted studio.
+   plus the single `web-endpoint.json`.
+
+**There is no fourth tier, and no default.** When none of the three yields anything the list is
+empty: the engine heartbeats to nobody and appears in no picker. A machine is connected to a st0
+instance because someone connected it, never because the build assumed one — so a fresh install
+suggests nothing, and `web-origins.json` is no longer seeded on first run either. An empty list is
+the normal state of a fresh machine, not a fault, which is why the tray does not paint it red.
 
 It answers a **list**, because each hosted service holds its own registry and an engine must be
 listed in st0 *and* in the médiathèque to be pickable in both. Deduped, since the same URL twice
@@ -113,6 +118,16 @@ the path comes back from the service table. The first resolvable registry wins, 
 unparseable one yields nothing rather than an empty string the file service would read as
 configured.
 
+The tray's **st0 instances** tab draws `instances`, one row per origin: the union of the
+registries and `web-origins.json`, because to the user the two are one instance — heartbeated to,
+and let through. `weburi.remove` therefore disconnects **both halves**: the origin leaves the
+allowlist, the matching pinned registry leaves the settings, and that registry is deregistered at
+once so the engine drops out of its picker rather than aging out. A registry from tier 2 or 3 is
+marked not removable — the next tick would resolve it straight back. Removing the last pinned one
+falls back to the ambient tiers, exactly as a fresh boot would. The file service's CORS list is
+still the one captured at its spawn, so a removed registry's origin keeps reaching it until the file
+service next restarts — the same limit an add already has in the other direction.
+
 `addRegistryUrl` is an **add**, not a replace. Each hosted service holds its own registry, so "Add
 web UI…" for the médiathèque must not evict st0 — that would silently take the engine out of one
 picker to put it in another, and the two are not alternatives. It is idempotent beyond
@@ -130,8 +145,9 @@ engine: one left listening holds the audio device and both ports for whatever la
 A st0 web UI reached over a real hostname (`https://daw.test` behind the proxy, a hosted
 deployment) is neither loopback nor a private address, so the file service's deny-by-default CORS
 policy cannot admit it on its own (see `packages/file-service/src/cors.ts`). This list is how the
-user says "that one is mine": written here, read there, and read on EVERY request, so adding a web
-UI from the menu bar takes effect immediately with nothing restarted.
+user says "that one is mine": written here, read there, and read on EVERY request, so adding a st0
+instance from the tray's settings takes effect immediately with nothing restarted. It starts empty:
+nothing is seeded, for the reason there is no default registry.
 
 `<state>/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the shared `<state>`
 contract, like `engine-id.json` and `web-endpoint.json`.

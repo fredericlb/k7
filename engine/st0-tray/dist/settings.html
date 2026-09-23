@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- settings.html — the tray's one window: everything the tray used to hold in submenus and
-     could not draw properly. Five tabs, because they answer five different questions and only
+     could not draw properly. Six tabs, because they answer six different questions and only
      one of them is ever urgent. See engine/st0-tray/docs/tray.md. -->
 <html lang="en">
   <head>
@@ -14,6 +14,7 @@
       <button role="tab" data-panel="panel-plugins" aria-selected="false">Plugins</button>
       <button role="tab" data-panel="panel-sessions" aria-selected="false">Sessions</button>
       <button role="tab" data-panel="panel-sync" aria-selected="false">Sync</button>
+      <button role="tab" data-panel="panel-instances" aria-selected="false">st0 instances</button>
       <button role="tab" data-panel="panel-system" aria-selected="false">System</button>
     </nav>
 
@@ -69,6 +70,26 @@
         <button id="sync-add" type="button">Add</button>
       </div>
       <p id="sync-error" class="empty" hidden></p>
+    </section>
+
+    <section id="panel-instances" role="tabpanel" hidden>
+      <p class="hint">
+        The st0 instances this engine is connected to. Each one lists this
+        engine in its picker, and its pages may reach this machine's files.
+        None is assumed: add one by its address.
+      </p>
+      <ul id="instances"></ul>
+      <p id="instances-empty" class="empty" hidden></p>
+      <div id="pending-block" hidden>
+        <p class="subhead">Blocked just now — allow?</p>
+        <ul id="pending"></ul>
+      </div>
+      <form id="instance-form" class="bar">
+        <input id="instance-url" type="text" inputmode="url" autocomplete="off"
+          spellcheck="false" placeholder="Address of a st0 instance" />
+        <button type="submit">Add</button>
+      </form>
+      <p id="instance-error" class="empty" hidden></p>
     </section>
 
     <section id="panel-system" role="tabpanel" hidden>

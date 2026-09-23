@@ -3,7 +3,7 @@
 // and the rest is the little view state the tray genuinely owns. See docs/tray.md.
 
 use std::sync::{Arc, Mutex};
-use tauri::menu::{CheckMenuItem, MenuItem, Submenu};
+use tauri::menu::{CheckMenuItem, MenuItem};
 use tauri::tray::TrayIcon;
 use tauri::Wry;
 
@@ -12,7 +12,6 @@ use crate::host::Snapshot;
 /// Handles we mutate as status changes. Stored once in AppState during setup.
 pub struct Menus {
     pub status: MenuItem<Wry>, // the one line the menu bar still says on its own
-    pub weburi: Submenu<Wry>, // "Web UI ▸" — rebuilt as the allowed origins change
     pub autostart: CheckMenuItem<Wry>,
     pub tray: TrayIcon<Wry>,
 }

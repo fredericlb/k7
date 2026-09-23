@@ -7,18 +7,11 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { webEndpointPath, webEndpointsDir } from "@studio/engine-client/paths";
-import {
-  STUDIO_ORIGIN,
-  serviceUrl,
-  studioOrigin,
-} from "@studio/web-protocol/services";
+import { serviceUrl, studioOrigin } from "@studio/web-protocol/services";
 import type { EnginePresence } from "./addresses.ts";
 import type { EngineIdentity } from "./identity.ts";
 
-// The hosted studio, re-exported from the one table that owns it so it cannot drift from the service paths derived off it.
-export const DEFAULT_STUDIO_URL = STUDIO_ORIGIN;
-
-/** Where the registries live: four tiers, most explicit first, the first that yields anything winning outright — see docs/supervisorPolicy.md. */
+/** Where the registries live: three tiers, most explicit first, the first that yields anything winning outright; none at all is a machine connected to no st0 instance — see docs/supervisorPolicy.md. */
 export function resolveRegistryUrls(configured?: string[] | null): string[] {
   if (configured?.length) return [...new Set(configured)];
   if (process.env.STUDIO_REGISTRY_URL)
@@ -29,9 +22,7 @@ export function resolveRegistryUrls(configured?: string[] | null): string[] {
           .filter((u) => u !== ""),
       ),
     ];
-  const local = advertisedUrls();
-  if (local.length) return local;
-  return [DEFAULT_STUDIO_URL];
+  return advertisedUrls();
 }
 
 /** The hosted médiathèque this machine caches, DERIVED from the registry origins rather than configured — see docs/supervisorPolicy.md. */

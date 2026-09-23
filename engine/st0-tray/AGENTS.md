@@ -1,9 +1,10 @@
 # AGENTS.md — capot
 
 The **menu-bar / system-tray view** for the engine supervisor — Tauri v2, native Rust.
-It starts with no window and opens exactly one on demand: the settings window, in five tabs —
+It starts with no window and opens exactly one on demand: the settings window, in six tabs —
 the audio ranking dragged into order, the plugin catalogue, the sessions this engine holds, where
-this machine may copy a set list, and the machine itself. The menu bar keeps one status line, `Web UI ▸` and the way in.
+this machine may copy a set list, the st0 instances this engine is connected to, and the machine
+itself. The menu bar keeps one status line and the way in.
 
 It is not itself a supervisor. It spawns **`@studio/engine-host`** (TypeScript) as a
 child and drives it over NDJSON on stdio: the supervisor owns the `~/.st0`
@@ -63,11 +64,12 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
   vendored `node` + `engine-host.mjs` from resources, else the repo's tsx on the TS
   source. A miss must be LOUD (`⚠ supervisor not found`) — a tray supervising nothing
   looks identical to a healthy one.
-- **`tray.rs`** — the icon and menu, which is now one status line, `Web UI ▸` and `Settings…`.
+- **`tray.rs`** — the icon and menu, which is now one status line and `Settings…`.
   Quit stops the engine **only if THIS app owns it**; it won't kill an engine another supervisor
   started.
 - **`settingswin.rs`** — the one window, opened from `Settings…`: audio ranking, plugin catalogue,
-  sessions with the plugin editors they can open, the playlist sync targets, and System (version,
+  sessions with the plugin editors they can open, the playlist sync targets, the st0 instances
+  (connected ones, blocked origins to allow, and a form to add one by URL), and System (version,
   engine, registry, file service, and the buttons). It draws the snapshot and sends commands back, like every other click
   here. Closing HIDES it — a destroyed last window makes Tauri ask the app to exit. See
   `docs/tray.md`.
@@ -95,7 +97,7 @@ to. Anything that needs a process started belongs there, not here.
 
 ## reqwest and trust roots
 
-`reqwest` uses **NATIVE OS trust roots**, not the bundled webpki set. A web UI added from
+`reqwest` uses **NATIVE OS trust roots**, not the bundled webpki set. A st0 instance added from
 the tray is routinely fronted by a local proxy with a private CA (a private CA
 for a `.test` host), which lives in the OS store and nowhere else. With webpki-only roots
 the heartbeat handshake fails and the engine silently never appears in that UI's picker.

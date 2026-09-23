@@ -29,7 +29,7 @@ export function ProjectShell({
           `Le service de fichiers de ce moteur (${base}) n'a pas répondu. Il est peut-être arrêté.`,
         blockedTitle: "Cette page n'est pas autorisée à joindre le moteur",
         blockedBody: (origin) =>
-          `Le service de fichiers tourne, mais il a refusé l'origine de cette page (${origin}). Autorisez-la depuis le capot : « Web UI ▸ ${origin} », puis réessayez.`,
+          `Le service de fichiers tourne, mais il a refusé l'origine de cette page (${origin}). Autorisez-la depuis le capot : « Settings… ▸ st0 instances », puis réessayez.`,
         bothBody:
           "Le service de fichiers du moteur n'a pas répondu. Il est peut-être arrêté, ou l'origine de cette page n'est peut-être pas autorisée à l'appeler.",
         missingTitle: "Cette session n'est pas dans le dépôt",

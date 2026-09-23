@@ -13,7 +13,7 @@ import {
 } from "@studio/engine-client/paths";
 
 export interface Settings {
-  /** The registries the user pinned via "Add web UI…", overriding every other tier; a LIST, because each service holds its own. */
+  /** The registries the user pinned from the tray's "st0 instances" tab, overriding every other tier; a LIST, because each service holds its own. */
   registryUrls: string[];
   /** The engine's WebSocket port. */
   port: number;

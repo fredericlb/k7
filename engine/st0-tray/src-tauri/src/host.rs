@@ -89,13 +89,26 @@ pub struct Session {
     pub listeners: usize,
 }
 
+/// One st0 instance this engine is connected to, for the "st0 instances" tab — the supervisor's union of the
+/// registries it heartbeats to and the origins it lets through. Serialize as well: the window draws it verbatim.
+#[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Instance {
+    pub url: String,
+    /// Heartbeated to, so this engine shows in that instance's picker.
+    pub registry: bool,
+    /// Its pages may reach the file service.
+    pub allowed: bool,
+    /// False for a registry from the environment or a local backend: removing it here would not stick.
+    pub removable: bool,
+}
+
 /// The paths the tray opens directly — sent rather than recomputed, so `<state>` has one definition.
 #[derive(Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Paths {
     pub root: String,
     pub merged_log: String,
-    pub web_origins: String,
 }
 
 /// The supervisor's view of the world, as far as the tray consumes it.
@@ -138,7 +151,9 @@ pub struct Snapshot {
     pub sessions_sig: String,
     /// Where this machine may copy a set list — the Sync tab's whole content.
     pub sync_targets: Vec<SyncTarget>,
-    pub web_origins: Vec<String>,
+    /// The st0 instances this engine is connected to — empty on a fresh machine, which assumes none.
+    pub instances: Vec<Instance>,
+    /// Origins the file service just refused, offered for one-click approval in the same tab.
     pub web_pending: Vec<String>,
     pub attention: bool,
     pub paths: Paths,
@@ -171,7 +186,7 @@ impl Default for Snapshot {
             sessions: Vec::new(),
             sessions_sig: String::new(),
             sync_targets: Vec::new(),
-            web_origins: Vec::new(),
+            instances: Vec::new(),
             web_pending: Vec::new(),
             attention: false,
             paths: Paths::default(),

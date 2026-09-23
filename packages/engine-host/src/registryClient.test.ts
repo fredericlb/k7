@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // `$STUDIO_HOME` is the seam, and the documented one: it is what a dev session and the WSL
 // bridge already use, so the road under test is the road that runs.
-const { DEFAULT_STUDIO_URL, mediatekUrlFor, resolveRegistryUrls } =
-  await import("./registryClient.ts");
+const { mediatekUrlFor, resolveRegistryUrls } = await import(
+  "./registryClient.ts"
+);
 
 // Every hosted service holds its OWN registry, so an engine must heartbeat to all of them to be pickable in all of them.
 
@@ -28,8 +29,9 @@ afterEach(() => {
 });
 
 describe("where an engine announces itself", () => {
-  it("falls back to the hosted studio when nothing local is advertised", () => {
-    expect(resolveRegistryUrls()).toEqual([DEFAULT_STUDIO_URL]);
+  it("announces to nobody when nothing is pinned, set or advertised", () => {
+    // A fresh machine is connected to no st0 instance: one is added from the tray's settings, never assumed.
+    expect(resolveRegistryUrls()).toEqual([]);
   });
 
   it("announces to EVERY service that advertised, not just one", () => {

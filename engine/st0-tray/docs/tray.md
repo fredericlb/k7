@@ -57,7 +57,7 @@ for: the refusal has to be shown before the supervisor that would otherwise repo
 ## The settings window
 
 One window, `src-tauri/src/settingswin.rs`, holding what a MACHINE is set to rather than what a
-project is. Five tabs, because they answer five different questions and only one of them is
+project is. Six tabs, because they answer six different questions and only one of them is
 ever urgent:
 
 | tab | what it is |
@@ -66,21 +66,22 @@ ever urgent:
 | Plugins | the installed catalogue, filtered, and the rescan that refills it |
 | Sessions | what this engine is holding, and the plugin editors it can open |
 | Sync | where a playlist may be copied to — a stick, a folder, an FTP box |
+| st0 instances | which st0 instances this engine is connected to, the origins just blocked, and a form to add one |
 | System | version, engine, registry, file service — and every button that acts on them |
 
 **The menu bar keeps one line and no buttons.** A status line is what a menu bar is for; a
 ranking, a catalogue of several hundred rows, a list of live sessions and a row of destructive
 buttons are not, and each was there only because there was nowhere else to put it. `Settings…`
-is the way in, and the only one — the tray no longer draws a device, a count, a session or a
-version anywhere. `Web UI ▸` is what is left, because approving an origin is a two-click answer
-to a banner rather than something you go looking for.
+is the way in, and the only one — the tray no longer draws a device, a count, a session, a
+version or a web UI anywhere. A blocked origin still raises the icon's attention dot and a
+banner; both point at the st0 instances tab.
 
 It is hidden on close, never destroyed: Tauri asks an app to exit when its last window closes,
 and this app's exit stops the engine. `windows` in `tauri.conf.json` stays empty for the same
 reason it always was — nothing is opened until someone asks for it.
 
 The page is hand-written HTML, CSS and JS under `dist/`, served as-is. The tray has no frontend
-build and gains none for three tabs, which is what `withGlobalTauri` buys: a `<script>` tag
+build and gains none for six tabs, which is what `withGlobalTauri` buys: a `<script>` tag
 reaches `invoke` with no bundler in front of it. The window draws only what a snapshot said and
 sends back only commands, so the rule that **the tray computes no policy** holds here too.
 
@@ -142,6 +143,29 @@ have kept.
 Removing one is a button on its row rather than a drag, since dropping a target is the only thing
 this list does that reordering could not say — the same argument that gives an unplugged audio
 device its **Forget**.
+
+### st0 instances — none until you add one
+
+A fresh machine is connected to **no** st0 instance, and nothing is suggested: the supervisor has no
+default registry and seeds no origin (`packages/engine-host/docs/supervisorPolicy.md`). This tab is
+where one is added — its address typed into the form, and nowhere else.
+
+Each row is one instance as the supervisor's `instances` reports it: the union of the registries this
+engine heartbeats to and the origins `web-origins.json` lets through, keyed by origin, because to the
+user those are the same thing. Adding sends `weburi.add`, which does both — the origin is allowed and
+the engine is announced there, so it shows in that instance's picker. **Remove** sends `weburi.remove`,
+which undoes both and deregisters at once. A registry that came from `$STUDIO_REGISTRY_URL` or a local
+backend's advertisement gets no Remove and says why: it would be back on the next heartbeat.
+
+Beneath the list sit the origins the file service **just refused**, with Allow and Ignore. This is how
+an instance gets let in without anyone typing its URL — the blocked browser names itself. Allowing
+one does *not* announce the engine there: approval widens which pages may call the file service, and
+nothing else. Ignoring matters as much, or an origin you do not trust sits there training you to skip
+the section.
+
+The address is checked here, the way a sync URI is, only to answer at once — `ftp:// is not a web
+address`, `already connected to …` — and reduced to the origin before it is sent. The supervisor's
+`normaliseUserOrigin` is the gate. A bare host gets `https://`, as it does there.
 
 ### Sessions — what the status line could never say
 
