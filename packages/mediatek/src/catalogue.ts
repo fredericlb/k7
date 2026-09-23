@@ -26,7 +26,7 @@ const memory = new Map<Family, FamilyListing>();
 let warmed = false;
 
 /** The shape of a persisted listing — **bump it whenever what the scan PRODUCES changes**, see docs/index.md. */
-const INDEX_VERSION = 4;
+const INDEX_VERSION = 5;
 
 /** Pull whatever the last process left behind; any problem at all just means a cold start. */
 function warm(): void {
