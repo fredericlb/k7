@@ -1,4 +1,4 @@
-import { X } from "@frediverse/ui/icons";
+import { ChevronDown } from "@frediverse/ui/icons";
 import { acquireMicrophone, RecorderView } from "@k7/recorder";
 import { useEffect, useState } from "react";
 import {
@@ -659,12 +659,11 @@ export default function App() {
                 {recOpen && (
                   <button
                     type="button"
-                    className="rec-popin-close"
+                    className="rec-popin-hide"
                     onClick={() => setRecOpen(false)}
-                    title="Collapse to the bar — the take keeps recording"
-                    aria-label="Collapse"
+                    title="Hide to the bar — the take keeps recording"
                   >
-                    <X className="size-4" />
+                    <ChevronDown className="size-4" /> Hide
                   </button>
                 )}
                 <RecorderView

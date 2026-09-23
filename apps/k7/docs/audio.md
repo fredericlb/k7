@@ -389,7 +389,7 @@ minimised, since the stop button is then off screen.
 
 The recorder is mounted once, outside the router, so a take survives every navigation. It has
 no route: it is drawn either in a **pop-in** over the page the take started on, or collapsed to
-the bottom bar. Closing the pop-in (its ✕, Escape, a click on the backdrop) collapses it; the take
+the bottom bar. Hiding the pop-in (its Hide button, Escape, a click on the backdrop) collapses it; the take
 keeps running.
 
 The pop-in is two wrapper classes swapped around the recorder, not a dialog component: a portal

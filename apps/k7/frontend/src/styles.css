@@ -1611,16 +1611,20 @@ select {
   margin: 0;
 }
 /* Under .rec-popin so it outranks the base button rule, whose padding and fill would win. */
-.rec-popin > .rec-popin-close {
+.rec-popin > .rec-popin-hide {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 1;
-  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 13px;
   background: transparent;
   color: var(--muted);
 }
-.rec-popin > .rec-popin-close:hover:not(:disabled) {
+.rec-popin > .rec-popin-hide:hover:not(:disabled) {
   background: var(--surface-2);
   color: var(--text);
 }
