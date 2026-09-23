@@ -3,6 +3,7 @@
 // written as soon as the buffer reads as a playlist. See ../docs/playlists.md.
 
 import { Button } from "@frediverse/ui/button";
+import { FileTree, type TreeNode } from "@frediverse/ui/file-tree";
 import {
   FileCode2,
   ListMusic,
@@ -16,7 +17,7 @@ import {
   resolveItems,
 } from "@studio/mediatek/playlistItems";
 import type { PlaylistSummary } from "@studio/mediatek/playlists";
-import type { MediatekEntry } from "@studio/mediatek/types";
+import { type MediatekEntry, PLAYLISTS_DIR } from "@studio/mediatek/types";
 import {
   appendPlaylistItem,
   movePlaylistItem,
@@ -27,6 +28,7 @@ import {
 import type { Validity } from "@studio/song-schema/yaml/validate";
 import { useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
+import { sortNodes } from "@studio/web-protocol/tree";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { library } from "./api";
 import { PlaylistRows, rowPath } from "./PlaylistRows";
@@ -34,6 +36,40 @@ import { PlaylistSync } from "./PlaylistSync";
 import { usePlayback } from "./playback/PlaybackProvider";
 import type { PlaybackTarget } from "./playback/targets";
 import { SaveState } from "./SaveState";
+
+/** A playlist is a FILE, so the zone's listing becomes a tree the same way a family's does. */
+function playlistTree(list: PlaylistSummary[] | null): TreeNode[] {
+  const roots: TreeNode[] = [];
+  for (const p of list ?? []) {
+    const parts = p.path.split("/").filter(Boolean).slice(1);
+    let level = roots;
+    let sofar = "";
+    parts.forEach((part, i) => {
+      sofar = sofar ? `${sofar}/${part}` : part;
+      const leaf = i === parts.length - 1;
+      let node = level.find((n) => n.name === part);
+      if (!node) {
+        // The leaf's NAME is the title or the bare file name — never the raw segment with its extension.
+        node = leaf
+          ? { name: p.title || p.name.split("/").pop() || part, path: sofar }
+          : { name: part, path: sofar, dir: true, children: [] };
+        level.push(node);
+      }
+      if (!leaf) level = node.children ??= [];
+    });
+  }
+  return roots;
+}
+
+/** The listing row a tree path stands for, or null for a folder grouping. */
+function summaryAt(
+  list: PlaylistSummary[] | null,
+  path: string,
+): PlaylistSummary | null {
+  return (
+    (list ?? []).find((p) => p.path === `${PLAYLISTS_DIR}/${path}`) ?? null
+  );
+}
 
 /** A playlist is judged by its OWN parser, the project-file router knowing nothing of this folder. */
 const validatePlaylist = (_path: string, text: string): Validity => {
@@ -192,18 +228,47 @@ export function Playlists({
 
   return (
     <div className="flex min-h-0 flex-1">
-      {/* The set lists on this volume. A column and not a dropdown: it is the section's content. */}
-      <aside className="w-56 shrink-0 overflow-auto border-r p-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          className="mb-2 w-full"
-          onClick={() => setNaming((n) => !n)}
-        >
-          <Plus className="mr-1 h-4 w-4" /> Nouvelle playlist
-        </Button>
-        {naming ? (
-          <div className="mb-2">
+      {/* The set lists on this volume, as a tree: a playlist is a FILE, and one can nest another. */}
+      <aside className="flex w-[290px] shrink-0 flex-col overflow-hidden rounded-xl bg-violet-950 p-3 md:m-3">
+        <div className="min-h-0 flex-1 overflow-auto">
+          {list && !list.length ? (
+            <p className="p-2 text-sm text-white/70">Aucune playlist ici.</p>
+          ) : (
+            <FileTree
+              nodes={sortNodes(playlistTree(list))}
+              activePath={file}
+              // Opens down to the current playlist, so a deep link does not land on a folded folder.
+              reveal={file}
+              onOpen={(n) => onOpen(n.path)}
+              icon={(n) => {
+                const p = summaryAt(list, n.path);
+                if (!p) return null;
+                return p.ok ? (
+                  <ListMusic className="h-4 w-4 shrink-0" />
+                ) : (
+                  <TriangleAlert className="h-4 w-4 shrink-0 text-destructive" />
+                );
+              }}
+              rowEnd={(n) => {
+                const p = summaryAt(list, n.path);
+                return p ? (
+                  <span className="shrink-0 pr-1 text-xs tabular-nums text-white/50">
+                    {p.count}
+                  </span>
+                ) : null;
+              }}
+            />
+          )}
+        </div>
+        <div className="mt-2 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setNaming((n) => !n)}
+          >
+            <Plus className="mr-1 h-4 w-4" /> Nouvelle playlist
+          </Button>
+          {naming ? (
             <Input
               autoFocus
               value={name}
@@ -214,39 +279,8 @@ export function Playlists({
                 if (e.key === "Escape") setNaming(false);
               }}
             />
-          </div>
-        ) : null}
-        <ul className="space-y-0.5">
-          {(list ?? []).map((p) => (
-            <li key={p.path}>
-              <button
-                type="button"
-                className={`flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-sm hover:bg-accent ${
-                  file === `${p.name}.yaml` ? "bg-accent" : ""
-                }`}
-                onClick={() => onOpen(`${p.name}.yaml`)}
-              >
-                {/* A file that does not parse is listed all the same: hiding it hides the one to fix. */}
-                {p.ok ? (
-                  <ListMusic className="h-3.5 w-3.5 shrink-0" />
-                ) : (
-                  <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-destructive" />
-                )}
-                <span className="min-w-0 flex-1 truncate">
-                  {p.title || p.name}
-                </span>
-                <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-                  {p.count}
-                </span>
-              </button>
-            </li>
-          ))}
-          {list && !list.length ? (
-            <li className="p-2 text-muted-foreground text-sm">
-              Aucune playlist ici.
-            </li>
           ) : null}
-        </ul>
+        </div>
       </aside>
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">

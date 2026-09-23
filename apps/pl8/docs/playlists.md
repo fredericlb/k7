@@ -9,9 +9,10 @@ This page is the screen.
 Morceaux │ Samples │ Enregistrements │ Playlists 3
 ┌────────────────┬──────────────────────────────────────────┐
 │ été 2026    12 │ été 2026            playlists/…   ⟨/⟩ ✓  │
-│ live/répét   8 │ ── Chercher un morceau ── Tout écouter ── │
-│ ⚠ cassée     0 │ 1 ▶ Hells Bells          AC-DC   ↑ ↓ ×   │
-│ + Nouvelle     │ 2 ▶ Lithium · instru     Nirvana ↑ ↓ ×   │
+│ ▾ live         │ ── Chercher un morceau ── Tout écouter ── │
+│   répét      8 │ 1 ▶ Hells Bells          AC-DC   ↑ ↓ ×   │
+│ ⚠ cassée     0 │ 2 ▶ Lithium · instru     Nirvana ↑ ↓ ×   │
+│ + Nouvelle     │                                          │
 └────────────────┴──────────────────────────────────────────┘
                                         ⟨/⟩ ─▸ the YAML, beside
 ```
@@ -20,12 +21,17 @@ Morceaux │ Samples │ Enregistrements │ Playlists 3
 
 It is a **tab** and not a corner of another screen, because a set list is what you come here for on
 the evening you build one. Two columns: the volume's playlists on the left, the open one on the
-right — the same shape the rest of the app uses, so the tree's place is taken by the list of
-documents rather than by a folder walk.
+right — the same shape the rest of the app uses.
 
-The left column is a **list and not a dropdown**: it IS the section's content, and there is nothing
-else for that space to hold. A file that does not parse is listed with a warning triangle, since
-hiding it would hide the one thing you came to repair.
+The left column is the same `FileTree` the families draw theirs with, not a bespoke list: a
+playlist NESTS — `live/répét` is one, filed a folder deep — so the left column is a folder walk
+after all, the same as everywhere else on this volume a path can hold a `/`. `playlistTree` turns
+the zone's flat listing into the tree the component wants, exactly as `treeOf` does for a family;
+a row's icon and its count come from `summaryAt`, which answers null for a folder grouping and the
+matching line's own summary for a playlist. A file that does not parse is drawn all the same, with
+a warning triangle in place of the note glyph, since hiding it would hide the one thing you came to
+repair. Nothing here carries a right-click menu: renaming or filing one into a folder is a name
+typed at creation, not a tree write, and deleting one is not yet a thing this screen does.
 
 ## The buffer is the document
 
