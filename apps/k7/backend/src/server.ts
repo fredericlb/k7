@@ -5,6 +5,7 @@ import express from "express";
 import { bearerOrSession } from "./apitoken.ts";
 import { env } from "./env.ts";
 import { isConfigured as pocketbaseConfigured } from "./pocketbase.ts";
+import { configRouter } from "./routes/config.ts";
 import { momentsRouter } from "./routes/moments.ts";
 import { pagesRouter } from "./routes/pages.ts";
 import { publicPagesRouter } from "./routes/publicPages.ts";
@@ -30,6 +31,7 @@ const { requireAuth } = await setupAuth(app, {
   service: "k7-backend",
 });
 
+app.use("/api/config", requireAuth, configRouter);
 app.use("/api/sessions", requireAuth, sessionsRouter);
 app.use("/api/moments", requireAuth, momentsRouter);
 app.use("/api/releases", bearerOrSession(requireAuth), releasesRouter);

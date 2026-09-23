@@ -9,13 +9,22 @@ import type {
   StemsReply,
 } from "@studio/web-protocol";
 import type { HuntRecord } from "@studio/web-protocol/hunt";
-import { serviceUrl } from "@studio/web-protocol/services";
 
-const PL8 = `${serviceUrl(globalThis.location?.origin ?? "", "pl8")}/api`;
+// The backend's own MEDIATEK_URL, not a guess: a deployment can point k7 at a pl8 that isn't
+// the sibling subdomain a browser-side guess would land on. Fetched once and cached.
+let base: Promise<string> | null = null;
+function pl8Base(): Promise<string> {
+  if (!base)
+    base = fetch("/api/config", { credentials: "include" })
+      .then((res) => res.json())
+      .then((c: { mediatekUrl: string }) => c.mediatekUrl);
+  return base;
+}
 
 /** A pl8 call with the session; its error text surfaces as is, pl8's wording being the useful one. */
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${PL8}${path}`, {
+  const pl8Url = await pl8Base();
+  const res = await fetch(`${pl8Url}/api${path}`, {
     credentials: "include",
     ...init,
     headers: { "content-type": "application/json", ...(init.headers ?? {}) },
