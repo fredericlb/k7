@@ -12,10 +12,9 @@ Below the breakpoint the bar folds its entries into a menu that **names** them, 
 reducing them to a row of glyphs: a row of anonymous glyphs is a row nobody can read.
 
 **Recordings** holds sessions and their moments on one timeline — a moment is a stretch of a
-session, so it hangs under it (`recordings.md`). **Publications** holds releases and pages — a
-page lists releases — as a tab each. Fewer entries is what keeps the bar from folding on a tablet
-held upright. Every tab is still its own address (`/releases`, `/pages`), so a link to any of them
-lands on it.
+session, so it hangs under it (`recordings.md`). **Publications** holds releases grouped by the
+pages that list them (`pages.md`). Fewer entries is what keeps the bar from folding on a tablet
+held upright. The old list addresses (`/moments`, `/pages`) still land on their entry.
 
 The icons stay all the same, because an entry that is named **and** carries a glyph is found
 faster than one that is only named.

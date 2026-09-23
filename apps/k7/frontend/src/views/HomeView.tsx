@@ -1,6 +1,5 @@
 import { Button } from "@frediverse/ui/button";
-import { Download, Plus, Star } from "@frediverse/ui/icons";
-import { Tabs, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
+import { Plus, Star } from "@frediverse/ui/icons";
 import { SongbookExport } from "../components/SongbookExport";
 import type {
   HomeTab,
@@ -11,15 +10,8 @@ import type {
   Song,
   SongTab,
 } from "../types";
+import { PublicationsList } from "./PublicationsList";
 import { RecordingsTimeline } from "./RecordingsTimeline";
-
-// The home tabs that share one header entry, each group drawn as a tab bar over its lists.
-const TAB_GROUPS: { key: HomeTab; label: string }[][] = [
-  [
-    { key: "releases", label: "Releases" },
-    { key: "pages", label: "Pages" },
-  ],
-];
 
 interface Props {
   sessions: Session[];
@@ -28,8 +20,6 @@ interface Props {
   songs: Song[];
   moments: Moment[];
   tab: HomeTab;
-  /** Switch to another home tab — the tab bar of a grouped header entry. */
-  onTab: (tab: HomeTab) => void;
   onOpen: (s: Session) => void;
   onDeleteSession: (id: string) => Promise<void>;
   onOpenRelease: (r: Release) => void;
@@ -49,7 +39,6 @@ export function HomeView({
   songs,
   moments,
   tab,
-  onTab,
   onOpen,
   onDeleteSession,
   onOpenRelease,
@@ -61,22 +50,8 @@ export function HomeView({
   onOpenMoment,
   onToggleSongFavorite,
 }: Props) {
-  const group = TAB_GROUPS.find((g) => g.some(({ key }) => key === tab));
   return (
     <div>
-      {/* A grouped header entry draws its tabs first; the address still says which, so each keeps its link. */}
-      {group && (
-        <Tabs value={tab} onValueChange={(v) => onTab(v as HomeTab)}>
-          <TabsList className="mb-3.5">
-            {group.map(({ key, label }) => (
-              <TabsTrigger key={key} value={key}>
-                {label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      )}
-
       {tab === "sessions" && (
         <RecordingsTimeline
           sessions={sessions}
@@ -88,57 +63,14 @@ export function HomeView({
       )}
 
       {tab === "releases" && (
-        <div className="moments-pane">
-          <Button variant="outline" onClick={onNewRelease}>
-            <Plus className="size-4" /> New release
-          </Button>
-          <ul className="session-list home-list">
-            {releases.length === 0 && (
-              <li className="home-list-empty muted small">No releases yet.</li>
-            )}
-            {releases.map((r) => (
-              <li
-                key={r.id}
-                className="session-item"
-                onClick={() => onOpenRelease(r)}
-              >
-                <div className="session-name">{r.title}</div>
-                <div className="session-meta">
-                  <span>{r.artist}</span>
-                  {r.canDownload && <Download className="size-3" />}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {tab === "pages" && (
-        <div className="moments-pane">
-          <Button variant="outline" onClick={onNewPage}>
-            <Plus className="size-4" /> New page
-          </Button>
-          <ul className="session-list home-list">
-            {pages.length === 0 && (
-              <li className="home-list-empty muted small">No pages yet.</li>
-            )}
-            {pages.map((p) => (
-              <li
-                key={p.id}
-                className="session-item"
-                onClick={() => onOpenPage(p)}
-              >
-                <div className="session-name">#{p.nametag}</div>
-                <div className="session-meta">
-                  <span>
-                    {p.releaseIds.length} release
-                    {p.releaseIds.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <PublicationsList
+          releases={releases}
+          pages={pages}
+          onOpenRelease={onOpenRelease}
+          onNewRelease={onNewRelease}
+          onOpenPage={onOpenPage}
+          onNewPage={onNewPage}
+        />
       )}
 
       {tab === "songbook" && (
