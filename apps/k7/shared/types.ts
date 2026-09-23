@@ -110,6 +110,8 @@ export interface Song {
   fetchStatus: FetchStatus;
   // "" (not attempted), "matched" (applied automatically) or "unmatched" (needs the fixer).
   lyricsMatch: "" | "matched" | "unmatched";
+  // The fetch insert was dismissed on purpose ("Ignore") — never offer it again for this song.
+  fetchIgnored: boolean;
   // The asking user's own star: the songbook is shared, a favourite is not.
   favorite: boolean;
   // The asking user created it, which is what lets them delete it.

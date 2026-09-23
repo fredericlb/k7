@@ -450,6 +450,7 @@ export const api = {
         | "tablature"
         | "lyricTimings"
         | "lyricsMatch"
+        | "fetchIgnored"
       >
     > & { fetchStatus?: Partial<FetchStatus> },
   ): Promise<Song> =>

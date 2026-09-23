@@ -11,6 +11,8 @@ interface Props {
   onDownload: () => void;
   onUpload: (file: File) => void;
   onFixLyrics: () => void;
+  /** "Ignore": never offer this insert for this song again — a persisted choice. */
+  onIgnore: () => void;
 }
 
 const LABEL: Record<Exclude<FetchStatus["phase"], "" | "failed">, string> = {
@@ -51,6 +53,7 @@ export function SongFetchInsert({
   onDownload,
   onUpload,
   onFixLyrics,
+  onIgnore,
 }: Props) {
   const file = useRef<HTMLInputElement>(null);
   const { phase, error } = song.fetchStatus;
@@ -84,9 +87,15 @@ export function SongFetchInsert({
 
   if (running) return <StatusRow {...song.fetchStatus} />;
 
+  // Dismissed on purpose, and nothing is running: stay out of the way for good.
+  if (song.fetchIgnored) return null;
+
   return (
     <div className="song-fetch-insert">
       {phase === "failed" && error && <p className="error small">{error}</p>}
+      <p className="song-fetch-insert-text">
+        No song file yet — what should we do?
+      </p>
       <Button size="sm" onClick={onDownload}>
         Download the song
       </Button>
@@ -94,6 +103,9 @@ export function SongFetchInsert({
         Upload a file…
       </Button>
       {input}
+      <Button variant="ghost" size="sm" onClick={onIgnore}>
+        Ignore
+      </Button>
     </div>
   );
 }

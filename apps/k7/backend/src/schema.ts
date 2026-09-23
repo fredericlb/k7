@@ -114,6 +114,8 @@ export const SCHEMA: CollectionSchema = {
     { name: "FetchJobId", type: "text" },
     // "" (not attempted), "matched" (applied automatically) or "unmatched" (needs the fixer).
     { name: "LyricsMatch", type: "text" },
+    // The insert dismissed on purpose — "Ignore" — so it never offers again for this song.
+    { name: "FetchIgnored", type: "bool" },
     { name: "CreatedAt", type: "text" },
   ],
   SongFavorites: [

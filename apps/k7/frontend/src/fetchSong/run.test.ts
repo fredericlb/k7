@@ -34,6 +34,7 @@ const song = (over: Partial<Song> = {}): Song =>
       jobId: "",
     },
     lyricsMatch: "",
+    fetchIgnored: false,
     ...over,
   }) as Song;
 

@@ -1551,6 +1551,7 @@ function publicSong(rec, viewer = "", favorites: Set<string> = new Set()) {
       jobId: f.FetchJobId || "",
     },
     lyricsMatch: f.LyricsMatch || "",
+    fetchIgnored: Boolean(f.FetchIgnored),
     favorite: favorites.has(f.Uid),
     createdAt: f.CreatedAt || "",
   };
@@ -1640,6 +1641,8 @@ export async function updateSong(uid, patch) {
   }
   if (patch.lyricsMatch !== undefined)
     fields.LyricsMatch = String(patch.lyricsMatch);
+  if (patch.fetchIgnored !== undefined)
+    fields.FetchIgnored = Boolean(patch.fetchIgnored);
   await db.patchRecord("Songs", rec.id, fields);
   invalidateSong(uid);
   return getSong(uid);

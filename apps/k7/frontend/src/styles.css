@@ -1104,6 +1104,15 @@ select {
   gap: 8px;
   flex-wrap: wrap;
   margin: 4px 0 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+.song-fetch-insert-text {
+  flex: 1 1 100%;
+  margin: 0 0 2px;
+  color: var(--accent);
+  font-size: 13px;
 }
 .song-fetch-status {
   display: flex;
