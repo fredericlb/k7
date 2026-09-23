@@ -17,8 +17,9 @@ pages that list them (`pages.md`). Fewer entries is what keeps the bar from fold
 held upright. The old list addresses (`/moments`, `/pages`) still land on their entry.
 
 **Settings is a page reached from a control**, the gear in the actions, and not a fifth entry:
-the bar would fold sooner for a screen opened rarely. On `/settings` the gear is what is filled,
-and no entry is.
+the bar would fold sooner for a screen opened rarely. The gear still wears `AppHeader`'s tab
+classes, copied in `HeaderView.tsx`, so on `/settings` it is the tab that joins the page and no
+entry is. A change to the shared tab's look has to be made there too.
 
 The icons stay all the same, because an entry that is named **and** carries a glyph is found
 faster than one that is only named.

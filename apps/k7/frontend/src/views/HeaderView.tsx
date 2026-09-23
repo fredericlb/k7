@@ -132,9 +132,15 @@ export function HeaderView({
             </DropdownMenu>
           )}
 
+          {/* Drawn as one of AppHeader's tabs (its classes, tint variant) so /settings lights up like an entry. */}
           <Button
-            variant={activeNav === "settings" ? "secondary" : "ghost"}
+            variant="ghost"
             size="sm"
+            className={`-mt-3 -mb-[calc(0.75rem+1px)] h-auto self-stretch rounded-none border border-b-0 px-3${
+              activeNav === "settings"
+                ? " border-primary/20 bg-background bg-clip-padding text-foreground hover:bg-background hover:text-foreground"
+                : " border-transparent"
+            }`}
             onClick={onOpenSettings}
             title="Settings"
             aria-label="Settings"
