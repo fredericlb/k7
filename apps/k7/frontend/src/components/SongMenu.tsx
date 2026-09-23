@@ -10,8 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
+import { EllipsisVertical } from "@frediverse/ui/icons";
 import { SHEET_ACCEPT } from "@k7/shared/sheetKind";
-import { EllipsisVertical } from "lucide-react";
 import { useRef, useState } from "react";
 import { pl8 } from "../fetchSong/pl8";
 import { makeInstrumental } from "../fetchSong/run";

@@ -1,5 +1,5 @@
 import { Button } from "@frediverse/ui/button";
-import { ArrowLeft, ArrowRight, Eye } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye } from "@frediverse/ui/icons";
 import { useState } from "react";
 import { ChordDiagram } from "../components/ChordDiagram";
 import { type ChordPrompt, randomChord } from "../utils/exercises";

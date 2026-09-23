@@ -14,7 +14,6 @@
     "@frediverse/i18n": "*",
     "@frediverse/ui": "*",
     "z0-shared": "*",
-    "lucide-react": "^1.24.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwindcss": "^4.3.2",

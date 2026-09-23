@@ -15,10 +15,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@frediverse/ui": "*",
     "@studio/engine-browser": "*",
     "@studio/graph-model": "*",
-    "@studio/ui-chains": "*",
-    "lucide-react": "^1.24.0"
+    "@studio/ui-chains": "*"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

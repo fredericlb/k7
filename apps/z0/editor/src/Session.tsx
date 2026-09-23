@@ -3,7 +3,6 @@
 // away, because this format is young and the file is the truth. See docs/editing.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Input } from "@frediverse/ui/input";
 import {
   ChevronDown,
   ChevronUp,
@@ -14,7 +13,8 @@ import {
   Pause,
   Plus,
   Trash2,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { Input } from "@frediverse/ui/input";
 import {
   useEffect,
   useMemo,

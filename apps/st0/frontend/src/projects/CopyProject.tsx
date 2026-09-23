@@ -12,10 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { Copy, FolderGit2, HardDrive, Loader2 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import type { MachineWorkspace } from "@studio/web-protocol";
 import type { ProjectApp } from "@studio/web-protocol/projects";
-import { Copy, FolderGit2, HardDrive, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { projectFolderName } from "./projectName";

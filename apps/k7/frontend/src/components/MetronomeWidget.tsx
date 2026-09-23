@@ -3,8 +3,8 @@
 // track is a setting of the song you are reading like the others. See ../../docs/audio.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Minus, Music2, Play, Plus, Square } from "@frediverse/ui/icons";
 import { useMetronome } from "@k7/recorder";
-import { Minus, Music2, Play, Plus, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const MIN = 40;

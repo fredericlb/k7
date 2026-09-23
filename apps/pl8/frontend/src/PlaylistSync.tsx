@@ -9,8 +9,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
+import { FolderSync, HardDrive, Loader2, Server } from "@frediverse/ui/icons";
 import type { SyncJob } from "@studio/web-protocol";
-import { FolderSync, HardDrive, Loader2, Server } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type SyncTargetRow, sync } from "./api";
 import { readPrefs } from "./prefs";

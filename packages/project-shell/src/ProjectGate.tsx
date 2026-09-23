@@ -4,12 +4,6 @@
 // arriving with no target sends you back there. See docs/launch.md.
 
 import {
-  isBench,
-  isLocal,
-  localTarget,
-  type ProjectApp,
-} from "@studio/web-protocol/projects";
-import {
   FolderGit2,
   FolderSearch,
   LibraryBig,
@@ -18,7 +12,13 @@ import {
   ServerCrash,
   ShieldAlert,
   UserRoundX,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import {
+  isBench,
+  isLocal,
+  localTarget,
+  type ProjectApp,
+} from "@studio/web-protocol/projects";
 import {
   type ReactNode,
   useCallback,

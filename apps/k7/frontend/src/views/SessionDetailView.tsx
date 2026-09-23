@@ -1,8 +1,6 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { Input } from "@frediverse/ui/input";
-import { MomentPlayer, TagInput, Waveform } from "@k7/recorder";
 import {
   ArrowLeft,
   Check,
@@ -13,7 +11,9 @@ import {
   Pause,
   Play,
   Trash2,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { Input } from "@frediverse/ui/input";
+import { MomentPlayer, TagInput, Waveform } from "@k7/recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fmtTime, sessionTitle } from "../format";
 import type {

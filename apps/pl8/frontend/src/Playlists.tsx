@@ -3,6 +3,13 @@
 // written as soon as the buffer reads as a playlist. See ../docs/playlists.md.
 
 import { Button } from "@frediverse/ui/button";
+import {
+  FileCode2,
+  ListMusic,
+  Loader2,
+  Plus,
+  TriangleAlert,
+} from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import {
   type ResolvedItem,
@@ -20,13 +27,6 @@ import {
 import type { Validity } from "@studio/song-schema/yaml/validate";
 import { useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
-import {
-  FileCode2,
-  ListMusic,
-  Loader2,
-  Plus,
-  TriangleAlert,
-} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { library } from "./api";
 import { PlaylistRows } from "./PlaylistRows";

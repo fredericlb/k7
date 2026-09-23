@@ -4,7 +4,7 @@
 // the one section that can't be written down — the generated command reference.
 
 import { Button } from "@frediverse/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@frediverse/ui/icons";
 import { Fragment, useEffect, useState } from "react";
 import { api } from "../api";
 import { commandTranslations } from "../commandI18n";

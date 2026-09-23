@@ -9,8 +9,8 @@
 // A plain popover, not a DropdownMenu, since what it holds is itself menus.
 
 import { Button } from "@frediverse/ui/button";
+import { Menu, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
-import { Menu, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { usePopin } from "../popins";
 

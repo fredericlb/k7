@@ -1,8 +1,8 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
+import { Download, Pencil, Trash2 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
-import { Download, Pencil, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { ReleaseEditForm } from "../components/ReleaseEditForm";
 import { SwitchField } from "../components/SwitchField";

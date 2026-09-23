@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import { Mic, RadioTower } from "lucide-react";
+import { Mic, RadioTower } from "@frediverse/ui/icons";
 import { BASE } from "../api";
 
 // What to TYPE on the phone: a bare /remote is the médiathèque's — ../../../docs/routing.md.

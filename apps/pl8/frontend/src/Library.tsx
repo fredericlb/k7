@@ -17,6 +17,16 @@ import {
   type TreeAction,
   type TreeNode,
 } from "@frediverse/ui/file-tree";
+import {
+  AudioLines,
+  Disc3,
+  FileQuestion,
+  FolderTree,
+  Loader2,
+  LogOut,
+  Search,
+  Settings,
+} from "@frediverse/ui/icons";
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import { takesOf } from "@studio/mediatek/takes";
@@ -29,16 +39,6 @@ import {
 } from "@studio/mediatek/types";
 import { AppSwitch } from "@studio/ui-app-switch";
 import { sortNodes } from "@studio/web-protocol/tree";
-import {
-  AudioLines,
-  Disc3,
-  FileQuestion,
-  FolderTree,
-  Loader2,
-  LogOut,
-  Search,
-  Settings,
-} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
 import { AddSong } from "./AddSong";

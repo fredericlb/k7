@@ -6,8 +6,6 @@
 // the panel's, or one page of a tabs widget — which is docs/pages.md.
 
 import { Button } from "@frediverse/ui/button";
-import { cn } from "@frediverse/ui/lib/utils";
-import { askConfirm } from "@studio/project-shell/ask";
 import {
   Activity,
   AudioWaveform,
@@ -26,7 +24,9 @@ import {
   Trash2,
   Type,
   Wand2,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { cn } from "@frediverse/ui/lib/utils";
+import { askConfirm } from "@studio/project-shell/ask";
 import { useCallback, useRef, useState } from "react";
 import { type AutoParam, autoOrganize } from "./autoLayout";
 import type { ModuleUI, Widget, WidgetType } from "./moduleUi";

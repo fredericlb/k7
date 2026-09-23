@@ -4,6 +4,7 @@
 // clicked in the timeline (see docs/shell.md). There is ONE audio clip panel, and clicking a clip
 // reaches it: `WaveformView` draws the same picture and can act on none of it.
 
+import { Grid3x3 } from "@frediverse/ui/icons";
 import { DEFAULT_METRONOME_LEVEL } from "@studio/engine-protocol/build";
 import type { WebGraph } from "@studio/graph-model";
 import { seqWindowFromText, windowSpan } from "@studio/song-schema/seqWindow";
@@ -370,7 +371,9 @@ export function ClipView({
           // The tracker over the sequence FILE, headed the way the other two are; it writes straight to the file (SeqGridFile.tsx).
           <div className="flex h-full min-h-0 flex-col border-t-2 border-border">
             <div className="flex items-center gap-2 border-border border-b px-3 py-1 text-xs">
-              <span className="font-semibold text-primary">▦ {seqId}</span>
+              <span className="font-semibold text-primary">
+                <Grid3x3 className="h-3.5 w-3.5" /> {seqId}
+              </span>
               <span className="truncate text-muted-foreground">
                 {seqPath ?? "…"}
               </span>

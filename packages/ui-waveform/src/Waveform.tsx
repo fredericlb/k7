@@ -1,3 +1,4 @@
+import { Flag } from "@frediverse/ui/icons";
 import {
   memo,
   useEffect,
@@ -892,7 +893,7 @@ function WaveformInner({
               else onSeek?.(m.atSec);
             }}
           >
-            <span className="waveform-marker-flag">🚩</span>
+            <Flag className="waveform-marker-flag" />
           </button>
         ))}
     </div>

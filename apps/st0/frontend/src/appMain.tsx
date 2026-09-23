@@ -2,6 +2,7 @@
 // tab strip needed an address on this origin without paying for any of it — main.tsx is now a
 // dispatcher that imports one of us, and this is the heavy branch. See apps/st0-desktop/docs/tabs.md.
 
+import { Loader2 } from "@frediverse/ui/icons";
 import { setFileApiTally } from "@studio/project-shell/fileApi";
 import {
   isExternalIndex,
@@ -14,7 +15,6 @@ import {
   projectLabel,
   shareToken,
 } from "@studio/web-protocol/projects";
-import { Loader2 } from "lucide-react";
 import { lazy, Profiler, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";

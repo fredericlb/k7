@@ -11,9 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { Loader2, PenLine } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import type { ProjectApp } from "@studio/web-protocol/projects";
-import { Loader2, PenLine } from "lucide-react";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { projectFolderName } from "./projectName";

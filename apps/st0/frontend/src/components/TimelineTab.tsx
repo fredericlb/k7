@@ -10,6 +10,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
+import {
+  Clock,
+  Ghost,
+  Music,
+  Plus,
+  Repeat,
+  StretchVertical,
+  Timer,
+  TimerOff,
+  Volume2,
+} from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { arrayEq, useEngineState } from "@studio/engine-browser/store";
 import {
@@ -30,17 +41,6 @@ import {
   zoomCeiling,
 } from "@studio/ui-timeline/panZoom";
 import { nearestTick } from "@studio/ui-waveform";
-import {
-  Clock,
-  Ghost,
-  Music,
-  Plus,
-  Repeat,
-  StretchVertical,
-  Timer,
-  TimerOff,
-  Volume2,
-} from "lucide-react";
 import {
   useCallback,
   useEffect,

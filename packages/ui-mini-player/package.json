@@ -12,8 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@frediverse/ui": "*",
-    "lucide-react": "^1.24.0"
+    "@frediverse/ui": "*"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

@@ -20,9 +20,8 @@ folding on a tablet held upright. Every tab is still its own address (`/sessions
 The icons stay all the same, because an entry that is named **and** carries a glyph is found
 faster than one that is only named.
 
-Every icon in k7, in the bar and elsewhere, is a `lucide-react` icon, the set st0 draws with. An
-emoji renders at its own font's size and colour, so a bar mixing emoji with a text-style glyph
-never lines up, and one set shared across the apps is what makes them read as one family.
+Every icon, in the bar and elsewhere, comes from `@frediverse/ui/icons`, the one set every
+frediverse app draws with — why, and the sizes: `commons/packages/ui/docs/icons.md`.
 
 ## No `variant`: `tint` is the house look
 

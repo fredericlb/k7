@@ -1,6 +1,6 @@
 import { Card } from "@frediverse/ui/card";
+import { Circle, Mic, MicOff } from "@frediverse/ui/icons";
 import { Label } from "@frediverse/ui/label";
-import { Circle, Mic, MicOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useRemoteInput } from "../hooks/useRemoteInput";

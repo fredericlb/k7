@@ -4,8 +4,8 @@
 // recorder.
 
 import { Button } from "@frediverse/ui/button";
+import { Loader2, Mic } from "@frediverse/ui/icons";
 import { AUDIO_ACCEPT } from "@studio/mediatek/media";
-import { Loader2, Mic } from "lucide-react";
 import { useRef, useState } from "react";
 import { library } from "./api";
 

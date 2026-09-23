@@ -12,6 +12,21 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
+import {
+  AppWindow,
+  ArrowLeft,
+  Camera,
+  ChevronDown,
+  Folder,
+  LayoutGrid,
+  Loader2,
+  Lock,
+  type LucideIcon,
+  Pencil,
+  RefreshCw,
+  Save,
+  SlidersHorizontal,
+} from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { cn } from "@frediverse/ui/lib/utils";
 import {
@@ -46,21 +61,6 @@ import type {
   ModuleUiFile,
   PresetInfo,
 } from "@studio/web-protocol";
-import {
-  AppWindow,
-  ArrowLeft,
-  Camera,
-  ChevronDown,
-  Folder,
-  LayoutGrid,
-  Loader2,
-  Lock,
-  type LucideIcon,
-  Pencil,
-  RefreshCw,
-  Save,
-  SlidersHorizontal,
-} from "lucide-react";
 import {
   type ReactNode,
   useCallback,

@@ -3,7 +3,6 @@
 // mini transport the floating minimap carries. Apart from App.tsx so the shell reads as
 // wiring, not tables.
 
-import { useEngineState } from "@studio/engine-browser/store";
 import {
   AudioWaveform,
   Disc3,
@@ -17,7 +16,8 @@ import {
   ScrollText,
   SlidersVertical,
   Workflow,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { useEngineState } from "@studio/engine-browser/store";
 import { m } from "./paraglide/messages.js";
 import type { Pane, Panel } from "./routes";
 

@@ -5,10 +5,10 @@
 // See ../../docs/projects.md and packages/project-shell/docs/launch.md.
 
 import { Button } from "@frediverse/ui/button";
+import { FolderPlus, Loader2 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { projectApi } from "@studio/project-shell/project";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
-import { FolderPlus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { projectFolderName } from "./projectName";

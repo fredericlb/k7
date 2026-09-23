@@ -3,7 +3,7 @@
 // choices behind the two formats are in ../../../docs/export.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Download } from "lucide-react";
+import { Download } from "@frediverse/ui/icons";
 import { useState } from "react";
 import { type ExportKind, exportSongbook } from "../export/songbookZip";
 import type { Song } from "../types";

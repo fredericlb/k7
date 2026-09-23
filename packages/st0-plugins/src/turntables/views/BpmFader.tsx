@@ -2,6 +2,7 @@
 // song's own tempo. (A Technics puts + at the BOTTOM; this is a fader on a screen, not a
 // platter, so it follows the screen convention.) See ../../docs/bpm.md.
 
+import { Pencil } from "@frediverse/ui/icons";
 import { camelot, PITCH_CLASSES } from "@studio/audio-probe/key";
 import { BPM_RANGE, PITCH_RANGE } from "../deckVocabulary";
 
@@ -163,7 +164,7 @@ export function BpmFader({
           className="shrink-0 font-mono text-[8px] text-primary leading-none"
           title="the media library carries a corrected tempo for this song — it follows the record into every project"
         >
-          BPM ✎
+          BPM <Pencil className="size-2" />
         </span>
       ) : null}
 

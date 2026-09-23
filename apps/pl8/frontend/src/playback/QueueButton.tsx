@@ -8,7 +8,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
-import { ChevronDown, ChevronUp, ListVideo, X } from "lucide-react";
+import { ChevronDown, ChevronUp, ListVideo, X } from "@frediverse/ui/icons";
 import { usePlayback } from "./PlaybackProvider";
 
 /** The artist and album, which the path carries; empty for a song nobody filed. */

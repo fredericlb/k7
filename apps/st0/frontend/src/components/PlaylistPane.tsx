@@ -6,19 +6,6 @@
 
 import { Button } from "@frediverse/ui/button";
 import {
-  itemLabel,
-  itemProblem,
-  packSongDrag,
-  type ResolvedItem,
-  resolveItems,
-  SONG_DRAG_TYPE,
-  songMatches,
-  songRef,
-} from "@studio/mediatek/playlistItems";
-import type { MediatekEntry } from "@studio/mediatek/types";
-import { cfg } from "@studio/project-shell/fileApi";
-import type { PlaylistItem } from "@studio/song-schema/playlist";
-import {
   AudioLines,
   ChevronDown,
   ChevronUp,
@@ -33,7 +20,20 @@ import {
   Split,
   Square,
   X,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import {
+  itemLabel,
+  itemProblem,
+  packSongDrag,
+  type ResolvedItem,
+  resolveItems,
+  SONG_DRAG_TYPE,
+  songMatches,
+  songRef,
+} from "@studio/mediatek/playlistItems";
+import type { MediatekEntry } from "@studio/mediatek/types";
+import { cfg } from "@studio/project-shell/fileApi";
+import type { PlaylistItem } from "@studio/song-schema/playlist";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, mediatek } from "../api";
 import { desktop } from "../desktop";

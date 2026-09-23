@@ -21,7 +21,6 @@
     "@studio/ui-mini-player": "*",
     "@studio/ui-waveform": "*",
     "@studio/web-protocol": "*",
-    "lucide-react": "^1.24.0",
     "music-metadata": "^11.14.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

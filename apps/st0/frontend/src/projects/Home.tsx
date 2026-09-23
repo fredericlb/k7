@@ -5,17 +5,17 @@
 
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
-import { AskHost } from "@studio/project-shell/ask";
-import { AppSwitch } from "@studio/ui-app-switch";
-import type { MachineWorkspace, ShareSummary } from "@studio/web-protocol";
-import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
 import {
   RefreshCw,
   Server,
   ServerOff,
   SlidersHorizontal,
   Tablet,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { AskHost } from "@studio/project-shell/ask";
+import { AppSwitch } from "@studio/ui-app-switch";
+import type { MachineWorkspace, ShareSummary } from "@studio/web-protocol";
+import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, engines } from "../api";

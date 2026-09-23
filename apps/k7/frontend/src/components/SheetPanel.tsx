@@ -1,6 +1,6 @@
 import { Button } from "@frediverse/ui/button";
+import { Trash2 } from "@frediverse/ui/icons";
 import { sheetKind } from "@k7/shared/sheetKind";
-import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import type { SheetFile } from "../types";

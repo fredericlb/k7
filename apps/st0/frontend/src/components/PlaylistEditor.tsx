@@ -3,6 +3,7 @@
 // it describes. See ../docs/playlists.md.
 
 import { Button } from "@frediverse/ui/button";
+import { ArrowLeft, ListMusic, Loader2 } from "@frediverse/ui/icons";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import {
   appendPlaylistItem,
@@ -15,7 +16,6 @@ import {
 import type { Validity } from "@studio/song-schema/yaml/validate";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
-import { ArrowLeft, ListMusic, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, mediatek } from "../api";
 import { m } from "../paraglide/messages.js";

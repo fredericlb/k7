@@ -13,8 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { Loader2 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
-import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { droppedStem, projectFolderName } from "./projectName";

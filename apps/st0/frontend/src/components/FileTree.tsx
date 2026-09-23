@@ -10,9 +10,6 @@ import {
   type TreeAction,
   type TreeTarget,
 } from "@frediverse/ui/file-tree";
-import { cn } from "@frediverse/ui/lib/utils";
-import { MODULE_SOURCES_DIR } from "@studio/song-schema/moduleTypes";
-import type { ModuleLibrary } from "@studio/web-protocol";
 import {
   Boxes,
   File,
@@ -24,7 +21,10 @@ import {
   Play,
   Workflow,
   X,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { cn } from "@frediverse/ui/lib/utils";
+import { MODULE_SOURCES_DIR } from "@studio/song-schema/moduleTypes";
+import type { ModuleLibrary } from "@studio/web-protocol";
 import {
   type Ref,
   useEffect,

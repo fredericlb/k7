@@ -2,6 +2,7 @@
 // left, the chosen one drawn on the right by the same buildGraph → layout → DomChains pipeline
 // the project's own graph uses, with the same gestures. See docs/chainsBuilder.md.
 
+import { Loader2, Workflow, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { askText } from "@studio/project-shell/ask";
 import { projectApi } from "@studio/project-shell/project";
@@ -10,7 +11,6 @@ import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
 import { useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
-import { Loader2, Workflow, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { STUDIO_ICONS } from "../chainsIcons";
 import { m } from "../paraglide/messages.js";

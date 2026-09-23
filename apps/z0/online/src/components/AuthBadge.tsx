@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback } from "@frediverse/ui/avatar";
 import { Button } from "@frediverse/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut } from "@frediverse/ui/icons";
 import { logout, useAuth } from "../lib/auth";
 
 // Its own @frediverse/ui badge; z0-shared's terminal-styled one still backs the other five.

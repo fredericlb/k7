@@ -7,6 +7,7 @@
 // (AssetPicker). Both are "a nested catalogue, searchable" — the only difference is what
 // the tree is built from and what a pick hands back.
 
+import { ChevronRight } from "@frediverse/ui/icons";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 /** One row: a branch has `children`, a leaf has `entry`, and a row with neither is plain text — which is why both are optional. */
@@ -96,7 +97,7 @@ function Level<T>({
                     </span>
                   ) : null
                 ) : (
-                  <span className="shrink-0 text-muted-foreground">›</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                 )}
               </button>
               {open === n.key && n.children?.length ? (

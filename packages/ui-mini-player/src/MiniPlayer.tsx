@@ -4,8 +4,8 @@
 // See ../docs/miniPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
-import type { LucideIcon } from "lucide-react";
-import { Pause, Play, X } from "lucide-react";
+import type { LucideIcon } from "@frediverse/ui/icons";
+import { Pause, Play, X } from "@frediverse/ui/icons";
 import type { ReactNode } from "react";
 
 /** mm:ss — one clock, so two readings of one transport never disagree by a rounding. */

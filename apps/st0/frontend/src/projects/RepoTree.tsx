@@ -3,9 +3,6 @@
 // open. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
-import type { FileNode, MachineWorkspace } from "@studio/web-protocol";
-import type { ProjectApp } from "@studio/web-protocol/projects";
-import { sortNodes } from "@studio/web-protocol/tree";
 import {
   ArrowLeft,
   ChevronDown,
@@ -15,7 +12,10 @@ import {
   Folder,
   FolderGit2,
   Loader2,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import type { FileNode, MachineWorkspace } from "@studio/web-protocol";
+import type { ProjectApp } from "@studio/web-protocol/projects";
+import { sortNodes } from "@studio/web-protocol/tree";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 

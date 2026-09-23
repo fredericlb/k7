@@ -8,7 +8,7 @@
 // unmounted the moment somebody opens the graph and a set does not stop existing then.
 
 import { Button } from "@frediverse/ui/button";
-import { Headphones, Link2, Repeat, Undo2 } from "lucide-react";
+import { Headphones, Link2, Repeat, Undo2 } from "@frediverse/ui/icons";
 
 /** A deck's two MOMENTARY effects — held, never toggled. See ../../docs/fx.md.
  *

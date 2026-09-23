@@ -1,8 +1,6 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Calendar } from "@frediverse/ui/calendar";
-import { Tabs, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
-import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
 import {
   BrushCleaning,
   Check,
@@ -12,7 +10,9 @@ import {
   Plus,
   Star,
   Trash2,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { Tabs, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
+import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
 import { useState } from "react";
 import { SongbookExport } from "../components/SongbookExport";
 import { dayKey, dayKeyToDate, fmtDay, fmtTime } from "../format";

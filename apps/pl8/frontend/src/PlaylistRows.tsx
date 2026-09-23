@@ -3,6 +3,15 @@
 // hands it back — the buffer is the document, see ../docs/playlists.md.
 
 import { Button } from "@frediverse/ui/button";
+import {
+  ArrowDown,
+  ArrowUp,
+  ListPlus,
+  Play,
+  Plus,
+  Search,
+  X,
+} from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import {
   itemLabel,
@@ -12,15 +21,6 @@ import {
   songRef,
 } from "@studio/mediatek/playlistItems";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import {
-  ArrowDown,
-  ArrowUp,
-  ListPlus,
-  Play,
-  Plus,
-  Search,
-  X,
-} from "lucide-react";
 import { useMemo, useState } from "react";
 
 /** How many results the field shows: enough to recognise one, few enough not to become the screen. */

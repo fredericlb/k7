@@ -3,8 +3,8 @@
 // row because the next such setting should have somewhere to go — ../../docs/audio.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Minus, Plus, SlidersHorizontal } from "@frediverse/ui/icons";
 import { formatTranspose } from "@k7/score";
-import { Minus, Plus, SlidersHorizontal } from "lucide-react";
 
 interface Props {
   transpose: number;

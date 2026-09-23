@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@frediverse/ui/icons";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 

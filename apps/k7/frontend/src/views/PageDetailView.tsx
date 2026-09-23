@@ -1,7 +1,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
+import { Check, Copy, Download, Trash2 } from "@frediverse/ui/icons";
 import { pageVersion } from "@k7/shared/pageVersion";
-import { Check, Copy, Download, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { WaveformPlayer } from "../components/WaveformPlayer";
 import type { Page, Release, SongEnvelope } from "../types";

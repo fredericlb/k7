@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
-import { Check } from "lucide-react";
+import { Check } from "@frediverse/ui/icons";
 import { usePlayback } from "./PlaybackProvider";
 import {
   effectiveTarget,

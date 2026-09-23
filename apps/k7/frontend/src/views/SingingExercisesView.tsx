@@ -13,10 +13,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { ArrowLeft, Dices, Play, Plus } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { Textarea } from "@frediverse/ui/textarea";
 import { isYouTubeUrl } from "@k7/shared/youtube";
-import { ArrowLeft, Dices, Play, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { SingingExercise } from "../types";

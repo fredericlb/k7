@@ -5,6 +5,7 @@
 // cell is the roll's velocity gesture, restated for a button. Every commit is one note
 // command — one line, one Ctrl+Z — and the grid redraws from the reload it triggers.
 
+import { Grip } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { WebRackSound } from "@studio/graph-model";
 import {
@@ -491,7 +492,9 @@ export function SequencerPanel({
   return (
     <div className="flex h-full min-h-0 flex-col border-t-2 border-border">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1 text-xs">
-        <span className="font-semibold text-primary">⣿ {seqId}</span>
+        <span className="font-semibold text-primary">
+          <Grip className="h-3.5 w-3.5" /> {seqId}
+        </span>
         <span className="text-muted-foreground">
           {m["seq.counts"]({ sounds: rack.length, steps: cells.length })}
           {loop && (

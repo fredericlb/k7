@@ -1,6 +1,6 @@
 import { Button } from "@frediverse/ui/button";
+import { ArrowLeft, Mic, MicOff, Square } from "@frediverse/ui/icons";
 import { acquireMicrophone, describeMicError } from "@k7/recorder";
-import { ArrowLeft, Mic, MicOff, Square } from "lucide-react";
 import { PitchDetector } from "pitchy";
 import { useEffect, useRef, useState } from "react";
 import { freqToNote, GUITAR_STRINGS, nearestString } from "../utils/pitch";

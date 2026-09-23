@@ -6,8 +6,8 @@
 // See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Trash2 } from "@frediverse/ui/icons";
 import { askConfirm } from "@studio/project-shell/ask";
-import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 

@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import { Pencil } from "lucide-react";
+import { Pencil } from "@frediverse/ui/icons";
 import { libraryModuleRef } from "../libraryTree";
 
 export function EditSharedModuleDialog({

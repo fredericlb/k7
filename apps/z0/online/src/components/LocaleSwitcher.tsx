@@ -1,3 +1,4 @@
+import { Globe } from "@frediverse/ui/icons";
 import {
   Select,
   SelectContent,
@@ -5,7 +6,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@frediverse/ui/select";
-import { Globe } from "lucide-react";
 import { useLocale } from "../lib/i18n";
 
 // NOT in the catalogue: someone stuck in a language they cannot read must recognise their own.

@@ -4,7 +4,7 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { ArrowLeftRight, Download, Star, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Download, Star, Trash2 } from "@frediverse/ui/icons";
 import type { ReleaseVersion, SongEnvelope } from "../types";
 import { SwitchField } from "./SwitchField";
 import { WaveformPlayer } from "./WaveformPlayer";

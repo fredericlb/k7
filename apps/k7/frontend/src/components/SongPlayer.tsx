@@ -8,9 +8,9 @@
 // follow it. Why the bytes are in the médiathèque: ../../docs/audio.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Headphones, Pause, Play } from "@frediverse/ui/icons";
 import { Switch } from "@frediverse/ui/switch";
 import { Waveform } from "@k7/recorder";
-import { Headphones, Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { usePitchShift } from "../hooks/usePitchShift";

@@ -1,8 +1,8 @@
 import { Alert, AlertDescription } from "@frediverse/ui/alert";
 import { Button } from "@frediverse/ui/button";
 import { Card, CardContent } from "@frediverse/ui/card";
+import { Clock, Loader2 } from "@frediverse/ui/icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
-import { Clock, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LoadProgress, SessionRow } from "z0-shared/types";
 import { AuthBadge } from "./components/AuthBadge";

@@ -55,11 +55,12 @@
 .waveform-marker:hover {
   background: rgba(45, 212, 191, 1);
 }
-/* The glyph inside the bubble. Greyed and brightened to near-white, so it reads as a mark on the
- * teal rather than as a picture of a flag — at this size the emoji's own colours are mud. */
+/* The flag inside the bubble, near-white so it reads as a mark on the teal. */
 .waveform-marker-flag {
-  filter: grayscale(1) brightness(3);
   display: block;
+  width: 10px;
+  height: 10px;
+  color: #fff;
 }
 
 /* A window edge's grab zone — 12px straddling a 1.5px line, which is what a hand can actually

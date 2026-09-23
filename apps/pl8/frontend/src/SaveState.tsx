@@ -2,8 +2,8 @@
 // file is saved, and the reason out loud while it is not. Its own component because
 // "non enregistré" must read the same everywhere it can happen.
 
+import { Loader2 } from "@frediverse/ui/icons";
 import type { Autosave } from "@studio/ui-editor/autosave";
-import { Loader2 } from "lucide-react";
 
 const LABEL: Record<Autosave["status"], string> = {
   clean: "enregistré",

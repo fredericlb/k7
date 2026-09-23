@@ -3,7 +3,7 @@
 // from any other. A tree shows everything at once and costs a pane; in the global view the
 // pane is what we don't have. Same /api/tree the FileTree uses, so they can't disagree.
 
-import { ChevronDown, ChevronRight, Play } from "lucide-react";
+import { ChevronDown, ChevronRight, Play } from "@frediverse/ui/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FileNode } from "../types";
 

@@ -20,7 +20,7 @@ import {
   Settings,
   Star,
   Target,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
 import { useState } from "react";
 import type { NavKey, Song } from "../types";
 

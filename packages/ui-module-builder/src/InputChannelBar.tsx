@@ -11,8 +11,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
+import { ChevronDown, Mic } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
-import { ChevronDown, Mic } from "lucide-react";
 import { useMemo, useState } from "react";
 
 /** One input the engine can route from, as it GROUPS its channels. Mirrors EngineInputDevice. */
