@@ -16,6 +16,10 @@ session, so it hangs under it (`recordings.md`). **Publications** holds releases
 pages that list them (`pages.md`). Fewer entries is what keeps the bar from folding on a tablet
 held upright. The old list addresses (`/moments`, `/pages`) still land on their entry.
 
+**Settings is a page reached from a control**, the gear in the actions, and not a fifth entry:
+the bar would fold sooner for a screen opened rarely. On `/settings` the gear is what is filled,
+and no entry is.
+
 The icons stay all the same, because an entry that is named **and** carries a glyph is found
 faster than one that is only named.
 

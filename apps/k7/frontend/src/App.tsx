@@ -82,13 +82,15 @@ function isSongPage(pathname: string): boolean {
 }
 
 // Derive which nav item is highlighted from the current pathname.
-function navForPath(pathname: string): NavKey {
+function navForPath(pathname: string): NavKey | "settings" {
   const seg = pathname.split("/")[1] ?? "";
   // Releases and pages are the two tabs of one entry, detail screens included.
   if (seg === "releases" || seg === "pages") return "publications";
   if (seg === "songs") return "songbook";
   if (seg === "exercices") return "exercices";
-  // sessions, moments, record, settings, and everything else fall back to Recordings.
+  // Not an entry: the gear in the bar's actions lights up instead.
+  if (seg === "settings") return "settings";
+  // sessions, moments, record, and everything else fall back to Recordings.
   return "recordings";
 }
 

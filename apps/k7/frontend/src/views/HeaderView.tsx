@@ -25,7 +25,8 @@ import { useState } from "react";
 import type { NavKey, Song } from "../types";
 
 interface Props {
-  activeNav: NavKey;
+  /** An entry, or "settings" — the one page reached from a control rather than an entry. */
+  activeNav: NavKey | "settings";
   favorites: Song[];
   onHome: () => void;
   onNav: (tab: NavKey) => void;
@@ -132,11 +133,12 @@ export function HeaderView({
           )}
 
           <Button
-            variant="ghost"
+            variant={activeNav === "settings" ? "secondary" : "ghost"}
             size="sm"
             onClick={onOpenSettings}
             title="Settings"
             aria-label="Settings"
+            aria-current={activeNav === "settings" ? "page" : undefined}
           >
             <Settings className="size-4" />
           </Button>
