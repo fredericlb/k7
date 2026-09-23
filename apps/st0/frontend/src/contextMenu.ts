@@ -13,7 +13,14 @@ export type MenuCtx =
   | { kind: "track"; id: string }
   | { kind: "group"; id: string }
   // A 'block' in the graph: `missing` is no file, no plugin and no param; `ambient` is the ENGINE's, and can be given a folder.
-  | { kind: "module"; id: string; missing?: boolean; ambient?: boolean }
+  // `model`: it names a model this machine has not got, and its module's `model_url` says where to fetch it.
+  | {
+      kind: "module";
+      id: string;
+      missing?: boolean;
+      ambient?: boolean;
+      model?: boolean;
+    }
   // A placed clip — `track` + `tc` say WHICH placement, and `sel` is the RECTANGLE the click landed in, which the range verbs need.
   | {
       kind: "clip";
@@ -334,6 +341,17 @@ export function contextMenu(
       if (ctx.missing)
         return offer(own.filter((e) => SURVIVES_MISSING.has(e.verb)));
       return offer([
+        // FIRST when it applies: nothing else on this node can work until the model is here.
+        ...(ctx.model
+          ? [
+              {
+                verb: "ui model",
+                arg: ctx.id,
+                name: "Download model",
+                help: "download the model this module needs onto this machine, from its model_url",
+              },
+            ]
+          : []),
         ...own,
         // A module the engine merely reports IS a base-module ref, which `module own` takes; with no file anywhere, it replaces `ui file`.
         ...(ctx.ambient

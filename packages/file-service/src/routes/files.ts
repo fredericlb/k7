@@ -21,6 +21,7 @@ import { NEEDS_META } from "@studio/take-render/render";
 import express, { Router } from "express";
 import { z } from "zod";
 import { guard } from "../background.ts";
+import { startModelDownload } from "../modelDownloads.ts";
 import {
   applyClientProject,
   enginePreview,
@@ -97,6 +98,31 @@ filesRouter.get(
   "/module-libraries",
   wrap((req, res) => {
     res.json({ libraries: req.ws!.moduleLibraries() });
+  }),
+);
+
+/**
+ * Fetch the model a NODE of the open project names and this machine has not got — the right-click's
+ * "Download model". The URL is the module's `model_url`, never the caller's; the job is polled at
+ * `GET /account/models/:id`. `job: null` is "already here", so a stale menu costs nothing.
+ */
+filesRouter.post(
+  "/models/download",
+  validate(z.object({ node: z.string().min(1) })),
+  wrap((req, res) => {
+    const { node } = req.body as { node: string };
+    let need: ReturnType<NonNullable<typeof req.ws>["missingModelOf"]>;
+    try {
+      need = req.ws!.missingModelOf(node);
+    } catch (e) {
+      return res.status(404).json({ error: (e as Error).message });
+    }
+    if (!need) return res.json({ job: null });
+    if (!need.url)
+      return res.status(400).json({
+        error: `'${node}' needs the model '${need.file}' and its module gives no model_url to fetch it from`,
+      });
+    res.json({ job: startModelDownload(need.file, need.url) });
   }),
 );
 

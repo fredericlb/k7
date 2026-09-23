@@ -415,6 +415,22 @@ describe("a module node", () => {
     expect(l.join(" ")).not.toContain("ui file");
   });
 
+  it("offers Download model FIRST when the node's model can be fetched, and only then", () => {
+    // Nothing else on the node can work until the file is here; `model` is set only when a model_url says where it lives.
+    const items = contextMenu(
+      { kind: "module", id: "split", model: true },
+      CATALOGUE,
+    );
+    expect(items[0]).toMatchObject({
+      label: "Download model",
+      command: "ui model split",
+      complete: true,
+    });
+    expect(
+      lines(contextMenu({ kind: "module", id: "split" }, CATALOGUE)),
+    ).not.toContain("ui model split");
+  });
+
   it("shrinks to the verbs that survive a DANGLING node", () => {
     // A name nothing answers to: these touch graph.yaml alone, and `node replace` is not among them.
     expect(

@@ -304,7 +304,12 @@ describe("a chain that separates", () => {
       stemChain();
       // `live/vocal-strip` is the fixture's EQ chain: it treats, so it could never separate.
       expect(coldChains(dir)).toEqual([
-        { ref: "@st0/tools/stems", instrumental: false, unavailable: null },
+        {
+          ref: "@st0/tools/stems",
+          instrumental: false,
+          unavailable: null,
+          downloads: [],
+        },
       ]);
     });
 
@@ -321,6 +326,23 @@ describe("a chain that separates", () => {
       expect(c.unavailable).toMatch(
         /wants the model 'htdemucs\.onnx', which is not on this machine/,
       );
+    });
+
+    it("says where to DOWNLOAD a missing model, when the module gives a model_url", () => {
+      stemChain({ model: false });
+      // Nothing to offer without one: the machine cannot guess where 166 MB lives.
+      expect(coldChains(dir)[0].downloads).toEqual([]);
+      put(
+        library,
+        "modules/audio/stemsplit/module.yaml",
+        "cold: true\nplugin: { type: offline, name: Stem Split }\nparams:\n  onnx: htdemucs.onnx\nmodel_url: https://models.example/htdemucs.onnx\n",
+      );
+      expect(coldChains(dir)[0].downloads).toEqual([
+        { file: "htdemucs.onnx", url: "https://models.example/htdemucs.onnx" },
+      ]);
+      // …and nothing to download once it is here.
+      stemChain();
+      expect(coldChains(dir)[0].downloads).toEqual([]);
     });
 
     it("marks the one whose step writes an instrumental", () => {
@@ -346,8 +368,18 @@ describe("a chain that separates", () => {
         'extends: "@st0/audio/vocalless"\n',
       );
       expect(coldChains(dir)).toEqual([
-        { ref: "@st0/tools/karaoke", instrumental: true, unavailable: null },
-        { ref: "@st0/tools/stems", instrumental: false, unavailable: null },
+        {
+          ref: "@st0/tools/karaoke",
+          instrumental: true,
+          unavailable: null,
+          downloads: [],
+        },
+        {
+          ref: "@st0/tools/stems",
+          instrumental: false,
+          unavailable: null,
+          downloads: [],
+        },
       ]);
     });
   });

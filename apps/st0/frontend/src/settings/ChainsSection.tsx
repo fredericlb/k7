@@ -7,6 +7,7 @@
 import type { ColdChainsReply } from "@studio/web-protocol";
 import { useEffect, useState } from "react";
 import { parts } from "../i18nParts";
+import { describeDownload, followDownload } from "../modelDownload";
 import { m } from "../paraglide/messages.js";
 import { engineMachine, type Machine } from "../projects/api";
 import { probeMachine } from "./machine";
@@ -14,6 +15,14 @@ import { Section } from "./Section";
 
 type Which = "stems" | "instrumental";
 type Chain = ColdChainsReply["chains"][number];
+
+/** A download started from this section: which chain it is for, the line to show, and whether it still runs. */
+interface Fetching {
+  ref: string;
+  text: string;
+  running: boolean;
+  failed: boolean;
+}
 
 function ChainPicker({
   label,
@@ -23,6 +32,8 @@ function ChainPicker({
   options,
   disabled,
   onChoose,
+  fetching,
+  onDownload,
 }: {
   label: string;
   /** What the empty option reads as — "this machine does not do that at all", which is a real state. */
@@ -32,15 +43,25 @@ function ChainPicker({
   options: Chain[];
   disabled: boolean;
   onChoose: (ref: string) => void;
+  /** A download under way or just ended, when it is for a chain of this picker. */
+  fetching: Fetching | null;
+  /** Fetch the chosen chain's missing models from their modules' `model_url`. */
+  onDownload: (ref: string) => void;
 }) {
   // What is stored, even when the library no longer holds it: a renamed chain must not read as "nothing is set".
   const known = options.some((c) => c.ref === value);
   const shown: Chain[] =
     !value || known
       ? options
-      : [{ ref: value, instrumental: false, unavailable: null }, ...options];
+      : [
+          { ref: value, instrumental: false, unavailable: null, downloads: [] },
+          ...options,
+        ];
   // Said under the picker, for the one CHOSEN: a machine without the model is fixed on the machine, not here.
-  const why = options.find((c) => c.ref === value)?.unavailable;
+  const chosen = options.find((c) => c.ref === value);
+  const why = chosen?.unavailable;
+  // …and fixed FROM here when its module says where the model lives.
+  const mine = fetching && fetching.ref === value ? fetching : null;
   return (
     <div className="flex flex-col gap-1.5 px-4 py-2.5">
       <select
@@ -64,6 +85,24 @@ function ChainPicker({
           {m["settings.chains.unavailable"]({ reason: why })}
         </p>
       )}
+      {chosen?.downloads.length && !mine?.running ? (
+        <button
+          type="button"
+          onClick={() => onDownload(chosen.ref)}
+          className="self-start text-sky-400 text-xs underline hover:text-sky-300"
+        >
+          {m["settings.chains.download"]({
+            file: chosen.downloads.map((d) => d.file).join(", "),
+          })}
+        </button>
+      ) : null}
+      {mine && (
+        <p
+          className={`text-xs ${mine.failed ? "text-red-400" : "text-neutral-400"}`}
+        >
+          {mine.text}
+        </p>
+      )}
       <p className="text-neutral-500 text-xs">{body}</p>
     </div>
   );
@@ -74,6 +113,7 @@ export function ChainsSection() {
   const [view, setView] = useState<ColdChainsReply | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fetching, setFetching] = useState<Fetching | null>(null);
 
   useEffect(() => {
     void probeMachine().then((mc) => {
@@ -96,6 +136,30 @@ export function ChainsSection() {
       .then(setView)
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
+  };
+
+  /** Fetch every model the chain is missing, one after the other, then re-read the list — which is what turns it usable. */
+  const download = (ref: string) => {
+    if (!machine) return;
+    const say = (text: string, running: boolean, failed = false) =>
+      setFetching({ ref, text, running, failed });
+    say("…", true);
+    void (async () => {
+      try {
+        const jobs = await engineMachine.downloadChainModels(machine, ref);
+        for (const job of jobs) {
+          const end = await followDownload(
+            job,
+            (id) => engineMachine.modelDownload(machine, id),
+            (j) => say(describeDownload(j), !j.done, !!j.error),
+          );
+          if (end.error) return;
+        }
+        setView(await engineMachine.coldChains(machine));
+      } catch (e) {
+        say((e as Error).message, false, true);
+      }
+    })();
   };
 
   const chains = view?.chains ?? [];
@@ -121,6 +185,8 @@ export function ChainsSection() {
             options={chains}
             disabled={!view || busy}
             onChoose={(ref) => choose("stems", ref)}
+            fetching={fetching}
+            onDownload={download}
           />
           <div className="px-4 pt-2.5 text-[10px] text-neutral-500 uppercase tracking-wide">
             {m["instrumental.title"]()}
@@ -134,6 +200,8 @@ export function ChainsSection() {
             options={chains.filter((c) => c.instrumental)}
             disabled={!view || busy}
             onChoose={(ref) => choose("instrumental", ref)}
+            fetching={fetching}
+            onDownload={download}
           />
           {/* An empty list is a real state — a library with no cold chain yet — and reads as a broken screen unless it says so. */}
           {view && chains.length === 0 && (

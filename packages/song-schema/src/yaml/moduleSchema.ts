@@ -240,6 +240,12 @@ const MODULE_FIELDS = {
   rack: RackSchema.optional(),
   // A COLD module needs the whole of its input before it can produce any of it — see docs/coldModules.md.
   cold: z.boolean().optional(),
+  // Where the MODEL a file-valued param names (`onnx:`, `nam:`) can be downloaded from, when this machine has not got
+  // it — a URL, never a path. Inherited like any key; see packages/song/docs/moduleAssets.md.
+  model_url: z
+    .string()
+    .regex(/^https?:\/\/\S+$/, "model_url is an http(s) URL")
+    .optional(),
   // An io "in" module says WHICH interface input it is, and nothing about where the signal goes.
   channel: InputSchema.optional(),
   // …and an io "camera" module WHICH camera, by the LABEL a person reads: a deviceId is per

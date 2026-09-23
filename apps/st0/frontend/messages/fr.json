@@ -369,6 +369,7 @@
   "settings.chains.noCold": "Votre dépôt de bibliothèques ne contient aucune chaîne froide — une chaîne dont l'unique pas est un module hors ligne qui sépare. Écrivez-en une sous {dir}.",
   "settings.chains.unavailableTag": "pas encore utilisable ici",
   "settings.chains.unavailable": "Cette machine ne peut pas encore l'exécuter : {reason}",
+  "settings.chains.download": "Télécharger le modèle ({file})",
   "settings.chains.noMachine": "Aucune machine ne répond — démarrez le moteur sur la machine où ces chaînes tournent.",
   "settings.commandsHint": "Commandes — renommer, réordonner, relier une touche",
   "icons.search": "chercher une icône…",

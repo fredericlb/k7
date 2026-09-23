@@ -41,6 +41,7 @@
     "./engineFace": "./src/engineFace.ts",
     "./mediatekRoot": "./src/mediatekRoot.ts",
     "./studioHome": "./src/studioHome.ts",
+    "./modelCache": "./src/modelCache.ts",
     "./mediatekRefs": "./src/mediatekRefs.ts",
     "./surfaces": "./src/surfaces.ts",
     "./assemblies": "./src/assemblies.ts",

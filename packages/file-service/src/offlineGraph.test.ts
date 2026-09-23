@@ -67,3 +67,41 @@ describe("an offline module in the graph", () => {
     expect(lead()?.params).toMatchObject({ "Target BPM": 0 });
   });
 });
+
+// The right-click's "Download model": offered on a node whose model is missing AND whose module says where it lives.
+describe("a module that needs a model", () => {
+  let models: string;
+  const needsModel = (extra: string) =>
+    writeFileSync(
+      join(root, "_modules", "instruments", "synth", "module.yaml"),
+      `cold: true\nplugin:\n  type: offline\n  name: Stem Split\nparams:\n  onnx: htdemucs.onnx\n${extra}`,
+      "utf8",
+    );
+  beforeEach(() => {
+    models = join(root, "models");
+    mkdirSync(models, { recursive: true });
+    process.env.STUDIO_MODELS = models;
+  });
+  afterEach(() => {
+    delete process.env.STUDIO_MODELS;
+  });
+
+  it("carries what to download, when the model is missing and model_url says where", () => {
+    needsModel("model_url: https://models.example/htdemucs.onnx\n");
+    expect(lead()?.modelDownload).toEqual({
+      file: "htdemucs.onnx",
+      url: "https://models.example/htdemucs.onnx",
+    });
+  });
+
+  it("carries nothing without a model_url — there is nothing to offer", () => {
+    needsModel("");
+    expect(lead()?.modelDownload).toBeUndefined();
+  });
+
+  it("carries nothing once the model is on the machine", () => {
+    needsModel("model_url: https://models.example/htdemucs.onnx\n");
+    writeFileSync(join(models, "htdemucs.onnx"), "a model");
+    expect(lead()?.modelDownload).toBeUndefined();
+  });
+});

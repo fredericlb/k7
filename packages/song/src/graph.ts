@@ -212,8 +212,12 @@ export interface Module {
   emits?: "audio" | "midi" | "video";
   // The file a file-valued param names, resolved to an ABSOLUTE path for the engine, or undefined when assets/ lacks it.
   nam?: string;
+  // …the same for the neural MODEL an offline module runs, resolved against its assets/ then the machine's cache.
+  onnx?: string;
   // …and what the module SAYS, per param: the short assets-relative name; the two disagreeing is how a dangling ref is spotted.
   assets?: Record<string, string>;
+  // Where that model can be downloaded from when the machine has not got it — docs/moduleAssets.md.
+  model_url?: string;
   // io: "file" only — the audio file this source reads, project-relative; absent in a chain TEMPLATE.
   source?: string;
   // io: "in" only — a live interface input, as DECLARED rather than resolved; see docs/graphModel.md.
@@ -505,7 +509,11 @@ export function buildGraph(
     emits: moduleEmits(b?.category, b?.io, normalizeOutputs(b?.outputs)),
     // Both halves of every file-valued param, because validate() needs the pair (docs/graphModel.md).
     nam: b?.nam,
+    onnx: b?.onnx,
     assets: b?.assets,
+    // Inherited like `plugin`, so a node of a module that says where its model lives says so too.
+    model_url:
+      typeof b?.model_url === "string" && b.model_url ? b.model_url : undefined,
     source: typeof b?.source === "string" && b.source ? b.source : undefined,
     channel: normInput(b?.channel),
     monitor: normMonitor(b?.monitor),

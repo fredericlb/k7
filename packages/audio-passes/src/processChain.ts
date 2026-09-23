@@ -26,6 +26,7 @@ import {
 import { CHAINS_FILE, NODES_DIR } from "@studio/mediatek/types";
 import { chainSteps } from "@studio/song/chainsGraph";
 import { loadModuleRefs } from "@studio/song/loader";
+import { type MissingModel, missingModel } from "@studio/song/modelCache";
 import { resolveModule } from "@studio/song/moduleResolve";
 import type { PluginDoc, ProjectDoc } from "@studio/song/project";
 import { MIXER_PLUGIN } from "@studio/song/project";
@@ -167,15 +168,19 @@ function mediatekChain(
   missing: string[];
   /** How many steps the graph names — what tells "every step is offline" from "some are". */
   steps: number;
-  /** Each OFFLINE step and what it declares it writes, known whether or not this machine has its model. */
-  offline: { step: string; outputs: string[] }[];
+  /** Each OFFLINE step, what it declares it writes, and the model it names that this machine has not got. */
+  offline: { step: string; outputs: string[]; model: MissingModel | null }[];
 } {
   const steps = chainSteps(readFileSync(join(abs, CHAINS_FILE), "utf8"));
   const byRef = loadModuleRefs(dir);
   const plugins: PluginDoc[] = [];
   const cold: ColdStep[] = [];
   const missing: string[] = [];
-  const offline: { step: string; outputs: string[] }[] = [];
+  const offline: {
+    step: string;
+    outputs: string[];
+    model: MissingModel | null;
+  }[] = [];
 
   for (const step of steps) {
     const file = join(abs, NODES_DIR, `${step}.yaml`);
@@ -196,7 +201,7 @@ function mediatekChain(
       } catch {
         /* a module naming outputs no separation writes — coldStepOf says so, below */
       }
-      offline.push({ step, outputs });
+      offline.push({ step, outputs, model: missingModel(m) });
       try {
         cold.push(coldStepOf(step, m));
       } catch (e) {
@@ -239,6 +244,8 @@ export interface ColdChain {
   instrumental: boolean;
   /** Why THIS machine cannot run it yet — its model not downloaded, a module not in its cache — or null when it can. */
   unavailable: string | null;
+  /** The models it needs and this machine has not got, that a `model_url` says where to fetch — empty when none. */
+  downloads: { file: string; url: string }[];
 }
 
 /**
@@ -264,6 +271,9 @@ export function coldChains(dir: string): ColdChain[] {
       ref: `${MEDIATEK_CHAIN}${c.ref}`,
       instrumental: chain.offline.some((s) => s.outputs.includes(INSTRUMENTAL)),
       unavailable: chain.missing.length ? chain.missing.join("; ") : null,
+      downloads: chain.offline.flatMap((s) =>
+        s.model?.url ? [{ file: s.model.file, url: s.model.url }] : [],
+      ),
     });
   }
   return out.sort((a, b) => a.ref.localeCompare(b.ref));

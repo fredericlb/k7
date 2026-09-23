@@ -141,7 +141,7 @@ export interface SinkPlay {
 
 export type GraphMenuCtx =
   | { kind: "track"; id: string }
-  | { kind: "module"; id: string; missing?: boolean }
+  | { kind: "module"; id: string; missing?: boolean; model?: boolean }
   | { kind: "chain"; id: string }
   | { kind: "sink"; id: string }
   // A BOX right-clicked: the instance, and the template behind it — a host may offer either.
@@ -2250,7 +2250,13 @@ function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
       return { kind: "track", id: n.label };
     case "module":
       return n.module
-        ? { kind: "module", id: n.module, missing: n.missing }
+        ? {
+            kind: "module",
+            id: n.module,
+            missing: n.missing,
+            // Its model can be fetched: the menu grows "Download model".
+            ...(n.modelDownload ? { model: true } : {}),
+          }
         : null;
     case "chain":
       return { kind: "chain", id: n.chain ?? n.label };
