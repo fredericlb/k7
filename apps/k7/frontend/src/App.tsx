@@ -1,3 +1,4 @@
+import { X } from "@frediverse/ui/icons";
 import { acquireMicrophone, RecorderView } from "@k7/recorder";
 import { useEffect, useState } from "react";
 import {
@@ -164,6 +165,16 @@ export default function App() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [moments, setMoments] = useState<Moment[]>([]);
   const [recording, setRecording] = useState<RecordingCtx | null>(null);
+  // The running take drawn in its pop-in; false collapses it to the bottom bar.
+  const [recOpen, setRecOpen] = useState(false);
+  useEffect(() => {
+    if (!recOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) setRecOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [recOpen]);
   // "New session" source chooser (this device's mic vs. a remote device).
   const [sourceOpen, setSourceOpen] = useState(false);
   const [remoteAvailable, setRemoteAvailable] = useState<boolean | null>(null);
@@ -239,7 +250,7 @@ export default function App() {
   const handleStartSession = async () => {
     // Only one recording at a time — bring the user back to the active one.
     if (recording) {
-      navigate("/record");
+      setRecOpen(true);
       throw new Error("Finish the current recording first.");
     }
     // Ask where the audio should come from; the effect above probes while this is open.
@@ -259,7 +270,7 @@ export default function App() {
     setRecording({ session: s, stream, rtc });
     setSourceOpen(false);
     // A take started on a song stays there, collapsed to the bar — ../../docs/audio.md.
-    if (!isSongPage(location.pathname)) navigate("/record");
+    setRecOpen(!isSongPage(location.pathname));
   };
 
   const startLocalSession = async () => {
@@ -295,7 +306,7 @@ export default function App() {
 
   const handleResumeSession = async (session: Session) => {
     if (recording) {
-      navigate("/record");
+      setRecOpen(true);
       alert("Finish the current recording first.");
       return;
     }
@@ -311,7 +322,7 @@ export default function App() {
       resumeFrom: fresh.duration,
       baseEnvelope,
     });
-    navigate("/record");
+    setRecOpen(true);
   };
 
   const handleDeleteSession = async (id: string) => {
@@ -411,8 +422,8 @@ export default function App() {
 
   const activeNav = navForPath(location.pathname);
 
-  // A running take collapses to a fixed bottom bar anywhere but the full record view.
-  const recMinimized = recording != null && location.pathname !== "/record";
+  // A running take collapses to a fixed bottom bar whenever its pop-in is closed.
+  const recMinimized = recording != null && !recOpen;
 
   return (
     <div className="app">
@@ -620,32 +631,52 @@ export default function App() {
               }
             />
 
-            {/* `/record` renders nothing here: the recorder is mounted below, outside the router. */}
-            <Route
-              path="/record"
-              element={recording ? null : <Navigate to="/sessions" replace />}
-            />
             <Route path="*" element={<Navigate to="/sessions" replace />} />
           </Routes>
 
-          {/* The active recorder, rendered once at a STABLE position so it survives navigation. */}
+          {/* The active recorder, at a STABLE position: the pop-in is two class swaps, never a re-parent — ../../docs/audio.md. */}
           {recording && (
-            <RecorderView
-              key="active-recorder"
-              session={recording.session}
-              stream={recording.stream}
-              allTags={allTags}
-              baseEnvelope={recording.baseEnvelope}
-              minimized={recMinimized}
-              onExpand={() => navigate("/record")}
-              onSave={handleSaveRecording}
-              onDiscard={() => {
-                recording.rtc?.close();
-                setRecording(null);
-                refresh();
-                navigate("/sessions");
+            <div
+              className={recOpen ? "rec-popin-backdrop" : "rec-dock"}
+              onClick={(e) => {
+                if (recOpen && e.target === e.currentTarget) setRecOpen(false);
               }}
-            />
+            >
+              <div
+                className={recOpen ? "rec-popin" : "rec-dock"}
+                role={recOpen ? "dialog" : undefined}
+                aria-modal={recOpen || undefined}
+                aria-label={recOpen ? "Recording" : undefined}
+              >
+                {recOpen && (
+                  <button
+                    type="button"
+                    className="rec-popin-close"
+                    onClick={() => setRecOpen(false)}
+                    title="Collapse to the bar — the take keeps recording"
+                    aria-label="Collapse"
+                  >
+                    <X className="size-4" />
+                  </button>
+                )}
+                <RecorderView
+                  key="active-recorder"
+                  session={recording.session}
+                  stream={recording.stream}
+                  allTags={allTags}
+                  baseEnvelope={recording.baseEnvelope}
+                  minimized={recMinimized}
+                  onExpand={() => setRecOpen(true)}
+                  onSave={handleSaveRecording}
+                  onDiscard={() => {
+                    recording.rtc?.close();
+                    setRecording(null);
+                    refresh();
+                    navigate("/sessions");
+                  }}
+                />
+              </div>
+            </div>
           )}
         </div>
       </main>

@@ -1,4 +1,5 @@
 import { Button } from "@frediverse/ui/button";
+import { Pause, Play } from "@frediverse/ui/icons";
 import { useEffect, useRef, useState } from "react";
 import { fmtTime } from "./format";
 
@@ -127,7 +128,7 @@ export function MomentPlayer({ src, samples, intervalMs }: Props) {
         onClick={toggle}
         aria-label={playing ? "Pause" : "Play"}
       >
-        {playing ? "⏸" : "▶"}
+        {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
       </Button>
       <div ref={wrapRef} className="moment-wave">
         <canvas

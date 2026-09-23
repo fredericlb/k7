@@ -1,6 +1,18 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
+import {
+  ChevronRight,
+  Circle,
+  Diamond,
+  Drum,
+  Mic,
+  MicOff,
+  Pause,
+  Play,
+  Sparkles,
+  Square,
+} from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { detectEvents } from "./detect";
@@ -377,7 +389,9 @@ export function RecorderView({
           {rec.isPaused ? (
             <Badge variant="amber">paused</Badge>
           ) : (
-            <Badge variant="rec">● rec</Badge>
+            <Badge variant="rec">
+              <Circle className="size-2.5 fill-current" /> rec
+            </Badge>
           )}
           <span className="tabular">
             {fmtTime(displayOffset + rec.elapsed)}
@@ -404,12 +418,15 @@ export function RecorderView({
 
         <div className="rec-bar-meta">
           <span title="Detected moments so far">
-            ◆ {highlights.length} moment{highlights.length === 1 ? "" : "s"}
+            <Diamond className="size-3" /> {highlights.length} moment
+            {highlights.length === 1 ? "" : "s"}
           </span>
           {pending.length > 0 && (
             <span className="muted small">{pending.length} tagged</span>
           )}
-          <span className="ghost small rec-bar-open">Open ▸</span>
+          <span className="ghost small rec-bar-open">
+            Open <ChevronRight className="size-3.5" />
+          </span>
         </div>
       </div>
     );
@@ -418,7 +435,11 @@ export function RecorderView({
   return (
     <Card className="recorder">
       <h2>{sessionTitle(session.createdAt)}</h2>
-      {rec.error && <p className="error">🎤 {rec.error}</p>}
+      {rec.error && (
+        <p className="error">
+          <MicOff className="size-3.5" /> {rec.error}
+        </p>
+      )}
       {uploadErr && <p className="error">Upload failed: {uploadErr}</p>}
 
       {/* A hidden preview player, kept mounted so its Web Audio gain node stays wired. */}
@@ -441,7 +462,8 @@ export function RecorderView({
       {rec.status === "idle" &&
         (autoStarting && !rec.error ? (
           <p className="muted">
-            🎤 Starting recording… allow microphone access if prompted.
+            <Mic className="size-4" /> Starting recording… allow microphone
+            access if prompted.
           </p>
         ) : (
           <>
@@ -451,7 +473,9 @@ export function RecorderView({
               resume.
             </p>
             <div className="row">
-              <Button onClick={() => rec.start()}>● Start recording</Button>
+              <Button onClick={() => rec.start()}>
+                <Circle className="size-2.5 fill-current" /> Start recording
+              </Button>
               <Button variant="outline" onClick={onDiscard}>
                 Cancel
               </Button>
@@ -479,7 +503,9 @@ export function RecorderView({
             {rec.isPaused ? (
               <Badge variant="amber">paused</Badge>
             ) : (
-              <Badge variant="rec">● rec</Badge>
+              <Badge variant="rec">
+                <Circle className="size-2.5 fill-current" /> rec
+              </Badge>
             )}
           </div>
 
@@ -491,7 +517,15 @@ export function RecorderView({
               variant={metronome ? "default" : "outline"}
               onClick={toggleMetronome}
             >
-              {metronome ? `⏹ Metronome ${metronome.bpm} BPM` : "🥁 Metronome"}
+              {metronome ? (
+                <>
+                  <Square className="size-4" /> Metronome {metronome.bpm} BPM
+                </>
+              ) : (
+                <>
+                  <Drum className="size-4" /> Metronome
+                </>
+              )}
             </Button>
           </div>
 
@@ -509,7 +543,7 @@ export function RecorderView({
           )}
 
           <h3>
-            🟢 Highlights{" "}
+            <Sparkles className="size-4" /> Highlights{" "}
             <span className="muted small">({highlights.length})</span>
           </h3>
           {highlights.length === 0 && (
@@ -537,7 +571,9 @@ export function RecorderView({
                       </Badge>
                     )}
                   </span>
-                  <span className="muted small">⏸ listen &amp; tag</span>
+                  <span className="muted small">
+                    <Pause className="size-3" /> listen &amp; tag
+                  </span>
                 </li>
               );
             })}
@@ -551,7 +587,15 @@ export function RecorderView({
               </h3>
               <div className="row playback-controls">
                 <Button onClick={togglePreview}>
-                  {previewPlaying ? "⏸ Pause" : "▶ Play"}
+                  {previewPlaying ? (
+                    <>
+                      <Pause className="size-4" /> Pause
+                    </>
+                  ) : (
+                    <>
+                      <Play className="size-4" /> Play
+                    </>
+                  )}
                 </Button>
                 <span className="muted small tabular">
                   {fmtTime(previewTime)}
@@ -596,11 +640,13 @@ export function RecorderView({
           <div className="row" style={{ marginTop: 12 }}>
             {rec.isRecording && !reviewing && (
               <Button variant="outline" onClick={rec.pause}>
-                ⏸ Pause
+                <Pause className="size-4" /> Pause
               </Button>
             )}
             {reviewing && (
-              <Button onClick={resumeRecording}>● Resume recording</Button>
+              <Button onClick={resumeRecording}>
+                <Circle className="size-2.5 fill-current" /> Resume recording
+              </Button>
             )}
             <Button
               variant="destructive"
@@ -620,7 +666,13 @@ export function RecorderView({
                 style={{ width: `${holdProgress * 100}%` }}
               />
               <span className="hold-label">
-                {holdProgress > 0 ? "Hold to stop…" : "■ Stop & save"}
+                {holdProgress > 0 ? (
+                  "Hold to stop…"
+                ) : (
+                  <>
+                    <Square className="size-4" /> Stop &amp; save
+                  </>
+                )}
               </span>
             </Button>
             <span className="muted small">or hold space</span>

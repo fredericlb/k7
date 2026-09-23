@@ -1,4 +1,5 @@
 import { Badge } from "@frediverse/ui/badge";
+import { X } from "@frediverse/ui/icons";
 import { useRef, useState } from "react";
 
 interface Props {
@@ -70,7 +71,7 @@ export function TagInput({
               onClick={() => remove(t)}
               aria-label={`Remove ${t}`}
             >
-              ×
+              <X className="size-3" />
             </button>
           </Badge>
         ))}
