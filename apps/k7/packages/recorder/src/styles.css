@@ -320,3 +320,25 @@
 .rec-bar-open {
   color: var(--accent);
 }
+
+/* The recorder's header: the session's title, then the tempo, the metronome and the host's controls. */
+.recorder-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.recorder-head h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.recorder-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.recorder-head .recorder-bpm {
+  width: 72px;
+  height: 28px;
+  font-variant-numeric: tabular-nums;
+}

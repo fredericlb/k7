@@ -1,4 +1,4 @@
-import { X } from "@frediverse/ui/icons";
+import { ChevronDown } from "@frediverse/ui/icons";
 import { acquireMicrophone, RecorderView } from "@k7/recorder";
 import { useEffect, useState } from "react";
 import {
@@ -656,17 +656,6 @@ export default function App() {
                 aria-modal={recOpen || undefined}
                 aria-label={recOpen ? "Recording" : undefined}
               >
-                {recOpen && (
-                  <button
-                    type="button"
-                    className="rec-popin-close"
-                    onClick={() => setRecOpen(false)}
-                    title="Collapse to the bar — the take keeps recording"
-                    aria-label="Collapse"
-                  >
-                    <X className="size-4" />
-                  </button>
-                )}
                 <RecorderView
                   key="active-recorder"
                   session={recording.session}
@@ -675,6 +664,18 @@ export default function App() {
                   baseEnvelope={recording.baseEnvelope}
                   minimized={recMinimized}
                   onExpand={() => setRecOpen(true)}
+                  headerActions={
+                    recOpen && (
+                      <button
+                        type="button"
+                        className="rec-popin-hide"
+                        onClick={() => setRecOpen(false)}
+                        title="Hide to the bar — the take keeps recording"
+                      >
+                        <ChevronDown className="size-4" /> Hide
+                      </button>
+                    )
+                  }
                   onSave={handleSaveRecording}
                   onDiscard={() => {
                     recording.rtc?.close();

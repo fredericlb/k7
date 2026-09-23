@@ -19,7 +19,7 @@ export function PublicPageView({
   if (!page) {
     return (
       <div className="login-screen">
-        <p className="muted">No page named #{nametag}.</p>
+        <p className="muted">No page named @{nametag}.</p>
       </div>
     );
   }
@@ -33,7 +33,7 @@ export function PublicPageView({
           className="main-inner"
           style={{ maxWidth: 640, margin: "0 auto", padding: 24 }}
         >
-          <h2>#{page.nametag}</h2>
+          <h2>@{page.nametag}</h2>
           <p className="muted">
             {releases.length} release{releases.length === 1 ? "" : "s"}
           </p>

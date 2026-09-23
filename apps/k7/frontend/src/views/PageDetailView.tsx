@@ -54,7 +54,7 @@ export function PageDetailView({
 
   return (
     <div className="release-detail">
-      <h2>#{page.nametag}</h2>
+      <h2>@{page.nametag}</h2>
       <p className="muted">
         {releases.length} release{releases.length === 1 ? "" : "s"}
       </p>
