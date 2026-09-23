@@ -349,6 +349,10 @@ often than a track to play along to, so it is asked for rather than ridden along
 - **"Run the pipeline again"**, in the ⋮ menu, redoes every step not done yet, and searches lyrics
   again whenever they are not timed. A fresh start never resumes a stored hunt or separation id:
   the one stored may be the one that failed, and resuming it would fail again.
+- **"Resync lyrics"**, in the ⋮ menu, is the lyrics step alone and on timed lyrics too: it takes
+  every code off, then times the lyrics off LRCLIB again. The re-run skips lyrics that are already
+  timed, because codes typed or fixed by hand must not be overwritten by an unasked search.
+  An unmatched resync leaves the lyrics without codes, which is what was asked.
 - **Status writes go out one after the other** (`SongDetailContainer.tsx`): two concurrent PATCHes
   can land in either order and leave a stale phase stored, which a reload would then try to resume.
 

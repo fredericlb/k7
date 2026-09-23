@@ -263,9 +263,7 @@ export function timeLyrics(lyrics: string, source: string): LrcTimecoding {
       total: lrc.length,
     };
 
-  const raw = lyrics
-    .split(/\r?\n/)
-    .map((line) => (timecodeOf(line) === null ? line : stripTimecodes(line)));
+  const raw = withoutTimecodes(lyrics).split("\n");
   const lines = lyricLines(raw.join("\n"));
   // Two sheet lines may be sung as one only when nothing but chords stands between them.
   const parsed = parseChordSheet(raw.join("\n"));
@@ -306,6 +304,14 @@ export function timecodesByLine(lyrics: string): Map<number, number> {
     if (t !== null) out.set(i, t);
   });
   return out;
+}
+
+/** The lyrics with every timecode taken off, and every untimed line exactly as it was. */
+export function withoutTimecodes(lyrics: string): string {
+  return lyrics
+    .split(/\r?\n/)
+    .map((line) => (timecodeOf(line) === null ? line : stripTimecodes(line)))
+    .join("\n");
 }
 
 /** Whether the text carries any timecode at all. */

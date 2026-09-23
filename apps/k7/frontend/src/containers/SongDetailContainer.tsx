@@ -1,4 +1,4 @@
-import { hasTimecodes } from "@k7/lyrics";
+import { hasTimecodes, withoutTimecodes } from "@k7/lyrics";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { pl8 } from "../fetchSong/pl8";
@@ -7,6 +7,7 @@ import {
   type PipelineSteps,
   runPipeline,
   type StatusPatch,
+  syncLyrics,
 } from "../fetchSong/run";
 import { m } from "../paraglide/messages.js";
 import type { Song, SongTab } from "../types";
@@ -217,6 +218,30 @@ export function SongDetailContainer({
     );
   };
 
+  // « Resync lyrics » in the ⋮ menu: the codes come off, and LRCLIB times the lyrics again — nothing else runs.
+  const handleResyncLyrics = () => {
+    if (!song || running.current) return;
+    running.current = true;
+    void (async () => {
+      try {
+        const cleared = adopt(
+          await api.updateSong(songId, {
+            lyrics: withoutTimecodes(song.lyrics),
+            lyricTimings: [],
+          }),
+        );
+        void onStatus({ lyricsMatch: "", phase: "", error: "" });
+        adopt(await syncLyrics(cleared, pipelineSteps()));
+        void onStatus({ phase: "" });
+        onChangeRef.current();
+      } catch (err) {
+        void onStatus({ phase: "failed", error: (err as Error).message });
+      } finally {
+        running.current = false;
+      }
+    })();
+  };
+
   const handleDismissFailure = () => {
     void onStatus({ phase: "", error: "" });
   };
@@ -250,6 +275,7 @@ export function SongDetailContainer({
       onUpload={handleUpload}
       onIgnore={handleIgnore}
       onRerun={handleRerun}
+      onResyncLyrics={handleResyncLyrics}
       onDismissFailure={handleDismissFailure}
     />
   );

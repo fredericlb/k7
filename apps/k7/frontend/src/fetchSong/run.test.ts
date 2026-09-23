@@ -5,7 +5,7 @@ import type { HuntRecord } from "@studio/web-protocol/hunt";
 import { describe, expect, it, vi } from "vitest";
 import type { Song } from "../types";
 import type { Pl8Client } from "./pl8";
-import { fetchSong, makeInstrumental, runPipeline } from "./run";
+import { fetchSong, makeInstrumental, runPipeline, syncLyrics } from "./run";
 
 const entry = (artist: string, title: string): MediatekEntry =>
   ({
@@ -419,5 +419,27 @@ describe("runPipeline", () => {
       }) as never,
     );
     expect(findLrc).not.toHaveBeenCalled();
+  });
+});
+
+describe("syncLyrics", () => {
+  it("times lyrics that are already timed, the old codes replaced", async () => {
+    // What « Resync lyrics » runs: the pipeline would skip these lyrics, this does not.
+    const onLrc = vi.fn(async () => song());
+    await syncLyrics(song({ lyrics: "Oh sinerman {{00:03}}" }), {
+      onPhase: () => {},
+      findLrc: async () => [
+        {
+          id: 1,
+          trackName: "Sinnerman",
+          artistName: "Nina Simone",
+          albumName: "",
+          duration: 0,
+          syncedLyrics: "[00:12.50]Oh sinnerman",
+        },
+      ],
+      onLrc,
+    });
+    expect(onLrc).toHaveBeenCalledWith("{{00:12.50}} Oh sinerman");
   });
 });

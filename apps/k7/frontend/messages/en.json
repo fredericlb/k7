@@ -348,6 +348,7 @@
   "songMenu.removingTrack": "Removing the track…",
   "songMenu.replaceTrack": "Replace the track…",
   "songMenu.rerunPipeline": "Run the pipeline again",
+  "songMenu.resyncLyrics": "Resync lyrics",
   "songMenu.title": "What this song can be given",
   "songbook.empty": "No songs yet.",
   "songbook.new": "New song",

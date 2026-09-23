@@ -30,6 +30,8 @@ interface Props {
   onMixInstrumental: (folder: string) => Promise<Song>;
   /** Runs the auto-fetch pipeline again; its progress and failure show in the insert, not here. */
   onRerun: () => void;
+  /** Takes the timecodes off the lyrics and times them again; the insert shows how it went. */
+  onResyncLyrics: () => void;
   onDelete: () => Promise<void>;
   /** Which tabs the song already has, so the menu offers the ones it has not. */
   has: (tab: SongTab) => boolean;
@@ -43,6 +45,7 @@ export function SongMenu({
   onDeleteAudio,
   onMixInstrumental,
   onRerun,
+  onResyncLyrics,
   onDelete,
   has,
 }: Props) {
@@ -149,6 +152,15 @@ export function SongMenu({
           <DropdownMenuItem disabled={pipelineRunning} onSelect={onRerun}>
             {m["songMenu.rerunPipeline"]()}
           </DropdownMenuItem>
+          {/* Timed lyrics light up against a track, so there is nothing to sync without one. */}
+          {song.audio && (
+            <DropdownMenuItem
+              disabled={pipelineRunning}
+              onSelect={onResyncLyrics}
+            >
+              {m["songMenu.resyncLyrics"]()}
+            </DropdownMenuItem>
+          )}
 
           {song.mine && (
             <>

@@ -348,6 +348,7 @@
   "songMenu.removingTrack": "Retrait de la piste…",
   "songMenu.replaceTrack": "Remplacer la piste…",
   "songMenu.rerunPipeline": "Relancer le pipeline",
+  "songMenu.resyncLyrics": "Resynchroniser les paroles",
   "songMenu.title": "Ce qu'on peut ajouter à ce morceau",
   "songbook.empty": "Aucun morceau pour l'instant.",
   "songbook.new": "Nouveau morceau",

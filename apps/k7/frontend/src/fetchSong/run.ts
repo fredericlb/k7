@@ -195,6 +195,36 @@ export interface PipelineSteps extends Common {
   onLrc(lyrics: string): Promise<Song>;
 }
 
+export type LyricsSteps = Pick<
+  PipelineSteps,
+  "onPhase" | "onStatus" | "findLrc" | "onLrc"
+>;
+
+/**
+ * Times the lyrics off LRCLIB: each fetched line's `{{MM:SS.cc}}` goes in front of the closest sheet
+ * line, in order, and not a word of the sheet changes (`timeLyrics`, ../../../docs/lyricsTiming.md).
+ * A song with no lyrics gets the fetched ones, timed. A version that is not this song (its artist and
+ * title), or that times nothing, is never applied — that is « unmatched », which the insert SAYS.
+ */
+export async function syncLyrics(
+  song: Song,
+  steps: LyricsSteps,
+): Promise<Song> {
+  steps.onPhase(m["fetch.lyrics"]());
+  steps.onStatus?.({ phase: "matching-lyrics" });
+  const best = (await steps.findLrc())[0];
+  const ours =
+    best && matches(song.artist, song.title, best.artistName, best.trackName);
+  const found = ours ? timeLyrics(song.lyrics, best.syncedLyrics) : null;
+  if (found?.ok && found.placed > 0) {
+    const timed = await steps.onLrc(found.lyrics);
+    steps.onStatus?.({ lyricsMatch: "matched" });
+    return timed;
+  }
+  steps.onStatus?.({ lyricsMatch: "unmatched" });
+  return song;
+}
+
 /** A fresh start on `"download"` (the insert's button, or the ⋮ menu's re-run), or picking back
  * up wherever `song` says the pipeline got to on `"continue"` — a reload, or an upload. */
 export type PipelineMode = "download" | "continue";
@@ -234,29 +264,11 @@ export async function runPipeline(
     if (outcome.note) problem = outcome.note;
   }
 
-  // Timed lyrics, found on LRCLIB. They only ever TIME the sheet: each fetched line's `{{MM:SS}}`
-  // goes at the end of the closest sheet line, in order, and not a word of the sheet changes
-  // (`timeLyrics`, ../../../docs/lyricsTiming.md). A song with no lyrics gets the fetched ones, timed.
-  // Lyrics already timed are left alone; a version that is not this song (its artist and title), or
-  // that times nothing, is never applied — that stays « unmatched », which the insert SAYS: the times
-  // are then typed into the lyrics by hand.
+  // Lyrics already timed are left alone: re-timing them is the ⋮ menu's « Resync lyrics ».
   const untimed =
     !hasTimecodes(current.lyrics) && !(current.lyricTimings?.length ?? 0);
-  if (current.audio && current.lyricsMatch === "" && untimed) {
-    steps.onPhase(m["fetch.lyrics"]());
-    steps.onStatus?.({ phase: "matching-lyrics" });
-    const best = (await steps.findLrc())[0];
-    const ours =
-      best &&
-      matches(current.artist, current.title, best.artistName, best.trackName);
-    const found = ours ? timeLyrics(current.lyrics, best.syncedLyrics) : null;
-    if (found?.ok && found.placed > 0) {
-      current = await steps.onLrc(found.lyrics);
-      steps.onStatus?.({ lyricsMatch: "matched" });
-    } else {
-      steps.onStatus?.({ lyricsMatch: "unmatched" });
-    }
-  }
+  if (current.audio && current.lyricsMatch === "" && untimed)
+    current = await syncLyrics(current, steps);
 
   steps.onStatus?.({
     phase: problem ? "failed" : "",

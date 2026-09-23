@@ -11,6 +11,7 @@ import {
   timecodesByLine,
   timeLyrics,
   timingsByLine,
+  withoutTimecodes,
 } from "./lrc";
 
 const LRC = `[ar:Nina Simone]
@@ -184,6 +185,16 @@ describe("timeLyrics", () => {
       ok: false,
       reason: "empty",
     });
+  });
+});
+
+describe("withoutTimecodes", () => {
+  it("takes every code off and leaves the rest of the text as typed", () => {
+    const sheet =
+      "[Verse]\n      C     G   \n{{00:12.50}} Oh sinnerman\nWhere {{01:05}}";
+    expect(withoutTimecodes(sheet)).toBe(
+      "[Verse]\n      C     G   \nOh sinnerman\nWhere",
+    );
   });
 });
 

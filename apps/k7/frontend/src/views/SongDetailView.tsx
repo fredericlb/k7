@@ -51,6 +51,8 @@ interface Props {
   onIgnore: () => void;
   /** Runs the auto-fetch pipeline again from wherever the song stands — the ⋮ menu and the insert's Retry. */
   onRerun: () => void;
+  /** Takes the timecodes off the lyrics and times them off LRCLIB again. */
+  onResyncLyrics: () => void;
   /** Clears a stored pipeline failure without retrying. */
   onDismissFailure: () => void;
   onBack: () => void;
@@ -74,6 +76,7 @@ export function SongDetailView({
   onUpload,
   onIgnore,
   onRerun,
+  onResyncLyrics,
   onDismissFailure,
   onBack,
 }: Props) {
@@ -217,6 +220,7 @@ export function SongDetailView({
           onDeleteAudio={onDeleteAudio}
           onMixInstrumental={onMixInstrumental}
           onRerun={onRerun}
+          onResyncLyrics={onResyncLyrics}
           onDelete={remove}
         />
       </div>
