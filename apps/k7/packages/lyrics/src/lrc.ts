@@ -295,7 +295,7 @@ export function timeLyrics(lyrics: string, source: string): LrcTimecoding {
   };
 }
 
-/** Each timed line's start, by line index, read off the `{{MM:SS}}` in the text — what the player follows. */
+/** Each timed line's `{{MM:SS}}`, by line index — the moment its line is sung OUT: see `lineStarts`. */
 export function timecodesByLine(lyrics: string): Map<number, number> {
   const out = new Map<number, number>();
   lyrics.split(/\r?\n/).forEach((line, i) => {
@@ -303,6 +303,29 @@ export function timecodesByLine(lyrics: string): Map<number, number> {
     if (t !== null) out.set(i, t);
   });
   return out;
+}
+
+/**
+ * When each timed line is sung IN, from the `{{MM:SS}}` that close them: a line starts where the
+ * timed line before it ended, and the first one a typical line (the median gap between codes)
+ * before its own code. What a click seeks to and what the highlight follows.
+ */
+export function lineStarts(
+  ends: ReadonlyMap<number, number>,
+): Map<number, number> {
+  const timed = [...ends].sort((a, b) => a[0] - b[0]);
+  const gaps = timed
+    .slice(1)
+    .map(([, t], k) => t - timed[k][1])
+    .filter((g) => g > 0)
+    .sort((a, b) => a - b);
+  const typical = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0;
+  return new Map(
+    timed.map(([line, t], k) => [
+      line,
+      k === 0 ? Math.max(0, t - typical) : Math.min(t, timed[k - 1][1]),
+    ]),
+  );
 }
 
 /** Whether the text carries any timecode at all. */

@@ -30,6 +30,12 @@ It goes at the **end** of the line, not the start, because a chord line above a 
 chord by its column: a code in front of the words would push every word out from under its chord in
 the editor.
 
+A code marks when its line is sung **out**, not in. That is what LRCLIB's stamps turned out to be on
+k7's tracks: seeking to one lands at the end of its line. So the player reads each line's start off
+the timed line before it (`lineStarts`, `packages/lyrics/src/lrc.ts`), and the first timed line
+starts one typical line (the median gap between codes) before its own code. A tap on a line plays it
+from there, and the highlight moves to a line as it begins.
+
 Songs timed before this kept their times in a field beside the text (`LyricTimings`). They still
 play: with no `{{MM:SS}}` in the text, the player falls back to it. Timing such a song again writes
 the codes into the text and clears the field, so the two can never disagree.

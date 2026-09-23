@@ -5,6 +5,7 @@ import {
   alignLines,
   hasTimecodes,
   lineAt,
+  lineStarts,
   lyricLines,
   normalizeLine,
   parseLrc,
@@ -204,6 +205,37 @@ describe("timecodesByLine", () => {
     expect(lyricLines("Oh sinnerman {{00:12}}")).toEqual([
       { line: 0, text: "oh sinnerman" },
     ]);
+  });
+});
+
+describe("lineStarts", () => {
+  it("starts each line where the timed line before it was sung out", () => {
+    // Codes close their lines: 25, 32, 40 → the 2nd line from 25, the 3rd from 32.
+    const starts = lineStarts(
+      new Map([
+        [2, 25],
+        [3, 32],
+        [5, 40],
+      ]),
+    );
+    expect(starts.get(3)).toBe(25);
+    expect(starts.get(5)).toBe(32);
+    // The first one, a typical line (the median gap) before its code.
+    expect(starts.get(2)).toBe(17);
+    // Mid-way through the 2nd line is the 2nd line, not the 1st.
+    expect(lineAt(starts, 28)).toBe(3);
+  });
+
+  it("never starts before 0, nor after its own code when codes go backwards", () => {
+    const starts = lineStarts(
+      new Map([
+        [0, 3],
+        [1, 30],
+        [2, 20],
+      ]),
+    );
+    expect(starts.get(0)).toBe(0);
+    expect(starts.get(2)).toBe(20);
   });
 });
 
