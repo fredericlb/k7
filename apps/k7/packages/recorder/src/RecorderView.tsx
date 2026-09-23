@@ -5,7 +5,7 @@ import {
   ChevronRight,
   Circle,
   Diamond,
-  Drum,
+  Metronome,
   Mic,
   MicOff,
   Pause,
@@ -47,6 +47,8 @@ interface Props {
     annotations: PendingAnnotation[];
   }) => Promise<void>;
   onDiscard: () => void;
+  /** Controls the host adds at the end of the header row (the pop-in's Hide). */
+  headerActions?: React.ReactNode;
 }
 
 const SAMPLE_INTERVAL_MS = 200;
@@ -61,6 +63,7 @@ export function RecorderView({
   onExpand,
   onSave,
   onDiscard,
+  headerActions,
 }: Props) {
   const rec = useRecorder();
   const {
@@ -257,16 +260,27 @@ export function RecorderView({
     rec.resume();
   };
 
+  // The tempo field's text; a running metronome follows it as soon as it reads as a tempo.
+  const [bpmText, setBpmText] = useState("120");
+  const parseBpm = (t: string) => {
+    const n = Number(t);
+    return Number.isFinite(n) && n >= 20 && n <= 400 ? n : null;
+  };
+
   const toggleMetronome = () => {
     if (metronome) {
       stopMetronome();
       return;
     }
-    const input = prompt("Metronome tempo (BPM)?", "120");
-    if (input == null) return;
-    const bpm = Number(input);
-    if (!Number.isFinite(bpm) || bpm <= 0) return;
-    startMetronome(bpm, rec.elapsed);
+    const bpm = parseBpm(bpmText);
+    if (bpm != null) startMetronome(bpm, rec.elapsed);
+  };
+
+  const changeBpm = (t: string) => {
+    setBpmText(t);
+    const bpm = parseBpm(t);
+    if (metronome && bpm != null && bpm !== metronome.bpm)
+      startMetronome(bpm, rec.elapsed);
   };
 
   const stopAndSave = async () => {
@@ -434,7 +448,40 @@ export function RecorderView({
 
   return (
     <Card className="recorder">
-      <h2>{sessionTitle(session.createdAt)}</h2>
+      <div className="recorder-head">
+        <h2>{sessionTitle(session.createdAt)}</h2>
+        <div className="recorder-head-actions">
+          <Input
+            type="number"
+            min={20}
+            max={400}
+            className="recorder-bpm"
+            value={bpmText}
+            onChange={(e) => changeBpm(e.target.value)}
+            aria-label="Metronome tempo (BPM)"
+            title="Metronome tempo (BPM)"
+          />
+          <Button
+            variant={metronome ? "default" : "ghost"}
+            size="icon-sm"
+            className="recorder-metro"
+            onClick={toggleMetronome}
+            disabled={!metronome && parseBpm(bpmText) == null}
+            aria-pressed={metronome != null}
+            aria-label={
+              metronome ? "Stop the metronome" : "Start the metronome"
+            }
+            title={
+              metronome
+                ? `Metronome on at ${metronome.bpm} BPM — click to stop`
+                : "Start the metronome"
+            }
+          >
+            <Metronome className="size-4" />
+          </Button>
+          {headerActions}
+        </div>
+      </div>
       {rec.error && (
         <p className="error">
           <MicOff className="size-3.5" /> {rec.error}
@@ -507,26 +554,6 @@ export function RecorderView({
                 <Circle className="size-2.5 fill-current" /> rec
               </Badge>
             )}
-          </div>
-
-          <div
-            className="row playback-controls"
-            style={{ justifyContent: "center" }}
-          >
-            <Button
-              variant={metronome ? "default" : "outline"}
-              onClick={toggleMetronome}
-            >
-              {metronome ? (
-                <>
-                  <Square className="size-4" /> Metronome {metronome.bpm} BPM
-                </>
-              ) : (
-                <>
-                  <Drum className="size-4" /> Metronome
-                </>
-              )}
-            </Button>
           </div>
 
           {displayEnvelope.samples.length > 0 && (

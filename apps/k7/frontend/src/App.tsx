@@ -656,16 +656,6 @@ export default function App() {
                 aria-modal={recOpen || undefined}
                 aria-label={recOpen ? "Recording" : undefined}
               >
-                {recOpen && (
-                  <button
-                    type="button"
-                    className="rec-popin-hide"
-                    onClick={() => setRecOpen(false)}
-                    title="Hide to the bar — the take keeps recording"
-                  >
-                    <ChevronDown className="size-4" /> Hide
-                  </button>
-                )}
                 <RecorderView
                   key="active-recorder"
                   session={recording.session}
@@ -674,6 +664,18 @@ export default function App() {
                   baseEnvelope={recording.baseEnvelope}
                   minimized={recMinimized}
                   onExpand={() => setRecOpen(true)}
+                  headerActions={
+                    recOpen && (
+                      <button
+                        type="button"
+                        className="rec-popin-hide"
+                        onClick={() => setRecOpen(false)}
+                        title="Hide to the bar — the take keeps recording"
+                      >
+                        <ChevronDown className="size-4" /> Hide
+                      </button>
+                    )
+                  }
                   onSave={handleSaveRecording}
                   onDiscard={() => {
                     recording.rtc?.close();

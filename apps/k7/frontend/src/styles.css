@@ -1610,12 +1610,8 @@ select {
 .rec-popin > .recorder {
   margin: 0;
 }
-/* Under .rec-popin so it outranks the base button rule, whose padding and fill would win. */
-.rec-popin > .rec-popin-hide {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1;
+/* In the recorder's header row; .rec-popin prefixed so it outranks the base button rule's padding and fill. */
+.rec-popin .rec-popin-hide {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1624,9 +1620,29 @@ select {
   background: transparent;
   color: var(--muted);
 }
-.rec-popin > .rec-popin-hide:hover:not(:disabled) {
+.rec-popin .rec-popin-hide:hover:not(:disabled) {
   background: var(--surface-2);
   color: var(--text);
+}
+/* The metronome toggle: an icon, purple while it clicks; scoped for the same reason as Hide. */
+.recorder-head .recorder-metro {
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--muted);
+}
+.recorder-head .recorder-metro:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.recorder-head .recorder-metro[aria-pressed="true"],
+.recorder-head .recorder-metro[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
 }
 
 /* A moment under its session: only the card steps right, so the time column and the spine stay one line. */
