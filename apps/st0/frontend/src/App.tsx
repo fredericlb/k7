@@ -452,6 +452,9 @@ export default function App({
   >(null);
   /** The reference track the bar has loaded, or null for no bar — it outlives every tab, being nothing this project owns (docs/references.md). */
   const [reference, setReference] = useState<ReferenceTrack | null>(null);
+  // Whether that track is sounding, and the bar's play/pause — for the panel row that stands for it.
+  const [referenceSounding, setReferenceSounding] = useState(false);
+  const referenceToggle = useRef<(() => void) | null>(null);
   /** Which tab the settings panel shows, kept while closed so the cog reopens where you left it. */
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(SETTINGS_TABS[0]);
   /** The command catalogue, the one settings screen still drawn as a full PAGE. */
@@ -3548,7 +3551,9 @@ export default function App({
               {rightPanel === "references" && (
                 <ReferencesPanel
                   playing={reference?.path ?? null}
+                  sounding={referenceSounding}
                   onPlay={setReference}
+                  onToggle={() => referenceToggle.current?.()}
                   onClose={() => setRightPanel(null)}
                 />
               )}
@@ -3631,7 +3636,12 @@ export default function App({
 
         {/* What you are listening AGAINST — above the status line and below every pane, since it belongs to no tab (docs/references.md). */}
         {reference && (
-          <ReferenceBar track={reference} onClose={() => setReference(null)} />
+          <ReferenceBar
+            track={reference}
+            onClose={() => setReference(null)}
+            onPlayingChange={setReferenceSounding}
+            toggleRef={referenceToggle}
+          />
         )}
 
         <footer

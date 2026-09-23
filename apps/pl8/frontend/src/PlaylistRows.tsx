@@ -7,6 +7,7 @@ import {
   ArrowDown,
   ArrowUp,
   ListPlus,
+  Pause,
   Play,
   Plus,
   Search,
@@ -30,6 +31,10 @@ const HITS = 8;
 const variantsOf = (e: MediatekEntry): string[] =>
   (e.variants ?? []).filter((v) => v.kind === "file").map((v) => v.name);
 
+/** The file a line plays — what `onPlay` starts, so the one to compare with what is sounding. */
+export const rowPath = (r: ResolvedItem) =>
+  r.song && r.take?.file ? `${r.song.path}/${r.take.file}` : null;
+
 export interface PlaylistRowsProps {
   rows: ResolvedItem[];
   /** Null while the catalogue is loading — which is a different sentence from "no such song". */
@@ -40,6 +45,9 @@ export interface PlaylistRowsProps {
   /** Why reordering is off, or "" — an inline `items: [a, b]` is a shape the text edits cannot take. */
   frozen: string;
   onPlay: (r: ResolvedItem) => void;
+  /** The path sounding right now, or null: its row's play button reads Pause and calls `onPause`. */
+  playingPath: string | null;
+  onPause: () => void;
   onQueueAll: () => void;
 }
 
@@ -51,6 +59,8 @@ export function PlaylistRows({
   onMove,
   frozen,
   onPlay,
+  playingPath,
+  onPause,
   onQueueAll,
 }: PlaylistRowsProps) {
   const [searching, setSearching] = useState(false);
@@ -156,16 +166,28 @@ export function PlaylistRows({
               <span className="w-6 shrink-0 text-muted-foreground text-xs tabular-nums">
                 {i + 1}
               </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="shrink-0"
-                disabled={!!problem}
-                aria-label="Écouter"
-                onClick={() => onPlay(r)}
-              >
-                <Play className="h-4 w-4" />
-              </Button>
+              {playingPath != null && playingPath === rowPath(r) ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0"
+                  aria-label="Pause"
+                  onClick={onPause}
+                >
+                  <Pause className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={!!problem}
+                  aria-label="Écouter"
+                  onClick={() => onPlay(r)}
+                >
+                  <Play className="h-4 w-4" />
+                </Button>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm">{itemLabel(r)}</div>
                 {/* A line resolving to nothing STAYS: a row that vanished would be an invisible typo. */}
