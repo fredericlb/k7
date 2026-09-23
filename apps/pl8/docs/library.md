@@ -63,6 +63,10 @@ would do this and does not — the shared component uses it only to name the tar
 context menu, never to draw a row. Wrapping the nodes is the only way to get a visible root, and it
 gives the zone somewhere to drop onto while the family is still empty.
 
+`flushRoot` is what keeps that row from acting like a folder: no left padding, no chevron, and it
+cannot be folded shut — it is the section's own label, and there is nothing to fold IT into. A
+real artist or album folder one level under it still folds normally; only depth 0 is locked open.
+
 ## Where the expansion comes from
 
 `revealed` is STICKY, and that is the point: the shared tree re-seeds its whole expansion whenever
