@@ -54,9 +54,11 @@ What leaves first is what is never needed in the moment:
 | the section tabs | `sm` | they move into the shared bar's hamburger |
 | the section name (subtitle) | 420 px | `AppHeader`'s threshold, not ours |
 
-"Trouver des morceaux" and "Ajouter un morceau" left the header entirely — they sit at the foot
-of the songs tree now, where there is room for the whole sentence at every width, so neither
-collapses to an icon any more.
+"Trouver des morceaux" and "Ajouter un morceau" left the header entirely — they sit below the
+songs tree now, where there is room for the whole sentence at every width, so neither collapses
+to an icon any more. The `aside` is a column and not a single scroller for exactly this: the tree
+has its OWN scrolling pane, so these two never travel with it — a long library scrolls the rows,
+never the buttons under them.
 
 The song's two-pane editor **stacks** rather than splitting the width: two halves of a phone
 screen are two columns nothing fits in. The YAML takes the top half and what it describes the

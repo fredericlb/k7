@@ -528,189 +528,194 @@ export function Library() {
             )}
             {/* A column when there is room and a DRAWER when there is not, same markup — see ../docs/responsive.md. */}
             <aside
-              // No translate here, not even translate-x-0 — it breaks FileTree's popup, ../docs/responsive.md.
-              className={`shrink-0 overflow-auto rounded-xl bg-violet-950 p-3 md:static md:z-auto md:m-3 md:block md:w-[290px] ${
+              // No translate (breaks FileTree's popup, ../docs/responsive.md) — a column, so the tree scrolls and the foot does not.
+              className={`flex shrink-0 flex-col overflow-hidden rounded-xl bg-violet-950 p-3 md:static md:z-auto md:m-3 md:flex md:w-[290px] ${
                 treeOpen
                   ? "fixed inset-y-0 left-0 z-40 w-72 shadow-xl"
                   : "hidden"
               }`}
             >
-              <input
-                ref={pickRef}
-                type="file"
-                multiple
-                // @ts-expect-error — the directory picker is prefixed and absent from React's typings.
-                webkitdirectory=""
-                directory=""
-                className="hidden"
-                onChange={(e) => {
-                  const files = Array.from(e.target.files ?? []).map(
-                    (file) => ({
-                      path: file.webkitRelativePath || file.name,
-                      file,
-                    }),
-                  );
-                  // Already section-prefixed and mapped through `assetsTarget` — `pickFolder` is the only writer.
-                  const target = pickInto.current;
-                  e.target.value = "";
-                  if (files.length)
-                    void library
-                      .uploadTree(target, files)
-                      .then(refresh)
-                      .catch((err: Error) => setError(err.message));
-                }}
-              />
-              {/* …and the one the variant menu opens: that one names a directory, a variant is one audio file. */}
-              <input
-                ref={variantRef}
-                type="file"
-                accept={AUDIO_ACCEPT}
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const files = Array.from(e.target.files ?? []);
-                  const song = variantInto.current;
-                  e.target.value = "";
-                  if (files.length) void addVariants(song, files);
-                }}
-              />
-              <FileTree
-                nodes={tree}
-                // The family IS the root: every node path below is relative to it.
-                rootPath=""
-                rootLabel={section.toUpperCase()}
-                // The section label wraps every row here — a header, not a real row to draw.
-                collapseSingleRoot
-                // The entry being edited outranks the merely selected one — same value `revealed` follows.
-                activePath={target}
-                // Open down to it, so a reloaded deep link lands on a tree showing where it is. Sticky.
-                reveal={revealed}
-                // A SONG folds nothing: its whole row opens its sidecar — see ../docs/library.md.
-                opensOnName={(n) => isSongFolder(entries, n.path)}
-                onOpen={(n) => {
-                  const entry = entryAt(entries, n.path);
-                  if (entry && isSong(entry))
-                    openFile(`${n.path}/${SONG_FILE}`);
-                }}
-                // A song wears the glyph of its own tab.
-                icon={(n) => {
-                  const e = entryAt(entries, n.path);
-                  return e && isSong(e) ? (
-                    <Disc3 className="h-4 w-4 shrink-0" />
-                  ) : null;
-                }}
-                // Undefined rather than a no-op where nothing may be dropped, and a tree drop for songs (../docs/library.md).
-                onDropTree={
-                  editable
-                    ? (dir, files) =>
-                        void library
-                          .uploadTree(assetsTarget(dir), files)
-                          .then(refresh)
-                          .catch((e: Error) => setError(e.message))
-                    : section === "songs"
+              <div className="min-h-0 flex-1 overflow-auto">
+                <input
+                  ref={pickRef}
+                  type="file"
+                  multiple
+                  // @ts-expect-error — the directory picker is prefixed and absent from React's typings.
+                  webkitdirectory=""
+                  directory=""
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []).map(
+                      (file) => ({
+                        path: file.webkitRelativePath || file.name,
+                        file,
+                      }),
+                    );
+                    // Already section-prefixed and mapped through `assetsTarget` — `pickFolder` is the only writer.
+                    const target = pickInto.current;
+                    e.target.value = "";
+                    if (files.length)
+                      void library
+                        .uploadTree(target, files)
+                        .then(refresh)
+                        .catch((err: Error) => setError(err.message));
+                  }}
+                />
+                {/* …and the one the variant menu opens: that one names a directory, a variant is one audio file. */}
+                <input
+                  ref={variantRef}
+                  type="file"
+                  accept={AUDIO_ACCEPT}
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    const song = variantInto.current;
+                    e.target.value = "";
+                    if (files.length) void addVariants(song, files);
+                  }}
+                />
+                <FileTree
+                  nodes={tree}
+                  // The family IS the root: every node path below is relative to it.
+                  rootPath=""
+                  rootLabel={section.toUpperCase()}
+                  // The section label wraps every row here — a header, not a real row to draw.
+                  collapseSingleRoot
+                  // The entry being edited outranks the merely selected one — same value `revealed` follows.
+                  activePath={target}
+                  // Open down to it, so a reloaded deep link lands on a tree showing where it is. Sticky.
+                  reveal={revealed}
+                  // A SONG folds nothing: its whole row opens its sidecar — see ../docs/library.md.
+                  opensOnName={(n) => isSongFolder(entries, n.path)}
+                  onOpen={(n) => {
+                    const entry = entryAt(entries, n.path);
+                    if (entry && isSong(entry))
+                      openFile(`${n.path}/${SONG_FILE}`);
+                  }}
+                  // A song wears the glyph of its own tab.
+                  icon={(n) => {
+                    const e = entryAt(entries, n.path);
+                    return e && isSong(e) ? (
+                      <Disc3 className="h-4 w-4 shrink-0" />
+                    ) : null;
+                  }}
+                  // Undefined rather than a no-op where nothing may be dropped, and a tree drop for songs (../docs/library.md).
+                  onDropTree={
+                    editable
                       ? (dir, files) =>
-                          void (isSongFolder(entries, dir)
-                            ? addVariants(
-                                dir,
-                                files.map((f) => f.file),
-                              )
-                            : setError(
-                                "Un fichier n'entre dans les morceaux que comme variante de l'un d'eux : déposez-le sur le morceau.",
-                              ))
-                      : undefined
-                }
-                // Present, so rows are draggable — folders included, since `moveEntry` renames a directory too.
-                onMove={
-                  editable
-                    ? (from, toDir) =>
-                        void library
-                          .move(
-                            `${section}/${from}`,
-                            // Through the same mapping a drop goes through, or the two would disagree.
-                            `${assetsTarget(toDir)}/${from.split("/").pop()}`,
-                          )
-                          .then(refresh)
-                          .catch((e: Error) => setError(e.message))
-                    : undefined
-                }
-                cancelLabel="Annuler"
-                // Every target needs one action whose `when` passes, or no menu opens at all (../docs/library.md).
-                actions={
-                  !editable
-                    ? songActions
-                    : [
-                        {
-                          key: "upload-folder",
-                          label: "Téléverser un dossier…",
-                          // Through `assetsTarget`, exactly like the drop: the two must land in the same place.
-                          when: (t) => t.dir || t.root,
-                          run: (t) => pickFolder(t.path),
-                        },
-                        {
-                          key: "new-folder",
-                          label: "Nouveau dossier…",
-                          // Somewhere to drop into before the first file, and never beside a module's definition.
-                          when: (t) => t.dir || t.root,
-                          prompt: { placeholder: "nom", submit: "Créer" },
-                          run: (t, value) =>
-                            void library
-                              .newFolder(`${assetsTarget(t.path)}/${value}`)
-                              .then(refresh)
-                              .catch((e: Error) => setError(e.message)),
-                        },
-                        {
-                          key: "new-file",
-                          label: "Nouveau fichier…",
-                          when: (t) => t.dir || t.root,
-                          prompt: { placeholder: "nom.yaml", submit: "Créer" },
-                          run: (t, value) =>
-                            void library
-                              .writeFile(
-                                `${section}/${t.path ? `${t.path}/` : ""}${value}`,
-                                "",
-                              )
-                              .then(refresh)
-                              .catch((e: Error) => setError(e.message)),
-                        },
-                        {
-                          key: "rename",
-                          label: "Renommer…",
-                          when: (t) => !t.root,
-                          prompt: {
-                            placeholder: "nouveau nom",
-                            initial: (t) => t.name,
-                            submit: "Renommer",
-                          },
-                          run: (t, value) =>
-                            void library
-                              .move(
-                                `${section}/${t.path}`,
-                                `${section}/${[...t.path.split("/").slice(0, -1), value].join("/")}`,
-                              )
-                              .then(refresh)
-                              .catch((e: Error) => setError(e.message)),
-                        },
-                        {
-                          key: "delete",
-                          label: (t) => `Supprimer ${t.name}`,
-                          when: (t) => !t.root,
-                          danger: true,
-                          // `t.dir` alone would delete a song with the single-file route and leave its folder.
-                          run: (t) =>
-                            void (
-                              t.dir || isSongFolder(entries, t.path)
-                                ? library.removeTree(`${section}/${t.path}`)
-                                : library.remove(`${section}/${t.path}`)
+                          void library
+                            .uploadTree(assetsTarget(dir), files)
+                            .then(refresh)
+                            .catch((e: Error) => setError(e.message))
+                      : section === "songs"
+                        ? (dir, files) =>
+                            void (isSongFolder(entries, dir)
+                              ? addVariants(
+                                  dir,
+                                  files.map((f) => f.file),
+                                )
+                              : setError(
+                                  "Un fichier n'entre dans les morceaux que comme variante de l'un d'eux : déposez-le sur le morceau.",
+                                ))
+                        : undefined
+                  }
+                  // Present, so rows are draggable — folders included, since `moveEntry` renames a directory too.
+                  onMove={
+                    editable
+                      ? (from, toDir) =>
+                          void library
+                            .move(
+                              `${section}/${from}`,
+                              // Through the same mapping a drop goes through, or the two would disagree.
+                              `${assetsTarget(toDir)}/${from.split("/").pop()}`,
                             )
-                              .then(refresh)
-                              .catch((e: Error) => setError(e.message)),
-                        },
-                      ]
-                }
-              />
-              {/* Moved down from the header, which else crowds on a narrow screen — the tree has the room. */}
+                            .then(refresh)
+                            .catch((e: Error) => setError(e.message))
+                      : undefined
+                  }
+                  cancelLabel="Annuler"
+                  // Every target needs one action whose `when` passes, or no menu opens at all (../docs/library.md).
+                  actions={
+                    !editable
+                      ? songActions
+                      : [
+                          {
+                            key: "upload-folder",
+                            label: "Téléverser un dossier…",
+                            // Through `assetsTarget`, exactly like the drop: the two must land in the same place.
+                            when: (t) => t.dir || t.root,
+                            run: (t) => pickFolder(t.path),
+                          },
+                          {
+                            key: "new-folder",
+                            label: "Nouveau dossier…",
+                            // Somewhere to drop into before the first file, and never beside a module's definition.
+                            when: (t) => t.dir || t.root,
+                            prompt: { placeholder: "nom", submit: "Créer" },
+                            run: (t, value) =>
+                              void library
+                                .newFolder(`${assetsTarget(t.path)}/${value}`)
+                                .then(refresh)
+                                .catch((e: Error) => setError(e.message)),
+                          },
+                          {
+                            key: "new-file",
+                            label: "Nouveau fichier…",
+                            when: (t) => t.dir || t.root,
+                            prompt: {
+                              placeholder: "nom.yaml",
+                              submit: "Créer",
+                            },
+                            run: (t, value) =>
+                              void library
+                                .writeFile(
+                                  `${section}/${t.path ? `${t.path}/` : ""}${value}`,
+                                  "",
+                                )
+                                .then(refresh)
+                                .catch((e: Error) => setError(e.message)),
+                          },
+                          {
+                            key: "rename",
+                            label: "Renommer…",
+                            when: (t) => !t.root,
+                            prompt: {
+                              placeholder: "nouveau nom",
+                              initial: (t) => t.name,
+                              submit: "Renommer",
+                            },
+                            run: (t, value) =>
+                              void library
+                                .move(
+                                  `${section}/${t.path}`,
+                                  `${section}/${[...t.path.split("/").slice(0, -1), value].join("/")}`,
+                                )
+                                .then(refresh)
+                                .catch((e: Error) => setError(e.message)),
+                          },
+                          {
+                            key: "delete",
+                            label: (t) => `Supprimer ${t.name}`,
+                            when: (t) => !t.root,
+                            danger: true,
+                            // `t.dir` alone would delete a song with the single-file route and leave its folder.
+                            run: (t) =>
+                              void (
+                                t.dir || isSongFolder(entries, t.path)
+                                  ? library.removeTree(`${section}/${t.path}`)
+                                  : library.remove(`${section}/${t.path}`)
+                              )
+                                .then(refresh)
+                                .catch((e: Error) => setError(e.message)),
+                          },
+                        ]
+                  }
+                />
+              </div>
+              {/* Below the tree's own scroll, not inside it — a foot that never moves. */}
               {section === "songs" ? (
-                <div className="mt-2 flex flex-col gap-2 border-t border-white/10 pt-2">
+                <div className="mt-2 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-2">
                   <Button
                     variant="secondary"
                     size="sm"
