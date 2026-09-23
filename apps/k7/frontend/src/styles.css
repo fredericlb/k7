@@ -1166,41 +1166,15 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.lrc-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  width: 100%;
-  padding: 3px 6px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.lrc-row:hover {
-  background: var(--surface-2);
-}
-.lrc-row.paired {
-  border-color: var(--border);
-  background: var(--surface-2);
-}
-.lrc-row.picked {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.lrc-row-time {
-  flex: none;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
+/* A sheet as text, before and after a merge: monospace and unwrapped, or the chords leave their words. */
+.lrc-preview {
+  margin: 0;
+  padding: 4px 6px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
-}
-.lrc-row-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.45;
+  white-space: pre;
 }
 
 /* LRCLIB's versions of a song, offered as one wrapping row under the add links. */

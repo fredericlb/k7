@@ -150,54 +150,6 @@ export function importLrc(lyrics: string, source: string): LrcImport {
   return { ok: true, lyrics: null, timings, matched: pairs.length };
 }
 
-/** Everything a hand needs to finish an alignment: both sides, and what paired by itself. */
-export interface LrcAlignment {
-  /** The file's timed lines, in time order. */
-  lrc: LrcLine[];
-  /** The song's sung lines, by their index in the lyrics. */
-  lines: { line: number; text: string }[];
-  /** Which LRC line each lyric line is on, by index into `lines` and `lrc`. */
-  pairs: Map<number, number>;
-  matched: number;
-  total: number;
-}
-
-/** Pair an LRC with the lyrics as far as it goes, refusing nothing: what it misses is paired by hand. */
-export function alignLrc(lyrics: string, source: string): LrcAlignment {
-  const lrc = parseLrc(source).filter((l) => normalizeLine(l.text) !== "");
-  const lines = lyricLines(lyrics);
-  const pairs = new Map<number, number>(
-    alignLines(
-      lines.map((l) => l.text),
-      lrc.map((l) => normalizeLine(l.text)),
-      MATCH_THRESHOLD,
-    ),
-  );
-  return {
-    lrc,
-    lines,
-    pairs,
-    matched: pairs.size,
-    total: Math.min(lines.length, lrc.length),
-  };
-}
-
-/** The timecodes a set of pairs means, in line order — what is saved once the hand is done. */
-export function timingsFrom(
-  lines: readonly { line: number; text: string }[],
-  lrc: readonly LrcLine[],
-  pairs: ReadonlyMap<number, number>,
-): LyricTiming[] {
-  return [...pairs.entries()]
-    .filter(([i, j]) => lines[i] !== undefined && lrc[j] !== undefined)
-    .map(([i, j]) => ({
-      line: lines[i].line,
-      text: lines[i].text,
-      t: lrc[j].t,
-    }))
-    .sort((a, b) => a.line - b.line);
-}
-
 /** The stored timecodes laid onto the lyrics AS THEY ARE NOW: an edited line loses its time, the rest keep theirs. */
 export function timingsByLine(
   lyrics: string,

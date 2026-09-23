@@ -1,6 +1,7 @@
-// Timed lyrics, in one popin: get an LRC (a file, or LRCLIB's versions of this song), then pair its
-// lines with the song's own. Nothing is refused — what the automatic pass misses is paired by a
-// hand here, which is why this replaced two menu entries — ../../../docs/lyricsTiming.md.
+// Timed lyrics, in one popin: get an LRC (a file, or LRCLIB's versions of this song), and its lyrics
+// become the song's. A song with none takes them as they are; a song with a sheet gets them MERGED —
+// its chords, sections and tablature moved onto the fetched lines (`mergeLrc`) — shown side by side
+// with the sheet before anything is replaced — ../../../docs/lyricsTiming.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -11,26 +12,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import {
-  alignLrc,
-  importLrc,
-  type LrcAlignment,
-  timingsFrom,
-} from "@k7/lyrics";
+import { importLrc, type MergeReport, mergeLrc } from "@k7/lyrics";
 import { useRef, useState } from "react";
-import { isOne } from "../i18n";
 import { m } from "../paraglide/messages.js";
 import type { LrcCandidate, LyricTiming } from "../types";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The song's lyrics: empty means the file becomes them, filled means the lines are paired. */
+  /** The song's lyrics: empty means the LRC becomes them, filled means it is merged into them. */
   lyrics: string;
   onFindLrc: (duration?: number) => Promise<LrcCandidate[]>;
   /** The reference track's length, for ranking what LRCLIB offers. */
   trackSeconds: () => number | undefined;
   onSave: (lyrics: string | null, timings: LyricTiming[]) => Promise<void>;
+}
+
+/** A merge waiting to be accepted: the new document, its timings, what it did, and where the LRC came from. */
+interface Preview {
+  lyrics: string;
+  timings: LyricTiming[];
+  report: MergeReport;
+  source: string;
 }
 
 const clock = (seconds: number) =>
@@ -48,19 +51,13 @@ export function TimedLyricsDialog({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<LrcCandidate[] | null>(null);
-  const [alignment, setAlignment] = useState<LrcAlignment | null>(null);
-  // Which lyric line is waiting for its LRC line; the second click makes the pair.
-  const [picked, setPicked] = useState<number | null>(null);
-  // Where the fetched side came from — a file's name, or LRCLIB's version — for its column's heading.
-  const [source, setSource] = useState("");
+  const [preview, setPreview] = useState<Preview | null>(null);
 
   const reset = () => {
     setBusy(null);
     setError(null);
     setCandidates(null);
-    setAlignment(null);
-    setPicked(null);
-    setSource("");
+    setPreview(null);
   };
 
   const close = () => {
@@ -80,9 +77,9 @@ export function TimedLyricsDialog({
     }
   };
 
-  /** A file or a found version, taken as far as it goes: saved outright, or opened for pairing. `from` names it. */
+  /** A file or a found version: saved outright on a song with no lyrics, else merged and shown. `from` names it. */
   const take = async (lrc: string, from: string) => {
-    // No lyrics yet: the file IS them, so there is nothing to pair.
+    // No lyrics yet: the file IS them, so there is nothing to merge into.
     if (lyrics.trim() === "") {
       const result = importLrc("", lrc);
       if (!result.ok) throw new Error(m["lrc.noTimings"]());
@@ -90,12 +87,10 @@ export function TimedLyricsDialog({
       close();
       return;
     }
-    const next = alignLrc(lyrics, lrc);
-    if (next.lrc.length === 0) throw new Error(m["lrc.noTimings"]());
+    const merged = mergeLrc(lyrics, lrc);
+    if (!merged.ok) throw new Error(m["lrc.noTimings"]());
     setCandidates(null);
-    setPicked(null);
-    setSource(from);
-    setAlignment(next);
+    setPreview({ ...merged, source: from });
   };
 
   /** How a found version is named on its column: the service, then the album it is from. */
@@ -112,58 +107,38 @@ export function TimedLyricsDialog({
       setCandidates(found);
     });
 
-  /** Click a paired line to undo it, an unpaired one to arm it; then a line on the right. */
-  const clickLyric = (i: number) => {
-    if (!alignment) return;
-    if (alignment.pairs.has(i)) {
-      const pairs = new Map(alignment.pairs);
-      pairs.delete(i);
-      setAlignment({ ...alignment, pairs, matched: pairs.size });
-      setPicked(null);
-      return;
-    }
-    setPicked(i === picked ? null : i);
-  };
-
-  const clickLrc = (j: number) => {
-    if (!alignment || picked === null) return;
-    const pairs = new Map(alignment.pairs);
-    // One LRC line answers for one lyric line: taking it gives it up wherever it was.
-    for (const [line, at] of pairs) if (at === j) pairs.delete(line);
-    pairs.set(picked, j);
-    setAlignment({ ...alignment, pairs, matched: pairs.size });
-    setPicked(null);
-  };
-
   const save = () =>
     run(m["common.saving"](), async () => {
-      if (!alignment) return;
-      await onSave(
-        null,
-        timingsFrom(alignment.lines, alignment.lrc, alignment.pairs),
-      );
+      if (!preview) return;
+      await onSave(preview.lyrics, preview.timings);
       close();
     });
+
+  /** What the merge did, in one sentence — the thing to read before replacing a sheet. */
+  const summary = (r: MergeReport) =>
+    r.replaced
+      ? m["lrc.merge.replaced"]()
+      : m["lrc.merge.summary"]({
+          matched: r.matched,
+          total: r.total,
+          chords: r.chords,
+          other: r.other,
+        });
 
   return (
     <Dialog
       open={open}
       onOpenChange={(o) => (o ? onOpenChange(true) : close())}
     >
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>{m["lrc.title"]()}</DialogTitle>
           <DialogDescription>
-            {alignment
-              ? m["lrc.paired"]({
-                  matched: alignment.matched,
-                  total: alignment.total,
-                })
-              : m["lrc.intro"]()}
+            {preview ? summary(preview.report) : m["lrc.intro"]()}
           </DialogDescription>
         </DialogHeader>
 
-        {!alignment && (
+        {!preview && (
           <div className="row" style={{ gap: 8 }}>
             <Button
               variant="outline"
@@ -200,46 +175,18 @@ export function TimedLyricsDialog({
           </div>
         )}
 
-        {alignment && (
+        {preview && (
           <div className="lrc-match">
+            {/* Which side is which, kept in view while the lines scroll: the sheet as it is, and what it would become. */}
             <div className="lrc-column">
-              {/* Which side is which, kept in view while the lines scroll: the song's own, then what was fetched. */}
               <div className="lrc-column-head">{m["lrc.side.song"]()}</div>
-              {alignment.lines.map((line, i) => {
-                const at = alignment.pairs.get(i);
-                return (
-                  <button
-                    type="button"
-                    key={line.line}
-                    className={`lrc-row${at !== undefined ? " paired" : ""}${picked === i ? " picked" : ""}`}
-                    onClick={() => clickLyric(i)}
-                  >
-                    <span className="lrc-row-time">
-                      {at !== undefined ? clock(alignment.lrc[at].t) : "—"}
-                    </span>
-                    <span className="lrc-row-text">{line.text}</span>
-                  </button>
-                );
-              })}
+              <pre className="lrc-preview">{lyrics}</pre>
             </div>
             <div className="lrc-column">
-              <div className="lrc-column-head" title={source}>
-                {source
-                  ? m["lrc.side.fetchedFrom"]({ source })
-                  : m["lrc.side.fetched"]()}
+              <div className="lrc-column-head" title={preview.source}>
+                {m["lrc.side.merged"]({ source: preview.source })}
               </div>
-              {alignment.lrc.map((line, j) => (
-                <button
-                  type="button"
-                  key={`${line.t}:${line.text}`}
-                  className={`lrc-row${[...alignment.pairs.values()].includes(j) ? " paired" : ""}`}
-                  disabled={picked === null}
-                  onClick={() => clickLrc(j)}
-                >
-                  <span className="lrc-row-time">{clock(line.t)}</span>
-                  <span className="lrc-row-text">{line.text}</span>
-                </button>
-              ))}
+              <pre className="lrc-preview">{preview.lyrics}</pre>
             </div>
           </div>
         )}
@@ -266,11 +213,18 @@ export function TimedLyricsDialog({
           <Button variant="secondary" onClick={close}>
             {m["common.cancel"]()}
           </Button>
-          {alignment && (
+          {preview && (
+            <Button
+              variant="outline"
+              disabled={busy !== null}
+              onClick={() => setPreview(null)}
+            >
+              {m["lrc.back"]()}
+            </Button>
+          )}
+          {preview && (
             <Button disabled={busy !== null} onClick={save}>
-              {isOne(alignment.matched)
-                ? m["lrc.save.one"]({ n: alignment.matched })
-                : m["lrc.save.other"]({ n: alignment.matched })}
+              {m["lrc.apply"]()}
             </Button>
           )}
         </DialogFooter>

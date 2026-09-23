@@ -3,14 +3,12 @@
 import { describe, expect, it } from "vitest";
 import {
   alignLines,
-  alignLrc,
   importLrc,
   lineAt,
   lyricLines,
   normalizeLine,
   parseLrc,
   timingsByLine,
-  timingsFrom,
 } from "./lrc";
 
 const LRC = `[ar:Nina Simone]
@@ -114,46 +112,6 @@ describe("importLrc", () => {
       ok: false,
       reason: "empty",
     });
-  });
-});
-
-describe("alignLrc and timingsFrom", () => {
-  // The third line is sung but absent from the LRC: the one a hand pairs afterwards.
-  const lyrics =
-    "[Verse]\nOh sinnerman where you gonna run to\nsome ad lib nobody wrote down\nWhere you gona run to\nAll on that day";
-
-  it("hands back both sides and what paired by itself, refusing nothing", () => {
-    const a = alignLrc(lyrics, LRC);
-    expect(a.lrc).toHaveLength(3);
-    expect(a.lines.map((l) => l.line)).toEqual([1, 2, 3, 4]);
-    expect([...a.pairs]).toEqual([
-      [0, 0],
-      [2, 1],
-      [3, 2],
-    ]);
-    expect(a.matched).toBe(3);
-    expect(a.total).toBe(3);
-  });
-
-  it("pairs nothing for another song, and still offers both sides too", () => {
-    const a = alignLrc("Twinkle twinkle little star", LRC);
-    expect(a.matched).toBe(0);
-    expect(a.lrc).toHaveLength(3);
-    expect(a.lines).toHaveLength(1);
-  });
-
-  it("builds the timecodes of the pairs it is given, in line order", () => {
-    const a = alignLrc(lyrics, LRC);
-    // The spoken line the automatic pass skipped, paired by hand onto the second LRC line.
-    a.pairs.set(1, 1);
-    expect(
-      timingsFrom(a.lines, a.lrc, a.pairs).map((t) => [t.line, t.t]),
-    ).toEqual([
-      [1, 12.5],
-      [2, 18],
-      [3, 18],
-      [4, 24.25],
-    ]);
   });
 });
 
