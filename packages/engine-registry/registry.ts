@@ -12,6 +12,7 @@ import {
   type EngineAddresses,
   type PublicEngine,
 } from "@studio/web-protocol";
+import type { EnginePerformance } from "@studio/web-protocol/performance";
 
 /** No heartbeat for this long ⇒ the engine is presumed gone. (Beats every ~5s.) */
 export const REGISTRY_TTL_MS = 15000;
@@ -32,6 +33,7 @@ export interface EngineEntry {
   hostname: string;
   machineFingerprint: string;
   addresses: EngineAddresses;
+  performance?: EnginePerformance;
   publicIpHint?: string; // the source IP the heartbeat arrived from
   // Live holders by their secret, expiring on their own because a holder is a browser tab that may never say goodbye.
   holders: Map<string, EngineHolder>;
@@ -44,6 +46,7 @@ export interface HeartbeatInput {
   hostname: string;
   machineFingerprint: string;
   addresses: EngineAddresses;
+  performance?: EnginePerformance;
   publicIpHint?: string;
 }
 
@@ -138,6 +141,7 @@ export function createRegistry(): EngineRegistry {
         hostname: input.hostname,
         machineFingerprint: input.machineFingerprint,
         addresses: input.addresses,
+        performance: input.performance,
         publicIpHint: input.publicIpHint,
         holders: existing?.holders ?? new Map(),
         seen: Date.now(),
@@ -257,6 +261,7 @@ export function createRegistry(): EngineRegistry {
           id: e.id,
           hostname: e.hostname,
           addresses: e.addresses,
+          performance: e.performance,
           assigned: holders.length > 0,
           // Who and what, so a picker can say "busy with X's winter.st0" rather than just "busy".
           heldBy: owner?.holder,

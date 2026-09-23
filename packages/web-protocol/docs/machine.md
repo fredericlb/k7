@@ -146,4 +146,6 @@ address); it is optional because the REGISTRY does not mint it — the `/engines
 the authenticated one. See `packages/engine-registry/proxy.ts`.
 
 How good a link is — Q1/Q2/Q3, off a measured latency — is `./quality.md`. Measured, and not a
-locality tier, which would rank a gigabit LAN below a laptop running at 2048 frames.
+locality tier, which would rank a gigabit LAN below a laptop running at 2048 frames. How capable
+the machine itself is — one integer, 1000 the reference, measured by its supervisor — is
+`./performance.md`.

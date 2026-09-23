@@ -2,6 +2,7 @@
 // The backend serves the files of one st0 project directory; the frontend
 // renders a tree, edits text files, and autocompletes from schema-aware hints.
 
+import type { EnginePerformance } from "./performance.ts";
 import type { ProjectApp } from "./projects.ts";
 
 // A node in the project file tree: dirs carry `children`, files a `kind` (`binary` is shown, not edited).
@@ -885,6 +886,8 @@ export interface PublicEngine {
   id: string;
   hostname: string;
   addresses: EngineAddresses;
+  /** How capable the machine is, as the supervisor measured it; absent from an older supervisor — docs/performance.md. */
+  performance?: EnginePerformance;
   assigned: boolean; // already selected by someone; hidden from the pick list
   /** Who holds it and what they opened, undefined when free — "busy" alone is a screen people retry; docs/machine.md. */
   heldBy?: string;
@@ -896,3 +899,4 @@ export interface PublicEngine {
 }
 
 // How good a link is — Q1/Q2/Q3, off a measured latency — lives in ./quality; see docs/quality.md.
+// How capable the machine behind it is — one integer, 1000 the reference — lives in ./performance.

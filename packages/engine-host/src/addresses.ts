@@ -5,6 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { networkInterfaces, hostname as osHostname } from "node:os";
+import type { EnginePerformance } from "@studio/web-protocol/performance";
 
 // Kept structurally in sync with the web backend's EngineAddresses (@studio/web-protocol).
 export interface EngineAddresses {
@@ -19,6 +20,8 @@ export interface EnginePresence {
   machineFingerprint: string;
   port: number;
   addresses: EngineAddresses;
+  /** This machine's rating, once measured — web-protocol/docs/performance.md. */
+  performance?: EnginePerformance;
 }
 
 // Only the IPv4s a browser could usefully dial: `!internal` alone lets a link-local 169.254 address through, and nothing routes to one.

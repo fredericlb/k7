@@ -12,13 +12,14 @@ import {
 } from "@studio/engine-client/paths";
 import { loadPreferences, setSyncTargets } from "@studio/song/preferences";
 import type { SyncTarget } from "@studio/song-schema/syncTarget";
+import type { EnginePerformance } from "@studio/web-protocol/performance";
 import {
   engineRegistryUrl,
   isLoopbackHost,
   serviceUrl,
   studioFamily,
 } from "@studio/web-protocol/services";
-import { gatherAddresses } from "./addresses.ts";
+import { type EnginePresence, gatherAddresses } from "./addresses.ts";
 import { desiredSwitch, menuSignature, signature } from "./audioPolicy.ts";
 import { guard } from "./background.ts";
 import { setBundleRoot, setRepoRoot } from "./bundle.ts";
@@ -42,6 +43,7 @@ import type {
 import { PRIORITY_SEP, SHOW_UI_SEP } from "./hostProtocol.ts";
 import { type EngineIdentity, ensureEngineIdentity } from "./identity.ts";
 import { line } from "./logbus.ts";
+import { measurePerformance } from "./performance.ts";
 import {
   deregister,
   heartbeat,
@@ -104,6 +106,8 @@ interface State {
   userStopped: boolean;
   fileServiceFailed: boolean;
   lastHeartbeatOk: boolean;
+  /** Measured once at startup, before the engine; null until then — web-protocol/docs/performance.md. */
+  performance: EnginePerformance | null;
   pluginCount: number | null;
   plugins: HostPlugin[];
   pluginsSig: string;
@@ -250,6 +254,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     userStopped: false,
     fileServiceFailed: false,
     lastHeartbeatOk: false,
+    performance: null,
     pluginCount: null,
     plugins: [],
     pluginsSig: "",
@@ -515,6 +520,12 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
 
   // --- registry -------------------------------------------------------------
 
+  /** What the heartbeat announces: the addresses, re-read every beat, and the rating once there is one. */
+  const presenceNow = (): EnginePresence => ({
+    ...gatherAddresses(state.settings.port, state.settings.filePort),
+    ...(state.performance ? { performance: state.performance } : {}),
+  });
+
   // Gated on the PIDFILE rather than our own status: it is ground truth across a crash we haven't noticed yet.
   const beat = async (): Promise<void> => {
     if (!engineRunning()) {
@@ -522,10 +533,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       publish();
       return;
     }
-    const presence = gatherAddresses(
-      state.settings.port,
-      state.settings.filePort,
-    );
+    const presence = presenceNow();
     const ok = await heartbeat(state.registryUrls, state.identity, presence);
     state.lastHeartbeatOk = ok;
     publish();
@@ -585,10 +593,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     }
     publish();
     if (!engineRunning()) return; // nothing announced yet; the next start registers there
-    const presence = gatherAddresses(
-      state.settings.port,
-      state.settings.filePort,
-    );
+    const presence = presenceNow();
     state.lastHeartbeatOk = await heartbeat(
       state.registryUrls,
       state.identity,
@@ -882,6 +887,14 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   }
 
   refreshOrigins(); // the first snapshot: the tray draws nothing until it arrives
+
+  // Before the engine, so the CPU loop is not measuring its plugin scan; well under a second.
+  try {
+    state.performance = measurePerformance(rootDir());
+    line("host", `performance ${state.performance.score}`);
+  } catch (e) {
+    line("host", `performance not measured: ${String(e)}`);
+  }
 
   // Start (or adopt) the engine HERE rather than on a tray command: nothing should wait for a menu to be built.
   if (opts.own.engine) await startEngine();

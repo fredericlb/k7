@@ -14,6 +14,9 @@ totalMs = the whoami round trip  +  2 × bufferFrames / sampleRate
 | **Q2** | 20–50 ms | workable — editing, auditioning, mixing |
 | **Q3** | ≥ 50 ms | for listening rather than playing |
 
+This rates the link. How capable the machine at the other end is — cores, disk, memory — is a
+separate number, [performance.md](performance.md).
+
 ## Why it is not a locality tier
 
 A locality tier — loopback (1), a LAN address (2), nothing (3) — reads as a proxy for speed and

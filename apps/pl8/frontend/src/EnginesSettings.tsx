@@ -8,6 +8,10 @@ import { Card } from "@frediverse/ui/card";
 import { Loader2, RefreshCw, Server } from "@frediverse/ui/icons";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { PublicEngine } from "@studio/web-protocol";
+import {
+  describePerformance,
+  formatPerformance,
+} from "@studio/web-protocol/performance";
 import { formatLatency } from "@studio/web-protocol/quality";
 import { useCallback, useEffect, useState } from "react";
 import { engines } from "./api";
@@ -53,6 +57,11 @@ function EngineRow({
           ) : (
             <span className="text-destructive">
               injoignable depuis ce navigateur
+            </span>
+          )}
+          {e.performance && (
+            <span title={describePerformance(e.performance)}>
+              {` · ${formatPerformance(e.performance)}`}
             </span>
           )}
           {e.sameSourceIp && " · même réseau"}
