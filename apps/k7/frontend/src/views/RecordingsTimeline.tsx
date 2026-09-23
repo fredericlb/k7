@@ -164,20 +164,6 @@ export function RecordingsTimeline({
 
   return (
     <>
-      <div className="row" style={{ marginBottom: 8 }}>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={clean}
-          disabled={staleSessions.length === 0}
-          title="Delete empty sessions (no moments) recorded over 24h ago"
-        >
-          <BrushCleaning className="size-4" /> Clean up{" "}
-          {staleSessions.length > 0 ? `${staleSessions.length} ` : ""}
-          empty session{staleSessions.length === 1 ? "" : "s"}
-        </Button>
-      </div>
-
       <div className="sessions-day-view">
         {/* The filters sit under the calendar: both choose what the timeline beside them shows. */}
         <div className="calendar-col">
@@ -210,6 +196,18 @@ export function RecordingsTimeline({
               ))}
             </div>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="self-start"
+            onClick={clean}
+            disabled={staleSessions.length === 0}
+            title="Delete empty sessions (no moments) recorded over 24h ago"
+          >
+            <BrushCleaning className="size-4" /> Clean up{" "}
+            {staleSessions.length > 0 ? `${staleSessions.length} ` : ""}
+            empty session{staleSessions.length === 1 ? "" : "s"}
+          </Button>
         </div>
 
         <div className="day-timeline-wrap">
