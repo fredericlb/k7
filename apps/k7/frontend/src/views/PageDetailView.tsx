@@ -3,6 +3,7 @@ import { Card } from "@frediverse/ui/card";
 import { Check, Copy, Download, Trash2 } from "@frediverse/ui/icons";
 import { pageVersion } from "@k7/shared/pageVersion";
 import { useState } from "react";
+import { BackButton } from "../components/BackButton";
 import { WaveformPlayer } from "../components/WaveformPlayer";
 import type { Page, Release, SongEnvelope } from "../types";
 
@@ -21,10 +22,12 @@ interface Props {
     releaseId: string,
     versionId: string,
   ) => Promise<SongEnvelope>;
+  onBack: () => void;
 }
 
 export function PageDetailView({
   page,
+  onBack,
   allReleases,
   publicUrl,
   onRemoveRelease,
@@ -54,7 +57,10 @@ export function PageDetailView({
 
   return (
     <div className="release-detail">
-      <h2>@{page.nametag}</h2>
+      <div className="detail-head">
+        <BackButton to="Publications" onClick={onBack} />
+        <h2>@{page.nametag}</h2>
+      </div>
       <p className="muted">
         {releases.length} release{releases.length === 1 ? "" : "s"}
       </p>

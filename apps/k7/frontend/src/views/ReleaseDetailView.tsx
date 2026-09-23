@@ -4,6 +4,7 @@ import { Card } from "@frediverse/ui/card";
 import { Download, Pencil, Trash2 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { useRef, useState } from "react";
+import { BackButton } from "../components/BackButton";
 import { ReleaseEditForm } from "../components/ReleaseEditForm";
 import { SwitchField } from "../components/SwitchField";
 import { VersionCard } from "../components/VersionCard";
@@ -27,10 +28,12 @@ interface Props {
   versionAudioUrl: (versionId: string) => string;
   versionEnvelope: (versionId: string) => Promise<SongEnvelope>;
   versionTrackUrl: (versionId: string, trackId: string) => string;
+  onBack: () => void;
 }
 
 export function ReleaseDetailView({
   release,
+  onBack,
   onUpdate,
   onAddVersion,
   onReplaceVersionAudio,
@@ -121,7 +124,10 @@ export function ReleaseDetailView({
         />
       ) : (
         <>
-          <h2>{release.title}</h2>
+          <div className="detail-head">
+            <BackButton to="Publications" onClick={onBack} />
+            <h2>{release.title}</h2>
+          </div>
           <p className="muted">
             {release.artist}
             {release.releaseDate ? ` · ${release.releaseDate}` : ""}

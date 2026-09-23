@@ -36,3 +36,13 @@ sitting on top of it — which is what an app whose page carries the colour want
 
 The shared bar sticks at `z-10`, which puts it under k7's own page layers. The
 `className="z-20"` set here is what keeps it above them: remove it and it goes under.
+
+## A detail page leads back to its entry
+
+Every page under an entry — a session, a moment, a release, a page, a song, an exercise — opens
+its title row with an arrow back to that entry's list (`apps/k7/frontend/src/components/BackButton.tsx`).
+It sits on the title's row, not above it, so it costs no height. It goes to the entry's list rather
+than to the browser's history, so a link opened cold still lands inside k7.
+
+Settings has none: it is reached from the gear, not from an entry, and the entries are right there.
+The `/new` forms have Cancel instead, which is the same way out.

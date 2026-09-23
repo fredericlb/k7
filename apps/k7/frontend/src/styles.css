@@ -406,6 +406,15 @@ input[type="range"] {
 .star-btn.on {
   color: var(--amber);
 }
+/* A detail page's title row: the back arrow, then the title. */
+.detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.detail-head h2 {
+  margin: 0;
+}
 .song-detail-head {
   display: flex;
   align-items: center;
@@ -1335,7 +1344,8 @@ select {
 .exercise {
   max-width: 520px;
 }
-.exercise h2 {
+.exercise .detail-head,
+.exercise .singing-head {
   margin: 10px 0 4px;
 }
 .exercise-chord-stage {

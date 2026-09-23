@@ -1,6 +1,6 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { ArrowLeft, Check } from "@frediverse/ui/icons";
+import { Check } from "@frediverse/ui/icons";
 import { useState } from "react";
 import { api } from "../api";
 import { CleanUpSessions } from "../components/CleanUpSessions";
@@ -11,7 +11,6 @@ interface Props {
   user: User;
   sessions: Session[];
   onLogout: () => void;
-  onBack: () => void;
   onCleanSessions: (ids: string[]) => Promise<void>;
 }
 
@@ -19,7 +18,6 @@ export function SettingsView({
   user,
   sessions,
   onLogout,
-  onBack,
   onCleanSessions,
 }: Props) {
   const [token, setToken] = useState<string | null>(null);
@@ -49,10 +47,6 @@ export function SettingsView({
 
   return (
     <div className="settings">
-      <Button variant="link" className="text-xs" onClick={onBack}>
-        <ArrowLeft className="size-3.5" /> Back
-      </Button>
-
       <h2>Settings</h2>
 
       <Card>

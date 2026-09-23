@@ -1,6 +1,7 @@
 import { Button } from "@frediverse/ui/button";
-import { ArrowLeft, ArrowRight, Eye } from "@frediverse/ui/icons";
+import { ArrowRight, Eye } from "@frediverse/ui/icons";
 import { useState } from "react";
+import { BackButton } from "../components/BackButton";
 import { ChordDiagram } from "../components/ChordDiagram";
 import { type ChordPrompt, randomChord } from "../utils/exercises";
 
@@ -22,10 +23,10 @@ export function RandomChordsExercise({ onBack }: Props) {
 
   return (
     <div className="exercise">
-      <Button variant="outline" size="sm" onClick={onBack}>
-        <ArrowLeft className="size-4" /> Exercices
-      </Button>
-      <h2>Random chords</h2>
+      <div className="detail-head">
+        <BackButton to="Exercices" onClick={onBack} />
+        <h2>Random chords</h2>
+      </div>
       <p className="muted small">
         Play the chord shown on your instrument, then reveal the fingering to
         check yourself and move on.

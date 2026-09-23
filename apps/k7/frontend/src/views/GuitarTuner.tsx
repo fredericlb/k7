@@ -1,8 +1,9 @@
 import { Button } from "@frediverse/ui/button";
-import { ArrowLeft, Mic, MicOff, Square } from "@frediverse/ui/icons";
+import { Mic, MicOff, Square } from "@frediverse/ui/icons";
 import { acquireMicrophone, describeMicError } from "@k7/recorder";
 import { PitchDetector } from "pitchy";
 import { useEffect, useRef, useState } from "react";
+import { BackButton } from "../components/BackButton";
 import { freqToNote, GUITAR_STRINGS, nearestString } from "../utils/pitch";
 
 interface Props {
@@ -92,10 +93,10 @@ export function GuitarTuner({ onBack }: Props) {
 
   return (
     <div className="exercise tuner">
-      <Button variant="outline" size="sm" onClick={onBack}>
-        <ArrowLeft className="size-4" /> Exercices
-      </Button>
-      <h2>Guitar tuner</h2>
+      <div className="detail-head">
+        <BackButton to="Exercices" onClick={onBack} />
+        <h2>Guitar tuner</h2>
+      </div>
       <p className="muted small">
         Play a single open string and tune until the note turns green and the
         needle centers. Standard tuning: E A D G B E.

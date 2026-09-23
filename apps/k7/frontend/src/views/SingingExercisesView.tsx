@@ -13,12 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import { ArrowLeft, Dices, Play, Plus } from "@frediverse/ui/icons";
+import { Dices, Play, Plus } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { Textarea } from "@frediverse/ui/textarea";
 import { isYouTubeUrl } from "@k7/shared/youtube";
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { BackButton } from "../components/BackButton";
 import type { SingingExercise } from "../types";
 import { pickWorkout } from "../utils/exercises";
 
@@ -107,11 +108,8 @@ export function SingingExercisesView({ onBack }: Props) {
 
   return (
     <div className="exercise">
-      <Button variant="outline" size="sm" onClick={onBack}>
-        <ArrowLeft className="size-4" /> Exercices
-      </Button>
-
       <div className="singing-head">
+        <BackButton to="Exercices" onClick={onBack} />
         <h2>Singing exercices</h2>
         <Button
           size="sm"

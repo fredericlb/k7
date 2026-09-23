@@ -8,6 +8,7 @@ interface Props {
   allReleases: Release[];
   onDeleted: () => void;
   onChange: () => void;
+  onBack: () => void;
 }
 
 export function PageDetailContainer({
@@ -15,6 +16,7 @@ export function PageDetailContainer({
   allReleases,
   onDeleted,
   onChange,
+  onBack,
 }: Props) {
   const [page, setPage] = useState<Page | null>(null);
 
@@ -62,6 +64,7 @@ export function PageDetailContainer({
       onAddRelease={handleAddRelease}
       onChooseVersion={handleChooseVersion}
       onDelete={handleDelete}
+      onBack={onBack}
       versionAudioUrl={api.versionAudioUrl}
       versionDownloadUrl={api.versionDownloadUrl}
       versionEnvelope={api.getVersionEnvelope}
