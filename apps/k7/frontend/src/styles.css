@@ -749,32 +749,19 @@ select {
 
 /* ---- Metronome (a panel of the song page's rail) ------------------------- */
 
-/* inline-block, or width and height would not apply at all: it sits in a line of text. */
-.metro-dot {
-  display: inline-block;
-  vertical-align: middle;
-  width: 9px;
-  height: 9px;
-  margin: 0 6px 0 4px;
-  border-radius: 50%;
-  background: var(--border);
+/* Each click lights the header — green on a bar's first beat, red on the others — and fades out. */
+.rail-panel-head {
+  transition: background-color 0.12s ease-out;
 }
-.metro-dot.beating {
-  background: var(--red);
-  animation-name: metro-flash;
-  animation-timing-function: ease-out;
-  animation-iteration-count: infinite;
+.rail-panel-head.metro-bar,
+.rail-panel-head.metro-beat {
+  transition: none;
 }
-@keyframes metro-flash {
-  0% {
-    opacity: 1;
-    transform: scale(1.35);
-  }
-  40%,
-  100% {
-    opacity: 0.35;
-    transform: scale(1);
-  }
+.rail-panel-head.metro-bar {
+  background: color-mix(in srgb, var(--green) 65%, var(--surface-2));
+}
+.rail-panel-head.metro-beat {
+  background: color-mix(in srgb, var(--red) 65%, var(--surface-2));
 }
 
 .metro-bpm-row {
@@ -1288,6 +1275,7 @@ select {
 .rail-panel-head .rail-panel-toggle {
   flex: 1 1 auto;
   min-width: 0;
+  background: none;
 }
 .rail-panel-action {
   flex: 0 0 auto;

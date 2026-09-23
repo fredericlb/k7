@@ -18,9 +18,25 @@ interface Props {
 }
 
 export function MetronomeWidget({ open, onToggle }: Props) {
-  const { metronome, start, stop } = useMetronome();
   const [bpm, setBpm] = useState(120);
+  // The header flashes on each click — green on a bar's first beat, red on the others — so a FOLDED panel still keeps time.
+  const [flash, setFlash] = useState<"bar" | "beat" | null>(null);
+  const flashTimer = useRef<number | null>(null);
+  const { metronome, start, stop } = useMetronome((downbeat) => {
+    if (flashTimer.current != null) clearTimeout(flashTimer.current);
+    setFlash(downbeat ? "bar" : "beat");
+    flashTimer.current = window.setTimeout(
+      () => setFlash(null),
+      Math.min(150, (60 / bpm) * 500),
+    );
+  });
   const running = metronome != null;
+  // A stopped click leaves no colour behind.
+  useEffect(() => {
+    if (running) return;
+    if (flashTimer.current != null) clearTimeout(flashTimer.current);
+    setFlash(null);
+  }, [running]);
 
   // A live tempo change restarts the click a beat later, so a slider drag spares the context.
   const first = useRef(true);
@@ -39,7 +55,7 @@ export function MetronomeWidget({ open, onToggle }: Props) {
 
   return (
     <aside className={`rail-panel${open ? "" : " collapsed"}`}>
-      <div className="rail-panel-head">
+      <div className={`rail-panel-head${flash ? ` metro-${flash}` : ""}`}>
         <button
           type="button"
           className="rail-panel-toggle"
@@ -47,12 +63,6 @@ export function MetronomeWidget({ open, onToggle }: Props) {
           aria-expanded={open}
         >
           <Music2 className="size-4" />
-          {/* The dot beats in the toggle, so a FOLDED panel still says the click is running. */}
-          <span
-            className={`metro-dot${running ? " beating" : ""}`}
-            style={{ animationDuration: `${60 / bpm}s` }}
-            aria-hidden
-          />
           <span className="rail-panel-word">{m["metronome.title"]()}</span>
         </button>
         {/* On and off from the header, as the player's play/pause: it answers folded too. */}
