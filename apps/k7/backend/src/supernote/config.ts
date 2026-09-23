@@ -1,7 +1,7 @@
 // One row per user in the SupernoteSync table: where their private cloud is, who to sign
 // in as, and what the last run did. The password is the only sealed column — ../../../docs/supernote.md.
 
-import { addRecords, listRecords, patchRecord } from "../grist.ts";
+import { addRecords, listRecords, patchRecord } from "../pocketbase.ts";
 import { seal, unseal } from "./secret.ts";
 
 const TABLE = "SupernoteSync";
