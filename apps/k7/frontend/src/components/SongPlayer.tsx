@@ -157,22 +157,25 @@ export function SongPlayer({
         />
       )}
 
-      <Button
-        variant="secondary"
-        className="song-player-play"
-        onClick={toggle}
-        aria-pressed={running}
-      >
-        {running ? (
-          <>
-            <Pause className="size-4" /> {m["common.pause"]()}
-          </>
-        ) : (
-          <>
-            <Play className="size-4" /> {m["common.play"]()}
-          </>
-        )}
-      </Button>
+      {/* In the rail the panel's header carries it, so it answers even folded. */}
+      {!floating && (
+        <Button
+          variant="secondary"
+          className="song-player-play"
+          onClick={toggle}
+          aria-pressed={running}
+        >
+          {running ? (
+            <>
+              <Pause className="size-4" /> {m["common.pause"]()}
+            </>
+          ) : (
+            <>
+              <Play className="size-4" /> {m["common.play"]()}
+            </>
+          )}
+        </Button>
+      )}
 
       <div className="song-player-row">
         {/* One toggle rather than two buttons: there are two versions and they exclude each other. */}
@@ -196,15 +199,27 @@ export function SongPlayer({
 
   return (
     <aside className={`rail-panel${open ? "" : " collapsed"}`}>
-      <button
-        type="button"
-        className="rail-panel-toggle"
-        onClick={onToggle}
-        aria-expanded={open}
-      >
-        <Headphones className="size-4" />
-        <span className="rail-panel-word">{m["player.title"]()}</span>
-      </button>
+      <div className="rail-panel-head">
+        <button
+          type="button"
+          className="rail-panel-toggle"
+          onClick={onToggle}
+          aria-expanded={open}
+        >
+          <Headphones className="size-4" />
+          <span className="rail-panel-word">{m["player.title"]()}</span>
+        </button>
+        <button
+          type="button"
+          className="rail-panel-action"
+          onClick={toggle}
+          aria-pressed={running}
+          aria-label={running ? m["common.pause"]() : m["common.play"]()}
+          title={running ? m["common.pause"]() : m["common.play"]()}
+        >
+          {running ? <Pause className="size-4" /> : <Play className="size-4" />}
+        </button>
+      </div>
       {/* Hidden, never unmounted: unmounting would stop the track and strand the lyrics. */}
       <div hidden={!open}>{body}</div>
     </aside>

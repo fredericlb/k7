@@ -1261,6 +1261,27 @@ select {
 .rail-panel-toggle svg.lucide {
   margin-right: 6px;
 }
+/* A header with a control of its own: the toggle takes the row, the control sits at its end. */
+.rail-panel-head {
+  display: flex;
+  align-items: stretch;
+  background: var(--surface-2);
+  border-radius: 10px 0 0 10px;
+}
+.rail-panel-head .rail-panel-toggle {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rail-panel-action {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: none;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+}
 .chords-panel-list {
   overflow: auto;
   padding: 8px;
@@ -1547,6 +1568,14 @@ select {
     width: 18px;
     height: 18px;
     margin-right: 0;
+  }
+  .rail-panel-head {
+    background: none;
+    border-radius: 0;
+  }
+  .rail-panel-action svg.lucide {
+    width: 18px;
+    height: 18px;
   }
   /* An opened panel rises ABOVE the bar rather than pushing it off the screen. */
   .rail-panel-body,
