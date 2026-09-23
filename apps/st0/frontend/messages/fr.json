@@ -368,6 +368,7 @@
   "settings.chains.hint": "Avec laquelle des chaînes froides de votre bibliothèque cette machine sépare un morceau, et fait un instrumental. Une réponse pour la machine, quel que soit le projet ouvert.",
   "settings.chains.noCold": "Votre dépôt de bibliothèques ne contient aucune chaîne froide — une chaîne dont l'unique pas est un module hors ligne qui sépare. Écrivez-en une sous {dir}.",
   "settings.chains.unavailableTag": "pas encore utilisable ici",
+  "settings.chains.downloadTag": "nécessite un téléchargement",
   "settings.chains.unavailable": "Cette machine ne peut pas encore l'exécuter : {reason}",
   "settings.chains.download": "Télécharger le modèle ({file})",
   "settings.chains.noMachine": "Aucune machine ne répond — démarrez le moteur sur la machine où ces chaînes tournent.",
