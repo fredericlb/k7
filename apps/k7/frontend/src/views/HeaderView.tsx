@@ -126,7 +126,8 @@ export function HeaderView({
             title="Settings"
             aria-label="Settings"
           >
-            <span className="nav-icon">⚙</span>
+            {/* U+FE0F: bare ⚙ renders as a small text glyph beside the emoji icons. */}
+            <span className="nav-icon">⚙️</span>
           </Button>
 
           {/* The one thing this bar DOES rather than opens, so its error hangs off the button that failed. */}
