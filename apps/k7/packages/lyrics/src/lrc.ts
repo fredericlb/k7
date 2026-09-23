@@ -1,10 +1,17 @@
-// lrc.ts — LRC lyrics as timed lines, and their alignment onto a song's own chord sheet.
-// Pure, so the matching is tested without a player — ../../../docs/lyricsTiming.md.
-// What reads wrong: an LRC timecode `[01:23.45]` looks like an inline chord or a section label,
-// so timecodes are kept BESIDE the lyrics text and never written into it.
+// lrc.ts — LRC lyrics as timed lines, and their timecodes written into a song's own sheet as
+// `{{MM:SS}}`. Pure, so the matching is tested without a player — ../../../docs/lyricsTiming.md.
+// What reads wrong: an LRC's own `[01:23.45]` looks like an inline chord or a section label, which
+// is why the text gets `{{MM:SS}}` instead — a spelling nothing else in a sheet uses.
 
 import { distance } from "fastest-levenshtein";
-import { parseChordSheet } from "./chords";
+import {
+  formatTimecode,
+  isTabLine,
+  looseChordLine,
+  parseChordSheet,
+  stripTimecodes,
+  timecodeOf,
+} from "./chords";
 
 /** One timed line of an LRC file. */
 export interface LrcLine {
@@ -19,11 +26,8 @@ export interface LyricTiming {
   t: number;
 }
 
-/** Two lines at least this alike are the same line, give or take a typo or a contraction. */
-export const MATCH_THRESHOLD = 0.7;
-
-/** Below this share of lines matched, the LRC is not these lyrics and is refused. */
-export const MIN_FIT = 0.5;
+/** A sheet line at least this close to a fetched line is where its timecode goes; below, it gets none. */
+export const TIMECODE_THRESHOLD = 0.5;
 
 const LEADING_STAMP = /^\s*\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]/;
 const WORD_STAMP = /<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>/g;
@@ -61,11 +65,14 @@ export function normalizeLine(line: string): string {
     .trim();
 }
 
-/** The sung lines of a chord sheet — chords, section labels and blanks left out — by line index. */
+/** The sung lines of a chord sheet — chords (`C**` too), tablature, section labels and blanks left out — by line index. */
 export function lyricLines(lyrics: string): { line: number; text: string }[] {
   const out: { line: number; text: string }[] = [];
+  const raw = lyrics.split(/\r?\n/);
   parseChordSheet(lyrics).forEach((parsed, line) => {
     if (parsed.type !== "lyrics") return;
+    const bare = stripTimecodes(raw[line] ?? "");
+    if (isTabLine(bare) || looseChordLine(bare)) return;
     const text = normalizeLine(parsed.segments.map((s) => s.text).join(""));
     if (text !== "") out.push({ line, text });
   });
@@ -113,44 +120,196 @@ export function alignLines(
   return pairs.reverse();
 }
 
-export type LrcImport =
-  | { ok: true; lyrics: string | null; timings: LyricTiming[]; matched: number }
-  | { ok: false; reason: "empty" | "mismatch"; matched: number; total: number };
-
-/** What an LRC file does to a song: becomes its lyrics when there are none, else times the lines it matches. */
-export function importLrc(lyrics: string, source: string): LrcImport {
-  const lrc = parseLrc(source).filter((l) => normalizeLine(l.text) !== "");
-  if (lrc.length === 0)
-    return { ok: false, reason: "empty", matched: 0, total: 0 };
-
-  if (lyrics.trim() === "") {
-    const text = lrc.map((l) => l.text).join("\n");
-    const timings = lrc.map((l, line) => ({
-      line,
-      text: normalizeLine(l.text),
-      t: l.t,
-    }));
-    return { ok: true, lyrics: text, timings, matched: timings.length };
-  }
-
-  const lines = lyricLines(lyrics);
-  const pairs = alignLines(
-    lines.map((l) => l.text),
-    lrc.map((l) => normalizeLine(l.text)),
-    MATCH_THRESHOLD,
-  );
-  const total = Math.min(lines.length, lrc.length);
-  if (total === 0 || pairs.length < total * MIN_FIT)
-    return { ok: false, reason: "mismatch", matched: pairs.length, total };
-  const timings = pairs.map(([i, j]) => ({
-    line: lines[i].line,
-    text: lines[i].text,
-    t: lrc[j].t,
-  }));
-  return { ok: true, lyrics: null, timings, matched: pairs.length };
+/**
+ * A pairing of the sheet's lyric lines with the fetched ones that allows for different LINE BREAKS:
+ * one sheet line may be two fetched lines ("…angry heart, filled with cancers…" split in two), or two
+ * sheet lines one fetched line ("…get out of" / "bed in the morning" joined). `i`/`ni` and `j`/`nj`
+ * are where each side's run starts and how many lines it takes. A span's time is its first fetched
+ * line's, and it goes on its first sheet line — where the singing of it starts.
+ */
+export interface Span {
+  i: number;
+  ni: 1 | 2;
+  j: number;
+  nj: 1 | 2;
 }
 
-/** The stored timecodes laid onto the lyrics AS THEY ARE NOW: an edited line loses its time, the rest keep theirs. */
+/**
+ * The spans, in order on both sides, scoring the most similarity weighted by how many lines each
+ * covers. A two-line span must match BETTER than either of its lines alone — else it is one line and
+ * some noise — and `joinable[i]` says whether sheet lines i and i+1 may be one line at all (nothing
+ * stood between them on the sheet).
+ */
+export function alignSpans(
+  a: readonly string[],
+  b: readonly string[],
+  threshold: number,
+  joinable: readonly boolean[] = [],
+): Span[] {
+  const joined = (xs: readonly string[], ok: (k: number) => boolean) =>
+    xs.map((x, k) => (k + 1 < xs.length && ok(k) ? `${x} ${xs[k + 1]}` : ""));
+  const a2 = joined(a, (k) => joinable[k] ?? true);
+  const b2 = joined(b, () => true);
+  const text = (
+    xs: readonly string[],
+    xs2: readonly string[],
+    k: number,
+    n: 1 | 2,
+  ) => (n === 1 ? xs[k] : xs2[k]);
+  const rows = a.length;
+  const cols = b.length;
+  const score = Array.from(
+    { length: rows + 1 },
+    () => new Float64Array(cols + 1),
+  );
+  const step: (Span | "up" | "left" | null)[][] = Array.from(
+    { length: rows + 1 },
+    () => new Array(cols + 1).fill(null),
+  );
+  const SHAPES: [1 | 2, 1 | 2][] = [
+    [1, 1],
+    [1, 2],
+    [2, 1],
+  ];
+  for (let i = 0; i <= rows; i++)
+    for (let j = 0; j <= cols; j++) {
+      if (i === 0 && j === 0) continue;
+      let best = Number.NEGATIVE_INFINITY;
+      let pick: Span | "up" | "left" | null = null;
+      if (i > 0 && score[i - 1][j] > best) {
+        best = score[i - 1][j];
+        pick = "up";
+      }
+      if (j > 0 && score[i][j - 1] > best) {
+        best = score[i][j - 1];
+        pick = "left";
+      }
+      for (const [ni, nj] of SHAPES) {
+        if (i < ni || j < nj) continue;
+        const left = text(a, a2, i - ni, ni);
+        const right = text(b, b2, j - nj, nj);
+        if (!left || !right) continue;
+        const s = similarity(left, right);
+        if (s < threshold) continue;
+        if (ni + nj > 2) {
+          // The better of its lines alone: joining has to beat it, or the extra line is noise.
+          const alone =
+            ni === 2
+              ? Math.max(
+                  similarity(a[i - 2], b[j - 1]),
+                  similarity(a[i - 1], b[j - 1]),
+                )
+              : Math.max(
+                  similarity(a[i - 1], b[j - 2]),
+                  similarity(a[i - 1], b[j - 1]),
+                );
+          if (s <= alone) continue;
+        }
+        // Weighted by the lines it covers, so a split that explains both halves beats half of it.
+        const v = score[i - ni][j - nj] + (s * (ni + nj)) / 2;
+        if (v > best) {
+          best = v;
+          pick = { i: i - ni, ni, j: j - nj, nj };
+        }
+      }
+      score[i][j] = best;
+      step[i][j] = pick;
+    }
+  const spans: Span[] = [];
+  let i = rows;
+  let j = cols;
+  while (i > 0 || j > 0) {
+    const s = step[i][j];
+    if (s === "up") i--;
+    else if (s === "left") j--;
+    else if (s) {
+      spans.push(s);
+      i = s.i;
+      j = s.j;
+    } else break;
+  }
+  return spans.reverse();
+}
+
+export type LrcTimecoding =
+  | {
+      ok: true;
+      /** The sheet with `{{MM:SS}}` at the end of each line a fetched line found — nothing else changed. */
+      lyrics: string;
+      /** Fetched lines that found a sheet line, out of all of them. */
+      placed: number;
+      total: number;
+    }
+  | { ok: false; reason: "empty" };
+
+/**
+ * What an LRC does to a song: it TIMES the lyrics, and nothing more. Each fetched line finds the sheet
+ * line closest to it — chords, tablature, sections and blanks never — in order on both sides, so the
+ * third fetched line can never land above the second's; its time goes at the end of that line as
+ * `{{MM:SS}}`, where it shifts no chord off the word it is over. Line breaks may differ (`alignSpans`):
+ * a sheet line the LRC sings as two gets the first one's time, two sheet lines it sings as one give
+ * it to the first. Codes already there are replaced. A song with no lyrics gets the fetched lines
+ * themselves, each with its code.
+ */
+export function timeLyrics(lyrics: string, source: string): LrcTimecoding {
+  const lrc = parseLrc(source).filter((l) => normalizeLine(l.text) !== "");
+  if (lrc.length === 0) return { ok: false, reason: "empty" };
+
+  if (lyrics.trim() === "")
+    return {
+      ok: true,
+      lyrics: lrc.map((l) => `${l.text} ${formatTimecode(l.t)}`).join("\n"),
+      placed: lrc.length,
+      total: lrc.length,
+    };
+
+  const raw = lyrics
+    .split(/\r?\n/)
+    .map((line) => (timecodeOf(line) === null ? line : stripTimecodes(line)));
+  const lines = lyricLines(raw.join("\n"));
+  // Two sheet lines may be sung as one only when nothing but chords stands between them.
+  const parsed = parseChordSheet(raw.join("\n"));
+  const joinable = lines.map((l, k) => {
+    const next = lines[k + 1];
+    if (!next) return false;
+    for (let at = l.line + 1; at < next.line; at++)
+      if (parsed[at].type !== "chords" && !looseChordLine(raw[at]))
+        return false;
+    return true;
+  });
+  const spans = alignSpans(
+    lines.map((l) => l.text),
+    lrc.map((l) => normalizeLine(l.text)),
+    TIMECODE_THRESHOLD,
+    joinable,
+  );
+  for (const sp of spans) {
+    const at = lines[sp.i].line;
+    raw[at] = `${raw[at].replace(/\s+$/, "")} ${formatTimecode(lrc[sp.j].t)}`;
+  }
+  return {
+    ok: true,
+    lyrics: raw.join("\n"),
+    placed: spans.reduce((n, sp) => n + sp.nj, 0),
+    total: lrc.length,
+  };
+}
+
+/** Each timed line's start, by line index, read off the `{{MM:SS}}` in the text — what the player follows. */
+export function timecodesByLine(lyrics: string): Map<number, number> {
+  const out = new Map<number, number>();
+  lyrics.split(/\r?\n/).forEach((line, i) => {
+    const t = timecodeOf(line);
+    if (t !== null) out.set(i, t);
+  });
+  return out;
+}
+
+/** Whether the text carries any timecode at all. */
+export const hasTimecodes = (lyrics: string): boolean =>
+  timecodesByLine(lyrics).size > 0;
+
+/** Timecodes stored BESIDE the text, as songs timed before `{{MM:SS}}` have them, laid onto the lyrics as they are now: an edited line loses its time, the rest keep theirs. */
 export function timingsByLine(
   lyrics: string,
   timings: readonly LyricTiming[],

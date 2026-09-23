@@ -1,7 +1,7 @@
-// Timed lyrics, in one popin: get an LRC (a file, or LRCLIB's versions of this song), and its lyrics
-// become the song's. A song with none takes them as they are; a song with a sheet gets them MERGED —
-// its chords, sections and tablature moved onto the fetched lines (`mergeLrc`) — shown side by side
-// with the sheet before anything is replaced — ../../../docs/lyricsTiming.md.
+// Timed lyrics, in one popin: get an LRC (a file, or LRCLIB's versions of this song), and its times
+// go INTO the sheet as `{{MM:SS}}`, at the end of the closest line (`timeLyrics`) — not a word of it
+// changes. The timed sheet is shown beside the sheet before it is saved. A song with no lyrics takes
+// the fetched lines themselves, timed — ../../../docs/lyricsTiming.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -12,27 +12,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import { importLrc, type MergeReport, mergeLrc } from "@k7/lyrics";
+import { timeLyrics } from "@k7/lyrics";
 import { useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
-import type { LrcCandidate, LyricTiming } from "../types";
+import type { LrcCandidate } from "../types";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The song's lyrics: empty means the LRC becomes them, filled means it is merged into them. */
+  /** The song's lyrics: empty means the LRC's lines become them, filled means they get its timecodes. */
   lyrics: string;
   onFindLrc: (duration?: number) => Promise<LrcCandidate[]>;
   /** The reference track's length, for ranking what LRCLIB offers. */
   trackSeconds: () => number | undefined;
-  onSave: (lyrics: string | null, timings: LyricTiming[]) => Promise<void>;
+  /** The sheet with its timecodes, and how many fetched lines found a line of it. */
+  onSave: (lyrics: string, placed: number) => Promise<void>;
 }
 
-/** A merge waiting to be accepted: the new document, its timings, what it did, and where the LRC came from. */
+/** A timing waiting to be accepted: the timed sheet, how much it placed, and where the LRC came from. */
 interface Preview {
   lyrics: string;
-  timings: LyricTiming[];
-  report: MergeReport;
+  placed: number;
+  total: number;
   source: string;
 }
 
@@ -77,20 +78,18 @@ export function TimedLyricsDialog({
     }
   };
 
-  /** A file or a found version: saved outright on a song with no lyrics, else merged and shown. `from` names it. */
+  /** A file or a found version: saved outright on a song with no lyrics, else timed and shown. `from` names it. */
   const take = async (lrc: string, from: string) => {
-    // No lyrics yet: the file IS them, so there is nothing to merge into.
+    const timed = timeLyrics(lyrics, lrc);
+    if (!timed.ok) throw new Error(m["lrc.noTimings"]());
+    // No lyrics yet: the file's lines ARE them, so there is no sheet to compare with.
     if (lyrics.trim() === "") {
-      const result = importLrc("", lrc);
-      if (!result.ok) throw new Error(m["lrc.noTimings"]());
-      await onSave(result.lyrics, result.timings);
+      await onSave(timed.lyrics, timed.placed);
       close();
       return;
     }
-    const merged = mergeLrc(lyrics, lrc);
-    if (!merged.ok) throw new Error(m["lrc.noTimings"]());
     setCandidates(null);
-    setPreview({ ...merged, source: from });
+    setPreview({ ...timed, source: from });
   };
 
   /** How a found version is named on its column: the service, then the album it is from. */
@@ -110,20 +109,13 @@ export function TimedLyricsDialog({
   const save = () =>
     run(m["common.saving"](), async () => {
       if (!preview) return;
-      await onSave(preview.lyrics, preview.timings);
+      await onSave(preview.lyrics, preview.placed);
       close();
     });
 
-  /** What the merge did, in one sentence — the thing to read before replacing a sheet. */
-  const summary = (r: MergeReport) =>
-    r.replaced
-      ? m["lrc.merge.replaced"]()
-      : m["lrc.merge.summary"]({
-          matched: r.matched,
-          total: r.total,
-          chords: r.chords,
-          other: r.other,
-        });
+  /** How much of the LRC found a place, in one sentence — read before the sheet is saved. */
+  const summary = (p: Preview) =>
+    m["lrc.timed.summary"]({ placed: p.placed, total: p.total });
 
   return (
     <Dialog
@@ -134,7 +126,7 @@ export function TimedLyricsDialog({
         <DialogHeader>
           <DialogTitle>{m["lrc.title"]()}</DialogTitle>
           <DialogDescription>
-            {preview ? summary(preview.report) : m["lrc.intro"]()}
+            {preview ? summary(preview) : m["lrc.intro"]({ code: "{{MM:SS}}" })}
           </DialogDescription>
         </DialogHeader>
 
@@ -177,14 +169,14 @@ export function TimedLyricsDialog({
 
         {preview && (
           <div className="lrc-match">
-            {/* Which side is which, kept in view while the lines scroll: the sheet as it is, and what it would become. */}
+            {/* Which side is which, kept in view while the lines scroll: the sheet as it is, and with its timecodes. */}
             <div className="lrc-column">
               <div className="lrc-column-head">{m["lrc.side.song"]()}</div>
               <pre className="lrc-preview">{lyrics}</pre>
             </div>
             <div className="lrc-column">
               <div className="lrc-column-head" title={preview.source}>
-                {m["lrc.side.merged"]({ source: preview.source })}
+                {m["lrc.side.timed"]({ source: preview.source })}
               </div>
               <pre className="lrc-preview">{preview.lyrics}</pre>
             </div>

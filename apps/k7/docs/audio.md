@@ -340,12 +340,12 @@ often than a track to play along to, so it is asked for rather than ridden along
   insert under the title shows it with Retry and Dismiss — a reload shows it again. A step that fails
   after the track landed is as visible as one before. No engine online is reported the same way,
   though the chain still goes on to the lyrics.
-- **The lyrics step fetches, and the fetched lyrics are the truth.** A song whose lyrics are not
-  timed yet — none at all, or a sheet typed by hand — gets LRCLIB's best version of THIS song (its
-  artist and title), merged into the sheet: its chords, sections and tablature moved onto the fetched
-  lines, anything else kept under `[OTHER CONTENT]` (`lyricsTiming.md`). No version of this song
-  leaves the sheet as it was, marked « unmatched », which is what puts « Fix lyrics » on the page.
-  Lyrics already timed are left alone.
+- **The lyrics step only TIMES the lyrics.** A song whose lyrics are not timed yet gets LRCLIB's best
+  version of THIS song (its artist and title), and its times are written into the sheet as
+  `{{MM:SS}}` at the end of the closest lines — not a word of the sheet changes (`lyricsTiming.md`). A
+  song with no lyrics gets the fetched lines themselves, timed. No version of this song, or one that
+  times nothing, leaves the sheet as it was, marked « unmatched », which is what puts « Fix lyrics »
+  on the page. Lyrics already timed are left alone.
 - **"Run the pipeline again"**, in the ⋮ menu, redoes every step not done yet, and searches lyrics
   again whenever they are not timed. A fresh start never resumes a stored hunt or separation id:
   the one stored may be the one that failed, and resuming it would fail again.

@@ -2,11 +2,11 @@
 // is not there yet) and the INSTRUMENTAL (the same song without its voice, cut on any engine).
 // Two verbs because separating borrows a musician's machine — ../../../docs/audio.md.
 
-import { importLrc, mergeLrc } from "@k7/lyrics";
+import { hasTimecodes, timeLyrics } from "@k7/lyrics";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import type { HuntRecord } from "@studio/web-protocol/hunt";
 import { m } from "../paraglide/messages.js";
-import type { FetchStatus, LrcCandidate, LyricTiming, Song } from "../types";
+import type { FetchStatus, LrcCandidate, Song } from "../types";
 import { findLibrarySong, masterPath, matches, songAtPath } from "./match";
 import type { Pl8Client } from "./pl8";
 
@@ -191,7 +191,8 @@ export interface PipelineSteps extends Common {
   copyTrack(path: string): Promise<Song>;
   mixInstrumental(folder: string): Promise<Song>;
   findLrc(duration?: number): Promise<LrcCandidate[]>;
-  onLrc(lyrics: string, timings: LyricTiming[]): Promise<Song>;
+  /** The sheet with its `{{MM:SS}}` timecodes — the text the song is saved with. */
+  onLrc(lyrics: string): Promise<Song>;
 }
 
 /** A fresh start on `"download"` (the insert's button, or the ⋮ menu's re-run), or picking back
@@ -233,12 +234,13 @@ export async function runPipeline(
     if (outcome.note) problem = outcome.note;
   }
 
-  // Timed lyrics, found on LRCLIB: the fetched ones are the truth. A song with none takes them as
-  // they are; a sheet a person wrote but never TIMED gets them MERGED — its chords, sections and
-  // tablature moved onto the fetched lines, anything else kept under [OTHER CONTENT] (`mergeLrc`,
-  // ../../../docs/lyricsTiming.md). Lyrics already timed are left alone. Nothing that is not this
-  // song (its artist and title) is ever applied: that stays « unmatched », for « Fix lyrics ».
-  const untimed = !(current.lyricTimings?.length ?? 0);
+  // Timed lyrics, found on LRCLIB. They only ever TIME the sheet: each fetched line's `{{MM:SS}}`
+  // goes at the end of the closest sheet line, in order, and not a word of the sheet changes
+  // (`timeLyrics`, ../../../docs/lyricsTiming.md). A song with no lyrics gets the fetched ones, timed.
+  // Lyrics already timed are left alone; a version that is not this song (its artist and title), or
+  // that times nothing, is never applied — that stays « unmatched », for « Fix lyrics ».
+  const untimed =
+    !hasTimecodes(current.lyrics) && !(current.lyricTimings?.length ?? 0);
   if (current.audio && current.lyricsMatch === "" && untimed) {
     steps.onPhase(m["fetch.lyrics"]());
     steps.onStatus?.({ phase: "matching-lyrics" });
@@ -246,13 +248,9 @@ export async function runPipeline(
     const ours =
       best &&
       matches(current.artist, current.title, best.artistName, best.trackName);
-    const found = !ours
-      ? null
-      : current.lyrics.trim() === ""
-        ? importLrc("", best.syncedLyrics)
-        : mergeLrc(current.lyrics, best.syncedLyrics);
-    if (found?.ok && found.lyrics !== null) {
-      current = await steps.onLrc(found.lyrics, found.timings);
+    const found = ours ? timeLyrics(current.lyrics, best.syncedLyrics) : null;
+    if (found?.ok && found.placed > 0) {
+      current = await steps.onLrc(found.lyrics);
       steps.onStatus?.({ lyricsMatch: "matched" });
     } else {
       steps.onStatus?.({ lyricsMatch: "unmatched" });

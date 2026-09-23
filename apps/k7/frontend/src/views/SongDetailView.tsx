@@ -5,7 +5,9 @@ import { Textarea } from "@frediverse/ui/textarea";
 import {
   ChordSheet,
   collectChords,
+  hasTimecodes,
   lineAt,
+  timecodesByLine,
   timingsByLine,
   transposeChord,
 } from "@k7/lyrics";
@@ -25,7 +27,7 @@ import { fmtDate } from "../format";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { m } from "../paraglide/messages.js";
 import { hasContent, SONG_TABS, visibleTabs } from "../songTabs";
-import type { LrcCandidate, LyricTiming, Song, SongTab } from "../types";
+import type { LrcCandidate, Song, SongTab } from "../types";
 
 interface Props {
   song: Song;
@@ -41,7 +43,8 @@ interface Props {
   onToggleFavorite: () => Promise<void>;
   onDelete: () => Promise<void>;
   /** Save an LRC's outcome: new lyrics (or null to keep them) and the line timecodes. */
-  onLrc: (lyrics: string | null, timings: LyricTiming[]) => Promise<void>;
+  /** The sheet with its `{{MM:SS}}` timecodes, and how many fetched lines found a line. */
+  onLrc: (lyrics: string, placed: number) => Promise<void>;
   /** Timed lyrics for this song on LRCLIB, ranked by the track's length when it is known. */
   onFindLrc: (duration?: number) => Promise<LrcCandidate[]>;
   /** Retries the instrumental once no engine was online. */
@@ -126,7 +129,11 @@ export function SongDetailView({
     };
   }, [song.audio?.name]);
   const lineTimes = useMemo(
-    () => timingsByLine(song.lyrics, song.lyricTimings ?? []),
+    // The `{{MM:SS}}` in the text; a song timed before those were written keeps its side-by-side timings.
+    () =>
+      hasTimecodes(song.lyrics)
+        ? timecodesByLine(song.lyrics)
+        : timingsByLine(song.lyrics, song.lyricTimings ?? []),
     [song.lyrics, song.lyricTimings],
   );
   const activeLine =
@@ -240,8 +247,8 @@ export function SongDetailView({
         lyrics={song.lyrics}
         onFindLrc={onFindLrc}
         trackSeconds={() => audio.current?.duration || undefined}
-        onSave={async (lyrics, timings) => {
-          await onLrc(lyrics, timings);
+        onSave={async (lyrics, placed) => {
+          await onLrc(lyrics, placed);
           setChosen("lyrics");
         }}
       />

@@ -3,4 +3,3 @@
 export { ChordSheet } from "./ChordSheet";
 export * from "./chords";
 export * from "./lrc";
-export * from "./merge";

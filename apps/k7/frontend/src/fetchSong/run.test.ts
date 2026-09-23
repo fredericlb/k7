@@ -251,9 +251,8 @@ describe("runPipeline", () => {
         onLrc,
       }) as never,
     );
-    expect(onLrc).toHaveBeenCalledWith("la la la", [
-      { line: 0, text: "la la la", t: 0 },
-    ]);
+    // No lyrics yet: the fetched line becomes them, its time written in as `{{MM:SS}}`.
+    expect(onLrc).toHaveBeenCalledWith("la la la {{00:00}}");
     expect(found).toBe(withTrack);
   });
 
@@ -275,8 +274,8 @@ describe("runPipeline", () => {
     expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "unmatched" });
   });
 
-  it("merges the fetched lyrics into a sheet a person wrote but never timed", async () => {
-    // The fetched lyrics are the truth: the sheet's words are replaced, its chords moved onto them.
+  it("times a sheet a person wrote, changing not a word of it", async () => {
+    // The fetched lyrics only bring TIMES: the sheet keeps its own spelling ("sinerman"), its chords and its sections.
     const onLrc = vi.fn(async () => withTrack);
     const onStatus = vi.fn();
     await runPipeline(
@@ -297,9 +296,7 @@ describe("runPipeline", () => {
         onStatus,
       }) as never,
     );
-    expect(onLrc).toHaveBeenCalledWith("[Verse]\nC\nOh sinnerman", [
-      { line: 2, text: "oh sinnerman", t: 12.5 },
-    ]);
+    expect(onLrc).toHaveBeenCalledWith("[Verse]\nC\nOh sinerman {{00:12}}");
     expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "matched" });
   });
 

@@ -1,3 +1,4 @@
+import { hasTimecodes } from "@k7/lyrics";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { pl8 } from "../fetchSong/pl8";
@@ -8,7 +9,7 @@ import {
   type StatusPatch,
 } from "../fetchSong/run";
 import { m } from "../paraglide/messages.js";
-import type { LyricTiming, Song, SongTab } from "../types";
+import type { Song, SongTab } from "../types";
 import { SongDetailView } from "../views/SongDetailView";
 
 interface Props {
@@ -84,10 +85,9 @@ export function SongDetailContainer({
       mixInstrumental: async (folder) =>
         adopt(await api.mixInstrumental(songId, folder)),
       findLrc: (duration) => api.searchLrclib(songId, duration),
-      onLrc: async (lyrics, timings) =>
-        adopt(
-          await api.updateSong(songId, { lyrics, lyricTimings: timings }),
-        ),
+      // The timecodes are IN the text now: a timing stored beside it would only disagree with them.
+      onLrc: async (lyrics) =>
+        adopt(await api.updateSong(songId, { lyrics, lyricTimings: [] })),
     }),
     [songId, onStatus, adopt],
   );
@@ -176,21 +176,15 @@ export function SongDetailContainer({
     onChange();
   };
 
-  // An LRC's outcome in one write: the lyrics when it brought them, and the line timecodes.
-  // Timed now, so no longer « unmatched »: the insert's « Fix lyrics » would otherwise stay for good.
-  const handleLrc = async (
-    lyrics: string | null,
-    lyricTimings: LyricTiming[],
-  ) => {
-    const matched = lyricTimings.length
-      ? { lyricsMatch: "matched" as const }
-      : {};
-    const updated = await api.updateSong(
-      songId,
-      lyrics === null
-        ? { lyricTimings, ...matched }
-        : { lyrics, lyricTimings, ...matched },
-    );
+  // An LRC's outcome in one write: the sheet with its `{{MM:SS}}` timecodes, the old side-by-side
+  // timings cleared. Timed now, so no longer « unmatched »: « Fix lyrics » would otherwise stay for good.
+  const handleLrc = async (lyrics: string, placed: number) => {
+    const matched = placed ? { lyricsMatch: "matched" as const } : {};
+    const updated = await api.updateSong(songId, {
+      lyrics,
+      lyricTimings: [],
+      ...matched,
+    });
     setSong(updated);
     onChange();
   };
@@ -227,7 +221,9 @@ export function SongDetailContainer({
   const handleRerun = () => {
     if (!song) return;
     const lyricsAgain =
-      !(song.lyricTimings?.length ?? 0) && song.lyricsMatch !== "";
+      !hasTimecodes(song.lyrics) &&
+      !(song.lyricTimings?.length ?? 0) &&
+      song.lyricsMatch !== "";
     void runFetch(
       lyricsAgain ? { ...song, lyricsMatch: "" } : song,
       "download",

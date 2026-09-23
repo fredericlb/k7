@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatTimecode,
+  isTabLine,
+  looseChordLine,
+  stripTimecodes,
+  timecodeOf,
   collectChords,
   isChord,
   parseChordSheet,
@@ -140,5 +145,37 @@ describe("collectChords", () => {
 
   it("ignores section labels and plain lyrics", () => {
     expect(collectChords("[Chorus]\njust words here")).toEqual([]);
+  });
+});
+
+describe("timecodes in the text", () => {
+  it("are read, written and taken off", () => {
+    expect(timecodeOf("Oh sinnerman {{01:05}}")).toBe(65);
+    expect(timecodeOf("Oh sinnerman")).toBeNull();
+    expect(formatTimecode(65.9)).toBe("{{01:05}}");
+    expect(formatTimecode(6005)).toBe("{{100:05}}");
+    expect(stripTimecodes("Oh sinnerman {{01:05}}")).toBe("Oh sinnerman");
+  });
+
+  it("never show on the sheet, and never turn a lyric into a chord line", () => {
+    const [line] = parseChordSheet("Am I blue {{00:12}}");
+    expect(line).toEqual({
+      type: "lyrics",
+      segments: [{ chord: null, text: "Am I blue" }],
+    });
+  });
+});
+
+describe("what a hand types that is not lyrics", () => {
+  it("tells tablature from a lyric", () => {
+    expect(isTabLine("e|-----0-----|")).toBe(true);
+    expect(isTabLine("|--3--5--|")).toBe(true);
+    expect(isTabLine("I could go - off - the | end")).toBe(false);
+  });
+
+  it("reads `C**` as chords with emphasis", () => {
+    expect(looseChordLine("C**")).toBe(true);
+    expect(looseChordLine("C   G.  Am")).toBe(true);
+    expect(looseChordLine("Can I go")).toBe(false);
   });
 });

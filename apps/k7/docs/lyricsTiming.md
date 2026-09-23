@@ -1,26 +1,36 @@
 # Timed lyrics from an LRC file
 
+An LRC brings the song's lyrics TIMES, and nothing else. Its lines are matched against the sheet's
+own, and each match gets its time written into the sheet as `{{MM:SS}}`, at the end of the line. Not
+a word of the sheet changes: its spelling, its chords, its sections and its tablature stay exactly
+as typed. With a reference track, the line being sung is then highlighted as the track plays, and a
+tap on a timed line seeks there.
+
 **"Add timed lyrics…"**, in the song's ⋮ menu, opens one popin
 (`apps/k7/frontend/src/components/TimedLyricsDialog.tsx`): it takes an `.lrc` file or finds one on
-LRCLIB, and its lyrics become the song's — merged into the sheet that was there, which is shown
-beside the result before anything is replaced. With a reference track, the line being sung is then
-highlighted as the track plays, and a tap on a timed line seeks there.
+LRCLIB, and shows the sheet beside the same sheet with its timecodes before anything is saved. The
+song pipeline does the same on its own, with LRCLIB's best version of the song (`audio.md`).
 
-One entry rather than two — a file and a search were separate menu items — because they are the same
-job: getting an LRC. Which way it arrives is a detail of the popin, and what matters afterwards is
-the merge, which is the same either way.
+## In the text, as `{{MM:SS}}`
 
-## Beside the text, never inside it
+The timecodes live IN the lyrics, where the person who writes them can see, move and fix them by
+hand like any other word — rather than in a field beside the text that nothing on screen shows.
+`{{MM:SS}}` because a sheet's own syntax already owns the other brackets: `[C]` is an inline chord
+and `[Chorus]` a section, and an LRC's native `[01:23.45]` would read as one or the other. Double
+braces mean nothing else in a sheet. Seconds are rounded down; minutes take a third digit past 99.
 
-The timecodes are a separate field of the song (`LyricTimings`), not `[01:23.45]` tags written
-into the lyrics. That bracket is already the chord sheet's own syntax — an inline chord `[C]`, a
-section label `[Chorus]` — so tags in the text would be misread, and they would clutter the
-editor where the lyrics are written by hand.
+A timecode is not text. The parser takes it off before it reads a line (`stripTimecodes`,
+`packages/lyrics/src/chords.ts`), so it never shows on the sheet, never turns a lyric into a chord
+line, and never counts as a word when lines are compared. The player reads each line's time off it
+(`timecodesByLine`); a code anywhere on the line counts, and the first one wins.
 
-Each stored timecode keeps the **normalised text** of its line as well as its line index. On
-display the stored lines are aligned back onto the lyrics as they are now, by exact text, in
-order: editing a line costs that line its time, and adding or removing lines around it costs
-nothing else. No step has to remember to update timecodes when the lyrics are saved.
+It goes at the **end** of the line, not the start, because a chord line above a lyric places each
+chord by its column: a code in front of the words would push every word out from under its chord in
+the editor.
+
+Songs timed before this kept their times in a field beside the text (`LyricTimings`). They still
+play: with no `{{MM:SS}}` in the text, the player falls back to it. Timing such a song again writes
+the codes into the text and clears the field, so the two can never disagree.
 
 ## Found on LRCLIB
 
@@ -36,66 +46,31 @@ synced lyrics are offered, nearest that length first — a live cut or a remaste
 longer and time every line wrong. A single result is imported at once; several are listed by album
 and length to pick from.
 
-It is also the song pipeline's last step (`audio.md`): a song whose lyrics are not timed yet gets
-LRCLIB's best version of it merged in without asking, as long as that version is this song — its
-artist and title. LRCLIB's timings are crowdsourced and uneven, so the popin stays for a person to
-pick another version, or a file, and see it merged before it replaces anything.
+LRCLIB's timings are crowdsourced and uneven, so the popin lets a person pick another version, or a
+file, and see the result before it is saved; the pipeline only ever applies a version of THIS song
+(its artist and title).
 
-## The fetched lyrics are the truth
+## Which line gets which time
 
-An LRC's lines become the song's lyric lines, in their order and each with its time — whether the
-song had lyrics or not. What changes is what happens to a sheet that was already there
-(`mergeLrc`, `packages/lyrics/src/merge.ts`):
+`timeLyrics` (`packages/lyrics/src/lrc.ts`):
 
-| on the sheet | what becomes of it |
-|---|---|
-| lyrics and nothing else | replaced by the fetched lyrics, outright |
-| chords over a lyric line, or inline `[C]` | moved onto the fetched words they were over, drawn the standard way — a line of chords above the lyric |
-| a `[SECTION]` label | moved with the lyric line it stood before, to just before that line's fetched counterpart |
-| a line of chords alone (`C**`, an intro) | the same |
-| a block of tablature | kept whole, and placed the same way — as close as possible to where it was |
-| anything else — a capo note, a credit | appended at the end, under `[OTHER CONTENT]` |
+- **Only sung lines are candidates.** Chord lines (a hand-typed `C**` included), tablature, section
+  labels and blanks are never timed, and inline chords are taken off a line before it is compared.
+  Both sides are compared without case, accents or punctuation.
+- **Each fetched line goes to the closest sheet line — in order.** The two lists are aligned by an
+  edit-distance alignment that scores each pair's similarity (`fastest-levenshtein`) and never
+  crosses: the third fetched line can never land above the line the second went to. A song repeats
+  its chorus, and a free search would pin every chorus to one occurrence; order is what tells the
+  second chorus from the first. Below 50 % alike a line is not the same line, and is left untimed —
+  an ad-lib, a spoken part, a note.
+- **Line breaks may differ** (`alignSpans`). A sheet often writes as one line what an LRC sings as two
+  ("…an angry heart, filled with cancers…"), or the other way round ("…get out of" / "bed in the
+  morning"). One sheet line may take two fetched lines — it gets the FIRST one's time, which is when
+  it starts — and two sheet lines one fetched line, whose time goes on the first. A two-line pairing
+  must match better than either line alone, or the extra line is noise; two sheet lines are paired
+  together only when nothing but chords stands between them.
+- **Codes already in the text are replaced**, never piled up: timing a sheet twice gives the same text.
+- **A song with no lyrics** gets the fetched lines themselves, each with its code.
 
-A sheet lyric line the fetched lyrics also sing is REPLACED by the fetched line — spelling,
-punctuation and all. One the fetched lyrics do not have is dropped when it is only a variant of
-theirs (35 % alike or more), since they are the truth; otherwise it is not lyrics at all and goes
-under `[OTHER CONTENT]`. Nothing the sheet had is lost silently: its chords, if it had any, stay as a
-line of their own where the words were.
-
-A chorus the sheet wrote once and the LRC sings three times gets the chords of its first time on
-each repeat (lines 90 % alike).
-
-The popin never replaces a sheet blindly: it shows the sheet as it is beside what it would become —
-« Song's lyrics » and « Result — from ⟨where from⟩ », the file's name or LRCLIB and the album of the
-version picked, the headings kept in view while the lines scroll — and a sentence of what the merge
-did ("18 of 21 of the sheet's lines found in the fetched lyrics · chords on 18 lines · 0 lines kept
-under [OTHER CONTENT]"). « Replace the lyrics » saves the new text and its timings in one write;
-« Back » offers the other versions again.
-
-## How lines are matched
-
-Only sung lines take part: chord lines, section labels, tablature and blanks are set aside, and
-inline chords are removed from a line before it is compared. Both sides are compared without case,
-accents or punctuation.
-
-The two lists are **aligned in order** — an edit-distance alignment scoring each pair's similarity
-(`fastest-levenshtein`) — rather than each line looking for its best match anywhere. A song repeats
-its chorus, and a free search would pin every chorus to one occurrence; order is what tells the
-second chorus from the first. For a merge two lines at least 50 % alike are the same line — lower
-than the 70 % timing once asked for, since the time now comes from the LRC and a pair only decides
-where the chords and sections go.
-
-**Line breaks may differ.** A sheet often writes as one line what an LRC sings as two ("…an angry
-heart, filled with cancers…"), or the other way round ("…get out of" / "bed in the morning"). The
-alignment (`alignSpans`) may pair one sheet line with two fetched lines, or two with one: the texts
-are joined, the chords moved across the joined text, and split back where the fetched line breaks.
-A two-line pairing must match better than either line alone, or the second line is noise — a
-"Capo 2" is not half of the first verse — and two sheet lines are joined only when nothing stood
-between them.
-
-**Chords follow their word.** Each chord is moved onto the fetched word it sat on (words 75 % alike),
-keeping how far into the word it was; a word the fetched line no longer has falls back to the same
-share of the way along the line. Two chords never touch: a later one moves right if it must.
-
-A chord sheet as people type it is read loosely here: `C**` or `G.` is a chord with emphasis, so its
-line is a chord line, where the renderer's stricter test would read it as lyrics.
+The popin says how many fetched lines found a line ("18 of 21 fetched lines found a line of the
+lyrics") before « Add the timecodes » saves.
