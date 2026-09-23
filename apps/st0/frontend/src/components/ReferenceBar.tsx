@@ -21,9 +21,15 @@ function folderOf(path: string): string {
 export function ReferenceBar({
   track,
   onClose,
+  onPlayingChange,
+  toggleRef,
 }: {
   track: ReferenceTrack;
   onClose: () => void;
+  /** Told whether the track is sounding, so the panel's row can read Pause while it does. */
+  onPlayingChange?: (playing: boolean) => void;
+  /** Filled with this bar's play/pause, for a control elsewhere that must not grow a second one. */
+  toggleRef?: React.MutableRefObject<(() => void) | null>;
 }) {
   const el = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -40,6 +46,9 @@ export function ReferenceBar({
     el.current?.play().catch(() => setPlaying(false));
   }, [track.path]);
 
+  useEffect(() => onPlayingChange?.(playing), [playing, onPlayingChange]);
+  useEffect(() => () => onPlayingChange?.(false), [onPlayingChange]);
+
   const done = duration > 0 && at >= duration - 0.25 && !playing;
   const folder = folderOf(track.path);
 
@@ -53,6 +62,7 @@ export function ReferenceBar({
     // Past the end, play() rewinds by itself — but only once the length is known.
     a.play().catch((e: Error) => setError(e.message));
   };
+  if (toggleRef) toggleRef.current = toggle;
 
   return (
     <>

@@ -6,6 +6,7 @@ import { Button } from "@frediverse/ui/button";
 import {
   Headphones,
   Loader2,
+  Pause,
   Play,
   Plus,
   Trash2,
@@ -30,12 +31,18 @@ function size(bytes: number): string {
 
 export function ReferencesPanel({
   playing,
+  sounding,
   onPlay,
+  onToggle,
   onClose,
 }: {
   /** The track the bar has loaded, by path — the row for it reads as the current one. */
   playing: string | null;
+  /** Whether that loaded track is sounding: its row then reads Pause. */
+  sounding: boolean;
   onPlay: (track: ReferenceTrack) => void;
+  /** The bar's own play/pause, for the loaded track's row. */
+  onToggle: () => void;
   onClose: () => void;
 }) {
   const [rows, setRows] = useState<ReferenceTrack[] | null>(null);
@@ -159,16 +166,20 @@ export function ReferencesPanel({
               <li key={r.path} className="flex items-center gap-1 px-1">
                 <button
                   type="button"
-                  onClick={() => onPlay(r)}
+                  onClick={() => (playing === r.path ? onToggle() : onPlay(r))}
                   title={r.path}
                   aria-current={playing === r.path}
                   className={`flex min-w-0 flex-1 items-center gap-2 rounded px-1.5 py-1 text-left text-sm hover:bg-accent ${
                     playing === r.path ? "text-foreground" : ""
                   }`}
                 >
-                  <Play
-                    className={`h-3 w-3 shrink-0 ${playing === r.path ? "text-foreground" : "text-muted-foreground"}`}
-                  />
+                  {playing === r.path && sounding ? (
+                    <Pause className="h-3 w-3 shrink-0 text-foreground" />
+                  ) : (
+                    <Play
+                      className={`h-3 w-3 shrink-0 ${playing === r.path ? "text-foreground" : "text-muted-foreground"}`}
+                    />
+                  )}
                   <span className="min-w-0 flex-1 truncate">{r.name}</span>
                   <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
                     {size(r.bytes)}

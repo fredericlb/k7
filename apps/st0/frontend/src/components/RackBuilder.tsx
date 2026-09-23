@@ -6,7 +6,7 @@
 // `module create rack` palette command; samples only, the slice flavour has its own editor.
 
 import { Button } from "@frediverse/ui/button";
-import { Grip, Loader2, Play, X } from "@frediverse/ui/icons";
+import { Grip, Loader2, Pause, Play, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { showToast } from "@studio/project-shell/toast";
 import { MODULE_SOURCES_DIR } from "@studio/song-schema/moduleTypes";
@@ -78,10 +78,17 @@ export function RackBuilder({
     [],
   );
 
+  // The pad sounding now, so its own button reads Pause; cleared when the sample stops for any reason.
+  const [sounding, setSounding] = useState<string | null>(null);
   const play = (pad: Pad) => {
     audio.current?.pause();
-    audio.current = new Audio(pad.url);
-    void audio.current.play().catch(() => {});
+    const a = new Audio(pad.url);
+    audio.current = a;
+    const done = () => setSounding((cur) => (cur === pad.url ? null : cur));
+    a.addEventListener("ended", done);
+    a.addEventListener("pause", done);
+    setSounding(pad.url);
+    void a.play().catch(done);
   };
 
   /** Empty one pad: the object URL goes with it, or a builder filled and cleared a few times leaks every sample it has seen. */
@@ -256,11 +263,23 @@ export function RackBuilder({
                       <>
                         <button
                           type="button"
-                          title={m["rb.listen"]({ name: pad.file.name })}
-                          onClick={() => play(pad)}
+                          title={
+                            sounding === pad.url
+                              ? "Pause"
+                              : m["rb.listen"]({ name: pad.file.name })
+                          }
+                          onClick={() =>
+                            sounding === pad.url
+                              ? audio.current?.pause()
+                              : play(pad)
+                          }
                           className="ml-auto rounded p-0.5 hover:bg-accent hover:text-foreground"
                         >
-                          <Play className="h-3 w-3" />
+                          {sounding === pad.url ? (
+                            <Pause className="h-3 w-3" />
+                          ) : (
+                            <Play className="h-3 w-3" />
+                          )}
                         </button>
                         {/* Emptying a pad, beside the button that plays it, red on hover only (docs/shell.md). */}
                         <button

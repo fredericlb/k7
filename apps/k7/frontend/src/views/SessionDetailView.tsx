@@ -88,6 +88,11 @@ export function SessionDetailView({
 }: Props) {
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
+  // The range playRange last started, so its own button can read as Pause while it plays.
+  const [playingRange, setPlayingRange] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   // The moment whose range is being adjusted, as a live draft committed on Apply.
   const [editing, setEditing] = useState<{
@@ -162,6 +167,7 @@ export function SessionDetailView({
     const a = audioRef.current;
     if (!a) return;
     if (a.paused) {
+      setPlayingRange(null);
       ensurePlaybackGain();
       playCtx.current?.resume().catch(() => {});
       a.play();
@@ -172,6 +178,7 @@ export function SessionDetailView({
 
   const playRange = (start: number, end: number) => {
     if (!audioRef.current) return;
+    setPlayingRange({ start, end });
     ensurePlaybackGain();
     playCtx.current?.resume().catch(() => {});
     audioRef.current.currentTime = start;
@@ -450,13 +457,27 @@ export function SessionDetailView({
                     <Badge variant="tag">detected</Badge>
                   </span>
                   <div className="row">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => playRange(row.ev.startSec, row.ev.endSec)}
-                    >
-                      <Play className="size-4" /> Play
-                    </Button>
+                    {playing &&
+                    playingRange?.start === row.ev.startSec &&
+                    playingRange.end === row.ev.endSec ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => audioRef.current?.pause()}
+                      >
+                        <Pause className="size-4" /> Pause
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          playRange(row.ev.startSec, row.ev.endSec)
+                        }
+                      >
+                        <Play className="size-4" /> Play
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

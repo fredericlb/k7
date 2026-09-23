@@ -29,7 +29,7 @@ import { useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { library } from "./api";
-import { PlaylistRows } from "./PlaylistRows";
+import { PlaylistRows, rowPath } from "./PlaylistRows";
 import { PlaylistSync } from "./PlaylistSync";
 import { usePlayback } from "./playback/PlaybackProvider";
 import type { PlaybackTarget } from "./playback/targets";
@@ -315,16 +315,21 @@ export function Playlists({
                   }
                   // One line, the version the line ASKS for — which the queue cannot say.
                   onPlay={(r) => {
-                    if (!r.song || !r.take?.file) return;
+                    const path = rowPath(r);
+                    if (!r.song || !r.take || !path) return;
                     playback.start({
                       entry: r.song,
-                      path: `${r.song.path}/${r.take.file}`,
+                      path,
                       ...(r.take.kind === "master"
                         ? {}
                         : { version: r.take.name }),
                       target,
                     });
                   }}
+                  playingPath={
+                    playback.playing ? (playback.now?.path ?? null) : null
+                  }
+                  onPause={playback.toggle}
                   // …and the whole list into the QUEUE, which carries masters — ../docs/miniPlayer.md.
                   onQueueAll={() =>
                     playback.enqueue(
