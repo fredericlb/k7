@@ -77,8 +77,13 @@ export function SongFetchInsert({
     if (song.lyricsMatch === "unmatched")
       return (
         <div className="song-fetch-insert">
-          <Button variant="outline" size="sm" onClick={onFixLyrics}>
-            Fix the lyrics
+          <Button
+            variant="ghost"
+            size="sm"
+            className="song-fetch-btn"
+            onClick={onFixLyrics}
+          >
+            ✎ Fix the lyrics
           </Button>
         </div>
       );
@@ -96,15 +101,30 @@ export function SongFetchInsert({
       <p className="song-fetch-insert-text">
         No song file yet — what should we do?
       </p>
-      <Button size="sm" onClick={onDownload}>
-        Download the song
+      <Button
+        variant="ghost"
+        size="sm"
+        className="song-fetch-btn"
+        onClick={onDownload}
+      >
+        ⬇ Download the song
       </Button>
-      <Button variant="outline" size="sm" onClick={pick}>
-        Upload a file…
+      <Button
+        variant="ghost"
+        size="sm"
+        className="song-fetch-btn"
+        onClick={pick}
+      >
+        ⬆ Upload a file…
       </Button>
       {input}
-      <Button variant="ghost" size="sm" onClick={onIgnore}>
-        Ignore
+      <Button
+        variant="ghost"
+        size="sm"
+        className="song-fetch-btn"
+        onClick={onIgnore}
+      >
+        ✕ Ignore
       </Button>
     </div>
   );
