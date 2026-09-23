@@ -72,7 +72,7 @@ export interface HostInstance {
   registry: boolean;
   /** In `web-origins.json`: that instance's pages may reach the file service. */
   allowed: boolean;
-  /** False for a registry that came from the environment or a local backend's advertisement rather than from the user — nothing here can un-set it. */
+  /** False for a registry that came from `$STUDIO_REGISTRY_URL` rather than from the user — nothing here can un-set it. */
   removable: boolean;
 }
 

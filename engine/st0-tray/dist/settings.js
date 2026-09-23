@@ -419,7 +419,7 @@ function instanceDetail(i) {
         ? "listed in its picker"
         : "its pages may reach this machine · not listed in its picker";
   // Said rather than just missing a button: otherwise the row reads as one the window forgot to make removable.
-  return i.removable ? what : `${what} · set by the environment or a local backend`;
+  return i.removable ? what : `${what} · set by STUDIO_REGISTRY_URL`;
 }
 
 function buildInstance(i) {

@@ -172,6 +172,6 @@ const server = app.listen(PORT, () => {
       `   library UNAVAILABLE at ${mediatekDir()}: ${(e as Error).message}`,
     );
   }
-  // An engine heartbeats to every advertised URL, and one never advertised lists no engines.
+  // Advertised so this machine's file service finds the médiathèque; an engine joins this registry only once the user adds it in the tray.
   engine.serve(server, url);
 });

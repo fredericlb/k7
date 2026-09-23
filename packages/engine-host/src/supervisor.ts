@@ -142,7 +142,7 @@ function instances(s: State): HostInstance[] {
       url,
       registry: true,
       allowed: false,
-      // An ambient registry (the env var, a local backend) comes back on the next tick whatever is removed here.
+      // One from `$STUDIO_REGISTRY_URL` would come straight back: the environment is not ours to edit.
       removable: pinned.has(url),
     });
   for (const origin of s.webOrigins) {
@@ -500,14 +500,6 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       publish();
       return;
     }
-    // Re-resolved every tick because the ambient tiers can MOVE under us — see docs/supervisorPolicy.md.
-    if (!state.settings.registryUrls?.length) {
-      const found = resolveRegistryUrls(null);
-      if (found.join() !== state.registryUrls.join()) {
-        state.registryUrls = found;
-        line("host", `registries: ${found.join(", ")}`);
-      }
-    }
     const presence = gatherAddresses(
       state.settings.port,
       state.settings.filePort,
@@ -593,7 +585,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         (u) => instanceKey(u) !== key,
       );
       saveSettings(state.settings);
-      // Emptied, the list falls back to the ambient tiers — exactly what a fresh boot would resolve, and nothing if there are none.
+      // Emptied, the list falls back to `$STUDIO_REGISTRY_URL` — exactly what a fresh boot would resolve, and nothing without it.
       state.registryUrls = resolveRegistryUrls(state.settings.registryUrls);
       if (engineRunning()) await deregister(dropped, state.identity);
     }

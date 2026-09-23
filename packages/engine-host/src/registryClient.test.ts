@@ -29,60 +29,36 @@ afterEach(() => {
 });
 
 describe("where an engine announces itself", () => {
-  it("announces to nobody when nothing is pinned, set or advertised", () => {
+  it("announces to nobody when nothing is added or set", () => {
     // A fresh machine is connected to no st0 instance: one is added from the tray's settings, never assumed.
     expect(resolveRegistryUrls()).toEqual([]);
   });
 
-  it("announces to EVERY service that advertised, not just one", () => {
-    // The whole bug in one assertion: three registries, three heartbeats.
+  it("ignores what local backends advertise", () => {
+    // Running a dev backend must not connect the engine to it — that is the tray's st0 instances tab's job.
     advertise("st0", "http://localhost:8789");
     advertise("pl8", "http://localhost:8795");
-    advertise("m9", "http://localhost:8796");
-    expect(resolveRegistryUrls().sort()).toEqual([
-      "http://localhost:8789",
-      "http://localhost:8795",
-      "http://localhost:8796",
-    ]);
-  });
-
-  it("still reads the legacy single file, and does not list it twice", () => {
-    // Both are kept so a version skew between backend and tray cannot cost an app its engine.
     mkdirSync(dir, { recursive: true });
     writeFileSync(
       join(dir, "web-endpoint.json"),
       JSON.stringify({ url: "http://localhost:8789" }),
     );
-    expect(resolveRegistryUrls()).toEqual(["http://localhost:8789"]);
-    advertise("st0", "http://localhost:8789"); // the same service, both ways
-    expect(resolveRegistryUrls()).toEqual(["http://localhost:8789"]);
+    expect(resolveRegistryUrls()).toEqual([]);
   });
 
-  it("survives a file half-written by a backend booting right now", () => {
-    // Three backends boot together under `npm run dev`, so a truncated read must cost one service's URL for a tick, not the resolution.
-    advertise("st0", "http://localhost:8789");
-    mkdirSync(endpoints(), { recursive: true });
-    writeFileSync(join(endpoints(), "pl8.json"), '{"url":');
-    expect(resolveRegistryUrls()).toEqual(["http://localhost:8789"]);
-  });
-
-  it("ignores anything that is not an endpoint file", () => {
-    advertise("st0", "http://localhost:8789");
-    writeFileSync(join(endpoints(), "notes.txt"), "http://nope");
-    writeFileSync(join(endpoints(), "empty.json"), JSON.stringify({ url: "" }));
-    expect(resolveRegistryUrls()).toEqual(["http://localhost:8789"]);
-  });
-
-  it("lets the pinned choice and the env var win outright, as tiers not a union", () => {
-    // A deliberate choice beats an ambient one — the advertised files must not leak in beside it.
-    advertise("st0", "http://localhost:8789");
-    expect(resolveRegistryUrls(["https://studio.example"])).toEqual([
-      "https://studio.example",
-    ]);
-    process.env.STUDIO_REGISTRY_URL = "https://a.example, https://b.example";
+  it("reads the env var as a deduped list", () => {
+    process.env.STUDIO_REGISTRY_URL =
+      "https://a.example, https://b.example,,https://a.example";
     expect(resolveRegistryUrls()).toEqual([
       "https://a.example",
       "https://b.example",
+    ]);
+  });
+
+  it("lets what the user added win over the env var, as tiers not a union", () => {
+    process.env.STUDIO_REGISTRY_URL = "https://a.example";
+    expect(resolveRegistryUrls(["https://studio.example"])).toEqual([
+      "https://studio.example",
     ]);
   });
 });
