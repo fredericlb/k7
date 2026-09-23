@@ -1,9 +1,16 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { Check, Copy, Download, Trash2 } from "@frediverse/ui/icons";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@frediverse/ui/dropdown-menu";
+import { Check, Copy, Download, EllipsisVertical } from "@frediverse/ui/icons";
 import { pageVersion } from "@k7/shared/pageVersion";
 import { useState } from "react";
 import { BackButton } from "../components/BackButton";
+import { PageNametagForm } from "../components/PageNametagForm";
 import { WaveformPlayer } from "../components/WaveformPlayer";
 import type { Page, Release, SongEnvelope } from "../types";
 
@@ -16,6 +23,8 @@ interface Props {
   /** An empty versionId means "the release's default". */
   onChooseVersion: (releaseId: string, versionId: string) => Promise<void>;
   onDelete: () => Promise<void>;
+  /** "Edit": the nametag, which is the public link too. */
+  onRename: (nametag: string) => Promise<void>;
   versionAudioUrl: (releaseId: string, versionId: string) => string;
   versionDownloadUrl: (releaseId: string, versionId: string) => string;
   versionEnvelope: (
@@ -34,12 +43,14 @@ export function PageDetailView({
   onAddRelease,
   onChooseVersion,
   onDelete,
+  onRename,
   versionAudioUrl,
   versionDownloadUrl,
   versionEnvelope,
 }: Props) {
   const [adding, setAdding] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const remove = async () => {
     if (!confirm("Delete this page? (releases are not deleted)")) return;
@@ -57,36 +68,66 @@ export function PageDetailView({
 
   return (
     <div className="release-detail">
-      <div className="detail-head">
-        <BackButton to="Publications" onClick={onBack} />
-        <h2>@{page.nametag}</h2>
-      </div>
-      <p className="muted">
-        {releases.length} release{releases.length === 1 ? "" : "s"}
-      </p>
-
-      <div className="row" style={{ marginBottom: 12 }}>
-        <a href={publicUrl} target="_blank" rel="noopener noreferrer">
-          {publicUrl}
-        </a>
-        <Button variant="outline" size="sm" onClick={copyLink}>
-          {copied ? (
-            <>
-              <Check className="size-4" /> Copied
-            </>
-          ) : (
-            <>
-              <Copy className="size-4" /> Copy link
-            </>
-          )}
-        </Button>
-      </div>
-
-      <div className="row" style={{ marginBottom: 12 }}>
-        <Button variant="outline" size="sm" onClick={remove}>
-          <Trash2 className="size-4" /> Delete page
-        </Button>
-      </div>
+      {editing ? (
+        <PageNametagForm
+          nametag={page.nametag}
+          onSave={async (nametag) => {
+            await onRename(nametag);
+            setEditing(false);
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <div className="detail-head">
+          <BackButton to="Publications" onClick={onBack} />
+          <h2>@{page.nametag}</h2>
+          <span className="muted detail-head-sub">
+            {releases.length} release{releases.length === 1 ? "" : "s"}
+          </span>
+          {/* The address itself stays off the page; this is how it is handed out. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ds-button shrink-0"
+            onClick={copyLink}
+          >
+            {copied ? (
+              <>
+                <Check className="size-4" /> Copied
+              </>
+            ) : (
+              <>
+                <Copy className="size-4" /> Copy link
+              </>
+            )}
+          </Button>
+          {/* The page's verbs in one ⋮, like a release's. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="ds-button"
+                title="Page menu"
+                aria-label="Page menu"
+              >
+                <EllipsisVertical className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setEditing(true)}>
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onSelect={() => void remove()}
+              >
+                Delete page
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
 
       <h3>Releases</h3>
       {releases.length === 0 && (
