@@ -29,9 +29,10 @@ So the whole feature is four small seams rather than a parallel editor:
 
 Three doors, and the tab is the one you find without knowing the word:
 
-- the **Libraries tab** of the file tree, under `@st0/chains` — beside the shared modules, because
-  both come out of the one library repository, and looking in two places for one library is what
-  that tab exists to avoid. One row per chain; opening it opens the builder on that chain.
+- the **Libraries tab** of the file tree, under `@st0 ▸ chains` — beside the shared modules
+  (`@st0 ▸ modules`) and the assembly templates (`@st0 ▸ assemblies`), because all three come out
+  of the one library repository and the `@st0` row IS that repository, drawn as it is on disk
+  (`libraryTree.ts`). One row per chain; opening it opens the builder on that chain.
 - `chains builder` in the command bar, which toggles like `help`.
 - `/chains-builder`, or `/chains-builder/<ref>` — an address you can bookmark.
 

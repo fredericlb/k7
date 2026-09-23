@@ -1,4 +1,5 @@
-// libraryTree.ts — the LIBRARIES tab: one row per module level, its modules under it. The
+// libraryTree.ts — the LIBRARIES tab: one row per module level, its modules under it, and the
+// library repository as one row with its three families. The
 // levels come from the file service (`GET /module-libraries`), which reads the same roots the
 // LOADER resolves against — they sit outside the active project, so the file tree does not and
 // must not contain them. Why the tab exists: apps/st0/frontend/docs/sharedModules.md.
@@ -12,47 +13,98 @@ import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 /** How a level is written wherever a person reads one: in a ref, and on a tree row. */
 export const nsLabel = (ns: string): string => `@${ns}`;
 
-/** The libraries as tree rows, one synthesised row per level, subtrees passed through UNTOUCHED — `@st0` is the one that disappears when absent. */
-export function libraryTree(
-  libraries: ModuleLibrary[],
-  // The library's CHAINS, from the same repository and in the same tab — one LEAF row each, the builder being what opens a chain.
-  chains: readonly { ref: string; path: string; nodes?: string[] }[] = [],
-): FileNode[] {
-  const levels = libraries
-    .filter((l) => l.exists || l.ns !== "st0")
-    .map((l) => ({
-      name: nsLabel(l.ns),
-      // The real path, workspace-relative like every other here; `@engine` has none, its label being all that identifies its row.
-      path: l.path || nsLabel(l.ns),
-      dir: true,
-      children: l.nodes,
-    }));
-  if (!chains.length) return levels;
-  // Last, and under a row of its own: a chain is not a module, and filing it under a module namespace would say it was one.
-  return [
-    ...levels,
-    {
-      name: CHAINS_LABEL,
-      path: CHAINS_LABEL,
-      dir: true,
-      // A chain OPENS and its nodes are under it — a chain with none is still a folder, one node away from having some.
-      children: chains.map((c) => ({
-        name: c.ref,
-        path: c.path,
-        dir: true,
-        children: (c.nodes ?? []).map((n) => ({
-          name: n,
-          // The real path, like every other row here — what tells this node's row from its chain's when one is clicked.
-          path: `${c.path}/nodes/${n}`,
-          dir: false,
-        })),
-      })),
-    },
-  ];
+/** A library chain, as the tab lists it: `ref` is its path under `chains/`, `nodes` its node files. */
+export interface LibraryChainRow {
+  ref: string;
+  path: string;
+  nodes?: string[];
 }
 
-/** The row the library's chains hang under. A label, not a path — like `@engine`'s. */
-export const CHAINS_LABEL = "@st0/chains";
+/** An assembly template of the library: `path` its folder, `file` the `assembly.yaml` the builder opens. */
+export interface LibraryAssemblyRow {
+  ref: string;
+  path: string;
+  file: string;
+}
+
+/**
+ * The libraries as tree rows. `@workspace` and `@engine` are module LEVELS, one row each with their
+ * modules under it. `@st0` is different: it is the library REPOSITORY, and it is drawn as one — its
+ * three families side by side as they are on disk, `modules/` (the `@st0` module level),
+ * `chains/` and `assemblies/`. Drawing `modules/` AS `@st0` and the chains beside it as `@st0/chains`
+ * made two siblings read as a folder and its child. `@st0` is the one that disappears when absent.
+ */
+export function libraryTree(
+  libraries: ModuleLibrary[],
+  // The library's CHAINS, from the same repository and in the same tab — the builder being what opens one.
+  chains: readonly LibraryChainRow[] = [],
+  // …and its ASSEMBLY templates, the third family — one leaf each, the assembly builder being what opens one.
+  assemblies: readonly LibraryAssemblyRow[] = [],
+): FileNode[] {
+  return libraries
+    .filter((l) => l.exists || l.ns !== "st0")
+    .map((l) =>
+      l.ns === "st0"
+        ? repositoryRow(l, chains, assemblies)
+        : {
+            name: nsLabel(l.ns),
+            // The real path, workspace-relative like every other here; `@engine` has none, its label being all that identifies its row.
+            path: l.path || nsLabel(l.ns),
+            dir: true,
+            children: l.nodes,
+          },
+    );
+}
+
+/** The repository's own folder: the `@st0` level is always its `modules/` (`librariesDirFor`), so its parent. */
+function repositoryPath(modules: string): string {
+  const at = modules.lastIndexOf("/");
+  return at > 0 ? modules.slice(0, at) : LIBRARIES_DIR;
+}
+
+function repositoryRow(
+  l: ModuleLibrary,
+  chains: readonly LibraryChainRow[],
+  assemblies: readonly LibraryAssemblyRow[],
+): FileNode {
+  const root = repositoryPath(l.path);
+  return {
+    name: nsLabel(l.ns),
+    path: root,
+    dir: true,
+    children: [
+      // The module level's own path, untouched: it is what `rootOf` resolves 'New module…' against.
+      { name: "modules", path: l.path, dir: true, children: l.nodes },
+      {
+        name: "chains",
+        path: `${root}/chains`,
+        dir: true,
+        // A chain OPENS and its nodes are under it — a chain with none is still a folder, one node away from having some.
+        children: chains.map((c) => ({
+          name: c.ref,
+          path: c.path,
+          dir: true,
+          children: (c.nodes ?? []).map((n) => ({
+            name: n,
+            // The real path, like every other row here — what tells this node's row from its chain's when one is clicked.
+            path: `${c.path}/nodes/${n}`,
+            dir: false,
+          })),
+        })),
+      },
+      {
+        name: "assemblies",
+        path: `${root}/assemblies`,
+        dir: true,
+        children: assemblies.map((a) => ({
+          name: a.ref,
+          path: a.path,
+          dir: false,
+        })),
+      },
+    ],
+  };
+}
 
 /** Every path under a READ-ONLY level, plus the level's own row — `@engine` and only it, a scanned plugin having no folder. */
 export function readOnlyPaths(libraries: ModuleLibrary[]): Set<string> {

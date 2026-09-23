@@ -54,6 +54,7 @@ import { api } from "../api";
 import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipWindowBand, setClipWindowText } from "../clipWindowText";
 import { useDiskSync } from "../hooks/useDiskSync";
+import type { LibraryAssemblyRow } from "../libraryTree";
 import { moduleBehind } from "../moduleBehind";
 import { m } from "../paraglide/messages.js";
 import {
@@ -248,6 +249,7 @@ export function EditorTab({
   onOpenBuilder,
   onOpenLibraryModule,
   onOpenChain,
+  onOpenAssembly,
   chainsBuilder,
   diagnostics,
   videoSources,
@@ -282,6 +284,8 @@ export function EditorTab({
   onOpenLibraryModule: (moduleFile: string) => void;
   /** A chain row of the Libraries tab was opened — its ref, for the chains builder. */
   onOpenChain: (ref: string, node?: string) => void;
+  /** An assembly template was opened from the Libraries tab: its `assembly.yaml`, and its folder. */
+  onOpenAssembly: (file: string, folder: string) => void;
   /** The chains builder, when one is open — rendered in the editor's own place. */
   chainsBuilder?: React.ReactNode;
   /** Each picture clip ref → the media file it names, from the COMPILED document: only the compiler has read `clips/<ref>.yaml`. */
@@ -309,6 +313,8 @@ export function EditorTab({
   const [libChains, setLibChains] = useState<{ ref: string; path: string }[]>(
     [],
   );
+  /** …and its ASSEMBLY templates, the third family, for the same tab. */
+  const [libAssemblies, setLibAssemblies] = useState<LibraryAssemblyRow[]>([]);
   /** The Process menu on a clip file: which chain is running, and what is typed in its search — the list itself is `libChains`. */
   const [processing, setProcessing] = useState(false);
   const [opSearch, setOpSearch] = useState("");
@@ -637,12 +643,15 @@ export function EditorTab({
   /** The LIBRARIES — asked when they can have MOVED rather than when anything moved: on mount, and by the two acts that write there. */
   const refreshLibraries = useCallback(async () => {
     try {
-      const [l, c] = await Promise.all([
+      const [l, c, a] = await Promise.all([
         api.moduleLibraries(),
         api.libraryChains(),
+        // Tolerated rather than required: the templates are a row of the tab, and must not cost it the modules.
+        api.libraryAssemblies().catch(() => ({ assemblies: [] })),
       ]);
       setLibraries(l.libraries);
       setLibChains(c.chains);
+      setLibAssemblies(a.assemblies);
     } catch (e) {
       setStatus(`load error: ${(e as Error).message}`);
     }
@@ -1315,6 +1324,8 @@ export function EditorTab({
               levels={libraries}
               chains={libChains}
               onOpenChain={onOpenChain}
+              assemblies={libAssemblies}
+              onOpenAssembly={onOpenAssembly}
               onCreateModule={async (root, rel) => {
                 try {
                   const { path } = await api.createModule(root, rel);
