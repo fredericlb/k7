@@ -25,6 +25,7 @@ import type {
   HostAudioDevice,
   HostCommand,
   HostEditPlugin,
+  HostInstance,
   HostOwnership,
   HostPlugin,
   HostSession,
@@ -46,10 +47,10 @@ import {
   addOrigin,
   clearPending,
   loadOrigins,
+  normaliseBrowserOrigin,
   pendingOrigins,
   pendingStamp,
   removeOrigin,
-  seedDefault,
 } from "./webOrigins.ts";
 
 const HEARTBEAT_MS = 5000;
@@ -127,6 +128,37 @@ interface State {
   lastAttempt: { target: string; sig: string } | null;
 }
 
+/** A registry URL or an origin reduced to the key both halves of one instance share. */
+function instanceKey(url: string): string {
+  return normaliseBrowserOrigin(url) ?? url;
+}
+
+/** The registries and the allowed origins as ONE list: to the user both are the same st0 instance, heartbeated to and let through. */
+function instances(s: State): HostInstance[] {
+  const pinned = new Set(s.settings.registryUrls ?? []);
+  const rows = new Map<string, HostInstance>();
+  for (const url of s.registryUrls)
+    rows.set(instanceKey(url), {
+      url,
+      registry: true,
+      allowed: false,
+      // An ambient registry (the env var, a local backend) comes back on the next tick whatever is removed here.
+      removable: pinned.has(url),
+    });
+  for (const origin of s.webOrigins) {
+    const row = rows.get(instanceKey(origin));
+    if (row) row.allowed = true;
+    else
+      rows.set(instanceKey(origin), {
+        url: origin,
+        registry: false,
+        allowed: true,
+        removable: true,
+      });
+  }
+  return [...rows.values()];
+}
+
 function snapshot(s: State): HostSnapshot {
   return {
     owns: s.own,
@@ -156,6 +188,7 @@ function snapshot(s: State): HostSnapshot {
     editPluginsSig: s.editPluginsSig,
     sessions: s.sessions,
     sessionsSig: s.sessionsSig,
+    instances: instances(s),
     webOrigins: s.webOrigins,
     webPending: s.webPending,
     attention: s.webPending.length > 0,
@@ -183,9 +216,6 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       `an engine supervisor is already running (pid ${lock.heldBy}) — quit it first`,
     );
   }
-
-  // First run only: trust the hosted studio, before anything reads the list, so it is in the very first snapshot.
-  seedDefault();
 
   const settings = loadSettings();
   const state: State = {
@@ -504,7 +534,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       notify(
         "passive",
         "A web UI was blocked",
-        `${origin} tried to reach this engine. Allow it from the menu bar: Web UI ▸ ${origin}`,
+        `${origin} tried to reach this engine. Allow it from Settings… ▸ st0 instances.`,
       );
     }
   };
@@ -550,6 +580,24 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       presence,
     );
     publish();
+  };
+
+  /** Disconnect one instance, both halves: drop it from the allowlist, and from the pinned registries — told at once, so it leaves that picker now rather than aging out. */
+  const removeInstance = async (url: string): Promise<void> => {
+    const key = instanceKey(url);
+    removeOrigin(key);
+    const pinned = state.settings.registryUrls ?? [];
+    const dropped = pinned.filter((u) => instanceKey(u) === key);
+    if (dropped.length) {
+      state.settings.registryUrls = pinned.filter(
+        (u) => instanceKey(u) !== key,
+      );
+      saveSettings(state.settings);
+      // Emptied, the list falls back to the ambient tiers — exactly what a fresh boot would resolve, and nothing if there are none.
+      state.registryUrls = resolveRegistryUrls(state.settings.registryUrls);
+      if (engineRunning()) await deregister(dropped, state.identity);
+    }
+    refreshOrigins();
   };
 
   const onCommand = async (cmd: HostCommand): Promise<void> => {
@@ -643,8 +691,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         return;
       }
       case "weburi.remove":
-        removeOrigin(arg);
-        refreshOrigins();
+        await removeInstance(arg);
         reply(cmd.id, true);
         return;
       case "weburi.deny":

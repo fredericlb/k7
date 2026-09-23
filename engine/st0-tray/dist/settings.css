@@ -144,7 +144,7 @@ ul {
   flex-wrap: wrap;
 }
 
-#filter {
+.bar input {
   flex: 1;
   /* The body forbids selection, which would otherwise reach into the one field you type in. */
   user-select: text;
@@ -156,7 +156,7 @@ ul {
   font: inherit;
 }
 
-#filter:focus {
+.bar input:focus {
   border-color: var(--accent);
   outline: none;
 }
@@ -223,6 +223,13 @@ button:disabled {
 
 .warn {
   color: var(--bad);
+}
+
+/* A second list inside one tab — the st0 instances' blocked origins under the connected ones. */
+.subhead {
+  margin: 12px 0 6px;
+  color: var(--dim);
+  font-size: 11.5px;
 }
 
 .empty {

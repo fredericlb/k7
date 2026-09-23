@@ -3,9 +3,7 @@
 // in the supervisor's snapshot and every click goes back up as a command. Stop/Restart are
 // enabled only for an engine the supervisor OWNS. See docs/tray.md.
 
-use tauri::menu::{
-    CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu,
-};
+use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::{AppHandle, Manager, Wry};
 use tauri_plugin_autostart::ManagerExt;
 
@@ -16,7 +14,6 @@ use crate::trayicon::{self, IconState};
 pub struct MenuBuild {
     pub menu: Menu<Wry>,
     pub status: MenuItem<Wry>,
-    pub weburi: Submenu<Wry>,
     pub autostart: CheckMenuItem<Wry>,
 }
 
@@ -24,11 +21,8 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
     // The one line of state the menu bar keeps. Everything else about the machine — the version, the
     // registry, the ports, and every button that acts — is a tab of the settings window.
     let status = MenuItem::with_id(app, "status", "○ Stopped", false, None::<&str>)?;
-    // The web UIs allowed to reach this engine. Always enabled: it holds "Add…" even when empty, which is when
-    // you need it most.
-    let weburi = Submenu::with_id(app, "weburi", "Web UI", true)?;
     let sep1 = PredefinedMenuItem::separator(app)?;
-    // The way to everything this menu no longer holds.
+    // The way to everything this menu no longer holds — the st0 instances this engine is connected to included.
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
     let autostart = CheckMenuItem::with_id(
@@ -51,108 +45,15 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
     let quit = PredefinedMenuItem::quit(app, Some("Quit st0-tray"))?;
 
     let items: Vec<&dyn IsMenuItem<Wry>> = vec![
-        &status, &weburi, &sep1, &settings, &sep2, &autostart, &open_root, &open_log, &sep3,
-        &quit,
+        &status, &sep1, &settings, &sep2, &autostart, &open_root, &open_log, &sep3, &quit,
     ];
     let menu = Menu::with_items(app, &items)?;
 
     Ok(MenuBuild {
         menu,
         status,
-        weburi,
         autostart,
     })
-}
-
-/// Rebuild the "Web UI" submenu: one row per allowed origin (clicking removes it), then "Add web UI…".
-/// CLEARED wholesale rather than tracked, because the separator isn't a MenuItem and so couldn't be removed
-/// from a typed Vec — it would accumulate one copy per rebuild.
-pub fn rebuild_weburi_menu(app: &AppHandle) {
-    // Both lists come from the supervisor, which owns web-origins.json and the refusals — the tray parses neither
-    // any more, which is what stopped the two sides disagreeing about what a valid origin is.
-    let (submenu, origins, pending) = {
-        let s = app.state::<SharedState>();
-        let s = s.lock().unwrap();
-        let Some(m) = s.menus.as_ref() else {
-            return;
-        };
-        (
-            m.weburi.clone(),
-            s.snapshot.web_origins.clone(),
-            s.snapshot.web_pending.clone(),
-        )
-    };
-    // Drain from the front: remove_at hands the item back, so repeating at 0 empties the submenu whatever the
-    // children are — a separator included, which a typed Vec could not express.
-    while matches!(submenu.remove_at(0), Ok(Some(_))) {}
-
-    if origins.is_empty() {
-        // Say why the list is empty rather than showing a bare "Add…" with no context.
-        if let Ok(item) =
-            MenuItem::with_id(app, "weburi_none", "No web UI added", false, None::<&str>)
-        {
-            let _ = submenu.append(&item);
-        }
-    }
-    for o in &origins {
-        // The label carries the removal affordance: a tray menu has no context menu and no delete key.
-        if let Ok(item) = MenuItem::with_id(
-            app,
-            format!("weburi_del:{o}"),
-            format!("{o}   ✕"),
-            true,
-            None::<&str>,
-        ) {
-            let _ = submenu.append(&item);
-        }
-    }
-    // Origins the file service just refused — how a web UI gets added on Windows and Linux, where there is no
-    // native prompt: the blocked browser names itself instead of the user typing a URL. The icon's attention dot
-    // tracks this same list from the same snapshot, so allowing or ignoring one clears it for free.
-    if !pending.is_empty() {
-        if let Ok(sep) = PredefinedMenuItem::separator(app) {
-            let _ = submenu.append(&sep);
-        }
-        if let Ok(head) = MenuItem::with_id(
-            app,
-            "weburi_pending_head",
-            "Blocked just now — allow?",
-            false,
-            None::<&str>,
-        ) {
-            let _ = submenu.append(&head);
-        }
-        for o in &pending {
-            if let Ok(item) = MenuItem::with_id(
-                app,
-                format!("weburi_allow:{o}"),
-                format!("✓ {o}"),
-                true,
-                None::<&str>,
-            ) {
-                let _ = submenu.append(&item);
-            }
-            // Dismissing matters: a refused origin you do NOT trust would sit there, training you to ignore the section.
-            if let Ok(item) = MenuItem::with_id(
-                app,
-                format!("weburi_deny:{o}"),
-                "        ignore".to_string(),
-                true,
-                None::<&str>,
-            ) {
-                let _ = submenu.append(&item);
-            }
-        }
-    }
-
-    if let Ok(sep) = PredefinedMenuItem::separator(app) {
-        let _ = submenu.append(&sep);
-    }
-    if let Ok(item) = MenuItem::with_id(app, "weburi_add", "Add web UI…", true, None::<&str>) {
-        let _ = submenu.append(&item);
-    }
-    // Repaint: the attention dot above only reaches the menu bar through refresh().
-    refresh(app);
 }
 
 fn short(id: &str) -> &str {
@@ -268,81 +169,8 @@ pub fn on_menu(app: &AppHandle, id: &str) {
             let p = app.state::<SharedState>().lock().unwrap().snapshot.paths.merged_log.clone();
             open_text_file(std::path::Path::new(&p));
         }
-        "weburi_add" => add_web_ui(app),
-        // The three weburi rows are pure command sends; the menu redraws on the next snapshot, not on the click.
-        _ if id.starts_with("weburi_allow:") => {
-            host::send(app, "weburi.allow", Some(&id["weburi_allow:".len()..]));
-        }
-        _ if id.starts_with("weburi_deny:") => {
-            host::send(app, "weburi.deny", Some(&id["weburi_deny:".len()..]));
-        }
-        _ if id.starts_with("weburi_del:") => {
-            host::send(app, "weburi.remove", Some(&id["weburi_del:".len()..]));
-        }
         _ => {}
     }
-}
-
-/// Ask for a web UI URL and hand it to the supervisor. The prompt is view work, so it stays here; everything
-/// that FOLLOWS is the supervisor's. `weburi.add` has two effects there, a st0 web UI being single-origin:
-/// the origin joins the allowlist, and it becomes this engine's registry URL so it shows in that UI's picker.
-fn add_web_ui(app: &AppHandle) {
-    let Some(input) = prompt_for_origin() else {
-        // Cancelled — or a platform with no native prompt, where opening the file by hand is the honest fallback.
-        #[cfg(not(target_os = "macos"))]
-        {
-            let path = app
-                .state::<SharedState>()
-                .lock()
-                .unwrap()
-                .snapshot
-                .paths
-                .web_origins
-                .clone();
-            if !path.is_empty() {
-                let p = std::path::Path::new(&path);
-                if let Some(dir) = p.parent() {
-                    let _ = std::fs::create_dir_all(dir);
-                }
-                if !p.exists() {
-                    let _ = std::fs::write(p, "{\n  \"origins\": []\n}\n");
-                }
-                open_path(p);
-            }
-        }
-        return;
-    };
-    host::send(app, "weburi.add", Some(&input));
-}
-
-/// Ask for a web UI URL with a native dialog. macOS only: elsewhere `add_web_ui` opens the origins file, and
-/// the "allow?" rows are the real path anyway — a blocked browser names itself, so nobody types a URL.
-#[cfg(target_os = "macos")]
-fn prompt_for_origin() -> Option<String> {
-    use std::process::Command;
-    // `with icon note` keeps it a normal dialog rather than an alarming alert, seeded with the scheme.
-    let script = r#"try
-    set r to display dialog "Add a st0 web UI. Its address is allowed to reach this engine." with title "st0-tray" default answer "https://" with icon note buttons {"Cancel", "Add"} default button "Add"
-    return text returned of r
-on error number -128
-    return ""
-end try"#;
-    let out = Command::new("osascript").arg("-e").arg(script).output().ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    // Cancel yields an empty line; so does clearing the field. Both mean "no".
-    if text.is_empty() || text == "https://" {
-        None
-    } else {
-        Some(text)
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn prompt_for_origin() -> Option<String> {
-    None
 }
 
 /// A passive OS notification — banner on macOS, toast on Windows, libnotify on Linux — for anything the app
@@ -425,31 +253,26 @@ fn open_root(app: &AppHandle) {
 }
 
 /// Apply a fresh snapshot and repaint. It REPLACES what was there — a whole picture every time — so a
-/// supervisor that crashed and relaunched resyncs us in one message with nothing to replay. Submenus are
-/// rebuilt only when what they display actually moved, since this runs on every reported change.
+/// supervisor that crashed and relaunched resyncs us in one message with nothing to replay. The window is
+/// redrawn only when what it displays actually moved, since this runs on every reported change.
 pub fn apply_snapshot(app: &AppHandle, snapshot: crate::host::Snapshot) {
-    let (weburi_changed, settings_changed) = {
+    let settings_changed = {
         let shared = app.state::<SharedState>();
         let mut s = shared.lock().unwrap();
-        let weburi_changed = s.snapshot.web_origins != snapshot.web_origins
-            || s.snapshot.web_pending != snapshot.web_pending;
-        // The rebuilt submenus are gated on the SUPERVISOR's signatures, not on comparing arrays: tearing down and
-        // re-adding every row of a submenu the user may have open, because a heartbeat flipped, is visible churn.
-        // Field by field, and only the fields the WINDOW draws — see settingswin::differs.
+        // Gated on the SUPERVISOR's signatures, not on comparing arrays: redrawing a list the user may be reading,
+        // because a heartbeat flipped, is visible churn. Field by field, and only the fields the WINDOW draws — see
+        // settingswin::differs.
         let settings_changed = crate::settingswin::differs(&s.snapshot, &snapshot);
         s.snapshot = snapshot;
         // A snapshot arriving IS the supervisor working, so whatever we last complained about is over.
         s.host_error = None;
-        (weburi_changed, settings_changed)
+        settings_changed
     };
     if settings_changed {
         crate::settingswin::push(app);
     }
-    if weburi_changed {
-        rebuild_weburi_menu(app); // ends in refresh()
-    } else {
-        refresh(app);
-    }
+    // The attention dot rides the same snapshot as the blocked origins, so repainting the icon is all it takes.
+    refresh(app);
 }
 
 /// Report that the supervisor is missing or restarting (None clears it) — this outranks every other status.

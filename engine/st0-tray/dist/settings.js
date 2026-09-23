@@ -1,7 +1,8 @@
-// settings.js — the window's five tabs. The audio list IS the ranking: what is on screen, in
+// settings.js — the window's six tabs. The audio list IS the ranking: what is on screen, in
 // the order it is on screen, is what `audio.priority` gets sent on every move. The plugin list
 // is read-only — the engine's catalogue, and the rescan that refills it. Sessions is what the
-// engine holds right now; Sync is where a set list may be copied; System is the machine.
+// engine holds right now; Sync is where a set list may be copied; st0 instances is who this
+// engine is connected to; System is the machine.
 // The drag is pointer-driven rather than HTML5 dnd: one behaviour across the three webviews,
 // and the dragged node stays alive under its pointer capture.
 
@@ -23,6 +24,13 @@ const syncName = document.getElementById("sync-name");
 const syncUri = document.getElementById("sync-uri");
 const syncAdd = document.getElementById("sync-add");
 const syncError = document.getElementById("sync-error");
+const instanceList = document.getElementById("instances");
+const instancesEmpty = document.getElementById("instances-empty");
+const pendingBlock = document.getElementById("pending-block");
+const pendingList = document.getElementById("pending");
+const instanceForm = document.getElementById("instance-form");
+const instanceUrl = document.getElementById("instance-url");
+const instanceError = document.getElementById("instance-error");
 
 let dragging = null;
 let moved = false;
@@ -31,6 +39,8 @@ let counted = null;
 let running = false;
 /** The targets as the last snapshot reported them — what an add or a remove is applied TO. */
 let targets = [];
+/** The instances as the last snapshot reported them, so an add can say "already connected". */
+let instances = [];
 
 if (!api) {
   audioEmpty.hidden = false;
@@ -286,11 +296,14 @@ function renderSystem(sys) {
   systemList.replaceChildren(
     fact("Version", sys.build),
     fact("Engine", engineLine(sys), !!sys.hostError || sys.status === "error"),
-    fact(
-      "Registry",
-      `${sys.registryUrl || "—"}${up ? (sys.lastHeartbeatOk ? " · ok" : " · unreachable") : ""}`,
-      up && !sys.lastHeartbeatOk,
-    ),
+    // No registry is the default, not a fault: a fresh machine is connected to no st0 instance.
+    sys.registryUrl
+      ? fact(
+          "Registry",
+          `${sys.registryUrl}${up ? (sys.lastHeartbeatOk ? " · ok" : " · unreachable") : ""}`,
+          up && !sys.lastHeartbeatOk,
+        )
+      : fact("Registry", "none — see st0 instances"),
     // A dead file service is not a detail of a running engine: no browser can reach a file.
     fact(
       "File service",
@@ -378,6 +391,95 @@ function addTarget() {
   syncUri.value = "";
 }
 
+// --- the st0 instances ------------------------------------------------------
+
+/** What the user typed, reduced to an origin the way the supervisor will, or an error sentence. Checked here only
+ *  to answer AT ONCE — the supervisor's normaliser is the gate (packages/engine-host/src/webOrigins.ts). */
+function instanceOrigin(input) {
+  const raw = input.trim();
+  if (!raw) return { error: "type the address of a st0 instance" };
+  let url;
+  try {
+    url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+  } catch {
+    return { error: "not an address — https://… or http://…" };
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:")
+    return { error: `${url.protocol.replace(":", "")}:// is not a web address — https:// or http:// only` };
+  if (url.username || url.password) return { error: "no credentials in the address" };
+  if (!url.hostname || url.hostname.includes("*")) return { error: "no host in that address" };
+  return { origin: url.origin };
+}
+
+function instanceDetail(i) {
+  const what =
+    i.registry && i.allowed
+      ? "listed in its picker · its pages may reach this machine"
+      : i.registry
+        ? "listed in its picker"
+        : "its pages may reach this machine · not listed in its picker";
+  // Said rather than just missing a button: otherwise the row reads as one the window forgot to make removable.
+  return i.removable ? what : `${what} · set by the environment or a local backend`;
+}
+
+function buildInstance(i) {
+  const node = document.createElement("li");
+  node.innerHTML =
+    '<div class="row"><span class="body"><span class="name"></span><br />' +
+    '<span class="detail"></span></span></div>';
+  node.querySelector(".name").textContent = i.url;
+  node.querySelector(".detail").textContent = instanceDetail(i);
+  if (i.removable) {
+    const drop = document.createElement("button");
+    drop.className = "forget";
+    drop.type = "button";
+    drop.textContent = "Remove";
+    drop.addEventListener("click", () => api?.core.invoke("instance_remove", { url: i.url }));
+    node.querySelector(".row").append(drop);
+  }
+  return node;
+}
+
+/** One origin the file service refused: allow it, or dismiss it so the question stops being asked. */
+function buildPending(origin) {
+  const node = document.createElement("li");
+  node.innerHTML = '<div class="row"><span class="body"><span class="name"></span></span></div>';
+  node.querySelector(".name").textContent = origin;
+  for (const [label, cmd] of [
+    ["Allow", "instance_allow"],
+    ["Ignore", "instance_deny"],
+  ]) {
+    const b = document.createElement("button");
+    b.className = "forget";
+    b.type = "button";
+    b.textContent = label;
+    b.addEventListener("click", () => api?.core.invoke(cmd, { origin }));
+    node.querySelector(".row").append(b);
+  }
+  return node;
+}
+
+function renderInstances(rows, pending) {
+  instances = rows;
+  instanceList.replaceChildren(...rows.map(buildInstance));
+  instancesEmpty.hidden = rows.length > 0;
+  instancesEmpty.textContent = "Not connected to any st0 instance.";
+  pendingList.replaceChildren(...pending.map(buildPending));
+  pendingBlock.hidden = pending.length === 0;
+}
+
+function addInstance(e) {
+  e.preventDefault();
+  const { origin, error } = instanceOrigin(instanceUrl.value);
+  const known = origin && instances.some((i) => instanceOrigin(i.url).origin === origin);
+  const wrong = error ?? (known ? `already connected to ${origin}` : "");
+  instanceError.textContent = wrong;
+  instanceError.hidden = !wrong;
+  if (wrong) return;
+  api?.core.invoke("instance_add", { url: origin });
+  instanceUrl.value = "";
+}
+
 // --- what the tray sends ----------------------------------------------------
 
 function render(view) {
@@ -389,6 +491,7 @@ function render(view) {
   renderPlugins();
   renderSessions(view.sessions, view.orphanPlugins);
   renderSync(view.syncTargets);
+  renderInstances(view.instances, view.pending);
   renderSystem(view.system);
 }
 
@@ -427,6 +530,7 @@ for (const field of [syncName, syncUri])
     if (e.key === "Enter") addTarget();
   });
 rescan.addEventListener("click", () => api?.core.invoke("plugins_rescan"));
+instanceForm.addEventListener("submit", addInstance);
 
 if (api) {
   api.event.listen("settings:view", (e) => render(e.payload));

@@ -2,12 +2,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_STUDIO_URL } from "./registryClient.ts";
 import {
   normaliseBrowserOrigin,
   normaliseUserOrigin,
   parsePending,
-  seedDefault,
 } from "./webOrigins.ts";
 
 // Not formatting tests: what `normalise` returns is compared against a browser's `Origin` header, so every case here is a boundary case.
@@ -130,27 +128,5 @@ describe("parsePending", () => {
     expect(parsePending("{ this is not json", [], NOW)).toEqual([]);
     expect(parsePending('{"pending": "nope"}', [], NOW)).toEqual([]);
     expect(parsePending('{"pending": [{"nope": 1}]}', [], NOW)).toEqual([]);
-  });
-});
-
-describe("seedDefault", () => {
-  let dir: string;
-  let path: string;
-  beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "td-seed-"));
-    path = join(dir, "web-origins.json");
-  });
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
-
-  it("seeds the hosted studio when no file exists", () => {
-    seedDefault(path);
-    expect(readFileSync(path, "utf8")).toContain(DEFAULT_STUDIO_URL);
-  });
-
-  it("never touches an existing file, even an empty list", () => {
-    // An empty list is a choice — the user removed everything — and re-seeding it would make removal impossible.
-    writeFileSync(path, '{"origins": []}', "utf8");
-    seedDefault(path);
-    expect(readFileSync(path, "utf8")).toBe('{"origins": []}');
   });
 });

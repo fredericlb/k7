@@ -105,7 +105,7 @@ app.use((req, res, next) => {
   res.status(403).json({
     error: "origin not allowed",
     origin: req.get("origin") ?? null,
-    hint: "allow it from the tray: Web UI ▸ the blocked origin",
+    hint: "allow it from the tray: Settings… ▸ st0 instances ▸ the blocked origin",
   });
 });
 

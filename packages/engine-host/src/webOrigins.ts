@@ -3,19 +3,12 @@
 // because the SUPERVISOR is the writer; file-service imports it to read. Only bare
 // origins are stored. Full rationale: docs/supervisorPolicy.md.
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import {
   pendingOriginsPath,
   webOriginsPath,
 } from "@studio/engine-client/paths";
-import { DEFAULT_STUDIO_URL } from "./registryClient.ts";
 
 export const WEB_ORIGINS_PATH = webOriginsPath();
 export const PENDING_ORIGINS_PATH = pendingOriginsPath();
@@ -92,21 +85,6 @@ export function saveOrigins(origins: string[]): void {
     );
   } catch {
     /* unwritable home — the list stays as it was; the caller sees no change */
-  }
-}
-
-/** First-run seed only, so a user who removes the entry never sees it return: this is a DEFAULT, not an enforcement. */
-export function seedDefault(path: string = WEB_ORIGINS_PATH): void {
-  if (existsSync(path)) return;
-  try {
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(
-      path,
-      `${JSON.stringify({ origins: [DEFAULT_STUDIO_URL] }, null, 2)}\n`,
-      "utf8",
-    );
-  } catch {
-    /* Unwritable home: cors.ts still admits the registry origin, so the hosted studio just needs one manual approval. */
   }
 }
 
