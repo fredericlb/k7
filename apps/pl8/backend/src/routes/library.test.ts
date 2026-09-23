@@ -237,6 +237,21 @@ describe("uploading a variant", () => {
   });
 });
 
+describe("DELETE /folder", () => {
+  it("removes an artist grouping and every song underneath it", async () => {
+    await post(tags, "ID3");
+    const res = await fetch(
+      `${base}/api/mediatek/folder?${new URLSearchParams({ path: "songs/Miles Davis" })}`,
+      { method: "DELETE" },
+    );
+    expect(res.status).toBe(200);
+    const listed = (await (
+      await fetch(`${base}/api/mediatek/list?family=songs`)
+    ).json()) as { entries: unknown[] };
+    expect(listed.entries).toEqual([]);
+  });
+});
+
 // The read side: `/file` guesses a content type, and a wrong guess is a file the browser refuses.
 describe("GET /file", () => {
   const put = (rel: string, body: string) => {

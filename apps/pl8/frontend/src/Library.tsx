@@ -375,6 +375,38 @@ export function Library() {
                   .catch((e: Error) => setError(e.message));
               },
             },
+            {
+              key: "delete-folder",
+              // An ARTIST or ALBUM grouping: a real folder, neither the root nor a song's own.
+              label: (t) => `Supprimer ${t.name}…`,
+              when: (t) => t.dir && !t.root && !isSongFolder(entries, t.path),
+              danger: true,
+              // Typed rather than one click: this can take every song underneath — ../docs/library.md.
+              prompt: {
+                placeholder: "nom du dossier",
+                hint: (t) =>
+                  `Tapez « ${t.name} » pour supprimer tout ce qu'il contient.`,
+                submit: "Supprimer",
+              },
+              run: (t, value) => {
+                if (value !== t.name) {
+                  setError(
+                    `Le nom tapé ne correspond pas à « ${t.name} » : rien n'a été supprimé.`,
+                  );
+                  return;
+                }
+                void library
+                  .removeTree(`${section}/${t.path}`)
+                  .then(() => {
+                    // The open song may sit several levels under an artist or album that just went.
+                    const open = folderOf(file);
+                    if (open === t.path || open?.startsWith(`${t.path}/`))
+                      openFile(null);
+                    refresh();
+                  })
+                  .catch((e: Error) => setError(e.message));
+              },
+            },
           ],
     [entries, file, openFile, pickVariant, playQueue.enqueue, refresh, section],
   );

@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ensureLayout, NotWritableError, PathEscapesError } from "./layout.ts";
 import { familyRevision } from "./revision.ts";
-import { putFile, removeFile } from "./write.ts";
+import { putFile, removeFile, removeTree } from "./write.ts";
 
 let root: string;
 beforeEach(() => {
@@ -87,5 +87,25 @@ describe("taking a file out", () => {
   it("refuses the same paths a write does", () => {
     expect(() => removeFile("../evil.yaml")).toThrow(PathEscapesError);
     expect(() => removeFile(".cache/index.json")).toThrow(NotWritableError);
+  });
+});
+
+describe("taking a whole subtree out", () => {
+  it("removes every file underneath and moves the token once", () => {
+    putFile("songs/Nirvana/Nevermind/Lithium/original.mp3", "a\n");
+    putFile("songs/Nirvana/Nevermind/Breed/original.mp3", "b\n");
+    const before = familyRevision("songs");
+    removeTree("songs/Nirvana");
+    expect(existsSync(join(root, "songs/Nirvana"))).toBe(false);
+    expect(familyRevision("songs")).not.toBe(before);
+  });
+
+  it("treats absent as done — the caller wanted it gone", () => {
+    expect(() => removeTree("songs/never/there")).not.toThrow();
+  });
+
+  it("refuses the same paths a write does", () => {
+    expect(() => removeTree("../evil")).toThrow(PathEscapesError);
+    expect(() => removeTree(".cache")).toThrow(NotWritableError);
   });
 });

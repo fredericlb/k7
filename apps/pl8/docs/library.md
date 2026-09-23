@@ -83,13 +83,18 @@ tags, so a folder made by hand there is not a badly filed song but an invisible 
 capture at an hour it was not made (`packages/mediatek/docs/recordings.md`). Both have a header
 button instead.
 
-`songs/` still gets a menu, and only its own: add a version, queue the morceau, remove it. None of
-those touches the deduced shape — one writes INSIDE a song that already exists, the other takes a
-whole one away — and each `when` accepts a row only when the listing calls it a song, so the artist
-and the album above it are offered neither. A variant of an album is not a thing, and one click
-there would delete every morceau underneath. The shared tree opens no menu at all when nothing
-passes, which is how those rows keep the browser's own, and how the capture zone gets no menu
-either.
+`songs/` still gets a menu, and only its own: add a version, queue the morceau, remove it, and —
+on the artist or album folder above a song — remove that whole grouping. None of those touches the
+deduced shape — one writes INSIDE a song that already exists, one takes a single song away, one
+takes a whole grouping away — and each `when` accepts a row only for the kind of thing it is: a
+variant's own action never offers itself on the song that holds it, nor the reverse. The shared
+tree opens no menu at all when nothing passes, which is how the capture zone gets no menu at all.
+
+**Deleting an artist or an album asks for its name first**, the tree's own `prompt` mechanism
+(the same one Renommer and Nouveau dossier use), and every other delete in this screen does not.
+The difference is blast radius: a song's own delete takes one song, a variant's takes one file, but
+an artist or an album can hold many songs — and there is no trash here, so a wrong click has no
+path back. Typing the name is the one row in this tree with a second step on purpose.
 
 That same early return is why every target needs at least one action whose `when` passes: an empty
 menu does not open, it simply never appears. Folders and the root would otherwise have none.
