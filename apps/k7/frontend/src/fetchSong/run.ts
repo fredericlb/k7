@@ -15,7 +15,7 @@ const POLL_MS = 2000;
 /** What `onStatus` persists — `fetchStatus`'s own fields, plus the sibling `lyricsMatch`
  * field the backend's PATCH body carries beside it (see store.ts's updateSong). */
 export interface StatusPatch extends Partial<FetchStatus> {
-  lyricsMatch?: "" | "matched" | "unmatched";
+  lyricsMatch?: Song["lyricsMatch"];
 }
 
 interface Common {
@@ -205,6 +205,8 @@ export type LyricsSteps = Pick<
  * line, in order, and not a word of the sheet changes (`timeLyrics`, ../../../docs/lyricsTiming.md).
  * A song with no lyrics gets the fetched ones, timed. A version that is not this song (its artist and
  * title), or that times nothing, is never applied — that is « unmatched », which the insert SAYS.
+ * A version of this song LRCLIB lists as instrumental makes it « instrumental »: nothing to time.
+ * The song returned carries its new `lyricsMatch`, which the pipeline's next step reads.
  */
 export async function syncLyrics(
   song: Song,
@@ -215,22 +217,26 @@ export async function syncLyrics(
   const best = (await steps.findLrc())[0];
   const ours =
     best && matches(song.artist, song.title, best.artistName, best.trackName);
+  if (ours && best.instrumental) {
+    steps.onStatus?.({ lyricsMatch: "instrumental" });
+    return { ...song, lyricsMatch: "instrumental" };
+  }
   const found = ours ? timeLyrics(song.lyrics, best.syncedLyrics) : null;
   if (found?.ok && found.placed > 0) {
     const timed = await steps.onLrc(found.lyrics);
     steps.onStatus?.({ lyricsMatch: "matched" });
-    return timed;
+    return { ...timed, lyricsMatch: "matched" };
   }
   steps.onStatus?.({ lyricsMatch: "unmatched" });
-  return song;
+  return { ...song, lyricsMatch: "unmatched" };
 }
 
 /** A fresh start on `"download"` (the insert's button, or the ⋮ menu's re-run), or picking back
  * up wherever `song` says the pipeline got to on `"continue"` — a reload, or an upload. */
 export type PipelineMode = "download" | "continue";
 
-/** The whole chain a track goes through once it exists: search → download → stem → find
- * lyrics. Every step reads the song its own predecessor returned, so a reload can resume
+/** The whole chain a track goes through once it exists: search → download → find lyrics →
+ * stem, unless LRCLIB says the song is instrumental. Every step reads the song its own predecessor returned, so a reload can resume
  * from `song.fetchStatus`/`song.lyricsMatch` alone rather than losing the thread — see
  * ../../docs/audio.md. */
 export async function runPipeline(
@@ -253,22 +259,33 @@ export async function runPipeline(
     );
   }
 
-  if (current.audio && !current.instrumental) {
+  // Lyrics BEFORE stems: a song LRCLIB lists as instrumental has no voice to take out.
+  // Lyrics already timed are left alone: re-timing them is the ⋮ menu's « Resync lyrics ».
+  const untimed =
+    !hasTimecodes(current.lyrics) && !(current.lyricTimings?.length ?? 0);
+  if (current.audio && current.lyricsMatch === "" && untimed) {
+    try {
+      current = await syncLyrics(current, steps);
+    } catch (err) {
+      // LRCLIB out of reach does not stop the chain on its way to stems, but it is reported.
+      problem = (err as Error).message;
+    }
+  }
+
+  if (
+    current.audio &&
+    !current.instrumental &&
+    current.lyricsMatch !== "instrumental"
+  ) {
     const outcome = await makeInstrumental(
       current,
       steps,
       (resume && current.fetchStatus.jobId) || undefined,
     );
-    // No engine online does not stop the chain on its way to lyrics, but it is reported.
+    // No engine online is reported, like a lyrics failure; the later note wins.
     if (outcome.song) current = outcome.song;
     if (outcome.note) problem = outcome.note;
   }
-
-  // Lyrics already timed are left alone: re-timing them is the ⋮ menu's « Resync lyrics ».
-  const untimed =
-    !hasTimecodes(current.lyrics) && !(current.lyricTimings?.length ?? 0);
-  if (current.audio && current.lyricsMatch === "" && untimed)
-    current = await syncLyrics(current, steps);
 
   steps.onStatus?.({
     phase: problem ? "failed" : "",

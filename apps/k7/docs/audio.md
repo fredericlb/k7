@@ -338,8 +338,13 @@ often than a track to play along to, so it is asked for rather than ridden along
   separating if the page is closed, and a second press finds the song filed and the stems held.
 - **A failure stays on the song** (`fetchStatus`, phase `failed`), whichever step it came from, and the
   insert under the title shows it with Retry and Dismiss — a reload shows it again. A step that fails
-  after the track landed is as visible as one before. No engine online is reported the same way,
-  though the chain still goes on to the lyrics.
+  after the track landed is as visible as one before. LRCLIB out of reach and no engine online are
+  reported the same way, without stopping the chain: one does not keep the other from running.
+- **Lyrics come before stems** (search → download → lyrics → stems), because LRCLIB also says
+  when a recording has **no lyrics at all**. A song LRCLIB lists as instrumental is marked
+  « instrumental »: it gets no stems, since there is no voice to take out and separating one costs a
+  musician's machine a minute for nothing, and the ⋮ menu offers no "Make instrumental". The insert
+  under the title says so. LRCLIB is crowdsourced, so a song it has no record of still gets its stems.
 - **The lyrics step only TIMES the lyrics.** A song whose lyrics are not timed yet gets LRCLIB's best
   version of THIS song (its artist and title), and its times are written into the sheet as
   `{{MM:SS.cc}}` in front of the closest lines — not a word of the sheet changes (`lyricsTiming.md`). A

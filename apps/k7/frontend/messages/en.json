@@ -75,6 +75,7 @@
   "fetch.dismiss": "Dismiss",
   "fetch.download": "Download the song",
   "fetch.downloading": "Downloading from Soulseek…",
+  "fetch.instrumentalSong": "Instrumental, according to LRCLIB: no lyrics to time, and no voice to take out.",
   "fetch.lyricsUnmatched": "No timed lyrics found for this song. Add {code} at the start of a line of the lyrics to time it by hand.",
   "fetch.huntRemoved": "The Soulseek search was removed before it finished.",
   "fetch.ignore": "Ignore",

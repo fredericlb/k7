@@ -50,7 +50,8 @@ export function SongFetchInsert({
     if (running) return <FetchStepper {...song.fetchStatus} />;
     const failed = phase === "failed" && error !== "";
     const unmatched = song.lyricsMatch === "unmatched";
-    if (!failed && !unmatched) return null;
+    const instrumental = song.lyricsMatch === "instrumental";
+    if (!failed && !unmatched && !instrumental) return null;
     return (
       <div className="song-fetch-insert">
         {failed && (
@@ -66,10 +67,15 @@ export function SongFetchInsert({
             <RotateCw className="size-4" /> {m["fetch.retry"]()}
           </Button>
         )}
-        {/* Said, not a button: the times are typed into the lyrics, `{{MM:SS}}` at the end of a line. */}
+        {/* Said, not a button: the times are typed into the lyrics, `{{MM:SS}}` at the start of a line. */}
         {unmatched && (
           <p className="song-fetch-insert-text muted">
             {m["fetch.lyricsUnmatched"]({ code: "{{MM:SS}}" })}
+          </p>
+        )}
+        {instrumental && (
+          <p className="song-fetch-insert-text muted">
+            {m["fetch.instrumentalSong"]()}
           </p>
         )}
         {failed && (

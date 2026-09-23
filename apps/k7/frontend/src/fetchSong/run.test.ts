@@ -253,7 +253,77 @@ describe("runPipeline", () => {
     );
     // No lyrics yet: the fetched line becomes them, its time written in as `{{MM:SS.cc}}`.
     expect(onLrc).toHaveBeenCalledWith("{{00:00.00}} la la la");
-    expect(found).toBe(withTrack);
+    expect(found).toEqual({ ...withTrack, lyricsMatch: "matched" });
+  });
+
+  // A track, but no instrumental yet: stems are still to make.
+  const noStems = song({ audio: { name: "t.flac", mime: "audio/flac" } });
+  const lrc = (over: Record<string, unknown> = {}) => ({
+    id: 1,
+    trackName: "Sinnerman",
+    artistName: "Nina Simone",
+    albumName: "",
+    duration: 0,
+    syncedLyrics: "[00:12.50]Oh sinnerman",
+    instrumental: false,
+    ...over,
+  });
+
+  it("makes no stems for a song LRCLIB lists as instrumental", async () => {
+    const listSongs = vi.fn(async () => []);
+    const onStatus = vi.fn();
+    const found = await runPipeline(
+      noStems,
+      "continue",
+      steps(fakePl8({ listSongs }), {
+        findLrc: async () => [lrc({ instrumental: true, syncedLyrics: "" })],
+        onLrc: async () => noStems,
+        onStatus,
+      }) as never,
+    );
+    expect(found.lyricsMatch).toBe("instrumental");
+    expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "instrumental" });
+    // The stems step starts by finding the song in the library: it never got there.
+    expect(listSongs).not.toHaveBeenCalled();
+  });
+
+  it("looks for lyrics before making stems", async () => {
+    const order: string[] = [];
+    await runPipeline(
+      noStems,
+      "continue",
+      steps(
+        fakePl8({
+          listSongs: async () => {
+            order.push("stems");
+            return [];
+          },
+        }),
+        {
+          findLrc: async () => {
+            order.push("lyrics");
+            return [lrc()];
+          },
+          onLrc: async () => noStems,
+        },
+      ) as never,
+    ).catch(() => {}); // the empty library then fails the stems step, which is not what this is about
+    expect(order).toEqual(["lyrics", "stems"]);
+  });
+
+  it("still makes stems when LRCLIB cannot be reached", async () => {
+    const listSongs = vi.fn(async () => []);
+    await runPipeline(
+      noStems,
+      "continue",
+      steps(fakePl8({ listSongs }), {
+        findLrc: async () => {
+          throw new Error("LRCLIB is down");
+        },
+        onLrc: async () => noStems,
+      }) as never,
+    ).catch(() => {});
+    expect(listSongs).toHaveBeenCalled();
   });
 
   it("leaves lyrics unmatched rather than guess, and does not call onLrc", async () => {
@@ -436,6 +506,7 @@ describe("syncLyrics", () => {
           albumName: "",
           duration: 0,
           syncedLyrics: "[00:12.50]Oh sinnerman",
+          instrumental: false,
         },
       ],
       onLrc,

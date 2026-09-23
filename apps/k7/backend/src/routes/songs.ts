@@ -56,7 +56,7 @@ const patchSchema = z.object({
       jobId: z.string().optional(),
     })
     .optional(),
-  lyricsMatch: z.enum(["", "matched", "unmatched"]).optional(),
+  lyricsMatch: z.enum(["", "matched", "unmatched", "instrumental"]).optional(),
   fetchIgnored: z.boolean().optional(),
 });
 

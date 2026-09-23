@@ -6,7 +6,8 @@ a word of the sheet changes: its spelling, its chords, its sections and its tabl
 as typed. With a reference track, the line being sung is then highlighted as the track plays, and a
 tap on a timed line seeks there.
 
-The song pipeline does it, as its last step, with LRCLIB's best version of the song (`audio.md`).
+The song pipeline does it, right after the download and before the stems, with LRCLIB's best
+version of the song (`audio.md`) — which can also be LRCLIB saying the song is instrumental.
 There is no screen of its own: the timecodes are text, so they are seen, typed, moved and fixed in
 the lyrics editor like any other word — which is what replaced the timed-lyrics popin, a second
 editor for one part of the same text.

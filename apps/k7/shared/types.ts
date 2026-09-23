@@ -81,8 +81,10 @@ export interface LrcCandidate {
   albumName: string;
   /** Seconds, as LRCLIB knows the recording. */
   duration: number;
-  /** The LRC text itself. */
+  /** The LRC text itself; empty for an instrumental. */
   syncedLyrics: string;
+  /** LRCLIB lists the recording as having no lyrics at all. */
+  instrumental: boolean;
 }
 
 /** When one lyric line is sung: its line index in `lyrics`, its normalised text, and seconds. */
@@ -108,8 +110,8 @@ export interface Song {
   instrumental: SongAudio | null;
   // The auto-fetch pipeline's own state, so a reload finds it where it left off.
   fetchStatus: FetchStatus;
-  // "" (not attempted), "matched" (applied automatically) or "unmatched" (needs the fixer).
-  lyricsMatch: "" | "matched" | "unmatched";
+  // "" (not attempted), "matched" (timed automatically), "unmatched" (to time by hand), or "instrumental" (LRCLIB says there are no lyrics).
+  lyricsMatch: "" | "matched" | "unmatched" | "instrumental";
   // The fetch insert was dismissed on purpose ("Ignore") — never offer it again for this song.
   fetchIgnored: boolean;
   // The asking user's own star: the songbook is shared, a favourite is not.

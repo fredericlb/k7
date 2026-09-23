@@ -133,22 +133,25 @@ export function SongMenu({
               {m["songMenu.removeTrack"]()}
             </DropdownMenuItem>
           )}
-          {song.audio && !song.instrumental && (
-            <DropdownMenuItem
-              onSelect={() =>
-                run(m["fetch.stemming"](), async () => {
-                  const outcome = await makeInstrumental(song, {
-                    pl8,
-                    mixInstrumental: onMixInstrumental,
-                    onPhase: setPhase,
-                  });
-                  return outcome.note;
-                })
-              }
-            >
-              {m["songMenu.makeInstrumental"]()}
-            </DropdownMenuItem>
-          )}
+          {/* An instrumental song has no voice to take out. */}
+          {song.audio &&
+            !song.instrumental &&
+            song.lyricsMatch !== "instrumental" && (
+              <DropdownMenuItem
+                onSelect={() =>
+                  run(m["fetch.stemming"](), async () => {
+                    const outcome = await makeInstrumental(song, {
+                      pl8,
+                      mixInstrumental: onMixInstrumental,
+                      onPhase: setPhase,
+                    });
+                    return outcome.note;
+                  })
+                }
+              >
+                {m["songMenu.makeInstrumental"]()}
+              </DropdownMenuItem>
+            )}
           <DropdownMenuItem disabled={pipelineRunning} onSelect={onRerun}>
             {m["songMenu.rerunPipeline"]()}
           </DropdownMenuItem>

@@ -15,14 +15,17 @@ const rec = (over: Record<string, unknown>) => ({
 });
 
 describe("rankCandidates", () => {
-  it("offers only timed, sung results", () => {
+  it("offers timed lyrics and instrumentals, nothing untimed", () => {
     const out = rankCandidates([
       rec({ id: 1 }),
       rec({ id: 2, syncedLyrics: null }),
       rec({ id: 3, syncedLyrics: "  " }),
       rec({ id: 4, instrumental: true }),
     ]);
-    expect(out.map((c) => c.id)).toEqual([1]);
+    expect(out.map((c) => c.id)).toEqual([1, 4]);
+    // An instrumental says so, and brings no lyrics even when the record has some.
+    expect(out[0].instrumental).toBe(false);
+    expect(out[1]).toMatchObject({ instrumental: true, syncedLyrics: "" });
   });
 
   it("puts the result nearest the track's length first", () => {
