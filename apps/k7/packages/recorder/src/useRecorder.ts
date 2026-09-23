@@ -1,5 +1,6 @@
 import fixWebmDuration from "fix-webm-duration";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { MIC_ERRORS_EN, type MicErrorTexts } from "./labels";
 import type { Envelope } from "./types";
 
 const SAMPLE_INTERVAL_MS = 200; // one loudness sample every 200ms
@@ -17,7 +18,10 @@ export interface RecordingResult {
 export type RecStatus = "idle" | "recording" | "paused" | "stopped";
 
 /** Record audio while building its loudness envelope live — see ../../../docs/audio.md. */
-export function useRecorder() {
+export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
+  // Read at failure time, so a host re-rendering with new texts never re-creates `start`.
+  const micRef = useRef(mic);
+  micRef.current = mic;
   const [status, setStatus] = useState<RecStatus>("idle");
   const [elapsed, setElapsed] = useState(0); // recorded seconds (excludes pauses)
   const [level, setLevel] = useState(0); // current RMS, 0..1
@@ -115,9 +119,7 @@ export function useRecorder() {
       setError(null);
       try {
         if (!existing && !navigator.mediaDevices?.getUserMedia) {
-          throw new Error(
-            "Microphone access needs a secure context (https:// or http://localhost).",
-          );
+          throw new Error(micRef.current.insecure);
         }
         const media = existing ?? (await acquireMicrophone());
         stream.current = media;
@@ -173,7 +175,7 @@ export function useRecorder() {
         startTimers();
         acquireWakeLock();
       } catch (err) {
-        setError(describeMicError(err));
+        setError(describeMicError(err, micRef.current));
         cleanup();
       }
     },
@@ -315,17 +317,20 @@ export async function acquireMicrophone(): Promise<MediaStream> {
   throw lastErr;
 }
 
-export function describeMicError(err: unknown): string {
+export function describeMicError(
+  err: unknown,
+  texts: MicErrorTexts = MIC_ERRORS_EN,
+): string {
   const e = err as DOMException;
   switch (e?.name) {
     case "NotAllowedError":
     case "SecurityError":
-      return "Microphone permission was denied. Allow it in your browser's site settings and try again.";
+      return texts.denied;
     case "NotFoundError":
     case "OverconstrainedError":
-      return "No microphone was found. Check that an input device is connected and not in use by another app.";
+      return texts.notFound;
     case "NotReadableError":
-      return "The microphone is busy or unavailable — another app may be using it.";
+      return texts.busy;
     default:
       return e?.message || String(err);
   }

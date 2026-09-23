@@ -2,6 +2,7 @@ import { Button } from "@frediverse/ui/button";
 import { ChevronLeft, ChevronRight } from "@frediverse/ui/icons";
 import ChordImport from "@tombatossals/react-chords/lib/Chord";
 import { useMemo, useState } from "react";
+import { m } from "../paraglide/messages.js";
 import { GUITAR, getChordPositions } from "../utils/chordDiagram";
 
 // react-chords is CommonJS, so its default import is the component or a wrapper around it.
@@ -21,7 +22,7 @@ export function ChordDiagram({ symbol }: Props) {
     return (
       <div className="chord-card">
         <div className="chord-card-name">{symbol}</div>
-        <div className="chord-card-empty">no diagram</div>
+        <div className="chord-card-empty">{m["chord.noDiagram"]()}</div>
       </div>
     );
   }
@@ -43,7 +44,7 @@ export function ChordDiagram({ symbol }: Props) {
             onClick={() =>
               setI((n) => (n - 1 + positions.length) % positions.length)
             }
-            aria-label="Previous fingering"
+            aria-label={m["chord.prevFingering"]()}
           >
             <ChevronLeft className="size-4" />
           </Button>
@@ -54,7 +55,7 @@ export function ChordDiagram({ symbol }: Props) {
             variant="outline"
             size="sm"
             onClick={() => setI((n) => (n + 1) % positions.length)}
-            aria-label="Next fingering"
+            aria-label={m["chord.nextFingering"]()}
           >
             <ChevronRight className="size-4" />
           </Button>

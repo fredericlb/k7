@@ -1,3 +1,5 @@
+import { m } from "../paraglide/messages.js";
+
 interface Props {
   onOpen: (id: string) => void;
 }
@@ -6,18 +8,18 @@ interface Props {
 const EXERCISES = [
   {
     id: "random-chords",
-    title: "Random chords",
-    desc: "The app calls out a random chord — major, minor, 7th and more — for you to play on your instrument.",
+    title: m["exercise.chords.title"],
+    desc: m["exercise.chords.desc"],
   },
   {
     id: "tuner",
-    title: "Guitar tuner",
-    desc: "Tune your guitar by ear-free feedback: play a string and the app shows the note, how many cents off you are, and the nearest string.",
+    title: m["exercise.tuner.title"],
+    desc: m["exercise.tuner.desc"],
   },
   {
     id: "singing",
-    title: "Singing exercices",
-    desc: "Your own warm-ups and drills: add what to sing and how it goes, and keep them to hand.",
+    title: m["exercise.singing.title"],
+    desc: m["exercise.singing.desc"],
   },
 ];
 
@@ -31,9 +33,9 @@ export function ExercisesView({ onOpen }: Props) {
             className="session-item"
             onClick={() => onOpen(ex.id)}
           >
-            <div className="session-name">{ex.title}</div>
+            <div className="session-name">{ex.title()}</div>
             <div className="session-meta">
-              <span>{ex.desc}</span>
+              <span>{ex.desc()}</span>
             </div>
           </li>
         ))}

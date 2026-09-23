@@ -15,6 +15,7 @@ import { ReleaseEditForm } from "../components/ReleaseEditForm";
 import { SwitchField } from "../components/SwitchField";
 import { VersionCard } from "../components/VersionCard";
 import { fmtDate } from "../format";
+import { m } from "../paraglide/messages.js";
 import type { Release, ReleasePatch, SongEnvelope } from "../types";
 
 interface Props {
@@ -86,7 +87,9 @@ export function ReleaseDetailView({
     setAdding(true);
     try {
       await onAddVersion({
-        name: vName.trim() || `Version ${(release.versions?.length ?? 0) + 1}`,
+        name:
+          vName.trim() ||
+          m["release.versionN"]({ n: (release.versions?.length ?? 0) + 1 }),
         isDefault: vDefault,
         audio: vFile,
       });
@@ -110,7 +113,7 @@ export function ReleaseDetailView({
   };
 
   const remove = async () => {
-    if (!confirm("Delete this release and all its versions?")) return;
+    if (!confirm(m["release.confirmDelete"]())) return;
     await onDelete();
   };
 
@@ -131,7 +134,7 @@ export function ReleaseDetailView({
       ) : (
         <>
           <div className="detail-head">
-            <BackButton to="Publications" onClick={onBack} />
+            <BackButton to={m["nav.publications"]()} onClick={onBack} />
             <h2>{release.title}</h2>
             <span className="muted detail-head-sub">
               {release.artist}
@@ -143,10 +146,10 @@ export function ReleaseDetailView({
             >
               {release.canDownload ? (
                 <>
-                  <Download className="size-3" /> downloadable by users
+                  <Download className="size-3" /> {m["release.downloadable"]()}
                 </>
               ) : (
-                "download disabled"
+                m["release.downloadDisabled"]()
               )}
             </Badge>
             {/* The release's verbs in one ⋮, like a song's, so the page below is the release. */}
@@ -156,21 +159,21 @@ export function ReleaseDetailView({
                   variant="ghost"
                   size="icon-sm"
                   className="ds-button"
-                  title="Release menu"
-                  aria-label="Release menu"
+                  title={m["release.menu"]()}
+                  aria-label={m["release.menu"]()}
                 >
                   <EllipsisVertical className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={() => setEditing(true)}>
-                  Edit
+                  {m["common.edit"]()}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive"
                   onSelect={() => void remove()}
                 >
-                  Delete release
+                  {m["release.delete"]()}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -182,8 +185,10 @@ export function ReleaseDetailView({
         </>
       )}
 
-      <h3>Versions</h3>
-      {versions.length === 0 && <p className="muted">No versions yet.</p>}
+      <h3>{m["release.versions"]()}</h3>
+      {versions.length === 0 && (
+        <p className="muted">{m["release.noVersions"]()}</p>
+      )}
       {versions.map((v) => (
         <VersionCard
           key={v.id}
@@ -213,11 +218,11 @@ export function ReleaseDetailView({
       />
 
       <Card>
-        <h3 style={{ marginTop: 0 }}>Add a version</h3>
+        <h3 style={{ marginTop: 0 }}>{m["release.addVersion"]()}</h3>
         <div className="row">
           <Input
             value={vName}
-            placeholder="Version name (e.g. Mix 2)"
+            placeholder={m["release.versionNamePlaceholder"]()}
             onChange={(e) => setVName(e.target.value)}
           />
           <Input
@@ -231,16 +236,18 @@ export function ReleaseDetailView({
           onCheckedChange={setVDefault}
           className="mb-4 mt-2"
         >
-          Make this the default version
+          {m["release.makeDefault"]()}
         </SwitchField>
         <div>
           <Button disabled={!vFile || adding} onClick={addVersion}>
-            {adding ? "Uploading…" : "Add version"}
+            {adding ? m["common.uploading"]() : m["release.addVersionButton"]()}
           </Button>
         </div>
       </Card>
 
-      <p className="muted small">Added {fmtDate(release.createdAt)}</p>
+      <p className="muted small">
+        {m["release.added"]({ at: fmtDate(release.createdAt) })}
+      </p>
     </div>
   );
 }

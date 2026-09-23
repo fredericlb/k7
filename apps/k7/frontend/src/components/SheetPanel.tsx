@@ -86,8 +86,8 @@ export function SheetPanel({ sheets, urlFor, onDelete }: Props) {
                 className="sheet-image-del"
                 disabled={busy}
                 onClick={() => remove(file)}
-                title="Remove this image"
-                aria-label="Remove image"
+                title={m["sheet.removeImage"]()}
+                aria-label={m["sheet.removeImage"]()}
               >
                 <Trash2 className="size-4" />
               </button>

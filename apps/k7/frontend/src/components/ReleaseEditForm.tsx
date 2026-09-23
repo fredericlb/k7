@@ -7,6 +7,7 @@ import { Field } from "@frediverse/ui/field";
 import { Input } from "@frediverse/ui/input";
 import { Textarea } from "@frediverse/ui/textarea";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 import type { Release, ReleasePatch } from "../types";
 import { SwitchField } from "./SwitchField";
 
@@ -27,7 +28,7 @@ export function ReleaseEditForm({ release, onSave, onCancel }: Props) {
 
   const submit = async () => {
     if (!title.trim() || !artist.trim()) {
-      setError("Title and artist are required.");
+      setError(m["release.editRequired"]());
       return;
     }
     setSaving(true);
@@ -48,17 +49,17 @@ export function ReleaseEditForm({ release, onSave, onCancel }: Props) {
 
   return (
     <Card className="release-form">
-      <h3 style={{ marginTop: 0 }}>Edit release</h3>
+      <h3 style={{ marginTop: 0 }}>{m["release.edit"]()}</h3>
 
-      <Field label="Title">
+      <Field label={m["field.title"]()}>
         <Input value={title} onChange={(e) => setTitle(e.target.value)} />
       </Field>
 
-      <Field label="Artist">
+      <Field label={m["field.artist"]()}>
         <Input value={artist} onChange={(e) => setArtist(e.target.value)} />
       </Field>
 
-      <Field label="Release date (optional)">
+      <Field label={m["release.dateLabel"]()}>
         <Input
           type="date"
           value={releaseDate}
@@ -66,7 +67,7 @@ export function ReleaseEditForm({ release, onSave, onCancel }: Props) {
         />
       </Field>
 
-      <Field label="Description (optional)">
+      <Field label={m["release.descriptionLabel"]()}>
         <Textarea
           rows={3}
           value={description}
@@ -79,17 +80,17 @@ export function ReleaseEditForm({ release, onSave, onCancel }: Props) {
         onCheckedChange={setCanDownload}
         className="mb-4 mt-2"
       >
-        Allow users to download this release
+        {m["release.allowDownload"]()}
       </SwitchField>
 
       {error && <p className="error">{error}</p>}
 
       <div className="row">
         <Button disabled={saving} onClick={submit}>
-          {saving ? "Saving…" : "Save"}
+          {saving ? m["common.saving"]() : m["common.save"]()}
         </Button>
         <Button variant="outline" disabled={saving} onClick={onCancel}>
-          Cancel
+          {m["common.cancel"]()}
         </Button>
       </div>
     </Card>

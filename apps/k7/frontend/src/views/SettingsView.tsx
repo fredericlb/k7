@@ -4,8 +4,18 @@ import { Check } from "@frediverse/ui/icons";
 import { useState } from "react";
 import { api } from "../api";
 import { CleanUpSessions } from "../components/CleanUpSessions";
+import { CodeText } from "../components/CodeText";
 import { SupernoteSettings } from "../components/SupernoteSettings";
+import { useLocale } from "../i18n";
+import { m } from "../paraglide/messages.js";
+import type { Locale } from "../paraglide/runtime.js";
 import type { Session, User } from "../types";
+
+// Each language named in itself, so whoever cannot read the current one still finds theirs.
+const LANGUAGE_NAMES: Record<Locale, string> = {
+  en: "English",
+  fr: "Français",
+};
 
 interface Props {
   user: User;
@@ -20,6 +30,7 @@ export function SettingsView({
   onLogout,
   onCleanSessions,
 }: Props) {
+  const { locale, locales, setLocale } = useLocale();
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -47,15 +58,36 @@ export function SettingsView({
 
   return (
     <div className="settings">
-      <h2>Settings</h2>
+      <h2>{m["settings.title"]()}</h2>
 
       <Card>
-        <div className="settings-title muted small">Signed in as</div>
+        <div className="settings-title muted small">
+          {m["settings.signedInAs"]()}
+        </div>
         <div className="settings-user">{user.name}</div>
         {user.email && <div className="muted small">{user.email}</div>}
         <Button variant="outline" className="mt-4" onClick={onLogout}>
-          Sign out
+          {m["settings.signOut"]()}
         </Button>
+      </Card>
+
+      <Card className="mt-4">
+        <label className="settings-title muted small" htmlFor="language">
+          {m["settings.language"]()}
+        </label>
+        <p className="muted small">{m["settings.languageHelp"]()}</p>
+        <select
+          id="language"
+          className="settings-language"
+          value={locale}
+          onChange={(e) => setLocale(e.target.value as Locale)}
+        >
+          {locales.map((l) => (
+            <option key={l} value={l}>
+              {LANGUAGE_NAMES[l]}
+            </option>
+          ))}
+        </select>
       </Card>
 
       <Card className="mt-4">
@@ -67,12 +99,11 @@ export function SettingsView({
       </Card>
 
       <Card className="mt-4">
-        <div className="settings-title muted small">CLI access token</div>
+        <div className="settings-title muted small">
+          {m["settings.token"]()}
+        </div>
         <p className="muted small">
-          For the st0 <code>export</code> command. Add it to{" "}
-          <code>~/.st0/config.json</code> as <code>k7Token</code> (or set{" "}
-          <code>K7_TOKEN</code>). Anyone with this token can upload releases as
-          you — keep it secret.
+          <CodeText text={m["settings.tokenHelp"]()} />
         </p>
         {token ? (
           <>
@@ -86,20 +117,22 @@ export function SettingsView({
               <Button variant="outline" size="sm" onClick={copy}>
                 {copied ? (
                   <>
-                    Copied <Check className="size-4" />
+                    {m["common.copied"]()} <Check className="size-4" />
                   </>
                 ) : (
-                  "Copy"
+                  m["common.copy"]()
                 )}
               </Button>
               <Button variant="outline" size="sm" onClick={generate}>
-                Regenerate
+                {m["settings.tokenRegenerate"]()}
               </Button>
             </div>
           </>
         ) : (
           <Button disabled={loading} onClick={generate}>
-            {loading ? "Generating…" : "Generate token"}
+            {loading
+              ? m["settings.tokenGenerating"]()
+              : m["settings.tokenGenerate"]()}
           </Button>
         )}
       </Card>

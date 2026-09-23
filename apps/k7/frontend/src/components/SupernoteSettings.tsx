@@ -11,15 +11,18 @@ import { Label } from "@frediverse/ui/label";
 import { Switch } from "@frediverse/ui/switch";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { locale } from "../i18n";
+import { m } from "../paraglide/messages.js";
 import type { SupernoteSync } from "../types";
+import { CodeText } from "./CodeText";
 
 const POLL_MS = 2000;
 
-/** A date a musician can read, in the browser's own locale. */
+/** A date a musician can read, in the language the app is shown in. */
 function fmtSync(iso: string): string {
-  if (!iso) return "never";
+  if (!iso) return m["supernote.never"]();
   const at = new Date(iso);
-  return Number.isNaN(at.getTime()) ? iso : at.toLocaleString();
+  return Number.isNaN(at.getTime()) ? iso : at.toLocaleString(locale());
 }
 
 export function SupernoteSettings() {
@@ -89,42 +92,45 @@ export function SupernoteSettings() {
     <>
       <div className="supernote-head">
         <div>
-          <div className="settings-title muted small">Supernote sync</div>
+          <div className="settings-title muted small">
+            {m["supernote.title"]()}
+          </div>
           <p className="muted small">
-            One EPUB per song, pushed to <code>Document/Songbook</code> on your
-            own private cloud, then once an hour.
+            <CodeText text={m["supernote.help"]()} />
           </p>
         </div>
         <Switch
           checked={open}
           onCheckedChange={toggle}
-          aria-label="Synchroniser Supernote"
+          aria-label={m["supernote.title"]()}
         />
       </div>
 
       {open && (
         <div className="supernote-form">
-          <Label htmlFor="sn-url">Address</Label>
+          <Label htmlFor="sn-url">{m["supernote.address"]()}</Label>
           <Input
             id="sn-url"
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
             placeholder="https://media.example.com/priv/supernote"
           />
-          <Label htmlFor="sn-account">Account</Label>
+          <Label htmlFor="sn-account">{m["supernote.account"]()}</Label>
           <Input
             id="sn-account"
             value={account}
             onChange={(e) => setAccount(e.target.value)}
             placeholder="you@example.com"
           />
-          <Label htmlFor="sn-password">Password</Label>
+          <Label htmlFor="sn-password">{m["supernote.password"]()}</Label>
           <Input
             id="sn-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={state?.activated ? "•••••••• (on file)" : ""}
+            placeholder={
+              state?.activated ? m["supernote.passwordOnFile"]() : ""
+            }
           />
 
           <div className="row" style={{ marginTop: 8 }}>
@@ -132,7 +138,7 @@ export function SupernoteSettings() {
               disabled={busy || !baseUrl || !account || !password}
               onClick={activate}
             >
-              {busy ? "Checking…" : "Activer la synchronisation"}
+              {busy ? m["supernote.checking"]() : m["supernote.activate"]()}
             </Button>
             {state?.activated && (
               <Button
@@ -140,18 +146,20 @@ export function SupernoteSettings() {
                 disabled={busy || state.syncing}
                 onClick={() => guard(api.syncSupernote)}
               >
-                {state.syncing ? "Syncing…" : "Sync now"}
+                {state.syncing
+                  ? m["supernote.syncing"]()
+                  : m["supernote.syncNow"]()}
               </Button>
             )}
           </div>
 
           {state?.activated && (
             <p className="muted small" style={{ marginTop: 8 }}>
-              Last sync: {fmtSync(state.lastSyncAt)}
+              {m["supernote.lastSync"]({ at: fmtSync(state.lastSyncAt) })}
               {state.lastStatus && state.lastStatus !== "ok"
                 ? ` — ${state.lastStatus}`
                 : state.lastCount
-                  ? ` — ${state.lastCount} pushed`
+                  ? ` — ${m["supernote.pushed"]({ n: state.lastCount })}`
                   : ""}
             </p>
           )}

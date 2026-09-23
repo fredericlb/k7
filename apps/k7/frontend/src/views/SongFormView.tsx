@@ -3,6 +3,7 @@ import { Card } from "@frediverse/ui/card";
 import { Field } from "@frediverse/ui/field";
 import { Input } from "@frediverse/ui/input";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 import type { Song } from "../types";
 
 interface SaveData {
@@ -23,7 +24,7 @@ export function SongFormView({ onSave, onCancel }: Props) {
 
   const submit = async () => {
     if (!artist.trim() || !title.trim()) {
-      setError("Artist and title are required.");
+      setError(m["song.required"]());
       return;
     }
     setSaving(true);
@@ -38,9 +39,9 @@ export function SongFormView({ onSave, onCancel }: Props) {
 
   return (
     <Card className="release-form">
-      <h2>New song</h2>
+      <h2>{m["songbook.new"]()}</h2>
 
-      <Field label="Artist">
+      <Field label={m["field.artist"]()}>
         <Input
           value={artist}
           onChange={(e) => setArtist(e.target.value)}
@@ -48,7 +49,7 @@ export function SongFormView({ onSave, onCancel }: Props) {
         />
       </Field>
 
-      <Field label="Title">
+      <Field label={m["field.title"]()}>
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -60,10 +61,10 @@ export function SongFormView({ onSave, onCancel }: Props) {
 
       <div className="row">
         <Button disabled={saving} onClick={submit}>
-          {saving ? "Creating…" : "Create song"}
+          {saving ? m["common.creating"]() : m["song.create"]()}
         </Button>
         <Button variant="outline" onClick={onCancel}>
-          Cancel
+          {m["common.cancel"]()}
         </Button>
       </div>
     </Card>

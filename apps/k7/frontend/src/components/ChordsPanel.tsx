@@ -1,5 +1,6 @@
 import { Guitar } from "@frediverse/ui/icons";
 import { useEffect, useRef } from "react";
+import { m } from "../paraglide/messages.js";
 import { ChordDiagram } from "./ChordDiagram";
 
 interface Props {
@@ -33,7 +34,7 @@ export function ChordsPanel({ chords, selected, open, onToggle }: Props) {
         aria-expanded={open}
       >
         <Guitar className="size-4" />
-        <span className="rail-panel-word">Chords</span>
+        <span className="rail-panel-word">{m["panel.chords"]()}</span>
       </button>
       {open && (
         <div className="chords-panel-list" ref={listRef}>

@@ -4,6 +4,8 @@ import { acquireMicrophone, describeMicError } from "@k7/recorder";
 import { PitchDetector } from "pitchy";
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
+import { m } from "../paraglide/messages.js";
+import { micErrors } from "../recorderLabels";
 import { freqToNote, GUITAR_STRINGS, nearestString } from "../utils/pitch";
 
 interface Props {
@@ -76,7 +78,7 @@ export function GuitarTuner({ onBack }: Props) {
       };
       rafRef.current = requestAnimationFrame(loop);
     } catch (err) {
-      setError(describeMicError(err));
+      setError(describeMicError(err, micErrors()));
       stop();
     }
   };
@@ -94,13 +96,10 @@ export function GuitarTuner({ onBack }: Props) {
   return (
     <div className="exercise tuner">
       <div className="detail-head">
-        <BackButton to="Exercices" onClick={onBack} />
-        <h2>Guitar tuner</h2>
+        <BackButton to={m["nav.exercices"]()} onClick={onBack} />
+        <h2>{m["exercise.tuner.title"]()}</h2>
       </div>
-      <p className="muted small">
-        Play a single open string and tune until the note turns green and the
-        needle centers. Standard tuning: E A D G B E.
-      </p>
+      <p className="muted small">{m["exercise.tuner.help"]()}</p>
 
       {error && (
         <p className="error">
@@ -111,7 +110,7 @@ export function GuitarTuner({ onBack }: Props) {
       {!running ? (
         <div className="row" style={{ marginTop: 12 }}>
           <Button onClick={start}>
-            <Mic className="size-4" /> Start tuning
+            <Mic className="size-4" /> {m["exercise.tuner.start"]()}
           </Button>
         </div>
       ) : (
@@ -124,19 +123,23 @@ export function GuitarTuner({ onBack }: Props) {
                   <span className="tuner-note-oct">{reading.octave}</span>
                 </span>
                 <span className="tuner-cents">
-                  {reading.cents > 0 ? `+${reading.cents}` : reading.cents}{" "}
-                  cents
+                  {m["exercise.tuner.cents"]({
+                    cents:
+                      reading.cents > 0
+                        ? `+${reading.cents}`
+                        : `${reading.cents}`,
+                  })}
                 </span>
               </>
             ) : (
-              <span className="muted">Listening…</span>
+              <span className="muted">{m["exercise.tuner.listening"]()}</span>
             )}
           </div>
 
           <div className="tuner-meter">
             <div className="tuner-meter-scale">
               <span>♭</span>
-              <span>in tune</span>
+              <span>{m["exercise.tuner.inTune"]()}</span>
               <span>♯</span>
             </div>
             <div className="tuner-meter-bar">
@@ -166,14 +169,14 @@ export function GuitarTuner({ onBack }: Props) {
             <p className="muted small tuner-freq">
               {reading.freq.toFixed(1)} Hz
               {target
-                ? ` · nearest ${target.label} (${target.freq.toFixed(1)} Hz)`
+                ? ` · ${m["exercise.tuner.nearest"]({ string: target.label, freq: target.freq.toFixed(1) })}`
                 : ""}
             </p>
           )}
 
           <div className="row" style={{ marginTop: 12 }}>
             <Button variant="outline" onClick={stop}>
-              <Square className="size-4" /> Stop
+              <Square className="size-4" /> {m["common.stop"]()}
             </Button>
           </div>
         </>

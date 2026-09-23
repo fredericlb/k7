@@ -1,12 +1,13 @@
 // Which kinds of content a song page shows as tabs: the ones the song holds, plus the one being added.
 // A tab bar for a single kind is noise, so the view draws it only from two tabs up.
 
+import { m } from "./paraglide/messages.js";
 import type { Song, SongTab } from "./types";
 
-export const SONG_TABS: { key: SongTab; label: string }[] = [
-  { key: "lyrics", label: "Lyrics" },
-  { key: "tablature", label: "Tablature" },
-  { key: "sheet", label: "Sheet" },
+export const SONG_TABS: { key: SongTab; label: () => string }[] = [
+  { key: "lyrics", label: m["song.tab.lyrics"] },
+  { key: "tablature", label: m["song.tab.tablatureFull"] },
+  { key: "sheet", label: m["song.tab.sheet"] },
 ];
 
 /** Whether a kind holds anything: lyrics and tablature are text, the sheet is a file list. */

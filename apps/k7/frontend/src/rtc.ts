@@ -6,6 +6,7 @@
 // connected, the resulting MediaStream is handed to the normal recorder, so the
 // waveform / highlights / upload pipeline is identical to a local mic.
 import { api, BASE } from "./api";
+import { m } from "./paraglide/messages.js";
 
 export function rtcSocketUrl(
   role: "recorder" | "remote",
@@ -83,10 +84,7 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
       close();
       reject(new Error(msg));
     };
-    const timer = window.setTimeout(
-      () => fail("Timed out connecting to the remote microphone."),
-      20_000,
-    );
+    const timer = window.setTimeout(() => fail(m["rtc.timeout"]()), 20_000);
 
     pc.onicecandidate = (e) => {
       if (e.candidate)
@@ -124,8 +122,7 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
       resolve({ stream: remote, close });
     };
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "failed")
-        fail("The connection to the remote microphone failed.");
+      if (pc.connectionState === "failed") fail(m["rtc.failed"]());
     };
 
     ws.onmessage = async (ev) => {
@@ -137,14 +134,11 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
       }
       switch (msg.type) {
         case "peer-present":
-          if (!msg.present)
-            return fail(
-              "No remote device is connected. Open /remote on the other device first.",
-            );
+          if (!msg.present) return fail(m["rtc.noDevice"]());
           ws.send(JSON.stringify({ type: "want" })); // ask the remote to make an offer
           break;
         case "peer-offline":
-          fail("The remote device disconnected.");
+          fail(m["rtc.disconnected"]());
           break;
         case "offer":
           await pc.setRemoteDescription(msg.sdp as RTCSessionDescriptionInit);
@@ -159,8 +153,7 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
           break;
       }
     };
-    ws.onerror = () => fail("Could not reach the signaling server.");
-    ws.onclose = () =>
-      fail("Signaling connection closed before the mic connected.");
+    ws.onerror = () => fail(m["rtc.noSignaling"]());
+    ws.onclose = () => fail(m["rtc.signalingClosed"]());
   });
 }

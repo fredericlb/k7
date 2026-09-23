@@ -14,6 +14,7 @@ import { Waveform } from "@k7/recorder";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { usePitchShift } from "../hooks/usePitchShift";
+import { m } from "../paraglide/messages.js";
 import type { Song, SongEnvelope } from "../types";
 
 interface Props {
@@ -164,11 +165,11 @@ export function SongPlayer({
       >
         {running ? (
           <>
-            <Pause className="size-4" /> Pause
+            <Pause className="size-4" /> {m["common.pause"]()}
           </>
         ) : (
           <>
-            <Play className="size-4" /> Play
+            <Play className="size-4" /> {m["common.play"]()}
           </>
         )}
       </Button>
@@ -182,9 +183,9 @@ export function SongPlayer({
               onCheckedChange={(on) =>
                 switchTo(on ? "instrumental" : "original")
               }
-              aria-label="Instrumental"
+              aria-label={m["player.instrumental"]()}
             />
-            <span className="muted small">Instrumental</span>
+            <span className="muted small">{m["player.instrumental"]()}</span>
           </span>
         )}
       </div>
@@ -202,7 +203,7 @@ export function SongPlayer({
         aria-expanded={open}
       >
         <Headphones className="size-4" />
-        <span className="rail-panel-word">Player</span>
+        <span className="rail-panel-word">{m["player.title"]()}</span>
       </button>
       {/* Hidden, never unmounted: unmounting would stop the track and strand the lyrics. */}
       <div hidden={!open}>{body}</div>

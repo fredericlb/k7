@@ -13,6 +13,7 @@ import { Waveform } from "@k7/recorder";
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
 import { fmtDate, fmtTime, sessionTitle } from "../format";
+import { m } from "../paraglide/messages.js";
 import type { Marker, Moment } from "../types";
 
 interface Props {
@@ -72,7 +73,7 @@ export function MomentDetailView({
   };
 
   const remove = async () => {
-    if (!confirm("Delete this moment and its clip?")) return;
+    if (!confirm(m["moment.confirmDelete"]())) return;
     await onDelete();
   };
 
@@ -81,7 +82,7 @@ export function MomentDetailView({
   return (
     <div className="moment-detail">
       <div className="detail-head">
-        <BackButton to="Recordings" onClick={onBack} />
+        <BackButton to={m["nav.recordings"]()} onClick={onBack} />
         <h2>
           {moment.validated && <Check className="size-5" />}
           {title}
@@ -89,7 +90,7 @@ export function MomentDetailView({
       </div>
       <p className="muted">
         {fmtTime(moment.startSec)} – {fmtTime(moment.endSec)} ·{" "}
-        {fmtTime(clipDuration)} long
+        {m["moment.long"]({ duration: fmtTime(clipDuration) })}
       </p>
 
       {moment.tags.length > 0 && (
@@ -131,21 +132,21 @@ export function MomentDetailView({
               selection={null}
               onSeek={seek}
               onSelect={() => {}}
-              onMarkerClick={(m) => seek(m.atSec)}
+              onMarkerClick={(mk) => seek(mk.atSec)}
             />
           ) : (
-            <p className="muted small">No waveform available for this clip.</p>
+            <p className="muted small">{m["moment.noWaveform"]()}</p>
           )}
 
           <div className="row playback-controls">
             <Button onClick={togglePlay}>
               {playing ? (
                 <>
-                  <Pause className="size-4" /> Pause
+                  <Pause className="size-4" /> {m["common.pause"]()}
                 </>
               ) : (
                 <>
-                  <Play className="size-4" /> Play
+                  <Play className="size-4" /> {m["common.play"]()}
                 </>
               )}
             </Button>
@@ -155,26 +156,27 @@ export function MomentDetailView({
             <Button
               variant="outline"
               onClick={() => onAddMarker(currentTime)}
-              title="Drop a marker at the current position"
+              title={m["marker.addTitle"]()}
             >
-              <Flag className="size-4" /> Add marker
+              <Flag className="size-4" /> {m["marker.add"]()}
             </Button>
           </div>
         </>
       ) : (
-        <p className="muted">No clip has been extracted for this moment yet.</p>
+        <p className="muted">{m["moment.noClip"]()}</p>
       )}
 
       {markers.length > 0 && (
         <>
           <h3>
-            Markers <span className="muted small">({markers.length})</span>
+            {m["session.markers"]()}{" "}
+            <span className="muted small">({markers.length})</span>
           </h3>
           <ul className="marker-list">
-            {markers.map((m) => (
+            {markers.map((mk) => (
               <MomentMarkerRow
-                key={m.id}
-                marker={m}
+                key={mk.id}
+                marker={mk}
                 onSeek={seek}
                 onUpdate={onUpdateMarker}
                 onDelete={onDeleteMarker}
@@ -187,24 +189,22 @@ export function MomentDetailView({
       <div className="row" style={{ marginTop: 12 }}>
         {onOpenSession ? (
           <Button variant="outline" onClick={onOpenSession}>
-            <CornerUpLeft className="size-4" /> Open in session at{" "}
-            {fmtTime(moment.startSec)}
+            <CornerUpLeft className="size-4" />{" "}
+            {m["moment.openInSession"]({ at: fmtTime(moment.startSec) })}
             {moment.sessionCreatedAt
               ? ` · ${sessionTitle(moment.sessionCreatedAt)}`
               : ""}
           </Button>
         ) : (
-          <span className="muted small">
-            The original session is no longer available.
-          </span>
+          <span className="muted small">{m["moment.sessionGone"]()}</span>
         )}
         <Button variant="outline" size="sm" onClick={remove}>
-          <Trash2 className="size-4" /> Delete moment
+          <Trash2 className="size-4" /> {m["moment.delete"]()}
         </Button>
       </div>
 
       <p className="muted small" style={{ marginTop: 12 }}>
-        Captured {fmtDate(moment.createdAt)}
+        {m["moment.captured"]({ at: fmtDate(moment.createdAt) })}
       </p>
     </div>
   );
@@ -237,13 +237,13 @@ function MomentMarkerRow({
       <Button
         variant="link"
         onClick={() => onSeek(marker.atSec)}
-        title="Jump to this marker"
+        title={m["marker.jump"]()}
       >
         <Flag className="size-4" /> {fmtTime(marker.atSec)}
       </Button>
       <Input
         value={comment}
-        placeholder="Comment…"
+        placeholder={m["marker.comment"]()}
         onChange={(e) => setComment(e.target.value)}
         onBlur={saveComment}
         onKeyDown={(e) => {

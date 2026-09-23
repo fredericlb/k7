@@ -4,6 +4,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Input } from "@frediverse/ui/input";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 
 interface Props {
   nametag: string;
@@ -20,7 +21,7 @@ export function PageNametagForm({ nametag, onSave, onCancel }: Props) {
     e.preventDefault();
     // The same rule as creating a page, and as the backend's.
     if (!/^[A-Za-z0-9]+$/.test(value)) {
-      setError("Nametag must be alphanumeric with no spaces.");
+      setError(m["page.nametagInvalid"]());
       return;
     }
     setSaving(true);
@@ -37,22 +38,20 @@ export function PageNametagForm({ nametag, onSave, onCancel }: Props) {
     <form onSubmit={submit}>
       <div className="row">
         <Input
-          aria-label="Nametag"
+          aria-label={m["page.nametag"]()}
           className="max-w-64"
           value={value}
           autoFocus
           onChange={(e) => setValue(e.target.value)}
         />
         <Button type="submit" size="sm" disabled={saving}>
-          Save
+          {m["common.save"]()}
         </Button>
         <Button type="button" variant="outline" size="sm" onClick={onCancel}>
-          Cancel
+          {m["common.cancel"]()}
         </Button>
       </div>
-      <p className="muted small">
-        The nametag is the public link: renaming it breaks the old one.
-      </p>
+      <p className="muted small">{m["page.renameWarning"]()}</p>
       {error && <p className="error small">{error}</p>}
     </form>
   );

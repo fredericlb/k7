@@ -20,6 +20,7 @@ import { isYouTubeUrl } from "@k7/shared/youtube";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { BackButton } from "../components/BackButton";
+import { m } from "../paraglide/messages.js";
 import type { SingingExercise } from "../types";
 import { pickWorkout } from "../utils/exercises";
 
@@ -96,7 +97,7 @@ export function SingingExercisesView({ onBack }: Props) {
   const badLink = link !== "" && !isYouTubeUrl(link);
 
   const remove = async (ex: SingingExercise) => {
-    if (!confirm(`Delete “${ex.title}”?`)) return;
+    if (!confirm(m["common.confirmDeleteNamed"]({ name: ex.title }))) return;
     setError(null);
     try {
       await api.deleteSingingExercise(ex.id);
@@ -109,12 +110,12 @@ export function SingingExercisesView({ onBack }: Props) {
   return (
     <div className="exercise">
       <div className="singing-head">
-        <BackButton to="Exercices" onClick={onBack} />
-        <h2>Singing exercices</h2>
+        <BackButton to={m["nav.exercices"]()} onClick={onBack} />
+        <h2>{m["exercise.singing.title"]()}</h2>
         <Button
           size="sm"
-          title="Add an exercise"
-          aria-label="Add an exercise"
+          title={m["singing.add"]()}
+          aria-label={m["singing.add"]()}
           onClick={() => setEditing(BLANK)}
         >
           <Plus className="size-4" />
@@ -123,24 +124,22 @@ export function SingingExercisesView({ onBack }: Props) {
           variant="outline"
           size="sm"
           disabled={!items?.length}
-          title="Three of them, drawn at random"
+          title={m["singing.workoutTitle"]()}
           onClick={() => setWorkout(pickWorkout(items ?? [], 3))}
         >
-          <Dices className="size-4" /> Create a workout
+          <Dices className="size-4" /> {m["singing.workout"]()}
         </Button>
       </div>
-      <p className="muted small">
-        Warm-ups and drills the band writes for itself. Everyone sees them all
-        and can improve them; you remove only the ones you wrote.
-      </p>
+      <p className="muted small">{m["singing.help"]()}</p>
 
       {error && <p className="error small">{error}</p>}
 
       {items === null ? (
-        <p className="muted small">Loading…</p>
+        <p className="muted small">{m["common.loading"]()}</p>
       ) : items.length === 0 ? (
         <p className="muted small">
-          No exercise yet — <Plus className="size-3.5" /> writes the first one.
+          {m["singing.emptyBefore"]()} <Plus className="size-3.5" />{" "}
+          {m["singing.emptyAfter"]()}
         </p>
       ) : (
         <ul className="session-list home-list">
@@ -160,7 +159,7 @@ export function SingingExercisesView({ onBack }: Props) {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    <Play className="size-3.5" /> Demo
+                    <Play className="size-3.5" /> {m["singing.demo"]()}
                   </a>
                 ) : null}
               </div>
@@ -177,7 +176,7 @@ export function SingingExercisesView({ onBack }: Props) {
                     })
                   }
                 >
-                  Edit
+                  {m["common.edit"]()}
                 </Button>
                 {/* Only its author: removing an entry would take somebody's work with it. */}
                 {ex.mine ? (
@@ -186,7 +185,7 @@ export function SingingExercisesView({ onBack }: Props) {
                     size="sm"
                     onClick={() => void remove(ex)}
                   >
-                    Delete
+                    {m["common.delete"]()}
                   </Button>
                 ) : null}
               </div>
@@ -201,11 +200,11 @@ export function SingingExercisesView({ onBack }: Props) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Your workout</DialogTitle>
+            <DialogTitle>{m["singing.workoutDialog"]()}</DialogTitle>
             <DialogDescription>
               {workout && workout.length < 3
-                ? "The whole book — it holds fewer than three exercises so far."
-                : "Three exercises, drawn at random. Work them in this order."}
+                ? m["singing.workoutAll"]()
+                : m["singing.workoutThree"]()}
             </DialogDescription>
           </DialogHeader>
 
@@ -223,7 +222,7 @@ export function SingingExercisesView({ onBack }: Props) {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    <Play className="size-3.5" /> Demo
+                    <Play className="size-3.5" /> {m["singing.demo"]()}
                   </a>
                 ) : null}
               </li>
@@ -235,10 +234,10 @@ export function SingingExercisesView({ onBack }: Props) {
               variant="outline"
               onClick={() => setWorkout(pickWorkout(items ?? [], 3))}
             >
-              <Dices className="size-4" /> Roll again
+              <Dices className="size-4" /> {m["singing.rollAgain"]()}
             </Button>
             <Button variant="secondary" onClick={() => setWorkout(null)}>
-              Close
+              {m["common.close"]()}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -251,18 +250,15 @@ export function SingingExercisesView({ onBack }: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editing?.of ? "Edit exercise" : "New exercise"}
+              {editing?.of ? m["singing.editTitle"]() : m["singing.newTitle"]()}
             </DialogTitle>
-            <DialogDescription>
-              A title everyone will recognise, and what the exercise asks of
-              you.
-            </DialogDescription>
+            <DialogDescription>{m["singing.formHelp"]()}</DialogDescription>
           </DialogHeader>
 
           <div className="singing-form">
             <Input
               autoFocus
-              placeholder="Title — e.g. Lip trills, five notes up"
+              placeholder={m["singing.titlePlaceholder"]()}
               value={editing?.title ?? ""}
               onChange={(e) =>
                 setEditing((d) => (d ? { ...d, title: e.target.value } : d))
@@ -270,7 +266,7 @@ export function SingingExercisesView({ onBack }: Props) {
             />
             <Textarea
               rows={4}
-              placeholder="How it goes: range, tempo, what to watch for…"
+              placeholder={m["singing.descPlaceholder"]()}
               value={editing?.description ?? ""}
               onChange={(e) =>
                 setEditing((d) =>
@@ -279,7 +275,7 @@ export function SingingExercisesView({ onBack }: Props) {
               }
             />
             <Input
-              placeholder="Demo — a YouTube link (optional)"
+              placeholder={m["singing.videoPlaceholder"]()}
               value={editing?.videoUrl ?? ""}
               onChange={(e) =>
                 setEditing((d) => (d ? { ...d, videoUrl: e.target.value } : d))
@@ -287,7 +283,7 @@ export function SingingExercisesView({ onBack }: Props) {
             />
             {/* Said here as well as refused by the route: a typo is worth catching before the trip. */}
             {badLink ? (
-              <p className="error small">That is not a YouTube link.</p>
+              <p className="error small">{m["singing.badLink"]()}</p>
             ) : null}
           </div>
 
@@ -297,13 +293,17 @@ export function SingingExercisesView({ onBack }: Props) {
               disabled={busy}
               onClick={() => setEditing(null)}
             >
-              Cancel
+              {m["common.cancel"]()}
             </Button>
             <Button
               disabled={busy || badLink || (editing?.title ?? "").trim() === ""}
               onClick={() => void save()}
             >
-              {busy ? "Saving…" : editing?.of ? "Save" : "Add"}
+              {busy
+                ? m["common.saving"]()
+                : editing?.of
+                  ? m["common.save"]()
+                  : m["common.add"]()}
             </Button>
           </DialogFooter>
         </DialogContent>

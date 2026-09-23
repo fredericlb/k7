@@ -2,6 +2,7 @@
 // done to it, stems included. "Hidden" only keeps it out of a page's dropdown — ../../../docs/pages.md.
 
 import { Badge } from "@frediverse/ui/badge";
+import { m } from "../paraglide/messages.js";
 import type { ReleaseVersion, SongEnvelope } from "../types";
 import { TrackCard, type TrackMenuEntry } from "./TrackCard";
 
@@ -36,27 +37,32 @@ export function VersionCard({
   const menu: TrackMenuEntry[] = [
     ...(v.isDefault
       ? []
-      : [{ label: "Set as default", onSelect: onSetDefault }]),
+      : [{ label: m["version.setDefault"](), onSelect: onSetDefault }]),
     {
-      label: "Download",
+      label: m["common.download"](),
       onSelect: () => void download(audioUrl, `${label} (${v.name})`),
     },
-    { label: "Replace the file…", onSelect: onReplace, disabled: swapping },
     {
-      label: v.hidden ? "Show on pages" : "Hide from pages",
+      label: m["version.replace"](),
+      onSelect: onReplace,
+      disabled: swapping,
+    },
+    {
+      label: v.hidden ? m["version.show"]() : m["version.hide"](),
       onSelect: () => onHiddenChange(!v.hidden),
     },
     ...v.tracks.map((t, i) => ({
-      label: `Download stem: ${t.name}`,
+      label: m["version.downloadStem"]({ name: t.name }),
       onSelect: () => void download(trackUrl(t.id), `${label} - ${t.name}`),
       separatorBefore: i === 0,
     })),
     {
-      label: "Delete version",
+      label: m["version.delete"](),
       danger: true,
       separatorBefore: true,
       onSelect: () => {
-        if (confirm(`Delete the version "${v.name}"?`)) onDelete();
+        if (confirm(m["common.confirmDeleteNamed"]({ name: v.name })))
+          onDelete();
       },
     },
   ];
@@ -66,12 +72,14 @@ export function VersionCard({
       title={v.name}
       badges={
         <>
-          {v.isDefault && <Badge variant="amber">default</Badge>}
-          {v.hidden && <Badge>hidden</Badge>}
+          {v.isDefault && (
+            <Badge variant="amber">{m["version.default"]()}</Badge>
+          )}
+          {v.hidden && <Badge>{m["version.hidden"]()}</Badge>}
         </>
       }
       menu={menu}
-      menuLabel={`${v.name} menu`}
+      menuLabel={m["track.menu"]({ title: v.name })}
       audio={{ src: audioUrl, shapeOf }}
       dimmed={v.hidden}
     />

@@ -7,6 +7,7 @@ import {
   runPipeline,
   type StatusPatch,
 } from "../fetchSong/run";
+import { m } from "../paraglide/messages.js";
 import type { LyricTiming, Song, SongTab } from "../types";
 import { SongDetailView } from "../views/SongDetailView";
 
@@ -203,7 +204,7 @@ export function SongDetailContainer({
     })();
   };
 
-  if (!song) return <p className="muted">Loading…</p>;
+  if (!song) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
     <SongDetailView

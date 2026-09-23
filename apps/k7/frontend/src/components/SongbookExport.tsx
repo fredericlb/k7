@@ -6,6 +6,8 @@ import { Button } from "@frediverse/ui/button";
 import { Download } from "@frediverse/ui/icons";
 import { useState } from "react";
 import { type ExportKind, exportSongbook } from "../export/songbookZip";
+import { isOne } from "../i18n";
+import { m } from "../paraglide/messages.js";
 import type { Song } from "../types";
 
 interface Props {
@@ -48,17 +50,17 @@ export function SongbookExport({ songs }: Props) {
         variant="outline"
         disabled={songs.length === 0 || running != null}
         onClick={() => run("epub")}
-        title="One EPUB per song, in a zip"
+        title={m["export.epubTitle"]()}
       >
-        <Download className="size-4" /> {label("epub", "Export EPUB")}
+        <Download className="size-4" /> {label("epub", m["export.epub"]())}
       </Button>
       <Button
         variant="outline"
         disabled={songs.length === 0 || running != null}
         onClick={() => run("pdf")}
-        title="One PDF per song, in a zip"
+        title={m["export.pdfTitle"]()}
       >
-        <Download className="size-4" /> {label("pdf", "Export PDF")}
+        <Download className="size-4" /> {label("pdf", m["export.pdf"]())}
       </Button>
       {note && <span className="muted small">{note}</span>}
       {error && <span className="error small">{error}</span>}
@@ -73,12 +75,18 @@ function summarize(result: {
   failed: string[];
   skipped: string[];
 }): string {
+  const n = result.songs;
   const parts = [
-    `${result.file} — ${result.songs} song${result.songs === 1 ? "" : "s"}`,
+    `${result.file} — ${isOne(n) ? m["export.songs.one"]({ n }) : m["export.songs.other"]({ n })}`,
   ];
   if (result.failed.length > 0)
-    parts.push(`${result.failed.length} failed: ${result.failed.join(", ")}`);
+    parts.push(
+      m["export.failed"]({
+        n: result.failed.length,
+        names: result.failed.join(", "),
+      }),
+    );
   if (result.skipped.length > 0)
-    parts.push(`${result.skipped.length} sheet(s) left out`);
+    parts.push(m["export.skipped"]({ n: result.skipped.length }));
   return parts.join(" · ");
 }

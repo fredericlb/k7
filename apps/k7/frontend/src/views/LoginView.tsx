@@ -6,6 +6,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
+import { m } from "../paraglide/messages.js";
 
 interface Props {
   loginUrl: string;
@@ -24,10 +25,7 @@ export function LoginView({ loginUrl }: Props) {
           />
           f<span style={{ color: "var(--red)" }}>·</span>rec
         </div>
-        <p className="muted">
-          Sign-in did not come back with a session. If it keeps failing, the
-          médiathèque (which signs everyone in) may be down.
-        </p>
+        <p className="muted">{m["login.failed"]()}</p>
         <Button
           className="mt-3 w-full"
           onClick={() => {
@@ -35,7 +33,7 @@ export function LoginView({ loginUrl }: Props) {
           }}
         >
           <FrediverseMark size="sm" />
-          Try again
+          {m["login.retry"]()}
         </Button>
       </Card>
     </div>

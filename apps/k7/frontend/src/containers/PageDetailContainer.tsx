@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import { m } from "../paraglide/messages.js";
 import type { Page, Release } from "../types";
 import { PageDetailView } from "../views/PageDetailView";
 
@@ -59,7 +60,7 @@ export function PageDetailContainer({
     onDeleted();
   };
 
-  if (!page) return <p className="muted">Loading…</p>;
+  if (!page) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
     <PageDetailView

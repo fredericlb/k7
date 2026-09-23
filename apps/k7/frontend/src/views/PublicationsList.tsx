@@ -11,6 +11,8 @@ import {
   Plus,
 } from "@frediverse/ui/icons";
 import { useState } from "react";
+import { isOne } from "../i18n";
+import { m } from "../paraglide/messages.js";
 import type { Page, Release } from "../types";
 
 interface Props {
@@ -67,15 +69,15 @@ export function PublicationsList({
     <div className="moments-pane">
       <div className="row">
         <Button variant="outline" onClick={onNewRelease}>
-          <Plus className="size-4" /> New release
+          <Plus className="size-4" /> {m["release.new"]()}
         </Button>
         <Button variant="outline" onClick={onNewPage}>
-          <Plus className="size-4" /> New page
+          <Plus className="size-4" /> {m["page.new"]()}
         </Button>
       </div>
 
       {releases.length === 0 && pages.length === 0 && (
-        <p className="muted small">No releases or pages yet.</p>
+        <p className="muted small">{m["publications.empty"]()}</p>
       )}
 
       {groups.map(({ page, releases: own }) => {
@@ -104,23 +106,25 @@ export function PublicationsList({
                 )}
                 <span className="session-name">@{page.nametag}</span>
                 <span className="muted small">
-                  {own.length} release{own.length === 1 ? "" : "s"}
+                  {isOne(own.length)
+                    ? m["page.releaseCount.one"]({ n: own.length })
+                    : m["page.releaseCount.other"]({ n: own.length })}
                 </span>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onOpenPage(page)}
-                title={`Open the page @${page.nametag}`}
+                title={m["page.openTitle"]({ nametag: page.nametag })}
               >
-                <ExternalLink className="size-4" /> Open
+                <ExternalLink className="size-4" /> {m["common.open"]()}
               </Button>
             </div>
             {isOpen && (
               <ul className="session-list home-list pub-group-list">
                 {own.length === 0 && (
                   <li className="home-list-empty muted small">
-                    No releases on this page yet.
+                    {m["page.noReleases"]()}
                   </li>
                 )}
                 {own.map(releaseRow)}
@@ -133,7 +137,7 @@ export function PublicationsList({
       {unlinked.length > 0 && (
         <section className="pub-group">
           <h3 className="pub-unlinked-title">
-            Not on a page{" "}
+            {m["publications.notOnPage"]()}{" "}
             <span className="muted small">({unlinked.length})</span>
           </h3>
           <ul className="session-list home-list">{unlinked.map(releaseRow)}</ul>

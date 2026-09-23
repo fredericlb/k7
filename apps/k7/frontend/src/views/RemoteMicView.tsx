@@ -4,6 +4,7 @@ import { Label } from "@frediverse/ui/label";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useRemoteInput } from "../hooks/useRemoteInput";
+import { m } from "../paraglide/messages.js";
 import { ICE_CONFIG, rtcSocketUrl } from "../rtc";
 
 type Status =
@@ -145,7 +146,7 @@ export function RemoteMicView() {
     return (
       <Card className="remote-mic">
         <h2>
-          <Mic className="size-5" /> Remote microphone
+          <Mic className="size-5" /> {m["remote.title"]()}
         </h2>
         <p className="error">
           <MicOff className="size-3.5" /> {input.error}
@@ -159,33 +160,28 @@ export function RemoteMicView() {
   return (
     <Card className="remote-mic">
       <h2>
-        <Mic className="size-5" /> Remote microphone
+        <Mic className="size-5" /> {m["remote.title"]()}
       </h2>
 
       {view === "replaced" ? (
-        <p className="muted">
-          This device was replaced by another remote microphone. Reload this
-          page to take over again.
-        </p>
+        <p className="muted">{m["remote.replaced"]()}</p>
       ) : (
         <>
           <p className="muted">
-            {view === "starting" &&
-              "Starting the microphone… allow access if prompted."}
-            {view === "connecting" && "Connecting to the recording server…"}
-            {view === "waiting" &&
-              "Ready. Keep this page open — start a remote session on your other device to begin recording."}
+            {view === "starting" && m["remote.starting"]()}
+            {view === "connecting" && m["remote.connecting"]()}
+            {view === "waiting" && m["remote.waiting"]()}
             {view === "streaming" && (
               <>
                 <Circle className="size-2.5 fill-current text-destructive" />{" "}
-                Streaming this microphone to the recorder.
+                {m["remote.streaming"]()}
               </>
             )}
           </p>
 
           <div className="remote-inputs">
             <div className="remote-field">
-              <Label htmlFor="remote-device">Input device</Label>
+              <Label htmlFor="remote-device">{m["remote.device"]()}</Label>
               <select
                 id="remote-device"
                 value={input.deviceId ?? ""}
@@ -193,11 +189,11 @@ export function RemoteMicView() {
                 onChange={(e) => input.setDevice(e.target.value)}
               >
                 {input.devices.length === 0 && (
-                  <option value="">Default microphone</option>
+                  <option value="">{m["remote.defaultMic"]()}</option>
                 )}
                 {input.devices.map((d, i) => (
                   <option key={d.deviceId || i} value={d.deviceId}>
-                    {d.label || `Input ${i + 1}`}
+                    {d.label || m["remote.inputN"]({ n: i + 1 })}
                   </option>
                 ))}
               </select>
@@ -205,7 +201,7 @@ export function RemoteMicView() {
 
             {input.channelCount > 1 && (
               <div className="remote-field">
-                <Label htmlFor="remote-channel">Input channel</Label>
+                <Label htmlFor="remote-channel">{m["remote.channel"]()}</Label>
                 <select
                   id="remote-channel"
                   value={
@@ -218,11 +214,11 @@ export function RemoteMicView() {
                   }
                 >
                   <option value="mix">
-                    Mix ({input.channelCount} ch → mono)
+                    {m["remote.mix"]({ n: input.channelCount })}
                   </option>
                   {Array.from({ length: input.channelCount }, (_, i) => (
                     <option key={i} value={i}>
-                      Channel {i + 1}
+                      {m["remote.channelN"]({ n: i + 1 })}
                     </option>
                   ))}
                 </select>
@@ -243,8 +239,8 @@ export function RemoteMicView() {
 
           <p className="muted small">
             {view === "streaming"
-              ? "Recording controls (waveform, highlights, stop) are on the other device."
-              : "This device only captures audio — no recording happens here."}
+              ? m["remote.controlsElsewhere"]()
+              : m["remote.captureOnly"]()}
           </p>
         </>
       )}

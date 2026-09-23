@@ -8,6 +8,8 @@ import { Check, Diamond, Flag, Trash2 } from "@frediverse/ui/icons";
 import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
 import { useState } from "react";
 import { dayKey, dayKeyToDate, fmtDay, fmtTime } from "../format";
+import { locale } from "../i18n";
+import { m } from "../paraglide/messages.js";
 import type { Moment, Session } from "../types";
 
 interface Props {
@@ -55,7 +57,10 @@ export function buildEntries(
 }
 
 const timeOfDay = (iso: string) =>
-  new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  new Date(iso).toLocaleTimeString(locale(), {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 // A moment's wall-clock time: its session's start plus its offset into the take.
 const momentClock = (s: Session, m: Moment) =>
@@ -87,7 +92,7 @@ export function RecordingsTimeline({
 
   const remove = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!confirm("Delete this session and its recording?")) return;
+    if (!confirm(m["session.confirmDelete"]())) return;
     await onDeleteSession(id);
   };
 
@@ -97,23 +102,23 @@ export function RecordingsTimeline({
     setSelectedDay(null);
   };
 
-  const momentItem = (m: Moment, time: string, child: boolean) => (
+  const momentItem = (mo: Moment, time: string, child: boolean) => (
     <TimelineItem
-      key={m.id}
+      key={mo.id}
       className={`timeline-item${child ? " moment-child" : ""}`}
-      validated={m.validated}
+      validated={mo.validated}
       time={time}
-      onClick={() => onOpenMoment(m)}
+      onClick={() => onOpenMoment(mo)}
     >
       <div className="session-name">
-        {m.validated && <Check className="size-3.5" />}
-        {fmtTime(m.startSec)}–{fmtTime(m.endSec)}
-        {m.text ? ` · ${m.text}` : ""}
+        {mo.validated && <Check className="size-3.5" />}
+        {fmtTime(mo.startSec)}–{fmtTime(mo.endSec)}
+        {mo.text ? ` · ${mo.text}` : ""}
       </div>
-      {(m.tags.length > 0 || !child) && (
+      {(mo.tags.length > 0 || !child) && (
         <div className="session-meta">
-          {!child && <span>session deleted</span>}
-          {m.tags.map((t) => (
+          {!child && <span>{m["moment.sessionDeleted"]()}</span>}
+          {mo.tags.map((t) => (
             <Badge key={t} variant="tag">
               #{t}
             </Badge>
@@ -126,7 +131,7 @@ export function RecordingsTimeline({
   if (sessions.length === 0 && moments.length === 0) {
     return (
       <p className="muted small" style={{ padding: "6px 0" }}>
-        No sessions yet — start a new recording from the header to get going.
+        {m["recordings.empty"]()}
       </p>
     );
   }
@@ -175,8 +180,8 @@ export function RecordingsTimeline({
           {dayEntries.length === 0 ? (
             <p className="muted small">
               {activeTag
-                ? `Nothing tagged #${activeTag} on this day.`
-                : "No sessions on this day."}
+                ? m["recordings.noneTagged"]({ tag: activeTag })
+                : m["recordings.noneThisDay"]()}
             </p>
           ) : (
             <Timeline variant="spine" className="mt-2">
@@ -194,12 +199,12 @@ export function RecordingsTimeline({
                           <span className="session-name">
                             {e.session.hasRecording
                               ? fmtTime(e.session.duration)
-                              : "No recording"}
+                              : m["session.noRecording"]()}
                           </span>
                           <button
                             type="button"
                             className="session-del"
-                            title="Delete session"
+                            title={m["session.delete"]()}
                             onClick={(ev) => remove(ev, e.session.id)}
                           >
                             <Trash2 className="size-4" />
@@ -223,8 +228,8 @@ export function RecordingsTimeline({
                           </div>
                         )}
                       </TimelineItem>,
-                      ...e.moments.map((m) =>
-                        momentItem(m, momentClock(e.session, m), true),
+                      ...e.moments.map((mo) =>
+                        momentItem(mo, momentClock(e.session, mo), true),
                       ),
                     ],
               )}

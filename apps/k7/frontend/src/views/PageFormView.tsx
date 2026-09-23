@@ -4,6 +4,7 @@ import { Field } from "@frediverse/ui/field";
 import { Input } from "@frediverse/ui/input";
 import { useState } from "react";
 import { SwitchField } from "../components/SwitchField";
+import { m } from "../paraglide/messages.js";
 import type { Page, Release } from "../types";
 
 interface Props {
@@ -28,7 +29,7 @@ export function PageFormView({ releases, onSave, onCancel }: Props) {
 
   const submit = async () => {
     if (!/^[A-Za-z0-9]+$/.test(nametag)) {
-      setError("Nametag must be alphanumeric with no spaces.");
+      setError(m["page.nametagInvalid"]());
       return;
     }
     setSaving(true);
@@ -43,22 +44,22 @@ export function PageFormView({ releases, onSave, onCancel }: Props) {
 
   return (
     <Card className="release-form">
-      <h2>New page</h2>
+      <h2>{m["page.new"]()}</h2>
 
-      <Field label="Nametag (letters and numbers, no spaces)">
+      <Field label={m["page.nametagLabel"]()}>
         <Input
           value={nametag}
-          placeholder="e.g. summerdemos"
+          placeholder={m["page.nametagPlaceholder"]()}
           onChange={(e) => setNametag(e.target.value)}
         />
       </Field>
 
       <div className="mb-3.5">
         <span className="mb-1.5 block text-[13px] text-muted-foreground">
-          Releases on this page
+          {m["page.releasesOnPage"]()}
         </span>
         {releases.length === 0 && (
-          <p className="muted small">No releases yet — create some first.</p>
+          <p className="muted small">{m["page.noReleasesYet"]()}</p>
         )}
         <ul className="check-list">
           {releases.map((r) => (
@@ -79,10 +80,10 @@ export function PageFormView({ releases, onSave, onCancel }: Props) {
 
       <div className="row">
         <Button disabled={saving} onClick={submit}>
-          {saving ? "Creating…" : "Create page"}
+          {saving ? m["common.creating"]() : m["page.create"]()}
         </Button>
         <Button variant="outline" onClick={onCancel}>
-          Cancel
+          {m["common.cancel"]()}
         </Button>
       </div>
     </Card>

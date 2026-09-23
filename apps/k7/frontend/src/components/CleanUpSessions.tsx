@@ -3,6 +3,8 @@
 
 import { Button } from "@frediverse/ui/button";
 import { BrushCleaning } from "@frediverse/ui/icons";
+import { isOne } from "../i18n";
+import { m } from "../paraglide/messages.js";
 import type { Session } from "../types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -22,32 +24,30 @@ export function CleanUpSessions({ sessions, onClean }: Props) {
 
   const clean = async () => {
     if (n === 0) return;
-    if (
-      !confirm(
-        `Delete ${n} empty session${n === 1 ? "" : "s"} with no moments, ` +
-          `recorded over 24h ago?`,
-      )
-    )
-      return;
+    const ask = isOne(n)
+      ? m["cleanup.confirm.one"]({ n })
+      : m["cleanup.confirm.other"]({ n });
+    if (!confirm(ask)) return;
     await onClean(stale.map((s) => s.id));
   };
 
   return (
     <>
-      <div className="settings-title muted small">Recordings</div>
-      <p className="muted small">
-        Delete the sessions that have no moments and were recorded over 24h ago,
-        with their recordings.
-      </p>
+      <div className="settings-title muted small">{m["nav.recordings"]()}</div>
+      <p className="muted small">{m["cleanup.help"]()}</p>
       <Button
         variant="outline"
         size="sm"
         onClick={clean}
         disabled={n === 0}
-        title="Delete empty sessions (no moments) recorded over 24h ago"
+        title={m["cleanup.title"]()}
       >
-        <BrushCleaning className="size-4" /> Clean up {n > 0 ? `${n} ` : ""}
-        empty session{n === 1 ? "" : "s"}
+        <BrushCleaning className="size-4" />{" "}
+        {n === 0
+          ? m["cleanup.none"]()
+          : isOne(n)
+            ? m["cleanup.button.one"]({ n })
+            : m["cleanup.button.other"]({ n })}
       </Button>
     </>
   );

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import { m } from "../paraglide/messages.js";
 import type { Envelope, EventsResult, Session } from "../types";
 import { SessionDetailView } from "../views/SessionDetailView";
 
@@ -123,7 +124,7 @@ export function SessionDetailContainer({
     onChange();
   };
 
-  if (!session) return <p className="muted">Loading…</p>;
+  if (!session) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
     <SessionDetailView

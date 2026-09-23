@@ -5,6 +5,7 @@ import { Input } from "@frediverse/ui/input";
 import { Textarea } from "@frediverse/ui/textarea";
 import { useState } from "react";
 import { SwitchField } from "../components/SwitchField";
+import { m } from "../paraglide/messages.js";
 import type { Release } from "../types";
 
 interface SaveData {
@@ -28,14 +29,16 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
   const [releaseDate, setReleaseDate] = useState("");
   const [description, setDescription] = useState("");
   const [canDownload, setCanDownload] = useState(false);
-  const [versionName, setVersionName] = useState("Version 1");
+  const [versionName, setVersionName] = useState<string>(() =>
+    m["release.versionN"]({ n: 1 }),
+  );
   const [audio, setAudio] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
     if (!title.trim() || !artist.trim() || !audio) {
-      setError("Title, artist and an audio file are required.");
+      setError(m["release.newRequired"]());
       return;
     }
     setSaving(true);
@@ -47,7 +50,7 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
         releaseDate,
         description: description.trim(),
         canDownload,
-        versionName: versionName.trim() || "Version 1",
+        versionName: versionName.trim() || m["release.versionN"]({ n: 1 }),
         audio,
       });
     } catch (e) {
@@ -58,17 +61,17 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
 
   return (
     <Card className="release-form">
-      <h2>New release</h2>
+      <h2>{m["release.new"]()}</h2>
 
-      <Field label="Title">
+      <Field label={m["field.title"]()}>
         <Input value={title} onChange={(e) => setTitle(e.target.value)} />
       </Field>
 
-      <Field label="Artist">
+      <Field label={m["field.artist"]()}>
         <Input value={artist} onChange={(e) => setArtist(e.target.value)} />
       </Field>
 
-      <Field label="Release date (optional)">
+      <Field label={m["release.dateLabel"]()}>
         <Input
           type="date"
           value={releaseDate}
@@ -76,7 +79,7 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
         />
       </Field>
 
-      <Field label="Description (optional)">
+      <Field label={m["release.descriptionLabel"]()}>
         <Textarea
           rows={3}
           value={description}
@@ -84,14 +87,14 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
         />
       </Field>
 
-      <Field label="First version name">
+      <Field label={m["release.firstVersionLabel"]()}>
         <Input
           value={versionName}
           onChange={(e) => setVersionName(e.target.value)}
         />
       </Field>
 
-      <Field label="Audio file (the song)">
+      <Field label={m["release.audioLabel"]()}>
         <Input
           type="file"
           accept="audio/*"
@@ -104,17 +107,17 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
         onCheckedChange={setCanDownload}
         className="mb-4 mt-2"
       >
-        Allow users to download this release
+        {m["release.allowDownload"]()}
       </SwitchField>
 
       {error && <p className="error">{error}</p>}
 
       <div className="row">
         <Button disabled={saving} onClick={submit}>
-          {saving ? "Uploading…" : "Create release"}
+          {saving ? m["common.uploading"]() : m["release.create"]()}
         </Button>
         <Button variant="outline" onClick={onCancel}>
-          Cancel
+          {m["common.cancel"]()}
         </Button>
       </div>
     </Card>

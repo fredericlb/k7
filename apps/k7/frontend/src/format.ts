@@ -1,3 +1,6 @@
+import { locale } from "./i18n";
+import { m } from "./paraglide/messages.js";
+
 /** Format seconds as H:MM:SS (or M:SS for short durations). */
 export function fmtTime(totalSec: number): string {
   if (!Number.isFinite(totalSec) || totalSec < 0) totalSec = 0;
@@ -9,7 +12,7 @@ export function fmtTime(totalSec: number): string {
 }
 
 export function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString();
+  return new Date(iso).toLocaleString(locale());
 }
 
 /** A stable local-day key (YYYY-M-D) for grouping items by calendar day. */
@@ -32,9 +35,9 @@ export function fmtDay(iso: string): string {
   const diffDays = Math.round(
     (startOfDay(new Date()).getTime() - startOfDay(d).getTime()) / 86_400_000,
   );
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  return d.toLocaleDateString(undefined, {
+  if (diffDays === 0) return m["date.today"]();
+  if (diffDays === 1) return m["date.yesterday"]();
+  return d.toLocaleDateString(locale(), {
     weekday: "long",
     day: "numeric",
     month: "long",

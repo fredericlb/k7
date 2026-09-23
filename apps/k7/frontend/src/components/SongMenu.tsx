@@ -84,8 +84,8 @@ export function SongMenu({
             variant="ghost"
             size="icon-sm"
             className="ds-button"
-            title="What this song can be given"
-            aria-label="Song menu"
+            title={m["songMenu.title"]()}
+            aria-label={m["songMenu.label"]()}
             disabled={phase !== null}
           >
             <EllipsisVertical className="size-4" />
@@ -94,22 +94,22 @@ export function SongMenu({
         <DropdownMenuContent align="end" className="min-w-56">
           {!has("lyrics") && (
             <DropdownMenuItem onSelect={() => onAdd("lyrics")}>
-              Add lyrics
+              {m["songMenu.addLyrics"]()}
             </DropdownMenuItem>
           )}
           {!has("tablature") && (
             <DropdownMenuItem onSelect={() => onAdd("tablature")}>
-              Add tablature
+              {m["songMenu.addTablature"]()}
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onSelect={() => sheets.current?.click()}>
-            Add images, PDF or a score…
+            {m["songMenu.addSheets"]()}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
           <DropdownMenuItem onSelect={onOpenTimedLyrics}>
-            Add timed lyrics…
+            {m["songMenu.addTimed"]()}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -118,24 +118,26 @@ export function SongMenu({
               own "Ignore" was clicked, which is what makes this the one way back in. */}
           {(song.audio || song.fetchIgnored) && (
             <DropdownMenuItem onSelect={() => track.current?.click()}>
-              {song.audio ? "Replace the track…" : "Add a track…"}
+              {song.audio
+                ? m["songMenu.replaceTrack"]()
+                : m["songMenu.addTrack"]()}
             </DropdownMenuItem>
           )}
           {song.audio && (
             <DropdownMenuItem
               className="text-destructive"
               onSelect={() => {
-                if (confirm("Remove the track from this song?"))
-                  void run("Removing the track…", onDeleteAudio);
+                if (confirm(m["songMenu.confirmRemoveTrack"]()))
+                  void run(m["songMenu.removingTrack"](), onDeleteAudio);
               }}
             >
-              Remove the track
+              {m["songMenu.removeTrack"]()}
             </DropdownMenuItem>
           )}
           {song.audio && !song.instrumental && (
             <DropdownMenuItem
               onSelect={() =>
-                run("Making the instrumental…", async () => {
+                run(m["fetch.stemming"](), async () => {
                   const outcome = await makeInstrumental(song, {
                     pl8,
                     mixInstrumental: onMixInstrumental,
@@ -145,7 +147,7 @@ export function SongMenu({
                 })
               }
             >
-              Make instrumental
+              {m["songMenu.makeInstrumental"]()}
             </DropdownMenuItem>
           )}
 
@@ -157,7 +159,7 @@ export function SongMenu({
                 className="text-destructive"
                 onSelect={() => void onDelete()}
               >
-                Delete song
+                {m["songMenu.deleteSong"]()}
               </DropdownMenuItem>
             </>
           )}
@@ -183,7 +185,7 @@ export function SongMenu({
           picked(
             track.current,
             (files) => onUploadAudio(files[0]),
-            "Uploading…",
+            m["common.uploading"](),
           )
         }
       />

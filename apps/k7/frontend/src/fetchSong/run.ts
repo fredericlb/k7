@@ -5,6 +5,7 @@
 import { importLrc } from "@k7/lyrics";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import type { HuntRecord } from "@studio/web-protocol/hunt";
+import { m } from "../paraglide/messages.js";
 import type { FetchStatus, LrcCandidate, LyricTiming, Song } from "../types";
 import { findLibrarySong, masterPath, matches, songAtPath } from "./match";
 import type { Pl8Client } from "./pl8";
@@ -51,7 +52,7 @@ async function inLibrary(
   steps: Common,
   song: Song,
 ): Promise<MediatekEntry | undefined> {
-  steps.onPhase("Looking in the library…");
+  steps.onPhase(m["fetch.library"]());
   return findLibrarySong(await steps.pl8.listSongs(), song.artist, song.title);
 }
 
@@ -60,14 +61,13 @@ async function huntEnd(steps: Common, id: string): Promise<HuntRecord> {
   const sleep = steps.sleep ?? wait;
   for (;;) {
     const hunt = (await steps.pl8.hunts()).find((h) => h.id === id);
-    if (!hunt)
-      throw new Error("The Soulseek search was removed before it finished.");
+    if (!hunt) throw new Error(m["fetch.huntRemoved"]());
     if (hunt.status === "done" || hunt.status === "failed") return hunt;
     const phase = hunt.status === "downloading" ? "downloading" : "searching";
     steps.onPhase(
       phase === "downloading"
-        ? "Downloading from Soulseek…"
-        : "Searching Soulseek…",
+        ? m["fetch.downloading"]()
+        : m["fetch.searching"](),
     );
     steps.onStatus?.({ phase, huntId: id });
     await sleep(POLL_MS);
@@ -85,7 +85,7 @@ async function huntIntoLibrary(
   if (resumeHuntId) {
     hunt = await huntEnd(steps, resumeHuntId);
   } else {
-    steps.onPhase("Searching Soulseek…");
+    steps.onPhase(m["fetch.searching"]());
     steps.onStatus?.({ phase: "searching" });
     const started = await steps.pl8.startHunt(`${song.artist} ${song.title}`);
     steps.onStatus?.({ huntId: started.id });
@@ -95,9 +95,9 @@ async function huntIntoLibrary(
         : await huntEnd(steps, started.id);
   }
   if (hunt.status === "failed")
-    throw new Error(hunt.error || "Soulseek did not find this song.");
+    throw new Error(hunt.error || m["fetch.notFound"]());
 
-  steps.onPhase("Looking in the library…");
+  steps.onPhase(m["fetch.library"]());
   const entries = await steps.pl8.listSongs();
   const landed =
     findLibrarySong(entries, song.artist, song.title) ??
@@ -105,10 +105,7 @@ async function huntIntoLibrary(
       ? findLibrarySong(entries, hunt.artist, hunt.title)
       : undefined) ??
     songAtPath(entries, hunt.path);
-  if (!landed)
-    throw new Error(
-      "The song was fetched but is not in the library yet — try again in a moment.",
-    );
+  if (!landed) throw new Error(m["fetch.notFiledYet"]());
   return landed;
 }
 
@@ -122,7 +119,7 @@ export async function fetchSong(
     (await inLibrary(steps, song)) ??
     (await huntIntoLibrary(steps, song, resumeHuntId));
   if (song.audio) return song; // already fetched: the library lookup is the whole of it
-  steps.onPhase("Copying the track…");
+  steps.onPhase(m["fetch.copyTrack"]());
   return steps.copyTrack(masterPath(entry));
 }
 
@@ -134,7 +131,7 @@ async function instrumentalReady(
   resumeJobId?: string,
 ): Promise<boolean> {
   const sleep = steps.sleep ?? wait;
-  steps.onPhase("Making the instrumental…");
+  steps.onPhase(m["fetch.stemming"]());
   steps.onStatus?.({ phase: "stemming" });
   let id = resumeJobId;
   if (!id) {
@@ -147,7 +144,7 @@ async function instrumentalReady(
     );
     if (reply.ready) return true;
     id = reply.job?.id;
-    if (!id) throw new Error("pl8 did not start the separation.");
+    if (!id) throw new Error(m["fetch.noSeparation"]());
     steps.onStatus?.({ jobId: id });
   }
   for (;;) {
@@ -156,14 +153,14 @@ async function instrumentalReady(
     // Swept after it finished: the disk says whether it worked.
     if (!job) {
       if (await steps.pl8.stemsHeld(master, "instrumental")) return true;
-      throw new Error(
-        "The separation stopped without leaving an instrumental.",
-      );
+      throw new Error(m["fetch.noInstrumental"]());
     }
-    if (job.failed) throw new Error(job.error || "The separation failed.");
+    if (job.failed) throw new Error(job.error || m["fetch.separationFailed"]());
     if (job.done) return true;
     if (job.percent !== null) {
-      steps.onPhase(`Making the instrumental… ${Math.round(job.percent)}%`);
+      steps.onPhase(
+        m["fetch.stemmingPercent"]({ percent: Math.round(job.percent) }),
+      );
       steps.onStatus?.({ phase: "stemming", progress: job.percent });
     }
   }
@@ -176,19 +173,16 @@ export async function makeInstrumental(
   resumeJobId?: string,
 ): Promise<InstrumentalOutcome> {
   const entry = await inLibrary(steps, song);
-  if (!entry)
-    throw new Error(
-      "This song is not in pl8's library — fetch the song first.",
-    );
+  if (!entry) throw new Error(m["fetch.notInLibrary"]());
   if (song.instrumental) return { instrumental: true };
 
   if (!(await instrumentalReady(steps, masterPath(entry), resumeJobId)))
     return {
       instrumental: false,
-      note: "No engine is online to make an instrumental — press again once one is.",
+      note: m["fetch.noEngine"](),
     };
 
-  steps.onPhase("Copying the instrumental…");
+  steps.onPhase(m["fetch.copyInstrumental"]());
   const updated = await steps.mixInstrumental(entry.path);
   return { instrumental: true, song: updated };
 }
@@ -242,7 +236,7 @@ export async function runPipeline(
     current.lyricsMatch === "" &&
     current.lyrics.trim() === ""
   ) {
-    steps.onPhase("Looking for lyrics…");
+    steps.onPhase(m["fetch.lyrics"]());
     steps.onStatus?.({ phase: "matching-lyrics" });
     const best = (await steps.findLrc())[0];
     const found =

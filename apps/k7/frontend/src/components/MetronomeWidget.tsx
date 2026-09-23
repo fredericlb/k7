@@ -6,6 +6,7 @@ import { Button } from "@frediverse/ui/button";
 import { Minus, Music2, Play, Plus, Square } from "@frediverse/ui/icons";
 import { useMetronome } from "@k7/recorder";
 import { useEffect, useRef, useState } from "react";
+import { m } from "../paraglide/messages.js";
 
 const MIN = 40;
 const MAX = 240;
@@ -51,7 +52,7 @@ export function MetronomeWidget({ open, onToggle }: Props) {
           style={{ animationDuration: `${60 / bpm}s` }}
           aria-hidden
         />
-        <span className="rail-panel-word">Metronome</span>
+        <span className="rail-panel-word">{m["metronome.title"]()}</span>
       </button>
 
       {open && (
@@ -61,7 +62,7 @@ export function MetronomeWidget({ open, onToggle }: Props) {
               variant="outline"
               size="sm"
               onClick={() => setBpm((b) => clamp(b - 1))}
-              aria-label="Slower"
+              aria-label={m["metronome.slower"]()}
             >
               <Minus className="size-4" />
             </Button>
@@ -73,7 +74,7 @@ export function MetronomeWidget({ open, onToggle }: Props) {
               variant="outline"
               size="sm"
               onClick={() => setBpm((b) => clamp(b + 1))}
-              aria-label="Faster"
+              aria-label={m["metronome.faster"]()}
             >
               <Plus className="size-4" />
             </Button>
@@ -86,17 +87,17 @@ export function MetronomeWidget({ open, onToggle }: Props) {
             max={MAX}
             value={bpm}
             onChange={(e) => setBpm(clamp(Number(e.target.value)))}
-            aria-label="Tempo"
+            aria-label={m["metronome.tempo"]()}
           />
 
           <Button className="metro-toggle" onClick={toggle}>
             {running ? (
               <>
-                <Square className="size-4" /> Stop
+                <Square className="size-4" /> {m["common.stop"]()}
               </>
             ) : (
               <>
-                <Play className="size-4" /> Start
+                <Play className="size-4" /> {m["common.start"]()}
               </>
             )}
           </Button>

@@ -7,6 +7,12 @@ import "./styles.css";
 export { Waveform } from "@studio/ui-waveform";
 export { type DetectOpts, type DetectResult, detectEvents } from "./detect";
 export { LiveWaveform } from "./LiveWaveform";
+export {
+  MIC_ERRORS_EN,
+  type MicErrorTexts,
+  RECORDER_LABELS_EN,
+  type RecorderLabels,
+} from "./labels";
 export { MomentPlayer } from "./MomentPlayer";
 export { type PendingAnnotation, RecorderView } from "./RecorderView";
 export { TagInput } from "./TagInput";

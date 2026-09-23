@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { detectEvents } from "./detect";
 import { fmtTime, sessionTitle } from "./format";
 import { LiveWaveform } from "./LiveWaveform";
+import { RECORDER_LABELS_EN, type RecorderLabels } from "./labels";
 import { TagInput } from "./TagInput";
 import type { DetectedEvent, Envelope, Session } from "./types";
 import { useMetronome } from "./useMetronome";
@@ -49,6 +50,8 @@ interface Props {
   onDiscard: () => void;
   /** Controls the host adds at the end of the header row (the pop-in's Hide). */
   headerActions?: React.ReactNode;
+  /** Every word shown, in the host's language; English when left out. */
+  labels?: RecorderLabels;
 }
 
 const SAMPLE_INTERVAL_MS = 200;
@@ -64,8 +67,9 @@ export function RecorderView({
   onSave,
   onDiscard,
   headerActions,
+  labels: L = RECORDER_LABELS_EN,
 }: Props) {
-  const rec = useRecorder();
+  const rec = useRecorder(L.mic);
   const {
     metronome,
     start: startMetronome,
@@ -393,7 +397,7 @@ export function RecorderView({
         className="rec-bar"
         role="button"
         tabIndex={0}
-        title="Return to recording"
+        title={L.returnToRecording}
         onClick={onExpand}
         onKeyDown={(e) => {
           if (e.key === "Enter") onExpand?.();
@@ -401,10 +405,10 @@ export function RecorderView({
       >
         <div className="rec-bar-status">
           {rec.isPaused ? (
-            <Badge variant="amber">paused</Badge>
+            <Badge variant="amber">{L.paused}</Badge>
           ) : (
             <Badge variant="rec">
-              <Circle className="size-2.5 fill-current" /> rec
+              <Circle className="size-2.5 fill-current" /> {L.rec}
             </Badge>
           )}
           <span className="tabular">
@@ -431,15 +435,14 @@ export function RecorderView({
         </div>
 
         <div className="rec-bar-meta">
-          <span title="Detected moments so far">
-            <Diamond className="size-3" /> {highlights.length} moment
-            {highlights.length === 1 ? "" : "s"}
+          <span title={L.detectedSoFar}>
+            <Diamond className="size-3" /> {L.moments(highlights.length)}
           </span>
           {pending.length > 0 && (
-            <span className="muted small">{pending.length} tagged</span>
+            <span className="muted small">{L.tagged(pending.length)}</span>
           )}
           <span className="ghost small rec-bar-open">
-            Open <ChevronRight className="size-3.5" />
+            {L.open} <ChevronRight className="size-3.5" />
           </span>
         </div>
       </div>
@@ -458,8 +461,8 @@ export function RecorderView({
             className="recorder-bpm"
             value={bpmText}
             onChange={(e) => changeBpm(e.target.value)}
-            aria-label="Metronome tempo (BPM)"
-            title="Metronome tempo (BPM)"
+            aria-label={L.tempo}
+            title={L.tempo}
           />
           <Button
             variant={metronome ? "default" : "ghost"}
@@ -468,14 +471,8 @@ export function RecorderView({
             onClick={toggleMetronome}
             disabled={!metronome && parseBpm(bpmText) == null}
             aria-pressed={metronome != null}
-            aria-label={
-              metronome ? "Stop the metronome" : "Start the metronome"
-            }
-            title={
-              metronome
-                ? `Metronome on at ${metronome.bpm} BPM — click to stop`
-                : "Start the metronome"
-            }
+            aria-label={metronome ? L.metronomeStop : L.metronomeStart}
+            title={metronome ? L.metronomeOn(metronome.bpm) : L.metronomeStart}
           >
             <Metronome className="size-4" />
           </Button>
@@ -487,7 +484,7 @@ export function RecorderView({
           <MicOff className="size-3.5" /> {rec.error}
         </p>
       )}
-      {uploadErr && <p className="error">Upload failed: {uploadErr}</p>}
+      {uploadErr && <p className="error">{L.uploadFailed(uploadErr)}</p>}
 
       {/* A hidden preview player, kept mounted so its Web Audio gain node stays wired. */}
       <audio
@@ -509,22 +506,17 @@ export function RecorderView({
       {rec.status === "idle" &&
         (autoStarting && !rec.error ? (
           <p className="muted">
-            <Mic className="size-4" /> Starting recording… allow microphone
-            access if prompted.
+            <Mic className="size-4" /> {L.starting}
           </p>
         ) : (
           <>
-            <p className="muted">
-              Everything except silences (2s+ below the floor) is flagged live
-              as a highlight — click one to pause, listen back, and tag it, then
-              resume.
-            </p>
+            <p className="muted">{L.intro}</p>
             <div className="row">
               <Button onClick={() => rec.start()}>
-                <Circle className="size-2.5 fill-current" /> Start recording
+                <Circle className="size-2.5 fill-current" /> {L.start}
               </Button>
               <Button variant="outline" onClick={onDiscard}>
-                Cancel
+                {L.cancel}
               </Button>
             </div>
           </>
@@ -542,16 +534,16 @@ export function RecorderView({
             />
           </div>
           <div className="muted small" style={{ textAlign: "center" }}>
-            auto gain {rec.gain.toFixed(1)}× — leveled to just below saturation
+            {L.autoGain(rec.gain.toFixed(1))}
           </div>
 
           <div className="timer">
             {fmtTime(rec.elapsed)}{" "}
             {rec.isPaused ? (
-              <Badge variant="amber">paused</Badge>
+              <Badge variant="amber">{L.paused}</Badge>
             ) : (
               <Badge variant="rec">
-                <Circle className="size-2.5 fill-current" /> rec
+                <Circle className="size-2.5 fill-current" /> {L.rec}
               </Badge>
             )}
           </div>
@@ -570,13 +562,11 @@ export function RecorderView({
           )}
 
           <h3>
-            <Sparkles className="size-4" /> Highlights{" "}
+            <Sparkles className="size-4" /> {L.highlights}{" "}
             <span className="muted small">({highlights.length})</span>
           </h3>
           {highlights.length === 0 && (
-            <p className="muted small">
-              Keep playing — everything between 2s+ silences shows up here.
-            </p>
+            <p className="muted small">{L.keepPlaying}</p>
           )}
           <ul className="event-list">
             {highlights.map((h, i) => {
@@ -594,12 +584,12 @@ export function RecorderView({
                     </span>
                     {pending.some((p) => p.startSec === h.startSec) && (
                       <Badge variant="tag" className="ml-2">
-                        tagged
+                        {L.taggedBadge}
                       </Badge>
                     )}
                   </span>
                   <span className="muted small">
-                    <Pause className="size-3" /> listen &amp; tag
+                    <Pause className="size-3" /> {L.listenAndTag}
                   </span>
                 </li>
               );
@@ -609,18 +599,20 @@ export function RecorderView({
           {reviewing && (
             <Card className="review-panel">
               <h3>
-                Reviewing {fmtTime(reviewing.startSec)} –{" "}
-                {fmtTime(reviewing.endSec)}
+                {L.reviewing(
+                  fmtTime(reviewing.startSec),
+                  fmtTime(reviewing.endSec),
+                )}
               </h3>
               <div className="row playback-controls">
                 <Button onClick={togglePreview}>
                   {previewPlaying ? (
                     <>
-                      <Pause className="size-4" /> Pause
+                      <Pause className="size-4" /> {L.pause}
                     </>
                   ) : (
                     <>
-                      <Play className="size-4" /> Play
+                      <Play className="size-4" /> {L.play}
                     </>
                   )}
                 </Button>
@@ -631,7 +623,7 @@ export function RecorderView({
               <div className="row" style={{ marginTop: 8 }}>
                 <Input
                   value={comment}
-                  placeholder="What happened here?"
+                  placeholder={L.whatHappened}
                   onChange={(e) => setComment(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addPending()}
                 />
@@ -639,12 +631,13 @@ export function RecorderView({
                   value={tags}
                   onChange={setTags}
                   suggestions={tagSuggestions}
+                  removeLabel={L.removeTag}
                 />
                 <Button
                   disabled={!comment.trim() && tags.length === 0}
                   onClick={addPending}
                 >
-                  Add
+                  {L.add}
                 </Button>
               </div>
               {reviewPending.length > 0 && (
@@ -667,19 +660,19 @@ export function RecorderView({
           <div className="row" style={{ marginTop: 12 }}>
             {rec.isRecording && !reviewing && (
               <Button variant="outline" onClick={rec.pause}>
-                <Pause className="size-4" /> Pause
+                <Pause className="size-4" /> {L.pause}
               </Button>
             )}
             {reviewing && (
               <Button onClick={resumeRecording}>
-                <Circle className="size-2.5 fill-current" /> Resume recording
+                <Circle className="size-2.5 fill-current" /> {L.resume}
               </Button>
             )}
             <Button
               variant="destructive"
               className="hold-btn"
               disabled={uploading}
-              title="Hold 2s to stop & save (or hold Space)"
+              title={L.holdTitle}
               onPointerDown={(e) => {
                 e.preventDefault();
                 beginHold();
@@ -694,25 +687,25 @@ export function RecorderView({
               />
               <span className="hold-label">
                 {holdProgress > 0 ? (
-                  "Hold to stop…"
+                  L.holding
                 ) : (
                   <>
-                    <Square className="size-4" /> Stop &amp; save
+                    <Square className="size-4" /> {L.stopSave}
                   </>
                 )}
               </span>
             </Button>
-            <span className="muted small">or hold space</span>
+            <span className="muted small">{L.orHoldSpace}</span>
             {pending.length > 0 && (
               <span className="muted small">
-                {pending.length} tag{pending.length > 1 ? "s" : ""} pending
+                {L.tagsPending(pending.length)}
               </span>
             )}
           </div>
         </>
       )}
 
-      {uploading && <p className="muted">Uploading &amp; analyzing…</p>}
+      {uploading && <p className="muted">{L.uploading}</p>}
     </Card>
   );
 }

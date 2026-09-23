@@ -12,6 +12,8 @@ import { useState } from "react";
 import { BackButton } from "../components/BackButton";
 import { PageNametagForm } from "../components/PageNametagForm";
 import { TrackCard } from "../components/TrackCard";
+import { isOne } from "../i18n";
+import { m } from "../paraglide/messages.js";
 import type { Page, Release, SongEnvelope } from "../types";
 
 interface Props {
@@ -53,7 +55,7 @@ export function PageDetailView({
   const [editing, setEditing] = useState(false);
 
   const remove = async () => {
-    if (!confirm("Delete this page? (releases are not deleted)")) return;
+    if (!confirm(m["page.confirmDelete"]())) return;
     await onDelete();
   };
 
@@ -79,10 +81,12 @@ export function PageDetailView({
         />
       ) : (
         <div className="detail-head">
-          <BackButton to="Publications" onClick={onBack} />
+          <BackButton to={m["nav.publications"]()} onClick={onBack} />
           <h2>@{page.nametag}</h2>
           <span className="muted detail-head-sub">
-            {releases.length} release{releases.length === 1 ? "" : "s"}
+            {isOne(releases.length)
+              ? m["page.releaseCount.one"]({ n: releases.length })
+              : m["page.releaseCount.other"]({ n: releases.length })}
           </span>
           {/* The address itself stays off the page; this is how it is handed out. */}
           <Button
@@ -93,11 +97,11 @@ export function PageDetailView({
           >
             {copied ? (
               <>
-                <Check className="size-4" /> Copied
+                <Check className="size-4" /> {m["common.copied"]()}
               </>
             ) : (
               <>
-                <Copy className="size-4" /> Copy link
+                <Copy className="size-4" /> {m["page.copyLink"]()}
               </>
             )}
           </Button>
@@ -108,30 +112,30 @@ export function PageDetailView({
                 variant="ghost"
                 size="icon-sm"
                 className="ds-button"
-                title="Page menu"
-                aria-label="Page menu"
+                title={m["page.menu"]()}
+                aria-label={m["page.menu"]()}
               >
                 <EllipsisVertical className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => setEditing(true)}>
-                Edit
+                {m["common.edit"]()}
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive"
                 onSelect={() => void remove()}
               >
-                Delete page
+                {m["page.delete"]()}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       )}
 
-      <h3>Releases</h3>
+      <h3>{m["page.releases"]()}</h3>
       {releases.length === 0 && (
-        <p className="muted">No releases on this page yet.</p>
+        <p className="muted">{m["page.noReleases"]()}</p>
       )}
       {releases.map((r) => {
         const played = pageVersion(page, r);
@@ -148,10 +152,15 @@ export function PageDetailView({
               </>
             }
             picker={{
-              label: `Version of ${r.title}`,
+              label: m["track.versionOf"]({ title: r.title }),
               value: chosen,
               options: [
-                { value: "", label: `Default${def ? ` · ${def.name}` : ""}` },
+                {
+                  value: "",
+                  label: def
+                    ? m["page.defaultVersionNamed"]({ name: def.name })
+                    : m["page.defaultVersion"](),
+                },
                 ...choices
                   .filter((v) => v.id !== def?.id)
                   .map((v) => ({ value: v.id, label: v.name })),
@@ -162,17 +171,17 @@ export function PageDetailView({
               ...(r.canDownload && played
                 ? [
                     {
-                      label: "Download",
+                      label: m["common.download"](),
                       href: versionDownloadUrl(r.id, played.id),
                     },
                   ]
                 : []),
               {
-                label: "Remove from page",
+                label: m["page.removeRelease"](),
                 onSelect: () => void onRemoveRelease(r.id),
               },
             ]}
-            menuLabel={`${r.title} menu`}
+            menuLabel={m["track.menu"]({ title: r.title })}
             audio={
               played
                 ? {
@@ -187,7 +196,7 @@ export function PageDetailView({
 
       {notInPage.length > 0 && (
         <Card>
-          <h3 style={{ marginTop: 0 }}>Add a release</h3>
+          <h3 style={{ marginTop: 0 }}>{m["page.addRelease"]()}</h3>
           <div className="row">
             <select
               disabled={adding}
@@ -204,7 +213,7 @@ export function PageDetailView({
                 }
               }}
             >
-              <option value="">Choose a release…</option>
+              <option value="">{m["page.chooseRelease"]()}</option>
               {notInPage.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.title} · {r.artist}

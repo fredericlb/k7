@@ -5,6 +5,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Minus, Plus, SlidersHorizontal } from "@frediverse/ui/icons";
 import { formatTranspose } from "@k7/score";
+import { m } from "../paraglide/messages.js";
 
 interface Props {
   transpose: number;
@@ -28,17 +29,17 @@ export function OptionsPanel({
         aria-expanded={open}
       >
         <SlidersHorizontal className="size-4" />
-        <span className="rail-panel-word">Options</span>
+        <span className="rail-panel-word">{m["panel.options"]()}</span>
       </button>
       {open && (
         <div className="rail-panel-body">
           <div className="cs-transpose">
-            <span className="muted small">Transpose</span>
+            <span className="muted small">{m["score.transpose"]()}</span>
             <Button
               variant="outline"
               size="sm"
               onClick={() => onTranspose((t) => t - 1)}
-              title="Down a semitone"
+              title={m["score.transposeDown"]()}
             >
               <Minus className="size-4" />
             </Button>
@@ -49,7 +50,7 @@ export function OptionsPanel({
               variant="outline"
               size="sm"
               onClick={() => onTranspose((t) => t + 1)}
-              title="Up a semitone"
+              title={m["score.transposeUp"]()}
             >
               <Plus className="size-4" />
             </Button>
@@ -58,9 +59,9 @@ export function OptionsPanel({
                 variant="outline"
                 size="sm"
                 onClick={() => onTranspose(() => 0)}
-                title="Reset to original key"
+                title={m["score.transposeReset"]()}
               >
-                Reset
+                {m["panel.reset"]()}
               </Button>
             )}
           </div>

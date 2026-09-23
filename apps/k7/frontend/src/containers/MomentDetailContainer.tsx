@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import { m } from "../paraglide/messages.js";
 import type { Moment } from "../types";
 import { MomentDetailView } from "../views/MomentDetailView";
 
@@ -31,8 +32,8 @@ export function MomentDetailContainer({
     load();
   }, [load]);
 
-  if (notFound) return <p className="muted">This moment no longer exists.</p>;
-  if (!moment) return <p className="muted">Loading…</p>;
+  if (notFound) return <p className="muted">{m["moment.gone"]()}</p>;
+  if (!moment) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
     <MomentDetailView

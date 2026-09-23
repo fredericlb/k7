@@ -1,5 +1,9 @@
 import { ChevronDown } from "@frediverse/ui/icons";
-import { acquireMicrophone, RecorderView } from "@k7/recorder";
+import {
+  acquireMicrophone,
+  describeMicError,
+  RecorderView,
+} from "@k7/recorder";
 import { useEffect, useState } from "react";
 import {
   Navigate,
@@ -19,6 +23,8 @@ import { ReleaseDetailContainer } from "./containers/ReleaseDetailContainer";
 import { SessionDetailContainer } from "./containers/SessionDetailContainer";
 import { SongDetailContainer } from "./containers/SongDetailContainer";
 import { fmtStamp } from "./format";
+import { m } from "./paraglide/messages.js";
+import { micErrors, recorderLabels } from "./recorderLabels";
 import { connectRemoteMic } from "./rtc";
 import type {
   Envelope,
@@ -260,7 +266,7 @@ export default function App() {
     // Only one recording at a time — bring the user back to the active one.
     if (recording) {
       setRecOpen(true);
-      throw new Error("Finish the current recording first.");
+      throw new Error(m["rec.finishFirst"]());
     }
     // Ask where the audio should come from; the effect above probes while this is open.
     setSourceError(null);
@@ -289,7 +295,7 @@ export default function App() {
       const stream = await acquireMicrophone();
       await beginSession(stream);
     } catch (err) {
-      setSourceError((err as Error).message);
+      setSourceError(describeMicError(err, micErrors()));
     } finally {
       setSourceBusy(false);
     }
@@ -316,7 +322,7 @@ export default function App() {
   const handleResumeSession = async (session: Session) => {
     if (recording) {
       setRecOpen(true);
-      alert("Finish the current recording first.");
+      alert(m["rec.finishFirst"]());
       return;
     }
     const stream = await acquireMicrophone();
@@ -394,7 +400,7 @@ export default function App() {
       await api
         .addMarker(session.id, {
           atSec: offset,
-          comment: `resumed on ${fmtStamp()}`,
+          comment: m["rec.resumedOn"]({ at: fmtStamp() }),
         })
         .catch(() => {});
     }
@@ -418,7 +424,7 @@ export default function App() {
   if (!authChecked) {
     return (
       <div className="login-screen">
-        <p className="muted">Loading…</p>
+        <p className="muted">{m["common.loading"]()}</p>
       </div>
     );
   }
@@ -664,10 +670,11 @@ export default function App() {
                 className={recOpen ? "rec-popin" : "rec-dock"}
                 role={recOpen ? "dialog" : undefined}
                 aria-modal={recOpen || undefined}
-                aria-label={recOpen ? "Recording" : undefined}
+                aria-label={recOpen ? m["rec.dialog"]() : undefined}
               >
                 <RecorderView
                   key="active-recorder"
+                  labels={recorderLabels()}
                   session={recording.session}
                   stream={recording.stream}
                   allTags={allTags}
@@ -680,9 +687,9 @@ export default function App() {
                         type="button"
                         className="rec-popin-hide"
                         onClick={() => setRecOpen(false)}
-                        title="Hide to the bar — the take keeps recording"
+                        title={m["rec.hideTitle"]()}
                       >
-                        <ChevronDown className="size-4" /> Hide
+                        <ChevronDown className="size-4" /> {m["rec.hide"]()}
                       </button>
                     )
                   }

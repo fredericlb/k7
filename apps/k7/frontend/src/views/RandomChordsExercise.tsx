@@ -3,6 +3,7 @@ import { ArrowRight, Eye } from "@frediverse/ui/icons";
 import { useState } from "react";
 import { BackButton } from "../components/BackButton";
 import { ChordDiagram } from "../components/ChordDiagram";
+import { m } from "../paraglide/messages.js";
 import { type ChordPrompt, randomChord } from "../utils/exercises";
 
 interface Props {
@@ -24,13 +25,10 @@ export function RandomChordsExercise({ onBack }: Props) {
   return (
     <div className="exercise">
       <div className="detail-head">
-        <BackButton to="Exercices" onClick={onBack} />
-        <h2>Random chords</h2>
+        <BackButton to={m["nav.exercices"]()} onClick={onBack} />
+        <h2>{m["exercise.chords.title"]()}</h2>
       </div>
-      <p className="muted small">
-        Play the chord shown on your instrument, then reveal the fingering to
-        check yourself and move on.
-      </p>
+      <p className="muted small">{m["exercise.chords.help"]()}</p>
 
       <div className="exercise-chord-stage">
         <div className="exercise-chord-name">{prompt.symbol}</div>
@@ -42,18 +40,20 @@ export function RandomChordsExercise({ onBack }: Props) {
           </div>
         ) : (
           <Button variant="outline" onClick={() => setRevealed(true)}>
-            <Eye className="size-4" /> Reveal fingering
+            <Eye className="size-4" /> {m["exercise.chords.reveal"]()}
           </Button>
         )}
       </div>
 
       <div className="row exercise-actions">
         <Button onClick={next}>
-          Next chord <ArrowRight className="size-4" />
+          {m["exercise.chords.next"]()} <ArrowRight className="size-4" />
         </Button>
       </div>
 
-      <p className="muted small exercise-count">Chord #{count}</p>
+      <p className="muted small exercise-count">
+        {m["exercise.chords.count"]({ n: count })}
+      </p>
     </div>
   );
 }

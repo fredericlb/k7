@@ -5,6 +5,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Download, Pencil, Upload, X } from "@frediverse/ui/icons";
 import { useRef } from "react";
+import { m } from "../paraglide/messages.js";
 import type { FetchStatus, Song } from "../types";
 
 interface Props {
@@ -16,11 +17,14 @@ interface Props {
   onIgnore: () => void;
 }
 
-const LABEL: Record<Exclude<FetchStatus["phase"], "" | "failed">, string> = {
-  searching: "Searching Soulseek…",
-  downloading: "Downloading from Soulseek…",
-  stemming: "Making the instrumental…",
-  "matching-lyrics": "Looking for lyrics…",
+const LABEL: Record<
+  Exclude<FetchStatus["phase"], "" | "failed">,
+  () => string
+> = {
+  searching: m["fetch.searching"],
+  downloading: m["fetch.downloading"],
+  stemming: m["fetch.stemming"],
+  "matching-lyrics": m["fetch.lyrics"],
 };
 
 function StatusRow({ phase, progress }: FetchStatus) {
@@ -28,7 +32,7 @@ function StatusRow({ phase, progress }: FetchStatus) {
   const determinate = phase === "stemming" && progress !== null;
   return (
     <div className="song-fetch-status">
-      <span className="muted small">{LABEL[phase]}</span>
+      <span className="muted small">{LABEL[phase]()}</span>
       <div
         role="progressbar"
         aria-valuemin={0}
@@ -84,7 +88,7 @@ export function SongFetchInsert({
             className="song-fetch-btn"
             onClick={onFixLyrics}
           >
-            <Pencil className="size-4" /> Fix the lyrics
+            <Pencil className="size-4" /> {m["fetch.fixLyrics"]()}
           </Button>
         </div>
       );
@@ -99,16 +103,14 @@ export function SongFetchInsert({
   return (
     <div className="song-fetch-insert">
       {phase === "failed" && error && <p className="error small">{error}</p>}
-      <p className="song-fetch-insert-text">
-        No song file yet — what should we do?
-      </p>
+      <p className="song-fetch-insert-text">{m["fetch.question"]()}</p>
       <Button
         variant="ghost"
         size="sm"
         className="song-fetch-btn"
         onClick={onDownload}
       >
-        <Download className="size-4" /> Download the song
+        <Download className="size-4" /> {m["fetch.download"]()}
       </Button>
       <Button
         variant="ghost"
@@ -116,7 +118,7 @@ export function SongFetchInsert({
         className="song-fetch-btn"
         onClick={pick}
       >
-        <Upload className="size-4" /> Upload a file…
+        <Upload className="size-4" /> {m["fetch.upload"]()}
       </Button>
       {input}
       <Button
@@ -125,7 +127,7 @@ export function SongFetchInsert({
         className="song-fetch-btn"
         onClick={onIgnore}
       >
-        <X className="size-4" /> Ignore
+        <X className="size-4" /> {m["fetch.ignore"]()}
       </Button>
     </div>
   );

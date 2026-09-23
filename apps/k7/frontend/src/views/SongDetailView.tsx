@@ -23,6 +23,7 @@ import { SongPlayer } from "../components/SongPlayer";
 import { TimedLyricsDialog } from "../components/TimedLyricsDialog";
 import { fmtDate } from "../format";
 import { useMediaQuery } from "../hooks/useMediaQuery";
+import { m } from "../paraglide/messages.js";
 import { hasContent, SONG_TABS, visibleTabs } from "../songTabs";
 import type { LrcCandidate, LyricTiming, Song, SongTab } from "../types";
 
@@ -181,21 +182,21 @@ export function SongDetailView({
   };
 
   const remove = async () => {
-    if (!confirm("Delete this song?")) return;
+    if (!confirm(m["song.confirmDelete"]())) return;
     await onDelete();
   };
 
   return (
     <div className="song-detail">
       <div className="song-detail-head">
-        <BackButton to="Songbook" onClick={onBack} />
+        <BackButton to={m["nav.songbook"]()} onClick={onBack} />
         <h2>{song.title}</h2>
         {/* Beside the title, and it takes the slack: that is what puts the star next to the ⋮. */}
         <span className="muted song-detail-artist">{song.artist}</span>
         <button
           className={`star-btn${song.favorite ? " on" : ""}`}
           onClick={onToggleFavorite}
-          title={song.favorite ? "Remove from favorites" : "Add to favorites"}
+          title={song.favorite ? m["song.unfavorite"]() : m["song.favorite"]()}
           aria-pressed={song.favorite}
         >
           <Star className={`size-5${song.favorite ? " fill-current" : ""}`} />
@@ -242,7 +243,7 @@ export function SongDetailView({
             {SONG_TABS.filter(({ key }) => tabs.includes(key)).map(
               ({ key, label }) => (
                 <TabsTrigger key={key} value={key}>
-                  {label}
+                  {label()}
                 </TabsTrigger>
               ),
             )}
@@ -263,16 +264,20 @@ export function SongDetailView({
             value={draft}
             spellCheck={false}
             autoFocus
-            placeholder={`Type the ${tab} here…`}
+            placeholder={
+              tab === "lyrics"
+                ? m["song.placeholder.lyrics"]()
+                : m["song.placeholder.tablature"]()
+            }
             onChange={(e) => setDraft(e.target.value)}
           />
           <div className="row" style={{ marginTop: 8 }}>
             <Button disabled={saving || draft === content} onClick={save}>
-              {saving ? "Saving…" : "Save"}
+              {saving ? m["common.saving"]() : m["common.save"]()}
             </Button>
             {(content !== "" || tab === adding) && (
               <Button variant="outline" disabled={saving} onClick={cancel}>
-                Cancel
+                {m["common.cancel"]()}
               </Button>
             )}
           </div>
@@ -302,13 +307,18 @@ export function SongDetailView({
           )}
           <div className="row" style={{ marginTop: 8 }}>
             <Button variant="outline" onClick={() => setEditing(true)}>
-              <Pencil className="size-4" /> Edit {tab}
+              <Pencil className="size-4" />{" "}
+              {tab === "lyrics"
+                ? m["song.edit.lyrics"]()
+                : m["song.edit.tablature"]()}
             </Button>
           </div>
         </>
       )}
 
-      <p className="muted small">Added {fmtDate(song.createdAt)}</p>
+      <p className="muted small">
+        {m["song.added"]({ at: fmtDate(song.createdAt) })}
+      </p>
 
       {/* Mounted ONCE and for every screen: a rail down the margin, a bar at the foot of a phone. */}
       <aside className="side-rail">

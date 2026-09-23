@@ -8,6 +8,7 @@ import {
 } from "@frediverse/ui/dialog";
 import { Mic, RadioTower } from "@frediverse/ui/icons";
 import { BASE } from "../api";
+import { m } from "../paraglide/messages.js";
 
 // What to TYPE on the phone: a bare /remote is the médiathèque's — ../../../docs/routing.md.
 const REMOTE_PATH = `${BASE}/remote`;
@@ -37,17 +38,15 @@ export function SessionSourceDialog({
     <Dialog open={open} onOpenChange={(o) => !o && !busy && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New session</DialogTitle>
-          <DialogDescription>
-            Where should the audio come from?
-          </DialogDescription>
+          <DialogTitle>{m["rec.newSession"]()}</DialogTitle>
+          <DialogDescription>{m["source.question"]()}</DialogDescription>
         </DialogHeader>
 
         {error && <p className="error">{error}</p>}
 
         <div className="source-choices">
           <Button disabled={busy} onClick={onLocal}>
-            <Mic className="size-4" /> This device
+            <Mic className="size-4" /> {m["source.local"]()}
           </Button>
           <Button
             variant="outline"
@@ -55,20 +54,20 @@ export function SessionSourceDialog({
             onClick={onRemote}
             title={
               remoteAvailable === false
-                ? `No device is connected at ${REMOTE_PATH}`
-                : `Use the microphone of the device connected at ${REMOTE_PATH}`
+                ? m["source.noDeviceAt"]({ path: REMOTE_PATH })
+                : m["source.useDeviceAt"]({ path: REMOTE_PATH })
             }
           >
-            <RadioTower className="size-4" /> Remote device
+            <RadioTower className="size-4" /> {m["source.remote"]()}
           </Button>
         </div>
 
         <p className="muted small">
           {remoteAvailable === null
-            ? "Checking for a remote device…"
+            ? m["source.checking"]()
             : remoteAvailable
-              ? "A remote device is connected and ready."
-              : `No remote device connected. Open ${REMOTE_PATH} on another device (signed in as you) to use its microphone.`}
+              ? m["source.ready"]()
+              : m["source.none"]({ path: REMOTE_PATH })}
         </p>
       </DialogContent>
     </Dialog>

@@ -9,6 +9,7 @@ import { Button } from "@frediverse/ui/button";
 import { Pause, Play } from "@frediverse/ui/icons";
 import { Waveform } from "@k7/recorder";
 import { useEffect, useRef, useState } from "react";
+import { m } from "../paraglide/messages.js";
 import type { SongEnvelope } from "../types";
 
 interface Props {
@@ -117,7 +118,7 @@ export function WaveformPlayer({ src, shapeOf }: Props) {
       {shapeState === "loading" && (
         <div className="waveform-player-pending" role="status">
           <span className="spinner" aria-hidden="true" />
-          <span className="muted small">Loading waveform…</span>
+          <span className="muted small">{m["player.loadingWaveform"]()}</span>
         </div>
       )}
       {shape && (
@@ -139,15 +140,16 @@ export function WaveformPlayer({ src, shapeOf }: Props) {
       >
         {buffering ? (
           <>
-            <span className="spinner" aria-hidden="true" /> Loading…
+            <span className="spinner" aria-hidden="true" />{" "}
+            {m["common.loading"]()}
           </>
         ) : running ? (
           <>
-            <Pause className="size-4" /> Pause
+            <Pause className="size-4" /> {m["common.pause"]()}
           </>
         ) : (
           <>
-            <Play className="size-4" /> Play
+            <Play className="size-4" /> {m["common.play"]()}
           </>
         )}
       </Button>

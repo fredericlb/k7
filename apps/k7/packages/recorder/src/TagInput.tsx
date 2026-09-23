@@ -8,6 +8,8 @@ interface Props {
   suggestions?: string[];
   placeholder?: string;
   disabled?: boolean;
+  /** The remove button's label for one tag, in the host's language. */
+  removeLabel?: (tag: string) => string;
 }
 
 /** A chip input for tags: Enter or comma adds, Backspace on empty removes, ↑/↓ picks. */
@@ -17,6 +19,7 @@ export function TagInput({
   suggestions = [],
   placeholder = "#tag",
   disabled,
+  removeLabel = (tag) => `Remove ${tag}`,
 }: Props) {
   const [draft, setDraft] = useState("");
   const [open, setOpen] = useState(false);
@@ -69,7 +72,7 @@ export function TagInput({
               className="cursor-pointer border-0 bg-transparent p-0 text-[15px] font-bold leading-none text-inherit"
               disabled={disabled}
               onClick={() => remove(t)}
-              aria-label={`Remove ${t}`}
+              aria-label={removeLabel(t)}
             >
               <X className="size-3" />
             </button>

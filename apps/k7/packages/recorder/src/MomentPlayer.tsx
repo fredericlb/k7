@@ -7,6 +7,7 @@ interface Props {
   src: string; // extracted clip audio
   samples: number[]; // envelope samples covering just this moment
   intervalMs: number; // sample spacing of `samples`
+  labels?: { play: string; pause: string };
 }
 
 const HEIGHT = 48;
@@ -15,7 +16,12 @@ const BAR_STEP = 3; // px between bars
 const BAR_WIDTH = 2;
 
 /** A compact waveform player for a moment's clip, in place of the native audio element. */
-export function MomentPlayer({ src, samples, intervalMs }: Props) {
+export function MomentPlayer({
+  src,
+  samples,
+  intervalMs,
+  labels = { play: "Play", pause: "Pause" },
+}: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -126,7 +132,7 @@ export function MomentPlayer({ src, samples, intervalMs }: Props) {
         size="sm"
         className="moment-play"
         onClick={toggle}
-        aria-label={playing ? "Pause" : "Play"}
+        aria-label={playing ? labels.pause : labels.play}
       >
         {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
       </Button>

@@ -1,6 +1,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Plus, Star } from "@frediverse/ui/icons";
 import { SongbookExport } from "../components/SongbookExport";
+import { m } from "../paraglide/messages.js";
 import type {
   HomeTab,
   Moment,
@@ -77,14 +78,16 @@ export function HomeView({
         <div className="moments-pane">
           <div className="songbook-actions">
             <Button variant="outline" onClick={onNewSong}>
-              <Plus className="size-4" /> New song
+              <Plus className="size-4" /> {m["songbook.new"]()}
             </Button>
             {/* The songbook is shared; what a person exports is their own favourites — ../../../docs/export.md. */}
             <SongbookExport songs={songs.filter((s) => s.favorite)} />
           </div>
           <ul className="session-list home-list">
             {songs.length === 0 && (
-              <li className="home-list-empty muted small">No songs yet.</li>
+              <li className="home-list-empty muted small">
+                {m["songbook.empty"]()}
+              </li>
             )}
             {songs.map((s) => (
               <li
@@ -97,7 +100,7 @@ export function HomeView({
                   <button
                     className={`star-btn${s.favorite ? " on" : ""}`}
                     title={
-                      s.favorite ? "Remove from favorites" : "Add to favorites"
+                      s.favorite ? m["song.unfavorite"]() : m["song.favorite"]()
                     }
                     aria-pressed={s.favorite}
                     onClick={(e) => {
@@ -116,11 +119,26 @@ export function HomeView({
                 <div className="song-links">
                   {(
                     [
-                      ["lyrics", "Lyrics"],
-                      ["tablature", "Tab"],
-                      ["sheet", "Sheet"],
+                      [
+                        "lyrics",
+                        m["song.tab.lyrics"],
+                        m["songbook.open.lyrics"],
+                        m["songbook.none.lyrics"],
+                      ],
+                      [
+                        "tablature",
+                        m["song.tab.tablature"],
+                        m["songbook.open.tablature"],
+                        m["songbook.none.tablature"],
+                      ],
+                      [
+                        "sheet",
+                        m["song.tab.sheet"],
+                        m["songbook.open.sheet"],
+                        m["songbook.none.sheet"],
+                      ],
                     ] as const
-                  ).map(([key, label]) => {
+                  ).map(([key, label, open, none]) => {
                     const filled =
                       key === "sheet"
                         ? s.sheets.length > 0
@@ -132,17 +150,13 @@ export function HomeView({
                         size="sm"
                         className="song-link"
                         disabled={!filled}
-                        title={
-                          filled
-                            ? `Open ${label}`
-                            : `No ${label.toLowerCase()} yet`
-                        }
+                        title={filled ? open() : none()}
                         onClick={(e) => {
                           e.stopPropagation();
                           onOpenSong(s, key);
                         }}
                       >
-                        {label}
+                        {label()}
                       </Button>
                     );
                   })}

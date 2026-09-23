@@ -1,4 +1,6 @@
 import { PublicReleaseCard } from "../components/PublicReleaseCard";
+import { isOne } from "../i18n";
+import { m } from "../paraglide/messages.js";
 import type { Page, SongEnvelope } from "../types";
 
 interface Props {
@@ -19,7 +21,7 @@ export function PublicPageView({
   if (!page) {
     return (
       <div className="login-screen">
-        <p className="muted">No page named @{nametag}.</p>
+        <p className="muted">{m["public.noPage"]({ nametag })}</p>
       </div>
     );
   }
@@ -35,7 +37,9 @@ export function PublicPageView({
         >
           <h2>@{page.nametag}</h2>
           <p className="muted">
-            {releases.length} release{releases.length === 1 ? "" : "s"}
+            {isOne(releases.length)
+              ? m["page.releaseCount.one"]({ n: releases.length })
+              : m["page.releaseCount.other"]({ n: releases.length })}
           </p>
           {releases.map((r) => (
             <PublicReleaseCard

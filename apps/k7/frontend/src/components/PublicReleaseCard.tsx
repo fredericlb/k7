@@ -3,6 +3,7 @@
 
 import { Download } from "@frediverse/ui/icons";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 import type { Release, SongEnvelope } from "../types";
 import { TrackCard } from "./TrackCard";
 
@@ -33,7 +34,7 @@ export function PublicReleaseCard({
       picker={
         versions.length > 1
           ? {
-              label: `Version of ${r.title}`,
+              label: m["track.versionOf"]({ title: r.title }),
               value: picked ?? "",
               options: versions.map((v) => ({ value: v.id, label: v.name })),
               onChange: setPicked,
@@ -48,13 +49,13 @@ export function PublicReleaseCard({
             className="download-link"
             href={downloadUrl(played.id)}
             download
-            title={`Download ${played.name}`}
+            title={m["track.downloadNamed"]({ name: played.name })}
           >
-            <Download className="size-4" /> Download
+            <Download className="size-4" /> {m["common.download"]()}
           </a>
         )
       }
-      menuLabel={`${r.title} menu`}
+      menuLabel={m["track.menu"]({ title: r.title })}
       audio={
         played
           ? { src: audioUrl(played.id), shapeOf: () => envelope(played.id) }

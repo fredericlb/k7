@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import { m } from "../paraglide/messages.js";
 import type { Release, ReleasePatch } from "../types";
 import { ReleaseDetailView } from "../views/ReleaseDetailView";
 
@@ -65,7 +66,7 @@ export function ReleaseDetailContainer({
     onDeleted();
   };
 
-  if (!release) return <p className="muted">Loading…</p>;
+  if (!release) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
     <ReleaseDetailView

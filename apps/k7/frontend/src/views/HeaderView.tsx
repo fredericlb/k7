@@ -15,6 +15,7 @@ import {
   Target,
 } from "@frediverse/ui/icons";
 import { useState } from "react";
+import { m } from "../paraglide/messages.js";
 import type { NavKey } from "../types";
 
 interface Props {
@@ -30,11 +31,11 @@ interface Props {
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
 /** The sections, and they are ENTRIES rather than controls — ../../../docs/header.md. */
-const NAV_ITEMS: { key: NavKey; label: string; icon: LucideIcon }[] = [
-  { key: "recordings", label: "Recordings", icon: Mic },
-  { key: "publications", label: "Publications", icon: Disc3 },
-  { key: "songbook", label: "Songbook", icon: BookOpen },
-  { key: "exercices", label: "Exercices", icon: Target },
+const NAV_ITEMS: { key: NavKey; label: () => string; icon: LucideIcon }[] = [
+  { key: "recordings", label: m["nav.recordings"], icon: Mic },
+  { key: "publications", label: m["nav.publications"], icon: Disc3 },
+  { key: "songbook", label: m["nav.songbook"], icon: BookOpen },
+  { key: "exercices", label: m["nav.exercices"], icon: Target },
 ];
 
 export function HeaderView({
@@ -61,7 +62,7 @@ export function HeaderView({
 
   const items: AppHeaderItem[] = NAV_ITEMS.map(
     ({ key, label, icon: Icon }) => ({
-      label,
+      label: label(),
       icon: <Icon className="size-4" />,
       active: activeNav === key,
       onClick: () => onNav(key),
@@ -74,7 +75,12 @@ export function HeaderView({
       className="z-20"
       title={
         // A button, not a div: it navigates, and the mark has always been the way home.
-        <button type="button" className="brand" onClick={onHome} title="Home">
+        <button
+          type="button"
+          className="brand"
+          onClick={onHome}
+          title={m["nav.home"]()}
+        >
           {/* BASE_URL, not "/": vite rewrites index.html, never a JSX string. */}
           <img
             className="brand-icon"
@@ -98,8 +104,8 @@ export function HeaderView({
                 : " border-transparent"
             }`}
             onClick={onOpenSettings}
-            title="Settings"
-            aria-label="Settings"
+            title={m["settings.title"]()}
+            aria-label={m["settings.title"]()}
             aria-current={activeNav === "settings" ? "page" : undefined}
           >
             <Settings className="size-4" />
@@ -111,8 +117,8 @@ export function HeaderView({
               size="icon-sm"
               disabled={creating}
               onClick={create}
-              title={creating ? "Starting…" : "New session"}
-              aria-label="New session"
+              title={creating ? m["rec.starting"]() : m["rec.newSession"]()}
+              aria-label={m["rec.newSession"]()}
             >
               {/* A recorder's red dot, pulsing while the session starts. */}
               <span

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { m } from "../paraglide/messages.js";
 import type { Page } from "../types";
 import { PublicPageView } from "../views/PublicPageView";
 
@@ -21,7 +22,7 @@ export function PublicPageContainer({ nametag }: Props) {
       .finally(() => setLoaded(true));
   }, [nametag]);
 
-  if (!loaded) return <p className="muted">Loading…</p>;
+  if (!loaded) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
     <PublicPageView

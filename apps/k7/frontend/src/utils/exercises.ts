@@ -17,22 +17,24 @@ export const EXERCISE_ROOTS = [
   "B",
 ] as const;
 
-// A quality: the suffix appended to the root, plus a human label.
-export const EXERCISE_QUALITIES: { suffix: string; label: string }[] = [
-  { suffix: "", label: "major" },
-  { suffix: "m", label: "minor" },
-  { suffix: "7", label: "dominant 7th" },
-  { suffix: "maj7", label: "major 7th" },
-  { suffix: "m7", label: "minor 7th" },
-  { suffix: "6", label: "sixth" },
-  { suffix: "m6", label: "minor sixth" },
-  { suffix: "dim", label: "diminished" },
-  { suffix: "aug", label: "augmented" },
-  { suffix: "sus2", label: "suspended 2nd" },
-  { suffix: "sus4", label: "suspended 4th" },
-  { suffix: "9", label: "ninth" },
-  { suffix: "add9", label: "added 9th" },
-  { suffix: "m7b5", label: "half-diminished" },
+import { m } from "../paraglide/messages.js";
+
+// A quality: the suffix appended to the root, plus its name in the language shown.
+export const EXERCISE_QUALITIES: { suffix: string; label: () => string }[] = [
+  { suffix: "", label: m["chord.major"] },
+  { suffix: "m", label: m["chord.minor"] },
+  { suffix: "7", label: m["chord.dominant7"] },
+  { suffix: "maj7", label: m["chord.major7"] },
+  { suffix: "m7", label: m["chord.minor7"] },
+  { suffix: "6", label: m["chord.sixth"] },
+  { suffix: "m6", label: m["chord.minorSixth"] },
+  { suffix: "dim", label: m["chord.diminished"] },
+  { suffix: "aug", label: m["chord.augmented"] },
+  { suffix: "sus2", label: m["chord.sus2"] },
+  { suffix: "sus4", label: m["chord.sus4"] },
+  { suffix: "9", label: m["chord.ninth"] },
+  { suffix: "add9", label: m["chord.add9"] },
+  { suffix: "m7b5", label: m["chord.halfDiminished"] },
 ];
 
 export interface ChordPrompt {
@@ -51,11 +53,11 @@ export function randomChord(avoid?: string): ChordPrompt {
     const root = pick(EXERCISE_ROOTS);
     const q = pick(EXERCISE_QUALITIES);
     const symbol = root + q.suffix;
-    if (symbol !== avoid) return { symbol, quality: q.label };
+    if (symbol !== avoid) return { symbol, quality: q.label() };
   }
   const root = pick(EXERCISE_ROOTS);
   const q = pick(EXERCISE_QUALITIES);
-  return { symbol: root + q.suffix, quality: q.label };
+  return { symbol: root + q.suffix, quality: q.label() };
 }
 
 /** `size` DIFFERENT items of `pool`, in random order — fewer when the pool holds fewer. */

@@ -1,5 +1,6 @@
 import { describeMicError } from "@k7/recorder";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { micErrors } from "../recorderLabels";
 
 // "mix" sums every channel to mono; a number picks one 0-based input channel.
 export type ChannelSel = "mix" | number;
@@ -147,7 +148,7 @@ export function useRemoteInput(): RemoteInput {
         setOutputStream(dest.stream);
         rafRef.current = requestAnimationFrame(tick);
       } catch (err) {
-        if (!cancelled) setError(describeMicError(err));
+        if (!cancelled) setError(describeMicError(err, micErrors()));
       }
     })();
 
@@ -163,7 +164,9 @@ export function useRemoteInput(): RemoteInput {
   const setDevice = useCallback(
     (id: string) => {
       setError(null);
-      openDevice(id).catch((err) => setError(describeMicError(err)));
+      openDevice(id).catch((err) =>
+        setError(describeMicError(err, micErrors())),
+      );
     },
     [openDevice],
   );

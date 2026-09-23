@@ -16,6 +16,7 @@ import { MomentPlayer, TagInput, Waveform } from "@k7/recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
 import { fmtTime, sessionTitle } from "../format";
+import { m } from "../paraglide/messages.js";
 import type {
   Annotation,
   DetectedEvent,
@@ -241,12 +242,12 @@ export function SessionDetailView({
   return (
     <div>
       <div className="detail-head">
-        <BackButton to="Recordings" onClick={onBack} />
+        <BackButton to={m["nav.recordings"]()} onClick={onBack} />
         <h2>{sessionTitle(session.createdAt)}</h2>
       </div>
 
       {!session.hasRecording ? (
-        <p className="muted">This session has no recording yet.</p>
+        <p className="muted">{m["session.empty"]()}</p>
       ) : (
         <>
           <audio
@@ -290,11 +291,11 @@ export function SessionDetailView({
                 <Button onClick={togglePlay}>
                   {playing ? (
                     <>
-                      <Pause className="size-4" /> Pause
+                      <Pause className="size-4" /> {m["common.pause"]()}
                     </>
                   ) : (
                     <>
-                      <Play className="size-4" /> Play
+                      <Play className="size-4" /> {m["common.play"]()}
                     </>
                   )}
                 </Button>
@@ -304,25 +305,25 @@ export function SessionDetailView({
                 <Button
                   variant="outline"
                   onClick={() => onAddMarker(currentTime)}
-                  title="Drop a marker at the current position"
+                  title={m["marker.addTitle"]()}
                 >
-                  <Flag className="size-4" /> Add marker
+                  <Flag className="size-4" /> {m["marker.add"]()}
                 </Button>
                 <Button
                   variant="outline"
                   className="ml-auto"
                   onClick={onResume}
-                  title="Record more audio onto the end of this session"
+                  title={m["session.continueTitle"]()}
                 >
                   <Circle className="size-3 fill-current text-destructive" />{" "}
-                  Continue recording
+                  {m["session.continue"]()}
                 </Button>
               </div>
 
               <Card className="controls">
                 <div className="control">
                   <label>
-                    Silence floor (min volume):{" "}
+                    {m["session.floor"]()}{" "}
                     <b>
                       {(
                         ((threshold ?? 0) / (eventsResult.peak || 1)) *
@@ -330,7 +331,7 @@ export function SessionDetailView({
                       ).toFixed(0)}
                       %
                     </b>{" "}
-                    of peak
+                    {m["session.ofPeak"]()}
                   </label>
                   <input
                     type="range"
@@ -343,7 +344,7 @@ export function SessionDetailView({
                 </div>
                 <div className="control">
                   <label>
-                    Min silence gap: <b>{minSilence}s</b>
+                    {m["session.minGap"]()} <b>{minSilence}s</b>
                   </label>
                   <input
                     type="range"
@@ -357,41 +358,37 @@ export function SessionDetailView({
               </Card>
 
               {eventsResult.events.length === 0 && (
-                <p className="muted small">
-                  No moments detected at this floor. Lower it to pick up quieter
-                  playing.
-                </p>
+                <p className="muted small">{m["session.noneDetected"]()}</p>
               )}
             </>
           )}
 
           <Card id="comment-box" className="comment-box">
-            <h3>Add a moment</h3>
+            <h3>{m["session.addMoment"]()}</h3>
             {selection ? (
               <div className="row">
                 <span className="muted small">
-                  Selected {fmtTime(Math.min(selection.start, selection.end))} –{" "}
-                  {fmtTime(Math.max(selection.start, selection.end))}
+                  {m["session.selected"]({
+                    from: fmtTime(Math.min(selection.start, selection.end)),
+                    to: fmtTime(Math.max(selection.start, selection.end)),
+                  })}
                 </span>
                 <Button onClick={saveSelectionMoment}>
-                  <Diamond className="size-4" /> Save moment
+                  <Diamond className="size-4" /> {m["session.saveMoment"]()}
                 </Button>
                 <Button variant="outline" onClick={() => setSelection(null)}>
-                  Clear
+                  {m["session.clear"]()}
                 </Button>
               </div>
             ) : (
-              <p className="muted small">
-                Drag across the waveform to select a timespan (or save a
-                detected highlight). You can name and tag it after saving.
-              </p>
+              <p className="muted small">{m["session.selectHelp"]()}</p>
             )}
           </Card>
 
           {session.markers.length > 0 && (
             <>
               <h3>
-                Markers{" "}
+                {m["session.markers"]()}{" "}
                 <span className="muted small">({session.markers.length})</span>
               </h3>
               <ul className="marker-list">
@@ -409,9 +406,12 @@ export function SessionDetailView({
           )}
 
           <h3>
-            Moments <span className="muted small">({momentList.length})</span>
+            {m["session.moments"]()}{" "}
+            <span className="muted small">({momentList.length})</span>
           </h3>
-          {momentList.length === 0 && <p className="muted">No moments yet.</p>}
+          {momentList.length === 0 && (
+            <p className="muted">{m["session.noMoments"]()}</p>
+          )}
           <ul className="annotation-list">
             {momentList.map((row) =>
               row.kind === "saved" ? (
@@ -447,7 +447,7 @@ export function SessionDetailView({
                     <span className="muted small">
                       ({fmtTime(row.ev.durationSec)})
                     </span>{" "}
-                    <Badge variant="tag">detected</Badge>
+                    <Badge variant="tag">{m["session.detected"]()}</Badge>
                   </span>
                   <div className="row">
                     <Button
@@ -455,14 +455,15 @@ export function SessionDetailView({
                       size="sm"
                       onClick={() => playRange(row.ev.startSec, row.ev.endSec)}
                     >
-                      <Play className="size-4" /> Play
+                      <Play className="size-4" /> {m["common.play"]()}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => saveMoment(row.ev.startSec, row.ev.endSec)}
                     >
-                      <Diamond className="size-4" /> Save as moment
+                      <Diamond className="size-4" />{" "}
+                      {m["session.saveAsMoment"]()}
                     </Button>
                   </div>
                 </li>
@@ -568,7 +569,7 @@ function MomentRow({
       <Button
         variant="link"
         onClick={() => onPlay(shownStart, shownEnd)}
-        title="Play in the session"
+        title={m["moment.playInSession"]()}
       >
         {ann.validated && <Check className="size-3.5" />}
         {fmtTime(shownStart)} – {fmtTime(shownEnd)}
@@ -579,13 +580,13 @@ function MomentRow({
           size="sm"
           disabled={validating === ann.id}
           onClick={() => onValidate(ann.id)}
-          title="Extract a standalone clip of this timespan"
+          title={m["moment.validateTitle"]()}
         >
           {validating === ann.id ? (
-            "Extracting…"
+            m["moment.extracting"]()
           ) : (
             <>
-              <Check className="size-4" /> Validate
+              <Check className="size-4" /> {m["moment.validate"]()}
             </>
           )}
         </Button>
@@ -595,9 +596,9 @@ function MomentRow({
           variant="outline"
           size="sm"
           onClick={onBeginEdit}
-          title="Adjust this moment's time range"
+          title={m["moment.adjustTitle"]()}
         >
-          <MoveHorizontal className="size-4" /> Adjust range
+          <MoveHorizontal className="size-4" /> {m["moment.adjust"]()}
         </Button>
       )}
       <Button variant="outline" size="sm" onClick={() => onDelete(ann.id)}>
@@ -606,11 +607,9 @@ function MomentRow({
 
       {isEditing && (
         <div className="moment-range-edit">
-          <p className="muted small">
-            Drag the handles on the waveform above, or nudge:
-          </p>
+          <p className="muted small">{m["moment.nudgeHelp"]()}</p>
           <div className="row range-nudge">
-            <span className="muted small">Start</span>
+            <span className="muted small">{m["moment.start"]()}</span>
             <Button
               variant="outline"
               size="sm"
@@ -622,7 +621,7 @@ function MomentRow({
               +0.5s
             </Button>
             <span className="muted small" style={{ marginLeft: 8 }}>
-              End
+              {m["moment.end"]()}
             </span>
             <Button variant="outline" size="sm" onClick={() => nudgeEnd(-0.5)}>
               −0.5s
@@ -633,10 +632,10 @@ function MomentRow({
           </div>
           <div className="row">
             <Button size="sm" onClick={onApplyEdit}>
-              <Check className="size-4" /> Apply &amp; re-extract
+              <Check className="size-4" /> {m["moment.apply"]()}
             </Button>
             <Button variant="outline" size="sm" onClick={onCancelEdit}>
-              Cancel
+              {m["common.cancel"]()}
             </Button>
           </div>
         </div>
@@ -645,7 +644,7 @@ function MomentRow({
       <div className="row moment-edit">
         <Input
           value={name}
-          placeholder="Name…"
+          placeholder={m["moment.name"]()}
           onChange={(e) => setName(e.target.value)}
           onBlur={saveName}
           onKeyDown={(e) => {
@@ -656,6 +655,7 @@ function MomentRow({
           value={ann.tags}
           onChange={(tags) => onUpdate(ann.id, { tags })}
           suggestions={allTags}
+          removeLabel={(tag) => m["recorder.removeTag"]({ tag })}
         />
       </div>
       {ann.validated && (
@@ -663,6 +663,7 @@ function MomentRow({
           src={momentClipUrl(ann.id)}
           samples={clipSamples}
           intervalMs={envelope?.intervalMs ?? 200}
+          labels={{ play: m["common.play"](), pause: m["common.pause"]() }}
         />
       )}
     </li>
@@ -691,13 +692,13 @@ function MarkerRow({ marker, onSeek, onUpdate, onDelete }: MarkerRowProps) {
       <Button
         variant="link"
         onClick={() => onSeek(marker.atSec)}
-        title="Jump to this marker"
+        title={m["marker.jump"]()}
       >
         <Flag className="size-4" /> {fmtTime(marker.atSec)}
       </Button>
       <Input
         value={comment}
-        placeholder="Comment…"
+        placeholder={m["marker.comment"]()}
         onChange={(e) => setComment(e.target.value)}
         onBlur={saveComment}
         onKeyDown={(e) => {

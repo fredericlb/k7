@@ -18,6 +18,8 @@ import {
   timingsFrom,
 } from "@k7/lyrics";
 import { useRef, useState } from "react";
+import { isOne } from "../i18n";
+import { m } from "../paraglide/messages.js";
 import type { LrcCandidate, LyricTiming } from "../types";
 
 interface Props {
@@ -80,25 +82,23 @@ export function TimedLyricsDialog({
     // No lyrics yet: the file IS them, so there is nothing to pair.
     if (lyrics.trim() === "") {
       const result = importLrc("", source);
-      if (!result.ok) throw new Error("This file has no timed lyrics.");
+      if (!result.ok) throw new Error(m["lrc.noTimings"]());
       await onSave(result.lyrics, result.timings);
       close();
       return;
     }
     const next = alignLrc(lyrics, source);
-    if (next.lrc.length === 0)
-      throw new Error("This file has no timed lyrics.");
+    if (next.lrc.length === 0) throw new Error(m["lrc.noTimings"]());
     setCandidates(null);
     setPicked(null);
     setAlignment(next);
   };
 
   const search = () =>
-    run("Searching LRCLIB…", async () => {
+    run(m["lrc.searching"](), async () => {
       setCandidates(null);
       const found = await onFindLrc(trackSeconds());
-      if (found.length === 0)
-        throw new Error("No timed lyrics found on LRCLIB for this song.");
+      if (found.length === 0) throw new Error(m["lrc.notFound"]());
       if (found.length === 1) return take(found[0].syncedLyrics);
       setCandidates(found);
     });
@@ -127,7 +127,7 @@ export function TimedLyricsDialog({
   };
 
   const save = () =>
-    run("Saving…", async () => {
+    run(m["common.saving"](), async () => {
       if (!alignment) return;
       await onSave(
         null,
@@ -143,11 +143,14 @@ export function TimedLyricsDialog({
     >
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Timed lyrics</DialogTitle>
+          <DialogTitle>{m["lrc.title"]()}</DialogTitle>
           <DialogDescription>
             {alignment
-              ? `${alignment.matched} of ${alignment.total} lines paired — click a line, then its line on the right; click a paired line to undo it.`
-              : "Add an LRC file, or find one for this song on LRCLIB."}
+              ? m["lrc.paired"]({
+                  matched: alignment.matched,
+                  total: alignment.total,
+                })
+              : m["lrc.intro"]()}
           </DialogDescription>
         </DialogHeader>
 
@@ -158,17 +161,17 @@ export function TimedLyricsDialog({
               disabled={busy !== null}
               onClick={() => file.current?.click()}
             >
-              Add an LRC file…
+              {m["lrc.addFile"]()}
             </Button>
             <Button variant="outline" disabled={busy !== null} onClick={search}>
-              Find timed lyrics
+              {m["lrc.find"]()}
             </Button>
           </div>
         )}
 
         {candidates && (
           <div className="lrc-candidates">
-            <span className="muted small">Pick a version:</span>
+            <span className="muted small">{m["lrc.pick"]()}</span>
             {candidates.map((c) => (
               <Button
                 key={c.id}
@@ -176,7 +179,9 @@ export function TimedLyricsDialog({
                 size="sm"
                 disabled={busy !== null}
                 title={`${c.artistName} — ${c.trackName}`}
-                onClick={() => void run("Reading…", () => take(c.syncedLyrics))}
+                onClick={() =>
+                  void run(m["lrc.reading"](), () => take(c.syncedLyrics))
+                }
               >
                 {c.albumName || c.trackName} · {clock(c.duration).slice(0, -3)}
               </Button>
@@ -233,18 +238,21 @@ export function TimedLyricsDialog({
             const chosen = e.target.files?.[0];
             e.target.value = "";
             if (chosen)
-              void run("Reading…", async () => take(await chosen.text()));
+              void run(m["lrc.reading"](), async () =>
+                take(await chosen.text()),
+              );
           }}
         />
 
         <DialogFooter>
           <Button variant="secondary" onClick={close}>
-            Cancel
+            {m["common.cancel"]()}
           </Button>
           {alignment && (
             <Button disabled={busy !== null} onClick={save}>
-              Save {alignment.matched} timecode
-              {alignment.matched === 1 ? "" : "s"}
+              {isOne(alignment.matched)
+                ? m["lrc.save.one"]({ n: alignment.matched })
+                : m["lrc.save.other"]({ n: alignment.matched })}
             </Button>
           )}
         </DialogFooter>
