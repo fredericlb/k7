@@ -233,7 +233,8 @@ h3 {
 
 /* The app bar is the design system's AppHeader, so this legacy look stays out of it. */
 /* A design-system SWITCH is a <button> too, and this padding crushed its thumb to a sliver. */
-button:not(header button):not([data-slot="switch"]) {
+/* So is a TAB trigger, whose active state this unlayered fill hid; one :not() keeps the specificity. */
+button:not(header button):not([data-slot="switch"], [role="tab"]) {
   border: none;
   border-radius: 8px;
   padding: 9px 14px;
@@ -245,7 +246,7 @@ button:not(header button):not([data-slot="switch"]) {
   transition: background 0.12s, border-color 0.12s, filter 0.12s;
 }
 /* Excluded here too, or hovering the switch would grey out the track it colours itself. */
-button:not(header button):not([data-slot="switch"]):hover:not(:disabled) {
+button:not(header button):not([data-slot="switch"], [role="tab"]):hover:not(:disabled) {
   background: #2c2d36;
 }
 button:disabled {
