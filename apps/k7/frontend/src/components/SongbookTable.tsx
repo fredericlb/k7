@@ -2,7 +2,7 @@
 // A click anywhere on a row opens the song; the star and the links act on their own and stop there.
 
 import { Button } from "@frediverse/ui/button";
-import { Star } from "@frediverse/ui/icons";
+import { FileMusic, Guitar, MicVocal, Star } from "@frediverse/ui/icons";
 import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
 import type { Song, SongTab } from "../types";
@@ -18,18 +18,21 @@ interface Props {
 const LINKS = [
   [
     "lyrics",
+    MicVocal,
     m["song.tab.lyrics"],
     m["songbook.open.lyrics"],
     m["songbook.none.lyrics"],
   ],
   [
     "tablature",
+    Guitar,
     m["song.tab.tablature"],
     m["songbook.open.tablature"],
     m["songbook.none.tablature"],
   ],
   [
     "sheet",
+    FileMusic,
     m["song.tab.sheet"],
     m["songbook.open.sheet"],
     m["songbook.none.sheet"],
@@ -88,11 +91,16 @@ export function SongbookTable({
                   />
                 </button>
               </td>
-              <td className="songbook-artist">{s.artist}</td>
-              <td className="songbook-title">{s.title}</td>
-              <td>
+              {/* Cut with … when too long, so a narrow screen never scrolls sideways; the tooltip has it whole. */}
+              <td className="songbook-artist" title={s.artist}>
+                {s.artist}
+              </td>
+              <td className="songbook-title" title={s.title}>
+                {s.title}
+              </td>
+              <td className="songbook-links">
                 <div className="song-links">
-                  {LINKS.map(([key, label, open, none]) => {
+                  {LINKS.map(([key, Icon, label, open, none]) => {
                     const filled =
                       key === "sheet"
                         ? s.sheets.length > 0
@@ -105,12 +113,14 @@ export function SongbookTable({
                         className="song-link"
                         disabled={!filled}
                         title={filled ? open() : none()}
+                        aria-label={label()}
                         onClick={(e) => {
                           e.stopPropagation();
                           onOpenSong(s, key);
                         }}
                       >
-                        {label()}
+                        <Icon className="size-4" />
+                        <span className="song-link-label">{label()}</span>
                       </Button>
                     );
                   })}

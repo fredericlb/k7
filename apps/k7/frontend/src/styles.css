@@ -595,10 +595,7 @@ input[type="range"] {
   gap: 6px;
   margin-top: 8px;
 }
-/* The songbook: one row per song, favourite · artist · title · links; a narrow screen scrolls it sideways. */
-.songbook-table-wrap {
-  overflow-x: auto;
-}
+/* The songbook: one row per song, favourite · artist · title · links, never wider than the screen. */
 .songbook-table {
   width: 100%;
   border-collapse: collapse;
@@ -629,6 +626,19 @@ input[type="range"] {
 }
 .songbook-table .songbook-title {
   font-weight: 600;
+}
+/* Artist and title share what the star and the links leave, cut with … rather than widening the table. */
+.songbook-table .songbook-artist,
+.songbook-table .songbook-title {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.songbook-table .songbook-links,
+.songbook-table .songbook-links-head {
+  width: 1%;
+  white-space: nowrap;
 }
 .songbook-table .song-links {
   margin-top: 0;
@@ -1578,6 +1588,18 @@ select {
   .topbar-inner {
     gap: 4px;
     padding: 8px 12px;
+  }
+  /* The songbook's links keep their icon and drop their word, so the row fits the screen. */
+  .song-link-label {
+    display: none;
+  }
+  .songbook-table .song-link {
+    padding: 3px 7px;
+  }
+  .songbook-table th,
+  .songbook-table td {
+    padding-left: 6px;
+    padding-right: 6px;
   }
   .brand-text,
   .nav-label,
