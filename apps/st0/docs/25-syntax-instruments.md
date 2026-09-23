@@ -221,6 +221,28 @@ params:
   Peak: 0      # measured by the cold pass; 0 until it has run, so the module only attenuates
 ```
 
+## _modules/<type>/<name>/module.yaml — a module that needs a MODEL
+
+A separating module names its neural model like any file-valued param (`onnx:`), but 166 MB does
+not travel through a library repository: the machine keeps it in `~/.st0/models`. `model_url:` says
+where that file can be **downloaded** from, so a machine that has not got it can fetch it rather
+than be told to go and find it.
+
+Then, on a machine without the model, the module's node offers **Download model** as the first
+entry of its right-click in the graph, and a cold chain using it offers the same as a link in st0's
+settings (*Separation chains*) once that chain is chosen. Either one fetches the file into
+`~/.st0/models` under the name `onnx:` gives it, and the node or chain works from there on. The URL
+is only ever read off the module: nothing a page sends can make the machine download anything else.
+
+```yaml schema=Module
+# _modules/audio/separation/stemsplit/module.yaml — one mix in, four stems out
+cold: true
+plugin: { type: offline, name: Stem Split }
+params:
+  onnx: htdemucs_fp16weights.onnx
+model_url: https://models.example.org/htdemucs_fp16weights.onnx
+```
+
 ## _modules/<type>/<name>/module.yaml — keeping the palette readable
 
 `status:` says how the **completions** should treat this module, and nothing else. It changes no

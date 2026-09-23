@@ -101,6 +101,8 @@ export interface WebChainStep {
   notSupported?: boolean; // plugin.type is "not_supported" — st0 can't load it; bypassed
   unknownPlugin?: boolean; // plugin.type is an UNKNOWN format (typo / unimported) — bypassed
   hasNativePluginUI?: boolean; // an external plugin with a native editor the engine can open
+  /** The model this module names and the machine has not got, when its `model_url` says where to fetch it — the right-click's "Download model". */
+  modelDownload?: { file: string; url: string };
   // The UI inside this module's rectangle, already merged; undefined == neither it nor its base defines one.
   ui?: WebModuleUI;
   // Which MIDI CC plays which param, from the module FOLDER's controller.yaml, keyed by `bind` verbatim.

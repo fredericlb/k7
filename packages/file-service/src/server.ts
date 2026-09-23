@@ -57,6 +57,7 @@ import {
   unloadEngineIfServing,
 } from "./engineLink.ts";
 import { librariesUri, setLibrariesUri } from "./libraries.ts";
+import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { startMediatekPuller } from "./mediatekPull.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
@@ -554,6 +555,40 @@ app.put(
     if (which === "stems") setStemsChain(ref);
     else setInstrumentalChain(ref);
     res.json(coldChainsView());
+  }),
+);
+
+/**
+ * Download the models a cold chain needs and this machine has not got — the settings' "Download
+ * model" link. What is fetched, and from where, is read off the chain's own modules (`model_url`),
+ * never taken from the caller. Answers one job per model, polled below.
+ */
+app.post(
+  "/account/cold-chains/download",
+  wrap((req, res) => {
+    const ref = String((req.body as { ref?: unknown })?.ref ?? "").trim();
+    const chain = coldChainsView().chains.find((c) => c.ref === ref);
+    if (!chain)
+      return res
+        .status(404)
+        .json({ error: `'${ref}' is not a cold chain of the library` });
+    if (!chain.downloads.length)
+      return res.status(400).json({
+        error: `'${ref}' needs no model this machine can download`,
+      });
+    res.json({
+      jobs: chain.downloads.map((d) => startModelDownload(d.file, d.url)),
+    });
+  }),
+);
+
+/** One model download, as it stands — account-level, so both the settings and a project poll it here. */
+app.get(
+  "/account/models/:id",
+  wrap((req, res) => {
+    const job = modelDownload(req.params.id);
+    if (!job) return res.status(404).json({ error: "no such download" });
+    res.json(job);
   }),
 );
 

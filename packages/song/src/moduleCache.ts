@@ -6,6 +6,7 @@
 import { type Dirent, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { EXTS_PATH } from "./engineCatalogue";
+import { modelsRoot } from "./modelCache";
 import { modulePanelRoots } from "./sharedFolders";
 
 /** A file whose CONTENT says what a module is. Everything else is named in the stamp, not stat'd. */
@@ -58,6 +59,9 @@ function moduleStamp(dir: string): string {
   walk(join(dir, "nodes"), 0);
   // A rescan rewrites this and touches no library — `@engine/…` refs come out of it.
   stamp(EXTS_PATH);
+  // …and a model landing in the machine's cache changes what a module's `onnx:` resolves to, in no
+  // module folder: the folder's own mtime moves when one is renamed into it (docs/moduleAssets.md).
+  stamp(modelsRoot());
   return `${(hash >>> 0).toString(36)}:${entries}:${newest}`;
 }
 

@@ -107,6 +107,45 @@ engine binary and the plugin scan.
 not redirected to the cache: the fallback must not become a way to launder an escaping ref. The
 cache is consulted only for a name that already passed. Pinned in `moduleAssets.test.ts`.
 
+### `model_url` — where the machine can fetch it
+
+A model that lives outside the repository has to get onto each machine somehow, and "put it in
+`~/.st0/models`" was the whole of the answer: nothing said where the 166 MB came from. A module
+may now say so, beside the name it already gives:
+
+```yaml
+params:
+  onnx: htdemucs_fp16weights.onnx
+model_url: https://models.example.org/htdemucs_fp16weights.onnx
+```
+
+It is a top-level key, inherited like `plugin` and `cold` (`graph.ts`'s `toModule` carries it, with
+`onnx`), so every node of the module — and every chain step extending it — knows it too.
+`missingModel` (`modelCache.ts`) is the one question asked of a resolved module: which model it
+NAMES that resolved to nothing, and where it downloads from. An authored name with no resolved path
+is exactly "not here": the loader has already tried `assets/` and the cache.
+
+Two surfaces offer the download, and neither sends a URL:
+
+- a node's right-click in the graph — **Download model**, first in its menu. The file service marks
+  the step (`modelDownload` on the graph document, `graphDoc.ts`) and `POST /models/download` takes
+  the NODE NAME, resolving it as the graph did;
+- st0's settings, *Separation chains* — a link under a chosen cold chain that cannot run for want of
+  a model (`coldChains`' `downloads`), `POST /account/cold-chains/download` taking the CHAIN REF.
+
+**The URL is only ever read off the module.** A page names what it clicked, and the server finds
+the model and its `model_url` itself — so nothing a browser sends can point this machine at an
+arbitrary address, and where the bytes land is the module's authored name, confined to the cache
+by `modelCachePath` exactly as the resolver confines a ref. `../` in a name is refused, not cleaned.
+
+The download is a **job** (`file-service`'s `modelDownloads.ts`), polled at `GET
+/account/models/:id`: written to `<file>.part`, checked against the announced size, and renamed
+only when complete, so the loader never finds half a model. Two asks for one file share one job; a
+file already present is a job that is done at once. When one lands, `moduleFoldersMoved()` is
+called and the models folder's mtime is in both the module stamp (`moduleCache.ts`) and the
+workspace revision — the cache is in no module folder, and without that a finished download would
+change nothing until something else did.
+
 ## A dangling ref is reported, not silent
 
 The loader resolves each file-valued param to an absolute path and leaves it `undefined` when it

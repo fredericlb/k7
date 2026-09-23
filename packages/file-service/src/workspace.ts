@@ -39,6 +39,7 @@ import {
 } from "@studio/song/assemblies";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
+import { loadGraph } from "@studio/song/graph";
 import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
 import {
@@ -56,6 +57,11 @@ import {
   withModuleStamp,
 } from "@studio/song/loader";
 import { SETTLE_MS } from "@studio/song/moduleCache";
+import {
+  type MissingModel,
+  missingModel,
+  modelsRoot,
+} from "@studio/song/modelCache";
 import {
   type CatalogueModule,
   moduleCatalogue,
@@ -653,6 +659,13 @@ export class Workspace {
       );
     return this.activeProject;
   }
+
+  /** The model a node of the ACTIVE project names and this machine has not got, resolved as the graph resolves it — null when it has it. */
+  missingModelOf(node: string): MissingModel | null {
+    const m = loadGraph(this.requireActive()).modules[node];
+    if (!m) throw new Error(`no node '${node}' in this project`);
+    return missingModel(m);
+  }
   private readActiveMarker(): string | null {
     try {
       const rel = readFileSync(join(this.root, ACTIVE_MARKER), "utf8").trim();
@@ -981,6 +994,9 @@ export class Workspace {
     let newest = mtimeOf(EXTS_PATH);
     const prefsAt = mtimeOf(PREFS_PATH);
     if (prefsAt > newest) newest = prefsAt;
+    // A model arriving in the machine's cache changes what the graph offers to download.
+    const modelsAt = mtimeOf(modelsRoot());
+    if (modelsAt > newest) newest = modelsAt;
     let count = 0;
     for (const f of files) {
       if (!f.source) continue;

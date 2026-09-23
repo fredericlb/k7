@@ -123,6 +123,8 @@ export interface LoadedModule {
   rack?: RawRack;
   // Needs the WHOLE input before producing any of it, and is inherited — see docs/coldModules.md.
   cold?: boolean;
+  // Where the model a file-valued param names can be downloaded from — see docs/moduleAssets.md.
+  model_url?: string;
   // shaders only — which folder under the module's `shaders/` this node runs (song-video's docs/shaders.md).
   shader?: unknown;
   // shapes only — which primitive it draws, and the family a `text` one is set in (song-video's docs/shapes.md).

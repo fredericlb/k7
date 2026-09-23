@@ -75,6 +75,8 @@ export const UI_HEADS: readonly string[] = [
   "language ",
   "pin ",
   "copy path ",
+  // A node's MODEL, fetched from its module's `model_url` — the right-click's "Download model", followed on the status line.
+  "model ",
 ];
 
 // The tree's verbs are `fs file new` … and share a head with nothing, so no list of bare names is needed here.

@@ -182,6 +182,7 @@ import {
 } from "./keys";
 import { laneGains } from "./laneGains";
 import { isLibraryPath, libraryModuleRef } from "./libraryTree";
+import { describeDownload, followDownload } from "./modelDownload";
 import { BARE_TRANSPORT, isUiLine, namesLine } from "./localCommands";
 import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
 import {
@@ -1355,6 +1356,25 @@ export default function App({
       // No `project new` or `project delete` here: making and unmaking a project is the home page's, not this shell's — packages/project-shell/docs/launch.md.
       if (line.startsWith("file ")) {
         openInEditor(s.slice(5).trim());
+        return true;
+      }
+      // A node's model, fetched from its module's `model_url` — the right-click's "Download model". Followed on the
+      // status line, and the graph re-read at the end, which is what takes the entry off the node's menu.
+      if (line.startsWith("model ")) {
+        const node = s.slice("model ".length).trim();
+        void api
+          .downloadModel(node)
+          .then(async ({ job }) => {
+            if (!job) {
+              setStatus(`${node}'s model is already on this machine`);
+              return;
+            }
+            const end = await followDownload(job, api.modelDownload, (j) =>
+              setStatus(describeDownload(j)),
+            );
+            if (!end.error) bumpReload();
+          })
+          .catch((e: Error) => setStatus(e.message));
         return true;
       }
       if (line === "help") {

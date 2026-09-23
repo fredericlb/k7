@@ -24,6 +24,8 @@ describe("derived module fields", () => {
       "rack",
       // A COLD module works only on audio already on disk — see docs/coldModules.md.
       "cold",
+      // …and where the model a file-valued param names can be downloaded from — packages/song/docs/moduleAssets.md.
+      "model_url",
       // `ir`, `nam` and `jsdsp` carry no field of their own, so there is nothing to complete against (docs/fields.md).
       "channel",
       // …and WHICH lens an io "camera" opens, plus where in the viewport it draws — docs/camera.md.

@@ -16,6 +16,7 @@ import {
   type MachineWorkspaceList,
   type RepoProject,
   type ColdChainsReply,
+  type ModelDownloadJob,
   type RepoRef,
   type ServedProject,
   type ServedProjectReply,
@@ -210,6 +211,31 @@ export const engineMachine = {
         body: JSON.stringify({ ref }),
       }),
       "cold-chains",
+    ),
+
+  /** Download the models a cold chain needs and this machine has not got — one job each; the URLs are the chain's modules', never sent from here. */
+  downloadChainModels: async (
+    m: Machine,
+    ref: string,
+  ): Promise<ModelDownloadJob[]> => {
+    const { jobs } = await json<{ jobs: ModelDownloadJob[] }>(
+      await fetch(`${m.fileBase}/account/cold-chains/download`, {
+        method: "POST",
+        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ ref }),
+      }),
+      "cold-chains/download",
+    );
+    return jobs;
+  },
+
+  /** One model download, as it stands. */
+  modelDownload: async (m: Machine, id: string): Promise<ModelDownloadJob> =>
+    json(
+      await fetch(`${m.fileBase}/account/models/${encodeURIComponent(id)}`, {
+        headers: machineHeaders(m),
+      }),
+      "models",
     ),
 
   /** The deploy key, MADE on this machine and never leaving it: one per machine, not one per account. */

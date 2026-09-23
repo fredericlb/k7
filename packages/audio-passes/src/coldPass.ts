@@ -55,8 +55,8 @@ export function coldStepOf(step: string, m: LoadedModule): ColdStep {
   return { step, model: String(m.onnx), outputs: outputsOf(step, m) };
 }
 
-/** What the pass writes: the outputs the module NAMES, the four stems when it names none of them. */
-function outputsOf(step: string, m: LoadedModule): SeparationOutput[] {
+/** What the pass writes: the outputs the module NAMES, the four stems when it names none of them. Needs no model. */
+export function outputsOf(step: string, m: LoadedModule): SeparationOutput[] {
   const named = (m.outputs ?? []).map((o) => String(o.name));
   const known = named.filter(isSeparationOutput);
   // A module that names none of them inherited its port from its type, and separates the four.

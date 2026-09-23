@@ -13,6 +13,7 @@ import type {
 } from "@studio/graph-model";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { loadCurves } from "@studio/song/curves";
+import { missingModel } from "@studio/song/modelCache";
 import { activeFreezePlans } from "@studio/song/freeze";
 import type { Rack } from "@studio/song/graph";
 import { inputLandingTrack, loadGraph } from "@studio/song/graph";
@@ -228,10 +229,15 @@ export function buildGraphDoc(
             };
             return true;
           });
+        // A model named and not here, with somewhere to fetch it from: what the node's right-click offers.
+        const needs = module ? missingModel(module) : null;
         return {
           module: s.module,
           // …and WHICH module it is a use of — the authored `extends`, see docs/graphFlags.md.
           ...(module?.extends ? { uses: String(module.extends) } : {}),
+          ...(needs?.url
+            ? { modelDownload: { file: needs.file, url: needs.url } }
+            : {}),
           // Everything below already reads `undefined` off a missing module; this flag is what lets the graph SAY so.
           missing: module ? undefined : true,
           // Only past one: a single flow input is what every node already draws.

@@ -184,10 +184,31 @@ export interface CatalogueModule {
   panel?: { cols: number; rows: number }; // its panel grid, what the picker sizes a card by
 }
 
+/** A model being fetched into this machine's cache — `POST …/download`, then polled at `GET /account/models/:id`. */
+export interface ModelDownloadJob {
+  id: string;
+  file: string;
+  url: string;
+  received: number;
+  /** Null when the server did not announce a size. */
+  total: number | null;
+  done: boolean;
+  error: string | null;
+}
+
 /** The machine's two separating choices and the library's COLD chains to make them from — `GET /account/cold-chains`. */
 export interface ColdChainsReply {
-  /** `@st0/<path>` refs; `instrumental` when one of its offline steps writes an instrumental. */
-  chains: { ref: string; instrumental: boolean }[];
+  /**
+   * `@st0/<path>` refs; `instrumental` when one of its offline steps writes an instrumental;
+   * `unavailable` says why THIS machine cannot run it yet (a model not downloaded), null when it can.
+   */
+  chains: {
+    ref: string;
+    instrumental: boolean;
+    unavailable: string | null;
+    /** Models it needs that this machine can DOWNLOAD — their module gives a `model_url`. */
+    downloads: { file: string; url: string }[];
+  }[];
   /** `null` is "never told": this machine separates nothing. */
   stemsChain: string | null;
   instrumentalChain: string | null;

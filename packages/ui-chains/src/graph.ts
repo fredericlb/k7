@@ -47,6 +47,8 @@ const CARRIED = [
   "shader",
   // The module this node is a USE of — the header draws it as the card's name.
   "uses",
+  // A model the machine has not got and can download — what the right-click offers to fetch.
+  "modelDownload",
 ] as const satisfies readonly (keyof WebChainStep)[];
 
 /** …and the optional flags, which the node wants definite rather than `undefined`. */

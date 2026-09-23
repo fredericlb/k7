@@ -15,7 +15,11 @@ import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
-import type { SeparateJob, StemsReply } from "@studio/web-protocol";
+import type {
+  ModelDownloadJob,
+  SeparateJob,
+  StemsReply,
+} from "@studio/web-protocol";
 import { serviceUrl } from "@studio/web-protocol/services";
 import type { CommandPrefs } from "./commandPrefs";
 import { libraryModuleRef } from "./libraryTree";
@@ -122,6 +126,17 @@ export const api = {
   references: () => fget<{ references: ReferenceTrack[] }>("/references"),
   // Only st0 has a timeline, so only st0 asks for the tracks a Strudel pattern drives; `createProject` and `deleteProject` are pl8's.
   strudelTracks: () => fget<WebTrack[]>("/strudel-tracks"),
+
+  // --- A node's model, fetched onto this machine (the right-click's "Download model") ---
+
+  /** Start fetching the model a NODE names from its module's `model_url`; `job: null` is "already here". */
+  downloadModel: (node: string) =>
+    fsend<{ job: ModelDownloadJob | null }>("POST", "/models/download", {
+      node,
+    }),
+  /** …and how far it is — account-level on the service, polled by the settings too. */
+  modelDownload: (id: string) =>
+    fget<ModelDownloadJob>(`/account/models/${encodeURIComponent(id)}`),
   // Upload raw bytes (octet-stream, not fsend). A 409 rides through with `.status` so a skip can be reported.
   upload: async (
     dir: string,
