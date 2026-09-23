@@ -397,7 +397,6 @@ export default function App() {
   };
 
   const allTags = [...new Set(moments.flatMap((m) => m.tags))].sort();
-  const favoriteSongs = songs.filter((s) => s.favorite);
 
   const openSong = (s: Song, tab?: SongTab) =>
     navigate(`/songs/${s.id}${tab ? `?tab=${tab}` : ""}`);
@@ -429,11 +428,9 @@ export default function App() {
     <div className="app">
       <HeaderView
         activeNav={activeNav}
-        favorites={favoriteSongs}
         onHome={() => navigate("/sessions")}
         onNav={(tab) => navigate(tabPath(tab))}
         onStartSession={handleStartSession}
-        onOpenSong={openSong}
         onOpenSettings={() => navigate("/settings")}
       />
 
