@@ -13,7 +13,7 @@ import {
 } from "@studio/engine-client/paths";
 
 export interface Settings {
-  /** The registries the user pinned from the tray's "st0 instances" tab, overriding every other tier; a LIST, because each service holds its own. */
+  /** The st0 instances the user added in the tray, as their pl8 registries, overriding `$STUDIO_REGISTRY_URL`; a LIST, one per studio the engine is connected to. An older file may hold st0 URLs — read as their pl8. */
   registryUrls: string[];
   /** The engine's WebSocket port. */
   port: number;

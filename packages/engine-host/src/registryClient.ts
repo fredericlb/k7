@@ -4,21 +4,28 @@
 // the engine as available, and a deregister on shutdown so it drops immediately
 // instead of waiting out the TTL.
 
-import { serviceUrl, studioOrigin } from "@studio/web-protocol/services";
+import {
+  engineRegistryUrl,
+  serviceUrl,
+  studioOrigin,
+} from "@studio/web-protocol/services";
 import type { EnginePresence } from "./addresses.ts";
 import type { EngineIdentity } from "./identity.ts";
 
-/** Where the registries live: what the user added, else `$STUDIO_REGISTRY_URL`, else nothing — a machine connected to no st0 instance. What local backends advertise is NOT read: see docs/supervisorPolicy.md. */
+/** Each URL as its family's ONE registry, pl8's, deduped — so a st0 URL an older settings file pinned is migrated in the READER, and st0 and pl8 of one family collapse to one heartbeat. */
+function asRegistries(urls: string[]): string[] {
+  return [
+    ...new Set(
+      urls.map((u) => engineRegistryUrl(u.trim())).filter((u) => u !== ""),
+    ),
+  ];
+}
+
+/** Where the registries live: what the user added, else `$STUDIO_REGISTRY_URL`, else nothing — a machine connected to no st0 instance. Always pl8's, and what local backends advertise is NOT read: see docs/supervisorPolicy.md. */
 export function resolveRegistryUrls(configured?: string[] | null): string[] {
-  if (configured?.length) return [...new Set(configured)];
-  if (process.env.STUDIO_REGISTRY_URL)
-    return [
-      ...new Set(
-        process.env.STUDIO_REGISTRY_URL.split(",")
-          .map((u) => u.trim())
-          .filter((u) => u !== ""),
-      ),
-    ];
+  if (configured?.length) return asRegistries(configured);
+  const env = process.env.STUDIO_REGISTRY_URL;
+  if (env) return asRegistries(env.split(","));
   return [];
 }
 

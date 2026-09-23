@@ -55,8 +55,8 @@ They have different constraints, hence two shapes:
   `upgrade` never crosses Express's middleware chain. Which is also why the cookie cannot guard
   it, and why there is a **ticket**.
 
-Each service calls `attachEngineProxy(server, registry)` after its `app.listen`, since each holds
-its own registry instance (see [shared.md](shared.md)).
+pl8 calls `attachEngineProxy(server, registry)` after its `app.listen`, being the one service
+that holds a registry (see [shared.md](shared.md)); st0's page relays through it.
 
 ## The ticket
 

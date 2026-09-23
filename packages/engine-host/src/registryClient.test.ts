@@ -9,7 +9,7 @@ const { mediatekUrlFor, resolveRegistryUrls } = await import(
   "./registryClient.ts"
 );
 
-// Every hosted service holds its OWN registry, so an engine must heartbeat to all of them to be pickable in all of them.
+// ONE registry per studio family, pl8's: st0 lists its engines from there, so an engine heartbeats nowhere else.
 
 let dir: string;
 const endpoints = () => join(dir, "web-endpoints");
@@ -46,20 +46,32 @@ describe("where an engine announces itself", () => {
     expect(resolveRegistryUrls()).toEqual([]);
   });
 
-  it("reads the env var as a deduped list", () => {
+  it("reads the env var as a deduped list of pl8 registries", () => {
     process.env.STUDIO_REGISTRY_URL =
-      "https://a.example, https://b.example,,https://a.example";
+      "https://a.example, https://b.example,,https://play.a.example";
     expect(resolveRegistryUrls()).toEqual([
-      "https://a.example",
-      "https://b.example",
+      "https://play.a.example",
+      "https://play.b.example",
     ]);
   });
 
   it("lets what the user added win over the env var, as tiers not a union", () => {
     process.env.STUDIO_REGISTRY_URL = "https://a.example";
     expect(resolveRegistryUrls(["https://studio.example"])).toEqual([
-      "https://studio.example",
+      "https://play.studio.example",
     ]);
+  });
+
+  it("reads a st0 URL an older settings file pinned as its family's pl8", () => {
+    // st0 no longer holds a registry: heartbeating to it would 404 forever, and its picker asks pl8 anyway.
+    expect(
+      resolveRegistryUrls([
+        "https://st0.app",
+        "https://play.st0.app",
+        "http://localhost:8789",
+        "not a url",
+      ]),
+    ).toEqual(["https://play.st0.app", "http://localhost:8795"]);
   });
 });
 

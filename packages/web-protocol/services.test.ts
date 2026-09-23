@@ -2,7 +2,13 @@
 // their OWN hostname, picking dev vs prod by whichever family that origin belongs to.
 
 import { describe, expect, it } from "vitest";
-import { authOrigin, serviceUrl, studioOrigin } from "./services.ts";
+import {
+  authOrigin,
+  engineRegistryUrl,
+  serviceUrl,
+  studioFamily,
+  studioOrigin,
+} from "./services.ts";
 
 describe("serviceUrl", () => {
   it("echoes st0 back on whatever origin it's given, dev or prod", () => {
@@ -71,5 +77,53 @@ describe("authOrigin", () => {
 
   it("returns '' for a string that is not a URL, never a throw", () => {
     expect(authOrigin("not a url")).toBe("");
+  });
+});
+
+describe("engineRegistryUrl", () => {
+  it("is pl8's, whichever service of the family was named", () => {
+    // One registry: st0 lists its engines from pl8, so an engine heartbeats nowhere else.
+    expect(engineRegistryUrl("https://st0.app")).toBe("https://play.st0.app");
+    expect(engineRegistryUrl("https://st0.app/band/winter.st0")).toBe(
+      "https://play.st0.app",
+    );
+    expect(engineRegistryUrl("https://play.st0.app")).toBe(
+      "https://play.st0.app",
+    );
+    expect(engineRegistryUrl("https://k7.st0.app")).toBe(
+      "https://play.st0.app",
+    );
+  });
+
+  it("uses pl8's dev PORT on a loopback host, where services are ports", () => {
+    expect(engineRegistryUrl("http://localhost:8789")).toBe(
+      "http://localhost:8795",
+    );
+    expect(engineRegistryUrl("http://127.0.0.1:5223")).toBe(
+      "http://127.0.0.1:8795",
+    );
+  });
+
+  it("returns '' for anything that is not a web URL", () => {
+    expect(engineRegistryUrl("not a url")).toBe("");
+    expect(engineRegistryUrl("ftp://st0.app")).toBe("");
+  });
+});
+
+describe("studioFamily", () => {
+  it("is st0's origin for any service of a hosted family", () => {
+    expect(studioFamily("https://play.st0.app/library")).toBe(
+      "https://st0.app",
+    );
+    expect(studioFamily("https://st0.app")).toBe("https://st0.app");
+  });
+
+  it("is the bare host on loopback, where services are only ports", () => {
+    expect(studioFamily("http://localhost:8795")).toBe("http://localhost");
+    expect(studioFamily("http://localhost:8789")).toBe("http://localhost");
+  });
+
+  it("returns '' for a string that is not a URL", () => {
+    expect(studioFamily("not a url")).toBe("");
   });
 });

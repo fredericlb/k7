@@ -152,9 +152,10 @@ running `npm run dev` connects nothing either (`packages/engine-host/docs/superv
 where one is added — its address typed into the form, and nowhere else.
 
 Each row is one instance as the supervisor's `instances` reports it: the union of the registries this
-engine heartbeats to and the origins `web-origins.json` lets through, keyed by origin, because to the
-user those are the same thing. Adding sends `weburi.add`, which does both — the origin is allowed and
-the engine is announced there, so it shows in that instance's picker. **Remove** sends `weburi.remove`,
+engine heartbeats to and the origins `web-origins.json` lets through, keyed by studio family and shown
+as st0's origin, because to the user those are the same thing. Adding sends `weburi.add`, which does
+both — st0's and pl8's pages are allowed, and the engine heartbeats to the family's one registry, pl8's,
+which is where st0's picker reads too. Typing `st0.app` or `play.st0.app` connects the same instance. **Remove** sends `weburi.remove`,
 which undoes both and deregisters at once. A registry that came from `$STUDIO_REGISTRY_URL` gets no Remove
 and says why: the environment is not the tray's to edit.
 

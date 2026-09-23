@@ -146,7 +146,7 @@ export const player = {
   },
 };
 
-/** This service's OWN registry, bound to its prefix and typed on the host's prefs (../docs/api.md). */
+/** THE engine registry — st0 and z0 list theirs from here too — bound to this prefix and typed on the host's prefs (../docs/api.md). */
 export const engines = engineAccess<PublicEngine, Pl8Prefs>(BASE, json);
 
 // `/api/projects` and `/api/shares` are this service's routes, called from st0 (../docs/api.md).

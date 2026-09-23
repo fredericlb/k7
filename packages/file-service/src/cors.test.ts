@@ -93,6 +93,14 @@ describe("allowedOrigin — default policy", () => {
     expect(allowedOrigin("https://other.example.org")).toBe(false);
   });
 
+  it("allows st0's pages along with pl8's registry, one family", () => {
+    // Only pl8 holds a registry, and st0 lists its engines from there — its pages still need the file service.
+    process.env.STUDIO_REGISTRY_URL = "https://play.st0.app";
+    expect(allowedOrigin("https://play.st0.app")).toBe(true);
+    expect(allowedOrigin("https://st0.app")).toBe(true);
+    expect(allowedOrigin("https://k7.st0.app")).toBe(false);
+  });
+
   it("survives a malformed origin or registry url without throwing", () => {
     process.env.STUDIO_REGISTRY_URL = "not a url";
     expect(allowedOrigin("also not a url")).toBe(false);

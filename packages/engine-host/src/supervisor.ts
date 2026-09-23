@@ -12,6 +12,12 @@ import {
 } from "@studio/engine-client/paths";
 import { loadPreferences, setSyncTargets } from "@studio/song/preferences";
 import type { SyncTarget } from "@studio/song-schema/syncTarget";
+import {
+  engineRegistryUrl,
+  isLoopbackHost,
+  serviceUrl,
+  studioFamily,
+} from "@studio/web-protocol/services";
 import { gatherAddresses } from "./addresses.ts";
 import { desiredSwitch, menuSignature, signature } from "./audioPolicy.ts";
 import { guard } from "./background.ts";
@@ -47,7 +53,6 @@ import {
   addOrigin,
   clearPending,
   loadOrigins,
-  normaliseBrowserOrigin,
   pendingOrigins,
   pendingStamp,
   removeOrigin,
@@ -128,29 +133,39 @@ interface State {
   lastAttempt: { target: string; sig: string } | null;
 }
 
-/** A registry URL or an origin reduced to the key both halves of one instance share. */
+/** The st0 instance a registry URL or an origin belongs to — its family's st0 origin, which pl8's registry and both services' pages share. */
 function instanceKey(url: string): string {
-  return normaliseBrowserOrigin(url) ?? url;
+  return studioFamily(url) || url;
 }
 
-/** The registries and the allowed origins as ONE list: to the user both are the same st0 instance, heartbeated to and let through. */
+/** The pages of one instance that reach the file service: st0's (z0 lives under it) and pl8's. None on loopback, where the file service admits any private http origin already. */
+function familyOrigins(origin: string): string[] {
+  const host = new URL(origin).hostname;
+  if (isLoopbackHost(host)) return [];
+  return [serviceUrl(origin, "st0"), serviceUrl(origin, "pl8")];
+}
+
+/** The registries and the allowed origins as ONE list, a row per family: to the user, st0, pl8's registry and both sets of pages are one st0 instance. */
 function instances(s: State): HostInstance[] {
-  const pinned = new Set(s.settings.registryUrls ?? []);
+  const pinned = new Set((s.settings.registryUrls ?? []).map(instanceKey));
   const rows = new Map<string, HostInstance>();
-  for (const url of s.registryUrls)
-    rows.set(instanceKey(url), {
-      url,
+  for (const url of s.registryUrls) {
+    const key = instanceKey(url);
+    rows.set(key, {
+      url: key,
       registry: true,
       allowed: false,
       // One from `$STUDIO_REGISTRY_URL` would come straight back: the environment is not ours to edit.
-      removable: pinned.has(url),
+      removable: pinned.has(key),
     });
+  }
   for (const origin of s.webOrigins) {
-    const row = rows.get(instanceKey(origin));
+    const key = instanceKey(origin);
+    const row = rows.get(key);
     if (row) row.allowed = true;
     else
-      rows.set(instanceKey(origin), {
-        url: origin,
+      rows.set(key, {
+        url: key,
         registry: false,
         allowed: true,
         removable: true,
@@ -550,8 +565,9 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     });
   };
 
-  /** ADD a registry — persist, adopt live, announce; an add and never a replace, see docs/supervisorPolicy.md. */
-  const addRegistryUrl = async (url: string): Promise<void> => {
+  /** ADD a registry — always the family's pl8, whatever URL named it — persist, adopt live, announce; an add and never a replace, see docs/supervisorPolicy.md. */
+  const addRegistryUrl = async (named: string): Promise<void> => {
+    const url = engineRegistryUrl(named);
     if (!url) return;
     const known = state.registryUrls.includes(url);
     if (!known) {
@@ -574,10 +590,11 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     publish();
   };
 
-  /** Disconnect one instance, both halves: drop it from the allowlist, and from the pinned registries — told at once, so it leaves that picker now rather than aging out. */
+  /** Disconnect one instance, every part of its family: its pages leave the allowlist, its registry the pinned list — told at once, so it leaves the picker now rather than aging out. */
   const removeInstance = async (url: string): Promise<void> => {
     const key = instanceKey(url);
-    removeOrigin(key);
+    for (const origin of loadOrigins())
+      if (instanceKey(origin) === key) removeOrigin(origin);
     const pinned = state.settings.registryUrls ?? [];
     const dropped = pinned.filter((u) => instanceKey(u) === key);
     if (dropped.length) {
@@ -587,7 +604,9 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       saveSettings(state.settings);
       // Emptied, the list falls back to `$STUDIO_REGISTRY_URL` — exactly what a fresh boot would resolve, and nothing without it.
       state.registryUrls = resolveRegistryUrls(state.settings.registryUrls);
-      if (engineRunning()) await deregister(dropped, state.identity);
+      // As pl8's: a pin an older settings file holds may still name st0, which holds no registry to leave.
+      if (engineRunning())
+        await deregister(resolveRegistryUrls(dropped), state.identity);
     }
     refreshOrigins();
   };
@@ -663,9 +682,14 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
           reply(cmd.id, false, "not a valid web UI address");
           return;
         }
+        // The whole family, whichever of its services was typed: st0's pages and pl8's both reach the file service.
+        for (const o of familyOrigins(origin)) {
+          addOrigin(o);
+          clearPending(o);
+        }
         clearPending(origin);
         refreshOrigins();
-        // A st0 web UI is single-origin, so adding one also points this engine at it — which is what fills that UI's picker.
+        // And the engine heartbeats to the family's ONE registry, pl8's — which is what fills st0's picker too.
         await addRegistryUrl(origin);
         reply(cmd.id, true, origin);
         return;

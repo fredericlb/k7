@@ -1,7 +1,8 @@
-// registry.ts — a browser's client for its OWN service's engine registry: which engines exist,
-// taking and releasing the lease on one, and the account's remembered choice. Every hosted
-// service mounts the same five routes (@studio/engine-registry), so they are spelled once here
-// rather than per app: a copy per app drifts, and it drifts in the return types first.
+// registry.ts — a browser's client for the engine registry: which engines exist, taking and
+// releasing the lease on one, and the account's remembered choice. There is ONE registry, pl8's
+// (@studio/engine-registry): pl8 reaches it on its own origin, st0 and z0 across to it. The five
+// routes are spelled once here rather than per app: a copy per app drifts, and it drifts in the
+// return types first.
 
 /** What one account has this service remember; `engineId` is the only field EVERY service keeps, and a host widens `P` below. */
 export interface EnginePrefs {
@@ -63,10 +64,11 @@ export interface RegistryClient<E, P extends EnginePrefs = EnginePrefs> {
 /** Read a JSON body, or throw with `what` in the message; passed in because each app already has one wired to its own reporting. */
 export type ReadJson = <T>(res: Response, what: string) => Promise<T>;
 
-/** The five routes against one service's `base` — the SERVICE the browser loaded, never another, each holding its own registry. */
+/** The five routes against the registry at `base`; the preferences against `prefsBase`, the app's OWN service, which defaults to the same — the remembered engine is that app's choice, kept where its other preferences are. */
 export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
   base: string,
   json: ReadJson,
+  prefsBase: string = base,
 ): RegistryClient<E, P> {
   return {
     list: async () =>
@@ -111,13 +113,15 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
 
     prefs: async () =>
       json<P>(
-        await fetch(`${base}/api/preferences`, { credentials: "include" }),
+        await fetch(`${prefsBase}/api/preferences`, {
+          credentials: "include",
+        }),
         "preferences",
       ),
 
     savePrefs: async (p) =>
       json<{ ok: true }>(
-        await fetch(`${base}/api/preferences`, {
+        await fetch(`${prefsBase}/api/preferences`, {
           method: "PUT",
           credentials: "include",
           headers: { "content-type": "application/json" },
