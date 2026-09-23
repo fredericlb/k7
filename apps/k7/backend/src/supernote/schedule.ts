@@ -13,7 +13,7 @@ async function tick(): Promise<void> {
   try {
     owners = await enabledOwners();
   } catch (err) {
-    // Grist unreachable or stalled: skip this hour. Escaping here would be an unhandled
+    // PocketBase unreachable or stalled: skip this hour. Escaping here would be an unhandled
     // rejection, and that takes the whole server down.
     console.warn(`   Supernote schedule skipped: ${(err as Error).message}`);
     return;
