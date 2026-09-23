@@ -65,6 +65,15 @@ export function serviceUrl(origin: string, service: StudioService): string {
   return `${parsed.protocol}//${SUBDOMAIN[service]}.${base}`;
 }
 
+/**
+ * How an engine registry says what it is: `GET <registry>/api/registry/hello` answers
+ * `{ service: REGISTRY_SERVICE }`, unauthenticated. The supervisor asks BEFORE connecting to an
+ * address, since a heartbeat carries the engine's token — a URL that is not a studio must never
+ * receive one. It proves the software, not the owner: anyone can run a registry.
+ */
+export const REGISTRY_HELLO_PATH = "/api/registry/hello";
+export const REGISTRY_SERVICE = "st0-registry";
+
 /** A host where services are told apart by PORT rather than subdomain — a bare dev run. */
 const LOOPBACK = /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/;
 

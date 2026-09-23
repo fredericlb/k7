@@ -87,9 +87,14 @@
       <form id="instance-form" class="bar">
         <input id="instance-url" type="text" inputmode="url" autocomplete="off"
           spellcheck="false" placeholder="Address of a st0 instance" />
-        <button type="submit">Add</button>
+        <button id="instance-add" type="submit">Add</button>
       </form>
       <p id="instance-error" class="empty" hidden></p>
+      <p class="hint">
+        Only add an instance you trust: it receives this engine's access
+        token, and its pages can reach this machine's files. The address is
+        checked first — one that is not a st0 instance is refused.
+      </p>
     </section>
 
     <section id="panel-system" role="tabpanel" hidden>

@@ -103,6 +103,17 @@ pub struct Instance {
     pub removable: bool,
 }
 
+/// The last "add a st0 instance": its registry being asked, or the reason it said no. Drawn verbatim under the form.
+#[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct InstanceCheck {
+    /// The registry that was asked — pl8's, whatever was typed.
+    pub url: String,
+    /// "checking" | "refused".
+    pub state: String,
+    pub message: Option<String>,
+}
+
 /// The paths the tray opens directly — sent rather than recomputed, so `<state>` has one definition.
 #[derive(Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -153,6 +164,8 @@ pub struct Snapshot {
     pub sync_targets: Vec<SyncTarget>,
     /// The st0 instances this engine is connected to — empty on a fresh machine, which assumes none.
     pub instances: Vec<Instance>,
+    /// An add in flight or just refused; None once one succeeds.
+    pub instance_check: Option<InstanceCheck>,
     /// Origins the file service just refused, offered for one-click approval in the same tab.
     pub web_pending: Vec<String>,
     pub attention: bool,
@@ -187,6 +200,7 @@ impl Default for Snapshot {
             sessions_sig: String::new(),
             sync_targets: Vec::new(),
             instances: Vec::new(),
+            instance_check: None,
             web_pending: Vec::new(),
             attention: false,
             paths: Paths::default(),

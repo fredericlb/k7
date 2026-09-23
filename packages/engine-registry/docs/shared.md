@@ -23,6 +23,12 @@ of pl8-backend. That coupling does not arise here: no BACKEND asks another. st0'
 routes across the origin (pl8 answers every origin's credentialed request — `apps/pl8/docs/cors.md`),
 the relay included, exactly as it already calls pl8 for the médiathèque.
 
+## Saying what it is
+
+`GET /api/registry/hello` answers `{ service: "st0-registry" }`, open like the heartbeat. It is how the
+supervisor tells a registry from any other website before it sends one the engine's token
+(`packages/engine-host/docs/supervisorPolicy.md`); it says nothing else.
+
 ## What this costs
 
 st0's engine picker is now down whenever pl8 is. A registry that is down is absent from the picker,

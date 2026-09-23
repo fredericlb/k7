@@ -4,6 +4,7 @@
 // host's job: the engine routes must stay open while the browser ones need a session.
 
 import { validate, wrap } from "@frediverse/http/route";
+import { REGISTRY_SERVICE } from "@studio/web-protocol/services";
 import { Router } from "express";
 import { z } from "zod";
 import { engineFilesProxy, issueEngineTicket } from "./proxy.ts";
@@ -52,6 +53,11 @@ const releaseBody = z.object({
 /** The routes over the one registry, pl8's — see docs/shared.md. */
 export function engineRegistryRouter(reg: EngineRegistry): Router {
   const router = Router();
+
+  // Open like the heartbeat, and says nothing but WHAT this is: the supervisor asks before it sends a token here.
+  router.get("/registry/hello", (_req, res) => {
+    res.json({ service: REGISTRY_SERVICE });
+  });
 
   router.post(
     "/registry/heartbeat",
