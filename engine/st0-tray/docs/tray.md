@@ -169,6 +169,14 @@ The address is checked here, the way a sync URI is, only to answer at once — `
 address`, `already connected to …` — and reduced to the origin before it is sent. The supervisor's
 `normaliseUserOrigin` is the gate. A bare host gets `https://`, as it does there.
 
+Then the supervisor **asks** the instance's registry whether it is one, before anything is written:
+an added instance receives this engine's token and its pages reach the file service, so
+`https://google.com` must be refused rather than connected. The form reads the snapshot's
+`instanceCheck` — *Checking https://play.st0.app…*, then nothing on success or the reason in red on a
+refusal — and holds its Add button while one is being asked. The line under the form says what adding
+means, because the check proves the software and not the owner
+(`packages/engine-host/docs/supervisorPolicy.md`).
+
 ### Sessions — what the status line could never say
 
 One engine holds several projects at once, one per app driving it. The status line reports the

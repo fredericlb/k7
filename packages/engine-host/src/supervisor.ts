@@ -32,6 +32,7 @@ import type {
   HostCommand,
   HostEditPlugin,
   HostInstance,
+  HostInstanceCheck,
   HostOwnership,
   HostPlugin,
   HostSession,
@@ -45,6 +46,7 @@ import {
   deregister,
   heartbeat,
   mediatekUrlFor,
+  probeRegistry,
   resolveRegistryUrls,
   setRegistryFetch,
 } from "./registryClient.ts";
@@ -53,6 +55,7 @@ import {
   addOrigin,
   clearPending,
   loadOrigins,
+  normaliseUserOrigin,
   pendingOrigins,
   pendingStamp,
   removeOrigin,
@@ -112,6 +115,8 @@ interface State {
   sessionsSig: string;
   webOrigins: string[];
   webPending: string[];
+  /** The last add, while its registry is asked and after a refusal — what the tray's form says. */
+  instanceCheck: HostInstanceCheck | null;
   /** mtime+size of pending-origins.json when last parsed, so a quiet tick skips the read entirely. */
   pendingStamp: string;
   /** Origins already banner'd. One per origin, EVER — a blocked browser retries endlessly. */
@@ -206,6 +211,7 @@ function snapshot(s: State): HostSnapshot {
     instances: instances(s),
     webOrigins: s.webOrigins,
     webPending: s.webPending,
+    instanceCheck: s.instanceCheck,
     attention: s.webPending.length > 0,
     paths: {
       root: rootDir(),
@@ -255,6 +261,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     sessionsSig: "",
     webOrigins: loadOrigins(),
     webPending: [],
+    instanceCheck: null,
     pendingStamp: "",
     notified: new Set(),
     shuttingDown: false,
@@ -677,11 +684,35 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         return;
       }
       case "weburi.add": {
-        const origin = addOrigin(arg);
+        const origin = normaliseUserOrigin(arg);
         if (!origin) {
+          state.instanceCheck = {
+            url: arg,
+            state: "refused",
+            message: `${arg} is not a web address`,
+          };
+          publish();
           reply(cmd.id, false, "not a valid web UI address");
           return;
         }
+        // ASKED before anything is written: a heartbeat carries this engine's token, and its pages would reach the
+        // file service. A URL that is not a studio must get neither — docs/supervisorPolicy.md.
+        const registry = engineRegistryUrl(origin);
+        state.instanceCheck = { url: registry, state: "checking" };
+        publish();
+        const probe = await probeRegistry(registry);
+        if (!probe.ok) {
+          state.instanceCheck = {
+            url: registry,
+            state: "refused",
+            message: `${probe.why} — nothing was added`,
+          };
+          publish();
+          reply(cmd.id, false, probe.why);
+          return;
+        }
+        state.instanceCheck = null;
+        addOrigin(origin);
         // The whole family, whichever of its services was typed: st0's pages and pl8's both reach the file service.
         for (const o of familyOrigins(origin)) {
           addOrigin(o);
@@ -713,10 +744,6 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       case "weburi.deny":
         clearPending(arg);
         refreshOrigins();
-        reply(cmd.id, true);
-        return;
-      case "registry.set":
-        await addRegistryUrl(arg);
         reply(cmd.id, true);
         return;
       case "registry.deregister":

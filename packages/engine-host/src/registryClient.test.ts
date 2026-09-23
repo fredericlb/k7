@@ -5,9 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // `$STUDIO_HOME` is the seam, and the documented one: it is what a dev session and the WSL
 // bridge already use, so the road under test is the road that runs.
-const { mediatekUrlFor, resolveRegistryUrls } = await import(
-  "./registryClient.ts"
-);
+const { mediatekUrlFor, probeRegistry, resolveRegistryUrls, setRegistryFetch } =
+  await import("./registryClient.ts");
 
 // ONE registry per studio family, pl8's: st0 lists its engines from there, so an engine heartbeats nowhere else.
 
@@ -100,6 +99,48 @@ describe("which médiathèque this machine caches", () => {
   it("answers nothing when nothing resolves, rather than guessing", () => {
     // The local folder is then a cache of nothing, which is a working state.
     expect(mediatekUrlFor([])).toBeNull();
+  });
+});
+
+describe("asking an address whether it is a registry", () => {
+  // A heartbeat carries the engine's token, so this is the gate before any is sent — docs/supervisorPolicy.md.
+  let asked: { url: string; init?: RequestInit }[];
+  const answer = (make: () => Response) =>
+    setRegistryFetch((async (url: string, init?: RequestInit) => {
+      asked.push({ url, init });
+      return make();
+    }) as typeof fetch);
+  beforeEach(() => {
+    asked = [];
+  });
+  afterEach(() => setRegistryFetch(null));
+
+  it("accepts a registry that names itself, asked at its hello path without following redirects", async () => {
+    answer(() => Response.json({ service: "st0-registry" }));
+    expect(await probeRegistry("https://play.st0.app/")).toEqual({ ok: true });
+    expect(asked[0].url).toBe("https://play.st0.app/api/registry/hello");
+    expect(asked[0].init?.redirect).toBe("error");
+  });
+
+  it("refuses a site that answers, but not as a registry", async () => {
+    // What adding https://google.com met: an HTML 404 at play.google.com.
+    answer(() => new Response("<html>not found</html>", { status: 404 }));
+    expect(await probeRegistry("https://play.google.com")).toEqual({
+      ok: false,
+      why: "https://play.google.com is not an st0 instance",
+    });
+    answer(() => Response.json({ service: "something-else" }));
+    expect((await probeRegistry("https://x.example")).ok).toBe(false);
+  });
+
+  it("refuses an address that does not answer at all", async () => {
+    setRegistryFetch((async () => {
+      throw new TypeError("fetch failed");
+    }) as typeof fetch);
+    expect(await probeRegistry("http://localhost:8795")).toEqual({
+      ok: false,
+      why: "http://localhost:8795 did not answer",
+    });
   });
 });
 

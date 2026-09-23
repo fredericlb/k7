@@ -6,6 +6,8 @@
 
 import {
   engineRegistryUrl,
+  REGISTRY_HELLO_PATH,
+  REGISTRY_SERVICE,
   serviceUrl,
   studioOrigin,
 } from "@studio/web-protocol/services";
@@ -70,6 +72,28 @@ async function post(
   } catch {
     return false; // not up yet, or too slow to matter; the next tick retries
   }
+}
+
+/** Longer than a heartbeat's bound: this one runs once, while someone waits on the form, and a slow first TLS handshake is not a "no". */
+const PROBE_TIMEOUT_MS = 5000;
+
+export type RegistryProbe = { ok: true } | { ok: false; why: string };
+
+/** Ask `url` whether it IS an engine registry, before anything is sent there — a heartbeat carries the engine's token. See docs/supervisorPolicy.md. */
+export async function probeRegistry(url: string): Promise<RegistryProbe> {
+  let res: Response;
+  try {
+    res = await send(url.replace(/\/$/, "") + REGISTRY_HELLO_PATH, {
+      // A redirect is refused, not followed: the answer must come from the address the token would go to.
+      redirect: "error",
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    });
+  } catch {
+    return { ok: false, why: `${url} did not answer` };
+  }
+  const body = res.ok ? await res.json().catch(() => null) : null;
+  if (body?.service === REGISTRY_SERVICE) return { ok: true };
+  return { ok: false, why: `${url} is not an st0 instance` };
 }
 
 /** Announce to every registry in parallel, true only if they ALL answered — all-or-nothing, because the tray shows one light. */

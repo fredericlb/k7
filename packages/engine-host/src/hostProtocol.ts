@@ -76,6 +76,15 @@ export interface HostInstance {
   removable: boolean;
 }
 
+/** The last "add a st0 instance", while its registry is being asked and after it said no — see docs/supervisorPolicy.md. */
+export interface HostInstanceCheck {
+  /** The registry that was asked: pl8's, whatever was typed. */
+  url: string;
+  state: "checking" | "refused";
+  /** Why nothing was added, for `refused`. */
+  message?: string;
+}
+
 /** The paths the tray still opens directly, sent rather than recomputed so `~/.st0`'s layout has exactly one definition. */
 export interface HostPaths {
   root: string;
@@ -140,6 +149,8 @@ export interface HostSnapshot {
   // --- web UI allowlist -----------------------------------------------------
   /** The st0 instances this engine is connected to — empty on a fresh machine, which assumes none. */
   instances: HostInstance[];
+  /** An add in flight or just refused; null once one succeeds. */
+  instanceCheck: HostInstanceCheck | null;
   webOrigins: string[];
   /** Origins the file service refused, offered for one-click approval. */
   webPending: string[];
@@ -174,7 +185,6 @@ export type HostCommandName =
   | "weburi.allow"
   | "weburi.deny"
   | "waveforms.clear"
-  | "registry.set"
   | "registry.deregister"
   | "shutdown";
 

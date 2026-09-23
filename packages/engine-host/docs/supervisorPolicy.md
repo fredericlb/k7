@@ -137,6 +137,26 @@ the first. It takes any URL of the family and stores pl8's, is idempotent beyond
 and persists the result as the explicit list so the next boot takes it rather than the ambient
 environment variable.
 
+### An address is ASKED before it is connected
+
+A heartbeat carries the engine's **token** — the same one that guards the file service — and an
+added instance's pages are let through that service's CORS. So a URL that is not a studio must get
+neither: `https://google.com` typed into the form used to be pinned as `https://play.google.com`,
+beaten with the token every five seconds, and allowed to call the file service from the browser.
+
+`weburi.add` therefore asks the family's registry first — `GET /api/registry/hello`, which a registry
+answers with `{ service: "st0-registry" }` (`REGISTRY_HELLO_PATH` / `REGISTRY_SERVICE` in
+`packages/web-protocol/services.ts`) — and writes NOTHING unless that is the answer: no origin, no
+pinned registry, no heartbeat. A redirect is refused rather than followed, so the answer comes from
+the address the token would go to. While it asks, and after a refusal, the snapshot's
+`instanceCheck` says so, which is how the tray's form shows *Checking…* and the reason. Under a dev
+run the pl8 backend must therefore be up before its instance can be added.
+
+It proves the SOFTWARE, not the owner: anyone can run a registry, and one that answers correctly
+still receives the token. That is why the form says so, and why only instances the user trusts belong
+there. `$STUDIO_REGISTRY_URL` is not asked — an environment variable is configuration, not a form —
+and `registry.set`, which pinned a registry with no check, is gone: every add goes through this one.
+
 Adding an instance (`weburi.add`) also allows BOTH services' pages — st0's origin, which z0 lives
 under, and pl8's — since each drives the engine's file service. On a loopback host nothing is
 added: the file service admits any private `http` origin already. The file service's own

@@ -8,7 +8,9 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
-use crate::host::{self, EditPlugin, Instance, Plugin, Session, Snapshot, SyncTarget};
+use crate::host::{
+    self, EditPlugin, Instance, InstanceCheck, Plugin, Session, Snapshot, SyncTarget,
+};
 use crate::logbus;
 use crate::state::SharedState;
 use crate::tray;
@@ -88,6 +90,8 @@ pub struct View {
     sync_targets: Vec<SyncTarget>,
     /// The st0 instances this engine is connected to, as the supervisor reported them.
     instances: Vec<Instance>,
+    /// The last add, while its registry is asked or after it refused — the form's own line.
+    instance_check: Option<InstanceCheck>,
     /// Origins the file service just refused — a question for the user, never a grant.
     pending: Vec<String>,
     /// Openable plugins naming a session the engine did not list — the two are polled apart, and a
@@ -174,6 +178,7 @@ fn view(app: &AppHandle) -> View {
         orphan_plugins,
         sync_targets: snap.sync_targets.clone(),
         instances: snap.instances.clone(),
+        instance_check: snap.instance_check.clone(),
         pending: snap.web_pending.clone(),
         engine_running: s.running(),
         system: SystemView {
@@ -200,6 +205,7 @@ pub fn differs(a: &Snapshot, b: &Snapshot) -> bool {
     a.audio_menu_sig != b.audio_menu_sig
         || a.sync_targets != b.sync_targets
         || a.instances != b.instances
+        || a.instance_check != b.instance_check
         || a.web_pending != b.web_pending
         || a.plugins_sig != b.plugins_sig
         || a.plugin_count != b.plugin_count
@@ -236,8 +242,8 @@ pub fn sync_targets(app: AppHandle, targets: Vec<SyncTarget>) {
     host::send(&app, "sync.targets", Some(&arg));
 }
 
-/// Connect this engine to a st0 instance by its URL: `weburi.add` lets its pages through AND heartbeats to it, so
-/// it shows in that instance's picker. The supervisor's normaliser is the gate; a refusal is logged.
+/// Connect this engine to a st0 instance by its URL: `weburi.add` asks the instance's registry first, then lets its
+/// pages through AND heartbeats to it. Progress and refusal come back as the snapshot's `instanceCheck`.
 #[tauri::command]
 pub fn instance_add(app: AppHandle, url: String) {
     host::send(&app, "weburi.add", Some(&url));

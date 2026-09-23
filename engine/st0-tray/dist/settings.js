@@ -31,6 +31,7 @@ const pendingList = document.getElementById("pending");
 const instanceForm = document.getElementById("instance-form");
 const instanceUrl = document.getElementById("instance-url");
 const instanceError = document.getElementById("instance-error");
+const instanceAdd = document.getElementById("instance-add");
 
 let dragging = null;
 let moved = false;
@@ -41,6 +42,10 @@ let running = false;
 let targets = [];
 /** The instances as the last snapshot reported them, so an add can say "already connected". */
 let instances = [];
+/** A mistake caught HERE, before anything was sent; the supervisor's own verdict arrives as `instanceCheck`. */
+let localError = "";
+/** The supervisor's word on the last add: asking its registry, or why nothing was added. */
+let instanceCheck = null;
 
 if (!api) {
   audioEmpty.hidden = false;
@@ -459,8 +464,27 @@ function buildPending(origin) {
   return node;
 }
 
-function renderInstances(rows, pending) {
+/** The form's one line: a local mistake, else what the supervisor said about the last add. */
+function paintInstanceError() {
+  const checking = instanceCheck?.state === "checking";
+  const said = localError
+    ? localError
+    : checking
+      ? `Checking ${instanceCheck.url}…`
+      : instanceCheck?.state === "refused"
+        ? instanceCheck.message || `${instanceCheck.url} was refused`
+        : "";
+  instanceError.textContent = said;
+  instanceError.hidden = !said;
+  instanceError.classList.toggle("warn", !localError && !checking && !!said);
+  // One add at a time: a second while the first is being asked would leave the line saying only one of them.
+  instanceAdd.disabled = checking;
+}
+
+function renderInstances(rows, pending, check) {
   instances = rows;
+  instanceCheck = check;
+  paintInstanceError();
   instanceList.replaceChildren(...rows.map(buildInstance));
   instancesEmpty.hidden = rows.length > 0;
   instancesEmpty.textContent = "Not connected to any st0 instance.";
@@ -472,10 +496,9 @@ function addInstance(e) {
   e.preventDefault();
   const { origin, error } = instanceOrigin(instanceUrl.value);
   const known = origin && instances.some((i) => instanceOrigin(i.url).origin === origin);
-  const wrong = error ?? (known ? `already connected to ${origin}` : "");
-  instanceError.textContent = wrong;
-  instanceError.hidden = !wrong;
-  if (wrong) return;
+  localError = error ?? (known ? `already connected to ${origin}` : "");
+  paintInstanceError();
+  if (localError) return;
   api?.core.invoke("instance_add", { url: origin });
   instanceUrl.value = "";
 }
@@ -491,7 +514,7 @@ function render(view) {
   renderPlugins();
   renderSessions(view.sessions, view.orphanPlugins);
   renderSync(view.syncTargets);
-  renderInstances(view.instances, view.pending);
+  renderInstances(view.instances, view.pending, view.instanceCheck);
   renderSystem(view.system);
 }
 
