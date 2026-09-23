@@ -32,7 +32,6 @@ interface Props {
   onTab: (tab: HomeTab) => void;
   onOpen: (s: Session) => void;
   onDeleteSession: (id: string) => Promise<void>;
-  onCleanSessions: (ids: string[]) => Promise<void>;
   onOpenRelease: (r: Release) => void;
   onNewRelease: () => void;
   onOpenPage: (p: Page) => void;
@@ -53,7 +52,6 @@ export function HomeView({
   onTab,
   onOpen,
   onDeleteSession,
-  onCleanSessions,
   onOpenRelease,
   onNewRelease,
   onOpenPage,
@@ -86,7 +84,6 @@ export function HomeView({
           onOpen={onOpen}
           onOpenMoment={onOpenMoment}
           onDeleteSession={onDeleteSession}
-          onCleanSessions={onCleanSessions}
         />
       )}
 

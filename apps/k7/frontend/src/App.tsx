@@ -457,7 +457,6 @@ export default function App() {
                     onOpen={(s) => navigate(`/sessions/${s.id}`)}
                     onOpenMoment={(m) => navigate(`/moments/${m.id}`)}
                     onDeleteSession={handleDeleteSession}
-                    onCleanSessions={handleCleanSessions}
                     onOpenRelease={(r) => navigate(`/releases/${r.id}`)}
                     onNewRelease={() => navigate("/releases/new")}
                     onOpenPage={(p) => navigate(`/pages/${p.id}`)}
@@ -624,6 +623,8 @@ export default function App() {
               element={
                 <SettingsView
                   user={user}
+                  sessions={sessions}
+                  onCleanSessions={handleCleanSessions}
                   onLogout={logout}
                   onBack={() => navigate("/sessions")}
                 />
