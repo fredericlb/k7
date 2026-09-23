@@ -1182,15 +1182,25 @@ select {
   gap: 6px;
   margin-top: 12px;
 }
-/* The lyrics lead: a label, a narrow number field, its unit. */
-.options-lead {
-  display: flex;
+/* The options panel: one row per setting, its name in one half and its control in the other. */
+.options-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
 }
-.options-lead-input {
-  width: 72px;
+.options-name {
+  overflow-wrap: anywhere;
+}
+.options-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.options-control input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .cs-transpose-val {
   min-width: 24px;

@@ -3,7 +3,12 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Input } from "@frediverse/ui/input";
-import { Minus, Plus, SlidersHorizontal } from "@frediverse/ui/icons";
+import {
+  Minus,
+  Plus,
+  RotateCcw,
+  SlidersHorizontal,
+} from "@frediverse/ui/icons";
 import { formatTranspose } from "@k7/score";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
@@ -40,12 +45,14 @@ export function OptionsPanel({
         <span className="rail-panel-word">{m["panel.options"]()}</span>
       </button>
       {open && (
-        <div className="rail-panel-body">
-          <div className="cs-transpose">
-            <span className="muted small">{m["score.transpose"]()}</span>
+        <div className="rail-panel-body options-grid">
+          <span className="options-name muted small">
+            {m["score.transpose"]()}
+          </span>
+          <div className="options-control">
             <Button
               variant="outline"
-              size="sm"
+              size="icon-sm"
               onClick={() => onTranspose((t) => t - 1)}
               title={m["score.transposeDown"]()}
             >
@@ -56,7 +63,7 @@ export function OptionsPanel({
             </span>
             <Button
               variant="outline"
-              size="sm"
+              size="icon-sm"
               onClick={() => onTranspose((t) => t + 1)}
               title={m["score.transposeUp"]()}
             >
@@ -64,22 +71,26 @@ export function OptionsPanel({
             </Button>
             {transpose !== 0 && (
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => onTranspose(() => 0)}
                 title={m["score.transposeReset"]()}
+                aria-label={m["panel.reset"]()}
               >
-                {m["panel.reset"]()}
+                <RotateCcw className="size-4" />
               </Button>
             )}
           </div>
-          <label className="options-lead">
-            <span className="muted small">{m["panel.lyricsLead"]()}</span>
+
+          <label className="options-name muted small" htmlFor="options-lead">
+            {m["panel.lyricsLead"]()}
+          </label>
+          <div className="options-control">
             <Input
+              id="options-lead"
               type="number"
               min={0}
               step={0.5}
-              className="options-lead-input"
               value={leadText}
               onChange={(e) => {
                 const text = e.currentTarget.value;
@@ -92,7 +103,7 @@ export function OptionsPanel({
               title={m["panel.lyricsLeadHint"]()}
             />
             <span className="muted small">s</span>
-          </label>
+          </div>
         </div>
       )}
     </aside>
