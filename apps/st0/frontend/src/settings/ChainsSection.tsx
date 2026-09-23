@@ -13,6 +13,7 @@ import { probeMachine } from "./machine";
 import { Section } from "./Section";
 
 type Which = "stems" | "instrumental";
+type Chain = ColdChainsReply["chains"][number];
 
 function ChainPicker({
   label,
@@ -28,13 +29,18 @@ function ChainPicker({
   none: string;
   body: string;
   value: string | null;
-  options: string[];
+  options: Chain[];
   disabled: boolean;
   onChoose: (ref: string) => void;
 }) {
   // What is stored, even when the library no longer holds it: a renamed chain must not read as "nothing is set".
-  const shown =
-    !value || options.includes(value) ? options : [value, ...options];
+  const known = options.some((c) => c.ref === value);
+  const shown: Chain[] =
+    !value || known
+      ? options
+      : [{ ref: value, instrumental: false, unavailable: null }, ...options];
+  // Said under the picker, for the one CHOSEN: a machine without the model is fixed on the machine, not here.
+  const why = options.find((c) => c.ref === value)?.unavailable;
   return (
     <div className="flex flex-col gap-1.5 px-4 py-2.5">
       <select
@@ -46,11 +52,18 @@ function ChainPicker({
       >
         <option value="">{none}</option>
         {shown.map((c) => (
-          <option key={c} value={c}>
-            {c}
+          <option key={c.ref} value={c.ref}>
+            {c.unavailable
+              ? `${c.ref} — ${m["settings.chains.unavailableTag"]()}`
+              : c.ref}
           </option>
         ))}
       </select>
+      {why && (
+        <p className="text-amber-400 text-xs">
+          {m["settings.chains.unavailable"]({ reason: why })}
+        </p>
+      )}
       <p className="text-neutral-500 text-xs">{body}</p>
     </div>
   );
@@ -105,7 +118,7 @@ export function ChainsSection() {
             none={m["stems.none"]()}
             body={m["stems.body"]()}
             value={view?.stemsChain ?? null}
-            options={chains.map((c) => c.ref)}
+            options={chains}
             disabled={!view || busy}
             onChoose={(ref) => choose("stems", ref)}
           />
@@ -118,7 +131,7 @@ export function ChainsSection() {
             none={m["instrumental.none"]()}
             body={m["instrumental.body"]()}
             value={view?.instrumentalChain ?? null}
-            options={chains.filter((c) => c.instrumental).map((c) => c.ref)}
+            options={chains.filter((c) => c.instrumental)}
             disabled={!view || busy}
             onChoose={(ref) => choose("instrumental", ref)}
           />

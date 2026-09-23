@@ -304,25 +304,23 @@ describe("a chain that separates", () => {
       stemChain();
       // `live/vocal-strip` is the fixture's EQ chain: it treats, so it could never separate.
       expect(coldChains(dir)).toEqual([
-        { ref: "@st0/tools/stems", instrumental: false },
+        { ref: "@st0/tools/stems", instrumental: false, unavailable: null },
       ]);
     });
 
-    it("leaves out what resolveChain would refuse", () => {
+    it("leaves out a chain that both separates and processes — it is not a cold chain", () => {
       stemChain({ withEq: true });
       expect(coldChains(dir)).toEqual([]);
+    });
+
+    it("still LISTS a cold chain whose model this machine has not got, and says why", () => {
+      // The machine's state, not the chain's: hiding it made a library full of separating chains read as holding none.
       stemChain({ model: false });
-      rmSync(join(library, "chains/tools/stems/nodes/air.yaml"));
-      put(
-        library,
-        "chains/tools/stems/graph.yaml",
-        'modules:\n  "@in": [ split ]\n  split: [ "@out" ]\n',
+      const [c] = coldChains(dir);
+      expect(c.ref).toBe("@st0/tools/stems");
+      expect(c.unavailable).toMatch(
+        /wants the model 'htdemucs\.onnx', which is not on this machine/,
       );
-      rmSync(join(library, "modules/audio/stemsplit/assets"), {
-        recursive: true,
-        force: true,
-      });
-      expect(coldChains(dir)).toEqual([]);
     });
 
     it("marks the one whose step writes an instrumental", () => {
@@ -348,8 +346,8 @@ describe("a chain that separates", () => {
         'extends: "@st0/audio/vocalless"\n',
       );
       expect(coldChains(dir)).toEqual([
-        { ref: "@st0/tools/karaoke", instrumental: true },
-        { ref: "@st0/tools/stems", instrumental: false },
+        { ref: "@st0/tools/karaoke", instrumental: true, unavailable: null },
+        { ref: "@st0/tools/stems", instrumental: false, unavailable: null },
       ]);
     });
   });

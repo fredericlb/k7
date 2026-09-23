@@ -45,6 +45,7 @@ import {
   type ColdStep,
   coldStepOf,
   isOfflineModule,
+  outputsOf,
   type RunColdStep,
   runColdPasses,
 } from "./coldPass";
@@ -160,12 +161,21 @@ function findChainFolder(
 function mediatekChain(
   dir: string,
   abs: string,
-): { plugins: PluginDoc[]; cold: ColdStep[]; missing: string[] } {
+): {
+  plugins: PluginDoc[];
+  cold: ColdStep[];
+  missing: string[];
+  /** How many steps the graph names — what tells "every step is offline" from "some are". */
+  steps: number;
+  /** Each OFFLINE step and what it declares it writes, known whether or not this machine has its model. */
+  offline: { step: string; outputs: string[] }[];
+} {
   const steps = chainSteps(readFileSync(join(abs, CHAINS_FILE), "utf8"));
   const byRef = loadModuleRefs(dir);
   const plugins: PluginDoc[] = [];
   const cold: ColdStep[] = [];
   const missing: string[] = [];
+  const offline: { step: string; outputs: string[] }[] = [];
 
   for (const step of steps) {
     const file = join(abs, NODES_DIR, `${step}.yaml`);
@@ -180,6 +190,13 @@ function mediatekChain(
     const m = resolveModule(raw as unknown as LoadedModule, byRef);
     // An OFFLINE module is diverted here: it has no engine plugin by construction, docs/processChain.md.
     if (isOfflineModule(m)) {
+      let outputs: string[] = [];
+      try {
+        outputs = outputsOf(step, m);
+      } catch {
+        /* a module naming outputs no separation writes — coldStepOf says so, below */
+      }
+      offline.push({ step, outputs });
       try {
         cold.push(coldStepOf(step, m));
       } catch (e) {
@@ -211,7 +228,7 @@ function mediatekChain(
       }),
     );
   }
-  return { plugins, cold, missing };
+  return { plugins, cold, missing, steps: steps.length, offline };
 }
 
 /** A library chain that SEPARATES, for the settings that pick which one this machine uses. */
@@ -220,12 +237,17 @@ export interface ColdChain {
   ref: string;
   /** One of its offline steps declares an `instrumental` output — what `system instrumental` insists on. */
   instrumental: boolean;
+  /** Why THIS machine cannot run it yet — its model not downloaded, a module not in its cache — or null when it can. */
+  unavailable: string | null;
 }
 
 /**
- * The médiathèque's COLD chains — those whose steps are all offline, i.e. that separate — judged
- * exactly as `resolveChain` would, so nothing listed here is one it would then refuse: a chain with
- * a step this machine cannot load, or one that both separates and processes, is left out.
+ * The médiathèque's COLD chains: those whose every step is an offline module, i.e. that separate.
+ * A chain that processes, or mixes the two (which `resolveChain` refuses by name), is not one.
+ *
+ * A cold chain this machine cannot RUN yet is still listed, with the reason: that is a fact about
+ * the machine — a 166 MB model nobody has downloaded — not about the chain, and it is fixed without
+ * touching the library. Hiding it made a library full of separating chains read as holding none.
  * `dir` is any project folder whose library is the one to read; no project needs to be open.
  */
 export function coldChains(dir: string): ColdChain[] {
@@ -237,11 +259,11 @@ export function coldChains(dir: string): ColdChain[] {
     } catch {
       continue; // an unreadable graph file is no chain to offer
     }
-    if (chain.missing.length || !chain.cold.length || chain.plugins.length)
-      continue;
+    if (!chain.offline.length || chain.offline.length !== chain.steps) continue;
     out.push({
       ref: `${MEDIATEK_CHAIN}${c.ref}`,
-      instrumental: chain.cold.some((s) => s.outputs.includes(INSTRUMENTAL)),
+      instrumental: chain.offline.some((s) => s.outputs.includes(INSTRUMENTAL)),
+      unavailable: chain.missing.length ? chain.missing.join("; ") : null,
     });
   }
   return out.sort((a, b) => a.ref.localeCompare(b.ref));

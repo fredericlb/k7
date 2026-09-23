@@ -186,8 +186,11 @@ export interface CatalogueModule {
 
 /** The machine's two separating choices and the library's COLD chains to make them from — `GET /account/cold-chains`. */
 export interface ColdChainsReply {
-  /** `@st0/<path>` refs; `instrumental` when one of its offline steps writes an instrumental. */
-  chains: { ref: string; instrumental: boolean }[];
+  /**
+   * `@st0/<path>` refs; `instrumental` when one of its offline steps writes an instrumental;
+   * `unavailable` says why THIS machine cannot run it yet (a model not downloaded), null when it can.
+   */
+  chains: { ref: string; instrumental: boolean; unavailable: string | null }[];
   /** `null` is "never told": this machine separates nothing. */
   stemsChain: string | null;
   instrumentalChain: string | null;

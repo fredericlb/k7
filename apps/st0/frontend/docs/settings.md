@@ -102,11 +102,17 @@ the same for every set list on this machine — `<state>/preferences.yaml` has a
 they are set here, with no project open, and every surface that starts a separation only reads them.
 
 **Only the library's COLD chains are offered** — a chain whose steps are all offline modules, the
-only kind that can separate (`packages/song/docs/coldModules.md`). The file service lists them
-(`GET /account/cold-chains`), judging each exactly as `resolveChain` would against the bench's clone
-of the library, so nothing offered is then refused: a chain with a step this machine cannot load,
-or one that both separates and processes, is left out. The instrumental picker narrows further, to
-the chains whose offline step declares an `instrumental` output.
+only kind that can separate (`packages/song/docs/coldModules.md`); one that processes, or both
+separates and processes, is not one. The file service lists them (`GET /account/cold-chains`),
+against the bench's clone of the library. The instrumental picker narrows further, to the chains
+whose offline step declares an `instrumental` output.
+
+**A cold chain this machine cannot run YET is still listed**, marked « can't run here yet », and
+the reason shows under the picker once it is chosen — almost always the model: a separation needs
+`htdemucs_fp16weights.onnx` (166 MB) in `~/.st0/models`, and nothing downloads it for you. It was
+first left out instead, and a library holding `stems` and `instrumental` then read as holding no
+cold chain at all, on exactly the machine that needed telling what was missing. Choosing it is
+allowed: the answer is the machine's, and it holds the day the model arrives.
 
 Choosing writes through `PUT /account/cold-chains/stems|instrumental`, which checks the same list
 again — the browser's copy is a menu, not the gate — and answers the new state, so a refused pick
