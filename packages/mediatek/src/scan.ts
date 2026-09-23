@@ -120,6 +120,9 @@ function readVariants(
   return out;
 }
 
+/** Filed by pl8 asking for it, right then — as opposed to a machine publishing in unasked (docs/songs.md). */
+const BROWSABLE_SOURCES = new Set(["upload", "slskd", "youtube"]);
+
 /** Songs: any folder under `songs/` holding a `song.yaml` or, dropped by hand, any audio — see docs/songs.md. */
 function scanSongs(): MediatekEntry[] {
   const out: MediatekEntry[] = [];
@@ -129,10 +132,9 @@ function scanSongs(): MediatekEntry[] {
     const master = entries.find((e) => e.isFile() && isAudio(e.name));
     if (hasSidecar || master) {
       const meta = hasSidecar ? readSong(abs) : {};
-      // Filed by a machine rather than dropped by hand — k7's releases, and any future
-      // mirror — stays out of the browse/catalogue listing. See docs/songs.md.
+      // A machine publishing into songs/ unasked stays out of the browse listing — docs/songs.md.
       const source = str(meta.source);
-      if (source && source !== "upload") return;
+      if (source && !BROWSABLE_SOURCES.has(source)) return;
       const title = str(meta.title);
       const artist = str(meta.artist);
       const variants = readVariants(meta, entries);

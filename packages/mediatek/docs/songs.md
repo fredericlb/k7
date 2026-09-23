@@ -65,14 +65,18 @@ what the studio produced. Two reasons, in this order:
    artist, and force every caller able to write — k7 publishing, the upload button — to choose a
    word for something the sidecar already says better.
 
-What suffices is `source:` in `song.yaml`: `upload` for the mediatek's button, `k7` for a published
-version, `mirror` for a copy pulled back. A line in a file, not a level in a path — readable without
-listing the parent folder, and changeable without moving bytes.
+What suffices is `source:` in `song.yaml`: `upload` for the mediatek's button, `slskd` and
+`youtube` for what the hunt page filed, `k7` for a published version, `mirror` for a copy pulled
+back. A line in a file, not a level in a path — readable without listing the parent folder, and
+changeable without moving bytes.
 
-Anything other than `upload` is filed but not BROWSED: `scanSongs` leaves it out of the family's
-listing entirely, so a published k7 release never shows up beside what the button filed by hand. It
-still lives under `songs/`, at the path its tags built, and a caller that already knows that path —
-k7 fetching its own `AudioPath` — reads it directly, never through the catalogue.
+The line one is BROWSED on is not "did the button write it" but "did pl8 ask for it, right then".
+`upload`, `slskd` and `youtube` all did — a person on this screen chose to file that song, hunt
+included — and `scanSongs`'s `BROWSABLE_SOURCES` lists exactly those three. `k7` and `mirror`
+didn't: a machine published into `songs/` on its own schedule, unasked, and stays out of the
+family's listing entirely — a published k7 release never shows up beside what pl8 itself filed.
+It still lives under `songs/`, at the path its tags built, and a caller that already knows that
+path — k7 fetching its own `AudioPath` — reads it directly, never through the catalogue.
 
 Direct consequence: `songFolder()` always returns four segments (`songs` + the three tags), and two
 tests check that **by the count** rather than against an example path — a fifth level would appear
