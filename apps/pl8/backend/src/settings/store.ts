@@ -1,10 +1,10 @@
-// store.ts — one person's slskd settings, a file per person on the library volume under a
-// dot-directory, like the hunts they drive. The secrets are sealed in the file and never leave
+// store.ts — the instance's slskd settings, ONE file on the library volume under a
+// dot-directory, shared by everyone signed in. The secrets are sealed in the file and never leave
 // this module except to the hunt that spends them. See ../../docs/settings.md.
 
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { mediatekDir } from "@studio/mediatek/layout";
-import { prefsStore } from "@studio/user-prefs";
 import type {
   SlskdSettings,
   SlskdSettingsInput,
@@ -38,10 +38,17 @@ export function settingsDir(): string {
   return process.env.STUDIO_SETTINGS_DIR || join(mediatekDir(), ".settings");
 }
 
-// Rebuilt per call, since the directory is read from process.env and a test moves it.
-const store = () => prefsStore<Stored>(settingsDir());
+// Resolved per call, since the directory is read from process.env and a test moves it.
+const fileOf = (): string => join(settingsDir(), "slskd.json");
 
-const read = (sub: string): Stored => store().read(sub) ?? {};
+function read(): Stored {
+  try {
+    return JSON.parse(readFileSync(fileOf(), "utf8")) as Stored;
+  } catch {
+    // No file yet is the ordinary state of a new instance.
+    return {};
+  }
+}
 
 /** A secret that no longer opens — the session secret changed — counts as none on file. */
 function open(sealed: string | undefined): string {
@@ -53,8 +60,8 @@ function open(sealed: string | undefined): string {
   }
 }
 
-export function readSettings(sub: string): SlskdSettings {
-  const s = read(sub);
+export function readSettings(): SlskdSettings {
+  const s = read();
   return {
     url: s.url ?? "",
     sftpHost: s.sftpHost ?? "",
@@ -69,8 +76,8 @@ export function readSettings(sub: string): SlskdSettings {
 }
 
 /** The plain fields replace what is there; a secret left out is kept, an empty one forgotten. */
-export function saveSettings(sub: string, input: SlskdSettingsInput): void {
-  const prev = read(sub);
+export function saveSettings(input: SlskdSettingsInput): void {
+  const prev = read();
   const next: Stored = {
     url: input.url.trim().replace(/\/+$/, ""),
     sftpHost: input.sftpHost.trim(),
@@ -83,20 +90,20 @@ export function saveSettings(sub: string, input: SlskdSettingsInput): void {
     if (typed === undefined) next[k] = prev[k];
     else if (typed) next[k] = seal(typed);
   }
-  if (!store().write(sub, next))
-    throw new Error("les paramètres n'ont pas pu être enregistrés");
+  mkdirSync(settingsDir(), { recursive: true });
+  writeFileSync(fileOf(), `${JSON.stringify(next, null, 2)}\n`, "utf8");
 }
 
 /** The daemon's half, or null while its address or key is missing. */
-export function slskdOf(sub: string): SlskdConfig | null {
-  const s = read(sub);
+export function slskdOf(): SlskdConfig | null {
+  const s = read();
   const key = open(s.apiKey);
   return s.url && key ? { url: s.url, key } : null;
 }
 
 /** The SFTP half, or null while the host, user or folder is missing. */
-export function sftpOf(sub: string): SftpConfig | null {
-  const s = read(sub);
+export function sftpOf(): SftpConfig | null {
+  const s = read();
   if (!s.sftpHost || !s.sftpUser || !s.downloadsDir) return null;
   return {
     host: s.sftpHost,
@@ -110,10 +117,10 @@ export function sftpOf(sub: string): SftpConfig | null {
 }
 
 /** What is missing, in the words of the settings screen — null when a hunt can run. */
-export function missing(sub: string): string | null {
+export function missing(): string | null {
   const gaps: string[] = [];
-  if (!slskdOf(sub)) gaps.push("l'adresse de slskd et sa clé API");
-  if (!sftpOf(sub))
+  if (!slskdOf()) gaps.push("l'adresse de slskd et sa clé API");
+  if (!sftpOf())
     gaps.push("l'hôte SFTP, son utilisateur et le dossier de téléchargement");
   return gaps.length
     ? `à renseigner dans les paramètres : ${gaps.join(", ")}`

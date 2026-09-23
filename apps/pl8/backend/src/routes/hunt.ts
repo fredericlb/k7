@@ -35,8 +35,8 @@ huntRouter.use((req, res, next) => {
 huntRouter.get(
   "/",
   wrap(async (req, res) => {
-    // Each person's own settings — a new account is normally unconfigured, and the screen says so.
-    const reason = missing(subOf(req) as string);
+    // The instance's settings — a new one is normally unconfigured, and the screen says so.
+    const reason = missing();
     res.json({
       configured: reason === null,
       reason,
@@ -78,7 +78,7 @@ huntRouter.post(
 huntRouter.post(
   "/",
   wrap((req, res) => {
-    const gap = missing(subOf(req) as string);
+    const gap = missing();
     if (gap) return res.status(503).json({ error: gap });
     const body = req.body as { query?: unknown };
     const query = typeof body?.query === "string" ? body.query.trim() : "";

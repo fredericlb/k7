@@ -455,7 +455,7 @@ whoever reads the folder where it came from.
 
 ## Configuration
 
-The slskd address, its API key and the SFTP access are **each person's**, typed on the settings
+The slskd address, its API key and the SFTP access are the **instance's**, typed on the settings
 page and stored sealed on the volume — [settings.md](settings.md). None of them is an environment
 variable.
 
@@ -464,7 +464,7 @@ variable.
 | `MUSICBRAINZ_USER_AGENT` | their terms require a client that names itself and says how to reach it |
 
 While the settings are incomplete, the screen opens and **says what is missing**, with a button to
-the settings page, instead of failing on every keystroke: a new account is unconfigured.
+the settings page, instead of failing on every keystroke: a new instance is unconfigured.
 
 ## Why a row's error is a chain, not a message
 

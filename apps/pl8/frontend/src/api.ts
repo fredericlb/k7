@@ -190,7 +190,7 @@ export const hunt = {
   },
 };
 
-/** The person's slskd settings — the secrets go in and never come back (../docs/settings.md). */
+/** The instance's slskd settings — the secrets go in and never come back (../docs/settings.md). */
 export const settings = {
   slskd: async (): Promise<SlskdSettings> =>
     json(await fetch(`${BASE}/api/settings/slskd`), "settings"),

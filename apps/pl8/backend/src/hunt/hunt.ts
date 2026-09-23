@@ -203,10 +203,10 @@ async function run(
   signal: AbortSignal,
 ): Promise<void> {
   // Read once per hunt, so settings saved mid-run change the next one and not this one.
-  const slskd = slskdOf(sub);
-  const sftp = sftpOf(sub);
+  const slskd = slskdOf();
+  const sftp = sftpOf();
   if (!slskd || !sftp)
-    throw new Error(missing(sub) ?? "slskd n'est pas configuré");
+    throw new Error(missing() ?? "slskd n'est pas configuré");
   const tags = await identify(query);
   // Null and not a guess: filing a typo as an artist makes a folder nobody finds again.
   if (!tags) throw new Error("aucun morceau ne correspond à ce nom");

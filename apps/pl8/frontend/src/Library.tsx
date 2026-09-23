@@ -470,7 +470,7 @@ export function Library() {
                 target={playback.target}
                 onChoose={playback.choose}
               />
-              {/* One cog for what belongs to the person — a page, as in k7 (../docs/settings.md). */}
+              {/* One cog for the settings — a page, as in k7 (../docs/settings.md). */}
               <Button
                 variant={isSettings ? "secondary" : "ghost"}
                 size="icon"

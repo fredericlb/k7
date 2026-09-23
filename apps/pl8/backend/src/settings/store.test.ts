@@ -40,52 +40,47 @@ const onDisk = (): string =>
 
 describe("settings store", () => {
   it("dit ce qui manque tant que rien n'est enregistré", () => {
-    expect(slskdOf("ann")).toBeNull();
-    expect(sftpOf("ann")).toBeNull();
-    expect(missing("ann")).toContain("paramètres");
+    expect(slskdOf()).toBeNull();
+    expect(sftpOf()).toBeNull();
+    expect(missing()).toContain("paramètres");
   });
 
   it("rend les secrets à la recherche, jamais à l'écran", () => {
-    saveSettings("ann", FULL);
-    expect(missing("ann")).toBeNull();
-    expect(slskdOf("ann")).toEqual({
+    saveSettings(FULL);
+    expect(missing()).toBeNull();
+    expect(slskdOf()).toEqual({
       url: "https://slskd.lan:5031",
       key: "API-KEY",
     });
-    expect(sftpOf("ann")).toMatchObject({
+    expect(sftpOf()).toMatchObject({
       host: "slskd.lan",
       port: 2222,
       privateKey: "SECRET-KEY-MATERIAL",
       downloadsDir: "/downloads",
     });
-    const view = readSettings("ann");
+    const view = readSettings();
     expect(view).toMatchObject({ hasApiKey: true, hasSftpKey: true });
     expect(JSON.stringify(view)).not.toContain("API-KEY");
   });
 
   it("scelle les secrets dans le fichier", () => {
-    saveSettings("ann", FULL);
+    saveSettings(FULL);
     expect(onDisk()).not.toContain("API-KEY");
     expect(onDisk()).not.toContain("SECRET-KEY-MATERIAL");
   });
 
   it("garde un secret omis et oublie un secret vide", () => {
-    saveSettings("ann", FULL);
+    saveSettings(FULL);
     const { apiKey: _a, sftpKey: _k, ...plain } = FULL;
-    saveSettings("ann", { ...plain, sftpKey: "" });
-    expect(slskdOf("ann")?.key).toBe("API-KEY");
-    expect(sftpOf("ann")?.privateKey).toBeUndefined();
-  });
-
-  it("sépare les personnes", () => {
-    saveSettings("ann", FULL);
-    expect(slskdOf("bob")).toBeNull();
+    saveSettings({ ...plain, sftpKey: "" });
+    expect(slskdOf()?.key).toBe("API-KEY");
+    expect(sftpOf()?.privateKey).toBeUndefined();
   });
 
   it("tient un secret qui ne s'ouvre plus pour absent", () => {
-    saveSettings("ann", FULL);
+    saveSettings(FULL);
     process.env.SESSION_SECRET = "rotated";
-    expect(slskdOf("ann")).toBeNull();
-    expect(readSettings("ann").hasApiKey).toBe(false);
+    expect(slskdOf()).toBeNull();
+    expect(readSettings().hasApiKey).toBe(false);
   });
 });

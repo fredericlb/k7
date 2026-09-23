@@ -1,27 +1,26 @@
 # Settings
 
 « Paramètres » is a page, reached from the cog in the header, as k7's is. It holds who is signed
-in (with the sign-out button, which is why the cog opens a page rather than a menu) and each
-person's **slskd settings** — what "Find songs" ([hunt.md](hunt.md)) needs to reach the daemon
+in (with the sign-out button, which is why the cog opens a page rather than a menu) and the
+instance's **slskd settings** — what "Find songs" ([hunt.md](hunt.md)) needs to reach the daemon
 and bring the bytes back.
 
-## Per person, not per deployment
+## One for the instance, not one per person
 
-The slskd address, its API key and the SFTP access are **one person's**, stored against their
-`sub`, like the hunt history they drive. A hunt spends an account's bandwidth and reputation on a
-third-party network, so the account it spends is the one the person set up — not one the
-deployment chose for everyone. A new account is unconfigured, and the hunt screen says so and
-links here.
+The slskd address, its API key and the SFTP access belong to the **pl8 instance**: one daemon,
+one download folder, and every hunt, whoever starts it, goes through them. Anyone signed in can
+read and change them — the same people who can already start a hunt. The hunt history stays per
+person; only what it runs through is shared. A new instance is unconfigured, and the hunt screen
+says so and links here.
 
 Nothing about slskd comes from the environment: a form changes a key without a restart, and can
 test what it saved.
 
-## On the volume, one file per person
+## On the volume, one file
 
-`.settings/<slug>-<hash>.json` on the library volume, through `@studio/user-prefs`'s `prefsStore` —
-the same naming and the same dot-directory rule as `.prefs/` and `.hunts/`, so no family scan
-walks it. pl8 has no database for this, and one small file per person is all it needs.
-`STUDIO_SETTINGS_DIR` moves it, for tests.
+`.settings/slskd.json` on the library volume — the same dot-directory rule as `.prefs/` and
+`.hunts/`, so no family scan walks it. pl8 has no database for this, and one small file is all it
+needs. `STUDIO_SETTINGS_DIR` moves it, for tests.
 
 ## The secrets are sealed, and never sent back
 

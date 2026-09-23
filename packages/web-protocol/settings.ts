@@ -1,5 +1,5 @@
-// settings.ts — what pl8's settings screen and its backend agree on: the slskd connection a
-// person's hunts run through. The secrets go in and never come back out, only whether one is
+// settings.ts — what pl8's settings screen and its backend agree on: the slskd connection the
+// instance's hunts run through. The secrets go in and never come back out, only whether one is
 // on file. See apps/pl8/docs/settings.md.
 
 /** What `GET /api/settings/slskd` answers — every field but the secrets. */

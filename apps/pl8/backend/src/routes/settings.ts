@@ -55,7 +55,7 @@ settingsRouter.use((req, res, next) => {
 });
 
 settingsRouter.get("/slskd", (req, res) => {
-  res.json(readSettings(subOf(req) as string));
+  res.json(readSettings());
 });
 
 settingsRouter.put(
@@ -68,19 +68,17 @@ settingsRouter.put(
           .map((i) => `${i.path.join(".")} : ${i.message}`)
           .join(", "),
       });
-    const sub = subOf(req) as string;
-    saveSettings(sub, parsed.data);
-    res.json(readSettings(sub));
+    saveSettings(parsed.data);
+    res.json(readSettings());
   }),
 );
 
 /** Tests what is SAVED, both halves at once, since each fails for reasons of its own. */
 settingsRouter.post(
   "/slskd/check",
-  wrap(async (req, res) => {
-    const sub = subOf(req) as string;
-    const slskd = slskdOf(sub);
-    const sftp = sftpOf(sub);
+  wrap(async (_req, res) => {
+    const slskd = slskdOf();
+    const sftp = sftpOf();
     const [a, b] = await Promise.all([
       probe(slskd && (() => checkSlskd(slskd))),
       probe(sftp && (() => checkSftp(sftp))),

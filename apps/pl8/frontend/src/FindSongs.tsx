@@ -142,7 +142,7 @@ export function FindSongs({
   onOpenSettings,
 }: {
   onBack: () => void;
-  /** Where the reason below is fixed: each person's slskd settings live there. */
+  /** Where the reason below is fixed: the instance's slskd settings live there. */
   onOpenSettings: () => void;
   /** Called when a row turns green, so the catalogue behind reloads without waiting for its poll. */
   onFiled: () => void;
