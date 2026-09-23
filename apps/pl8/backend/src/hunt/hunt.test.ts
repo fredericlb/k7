@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { message, searchTexts } from "./hunt.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { identify, message, searchTexts } from "./hunt.ts";
 
 describe("searchTexts", () => {
   it("demande l'album et le titre, puis le titre seul", () => {
@@ -57,5 +57,48 @@ describe("message", () => {
 
   it("stringifies whatever is not even an Error", () => {
     expect(message("boom")).toBe("boom");
+  });
+});
+
+describe("identify", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("falls back to Deezer only once MusicBrainz is unreachable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL) => {
+        if (String(url).includes("musicbrainz.org"))
+          throw new Error("connect ECONNREFUSED");
+        return new Response(
+          JSON.stringify({
+            data: [
+              {
+                artist: { name: "Nirvana" },
+                title: "Lithium",
+                album: { title: "Nevermind" },
+                rank: 900,
+              },
+            ],
+          }),
+        );
+      }),
+    );
+    await expect(identify("nirvana lithium")).resolves.toEqual({
+      artist: "Nirvana",
+      title: "Lithium",
+      album: "Nevermind",
+      date: null,
+    });
+  });
+
+  it("never asks Deezer when MusicBrainz simply finds nothing", async () => {
+    const spy = vi.fn(
+      async (_url: string | URL) =>
+        new Response(JSON.stringify({ recordings: [] })),
+    );
+    vi.stubGlobal("fetch", spy);
+    await expect(identify("zzzzz not a real song")).resolves.toBeNull();
+    for (const call of spy.mock.calls)
+      expect(String(call[0])).not.toContain("deezer.com");
   });
 });

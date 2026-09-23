@@ -84,6 +84,20 @@ than "Album inconnu": the live it really appeared on.
 The release **kept** within the winning group is the oldest, so the date shown is the record's and
 not a reissue's.
 
+### When MusicBrainz cannot be reached
+
+`identify()` (`hunt.ts`) tries MusicBrainz first and only calls `lookupDeezer()`
+(`deezer.ts`) when that call **throws** — a network refusal, a timeout, a block. A legitimate
+`null` (MusicBrainz answered and found nothing) is never a reason to ask Deezer: a real
+no-match is information, not an outage.
+
+Deezer is the fallback and not the default because it is weaker on the two things that matter
+here: it carries no release-type signal, so `pickAlbum`'s bootleg-trap scoring has nothing to
+work with, and no date without a second call per candidate, which a fallback path does not
+spend. `chooseTagsDeezer` picks the best textual match (`queryScore`, the same scorer
+MusicBrainz results use) and breaks a tie with Deezer's own `rank` field — a popularity proxy,
+the nearest stand-in available for what `releaseScore` does with real release types.
+
 ## What slskd is asked: the album and the title, never the artist
 
 Two attempts, in this order (`searchTexts`):

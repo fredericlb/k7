@@ -8,7 +8,8 @@ import { writablePath } from "@studio/mediatek/layout";
 import { extOf } from "@studio/mediatek/media";
 import { MASTER_STEM, type SongTags, songFolder } from "@studio/mediatek/song";
 import { addSong } from "@studio/mediatek/write";
-import { lookup } from "./musicbrainz.ts";
+import { lookupDeezer } from "./deezer.ts";
+import { lookup, type Tags } from "./musicbrainz.ts";
 import {
   baseNameOf,
   type Candidate,
@@ -182,13 +183,22 @@ async function takeFromSomeone(
   return null;
 }
 
+/** MusicBrainz first; Deezer only once it THROWS (unreachable), never on its own null — ../../docs/hunt.md. */
+export async function identify(query: string): Promise<Tags | null> {
+  try {
+    return await lookup(query);
+  } catch {
+    return lookupDeezer(query);
+  }
+}
+
 async function run(
   sub: string,
   id: string,
   query: string,
   signal: AbortSignal,
 ): Promise<void> {
-  const tags = await lookup(query);
+  const tags = await identify(query);
   // Null and not a guess: filing a typo as an artist makes a folder nobody finds again.
   if (!tags) throw new Error("aucun morceau ne correspond à ce nom");
   const songTags: SongTags = {
