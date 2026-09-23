@@ -15,6 +15,7 @@ interface Props {
   initialTab?: SongTab;
   onChange: () => void;
   onDeleted: () => void;
+  onBack: () => void;
 }
 
 export function SongDetailContainer({
@@ -22,6 +23,7 @@ export function SongDetailContainer({
   initialTab,
   onChange,
   onDeleted,
+  onBack,
 }: Props) {
   const [song, setSong] = useState<Song | null>(null);
 
@@ -220,6 +222,7 @@ export function SongDetailContainer({
       onMixInstrumental={handleMixInstrumental}
       instrumentalUrl={api.songInstrumentalUrl(songId)}
       onDelete={handleDelete}
+      onBack={onBack}
       onDownload={handleDownload}
       onUpload={handleUpload}
       onIgnore={handleIgnore}

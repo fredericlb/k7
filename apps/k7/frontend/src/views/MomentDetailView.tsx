@@ -1,7 +1,6 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import {
-  ArrowLeft,
   Check,
   CornerUpLeft,
   Flag,
@@ -12,6 +11,7 @@ import {
 import { Input } from "@frediverse/ui/input";
 import { Waveform } from "@k7/recorder";
 import { useEffect, useRef, useState } from "react";
+import { BackButton } from "../components/BackButton";
 import { fmtDate, fmtTime, sessionTitle } from "../format";
 import type { Marker, Moment } from "../types";
 
@@ -80,14 +80,13 @@ export function MomentDetailView({
 
   return (
     <div className="moment-detail">
-      <Button variant="link" className="text-xs" onClick={onBack}>
-        <ArrowLeft className="size-3.5" /> Recordings
-      </Button>
-
-      <h2 style={{ marginTop: 8 }}>
-        {moment.validated && <Check className="size-5" />}
-        {title}
-      </h2>
+      <div className="detail-head">
+        <BackButton to="Recordings" onClick={onBack} />
+        <h2>
+          {moment.validated && <Check className="size-5" />}
+          {title}
+        </h2>
+      </div>
       <p className="muted">
         {fmtTime(moment.startSec)} – {fmtTime(moment.endSec)} ·{" "}
         {fmtTime(clipDuration)} long

@@ -116,7 +116,11 @@ function SessionRoute(props: {
   );
 }
 
-function ReleaseRoute(props: { onDeleted: () => void; onChange: () => void }) {
+function ReleaseRoute(props: {
+  onDeleted: () => void;
+  onChange: () => void;
+  onBack: () => void;
+}) {
   const { id } = useParams();
   return <ReleaseDetailContainer key={id} releaseId={id!} {...props} />;
 }
@@ -125,12 +129,17 @@ function PageRoute(props: {
   allReleases: Release[];
   onChange: () => void;
   onDeleted: () => void;
+  onBack: () => void;
 }) {
   const { id } = useParams();
   return <PageDetailContainer key={id} pageId={id!} {...props} />;
 }
 
-function SongRoute(props: { onChange: () => void; onDeleted: () => void }) {
+function SongRoute(props: {
+  onChange: () => void;
+  onDeleted: () => void;
+  onBack: () => void;
+}) {
   const { id } = useParams();
   const [sp] = useSearchParams();
   const tab = sp.get("tab") as SongTab | null;
@@ -397,7 +406,6 @@ export default function App() {
   };
 
   const allTags = [...new Set(moments.flatMap((m) => m.tags))].sort();
-  const favoriteSongs = songs.filter((s) => s.favorite);
 
   const openSong = (s: Song, tab?: SongTab) =>
     navigate(`/songs/${s.id}${tab ? `?tab=${tab}` : ""}`);
@@ -429,11 +437,9 @@ export default function App() {
     <div className="app">
       <HeaderView
         activeNav={activeNav}
-        favorites={favoriteSongs}
         onHome={() => navigate("/sessions")}
         onNav={(tab) => navigate(tabPath(tab))}
         onStartSession={handleStartSession}
-        onOpenSong={openSong}
         onOpenSettings={() => navigate("/settings")}
       />
 
@@ -508,6 +514,7 @@ export default function App() {
                     navigate("/releases");
                   }}
                   onChange={refreshReleases}
+                  onBack={() => navigate("/releases")}
                 />
               }
             />
@@ -538,6 +545,7 @@ export default function App() {
                     refreshPages();
                     navigate("/releases");
                   }}
+                  onBack={() => navigate("/releases")}
                 />
               }
             />
@@ -566,6 +574,7 @@ export default function App() {
                     refreshSongs();
                     navigate("/songs");
                   }}
+                  onBack={() => navigate("/songs")}
                 />
               }
             />
@@ -626,7 +635,6 @@ export default function App() {
                   sessions={sessions}
                   onCleanSessions={handleCleanSessions}
                   onLogout={logout}
-                  onBack={() => navigate("/sessions")}
                 />
               }
             />

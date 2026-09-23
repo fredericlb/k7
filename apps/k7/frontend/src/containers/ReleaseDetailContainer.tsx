@@ -8,12 +8,14 @@ interface Props {
   onDeleted: () => void;
   /** The home list shows title and artist, so an edit refreshes it. */
   onChange: () => void;
+  onBack: () => void;
 }
 
 export function ReleaseDetailContainer({
   releaseId,
   onDeleted,
   onChange,
+  onBack,
 }: Props) {
   const [release, setRelease] = useState<Release | null>(null);
 
@@ -75,6 +77,7 @@ export function ReleaseDetailContainer({
       onSetVersionHidden={handleSetVersionHidden}
       onDeleteVersion={handleDeleteVersion}
       onDelete={handleDelete}
+      onBack={onBack}
       versionAudioUrl={(versionId) => api.versionAudioUrl(releaseId, versionId)}
       versionEnvelope={(versionId) =>
         api.getVersionEnvelope(releaseId, versionId)

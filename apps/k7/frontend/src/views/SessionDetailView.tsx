@@ -2,7 +2,6 @@ import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import {
-  ArrowLeft,
   Check,
   Circle,
   Diamond,
@@ -15,6 +14,7 @@ import {
 import { Input } from "@frediverse/ui/input";
 import { MomentPlayer, TagInput, Waveform } from "@k7/recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BackButton } from "../components/BackButton";
 import { fmtTime, sessionTitle } from "../format";
 import type {
   Annotation,
@@ -247,10 +247,10 @@ export function SessionDetailView({
 
   return (
     <div>
-      <Button variant="link" className="text-xs" onClick={onBack}>
-        <ArrowLeft className="size-3.5" /> All sessions
-      </Button>
-      <h2 style={{ marginTop: 8 }}>{sessionTitle(session.createdAt)}</h2>
+      <div className="detail-head">
+        <BackButton to="Recordings" onClick={onBack} />
+        <h2>{sessionTitle(session.createdAt)}</h2>
+      </div>
 
       {!session.hasRecording ? (
         <p className="muted">This session has no recording yet.</p>

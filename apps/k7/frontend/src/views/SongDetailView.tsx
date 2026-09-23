@@ -11,6 +11,7 @@ import {
 } from "@k7/lyrics";
 import { Tablature } from "@k7/tablature";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BackButton } from "../components/BackButton";
 import { ChordPopin } from "../components/ChordPopin";
 import { ChordsPanel } from "../components/ChordsPanel";
 import { MetronomeWidget } from "../components/MetronomeWidget";
@@ -50,6 +51,7 @@ interface Props {
   onUpload: (file: File) => void;
   /** "Ignore": dismiss the insert for this song for good. */
   onIgnore: () => void;
+  onBack: () => void;
 }
 
 export function SongDetailView({
@@ -71,6 +73,7 @@ export function SongDetailView({
   onDownload,
   onUpload,
   onIgnore,
+  onBack,
 }: Props) {
   // Shared by the ⋮ menu's "Add timed lyrics…" and the insert's "Fix the lyrics" — one dialog.
   const [timedOpen, setTimedOpen] = useState(false);
@@ -185,6 +188,7 @@ export function SongDetailView({
   return (
     <div className="song-detail">
       <div className="song-detail-head">
+        <BackButton to="Songbook" onClick={onBack} />
         <h2>{song.title}</h2>
         {/* Beside the title, and it takes the slack: that is what puts the star next to the ⋮. */}
         <span className="muted song-detail-artist">{song.artist}</span>

@@ -6,32 +6,23 @@
 import { AppHeader, type AppHeaderItem } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@frediverse/ui/dropdown-menu";
-import {
   BookOpen,
   Disc3,
   type LucideIcon,
   Mic,
   MicOff,
   Settings,
-  Star,
   Target,
 } from "@frediverse/ui/icons";
 import { useState } from "react";
-import type { NavKey, Song } from "../types";
+import type { NavKey } from "../types";
 
 interface Props {
   /** An entry, or "settings" — the one page reached from a control rather than an entry. */
   activeNav: NavKey | "settings";
-  favorites: Song[];
   onHome: () => void;
   onNav: (tab: NavKey) => void;
   onStartSession: () => Promise<void>;
-  onOpenSong: (s: Song) => void;
   onOpenSettings: () => void;
 }
 
@@ -48,11 +39,9 @@ const NAV_ITEMS: { key: NavKey; label: string; icon: LucideIcon }[] = [
 
 export function HeaderView({
   activeNav,
-  favorites,
   onHome,
   onNav,
   onStartSession,
-  onOpenSong,
   onOpenSettings,
 }: Props) {
   const [creating, setCreating] = useState(false);
@@ -99,39 +88,6 @@ export function HeaderView({
       items={items}
       actions={
         <>
-          {/* Favourites is a MENU over songs and not a page, so it stays inline and draws nothing when empty. */}
-          {favorites.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title="Favorites"
-                  aria-label="Favorites"
-                >
-                  <Star className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-w-64">
-                {favorites.map((s) => (
-                  <DropdownMenuItem
-                    key={s.id}
-                    className="flex-col items-start gap-0"
-                    title={`${s.title} — ${s.artist}`}
-                    onSelect={() => onOpenSong(s)}
-                  >
-                    <span className="w-full truncate font-semibold">
-                      {s.title}
-                    </span>
-                    <span className="w-full truncate text-xs text-muted-foreground">
-                      {s.artist}
-                    </span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
           {/* Drawn as one of AppHeader's tabs (its classes, tint variant) so /settings lights up like an entry. */}
           <Button
             variant="ghost"
