@@ -1,7 +1,6 @@
 import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import {
-  CHAINS_LABEL,
   isLibraryPath,
   libraryModuleRef,
   libraryTree,
@@ -55,9 +54,11 @@ describe("libraryTree", () => {
   });
 
   it("points each row at the real folder", () => {
-    const [ws, pl8] = libraryTree(all());
+    const [ws, st0] = libraryTree(all());
     expect(ws.path).toBe("_modules");
-    expect(pl8.path).toBe("_libraries/modules");
+    // `@st0` is the REPOSITORY, whose `modules/` is the level — see the repository block below.
+    expect(st0.path).toBe("_libraries");
+    expect(st0.children?.[0].path).toBe("_libraries/modules");
   });
 
   it("passes each subtree through untouched — foldModules does the folding", () => {
@@ -217,11 +218,11 @@ describe("isLibraryPath", () => {
   });
 });
 
-// The library's CHAINS, in the same tab as its modules: they come out of the same repository, and two tabs would be two places to look.
-describe("chains in the libraries tree", () => {
-  const LEVELS = [
-    { ns: "workspace", path: "_libraries/modules", exists: true, nodes: [] },
-  ] as never;
+// `@st0` is the library REPOSITORY, drawn as it is on disk: `modules/`, `chains/` and `assemblies/`
+// side by side. It used to be `modules/` drawn AS `@st0`, with the chains beside it as `@st0/chains` —
+// two siblings that read as a folder and its child.
+describe("the library repository row", () => {
+  const LEVELS = [lib("st0", "_libraries/modules", true, [])];
   const CHAINS = [
     {
       ref: "process/normalize",
@@ -230,49 +231,86 @@ describe("chains in the libraries tree", () => {
     },
     { ref: "live/vocals", path: "_libraries/chains/live/vocals", nodes: [] },
   ];
+  const ASSEMBLIES = [
+    {
+      ref: "band/four-piece",
+      path: "_libraries/assemblies/band/four-piece",
+      file: "_libraries/assemblies/band/four-piece/assembly.yaml",
+    },
+  ];
+  const repo = () => libraryTree(LEVELS, CHAINS, ASSEMBLIES)[0];
 
-  it("adds them under a row of their own, LAST", () => {
-    const rows = libraryTree(LEVELS, CHAINS);
-    // Not filed under a module namespace: a chain is not a module, and putting it there would say it was one.
-    expect(rows[rows.length - 1].name).toBe(CHAINS_LABEL);
-    expect(rows.length).toBe(2);
+  it("is ONE row, the repository, with its three families under it", () => {
+    expect(libraryTree(LEVELS, CHAINS, ASSEMBLIES)).toHaveLength(1);
+    expect(repo().name).toBe("@st0");
+    expect(repo().path).toBe("_libraries");
+    expect(repo().children?.map((c) => [c.name, c.path])).toEqual([
+      ["modules", "_libraries/modules"],
+      ["chains", "_libraries/chains"],
+      ["assemblies", "_libraries/assemblies"],
+    ]);
   });
 
-  it("draws each chain as a FOLDER holding its nodes", () => {
-    const chainsRow = libraryTree(LEVELS, CHAINS).at(-1);
-    expect(chainsRow?.children?.map((c) => c.name)).toEqual([
+  it("keeps the module level's own path and subtree, which 'New module…' resolves against", () => {
+    const answer = [
+      lib("st0", "_libraries/modules", true, [
+        audio("_libraries/modules", "reverb"),
+      ]),
+    ];
+    const modules = libraryTree(answer)[0].children?.[0];
+    expect(modules?.children).toBe(answer[0].nodes);
+    expect(rootOf(answer, modules?.path ?? "")?.ns).toBe("st0");
+    // …and the repository row is no level: nothing is created at its root.
+    expect(rootOf(answer, "_libraries")).toBeNull();
+  });
+
+  it("draws each chain as a FOLDER holding its nodes, at their real paths", () => {
+    const chains = repo().children?.[1];
+    expect(chains?.children?.map((c) => c.name)).toEqual([
       "process/normalize",
       "live/vocals",
     ]);
     // A chain is a folder on disk — a graph and the nodes it names — and the tree says so rather than hiding half of it.
-    expect(chainsRow?.children?.every((c) => c.dir)).toBe(true);
-    expect(chainsRow?.children?.[0].path).toBe(
-      "_libraries/chains/process/normalize",
-    );
-  });
-
-  it("puts a chain's NODES under it, each at its real path", () => {
+    expect(chains?.children?.every((c) => c.dir)).toBe(true);
+    const first = chains?.children?.[0];
+    expect(first?.path).toBe("_libraries/chains/process/normalize");
     // The path is what tells a node's row from its chain's when one is clicked, so it is the real one and not a label.
-    const first = libraryTree(LEVELS, CHAINS).at(-1)?.children?.[0];
-    expect(first?.children?.map((n) => n.name)).toEqual(["normalize.yaml"]);
-    expect(first?.children?.[0].path).toBe(
-      "_libraries/chains/process/normalize/nodes/normalize.yaml",
-    );
-    expect(first?.children?.[0].dir).toBe(false);
-  });
-
-  it("still draws a chain with no nodes as a folder", () => {
+    expect(first?.children?.map((n) => [n.name, n.path, n.dir])).toEqual([
+      [
+        "normalize.yaml",
+        "_libraries/chains/process/normalize/nodes/normalize.yaml",
+        false,
+      ],
+    ]);
     // One node away from having some; a leaf row would say it could never.
-    const row = libraryTree(LEVELS, [
-      { ref: "empty", path: "_libraries/chains/empty", nodes: [] },
-    ]).at(-1);
-    expect(row?.children?.[0].dir).toBe(true);
-    expect(row?.children?.[0].children).toEqual([]);
+    expect(chains?.children?.[1].dir).toBe(true);
+    expect(chains?.children?.[1].children).toEqual([]);
   });
 
-  it("grows no row at all when the library has no chains", () => {
-    // An account whose library holds none is a fact, not an empty folder to draw.
-    expect(libraryTree(LEVELS, [])).toHaveLength(1);
-    expect(libraryTree(LEVELS)).toHaveLength(1);
+  it("draws each assembly template as a leaf at its folder", () => {
+    expect(
+      repo().children?.[2].children?.map((a) => [a.name, a.path, a.dir]),
+    ).toEqual([
+      ["band/four-piece", "_libraries/assemblies/band/four-piece", false],
+    ]);
+  });
+
+  it("still draws the three families when a library holds no chain or template yet", () => {
+    // They are the repository's layout, not a list that happens to be empty.
+    expect(libraryTree(LEVELS)[0].children?.map((c) => c.name)).toEqual([
+      "modules",
+      "chains",
+      "assemblies",
+    ]);
+  });
+
+  it("draws nothing of it — chains included — when the library is not mounted", () => {
+    expect(
+      libraryTree(
+        [lib("st0", "_libraries/modules", false)],
+        CHAINS,
+        ASSEMBLIES,
+      ),
+    ).toEqual([]);
   });
 });

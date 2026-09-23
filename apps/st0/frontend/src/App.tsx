@@ -2946,6 +2946,9 @@ export default function App({
                     />
                   ) : null
                 }
+                onOpenAssembly={(file, folder) =>
+                  setAssemblyBuilder({ file, folder })
+                }
                 onOpenChain={(ref, node) => {
                   setOpenBuilder(ref);
                   setBuilderNode(node ?? null);

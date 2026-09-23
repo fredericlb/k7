@@ -12,7 +12,7 @@ So a shared module is edited from inside a project, against the engine already p
 | tab | what it lists |
 |---|---|
 | **Project** | the song's own files — a project has no modules of its own to hold back |
-| **Libraries** | one row per LEVEL — `@workspace`, `@st0`, `@engine` — and the modules under it |
+| **Libraries** | one row per LEVEL — `@workspace`, `@engine` — with the modules under it, and `@st0`, the library REPOSITORY, with its `modules`, `chains` and `assemblies` |
 
 **They are two different answers, and the difference is worth writing down.** Looking for
 `_libraries` and `_modules` *inside the file tree* finds nothing, because `/tree` is deliberately
@@ -110,14 +110,24 @@ owns — the two tabs are already disjoint, by where the files sit rather than b
 here choosing to leave one out.
 
 The Libraries root rows are **namespaces** — the `@` prefix a chain writes in a ref — and under
-each, the catalogue exactly as a ref spells it:
+each, the catalogue exactly as a ref spells it. `@st0` is drawn one level deeper, because it is a
+REPOSITORY holding three families side by side, and the row shows it as it is on disk:
 
 ```
-@st0
-  audio
-    delay
-      tape-delay        →  @st0/audio/delay/tape-delay
+@st0                      _libraries/
+  modules                   modules/        the @st0 module level
+    audio
+      delay
+        tape-delay        →  @st0/audio/delay/tape-delay
+  chains                    chains/         → @st0/<path>, opened in the chains builder
+  assemblies                assemblies/     → opened in the assembly builder
 ```
+
+It used to be `modules/` drawn AS `@st0`, with the chains in a row of their own labelled
+`@st0/chains` — two sibling folders that read as a folder and its child, under a label that is not
+even a ref prefix (a chain is `@st0/tools/stems`, never `@st0/chains/tools/stems`). The `modules`
+row keeps the level's own path, so creating a module resolves exactly as before; the repository
+row and its `chains` and `assemblies` rows belong to no level and offer no create.
 
 A module is one row, as it is on the Project tab and by the same code (`foldModules`): the
 folder holds `module.yaml`, so the tree folds it and clicking it opens the builder rather than

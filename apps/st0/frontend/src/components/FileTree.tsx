@@ -16,6 +16,7 @@ import {
   FileAudio,
   Folder,
   FolderOpen,
+  Layers,
   Library,
   Pin,
   Play,
@@ -34,7 +35,13 @@ import {
   useState,
 } from "react";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
-import { libraryTree, readOnlyPaths, rootOf } from "../libraryTree";
+import {
+  type LibraryAssemblyRow,
+  type LibraryChainRow,
+  libraryTree,
+  readOnlyPaths,
+  rootOf,
+} from "../libraryTree";
 import { isVideoTrackFile } from "../projectPaths";
 import { TrackIcon } from "../trackIcons";
 import type { FileNode } from "../types";
@@ -116,6 +123,8 @@ export function FileTree({
   chains,
   onOpenChain,
   onOpenLibraryModule,
+  assemblies,
+  onOpenAssembly,
   onCreateModule,
   ref,
 }: {
@@ -146,11 +155,15 @@ export function FileTree({
   /** The module levels this project can reach, nearest first — the RAW answer, a row's shape carrying neither its level nor its writability. */
   levels?: ModuleLibrary[];
   /** The library's CHAINS, listed in the same tab — one row each, opening the chains builder. */
-  chains?: readonly { ref: string; path: string; nodes?: string[] }[];
+  chains?: readonly LibraryChainRow[];
   /** A chain row was opened: its ref, for the builder. */
   onOpenChain?: (ref: string, node?: string) => void;
   /** A module row in a LIBRARY was clicked — the same path space, a different callback, since it opens read-only (../libraryTree.ts). */
   onOpenLibraryModule?: (moduleFile: string) => void;
+  /** The library's ASSEMBLY templates, under the repository row beside its modules and chains. */
+  assemblies?: readonly LibraryAssemblyRow[];
+  /** An assembly row was opened: the `assembly.yaml` the builder opens, and its folder. */
+  onOpenAssembly?: (file: string, folder: string) => void;
   /** Make an empty module in a library: `root` is the level's path as GIVEN here, `rel` the module's path under it, never built from a name. */
   onCreateModule?: (root: string, rel: string) => void;
   ref?: Ref<FileTreeHandle>;
@@ -242,9 +255,14 @@ export function FileTree({
 
   // The same fold over the LIBRARIES, so a shared module is one row that opens the builder (see libraryTree.ts).
   const lib = useMemo(() => {
-    const rows = libraryTree(levels ?? [], chains ?? []);
+    const rows = libraryTree(levels ?? [], chains ?? [], assemblies ?? []);
     return rows.length ? foldModules(rows) : null;
-  }, [levels, chains]);
+  }, [levels, chains, assemblies]);
+  // An assembly row by its path: a leaf that opens the assembly builder rather than an editor.
+  const assemblyByPath = useMemo(
+    () => new Map((assemblies ?? []).map((a) => [a.path, a])),
+    [assemblies],
+  );
   // A chain row by its path, answered before the module lookup — the value is the chain to open, and the node to land on when the row was one.
   const chainByPath = useMemo(() => {
     const m = new Map<string, { ref: string; node?: string }>();
@@ -514,6 +532,11 @@ export function FileTree({
                 onOpenChain?.(chain.ref, chain.node);
                 return;
               }
+              const assembly = assemblyByPath.get(node.path);
+              if (assembly) {
+                onOpenAssembly?.(assembly.file, assembly.path);
+                return;
+              }
               const file = lib.modules.get(node.path);
               if (file) onOpenLibraryModule?.(`${node.path}/${file}`);
             }}
@@ -529,6 +552,8 @@ export function FileTree({
                 <Workflow className="h-4 w-4 shrink-0" />
               ) : lib.modules.has(node.path) ? (
                 <Boxes className="h-4 w-4 shrink-0" />
+              ) : assemblyByPath.has(node.path) ? (
+                <Layers className="h-4 w-4 shrink-0" />
               ) : open ? (
                 <FolderOpen className="h-4 w-4 shrink-0" />
               ) : (
