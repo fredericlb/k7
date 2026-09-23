@@ -48,6 +48,12 @@ export function PageDetailContainer({
     setPage(await api.updatePage(pageId, { versionIds }));
   };
 
+  const handleRename = async (nametag: string) => {
+    await api.updatePage(pageId, { nametag });
+    await load();
+    onChange();
+  };
+
   const handleDelete = async () => {
     await api.deletePage(pageId);
     onDeleted();
@@ -64,6 +70,7 @@ export function PageDetailContainer({
       onAddRelease={handleAddRelease}
       onChooseVersion={handleChooseVersion}
       onDelete={handleDelete}
+      onRename={handleRename}
       onBack={onBack}
       versionAudioUrl={api.versionAudioUrl}
       versionDownloadUrl={api.versionDownloadUrl}
