@@ -64,6 +64,7 @@
   "exercise.tuner.title": "Accordeur de guitare",
   "export.epub": "Exporter en EPUB",
   "export.epubTitle": "Un EPUB par morceau, dans un zip",
+  "export.menu": "Exporter vos favoris",
   "export.failed": "{n} en échec : {names}",
   "export.pdf": "Exporter en PDF",
   "export.pdfTitle": "Un PDF par morceau, dans un zip",

@@ -3,11 +3,14 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Star } from "@frediverse/ui/icons";
+import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
 import type { Song, SongTab } from "../types";
 
 interface Props {
   songs: Song[];
+  /** Drawn at the right end of the header row — the songbook's ⋮ menu. */
+  headerMenu?: ReactNode;
   onOpenSong: (s: Song, tab?: SongTab) => void;
   onToggleSongFavorite: (s: Song) => void;
 }
@@ -35,6 +38,7 @@ const LINKS = [
 
 export function SongbookTable({
   songs,
+  headerMenu,
   onOpenSong,
   onToggleSongFavorite,
 }: Props) {
@@ -53,8 +57,9 @@ export function SongbookTable({
             </th>
             <th>{m["field.artist"]()}</th>
             <th>{m["field.title"]()}</th>
-            <th>
+            <th className="songbook-links-head">
               <span className="sr-only">{m["songbook.links"]()}</span>
+              {headerMenu}
             </th>
           </tr>
         </thead>

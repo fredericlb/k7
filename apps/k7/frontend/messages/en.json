@@ -64,6 +64,7 @@
   "exercise.tuner.title": "Guitar tuner",
   "export.epub": "Export EPUB",
   "export.epubTitle": "One EPUB per song, in a zip",
+  "export.menu": "Export your favourites",
   "export.failed": "{n} failed: {names}",
   "export.pdf": "Export PDF",
   "export.pdfTitle": "One PDF per song, in a zip",

@@ -81,11 +81,13 @@ export function HomeView({
             <Button variant="outline" onClick={onNewSong}>
               <Plus className="size-4" /> {m["songbook.new"]()}
             </Button>
-            {/* The songbook is shared; what a person exports is their own favourites — ../../../docs/export.md. */}
-            <SongbookExport songs={songs.filter((s) => s.favorite)} />
           </div>
           <SongbookTable
             songs={songs}
+            // The songbook is shared; what a person exports is their own favourites — ../../../docs/export.md.
+            headerMenu={
+              <SongbookExport songs={songs.filter((s) => s.favorite)} />
+            }
             onOpenSong={onOpenSong}
             onToggleSongFavorite={onToggleSongFavorite}
           />

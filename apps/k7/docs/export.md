@@ -1,6 +1,7 @@
 # Exporting the songbook
 
-Two buttons on the songbook tab, one per format. Each makes **one file per song** of the
+Two entries of the songbook's ⋮ menu, at the right end of the table's header, one per format.
+Each makes **one file per song** of the
 user's **favourites**, puts them all in a zip and hands that to the browser. The songbook is
 shared by everyone ([ownership.md](ownership.md)); the favourites are what one person carries. The zip is the deliverable because a songbook is
 read one song at a time: a single 200-page file is not what you carry to a rehearsal.
@@ -8,7 +9,7 @@ read one song at a time: a single 200-page file is not what you carry to a rehea
 ## It runs in the browser
 
 `GET /api/songs` already answers with `lyrics` and `tablature` in full, so the page holds the
-whole songbook before either button is pressed. A server route would re-read what the client
+whole songbook before either entry is chosen. A server route would re-read what the client
 has, hold every generated file in memory at once, and put two more dependencies in the hosted
 image for a job that no longer has a server-side half.
 
@@ -17,7 +18,7 @@ pdf-lib ~420 kB, epub-gen-memory ~220 kB — and neither belongs in the chunk th
 session list.
 
 Songs are built **one at a time**. Sheet scans are megabytes; building in parallel would hold
-every one of them at once, and it is also what lets the button count off `3/12` truthfully.
+every one of them at once, and it is also what lets the line under the menu count off `3/12` truthfully.
 
 ## PDF: pdf-lib, and the two things it costs
 
@@ -65,7 +66,7 @@ drawing one to paper is a job this export does not take on — so it is not even
 
 ## What a failure costs
 
-A song that throws is named in the line under the buttons, and the zip ships with every other
+A song that throws is named in the line under the menu, and the zip ships with every other
 one in it. A sheet that will not load costs itself and is counted, not the song. An export that
 loses one file silently would be worse than one that loses it loudly, and an export that
 refuses to produce anything because song 40 of 60 is broken is worst of all.
