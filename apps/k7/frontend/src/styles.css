@@ -492,6 +492,11 @@ button.calendar-cell.selected:hover:not(:disabled) {
 .song-detail-head h2 {
   margin: 0;
 }
+/* Scoped under the head so it outranks the base button rule, whose background would win over .star-btn. */
+.song-detail-head .star-btn,
+.song-detail-head .star-btn:hover:not(:disabled) {
+  background: transparent;
+}
 .song-detail-head .star-btn {
   font-size: 22px;
 }
