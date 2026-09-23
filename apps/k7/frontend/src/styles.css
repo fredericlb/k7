@@ -1098,13 +1098,33 @@ select {
   box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
 }
 
-/* Under the title: download/upload when there is no track, else the pipeline's own status. */
+/* Under the title: download/upload when there is no track, else the pipeline's own status.
+   Solid, not the soft tint: the text and buttons on it are white / white-on-purple. */
 .song-fetch-insert {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   margin: 4px 0 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--accent);
+}
+.song-fetch-insert-text {
+  flex: 1 1 100%;
+  margin: 0 0 2px;
+  color: #fff;
+  font-size: 13px;
+}
+.song-fetch-btn {
+  background: #fff;
+  color: var(--accent);
+  border: none;
+}
+.song-fetch-btn:hover {
+  background: #fff;
+  color: var(--accent-hover);
+  opacity: 0.9;
 }
 .song-fetch-status {
   display: flex;

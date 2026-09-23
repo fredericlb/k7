@@ -105,8 +105,7 @@ export const SCHEMA: CollectionSchema = {
     { name: "InstrumentalPath", type: "text" },
     { name: "InstrumentalMime", type: "text" },
     { name: "InstrumentalName", type: "text" },
-    // The auto-fetch pipeline's own state, so a reload finds it where it left off — see
-    // fetchSong/run.ts's runPipeline. Phase is "" once nothing is running (done or never started).
+    // The auto-fetch pipeline's own state — fetchSong/run.ts's runPipeline reads and writes it.
     { name: "FetchPhase", type: "text" },
     { name: "FetchProgress", type: "number" },
     { name: "FetchError", type: "text" },
@@ -114,6 +113,8 @@ export const SCHEMA: CollectionSchema = {
     { name: "FetchJobId", type: "text" },
     // "" (not attempted), "matched" (applied automatically) or "unmatched" (needs the fixer).
     { name: "LyricsMatch", type: "text" },
+    // The insert dismissed on purpose — "Ignore" — so it never offers again for this song.
+    { name: "FetchIgnored", type: "bool" },
     { name: "CreatedAt", type: "text" },
   ],
   SongFavorites: [

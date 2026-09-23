@@ -3,6 +3,7 @@
 // rather than an empty choice — ../../../docs/audio.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Download, Pencil, Upload, X } from "@frediverse/ui/icons";
 import { useRef } from "react";
 import type { FetchStatus, Song } from "../types";
 
@@ -11,6 +12,8 @@ interface Props {
   onDownload: () => void;
   onUpload: (file: File) => void;
   onFixLyrics: () => void;
+  /** "Ignore": never offer this insert for this song again — a persisted choice. */
+  onIgnore: () => void;
 }
 
 const LABEL: Record<Exclude<FetchStatus["phase"], "" | "failed">, string> = {
@@ -51,6 +54,7 @@ export function SongFetchInsert({
   onDownload,
   onUpload,
   onFixLyrics,
+  onIgnore,
 }: Props) {
   const file = useRef<HTMLInputElement>(null);
   const { phase, error } = song.fetchStatus;
@@ -74,8 +78,13 @@ export function SongFetchInsert({
     if (song.lyricsMatch === "unmatched")
       return (
         <div className="song-fetch-insert">
-          <Button variant="outline" size="sm" onClick={onFixLyrics}>
-            Fix the lyrics
+          <Button
+            variant="ghost"
+            size="sm"
+            className="song-fetch-btn"
+            onClick={onFixLyrics}
+          >
+            <Pencil className="size-4" /> Fix the lyrics
           </Button>
         </div>
       );
@@ -84,16 +93,40 @@ export function SongFetchInsert({
 
   if (running) return <StatusRow {...song.fetchStatus} />;
 
+  // Dismissed on purpose, and nothing is running: stay out of the way for good.
+  if (song.fetchIgnored) return null;
+
   return (
     <div className="song-fetch-insert">
       {phase === "failed" && error && <p className="error small">{error}</p>}
-      <Button size="sm" onClick={onDownload}>
-        Download the song
+      <p className="song-fetch-insert-text">
+        No song file yet — what should we do?
+      </p>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="song-fetch-btn"
+        onClick={onDownload}
+      >
+        <Download className="size-4" /> Download the song
       </Button>
-      <Button variant="outline" size="sm" onClick={pick}>
-        Upload a file…
+      <Button
+        variant="ghost"
+        size="sm"
+        className="song-fetch-btn"
+        onClick={pick}
+      >
+        <Upload className="size-4" /> Upload a file…
       </Button>
       {input}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="song-fetch-btn"
+        onClick={onIgnore}
+      >
+        <X className="size-4" /> Ignore
+      </Button>
     </div>
   );
 }

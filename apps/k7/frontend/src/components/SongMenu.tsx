@@ -113,10 +113,11 @@ export function SongMenu({
 
           <DropdownMenuSeparator />
 
-          {/* No track yet is the auto-fetch insert's job, under the title. */}
-          {song.audio && (
+          {/* No track yet is the auto-fetch insert's job, under the title — except once its
+              own "Ignore" was clicked, which is what makes this the one way back in. */}
+          {(song.audio || song.fetchIgnored) && (
             <DropdownMenuItem onSelect={() => track.current?.click()}>
-              Replace the track…
+              {song.audio ? "Replace the track…" : "Add a track…"}
             </DropdownMenuItem>
           )}
           {song.audio && (

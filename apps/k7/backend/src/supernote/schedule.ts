@@ -9,7 +9,16 @@ import { syncSongbook } from "./sync.ts";
 const HOUR = 60 * 60 * 1000;
 
 async function tick(): Promise<void> {
-  for (const ownerId of await enabledOwners()) {
+  let owners: string[];
+  try {
+    owners = await enabledOwners();
+  } catch (err) {
+    // PocketBase unreachable or stalled: skip this hour. Escaping here would be an unhandled
+    // rejection, and that takes the whole server down.
+    console.warn(`   Supernote schedule skipped: ${(err as Error).message}`);
+    return;
+  }
+  for (const ownerId of owners) {
     try {
       const report = await syncSongbook(ownerId);
       if (report.uploaded > 0) {

@@ -123,8 +123,7 @@ export async function downloadStreamable(
   if (!res.ok || !res.body)
     throw new Error(`mediatek stream ${path}: ${res.status} ${res.statusText}`);
   mkdirSync(dirname(dest), { recursive: true });
-  // A random suffix, not just `.part`: two requests racing a cache miss for the SAME dest
-  // (two Range requests on one <audio> element, say) must never share one temp file.
+  // A random suffix: two requests racing the same cache miss must never share one temp file.
   const tmp = `${dest}.${randomUUID()}.part`;
   try {
     await pipeline(Readable.fromWeb(res.body as never), createWriteStream(tmp));

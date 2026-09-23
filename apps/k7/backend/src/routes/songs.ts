@@ -57,6 +57,7 @@ const patchSchema = z.object({
     })
     .optional(),
   lyricsMatch: z.enum(["", "matched", "unmatched"]).optional(),
+  fetchIgnored: z.boolean().optional(),
 });
 
 const favoriteSchema = z.object({ favorite: z.boolean() });

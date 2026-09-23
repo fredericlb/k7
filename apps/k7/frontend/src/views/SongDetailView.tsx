@@ -48,6 +48,8 @@ interface Props {
   /** The auto-fetch insert under the title: start a Soulseek hunt, or hand it an uploaded file. */
   onDownload: () => void;
   onUpload: (file: File) => void;
+  /** "Ignore": dismiss the insert for this song for good. */
+  onIgnore: () => void;
 }
 
 export function SongDetailView({
@@ -68,6 +70,7 @@ export function SongDetailView({
   instrumentalUrl,
   onDownload,
   onUpload,
+  onIgnore,
 }: Props) {
   // Shared by the ⋮ menu's "Add timed lyrics…" and the insert's "Fix the lyrics" — one dialog.
   const [timedOpen, setTimedOpen] = useState(false);
@@ -215,6 +218,7 @@ export function SongDetailView({
         onDownload={onDownload}
         onUpload={onUpload}
         onFixLyrics={() => setTimedOpen(true)}
+        onIgnore={onIgnore}
       />
       <TimedLyricsDialog
         open={timedOpen}

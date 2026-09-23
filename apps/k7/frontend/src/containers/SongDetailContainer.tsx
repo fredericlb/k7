@@ -194,6 +194,13 @@ export function SongDetailContainer({
     })();
   };
 
+  const handleIgnore = () => {
+    void (async () => {
+      const updated = await api.updateSong(songId, { fetchIgnored: true });
+      setSong(updated);
+    })();
+  };
+
   if (!song) return <p className="muted">Loading…</p>;
 
   return (
@@ -215,6 +222,7 @@ export function SongDetailContainer({
       onDelete={handleDelete}
       onDownload={handleDownload}
       onUpload={handleUpload}
+      onIgnore={handleIgnore}
     />
   );
 }
