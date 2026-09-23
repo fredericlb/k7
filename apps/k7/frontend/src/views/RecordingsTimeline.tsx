@@ -178,40 +178,39 @@ export function RecordingsTimeline({
         </Button>
       </div>
 
-      {tags.length > 0 && (
-        <div
-          className="row tag-chips moment-filter"
-          style={{ marginBottom: 12 }}
-        >
-          {tags.map((t) => (
-            <Badge
-              key={t}
-              variant="tag"
-              asChild
-              className={
-                activeTag === t
-                  ? "border-primary bg-primary text-white"
-                  : undefined
-              }
-            >
-              <button
-                type="button"
-                aria-pressed={activeTag === t}
-                onClick={() => pickTag(t)}
-              >
-                #{t}
-              </button>
-            </Badge>
-          ))}
-        </div>
-      )}
-
       <div className="sessions-day-view">
-        <Calendar
-          markedDays={markedDays}
-          selected={effectiveDay}
-          onSelect={setSelectedDay}
-        />
+        {/* The filters sit under the calendar: both choose what the timeline beside them shows. */}
+        <div className="calendar-col">
+          <Calendar
+            markedDays={markedDays}
+            selected={effectiveDay}
+            onSelect={setSelectedDay}
+          />
+          {tags.length > 0 && (
+            <div className="row tag-chips moment-filter">
+              {tags.map((t) => (
+                <Badge
+                  key={t}
+                  variant="tag"
+                  asChild
+                  className={
+                    activeTag === t
+                      ? "border-primary bg-primary text-white"
+                      : undefined
+                  }
+                >
+                  <button
+                    type="button"
+                    aria-pressed={activeTag === t}
+                    onClick={() => pickTag(t)}
+                  >
+                    #{t}
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="day-timeline-wrap">
           <h3 style={{ marginTop: 0 }}>
