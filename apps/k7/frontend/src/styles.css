@@ -454,12 +454,6 @@ button.calendar-cell.selected:hover:not(:disabled) {
 }
 
 /* Moments tab: one timeline section per tag. */
-.tag-timeline-group {
-  margin-bottom: 6px;
-}
-.tag-timeline-title {
-  margin: 18px 0 4px;
-}
 
 /* Favorite star toggle (song rows, song detail header). */
 .star-btn {
@@ -1694,4 +1688,10 @@ select {
 .rec-popin > .rec-popin-close:hover:not(:disabled) {
   background: var(--surface-2);
   color: var(--text);
+}
+
+/* A moment under its session: only the card steps right, so the time column and the spine stay one line. */
+.timeline-item.moment-child > :last-child {
+  margin-left: 24px;
+  padding-block: 6px;
 }

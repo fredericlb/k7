@@ -6,14 +6,9 @@
 export type { Metronome, Selection } from "@k7/recorder";
 export * from "@k7/shared";
 
-export type HomeTab =
-  | "sessions"
-  | "moments"
-  | "releases"
-  | "pages"
-  | "songbook";
+export type HomeTab = "sessions" | "releases" | "pages" | "songbook";
 
-// The header's destinations: one entry per section, sessions and moments sharing Recordings, releases and pages Publications.
+// The header's destinations: one entry per section, sessions and their moments under Recordings, releases and pages Publications.
 export type NavKey = "recordings" | "publications" | "songbook" | "exercices";
 
 /** The Supernote sync's state, as the settings screen sees it — never the password. */

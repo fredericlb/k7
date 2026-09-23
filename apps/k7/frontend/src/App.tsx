@@ -72,7 +72,6 @@ function tabPath(tab: NavKey): string {
 // The home list routes, each with the HomeView tab it selects.
 const HOME_ROUTES: { path: string; tab: HomeTab }[] = [
   { path: "sessions", tab: "sessions" },
-  { path: "moments", tab: "moments" },
   { path: "releases", tab: "releases" },
   { path: "pages", tab: "pages" },
   { path: "songs", tab: "songbook" },
@@ -576,10 +575,10 @@ export default function App() {
               path="/moments/:id"
               element={
                 <MomentRoute
-                  onBack={() => navigate("/moments")}
+                  onBack={() => navigate("/sessions")}
                   onDeleted={() => {
                     refreshMoments();
-                    navigate("/moments");
+                    navigate("/sessions");
                   }}
                   onOpenSession={(sessionUid, seekTo) =>
                     navigate(
@@ -631,6 +630,11 @@ export default function App() {
               }
             />
 
+            {/* Moments hang under their sessions now — ../../docs/recordings.md; the old list address still lands. */}
+            <Route
+              path="/moments"
+              element={<Navigate to="/sessions" replace />}
+            />
             <Route path="*" element={<Navigate to="/sessions" replace />} />
           </Routes>
 

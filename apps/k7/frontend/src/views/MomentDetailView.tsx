@@ -81,7 +81,7 @@ export function MomentDetailView({
   return (
     <div className="moment-detail">
       <Button variant="link" className="text-xs" onClick={onBack}>
-        <ArrowLeft className="size-3.5" /> All moments
+        <ArrowLeft className="size-3.5" /> Recordings
       </Button>
 
       <h2 style={{ marginTop: 8 }}>
