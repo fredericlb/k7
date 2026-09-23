@@ -513,4 +513,34 @@ describe("syncLyrics", () => {
     });
     expect(onLrc).toHaveBeenCalledWith("{{00:12.50}} Oh sinerman");
   });
+
+  it("skips a first answer credited to someone else, and times with the next one that is this song", async () => {
+    // LRCLIB's first answer for Oasis was credited « Oasis/oasis »: the song was left unmatched.
+    const onLrc = vi.fn(async () => song());
+    const onStatus = vi.fn();
+    const oasis = song({
+      artist: "Oasis",
+      title: "Don't look back in anger",
+      lyrics: "Slip inside the eye of your mind",
+    });
+    const candidate = (id: number, artistName: string) => ({
+      id,
+      trackName: "Don't Look Back In Anger",
+      artistName,
+      albumName: "",
+      duration: 290,
+      syncedLyrics: "[00:11.95]Slip inside the eye of your mind",
+      instrumental: false,
+    });
+    await syncLyrics(oasis, {
+      onPhase: () => {},
+      findLrc: async () => [candidate(1, "Oasis/oasis"), candidate(2, "Oasis")],
+      onLrc,
+      onStatus,
+    });
+    expect(onLrc).toHaveBeenCalledWith(
+      "{{00:11.95}} Slip inside the eye of your mind",
+    );
+    expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "matched" });
+  });
 });

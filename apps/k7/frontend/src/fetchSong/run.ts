@@ -214,9 +214,11 @@ export async function syncLyrics(
 ): Promise<Song> {
   steps.onPhase(m["fetch.lyrics"]());
   steps.onStatus?.({ phase: "matching-lyrics" });
-  const best = (await steps.findLrc())[0];
-  const ours =
-    best && matches(song.artist, song.title, best.artistName, best.trackName);
+  // The nearest version that IS this song: LRCLIB's first answer can be credited « Oasis/oasis ».
+  const best = (await steps.findLrc()).find((c) =>
+    matches(song.artist, song.title, c.artistName, c.trackName),
+  );
+  const ours = best !== undefined;
   if (ours && best.instrumental) {
     steps.onStatus?.({ lyricsMatch: "instrumental" });
     return { ...song, lyricsMatch: "instrumental" };

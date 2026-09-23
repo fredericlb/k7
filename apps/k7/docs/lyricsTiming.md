@@ -56,7 +56,10 @@ The search runs from the backend (`apps/k7/backend/src/lrclib.ts`): LRCLIB asks 
 User-Agent, and a browser should not call a third party on the user's behalf. All it sends is the
 song's artist and title, and the reference track's length when there is one. Only results with
 synced lyrics are offered, nearest that length first — a live cut or a remaster can run a minute
-longer and time every line wrong. The first result is the one used.
+longer and time every line wrong. The pipeline sends the track's length (the one its waveform
+stores), and uses the first result that IS this song by this artist — not simply the first: LRCLIB's
+top answer can be credited to a spelling of the artist nobody would type (« Oasis/oasis »), and
+stopping there left a famous song « unmatched » with nineteen good versions behind it.
 
 LRCLIB's timings are crowdsourced and uneven, so only a version of THIS song (its artist and title)
 is ever applied, and what it writes is plain text a hand can correct afterwards. When nothing
