@@ -1243,7 +1243,7 @@ select {
 }
 /* Wide screens with many chords: widen to fit a third diagram per row. */
 @media (min-width: 1360px) {
-  .chords-panel.three-col {
+  .chords-panel.three-col:not(.collapsed) {
     width: 396px;
   }
 }
