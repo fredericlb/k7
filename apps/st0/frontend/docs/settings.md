@@ -107,9 +107,12 @@ separates and processes, is not one. The file service lists them (`GET /account/
 against the bench's clone of the library. The instrumental picker narrows further, to the chains
 whose offline step declares an `instrumental` output.
 
-**A cold chain this machine cannot run YET is still listed**, marked « can't run here yet », and
-the reason shows under the picker once it is chosen — almost always the model: a separation needs
-`htdemucs_fp16weights.onnx` (166 MB) in `~/.st0/models`, and nothing downloads it for you. It was
+**A cold chain this machine cannot run YET is still listed**, and the reason shows under the picker
+once it is chosen — almost always the model: a separation needs `htdemucs_fp16weights.onnx` (166 MB)
+in `~/.st0/models`. The dropdown says which kind of "not yet" it is: « requires a download » when a
+model it is missing has a `model_url` its module gives — a link under the picker then fetches it —
+and « can't run here yet » when nothing here can fix it. (A chain missing both a downloadable model
+and something else reads as the first: the reason under the picker still names the rest.) It was
 first left out instead, and a library holding `stems` and `instrumental` then read as holding no
 cold chain at all, on exactly the machine that needed telling what was missing. Choosing it is
 allowed: the answer is the machine's, and it holds the day the model arrives.

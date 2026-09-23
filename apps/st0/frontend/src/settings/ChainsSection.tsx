@@ -74,8 +74,13 @@ function ChainPicker({
         <option value="">{none}</option>
         {shown.map((c) => (
           <option key={c.ref} value={c.ref}>
+            {/* A model this machine can FETCH is a download away, not a dead end — the tag says which. */}
             {c.unavailable
-              ? `${c.ref} — ${m["settings.chains.unavailableTag"]()}`
+              ? `${c.ref} — ${
+                  c.downloads.length
+                    ? m["settings.chains.downloadTag"]()
+                    : m["settings.chains.unavailableTag"]()
+                }`
               : c.ref}
           </option>
         ))}
