@@ -381,20 +381,13 @@ export function Library() {
               label: (t) => `Supprimer ${t.name}…`,
               when: (t) => t.dir && !t.root && !isSongFolder(entries, t.path),
               danger: true,
-              // Typed rather than one click: this can take every song underneath — ../docs/library.md.
-              prompt: {
-                placeholder: "nom du dossier",
-                hint: (t) =>
-                  `Tapez « ${t.name} » pour supprimer tout ce qu'il contient.`,
+              // Asked rather than one click: this can take every song underneath — ../docs/library.md.
+              confirm: {
+                message: (t) =>
+                  `Supprimer « ${t.name} » et tout ce qu'il contient ?`,
                 submit: "Supprimer",
               },
-              run: (t, value) => {
-                if (value !== t.name) {
-                  setError(
-                    `Le nom tapé ne correspond pas à « ${t.name} » : rien n'a été supprimé.`,
-                  );
-                  return;
-                }
+              run: (t) =>
                 void library
                   .removeTree(`${section}/${t.path}`)
                   .then(() => {
@@ -404,8 +397,7 @@ export function Library() {
                       openFile(null);
                     refresh();
                   })
-                  .catch((e: Error) => setError(e.message));
-              },
+                  .catch((e: Error) => setError(e.message)),
             },
           ],
     [entries, file, openFile, pickVariant, playQueue.enqueue, refresh, section],

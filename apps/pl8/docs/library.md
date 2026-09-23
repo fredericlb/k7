@@ -90,11 +90,12 @@ takes a whole grouping away — and each `when` accepts a row only for the kind 
 variant's own action never offers itself on the song that holds it, nor the reverse. The shared
 tree opens no menu at all when nothing passes, which is how the capture zone gets no menu at all.
 
-**Deleting an artist or an album asks for its name first**, the tree's own `prompt` mechanism
-(the same one Renommer and Nouveau dossier use), and every other delete in this screen does not.
-The difference is blast radius: a song's own delete takes one song, a variant's takes one file, but
-an artist or an album can hold many songs — and there is no trash here, so a wrong click has no
-path back. Typing the name is the one row in this tree with a second step on purpose.
+**Deleting an artist or an album asks first**, the tree's `confirm` gate — yes/no, nothing typed —
+and every other delete in this screen does not. The difference is blast radius: a song's own
+delete takes one song, a variant's takes one file, but an artist or an album can hold many songs —
+and there is no trash here, so a wrong click has no path back. `confirm` rather than `prompt`
+because there is no name to echo back as the answer: the row IS the thing being confirmed, not a
+value to type again.
 
 That same early return is why every target needs at least one action whose `when` passes: an empty
 menu does not open, it simply never appears. Folders and the root would otherwise have none.
