@@ -588,6 +588,50 @@ input[type="range"] {
   gap: 6px;
   margin-top: 8px;
 }
+/* The songbook: one row per song, favourite · artist · title · links; a narrow screen scrolls it sideways. */
+.songbook-table-wrap {
+  overflow-x: auto;
+}
+.songbook-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.songbook-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.songbook-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.songbook-table tbody tr {
+  cursor: pointer;
+}
+.songbook-table tbody tr:hover {
+  background: var(--surface);
+}
+.songbook-table .songbook-star {
+  width: 1%;
+  padding-right: 0;
+}
+.songbook-table .songbook-title {
+  font-weight: 600;
+}
+.songbook-table .song-links {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+/* Scoped to the table so it outranks the base button rule, whose background would win over .star-btn. */
+.songbook-table .star-btn,
+.songbook-table .star-btn:hover:not(:disabled) {
+  background: transparent;
+}
 .song-link {
   padding: 3px 10px;
   font-size: 11.5px;
