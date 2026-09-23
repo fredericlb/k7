@@ -112,6 +112,7 @@ describe("moduleFoldersStill", () => {
   it("keeps two projects apart", async () => {
     const other = join(root, "other.st0");
     node_(other, "chorus");
+    await settle(); // macOS FSEvents delivers that write late, to a watch opened after it
     watchModuleFolders(dir);
     watchModuleFolders(other);
     moduleFoldersStill(dir);
