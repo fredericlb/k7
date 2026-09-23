@@ -30,6 +30,7 @@ import { resolveModule } from "@studio/song/moduleResolve";
 import type { PluginDoc, ProjectDoc } from "@studio/song/project";
 import { MIXER_PLUGIN } from "@studio/song/project";
 import { librariesDirFor } from "@studio/song/sharedFolders";
+import { INSTRUMENTAL } from "@studio/song-schema/stems";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import {
@@ -211,6 +212,39 @@ function mediatekChain(
     );
   }
   return { plugins, cold, missing };
+}
+
+/** A library chain that SEPARATES, for the settings that pick which one this machine uses. */
+export interface ColdChain {
+  /** `@st0/<path>`, what `system stems` and the preferences store. */
+  ref: string;
+  /** One of its offline steps declares an `instrumental` output — what `system instrumental` insists on. */
+  instrumental: boolean;
+}
+
+/**
+ * The médiathèque's COLD chains — those whose steps are all offline, i.e. that separate — judged
+ * exactly as `resolveChain` would, so nothing listed here is one it would then refuse: a chain with
+ * a step this machine cannot load, or one that both separates and processes, is left out.
+ * `dir` is any project folder whose library is the one to read; no project needs to be open.
+ */
+export function coldChains(dir: string): ColdChain[] {
+  const out: ColdChain[] = [];
+  for (const c of libraryChains(dir)) {
+    let chain: ReturnType<typeof mediatekChain>;
+    try {
+      chain = mediatekChain(dir, c.folder);
+    } catch {
+      continue; // an unreadable graph file is no chain to offer
+    }
+    if (chain.missing.length || !chain.cold.length || chain.plugins.length)
+      continue;
+    out.push({
+      ref: `${MEDIATEK_CHAIN}${c.ref}`,
+      instrumental: chain.cold.some((s) => s.outputs.includes(INSTRUMENTAL)),
+    });
+  }
+  return out.sort((a, b) => a.ref.localeCompare(b.ref));
 }
 
 /** The chain to run, the project asked FIRST — throws with what to do next; see docs/processChain.md. */

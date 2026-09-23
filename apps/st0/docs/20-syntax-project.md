@@ -105,7 +105,8 @@ playlist: ete-2026
 # land.
 #
 # WHICH chain separates is not asked here. That is one answer for the whole
-# machine, set once under the cog, in I/O — or `system stems @st0/stems`.
+# machine, set once in st0's settings (the home page's cog, "Separation
+# chains") — or `system stems @st0/stems`.
 #
 # Leave this out and nothing starts, which is deliberate: a separation is
 # minutes of arithmetic per song. Prepare a whole set list the night before

@@ -184,6 +184,15 @@ export interface CatalogueModule {
   panel?: { cols: number; rows: number }; // its panel grid, what the picker sizes a card by
 }
 
+/** The machine's two separating choices and the library's COLD chains to make them from — `GET /account/cold-chains`. */
+export interface ColdChainsReply {
+  /** `@st0/<path>` refs; `instrumental` when one of its offline steps writes an instrumental. */
+  chains: { ref: string; instrumental: boolean }[];
+  /** `null` is "never told": this machine separates nothing. */
+  stemsChain: string | null;
+  instrumentalChain: string | null;
+}
+
 // User preferences, formatted for display. `vim` is the only one the web writes back; the rest mirror rig config.
 export interface WebPreferences {
   audioDevice: string | null;

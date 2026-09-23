@@ -142,7 +142,7 @@ export function SettingsPanel({
             onToggleVim={() => void onRun("ui vim")}
           />
         )}
-        {tab === "io" && <IoPanel engine={engine} onRun={onRun} />}
+        {tab === "io" && <IoPanel engine={engine} />}
         {tab === "account" && <AccountTab onRun={onRun} />}
       </div>
     </aside>
