@@ -137,12 +137,25 @@ export function ReleaseDetailView({
               {release.artist}
               {release.releaseDate ? ` · ${release.releaseDate}` : ""}
             </span>
+            <Badge
+              className="shrink-0"
+              variant={release.canDownload ? "amber" : "default"}
+            >
+              {release.canDownload ? (
+                <>
+                  <Download className="size-3" /> downloadable by users
+                </>
+              ) : (
+                "download disabled"
+              )}
+            </Badge>
             {/* The release's verbs in one ⋮, like a song's, so the page below is the release. */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  className="ds-button"
                   title="Release menu"
                   aria-label="Release menu"
                 >
@@ -166,18 +179,6 @@ export function ReleaseDetailView({
           {release.description && (
             <p style={{ whiteSpace: "pre-wrap" }}>{release.description}</p>
           )}
-
-          <div className="row" style={{ marginTop: 8 }}>
-            <Badge variant={release.canDownload ? "amber" : "default"}>
-              {release.canDownload ? (
-                <>
-                  <Download className="size-3" /> downloadable by users
-                </>
-              ) : (
-                "download disabled"
-              )}
-            </Badge>
-          </div>
         </>
       )}
 
