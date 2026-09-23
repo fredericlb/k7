@@ -147,15 +147,16 @@ device its **Forget**.
 ### st0 instances — none until you add one
 
 A fresh machine is connected to **no** st0 instance, and nothing is suggested: the supervisor has no
-default registry and seeds no origin (`packages/engine-host/docs/supervisorPolicy.md`). This tab is
+default registry, seeds no origin, and ignores the local backends' `web-endpoints/` advertisements —
+running `npm run dev` connects nothing either (`packages/engine-host/docs/supervisorPolicy.md`). This tab is
 where one is added — its address typed into the form, and nowhere else.
 
 Each row is one instance as the supervisor's `instances` reports it: the union of the registries this
 engine heartbeats to and the origins `web-origins.json` lets through, keyed by origin, because to the
 user those are the same thing. Adding sends `weburi.add`, which does both — the origin is allowed and
 the engine is announced there, so it shows in that instance's picker. **Remove** sends `weburi.remove`,
-which undoes both and deregisters at once. A registry that came from `$STUDIO_REGISTRY_URL` or a local
-backend's advertisement gets no Remove and says why: it would be back on the next heartbeat.
+which undoes both and deregisters at once. A registry that came from `$STUDIO_REGISTRY_URL` gets no Remove
+and says why: the environment is not the tray's to edit.
 
 Beneath the list sit the origins the file service **just refused**, with Allow and Ignore. This is how
 an instance gets let in without anyone typing its URL — the blocked browser names itself. Allowing

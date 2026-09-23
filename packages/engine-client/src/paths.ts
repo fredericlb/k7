@@ -34,12 +34,7 @@ export function hostPidPath(): string {
   return join(studioDir(), "engine-host.pid");
 }
 
-/** Written by the web backend on boot, superseded by `webEndpointsDir` but still READ, so an older backend keeps working. */
-export function webEndpointPath(): string {
-  return join(studioDir(), "web-endpoint.json");
-}
-
-/** One file per hosted SERVICE, a directory rather than one list because three backends booting together would lose an entry from it. */
+/** One file per hosted SERVICE, a directory rather than one list because three backends booting together would lose an entry from it. Read for pl8's address by the file service (`mediatekLink.ts`); the supervisor does NOT connect the engine to what is here. */
 export function webEndpointsDir(): string {
   return join(studioDir(), "web-endpoints");
 }

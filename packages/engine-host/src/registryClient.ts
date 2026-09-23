@@ -4,14 +4,11 @@
 // the engine as available, and a deregister on shutdown so it drops immediately
 // instead of waiting out the TTL.
 
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { webEndpointPath, webEndpointsDir } from "@studio/engine-client/paths";
 import { serviceUrl, studioOrigin } from "@studio/web-protocol/services";
 import type { EnginePresence } from "./addresses.ts";
 import type { EngineIdentity } from "./identity.ts";
 
-/** Where the registries live: three tiers, most explicit first, the first that yields anything winning outright; none at all is a machine connected to no st0 instance — see docs/supervisorPolicy.md. */
+/** Where the registries live: what the user added, else `$STUDIO_REGISTRY_URL`, else nothing — a machine connected to no st0 instance. What local backends advertise is NOT read: see docs/supervisorPolicy.md. */
 export function resolveRegistryUrls(configured?: string[] | null): string[] {
   if (configured?.length) return [...new Set(configured)];
   if (process.env.STUDIO_REGISTRY_URL)
@@ -22,7 +19,7 @@ export function resolveRegistryUrls(configured?: string[] | null): string[] {
           .filter((u) => u !== ""),
       ),
     ];
-  return advertisedUrls();
+  return [];
 }
 
 /** The hosted médiathèque this machine caches, DERIVED from the registry origins rather than configured — see docs/supervisorPolicy.md. */
@@ -32,33 +29,6 @@ export function mediatekUrlFor(registryUrls: string[]): string | null {
     if (origin) return serviceUrl(origin, "pl8");
   }
   return null; // nothing resolvable — the local folder is then a cache of nothing, which works
-}
-
-/** `.url` out of one endpoint file, or null for anything that isn't one. */
-function urlIn(path: string): string | null {
-  try {
-    const v = JSON.parse(readFileSync(path, "utf8"));
-    return v && typeof v.url === "string" && v.url !== "" ? v.url : null;
-  } catch {
-    return null; // absent, or half-written by a backend booting right now
-  }
-}
-
-/** Every registry a local backend advertised, deduped; the DIRECTORY is the contract and the legacy single file is read for version skew. */
-function advertisedUrls(): string[] {
-  const out: string[] = [];
-  try {
-    for (const name of readdirSync(webEndpointsDir()))
-      if (name.endsWith(".json")) {
-        const url = urlIn(join(webEndpointsDir(), name));
-        if (url) out.push(url);
-      }
-  } catch {
-    /* no directory yet — the legacy file may still answer */
-  }
-  const legacy = urlIn(webEndpointPath());
-  if (legacy) out.push(legacy);
-  return [...new Set(out)];
 }
 
 export interface HeartbeatBody extends EnginePresence {

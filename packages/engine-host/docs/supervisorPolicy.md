@@ -76,29 +76,31 @@ keeps falling over is something the user should see and act on rather than have 
 the restart is one menu click away. It reports **both ways**, because it is a live reading rather
 than a failure record: restart `npm run dev` and the icon should go green again on its own.
 
-### The registries are re-resolved on every heartbeat
+### Where the registries come from
 
-The ambient tiers can move under the supervisor. Under `npm run dev` the tray and the backends
-start together, so a supervisor that wins the race resolves before any of them has advertised —
-and would then announce to nobody forever while three local registries sat empty.
-
-So each tick re-derives the list, unless the user pinned one: an explicit choice must not be
-re-derived. It is cheap, a readdir of four small files (`registryClient.ts`).
-
-`resolveRegistryUrls` reads three tiers, most explicit first, and the **first tier that yields
-anything wins outright** — they are alternatives, not a union:
+`resolveRegistryUrls` reads two tiers, the first that yields anything winning outright — they are
+alternatives, not a union:
 
 1. what the user added in the tray's **st0 instances** tab — a deliberate, persisted choice beats
    an ambient one, which is why it sits above the environment variable;
-2. `$STUDIO_REGISTRY_URL`, comma-separated for more than one;
-3. what the local backends advertised — `<state>/web-endpoints/*.json`, one file per service,
-   plus the single `web-endpoint.json`.
+2. `$STUDIO_REGISTRY_URL`, comma-separated for more than one.
 
-**There is no fourth tier, and no default.** When none of the three yields anything the list is
-empty: the engine heartbeats to nobody and appears in no picker. A machine is connected to a st0
-instance because someone connected it, never because the build assumed one — so a fresh install
-suggests nothing, and `web-origins.json` is no longer seeded on first run either. An empty list is
-the normal state of a fresh machine, not a fault, which is why the tray does not paint it red.
+**There is no third tier, and no default.** When neither yields anything the list is empty: the
+engine heartbeats to nobody and appears in no picker. A machine is connected to a st0 instance
+because someone connected it, never because the build assumed one or a backend happened to be
+running — so a fresh install suggests nothing, and `web-origins.json` is not seeded either. An
+empty list is the normal state of a fresh machine, not a fault, which is why the tray does not
+paint it red.
+
+**What the local backends advertise is deliberately not read.** Each still writes
+`<state>/web-endpoints/<service>.json` on boot (`packages/engine-registry/advertise.ts`), and the
+file service reads pl8's to find the médiathèque, but the supervisor used to heartbeat to every URL
+in there. That made a dev machine connect itself to whatever happened to be running — and, since a
+killed backend leaves its file behind, to things that had stopped running. Under `npm run dev` add
+`http://localhost:8789` once in the tab; it is persisted like any other instance.
+
+Neither tier moves while the supervisor runs, so the list is resolved at boot and on an add or a
+remove, never per heartbeat.
 
 It answers a **list**, because each hosted service holds its own registry and an engine must be
 listed in st0 *and* in the médiathèque to be pickable in both. Deduped, since the same URL twice
@@ -122,8 +124,8 @@ The tray's **st0 instances** tab draws `instances`, one row per origin: the unio
 registries and `web-origins.json`, because to the user the two are one instance — heartbeated to,
 and let through. `weburi.remove` therefore disconnects **both halves**: the origin leaves the
 allowlist, the matching pinned registry leaves the settings, and that registry is deregistered at
-once so the engine drops out of its picker rather than aging out. A registry from tier 2 or 3 is
-marked not removable — the next tick would resolve it straight back. Removing the last pinned one
+once so the engine drops out of its picker rather than aging out. A registry from `$STUDIO_REGISTRY_URL` is
+marked not removable — the environment is not the supervisor's to edit. Removing the last pinned one
 falls back to the ambient tiers, exactly as a fresh boot would. The file service's CORS list is
 still the one captured at its spawn, so a removed registry's origin keeps reaching it until the file
 service next restarts — the same limit an add already has in the other direction.

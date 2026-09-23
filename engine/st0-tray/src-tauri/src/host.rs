@@ -99,7 +99,7 @@ pub struct Instance {
     pub registry: bool,
     /// Its pages may reach the file service.
     pub allowed: bool,
-    /// False for a registry from the environment or a local backend: removing it here would not stick.
+    /// False for a registry from `$STUDIO_REGISTRY_URL`: removing it here would not stick.
     pub removable: bool,
 }
 

@@ -1,6 +1,7 @@
-// advertise.ts — how a hosted service tells the engine-host supervisor "my registry is here".
+// advertise.ts — how a hosted service says "I am running here" on this machine.
 // One file per service under ~/.st0/web-endpoints/, written on boot and removed on
-// shutdown; the supervisor heartbeats to every URL it finds. See docs/shared.md.
+// shutdown. The file service reads pl8's to find the médiathèque; the supervisor does NOT
+// heartbeat to these — an engine joins an instance only when the user adds it. See docs/shared.md.
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

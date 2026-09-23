@@ -57,8 +57,9 @@ Three drifts the base removes by construction:
 - **The error handler.** A body that stops arriving throws **inside** the parser, where no
   route's `try/catch` sees it, and every service relays the same bytes. It is
   `engineErrorHandler`, to be mounted LAST.
-- **Leaving.** A service that leaves its advertisement file behind is beaten towards a dead port
-  for ever. The base installs SIGINT and SIGTERM, and `alsoOnStop` is there for what a service
+- **Leaving.** A service that leaves its advertisement file behind points the file service at a
+  dead port for ever (pl8's file is how it finds the médiathèque). The supervisor no longer
+  heartbeats to these files — an engine joins an instance only when the user adds it in the tray. The base installs SIGINT and SIGTERM, and `alsoOnStop` is there for what a service
   has of its own — st0 puts its legacy file there, because the base exits the process inside its
   handlers and a second one registered afterwards would never run.
 
