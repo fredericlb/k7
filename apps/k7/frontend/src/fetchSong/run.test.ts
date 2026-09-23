@@ -275,6 +275,65 @@ describe("runPipeline", () => {
     expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "unmatched" });
   });
 
+  it("reports no engine online as a stored failure, after still trying lyrics", async () => {
+    const onStatus = vi.fn();
+    const findLrc = vi.fn(async () => []);
+    const pl8 = fakePl8({
+      listSongs: async () => [entry("Nina Simone", "Sinnerman")],
+      engines: async () => [],
+    });
+    await runPipeline(
+      song({ ...withTrack, instrumental: null }),
+      "continue",
+      steps(pl8, {
+        mixInstrumental: async () => withTrack,
+        findLrc,
+        onLrc: async () => withTrack,
+        onStatus,
+      }) as never,
+    );
+    expect(findLrc).toHaveBeenCalled();
+    expect(onStatus).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        phase: "failed",
+        error: expect.stringMatching(/engine/i),
+      }),
+    );
+  });
+
+  it("starts a fresh hunt on a re-run rather than resuming the stored one", async () => {
+    const startHunt = vi.fn(async () =>
+      hunt({ id: "h2", status: "done", path: "" }),
+    );
+    let listed = 0;
+    const pl8 = fakePl8({
+      // Not in the library before the hunt, filed once it is done.
+      listSongs: async () =>
+        listed++ === 0 ? [] : [entry("Nina Simone", "Sinnerman")],
+      startHunt,
+    });
+    const copied = song({ ...withTrack });
+    await runPipeline(
+      song({
+        fetchStatus: {
+          phase: "failed",
+          progress: null,
+          error: "gone",
+          huntId: "h1",
+          jobId: "",
+        },
+      }),
+      "download",
+      steps(pl8, {
+        copyTrack: async () => copied,
+        mixInstrumental: async () => copied,
+        findLrc: async () => [],
+        onLrc: async () => copied,
+      }) as never,
+    );
+    expect(startHunt).toHaveBeenCalled();
+  });
+
   it("never touches lyrics a person already wrote", async () => {
     const findLrc = vi.fn(async () => []);
     const pl8 = fakePl8({ listSongs: async () => [] });

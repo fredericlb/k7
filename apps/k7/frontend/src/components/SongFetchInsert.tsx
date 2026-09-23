@@ -3,7 +3,7 @@
 // rather than an empty choice — ../../../docs/audio.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Download, Pencil, Upload, X } from "@frediverse/ui/icons";
+import { Download, Pencil, RotateCw, Upload, X } from "@frediverse/ui/icons";
 import { useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import type { FetchStatus, Song } from "../types";
@@ -15,6 +15,10 @@ interface Props {
   onFixLyrics: () => void;
   /** "Ignore": never offer this insert for this song again — a persisted choice. */
   onIgnore: () => void;
+  /** Runs the pipeline again after a step failed once the track was there. */
+  onRetry: () => void;
+  /** Clears the stored failure without retrying. */
+  onDismiss: () => void;
 }
 
 const LABEL: Record<
@@ -59,6 +63,8 @@ export function SongFetchInsert({
   onUpload,
   onFixLyrics,
   onIgnore,
+  onRetry,
+  onDismiss,
 }: Props) {
   const file = useRef<HTMLInputElement>(null);
   const { phase, error } = song.fetchStatus;
@@ -77,11 +83,25 @@ export function SongFetchInsert({
 
   if (song.audio) {
     // A track exists: this insert only has something to say while stemming/lyrics are still
-    // running in the background, or once lyrics need a human's eye.
+    // running, once a later step failed, or once lyrics need a human's eye.
     if (running) return <StatusRow {...song.fetchStatus} />;
-    if (song.lyricsMatch === "unmatched")
-      return (
-        <div className="song-fetch-insert">
+    const failed = phase === "failed" && error !== "";
+    const unmatched = song.lyricsMatch === "unmatched";
+    if (!failed && !unmatched) return null;
+    return (
+      <div className="song-fetch-insert">
+        {failed && <p className="song-fetch-insert-text">{error}</p>}
+        {failed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="song-fetch-btn"
+            onClick={onRetry}
+          >
+            <RotateCw className="size-4" /> {m["fetch.retry"]()}
+          </Button>
+        )}
+        {unmatched && (
           <Button
             variant="ghost"
             size="sm"
@@ -90,9 +110,19 @@ export function SongFetchInsert({
           >
             <Pencil className="size-4" /> {m["fetch.fixLyrics"]()}
           </Button>
-        </div>
-      );
-    return null;
+        )}
+        {failed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="song-fetch-btn"
+            onClick={onDismiss}
+          >
+            <X className="size-4" /> {m["fetch.dismiss"]()}
+          </Button>
+        )}
+      </div>
+    );
   }
 
   if (running) return <StatusRow {...song.fetchStatus} />;

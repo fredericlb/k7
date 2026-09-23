@@ -30,6 +30,8 @@ interface Props {
   onOpenTimedLyrics: () => void;
   /** Retries the instrumental once no engine was online — the auto-fetch insert covers the rest. */
   onMixInstrumental: (folder: string) => Promise<Song>;
+  /** Runs the auto-fetch pipeline again; its progress and failure show in the insert, not here. */
+  onRerun: () => void;
   onDelete: () => Promise<void>;
   /** Which tabs the song already has, so the menu offers the ones it has not. */
   has: (tab: SongTab) => boolean;
@@ -43,9 +45,12 @@ export function SongMenu({
   onDeleteAudio,
   onOpenTimedLyrics,
   onMixInstrumental,
+  onRerun,
   onDelete,
   has,
 }: Props) {
+  const pipelineRunning =
+    song.fetchStatus.phase !== "" && song.fetchStatus.phase !== "failed";
   const sheets = useRef<HTMLInputElement>(null);
   const track = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<string | null>(null);
@@ -150,6 +155,9 @@ export function SongMenu({
               {m["songMenu.makeInstrumental"]()}
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem disabled={pipelineRunning} onSelect={onRerun}>
+            {m["songMenu.rerunPipeline"]()}
+          </DropdownMenuItem>
 
           {song.mine && (
             <>

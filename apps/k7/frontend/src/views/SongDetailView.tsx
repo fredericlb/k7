@@ -52,6 +52,10 @@ interface Props {
   onUpload: (file: File) => void;
   /** "Ignore": dismiss the insert for this song for good. */
   onIgnore: () => void;
+  /** Runs the auto-fetch pipeline again from wherever the song stands — the ⋮ menu and the insert's Retry. */
+  onRerun: () => void;
+  /** Clears a stored pipeline failure without retrying. */
+  onDismissFailure: () => void;
   onBack: () => void;
 }
 
@@ -74,6 +78,8 @@ export function SongDetailView({
   onDownload,
   onUpload,
   onIgnore,
+  onRerun,
+  onDismissFailure,
   onBack,
 }: Props) {
   // Shared by the ⋮ menu's "Add timed lyrics…" and the insert's "Fix the lyrics" — one dialog.
@@ -214,6 +220,7 @@ export function SongDetailView({
           onDeleteAudio={onDeleteAudio}
           onOpenTimedLyrics={() => setTimedOpen(true)}
           onMixInstrumental={onMixInstrumental}
+          onRerun={onRerun}
           onDelete={remove}
         />
       </div>
@@ -224,6 +231,8 @@ export function SongDetailView({
         onUpload={onUpload}
         onFixLyrics={() => setTimedOpen(true)}
         onIgnore={onIgnore}
+        onRetry={onRerun}
+        onDismiss={onDismissFailure}
       />
       <TimedLyricsDialog
         open={timedOpen}

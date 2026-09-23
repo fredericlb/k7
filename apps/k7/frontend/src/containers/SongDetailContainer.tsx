@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { pl8 } from "../fetchSong/pl8";
 import {
@@ -27,6 +27,8 @@ export function SongDetailContainer({
   onBack,
 }: Props) {
   const [song, setSong] = useState<Song | null>(null);
+  // Status writes go out one after the other: two PATCHes racing could leave a stale phase stored.
+  const writes = useRef<Promise<unknown>>(Promise.resolve());
 
   // Applies a status patch to the local song immediately (so the bar/label move without
   // waiting on a round trip) and persists it, so a reload finds the pipeline where it left off.
@@ -42,63 +44,71 @@ export function SongDetailContainer({
             }
           : prev,
       );
-      void api.updateSong(songId, {
+      const body = {
         ...(Object.keys(fetchStatus).length ? { fetchStatus } : {}),
         ...(lyricsMatch !== undefined ? { lyricsMatch } : {}),
-      });
+      };
+      writes.current = writes.current
+        .catch(() => {})
+        .then(() => api.updateSong(songId, body));
+      return writes.current;
     },
     [songId],
   );
+
+  // A song a step returned, minus the pipeline state: onStatus is ahead of what the server echoed.
+  const adopt = useCallback((updated: Song) => {
+    setSong((prev) =>
+      prev
+        ? {
+            ...updated,
+            fetchStatus: prev.fetchStatus,
+            lyricsMatch: prev.lyricsMatch,
+          }
+        : updated,
+    );
+    return updated;
+  }, []);
 
   const pipelineSteps = useCallback(
     (): PipelineSteps => ({
       pl8,
       onPhase: () => {}, // song.fetchStatus (via onStatus) is what the page actually reads
       onStatus,
-      copyTrack: async (path) => {
-        const updated = await api.copyLibraryTrack(songId, path);
-        setSong(updated);
-        return updated;
-      },
-      mixInstrumental: async (folder) => {
-        const updated = await api.mixInstrumental(songId, folder);
-        setSong(updated);
-        return updated;
-      },
+      copyTrack: async (path) =>
+        adopt(await api.copyLibraryTrack(songId, path)),
+      mixInstrumental: async (folder) =>
+        adopt(await api.mixInstrumental(songId, folder)),
       findLrc: (duration) => api.searchLrclib(songId, duration),
-      onLrc: async (lyrics, timings) => {
-        const updated = await api.updateSong(songId, {
-          lyrics,
-          lyricTimings: timings,
-        });
-        setSong(updated);
-        return updated;
-      },
+      onLrc: async (lyrics, timings) =>
+        adopt(
+          await api.updateSong(songId, { lyrics, lyricTimings: timings }),
+        ),
     }),
-    [songId, onStatus],
+    [songId, onStatus, adopt],
   );
 
   // Search → download → stem → find lyrics, from wherever `start` says the pipeline stands.
+  // A failure is stored on the song, so it is still shown after a reload until a re-run or a dismiss.
   const runFetch = useCallback(
     async (start: Song, mode: PipelineMode) => {
       try {
-        const result = await runPipeline(start, mode, pipelineSteps());
-        setSong(result);
+        if (start.fetchStatus.phase === "failed")
+          void onStatus({ phase: "", error: "" });
+        adopt(await runPipeline(start, mode, pipelineSteps()));
         onChange();
       } catch (err) {
-        const patch: StatusPatch = {
+        // The hunt or job it was polling is dead: a retry must not resume it.
+        void onStatus({
           phase: "failed",
           error: (err as Error).message,
-        };
-        setSong((prev) =>
-          prev
-            ? { ...prev, fetchStatus: { ...prev.fetchStatus, ...patch } }
-            : prev,
-        );
-        void api.updateSong(songId, { fetchStatus: patch });
+          progress: null,
+          huntId: "",
+          jobId: "",
+        });
       }
     },
-    [songId, pipelineSteps, onChange],
+    [pipelineSteps, onStatus, adopt, onChange],
   );
 
   const load = useCallback(async () => {
@@ -197,6 +207,20 @@ export function SongDetailContainer({
     })();
   };
 
+  // "Run the pipeline again" in the ⋮ menu: every step not done yet, lyrics included once unmatched.
+  const handleRerun = () => {
+    if (!song) return;
+    const lyricsAgain = song.lyrics.trim() === "" && song.lyricsMatch !== "";
+    void runFetch(
+      lyricsAgain ? { ...song, lyricsMatch: "" } : song,
+      "download",
+    );
+  };
+
+  const handleDismissFailure = () => {
+    void onStatus({ phase: "", error: "" });
+  };
+
   const handleIgnore = () => {
     void (async () => {
       const updated = await api.updateSong(songId, { fetchIgnored: true });
@@ -227,6 +251,8 @@ export function SongDetailContainer({
       onDownload={handleDownload}
       onUpload={handleUpload}
       onIgnore={handleIgnore}
+      onRerun={handleRerun}
+      onDismissFailure={handleDismissFailure}
     />
   );
 }

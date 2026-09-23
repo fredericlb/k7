@@ -336,6 +336,15 @@ often than a track to play along to, so it is asked for rather than ridden along
   instrumental and the machine that can make one says how.
 - **Every step checks what is already done**, so pressing again resumes: pl8 goes on hunting and
   separating if the page is closed, and a second press finds the song filed and the stems held.
+- **A failure stays on the song** (`fetchStatus`, phase `failed`), whichever step it came from, and the
+  insert under the title shows it with Retry and Dismiss — a reload shows it again. A step that fails
+  after the track landed is as visible as one before. No engine online is reported the same way,
+  though the chain still goes on to the lyrics.
+- **"Run the pipeline again"**, in the ⋮ menu, redoes every step not done yet, and searches lyrics
+  again when none were written by hand. A fresh start never resumes a stored hunt or separation id:
+  the one stored may be the one that failed, and resuming it would fail again.
+- **Status writes go out one after the other** (`SongDetailContainer.tsx`): two concurrent PATCHes
+  can land in either order and leave a stale phase stored, which a reload would then try to resume.
 
 A new or removed track drops the instrumental with it: an instrumental of the previous track would
 play under the wrong song. The player offers Original / Instrumental on one element, keeping the

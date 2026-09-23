@@ -194,8 +194,8 @@ export interface PipelineSteps extends Common {
   onLrc(lyrics: string, timings: LyricTiming[]): Promise<Song>;
 }
 
-/** A fresh search on `"download"`, or picking back up wherever `song` says the pipeline got
- * to on any other entry point — a reload, or an upload the caller already applied. */
+/** A fresh start on `"download"` (the insert's button, or the ⋮ menu's re-run), or picking back
+ * up wherever `song` says the pipeline got to on `"continue"` — a reload, or an upload. */
 export type PipelineMode = "download" | "continue";
 
 /** The whole chain a track goes through once it exists: search → download → stem → find
@@ -208,13 +208,17 @@ export async function runPipeline(
   steps: PipelineSteps,
 ): Promise<Song> {
   let current = song;
+  // A fresh start never resumes a stored hunt or job: it may be the very one that failed.
+  const resume = mode === "continue";
+  // What went wrong without stopping the chain, left on the song as the run's outcome.
+  let problem = "";
 
   if (!current.audio) {
-    if (mode !== "download" && !current.fetchStatus.huntId) return current;
+    if (resume && !current.fetchStatus.huntId) return current;
     current = await fetchSong(
       current,
       steps,
-      current.fetchStatus.huntId || undefined,
+      (resume && current.fetchStatus.huntId) || undefined,
     );
   }
 
@@ -222,11 +226,11 @@ export async function runPipeline(
     const outcome = await makeInstrumental(
       current,
       steps,
-      current.fetchStatus.jobId || undefined,
+      (resume && current.fetchStatus.jobId) || undefined,
     );
-    // No engine online is not a failure: the chain still moves on to lyrics, and "Make
-    // instrumental" stays in the ⋮ menu as the retry path once one comes online.
+    // No engine online does not stop the chain on its way to lyrics, but it is reported.
     if (outcome.song) current = outcome.song;
+    if (outcome.note) problem = outcome.note;
   }
 
   // Lyrics already there are a person's own — the pipeline never overwrites them; pairing an
@@ -252,6 +256,12 @@ export async function runPipeline(
     }
   }
 
-  steps.onStatus?.({ phase: "", progress: null, huntId: "", jobId: "" });
+  steps.onStatus?.({
+    phase: problem ? "failed" : "",
+    error: problem,
+    progress: null,
+    huntId: "",
+    jobId: "",
+  });
   return current;
 }
