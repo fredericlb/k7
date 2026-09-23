@@ -36,11 +36,18 @@
   --border: var(--sh-border);
 }
 
-/* The file trees' panel (Library, Playlists) — one value for both, so they cannot drift apart. A
-   purple well below violet-950 (#2e1065): deep enough to sit back from the tree it holds, still
-   purple against the #101114 page. `bg-tree-panel`. */
-@theme {
-  --color-tree-panel: #170a2e;
+/* The file trees' panel (Library, Playlists) — one value for both, so they cannot drift apart.
+   It is the HEADER's colour: AppHeader's default `bg-primary/20`, the primary at 20% over the
+   page. Mixed INTO the page colour rather than left translucent, because on a phone Library's
+   tree is a drawer over the song list, and a 20% tint would let the songs show through it —
+   the same colour the header shows, but opaque. Follows the palette if the primary moves.
+   `bg-tree-panel`. */
+@theme inline {
+  --color-tree-panel: color-mix(
+    in oklab,
+    var(--color-primary) 20%,
+    var(--color-background)
+  );
 }
 
 @layer base {
