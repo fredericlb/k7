@@ -165,6 +165,8 @@
   "panel.chords": "Chords",
   "panel.options": "Options",
   "panel.reset": "Reset",
+  "panel.lyricsLead": "Lyrics lead",
+  "panel.lyricsLeadHint": "A clicked lyric line starts playing this many seconds before its timecode.",
   "player.instrumental": "Instrumental",
   "player.loadingWaveform": "Loading waveform…",
   "player.title": "Player",

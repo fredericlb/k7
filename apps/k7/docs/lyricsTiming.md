@@ -34,6 +34,12 @@ line above places each chord by its column, and the code pushes the words under 
 right. The sheet is unaffected — the parser takes a code off together with the one space after it,
 so the words sit in the columns they were typed in.
 
+A click on a line starts the track **a little before** its code: the Options panel's « lyrics lead »,
+1 s unless changed (`apps/k7/frontend/src/hooks/useLyricsLead.ts`). A stamp is a person's tap and
+often lands on the first word rather than before it, and a musician wants the beat that leads in.
+It is kept in the browser rather than on the song, because it is a habit of whoever plays, not a
+property of the recording. The highlight still follows the codes themselves.
+
 Songs timed before this kept their times in a field beside the text (`LyricTimings`). They still
 play: with no `{{MM:SS}}` in the text, the player falls back to it. Timing such a song again writes
 the codes into the text and clears the field, so the two can never disagree.

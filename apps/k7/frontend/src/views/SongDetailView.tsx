@@ -23,6 +23,7 @@ import { SongFetchInsert } from "../components/SongFetchInsert";
 import { SongMenu } from "../components/SongMenu";
 import { SongPlayer } from "../components/SongPlayer";
 import { fmtDate } from "../format";
+import { useLyricsLead } from "../hooks/useLyricsLead";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { m } from "../paraglide/messages.js";
 import { hasContent, SONG_TABS, visibleTabs } from "../songTabs";
@@ -137,6 +138,8 @@ export function SongDetailView({
     el.currentTime = seconds;
     void el.play();
   };
+  // A clicked line starts this many seconds early, so its first word is not clipped.
+  const [lyricsLead, setLyricsLead] = useLyricsLead();
 
   // Chords used in the lyrics, in the currently-transposed spelling.
   const chords = useMemo(
@@ -295,7 +298,11 @@ export function SongDetailView({
                 onChordClick={setSelectedChord}
                 timings={lineTimes}
                 activeLine={activeLine}
-                onLineClick={song.audio ? seek : undefined}
+                onLineClick={
+                  song.audio
+                    ? (t: number) => seek(Math.max(0, t - lyricsLead))
+                    : undefined
+                }
               />
               {/* A narrow screen has no rail, so a tapped chord opens over the sheet instead. */}
               {isMobile && chords.length > 0 && selectedChord && (
@@ -330,6 +337,8 @@ export function SongDetailView({
           <OptionsPanel
             transpose={transpose}
             onTranspose={(next) => setTranspose(next)}
+            lyricsLead={lyricsLead}
+            onLyricsLead={setLyricsLead}
             open={optionsOpen}
             onToggle={() => setOptionsOpen((o) => !o)}
           />

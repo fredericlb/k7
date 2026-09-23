@@ -165,6 +165,8 @@
   "panel.chords": "Accords",
   "panel.options": "Options",
   "panel.reset": "Réinitialiser",
+  "panel.lyricsLead": "Avance paroles",
+  "panel.lyricsLeadHint": "Une ligne cliquée démarre ce nombre de secondes avant son timecode.",
   "player.instrumental": "Instrumental",
   "player.loadingWaveform": "Chargement de la forme d'onde…",
   "player.title": "Lecteur",

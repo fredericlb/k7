@@ -1182,6 +1182,16 @@ select {
   gap: 6px;
   margin-top: 12px;
 }
+/* The lyrics lead: a label, a narrow number field, its unit. */
+.options-lead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.options-lead-input {
+  width: 72px;
+}
 .cs-transpose-val {
   min-width: 24px;
   text-align: center;

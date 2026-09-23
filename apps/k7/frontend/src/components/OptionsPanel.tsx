@@ -1,15 +1,19 @@
-// The first panel of the page's right rail: what changes how the song is DRAWN, as opposed to
-// what plays it. Transposition is the only one so far, and the panel exists rather than a bare
-// row because the next such setting should have somewhere to go — ../../docs/audio.md.
+// The first panel of the page's right rail: how the song is read — its transposition, and how early
+// a clicked lyric line starts — as opposed to what plays it (../../docs/audio.md).
 
 import { Button } from "@frediverse/ui/button";
+import { Input } from "@frediverse/ui/input";
 import { Minus, Plus, SlidersHorizontal } from "@frediverse/ui/icons";
 import { formatTranspose } from "@k7/score";
+import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 
 interface Props {
   transpose: number;
   onTranspose: (next: (current: number) => number) => void;
+  /** Seconds a clicked lyric line starts before its timecode. */
+  lyricsLead: number;
+  onLyricsLead: (seconds: number) => void;
   open: boolean;
   onToggle: () => void;
 }
@@ -17,9 +21,13 @@ interface Props {
 export function OptionsPanel({
   transpose,
   onTranspose,
+  lyricsLead,
+  onLyricsLead,
   open,
   onToggle,
 }: Props) {
+  // What is typed, so an emptied field stays empty while typing; the last valid number is what applies.
+  const [leadText, setLeadText] = useState(String(lyricsLead));
   return (
     <aside className={`rail-panel${open ? "" : " collapsed"}`}>
       <button
@@ -65,6 +73,26 @@ export function OptionsPanel({
               </Button>
             )}
           </div>
+          <label className="options-lead">
+            <span className="muted small">{m["panel.lyricsLead"]()}</span>
+            <Input
+              type="number"
+              min={0}
+              step={0.5}
+              className="options-lead-input"
+              value={leadText}
+              onChange={(e) => {
+                const text = e.currentTarget.value;
+                setLeadText(text);
+                const n = Number(text);
+                if (text.trim() !== "" && Number.isFinite(n) && n >= 0)
+                  onLyricsLead(n);
+              }}
+              onBlur={() => setLeadText(String(lyricsLead))}
+              title={m["panel.lyricsLeadHint"]()}
+            />
+            <span className="muted small">s</span>
+          </label>
         </div>
       )}
     </aside>
