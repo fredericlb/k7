@@ -3,6 +3,7 @@
 // rather than an empty choice — ../../../docs/audio.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Download, Pencil, Upload, X } from "@frediverse/ui/icons";
 import { useRef } from "react";
 import type { FetchStatus, Song } from "../types";
 
@@ -83,7 +84,7 @@ export function SongFetchInsert({
             className="song-fetch-btn"
             onClick={onFixLyrics}
           >
-            ✎ Fix the lyrics
+            <Pencil className="size-4" /> Fix the lyrics
           </Button>
         </div>
       );
@@ -107,7 +108,7 @@ export function SongFetchInsert({
         className="song-fetch-btn"
         onClick={onDownload}
       >
-        ⬇ Download the song
+        <Download className="size-4" /> Download the song
       </Button>
       <Button
         variant="ghost"
@@ -115,7 +116,7 @@ export function SongFetchInsert({
         className="song-fetch-btn"
         onClick={pick}
       >
-        ⬆ Upload a file…
+        <Upload className="size-4" /> Upload a file…
       </Button>
       {input}
       <Button
@@ -124,7 +125,7 @@ export function SongFetchInsert({
         className="song-fetch-btn"
         onClick={onIgnore}
       >
-        ✕ Ignore
+        <X className="size-4" /> Ignore
       </Button>
     </div>
   );
