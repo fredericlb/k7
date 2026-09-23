@@ -37,6 +37,13 @@ one copy gets a new action and the other does not.
 The drawer closes on what it opens and on a section change. The veil exists **only** while it is
 open: an invisible element covering the screen is one that swallows clicks.
 
+**No `translate`, not even a zero one, sits on the `aside`.** `FileTree`'s own right-click popup
+is `position: fixed`, expecting viewport coordinates — but a non-`none` `translate` value on an
+ancestor (Tailwind's `translate-x-0` included, a literal `0px` and not the `none` keyword) makes
+that ancestor the popup's containing block instead, per the CSS Transforms spec. The popup then
+opens at the pointer's offset from the `aside`'s own box rather than the viewport's, which reads
+as "the menu appears but not where I clicked."
+
 ## What goes, and in which order
 
 What leaves first is what is never needed in the moment:

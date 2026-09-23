@@ -590,9 +590,10 @@ export function Library() {
             )}
             {/* A column when there is room and a DRAWER when there is not, same markup — see ../docs/responsive.md. */}
             <aside
-              className={`shrink-0 overflow-auto border-r p-2 md:static md:z-auto md:block md:w-60 md:translate-x-0 ${
+              // No translate here, not even translate-x-0 — it breaks FileTree's popup, ../docs/responsive.md.
+              className={`shrink-0 overflow-auto rounded-xl bg-violet-950 p-3 md:static md:z-auto md:m-3 md:block md:w-60 ${
                 treeOpen
-                  ? "fixed inset-y-0 left-0 z-40 w-72 bg-background shadow-xl"
+                  ? "fixed inset-y-0 left-0 z-40 w-72 shadow-xl"
                   : "hidden"
               }`}
             >
