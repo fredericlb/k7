@@ -4,7 +4,7 @@
 // (../components/SettingsPanel.tsx). See ../../docs/settings.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Settings, X } from "lucide-react";
+import { Settings, X } from "@frediverse/ui/icons";
 import { useEffect } from "react";
 import { m } from "../paraglide/messages.js";
 import { LanguageSection } from "./LanguageSection";

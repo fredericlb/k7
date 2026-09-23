@@ -13,8 +13,7 @@
   },
   "dependencies": {
     "@frediverse/ui": "*",
-    "@studio/web-protocol": "*",
-    "lucide-react": "^1.24.0"
+    "@studio/web-protocol": "*"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

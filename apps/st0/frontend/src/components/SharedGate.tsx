@@ -4,6 +4,7 @@
 // See docs/shared.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Download, Loader2, Lock } from "@frediverse/ui/icons";
 import { configureFileApi } from "@studio/project-shell/fileApi";
 import type {
   Alternatives,
@@ -16,7 +17,6 @@ import type {
   WorkspaceInfo,
 } from "@studio/web-protocol";
 import { shareApiBase, shareKey } from "@studio/web-protocol/projects";
-import { Download, Loader2, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
 

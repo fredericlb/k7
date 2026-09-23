@@ -3,8 +3,8 @@
 // picking it by ear is what this panel is for. See docs/editing.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Loader2, Pause, Play, SkipForward } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
-import { Loader2, Pause, Play, SkipForward } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Preview, usePreview } from "./audio";
 import type { Category, Song, Track } from "./format";

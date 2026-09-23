@@ -4,6 +4,7 @@
 // rewrites of the open file (@studio/song/yaml/videoTrackFile); autosave writes it.
 
 import { Button } from "@frediverse/ui/button";
+import { X } from "@frediverse/ui/icons";
 import { useEffect, useRef, useState } from "react";
 import { mediaUrl } from "../api";
 
@@ -131,7 +132,7 @@ export function VideoReadersStrip({
           onClick={onClose}
           title="hide readers"
         >
-          ✕
+          <X className="h-3.5 w-3.5" />
         </button>
       </div>
       <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto p-2">

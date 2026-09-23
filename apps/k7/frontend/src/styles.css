@@ -145,12 +145,6 @@ h3 {
 
 /* Icon + label pairing used by every header entry. The label is hidden on
    small screens, leaving the icon. */
-/* Lucide icons sit on the text line where their parent is not a flex box. */
-svg.lucide {
-  display: inline-block;
-  vertical-align: -0.15em;
-  flex-shrink: 0;
-}
 .nav-label {
   white-space: nowrap;
 }
@@ -497,6 +491,11 @@ button.calendar-cell.selected:hover:not(:disabled) {
 }
 .song-detail-head h2 {
   margin: 0;
+}
+/* Scoped under the head so it outranks the base button rule, whose background would win over .star-btn. */
+.song-detail-head .star-btn,
+.song-detail-head .star-btn:hover:not(:disabled) {
+  background: transparent;
 }
 .song-detail-head .star-btn {
   font-size: 22px;

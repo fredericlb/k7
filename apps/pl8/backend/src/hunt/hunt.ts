@@ -50,8 +50,18 @@ const running = new Map<string, AbortController>();
 
 export const runningIds = (): Set<string> => new Set(running.keys());
 
-const message = (e: unknown): string =>
-  e instanceof Error ? e.message : String(e);
+// Everything an Error knows, its `cause` chain flattened — ../../docs/hunt.md.
+export const message = (e: unknown): string => {
+  if (!(e instanceof Error)) return String(e);
+  const parts: string[] = [];
+  let cur: unknown = e;
+  for (let i = 0; cur instanceof Error && i < 5; i++) {
+    const code = (cur as { code?: string }).code;
+    parts.push(code ? `${cur.message} (${code})` : cur.message);
+    cur = cur.cause;
+  }
+  return parts.join(" ← ");
+};
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {

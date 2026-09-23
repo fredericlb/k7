@@ -8,8 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { CloudDownload, Disc3 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
-import { CloudDownload, Disc3 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { browseSongs, type SetEntry } from "../setList";
 

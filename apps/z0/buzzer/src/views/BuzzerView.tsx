@@ -1,3 +1,4 @@
+import { LockOpen } from "@frediverse/ui/icons";
 import { useEffect, useReducer, useRef, useSyncExternalStore } from "react";
 import { AuthBadge } from "../components/AuthBadge";
 import {
@@ -588,7 +589,7 @@ export function BuzzerView() {
               unlock();
             }}
           >
-            <div className="unlock-icon">🔓</div>
+            <LockOpen className="unlock-icon" />
             <div className="name-label">{m["buzzer.tapToUnlock"]()}</div>
           </div>
         ) : !g.playerName ? (

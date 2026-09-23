@@ -3,9 +3,9 @@
 // plays over a live rig or a running arrangement without asking either of them.
 // See ../docs/references.md.
 
+import { Headphones } from "@frediverse/ui/icons";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
 import { MiniPlayer } from "@studio/ui-mini-player";
-import { Headphones } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { mediaUrl } from "../api";
 import { m } from "../paraglide/messages.js";

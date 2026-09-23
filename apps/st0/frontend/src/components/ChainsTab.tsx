@@ -3,6 +3,7 @@
 // outputs). dagre lays it out and DomChains draws it, following dagre's ROUTED points so a
 // send that skips a column doesn't slice through the module between. Shared with GraphPanel.
 
+import { ChevronRight, List } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import {
   type PluginParamsStore,
@@ -32,7 +33,6 @@ import {
   type ChainsIcons,
   DomChains,
 } from "@studio/ui-chains-react";
-import { ChevronRight, List } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";

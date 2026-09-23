@@ -6,6 +6,7 @@
 - **A file header is at most 10 lines.** What the file does, and the one thing a reader would get wrong.
 - **A comment inside the body is exactly one line.** No exceptions, no wrapped sentences, no JSDoc paragraphs.
 - Long rationale goes to the zone's `docs/` page, and the code points at it.
+- **Icons come from `@frediverse/ui/icons`**, never an emoji or a direct `lucide-react` import — `commons/packages/ui/docs/icons.md`.
 - **Documentation is in English**, like the comments — including the pages in every `docs/`.
 - **A page carries CHOICES, not mechanism.** What was decided and what forced it. Not a
   walkthrough of what happens when: the code is what says how a thing works, and prose that

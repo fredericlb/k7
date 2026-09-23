@@ -11,9 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { Loader2, Upload } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { isSshGitUri } from "@studio/git-repos/uri";
-import { Loader2, Upload } from "lucide-react";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 

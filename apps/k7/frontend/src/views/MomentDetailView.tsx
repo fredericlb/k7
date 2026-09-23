@@ -1,7 +1,5 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
-import { Input } from "@frediverse/ui/input";
-import { Waveform } from "@k7/recorder";
 import {
   ArrowLeft,
   Check,
@@ -10,7 +8,9 @@ import {
   Pause,
   Play,
   Trash2,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { Input } from "@frediverse/ui/input";
+import { Waveform } from "@k7/recorder";
 import { useEffect, useRef, useState } from "react";
 import { fmtDate, fmtTime, sessionTitle } from "../format";
 import type { Marker, Moment } from "../types";

@@ -5,13 +5,13 @@
 // It DRAWS a deck and owns nothing about it: the document is `useDeckSet`, held above.
 
 import { Button } from "@frediverse/ui/button";
+import { Play, Square } from "@frediverse/ui/icons";
 import {
   parseSongDrag,
   SONG_DRAG_TYPE,
   type SongDrag,
 } from "@studio/mediatek/playlistItems";
 import type { Stem } from "@studio/song-schema/stems";
-import { Play, Square } from "lucide-react";
 import { useState } from "react";
 import type { DeckId, DeckLoads, DeckTempo } from "../deckVocabulary";
 import type { DeskLayout } from "../deskLayout";

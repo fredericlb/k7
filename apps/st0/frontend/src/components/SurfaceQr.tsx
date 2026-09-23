@@ -3,7 +3,7 @@
 // address written out is what this replaces rather than something to keep beside it.
 // The rebasing is the part that matters — see ../remoteUrl.ts.
 
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@frediverse/ui/icons";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";

@@ -6,14 +6,14 @@
 // See ../docs/external.md.
 
 import { Button } from "@frediverse/ui/button";
-import type { ServedProject, SurfacedProject } from "@studio/web-protocol";
 import {
   Disc3,
   type LucideIcon,
   RefreshCw,
   ServerOff,
   Unplug,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import type { ServedProject, SurfacedProject } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, engines } from "../api";
 import { m } from "../paraglide/messages.js";

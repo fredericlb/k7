@@ -10,9 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import {
+  Check,
+  Copy,
+  Loader2,
+  MessageSquare,
+  Trash2,
+} from "@frediverse/ui/icons";
 import { askConfirm } from "@studio/project-shell/ask";
 import type { ShareSummary } from "@studio/web-protocol";
-import { Check, Copy, Loader2, MessageSquare, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";

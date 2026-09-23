@@ -8,6 +8,14 @@
 // What it DOES add is a footer: the transport, one command line, and the way back.
 // See ../docs/external.md.
 
+import {
+  ChevronLeft,
+  Loader2,
+  Maximize,
+  Minimize,
+  Terminal,
+  Unplug,
+} from "@frediverse/ui/icons";
 import type { EngineClient, EngineUrl } from "@studio/engine-browser";
 import { PluginParamsStore } from "@studio/engine-browser/params";
 import {
@@ -20,14 +28,6 @@ import { externalIndexUrl } from "@studio/project-shell/launch";
 import type { ProjectSurface } from "@studio/song-schema/yaml/surfaceFile";
 import type { Deck } from "@studio/st0-plugins/turntables/engine";
 import type { WebVideoProject } from "@studio/web-protocol";
-import {
-  ChevronLeft,
-  Loader2,
-  Maximize,
-  Minimize,
-  Terminal,
-  Unplug,
-} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, engines, PL8_API } from "../api";
 import type { CommandPrefs } from "../commandPrefs";

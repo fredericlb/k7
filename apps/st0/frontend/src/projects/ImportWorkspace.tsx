@@ -12,9 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { Download, Loader2 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { isSshGitUri } from "@studio/git-repos/uri";
-import { Download, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 

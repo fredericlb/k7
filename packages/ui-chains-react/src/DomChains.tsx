@@ -5,6 +5,8 @@
 // Shared by the Chains tab and the Graph panel — mount it only where it has a
 // real size, since fit() frames to the host. See docs/chainsGraph.md.
 
+// The one icon this file draws from a set: the freeze badge, a snowflake being no CSS shape.
+import { Play, Snowflake, Square } from "@frediverse/ui/icons";
 import type { WaveformEnvelope } from "@studio/engine-browser";
 import {
   PluginParamsStore,
@@ -90,8 +92,6 @@ import { type LaneNotes, noteLoadAt } from "@studio/ui-chains/noteLoad";
 import { patchAct } from "@studio/ui-chains/patchGesture";
 import { type TakeReadout, takeReadout } from "@studio/ui-chains/takeClock";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
-// The one icon this file draws from a set: the freeze badge, a snowflake being no CSS shape.
-import { Snowflake } from "lucide-react";
 import {
   createContext,
   memo,
@@ -2021,7 +2021,11 @@ function NodeInner({
               title={sinkPlay.title ?? (sinkPlay.playing ? "Stop" : "Listen")}
               aria-label={sinkPlay.playing ? "Stop" : "Listen"}
             >
-              {sinkPlay.playing ? "■" : "▶"}
+              {sinkPlay.playing ? (
+                <Square className="size-3 fill-current" />
+              ) : (
+                <Play className="size-3 fill-current" />
+              )}
             </button>
           ) : null}
         </div>

@@ -2,8 +2,8 @@
 // files beside the master. A LIST and nothing more — the player's tab strip is what auditions
 // one. See packages/mediatek/docs/variants.md.
 
+import { AudioLines, FileQuestion } from "@frediverse/ui/icons";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { AudioLines, FileQuestion } from "lucide-react";
 
 export function SongVariants({ entry }: { entry: MediatekEntry }) {
   const variants = entry.variants ?? [];

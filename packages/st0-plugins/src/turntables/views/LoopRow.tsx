@@ -1,6 +1,8 @@
 // LoopRow.tsx — a deck's loop section: beat jump, manual in/out, three lengths, halve/double and
 // the roll. One row under the cues. See ../../docs/loop.md.
 
+import { ChevronLeft, ChevronRight, RotateCcw } from "@frediverse/ui/icons";
+import type { ReactNode } from "react";
 import { LOOP_BEATS } from "../loop";
 
 /** How a length reads on a button: `16`, and `1/2` rather than `0.5` once ÷2 has been past one. */
@@ -19,7 +21,7 @@ function Key({
   onClick,
   onHold,
 }: {
-  label: string;
+  label: ReactNode;
   title: string;
   on?: boolean;
   disabled?: boolean;
@@ -94,13 +96,13 @@ export function LoopRow({
   return (
     <div className="flex w-full gap-1">
       <Key
-        label="◀"
+        label={<ChevronLeft className="size-3" />}
         title={`reculer de ${jump} temps`}
         disabled={disabled}
         onClick={() => onJump(-step)}
       />
       <Key
-        label="▶"
+        label={<ChevronRight className="size-3" />}
         title={`avancer de ${jump} temps`}
         disabled={disabled}
         onClick={() => onJump(step)}
@@ -159,7 +161,7 @@ export function LoopRow({
         onClick={() => onResize(2)}
       />
       <Key
-        label="⟲"
+        label={<RotateCcw className="size-3" />}
         title={`a ${jump}-beat roll — hold it; the record picks up where it would be`}
         on={rolling}
         disabled={disabled}

@@ -2,8 +2,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@frediverse/ui/avatar";
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@frediverse/ui/card";
+import { ListMusic, Loader2, X } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
-import { ListMusic, Loader2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   addPlaylist,

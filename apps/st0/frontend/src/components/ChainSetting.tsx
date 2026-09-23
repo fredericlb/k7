@@ -8,9 +8,9 @@
 // beside the button asked the same question of the same person every time. One component for the two
 // questions, since only the words and the verb differ. See ../docs/playlists.md.
 
+import type { LucideIcon } from "@frediverse/ui/icons";
 import { MEDIATEK_REF } from "@studio/song-schema/songRef";
 import type { WebPreferences } from "@studio/web-protocol";
-import type { LucideIcon } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 

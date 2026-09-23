@@ -4,11 +4,18 @@
 
 import { Button } from "@frediverse/ui/button";
 import {
+  Headphones,
+  Loader2,
+  Play,
+  Plus,
+  Trash2,
+  X,
+} from "@frediverse/ui/icons";
+import {
   REFERENCE_ACCEPT,
   REFERENCES_DIR,
   type ReferenceTrack,
 } from "@studio/song-schema/reference";
-import { Headphones, Loader2, Play, Plus, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { parts } from "../i18nParts";

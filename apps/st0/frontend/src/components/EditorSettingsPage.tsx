@@ -7,7 +7,7 @@
 // (SettingsPanel.tsx), which is a lot of chrome to repeat for one control.
 
 import { Button } from "@frediverse/ui/button";
-import { Terminal } from "lucide-react";
+import { Terminal } from "@frediverse/ui/icons";
 import { m } from "../paraglide/messages.js";
 
 export function EditorSettingsPage({

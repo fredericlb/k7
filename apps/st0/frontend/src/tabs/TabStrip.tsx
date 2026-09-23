@@ -2,8 +2,8 @@
 // set that precedent: desktop chrome is a page on the app's own origin, not a second build.
 // It is loaded in a view of its own and outlives every project below it — docs/tabs.md.
 
+import { House, Music, X } from "@frediverse/ui/icons";
 import { isProjectAddress } from "@studio/web-protocol/projects";
-import { House, Music, X } from "lucide-react";
 import { type CSSProperties, useEffect, useState } from "react";
 import { type TabRow, tabsBridge } from "./bridge";
 

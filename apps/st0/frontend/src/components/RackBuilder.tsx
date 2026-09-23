@@ -6,10 +6,10 @@
 // `module create rack` palette command; samples only, the slice flavour has its own editor.
 
 import { Button } from "@frediverse/ui/button";
+import { Grip, Loader2, Play, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { showToast } from "@studio/project-shell/toast";
 import { MODULE_SOURCES_DIR } from "@studio/song-schema/moduleTypes";
-import { Loader2, Play, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";
@@ -201,7 +201,7 @@ export function RackBuilder({
       <div className="relative flex max-h-[90vh] w-[min(34rem,92vw)] flex-col gap-3 overflow-auto rounded-lg border border-border bg-background p-4 shadow-xl">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-primary">
-            ⣿ {m["rb.title"]()}
+            <Grip className="h-4 w-4" /> {m["rb.title"]()}
           </span>
           <span className="text-xs text-muted-foreground">
             {m["rb.hint"]()}

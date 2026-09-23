@@ -10,8 +10,8 @@
 // `project alternative switch` are the same code path.
 
 import { Button } from "@frediverse/ui/button";
+import { ArrowLeft, Check, GitBranch } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
-import { Check, GitBranch } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { usePopin } from "../popins";
@@ -112,7 +112,7 @@ export function AlternativePicker({
               {/* Where it came from — what `apply` would merge into, and what tells a root branch from an alternative at a glance. */}
               {b.parent && (
                 <span className="shrink-0 text-[10px] text-muted-foreground">
-                  ← {b.parent}
+                  <ArrowLeft className="h-3 w-3" /> {b.parent}
                 </span>
               )}
             </button>

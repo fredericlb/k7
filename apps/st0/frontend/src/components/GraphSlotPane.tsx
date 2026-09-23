@@ -2,7 +2,7 @@
 // the pane, the title bar, and the one ✕ that puts the graph back. The occupants supply a body
 // and what to call it. See docs/shell.md on the slot itself.
 
-import { X } from "lucide-react";
+import { X } from "@frediverse/ui/icons";
 
 /** The close button, written once rather than per occupant — copies drift, and a ✕ living in the leaf cannot be relied on by the frame. */
 function CloseSlot({

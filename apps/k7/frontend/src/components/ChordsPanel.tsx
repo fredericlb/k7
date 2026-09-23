@@ -1,4 +1,4 @@
-import { Guitar } from "lucide-react";
+import { Guitar } from "@frediverse/ui/icons";
 import { useEffect, useRef } from "react";
 import { ChordDiagram } from "./ChordDiagram";
 

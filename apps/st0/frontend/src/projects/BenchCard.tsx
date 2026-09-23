@@ -3,8 +3,8 @@
 // library all the same, since every module it can reach is in it.
 // See apps/pl8/docs/banc.md and ../../docs/projects.md.
 
+import { FlaskConical } from "@frediverse/ui/icons";
 import type { RepoRef } from "@studio/web-protocol";
-import { FlaskConical } from "lucide-react";
 import { m } from "../paraglide/messages.js";
 import { benchHref } from "./api";
 

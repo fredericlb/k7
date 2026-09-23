@@ -1,3 +1,4 @@
+import { X } from "@frediverse/ui/icons";
 import { usePreloaderState } from "@studio/player-web/preloader";
 import { useEffect, useMemo, useState } from "react";
 import { AuthBadge } from "../components/AuthBadge";
@@ -306,7 +307,7 @@ export function MonitorView() {
                       className="audio-btn"
                       onClick={() => sys.virtual.remove(b.name)}
                     >
-                      ✕
+                      <X className="size-3.5" />
                     </button>
                   </div>
                 ))}

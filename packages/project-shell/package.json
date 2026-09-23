@@ -21,11 +21,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@frediverse/ui": "*",
     "@studio/engine-protocol": "*",
     "@studio/graph-model": "*",
     "@studio/song-schema": "*",
-    "@studio/web-protocol": "*",
-    "lucide-react": "^1.24.0"
+    "@studio/web-protocol": "*"
   },
   "devDependencies": {
     "@frediverse/tsconfig": "*",

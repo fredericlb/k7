@@ -2,6 +2,7 @@
 // The view is imported lazily, so the library loads only when a song shows a score (../../../docs/score.md).
 
 import { Button } from "@frediverse/ui/button";
+import { Minus, Plus, RotateCcw } from "@frediverse/ui/icons";
 import {
   clampTranspose,
   formatTranspose,
@@ -11,7 +12,6 @@ import {
   ZOOM_STEPS,
 } from "@k7/score";
 import type { ScoreState, ScoreViewHandle } from "@k7/score/ScoreView";
-import { Minus, Plus, RotateCcw } from "lucide-react";
 import { lazy, Suspense, useRef, useState } from "react";
 import { useElementFullscreen } from "../hooks/useElementFullscreen";
 import { m } from "../paraglide/messages.js";

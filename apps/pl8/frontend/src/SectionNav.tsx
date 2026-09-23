@@ -3,8 +3,14 @@
 // See ../docs/responsive.md.
 
 import type { AppHeaderItem } from "@frediverse/ui/app-header";
+import {
+  Disc3,
+  ListMusic,
+  type LucideIcon,
+  Mic,
+  Waves,
+} from "@frediverse/ui/icons";
 import { PLAYLISTS_DIR, RECORDINGS_DIR } from "@studio/mediatek/types";
-import { Disc3, ListMusic, type LucideIcon, Mic, Waves } from "lucide-react";
 import type { SectionId } from "./routes";
 
 /** The two families plus the two root zones, which are not families (../docs/routing.md). */

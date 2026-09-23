@@ -9,9 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import { Input } from "@frediverse/ui/input";
-import { type Player, usePlayerState } from "@studio/player-web";
-import { SongPreloader } from "@studio/player-web/preloader";
 import {
   ArrowRight,
   Check,
@@ -21,7 +18,10 @@ import {
   RotateCcw,
   SkipForward,
   X as XIcon,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { Input } from "@frediverse/ui/input";
+import { type Player, usePlayerState } from "@studio/player-web";
+import { SongPreloader } from "@studio/player-web/preloader";
 import {
   type CSSProperties,
   useCallback,

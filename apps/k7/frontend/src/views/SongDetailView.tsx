@@ -1,4 +1,5 @@
 import { Button } from "@frediverse/ui/button";
+import { Pencil, Star } from "@frediverse/ui/icons";
 import { Tabs, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
 import { Textarea } from "@frediverse/ui/textarea";
 import {
@@ -9,7 +10,6 @@ import {
   transposeChord,
 } from "@k7/lyrics";
 import { Tablature } from "@k7/tablature";
-import { Pencil, Star } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChordPopin } from "../components/ChordPopin";
 import { ChordsPanel } from "../components/ChordsPanel";

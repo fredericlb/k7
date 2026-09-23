@@ -4,10 +4,10 @@
 // See ../docs/songPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
+import { ArrowLeft, Disc3, Loader2 } from "@frediverse/ui/icons";
 import { type MediatekEntry, SONG_FILE } from "@studio/mediatek/types";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
-import { ArrowLeft, Disc3, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { library } from "./api";
 import type { PlaybackTarget } from "./playback/targets";

@@ -12,6 +12,9 @@
   "peerDependencies": {
     "react": "^19.2.7"
   },
+  "dependencies": {
+    "@frediverse/ui": "*"
+  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

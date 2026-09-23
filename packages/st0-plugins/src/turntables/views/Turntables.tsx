@@ -2,8 +2,8 @@
 // the mapping first and draws the missing wiring instead of a desk whose knobs go nowhere.
 // See packages/song/docs/surfaces.md and ../../docs/hosting.md.
 
+import { Unplug } from "@frediverse/ui/icons";
 import type { MixView as Mapping } from "@studio/song-schema/yaml/mixViewSchema";
-import { Unplug } from "lucide-react";
 import type { Deck } from "../engine";
 import { unmappedControls } from "../mapping";
 import type { DeckSet } from "../useDeckSet";

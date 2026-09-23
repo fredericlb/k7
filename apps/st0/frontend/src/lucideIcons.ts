@@ -18,7 +18,7 @@ let pending: Promise<IconSet> | null = null;
 /** The whole set, loaded once. Repeat calls get the cache, or join the flight already in the air. */
 export function loadIcons(): Promise<IconSet> {
   if (cache) return Promise.resolve(cache);
-  pending ??= import("lucide-react").then((mod) => {
+  pending ??= import("@frediverse/ui/icons").then((mod) => {
     const out: IconSet = {};
     // Components only: the module also exports helpers, an `icons` map and an alias per name — a picker offering `createLucideIcon` would be absurd.
     for (const [name, v] of Object.entries(mod as Record<string, unknown>))

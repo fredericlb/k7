@@ -1,6 +1,6 @@
 import { Button } from "@frediverse/ui/button";
+import { ChevronLeft, ChevronRight } from "@frediverse/ui/icons";
 import ChordImport from "@tombatossals/react-chords/lib/Chord";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { GUITAR, getChordPositions } from "../utils/chordDiagram";
 

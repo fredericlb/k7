@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { Loader2, Upload } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { Label } from "@frediverse/ui/label";
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
@@ -20,7 +21,6 @@ import {
   songFolder,
   tagsFromFilename,
 } from "@studio/mediatek/song";
-import { Loader2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { library, SongExists } from "./api";
 

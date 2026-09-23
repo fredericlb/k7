@@ -15,9 +15,9 @@ import { DeckSide, loopProps, type Wave } from "./DeckSide";
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
+import { AudioLines, Laptop, Music, RefreshCw } from "@frediverse/ui/icons";
 import type { SongDrag } from "@studio/mediatek/playlistItems";
 import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
-import { AudioLines, Laptop, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { beatPhase } from "../beats";
 import type { DeckId, DeckTempo } from "../deckVocabulary";
@@ -621,7 +621,7 @@ export function MixView({
               " — an analysed song lays down its tempo and lights SYNC at once"
             }
           >
-            ♪ {warm.done}/{warm.total}
+            <Music className="size-3" /> {warm.done}/{warm.total}
           </span>
         ) : null}
 

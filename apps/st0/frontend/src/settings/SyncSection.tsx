@@ -3,6 +3,7 @@
 // is one key per machine rather than one per account.
 // See packages/git-repos/docs/keys.md and ../../docs/settings.md.
 
+import { TriangleAlert } from "@frediverse/ui/icons";
 import { useCallback, useEffect, useState } from "react";
 import { api, engines } from "../api";
 import { engineMachine, type Machine } from "../projects/api";
@@ -94,7 +95,15 @@ export function SyncSection() {
           </Action>
         </Row>
       )}
-      {error && <Row label={`⚠ ${error}`} />}
+      {error && (
+        <Row
+          label={
+            <>
+              <TriangleAlert className="size-3.5" /> {error}
+            </>
+          }
+        />
+      )}
     </Section>
   );
 }

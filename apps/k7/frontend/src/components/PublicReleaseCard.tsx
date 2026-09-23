@@ -2,7 +2,7 @@
 // starts on the page's own pick; the choice is theirs alone and is never saved.
 
 import { Card } from "@frediverse/ui/card";
-import { Download } from "lucide-react";
+import { Download } from "@frediverse/ui/icons";
 import { useState } from "react";
 import type { Release, SongEnvelope } from "../types";
 import { WaveformPlayer } from "./WaveformPlayer";

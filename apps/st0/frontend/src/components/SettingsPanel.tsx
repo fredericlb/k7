@@ -9,7 +9,6 @@
 // ../docs/shell.md, "The right column".
 
 import { Button } from "@frediverse/ui/button";
-import type { EngineClient } from "@studio/engine-browser";
 import {
   AudioLines,
   Command,
@@ -20,7 +19,8 @@ import {
   SlidersHorizontal,
   UserCircle2,
   X,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import type { EngineClient } from "@studio/engine-browser";
 import { useEffect, useState } from "react";
 import { type AuthUser, api } from "../api";
 import { m } from "../paraglide/messages.js";

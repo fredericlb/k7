@@ -9,13 +9,13 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
+import { Check, Loader2, Square, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { DEFAULT_TRIM_DB, trimWindow } from "@studio/audio-probe/trim-gate";
 import { useEngineState } from "@studio/engine-browser/store";
 import { projectApi } from "@studio/project-shell/project";
 import { wheelFactor } from "@studio/ui-timeline/panZoom";
 import { Waveform } from "@studio/ui-waveform";
-import { Check, Loader2, Square, X } from "lucide-react";
 import {
   type ComponentProps,
   type RefObject,

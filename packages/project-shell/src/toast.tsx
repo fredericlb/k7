@@ -3,7 +3,7 @@
 // anywhere. Stacks bottom-right. A SUCCESS leaves on its own after `duration` ms; an ERROR
 // stays until dismissed, and hovering either one holds it.
 
-import { CheckCircle2, X, XCircle } from "lucide-react";
+import { CheckCircle2, X, XCircle } from "@frediverse/ui/icons";
 import { useEffect, useState } from "react";
 
 const cx = (...parts: (string | false | undefined)[]): string =>

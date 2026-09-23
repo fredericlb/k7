@@ -6,8 +6,8 @@
 // See ../../docs/audio.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Pause, Play } from "@frediverse/ui/icons";
 import { Waveform } from "@k7/recorder";
-import { Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { SongEnvelope } from "../types";
 

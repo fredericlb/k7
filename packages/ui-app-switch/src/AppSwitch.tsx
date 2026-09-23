@@ -12,7 +12,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
-import { type StudioService, serviceUrl } from "@studio/web-protocol/services";
 import {
   FolderGit2,
   Gamepad2,
@@ -20,7 +19,8 @@ import {
   Library,
   type LucideIcon,
   Mic,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { type StudioService, serviceUrl } from "@studio/web-protocol/services";
 
 /** Every app of the origin, in the order they are worth reaching — the host drops its own. */
 const APPS: {

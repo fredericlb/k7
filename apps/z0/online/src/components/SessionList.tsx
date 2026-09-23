@@ -1,7 +1,7 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@frediverse/ui/card";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Star } from "@frediverse/ui/icons";
 import type { LoadProgress, SessionRow } from "z0-shared/types";
 import { m } from "../paraglide/messages.js";
 
@@ -97,7 +97,7 @@ export function SessionList({
                     className="ml-auto text-green tabular-nums"
                     title={m["picker.bestScore"]()}
                   >
-                    ★ {s.score}
+                    <Star className="size-3.5" /> {s.score}
                   </Badge>
                 ) : null}
               </button>

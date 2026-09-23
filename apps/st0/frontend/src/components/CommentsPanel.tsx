@@ -3,9 +3,9 @@
 // through `fsend`: it reaches pl8's public router, not a file service. See ../docs/shared.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Loader2, MapPin, MessageSquare, Send, X } from "@frediverse/ui/icons";
 import type { EngineStore } from "@studio/engine-browser/store";
 import type { ShareComment } from "@studio/web-protocol";
-import { Loader2, MapPin, MessageSquare, Send, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import {

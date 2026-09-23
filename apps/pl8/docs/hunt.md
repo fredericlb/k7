@@ -450,6 +450,14 @@ deployment not yet configured is the normal state of a new deployment.
 An SSH key **distinct** from the git repositories' one: reaching a git host and opening a shell on
 the slskd machine are two different trusts.
 
+## Why a row's error is a chain, not a message
+
+A row that failed shows `Error.message` alone would say "fetch failed" for every network-level
+break — slskd unreachable, DNS down, a timeout — since that is Node's own wording for the class,
+not the instance. The real reason lives in `.cause`, so `message()` walks it and joins every
+link (`fetch failed (ECONNREFUSED) ← connect ECONNREFUSED 10.0.0.5:5030`), the same flattening
+`packages/mediatek/src/remote.ts`'s `why()` does for a download's own failures.
+
 ## What is not done
 
 - The song is fetched **alone**. Taking the whole album would mean choosing between editions and

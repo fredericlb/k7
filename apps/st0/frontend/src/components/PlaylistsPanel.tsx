@@ -9,15 +9,16 @@
 // See ../docs/playlists.md.
 
 import { Button } from "@frediverse/ui/button";
-import { playlistPathOf } from "@studio/song-schema/playlist";
 import {
+  ChevronDown,
   ListMusic,
   Loader2,
   Maximize2,
   Plus,
   TriangleAlert,
   X,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { playlistPathOf } from "@studio/song-schema/playlist";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { fuzzyScore } from "../fuzzy";
@@ -165,7 +166,7 @@ export function PlaylistsPanel({
               ? m["pls.loading"]()
               : (current?.title ?? current?.name ?? m["pls.none"]())}
           </span>
-          <span className="shrink-0 text-muted-foreground">▾</span>
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
 
         <Button

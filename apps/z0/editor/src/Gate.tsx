@@ -5,10 +5,10 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
+import { Loader2, RefreshCw, Server } from "@frediverse/ui/icons";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { PublicEngine } from "@studio/web-protocol";
 import { formatLatency } from "@studio/web-protocol/quality";
-import { Loader2, RefreshCw, Server } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { auth, engines } from "./api";
 import { ProjectShell } from "./ProjectShell";

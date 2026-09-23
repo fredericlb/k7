@@ -10,8 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { Check, EyeOff, Loader2, RotateCcw } from "@frediverse/ui/icons";
 import type { CommentState, ShareComment } from "@studio/web-protocol";
-import { Check, EyeOff, Loader2, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";

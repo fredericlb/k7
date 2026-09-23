@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { searchTexts } from "./hunt.ts";
+import { message, searchTexts } from "./hunt.ts";
 
 describe("searchTexts", () => {
   it("demande l'album et le titre, puis le titre seul", () => {
@@ -33,5 +33,29 @@ describe("searchTexts", () => {
 
   it("n'a rien à demander sans titre", () => {
     expect(searchTexts("Nevermind", "  ")).toEqual([]);
+  });
+});
+
+describe("message", () => {
+  it("names the real reason, not just fetch's own generic wording", () => {
+    // Exactly the shape Node's fetch() throws: a TypeError whose `cause` names the syscall.
+    const cause = Object.assign(
+      new Error("connect ECONNREFUSED 10.0.0.5:5030"),
+      {
+        code: "ECONNREFUSED",
+      },
+    );
+    const err = new Error("fetch failed", { cause });
+    expect(message(err)).toBe(
+      "fetch failed ← connect ECONNREFUSED 10.0.0.5:5030 (ECONNREFUSED)",
+    );
+  });
+
+  it("is just the message when there is no cause to chase", () => {
+    expect(message(new Error("recherche annulée"))).toBe("recherche annulée");
+  });
+
+  it("stringifies whatever is not even an Error", () => {
+    expect(message("boom")).toBe("boom");
   });
 });

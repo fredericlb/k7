@@ -6,9 +6,14 @@
 // See packages/song/docs/sharedFolders.md and packages/file-service/docs/libraries.md.
 
 import { Button } from "@frediverse/ui/button";
+import {
+  LibraryBig,
+  Loader2,
+  Pencil,
+  TriangleAlert,
+} from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { RepoRef } from "@studio/web-protocol";
-import { LibraryBig, Loader2, Pencil, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";

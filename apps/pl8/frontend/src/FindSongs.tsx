@@ -3,12 +3,6 @@
 // dialog, because the history grows. See ../../docs/hunt.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Input } from "@frediverse/ui/input";
-import {
-  canFallBackToYoutube,
-  type HuntRecord,
-  type HuntStatus,
-} from "@studio/web-protocol/hunt";
 // Clapperboard and not a logo: lucide dropped its brand icons, and "a video" is what it is.
 import {
   ArrowLeft,
@@ -18,7 +12,13 @@ import {
   Search,
   TriangleAlert,
   X,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { Input } from "@frediverse/ui/input";
+import {
+  canFallBackToYoutube,
+  type HuntRecord,
+  type HuntStatus,
+} from "@studio/web-protocol/hunt";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hunt } from "./api";
 

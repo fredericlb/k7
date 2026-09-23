@@ -1,3 +1,4 @@
+import { Play, RefreshCw, Star } from "@frediverse/ui/icons";
 import type { LoadProgress, SessionRow } from "./types";
 
 // Presentational: the host owns the data, and this only emits select(id) and refresh().
@@ -31,7 +32,7 @@ export function SessionPicker({
           disabled={loading}
           onClick={onRefresh}
         >
-          ↻
+          <RefreshCw className="size-4" />
         </button>
       </header>
       <div className="panel-body session-body">
@@ -78,14 +79,16 @@ export function SessionPicker({
                           {s.resume.played ?? 0} / {s.resume.total ?? 0} songs
                         </span>
                       )}
-                      <span className="resume-tag">▶ RESUME</span>
+                      <span className="resume-tag">
+                        <Play className="size-3" /> RESUME
+                      </span>
                     </span>
                   ) : typeof s.score === "number" ? (
                     <span
                       className="session-score"
                       title="your best solo score"
                     >
-                      ★ {s.score}
+                      <Star className="size-3.5" /> {s.score}
                     </span>
                   ) : null}
                 </button>

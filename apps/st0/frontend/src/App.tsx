@@ -23,6 +23,25 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
+import {
+  Check,
+  ChevronDown,
+  Circle,
+  Headphones,
+  ListMusic,
+  Loader2,
+  Lock,
+  MessageSquare,
+  Music2,
+  Pause,
+  Play,
+  Settings,
+  Share2,
+  Square,
+  StickyNote,
+  Terminal,
+  X,
+} from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { EngineUrl } from "@studio/engine-browser";
 import { PluginParamsStore } from "@studio/engine-browser/params";
@@ -59,25 +78,6 @@ import {
   type EngineLatency,
   formatLatency,
 } from "@studio/web-protocol/quality";
-import {
-  Check,
-  ChevronDown,
-  Circle,
-  Headphones,
-  ListMusic,
-  Loader2,
-  Lock,
-  MessageSquare,
-  Music2,
-  Pause,
-  Play,
-  Settings,
-  Share2,
-  Square,
-  StickyNote,
-  Terminal,
-  X,
-} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";

@@ -3,14 +3,6 @@
 // Presentational — the section holds the async and this file draws. See ../../docs/projects.md.
 
 import { Badge } from "@frediverse/ui/badge";
-import { cn } from "@frediverse/ui/lib/utils";
-import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
-import type {
-  MachineWorkspace,
-  RepoProject,
-  ShareSummary,
-} from "@studio/web-protocol";
-import { projectLabel } from "@studio/web-protocol/projects";
 import {
   CornerDownRight,
   FolderGit2,
@@ -19,7 +11,15 @@ import {
   Loader2,
   ServerOff,
   TriangleAlert,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { cn } from "@frediverse/ui/lib/utils";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
+import type {
+  MachineWorkspace,
+  RepoProject,
+  ShareSummary,
+} from "@studio/web-protocol";
+import { projectLabel } from "@studio/web-protocol/projects";
 import { type DragEvent, useState } from "react";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";

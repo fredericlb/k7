@@ -6,6 +6,7 @@
 // on. What each gesture writes is rollDrag.ts, where it is tested; a wheel zooms and middle drags pan.
 // Drawn by the Editor bottom panel and, when a clip is clicked, where the graph is (ClipView).
 
+import { Piano, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import {
@@ -740,7 +741,7 @@ export function PianoRoll({
     <div className="flex h-full min-h-0 min-w-0 flex-col border-t-2 border-border">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1 text-xs">
         <span className="font-semibold text-primary">
-          🎹 {clip.name || clip.id}
+          <Piano className="h-3.5 w-3.5" /> {clip.name || clip.id}
         </span>
         <span className="text-muted-foreground">
           {visNotes.length} notes
@@ -779,7 +780,7 @@ export function PianoRoll({
             title={m["editor.closeHint"]()}
             className="rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
-            close ✕
+            close <X className="h-3.5 w-3.5" />
           </button>
         )}
       </div>

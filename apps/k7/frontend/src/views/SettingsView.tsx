@@ -1,6 +1,6 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check } from "@frediverse/ui/icons";
 import { useState } from "react";
 import { api } from "../api";
 import { SupernoteSettings } from "../components/SupernoteSettings";

@@ -12,8 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { HardDrive, Loader2 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
-import { HardDrive, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { workspaceFolderName } from "./projectName";

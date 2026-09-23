@@ -10,7 +10,6 @@
 // same thing.
 
 import { Button } from "@frediverse/ui/button";
-import { askText } from "@studio/project-shell/ask";
 import {
   Download,
   GitCommitHorizontal,
@@ -20,7 +19,8 @@ import {
   Radio,
   Share2,
   X,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { askText } from "@studio/project-shell/ask";
 import { DEFAULT_VIDEO_FORMAT } from "../exportArgs";
 import { m } from "../paraglide/messages.js";
 import type { GitStatus } from "../types";

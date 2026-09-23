@@ -5,9 +5,6 @@
 // ../docs/playbackTarget.md and ../docs/miniPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
-import { ORIGINAL, type Take, takesOf } from "@studio/mediatek/takes";
-import type { MediatekEntry } from "@studio/mediatek/types";
-import { Waveform } from "@studio/ui-waveform";
 import {
   AudioLines,
   Disc3,
@@ -16,7 +13,10 @@ import {
   Pause,
   Play,
   RefreshCw,
-} from "lucide-react";
+} from "@frediverse/ui/icons";
+import { ORIGINAL, type Take, takesOf } from "@studio/mediatek/takes";
+import type { MediatekEntry } from "@studio/mediatek/types";
+import { Waveform } from "@studio/ui-waveform";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { library } from "./api";
 import { usePlayback } from "./playback/PlaybackProvider";

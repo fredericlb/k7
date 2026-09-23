@@ -3,8 +3,14 @@
 // category file. See docs/editing.md.
 
 import { Button } from "@frediverse/ui/button";
+import {
+  ChevronDown,
+  ChevronUp,
+  Pause,
+  Plus,
+  Trash2,
+} from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
-import { ChevronDown, ChevronUp, Pause, Plus, Trash2 } from "lucide-react";
 import {
   addOrderCat,
   addOrderPause,

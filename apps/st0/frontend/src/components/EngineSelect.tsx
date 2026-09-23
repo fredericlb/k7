@@ -5,9 +5,9 @@
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
+import { Loader2, RefreshCw, Server } from "@frediverse/ui/icons";
 import type { EngineQuality } from "@studio/web-protocol/quality";
 import { formatLatency } from "@studio/web-protocol/quality";
-import { Loader2, RefreshCw, Server } from "lucide-react";
 import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
 

@@ -8,6 +8,7 @@
 // track" has to find `track mute`. Commands you have run lately are nudged up the list
 // (recentCommands.ts), and nothing is listed at all until a character is typed.
 
+import { ChevronRight } from "@frediverse/ui/icons";
 import {
   forwardRef,
   useEffect,
@@ -378,7 +379,7 @@ export const CommandBar = forwardRef<
 
   return (
     <div className="relative flex flex-1 items-center">
-      <span className="mr-1 font-mono text-sm text-primary">❯</span>
+      <ChevronRight className="mr-1 h-4 w-4 text-primary" />
       {command ? (
         // While the form is open the bar shows WHAT is being filled and takes no typing: a second input would compete for the keys.
         <button

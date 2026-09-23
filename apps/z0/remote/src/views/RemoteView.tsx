@@ -1,4 +1,5 @@
 import { Button } from "@frediverse/ui/button";
+import { ArrowLeftRight, LockOpen, Pencil } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { useEffect, useReducer, useRef, useSyncExternalStore } from "react";
 import { SessionPicker } from "z0-shared/session-picker";
@@ -990,7 +991,7 @@ export function RemoteView() {
               render();
             }}
           >
-            <div className="unlock-icon">🔓</div>
+            <LockOpen className="unlock-icon" />
             <div className="unlock-label">{m["remote.tapToUnlock"]()}</div>
           </div>
         )}
@@ -1440,7 +1441,7 @@ export function RemoteView() {
                       onClick={() => void unlockPlayerDevice(p.name)}
                       title={m["remote.unlockDevice"]()}
                     >
-                      ⇄
+                      <ArrowLeftRight className="size-4" />
                     </button>
                   )}
                   <span className="score-label">{p.score}</span>
@@ -1454,7 +1455,7 @@ export function RemoteView() {
                     }}
                     title={m["remote.editScore"]()}
                   >
-                    ✎
+                    <Pencil className="size-4" />
                   </button>
                   <button
                     className="btn punish-btn"

@@ -3,8 +3,8 @@
 // the song ends. The ROW is @studio/ui-mini-player; what is here is the médiathèque's reading
 // of it. See ../../docs/miniPlayer.md.
 
+import { Disc3, ListVideo } from "@frediverse/ui/icons";
 import { MiniPlayer as Bar } from "@studio/ui-mini-player";
-import { Disc3, ListVideo } from "lucide-react";
 import { usePlayback } from "./PlaybackProvider";
 import { QueueButton } from "./QueueButton";
 import { playbackTargetInfo } from "./targets";

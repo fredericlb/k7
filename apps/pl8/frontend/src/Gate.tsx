@@ -5,7 +5,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@frediverse/ui/icons";
 import { useEffect, useState } from "react";
 import { auth } from "./api";
 import { Library } from "./Library";

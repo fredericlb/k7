@@ -3,7 +3,7 @@
 // files; the third needs a musician's machine to be answering.
 // See ../../docs/playbackTarget.md.
 
-import { Laptop, type LucideIcon, Radio, Speaker } from "lucide-react";
+import { Laptop, type LucideIcon, Radio, Speaker } from "@frediverse/ui/icons";
 
 /** A destination's id. It is what is stored on the account, so these strings are permanent. */
 export type PlaybackTarget = "browser" | "library" | "engine";

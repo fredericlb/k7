@@ -6,7 +6,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@frediverse/ui/icons";
 import { type ReactNode, useEffect, useState } from "react";
 import { type AuthUser, api } from "../api";
 import { m } from "../paraglide/messages.js";

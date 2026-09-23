@@ -4,10 +4,10 @@
 // waveform itself is the shared @studio/ui-waveform Waveform (fed a dB envelope
 // from the clip's samples); the notes/grid come from the backend (/api/waveform).
 
+import { Play, Volume2, X } from "@frediverse/ui/icons";
 import { useEngineState } from "@studio/engine-browser/store";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import { Waveform } from "@studio/ui-waveform";
-import { Play } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { clipEnvelopeKey } from "../clipEnvelope";
@@ -189,7 +189,7 @@ export function WaveformView({
           </button>
         )}
         <span className="font-semibold text-primary">
-          🔊 {clip.name || clip.id}
+          <Volume2 className="h-3.5 w-3.5" /> {clip.name || clip.id}
         </span>
         {wf && (
           <span className="text-muted-foreground">
@@ -209,7 +209,7 @@ export function WaveformView({
             title={m["editor.closeHint"]()}
             className="ml-auto rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
-            close ✕
+            close <X className="h-3.5 w-3.5" />
           </button>
         )}
       </div>

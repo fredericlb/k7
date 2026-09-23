@@ -7,10 +7,15 @@
 // engine-side (EngineHost::channelLevelsDb), so it is polled by request and only while this is
 // on screen. Nothing pays for it once the panel closes.
 
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  MicOff,
+  Split,
+} from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { EngineClient } from "@studio/engine-browser";
 import { INPUT_VU_MAX_DB, INPUT_VU_MIN_DB } from "@studio/engine-browser/store";
-import { ArrowDownToLine, ArrowUpFromLine, MicOff, Split } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { parts } from "../i18nParts";

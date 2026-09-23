@@ -3,7 +3,7 @@
 // The frame and its bar; the file behind it is `SeqGridFile`, which the clip pane mounts too.
 // See docs/noteGrids.md.
 
-import { Grid3x3, Piano } from "lucide-react";
+import { Grid3x3, Piano } from "@frediverse/ui/icons";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { fileStem } from "../projectPaths";

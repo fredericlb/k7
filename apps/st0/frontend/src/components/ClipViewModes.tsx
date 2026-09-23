@@ -10,8 +10,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
+import {
+  Check,
+  ChevronDown,
+  Grid3x3,
+  LayoutGrid,
+  Piano,
+} from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
-import { Check, ChevronDown, Grid3x3, LayoutGrid, Piano } from "lucide-react";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";

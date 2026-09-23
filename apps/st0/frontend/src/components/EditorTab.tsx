@@ -14,6 +14,16 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import type { DroppedFile } from "@frediverse/ui/file-tree";
+import {
+  FileText,
+  FolderTree,
+  Grid3x3,
+  LayoutGrid,
+  Loader2,
+  Piano,
+  TriangleAlert,
+  Wand2,
+} from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { askConfirm } from "@studio/project-shell/ask";
 import { showToast } from "@studio/project-shell/toast";
@@ -31,16 +41,6 @@ import {
   setChannelIn,
 } from "@studio/ui-module-builder/module-ui";
 import type { ModuleLibrary } from "@studio/web-protocol";
-import {
-  FileText,
-  FolderTree,
-  Grid3x3,
-  LayoutGrid,
-  Loader2,
-  Piano,
-  TriangleAlert,
-  Wand2,
-} from "lucide-react";
 import {
   useCallback,
   useEffect,

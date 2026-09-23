@@ -10,11 +10,18 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  Layers,
+  Loader2,
+  RotateCcw,
+} from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { cn } from "@frediverse/ui/lib/utils";
 import { askConfirm } from "@studio/project-shell/ask";
 import { useUnsavedGuard } from "@studio/ui-editor/unsaved";
-import { ArrowDown, ArrowUp, Layers, Loader2, RotateCcw } from "lucide-react";
 import {
   lazy,
   memo,
@@ -203,7 +210,7 @@ export function CommandsSettings({
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2">
         <Button size="sm" variant="ghost" onClick={() => void leave()}>
-          ← {m["common.back"]()}
+          <ArrowLeft className="h-4 w-4" /> {m["common.back"]()}
         </Button>
         <h2 className="text-sm font-medium">{m["cmds.title"]()}</h2>
         <span className="text-xs text-muted-foreground">

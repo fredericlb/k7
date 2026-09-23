@@ -3,6 +3,7 @@
 // and mounts <App/> with the chosen ws address. The pick belongs to the ACCOUNT — it comes
 // back on any browser — and is reused whenever it is still reachable.
 
+import { Loader2 } from "@frediverse/ui/icons";
 import type { ClaimTakenReason } from "@studio/engine-browser/lease";
 import { useRelook } from "@studio/engine-browser/relook";
 import { ProjectTakenOver } from "@studio/project-shell/gate";
@@ -11,7 +12,6 @@ import {
   projectClaimKey,
   projectsUrl,
 } from "@studio/project-shell/launch";
-import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { engines } from "../api";
 import { m } from "../paraglide/messages.js";
