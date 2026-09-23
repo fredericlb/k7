@@ -94,7 +94,7 @@ describe("scanning songs", () => {
     expect(e.bytes).toBe(4);
   });
 
-  it("leaves out a folder a machine published unasked, but not what pl8 itself filed", () => {
+  it("leaves out everything under the K7 artist folder, whatever its source", () => {
     write(
       "songs/K7/2026/take-one/song.yaml",
       "title: Sous la pluie\nartist: K7\nsource: k7\n",
@@ -102,7 +102,7 @@ describe("scanning songs", () => {
     write("songs/K7/2026/take-one/original.wav", "RIFF");
     write("songs/dropped/song.yaml", "title: T\nsource: upload\n");
     write("songs/dropped/original.wav", "RIFF");
-    // Hunted, not dropped by hand — the hunt page still asked pl8 for it, right then.
+    // Hunted or fetched, not dropped by hand — shown just the same, whatever the source line says.
     write(
       "songs/Hunted/Album/Found/song.yaml",
       "title: Found\nartist: Hunted\nsource: slskd\n",
@@ -119,6 +119,17 @@ describe("scanning songs", () => {
       "Found",
       "T",
     ]);
+  });
+
+  it("goes by the FOLDER, not the source line", () => {
+    // A folder merely NAMED K7, nested under a real artist, is not k7's own — only the top level is.
+    write(
+      "songs/Some Artist/K7/A Song/song.yaml",
+      "title: A Song\nartist: Some Artist\n",
+    );
+    write("songs/Some Artist/K7/A Song/original.mp3", "ID3");
+    const entries = scanFamily("songs");
+    expect(entries.map((e) => e.name)).toEqual(["A Song"]);
   });
 
   it("still lists a folder dropped in by hand, flagged as not filed", () => {
