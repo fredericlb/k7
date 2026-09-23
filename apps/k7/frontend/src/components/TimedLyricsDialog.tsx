@@ -51,6 +51,8 @@ export function TimedLyricsDialog({
   const [alignment, setAlignment] = useState<LrcAlignment | null>(null);
   // Which lyric line is waiting for its LRC line; the second click makes the pair.
   const [picked, setPicked] = useState<number | null>(null);
+  // Where the fetched side came from — a file's name, or LRCLIB's version — for its column's heading.
+  const [source, setSource] = useState("");
 
   const reset = () => {
     setBusy(null);
@@ -58,6 +60,7 @@ export function TimedLyricsDialog({
     setCandidates(null);
     setAlignment(null);
     setPicked(null);
+    setSource("");
   };
 
   const close = () => {
@@ -77,29 +80,35 @@ export function TimedLyricsDialog({
     }
   };
 
-  /** A file or a found version, taken as far as it goes: saved outright, or opened for pairing. */
-  const take = async (source: string) => {
+  /** A file or a found version, taken as far as it goes: saved outright, or opened for pairing. `from` names it. */
+  const take = async (lrc: string, from: string) => {
     // No lyrics yet: the file IS them, so there is nothing to pair.
     if (lyrics.trim() === "") {
-      const result = importLrc("", source);
+      const result = importLrc("", lrc);
       if (!result.ok) throw new Error(m["lrc.noTimings"]());
       await onSave(result.lyrics, result.timings);
       close();
       return;
     }
-    const next = alignLrc(lyrics, source);
+    const next = alignLrc(lyrics, lrc);
     if (next.lrc.length === 0) throw new Error(m["lrc.noTimings"]());
     setCandidates(null);
     setPicked(null);
+    setSource(from);
     setAlignment(next);
   };
+
+  /** How a found version is named on its column: the service, then the album it is from. */
+  const fromLrclib = (c: LrcCandidate) =>
+    `LRCLIB · ${c.albumName || c.trackName}`;
 
   const search = () =>
     run(m["lrc.searching"](), async () => {
       setCandidates(null);
       const found = await onFindLrc(trackSeconds());
       if (found.length === 0) throw new Error(m["lrc.notFound"]());
-      if (found.length === 1) return take(found[0].syncedLyrics);
+      if (found.length === 1)
+        return take(found[0].syncedLyrics, fromLrclib(found[0]));
       setCandidates(found);
     });
 
@@ -180,7 +189,9 @@ export function TimedLyricsDialog({
                 disabled={busy !== null}
                 title={`${c.artistName} — ${c.trackName}`}
                 onClick={() =>
-                  void run(m["lrc.reading"](), () => take(c.syncedLyrics))
+                  void run(m["lrc.reading"](), () =>
+                    take(c.syncedLyrics, fromLrclib(c)),
+                  )
                 }
               >
                 {c.albumName || c.trackName} · {clock(c.duration).slice(0, -3)}
@@ -192,6 +203,8 @@ export function TimedLyricsDialog({
         {alignment && (
           <div className="lrc-match">
             <div className="lrc-column">
+              {/* Which side is which, kept in view while the lines scroll: the song's own, then what was fetched. */}
+              <div className="lrc-column-head">{m["lrc.side.song"]()}</div>
               {alignment.lines.map((line, i) => {
                 const at = alignment.pairs.get(i);
                 return (
@@ -210,6 +223,11 @@ export function TimedLyricsDialog({
               })}
             </div>
             <div className="lrc-column">
+              <div className="lrc-column-head" title={source}>
+                {source
+                  ? m["lrc.side.fetchedFrom"]({ source })
+                  : m["lrc.side.fetched"]()}
+              </div>
               {alignment.lrc.map((line, j) => (
                 <button
                   type="button"
@@ -239,7 +257,7 @@ export function TimedLyricsDialog({
             e.target.value = "";
             if (chosen)
               void run(m["lrc.reading"](), async () =>
-                take(await chosen.text()),
+                take(await chosen.text(), chosen.name),
               );
           }}
         />

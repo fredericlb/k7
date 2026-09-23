@@ -59,8 +59,11 @@ typo or "gonna" / "going to" without pairing two different lines.
 
 **Nothing is refused for matching badly.** The popin says how many lines paired — "3 of 12" — and
 shows both sides so the rest can be paired by hand: the song's lines on the left with their
-timecode, the file's on the right. Click a line, then its line on the right to pair them; click a
-paired line to undo it. One LRC line answers for one lyric line, so giving it to another takes it
+timecode, the file's on the right. Each column is **headed** with what it is — « Song's lyrics »
+and « Fetched — ⟨where from⟩ », the file's name or LRCLIB and the album of the version picked — and
+the headings stay in view while the lines scroll, since a long song leaves nothing else on screen
+to tell two columns of lyrics apart. Click one of the song's lines, then its fetched line to pair
+them; click a paired line to undo it. One LRC line answers for one lyric line, so giving it to another takes it
 back from the first. Only a file with no timed line at all is refused, because there is nothing in
 it to pair.
 

@@ -1150,6 +1150,22 @@ select {
   gap: 2px;
   min-width: 0;
 }
+/* Which side is which — the song's own lyrics, the fetched LRC — held at the top while the lines scroll. */
+.lrc-column-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 4px 6px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .lrc-row {
   display: flex;
   align-items: baseline;
