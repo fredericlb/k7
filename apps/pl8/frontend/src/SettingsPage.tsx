@@ -1,10 +1,12 @@
 // SettingsPage.tsx — « Paramètres », a tabless section reached from the cog, like k7's
-// /settings: who is signed in, and the instance's slskd settings. See ../docs/settings.md.
+// /settings: who is signed in, the engines registered here, and the instance's slskd
+// settings. See ../docs/settings.md.
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { ArrowLeft, LogOut } from "@frediverse/ui/icons";
 import { auth, currentUser } from "./api";
+import { EnginesSettings } from "./EnginesSettings";
 import { SlskdSettings } from "./SlskdSettings";
 
 export function SettingsPage({ onBack }: { onBack: () => void }) {
@@ -30,6 +32,8 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
             Se déconnecter
           </Button>
         </Card>
+
+        <EnginesSettings />
 
         <SlskdSettings />
       </div>

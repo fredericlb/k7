@@ -1,9 +1,24 @@
 # Settings
 
 « Paramètres » is a page, reached from the cog in the header, as k7's is. It holds who is signed
-in (with the sign-out button, which is why the cog opens a page rather than a menu) and the
-instance's **slskd settings** — what "Find songs" ([hunt.md](hunt.md)) needs to reach the daemon
-and bring the bytes back.
+in (with the sign-out button, which is why the cog opens a page rather than a menu), the
+**engines** registered here, and the instance's **slskd settings** — what "Find songs"
+([hunt.md](hunt.md)) needs to reach the daemon and bring the bytes back.
+
+## « Moteurs » — the engines this registry holds
+
+This pl8 is THE engine registry: st0 and z0 list their engines from it too
+(`packages/engine-registry/docs/shared.md`). The card lists every engine registered here — the
+machine's name, the id's first eight characters, and the one this account's pl8 has **chosen**.
+
+Each row is **measured from this browser** (`engines.find`, the same probe the player runs), not
+just listed: registered and reachable-from-here are two different facts, and « injoignable depuis
+ce navigateur » is the one that explains an empty player. An engine in use says by whom and on
+what, rather than just « occupé ». « Actualiser » looks again.
+
+It is read-only. An engine is connected from its OWN machine — the tray's **st0 instances** tab,
+with this instance's address — because that is where its token lives; the empty card says exactly
+that, with the address to type. Nothing here can register, drop or pick an engine for anyone.
 
 ## One for the instance, not one per person
 
