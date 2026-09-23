@@ -1,13 +1,9 @@
-// One version of a release, on the release page: its shape, its stems, and what can be done to it.
-// "Hidden" only keeps it out of a page's dropdown — ../../../docs/pages.md.
+// One version of a release, on the release page: a TrackCard whose ⋮ holds everything that can be
+// done to it, stems included. "Hidden" only keeps it out of a page's dropdown — ../../../docs/pages.md.
 
 import { Badge } from "@frediverse/ui/badge";
-import { Button } from "@frediverse/ui/button";
-import { Card } from "@frediverse/ui/card";
-import { ArrowLeftRight, Download, Star, Trash2 } from "@frediverse/ui/icons";
 import type { ReleaseVersion, SongEnvelope } from "../types";
-import { SwitchField } from "./SwitchField";
-import { WaveformPlayer } from "./WaveformPlayer";
+import { TrackCard, type TrackMenuEntry } from "./TrackCard";
 
 interface Props {
   version: ReleaseVersion;
@@ -37,83 +33,47 @@ export function VersionCard({
   onDelete,
   onHiddenChange,
 }: Props) {
+  const menu: TrackMenuEntry[] = [
+    ...(v.isDefault
+      ? []
+      : [{ label: "Set as default", onSelect: onSetDefault }]),
+    {
+      label: "Download",
+      onSelect: () => void download(audioUrl, `${label} (${v.name})`),
+    },
+    { label: "Replace the file…", onSelect: onReplace, disabled: swapping },
+    {
+      label: v.hidden ? "Show on pages" : "Hide from pages",
+      onSelect: () => onHiddenChange(!v.hidden),
+    },
+    ...v.tracks.map((t, i) => ({
+      label: `Download stem: ${t.name}`,
+      onSelect: () => void download(trackUrl(t.id), `${label} - ${t.name}`),
+      separatorBefore: i === 0,
+    })),
+    {
+      label: "Delete version",
+      danger: true,
+      separatorBefore: true,
+      onSelect: () => {
+        if (confirm(`Delete the version "${v.name}"?`)) onDelete();
+      },
+    },
+  ];
+
   return (
-    <Card className={v.hidden ? "version-hidden" : undefined}>
-      <div className="version-head">
-        <span className="version-name">
-          {v.isDefault && <Star className="size-3.5 fill-current" />}
-          {v.name}
-        </span>
-        {v.isDefault && <Badge variant="amber">default</Badge>}
-        {v.hidden && <Badge>hidden</Badge>}
-        {!v.isDefault && (
-          <Button variant="outline" size="sm" onClick={onSetDefault}>
-            Set default
-          </Button>
-        )}
-        <Button
-          variant="outline"
-          size="sm"
-          title="Download"
-          onClick={() => download(audioUrl, `${label} (${v.name})`)}
-        >
-          <Download className="size-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={swapping}
-          title="Replace this version's file"
-          onClick={onReplace}
-        >
-          <ArrowLeftRight className="size-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          title="Delete this version"
-          onClick={onDelete}
-        >
-          <Trash2 className="size-4" />
-        </Button>
-      </div>
-
-      <WaveformPlayer src={audioUrl} shapeOf={shapeOf} />
-
-      <SwitchField
-        checked={v.hidden}
-        onCheckedChange={onHiddenChange}
-        style={{ marginTop: 8 }}
-      >
-        Hidden from pages
-      </SwitchField>
-
-      {v.tracks.length > 0 && (
-        <div className="stems">
-          <div className="muted small" style={{ marginTop: 10 }}>
-            Stems ({v.tracks.length})
-          </div>
-          <ul className="stem-list">
-            {v.tracks.map((t) => (
-              <li key={t.id} className="stem-row">
-                <span className="stem-name" title={t.name}>
-                  {t.name}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  title={`Download ${t.name}`}
-                  onClick={() =>
-                    download(trackUrl(t.id), `${label} - ${t.name}`)
-                  }
-                >
-                  <Download className="size-4" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </Card>
+    <TrackCard
+      title={v.name}
+      badges={
+        <>
+          {v.isDefault && <Badge variant="amber">default</Badge>}
+          {v.hidden && <Badge>hidden</Badge>}
+        </>
+      }
+      menu={menu}
+      menuLabel={`${v.name} menu`}
+      audio={{ src: audioUrl, shapeOf }}
+      dimmed={v.hidden}
+    />
   );
 }
