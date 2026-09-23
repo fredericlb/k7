@@ -6,8 +6,8 @@
 
 use std::path::PathBuf;
 
-/// `<state>` — the shared state dir, the same one the supervisor uses. `$STUDIO_HOME` first:
-/// that is how a process on one side of a WSL boundary shares the directory on the other.
+/// `<state>` — the shared state dir, the same one the supervisor uses. `$STUDIO_HOME` first,
+/// as in every other spelling of it (packages/engine-client/docs/paths.md).
 pub fn studio_dir() -> PathBuf {
     match std::env::var("STUDIO_HOME") {
         Ok(h) if !h.is_empty() => PathBuf::from(h),

@@ -9,9 +9,8 @@ Throughout the docs it is written `<state>`.
 
 `~/.st0`, on **all three platforms**.
 
-`$STUDIO_HOME` overrides it, and that is not a debug hatch: it is how a process on one side of a
-WSL boundary shares the directory that lives on the other (`docs/wsl.md`), and how every test
-that touches this gets a directory of its own.
+`$STUDIO_HOME` overrides it, and that is not a debug hatch: it is how every test that touches this
+gets a directory of its own.
 
 ## One path, because THREE languages compute it
 

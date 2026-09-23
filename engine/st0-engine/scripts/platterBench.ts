@@ -37,12 +37,6 @@ export function writeWav(pcm: Int16Array, rate: number, tag: string): string {
   return file;
 }
 
-/** The same file, named the way the ENGINE will have to open it. Identity everywhere but WSL. */
-export function asEngineSees(path: string): string {
-  const m = /^\/mnt\/([a-z])\/(.*)$/.exec(path);
-  return m ? `${m[1].toUpperCase()}:\\${m[2].replace(/\//g, "\\")}` : path;
-}
-
 /** The dominant frequency of a window, parabolically interpolated. Shorter input is zero-padded. */
 export function peakHz(x: Float32Array, rate: number, n = 4096): number {
   const re = new Float64Array(n);
@@ -124,7 +118,7 @@ export function platterDoc(source: string, rate: number, params = {}) {
             type: "studio_turntable",
             name: "platter",
             path: "",
-            deckFile: asEngineSees(source),
+            deckFile: source,
             presetSave: "",
             role: "instrument",
             enabled: true,

@@ -13,7 +13,7 @@ import { stateDir } from "../../../scripts/stateDir.mjs";
 const here = dirname(fileURLToPath(import.meta.url)); // engine/st0-tray/scripts
 export const trayDir = dirname(here); //                engine/st0-tray
 // `<state>/.studio.log`, mirroring paths.rs's merged_log_path — and through stateDir.mjs rather than
-// a hand-joined home, because $STUDIO_HOME is exactly what a WSL dev session sets.
+// a hand-joined home, so $STUDIO_HOME moves it too.
 export const MERGED = join(stateDir(), ".studio.log"); // truncated by logbus::init on every launch
 export const TRAY_LOG = join(trayDir, ".cache", "dev", "tray.log"); // where start-engine.mjs puts its stdout
 export const EXE_NAME =

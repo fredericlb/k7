@@ -97,7 +97,7 @@ function uniquify(base: string, used: Set<string>): string {
 // Plugin names in the local cache, for telling whether an imported plugin exists here; empty ⇒ skip the check.
 function loadCachedPluginNames(file?: string): Set<string> {
   // Through scannedPlugins, so this reads the SAME file the engine writes and honours $STUDIO_HOME
-  // — the file service runs on the machine's own side of a WSL boundary (docs/import.md).
+  // (docs/import.md).
   const names = new Set<string>();
   for (const p of file ? scannedPlugins(file) : scannedPlugins())
     if (p.name) names.add(p.name.toLowerCase());

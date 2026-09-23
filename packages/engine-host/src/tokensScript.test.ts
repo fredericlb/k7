@@ -31,8 +31,8 @@ let envFile: string;
 
 /**
  * The script with its STATE DIR pointed at a scratch one, so it writes nothing of the
- * developer's. `$STUDIO_HOME` and not `HOME`: it is the override a dev session and the WSL
- * bridge already use (`scripts/dev.mjs`), so the road under test is the road that runs.
+ * developer's. `$STUDIO_HOME` and not `HOME`: it is the override every reader of the state
+ * dir honours (`scripts/stateDir.mjs`), so the road under test is the road that runs.
  */
 function run(...args: string[]): string {
   return execFileSync(process.execPath, [script, "--env", envFile, ...args], {

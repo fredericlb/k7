@@ -30,6 +30,6 @@ export default defineAppConfig({
       },
     },
   },
-  // Polling only when asked for, the tree being on ext4 (same as st0).
+  // Polling only when asked for: native file events are enough (same as st0).
   poll: !!process.env.STUDIO_POLL,
 });
