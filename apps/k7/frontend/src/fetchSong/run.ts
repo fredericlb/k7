@@ -173,7 +173,10 @@ export async function makeInstrumental(
   resumeJobId?: string,
 ): Promise<InstrumentalOutcome> {
   const entry = await inLibrary(steps, song);
-  if (!entry) throw new Error(m["fetch.notInLibrary"]());
+  if (!entry)
+    throw new Error(
+      m["fetch.notInLibrary"]({ artist: song.artist, title: song.title }),
+    );
   if (song.instrumental) return { instrumental: true };
 
   if (!(await instrumentalReady(steps, masterPath(entry), resumeJobId)))

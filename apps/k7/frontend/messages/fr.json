@@ -86,7 +86,7 @@
   "fetch.noSeparation": "pl8 n'a pas lancé la séparation.",
   "fetch.notFiledYet": "Le morceau a été récupéré mais n'est pas encore dans la médiathèque — réessayez dans un instant.",
   "fetch.notFound": "Soulseek n'a pas trouvé ce morceau.",
-  "fetch.notInLibrary": "Ce morceau n'est pas dans la médiathèque de pl8 — récupérez-le d'abord.",
+  "fetch.notInLibrary": "Aucun « {artist} – {title} » dans la médiathèque de pl8 : la piste lue ici est la copie de k7, et l'instrumental se fait depuis celle de la médiathèque. Vérifiez l'artiste et le titre (⋮ › Modifier l'artiste et le titre…), ou récupérez le morceau.",
   "fetch.question": "Pas encore de fichier audio — que faire ?",
   "fetch.retry": "Réessayer",
   "fetch.searching": "Recherche sur Soulseek…",

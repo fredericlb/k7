@@ -154,7 +154,7 @@ describe("makeInstrumental", () => {
           mixInstrumental: async () => song(),
         }) as never,
       ),
-    ).rejects.toThrow(/not in pl8's library/);
+    ).rejects.toThrow(/No « Nina Simone – Sinnerman » in pl8's library/);
   });
 
   it("says so when no engine is online, and mixes nothing", async () => {

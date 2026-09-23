@@ -322,6 +322,11 @@ often than a track to play along to, so it is asked for rather than ridden along
 - **Any engine online makes it.** Separation needs a machine running an engine that pl8 can reach;
   the hosted image carries neither the model nor its runtime. When none is online, "Make instrumental"
   says so and changes nothing, so pressing it again once one is up is the whole retry.
+- **The library song is found by artist and title** (`apps/k7/frontend/src/fetchSong/match.ts`):
+  equal once accents, case and punctuation are dropped, else every typed word in the entry, else the
+  same title by an artist a typo away (Gonzales / González). k7 keeps no link to the library song it
+  copied, and its own copy is what the player plays — so a song can play here and still be missing
+  from the library under this name, which the failure says, naming what it looked for.
 - **"Make instrumental" never hunts.** It works on the song pl8 already holds: a song missing from the
   library is a "Fetch song" away, and spending a Soulseek search on a button about stems would be a
   surprise.
