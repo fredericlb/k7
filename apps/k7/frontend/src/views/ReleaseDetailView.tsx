@@ -1,7 +1,13 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { Download, Pencil, Trash2 } from "@frediverse/ui/icons";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@frediverse/ui/dropdown-menu";
+import { Download, EllipsisVertical } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
@@ -127,11 +133,35 @@ export function ReleaseDetailView({
           <div className="detail-head">
             <BackButton to="Publications" onClick={onBack} />
             <h2>{release.title}</h2>
+            <span className="muted detail-head-sub">
+              {release.artist}
+              {release.releaseDate ? ` · ${release.releaseDate}` : ""}
+            </span>
+            {/* The release's verbs in one ⋮, like a song's, so the page below is the release. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Release menu"
+                  aria-label="Release menu"
+                >
+                  <EllipsisVertical className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => setEditing(true)}>
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onSelect={() => void remove()}
+                >
+                  Delete release
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <p className="muted">
-            {release.artist}
-            {release.releaseDate ? ` · ${release.releaseDate}` : ""}
-          </p>
 
           {release.description && (
             <p style={{ whiteSpace: "pre-wrap" }}>{release.description}</p>
@@ -147,16 +177,6 @@ export function ReleaseDetailView({
                 "download disabled"
               )}
             </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditing(true)}
-            >
-              <Pencil className="size-4" /> Edit
-            </Button>
-            <Button variant="outline" size="sm" onClick={remove}>
-              <Trash2 className="size-4" /> Delete release
-            </Button>
           </div>
         </>
       )}

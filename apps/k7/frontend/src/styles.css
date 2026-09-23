@@ -415,6 +415,14 @@ input[type="range"] {
 .detail-head h2 {
   margin: 0;
 }
+/* The line beside the title eats the slack, which pushes a ⋮ after it to the right edge. */
+.detail-head-sub {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .song-detail-head {
   display: flex;
   align-items: center;
