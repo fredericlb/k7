@@ -116,7 +116,13 @@ describe("fetchSong", () => {
       listSongs: async () => [entry("Nina Simone", "Sinnerman")],
     });
     await fetchSong(
-      song({ audio: { name: "t.flac", mime: "audio/flac" } }),
+      song({
+        audio: {
+          name: "t.flac",
+          mime: "audio/flac",
+          path: "songs/Nina Simone/Pastel Blues/Sinnerman/original.flac",
+        },
+      }),
       steps(pl8, { copyTrack }) as never,
     );
     expect(copyTrack).not.toHaveBeenCalled();
@@ -201,6 +207,30 @@ describe("makeInstrumental", () => {
     expect(mixInstrumental).toHaveBeenCalledTimes(1);
   });
 
+  it("cuts the stems of the recording the song links, without looking it up by name", async () => {
+    // The library's same-named song can be another take (a live one): the linked file is what plays.
+    const mixInstrumental = vi.fn(async () => song());
+    const prepareStems = vi.fn(async () => ({ ready: true, job: null }));
+    const listSongs = vi.fn(async () => [entry("Nina Simone", "Sinnerman")]);
+    const linked = "songs/Nina Simone/Pastel Blues/Sinnerman/original.flac";
+    await makeInstrumental(
+      song({ audio: { name: "t", mime: "audio/flac", path: linked } }),
+      steps(
+        fakePl8({
+          listSongs,
+          engines: async () => [{ id: "e1" } as never],
+          prepareStems,
+        }),
+        { mixInstrumental },
+      ) as never,
+    );
+    expect(listSongs).not.toHaveBeenCalled();
+    expect(prepareStems).toHaveBeenCalledWith(linked, "e1", expect.anything());
+    expect(mixInstrumental).toHaveBeenCalledWith(
+      "songs/Nina Simone/Pastel Blues/Sinnerman",
+    );
+  });
+
   it("waits for a running separation, and passes its failure on", async () => {
     const pl8 = fakePl8({
       listSongs: found.listSongs,
@@ -226,8 +256,16 @@ describe("makeInstrumental", () => {
 describe("runPipeline", () => {
   // Instrumental already made, so the pipeline has nothing left but lyrics to try.
   const withTrack = song({
-    audio: { name: "t.flac", mime: "audio/flac" },
-    instrumental: { name: "i.flac", mime: "audio/flac" },
+    audio: {
+      name: "t.flac",
+      mime: "audio/flac",
+      path: "songs/Nina Simone/Pastel Blues/Sinnerman/original.flac",
+    },
+    instrumental: {
+      name: "i.flac",
+      mime: "audio/flac",
+      path: "songs/Nina Simone/Pastel Blues/Sinnerman/stems/instrumental.wav",
+    },
   });
 
   it("auto-applies a confident lyrics match once a track exists", async () => {
@@ -257,7 +295,14 @@ describe("runPipeline", () => {
   });
 
   // A track, but no instrumental yet: stems are still to make.
-  const noStems = song({ audio: { name: "t.flac", mime: "audio/flac" } });
+  // A track, no instrumental, and an old k7 copy rather than a library link: the stems step looks the song up by name.
+  const noStems = song({
+    audio: {
+      name: "t.flac",
+      mime: "audio/flac",
+      path: "recordings/songbook/s1.flac",
+    },
+  });
   const lrc = (over: Record<string, unknown> = {}) => ({
     id: 1,
     trackName: "Sinnerman",

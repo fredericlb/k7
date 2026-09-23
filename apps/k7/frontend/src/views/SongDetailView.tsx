@@ -39,12 +39,10 @@ interface Props {
   /** "Replace the track…" in the ⋮ menu — the insert's own upload goes through onUpload instead. */
   onUploadAudio: (file: File) => Promise<void>;
   onDeleteAudio: () => Promise<void>;
-  audioUrl: string;
   onToggleFavorite: () => Promise<void>;
   onDelete: () => Promise<void>;
   /** Retries the instrumental once no engine was online. */
   onMixInstrumental: (folder: string) => Promise<Song>;
-  instrumentalUrl: string;
   /** The auto-fetch insert under the title: start a Soulseek hunt, or hand it an uploaded file. */
   onDownload: () => void;
   onUpload: (file: File) => void;
@@ -70,11 +68,9 @@ export function SongDetailView({
   sheetUrl,
   onUploadAudio,
   onDeleteAudio,
-  audioUrl,
   onToggleFavorite,
   onDelete,
   onMixInstrumental,
-  instrumentalUrl,
   onDownload,
   onUpload,
   onIgnore,
@@ -349,9 +345,7 @@ export function SongDetailView({
         )}
         <SongPlayer
           song={song}
-          audioUrl={audioUrl}
           audioRef={audio}
-          instrumentalUrl={instrumentalUrl}
           transpose={transpose}
           floating
           open={playerOpen}

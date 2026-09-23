@@ -481,9 +481,6 @@ export const api = {
       body: JSON.stringify({ folder }),
     }).then(json),
 
-  songInstrumentalUrl: (id: string): string =>
-    `${BASE}/api/songs/${id}/instrumental`,
-
   // A star is the connected user's own, so it has its own route rather than a song field.
   setSongFavorite: (id: string, favorite: boolean): Promise<Song> =>
     f(`/api/songs/${id}/favorite`, {
@@ -547,8 +544,6 @@ export const api = {
   /** The track's shape; the backend measures it the first time and keeps it. */
   getSongEnvelope: (id: string): Promise<SongEnvelope> =>
     f(`/api/songs/${id}/envelope`).then(json),
-
-  songAudioUrl: (id: string) => `${BASE}/api/songs/${id}/audio`,
 
   // `name` is decoration the EPUB export needs: the media type is read off the extension.
   sheetFileUrl: (id: string, fileId: string, name?: string) =>

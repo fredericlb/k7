@@ -280,10 +280,8 @@ export function SongDetailContainer({
       sheetUrl={(fileId) => api.sheetFileUrl(songId, fileId)}
       onUploadAudio={handleUploadAudio}
       onDeleteAudio={handleDeleteAudio}
-      audioUrl={api.songAudioUrl(songId)}
       onToggleFavorite={handleToggleFavorite}
       onMixInstrumental={handleMixInstrumental}
-      instrumentalUrl={api.songInstrumentalUrl(songId)}
       onDelete={handleDelete}
       onBack={onBack}
       onDownload={handleDownload}

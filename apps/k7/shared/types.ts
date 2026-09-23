@@ -71,6 +71,8 @@ export interface SheetFile {
 export interface SongAudio {
   name: string;
   mime: string;
+  /** Where it is in pl8's médiathèque — what the page streams, k7 keeping no copy. */
+  path: string;
 }
 
 /** One set of timed lyrics found on LRCLIB for a song — ../docs/lyricsTiming.md. */
