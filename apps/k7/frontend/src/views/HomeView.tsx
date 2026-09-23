@@ -1,5 +1,4 @@
-import { Button } from "@frediverse/ui/button";
-import { Plus } from "@frediverse/ui/icons";
+import { AddFab } from "../components/AddFab";
 import { SongbookExport } from "../components/SongbookExport";
 import { SongbookTable } from "../components/SongbookTable";
 import { m } from "../paraglide/messages.js";
@@ -77,11 +76,9 @@ export function HomeView({
 
       {tab === "songbook" && (
         <div className="moments-pane">
-          <div className="songbook-actions">
-            <Button variant="outline" onClick={onNewSong}>
-              <Plus className="size-4" /> {m["songbook.new"]()}
-            </Button>
-          </div>
+          <AddFab
+            actions={[{ label: m["songbook.new"](), onSelect: onNewSong }]}
+          />
           <SongbookTable
             songs={songs}
             // The songbook is shared; what a person exports is their own favourites — ../../../docs/export.md.

@@ -569,12 +569,25 @@ input[type="range"] {
   margin-top: 12px;
 }
 
-/* The songbook's action row: creation on the left, the two exports after it. */
-.songbook-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+/* A list page's round +, floating at the bottom right over whatever scrolls under it. */
+.add-fab {
+  position: fixed;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 20;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.add-fab:hover {
+  background: var(--accent-hover);
+}
+/* Room under the list, so its last row can scroll out from under the +. */
+.moments-pane:has(> .add-fab) {
+  padding-bottom: 88px;
 }
 
 .song-links {
