@@ -83,6 +83,7 @@ export function SongMenu({
           <Button
             variant="ghost"
             size="icon-sm"
+            className="ds-button"
             title="What this song can be given"
             aria-label="Song menu"
             disabled={phase !== null}

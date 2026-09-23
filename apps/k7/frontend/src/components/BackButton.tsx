@@ -14,6 +14,7 @@ export function BackButton({ to, onClick }: Props) {
     <Button
       variant="ghost"
       size="icon-sm"
+      className="ds-button"
       onClick={onClick}
       title={`Back to ${to}`}
       aria-label={`Back to ${to}`}

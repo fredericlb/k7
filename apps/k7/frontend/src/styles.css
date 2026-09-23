@@ -234,7 +234,8 @@ h3 {
 /* The app bar is the design system's AppHeader, so this legacy look stays out of it. */
 /* A design-system SWITCH is a <button> too, and this padding crushed its thumb to a sliver. */
 /* So are a TAB trigger and the shared calendar's days, whose states this unlayered fill hid; one :not() keeps the specificity. */
-button:not(header button):not([data-slot="switch"], [role="tab"], [data-slot^="calendar-"]) {
+/* A design-system Button marked .ds-button keeps its own size and fill: an icon button here grew into a grey block. */
+button:not(header button):not([data-slot="switch"], [role="tab"], [data-slot^="calendar-"], .ds-button) {
   border: none;
   border-radius: 8px;
   padding: 9px 14px;
@@ -246,7 +247,7 @@ button:not(header button):not([data-slot="switch"], [role="tab"], [data-slot^="c
   transition: background 0.12s, border-color 0.12s, filter 0.12s;
 }
 /* Excluded here too, or hovering the switch would grey out the track it colours itself. */
-button:not(header button):not([data-slot="switch"], [role="tab"], [data-slot^="calendar-"]):hover:not(:disabled) {
+button:not(header button):not([data-slot="switch"], [role="tab"], [data-slot^="calendar-"], .ds-button):hover:not(:disabled) {
   background: #2c2d36;
 }
 button:disabled {
@@ -407,9 +408,10 @@ input[type="range"] {
   color: var(--amber);
 }
 /* A detail page's title row: the back arrow, then the title. */
+/* On the baseline, not centred: Palanquin sits low in its line box, so centred icons rode above the title. */
 .detail-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
 }
 .detail-head h2 {
