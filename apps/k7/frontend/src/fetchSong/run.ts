@@ -238,7 +238,8 @@ export async function runPipeline(
   // goes at the end of the closest sheet line, in order, and not a word of the sheet changes
   // (`timeLyrics`, ../../../docs/lyricsTiming.md). A song with no lyrics gets the fetched ones, timed.
   // Lyrics already timed are left alone; a version that is not this song (its artist and title), or
-  // that times nothing, is never applied — that stays « unmatched », for « Fix lyrics ».
+  // that times nothing, is never applied — that stays « unmatched », which the insert SAYS: the times
+  // are then typed into the lyrics by hand.
   const untimed =
     !hasTimecodes(current.lyrics) && !(current.lyricTimings?.length ?? 0);
   if (current.audio && current.lyricsMatch === "" && untimed) {

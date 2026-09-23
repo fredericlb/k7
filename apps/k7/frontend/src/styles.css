@@ -1136,55 +1136,7 @@ select {
   }
 }
 
-/* Timed lyrics: the song's lines beside the file's, paired by clicking one then the other. */
-.lrc-match {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  max-height: 55vh;
-  overflow: auto;
-}
-.lrc-column {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-/* Which side is which — the song's own lyrics, the fetched LRC — held at the top while the lines scroll. */
-.lrc-column-head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 4px 6px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* A sheet as text, before and after a merge: monospace and unwrapped, or the chords leave their words. */
-.lrc-preview {
-  margin: 0;
-  padding: 4px 6px;
-  overflow-x: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  line-height: 1.45;
-  white-space: pre;
-}
 
-/* LRCLIB's versions of a song, offered as one wrapping row under the add links. */
-.lrc-candidates {
-  display: flex;
-  flex-basis: 100%;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
 
 /* A score scrolls inside its own box: alphaTab follows the cursor by scrolling this element. */
 .score-viewport {

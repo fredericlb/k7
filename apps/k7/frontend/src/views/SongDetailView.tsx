@@ -22,12 +22,11 @@ import { SheetPanel } from "../components/SheetPanel";
 import { SongFetchInsert } from "../components/SongFetchInsert";
 import { SongMenu } from "../components/SongMenu";
 import { SongPlayer } from "../components/SongPlayer";
-import { TimedLyricsDialog } from "../components/TimedLyricsDialog";
 import { fmtDate } from "../format";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { m } from "../paraglide/messages.js";
 import { hasContent, SONG_TABS, visibleTabs } from "../songTabs";
-import type { LrcCandidate, Song, SongTab } from "../types";
+import type { Song, SongTab } from "../types";
 
 interface Props {
   song: Song;
@@ -42,11 +41,6 @@ interface Props {
   audioUrl: string;
   onToggleFavorite: () => Promise<void>;
   onDelete: () => Promise<void>;
-  /** Save an LRC's outcome: new lyrics (or null to keep them) and the line timecodes. */
-  /** The sheet with its `{{MM:SS}}` timecodes, and how many fetched lines found a line. */
-  onLrc: (lyrics: string, placed: number) => Promise<void>;
-  /** Timed lyrics for this song on LRCLIB, ranked by the track's length when it is known. */
-  onFindLrc: (duration?: number) => Promise<LrcCandidate[]>;
   /** Retries the instrumental once no engine was online. */
   onMixInstrumental: (folder: string) => Promise<Song>;
   instrumentalUrl: string;
@@ -74,8 +68,6 @@ export function SongDetailView({
   audioUrl,
   onToggleFavorite,
   onDelete,
-  onLrc,
-  onFindLrc,
   onMixInstrumental,
   instrumentalUrl,
   onDownload,
@@ -85,8 +77,6 @@ export function SongDetailView({
   onDismissFailure,
   onBack,
 }: Props) {
-  // Shared by the ⋮ menu's "Add timed lyrics…" and the insert's "Fix the lyrics" — one dialog.
-  const [timedOpen, setTimedOpen] = useState(false);
   // A tab asked for by the address but still empty is one being added: it opens on its editor.
   const [adding, setAdding] = useState<SongTab | null>(() =>
     initialTab && initialTab !== "sheet" && !hasContent(song, initialTab)
@@ -225,7 +215,6 @@ export function SongDetailView({
           }}
           onUploadAudio={onUploadAudio}
           onDeleteAudio={onDeleteAudio}
-          onOpenTimedLyrics={() => setTimedOpen(true)}
           onMixInstrumental={onMixInstrumental}
           onRerun={onRerun}
           onDelete={remove}
@@ -236,21 +225,9 @@ export function SongDetailView({
         song={song}
         onDownload={onDownload}
         onUpload={onUpload}
-        onFixLyrics={() => setTimedOpen(true)}
         onIgnore={onIgnore}
         onRetry={onRerun}
         onDismiss={onDismissFailure}
-      />
-      <TimedLyricsDialog
-        open={timedOpen}
-        onOpenChange={setTimedOpen}
-        lyrics={song.lyrics}
-        onFindLrc={onFindLrc}
-        trackSeconds={() => audio.current?.duration || undefined}
-        onSave={async (lyrics, placed) => {
-          await onLrc(lyrics, placed);
-          setChosen("lyrics");
-        }}
       />
 
       {tabs.length > 1 && tab !== null && (
@@ -287,6 +264,12 @@ export function SongDetailView({
             }
             onChange={(e) => setDraft(e.target.value)}
           />
+          {/* The timecodes are part of this text — the one place they are seen, typed and fixed (docs/lyricsTiming.md). */}
+          {tab === "lyrics" && (
+            <p className="muted small" style={{ marginTop: 6 }}>
+              {m["song.timecodeHint"]({ code: "{{MM:SS}}" })}
+            </p>
+          )}
           <div className="row" style={{ marginTop: 8 }}>
             <Button disabled={saving || draft === content} onClick={save}>
               {saving ? m["common.saving"]() : m["common.save"]()}

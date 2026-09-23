@@ -3,7 +3,7 @@
 // rather than an empty choice — ../../../docs/audio.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Download, Pencil, RotateCw, Upload, X } from "@frediverse/ui/icons";
+import { Download, RotateCw, Upload, X } from "@frediverse/ui/icons";
 import { useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import type { Song } from "../types";
@@ -13,7 +13,6 @@ interface Props {
   song: Song;
   onDownload: () => void;
   onUpload: (file: File) => void;
-  onFixLyrics: () => void;
   /** "Ignore": never offer this insert for this song again — a persisted choice. */
   onIgnore: () => void;
   /** Runs the pipeline again after a step failed once the track was there. */
@@ -26,7 +25,6 @@ export function SongFetchInsert({
   song,
   onDownload,
   onUpload,
-  onFixLyrics,
   onIgnore,
   onRetry,
   onDismiss,
@@ -68,15 +66,11 @@ export function SongFetchInsert({
             <RotateCw className="size-4" /> {m["fetch.retry"]()}
           </Button>
         )}
+        {/* Said, not a button: the times are typed into the lyrics, `{{MM:SS}}` at the end of a line. */}
         {unmatched && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="song-fetch-btn"
-            onClick={onFixLyrics}
-          >
-            <Pencil className="size-4" /> {m["fetch.fixLyrics"]()}
-          </Button>
+          <p className="song-fetch-insert-text muted">
+            {m["fetch.lyricsUnmatched"]({ code: "{{MM:SS}}" })}
+          </p>
         )}
         {failed && (
           <Button

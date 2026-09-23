@@ -176,19 +176,6 @@ export function SongDetailContainer({
     onChange();
   };
 
-  // An LRC's outcome in one write: the sheet with its `{{MM:SS}}` timecodes, the old side-by-side
-  // timings cleared. Timed now, so no longer « unmatched »: « Fix lyrics » would otherwise stay for good.
-  const handleLrc = async (lyrics: string, placed: number) => {
-    const matched = placed ? { lyricsMatch: "matched" as const } : {};
-    const updated = await api.updateSong(songId, {
-      lyrics,
-      lyricTimings: [],
-      ...matched,
-    });
-    setSong(updated);
-    onChange();
-  };
-
   // "Make instrumental" in the ⋮ menu — the no-engine-online retry, outside the pipeline.
   const handleMixInstrumental = async (folder: string) => {
     const updated = await api.mixInstrumental(songId, folder);
@@ -255,8 +242,6 @@ export function SongDetailContainer({
       onDeleteAudio={handleDeleteAudio}
       audioUrl={api.songAudioUrl(songId)}
       onToggleFavorite={handleToggleFavorite}
-      onLrc={handleLrc}
-      onFindLrc={(duration) => api.searchLrclib(songId, duration)}
       onMixInstrumental={handleMixInstrumental}
       instrumentalUrl={api.songInstrumentalUrl(songId)}
       onDelete={handleDelete}

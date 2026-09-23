@@ -26,8 +26,6 @@ interface Props {
   onUploadAudio: (file: File) => Promise<void>;
   /** Take the reference track away — the player only PLAYS it. */
   onDeleteAudio: () => Promise<void>;
-  /** The timed-lyrics popin is owned by the page, so both this menu and the fetch insert share one. */
-  onOpenTimedLyrics: () => void;
   /** Retries the instrumental once no engine was online — the auto-fetch insert covers the rest. */
   onMixInstrumental: (folder: string) => Promise<Song>;
   /** Runs the auto-fetch pipeline again; its progress and failure show in the insert, not here. */
@@ -43,7 +41,6 @@ export function SongMenu({
   onUploadSheets,
   onUploadAudio,
   onDeleteAudio,
-  onOpenTimedLyrics,
   onMixInstrumental,
   onRerun,
   onDelete,
@@ -109,12 +106,6 @@ export function SongMenu({
           )}
           <DropdownMenuItem onSelect={() => sheets.current?.click()}>
             {m["songMenu.addSheets"]()}
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem onSelect={onOpenTimedLyrics}>
-            {m["songMenu.addTimed"]()}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />

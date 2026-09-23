@@ -301,7 +301,7 @@ describe("runPipeline", () => {
   });
 
   it("leaves the sheet alone, and says so, when LRCLIB has no version of this song", async () => {
-    // Another song's lyrics are never merged in: « unmatched » is what puts « Fix lyrics » on the page.
+    // Another song's times are never written in: « unmatched » is what the insert then says.
     const onLrc = vi.fn(async () => withTrack);
     const onStatus = vi.fn();
     await runPipeline(

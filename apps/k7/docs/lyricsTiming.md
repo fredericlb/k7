@@ -6,15 +6,17 @@ a word of the sheet changes: its spelling, its chords, its sections and its tabl
 as typed. With a reference track, the line being sung is then highlighted as the track plays, and a
 tap on a timed line seeks there.
 
-**"Add timed lyrics…"**, in the song's ⋮ menu, opens one popin
-(`apps/k7/frontend/src/components/TimedLyricsDialog.tsx`): it takes an `.lrc` file or finds one on
-LRCLIB, and shows the sheet beside the same sheet with its timecodes before anything is saved. The
-song pipeline does the same on its own, with LRCLIB's best version of the song (`audio.md`).
+The song pipeline does it, as its last step, with LRCLIB's best version of the song (`audio.md`).
+There is no screen of its own: the timecodes are text, so they are seen, typed, moved and fixed in
+the lyrics editor like any other word — which is what replaced the timed-lyrics popin, a second
+editor for one part of the same text.
 
 ## In the text, as `{{MM:SS}}`
 
 The timecodes live IN the lyrics, where the person who writes them can see, move and fix them by
-hand like any other word — rather than in a field beside the text that nothing on screen shows.
+hand like any other word — rather than in a field beside the text that nothing on screen shows. The
+lyrics editor shows them as they are, with a line under it saying what they do; the sheet, once
+saved, shows none of them and lights the lines they time.
 `{{MM:SS}}` because a sheet's own syntax already owns the other brackets: `[C]` is an inline chord
 and `[Chorus]` a section, and an LRC's native `[01:23.45]` would read as one or the other. Double
 braces mean nothing else in a sheet. Seconds are rounded down; minutes take a third digit past 99.
@@ -34,7 +36,7 @@ the codes into the text and clears the field, so the two can never disagree.
 
 ## Found on LRCLIB
 
-"Find timed lyrics", in the song's ⋮ menu, looks it up on **LRCLIB** (lrclib.net), a free crowdsourced lyrics
+The pipeline looks the song up on **LRCLIB** (lrclib.net), a free crowdsourced lyrics
 database with a public API and no key. Musixmatch has better coverage but licenses synced lyrics
 for money; the players' own lyric services (Spotify, NetEase, QQ) are unofficial endpoints that
 break without notice and are against their terms.
@@ -43,12 +45,11 @@ The search runs from the backend (`apps/k7/backend/src/lrclib.ts`): LRCLIB asks 
 User-Agent, and a browser should not call a third party on the user's behalf. All it sends is the
 song's artist and title, and the reference track's length when there is one. Only results with
 synced lyrics are offered, nearest that length first — a live cut or a remaster can run a minute
-longer and time every line wrong. A single result is imported at once; several are listed by album
-and length to pick from.
+longer and time every line wrong. The first result is the one used.
 
-LRCLIB's timings are crowdsourced and uneven, so the popin lets a person pick another version, or a
-file, and see the result before it is saved; the pipeline only ever applies a version of THIS song
-(its artist and title).
+LRCLIB's timings are crowdsourced and uneven, so only a version of THIS song (its artist and title)
+is ever applied, and what it writes is plain text a hand can correct afterwards. When nothing
+applies, the insert under the title says so, and how to time a line by hand.
 
 ## Which line gets which time
 
@@ -71,6 +72,3 @@ file, and see the result before it is saved; the pipeline only ever applies a ve
   together only when nothing but chords stands between them.
 - **Codes already in the text are replaced**, never piled up: timing a sheet twice gives the same text.
 - **A song with no lyrics** gets the fetched lines themselves, each with its code.
-
-The popin says how many fetched lines found a line ("18 of 21 fetched lines found a line of the
-lyrics") before « Add the timecodes » saves.
