@@ -94,7 +94,7 @@ describe("scanning songs", () => {
     expect(e.bytes).toBe(4);
   });
 
-  it("leaves out a folder filed by a machine rather than the upload button", () => {
+  it("leaves out everything under the K7 artist folder, whatever its source", () => {
     write(
       "songs/K7/2026/take-one/song.yaml",
       "title: Sous la pluie\nartist: K7\nsource: k7\n",
@@ -102,9 +102,34 @@ describe("scanning songs", () => {
     write("songs/K7/2026/take-one/original.wav", "RIFF");
     write("songs/dropped/song.yaml", "title: T\nsource: upload\n");
     write("songs/dropped/original.wav", "RIFF");
+    // Hunted or fetched, not dropped by hand — shown just the same, whatever the source line says.
+    write(
+      "songs/Hunted/Album/Found/song.yaml",
+      "title: Found\nartist: Hunted\nsource: slskd\n",
+    );
+    write("songs/Hunted/Album/Found/original.mp3", "ID3");
+    write(
+      "songs/Video/Album/Fetched/song.yaml",
+      "title: Fetched\nartist: Video\nsource: youtube\n",
+    );
+    write("songs/Video/Album/Fetched/original.mp3", "ID3");
     const entries = scanFamily("songs");
-    expect(entries).toHaveLength(1);
-    expect(entries[0].name).toBe("T");
+    expect(entries.map((e) => e.name).sort()).toEqual([
+      "Fetched",
+      "Found",
+      "T",
+    ]);
+  });
+
+  it("goes by the FOLDER, not the source line", () => {
+    // A folder merely NAMED K7, nested under a real artist, is not k7's own — only the top level is.
+    write(
+      "songs/Some Artist/K7/A Song/song.yaml",
+      "title: A Song\nartist: Some Artist\n",
+    );
+    write("songs/Some Artist/K7/A Song/original.mp3", "ID3");
+    const entries = scanFamily("songs");
+    expect(entries.map((e) => e.name)).toEqual(["A Song"]);
   });
 
   it("still lists a folder dropped in by hand, flagged as not filed", () => {

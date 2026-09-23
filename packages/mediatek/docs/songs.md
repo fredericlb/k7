@@ -65,14 +65,19 @@ what the studio produced. Two reasons, in this order:
    artist, and force every caller able to write — k7 publishing, the upload button — to choose a
    word for something the sidecar already says better.
 
-What suffices is `source:` in `song.yaml`: `upload` for the mediatek's button, `k7` for a published
-version, `mirror` for a copy pulled back. A line in a file, not a level in a path — readable without
-listing the parent folder, and changeable without moving bytes.
+What each caller writes is `source:` in `song.yaml`: `upload` for the mediatek's button, `slskd`
+and `youtube` for what the hunt page filed, `k7` for a published version. A line in a file, not a
+level in a path — readable without listing the parent folder, and changeable without moving
+bytes. It is a provenance note for whoever reads the folder, never a filter.
 
-Anything other than `upload` is filed but not BROWSED: `scanSongs` leaves it out of the family's
-listing entirely, so a published k7 release never shows up beside what the button filed by hand. It
-still lives under `songs/`, at the path its tags built, and a caller that already knows that path —
-k7 fetching its own `AudioPath` — reads it directly, never through the catalogue.
+What IS a filter is the **artist folder**: `scanSongs` skips `songs/K7/` outright, at the very
+top of the walk, before it descends into a single one of its albums — `K7_ARTIST` is the one
+artist name every k7 publish writes under (`apps/k7/backend/src/mediatek.ts`'s own `ARTIST`), so
+the whole tree it owns stays out of the family's listing. Everything else browses alike: an
+upload, a hunt's Soulseek find, its YouTube fallback, whatever their `source:` line says — the
+folder is what decided, not the sidecar. A published k7 release still lives under `songs/`, at
+the path its tags built, and a caller that already knows that path — k7 fetching its own
+`AudioPath` — reads it directly, never through the catalogue.
 
 Direct consequence: `songFolder()` always returns four segments (`songs` + the three tags), and two
 tests check that **by the count** rather than against an example path — a fifth level would appear

@@ -83,6 +83,19 @@ export function SongEditor({
     write,
   });
 
+  const removeVariant = useCallback(
+    (name: string) => {
+      void library
+        .removeVariant(folder, name)
+        .then(() => {
+          setStatus(`variante « ${name} » supprimée`);
+          onSaved();
+        })
+        .catch((e: Error) => setStatus(e.message));
+    },
+    [folder, onSaved],
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
       <header className="flex items-center gap-3 border-b border-border px-3 py-2">
@@ -124,7 +137,7 @@ export function SongEditor({
           </div>
           {entry.variants?.length ? (
             <div className="max-h-[45%] shrink-0 overflow-auto border-t p-3">
-              <SongVariants entry={entry} />
+              <SongVariants entry={entry} onRemove={removeVariant} />
             </div>
           ) : null}
         </div>

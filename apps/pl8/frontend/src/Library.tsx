@@ -18,9 +18,7 @@ import {
   type TreeNode,
 } from "@frediverse/ui/file-tree";
 import {
-  AudioLines,
   Disc3,
-  FileQuestion,
   FolderTree,
   Loader2,
   LogOut,
@@ -35,7 +33,6 @@ import {
   type PLAYLISTS_DIR,
   RECORDINGS_DIR,
   SONG_FILE,
-  type SongVariant,
 } from "@studio/mediatek/types";
 import { AppSwitch } from "@studio/ui-app-switch";
 import { sortNodes } from "@studio/web-protocol/tree";
@@ -84,19 +81,6 @@ const isSongFolder = (
   return !!e && isSong(e);
 };
 
-/** The VARIANT a tree row stands for, and the song it belongs to — or null for every other row (../docs/library.md). */
-const variantAt = (
-  entries: MediatekEntry[] | null,
-  path: string,
-): { song: MediatekEntry; variant: SongVariant } | null => {
-  const cut = path.lastIndexOf("/");
-  if (cut < 0) return null;
-  const song = entryAt(entries, path.slice(0, cut));
-  if (!song || !isSong(song)) return null;
-  const variant = song.variants?.find((v) => v.name === path.slice(cut + 1));
-  return variant ? { song, variant } : null;
-};
-
 /** The family's entries as a folder tree, from their paths alone (../docs/library.md). */
 function treeOf(
   entries: MediatekEntry[] | null,
@@ -122,18 +106,12 @@ function treeOf(
       const leaf = i === parts.length - 1;
       let node = level.find((n) => n.name === part);
       if (!node) {
-        // A SONG is the one leaf that stays a folder: it holds its variants and a drop on it makes one (../docs/library.md).
+        // A SONG stays folder-shaped — its own drop target for a variant — but folds nothing (../docs/library.md).
         const folds = leaf && e.family !== "songs";
         node = folds
           ? { name: part, path: sofar }
           : { name: part, path: sofar, dir: true, children: [] };
         level.push(node);
-        // A song's children are the versions its SIDECAR declares, named by it and not by a file (../docs/library.md).
-        if (leaf && isSong(e))
-          node.children = (e.variants ?? []).map((v) => ({
-            name: v.name,
-            path: `${sofar}/${v.name}`,
-          }));
       }
       if (!leaf) level = node.children ??= [];
     });
@@ -359,21 +337,6 @@ export function Library() {
                     refresh();
                   })
                   .catch((e: Error) => setError(e.message)),
-            },
-            {
-              key: "delete-variant",
-              // A variant's own row, never the song's — see packages/mediatek/docs/variants.md.
-              label: (t) => `Supprimer ${t.name}`,
-              when: (t) => !!variantAt(entries, t.path),
-              danger: true,
-              run: (t) => {
-                const v = variantAt(entries, t.path);
-                if (!v) return;
-                void library
-                  .removeVariant(v.song.path, v.variant.name)
-                  .then(refresh)
-                  .catch((e: Error) => setError(e.message));
-              },
             },
             {
               key: "delete-folder",
@@ -633,37 +596,25 @@ export function Library() {
                 // The family IS the root: every node path below is relative to it.
                 rootPath=""
                 rootLabel={section.toUpperCase()}
-                // The section label wraps every row here — a header, not a folder to fold.
-                flushRoot
+                // The section label wraps every row here — a header, not a real row to draw.
+                collapseSingleRoot
                 // The entry being edited outranks the merely selected one — same value `revealed` follows.
                 activePath={target}
                 // Open down to it, so a reloaded deep link lands on a tree showing where it is. Sticky.
                 reveal={revealed}
-                // A SONG is a folder row you OPEN: its chevron unfolds its versions, its name opens its sidecar.
+                // A SONG folds nothing: its whole row opens its sidecar — see ../docs/library.md.
                 opensOnName={(n) => isSongFolder(entries, n.path)}
                 onOpen={(n) => {
-                  // A VARIANT row opens its SONG: the sidecar is where it is renamed, re-pointed or removed.
-                  const v = variantAt(entries, n.path);
-                  if (v)
-                    return openFile(`${relative(v.song.path)}/${SONG_FILE}`);
                   const entry = entryAt(entries, n.path);
-                  if (!entry) return;
-                  // A song names its sidecar, which is the left half of what opens.
-                  if (isSong(entry)) openFile(`${n.path}/${SONG_FILE}`);
+                  if (entry && isSong(entry))
+                    openFile(`${n.path}/${SONG_FILE}`);
                 }}
-                // A song wears the glyph of its own tab, and a variant the two SongVariants draws.
+                // A song wears the glyph of its own tab.
                 icon={(n) => {
-                  const v = variantAt(entries, n.path);
-                  if (v)
-                    return v.variant.kind === "file" ? (
-                      <AudioLines className="h-4 w-4 shrink-0" />
-                    ) : (
-                      <FileQuestion className="h-4 w-4 shrink-0" />
-                    );
                   const e = entryAt(entries, n.path);
-                  if (e && isSong(e))
-                    return <Disc3 className="h-4 w-4 shrink-0" />;
-                  return null;
+                  return e && isSong(e) ? (
+                    <Disc3 className="h-4 w-4 shrink-0" />
+                  ) : null;
                 }}
                 // Undefined rather than a no-op where nothing may be dropped, and a tree drop for songs (../docs/library.md).
                 onDropTree={

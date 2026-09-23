@@ -65,6 +65,10 @@ export function TrackPanel({
   preview: Preview;
 }) {
   const audio = usePreview(preview);
+  // Which of the two buttons started what is sounding, so that one reads Pause while it plays.
+  const [started, setStarted] = useState<"all" | "range" | null>(null);
+  const sounding = (what: "all" | "range") =>
+    audio.isPlaying && started === what;
   const [status, setStatus] = useState<"none" | "loading" | "ready" | "error">(
     "none",
   );
@@ -246,24 +250,34 @@ export function TrackPanel({
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => preview.play(0, undefined, backwards)}
+              onClick={() => {
+                if (sounding("all")) return preview.stop();
+                setStarted("all");
+                preview.play(0, undefined, backwards);
+              }}
             >
-              <Play className="mr-1 h-3 w-3" /> Tout
+              {sounding("all") ? (
+                <Pause className="mr-1 h-3 w-3" />
+              ) : (
+                <Play className="mr-1 h-3 w-3" />
+              )}{" "}
+              Tout
             </Button>
             <Button
               size="sm"
-              disabled={!hasRange}
-              onClick={() => preview.play(start, end, backwards)}
+              disabled={!hasRange && !sounding("range")}
+              onClick={() => {
+                if (sounding("range")) return preview.stop();
+                setStarted("range");
+                preview.play(start, end, backwards);
+              }}
             >
-              <Play className="mr-1 h-3 w-3" /> L'extrait
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!audio.isPlaying}
-              onClick={preview.stop}
-            >
-              <Pause className="mr-1 h-3 w-3" /> Stop
+              {sounding("range") ? (
+                <Pause className="mr-1 h-3 w-3" />
+              ) : (
+                <Play className="mr-1 h-3 w-3" />
+              )}{" "}
+              L'extrait
             </Button>
             <span className="ml-auto font-mono text-xs text-muted-foreground">
               {clock(audio.currentTime)} / {clock(audio.duration)}

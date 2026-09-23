@@ -39,33 +39,32 @@ its own `unlisted` list and is walked in FIRST, so an entry landing later finds 
 there. Without it, creating a folder answers 200 and shows nothing, which is the one thing a
 "create" must never do.
 
-A **song** is the odd row: a folder on disk, a leaf in the tree, and the only row of that family a
-menu may act on. Everything above it is an artist or an album — a segment the scan deduced from
-tags rather than a thing anyone made. It does not fold like the other leaves, because it holds its
-variants and because a file dropped on it becomes one: the shared tree only makes FOLDERS into
-drop targets. A folder with no `song.yaml` is `catalogued: false`, which is a song nobody filed,
-not a category.
+A **song** is the odd row: a folder on disk, but a `dir: true` node with an ALWAYS-EMPTY
+`children: []` — folder-shaped only so the shared tree makes it a drop target (a file dropped on
+it becomes a variant), never so it folds open. Everything above it is an artist or an album — a
+segment the scan deduced from tags rather than a thing anyone made. `opensOnName` marks it as a
+row that opens rather than folds, and the shared tree drops the chevron entirely for an opens row
+with nothing under it (`commons/packages/ui/docs/file-tree.md`): one target, the whole row, onto
+the editor. A folder with no `song.yaml` is `catalogued: false`, which is a song nobody filed, not
+a category.
 
-A song's children are the versions its sidecar declares, named by that sidecar and NOT by a file —
-half of them are not files, so the name is the one thing every variant has and the only one unique
-within a song. That makes a variant path an identity rather than an address, the way the
-synthesised root's empty path is; nothing addresses it as a file. `variantAt` reads one back by
-cutting at the last slash and asking the listing whether what is left is a song, which nothing else
-in the tree can look like.
+A song's **variants** are never drawn as tree rows — `SongVariants.tsx`, inside the editor the song
+opens to, is where they show and where one is removed (`packages/mediatek/docs/variants.md`).
 
 The capture zone gets its own builder, `dayNodes`, and not `treeOf`: `treeOf` reads
 `MediatekEntry.path` and there are no entries here to read. Its paths are zone-relative, mirroring
 how a family's rows drop their family segment, so the root row the tree synthesises names the zone
 exactly once.
 
-The root row itself is synthesised in the component, as a real node. `rootLabel` looks like it
-would do this and does not — the shared component uses it only to name the target of the background
-context menu, never to draw a row. Wrapping the nodes is the only way to get a visible root, and it
-gives the zone somewhere to drop onto while the family is still empty.
-
-`flushRoot` is what keeps that row from acting like a folder: no left padding, no chevron, and it
-cannot be folded shut — it is the section's own label, and there is nothing to fold IT into. A
-real artist or album folder one level under it still folds normally; only depth 0 is locked open.
+The root row itself is synthesised in the component, as a real node — but never DRAWN. `rootLabel`
+looks like it would draw it and does not: the shared component uses that prop only to name the
+target of the background context menu. Wrapping the nodes in one synthetic root and turning on
+`collapseSingleRoot` is what keeps that row from ever appearing at all: the component skips a lone
+top-level node's own row and draws its children one depth shallower instead, so what shows is the
+family's real artists straight away, with no label row above them to fold or not fold. Wrapping is
+still what GUARANTEES there is exactly one top-level node to collapse, whatever the family actually
+holds — a library with a single real top-level artist would otherwise lose that artist's own row
+the same way.
 
 ## Where the expansion comes from
 
@@ -90,9 +89,9 @@ button instead.
 `songs/` still gets a menu, and only its own: add a version, queue the morceau, remove it, and —
 on the artist or album folder above a song — remove that whole grouping. None of those touches the
 deduced shape — one writes INSIDE a song that already exists, one takes a single song away, one
-takes a whole grouping away — and each `when` accepts a row only for the kind of thing it is: a
-variant's own action never offers itself on the song that holds it, nor the reverse. The shared
-tree opens no menu at all when nothing passes, which is how the capture zone gets no menu at all.
+takes a whole grouping away — and each `when` accepts a row only for the kind of thing it is. The
+shared tree opens no menu at all when nothing passes, which is how the capture zone gets no menu
+at all.
 
 **Deleting an artist or an album asks first**, the tree's `confirm` gate — yes/no, nothing typed —
 and every other delete in this screen does not. The difference is blast radius: a song's own

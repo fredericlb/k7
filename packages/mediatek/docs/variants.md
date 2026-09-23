@@ -54,16 +54,17 @@ and the second key would otherwise replace the first.
 
 ## Where they show up
 
-In the médiathèque's tree, as the song's **children** — the one place a song is a folder row
-rather than a leaf. Clicking one opens the **song**, not the variant: a variant is a line of
-that sidecar, and renaming or re-pointing it is a sidecar edit, done in the editor like any other
-field. The row is named by the sidecar and not by a file, because the file it names may not be
-there — `SongVariants.tsx` says **introuvable** on that row.
+In the song's own editor, `SongVariants.tsx` — a list beside the waveform, not a row in the
+tree. A song's tree row opens straight to that editor on any click, folding nothing: its
+`variants:` are never drawn as tree children, so the row has nothing to browse into and no
+second target to confuse with the first. Renaming or re-pointing a variant is a sidecar edit,
+done in the editor like any other field; the list is named by the sidecar and not by a file,
+because the file it names may not be there — `SongVariants.tsx` says **introuvable** on that row.
 
-**Removing** one is the row's own right-click menu instead, the same as any other row in the
-tree — `removeSongVariant` (write.ts) un-declares the name in the sidecar, then removes the file
-it pointed at, so a crash between the two leaves undeclared bytes rather than a dangling
-reference. `DELETE /api/mediatek/variant` is it over HTTP.
+**Removing** one is a button on that same row: `removeSongVariant` (write.ts) un-declares the
+name in the sidecar, then removes the file it pointed at, so a crash between the two leaves
+undeclared bytes rather than a dangling reference. `DELETE /api/mediatek/variant` is it over
+HTTP.
 
 ## The scan never leaves the song's folder
 

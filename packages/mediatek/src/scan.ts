@@ -120,19 +120,19 @@ function readVariants(
   return out;
 }
 
+/** k7's own artist folder — must match `apps/k7/backend/src/mediatek.ts`'s `ARTIST` (docs/songs.md). */
+const K7_ARTIST = "K7";
+
 /** Songs: any folder under `songs/` holding a `song.yaml` or, dropped by hand, any audio — see docs/songs.md. */
 function scanSongs(): MediatekEntry[] {
   const out: MediatekEntry[] = [];
+  const root = familyDir("songs");
   const visit = (abs: string): void => {
     const entries = dirents(abs);
     const hasSidecar = entries.some((e) => e.isFile() && e.name === SONG_FILE);
     const master = entries.find((e) => e.isFile() && isAudio(e.name));
     if (hasSidecar || master) {
       const meta = hasSidecar ? readSong(abs) : {};
-      // Filed by a machine rather than dropped by hand — k7's releases, and any future
-      // mirror — stays out of the browse/catalogue listing. See docs/songs.md.
-      const source = str(meta.source);
-      if (source && source !== "upload") return;
       const title = str(meta.title);
       const artist = str(meta.artist);
       const variants = readVariants(meta, entries);
@@ -162,9 +162,11 @@ function scanSongs(): MediatekEntry[] {
       });
       return; // an entry is a leaf — do not descend into its own files
     }
-    for (const e of entries) if (e.isDirectory()) visit(join(abs, e.name));
+    for (const e of entries)
+      if (e.isDirectory() && !(abs === root && e.name === K7_ARTIST))
+        visit(join(abs, e.name));
   };
-  visit(familyDir("songs"));
+  visit(root);
   return out;
 }
 
