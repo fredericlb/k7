@@ -331,8 +331,8 @@ often than a track to play along to, so it is asked for rather than ridden along
   such a chain existed has stems and no instrumental, and for it `songFetch.ts` still sums drums, bass
   and other here — without normalising, since the stems add back up to the mix at their own levels and
   scaling them would make the instrumental quieter than the original it is switched against.
-- **Which chain does it is the engine machine's answer**, `system instrumental <chaîne>` (the cog,
-  I/O), exactly as `system stems` answers for the four parts. k7 names no chain: it asks for an
+- **Which chain does it is the engine machine's answer**, set in st0's settings (*Separation
+  chains*) or with `system instrumental <chaîne>`, exactly as `system stems` answers for the four parts. k7 names no chain: it asks for an
   instrumental and the machine that can make one says how.
 - **Every step checks what is already done**, so pressing again resumes: pl8 goes on hunting and
   separating if the page is closed, and a second press finds the song filed and the stems held.
@@ -340,8 +340,14 @@ often than a track to play along to, so it is asked for rather than ridden along
   insert under the title shows it with Retry and Dismiss — a reload shows it again. A step that fails
   after the track landed is as visible as one before. No engine online is reported the same way,
   though the chain still goes on to the lyrics.
+- **The lyrics step fetches, and the fetched lyrics are the truth.** A song whose lyrics are not
+  timed yet — none at all, or a sheet typed by hand — gets LRCLIB's best version of THIS song (its
+  artist and title), merged into the sheet: its chords, sections and tablature moved onto the fetched
+  lines, anything else kept under `[OTHER CONTENT]` (`lyricsTiming.md`). No version of this song
+  leaves the sheet as it was, marked « unmatched », which is what puts « Fix lyrics » on the page.
+  Lyrics already timed are left alone.
 - **"Run the pipeline again"**, in the ⋮ menu, redoes every step not done yet, and searches lyrics
-  again when none were written by hand. A fresh start never resumes a stored hunt or separation id:
+  again whenever they are not timed. A fresh start never resumes a stored hunt or separation id:
   the one stored may be the one that failed, and resuming it would fail again.
 - **Status writes go out one after the other** (`SongDetailContainer.tsx`): two concurrent PATCHes
   can land in either order and leave a stale phase stored, which a reload would then try to resume.

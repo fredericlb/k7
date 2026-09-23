@@ -2,7 +2,7 @@
 // is not there yet) and the INSTRUMENTAL (the same song without its voice, cut on any engine).
 // Two verbs because separating borrows a musician's machine — ../../../docs/audio.md.
 
-import { importLrc } from "@k7/lyrics";
+import { importLrc, mergeLrc } from "@k7/lyrics";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import type { HuntRecord } from "@studio/web-protocol/hunt";
 import { m } from "../paraglide/messages.js";
@@ -233,37 +233,30 @@ export async function runPipeline(
     if (outcome.note) problem = outcome.note;
   }
 
-  // Lyrics already there are a person's own — the pipeline never overwrites them; pairing an
-  // LRC against existing text needs the manual TimedLyricsDialog, not an automatic guess.
-  if (
-    current.audio &&
-    current.lyricsMatch === "" &&
-    current.lyrics.trim() === ""
-  ) {
+  // Timed lyrics, found on LRCLIB: the fetched ones are the truth. A song with none takes them as
+  // they are; a sheet a person wrote but never TIMED gets them MERGED — its chords, sections and
+  // tablature moved onto the fetched lines, anything else kept under [OTHER CONTENT] (`mergeLrc`,
+  // ../../../docs/lyricsTiming.md). Lyrics already timed are left alone. Nothing that is not this
+  // song (its artist and title) is ever applied: that stays « unmatched », for « Fix lyrics ».
+  const untimed = !(current.lyricTimings?.length ?? 0);
+  if (current.audio && current.lyricsMatch === "" && untimed) {
     steps.onPhase(m["fetch.lyrics"]());
     steps.onStatus?.({ phase: "matching-lyrics" });
     const best = (await steps.findLrc())[0];
-    const found =
+    const ours =
       best &&
-      matches(current.artist, current.title, best.artistName, best.trackName)
+      matches(current.artist, current.title, best.artistName, best.trackName);
+    const found = !ours
+      ? null
+      : current.lyrics.trim() === ""
         ? importLrc("", best.syncedLyrics)
-        : null;
+        : mergeLrc(current.lyrics, best.syncedLyrics);
     if (found?.ok && found.lyrics !== null) {
       current = await steps.onLrc(found.lyrics, found.timings);
       steps.onStatus?.({ lyricsMatch: "matched" });
     } else {
       steps.onStatus?.({ lyricsMatch: "unmatched" });
     }
-  } else if (
-    current.audio &&
-    current.lyricsMatch === "" &&
-    !(current.lyricTimings?.length ?? 0)
-  ) {
-    // …and lyrics a person wrote but never TIMED are the same step, left to that same dialog: the
-    // pipeline still does not guess, but it must not end in silence either — the stepper gone and
-    // nothing said, with a re-run that skips it again. "unmatched" is what puts « Fix lyrics » on
-    // the page, and the dialog pairs an LRC with the song's own lines.
-    steps.onStatus?.({ lyricsMatch: "unmatched" });
   }
 
   steps.onStatus?.({

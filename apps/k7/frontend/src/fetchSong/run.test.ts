@@ -275,17 +275,56 @@ describe("runPipeline", () => {
     expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "unmatched" });
   });
 
-  it("flags lyrics a person wrote but never timed, rather than finishing in silence", async () => {
-    // A chord sheet typed in by hand: never overwritten, never guessed at — but the page must offer « Fix lyrics ».
-    const findLrc = vi.fn(async () => []);
+  it("merges the fetched lyrics into a sheet a person wrote but never timed", async () => {
+    // The fetched lyrics are the truth: the sheet's words are replaced, its chords moved onto them.
     const onLrc = vi.fn(async () => withTrack);
     const onStatus = vi.fn();
     await runPipeline(
-      song({ ...withTrack, lyrics: "[Verse]\n  C\nI could go off" }),
+      song({ ...withTrack, lyrics: "[Verse]\nC\nOh sinerman" }),
       "continue",
-      steps(fakePl8(), { findLrc, onLrc, onStatus }) as never,
+      steps(fakePl8(), {
+        findLrc: async () => [
+          {
+            id: 1,
+            trackName: "Sinnerman",
+            artistName: "Nina Simone",
+            albumName: "",
+            duration: 0,
+            syncedLyrics: "[00:12.50]Oh sinnerman",
+          },
+        ],
+        onLrc,
+        onStatus,
+      }) as never,
     );
-    expect(findLrc).not.toHaveBeenCalled();
+    expect(onLrc).toHaveBeenCalledWith("[Verse]\nC\nOh sinnerman", [
+      { line: 2, text: "oh sinnerman", t: 12.5 },
+    ]);
+    expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "matched" });
+  });
+
+  it("leaves the sheet alone, and says so, when LRCLIB has no version of this song", async () => {
+    // Another song's lyrics are never merged in: « unmatched » is what puts « Fix lyrics » on the page.
+    const onLrc = vi.fn(async () => withTrack);
+    const onStatus = vi.fn();
+    await runPipeline(
+      song({ ...withTrack, lyrics: "[Verse]\nC\nOh sinnerman" }),
+      "continue",
+      steps(fakePl8(), {
+        findLrc: async () => [
+          {
+            id: 1,
+            trackName: "Feeling Good",
+            artistName: "Nina Simone",
+            albumName: "",
+            duration: 0,
+            syncedLyrics: "[00:01.00]Birds flying high",
+          },
+        ],
+        onLrc,
+        onStatus,
+      }) as never,
+    );
     expect(onLrc).not.toHaveBeenCalled();
     expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "unmatched" });
   });
@@ -365,11 +404,16 @@ describe("runPipeline", () => {
     expect(startHunt).toHaveBeenCalled();
   });
 
-  it("never touches lyrics a person already wrote", async () => {
+  it("never touches lyrics that are already timed", async () => {
+    // Untimed ones get the fetched lyrics merged in; timed ones have had their LRC already.
     const findLrc = vi.fn(async () => []);
     const pl8 = fakePl8({ listSongs: async () => [] });
     await runPipeline(
-      song({ ...withTrack, lyrics: "already here" }),
+      song({
+        ...withTrack,
+        lyrics: "already here",
+        lyricTimings: [{ line: 0, text: "already here", t: 0 }],
+      }),
       "continue",
       steps(pl8, {
         mixInstrumental: async () => withTrack,

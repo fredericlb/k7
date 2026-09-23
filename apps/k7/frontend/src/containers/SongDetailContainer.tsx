@@ -222,10 +222,12 @@ export function SongDetailContainer({
     })();
   };
 
-  // "Run the pipeline again" in the ⋮ menu: every step not done yet, lyrics included once unmatched.
+  // "Run the pipeline again" in the ⋮ menu: every step not done yet, lyrics included once unmatched —
+  // a song with no timings tries again, a sheet included, since the pipeline now merges into it.
   const handleRerun = () => {
     if (!song) return;
-    const lyricsAgain = song.lyrics.trim() === "" && song.lyricsMatch !== "";
+    const lyricsAgain =
+      !(song.lyricTimings?.length ?? 0) && song.lyricsMatch !== "";
     void runFetch(
       lyricsAgain ? { ...song, lyricsMatch: "" } : song,
       "download",

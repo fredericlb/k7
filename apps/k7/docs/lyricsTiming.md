@@ -22,7 +22,7 @@ display the stored lines are aligned back onto the lyrics as they are now, by ex
 order: editing a line costs that line its time, and adding or removing lines around it costs
 nothing else. No step has to remember to update timecodes when the lyrics are saved.
 
-## Found on LRCLIB, on request
+## Found on LRCLIB
 
 "Find timed lyrics", in the song's ⋮ menu, looks it up on **LRCLIB** (lrclib.net), a free crowdsourced lyrics
 database with a public API and no key. Musixmatch has better coverage but licenses synced lyrics
@@ -36,9 +36,10 @@ synced lyrics are offered, nearest that length first — a live cut or a remaste
 longer and time every line wrong. A single result is imported at once; several are listed by album
 and length to pick from.
 
-It is a button, never a background job: LRCLIB's timings are crowdsourced and uneven, so a person
-decides when to fetch and which version fits. Whatever is picked goes through the same import as a
-file, refusal included.
+It is also the song pipeline's last step (`audio.md`): a song whose lyrics are not timed yet gets
+LRCLIB's best version of it merged in without asking, as long as that version is this song — its
+artist and title. LRCLIB's timings are crowdsourced and uneven, so the popin stays for a person to
+pick another version, or a file, and see it merged before it replaces anything.
 
 ## The fetched lyrics are the truth
 
