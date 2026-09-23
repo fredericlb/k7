@@ -180,6 +180,32 @@ function withVariant(text: string, name: string, ref: string): string | null {
   return lines.join("\n");
 }
 
+/** The sidecar text with one variant's line gone; `null` for an inline block, the same refusal adding one gives — see docs/variants.md. */
+function withoutVariant(text: string, name: string): string | null {
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => /^variants\s*:/.test(l));
+  if (at < 0) return null;
+  const rest = lines[at].replace(/^variants\s*:/, "").trim();
+  if (rest && !rest.startsWith("#")) return null;
+  for (let i = at + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (!/^\s/.test(lines[i])) break;
+    let key: string | undefined;
+    try {
+      key = Object.keys(
+        (parseYaml(lines[i]) as Record<string, unknown>) ?? {},
+      )[0];
+    } catch {
+      continue;
+    }
+    if (key === name) {
+      lines.splice(i, 1);
+      return lines.join("\n");
+    }
+  }
+  return null;
+}
+
 /** Add an uploaded file to an existing song as a VARIANT: the bytes beside the master, and the sidecar line that makes them one — see docs/variants.md. */
 export function addSongVariant(opts: {
   /** The song's own folder, mediatek-relative — `songs/<artiste>/<album>/<titre>`. */
@@ -226,6 +252,31 @@ export function addSongVariant(opts: {
   // The sidecar LAST, as addSong writes it last: a crash leaves orphan bytes, not a dead line.
   if (next) putFile(`${folder}/${SONG_FILE}`, next);
   return { path: `${folder}/${ref}`, ref, name, declared: !already };
+}
+
+/** Remove a song's variant: the sidecar first, so a crash leaves an orphan FILE and not a dead line — see docs/variants.md. */
+export function removeSongVariant(folder: string, name: string): void {
+  const rel = folder.replace(/\/+$/, "");
+  const sidecar = writablePath(`${rel}/${SONG_FILE}`);
+  let text: string;
+  try {
+    text = readFileSync(sidecar, "utf8");
+  } catch {
+    throw new VariantRefusedError(`${rel} n'est pas un morceau`);
+  }
+  const declared = declaredVariants(text);
+  const ref = declared?.[name];
+  if (!ref)
+    throw new VariantRefusedError(
+      `${rel} ne déclare pas de variante « ${name} »`,
+    );
+  const next = withoutVariant(text, name);
+  if (!next)
+    throw new VariantRefusedError(
+      `${rel}/${SONG_FILE} déclare « variants: » sous une forme que ceci ne sait pas modifier — corrigez-la dans l'éditeur`,
+    );
+  putFile(`${rel}/${SONG_FILE}`, next);
+  removeFile(`${rel}/${ref}`);
 }
 
 /** Put one scalar into a song's sidecar. SEEDING never overwrites; FORCING replaces — docs/songs.md.

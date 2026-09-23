@@ -124,6 +124,12 @@ does the latter, and the difference matters: that one writes bytes the sidecar A
 this one is what puts the name there. Dropping a file in without it declares nothing, because the
 scan reads a song's versions from the sidecar and from nowhere else.
 
+`removeVariant` un-declares before it deletes: the sidecar line goes first, then the file — the
+same order `addVariant` uses in reverse, so a crash mid-way leaves an orphan FILE the scan simply
+does not read as a variant, never a line still pointing at bytes that are gone. It is the médiathèque's
+tree context menu, on the variant's own row — `packages/mediatek/docs/variants.md` is where that
+choice, and the "editor, not the tree" line it replaces, is explained.
+
 `move` is one server-side syscall, so it works on a folder and can never leave a duplicate — a
 read+write+delete dance could do neither. `removeTree` is its own route so that
 removing a folder is never something a caller does by accident while meaning to remove one entry.

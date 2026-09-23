@@ -360,6 +360,21 @@ export function Library() {
                   })
                   .catch((e: Error) => setError(e.message)),
             },
+            {
+              key: "delete-variant",
+              // A variant's own row, never the song's — see packages/mediatek/docs/variants.md.
+              label: (t) => `Supprimer ${t.name}`,
+              when: (t) => !!variantAt(entries, t.path),
+              danger: true,
+              run: (t) => {
+                const v = variantAt(entries, t.path);
+                if (!v) return;
+                void library
+                  .removeVariant(v.song.path, v.variant.name)
+                  .then(refresh)
+                  .catch((e: Error) => setError(e.message));
+              },
+            },
           ],
     [entries, file, openFile, pickVariant, playQueue.enqueue, refresh, section],
   );

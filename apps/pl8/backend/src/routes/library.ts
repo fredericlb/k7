@@ -42,6 +42,7 @@ import {
   moveEntry,
   putFile,
   removeFile,
+  removeSongVariant,
   removeTree,
   setSongBpm,
   setSongKey,
@@ -262,6 +263,26 @@ libraryRouter.post(
       if (writeError(e, res)) return;
       throw e;
     }
+  }),
+);
+
+/** Un-declare a variant and remove the file it named — mediatek's docs/variants.md. */
+libraryRouter.delete(
+  "/variant",
+  wrap((req, res) => {
+    const path = String(req.query.path ?? "");
+    const name = String(req.query.name ?? "");
+    if (!path) return res.status(400).json({ error: "path required" });
+    if (!name) return res.status(400).json({ error: "name required" });
+    try {
+      removeSongVariant(path, name);
+    } catch (e) {
+      if (e instanceof VariantRefusedError)
+        return res.status(400).json({ error: e.message });
+      if (writeError(e, res)) return;
+      throw e;
+    }
+    res.json({ ok: true });
   }),
 );
 

@@ -383,6 +383,15 @@ export const library = {
     return json(res, "variant");
   },
 
+  /** Un-declare a variant and remove the file it named (../../docs/api.md). */
+  removeVariant: async (folder: string, name: string): Promise<void> => {
+    const q = new URLSearchParams({ path: folder, name });
+    const res = await fetch(`${BASE}/api/mediatek/variant?${q}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw await failed(res, "delete");
+  },
+
   remove: async (path: string): Promise<void> => {
     const res = await fetch(
       `${BASE}/api/mediatek/file?path=${encodeURIComponent(path)}`,

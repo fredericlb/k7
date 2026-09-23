@@ -56,9 +56,14 @@ and the second key would otherwise replace the first.
 
 In the médiathèque's tree, as the song's **children** — the one place a song is a folder row
 rather than a leaf. Clicking one opens the **song**, not the variant: a variant is a line of
-that sidecar, and the editor showing the sidecar is where it can be renamed, re-pointed or
-removed. The row is named by the sidecar and not by a file, because the file it names may not be
+that sidecar, and renaming or re-pointing it is a sidecar edit, done in the editor like any other
+field. The row is named by the sidecar and not by a file, because the file it names may not be
 there — `SongVariants.tsx` says **introuvable** on that row.
+
+**Removing** one is the row's own right-click menu instead, the same as any other row in the
+tree — `removeSongVariant` (write.ts) un-declares the name in the sidecar, then removes the file
+it pointed at, so a crash between the two leaves undeclared bytes rather than a dangling
+reference. `DELETE /api/mediatek/variant` is it over HTTP.
 
 ## The scan never leaves the song's folder
 

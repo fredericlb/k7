@@ -20,7 +20,12 @@ import {
   VariantRefusedError,
 } from "./song.ts";
 import { SONG_FILE } from "./types.ts";
-import { addSong, addSongVariant, putFile } from "./write.ts";
+import {
+  addSong,
+  addSongVariant,
+  putFile,
+  removeSongVariant,
+} from "./write.ts";
 
 describe("the deduced tree", () => {
   it("is artiste/album/titre, directly under songs", () => {
@@ -326,5 +331,82 @@ describe("adding a variant to a song", () => {
   it("refuses what the scan would not see as audio", () => {
     song();
     expect(() => add("notes.txt")).toThrow(NotAudioError);
+  });
+});
+
+describe("removing a variant from a song", () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "mediatek-rmvar-"));
+    process.env.STUDIO_MEDIATEK = root;
+    ensureLayout();
+  });
+  afterEach(() => {
+    delete process.env.STUDIO_MEDIATEK;
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  const tags = {
+    artist: "Miles Davis",
+    album: "Kind of Blue",
+    title: "So What",
+  };
+  const rel = "songs/Miles Davis/Kind of Blue/So What";
+  const folder = () => join(root, rel);
+  const song = () =>
+    addSong({ filename: "x.mp3", bytes: Buffer.from("ID3"), tags });
+
+  it("removes the file and the sidecar's line, leaving the rest", () => {
+    song();
+    addSongVariant({
+      folder: rel,
+      filename: "instrumental.wav",
+      bytes: Buffer.from("RIFF"),
+    });
+    removeSongVariant(rel, "instrumental");
+    expect(existsSync(join(folder(), "instrumental.wav"))).toBe(false);
+    // Omitted rather than empty — the scan only sets the field when there is at least one.
+    expect(scanFamily("songs")[0].variants).toBeUndefined();
+    expect(readFileSync(join(folder(), SONG_FILE), "utf8")).toContain(
+      'title: "So What"',
+    );
+  });
+
+  it("keeps a sibling variant's line untouched", () => {
+    song();
+    addSongVariant({
+      folder: rel,
+      filename: "instrumental.wav",
+      bytes: Buffer.from("RIFF"),
+    });
+    addSongVariant({
+      folder: rel,
+      filename: "a cappella.flac",
+      bytes: Buffer.from("fLaC"),
+    });
+    removeSongVariant(rel, "instrumental");
+    expect(scanFamily("songs")[0].variants).toEqual([
+      { name: "a cappella", ref: "a cappella.flac", kind: "file" },
+    ]);
+  });
+
+  it("refuses a name the sidecar does not declare", () => {
+    song();
+    expect(() => removeSongVariant(rel, "nope")).toThrow(VariantRefusedError);
+  });
+
+  it("refuses a folder with no sidecar at all", () => {
+    expect(() => removeSongVariant("songs/nowhere", "x")).toThrow(
+      VariantRefusedError,
+    );
+  });
+
+  it("refuses a block written inline, which only the text can tell", () => {
+    song();
+    putFile(
+      `${rel}/${SONG_FILE}`,
+      "title: So What\nvariants: {instru: instrumental.wav}\n",
+    );
+    expect(() => removeSongVariant(rel, "instru")).toThrow(VariantRefusedError);
   });
 });

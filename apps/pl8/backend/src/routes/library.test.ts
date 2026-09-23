@@ -210,6 +210,31 @@ describe("uploading a variant", () => {
       400,
     );
   });
+
+  it("removes the file and the sidecar's line, and drops out of the listing", async () => {
+    await post(tags, "ID3");
+    await variant({ path: song, filename: "instrumental.wav" }, "RIFF");
+    const res = await fetch(
+      `${base}/api/mediatek/variant?${new URLSearchParams({ path: song, name: "instrumental" })}`,
+      { method: "DELETE" },
+    );
+    expect(res.status).toBe(200);
+    expect(existsSync(join(folder(), "instrumental.wav"))).toBe(false);
+    const listed = (await (
+      await fetch(`${base}/api/mediatek/list?family=songs`)
+    ).json()) as { entries: { variants?: unknown[] }[] };
+    // Omitted rather than empty — the scan only sets the field when there is at least one.
+    expect(listed.entries[0].variants).toBeUndefined();
+  });
+
+  it("refuses a name the sidecar does not declare", async () => {
+    await post(tags, "ID3");
+    const res = await fetch(
+      `${base}/api/mediatek/variant?${new URLSearchParams({ path: song, name: "nope" })}`,
+      { method: "DELETE" },
+    );
+    expect(res.status).toBe(400);
+  });
 });
 
 // The read side: `/file` guesses a content type, and a wrong guess is a file the browser refuses.
