@@ -168,6 +168,7 @@ export function RecordingsTimeline({
         {/* The filters sit under the calendar: both choose what the timeline beside them shows. */}
         <div className="calendar-col">
           <Calendar
+            disableFuture
             markedDays={markedDays}
             selected={effectiveDay}
             onSelect={setSelectedDay}
