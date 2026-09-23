@@ -102,7 +102,7 @@ export function PublicationsList({
                 ) : (
                   <ChevronRight className="size-4" />
                 )}
-                <span className="session-name">#{page.nametag}</span>
+                <span className="session-name">@{page.nametag}</span>
                 <span className="muted small">
                   {own.length} release{own.length === 1 ? "" : "s"}
                 </span>
@@ -111,7 +111,7 @@ export function PublicationsList({
                 variant="ghost"
                 size="sm"
                 onClick={() => onOpenPage(page)}
-                title={`Open the page #${page.nametag}`}
+                title={`Open the page @${page.nametag}`}
               >
                 <ExternalLink className="size-4" /> Open
               </Button>
