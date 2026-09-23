@@ -3,16 +3,25 @@ import { Card } from "@frediverse/ui/card";
 import { ArrowLeft, Check } from "@frediverse/ui/icons";
 import { useState } from "react";
 import { api } from "../api";
+import { CleanUpSessions } from "../components/CleanUpSessions";
 import { SupernoteSettings } from "../components/SupernoteSettings";
-import type { User } from "../types";
+import type { Session, User } from "../types";
 
 interface Props {
   user: User;
+  sessions: Session[];
   onLogout: () => void;
   onBack: () => void;
+  onCleanSessions: (ids: string[]) => Promise<void>;
 }
 
-export function SettingsView({ user, onLogout, onBack }: Props) {
+export function SettingsView({
+  user,
+  sessions,
+  onLogout,
+  onBack,
+  onCleanSessions,
+}: Props) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -53,6 +62,10 @@ export function SettingsView({ user, onLogout, onBack }: Props) {
         <Button variant="outline" className="mt-4" onClick={onLogout}>
           Sign out
         </Button>
+      </Card>
+
+      <Card className="mt-4">
+        <CleanUpSessions sessions={sessions} onClean={onCleanSessions} />
       </Card>
 
       <Card className="mt-4">

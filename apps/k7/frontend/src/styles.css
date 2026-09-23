@@ -1630,3 +1630,34 @@ select {
   margin-left: 24px;
   padding-block: 6px;
 }
+
+/* ---- Publications: pages as collapsible groups of releases ----------------- */
+
+.pub-group {
+  margin-top: 12px;
+}
+.pub-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 4px 6px 4px 10px;
+}
+.pub-group-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+/* The releases of an open page step in under its header. */
+.pub-group-list {
+  margin: 6px 0 0 20px;
+}
+.pub-unlinked-title {
+  margin: 20px 0 6px;
+}

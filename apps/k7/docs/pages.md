@@ -4,6 +4,18 @@ A page is a named list of releases (`Pages.ReleaseUids`), shared through one add
 `/@<nametag>`. Only its owner edits it (see [ownership.md](ownership.md)). Anyone with the link can
 listen, and nobody has to sign in.
 
+## In the app, pages group the releases
+
+`apps/k7/frontend/src/views/PublicationsList.tsx` is the whole **Publications** entry, at
+`/releases`: each page is a group of its releases, in the page's order, and after the pages come
+the releases no page lists. A page is a selection of releases, so reading them apart — a Releases
+tab and a Pages tab — made you rebuild that selection in your head. `/pages` survives as an address
+and lands on `/releases`.
+
+The groups start **collapsed**: the list is a table of contents of the pages first, and a release
+on several pages would otherwise repeat down the screen. A release shows under every page that
+lists it. The header toggles the group; opening the page itself is the button at its end.
+
 ## A page picks one version of each release
 
 A release can have several versions: a rough mix, a master, a radio edit. The page says which

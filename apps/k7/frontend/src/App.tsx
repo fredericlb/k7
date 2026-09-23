@@ -73,7 +73,6 @@ function tabPath(tab: NavKey): string {
 const HOME_ROUTES: { path: string; tab: HomeTab }[] = [
   { path: "sessions", tab: "sessions" },
   { path: "releases", tab: "releases" },
-  { path: "pages", tab: "pages" },
   { path: "songs", tab: "songbook" },
 ];
 
@@ -453,11 +452,9 @@ export default function App() {
                     songs={songs}
                     moments={moments}
                     tab={tab}
-                    onTab={(t) => navigate(`/${t}`)}
                     onOpen={(s) => navigate(`/sessions/${s.id}`)}
                     onOpenMoment={(m) => navigate(`/moments/${m.id}`)}
                     onDeleteSession={handleDeleteSession}
-                    onCleanSessions={handleCleanSessions}
                     onOpenRelease={(r) => navigate(`/releases/${r.id}`)}
                     onNewRelease={() => navigate("/releases/new")}
                     onOpenPage={(p) => navigate(`/pages/${p.id}`)}
@@ -524,7 +521,7 @@ export default function App() {
                     navigate(`/pages/${p.id}`);
                     return p;
                   }}
-                  onCancel={() => navigate("/pages")}
+                  onCancel={() => navigate("/releases")}
                 />
               }
             />
@@ -537,7 +534,7 @@ export default function App() {
                   onChange={refreshPages}
                   onDeleted={() => {
                     refreshPages();
-                    navigate("/pages");
+                    navigate("/releases");
                   }}
                 />
               }
@@ -624,6 +621,8 @@ export default function App() {
               element={
                 <SettingsView
                   user={user}
+                  sessions={sessions}
+                  onCleanSessions={handleCleanSessions}
                   onLogout={logout}
                   onBack={() => navigate("/sessions")}
                 />
@@ -631,6 +630,11 @@ export default function App() {
             />
 
             {/* Moments hang under their sessions now — ../../docs/recordings.md; the old list address still lands. */}
+            {/* Pages group their releases on /releases now — ../../docs/pages.md; the old list address still lands. */}
+            <Route
+              path="/pages"
+              element={<Navigate to="/releases" replace />}
+            />
             <Route
               path="/moments"
               element={<Navigate to="/sessions" replace />}

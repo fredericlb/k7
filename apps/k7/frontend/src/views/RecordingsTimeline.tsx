@@ -3,15 +3,8 @@
 // session level, placed by when it was made. Why one list and not two tabs: ../../../docs/recordings.md.
 
 import { Badge } from "@frediverse/ui/badge";
-import { Button } from "@frediverse/ui/button";
 import { Calendar } from "@frediverse/ui/calendar";
-import {
-  BrushCleaning,
-  Check,
-  Diamond,
-  Flag,
-  Trash2,
-} from "@frediverse/ui/icons";
+import { Check, Diamond, Flag, Trash2 } from "@frediverse/ui/icons";
 import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
 import { useState } from "react";
 import { dayKey, dayKeyToDate, fmtDay, fmtTime } from "../format";
@@ -23,7 +16,6 @@ interface Props {
   onOpen: (s: Session) => void;
   onOpenMoment: (m: Moment) => void;
   onDeleteSession: (id: string) => Promise<void>;
-  onCleanSessions: (ids: string[]) => Promise<void>;
 }
 
 // One row of the day: a session with the moments shown under it, or an orphan moment.
@@ -62,8 +54,6 @@ export function buildEntries(
   return [...withSessions, ...orphans].sort((a, b) => b.at.localeCompare(a.at));
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 const timeOfDay = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -79,7 +69,6 @@ export function RecordingsTimeline({
   onOpen,
   onOpenMoment,
   onDeleteSession,
-  onCleanSessions,
 }: Props) {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   // Which calendar day is shown (null → the newest day with something to show).
@@ -95,26 +84,6 @@ export function RecordingsTimeline({
     selectedDay ??
     (entries[0] ? dayKey(entries[0].at) : dayKey(new Date().toISOString()));
   const dayEntries = entries.filter((e) => dayKey(e.at) === effectiveDay);
-
-  // Sessions with no moments that were recorded at least 24h ago.
-  const staleSessions = sessions.filter(
-    (s) =>
-      s.annotations.length === 0 &&
-      Date.now() - new Date(s.createdAt).getTime() >= DAY_MS,
-  );
-
-  const clean = async () => {
-    const n = staleSessions.length;
-    if (n === 0) return;
-    if (
-      !confirm(
-        `Delete ${n} empty session${n === 1 ? "" : "s"} with no moments, ` +
-          `recorded over 24h ago?`,
-      )
-    )
-      return;
-    await onCleanSessions(staleSessions.map((s) => s.id));
-  };
 
   const remove = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -197,18 +166,6 @@ export function RecordingsTimeline({
               ))}
             </div>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="self-start"
-            onClick={clean}
-            disabled={staleSessions.length === 0}
-            title="Delete empty sessions (no moments) recorded over 24h ago"
-          >
-            <BrushCleaning className="size-4" /> Clean up{" "}
-            {staleSessions.length > 0 ? `${staleSessions.length} ` : ""}
-            empty session{staleSessions.length === 1 ? "" : "s"}
-          </Button>
         </div>
 
         <div className="day-timeline-wrap">
