@@ -3,6 +3,7 @@ import {
   baseName,
   fetchDownload,
   localPathFor,
+  type SftpConfig,
   type SftpLike,
 } from "./sftp.ts";
 import { flattenTransfers } from "./slskd.ts";
@@ -97,6 +98,13 @@ describe("flattenTransfers", () => {
 
 describe("fetchDownload — ce qui part dans les journaux", () => {
   let lines: string[] = [];
+  const cfg: SftpConfig = {
+    host: "slskd.test",
+    port: 22,
+    username: "bob",
+    privateKey: "SECRET-KEY-MATERIAL",
+    downloadsDir: "/downloads",
+  };
 
   /** A fake server: `at` is where the file REALLY is, `tree` what each directory holds. */
   const fake = (at: string, tree: Record<string, string[]>): SftpLike => ({
@@ -123,10 +131,6 @@ describe("fetchDownload — ce qui part dans les journaux", () => {
     vi.spyOn(console, "warn").mockImplementation((m: unknown) => {
       lines.push(String(m));
     });
-    process.env.SLSKD_SFTP_HOST = "slskd.test";
-    process.env.SLSKD_SFTP_USER = "bob";
-    process.env.SLSKD_SFTP_KEY = "SECRET-KEY-MATERIAL";
-    process.env.SLSKD_DOWNLOADS_DIR = "/downloads";
   });
 
   afterEach(() => {
@@ -136,7 +140,7 @@ describe("fetchDownload — ce qui part dans les journaux", () => {
   it("écrit le chemin visé ET le contenu du dossier de téléchargement", async () => {
     // The two questions asked when nothing arrives, answered during the connection, not after.
     const remote = "@ann\\Music\\Nirvana\\Nevermind\\05 Lithium.flac";
-    await fetchDownload(remote, () =>
+    await fetchDownload(cfg, remote, () =>
       fake("/downloads/Nevermind/05 Lithium.flac", {
         "/downloads": ["Nevermind/", "readme.txt"],
       }),
@@ -153,7 +157,7 @@ describe("fetchDownload — ce qui part dans les journaux", () => {
 
   it("dit où il a fini par le trouver quand ce n'est pas là", async () => {
     // The case that made a failure indistinguishable from a song nobody shares.
-    await fetchDownload("@ann\\x\\y\\Lithium.flac", () =>
+    await fetchDownload(cfg, "@ann\\x\\y\\Lithium.flac", () =>
       fake("/downloads/complete/Lithium.flac", {
         "/downloads": ["complete/"],
         "/downloads/complete": ["Lithium.flac"],
@@ -167,7 +171,7 @@ describe("fetchDownload — ce qui part dans les journaux", () => {
   });
 
   it("n'écrit jamais la clé ni le mot de passe", async () => {
-    await fetchDownload("@a\\b\\c.flac", () =>
+    await fetchDownload(cfg, "@a\\b\\c.flac", () =>
       fake("/downloads/b/c.flac", { "/downloads": ["b/"] }),
     );
     const all = lines.join("\n");

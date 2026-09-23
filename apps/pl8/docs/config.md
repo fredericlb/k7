@@ -40,10 +40,11 @@ Nothing stops the service from starting anymore — every variable here just cha
 
 - `STUDIO_MEDIATEK` — the library root; absence means `~/.st0/mediatek` (or `$STUDIO_HOME`'s
   equivalent), same default every other backend gets.
-- `SLSKD_*`, `MUSICBRAINZ_USER_AGENT` — "Find songs". Without them the screen opens and names
-  what is missing ([hunt.md](hunt.md)).
-- `STUDIO_PREFS_DIR`, `STUDIO_PROJECTS_DIR`, `STUDIO_HUNTS_DIR` — move three dot directories off
-  the volume. For tests; no deployment sets them.
+- `MUSICBRAINZ_USER_AGENT` — how "Find songs" names itself to MusicBrainz ([hunt.md](hunt.md)).
+  slskd itself is configured per person on the settings page, not here ([settings.md](settings.md)).
+- `SESSION_SECRET` — besides the session, the key the settings' secrets are sealed under.
+- `STUDIO_PREFS_DIR`, `STUDIO_PROJECTS_DIR`, `STUDIO_HUNTS_DIR`, `STUDIO_SETTINGS_DIR` — move four
+  dot directories off the volume. For tests; no deployment sets them.
 
 ## One side effect
 

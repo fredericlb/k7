@@ -4,13 +4,14 @@
 // has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
-/** The four the header offers, plus one reached by a button and given no tab (../docs/routing.md). */
+/** The four the header offers, plus two reached by a button and given no tab (../docs/routing.md). */
 export const SECTION_IDS = [
   "songs",
   "samples",
   "recordings",
   "playlists",
   "find",
+  "settings",
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
 

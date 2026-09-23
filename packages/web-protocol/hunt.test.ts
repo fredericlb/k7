@@ -30,7 +30,7 @@ describe("canFallBackToYoutube", () => {
       "interrompu par un redémarrage du service",
       "recherche annulée",
       "téléchargé, mais introuvable sur slskd.lan sous /downloads",
-      "slskd n'est pas configuré : il faut SLSKD_URL et SLSKD_API_KEY",
+      "slskd n'est pas configuré — voir les paramètres",
       "aucun morceau ne correspond à ce nom",
     ])
       expect(canFallBackToYoutube(row({ error }))).toBe(false);

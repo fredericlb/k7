@@ -12,7 +12,8 @@
     "./tree": "./tree.ts",
     "./quality": "./quality.ts",
     "./hunt": "./hunt.ts",
-    "./pairing": "./pairing.ts"
+    "./pairing": "./pairing.ts",
+    "./settings": "./settings.ts"
   },
   "scripts": {
     "test": "vitest run",

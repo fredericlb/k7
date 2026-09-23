@@ -7,10 +7,9 @@ import { canFallBackToYoutube } from "@studio/web-protocol/hunt";
 import type { Request } from "express";
 import { Router } from "express";
 import { runningIds, startHunt, startYoutube, stopHunt } from "../hunt/hunt.ts";
-import { sftpConfigured } from "../hunt/sftp.ts";
-import { slskdConfigured } from "../hunt/slskd.ts";
 import { reconcile, removeHunt } from "../hunt/store.ts";
 import { youtubeAvailable } from "../hunt/youtube.ts";
+import { missing } from "../settings/store.ts";
 
 /** Same shape as the projects router: pl8 has no express type augmentation of its own. */
 function subOf(req: Request): string | null {
@@ -24,15 +23,6 @@ const MAX_QUERY = 200;
 /** In flight at once, per person: forty queue slots held for ten minutes gets an account banned. */
 const MAX_RUNNING = 4;
 
-/** What is missing, in the words of the thing to set — a new deployment is normally unconfigured. */
-function missing(): string | null {
-  const gaps: string[] = [];
-  if (!slskdConfigured()) gaps.push("SLSKD_URL et SLSKD_API_KEY");
-  if (!sftpConfigured())
-    gaps.push("SLSKD_SFTP_HOST, SLSKD_SFTP_USER et SLSKD_DOWNLOADS_DIR");
-  return gaps.length ? `configuration absente : ${gaps.join(", ")}` : null;
-}
-
 export const huntRouter: Router = Router();
 
 huntRouter.use((req, res, next) => {
@@ -45,9 +35,11 @@ huntRouter.use((req, res, next) => {
 huntRouter.get(
   "/",
   wrap(async (req, res) => {
+    // Each person's own settings — a new account is normally unconfigured, and the screen says so.
+    const reason = missing(subOf(req) as string);
     res.json({
-      configured: missing() === null,
-      reason: missing(),
+      configured: reason === null,
+      reason,
       // Whether the fallback is even possible, so a failed row can grey its button and say why.
       youtube: await youtubeAvailable(),
       hunts: reconcile(subOf(req) as string, runningIds()),
@@ -86,7 +78,7 @@ huntRouter.post(
 huntRouter.post(
   "/",
   wrap((req, res) => {
-    const gap = missing();
+    const gap = missing(subOf(req) as string);
     if (gap) return res.status(503).json({ error: gap });
     const body = req.body as { query?: unknown };
     const query = typeof body?.query === "string" ? body.query.trim() : "";

@@ -27,6 +27,7 @@ import { openCors } from "./cors.ts";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
 import { publicShareRouter } from "./routes/publicShare.ts";
+import { settingsRouter } from "./routes/settings.ts";
 import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
 import { syncRouter } from "./routes/sync.ts";
@@ -67,6 +68,8 @@ app.use("/api/shares", bearerOrSession(requireAuth), sharesRouter());
 
 // Finding songs on Soulseek. SESSION ONLY: it spends somebody's account — see docs/hunt.md.
 app.use("/api/hunt", requireAuth, huntRouter);
+// …and the settings it spends — session only too, since they hold the slskd key (docs/settings.md).
+app.use("/api/settings", requireAuth, settingsRouter);
 
 // This service's OWN engine registry, mounted as st0 mounts one — see docs/engine.md.
 const engine = mountEngineRegistry(app, { service: "pl8", requireAuth });

@@ -9,6 +9,11 @@ import type { FamilyListing } from "@studio/mediatek/types";
 import type { PublicEngine, SyncJob } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
 import { authOrigin } from "@studio/web-protocol/services";
+import type {
+  SlskdCheck,
+  SlskdSettings,
+  SlskdSettingsInput,
+} from "@studio/web-protocol/settings";
 // Type only, so the cycle with prefs.ts never reaches the bundle — see ../docs/api.md.
 import type { Pl8Prefs } from "./prefs";
 
@@ -183,6 +188,29 @@ export const hunt = {
       "hunt",
     );
   },
+};
+
+/** The person's slskd settings — the secrets go in and never come back (../docs/settings.md). */
+export const settings = {
+  slskd: async (): Promise<SlskdSettings> =>
+    json(await fetch(`${BASE}/api/settings/slskd`), "settings"),
+
+  saveSlskd: async (input: SlskdSettingsInput): Promise<SlskdSettings> =>
+    json(
+      await fetch(`${BASE}/api/settings/slskd`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+      "settings",
+    ),
+
+  /** Tests what is SAVED, not what is typed: the screen saves first. */
+  checkSlskd: async (): Promise<SlskdCheck> =>
+    json(
+      await fetch(`${BASE}/api/settings/slskd/check`, { method: "POST" }),
+      "settings",
+    ),
 };
 
 /** One target as the machine offers it: the URI is already blanked, so this may be shown. */

@@ -70,9 +70,10 @@ nothing and says out loud that the ids are free of the origin's path table.
 
 ## Two sections have no tab
 
-`engine` and `find` are in `SECTION_IDS` but not in the header's tab strip. Each is reached by a
-button on the section it belongs to — the cog for the engine page, « Trouver des morceaux » on
-Morceaux — and each draws edge to edge, because nothing either shows is on the volume.
+`find` and `settings` are in `SECTION_IDS` but not in the header's tab strip. Each is reached by a
+button — « Trouver des morceaux » on Morceaux, the cog for the settings page
+([settings.md](settings.md)) — and each draws edge to edge, because nothing either shows is on
+the volume.
 
 They are sections rather than dialogues for the same reason: **an address**. A page reloads,
 bookmarks, and answers the back button; a modal does none of the three, and both of these hold

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { releaseSearch } from "./slskd.ts";
+import { releaseSearch, type SlskdConfig } from "./slskd.ts";
+
+const cfg: SlskdConfig = { url: "http://slskd.test:5030", key: "k" };
 
 /** Every call the fake fetch saw, in order: "PUT /searches/x". */
 let calls: string[] = [];
@@ -17,8 +19,6 @@ function stub(done: () => boolean) {
 
 beforeEach(() => {
   calls = [];
-  process.env.SLSKD_URL = "http://slskd.test:5030";
-  process.env.SLSKD_API_KEY = "k";
 });
 
 afterEach(() => {
@@ -30,7 +30,7 @@ describe("releaseSearch", () => {
   it("arrête la recherche AVANT de la supprimer", async () => {
     // The original bug: deleting a running search makes slskd throw — ../../docs/hunt.md.
     stub(() => true);
-    await releaseSearch("abc");
+    await releaseSearch(cfg, "abc");
     expect(calls).toEqual([
       "PUT /api/v0/searches/abc",
       "GET /api/v0/searches/abc",
@@ -42,7 +42,7 @@ describe("releaseSearch", () => {
     // Leaving the row is the right call: one extra row on slskd costs nothing, a stack trace does.
     stub(() => false);
     // The delay is passed in; waiting the production ten seconds would test vitest's patience.
-    await releaseSearch("abc", 30);
+    await releaseSearch(cfg, "abc", 30);
     expect(calls).toContain("PUT /api/v0/searches/abc");
     expect(calls).not.toContain("DELETE /api/v0/searches/abc");
   });
@@ -51,6 +51,6 @@ describe("releaseSearch", () => {
     globalThis.fetch = vi.fn(async () => {
       throw new Error("slskd injoignable");
     }) as unknown as typeof fetch;
-    await expect(releaseSearch("abc", 30)).resolves.toBeUndefined();
+    await expect(releaseSearch(cfg, "abc", 30)).resolves.toBeUndefined();
   });
 });

@@ -10,6 +10,7 @@ const MAX_BYTES = 512 * 1024 * 1024;
 /** How deep to look for a file slskd did not file where documented — more would be a crawl. */
 const SEARCH_DEPTH = 3;
 
+/** One person's, from ../settings/store.ts — the key is the key ITSELF, never a path. */
 export interface SftpConfig {
   host: string;
   port: number;
@@ -18,35 +19,6 @@ export interface SftpConfig {
   privateKey?: string;
   passphrase?: string;
   downloadsDir: string;
-}
-
-/** Read per call: `env.yaml` is layered into `process.env` at boot, after this module loads. */
-export function sftpConfig(): SftpConfig {
-  const host = process.env.SLSKD_SFTP_HOST || "";
-  const username = process.env.SLSKD_SFTP_USER || "";
-  const downloadsDir = process.env.SLSKD_DOWNLOADS_DIR || "";
-  if (!host || !username || !downloadsDir)
-    throw new Error(
-      "le SFTP n'est pas configuré : il faut SLSKD_SFTP_HOST, SLSKD_SFTP_USER et SLSKD_DOWNLOADS_DIR",
-    );
-  return {
-    host,
-    port: Number(process.env.SLSKD_SFTP_PORT || 22),
-    username,
-    password: process.env.SLSKD_SFTP_PASSWORD || undefined,
-    // The key ITSELF, not a path: a container gets its secrets from the environment.
-    privateKey: process.env.SLSKD_SFTP_KEY || undefined,
-    passphrase: process.env.SLSKD_SFTP_PASSPHRASE || undefined,
-    downloadsDir: downloadsDir.replace(/\/+$/, ""),
-  };
-}
-
-export function sftpConfigured(): boolean {
-  return Boolean(
-    process.env.SLSKD_SFTP_HOST &&
-      process.env.SLSKD_SFTP_USER &&
-      process.env.SLSKD_DOWNLOADS_DIR,
-  );
 }
 
 /** Where slskd will have put a download — two segments, `.` and `..` dropped; ../../docs/hunt.md. */
@@ -75,6 +47,19 @@ export interface SftpLike {
   list(remote: string): Promise<{ name: string; type: string; size: number }[]>;
   end(): Promise<unknown>;
 }
+
+const newClient = (): SftpLike => new SftpClient() as unknown as SftpLike;
+
+/** The options `connect` takes, the same for a download and for the settings screen's test. */
+const connectOptions = (cfg: SftpConfig) => ({
+  host: cfg.host,
+  port: cfg.port,
+  username: cfg.username,
+  password: cfg.password,
+  privateKey: cfg.privateKey,
+  passphrase: cfg.passphrase,
+  readyTimeout: 20_000,
+});
 
 /** Always, not only on failure — this is where two machines meet; see ../../docs/hunt.md. */
 const log = (msg: string): void => console.log(`⇣ sftp ${msg}`);
@@ -131,25 +116,17 @@ async function findByName(
 
 /** Fetch a completed download: connect, take the one file, close — never a pool. */
 export async function fetchDownload(
+  cfg: SftpConfig,
   remoteFilename: string,
-  make: () => SftpLike = () => new SftpClient() as unknown as SftpLike,
+  make: () => SftpLike = newClient,
 ): Promise<{ bytes: Buffer; path: string }> {
-  const cfg = sftpConfig();
   const sftp = make();
   // BEFORE connecting, since a `connect` exception carries none of it. Never the key itself.
   log(
     `→ ${cfg.username}@${cfg.host}:${cfg.port} (${cfg.privateKey ? "clé" : cfg.password ? "mot de passe" : "sans identifiant !"})`,
   );
   try {
-    await sftp.connect({
-      host: cfg.host,
-      port: cfg.port,
-      username: cfg.username,
-      password: cfg.password,
-      privateKey: cfg.privateKey,
-      passphrase: cfg.passphrase,
-      readyTimeout: 20_000,
-    });
+    await sftp.connect(connectOptions(cfg));
     log(`connecté, dossier ${cfg.downloadsDir}`);
     // Both ends side by side: what the PEER named, and what is deduced from it on THIS machine.
     log(`nom chez le pair : ${remoteFilename}`);
@@ -194,6 +171,21 @@ export async function fetchDownload(
     return { bytes: got, path };
   } finally {
     // Always, throw included: a failed hunt would otherwise leak a session on the other machine.
+    await sftp.end().catch(() => {});
+  }
+}
+
+/** The settings screen's test: sign in and look at the download folder, then hang up. */
+export async function checkSftp(
+  cfg: SftpConfig,
+  make: () => SftpLike = newClient,
+): Promise<string> {
+  const sftp = make();
+  try {
+    await sftp.connect(connectOptions(cfg));
+    const rows = await sftp.list(cfg.downloadsDir);
+    return `${cfg.downloadsDir} : ${rows.length} entrée(s)`;
+  } finally {
     await sftp.end().catch(() => {});
   }
 }

@@ -8,6 +8,7 @@ import { writablePath } from "@studio/mediatek/layout";
 import { extOf } from "@studio/mediatek/media";
 import { MASTER_STEM, type SongTags, songFolder } from "@studio/mediatek/song";
 import { addSong } from "@studio/mediatek/write";
+import { missing, sftpOf, slskdOf } from "../settings/store.ts";
 import { lookupDeezer } from "./deezer.ts";
 import { lookup, type Tags } from "./musicbrainz.ts";
 import {
@@ -22,6 +23,7 @@ import {
   downloadsOf,
   enqueue,
   releaseSearch,
+  type SlskdConfig,
   searchDone,
   searchResponses,
   startSearch,
@@ -95,13 +97,13 @@ function alreadyFiled(tags: SongTags): string | null {
 // A hunt FILES the song and stops there; adding it to a set list is st0's — ../../docs/hunt.md.
 
 /** Everything the network answered, up to the window or until it says it is done. */
-async function gather(searchId: string, signal: AbortSignal) {
+async function gather(cfg: SlskdConfig, searchId: string, signal: AbortSignal) {
   const until = Date.now() + SEARCH_WINDOW_MS;
-  let last = await searchResponses(searchId);
+  let last = await searchResponses(cfg, searchId);
   while (Date.now() < until) {
     await sleep(1_500, signal);
-    last = await searchResponses(searchId);
-    if (await searchDone(searchId)) break;
+    last = await searchResponses(cfg, searchId);
+    if (await searchDone(cfg, searchId)) break;
   }
   return last;
 }
@@ -110,6 +112,7 @@ type Outcome = "done" | "stalled" | "failed";
 
 /** Wait on one peer: `stalled` is the sixty-second rule, `failed` is a refusal that never waits. */
 async function watch(
+  cfg: SlskdConfig,
   c: Candidate,
   signal: AbortSignal,
 ): Promise<{ outcome: Outcome; transferId: string }> {
@@ -120,7 +123,7 @@ async function watch(
   let transferId = "";
   while (Date.now() < cap) {
     await sleep(POLL_MS, signal);
-    const all = await downloadsOf(c.username);
+    const all = await downloadsOf(cfg, c.username);
     const t =
       all.find((x) => x.filename === c.file.filename) ??
       all.find((x) => baseName(x.filename) === baseName(c.file.filename));
@@ -155,6 +158,7 @@ export function searchTexts(
 
 /** Work down the ranked peers; `tried` is the budget across BOTH searches — ../../docs/hunt.md. */
 async function takeFromSomeone(
+  cfg: SlskdConfig,
   sub: string,
   id: string,
   candidates: Candidate[],
@@ -172,13 +176,13 @@ async function takeFromSomeone(
       format: extOf(baseNameOf(c.file.filename)),
       bitrate: c.bitrate,
     });
-    await enqueue(c.username, {
+    await enqueue(cfg, c.username, {
       filename: c.file.filename,
       size: c.file.size,
     });
-    const { outcome, transferId } = await watch(c, signal);
+    const { outcome, transferId } = await watch(cfg, c, signal);
     if (outcome === "done") return c;
-    if (transferId) await cancelDownload(c.username, transferId);
+    if (transferId) await cancelDownload(cfg, c.username, transferId);
   }
   return null;
 }
@@ -198,6 +202,11 @@ async function run(
   query: string,
   signal: AbortSignal,
 ): Promise<void> {
+  // Read once per hunt, so settings saved mid-run change the next one and not this one.
+  const slskd = slskdOf(sub);
+  const sftp = sftpOf(sub);
+  if (!slskd || !sftp)
+    throw new Error(missing(sub) ?? "slskd n'est pas configuré");
   const tags = await identify(query);
   // Null and not a guess: filing a typo as an artist makes a folder nobody finds again.
   if (!tags) throw new Error("aucun morceau ne correspond à ce nom");
@@ -234,9 +243,9 @@ async function run(
   let exhausted = false;
   for (const text of searchTexts(tags.album, tags.title)) {
     if (tried.size >= MAX_SWITCHES) break;
-    const searchId = await startSearch(text);
+    const searchId = await startSearch(slskd, text);
     try {
-      const responses = await gather(searchId, signal);
+      const responses = await gather(slskd, searchId, signal);
       const candidates = rankCandidates(responses, {
         artist: tags.artist,
         title: tags.title,
@@ -246,14 +255,14 @@ async function run(
         exhausted = true;
         continue;
       }
-      taken = await takeFromSomeone(sub, id, candidates, tried, signal);
+      taken = await takeFromSomeone(slskd, sub, id, candidates, tried, signal);
       if (taken) break;
       // Peers existed and none sent: the clearest form of exhaustion there is.
       exhausted = true;
       why = `${tried.size} pair${tried.size > 1 ? "s" : ""} essayé${tried.size > 1 ? "s" : ""} pour « ${text} », aucun n'a commencé à envoyer`;
     } finally {
       // NOT awaited: it is slskd's housekeeping, not this hunt's outcome — ../../docs/hunt.md.
-      void releaseSearch(searchId);
+      void releaseSearch(slskd, searchId);
     }
   }
   // The LAST reason, from the narrowest search still standing, is the only one worth showing.
@@ -263,7 +272,7 @@ async function run(
     throw exhausted ? new ExhaustedError(why2) : new Error(why2);
   }
 
-  const { bytes } = await fetchDownload(taken.file.filename);
+  const { bytes } = await fetchDownload(sftp, taken.file.filename);
   const filed = addSong({
     // The peer's own file name, which gives the master its extension and nothing else.
     filename: baseNameOf(taken.file.filename),

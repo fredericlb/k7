@@ -7,12 +7,6 @@ import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@frediverse/ui/dropdown-menu";
-import {
   FileTree,
   type TreeAction,
   type TreeNode,
@@ -21,7 +15,6 @@ import {
   Disc3,
   FolderTree,
   Loader2,
-  LogOut,
   Search,
   Settings,
 } from "@frediverse/ui/icons";
@@ -39,7 +32,7 @@ import { sortNodes } from "@studio/web-protocol/tree";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
 import { AddSong } from "./AddSong";
-import { auth, library } from "./api";
+import { library } from "./api";
 import { folderAt } from "./assetTree";
 import { FindSongs } from "./FindSongs";
 import { Playlists } from "./Playlists";
@@ -51,13 +44,14 @@ import { usePlaybackTarget } from "./playback/usePlaybackTarget";
 import { usePlayQueue } from "./playback/usePlayQueue";
 import { DEFAULT_SECTION, folderOf, type SectionId } from "./routes";
 import { sectionItems, sectionLabel } from "./SectionNav";
+import { SettingsPage } from "./SettingsPage";
 import { SongEditor } from "./SongEditor";
 import { useLibraryRoute } from "./useLibraryRoute";
 
 /** The ones that ARE families, by subtraction — a section missing here becomes one silently (../docs/library.md). */
 type FamilyId = Exclude<
   SectionId,
-  typeof RECORDINGS_DIR | typeof PLAYLISTS_DIR | "find"
+  typeof RECORDINGS_DIR | typeof PLAYLISTS_DIR | "find" | "settings"
 >;
 
 /** Poll interval for the revision map — cheap on the server, slow enough to cost an idle library nothing. */
@@ -167,10 +161,12 @@ export function Library() {
   const isZone = section === RECORDINGS_DIR;
   // « Trouver des morceaux » — a tabless section reached by a button, showing nothing on the volume (../docs/hunt.md).
   const isFind = section === "find";
+  // « Paramètres » — tabless too, reached from the cog (../docs/settings.md).
+  const isSettings = section === "settings";
   // The set lists: a root zone with no family behind it either, and its own two-column screen.
   const isPlaylists = section === "playlists";
   /** Is there a tree beside it? Derived here because the HEADER needs it: the drawer button is up there. */
-  const hasTree = !isFind && !isPlaylists;
+  const hasTree = !isFind && !isPlaylists && !isSettings;
   // The tree's drawer on a narrow screen. Closed to begin with: arriving, you want the content.
   const [treeOpen, setTreeOpen] = useState(false);
   // Two sections refuse the tree's writes, and each has a header button instead (../docs/library.md).
@@ -416,7 +412,7 @@ export function Library() {
 
   // One poll drives every section OF THE LIBRARY, the capture zone included (../docs/library.md).
   useEffect(() => {
-    if (isFind) return; // not on the volume — nothing of its own to poll here
+    if (isFind || isSettings) return; // not on the volume — nothing of its own to poll here
     let stop = false;
     const tick = async () => {
       try {
@@ -436,7 +432,7 @@ export function Library() {
       stop = true;
       clearInterval(t);
     };
-  }, [isFind, isZone, load, loadZone, section]);
+  }, [isFind, isSettings, isZone, load, loadZone, section]);
 
   return (
     /* Wrapping the whole shell: what plays belongs to the TAB (../docs/miniPlayer.md). */
@@ -474,30 +470,30 @@ export function Library() {
                 target={playback.target}
                 onChoose={playback.choose}
               />
-              {/* One cog for what belongs to the person: signing out. */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Réglages">
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72">
-                  <DropdownMenuItem onSelect={() => void auth.logout()}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Se déconnecter
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* One cog for what belongs to the person — a page, as in k7 (../docs/settings.md). */}
+              <Button
+                variant={isSettings ? "secondary" : "ghost"}
+                size="icon"
+                aria-label="Paramètres"
+                title="Paramètres"
+                aria-current={isSettings ? "page" : undefined}
+                onClick={() => setSection("settings")}
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
             </>
           }
         />
 
         {/* The hunt page draws its own scroller, because its history can be long. */}
-        {isFind ? (
+        {isSettings ? (
+          <SettingsPage onBack={() => setSection("songs")} />
+        ) : isFind ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <FindSongs
               onBack={() => setSection("songs")}
               onFiled={refreshSongs}
+              onOpenSettings={() => setSection("settings")}
             />
           </div>
         ) : isPlaylists ? (

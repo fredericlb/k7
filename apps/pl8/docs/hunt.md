@@ -278,7 +278,7 @@ writes what it is aiming at and what it sees:
 
 What that trace gives, and no error message would: **the peer's name and the deduced path side by
 side**, so an unexpected slskd layout reads at a glance; and the folder's **actual contents**, so
-"wrong `SLSKD_DOWNLOADS_DIR`", "the SSH user lacks permissions" and "slskd wrote nothing" stop
+"wrong download folder in the settings", "the SSH user lacks permissions" and "slskd wrote nothing" stop
 looking alike.
 
 The first line is written **before** connecting: if that is what fails, those are the values you
@@ -455,22 +455,16 @@ whoever reads the folder where it came from.
 
 ## Configuration
 
+The slskd address, its API key and the SFTP access are **each person's**, typed on the settings
+page and stored sealed on the volume — [settings.md](settings.md). None of them is an environment
+variable.
+
 | variable | what it is |
 |---|---|
-| `SLSKD_URL` | the slskd instance's address, e.g. `https://slskd.lan:5031` |
-| `SLSKD_API_KEY` | its API key — restrict it by CIDR on the slskd side, the machine being remote |
-| `SLSKD_SFTP_HOST` / `SLSKD_SFTP_PORT` | the same machine, over SSH (22 by default) |
-| `SLSKD_SFTP_USER` | the user that can read the download folder |
-| `SLSKD_SFTP_KEY` / `SLSKD_SFTP_PASSPHRASE` | the private key **itself**, not a path — a container gets its secrets through the environment |
-| `SLSKD_SFTP_PASSWORD` | failing a key |
-| `SLSKD_DOWNLOADS_DIR` | where slskd deposits, as seen from that machine |
 | `MUSICBRAINZ_USER_AGENT` | their terms require a client that names itself and says how to reach it |
 
-While any are missing, the screen opens and **says which**, instead of failing on every keystroke: a
-deployment not yet configured is the normal state of a new deployment.
-
-An SSH key **distinct** from the git repositories' one: reaching a git host and opening a shell on
-the slskd machine are two different trusts.
+While the settings are incomplete, the screen opens and **says what is missing**, with a button to
+the settings page, instead of failing on every keystroke: a new account is unconfigured.
 
 ## Why a row's error is a chain, not a message
 

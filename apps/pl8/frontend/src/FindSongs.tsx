@@ -139,8 +139,11 @@ function Row({
 export function FindSongs({
   onBack,
   onFiled,
+  onOpenSettings,
 }: {
   onBack: () => void;
+  /** Where the reason below is fixed: each person's slskd settings live there. */
+  onOpenSettings: () => void;
   /** Called when a row turns green, so the catalogue behind reloads without waiting for its poll. */
   onFiled: () => void;
 }) {
@@ -249,9 +252,12 @@ export function FindSongs({
 
         {/* Said rather than hidden: an unconfigured deployment is this page's normal state. */}
         {reason && (
-          <p className="mx-auto mt-3 max-w-4xl rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-            {reason}
-          </p>
+          <div className="mx-auto mt-3 flex max-w-4xl items-center justify-between gap-3 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            <span>{reason}</span>
+            <Button variant="outline" size="sm" onClick={onOpenSettings}>
+              Paramètres
+            </Button>
+          </div>
         )}
         {error && (
           <p className="mx-auto mt-3 max-w-4xl rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
