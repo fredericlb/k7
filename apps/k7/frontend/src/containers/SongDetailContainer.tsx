@@ -242,6 +242,12 @@ export function SongDetailContainer({
     })();
   };
 
+  // The ⋮ menu's popin: a failure is thrown back to it, where it is shown.
+  const handleRename = async (artist: string, title: string) => {
+    adopt(await api.updateSong(songId, { artist, title }));
+    onChange();
+  };
+
   const handleDismissFailure = () => {
     void onStatus({ phase: "", error: "" });
   };
@@ -276,6 +282,7 @@ export function SongDetailContainer({
       onIgnore={handleIgnore}
       onRerun={handleRerun}
       onResyncLyrics={handleResyncLyrics}
+      onRename={handleRename}
       onDismissFailure={handleDismissFailure}
     />
   );

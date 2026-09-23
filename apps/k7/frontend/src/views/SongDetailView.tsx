@@ -54,6 +54,8 @@ interface Props {
   onRerun: () => void;
   /** Takes the timecodes off the lyrics and times them off LRCLIB again. */
   onResyncLyrics: () => void;
+  /** Saves a new artist and title, from the ⋮ menu's popin. */
+  onRename: (artist: string, title: string) => Promise<void>;
   /** Clears a stored pipeline failure without retrying. */
   onDismissFailure: () => void;
   onBack: () => void;
@@ -78,6 +80,7 @@ export function SongDetailView({
   onIgnore,
   onRerun,
   onResyncLyrics,
+  onRename,
   onDismissFailure,
   onBack,
 }: Props) {
@@ -224,6 +227,7 @@ export function SongDetailView({
           onMixInstrumental={onMixInstrumental}
           onRerun={onRerun}
           onResyncLyrics={onResyncLyrics}
+          onRename={onRename}
           onDelete={remove}
         />
       </div>

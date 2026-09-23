@@ -17,6 +17,7 @@ import { pl8 } from "../fetchSong/pl8";
 import { makeInstrumental } from "../fetchSong/run";
 import { m } from "../paraglide/messages.js";
 import type { Song, SongTab } from "../types";
+import { SongEditDialog } from "./SongEditDialog";
 
 interface Props {
   song: Song;
@@ -32,6 +33,8 @@ interface Props {
   onRerun: () => void;
   /** Takes the timecodes off the lyrics and times them again; the insert shows how it went. */
   onResyncLyrics: () => void;
+  /** Saves a new artist and title; a failure stays in the popin. */
+  onRename: (artist: string, title: string) => Promise<void>;
   onDelete: () => Promise<void>;
   /** Which tabs the song already has, so the menu offers the ones it has not. */
   has: (tab: SongTab) => boolean;
@@ -46,9 +49,11 @@ export function SongMenu({
   onMixInstrumental,
   onRerun,
   onResyncLyrics,
+  onRename,
   onDelete,
   has,
 }: Props) {
+  const [editing, setEditing] = useState(false);
   const pipelineRunning =
     song.fetchStatus.phase !== "" && song.fetchStatus.phase !== "failed";
   const sheets = useRef<HTMLInputElement>(null);
@@ -97,6 +102,10 @@ export function SongMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-56">
+          <DropdownMenuItem onSelect={() => setEditing(true)}>
+            {m["songMenu.edit"]()}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           {!has("lyrics") && (
             <DropdownMenuItem onSelect={() => onAdd("lyrics")}>
               {m["songMenu.addLyrics"]()}
@@ -179,6 +188,14 @@ export function SongMenu({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Outside the menu, so closing the menu does not unmount it. */}
+      <SongEditDialog
+        song={song}
+        open={editing}
+        onSave={onRename}
+        onClose={() => setEditing(false)}
+      />
 
       <input
         ref={sheets}
