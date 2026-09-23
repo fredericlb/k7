@@ -804,9 +804,6 @@ select {
   margin: 10px 0;
   accent-color: var(--accent);
 }
-.metro-toggle {
-  width: 100%;
-}
 
 /* ---- The drawn player (releases, pages) ---------------------------------- */
 

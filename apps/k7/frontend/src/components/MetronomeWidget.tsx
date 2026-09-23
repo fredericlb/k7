@@ -39,21 +39,38 @@ export function MetronomeWidget({ open, onToggle }: Props) {
 
   return (
     <aside className={`rail-panel${open ? "" : " collapsed"}`}>
-      <button
-        type="button"
-        className="rail-panel-toggle"
-        onClick={onToggle}
-        aria-expanded={open}
-      >
-        <Music2 className="size-4" />
-        {/* The dot beats in the toggle, so a FOLDED panel still says the click is running. */}
-        <span
-          className={`metro-dot${running ? " beating" : ""}`}
-          style={{ animationDuration: `${60 / bpm}s` }}
-          aria-hidden
-        />
-        <span className="rail-panel-word">{m["metronome.title"]()}</span>
-      </button>
+      <div className="rail-panel-head">
+        <button
+          type="button"
+          className="rail-panel-toggle"
+          onClick={onToggle}
+          aria-expanded={open}
+        >
+          <Music2 className="size-4" />
+          {/* The dot beats in the toggle, so a FOLDED panel still says the click is running. */}
+          <span
+            className={`metro-dot${running ? " beating" : ""}`}
+            style={{ animationDuration: `${60 / bpm}s` }}
+            aria-hidden
+          />
+          <span className="rail-panel-word">{m["metronome.title"]()}</span>
+        </button>
+        {/* On and off from the header, as the player's play/pause: it answers folded too. */}
+        <button
+          type="button"
+          className="rail-panel-action"
+          onClick={toggle}
+          aria-pressed={running}
+          aria-label={running ? m["common.stop"]() : m["common.start"]()}
+          title={running ? m["common.stop"]() : m["common.start"]()}
+        >
+          {running ? (
+            <Square className="size-4" />
+          ) : (
+            <Play className="size-4" />
+          )}
+        </button>
+      </div>
 
       {open && (
         <div className="rail-panel-body">
@@ -89,18 +106,6 @@ export function MetronomeWidget({ open, onToggle }: Props) {
             onChange={(e) => setBpm(clamp(Number(e.target.value)))}
             aria-label={m["metronome.tempo"]()}
           />
-
-          <Button className="metro-toggle" onClick={toggle}>
-            {running ? (
-              <>
-                <Square className="size-4" /> {m["common.stop"]()}
-              </>
-            ) : (
-              <>
-                <Play className="size-4" /> {m["common.start"]()}
-              </>
-            )}
-          </Button>
         </div>
       )}
     </aside>
