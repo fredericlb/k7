@@ -29,6 +29,10 @@ export function SongDetailContainer({
   const [song, setSong] = useState<Song | null>(null);
   // Status writes go out one after the other: two PATCHes racing could leave a stale phase stored.
   const writes = useRef<Promise<unknown>>(Promise.resolve());
+  const running = useRef(false);
+  // The parent hands a new onChange every render; read through a ref so the page never reloads for it.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   // Applies a status patch to the local song immediately (so the bar/label move without
   // waiting on a round trip) and persists it, so a reload finds the pipeline where it left off.
@@ -92,11 +96,14 @@ export function SongDetailContainer({
   // A failure is stored on the song, so it is still shown after a reload until a re-run or a dismiss.
   const runFetch = useCallback(
     async (start: Song, mode: PipelineMode) => {
+      // One run per page: a second would race the first and clear its phase when it finishes.
+      if (running.current) return;
+      running.current = true;
       try {
         if (start.fetchStatus.phase === "failed")
           void onStatus({ phase: "", error: "" });
         adopt(await runPipeline(start, mode, pipelineSteps()));
-        onChange();
+        onChangeRef.current();
       } catch (err) {
         // The hunt or job it was polling is dead: a retry must not resume it.
         void onStatus({
@@ -106,9 +113,11 @@ export function SongDetailContainer({
           huntId: "",
           jobId: "",
         });
+      } finally {
+        running.current = false;
       }
     },
-    [pipelineSteps, onStatus, adopt, onChange],
+    [pipelineSteps, onStatus, adopt],
   );
 
   const load = useCallback(async () => {

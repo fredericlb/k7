@@ -6,7 +6,8 @@ import { Button } from "@frediverse/ui/button";
 import { Download, Pencil, RotateCw, Upload, X } from "@frediverse/ui/icons";
 import { useRef } from "react";
 import { m } from "../paraglide/messages.js";
-import type { FetchStatus, Song } from "../types";
+import type { Song } from "../types";
+import { FetchStepper } from "./FetchStepper";
 
 interface Props {
   song: Song;
@@ -19,42 +20,6 @@ interface Props {
   onRetry: () => void;
   /** Clears the stored failure without retrying. */
   onDismiss: () => void;
-}
-
-const LABEL: Record<
-  Exclude<FetchStatus["phase"], "" | "failed">,
-  () => string
-> = {
-  searching: m["fetch.searching"],
-  downloading: m["fetch.downloading"],
-  stemming: m["fetch.stemming"],
-  "matching-lyrics": m["fetch.lyrics"],
-};
-
-function StatusRow({ phase, progress }: FetchStatus) {
-  if (phase === "" || phase === "failed") return null;
-  const determinate = phase === "stemming" && progress !== null;
-  return (
-    <div className="song-fetch-status">
-      <span className="muted small">{LABEL[phase]()}</span>
-      <div
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={determinate ? Math.round(progress as number) : undefined}
-        className={`song-fetch-bar${determinate ? "" : " indeterminate"}`}
-      >
-        <div
-          className="song-fetch-bar-fill"
-          style={
-            determinate
-              ? { width: `${Math.round(progress as number)}%` }
-              : undefined
-          }
-        />
-      </div>
-    </div>
-  );
 }
 
 export function SongFetchInsert({
@@ -84,13 +49,15 @@ export function SongFetchInsert({
   if (song.audio) {
     // A track exists: this insert only has something to say while stemming/lyrics are still
     // running, once a later step failed, or once lyrics need a human's eye.
-    if (running) return <StatusRow {...song.fetchStatus} />;
+    if (running) return <FetchStepper {...song.fetchStatus} />;
     const failed = phase === "failed" && error !== "";
     const unmatched = song.lyricsMatch === "unmatched";
     if (!failed && !unmatched) return null;
     return (
       <div className="song-fetch-insert">
-        {failed && <p className="song-fetch-insert-text">{error}</p>}
+        {failed && (
+          <p className="song-fetch-insert-text song-fetch-error">{error}</p>
+        )}
         {failed && (
           <Button
             variant="ghost"
@@ -125,14 +92,16 @@ export function SongFetchInsert({
     );
   }
 
-  if (running) return <StatusRow {...song.fetchStatus} />;
+  if (running) return <FetchStepper {...song.fetchStatus} />;
 
   // Dismissed on purpose, and nothing is running: stay out of the way for good.
   if (song.fetchIgnored) return null;
 
   return (
     <div className="song-fetch-insert">
-      {phase === "failed" && error && <p className="error small">{error}</p>}
+      {phase === "failed" && error && (
+        <p className="song-fetch-insert-text song-fetch-error">{error}</p>
+      )}
       <p className="song-fetch-insert-text">{m["fetch.question"]()}</p>
       <Button
         variant="ghost"

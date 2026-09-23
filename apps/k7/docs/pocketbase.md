@@ -29,9 +29,17 @@ takes.
 `Songs.SheetFiles` — Grist's own attachment-list column, read only by Grist's UI — has no
 PocketBase equivalent and is gone. Nothing in k7 reads it.
 
-## What migrateSchema will not do
+## The schema is reconciled at every boot
 
-`npm run migrate` creates a missing collection and adds a missing field to one that already
+`backend/src/ensureSchema.ts` runs when the server starts, and `npm run migrate` runs the same
+thing by hand. It is not left to a deploy step because PocketBase **silently drops** a write to a
+field it does not have: a field added to `schema.ts` and never migrated answers 200 to every write
+and reads back empty, with nothing in any log. A PocketBase that cannot be reached at boot is
+logged, not fatal.
+
+## What the reconcile will not do
+
+It creates a missing collection and adds a missing field to one that already
 exists. It never drops or retypes a field: an app version rolled back after a schema change keeps
 reading what it always read, and a field two versions abandoned stays on disk until a human
 decides to clear it.

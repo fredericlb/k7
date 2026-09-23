@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { setupAuth } from "@frediverse/oidc";
 import express from "express";
 import { bearerOrSession } from "./apitoken.ts";
+import { ensureSchema } from "./ensureSchema.ts";
 import { env } from "./env.ts";
 import { isConfigured as pocketbaseConfigured } from "./pocketbase.ts";
 import { configRouter } from "./routes/config.ts";
@@ -56,6 +57,17 @@ app.use(express.static(FRONTEND_DIST));
 app.get(/^(?!\/api|\/auth)/, (_req, res) => {
   res.sendFile(join(FRONTEND_DIST, "index.html"));
 });
+
+// A field schema.ts names but PocketBase lacks would swallow every write to it, so boot adds it.
+if (pocketbaseConfigured()) {
+  await ensureSchema((line) => {
+    if (line.startsWith("✓")) console.log(`   PocketBase ${line}`);
+  }).catch((err: unknown) =>
+    console.error(
+      `   ⚠️  PocketBase schema not reconciled: ${(err as Error).message}`,
+    ),
+  );
+}
 
 const server = createServer(app);
 attachRtc(server);

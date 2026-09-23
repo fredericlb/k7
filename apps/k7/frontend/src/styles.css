@@ -1066,21 +1066,64 @@ select {
   gap: 4px;
   margin: 4px 0 10px;
 }
-.song-fetch-bar {
-  height: 4px;
-  width: 100%;
-  max-width: 280px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: var(--border);
+.song-fetch-error {
+  font-weight: 600;
 }
-.song-fetch-bar-fill {
-  height: 100%;
+/* One bar cut into four steps, each step's name written inside its own segment. */
+.song-fetch-stepper {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+  max-width: 480px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.song-fetch-step {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 24px;
+  overflow: hidden;
+  background: var(--border);
+  color: var(--muted);
+}
+.song-fetch-step.done {
   background: var(--accent);
+  color: #fff;
+}
+.song-fetch-step.active {
+  color: var(--text);
+}
+.song-fetch-step-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  opacity: 0.45;
   transition: width 0.3s;
 }
+.song-fetch-step-label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 100%;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.song-fetch-step-num {
+  font-weight: 700;
+  opacity: 0.8;
+}
 /* No percent to show (searching, downloading, matching lyrics): a sliding block instead of a stall. */
-.song-fetch-bar.indeterminate .song-fetch-bar-fill {
+.song-fetch-step-fill.indeterminate {
   width: 40%;
   animation: song-fetch-slide 1.2s ease-in-out infinite;
 }
