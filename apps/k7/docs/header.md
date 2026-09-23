@@ -11,11 +11,11 @@ that go behind the hamburger on a phone.
 Below the breakpoint the bar folds its entries into a menu that **names** them, rather than
 reducing them to a row of glyphs: a row of anonymous glyphs is a row nobody can read.
 
-Two pairs share an entry, with a tab each inside it. **Recordings** holds sessions and moments —
-a moment is a stretch of a session — and **Publications** holds releases and pages — a page lists
-releases. Each pair is one job reached together, and fewer entries is what keeps the bar from
-folding on a tablet held upright. Every tab is still its own address (`/sessions`, `/moments`,
-`/releases`, `/pages`), so a link to any of them lands on it.
+**Recordings** holds sessions and their moments on one timeline — a moment is a stretch of a
+session, so it hangs under it (`recordings.md`). **Publications** holds releases and pages — a
+page lists releases — as a tab each. Fewer entries is what keeps the bar from folding on a tablet
+held upright. Every tab is still its own address (`/releases`, `/pages`), so a link to any of them
+lands on it.
 
 The icons stay all the same, because an entry that is named **and** carries a glyph is found
 faster than one that is only named.
