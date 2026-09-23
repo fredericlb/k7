@@ -75,7 +75,6 @@
   "fetch.dismiss": "Masquer",
   "fetch.download": "Télécharger le morceau",
   "fetch.downloading": "Téléchargement depuis Soulseek…",
-  "fetch.instrumentalSong": "Instrumental, d'après LRCLIB : pas de paroles à minuter, ni de voix à retirer.",
   "fetch.lyricsUnmatched": "Aucune parole synchronisée trouvée pour ce morceau. Ajoutez {code} au début d'une ligne des paroles pour la minuter à la main.",
   "fetch.huntRemoved": "La recherche Soulseek a été retirée avant d'aboutir.",
   "fetch.ignore": "Ignorer",
