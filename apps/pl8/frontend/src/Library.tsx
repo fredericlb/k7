@@ -463,25 +463,8 @@ export function Library() {
                   <FolderTree className="h-5 w-5" />
                 </Button>
               ) : null}
-              {/* Every section the tree cannot write has its button here — see ../docs/library.md. */}
+              {/* The capture zone's own write button; the songs tree carries its two, at its foot. */}
               <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                {section === "songs" ? (
-                  <>
-                    {/* Beside « Ajouter » and not in its place: it LEADS to a page — see ../docs/hunt.md. */}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setSection("find")}
-                    >
-                      {/* The icon alone when the room runs out: the sentence is what costs the hundred pixels. */}
-                      <Search className="h-4 w-4 sm:mr-1" />
-                      <span className="hidden sm:inline">
-                        Trouver des morceaux
-                      </span>
-                    </Button>
-                    <AddSong onDone={refresh} />
-                  </>
-                ) : null}
                 {isZone ? (
                   <AddRecording onDone={refresh} onError={setError} />
                 ) : null}
@@ -546,7 +529,7 @@ export function Library() {
             {/* A column when there is room and a DRAWER when there is not, same markup — see ../docs/responsive.md. */}
             <aside
               // No translate here, not even translate-x-0 — it breaks FileTree's popup, ../docs/responsive.md.
-              className={`shrink-0 overflow-auto rounded-xl bg-violet-950 p-3 md:static md:z-auto md:m-3 md:block md:w-60 ${
+              className={`shrink-0 overflow-auto rounded-xl bg-violet-950 p-3 md:static md:z-auto md:m-3 md:block md:w-[290px] ${
                 treeOpen
                   ? "fixed inset-y-0 left-0 z-40 w-72 shadow-xl"
                   : "hidden"
@@ -725,6 +708,20 @@ export function Library() {
                       ]
                 }
               />
+              {/* Moved down from the header, which else crowds on a narrow screen — the tree has the room. */}
+              {section === "songs" ? (
+                <div className="mt-2 flex flex-col gap-2 border-t border-white/10 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setSection("find")}
+                  >
+                    <Search className="mr-1 h-4 w-4" />
+                    Trouver des morceaux
+                  </Button>
+                  <AddSong onDone={refresh} />
+                </div>
+              ) : null}
             </aside>
 
             {/* A module view and a chain editor stood at the head of this chain of screens (../docs/library.md). */}

@@ -1,7 +1,7 @@
 # pl8 on a narrow screen
 
 The media library is hosted, so it opens from a phone as easily as from the desk — the only
-studio screen of which that is true. The hazard is chrome: a tab strip, a 240 px tree column and
+studio screen of which that is true. The hazard is chrome: a tab strip, a 290 px tree column and
 what borders it come to hundreds of pixels before the first pixel of content.
 
 ## One breakpoint, `md` (768 px)
@@ -26,7 +26,7 @@ and a section that exists on only one screen is one nobody finds.
 
 ## The tree becomes a drawer
 
-240 fixed pixels leave nothing for content on a phone. Below `md` the `aside` leaves the flow and
+290 fixed pixels leave nothing for content on a phone. Below `md` the `aside` leaves the flow and
 becomes a drawer with its own button in the header — absent where there is no tree, the engine
 and search screens drawing their own full width because nothing they show is on the volume.
 
@@ -51,9 +51,12 @@ What leaves first is what is never needed in the moment:
 | element | threshold | why |
 |---|---|---|
 | the version | `lg` | nothing is decided on it |
-| the "Find songs" label | `sm` | the icon stays, so the button does |
 | the section tabs | `sm` | they move into the shared bar's hamburger |
 | the section name (subtitle) | 420 px | `AppHeader`'s threshold, not ours |
+
+"Trouver des morceaux" and "Ajouter un morceau" left the header entirely — they sit at the foot
+of the songs tree now, where there is room for the whole sentence at every width, so neither
+collapses to an icon any more.
 
 The song's two-pane editor **stacks** rather than splitting the width: two halves of a phone
 screen are two columns nothing fits in. The YAML takes the top half and what it describes the

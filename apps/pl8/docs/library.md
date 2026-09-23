@@ -83,8 +83,9 @@ all it unfolds, and everything below stays folded until something is actually re
 Two sections refuse the tree's writes, for two different reasons. `songs/` has a shape deduced from
 tags, so a folder made by hand there is not a badly filed song but an invisible one
 (`packages/mediatek/docs/songs.md`). A capture is named by the clock, so a renamed one would be a
-capture at an hour it was not made (`packages/mediatek/docs/recordings.md`). Both have a header
-button instead.
+capture at an hour it was not made (`packages/mediatek/docs/recordings.md`). Both get a button
+elsewhere instead — the zone's in the header, the songs tree's own two at its foot, beside the
+tree that has the room for them.
 
 `songs/` still gets a menu, and only its own: add a version, queue the morceau, remove it, and —
 on the artist or album folder above a song — remove that whole grouping. None of those touches the
