@@ -6,6 +6,7 @@ import { Button } from "@frediverse/ui/button";
 import { Download, RotateCw, Upload, X } from "@frediverse/ui/icons";
 import { useRef } from "react";
 import { m } from "../paraglide/messages.js";
+import { useShownOnce } from "../hooks/useShownOnce";
 import type { Song } from "../types";
 import { FetchStepper } from "./FetchStepper";
 
@@ -32,6 +33,12 @@ export function SongFetchInsert({
   const file = useRef<HTMLInputElement>(null);
   const { phase, error } = song.fetchStatus;
   const running = phase !== "" && phase !== "failed";
+  // Said once per song: after that, the missing « Make instrumental » is reminder enough.
+  const firstInstrumental = useShownOnce(
+    "k7.instrumentalNoticeShown",
+    song.id,
+    !!song.audio && !running && song.lyricsMatch === "instrumental",
+  );
 
   const pick = () => file.current?.click();
   const picked = () => {
@@ -50,7 +57,8 @@ export function SongFetchInsert({
     if (running) return <FetchStepper {...song.fetchStatus} />;
     const failed = phase === "failed" && error !== "";
     const unmatched = song.lyricsMatch === "unmatched";
-    const instrumental = song.lyricsMatch === "instrumental";
+    const instrumental =
+      song.lyricsMatch === "instrumental" && firstInstrumental;
     if (!failed && !unmatched && !instrumental) return null;
     return (
       <div className="song-fetch-insert">
