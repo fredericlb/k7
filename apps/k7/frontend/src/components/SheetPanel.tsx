@@ -1,5 +1,6 @@
 import { Button } from "@frediverse/ui/button";
 import { sheetKind } from "@k7/shared/sheetKind";
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import type { SheetFile } from "../types";
@@ -38,7 +39,7 @@ export function SheetPanel({ sheets, urlFor, onDelete }: Props) {
         onClick={() => remove(file)}
         title={m["sheet.removeFile"]()}
       >
-        🗑
+        <Trash2 className="size-4" />
       </Button>
     </figcaption>
   );
@@ -88,7 +89,7 @@ export function SheetPanel({ sheets, urlFor, onDelete }: Props) {
                 title="Remove this image"
                 aria-label="Remove image"
               >
-                🗑
+                <Trash2 className="size-4" />
               </button>
             </div>
           );

@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { SHEET_ACCEPT } from "@k7/shared/sheetKind";
+import { EllipsisVertical } from "lucide-react";
 import { useRef, useState } from "react";
 import { pl8 } from "../fetchSong/pl8";
 import { makeInstrumental } from "../fetchSong/run";
@@ -86,7 +87,7 @@ export function SongMenu({
             aria-label="Song menu"
             disabled={phase !== null}
           >
-            ⋮
+            <EllipsisVertical className="size-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-56">

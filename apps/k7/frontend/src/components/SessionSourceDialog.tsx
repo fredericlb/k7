@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { Mic, RadioTower } from "lucide-react";
 import { BASE } from "../api";
 
 // What to TYPE on the phone: a bare /remote is the médiathèque's — ../../../docs/routing.md.
@@ -46,7 +47,7 @@ export function SessionSourceDialog({
 
         <div className="source-choices">
           <Button disabled={busy} onClick={onLocal}>
-            🎙 This device
+            <Mic className="size-4" /> This device
           </Button>
           <Button
             variant="outline"
@@ -58,7 +59,7 @@ export function SessionSourceDialog({
                 : `Use the microphone of the device connected at ${REMOTE_PATH}`
             }
           >
-            📡 Remote device
+            <RadioTower className="size-4" /> Remote device
           </Button>
         </div>
 

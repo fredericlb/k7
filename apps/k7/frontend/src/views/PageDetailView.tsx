@@ -1,6 +1,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { pageVersion } from "@k7/shared/pageVersion";
+import { Check, Copy, Download, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { WaveformPlayer } from "../components/WaveformPlayer";
 import type { Page, Release, SongEnvelope } from "../types";
@@ -63,13 +64,21 @@ export function PageDetailView({
           {publicUrl}
         </a>
         <Button variant="outline" size="sm" onClick={copyLink}>
-          {copied ? "✓ Copied" : "📋 Copy link"}
+          {copied ? (
+            <>
+              <Check className="size-4" /> Copied
+            </>
+          ) : (
+            <>
+              <Copy className="size-4" /> Copy link
+            </>
+          )}
         </Button>
       </div>
 
       <div className="row" style={{ marginBottom: 12 }}>
         <Button variant="outline" size="sm" onClick={remove}>
-          🗑 Delete page
+          <Trash2 className="size-4" /> Delete page
         </Button>
       </div>
 
@@ -110,7 +119,7 @@ export function PageDetailView({
                   download
                   title={`Download ${played.name}`}
                 >
-                  ⬇ Download
+                  <Download className="size-4" /> Download
                 </a>
               )}
               <Button

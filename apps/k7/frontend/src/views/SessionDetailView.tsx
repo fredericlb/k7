@@ -3,6 +3,17 @@ import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { Input } from "@frediverse/ui/input";
 import { MomentPlayer, TagInput, Waveform } from "@k7/recorder";
+import {
+  ArrowLeft,
+  Check,
+  Circle,
+  Diamond,
+  Flag,
+  MoveHorizontal,
+  Pause,
+  Play,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fmtTime, sessionTitle } from "../format";
 import type {
@@ -230,7 +241,7 @@ export function SessionDetailView({
   return (
     <div>
       <Button variant="link" className="text-xs" onClick={onBack}>
-        ← All sessions
+        <ArrowLeft className="size-3.5" /> All sessions
       </Button>
       <h2 style={{ marginTop: 8 }}>{sessionTitle(session.createdAt)}</h2>
 
@@ -277,7 +288,15 @@ export function SessionDetailView({
 
               <div className="row playback-controls">
                 <Button onClick={togglePlay}>
-                  {playing ? "⏸ Pause" : "▶ Play"}
+                  {playing ? (
+                    <>
+                      <Pause className="size-4" /> Pause
+                    </>
+                  ) : (
+                    <>
+                      <Play className="size-4" /> Play
+                    </>
+                  )}
                 </Button>
                 <span className="muted small tabular">
                   {fmtTime(currentTime)} / {fmtTime(session.duration)}
@@ -287,7 +306,7 @@ export function SessionDetailView({
                   onClick={() => onAddMarker(currentTime)}
                   title="Drop a marker at the current position"
                 >
-                  🚩 Add marker
+                  <Flag className="size-4" /> Add marker
                 </Button>
                 <Button
                   variant="outline"
@@ -295,7 +314,8 @@ export function SessionDetailView({
                   onClick={onResume}
                   title="Record more audio onto the end of this session"
                 >
-                  ● Continue recording
+                  <Circle className="size-3 fill-current text-destructive" />{" "}
+                  Continue recording
                 </Button>
               </div>
 
@@ -353,7 +373,9 @@ export function SessionDetailView({
                   Selected {fmtTime(Math.min(selection.start, selection.end))} –{" "}
                   {fmtTime(Math.max(selection.start, selection.end))}
                 </span>
-                <Button onClick={saveSelectionMoment}>◆ Save moment</Button>
+                <Button onClick={saveSelectionMoment}>
+                  <Diamond className="size-4" /> Save moment
+                </Button>
                 <Button variant="outline" onClick={() => setSelection(null)}>
                   Clear
                 </Button>
@@ -433,14 +455,14 @@ export function SessionDetailView({
                       size="sm"
                       onClick={() => playRange(row.ev.startSec, row.ev.endSec)}
                     >
-                      ▶ Play
+                      <Play className="size-4" /> Play
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => saveMoment(row.ev.startSec, row.ev.endSec)}
                     >
-                      ◆ Save as moment
+                      <Diamond className="size-4" /> Save as moment
                     </Button>
                   </div>
                 </li>
@@ -548,7 +570,7 @@ function MomentRow({
         onClick={() => onPlay(shownStart, shownEnd)}
         title="Play in the session"
       >
-        {ann.validated ? "✓ " : ""}
+        {ann.validated && <Check className="size-3.5" />}
         {fmtTime(shownStart)} – {fmtTime(shownEnd)}
       </Button>
       {!ann.validated && (
@@ -559,7 +581,13 @@ function MomentRow({
           onClick={() => onValidate(ann.id)}
           title="Extract a standalone clip of this timespan"
         >
-          {validating === ann.id ? "Extracting…" : "✓ Validate"}
+          {validating === ann.id ? (
+            "Extracting…"
+          ) : (
+            <>
+              <Check className="size-4" /> Validate
+            </>
+          )}
         </Button>
       )}
       {!isEditing && (
@@ -569,11 +597,11 @@ function MomentRow({
           onClick={onBeginEdit}
           title="Adjust this moment's time range"
         >
-          ↔ Adjust range
+          <MoveHorizontal className="size-4" /> Adjust range
         </Button>
       )}
       <Button variant="outline" size="sm" onClick={() => onDelete(ann.id)}>
-        🗑
+        <Trash2 className="size-4" />
       </Button>
 
       {isEditing && (
@@ -605,7 +633,7 @@ function MomentRow({
           </div>
           <div className="row">
             <Button size="sm" onClick={onApplyEdit}>
-              ✓ Apply &amp; re-extract
+              <Check className="size-4" /> Apply &amp; re-extract
             </Button>
             <Button variant="outline" size="sm" onClick={onCancelEdit}>
               Cancel
@@ -665,7 +693,7 @@ function MarkerRow({ marker, onSeek, onUpdate, onDelete }: MarkerRowProps) {
         onClick={() => onSeek(marker.atSec)}
         title="Jump to this marker"
       >
-        🚩 {fmtTime(marker.atSec)}
+        <Flag className="size-4" /> {fmtTime(marker.atSec)}
       </Button>
       <Input
         value={comment}
@@ -677,7 +705,7 @@ function MarkerRow({ marker, onSeek, onUpdate, onDelete }: MarkerRowProps) {
         }}
       />
       <Button variant="outline" size="sm" onClick={() => onDelete(marker.id)}>
-        🗑
+        <Trash2 className="size-4" />
       </Button>
     </li>
   );

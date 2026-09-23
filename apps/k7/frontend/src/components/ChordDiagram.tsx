@@ -1,5 +1,6 @@
 import { Button } from "@frediverse/ui/button";
 import ChordImport from "@tombatossals/react-chords/lib/Chord";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { GUITAR, getChordPositions } from "../utils/chordDiagram";
 
@@ -44,7 +45,7 @@ export function ChordDiagram({ symbol }: Props) {
             }
             aria-label="Previous fingering"
           >
-            ‹
+            <ChevronLeft className="size-4" />
           </Button>
           <span className="chord-pager-count">
             {idx + 1}/{positions.length}
@@ -55,7 +56,7 @@ export function ChordDiagram({ symbol }: Props) {
             onClick={() => setI((n) => (n + 1) % positions.length)}
             aria-label="Next fingering"
           >
-            ›
+            <ChevronRight className="size-4" />
           </Button>
         </div>
       )}

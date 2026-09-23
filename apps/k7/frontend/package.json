@@ -25,6 +25,7 @@
     "@tombatossals/react-chords": "^0.2.10",
     "epub-gen-memory": "^1.1.2",
     "fflate": "^0.8.3",
+    "lucide-react": "^1.24.0",
     "pdf-lib": "^1.17.1",
     "pitchy": "^4.1.0",
     "react": "^19.2.7",

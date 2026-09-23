@@ -11,6 +11,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
+import {
+  BookOpen,
+  Disc3,
+  type LucideIcon,
+  Mic,
+  MicOff,
+  Settings,
+  Star,
+  Target,
+} from "lucide-react";
 import { useState } from "react";
 import type { NavKey, Song } from "../types";
 
@@ -28,11 +38,11 @@ interface Props {
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
 /** The sections, and they are ENTRIES rather than controls — ../../../docs/header.md. */
-const NAV_ITEMS: { key: NavKey; label: string; icon: string }[] = [
-  { key: "recordings", label: "Recordings", icon: "🎙" },
-  { key: "publications", label: "Publications", icon: "💿" },
-  { key: "songbook", label: "Songbook", icon: "📖" },
-  { key: "exercices", label: "Exercices", icon: "🎯" },
+const NAV_ITEMS: { key: NavKey; label: string; icon: LucideIcon }[] = [
+  { key: "recordings", label: "Recordings", icon: Mic },
+  { key: "publications", label: "Publications", icon: Disc3 },
+  { key: "songbook", label: "Songbook", icon: BookOpen },
+  { key: "exercices", label: "Exercices", icon: Target },
 ];
 
 export function HeaderView({
@@ -59,12 +69,14 @@ export function HeaderView({
     }
   };
 
-  const items: AppHeaderItem[] = NAV_ITEMS.map(({ key, label, icon }) => ({
-    label,
-    icon: <span className="nav-icon">{icon}</span>,
-    active: activeNav === key,
-    onClick: () => onNav(key),
-  }));
+  const items: AppHeaderItem[] = NAV_ITEMS.map(
+    ({ key, label, icon: Icon }) => ({
+      label,
+      icon: <Icon className="size-4" />,
+      active: activeNav === key,
+      onClick: () => onNav(key),
+    }),
+  );
 
   return (
     <AppHeader
@@ -96,7 +108,7 @@ export function HeaderView({
                   title="Favorites"
                   aria-label="Favorites"
                 >
-                  <span className="nav-icon">★</span>
+                  <Star className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="max-w-64">
@@ -126,8 +138,7 @@ export function HeaderView({
             title="Settings"
             aria-label="Settings"
           >
-            {/* U+FE0F: bare ⚙ renders as a small text glyph beside the emoji icons. */}
-            <span className="nav-icon">⚙️</span>
+            <Settings className="size-4" />
           </Button>
 
           {/* The one thing this bar DOES rather than opens, so its error hangs off the button that failed. */}
@@ -146,7 +157,9 @@ export function HeaderView({
               />
             </Button>
             {sessionError && (
-              <p className="error topbar-error">🎤 {sessionError}</p>
+              <p className="error topbar-error">
+                <MicOff className="inline size-3.5" /> {sessionError}
+              </p>
             )}
           </div>
         </>

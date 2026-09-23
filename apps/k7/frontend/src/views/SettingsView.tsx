@@ -1,5 +1,6 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
+import { ArrowLeft, Check } from "lucide-react";
 import { useState } from "react";
 import { api } from "../api";
 import { SupernoteSettings } from "../components/SupernoteSettings";
@@ -40,7 +41,7 @@ export function SettingsView({ user, onLogout, onBack }: Props) {
   return (
     <div className="settings">
       <Button variant="link" className="text-xs" onClick={onBack}>
-        ← Back
+        <ArrowLeft className="size-3.5" /> Back
       </Button>
 
       <h2>Settings</h2>
@@ -76,7 +77,13 @@ export function SettingsView({ user, onLogout, onBack }: Props) {
             />
             <div className="row" style={{ marginTop: 8 }}>
               <Button variant="outline" size="sm" onClick={copy}>
-                {copied ? "Copied ✓" : "Copy"}
+                {copied ? (
+                  <>
+                    Copied <Check className="size-4" />
+                  </>
+                ) : (
+                  "Copy"
+                )}
               </Button>
               <Button variant="outline" size="sm" onClick={generate}>
                 Regenerate

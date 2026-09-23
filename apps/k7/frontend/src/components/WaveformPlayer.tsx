@@ -7,6 +7,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Waveform } from "@k7/recorder";
+import { Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { SongEnvelope } from "../types";
 
@@ -141,9 +142,13 @@ export function WaveformPlayer({ src, shapeOf }: Props) {
             <span className="spinner" aria-hidden="true" /> Loading…
           </>
         ) : running ? (
-          "⏸ Pause"
+          <>
+            <Pause className="size-4" /> Pause
+          </>
         ) : (
-          "▶ Play"
+          <>
+            <Play className="size-4" /> Play
+          </>
         )}
       </Button>
     </div>

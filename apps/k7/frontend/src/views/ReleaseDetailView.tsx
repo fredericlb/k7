@@ -2,6 +2,7 @@ import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { Input } from "@frediverse/ui/input";
+import { Download, Pencil, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { ReleaseEditForm } from "../components/ReleaseEditForm";
 import { SwitchField } from "../components/SwitchField";
@@ -132,19 +133,23 @@ export function ReleaseDetailView({
 
           <div className="row" style={{ marginTop: 8 }}>
             <Badge variant={release.canDownload ? "amber" : "default"}>
-              {release.canDownload
-                ? "⬇ downloadable by users"
-                : "download disabled"}
+              {release.canDownload ? (
+                <>
+                  <Download className="size-3" /> downloadable by users
+                </>
+              ) : (
+                "download disabled"
+              )}
             </Badge>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setEditing(true)}
             >
-              ✎ Edit
+              <Pencil className="size-4" /> Edit
             </Button>
             <Button variant="outline" size="sm" onClick={remove}>
-              🗑 Delete release
+              <Trash2 className="size-4" /> Delete release
             </Button>
           </div>
         </>

@@ -1,5 +1,6 @@
 import { Button } from "@frediverse/ui/button";
 import { acquireMicrophone, describeMicError } from "@k7/recorder";
+import { ArrowLeft, Mic, MicOff, Square } from "lucide-react";
 import { PitchDetector } from "pitchy";
 import { useEffect, useRef, useState } from "react";
 import { freqToNote, GUITAR_STRINGS, nearestString } from "../utils/pitch";
@@ -92,7 +93,7 @@ export function GuitarTuner({ onBack }: Props) {
   return (
     <div className="exercise tuner">
       <Button variant="outline" size="sm" onClick={onBack}>
-        ← Exercices
+        <ArrowLeft className="size-4" /> Exercices
       </Button>
       <h2>Guitar tuner</h2>
       <p className="muted small">
@@ -100,11 +101,17 @@ export function GuitarTuner({ onBack }: Props) {
         needle centers. Standard tuning: E A D G B E.
       </p>
 
-      {error && <p className="error">🎤 {error}</p>}
+      {error && (
+        <p className="error">
+          <MicOff className="size-3.5" /> {error}
+        </p>
+      )}
 
       {!running ? (
         <div className="row" style={{ marginTop: 12 }}>
-          <Button onClick={start}>🎤 Start tuning</Button>
+          <Button onClick={start}>
+            <Mic className="size-4" /> Start tuning
+          </Button>
         </div>
       ) : (
         <>
@@ -165,7 +172,7 @@ export function GuitarTuner({ onBack }: Props) {
 
           <div className="row" style={{ marginTop: 12 }}>
             <Button variant="outline" onClick={stop}>
-              ■ Stop
+              <Square className="size-4" /> Stop
             </Button>
           </div>
         </>

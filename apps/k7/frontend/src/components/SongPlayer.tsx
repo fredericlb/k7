@@ -10,6 +10,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Switch } from "@frediverse/ui/switch";
 import { Waveform } from "@k7/recorder";
+import { Headphones, Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { usePitchShift } from "../hooks/usePitchShift";
@@ -161,7 +162,15 @@ export function SongPlayer({
         onClick={toggle}
         aria-pressed={running}
       >
-        {running ? "⏸ Pause" : "▶ Play"}
+        {running ? (
+          <>
+            <Pause className="size-4" /> Pause
+          </>
+        ) : (
+          <>
+            <Play className="size-4" /> Play
+          </>
+        )}
       </Button>
 
       <div className="song-player-row">
@@ -192,7 +201,8 @@ export function SongPlayer({
         onClick={onToggle}
         aria-expanded={open}
       >
-        🎧 <span className="rail-panel-word">Player</span>
+        <Headphones className="size-4" />
+        <span className="rail-panel-word">Player</span>
       </button>
       {/* Hidden, never unmounted: unmounting would stop the track and strand the lyrics. */}
       <div hidden={!open}>{body}</div>

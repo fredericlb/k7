@@ -1,3 +1,4 @@
+import { Guitar } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { ChordDiagram } from "./ChordDiagram";
 
@@ -31,7 +32,8 @@ export function ChordsPanel({ chords, selected, open, onToggle }: Props) {
         onClick={onToggle}
         aria-expanded={open}
       >
-        🎸 <span className="rail-panel-word">Chords</span>
+        <Guitar className="size-4" />
+        <span className="rail-panel-word">Chords</span>
       </button>
       {open && (
         <div className="chords-panel-list" ref={listRef}>

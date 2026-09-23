@@ -4,6 +4,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { useMetronome } from "@k7/recorder";
+import { Minus, Music2, Play, Plus, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const MIN = 40;
@@ -43,7 +44,7 @@ export function MetronomeWidget({ open, onToggle }: Props) {
         onClick={onToggle}
         aria-expanded={open}
       >
-        ♩
+        <Music2 className="size-4" />
         {/* The dot beats in the toggle, so a FOLDED panel still says the click is running. */}
         <span
           className={`metro-dot${running ? " beating" : ""}`}
@@ -62,7 +63,7 @@ export function MetronomeWidget({ open, onToggle }: Props) {
               onClick={() => setBpm((b) => clamp(b - 1))}
               aria-label="Slower"
             >
-              −
+              <Minus className="size-4" />
             </Button>
             <div className="metro-bpm">
               <span className="metro-bpm-val">{bpm}</span>
@@ -74,7 +75,7 @@ export function MetronomeWidget({ open, onToggle }: Props) {
               onClick={() => setBpm((b) => clamp(b + 1))}
               aria-label="Faster"
             >
-              +
+              <Plus className="size-4" />
             </Button>
           </div>
 
@@ -89,7 +90,15 @@ export function MetronomeWidget({ open, onToggle }: Props) {
           />
 
           <Button className="metro-toggle" onClick={toggle}>
-            {running ? "⏹ Stop" : "▶ Start"}
+            {running ? (
+              <>
+                <Square className="size-4" /> Stop
+              </>
+            ) : (
+              <>
+                <Play className="size-4" /> Start
+              </>
+            )}
           </Button>
         </div>
       )}

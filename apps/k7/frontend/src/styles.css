@@ -145,9 +145,11 @@ h3 {
 
 /* Icon + label pairing used by every header entry. The label is hidden on
    small screens, leaving the icon. */
-.nav-icon {
-  font-size: 15px;
-  line-height: 1;
+/* Lucide icons sit on the text line where their parent is not a flex box. */
+svg.lucide {
+  display: inline-block;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
 }
 .nav-label {
   white-space: nowrap;
@@ -1338,6 +1340,9 @@ select {
   border-radius: 10px 0 0 10px;
   text-align: left;
 }
+.rail-panel-toggle svg.lucide {
+  margin-right: 6px;
+}
 .chords-panel-list {
   overflow: auto;
   padding: 8px;
@@ -1581,9 +1586,6 @@ select {
     padding: 8px;
     gap: 0;
   }
-  .nav-icon {
-    font-size: 17px;
-  }
   .main {
     /* Room for the panel bar, which is fixed over the foot of the page. */
     padding: 20px 20px 96px;
@@ -1621,6 +1623,11 @@ select {
   /* On a bar the glyph IS the label; the word is what the desktop rail has room for. */
   .rail-panel-word {
     display: none;
+  }
+  .rail-panel-toggle svg.lucide {
+    width: 18px;
+    height: 18px;
+    margin-right: 0;
   }
   /* An opened panel rises ABOVE the bar rather than pushing it off the screen. */
   .rail-panel-body,

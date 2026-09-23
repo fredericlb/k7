@@ -4,6 +4,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { formatTranspose } from "@k7/score";
+import { Minus, Plus, SlidersHorizontal } from "lucide-react";
 
 interface Props {
   transpose: number;
@@ -26,7 +27,8 @@ export function OptionsPanel({
         onClick={onToggle}
         aria-expanded={open}
       >
-        ⚙ <span className="rail-panel-word">Options</span>
+        <SlidersHorizontal className="size-4" />
+        <span className="rail-panel-word">Options</span>
       </button>
       {open && (
         <div className="rail-panel-body">
@@ -38,7 +40,7 @@ export function OptionsPanel({
               onClick={() => onTranspose((t) => t - 1)}
               title="Down a semitone"
             >
-              −
+              <Minus className="size-4" />
             </Button>
             <span className="cs-transpose-val">
               {formatTranspose(transpose)}
@@ -49,7 +51,7 @@ export function OptionsPanel({
               onClick={() => onTranspose((t) => t + 1)}
               title="Up a semitone"
             >
-              +
+              <Plus className="size-4" />
             </Button>
             {transpose !== 0 && (
               <Button

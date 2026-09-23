@@ -2,6 +2,15 @@ import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Input } from "@frediverse/ui/input";
 import { Waveform } from "@k7/recorder";
+import {
+  ArrowLeft,
+  Check,
+  CornerUpLeft,
+  Flag,
+  Pause,
+  Play,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { fmtDate, fmtTime, sessionTitle } from "../format";
 import type { Marker, Moment } from "../types";
@@ -72,11 +81,11 @@ export function MomentDetailView({
   return (
     <div className="moment-detail">
       <Button variant="link" className="text-xs" onClick={onBack}>
-        ← All moments
+        <ArrowLeft className="size-3.5" /> All moments
       </Button>
 
       <h2 style={{ marginTop: 8 }}>
-        {moment.validated ? "✓ " : ""}
+        {moment.validated && <Check className="size-5" />}
         {title}
       </h2>
       <p className="muted">
@@ -131,7 +140,15 @@ export function MomentDetailView({
 
           <div className="row playback-controls">
             <Button onClick={togglePlay}>
-              {playing ? "⏸ Pause" : "▶ Play"}
+              {playing ? (
+                <>
+                  <Pause className="size-4" /> Pause
+                </>
+              ) : (
+                <>
+                  <Play className="size-4" /> Play
+                </>
+              )}
             </Button>
             <span className="muted small tabular">
               {fmtTime(currentTime)} / {fmtTime(clipDuration)}
@@ -141,7 +158,7 @@ export function MomentDetailView({
               onClick={() => onAddMarker(currentTime)}
               title="Drop a marker at the current position"
             >
-              🚩 Add marker
+              <Flag className="size-4" /> Add marker
             </Button>
           </div>
         </>
@@ -171,7 +188,8 @@ export function MomentDetailView({
       <div className="row" style={{ marginTop: 12 }}>
         {onOpenSession ? (
           <Button variant="outline" onClick={onOpenSession}>
-            ↩ Open in session at {fmtTime(moment.startSec)}
+            <CornerUpLeft className="size-4" /> Open in session at{" "}
+            {fmtTime(moment.startSec)}
             {moment.sessionCreatedAt
               ? ` · ${sessionTitle(moment.sessionCreatedAt)}`
               : ""}
@@ -182,7 +200,7 @@ export function MomentDetailView({
           </span>
         )}
         <Button variant="outline" size="sm" onClick={remove}>
-          🗑 Delete moment
+          <Trash2 className="size-4" /> Delete moment
         </Button>
       </div>
 
@@ -222,7 +240,7 @@ function MomentMarkerRow({
         onClick={() => onSeek(marker.atSec)}
         title="Jump to this marker"
       >
-        🚩 {fmtTime(marker.atSec)}
+        <Flag className="size-4" /> {fmtTime(marker.atSec)}
       </Button>
       <Input
         value={comment}
@@ -234,7 +252,7 @@ function MomentMarkerRow({
         }}
       />
       <Button variant="outline" size="sm" onClick={() => onDelete(marker.id)}>
-        🗑
+        <Trash2 className="size-4" />
       </Button>
     </li>
   );
