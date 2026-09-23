@@ -328,3 +328,34 @@ describe("the engine claim", () => {
     ).toBe(g.secret);
   });
 });
+
+describe("the performance rating", () => {
+  it("is listed as the heartbeat carried it, and absent when it carried none", () => {
+    const reg = createRegistry();
+    const performance = {
+      score: 1240,
+      cores: 8,
+      singleThread: 70,
+      diskWriteMBps: 900,
+      fsyncPerSec: null,
+      memoryGB: 16,
+    };
+    reg.upsert({
+      id: "rated",
+      token: "t",
+      hostname: "rated",
+      machineFingerprint: "fp",
+      addresses: {
+        loopback: "127.0.0.1",
+        lanIps: [],
+        port: 8765,
+        filePort: 8770,
+      },
+      performance,
+    });
+    beat(reg, "older");
+    const byId = new Map(reg.list().map((e) => [e.id, e]));
+    expect(byId.get("rated")?.performance).toEqual(performance);
+    expect(byId.get("older")?.performance).toBeUndefined();
+  });
+});

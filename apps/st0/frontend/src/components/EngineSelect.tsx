@@ -6,6 +6,10 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Loader2, RefreshCw, Server } from "@frediverse/ui/icons";
+import {
+  describePerformance,
+  formatPerformance,
+} from "@studio/web-protocol/performance";
 import type { EngineQuality } from "@studio/web-protocol/quality";
 import { formatLatency } from "@studio/web-protocol/quality";
 import { m } from "../paraglide/messages.js";
@@ -91,6 +95,14 @@ export function EngineSelect({
                       ) : (
                         <Badge variant="amber">
                           {m["engines.unreachable"]()}
+                        </Badge>
+                      )}
+                      {r.engine.performance && (
+                        <Badge
+                          variant="default"
+                          title={describePerformance(r.engine.performance)}
+                        >
+                          {formatPerformance(r.engine.performance)}
                         </Badge>
                       )}
                       {r.engine.assigned && (

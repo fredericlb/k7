@@ -18,6 +18,16 @@ const addressesSchema = z.object({
   filePort: z.number().int().min(1).max(65535),
 });
 
+// Bounded, because the heartbeat is open: a rating is a hint for a picker, never a number to trust blindly.
+const performanceSchema = z.object({
+  score: z.number().int().min(0).max(1_000_000),
+  cores: z.number().int().min(1).max(4096),
+  singleThread: z.number().min(0).max(1_000_000),
+  diskWriteMBps: z.number().min(0).max(1_000_000).nullable(),
+  fsyncPerSec: z.number().min(0).max(10_000_000).nullable(),
+  memoryGB: z.number().min(0).max(1_000_000),
+});
+
 // No top-level `port`: the one that matters is addresses.port, and zod strips unknown keys, so a sender may still send it.
 const heartbeatBody = z.object({
   id: z.string().min(1),
@@ -25,6 +35,7 @@ const heartbeatBody = z.object({
   hostname: z.string(),
   machineFingerprint: z.string(),
   addresses: addressesSchema,
+  performance: performanceSchema.optional(),
 });
 
 const deregisterBody = z.object({
@@ -70,6 +81,7 @@ export function engineRegistryRouter(reg: EngineRegistry): Router {
         hostname: b.hostname,
         machineFingerprint: b.machineFingerprint,
         addresses: b.addresses,
+        performance: b.performance,
         publicIpHint: req.ip,
       });
       if (!ok) return res.status(409).json({ error: "id/token mismatch" });
