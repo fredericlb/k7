@@ -881,11 +881,18 @@ select {
 .page-release .version-head {
   margin-bottom: 20px;
 }
+/* The version picker stands as tall as the small buttons beside it (28px), not as a form field. */
+.page-release .version-head select {
+  height: 28px;
+  padding: 0 10px;
+}
 /* A link dressed as a small outline button: a plain <a download> needs no fetch and no blob. */
 .download-link {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.875rem;

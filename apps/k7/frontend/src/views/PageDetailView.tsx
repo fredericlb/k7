@@ -159,23 +159,31 @@ export function PageDetailView({
                     </option>
                   ))}
               </select>
-              {r.canDownload && played && (
-                <a
-                  className="download-link"
-                  href={versionDownloadUrl(r.id, played.id)}
-                  download
-                  title={`Download ${played.name}`}
-                >
-                  <Download className="size-4" /> Download
-                </a>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onRemoveRelease(r.id)}
-              >
-                Remove
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="ds-button"
+                    title={`${r.title} menu`}
+                    aria-label={`${r.title} menu`}
+                  >
+                    <EllipsisVertical className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {r.canDownload && played && (
+                    <DropdownMenuItem asChild>
+                      <a href={versionDownloadUrl(r.id, played.id)} download>
+                        <Download className="size-4" /> Download {played.name}
+                      </a>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onSelect={() => void onRemoveRelease(r.id)}>
+                    Remove from page
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             {played && (
               <WaveformPlayer
