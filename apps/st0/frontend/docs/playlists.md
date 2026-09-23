@@ -211,8 +211,8 @@ works on stays visible below.
 
 - **The chain is not asked for here.** It is DISPLAYED — the bar shows the one that will run and no
   more. Which module separates and which model it wants is a single answer for the machine: given
-  once in settings, under I/O, living in `<state>/preferences.yaml` (`system stems`). That tab holds
-  two such answers — the second is the chain that gives a record WITHOUT its voice, `system
+  once in st0's global settings, *Separation chains*, living in `<state>/preferences.yaml`
+  (`system stems`) — see [settings.md](settings.md). That section holds two such answers — the second is the chain that gives a record WITHOUT its voice, `system
   instrumental`, which k7 asks for and which no screen here starts. A picker here
   would ask the same person the same question on every set list, and three screens that ask it are
   three places to get it wrong. The preference is re-read every time the bar opens, because settings

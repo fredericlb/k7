@@ -15,6 +15,7 @@ import {
   type MachineWorkspace,
   type MachineWorkspaceList,
   type RepoProject,
+  type ColdChainsReply,
   type RepoRef,
   type ServedProject,
   type ServedProjectReply,
@@ -186,6 +187,30 @@ export const engineMachine = {
     );
     return libraries;
   },
+
+  /** Which COLD chains of the library this machine separates and makes instrumentals with, and the ones it could — machine settings, no project open. */
+  coldChains: async (m: Machine): Promise<ColdChainsReply> =>
+    json(
+      await fetch(`${m.fileBase}/account/cold-chains`, {
+        headers: machineHeaders(m),
+      }),
+      "cold-chains",
+    ),
+
+  /** Choose one — `""` clears it. The far side refuses a chain that is not cold, or writes no instrumental when that is asked. */
+  setColdChain: async (
+    m: Machine,
+    which: "stems" | "instrumental",
+    ref: string,
+  ): Promise<ColdChainsReply> =>
+    json(
+      await fetch(`${m.fileBase}/account/cold-chains/${which}`, {
+        method: "PUT",
+        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ ref }),
+      }),
+      "cold-chains",
+    ),
 
   /** The deploy key, MADE on this machine and never leaving it: one per machine, not one per account. */
   sshKey: async (m: Machine): Promise<SshKeyInfo> =>

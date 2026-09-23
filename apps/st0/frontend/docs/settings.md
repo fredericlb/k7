@@ -80,7 +80,7 @@ in, not a sentence. The same rule covers text a package writes into a FILE — t
 `SURFACE_MAPPING_SKELETON` notes that end up as comments in `surfaces/<id>.yaml` are English
 because the file is read where the code is.
 
-## The other section, and it is the deploy key
+## The deploy key
 
 `SyncSection.tsx`. The key is what lets a repository be cloned or pushed at all, and nothing on
 the home page works without it.
@@ -92,6 +92,27 @@ offering a Generate button that would write nowhere.
 
 The key is shown outside its row, in a block of its own: a `Row` truncates its label, and a
 public key you can only see the start of is one you cannot check against what you pasted.
+
+## Separation chains — the machine's, not a project's
+
+`ChainsSection.tsx`. WHICH chain separates a record into stems, and which one gives it without its
+voice (k7's « Make instrumental »). They were a section of the editor's I/O tab, which made them look
+like a fact about the open project; they are not. Which module separates and which model it wants is
+the same for every set list on this machine — `<state>/preferences.yaml` has always held them — so
+they are set here, with no project open, and every surface that starts a separation only reads them.
+
+**Only the library's COLD chains are offered** — a chain whose steps are all offline modules, the
+only kind that can separate (`packages/song/docs/coldModules.md`). The file service lists them
+(`GET /account/cold-chains`), judging each exactly as `resolveChain` would against the bench's clone
+of the library, so nothing offered is then refused: a chain with a step this machine cannot load,
+or one that both separates and processes, is left out. The instrumental picker narrows further, to
+the chains whose offline step declares an `instrumental` output.
+
+Choosing writes through `PUT /account/cold-chains/stems|instrumental`, which checks the same list
+again — the browser's copy is a menu, not the gate — and answers the new state, so a refused pick
+snaps back. The empty option clears it: "this machine does not do that" is a real answer. A stored
+chain the library no longer holds still shows, so a renamed chain does not read as "nothing is set".
+`system stems` and `system instrumental` still set the same two answers from the command bar.
 
 ## Why the sections that were here are gone
 

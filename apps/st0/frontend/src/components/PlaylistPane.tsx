@@ -637,7 +637,7 @@ function StemsBar({
     <div className="flex shrink-0 flex-col gap-2 border-b bg-muted/30 px-3 py-2">
       <div className="flex items-center gap-2">
         <Split className="h-4 w-4 shrink-0 text-muted-foreground" />
-        {/* WHICH chain separates is one answer for the machine, set once by `system stems` and only shown here (docs/playlists.md). */}
+        {/* WHICH chain separates is one answer for the machine, set in st0's settings (or `system stems`) and only shown here (docs/playlists.md). */}
         <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
           {chain === undefined ? "…" : (chain ?? m["clip.noChain"]())}
         </span>

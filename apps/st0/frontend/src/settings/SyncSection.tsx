@@ -4,9 +4,9 @@
 // See packages/git-repos/docs/keys.md and ../../docs/settings.md.
 
 import { TriangleAlert } from "@frediverse/ui/icons";
-import { useCallback, useEffect, useState } from "react";
-import { api, engines } from "../api";
+import { useEffect, useState } from "react";
 import { engineMachine, type Machine } from "../projects/api";
+import { probeMachine } from "./machine";
 import { Action, Row, Section } from "./Section";
 
 export function SyncSection() {
@@ -17,21 +17,8 @@ export function SyncSection() {
   const [error, setError] = useState<string | null>(null);
 
   // The same probe the home page runs: this screen reads a machine's disk, not an account's record.
-  const probe = useCallback(async (): Promise<Machine | null> => {
-    try {
-      const me = await api.getMe().catch(() => null);
-      const userEmail = me?.email || me?.sub || "unknown";
-      const { chosen } = await engines.find();
-      return chosen?.fileBase && chosen.token
-        ? { fileBase: chosen.fileBase, token: chosen.token, userEmail }
-        : null;
-    } catch {
-      return null;
-    }
-  }, []);
-
   useEffect(() => {
-    void probe().then((m) => {
+    void probeMachine().then((m) => {
       setMachine(m);
       if (!m) return;
       void engineMachine
@@ -39,7 +26,7 @@ export function SyncSection() {
         .then((r) => setKey(r.publicKey))
         .catch((e: Error) => setError(e.message));
     });
-  }, [probe]);
+  }, []);
 
   const generate = () => {
     if (!machine) return;

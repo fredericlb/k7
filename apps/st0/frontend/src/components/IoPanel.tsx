@@ -7,21 +7,13 @@
 // engine-side (EngineHost::channelLevelsDb), so it is polled by request and only while this is
 // on screen. Nothing pays for it once the panel closes.
 
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  MicOff,
-  Split,
-} from "@frediverse/ui/icons";
+import { ArrowDownToLine, ArrowUpFromLine } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { EngineClient } from "@studio/engine-browser";
 import { INPUT_VU_MAX_DB, INPUT_VU_MIN_DB } from "@studio/engine-browser/store";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
-import { parts } from "../i18nParts";
-import { m } from "../paraglide/messages.js";
 import type { IoPort } from "../types";
-import { ChainSetting } from "./ChainSetting";
 
 const POLL_MS = 100; // ~10 Hz: a meter reads as live, and each frame enables devices engine-side
 
@@ -182,13 +174,10 @@ function PortRow({
 }
 
 export function IoPanel({
-  engine,
-  onRun,
-}: {
   /** Null when the engine is not connected: the list still shows, the meters stay dark. */
+  engine,
+}: {
   engine: EngineClient | null;
-  /** For the chain sections at the bottom, which write their preference through a command. */
-  onRun: (line: string) => Promise<void>;
 }) {
   const [ports, setPorts] = useState<IoPort[] | null>(null);
   const [levels, setLevels] = useState<{
@@ -210,11 +199,6 @@ export function IoPanel({
   }, []);
 
   // Escape belongs to the PANEL, which closes whichever tab is showing — two listeners for one key would close it twice.
-
-  // One sentence for both sections: what either is missing is a library with no chain in it at all.
-  const noChains = parts((h) => m["stems.noChains"](h), {
-    dir: <span className="font-mono">chains/</span>,
-  });
 
   const inputs = useMemo(
     () => (ports ?? []).filter((p) => p.dir === "in"),
@@ -297,29 +281,6 @@ export function IoPanel({
               outputs,
               () => norm(levels.master),
             )}
-            {/* Not ports, and here anyway: which chains this MACHINE cuts with are the same standing answers as which interface it opens. */}
-            <ChainSetting
-              icon={Split}
-              title={m["stems.title"]()}
-              label={m["stems.selectLabel"]()}
-              none={m["stems.none"]()}
-              body={m["stems.body"]()}
-              noChains={noChains}
-              verb="system stems"
-              pick={(p) => p.stemsChain}
-              onRun={onRun}
-            />
-            <ChainSetting
-              icon={MicOff}
-              title={m["instrumental.title"]()}
-              label={m["instrumental.selectLabel"]()}
-              none={m["instrumental.none"]()}
-              body={m["instrumental.body"]()}
-              noChains={noChains}
-              verb="system instrumental"
-              pick={(p) => p.instrumentalChain}
-              onRun={onRun}
-            />
           </>
         )}
       </div>

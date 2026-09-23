@@ -22,6 +22,7 @@ import { parse as parseYaml } from "yaml";
 import {
   bounceDoc,
   chainNames,
+  coldChains,
   processWithChain,
   renderPath,
   repointClips,
@@ -295,6 +296,62 @@ describe("a chain that separates", () => {
     expect(r.lines.join("\n")).toMatch(/stems\/vocals\.wav/);
     // No render, so nothing about the engine binary: the cold branch is BEFORE that check.
     expect(r.lines.join("\n")).not.toMatch(/st0-engine/);
+  });
+
+  // What st0's settings offer for `system stems` / `system instrumental` — docs/processChain.md.
+  describe("the library's cold chains", () => {
+    it("lists a chain that separates, and not one that only processes", () => {
+      stemChain();
+      // `live/vocal-strip` is the fixture's EQ chain: it treats, so it could never separate.
+      expect(coldChains(dir)).toEqual([
+        { ref: "@st0/tools/stems", instrumental: false },
+      ]);
+    });
+
+    it("leaves out what resolveChain would refuse", () => {
+      stemChain({ withEq: true });
+      expect(coldChains(dir)).toEqual([]);
+      stemChain({ model: false });
+      rmSync(join(library, "chains/tools/stems/nodes/air.yaml"));
+      put(
+        library,
+        "chains/tools/stems/graph.yaml",
+        'modules:\n  "@in": [ split ]\n  split: [ "@out" ]\n',
+      );
+      rmSync(join(library, "modules/audio/stemsplit/assets"), {
+        recursive: true,
+        force: true,
+      });
+      expect(coldChains(dir)).toEqual([]);
+    });
+
+    it("marks the one whose step writes an instrumental", () => {
+      stemChain();
+      put(
+        library,
+        "modules/audio/vocalless/module.yaml",
+        "cold: true\nplugin: { type: offline, name: Stem Split }\nparams:\n  onnx: htdemucs.onnx\noutputs:\n  - { name: instrumental, type: audio }\n",
+      );
+      put(
+        library,
+        "modules/audio/vocalless/assets/htdemucs.onnx",
+        "not a model",
+      );
+      put(
+        library,
+        "chains/tools/karaoke/graph.yaml",
+        'modules:\n  "@in": [ cut ]\n  cut: [ "@out" ]\n',
+      );
+      put(
+        library,
+        "chains/tools/karaoke/nodes/cut.yaml",
+        'extends: "@st0/audio/vocalless"\n',
+      );
+      expect(coldChains(dir)).toEqual([
+        { ref: "@st0/tools/karaoke", instrumental: true },
+        { ref: "@st0/tools/stems", instrumental: false },
+      ]);
+    });
   });
 
   it("refuses when the host cannot run an offline step, and writes nothing", async () => {

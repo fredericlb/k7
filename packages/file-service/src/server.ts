@@ -6,7 +6,9 @@ import { isSshGitUri, repoName } from "@studio/git-repos/uri";
 
 import { timingSafeEqual } from "node:crypto";
 import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
+import { coldChains } from "@studio/audio-passes/processChain";
 import {
   scannedPluginNames,
   scannedPlugins,
@@ -15,21 +17,27 @@ import { ensureLayout } from "@studio/mediatek/layout";
 import { configureMpv } from "@studio/mpv-player/player";
 import { createPlayerRouter } from "@studio/mpv-player/router";
 import { mediatekRoot } from "@studio/song/mediatekRoot";
+import {
+  loadPreferences,
+  setInstrumentalChain,
+  setStemsChain,
+} from "@studio/song/preferences";
 // st0's plugin contributions — commands and surface types — before anything reads a catalogue
 // or compiles a song. The LIST is the plugins package's; this process only calls the install.
 import { installBuiltinPlugins } from "@studio/st0-plugins/server";
 import type {
+  ColdChainsReply,
   MachineWorkspaceList,
   ServedProjectReply,
   SurfacedProjectList,
   WorkspaceList,
 } from "@studio/web-protocol";
-import { isBenchProject } from "@studio/web-protocol/projects";
+import { BENCH_PROJECT, isBenchProject } from "@studio/web-protocol/projects";
 import cors from "cors";
 import express, { type Response } from "express";
 import { z } from "zod";
 import { installProcessNet } from "./background.ts";
-import { ensureBench, ensureBenchLibraries } from "./bench.ts";
+import { BENCH_WORKSPACE, ensureBench, ensureBenchLibraries } from "./bench.ts";
 import { cloneJob, startClone } from "./cloneJobs.ts";
 import {
   engineTokenState,
@@ -494,6 +502,58 @@ app.put(
     }
     setLibrariesUri(uri);
     res.json({ libraries: { uri, name: repoName(uri) } });
+  }),
+);
+
+/**
+ * WHICH chains this machine separates a record with and makes an instrumental with — standing
+ * answers for the machine, so they are st0's GLOBAL settings and answered before
+ * `resolveWorkspace`, like the library: no project is open when they are set. The choice is from
+ * the library's COLD chains, judged against the bench's clone of it (`coldChains`). See
+ * docs/libraries.md.
+ */
+const coldChainsView = (): ColdChainsReply => {
+  const prefs = loadPreferences();
+  return {
+    // No library, no chains — and no clone to read, which is the ordinary state of a new machine.
+    chains: librariesUri()
+      ? coldChains(join(workspaceRoot(BENCH_WORKSPACE), BENCH_PROJECT))
+      : [],
+    stemsChain: prefs.stemsChain ?? null,
+    instrumentalChain: prefs.instrumentalChain ?? null,
+  };
+};
+
+app.get(
+  "/account/cold-chains",
+  wrap((_req, res) => {
+    res.json(coldChainsView());
+  }),
+);
+
+app.put(
+  "/account/cold-chains/:which",
+  wrap((req, res) => {
+    const which = req.params.which;
+    if (which !== "stems" && which !== "instrumental")
+      return res.status(404).json({ error: `no '${which}' chain setting` });
+    const ref = String((req.body as { ref?: unknown })?.ref ?? "").trim();
+    // Empty CLEARS it — "this machine does not do that" is a real answer, not a missing one.
+    if (ref) {
+      const chain = coldChainsView().chains.find((c) => c.ref === ref);
+      if (!chain)
+        return res
+          .status(400)
+          .json({ error: `'${ref}' is not a cold chain of the library` });
+      // Stricter for the instrumental, as `system instrumental` is: four stems is not one.
+      if (which === "instrumental" && !chain.instrumental)
+        return res
+          .status(400)
+          .json({ error: `'${ref}' writes no instrumental` });
+    }
+    if (which === "stems") setStemsChain(ref);
+    else setInstrumentalChain(ref);
+    res.json(coldChainsView());
   }),
 );
 

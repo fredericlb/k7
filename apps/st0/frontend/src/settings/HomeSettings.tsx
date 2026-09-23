@@ -7,6 +7,7 @@ import { Button } from "@frediverse/ui/button";
 import { Settings, X } from "@frediverse/ui/icons";
 import { useEffect } from "react";
 import { m } from "../paraglide/messages.js";
+import { ChainsSection } from "./ChainsSection";
 import { LanguageSection } from "./LanguageSection";
 import { SyncSection } from "./SyncSection";
 
@@ -43,6 +44,7 @@ export function HomeSettings({ onClose }: { onClose: () => void }) {
         </p>
         <LanguageSection />
         <SyncSection />
+        <ChainsSection />
       </div>
     </aside>
   );
