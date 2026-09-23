@@ -699,29 +699,7 @@ select {
   resize: none;
 }
 
-/* ---- Release stems & CLI token ------------------------------------------ */
-
-.stem-list {
-  list-style: none;
-  margin: 6px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.stem-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 0;
-}
-.stem-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-}
+/* ---- CLI token ----------------------------------------------------------- */
 
 .token-field {
   width: 100%;
@@ -877,12 +855,12 @@ select {
 .version-hidden {
   opacity: 0.6;
 }
-/* On a page, the release's title row stands apart from its waveform. */
-.page-release .version-head {
+/* A TrackCard's title row stands apart from its waveform. */
+.track-card .version-head {
   margin-bottom: 20px;
 }
 /* The version picker stands as tall as the small buttons beside it (28px), not as a form field. */
-.page-release .version-head select {
+.track-card .version-head select {
   height: 28px;
   padding: 0 10px;
 }

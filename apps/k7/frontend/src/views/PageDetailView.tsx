@@ -6,12 +6,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
-import { Check, Copy, Download, EllipsisVertical } from "@frediverse/ui/icons";
+import { Check, Copy, EllipsisVertical } from "@frediverse/ui/icons";
 import { pageVersion } from "@k7/shared/pageVersion";
 import { useState } from "react";
 import { BackButton } from "../components/BackButton";
 import { PageNametagForm } from "../components/PageNametagForm";
-import { WaveformPlayer } from "../components/WaveformPlayer";
+import { TrackCard } from "../components/TrackCard";
 import type { Page, Release, SongEnvelope } from "../types";
 
 interface Props {
@@ -140,58 +140,48 @@ export function PageDetailView({
         // A choice that fell back (hidden or deleted) shows as the default it now plays.
         const chosen = played && played.id !== def?.id ? played.id : "";
         return (
-          <Card key={r.id} className="page-release">
-            <div className="version-head">
-              <b className="version-name">
+          <TrackCard
+            key={r.id}
+            title={
+              <>
                 {r.title} <span className="muted">· {r.artist}</span>
-              </b>
-              <select
-                aria-label={`Version of ${r.title}`}
-                value={chosen}
-                onChange={(e) => void onChooseVersion(r.id, e.target.value)}
-              >
-                <option value="">Default{def ? ` · ${def.name}` : ""}</option>
-                {choices
+              </>
+            }
+            picker={{
+              label: `Version of ${r.title}`,
+              value: chosen,
+              options: [
+                { value: "", label: `Default${def ? ` · ${def.name}` : ""}` },
+                ...choices
                   .filter((v) => v.id !== def?.id)
-                  .map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}
-                    </option>
-                  ))}
-              </select>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="ds-button"
-                    title={`${r.title} menu`}
-                    aria-label={`${r.title} menu`}
-                  >
-                    <EllipsisVertical className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {r.canDownload && played && (
-                    <DropdownMenuItem asChild>
-                      <a href={versionDownloadUrl(r.id, played.id)} download>
-                        <Download className="size-4" /> Download {played.name}
-                      </a>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onSelect={() => void onRemoveRelease(r.id)}>
-                    Remove from page
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            {played && (
-              <WaveformPlayer
-                src={versionAudioUrl(r.id, played.id)}
-                shapeOf={() => versionEnvelope(r.id, played.id)}
-              />
-            )}
-          </Card>
+                  .map((v) => ({ value: v.id, label: v.name })),
+              ],
+              onChange: (id) => void onChooseVersion(r.id, id),
+            }}
+            menu={[
+              ...(r.canDownload && played
+                ? [
+                    {
+                      label: "Download",
+                      href: versionDownloadUrl(r.id, played.id),
+                    },
+                  ]
+                : []),
+              {
+                label: "Remove from page",
+                onSelect: () => void onRemoveRelease(r.id),
+              },
+            ]}
+            menuLabel={`${r.title} menu`}
+            audio={
+              played
+                ? {
+                    src: versionAudioUrl(r.id, played.id),
+                    shapeOf: () => versionEnvelope(r.id, played.id),
+                  }
+                : null
+            }
+          />
         );
       })}
 

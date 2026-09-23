@@ -1,11 +1,10 @@
-// One release on a public page. The visitor picks among the versions the server offered, which
-// starts on the page's own pick; the choice is theirs alone and is never saved.
+// One release on a public page, as a TrackCard. The visitor picks among the versions the server
+// offered, which starts on the page's own pick; the choice is theirs alone and is never saved.
 
-import { Card } from "@frediverse/ui/card";
 import { Download } from "@frediverse/ui/icons";
 import { useState } from "react";
 import type { Release, SongEnvelope } from "../types";
-import { WaveformPlayer } from "./WaveformPlayer";
+import { TrackCard } from "./TrackCard";
 
 interface Props {
   release: Release;
@@ -25,25 +24,26 @@ export function PublicReleaseCard({
   const played = versions.find((v) => v.id === picked) ?? null;
 
   return (
-    <Card className="page-release">
-      <div className="version-head">
-        <b className="version-name">
+    <TrackCard
+      title={
+        <>
           {r.title} <span className="muted">· {r.artist}</span>
-        </b>
-        {versions.length > 1 && (
-          <select
-            aria-label={`Version of ${r.title}`}
-            value={picked ?? ""}
-            onChange={(e) => setPicked(e.target.value)}
-          >
-            {versions.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name}
-              </option>
-            ))}
-          </select>
-        )}
-        {r.canDownload && played && (
+        </>
+      }
+      picker={
+        versions.length > 1
+          ? {
+              label: `Version of ${r.title}`,
+              value: picked ?? "",
+              options: versions.map((v) => ({ value: v.id, label: v.name })),
+              onChange: setPicked,
+            }
+          : undefined
+      }
+      // Kept in sight rather than in a ⋮: it is the one thing a visitor can do besides listen.
+      actions={
+        r.canDownload &&
+        played && (
           <a
             className="download-link"
             href={downloadUrl(played.id)}
@@ -52,15 +52,14 @@ export function PublicReleaseCard({
           >
             <Download className="size-4" /> Download
           </a>
-        )}
-      </div>
-      {played && (
-        <WaveformPlayer
-          key={played.id}
-          src={audioUrl(played.id)}
-          shapeOf={() => envelope(played.id)}
-        />
-      )}
-    </Card>
+        )
+      }
+      menuLabel={`${r.title} menu`}
+      audio={
+        played
+          ? { src: audioUrl(played.id), shapeOf: () => envelope(played.id) }
+          : null
+      }
+    />
   );
 }
