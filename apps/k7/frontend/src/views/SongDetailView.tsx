@@ -9,6 +9,7 @@ import {
   transposeChord,
 } from "@k7/lyrics";
 import { Tablature } from "@k7/tablature";
+import { Pencil, Star } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChordPopin } from "../components/ChordPopin";
 import { ChordsPanel } from "../components/ChordsPanel";
@@ -190,7 +191,7 @@ export function SongDetailView({
           title={song.favorite ? "Remove from favorites" : "Add to favorites"}
           aria-pressed={song.favorite}
         >
-          {song.favorite ? "★" : "☆"}
+          <Star className={`size-5${song.favorite ? " fill-current" : ""}`} />
         </button>
         {/* Everything this song can be GIVEN, in one menu rather than a row of links. */}
         <SongMenu
@@ -293,7 +294,7 @@ export function SongDetailView({
           )}
           <div className="row" style={{ marginTop: 8 }}>
             <Button variant="outline" onClick={() => setEditing(true)}>
-              ✎ Edit {tab}
+              <Pencil className="size-4" /> Edit {tab}
             </Button>
           </div>
         </>

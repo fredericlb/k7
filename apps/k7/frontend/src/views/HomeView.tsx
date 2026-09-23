@@ -3,6 +3,16 @@ import { Button } from "@frediverse/ui/button";
 import { Calendar } from "@frediverse/ui/calendar";
 import { Tabs, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
 import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
+import {
+  BrushCleaning,
+  Check,
+  Diamond,
+  Download,
+  Flag,
+  Plus,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { SongbookExport } from "../components/SongbookExport";
 import { dayKey, dayKeyToDate, fmtDay, fmtTime } from "../format";
@@ -167,7 +177,7 @@ export function HomeView({
                 disabled={staleSessions.length === 0}
                 title="Delete empty sessions (no moments) recorded over 24h ago"
               >
-                🧹 Clean up{" "}
+                <BrushCleaning className="size-4" /> Clean up{" "}
                 {staleSessions.length > 0 ? `${staleSessions.length} ` : ""}
                 empty session{staleSessions.length === 1 ? "" : "s"}
               </Button>
@@ -211,16 +221,21 @@ export function HomeView({
                             title="Delete session"
                             onClick={(e) => remove(e, s.id)}
                           >
-                            🗑
+                            <Trash2 className="size-4" />
                           </button>
                         </div>
                         {(s.annotations.length > 0 || s.markers.length > 0) && (
                           <div className="session-meta">
                             {s.annotations.length > 0 && (
-                              <span>◆ {s.annotations.length}</span>
+                              <span>
+                                <Diamond className="size-3" />{" "}
+                                {s.annotations.length}
+                              </span>
                             )}
                             {s.markers.length > 0 && (
-                              <span>🚩 {s.markers.length}</span>
+                              <span>
+                                <Flag className="size-3" /> {s.markers.length}
+                              </span>
                             )}
                           </div>
                         )}
@@ -297,7 +312,7 @@ export function HomeView({
                       onClick={() => onOpenMoment(moment)}
                     >
                       <div className="session-name">
-                        {moment.validated ? "✓ " : ""}
+                        {moment.validated && <Check className="size-3.5" />}
                         {fmtTime(moment.startSec)}–{fmtTime(moment.endSec)}
                         {moment.text ? ` · ${moment.text}` : ""}
                       </div>
@@ -325,7 +340,7 @@ export function HomeView({
       {tab === "releases" && (
         <div className="moments-pane">
           <Button variant="outline" onClick={onNewRelease}>
-            ＋ New release
+            <Plus className="size-4" /> New release
           </Button>
           <ul className="session-list home-list">
             {releases.length === 0 && (
@@ -340,7 +355,7 @@ export function HomeView({
                 <div className="session-name">{r.title}</div>
                 <div className="session-meta">
                   <span>{r.artist}</span>
-                  {r.canDownload && <span>⬇</span>}
+                  {r.canDownload && <Download className="size-3" />}
                 </div>
               </li>
             ))}
@@ -351,7 +366,7 @@ export function HomeView({
       {tab === "pages" && (
         <div className="moments-pane">
           <Button variant="outline" onClick={onNewPage}>
-            ＋ New page
+            <Plus className="size-4" /> New page
           </Button>
           <ul className="session-list home-list">
             {pages.length === 0 && (
@@ -380,7 +395,7 @@ export function HomeView({
         <div className="moments-pane">
           <div className="songbook-actions">
             <Button variant="outline" onClick={onNewSong}>
-              ＋ New song
+              <Plus className="size-4" /> New song
             </Button>
             {/* The songbook is shared; what a person exports is their own favourites — ../../../docs/export.md. */}
             <SongbookExport songs={songs.filter((s) => s.favorite)} />
@@ -408,7 +423,9 @@ export function HomeView({
                       onToggleSongFavorite(s);
                     }}
                   >
-                    {s.favorite ? "★" : "☆"}
+                    <Star
+                      className={`size-4${s.favorite ? " fill-current" : ""}`}
+                    />
                   </button>
                 </div>
                 <div className="session-meta">

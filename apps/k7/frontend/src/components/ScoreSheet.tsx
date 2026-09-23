@@ -11,6 +11,7 @@ import {
   ZOOM_STEPS,
 } from "@k7/score";
 import type { ScoreState, ScoreViewHandle } from "@k7/score/ScoreView";
+import { Minus, Plus, RotateCcw } from "lucide-react";
 import { lazy, Suspense, useRef, useState } from "react";
 import { useElementFullscreen } from "../hooks/useElementFullscreen";
 import { m } from "../paraglide/messages.js";
@@ -65,7 +66,7 @@ export function ScoreSheet({ url }: { url: string }) {
           onClick={() => shift(-1)}
           title={m["score.transposeDown"]()}
         >
-          −
+          <Minus className="size-4" />
         </Button>
         <span className="cs-transpose-val">{formatTranspose(transpose)}</span>
         <Button
@@ -75,7 +76,7 @@ export function ScoreSheet({ url }: { url: string }) {
           onClick={() => shift(1)}
           title={m["score.transposeUp"]()}
         >
-          +
+          <Plus className="size-4" />
         </Button>
         {transpose !== 0 && (
           <Button
@@ -84,7 +85,7 @@ export function ScoreSheet({ url }: { url: string }) {
             onClick={() => setTranspose(0)}
             title={m["score.transposeReset"]()}
           >
-            ↺
+            <RotateCcw className="size-4" />
           </Button>
         )}
 
@@ -95,7 +96,7 @@ export function ScoreSheet({ url }: { url: string }) {
           onClick={() => setScale((s) => stepZoom(s, -1))}
           title={m["score.zoomOut"]()}
         >
-          −
+          <Minus className="size-4" />
         </Button>
         <span className="cs-transpose-val">{Math.round(scale * 100)}%</span>
         <Button
@@ -105,7 +106,7 @@ export function ScoreSheet({ url }: { url: string }) {
           onClick={() => setScale((s) => stepZoom(s, 1))}
           title={m["score.zoomIn"]()}
         >
-          +
+          <Plus className="size-4" />
         </Button>
         {/* Page layout already wraps to the panel, so fitting the width is the unscaled score. */}
         <Button

@@ -1,4 +1,5 @@
 import { Button } from "@frediverse/ui/button";
+import { ArrowLeft, ArrowRight, Eye } from "lucide-react";
 import { useState } from "react";
 import { ChordDiagram } from "../components/ChordDiagram";
 import { type ChordPrompt, randomChord } from "../utils/exercises";
@@ -22,7 +23,7 @@ export function RandomChordsExercise({ onBack }: Props) {
   return (
     <div className="exercise">
       <Button variant="outline" size="sm" onClick={onBack}>
-        ← Exercices
+        <ArrowLeft className="size-4" /> Exercices
       </Button>
       <h2>Random chords</h2>
       <p className="muted small">
@@ -40,13 +41,15 @@ export function RandomChordsExercise({ onBack }: Props) {
           </div>
         ) : (
           <Button variant="outline" onClick={() => setRevealed(true)}>
-            👁 Reveal fingering
+            <Eye className="size-4" /> Reveal fingering
           </Button>
         )}
       </div>
 
       <div className="row exercise-actions">
-        <Button onClick={next}>Next chord →</Button>
+        <Button onClick={next}>
+          Next chord <ArrowRight className="size-4" />
+        </Button>
       </div>
 
       <p className="muted small exercise-count">Chord #{count}</p>

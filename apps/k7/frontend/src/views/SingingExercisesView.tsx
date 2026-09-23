@@ -16,6 +16,7 @@ import {
 import { Input } from "@frediverse/ui/input";
 import { Textarea } from "@frediverse/ui/textarea";
 import { isYouTubeUrl } from "@k7/shared/youtube";
+import { ArrowLeft, Dices, Play, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { SingingExercise } from "../types";
@@ -107,7 +108,7 @@ export function SingingExercisesView({ onBack }: Props) {
   return (
     <div className="exercise">
       <Button variant="outline" size="sm" onClick={onBack}>
-        ← Exercices
+        <ArrowLeft className="size-4" /> Exercices
       </Button>
 
       <div className="singing-head">
@@ -118,7 +119,7 @@ export function SingingExercisesView({ onBack }: Props) {
           aria-label="Add an exercise"
           onClick={() => setEditing(BLANK)}
         >
-          ＋
+          <Plus className="size-4" />
         </Button>
         <Button
           variant="outline"
@@ -127,7 +128,7 @@ export function SingingExercisesView({ onBack }: Props) {
           title="Three of them, drawn at random"
           onClick={() => setWorkout(pickWorkout(items ?? [], 3))}
         >
-          🎲 Create a workout
+          <Dices className="size-4" /> Create a workout
         </Button>
       </div>
       <p className="muted small">
@@ -141,7 +142,7 @@ export function SingingExercisesView({ onBack }: Props) {
         <p className="muted small">Loading…</p>
       ) : items.length === 0 ? (
         <p className="muted small">
-          No exercise yet — ＋ writes the first one.
+          No exercise yet — <Plus className="size-3.5" /> writes the first one.
         </p>
       ) : (
         <ul className="session-list home-list">
@@ -161,7 +162,7 @@ export function SingingExercisesView({ onBack }: Props) {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    ▶ Demo
+                    <Play className="size-3.5" /> Demo
                   </a>
                 ) : null}
               </div>
@@ -224,7 +225,7 @@ export function SingingExercisesView({ onBack }: Props) {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    ▶ Demo
+                    <Play className="size-3.5" /> Demo
                   </a>
                 ) : null}
               </li>
@@ -236,7 +237,7 @@ export function SingingExercisesView({ onBack }: Props) {
               variant="outline"
               onClick={() => setWorkout(pickWorkout(items ?? [], 3))}
             >
-              🎲 Roll again
+              <Dices className="size-4" /> Roll again
             </Button>
             <Button variant="secondary" onClick={() => setWorkout(null)}>
               Close

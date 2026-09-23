@@ -1,5 +1,6 @@
 import { Card } from "@frediverse/ui/card";
 import { Label } from "@frediverse/ui/label";
+import { Circle, Mic, MicOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useRemoteInput } from "../hooks/useRemoteInput";
@@ -143,8 +144,12 @@ export function RemoteMicView() {
   if (input.error) {
     return (
       <Card className="remote-mic">
-        <h2>🎙 Remote microphone</h2>
-        <p className="error">🎤 {input.error}</p>
+        <h2>
+          <Mic className="size-5" /> Remote microphone
+        </h2>
+        <p className="error">
+          <MicOff className="size-3.5" /> {input.error}
+        </p>
       </Card>
     );
   }
@@ -153,7 +158,9 @@ export function RemoteMicView() {
 
   return (
     <Card className="remote-mic">
-      <h2>🎙 Remote microphone</h2>
+      <h2>
+        <Mic className="size-5" /> Remote microphone
+      </h2>
 
       {view === "replaced" ? (
         <p className="muted">
@@ -168,8 +175,12 @@ export function RemoteMicView() {
             {view === "connecting" && "Connecting to the recording server…"}
             {view === "waiting" &&
               "Ready. Keep this page open — start a remote session on your other device to begin recording."}
-            {view === "streaming" &&
-              "● Streaming this microphone to the recorder."}
+            {view === "streaming" && (
+              <>
+                <Circle className="size-2.5 fill-current text-destructive" />{" "}
+                Streaming this microphone to the recorder.
+              </>
+            )}
           </p>
 
           <div className="remote-inputs">

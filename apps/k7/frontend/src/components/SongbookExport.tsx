@@ -3,6 +3,7 @@
 // choices behind the two formats are in ../../../docs/export.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Download } from "lucide-react";
 import { useState } from "react";
 import { type ExportKind, exportSongbook } from "../export/songbookZip";
 import type { Song } from "../types";
@@ -49,7 +50,7 @@ export function SongbookExport({ songs }: Props) {
         onClick={() => run("epub")}
         title="One EPUB per song, in a zip"
       >
-        ⬇ {label("epub", "Export EPUB")}
+        <Download className="size-4" /> {label("epub", "Export EPUB")}
       </Button>
       <Button
         variant="outline"
@@ -57,7 +58,7 @@ export function SongbookExport({ songs }: Props) {
         onClick={() => run("pdf")}
         title="One PDF per song, in a zip"
       >
-        ⬇ {label("pdf", "Export PDF")}
+        <Download className="size-4" /> {label("pdf", "Export PDF")}
       </Button>
       {note && <span className="muted small">{note}</span>}
       {error && <span className="error small">{error}</span>}

@@ -4,6 +4,7 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
+import { ArrowLeftRight, Download, Star, Trash2 } from "lucide-react";
 import type { ReleaseVersion, SongEnvelope } from "../types";
 import { SwitchField } from "./SwitchField";
 import { WaveformPlayer } from "./WaveformPlayer";
@@ -40,7 +41,7 @@ export function VersionCard({
     <Card className={v.hidden ? "version-hidden" : undefined}>
       <div className="version-head">
         <span className="version-name">
-          {v.isDefault ? "★ " : ""}
+          {v.isDefault && <Star className="size-3.5 fill-current" />}
           {v.name}
         </span>
         {v.isDefault && <Badge variant="amber">default</Badge>}
@@ -56,7 +57,7 @@ export function VersionCard({
           title="Download"
           onClick={() => download(audioUrl, `${label} (${v.name})`)}
         >
-          ⬇
+          <Download className="size-4" />
         </Button>
         <Button
           variant="outline"
@@ -65,7 +66,7 @@ export function VersionCard({
           title="Replace this version's file"
           onClick={onReplace}
         >
-          ⇄
+          <ArrowLeftRight className="size-4" />
         </Button>
         <Button
           variant="outline"
@@ -73,7 +74,7 @@ export function VersionCard({
           title="Delete this version"
           onClick={onDelete}
         >
-          🗑
+          <Trash2 className="size-4" />
         </Button>
       </div>
 
@@ -106,7 +107,7 @@ export function VersionCard({
                     download(trackUrl(t.id), `${label} - ${t.name}`)
                   }
                 >
-                  ⬇
+                  <Download className="size-4" />
                 </Button>
               </li>
             ))}

@@ -20,6 +20,10 @@ folding on a tablet held upright. Every tab is still its own address (`/sessions
 The icons stay all the same, because an entry that is named **and** carries a glyph is found
 faster than one that is only named.
 
+Every icon in k7, in the bar and elsewhere, is a `lucide-react` icon, the set st0 draws with. An
+emoji renders at its own font's size and colour, so a bar mixing emoji with a text-style glyph
+never lines up, and one set shared across the apps is what makes them read as one family.
+
 ## No `variant`: `tint` is the house look
 
 `tint` lays 20 % of the page's accent over the bar, so the bar belongs to the page instead of
