@@ -463,16 +463,10 @@ export function Library() {
                   <FolderTree className="h-5 w-5" />
                 </Button>
               ) : null}
-              {/* The capture zone's own write button; the songs tree carries its two, at its foot. */}
-              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                {isZone ? (
-                  <AddRecording onDone={refresh} onError={setError} />
-                ) : null}
-                {/* The version goes first: it is the only thing here nobody ever needs in the moment. */}
-                <span className="hidden text-xs tabular-nums text-muted-foreground lg:inline">
-                  {VERSION}
-                </span>
-              </div>
+              {/* Nobody needs it in the moment, so it is the one thing left unlabelled here. */}
+              <span className="hidden text-xs tabular-nums text-muted-foreground lg:inline">
+                {VERSION}
+              </span>
               {/* The way out to the studio's other apps — first of the three because it is the only one that LEAVES. */}
               <AppSwitch self="pl8" />
               {/* Where sound comes out, beside the cog: it is changed while listening — see ../docs/playbackTarget.md. */}
@@ -725,6 +719,10 @@ export function Library() {
                     Trouver des morceaux
                   </Button>
                   <AddSong onDone={refresh} />
+                </div>
+              ) : isZone ? (
+                <div className="mt-2 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-2">
+                  <AddRecording onDone={refresh} onError={setError} />
                 </div>
               ) : null}
             </aside>
