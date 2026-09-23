@@ -56,14 +56,15 @@ The capture zone gets its own builder, `dayNodes`, and not `treeOf`: `treeOf` re
 how a family's rows drop their family segment, so the root row the tree synthesises names the zone
 exactly once.
 
-The root row itself is synthesised in the component, as a real node. `rootLabel` looks like it
-would do this and does not — the shared component uses it only to name the target of the background
-context menu, never to draw a row. Wrapping the nodes is the only way to get a visible root, and it
-gives the zone somewhere to drop onto while the family is still empty.
-
-`flushRoot` is what keeps that row from acting like a folder: no left padding, no chevron, and it
-cannot be folded shut — it is the section's own label, and there is nothing to fold IT into. A
-real artist or album folder one level under it still folds normally; only depth 0 is locked open.
+The root row itself is synthesised in the component, as a real node — but never DRAWN. `rootLabel`
+looks like it would draw it and does not: the shared component uses that prop only to name the
+target of the background context menu. Wrapping the nodes in one synthetic root and turning on
+`collapseSingleRoot` is what keeps that row from ever appearing at all: the component skips a lone
+top-level node's own row and draws its children one depth shallower instead, so what shows is the
+family's real artists straight away, with no label row above them to fold or not fold. Wrapping is
+still what GUARANTEES there is exactly one top-level node to collapse, whatever the family actually
+holds — a library with a single real top-level artist would otherwise lose that artist's own row
+the same way.
 
 ## Where the expansion comes from
 

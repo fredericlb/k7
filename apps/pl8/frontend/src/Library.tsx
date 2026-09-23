@@ -596,8 +596,8 @@ export function Library() {
                 // The family IS the root: every node path below is relative to it.
                 rootPath=""
                 rootLabel={section.toUpperCase()}
-                // The section label wraps every row here — a header, not a folder to fold.
-                flushRoot
+                // The section label wraps every row here — a header, not a real row to draw.
+                collapseSingleRoot
                 // The entry being edited outranks the merely selected one — same value `revealed` follows.
                 activePath={target}
                 // Open down to it, so a reloaded deep link lands on a tree showing where it is. Sticky.
