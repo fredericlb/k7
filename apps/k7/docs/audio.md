@@ -387,13 +387,20 @@ minimised, since the stop button is then off screen.
 
 ## Where a new take opens
 
-The recorder is mounted once, outside the router, so a take survives every navigation and the
-route only decides whether it is drawn full or collapsed to the bottom bar. Which is why the
-route a take STARTS on is a choice rather than a mechanism: `/record` everywhere, except on one
-song's page, where the take begins collapsed and the page stays put. You record against a song
-in order to READ it while you play — sending the tablature away the instant the tape rolls is
-the one thing that use has no answer to. The bar is a button back to `/record` for the controls
-the collapsed form cannot carry.
+The recorder is mounted once, outside the router, so a take survives every navigation. It has
+no route: it is drawn either in a **pop-in** over the page the take started on, or collapsed to
+the bottom bar. Closing the pop-in (its ✕, Escape, a click on the backdrop) collapses it; the take
+keeps running.
+
+The pop-in is two wrapper classes swapped around the recorder, not a dialog component: a portal
+or a conditional wrapper would re-parent `RecorderView`, and React would remount it — ending the
+take it holds.
+
+A take opens in the pop-in, from the header's record button or from resuming a session, except on
+one song's page, where it begins collapsed and the page stays readable. You record against a song
+in order to READ it while you play — covering the tablature the instant the tape rolls is the one
+thing that use has no answer to. The bar reopens the pop-in for the controls the collapsed form
+cannot carry.
 
 ## Detecting moments
 

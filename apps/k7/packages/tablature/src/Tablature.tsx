@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight } from "@frediverse/ui/icons";
 import { useMemo, useState } from "react";
 import { parseTablature, type TabNode } from "./tab";
 import "./styles.css";
@@ -135,7 +136,15 @@ export function Tablature({ text }: Props) {
             onClick={() => setHeaderOpen((o) => !o)}
             aria-expanded={headerOpen}
           >
-            {headerOpen ? "▾ Hide header" : "▸ Show header"}
+            {headerOpen ? (
+              <>
+                <ChevronDown className="size-4" /> Hide header
+              </>
+            ) : (
+              <>
+                <ChevronRight className="size-4" /> Show header
+              </>
+            )}
           </button>
           {headerOpen && (
             <div className="tab-header-body">

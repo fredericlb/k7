@@ -1650,3 +1650,47 @@ select {
     font-size: 26px;
   }
 }
+
+/* ---- Recorder pop-in ------------------------------------------------------ */
+
+/* Collapsed, both wrappers vanish from layout, so the recorder's own bottom bar is what shows. */
+.rec-dock {
+  display: contents;
+}
+/* Open: the shared dialog's backdrop, over whatever page the take started on. */
+.rec-popin-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 5vh 16px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.55);
+}
+/* The recorder's Card is the panel itself; this only caps its width and hosts the close button. */
+.rec-popin {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+}
+.rec-popin > .recorder {
+  margin: 0;
+}
+/* Under .rec-popin so it outranks the base button rule, whose padding and fill would win. */
+.rec-popin > .rec-popin-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  padding: 4px;
+  background: transparent;
+  color: var(--muted);
+}
+.rec-popin > .rec-popin-close:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
