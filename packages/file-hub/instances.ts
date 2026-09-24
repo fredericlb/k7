@@ -4,15 +4,22 @@
 // is the one isolation that cannot be forgotten. See docs/fileHub.md.
 
 import { type ChildProcess, spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { slugify } from "@studio/engine-client/paths";
 
+/** An account's folder name: readable, and unique per EXACT email — a slug alone folds `a.b@` and `a_b@` together. */
+export function accountKey(email: string): string {
+  const hash = createHash("sha256").update(email).digest("hex").slice(0, 10);
+  return `${slugify(email)}-${hash}`;
+}
+
 export interface Instance {
   user: string;
+  /** `accountKey(user)`: the account's folder here, and its cache folder on an engine's machine. */
   slug: string;
   /** The account's `$STUDIO_HOME` on this server. */
   home: string;
@@ -106,7 +113,7 @@ export class Instances {
   }
 
   private async start(user: string): Promise<Instance> {
-    const slug = slugify(user);
+    const slug = accountKey(user);
     const home = join(resolve(this.opts.dataRoot), slug);
     mkdirSync(home, { recursive: true });
     const port = await freePort();

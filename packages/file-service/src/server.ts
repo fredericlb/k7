@@ -62,6 +62,7 @@ import { librariesUri, setLibrariesUri } from "./libraries.ts";
 import { startMediatekPuller } from "./mediatekPull.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
+import { adoptRecordedOwner, requireRootOwner } from "./owner.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { resolvePlugin } from "./pluginRef.ts";
 import { filesRouter } from "./routes/files.ts";
@@ -182,6 +183,11 @@ app.get("/health", (_req, res) => {
 app.use(HOSTED ? requireHubSecret : requireEngineToken);
 if (HOSTED) app.use(hubRouter());
 app.use(resolveUser);
+// Workspaces and the account they belong to are ONE account's; the machine's own routes stay open — docs/owner.md.
+app.use(
+  ["/workspaces", "/engine/served", "/account", "/ssh-key"],
+  requireRootOwner,
+);
 
 // Registered BEFORE resolveWorkspace, and typed by the envelope web-protocol already declares for it.
 app.get(
@@ -619,8 +625,8 @@ app.post(
 
 // No cut route here: pl8 drives a separation and posts the bytes — see docs/processChain.md.
 
-// Everything else needs a resolved workspace on req.ws.
-app.use(resolveWorkspace, filesRouter);
+// Everything else needs a resolved workspace on req.ws, and is its owner's alone.
+app.use(requireRootOwner, resolveWorkspace, filesRouter);
 
 /** What only the engine's own machine does at boot: warn when ungated, dial the engine, pull the médiathèque. */
 function startOnEngineMachine(): void {
@@ -644,6 +650,8 @@ function startOnEngineMachine(): void {
 const HOST = HOSTED ? "127.0.0.1" : "0.0.0.0";
 app.listen(FILE_PORT, HOST, () => {
   mkdirSync(rootDir(), { recursive: true }); // ensure ~/.st0/root exists
+  // The engine session is the recorded owner's from the first frame, not from the first request.
+  adoptRecordedOwner();
   // Only a long-lived process may skip `@studio/song`'s module-stamp walk — see moduleWatch.ts.
   installModuleWatch();
   // Same for the media library, tolerated rather than required: its root may be an unmounted drive.

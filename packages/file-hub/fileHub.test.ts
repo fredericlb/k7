@@ -140,7 +140,14 @@ describe("the file hub", () => {
     expect(a.secret).toBe(a2.secret);
     expect(b.secret).not.toBe(a.secret);
     expect(a.home).not.toBe(b.home);
-    expect(a.home.endsWith("a_example_com")).toBe(true);
+    expect(a.home).toMatch(/a_example_com-[0-9a-f]{10}$/);
+  });
+
+  it("keeps apart two emails that slug alike", async () => {
+    const dot = (await call("/x", { session: "a.b@example.com" })).echo;
+    const bar = (await call("/x", { session: "a_b@example.com" })).echo;
+    expect(dot.home).not.toBe(bar.home);
+    expect(dot.secret).not.toBe(bar.secret);
   });
 
   it("binds an engine only on a claim the account holds", async () => {
@@ -167,12 +174,10 @@ describe("the file hub", () => {
       writable: boolean;
       name: string;
     }[];
-    expect(roots[0]).toMatchObject({
-      name: "ws-fred_example_com",
-      writable: true,
-    });
+    expect(roots[0].name).toMatch(/^ws-fred_example_com-[0-9a-f]{10}$/);
+    expect(roots[0].writable).toBe(true);
     expect(
-      roots[0].remote.endsWith(join("fred_example_com", "workspace")),
+      roots[0].remote.endsWith(join(roots[0].name.slice(3), "workspace")),
     ).toBe(true);
     expect(roots[1]).toEqual({
       remote: "/library",

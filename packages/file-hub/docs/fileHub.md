@@ -16,6 +16,12 @@ browser built — and a process boundary is the one isolation nobody can forget 
 The price is a Node process per **active** account; an instance nobody called for 30 minutes is
 stopped and starts again, in well under a second, on the next request.
 
+An account's folder is `accountKey(email)`: the readable slug **and** a hash of the exact email,
+since a slug alone folds `a.b@` and `a_b@` into one folder. The same key names its copy on an
+engine's machine. Behind that, each hosted process records its one owner like any file service
+(`packages/file-service/docs/owner.md`), so even a colliding key could not hand one account's
+workspaces to another.
+
 A hosted process listens on **loopback only** and its one gate is a secret the hub generated for
 it. What only makes sense on an engine's machine is off: CORS (the hub answers the browser), the
 machine's speakers (mpv), the médiathèque puller (the library is already on this disk) and the
