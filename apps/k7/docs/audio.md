@@ -330,6 +330,12 @@ often than a track to play along to, so it is asked for rather than ridden along
   same title by an artist a typo away (Gonzales / González). That is how a song FINDS its track;
   its stems are then cut from the recording it links, never looked up again by name — a same-named
   library song (a live take) might be another recording.
+- **What would be hunted is checked before anything downloads** (`apps/k7/frontend/src/fetchSong/run.ts`).
+  pl8 names a query through MusicBrainz (Deezer when unreachable) before searching Soulseek, and
+  that name can be another song: « Expedition 33 Lumières » is the band Lumières' « Momentary ».
+  k7 asks pl8 for the name alone (`/api/hunt/identify`), compares it with the song's artist and title
+  (each a typo away at most, `sameSong` in `match.ts`), and only then hunts — THOSE tags, so the
+  download is the recording that was checked. A mismatch downloads nothing and names what was found.
 - **"Make instrumental" never hunts.** It works on the song pl8 already holds: a song missing from the
   library is a "Fetch song" away, and spending a Soulseek search on a button about stems would be a
   surprise.

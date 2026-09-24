@@ -39,6 +39,19 @@ export function findLibrarySong(
   );
 }
 
+/** Is what MusicBrainz or Deezer identified this song? Artist and title each a typo away at most. */
+export function sameSong(
+  artist: string,
+  title: string,
+  foundArtist: string,
+  foundTitle: string,
+): boolean {
+  return (
+    similarity(normalize(foundArtist), normalize(artist)) >= ARTIST_TYPO &&
+    similarity(normalize(foundTitle), normalize(title)) >= ARTIST_TYPO
+  );
+}
+
 /** Is `candidateArtist`/`candidateTitle` this song, once normalised? The same exact bar
  * `findLibrarySong` tries first — no loose fallback, since a wrong auto-applied lyric is
  * worse than asking (see fetchSong/run.ts's runPipeline). */

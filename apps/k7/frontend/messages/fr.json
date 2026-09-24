@@ -97,6 +97,8 @@
   "fetch.step.search": "Recherche",
   "fetch.step.stems": "Stems",
   "fetch.stemmingPercent": "Création de l'instrumental… {percent} %",
+  "fetch.unidentified": "Ni MusicBrainz ni Deezer ne connaissent de morceau pour « {query} » — vérifiez l'artiste et le titre.",
+  "fetch.wrongSong": "MusicBrainz connaît « {found} » sous ce nom, pas ce morceau — rien n'a été téléchargé. Vérifiez l'artiste et le titre (⋮ › Modifier l'artiste et le titre…).",
   "fetch.upload": "Envoyer un fichier…",
   "field.artist": "Artiste",
   "field.title": "Titre",

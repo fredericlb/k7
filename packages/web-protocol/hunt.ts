@@ -33,6 +33,19 @@ export interface HuntRecord {
   endedAt?: number;
 }
 
+/** What a hunt files its download under, as MusicBrainz (or Deezer) identified the query. */
+export interface HuntTags {
+  artist: string;
+  title: string;
+  album: string | null;
+  date: string | null;
+}
+
+/** What `GET /api/hunt/identify` answers: the recording a query would hunt, or null for none. */
+export interface HuntIdentity {
+  tags: HuntTags | null;
+}
+
 /** Does the YouTube fallback make sense here? A red row is NOT enough — see docs/hunt.md. */
 export function canFallBackToYoutube(h: HuntRecord): boolean {
   return h.status === "failed" && h.exhausted === true;
