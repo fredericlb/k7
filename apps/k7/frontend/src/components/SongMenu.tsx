@@ -123,12 +123,11 @@ export function SongMenu({
           <DropdownMenuSeparator />
 
           {/* No track yet is the auto-fetch insert's job, under the title — except once its
-              own "Ignore" was clicked, which is what makes this the one way back in. */}
-          {(song.audio || song.fetchIgnored) && (
+              own "Ignore" was clicked, which is what makes this the one way back in. A track is
+              never replaced from here: it is a song of pl8's library, changed there. */}
+          {!song.audio && song.fetchIgnored && (
             <DropdownMenuItem onSelect={() => track.current?.click()}>
-              {song.audio
-                ? m["songMenu.replaceTrack"]()
-                : m["songMenu.addTrack"]()}
+              {m["songMenu.addTrack"]()}
             </DropdownMenuItem>
           )}
           {song.audio && (

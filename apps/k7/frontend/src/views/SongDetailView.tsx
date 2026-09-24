@@ -36,7 +36,7 @@ interface Props {
   onUploadSheets: (files: File[]) => Promise<void>;
   onDeleteSheet: (fileId: string) => Promise<void>;
   sheetUrl: (fileId: string) => string;
-  /** "Replace the track…" in the ⋮ menu — the insert's own upload goes through onUpload instead. */
+  /** "Add a track…" in the ⋮ menu — the insert's own upload goes through onUpload instead. */
   onUploadAudio: (file: File) => Promise<void>;
   onDeleteAudio: () => Promise<void>;
   onToggleFavorite: () => Promise<void>;

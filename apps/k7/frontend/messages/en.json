@@ -350,7 +350,6 @@
   "songMenu.makeInstrumental": "Make instrumental",
   "songMenu.removeTrack": "Remove the track",
   "songMenu.removingTrack": "Removing the track…",
-  "songMenu.replaceTrack": "Replace the track…",
   "songMenu.rerunPipeline": "Run the pipeline again",
   "songMenu.edit": "Edit artist and title…",
   "songMenu.resyncLyrics": "Resync lyrics",
