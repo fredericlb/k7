@@ -25,8 +25,6 @@ interface Props {
   onAdd: (kind: "lyrics" | "tablature") => void;
   onUploadSheets: (files: File[]) => Promise<void>;
   onUploadAudio: (file: File) => Promise<void>;
-  /** Take the reference track away — the player only PLAYS it. */
-  onDeleteAudio: () => Promise<void>;
   /** Retries the instrumental once no engine was online — the auto-fetch insert covers the rest. */
   onMixInstrumental: (folder: string) => Promise<Song>;
   /** Runs the auto-fetch pipeline again; its progress and failure show in the insert, not here. */
@@ -45,7 +43,6 @@ export function SongMenu({
   onAdd,
   onUploadSheets,
   onUploadAudio,
-  onDeleteAudio,
   onMixInstrumental,
   onRerun,
   onResyncLyrics,
@@ -124,21 +121,10 @@ export function SongMenu({
 
           {/* No track yet is the auto-fetch insert's job, under the title — except once its
               own "Ignore" was clicked, which is what makes this the one way back in. A track is
-              never replaced from here: it is a song of pl8's library, changed there. */}
+              never replaced nor removed from here: it is a song of pl8's library, changed there. */}
           {!song.audio && song.fetchIgnored && (
             <DropdownMenuItem onSelect={() => track.current?.click()}>
               {m["songMenu.addTrack"]()}
-            </DropdownMenuItem>
-          )}
-          {song.audio && (
-            <DropdownMenuItem
-              className="text-destructive"
-              onSelect={() => {
-                if (confirm(m["songMenu.confirmRemoveTrack"]()))
-                  void run(m["songMenu.removingTrack"](), onDeleteAudio);
-              }}
-            >
-              {m["songMenu.removeTrack"]()}
             </DropdownMenuItem>
           )}
           {/* An instrumental song has no voice to take out. */}

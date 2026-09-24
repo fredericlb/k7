@@ -173,12 +173,6 @@ export function SongDetailContainer({
     onChange();
   };
 
-  const handleDeleteAudio = async () => {
-    const updated = await api.deleteSongAudio(songId);
-    setSong(updated);
-    onChange();
-  };
-
   const handleToggleFavorite = async () => {
     if (!song) return;
     const updated = await api.setSongFavorite(songId, !song.favorite);
@@ -279,7 +273,6 @@ export function SongDetailContainer({
       onDeleteSheet={handleDeleteSheet}
       sheetUrl={(fileId) => api.sheetFileUrl(songId, fileId)}
       onUploadAudio={handleUploadAudio}
-      onDeleteAudio={handleDeleteAudio}
       onToggleFavorite={handleToggleFavorite}
       onMixInstrumental={handleMixInstrumental}
       onDelete={handleDelete}
