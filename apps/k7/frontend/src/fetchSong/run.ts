@@ -172,7 +172,7 @@ export async function makeInstrumental(
   steps: InstrumentalSteps,
   resumeJobId?: string,
 ): Promise<InstrumentalOutcome> {
-  const source = await librarySource(steps, song);
+  const source = librarySource(song);
   if (song.instrumental) return { instrumental: true };
 
   if (!(await instrumentalReady(steps, source.master, resumeJobId)))
@@ -186,21 +186,11 @@ export async function makeInstrumental(
   return { instrumental: true, song: updated };
 }
 
-/** The library master the stems are cut from: the one the song PLAYS when it links one, else the song found by name. */
-async function librarySource(
-  steps: Common,
-  song: Song,
-): Promise<{ master: string; folder: string }> {
-  const linked = song.audio?.path ?? "";
-  // A track linked from the library is its own answer: the stems are then this very recording's.
-  if (linked.startsWith("songs/"))
-    return { master: linked, folder: linked.slice(0, linked.lastIndexOf("/")) };
-  const entry = await inLibrary(steps, song);
-  if (!entry)
-    throw new Error(
-      m["fetch.notInLibrary"]({ artist: song.artist, title: song.title }),
-    );
-  return { master: masterPath(entry), folder: entry.path };
+/** The library master the stems are cut from: the one the song PLAYS, so they are this very recording's. */
+function librarySource(song: Song): { master: string; folder: string } {
+  const master = song.audio?.path ?? "";
+  if (!master) throw new Error(m["fetch.noTrack"]());
+  return { master, folder: master.slice(0, master.lastIndexOf("/")) };
 }
 
 export interface PipelineSteps extends Common {

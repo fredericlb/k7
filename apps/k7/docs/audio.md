@@ -185,8 +185,9 @@ reading its chords. It is a **song of pl8's library**, and the row keeps its pat
 - **An upload is filed under the album `k7`**, never under the catalogue's albums: writing
   under the REAL album, where a song of that name may already be, would replace it. No upload
   here may overwrite a catalogued song; replacing an upload only overwrites k7's own folder.
-- **A path under `recordings/songbook/`** is a copy an older k7 made for itself. It still plays
-  (the médiathèque serves it like any file) and is deleted when the song drops it.
+- **Only a library file is a track.** A path outside pl8's `songs/` family is read as no track
+  at all (`libraryPath`, `apps/k7/backend/src/store.ts`): k7 stores, copies and plays no songbook
+  file of its own, so such a song shows the fetch insert like any song without one.
 
 pl8's `/stream` answers Range — without that the waveform could draw but not seek.
 
@@ -319,17 +320,16 @@ often than a track to play along to, so it is asked for rather than ridden along
 - **A track is never replaced nor removed from k7**: it is a song of pl8's library, and a different
   file for it, or none, is the library's business. The ⋮ menu offers « Add a track… » only to a song
   that has none.
-- **Relinking never deletes a library file.** A new link, or a dropped instrumental, forgets the old
-  path; only a path under `recordings/songbook/` — a copy an older k7 made for itself — is deleted
-  with it.
+- **Relinking never deletes a file.** A new link, or a dropped instrumental, only forgets the old
+  path: every path a song holds is the library's.
 - **Any engine online makes it.** Separation needs a machine running an engine that pl8 can reach;
   the hosted image carries neither the model nor its runtime. When none is online, "Make instrumental"
   says so and changes nothing, so pressing it again once one is up is the whole retry.
 - **The library song is found by artist and title** (`apps/k7/frontend/src/fetchSong/match.ts`):
   equal once accents, case and punctuation are dropped, else every typed word in the entry, else the
-  same title by an artist a typo away (Gonzales / González). A song that LINKS its master needs no
-  lookup: its stems are cut from that very recording, which a same-named library song (a live take)
-  might not be. The lookup is for a song still playing an old copy, and a miss names what it looked for.
+  same title by an artist a typo away (Gonzales / González). That is how a song FINDS its track;
+  its stems are then cut from the recording it links, never looked up again by name — a same-named
+  library song (a live take) might be another recording.
 - **"Make instrumental" never hunts.** It works on the song pl8 already holds: a song missing from the
   library is a "Fetch song" away, and spending a Soulseek search on a button about stems would be a
   surprise.

@@ -1535,11 +1535,11 @@ function publicSong(rec, viewer = "", favorites: Set<string> = new Set()) {
       mime: s.mime,
     })),
     // The library file the page streams from pl8 — k7 keeps no copy, ../../docs/audio.md.
-    audio: f.AudioPath
+    audio: libraryPath(f.AudioPath)
       ? { name: f.AudioName || "", mime: f.AudioMime || "", path: f.AudioPath }
       : null,
     // The same track without the voice, the one an engine's chain wrote beside the song's stems.
-    instrumental: f.InstrumentalPath
+    instrumental: libraryPath(f.InstrumentalPath)
       ? {
           name: f.InstrumentalName || "",
           mime: f.InstrumentalMime || "",
@@ -1724,13 +1724,10 @@ export async function deleteSheetFile(uid, fileId) {
 
 // --- The reference track: a LINK to a song of pl8's library, streamed from there -------------------
 
-// Where k7 once kept its own copies; a path under it is k7's to delete, any other is the library's.
-const LEGACY_COPIES = "recordings/songbook/";
-const isLegacyCopy = (p: string) => p.startsWith(LEGACY_COPIES);
-
-/** Forget a path the song pointed at: a copy k7 made is deleted, a library file never is. */
-async function forgetPath(remote: string) {
-  if (remote && isLegacyCopy(remote)) await safeRemote(remote);
+/** A song's track is a file of pl8's songs family or nothing: k7 stores, copies and plays no file of its own. */
+function libraryPath(p): string {
+  const path = String(p || "");
+  return path.startsWith("songs/") ? path : "";
 }
 
 /** Point the song at a library master; the browser streams it from pl8 — ../../docs/audio.md. */
@@ -1745,11 +1742,8 @@ export async function linkSongAudio(uid, { path: master, mime, name }) {
     // Another track has another shape; the next reader measures this one.
     Envelope: "",
   });
-  if (previous !== master) {
-    await forgetPath(previous);
-    // An instrumental made from the old track is not this track's.
-    await clearInstrumental(uid, rec);
-  }
+  // An instrumental made from the old track is not this track's.
+  if (previous !== master) await clearInstrumental(uid, rec);
   invalidateSong(uid);
   return getSong(uid);
 }
@@ -1770,13 +1764,9 @@ export async function setSongAudio(uid, { buffer, mime, name }) {
 
 // --- The instrumental: the one an engine's chain wrote beside the library song's stems ------------
 
-/** Forget a song's instrumental link — also what a new track calls. */
+/** Forget a song's instrumental link — also what a new track calls; the library keeps the file. */
 async function clearInstrumental(uid, rec) {
-  const previous = rec.fields.InstrumentalPath
-    ? String(rec.fields.InstrumentalPath)
-    : "";
-  if (!previous) return;
-  await forgetPath(previous);
+  if (!rec.fields.InstrumentalPath) return;
   await db.patchRecord("Songs", rec.id, {
     InstrumentalPath: "",
     InstrumentalMime: "",
@@ -1787,15 +1777,11 @@ async function clearInstrumental(uid, rec) {
 export async function linkSongInstrumental(uid, { path: file, mime, name }) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
-  const previous = rec.fields.InstrumentalPath
-    ? String(rec.fields.InstrumentalPath)
-    : "";
   await db.patchRecord("Songs", rec.id, {
     InstrumentalPath: file,
     InstrumentalMime: mime,
     InstrumentalName: name,
   });
-  if (previous !== file) await forgetPath(previous);
   invalidateSong(uid);
   return getSong(uid);
 }
@@ -1811,7 +1797,8 @@ export async function deleteSongInstrumental(uid) {
 /** The track's shape, measured on first ask and kept: decoding is seconds, drawing must not be. */
 export async function songEnvelope(uid) {
   const rec = await getSongRecord(uid);
-  if (!rec?.fields.AudioPath) return null;
+  const track = libraryPath(rec?.fields.AudioPath);
+  if (!track) return null;
   const stored = String(rec.fields.Envelope || "");
   if (stored) {
     try {
@@ -1822,7 +1809,7 @@ export async function songEnvelope(uid) {
     }
   }
   // pl8 already holds the bytes and has ffmpeg — no local download needed to measure them.
-  const measured = await envelopeOf(String(rec.fields.AudioPath));
+  const measured = await envelopeOf(track);
   await db.patchRecord("Songs", rec.id, {
     Envelope: JSON.stringify(measured),
   });

@@ -148,11 +148,18 @@ describe("fetchSong", () => {
 });
 
 describe("makeInstrumental", () => {
-  const found = fakePl8({
-    listSongs: async () => [entry("Nina Simone", "Sinnerman")],
-  });
+  const found = fakePl8();
+  // A song links a track of pl8's library: that recording is what its stems are cut from.
+  const linked = () =>
+    song({
+      audio: {
+        name: "t",
+        mime: "audio/flac",
+        path: "songs/Nina Simone/Album/Sinnerman/original.flac",
+      },
+    });
 
-  it("never hunts: a song the library does not have is refused", async () => {
+  it("never hunts: a song with no library track is refused", async () => {
     await expect(
       makeInstrumental(
         song(),
@@ -160,13 +167,13 @@ describe("makeInstrumental", () => {
           mixInstrumental: async () => song(),
         }) as never,
       ),
-    ).rejects.toThrow(/No « Nina Simone – Sinnerman » in pl8's library/);
+    ).rejects.toThrow(/no track from pl8's library/);
   });
 
   it("says so when no engine is online, and mixes nothing", async () => {
     const mixInstrumental = vi.fn(async () => song());
     const outcome = await makeInstrumental(
-      song(),
+      linked(),
       steps(found, { mixInstrumental }) as never,
     );
     expect(outcome).toMatchObject({ instrumental: false });
@@ -182,7 +189,7 @@ describe("makeInstrumental", () => {
       prepareStems: async () => ({ ready: true, job: null }),
     });
     const outcome = await makeInstrumental(
-      song(),
+      linked(),
       steps(pl8, { mixInstrumental }) as never,
     );
     expect(outcome.instrumental).toBe(true);
@@ -199,7 +206,7 @@ describe("makeInstrumental", () => {
       // prepareStems is left at fakePl8's default (throws) — resuming must never call it.
     });
     const outcome = await makeInstrumental(
-      song(),
+      linked(),
       steps(pl8, { mixInstrumental }) as never,
       "j1",
     );
@@ -244,7 +251,7 @@ describe("makeInstrumental", () => {
     });
     await expect(
       makeInstrumental(
-        song(),
+        linked(),
         steps(pl8, {
           mixInstrumental: async () => song(),
         }) as never,
@@ -295,12 +302,12 @@ describe("runPipeline", () => {
   });
 
   // A track, but no instrumental yet: stems are still to make.
-  // A track, no instrumental, and an old k7 copy rather than a library link: the stems step looks the song up by name.
+  // A library track and no instrumental: the stems step starts by asking pl8 for an engine.
   const noStems = song({
     audio: {
       name: "t.flac",
       mime: "audio/flac",
-      path: "recordings/songbook/s1.flac",
+      path: "songs/Nina Simone/Album/Sinnerman/original.flac",
     },
   });
   const lrc = (over: Record<string, unknown> = {}) => ({
@@ -315,12 +322,12 @@ describe("runPipeline", () => {
   });
 
   it("makes no stems for a song LRCLIB lists as instrumental", async () => {
-    const listSongs = vi.fn(async () => []);
+    const engines = vi.fn(async () => []);
     const onStatus = vi.fn();
     const found = await runPipeline(
       noStems,
       "continue",
-      steps(fakePl8({ listSongs }), {
+      steps(fakePl8({ engines }), {
         findLrc: async () => [lrc({ instrumental: true, syncedLyrics: "" })],
         onLrc: async () => noStems,
         onStatus,
@@ -328,8 +335,8 @@ describe("runPipeline", () => {
     );
     expect(found.lyricsMatch).toBe("instrumental");
     expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "instrumental" });
-    // The stems step starts by finding the song in the library: it never got there.
-    expect(listSongs).not.toHaveBeenCalled();
+    // The stems step starts by asking pl8 for an engine: it never got there.
+    expect(engines).not.toHaveBeenCalled();
   });
 
   it("looks for lyrics before making stems", async () => {
@@ -339,7 +346,7 @@ describe("runPipeline", () => {
       "continue",
       steps(
         fakePl8({
-          listSongs: async () => {
+          engines: async () => {
             order.push("stems");
             return [];
           },
@@ -352,23 +359,23 @@ describe("runPipeline", () => {
           onLrc: async () => noStems,
         },
       ) as never,
-    ).catch(() => {}); // the empty library then fails the stems step, which is not what this is about
+    );
     expect(order).toEqual(["lyrics", "stems"]);
   });
 
   it("still makes stems when LRCLIB cannot be reached", async () => {
-    const listSongs = vi.fn(async () => []);
+    const engines = vi.fn(async () => []);
     await runPipeline(
       noStems,
       "continue",
-      steps(fakePl8({ listSongs }), {
+      steps(fakePl8({ engines }), {
         findLrc: async () => {
           throw new Error("LRCLIB is down");
         },
         onLrc: async () => noStems,
       }) as never,
-    ).catch(() => {});
-    expect(listSongs).toHaveBeenCalled();
+    );
+    expect(engines).toHaveBeenCalled();
   });
 
   it("leaves lyrics unmatched rather than guess, and does not call onLrc", async () => {
