@@ -1,9 +1,10 @@
 # The hosted half only: st0, pl8 and k7 each their OWN image and container now — no nginx
 # in any of the three, see apps/<app>/docker/Dockerfile. z0 is still one image sharing
 # nginx internally (apps/z0/docker/), since it hasn't moved off st0's own hostname. No
-# engine, no file-service, no tray: those run on the musician's own machine (the desktop
-# app bundles them), never in these images, and this stack talks to them over the network
-# the same way a browser would.
+# engine and no tray: those run on the musician's own machine, and reach this stack through
+# the tunnel their supervisor dials (packages/engine-tunnel/docs/tunnel.md). The accounts'
+# WORKSPACES do live here, in pl8, one file service per account
+# (packages/file-hub/docs/fileHub.md).
 #
 # Traefik fronts FOUR containers now instead of one: Host() routing st0/pl8/k7 straight to
 # each one's own backend port (no nginx to hand off to), and z0 by a PathPrefix(`/z0`) rule
@@ -55,9 +56,12 @@ services:
       # Without this, @studio/mediatek defaults to a per-machine state dir
       # (~/.st0/mediatek) instead of the volume below, and the library is empty.
       STUDIO_MEDIATEK: /library
+      # The accounts' workspaces, hosted here; unset, projects stay on the engines' machines.
+      STUDIO_FILES_ROOT: /workspaces
     volumes:
       # pl8 IS this volume — apps/pl8/docker/Dockerfile.
       - library:/library
+      - workspaces:/workspaces
     networks:
       - traefik
     labels:
@@ -143,6 +147,7 @@ networks:
 
 volumes:
   library:
+  workspaces:
   data:
   k7-data:
   pocketbase-data:
