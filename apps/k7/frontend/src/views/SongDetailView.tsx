@@ -47,8 +47,10 @@ interface Props {
   onUpload: (file: File) => void;
   /** "Ignore": dismiss the insert for this song for good. */
   onIgnore: () => void;
-  /** Runs the auto-fetch pipeline again from wherever the song stands — the ⋮ menu and the insert's Retry. */
+  /** The insert's Retry: runs the pipeline again from wherever the song stands. */
   onRerun: () => void;
+  /** The ⋮ menu's re-run: unlinks the library track, then runs the whole pipeline again. */
+  onRestart: () => void;
   /** Takes the timecodes off the lyrics and times them off LRCLIB again. */
   onResyncLyrics: () => void;
   /** Saves a new artist and title, from the ⋮ menu's popin. */
@@ -73,6 +75,7 @@ export function SongDetailView({
   onUpload,
   onIgnore,
   onRerun,
+  onRestart,
   onResyncLyrics,
   onRename,
   onDismissFailure,
@@ -218,7 +221,7 @@ export function SongDetailView({
           }}
           onUploadAudio={onUploadAudio}
           onMixInstrumental={onMixInstrumental}
-          onRerun={onRerun}
+          onRerun={onRestart}
           onResyncLyrics={onResyncLyrics}
           onRename={onRename}
           onDelete={remove}

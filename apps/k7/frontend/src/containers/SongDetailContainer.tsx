@@ -207,8 +207,8 @@ export function SongDetailContainer({
     })();
   };
 
-  // "Run the pipeline again" in the ⋮ menu: every step not done yet, lyrics included once unmatched —
-  // a song with no timings tries again, a sheet included, since the pipeline now merges into it.
+  // The insert's Retry after a failure: every step not done yet, lyrics included once unmatched —
+  // a song with no timings tries again. It keeps the track it has, unlike the ⋮ menu's re-run below.
   const handleRerun = () => {
     if (!song) return;
     const lyricsAgain =
@@ -219,6 +219,28 @@ export function SongDetailContainer({
       lyricsAgain ? { ...song, lyricsMatch: "" } : song,
       "download",
     );
+  };
+
+  // "Run the pipeline again" in the ⋮ menu: the library track is unlinked first, so the run starts
+  // over from the search rather than keeping what an earlier one found.
+  const handleRestart = () => {
+    if (!song || running.current) return;
+    void (async () => {
+      try {
+        const unlinked = await api.unlinkSongAudio(songId);
+        setSong(unlinked);
+        const lyricsAgain =
+          !hasTimecodes(unlinked.lyrics) &&
+          !(unlinked.lyricTimings?.length ?? 0) &&
+          unlinked.lyricsMatch !== "";
+        await runFetch(
+          lyricsAgain ? { ...unlinked, lyricsMatch: "" } : unlinked,
+          "download",
+        );
+      } catch (err) {
+        void onStatus({ phase: "failed", error: (err as Error).message });
+      }
+    })();
   };
 
   // « Resync lyrics » in the ⋮ menu: the codes come off, and LRCLIB times the lyrics again — nothing else runs.
@@ -281,6 +303,7 @@ export function SongDetailContainer({
       onUpload={handleUpload}
       onIgnore={handleIgnore}
       onRerun={handleRerun}
+      onRestart={handleRestart}
       onResyncLyrics={handleResyncLyrics}
       onRename={handleRename}
       onDismissFailure={handleDismissFailure}
